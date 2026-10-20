@@ -72,6 +72,12 @@ describe('ordinary Personnel records', () => {
 			{ id: 'person-a', rank: 'SGT', firstName: 'Jamie', lastName: 'Smith', groupId: 'alpha', archivedAt: null }
 		]);
 		expect(await scoped.listImportSlugs()).toEqual([{ slug: 'smith-jamie-2' }, { slug: 'smith-jamie' }]);
+		expect(await scoped.findDisplayNamesByIds(['person-a', 'old', 'bravo', 'missing'])).toEqual(
+			new Map([
+				['person-a', 'SGT Smith'],
+				['old', 'CPL Smith']
+			])
+		);
 		const ordinary = createSupabasePersonnelRecordPersistence(client, 'org-a');
 		expect((await ordinary.listSlugCandidates('smith-jamie')).map((row) => row.slug).sort()).toEqual([
 			'smith-jamie',

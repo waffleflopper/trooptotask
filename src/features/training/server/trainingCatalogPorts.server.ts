@@ -10,6 +10,9 @@ export type TrainingTypeCreateContext = {
 export type TrainingTypeUpdateContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'patchType'>;
 };
+export type TrainingExemptionContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'setPersonExemption'>;
+};
 export type TrainingTypeDeleteContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'deleteType'>;
 	readonly notifyTrainingTypeDeleted: () => Promise<void>;

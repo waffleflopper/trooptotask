@@ -130,7 +130,8 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 					for (const row of selected) Object.assign(row, body);
 				} else if (request.method === 'DELETE') {
 					rows[table] = rows[table].filter((row) => !selected.includes(row));
-				} else if (request.method !== 'GET') throw new Error('Unexpected Personnel provider method');
+				} else if (request.method !== 'GET' && request.method !== 'HEAD')
+					throw new Error('Unexpected Personnel provider method');
 				const order = url.searchParams.get('order');
 				if (order) {
 					const fields = order.split(',').map((field) => field.split('.'));
@@ -148,6 +149,8 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 					});
 				}
 				const count = selected.length;
+				if (request.method === 'HEAD')
+					return new Response(null, { headers: { 'content-range': `*/${state.countNull ? '*' : count}` } });
 				if (request.method === 'GET')
 					selected = selected.slice(
 						operation.offset,

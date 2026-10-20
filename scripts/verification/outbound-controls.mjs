@@ -48,6 +48,8 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'document-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/personnel-documents', { afterCommit: true })],
 	'counseling-file-remove': [write('DELETE', '/storage/v1/object/counseling-files')],
 	'counseling-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/counseling-files', { afterCommit: true })],
+	'document-attach': [write('POST', '/rest/v1/personnel_documents')],
+	'counseling-attach': [write('POST', '/rest/v1/counseling_records')],
 	'document-attach-lost-ack': [write('POST', '/rest/v1/personnel_documents', { afterCommit: true })],
 	'counseling-attach-lost-ack': [write('POST', '/rest/v1/counseling_records', { afterCommit: true })],
 	'setup-link-create': [write('POST', '/rest/v1/rpc/issue_account_setup_link')],

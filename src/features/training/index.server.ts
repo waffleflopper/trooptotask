@@ -5,16 +5,20 @@ export {
 	updateTrainingType,
 	deleteTrainingType,
 	describeTrainingTypeDeletionRequest,
+	setTrainingExemption,
 	createTrainingView,
 	updateTrainingView,
 	deleteTrainingView
 } from './server/trainingCatalogOperations.server';
 export { createSupabaseTrainingCatalogPersistence } from './server/trainingCatalogPersistence.server';
 export { createSupabaseTrainingCompletionPersistence } from './server/trainingCompletionPersistence.server';
+export { createSupabaseTrainingCertificateStore } from './server/trainingCertificateStore.server';
 export { createSupabaseTrainingTypeNamesReader } from './server/trainingTypeNames.server';
-export { loadTrainingReadinessLane } from './server/personnelTrainingReadiness.server';
 export {
 	createTrainingRecord,
+	recordTrainingCompletion,
+	correctTrainingCompletion,
+	openTrainingCertificate,
 	updateTrainingRecord,
 	deleteTrainingRecord,
 	describeTrainingRecordDeletionRequest
@@ -34,3 +38,4 @@ export { fetchDashboardTrainingSummary } from './server/trainingSummaryQuery.ser
 export { createSupabaseTrainingExportReader } from './server/trainingExportRead.server';
 
 export { createTrainingSupportReader } from './server/supportReadProvider.server';
+export { loadPersonnelTrainingReadiness } from './server/personnelTrainingItems.server';

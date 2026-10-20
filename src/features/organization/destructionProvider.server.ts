@@ -5,7 +5,7 @@ import type {
 	OrganizationDestructionPort
 } from './destruction.server';
 
-const buckets: OrganizationCleanupBucket[] = ['counseling-files', 'personnel-documents'];
+const buckets: OrganizationCleanupBucket[] = ['counseling-files', 'personnel-documents', 'training-certificates'];
 const pageSize = 1000;
 
 function canonicalId(orgId: string): string {

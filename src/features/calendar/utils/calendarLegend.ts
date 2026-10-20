@@ -3,7 +3,7 @@ import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import DutyLegendMark from '$features/calendar/components/calendar-legend/DutyLegendMark.svelte';
 import StatusLegendMark from '$features/calendar/components/calendar-legend/StatusLegendMark.svelte';
 import { drawsDutyMarker } from '$features/calendar/utils/calendarRenderState';
-import { oneDayLabel } from '$features/calendar/utils/oneDayLabel';
+import { oneDayLabel } from '$lib/components/patterns/calendar-bars';
 
 export interface LegendMark {
 	readonly Mark: Component<{ value: unknown }>;

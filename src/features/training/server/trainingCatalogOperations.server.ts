@@ -9,6 +9,7 @@ import type {
 	TrainingTypeUpdateContext,
 	TrainingTypeDeleteContext,
 	TrainingTypeDeletionRequestContext,
+	TrainingExemptionContext,
 	TrainingViewCreateContext,
 	TrainingViewUpdateContext,
 	TrainingViewDeleteContext
@@ -18,6 +19,7 @@ import {
 	trainingTypeUpdateInput,
 	trainingViewCreateInput,
 	trainingViewUpdateInput,
+	trainingExemptionInput,
 	TRAINING_TYPE_UNAVAILABLE_MESSAGE
 } from './trainingPersistenceMapping.server';
 
@@ -52,6 +54,25 @@ export async function updateTrainingType(
 	if (!row) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
 	ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });
 	return row;
+}
+
+/** Exempts one Person from a shared Training type without rewriting its other exemptions. */
+export async function setTrainingExemption(
+	ctx: TrainingExemptionContext,
+	input: Record<string, unknown>
+): Promise<{ exempt: boolean }> {
+	const parsed = trainingExemptionInput.safeParse(input);
+	if (!parsed.success) error(400, issueMessage(parsed.error));
+	const { typeId, personnelId, exempt } = parsed.data;
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', typeId);
+	await ctx.trainingCatalog.setPersonExemption(typeId, personnelId, exempt);
+	ctx.audit.log({
+		action: 'training_type.updated',
+		resourceType: 'training_type',
+		resourceId: typeId,
+		details: { personnel_id: personnelId, exempt }
+	});
+	return { exempt };
 }
 
 export async function deleteTrainingType(ctx: TrainingTypeDeleteContext, id: string): Promise<void> {

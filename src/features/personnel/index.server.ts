@@ -11,12 +11,15 @@ export type {
 export { createPersonnelRecord, updatePersonnelRecord } from './personnelRecordOperations.server';
 export {
 	archivePersonnelLeaderNote,
+	countPersonnelLeaderNotes,
 	createPersonnelLeaderNote,
 	deletePersonnelLeaderNote,
 	listPersonnelLeaderNotes,
-	restorePersonnelLeaderNote
+	restorePersonnelLeaderNote,
+	updatePersonnelLeaderNote
 } from './leaderNotes.server';
 export type { LeaderNoteContext, LeaderNoteRow } from './leaderNotes.server';
+export { LEADER_NOTES_FIRST_PAGE, isCalendarTimestamp } from './leaderNotePaging';
 export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
 export { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 export type { PersonnelTrainingRosterPort } from './contracts';
@@ -87,11 +90,13 @@ export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
 export {
 	loadPersonnelDetailHeader,
 	authorizePersonnelLane,
-	loadAvailabilityReadinessLane,
-	loadLossTrackingReadinessLane
+	loadAvailabilityToday,
+	loadPersonnelDetailTabCounts
 } from './personnelDetail.server';
+export { loadPersonnelLossReadiness } from './personnelLossReadiness.server';
 
-export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';
+export { readPersonnelExtendedInfo } from './personnelExtendedInfo.server';
+export { savePersonnelDataSheet } from './personnelDataSheet.server';
 export { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';
 
 export type {
@@ -102,6 +107,9 @@ export type {
 } from './personnelArtifactContext.server';
 export {
 	listPersonnelCounselingRecords,
+	readPersonnelCounselings,
+	createPersonnelCounselingDownloadUrl,
+	readLastPersonnelCounseling,
 	createPersonnelCounselingRecord,
 	archivePersonnelCounselingRecord,
 	restorePersonnelCounselingRecord,
@@ -111,6 +119,7 @@ export {
 export type { PersonnelCounselingRecordInput } from './personnelCounselingRecords.server';
 export {
 	listPersonnelDocuments,
+	readPersonnelDocuments,
 	createPersonnelDocument,
 	createPersonnelDocumentDownloadUrl,
 	archivePersonnelDocument,

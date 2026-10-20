@@ -175,6 +175,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				findPacketReference: unavailable,
 				findStepReference: unavailable,
 				listActivePacketIdsForPersonnel: unavailable,
+				findLatestPacketForPersonnel: unavailable,
 				listIncompleteActiveStepIds: unavailable,
 				saveCheckboxCompletion: unavailable,
 				savePaperworkProgress: unavailable,
@@ -202,6 +203,7 @@ function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, op
 				findTypeTiming: unavailable,
 				listTypeImportReferences: unavailable,
 				findTypeId: unavailable,
+				setPersonExemption: unavailable,
 				createType: unavailable,
 				patchType: unavailable,
 				deleteType: unavailable,
@@ -216,8 +218,11 @@ function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, op
 				findResource: unavailable,
 				findPair: unavailable,
 				listPairReferences: unavailable,
-				listPersonReadinessFacts: unavailable,
 				listPersonExportFacts: unavailable,
+				listPersonCompletions: unavailable,
+				listPersonHistory: unavailable,
+				findEntry: unavailable,
+				correctEntry: unavailable,
 				createRecord: unavailable,
 				patchRecord: unavailable,
 				deleteRecord: unavailable,
@@ -1074,14 +1079,18 @@ function createInMemoryPersonnelArtifactWritePort(
 						subject: input.title,
 						summary: input.summary,
 						notes: input.summary,
+						conducted_by: input.conductedBy,
 						uploaded_by: input.uploadedBy,
 						file_path: input.filePath,
 						status: 'completed',
 						created_at: input.createdAt
 					});
 				},
-				setCounselingArchivedAt: (id, archivedAt) =>
-					rows.update<CounselingRecordRow>('counseling_records', id, { archived_at: archivedAt }),
+				setCounselingArchive: (id, archived) =>
+					rows.update<CounselingRecordRow>('counseling_records', id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					}),
 				findDocument: (id) => rows.find<PersonnelDocumentRow>('personnel_documents', id),
 				async createDocument(input) {
 					await rows.assertAttachable('document', input.filePath);
@@ -1094,8 +1103,11 @@ function createInMemoryPersonnelArtifactWritePort(
 						created_at: input.createdAt
 					});
 				},
-				setDocumentArchivedAt: (id, archivedAt) =>
-					rows.update<PersonnelDocumentRow>('personnel_documents', id, { archived_at: archivedAt }),
+				setDocumentArchive: (id, archived) =>
+					rows.update<PersonnelDocumentRow>('personnel_documents', id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					}),
 				findFollowUp: (id) => rows.find<FollowUpRow>('personnel_follow_ups', id),
 				createFollowUp: (input) =>
 					rows.insert<FollowUpRow>('personnel_follow_ups', {
@@ -1113,8 +1125,12 @@ function createInMemoryPersonnelArtifactWritePort(
 						...(input.notes !== undefined ? { notes: input.notes } : {}),
 						...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
 						...(input.status !== undefined ? { status: input.status } : {}),
-						...(input.completedAt !== undefined ? { completed_at: input.completedAt } : {}),
-						...(input.archivedAt !== undefined ? { archived_at: input.archivedAt } : {}),
+						...(input.completed !== undefined
+							? { completed_at: input.completed?.at ?? null, completed_by: input.completed?.by ?? null }
+							: {}),
+						...(input.archived !== undefined
+							? { archived_at: input.archived?.at ?? null, archived_by: input.archived?.by ?? null }
+							: {}),
 						updated_at: input.updatedAt
 					}),
 				deleteFollowUp: (id) => rows.delete('personnel_follow_ups', id),
@@ -1123,10 +1139,16 @@ function createInMemoryPersonnelArtifactWritePort(
 					rows.insert<LeaderNoteRow>('leader_notes', {
 						author: input.author,
 						text: input.text,
-						created_at: input.createdAt
+						created_at: input.createdAt,
+						updated_at: input.createdAt
 					}),
-				setLeaderNoteArchivedAt: (id, archivedAt) =>
-					rows.update<LeaderNoteRow>('leader_notes', id, { archived_at: archivedAt }),
+				setLeaderNoteArchive: (id, archived) =>
+					rows.update<LeaderNoteRow>('leader_notes', id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					}),
+				setLeaderNoteText: (id, text, updatedAt) =>
+					rows.update<LeaderNoteRow>('leader_notes', id, { text, updated_at: updatedAt }),
 				deleteLeaderNote: (id) => rows.delete('leader_notes', id),
 				sumActiveDocumentBytes: rows.sumActiveDocumentBytes,
 				uploadFile: rows.uploadFile,
@@ -1603,29 +1625,87 @@ export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgI
 	};
 }
 
+function pageOptions(limit?: number, offset = 0): Pick<FixtureFindOptions, 'limit' | 'range'> {
+	if (!offset) return { limit };
+	return limit === undefined
+		? { range: { from: offset, to: Number.MAX_SAFE_INTEGER } }
+		: { range: { from: offset, to: offset + limit - 1 } };
+}
+
 function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string): PersonnelArtifactReadPersistence {
 	return {
-		listCounselingRecords: (personnelId, { archived, limit }) =>
+		async countRecords(personnelId) {
+			const archivedRows = (table: string) =>
+				store.findMany(table, orgId, { personnel_id: personnelId }, { isNull: { archived_at: false } });
+			const [followUps, counselings, documents, notes] = await Promise.all([
+				store.findMany<FollowUpRow>('personnel_follow_ups', orgId, { personnel_id: personnelId }),
+				archivedRows('counseling_records'),
+				archivedRows('personnel_documents'),
+				archivedRows('leader_notes')
+			]);
+			return {
+				openFollowUps: followUps.filter((row) => row.status === 'open').length,
+				archived:
+					followUps.filter((row) => row.status === 'archived').length +
+					counselings.length +
+					documents.length +
+					notes.length
+			};
+		},
+		listCounselingRecords: (personnelId, { archived, limit, offset, onOrBefore }) =>
 			store.findMany(
 				'counseling_records',
 				orgId,
 				{ personnel_id: personnelId },
 				{
 					isNull: { archived_at: !archived },
-					limit,
+					...pageOptions(limit, offset),
+					rangeFilters: onOrBefore ? [{ column: 'date_conducted', op: 'lte', value: onOrBefore }] : undefined,
 					orderBy: [
 						{ column: 'date_conducted', ascending: false },
 						{ column: 'created_at', ascending: false }
 					]
 				}
 			),
-		listDocuments: (personnelId, { archived, limit }) =>
+		countActiveCounselingRecords: async (personnelId) =>
+			(
+				await store.findMany(
+					'counseling_records',
+					orgId,
+					{ personnel_id: personnelId },
+					{ isNull: { archived_at: true } }
+				)
+			).length,
+		listActiveCounselingDates: async (personnelId, since) =>
+			(
+				await store.findMany<CounselingRecordRow>(
+					'counseling_records',
+					orgId,
+					{ personnel_id: personnelId },
+					{ isNull: { archived_at: true }, rangeFilters: [{ column: 'date_conducted', op: 'gte', value: since }] }
+				)
+			).map((row) => row.date_conducted),
+		findCounseling: (personnelId, id) => store.findOne('counseling_records', orgId, { id, personnel_id: personnelId }),
+		listDocuments: (personnelId, { archived, limit, offset }) =>
 			store.findMany(
 				'personnel_documents',
 				orgId,
 				{ personnel_id: personnelId },
-				{ isNull: { archived_at: !archived }, limit, orderBy: [{ column: 'created_at', ascending: false }] }
+				{
+					isNull: { archived_at: !archived },
+					...pageOptions(limit, offset),
+					orderBy: [{ column: 'created_at', ascending: false }]
+				}
 			),
+		summarizeActiveDocuments: async (personnelId) => {
+			const rows = await store.findMany<PersonnelDocumentRow>(
+				'personnel_documents',
+				orgId,
+				{ personnel_id: personnelId },
+				{ isNull: { archived_at: true } }
+			);
+			return { count: rows.length, bytes: rows.reduce((sum, row) => sum + row.file_size_bytes, 0) };
+		},
 		listFollowUps: (personnelId, { archived, limit }) =>
 			store.findMany(
 				'personnel_follow_ups',
@@ -1642,6 +1722,15 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 				}
 			),
 		findDocument: (personnelId, id) => store.findOne('personnel_documents', orgId, { id, personnel_id: personnelId }),
+		async countActiveLeaderNotes(personnelId) {
+			const rows = await store.findMany(
+				'leader_notes',
+				orgId,
+				{ personnel_id: personnelId },
+				{ isNull: { archived_at: true } }
+			);
+			return rows.length;
+		},
 		async listLeaderNotePage(personnelId, { archived, limit, before }) {
 			const options = {
 				isNull: { archived_at: !archived },
@@ -1747,6 +1836,7 @@ export function createTestContext(
 	const notificationPort = createTestNotificationPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
+	const organizationSettings = createInMemoryOrganizationSettingsReader(rawStore);
 	const criticalTaskLibrary =
 		overrides?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTaskCompletions =
@@ -1766,7 +1856,8 @@ export function createTestContext(
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
-		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
+		organizationSettings,
+		contributorLabels: (userIds: string[]) => organizationSettings.findMemberLabels(auth.orgId, userIds),
 		organizationPolicyWrite: createInMemoryOrganizationPolicyWritePort(rawStore),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),

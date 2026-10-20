@@ -26,6 +26,7 @@ export interface RatingSchemePageAccess {
 }
 
 export type {
+	PersonnelActiveEvaluation,
 	RatingSchemeEntry,
 	RatingDueStatus,
 	WorkflowStatus,
@@ -85,15 +86,11 @@ export interface RatingSchemeWriteReference {
 	reviewerPersonId: string | null;
 }
 
-export type RatingSchemeReadinessEntry = Pick<
-	RatingSchemeEntry,
-	'status' | 'raterPersonId' | 'raterName' | 'seniorRaterPersonId' | 'seniorRaterName'
->;
-
 export interface RatingSchemePersistence {
 	listWorkspace(): Promise<SavedRatingSchemeEntry[]>;
 	findWriteReference(id: string): Promise<RatingSchemeWriteReference | null>;
-	listPersonReadiness(personnelId: string): Promise<RatingSchemeReadinessEntry[]>;
+	/** The rated Person's entries, newest rating period end first. */
+	listPersonReadiness(personnelId: string): Promise<SavedRatingSchemeEntry[]>;
 	countEntries(): Promise<number>;
 	create(input: RatingSchemeCreateValues): Promise<SavedRatingSchemeEntry>;
 	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry | null>;

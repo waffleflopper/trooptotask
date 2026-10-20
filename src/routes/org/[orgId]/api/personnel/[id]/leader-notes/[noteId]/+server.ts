@@ -1,7 +1,8 @@
 import {
 	archivePersonnelLeaderNote,
 	deletePersonnelLeaderNote,
-	restorePersonnelLeaderNote
+	restorePersonnelLeaderNote,
+	updatePersonnelLeaderNote
 } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
@@ -30,6 +31,7 @@ export const _patchConfig: RouteConfig<
 			return restorePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
 		if (input.action === 'archive')
 			return archivePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
+		if (input.action === undefined && typeof input.text === 'string') return updatePersonnelLeaderNote(ctx, input);
 		fail(400, 'Unsupported leader note action.');
 	}
 };

@@ -1,22 +1,28 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
-import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
-import { readLossWarningWindowDays } from '$features/organization/contracts';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
 import type {
 	PersonnelAvailabilityPeriod,
 	PersonnelCalendarStatusSnapshot,
 	PersonnelRecordPersistence
 } from './contracts';
-import type { PersonnelDetailHeader, PersonnelReadinessLane } from './personnel-detail.types';
+import type { PersonnelArtifactReadPersistence } from './personnelArtifactPersistence';
+import type { PersonnelSheetPersistence } from './personnelSheetPersistence';
+import type {
+	PersonnelDetailHeader,
+	PersonnelDetailTabCounts,
+	PersonnelAvailabilityToday
+} from './personnel-detail.types';
 import type { Personnel } from './personnel.types';
 
 interface PersonnelDetailContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findBySlug'>;
+	personnelSheets: Pick<PersonnelSheetPersistence, 'findSheetForPerson'>;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 }
 
@@ -34,8 +40,11 @@ export async function loadPersonnelDetailHeader(
 		'personnel',
 		person.id
 	);
-	await ctx.scope.requireGroupAccess(person.id);
-	return { person };
+	const [, sheet] = await Promise.all([
+		ctx.scope.requireGroupAccess(person.id),
+		ctx.personnelSheets.findSheetForPerson(person.id)
+	]);
+	return { person, basd: sheet?.basd ?? null, dateOfRank: sheet?.date_of_rank ?? null };
 }
 
 /**
@@ -62,8 +71,9 @@ function dateRangeDetail(entry: PersonnelAvailabilityPeriod): string {
 	return entry.endDate ? `through ${formatDisplayDate(entry.endDate)}` : `since ${formatDisplayDate(entry.startDate)}`;
 }
 
-export async function loadAvailabilityReadinessLane(
-	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit'>,
+/** The header pill hides, rather than fails, for a viewer who cannot see Calendar availability. */
+export async function loadAvailabilityToday(
+	ctx: Pick<PersonnelDetailContext, 'auth'>,
 	person: Personnel,
 	asOf: string | Date | undefined,
 	listEntries: (input: {
@@ -73,68 +83,36 @@ export async function loadAvailabilityReadinessLane(
 		orderByEndDate: true;
 	}) => Promise<PersonnelAvailabilityPeriod[]>,
 	listStatusTypes: () => Promise<PersonnelCalendarStatusSnapshot[]>
-): Promise<PersonnelReadinessLane> {
-	await authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
+): Promise<PersonnelAvailabilityToday | null> {
+	const decision = await evaluateFeaturePolicy(
+		{ auth: ctx.auth },
+		POLICY_ACTION_CATALOG.calendar.viewAvailability,
+		policyResourceForGroup(person.groupId)
+	);
+	if (!decision.allowed) return null;
 	const today = formatDate(asOfDate(asOf));
 	const [entries, statusTypes] = await Promise.all([
 		listEntries({ rangeStart: today, rangeEnd: today, personnelId: person.id, orderByEndDate: true }),
 		listStatusTypes()
 	]);
-	const statusById = new Map(statusTypes.map((status) => [status.id, status]));
 	const current = entries[0];
-	if (!current) {
-		return {
-			label: 'Availability',
-			value: 'Present',
-			detail: 'No active Calendar status for today.',
-			tone: 'good'
-		};
-	}
-	const statusName = statusById.get(current.statusTypeId)?.name ?? 'Unavailable';
+	if (!current) return { value: 'Present', detail: 'No active Calendar status for today.', tone: 'good' };
+	const statusName = statusTypes.find((status) => status.id === current.statusTypeId)?.name ?? 'Unavailable';
 	const note = current.note ? ` ${current.note}` : '';
-	return {
-		label: 'Availability',
-		value: statusName,
-		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
-		tone: 'watch'
-	};
+	return { value: statusName, detail: `${statusName} ${dateRangeDetail(current)}.${note}`, tone: 'watch' };
 }
 
-/** The detail lane intentionally evaluates ETS alone; global loss signals also use DEROS. */
-export async function loadLossTrackingReadinessLane(
-	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit'>,
-	person: Personnel,
-	asOf: string | Date | undefined,
-	readWarningWindowDays: () => Promise<number | null | undefined>
-): Promise<PersonnelReadinessLane> {
-	await authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.personnel.viewRoster, 'personnel');
-	if (!person.ets) {
-		return {
-			label: 'Loss Tracking',
-			value: 'Missing ETS',
-			detail: 'No ETS date is set on the personnel record.',
-			tone: 'bad'
-		};
-	}
-	const daysUntilEts = Math.floor((parseDate(person.ets).getTime() - asOfDate(asOf).getTime()) / (24 * 60 * 60 * 1000));
-	const detail =
-		daysUntilEts < 0
-			? `ETS ${formatDisplayDate(person.ets)} was ${Math.abs(daysUntilEts)} days ago.`
-			: `ETS ${formatDisplayDate(person.ets)} is ${daysUntilEts} days away.`;
-	if (daysUntilEts < 0) return { label: 'Loss Tracking', value: 'Action needed', detail, tone: 'bad' };
-	const warningWindowDays = await readLossWarningWindowDays(readWarningWindowDays());
-	if (warningWindowDays === null) {
-		return {
-			label: 'Loss Tracking',
-			value: 'Unavailable',
-			detail: `${detail} Loss warnings could not be loaded. Reload the page to try again.`,
-			tone: 'neutral'
-		};
-	}
-	return {
-		label: 'Loss Tracking',
-		value: daysUntilEts <= warningWindowDays ? 'Action needed' : 'No loss risk',
-		detail,
-		tone: daysUntilEts <= warningWindowDays ? 'watch' : 'good'
-	};
+/** Tab badges hide, rather than fail, for a viewer who may manage but not read sensitive records. */
+export async function loadPersonnelDetailTabCounts(
+	ctx: Pick<PersonnelDetailContext, 'auth'> & { artifactReads: Pick<PersonnelArtifactReadPersistence, 'countRecords'> },
+	person: Personnel
+): Promise<PersonnelDetailTabCounts | null> {
+	const decision = await evaluateFeaturePolicy(
+		{ auth: ctx.auth },
+		POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+		policyResourceForGroup(person.groupId)
+	);
+	if (!decision.allowed) return null;
+	const counts = await ctx.artifactReads.countRecords(person.id);
+	return { log: counts.openFollowUps, archived: counts.archived };
 }

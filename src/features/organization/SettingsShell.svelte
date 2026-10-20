@@ -18,8 +18,13 @@
 	const currentMember = $derived(settingsShell?.currentMember);
 	const baseHref = $derived(`/org/${organization?.urlSegment ?? orgUrlSegment}/settings`);
 
-	function counted(count: number | undefined, one: string, many = `${one}s`) {
-		return count ? { badge: count, badgeLabel: `${count} ${count === 1 ? one : many}` } : {};
+	function counted(
+		count: number | undefined,
+		variant: 'warning' | 'outline',
+		one: string,
+		many = `${one}s`
+	): Pick<RouteTabItem, 'badge'> {
+		return count ? { badge: { value: count, label: `${count} ${count === 1 ? one : many}`, variant } } : {};
 	}
 
 	const tabs = $derived(
@@ -29,8 +34,7 @@
 				label: 'Members',
 				href: `${baseHref}/members`,
 				active: activePath.endsWith('/settings/members'),
-				...counted(settingsShell?.navBadges.pendingInvitationsCount, 'pending invitation'),
-				badgeVariant: 'warning' as const
+				...counted(settingsShell?.navBadges.pendingInvitationsCount, 'warning', 'pending invitation')
 			},
 			{ label: 'Policies', href: `${baseHref}/policies`, active: activePath.endsWith('/settings/policies') },
 			...(settingsShell?.tabVisibility.ranks
@@ -40,15 +44,13 @@
 				label: 'Archives',
 				href: `${baseHref}/archives`,
 				active: activePath.endsWith('/settings/archives'),
-				...counted(settingsShell?.navBadges.archivedPersonnelCount, 'archived person', 'archived people'),
-				badgeVariant: 'outline' as const
+				...counted(settingsShell?.navBadges.archivedPersonnelCount, 'outline', 'archived person', 'archived people')
 			},
 			{
 				label: 'Approvals',
 				href: `${baseHref}/approvals`,
 				active: activePath.endsWith('/settings/approvals'),
-				...counted(settingsShell?.navBadges.pendingApprovalsCount, 'pending request'),
-				badgeVariant: 'warning' as const
+				...counted(settingsShell?.navBadges.pendingApprovalsCount, 'warning', 'pending request')
 			},
 			...(settingsShell?.tabVisibility.logs
 				? [{ label: 'Logs', href: `${baseHref}/logs`, active: activePath.endsWith('/settings/logs') }]

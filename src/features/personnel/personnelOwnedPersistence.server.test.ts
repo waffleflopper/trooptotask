@@ -8,6 +8,7 @@ import {
 import { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
 import { createSupabasePersonnelArtifactWritePort } from './artifactWrites.server';
 import type { PersonnelArtifactWriter } from './contracts';
+import type { ActorStamp } from './personnelArtifactPersistence';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 
 const rank = {
@@ -32,6 +33,7 @@ const sheet = {
 	basd: '2012-01-02',
 	date_of_rank: '2025-04-05',
 	marital_status: 'Married',
+	marital_status_date: '2018-05-06',
 	number_of_dependents: 2,
 	children: [{ name: 'Alex', age: 7 }],
 	civilian_education: 'BS',
@@ -50,6 +52,7 @@ const sheet = {
 	address_city: 'Test City',
 	address_state: 'AK',
 	address_zip: '99501',
+	updated_by: 'user-a',
 	award_tracking_acknowledged_at: '2026-10-01T10:00:00Z',
 	created_at: '2020-01-01T00:00:00.123456Z',
 	updated_at: null
@@ -62,6 +65,7 @@ const counseling = {
 	subject: 'Session',
 	summary: null,
 	notes: null,
+	conducted_by: null,
 	uploaded_by: 'user-a',
 	file_path: 'bound.pdf',
 	created_at: '2026-10-08T12:00:00.123456Z',
@@ -98,6 +102,7 @@ const note = {
 	author: 'user-a',
 	text: 'Literal note',
 	created_at: '2026-10-08T12:00:00.123456Z',
+	updated_at: '2026-10-08T12:00:00.123456Z',
 	archived_at: null
 };
 
@@ -128,12 +133,13 @@ const artifactWrites = [
 				dateConducted: '2026-10-07',
 				title: 'Session',
 				summary: null,
+				conductedBy: null,
 				uploadedBy: 'user-a',
 				filePath: 'bound.pdf',
 				createdAt: '2026-10-08T12:00:00.123456Z'
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findCounseling(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setCounselingArchivedAt(id, at),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) => w.setCounselingArchive(id, by),
 		remove: null
 	},
 	{
@@ -150,7 +156,7 @@ const artifactWrites = [
 				createdAt: '2026-10-08T12:00:00.123456Z'
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findDocument(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setDocumentArchivedAt(id, at),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) => w.setDocumentArchive(id, by),
 		remove: null
 	},
 	{
@@ -167,8 +173,8 @@ const artifactWrites = [
 				updatedAt: '2026-10-08T12:00:00.123456Z'
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findFollowUp(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) =>
-			w.patchFollowUp(id, { archivedAt: at, updatedAt: '2026-10-08T12:00:00.123456Z' }),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) =>
+			w.patchFollowUp(id, { archived: by, updatedAt: '2026-10-08T12:00:00.123456Z' }),
 		remove: (w: PersonnelArtifactWriter, id: string) => w.deleteFollowUp(id)
 	},
 	{
@@ -178,7 +184,7 @@ const artifactWrites = [
 		create: (w: PersonnelArtifactWriter) =>
 			w.createLeaderNote({ author: 'user-a', text: 'Literal note', createdAt: '2026-10-08T12:00:00.123456Z' }),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findLeaderNote(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setLeaderNoteArchivedAt(id, at),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) => w.setLeaderNoteArchive(id, by),
 		remove: (w: PersonnelArtifactWriter, id: string) => w.deleteLeaderNote(id)
 	}
 ] as const;
@@ -213,11 +219,12 @@ describe('finite Personnel artifact SDK writes', () => {
 			expect(await c.create(writer)).toEqual(expected);
 			expect(await c.find(writer, 'foreign')).toBeNull();
 			expect(await c.find(writer, 'other-person')).toBeNull();
-			expect(await c.archive(writer, 'saved-1', '2026-10-09T10:00:00Z')).toEqual({
+			expect(await c.archive(writer, 'saved-1', { at: '2026-10-09T10:00:00Z', by: 'user-b' })).toEqual({
 				...expected,
-				archived_at: '2026-10-09T10:00:00Z'
+				archived_at: '2026-10-09T10:00:00Z',
+				archived_by: 'user-b'
 			});
-			expect(await c.archive(writer, 'saved-1', null)).toEqual(expected);
+			expect(await c.archive(writer, 'saved-1', null)).toEqual({ ...expected, archived_by: null });
 			const persisted = service.state.rows[c.table].find((r) => r.id === 'saved-1');
 			expect(persisted).toMatchObject({ organization_id: 'org-a', personnel_id: 'person-a' });
 			expect(service.state.rows[c.table].filter((r) => r.id !== 'saved-1')).toEqual(witnesses);
@@ -454,6 +461,9 @@ describe('finite Personnel ordinary provider contracts', () => {
 		});
 		const port = createSupabasePersonnelArtifactReadPersistence(p.client, 'org-a');
 		expect(await port.listCounselingRecords('person-a', { archived: false, limit: 1 })).toEqual([counseling]);
+		expect(
+			await port.listCounselingRecords('person-a', { archived: false, limit: 1, onOrBefore: '2026-10-06' })
+		).toEqual([{ ...counseling, id: 'c-older', date_conducted: '2026-10-06' }]);
 		expect(await port.listCounselingRecords('person-a', { archived: true })).toEqual([
 			{ ...counseling, id: 'c-archived', archived_at: '2026-10-08' }
 		]);
@@ -470,6 +480,34 @@ describe('finite Personnel ordinary provider contracts', () => {
 			{ ...followUp, id: 'f-archived', status: 'archived', archived_at: '2026-10-08' }
 		]);
 		expect(await port.listDocuments('person-a', { archived: false, limit: 0 })).toEqual([]);
+	});
+	it('record counts take open follow-ups and every archived artifact of one Person in one Organization', async () => {
+		const note = { personnel_id: 'person-a', organization_id: 'org-a', author: 'user-a', text: 'Note' };
+		const p = personnelProvider({
+			counseling_records: [
+				{ ...counseling, organization_id: 'org-a' },
+				{ ...counseling, id: 'c-archived', organization_id: 'org-a', archived_at: '2026-10-08' }
+			],
+			personnel_documents: [
+				{ ...document, id: 'd-archived', organization_id: 'org-a', archived_at: '2026-10-08' },
+				{ ...document, id: 'd-foreign', organization_id: 'org-b', archived_at: '2026-10-08' }
+			],
+			personnel_follow_ups: [
+				{ ...followUp, organization_id: 'org-a' },
+				{ ...followUp, id: 'f-other', organization_id: 'org-a', personnel_id: 'person-b' },
+				{ ...followUp, id: 'f-completed', organization_id: 'org-a', status: 'completed' },
+				{ ...followUp, id: 'f-archived', organization_id: 'org-a', status: 'archived', archived_at: '2026-10-08' }
+			],
+			leader_notes: [
+				{ ...note, id: 'n-active', archived_at: null },
+				{ ...note, id: 'n-archived', archived_at: '2026-10-09' }
+			]
+		});
+		const port = createSupabasePersonnelArtifactReadPersistence(p.client, 'org-a');
+		expect(await port.countRecords('person-a')).toEqual({ openFollowUps: 1, archived: 4 });
+		p.state.failure = (request) =>
+			request.table === 'leader_notes' ? { code: '42501', message: 'Notes denied', status: 403 } : null;
+		await expect(port.countRecords('person-a')).rejects.toThrow('Notes denied');
 	});
 	it('leader pages retain microseconds, tied IDs and fill only with older notes', async () => {
 		const note = {

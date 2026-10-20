@@ -741,3 +741,62 @@ Applying it changes who pays for a Critical Tasks read-model call, not who sees 
 - It drops `can_view_personnel_ict_completion_record`, whose last callers were those two functions.
 
 The migration and the application release are independent. No application code names the dropped function, so an old or new application works against either database, and the two can ship in either order. The migration requires D04's `20261018000100_set_based_completion_read_scope.sql` first. An application rollback needs nothing. A database rollback needs a reverse migration that restores the function and the two predicates, and it loses no data. After release, confirm through ordinary authorized use that the Critical Tasks matrix and a Person's Critical Tasks record show the same latest completions as before for an Organization-wide member and for a Group-scoped member. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Personnel training history and certificates
+
+The candidate adds [`20261020000100_personnel_training_history.sql`](../../supabase/migrations/20261020000100_personnel_training_history.sql), SHA-256 `4d93d1f9226008d79c6c618cbeb81d4534d332d998c2fba9afbaf299c2567151`, for the Personnel detail Readiness tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds one table, one private bucket and three commands, and changes no existing column:
+
+- It adds `personnel_training_history`. An update that changes a Training record's completion or expiration date copies the replaced completion there, whatever the type's current cycle. Reads use the visible-People set `member_access_private.viewable_personnel('training')` from `20261018000100_set_based_completion_read_scope.sql`, and writes reuse the Training record edit and configure checks.
+- It adds `correct_training_completion(p_organization_id, p_kind, p_id, p_completion_date, p_expiration_date, p_notes)`, which edits a current or history completion in place without recording history. It runs as `SECURITY INVOKER`, so row security decides which row the caller may correct.
+- It adds `set_training_exemption(p_organization_id, p_training_type_id, p_personnel_id, p_exempt)`, which adds or removes one Person in `exempt_personnel_ids` under a row lock. It requires Training configuration, checked again once the lock is held, and a type that allows exemptions.
+- It adds the private `training-certificates` bucket (10 MB) whose read policy uses the same visible-People set and whose insert policy uses the Training record edit check. Certificates join the existing registered-upload, retirement and Organization-deletion fences for Personnel files, and a stored certificate key must sit under its own Organization and Person.
+
+Apply the migration before the application release. Without it the new application cannot read Training readiness, log a completion with a certificate, correct a completion, mark an item exempt or build an Organization data export, because each reads the new table, bucket or commands. An old application instance against the migrated database keeps working. Its Training saves now also record history, and its free-text or external `certificate_url` values pass the new key check unchanged. Confirm the migration live immediately before the integration branch merges to main.
+
+An application rollback can leave the table, bucket and commands in place. Dropping them needs a reverse migration that preserves the recorded history and stored certificates. After release, confirm through ordinary authorized use that a Training operator can log a completion with a PDF certificate on a Person's Readiness tab, open the certificate, see the replaced completion in History and correct it, and that a Training configurator can mark an exemptible item exempt while an operator cannot. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Personnel Data sheet columns
+
+The candidate adds [`20261020000200_personnel_data_sheet_columns.sql`](../../supabase/migrations/20261020000200_personnel_data_sheet_columns.sql), SHA-256 `88b57418b2f08ccb78f691d08a0b7155a79e407e0f2b501221bd6618b938c417`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds two nullable columns and changes no existing row, policy or grant:
+
+- It adds `personnel_extended_info.marital_status_date`, the date the current marital status began.
+- It adds `personnel_extended_info.updated_by`, the user id of the member who last saved the sheet. `20261020000500_personnel_extended_info_saver_stamp.sql` later stamps it from the signed-in user.
+
+Apply the migration before the application release. Without it the new application cannot read or save a Data sheet, because each names the columns. An old application instance against the migrated database keeps working and leaves both columns empty. An application rollback can leave the columns in place. Dropping them needs a reverse migration and loses the recorded dates and savers. After release, confirm through ordinary authorized use that saving a Soldier's Data sheet with a marital status date shows that date and the saving member. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Personnel Log and Archived attribution
+
+The candidate adds [`20261020000300_personnel_log_attribution.sql`](../../supabase/migrations/20261020000300_personnel_log_attribution.sql), SHA-256 `8107efdcc290585b5b2312b060b25ada8d11e39432448ccdb34b7f83cba23f3f`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds columns and triggers, and rewrites one timestamp on every existing leader note:
+
+- It adds `personnel_follow_ups.completed_by` and `archived_by`, `counseling_records.archived_by`, `personnel_documents.archived_by` and `leader_notes.archived_by`, each a nullable user id.
+- It adds `leader_notes.updated_at`, sets it to `created_at` on every existing note, and keeps it current with the existing `update_updated_at_column()` trigger.
+- It adds the private trigger functions `organization_private.stamp_archived_by()` and `organization_private.stamp_follow_up_completed_by()`, with EXECUTE revoked from `PUBLIC`, `anon`, `authenticated` and `service_role`. A write by a signed-in user records `auth.uid()` when it archives an item or completes an open follow-up, keeps the recorded actor when an item stays archived or completed, and clears it on restore or reopen. A write without a signed-in user, such as the application's service role, keeps the value it sends.
+
+Apply the migration before the application release. Without it the new application cannot read the Log, Files or Archived tabs or the Overview follow-ups, because each names the new columns. An old application instance against the migrated database keeps working: its writes run as the service role, and reopening a follow-up still clears its completion. An application rollback can leave the columns and triggers in place. Dropping them needs a reverse migration and loses the recorded actors and note edit times. After release, confirm through ordinary authorized use that completing a follow-up shows who completed it, that editing a leader note shows its edit time, and that an archived item on the Archived tab names who archived it. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Counseling conductor
+
+The candidate adds [`20261020000400_counseling_conducted_by.sql`](../../supabase/migrations/20261020000400_counseling_conducted_by.sql), SHA-256 `c217c17a8bad1071cfb577dd2f37a8fc736994a12914c33dd2719bd8dadf5b6b`, for the Personnel detail Files tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds one nullable column and changes no existing row, policy or grant:
+
+- It adds `counseling_records.conducted_by`, free text of 1 to 120 characters with no surrounding whitespace, null when the uploader names no one. It records who held the session, which is often not the member who uploaded the file. It is not an attribution column. `uploaded_by` stays the stamped uploader and `conducted_by` is never derived from the signed-in user.
+
+Apply the migration before the application release. Without it the new application cannot read or save counselings, because each names the column. An old application instance against the migrated database keeps working and leaves the column empty. An application rollback can leave the column in place. Dropping it needs a reverse migration and loses the typed conductors. After release, confirm through ordinary authorized use that uploading a counseling on a Person's Files tab saves the typed conductor, that the row shows `Conducted by <name>` and that a row with no conductor shows `Uploaded by <name>`. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Personnel Data sheet saver stamp
+
+The candidate adds [`20261020000500_personnel_extended_info_saver_stamp.sql`](../../supabase/migrations/20261020000500_personnel_extended_info_saver_stamp.sql), SHA-256 `98a3a16fd7ba6785e1bef590ef279115fb46f6a4f97622dbf68ee43217801bee`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds one trigger function and one trigger, and changes no column or data:
+
+- It adds `public.stamp_personnel_extended_info_saver()`, a `SECURITY INVOKER` trigger function with an empty search path. EXECUTE is revoked from `PUBLIC`, `anon`, `authenticated` and `service_role`.
+- It adds the `BEFORE INSERT OR UPDATE` trigger `stamp_personnel_extended_info_saver` on `personnel_extended_info`. A write by a signed-in user records `auth.uid()` in `updated_by`, whatever value the write sends, so a direct API writer cannot name another member as the saver. A write without a signed-in user, such as the service role or maintenance, keeps the value it sends. An update that changes only `award_tracking_acknowledged_at` leaves the saver as it was, so acknowledging an award does not credit the Data sheet to the acknowledger; an update that also changes another column, including `updated_by`, is stamped as usual.
+
+The migration and the application release are independent. The application already writes the signed-in member's id, so the trigger records the same value for it. An old or new application works against either database, and the two can ship in either order. An application rollback needs nothing. A database rollback drops the trigger and function and loses no data. After release, confirm through ordinary authorized use that saving a Soldier's Data sheet shows the saving member's name and the save time. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.

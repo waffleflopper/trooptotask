@@ -7,7 +7,8 @@ import type {
 	DocumentCreate,
 	FollowUpCreate,
 	FollowUpPatch,
-	LeaderNoteCreate
+	LeaderNoteCreate,
+	ActorStamp
 } from './personnelArtifactPersistence';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
@@ -94,6 +95,8 @@ export interface PersonnelRecordPersistence {
 	listSlugCandidates(prefix: string): Promise<Array<{ id: string; slug: string | null }>>;
 	listBackfillCandidates(): Promise<PersonnelDateCandidate[]>;
 	listRankReferences(): Promise<Array<{ rank?: string | null }>>;
+	/** "RANK Last" for each readable Person; unreadable ids are absent. */
+	findDisplayNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: PersonnelInsert): Promise<Personnel>;
 	createMany(inputs: PersonnelInsert[]): Promise<Personnel[]>;
 	/** Resolves null when the Person is no longer in the Organization. */
@@ -226,17 +229,18 @@ export interface PersonnelAwardAcknowledgementPort {
 export interface PersonnelArtifactWriter {
 	findCounseling(id: string): Promise<CounselingRecordRow | null>;
 	createCounseling(input: CounselingCreate): Promise<CounselingRecordRow>;
-	setCounselingArchivedAt(id: string, archivedAt: string | null): Promise<CounselingRecordRow>;
+	setCounselingArchive(id: string, archived: ActorStamp | null): Promise<CounselingRecordRow>;
 	findDocument(id: string): Promise<PersonnelDocumentRow | null>;
 	createDocument(input: DocumentCreate): Promise<PersonnelDocumentRow>;
-	setDocumentArchivedAt(id: string, archivedAt: string | null): Promise<PersonnelDocumentRow>;
+	setDocumentArchive(id: string, archived: ActorStamp | null): Promise<PersonnelDocumentRow>;
 	findFollowUp(id: string): Promise<FollowUpRow | null>;
 	createFollowUp(input: FollowUpCreate): Promise<FollowUpRow>;
 	patchFollowUp(id: string, input: FollowUpPatch): Promise<FollowUpRow>;
 	deleteFollowUp(id: string): Promise<void>;
 	findLeaderNote(id: string): Promise<LeaderNoteRow | null>;
 	createLeaderNote(input: LeaderNoteCreate): Promise<LeaderNoteRow>;
-	setLeaderNoteArchivedAt(id: string, archivedAt: string | null): Promise<LeaderNoteRow>;
+	setLeaderNoteArchive(id: string, archived: ActorStamp | null): Promise<LeaderNoteRow>;
+	setLeaderNoteText(id: string, text: string, updatedAt: string): Promise<LeaderNoteRow>;
 	deleteLeaderNote(id: string): Promise<void>;
 	sumActiveDocumentBytes(): Promise<number>;
 	/** The server implementation accepts only a File after runtime validation. */
@@ -342,6 +346,10 @@ export const personnelLeaderNoteInputSchema = z.object({
 
 export type PersonnelLeaderNoteInput = z.infer<typeof personnelLeaderNoteInputSchema>;
 
+export const personnelLeaderNoteTextSchema = personnelLeaderNoteInputSchema.extend({
+	noteId: z.string().min(1)
+});
+
 export { personnelScopeResource } from './personnelScopeResource';
 
 export type {
@@ -406,18 +414,25 @@ export interface PersonnelWorkspaceRouteData {
 /** Detail delivery shares the parent identity and independent streamed lanes. */
 export type {
 	PersonnelDetailHeader,
-	PersonnelDetailStreams,
-	PersonnelFollowUpsPageData,
-	PersonnelCounselingsPageData,
-	PersonnelDocumentsPageData,
-	PersonnelNotesPageData,
-	PersonnelArchivedArtifactsPageData
+	PersonnelDetailLayoutStreams,
+	PersonnelDetailTabCounts,
+	PersonnelLogNotes,
+	PersonnelLogPageData,
+	PersonnelDataSheetPageData,
+	PersonnelArchivedPageData
 } from './personnel-detail.types';
+export type {
+	AttentionItem,
+	PersonnelAttention,
+	PersonnelLossReadiness,
+	ReadinessSourceResult
+} from './personnelReadiness.types';
+export { buildPersonnelAttention } from './personnelAttention';
 export { evaluateUpcomingLosses } from './upcomingLoss';
 export type { UpcomingLossRecord } from './upcomingLoss';
 
 /** Soldier Data Sheet fields shared by its Server read and Web editor. */
-export type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
+export type { PersonnelDataSheetSaveResult, PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 
 const childSchema = z.object({
 	name: z.string().trim().max(120),
@@ -449,6 +464,7 @@ export const personnelExtendedInfoInputSchema = z.object({
 	basd: dateInputSchema,
 	dateOfRank: dateInputSchema,
 	maritalStatus: z.string().trim().max(80).optional().default(''),
+	maritalStatusDate: dateInputSchema,
 	numberOfDependents: dependentsInputSchema,
 	children: z.array(childSchema).optional().default([]),
 	civilianEducation: z.string().trim().max(500).optional().default(''),
@@ -480,6 +496,8 @@ export const personnelExtendedInfoInputSchema = z.object({
 
 export type {
 	PersonnelCounselingRecord,
+	PersonnelCounselingsRead,
+	PersonnelDocumentsRead,
 	PersonnelDocument,
 	PersonnelFollowUpStatus,
 	PersonnelFollowUp,

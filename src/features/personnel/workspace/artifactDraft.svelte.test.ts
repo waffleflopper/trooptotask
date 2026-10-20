@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { invalidate } from '$app/navigation';
 import { ArtifactDraft, type ArtifactDraftSpec } from './artifactDraft.svelte';
 import { counselingRecordDraftSpec } from './personnelArtifactDraftSpecs';
+
+vi.mock('$app/navigation', () => ({ invalidate: vi.fn().mockResolvedValue(undefined) }));
 
 interface DraftInput {
 	title: string;
@@ -81,7 +84,13 @@ describe('ArtifactDraft', () => {
 
 		expect(saved).toBe(false);
 		expect(draft.error).toBe('Date conducted cannot be in the future.');
-		expect(draft.fields).toEqual({ dateConducted: '2099-01-01', title: 'Initial counseling', summary: '', file });
+		expect(draft.fields).toEqual({
+			dateConducted: '2099-01-01',
+			title: 'Initial counseling',
+			summary: '',
+			conductedBy: '',
+			file
+		});
 	});
 
 	it('keeps the fallback for a server failure or a lost connection', async () => {
@@ -103,7 +112,7 @@ describe('ArtifactDraft', () => {
 		expect(draft.fields.title).toBe('Initial counseling');
 	});
 
-	it('posts encoded drafts, clears fields, and deduplicates created items by id', async () => {
+	it('posts encoded drafts, clears fields, deduplicates created items by id and refreshes the tab counts', async () => {
 		const created = { id: 'artifact-1', title: 'Needs follow-up', notes: 'Bring checklist' };
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
@@ -130,6 +139,7 @@ describe('ArtifactDraft', () => {
 		});
 		expect(draft.fields).toEqual({ title: '', notes: '' });
 		expect(draft.items).toEqual([created, { id: 'artifact-2', title: 'Keep me', notes: '' }]);
+		expect(invalidate).toHaveBeenCalledWith('app:personnel-detail-counts');
 	});
 
 	it('passes FormData bodies through without JSON headers', async () => {

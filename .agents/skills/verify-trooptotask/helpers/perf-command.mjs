@@ -634,9 +634,10 @@ export async function step(ctx, pageId, action) {
 	if (action.wait) return ctx.tool('wait_for', { pageId, text: action.wait, timeout: capMs });
 	if (action.type !== undefined) return ctx.tool('type_text', { pageId, text: action.type });
 	if (action.press) return ctx.tool('press_key', { pageId, key: action.press });
-	const control = action.click ?? action.fill ?? action.upload;
+	const control = action.click ?? action.hover ?? action.fill ?? action.upload;
 	const uid = controlUid(ctx.text(await ctx.tool('take_snapshot', { pageId })), control);
 	if (action.click) return ctx.tool('click', { pageId, uid });
+	if (action.hover) return ctx.tool('hover', { pageId, uid });
 	if (action.fill) return ctx.tool('fill', { pageId, uid, value: action.value });
 	return ctx.tool('upload_file', { pageId, uid, filePaths: [action.file] });
 }

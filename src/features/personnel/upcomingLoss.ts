@@ -66,6 +66,13 @@ function calendarDaysBetween(from: string, to: string): number {
 // Public API
 // ---------------------------------------------------------------------------
 
+/** True when `date` falls inside the loss warning window that starts on `today`. */
+export function isInLossWindow(date: string | null | undefined, today: string, warningWindowDays: number): boolean {
+	if (!date) return false;
+	const days = calendarDaysBetween(today, date);
+	return days >= 0 && days <= warningWindowDays;
+}
+
 /**
  * Evaluates which personnel are approaching a loss event within `warningWindowDays`.
  *

@@ -1,4 +1,5 @@
 import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
+import { refreshPersonnelDetailCounts } from './detailCounts';
 
 export interface ArtifactDraftContext {
 	orgId: string;
@@ -29,6 +30,8 @@ export interface ArtifactDraftSpec<TInput extends object, TResult extends { id: 
 export interface ArtifactDraftDeps {
 	context: ArtifactDraftContext | (() => ArtifactDraftContext);
 	fetch: typeof fetch;
+	/** Whether the view that started a save is still on screen; a save that lands after it left refreshes nothing. */
+	isCurrent?: () => boolean;
 }
 
 function resolveContext(context: ArtifactDraftDeps['context']): ArtifactDraftContext {
@@ -78,6 +81,7 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 			if (!response.ok) throw await buildRequestError(response, 'POST', this.#spec.endpoint(context));
 			this.upsert(this.#spec.decode ? await this.#spec.decode(response) : ((await response.json()) as TResult));
 			this.fields = this.#spec.reset?.(this.fields) ?? this.#spec.createEmptyInput();
+			if (this.#deps.isCurrent?.() ?? true) void refreshPersonnelDetailCounts();
 			return true;
 		} catch (caught) {
 			this.error = rejectedRequestMessage(caught, this.#spec.errorFallback);

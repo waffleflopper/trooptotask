@@ -12,9 +12,9 @@
 // `absentSelector` matches, each `count` selector matches exactly that many elements and, with
 // `download`, the page has created a file download. The last milestone, `useful`, is the first useful render.
 //
-// A step is one native browser action: `click` or `fill` a control named in the accessibility
-// snapshot (optionally inside a named row), `type` text into the focused element, `press` a
-// key, `upload` a prepared file, or `wait` for any of some texts.
+// A step is one native browser action: `click`, `hover` or `fill` a control named in the
+// accessibility snapshot (optionally inside a named row), `type` text into the focused element,
+// `press` a key, `upload` a prepared file, or `wait` for any of some texts.
 //
 // `reset` names the cleanup run after every sample that would otherwise leave the next one a
 // different start, and `limit` names the app rate limit the samples must stay under.
@@ -65,11 +65,37 @@ const findPerson = ({ searchTerm }) => [{ fill: search, value: searchTerm }, { w
 const openDetail = (terms) => [
 	...findPerson(terms),
 	{ click: { role: 'button', name: 'Details', within: { role: 'row', name: terms.edit.row } } },
-	{ wait: ['Edit basic info'] }
+	{ wait: ['Add to record'] }
 ];
-const detailOpen = { presentSelector: ['[aria-label="Readiness summary"]'] };
-// Each pending lane and panel is named "<Lane> loading" until its stream settles.
-const detailSettled = { ...detailOpen, absentSelector: ['[aria-label$=" loading"]', skeleton] };
+const detailTabs = 'nav[aria-label="Personnel detail sections"]';
+const streamsPending = ['[aria-label$=" loading"]', skeleton];
+const detailHeaderShown = { presentSelector: [detailTabs] };
+const detailSettled = {
+	presentSelector: [detailTabs, 'section[aria-label="Needs attention"]'],
+	absentSelector: streamsPending
+};
+const detailPath = (terms) => org(terms, `/personnel/${terms.edit.slug}`);
+const logTabLink = {
+	role: 'link',
+	name: 'Log',
+	partial: true,
+	within: { role: 'navigation', name: 'Personnel detail sections' }
+};
+const logRouteCurrent = {
+	presentSelector: ['a[aria-current="page"][href$="/log"]'],
+	absentSelector: streamsPending
+};
+const logTabSwitch = (prepare) => ({
+	area: 'personnel',
+	kind: 'interaction',
+	effect: 'read',
+	actors: detailActors,
+	path: detailPath,
+	ready: () => [{ name: 'ready', ...detailSettled }],
+	prepare: () => prepare,
+	trigger: () => ({ click: logTabLink }),
+	milestones: () => [{ name: 'useful', ...logRouteCurrent }]
+});
 
 export const journeys = {
 	'calendar-initial': {
@@ -196,10 +222,23 @@ export const journeys = {
 		prepare: findPerson,
 		trigger: ({ edit }) => ({ click: { role: 'button', name: 'Details', within: { role: 'row', name: edit.row } } }),
 		milestones: () => [
-			{ name: 'header', ...detailOpen },
+			{ name: 'header', ...detailHeaderShown },
 			{ name: 'useful', ...detailSettled }
 		]
 	},
+	'personnel-detail-direct': {
+		area: 'personnel',
+		kind: 'load',
+		effect: 'read',
+		actors: detailActors,
+		path: detailPath,
+		milestones: () => [
+			{ name: 'header', ...detailHeaderShown },
+			{ name: 'useful', ...detailSettled }
+		]
+	},
+	'personnel-detail-tab': logTabSwitch([]),
+	'personnel-detail-tab-hover': logTabSwitch([{ hover: logTabLink }]),
 	'personnel-edit': {
 		area: 'personnel',
 		kind: 'interaction',
@@ -223,8 +262,9 @@ export const journeys = {
 			}
 		]
 	},
-	// The detail page's basic-info save refreshes every load on the page (invalidateAll), unlike the
-	// roster dialog, which updates the open roster in place.
+	// The detail page's Data sheet save writes the Person and the sheet in one request, then lands on the
+	// Data sheet tab with only the header and that tab's loads refreshed, unlike the roster dialog, which
+	// updates the open roster in place.
 	'personnel-detail-edit': {
 		area: 'personnel',
 		kind: 'interaction',
@@ -235,17 +275,18 @@ export const journeys = {
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
 		prepare: (terms, sample) => [
 			...openDetail(terms),
-			{ click: { role: 'button', name: 'Edit basic info' } },
-			{ wait: ['Save basic info'] },
+			{ click: { role: 'link', name: 'Edit' } },
+			{ wait: ['Save changes'] },
 			{ fill: { role: 'textbox', name: 'MOS' }, value: edited(terms.edit, sample) }
 		],
-		trigger: () => ({ click: { role: 'button', name: 'Save basic info' } }),
+		trigger: () => ({ click: { role: 'button', name: 'Save changes' } }),
 		milestones: ({ edit }, sample) => [
 			{
 				name: 'useful',
-				...detailSettled,
-				present: [`/ ${edited(edit, sample)} /`],
-				absent: ['Save basic info', `/ ${edited(edit, sample + 1)} /`]
+				presentSelector: [detailTabs, '[data-slot="fact-section"]'],
+				absentSelector: streamsPending,
+				inside: { '[data-slot="page-header"] [data-slot="badge"]': [edited(edit, sample)] },
+				absent: ['Save changes']
 			}
 		]
 	},

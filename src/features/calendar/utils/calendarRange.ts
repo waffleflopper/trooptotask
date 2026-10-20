@@ -1,5 +1,5 @@
 import { endOfMonth, formatDate, getMonthName } from '$lib/utils/dates';
-import { fromDayNumber, toDayNumber } from './dayNumber';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 export interface CalendarBufferedRange {
 	rangeStart: string;

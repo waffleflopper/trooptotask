@@ -107,6 +107,7 @@ describe.each(cases)('$family upload registration lifetime', ({ family, create, 
 		const late = {
 			title: 'Late',
 			summary: null,
+			conductedBy: null,
 			dateConducted: '2026-10-02',
 			filePath: file.path,
 			fileSizeBytes: 8,

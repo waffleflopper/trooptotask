@@ -47,17 +47,27 @@ function makePersonnel(overrides: Record<string, unknown> = {}) {
 
 function makeLoad(ctx: Record<string, unknown>) {
 	const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
-	const load = _createPersonnelDetailLayoutLoad({ loadWithContext });
+	const loadReadinessBadge = vi.fn(async () => null);
+	const load = _createPersonnelDetailLayoutLoad({ loadWithContext, loadReadinessBadge });
 	return { load, loadWithContext };
 }
 
 describe('personnel detail layout server load', () => {
-	it('resolves the Personnel Slug once and returns persistent Soldier header data', async () => {
+	it('returns the header with service dates and the breadcrumb leaf, then streams the tab counts', async () => {
 		const ctx = {
 			organizationPersonnel: {
 				findBySlug: vi.fn(async () => makePersonnel())
 			},
-			auth: makeAuth(),
+			personnelSheets: {
+				findSheetForPerson: vi.fn(async () => ({
+					id: 'sheet-1',
+					personnel_id: 'person-1',
+					basd: '2019-06-11',
+					date_of_rank: '2023-02-01'
+				}))
+			},
+			artifactReads: { countRecords: vi.fn(async () => ({ openFollowUps: 3, archived: 4 })) },
+			auth: makeAuth({ capabilityMap: { ...makeAuth().capabilityMap, calendar: 'none', personnel: 'configure' } }),
 			scope: makeScope(),
 			audit: { log: vi.fn() }
 		};
@@ -67,11 +77,11 @@ describe('personnel detail layout server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: { get: () => undefined } as never,
 			depends
 		} as never);
 
-		expect(depends).toHaveBeenCalledWith('app:personnel-detail-header');
+		expect(depends).toHaveBeenCalledWith('app:personnel-detail-header', 'app:personnel-detail-counts');
 		expect(ctx.organizationPersonnel.findBySlug).toHaveBeenCalledWith('rivera-monica');
 		expect(loadWithContext).toHaveBeenCalledWith(
 			expect.anything(),
@@ -83,13 +93,64 @@ describe('personnel detail layout server load', () => {
 			})
 		);
 		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
-		expect(result.personnelDetailHeader.person).toMatchObject({
-			id: 'person-1',
-			rank: 'SGT',
-			firstName: 'Monica',
-			lastName: 'Rivera',
-			groupName: 'Alpha'
+		expect(result.personnelDetailHeader).toMatchObject({
+			person: { id: 'person-1', rank: 'SGT', firstName: 'Monica', lastName: 'Rivera', groupName: 'Alpha' },
+			basd: '2019-06-11',
+			dateOfRank: '2023-02-01'
 		});
+		expect(result.breadcrumbLabel).toBe('Rivera, Monica');
+		await expect(result.personnelDetailLayout.tabCounts).resolves.toEqual({ log: 3, archived: 4 });
+		await expect(result.personnelDetailLayout.availabilityToday).resolves.toBeNull();
+	});
+
+	it('keeps a count read that fails before the page renders from crashing the server', async () => {
+		const failure = new Error('count read failed');
+		const ctx = {
+			organizationPersonnel: { findBySlug: vi.fn(async () => makePersonnel()) },
+			personnelSheets: { findSheetForPerson: vi.fn(async () => null) },
+			artifactReads: { countRecords: vi.fn(async () => Promise.reject(failure)) },
+			auth: makeAuth({ capabilityMap: { ...makeAuth().capabilityMap, calendar: 'none', personnel: 'configure' } }),
+			scope: makeScope(),
+			audit: { log: vi.fn() }
+		};
+		const unhandled = vi.fn();
+		process.on('unhandledRejection', unhandled);
+		try {
+			const result = await makeLoad(ctx).load({
+				params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
+				locals: {} as App.Locals,
+				cookies: { get: () => undefined } as never,
+				depends: vi.fn()
+			} as never);
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(unhandled).not.toHaveBeenCalled();
+			await expect(result.personnelDetailLayout.tabCounts).rejects.toBe(failure);
+		} finally {
+			process.off('unhandledRejection', unhandled);
+		}
+	});
+
+	it('hides the tab counts from a viewer who may manage but not read sensitive records', async () => {
+		const ctx = {
+			organizationPersonnel: { findBySlug: vi.fn(async () => makePersonnel()) },
+			personnelSheets: { findSheetForPerson: vi.fn(async () => null) },
+			artifactReads: { countRecords: vi.fn(async () => ({ openFollowUps: 3, archived: 4 })) },
+			auth: makeAuth({ capabilityMap: { ...makeAuth().capabilityMap, calendar: 'none' } }),
+			scope: makeScope(),
+			audit: { log: vi.fn() }
+		};
+		const { load } = makeLoad(ctx);
+
+		const result = await load({
+			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
+			locals: {} as App.Locals,
+			cookies: { get: () => undefined } as never,
+			depends: vi.fn()
+		} as never);
+
+		await expect(result.personnelDetailLayout.tabCounts).resolves.toBeNull();
+		expect(ctx.artifactReads.countRecords).not.toHaveBeenCalled();
 	});
 
 	it('requires Personnel operate capability at the shared detail layout', async () => {

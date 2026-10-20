@@ -4,7 +4,7 @@ import { journeyFor, journeys, monthLabels } from './perf-journeys.mjs';
 
 test('an unknown or wrong-kind journey is refused with the journeys of that kind', () => {
 	const loads =
-		'Use a load journey: calendar-initial, personnel-list, dashboard, training-report, critical-tasks-report, members-list, admin-users.';
+		'Use a load journey: calendar-initial, personnel-list, personnel-detail-direct, dashboard, training-report, critical-tasks-report, members-list, admin-users.';
 	assert.throws(() => journeyFor('calendar-month', 'perfWide', 'load'), { message: loads });
 	assert.throws(() => journeyFor('personnel-search', 'perfWide', 'load'), { message: loads });
 });
@@ -62,9 +62,15 @@ test('write samples alternate so an even sample count ends on the seeded value',
 		'button[aria-label^="CQ, Thu 1 Oct: 2LT Cole, Cy"]'
 	]);
 	assert.deepEqual(save.prepare({ assignment }, 5)[1], { type: 'Baker' });
-	const edit = { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' };
-	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].present, ['/ 42A /']);
-	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].absent, ['Save basic info', '/ 68W /']);
+});
+
+test('each detail edit sample waits for the header to show the MOS it saved', () => {
+	const terms = { searchTerm: 'Able', edit: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' } };
+	const detailEdit = journeys['personnel-detail-edit'];
+	const saved = (sample) => detailEdit.prepare(terms, sample).at(-1).value;
+	const shown = (sample) => Object.values(detailEdit.milestones(terms, sample)[0].inside).flat();
+	assert.deepEqual([0, 1, 5].map(saved), ['42A', '68W', '68W']);
+	assert.deepEqual([0, 1, 5].map(shown), [['42A'], ['68W'], ['68W']]);
 });
 
 test('the Dashboard navigation waits for the Dashboard, then the roster, for both actors', () => {

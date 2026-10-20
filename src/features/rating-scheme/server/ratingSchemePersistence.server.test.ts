@@ -204,7 +204,7 @@ describe('owned Rating Scheme provider', () => {
 		expect(state.requests.map(({ url }) => url.searchParams.get('offset'))).toEqual(['0', '1000']);
 	});
 
-	it('loads complete Person readiness in descending period/identity order without saved metadata', async () => {
+	it('loads complete Person readiness entries in descending period/identity order', async () => {
 		const rows = Array.from({ length: 1001 }, (_, i) => ({
 			...saved,
 			id: `entry-${String(i).padStart(4, '0')}`,
@@ -218,13 +218,7 @@ describe('owned Rating Scheme provider', () => {
 		]);
 		const result = await ratingScheme.listPersonReadiness('person-a');
 		expect(result).toHaveLength(1002);
-		expect(result[0]).toEqual({
-			status: 'change-of-rater',
-			raterPersonId: 'rater-a',
-			raterName: 'Rater 1000',
-			seniorRaterPersonId: null,
-			seniorRaterName: 'COL Synthetic Senior'
-		});
+		expect(result[0]).toEqual({ ...expected, id: 'entry-1000', raterName: 'Rater 1000' });
 		expect(result[1000].raterName).toBe('Rater 0');
 		expect(result[1001].raterName).toBe('Earlier Rater');
 		expect(await ratingScheme.listPersonReadiness('missing')).toEqual([]);

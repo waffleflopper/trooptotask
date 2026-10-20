@@ -212,6 +212,8 @@ test('artifact faults distinguish failed cleanup from a committed write with a l
 		['document-file-remove-lost-ack', 'DELETE', '/storage/v1/object/personnel-documents', true],
 		['counseling-file-remove', 'DELETE', '/storage/v1/object/counseling-files', false],
 		['counseling-file-remove-lost-ack', 'DELETE', '/storage/v1/object/counseling-files', true],
+		['document-attach', 'POST', '/rest/v1/personnel_documents', false],
+		['counseling-attach', 'POST', '/rest/v1/counseling_records', false],
 		['document-attach-lost-ack', 'POST', '/rest/v1/personnel_documents', true],
 		['counseling-attach-lost-ack', 'POST', '/rest/v1/counseling_records', true]
 	]) {

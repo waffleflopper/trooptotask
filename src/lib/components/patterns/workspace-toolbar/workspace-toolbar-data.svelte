@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ListFilter from '@lucide/svelte/icons/list-filter';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -32,7 +33,7 @@
 	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
 	import WorkspaceToolbarMore, { actionItems, moreButton } from './workspace-toolbar-more.svelte';
 
-	let { ariaLabel, items, search, primary }: WorkspaceToolbarProps = $props();
+	let { ariaLabel, items, bare = false, search, primary }: WorkspaceToolbarProps = $props();
 	const uid = $props.id();
 
 	type Metrics = {
@@ -318,12 +319,18 @@
 			<WorkspaceToolbarIcon icon={action.icon} />
 		{/if}
 		{action.label}
+		{#if action.menuItems}
+			<ChevronDown aria-hidden="true" />
+		{/if}
 	</Button>
 {/snippet}
 
 {#snippet actionControl(action: ToolbarAction, variant: 'default' | 'outline', live: boolean)}
 	{#if live && action.menuItems}
-		<WorkspaceToolbarMenu label={action.label}>
+		<WorkspaceToolbarMenu
+			label={action.label}
+			contentClass={action.menuItems.some((item) => item.kind === 'action' && item.description) ? 'w-75' : undefined}
+		>
 			{#snippet trigger(props)}
 				{@render actionButton(action, variant, true, props)}
 			{/snippet}
@@ -514,7 +521,10 @@
 	data-slot="workspace-toolbar"
 	data-toolbar-search={searchMode}
 	data-toolbar-ready={fit ? 'true' : 'false'}
-	class="relative w-full min-w-0 shrink-0 overflow-clip rounded-lg border border-border bg-card p-2 text-card-foreground"
+	class={cn(
+		'relative w-full min-w-0 shrink-0 overflow-clip text-card-foreground',
+		bare ? 'p-1' : 'rounded-lg border border-border bg-card p-2'
+	)}
 >
 	<div
 		bind:this={rowElement}

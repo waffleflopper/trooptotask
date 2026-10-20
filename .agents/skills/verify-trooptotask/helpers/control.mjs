@@ -116,6 +116,7 @@ const tableColumns = {
 	training_types: 'organization_id',
 	training_views: 'organization_id',
 	personnel_trainings: 'organization_id',
+	personnel_training_history: 'organization_id',
 	onboarding_templates: 'organization_id',
 	onboarding_template_steps: 'organization_id',
 	personnel_onboardings: 'organization_id',
@@ -129,7 +130,7 @@ const tableSelect = {
 	organizations:
 		'id,name,url_slug,created_by,created_at,suspended_at,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,training_readiness_goal_percent',
 	personnel_extended_info:
-		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at',
+		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at,updated_by',
 	organization_rank_catalog:
 		'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order,created_at,updated_at',
 	training_types:
@@ -137,6 +138,8 @@ const tableSelect = {
 	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
 	personnel_trainings:
 		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url,created_at,updated_at',
+	personnel_training_history:
+		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url,superseded_at',
 	onboarding_templates: 'id,organization_id,name,description,created_at',
 	onboarding_template_steps:
 		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order,created_at',
@@ -2667,7 +2670,7 @@ async function main() {
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
-				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/extended-info$/.test(family) &&
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/data-sheet$/.test(family) &&
 				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:leader-notes|follow-ups|counseling-records)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.test(
 					family
 				) &&

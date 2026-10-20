@@ -41,7 +41,14 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 		completed_at: null,
 		archived_at: null
 	}));
-	const receipts: { table: string; urlBytes: number; status: number; offset?: number; ids?: string[] }[] = [];
+	const receipts: {
+		table: string;
+		urlBytes: number;
+		status: number;
+		offset?: number;
+		ids?: string[];
+		query?: URLSearchParams;
+	}[] = [];
 	let labelCalls = 0;
 	const client = createClient('http://artifacts.invalid', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -50,7 +57,12 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 				const url = new URL(String(input));
 				expect(url.origin).toBe('http://artifacts.invalid');
 				const table = url.pathname.split('/').pop()!;
-				const receipt: (typeof receipts)[number] = { table, urlBytes: Buffer.byteLength(url.href), status: 200 };
+				const receipt: (typeof receipts)[number] = {
+					table,
+					urlBytes: Buffer.byteLength(url.href),
+					status: 200,
+					query: url.searchParams
+				};
 				receipts.push(receipt);
 				const reject = (status: number, message: string) => {
 					receipt.status = status;
@@ -123,6 +135,45 @@ describe('Personnel artifact provider delivery', () => {
 			expect(run.receipts.every((receipt) => receipt.status === 200 && receipt.urlBytes <= 8192)).toBe(true);
 		}
 	);
+
+	it.each(families.slice(0, 2))('reads an offset page of $table rows', async (family) => {
+		const run = fixture(family);
+		const page = await family.list(createPersonnelArtifactDeliveryContext(run.ctx), PERSON, 3, { offset: 2 });
+		expect(page.map((row) => row.id)).toEqual(['artifact-0998', 'artifact-0997', 'artifact-0996']);
+		expect(run.receipts.filter((receipt) => receipt.table === family.table).map((receipt) => receipt.offset)).toEqual([
+			2
+		]);
+	});
+
+	it('sums every active document and lists every counseling date past one provider page', async () => {
+		const documents = fixture(families[1]);
+		await expect(documents.ctx.artifactReads.summarizeActiveDocuments(PERSON)).resolves.toEqual({
+			count: 1001,
+			bytes: 1001 * 3187
+		});
+		const counselings = fixture(families[0]);
+		const dates = await counselings.ctx.artifactReads.listActiveCounselingDates(PERSON, '2025-11-01');
+		expect(dates).toHaveLength(1001);
+		expect(new Set(dates)).toEqual(new Set(['2026-10-01']));
+		expect(
+			counselings.receipts.filter((receipt) => receipt.table === 'counseling_records').map((receipt) => receipt.offset)
+		).toEqual([0, 1000]);
+	});
+
+	it('asks the provider for the newest active counseling on or before the day, one row', async () => {
+		const run = fixture(families[0]);
+		const rows = await run.ctx.artifactReads.listCounselingRecords(PERSON, {
+			archived: false,
+			limit: 1,
+			onOrBefore: '2026-10-19'
+		});
+		expect(rows.map((row) => row.date_conducted)).toEqual(['2026-10-01']);
+		const [request] = run.receipts.filter((receipt) => receipt.table === 'counseling_records');
+		expect(request.query?.get('archived_at')).toBe('is.null');
+		expect(request.query?.get('date_conducted')).toBe('lte.2026-10-19');
+		expect(request.query?.get('order')).toMatch(/^date_conducted\.desc/);
+		expect(request.query?.get('limit')).toBe('1');
+	});
 
 	it('propagates a later artifact-page failure instead of returning partial history', async () => {
 		const run = fixture(families[1], 'artifact-page');

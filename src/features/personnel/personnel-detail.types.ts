@@ -1,87 +1,50 @@
-import type {
-	PersonnelCounselingRecord,
-	PersonnelDocument,
-	PersonnelFollowUp,
-	PersonnelArchivedArtifact
-} from './personnelArtifact.types';
+import type { PersonnelFollowUp, PersonnelArchivedArtifact } from './personnelArtifact.types';
 import type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 import type { Personnel } from './personnel.types';
+import type { PersonnelAttention } from './personnelReadiness.types';
 
 export interface PersonnelDetailHeader {
 	person: Personnel;
+	basd: string | null;
+	dateOfRank: string | null;
 }
 
-export type PersonnelDetailSubpageKey = 'follow-ups' | 'counselings' | 'documents' | 'notes' | 'archived';
-
-export type PersonnelArtifactKind = 'follow-up' | 'counseling' | 'document' | 'note';
-
-export interface PersonnelDetailSubpageData {
-	personnelId: string;
-	section: PersonnelDetailSubpageKey;
-	title: string;
-	emptyState: string;
-	records: [];
+export interface PersonnelDetailTabCounts {
+	log: number;
+	archived: number;
 }
 
-export interface PersonnelFollowUpsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelFollowUp[];
+export interface PersonnelDetailLayoutStreams {
+	availabilityToday: Promise<PersonnelAvailabilityToday | null>;
+	tabCounts: Promise<PersonnelDetailTabCounts | null>;
+	readinessBadge: Promise<PersonnelAttention['readinessBadge'] | null>;
 }
 
-export interface PersonnelNotesPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
+/** The newest notes and how many active notes the Soldier has in all. */
+export interface PersonnelLogNotes {
 	notes: PersonnelLeaderNote[];
+	total: number;
 }
 
-export interface PersonnelCounselingsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelCounselingRecord[];
+export interface PersonnelLogPageData {
+	/** Open and completed follow-ups. */
+	followUps: Promise<PersonnelFollowUp[]>;
+	notes: Promise<PersonnelLogNotes>;
 }
 
-export interface PersonnelDocumentsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelDocument[];
+export interface PersonnelDataSheetPageData {
+	/** Null until the Soldier's sheet is first saved. */
+	dataSheet: Promise<PersonnelExtendedInfo | null>;
 }
 
-export interface PersonnelArchivedArtifactsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelArchivedArtifact[];
+export interface PersonnelArchivedPageData {
+	archived: Promise<PersonnelArchivedArtifact[]>;
 }
 
-export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';
-
-export type PersonnelReadinessLaneKey = 'availability' | 'training' | 'criticalTasks' | 'ratingScheme' | 'lossTracking';
-
-export interface PersonnelReadinessLane {
-	label: string;
+/** Today's Calendar status for the header pill: present, or the status the Person is away on. */
+export interface PersonnelAvailabilityToday {
 	value: string;
 	detail: string;
-	tone: PersonnelReadinessLaneTone;
-}
-
-export type PersonnelReadinessLaneStreams = Record<PersonnelReadinessLaneKey, Promise<PersonnelReadinessLane>>;
-
-export interface PersonnelDetailStreams {
-	readinessLanes: PersonnelReadinessLaneStreams;
-	extendedInfo: Promise<PersonnelExtendedInfo | null>;
-	counselingRecords: Promise<PersonnelCounselingRecord[]>;
-	documents: Promise<PersonnelDocument[]>;
-	leaderNotes: Promise<PersonnelLeaderNote[]>;
-	followUps: Promise<PersonnelFollowUp[]>;
+	tone: 'good' | 'watch';
 }

@@ -36,6 +36,7 @@ export { onboardingWorkspaceHydrator } from './onboardingWorkspaceHydration.svel
 
 export { default as OnboardingActiveView } from './components/OnboardingActiveView.svelte';
 export { default as OnboardingHistoryPage } from './components/OnboardingHistoryPage.svelte';
+export { default as PersonnelOnboardingLine } from './components/PersonnelOnboardingLine.svelte';
 
 /** Keep packet dialogs lazy behind their consumed Web entry. */
 export function loadOnboardingModals() {

@@ -71,17 +71,6 @@ export interface CriticalTasksMosReadinessCounts {
 	applicableCount: number;
 }
 
-export interface CriticalTasksSoldierReadinessSummary {
-	readinessPercent: number;
-	applicableCount: number;
-	readyCount: number;
-	attentionCount: number;
-	currentCount: number;
-	expiringSoonCount: number;
-	expiredCount: number;
-	notRecordedCount: number;
-}
-
 interface ReadinessCounts {
 	percent: number;
 	readyCount: number;
@@ -222,37 +211,6 @@ export function buildIctReadinessFacts(
 	}
 
 	return facts;
-}
-
-export function buildCriticalTasksSoldierReadinessSummary(input: {
-	person: Pick<Personnel, 'id' | 'mos'>;
-	activeTasks: IctTask[];
-	completions?: PersonnelIctCompletion[];
-	latestCompletions?: Map<string, PersonnelIctCompletion>;
-	settings?: CriticalTasksSettingsInput | null;
-	asOf?: string | Date;
-}): CriticalTasksSoldierReadinessSummary {
-	const latestCompletions =
-		input.latestCompletions ?? buildLatestIctCompletionLookup(input.completions ?? [], input.asOf);
-	const facts: ReadinessFact<IctStatus>[] = [];
-	appendPersonIctReadinessFacts(facts, input.person, {
-		activeTasks: input.activeTasks,
-		latestCompletions,
-		settings: input.settings,
-		asOf: input.asOf
-	});
-	const tally = tallyReadiness(facts, ICT_READINESS_ROLLUP);
-
-	return {
-		readinessPercent: tally.percent,
-		applicableCount: tally.applicable,
-		readyCount: tally.ready,
-		attentionCount: tally.applicable - tally.ready,
-		currentCount: tally.stateCounts.get('current') ?? 0,
-		expiringSoonCount: tally.stateCounts.get('expiring-soon') ?? 0,
-		expiredCount: tally.stateCounts.get('expired') ?? 0,
-		notRecordedCount: tally.stateCounts.get('not-recorded') ?? 0
-	};
 }
 
 function compareBelowThresholdTaskRows(left: IctTaskBelowThresholdRow, right: IctTaskBelowThresholdRow): number {

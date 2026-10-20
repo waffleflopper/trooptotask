@@ -72,8 +72,11 @@
 			</DropdownMenu.SubContent>
 		</DropdownMenu.Sub>
 	{:else}
+		{@const itemDescriptionId = action.description ? `toolbar-menu-${[...path, action.id].join('-')}` : undefined}
 		<DropdownMenu.Item
 			variant={action.destructive ? 'destructive' : 'default'}
+			aria-label={action.description ? (action.ariaLabel ?? action.label) : undefined}
+			aria-describedby={itemDescriptionId}
 			disabled={unavailable}
 			title={action.disabledReason}
 			aria-busy={action.loading || undefined}
@@ -84,7 +87,14 @@
 			{:else}
 				<WorkspaceToolbarIcon icon={action.icon} reserve={reserveIcon} />
 			{/if}
-			{action.label}
+			{#if action.description}
+				<span class="grid gap-0.5" aria-hidden="true">
+					<span class="font-medium">{action.label}</span>
+					<span id={itemDescriptionId} class="text-xs text-muted-foreground">{action.description}</span>
+				</span>
+			{:else}
+				{action.label}
+			{/if}
 		</DropdownMenu.Item>
 	{/if}
 {/snippet}

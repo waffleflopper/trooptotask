@@ -110,6 +110,24 @@ describe('ordinary Onboarding persistence', () => {
 			active: true
 		});
 	});
+	it('finds the most recently started packet that was not cancelled for one Person', async () => {
+		const { workflow } = ports({
+			personnel_onboardings: [
+				{ ...packet, id: 'first', started_at: '2023-01-01', status: 'completed', completed_at: '2023-03-14' },
+				{ ...packet, id: 'second', started_at: '2024-05-01', status: 'completed', completed_at: '2024-06-01' },
+				{ ...packet, id: 'cancelled', started_at: '2025-01-01', status: 'cancelled', cancelled_at: '2025-01-02' },
+				{ ...packet, id: 'other-person', personnel_id: 'other', started_at: '2026-01-01' },
+				{ ...packet, id: 'foreign', organization_id: 'org-b', started_at: '2026-01-01' }
+			],
+			onboarding_step_progress: []
+		});
+		expect(await workflow.findLatestPacketForPersonnel('person')).toMatchObject({
+			id: 'second',
+			status: 'completed',
+			completedAt: '2024-06-01'
+		});
+		expect(await workflow.findLatestPacketForPersonnel('nobody')).toBeNull();
+	});
 	it('maps same-org singular references and preserves unavailable/error distinctions', async () => {
 		const { catalog, workflow, state } = ports({
 			onboarding_templates: [template],

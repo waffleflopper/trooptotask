@@ -203,6 +203,19 @@ describe('getOrgBreadcrumbs', () => {
 		]);
 	});
 
+	it('names a Personnel record by its route label on every detail tab', () => {
+		const nav = getOrgNavigation('org-1', { ...baseCapabilities, personnel: 'operate' });
+
+		for (const path of ['/org/org-1/personnel/okafor-daniel', '/org/org-1/personnel/okafor-daniel/log']) {
+			expect(getOrgBreadcrumbs(path, 'Test Org', nav, 'Okafor, Daniel')).toEqual([
+				{ label: 'Test Org', href: '/org/org-1' },
+				{ label: 'Personnel', href: '/org/org-1/personnel' },
+				{ label: 'Okafor, Daniel' }
+			]);
+		}
+		expect(getOrgBreadcrumbs('/org/org-1/personnel/import', 'Test Org', nav).at(-1)).toEqual({ label: 'Import' });
+	});
+
 	it('uses a route-provided personnel label for Critical Tasks person records', () => {
 		const nav = getOrgNavigation('org-1', {
 			...baseCapabilities,

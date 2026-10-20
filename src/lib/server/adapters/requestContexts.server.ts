@@ -6,6 +6,7 @@ import {
 	createSupabasePersonnelGovernanceDeletionPort,
 	createSupabasePersonnelLifecycleCommands
 } from '$features/personnel/index.server';
+import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
 import { createSupabaseApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
 import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
 import { createSupabaseDashboardExportReader } from '$features/dashboard/index.server';
@@ -209,7 +210,11 @@ export function createPersonnelArtifactDeliveryContext(
 				return row?.groupId;
 			},
 			listCounselingRecords: request.artifactReads.listCounselingRecords,
+			countActiveCounselingRecords: request.artifactReads.countActiveCounselingRecords,
+			listActiveCounselingDates: request.artifactReads.listActiveCounselingDates,
+			findCounseling: request.artifactReads.findCounseling,
 			listDocuments: request.artifactReads.listDocuments,
+			summarizeActiveDocuments: request.artifactReads.summarizeActiveDocuments,
 			listFollowUps: request.artifactReads.listFollowUps,
 			findDocument: request.artifactReads.findDocument
 		},
@@ -219,7 +224,9 @@ export function createPersonnelArtifactDeliveryContext(
 		contributorLabels: (userIds) => organizationSettings.findMemberLabels(orgId, userIds),
 		documentStorageCapBytes: () => loadPersonnelDocumentStorageCapBytes(organizationSettings, orgId),
 		createDocumentSignedUrl: (filePath, expiresInSeconds) =>
-			storage.createSignedUrl('personnel-documents', filePath, expiresInSeconds)
+			storage.createSignedUrl('personnel-documents', filePath, expiresInSeconds),
+		createCounselingSignedUrl: (filePath, expiresInSeconds) =>
+			storage.createSignedUrl(SENSITIVE_FILE_BUCKET, filePath, expiresInSeconds)
 	};
 }
 
@@ -254,6 +261,7 @@ export function createPersonnelLeaderNoteDeliveryContext(
 				return row?.groupId;
 			},
 			listPage: request.artifactReads.listLeaderNotePage,
+			countActive: request.artifactReads.countActiveLeaderNotes,
 			async find(personnelId, noteId) {
 				return (await writerFor(personnelId)).findLeaderNote(noteId);
 			},
@@ -264,8 +272,11 @@ export function createPersonnelLeaderNoteDeliveryContext(
 					createdAt: input.createdAt
 				});
 			},
-			async update(personnelId, noteId, archivedAt) {
-				return (await writerFor(personnelId)).setLeaderNoteArchivedAt(noteId, archivedAt);
+			async setArchive(personnelId, noteId, archived) {
+				return (await writerFor(personnelId)).setLeaderNoteArchive(noteId, archived);
+			},
+			async setText(personnelId, noteId, text, updatedAt) {
+				return (await writerFor(personnelId)).setLeaderNoteText(noteId, text, updatedAt);
 			},
 			async delete(personnelId, noteId) {
 				return (await writerFor(personnelId)).deleteLeaderNote(noteId);
@@ -371,17 +382,39 @@ export function createRequestPersonnelDetailContext(request: AdmittedOrganizatio
 		auth: request.auth,
 		audit: request.audit,
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
+		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		scope: request.scope
 	};
 }
 
+export function createRequestPersonnelDetailLayoutContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		artifactReads: createSupabasePersonnelArtifactReadPersistence(request.supabase, request.auth.orgId),
+		calendar: {
+			...createRequestAvailabilityContext(request),
+			calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
+		}
+	};
+}
+
 export function createRequestPersonnelExtendedInfoContext(request: AdmittedOrganizationRequest) {
+	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
 	return {
 		auth: request.auth,
 		audit: request.audit,
 		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
-		scope: request.scope
+		scope: request.scope,
+		contributorLabels: (userIds: string[]) => organizationSettings.findMemberLabels(request.auth.orgId, userIds)
+	};
+}
+
+export function createRequestPersonnelDataSheetContext(request: AdmittedOrganizationRequest) {
+	return {
+		...createRequestPersonnelRecordContext(request),
+		...createRequestPersonnelExtendedInfoContext(request)
 	};
 }
 
@@ -443,23 +476,36 @@ export function createRequestPersonnelArchivedArtifactsContext(request: Admitted
 	};
 }
 
-export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrganizationRequest) {
-	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
+export function createRequestPersonnelOverviewContext(request: AdmittedOrganizationRequest) {
 	return {
-		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
-		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		detail: { auth: request.auth, audit: request.audit },
-		organizationSettings,
 		calendar: {
 			...createRequestAvailabilityContext(request),
+			calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 			calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
 		},
+		extendedInfo: createRequestPersonnelExtendedInfoContext(request),
+		artifacts: createRequestPersonnelArtifactsContext(request),
+		leaderNotes: createRequestPersonnelLeaderNoteContext(request)
+	};
+}
+
+export function createRequestPersonnelReadinessContext(request: AdmittedOrganizationRequest) {
+	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
+	const personnel = createSupabasePersonnelRecordPersistence(
+		request.supabase,
+		request.auth.orgId,
+		request.auth.scopeSet
+	);
+	return {
+		detail: { auth: request.auth, audit: request.audit },
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
+		organizationSettings,
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
-		extendedInfo: createRequestPersonnelExtendedInfoContext(request),
-		artifacts: createRequestPersonnelArtifactsContext(request),
-		leaderNotes: createRequestPersonnelLeaderNoteContext(request),
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
+		findPersonNames: (ids: string[]) => personnel.findDisplayNamesByIds(ids),
 		loadLossWarningWindowDays: () => organizationSettings.findLossWarningWindowDays(request.auth.orgId)
 	};
 }

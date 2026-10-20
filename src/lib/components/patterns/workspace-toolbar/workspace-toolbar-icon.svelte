@@ -4,14 +4,18 @@
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import BookOpen from '@lucide/svelte/icons/book-open';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
+	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import ClipboardCheck from '@lucide/svelte/icons/clipboard-check';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import Download from '@lucide/svelte/icons/download';
 	import FilePlus2 from '@lucide/svelte/icons/file-plus-2';
+	import FileText from '@lucide/svelte/icons/file-text';
+	import NotebookPen from '@lucide/svelte/icons/notebook-pen';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Printer from '@lucide/svelte/icons/printer';
 	import Settings from '@lucide/svelte/icons/settings';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import SquareCheck from '@lucide/svelte/icons/square-check';
 	import Upload from '@lucide/svelte/icons/upload';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import type { WorkspaceToolbarIcon } from './toolbar-types.js';
@@ -30,14 +34,18 @@
 		'book-open': BookOpen,
 		'calendar-days': CalendarDays,
 		chart: BarChart3,
+		'circle-check': CircleCheck,
 		'clipboard-check': ClipboardCheck,
 		'clipboard-list': ClipboardList,
 		download: Download,
 		'file-plus': FilePlus2,
+		'file-text': FileText,
+		'notebook-pen': NotebookPen,
 		plus: Plus,
 		printer: Printer,
 		settings: Settings,
 		sliders: SlidersHorizontal,
+		'square-check': SquareCheck,
 		upload: Upload,
 		'user-plus': UserPlus
 	} satisfies Record<WorkspaceToolbarIcon, unknown>;

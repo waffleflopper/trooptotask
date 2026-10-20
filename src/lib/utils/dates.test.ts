@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
 	formatDate,
+	formatDayMonth,
+	formatDayMonthYear,
 	formatToday,
 	parseDate,
 	getMonthDates,
@@ -16,7 +18,8 @@ import {
 	isTimeZone,
 	localDateIn,
 	calendarDayDiff,
-	formatRelativeDate
+	formatRelativeDate,
+	formatDayOffset
 } from './dates';
 
 function withTimeZone(timeZone: string, run: () => void) {
@@ -67,10 +70,26 @@ describe('formatRelativeDate', () => {
 				expect(formatRelativeDate(new Date(2026, 9, 14, 0, 5).toISOString())).toBe('today');
 				expect(formatRelativeDate(new Date(2026, 9, 14, 9, 0).toISOString())).toBe('today');
 				expect(formatRelativeDate(new Date(2026, 9, 11, 7, 0).toISOString())).toBe('3 days ago');
+				expect(formatRelativeDate(new Date(2026, 9, 15, 0, 5).toISOString())).toBe('tomorrow');
+				expect(formatRelativeDate(new Date(2026, 9, 20, 23, 0).toISOString())).toBe('in 6 days');
+				expect(formatRelativeDate(new Date(2026, 9, 21, 9, 0).toISOString())).toBe('Oct 21, 2026');
+				expect(formatRelativeDate(new Date(2026, 9, 7, 9, 0).toISOString())).toBe('Oct 7, 2026');
 			} finally {
 				vi.useRealTimers();
 			}
 		});
+	});
+});
+
+describe('formatDayOffset', () => {
+	it('reads a whole-day offset either side of today', () => {
+		expect([-12, -1, 0, 1, 21].map(formatDayOffset)).toEqual([
+			'12 days ago',
+			'yesterday',
+			'today',
+			'tomorrow',
+			'in 21 days'
+		]);
 	});
 });
 
@@ -116,6 +135,14 @@ describe('formatDate', () => {
 
 	it('pads single-digit months and days', () => {
 		expect(formatDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+	});
+});
+
+describe('formatDayMonthYear', () => {
+	it('formats a date-only string day first without shifting the day', () => {
+		expect(formatDayMonthYear('2024-09-24')).toBe('24 Sep 2024');
+		expect(formatDayMonthYear('2026-01-05T00:00:00Z')).toBe('5 Jan 2026');
+		expect(formatDayMonth('2026-09-15')).toBe('15 Sep');
 	});
 });
 

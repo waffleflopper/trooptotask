@@ -3,8 +3,10 @@ import type {
 	PersonnelArtifactArchiveState,
 	PersonnelArtifactWritePort,
 	PersonnelCounselingRecord,
+	PersonnelCounselingsRead,
 	PersonnelRecordPersistence
 } from './contracts';
+import { coveredMonthsOf, coverageWindowStart } from './counselingCoverage';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -17,6 +19,8 @@ import { buildSensitiveFilePath, validateSensitiveFileSelection } from '$lib/sto
 import {
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
+	contributorLabelsWithStamps,
+	optionalContributorLabel,
 	resolveContributorLabel,
 	type PersonnelArtifactsContext,
 	type CounselingRecordRow
@@ -27,6 +31,7 @@ export interface PersonnelCounselingRecordInput {
 	dateConducted: string;
 	title: string;
 	summary?: string;
+	conductedBy?: string;
 	file: File;
 }
 
@@ -34,7 +39,8 @@ const counselingInputSchema = z.object({
 	personnelId: z.string().min(1),
 	dateConducted: dateOnlySchema,
 	title: z.string().trim().min(1, 'Title is required').max(160),
-	summary: z.string().trim().max(500).optional().default('')
+	summary: z.string().trim().max(500).optional().default(''),
+	conductedBy: z.string().trim().max(120).optional().default('')
 });
 
 async function assertPdf(file: File): Promise<void> {
@@ -60,12 +66,85 @@ export async function listPersonnelCounselingRecords(
 	ctx: PersonnelArtifactsContext,
 	personnelId: string,
 	limit?: number,
-	options: { archived?: boolean } = {}
+	options: { archived?: boolean; offset?: number } = {}
 ): Promise<PersonnelCounselingRecord[]> {
 	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
-	const rows = await ctx.persistence.listCounselingRecords(personnelId, { archived: !!options.archived, limit });
-	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])));
+	const rows = await ctx.persistence.listCounselingRecords(personnelId, {
+		archived: !!options.archived,
+		limit,
+		offset: options.offset
+	});
+	const labels = await contributorLabelsWithStamps(
+		ctx,
+		rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])),
+		rows.map((row) => row.archived_by)
+	);
 	return rows.map((row) => mapCounselingRow(row, labels));
+}
+
+/** A member label that fell back to the bare user id names no one, so it is not offered as a conductor. */
+function nameOf(labels: Map<string, string>, userId: string): string | null {
+	const label = labels.get(userId);
+	return label && label !== userId ? label : null;
+}
+
+/** The newest active counseling held on or before `asOf`; a record dated later is not yet "last counseled". */
+async function newestHeldCounseling(
+	ctx: PersonnelArtifactsContext,
+	personnelId: string,
+	asOf: string
+): Promise<CounselingRecordRow | null> {
+	const [row] = await ctx.persistence.listCounselingRecords(personnelId, {
+		archived: false,
+		limit: 1,
+		onOrBefore: asOf
+	});
+	return row ?? null;
+}
+
+export async function readLastPersonnelCounseling(
+	ctx: PersonnelArtifactsContext,
+	input: { personnelId: string; asOf: string }
+): Promise<PersonnelCounselingRecord | null> {
+	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
+	const row = await newestHeldCounseling(ctx, input.personnelId, input.asOf);
+	if (!row) return null;
+	return mapCounselingRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+}
+
+/** The Files tab's first page of counselings with the figures its header, coverage bar and upload form need. */
+export async function readPersonnelCounselings(
+	ctx: PersonnelArtifactsContext,
+	input: { personnelId: string; asOf: string; limit: number }
+): Promise<PersonnelCounselingsRead> {
+	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
+	const [rows, total, dates, lastHeld] = await Promise.all([
+		ctx.persistence.listCounselingRecords(input.personnelId, { archived: false, limit: input.limit }),
+		ctx.persistence.countActiveCounselingRecords(input.personnelId),
+		ctx.persistence.listActiveCounselingDates(input.personnelId, coverageWindowStart(input.asOf)),
+		newestHeldCounseling(ctx, input.personnelId, input.asOf)
+	]);
+	const labels = await ctx.contributorLabels([
+		ctx.actor.userId,
+		...rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : []))
+	]);
+	return {
+		records: rows.map((row) => mapCounselingRow(row, labels)),
+		total,
+		uploaderLabel: nameOf(labels, ctx.actor.userId),
+		coveredMonths: coveredMonthsOf(dates, input.asOf),
+		lastConductedOn: lastHeld?.date_conducted ?? null
+	};
+}
+
+export async function createPersonnelCounselingDownloadUrl(
+	ctx: PersonnelArtifactsContext,
+	input: { personnelId: string; recordId: string }
+): Promise<{ url: string }> {
+	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
+	const record = await ctx.persistence.findCounseling(input.personnelId, input.recordId);
+	if (!record?.file_path) fail(404, 'Counseling record not found');
+	return { url: await ctx.createCounselingSignedUrl(record.file_path, 300) };
 }
 
 export async function createPersonnelCounselingRecord(
@@ -97,6 +176,7 @@ export async function createPersonnelCounselingRecord(
 			dateConducted: input.dateConducted,
 			title: input.title,
 			summary: input.summary || null,
+			conductedBy: input.conductedBy || null,
 			uploadedBy: ctx.actor.userId,
 			filePath: filePath,
 			createdAt: new Date().toISOString()
@@ -142,7 +222,10 @@ export async function archivePersonnelCounselingRecord(
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer, row: existing } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	if (existing.archived_at) fail(409, 'Counseling record is already archived');
-	const row = await writer.setCounselingArchivedAt(input.recordId, new Date().toISOString());
+	const row = await writer.setCounselingArchive(input.recordId, {
+		at: new Date().toISOString(),
+		by: ctx.actor.userId
+	});
 	ctx.audit.log({
 		action: 'personnel.counseling_record.archived',
 		resourceType: 'personnel',
@@ -156,7 +239,7 @@ export async function restorePersonnelCounselingRecord(
 	input: { personnelId: string; recordId: string }
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
-	const row = await writer.setCounselingArchivedAt(input.recordId, null);
+	const row = await writer.setCounselingArchive(input.recordId, null);
 	ctx.audit.log({
 		action: 'personnel.counseling_record.restored',
 		resourceType: 'personnel',
@@ -225,9 +308,11 @@ function mapCounselingRow(
 		title,
 		summary: summary || undefined,
 		status: row.archived_at ? 'archived' : row.file_path ? 'uploaded' : 'needs-title',
+		conductedBy: row.conducted_by ?? null,
 		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by ?? 'Leader upload'),
 		fileName: row.file_path ? fileNameFromPath(row.file_path) : `${row.id}.pdf`,
 		createdAt,
-		archivedAt: row.archived_at ?? null
+		archivedAt: row.archived_at ?? null,
+		archivedBy: optionalContributorLabel(contributorLabels, row.archived_by)
 	};
 }

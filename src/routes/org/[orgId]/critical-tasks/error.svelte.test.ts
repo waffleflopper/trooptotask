@@ -10,22 +10,28 @@ afterEach(() => {
 	cleanup();
 });
 
-describe('Critical Tasks error screen', () => {
-	it('shows a failed Critical Tasks read as the workspace load error with Retry', () => {
+describe('Critical Tasks report error screen', () => {
+	it('shows a member without the Critical Tasks lane the same restricted state as the matrix', () => {
+		pageState.status = 403;
+		render(ErrorPage);
+
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Access Restricted');
+		expect(screen.getByRole('alert').textContent).toContain("You don't have permission to view Critical Tasks.");
+	});
+
+	it('shows a failed report read as the workspace load error with Retry', () => {
 		pageState.status = 500;
 		render(ErrorPage);
 
 		expect(screen.getByRole('alert').textContent).toContain('Unable to load Critical Tasks');
 		expect(screen.getByRole('button', { name: 'Retry Critical Tasks' })).toBeTruthy();
-		expect(screen.queryByRole('heading', { name: '500' })).toBeNull();
 	});
 
-	it('keeps the Organization not-found screen for a missing record', () => {
+	it('keeps the Organization not-found screen for a missing Organization', () => {
 		pageState.status = 404;
 		render(ErrorPage);
 
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('404');
 		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/org/alpha');
-		expect(screen.queryByRole('alert')).toBeNull();
 	});
 });

@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TroopToTask — Arctic Ascent opener</title>
+<style>
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url(assets/fonts/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url(assets/fonts/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 800; src: url(assets/fonts/barlow-condensed-latin-800-normal.woff2); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url(assets/fonts/ibm-plex-mono-latin-400-normal.woff2); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 500; src: url(assets/fonts/ibm-plex-mono-latin-500-normal.woff2); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 600; src: url(assets/fonts/ibm-plex-mono-latin-600-normal.woff2); }
+@font-face { font-family: 'Source Serif 4'; font-weight: 400; src: url(assets/fonts/source-serif-4-latin-400-normal.woff2); }
+@font-face { font-family: 'Source Serif 4'; font-weight: 600; src: url(assets/fonts/source-serif-4-latin-600-normal.woff2); }
+@font-face { font-family: 'Source Serif 4'; font-weight: 400; font-style: italic; src: url(assets/fonts/source-serif-4-latin-400-italic.woff2); }
+
+:root {
+  --charcoal: oklch(14.7% 0.004 49.25);
+  --ivory: oklch(98.5% 0.001 106.423);
+  --ash: oklch(97% 0.001 106.424);
+  --stone: oklch(44.4% 0.011 73.639);
+  --parade: oklch(92.3% 0.003 48.717);
+  --field: oklch(21.6% 0.006 56.043);
+  --dark-field: oklch(26.8% 0.007 34.298);
+  --amber: oklch(66.6% 0.179 58.318);
+  --amber-hi: oklch(76.9% 0.188 70.08);
+  --red: oklch(57.7% 0.245 27.325);
+  --green: oklch(62.7% 0.194 149.214);
+  --blue: oklch(58.8% 0.158 241.966);
+  --chrome-text: oklch(95.2% 0.006 95);
+  --chrome-muted: oklch(72% 0.01 73.639);
+  --head: 'Barlow Condensed', sans-serif;
+  --body: 'Source Serif 4', serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; overflow: hidden; }
+#stage {
+  position: relative; width: 1920px; height: 1080px; overflow: hidden;
+  background: var(--charcoal); color: var(--chrome-text); font-family: var(--body);
+  transform-origin: 0 0;
+}
+.scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+.abs { position: absolute; }
+.kicker { font-family: var(--mono); font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber-hi); }
+.display { font-family: var(--head); font-weight: 800; text-transform: uppercase; line-height: 0.95; letter-spacing: 0.005em; }
+.amber { color: var(--amber-hi); }
+canvas#snow { position: absolute; inset: 0; pointer-events: none; z-index: 50; }
+#flash { position: absolute; inset: 0; background: var(--ivory); opacity: 0; z-index: 60; pointer-events: none; }
+#vignette { position: absolute; inset: 0; z-index: 55; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, oklch(0% 0 0 / 0.55) 100%); }
+
+/* Cold open */
+#cold-time { left: 160px; top: 330px; font-size: 30px; }
+#cold-line { left: 160px; top: 390px; font-size: 92px; color: var(--chrome-text); }
+#cold-q { left: 150px; top: 500px; font-size: 300px; color: var(--amber-hi); }
+
+/* Chaos windows */
+.win { position: absolute; background: var(--ivory); color: var(--charcoal); border-radius: 6px;
+  box-shadow: 0 30px 60px oklch(0% 0 0 / 0.55), 0 0 0 1px oklch(0% 0 0 / 0.25); overflow: hidden; }
+.win .bar { height: 34px; background: var(--parade); display: flex; align-items: center; gap: 7px; padding: 0 12px;
+  font-family: var(--mono); font-size: 14px; color: var(--stone); white-space: nowrap; }
+.win .bar i { width: 11px; height: 11px; border-radius: 50%; background: oklch(80% 0.01 60); display: inline-block; }
+.win .bar span { margin-left: 8px; }
+.sheet { display: grid; font-family: var(--mono); font-size: 13px; }
+.sheet div { border-right: 1px solid var(--parade); border-bottom: 1px solid var(--parade); padding: 5px 7px; white-space: nowrap; overflow: hidden; height: 27px; }
+.sheet .h { background: var(--ash); font-weight: 600; }
+.sheet .x { background: oklch(90% 0.06 25); color: var(--red); }
+.sheet .y { background: oklch(94% 0.07 85); }
+.chat { padding: 14px; display: flex; flex-direction: column; gap: 9px; font-family: system-ui, sans-serif; font-size: 18px; }
+.chat .b { background: var(--parade); padding: 8px 13px; border-radius: 16px; max-width: 85%; }
+.chat .me { align-self: flex-end; background: var(--blue); color: white; }
+.chat .who { font-size: 12px; color: var(--stone); margin-bottom: -6px; font-family: var(--mono); }
+.mail { padding: 16px 18px; font-size: 17px; line-height: 1.45; }
+.mail b { font-family: var(--head); font-size: 24px; display: block; margin-bottom: 6px; }
+.mail .meta { font-family: var(--mono); font-size: 12px; color: var(--stone); margin-bottom: 10px; }
+.board { background: oklch(97% 0.004 230); padding: 16px 20px; font-family: 'Comic Sans MS', 'Segoe Print', cursive; color: oklch(40% 0.15 260); font-size: 23px; line-height: 1.45; }
+.board .r { color: var(--red); }
+.sticky { position: absolute; background: oklch(90% 0.15 98); color: oklch(30% 0.05 80); padding: 18px 20px;
+  font-family: 'Comic Sans MS', 'Segoe Print', cursive; font-size: 30px; line-height: 1.1; box-shadow: 0 20px 40px oklch(0% 0 0 / 0.5); width: 220px; height: 200px; }
+.slide { padding: 26px; }
+.slide h4 { font-family: Arial, sans-serif; font-size: 30px; color: oklch(35% 0.12 260); border-bottom: 4px solid oklch(35% 0.12 260); padding-bottom: 6px; margin-bottom: 12px; }
+.slide li { font-family: Arial, sans-serif; font-size: 18px; margin-left: 22px; line-height: 1.6; }
+#clock { right: 90px; top: 60px; text-align: right; z-index: 30; background: oklch(14.7% 0.004 49.25 / 0.88); padding: 18px 26px 16px; border-radius: 6px; }
+#clock .t { font-family: var(--mono); font-weight: 600; font-size: 120px; color: var(--chrome-text); line-height: 1; text-shadow: 0 6px 30px oklch(0% 0 0 / 0.8); }
+#clock .l { font-size: 22px; margin-top: 6px; }
+#chaos-cap { left: 0; right: 0; bottom: 0; height: 620px; z-index: 31; padding: 0 140px 110px; display: flex; flex-direction: column; justify-content: flex-end;
+  background: linear-gradient(to top, oklch(14.7% 0.004 49.25 / 0.98) 45%, transparent); }
+#chaos-cap .display { font-size: 120px; }
+#chaos-cap .kicker { font-size: 24px; margin-bottom: 14px; }
+
+/* Logo */
+#logo-word { left: 0; right: 0; top: 380px; text-align: center; font-size: 240px; color: var(--ivory); letter-spacing: 0.01em; }
+#logo-bar { left: 50%; top: 640px; height: 10px; background: var(--amber); transform: translateX(-50%); }
+#logo-tag { left: 0; right: 0; top: 690px; text-align: center; font-size: 30px; }
+
+/* Screen shots */
+.shot { position: absolute; inset: 0; overflow: hidden; background: var(--charcoal); }
+.shot img { position: absolute; display: block; }
+.shot .shade { position: absolute; inset: 0; background: linear-gradient(to top, oklch(14.7% 0.004 49.25 / 0.96) 0%, oklch(14.7% 0.004 49.25 / 0.80) 26%, transparent 52%); }
+.cap { position: absolute; left: 130px; bottom: 105px; right: 130px; }
+.cap .kicker { font-size: 24px; margin-bottom: 12px; }
+.cap .display { font-size: 128px; color: var(--ivory); }
+.section-chip { position: absolute; top: 60px; left: 130px; font-family: var(--mono); font-size: 20px; letter-spacing: 0.14em;
+  padding: 10px 18px; border: 2px solid var(--amber-hi); color: var(--amber-hi); background: oklch(14.7% 0.004 49.25 / 0.85); border-radius: 4px; }
+.section-chip b { display: inline-block; width: 12px; height: 12px; background: var(--amber-hi); border-radius: 50%; margin-right: 12px; vertical-align: 1px; }
+
+/* Scope */
+#scope-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.dot { position: absolute; width: 22px; height: 22px; border-radius: 3px; background: var(--chrome-text); }
+.dot.lead { background: var(--amber-hi); }
+.dot-name { position: absolute; font-family: var(--mono); font-size: 7px; color: var(--chrome-text); white-space: nowrap; }
+.unit-label { position: absolute; font-family: var(--mono); font-size: 13px; letter-spacing: 0.12em; color: var(--chrome-muted); white-space: nowrap; }
+#scope-hud { left: 130px; top: 110px; z-index: 5; }
+#scope-hud .kicker { font-size: 24px; }
+#scope-role { font-size: 120px; color: var(--ivory); margin-top: 12px; }
+#scope-sees { font-family: var(--mono); font-size: 30px; color: var(--chrome-muted); margin-top: 16px; }
+#scope-sees b { color: var(--amber-hi); font-weight: 600; }
+#scope-cap { left: 0; right: 0; bottom: 0; padding: 0 130px 100px; z-index: 5; background: linear-gradient(to top, var(--charcoal) 35%, transparent); height: 380px; display: flex; flex-direction: column; justify-content: flex-end; }
+#scope-cap .display { font-size: 112px; color: var(--ivory); }
+
+/* Next */
+#next-word { left: 0; right: 0; top: 380px; text-align: center; font-size: 220px; }
+#next-sub { left: 0; right: 0; top: 620px; text-align: center; font-size: 30px; }
+
+/* Drop Zone */
+#drop { background: var(--ivory); color: var(--charcoal); }
+#dz-head { left: 110px; top: 70px; }
+#dz-head .kicker { color: var(--amber); font-size: 22px; }
+#dz-head .display { font-size: 104px; margin-top: 8px; }
+#dz-left { left: 110px; top: 300px; width: 780px; }
+#dz-mic { width: 128px; height: 128px; border-radius: 50%; background: var(--charcoal); position: relative; display: flex; align-items: center; justify-content: center; }
+#dz-mic svg { width: 56px; height: 56px; }
+.ring { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 3px solid var(--amber); transform: translate(-50%, -50%); }
+#dz-wave { position: absolute; left: 170px; top: 24px; height: 80px; display: flex; align-items: center; gap: 6px; }
+#dz-wave i { display: block; width: 8px; border-radius: 4px; background: var(--charcoal); }
+#dz-rec { position: absolute; left: 170px; top: -8px; font-family: var(--mono); font-size: 16px; color: var(--red); letter-spacing: 0.1em; }
+#dz-text { margin-top: 60px; font-size: 44px; line-height: 1.32; font-family: var(--body); min-height: 360px; }
+#dz-text .caret { display: inline-block; width: 4px; height: 44px; background: var(--amber); vertical-align: -6px; margin-left: 4px; }
+#dz-right { left: 980px; top: 70px; width: 830px; height: 940px; }
+#dz-parse { font-family: var(--mono); font-size: 18px; letter-spacing: 0.12em; color: var(--stone); height: 40px; }
+.card { position: relative; background: white; border: 1px solid var(--parade); border-radius: 6px; padding: 22px 26px 22px 30px; margin-top: 18px;
+  box-shadow: 0 10px 30px oklch(14.7% 0.004 49.25 / 0.08); overflow: hidden; }
+.card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--c, var(--amber)); }
+.card .lane { font-family: var(--mono); font-size: 15px; letter-spacing: 0.12em; color: var(--stone); }
+.card .lane b { color: var(--c); font-weight: 600; }
+.card .who { font-family: var(--head); font-weight: 700; font-size: 36px; margin-top: 6px; }
+.card .what { font-size: 23px; color: var(--stone); margin-top: 2px; }
+.card .note { font-family: var(--mono); font-size: 15px; margin-top: 10px; color: var(--green); }
+.card .stamp { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-weight: 600; font-size: 18px;
+  letter-spacing: 0.1em; color: white; background: var(--green); padding: 8px 14px; border-radius: 4px; }
+.card .pending { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: 16px; letter-spacing: 0.1em; color: var(--stone);
+  border: 1px dashed var(--stone); padding: 7px 12px; border-radius: 4px; }
+#dz-foot { margin-top: 28px; display: flex; align-items: center; justify-content: space-between; }
+#dz-foot .msg { font-size: 22px; font-style: italic; color: var(--stone); }
+#dz-btn { font-family: var(--body); font-size: 24px; background: var(--charcoal); color: var(--ivory); padding: 16px 28px; border-radius: 6px; }
+#dz-timer { left: 700px; top: 96px; text-align: right; width: 220px; }
+#dz-timer .t { font-family: var(--mono); font-weight: 600; font-size: 64px; }
+#dz-timer .l { font-family: var(--mono); font-size: 15px; letter-spacing: 0.14em; color: var(--stone); }
+#dz-cap { left: 0; right: 0; bottom: 0; height: 330px; padding: 0 110px 90px; display: flex; flex-direction: column; justify-content: flex-end; z-index: 5;
+  background: linear-gradient(to top, var(--charcoal) 55%, transparent); color: var(--ivory); }
+#dz-cap .display { font-size: 104px; }
+
+/* AI rapid fire */
+#ai-kick { left: 130px; top: 110px; font-size: 26px; }
+.ai { position: absolute; left: 130px; right: 130px; top: 230px; }
+.ai .verb { font-size: 300px; color: var(--amber-hi); transform-origin: left center; }
+.ai .q { font-size: 80px; line-height: 1.15; font-style: italic; color: var(--ivory); margin-top: 34px; }
+.ai .a { font-family: var(--mono); font-size: 34px; color: var(--chrome-muted); margin-top: 44px; }
+.ai .a b { color: var(--amber-hi); font-weight: 600; }
+#ai-recap { left: 0; right: 0; top: 440px; text-align: center; font-size: 170px; color: var(--ivory); }
+#ai-recap span { display: inline-block; }
+
+/* Bookend */
+#bk-time { left: 160px; top: 330px; font-size: 30px; }
+#bk-q { left: 150px; top: 400px; font-size: 300px; color: var(--amber-hi); transform-origin: left center; }
+
+/* Testimonials */
+#vo-mark { left: 70px; top: -120px; font-size: 900px; color: var(--amber); opacity: 0.07; }
+#vo-kick { left: 150px; top: 230px; font-size: 26px; }
+.vo { position: absolute; left: 150px; right: 150px; top: 310px; }
+.vo .line { display: block; width: max-content; font-size: 100px; line-height: 1.02; color: var(--ivory); transform-origin: left center; }
+.vo .line b { font-weight: inherit; color: var(--amber-hi); }
+.vo .who { font-size: 28px; color: var(--chrome-muted); margin-top: 40px; }
+#vo-units { left: 150px; top: 920px; display: flex; gap: 64px; font-family: var(--mono); font-size: 26px;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome-muted); }
+#vo-units span::before { content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  background: currentColor; margin-right: 16px; vertical-align: 2px; }
+
+/* Close */
+.close-line { left: 0; right: 0; text-align: center; }
+#close-1 { top: 300px; font-size: 150px; color: var(--chrome-muted); }
+#close-2 { top: 460px; font-size: 150px; color: var(--ivory); }
+#close-3 { top: 340px; font-size: 300px; color: var(--amber-hi); }
+#close-3s { top: 300px; font-size: 40px; }
+#end-word { left: 0; right: 0; top: 360px; text-align: center; font-size: 200px; color: var(--ivory); }
+#end-bar { left: 50%; top: 580px; height: 8px; background: var(--amber); transform: translateX(-50%); }
+#close-tag { top: 700px; font-size: 52px; font-style: italic; color: var(--chrome-text); }
+#close-tag span { display: inline-block; }
+#end-event { left: 0; right: 0; top: 650px; text-align: center; font-size: 22px; color: var(--chrome-muted); }
+#end-credit { left: 0; right: 0; top: 1030px; text-align: center; font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--chrome-muted); }
+
+/* Preview controls (hidden while rendering) */
+#controls { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: #111; color: #ddd; font: 13px monospace; z-index: 100; }
+#controls input[type=range] { flex: 1; }
+body.rendering #controls { display: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="snow" width="1920" height="1080"></canvas>
+  <div id="vignette"></div>
+  <div id="flash"></div>
+
+  <!-- 1 · Cold open -->
+  <section class="scene" id="cold">
+    <div class="abs kicker" id="cold-time"></div>
+    <div class="abs display" id="cold-line">Every leader needs one answer.</div>
+    <div class="abs display" id="cold-q">Who's ready?</div>
+  </section>
+
+  <!-- 2 · Chaos -->
+  <section class="scene" id="chaos">
+    <div class="abs" id="chaos-world" style="inset:0"></div>
+    <div class="abs" id="clock"><div class="t">05:47</div><div class="kicker l">Still looking</div></div>
+    <div class="abs" id="chaos-cap">
+      <div class="kicker">The answer exists</div>
+      <div class="display" id="chaos-cap-1">Scattered across every tracker.</div>
+    </div>
+  </section>
+
+  <!-- 3 · Logo -->
+  <section class="scene" id="logo">
+    <div class="abs display" id="logo-word">TroopToTask</div>
+    <div class="abs" id="logo-bar"></div>
+    <div class="abs kicker" id="logo-tag">Every tracker · one formation · one source of truth</div>
+  </section>
+
+  <!-- 4 · Today -->
+  <section class="scene" id="today"></section>
+
+  <!-- 5 · Scoped access -->
+  <section class="scene" id="scope">
+    <div id="scope-world"></div>
+    <div class="abs" id="scope-hud">
+      <div class="kicker">Scoped access · built in</div>
+      <div class="display" id="scope-role">Commander · 1SG</div>
+      <div id="scope-sees">Sees <b id="scope-n">the whole formation</b></div>
+    </div>
+    <div class="abs" id="scope-cap">
+      <div class="kicker" style="font-size:24px;margin-bottom:12px">Decentralized, like mission command</div>
+      <div class="display">Every leader owns their piece.</div>
+    </div>
+  </section>
+
+  <!-- 6 · Next -->
+  <section class="scene" id="next">
+    <div class="abs display" id="next-word">What's next</div>
+    <div class="abs kicker" id="next-sub">In design now · built on the same foundation</div>
+  </section>
+
+  <!-- 7 · Personnel details (next) -->
+  <section class="scene" id="pdetail"></section>
+
+  <!-- 8 · Drop Zone -->
+  <section class="scene" id="drop">
+    <div class="abs" id="dz-head"><div class="kicker">Next · Drop Zone · AI</div><div class="display">Just say it.</div></div>
+    <div class="abs" id="dz-left">
+      <div style="position:relative">
+        <div id="dz-mic">
+          <div class="ring" id="dz-r1"></div><div class="ring" id="dz-r2"></div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><path d="M12 18v4"/></svg>
+        </div>
+        <div id="dz-rec">● LISTENING</div>
+        <div id="dz-wave"></div>
+      </div>
+      <div id="dz-text"></div>
+    </div>
+    <div class="abs" id="dz-right">
+      <div id="dz-parse">&nbsp;</div>
+      <div id="dz-ghost" class="abs" style="left:0;right:0;top:58px;height:560px;border:2px dashed var(--parade);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:18px;letter-spacing:0.12em;color:var(--stone)">CHANGES APPEAR HERE FOR REVIEW</div>
+      <div id="dz-cards"></div>
+      <div id="dz-foot"><div class="msg">Nothing changes until you approve.</div><div id="dz-btn">Approve 3 changes</div></div>
+    </div>
+    <div class="abs" id="dz-timer"><div class="t">0:00</div><div class="l">Elapsed</div></div>
+    <div class="abs" id="dz-cap">
+      <div class="kicker" style="font-size:24px;margin-bottom:12px">Brain dump in · updates out · you stay in command</div>
+      <div class="display">Admin updates. Done in seconds.</div>
+    </div>
+  </section>
+
+  <!-- 9 · Events & Taskings -->
+  <section class="scene" id="tasking"></section>
+
+  <!-- 10 · AI rapid fire -->
+  <section class="scene" id="ai">
+    <div class="abs kicker" id="ai-kick">Next · AI across the platform</div>
+    <div class="ai"><div class="display verb">Ask</div><div class="q">“Who can make the range Tuesday?”</div><div class="a">→ <b>3 Soldiers</b> · available · qual expiring</div></div>
+    <div class="ai"><div class="display verb">Brief</div><div class="q">“Build my training meeting slides.”</div><div class="a">→ <b>Deck drafted</b> from live data</div></div>
+    <div class="ai"><div class="display verb">Forecast</div><div class="q">“Who still needs to do their AFT and Weapons Qual before JPMRC?”</div><div class="a">→ <b>12 Soldiers</b> · 8 AFT · 6 Weapons Qual</div></div>
+    <div class="ai"><div class="display verb">Fill</div><div class="q">“Who covers the trauma lane?”</div><div class="a">→ <b>Qualified</b> · available · fair rotation</div></div>
+    <div class="abs display" id="ai-recap"><span>Ask.</span> <span>Brief.</span> <span>Forecast.</span> <span>Fill.</span></div>
+  </section>
+
+  <!-- 11 · Bookend: the opening question, answered -->
+  <section class="scene" id="bookend">
+    <div class="abs kicker" id="bk-time"></div>
+    <div class="abs display" id="bk-q">Who's ready?</div>
+  </section>
+
+  <!-- 12 · Testimonials: three leaders, each line stamped on the beat -->
+  <section class="scene" id="voices">
+    <div class="abs display" id="vo-mark">“</div>
+    <div class="abs kicker" id="vo-kick">From leaders using it today</div>
+    <div class="vo">
+      <span class="display line">“There are so many times in my career</span>
+      <span class="display line">that I could <b>really have benefited</b></span>
+      <span class="display line">from this website.”</span>
+      <div class="kicker who">CPT · Former company commander · MEDDAC-AK</div>
+    </div>
+    <div class="vo">
+      <span class="display line">“It really feels like our company’s</span>
+      <span class="display line">MEDPROS and training delinquencies</span>
+      <span class="display line"><b>disappeared overnight.</b>”</span>
+      <div class="kicker who">18th CSSB</div>
+    </div>
+    <div class="vo">
+      <span class="display line">“It’s like I have a cheat code.</span>
+      <span class="display line">I went from spending half my day<br>on administrative tasks to nearly</span>
+      <span class="display line"><b>all my day with the Soldiers.</b>”</span>
+      <div class="kicker who">SFC · 1-43 ADA</div>
+    </div>
+    <div class="abs" id="vo-units"><span>JBER, Alaska</span><span>Grafenwöhr, Germany</span><span>Fort Bliss, Texas</span></div>
+  </section>
+
+  <!-- 13 · Close -->
+  <section class="scene" id="close">
+    <div class="abs display close-line" id="close-1">Less time on admin.</div>
+    <div class="abs display close-line" id="close-2">More time with Soldiers.</div>
+    <div class="abs kicker close-line" id="close-3s">That's</div>
+    <div class="abs display close-line" id="close-3">Readiness.</div>
+    <div class="abs close-line" id="close-tag"><span>Less admin.</span> <span>More training.</span> <span>A more ready force.</span></div>
+    <div class="abs display" id="end-word">TroopToTask</div>
+    <div class="abs" id="end-bar"></div>
+    <div class="abs kicker" id="end-event">Arctic Ascent 2026 · 11th Airborne Division</div>
+    <div class="abs" id="end-credit">Music: “Vanguard” by Scott Buckley · released under CC BY 4.0 · www.scottbuckley.com.au · edited</div>
+  </section>
+</div>
+
+<div id="controls"><button id="play">▶</button><input id="scrub" type="range" min="0" max="140" step="0.01" value="0"><span id="tlabel">0.00</span></div>
+
+<script>
+// ---------- Timing helpers ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const eOut = (p) => 1 - Math.pow(1 - p, 3);
+const eIn = (p) => p * p * p;
+const eInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const eExpo = (p) => (p === 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const $ = (id) => document.getElementById(id);
+// Deterministic pseudo-random
+const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+// Reveal: fades and lifts an element in over [a, a+d], optionally out over [o, o+od].
+function reveal(el, t, a, d = 0.45, o = Infinity, od = 0.3, dy = 40) {
+  const pin = eOut(prog(t, a, a + d));
+  const pout = o === Infinity ? 0 : eIn(prog(t, o, o + od));
+  el.style.opacity = pin * (1 - pout);
+  el.style.transform = (el.dataset.base || '') + ` translateY(${(1 - pin) * dy - pout * 20}px)`;
+}
+// Clip-wipe a headline in from the left.
+function wipe(el, t, a, d = 0.4, o = Infinity, od = 0.25) {
+  const pin = eExpo(prog(t, a, a + d));
+  const pout = o === Infinity ? 0 : eIn(prog(t, o, o + od));
+  el.style.clipPath = `inset(0 ${(1 - pin) * 100}% 0 0)`;
+  el.style.opacity = 1 - pout;
+}
+
+// ---------- Timeline ----------
+// Cut to Vanguard's bar grid (133⅓ BPM, 1.8 s bars): every scene boundary is a downbeat.
+const T = {
+  cold: [0, 4], chaos: [4, 13], logo: [13, 16.6], today: [16.6, 31], scope: [31, 45.4], next: [45.4, 49],
+  pdetail: [49, 58], drop: [58, 74.2], tasking: [74.2, 83.2], ai: [83.2, 99.4], bookend: [99.4, 110.2],
+  voices: [110.2, 124.6], close: [124.6, 140],
+};
+const DURATION = 140;
+
+// ---------- Snow ----------
+const snow = $('snow').getContext('2d');
+const FLAKES = Array.from({ length: 220 }, (_, i) => ({
+  x: rnd(i) * 1920, y: rnd(i + 999) * 1080, r: 0.8 + rnd(i + 77) * 2.6, v: 25 + rnd(i + 5) * 70, w: 0.3 + rnd(i + 3) * 1.2, ph: rnd(i + 8) * 6.28,
+}));
+function drawSnow(t, alpha) {
+  snow.clearRect(0, 0, 1920, 1080);
+  if (alpha <= 0) return;
+  for (const f of FLAKES) {
+    const y = (f.y + t * f.v) % 1100 - 10;
+    const x = (f.x + Math.sin(t * f.w + f.ph) * 30 + t * 12) % 1940 - 10;
+    snow.fillStyle = `rgba(250,250,245,${alpha * (0.25 + f.r / 5)})`;
+    snow.beginPath(); snow.arc(x, y, f.r, 0, 6.283); snow.fill();
+  }
+}
+
+// ---------- Screenshot shots with camera moves ----------
+// cam: {x, y, s} — x/y = normalized focus point placed at frame center, s = image width / 1920.
+function makeShot(parent, src, w, h, kicker, headline, chip) {
+  const el = document.createElement('div');
+  el.className = 'shot';
+  el.innerHTML = `<img src="${src}"><div class="shade"></div>
+    ${chip ? `<div class="section-chip"><b></b>${chip}</div>` : ''}
+    <div class="cap"><div class="kicker">${kicker}</div><div class="display">${headline}</div></div>`;
+  parent.appendChild(el);
+  return { el, img: el.querySelector('img'), w, h, kick: el.querySelector('.kicker'), head: el.querySelector('.display'), chip: el.querySelector('.section-chip') };
+}
+function camera(shot, from, to, p) {
+  const e = eInOut(p);
+  const s = lerp(from.s, to.s, e), x = lerp(from.x, to.x, e), y = lerp(from.y, to.y, e);
+  const dw = 1920 * s, dh = dw * shot.h / shot.w;
+  shot.img.style.width = dw + 'px';
+  shot.img.style.left = (960 - x * dw) + 'px';
+  shot.img.style.top = (540 - y * dh) + 'px';
+}
+// Plays a sequence of shots inside [start, end) of local time.
+function playShots(shots, lt) {
+  for (const s of shots) {
+    const on = lt >= s.a && lt < s.b;
+    s.shot.el.style.display = on ? 'block' : 'none';
+    if (!on) continue;
+    const l = lt - s.a, len = s.b - s.a;
+    camera(s.shot, s.from, s.to, l / len);
+    // punch-in transition
+    const pin = eOut(prog(l, 0, 0.35));
+    s.shot.el.style.opacity = pin;
+    s.shot.el.style.transform = `scale(${lerp(1.04, 1, pin)})`;
+    wipe(s.shot.head, l, 0.25, 0.5);
+    reveal(s.shot.kick, l, 0.1, 0.35, Infinity, 0.3, 14);
+    if (s.shot.chip) reveal(s.shot.chip, l, 0, 0.3, Infinity, 0.3, -10);
+  }
+}
+
+const today = $('today');
+const TODAY_SHOTS = [
+  { a: 0, b: 3.6, shot: makeShot(today, 'assets/dashboard.jpg', 2000, 1664, 'Dashboard', 'The whole formation.<br>One glance.', 'AVAILABLE TODAY'),
+    from: { x: 0.40, y: 0.17, s: 1.25 }, to: { x: 0.33, y: 0.15, s: 1.6 } },
+  { a: 3.6, b: 7.2, shot: makeShot(today, 'assets/calendar.jpg', 2000, 1372, 'Calendar', "Who's where.<br>Every day.", 'AVAILABLE TODAY'),
+    from: { x: 0.62, y: 0.52, s: 1.15 }, to: { x: 0.56, y: 0.55, s: 1.55 } },
+  { a: 7.2, b: 10.8, shot: makeShot(today, 'assets/training-live.jpg', 1732, 1028, 'Training · critical tasks · onboarding · evals', 'Nothing expires<br>quietly.', 'AVAILABLE TODAY'),
+    from: { x: 0.45, y: 0.28, s: 1.2 }, to: { x: 0.5, y: 0.42, s: 1.45 } },
+  { a: 10.8, b: 14.4, shot: makeShot(today, 'assets/training-reports.jpg', 1555, 1316, 'Training reports · 180-day forecast', 'See the drop<br>before it lands.', 'AVAILABLE TODAY'),
+    from: { x: 0.385, y: 0.256, s: 1.3 }, to: { x: 0.5, y: 0.34, s: 1.0 } },
+];
+
+const pdetail = $('pdetail');
+const PDETAIL_SHOTS = [
+  { a: 0, b: 4.5, shot: makeShot(pdetail, 'assets/personnel.jpg', 2000, 1819, 'Next · Personnel details', 'Every Soldier.<br>One page.', 'IN DESIGN'),
+    from: { x: 0.36, y: 0.16, s: 1.35 }, to: { x: 0.40, y: 0.32, s: 1.55 } },
+  { a: 4.5, b: 9, shot: makeShot(pdetail, 'assets/readiness.jpg', 1994, 2000, 'Next · Personnel details', 'What needs action.<br>Most urgent first.', 'IN DESIGN'),
+    from: { x: 0.40, y: 0.30, s: 1.6 }, to: { x: 0.40, y: 0.40, s: 1.85 } },
+];
+
+const tasking = $('tasking');
+const TASKING_SHOTS = [
+  { a: 0, b: 4.5, shot: makeShot(tasking, 'assets/taskings.jpg', 2000, 1250, 'Next · Events & Taskings', 'Every tasking.<br>Tracked to done.', 'IN DESIGN'),
+    from: { x: 0.55, y: 0.40, s: 1.3 }, to: { x: 0.52, y: 0.48, s: 1.55 } },
+  { a: 4.5, b: 9, shot: makeShot(tasking, 'assets/assign-alpha.jpg', 2000, 1250, 'Next · Events & Taskings', 'Staffed, equipped,<br>on time.', 'IN DESIGN'),
+    from: { x: 0.5, y: 0.45, s: 1.0 }, to: { x: 0.56, y: 0.4, s: 1.15 } },
+];
+
+const BOOKEND_SHOTS = [
+  { a: 3.6, b: 10.8, shot: makeShot($('bookend'), 'assets/dashboard.jpg', 2000, 1664, 'Same question · one screen', 'Answered.<br>Before formation.', '0548 · ANSWERED'),
+    from: { x: 0.29, y: 0.15, s: 2.4 }, to: { x: 0.47, y: 0.27, s: 1.15 } },
+];
+
+// ---------- Chaos windows ----------
+const sheet = (cols, rows, marks = {}) => {
+  let html = `<div class="sheet" style="grid-template-columns:${cols.map((c) => c[1] + 'px').join(' ')}">`;
+  html += cols.map((c) => `<div class="h">${c[0]}</div>`).join('');
+  rows.forEach((r, ri) => r.forEach((v, ci) => { const m = marks[`${ri},${ci}`] || ''; html += `<div class="${m}">${v}</div>`; }));
+  return html + '</div>';
+};
+const WINDOWS = [
+  { x: 120, y: 120, w: 640, r: -3, title: 'LEAVE_TRACKER_FINAL_v7.xlsx', body: sheet([['NAME', 170], ['FROM', 120], ['TO', 120], ['TYPE', 110], ['APPR', 120]],
+    [['OKAFOR', '21 OCT', '23 OCT', 'ORD', '??'], ['ORTIZ', '19 OCT', '—', 'PCS', 'Y'], ['HADDAD', '16 OCT', '20 OCT', 'ORD', 'Y'], ['GRANT', '—', '—', 'APPT', ''], ['MENSAH', '21 OCT', '28 OCT', 'ORD', 'N'], ['KIM', '#REF!', '#REF!', '', '']], { '0,4': 'y', '5,1': 'x', '5,2': 'x' }) },
+  { x: 1060, y: 380, w: 700, r: 2.5, title: 'DTMS_export_SEP (2).csv', body: sheet([['SOLDIER', 160], ['CPR', 120], ['SHARP', 120], ['M4', 140], ['ACFT', 160]],
+    [['ALVAREZ', 'CUR', 'CUR', 'CUR', '512'], ['OKAFOR', 'EXPIRED', '—', '27 OCT', '488'], ['NGUYEN', 'CUR', 'CUR', 'CUR', '??'], ['PATEL', 'EXPIRED', 'CUR', 'CUR', '530'], ['BROOKS', '—', '—', '—', '—']], { '1,1': 'x', '3,1': 'x', '1,3': 'y' }) },
+  { x: 700, y: 90, w: 430, r: 1.5, title: 'Messages · PLT LEADERSHIP', body: `<div class="chat"><div class="who">SSG ALVAREZ</div><div class="b">who has CQ tonight??</div><div class="who">SGT KIM</div><div class="b">is Patel back from CLS?</div><div class="b me">need 4 medics NLT 1700</div><div class="who">SFC WHITAKER</div><div class="b">which spreadsheet is current</div></div>` },
+  { x: 240, y: 540, w: 620, r: 2, title: 'Outlook · Inbox (214)', body: `<div class="mail"><div class="meta">FROM: BN S3 · TO: CO CMD TEAM · HIGH PRIORITY</div><b>RE: RE: FW: TASKING — BMC LANE SUPPORT</b>Need names for 4x trauma lane medics + 3x graders (E-6+) NLT COB. Confirm equipment on hand. Disregard previous…</div>` },
+  { x: 1240, y: 70, w: 540, r: -2, title: 'Whiteboard · CQ / STAFF DUTY', body: `<div class="board">MON — HALE<br>TUE — <span class="r">???</span><br>WED — PATEL <span class="r">(school?)</span><br>THU — KIM → swap w/ ROSS<br>FRI — <s>OKAFOR</s> <span class="r">LEAVE</span></div>` },
+  { x: 60, y: 300, w: 520, r: 3, title: 'Appointments (DON\'T DELETE).xlsx', body: sheet([['NAME', 150], ['APPT', 210], ['DATE', 160]],
+    [['GRANT', 'Dental Class 2', '22 OCT'], ['NOVAK', 'PT profile f/u', '?'], ['BROOKS', 'In-proc — CIF', '19 OCT'], ['LIANG', 'BH', 'Weds']], { '1,2': 'y' }) },
+  { x: 880, y: 600, w: 600, r: -1.5, title: 'Training Meeting WK42 (final)(2).pptx', body: `<div class="slide"><h4>Training Status — WK 42</h4><ul><li>CPR: 6 expired (see tracker?)</li><li>Range 14 OCT — roster TBD</li><li>BMC 19–23 OCT — taskings pending</li><li>ETS: Ortiz, Grant, Mensah</li></ul></div>` },
+  { x: 1380, y: 640, w: 440, r: 3.5, title: 'Messages · SL CHAT', body: `<div class="chat"><div class="who">1SG</div><div class="b">send me ur ppl's ACFT scores by 1200</div><div class="who">SSG PIKE</div><div class="b">which format</div><div class="who">1SG</div><div class="b">the new one</div></div>` },
+  { x: 520, y: 330, w: 560, r: -2.5, title: 'Counseling tracker.xlsx', body: sheet([['SOLDIER', 160], ['LAST', 150], ['BY', 120], ['DUE', 130]],
+    [['OKAFOR', '12 SEP', 'ALVAREZ', '12 OCT'], ['NGUYEN', '—', '—', 'OVERDUE'], ['PATEL', '3 AUG', 'ALVAREZ', 'OVERDUE'], ['FISCHER', '28 SEP', 'PIKE', '28 OCT']], { '1,3': 'x', '2,3': 'x' }) },
+  { x: 1180, y: 300, w: 520, r: 1, title: 'Outlook · Inbox (215)', body: `<div class="mail"><div class="meta">FROM: BDE S1 · SUSPENSE: TUE</div><b>SUSPENSE: QTR MEDICAL READINESS SLIDES</b>Please provide updated numbers by unit. Use attached template v3 (not v2).</div>` },
+];
+const STICKIES = [
+  { x: 1650, y: 420, r: 6, text: 'ETS ORTIZ<br>19 NOV!!' },
+  { x: 90, y: 820, r: -7, text: 'CPR<br>recert ??<br>— Patel' },
+  { x: 1000, y: 830, r: 4, text: 'who has<br>the aid<br>bags?' },
+];
+const chaosWorld = $('chaos-world');
+const chaosEls = [];
+WINDOWS.forEach((w, i) => {
+  const el = document.createElement('div');
+  el.className = 'win';
+  el.style.cssText = `left:${w.x}px;top:${w.y}px;width:${w.w}px`;
+  el.innerHTML = `<div class="bar"><i></i><i></i><i></i><span>${w.title}</span></div>${w.body}`;
+  chaosWorld.appendChild(el);
+  chaosEls.push({ el, r: w.r, at: 0.15 + i * 0.4, cx: w.x + w.w / 2, cy: w.y + 150 });
+});
+STICKIES.forEach((s, i) => {
+  const el = document.createElement('div');
+  el.className = 'sticky';
+  el.style.cssText = `left:${s.x}px;top:${s.y}px`;
+  el.innerHTML = s.text;
+  chaosWorld.appendChild(el);
+  chaosEls.push({ el, r: s.r, at: 1.0 + i * 1.2, cx: s.x + 110, cy: s.y + 100 });
+});
+
+// ---------- Scope formation ----------
+// Company: HQ + 3 platoons. Platoon = PL/PSG + 3 squads; squad = SL + 2 teams of 4 (TL + 3).
+const world = $('scope-world');
+const DOT = 22, GAP = 8;
+const dots = [];
+const NAMES = ['SGT Okafor', 'SPC Nguyen', 'SPC Patel', 'PFC Brooks', 'SGT Kim', 'SPC Ortiz', 'SPC Liang', 'PFC Grant'];
+function addDot(x, y, tags, lead) {
+  const el = document.createElement('div');
+  el.className = 'dot' + (lead ? ' lead' : '');
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  world.appendChild(el);
+  dots.push({ el, tags });
+  return el;
+}
+function addLabel(x, y, text, size) {
+  const el = document.createElement('div');
+  el.className = 'unit-label'; el.textContent = text;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  if (size) el.style.fontSize = size + 'px';
+  world.appendChild(el);
+  return el;
+}
+const PLT_W = 3 * (2 * 4 * (DOT + GAP)) / 2; // layout computed below
+const plts = ['HQ', '1ST PLT', '2ND PLT', '3RD PLT'];
+const BOX = {};
+let px = 0;
+plts.forEach((name, pi) => {
+  const x0 = px, y0 = 40;
+  addLabel(x0, 0, name);
+  addDot(x0, y0, ['co', 'p' + pi], true); // PL/PSG
+  addDot(x0 + DOT + GAP, y0, ['co', 'p' + pi], true);
+  if (pi === 0) {
+    // HQ: CO CDR, 1SG, XO + 9 HQ soldiers in 3 rows
+    for (let i = 0; i < 12; i++) addDot(x0 + (i % 4) * (DOT + GAP), y0 + 50 + Math.floor(i / 4) * (DOT + GAP), ['co', 'p0'], false);
+    BOX.p0 = { x: x0, y: 0, w: 4 * (DOT + GAP), h: 200 };
+    px += 4 * (DOT + GAP) + 90;
+    return;
+  }
+  for (let s = 0; s < 3; s++) {
+    const sx = x0 + s * (2 * (DOT + GAP) + 28), sy = y0 + 50;
+    addDot(sx, sy, ['co', 'p' + pi, `p${pi}s${s}`], true); // SL
+    for (let tm = 0; tm < 2; tm++) {
+      for (let m = 0; m < 4; m++) {
+        const el = addDot(sx + tm * (DOT + GAP), sy + 40 + m * (DOT + GAP), ['co', 'p' + pi, `p${pi}s${s}`, `p${pi}s${s}t${tm}`], m === 0);
+        if (pi === 2 && s === 1 && tm === 0) {
+          const n = document.createElement('div');
+          n.className = 'dot-name'; n.textContent = NAMES[m];
+          n.style.left = (sx + tm * (DOT + GAP) - 50) + 'px'; n.style.top = (sy + 40 + m * (DOT + GAP) + 7) + 'px';
+          n.dataset.team = '1'; world.appendChild(n);
+        }
+      }
+    }
+    if (pi === 2) BOX[`p2s${s}`] = { x: sx, y: sy, w: 2 * (DOT + GAP), h: 40 + 4 * (DOT + GAP) };
+  }
+  BOX['p' + pi] = { x: x0, y: 0, w: 3 * (2 * (DOT + GAP) + 28), h: 260 };
+  px += 3 * (2 * (DOT + GAP) + 28) + 90;
+});
+BOX.co = { x: 0, y: 0, w: px - 90, h: 260 };
+BOX.p2s1t0 = { x: BOX.p2s1.x - 40, y: BOX.p2s1.y + 40, w: DOT + 50, h: 4 * (DOT + GAP) };
+const teamNames = [...world.querySelectorAll('[data-team]')];
+const unitLabels = [...world.querySelectorAll('.unit-label')];
+const SCOPE_STEPS = [
+  { at: 0, tag: 'co', role: 'Commander · 1SG', sees: 'the whole formation', box: BOX.co },
+  { at: 2.7, tag: 'p2', role: 'Platoon Sergeant', sees: 'their platoon', box: BOX.p2 },
+  { at: 5.4, tag: 'p2s1', role: 'Squad Leader', sees: 'their squad', box: BOX.p2s1 },
+  { at: 8.1, tag: 'p2s1t0', role: 'Team Leader', sees: 'their Soldiers', box: BOX.p2s1t0 },
+];
+function scopeCam(box, fill) {
+  // fit box into the right 60% of the frame
+  const vw = 1920 * 0.62, vh = 1080 * 0.55;
+  const s = Math.min(vw / box.w, vh / box.h) * fill;
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  return { s, x: 1920 * 0.63 - cx * s, y: 1080 * 0.5 - cy * s };
+}
+
+// ---------- Drop Zone ----------
+// Robert's recording (assets/voice) starts at local 0.16; words carry its timings, typed as he says them.
+const DZ_VOICE_AT = 0.16;
+const DZ_WORDS = [
+  ['Okafor', 0.54, 1.06], ['is', 1.06, 1.22], ['on', 1.22, 1.32], ['leave', 1.32, 1.52], ['Wednesday', 1.52, 1.88], ['through', 1.88, 2.08], ['Friday.', 2.08, 2.46],
+  ['Patel', 2.64, 2.82], ['recerted', 2.82, 3.3], ['CPR', 3.3, 3.56], ['this', 3.56, 3.78], ['morning,', 3.78, 4.1], ['and', 4.26, 4.34], ['I', 4.34, 4.48],
+  ['still', 4.48, 4.72], ['need', 4.72, 4.88], ['one', 4.88, 5.1], ['more', 5.1, 5.28], ['medic', 5.28, 5.52], ['for', 5.52, 5.7], ['the', 5.7, 5.84],
+  ['trauma', 5.84, 6.0], ['lane', 6.0, 6.22], ['Monday.', 6.22, 6.52],
+];
+const DZ_TEXT = DZ_WORDS.map((w) => w[0]).join(' ');
+// voice level at 30 fps from the same recording, drives the waveform
+const DZ_ENV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.63, 0.81, 0.67, 0.0, 0.39, 0.73, 0.54, 0.11, 0.0, 0.71, 0.76, 0.74, 0.76, 0.6, 0.3, 0.72, 0.73, 0.73, 0.74, 0.76, 0.75, 0.7, 0.71, 0.73, 0.68, 0.46, 0.06, 0.49, 0.71, 0.71, 0.71, 0.72, 0.62, 0.14, 0.39, 0.71, 0.69, 0.62, 0.0, 0.12, 0.61, 0.54, 0.19, 0.0, 0.0, 0.61, 0.61, 0.6, 0.62, 0.63, 0.63, 0.63, 0.62, 0.62, 0.63, 0.49, 0.0, 0.0, 0.59, 0.4, 0.39, 0.54, 0.71, 0.66, 0.67, 0.62, 0.65, 0.69, 0.7, 0.6, 0.47, 0.41, 0.53, 0.68, 0.69, 0.67, 0.53, 0.16, 0.31, 0.26, 0.58, 0.56, 0.0, 0.07, 0.56, 0.67, 0.66, 0.66, 0.53, 0.55, 0.57, 0.47, 0.48, 0.09, 0.0, 0.66, 0.67, 0.7, 0.71, 0.71, 0.7, 0.69, 0.68, 0.66, 0.65, 0.57, 0.5, 0.6, 0.66, 0.64, 0.62, 0.64, 0.64, 0.6, 0.41, 0.41, 0.41, 0.3, 0.23, 0.61, 0.69, 0.72, 0.7, 0.69, 0.67, 0.58, 0.55, 0.66, 0.66, 0.69, 0.67, 0.69, 0.68, 0.7, 0.68, 0.67, 0.68, 0.64, 0.67, 0.69, 0.65, 0.61, 0.62, 0.63, 0.64, 0.43, 0.23, 0.08, 0.0, 0.59, 0.6, 0.67, 0.36, 0.28, 0.1, 0.63, 0.67, 0.67, 0.65, 0.67, 0.64, 0.62, 0.6, 0.61, 0.6, 0.6, 0.6, 0.62, 0.62, 0.59, 0.59, 0.6, 0.59, 0.56, 0.59, 0.57, 0.57, 0.36, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+function dzTyped(lt) {
+  const t = lt - DZ_VOICE_AT;
+  let n = 0;
+  for (const [w, a, b] of DZ_WORDS) {
+    if (t < a) break;
+    n += (n ? 1 : 0) + Math.round(w.length * prog(t, a, b));
+    if (t < b) break;
+  }
+  return n;
+}
+const DZ_CARDS = [
+  { c: 'var(--green)', lane: 'Calendar', act: 'Add status', who: 'SGT Okafor, Daniel', what: 'Leave · Wed 21 – Fri 23 Oct', note: '✓ No duty or tasking conflicts' },
+  { c: 'var(--blue)', lane: 'Training', act: 'Log completion', who: 'SPC Patel, Ravi', what: 'CPR / BLS · completed today', note: '✓ Current through Oct 2028' },
+  { c: 'var(--amber)', lane: 'Taskings', act: 'Assign person', who: 'SPC Fischer, Ana', what: 'Provide 4 trauma-lane medics · Mon 19 Oct', note: '✓ Alpha · 68W · available · fills 4 of 4' },
+];
+const dzCards = DZ_CARDS.map((c) => {
+  const el = document.createElement('div');
+  el.className = 'card'; el.style.setProperty('--c', c.c);
+  el.innerHTML = `<div class="lane"><b>${c.lane.toUpperCase()}</b> · ${c.act.toUpperCase()}</div><div class="who">${c.who}</div><div class="what">${c.what}</div><div class="note">${c.note}</div><div class="pending">REVIEW</div><div class="stamp">✓ UPDATED</div>`;
+  $('dz-cards').appendChild(el);
+  return el;
+});
+const wave = $('dz-wave');
+const BARS = Array.from({ length: 40 }, () => { const i = document.createElement('i'); wave.appendChild(i); return i; });
+
+// ---------- Render ----------
+function show(id, t) {
+  const [a, b] = T[id];
+  const on = t >= a && t < b;
+  $(id).style.display = on ? 'block' : 'none';
+  return on ? t - a : null;
+}
+
+function render(t) {
+  let lt;
+  let snowAlpha = 0;
+  $('flash').style.opacity = 0;
+
+  // 1 · Cold open
+  if ((lt = show('cold', t)) !== null) {
+    snowAlpha = 1;
+    const line = '0547 · First formation';
+    $('cold-time').textContent = line.slice(0, Math.floor(prog(lt, 0.2, 1.0) * line.length)) + (lt % 0.5 < 0.25 ? '▌' : ' ');
+    $('cold-time').style.opacity = 1;
+    wipe($('cold-line'), lt, 1.0, 0.6, 3.7, 0.3);
+    const q = eExpo(prog(lt, 2.17, 2.57));
+    $('cold-q').style.opacity = q * (1 - prog(lt, 3.7, 4));
+    $('cold-q').style.transform = `scale(${lerp(1.25, 1, q)})`;
+    $('cold-q').style.transformOrigin = 'left center';
+  }
+
+  // 2 · Chaos
+  if ((lt = show('chaos', t)) !== null) {
+    snowAlpha = 0.35;
+    const collapse = eIn(prog(lt, 8.35, 9));
+    const shake = prog(lt, 4, 8.3) * 3;
+    chaosWorld.style.transform = `translate(${Math.sin(lt * 23) * shake}px, ${Math.cos(lt * 19) * shake}px) scale(${lerp(1, 1.08, prog(lt, 0, 8.3))})`;
+    for (const c of chaosEls) {
+      const p = eOut(prog(lt, c.at, c.at + 0.3));
+      const dx = (960 - c.cx) * collapse, dy = (540 - c.cy) * collapse;
+      c.el.style.opacity = p * (1 - prog(lt, 8.7, 9));
+      c.el.style.transform = `translate(${dx}px, ${dy + (1 - p) * 60}px) rotate(${c.r + collapse * c.r * 6}deg) scale(${lerp(0.85, 1, p) * (1 - collapse * 0.9)})`;
+    }
+    // racing clock 05:47 → 10:42
+    const mins = Math.floor(lerp(5 * 60 + 47, 10 * 60 + 42, eIn(prog(lt, 0.3, 8.2))));
+    $('clock').querySelector('.t').textContent = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+    reveal($('clock'), lt, 0.3, 0.4, 8.3, 0.3, -20);
+    reveal($('chaos-cap'), lt, 3.6, 0.45, 8.2, 0.3, 30);
+    chaosWorld.style.filter = `brightness(${1 - 0.5 * prog(lt, 3.6, 4.05) * (1 - prog(lt, 8.2, 8.4))})`;
+    if (lt > 8.85) $('flash').style.opacity = 1 - prog(lt, 8.85, 9) ;
+  }
+
+  // 3 · Logo
+  if ((lt = show('logo', t)) !== null) {
+    snowAlpha = 0.8;
+    $('flash').style.opacity = 1 - eOut(prog(lt, 0, 0.45));
+    const p = eExpo(prog(lt, 0.05, 0.6));
+    $('logo-word').style.opacity = p * (1 - prog(lt, 3.3, 3.6));
+    $('logo-word').style.transform = `scale(${lerp(1.3, 1, p)})`;
+    $('logo-word').style.letterSpacing = `${lerp(0.12, 0.01, p)}em`;
+    $('logo-bar').style.width = eExpo(prog(lt, 0.5, 1.1)) * 900 + 'px';
+    $('logo-bar').style.opacity = 1 - prog(lt, 3.3, 3.6);
+    reveal($('logo-tag'), lt, 1.0, 0.5, 3.3, 0.3, 20);
+  }
+
+  // 4 · Today
+  if ((lt = show('today', t)) !== null) playShots(TODAY_SHOTS, lt);
+
+  // 5 · Scope
+  if ((lt = show('scope', t)) !== null) {
+    snowAlpha = 0.2;
+    // pick step + camera interpolation
+    let si = 0;
+    for (let i = 0; i < SCOPE_STEPS.length; i++) if (lt >= SCOPE_STEPS[i].at) si = i;
+    const step = SCOPE_STEPS[si];
+    const prev = SCOPE_STEPS[Math.max(0, si - 1)];
+    const tp = si === 0 ? 1 : eInOut(prog(lt, step.at, step.at + 0.9));
+    // each step frames tighter than the last, so the camera keeps pushing in down to the team
+    const fill = (i) => (i === 3 ? 0.87 : 0.92);
+    const ca = scopeCam(prev.box, fill(Math.max(0, si - 1))), cb = scopeCam(step.box, fill(si));
+    // smooth zoom via log-space scale
+    const s = Math.exp(lerp(Math.log(ca.s), Math.log(cb.s), tp));
+    const fx = lerp(prev.box.x + prev.box.w / 2, step.box.x + step.box.w / 2, tp);
+    const fy = lerp(prev.box.y + prev.box.h / 2, step.box.y + step.box.h / 2, tp);
+    const intro = eOut(prog(lt, 0, 0.8));
+    world.style.transform = `translate(${1920 * 0.63 - fx * s}px, ${1080 * 0.5 - fy * s}px) scale(${s * lerp(0.9, 1, intro)})`;
+    world.style.opacity = intro * (1 - prog(lt, 14.0, 14.4));
+    for (let i = 0; i < dots.length; i++) {
+      const d = dots[i];
+      const inPrev = d.tags.includes(prev.tag), inNow = d.tags.includes(step.tag);
+      const a = lerp(inPrev ? 1 : 0.12, inNow ? 1 : 0.12, tp);
+      // stagger the first appearance
+      const ap = eOut(prog(lt, 0.1 + rnd(i) * 0.7, 0.4 + rnd(i) * 0.7));
+      d.el.style.opacity = a * ap;
+    }
+    const nameA = prog(lt, 8.7, 9.2) * (1 - prog(lt, 14.0, 14.4));
+    unitLabels.forEach((u) => (u.style.opacity = 1 - prog(lt, 2.7, 3.3)));
+    teamNames.forEach((n) => (n.style.opacity = nameA));
+    $('scope-role').textContent = step.role;
+    $('scope-n').textContent = step.sees;
+    wipe($('scope-role'), lt, step.at + (si ? 0.15 : 0.3), 0.4);
+    reveal($('scope-hud').querySelector('.kicker'), lt, 0.2, 0.4, 14.0, 0.3, 10);
+    reveal($('scope-sees'), lt, step.at + (si ? 0.3 : 0.5), 0.35, 14.0, 0.3, 10);
+    $('scope-role').style.opacity = 1 - prog(lt, 14.0, 14.3);
+    reveal($('scope-cap'), lt, 10.8, 0.5, 14.0, 0.3, 30);
+  }
+
+  // 6 · Next
+  if ((lt = show('next', t)) !== null) {
+    snowAlpha = 0.6;
+    const p = eExpo(prog(lt, 0, 0.4));
+    $('next-word').style.opacity = p * (1 - prog(lt, 3.3, 3.6));
+    $('next-word').style.transform = `scale(${lerp(0.85, 1, p)})`;
+    reveal($('next-sub'), lt, 0.4, 0.4, 3.3, 0.25, 20);
+  }
+
+  // 7 · Personnel details
+  if ((lt = show('pdetail', t)) !== null) playShots(PDETAIL_SHOTS, lt);
+
+  // 8 · Drop Zone
+  if ((lt = show('drop', t)) !== null) {
+    const enter = eOut(prog(lt, 0, 0.4));
+    $('drop').style.opacity = enter;
+    reveal($('dz-head'), lt, 0.1, 0.4, Infinity, 0.3, 20);
+    // speaking window
+    const speakA = DZ_VOICE_AT + DZ_WORDS[0][1], speakB = DZ_VOICE_AT + DZ_WORDS.at(-1)[2] + 0.15;
+    const speaking = lt >= speakA && lt < speakB;
+    const n = dzTyped(lt);
+    $('dz-text').innerHTML = `${n ? '“' : ''}${DZ_TEXT.slice(0, n)}${n >= DZ_TEXT.length ? '”' : ''}<span class="caret" style="opacity:${speaking && lt % 0.6 < 0.4 ? 1 : 0}"></span>`;
+    BARS.forEach((b, i) => {
+      const lvl = DZ_ENV[Math.floor((lt - DZ_VOICE_AT) * 30)] || 0;
+      const amp = speaking ? 0.06 + lvl * (0.4 + 0.6 * Math.abs(Math.sin(lt * 9 + i * 0.7) * Math.sin(lt * 3.3 + i * 0.31) + 0.25 * Math.sin(lt * 17 + i))) : 0.06;
+      b.style.height = Math.max(6, amp * 80) + 'px';
+      b.style.background = speaking ? 'var(--charcoal)' : 'var(--parade)';
+    });
+    $('dz-rec').style.opacity = speaking ? (lt % 1 < 0.7 ? 1 : 0.3) : 0;
+    [$('dz-r1'), $('dz-r2')].forEach((r, i) => {
+      const ph = ((lt + i * 0.6) % 1.2) / 1.2;
+      const sz = 128 + ph * 120;
+      r.style.width = r.style.height = sz + 'px';
+      r.style.opacity = speaking ? (1 - ph) * 0.8 : 0;
+    });
+    // parsing
+    const parseAt = 6.8;
+    $('dz-parse').textContent = lt < parseAt ? ' ' : lt < parseAt + 0.7 ? 'PARSING' + '.'.repeat(1 + Math.floor((lt * 6) % 3)) : '3 CHANGES FOUND · REVIEW BEFORE SAVING';
+    $('dz-parse').style.color = lt >= parseAt + 0.7 ? 'var(--amber)' : 'var(--stone)';
+    const approveAt = 11.4;
+    dzCards.forEach((c, i) => {
+      const at = parseAt + 0.7 + i * 0.4;
+      const p = eOut(prog(lt, at, at + 0.4));
+      c.style.opacity = p;
+      c.style.transform = `translateX(${(1 - p) * 80}px)`;
+      const done = prog(lt, approveAt + 0.25 + i * 0.18, approveAt + 0.45 + i * 0.18);
+      c.querySelector('.pending').style.opacity = 1 - done;
+      const st = c.querySelector('.stamp');
+      st.style.opacity = done;
+      st.style.transform = `translateY(-50%) scale(${lerp(1.6, 1, eOut(done))})`;
+      c.style.background = done >= 1 ? 'oklch(97% 0.03 150)' : 'white';
+    });
+    $('dz-ghost').style.opacity = 1 - prog(lt, parseAt + 0.4, parseAt + 0.8);
+    reveal($('dz-foot'), lt, parseAt + 1.9, 0.4, Infinity, 0.3, 20);
+    const press = prog(lt, approveAt - 0.1, approveAt + 0.15);
+    $('dz-btn').style.transform = `scale(${press > 0 && press < 1 ? 0.94 : 1})`;
+    $('dz-btn').style.background = lt >= approveAt ? 'var(--green)' : 'var(--charcoal)';
+    $('dz-btn').textContent = lt >= approveAt + 0.8 ? '✓ 3 changes saved' : 'Approve 3 changes';
+    // stopwatch runs from first word to save
+    const el = clamp(lt - speakA, 0, approveAt + 0.8 - speakA);
+    $('dz-timer').querySelector('.t').textContent = `0:${String(Math.floor(el)).padStart(2, '0')}`;
+    reveal($('dz-timer'), lt, 0.5, 0.4, Infinity, 0.3, -10);
+    reveal($('dz-cap'), lt, 12.6, 0.5, 15.75, 0.35, 40);
+  }
+
+  // 9 · Taskings
+  if ((lt = show('tasking', t)) !== null) playShots(TASKING_SHOTS, lt);
+
+  // 10 · AI
+  if ((lt = show('ai', t)) !== null) {
+    snowAlpha = 0.2;
+    reveal($('ai-kick'), lt, 0, 0.3, 15.9, 0.3, 10);
+    // two bars per verb, then all four on the recap bar
+    [...document.querySelectorAll('.ai')].forEach((c, i) => {
+      const l = lt - i * 3.6;
+      c.style.display = l >= 0 && l < 3.6 ? 'block' : 'none';
+      if (l < 0 || l >= 3.6) return;
+      const p = eExpo(prog(l, 0, 0.35)), out = prog(l, 3.42, 3.6);
+      const v = c.querySelector('.verb');
+      v.style.opacity = p * (1 - out);
+      v.style.transform = `scale(${lerp(1.15, 1, p)})`;
+      wipe(c.querySelector('.q'), l, 0.15, 0.4, 3.42, 0.18);
+      reveal(c.querySelector('.a'), l, 0.8, 0.3, 3.42, 0.18, 14);
+    });
+    [...$('ai-recap').children].forEach((w, i) => {
+      const p = eExpo(prog(lt, 14.4 + i * 0.225, 14.65 + i * 0.225));
+      w.style.opacity = p * (1 - prog(lt, 15.9, 16.2));
+      w.style.transform = `scale(${lerp(1.3, 1, p)})`;
+      w.style.color = i === 3 ? 'var(--amber-hi)' : '';
+    });
+  }
+
+  // 11 · Bookend
+  if ((lt = show('bookend', t)) !== null) {
+    snowAlpha = lt < 3.6 ? 1 : 0;
+    const line = '0547 · First formation';
+    $('bk-time').textContent = line.slice(0, Math.floor(prog(lt, 0.1, 0.9) * line.length)) + (lt % 0.5 < 0.25 ? '▌' : ' ');
+    $('bk-time').style.opacity = 1 - prog(lt, 3.3, 3.6);
+    const q = eExpo(prog(lt, 1.8, 2.2));
+    $('bk-q').style.opacity = q * (1 - prog(lt, 3.3, 3.6));
+    $('bk-q').style.transform = `scale(${lerp(1.25, 1, q)})`;
+    playShots(BOOKEND_SHOTS, lt);
+    if (lt > 3.6) $('flash').style.opacity = 0.6 * (1 - eOut(prog(lt, 3.6, 4.0)));
+    $('bookend').style.opacity = 1 - prog(lt, 10.5, 10.8);
+  }
+
+  // 12 · Testimonials: quotes start on beats 0, 10 and 20 (bars 1, 3½, 6); each line lands two beats apart
+  if ((lt = show('voices', t)) !== null) {
+    snowAlpha = 0.35;
+    reveal($('vo-kick'), lt, 0, 0.3, 14.1, 0.3, 10);
+    const starts = [0, 4.5, 9.0, 14.4];
+    [...document.querySelectorAll('.vo')].forEach((q, i) => {
+      const l = lt - starts[i], len = starts[i + 1] - starts[i];
+      if (l < 0 || l >= len) { q.style.display = 'none'; return; }
+      q.style.display = 'block';
+      const out = prog(l, len - 0.2, len);
+      let shake = 0;
+      [...q.querySelectorAll('.line')].forEach((w, k) => {
+        const at = k * 0.9, p = eExpo(prog(l, at, at + 0.22));
+        w.style.opacity = p;
+        w.style.transform = `scale(${lerp(1.22, 1, p)})`;
+        if (l >= at) shake += 14 * Math.exp(-(l - at) / 0.07);
+      });
+      q.style.opacity = 1 - out;
+      q.style.transform = `translate(${Math.sin(l * 90) * shake}px, ${Math.cos(l * 77) * shake}px) scale(${lerp(1, 1.04, out)})`;
+      reveal(q.querySelector('.who'), l, 2.1, 0.35, Infinity, 0.3, 12);
+    });
+    [...$('vo-units').children].forEach((u, i) => {
+      reveal(u, lt, starts[i] + 2.1, 0.35, 14.1, 0.3, 12);
+      u.style.color = lt >= starts[i] + 2.1 && lt < starts[i + 1] ? 'var(--amber-hi)' : '';
+    });
+    $('vo-mark').style.opacity = 0.07 * eOut(prog(lt, 0, 0.6));
+    $('voices').style.opacity = 1 - prog(lt, 14.1, 14.4);
+  }
+
+  // 13 · Close
+  if ((lt = show('close', t)) !== null) {
+    // the music drops out under "That's", slams on READINESS (5.36), swells, and hits the logo (10.93)
+    snowAlpha = lt > 10.93 ? 1 : 0.3;
+    wipe($('close-1'), lt, 0.1, 0.45, 3.9, 0.25);
+    wipe($('close-2'), lt, 1.0, 0.45, 3.9, 0.25);
+    reveal($('close-3s'), lt, 4.4, 0.3, 10.63, 0.3, 10);
+    const r = eExpo(prog(lt, 5.33, 5.75));
+    $('close-3').style.opacity = r * (1 - prog(lt, 10.63, 10.93));
+    $('close-3').style.transform = `scale(${lerp(1.35, 1, r) * lerp(1, 1.06, prog(lt, 5.75, 10.93))})`;
+    [...$('close-tag').children].forEach((w, i) => reveal(w, lt, 7.16 + i * 0.9, 0.4, 10.63, 0.3, 16));
+    if (lt > 10.93) $('flash').style.opacity = 1 - eOut(prog(lt, 10.93, 11.48));
+    const e = eExpo(prog(lt, 10.93, 11.53));
+    $('end-word').style.opacity = e;
+    $('end-word').style.transform = `scale(${lerp(1.2, 1, e)})`;
+    $('end-bar').style.width = eExpo(prog(lt, 11.33, 11.93)) * 820 + 'px';
+    reveal($('end-event'), lt, 11.9, 0.5, Infinity, 0.3, 10);
+    reveal($('end-credit'), lt, 12.3, 0.5, Infinity, 0.3, 0);
+    // fade to black at the very end
+    $('stage').style.filter = `brightness(${1 - prog(lt, 14.6, 15.4)})`;
+  } else {
+    $('stage').style.filter = '';
+  }
+
+  $('vignette').style.opacity = t >= T.drop[0] && t < T.drop[1] ? 0 : 1;
+  drawSnow(t, snowAlpha);
+}
+window.render = render;
+window.DURATION = DURATION;
+
+// ---------- Preview player ----------
+function fit() {
+  if (document.body.classList.contains('rendering')) return;
+  const s = Math.min(innerWidth / 1920, (innerHeight - 40) / 1080);
+  $('stage').style.transform = `scale(${s})`;
+}
+const params = new URLSearchParams(location.search);
+if (params.has('render')) document.body.classList.add('rendering');
+addEventListener('resize', fit); fit();
+let playing = false, t0 = 0, base = Number(params.get('t') || 0);
+const scrub = $('scrub'); scrub.max = DURATION;
+function tick(now) {
+  if (!playing) return;
+  const t = base + (now - t0) / 1000;
+  if (t >= DURATION) { playing = false; $('play').textContent = '▶'; return; }
+  scrub.value = t; $('tlabel').textContent = t.toFixed(2); render(t);
+  requestAnimationFrame(tick);
+}
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '❚❚' : '▶'; base = Number(scrub.value); t0 = performance.now(); requestAnimationFrame(tick); };
+scrub.oninput = () => { playing = false; $('play').textContent = '▶'; $('tlabel').textContent = Number(scrub.value).toFixed(2); render(Number(scrub.value)); };
+document.fonts.ready.then(() => { scrub.value = base; render(base); });
+</script>
+</body>
+</html>

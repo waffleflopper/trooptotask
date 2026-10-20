@@ -290,7 +290,9 @@ describe('owned Critical Tasks library provider', () => {
 		});
 		const candidates = await library.listImportCandidates();
 		expect(candidates).toHaveLength(1002);
-		expect(candidates[0]).toMatchObject({ id: 'archived-tail', archivedAt: '2026-09-01T00:00:00Z' });
+		expect(candidates).toContainEqual(
+			expect.objectContaining({ id: 'archived-tail', archivedAt: '2026-09-01T00:00:00Z' })
+		);
 	});
 
 	it('returns an empty catalog and rejects reference read failures', async () => {

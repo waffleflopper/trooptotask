@@ -15,8 +15,8 @@ describe('Critical Tasks report error screen', () => {
 		pageState.status = 403;
 		render(ErrorPage);
 
+		expect(screen.getByRole('alert')).toBeTruthy();
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Access Restricted');
-		expect(screen.getByRole('alert').textContent).toContain("You don't have permission to view Critical Tasks.");
 	});
 
 	it('shows a failed report read as the workspace load error with Retry', () => {

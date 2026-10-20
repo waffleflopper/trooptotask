@@ -11,8 +11,8 @@ A member with Critical Tasks configuration access maintains the unit's task defi
 - `task-settings`: an Organization-scoped Critical Tasks configurator saves the default expiration and warning window without changing unrelated policy values.
 - `task-access`: Critical Tasks `configure`, `view` and no-access members have distinct library permissions. Group-scoped configuration and a foreign Organization cannot write Organization A's library.
 - `task-failure`: a duplicate code or failed save leaves the existing task intact and permits a corrected retry.
-- `workspace-reuse`: moving between the matrix, Task Library, Reports and a task record keeps the loaded workspace; only each page's own load runs.
-- `workspace-read`: the readiness matrix, individual task record, reports and Personnel detail readiness card show active tasks and scoped Personnel after their streamed workspaces load; a configure member also receives archived definitions on every Critical Tasks page, and those pages show only active tasks.
+- `workspace-reuse`: moving between the matrix, Task Library and a task record keeps the loaded workspace; only each page's own load runs. Reports sits outside the `(workspace)` route group and never loads the workspace, so returning from Reports to the matrix loads it again.
+- `workspace-read`: the readiness matrix, individual task record and Personnel detail readiness card show active tasks and scoped Personnel after their streamed workspaces load, and Reports shows them from its own page load; a configure member also receives archived definitions on every page inside the Critical Tasks workspace, and those pages show only active tasks.
 - `import-switch`: an A import whose batch response arrives after switching to B adds no A task to B's library and shows no A feedback in B.
 - `screen-states`: the task list buttons, task form and Defaults errors, the import dialog, and loading, empty, denied, foreign, narrow, dark and URL states (step 9).
 

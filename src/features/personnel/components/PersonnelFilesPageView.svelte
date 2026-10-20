@@ -41,7 +41,8 @@
 	const documents = new StreamedValue(() => files.documents);
 	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-	let flow = $state<{ id: number; kind: UploadKind | null; file: File | null } | null>(null);
+	/** `fromUrl` marks a flow the address names, so Back closes it with the intent. */
+	let flow = $state<{ id: number; kind: UploadKind | null; file: File | null; fromUrl: boolean } | null>(null);
 	let dropError = $state<string | null>(null);
 	let flowCount = 0;
 	let alive = true;
@@ -56,7 +57,8 @@
 
 	afterNavigate(({ to }) => {
 		const kind = uploadIntentFromSearch(to?.url.searchParams ?? new URLSearchParams());
-		if (kind && canManage) flow = { id: ++flowCount, kind, file: null };
+		if (kind && canManage) flow = { id: ++flowCount, kind, file: null, fromUrl: true };
+		else if (!kind && flow?.fromUrl) flow = null;
 	});
 
 	function offer(dropped: File[]) {
@@ -70,7 +72,7 @@
 			dropError = check.message;
 			return;
 		}
-		flow = { id: ++flowCount, kind: null, file: dropped[0] };
+		flow = { id: ++flowCount, kind: null, file: dropped[0], fromUrl: false };
 	}
 
 	function closeFlow() {

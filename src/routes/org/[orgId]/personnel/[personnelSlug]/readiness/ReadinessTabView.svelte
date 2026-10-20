@@ -57,7 +57,8 @@
 		shell.affordanceForFeatureAction(POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, personResource).allowed
 	);
 
-	let drawer = $state<ReadinessDrawerTarget | null>(null);
+	/** `fromUrl` marks a drawer the address names, so Back closes it with the intent. */
+	let drawer = $state<(ReadinessDrawerTarget & { fromUrl: boolean }) | null>(null);
 	/** A link to an item that no longer applies opens the picker instead of an empty drawer. */
 	const drawerItemId = $derived.by(() => {
 		if (!drawer?.id) return null;
@@ -74,11 +75,14 @@
 	});
 
 	afterNavigate(({ to }) => {
-		if (to) drawer = readinessDrawerFromSearch(to.url.searchParams) ?? drawer;
+		if (!to) return;
+		const target = readinessDrawerFromSearch(to.url.searchParams);
+		if (target) drawer = { ...target, fromUrl: true };
+		else if (drawer?.fromUrl) drawer = null;
 	});
 
 	function open(target: ReadinessDrawerTarget) {
-		drawer = target;
+		drawer = { ...target, fromUrl: false };
 	}
 
 	function close() {

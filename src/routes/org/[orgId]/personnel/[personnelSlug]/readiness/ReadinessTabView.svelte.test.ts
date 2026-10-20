@@ -125,3 +125,21 @@ it('opens the item an Add to record or attention link names', async () => {
 	navigation.afterNavigate[0]({ to: { url: new URL('http://localhost/readiness?item=training%3Agone') } });
 	expect(await screen.findByLabelText('Training type')).toBeTruthy();
 });
+
+it('closes a linked drawer when Back drops its intent and keeps one the leader opened', async () => {
+	render(ReadinessTabView, {
+		props: { orgId: 'org-1', person, asOf: '2026-10-06', readiness: readiness() }
+	});
+	await screen.findByText('0 of 1 ready');
+	const back = () => navigation.afterNavigate[0]({ to: { url: new URL('http://localhost/readiness') } });
+
+	navigation.afterNavigate[0]({ to: { url: new URL('http://localhost/readiness?add=training') } });
+	expect(await screen.findByLabelText('Training type')).toBeTruthy();
+	back();
+	await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+	await fireEvent.click(screen.getByRole('button', { name: 'Open CPR / BLS' }));
+	expect(await screen.findByRole('dialog', { name: 'CPR / BLS' })).toBeTruthy();
+	back();
+	expect(screen.getByRole('dialog', { name: 'CPR / BLS' })).toBeTruthy();
+});

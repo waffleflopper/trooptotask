@@ -458,6 +458,23 @@ describe('Files tab upload flow', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
+	it("closes a linked upload when Back drops its intent and keeps a dropped file's", async () => {
+		mount();
+		await screen.findByText('Counseling c1');
+		const navigate = (query: string) =>
+			act(async () => navigation.afterNavigate[0]({ to: { url: new URL(`http://localhost/files${query}`) } }));
+
+		await navigate('?add=document');
+		expect(await screen.findByRole('dialog')).toBeTruthy();
+		await navigate('');
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		await offer(pdf());
+		expect(await screen.findByRole('dialog')).toBeTruthy();
+		await navigate('');
+		expect(screen.getByRole('dialog')).toBeTruthy();
+	});
+
 	async function openCounselingFlowBeforeUploaderIsKnown() {
 		const settled = deferred<PersonnelCounselingsRead>();
 		mount({ files: files(settled.promise) });

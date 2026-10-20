@@ -567,6 +567,29 @@ class PerfExplainTests(unittest.TestCase):
         self.assertEqual(sql, f"SELECT * FROM public.availability_entries WHERE organization_id = '{ORG_A}'::uuid"
                               " AND start_date <= '2027-01-13'::date AND end_date >= '2026-07-17'::date")
 
+    def test_assignment_save_binds_the_ledger_slot_to_its_seeded_holder(self):
+        slot = {"date": "2026-10-01", "assignmentTypeId": ORG_A, "holderId": USER}
+        ledger = {"workloads": {"large": {**self.ledger["workloads"]["large"],
+                                          "journeyTerms": {"assignment": {"slot": slot}}}}}
+        database = Mock()
+        database.explain.return_value = [{"Plan": {"Actual Rows": 1}}]
+        with patch.object(environment, "PerfDatabase", return_value=database), \
+                patch.object(environment, "private_json",
+                             side_effect=lambda path: ledger if path.name == "verify-trooptotask-owned.json"
+                             else self.fixtures):
+            environment.perf_explain(Path("/unused"), "assignment-replace", "large", "scoped")
+        _user, sql = database.explain.call_args.args
+        self.assertEqual(sql, f"SELECT * FROM public.replace_daily_assignment_slots('{ORG_A}'::uuid, '{{}}'::date[],"
+                              f" '[{{\"date\": \"2026-10-01\", \"assignment_type_id\": \"{ORG_A}\","
+                              f" \"assignee_id\": \"{USER}\"}}]'::jsonb)")
+
+    def test_assignment_save_without_a_recorded_slot_is_blocked(self):
+        with patch.object(environment, "PerfDatabase") as owned, \
+                patch.object(environment, "private_json", side_effect=self.private):
+            with self.assertRaises(environment.Blocked):
+                environment.perf_explain(Path("/unused"), "assignment-replace-check", "large", "wide")
+        owned.assert_not_called()
+
     def test_unknown_statement_actor_or_workload_is_blocked_before_the_database(self):
         with patch.object(environment, "PerfDatabase") as owned, \
                 patch.object(environment, "private_json", side_effect=self.private):

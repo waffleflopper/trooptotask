@@ -64,7 +64,19 @@ Shape, from the statement windows (per sample, large wide). Before, `latest_acti
 
 #### EXPLAIN of the read-model functions
 
-PENDING: explain run d05-explain-20261019
+`perf explain` at large on both sides, as each actor with RLS applied: before is main `170fe069e` with only the `e51685135` registry diff applied uncommitted, after is `e51685135`. Each side seeded the same large Organization, prepared it with `force_custom_plan` read back, ran one unreported warm-up and then three repetitions per cell (2026-10-19 23:48Z to 23:55Z, load1 1.96 to 3.91, 0 shared read blocks in every cell).
+
+| Statement, actor                            | Before median ms (repetitions)  | After median ms (repetitions) | Rows  | Shared hit blocks |
+| ------------------------------------------- | ------------------------------- | ----------------------------- | ----- | ----------------- |
+| `critical-task-latest-completions`, wide    | 4478.6 (4534.5, 4478.6, 4417.1) | 19.3 (18.9, 19.3, 19.9)       | 9577  | ~136.4k → ~28.9k  |
+| `critical-task-latest-completions`, scoped  | 4252.1 (4261.7, 4206.2, 4252.1) | 4.30 (4.30, 4.40, 4.24)       | 597   | ~136.4k → ~3.3k   |
+| `critical-task-completion-trend`, wide      | 4423.2 (4380.2, 4445.8, 4423.2) | 21.0 (21.2, 20.7, 21.0)       | 36    | ~134.4k → ~26.9k  |
+| `critical-task-completion-trend`, scoped    | 4335.9 (4335.9, 4238.4, 4486.2) | 4.73 (4.66, 4.73, 5.11)       | 35    | ~134.4k → ~3.3k   |
+| `critical-task-completions` (control), wide | 4.65                            | 4.10                          | 13401 | ~1.2k both        |
+
+Rows are identical before and after for every statement and actor. The control, a plain table read under D04's policy, is unchanged (scoped 3.47 and 3.59 ms, 850 rows), so the drop belongs to the functions. Both functions are SECURITY DEFINER, which PostgreSQL does not inline, so each plan is one `Function Scan` on both sides and EXPLAIN does not show the inner plan. The fall in shared hits is the only inside view; that the before cost is the per-row helper is inferred from it and the migration, not profiled. The before median times the 10 pages the app ran per report view (9577 rows at 1000 per page) matches the 48578 ms the report's statement window recorded. `perf explain` omits about 11% of the per-row RLS cost a PostgREST request pays (performance recipe).
+
+- [`d05-explain-20261019.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/d05-explain-20261019.tar.gz) `38f6f09520a979711a36399e06542479c5ead6093ef9fbeb6e6266a996097202` (137 payload files)
 
 ### D05 validation, limits and archives
 

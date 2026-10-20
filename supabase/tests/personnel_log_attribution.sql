@@ -166,6 +166,19 @@ SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.pers
   WHERE id = 'f9000000-0000-4000-8000-000000000602'),
   true, 'archiving a follow-up that was never completed cannot attach a completion');
 
+-- A follow-up completed before completion times were kept has none; a later edit must not invent one.
+RESET ROLE;
+ALTER TABLE public.personnel_follow_ups DISABLE TRIGGER stamp_completed_by;
+INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, status, created_by)
+VALUES ('f9000000-0000-4000-8000-000000000604', 'f9000000-0000-4000-8000-000000000101',
+  'f9000000-0000-4000-8000-000000000301', 'Completed before completion times', 'completed', 'fixture');
+ALTER TABLE public.personnel_follow_ups ENABLE TRIGGER stamp_completed_by;
+SET LOCAL ROLE authenticated;
+UPDATE public.personnel_follow_ups SET title = 'Edited after the upgrade' WHERE id = 'f9000000-0000-4000-8000-000000000604';
+SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.personnel_follow_ups
+  WHERE id = 'f9000000-0000-4000-8000-000000000604'),
+  true, 'editing a legacy completed follow-up keeps its missing completion instead of crediting the editor');
+
 -- The server writes with the service role, where there is no caller to stamp, and supplies the actor itself.
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', true);

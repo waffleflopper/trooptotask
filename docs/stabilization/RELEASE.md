@@ -759,7 +759,7 @@ Apply the migration before the application release. Without it the new applicati
 
 ## Personnel Log and Archived attribution
 
-The candidate adds [`20261019000300_personnel_log_attribution.sql`](../../supabase/migrations/20261019000300_personnel_log_attribution.sql), SHA-256 `bd69b1fb517db9510cd3f63e81764172aa33cbe9cb9c4489aa4cc5e6de3c8373`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261019000300_personnel_log_attribution.sql`](../../supabase/migrations/20261019000300_personnel_log_attribution.sql), SHA-256 `8107efdcc290585b5b2312b060b25ada8d11e39432448ccdb34b7f83cba23f3f`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds columns and triggers, and rewrites one timestamp on every existing leader note:
 

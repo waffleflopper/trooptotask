@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabasePlatformAuditStore } from './supabasePlatformAudit.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 function makeAuditSupabase(
 	rows: Array<Record<string, unknown>>,
@@ -210,5 +211,24 @@ describe('Supabase PlatformAudit adapter paging past the last row', () => {
 			})
 		);
 		await expect(store.listLogs({ offset: 50, limit: 50 })).rejects.toThrow('table audit_logs list failed');
+	});
+});
+
+describe('Supabase PlatformAudit adapter paging through tied timestamps', () => {
+	it('shows each Audit log once across pages when entries share one timestamp', async () => {
+		const ids = pagedIds(130);
+		const client = createShiftingPostgrestClient({
+			audit_logs: ids.map((id) => ({
+				id,
+				action: 'admin.org.gift_tier',
+				severity: 'info',
+				timestamp: '2026-06-08T15:00:00.000Z'
+			}))
+		});
+		const store = createSupabasePlatformAuditStore(client);
+		const shown: string[] = [];
+		for (let offset = 0; offset < ids.length; offset += 50)
+			shown.push(...(await store.listLogs({ offset, limit: 50 })).logs.map((log) => log.id));
+		expect(shown.toSorted()).toEqual(ids);
 	});
 });

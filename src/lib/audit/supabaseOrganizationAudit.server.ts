@@ -22,6 +22,7 @@ export function createSupabaseOrganizationAuditStore(client: SupabaseClient): Or
 			if (action) query = query.eq('action', action);
 			const response = await query
 				.order('timestamp', { ascending: false })
+				.order('id', { ascending: true })
 				.range(offset, offset + limit - 1)
 				.returns<OrganizationAuditRow[]>();
 			assertAuditQuerySuccess('Organization Audit page', response);

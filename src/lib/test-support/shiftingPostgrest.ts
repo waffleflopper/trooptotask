@@ -27,6 +27,7 @@ function matches(row: Row, column: string, filter: string): boolean {
 	const value = row[column];
 	const [operator, ...rest] = filter.split('.');
 	const operand = rest.join('.');
+	if (operator === 'not') return !matches(row, column, operand);
 	if (operator === 'eq') return String(value) === operand;
 	if (operator === 'in')
 		return operand

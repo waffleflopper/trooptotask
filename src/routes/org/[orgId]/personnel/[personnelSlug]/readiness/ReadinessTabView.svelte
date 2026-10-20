@@ -110,11 +110,13 @@
 	</section>
 {/snippet}
 
-{#snippet railSkeleton(label: string)}
+<!-- Shaped like each block with the least it shows: the Evaluation card's empty state, both Loss dates, one Onboarding line. -->
+{#snippet railSkeleton(label: string, lines: number)}
 	<div class="flex flex-col gap-2 px-1" aria-busy="true" aria-label={label}>
 		<Skeleton class="h-3.5 w-20" />
-		<Skeleton class="h-5 w-48" />
-		<Skeleton class="h-5 w-36" />
+		{#each { length: lines }, index (index)}
+			<Skeleton class="h-5 w-48 last:w-36" />
+		{/each}
 	</div>
 {/snippet}
 
@@ -152,7 +154,10 @@
 		{:else if evaluation.current.state === 'failed'}
 			{@render unavailable('Evaluation', 'the evaluation')}
 		{:else}
-			{@render railSkeleton('Evaluation')}
+			<div class="flex flex-col gap-3.5 rounded-md border bg-muted p-5" aria-busy="true" aria-label="Evaluation">
+				<Skeleton class="h-3.5 w-20" />
+				<Skeleton class="h-5 w-44" />
+			</div>
 		{/if}
 
 		{#if loss.current.state === 'ready'}
@@ -160,7 +165,7 @@
 		{:else if loss.current.state === 'failed'}
 			{@render unavailable('Loss', 'loss dates')}
 		{:else}
-			{@render railSkeleton('Loss')}
+			{@render railSkeleton('Loss', 2)}
 		{/if}
 
 		{#if onboarding.current.state === 'ready'}
@@ -168,7 +173,7 @@
 		{:else if onboarding.current.state === 'failed'}
 			{@render unavailable('Onboarding', 'onboarding')}
 		{:else}
-			{@render railSkeleton('Onboarding')}
+			{@render railSkeleton('Onboarding', 1)}
 		{/if}
 	</aside>
 </div>

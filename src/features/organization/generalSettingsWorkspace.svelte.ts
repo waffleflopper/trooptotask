@@ -23,7 +23,6 @@ export class GeneralSettingsWorkspace {
 	nameRequestError = $state<string | null>(null);
 	slugRequestError = $state<string | null>(null);
 	nameEditing = $state(false);
-	/** The name the undo form submits. */
 	undoName = $state('');
 	slugConfirmOpen = $state(false);
 	slugConfirmed = $state(false);

@@ -18,7 +18,7 @@ export type CalendarCounts = UnitCounts<(typeof CALENDAR_COUNT_KEYS)[number]>;
 
 export interface GeneralSettingsData {
 	organization: GeneralSettingsOrganization;
-	/** Null for a member who cannot read the audit log: the slot stays empty and the read never runs. */
+	/** Null for a member who cannot read the audit log, so the slot stays empty and the read never runs. */
 	lastRenamed: Promise<LastRenamed | null> | null;
 	calendarCounts: Promise<CalendarCounts>;
 }

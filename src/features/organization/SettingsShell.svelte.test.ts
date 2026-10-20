@@ -57,6 +57,7 @@ describe('Organization settings navigation', () => {
 		expect(nav.getByRole('link', { name: 'Archives' })).toBeInTheDocument();
 		expect(screen.getByRole('status').textContent?.trim()).toBe('');
 		expect(document.querySelector('[aria-busy]')).toBeNull();
+		expect(document.title).toBe('Policies - Unit settings - Synthetic Alpha - Troop to Task');
 	});
 
 	it('hides Logs and Danger zone from an admin and links with the canonical segment', async () => {

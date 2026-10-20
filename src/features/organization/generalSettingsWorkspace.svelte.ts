@@ -1,21 +1,30 @@
 import { tick } from 'svelte';
 import type { SubmitFunction } from '@sveltejs/kit';
-import { toastStore } from '$lib/stores/toast.svelte';
+import { toastStore, type ToastId } from '$lib/stores/toast.svelte';
 import { settleAction, type SettleOptions } from '$lib/utils/settleAction';
 
 type SubmitCallback = Exclude<Awaited<ReturnType<SubmitFunction>>, void>;
 type SlugAction = 'update' | 'clear';
 
+/** A name save: `from` is what Undo writes back, and an undo save offers no further Undo. */
+export interface NameChange {
+	from: string | null;
+	to: string;
+	undo: boolean;
+}
+
 /** One General settings lifetime, recreated by the canonical Organization key. */
 export class GeneralSettingsWorkspace {
 	#active = true;
+	#undoToast: ToastId | null = null;
+	#undoForm: () => HTMLFormElement | null;
 	nameLoading = $state(false);
 	slugLoading = $state(false);
 	nameRequestError = $state<string | null>(null);
 	slugRequestError = $state<string | null>(null);
 	nameEditing = $state(false);
-	nameConfirmOpen = $state(false);
-	nameConfirmed = $state(false);
+	/** The name the undo form submits. */
+	undoName = $state('');
 	slugConfirmOpen = $state(false);
 	slugConfirmed = $state(false);
 	pendingSlugAction = $state<SlugAction | null>(null);
@@ -23,8 +32,13 @@ export class GeneralSettingsWorkspace {
 
 	#isCurrent = () => this.#active;
 
+	constructor(undoForm: () => HTMLFormElement | null) {
+		this.#undoForm = undoForm;
+	}
+
 	dispose(): void {
 		this.#active = false;
+		this.#dismissUndo();
 	}
 
 	startNameEdit(): void {
@@ -33,19 +47,6 @@ export class GeneralSettingsWorkspace {
 	cancelNameEdit(): void {
 		this.nameEditing = false;
 		this.nameRequestError = null;
-	}
-	requestNameSave(): void {
-		this.nameConfirmOpen = true;
-	}
-	cancelNameSave(): void {
-		this.nameConfirmOpen = false;
-	}
-
-	confirmNameSave(form: HTMLFormElement | null): void {
-		if (!this.#active) return;
-		this.nameConfirmed = true;
-		this.nameConfirmOpen = false;
-		form?.requestSubmit();
 	}
 
 	requestSlugClear(): void {
@@ -70,17 +71,17 @@ export class GeneralSettingsWorkspace {
 		this.pendingSlugAction = null;
 	}
 
-	submitName(cancel: () => void, focus: SettleOptions['focus']): SubmitCallback | void {
+	submitName(cancel: () => void, focus: SettleOptions['focus'], change: NameChange): SubmitCallback | void {
 		if (!this.#active || this.nameLoading) {
 			cancel();
 			return;
 		}
-		if (!this.nameConfirmed) {
+		if (!change.undo && change.to.trim() === (change.from ?? '')) {
 			cancel();
-			this.requestNameSave();
+			this.cancelNameEdit();
 			return;
 		}
-		this.nameConfirmed = false;
+		this.#dismissUndo();
 		this.nameLoading = true;
 		this.nameRequestError = null;
 		return async (outcome) => {
@@ -92,7 +93,33 @@ export class GeneralSettingsWorkspace {
 				},
 				focus
 			});
+			if (this.#active && outcome.result.type === 'success') this.#announceRename(change);
 		};
+	}
+
+	#announceRename({ from, to, undo }: NameChange): void {
+		const name = to.trim();
+		if (undo || !from) {
+			toastStore.success(undo ? `Unit name changed back to ${name}.` : `Unit name changed to ${name}.`);
+			return;
+		}
+		this.#undoToast = toastStore.success(`Unit name changed to ${name}.`, 10_000, {
+			label: 'Undo',
+			onClick: () => void this.#undo(from)
+		});
+	}
+
+	async #undo(previous: string): Promise<void> {
+		this.#undoToast = null;
+		if (!this.#active) return;
+		this.undoName = previous;
+		await tick();
+		if (this.#active) this.#undoForm()?.requestSubmit();
+	}
+
+	#dismissUndo(): void {
+		if (this.#undoToast !== null) toastStore.dismiss(this.#undoToast);
+		this.#undoToast = null;
 	}
 
 	submitSlug(cancel: () => void, focus: (action: SlugAction) => SettleOptions['focus']): SubmitCallback | void {
@@ -121,13 +148,13 @@ export class GeneralSettingsWorkspace {
 				},
 				focus: focus(action)
 			});
-			// A saved custom URL answers with a redirect to the General page at its new path.
+			// A saved web address answers with a redirect to the General page at its new path.
 			const { result } = outcome;
 			if (this.#active && result.type === 'redirect' && result.location.endsWith('/settings/general'))
 				toastStore.success(
 					action === 'clear'
-						? 'Custom URL removed. The app path uses the Organization ID again.'
-						: 'Custom URL updated. Bookmarks and shared links using the old URL will need updating.'
+						? 'Web address reset. The unit uses its default address again.'
+						: 'Web address updated. Bookmarks and shared links to the old address need updating.'
 				);
 		};
 	}

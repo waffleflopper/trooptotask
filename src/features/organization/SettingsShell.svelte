@@ -34,6 +34,8 @@
 	const organization = $derived(settingsShell?.organization);
 	const baseHref = $derived<`/org/${string}/settings`>(`/org/${organization?.urlSegment ?? orgUrlSegment}/settings`);
 	const activeKey = $derived(activePath.split('/settings/')[1]?.split('/')[0] || 'general');
+	const activePage = $derived<SettingsPage | undefined>(SETTINGS_PAGES[activeKey as SettingsPageKey]);
+	const bodyWidth = { form: 'max-w-[51.25rem]', table: 'max-w-[57rem]' } as const;
 
 	function counted(value: number, one: string): SectionNavCount {
 		return { value, label: `${value} ${one}${value === 1 ? '' : 's'}` };
@@ -71,13 +73,17 @@
 </script>
 
 <svelte:head>
-	<title>Settings - {organization?.name ?? 'Organization'} - Troop to Task</title>
+	<title
+		>{activePage ? `${activePage.label} - ` : ''}Unit settings - {organization?.name ?? 'Unit'} - Troop to Task</title
+	>
 </svelte:head>
 
 <PageShell.Root width="wide" bodyClass="md:grid-cols-[auto_minmax(0,1fr)] md:gap-12">
 	<SectionNav label="Unit settings" {groups} {apart} />
 	<div
-		class="grid min-w-0 content-start gap-7 transition-opacity aria-busy:opacity-60 aria-busy:delay-150"
+		class="grid w-full min-w-0 content-start gap-7 transition-opacity aria-busy:opacity-60 aria-busy:delay-150 {bodyWidth[
+			activePage?.width ?? 'form'
+		]}"
 		aria-busy={loading ? 'true' : undefined}
 	>
 		<p role="status" class="sr-only">{loading ? `Loading ${loading.item.label}...` : ''}</p>

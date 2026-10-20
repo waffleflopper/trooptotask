@@ -24,23 +24,17 @@ describe('settings commercial isolation', () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-1', role: 'admin', isPrivileged: true } });
 		const commercialRead = vi.spyOn(ctx.rawStore, 'findOne').mockRejectedValue(new Error('Billing unavailable'));
 		loadWithContextMock.mockImplementationOnce((_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config, () => ({ auth: ctx.auth }))
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				unitCounts: ctx.unitCounts,
+				readLatestAuditEvent: async () => null
+			}))
 		);
 
 		const result = await loadGeneral(event as never);
 
 		expect(result).toMatchObject({
-			generalSettings: {
-				sections: {
-					organization: {
-						id: 'org-1',
-						name: 'Clinic',
-						urlSlug: 'clinic',
-						canUpdateProfile: true,
-						canUpdateUrlSlug: true
-					}
-				}
-			}
+			generalSettings: { organization: { id: 'org-1', name: 'Clinic', urlSlug: 'clinic' } }
 		});
 		expect(commercialRead).not.toHaveBeenCalled();
 		expect(result).not.toHaveProperty('effectiveTier');

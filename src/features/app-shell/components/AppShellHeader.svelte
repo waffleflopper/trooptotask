@@ -421,7 +421,7 @@
 									<DropdownMenu.Separator />
 									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings`))}>
 										<Settings />
-										Organization Settings
+										Unit settings
 									</DropdownMenu.Item>
 								{/if}
 								{#if isMultiOrg}
@@ -455,7 +455,7 @@
 							<Sidebar.MenuButton
 								isActive={pathname === `/org/${orgUrlSegment}/settings` ||
 									pathname.startsWith(`/org/${orgUrlSegment}/settings/`)}
-								tooltipContent="Organization Settings"
+								tooltipContent="Unit settings"
 							>
 								{#snippet child({ props })}
 									<a
@@ -464,7 +464,7 @@
 										aria-current={pathname === `/org/${orgUrlSegment}/settings` ? 'page' : undefined}
 									>
 										<Settings />
-										<span>Organization Settings</span>
+										<span>Unit settings</span>
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>

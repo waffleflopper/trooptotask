@@ -40,12 +40,13 @@ export type { DangerSettingsData, SettingsDangerSectionData } from './dangerSett
 export { getPreferredOrganizationUrlSegment, normalizeOrganizationUrlSlug, validateOrganizationUrlSlug } from './url';
 export type { OrganizationRouteIdentity, OrganizationMembershipSummary } from './profileTypes';
 export type {
+	CalendarCounts,
+	GeneralSettingsActionData,
 	GeneralSettingsData,
-	GeneralSettingsOrganizationSource,
-	SettingsOrganizationSectionData,
-	GeneralSettingsActionData
+	GeneralSettingsOrganization,
+	LastRenamed
 } from './generalSettingsTypes';
-export { buildGeneralSettingsData } from './generalSettings';
+export { CALENDAR_COUNT_KEYS } from './generalSettingsTypes';
 
 export type {
 	OrganizationSettingsReader,

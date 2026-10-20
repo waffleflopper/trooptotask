@@ -13,5 +13,5 @@
 />
 
 {#key data.orgId}
-	<GeneralSettingsPage {data} {form} />
+	<GeneralSettingsPage settings={data.generalSettings} {form} />
 {/key}

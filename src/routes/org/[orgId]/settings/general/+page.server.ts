@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { buildRouteRequest, createRequestActorContext } from '$lib/server/adapters/requestContexts.server';
+import { buildRouteRequest } from '$lib/server/adapters/requestContexts.server';
 import {
 	createSupabaseOrganizationProfilePort,
 	clearOrganizationUrlSlug,
@@ -8,17 +8,13 @@ import {
 	updateOrganizationUrlSlug
 } from '$features/organization/index.server';
 import { toActionFailure } from '$lib/server/adapters/httpAdapter';
-import { buildGeneralSettingsData } from '$features/organization/contracts';
 import { loadSettingsPage } from '../settingsLoad.server';
+import { loadGeneralSettings } from '../settingsGeneral.server';
+import { createSettingsGeneralContext } from '../settingsRequestContexts.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, createRequestActorContext, async (ctx, { common, organization }) => ({
-		generalSettings: buildGeneralSettingsData({
-			currentMemberRole: ctx.auth.role,
-			canManageMembers: ctx.auth.canManageMembers,
-			isAdmin: common.isAdmin,
-			organization
-		})
+	loadSettingsPage(event, createSettingsGeneralContext, (ctx, { organization }) => ({
+		generalSettings: loadGeneralSettings(ctx, organization)
 	}));
 
 export const actions: Actions = {

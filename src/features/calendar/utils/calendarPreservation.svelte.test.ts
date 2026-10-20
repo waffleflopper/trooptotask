@@ -103,18 +103,20 @@ describe('Calendar persisted range preservation', () => {
 				})
 		});
 		dailyAssignmentsStore.load(types, [outside], 'org-a');
-		coordinator.includeBootstrap({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30' });
-		const pending = coordinator.ensureRange('org-a', { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' });
+		const april = { rangeStart: '2026-04-01', rangeEnd: '2026-04-30' };
+		const march = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };
+		coordinator.includeBootstrap({ ...april, availabilityRange: april });
+		const pending = coordinator.ensureRange('org-a', { assignments: march });
 		coordinator.reset();
 		const newOrgSlot = { id: 'org-b-slot', date: '2026-03-15', assignmentTypeId: 'b-type', assigneeId: 'b-person' };
 		const newOrgType = { ...types[0], id: 'b-type' };
 		dailyAssignmentsStore.load([newOrgType], [newOrgSlot], 'org-b');
-		coordinator.includeBootstrap({ rangeStart: '2026-03-01', rangeEnd: '2026-03-31' });
+		coordinator.includeBootstrap({ ...march, availabilityRange: march });
 		finishOldRequest(rangeData([linked, group]));
 		await pending;
 		expect(dailyAssignmentsStore.orgId).toBe('org-b');
 		expect(dailyAssignmentsStore.assignments).toEqual([newOrgSlot]);
 		expect(dailyAssignmentsStore.types).toEqual([newOrgType]);
-		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-03-01', rangeEnd: '2026-03-31' });
+		expect(coordinator.loaded).toEqual({ availability: march, assignments: march });
 	});
 });

@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { getAccountPreferencesContext } from '$features/identity';
 	import {
-		buildCalendarAnchorCookie,
 		CalendarPageContext,
-		calendarReadRange,
+		calendarViewCoverage,
 		calendarStore,
 		type CalendarPageData,
 		type CalendarWorkspaceResult
@@ -74,7 +73,7 @@
 			return;
 		}
 
-		void rangeCoordinator.ensureRange(data.shell.org.id, calendarReadRange(calendarStore.currentDate, ctx.viewMode));
+		void rangeCoordinator.ensureRange(data.shell.org.id, viewCoverage);
 
 		return () => {
 			rangeCoordinator.cancelInFlightLoads();
@@ -108,6 +107,7 @@
 		(patch) => preferences.patch({ calendar: patch })
 	);
 	ctx.syncUserPreferences(untrack(() => preferences.value.calendar));
+	const viewCoverage = $derived(calendarViewCoverage(calendarStore.currentDate, ctx.viewMode));
 	let activeAccessKey: string | null = null;
 
 	$effect(() => {
@@ -126,10 +126,6 @@
 			});
 		}
 		activeAccessKey = nextAccessKey;
-	});
-
-	$effect(() => {
-		document.cookie = buildCalendarAnchorCookie(calendarStore.currentDate);
 	});
 
 	$effect(() => {
@@ -157,7 +153,7 @@
 	<CalendarPageView
 		{ctx}
 		data={viewData}
-		rangeStatus={rangeCoordinator.status(calendarReadRange(calendarStore.currentDate, ctx.viewMode))}
+		rangeStatus={rangeCoordinator.status(viewCoverage)}
 		onRetryRange={() => rangeCoordinator.retryFailedRange()}
 	/>
 {/if}

@@ -81,7 +81,11 @@ describe('personnel detail layout server load', () => {
 			depends
 		} as never);
 
-		expect(depends).toHaveBeenCalledWith('app:personnel-detail-header', 'app:personnel-detail-counts');
+		expect(depends).toHaveBeenCalledWith(
+			'app:personnel-detail-header',
+			'app:personnel-detail-counts',
+			'app:viewer-day'
+		);
 		expect(ctx.organizationPersonnel.findBySlug).toHaveBeenCalledWith('rivera-monica');
 		expect(loadWithContext).toHaveBeenCalledWith(
 			expect.anything(),

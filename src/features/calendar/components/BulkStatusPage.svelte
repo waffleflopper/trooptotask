@@ -85,9 +85,11 @@
 	// Add previews read through a coordinator of their own, seeded with what the Calendar workspace already loaded.
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	$effect.pre(() => {
-		const { rangeStart, rangeEnd } = data.calendar?.data ?? {};
+		const { rangeStart, rangeEnd, availabilityRange } = data.calendar?.data ?? {};
 		rangeCoordinator.reset();
-		if (rangeStart && rangeEnd) rangeCoordinator.includeBootstrap({ rangeStart, rangeEnd });
+		if (rangeStart && rangeEnd && availabilityRange) {
+			rangeCoordinator.includeBootstrap({ rangeStart, rangeEnd, availabilityRange });
+		}
 		return () => rangeCoordinator.reset();
 	});
 
@@ -122,7 +124,7 @@
 		const orgId = data.orgId;
 		const read = beginCalendarRangeRead();
 		try {
-			const rangeData = await loadCalendarRange(orgId, range);
+			const rangeData = await loadCalendarRange(orgId, { ...range, collections: ['availability'] });
 			if (!active || data.orgId !== orgId) {
 				throw new Error('Organization changed while loading availability range');
 			}

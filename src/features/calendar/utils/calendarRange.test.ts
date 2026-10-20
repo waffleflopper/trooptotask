@@ -2,35 +2,79 @@ import { describe, expect, it } from 'vitest';
 import { formatDate } from '$lib/utils/dates';
 import {
 	calendarPeriod,
-	calendarReadRange,
+	calendarViewCoverage,
 	chunkCalendarReadRange,
-	createInitialCalendarBufferedRange,
 	extendLoadedRange,
 	getCalendarRangeGaps,
+	initialCalendarCoverage,
+	planCalendarRangeReads,
 	shiftCalendarPeriod,
 	type CalendarBufferedRange
 } from './calendarRange';
 
-describe('calendarReadRange', () => {
-	it('reads the visible month plus the 90 days before it, across a year boundary', () => {
-		expect(calendarReadRange(new Date(2027, 0, 15), 'month')).toEqual({
-			rangeStart: '2026-10-03',
-			rangeEnd: '2027-01-31'
+describe('calendarViewCoverage', () => {
+	it('reads availability for the visible month and assignments from 90 days before it, across a year boundary', () => {
+		expect(calendarViewCoverage(new Date(2027, 0, 15), 'month', '2027-01-15')).toEqual({
+			availability: { rangeStart: '2027-01-01', rangeEnd: '2027-01-31' },
+			assignments: { rangeStart: '2026-10-03', rangeEnd: '2027-01-31' }
 		});
 	});
 
 	it('reads all three months of a 3-Month view that ends in the next year', () => {
-		expect(calendarReadRange(new Date(2026, 10, 18), '3-month')).toEqual({
-			rangeStart: '2026-08-03',
-			rangeEnd: '2027-01-31'
+		expect(calendarViewCoverage(new Date(2026, 10, 18), '3-month', '2026-11-18')).toEqual({
+			availability: { rangeStart: '2026-11-01', rangeEnd: '2027-01-31' },
+			assignments: { rangeStart: '2026-08-03', rangeEnd: '2027-01-31' }
 		});
 	});
 
-	it('seeds the bootstrap from the month read range start through the end of next month', () => {
-		expect(createInitialCalendarBufferedRange(new Date(2026, 3, 10))).toEqual({
-			rangeStart: '2026-01-01',
-			rangeEnd: '2026-05-31'
+	it('starts availability at today when today falls inside the lookback, and not when it falls before it', () => {
+		expect(calendarViewCoverage(new Date(2026, 10, 1), 'month', '2026-10-20').availability).toEqual({
+			rangeStart: '2026-10-20',
+			rangeEnd: '2026-11-30'
 		});
+		expect(calendarViewCoverage(new Date(2027, 2, 1), 'month', '2026-10-20').availability).toEqual({
+			rangeStart: '2027-03-01',
+			rangeEnd: '2027-03-31'
+		});
+	});
+
+	it('seeds the bootstrap with the anchor month and the month after it', () => {
+		expect(initialCalendarCoverage(new Date(2026, 3, 10), '2026-04-10')).toEqual({
+			availability: { rangeStart: '2026-04-01', rangeEnd: '2026-05-31' },
+			assignments: { rangeStart: '2026-01-01', rangeEnd: '2026-05-31' }
+		});
+	});
+});
+
+describe('planCalendarRangeReads', () => {
+	const loaded = {
+		availability: { rangeStart: '2026-10-01', rangeEnd: '2026-11-30' },
+		assignments: { rangeStart: '2026-07-03', rangeEnd: '2026-11-30' }
+	};
+
+	it('reads nothing for the next month the bootstrap already holds', () => {
+		expect(planCalendarRangeReads(loaded, calendarViewCoverage(new Date(2026, 10, 1), 'month', '2026-10-20'))).toEqual(
+			[]
+		);
+	});
+
+	it('shares one read when both collections miss the same month', () => {
+		expect(planCalendarRangeReads(loaded, calendarViewCoverage(new Date(2026, 11, 1), 'month', '2026-10-20'))).toEqual([
+			{ rangeStart: '2026-12-01', rangeEnd: '2026-12-31', collections: ['availability', 'assignments'] }
+		]);
+	});
+
+	it('reads the previous month of availability and only the lookback prefix of assignments', () => {
+		expect(planCalendarRangeReads(loaded, calendarViewCoverage(new Date(2026, 8, 1), 'month', '2026-10-20'))).toEqual([
+			{ rangeStart: '2026-09-01', rangeEnd: '2026-09-30', collections: ['availability'] },
+			{ rangeStart: '2026-06-03', rangeEnd: '2026-07-02', collections: ['assignments'] }
+		]);
+	});
+
+	it('reads only the collections a need names', () => {
+		expect(
+			planCalendarRangeReads(loaded, { availability: { rangeStart: '2026-12-10', rangeEnd: '2026-12-12' } })
+		).toEqual([{ rangeStart: '2026-12-10', rangeEnd: '2026-12-12', collections: ['availability'] }]);
 	});
 });
 
@@ -60,11 +104,11 @@ describe('getCalendarRangeGaps', () => {
 	});
 
 	it('returns only the far request after a two-year jump, not the unread years between', () => {
-		const jumped = calendarReadRange(new Date(2028, 3, 1), 'month');
+		const jumped = calendarViewCoverage(new Date(2028, 3, 1), 'month', '2026-04-10').assignments;
 
-		expect(getCalendarRangeGaps(createInitialCalendarBufferedRange(new Date(2026, 3, 10)), jumped)).toEqual([
-			{ rangeStart: '2028-01-02', rangeEnd: '2028-04-30' }
-		]);
+		expect(
+			getCalendarRangeGaps(initialCalendarCoverage(new Date(2026, 3, 10), '2026-04-10').assignments, jumped)
+		).toEqual([{ rangeStart: '2028-01-02', rangeEnd: '2028-04-30' }]);
 	});
 });
 

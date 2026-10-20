@@ -1,10 +1,11 @@
 import type { CalendarBootstrap, CalendarRangeData } from '$features/calendar/calendar.types';
 import { untrack } from 'svelte';
 import {
-	chunkCalendarReadRange,
+	CALENDAR_RANGE_COLLECTIONS,
 	extendLoadedRange,
-	getCalendarRangeGaps,
-	type CalendarBufferedRange
+	planCalendarRangeReads,
+	type CalendarCoverage,
+	type CalendarRangeRequest
 } from '$features/calendar/utils/calendarRange';
 import {
 	beginCalendarRangeRead,
@@ -12,7 +13,7 @@ import {
 	mergeCalendarRangeIntoStores
 } from '$features/calendar/utils/calendarRangeLoader';
 
-type CalendarBootstrapRangeData = Pick<CalendarBootstrap, 'rangeStart' | 'rangeEnd'>;
+type CalendarBootstrapRangeData = Pick<CalendarBootstrap, 'rangeStart' | 'rangeEnd' | 'availabilityRange'>;
 
 interface CalendarRangeCoordinatorDeps {
 	loadRange?: typeof loadCalendarRange;
@@ -24,7 +25,7 @@ export type CalendarRangeStatus = 'ready' | 'loading' | 'error';
 const MAX_READS_IN_FLIGHT = 2;
 
 export class CalendarRangeCoordinator {
-	loadedRange = $state<CalendarBufferedRange | null>(null);
+	loaded = $state<CalendarCoverage>({});
 	loading = $state(false);
 	error = $state<Error | null>(null);
 	retryToken = $state(0);
@@ -41,7 +42,7 @@ export class CalendarRangeCoordinator {
 	}
 
 	reset(): void {
-		this.loadedRange = null;
+		this.loaded = {};
 		this.#pendingRangeKey = null;
 		this.#failedRangeKey = null;
 		this.loading = false;
@@ -56,19 +57,19 @@ export class CalendarRangeCoordinator {
 	}
 
 	includeBootstrap(bootstrap: CalendarBootstrapRangeData): void {
-		if (bootstrap.rangeStart && bootstrap.rangeEnd) {
-			this.loadedRange = extendLoadedRange(
-				untrack(() => this.loadedRange),
-				{ rangeStart: bootstrap.rangeStart, rangeEnd: bootstrap.rangeEnd }
-			);
-		}
+		this.#include({
+			availability: bootstrap.availabilityRange,
+			assignments: { rangeStart: bootstrap.rangeStart, rangeEnd: bootstrap.rangeEnd }
+		});
 	}
 
 	applyToBootstrap<TBootstrap extends CalendarBootstrapRangeData>(bootstrap: TBootstrap): TBootstrap {
+		const { availability, assignments } = this.loaded;
 		return {
 			...bootstrap,
-			rangeStart: this.loadedRange?.rangeStart ?? bootstrap.rangeStart,
-			rangeEnd: this.loadedRange?.rangeEnd ?? bootstrap.rangeEnd
+			rangeStart: assignments?.rangeStart ?? bootstrap.rangeStart,
+			rangeEnd: assignments?.rangeEnd ?? bootstrap.rangeEnd,
+			availabilityRange: availability ?? bootstrap.availabilityRange
 		};
 	}
 
@@ -78,17 +79,17 @@ export class CalendarRangeCoordinator {
 		this.retryToken += 1;
 	}
 
-	status(range: CalendarBufferedRange): CalendarRangeStatus {
-		if (getCalendarRangeGaps(this.loadedRange, range).length === 0) return 'ready';
+	status(needed: CalendarCoverage): CalendarRangeStatus {
+		if (planCalendarRangeReads(this.loaded, needed).length === 0) return 'ready';
 		return this.error ? 'error' : 'loading';
 	}
 
-	/** Reads whatever part of `range` is not loaded yet. Callers check view capability first. */
-	async ensureRange(orgId: string, range: CalendarBufferedRange): Promise<void> {
-		const nextRanges = getCalendarRangeGaps(
-			untrack(() => this.loadedRange),
-			range
-		).flatMap(chunkCalendarReadRange);
+	/** Reads whatever part of `needed` is not loaded yet. Callers check view capability first. */
+	async ensureRange(orgId: string, needed: CalendarCoverage): Promise<void> {
+		const nextRanges = planCalendarRangeReads(
+			untrack(() => this.loaded),
+			needed
+		);
 
 		if (nextRanges.length === 0) {
 			// A late disjoint reply would replace coverage this range relies on.
@@ -98,7 +99,9 @@ export class CalendarRangeCoordinator {
 			return;
 		}
 
-		const requestKey = nextRanges.map((range) => `${range.rangeStart}:${range.rangeEnd}`).join('|');
+		const requestKey = nextRanges
+			.map((read) => `${read.rangeStart}:${read.rangeEnd}:${read.collections.join(',')}`)
+			.join('|');
 		const pendingRangeKey = untrack(() => this.#pendingRangeKey);
 		const failedRangeKey = untrack(() => this.#failedRangeKey);
 		if (pendingRangeKey === requestKey || failedRangeKey === requestKey) {
@@ -118,10 +121,7 @@ export class CalendarRangeCoordinator {
 			}
 
 			for (const rangeData of rangeDataSets) this.#mergeRangeIntoStores(orgId, rangeData, read);
-			this.loadedRange = extendLoadedRange(
-				untrack(() => this.loadedRange),
-				range
-			);
+			this.#include(needed);
 			this.loading = false;
 			this.#failedRangeKey = null;
 			this.#pendingRangeKey = null;
@@ -139,9 +139,18 @@ export class CalendarRangeCoordinator {
 		}
 	}
 
+	#include(read: CalendarCoverage): void {
+		const loaded = { ...untrack(() => this.loaded) };
+		for (const collection of CALENDAR_RANGE_COLLECTIONS) {
+			const range = read[collection];
+			if (range) loaded[collection] = extendLoadedRange(loaded[collection] ?? null, range);
+		}
+		this.loaded = loaded;
+	}
+
 	async #readRanges(
 		orgId: string,
-		ranges: CalendarBufferedRange[],
+		ranges: CalendarRangeRequest[],
 		requestSerial: number
 	): Promise<CalendarRangeData[]> {
 		const results: CalendarRangeData[] = [];

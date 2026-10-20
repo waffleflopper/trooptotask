@@ -29,6 +29,6 @@ describe('Onboarding layout', () => {
 
 		expect(await _createOnboardingLayoutLoad({ streamOnboardingWorkspace: stream })(event)).toBe(workspace);
 		expect(stream).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }));
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data', 'app:viewer-day');
 	});
 });

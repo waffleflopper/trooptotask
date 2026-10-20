@@ -21,7 +21,8 @@ describe('GET /api/calendar-range', () => {
 				ctx,
 				{
 					rangeStart: '03/01/2026',
-					rangeEnd: '2026-03-31'
+					rangeEnd: '2026-03-31',
+					collections: ['availability']
 				},
 				() => ctx
 			)
@@ -37,7 +38,8 @@ describe('GET /api/calendar-range', () => {
 				ctx,
 				{
 					rangeStart: '2026-04-01',
-					rangeEnd: '2026-03-31'
+					rangeEnd: '2026-03-31',
+					collections: ['availability']
 				},
 				() => ctx
 			)
@@ -53,16 +55,32 @@ describe('GET /api/calendar-range', () => {
 				ctx,
 				{
 					rangeStart: '2026-01-01',
-					rangeEnd: '2027-01-02'
+					rangeEnd: '2027-01-02',
+					collections: ['availability']
 				},
 				() => ctx
 			)
 		).rejects.toThrow('Calendar range cannot exceed 366 days');
 	});
 
-	it('returns only the ranged calendar payload for the requested window', async () => {
+	it.each([
+		[[], 'Too small'],
+		[['availability', 'availability'], 'collections must not repeat'],
+		[['availability', 'personnel'], 'Invalid']
+	])('rejects the collection list %j', async (collections, message) => {
 		const ctx = createTestContext();
 
+		await expect(
+			handleUseCaseRequest(
+				_getConfig,
+				ctx,
+				{ rangeStart: '2026-03-01', rangeEnd: '2026-03-31', collections } as never,
+				() => ctx
+			)
+		).rejects.toThrow(message);
+	});
+
+	function seedMarch(ctx: ReturnType<typeof createTestContext>) {
 		ctx.store.seed('availability_entries', [
 			{
 				id: 'a1',
@@ -80,13 +98,20 @@ describe('GET /api/calendar-range', () => {
 		ctx.store.seed('daily_assignments', [
 			{ id: 'da1', organization_id: ctx.auth.orgId, date: '2026-03-10', assignment_type_id: 'at1', assignee_id: 'p1' }
 		]);
+	}
+
+	it('returns only the ranged calendar payload for the requested window', async () => {
+		const ctx = createTestContext();
+
+		seedMarch(ctx);
 
 		const result = await handleUseCaseRequest(
 			_getConfig,
 			ctx,
 			{
 				rangeStart: '2026-03-01',
-				rangeEnd: '2026-03-31'
+				rangeEnd: '2026-03-31',
+				collections: ['availability', 'assignments']
 			},
 			() => ctx
 		);
@@ -115,5 +140,33 @@ describe('GET /api/calendar-range', () => {
 		});
 		expect('assignmentTypes' in result).toBe(false);
 		expect('pinnedGroups' in result).toBe(false);
+	});
+
+	it('sends availability alone, or assignments with their special days, as the request names', async () => {
+		const ctx = createTestContext();
+		seedMarch(ctx);
+		const sent = async (collections: ('availability' | 'assignments')[]) =>
+			JSON.parse(
+				JSON.stringify(
+					await handleUseCaseRequest(
+						_getConfig,
+						ctx,
+						{ rangeStart: '2026-03-01', rangeEnd: '2026-03-31', collections },
+						() => ctx
+					)
+				)
+			);
+
+		expect(await sent(['availability'])).toEqual({
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-03-31',
+			availabilityEntries: [expect.objectContaining({ id: 'a1' })]
+		});
+		expect(await sent(['assignments'])).toEqual({
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-03-31',
+			specialDays: [expect.objectContaining({ id: 'sd1' })],
+			dailyAssignments: [expect.objectContaining({ id: 'da1' })]
+		});
 	});
 });

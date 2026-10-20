@@ -1,4 +1,9 @@
-import { fetchCalendarRangeData, MAX_CALENDAR_RANGE_DAYS } from '$features/calendar/index.server';
+import {
+	CALENDAR_RANGE_COLLECTIONS,
+	fetchCalendarRangeData,
+	MAX_CALENDAR_RANGE_DAYS,
+	type CalendarRangeCollection
+} from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarRangeContext } from '$lib/server/adapters/requestContexts.server';
@@ -14,7 +19,13 @@ function toUtcDay(value: string): number {
 const calendarRangeInput = z
 	.object({
 		rangeStart: dateOnlySchema,
-		rangeEnd: dateOnlySchema
+		rangeEnd: dateOnlySchema,
+		collections: z
+			.array(z.enum(CALENDAR_RANGE_COLLECTIONS))
+			.min(1)
+			.refine((collections) => new Set(collections).size === collections.length, {
+				message: 'collections must not repeat'
+			})
 	})
 	.refine(({ rangeStart, rangeEnd }) => rangeStart <= rangeEnd, {
 		message: 'rangeStart must not exceed rangeEnd'
@@ -40,7 +51,9 @@ export const _getConfig: RouteConfig<
 	input: calendarRangeInput,
 	parseInput: (event) => ({
 		rangeStart: event.url.searchParams.get('rangeStart') ?? '',
-		rangeEnd: event.url.searchParams.get('rangeEnd') ?? ''
+		rangeEnd: event.url.searchParams.get('rangeEnd') ?? '',
+		// `input` validates each name before `fn` runs.
+		collections: (event.url.searchParams.get('collections')?.split(',') ?? []) as CalendarRangeCollection[]
 	}),
 	fn: async (ctx, input) => fetchCalendarRangeData(ctx, input)
 };

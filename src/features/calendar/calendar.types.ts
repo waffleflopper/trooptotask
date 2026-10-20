@@ -10,11 +10,14 @@ import type {
 import type { Group } from '$features/personnel/contracts';
 
 export interface CalendarBootstrap {
+	/** The assignment span: the visible days and the duty lookback before them. */
 	rangeStart: string;
 	rangeEnd: string;
+	/** Availability covers the visible days without the duty lookback. */
+	availabilityRange: CalendarDateRange;
 	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
 	specialDays: SpecialDay[] | Promise<SpecialDay[]>;
-	/** Special Days come from a wider catalog window than the availability and assignment range. */
+	/** Special Days come from a wider catalog window than the availability and assignment spans. */
 	specialDaysRange: CalendarDateRange;
 	assignmentTypes: AssignmentType[];
 	dailyAssignments: DailyAssignment[] | Promise<DailyAssignment[]>;
@@ -27,18 +30,19 @@ export interface CalendarBootstrap {
 	lossWarningWindowDays: number | null;
 }
 
-/** Response shape for the browser's Calendar range request. */
+/** Response shape for the browser's Calendar range request; each requested collection is present. */
 export interface CalendarRangeData {
 	rangeStart: string;
 	rangeEnd: string;
-	availabilityEntries: AvailabilityEntry[];
-	specialDays: SpecialDay[];
-	dailyAssignments: DailyAssignment[];
+	availabilityEntries?: AvailabilityEntry[];
+	specialDays?: SpecialDay[];
+	dailyAssignments?: DailyAssignment[];
 }
 
 export interface CalendarWorkspaceData {
 	rangeStart?: string;
 	rangeEnd?: string;
+	availabilityRange?: CalendarDateRange;
 	personnel: Personnel[];
 	allPersonnel?: Personnel[];
 	activeOnboardingPersonnelIds?: string[];

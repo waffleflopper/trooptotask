@@ -67,14 +67,15 @@
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === statusId));
 	const range = $derived(validateDateRange(startDate, endDate));
 	const readRange = $derived(range.valid ? { rangeStart: startDate, rangeEnd: endDate } : null);
+	const readNeed = $derived(readRange ? { availability: readRange } : null);
 
 	$effect(() => {
 		void rangeCoordinator.retryToken;
-		if (!readRange) return;
-		void rangeCoordinator.ensureRange(orgId, readRange);
+		if (!readNeed) return;
+		void rangeCoordinator.ensureRange(orgId, readNeed);
 		return () => rangeCoordinator.cancelInFlightLoads();
 	});
-	const readStatus = $derived(readRange ? rangeCoordinator.status(readRange) : null);
+	const readStatus = $derived(readNeed ? rangeCoordinator.status(readNeed) : null);
 
 	const overlaps = $derived(
 		readRange && statusId

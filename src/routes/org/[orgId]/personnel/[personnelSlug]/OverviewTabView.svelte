@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import {
-		buildCalendarAnchorCookie,
+		calendarStore,
 		PersonnelNextDays,
 		PersonnelNextDaysSkeleton,
 		type PersonnelCalendarWindow
@@ -79,7 +79,8 @@
 	}
 
 	function openCalendarToday() {
-		document.cookie = buildCalendarAnchorCookie(new Date());
+		const today = new Date();
+		calendarStore.goToMonth(today.getFullYear(), today.getMonth());
 	}
 </script>
 

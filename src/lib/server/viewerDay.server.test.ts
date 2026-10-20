@@ -51,3 +51,18 @@ describe('viewerToday', () => {
 		expect(viewerToday({ get: readCookie }, new Date('2026-10-15T02:00:00Z'))).toBe('2026-10-14');
 	});
 });
+
+describe('viewer-day loads', () => {
+	const routeLoads = import.meta.glob<string>('/src/routes/**/+{page,layout}.server.ts', {
+		query: '?raw',
+		import: 'default',
+		eager: true
+	});
+
+	it('every route load that reads the viewer day reruns when the browser records a new zone', () => {
+		const readers = Object.keys(routeLoads).filter((path) => routeLoads[path].includes('viewerDay.server'));
+
+		expect(readers).toContain('/src/routes/org/[orgId]/(dashboard)/+page.server.ts');
+		expect(readers.filter((path) => !routeLoads[path].includes('VIEWER_DAY_DEPENDENCY'))).toEqual([]);
+	});
+});

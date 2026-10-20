@@ -5,6 +5,7 @@ import { loadRequestPersonnelDetailHeader } from '$lib/server/adapters/personnel
 import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
 import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
 import { viewerToday } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import type { PageServerLoadEvent } from './$types';
 
 /** Each list opens on its newest records; the rest page in on request. */
@@ -21,7 +22,7 @@ export function _createPersonnelFilesPageLoad(deps: PersonnelFilesPageLoadDeps =
 
 	return async (event: PageServerLoadEvent) => {
 		const { params, locals, cookies } = event;
-		event.depends('app:personnel-detail-files');
+		event.depends('app:personnel-detail-files', VIEWER_DAY_DEPENDENCY);
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
 		const asOf = viewerToday(cookies);
 		const files = await loadWithContextFn(locals, cookies, params.orgId, {

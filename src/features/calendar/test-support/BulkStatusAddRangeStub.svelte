@@ -3,8 +3,8 @@
 
 	let { orgId, rangeCoordinator }: { orgId: string; rangeCoordinator: CalendarRangeCoordinator } = $props();
 
-	const COVERED = { rangeStart: '2026-01-10', rangeEnd: '2026-01-12' };
-	const FAR = { rangeStart: '2026-06-01', rangeEnd: '2026-06-03' };
+	const COVERED = { availability: { rangeStart: '2026-01-10', rangeEnd: '2026-01-12' } };
+	const FAR = { availability: { rangeStart: '2026-06-01', rangeEnd: '2026-06-03' } };
 </script>
 
 <button type="button" onclick={() => rangeCoordinator.ensureRange(orgId, COVERED)}>Read covered dates</button>

@@ -4,8 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
-	import { calendarReadRange } from '../utils/calendarRange';
-	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
+	import { calendarViewCoverage } from '../utils/calendarRange';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import type { CalendarOperationsPageAccess } from '../contracts';
 	import { pinnedGroupsStore } from '$features/personnel';
@@ -45,12 +44,17 @@
 	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	const rangeCoordinator = new CalendarRangeCoordinator();
+	const monthCoverage = $derived(calendarViewCoverage(calendarStore.currentDate, 'month'));
 	$effect(() => {
 		data.orgId;
 		rangeCoordinator.reset();
 		const bootstrap = data.calendar?.data;
-		if (bootstrap?.rangeStart && bootstrap.rangeEnd) {
-			rangeCoordinator.includeBootstrap({ rangeStart: bootstrap.rangeStart, rangeEnd: bootstrap.rangeEnd });
+		if (bootstrap?.rangeStart && bootstrap.rangeEnd && bootstrap.availabilityRange) {
+			rangeCoordinator.includeBootstrap({
+				rangeStart: bootstrap.rangeStart,
+				rangeEnd: bootstrap.rangeEnd,
+				availabilityRange: bootstrap.availabilityRange
+			});
 		}
 		return () => rangeCoordinator.cancelInFlightLoads();
 	});
@@ -58,17 +62,14 @@
 		workspaceData;
 		rangeCoordinator.retryToken;
 		if (!canMutate) return;
-		void rangeCoordinator.ensureRange(data.orgId, calendarReadRange(calendarStore.currentDate, 'month'));
+		void rangeCoordinator.ensureRange(data.orgId, monthCoverage);
 		return () => rangeCoordinator.cancelInFlightLoads();
 	});
 	const rangeReady = $derived(
 		dailyAssignmentsStore.orgId === data.orgId &&
 			!dailyAssignmentsStore.loading &&
-			rangeCoordinator.status(calendarReadRange(calendarStore.currentDate, 'month')) === 'ready'
+			rangeCoordinator.status(monthCoverage) === 'ready'
 	);
-	$effect(() => {
-		if (canMutate) document.cookie = buildCalendarAnchorCookie(calendarStore.currentDate);
-	});
 
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const rosterView = $derived(

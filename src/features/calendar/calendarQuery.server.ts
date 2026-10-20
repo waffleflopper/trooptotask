@@ -7,6 +7,7 @@
  */
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
+import type { CalendarRangeCollection } from './utils/calendarRange';
 export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import { listAssignmentTypes } from './assignmentTypeRead.server';
 import { listAvailabilityEntries } from './availabilityRead.server';
@@ -47,7 +48,13 @@ export interface CalendarDateRange {
 
 export type CalendarQueryInput = CalendarDateRange;
 
+export interface CalendarRangeQueryInput extends CalendarQueryInput {
+	collections: readonly CalendarRangeCollection[];
+}
+
 export interface CalendarBootstrapQueryInput extends CalendarQueryInput {
+	/** Defaults to the assignment span. */
+	availabilityRange?: CalendarDateRange;
 	specialDaysRange?: CalendarDateRange;
 }
 
@@ -97,19 +104,24 @@ export async function fetchCalendarData(ctx: CalendarQueryPorts, input: Calendar
 
 export async function fetchCalendarRangeData(
 	ctx: CalendarQueryPorts,
-	input: CalendarQueryInput
+	input: CalendarRangeQueryInput
 ): Promise<CalendarRangeData> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
+	const range = { rangeStart, rangeEnd };
+	const withAvailability = input.collections.includes('availability');
+	const withAssignments = input.collections.includes('assignments');
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
 	return withCalendarTiming(orgId, 'date-ranged-query', async () => {
 		const [availabilityEntries, specialDays, dailyAssignments] = await Promise.all([
-			listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
-			listSpecialDaysInRange(ctx.calendarCatalogs, input),
-			listDailyAssignments(ctx, input, calendarScope)
+			withAvailability
+				? listAvailabilityEntries(ctx, { ...range, personnelIds: calendarScope?.personnelIds })
+				: undefined,
+			withAssignments ? listSpecialDaysInRange(ctx.calendarCatalogs, range) : undefined,
+			withAssignments ? listDailyAssignments(ctx, range, calendarScope) : undefined
 		]);
 
 		return {
@@ -133,15 +145,15 @@ export async function fetchCalendarBootstrap(
 
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
+	const availabilityRange = input.availabilityRange ?? { rangeStart, rangeEnd };
 	const specialDaysRange = input.specialDaysRange ?? input;
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 	const availabilityEntries = listAvailabilityEntries(ctx, {
-		rangeStart,
-		rangeEnd,
+		...availabilityRange,
 		personnelIds: calendarScope?.personnelIds
 	});
 	const specialDays = listSpecialDaysInRange(ctx.calendarCatalogs, specialDaysRange);
-	const dailyAssignments = listDailyAssignments(ctx, input, calendarScope);
+	const dailyAssignments = listDailyAssignments(ctx, { rangeStart, rangeEnd }, calendarScope);
 	// Handle early rejections until streaming attaches its consumers. The returned
 	// original promises still reject, so hydration can show the source error.
 	void availabilityEntries.catch(() => undefined);
@@ -160,6 +172,7 @@ export async function fetchCalendarBootstrap(
 	return {
 		rangeStart,
 		rangeEnd,
+		availabilityRange: { rangeStart: availabilityRange.rangeStart, rangeEnd: availabilityRange.rangeEnd },
 		availabilityEntries,
 		specialDays,
 		specialDaysRange: { rangeStart: specialDaysRange.rangeStart, rangeEnd: specialDaysRange.rangeEnd },

@@ -10,12 +10,13 @@ import {
 	createRequestNotificationContext
 } from '$lib/server/adapters/requestContexts.server';
 import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
 
 export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
-	depends('app:dashboard-data');
+	depends('app:dashboard-data', VIEWER_DAY_DEPENDENCY);
 	const { orgId } = params;
 	const parentData = await parent();
 	const asOf = viewerToday(cookies);

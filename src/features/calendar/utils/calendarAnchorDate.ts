@@ -12,6 +12,16 @@ export function parseCalendarAnchorDate(value: string | null | undefined): Date 
 	return parseDate(value);
 }
 
+/** The anchor a `document.cookie` string holds, or null when it holds none or an invalid date. */
+export function readCalendarAnchorCookie(cookies: string): Date | null {
+	const prefix = `${CALENDAR_ANCHOR_COOKIE}=`;
+	const value = cookies
+		.split('; ')
+		.find((cookie) => cookie.startsWith(prefix))
+		?.slice(prefix.length);
+	return parseCalendarAnchorDate(value);
+}
+
 export function resolveCalendarAnchorDate(value: string | null | undefined, fallbackDate: Date): Date {
 	return parseCalendarAnchorDate(value) ?? fallbackDate;
 }

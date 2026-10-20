@@ -75,6 +75,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 	const calendarBootstrap: Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'> = {
 		rangeStart: '2026-03-01',
 		rangeEnd: '2026-05-31',
+		availabilityRange: { rangeStart: '2026-04-01', rangeEnd: '2026-05-31' },
 		availabilityEntries,
 		specialDays,
 		specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' },
@@ -129,7 +130,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 					deferred: true,
 					items: availabilityEntries,
 					snapshotKey: expect.any(String),
-					range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
+					range: { rangeStart: '2026-04-01', rangeEnd: '2026-05-31' }
 				},
 				specialDays: {
 					mode: 'range',
@@ -224,6 +225,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 				...calendarBootstrap,
 				rangeStart: input.rangeStart,
 				rangeEnd: input.rangeEnd,
+				availabilityRange: input.availabilityRange!,
 				specialDays: Promise.resolve([
 					{
 						id: 'sd-wide',
@@ -248,7 +250,8 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01..2028-12-31' })
 		]);
 		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-01-31', rangeEnd: '2026-06-30' });
-		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-01-31', rangeEnd: '2026-06-30' });
+		// Today, 2026-04-10, falls inside the lookback, so availability reads from today for the title row.
+		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-10', rangeEnd: '2026-06-30' });
 		expect(workspace.hydration.confirmedChangesByTab).toEqual({ tab1: 7 });
 	});
 });

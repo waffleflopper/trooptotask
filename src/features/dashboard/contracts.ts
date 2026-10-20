@@ -10,6 +10,7 @@ import type { TrainingType } from '$features/training/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { TrainingSummary } from '$features/training/contracts';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 export type { TrainingIssue } from '$features/training/contracts';
 
 export interface DashboardIctlMosReadiness {
@@ -76,6 +77,8 @@ export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
+	/** Features off for the unit, from the app shell's Organization row. */
+	disabledFeatures: readonly FeatureKey[];
 	dashboard: DashboardWorkspaceResult;
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;
@@ -104,6 +107,8 @@ export interface DashboardBootstrap {
 	trainingTypes: TrainingType[];
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays: number;
+	/** Duty strength at or above this percent reads as healthy (default: 80). */
+	strengthFloorPercent: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
 	awardTrackingAcknowledgedPersonnelIds: string[];
 }

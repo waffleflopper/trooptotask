@@ -1,3 +1,4 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type {
 	OrganizationCriticalTasksDefaults,
 	OrganizationSettingsMembershipRow,
@@ -10,6 +11,12 @@ export interface OrganizationPolicySettings {
 	archiveRetentionMonths?: number | null;
 	lossWarningWindowDays?: number | null;
 	trainingReadinessGoalPercent: number;
+	strengthFloorPercent: number;
+}
+
+export interface OrganizationFeatureSettings {
+	disabledFeatures: FeatureKey[];
+	strengthFloorPercent: number;
 }
 
 /** The Organization facts a Training briefing states: its name and readiness goal. */
@@ -39,9 +46,13 @@ export interface OrganizationPolicyChanges {
 	lossWarningWindowDays?: number;
 	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapBytes?: number;
+	disabledFeatures?: FeatureKey[];
+	strengthFloorPercent?: number;
 }
 
 export interface OrganizationPolicyWritePort {
+	/** The values an audited switch or floor change replaces. */
+	findFeatureSettings(orgId: string): Promise<OrganizationFeatureSettings | null>;
 	/** Null means the canonical Organization and every submitted value were acknowledged. */
 	updatePolicies(orgId: string, changes: OrganizationPolicyChanges): Promise<string | null>;
 }
@@ -51,6 +62,8 @@ export interface OrganizationSettingsInput {
 	lossWarningWindowDays?: number;
 	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapMb?: number;
+	disabledFeatures?: FeatureKey[];
+	strengthFloorPercent?: number;
 }
 
 export interface OrganizationRetentionConfiguration {

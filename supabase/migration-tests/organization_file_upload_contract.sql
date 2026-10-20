@@ -111,5 +111,5 @@ RESET ROLE;
 SELECT results_eq($$SELECT id::text,to_jsonb(r) FROM storage.objects r WHERE id IN ('fa180000-0000-4000-8000-000000000503','fa180000-0000-4000-8000-000000000504','fa180000-0000-4000-8000-000000000505') ORDER BY 1$$,
   $$SELECT row_id,row_data FROM upgrade_fixture.organization_file_upload_before_rows WHERE table_name='objects' AND row_id IN ('fa180000-0000-4000-8000-000000000503','fa180000-0000-4000-8000-000000000504','fa180000-0000-4000-8000-000000000505') ORDER BY 1$$,
   'foreign, historical lookalike and unrelated-bucket values remain exact');
-SELECT results_eq($$SELECT id::text,to_jsonb(r) - 'training_readiness_goal_percent' FROM public.organizations r WHERE id='fa180000-0000-4000-8000-000000000102'$$,
+SELECT results_eq($$SELECT id::text,to_jsonb(r) - 'training_readiness_goal_percent' - 'disabled_features' - 'strength_floor_percent' FROM public.organizations r WHERE id='fa180000-0000-4000-8000-000000000102'$$,
   $$SELECT row_id,row_data FROM upgrade_fixture.organization_file_upload_before_rows WHERE table_name='organizations' AND row_id='fa180000-0000-4000-8000-000000000102'$$,'foreign Organization remains exact');

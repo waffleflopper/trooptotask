@@ -14,25 +14,28 @@ import type { PersonnelActiveEvaluation } from '$features/rating-scheme/contract
 import { loadPersonnelActiveEvaluation } from '$features/rating-scheme/index.server';
 import type { PersonnelTrainingReadiness } from '$features/training/contracts';
 import { loadPersonnelTrainingReadiness } from '$features/training/index.server';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { isHttpError, type Cookies } from '@sveltejs/kit';
 import { loadWithContext } from './httpAdapter';
 import { createRequestPersonnelReadinessContext } from './requestContexts.server';
 import { keepStreamedRejectionObserved } from './streamedWorkspace';
 
+/** A source the unit turned off is null: nothing is read and the page leaves its block out. */
 export interface PersonnelReadinessStreams {
-	training: Promise<PersonnelTrainingReadiness>;
-	criticalTasks: Promise<PersonnelCriticalTaskReadiness>;
-	evaluation: Promise<PersonnelActiveEvaluation | null>;
+	training: Promise<PersonnelTrainingReadiness> | null;
+	criticalTasks: Promise<PersonnelCriticalTaskReadiness> | null;
+	evaluation: Promise<PersonnelActiveEvaluation | null> | null;
 	loss: Promise<PersonnelLossReadiness>;
-	onboarding: Promise<PersonnelOnboardingSummary>;
+	onboarding: Promise<PersonnelOnboardingSummary> | null;
 	/** Settles every source, so it never rejects; a failed source reads as unchecked. */
 	attention: Promise<PersonnelAttention>;
 }
 
 type ReadinessContext = ReturnType<typeof createRequestPersonnelReadinessContext>;
 
-function settle<T>(source: Promise<T>): Promise<ReadinessSourceResult<T>> {
+function settle<T>(source: Promise<T> | null): Promise<ReadinessSourceResult<T>> {
+	if (!source) return Promise.resolve({ ok: false, off: true });
 	return source.then(
 		(value) => ({ ok: true, value }),
 		() => ({ ok: false })
@@ -44,33 +47,47 @@ export function createPersonnelReadinessStreams(
 	person: Personnel,
 	asOf: string
 ): PersonnelReadinessStreams {
+	const on = (feature: FeatureKey) => !ctx.disabledFeatures.includes(feature);
 	const lane = (action: Parameters<typeof authorizePersonnelLane>[2], resourceType: string) => () =>
 		authorizePersonnelLane(ctx.detail, person, action, resourceType);
-	const training = loadPersonnelTrainingReadiness({
-		trainingCatalog: ctx.trainingCatalog,
-		trainingCompletions: ctx.trainingCompletions,
+	const training = on('training')
+		? loadPersonnelTrainingReadiness({
+				trainingCatalog: ctx.trainingCatalog,
+				trainingCompletions: ctx.trainingCompletions,
+				asOf,
+				loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.training.viewRecords, 'training_record')
+			})
+		: null;
+	const criticalTasks = on('criticalTasks')
+		? loadPersonnelCriticalTaskReadiness({
+				organizationSettings: ctx.organizationSettings,
+				criticalTaskLibrary: ctx.criticalTaskLibrary,
+				criticalTaskCompletions: ctx.criticalTaskCompletions,
+				orgId: ctx.detail.auth.orgId,
+				asOf,
+				loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.criticalTasks.viewReadiness, 'personnel_ict_completion')
+			})
+		: null;
+	const evaluation = on('evaluations')
+		? loadPersonnelActiveEvaluation({
+				ratingScheme: ctx.ratingScheme,
+				asOf,
+				loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry'),
+				findPersonNames: ctx.findPersonNames
+			})
+		: null;
+	const loss = loadPersonnelLossReadiness(
+		ctx.detail,
+		person,
 		asOf,
-		loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.training.viewRecords, 'training_record')
-	});
-	const criticalTasks = loadPersonnelCriticalTaskReadiness({
-		organizationSettings: ctx.organizationSettings,
-		criticalTaskLibrary: ctx.criticalTaskLibrary,
-		criticalTaskCompletions: ctx.criticalTaskCompletions,
-		orgId: ctx.detail.auth.orgId,
-		asOf,
-		loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.criticalTasks.viewReadiness, 'personnel_ict_completion')
-	});
-	const evaluation = loadPersonnelActiveEvaluation({
-		ratingScheme: ctx.ratingScheme,
-		asOf,
-		loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry'),
-		findPersonNames: ctx.findPersonNames
-	});
-	const loss = loadPersonnelLossReadiness(ctx.detail, person, asOf, ctx.loadLossWarningWindowDays);
-	const onboarding = loadPersonnelOnboardingSummary({
-		onboardingWorkflow: ctx.onboardingWorkflow,
-		loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.onboarding.viewWorkflows, 'personnel_onboarding')
-	});
+		on('lossesAndAwards') ? ctx.loadLossWarningWindowDays : null
+	);
+	const onboarding = on('onboarding')
+		? loadPersonnelOnboardingSummary({
+				onboardingWorkflow: ctx.onboardingWorkflow,
+				loadAuthorizedPerson: lane(POLICY_ACTION_CATALOG.onboarding.viewWorkflows, 'personnel_onboarding')
+			})
+		: null;
 	const attention = Promise.all([
 		settle(training),
 		settle(criticalTasks),

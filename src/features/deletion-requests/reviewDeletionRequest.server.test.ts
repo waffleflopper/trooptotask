@@ -6,6 +6,7 @@ import { createDeletionRequestTestStore } from './testing.server';
 import { approvePersonnelArchiveRequest } from '$features/personnel/index.server';
 import { fail } from '$lib/errors';
 import type { ApprovedDeletionEffects } from './contracts.server';
+import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	const ctx = createWriteWithNotificationsPortsContext(overrides);
@@ -132,6 +133,24 @@ describe('approveDeletionRequest', () => {
 		});
 		expect(ctx.audit.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
 		expect(ctx.notifications.notifications).toHaveLength(1);
+	});
+
+	it('approves a Training completion deletion while the unit has Training turned off', async () => {
+		const auth = projectOrganizationAccessGrant({ role: 'owner' }, 'owner-1', 'test-org', {
+			disabledFeatures: ['training']
+		});
+		const ctx = buildContext({ auth: { ...auth } });
+		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
+		ctx.store.seed('personnel_trainings', [{ id: 'completion-1', organization_id: 'test-org' }]);
+
+		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
+
+		expect(auth.capabilityMap.training).toBe('none');
+		expect(await ctx.store.findOne('personnel_trainings', 'test-org', { id: 'completion-1' })).toBeNull();
+		expect(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).toMatchObject({
+			status: 'approved',
+			reviewed_by: 'owner-1'
+		});
 	});
 
 	it('leaves a Training type request pending without success side effects when the owned effect fails', async () => {

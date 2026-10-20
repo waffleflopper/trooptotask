@@ -80,7 +80,8 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 				calendarAvailability: ctx.calendarAvailability,
 				calendarAssignments: ctx.calendarAssignments,
 				personnelCalendarRoster: ctx.personnelCalendarRoster,
-				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers
+				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers,
+				disabledFeatures: ctx.disabledFeatures
 			})
 		);
 
@@ -122,7 +123,8 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 				calendarAvailability: ctx.calendarAvailability,
 				calendarAssignments: ctx.calendarAssignments,
 				personnelCalendarRoster: ctx.personnelCalendarRoster,
-				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers
+				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers,
+				disabledFeatures: ctx.disabledFeatures
 			})
 		);
 

@@ -55,6 +55,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase,
 			orgName: 'Test Org',
+			disabledFeatures: [],
 			wrapMembershipLoad
 		});
 
@@ -93,7 +94,8 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgId: 'org-1',
 			userId: 'user-1',
 			userSupabase,
-			orgName: 'Test Org'
+			orgName: 'Test Org',
+			disabledFeatures: []
 		});
 
 		const result = await port.getMembership();
@@ -116,7 +118,8 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgId: 'org-1',
 			userId: 'user-1',
 			userSupabase: createMockSupabase(builder),
-			orgName: 'Test Org'
+			orgName: 'Test Org',
+			disabledFeatures: []
 		});
 
 		const result = await port.getMembership();
@@ -138,6 +141,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			userId: 'user-1',
 			userSupabase: createMockSupabase(createMembershipQueryBuilder(null).builder),
 			orgName: 'Test Org',
+			disabledFeatures: [],
 			wrapMembershipLoad: async () => ({ role: 'member', member_preset: null })
 		});
 

@@ -134,15 +134,25 @@ function lossItems(input: AttentionInput['loss']): AttentionItem[] {
 	];
 }
 
+function failed(result: AttentionInput[AttentionSource]): boolean {
+	return !result.ok && !result.off;
+}
+
+function unchecked(result: AttentionInput[AttentionSource]): { state: 'failed' } | { state: 'off' } {
+	return failed(result) ? { state: 'failed' } : { state: 'off' };
+}
+
 function currentCount(items: ReadonlyArray<{ status: string }>): number {
 	return items.filter((item) => item.status === 'current').length;
 }
 
-/** Ranks every readiness problem for one Person. A failed source is reported, never read as clear. */
+/**
+ * Ranks every readiness problem for one Person. A failed source is reported, never read as clear; a
+ * feature the unit turned off is neither.
+ */
 export function buildPersonnelAttention(input: AttentionInput): PersonnelAttention {
 	const training = trainingItems(input.training);
 	const criticalTasks = criticalTaskItems(input.criticalTasks);
-	const failed = (Object.keys(input) as AttentionSource[]).filter((source) => !input[source].ok);
 
 	return {
 		items: [...training, ...criticalTasks, ...evaluationItems(input.evaluation), ...lossItems(input.loss)].sort(
@@ -150,23 +160,25 @@ export function buildPersonnelAttention(input: AttentionInput): PersonnelAttenti
 		),
 		readinessBadge: {
 			count: training.length + criticalTasks.length,
-			complete: input.training.ok && input.criticalTasks.ok
+			complete: !failed(input.training) && !failed(input.criticalTasks)
 		},
 		checked: {
 			training: input.training.ok
 				? { state: 'checked', currentCount: currentCount(input.training.value.items) }
-				: { state: 'failed' },
+				: unchecked(input.training),
 			criticalTasks: input.criticalTasks.ok
 				? {
 						state: 'checked',
 						currentCount: currentCount(input.criticalTasks.value.items),
 						applicableCount: input.criticalTasks.value.items.length
 					}
-				: { state: 'failed' },
-			evaluation: input.evaluation.ok ? { state: 'checked' } : { state: 'failed' },
-			loss: input.loss.ok ? { state: 'checked' } : { state: 'failed' },
-			onboarding: input.onboarding.ok ? { state: 'checked', status: input.onboarding.value.state } : { state: 'failed' }
+				: unchecked(input.criticalTasks),
+			evaluation: input.evaluation.ok ? { state: 'checked' } : unchecked(input.evaluation),
+			loss: input.loss.ok ? { state: 'checked' } : unchecked(input.loss),
+			onboarding: input.onboarding.ok
+				? { state: 'checked', status: input.onboarding.value.state }
+				: unchecked(input.onboarding)
 		},
-		failed
+		failed: (Object.keys(input) as AttentionSource[]).filter((source) => failed(input[source]))
 	};
 }

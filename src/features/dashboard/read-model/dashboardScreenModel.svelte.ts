@@ -14,6 +14,7 @@ import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { DashboardPageData } from '$features/dashboard/contracts';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { TrainingIssue } from '$features/training/contracts';
 import { getProgress } from '$features/onboarding/contracts';
 import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
@@ -161,7 +162,10 @@ export interface DashboardGroupedPreferenceView<Mode extends string, Row> {
 }
 
 export interface DashboardUnitReadinessView {
+	/** Duty strength against the unit's strength floor. */
 	availabilityColor(pct: number): string;
+	/** Training currency against the fixed 90 and 75 percent cutoffs. */
+	trainingCurrencyColor(pct: number): string;
 	availPct: number;
 	availColor: string;
 	trainingColor: string;
@@ -273,6 +277,10 @@ export class DashboardScreenModel {
 
 	get userRole(): string | undefined {
 		return this.data.userRole as string | undefined;
+	}
+
+	isFeatureOn(feature: FeatureKey): boolean {
+		return !this.data.disabledFeatures.includes(feature);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -768,6 +776,7 @@ export class DashboardScreenModel {
 	}
 
 	get upcomingLosses(): UpcomingLossRecord[] {
+		if (!this.isFeatureOn('lossesAndAwards')) return [];
 		const warningWindowDays = this.data.dashboard.data.lossWarningWindowDays ?? 180;
 		return evaluateUpcomingLosses(this.rosterPersonnel, warningWindowDays, this.today, {
 			awardTrackingAcknowledgedPersonnelIds: this.data.dashboard.data.awardTrackingAcknowledgedPersonnelIds ?? []
@@ -776,11 +785,14 @@ export class DashboardScreenModel {
 
 	get unitReadiness(): DashboardUnitReadinessView {
 		const availPct = this.dutyStrengthPct;
+		const floor = this.data.dashboard.data.strengthFloorPercent;
+		const availabilityColor = (pct: number) => strengthColor(pct, floor);
 		return {
 			availabilityColor,
+			trainingCurrencyColor,
 			availPct,
 			availColor: availabilityColor(availPct),
-			trainingColor: availabilityColor(this.trainingCurrencyPct),
+			trainingColor: trainingCurrencyColor(this.trainingCurrencyPct),
 			statusEntries: [...this.statusBreakdown.entries()],
 			upcomingChanges: {
 				mode: this.upcomingGroupBy,
@@ -923,7 +935,11 @@ function sortGroupName(a: string, b: string): number {
 	return a.localeCompare(b);
 }
 
-function availabilityColor(pct: number): string {
+function strengthColor(pct: number, floorPercent: number): string {
+	return pct >= floorPercent ? 'var(--success-foreground)' : 'var(--warning-foreground)';
+}
+
+function trainingCurrencyColor(pct: number): string {
 	if (pct >= 90) return 'var(--success-foreground)';
 	if (pct >= 75) return 'var(--warning-foreground)';
 	return 'var(--danger-foreground)';

@@ -1,3 +1,4 @@
+import { disabledFeatureLanes, type FeatureKey } from './featureSwitches';
 import {
 	createCapabilityMap,
 	resolveStoredMemberAccessShape,
@@ -29,6 +30,11 @@ export interface MemberAccessInvitationProjectionRow {
 	access_scope_group_ids?: unknown;
 }
 
+/** Unit-wide facts read from the Organization row the request already selects. */
+export interface OrganizationFeatureSwitches {
+	disabledFeatures: readonly FeatureKey[];
+}
+
 export interface EffectiveMemberAccessProjection {
 	role: MembershipRole;
 	isOwner: boolean;
@@ -38,9 +44,14 @@ export interface EffectiveMemberAccessProjection {
 	memberPreset: MemberPreset;
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;
+	/** Off for the unit, as distinct from a lane the member has no permission for. */
+	disabledFeatures: readonly FeatureKey[];
 }
 
-export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): EffectiveMemberAccessProjection {
+export function projectEffectiveMemberAccess(
+	row: MemberAccessProjectionRow,
+	switches: OrganizationFeatureSwitches
+): EffectiveMemberAccessProjection {
 	const role = row.role;
 	const isOwner = role === 'owner';
 	const isAdmin = role === 'admin';
@@ -66,17 +77,25 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 		isPrivileged,
 		canManageMembers: isPrivileged,
 		memberPreset: accessShape.memberPreset,
-		capabilityMap: accessShape.capabilityMap,
-		scopeSet: accessShape.scopeSet
+		capabilityMap: withFeatureLanesOff(accessShape.capabilityMap, switches.disabledFeatures),
+		scopeSet: accessShape.scopeSet,
+		disabledFeatures: switches.disabledFeatures
 	};
+}
+
+function withFeatureLanesOff(capabilityMap: CapabilityMap, disabledFeatures: readonly FeatureKey[]): CapabilityMap {
+	const gated = { ...capabilityMap };
+	for (const lane of disabledFeatureLanes(disabledFeatures)) gated[lane] = 'none';
+	return gated;
 }
 
 export function projectOrganizationAccessGrant(
 	membership: MemberAccessProjectionRow,
 	userId: string,
-	orgId: string
+	orgId: string,
+	switches: OrganizationFeatureSwitches
 ): OrganizationAccessGrant {
-	const access = projectEffectiveMemberAccess(membership);
+	const access = projectEffectiveMemberAccess(membership, switches);
 	return {
 		userId,
 		orgId,
@@ -91,10 +110,13 @@ export function projectOrganizationAccessGrant(
 export function projectEffectiveInvitationAccess(
 	row: MemberAccessInvitationProjectionRow
 ): EffectiveMemberAccessProjection {
-	return projectEffectiveMemberAccess({
-		...row,
-		role: parseInvitationMembershipRole(row.role)
-	});
+	return projectEffectiveMemberAccess(
+		{
+			...row,
+			role: parseInvitationMembershipRole(row.role)
+		},
+		{ disabledFeatures: [] }
+	);
 }
 
 function parseInvitationMembershipRole(value: unknown): MembershipRole {

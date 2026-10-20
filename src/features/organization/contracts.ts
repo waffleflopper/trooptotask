@@ -50,6 +50,7 @@ export { buildGeneralSettingsData } from './generalSettings';
 export type {
 	OrganizationSettingsReader,
 	OrganizationPolicySettings,
+	OrganizationFeatureSettings,
 	OrganizationPolicyChanges,
 	OrganizationPolicyWritePort,
 	OrganizationSettingsInput,
@@ -63,6 +64,7 @@ export type { UnitCountKey, UnitCounts } from './unitCounts';
 export {
 	DEFAULT_ARCHIVE_RETENTION_MONTHS,
 	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+	DEFAULT_STRENGTH_FLOOR_PERCENT,
 	readLossWarningWindowDays
 } from './policyConstraints';
 

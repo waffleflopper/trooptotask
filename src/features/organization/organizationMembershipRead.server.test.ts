@@ -87,7 +87,7 @@ describe.each(membershipReaders)('$name membership read', ({ read }) => {
 			access_scope_kind: 'groups',
 			access_scope_group_ids: ['clinic', 'clinic', 'aid-station']
 		});
-		expect(projectEffectiveMemberAccess(row)).toMatchObject({
+		expect(projectEffectiveMemberAccess(row, { disabledFeatures: [] })).toMatchObject({
 			role: 'member',
 			memberPreset: 'operator',
 			canManageMembers: false,
@@ -109,7 +109,7 @@ describe.each(membershipReaders)('$name membership read', ({ read }) => {
 	it.each(['owner', 'admin'] as const)('retains %s access without requiring a member preset', async (role) => {
 		const { client } = provider([{ id: 'privileged', user_id: 'actor', organization_id: 'alpha', role }]);
 		const row = await read(client, 'actor', 'alpha');
-		expect(projectEffectiveMemberAccess(row)).toMatchObject({
+		expect(projectEffectiveMemberAccess(row, { disabledFeatures: [] })).toMatchObject({
 			role,
 			isPrivileged: true,
 			canManageMembers: true,

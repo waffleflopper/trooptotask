@@ -71,6 +71,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 		statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
 		trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
 		lossWarningWindowDays: 180,
+		strengthFloorPercent: 80,
 		awardTrackingAcknowledgedPersonnelIds: []
 	};
 

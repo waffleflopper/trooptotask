@@ -28,7 +28,7 @@ INSERT INTO public.user_org_preferences (id, organization_id, user_id, preferenc
 
 CREATE VIEW upgrade_fixture.account_preferences_current_rows AS
 SELECT 'auth.users'::text table_name, id::text row_id, to_jsonb(r) row_data FROM auth.users r WHERE id::text LIKE 'd2600000-%'
-UNION ALL SELECT 'organizations', id::text, to_jsonb(r) - 'training_readiness_goal_percent' FROM public.organizations r WHERE id::text LIKE 'd2600000-%'
+UNION ALL SELECT 'organizations', id::text, to_jsonb(r) - 'training_readiness_goal_percent' - 'disabled_features' - 'strength_floor_percent' FROM public.organizations r WHERE id::text LIKE 'd2600000-%'
 UNION ALL SELECT 'memberships', id::text, to_jsonb(r) FROM public.organization_memberships r WHERE id::text LIKE 'd2600000-%'
 UNION ALL SELECT 'progress', id::text, to_jsonb(r) FROM public.getting_started_progress r WHERE id::text LIKE 'd2600000-%'
 UNION ALL SELECT 'preferences', id::text, to_jsonb(r) FROM public.user_org_preferences r WHERE id::text LIKE 'd2600000-%';

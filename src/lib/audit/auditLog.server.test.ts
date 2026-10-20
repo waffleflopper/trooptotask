@@ -134,6 +134,23 @@ describe('auditLog', () => {
 		});
 	});
 
+	it('keeps the feature switch lists of a settings update', async () => {
+		await auditLog(
+			{
+				action: 'organization.settings_updated',
+				resourceType: 'organization',
+				orgId: 'org-123',
+				details: { previous_disabled_features: [], disabled_features: ['training', 'lossesAndAwards'] }
+			},
+			{ userId: 'user-123', ip: '127.0.0.1', userAgent: 'Vitest' }
+		);
+
+		expect(insert.mock.calls[0]?.[0].details).toEqual({
+			previous_disabled_features: [],
+			disabled_features: ['training', 'lossesAndAwards']
+		});
+	});
+
 	it('preserves allowlisted audit identifiers even when their keys include redacted substrings', async () => {
 		await auditLog(
 			{

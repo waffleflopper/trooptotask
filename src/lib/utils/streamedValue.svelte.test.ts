@@ -13,7 +13,7 @@ function deferred<T>() {
 	return { promise, resolve, reject };
 }
 
-function follow<T>(initial: Promise<T>) {
+function follow<T>(initial: Promise<T> | null) {
 	let source = $state(initial);
 	let streamed!: StreamedValue<T>;
 	const stop = $effect.root(() => {
@@ -24,7 +24,7 @@ function follow<T>(initial: Promise<T>) {
 		get current() {
 			return streamed.current;
 		},
-		replace(next: Promise<T>) {
+		replace(next: Promise<T> | null) {
 			source = next;
 			flushSync();
 		},
@@ -63,6 +63,36 @@ describe('StreamedValue', () => {
 		stale.resolve('stale');
 		await stale.promise;
 		expect(streamed.current).toEqual({ state: 'ready', value: 'fresh' });
+		streamed.stop();
+	});
+
+	it('reports a source the server did not load as absent, then follows one it later loads', async () => {
+		const streamed = follow<string>(null);
+		expect(streamed.current).toEqual({ state: 'absent' });
+
+		const loaded = deferred<string>();
+		streamed.replace(loaded.promise);
+		expect(streamed.current).toEqual({ state: 'pending' });
+
+		loaded.resolve('loaded');
+		await loaded.promise;
+		expect(streamed.current).toEqual({ state: 'ready', value: 'loaded' });
+		streamed.stop();
+	});
+
+	it('keeps loaded content through a refresh instead of dropping to pending', async () => {
+		const first = deferred<string>();
+		const streamed = follow(first.promise);
+		first.resolve('first');
+		await first.promise;
+
+		const refresh = deferred<string>();
+		streamed.replace(refresh.promise);
+		expect(streamed.current).toEqual({ state: 'ready', value: 'first' });
+
+		refresh.resolve('second');
+		await refresh.promise;
+		expect(streamed.current).toEqual({ state: 'ready', value: 'second' });
 		streamed.stop();
 	});
 });

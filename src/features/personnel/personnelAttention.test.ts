@@ -223,4 +223,43 @@ describe('buildPersonnelAttention', () => {
 		expect(attention.checked.onboarding).toEqual({ state: 'failed' });
 		expect(attention.failed).toEqual(['criticalTasks', 'onboarding']);
 	});
+
+	it('leaves a feature the unit turned off out of the list, the failures and the badge', () => {
+		const attention = buildPersonnelAttention({
+			...sources,
+			training: { ok: false, off: true },
+			evaluation: { ok: false, off: true },
+			onboarding: { ok: false, off: true }
+		});
+
+		expect(attention.items.map((item) => item.title)).toEqual(['Insert a nasopharyngeal airway', 'ETS 14 Mar 2027']);
+		expect(attention.readinessBadge).toEqual({ count: 1, complete: true });
+		expect(attention.checked.training).toEqual({ state: 'off' });
+		expect(attention.checked.evaluation).toEqual({ state: 'off' });
+		expect(attention.checked.onboarding).toEqual({ state: 'off' });
+		expect(attention.failed).toEqual([]);
+	});
+
+	it('hides the badge when both badge sources are off', () => {
+		const attention = buildPersonnelAttention({
+			...sources,
+			training: { ok: false, off: true },
+			criticalTasks: { ok: false, off: true }
+		});
+
+		expect(attention.readinessBadge).toEqual({ count: 0, complete: true });
+	});
+
+	it('adds no loss row when the loss window is off', () => {
+		const attention = buildPersonnelAttention({
+			...sources,
+			loss: {
+				ok: true,
+				value: { windowDays: null, ets: { date: '2027-03-14', daysRemaining: 159 }, deros: null, inWindow: null }
+			}
+		});
+
+		expect(attention.items.map((item) => item.kind)).toEqual(['training', 'critical-task', 'training', 'evaluation']);
+		expect(attention.failed).toEqual([]);
+	});
 });

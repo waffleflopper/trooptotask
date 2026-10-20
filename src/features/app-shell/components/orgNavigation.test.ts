@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
+import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 
 const baseCapabilities: CapabilityMap = {
@@ -12,6 +13,19 @@ const baseCapabilities: CapabilityMap = {
 };
 
 describe('getOrgNavigation', () => {
+	it('hides every switched-off feature from an owner', () => {
+		const { capabilityMap } = projectEffectiveMemberAccess(
+			{ role: 'owner' },
+			{ disabledFeatures: ['training', 'criticalTasks', 'evaluations', 'onboarding'] }
+		);
+
+		expect(
+			getOrgNavigation('alpha', capabilityMap)
+				.filter((item) => item.visible)
+				.map((item) => item.label)
+		).toEqual(['Dashboard', 'Calendar', 'Personnel']);
+	});
+
 	it('builds generated organization links with the provided preferred URL segment', () => {
 		const nav = getOrgNavigation('1-11-bde', {
 			...baseCapabilities,

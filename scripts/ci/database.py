@@ -89,6 +89,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261020000400_counseling_conducted_by.sql",
     "20261020000500_personnel_extended_info_saver_stamp.sql",
     "20261020000600_set_based_calendar_read_scope.sql",
+    "20261021000100_organization_feature_switches.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -124,6 +125,7 @@ STAGED_UPGRADE_FIXTURES = (
     "sign_in_roster_scan_lifecycle_before.sql",
     "calendar_lanes_before.sql",
     "status_type_label_order_before.sql",
+    "organization_feature_switches_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -161,6 +163,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "sign_in_roster_scan_lifecycle_after.sql",
     "calendar_lanes_after.sql",
     "status_type_label_order_after.sql",
+    "organization_feature_switches_after.sql",
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (

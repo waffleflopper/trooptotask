@@ -139,7 +139,8 @@ beforeEach(() => {
 				loadRankCatalog: ctx.loadRankCatalog,
 				calendarCatalogs: ctx.calendarCatalogs,
 				personnelAwardAcknowledgement: ctx.personnelAwardAcknowledgement,
-				organizationSettings: ctx.organizationSettings
+				organizationSettings: ctx.organizationSettings,
+				disabledFeatures: ctx.disabledFeatures
 			};
 		}
 	);

@@ -105,7 +105,7 @@ test('dispatches the actual source before holding and releases its unchanged res
 	control.command('restore');
 });
 
-test('Organization setting control leaves profile, membership, full policies, B and writes untouched', async () => {
+test('Organization setting control leaves profile, membership, partial settings, B and writes untouched', async () => {
 	const dispatched = [];
 	const control = controller(async (...args) => {
 		dispatched.push(args);
@@ -167,6 +167,17 @@ test('Organization setting control holds only the real narrow A setting response
 	control.command('release');
 	assert.equal(await response, saved);
 	assert.deepEqual(await saved.json(), { loss_warning_window_days: 90 });
+	control.command('restore');
+});
+
+test('Organization setting control also fails the Dashboard policy read that carries the loss window', async () => {
+	const control = controller(async () => new Response('real'));
+	control.command('arm', { table: 'organizations', mode: 'fail' });
+	const policies =
+		'archive_retention_months,loss_warning_window_days,training_readiness_goal_percent,strength_floor_percent';
+	const failure = await control.fetch(`${providerUrl}/rest/v1/organizations?select=${policies}&id=eq.${orgA}`);
+	assert.equal(failure.status, 503);
+	assert.equal(control.command('state').control.matches, 1);
 	control.command('restore');
 });
 

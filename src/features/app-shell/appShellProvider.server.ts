@@ -6,6 +6,7 @@ import {
 import { listActiveAnnouncementContent } from '$features/platform-admin/index.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess, type OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import { loadUserOrgPreferences } from '$features/identity/index.server';
 import type {
@@ -30,6 +31,8 @@ export function createSupabaseOrgAccessPort(config: {
 	userSupabase: SupabaseClient;
 	/** Pre-fetched org name (org row is already loaded before membership in the layout). */
 	orgName: string;
+	/** Read with the same Organization row, so the feature gate adds no query. */
+	disabledFeatures: FeatureKey[];
 	wrapMembershipLoad?: (
 		loadMembershipRow: () => Promise<OrganizationMembershipFacts>
 	) => Promise<OrganizationMembershipFacts>;
@@ -39,7 +42,7 @@ export function createSupabaseOrgAccessPort(config: {
 			const membership = await (config.wrapMembershipLoad?.(() =>
 				readOrganizationMembershipAccess(config.userSupabase, config.userId, config.orgId)
 			) ?? readOrganizationMembershipAccess(config.userSupabase, config.userId, config.orgId));
-			const access = projectEffectiveMemberAccess(membership);
+			const access = projectEffectiveMemberAccess(membership, config);
 
 			return {
 				orgId: config.orgId,
@@ -56,7 +59,8 @@ export function createSupabaseOrgAccessPort(config: {
 
 		async getOrgState(): Promise<OrgState> {
 			return {
-				orgName: config.orgName
+				orgName: config.orgName,
+				disabledFeatures: config.disabledFeatures
 			};
 		}
 	};

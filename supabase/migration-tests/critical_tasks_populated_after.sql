@@ -15,7 +15,7 @@ CREATE TEMP TABLE critical_tasks_current_rows AS
 SELECT 'auth.users'::text AS table_name, id AS row_id, to_jsonb(row_value) AS row_data
   FROM auth.users AS row_value WHERE id = 'b9000000-0000-4000-8000-000000000001'
 UNION ALL
-SELECT 'public.organizations', id, to_jsonb(row_value) - 'training_readiness_goal_percent' FROM public.organizations AS row_value WHERE id IN ('b9000000-0000-4000-8000-000000000101','b9000000-0000-4000-8000-000000000102')
+SELECT 'public.organizations', id, to_jsonb(row_value) - 'training_readiness_goal_percent' - 'disabled_features' - 'strength_floor_percent' FROM public.organizations AS row_value WHERE id IN ('b9000000-0000-4000-8000-000000000101','b9000000-0000-4000-8000-000000000102')
 UNION ALL
 SELECT 'public.groups', id, to_jsonb(row_value) FROM public.groups AS row_value WHERE id = 'b9000000-0000-4000-8000-000000000201'
 UNION ALL

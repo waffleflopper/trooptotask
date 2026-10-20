@@ -38,6 +38,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
+		disabledFeatures: [],
 		dashboard: {
 			workspaceKey: 'dashboard',
 			data: {
@@ -53,6 +54,7 @@ function makeData(
 				statusTypes: [],
 				trainingTypes: [],
 				lossWarningWindowDays: 180,
+				strengthFloorPercent: 80,
 				awardTrackingAcknowledgedPersonnelIds: [],
 				...workspaceOverrides
 			},
@@ -892,5 +894,29 @@ describe('Dashboard today availability', () => {
 			['Bravo', 1]
 		]);
 		expect(model.nonAvailablePersonnel.map(({ id }) => id)).toEqual(['a1', 'a2']);
+	});
+});
+
+describe('Dashboard readiness colors', () => {
+	it('colors duty strength against the unit strength floor', () => {
+		const view = createDashboardScreenModel(makeData({}, { strengthFloorPercent: 70 })).unitReadiness;
+
+		expect([100, 70, 69, 10].map(view.availabilityColor)).toEqual([
+			'var(--success-foreground)',
+			'var(--success-foreground)',
+			'var(--warning-foreground)',
+			'var(--warning-foreground)'
+		]);
+	});
+
+	it('keeps the 90 and 75 percent cutoffs for Training currency', () => {
+		const view = createDashboardScreenModel(makeData({}, { strengthFloorPercent: 70 })).unitReadiness;
+
+		expect([90, 89, 75, 74].map(view.trainingCurrencyColor)).toEqual([
+			'var(--success-foreground)',
+			'var(--warning-foreground)',
+			'var(--warning-foreground)',
+			'var(--danger-foreground)'
+		]);
 	});
 });

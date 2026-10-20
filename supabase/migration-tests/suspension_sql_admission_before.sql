@@ -23,7 +23,7 @@ INSERT INTO public.personnel(id,organization_id,rank,last_name,first_name,clinic
 INSERT INTO public.user_suspensions(user_id,suspended_by,reason) VALUES
 ('c6422000-0000-4000-8000-000000000003','c6422000-0000-4000-8000-000000000004','Synthetic upgrade suspension');
 CREATE VIEW upgrade_fixture.suspension_admission_current_rows AS
-SELECT 'organizations'::text table_name,id::text row_id,to_jsonb(r) - 'training_readiness_goal_percent' row_data
+SELECT 'organizations'::text table_name,id::text row_id,to_jsonb(r) - 'training_readiness_goal_percent' - 'disabled_features' - 'strength_floor_percent' row_data
   FROM public.organizations r WHERE id::text LIKE 'c6422000-%'
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE id::text LIKE 'c6422000-%'
 UNION ALL SELECT 'personnel',id::text,to_jsonb(r) FROM public.personnel r WHERE id::text LIKE 'c6422000-%'

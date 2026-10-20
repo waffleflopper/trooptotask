@@ -198,6 +198,7 @@
 				"src/lib/utils/workbook.ts",
 				"src/lib/errors.ts",
 				"src/lib/utils/retentionCutoff.ts",
+				"src/lib/utils/retentionCutoff.test.ts",
 				"src/lib/utils/logSanitize.ts",
 				"src/lib/utils/logSanitize.test.ts",
 				"src/lib/utils/downloadBlob.ts",

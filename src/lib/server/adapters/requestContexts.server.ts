@@ -47,7 +47,8 @@ import {
 	createSupabaseOrganizationMemberEmailsReader,
 	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationRawExportReader,
-	createSupabaseOrganizationSettingsReader
+	createSupabaseOrganizationSettingsReader,
+	createSupabaseOrganizationUnitCountsPort
 } from '$features/organization/index.server';
 import {
 	createSupabasePersonnelExportReader,
@@ -703,6 +704,16 @@ export function createRequestGettingStartedContext(request: AdmittedOrganization
 		audit: request.audit,
 		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
+	};
+}
+
+export function createRequestUnitCountsContext(request: AdmittedOrganizationRequest) {
+	return {
+		unitCounts: createSupabaseOrganizationUnitCountsPort(
+			request.supabase,
+			request.auth.orgId,
+			createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
+		)
 	};
 }
 

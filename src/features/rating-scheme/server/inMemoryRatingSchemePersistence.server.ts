@@ -18,7 +18,7 @@ interface RatingSchemeMemoryStore {
 		table: string,
 		orgId: string,
 		filters?: Record<string, unknown>,
-		options?: { select?: string; range?: { from: number; to: number }; count?: 'estimated' }
+		options?: { select?: string; limit?: number; count?: 'exact' }
 	): Promise<{ data: T[]; count: number | null }>;
 	insert<T>(table: string, orgId: string, input: Record<string, unknown>): Promise<T>;
 	update<T>(table: string, orgId: string, id: string, patch: Record<string, unknown>): Promise<T>;
@@ -70,8 +70,8 @@ export function createInMemoryRatingSchemePersistence(
 		async countEntries() {
 			const result = await store.findManyWithCount('rating_scheme_entries', orgId, undefined, {
 				select: 'id',
-				range: { from: 0, to: 0 },
-				count: 'estimated'
+				limit: 0,
+				count: 'exact'
 			});
 			return result.count ?? 0;
 		},

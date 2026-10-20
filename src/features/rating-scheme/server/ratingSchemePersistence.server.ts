@@ -64,9 +64,8 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 		async countEntries() {
 			const { count, error } = await client
 				.from('rating_scheme_entries')
-				.select('id', { count: 'estimated' })
-				.eq('organization_id', orgId)
-				.range(0, 0);
+				.select('id', { count: 'exact', head: true })
+				.eq('organization_id', orgId);
 			if (error) throw new Error(error.message);
 			return count ?? 0;
 		},

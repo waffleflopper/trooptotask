@@ -82,6 +82,29 @@ SELECT results_eq($$ SELECT id,assignee_id FROM public.daily_assignments WHERE o
     ('b1100000-0000-4000-8000-000000000502'::uuid,'b1100000-0000-4000-8000-000000000202'::text) $$,
   'hidden-slot denial preserves both exact row IDs and assignees');
 
+-- The save reads only the days it touches. A hidden row on a touched day blocks
+-- it only when that row is replaced; one on another slot's day still blocks it.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','b1100000-0000-4000-8000-000000000002',true);
+SELECT is((SELECT count(*)::integer FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"}]'::jsonb
+)),1,'Group operator replaces its own slot beside a hidden slot on the same day');
+SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-02","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"},
+    {"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":""}]'::jsonb
+) $$, 'P0001', 'Assignment slot unavailable', 'a hidden row on a later slot''s day blocks the whole save');
+RESET ROLE;
+SELECT results_eq($$ SELECT id,date,assignment_type_id FROM public.daily_assignments WHERE organization_id=
+  'b1100000-0000-4000-8000-000000000101' AND id <> (SELECT id FROM public.daily_assignments WHERE organization_id=
+  'b1100000-0000-4000-8000-000000000101' AND date='2030-03-01' AND assignment_type_id='b1100000-0000-4000-8000-000000000401')
+  ORDER BY date, assignment_type_id $$,
+  $$ VALUES
+    ('b1100000-0000-4000-8000-000000000502'::uuid,'2030-03-01'::date,'b1100000-0000-4000-8000-000000000402'::uuid),
+    ('b1100000-0000-4000-8000-000000000503'::uuid,'2030-03-02'::date,'b1100000-0000-4000-8000-000000000401'::uuid) $$,
+  'the hidden slot and the blocked save''s first day keep their exact rows');
+
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','b1100000-0000-4000-8000-000000000003',true);
 SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
@@ -165,6 +188,20 @@ SELECT is((SELECT id FROM public.daily_assignments WHERE organization_id=
 SELECT is((SELECT id FROM public.daily_assignments WHERE organization_id=
   'b1100000-0000-4000-8000-000000000102' AND date='2030-03-01'),
   'b1100000-0000-4000-8000-000000000504'::uuid,'foreign Organization row keeps exact ID');
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','b1100000-0000-4000-8000-000000000001',true);
+SELECT is((SELECT count(*)::integer FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101',ARRAY['2030-03-02']::date[],
+  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":"b1100000-0000-4000-8000-000000000201"}]'::jsonb
+)),1,'one save clears one day and fills a slot on another');
+RESET ROLE;
+SELECT results_eq($$ SELECT date,assignment_type_id,assignee_id FROM public.daily_assignments WHERE organization_id=
+  'b1100000-0000-4000-8000-000000000101' ORDER BY date, assignment_type_id $$,
+  $$ VALUES
+    ('2030-03-01'::date,'b1100000-0000-4000-8000-000000000401'::uuid,'b1100000-0000-4000-8000-000000000301'::text),
+    ('2030-03-01'::date,'b1100000-0000-4000-8000-000000000402'::uuid,'b1100000-0000-4000-8000-000000000201'::text) $$,
+  'the cleared day is empty and the other slot on the filled day is untouched');
 
 SELECT * FROM finish();
 ROLLBACK;

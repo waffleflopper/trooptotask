@@ -8,11 +8,9 @@ SELECT ok(NOT has_function_privilege('authenticated', 'public.calendar_personnel
 SELECT ok(to_regprocedure('public.can_view_daily_assignment_record(uuid,text)') IS NULL
     AND to_regprocedure('public.can_edit_daily_assignment_record(uuid,text)') IS NULL,
   'unused two-argument assignment helpers no longer expose the old scope');
-SELECT ok(has_function_privilege('authenticated', 'public.can_view_availability_record(uuid,uuid)', 'EXECUTE')
-    AND has_function_privilege('authenticated', 'public.can_edit_availability_record(uuid,uuid)', 'EXECUTE')
-    AND has_function_privilege('authenticated', 'public.can_view_daily_assignment_record(uuid,uuid,text)', 'EXECUTE')
+SELECT ok(has_function_privilege('authenticated', 'public.can_edit_availability_record(uuid,uuid)', 'EXECUTE')
     AND has_function_privilege('authenticated', 'public.can_edit_daily_assignment_record(uuid,uuid,text)', 'EXECUTE'),
-  'four retained Calendar policy function grants survive');
+  'two retained Calendar write policy function grants survive');
 
 INSERT INTO auth.users (id, email) VALUES
   ('d4000000-0000-4000-8000-000000000001', 'calendar-lane-group@example.test'),

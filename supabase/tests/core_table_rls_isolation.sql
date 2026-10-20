@@ -7,9 +7,9 @@ SELECT plan(22);
 -- RLS contract targets verified from migrations:
 -- - personnel: organization_id, SELECT uses can_view_personnel_record(organization_id, group_id);
 --   INSERT/UPDATE/DELETE use can_edit_personnel_record(organization_id, group_id).
--- - availability_entries: organization_id, SELECT uses
---   can_view_availability_record(organization_id, personnel_id); INSERT/UPDATE/DELETE use
---   can_edit_availability_record(organization_id, personnel_id).
+-- - availability_entries: organization_id, SELECT for authenticated requires (organization_id,
+--   personnel_id) IN member_access_private.viewable_personnel('calendar'); INSERT/UPDATE/DELETE
+--   use can_edit_availability_record(organization_id, personnel_id).
 -- - personnel_trainings: organization_id, SELECT for authenticated requires (organization_id,
 --   personnel_id) IN member_access_private.viewable_personnel('training'); INSERT/UPDATE/DELETE
 --   use can_edit_personnel_training_record(organization_id, personnel_id).

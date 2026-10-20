@@ -39,6 +39,7 @@ describe('Organization settings navigation', () => {
 
 		expect(groupHrefs('Unit')).toEqual([
 			'/org/alpha/settings/general',
+			'/org/alpha/settings/features',
 			'/org/alpha/settings/policies',
 			'/org/alpha/settings/ranks'
 		]);

@@ -94,7 +94,7 @@ test('an unowned origin, path traversal, unknown action or unsupported payload s
 	assert.equal(calls, 0);
 });
 
-test('feature switches submit a list of keys and nothing else may be a list', async () => {
+test('a feature switch submits one key and its state, and no other field may be structured', async () => {
 	let sent;
 	const page = {
 		location: { origin: input.origin },
@@ -103,11 +103,12 @@ test('feature switches submit a list of keys and nothing else may be a list', as
 			return Response.json({ success: true });
 		}
 	};
-	const body = { disabledFeatures: ['training', 'lossesAndAwards'], strengthFloorPercent: 70 };
+	const body = { featureSwitch: { feature: 'training', on: false }, strengthFloorPercent: 70 };
 	const result = await requestSettings(page, { ...input, body });
 	assert.equal(sent[0], '/org/synthetic-a/api/organization/settings');
 	assert.deepEqual(JSON.parse(sent[1].body), body);
 	assert.equal(result.status, 200);
-	await assert.rejects(requestSettings(page, { ...input, body: { disabledFeatures: [7] } }));
+	await assert.rejects(requestSettings(page, { ...input, body: { featureSwitch: { feature: 'training', on: 'no' } } }));
+	await assert.rejects(requestSettings(page, { ...input, body: { featureSwitch: ['training'] } }));
 	await assert.rejects(requestSettings(page, { ...input, body: { lossWarningWindowDays: [30] } }));
 });

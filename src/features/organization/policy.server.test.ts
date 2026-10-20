@@ -192,7 +192,7 @@ describe('Organization policy updates', () => {
 		expect(ctx.auditPort.events[1]).toMatchObject({ details: { loss_warning_window_days: 91 } });
 	});
 
-	it('stores feature switches and the strength floor and audits what each replaced', async () => {
+	it('changes one feature switch against the stored set and audits what it replaced', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('organizations', [
 			{ id: ctx.auth.orgId, disabled_features: ['onboarding'], strength_floor_percent: 80 }
@@ -200,31 +200,33 @@ describe('Organization policy updates', () => {
 
 		expect(
 			await updateOrganizationSettings(ctx, {
-				disabledFeatures: ['lossesAndAwards', 'training', 'training'],
+				featureSwitch: { feature: 'training', on: false },
 				strengthFloorPercent: 65
 			})
 		).toEqual({ success: true });
+		expect(await updateOrganizationSettings(ctx, { featureSwitch: { feature: 'onboarding', on: true } })).toEqual({
+			success: true
+		});
 
 		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
-			disabled_features: ['training', 'lossesAndAwards'],
+			disabled_features: ['training'],
 			strength_floor_percent: 65
 		});
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'organization.settings_updated',
-				details: {
-					previous_disabled_features: ['onboarding'],
-					disabled_features: ['training', 'lossesAndAwards'],
-					previous_strength_floor_percent: 80,
-					strength_floor_percent: 65
-				}
-			})
+		expect(ctx.auditPort.events.map((event) => event.details)).toEqual([
+			{
+				previous_disabled_features: ['onboarding'],
+				disabled_features: ['training', 'onboarding'],
+				previous_strength_floor_percent: 80,
+				strength_floor_percent: 65
+			},
+			{ previous_disabled_features: ['training', 'onboarding'], disabled_features: ['training'] }
 		]);
 	});
 
 	it.each([
-		[{ disabledFeatures: ['training', 'dutyRoster'] }, 'field:disabledFeatures'],
-		[{ disabledFeatures: 'training' }, 'field:disabledFeatures'],
+		[{ featureSwitch: { feature: 'dutyRoster', on: false } }, 'field:featureSwitch'],
+		[{ featureSwitch: { feature: 'training' } }, 'field:featureSwitch'],
+		[{ featureSwitch: 'training' }, 'field:featureSwitch'],
 		[{ strengthFloorPercent: 0 }, 'field:strengthFloorPercent'],
 		[{ strengthFloorPercent: 101 }, 'field:strengthFloorPercent'],
 		[{ strengthFloorPercent: 79.5 }, 'field:strengthFloorPercent']

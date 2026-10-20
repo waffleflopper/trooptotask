@@ -11,6 +11,7 @@ import {
 	TRAINING_READINESS_GOAL_CONSTRAINT
 } from './policyConstraints';
 import type {
+	FeatureSwitchChange,
 	OrganizationPolicyChanges,
 	OrganizationPolicyWritePort,
 	OrganizationSettingsInput
@@ -42,12 +43,15 @@ function parseInteger(
 	return value;
 }
 
-function parseFeatureKeys(value: unknown): FeatureKey[] | undefined {
+function parseFeatureSwitch(value: unknown): FeatureSwitchChange | undefined {
 	if (value === undefined) return undefined;
-	if (!Array.isArray(value) || !value.every(isFeatureKey)) {
-		fail(400, `Disabled features must be any of ${FEATURE_KEYS.join(', ')}`, { reason: 'field:disabledFeatures' });
+	const change = value as Partial<FeatureSwitchChange> | null;
+	if (!change || !isFeatureKey(change.feature) || typeof change.on !== 'boolean') {
+		fail(400, `A feature switch names one of ${FEATURE_KEYS.join(', ')} and whether it is on`, {
+			reason: 'field:featureSwitch'
+		});
 	}
-	return FEATURE_KEYS.filter((key) => value.includes(key));
+	return { feature: change.feature, on: change.on };
 }
 
 export async function updateOrganizationSettings(
@@ -73,7 +77,7 @@ export async function updateOrganizationSettings(
 		'Training readiness goal must be a whole number between 1 and 100',
 		TRAINING_READINESS_GOAL_CONSTRAINT
 	);
-	const disabledFeatures = parseFeatureKeys(input.disabledFeatures);
+	const featureSwitch = parseFeatureSwitch(input.featureSwitch);
 	const strengthFloorPercent = parseInteger(
 		input.strengthFloorPercent,
 		'Strength floor must be a whole number between 1 and 100',
@@ -103,14 +107,19 @@ export async function updateOrganizationSettings(
 		changes.personnelDocumentStorageCapBytes = capMb * 1024 * 1024;
 		details.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
 	}
-	if (disabledFeatures !== undefined) changes.disabledFeatures = disabledFeatures;
 	if (strengthFloorPercent !== undefined) changes.strengthFloorPercent = strengthFloorPercent;
-	if (Object.keys(changes).length === 0) fail(400, 'At least one organization setting must be provided');
+	if (Object.keys(changes).length === 0 && featureSwitch === undefined)
+		fail(400, 'At least one organization setting must be provided');
 	const orgId = ports.auth.orgId.toLowerCase();
-	if (disabledFeatures !== undefined || strengthFloorPercent !== undefined) {
+	if (featureSwitch !== undefined || strengthFloorPercent !== undefined) {
 		const previous = await ports.organizationPolicyWrite.findFeatureSettings(orgId);
 		if (!previous) fail(404, 'Organization not found');
-		if (disabledFeatures !== undefined) {
+		if (featureSwitch !== undefined) {
+			// One switch changes against the stored set, so a save never reverts a switch changed since the page loaded.
+			const disabledFeatures = FEATURE_KEYS.filter((key) =>
+				key === featureSwitch.feature ? !featureSwitch.on : previous.disabledFeatures.includes(key)
+			);
+			changes.disabledFeatures = disabledFeatures;
 			details.previous_disabled_features = previous.disabledFeatures;
 			details.disabled_features = disabledFeatures;
 		}

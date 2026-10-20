@@ -62,8 +62,14 @@ export interface OrganizationSettingsInput {
 	lossWarningWindowDays?: number;
 	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapMb?: number;
-	disabledFeatures?: FeatureKey[];
+	featureSwitch?: FeatureSwitchChange;
 	strengthFloorPercent?: number;
+}
+
+/** Turns one feature on or off for the unit and leaves the other switches as stored. */
+export interface FeatureSwitchChange {
+	feature: FeatureKey;
+	on: boolean;
 }
 
 export interface OrganizationRetentionConfiguration {

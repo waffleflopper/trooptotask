@@ -85,3 +85,16 @@ export type {
 	OrganizationPlatformInvitationReader,
 	OrganizationSupportInvitationOriginFact
 } from './invitationSupportTypes';
+export {
+	FEATURE_COUNT_KEYS,
+	FEATURE_ROWS,
+	availabilityHolds,
+	holdsLane,
+	lossWindowHolds,
+	strengthFloorSentence,
+	type FeatureCounts,
+	type FeatureRow,
+	type FeaturesSettingsData,
+	type HoldsLane
+} from './featuresSettings';
+export { availabilityPercent, isBelowStrengthFloor } from './strengthFloor';

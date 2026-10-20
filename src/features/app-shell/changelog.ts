@@ -7,6 +7,21 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-19-new-personnel-details',
+		date: '2026-10-19',
+		title: 'A New Personnel Details Page',
+		items: [
+			'Each person’s page has a new design. Their name, rank, MOS, time in service, time in grade and today’s availability sit at the top of every tab. The page is split into Overview, Readiness, Log, Files, Data sheet and Archived.',
+			'Overview shows the person’s next 14 days from the Calendar. Below it, Needs attention lists expired, missing and expiring training and critical tasks, upcoming evaluations and an approaching ETS, most urgent first. Open follow-ups can be checked off in one click, and contact info, the rating chain, the last counseling and the latest note sit on the right.',
+			'Readiness lists every training requirement and critical task, with problems at the top. Click a row to log a completion, attach a PDF or photo certificate, correct an earlier completion or mark it exempt. The new expiration date is worked out for you and shown before you save, and earlier completions are now kept as history.',
+			'Log holds follow-ups and leader notes. Add a follow-up in one line, click a title or note to edit it in place, and archive it from the same spot.',
+			'Files shows how many of the last 12 months have a counseling on record and which months are missing. Drop a PDF or photo on the page and choose Counseling or Document. Counselings now record who conducted them.',
+			'Data sheet replaces the old basic info form and Soldier Data Sheet with one page. Click Edit to change any field in place. Changed fields are marked, and a change like a new ETS tells you what will happen before you save.',
+			'Add to record in the header takes you straight to adding a follow-up, note, counseling, document or training completion. Archived items have their own tab, where you can filter, restore or delete them.',
+			'If something looks off or you have an idea for this page, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-17-new-calendar',
 		date: '2026-10-17',
 		title: 'A New Calendar',

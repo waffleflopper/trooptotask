@@ -15,7 +15,11 @@ import type {
 } from '$features/organization/contracts';
 import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '$features/training/contracts';
-import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+import {
+	loadOrganizationMemberLabels,
+	type OrganizationMemberLabelRow,
+	type OrganizationUnitCountsPort
+} from '$features/organization/index.server';
 import type { FileCleanup } from '$features/organization/contracts';
 import {
 	createInMemoryPersonnelRecordPersistence,
@@ -1546,6 +1550,24 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 	};
 }
 
+function createInMemoryOrganizationUnitCountsPort(
+	store: FixtureRowStore,
+	orgId: string,
+	ratingScheme: Pick<RatingSchemePersistence, 'countEntries'>
+): OrganizationUnitCountsPort {
+	return {
+		async countRows({ table, archived }) {
+			const { count } = await store.findManyWithCount(table, orgId, undefined, {
+				select: 'id',
+				limit: 0,
+				...(archived === undefined ? {} : { isNull: { archived_at: !archived } })
+			});
+			return count ?? 0;
+		},
+		countRatingSchemeEntries: () => ratingScheme.countEntries()
+	};
+}
+
 function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): OrganizationPolicyWritePort {
 	return {
 		async updatePolicies(orgId, changes) {
@@ -1844,6 +1866,7 @@ export function createTestContext(
 	const criticalTasksReadModel =
 		overrides?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary, criticalTaskCompletions) ??
 		unavailableCriticalTasksReadModel();
+	const ratingScheme = overrides?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, overrides),
 		...createTestTrainingPersistence(store, auth.orgId, overrides),
@@ -1882,7 +1905,8 @@ export function createTestContext(
 		criticalTasksReadModel,
 		criticalTaskLibrary,
 		criticalTaskCompletions,
-		ratingScheme: overrides?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
+		ratingScheme,
+		unitCounts: createInMemoryOrganizationUnitCountsPort(rawStore, auth.orgId, ratingScheme),
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),

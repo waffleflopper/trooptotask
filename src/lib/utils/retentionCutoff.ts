@@ -26,3 +26,28 @@ export function retentionCutoff(now: Date, retentionMonths: number): string {
 	);
 	return cutoff.toISOString();
 }
+
+/** The `/api/cleanup-archived-records` cron fires at `0 5 * * *` in `vercel.json`. */
+const CLEANUP_RUN_HOUR_UTC = 5;
+
+/**
+ * The first daily cleanup run that deletes a record archived at `archivedAt`: the first 05:00 UTC whose
+ * `retentionCutoff` is later than it. The cleanup deletes strictly before the cutoff, so a record archived
+ * exactly at a run's cutoff waits one more day.
+ */
+export function retentionDeletionDate(archivedAt: Date | string, retentionMonths: number): Date {
+	const archived = new Date(archivedAt);
+	if (Number.isNaN(archived.getTime())) throw new RangeError('archivedAt must be a valid date');
+	if (!Number.isInteger(retentionMonths) || retentionMonths < 1) {
+		throw new RangeError('retentionMonths must be a positive whole number');
+	}
+	// Any run in an earlier month has a cutoff before this month's start, so the search starts at the
+	// first run of the month that is `retentionMonths` after the archive month.
+	const run = new Date(
+		Date.UTC(archived.getUTCFullYear(), archived.getUTCMonth() + retentionMonths, 1, CLEANUP_RUN_HOUR_UTC)
+	);
+	while (archived.getTime() >= Date.parse(retentionCutoff(run, retentionMonths))) {
+		run.setUTCDate(run.getUTCDate() + 1);
+	}
+	return run;
+}

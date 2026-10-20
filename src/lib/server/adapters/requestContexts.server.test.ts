@@ -7,8 +7,11 @@ import {
 	buildLayoutRequest,
 	createRequestSensitiveActionContext,
 	createRequestOrganizationExportContext,
-	createRequestPersonnelWorkspaceContext
+	createRequestPersonnelWorkspaceContext,
+	createRequestUnitCountsContext,
+	type AdmittedOrganizationRequest
 } from './requestContexts.server';
+import { readUnitCounts } from '$features/organization/index.server';
 import { createRequestTrainingRosterContext } from './featureRequestContexts.server';
 
 const { getAdminClient } = vi.hoisted(() => ({
@@ -277,4 +280,42 @@ describe('request-bound communications exports', () => {
 			expect(getAdminClient).not.toHaveBeenCalled();
 		}
 	);
+});
+
+describe('request-bound unit counts', () => {
+	it('counts the admitted Organization through the request client, Rating Scheme included', async () => {
+		getAdminClient.mockClear();
+		const seen: Array<{ table: string; organization: string | null; authorization: string | null }> = [];
+		const supabase = createClient('http://counts.invalid', 'ordinary-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					const url = new URL(request.url);
+					seen.push({
+						table: url.pathname.replace('/rest/v1/', ''),
+						organization: url.searchParams.get('organization_id'),
+						authorization: request.headers.get('authorization')
+					});
+					return new Response(request.method === 'HEAD' ? null : '[]', {
+						status: 200,
+						headers: { 'Content-Range': '*/7', 'Content-Type': 'application/json' }
+					});
+				}
+			}
+		});
+		const ctx = createRequestUnitCountsContext({
+			auth: { orgId: ORG_ID },
+			supabase
+		} as unknown as AdmittedOrganizationRequest);
+
+		expect(await readUnitCounts(ctx.unitCounts, ['members', 'ratingSchemeEntries'])).toEqual({
+			members: 7,
+			ratingSchemeEntries: 7
+		});
+		expect(seen.map(({ table }) => table).sort()).toEqual(['organization_memberships', 'rating_scheme_entries']);
+		expect(seen.every(({ organization }) => organization === `eq.${ORG_ID}`)).toBe(true);
+		expect(seen.every(({ authorization }) => authorization === 'Bearer ordinary-request-key')).toBe(true);
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
 });

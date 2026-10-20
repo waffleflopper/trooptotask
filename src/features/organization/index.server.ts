@@ -59,6 +59,8 @@ export {
 	createSupabaseOrganizationPolicyWritePort
 } from './settingsProvider.server';
 export { loadPoliciesSettings } from './policiesSettings.server';
+export { readUnitCounts, type OrganizationUnitCountsPort } from './unitCounts.server';
+export { createSupabaseOrganizationUnitCountsPort } from './unitCountsProvider.server';
 export { createSupabaseOrganizationRawExportReader } from './rawExport.server';
 export { createSupabaseOrganizationRetentionSettingsReader } from './retentionSettings.server';
 export {

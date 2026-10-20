@@ -217,9 +217,9 @@
 						maxlength={ORGANIZATION_SLUG_MAX_LENGTH}
 					/>
 					<InputGroup.Addon variant="muted">
-						<InputGroup.Text class="font-mono"
-							><span class="hidden sm:inline">{page.url.host}</span>/org/</InputGroup.Text
-						>
+						<InputGroup.Text class="font-mono">
+							<span><span class="hidden sm:inline">{page.url.host}</span>/org/</span>
+						</InputGroup.Text>
 					</InputGroup.Addon>
 				</InputGroup.Root>
 				<Button

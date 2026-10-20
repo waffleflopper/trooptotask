@@ -29,6 +29,7 @@
 		onRowClick?: (row: T) => void;
 		rowActionLabel?: (row: T) => string;
 		density?: 'default' | 'dense';
+		variant?: 'framed' | 'editorial';
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -55,6 +56,7 @@
 		onRowClick,
 		rowActionLabel,
 		density = 'default',
+		variant = 'framed',
 		compact = false,
 		striped = false,
 		stickyHeader = false,
@@ -138,7 +140,7 @@
 	{/if}
 {/snippet}
 
-<DataTableRoot density={resolvedDensity} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
+<DataTableRoot density={resolvedDensity} {variant} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
 	{#if toolbar}
 		<div data-slot="data-table-toolbar" class="border-b border-border bg-muted/20 p-2">
 			{@render toolbar(table)}

@@ -10,6 +10,8 @@
 		detailTone?: 'default' | 'destructive';
 		/** `compact` titles one section among several on a page, such as the person Overview's. */
 		size?: 'default' | 'compact';
+		/** Draws the 2px rule that opens the list below, for a page with several lists such as a settings page. */
+		ruled?: boolean;
 		/** Sits at the end of the headline row, such as a link to the section's full page. */
 		action?: Snippet;
 		/** Sits below the headline, such as a filter for the list the header introduces. */
@@ -22,6 +24,7 @@
 		detail,
 		detailTone = 'default',
 		size = 'default',
+		ruled = false,
 		action,
 		children,
 		class: className,
@@ -29,7 +32,11 @@
 	}: Props = $props();
 </script>
 
-<header data-slot="section-header" class={cn('grid min-w-0 gap-3', className)} {...restProps}>
+<header
+	data-slot="section-header"
+	class={cn('grid min-w-0 gap-3', ruled && 'border-b-2 border-foreground pb-3', className)}
+	{...restProps}
+>
 	<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 		<div class="grid min-w-0 gap-0.5">
 			{#if eyebrow}

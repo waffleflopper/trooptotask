@@ -40,6 +40,8 @@
 		row?: DataTableRowSnippet<T>;
 		rowDetail?: DataTableRowDetailSnippet<T>;
 		rowDetailVisible?: (row: T) => boolean;
+		/** Hidden rows stay mounted, so a filter that changes as the user types does not remount them. */
+		rowHidden?: (row: T) => boolean;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -67,6 +69,7 @@
 		row: rowSnippet,
 		rowDetail,
 		rowDetailVisible,
+		rowHidden,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -75,6 +78,7 @@
 
 	const resolvedDensity = $derived(compact ? 'dense' : density);
 	const cols = $derived(table.columns);
+	const allRowsHidden = $derived(rowHidden !== undefined && table.rows.every(rowHidden));
 
 	function isSortable(column: ColumnDef<T>): boolean {
 		return column.sortable !== false;
@@ -215,6 +219,7 @@
 							{:else}
 								<Table.Row
 									class={rowClass(row)}
+									hidden={rowHidden?.(row)}
 									tabindex={onRowClick && !table.isRowDisabled(row) ? 0 : undefined}
 									aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
 									aria-disabled={table.isRowDisabled(row) || undefined}
@@ -226,7 +231,7 @@
 									{/each}
 								</Table.Row>
 								{#if rowDetail && rowDetailVisible?.(row)}
-									<Table.Row data-slot="data-table-detail-row">
+									<Table.Row data-slot="data-table-detail-row" hidden={rowHidden?.(row)}>
 										<Table.Cell colspan={cols.length} class="bg-muted/25 whitespace-normal">
 											<!-- The detail spans every column, so on a scrolled narrow table it is pinned to the visible width. -->
 											<div data-slot="data-table-detail" class="sticky left-2 w-[calc(100cqw-1rem)] min-w-0">
@@ -248,6 +253,7 @@
 					{:else}
 						<Table.Row
 							class={rowClass(row)}
+							hidden={rowHidden?.(row)}
 							tabindex={onRowClick && !table.isRowDisabled(row) ? 0 : undefined}
 							aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
 							aria-disabled={table.isRowDisabled(row) || undefined}
@@ -259,7 +265,7 @@
 							{/each}
 						</Table.Row>
 						{#if rowDetail && rowDetailVisible?.(row)}
-							<Table.Row data-slot="data-table-detail-row">
+							<Table.Row data-slot="data-table-detail-row" hidden={rowHidden?.(row)}>
 								<Table.Cell colspan={cols.length} class="bg-muted/25 whitespace-normal">
 									<div data-slot="data-table-detail" class="sticky left-2 w-[calc(100cqw-1rem)] min-w-0">
 										{@render rowDetail(row)}
@@ -273,7 +279,7 @@
 		{/if}
 	</Table.Root>
 
-	{#if !loading && table.groups.length === 0 && table.rows.length === 0}
+	{#if !loading && table.groups.length === 0 && (table.rows.length === 0 || allRowsHidden)}
 		<DataTableEmpty message={emptyMessage} level={emptyLevel} />
 	{/if}
 

@@ -29,8 +29,8 @@
 	import type { RanksSettingsData } from './settingsSectionTypes';
 	import type { SettingsRankCatalogRow, SettingsRankServicePackOption } from './settingsSectionTypes';
 	import {
-		compareRankPrecedence,
 		filterRanks,
+		RANK_LANE_ORDER,
 		rankInUse,
 		rankSentence,
 		type RankBranchFilter,
@@ -46,6 +46,7 @@
 	/** At most one editor is open: the new-rank draft or one rank's row. */
 	type OpenEditor = { kind: 'new' } | { kind: 'rank'; code: string } | null;
 	type CatalogRow = { kind: 'new' } | { kind: 'rank'; rank: SettingsRankCatalogRow };
+	type RowFormIntent = 'retire' | 'reactivate' | 'delete';
 
 	const RANK_FIELD_ERRORS = new Map<string, RankErrorField>([
 		[RANK_CODE_REQUIRED_MESSAGE, 'code'],
@@ -55,6 +56,11 @@
 		[RANK_TIE_BREAK_RANGE_MESSAGE, 'sortOrder']
 	]);
 	const ROW_ACTION_KEYS = ['edit', 'retire', 'reactivate', 'delete'];
+	const ROW_FORM_ACTIONS: Record<RowFormIntent, string> = {
+		retire: '?/retireRank',
+		reactivate: '?/reactivateRank',
+		delete: '?/deleteRank'
+	};
 	const NEW_RANK_KEY = 'rank-add';
 	const CONFIRM_FAILURE_FALLBACK = 'Unable to update the rank catalog. Try again.';
 	const STATE_FILTER_OPTIONS: Array<{ value: RankStateFilter; label: string }> = [
@@ -79,6 +85,7 @@
 	let branchFilter = $state<RankBranchFilter>('all');
 	let search = $state('');
 	let openEditor = $state<OpenEditor>(null);
+	let rowFormCode = $state('');
 	const EDITOR_FIELDS = 'input:not([type=hidden]):not([readonly]), select, button';
 	let addCustomRankButton = $state<HTMLElement | null>(null);
 	let pendingBulkRankState = $state<PendingBulkRankState | null>(null);
@@ -92,12 +99,13 @@
 	const actionSucceeded = $derived(Boolean(form?.success));
 	const branchFilterOptions = $derived([{ value: 'all' as const, label: 'All branches' }, ...ranks.options.services]);
 
-	const allRanks = $derived([...ranks.entries.active, ...ranks.entries.retired].sort(compareRankPrecedence));
+	const allRanks = $derived([...ranks.entries.active, ...ranks.entries.retired]);
 	const customCount = $derived(allRanks.filter((entry) => entry.source === 'custom').length);
 	const visibleRanks = $derived(filterRanks(allRanks, { state: stateFilter, branch: branchFilter, search }));
+	const visibleCodes = $derived(new Set(visibleRanks.map((rank) => rank.code)));
 	const catalogRows = $derived<CatalogRow[]>([
 		...(openEditor?.kind === 'new' ? [{ kind: 'new' } as const] : []),
-		...visibleRanks.map((rank) => ({ kind: 'rank', rank }) as const)
+		...allRanks.map((rank) => ({ kind: 'rank', rank }) as const)
 	]);
 
 	// Errors and successes return from the server without naming the form, so attribute them to the last submitter.
@@ -128,7 +136,8 @@
 			rowHeader: key === 'rank',
 			maxWidth: key === 'rank' ? 'none' : undefined,
 			value: () => '',
-			sortable: false,
+			compare: key === 'actions' ? undefined : draftFirst(RANK_LANE_ORDER[key]),
+			sortable: key !== 'actions',
 			searchable: false
 		})
 	);
@@ -137,8 +146,18 @@
 	const catalogTable = useDataTable<CatalogRow>({
 		data: () => catalogRows,
 		columns: () => (wide.current ? wideColumns : narrowColumns),
+		initialSortKey: 'rank',
 		rowKey: (row) => (row.kind === 'new' ? 'new-rank' : `rank-${row.rank.code}`)
 	});
+
+	// The table multiplies a comparator by the sort direction, so the draft's lead flips with it to stay first.
+	function draftFirst(compare: (a: SettingsRankCatalogRow, b: SettingsRankCatalogRow) => number) {
+		return (a: CatalogRow, b: CatalogRow): number => {
+			if (a.kind === 'rank' && b.kind === 'rank') return compare(a.rank, b.rank);
+			const draftLead = a.kind === 'new' ? -1 : 1;
+			return catalogTable.sortDirection === 'asc' ? draftLead : -draftLead;
+		};
+	}
 
 	const emptyFilterMessage = $derived(
 		`No ${stateFilter === 'all' ? '' : `${stateFilter} `}ranks match ${
@@ -151,10 +170,6 @@
 	function rankDomId(code: string): string {
 		const safeCode = Array.from(code, (char) => char.codePointAt(0)?.toString(36) ?? '0').join('-');
 		return `rank-${safeCode || 'entry'}`;
-	}
-
-	function rowFormId(intent: string, code: string): string {
-		return `${rankDomId(code)}-${intent}`;
 	}
 
 	function rankToggle(code: string): HTMLElement | null {
@@ -220,7 +235,7 @@
 	// Rank mutations run one at a time: savingAction is a single slot, so a second submission would clear it early.
 	// SvelteKit moves focus to the body after a success, so focus goes back to the submitter or the row it changed.
 	function enhancedForm(
-		key: string,
+		key: string | ((data: FormData) => string),
 		{
 			focusAfter,
 			focusFallback
@@ -229,13 +244,14 @@
 			focusFallback?: () => HTMLElement | null;
 		} = {}
 	): SubmitFunction {
-		return ({ cancel, submitter }) => {
+		return ({ cancel, submitter, formData }) => {
 			if (savingAction !== null) {
 				cancel();
 				return;
 			}
-			savingAction = key;
-			lastActionKey = key;
+			const actionKey = typeof key === 'string' ? key : key(formData);
+			savingAction = actionKey;
+			lastActionKey = actionKey;
 			return async ({ result, update }) => {
 				const succeeded = result.type === 'success';
 				try {
@@ -257,15 +273,16 @@
 		};
 	}
 
+	// A new rank's draft closes into its row; a saved rank's editor stays open on Save.
 	function saveFocus(editor: NonNullable<OpenEditor>, submitter: () => HTMLElement | null) {
 		return async (succeeded: boolean, code: string | null) => {
 			if (await keepAnotherEditor(editor)) return;
-			if (succeeded) {
+			if (succeeded && editor.kind === 'new') {
 				await closeEditor(code);
 				return;
 			}
 			await tick();
-			restoreFocus([submitter()]);
+			restoreFocus([submitter(), document.getElementById('rank-catalog-heading')]);
 		};
 	}
 
@@ -274,6 +291,13 @@
 		if (!(element instanceof HTMLFormElement)) return false;
 		element.requestSubmit();
 		return true;
+	}
+
+	async function submitRowForm(intent: RowFormIntent, code: string): Promise<boolean> {
+		if (savingAction !== null) return false;
+		rowFormCode = code;
+		await tick();
+		return submitFormAndWait(`rank-${intent}-form`);
 	}
 
 	// Resolves with whether the form's request succeeded, once its enhance callback has applied the result.
@@ -286,7 +310,7 @@
 	}
 
 	function rankToggles(): HTMLElement[] {
-		return [...document.querySelectorAll<HTMLElement>('[data-rank-toggle]')];
+		return [...document.querySelectorAll<HTMLElement>('tr:not([hidden]) [data-rank-toggle]')];
 	}
 
 	// The row itself if it survived, else the row that took its place, else the one before it, else the heading.
@@ -296,7 +320,7 @@
 		return () => {
 			const toggles = rankToggles();
 			return (
-				document.getElementById(id) ??
+				toggles.find((toggle) => toggle.id === id) ??
 				toggles[index] ??
 				toggles[index - 1] ??
 				document.getElementById('rank-catalog-heading')
@@ -313,9 +337,13 @@
 	}
 
 	// Keeps the confirmation open until the request settles. A failure leaves it open so it can be retried or cancelled.
-	async function confirmWithForm(formId: string, close: () => void, focusTarget: () => HTMLElement | null) {
+	async function confirmWithForm(
+		submit: () => Promise<boolean>,
+		close: () => void,
+		focusTarget: () => HTMLElement | null
+	) {
 		confirmFailed = false;
-		const succeeded = await submitFormAndWait(formId);
+		const succeeded = await submit();
 		confirmFailed = !succeeded;
 		if (!succeeded) return;
 		close();
@@ -331,7 +359,7 @@
 	async function reactivate(entry: SettingsRankCatalogRow) {
 		if (savingAction !== null) return;
 		const focusTarget = rankRowFocusTarget(entry.code);
-		const succeeded = await submitFormAndWait(rowFormId('reactivate', entry.code));
+		const succeeded = await submitRowForm('reactivate', entry.code);
 		if (await keepAnotherEditor({ kind: 'rank', code: entry.code })) return;
 		if (succeeded) openEditor = null;
 		await tick();
@@ -393,7 +421,7 @@
 		if (!pendingBulkRankState) return;
 		const { pack, targetState } = pendingBulkRankState;
 		await confirmWithForm(
-			`bulk-${targetState}-${pack.value}`,
+			() => submitFormAndWait(`bulk-${targetState}-${pack.value}`),
 			() => (pendingBulkRankState = null),
 			packActionsFocusTarget(pack)
 		);
@@ -402,13 +430,21 @@
 	async function confirmRankRetire() {
 		if (!pendingRankRetire) return;
 		const code = pendingRankRetire.code;
-		await confirmWithForm(rowFormId('retire', code), () => (pendingRankRetire = null), rankRowFocusTarget(code));
+		await confirmWithForm(
+			() => submitRowForm('retire', code),
+			() => (pendingRankRetire = null),
+			rankRowFocusTarget(code)
+		);
 	}
 
 	async function confirmRankDelete() {
 		if (!pendingRankDelete) return;
 		const code = pendingRankDelete.code;
-		await confirmWithForm(rowFormId('delete', code), () => (pendingRankDelete = null), rankRowFocusTarget(code));
+		await confirmWithForm(
+			() => submitRowForm('delete', code),
+			() => (pendingRankDelete = null),
+			rankRowFocusTarget(code)
+		);
 	}
 
 	function bulkRankStateTitle(pending: PendingBulkRankState): string {
@@ -606,6 +642,20 @@
 			</div>
 			<p class="sr-only" role="status">{visibleRanks.length} of {allRanks.length} ranks shown</p>
 
+			{#if canManage}
+				{#each Object.entries(ROW_FORM_ACTIONS) as [intent, action] (intent)}
+					<form
+						id={`rank-${intent}-form`}
+						method="POST"
+						{action}
+						class="hidden"
+						use:enhance={enhancedForm((data) => `${intent}-${data.get('code')}`)}
+					>
+						<input type="hidden" name="code" value={rowFormCode} />
+					</form>
+				{/each}
+			{/if}
+
 			<DataTable.DataTable
 				table={catalogTable}
 				variant="editorial"
@@ -615,6 +665,7 @@
 				cell={catalogCell}
 				rowDetail={catalogDetail}
 				rowDetailVisible={(row) => row.kind === 'new' || isEditing(row.rank)}
+				rowHidden={(row) => row.kind === 'rank' && !visibleCodes.has(row.rank.code)}
 			/>
 		{/if}
 	</section>
@@ -713,54 +764,13 @@
 				{retired ? 'Retired' : 'Active'}
 			</span>
 		{:else if column.key === 'actions'}
+			{@const actions = rankRowActions(entry)}
 			<div class="flex justify-end">
-				{@render rankRowForms(entry)}
-				{#if rankRowActions(entry).length > 0}
-					<DataTable.RowActions
-						{row}
-						actions={rankRowActions(entry)}
-						ariaLabel={`Actions for ${entry.code}`}
-						busy={isRowSaving(entry)}
-					/>
+				{#if actions.length > 0}
+					<DataTable.RowActions {row} {actions} ariaLabel={`Actions for ${entry.code}`} busy={isRowSaving(entry)} />
 				{/if}
 			</div>
 		{/if}
-	{/if}
-{/snippet}
-
-{#snippet rankRowForms(entry: SettingsRankCatalogRow)}
-	{#if entry.commands.canRetire}
-		<form
-			id={rowFormId('retire', entry.code)}
-			method="POST"
-			action="?/retireRank"
-			class="hidden"
-			use:enhance={enhancedForm(`retire-${entry.code}`)}
-		>
-			<input type="hidden" name="code" value={entry.code} />
-		</form>
-	{/if}
-	{#if entry.commands.canReactivate}
-		<form
-			id={rowFormId('reactivate', entry.code)}
-			method="POST"
-			action="?/reactivateRank"
-			class="hidden"
-			use:enhance={enhancedForm(`reactivate-${entry.code}`)}
-		>
-			<input type="hidden" name="code" value={entry.code} />
-		</form>
-	{/if}
-	{#if entry.commands.canDelete}
-		<form
-			id={rowFormId('delete', entry.code)}
-			method="POST"
-			action="?/deleteRank"
-			class="hidden"
-			use:enhance={enhancedForm(`delete-${entry.code}`)}
-		>
-			<input type="hidden" name="code" value={entry.code} />
-		</form>
 	{/if}
 {/snippet}
 
@@ -787,7 +797,7 @@
 		(!rankErrorField || (!isNew && rankErrorField === 'code'))
 			? rankError
 			: null}
-	{@const sentence = isNew ? ranks.copy.tieBreakHelp : rankSentence(entry, editable ? ranks.copy.tieBreakHelp : null)}
+	{@const sentence = isNew ? '' : rankSentence(entry)}
 	<div id={`${domId}-editor`} class="grid gap-3.5 p-2" {@attach editorFocus}>
 		{#if editable}
 			<form
@@ -866,10 +876,13 @@
 						name="sortOrder"
 						type="number"
 						value={entry?.sortOrder ?? 500}
-						aria-describedby={`${domId}-sentence`}
+						aria-describedby={`${domId}-tie-break-help`}
 					/>
 					{#if fieldError('sortOrder')}<Field.Error>{fieldError('sortOrder')}</Field.Error>{/if}
 				</Field.Root>
+				<Field.Description id={`${domId}-tie-break-help`} class="md:col-span-full">
+					{ranks.copy.tieBreakHelp}
+				</Field.Description>
 			</form>
 		{/if}
 
@@ -880,8 +893,10 @@
 		{/if}
 
 		<div class="flex flex-col gap-2 md:flex-row md:items-center">
-			<p id={`${domId}-sentence`} class="flex-1 text-sm text-muted-foreground">{sentence}</p>
-			<div class="flex flex-wrap items-center justify-end gap-2">
+			{#if sentence}
+				<p class="flex-1 text-sm text-muted-foreground">{sentence}</p>
+			{/if}
+			<div class="flex flex-wrap items-center justify-end gap-2 md:ml-auto">
 				{#if entry?.commands.canDelete}
 					<Button
 						type="button"

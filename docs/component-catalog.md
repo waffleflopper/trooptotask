@@ -1384,7 +1384,7 @@ Exports:
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`, `variant?: 'framed' | 'editorial'`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `rowHidden?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`, `variant?: 'framed' | 'editorial'`
 
 `variant="editorial"` drops the card frame and fill so the table reads as ruled rows on the page, flush with the section rule above it. Organization Ranks uses it under a ruled `SectionHeader`.
 
@@ -1424,6 +1424,7 @@ Route configuration rules:
 - Routes may configure data, columns, cell snippets, labels, row actions, disabled states, expandable row details, filters, search, pagination, grouping, row click handlers, and bulk actions.
 - Routes may not override visual appearance through route-local Tailwind classes, CSS selectors, arbitrary spacing/color/radius values, or table-specific wrapper styling.
 - If a table needs a new durable visual state or behavior primitive, add it under `src/lib/components/ui/data-table/**`, document it here and verify the affected tables.
+- Use `rowHidden` for a filter the user changes as they type. Hidden rows stay mounted, so clearing the filter does not rebuild every row. The empty state shows when every row is hidden.
 - Use `RowActions` for dropdown row commands and `SelectionCheckbox` plus `useDataTableSelection` for selectable rows.
 - Mark action/display-only columns with `sortable: false` and `searchable: false`.
 - Provide `rowActionLabel` whenever rows are clickable so keyboard and screen-reader users get a clear action name.

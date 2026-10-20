@@ -190,6 +190,21 @@ describe('shadcn DataTable foundation', () => {
 		expect(screen.getAllByRole('row')).toHaveLength(3);
 	});
 
+	test('hides rows a rowHidden predicate excludes and shows the empty state when none remain', async () => {
+		const view = render(Table, {
+			props: {
+				data: testData,
+				columns,
+				emptyMessage: 'No personnel found.',
+				rowHidden: (row: TestRow) => row.group === 'A'
+			}
+		});
+		expect(screen.getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Bob', '25', 'B']);
+
+		await view.rerender({ data: testData, columns, emptyMessage: 'No personnel found.', rowHidden: () => true });
+		expect(screen.getByRole('heading', { level: 3, name: 'No personnel found.' })).toBeTruthy();
+	});
+
 	test('supports grouped rows and collapse behavior', async () => {
 		render(Table, {
 			props: {

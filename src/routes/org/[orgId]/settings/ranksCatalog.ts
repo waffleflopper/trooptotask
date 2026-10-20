@@ -4,7 +4,8 @@ import type { SettingsRankCatalogRow } from './settingsSectionTypes';
 export type RankStateFilter = 'all' | SettingsRankCatalogRow['state'];
 export type RankBranchFilter = 'all' | SettingsRankCatalogRow['service'];
 
-export type RankInUse = { kind: 'people' | 'training' | 'history' | 'none' | 'unknown'; text: string };
+export type RankInUse = { kind: 'people' | 'training' | 'history' | 'none' | 'unknown'; count: number; text: string };
+type RankComparator = (a: SettingsRankCatalogRow, b: SettingsRankCatalogRow) => number;
 
 const PAY_GRADE_ORDER = new Map(
 	[
@@ -36,6 +37,8 @@ const PAY_GRADE_ORDER = new Map(
 	].map((payGrade, index) => [payGrade, index])
 );
 
+const IN_USE_ORDER: RankInUse['kind'][] = ['none', 'unknown', 'history', 'training', 'people'];
+
 const REMOVABLE_SENTENCE = 'Not used by any person, training filter or history, so it can be removed.';
 
 function payGradeIndex(entry: SettingsRankCatalogRow): number {
@@ -65,28 +68,45 @@ export function filterRanks(
 	);
 }
 
-function count(value: number, one: string, many: string): string {
-	return `${value} ${value === 1 ? one : many}`;
-}
-
 /** People first, because a rank people hold is the reason it cannot be removed. */
 export function rankInUse(summary: OrganizationRankCatalogReferenceSummary): RankInUse {
 	const { activeReferences, historicalReferences } = summary;
 	if (activeReferences.personnel > 0) {
-		return { kind: 'people', text: count(activeReferences.personnel, 'person', 'people') };
+		const count = activeReferences.personnel;
+		return { kind: 'people', count, text: `${count} ${count === 1 ? 'person' : 'people'}` };
 	}
-	if (activeReferences.total > 0) return { kind: 'training', text: `${activeReferences.total} in training` };
-	if (historicalReferences.total > 0) return { kind: 'history', text: `${historicalReferences.total} in history` };
+	if (activeReferences.total > 0) {
+		return { kind: 'training', count: activeReferences.total, text: `${activeReferences.total} in training` };
+	}
+	if (historicalReferences.total > 0) {
+		return { kind: 'history', count: historicalReferences.total, text: `${historicalReferences.total} in history` };
+	}
 	// A summary with no references that still blocks removal is the loader's stand-in for a failed reference check.
-	if (!summary.canDelete) return { kind: 'unknown', text: 'Unknown' };
-	return { kind: 'none', text: 'Not in use' };
+	if (!summary.canDelete) return { kind: 'unknown', count: 0, text: 'Unknown' };
+	return { kind: 'none', count: 0, text: 'Not in use' };
 }
 
-/** What removing or retiring this rank would do, in one sentence, with the tie-break hint when the row is editable. */
-export function rankSentence(entry: SettingsRankCatalogRow, tieBreakHelp: string | null): string {
-	const consequence =
-		entry.warnings.length > 0
-			? entry.warnings.join(' ')
-			: (entry.commands.deleteDisabledReason ?? (entry.commands.canDelete ? REMOVABLE_SENTENCE : ''));
-	return [consequence, tieBreakHelp].filter(Boolean).join(' ');
+function compareInUse(a: SettingsRankCatalogRow, b: SettingsRankCatalogRow): number {
+	const left = rankInUse(a.referenceSummary);
+	const right = rankInUse(b.referenceSummary);
+	return (
+		IN_USE_ORDER.indexOf(left.kind) - IN_USE_ORDER.indexOf(right.kind) ||
+		left.count - right.count ||
+		compareRankPrecedence(a, b)
+	);
+}
+
+/** Ascending order for each sortable catalog lane; ties fall back to rank precedence. */
+export const RANK_LANE_ORDER = {
+	rank: compareRankPrecedence,
+	branch: (a, b) => a.serviceLabel.localeCompare(b.serviceLabel) || compareRankPrecedence(a, b),
+	grade: compareRankPrecedence,
+	source: (a, b) => a.sourceLabel.localeCompare(b.sourceLabel) || compareRankPrecedence(a, b),
+	inUse: compareInUse,
+	state: (a, b) => a.state.localeCompare(b.state) || compareRankPrecedence(a, b)
+} satisfies Record<string, RankComparator>;
+
+/** What removing or retiring this rank would do, in one sentence. */
+export function rankSentence(entry: SettingsRankCatalogRow): string {
+	return entry.commands.deleteDisabledReason ?? (entry.commands.canDelete ? REMOVABLE_SENTENCE : '');
 }

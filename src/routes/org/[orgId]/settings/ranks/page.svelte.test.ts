@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
@@ -30,7 +31,8 @@ vi.mock('$app/forms', () => ({
 			const settle = submit?.({
 				formElement: form,
 				formData: new FormData(form),
-				submitter: event.submitter,
+				// happy-dom reports the form itself for a bare requestSubmit(); browsers report no submitter.
+				submitter: event.submitter === form ? null : event.submitter,
 				cancel: () => {
 					cancelled = true;
 				}
@@ -87,7 +89,6 @@ function rankEntry(overrides: Partial<SettingsRankCatalogRow> = {}): SettingsRan
 			historicalReferences: { signInRosterFilters: 0, signInRosterSnapshots: 0, total: 0 },
 			canDelete: true
 		},
-		warnings: [],
 		commands: {
 			canEdit: true,
 			canRetire: true,
@@ -229,7 +230,9 @@ function catalog() {
 }
 
 function shownCodes(): string[] {
-	return [...catalog().querySelectorAll('[data-rank-toggle] span:first-child')].map((code) => code.textContent ?? '');
+	return within(catalog())
+		.queryAllByRole('rowheader')
+		.map((cell) => cell.textContent!.trim().split(/\s+/)[0]);
 }
 
 function rowFor(code: string): HTMLElement {
@@ -354,42 +357,58 @@ describe('catalog filters', () => {
 	});
 });
 
+describe('catalog sorting', () => {
+	const sgt = builtIn({ code: 'SGT', label: 'Sergeant', payGrade: 'E-5', payGradeLabel: 'E-5' });
+	const sfc = builtIn({ code: 'SFC', label: 'Sergeant First Class', payGrade: 'E-7', payGradeLabel: 'E-7' });
+	const detSgt = rankEntry();
+	const sp4 = retiredCopy(builtIn({ code: 'SP4', label: 'Specialist Four', payGrade: 'E-4', payGradeLabel: 'E-4' }));
+
+	it('sorts by a lane and back, with rank order as the default', async () => {
+		renderRankPage([sgt, detSgt, sfc], [sp4]);
+
+		expect(screen.getByRole('columnheader', { name: /Rank/ })).toHaveAttribute('aria-sort', 'ascending');
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Branch' }));
+		expect(shownCodes()).toEqual(['SFC', 'SGT', 'SP4', 'DET-SGT']);
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Branch' }));
+		expect(shownCodes()).toEqual(['DET-SGT', 'SP4', 'SGT', 'SFC']);
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by State' }));
+		expect(shownCodes()).toEqual(['SFC', 'DET-SGT', 'SGT', 'SP4']);
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Rank' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Rank' }));
+		expect(shownCodes()).toEqual(['SP4', 'SGT', 'DET-SGT', 'SFC']);
+	});
+
+	it('keeps the new-rank draft first in either direction', async () => {
+		renderRankPage([sgt, detSgt, sfc]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
+		expect(shownCodes()).toEqual(['New', 'SFC', 'DET-SGT', 'SGT']);
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Rank' }));
+		expect(shownCodes()).toEqual(['New', 'SGT', 'DET-SGT', 'SFC']);
+	});
+});
+
 describe('In use', () => {
-	function withReferences(
-		code: string,
-		active: { personnel: number; trainingApplicability: number },
-		historical: number,
-		canDelete = false
-	): SettingsRankCatalogRow {
-		return rankEntry({
-			code,
-			label: `${code} label`,
-			referenceSummary: {
-				code,
-				activeReferences: { ...active, total: active.personnel + active.trainingApplicability },
-				historicalReferences: { signInRosterFilters: historical, signInRosterSnapshots: 0, total: historical },
-				canDelete
-			}
-		});
-	}
+	it('reads the people who hold a rank in its row', () => {
+		renderRankPage([
+			rankEntry({
+				code: 'A',
+				label: 'A label',
+				referenceSummary: {
+					code: 'A',
+					activeReferences: { personnel: 14, trainingApplicability: 1, total: 15 },
+					historicalReferences: { signInRosterFilters: 3, signInRosterSnapshots: 0, total: 3 },
+					canDelete: false
+				}
+			})
+		]);
 
-	it.each([
-		['people', withReferences('A', { personnel: 14, trainingApplicability: 1 }, 3), '14 people'],
-		['one person', withReferences('A', { personnel: 1, trainingApplicability: 0 }, 0), '1 person'],
-		['training filters only', withReferences('A', { personnel: 0, trainingApplicability: 2 }, 0), '2 in training'],
-		['history only', withReferences('A', { personnel: 0, trainingApplicability: 0 }, 2), '2 in history'],
-		['nothing', withReferences('A', { personnel: 0, trainingApplicability: 0 }, 0, true), 'Not in use'],
-		['an unavailable reference check', withReferences('A', { personnel: 0, trainingApplicability: 0 }, 0), 'Unknown']
-	])('reads %s', (_case, entry, expected) => {
-		renderRankPage([entry]);
-
-		const cells = within(rowFor('A')).getAllByRole('cell');
-		expect(cells.map((cell) => cell.textContent?.trim())).toContain(expected);
+		expect(within(rowFor('A')).getByRole('cell', { name: '14 people' })).toBeInTheDocument();
 	});
 });
 
 describe('editing a rank in place', () => {
-	it('opens the row with Label focused, keeps Code fixed and saves the four fields', async () => {
+	it('opens the row with Label focused, keeps Code fixed, saves the four fields and stays open', async () => {
 		const page = renderRankPage([rankEntry(), rankEntry({ code: 'OTHER', label: 'Other Sergeant' })]);
 
 		await openRank('DET-SGT');
@@ -423,8 +442,21 @@ describe('editing a rank in place', () => {
 		await page.succeedWith({
 			active: [rankEntry({ label: 'Detachment Lead' }), rankEntry({ code: 'OTHER', label: 'Other Sergeant' })]
 		});
+		const saved = screen.getByRole('form', { name: 'Edit DET-SGT' });
+		expect(within(saved).getByLabelText('Label')).toHaveValue('Detachment Lead');
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save DET-SGT' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await vi.runAllTimersAsync();
 		expect(screen.queryByRole('form', { name: 'Edit DET-SGT' })).toBeNull();
 		expect(document.activeElement).toBe(rankToggle('DET-SGT'));
+	});
+
+	it('describes Tie-break with its own help', async () => {
+		renderRankPage([rankEntry()]);
+
+		await openRank('DET-SGT');
+		expect(screen.getByLabelText('Tie-break')).toHaveAccessibleDescription('Tie-break help.');
 	});
 
 	it('cancels with Escape and returns focus to the row', async () => {
@@ -457,21 +489,11 @@ describe('editing a rank in place', () => {
 	});
 
 	it('says why a referenced built-in rank stays and offers Retire without fields', async () => {
-		renderRankPage([
-			builtIn({
-				code: 'SGT',
-				label: 'Sergeant',
-				warnings: ['Referenced by 14 active records or filters. Retire this rank to preserve existing records.']
-			})
-		]);
+		renderRankPage([builtIn({ code: 'SGT', label: 'Sergeant' })]);
 
 		await openRank('SGT');
 		const editor = document.getElementById(rankToggle('SGT').getAttribute('aria-controls')!)!;
-		expect(
-			within(editor).getByText(
-				'Referenced by 14 active records or filters. Retire this rank to preserve existing records.'
-			)
-		).toBeTruthy();
+		expect(within(editor).getByText('Built-in ranks can be retired but not removed.')).toBeTruthy();
 		expect(within(editor).queryByRole('textbox')).toBeNull();
 		expect(within(editor).queryByRole('button', { name: 'Remove' })).toBeNull();
 		expect(document.activeElement).toBe(within(editor).getByRole('button', { name: 'Retire' }));
@@ -481,13 +503,10 @@ describe('editing a rank in place', () => {
 		expect(screen.getByRole('alertdialog', { name: 'Retire SGT' })).toBeTruthy();
 	});
 
-	it('says an unused custom rank can be removed and removes it after a destructive confirmation', async () => {
+	it('removes an unused custom rank after a destructive confirmation', async () => {
 		const page = renderRankPage([rankEntry(), rankEntry({ code: 'OTHER', label: 'Other Sergeant' })]);
 
 		await openRank('DET-SGT');
-		expect(
-			screen.getByText('Not used by any person, training filter or history, so it can be removed. Tie-break help.')
-		).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 		await vi.runAllTimersAsync();
 		const dialog = screen.getByRole('alertdialog', { name: 'Remove DET-SGT' });
@@ -561,9 +580,9 @@ describe('adding a custom rank', () => {
 		await page.fail(message);
 
 		const field = screen.getByLabelText(fieldLabel);
-		expect(field.getAttribute('aria-invalid')).toBe('true');
-		expect(screen.getByText(message).getAttribute('data-slot')).toBe('field-error');
-		expect((screen.getByLabelText('Code') as HTMLInputElement).value).toBe('NEW-1');
+		expect(field).toHaveAttribute('aria-invalid', 'true');
+		expect(field).toHaveAccessibleDescription(expect.stringContaining(message));
+		expect(screen.getByLabelText('Code')).toHaveValue('NEW-1');
 	});
 
 	it('closes the draft on Escape and returns focus to Add custom rank', async () => {

@@ -46,6 +46,7 @@
 		row?: DataTableRowSnippet<T>;
 		rowDetail?: DataTableRowDetailSnippet<T>;
 		rowDetailVisible?: (row: T) => boolean;
+		rowHidden?: (row: T) => boolean;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -82,6 +83,7 @@
 		row,
 		rowDetail,
 		rowDetailVisible,
+		rowHidden,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -132,6 +134,7 @@
 	{row}
 	{rowDetail}
 	{rowDetailVisible}
+	{rowHidden}
 	{headerCell}
 	{groupHeader}
 	{toolbar}

@@ -14,7 +14,7 @@ const NO_CAPABILITIES = {
 } as const;
 
 describe('rank settings read model', () => {
-	it('groups active and retired rank catalog rows with service-pack options and reference warnings', async () => {
+	it('groups active and retired rank catalog rows with service-pack options', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {
 			code: 'DET-SGT',
@@ -95,10 +95,6 @@ describe('rank settings read model', () => {
 				deleteDisabledReason: 'Referenced by active Organization data; retire it instead.'
 			}
 		});
-		expect(activeRank?.warnings).toEqual([
-			'Referenced by 2 active records or filters. Retire this rank to preserve existing records.',
-			'Also appears in 2 historical snapshots or saved filters.'
-		]);
 		expect(retiredRank).toMatchObject({
 			code: 'OLD-SGT',
 			state: 'retired',

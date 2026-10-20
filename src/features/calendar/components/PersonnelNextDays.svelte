@@ -21,6 +21,6 @@
 			{/each}
 		</ul>
 	{:else}
-		<p class="text-sm text-muted-foreground">Nothing on the Calendar for the next 14 days.</p>
+		<p class="text-sm text-muted-foreground">Nothing on the Calendar for the next {days.columns.length} days.</p>
 	{/if}
 </div>

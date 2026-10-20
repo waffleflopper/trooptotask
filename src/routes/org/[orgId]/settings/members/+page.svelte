@@ -22,6 +22,7 @@
 	import { settleAction } from '$lib/utils/settleAction';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
+		SettingsPageHeader,
 		createSettingsMemberAccessWorkspace,
 		type EditableMembershipRole,
 		type EditablePreset
@@ -167,7 +168,14 @@
 	function getFunnelStatusVariant(status: SettingsInvitationFunnelStatus): 'danger' | 'secondary' {
 		return status === 'invitation_email_failed' || status === 'setup_email_failed' ? 'danger' : 'secondary';
 	}
+
+	const unit = $derived(data.orgName ?? 'the unit');
 </script>
+
+<SettingsPageHeader
+	page="members"
+	subtitle={`Who can sign in to ${unit} and what they can touch. A role sets authority; a preset sets day-to-day access, and you can adjust it area by area.`}
+/>
 
 <section class="grid gap-4" aria-labelledby="members-settings-heading">
 	<div class="grid gap-1">

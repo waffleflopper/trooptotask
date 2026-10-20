@@ -1,61 +1,56 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { loadSettingsShell } from './settingsShell.server';
+import { streamSettingsNavCounts } from './settingsShell.server';
 
-const organization = { id: 'org-a', name: 'Synthetic Alpha', urlSlug: 'alpha', urlSegment: 'alpha' };
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((r) => (resolve = r));
+	return { promise, resolve };
+}
 
-describe('mixed settings shell delivery', () => {
-	it('starts Organization invitations, Personnel archive and approval counts together and returns only their projections', async () => {
+async function settledValue<T>(promise: Promise<T>): Promise<T | 'pending'> {
+	return Promise.race([promise, new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), 0))]);
+}
+
+describe('settings nav counts', () => {
+	it('streams each count as its own read settles', async () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-a' } });
-		const started = new Set<string>();
-		let release!: () => void;
-		const held = new Promise<void>((resolve) => {
-			release = resolve;
-		});
-		ctx.organizationSettings.countPendingInvitations = async () => {
-			started.add('invitations');
-			await held;
-			return 2;
-		};
-		ctx.store.findManyWithCount = async (table) => {
-			started.add(table);
-			await held;
-			return { data: [], count: table === 'personnel' ? 3 : 4 };
-		};
-		const pending = loadSettingsShell(ctx, organization, async () => {
-			started.add('approvals');
-			await held;
-			return { count: 4 };
-		});
-		try {
-			await vi.waitFor(() => expect(started).toEqual(new Set(['invitations', 'personnel', 'approvals'])));
-		} finally {
-			release();
-		}
-		expect((await pending).navBadges).toEqual({
-			pendingInvitationsCount: 2,
-			archivedPersonnelCount: 3,
-			pendingApprovalsCount: 4
-		});
+		const invitations = deferred<number>();
+		const approvals = deferred<{ count: number }>();
+		ctx.organizationSettings.countPendingInvitations = (orgId) =>
+			orgId === 'org-a' ? invitations.promise : Promise.resolve(0);
+		const counts = streamSettingsNavCounts(ctx, () => approvals.promise);
+
+		expect(await settledValue(counts.pendingInvitations)).toBe('pending');
+		expect(await settledValue(counts.pendingApprovals)).toBe('pending');
+
+		invitations.resolve(2);
+		expect(await settledValue(counts.pendingInvitations)).toBe(2);
+		expect(await settledValue(counts.pendingApprovals)).toBe('pending');
+
+		approvals.resolve({ count: 4 });
+		expect(await settledValue(counts.pendingApprovals)).toBe(4);
 	});
-	it.each(['invitations', 'personnel', 'approvals'])(
-		'keeps the shell failure boundary when a count cannot be read (%s)',
-		async (source) => {
-			const ctx = createTestContext({ auth: { orgId: 'org-a' } });
-			ctx.organizationSettings.countPendingInvitations = async () => {
-				if (source === 'invitations') throw new Error('Count unavailable');
-				return 2;
-			};
-			ctx.store.findManyWithCount = async (table) => {
-				if (table === source) throw new Error('Count unavailable');
-				return { data: [], count: 3 };
-			};
-			await expect(
-				loadSettingsShell(ctx, organization, async () => {
-					if (source === 'approvals') throw new Error('Count unavailable');
-					return { count: 4 };
-				})
-			).rejects.toThrow('Count unavailable');
-		}
-	);
+
+	it('keeps the invitation count when the approval count fails', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-a' } });
+		ctx.organizationSettings.countPendingInvitations = async () => 2;
+		const counts = streamSettingsNavCounts(ctx, async () => {
+			throw new Error('Count unavailable');
+		});
+
+		await expect(counts.pendingInvitations).resolves.toBe(2);
+		await expect(counts.pendingApprovals).rejects.toThrow('Count unavailable');
+	});
+
+	it('keeps the approval count when the invitation count fails', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-a' } });
+		ctx.organizationSettings.countPendingInvitations = async () => {
+			throw new Error('Count unavailable');
+		};
+		const counts = streamSettingsNavCounts(ctx, async () => ({ count: 4 }));
+
+		await expect(counts.pendingInvitations).rejects.toThrow('Count unavailable');
+		await expect(counts.pendingApprovals).resolves.toBe(4);
+	});
 });

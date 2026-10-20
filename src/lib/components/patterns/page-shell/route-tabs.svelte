@@ -23,6 +23,10 @@
 		badge?: RouteTabBadge | Promise<RouteTabBadge | null>;
 		/** Sits apart at the end of the strip, for a secondary section such as Archived. */
 		trailing?: boolean;
+		/** A short trailing label, such as `Owner`. */
+		tag?: string;
+		/** The destructive color, for a section such as Danger zone. */
+		destructive?: boolean;
 		disabled?: boolean;
 	};
 
@@ -63,6 +67,9 @@
 		<item.icon class="size-4" aria-hidden="true" />
 	{/if}
 	<span>{item.label}</span>
+	{#if item.tag}
+		<span class="font-mono text-[10px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{item.tag}</span>
+	{/if}
 	{#await item.badge}
 		<Skeleton class="h-5 w-6" aria-hidden="true" />
 		<span class="sr-only">count loading</span>
@@ -97,9 +104,13 @@
 						'inline-flex h-10 shrink-0 items-center gap-2 rounded-t-md border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
 						item.trailing && 'gap-1.5 text-xs',
 						item === firstTrailing && 'ml-auto',
-						item.active
-							? 'border-foreground text-foreground'
-							: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+						item.destructive
+							? item.active
+								? 'border-destructive text-destructive'
+								: 'border-transparent text-destructive hover:border-destructive/40'
+							: item.active
+								? 'border-foreground text-foreground'
+								: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
 					)}
 				>
 					{@render content(item)}

@@ -19,18 +19,17 @@ import type {
 	loadPoliciesSettings
 } from '$features/organization/index.server';
 import type { listGroupCatalog } from '$features/personnel/index.server';
-import type { loadSettingsShell } from './settingsShell.server';
+import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 
 export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
-	typeof loadSettingsShell
+	typeof streamSettingsNavCounts
 >[0] & {
 	auth: AdmittedOrganizationRequest['auth'];
 	audit: AdmittedOrganizationRequest['audit'];
 } {
 	return {
 		...createRequestActorContext(request),
-		...createRequestPersonnelRosterContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};
 }

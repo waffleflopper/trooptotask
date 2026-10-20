@@ -20,31 +20,40 @@ export interface SettingsShell {
 		isAdmin: boolean;
 		canManageMembers: boolean;
 	};
-	tabVisibility: {
-		general: true;
-		members: true;
-		policies: true;
-		ranks: true;
-		archives: true;
-		approvals: true;
-		logs: boolean;
-		exports: true;
-		danger: boolean;
-	};
-	navBadges: {
-		pendingInvitationsCount: number;
-		archivedPersonnelCount: number;
-		pendingApprovalsCount: number;
-	};
 }
 
-export function buildSettingsShell(
-	role: MembershipRole,
-	organization: SettingsShellOrganizationSource,
-	counts: SettingsShell['navBadges']
-): SettingsShell {
+/** The counts the nav shows as badges. Each streams on its own, so one failed read leaves the other badge intact. */
+export interface SettingsNavCounts {
+	pendingInvitations: Promise<number>;
+	pendingApprovals: Promise<number>;
+}
+
+export const SETTINGS_GROUPS = ['Unit', 'Access', 'Records'] as const;
+
+export interface SettingsPage {
+	label: string;
+	/** `null` sets the page apart below the groups, as Danger zone is. */
+	group: (typeof SETTINGS_GROUPS)[number] | null;
+	ownerOnly: boolean;
+}
+
+/** Every settings page in nav order. Admins do not see owner-only pages; those routes guard themselves. */
+export const SETTINGS_PAGES = {
+	general: { label: 'General', group: 'Unit', ownerOnly: false },
+	policies: { label: 'Policies', group: 'Unit', ownerOnly: false },
+	ranks: { label: 'Ranks', group: 'Unit', ownerOnly: false },
+	members: { label: 'Members', group: 'Access', ownerOnly: false },
+	approvals: { label: 'Approvals', group: 'Access', ownerOnly: false },
+	archives: { label: 'Archives', group: 'Records', ownerOnly: false },
+	exports: { label: 'Exports', group: 'Records', ownerOnly: false },
+	logs: { label: 'Logs', group: 'Records', ownerOnly: true },
+	danger: { label: 'Danger zone', group: null, ownerOnly: true }
+} as const satisfies Record<string, SettingsPage>;
+
+export type SettingsPageKey = keyof typeof SETTINGS_PAGES;
+
+export function buildSettingsShell(role: MembershipRole, organization: SettingsShellOrganizationSource): SettingsShell {
 	const isOwner = role === 'owner';
-	const canManageMembers = isOwner || role === 'admin';
 
 	return {
 		organization: {
@@ -54,26 +63,10 @@ export function buildSettingsShell(
 			urlSegment: organization.urlSegment
 		},
 		currentMember: {
-			role: role,
+			role,
 			isOwner,
 			isAdmin: role === 'admin',
-			canManageMembers
-		},
-		tabVisibility: {
-			general: true,
-			members: true,
-			policies: true,
-			ranks: true,
-			archives: true,
-			approvals: true,
-			logs: isOwner,
-			exports: true,
-			danger: isOwner
-		},
-		navBadges: {
-			pendingInvitationsCount: counts.pendingInvitationsCount,
-			archivedPersonnelCount: counts.archivedPersonnelCount,
-			pendingApprovalsCount: counts.pendingApprovalsCount
+			canManageMembers: isOwner || role === 'admin'
 		}
 	};
 }

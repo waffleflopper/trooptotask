@@ -22,7 +22,8 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'leader_notes',
 	'counseling_records',
 	'personnel_documents',
-	'personnel_extended_info'
+	'personnel_extended_info',
+	'deletion_requests'
 ]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 

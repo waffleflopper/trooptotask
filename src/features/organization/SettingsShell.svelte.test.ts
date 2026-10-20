@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { buildSettingsShell } from './settingsShell';
 import SettingsShell from './SettingsShell.svelte';
@@ -14,66 +14,80 @@ afterEach(() => {
 	navigation.navigating.to = null;
 });
 
+const organization = { id: 'org-a', name: 'Synthetic Alpha', urlSlug: 'alpha', urlSegment: 'alpha' };
+const children = createRawSnippet(() => ({ render: () => '<p>Settings content</p>' }));
+
+function sideNav(): HTMLElement {
+	return screen.getAllByRole('navigation', { name: 'Unit settings' })[0];
+}
+
+function groupHrefs(name: string): (string | null)[] {
+	return within(within(sideNav()).getByRole('group', { name }))
+		.getAllByRole('link')
+		.map((link) => link.getAttribute('href'));
+}
+
 describe('Organization settings navigation', () => {
-	it('keeps canonical links, positive badges and the active section when moving from owner to admin access', async () => {
-		const organization = { id: 'org-a', name: 'Synthetic Alpha', urlSlug: 'alpha', urlSegment: 'alpha' };
-		const counts = { pendingInvitationsCount: 2, archivedPersonnelCount: 3, pendingApprovalsCount: 4 };
-		const children = createRawSnippet(() => ({ render: () => '<p>Settings content</p>' }));
-		const view = render(SettingsShell, {
-			settingsShell: buildSettingsShell('owner', organization, counts),
+	it('groups the pages, badges pending invitations and marks owner-only pages for an owner', async () => {
+		render(SettingsShell, {
+			settingsShell: buildSettingsShell('owner', organization),
+			navCounts: { pendingInvitations: Promise.resolve(2), pendingApprovals: Promise.resolve(0) },
 			activePath: '/org/alpha/settings/policies',
 			orgUrlSegment: 'org-a',
 			children
 		});
-		expect(screen.getByRole('link', { name: 'Policies' })).toHaveAttribute('href', '/org/alpha/settings/policies');
-		expect(screen.getByRole('link', { name: 'Policies' })).toHaveAttribute('aria-current', 'page');
-		expect(screen.getByRole('link', { name: 'Members 2 pending invitations' })).toHaveAttribute(
-			'href',
-			'/org/alpha/settings/members'
-		);
-		expect(screen.getByRole('link', { name: 'Archives 3 archived people' })).toHaveAttribute(
-			'href',
-			'/org/alpha/settings/archives'
-		);
-		expect(screen.getByRole('link', { name: 'Approvals 4 pending requests' })).toHaveAttribute(
-			'href',
-			'/org/alpha/settings/approvals'
-		);
-		expect(screen.getByRole('link', { name: 'Logs' })).toHaveAttribute('href', '/org/alpha/settings/logs');
-		expect(screen.getByRole('link', { name: 'Danger' })).toHaveAttribute('href', '/org/alpha/settings/danger');
-		await view.rerender({
-			settingsShell: buildSettingsShell(
-				'admin',
-				{ ...organization, id: 'org-b', name: 'Synthetic Bravo', urlSlug: null, urlSegment: 'org-b' },
-				{ pendingInvitationsCount: 0, archivedPersonnelCount: 0, pendingApprovalsCount: 0 }
-			),
+
+		expect(groupHrefs('Unit')).toEqual([
+			'/org/alpha/settings/general',
+			'/org/alpha/settings/policies',
+			'/org/alpha/settings/ranks'
+		]);
+		expect(groupHrefs('Access')).toEqual(['/org/alpha/settings/members', '/org/alpha/settings/approvals']);
+		expect(groupHrefs('Records')).toEqual([
+			'/org/alpha/settings/archives',
+			'/org/alpha/settings/exports',
+			'/org/alpha/settings/logs'
+		]);
+		const nav = within(sideNav());
+		expect(nav.getByRole('link', { name: 'Policies' })).toHaveAttribute('aria-current', 'page');
+		expect(nav.getByRole('link', { name: 'Logs Owner' })).toHaveAttribute('href', '/org/alpha/settings/logs');
+		expect(nav.getByRole('link', { name: 'Danger zone Owner' })).toHaveAttribute('href', '/org/alpha/settings/danger');
+		expect(await nav.findByRole('link', { name: 'Members 2 pending invitations' })).toBeInTheDocument();
+		expect(nav.getByRole('link', { name: 'Approvals' })).toBeInTheDocument();
+		expect(nav.getByRole('link', { name: 'Archives' })).toBeInTheDocument();
+		expect(screen.getByRole('status').textContent?.trim()).toBe('');
+		expect(document.querySelector('[aria-busy]')).toBeNull();
+	});
+
+	it('hides Logs and Danger zone from an admin and links with the canonical segment', async () => {
+		render(SettingsShell, {
+			settingsShell: buildSettingsShell('admin', { ...organization, urlSlug: null, urlSegment: 'org-b' }),
+			navCounts: { pendingInvitations: Promise.resolve(0), pendingApprovals: Promise.resolve(1) },
 			activePath: '/org/org-b/settings',
 			orgUrlSegment: 'wrong-segment',
 			children
 		});
-		expect(screen.queryByRole('link', { name: 'Logs' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('link', { name: 'Danger' })).not.toBeInTheDocument();
-		expect(screen.getByRole('link', { name: 'General' })).toHaveAttribute('href', '/org/org-b/settings/general');
-		expect(screen.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
-		expect(screen.getByRole('link', { name: 'Members' })).toHaveAttribute('href', '/org/org-b/settings/members');
-		expect(screen.getByRole('link', { name: 'Archives' })).not.toHaveAttribute('aria-current');
+
+		expect(groupHrefs('Records')).toEqual(['/org/org-b/settings/archives', '/org/org-b/settings/exports']);
+		const nav = within(sideNav());
+		expect(nav.queryByRole('link', { name: /Danger zone/ })).not.toBeInTheDocument();
+		expect(nav.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
+		expect(await nav.findByRole('link', { name: 'Approvals 1 pending request' })).toBeInTheDocument();
+		expect(nav.getByRole('link', { name: 'Members' })).toBeInTheDocument();
 	});
 
-	it('announces the section that is loading and marks the content busy', () => {
-		const organization = { id: 'org-a', name: 'Synthetic Alpha', urlSlug: 'alpha', urlSegment: 'alpha' };
-		const counts = { pendingInvitationsCount: 1, archivedPersonnelCount: 1, pendingApprovalsCount: 1 };
+	it('marks the content busy and announces the loading page while a navigation is pending', () => {
 		navigation.navigating.to = { url: new URL('http://localhost/org/alpha/settings/members') };
-		const children = createRawSnippet(() => ({ render: () => '<p>Settings content</p>' }));
 		render(SettingsShell, {
-			settingsShell: buildSettingsShell('owner', organization, counts),
+			settingsShell: buildSettingsShell('owner', organization),
+			navCounts: { pendingInvitations: Promise.resolve(1), pendingApprovals: Promise.resolve(1) },
 			activePath: '/org/alpha/settings/general',
 			orgUrlSegment: 'org-a',
 			children
 		});
 
-		expect(screen.getByRole('status')).toHaveTextContent('Loading Members...');
-		expect(screen.getByText('Settings content').parentElement).toHaveAttribute('aria-busy', 'true');
-		expect(screen.getByRole('link', { name: 'Members 1 pending invitation' })).toBeInTheDocument();
-		expect(screen.getByRole('link', { name: 'Archives 1 archived person' })).toBeInTheDocument();
+		expect(screen.getByRole('status')).toHaveTextContent(/Members/);
+		expect(screen.getByText('Settings content').closest('[aria-busy="true"]')).not.toBeNull();
+		expect(screen.getByRole('status').closest('[aria-busy="true"]')).not.toBeNull();
 	});
 });

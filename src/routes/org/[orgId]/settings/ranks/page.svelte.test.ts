@@ -830,7 +830,7 @@ describe('rank confirmations settle with their request', () => {
 		await page.succeedWith({ active: [], retired: [retiredCopy(rankA)] });
 		await vi.runAllTimersAsync();
 
-		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Ranks' }));
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Ranks', level: 2 }));
 	});
 
 	it('returns focus to the row actions when the retired row stays in the All filter', async () => {
@@ -1127,7 +1127,7 @@ describe('held rank saves keep focus', () => {
 		await submitAndHold('Save DET-SGT');
 		await succeed({ active: [] });
 
-		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Ranks' }));
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Ranks', level: 2 }));
 	});
 
 	it('moves focus to the pack actions once a held pack add leaves Added disabled', async () => {

@@ -67,6 +67,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/report-chart`](#patternsreport-chart)                           | See its section                                                                                                                                     | Critical Tasks reports, Training Reports and the platform admin dashboard.                                                                                               |
 | [`patterns/report-workspace`](#patternsreport-workspace)                   | See its section                                                                                                                                     | Calendar, Critical Tasks and Training reports.                                                                                                                           |
 | [`patterns/requirement-status-badge`](#patternsrequirement-status-badge)   | `RequirementStatusBadge`                                                                                                                            | Critical Tasks and Training status badges.                                                                                                                               |
+| [`patterns/section-nav`](#patternssection-nav)                             | `SectionNav`                                                                                                                                        | Organization settings.                                                                                                                                                   |
 | [`patterns/segmented-filter`](#patternssegmented-filter)                   | `Root`                                                                                                                                              | The person record's Archived tab.                                                                                                                                        |
 | [`patterns/type-management-workspace`](#patternstype-management-workspace) | See its section                                                                                                                                     | Training types and views; Onboarding templates.                                                                                                                          |
 | [`patterns/workspace-toolbar`](#patternsworkspace-toolbar)                 | See its section                                                                                                                                     | Authenticated workspace toolbars.                                                                                                                                        |
@@ -194,7 +195,7 @@ Public components:
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
 - `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?` (a string, or a snippet for a meta line of badges and facts; both render in `data-slot="page-header-subtitle"`), `variant?: 'default' | 'display'` (`display` sets the title large, condensed and uppercase, for the record a page is about, such as the person record), snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
 - `SectionHeader`: the heading of one block on a page. Props: `eyebrow?` (short uppercase label), `title` (the headline figure, such as `3 open`), `detail?`, `detailTone?: 'default' | 'destructive'`, `size?: 'default' | 'compact'` (`compact` titles one of several sections, such as the person Overview's), `action?` (sits at the end of the headline row, such as an `Open log` link), `children?` (sits below the headline, such as a filter for the list it introduces).
-- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
+- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `tag`, `destructive`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. A `tag` is a short mono label after the label, such as `Owner`, and joins the link name. `destructive` colors the tab like a destructive action at the normal tab size. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
 - `FactSection`: a titled block of label and value rows. Props: `title`, `summary?`, `open?` (bindable), `children?`. Passing a `summary` makes the section collapsible; the closed section shows the summary beside its title.
@@ -210,7 +211,45 @@ Rules:
 - Use `FactSection` and `FactRow` for a record's labelled facts, read or edited in place, instead of route-local definition lists.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
 
-Consumers: the Account and Organization settings shells, the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+Consumers: the Account and Organization settings shells (Organization settings reaches `Tabs` through `section-nav`), the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+
+---
+
+## `patterns/section-nav`
+
+`patterns/section-nav` is the vertical secondary nav for an area with several pages, such as Organization settings. It renders labelled groups of links, then one item set apart below a rule in the destructive color. Below `md` it renders the same items through `PageShell.Tabs`, so the owner passes one item list.
+
+```svelte
+<script lang="ts">
+	import { SectionNav } from '$lib/components/patterns/section-nav';
+
+	const groups = [
+		{ label: 'Unit', items: [{ label: 'General', href: '/org/alpha/settings/general', active: true }] },
+		{
+			label: 'Access',
+			items: [
+				{ label: 'Members', href: '/org/alpha/settings/members', count: { value: 2, label: '2 pending invitations' } }
+			]
+		}
+	];
+</script>
+
+<SectionNav
+	label="Unit settings"
+	{groups}
+	apart={{ label: 'Danger zone', href: '/org/alpha/settings/danger', tag: 'Owner' }}
+/>
+```
+
+Props are `label` (the navigation's accessible name), `groups` (`{ label, items }[]`) and `apart?` (one item). An item has `label`, `href`, `active?`, `count?` and `tag?`.
+
+- `count` is `{ value, label }` or a promise of one. It shows as an amber badge, because a count here is something waiting on the reader. Zero shows nothing. A pending promise shows a skeleton announced as count loading, and a rejection shows an outline dash announced as count unavailable. Assistive technology hears `label` in place of the value.
+- `tag` is a short mono label after the link text, such as `Owner`.
+- The active link carries `aria-current="page"`. Each group is a `group` named by its label.
+
+Place it as the first column of a `PageShell.Root` body (`md:grid-cols-[auto_minmax(0,1fr)]`) and the page content in the second. Routes pass items and do not restyle the nav.
+
+Consumers: the Organization settings shell.
 
 ---
 

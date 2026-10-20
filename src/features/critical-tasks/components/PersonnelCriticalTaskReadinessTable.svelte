@@ -55,7 +55,10 @@
 	{#snippet footerEnd()}
 		<a
 			class="text-foreground underline underline-offset-4"
-			href={resolve('/org/[orgId]/critical-tasks/[personnelId]', { orgId, personnelId: readiness.personnelId })}
+			href={resolve('/org/[orgId]/critical-tasks/(workspace)/[personnelId]', {
+				orgId,
+				personnelId: readiness.personnelId
+			})}
 		>
 			Full task history in Critical Tasks
 		</a>

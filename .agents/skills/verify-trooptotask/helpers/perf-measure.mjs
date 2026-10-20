@@ -18,7 +18,7 @@ export const profiles = {
 
 // A cold warm-up would warm nothing the next cold sample keeps.
 export const protocol = {
-	defaults: { warm: { warmup: 1, repetitions: 5 }, cold: { warmup: 0, repetitions: 5 } },
+	defaults: { warm: { warmup: 1, repetitions: 5 }, cold: { warmup: 0, repetitions: 3 } },
 	modes: {
 		cold: 'First app document in a new browser context signed in without running app code. Only the shared entry assets the sign-in page preloads are cached.',
 		warm: 'Navigation to the journey URL in the signed-in page after the warm-up: new document, HTTP cache kept.'

@@ -476,8 +476,7 @@ describe('mergePersonnelBatch', () => {
 		expect(result.errors).toEqual([
 			{
 				index: 0,
-				message:
-					'Unknown rank "UNKNOWN". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.'
+				message: expect.stringMatching(/"UNKNOWN".*Unit settings > Ranks/)
 			}
 		]);
 	});

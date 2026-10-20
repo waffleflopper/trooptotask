@@ -188,12 +188,16 @@
 			action={workspace.slugFormAction}
 			class="grid gap-2.5"
 			use:enhance={({ cancel }) => {
-				const settle = workspace.submitSlug(cancel, (action) => () => [
-					form?.slugError ? slugInput : null,
-					action === 'clear' ? slugResetButton : null,
-					slugSaveButton,
-					slugInput
-				]);
+				const settle = workspace.submitSlug(
+					cancel,
+					(action) => () => [
+						form?.slugError ? slugInput : null,
+						action === 'clear' ? slugResetButton : null,
+						slugSaveButton,
+						slugInput
+					],
+					!!organization.urlSlug
+				);
 				if (settle) form = null;
 				return settle;
 			}}
@@ -297,9 +301,11 @@
 				{#if workspace.pendingSlugAction === 'clear'}
 					The unit goes back to its default address. Existing bookmarks and shared links using /org/{organization.urlSlug}/
 					will stop working.
-				{:else}
+				{:else if organization.urlSlug}
 					Changing the web address affects every bookmarked link and shared URL for this unit. Members will need to
 					update their bookmarks.
+				{:else}
+					The default address keeps working. Share the new path when you want a shorter link.
 				{/if}
 			</AppDialog.Description>
 		</AppDialog.Header>

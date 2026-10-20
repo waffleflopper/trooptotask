@@ -19,9 +19,9 @@ export interface AuditEvent {
 	severity?: AuditSeverity;
 }
 
-/** A supplied best-effort sink; it does not acknowledge persistence. */
+/** A supplied best-effort sink. A failed write never rejects, so a caller that needs the write settled can await it. */
 export interface AuditPort {
-	log(event: AuditEvent): void;
+	log(event: AuditEvent): void | Promise<void>;
 }
 
 export interface AuditLogEntry {

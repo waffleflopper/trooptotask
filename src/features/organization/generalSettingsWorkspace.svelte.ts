@@ -121,7 +121,11 @@ export class GeneralSettingsWorkspace {
 		this.#undoToast = null;
 	}
 
-	submitSlug(cancel: () => void, focus: (action: SlugAction) => SettleOptions['focus']): SubmitCallback | void {
+	submitSlug(
+		cancel: () => void,
+		focus: (action: SlugAction) => SettleOptions['focus'],
+		replacesCustomAddress: boolean
+	): SubmitCallback | void {
 		if (!this.#active || this.slugLoading) {
 			cancel();
 			return;
@@ -153,7 +157,9 @@ export class GeneralSettingsWorkspace {
 				toastStore.success(
 					action === 'clear'
 						? 'Web address reset. The unit uses its default address again.'
-						: 'Web address updated. Bookmarks and shared links to the old address need updating.'
+						: replacesCustomAddress
+							? 'Web address updated. Bookmarks and shared links to the old address need updating.'
+							: 'Web address set. The default address still works.'
 				);
 		};
 	}

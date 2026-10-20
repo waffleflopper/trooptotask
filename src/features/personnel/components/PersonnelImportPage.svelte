@@ -133,7 +133,7 @@
 				importMode === 'merge'
 					? 'Organization rank catalog or active Personnel rows'
 					: 'active Organization rank catalog';
-			cellErrors.rank = `"${rank}" is not in the ${catalogLabel}. Update Organization Settings -> Ranks, then try again.`;
+			cellErrors.rank = `"${rank}" is not in the ${catalogLabel}. Update Unit settings > Ranks, then try again.`;
 		}
 
 		if (!(row.lastName ?? '').trim()) cellErrors.lastName = 'Last name is required';

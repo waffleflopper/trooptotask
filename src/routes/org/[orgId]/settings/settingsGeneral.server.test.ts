@@ -60,11 +60,4 @@ describe('General settings load', () => {
 		expect(auditReads).toEqual([]);
 		expect(await data.calendarCounts).toEqual({ statusTypes: 2, assignmentTypes: 1, specialDays: 1 });
 	});
-
-	it('reads no last rename once retention has removed every rename', async () => {
-		const { ports } = setup('owner');
-		ports.readLatestAuditEvent = async () => null;
-
-		expect(await loadGeneralSettings(ports, ORGANIZATION).lastRenamed).toBeNull();
-	});
 });

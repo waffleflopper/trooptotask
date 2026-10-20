@@ -29,7 +29,7 @@ function groupHrefs(name: string): (string | null)[] {
 
 describe('Organization settings navigation', () => {
 	it('groups the pages, badges pending invitations and marks owner-only pages for an owner', async () => {
-		render(SettingsShell, {
+		const view = render(SettingsShell, {
 			settingsShell: buildSettingsShell('owner', organization),
 			navCounts: { pendingInvitations: Promise.resolve(2), pendingApprovals: Promise.resolve(0) },
 			activePath: '/org/alpha/settings/policies',
@@ -57,7 +57,12 @@ describe('Organization settings navigation', () => {
 		expect(nav.getByRole('link', { name: 'Archives' })).toBeInTheDocument();
 		expect(screen.getByRole('status').textContent?.trim()).toBe('');
 		expect(document.querySelector('[aria-busy]')).toBeNull();
-		expect(document.title).toBe('Policies - Unit settings - Synthetic Alpha - Troop to Task');
+		for (const part of ['Policies', 'Unit settings', 'Synthetic Alpha']) expect(document.title).toContain(part);
+
+		await view.rerender({ activePath: '/org/alpha/settings/ranks' });
+		expect(document.title).toContain('Ranks');
+		expect(document.title).not.toContain('Policies');
+		expect(document.title).toContain('Synthetic Alpha');
 	});
 
 	it('hides Logs and Danger zone from an admin and links with the canonical segment', async () => {

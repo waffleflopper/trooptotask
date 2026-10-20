@@ -127,7 +127,6 @@ test('fails an A count read and the audit log read by its org_id column', async 
 });
 
 test('Organization setting control leaves profile, membership, partial settings, B and writes untouched', async () => {
-
 	const dispatched = [];
 	const control = controller(async (...args) => {
 		dispatched.push(args);

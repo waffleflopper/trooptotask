@@ -108,15 +108,13 @@
 	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
-	const activeOrg = $derived(
-		orgSwitcherOrgs.find((org) => org.id === orgId) ?? {
-			id: orgId,
-			name: orgName,
-			role: userRole,
-			urlSegment: orgUrlSegment
-		}
+	const activeOrg = $derived({
+		...(orgSwitcherOrgs.find((org) => org.id === orgId) ?? { id: orgId, role: userRole, urlSegment: orgUrlSegment }),
+		name: orgName
+	});
+	const visibleOrgs = $derived(
+		orgSwitcherLoaded ? orgSwitcherOrgs.map((org) => (org.id === orgId ? activeOrg : org)) : [activeOrg]
 	);
-	const visibleOrgs = $derived(orgSwitcherLoaded ? orgSwitcherOrgs : [activeOrg]);
 	const isMultiOrg = $derived(orgSwitcherLoaded && orgSwitcherOrgs.length > 1);
 	const normalizedUserRole = $derived(userRole.toLowerCase());
 	const canLeaveOrganization = $derived(normalizedUserRole !== 'owner');

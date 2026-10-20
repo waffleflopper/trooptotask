@@ -457,8 +457,7 @@ describe('importPersonnelBatch', () => {
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toMatchObject({
 			index: 0,
-			message:
-				'Unknown rank "INVALID". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.'
+			message: expect.stringMatching(/"INVALID".*Unit settings > Ranks/)
 		});
 	});
 

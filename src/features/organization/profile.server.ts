@@ -42,7 +42,7 @@ export async function renameOrganization(
 		fail(500, errorMessage);
 	}
 
-	ports.audit.log({
+	await ports.audit.log({
 		action: 'org.renamed',
 		resourceType: 'organization',
 		details: { name }

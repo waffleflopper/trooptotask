@@ -152,9 +152,7 @@ describe('PersonnelImportPage', () => {
 		const cell = await screen.findByLabelText('Row 2 Rank');
 		expect(cell.getAttribute('aria-invalid')).toBe('true');
 		const description = document.getElementById(cell.getAttribute('aria-describedby') ?? '');
-		expect(description?.textContent).toBe(
-			'"BAD" is not in the active Organization rank catalog. Update Organization Settings -> Ranks, then try again.'
-		);
+		expect(description?.textContent).toMatch(/"BAD".*Unit settings > Ranks/);
 	});
 
 	it('submits only checked valid rows with ETS and PCS / DEROS through the import batch', async () => {

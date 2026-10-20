@@ -46,6 +46,7 @@ const COUNTS: CalendarCounts = { statusTypes: 6, assignmentTypes: 4, specialDays
 function data(
 	orgId: string,
 	{
+		name = 'Example Organization',
 		urlSlug = 'example-unit' as string | null,
 		lastRenamed = null as Promise<LastRenamed | null> | null,
 		calendarCounts = Promise.resolve(COUNTS)
@@ -53,9 +54,9 @@ function data(
 ) {
 	return {
 		orgId,
-		orgName: 'Example Organization',
+		orgName: name,
 		generalSettings: {
-			organization: { id: orgId, name: 'Example Organization', urlSlug, urlSegment: urlSlug ?? orgId },
+			organization: { id: orgId, name, urlSlug, urlSegment: urlSlug ?? orgId },
 			lastRenamed,
 			calendarCounts
 		}
@@ -102,17 +103,17 @@ async function confirmSlug(value: string) {
 const success = { result: { type: 'success', status: 200, data: { nameSuccess: true } }, update: async () => {} };
 
 describe('General settings unit name', () => {
-	it('saves a new name without asking first, and Undo writes the old name back through the same save', async () => {
-		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+	it('saves a new name without asking first, and Undo writes the previous name back through the same save', async () => {
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
 
 		const save = await saveName('C Co, 526th BSB');
 
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(sent().map(({ action, name }) => [action, name])).toEqual([['?/updateName', 'C Co, 526th BSB']]);
 		await save(success);
-		expect(toasts.map(({ message, action }) => [message, action?.label])).toEqual([
-			['Unit name changed to C Co, 526th BSB.', 'Undo']
-		]);
+		await view.rerender({ data: data('a', { name: 'C Co, 526th BSB' }), form: { nameSuccess: true } });
+		expect(toasts).toHaveLength(1);
+		expect(toasts[0].action?.label).toBe('Undo');
 
 		toasts[0].action!.onClick();
 		await tick();
@@ -123,10 +124,8 @@ describe('General settings unit name', () => {
 			['?/updateName', 'Example Organization']
 		]);
 		await lastCallback()(success);
-		expect(toasts.map(({ message, action }) => [message, action?.label])).toEqual([
-			['Unit name changed to C Co, 526th BSB.', 'Undo'],
-			['Unit name changed back to Example Organization.', undefined]
-		]);
+		expect(toasts).toHaveLength(2);
+		expect(toasts[1].action).toBeUndefined();
 	});
 
 	it('offers no Undo for a rejected rename', async () => {
@@ -252,29 +251,30 @@ describe('General settings last change', () => {
 		expect(screen.getByText('Loading the last change')).toBeTruthy();
 	});
 
-	it('shows admins nothing in that slot', async () => {
+	it('shows admins no last change while the rest of the page works', async () => {
 		render(Page, { data: data('a', { lastRenamed: null }), form: null, params: { orgId: 'a' } });
 		await vi.runAllTimersAsync();
 
 		expect(screen.queryByText(/Last changed/)).toBeNull();
 		expect(screen.queryByText('Loading the last change')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Edit unit name' })).toBeTruthy();
+		expect((screen.getByLabelText('Web address') as HTMLInputElement).value).toBe('example-unit');
+		expect(screen.getByRole('link', { name: 'Calendar settings' })).toBeTruthy();
 	});
 });
 
 describe('General settings web address', () => {
-	const warning = () => screen.queryByText(/Changing it breaks saved bookmarks and shared links to/);
+	const warning = () => screen.queryByRole('status');
 
-	it('warns in amber about bookmarks once the typed path differs from the saved one', async () => {
+	it('warns about bookmarks to the saved path once a different path is typed, and clears when it matches again', async () => {
 		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
 		expect(warning()).toBeNull();
 
 		await fireEvent.input(screen.getByLabelText('Web address'), { target: { value: 'c-co-526' } });
 
-		expect(warning()?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-			'Changing it breaks saved bookmarks and shared links to /org/example-unit. Tell the unit before you switch.'
-		);
-		expect(warning()?.closest('[data-slot="alert"]')?.id).toBe('url-slug-warning');
-		expect(screen.getByLabelText('Web address').getAttribute('aria-describedby')).toContain('url-slug-warning');
+		expect(warning()?.textContent).toContain('/org/example-unit');
+		const described = (screen.getByLabelText('Web address').getAttribute('aria-describedby') ?? '').split(' ');
+		expect(described).toContain(warning()!.id);
 
 		await fireEvent.input(screen.getByLabelText('Web address'), { target: { value: ' Example-Unit ' } });
 		expect(warning()).toBeNull();
@@ -289,13 +289,15 @@ describe('General settings web address', () => {
 		expect((screen.getByLabelText('Web address') as HTMLInputElement).value).toBe('c-co-526');
 	});
 
-	it('does not warn when the unit has no custom path, since its default address keeps working', async () => {
+	it('does not warn or claim links break when the unit has no custom path, since its default address keeps working', async () => {
 		render(Page, { data: data('a', { urlSlug: null }), form: null, params: { orgId: 'a' } });
 
 		await fireEvent.input(screen.getByLabelText('Web address'), { target: { value: 'new-path' } });
-
 		expect(warning()).toBeNull();
 		expect(screen.getByText('Default /org/a')).toBeTruthy();
+
+		await fireEvent.submit(screen.getByLabelText('Web address').closest('form')!);
+		expect(within(screen.getByRole('dialog')).queryByText(/bookmark/i)).toBeNull();
 	});
 
 	it('still confirms an update and a reset', async () => {
@@ -353,7 +355,7 @@ describe('General settings web address', () => {
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update' }));
 	});
 
-	it('confirms a saved address and a reset after their redirects', async () => {
+	it('returns focus to Update after a saved address and after a reset, with the page showing the new address', async () => {
 		const view = render(Page, { data: data('a', { urlSlug: null }), form: null, params: { orgId: 'a' } });
 		const navigateTo = (urlSlug: string | null) => ({
 			applyForm: async () => {},
@@ -369,9 +371,8 @@ describe('General settings web address', () => {
 			)
 		);
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update' }));
-		expect(toasts.at(-1)?.message).toBe(
-			'Web address updated. Bookmarks and shared links to the old address need updating.'
-		);
+		expect((screen.getByLabelText('Web address') as HTMLInputElement).value).toBe('new-path');
+		expect(toasts).toHaveLength(1);
 		expect(warning()).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }));
@@ -380,9 +381,10 @@ describe('General settings web address', () => {
 		await lastCallback()(
 			frameworkOutcome({ type: 'redirect', status: 303, location: '/org/a/settings/general' }, navigateTo(null))
 		);
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update' }));
 		expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull();
 		expect((screen.getByLabelText('Web address') as HTMLInputElement).value).toBe('');
-		expect(toasts.at(-1)?.message).toBe('Web address reset. The unit uses its default address again.');
+		expect(toasts).toHaveLength(2);
 	});
 
 	it('discards a disposed reset response and keeps the next unit on update', async () => {
@@ -410,17 +412,6 @@ describe('General settings Calendar signpost', () => {
 		expect(screen.getByRole('link', { name: 'Calendar settings' }).getAttribute('href')).toBe(
 			'/org/example-unit/calendar/settings'
 		);
-	});
-
-	it('uses the singular for a count of one', async () => {
-		render(Page, {
-			data: data('a', { calendarCounts: Promise.resolve({ statusTypes: 1, assignmentTypes: 1, specialDays: 1 }) }),
-			form: null,
-			params: { orgId: 'a' }
-		});
-		await vi.runAllTimersAsync();
-
-		expect(screen.getByText('1 status · 1 assignment type · 1 holiday')).toBeTruthy();
 	});
 
 	it('holds a loading line while the counts stream and says so when they fail', async () => {

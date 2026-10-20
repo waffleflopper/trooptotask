@@ -712,6 +712,41 @@ describe('AppShellHeader', () => {
 		expect(await screen.findByRole('menuitem', { name: 'Manage Organizations' })).toBeTruthy();
 	});
 
+	it('shows a renamed unit in the sidebar trigger and the menu after the switcher has loaded', async () => {
+		vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes('part=organization-switcher')) {
+				return {
+					ok: true,
+					json: async () => ({
+						ok: true,
+						organizations: [
+							{ id: 'org-1', name: 'Test Org', role: 'admin', urlSegment: 'org-1' },
+							{ id: 'org-2', name: 'Second Org', role: 'member', urlSegment: 'org-2' }
+						]
+					})
+				} as Response;
+			}
+			return { ok: true, json: async () => ({ ok: true, unreadNotificationCount: 0 }) } as Response;
+		});
+
+		const view = renderHeader();
+		const trigger = screen.getByRole('button', { name: 'Switch organization' });
+		await fireEvent.click(trigger);
+		expect(await screen.findByText('Second Org')).toBeTruthy();
+		await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+		await view.rerender({ orgName: 'Renamed Org' });
+
+		expect(trigger.textContent).toContain('Renamed Org');
+		expect(trigger.textContent).not.toContain('Test Org');
+		await fireEvent.click(trigger);
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByText('Renamed Org')).toBeTruthy();
+		expect(within(menu).queryByText('Test Org')).toBeNull();
+		expect(within(menu).getByText('Second Org')).toBeTruthy();
+	});
+
 	it('reloads the deferred notification count when the org route segment changes', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = String(input);

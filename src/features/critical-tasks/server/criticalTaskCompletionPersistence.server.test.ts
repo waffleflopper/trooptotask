@@ -5,6 +5,7 @@ import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE, ICT_COMPLETION_EXISTS_MESSAGE 
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 function provider(initial: Row[] = []) {
@@ -211,7 +212,7 @@ function assertBoundFilters(requests: Array<{ url: URL }>) {
 }
 
 describe('owned Critical Tasks completion provider', () => {
-	it('preserves ordered dated history, unordered readiness, explicit DTOs and ordinary authority', async () => {
+	it('preserves ordered dated history, id-ordered readiness, explicit DTOs and ordinary authority', async () => {
 		const { ledger, state } = provider([
 			saved,
 			{ ...saved, id: 'capture-older', completed_at: '2026-03-01', validated_by: null, notes: null, logged_by: null },
@@ -225,9 +226,9 @@ describe('owned Critical Tasks completion provider', () => {
 			{ ...expected, id: 'capture-older', completedAt: '2026-03-01', validatedBy: null, notes: null, loggedBy: null }
 		]);
 		expect((await ledger.listReadinessHistory('person-a')).map((row) => row.id)).toEqual([
+			'capture-0',
 			'capture-a',
-			'capture-older',
-			'capture-0'
+			'capture-older'
 		]);
 		expect(await ledger.listHistory('missing')).toEqual([]);
 		for (const { url } of state.requests)
@@ -239,7 +240,6 @@ describe('owned Critical Tasks completion provider', () => {
 						.map((field) => field.trim())
 				)
 			).toEqual(fields);
-		expect(state.requests[1].url.searchParams.has('order')).toBe(false);
 	});
 
 	it('completes all 1001 captures for every history consumer with retained tail values', async () => {
@@ -308,7 +308,7 @@ describe('owned Critical Tasks completion provider', () => {
 		);
 	});
 
-	it('bounds 500 import pairs, keeps all dates and deduplicates overlapping stored IDs without report sorting', async () => {
+	it('bounds 500 import pairs, keeps all dates and deduplicates overlapping stored IDs', async () => {
 		const pairs = Array.from({ length: 500 }, (_, i) => ({
 			personnelId: `10000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
 			ictTaskId: `20000000-0000-4000-8000-${String(i).padStart(12, '0')}`
@@ -344,12 +344,11 @@ describe('owned Critical Tasks completion provider', () => {
 		const result = await pending;
 		expect(state.peak).toBe(10);
 		expect(result.map((row) => [row.id, row.completedAt])).toEqual([
-			['overlap', '2026-04-02'],
 			['older', '2026-01-01'],
+			['overlap', '2026-04-02'],
 			['last', '2026-04-02']
 		]);
 		assertBoundFilters(state.requests);
-		for (const { url } of state.requests) expect(url.searchParams.has('order')).toBe(false);
 		state.failTask = pairs[499].ictTaskId;
 		await expect(ledger.listImportHistory(pairs)).rejects.toThrow('Required completion history unavailable');
 	});
@@ -824,5 +823,20 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 			unconfirmed: []
 		});
 		expect(rows.map((saved) => saved.notes)).toEqual(['First']);
+	});
+});
+
+describe('Critical Tasks completion paging', () => {
+	it('returns each readiness and import capture once when physical order shifts between pages', async () => {
+		const ids = pagedIds(1001, 'capture');
+		const client = createShiftingPostgrestClient({
+			personnel_ict_completions: ids.map((id) => ({ ...saved, id }))
+		});
+		const ledger = createSupabaseCriticalTaskCompletionPersistence(client, 'org-a');
+		for (const rows of [
+			await ledger.listReadinessHistory('person-a'),
+			await ledger.listImportHistory([{ personnelId: 'person-a', ictTaskId: 'task-a' }])
+		])
+			expect(rows.map((row) => row.id).toSorted()).toEqual(ids);
 	});
 });

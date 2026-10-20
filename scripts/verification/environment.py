@@ -586,6 +586,8 @@ PERF_STATEMENTS = {
                                 " AND date >= {start} AND date <= {end}",
     "training-completions": "SELECT * FROM public.personnel_trainings WHERE organization_id = {org}",
     "critical-task-completions": "SELECT * FROM public.personnel_ict_completions WHERE organization_id = {org}",
+    "critical-task-latest-completions": "SELECT * FROM public.latest_active_personnel_ict_completions({org})",
+    "critical-task-completion-trend": "SELECT * FROM public.active_personnel_ict_completion_trend({org})",
     "actor-membership": "SELECT * FROM public.organization_memberships WHERE organization_id = {org}"
                         " AND user_id = {user}",
 }

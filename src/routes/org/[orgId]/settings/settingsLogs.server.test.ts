@@ -93,7 +93,7 @@ describe('admitted Logs source composition', () => {
 					const table = url.pathname.split('/').at(-1)!;
 					const result = sourceRows[table].filter((row) =>
 						[...url.searchParams].every(([column, filter]) => {
-							if (['select', 'offset', 'limit'].includes(column)) return true;
+							if (['select', 'order', 'offset', 'limit'].includes(column)) return true;
 							if (filter.startsWith('eq.')) return row[column] === filter.slice(3);
 							if (filter.startsWith('in.(')) return filter.slice(4, -1).split(',').includes(String(row[column]));
 							throw new Error('Unexpected provider filter');

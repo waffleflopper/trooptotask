@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseOrganizationAuditStore } from './supabaseOrganizationAudit.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 function reader(fetch: typeof globalThis.fetch) {
 	return createSupabaseOrganizationAuditStore(
@@ -37,7 +38,7 @@ describe('Organization Audit provider reads', () => {
 		}
 		expect(requests[0].url.searchParams.get('offset')).toBe('25');
 		expect(requests[0].url.searchParams.get('limit')).toBe('25');
-		expect(requests[0].url.searchParams.get('order')).toBe('timestamp.desc');
+		expect(requests[0].url.searchParams.get('order')).toBe('timestamp.desc,id.asc');
 		expect(requests[0].url.searchParams.getAll('action')).toContain('eq.training.updated');
 		expect(requests[1].method).toBe('HEAD');
 		expect(requests[1].url.searchParams.getAll('action')).toHaveLength(1);
@@ -94,4 +95,21 @@ describe('Organization Audit provider reads', () => {
 			await expect(response).rejects.not.toThrow(/private@example|personnel note/);
 		}
 	);
+
+	it('shows each Organization log once across pages when entries share one timestamp', async () => {
+		const ids = pagedIds(130);
+		const timestamp = '2026-09-02T12:00:00.000Z';
+		const client = createShiftingPostgrestClient({
+			audit_logs: [
+				...ids.map((id) => ({ id, org_id: 'org-a', action: 'training.updated', timestamp })),
+				{ id: 'auth-0', org_id: 'org-a', action: 'auth.login_success', timestamp },
+				{ id: 'foreign-0', org_id: 'org-b', action: 'training.updated', timestamp }
+			]
+		});
+		const store = createSupabaseOrganizationAuditStore(client);
+		const shown: string[] = [];
+		for (let offset = 0; offset < ids.length; offset += 50)
+			shown.push(...(await store.listLogs({ orgId: 'org-a', offset, limit: 50 })).logs.map((log) => log.id));
+		expect(shown.toSorted()).toEqual(ids);
+	});
 });

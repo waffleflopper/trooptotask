@@ -15,6 +15,7 @@ export function createSupabaseTrainingTypeNamesReader(
 				.select('id, name')
 				.eq('organization_id', orgId)
 				.in('id', ids)
+				.order('id', { ascending: true })
 				.range(from, to)
 				.returns<TrainingTypeNameRow[]>();
 			return { data, error };

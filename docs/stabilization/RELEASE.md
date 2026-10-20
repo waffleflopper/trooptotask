@@ -731,9 +731,20 @@ The function runs as `SECURITY DEFINER` with an empty search path. The schema is
 
 The migration and the application release are independent. No application code names the dropped function or the new schema, so an old or new application works against either database, and the two can ship in either order. An application rollback needs nothing. A database rollback needs a reverse migration that restores the function and the two policy expressions, and it loses no data. After release, confirm through ordinary authorized use that the Dashboard summary, the Training page and a Person's Training and Critical Tasks lanes show the same records as before for an Organization-wide member and for a Group-scoped member. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
 
+## Phase 12 D05 set-based Critical Tasks read models
+
+The candidate adds [`20261019000100_set_based_critical_tasks_read_models.sql`](../../supabase/migrations/20261019000100_set_based_critical_tasks_read_models.sql), SHA-256 `304a0c5b7df045496c045eefa4a8592261a84ec7b2e9965b88eea3106e495704`, for [#1709](https://github.com/waffleflopper/trooptotask/issues/1709). The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it changes who pays for a Critical Tasks read-model call, not who sees what:
+
+- `latest_active_personnel_ict_completions` and `active_personnel_ict_completion_trend` keep their signatures, return types, grants and other predicates. Each now admits a completion when its `(organization_id, personnel_id)` pair is in `member_access_private.viewable_personnel('criticalTasks')`, the set D04 introduced, instead of calling `can_view_personnel_ict_completion_record` for every scanned row. The Critical Tasks workspace stream (matrix, library and Person pages) and the matrix Excel export read the first; the report reads completion history directly, and no application code calls the trend.
+- It drops `can_view_personnel_ict_completion_record`, whose last callers were those two functions.
+
+The migration and the application release are independent. No application code names the dropped function, so an old or new application works against either database, and the two can ship in either order. The migration requires D04's `20261018000100_set_based_completion_read_scope.sql` first. An application rollback needs nothing. A database rollback needs a reverse migration that restores the function and the two predicates, and it loses no data. After release, confirm through ordinary authorized use that the Critical Tasks matrix and a Person's Critical Tasks record show the same latest completions as before for an Organization-wide member and for a Group-scoped member. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
 ## Personnel training history and certificates
 
-The candidate adds [`20261019000100_personnel_training_history.sql`](../../supabase/migrations/20261019000100_personnel_training_history.sql), SHA-256 `4d93d1f9226008d79c6c618cbeb81d4534d332d998c2fba9afbaf299c2567151`, for the Personnel detail Readiness tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000100_personnel_training_history.sql`](../../supabase/migrations/20261020000100_personnel_training_history.sql), SHA-256 `4d93d1f9226008d79c6c618cbeb81d4534d332d998c2fba9afbaf299c2567151`, for the Personnel detail Readiness tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one table, one private bucket and three commands, and changes no existing column:
 
@@ -748,18 +759,18 @@ An application rollback can leave the table, bucket and commands in place. Dropp
 
 ## Personnel Data sheet columns
 
-The candidate adds [`20261019000200_personnel_data_sheet_columns.sql`](../../supabase/migrations/20261019000200_personnel_data_sheet_columns.sql), SHA-256 `88b57418b2f08ccb78f691d08a0b7155a79e407e0f2b501221bd6618b938c417`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000200_personnel_data_sheet_columns.sql`](../../supabase/migrations/20261020000200_personnel_data_sheet_columns.sql), SHA-256 `88b57418b2f08ccb78f691d08a0b7155a79e407e0f2b501221bd6618b938c417`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds two nullable columns and changes no existing row, policy or grant:
 
 - It adds `personnel_extended_info.marital_status_date`, the date the current marital status began.
-- It adds `personnel_extended_info.updated_by`, the user id of the member who last saved the sheet. `20261019000500_personnel_extended_info_saver_stamp.sql` later stamps it from the signed-in user.
+- It adds `personnel_extended_info.updated_by`, the user id of the member who last saved the sheet. `20261020000500_personnel_extended_info_saver_stamp.sql` later stamps it from the signed-in user.
 
 Apply the migration before the application release. Without it the new application cannot read or save a Data sheet, because each names the columns. An old application instance against the migrated database keeps working and leaves both columns empty. An application rollback can leave the columns in place. Dropping them needs a reverse migration and loses the recorded dates and savers. After release, confirm through ordinary authorized use that saving a Soldier's Data sheet with a marital status date shows that date and the saving member. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
 
 ## Personnel Log and Archived attribution
 
-The candidate adds [`20261019000300_personnel_log_attribution.sql`](../../supabase/migrations/20261019000300_personnel_log_attribution.sql), SHA-256 `8107efdcc290585b5b2312b060b25ada8d11e39432448ccdb34b7f83cba23f3f`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000300_personnel_log_attribution.sql`](../../supabase/migrations/20261020000300_personnel_log_attribution.sql), SHA-256 `8107efdcc290585b5b2312b060b25ada8d11e39432448ccdb34b7f83cba23f3f`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds columns and triggers, and rewrites one timestamp on every existing leader note:
 
@@ -771,7 +782,7 @@ Apply the migration before the application release. Without it the new applicati
 
 ## Counseling conductor
 
-The candidate adds [`20261019000400_counseling_conducted_by.sql`](../../supabase/migrations/20261019000400_counseling_conducted_by.sql), SHA-256 `c217c17a8bad1071cfb577dd2f37a8fc736994a12914c33dd2719bd8dadf5b6b`, for the Personnel detail Files tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000400_counseling_conducted_by.sql`](../../supabase/migrations/20261020000400_counseling_conducted_by.sql), SHA-256 `c217c17a8bad1071cfb577dd2f37a8fc736994a12914c33dd2719bd8dadf5b6b`, for the Personnel detail Files tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one nullable column and changes no existing row, policy or grant:
 
@@ -781,7 +792,7 @@ Apply the migration before the application release. Without it the new applicati
 
 ## Personnel Data sheet saver stamp
 
-The candidate adds [`20261019000500_personnel_extended_info_saver_stamp.sql`](../../supabase/migrations/20261019000500_personnel_extended_info_saver_stamp.sql), SHA-256 `98a3a16fd7ba6785e1bef590ef279115fb46f6a4f97622dbf68ee43217801bee`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000500_personnel_extended_info_saver_stamp.sql`](../../supabase/migrations/20261020000500_personnel_extended_info_saver_stamp.sql), SHA-256 `98a3a16fd7ba6785e1bef590ef279115fb46f6a4f97622dbf68ee43217801bee`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one trigger function and one trigger, and changes no column or data:
 

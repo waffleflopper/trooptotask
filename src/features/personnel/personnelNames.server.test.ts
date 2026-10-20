@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabasePersonnelNamesReader } from './personnelNames.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -36,7 +37,8 @@ function provider(rows: Row[]) {
 					else if (filter.startsWith('in.(') && filter.endsWith(')')) {
 						const values = filter.slice(4, -1).split(',');
 						visible = visible.filter((row) => values.includes(String(row[column])));
-					} else if (!['select', 'offset', 'limit'].includes(column)) throw new Error('Unexpected label predicate');
+					} else if (!['select', 'order', 'offset', 'limit'].includes(column))
+						throw new Error('Unexpected label predicate');
 				}
 				const limit = Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000);
 				const columns = url.searchParams.get('select');
@@ -146,5 +148,15 @@ describe('Personnel current names with supplied Supabase authority', () => {
 		);
 		state.failFrom = failFrom;
 		await expect(createSupabasePersonnelNamesReader(client, ORG)(ids)).rejects.toThrow('Label rows unavailable');
+	});
+
+	it('labels every referenced row when physical order shifts between pages', async () => {
+		const ids = pagedIds(1001);
+		const client = createShiftingPostgrestClient({
+			personnel: ids.map((id) => ({ id, organization_id: ORG, rank: 'SPC', last_name: id, first_name: null }))
+		});
+		expect(await createSupabasePersonnelNamesReader(client, ORG)(ids)).toEqual(
+			new Map(ids.map((id) => [id, `SPC ${id}`]))
+		);
 	});
 });

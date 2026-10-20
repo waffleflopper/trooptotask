@@ -15,6 +15,7 @@ export function createSupabasePersonnelNamesReader(
 				.select('id, rank, last_name, first_name')
 				.eq('organization_id', orgId)
 				.in('id', ids)
+				.order('id', { ascending: true })
 				.range(from, to)
 				.returns<PersonnelNameRow[]>();
 			return { data, error };

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseCalendarExportReader, type CalendarExportTable } from './calendarExportRead.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -113,10 +114,10 @@ function provider(table: CalendarExportTable, saved: Row) {
 
 describe('Calendar ordinary Organization archive reads', () => {
 	it.each(cases)(
-		'retains saved $table rows across pages and excludes a foreign Organization',
+		'retains saved $table rows in id order across pages and excludes a foreign Organization',
 		async ({ table, saved }) => {
 			const { client, owned } = provider(table, saved);
-			expect(await createSupabaseCalendarExportReader(client, ORG).listRows(table)).toEqual(owned);
+			expect(await createSupabaseCalendarExportReader(client, ORG).listRows(table)).toEqual(owned.toReversed());
 			expect(await createSupabaseCalendarExportReader(client, 'empty-org').listRows(table)).toEqual([]);
 		}
 	);
@@ -150,5 +151,12 @@ describe('Calendar ordinary Organization archive reads', () => {
 			createSupabaseCalendarExportReader(client, ORG).listRows('access_requests' as CalendarExportTable)
 		).rejects.toMatchObject({ status: 400 });
 		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it.each(cases)('returns each saved $table row once when physical order shifts between pages', async ({ table }) => {
+		const ids = pagedIds(1001);
+		const client = createShiftingPostgrestClient({ [table]: ids.map((id) => ({ id, organization_id: ORG })) });
+		const rows = await createSupabaseCalendarExportReader(client, ORG).listRows(table);
+		expect(rows.map((row) => row.id).toSorted()).toEqual(ids);
 	});
 });

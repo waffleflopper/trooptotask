@@ -89,6 +89,7 @@ export function createSupabaseSignInRosterPersistence(
 			if (input.createdBefore) query = query.lt('created_at', input.createdBefore);
 			const { data, error, count } = await query
 				.order('created_at', { ascending: false })
+				.order('id', { ascending: true })
 				.range(input.offset, input.offset + input.limit - 1);
 			if (error) throw new Error(error.message);
 			return { data: ((data ?? []) as RosterRow[]).map(toRoster), count: count ?? null };

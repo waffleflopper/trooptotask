@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseSignInRosterPersistence } from './rosterPersistence.server';
 import { createSupabaseSignInRosterRankReferenceReader } from './signInRosterRankReferences.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 const ORG = 'ordinary-org';
 const KEY = 'synthetic-ordinary-key';
@@ -88,10 +89,14 @@ function fixture(rows: Row[]) {
 				}
 				const ordering = url.searchParams.get('order');
 				if (ordering) {
-					const [column, direction] = ordering.split('.');
-					visible = visible.toSorted(
-						(left, right) => String(left[column]).localeCompare(String(right[column])) * (direction === 'desc' ? -1 : 1)
-					);
+					const terms = ordering.split(',').map((term) => term.split('.'));
+					visible = visible.toSorted((left, right) => {
+						for (const [column, direction] of terms) {
+							const order = String(left[column]).localeCompare(String(right[column]));
+							if (order) return order * (direction === 'desc' ? -1 : 1);
+						}
+						return 0;
+					});
 				}
 				const count = visible.length;
 				const limit = Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000);
@@ -185,6 +190,18 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 		const port = persistence(run, []);
 		expect(await port.list(page)).toEqual({ data: [], count: 0 });
 		expect(await port.find('saved-roster')).toBeNull();
+	});
+
+	it('lists each roster once across pages when rosters share one creation time', async () => {
+		const ids = pagedIds(45, 'saved');
+		const client = createShiftingPostgrestClient({
+			sign_in_rosters: ids.map((id) => ({ ...savedRoster, id }))
+		});
+		const port = createSupabaseSignInRosterPersistence(client, { orgId: ORG, scopeSet: { kind: 'organization' } });
+		const listed: string[] = [];
+		for (let offset = 0; offset < ids.length; offset += 20)
+			listed.push(...(await port.list({ ...page, offset })).data.map((roster) => roster.id));
+		expect(listed.toSorted()).toEqual(ids);
 	});
 
 	it('preserves a missing provider count instead of substituting the page length', async () => {

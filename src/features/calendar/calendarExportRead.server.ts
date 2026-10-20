@@ -28,6 +28,7 @@ export function createSupabaseCalendarExportReader(client: SupabaseClient, orgId
 					.from(table)
 					.select(table === 'status_types' ? STATUS_TYPE_FIELDS : '*')
 					.eq('organization_id', orgId)
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<Record<string, unknown>[]>();
 				return { data, error };

@@ -9,7 +9,12 @@ export function createSupabaseDashboardExportReader(client: SupabaseClient, orgI
 	return {
 		async listRows() {
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
-				const { data, error } = await client.from('dashboard_configs').select('*').eq('org_id', orgId).range(from, to);
+				const { data, error } = await client
+					.from('dashboard_configs')
+					.select('*')
+					.eq('org_id', orgId)
+					.order('id', { ascending: true })
+					.range(from, to);
 				return { data, error };
 			});
 			if (result.error)

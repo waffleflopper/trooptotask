@@ -4,6 +4,7 @@ import {
 	createSupabaseCriticalTasksExportReader,
 	type CriticalTasksExportTable
 } from './criticalTasksExportRead.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -45,7 +46,7 @@ const cases = [
 function provider(table: CriticalTasksExportTable, saved: Row) {
 	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({
 		...saved,
-		id: `saved-${index}`,
+		id: `saved-${String(index).padStart(4, '0')}`,
 		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] },
 		...(table === 'ict_tasks' ? { task_code: `RESP-${index}` } : { personnel_id: `archived-person-${index}` })
 	}));
@@ -122,5 +123,12 @@ describe('Critical Tasks ordinary Organization export reads', () => {
 			createSupabaseCriticalTasksExportReader(client, ORG).listRows('access_requests' as CriticalTasksExportTable)
 		).rejects.toMatchObject({ status: 400 });
 		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it.each(cases)('returns each saved $table row once when physical order shifts between pages', async ({ table }) => {
+		const ids = pagedIds(1001);
+		const client = createShiftingPostgrestClient({ [table]: ids.map((id) => ({ id, organization_id: ORG })) });
+		const rows = await createSupabaseCriticalTasksExportReader(client, ORG).listRows(table);
+		expect(rows.map((row) => row.id).toSorted()).toEqual(ids);
 	});
 });

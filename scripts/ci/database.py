@@ -82,11 +82,12 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261015000100_calendar_lanes.sql",
     "20261016000100_status_type_label_and_order.sql",
     "20261018000100_set_based_completion_read_scope.sql",
-    "20261019000100_personnel_training_history.sql",
-    "20261019000200_personnel_data_sheet_columns.sql",
-    "20261019000300_personnel_log_attribution.sql",
-    "20261019000400_counseling_conducted_by.sql",
-    "20261019000500_personnel_extended_info_saver_stamp.sql",
+    "20261019000100_set_based_critical_tasks_read_models.sql",
+    "20261020000100_personnel_training_history.sql",
+    "20261020000200_personnel_data_sheet_columns.sql",
+    "20261020000300_personnel_log_attribution.sql",
+    "20261020000400_counseling_conducted_by.sql",
+    "20261020000500_personnel_extended_info_saver_stamp.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

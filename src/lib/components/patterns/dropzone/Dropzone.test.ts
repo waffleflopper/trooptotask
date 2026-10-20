@@ -10,7 +10,7 @@ afterEach(() => {
 const pdf = new File(['%PDF'], 'da4856.pdf', { type: 'application/pdf' });
 const png = new File(['png'], 'scan.png', { type: 'image/png' });
 
-function mount(props: { disabled?: boolean; error?: string } = {}) {
+function mount(props: { error?: string } = {}) {
 	const offered: File[][] = [];
 	render(Dropzone, {
 		props: {
@@ -41,14 +41,6 @@ describe('patterns/dropzone', () => {
 
 		expect(offered).toEqual([[pdf]]);
 		expect(input.value).toBe('');
-	});
-
-	it('ignores a drop while disabled', async () => {
-		const { offered, zone } = mount({ disabled: true });
-
-		await fireEvent.drop(zone, { dataTransfer: { files: [pdf], types: ['Files'] } });
-
-		expect(offered).toEqual([]);
 	});
 
 	it('announces an error beside the zone and marks the input invalid', () => {

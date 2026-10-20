@@ -8,7 +8,6 @@
 		hint,
 		accept,
 		error = null,
-		disabled = false,
 		onFiles,
 		ref = $bindable(null),
 		class: className
@@ -19,7 +18,6 @@
 		accept?: string;
 		/** A message about the last offered files, shown inside the zone. */
 		error?: string | null;
-		disabled?: boolean;
 		/** Called with every file dropped or picked; the owner decides which it can take. */
 		onFiles: (files: File[]) => void;
 		/** The file input, so an owner can move focus to it. */
@@ -30,7 +28,7 @@
 	let dragging = $state(false);
 
 	function acceptsDrag(event: DragEvent) {
-		return !disabled && event.dataTransfer?.types.includes('Files') === true;
+		return event.dataTransfer?.types.includes('Files') === true;
 	}
 
 	function dragOver(event: DragEvent) {
@@ -46,7 +44,6 @@
 	function drop(event: DragEvent) {
 		event.preventDefault();
 		dragging = false;
-		if (disabled) return;
 		const files = [...(event.dataTransfer?.files ?? [])];
 		if (files.length > 0) onFiles(files);
 	}
@@ -65,7 +62,6 @@
 		'flex cursor-pointer flex-col items-center gap-2.5 rounded-md border-[1.5px] border-dashed bg-muted px-5 py-7 text-center transition-colors focus-within:ring-3 focus-within:ring-ring/50 hover:border-muted-foreground/60',
 		dragging && 'border-accent bg-accent/10',
 		error && 'border-destructive',
-		disabled && 'pointer-events-none opacity-60',
 		className
 	)}
 	ondragenter={dragOver}
@@ -73,15 +69,7 @@
 	ondragleave={dragLeave}
 	ondrop={drop}
 >
-	<Input
-		bind:ref
-		type="file"
-		class="sr-only"
-		{accept}
-		{disabled}
-		aria-invalid={error ? true : undefined}
-		onchange={pick}
-	/>
+	<Input bind:ref type="file" class="sr-only" {accept} aria-invalid={error ? true : undefined} onchange={pick} />
 	<UploadIcon class="size-7 text-foreground" strokeWidth={1.6} aria-hidden="true" />
 	<span class="text-[15px] leading-5 font-semibold text-foreground">{title}</span>
 	<span class="text-[13px] leading-[18px] text-muted-foreground">{hint}</span>

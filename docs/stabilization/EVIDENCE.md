@@ -10,6 +10,101 @@ Activated for planning on 2026-10-15 under #1275 and parent [#1285](https://gith
 
 Activation refreshed source observations only; it took no runtime measurement. Each child records its current owners, at `d8b45a7c3`, as hypotheses. F05 persists under renamed owners (`loadPersonnelWorkspace`, `selectAllSupabaseRows`, Training briefing detail). #1559 and #1572 are source-confirmed, and #1570 is source-confirmed on main. Calendar redesign slices #1692, #1697 and #1699 are on `feat/calendar-redesign`, not main, and that branch replaces most #1570 targets. Exports already load ExcelJS and jsPDF on demand. The verification harness already measures a production build and preview; representative workloads and server/query capture are D01 work.
 
+## 12-01 D06 Calendar initial load, reports and assignment save
+
+### PR 1 set-based Calendar read scope and the scoped save
+
+**Repaired and measured; the client repairs follow in PR 2.** Refs [#1710](https://github.com/waffleflopper/trooptotask/issues/1710). The three D06 bottlenecks at large wide spent their time in per-row RLS helpers on the two Calendar tables. One migration removes that cost and changes no application code. At large wide the warm Calendar settles in 180 ms instead of 1539, the current-year status-day report in 279 ms instead of 2356, and the confirmed assignment save in 112 ms instead of 1319. Every budget passes for both actors, and no other cell regresses past its class. Report rows and totals, Calendar rows and live access are identical before and after. The hosted speedup arrives only when the owner applies the migration ([RELEASE](RELEASE.md#phase-12-d06-set-based-calendar-read-scope)). The application works with or without it.
+
+- **Cause.** The `availability_entries` and `daily_assignments` SELECT policies called `can_view_availability_record` and `can_view_daily_assignment_record` for every row the index scan returned. Before EXPLAIN at large puts that at 0.285 ms per row. Availability took 683 ms for 2400 rows and assignments 307 ms for 1086 rows. The save RPC's check `can_replace_daily_assignment_rows` and its `DELETE` matched the Organization's rows through an `OR` with a correlated `jsonb_to_recordset`, so both ran `can_edit_daily_assignment_record` across every assignment row the Organization had. Before EXPLAIN at large puts the check at 330 ms and the whole save at 1008 ms for one slot.
+- **Repair** (`d20106f52`). [`20261020000600_set_based_calendar_read_scope.sql`](../../supabase/migrations/20261020000600_set_based_calendar_read_scope.sql) admits an availability row when its `(organization_id, personnel_id)` pair is in D04's `member_access_private.viewable_personnel('calendar')`. It adds `calendar_private.viewable_assignees()`, the `(organization_id, assignment_type_id, assignee_id)` triples the caller may view, and admits an assignment row whose triple is in that set. A Person assignee comes from the same `viewable_personnel('calendar')` set under a Person type, and a Group assignee from Group scope under a Group type. PostgreSQL computes each set once per statement as a hashed SubPlan. Both policies now apply to `authenticated` only, and anon had no visible rows before. The two replaced helpers had no other caller in migrations or application code and are dropped. The save's check and `DELETE` gain a leading `date = ANY(...)` over the replaced days and the slots' days, which the date index uses. The days, locks, lock order, errors and results are unchanged. Signatures and grants are unchanged.
+- **Not changed.** The availability duty lookback, the reload-anchor cookie and the cold double load are client work for PR 2. This PR measures them as PR 2's before values (Client work left, below).
+
+**Before and after, one environment.** Chromium 154.0.8037.97, kernel 7.2.8-9-omarchy, AMD Ryzen 7 7800X3D (16 threads, 31 GB), Node 24.22.0, production build on `verify:app` worker 1. Before is `54de8a7a0` (digest `5e7df9d9…a18f`, samples 08:05Z to 10:08Z on 2026-10-20). It is main `9c6374748` plus the explain registry and save-slot helper commit, which changes only verification tooling. After is `d20106f52` (digest `f6a91775…07f8`, samples 10:43Z to 12:46Z). Both launched on 2026-10-20 local time, so both seeded the same anchor. Small, typical and large (20, 100 and 400 People) were seeded in that order on both sides, each with `force_custom_plan` read back, giving identical Organization IDs, row counts and journey terms. Warm 1 + 5 and cold 3, unthrottled, host gate on. Each side has 42 run files with 0 host-gate rejections and every sample on a clean host (load1 at most 3.85 before and 3.04 after). Neither run had autovacuum or autoanalyze on a Calendar table, and both ended with the same live and dead rows. An earlier before run on the 2026-10-19 anchor feeds no table. Its supervisor and owned Chromium exited during large wide range, with no OOM or core dump and no cause found. The host day then rolled over, which would have shifted every seeded date, so the whole before run was repeated on a 2026-10-20 launch. That earlier run is kept apart in `d06-before-anchor1019-20261019`.
+
+| At large, median (min–max) ms                 | Before                 | After                  | Budget | Verdict |
+| --------------------------------------------- | ---------------------- | ---------------------- | ------ | ------- |
+| Calendar initial warm, settled, wide          | 1539 (1280–1631)       | 180 (176–188)          | ≤ 1000 | pass    |
+| Calendar initial warm, settled, scoped        | 401 (386–437)          | 146 (143–154)          | class  | pass    |
+| Calendar initial cold, settled, wide          | 1681 (1615–1711)       | 475 (472–483)          | ≤ 1000 | pass    |
+| Calendar initial cold, settled, scoped        | 518 (517–604)          | 380 (378–417)          | class  | pass    |
+| Status-day report, current year, wide         | 2356 (2331–2635)       | 279 (272–282)          | ≤ 1000 | pass    |
+| Status-day report, current year, scoped       | 513 (411–523)          | 74 (71–78)             | ≤ 1000 | pass    |
+| Assignment save confirmed, wide               | 1319 (1172–1547)       | 112 (109–115)          | ≤ 1000 | pass    |
+| Assignment save confirmed, scoped             | 865 (819–1040)         | 69 (64–71)             | ≤ 1000 | pass    |
+| Save redraw after the response, wide / scoped | 61 / 16                | 55 / 13                | ≤ 200  | pass    |
+| Range (next period), wide / scoped            | 184 / 99               | 66 / 66                | class  | pass    |
+| 3-month search, wide / scoped                 | 48 / 14                | 48 / 15                | class  | pass    |
+| Status-day export, wide / scoped (download B) | 70 / 33 (22863 / 7980) | 54 / 34 (22863 / 7980) | class  | pass    |
+| Database time per sample, warm initial wide   | 1773                   | 49                     | none   |         |
+
+Warm useful at large wide falls from 1539 to 129 ms. Settled now ends about 50 ms after useful, where before the two coincided. Cold useful falls from 1681 to 160 ms, and settled includes the second load the cold path runs. Every small and typical cell settles at or under 928 ms before and 445 ms after. Typical wide falls from 296 to 157 ms warm, 340 to 101 ms for the report and 928 to 72 ms for the save. The save redraw is an upper bound, useful minus the save request's own duration. The optimistic redraw before the response is not timed separately. Request counts match in every pair. Transfer bytes differ by at most 1061 B and download sizes by at most 1 B. Only one after median sits above its before range, large scoped 3-month search at 15 against 14 ms. That journey runs no database statement. Every sample, with requests, bytes and the top statements, is in `analysis/before-after.md` inside `d06-after-20261020`.
+
+Shape, from the statement windows at large wide. Warm initial ran 2 availability pages for 1409 ms and 1 assignment page for 325 ms before, and 6.2 ms and 4.7 ms after. The report's 3 availability pages took 2138 ms before and 8.4 ms after. The save RPC took 1212 ms before and 11.1 ms after. **What bounds the times now.** The warm document completes in 61 ms. The 1.26 MB document and the main thread then hold the page, with 187 ms of long tasks per warm sample against 128 before. The report spends 15 ms in the database and the rest on its 966 kB response and 316 ms of long tasks, which match before. The longer initial long tasks are measured but not traced. The document bytes and the client code are unchanged.
+
+**Correctness, before and after.** The same seeds and collectors ran on both sides, with 0 mismatches.
+
+| Case                          | Observed on both sides                                                                                                                                                                                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Calendar range API            | Per workload and actor, availability, assignments and special days have equal counts and content hashes. Large wide reads 2400, 1086 and 19 and large scoped 150, 71 and 19.                                                                                                          |
+| Status-day API                | Equal entry, assignment and type counts and content hashes. Large wide reads 2142 entries and 978 assignments.                                                                                                                                                                        |
+| Calendar rows                 | Visible People IDs, bar labels and pager are identical in all six cells (50 and 25 People at large).                                                                                                                                                                                  |
+| Status-day report             | The rendered table hash, row count and population are identical in all six cells (401 and 26 rows at large).                                                                                                                                                                          |
+| Read matrix, ordinary fixture | `calendarLane`, `calendarView` and `calendarOperate` see 6 Organization A availability records and 4 assignments. `calendarScoped` sees only Alpha's and the historical availability and 3 assignments. `calendarEmpty` sees none. `manager` gets 403 and Organization B returns 404. |
+| Write probes                  | Every availability and assignment denial returns 403 or 404 for single and batch writes, with no row written. The hidden Bravo slot refuses the scoped save, batch and clear with 409 and keeps its row. Allowed writes save and clear one row each.                                  |
+| Live UI                       | Duty planner assign, change, failed clear and recovery. Hidden slot 409 with the generic message and no Bravo text. Availability denial, add, edit and remove. Bulk status for 501 People. Status-day table and workbook equal before, Baker 5, Able 4, Unassigned 1.                 |
+
+Assignment id hashes differ in every cell because the save journey replaces its slot's row with a new id. Each workload holds exactly one row created after seeding. Content hashes without ids match. On this launch day reports-history step 4's Baker total reads 5 on both sides, against the recipe's 4. That date-dependent expectation predates D06 and is unchanged.
+
+### D06 PR 1 database proof
+
+`python3 scripts/ci/database.py` on `d20106f52` passed both runs. The fresh replay ran 199 migrations through `20261020000600_set_based_calendar_read_scope.sql`. The populated upgrade replays 144 migrations, seeds populated rows and applies the remaining 55, this migration last. Together they ran 140 `pg_prove` files, all `Result: PASS`. `calendar_record_read_scope.sql` (48 tests) pins the literal availability and assignment rows for 11 actors and anon. They are the owner, an admin, a one-Group viewer, a several-Group viewer, an empty Group list, Organization scope, lane none, a suspended account, a member of a suspended Organization, a member of two Organizations and an account with no membership. It also asserts set equality with replicas of the dropped helpers' rule and that both helpers are gone. `calendar_assignment_atomic_replacement.sql` (32 tests) adds a scoped multi-slot refusal that writes nothing, untouched rows on the same days, and an owner's replace-days with a slot. `calendar_lane_unassigned_scope.sql` asserts the new function's grants. `npm run db:test` was not run, because it targets the checkout's persistent local development database.
+
+**Broken migrations.** Each variant ran with each test file in its own rolled-back session on the before database. The correct migration fails nothing. A wrong lane fails 2 read-scope tests and 1 lane test. Group assignees without Group scope fail 8 read-scope tests and 1 save test. Person assignees under any type kind fail 12 read-scope tests. A check scoped to the replaced days alone fails 4 save tests. A `DELETE` of whole affected days fails 2 save tests.
+
+**Equivalence on populated data.** On the before database with the perf workloads seeded, the migration applied inside a rolled-back transaction. For each of 132 accounts the visible `(user, row)` pairs were compared under the old and new policies. Both admit the same 140121 pairs, with 0 only before and 0 only after. That is 91832 availability and 48289 assignment pairs across the 70 accounts that see any row.
+
+#### EXPLAIN of the Calendar statements
+
+`perf explain` at large on both sides, as each actor with RLS applied, one unreported warm-up and three repetitions per cell, 0 shared read blocks in every cell.
+
+| Statement, actor                           | Before median ms (min–max) | After median ms (min–max) | Rows | Shared hit blocks |
+| ------------------------------------------ | -------------------------- | ------------------------- | ---- | ----------------- |
+| `availability-window`, wide                | 668.9 (665.5–686.2)        | 2.60 (2.46–2.66)          | 2400 | 27365 → 1014      |
+| `availability-window`, scoped              | 675.6 (675.4–683.2)        | 2.39 (2.33–2.95)          | 150  | 27365 → 1014      |
+| `daily-assignments-window`, wide           | 313.5 (307.4–316.4)        | 4.41 (4.31–4.45)          | 1086 | 15984 → 1234      |
+| `daily-assignments-window`, scoped         | 336.0 (329.2–339.8)        | 3.67 (3.62–3.72)          | 71   | 18528 → 1234      |
+| `assignment-replace-check`, wide           | 330.1 (329.5–335.4)        | 4.83 (4.63–5.02)          | 1    | 16321 → 1541      |
+| `assignment-replace-check`, scoped         | 352.5 (352.4–360.4)        | 4.90 (4.86–5.09)          | 1    | 18865 → 1553      |
+| `assignment-replace` (rolled back), wide   | 1008.1 (1004.3–1015.3)     | 14.25 (14.10–14.29)       | 1    | 46269 → 2117      |
+| `assignment-replace` (rolled back), scoped | 755.2 (754.8–757.7)        | 12.74 (12.41–13.04)       | 1    | 37328 → 2141      |
+
+Rows are identical before and after for every statement and actor. The before plans filter each indexed row through the helper, and the after plans show one `hashed SubPlan` over `viewable_personnel` or `viewable_assignees`. On this small database the availability read becomes a sequential scan of the whole 3127-row table, because the planner prefers that to the index. The save functions are not inlined, so EXPLAIN shows one node, and the fall in shared hits is the only inside view.
+
+### D06 PR 1 validation, limits and archives
+
+**Validation** on `d20106f52` (Node 24.22.0; the build and tests use CI's synthetic environment values). The full set exited 0. It ran `npm run format:check`, `npm run lint` (0 errors; 3 warnings in `CalendarPageContext.svelte.ts` and `onboarding.svelte.ts`, which this PR does not touch), `npm run governance:check` (0 module-boundary findings), `npm run check` (0 errors, 0 warnings), `npm run test` (860 files, 9443 tests), `npm run build` (the usual `@opentelemetry/api` dependency warning), `python3 -m unittest discover -s scripts/ci -p 'test_*.py'` (15 tests), `python3 -m unittest discover -s scripts/verification -p 'test_*.py'` (37 tests) and `node --test` on the perf workload helper (20 tests). `node scripts/ci/changes.mjs --documents` first failed on `CURRENT_OWNERSHIP.md` table padding from this PR's row edit. The fix is in the documentation commit, and the check then passed on 129 documents. Later commits change only documentation, and the documentation checks pass on them. Current-head CI follows publication.
+
+**Client work left for PR 2**, measured here as its before values on the candidate database.
+
+- The availability duty lookback still reads 2 availability pages per warm load at large wide, now 6.2 ms in the database.
+- The cold double load still runs the bootstrap twice per cold sample, with 4 availability pages. Cold settled sits 315 ms after cold useful at large wide (475 against 160).
+- The reload-anchor cookie defect is a behavior defect with no timed journey, and this PR did not reproduce it.
+
+**Limits and residuals.**
+
+- The hosted Calendar keeps the per-row cost until the owner applies the migration.
+- Hosted plans are not measured. Plans on this small database may differ from the hosted planner's choices.
+- The final `verify:app doctor` was not run on either side. On the after side cleanup ran before it. The clean-seeds readback was clean for all three workloads and cleanup passed.
+- Main-thread work is recorded only as per-sample long tasks. No trace was taken, so scripting and hydration time are not measured.
+- p95, field networks, production generic plans and the hosted database are not measured.
+
+**Archives**, for the `evidence` prerelease at publication (re-extract, then `sha256sum -c INVENTORY.sha256` inside). Each was re-extracted into fresh scratch space and matched every inventory hash, and none stores a token, cookie or password.
+
+- [`d06-before-20261020.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/d06-before-20261020.tar.gz) `893e00b56de06b39174482f404840472edbfbdef10482b4a9b04408aadbbacab` (125 payload files)
+- [`d06-after-20261020.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/d06-after-20261020.tar.gz) `a7882453b7dc82a36c9dbdc24687f36603c3d790b1ad1b558e63d0b09219c82a` (155 payload files)
+- [`d06-before-anchor1019-20261019.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/d06-before-anchor1019-20261019.tar.gz) `dacf96b1dc6e69ff4cc37c95e39abcf58818c193339866a49ff3000d9839a113` (94 payload files, superseded, feeds no table)
+
 ## 12-04 D05 Reports, large lists and exports
 
 **Repaired and measured; closes the issue on merge.** Refs [#1709](https://github.com/waffleflopper/trooptotask/issues/1709). On main after D04, the Critical Tasks report was the only journey over budget. Its layout streamed the matrix workspace, which the report never reads, and that stream paged a read-model function that ran a per-row RLS helper. The candidate moves the report outside the stream and makes both read-model functions check visibility once per statement. At large wide the report now settles in 646 ms instead of 48849 ms, and at typical wide in 383 ms instead of 1527. Every other journey was already under budget after D04 and is unchanged. Every paged export and label read now orders by `id`, which repairs the found defect and costs the large Organization export about 0.6 s, still under its 5000 ms budget. The route change ships with the application. The owner applies the migration separately ([RELEASE](RELEASE.md#phase-12-d05-set-based-critical-tasks-read-models)), and the application works with or without it.

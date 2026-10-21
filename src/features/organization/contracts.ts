@@ -34,7 +34,7 @@ export type {
 	SettingsPendingInvitationRow
 } from './memberSettingsTypes';
 
-export type { DangerSettingsData, SettingsDangerSectionData } from './dangerSettingsTypes';
+export { DESTRUCTION_COUNT_KEYS, type DangerSettingsData, type DestructionCounts } from './dangerSettingsTypes';
 
 export { getPreferredOrganizationUrlSegment, normalizeOrganizationUrlSlug, validateOrganizationUrlSlug } from './url';
 export type { OrganizationRouteIdentity, OrganizationMembershipSummary } from './profileTypes';

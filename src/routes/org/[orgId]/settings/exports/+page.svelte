@@ -14,5 +14,10 @@
 />
 
 {#key data.orgId}
-	<SettingsDataExportWorkspace orgId={data.orgId} />
+	<SettingsDataExportWorkspace
+		orgId={data.orgId}
+		orgName={data.orgName}
+		orgUrlSegment={data.orgUrlSegment}
+		settings={data.exportsSettings}
+	/>
 {/key}

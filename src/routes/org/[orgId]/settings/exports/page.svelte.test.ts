@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick, type ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
@@ -7,12 +7,22 @@ import Page from './+page.svelte';
 const downloads = vi.hoisted(() => ({ save: vi.fn() }));
 vi.mock('$lib/utils/downloadBlob', () => ({ downloadBlob: downloads.save }));
 
-function data(orgId: string) {
-	return { orgId } as ComponentProps<typeof Page>['data'];
+type PageData = ComponentProps<typeof Page>['data'];
+type Settings = PageData['exportsSettings'];
+
+const COUNTS = { activePersonnel: 22, trainingRecords: 912 };
+
+function data(orgId: string, settings: Partial<Settings> = {}) {
+	return {
+		orgId,
+		orgName: 'C Co',
+		orgUrlSegment: orgId,
+		exportsSettings: { scopeCounts: Promise.resolve(COUNTS), lastExport: null, ...settings }
+	} as PageData;
 }
 
-function mount(orgId = 'organization-a') {
-	return render(Page, { data: data(orgId), form: null, params: { orgId: 'slug-a' } });
+function mount(orgId = 'organization-a', settings: Partial<Settings> = {}) {
+	return render(Page, { data: data(orgId, settings), form: null, params: { orgId: 'slug-a' } });
 }
 
 function deferred<T>() {
@@ -26,14 +36,14 @@ function deferred<T>() {
 }
 
 function idle() {
-	expect((screen.getByRole('button', { name: 'Export JSON' }) as HTMLButtonElement).disabled).toBe(false);
-	expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(false);
+	for (const name of ['Export JSON', 'Export Excel']) {
+		expect(screen.getByRole('button', { name }).hasAttribute('aria-disabled')).toBe(false);
+	}
 }
 
 function noFeedback() {
-	expect(screen.queryByText('Export downloaded successfully.')).toBeNull();
-	expect(screen.queryByText('Export failed. Please try again.')).toBeNull();
-	expect(screen.queryByText('A export unavailable')).toBeNull();
+	expect(screen.queryByRole('alert')).toBeNull();
+	expect(screen.getByRole('status').textContent).not.toMatch(/downloaded|failed|unavailable/);
 }
 
 function success(filename?: string) {
@@ -47,6 +57,75 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
+	vi.useRealTimers();
+});
+
+describe('Exports page', () => {
+	it('writes the export scope with the unit counts', async () => {
+		mount();
+
+		const scope = await screen.findByRole('list', { name: 'What an export of C Co contains' });
+		expect(
+			within(scope)
+				.getAllByRole('listitem')
+				.map((chip) => chip.textContent?.trim())
+		).toEqual(['Calendar', 'Personnel · 22', 'Training · 912 records', 'Onboarding', 'Sign-in rosters']);
+	});
+
+	it('shows owners the last export from the audit log', async () => {
+		const at = new Date(2026, 9, 12, 9, 14).toISOString();
+		mount('organization-a', { lastExport: Promise.resolve({ format: 'excel', at, actor: 'whitaker@example.com' }) });
+
+		expect(await screen.findByText('Last export · Excel · 12 Oct 2026, 09:14 by whitaker@example.com')).toBeTruthy();
+	});
+
+	it('shows no last export line to a member the server gave none', async () => {
+		mount();
+		await screen.findByRole('list', { name: 'What an export of C Co contains' });
+
+		expect(screen.queryByText(/Last export/)).toBeNull();
+	});
+
+	it('moves the last export line to an export finished on this page', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 9, 20, 14, 5));
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(success('fresh.json')));
+		mount('organization-a', {
+			lastExport: Promise.resolve({ format: 'excel', at: new Date(2026, 9, 12, 9, 14).toISOString(), actor: 'x' })
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+
+		expect(await screen.findByText('Last export · JSON · 20 Oct 2026, 14:05 by you')).toBeTruthy();
+	});
+
+	it('runs JSON and Excel side by side, each with progress on its own button', async () => {
+		const json = deferred<Response>();
+		const excel = deferred<Response>();
+		const request = vi.fn((url: string) => (url.endsWith('/export') ? json.promise : excel.promise));
+		vi.stubGlobal('fetch', request);
+		mount();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+		const excelButton = screen.getByRole('button', { name: 'Export Excel' });
+		expect(excelButton.hasAttribute('aria-disabled')).toBe(false);
+		await fireEvent.click(excelButton);
+
+		expect(request.mock.calls.map(([url]) => url)).toEqual([
+			'/org/organization-a/api/export',
+			'/org/organization-a/api/export-excel'
+		]);
+		expect(screen.getAllByRole('button', { name: 'Generating…' })).toHaveLength(2);
+
+		excel.resolve(success('unit.xlsx'));
+		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'unit.xlsx'));
+		expect(screen.getByRole('button', { name: 'Export Excel' }).hasAttribute('aria-disabled')).toBe(false);
+		expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
+
+		json.resolve(success('unit.json'));
+		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'unit.json'));
+		idle();
+	});
 });
 
 describe('Organization export target lifetime', () => {
@@ -54,7 +133,7 @@ describe('Organization export target lifetime', () => {
 		['JSON', 'export', 'organization-a.json', 'organization-a.json'],
 		['Excel', 'export-excel', undefined, 'org-export-organization-a.xlsx']
 	] as const)(
-		'keeps %s controls busy until the requested artifact downloads',
+		'keeps the %s button busy until the requested artifact downloads',
 		async (label, endpoint, header, filename) => {
 			const pending = deferred<Response>();
 			const request = vi.fn(() => pending.promise);
@@ -62,16 +141,12 @@ describe('Organization export target lifetime', () => {
 			mount();
 			await fireEvent.click(screen.getByRole('button', { name: `Export ${label}` }));
 			expect(request).toHaveBeenCalledWith(`/org/organization-a/api/${endpoint}`, { method: 'POST' });
-			expect(screen.getByRole('button', { name: /Generating/ }).getAttribute('aria-disabled')).toBe('true');
-			expect(
-				(screen.getByRole('button', { name: label === 'JSON' ? 'Export Excel' : 'Export JSON' }) as HTMLButtonElement)
-					.disabled
-			).toBe(true);
+			expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
 			expect(screen.getByRole('status').textContent).toBe(`Generating ${label} export...`);
 			expect(downloads.save).not.toHaveBeenCalled();
 			pending.resolve(success(header));
 			await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), filename));
-			expect(screen.getByRole('status').textContent).toBe('Export downloaded successfully.');
+			expect(screen.getByRole('status').textContent).toBe(`${label} export downloaded.`);
 			idle();
 		}
 	);
@@ -86,6 +161,7 @@ describe('Organization export target lifetime', () => {
 		await fireEvent.click(button);
 		expect(document.activeElement).toBe(button);
 		expect((button as HTMLButtonElement).disabled).toBe(false);
+		expect(button.getAttribute('aria-disabled')).toBe('true');
 		await fireEvent.click(button);
 		expect(request).toHaveBeenCalledOnce();
 		pending.resolve(success());
@@ -115,9 +191,9 @@ describe('Organization export target lifetime', () => {
 		const view = mount();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
 		await waitFor(() =>
-			expect(
-				screen.getByText(status === 200 ? 'Export downloaded successfully.' : 'Export failed. Please try again.')
-			).toBeTruthy()
+			expect(screen.getByRole('status').textContent).toBe(
+				status === 200 ? 'JSON export downloaded.' : 'JSON export failed. Please try again.'
+			)
 		);
 		await view.rerender({ data: data('organization-b') });
 		idle();
@@ -137,7 +213,7 @@ describe('Organization export target lifetime', () => {
 		a.resolve(success('requested-a.json'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'requested-a.json'));
 		expect(await downloads.save.mock.calls[0][0].text()).toBe('organization-a artifact');
-		expect(screen.getByRole('button', { name: /Generating/ }).getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
 		noFeedback();
 		b.resolve(new Response('organization-b artifact', { status: 200 }));
 		await waitFor(() =>
@@ -145,7 +221,7 @@ describe('Organization export target lifetime', () => {
 		);
 		expect(await downloads.save.mock.calls[1][0].text()).toBe('organization-b artifact');
 		idle();
-		expect(screen.getByText('Export downloaded successfully.')).toBeTruthy();
+		expect(screen.getByRole('status').textContent).toBe('Excel export downloaded.');
 	});
 
 	it('keeps a new A export pending when the disposed A request finishes after A → B → A', async () => {
@@ -159,7 +235,7 @@ describe('Organization export target lifetime', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
 		old.resolve(success('old-a.json'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'old-a.json'));
-		expect(screen.getByRole('button', { name: /Generating/ }).getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
 		noFeedback();
 		current.resolve(success('current-a.xlsx'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'current-a.xlsx'));
@@ -222,7 +298,7 @@ describe('Organization export target lifetime', () => {
 		const view = mount();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
 		await view.rerender({ data: data('organization-a'), params: { orgId: 'new-slug-a' } });
-		expect(screen.getByRole('button', { name: /Generating/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Generating…' })).toBeTruthy();
 		pending.resolve(success());
 		await waitFor(() =>
 			expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'org-export-organization-a.json')

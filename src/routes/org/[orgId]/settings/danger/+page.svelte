@@ -10,5 +10,5 @@
 />
 
 {#key data.orgId}
-	<DangerSettingsPage settings={data.dangerSettings} {form} />
+	<DangerSettingsPage orgName={data.orgName} settings={data.dangerSettings} {form} />
 {/key}

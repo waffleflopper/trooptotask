@@ -1,22 +1,12 @@
-import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { SettingsMemberRow } from './memberSettingsTypes';
+import type { UnitCounts } from './unitCounts';
 
-export interface SettingsDangerSectionData {
-	transferOwnershipCandidates: Array<Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>>;
-	deleteConfirmation: { organizationName: string | null; normalizedOrganizationName: string };
-	commands: { canTransferOwnership: boolean; canDeleteOrganization: boolean };
-}
+export const DESTRUCTION_COUNT_KEYS = ['activePersonnel', 'trainingRecords', 'members', 'archivedPersonnel'] as const;
+
+/** What deleting the unit destroys. */
+export type DestructionCounts = UnitCounts<(typeof DESTRUCTION_COUNT_KEYS)[number]>;
+
 export interface DangerSettingsData {
-	currentMember: { role: MembershipRole; isOwner: boolean; isAdmin: boolean; canManageMembers: boolean };
-	sections: {
-		organization: {
-			id: string;
-			name: string | null;
-			urlSlug: string | null;
-			urlSegment: string;
-			canUpdateProfile: boolean;
-			canUpdateUrlSlug: boolean;
-		};
-		dangerZone: SettingsDangerSectionData;
-	};
+	transferOwnershipCandidates: Array<Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>>;
+	destructionCounts: Promise<DestructionCounts>;
 }

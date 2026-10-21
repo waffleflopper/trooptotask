@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SettingsPageHeader } from '$features/organization';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { tick } from 'svelte';
@@ -22,6 +22,7 @@
 	import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
 	import { deletionCountdown } from '../archiveCountdown';
+	import { ARCHIVED_PEOPLE_DEPENDENCY } from '../settingsDependencies';
 	import { formatRosterDate, pluralize } from '../settingsWorkspaceFormatters';
 	import type { SettingsArchivedPersonnelRow } from '../settingsSectionTypes';
 
@@ -115,7 +116,7 @@
 			toastStore.success('Personnel restored to active status');
 			await tick();
 			focusTarget()?.focus();
-			await invalidateAll();
+			await invalidate(ARCHIVED_PEOPLE_DEPENDENCY);
 		} catch {
 			toastStore.error('Failed to restore personnel');
 		} finally {
@@ -140,7 +141,7 @@
 			toastStore.success('Personnel permanently deleted');
 			archived.clearPermanentDeleteConfirmation();
 			focusAfterDialogCloses(focusTarget);
-			await invalidateAll();
+			await invalidate(ARCHIVED_PEOPLE_DEPENDENCY);
 		} catch {
 			toastStore.error('Failed to permanently delete');
 		} finally {

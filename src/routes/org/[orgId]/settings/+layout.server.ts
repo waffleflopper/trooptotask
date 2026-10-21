@@ -7,8 +7,9 @@ import { streamSettingsNavCounts } from './settingsShell.server';
 import { buildSettingsShell } from '$features/organization/contracts';
 import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 import { createSettingsShellContext } from './settingsRequestContexts.server';
+import { PENDING_APPROVALS_DEPENDENCY } from './settingsDependencies';
 
-export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route, untrack }) => {
+export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route, untrack, depends }) => {
 	const parentData = await parent();
 	if (parentData.shell.kind === 'suspended') {
 		redirect(303, `/org/${parentData.shell.org.urlSegment}`);
@@ -24,6 +25,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 		redirect(303, `/org/${orgUrlSegment}/settings/general`);
 	}
 
+	depends(PENDING_APPROVALS_DEPENDENCY);
 	return loadWithContext(locals, cookies, orgId, {
 		context: createSettingsShellContext,
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,

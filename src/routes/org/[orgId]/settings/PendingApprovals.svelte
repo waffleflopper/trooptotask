@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -11,6 +11,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 	import { approvalKind, requestedAgo, waitingSummary } from './approvalRequests';
+	import { PENDING_APPROVALS_DEPENDENCY } from './settingsDependencies';
 
 	let { orgId, requests }: { orgId: string; requests: DeletionRequestApproval[] } = $props();
 
@@ -92,7 +93,7 @@
 			await tick();
 			heading?.focus();
 			try {
-				await invalidateAll();
+				await invalidate(PENDING_APPROVALS_DEPENDENCY);
 			} catch {
 				if (active) toastStore.warning('Review completed. Refresh the page to update the list.');
 			}

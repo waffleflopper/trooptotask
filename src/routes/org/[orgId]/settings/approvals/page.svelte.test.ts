@@ -180,7 +180,7 @@ describe('Approvals review', () => {
 		await deny('Wrong soldier. Keep the current card.');
 		await fireEvent.click(denyRequest());
 
-		await waitFor(() => expect(screen.getByText('Record c')).toBeTruthy());
+		await waitFor(() => expect(row('Record c').getByRole('button', { name: 'Deny Record c' })).toBeTruthy());
 		expect(send).toHaveBeenCalledWith('/org/slug-a/api/deletion-requests/review', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },

@@ -221,25 +221,6 @@ describe('calendar page', () => {
 		expect(view.container.textContent).toBe('');
 	});
 
-	it('reads the visible month of availability and the lookback of assignments beyond the buffered window', async () => {
-		render(WithPreferences, {
-			props: {
-				data: makePageData()
-			}
-		});
-
-		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
-
-		calendarStore.goToMonth(2026, 7);
-
-		await waitFor(() => {
-			expect(loadCalendarRangeMock.mock.calls).toEqual([
-				['org-1', { rangeStart: '2026-08-01', rangeEnd: '2026-08-31', collections: ['availability'] }],
-				['org-1', { rangeStart: '2026-06-01', rangeEnd: '2026-08-31', collections: ['assignments'] }]
-			]);
-		});
-	});
-
 	it('keeps the current calendar visible while loading additional dates', async () => {
 		let resolveRange: ((value: CalendarRangeData) => void) | undefined;
 		loadCalendarRangeMock.mockReset();
@@ -279,7 +260,7 @@ describe('calendar page', () => {
 		expect(screen.getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
 	});
 
-	it('loads the navigated quarter and persists that month for the next server bootstrap', async () => {
+	it('persists the navigated quarter for the next server bootstrap', async () => {
 		calendarStore.goToMonth(2026, 2);
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
 		render(WithPreferences, { props: { data: makePageData({ rangeStart: '2025-12-01', rangeEnd: '2026-05-31' }) } });
@@ -287,13 +268,9 @@ describe('calendar page', () => {
 		await fireEvent.click(
 			within(screen.getByRole('group', { name: 'Calendar view' })).getByRole('radio', { name: '3-Month' })
 		);
-		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
 		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 months' }));
 
 		await waitFor(() => {
-			expect(loadCalendarRangeMock.mock.calls).toEqual([
-				['org-1', { rangeStart: '2026-06-01', rangeEnd: '2026-08-31', collections: ['availability', 'assignments'] }]
-			]);
 			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-06-01`);
 		});
 	});

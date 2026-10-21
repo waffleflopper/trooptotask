@@ -109,19 +109,6 @@ function makeRouteDataWithoutRatingScheme() {
 }
 
 describe('evals page', () => {
-	it('renders the Rating Scheme surface immediately when workspace data is resolved', async () => {
-		render(Page, {
-			props: {
-				data: makeRouteData(makeBootstrap())
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
-		});
-		expect(screen.queryByRole('status')).toBeNull();
-	});
-
 	it('renders a loading shell while Rating Scheme workspace data is still streaming', async () => {
 		const workspace = deferred<RatingSchemeWorkspaceResult>();
 

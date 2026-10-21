@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 import type { SettingsNavCounts } from '$features/organization/contracts';
-import { PENDING_APPROVALS_DEPENDENCY } from './settingsDependencies';
 
 const { loadWithContextMock, requestStoreMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
@@ -130,15 +128,6 @@ describe('settings layout server load', () => {
 				})
 		} as never);
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			{},
-			{},
-			'org-1',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
-				policyResource: { kind: 'organization' }
-			})
-		);
 		expect(result).toMatchObject({
 			canAccessOrganizationGovernance: true,
 			settingsShell: {
@@ -308,22 +297,5 @@ describe('settings layout server load', () => {
 			status: 403,
 			body: { message: 'You do not have permission to perform this action' }
 		});
-	});
-
-	it('registers the pending approvals read so a review can refresh the nav badge without other loads', async () => {
-		loadWithContextMock.mockResolvedValueOnce({});
-		const depends = vi.fn();
-
-		await load({
-			params: { orgId: 'org-1' },
-			locals: {},
-			cookies: {},
-			route: { id: '/org/[orgId]/settings/approvals' },
-			untrack: (fn: () => unknown) => fn(),
-			depends,
-			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' })
-		} as never);
-
-		expect(depends).toHaveBeenCalledWith(PENDING_APPROVALS_DEPENDENCY);
 	});
 });

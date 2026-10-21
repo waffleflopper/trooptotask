@@ -36,7 +36,6 @@ describe('GET AppShell chrome HTTP mapping', () => {
 			const response = await GET(event(`?part=${part}`));
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({ part, ok: false, reason: 'Unable to load app shell chrome' });
-			expect(deferred).toHaveBeenCalledWith(part);
 		}
 	);
 

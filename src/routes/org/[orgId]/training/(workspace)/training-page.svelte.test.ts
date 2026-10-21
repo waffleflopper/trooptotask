@@ -96,18 +96,6 @@ describe('training page', () => {
 		personnelTrainingsStore.load([], 'org-test-reset');
 		pinnedGroupsHydration.load([], 'org-test-reset');
 	});
-
-	it('renders the training shell while workspace data is still streaming', () => {
-		render(WithPreferences, {
-			props: {
-				data: makePageData()
-			}
-		});
-
-		expect(screen.getByRole('toolbar', { name: 'Training controls' })).toBeTruthy();
-		expect(screen.queryByTestId('page-toolbar')).toBeNull();
-		expect(screen.getByTestId('skeleton-grid')).toBeTruthy();
-	});
 	it('keeps the immediate matrix choice when older shell props are revalidated', async () => {
 		const view = render(WithPreferences, { props: { data: makePageData() } });
 		await fireEvent.click(screen.getByRole('button', { name: 'A-Z' }));

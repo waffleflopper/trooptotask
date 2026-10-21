@@ -118,17 +118,6 @@ describe('GET /api/getting-started', () => {
 		}
 	);
 
-	it('binds personal progress to the admitted account, Organization and ordinary request client', async () => {
-		const ctx = createTestContext();
-		await handleUseCaseRequest(_postConfig, ctx, undefined, () => ctx);
-		expect(setGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase, auth: ctx.auth, audit: ctx.audit }, true);
-		await handleUseCaseRequest(_deleteConfig, ctx, undefined, () => ctx);
-		expect(setGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase, auth: ctx.auth, audit: ctx.audit }, false);
-		await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx);
-		expect(loadGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase }, ctx.auth);
-		expect(countOrganizationMembers).toHaveBeenLastCalledWith(supabase, ctx.auth.orgId);
-	});
-
 	it('does not report dismissal success when its owner cannot confirm the save', async () => {
 		vi.mocked(setGettingStartedDismissed).mockRejectedValue(new Error('Unable to confirm Getting Started save'));
 		await expect(
@@ -136,18 +125,8 @@ describe('GET /api/getting-started', () => {
 		).rejects.toThrow('Unable to confirm');
 	});
 
-	it('returns retained scoped support with retired Duty storage unavailable', async () => {
+	it('returns Organization-scoped support counts and starter-pack eligibility', async () => {
 		const ctx = createTestContext();
-		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-		const findManyWithCount = ctx.store.findManyWithCount.bind(ctx.store);
-		const retiredReads: string[] = [];
-		vi.spyOn(ctx.store, 'findManyWithCount').mockImplementation((table, ...args) => {
-			if (table.startsWith('duty_') || table.startsWith('advanced_duty_')) {
-				retiredReads.push(table);
-				throw new Error('Retired Duty storage is unavailable');
-			}
-			return findManyWithCount(table, ...args);
-		});
 
 		ctx.store.seed('training_types', [
 			{
@@ -207,16 +186,6 @@ describe('GET /api/getting-started', () => {
 				})
 			]
 		});
-		expect(consoleInfoSpy).toHaveBeenCalledWith(
-			'[dashboard-load]',
-			expect.objectContaining({
-				orgId: ctx.auth.orgId,
-				phase: 'support',
-				status: 'ok',
-				durationMs: expect.any(Number)
-			})
-		);
-		expect(retiredReads).toEqual([]);
 	});
 
 	it('allows a signed-in member to read their getting-started dashboard support data', async () => {

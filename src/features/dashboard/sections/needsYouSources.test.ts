@@ -97,6 +97,7 @@ interface Loaded {
 	ratingSchemeEntries?: RatingSchemeDueEntry[];
 	expiredByType?: ExpiredTrainingType[] | null;
 	activeOnboardings?: PersonnelOnboarding[];
+	onboardingTrainingCompletions?: string[];
 	awardTrackingAcknowledgedPersonnelIds?: string[];
 }
 
@@ -193,7 +194,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 							groupDelinquencies: []
 						},
 			ictlSummary: null,
-			onboardingTrainingCompletions: []
+			onboardingTrainingCompletions: loaded.onboardingTrainingCompletions ?? []
 		}
 	};
 }
@@ -345,6 +346,26 @@ describe('stalledOnboarding', () => {
 				urgency: { date: '2026-10-09' }
 			}
 		]);
+	});
+
+	it('counts a Training step by the current Training record, not the saved step', () => {
+		const withTraining = {
+			...brooksPacket,
+			steps: [
+				...brooksPacket.steps,
+				step('step-sharp', { stepName: 'SHARP', stepType: 'training', trainingTypeId: 'sharp', sortOrder: 3 })
+			]
+		};
+
+		const [row] = stalledOnboarding(
+			inputs({
+				personnel: [brooks],
+				activeOnboardings: [withTraining],
+				onboardingTrainingCompletions: ['p-brooks-sharp']
+			})
+		);
+
+		expect(row.subtitle).toBe('Orders packet · waiting 10 days · 2 of 4');
 	});
 
 	it('leaves a packet that is only moving slowly out', () => {

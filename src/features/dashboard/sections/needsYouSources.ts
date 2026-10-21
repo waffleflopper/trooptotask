@@ -4,6 +4,7 @@ import { evaluateUpcomingLosses, type Personnel } from '$features/personnel/cont
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
 import { formatDayMonth, formatDayOffset, formatWeekdayDay, parseDate } from '$lib/utils/dates';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { projectTrainingSteps } from '../read-model/dashboardIndexes';
 import type { DashboardInputs } from './dashboardInputs';
 import type { NeedsYouSource } from './dashboardSections';
 
@@ -118,9 +119,10 @@ export const unfilledDuty: NeedsYouSource = (inputs) => {
 export const stalledOnboarding: NeedsYouSource = (inputs) => {
 	const people = peopleById(inputs);
 	const today = { date: inputs.today, timeZone: inputs.timeZone };
+	const project = projectTrainingSteps(inputs.page);
 	return inputs.page.dashboard.data.activeOnboardings.flatMap((packet) => {
 		const person = people.get(packet.personnelId);
-		const summary = summarizePacket(packet, today);
+		const summary = summarizePacket(project(packet), today);
 		if (!person || summary.status !== 'stalled' || !summary.focus) return [];
 		return [
 			{

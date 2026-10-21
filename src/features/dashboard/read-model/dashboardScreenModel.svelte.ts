@@ -12,7 +12,7 @@ import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } f
 import type { DashboardPageData } from '$features/dashboard/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getProgress } from '$features/onboarding/contracts';
-import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
+import { groupPersonnelByGroupId, indexById, indexTodayAvailability, projectTrainingSteps } from './dashboardIndexes';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from '../sections/dashboardInputs';
@@ -437,19 +437,12 @@ export class DashboardScreenModel {
 
 	get activeOnboardings(): DashboardOnboardingProgressRow[] {
 		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => this.findRosterPerson(o.personnelId));
-		const completionSet = new SvelteSet(this.data.onboardingTrainingCompletions ?? []);
+		const project = projectTrainingSteps(this.data);
 
 		return onboardings.map((o) => {
 			const person = this.findRosterPerson(o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
-			const steps = o.steps.map((step) => {
-				if (this.data.trainingSummary && step.active && step.stepType === 'training' && step.trainingTypeId) {
-					const hasTraining = completionSet.has(`${o.personnelId}-${step.trainingTypeId}`);
-					return { ...step, completed: hasTraining };
-				}
-				return step;
-			});
-			const { total: totalSteps, completed: completedSteps } = getProgress({ ...o, steps });
+			const { total: totalSteps, completed: completedSteps } = getProgress(project(o));
 
 			return {
 				id: o.id,

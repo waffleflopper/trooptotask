@@ -6,7 +6,7 @@
 - Public `/auth/sign-up` redirects to `/auth/request-access`. Platform entry is a reviewed **Access Request**.
 - Approving an **Access Request** issues a setup link. It does not create a Supabase **User Account**.
 - The database stores only the SHA-256 hash of a setup token. The raw token appears only in the emailed URL and cannot be recovered.
-- An **Access Request** has at most one active setup link. Issuing a new link revokes older unclaimed links.
+- An **Access Request** has at most one pending setup link: unclaimed, unused, unfailed and unrevoked. Issuing a new link revokes older unclaimed links. A claimed link can coexist with a fresh one.
 - A setup link expires after 14 days. An approved request can receive fresh links for 90 days unless it is closed. [ADR 0012](0012-organization-invited-platform-access-auto-approval.md) defines when an invitation-origin approval stops issuing links.
 - The recipient chooses their own password. Only then does TroopToTask create the **User Account**, with the email already confirmed, because the link proves control of the address.
 - If a **User Account** already exists for the email, completing setup activates it and replaces its password. Treat the setup page as a credential reset for that email.

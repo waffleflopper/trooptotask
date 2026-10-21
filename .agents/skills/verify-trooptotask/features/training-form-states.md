@@ -97,7 +97,7 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run
 
 9. **Tables and print.** On Reports the Type risk table is `table[aria-label="Not ready and lapsing requirements by training type"]` (a `Table`) with column headers Type, Records, Not ready and By <date> (`scope="col"`) and `th scope="row"` per type. Each Records cell holds an `aria-hidden` bar and an sr-only `N not ready, M lapsing by <date>`. Arm `$V print arm PAGE`, choose `Print brief`, read `$V print state PAGE`, then run `$V print save PAGE <exact reports URL> FILE.pdf letter on` and `$V print restore PAGE`. The print DOM then holds two print-only tables named `Training types with the most requirements not ready or lapsing` (with `Share` as a screen-reader column) and `Training status of each training type by <noun>`; open a cell first to add the third, `Affected soldiers by requirement` (`#`, Rank, Name, Group, Training type, Status today, Expiration date, Lapses by <date>). All use `th scope`. Extract the PDF with `pdftotext -layout` and `pdftoppm` for the evidence. The ordinary three-Person fixture prints 2 pages, and 3 with the detail table.
 
-10. **Access Restricted.** The app-level `WorkspaceAccessRestricted` card (step 5, `viewer`) is the only denial for Training; there is no in-page Access Restricted branch. Measured for that card: 1280x800 column `[256,56,1024,744]`; 390x844 column `[0,56,390,788]`.
+10. **Access Restricted.** The app-level `WorkspaceAccessRestricted` card (step 5, `viewer`) is the only denial on `/training` itself; there is no in-page Access Restricted branch. Reports keeps its separate 403 page (step 5). Measured for that card: 1280x800 column `[256,56,1024,744]`; 390x844 column `[0,56,390,788]`.
 
 ## Gotchas
 

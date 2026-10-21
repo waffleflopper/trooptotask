@@ -5,7 +5,7 @@ Robert confirms provider backup settings quarterly and after a material database
 ## Backups
 
 - Supabase-managed PostgreSQL backups cover the database.
-- Supabase Storage durability covers uploaded files.
+- Uploaded files in Supabase Storage rely on provider durability only. Database backups hold their metadata, not the objects, and no file restore path is tested.
 - Vercel deployment history and source control cover the application.
 
 Backup retention and restore behavior depend on the provider plan. Keep the confirmed settings outside the repository.

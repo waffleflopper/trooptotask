@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
-	import { SettingsLanes } from '$features/organization';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { formatDate, formatDayMonthYear } from '$lib/utils/dates';
 	import type {
@@ -15,12 +13,7 @@
 		OrganizationExportFormat
 	} from '../exportsSettingsTypes';
 
-	let {
-		orgId,
-		orgName,
-		orgUrlSegment,
-		settings
-	}: { orgId: string; orgName: string | null; orgUrlSegment: string; settings: ExportsSettingsData } = $props();
+	let { orgId, orgName, settings }: { orgId: string; orgName: string | null; settings: ExportsSettingsData } = $props();
 
 	const FORMATS = {
 		json: { name: 'JSON', summary: 'For backups and integrations', endpoint: 'export', extension: 'json' },
@@ -123,80 +116,45 @@
 	</div>
 {/snippet}
 
-<SettingsLanes.Section>
-	<SettingsLanes.Row
-		label={`Everything in ${unit}`}
-		description="One file with every record the unit owns. Excel gives each area its own named sheet."
-	>
-		{#snippet details()}
-			<div class="grid gap-4">
-				{#await settings.scopeCounts}
-					<div class="flex flex-wrap gap-1.5" aria-hidden="true">
-						{#each ['w-18', 'w-28', 'w-40', 'w-22', 'w-30'] as width, index (index)}
-							<Skeleton class={`h-6 ${width}`} />
-						{/each}
-					</div>
-					<span class="sr-only">Counting what an export contains</span>
-				{:then counts}
-					{@render chips(counts)}
-				{:catch}
-					{@render chips(null)}
-				{/await}
-				<div class="flex flex-col gap-3 sm:flex-row">
-					{@render tile('json')}
-					{@render tile('excel')}
-				</div>
-				{#each Object.entries(errors) as [format, message] (format)}
-					<Alert.Root variant="destructive">
-						<Alert.Description>{message}</Alert.Description>
-					</Alert.Root>
-				{/each}
-				<p role="status" class="sr-only">{announcement}</p>
-				{#if settings.lastExport}
-					{#if exportedHere}
-						<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">
-							{lastExportLine(exportedHere)}
-						</p>
-					{:else}
-						{#await settings.lastExport}
-							<Skeleton class="h-5 w-80 max-w-full" aria-hidden="true" />
-							<span class="sr-only">Loading the last export</span>
-						{:then last}
-							{#if last}
-								<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">{lastExportLine(last)}</p>
-							{/if}
-						{:catch}
-							<p class="font-mono text-xs leading-5 text-muted-foreground">The last export could not be loaded.</p>
-						{/await}
-					{/if}
+<div class="grid gap-4">
+	{#await settings.scopeCounts}
+		<div class="flex flex-wrap gap-1.5" aria-hidden="true">
+			{#each ['w-18', 'w-28', 'w-40', 'w-22', 'w-30'] as width, index (index)}
+				<Skeleton class={`h-6 ${width}`} />
+			{/each}
+		</div>
+		<span class="sr-only">Counting what an export contains</span>
+	{:then counts}
+		{@render chips(counts)}
+	{:catch}
+		{@render chips(null)}
+	{/await}
+	<div class="flex flex-col gap-3 sm:flex-row">
+		{@render tile('json')}
+		{@render tile('excel')}
+	</div>
+	{#each Object.entries(errors) as [format, message] (format)}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{message}</Alert.Description>
+		</Alert.Root>
+	{/each}
+	<p role="status" class="sr-only">{announcement}</p>
+	{#if settings.lastExport}
+		{#if exportedHere}
+			<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">
+				{lastExportLine(exportedHere)}
+			</p>
+		{:else}
+			{#await settings.lastExport}
+				<Skeleton class="h-5 w-80 max-w-full" aria-hidden="true" />
+				<span class="sr-only">Loading the last export</span>
+			{:then last}
+				{#if last}
+					<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">{lastExportLine(last)}</p>
 				{/if}
-			</div>
-		{/snippet}
-	</SettingsLanes.Row>
-
-	<SettingsLanes.Row
-		label="Roster only"
-		muted
-		description="People and groups, without the rest of the unit. A lighter file for S1 and higher."
-	>
-		{#snippet control()}
-			<span
-				class="pt-1.5 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
-			>
-				Coming soon
-			</span>
-		{/snippet}
-	</SettingsLanes.Row>
-
-	<SettingsLanes.Row
-		label="One person"
-		description="A single soldier’s workbook. Export it from their record, or from Archives after they leave."
-	>
-		{#snippet control()}
-			<Button variant="link" class="-mr-2" href={`/org/${orgUrlSegment}/settings/archives`}>
-				Archives
-				<ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
-			</Button>
-		{/snippet}
-	</SettingsLanes.Row>
-</SettingsLanes.Section>
+			{:catch}
+				<p class="font-mono text-xs leading-5 text-muted-foreground">The last export could not be loaded.</p>
+			{/await}
+		{/if}
+	{/if}
+</div>

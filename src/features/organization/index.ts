@@ -12,4 +12,3 @@ export { default as PoliciesSettingsPage } from './PoliciesSettingsPage.svelte';
 
 export { default as SettingsShell } from './SettingsShell.svelte';
 export { default as SettingsPageHeader } from './SettingsPageHeader.svelte';
-export * as SettingsLanes from './settings-lanes';

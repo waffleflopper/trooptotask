@@ -13,7 +13,7 @@
 	import { settleAction } from '$lib/utils/settleAction';
 	import type { DangerSettingsData, DestructionCounts } from './dangerSettingsTypes';
 	import { createOwnershipTransferWorkspace } from './ownershipTransferWorkspace.svelte';
-	import * as SettingsLanes from './settings-lanes';
+	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 
 	let {
 		orgName,
@@ -113,8 +113,9 @@
 	}
 </script>
 
-<SettingsLanes.Section variant="destructive">
-	<SettingsLanes.Row
+<PageShell.FactSection variant="destructive">
+	<PageShell.FactRow
+		variant="display"
 		label="Transfer ownership"
 		labelFor="transfer-owner-target"
 		description="Hand the Owner role to another member. You become an Admin and keep your access."
@@ -152,9 +153,10 @@
 				{/if}
 			</div>
 		{/snippet}
-	</SettingsLanes.Row>
+	</PageShell.FactRow>
 
-	<SettingsLanes.Row
+	<PageShell.FactRow
+		variant="display"
 		label="Purge archives now"
 		muted
 		description="Delete every archived person today instead of waiting out the retention period."
@@ -166,9 +168,10 @@
 				Coming soon
 			</span>
 		{/snippet}
-	</SettingsLanes.Row>
+	</PageShell.FactRow>
 
-	<SettingsLanes.Row
+	<PageShell.FactRow
+		variant="display"
 		label={`Delete ${unit}`}
 		description="Every record and private file in the unit is deleted for good. The audit history stays, for accountability."
 	>
@@ -207,8 +210,8 @@
 				{/await}
 			</div>
 		{/snippet}
-	</SettingsLanes.Row>
-</SettingsLanes.Section>
+	</PageShell.FactRow>
+</PageShell.FactSection>
 
 {#if showDeleteConfirm}
 	<AppDialog.Root

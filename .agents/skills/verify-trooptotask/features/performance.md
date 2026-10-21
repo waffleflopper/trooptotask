@@ -69,7 +69,7 @@ The Calendar reads a few more rows per Organization. Every status type carries t
 | `personnel-edit`              | Personnel roster dialog       | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
 | `personnel-detail-edit`       | Personnel detail              | interaction, write | wide, leader     | `Save changes` to the Data sheet tab with the refreshed header MOS badge                  |
 | `personnel-import`            | Personnel import              | interaction, write | both             | `Import checked rows` to `Import complete` with the row count saved                       |
-| `dashboard`                   | Dashboard                     | load, read         | both             | Skeleton (`pending`), deferred summary resolved (`summary`), then panels with no skeleton |
+| `dashboard`                   | Dashboard                     | load, read         | both             | Band skeletons below a header (`pending`), then settled bands and panels with no skeleton |
 | `training-report`             | Training Reports              | load, read         | both             | Briefing not busy with the actor's soldier count                                          |
 | `critical-tasks-report`       | Critical Tasks Reports        | load, read         | both             | Metrics with the actor's population, nothing busy                                         |
 | `members-list`                | Settings Members              | load, read         | perfWide         | Member count shown                                                                        |

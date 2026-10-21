@@ -4,7 +4,7 @@
 
 <!-- One row at its loaded height and column widths; the consumer repeats it inside its list. -->
 <div
-	class="grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-l-[3px] border-b-border border-l-border py-3 pl-4 sm:grid-cols-[84px_minmax(0,1fr)_84px_172px]"
+	class="grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-l-[3px] border-b-border border-l-border py-3 pl-4 sm:grid-cols-[84px_minmax(0,1fr)_96px_172px]"
 	aria-hidden="true"
 >
 	<Skeleton class="h-3 w-16" />

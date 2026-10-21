@@ -34,7 +34,7 @@
 
 <li class={cn('border-b border-l-[3px] border-b-border', visual.rule)}>
 	<div
-		class="relative grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-3 pl-4 hover:bg-muted/60 has-[a:focus-visible]:bg-muted/60 sm:grid-cols-[84px_minmax(0,1fr)_84px_172px]"
+		class="relative grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-3 pl-4 hover:bg-muted/60 has-[a:focus-visible]:bg-muted/60 sm:grid-cols-[84px_minmax(0,1fr)_96px_172px]"
 	>
 		<span class={cn('font-mono text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase', visual.text)}>
 			{label}
@@ -43,7 +43,7 @@
 			<span class="text-base leading-[22px] font-semibold text-foreground">{title}</span>
 			<span class="text-sm leading-5 text-muted-foreground">{subtitle}</span>
 		</span>
-		<span class={cn('text-right font-mono text-xs leading-4 max-sm:order-2', visual.text)}>{timing}</span>
+		<span class={cn('text-right font-mono text-xs leading-4 whitespace-nowrap max-sm:order-2', visual.text)}>{timing}</span>
 		<span class="flex items-center justify-end gap-1.5 max-sm:order-4">
 			{#if action}
 				<span class="relative z-10 flex gap-1.5">{@render action()}</span>

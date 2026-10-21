@@ -14,7 +14,7 @@
 	const visible = $derived(showAll ? changes : changes.slice(0, PREVIEW));
 </script>
 
-<section class="grid gap-2.5 pt-[18px]" aria-labelledby="dashboard-coming-and-going">
+<section class="grid grid-cols-[minmax(0,1fr)] gap-2.5 pt-[18px]" aria-labelledby="dashboard-coming-and-going">
 	<h3
 		id="dashboard-coming-and-going"
 		class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"

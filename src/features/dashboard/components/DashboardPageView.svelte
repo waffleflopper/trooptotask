@@ -143,7 +143,7 @@
 					aria-busy={!model}
 					data-dashboard-band="action"
 				>
-					<div class="grid min-w-0 content-start gap-4">
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
 						<PageShell.SectionHeader
 							size="compact"
 							eyebrow={parts ? `Needs you · ${parts.needsYou.ranked.length}` : 'Needs you'}
@@ -163,7 +163,7 @@
 							</div>
 						{/if}
 					</div>
-					<div class="grid min-w-0 content-start gap-4">
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
 						<PageShell.SectionHeader size="compact" eyebrow="On duty" title="Tonight and tomorrow" />
 						{#if model && parts}
 							{#each parts.onDutyBlocks as block (block.id)}

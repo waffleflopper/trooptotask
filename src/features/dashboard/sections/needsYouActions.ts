@@ -1,5 +1,4 @@
 import { acknowledgeAwardTracking } from '$features/personnel';
-import { loadRatingSchemeEntryEditor, loadRatingSchemeEntryModal } from '$features/rating-scheme';
 import { loadRecordClassDialog } from '$features/training';
 import type { Personnel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -16,12 +15,8 @@ export function updateStatusAction(inputs: DashboardInputs, entryId: string): Ne
 		policy: ratingScheme.updateEntries,
 		mode: 'dialog',
 		open: async () => {
-			const [{ default: Panel }, { default: Modal }, editor] = await Promise.all([
-				import('../components/needs-you/UpdateStatusPanel.svelte'),
-				loadRatingSchemeEntryModal(),
-				loadRatingSchemeEntryEditor(orgId, entryId)
-			]);
-			return needsYouPanel(Panel, { orgId, editor, Modal });
+			const { openUpdateStatusPanel } = await import('../components/needs-you/updateStatusPanel');
+			return openUpdateStatusPanel(orgId, entryId);
 		}
 	};
 }

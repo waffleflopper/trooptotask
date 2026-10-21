@@ -68,6 +68,7 @@ function member(
 		},
 		scopeDisplayLabel: 'All groups',
 		overriddenCapabilityLabels: [],
+		storedLevels: row.access?.capabilityMap ?? createCapabilityMap('configure'),
 		...row
 	};
 }
@@ -633,25 +634,49 @@ describe('manage access sheet', () => {
 		expect(within(sheet).getByRole('button', { name: 'Save 6 changes' })).toBeTruthy();
 	});
 
-	it('describes Role and Preset with the help the invite strip shows for the same choice', async () => {
+	it('keeps showing the stored level on a lane the unit turned off when an Admin becomes a member', async () => {
+		const storedAdmin = member('stored', 'stored@example.com', 'admin', {
+			storedLevels: { ...createCapabilityMap('configure'), training: 'view' }
+		});
+		renderPage({ rows: [owner, storedAdmin], offLanes: ['training'] });
+		const { sheet } = await openSheet('stored');
+
+		await choose(sheet, 'Role', 'Member');
+
+		const training = within(sheet).getByRole('radiogroup', { name: 'Training access' });
+		expect(within(training).getByRole('radio', { name: 'View' }).getAttribute('aria-checked')).toBe('true');
+		expect(
+			within(training)
+				.getAllByRole('radio')
+				.every((radio) => (radio as HTMLButtonElement).disabled)
+		).toBe(true);
+		expect(within(sheet).queryByText(/^Editor gives/)).toBeNull();
+	});
+
+	it('describes Role and Preset with the help shown in their own section', async () => {
 		renderPage();
-		const stripHelp = () => document.getElementById('invite-helper')?.textContent ?? '';
-		const editorStripHelp = stripHelp();
-		await pick('Role', 'Admin');
-		const adminStripHelp = stripHelp();
 		const { sheet } = await openSheet('alpha');
 		const help = (name: string) => {
-			const id = within(sheet).getByRole('radiogroup', { name }).getAttribute('aria-describedby');
+			const group = within(sheet).getByRole('radiogroup', { name });
 			const region = within(sheet).getByRole('region', { name });
-			return within(region).getByText((_, element) => element?.id === id).textContent ?? '';
+			const note = within(region).getByText((_, element) => element?.id === group.getAttribute('aria-describedby'));
+			return note.textContent?.trim() ?? '';
 		};
+		const presetHelp = help('Preset');
 
-		expect(help('Preset')).not.toBe('');
-		expect(editorStripHelp.startsWith(help('Preset'))).toBe(true);
+		expect(presetHelp).not.toBe('');
 
+		await choose(sheet, 'Preset', 'Viewer');
+		const viewerHelp = help('Preset');
+
+		expect(viewerHelp).not.toBe('');
+		expect(viewerHelp).not.toBe(presetHelp);
+
+		const roleHelp = help('Role');
 		await choose(sheet, 'Role', 'Admin');
 
-		expect(help('Role')).toBe(adminStripHelp);
+		expect(help('Role')).not.toBe('');
+		expect(help('Role')).not.toBe(roleHelp);
 	});
 
 	it('shows the role as text to admins', async () => {

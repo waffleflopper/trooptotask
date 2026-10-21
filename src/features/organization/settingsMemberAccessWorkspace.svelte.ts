@@ -97,12 +97,18 @@ function editablePreset(memberPreset: MemberPreset): StoredMemberPreset {
 	return memberPreset === 'custom' ? 'editor' : memberPreset;
 }
 
-function savedDraft(member: SettingsMemberRow): MemberAccessDraft {
+/** A lane whose feature is off shows the level on file, which differs from the projection for an Admin. */
+function savedDraft(member: SettingsMemberRow, offLanes: readonly DurableFeatureLane[]): MemberAccessDraft {
 	return {
 		memberId: member.id,
 		role: member.membershipRole === 'admin' ? 'admin' : 'member',
 		preset: editablePreset(member.access.memberPreset),
-		levels: { ...member.access.capabilityMap },
+		levels: Object.fromEntries(
+			SETTINGS_ACCESS_LANES.map(({ id }) => [
+				id,
+				offLanes.includes(id) ? member.storedLevels[id] : member.access.capabilityMap[id]
+			])
+		) as CapabilityMap,
 		scope:
 			member.access.scopeSet.kind === 'groups'
 				? { kind: 'groups', groupIds: [...member.access.scopeSet.groupIds] }
@@ -161,7 +167,7 @@ export class SettingsMemberAccessWorkspace {
 
 	open(member: SettingsMemberRow): void {
 		if (member.membershipRole === 'owner') return;
-		this.draft = savedDraft(member);
+		this.draft = savedDraft(member, this.#data.offLanes);
 	}
 
 	close(): void {
@@ -176,7 +182,7 @@ export class SettingsMemberAccessWorkspace {
 	setPreset(preset: EditablePreset): void {
 		const member = this.editingMember;
 		if (!this.draft || !member) return;
-		const saved = savedDraft(member);
+		const saved = savedDraft(member, this.#data.offLanes);
 		const levels = preset === saved.preset ? saved.levels : TARGET_MEMBER_PRESET_CAPABILITIES[preset];
 		this.draft.preset = preset;
 		this.draft.levels = Object.fromEntries(
@@ -220,7 +226,7 @@ export class SettingsMemberAccessWorkspace {
 		const member = this.editingMember;
 		const draft = this.draft;
 		if (!draft || !member) return 0;
-		const saved = savedDraft(member);
+		const saved = savedDraft(member, this.#data.offLanes);
 		const next = draft.role === 'admin' ? adminDraft(draft.memberId) : draft;
 		return [
 			next.role !== saved.role,

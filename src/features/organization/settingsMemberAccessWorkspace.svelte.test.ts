@@ -12,7 +12,8 @@ function member(
 	id: string,
 	email: string,
 	membershipRole: MembershipRole,
-	access: Partial<SettingsMemberRow['access']> = {}
+	access: Partial<SettingsMemberRow['access']> = {},
+	storedLevels?: SettingsMemberRow['storedLevels']
 ): SettingsMemberRow {
 	return {
 		id,
@@ -28,6 +29,7 @@ function member(
 			organizationGovernanceActions: [],
 			...access
 		},
+		storedLevels: storedLevels ?? access.capabilityMap ?? createCapabilityMap('configure'),
 		scopeDisplayLabel: 'All groups',
 		overriddenCapabilityLabels: []
 	};
@@ -152,6 +154,24 @@ describe('settings member access workspace', () => {
 
 		// Training is off, so the save keeps it and only the five lanes that are on count.
 		expect(workspace.changeCount).toBe(7);
+	});
+
+	it('shows the stored level on a lane the unit turned off while an Admin becomes a member', () => {
+		const admin = member(
+			'ad',
+			'admin@example.com',
+			'admin',
+			{},
+			{ ...createCapabilityMap('configure'), training: 'view' }
+		);
+		const workspace = makeWorkspace({ members: [admin], offLanes: ['training'] });
+		workspace.open(admin);
+
+		workspace.setRole('member');
+		workspace.setPreset('viewer');
+
+		expect(workspace.draft?.levels.training).toBe('view');
+		expect(workspace.draft?.levels.calendar).toBe('view');
 	});
 
 	it('lets only owners change the role', () => {

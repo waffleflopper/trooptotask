@@ -2,6 +2,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	projectEffectiveInvitationAccess,
 	projectEffectiveMemberAccess,
+	storedCapabilityMap,
 	type EffectiveMemberAccessProjection,
 	type MemberAccessProjectionRow
 } from '$lib/access/memberAccessProjection';
@@ -24,7 +25,8 @@ export function buildSettingsMemberAccessRow(row: SettingsAccessSourceRow): Sett
 		email: optionalString(row.email),
 		membershipRole,
 		createdAt: asString(row.created_at),
-		access: buildSettingsAccessShape(row, membershipRole)
+		access: buildSettingsAccessShape(row, membershipRole),
+		storedLevels: storedCapabilityMap(row)
 	};
 }
 

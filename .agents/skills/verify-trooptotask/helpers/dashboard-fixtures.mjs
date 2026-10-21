@@ -13,6 +13,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 	const loss = randomUUID();
 	const archived = randomUUID();
 	const packet = randomUUID();
+	// Every step shares one key set, so PostgREST does not send null for a missing column.
+	const stageChangedAt = `${date(-8)}T12:00:00Z`;
 	const batches = [
 		[
 			'personnel',
@@ -123,7 +125,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					step_type: 'checkbox',
 					sort_order: 0,
 					completed: true,
-					active: true
+					active: true,
+					progress_changed_at: stageChangedAt
 				},
 				{
 					id: randomUUID(),
@@ -135,9 +138,9 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					sort_order: 1,
 					stages: ['Submitted', 'Reviewed', 'Filed'],
 					current_stage: 'Submitted',
-					progress_changed_at: `${date(-8)}T12:00:00Z`,
 					completed: false,
-					active: true
+					active: true,
+					progress_changed_at: stageChangedAt
 				},
 				{
 					id: randomUUID(),
@@ -149,7 +152,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					training_type_id: ids.trainingTargeted,
 					sort_order: 2,
 					completed: true,
-					active: true
+					active: true,
+					progress_changed_at: stageChangedAt
 				},
 				{
 					id: randomUUID(),
@@ -160,7 +164,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					step_type: 'checkbox',
 					sort_order: 3,
 					completed: true,
-					active: false
+					active: false,
+					progress_changed_at: stageChangedAt
 				}
 			]
 		],

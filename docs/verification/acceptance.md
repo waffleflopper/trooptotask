@@ -1,5 +1,0 @@
-# Historical verification toolkit acceptance
-
-The original toolkit was accepted in [PR #1385](https://github.com/waffleflopper/trooptotask/pull/1385), merged at `db61c11b231ca9f1d3ba6dd2ee4016d93870011d`. Its [exact acceptance record](https://github.com/waffleflopper/trooptotask/blob/60964cfcc7808b4520b85584c5e779d8f14bac0c/docs/verification/acceptance.md) preserves the environment, 48-step healthy/broken/restored pilot, Personnel/Group observations, failure cases and then-used signed receipts. Those historical results are not current acceptance instructions or fresh application evidence.
-
-The owned environment, synthetic fixtures, normal login and native DevTools controls remain reusable. Current app verification uses [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md) and its feature map under the [Definition of Done](../architecture/DEFINITION_OF_DONE.md#computer-use-flow-evidence). Historical receipts need no retained runtime verifier. Attribution and dependency versions remain in [upstreams](upstreams.md).

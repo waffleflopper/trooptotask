@@ -14,7 +14,6 @@ export {
 	Title,
 	Description,
 	Content,
-	//
 	Root as Empty,
 	Header as EmptyHeader,
 	Media as EmptyMedia,

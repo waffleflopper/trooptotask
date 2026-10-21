@@ -24,7 +24,6 @@ export {
 	Description,
 	Separator,
 	Error,
-	//
 	Set as FieldSet,
 	Legend as FieldLegend,
 	Group as FieldGroup,

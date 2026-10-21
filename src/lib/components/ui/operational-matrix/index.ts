@@ -41,7 +41,6 @@ export {
 	Row,
 	RowHeader,
 	Cell,
-	//
 	Root as OperationalMatrix,
 	Viewport as OperationalMatrixViewport,
 	Table as OperationalMatrixTable,

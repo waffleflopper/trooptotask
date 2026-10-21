@@ -1,6 +1,4 @@
 /**
- * Audit log query use case — fetches paginated audit events for the org admin audit viewer.
- *
  * Auth events (login, MFA, rate-limit) are excluded from the results by default since
  * they are high-frequency and not useful in the general activity feed. They remain stored
  * in the database and could be queried directly if a dedicated security log view is added.

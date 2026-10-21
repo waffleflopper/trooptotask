@@ -1,7 +1,6 @@
 /**
- * AuditPort implementation backed by Supabase.
  * Fires-and-forgets audit events — failures are silently swallowed so they never
- * block the main request. Audit logs are written to the `audit_logs` table.
+ * block the main request.
  */
 import type { AuditPort } from './contracts';
 import { auditLog } from './auditLog.server';

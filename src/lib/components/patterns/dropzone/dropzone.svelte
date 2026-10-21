@@ -14,9 +14,7 @@
 	}: {
 		title: string;
 		hint: string;
-		/** The picker's file filter. */
 		accept?: string;
-		/** A message about the last offered files, shown inside the zone. */
 		error?: string | null;
 		/** Called with every file dropped or picked; the owner decides which it can take. */
 		onFiles: (files: File[]) => void;

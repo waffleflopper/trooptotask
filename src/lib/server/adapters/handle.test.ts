@@ -468,7 +468,7 @@ describe('policy dispatch write safety', () => {
 	});
 });
 
-// D03: retained writes are authorized by capability and scope, independent of
+// Retained writes are authorized by capability and scope, independent of
 // commercial state. Exercise dispatch and the real use case against stored rows.
 describe('Personnel writes without commercial enforcement', () => {
 	it('creates and archives beyond former Personnel limits without reading commercial tables', async () => {

@@ -170,14 +170,14 @@ describe('parseDate', () => {
 	it('parses YYYY-MM-DD into a Date', () => {
 		const d = parseDate('2026-03-13');
 		expect(d.getFullYear()).toBe(2026);
-		expect(d.getMonth()).toBe(2); // March = 2
+		expect(d.getMonth()).toBe(2);
 		expect(d.getDate()).toBe(13);
 	});
 });
 
 describe('getMonthDates', () => {
 	it('returns all dates for March 2026', () => {
-		const dates = getMonthDates(2026, 2); // March
+		const dates = getMonthDates(2026, 2);
 		expect(dates).toHaveLength(31);
 		expect(dates[0].getDate()).toBe(1);
 		expect(dates[30].getDate()).toBe(31);
@@ -244,18 +244,18 @@ describe('getDayName', () => {
 describe('addMonths', () => {
 	it('adds months forward', () => {
 		const result = addMonths(new Date(2026, 2, 1), 1);
-		expect(result.getMonth()).toBe(3); // April
+		expect(result.getMonth()).toBe(3);
 	});
 
 	it('subtracts months backward', () => {
 		const result = addMonths(new Date(2026, 2, 1), -1);
-		expect(result.getMonth()).toBe(1); // February
+		expect(result.getMonth()).toBe(1);
 	});
 
 	it('wraps year boundary', () => {
 		const result = addMonths(new Date(2026, 11, 1), 1);
 		expect(result.getFullYear()).toBe(2027);
-		expect(result.getMonth()).toBe(0); // January
+		expect(result.getMonth()).toBe(0);
 	});
 });
 

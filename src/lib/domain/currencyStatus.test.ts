@@ -18,14 +18,7 @@ const ASOF = '2026-04-14';
 
 const DAY_MS = 86_400_000;
 
-/**
- * Replicates the PRE-#1148 `getTrainingStatus` day-count. The old Training helper
- * parsed the stored date-only expiration with `new Date("YYYY-MM-DD")` (UTC midnight)
- * while taking the reference day from a local clock, then normalized both via
- * `setHours(0,0,0,0)`. In UTC this equals the calendar difference; west of UTC it
- * under-counts by one day. The shared core deliberately replaces this with
- * `parseDate` (local calendar) on both sides — see the parity characterization below.
- */
+/** In UTC this equals the calendar difference; west of UTC it under-counts by one day. */
 function legacyTrainingDays(expirationDate: string, asOf: string): number {
 	const today = new Date(`${asOf}T00:00:00`);
 	today.setHours(0, 0, 0, 0);
@@ -57,14 +50,12 @@ describe('currencyStatus core', () => {
 		});
 
 		it('classifies directly from the stored expiration date (no completion needed)', () => {
-			// 91 days out → beyond all bands → current
 			expect(currencyStatus({ completionDate: null, expirationDate: '2026-07-14' }, config, ASOF)).toEqual({
 				state: 'current',
 				band: null,
 				expirationDate: '2026-07-14',
 				daysUntilExpiration: 91
 			});
-			// 1 day in the past → expired
 			expect(currencyStatus({ completionDate: null, expirationDate: '2026-04-13' }, config, ASOF)).toEqual({
 				state: 'expired',
 				band: null,
@@ -85,7 +76,6 @@ describe('currencyStatus core', () => {
 		});
 
 		it('is current with null days when completed but no expiration date is stored', () => {
-			// Preserves Training's "has completion, no stored expiration → current" case.
 			expect(currencyStatus({ completionDate: '2026-01-01', expirationDate: null }, TRAINING_BANDS, ASOF)).toEqual({
 				state: 'current',
 				band: null,
@@ -105,16 +95,12 @@ describe('currencyStatus core', () => {
 		});
 
 		it('treats the threshold day itself as expiring (inclusive <=)', () => {
-			// exactly 30 days out → matches orange band (withinDays 30)
 			expect(classify('2026-05-14')).toMatchObject({ state: 'expiring', band: 'orange', daysUntilExpiration: 30 });
-			// exactly 60 days out → matches yellow band (withinDays 60)
 			expect(classify('2026-06-13')).toMatchObject({ state: 'expiring', band: 'yellow', daysUntilExpiration: 60 });
 		});
 
 		it('selects the nearest band first (orange before yellow)', () => {
-			// 31 days out → past orange, within yellow
 			expect(classify('2026-05-15')).toMatchObject({ state: 'expiring', band: 'yellow', daysUntilExpiration: 31 });
-			// 15 days out → within orange (the tighter band wins)
 			expect(classify('2026-04-29')).toMatchObject({ state: 'expiring', band: 'orange', daysUntilExpiration: 15 });
 		});
 
@@ -143,7 +129,6 @@ describe('currencyStatus core', () => {
 		});
 
 		it('counts the pure calendar difference (parseDate on both sides)', () => {
-			// asOf and expiration both parsed via parseDate → timezone-independent calendar days.
 			expect(
 				currencyStatus({ completionDate: '2025-01-01', expirationDate: '2026-12-31' }, ICT_BANDS, '2026-01-01')
 			).toMatchObject({ daysUntilExpiration: 364 });
@@ -168,21 +153,16 @@ describe('currencyStatus core', () => {
 			).toBe(30);
 		});
 
-		// Characterizes issue #1148's third (intended) Training delta: the shared core
-		// uses parseDate, correcting the legacy `new Date("YYYY-MM-DD")` parse that
-		// under-counted by a day west of UTC. This is a no-op in production (UTC) and
-		// makes Training's read consistent with how it writes expiration dates.
 		// It also guards against a regression to `new Date(dateOnly)` parsing in the core.
 		it('uses calendar-day semantics, diverging from the legacy Training parse west of UTC', () => {
 			const asOf = '2026-04-14';
-			const expiration = '2026-05-14'; // exactly 30 calendar days later
+			const expiration = '2026-05-14';
 
 			const core = currencyStatus(
 				{ completionDate: '2025-01-01', expirationDate: expiration },
 				ICT_BANDS,
 				asOf
 			).daysUntilExpiration;
-			// The core always reports the true calendar difference.
 			expect(core).toBe(30);
 
 			// The legacy Training parse agreed in UTC/east-of-UTC but under-counted by one west of UTC.

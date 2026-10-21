@@ -469,7 +469,6 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 
 		if (options?.ilikeFilters) {
 			for (const [key, pattern] of Object.entries(options.ilikeFilters)) {
-				// Convert SQL LIKE pattern to regex: % = .*, _ = .
 				const regex = new RegExp('^' + pattern.replace(/%/g, '.*').replace(/_/g, '.') + '$', 'i');
 				results = results.filter((row) => typeof row[key] === 'string' && regex.test(row[key] as string));
 			}
@@ -1942,7 +1941,6 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 	return {
 		files,
 		async upload(bucket: string, path: string, data: File | Blob | ArrayBuffer): Promise<void> {
-			// Remove existing file at same path (upsert behavior)
 			const idx = files.findIndex((f) => f.bucket === bucket && f.path === path);
 			if (idx >= 0) files.splice(idx, 1);
 			files.push({ bucket, path, data });

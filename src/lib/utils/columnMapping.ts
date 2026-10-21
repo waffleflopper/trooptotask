@@ -1,8 +1,6 @@
-// src/lib/utils/columnMapping.ts
-
 export interface ColumnDef {
-	key: string; // internal field name (e.g., 'lastName')
-	label: string; // display label (e.g., 'Last Name')
+	key: string;
+	label: string;
 	required: boolean;
 	aliases: string[]; // recognized header variations (lowercase)
 }
@@ -12,22 +10,13 @@ export interface ColumnMapping {
 	fieldKey: string | null; // null = "Skip"
 }
 
-/**
- * Detect whether the first row is a header row.
- * Returns true if any cell in the first row matches a known alias.
- */
 export function detectHeaderRow(firstRow: string[], columnDefs: ColumnDef[]): boolean {
 	const allAliases = columnDefs.flatMap((d) => d.aliases);
 	return firstRow.some((cell) => allAliases.includes(cell.trim().toLowerCase()));
 }
 
-/**
- * Auto-map columns by matching header text to column definition aliases.
- * Falls back to positional mapping if no headers detected.
- */
 export function autoMapColumns(headers: string[], columnDefs: ColumnDef[], hasHeaders: boolean): ColumnMapping[] {
 	if (!hasHeaders) {
-		// Positional fallback: map columns 0..N to columnDefs in order
 		return headers.map((_, i) => ({
 			columnIndex: i,
 			fieldKey: i < columnDefs.length ? columnDefs[i].key : null
@@ -50,10 +39,6 @@ export function autoMapColumns(headers: string[], columnDefs: ColumnDef[], hasHe
 	return mappings;
 }
 
-/**
- * Apply column mappings to a row of raw strings.
- * Returns an object keyed by fieldKey.
- */
 export function applyMapping(row: string[], mappings: ColumnMapping[]): Record<string, string> {
 	const result: Record<string, string> = {};
 	for (const m of mappings) {
@@ -64,9 +49,6 @@ export function applyMapping(row: string[], mappings: ColumnMapping[]): Record<s
 	return result;
 }
 
-/**
- * Check that all required columns are mapped.
- */
 export function getMissingRequired(mappings: ColumnMapping[], columnDefs: ColumnDef[]): ColumnDef[] {
 	const mappedKeys = new Set(mappings.map((m) => m.fieldKey).filter((k): k is string => k !== null));
 	return columnDefs.filter((d) => d.required && !mappedKeys.has(d.key));

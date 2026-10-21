@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
+import type { StatusType } from '$features/calendar/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
@@ -252,6 +253,7 @@ describe('the Quick add entries', () => {
 	const withTrainingType: DashboardInputs = {
 		...inputs,
 		personnel: [alphaPerson, bravoPerson],
+		statusTypes: [{ id: 'st1' } as StatusType],
 		page: {
 			...inputs.page,
 			dashboard: {
@@ -324,8 +326,12 @@ describe('the Quick add entries', () => {
 		expect(labelsFor({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })).toEqual([]);
 	});
 
-	it('drops Training record until a Training type exists, and entries whose feature is off', () => {
-		expect(labelsFor({ membershipRole: 'owner' }, { ...inputs, personnel: [alphaPerson] })).toEqual([
+	it('drops Status until a status type exists, Training record until a Training type exists, and entries whose feature is off', () => {
+		expect(labelsFor({ membershipRole: 'owner' }, { ...withTrainingType, statusTypes: [] })).toEqual([
+			'Training record',
+			'Start onboarding'
+		]);
+		expect(labelsFor({ membershipRole: 'owner' }, { ...withTrainingType, page: inputs.page })).toEqual([
 			'Status',
 			'Start onboarding'
 		]);

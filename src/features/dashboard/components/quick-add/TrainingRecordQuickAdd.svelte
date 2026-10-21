@@ -29,9 +29,15 @@
 		)
 	);
 	const typeOptions = $derived(types.map((type) => ({ value: type.id, label: type.name })));
+	const selectedType = $derived(types.find((candidate) => candidate.id === typeId));
+
+	// The record editor shows nothing to save for an exemption, and lifting one belongs to the Training page.
+	function isExempt(person: Personnel, type: TrainingType) {
+		return type.canBeExempted && type.exemptPersonnelIds.includes(person.id);
+	}
 
 	async function openRecord(person: Personnel) {
-		const type = types.find((candidate) => candidate.id === typeId);
+		const type = selectedType;
 		if (!type) return;
 		const [records] = await Promise.all([loadPersonTrainingRecords(orgId, person.id), trainingRecordModal]);
 		editing = { person, type, existing: records.find((record) => record.trainingTypeId === type.id) };
@@ -50,7 +56,6 @@
 			person={editing.person}
 			trainingType={editing.type}
 			existingTraining={editing.existing}
-			isExempt={editing.type.canBeExempted && editing.type.exemptPersonnelIds.includes(editing.person.id)}
 			onSave={save}
 			{onClose}
 		/>
@@ -60,12 +65,12 @@
 		title="Add training record"
 		description="Choose the person and the training."
 		{people}
-		ready={typeId !== ''}
+		ready={(person) => selectedType !== undefined && !isExempt(person, selectedType)}
 		failureMessage="Could not load this person's training records. Try again."
 		onContinue={openRecord}
 		{onClose}
 	>
-		{#snippet children({ busy })}
+		{#snippet children({ busy, person })}
 			<Field.Root>
 				<Field.Label for="quick-add-training-type">Training</Field.Label>
 				<Combobox.Root items={typeOptions} bind:value={typeId} label="Training" autoHighlight disabled={busy}>
@@ -76,6 +81,12 @@
 						<Combobox.List />
 					</Combobox.Content>
 				</Combobox.Root>
+				{#if person && selectedType && isExempt(person, selectedType)}
+					<Field.Description>
+						{person.rank}
+						{person.lastName} is exempt from {selectedType.name}. Change exemptions on the Training page.
+					</Field.Description>
+				{/if}
 			</Field.Root>
 		{/snippet}
 	</QuickAddPersonPicker>

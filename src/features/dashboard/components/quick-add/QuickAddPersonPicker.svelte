@@ -14,17 +14,26 @@
 		description: string;
 		/** Only the people the viewer may act on. */
 		people: readonly Personnel[];
-		/** False while the extra fields are incomplete. */
-		ready?: boolean;
+		/** False while the extra fields are incomplete or do not apply to this person. */
+		ready?: (person: Personnel) => boolean;
 		/** Shown when continuing fails without a reason of its own. */
 		failureMessage: string;
 		onContinue: (person: Personnel) => void | Promise<void>;
 		onClose: () => void;
 		/** Extra fields, disabled while continuing. */
-		children?: Snippet<[{ busy: boolean }]>;
+		children?: Snippet<[{ busy: boolean; person: Personnel | undefined }]>;
 	}
 
-	let { title, description, people, ready = true, failureMessage, onContinue, onClose, children }: Props = $props();
+	let {
+		title,
+		description,
+		people,
+		ready = () => true,
+		failureMessage,
+		onContinue,
+		onClose,
+		children
+	}: Props = $props();
 
 	let personId = $state('');
 	let busy = $state(false);
@@ -40,9 +49,10 @@
 			.map((person) => ({ value: person.id, label: `${person.rank} ${person.lastName}, ${person.firstName}` }))
 	);
 	const person = $derived(people.find((candidate) => candidate.id === personId));
+	const canContinue = $derived(person !== undefined && ready(person) && !busy);
 
 	async function handleContinue() {
-		if (!person || !ready || busy) return;
+		if (!person || !canContinue) return;
 		busy = true;
 		error = null;
 		try {
@@ -81,13 +91,13 @@
 						</Combobox.Content>
 					</Combobox.Root>
 				</Field.Root>
-				{@render children?.({ busy })}
+				{@render children?.({ busy, person })}
 			</div>
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
 			<Button variant="outline" type="button" onclick={onClose} disabled={busy}>Cancel</Button>
-			<Button type="button" onclick={handleContinue} disabled={!person || !ready || busy}>
+			<Button type="button" onclick={handleContinue} disabled={!canContinue}>
 				{#if busy}<Spinner />{/if}
 				Continue
 			</Button>

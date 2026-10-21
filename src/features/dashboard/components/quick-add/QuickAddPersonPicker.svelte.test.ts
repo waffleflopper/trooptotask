@@ -11,7 +11,10 @@ const people = [
 	{ id: 'p-brooks', rank: 'SPC', lastName: 'Brooks', firstName: 'Avery' }
 ] as Personnel[];
 
-function renderPicker(onContinue: (person: Personnel) => void | Promise<void>, ready = true) {
+function renderPicker(
+	onContinue: (person: Personnel) => void | Promise<void>,
+	ready: (person: Personnel) => boolean = () => true
+) {
 	return render(QuickAddPersonPicker, {
 		props: {
 			title: 'Add status',
@@ -54,12 +57,18 @@ describe('QuickAddPersonPicker', () => {
 		expect(options.map((option) => option.textContent?.trim())).toEqual(['SPC Brooks, Avery', 'SGT Chen, Maya']);
 	});
 
-	it('keeps Continue off until the extra fields are ready', async () => {
-		renderPicker(vi.fn(), false);
+	it('keeps Continue off for a person the extra fields do not apply to', async () => {
+		renderPicker(vi.fn(), (person) => person.id !== 'p-chen');
+		const continueButton = screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement;
 		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
 		await fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'SGT Chen, Maya' }));
+		expect(continueButton.disabled).toBe(true);
 
-		expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+		await fireEvent.click(
+			within(await screen.findByRole('listbox')).getByRole('option', { name: 'SPC Brooks, Avery' })
+		);
+		await waitFor(() => expect(continueButton.disabled).toBe(false));
 	});
 
 	it('shows a failed continue inline and lets the viewer try again', async () => {

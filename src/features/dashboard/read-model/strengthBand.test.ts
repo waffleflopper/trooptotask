@@ -106,6 +106,15 @@ describe('forecast headline (frame 03)', () => {
 		});
 	});
 
+	it('B: says today when today is the lowest day', () => {
+		const result = band({ availability: away(ids(1, 4), 'tdy', '2026-10-19', '2026-10-19') });
+
+		expect(headlineOf(result)).toEqual({
+			headline: { kind: 'above', min: 18, max: 22, lowest: '2026-10-19' },
+			text: '18 to 22 available, lowest today'
+		});
+	});
+
 	it('C: calls a fortnight that moves by one person or less steady', () => {
 		const result = band({
 			availability: [

@@ -234,7 +234,7 @@ export function formatForecastHeadline(headline: ForecastHeadline, today: string
 				? `Steady: ${headline.min} available every day`
 				: `Steady: ${headline.min} to ${headline.max} available every day`;
 		case 'above':
-			return `${headline.min} to ${headline.max} available, lowest ${longDay(headline.lowest)}`;
+			return `${headline.min} to ${headline.max} available, lowest ${headline.lowest === today ? 'today' : longDay(headline.lowest)}`;
 	}
 }
 

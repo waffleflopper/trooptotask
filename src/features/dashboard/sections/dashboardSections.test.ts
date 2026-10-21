@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseDisabledFeatures } from '$lib/access/featureSwitches';
+import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
+import type { TrainingType } from '$features/training/contracts';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -104,6 +105,7 @@ const access: DashboardAccess = {
 };
 const component: DashboardBlock['component'] = () => ({});
 const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
+const icon: QuickAddEntry['icon'] = () => ({});
 
 describe('composeDashboardSections', () => {
 	it('interleaves On duty blocks across sections and omits unavailable parts', () => {
@@ -165,7 +167,7 @@ describe('composeDashboardSections', () => {
 	it('orders usable Quick add entries across sections after filtering by loaded data and access', () => {
 		const sections = [
 			dashboardSection('onboarding', {
-				quickAdd: [{ id: 'onboarding', label: 'Start onboarding', order: 30, loadDialog }]
+				quickAdd: [{ id: 'onboarding', label: 'Start onboarding', order: 30, loadDialog, icon }]
 			}),
 			dashboardSection('training', {
 				quickAdd: [
@@ -174,6 +176,7 @@ describe('composeDashboardSections', () => {
 						label: 'Training record',
 						order: 20,
 						loadDialog,
+						icon,
 						available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.training.recordCompletions)
 					}
 				]
@@ -185,6 +188,7 @@ describe('composeDashboardSections', () => {
 						label: 'Status',
 						order: 10,
 						loadDialog,
+						icon,
 						available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
 					},
 					{
@@ -192,6 +196,7 @@ describe('composeDashboardSections', () => {
 						label: 'Assign duty',
 						order: 0,
 						loadDialog,
+						icon,
 						available: (loaded) => loaded.assignmentTypes.length > 0
 					}
 				]
@@ -234,5 +239,52 @@ describe('createDashboardAccess', () => {
 
 		expect(access.can(manageAvailability)).toBe(false);
 		expect(access.can(manageAvailability, personnelResource({ groupId: null }))).toBe(false);
+	});
+});
+
+describe('the Quick add entries', () => {
+	const withTrainingType: DashboardInputs = {
+		...inputs,
+		page: {
+			...inputs.page,
+			dashboard: {
+				...inputs.page.dashboard,
+				data: { ...inputs.page.dashboard.data, trainingTypes: [{ id: 'tt1' } as TrainingType] }
+			}
+		}
+	};
+
+	function labelsFor(
+		viewer: Parameters<typeof createClientAccess>[0],
+		loaded = withTrainingType,
+		disabled = [] as FeatureKey[]
+	) {
+		const access = createDashboardAccess(createClientAccess(viewer));
+		return composeDashboardSections(DASHBOARD_SECTIONS, loaded, disabled, access).quickAdd.map((entry) => entry.label);
+	}
+
+	it('offers an owner Status, then Training record, then Start onboarding', () => {
+		expect(labelsFor({ membershipRole: 'owner' })).toEqual(['Status', 'Training record', 'Start onboarding']);
+	});
+
+	it('offers each lane operator only their own entry, including a Group-scoped one', () => {
+		const member = (lane: 'calendar' | 'training' | 'onboarding') => ({
+			membershipRole: 'member' as const,
+			capabilityMap: { ...createCapabilityMap('view'), [lane]: 'operate' as const },
+			scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] }
+		});
+
+		expect(labelsFor(member('calendar'))).toEqual(['Status']);
+		expect(labelsFor(member('training'))).toEqual(['Training record']);
+		expect(labelsFor(member('onboarding'))).toEqual(['Start onboarding']);
+	});
+
+	it('offers a Dashboard viewer nothing', () => {
+		expect(labelsFor({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })).toEqual([]);
+	});
+
+	it('drops Training record until a Training type exists, and entries whose feature is off', () => {
+		expect(labelsFor({ membershipRole: 'owner' }, inputs)).toEqual(['Status', 'Start onboarding']);
+		expect(labelsFor({ membershipRole: 'owner' }, withTrainingType, ['training', 'onboarding'])).toEqual(['Status']);
 	});
 });

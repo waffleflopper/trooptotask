@@ -58,6 +58,7 @@ export interface QuickAddDialogProps {
 export interface QuickAddEntry {
 	id: string;
 	label: string;
+	icon: Component;
 	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding. */
 	order: number;
 	/** Loaded on first open, so the dialogs stay out of the page's first load. */

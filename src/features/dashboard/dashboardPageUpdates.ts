@@ -8,8 +8,8 @@ export type DashboardRecordChange = { list: 'activeOnboardings'; record: Personn
 export interface DashboardPageUpdates {
 	/** Rereads the server summary in the background; the page keeps its last values until the read lands, and keeps them if it fails. */
 	refreshSummary(): void;
-	/** Shows a saved record in its list until the page data is next read from the server. */
-	putRecord(change: DashboardRecordChange): void;
+	/** Shows a record saved in the Organization in its list until the page data is next read; ignored once the page has moved to another Organization. */
+	putRecord(orgId: string, change: DashboardRecordChange): void;
 }
 
 /** Records saved on top of one workspace read; a newer read already includes them, so the overlay drops. */

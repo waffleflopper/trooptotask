@@ -26,6 +26,7 @@ export type {
 	CalendarPageAccess
 } from './contexts/CalendarPageContext.svelte';
 export { saveAvailabilityChange, type AvailabilityOutcome } from './availabilitySave';
+export type { AvailabilityChange } from './utils/availabilityMutation';
 
 /** The status editor, loaded on first open. */
 export function loadAvailabilityModal() {

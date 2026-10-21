@@ -139,8 +139,9 @@
 	const access = createDashboardAccess(shellUI);
 	const updates: DashboardPageUpdates = {
 		refreshSummary: () => void invalidate(DASHBOARD_SUMMARY_DEPENDENCY),
-		putRecord: (change) => {
-			if (dashboardBootstrap) recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change);
+		putRecord: (savedIn, change) => {
+			if (dashboardBootstrap && savedIn === orgId)
+				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change);
 		}
 	};
 

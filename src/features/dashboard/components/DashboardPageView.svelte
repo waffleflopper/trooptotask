@@ -61,6 +61,7 @@
 		<span id="dashboard-quick-add" class="pr-1.5 {EYEBROW}">Quick add</span>
 		{#each quickAdd as entry, index (entry.id)}
 			<Button variant={index === quickAdd.length - 1 ? 'default' : 'outline'} onclick={() => (openQuickAdd = entry)}>
+				<entry.icon data-icon="inline-start" aria-hidden="true" />
 				{entry.label}
 			</Button>
 		{/each}

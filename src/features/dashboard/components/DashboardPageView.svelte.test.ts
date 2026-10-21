@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import DashboardPageView from './DashboardPageView.svelte';
@@ -299,12 +299,14 @@ describe('Dashboard frame', () => {
 
 	it('shows ordered usable Quick add entries and hides the label when none are usable', async () => {
 		const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
+		const icon: QuickAddEntry['icon'] = () => ({});
 		const quickAdd: QuickAddEntry[] = [
 			{
 				id: 'training',
 				label: 'Training',
 				order: 20,
 				loadDialog,
+				icon,
 				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.training.recordCompletions)
 			},
 			{
@@ -312,6 +314,7 @@ describe('Dashboard frame', () => {
 				label: 'Status',
 				order: 10,
 				loadDialog,
+				icon,
 				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
 			}
 		];
@@ -338,6 +341,23 @@ describe('Dashboard frame', () => {
 		await view.rerender({ ...props, access: { ...access, can: () => false } });
 		expect(screen.getByText('/ 10')).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Quick add' })).toBeNull();
+	});
+	it('opens the chosen entry in its own dialog, loaded on first open, and closes it', async () => {
+		const loadDialog = vi.fn(() => import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [{ id: 'status', label: 'Status', icon, order: 10, loadDialog }];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+		expect(loadDialog).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await fireEvent.click(
+			within(await screen.findByRole('dialog', { name: 'Quick add for Test Unit' })).getByRole('button', {
+				name: 'Done'
+			})
+		);
+		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 });
 

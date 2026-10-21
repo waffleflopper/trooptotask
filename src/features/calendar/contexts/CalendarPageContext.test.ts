@@ -16,8 +16,6 @@ import { groupsStore } from '$features/personnel';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import { buildRequestError, endOrganizationLifetime } from '$lib/stores/core';
-import { settles } from '$lib/test-support/settles';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({

@@ -2,7 +2,7 @@ import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 /**
  * One field's draft against its saved value. The draft follows the saved value until the user edits it.
- * An edit made while a save is in flight is kept when that save lands.
+ * An edit made while a save is in flight is kept when that save lands, even one back to the value saved before it.
  */
 export class FieldDraft<T> {
 	#source: () => T;
@@ -20,7 +20,7 @@ export class FieldDraft<T> {
 	}
 
 	set value(next: T) {
-		this.#edit = Object.is(next, this.saved) ? null : { value: next };
+		this.#edit = !this.#save.pending && Object.is(next, this.saved) ? null : { value: next };
 	}
 
 	get changed(): boolean {

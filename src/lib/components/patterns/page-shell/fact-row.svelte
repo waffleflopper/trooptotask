@@ -4,32 +4,46 @@
 	import { Label } from '$lib/components/ui/label';
 	import { cn } from '$lib/utils.js';
 
-	type Props = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
+	type Shared = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
 		label: string;
-		/** `display` sets the label in large condensed type over its `description`, for an editorial settings row. */
-		variant?: 'default' | 'display';
-		/** One sentence under a `display` label on what the row controls or what changing it does. */
-		description?: string;
-		/** A `display` row's mono lane for what the row holds, between the label and the control. */
-		holds?: Snippet;
-		/** A `display` row's control lane on the right, such as a switch or the saved state of a field. */
-		control?: Snippet;
-		/** Mutes a `display` label, for something that is switched off. */
-		muted?: boolean;
-		/** A `display` row's full-width area under its lanes, such as a field with its live sentence. */
-		details?: Snippet;
 		/** The id of the control the label names, so the row reads as a form field. */
 		labelFor?: string;
+		/** Marks a field whose draft differs from the saved record. */
+		changed?: boolean;
+	};
+	type Value = {
 		/** A plain value; an empty one reads "Not set". Pass children for anything richer. */
 		value?: string | null;
 		mono?: boolean;
-		/** Marks a field whose draft differs from the saved record. */
-		changed?: boolean;
 		hint?: string;
 		error?: string;
-		/** The value lane of a two-column row; a row with `holds` or `control` uses its lanes instead. */
+		/** The value lane of a two-column row. */
 		children?: Snippet;
 	};
+	type NoValue = { [K in keyof Value]?: never };
+	type NoLanes = { holds?: never; control?: never; details?: never };
+	type Display = {
+		/** `display` sets the label in large condensed type over its `description`, for an editorial settings row. */
+		variant: 'display';
+		/** One sentence under the label on what the row controls or what changing it does. */
+		description?: string;
+		/** Mutes the label, for something that is switched off. */
+		muted?: boolean;
+	};
+
+	type Props =
+		| (Shared & Value & NoLanes & { variant?: 'default'; description?: never; muted?: never })
+		| (Shared & Value & NoLanes & Display)
+		| (Shared &
+				NoValue &
+				Display & {
+					/** The mono lane for what the row holds, between the label and the control. */
+					holds?: Snippet;
+					/** The control lane on the right, such as a switch or the saved state of a field. */
+					control?: Snippet;
+					/** A full-width area under the lanes, such as a field with its live sentence. */
+					details?: Snippet;
+				});
 
 	let {
 		label,
@@ -50,7 +64,7 @@
 		...restProps
 	}: Props = $props();
 
-	const lanes = $derived(variant === 'display' && (holds !== undefined || control !== undefined));
+	const lanes = $derived(holds !== undefined || control !== undefined || details !== undefined);
 </script>
 
 {#snippet labelText()}

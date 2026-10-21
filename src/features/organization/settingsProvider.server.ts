@@ -186,22 +186,24 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 }
 
 export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClient): OrganizationPolicyWritePort {
+	async function findFeatureSettings(orgId: string) {
+		const { data, error } = await supabase
+			.from('organizations')
+			.select('disabled_features, strength_floor_percent')
+			.eq('id', orgId)
+			.maybeSingle();
+		if (error) throw new Error(error.message);
+		return data
+			? {
+					disabledFeatures: parseDisabledFeatures(data.disabled_features),
+					strengthFloorPercent: data.strength_floor_percent,
+					storedDisabledFeatures: data.disabled_features
+				}
+			: null;
+	}
+
 	return {
-		async findFeatureSettings(orgId) {
-			const { data, error } = await supabase
-				.from('organizations')
-				.select('disabled_features, strength_floor_percent')
-				.eq('id', orgId)
-				.maybeSingle();
-			if (error) throw new Error(error.message);
-			return data
-				? {
-						disabledFeatures: parseDisabledFeatures(data.disabled_features),
-						strengthFloorPercent: data.strength_floor_percent,
-						storedDisabledFeatures: data.disabled_features
-					}
-				: null;
-		},
+		findFeatureSettings,
 		async updatePolicies(orgId, changes, ifDisabledFeatures) {
 			const updates = toOrganizationPolicyColumns(changes);
 			let write = supabase.from('organizations').update(updates).eq('id', orgId);
@@ -209,8 +211,12 @@ export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClie
 			const { data, error } = await write
 				.select(['id', ...Object.keys(updates)].join(', '))
 				.single<{ id: string; [field: string]: unknown }>();
-			// PGRST116 is the zero-row answer; under the switch guard it means another write changed them first.
-			if (ifDisabledFeatures && error?.code === 'PGRST116') return { status: 'stale' };
+			// A zero-row update under the guard is a concurrent change only when the stored switches differ now;
+			// otherwise the row refused the write and retrying would only repeat it.
+			if (ifDisabledFeatures && error?.code === 'PGRST116') {
+				const current = await findFeatureSettings(orgId);
+				if (current && !isSameValue(current.storedDisabledFeatures, ifDisabledFeatures)) return { status: 'stale' };
+			}
 			if (error) return { status: 'failed', message: error.message || 'Organization settings update failed' };
 			return data?.id === orgId && Object.entries(updates).every(([field, value]) => isSameValue(data[field], value))
 				? { status: 'saved' }
@@ -236,8 +242,8 @@ export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges):
 	return updates;
 }
 
-function isSameValue(saved: unknown, sent: number | string[]): boolean {
-	if (!Array.isArray(sent)) return saved === sent;
+function isSameValue(saved: unknown, sent: number | readonly string[]): boolean {
+	if (typeof sent === 'number') return saved === sent;
 	return Array.isArray(saved) && saved.length === sent.length && sent.every((item, index) => saved[index] === item);
 }
 

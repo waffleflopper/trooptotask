@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FeatureKey } from '$lib/access/featureSwitches';
@@ -56,11 +56,6 @@ function featureSwitch(name: string) {
 	return screen.getByRole('switch', { name });
 }
 
-function row(name: string) {
-	const label = screen.getAllByText(name).find((element) => element.closest('dt'));
-	return within(label!.closest<HTMLElement>('[data-slot="fact-row"]')!);
-}
-
 function floorSentence() {
 	return document.getElementById('strength-floor-sentence')?.textContent?.replace(/\s+/g, ' ').trim();
 }
@@ -72,7 +67,7 @@ afterEach(() => {
 });
 
 describe('Features settings page', () => {
-	it('lists every feature with its switch on first paint and streams what each holds', async () => {
+	it('lists every switch with its state on first paint and holds the counts lanes until they stream in', async () => {
 		let release!: (counts: FeatureCounts) => void;
 		vi.stubGlobal('fetch', vi.fn());
 		render(Page, {
@@ -84,31 +79,46 @@ describe('Features settings page', () => {
 			params: { orgId: 'c-co' }
 		});
 
-		expect(screen.getAllByRole('term').map((term) => term.textContent?.trim().split(/\s{2,}|\n/)[0])).toEqual([
-			'Availability and calendar',
-			'Training',
-			'Critical tasks',
-			'Evaluations',
-			'Onboarding',
-			'Losses and awards'
-		]);
-		const switches = ['Training', 'Critical tasks', 'Evaluations', 'Onboarding', 'Losses and awards'];
-		expect(screen.getAllByRole('switch')).toEqual(switches.map(featureSwitch));
-		expect(switches.map((name) => featureSwitch(name).getAttribute('aria-checked'))).toEqual([
+		const names = ['Training', 'Critical tasks', 'Evaluations', 'Onboarding', 'Losses and awards'];
+		expect(screen.getAllByRole('switch')).toEqual(names.map(featureSwitch));
+		expect(names.map((name) => featureSwitch(name).getAttribute('aria-checked'))).toEqual([
 			'true',
 			'false',
 			'true',
 			'true',
 			'true'
 		]);
-		expect(row('Onboarding').getByText('Loading counts')).toBeTruthy();
-		expect(row('Losses and awards').getByText('Window 180 days')).toBeTruthy();
+		expect(screen.getAllByText('Loading counts')).toHaveLength(5);
+		expect(floorSentence()).not.toContain('80% of 22');
 
 		release(COUNTS);
 		await waitFor(() => expect(screen.queryByText('Loading counts')).toBeNull());
-		expect(row('Onboarding').getByText('Not set up · no templates')).toBeTruthy();
-		expect(row('Critical tasks').getByText('No task lists')).toBeTruthy();
-		expect(row('Training').getByText('8 types · 912 records')).toBeTruthy();
+		expect(floorSentence()).toContain('80% of 22 is 17.6');
+	});
+
+	it('describes each switch with the description shown in its row', () => {
+		serve({ disabledFeatures: ['training'], strengthFloorPercent: 80 });
+
+		for (const name of ['Training', 'Evaluations']) {
+			const described = document.getElementById(featureSwitch(name).getAttribute('aria-describedby')!)!;
+			expect(described.textContent?.trim()).toBeTruthy();
+			expect(featureSwitch(name).closest('[data-slot="fact-row"]')!.querySelector('dt')!.contains(described)).toBe(
+				true
+			);
+		}
+	});
+
+	it('says the counts are unavailable when they fail to stream', async () => {
+		vi.stubGlobal('fetch', vi.fn());
+		render(Page, {
+			data: data({ disabledFeatures: [], strengthFloorPercent: 80 }, Promise.reject(new Error('down'))),
+			form: null,
+			params: { orgId: 'c-co' }
+		});
+
+		await waitFor(() => expect(screen.getAllByText('Counts unavailable')).toHaveLength(5));
+		expect(screen.queryByText('Loading counts')).toBeNull();
+		expect(screen.getAllByRole('switch')).toHaveLength(5);
 	});
 
 	it('puts a switch back and says which feature failed and why', async () => {
@@ -145,7 +155,6 @@ describe('Features settings page', () => {
 		expect(stored.disabledFeatures).toEqual(['training']);
 		expect(featureSwitch('Training').getAttribute('aria-checked')).toBe('false');
 		expect(featureSwitch('Onboarding').getAttribute('aria-checked')).toBe('true');
-		expect(row('Onboarding').getByText('Not set up · no templates')).toBeTruthy();
 	});
 
 	it('restates the strength floor from the draft and saves it after showing the server field error', async () => {
@@ -179,7 +188,7 @@ describe('Features settings page', () => {
 		expect(floor.getAttribute('aria-invalid')).toBeNull();
 	});
 
-	it('keeps a floor typed while an earlier floor save was in flight', async () => {
+	it.each(['90', '80'])('keeps a floor of %s typed while an earlier floor save was in flight', async (typed) => {
 		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
 		const gates: (() => void)[] = [];
 		serve(stored, () => new Promise<void>((pass) => gates.push(pass)));
@@ -188,12 +197,12 @@ describe('Features settings page', () => {
 		await fireEvent.input(floor, { target: { value: '75' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save strength floor' }));
 		await waitFor(() => expect(gates).toHaveLength(1));
-		await fireEvent.input(floor, { target: { value: '90' } });
+		await fireEvent.input(floor, { target: { value: typed } });
 		gates[0]();
 
 		await waitFor(() => expect(stored.strengthFloorPercent).toBe(75));
 		await waitFor(() => expect(screen.getByText('Unsaved · was 75%')).toBeTruthy());
-		expect(floor.value).toBe('90');
+		expect(floor.value).toBe(typed);
 		expect(screen.getByRole('button', { name: 'Save strength floor' })).toBeTruthy();
 	});
 

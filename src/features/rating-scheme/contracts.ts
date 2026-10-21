@@ -51,6 +51,12 @@ export interface RatingSchemeWorkspaceData {
 	ratingSchemeEntries: RatingSchemeEntry[];
 }
 
+/** One entry with the roster references its editor offers. */
+export interface RatingSchemeEntryEditorData {
+	entry: RatingSchemeEntry;
+	personnelLookup: PersonnelLookup[];
+}
+
 export interface SavedRatingSchemeEntry extends RatingSchemeEntry {
 	readonly organization_id: string;
 	readonly created_at: string;

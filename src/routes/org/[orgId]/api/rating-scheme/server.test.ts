@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _deleteConfig, _postConfig, _putConfig } from './+server';
+import { _deleteConfig, _getConfig, _postConfig, _putConfig } from './+server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
 const OTHER_GROUP_PERSON = '00000000-0000-4000-8000-0000000000a2';
@@ -143,5 +143,60 @@ describe('POST /api/rating-scheme', () => {
 			requiresApproval: true
 		});
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
+	});
+});
+
+describe('GET /api/rating-scheme', () => {
+	function seededContext(capability: 'view' | 'none') {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: capability
+				}
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: RATED_PERSON, organization_id: ctx.auth.orgId, rank: 'SGT', last_name: 'Smith', first_name: 'John' }
+		]);
+		ctx.store.seed('rating_scheme_entries', [
+			{
+				id: '00000000-0000-4000-8000-0000000000e1',
+				organization_id: ctx.auth.orgId,
+				rated_person_id: RATED_PERSON,
+				eval_type: 'NCOER',
+				rating_period_start: '2025-07-01',
+				rating_period_end: '2026-06-30',
+				status: 'active'
+			}
+		]);
+		return ctx;
+	}
+	const read = (ctx: ReturnType<typeof seededContext>, entry: string) =>
+		handleUseCaseRequest(_getConfig, ctx, { entry }, () => ctx);
+
+	it('returns one entry with the roster references its editor offers', async () => {
+		const result = await read(seededContext('view'), '00000000-0000-4000-8000-0000000000e1');
+		expect(result).toMatchObject({
+			entry: { id: '00000000-0000-4000-8000-0000000000e1', ratedPersonId: RATED_PERSON, evalType: 'NCOER' },
+			personnelLookup: [{ id: RATED_PERSON, rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
+		});
+	});
+
+	it('answers 400 for a malformed id, 404 for a missing entry and 403 without Rating Scheme access', async () => {
+		await expect(read(seededContext('view'), 'abc')).rejects.toMatchObject({ status: 400, message: 'Invalid ID' });
+		await expect(read(seededContext('view'), '00000000-0000-4000-8000-0000000000e2')).rejects.toMatchObject({
+			status: 404,
+			message: 'Rating Scheme entry not found'
+		});
+		await expect(read(seededContext('none'), '00000000-0000-4000-8000-0000000000e1')).rejects.toMatchObject({
+			status: 403
+		});
 	});
 });

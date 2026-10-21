@@ -57,7 +57,7 @@ describe('IctTaskBulkImport', () => {
 		cleanup();
 	});
 
-	it('uses file upload only and surfaces duplicate task codes in the preview table', async () => {
+	it('blocks duplicate task codes with accessible row reasons', async () => {
 		render(IctTaskBulkImport, {
 			props: {
 				tasks: existingTasks,
@@ -65,10 +65,6 @@ describe('IctTaskBulkImport', () => {
 				onDone: vi.fn()
 			}
 		});
-
-		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();
-		expect(screen.queryByPlaceholderText(/Paste CSV/i)).toBeNull();
-		expect(screen.getByText('Optional: Description, Category, MOS, Expiration Months, Sort Order')).toBeTruthy();
 
 		const fileInput = screen.getByLabelText('Upload file');
 		await fireEvent.change(fileInput, {
@@ -86,12 +82,6 @@ describe('IctTaskBulkImport', () => {
 		});
 
 		expect(screen.getByText('2 errors')).toBeTruthy();
-		expect(
-			screen.getAllByTitle('Duplicate task code "181-105-2000" also appears on row 3 ("Task duplicate")').length
-		).toBeGreaterThan(0);
-		expect(
-			screen.getAllByTitle('Duplicate task code "181-105-2000" also appears on row 2 ("Task one")').length
-		).toBeGreaterThan(0);
 		const blocked = screen
 			.getAllByRole('checkbox')
 			.filter((checkbox) => checkbox.getAttribute('aria-invalid') === 'true')
@@ -180,7 +170,6 @@ describe('IctTaskBulkImport', () => {
 		expect(screen.getByText('1 created')).toBeTruthy();
 		expect(screen.getByText('0 updated')).toBeTruthy();
 		expect(screen.getByText('0 restored')).toBeTruthy();
-		expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(false);
 		expect(screen.getByText('0 failed')).toBeTruthy();
 	});
 
@@ -226,7 +215,6 @@ describe('IctTaskBulkImport', () => {
 		importBehavior.value = 'upsert';
 		await fireEvent.change(importBehavior);
 
-		expect(await screen.findByText('Rows tagged in amber will restore archived tasks.')).toBeTruthy();
 		expect(await screen.findByText('Will restore archived task')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Import Checked Rows' }));

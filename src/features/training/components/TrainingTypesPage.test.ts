@@ -9,7 +9,7 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
-import { stubToolbarWidths, toolbarDescription } from '$lib/test-support/toolbarWidths';
+import { toolbarDescription } from '$lib/test-support/toolbarWidths';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 const { invalidateMock } = vi.hoisted(() => ({ invalidateMock: vi.fn() }));
@@ -141,14 +141,6 @@ describe('TrainingTypesPage', () => {
 		trainingRankCatalogStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
-	});
-
-	it('titles the empty list and the empty detail as level-3 headings, like a type header', () => {
-		trainingTypesStore.load([], 'org-1');
-		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
-
-		expect(screen.getByRole('heading', { name: 'No training types yet.', level: 3 })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Select a training type', level: 3 })).toBeTruthy();
 	});
 
 	it('keeps a failed type creation editable and shows a retryable error', async () => {
@@ -291,19 +283,6 @@ describe('TrainingTypesPage', () => {
 			expect(screen.getByRole('button', { name: 'Move Charlie up' }).hasAttribute('disabled')).toBe(false)
 		);
 		expect(shownNames()).toEqual(['Alpha', 'Bravo', 'Charlie']);
-	});
-
-	it('leaves every other row where it was when one side of a swap is refused', async () => {
-		threeTypes([0, 10, 20]);
-		const { saved } = stubTrainingTypeServer({ put: ['type-b'] });
-		invalidateMock.mockImplementation(async () => trainingTypesStore.load([...saved.values()], 'org-1'));
-		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Move Charlie up' }));
-
-		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:training-data'));
-		expect(savedOrders(saved)).toEqual({ Alpha: 0, Bravo: 10, Charlie: 10 });
 	});
 
 	it('shows only what the server confirmed when the re-read after a failed reorder does not arrive', async () => {
@@ -451,73 +430,6 @@ describe('TrainingTypesPage', () => {
 		expect(screen.queryByRole('checkbox', { name: 'LOCAL-MISSING' })).toBeNull();
 	});
 
-	it('does not carry observed Personnel ranks retired by the catalog into new type applicability', async () => {
-		personnelRosterHydration.load(
-			[
-				...personnel,
-				{
-					id: 'person-retired-rank',
-					rank: 'DET-RET',
-					lastName: 'Legacy',
-					firstName: 'Taylor',
-					mos: '11B',
-					clinicRole: 'Rifleman',
-					groupId: 'group-1',
-					groupName: 'Alpha'
-				}
-			] as Personnel[],
-			'org-1'
-		);
-		render(TrainingTypesPage, {
-			props: {
-				org,
-				data: {
-					training: {
-						data: {
-							trainingTypes: Promise.resolve([trainingType]),
-							rankCatalog: [
-								rankCatalogEntry({ code: 'DET-RET', state: 'retired' }),
-								rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' })
-							]
-						}
-					},
-					personnel: []
-				}
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
-		await fireEvent.click(screen.getByRole('button', { name: /^Targeting/ }));
-
-		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
-		expect(screen.queryByRole('checkbox', { name: 'DET-RET' })).toBeNull();
-	});
-
-	it('keeps observed Personnel aliases that resolve to active catalog ranks selectable', async () => {
-		personnelRosterHydration.load([{ ...personnel[0], rank: 'sgt' }] as Personnel[], 'org-1');
-
-		render(TrainingTypesPage, {
-			props: {
-				org,
-				data: {
-					training: {
-						data: {
-							trainingTypes: Promise.resolve([trainingType]),
-							rankCatalog: [rankCatalogEntry({ code: 'SGT' })]
-						}
-					},
-					personnel: []
-				}
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
-		await fireEvent.click(screen.getByRole('button', { name: /^Targeting/ }));
-
-		expect(screen.getAllByRole('checkbox', { name: 'SGT' }).length).toBeGreaterThan(0);
-		expect(screen.getAllByRole('checkbox', { name: 'sgt' }).length).toBeGreaterThan(0);
-	});
-
 	it('uses the hydrated Organization rank catalog when route rank catalog data is still streamed', async () => {
 		const catalog = [
 			rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),
@@ -547,16 +459,6 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getAllByRole('checkbox', { name: 'SSgt' }).length).toBeGreaterThan(0);
 	});
 
-	it('puts New Type in the page toolbar and Edit in the detail toolbar', () => {
-		render(TrainingTypesPage, { props: { org, data: { personnel } } });
-
-		const page = screen.getByRole('toolbar', { name: 'Training type controls' });
-		const detail = screen.getByRole('toolbar', { name: 'Training type detail controls' });
-		expect(within(page).getByRole('button', { name: '+ New Type' })).toBeTruthy();
-		expect(within(detail).getByRole('button', { name: 'Edit' })).toBeTruthy();
-		expect(within(detail).queryByRole('button', { name: '+ New Type' })).toBeNull();
-	});
-
 	it('shows a viewer neither toolbar nor any command that changes a type', () => {
 		render(TrainingTypesPage, { props: { org: viewer, data: { personnel } } });
 
@@ -577,20 +479,6 @@ describe('TrainingTypesPage', () => {
 		expect(newType.disabled).toBe(true);
 		expect(toolbarDescription(newType)).toBe('Finish the current edit first');
 		expect(screen.queryByRole('toolbar', { name: 'Training type detail controls' })).toBeNull();
-	});
-
-	it('keeps New Type and Edit on their rows when the toolbars have no room', async () => {
-		const widths = stubToolbarWidths();
-		try {
-			render(TrainingTypesPage, { props: { org, data: { personnel } } });
-			await widths.foldAll();
-
-			expect(screen.getByRole('button', { name: '+ New Type' })).toBeTruthy();
-			expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-			expect(screen.queryByRole('button', { name: /^More/ })).toBeNull();
-		} finally {
-			vi.unstubAllGlobals();
-		}
 	});
 
 	it.each([

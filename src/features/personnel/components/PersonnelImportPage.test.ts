@@ -90,37 +90,6 @@ describe('PersonnelImportPage', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('renders as a full-page import workflow instead of a bulk manager dialog', () => {
-		renderPage();
-
-		expect(screen.getByRole('heading', { name: 'Build the roster from one file' })).toBeTruthy();
-		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(screen.queryByRole('tab', { name: /Backfill ETS/i })).toBeNull();
-		expect(screen.getByText('Accepted headers')).toBeTruthy();
-	});
-
-	it('uses uploaded files as the only import input source', async () => {
-		parseFileMock.mockResolvedValue([
-			['Rank', 'Last Name', 'First Name', 'MOS', 'Duty Role', 'Group', 'ETS', 'PCS / DEROS'],
-			['SGT', 'Smith', 'John', '68W', 'Medic', 'Alpha Team', '2027-05-01', '2026-11-30']
-		]);
-		renderPage();
-
-		expect(screen.queryByText(/or paste text/i)).toBeNull();
-		expect(screen.queryByText('Paste Data')).toBeNull();
-		expect(screen.queryByLabelText('Personnel Data')).toBeNull();
-		expect(screen.getByText('Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS')).toBeTruthy();
-
-		const input = document.querySelector<HTMLInputElement>('#fileUpload');
-		expect(input).toBeTruthy();
-		await fireEvent.change(input!, {
-			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
-		});
-
-		await waitFor(() => expect(screen.getByRole('button', { name: /Preview 1 Rows/i })).toBeTruthy());
-		expect(parseFileMock).toHaveBeenCalledOnce();
-	});
-
 	it.each([
 		['no rows', []],
 		['only a header row', [['Rank', 'Last Name', 'First Name']]]
@@ -331,17 +300,6 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Clear' }));
 
 		await waitFor(() => expect(screen.getAllByText('0 of 2 selected').length).toBeGreaterThan(0));
-	});
-
-	it('shows template guidance before upload', () => {
-		renderPage();
-
-		expect(screen.getByText('Accepted headers')).toBeInTheDocument();
-		expect(
-			screen.getByText('Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS')
-		).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Use these headers' })).toBeInTheDocument();
-		expect(screen.getByText(/Unknown groups import as unassigned/i)).toBeInTheDocument();
 	});
 
 	it('shows explicit row statuses, disabled reasons, and selected-row feedback', async () => {

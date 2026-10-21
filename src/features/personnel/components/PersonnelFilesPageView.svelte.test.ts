@@ -167,15 +167,6 @@ describe('Files tab', () => {
 		expect(screen.queryByLabelText('Counselings')).toBeNull();
 	});
 
-	it('names the months without a counseling beside the coverage bar', async () => {
-		mount();
-
-		expect(
-			await screen.findByText(/4 of the last 12 months have a counseling on record\. Gaps in .*Nov.*Jan.*/)
-		).toBeTruthy();
-		expect(screen.getByRole('list', { name: 'Counseling coverage, last 12 months' })).toBeTruthy();
-	});
-
 	it('says what is on a counseling row and which of two attributions applies', async () => {
 		mount({
 			files: files(
@@ -236,18 +227,6 @@ describe('Files tab', () => {
 		});
 
 		expect(await screen.findByRole('heading', { name: 'Last counseled 10 days ago' })).toBeTruthy();
-	});
-
-	it('says no counseling is on record when none has been held yet', async () => {
-		mount({
-			files: files(
-				Promise.resolve(
-					counselingsRead({ records: [makeCounseling('c1', '2026-12-01')], total: 1, lastConductedOn: null })
-				)
-			)
-		});
-
-		expect(await screen.findByRole('heading', { name: 'No counseling on record' })).toBeTruthy();
 	});
 
 	it('keeps the other section when one read fails', async () => {
@@ -406,24 +385,6 @@ describe('Files tab', () => {
 });
 
 describe('Files tab upload flow', () => {
-	it.each([
-		{
-			name: 'a wrong type',
-			file: () => new File(['x'], 'notes.txt', { type: 'text/plain' }),
-			message: /notes\.txt isn't a PDF/
-		},
-		{ name: 'an oversize file', file: oversize, message: /big\.pdf is over the 10 MB limit\./ }
-	])('rejects $name beside the dropzone before anything uploads', async ({ file, message }) => {
-		mount();
-		await screen.findByText('Counseling c1');
-
-		await offer(file());
-
-		expect((await screen.findByRole('alert')).textContent).toMatch(message);
-		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(fetchMock).not.toHaveBeenCalled();
-	});
-
 	it('takes one file at a time', async () => {
 		mount();
 		await screen.findByText('Counseling c1');

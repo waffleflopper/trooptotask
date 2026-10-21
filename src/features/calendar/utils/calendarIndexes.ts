@@ -18,3 +18,15 @@ export function indexAssignmentsBySlot(assignments: readonly DailyAssignment[]):
 	}
 	return bySlot;
 }
+
+export function duplicateAssignmentSlot<T extends { readonly date: string; readonly assignmentTypeId: string }>(
+	assignments: readonly T[]
+): T | null {
+	const seen = new Set<string>();
+	for (const assignment of assignments) {
+		const slot = assignmentSlotKey(assignment.date, assignment.assignmentTypeId);
+		if (seen.has(slot)) return assignment;
+		seen.add(slot);
+	}
+	return null;
+}

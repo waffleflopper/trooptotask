@@ -827,7 +827,6 @@ describe('CalendarPageContext', () => {
 			);
 
 			expect(nestedCtx.calendarPersonnel).toEqual([workspacePerson]);
-			expect(nestedCtx.scopedPersonnelIds).toEqual(new Set(['workspace-person']));
 			expect(nestedCtx.activeOnboardingPersonnelIds).toEqual(['workspace-person']);
 		});
 
@@ -838,16 +837,6 @@ describe('CalendarPageContext', () => {
 
 		it('uses allPersonnel when present', () => {
 			expect(ctx.calendarPersonnel).toEqual(mockPersonnel);
-		});
-	});
-
-	describe('scopedPersonnelIds', () => {
-		it('contains ids from personnel (scoped set)', () => {
-			expect(ctx.scopedPersonnelIds.has('p1')).toBe(true);
-		});
-
-		it('does not contain unknown ids', () => {
-			expect(ctx.scopedPersonnelIds.has('unknown')).toBe(false);
 		});
 	});
 

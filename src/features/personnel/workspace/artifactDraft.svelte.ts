@@ -42,6 +42,13 @@ function upsertById<TResult extends { id: string }>(item: TResult, items: TResul
 	return [item, ...items.filter((existing) => existing.id !== item.id)];
 }
 
+function mergeById<TResult extends { id: string }>(items: TResult[], loaded: TResult[]): TResult[] {
+	const updatedById = new Map(items.map((item) => [item.id, item]));
+	const loadedIds = new Set(loaded.map((item) => item.id));
+	const created = items.filter((item) => !loadedIds.has(item.id));
+	return [...created, ...loaded.map((item) => updatedById.get(item.id) ?? item)];
+}
+
 export class ArtifactDraft<TInput extends object, TResult extends { id: string }> {
 	readonly #spec: ArtifactDraftSpec<TInput, TResult>;
 	readonly #deps: ArtifactDraftDeps;
@@ -96,13 +103,7 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 	};
 
 	mergeLoaded(loaded: TResult[]): TResult[] {
-		// These are transient lookup tables for one synchronous merge, not reactive state.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const updatedById = new Map(this.items.map((item) => [item.id, item]));
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const loadedIds = new Set(loaded.map((item) => item.id));
-		const created = this.items.filter((item) => !loadedIds.has(item.id));
-		return [...created, ...loaded.map((item) => updatedById.get(item.id) ?? item)];
+		return mergeById(this.items, loaded);
 	}
 
 	selectFile = (file: File | null): void => {

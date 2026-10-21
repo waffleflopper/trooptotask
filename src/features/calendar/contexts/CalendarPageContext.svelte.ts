@@ -153,13 +153,6 @@ export class CalendarPageContext {
 		);
 	}
 
-	get scopedPersonnelIds(): Set<string> {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- This getter returns a plain Set as public context data; it is not mutated as component state.
-		return new Set(
-			(this.#workspaceData?.personnel ?? (this.#data.personnel as Personnel[] | undefined) ?? []).map((p) => p.id)
-		);
-	}
-
 	// ---- derived: onboarding data ------------------------------------------
 	get activeOnboardingPersonnelIds(): string[] {
 		return this.#workspaceData?.activeOnboardingPersonnelIds ?? this.#data.activeOnboardingPersonnelIds ?? [];

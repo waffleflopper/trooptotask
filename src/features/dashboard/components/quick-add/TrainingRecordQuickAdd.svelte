@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import {
 		loadPersonTrainingRecords,
 		loadTrainingRecordModal,
@@ -15,10 +16,18 @@
 
 	let { model, access, updates, onClose }: QuickAddDialogProps = $props();
 
-	const trainingRecordModal = loadTrainingRecordModal();
 	const orgId = $derived(model.data.orgId);
 	let typeId = $state('');
-	let editing = $state<{ person: Personnel; type: TrainingType; existing: PersonnelTraining | undefined } | null>(null);
+	let editing = $state.raw<{
+		TrainingRecordModal: Awaited<ReturnType<typeof loadTrainingRecordModal>>['default'];
+		person: Personnel;
+		type: TrainingType;
+		existing: PersonnelTraining | undefined;
+	} | null>(null);
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const people = $derived(
 		actionablePersonnel(model.inputs.personnel, access, POLICY_ACTION_CATALOG.training.recordCompletions)
@@ -39,8 +48,17 @@
 	async function openRecord(person: Personnel) {
 		const type = selectedType;
 		if (!type) return;
-		const [records] = await Promise.all([loadPersonTrainingRecords(orgId, person.id), trainingRecordModal]);
-		editing = { person, type, existing: records.find((record) => record.trainingTypeId === type.id) };
+		const [records, { default: TrainingRecordModal }] = await Promise.all([
+			loadPersonTrainingRecords(orgId, person.id),
+			loadTrainingRecordModal()
+		]);
+		if (active)
+			editing = {
+				TrainingRecordModal,
+				person,
+				type,
+				existing: records.find((record) => record.trainingTypeId === type.id)
+			};
 	}
 
 	async function save(record: Omit<PersonnelTraining, 'id'>) {
@@ -51,15 +69,13 @@
 </script>
 
 {#if editing}
-	{#await trainingRecordModal then { default: TrainingRecordModal }}
-		<TrainingRecordModal
-			person={editing.person}
-			trainingType={editing.type}
-			existingTraining={editing.existing}
-			onSave={save}
-			{onClose}
-		/>
-	{/await}
+	<editing.TrainingRecordModal
+		person={editing.person}
+		trainingType={editing.type}
+		existingTraining={editing.existing}
+		onSave={save}
+		{onClose}
+	/>
 {:else}
 	<QuickAddPersonPicker
 		title="Add training record"

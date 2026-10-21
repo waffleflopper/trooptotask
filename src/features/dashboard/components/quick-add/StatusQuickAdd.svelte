@@ -13,9 +13,11 @@
 
 	let { model, access, onClose }: QuickAddDialogProps = $props();
 
-	const availabilityModal = loadAvailabilityModal();
 	const orgId = $derived(model.data.orgId);
-	let request = $state<AvailabilityEditorRequest | null>(null);
+	let editor = $state.raw<{
+		AvailabilityModal: Awaited<ReturnType<typeof loadAvailabilityModal>>['default'];
+		request: AvailabilityEditorRequest;
+	} | null>(null);
 	let saving = $state(false);
 	let active = true;
 	onDestroy(() => {
@@ -37,17 +39,15 @@
 	}
 </script>
 
-{#if request}
-	{#await availabilityModal then { default: AvailabilityModal }}
-		<AvailabilityModal
-			{request}
-			statusTypes={[...model.inputs.statusTypes]}
-			existingEntries={[...model.inputs.availability]}
-			{saving}
-			onSave={save}
-			{onClose}
-		/>
-	{/await}
+{#if editor}
+	<editor.AvailabilityModal
+		request={editor.request}
+		statusTypes={[...model.inputs.statusTypes]}
+		existingEntries={[...model.inputs.availability]}
+		{saving}
+		onSave={save}
+		{onClose}
+	/>
 {:else}
 	<QuickAddPersonPicker
 		title="Add status"
@@ -55,8 +55,12 @@
 		{people}
 		failureMessage="Could not open the status editor. Try again."
 		onContinue={async (person) => {
-			await availabilityModal;
-			request = { kind: 'create', person, startDate: model.today, endDate: model.today };
+			const { default: AvailabilityModal } = await loadAvailabilityModal();
+			if (active)
+				editor = {
+					AvailabilityModal,
+					request: { kind: 'create', person, startDate: model.today, endDate: model.today }
+				};
 		}}
 		{onClose}
 	/>

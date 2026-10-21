@@ -20,10 +20,13 @@
 
 	type StartOptionsRead =
 		| { status: 'loading' }
-		| { status: 'ready'; options: OnboardingStartOptions }
+		| {
+				status: 'ready';
+				options: OnboardingStartOptions;
+				StartOnboardingModal: Awaited<ReturnType<typeof loadStartOnboardingModal>>['default'];
+		  }
 		| { status: 'failed'; message: string };
 
-	const startOnboardingModal = loadStartOnboardingModal();
 	const orgId = $derived(model.data.orgId);
 	let read = $state<StartOptionsRead>({ status: 'loading' });
 	let active = true;
@@ -36,8 +39,11 @@
 	async function loadOptions() {
 		read = { status: 'loading' };
 		try {
-			const [options] = await Promise.all([loadOnboardingStartOptions(orgId), startOnboardingModal]);
-			if (active) read = { status: 'ready', options };
+			const [options, { default: StartOnboardingModal }] = await Promise.all([
+				loadOnboardingStartOptions(orgId),
+				loadStartOnboardingModal()
+			]);
+			if (active) read = { status: 'ready', options, StartOnboardingModal };
 		} catch (failure) {
 			if (active)
 				read = { status: 'failed', message: rejectedRequestMessage(failure, 'Could not load onboarding templates.') };
@@ -61,22 +67,20 @@
 
 {#if read.status === 'ready'}
 	{@const options = read.options}
-	{#await startOnboardingModal then { default: StartOnboardingModal }}
-		<StartOnboardingModal
-			personnel={choices.people}
-			canAddPerson={choices.canAddPerson}
-			existingOnboardingPersonnelIds={choices.startedPersonnelIds}
-			groups={choices.groups}
-			allowUnassigned={choices.allowUnassigned}
-			rankCatalog={options.rankCatalog}
-			rankCatalogUnavailable={options.rankCatalogUnavailable}
-			templates={options.templates}
-			hasTemplateSteps={options.hasTemplateSteps}
-			onSubmit={start}
-			onAddPerson={addPerson}
-			{onClose}
-		/>
-	{/await}
+	<read.StartOnboardingModal
+		personnel={choices.people}
+		canAddPerson={choices.canAddPerson}
+		existingOnboardingPersonnelIds={choices.startedPersonnelIds}
+		groups={choices.groups}
+		allowUnassigned={choices.allowUnassigned}
+		rankCatalog={options.rankCatalog}
+		rankCatalogUnavailable={options.rankCatalogUnavailable}
+		templates={options.templates}
+		hasTemplateSteps={options.hasTemplateSteps}
+		onSubmit={start}
+		onAddPerson={addPerson}
+		{onClose}
+	/>
 {:else}
 	<AppDialog.Root {onClose}>
 		<AppDialog.Content>

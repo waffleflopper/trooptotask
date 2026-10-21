@@ -116,6 +116,13 @@
 		return target && inSettings(target) && inSettings(pathname) ? target : pathname;
 	});
 	const breadcrumbs = $derived(getOrgBreadcrumbs(crumbPath, orgName, allNavItems, routeLeafLabel));
+	// A narrow header clips the unit name first, then the crumbs between, and keeps the page name. Flex shrinks in
+	// proportion, so a smaller factor on the unit name still clips the others by a fraction of a pixel.
+	function crumbClass(index: number, count: number) {
+		if (count > 1 && index === 0) return 'min-w-10 shrink-[100000]';
+		if (count > 1 && index === count - 1) return 'max-w-3/5 shrink-0';
+		return 'min-w-0';
+	}
 	const activeOrg = $derived({
 		...(orgSwitcherOrgs.find((org) => org.id === orgId) ?? { id: orgId, role: userRole, urlSegment: orgUrlSegment }),
 		name: orgName
@@ -563,8 +570,7 @@
 				<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">
 					<Breadcrumb.List class="flex-nowrap overflow-hidden">
 						{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
-							<!-- The unit name gives up its width first, so a narrow header keeps the page name. -->
-							<Breadcrumb.Item class={index === 0 && breadcrumbs.length > 1 ? 'min-w-10 shrink-[100]' : 'min-w-0'}>
+							<Breadcrumb.Item class={crumbClass(index, breadcrumbs.length)}>
 								{#if crumb.href && index < breadcrumbs.length - 1}
 									<Breadcrumb.Link href={resolve(crumb.href as `/org/${string}`)} class="truncate">
 										{crumb.label}

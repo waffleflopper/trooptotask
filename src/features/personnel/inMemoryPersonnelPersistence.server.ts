@@ -39,7 +39,7 @@ import {
 import {
 	LOSS_CANDIDATE_FIELDS,
 	PERSONNEL_FIELDS,
-	toLossCandidates,
+	toLossCandidate,
 	toPersonnel,
 	type LossCandidateRow,
 	personnelEditableRow,
@@ -189,7 +189,7 @@ export function createInMemoryPersonnelRosterReader(store: PersonnelMemoryStore,
 				isNull: { archived_at: true },
 				orderBy: [{ column: 'id', ascending: true }]
 			});
-			return toLossCandidates(rows);
+			return rows.filter((row) => row.ets || row.deros).map(toLossCandidate);
 		}
 	};
 }

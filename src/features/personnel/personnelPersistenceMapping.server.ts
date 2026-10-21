@@ -64,15 +64,13 @@ export interface LossCandidateRow {
 	group_id: string | null;
 }
 
-export function toLossCandidates(rows: readonly LossCandidateRow[]): LossCandidate[] {
-	return rows
-		.filter((row) => row.ets || row.deros)
-		.map((row) => ({
-			id: row.id,
-			rank: row.rank,
-			lastName: row.last_name,
-			ets: row.ets,
-			deros: row.deros,
-			groupId: row.group_id
-		}));
+export function toLossCandidate(row: LossCandidateRow): LossCandidate {
+	return {
+		id: row.id,
+		rank: row.rank,
+		lastName: row.last_name,
+		ets: row.ets,
+		deros: row.deros,
+		groupId: row.group_id
+	};
 }

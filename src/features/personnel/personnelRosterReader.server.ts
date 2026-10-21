@@ -5,7 +5,7 @@ import type { PersonnelRosterReader } from './contracts';
 import {
 	LOSS_CANDIDATE_FIELDS,
 	PERSONNEL_FIELDS,
-	toLossCandidates,
+	toLossCandidate,
 	toPersonnel,
 	type LossCandidateRow
 } from './personnelPersistenceMapping.server';
@@ -70,7 +70,8 @@ export function createSupabasePersonnelRosterReader(
 					.from('personnel')
 					.select(LOSS_CANDIDATE_FIELDS)
 					.eq('organization_id', orgId)
-					.is('archived_at', null);
+					.is('archived_at', null)
+					.or('ets.not.is.null,deros.not.is.null');
 				if (groupIds) query = query.in('group_id', groupIds);
 				const { data, error } = await query
 					.order('id', { ascending: true })
@@ -79,7 +80,7 @@ export function createSupabasePersonnelRosterReader(
 				return { data, error };
 			});
 			if (result.error) throw new Error((result.error as { message: string }).message);
-			return toLossCandidates(result.data ?? []);
+			return (result.data ?? []).map(toLossCandidate);
 		}
 	};
 }

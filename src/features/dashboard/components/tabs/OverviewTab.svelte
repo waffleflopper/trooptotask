@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Progress } from '$lib/components/ui/progress';
 	import { Separator } from '$lib/components/ui/separator';
-	import { CalendarStatusBadge } from '$features/calendar';
 	import * as Card from '$lib/components/ui/card';
 	import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 
@@ -17,20 +15,15 @@
 	const uid = $props.id();
 
 	const view = $derived(ctx.unitReadiness);
-	const statusEntries = $derived(view.statusEntries);
 	const trainingGroupDelinquencies = $derived(ctx.trainingGroupDelinquencies);
 	const dutyDays = $derived(ctx.dutyForDays(1));
 	const todayDuty = $derived(dutyDays.find((d) => d.isToday));
 	const tomorrowDuty = $derived(dutyDays.find((d) => !d.isToday));
 
 	let changesExpanded = $state(false);
-	let outTodayExpanded = $state(false);
 	let lossesExpanded = $state(false);
 
 	const visibleChanges = $derived(changesExpanded ? ctx.upcomingChanges : ctx.upcomingChanges.slice(0, CARD_LIMIT));
-	const visibleOutToday = $derived(
-		outTodayExpanded ? ctx.nonAvailablePersonnel : ctx.nonAvailablePersonnel.slice(0, CARD_LIMIT)
-	);
 	const LOSSES_LIMIT = 3;
 	const visibleLosses = $derived(lossesExpanded ? ctx.upcomingLosses : ctx.upcomingLosses.slice(0, LOSSES_LIMIT));
 	const showsEvaluations = $derived(ctx.isFeatureOn('evaluations'));
@@ -106,64 +99,6 @@
 
 <section class="px-3 pb-12 sm:px-4">
 	<div class="grid gap-3 py-4 md:grid-cols-2 lg:grid-cols-3">
-		<Card.Root class="lg:col-span-2">
-			<Card.Content class="pt-4">
-				<div class="mb-4 flex items-start justify-between">
-					<div>
-						<div class="font-mono text-[0.625rem] font-semibold uppercase tracking-widest text-muted-foreground">
-							Strength & Availability
-						</div>
-						<div class="mt-2 flex items-baseline gap-3">
-							<span class="font-display text-5xl font-bold leading-none tracking-tight text-foreground">
-								{ctx.availableCount}
-							</span>
-							<span class="font-display text-xl font-light text-muted-foreground">/ {ctx.totalPersonnel}</span>
-							<span class="ml-2 font-display text-2xl font-bold" style:color={view.availColor}>
-								{view.availPct}%
-							</span>
-						</div>
-					</div>
-					{#if ctx.nonAvailablePersonnel.length > 0}
-						<Badge variant="secondary">{ctx.nonAvailablePersonnel.length} out</Badge>
-					{/if}
-				</div>
-
-				<Progress value={view.availPct} class="mb-4" aria-label="Personnel availability" />
-
-				<div class="flex flex-wrap gap-1.5">
-					<Badge variant="success">{ctx.availableCount} Present</Badge>
-					{#each statusEntries as [statusId, status] (statusId)}
-						<CalendarStatusBadge
-							statusType={{ id: statusId, name: status.name, color: status.color, textColor: status.textColor }}
-						>
-							{status.count}
-							{status.name}
-						</CalendarStatusBadge>
-					{/each}
-				</div>
-
-				{#if ctx.groupBreakdown.length > 0}
-					<Separator class="my-4" />
-					<div class="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-						{#each ctx.groupBreakdown as g (g.id)}
-							<div class="flex flex-col items-center gap-1 rounded-sm border px-2 py-2">
-								<span class="font-mono text-[0.625rem] font-semibold uppercase tracking-widest text-muted-foreground">
-									{g.name}
-								</span>
-								<span class="font-display text-lg font-bold" style:color={view.availabilityColor(g.pct)}>
-									{g.pct}%
-								</span>
-								<div class="h-1 w-full overflow-hidden rounded-full bg-muted">
-									<div class="h-full rounded-full bg-primary" style:width="{g.pct}%"></div>
-								</div>
-								<span class="font-mono text-[0.5rem] text-muted-foreground">{g.available}/{g.total}</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</Card.Content>
-		</Card.Root>
-
 		<Card.Root class="row-span-2 flex flex-col">
 			<Card.Header>
 				<div class="flex items-center justify-between">
@@ -424,58 +359,5 @@
 				{/if}
 			{/if}
 		</Card.Root>
-
-		{#if ctx.nonAvailablePersonnel.length > 0}
-			<Card.Root>
-				<Card.Header>
-					<div class="flex items-center justify-between">
-						<Card.Title>Out Today</Card.Title>
-						<Badge variant="secondary">{ctx.nonAvailablePersonnel.length}</Badge>
-					</div>
-				</Card.Header>
-				<div id="{uid}-out-today" class="divide-y">
-					{#each visibleOutToday as person (person.id)}
-						<div class="flex items-center justify-between gap-2 px-4 py-2">
-							<div class="flex min-w-0 items-baseline gap-1">
-								<span class="shrink-0 font-mono text-[0.625rem] uppercase text-muted-foreground">
-									{person.rank}
-								</span>
-								<span class="truncate text-sm text-foreground">
-									{person.personName.replace(/^[A-Z0-9]+ /, '')}
-								</span>
-							</div>
-							<CalendarStatusBadge
-								statusType={{
-									id: person.statusTypeId,
-									name: person.statusName,
-									color: person.statusColor,
-									textColor: person.statusTextColor
-								}}
-							>
-								{person.statusName}
-							</CalendarStatusBadge>
-						</div>
-					{/each}
-				</div>
-				{#if ctx.nonAvailablePersonnel.length > CARD_LIMIT}
-					<div class="border-t">
-						<Button
-							variant="ghost"
-							size="sm"
-							class="w-full"
-							aria-expanded={outTodayExpanded}
-							aria-controls="{uid}-out-today"
-							onclick={() => (outTodayExpanded = !outTodayExpanded)}
-						>
-							{outTodayExpanded ? 'Show less' : `+${ctx.nonAvailablePersonnel.length - CARD_LIMIT} more`}<span
-								class="sr-only"
-							>
-								in Out Today</span
-							>
-						</Button>
-					</div>
-				{/if}
-			</Card.Root>
-		{/if}
 	</div>
 </section>

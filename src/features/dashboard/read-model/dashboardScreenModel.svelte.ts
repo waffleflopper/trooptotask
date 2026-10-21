@@ -14,9 +14,10 @@ import type { DashboardPageData } from '$features/dashboard/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getProgress } from '$features/onboarding/contracts';
 import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
-import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
+import { availabilityPercent } from '$features/organization/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from '../sections/dashboardInputs';
+import { buildStrengthBand, type StrengthBand } from './strengthBand';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
@@ -77,13 +78,6 @@ export interface DashboardGettingStartedItem {
 	complete: boolean;
 }
 
-export interface DashboardStatusBreakdown {
-	name: string;
-	color: string;
-	textColor: string;
-	count: number;
-}
-
 export interface DashboardDutyAssignmentRow {
 	id: string;
 	typeName: string;
@@ -123,21 +117,6 @@ export interface DashboardGroupBreakdownRow {
 	isPinned: boolean;
 }
 
-export interface DashboardOutTodayRow {
-	id: string;
-	personnelId: string;
-	personName: string;
-	rank: string;
-	statusName: string;
-	statusColor: string;
-	statusTextColor: string;
-	startDate: string;
-	endDate: string;
-	statusTypeId: string;
-	groupId: string | null;
-	groupName: string;
-}
-
 export interface DashboardDutyDayView {
 	date: string;
 	isToday: boolean;
@@ -145,12 +124,8 @@ export interface DashboardDutyDayView {
 }
 
 export interface DashboardUnitReadinessView {
-	availabilityColor(pct: number): string;
 	trainingCurrencyColor(pct: number): string;
-	availPct: number;
-	availColor: string;
 	trainingColor: string;
-	statusEntries: Array<[string, DashboardStatusBreakdown]>;
 }
 
 export function createDashboardScreenModel(
@@ -196,8 +171,14 @@ export class DashboardScreenModel {
 		groups: this.sources.groups.items,
 		assignmentTypes: this.sources.dailyAssignments.types,
 		assignments: this.sources.dailyAssignments.assignments,
+		specialDays: this.data.dashboard.data.specialDays,
 		page: this.data
 	}));
+
+	/** The strength band: bottom line, forecast, headline and groups, rebuilt only when the loaded data changes. */
+	strength = $derived.by<StrengthBand>(() =>
+		buildStrengthBand({ ...this.inputs, floorPercent: this.data.dashboard.data.strengthFloorPercent })
+	);
 
 	gettingStartedDismissed = $state(false);
 	starterPackApplyState = $state<DashboardStarterPackApplyState>({
@@ -431,31 +412,8 @@ export class DashboardScreenModel {
 		);
 	}
 
-	get todayEntries(): AvailabilityEntry[] {
-		return this.todayAvailability.entries;
-	}
-
 	get totalPersonnel(): number {
 		return this.rosterPersonnel.length;
-	}
-
-	get availableCount(): number {
-		return this.totalPersonnel - this.todayAvailability.byPersonnelId.size;
-	}
-
-	get statusBreakdown(): Map<string, DashboardStatusBreakdown> {
-		const map = new SvelteMap<string, DashboardStatusBreakdown>();
-		for (const entry of this.todayEntries) {
-			const st = this.statusTypeById.get(entry.statusTypeId);
-			if (!st) continue;
-			const existing = map.get(st.id);
-			if (existing) {
-				existing.count++;
-			} else {
-				map.set(st.id, { name: st.name, color: st.color, textColor: st.textColor, count: 1 });
-			}
-		}
-		return map;
 	}
 
 	get trainingStats() {
@@ -571,10 +529,6 @@ export class DashboardScreenModel {
 		});
 	});
 
-	get dutyStrengthPct(): number {
-		return availabilityPercent(this.availableCount, this.totalPersonnel);
-	}
-
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number; current: number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0 };
 		const today = parseDate(this.today);
@@ -586,33 +540,6 @@ export class DashboardScreenModel {
 		}
 		return counts;
 	}
-
-	nonAvailablePersonnel = $derived.by<DashboardOutTodayRow[]>(() =>
-		this.todayEntries
-			.map((e) => {
-				const person = this.findRosterPerson(e.personnelId);
-				const st = this.statusTypeById.get(e.statusTypeId);
-				if (!person || !st) return null;
-				const groupId = person.groupId ?? null;
-				const group = groupId ? this.groupById.get(groupId) : null;
-				return {
-					id: e.id,
-					personnelId: e.personnelId,
-					personName: `${person.rank} ${person.lastName}, ${person.firstName}`,
-					rank: person.rank ?? '',
-					statusName: st.name,
-					statusColor: st.color,
-					statusTextColor: st.textColor,
-					startDate: e.startDate,
-					endDate: e.endDate,
-					statusTypeId: e.statusTypeId,
-					groupId,
-					groupName: group?.name ?? 'Unassigned'
-				};
-			})
-			.filter((x): x is DashboardOutTodayRow => x !== null)
-			.sort((a, b) => a.personName.localeCompare(b.personName))
-	);
 
 	dutyForDays(count: number): DashboardDutyDayView[] {
 		const days: DashboardDutyDayView[] = [];
@@ -684,16 +611,9 @@ export class DashboardScreenModel {
 	}
 
 	get unitReadiness(): DashboardUnitReadinessView {
-		const availPct = this.dutyStrengthPct;
-		const floor = this.data.dashboard.data.strengthFloorPercent;
-		const availabilityColor = (pct: number) => strengthColor(pct, floor);
 		return {
-			availabilityColor,
 			trainingCurrencyColor,
-			availPct,
-			availColor: availabilityColor(availPct),
-			trainingColor: trainingCurrencyColor(this.trainingCurrencyPct),
-			statusEntries: [...this.statusBreakdown.entries()]
+			trainingColor: trainingCurrencyColor(this.trainingCurrencyPct)
 		};
 	}
 
@@ -754,10 +674,6 @@ function errorMessage(error: unknown, fallback: string): string {
 function checklistRefreshWarning(packName: string, detail: string): string {
 	const base = `${packName} applied, but the setup checklist could not refresh. Reload the page to see the latest setup state.`;
 	return detail && detail !== 'Checklist could not refresh.' ? `${base} ${detail}` : base;
-}
-
-function strengthColor(pct: number, floorPercent: number): string {
-	return isBelowStrengthFloor(pct, floorPercent) ? 'var(--warning-foreground)' : 'var(--success-foreground)';
 }
 
 function trainingCurrencyColor(pct: number): string {

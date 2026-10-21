@@ -63,7 +63,6 @@
 		visibleAllActivePersonnel.some((person) => ctx.canArchivePersonnelRecord(person))
 	);
 
-	// Personnel DataTable setup
 	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
 		const columns: ColumnDef<Personnel>[] = [
 			{ key: 'rank', header: 'Rank', value: (p) => p.rank },

@@ -1,7 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { createReadyAppShellRouteData, createUrlBlindLayoutEvent } from '../appShell.test-support';
 import { _createOnboardingLayoutLoad } from './+layout.server';
+
+vi.mock('$lib/server/adapters/httpAdapter', () => ({
+	loadWithContext: vi.fn(async (_locals, _cookies, _orgId, config) => ({ data: config.fn({}) }))
+}));
+vi.mock('$features/onboarding/index.server', () => ({
+	fetchOnboardingWorkspace: vi.fn(async (_ctx, input) => input)
+}));
+
+afterEach(() => vi.useRealTimers());
 
 type OnboardingLoadEvent = Parameters<ReturnType<typeof _createOnboardingLayoutLoad>>[0];
 
@@ -29,6 +38,23 @@ describe('Onboarding layout', () => {
 
 		expect(await _createOnboardingLayoutLoad({ streamOnboardingWorkspace: stream })(event)).toBe(workspace);
 		expect(stream).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }));
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data', 'app:viewer-day');
+	});
+
+	it("streams the active workspace for the viewer's day from the time zone cookie", async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+		const { event, depends } = eventFor('view');
+		Object.assign(event, {
+			cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) }
+		});
+
+		const result = await _createOnboardingLayoutLoad()(event);
+
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data', 'app:viewer-day');
+		await expect((result as { onboarding: { data: Promise<unknown> } }).onboarding.data).resolves.toEqual({
+			mode: 'active',
+			today: '2026-10-14'
+		});
 	});
 });

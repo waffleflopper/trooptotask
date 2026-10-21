@@ -36,12 +36,16 @@ it('loads the visible month for the shell Organization from a streamed, differen
 	);
 	const fetchRange = vi.fn(async (url: string) => {
 		if (!url.startsWith('/org/org-1/api/calendar-range?')) return new Response('', { status: 404 });
+		const params = new URL(url, 'http://localhost').searchParams;
+		const collections = params.get('collections')?.split(',') ?? [];
 		return Response.json({
-			rangeStart: '2026-06-03',
-			rangeEnd: '2026-09-30',
-			availabilityEntries: [],
-			specialDays: [],
-			dailyAssignments: [{ id: 'saved', date: '2026-09-22', assignmentTypeId: 'type-1', assigneeId: 'person-1' }]
+			rangeStart: params.get('rangeStart'),
+			rangeEnd: params.get('rangeEnd'),
+			...(collections.includes('availability') && { availabilityEntries: [] }),
+			...(collections.includes('assignments') && {
+				specialDays: [],
+				dailyAssignments: [{ id: 'saved', date: '2026-09-22', assignmentTypeId: 'type-1', assigneeId: 'person-1' }]
+			})
 		});
 	});
 	vi.stubGlobal('fetch', fetchRange);
@@ -53,6 +57,7 @@ it('loads the visible month for the shell Organization from a streamed, differen
 					data: {
 						rangeStart: '2026-11-01',
 						rangeEnd: '2027-01-31',
+						availabilityRange: { rangeStart: '2026-11-01', rangeEnd: '2027-01-31' },
 						personnel: [
 							{
 								id: 'person-1',
@@ -71,7 +76,10 @@ it('loads the visible month for the shell Organization from a streamed, differen
 		}
 	});
 	expect(await screen.findByRole('button', { name: /^Staff Duty, Tue 22 Sept?: SGT Smith, Alex/ })).toBeTruthy();
-	expect(fetchRange).toHaveBeenCalledWith('/org/org-1/api/calendar-range?rangeStart=2026-06-03&rangeEnd=2026-09-30');
+	expect(fetchRange.mock.calls.map(([url]) => url)).toEqual([
+		'/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability',
+		'/org/org-1/api/calendar-range?rangeStart=2026-06-03&rangeEnd=2026-09-30&collections=assignments'
+	]);
 });
 
 it('settles on nothing when the streamed workspace rejects, leaving the load error to the Calendar layout', async () => {

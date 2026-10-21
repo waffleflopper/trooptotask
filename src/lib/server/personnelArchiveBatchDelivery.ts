@@ -6,7 +6,6 @@ import { RequestFailure } from '$lib/errors';
 type PersonnelArchiveBatchDeliveryContext = Parameters<typeof preparePersonnelArchiveBatch>[0] &
 	Omit<Parameters<typeof createDeletionRequest>[0], 'store'>;
 
-/** Compose authorized Personnel archive outcomes with the retained approval workflow. */
 export async function archivePersonnelBatch(
 	ctx: PersonnelArchiveBatchDeliveryContext,
 	input: { ids: string[]; userEmail: string },

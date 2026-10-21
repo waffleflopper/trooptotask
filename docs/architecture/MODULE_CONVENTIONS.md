@@ -189,7 +189,7 @@ Keep common workflows responsive as an Organization's data grows. Inspect the ac
 
 Use optimistic updates when failure can be rolled back clearly and the operation's consequences allow it. Keep server authorization authoritative. Consider prefetching on hover or focus when it reduces likely navigation waits without excessive requests or crossing access boundaries. Keep optional data from blocking useful content and provide clear pending, success and failure feedback.
 
-Reuse the existing data and state mechanisms. Add caching, background work or another abstraction only for an observed need, with explicit invalidation and failure behavior. For performance claims or dedicated optimization work, follow the [performance evidence contract](DEFINITION_OF_DONE.md#reproducible-performance-evidence).
+Reuse the existing data and state mechanisms. Add caching, background work or another abstraction only for an observed need, with explicit invalidation and failure behavior. Check a change on a measured journey's path against the [regression budgets](DEFINITION_OF_DONE.md#regression-budgets) by review. Measure only when Robert asks, under the [performance evidence contract](DEFINITION_OF_DONE.md#reproducible-performance-evidence).
 
 ## Deepening Guidance
 

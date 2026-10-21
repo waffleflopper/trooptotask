@@ -8,7 +8,10 @@ export function viewerTimeZone(cookies: Pick<Cookies, 'get'>): string {
 	return isTimeZone(timeZone) ? timeZone : 'UTC';
 }
 
-/** The viewer's "YYYY-MM-DD" day from their time zone cookie, or the UTC day when it is missing or invalid. */
+/**
+ * The viewer's "YYYY-MM-DD" day from their time zone cookie, or the UTC day when it is missing or invalid.
+ * A load that reads it or `viewerTimeZone` declares `depends(VIEWER_DAY_DEPENDENCY)`.
+ */
 export function viewerToday(cookies: Pick<Cookies, 'get'>, now = new Date()): string {
 	return localDateIn(viewerTimeZone(cookies), now);
 }

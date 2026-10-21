@@ -42,7 +42,6 @@
 		taskId: string | null;
 		asOf: string;
 		canRecord: boolean;
-		/** Refreshes the loads that show this Person's critical tasks. */
 		onSaved: () => Promise<void>;
 		onClose: () => void;
 	} = $props();

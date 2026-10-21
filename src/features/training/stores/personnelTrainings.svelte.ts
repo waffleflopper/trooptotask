@@ -1,17 +1,3 @@
-/**
- * Personnel trainings store — all training completion records for the org.
- *
- * Extended methods:
- * - `getByPersonnelAndType(personnelId, trainingTypeId)` — matrix cell lookup
- * - `addBatchResults(inserted, updated?)` — merges bulk-import results into the store
- *   without a full reload
- * - `removeByPersonnelLocal(personnelId)` — local-only remove (used when archiving a
- *   person; the server cascades the delete)
- * - `removeByTrainingTypeLocal(trainingTypeId)` — local-only remove (used when deleting
- *   a training type)
- *
- * Loaded by the training page load function.
- */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import type { PersonnelTraining } from '$features/training/training.types';
@@ -19,6 +5,7 @@ import type { PersonnelTraining } from '$features/training/training.types';
 interface PersonnelTrainingsExtensions extends Record<string, unknown> {
 	getByPersonnelAndType: (personnelId: string, trainingTypeId: string) => PersonnelTraining | undefined;
 	addBatchResults: (inserted: PersonnelTraining[], updated?: PersonnelTraining[]) => void;
+	/** Local only: the server cascades the delete when a person is archived or a training type is deleted. */
 	removeByPersonnelLocal: (personnelId: string) => void;
 	removeByTrainingTypeLocal: (trainingTypeId: string) => void;
 }

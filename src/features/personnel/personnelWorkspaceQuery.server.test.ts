@@ -190,11 +190,9 @@ describe('loadPersonnelWorkspace', () => {
 
 		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
 
-		// Scoped store filters to g1 only
 		expect(result.personnel).toHaveLength(1);
 		expect(result.personnel[0].lastName).toBe('Smith');
 
-		// The lookup path should not overexpose off-scope personnel either
 		expect(result.personnelLookup).toEqual([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
 		expect(result).not.toHaveProperty('allPersonnel');
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha']);

@@ -7,10 +7,6 @@ import type { PersonnelPageAccess } from '../contracts';
 import type { Personnel } from '../personnel.types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
-// ---------------------------------------------------------------------------
-// Minimal fixtures
-// ---------------------------------------------------------------------------
-
 function makePerson(overrides: Partial<Personnel> = {}): Personnel {
 	return {
 		id: 'p1',
@@ -48,10 +44,6 @@ function makeOrg(overrides: Partial<PersonnelPageAccess> = {}): PersonnelPageAcc
 		overrides
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe('PersonnelPageContext', () => {
 	describe('initial state', () => {
@@ -461,10 +453,6 @@ describe('PersonnelPageContext', () => {
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(false);
 		});
 	});
-
-	// ---------------------------------------------------------------------------
-	// upcomingLossMap
-	// ---------------------------------------------------------------------------
 
 	describe('upcomingLossMap', () => {
 		const TODAY = '2026-04-14';

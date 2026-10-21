@@ -7,7 +7,6 @@ const TRUNCATED_MARKER = '… [truncated]';
 const LOG_OBJECT_KEYS = ['name', 'message', 'code', 'details', 'hint'] as const;
 
 /**
- * Produce a bounded, PII-masked diagnostic string for an unknown thrown value.
  * Never serializes arbitrary object graphs — only named diagnostic fields —
  * so row payloads inside Supabase/Postgres errors can't leak into logs.
  */

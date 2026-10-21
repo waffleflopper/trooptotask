@@ -98,7 +98,6 @@ async function runDirectory(ctx, options) {
 
 const scopes = { perfWide: 'wide', perfScoped: 'scoped', perfScopedLeader: 'scoped', platformReviewer: null };
 
-/** What a journey needs to know about one seeded workload as one actor, all from the seed ledger. */
 export function journeyTerms(seeded, workload, actor) {
 	const item = seeded[workload];
 	const scope = scopes[actor];
@@ -186,11 +185,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const navigate = (ctx, pageId, url, initScript) =>
 	ctx.tool('navigate_page', { pageId, type: 'url', url, initScript, timeout: capMs });
 
-async function sampleOf(ctx, pageId, cap = capMs) {
+async function sampleOf(ctx, pageId, cap = capMs, final = false) {
 	const begun = Date.now();
 	for (;;) {
 		const wait = Math.max(0, Math.min(pollMs, cap - (Date.now() - begun)));
-		const sample = await ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, ${wait})`);
+		const sample = await ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, ${wait}, ${final})`);
 		if (sample.observer?.done || wait === 0) return sample;
 	}
 }
@@ -262,7 +261,7 @@ async function drain(ctx, pageId) {
 async function settle(ctx, pageId) {
 	const first = await sampleOf(ctx, pageId);
 	const network = await drain(ctx, pageId);
-	const sample = await sampleOf(ctx, pageId, 0);
+	const sample = await sampleOf(ctx, pageId, 0, true);
 	return { ...sample, useful: first.observer?.done ?? false, network, document: await documentEnd(ctx, pageId) };
 }
 
@@ -348,7 +347,9 @@ function measured(
 	return {
 		firstUsefulRenderMs,
 		settledIncludingReloadsMs:
-			firstUsefulRenderMs === null || !sample.network.idle ? null : Math.max(firstUsefulRenderMs, lastData),
+			firstUsefulRenderMs === null || !sample.network.idle
+				? null
+				: Math.max(firstUsefulRenderMs, lastData, observer.renderedAt ?? 0),
 		...document,
 		networkIdle: sample.network.idle,
 		idleWaitMs: sample.network.waitedMs,
@@ -597,7 +598,7 @@ export function controlUid(snapshot, { role, name, within, partial }) {
 	return match.match(/uid=([^\s]+)/)[1];
 }
 
-/** Runs one native step from the registry on the page. A wait may take the whole cap. */
+/** A wait may take the whole cap. */
 export async function step(ctx, pageId, action) {
 	if (action.wait) return ctx.tool('wait_for', { pageId, text: action.wait, timeout: capMs });
 	if (action.type !== undefined) return ctx.tool('type_text', { pageId, text: action.type });
@@ -612,9 +613,17 @@ export async function step(ctx, pageId, action) {
 
 const resetActions = {
 	// `Today` writes the current month back to the anchor cookie; the read shows what the next visit sends.
+	// Status bars name their dates, so a month label can be on the page before Today lands; the
+	// reset waits for the title itself.
 	'calendar-today': async (ctx, run) => {
 		await step(ctx, run.pageId, { click: { role: 'button', name: 'Today' } });
-		await step(ctx, run.pageId, { wait: [run.terms.month.quarter] });
+		const titles = [run.terms.month.current, run.terms.month.quarter];
+		const begun = Date.now();
+		while (!titles.includes(await ctx.evaluate(run.pageId, `() => document.querySelector('h1')?.textContent.trim()`))) {
+			if (Date.now() - begun > capMs)
+				throw new Error(`Today never returned the Calendar title to ${titles.join(' or ')}.`);
+			await sleep(100);
+		}
 		const cookie = await ctx.evaluate(
 			run.pageId,
 			'() => document.cookie.match(/(?:^|; )ttt-calendar-anchor-date=([^;]*)/)?.[1] ?? null'

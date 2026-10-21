@@ -4,7 +4,6 @@ import type { ReadyAppShell } from './contracts';
 
 const APP_SHELL_CONTEXT = Symbol('app-shell');
 
-/** Delivery projects these current values into each feature's own narrow inputs. */
 export interface AppShellContext extends ClientAccess {
 	readonly orgId: string;
 	readonly orgUrlSegment: string;

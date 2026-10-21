@@ -497,7 +497,6 @@ describe('cleanupExpiredOnboardings', () => {
 
 		const result = await cleanupExpiredOnboardings(ports, [org1Config, org2Config]);
 
-		// org-2 (6-month retention) should delete, org-1 (12-month) should not
 		expect(result.deletedCount).toBe(1);
 		const org1Remaining = await store.findMany('personnel_onboardings', 'org-1');
 		expect(org1Remaining).toHaveLength(1);

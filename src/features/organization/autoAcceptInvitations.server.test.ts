@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- mock Supabase clients need any casts */
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { autoAcceptOrgInvites } from './autoAcceptInvitations.server';
 
@@ -41,7 +41,7 @@ describe('autoAcceptOrgInvites', () => {
 	it('returns accepted: 0 when no pending invitations exist', async () => {
 		const supabase = createMockSupabase([]);
 
-		const result = await autoAcceptOrgInvites({ supabase } as any, 'test@example.com');
+		const result = await autoAcceptOrgInvites({ supabase: supabase as unknown as SupabaseClient }, 'test@example.com');
 
 		expect(result).toEqual({ accepted: 0, unavailable: 0 });
 		expect(supabase.rpc).not.toHaveBeenCalled();
@@ -50,7 +50,10 @@ describe('autoAcceptOrgInvites', () => {
 	it('accepts pending invitations through the hardened invitation RPC', async () => {
 		const supabase = createMockSupabase([{ id: 'invite-1' }, { id: 'invite-2' }]);
 
-		const result = await autoAcceptOrgInvites({ supabase } as any, ' TEST@Example.com ');
+		const result = await autoAcceptOrgInvites(
+			{ supabase: supabase as unknown as SupabaseClient },
+			' TEST@Example.com '
+		);
 
 		expect(result).toEqual({ accepted: 2, unavailable: 0 });
 		expect(supabase.from).toHaveBeenCalledWith('organization_invitations');
@@ -71,7 +74,7 @@ describe('autoAcceptOrgInvites', () => {
 			}
 		);
 
-		const result = await autoAcceptOrgInvites({ supabase } as any, 'test@example.com');
+		const result = await autoAcceptOrgInvites({ supabase: supabase as unknown as SupabaseClient }, 'test@example.com');
 
 		expect(result).toEqual({ accepted: 1, unavailable: 2 });
 		expect(supabase.rpc).toHaveBeenCalledTimes(4);
@@ -83,7 +86,7 @@ describe('autoAcceptOrgInvites', () => {
 			suspended: 'unavailable'
 		});
 
-		const result = await autoAcceptOrgInvites({ supabase } as any, 'test@example.com');
+		const result = await autoAcceptOrgInvites({ supabase: supabase as unknown as SupabaseClient }, 'test@example.com');
 
 		expect(result).toEqual({ accepted: 1, unavailable: 1 });
 	});

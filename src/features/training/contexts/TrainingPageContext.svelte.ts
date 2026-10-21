@@ -42,9 +42,6 @@ function loadNavigation() {
 	return navigationModule;
 }
 
-// ---------------------------------------------------------------------------
-// Page data shape (from +page.server.ts + layout)
-// ---------------------------------------------------------------------------
 export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
@@ -56,11 +53,7 @@ export interface TrainingPageData {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// TrainingPageContext
-// ---------------------------------------------------------------------------
 export class TrainingPageContext {
-	// ---- injected deps ----
 	readonly #data: TrainingPageData;
 	readonly #modals: ModalRegistry;
 	readonly #org: TrainingPageAccess;
@@ -69,7 +62,6 @@ export class TrainingPageContext {
 	#hydratedSelectionFingerprint: string | null = null;
 	#disposed = false;
 
-	// ---- mutable UI state ----
 	selectedGroupId = $state<string>('');
 	selectedViewId = $state<string | null>(null);
 	viewMode = $state<TrainingMatrixViewMode>('by-group');
@@ -90,7 +82,6 @@ export class TrainingPageContext {
 		this.applyUserPreferences(data.userPreferences);
 	}
 
-	// ---- permission flags ----
 	get canManageConfig(): boolean {
 		return this.trainingConfigureAffordance.visible;
 	}
@@ -128,7 +119,6 @@ export class TrainingPageContext {
 		);
 	}
 
-	// ---- data accessors ----
 	get orgId(): string {
 		return this.#data.orgId;
 	}
@@ -162,12 +152,10 @@ export class TrainingPageContext {
 		return new SvelteSet(trainingViewsStore.items.map((view) => view.id));
 	}
 
-	// ---- derived: roles ----
 	get availableRoles(): string[] {
 		return [...new SvelteSet(this.personnel.map((p) => p.clinicRole))].filter(Boolean).sort() as string[];
 	}
 
-	// ---- derived: filtered/sorted personnel ----
 	get basePersonnel(): Personnel[] {
 		this.reconcileHydratedSelections();
 		return this.trainingRosterView({ groupFilter: this.selectedGroupId || undefined }).flatPersonnel;
@@ -210,17 +198,14 @@ export class TrainingPageContext {
 		return [...orderedOptions, ...optionsByValue.values()];
 	}
 
-	// ---- derived: stats ----
 	get stats() {
 		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.items);
 	}
 
-	// ---- helpers ----
 	isExempt(person: Personnel, type: TrainingType): boolean {
 		return type.canBeExempted && type.exemptPersonnelIds.includes(person.id);
 	}
 
-	// ---- UI handlers ----
 	toggleGroup(group: string): void {
 		if (this.collapsedGroups.has(group)) {
 			this.collapsedGroups.delete(group);
@@ -272,7 +257,6 @@ export class TrainingPageContext {
 		return !this.#disposed && personnelTrainingsStore.orgId === this.orgId;
 	}
 
-	// ---- async handlers ----
 	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {
 		await personnelTrainingsStore.add(data);
 	}

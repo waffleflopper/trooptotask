@@ -178,7 +178,6 @@ function sanitizeDetails(
 }
 
 /**
- * Log a security-relevant event to the audit_logs table.
  * Uses service role client (append-only, bypasses RLS).
  * Fails silently — audit logging should never break the request.
  */
@@ -212,9 +211,6 @@ export async function auditLog(
 	}
 }
 
-/**
- * Extract request info from SvelteKit event for audit logging.
- */
 export function getRequestInfo(event: {
 	getClientAddress: () => string;
 	request: { headers: Headers };

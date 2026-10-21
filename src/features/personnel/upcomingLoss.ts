@@ -1,20 +1,12 @@
 /**
- * Shared upcoming-loss evaluation — the single authoritative path for determining
- * which personnel are approaching departure within the org's configured warning window.
- *
  * Pure function: no side-effects, no store access, no Date.now() calls.
  * Pass `today` as a YYYY-MM-DD string so callers control the reference point
  * and tests can pin the date without real-time dependencies.
  *
- * Design: deep module — small surface (one function, one type), deep logic.
  * Dashboard, personnel, and calendar surfaces should all consume this instead of
  * duplicating date-threshold arithmetic.
  */
 import type { Personnel } from './personnel.types';
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
 
 export type LossTriggerType = 'ETS' | 'PCS / DEROS';
 
@@ -22,54 +14,30 @@ export type LossTriggerType = 'ETS' | 'PCS / DEROS';
 export type LossCandidate = Pick<Personnel, 'id' | 'rank' | 'lastName' | 'ets' | 'deros' | 'groupId'>;
 
 export interface UpcomingLossRecord {
-	/**
-	 * Stable identifiers for the same person.
-	 * `id` is retained for legacy keyed-list call sites.
-	 * `personId` stays explicit for code that maps back to personnel records.
-	 * Both fields intentionally carry the same value.
-	 */
+	/** Both fields intentionally carry the same value. */
 	id: string;
 	personId: string;
 	/** Display name: "<rank> <lastName>" */
 	personName: string;
 	rank: string;
-	/** Last name rendered directly by widgets. */
 	lastName: string;
-	/** Which date triggered the warning */
 	triggerType: LossTriggerType;
 	/** The relevant departure date (YYYY-MM-DD) */
 	targetDate: string;
 	/** Calendar days from today to targetDate (0 = today) */
 	daysRemaining: number;
-	/**
-	 * True when award tracking has not been acknowledged for this person.
-	 * This is the inverse of `awardTrackingAcknowledged`.
-	 */
 	awardDueSoon: boolean;
-	/** True when the leader has acknowledged award tracking for this person. */
 	awardTrackingAcknowledged: boolean;
 	groupId: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the number of whole calendar days from `from` to `to`.
- * Negative when `to` is in the past relative to `from`.
- */
+/** Negative when `to` is in the past relative to `from`. */
 function calendarDaysBetween(from: string, to: string): number {
 	const fromMs = new Date(from + 'T00:00:00').getTime();
 	const toMs = new Date(to + 'T00:00:00').getTime();
 	return Math.round((toMs - fromMs) / (1000 * 60 * 60 * 24));
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/** True when `date` falls inside the loss warning window that starts on `today`. */
 export function isInLossWindow(date: string | null | undefined, today: string, warningWindowDays: number): boolean {
 	if (!date) return false;
 	const days = calendarDaysBetween(today, date);
@@ -77,8 +45,6 @@ export function isInLossWindow(date: string | null | undefined, today: string, w
 }
 
 /**
- * Evaluates which personnel are approaching a loss event within `warningWindowDays`.
- *
  * Rules:
  * - Only personnel with at least one non-null ETS or DEROS date are considered.
  * - A date is in-window when `0 <= daysRemaining <= warningWindowDays`.
@@ -99,7 +65,6 @@ export function evaluateUpcomingLosses(
 	const acknowledgedPersonnelIds = new Set(options?.awardTrackingAcknowledgedPersonnelIds ?? []);
 
 	for (const person of personnel) {
-		// Collect candidate dates that fall within the warning window
 		const candidates: { triggerType: LossTriggerType; date: string; days: number }[] = [];
 
 		if (person.ets) {
@@ -118,7 +83,6 @@ export function evaluateUpcomingLosses(
 
 		if (candidates.length === 0) continue;
 
-		// When multiple dates are in-window, take the nearest one to reduce clutter
 		candidates.sort((a, b) => a.days - b.days);
 		const nearest = candidates[0];
 		const awardTrackingAcknowledged = acknowledgedPersonnelIds.has(person.id);
@@ -138,6 +102,5 @@ export function evaluateUpcomingLosses(
 		});
 	}
 
-	// Sort ascending: most urgent departures at the top
 	return results.sort((a, b) => a.daysRemaining - b.daysRemaining);
 }

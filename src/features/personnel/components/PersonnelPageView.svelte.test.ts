@@ -560,7 +560,6 @@ describe('PersonnelPageView', () => {
 				props: { ctx, requestArchiveApproval }
 			});
 
-			// The ETS chip should appear in the roster row
 			expect(screen.getByTestId('loss-indicator-person-1')).toBeTruthy();
 		});
 
@@ -587,7 +586,6 @@ describe('PersonnelPageView', () => {
 		});
 
 		it('does not show a loss indicator for personnel not in the upcoming-loss map', () => {
-			// Empty map — person-1 is not approaching any loss
 			const ctx = makeCtx(vi.fn(), new Map());
 
 			render(PersonnelPageView, {

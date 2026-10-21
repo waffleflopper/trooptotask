@@ -90,7 +90,13 @@ function renderPage(
 			data: {
 				...data,
 				calendar: data.calendar ?? {
-					data: { personnel, allPersonnel: personnel, rangeStart: '2026-06-03', rangeEnd: '2026-10-31' }
+					data: {
+						personnel,
+						allPersonnel: personnel,
+						rangeStart: '2026-06-03',
+						rangeEnd: '2026-10-31',
+						availabilityRange: { rangeStart: '2026-09-01', rangeEnd: '2026-10-31' }
+					}
 				}
 			}
 		}
@@ -299,7 +305,14 @@ describe('planner visible-month loading', () => {
 	});
 	const staleBootstrap = {
 		orgId: 'org-1',
-		calendar: { data: { personnel, rangeStart: '2026-11-01', rangeEnd: '2027-01-31' } }
+		calendar: {
+			data: {
+				personnel,
+				rangeStart: '2026-11-01',
+				rangeEnd: '2027-01-31',
+				availabilityRange: { rangeStart: '2026-11-01', rangeEnd: '2027-01-31' }
+			}
+		}
 	};
 	const saved = {
 		id: 'saved-september',
@@ -316,22 +329,39 @@ describe('planner visible-month loading', () => {
 			specialDays: []
 		});
 	}
+	/** Answers a range read with exactly the collections its URL names. */
+	function answer(url: string) {
+		const params = new URL(url, 'http://localhost').searchParams;
+		const collections = params.get('collections')?.split(',') ?? [];
+		return Response.json({
+			rangeStart: params.get('rangeStart'),
+			rangeEnd: params.get('rangeEnd'),
+			...(collections.includes('availability') && { availabilityEntries: [] }),
+			...(collections.includes('assignments') && { specialDays: [], dailyAssignments: [saved] })
+		});
+	}
 	it('loads the displayed month on a cold start outside bootstrap coverage before offering edits', async () => {
-		let resolve!: (value: Response) => void;
+		const pending: Array<{ url: string; resolve: (value: Response) => void }> = [];
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(
-				() =>
-					new Promise<Response>((r) => {
-						resolve = r;
+				(url: string) =>
+					new Promise<Response>((resolve) => {
+						pending.push({ url, resolve });
 					})
 			)
 		);
 		renderPage(staleBootstrap);
 		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
-		await waitFor(() => expect(resolve).toBeTypeOf('function'));
-		resolve(response());
+		await waitFor(() => expect(pending).toHaveLength(2));
+		expect(pending.map(({ url }) => url)).toEqual([
+			'/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability',
+			'/org/org-1/api/calendar-range?rangeStart=2026-06-03&rangeEnd=2026-09-30&collections=assignments'
+		]);
+		pending[0].resolve(answer(pending[0].url));
+		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
+		pending[1].resolve(answer(pending[1].url));
 		await waitFor(() =>
 			expect(screen.getByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: SGT Smith, Alex/ })).toBeTruthy()
 		);
@@ -350,7 +380,14 @@ describe('planner visible-month loading', () => {
 		);
 		renderPage({
 			orgId: 'org-1',
-			calendar: { data: { personnel, rangeStart: '2026-09-01', rangeEnd: '2026-10-31' } }
+			calendar: {
+				data: {
+					personnel,
+					rangeStart: '2026-09-01',
+					rangeEnd: '2026-10-31',
+					availabilityRange: { rangeStart: '2026-09-01', rangeEnd: '2026-10-31' }
+				}
+			}
 		});
 		await waitFor(() => expect(resolve).toBeTypeOf('function'));
 		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
@@ -363,7 +400,7 @@ describe('planner visible-month loading', () => {
 			vi
 				.fn()
 				.mockResolvedValueOnce(new Response('', { status: 503 }))
-				.mockResolvedValueOnce(response())
+				.mockImplementation(async (url: string) => answer(url))
 		);
 		renderPage(staleBootstrap);
 		const retry = await screen.findByRole('button', { name: 'Retry calendar load' });
@@ -425,7 +462,17 @@ describe('planner visible-month loading', () => {
 		dailyAssignmentsStore.load(assignmentTypes, [{ ...saved, id: 'other-org', assigneeId: 'person-2' }], 'org-2');
 		await view.rerender({
 			org: mockOrg,
-			data: { orgId: 'org-2', calendar: { data: { personnel, rangeStart: '2026-06-03', rangeEnd: '2026-09-30' } } }
+			data: {
+				orgId: 'org-2',
+				calendar: {
+					data: {
+						personnel,
+						rangeStart: '2026-06-03',
+						rangeEnd: '2026-09-30',
+						availabilityRange: { rangeStart: '2026-09-01', rangeEnd: '2026-09-30' }
+					}
+				}
+			}
 		});
 		await act(async () => {
 			resolve(response());

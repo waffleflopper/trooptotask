@@ -7,7 +7,7 @@ import {
 	type AvailabilityChange
 } from '$features/calendar/utils/availabilityMutation';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDate, formatToday, parseDate } from '$lib/utils/dates';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -26,7 +26,6 @@ import { rejectedRequestMessage, StoreRequestError, withinOrganizationLifetime }
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
-import { SvelteDate } from 'svelte/reactivity';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
@@ -86,10 +85,6 @@ export interface CalendarPageAccess {
 	) => { readonly allowed: boolean; readonly reason: PolicyDecision['reasonCode'] };
 }
 
-// ---------------------------------------------------------------------------
-// Page data shape (subset of layout + page server data)
-// ---------------------------------------------------------------------------
-
 export interface CalendarPageData {
 	orgId: string;
 	orgName?: string;
@@ -100,24 +95,16 @@ export interface CalendarPageData {
 		data?: CalendarWorkspaceData;
 	};
 	activeOnboardingPersonnelIds?: string[];
-	/** Features off for the unit, from the app shell's Organization row. */
 	disabledFeatures?: readonly FeatureKey[];
-	// Allow additional layout fields to pass through without type errors
 	[key: string]: unknown;
 }
 
-// ---------------------------------------------------------------------------
-// Context class
-// ---------------------------------------------------------------------------
-
 export class CalendarPageContext {
-	// ---- page data (reactive getter — always reads current $props value) ---
 	readonly #getData: () => CalendarPageData;
 	get #data(): CalendarPageData {
 		return this.#getData();
 	}
 
-	// ---- injected deps -----------------------------------------------------
 	readonly #org: CalendarPageAccess;
 	readonly #savePreferences: (patch: Partial<CalendarDisplayPreferences>) => void;
 
@@ -125,16 +112,13 @@ export class CalendarPageContext {
 		return JSON.stringify([this.#org.userId, this.#org.role, this.#org.capabilityMap.calendar, this.#org.scopeSet]);
 	}
 
-	// ---- selection state ---------------------------------------------------
 	popover = $state.raw<CalendarPopover | null>(null);
 	editor = $state.raw<AvailabilityEditorRequest | null>(null);
 	assignmentDate = $state<Date | null>(null);
 	savingAvailability = $state(false);
 
-	// ---- view mode ---------------------------------------------------------
 	viewMode = $state<CalendarViewMode>('month');
 
-	// ---- display prefs -----------------------------------------------------
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
@@ -145,7 +129,6 @@ export class CalendarPageContext {
 		return this.#data.calendar?.data;
 	}
 
-	// ---- derived: personnel ------------------------------------------------
 	get calendarPersonnel(): Personnel[] {
 		return (
 			this.#workspaceData?.allPersonnel ??
@@ -156,19 +139,9 @@ export class CalendarPageContext {
 		);
 	}
 
-	get scopedPersonnelIds(): Set<string> {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- This getter returns a plain Set as public context data; it is not mutated as component state.
-		return new Set(
-			(this.#workspaceData?.personnel ?? (this.#data.personnel as Personnel[] | undefined) ?? []).map((p) => p.id)
-		);
-	}
-
-	// ---- derived: onboarding data ------------------------------------------
 	get activeOnboardingPersonnelIds(): string[] {
 		return this.#workspaceData?.activeOnboardingPersonnelIds ?? this.#data.activeOnboardingPersonnelIds ?? [];
 	}
-
-	// ---- derived: permission flags -----------------------------------------
 
 	get isHydrating(): boolean {
 		return (
@@ -205,7 +178,6 @@ export class CalendarPageContext {
 		).allowed;
 	}
 
-	// ---- derived: personnel groupings --------------------------------------
 	readonly #calendarRoster = $derived(
 		createRosterReadModel({
 			personnel: this.calendarPersonnel,
@@ -244,24 +216,8 @@ export class CalendarPageContext {
 
 	readonly availabilityTracks = $derived(buildAvailabilityTracks(availabilityStore.items, statusTypesStore.items));
 
-	// ---- reference date (for upcoming-loss evaluation) --------------------
-	/**
-	 * Calendar date used as "today" when evaluating upcoming losses.
-	 * Injectable via the fourth constructor argument so tests can pin the date
-	 * without real-time dependencies.
-	 */
 	readonly #today: string;
 
-	// ---- derived: upcoming losses ------------------------------------------
-
-	/**
-	 * Map of personId → UpcomingLossRecord for personnel inside the org's
-	 * configured loss warning window.  Consumed by CalendarRow to render
-	 * per-row indicators without duplicating date-threshold arithmetic.
-	 *
-	 * Reuses the same evaluation path as the dashboard widget so the calendar
-	 * and dashboard always agree on who is approaching a loss event.
-	 */
 	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
 		const windowDays = this.#workspaceData?.lossWarningWindowDays;
 		const losses =
@@ -272,8 +228,8 @@ export class CalendarPageContext {
 	});
 
 	readonly todayAvailability: TodayAvailability | null = $derived.by(() => {
-		const { rangeStart, rangeEnd } = this.#workspaceData ?? {};
-		if (!rangeStart || !rangeEnd || !rangeCoversDate({ rangeStart, rangeEnd })({ date: this.#today })) return null;
+		const availabilityRange = this.#workspaceData?.availabilityRange;
+		if (!availabilityRange || !rangeCoversDate(availabilityRange)({ date: this.#today })) return null;
 		const people = this.allPersonnelFlat;
 		const [out = 0] = this.availabilityTracks.outCounts(
 			people.map((person) => person.id),
@@ -287,7 +243,6 @@ export class CalendarPageContext {
 		return this.#workspaceData?.lossWarningWindowDays === null;
 	}
 
-	// ---- constructor -------------------------------------------------------
 	constructor(
 		getData: CalendarPageData | (() => CalendarPageData),
 		org: CalendarPageAccess,
@@ -298,22 +253,14 @@ export class CalendarPageContext {
 		this.#org = org;
 		this.#savePreferences = savePreferences;
 
-		// Pin to the provided date or fall back to the local calendar date
-		const now = new SvelteDate();
-		this.#today =
-			today ??
-			`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+		this.#today = today ?? formatToday();
 	}
-
-	// ---- lifecycle methods (called from route $effect) ---------------------
 
 	syncUserPreferences(preferences: CalendarDisplayPreferences): void {
 		this.showStatusText = preferences.showStatusText;
 		this.showPersonnelRoles = preferences.showPersonnelRoles;
 		this.highlightOnboarding = preferences.highlightOnboarding;
 	}
-
-	// ---- handlers ----------------------------------------------------------
 
 	setViewMode(view: CalendarViewMode): void {
 		this.viewMode = view;
@@ -448,7 +395,9 @@ export class CalendarPageContext {
 			try {
 				ranges = await withinOrganizationLifetime(
 					Promise.all(
-						[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
+						[...new Set(dates)].map((date) =>
+							loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date, collections: ['availability'] })
+						)
 					)
 				);
 			} catch (error) {
@@ -456,17 +405,14 @@ export class CalendarPageContext {
 				throw error;
 			}
 			if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
-			for (const range of ranges) {
+			const entriesByRange = ranges.map((range) => ({ range, entries: range.availabilityEntries ?? [] }));
+			for (const { range, entries } of entriesByRange) {
 				availabilityStore.load(
-					availabilityStore.orgId === expectedOrgId
-						? read.reconcile(range.availabilityEntries, rangeCoversSpan(range))
-						: range.availabilityEntries,
+					availabilityStore.orgId === expectedOrgId ? read.reconcile(entries, rangeCoversSpan(range)) : entries,
 					expectedOrgId
 				);
 			}
-			return [
-				...new Map(ranges.flatMap((range) => range.availabilityEntries.map((entry) => [entry.id, entry]))).values()
-			];
+			return [...new Map(entriesByRange.flatMap(({ entries }) => entries.map((entry) => [entry.id, entry]))).values()];
 		} finally {
 			read.close();
 		}

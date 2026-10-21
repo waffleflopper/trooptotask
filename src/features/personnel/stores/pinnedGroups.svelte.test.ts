@@ -26,13 +26,10 @@ describe('pinned Group state', () => {
 
 		const pinPromise = store.pin('Bravo');
 
-		// Optimistic: Bravo should be pinned
 		expect(store.list).toEqual(['Alpha', 'Bravo']);
 
-		// Stale load (only Alpha)
 		store.load(['Alpha'], 'org-1');
 
-		// Should NOT clobber optimistic pin
 		expect(store.list).toContain('Bravo');
 
 		resolveFetch(undefined);
@@ -53,13 +50,10 @@ describe('pinned Group state', () => {
 
 		const unpinPromise = store.unpin('Bravo');
 
-		// Optimistic: Bravo removed
 		expect(store.list).toEqual(['Alpha']);
 
-		// Stale load (still has both)
 		store.load(['Alpha', 'Bravo'], 'org-1');
 
-		// Should NOT clobber optimistic unpin
 		expect(store.list).not.toContain('Bravo');
 
 		resolveFetch(undefined);
@@ -81,7 +75,6 @@ describe('pinned Group state', () => {
 
 		const pinPromise = store.pin('Bravo');
 
-		// Different org
 		store.load(['Charlie'], 'org-2');
 		expect(store.list).toEqual(['Charlie']);
 

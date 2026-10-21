@@ -806,7 +806,6 @@ describe('fetchOnboardingBootstrap', () => {
 				active: true
 			}
 		]);
-		// Soldier has a completed training record for this type
 		ctx.store.seed('personnel_trainings', [
 			{
 				id: 'pt1',

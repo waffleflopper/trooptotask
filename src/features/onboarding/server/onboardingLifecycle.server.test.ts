@@ -635,7 +635,7 @@ describe('reopenOnboarding', () => {
 
 	it('rejects reopening an in_progress onboarding', async () => {
 		const ctx = buildTransitionContext(reopenedSaved);
-		seedOnboarding(ctx); // status: in_progress
+		seedOnboarding(ctx);
 
 		await expect(reopenOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow('Only cancelled onboardings can be reopened');
 	});

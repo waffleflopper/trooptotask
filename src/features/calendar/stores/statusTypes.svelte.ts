@@ -1,10 +1,6 @@
 /**
- * Status types store. The named availability statuses (e.g., "Leave", "TDY") for the org,
- * in the saved legend and picker order.
- *
  * `setOrder(ids)` saves a new order through one compare-and-replace command. Moves made while
  * it is in flight fold into one follow-up save. Create, update and delete are refused until it settles.
- * Loaded by the calendar and dashboard page load functions.
  */
 import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';

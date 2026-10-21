@@ -48,7 +48,6 @@
 	);
 	const canMutate = $derived(availabilityAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
-	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
 	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'add', label: 'Add' },
@@ -71,7 +70,6 @@
 		goto(resolve(target), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
-	// ---- Personnel data ----
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const rosterView = $derived(
 		createRosterReadModel({
@@ -85,9 +83,11 @@
 	// Add previews read through a coordinator of their own, seeded with what the Calendar workspace already loaded.
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	$effect.pre(() => {
-		const { rangeStart, rangeEnd } = data.calendar?.data ?? {};
+		const { rangeStart, rangeEnd, availabilityRange } = data.calendar?.data ?? {};
 		rangeCoordinator.reset();
-		if (rangeStart && rangeEnd) rangeCoordinator.includeBootstrap({ rangeStart, rangeEnd });
+		if (rangeStart && rangeEnd && availabilityRange) {
+			rangeCoordinator.includeBootstrap({ rangeStart, rangeEnd, availabilityRange });
+		}
 		return () => rangeCoordinator.reset();
 	});
 
@@ -97,7 +97,6 @@
 		active = false;
 	});
 
-	// ---- Callbacks for child components ----
 	async function handleBulkApply(
 		personnelIds: string[],
 		statusTypeId: string,
@@ -122,7 +121,7 @@
 		const orgId = data.orgId;
 		const read = beginCalendarRangeRead();
 		try {
-			const rangeData = await loadCalendarRange(orgId, range);
+			const rangeData = await loadCalendarRange(orgId, { ...range, collections: ['availability'] });
 			if (!active || data.orgId !== orgId) {
 				throw new Error('Organization changed while loading availability range');
 			}

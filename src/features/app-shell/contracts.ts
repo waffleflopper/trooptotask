@@ -3,9 +3,6 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { UserOrgPreferences } from '$features/identity/contracts';
 
 import type { Announcement } from '$features/notifications/contracts';
-// ---------------------------------------------------------------------------
-// App shell data — first paint and deferred chrome
-// ---------------------------------------------------------------------------
 
 export interface OrganizationSwitcherOrg {
 	id: string;
@@ -131,10 +128,6 @@ export function createReadyAppShell(config: {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Port input/output types
-// ---------------------------------------------------------------------------
-
 export interface MembershipInfo {
 	orgId: string;
 	membershipId: string | null;
@@ -149,10 +142,6 @@ export interface OrgState {
 	orgName: string;
 	disabledFeatures: FeatureKey[];
 }
-
-// ---------------------------------------------------------------------------
-// Port interfaces — framework-agnostic, pre-configured per request
-// ---------------------------------------------------------------------------
 
 export interface OrgAccessPort {
 	getMembership(): Promise<MembershipInfo>;

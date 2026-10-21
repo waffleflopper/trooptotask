@@ -115,6 +115,6 @@ describe('personnel files page server load', () => {
 		const { result, depends } = run();
 		await result();
 
-		expect(depends).toHaveBeenCalledWith('app:personnel-detail-files');
+		expect(depends).toHaveBeenCalledWith('app:personnel-detail-files', 'app:viewer-day');
 	});
 });

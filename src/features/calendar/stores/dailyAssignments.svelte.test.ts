@@ -29,7 +29,6 @@ describe('regression: delete type then add type flow', () => {
 	it('should show new type after deleting old type and adding new one', async () => {
 		vi.restoreAllMocks();
 
-		// Setup: load store with one type
 		const typeA = {
 			id: 'type-a',
 			name: 'Old Type',
@@ -43,13 +42,11 @@ describe('regression: delete type then add type flow', () => {
 		dailyAssignmentsStore.load([typeA], [], 'org-1');
 		expect(dailyAssignmentsStore.types).toEqual([typeA]);
 
-		// Step 1: Delete typeA
 		vi.stubGlobal('fetch', mockFetch(typeA));
 		const deleteResult = await dailyAssignmentsStore.removeType('type-a');
 		expect(deleteResult).toBe(true);
 		expect(dailyAssignmentsStore.types).toEqual([]);
 
-		// Step 2: Add typeB
 		const typeB = {
 			id: 'type-b',
 			name: 'New Type',
@@ -72,7 +69,6 @@ describe('regression: delete type then add type flow', () => {
 		});
 		expect(addResult).toEqual(typeB);
 
-		// Step 3: Verify store has ONLY typeB, not typeA
 		expect(dailyAssignmentsStore.types).toEqual([typeB]);
 		expect(dailyAssignmentsStore.types).not.toContainEqual(typeA);
 	});
@@ -114,7 +110,6 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				sortOrder: 0
 			});
 
-			// Different org — should go through
 			dailyAssignmentsStore.load(
 				[
 					{
@@ -235,7 +230,6 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 
 			expect(dailyAssignmentsStore.types.length).toBe(2);
 
-			// Stale load arrives
 			dailyAssignmentsStore.load([guardType], [], 'org-1');
 
 			expect(dailyAssignmentsStore.types.length).toBe(2);
@@ -354,7 +348,6 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 
 			expect(dailyAssignmentsStore.assignments.length).toBe(1);
 
-			// Stale load
 			dailyAssignmentsStore.load([{ ...guardType, id: 'type-1' }], [], 'org-1');
 
 			expect(dailyAssignmentsStore.assignments.length).toBe(1);

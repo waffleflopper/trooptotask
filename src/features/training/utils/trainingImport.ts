@@ -2,10 +2,6 @@ import { formatToday } from '$lib/utils/dates';
 import { parseDateString } from '$lib/utils/csvParser';
 import type { ColumnDef } from '$lib/utils/columnMapping';
 
-/**
- * Parse a training status/date value.
- * Returns { type, date } where type is 'date' | 'completed' | 'exempt' | 'skip' | 'invalid'.
- */
 export function parseTrainingStatus(value: string): {
 	type: 'date' | 'completed' | 'exempt' | 'skip' | 'invalid';
 	date: string | null;
@@ -14,23 +10,19 @@ export function parseTrainingStatus(value: string): {
 	const raw = value;
 	const v = value.trim().toLowerCase();
 
-	// Exempt values
 	if (['exempt', 'exempted', 'e'].includes(v)) {
 		return { type: 'exempt', date: null, raw };
 	}
 
-	// Yes/completed values → completed today
 	if (['yes', 'y', 'true', '1', 'complete', 'completed', 'done', 'x'].includes(v)) {
 		const today = formatToday();
 		return { type: 'completed', date: today, raw };
 	}
 
-	// No/skip values
 	if (['no', 'n', 'false', '0', 'incomplete', 'pending', ''].includes(v)) {
 		return { type: 'skip', date: null, raw };
 	}
 
-	// Try date formats
 	const date = parseDateString(value);
 	if (date) {
 		return { type: 'date', date, raw };

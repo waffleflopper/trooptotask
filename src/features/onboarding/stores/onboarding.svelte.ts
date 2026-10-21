@@ -1,20 +1,6 @@
 /**
- * Onboarding store — active and completed onboarding records for the org.
- *
- * Extended methods (all call server API routes):
- * - `startOnboarding(personnelId, startedAt, templateId)` — success requires a saved configured template; a rejected start throws with the server's reason
- * - `toggleCheckbox(stepId, completed)` — marks a step complete/incomplete
- * - `advanceStage(stepId, stageName)` — advances a multi-stage step (e.g., training steps)
- * - `addNote(stepId, text)` — appends an attributed note to a step
- * - `resync(onboardingId)` — reconciles steps when the template was edited after start
- * - `switchTemplate(onboardingId, newTemplateId)` — reassigns to a different template
- * - `cancelOnboarding(id)` / `completeOnboarding(id)` — lifecycle transitions
- *
  * Step and lifecycle writes roll back and throw the request error when the server refuses them,
  * so callers can show its reason. They resolve false when the organization changed meanwhile.
- *
- * `activeList` is a derived getter filtered to `status === 'in_progress'`.
- * Loaded by the onboarding page and dashboard page load functions.
  */
 import { buildRequestError, defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';

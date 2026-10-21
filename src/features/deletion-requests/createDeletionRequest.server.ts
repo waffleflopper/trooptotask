@@ -64,7 +64,6 @@ export async function createDeletionRequest(
 		})
 	});
 
-	// Notify admins/owners about the pending request
 	const isPersonnel = input.resourceType === 'personnel';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 

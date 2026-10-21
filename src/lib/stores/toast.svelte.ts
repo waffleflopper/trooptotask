@@ -1,15 +1,5 @@
 import { toast as sonnerToast, type ExternalToast } from 'svelte-sonner';
 
-/**
- * Sonner-backed global notifications for transient user feedback.
- *
- * Auto-dismisses after `duration` ms (default 4000ms; errors default to 6000ms).
- * Rendered by the shadcn-svelte `Toaster` mounted in the root layout.
- *
- * Usage: `toastStore.success('Saved')`, `toastStore.error('Something went wrong')`.
- * Dismiss manually with `toastStore.dismiss(id)` if needed (e.g., for loading toasts).
- * Pass an `action` as the third argument to render an inline action button on the toast.
- */
 export type ToastId = string | number;
 
 export interface ToastAction {

@@ -24,7 +24,7 @@ function patchFile({ filePath, patchName, replacements }) {
 	console.log(`[patch-bits-ui] Applied ${patchName} patch.`);
 }
 
-// Patches target this exact build; re-audit each against its regression test before bumping.
+// bits-ui 2.20.0 fixes both defects below; delete this script when upgrading to it.
 const auditedBitsUiVersion = '2.19.5';
 const bitsUiPackageRoot = join(process.cwd(), 'node_modules', 'bits-ui');
 const bitsUiPackageJsonPath = join(bitsUiPackageRoot, 'package.json');
@@ -46,7 +46,7 @@ function assertAuditedBitsUiVersion() {
 
 assertAuditedBitsUiVersion();
 
-// Unfixed upstream (huntabyte/bits-ui#2146): a superseded animation run can still fire its callback.
+// huntabyte/bits-ui#2146: a superseded animation run can still fire its callback.
 patchFile({
 	patchName: 'presence animation tick cleanup',
 	filePath: join(bitsUiPackageDist, 'internal', 'animations-complete.js'),
@@ -78,7 +78,7 @@ patchFile({
 	]
 });
 
-// Unfixed upstream: the deferred autofocus reads the content ref after an immediate unmount.
+// The deferred autofocus reads the content ref after an immediate unmount.
 patchFile({
 	patchName: 'alert dialog open autofocus timeout cleanup',
 	filePath: join(bitsUiDist, 'alert-dialog', 'components', 'alert-dialog-content.svelte'),

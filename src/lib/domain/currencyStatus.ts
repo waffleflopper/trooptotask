@@ -19,16 +19,14 @@
  *
  * Date-only strings are parsed with `parseDate` (local calendar) on BOTH sides,
  * matching the existing ICT helper and the way Training writes its expiration
- * dates. This deliberately corrects Training's legacy `new Date("YYYY-MM-DD")`
- * read parse, which under-counted by a day west of UTC (a no-op in production,
- * which runs in UTC). See currencyStatus.test.ts for the parity characterization.
+ * dates.
  */
 import { parseDate } from '$lib/utils/dates';
 
 export type CurrencyState = 'not-recorded' | 'current' | 'expiring' | 'expired';
 
 export interface CurrencyWarnBand {
-	id: string; // 'orange' | 'yellow' | 'soon' | ...
+	id: string;
 	withinDays: number; // inclusive upper bound: matches when daysUntilExpiration <= withinDays
 }
 
@@ -75,7 +73,6 @@ function classify(
 	warnBands: CurrencyWarnBand[],
 	asOf: string | Date | undefined
 ): CurrencyStatusResult {
-	// Calendar-day difference (parseDate = local calendar on both sides) → timezone- and DST-independent.
 	const days = Math.floor(
 		(toCalendarDayMs(parseDate(expirationDate)) - toCalendarDayMs(resolveAsOfDate(asOf))) / DAY_MS
 	);
@@ -102,10 +99,6 @@ const NOT_RECORDED: CurrencyStatusResult = {
 	daysUntilExpiration: null
 };
 
-/**
- * Total function classifying a resolved expiration date into a currency state.
- * See the module header for the responsibilities deliberately left to adapters.
- */
 export function currencyStatus(
 	record: CurrencyRecord | null,
 	config: CurrencyConfig,
@@ -120,8 +113,7 @@ export function currencyStatus(
 
 	if (record.completionDate == null) return NOT_RECORDED;
 
-	// Completed, but no stored expiration date → current (preserves Training's
-	// "has completion, no stored expiration → current" case). Critical Tasks never
+	// Completed, but no stored expiration date → current. Critical Tasks never
 	// reaches here: its adapter always supplies a computed expiration date.
 	if (record.expirationDate == null) {
 		return { state: 'current', band: null, expirationDate: null, daysUntilExpiration: null };

@@ -20,9 +20,10 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));
 import { load } from './+page.server';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
-function event(suspended = false) {
+function event(suspended = false, depends = vi.fn()) {
 	return {
 		locals: {},
+		depends,
 		cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) },
 		parent: async () =>
 			(suspended ? createSuspendedAppShellRouteData : createReadyAppShellRouteData)({
@@ -112,7 +113,9 @@ describe('logs settings page server', () => {
 				}
 			})
 		);
-		const result = await load(event());
+		const depends = vi.fn();
+		const result = await load(event(false, depends));
+		expect(depends).toHaveBeenCalledWith('app:viewer-day');
 		expect(result).toMatchObject({
 			orgId: 'org-1',
 			orgUrlSegment: 'test-org',

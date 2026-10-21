@@ -73,7 +73,6 @@ const AREA_RULES: [RegExp, Area][] = [
 	[/^src\/lib\//, 'shared']
 ];
 
-/** Raw element (or `input` type) to the canonical API Phase 10 migrates it to. */
 const CONTROL_MAPPING: [string, string][] = [
 	['button', '`Button` (`ui/button`), including `variant="link"` for link-styled actions'],
 	['a[role=button]', '`Button` with `href`, or a plain semantic link'],
@@ -92,7 +91,6 @@ const CONTROL_MAPPING: [string, string][] = [
 	['#hex', 'Shared color tokens from `src/app.css`']
 ];
 
-/** Harnesses, stubs and fixtures that only tests mount or import. */
 const TEST_SUPPORT =
 	/(?:^|\/)(?:test-support|test-stubs|__tests__)\/|(?:Test|Stub)\.svelte$|\.(?:test|spec|test-support)\./;
 

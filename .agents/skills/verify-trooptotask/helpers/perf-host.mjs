@@ -15,7 +15,6 @@ const ticksPerSecond = 100;
 const tools =
 	/\b(vite|vitest|svelte-check|svelte-kit|playwright|eslint|prettier|tsc|esbuild|daemon\.mjs|control\.mjs|unittest)\b|\bnode\b.*\s--test(?:[\s=]|$)|trooptotask-verification/;
 
-/** True for another checkout's build, test or verification process, given its command line and working directory. */
 export function isOtherTool({ args, cwd }, ours) {
 	if (!tools.test(args)) return false;
 	const inside = (text) => ours.some((root) => text === root || text.includes(root + path.sep));
@@ -73,7 +72,6 @@ async function readHost(ours) {
 // A run compares with another only on the same browser build and kernel. The browser reports
 // its build through Browser.getVersion, which DevTools also serves as /json/version on the
 // owned endpoint; reading the running process catches a package upgrade under a live browser.
-/** The running browser's build and protocol from its DevTools endpoint, and the kernel release. */
 export async function hostBuild(
 	endpoint,
 	{
@@ -85,13 +83,8 @@ export async function hostBuild(
 	return { browser: version.Browser, protocol: version['Protocol-Version'], kernel: release() };
 }
 
-/**
- * Host readings for the timing samples of one checkout and verification state root, and the
- * build of the host they ran on.
- */
 export function hostMonitor(ours, { limits = hostLimits, endpoint } = {}) {
 	return {
-		/** The browser build and kernel, read from the owned browser's DevTools endpoint. */
 		build: async () => hostBuild(await endpoint()),
 		/** Waits until a 3 s look at the host is clean; returns how long it waited. */
 		async clear() {

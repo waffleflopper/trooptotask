@@ -6,7 +6,6 @@ export interface NotificationPayload {
 	link?: string | null;
 }
 
-/** The complete retained notification response/export shape. */
 export interface Notification {
 	id: string;
 	user_id: string;

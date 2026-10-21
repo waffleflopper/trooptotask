@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CalendarRangeCoordinator } from './CalendarRangeCoordinator.svelte';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
 
+type Range = { rangeStart: string; rangeEnd: string };
+
 const may = { rangeStart: '2026-05-01', rangeEnd: '2026-05-31' };
+const both = (range: Range) => ({ availability: range, assignments: range });
+const bootstrapOf = (range: Range, availabilityRange: Range = range) => ({ ...range, availabilityRange });
 
 function makeRangeData(overrides: Partial<CalendarRangeData> = {}): CalendarRangeData {
 	return {
@@ -29,89 +33,106 @@ describe('CalendarRangeCoordinator', () => {
 	});
 
 	it('extends the loaded envelope from bootstrap data', () => {
-		coordinator.includeBootstrap({
-			rangeStart: '2026-03-01',
-			rangeEnd: '2026-04-30'
-		});
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' }));
 
-		coordinator.includeBootstrap({
-			rangeStart: '2026-04-01',
-			rangeEnd: '2026-05-31'
-		});
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-04-01', rangeEnd: '2026-05-31' }));
 
-		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-03-01', rangeEnd: '2026-05-31' });
+		expect(coordinator.loaded).toEqual(both({ rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }));
 	});
 
-	it('applies the loaded range to bootstrap output', () => {
-		const bootstrap = {
-			rangeStart: '2026-03-01',
-			rangeEnd: '2026-03-31'
-		};
+	it('applies each loaded collection span to bootstrap output', () => {
+		const bootstrap = bootstrapOf(
+			{ rangeStart: '2025-12-02', rangeEnd: '2026-03-31' },
+			{ rangeStart: '2026-03-01', rangeEnd: '2026-03-31' }
+		);
+
+		expect(coordinator.applyToBootstrap(bootstrap)).toEqual(bootstrap);
+
+		coordinator.includeBootstrap(
+			bootstrapOf(
+				{ rangeStart: '2026-01-01', rangeEnd: '2026-04-30' },
+				{ rangeStart: '2026-04-01', rangeEnd: '2026-04-30' }
+			)
+		);
 
 		expect(coordinator.applyToBootstrap(bootstrap)).toEqual({
-			...bootstrap
+			rangeStart: '2026-01-01',
+			rangeEnd: '2026-04-30',
+			availabilityRange: { rangeStart: '2026-04-01', rangeEnd: '2026-04-30' }
+		});
+	});
+
+	it('pages forward with one read for both collections and back with one read per collection', async () => {
+		coordinator.includeBootstrap(
+			bootstrapOf(
+				{ rangeStart: '2026-07-03', rangeEnd: '2026-11-30' },
+				{ rangeStart: '2026-10-01', rangeEnd: '2026-11-30' }
+			)
+		);
+		loadRange.mockImplementation(async (_orgId: string, read: Range) => makeRangeData(read));
+
+		await coordinator.ensureRange('org-1', {
+			availability: { rangeStart: '2026-12-01', rangeEnd: '2026-12-31' },
+			assignments: { rangeStart: '2026-09-02', rangeEnd: '2026-12-31' }
+		});
+		await coordinator.ensureRange('org-1', {
+			availability: { rangeStart: '2026-09-01', rangeEnd: '2026-09-30' },
+			assignments: { rangeStart: '2026-06-03', rangeEnd: '2026-09-30' }
 		});
 
-		coordinator.includeBootstrap({
-			rangeStart: '2026-04-01',
-			rangeEnd: '2026-04-30'
-		});
-
-		expect(coordinator.applyToBootstrap(bootstrap)).toEqual({
-			rangeStart: '2026-04-01',
-			rangeEnd: '2026-04-30'
+		expect(loadRange.mock.calls.map(([, read]) => read)).toEqual([
+			{ rangeStart: '2026-12-01', rangeEnd: '2026-12-31', collections: ['availability', 'assignments'] },
+			{ rangeStart: '2026-09-01', rangeEnd: '2026-09-30', collections: ['availability'] },
+			{ rangeStart: '2026-06-03', rangeEnd: '2026-07-02', collections: ['assignments'] }
+		]);
+		expect(coordinator.loaded).toEqual({
+			availability: { rangeStart: '2026-09-01', rangeEnd: '2026-12-31' },
+			assignments: { rangeStart: '2026-06-03', rangeEnd: '2026-12-31' }
 		});
 	});
 
 	it('loads missing visible ranges, merges them into stores, and extends the loaded envelope', async () => {
-		coordinator.includeBootstrap({
-			rangeStart: '2026-03-01',
-			rangeEnd: '2026-04-30'
-		});
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' }));
 		loadRange.mockResolvedValueOnce(makeRangeData());
 
-		await coordinator.ensureRange('org-1', may);
+		await coordinator.ensureRange('org-1', both(may));
 
-		expect(loadRange).toHaveBeenCalledWith('org-1', { rangeStart: '2026-05-01', rangeEnd: '2026-05-31' });
+		expect(loadRange.mock.calls).toEqual([
+			['org-1', { rangeStart: '2026-05-01', rangeEnd: '2026-05-31', collections: ['availability', 'assignments'] }]
+		]);
 		expect(mergeRangeIntoStores).toHaveBeenCalledWith(
 			'org-1',
 			expect.objectContaining({ rangeStart: '2026-05-01' }),
 			expect.anything()
 		);
-		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-03-01', rangeEnd: '2026-05-31' });
+		expect(coordinator.loaded).toEqual(both({ rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }));
 		expect(coordinator.loading).toBe(false);
 		expect(coordinator.error).toBeNull();
 	});
 
 	it('does not reload the same failed range until retry is requested', async () => {
-		coordinator.includeBootstrap({
-			rangeStart: '2026-03-01',
-			rangeEnd: '2026-04-30'
-		});
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' }));
 		loadRange.mockRejectedValueOnce(new Error('network down'));
 
-		await coordinator.ensureRange('org-1', may);
-		await coordinator.ensureRange('org-1', may);
+		await coordinator.ensureRange('org-1', both(may));
+		await coordinator.ensureRange('org-1', both(may));
 
 		expect(loadRange).toHaveBeenCalledTimes(1);
 		expect(coordinator.error?.message).toBe('network down');
-		expect(coordinator.status(may)).toBe('error');
+		expect(coordinator.status(both(may))).toBe('error');
 
 		loadRange.mockResolvedValueOnce(makeRangeData());
 		coordinator.retryFailedRange();
-		await coordinator.ensureRange('org-1', may);
+		await coordinator.ensureRange('org-1', both(may));
 
 		expect(loadRange).toHaveBeenCalledTimes(2);
 		expect(coordinator.error).toBeNull();
-		expect(coordinator.status(may)).toBe('ready');
+		expect(coordinator.status(both(may))).toBe('ready');
 	});
 
 	it('abandons an in-flight range load when explicitly cancelled', async () => {
 		let resolveRange: ((value: CalendarRangeData) => void) | undefined;
-		coordinator.includeBootstrap({
-			rangeStart: '2026-03-01',
-			rangeEnd: '2026-04-30'
-		});
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' }));
 		loadRange.mockImplementationOnce(
 			() =>
 				new Promise<CalendarRangeData>((resolve) => {
@@ -119,7 +140,7 @@ describe('CalendarRangeCoordinator', () => {
 				})
 		);
 
-		const loadPromise = coordinator.ensureRange('org-1', may);
+		const loadPromise = coordinator.ensureRange('org-1', both(may));
 		expect(coordinator.loading).toBe(true);
 
 		coordinator.cancelInFlightLoads();
@@ -128,54 +149,58 @@ describe('CalendarRangeCoordinator', () => {
 
 		expect(mergeRangeIntoStores).not.toHaveBeenCalled();
 		expect(coordinator.loading).toBe(false);
-		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' });
+		expect(coordinator.loaded).toEqual(both({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' }));
 	});
 
 	it('reads exactly a far disjoint span and stops treating the earlier span as loaded', async () => {
 		const april = { rangeStart: '2026-03-01', rangeEnd: '2026-04-30' };
 		const farMonth = { rangeStart: '2028-01-02', rangeEnd: '2028-04-30' };
-		coordinator.includeBootstrap(april);
+		coordinator.includeBootstrap(bootstrapOf(april));
 		loadRange.mockResolvedValueOnce(makeRangeData(farMonth));
 
-		await coordinator.ensureRange('org-1', farMonth);
+		await coordinator.ensureRange('org-1', both(farMonth));
 
-		expect(loadRange.mock.calls).toEqual([['org-1', farMonth]]);
-		expect(coordinator.loadedRange).toEqual(farMonth);
-		expect(coordinator.status(farMonth)).toBe('ready');
-		expect(coordinator.status(april)).toBe('loading');
+		expect(loadRange.mock.calls).toEqual([['org-1', { ...farMonth, collections: ['availability', 'assignments'] }]]);
+		expect(coordinator.loaded).toEqual(both(farMonth));
+		expect(coordinator.status(both(farMonth))).toBe('ready');
+		expect(coordinator.status(both(april))).toBe('loading');
 	});
 
 	it('does not claim the days between a disjoint bootstrap and the loaded span', () => {
-		coordinator.includeBootstrap({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' });
-		coordinator.includeBootstrap({ rangeStart: '2027-01-01', rangeEnd: '2027-02-28' });
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-03-01', rangeEnd: '2026-04-30' }));
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2027-01-01', rangeEnd: '2027-02-28' }));
 
-		expect(coordinator.loadedRange).toEqual({ rangeStart: '2027-01-01', rangeEnd: '2027-02-28' });
-		expect(coordinator.status({ rangeStart: '2026-06-01', rangeEnd: '2026-06-30' })).toBe('loading');
-		expect(coordinator.status({ rangeStart: '2027-01-15', rangeEnd: '2027-02-15' })).toBe('ready');
+		expect(coordinator.loaded).toEqual(both({ rangeStart: '2027-01-01', rangeEnd: '2027-02-28' }));
+		expect(coordinator.status(both({ rangeStart: '2026-06-01', rangeEnd: '2026-06-30' }))).toBe('loading');
+		expect(coordinator.status(both({ rangeStart: '2027-01-15', rangeEnd: '2027-02-15' }))).toBe('ready');
 	});
 
 	it('reads a span over 366 days in bounded chunks, two at a time, and covers it once every chunk arrives', async () => {
 		const pending: Array<{ range: { rangeStart: string; rangeEnd: string }; resolve: () => void }> = [];
 		loadRange.mockImplementation(
-			(_orgId: string, range: { rangeStart: string; rangeEnd: string }) =>
+			(_orgId: string, range: Range) =>
 				new Promise<CalendarRangeData>((resolve) => {
 					pending.push({ range, resolve: () => resolve(makeRangeData(range)) });
 				})
 		);
 
-		const load = coordinator.ensureRange('org-1', { rangeStart: '2026-01-01', rangeEnd: '2028-03-10' });
+		const load = coordinator.ensureRange('org-1', both({ rangeStart: '2026-01-01', rangeEnd: '2028-03-10' }));
 
 		expect(pending.map((call) => call.range)).toEqual([
-			{ rangeStart: '2026-01-01', rangeEnd: '2027-01-01' },
-			{ rangeStart: '2027-01-02', rangeEnd: '2028-01-02' }
+			{ rangeStart: '2026-01-01', rangeEnd: '2027-01-01', collections: ['availability', 'assignments'] },
+			{ rangeStart: '2027-01-02', rangeEnd: '2028-01-02', collections: ['availability', 'assignments'] }
 		]);
 		pending[0].resolve();
 		await vi.waitFor(() => expect(pending).toHaveLength(3));
-		expect(pending[2].range).toEqual({ rangeStart: '2028-01-03', rangeEnd: '2028-03-10' });
+		expect(pending[2].range).toEqual({
+			rangeStart: '2028-01-03',
+			rangeEnd: '2028-03-10',
+			collections: ['availability', 'assignments']
+		});
 		pending[2].resolve();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(mergeRangeIntoStores).not.toHaveBeenCalled();
-		expect(coordinator.status({ rangeStart: '2026-01-01', rangeEnd: '2026-01-31' })).toBe('loading');
+		expect(coordinator.status(both({ rangeStart: '2026-01-01', rangeEnd: '2026-01-31' }))).toBe('loading');
 
 		pending[1].resolve();
 		await load;
@@ -185,21 +210,19 @@ describe('CalendarRangeCoordinator', () => {
 			'2027-01-02',
 			'2028-01-03'
 		]);
-		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-01-01', rangeEnd: '2028-03-10' });
+		expect(coordinator.loaded).toEqual(both({ rangeStart: '2026-01-01', rangeEnd: '2028-03-10' }));
 		expect(coordinator.loading).toBe(false);
 	});
 
 	it('covers a request whose gap before the loaded span exceeds 366 days and which also extends past it', async () => {
 		const requested = { rangeStart: '2025-01-01', rangeEnd: '2026-12-31' };
-		coordinator.includeBootstrap({ rangeStart: '2026-07-03', rangeEnd: '2026-11-30' });
-		loadRange.mockImplementation(async (_orgId: string, range: { rangeStart: string; rangeEnd: string }) =>
-			makeRangeData(range)
-		);
+		coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-07-03', rangeEnd: '2026-11-30' }));
+		loadRange.mockImplementation(async (_orgId: string, range: Range) => makeRangeData(range));
 
-		await coordinator.ensureRange('org-1', requested);
+		await coordinator.ensureRange('org-1', both(requested));
 
-		expect(coordinator.loadedRange).toEqual(requested);
-		expect(coordinator.status(requested)).toBe('ready');
+		expect(coordinator.loaded).toEqual(both(requested));
+		expect(coordinator.status(both(requested))).toBe('ready');
 		expect(coordinator.loading).toBe(false);
 	});
 
@@ -207,7 +230,7 @@ describe('CalendarRangeCoordinator', () => {
 		const loaded = { rangeStart: '2026-07-03', rangeEnd: '2026-11-30' };
 		const far = { rangeStart: '2028-06-01', rangeEnd: '2028-06-03' };
 		const covered = { rangeStart: '2026-10-05', rangeEnd: '2026-10-07' };
-		coordinator.includeBootstrap(loaded);
+		coordinator.includeBootstrap(bootstrapOf(loaded));
 		let finishFar!: () => void;
 		loadRange.mockImplementationOnce(
 			() =>
@@ -216,13 +239,13 @@ describe('CalendarRangeCoordinator', () => {
 				})
 		);
 
-		const farLoad = coordinator.ensureRange('org-1', far);
-		await coordinator.ensureRange('org-1', covered);
+		const farLoad = coordinator.ensureRange('org-1', both(far));
+		await coordinator.ensureRange('org-1', both(covered));
 		finishFar();
 		await farLoad;
 
-		expect(coordinator.loadedRange).toEqual(loaded);
-		expect(coordinator.status(covered)).toBe('ready');
+		expect(coordinator.loaded).toEqual(both(loaded));
+		expect(coordinator.status(both(covered))).toBe('ready');
 		expect(coordinator.loading).toBe(false);
 	});
 });

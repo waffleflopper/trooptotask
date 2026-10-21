@@ -21,7 +21,6 @@ function escapeHtmlAttribute(value: string): string {
 	return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
-/** Generate a provider OTP, then deliver its app confirmation URL through the app's Resend account. */
 export async function sendAuthEmail(
 	input: SendAuthEmailInput,
 	fetchImpl: typeof fetch = fetch

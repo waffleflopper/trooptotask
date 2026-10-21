@@ -26,19 +26,14 @@ export default ts.config(
 	},
 	{
 		rules: {
-			// --- TypeScript ---
-
 			// No `any` — use `unknown` and narrow the type. To override per-line:
 			//   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- <reason>
 			'@typescript-eslint/no-explicit-any': 'error',
 
-			// Allow unused vars prefixed with _
 			'@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
 
 			// Svelte reactive statements trigger this incorrectly
 			'@typescript-eslint/no-unused-expressions': 'off',
-
-			// --- Svelte ---
 
 			// This app uses static href strings, not resolve() — not applicable
 			'svelte/no-navigation-without-resolve': 'off',
@@ -53,9 +48,6 @@ export default ts.config(
 			// Writable $derived is a newer Svelte 5 pattern — refactor incrementally
 			'svelte/prefer-writable-derived': 'warn',
 
-			// --- General JS ---
-
-			// Allow fallthrough in switches when intentional (common in reducers/parsers)
 			'no-fallthrough': ['error', { commentPattern: 'falls?\\s*through' }],
 
 			// Allow hasOwnProperty — Object.hasOwn not available in all target envs
@@ -87,8 +79,6 @@ export default ts.config(
 			'.superpowers/',
 			'.sandcastle/',
 			'.worktrees/',
-			'.agents/skills/impeccable/agents/',
-			'.agents/skills/impeccable/scripts/',
 			'.vercel/',
 			'tmp/'
 		]

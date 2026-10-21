@@ -30,10 +30,8 @@
 	}: {
 		orgId: string;
 		personnelId: string;
-		/** The viewer's day. */
 		asOf: string;
 		files: { counselings: Promise<PersonnelCounselingsRead>; documents: Promise<PersonnelDocumentsRead> };
-		/** Whether the viewer may add and archive files for this Person. */
 		canManage: boolean;
 	} = $props();
 

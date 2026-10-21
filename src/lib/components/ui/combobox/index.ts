@@ -25,7 +25,6 @@ export {
 	List,
 	Search,
 	Value,
-	//
 	Root as Combobox,
 	Trigger as ComboboxTrigger,
 	Chip as ComboboxChip,

@@ -106,7 +106,6 @@
 
 <section class="px-3 pb-12 sm:px-4">
 	<div class="grid gap-3 py-4 md:grid-cols-2 lg:grid-cols-3">
-		<!-- ═══════ LARGE: Strength & Availability (spans 2 cols on lg) ═══════ -->
 		<Card.Root class="lg:col-span-2">
 			<Card.Content class="pt-4">
 				<div class="mb-4 flex items-start justify-between">
@@ -165,7 +164,6 @@
 			</Card.Content>
 		</Card.Root>
 
-		<!-- ═══════ TALL: Attention Required ═══════ -->
 		<Card.Root class="row-span-2 flex flex-col">
 			<Card.Header>
 				<div class="flex items-center justify-between">
@@ -235,7 +233,6 @@
 			</div>
 		</Card.Root>
 
-		<!-- ═══════ MEDIUM: Training & Evaluations ═══════ -->
 		{#if showsTraining || showsEvaluations}
 			<Card.Root>
 				<Card.Header>
@@ -307,7 +304,6 @@
 			</Card.Root>
 		{/if}
 
-		<!-- ═══════ MEDIUM: Calendar Assignments ═══════ -->
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Calendar Assignments</Card.Title>
@@ -345,7 +341,6 @@
 			</Card.Content>
 		</Card.Root>
 
-		<!-- ═══════ SMALL: Onboarding ═══════ -->
 		{#if ctx.isFeatureOn('onboarding')}
 			<Card.Root>
 				<Card.Header>
@@ -383,7 +378,6 @@
 			</Card.Root>
 		{/if}
 
-		<!-- ═══════ SMALL: Upcoming Changes ═══════ -->
 		<Card.Root>
 			<Card.Header>
 				<div class="flex items-center justify-between">
@@ -431,7 +425,6 @@
 			{/if}
 		</Card.Root>
 
-		<!-- ═══════ SMALL: Personnel Out Today ═══════ -->
 		{#if ctx.nonAvailablePersonnel.length > 0}
 			<Card.Root>
 				<Card.Header>

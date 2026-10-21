@@ -67,7 +67,6 @@ describe('Dashboard Training summary', () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
-		// Seed a training record that is current (not expired)
 		const now = new Date();
 		const futureDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
 		const pastDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
@@ -137,7 +136,6 @@ describe('Dashboard Training summary', () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
-		// Create multiple expired trainings
 		store.seed('personnel_trainings', [
 			{
 				id: 'pt1',

@@ -35,7 +35,6 @@ describe('createDeletionRequest', () => {
 
 		await createDeletionRequest({ ...ctx, store: ctx.requests }, validInput);
 
-		// Record stored with correct fields
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
 		expect(stored).toHaveLength(1);
 		expect(stored[0]).toMatchObject({
@@ -48,7 +47,6 @@ describe('createDeletionRequest', () => {
 			status: 'pending'
 		});
 
-		// Audit logged
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.created',
@@ -189,7 +187,6 @@ describe('createDeletionRequest', () => {
 	it('rejects duplicate pending request for the same resource (409)', async () => {
 		const ctx = buildContext();
 
-		// Seed an existing pending request for the same resource
 		ctx.store.seed('deletion_requests', [
 			{
 				id: 'existing-1',

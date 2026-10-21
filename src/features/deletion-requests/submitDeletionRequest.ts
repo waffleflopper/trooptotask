@@ -1,10 +1,6 @@
 import { toastStore } from '$lib/stores/toast.svelte';
 import { stillInOrganizationLifetime } from '$lib/stores/core';
 
-/**
- * After a store's remove() returns 'approval_required', call this to
- * create the deletion request on the server and show a toast.
- */
 export async function submitDeletionRequest(
 	orgId: string,
 	resourceType: string,

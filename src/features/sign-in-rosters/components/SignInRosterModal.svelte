@@ -43,10 +43,8 @@
 
 	let { orgId, personnel, groups, rankCatalog = undefined, canEdit, onClose }: Props = $props();
 
-	// View toggle
 	let view = $state<'list' | 'create'>('list');
 
-	// List view state
 	let rosters = $state<SignInRoster[]>([]);
 	let total = $state(0);
 	let loading = $state(true);
@@ -64,7 +62,6 @@
 	const signedScanErrors = new SvelteMap<string, string>();
 	const signedScanSelectedFiles = new SvelteMap<string, string>();
 
-	// Create view state
 	let title = $state('');
 	let dateOption = $state<'specific' | 'blank'>('specific');
 	let rosterDate = $state(formatDateValue(new Date()));
@@ -96,7 +93,6 @@
 		rankFilterSelectionMode = 'custom';
 	}
 
-	// Fetch rosters
 	async function fetchRosters(reset = false) {
 		if (reset) rosters = [];
 		loading = true;
@@ -134,14 +130,12 @@
 		void fetchRosters(true);
 	});
 
-	// Search debounce
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	function handleSearch() {
 		clearTimeout(searchTimeout);
 		searchTimeout = setTimeout(() => fetchRosters(true), 300);
 	}
 
-	// Category toggles
 	const rankCategoryGroups = $derived.by(() => {
 		const catalogForQuickFilters = rankCatalog && rankCatalog.length > 0 ? rankCatalog : BUILT_IN_RANK_CATALOG;
 		const catalogCategoriesByCode: Partial<Record<string, RankQuickFilterCategory>> = {};
@@ -217,7 +211,6 @@
 		}
 	}
 
-	// Filtered personnel
 	const filteredPersonnel = $derived.by(() => {
 		return personnel.filter((p) => {
 			if (!selectedRankValues.has(p.rank.trim())) return false;
@@ -226,7 +219,6 @@
 		});
 	});
 
-	// Sort personnel for snapshot
 	function buildSnapshot(people: Personnel[]) {
 		const snapshot = people.map((p) => ({
 			id: p.id,
@@ -239,7 +231,6 @@
 		return sortSignInRosterRows(snapshot, sortBy, rankCatalog);
 	}
 
-	// PDF generation using jsPDF
 	async function generatePDF(config: {
 		title: string;
 		rosterDate: string | null;
@@ -253,18 +244,15 @@
 		const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
 		const pageWidth = doc.internal.pageSize.getWidth();
 
-		// Title
 		doc.setFontSize(18);
 		doc.text(config.title, pageWidth / 2, 50, { align: 'center' });
 
-		// Date
 		doc.setFontSize(12);
 		const dateDisplay = config.blankDate
 			? 'Date: _______________'
 			: `Date: ${new Date(config.rosterDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
 		doc.text(dateDisplay, pageWidth / 2, 70, { align: 'center' });
 
-		// Build table body rows
 		const sorted = [...config.personnelSnapshot];
 		let rosterGroups: { name: string; people: typeof sorted }[];
 		if (config.separateByGroup) {
@@ -335,7 +323,6 @@
 		doc.save(`${config.title.replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '-')}-sign-in-roster.pdf`);
 	}
 
-	// Generate and save
 	async function handleGenerate() {
 		if (!title.trim() || filteredPersonnel.length === 0 || saving) return;
 		saving = true;
@@ -351,7 +338,6 @@
 		};
 
 		try {
-			// Generate PDF first
 			await generatePDF(config);
 			const res = await fetch(`/org/${orgId}/api/sign-in-rosters`, {
 				method: 'POST',
@@ -365,14 +351,12 @@
 				})
 			});
 			if (res.ok) {
-				// Reset create form
 				title = '';
 				dateOption = 'specific';
 				rosterDate = formatDateValue(new Date());
 				separateByGroup = false;
 				sortBy = 'alphabetical';
 				resetCreateFilters();
-				// Switch to list
 				view = 'list';
 				void fetchRosters(true);
 			}
@@ -381,7 +365,6 @@
 		}
 	}
 
-	// Re-print from saved roster
 	async function reprintRoster(roster: SignInRoster) {
 		const current = stillInOrganizationLifetime();
 		try {
@@ -558,7 +541,6 @@
 		}
 	}
 
-	// Delete roster
 	async function deleteRoster(roster: SignInRoster) {
 		deleting = roster.id;
 		deleteError = '';

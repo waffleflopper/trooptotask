@@ -27,9 +27,7 @@ import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 export function createSupabaseOrgAccessPort(config: {
 	orgId: string;
 	userId: string;
-	/** User-scoped Supabase client (from `locals.supabase`) for membership queries. */
 	userSupabase: SupabaseClient;
-	/** Pre-fetched org name (org row is already loaded before membership in the layout). */
 	orgName: string;
 	/** Read with the same Organization row, so the feature gate adds no query. */
 	disabledFeatures: FeatureKey[];
@@ -69,9 +67,7 @@ export function createSupabaseOrgAccessPort(config: {
 export function createSupabaseAppShellFirstPaintChromePort(config: {
 	orgId: string;
 	userId: string;
-	/** User-scoped Supabase client for dismissals and preferences. */
 	userSupabase: SupabaseClient;
-	/** Admitted request-user client for platform announcement content. */
 	supabase: SupabaseClient;
 }): AppShellFirstPaintChromePort {
 	return {
@@ -93,7 +89,6 @@ export function createSupabaseAppShellFirstPaintChromePort(config: {
 export function createSupabaseAppShellDeferredChromePort(config: {
 	orgId: string;
 	userId: string;
-	/** User-scoped Supabase client for notifications and organization switcher data. */
 	userSupabase: SupabaseClient;
 }): AppShellDeferredChromePort {
 	return {

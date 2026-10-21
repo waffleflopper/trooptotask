@@ -208,7 +208,6 @@ const lastWeekday = (year, month, day) => {
 // A Saturday holiday is observed on Friday and a Sunday one on Monday.
 const observed = (date) => addDays(date, { 0: 1, 6: -1 }[weekday(date)] ?? 0);
 
-/** The observed US federal holidays of a year, the rules the app seeds a new Organization with. */
 export function federalHolidays(year) {
 	const fixed = (month, day) => observed(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
 	return [
@@ -852,7 +851,6 @@ export async function removeImported({ client, ownedState, save, workload }) {
 	return { removed: added.length };
 }
 
-/** Deletes exactly the journaled rows and accounts, then reads every one of them back. */
 export async function cleanWorkloads({ client, ownedState, save }) {
 	const results = {};
 	for (const [name, item] of Object.entries(ownedState.workloads ?? {})) {

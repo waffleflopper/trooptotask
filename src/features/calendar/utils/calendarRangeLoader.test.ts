@@ -56,10 +56,16 @@ describe('calendarRangeLoader', () => {
 			json: async () => payload
 		});
 
-		await expect(loadCalendarRange('org-1', { rangeStart: '2026-03-01', rangeEnd: '2026-06-30' })).resolves.toEqual(
-			payload
+		await expect(
+			loadCalendarRange('org-1', {
+				rangeStart: '2026-03-01',
+				rangeEnd: '2026-06-30',
+				collections: ['availability', 'assignments']
+			})
+		).resolves.toEqual(payload);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/org/org-1/api/calendar-range?rangeStart=2026-03-01&rangeEnd=2026-06-30&collections=availability%2Cassignments'
 		);
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/calendar-range?rangeStart=2026-03-01&rangeEnd=2026-06-30');
 	});
 
 	it('treats an empty authoritative range as removal of previously loaded rows', () => {

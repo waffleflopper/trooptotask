@@ -2,8 +2,6 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
 
-// --- Shared helpers ---
-
 function expandDateRange(entryStart: string, entryEnd: string, reportStart: string, reportEnd: string): string[] {
 	const start = clampDate(entryStart, reportStart, reportEnd);
 	const end = clampDate(entryEnd, reportStart, reportEnd);
@@ -25,7 +23,6 @@ function clampDate(date: string, min: string, max: string): string {
 	return date;
 }
 
-/** Generate all YYYY-MM-DD strings between start and end inclusive */
 export function allDatesInRange(startDate: string, endDate: string): string[] {
 	return expandDateRange(startDate, endDate, startDate, endDate);
 }
@@ -62,10 +59,6 @@ function buildAvailabilityEntryDateIndex(
 		hasEntry: (personnelId, date) => entryByPersonnelDate.has(`${personnelId}:${date}`)
 	};
 }
-
-// =============================================================
-// 1. Availability Forecast
-// =============================================================
 
 export interface ForecastDay {
 	date: string;
@@ -123,10 +116,6 @@ export function computeAvailabilityForecast(
 	return { days };
 }
 
-// =============================================================
-// 2. Personnel Tempo (OPTEMPO)
-// =============================================================
-
 export interface TempoRow {
 	person: Personnel;
 	totalAwayDays: number;
@@ -152,10 +141,8 @@ export function computePersonnelTempo(
 ): PersonnelTempoResult {
 	const totalDaysInPeriod = allDatesInRange(startDate, endDate).length;
 
-	// Filter to only "away" entries
 	const awayEntries = entries.filter((e) => awayStatusTypeIds.has(e.statusTypeId));
 
-	// Index by person
 	const entriesByPerson = new Map<string, AvailabilityEntry[]>();
 	for (const entry of awayEntries) {
 		let list = entriesByPerson.get(entry.personnelId);
@@ -194,7 +181,6 @@ export function computePersonnelTempo(
 		});
 	}
 
-	// Sort by most days away descending
 	rows.sort((a, b) => b.totalAwayDays - a.totalAwayDays);
 
 	return {
@@ -203,10 +189,6 @@ export function computePersonnelTempo(
 		totalDaysInPeriod
 	};
 }
-
-// =============================================================
-// 3. Assignment Coverage
-// =============================================================
 
 export interface CoverageRow {
 	person: Personnel;
@@ -228,7 +210,6 @@ export function computeAssignmentCoverage(
 	startDate: string,
 	endDate: string
 ): AssignmentCoverageResult {
-	// Filter assignments to date range and selected types, personnel-assigned only
 	const personnelTypeIds = new Set(
 		assignmentTypes.filter((t) => t.assignTo === 'personnel' && selectedTypeIds.has(t.id)).map((t) => t.id)
 	);
@@ -242,7 +223,6 @@ export function computeAssignmentCoverage(
 			a.date <= endDate
 	);
 
-	// Index by person
 	const assignmentsByPerson = new Map<string, DailyAssignment[]>();
 	for (const a of filtered) {
 		let list = assignmentsByPerson.get(a.assigneeId);
@@ -283,10 +263,6 @@ export function computeAssignmentCoverage(
 	};
 }
 
-// =============================================================
-// 4. Group/Section Readiness
-// =============================================================
-
 export interface ReadinessCell {
 	date: string;
 	totalPersonnel: number;
@@ -316,7 +292,6 @@ export function computeGroupReadiness(
 	const dates = allDatesInRange(startDate, endDate);
 	const availabilityIndex = buildAvailabilityEntryDateIndex(entries, startDate, endDate);
 
-	// Group personnel
 	const selectedGroups = groups.filter((g) => selectedGroupIds.has(g.id));
 	const groupRows: ReadinessGroupRow[] = selectedGroups.map((group) => {
 		const groupPersonnel = personnel.filter((p) => p.groupId === group.id);

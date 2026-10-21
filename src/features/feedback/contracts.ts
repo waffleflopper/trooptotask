@@ -1,4 +1,3 @@
-/** Feedback values consumed by the current web, delivery and support surfaces. */
 export type FeedbackStatus = 'new' | 'reviewed' | 'resolved';
 export type FeedbackCategory = 'bug' | 'feature' | 'general';
 

@@ -38,7 +38,8 @@ export function installSettledObserver(win, spec) {
 		frames: 0,
 		longTasks: [],
 		lcp: null,
-		download: null
+		download: null,
+		renderedAt: null
 	};
 	win[key] = state;
 	// An export hands its file to the browser as an object URL; the first one marks the download.
@@ -89,19 +90,43 @@ export function installSettledObserver(win, spec) {
 		);
 	};
 	const final = spec.milestones.at(-1).name;
-	// A frame's timestamp is the frame's start, which can precede the input event the frame then
-	// handles, so an interaction reads the clock inside the callback: the event's timeStamp and
-	// performance.now() share one timeline and the callback cannot run before the input.
-	const frame = (frameTime) => {
-		const now = spec.start === 'navigation' ? frameTime : win.performance.now();
-		state.frames++;
-		for (const milestone of spec.milestones)
-			if (!(milestone.name in state.milestones) && reached(milestone)) {
-				state.milestones[milestone.name] = Math.round(now - state.startedAt);
-				win.performance.mark(`t2t-perf:${spec.name}:${milestone.name}`);
-			}
-		if (final in state.milestones) state.done = true;
-		else win.requestAnimationFrame(frame);
+	// A re-render after the milestone, such as one an invalidated load's data drives, mutates the
+	// DOM, and the next frame paints it. The loop keeps running after the final milestone until the
+	// sample's final read (at network idle) or a newer observer, so later DOM changes do not count.
+	let mutatedAt = null;
+	let paintedFor = null;
+	const live = () => win[key] === state && !state.final;
+	const changes = new win.MutationObserver(() => {
+		if (live()) mutatedAt = win.performance.now();
+		else changes.disconnect();
+	});
+	changes.observe(win.document, {
+		subtree: true,
+		childList: true,
+		characterData: true,
+		attributes: true
+	});
+	// A frame's timestamp is when the browser began that frame, which can be long before the
+	// callback runs when a task held the main thread, and can precede the input event the frame
+	// then handles. Every milestone therefore reads the clock inside the callback, on the
+	// navigation's timeline (startedAt 0) or the input event's.
+	const frame = () => {
+		if (!live()) return changes.disconnect();
+		const now = win.performance.now();
+		if (!state.done) {
+			state.frames++;
+			for (const milestone of spec.milestones)
+				if (!(milestone.name in state.milestones) && reached(milestone)) {
+					state.milestones[milestone.name] = Math.round(now - state.startedAt);
+					win.performance.mark(`t2t-perf:${spec.name}:${milestone.name}`);
+				}
+			if (final in state.milestones) state.done = true;
+		}
+		if (mutatedAt !== null && mutatedAt >= state.startedAt && mutatedAt !== paintedFor) {
+			paintedFor = mutatedAt;
+			state.renderedAt = Math.round(now - state.startedAt);
+		}
+		win.requestAnimationFrame(frame);
 	};
 	if (spec.start === 'navigation') win.requestAnimationFrame(frame);
 	else
@@ -119,13 +144,17 @@ export function installSettledObserver(win, spec) {
 			);
 }
 
-/** Runs inside the page; read-only. Resolves when the observer finished or the deadline passed. */
-export function readSettledSample(win, deadlineMs) {
+/**
+ * Runs inside the page. Resolves when the observer finished or the deadline passed; a final read
+ * also ends the observer, so nothing after it moves the sample's rendered time.
+ */
+export function readSettledSample(win, deadlineMs, final = false) {
 	return new Promise((resolve) => {
 		const begun = Date.now();
 		const tick = () => {
 			const state = win.__t2tPerfSettled;
 			if (!state?.done && Date.now() - begun < deadlineMs) return setTimeout(tick, 50);
+			if (final && state) state.final = true;
 			const navigation = win.performance.getEntriesByType('navigation')[0];
 			const entry = (item) => ({
 				name: item.name,
@@ -463,7 +492,6 @@ export function statementCategory(row) {
 	return categoryRules.find(([, matches]) => matches(row))?.[0] ?? 'other';
 }
 
-/** Calls and time per request-path category in each window, as distributions over the windows. */
 export function statementCategories(windows) {
 	const names = [...categoryRules.map(([name]) => name), 'other'];
 	const totals = windows.map((rows) => {

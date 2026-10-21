@@ -171,6 +171,7 @@ describe('DutyFillPanel', () => {
 			'/org/org-1/calendar/assignments'
 		);
 		expect(screen.getByRole('button', { name: 'Assign all 3' })).toBeTruthy();
+		expect(screen.getAllByText('Everyone free has a day')).toHaveLength(4);
 	});
 
 	it('collapses on Cancel without saving', async () => {

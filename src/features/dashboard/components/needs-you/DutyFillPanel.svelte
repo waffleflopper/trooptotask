@@ -7,6 +7,7 @@
 		indexAssignmentsBySlot,
 		indexDutyAvailability,
 		indexDutyHistory,
+		isFreeForDuty,
 		loadDutyHistory,
 		loadDutyPicker,
 		openAssignmentDates,
@@ -76,7 +77,7 @@
 
 	function lastDutyLabel(slot: DutyFillSlot): string {
 		const choice = slot.choice;
-		if (!choice) return 'Nobody eligible is free';
+		if (!choice) return slot.options.some(isFreeForDuty) ? 'Everyone free has a day' : 'Nobody eligible is free';
 		if (choice.kind === 'group') return 'Group';
 		return choice.lastDuty.kind === 'previous' ? `last duty ${choice.lastDuty.daysSince}d` : 'no duty in 90d';
 	}

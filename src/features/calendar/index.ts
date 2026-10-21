@@ -41,7 +41,7 @@ export { assignmentSlotKey, indexAssignmentsBySlot, openAssignmentDates } from '
 export { calendarLaneTypes } from './utils/calendarLanes';
 export { loadDutyHistory } from './utils/calendarRangeLoader';
 export { indexDutyAvailability, indexDutyHistory } from './utils/dutyReadModel';
-export { planDutyFill, type DutyFillSlot } from './utils/dutyFill';
+export { isFreeForDuty, planDutyFill, type DutyFillSlot } from './utils/dutyFill';
 export type { DutyPickerOption } from './utils/dutyPickerOptions';
 
 /** The duty picker popover, loaded when a slot first opens it. */

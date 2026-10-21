@@ -16,7 +16,8 @@ export interface DutyFillSlot {
 	picked: boolean;
 }
 
-function suggestible(option: DutyPickerOption): boolean {
+/** A Group, or a Person available that day. */
+export function isFreeForDuty(option: DutyPickerOption): boolean {
 	return option.kind === 'group' || option.unavailable === undefined;
 }
 
@@ -32,7 +33,7 @@ export function planDutyFill(input: DutyFillInput): DutyFillSlot[] {
 		const pickedId = picks.get(date);
 		const choice =
 			pickedId === undefined
-				? (options.find((option) => suggestible(option) && !taken.has(option.id)) ?? null)
+				? (options.find((option) => isFreeForDuty(option) && !taken.has(option.id)) ?? null)
 				: (options.find((option) => option.id === pickedId) ?? null);
 		if (choice) taken.add(choice.id);
 		return {

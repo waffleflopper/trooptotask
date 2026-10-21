@@ -31,20 +31,20 @@ export interface SettingsNavCounts {
 export const SETTINGS_GROUPS = ['Unit', 'Access', 'Records'] as const;
 
 /**
- * One block of a page's loading skeleton. A `heading` or `strip` after the first block starts a new section, set
- * apart as the pages set their sections apart.
+ * One block of a page's loading skeleton, sized from the page at 1440 px. A `heading` or `strip` after the first block
+ * starts a new section, 40 px below the one above, as the pages set their sections apart.
  */
 export type SettingsSkeletonBlock =
-	/** Settings rows under the page's 2px rule, `height` px each. */
-	| { kind: 'facts'; rows: number; height: number; rule?: 'destructive' }
+	/** Rows under a 2px rule, one height in px per row; `endRule` closes them as FactSection's does. */
+	| { kind: 'rows'; heights: readonly number[]; rule?: 'destructive'; endRule?: boolean }
 	/** A compact section title over a 2px rule, with a control on the right when `action` is set. */
 	| { kind: 'heading'; action?: boolean }
-	/** A row of filters above a table. */
+	/** A row of filters above a list. */
 	| { kind: 'toolbar' }
 	/** A muted strip of inputs, as Members' invite strip. */
 	| { kind: 'strip' }
-	/** Table rows on 1px rules, `height` px each. */
-	| { kind: 'table'; rows: number; height: number };
+	/** `rows` rows of `height` px on 1px rules, under a column-header row when `header` is set. */
+	| { kind: 'list'; rows: number; height: number; header?: boolean };
 
 export interface SettingsPage {
 	label: string;
@@ -64,21 +64,21 @@ export const SETTINGS_PAGES = {
 		group: 'Unit',
 		ownerOnly: false,
 		width: 'form',
-		skeleton: [{ kind: 'facts', rows: 3, height: 104 }]
+		skeleton: [{ kind: 'rows', heights: [137, 137, 136] }]
 	},
 	features: {
 		label: 'Features',
 		group: 'Unit',
 		ownerOnly: false,
 		width: 'form',
-		skeleton: [{ kind: 'facts', rows: 6, height: 104 }]
+		skeleton: [{ kind: 'rows', heights: [197, 97, 97, 117, 97, 116], endRule: true }]
 	},
 	policies: {
 		label: 'Policies',
 		group: 'Unit',
 		ownerOnly: false,
 		width: 'form',
-		skeleton: [{ kind: 'facts', rows: 4, height: 104 }]
+		skeleton: [{ kind: 'rows', heights: [169, 169, 168, 53] }]
 	},
 	ranks: {
 		label: 'Ranks',
@@ -86,11 +86,11 @@ export const SETTINGS_PAGES = {
 		ownerOnly: false,
 		width: 'table',
 		skeleton: [
-			{ kind: 'heading', action: true },
-			{ kind: 'table', rows: 5, height: 44 },
 			{ kind: 'heading' },
+			{ kind: 'list', rows: 6, height: 45 },
+			{ kind: 'heading', action: true },
 			{ kind: 'toolbar' },
-			{ kind: 'table', rows: 6, height: 52 }
+			{ kind: 'list', rows: 5, height: 49, header: true }
 		]
 	},
 	members: {
@@ -98,14 +98,18 @@ export const SETTINGS_PAGES = {
 		group: 'Access',
 		ownerOnly: false,
 		width: 'table',
-		skeleton: [{ kind: 'strip' }, { kind: 'heading', action: true }, { kind: 'table', rows: 4, height: 60 }]
+		skeleton: [
+			{ kind: 'strip' },
+			{ kind: 'heading', action: true },
+			{ kind: 'list', rows: 8, height: 61, header: true }
+		]
 	},
 	approvals: {
 		label: 'Approvals',
 		group: 'Access',
 		ownerOnly: false,
 		width: 'form',
-		skeleton: [{ kind: 'table', rows: 3, height: 72 }]
+		skeleton: [{ kind: 'rows', heights: [45, 80, 80] }]
 	},
 	archives: {
 		label: 'Archives',
@@ -114,7 +118,7 @@ export const SETTINGS_PAGES = {
 		width: 'table',
 		skeleton: [
 			{ kind: 'heading', action: true },
-			{ kind: 'table', rows: 4, height: 52 }
+			{ kind: 'list', rows: 4, height: 49, header: true }
 		]
 	},
 	exports: {
@@ -122,21 +126,21 @@ export const SETTINGS_PAGES = {
 		group: 'Records',
 		ownerOnly: false,
 		width: 'form',
-		skeleton: [{ kind: 'facts', rows: 3, height: 104 }]
+		skeleton: [{ kind: 'rows', heights: [235, 97, 96] }]
 	},
 	logs: {
 		label: 'Logs',
 		group: 'Records',
 		ownerOnly: true,
 		width: 'table',
-		skeleton: [{ kind: 'toolbar' }, { kind: 'table', rows: 8, height: 44 }]
+		skeleton: [{ kind: 'toolbar' }, { kind: 'list', rows: 8, height: 49, header: true }]
 	},
 	danger: {
 		label: 'Danger zone',
 		group: null,
 		ownerOnly: true,
 		width: 'form',
-		skeleton: [{ kind: 'facts', rows: 3, height: 104, rule: 'destructive' }]
+		skeleton: [{ kind: 'rows', heights: [117, 97, 163], rule: 'destructive' }]
 	}
 } as const satisfies Record<string, SettingsPage>;
 

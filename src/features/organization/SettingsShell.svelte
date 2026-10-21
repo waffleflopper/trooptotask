@@ -120,10 +120,16 @@
 			<div class="grid" aria-hidden="true" data-settings-skeleton={slowKey}>
 				{#each skeleton as block, index (index)}
 					{@const opensSection = index > 0 && (block.kind === 'heading' || block.kind === 'strip')}
-					{#if block.kind === 'facts'}
-						<div class={cn('border-t-2', block.rule === 'destructive' ? 'border-destructive' : 'border-foreground')}>
-							{#each { length: block.rows } as _, row (row)}
-								<div class="flex items-center gap-4 border-b last:border-b-0" style:height="{block.height}px">
+					{#if block.kind === 'rows'}
+						<div
+							class={cn(
+								'border-t-2',
+								block.rule === 'destructive' ? 'border-destructive' : 'border-foreground',
+								block.endRule && 'border-b'
+							)}
+						>
+							{#each block.heights as height, row (row)}
+								<div class="flex items-center gap-4 border-b last:border-b-0" style:height="{height}px">
 									<div class="grid flex-1 gap-2">
 										<Skeleton class="h-5 w-40" />
 										<Skeleton class="h-3.5 w-80 max-w-full" />
@@ -154,6 +160,12 @@
 						</div>
 					{:else}
 						<div>
+							{#if block.header}
+								<div class="flex h-10 items-center gap-4 border-b">
+									<Skeleton class="h-3 w-24" />
+									<Skeleton class="h-3 w-16" />
+								</div>
+							{/if}
 							{#each { length: block.rows } as _, row (row)}
 								<div class="flex items-center gap-4 border-b" style:height="{block.height}px">
 									<Skeleton class="h-4 w-48" />

@@ -4,7 +4,7 @@ An Organization owner or admin downloads a complete JSON backup or an Excel work
 
 ## Sub-features
 
-- `export-entry`: Settings exposes JSON and Excel downloads to the current Organization owner/admin.
+- `export-entry`: Settings exposes JSON and Excel downloads to the current Organization owner/admin, with what an export contains and the owner's last export.
 - `export-artifacts`: both formats retain every manifest section, raw row values, empty sections, readable workbook sheets, and existing filenames.
 - `export-sensitive-records`: authorized full exports retain active and archived Personnel artifacts while ordinary display fields keep their blank legacy notes.
 - `export-lifecycle`: each admitted request records its requester, Organization, status, timestamps, and actual artifact size; failures remain visible.
@@ -14,9 +14,11 @@ An Organization owner or admin downloads a complete JSON backup or an Excel work
 
 ## How to get to it (user POV)
 
-Open an Organization, choose Settings, then Exports. Select Export JSON or Export Excel under Full organization. Both controls are busy while generation is pending. A successful request downloads the requested file and shows completion feedback.
+Open an Organization, choose Settings, then Exports. `Everything in <unit>` lists what an export contains as chips, with live Personnel and Training record counts that stream after first paint. Export includes every area whether its feature is on or off. Choose `Export JSON` or `Export Excel` in its tile. Only the pressed button reads `Generating…` while its file builds, and the other tile stays usable, so both formats can run at once. A successful request downloads the requested file, announces completion in a status region and updates the last export line to `by you`.
 
-The Personnel only action is disabled and marked Coming Soon. It is not a retained export workflow. Single-Person and feature report workbooks have separate recipes and formats.
+Owners see `Last export · <format> · <date>, <time> by <actor>` from the newer `export.created` or `export.excel_created` Audit event. Admins see no line, and the page sends no Audit read for them.
+
+`Roster only` is muted and marked Coming soon. It is not a retained export workflow. `One person` links to Archives. Single-Person and feature report workbooks have separate recipes and formats.
 
 ## Driving it with verify:app
 

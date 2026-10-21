@@ -54,13 +54,17 @@
 		if (!model) QuickAddDialog = null;
 	});
 
+	let latestOpen = 0;
+
 	async function openQuickAdd(entry: QuickAddEntry) {
+		const request = ++latestOpen;
 		const openedIn = model?.data.orgId;
+		const current = () => request === latestOpen && model?.data.orgId === openedIn;
 		try {
 			const { default: dialog } = await entry.loadDialog();
-			if (model?.data.orgId === openedIn) QuickAddDialog = dialog;
+			if (current()) QuickAddDialog = dialog;
 		} catch {
-			if (model?.data.orgId === openedIn) toastStore.error(`Could not open ${entry.label}. Try again.`);
+			if (current()) toastStore.error(`Could not open ${entry.label}. Try again.`);
 		}
 	}
 

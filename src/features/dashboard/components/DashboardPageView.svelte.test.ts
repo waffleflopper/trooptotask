@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { calendarStore } from '$features/calendar';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { toastStore } from '$lib/stores/toast.svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import { createDashboardScreenModel, type DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardPageData, StarterConfigurationPackSupport } from '$features/dashboard/contracts';
@@ -392,6 +393,40 @@ describe('Dashboard frame', () => {
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
+	it('keeps the entry chosen last when an earlier one finishes loading after it', async () => {
+		const error = vi.spyOn(toastStore, 'error');
+		let failStatus!: (reason: Error) => void;
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [
+			{
+				id: 'status',
+				label: 'Status',
+				icon,
+				order: 10,
+				loadDialog: () => new Promise((_, reject) => (failStatus = reject))
+			},
+			{
+				id: 'training-record',
+				label: 'Training record',
+				icon,
+				order: 20,
+				loadDialog: () => import('./quick-add/QuickAddDialogTestDouble.svelte')
+			}
+		];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Training record' }));
+		await screen.findByRole('dialog', { name: 'Quick add for Test Unit' });
+		failStatus(new Error('Chunk unavailable'));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(error).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog', { name: 'Quick add for Test Unit' })).toBeTruthy();
+	});
 	it('lets the viewer try again when the dialog fails to load', async () => {
 		const loadDialog = vi
 			.fn<QuickAddEntry['loadDialog']>()

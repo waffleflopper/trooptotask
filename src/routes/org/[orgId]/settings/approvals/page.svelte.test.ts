@@ -136,6 +136,23 @@ describe('Approvals rows', () => {
 		expect(screen.getByText(END_LINE)).toBeTruthy();
 	});
 
+	it('keeps the request age and the oldest wait current while the page stays open', async () => {
+		vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+		vi.setSystemTime(new Date('2026-10-19T10:30:00Z'));
+		mount([request('r', { created_at: '2026-10-19T10:00:00Z' })]);
+		expect(screen.getByText('Requested by r@example.com · 30 minutes ago')).toBeTruthy();
+
+		vi.advanceTimersByTime(5 * 60_000);
+		await tick();
+		expect(screen.getByText('Requested by r@example.com · 35 minutes ago')).toBeTruthy();
+
+		vi.setSystemTime(new Date('2026-10-19T12:30:00Z'));
+		document.dispatchEvent(new Event('visibilitychange'));
+		await tick();
+		expect(screen.getByText('Requested by r@example.com · 2 hours ago')).toBeTruthy();
+		expect(screen.getByText('1 waiting · oldest 2 hours')).toBeTruthy();
+	});
+
 	it('shows only the end line when nothing waits', () => {
 		mount([]);
 

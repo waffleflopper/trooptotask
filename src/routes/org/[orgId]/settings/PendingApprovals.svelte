@@ -15,7 +15,11 @@
 
 	let { orgId, requests }: { orgId: string; requests: DeletionRequestApproval[] } = $props();
 
-	const now = new Date();
+	let now = $state(new Date());
+	$effect(() => {
+		const timer = setInterval(() => (now = new Date()), 60_000);
+		return () => clearInterval(timer);
+	});
 	let denyingId = $state<string | null>(null);
 	let denialReason = $state('');
 	let processingApproval = $state<string | null>(null);
@@ -118,6 +122,8 @@
 		}
 	}
 </script>
+
+<svelte:document onvisibilitychange={() => document.visibilityState === 'visible' && (now = new Date())} />
 
 <section class="border-t-2 border-foreground" aria-labelledby="pending-approvals-heading">
 	<h2 id="pending-approvals-heading" class="sr-only">Pending requests</h2>

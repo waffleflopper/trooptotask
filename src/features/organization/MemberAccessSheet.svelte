@@ -154,13 +154,14 @@
 						{#if isOwner}
 							<SegmentedFilter.Root
 								label="Role"
+								describedBy="access-role-helper"
 								options={ROLE_OPTIONS}
 								bind:value={() => draft.role, (role: EditableMembershipRole) => workspace.setRole(role)}
 							/>
 						{:else}
 							<p class="text-sm">{draft.role === 'admin' ? 'Admin' : 'Member'}</p>
 						{/if}
-						<p class="text-sm text-muted-foreground">{roleHelper(draft.role)}</p>
+						<p id="access-role-helper" class="text-sm text-muted-foreground">{roleHelper(draft.role)}</p>
 					</section>
 
 					{#if draft.role === 'member'}
@@ -168,10 +169,11 @@
 							<h3 class="text-sm font-semibold">Preset</h3>
 							<SegmentedFilter.Root
 								label="Preset"
+								describedBy="access-preset-helper"
 								options={PRESET_OPTIONS}
 								bind:value={() => draft.preset, (preset: EditablePreset) => workspace.setPreset(preset)}
 							/>
-							<p class="text-sm text-muted-foreground">{presetHelper(draft.preset)}</p>
+							<p id="access-preset-helper" class="text-sm text-muted-foreground">{presetHelper(draft.preset)}</p>
 						</section>
 
 						<section class="grid gap-3" aria-label="Area by area">

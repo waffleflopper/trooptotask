@@ -623,6 +623,17 @@ describe('manage access sheet', () => {
 		expect(submitted[0].get('capabilityOverride:calendar')).toBe('operate');
 	});
 
+	it('describes Role and Preset with their visible help text', async () => {
+		renderPage();
+		const { sheet } = await openSheet('alpha');
+		const help = (name: string) =>
+			document.getElementById(within(sheet).getByRole('radiogroup', { name }).getAttribute('aria-describedby') ?? '')
+				?.textContent;
+
+		expect(help('Role')).toBe('Receives access through presets, capabilities, and group scope.');
+		expect(help('Preset')).toBe('Can view and manage work in the selected areas.');
+	});
+
 	it('shows the role as text to admins', async () => {
 		renderPage({ isOwner: false });
 		const { sheet } = await openSheet('alpha');

@@ -13,9 +13,11 @@
 		label: string;
 		/** Shows the chosen option but takes no input, such as a setting the unit turned off. */
 		disabled?: boolean;
+		/** The id of visible help text for the choice, such as a preset's description. */
+		describedBy?: string;
 	}
 
-	let { options, value = $bindable(), label, disabled = false }: Props = $props();
+	let { options, value = $bindable(), label, disabled = false, describedBy }: Props = $props();
 </script>
 
 <ToggleGroup.Root
@@ -23,6 +25,7 @@
 	size="sm"
 	class="max-w-full flex-wrap"
 	aria-label={label}
+	aria-describedby={describedBy}
 	{disabled}
 	bind:value={
 		() => value,

@@ -348,7 +348,7 @@ export async function inviteOrganizationMember(
 		inviteEmail: email,
 		inviteMessage:
 			deliveryStatus === 'failed'
-				? 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+				? 'Invitation created, but email delivery failed. You can resend it from Waiting on them.'
 				: deliveryStatus === 'sent'
 					? 'Invitation created and email delivery was queued.'
 					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
@@ -383,7 +383,7 @@ async function bridgeInvitationToAccessRequest(
 			publicMessages: {
 				blocked: 'Invitation could not be created because platform access setup could not be linked',
 				failed:
-					'Platform access setup could not be linked. Check Pending Invitations and revoke the invitation if it is still listed.'
+					'Platform access setup could not be linked. Check Waiting on them and revoke the invitation if it is still listed.'
 			}
 		});
 	}
@@ -534,7 +534,7 @@ async function issueInvitationAccountSetupLink(
 		publicMessages: {
 			blocked: 'Invitation could not be created because the account setup link could not be issued',
 			failed:
-				'The account setup link could not be issued. Check Pending Invitations and revoke the invitation if it is still listed.'
+				'The account setup link could not be issued. Check Waiting on them and revoke the invitation if it is still listed.'
 		}
 	});
 }

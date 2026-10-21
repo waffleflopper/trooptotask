@@ -272,7 +272,7 @@ Consumers: the Organization settings shell.
 
 ## `patterns/segmented-filter`
 
-`SegmentedFilter.Root` is a single-choice filter on `ui/toggle-group`. Pressing the chosen option again keeps it chosen. The group wraps onto a second line when the container is narrower than its options. The group is a radio group: arrow keys move between options. Props: `options` (`{ value, label, count? }`, rendered `Label · N` when `count` is set), bindable `value`, `label` (names the group), `disabled?` (shows the chosen option but takes no input, such as an area whose feature the unit turned off).
+`SegmentedFilter.Root` is a single-choice filter on `ui/toggle-group`. Pressing the chosen option again keeps it chosen. The group wraps onto a second line when the container is narrower than its options. The group is a radio group: arrow keys move between options. Props: `options` (`{ value, label, count? }`, rendered `Label · N` when `count` is set), bindable `value`, `label` (names the group), `disabled?` (shows the chosen option but takes no input, such as an area whose feature the unit turned off), `describedBy?` (the id of visible help text for the choice).
 
 ---
 

@@ -894,7 +894,7 @@ describe('inviteOrganizationMember', () => {
 			failure: {
 				status: 500,
 				message:
-					'Platform access setup could not be linked. Check Pending Invitations and revoke the invitation if it is still listed.',
+					'Platform access setup could not be linked. Check Waiting on them and revoke the invitation if it is still listed.',
 				publicMessage: true
 			},
 			severity: 'critical'
@@ -1200,7 +1200,7 @@ describe('inviteOrganizationMember', () => {
 			failure: {
 				status: 500,
 				message:
-					'The account setup link could not be issued. Check Pending Invitations and revoke the invitation if it is still listed.',
+					'The account setup link could not be issued. Check Waiting on them and revoke the invitation if it is still listed.',
 				publicMessage: true
 			},
 			severity: 'critical'
@@ -1583,7 +1583,7 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toMatchObject({
 			inviteSuccess: true,
-			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Waiting on them.'
 		});
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(ctx.auditPort.events).toContainEqual({
@@ -1628,7 +1628,7 @@ describe('inviteOrganizationMember', () => {
 
 		expect(result).toMatchObject({
 			inviteSuccess: true,
-			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Waiting on them.'
 		});
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(ctx.auditPort.events).toContainEqual({

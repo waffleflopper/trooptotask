@@ -105,9 +105,10 @@ function provider(table: OrganizationRawExportTable, count = 1, platformAdminist
 				const fields = url.searchParams.get('select');
 				return Response.json(
 					scoped.slice(offset, offset + limit).map((row) => {
+						const saved = table === 'organizations' ? { ...row, provider_internal_column: 'not exported' } : row;
 						return !fields || fields === '*'
-							? row
-							: Object.fromEntries(fields.split(',').map((field) => [field, row[field]]));
+							? saved
+							: Object.fromEntries(fields.split(',').map((field) => [field, saved[field as keyof typeof saved]]));
 					})
 				);
 			}

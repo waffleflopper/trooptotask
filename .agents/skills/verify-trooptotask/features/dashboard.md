@@ -82,6 +82,7 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
 - Bottom line reads `3`, `of 4`, `AVAILABLE · 75%`, amber. The strip has four blocks: three available and one Verification Training. The out list names `SPC Baker, Synthetic` with `back` and the day after Baker's entry ends. The tomorrow line starts `Tomorrow 3.`
 - The forecast flags today and every other duty day Baker is out; the headline reads `Below 80% today, back above on` the first duty day after Baker returns, by weekday alone when it is within a week. The legend lists Verification Training and `80% floor`.
 - The by-group strip reads `BRAVO 0/1` (amber) then `ALPHA 2/2`. `Open calendar` links to A's Calendar.
+- `dashboardScoped` reads `2`, `of 2`, `AVAILABLE · 100%`, `Everyone is available today.` and `Steady: 2 available every day`, and the strip shows only `ALPHA 2/2`.
 
 Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status with a count, the two largest source Groups and `N more` Groups, an `All 14 names` toggle, and `By group · all 5 · lowest first`) and `295 of 400` (`large`, `By group · lowest 5 of 16` and `All 16 groups`). Up to 40 People the strip draws a block per Person; above 40 it draws counts. Up to six Groups all show; above six the lowest five show. Workload dates move with the run, so record the observed figures rather than expecting these.
 

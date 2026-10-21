@@ -91,8 +91,10 @@
 			slowKey = null;
 		};
 	});
-	const bodyPage = $derived(slowKey ? SETTINGS_PAGES[slowKey] : activePage);
-	const skeleton = $derived<readonly SettingsSkeletonBlock[]>(slowKey ? SETTINGS_PAGES[slowKey].skeleton : []);
+	const slowPage = $derived<SettingsPage | undefined>(slowKey ? SETTINGS_PAGES[slowKey] : undefined);
+	const bodyPage = $derived(slowPage ?? activePage);
+	const skeleton = $derived<readonly SettingsSkeletonBlock[]>(slowPage?.skeleton ?? []);
+	const subtitleLines = $derived(slowPage?.subtitleLines ?? 2);
 </script>
 
 <svelte:head>
@@ -111,9 +113,12 @@
 		{#if slowKey}
 			<SettingsPageHeader page={slowKey}>
 				{#snippet subtitle()}
-					<div class="grid gap-2" aria-hidden="true">
-						<Skeleton class="h-4 w-full max-w-xl" />
-						<Skeleton class="h-4 w-2/3" />
+					<div class="grid" aria-hidden="true">
+						{#each { length: subtitleLines }, line (line)}
+							<div class="flex h-5 items-center">
+								<Skeleton class={cn('h-4', line === 0 ? 'w-full max-w-xl' : 'w-2/3')} />
+							</div>
+						{/each}
 					</div>
 				{/snippet}
 			</SettingsPageHeader>

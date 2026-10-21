@@ -55,6 +55,8 @@ export interface SettingsPage {
 	width: 'form' | 'table';
 	/** What the shell draws under the page header while the page loads, shaped like the page body. */
 	skeleton: readonly SettingsSkeletonBlock[];
+	/** Lines the subtitle wraps to at 1440 px, so the loading header holds the page's height. Two when unset. */
+	subtitleLines?: 1;
 }
 
 /** Every settings page in nav order. Admins do not see owner-only pages; those routes guard themselves. */
@@ -126,6 +128,7 @@ export const SETTINGS_PAGES = {
 		group: 'Records',
 		ownerOnly: false,
 		width: 'form',
+		subtitleLines: 1,
 		skeleton: [{ kind: 'rows', heights: [235, 97, 96] }]
 	},
 	logs: {
@@ -140,6 +143,7 @@ export const SETTINGS_PAGES = {
 		group: null,
 		ownerOnly: true,
 		width: 'form',
+		subtitleLines: 1,
 		skeleton: [{ kind: 'rows', heights: [117, 97, 163], rule: 'destructive' }]
 	}
 } as const satisfies Record<string, SettingsPage>;

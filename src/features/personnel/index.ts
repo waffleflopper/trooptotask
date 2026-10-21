@@ -8,6 +8,7 @@ export type { PersonnelPageData } from './contexts/PersonnelPageContext.svelte';
 
 export { default as PersonnelModal } from './components/PersonnelModal.svelte';
 export type { RequestPersonnelArchiveApproval } from './utils/archivePersonnel';
+export { acknowledgeAwardTracking } from './utils/awardTracking';
 
 /** Keep the roster's dialogs lazy while exposing their consumed Web entry. */
 export function loadPersonnelModals() {

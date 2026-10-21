@@ -8,6 +8,8 @@ interface NeedsYouItemBase {
 	subtitle: string;
 	timing: string;
 	href: string;
+	/** Runs before the link navigates, for an owning page that opens from client state rather than the URL. */
+	onOpen?: () => void;
 	action: NeedsYouAction | null;
 }
 

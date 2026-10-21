@@ -50,6 +50,11 @@ export function formatDayMonth(dateOnly: string): string {
 	return `${Number(day)} ${SHORT_MONTHS[Number(month) - 1]}`;
 }
 
+/** Weekday and day of month, such as "Mon 19", for a date-only string (YYYY-MM-DD) inside a short window. */
+export function formatWeekdayDay(dateOnly: string): string {
+	return `${getDayName(parseDate(dateOnly))} ${Number(dateOnly.slice(8, 10))}`;
+}
+
 /** "24 Sep 2024" — the military day-month-year order for date-only strings (YYYY-MM-DD) */
 export function formatDayMonthYear(dateOnly: string): string {
 	return `${formatDayMonth(dateOnly)} ${dateOnly.slice(0, 4)}`;

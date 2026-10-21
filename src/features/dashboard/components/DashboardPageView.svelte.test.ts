@@ -79,7 +79,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			warningYellow: 0,
 			current: 0
 		},
-		expiredTrainingPersonnelCount: 0,
 		trainingCurrencyPct: 100,
 		ratingStats: {
 			overdue: 0,
@@ -88,8 +87,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			current: 0
 		},
 		activeOnboardings: [],
-		upcomingChanges: [],
-		upcomingLosses: [],
 		totalPersonnel: 10,
 		strength: strengthOf(10),
 		today: '2026-10-19',
@@ -97,8 +94,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		trainingGroupDelinquencies: [],
 		personnelCount: 0,
 		trainingTypeCount: 0,
-		formatShortDate: (date: string) => date,
-		dutyForDays: () => [],
 		dismissGettingStarted: () => {},
 		forecastDays: [],
 		inputs: { forecastDays: [] }
@@ -166,22 +161,15 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('Available · 100%')).toBeTruthy();
 	});
 
-	it('keeps saved Calendar assignments visible without presenting unavailable Training as current', () => {
+	it('does not present unavailable Training as current', () => {
 		const ctx = makeCtx({
 			trainingStats: null,
-			strength: strengthOf(1, { id: 'alpha', name: 'Clinic group' }),
-			dutyForDays: () => [
-				{
-					date: '2026-09-21',
-					label: 'Today',
-					isToday: true,
-					assignments: [{ id: 'saved', typeName: 'Clinic Coverage', assigneeName: 'Alpha' }]
-				}
-			]
+			groupBreakdown: [
+				{ id: 'alpha', name: 'Clinic group', pct: 100, total: 1, available: 1, statusCounts: new Map() }
+			],
+			strength: strengthOf(1, { id: 'alpha', name: 'Clinic group' })
 		});
 		render(DashboardPageView, { props: { ...frame, ctx } });
-		expect(screen.getByText('Clinic Coverage')).toBeTruthy();
-		expect(screen.getByText('Alpha')).toBeTruthy();
 		expect(screen.queryByText('training current')).toBeNull();
 		const evaluations = screen.getByRole('heading', { name: 'Evaluations' }).closest('[data-slot="card"]')!;
 		expect(within(evaluations as HTMLElement).queryByText('Clinic group')).toBeNull();
@@ -231,39 +219,27 @@ describe('Dashboard Training attention', () => {
 		expect(within(group).getByText(`${pct}%`)).toBeTruthy();
 		expect(within(group).queryByText('100%')).toBeNull();
 	});
-	it('shows the distinct expired-person total and expired-only groups while retaining record warnings', () => {
-		const ctx = makeCtx({
-			trainingStats: { expired: 2, warningOrange: 1, warningYellow: 0, current: 1 },
-			expiredTrainingPersonnelCount: 1,
-			trainingGroupDelinquencies: [
-				{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 0, pct: 100 },
-				{ groupId: 'bravo', groupName: 'Bravo', count: 1, expiredPersonnelCount: 1, pct: 100 }
-			]
-		});
+	it('counts expired and expiring Training records in the readiness card', () => {
+		const ctx = makeCtx({ trainingStats: { expired: 2, warningOrange: 1, warningYellow: 0, current: 1 } });
 		render(DashboardPageView, { props: { ...frame, ctx } });
 
-		expect(screen.getByText('1 personnel with expired training')).toBeTruthy();
-		expect(screen.getByText('Bravo (1)')).toBeTruthy();
-		expect(screen.queryByText(/Alpha \(1\)/)).toBeNull();
-		expect(screen.getByText('2 expired')).toBeTruthy();
-		expect(screen.getByText('1 training items expiring soon')).toBeTruthy();
+		const training = screen.getByRole('heading', { name: 'Training & Evaluations' }).closest('[data-slot="card"]')!;
+		expect(within(training as HTMLElement).getByText('2 expired')).toBeTruthy();
 	});
 });
 
 describe('Dashboard feature switches', () => {
 	const offFor = (...off: string[]) => ({ isFeatureOn: (feature: string) => !off.includes(feature) });
 
-	it('drops Evaluations from the readiness card and Requires Attention when the unit turns them off', () => {
+	it('drops Evaluations from the readiness card when the unit turns them off', () => {
 		const ratingStats = { overdue: 2, 'due-30': 1, 'due-60': 0, current: 0 };
 		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ratingStats }) } });
-		expect(screen.getByText('2 overdue evaluations')).toBeTruthy();
-		expect(screen.getByText('1 evaluation due within 30 days')).toBeTruthy();
+		expect(screen.getByText('evals overdue')).toBeTruthy();
 		cleanup();
 
 		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ...offFor('evaluations'), ratingStats }) } });
 		expect(screen.getByRole('heading', { name: 'Training' })).toBeTruthy();
-		expect(screen.queryByText('2 overdue evaluations')).toBeNull();
-		expect(screen.queryByText('1 evaluation due within 30 days')).toBeNull();
+		expect(screen.queryByText('evals overdue')).toBeNull();
 	});
 
 	it('removes the readiness card when Training and Evaluations are both off', () => {
@@ -308,7 +284,7 @@ describe('Dashboard frame', () => {
 			expect(band?.getAttribute('aria-busy')).toBe('true');
 			expect(band?.querySelector('[data-slot="skeleton"]')).not.toBeNull();
 		}
-		expect(screen.queryByText('Requires Attention')).toBeNull();
+		expect(screen.queryByRole('list', { name: 'Needs you' })).toBeNull();
 	});
 
 	it('replaces the bands with the failure and keeps the header', () => {
@@ -442,9 +418,10 @@ describe('Dashboard sections', () => {
 		render(DashboardPageView, { props: { ...frame, ctx, sections } });
 
 		expect(screen.getByText('Needs you · 1')).toBeTruthy();
-		const row = within(screen.getByRole('list', { name: 'Needs you' })).getByRole('link');
-		expect(row.getAttribute('href')).toBe('/org/org-1/personnel/p1');
-		expect(row.textContent).toContain('SGT Diaz');
+		const queue = screen.getByRole('list', { name: 'Needs you' });
+		expect(within(queue).getByRole('link', { name: 'SGT Diaz' }).getAttribute('href')).toBe('/org/org-1/personnel/p1');
+		expect(within(queue).getByText('Leaving')).toBeTruthy();
+		expect(within(queue).getByText('PCS to Fort Hood')).toBeTruthy();
 		const lane = screen.getByRole('list', { name: 'Exercises' });
 		expect(within(lane).getByText('FTX')).toBeTruthy();
 		expect(bands().every((band) => band?.getAttribute('aria-busy') === 'false')).toBe(true);
@@ -475,5 +452,196 @@ describe('Dashboard sections', () => {
 
 		expect(screen.getByText('Nothing needs you right now.')).toBeTruthy();
 		expect(screen.queryByRole('list', { name: 'Exercises' })).toBeNull();
+	});
+	function leaving(index: number) {
+		return {
+			kind: 'leaving' as const,
+			id: `leaving-${index}`,
+			personnelId: `p${index}`,
+			title: `SGT Person ${index}`,
+			subtitle: 'ETS',
+			timing: `in ${index} days`,
+			href: `/org/org-1/personnel/p${index}`,
+			action: null,
+			urgency: { date: `2026-10-${String(19 + index).padStart(2, '0')}` }
+		};
+	}
+
+	function renderQueue(count: number) {
+		const many = dashboardSection('lossesAndAwards', {
+			needsYou: [() => Array.from({ length: count }, (_, index) => leaving(index + 1))]
+		});
+		render(DashboardPageView, {
+			props: { ...frame, ctx: createDashboardScreenModel(pageData(), { sources }), sections: [many] }
+		});
+		return screen.getByRole('list', { name: 'Needs you' });
+	}
+
+	it('shows nine rows in full without a fold', () => {
+		const queue = renderQueue(9);
+
+		expect(within(queue).getAllByRole('link')).toHaveLength(9);
+		expect(within(queue).queryByRole('button', { name: /Show all/ })).toBeNull();
+	});
+
+	it('folds a tenth row into the top seven and a summary that expands in place', async () => {
+		const queue = renderQueue(10);
+
+		expect(within(queue).getAllByRole('link')).toHaveLength(7);
+		expect(within(queue).getByText('+3 more')).toBeTruthy();
+		expect(within(queue).getByText('SGT Person 8 · SGT Person 9 · SGT Person 10')).toBeTruthy();
+
+		await fireEvent.click(within(queue).getByRole('button', { name: 'Show all 10' }));
+
+		expect(within(queue).getAllByRole('link')).toHaveLength(10);
+		expect(within(queue).queryByText('+3 more')).toBeNull();
+		expect(document.activeElement).toBe(within(queue).getByRole('link', { name: 'SGT Person 8' }));
+	});
+
+	it("shows four of the week's changes until asked for all of them", async () => {
+		const ctx = createDashboardScreenModel(pageData(), {
+			sources: {
+				...sources,
+				personnel: {
+					items: ['Ames', 'Bell', 'Cruz', 'Diaz', 'Eto'].map((lastName) => ({
+						id: lastName,
+						rank: 'SPC',
+						lastName,
+						firstName: 'A',
+						mos: '68W',
+						clinicRole: '',
+						groupId: null,
+						groupName: ''
+					})),
+					loading: false
+				},
+				statusTypes: {
+					items: [
+						{ id: 'leave', name: 'Leave', color: '#336699', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+					],
+					loading: false
+				},
+				availability: {
+					items: ['Ames', 'Bell', 'Cruz', 'Diaz', 'Eto'].map((personnelId, index) => ({
+						id: `leave-${personnelId}`,
+						personnelId,
+						statusTypeId: 'leave',
+						startDate: `2026-10-2${index}`,
+						endDate: '2026-10-30'
+					})),
+					loading: false
+				}
+			}
+		} as Parameters<typeof createDashboardScreenModel>[1]);
+
+		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+
+		const changes = within(screen.getByRole('region', { name: 'Coming and going · 7 days' })).getByRole('list');
+		expect(
+			within(changes)
+				.getAllByRole('listitem')
+				.map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+		).toEqual([
+			'Tue 20 ↓ Leaving SPC Ames Leave',
+			'Wed 21 ↓ Leaving SPC Bell Leave',
+			'Thu 22 ↓ Leaving SPC Cruz Leave',
+			'Fri 23 ↓ Leaving SPC Diaz Leave'
+		]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'All 5 changes' }));
+
+		const rows = within(changes).getAllByRole('listitem');
+		expect(rows).toHaveLength(5);
+		expect(rows[4].textContent?.replace(/\s+/g, ' ').trim()).toBe('Sat 24 ↓ Leaving SPC Eto Leave');
+		expect(document.activeElement).toBe(rows[4]);
+	});
+
+	it("names tomorrow's duty even when today is open", () => {
+		const ctx = createDashboardScreenModel(pageData(), {
+			sources: {
+				...sources,
+				personnel: {
+					items: [
+						{
+							id: 'p1',
+							rank: 'SSG',
+							lastName: 'Okafor',
+							firstName: 'Ada',
+							mos: '68W',
+							clinicRole: '',
+							groupId: null,
+							groupName: ''
+						}
+					],
+					loading: false
+				},
+				dailyAssignments: {
+					types: [
+						{
+							id: 'staff-duty',
+							name: 'Staff Duty',
+							shortName: 'SD',
+							assignTo: 'personnel',
+							color: '#1f6feb',
+							exemptPersonnelIds: [],
+							showOnCalendar: true,
+							sortOrder: 0
+						}
+					],
+					assignments: [{ id: 'sd-20', date: '2026-10-20', assignmentTypeId: 'staff-duty', assigneeId: 'p1' }],
+					loading: false
+				}
+			}
+		} as Parameters<typeof createDashboardScreenModel>[1]);
+
+		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+
+		const duty = screen.getByRole('row', { name: /Staff Duty/ });
+		expect(
+			within(duty)
+				.getAllByRole('cell')
+				.map((cell) => cell.textContent?.trim())
+		).toEqual(['Open', 'SSG Okafor']);
+		expect(screen.getAllByRole('columnheader').map((cell) => cell.textContent?.trim())).toEqual([
+			'Duty',
+			'Mon 19',
+			'Tue 20'
+		]);
+	});
+
+	it('opens the Calendar at the month of the first unfilled day', async () => {
+		calendarStore.goToMonth(2026, 0);
+		const filled = Array.from({ length: 13 }, (_, index) => `2026-10-${19 + index}`);
+		const ctx = createDashboardScreenModel(pageData(), {
+			sources: {
+				...sources,
+				dailyAssignments: {
+					types: [
+						{
+							id: 'staff-duty',
+							name: 'Staff Duty',
+							shortName: 'SD',
+							assignTo: 'personnel',
+							color: '#1f6feb',
+							exemptPersonnelIds: [],
+							showOnCalendar: true,
+							sortOrder: 0
+						}
+					],
+					assignments: filled.map((date) => ({ id: date, date, assignmentTypeId: 'staff-duty', assigneeId: 'p1' })),
+					loading: false
+				}
+			}
+		} as Parameters<typeof createDashboardScreenModel>[1]);
+		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+		const link = within(screen.getByRole('list', { name: 'Needs you' })).getByRole('link', {
+			name: '1 Staff Duty day unfilled'
+		});
+		link.addEventListener('click', (event) => event.preventDefault());
+
+		await fireEvent.click(link);
+
+		expect(link.getAttribute('href')).toBe('/org/org-1/calendar');
+		expect(calendarStore.currentDate).toEqual(new Date(2026, 10, 1));
 	});
 });

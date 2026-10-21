@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { calendarStore } from '$features/calendar';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { AttentionActionRowSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
+	import { openCalendarAt } from '../calendarLink';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 	import {
 		composeDashboardSections,
@@ -44,11 +45,6 @@
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 
 	let openQuickAdd = $state<QuickAddEntry | null>(null);
-
-	/** Calendar opens on the month it was left in; the link is for the viewer's today. */
-	function openCalendarAt(day: string) {
-		calendarStore.goToMonth(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1);
-	}
 
 	const EYEBROW = 'font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase';
 	const BAND = 'grid gap-14 border-t-2 border-foreground pt-6';
@@ -163,7 +159,7 @@
 					aria-busy={!model}
 					data-dashboard-band="action"
 				>
-					<div class="grid min-w-0 content-start gap-4">
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
 						<PageShell.SectionHeader
 							size="compact"
 							eyebrow={parts ? `Needs you · ${parts.needsYou.ranked.length}` : 'Needs you'}
@@ -176,22 +172,14 @@
 						{#if parts}
 							<NeedsYouQueue queue={parts.needsYou} />
 						{:else}
-							<div class="grid border-t border-border" aria-hidden="true">
+							<div class="grid border-t border-foreground" aria-hidden="true">
 								{#each { length: 5 }, index (index)}
-									<div class="flex min-h-[72px] items-center gap-4 border-b border-border pl-4">
-										<Skeleton class="h-3 w-[84px]" />
-										<div class="grid flex-1 gap-1.5">
-											<Skeleton class="h-4 w-[55%]" />
-											<Skeleton class="h-3.5 w-[35%]" />
-										</div>
-										<Skeleton class="h-3 w-16" />
-										<Skeleton class="h-8 w-28" />
-									</div>
+									<AttentionActionRowSkeleton />
 								{/each}
 							</div>
 						{/if}
 					</div>
-					<div class="grid min-w-0 content-start gap-4">
+					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
 						<PageShell.SectionHeader size="compact" eyebrow="On duty" title="Tonight and tomorrow" />
 						{#if model && parts}
 							{#each parts.onDutyBlocks as block (block.id)}

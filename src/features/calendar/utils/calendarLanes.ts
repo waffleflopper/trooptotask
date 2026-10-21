@@ -8,6 +8,7 @@ import DaysLaneSegmentView, {
 	type DaysLaneSegment
 } from '$features/calendar/components/calendar-lanes/DaysLaneSegment.svelte';
 import { CALENDAR_DATE_LABEL } from '$features/calendar/utils/calendarRenderState';
+import { assignmentSlotKey, openAssignmentDates } from '$features/calendar/utils/calendarIndexes';
 import { formatDate } from '$lib/utils/dates';
 
 function bySortOrder(a: AssignmentType, b: AssignmentType): number {
@@ -99,8 +100,11 @@ const SHORT_DATE = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numer
 export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 	const dateKeys = input.dates.map(formatDate);
 	const dateLabels = input.dates.map((date) => CALENDAR_DATE_LABEL.format(date));
-	const assigneeByDayType = new Map(
-		input.assignments.map((assignment) => [`${assignment.date}|${assignment.assignmentTypeId}`, assignment.assigneeId])
+	const assigneeBySlot = new Map(
+		input.assignments.map((assignment) => [
+			assignmentSlotKey(assignment.date, assignment.assignmentTypeId),
+			assignment.assigneeId
+		])
 	);
 	const personById = new Map(input.personnel.map((person) => [person.id, person]));
 	const groupById = new Map(input.groups.map((group) => [group.id, group]));
@@ -119,7 +123,7 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 	function assignmentLane(type: AssignmentType): CalendarLane {
 		const actions = input.actions;
 		const days = input.dates.map((date, index): AssignmentLaneDay => {
-			const assigneeId = assigneeByDayType.get(`${dateKeys[index]}|${type.id}`);
+			const assigneeId = assigneeBySlot.get(assignmentSlotKey(dateKeys[index], type.id));
 			const day = { dateLabel: dateLabels[index], typeName: type.name };
 			if (assigneeId === undefined) {
 				const openDay = actions?.openDay;
@@ -128,7 +132,7 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 			const assignee = assigneeLabel(type, assigneeId);
 			return actions ? { ...day, assignee, edit: () => actions.editDay(date) } : { ...day, assignee };
 		});
-		const open = days.filter((day) => !day.assignee).length;
+		const open = openAssignmentDates(assigneeBySlot, type.id, dateKeys).length;
 		return {
 			key: `assignment:${type.id}`,
 			kind: 'assignment-type',

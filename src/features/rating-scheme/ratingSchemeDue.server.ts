@@ -7,7 +7,9 @@ import { isArchivedPerson, toArchivedPersonIds } from './archivedPeople';
 import type { RatingSchemeDueEntry, RatingSchemeDuePort } from './contracts';
 
 interface RatingSchemeDueRow {
+	id: string;
 	rated_person_id: string;
+	eval_type: RatingSchemeDueEntry['evalType'];
 	rating_period_end: string;
 	status: RatingSchemeDueEntry['status'];
 }
@@ -29,7 +31,7 @@ export function createSupabaseRatingSchemeDuePort(
 					async (from, to) =>
 						await supabase
 							.from('rating_scheme_entries')
-							.select('rated_person_id, rating_period_end, status')
+							.select('id, rated_person_id, eval_type, rating_period_end, status')
 							.eq('organization_id', actor.orgId)
 							.order('id', { ascending: true })
 							.range(from, to)
@@ -38,9 +40,17 @@ export function createSupabaseRatingSchemeDuePort(
 			]);
 			if (error) throw new Error((error as { message: string }).message);
 			const archived = toArchivedPersonIds(archivedIds);
-			return (data ?? [])
-				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
-				.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
+			return (data ?? []).filter((row) => !isArchivedPerson(archived, row.rated_person_id)).map(toDueEntry);
 		}
+	};
+}
+
+function toDueEntry(row: RatingSchemeDueRow): RatingSchemeDueEntry {
+	return {
+		id: row.id,
+		ratedPersonId: row.rated_person_id,
+		evalType: row.eval_type,
+		ratingPeriodEnd: row.rating_period_end,
+		status: row.status
 	};
 }

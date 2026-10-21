@@ -150,7 +150,9 @@ describe('composeDashboardSections', () => {
 					...inputs.page.dashboard,
 					data: {
 						...inputs.page.dashboard.data,
-						ratingSchemeEntries: [{ ratingPeriodEnd: '2026-10-10', status: 'active' }]
+						ratingSchemeEntries: [
+							{ id: 'e1', ratedPersonId: 'p1', evalType: 'NCOER', ratingPeriodEnd: '2026-10-10', status: 'active' }
+						]
 					}
 				}
 			}

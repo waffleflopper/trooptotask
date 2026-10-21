@@ -2,6 +2,7 @@ import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calend
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { availabilityRuns, backDate, type AvailabilityRun } from './availabilityRuns';
 
 /** Up to this many people the strip draws a block and the out list a row per person. */
 export const PEOPLE_MODE_LIMIT = 40;
@@ -257,13 +258,13 @@ function buildBottomLine(
 	const statusRank = new Map(order.map((type, index) => [type.id, index]));
 	const personById = new Map(inputs.personnel.map((person) => [person.id, person]));
 	const groupNameById = new Map(inputs.groups.map((group) => [group.id, group.name]));
-	const backByPerson = returnDays(inputs, [...outToday.keys()]);
+	const runs = availabilityRuns(inputs.availability);
 	const tomorrowDate = inputs.forecastDays[1];
 
 	const outPeople = [...outToday.values()]
 		.map((entry) => {
 			const person = personById.get(entry.personnelId)!;
-			const back = backByPerson.get(entry.personnelId)!;
+			const back = backDate(runOn(runs.get(entry.personnelId), inputs.today)!);
 			return {
 				personnelId: person.id,
 				name: fullName(person),
@@ -316,23 +317,27 @@ function buildBottomLine(
 		],
 		outPeople,
 		outByStatus,
-		tomorrow: tomorrowLine(inputs, statuses, forecast, mode)
+		tomorrow: tomorrowLine(inputs, statuses, runs, forecast, mode)
 	};
 }
 
 function tomorrowLine(
 	inputs: StrengthInputs,
 	statuses: DayStatuses,
+	runs: ReadonlyMap<string, readonly AvailabilityRun[]>,
 	forecast: readonly ForecastColumn[],
 	mode: BottomLine['mode']
 ): string {
 	const tomorrow = forecast[1];
 	if (!tomorrow) return '';
-	const today = statuses.get(inputs.today) ?? new Map<string, AvailabilityEntry>();
 	const next = statuses.get(tomorrow.date) ?? new Map<string, AvailabilityEntry>();
 	const statusById = new Map(inputs.statusTypes.map((type) => [type.id, type]));
-	const leaving = inputs.personnel.filter((person) => !today.has(person.id) && next.has(person.id));
-	const returning = inputs.personnel.filter((person) => today.has(person.id) && !next.has(person.id));
+	const leaving = inputs.personnel.filter((person) =>
+		runs.get(person.id)?.some((run) => run.startDate === tomorrow.date)
+	);
+	const returning = inputs.personnel.filter((person) =>
+		runs.get(person.id)?.some((run) => backDate(run) === tomorrow.date)
+	);
 	const head = `Tomorrow ${tomorrow.available}.`;
 
 	if (leaving.length === 0 && returning.length === 0) return `${head} No one leaves or returns.`;
@@ -356,34 +361,8 @@ function tomorrowLine(
 	return `${head} ${sentence}.`;
 }
 
-/**
- * The first day from `from` that no entry covers. Entries that touch or overlap form one run, so
- * Leave ending the 19th and TDY from the 20th read as one absence.
- */
-export function firstUncoveredDay(
-	entries: readonly Pick<AvailabilityEntry, 'startDate' | 'endDate'>[],
-	from: string
-): string {
-	let end = toDayNumber(from) - 1;
-	for (const entry of [...entries].sort((a, b) => a.startDate.localeCompare(b.startDate))) {
-		if (toDayNumber(entry.startDate) > end + 1) break;
-		end = Math.max(end, toDayNumber(entry.endDate));
-	}
-	return fromDayNumber(end + 1);
-}
-
-function returnDays(inputs: StrengthInputs, personnelIds: readonly string[]): ReadonlyMap<string, string> {
-	const wanted = new Set(personnelIds);
-	const byPerson = new Map<string, AvailabilityEntry[]>();
-	for (const entry of inputs.availability) {
-		if (!wanted.has(entry.personnelId) || entry.endDate < inputs.today) continue;
-		const entries = byPerson.get(entry.personnelId);
-		if (entries) entries.push(entry);
-		else byPerson.set(entry.personnelId, [entry]);
-	}
-	return new Map(
-		[...byPerson].map(([personnelId, entries]) => [personnelId, firstUncoveredDay(entries, inputs.today)])
-	);
+function runOn(runs: readonly AvailabilityRun[] | undefined, day: string): AvailabilityRun | undefined {
+	return runs?.find((run) => run.startDate <= day && day <= run.endDate);
 }
 
 function buildGroupStrength(inputs: StrengthInputs, outToday: ReadonlyMap<string, AvailabilityEntry>): GroupStrength {

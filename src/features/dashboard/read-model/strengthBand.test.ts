@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
-import { buildStrengthBand, firstUncoveredDay, formatForecastHeadline, type StrengthInputs } from './strengthBand';
+import { buildStrengthBand, formatForecastHeadline, type StrengthInputs } from './strengthBand';
 
 const TODAY = '2026-10-19';
 const DAYS = [
@@ -372,25 +372,5 @@ describe('by group', () => {
 		expect(result.groups.rows).toHaveLength(7);
 		expect(result.groups.shown).toBe(5);
 		expect(result.groups.rows.slice(0, 2).map((row) => row.name)).toEqual(['G1', 'G3']);
-	});
-});
-
-describe('firstUncoveredDay', () => {
-	it('reads back-to-back entries as one absence', () => {
-		const entries = [
-			{ startDate: '2026-10-20', endDate: '2026-10-22' },
-			{ startDate: '2026-10-19', endDate: '2026-10-19' }
-		];
-
-		expect(firstUncoveredDay(entries, '2026-10-19')).toBe('2026-10-23');
-	});
-
-	it('stops at the first gap', () => {
-		const entries = [
-			{ startDate: '2026-10-19', endDate: '2026-10-20' },
-			{ startDate: '2026-10-22', endDate: '2026-10-24' }
-		];
-
-		expect(firstUncoveredDay(entries, '2026-10-19')).toBe('2026-10-21');
 	});
 });

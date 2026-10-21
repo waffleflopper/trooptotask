@@ -55,7 +55,7 @@
 		</ul>
 		{#if changes.length > PREVIEW && !showAll}
 			<div>
-				<Button variant="link" class="h-auto px-0 underline" onclick={expand}>
+				<Button variant="link" class="px-0 underline" onclick={expand}>
 					All {changes.length} changes
 				</Button>
 			</div>

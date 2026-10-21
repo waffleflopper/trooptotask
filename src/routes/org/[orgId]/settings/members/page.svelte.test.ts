@@ -148,7 +148,8 @@ function renderPage(options: PageOptions = {}, form: Record<string, unknown> | n
 	return render(Page, { props: { data: pageData(options), form, params: { orgId: 'org-1' } } as never });
 }
 
-const memberRow = (id: string) => document.getElementById(`member-row-${id}`) as HTMLElement;
+const memberRow = (id: string) =>
+	screen.getByText(`${id}@example.com`, { selector: 'th span' }).closest('tr') as HTMLElement;
 const invitationRow = (id: string) => document.getElementById(`invitation-row-${id}`) as HTMLElement;
 
 async function openSheet(id: string) {
@@ -193,9 +194,14 @@ describe('members list', () => {
 	it('summarizes each member with access, area changes and groups', () => {
 		renderPage({ rows: [owner, admin, operator, alpha] });
 
-		expect(memberRow('op').textContent?.replace(/\s+/g, ' ').trim()).toBe(
-			'OE op@example.com Access: Operator +2 area changes Groups: No groups Manage access for op@example.com'
-		);
+		expect(
+			[...memberRow('op').querySelectorAll('th, td')].map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim())
+		).toEqual([
+			'OE op@example.com',
+			'Access: Operator +2 area changes',
+			'Groups: No groups',
+			'Manage access for op@example.com'
+		]);
 		expect(within(memberRow('op')).getByText('+2 area changes').className).toContain('text-warning-foreground');
 		expect(within(memberRow('op')).getByText('No groups').className).toContain('text-warning-foreground');
 		expect(within(memberRow('admin')).getByText('Admin')).toBeTruthy();
@@ -227,11 +233,13 @@ describe('members list', () => {
 	it('shows every member and narrows them with the filter', async () => {
 		const rows = Array.from({ length: 30 }, (_, index) => member(`m${index}`, `soldier${index}@example.com`, 'member'));
 		renderPage({ rows });
-		expect(screen.getAllByText(/^soldier\d+@example\.com$/)).toHaveLength(30);
+		const shown = () =>
+			screen.getAllByRole('rowheader').map((cell) => within(cell).getByText(/^soldier\d+@example\.com$/).textContent);
+		expect(shown()).toHaveLength(30);
 
 		const filter = screen.getByRole('searchbox', { name: 'Filter members' });
 		await fireEvent.input(filter, { target: { value: 'SOLDIER2' } });
-		expect(screen.getAllByText(/^soldier\d+@example\.com$/).map((node) => node.textContent)).toEqual([
+		expect(shown()).toEqual([
 			'soldier2@example.com',
 			'soldier20@example.com',
 			'soldier21@example.com',

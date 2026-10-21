@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Mail from '@lucide/svelte/icons/mail';
@@ -10,7 +11,8 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
-	import { RowActions, type DataTableRowAction } from '$lib/components/ui/data-table/index.js';
+	import * as DataTable from '$lib/components/ui/data-table/index.js';
+	import { useDataTable, type ColumnDef, type DataTableRowAction } from '$lib/components/ui/data-table/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
@@ -69,6 +71,36 @@
 		offLanes: section.offLanes
 	}));
 	const visibleMembers = $derived(workspace.visibleMembers);
+	const visibleIds = $derived(new Set(visibleMembers.map((member) => member.id)));
+
+	const wide = new MediaQuery('min-width: 48rem', true);
+	const memberColumns = (
+		[
+			['member', 'Member', undefined],
+			['access', 'Access', '10.625rem'],
+			['groups', 'Groups', '10.625rem'],
+			['actions', '', '8rem']
+		] as const
+	).map(
+		([key, header, width]): ColumnDef<SettingsMemberRow> => ({
+			key,
+			header,
+			width,
+			headerAriaLabel: key === 'actions' ? 'Row actions' : undefined,
+			rowHeader: key === 'member',
+			maxWidth: key === 'member' ? 'none' : undefined,
+			value: () => '',
+			sortable: false,
+			searchable: false
+		})
+	);
+	const narrowMemberColumns = memberColumns.filter((column) => column.key === 'member' || column.key === 'actions');
+	// The filter hides rows instead of dropping them, so typing never remounts the roster.
+	const memberTable = useDataTable<SettingsMemberRow>({
+		data: () => workspace.members,
+		columns: () => (wide.current ? memberColumns : narrowMemberColumns),
+		rowKey: (member) => member.id
+	});
 	const history = new StreamedValue(() => section.invitationHistory);
 	let historyOpen = $state(false);
 
@@ -155,7 +187,7 @@
 	};
 
 	function rowMenuTrigger(memberId: string): HTMLElement | null {
-		return document.querySelector<HTMLElement>(`#member-row-${memberId} [aria-haspopup="menu"]`);
+		return document.querySelector<HTMLElement>(`[data-member-actions="${memberId}"] [aria-haspopup="menu"]`);
 	}
 
 	async function submitRemove(member: SettingsMemberRow) {
@@ -404,87 +436,15 @@
 			</div>
 		{/if}
 
-		<div
-			class="hidden grid-cols-[minmax(0,1fr)_170px_170px_120px] gap-4 border-b py-2 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase md:grid"
-			aria-hidden="true"
-		>
-			<span>Member</span>
-			<span>Access</span>
-			<span>Groups</span>
-			<span></span>
-		</div>
-		<ul>
-			{#each visibleMembers as member (member.id)}
-				{@const changes = member.membershipRole === 'member' ? member.overriddenCapabilityLabels.length : 0}
-				<li
-					id="member-row-{member.id}"
-					class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 border-b py-3 md:grid-cols-[minmax(0,1fr)_170px_170px_120px] md:items-center md:gap-4"
-				>
-					<div class="flex min-w-0 items-center gap-3">
-						<span
-							class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[11px] font-semibold"
-							aria-hidden="true"
-						>
-							{memberInitials(member.email)}
-						</span>
-						<p class="min-w-0 truncate text-sm font-semibold">{memberName(member)}</p>
-						{#if member.userId === viewerUserId}
-							<span class="rounded-sm border px-1.5 font-mono text-[11px] tracking-[0.08em] uppercase">You</span>
-						{/if}
-					</div>
-					<p class="col-span-2 grid pl-11 md:col-span-1 md:pl-0">
-						<span class="sr-only">Access:</span>
-						<span
-							class={cn(
-								'font-mono text-[11px] font-semibold tracking-[0.08em] uppercase',
-								member.membershipRole === 'member' ? 'text-muted-foreground' : 'text-foreground'
-							)}>{accessLabel(member)}</span
-						>
-						{#if changes > 0}
-							<span class="font-mono text-[11px] font-semibold text-warning-foreground"
-								>+{plural(changes, 'area change')}</span
-							>
-						{/if}
-					</p>
-					<p class="col-span-2 pl-11 md:col-span-1 md:pl-0">
-						<span class="sr-only">Groups:</span>
-						<span
-							class={cn(
-								'font-mono text-xs',
-								member.scopeDisplayLabel === 'No groups'
-									? 'font-semibold text-warning-foreground'
-									: 'text-muted-foreground'
-							)}>{member.scopeDisplayLabel}</span
-						>
-					</p>
-					<div class="col-start-2 row-start-1 flex items-center justify-end gap-1 md:col-start-auto md:row-start-auto">
-						{#if canManage(member)}
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onclick={(event) => {
-									accessOpener = event.currentTarget;
-									workspace.open(member);
-								}}
-							>
-								Manage <span class="sr-only">access for {memberName(member)}</span>
-							</Button>
-							<RowActions
-								row={member}
-								actions={rowActions}
-								ariaLabel={`More actions for ${memberName(member)}`}
-								busy={removingMemberId === member.id}
-							/>
-						{/if}
-					</div>
-				</li>
-			{:else}
-				<li class="border-b py-6 text-center text-sm text-muted-foreground">
-					{workspace.filter.trim() ? `No members matching "${workspace.filter.trim()}"` : 'No members yet'}
-				</li>
-			{/each}
-		</ul>
+		<DataTable.DataTable
+			table={memberTable}
+			variant="editorial"
+			ariaLabel="Members"
+			emptyMessage={workspace.filter.trim() ? `No members matching "${workspace.filter.trim()}"` : 'No members yet'}
+			stickyHeader={false}
+			cell={memberCell}
+			rowHidden={(member) => !visibleIds.has(member.id)}
+		/>
 
 		<Collapsible.Root bind:open={historyOpen}>
 			<div class="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -575,3 +535,78 @@
 		</AppDialog.Content>
 	{/if}
 </AppDialog.Root>
+
+{#snippet memberCell(member: SettingsMemberRow, column: ColumnDef<SettingsMemberRow>)}
+	{#if column.key === 'member'}
+		<div class="flex min-w-0 items-center gap-3 py-1.5 whitespace-normal">
+			<span
+				class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[11px] font-semibold"
+				aria-hidden="true"
+			>
+				{memberInitials(member.email)}
+			</span>
+			<div class="grid min-w-0 gap-0.5">
+				<p class="flex min-w-0 items-center gap-2">
+					<span class="min-w-0 text-sm font-semibold wrap-anywhere">{memberName(member)}</span>
+					{#if member.userId === viewerUserId}
+						<span class="shrink-0 rounded-sm border px-1.5 font-mono text-[11px] tracking-[0.08em] uppercase">You</span>
+					{/if}
+				</p>
+				{#if !wide.current}
+					<p class="flex flex-wrap gap-x-3">
+						<span>{@render accessLane(member)}</span>
+						<span>{@render groupsLane(member)}</span>
+					</p>
+				{/if}
+			</div>
+		</div>
+	{:else if column.key === 'access'}
+		<p class="grid">{@render accessLane(member)}</p>
+	{:else if column.key === 'groups'}
+		<p>{@render groupsLane(member)}</p>
+	{:else if column.key === 'actions' && canManage(member)}
+		<div class="flex items-center justify-end gap-1" data-member-actions={member.id}>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				onclick={(event) => {
+					accessOpener = event.currentTarget;
+					workspace.open(member);
+				}}
+			>
+				Manage <span class="sr-only">access for {memberName(member)}</span>
+			</Button>
+			<DataTable.RowActions
+				row={member}
+				actions={rowActions}
+				ariaLabel={`More actions for ${memberName(member)}`}
+				busy={removingMemberId === member.id}
+			/>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet accessLane(member: SettingsMemberRow)}
+	{@const changes = member.membershipRole === 'member' ? member.overriddenCapabilityLabels.length : 0}
+	<span class="sr-only">Access:</span>
+	<span
+		class={cn(
+			'font-mono text-[11px] font-semibold tracking-[0.08em] uppercase',
+			member.membershipRole === 'member' ? 'text-muted-foreground' : 'text-foreground'
+		)}>{accessLabel(member)}</span
+	>
+	{#if changes > 0}
+		<span class="font-mono text-[11px] font-semibold text-warning-foreground">+{plural(changes, 'area change')}</span>
+	{/if}
+{/snippet}
+
+{#snippet groupsLane(member: SettingsMemberRow)}
+	<span class="sr-only">Groups:</span>
+	<span
+		class={cn(
+			'font-mono text-xs',
+			member.scopeDisplayLabel === 'No groups' ? 'font-semibold text-warning-foreground' : 'text-muted-foreground'
+		)}>{member.scopeDisplayLabel}</span
+	>
+{/snippet}

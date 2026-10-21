@@ -60,6 +60,7 @@ function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 		lossWarningWindowDays: 180,
 		strengthFloorPercent: 80,
 		awardTrackingAcknowledgedPersonnelIds: [],
+		specialDays: [],
 		...overrides
 	};
 }
@@ -119,27 +120,19 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	describe('totalPersonnel / availableCount', () => {
-		it('starts at 0 with no store data', () => {
-			expect(ctx.totalPersonnel).toBe(0);
-			expect(ctx.availableCount).toBe(0);
-		});
-	});
-
-	describe('dutyStrengthPct', () => {
-		it('returns 100 when there are no personnel', () => {
-			expect(ctx.dutyStrengthPct).toBe(100);
-		});
-	});
-
-	describe('statusBreakdown', () => {
-		it('returns an empty Map when no availability entries exist', () => {
-			expect(ctx.statusBreakdown.size).toBe(0);
+	describe('strength', () => {
+		it('reads everyone available at 100 percent with no store data', () => {
+			const { bottomLine } = ctx.strength;
+			expect([ctx.totalPersonnel, bottomLine.available, bottomLine.assigned, bottomLine.percent]).toEqual([
+				0, 0, 0, 100
+			]);
 		});
 
 		it('reflects streamed store data and ignores availability outside the loaded personnel scope', () => {
 			mutableRosterStore.items = [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }];
-			mutableStatusTypesStore.items = [{ id: 'st1', name: 'Leave', color: '#111111', textColor: '#ffffff' }];
+			mutableStatusTypesStore.items = [
+				{ id: 'st1', name: 'Leave', color: '#111111', textColor: '#ffffff', sortOrder: 0 }
+			];
 			mutableAvailabilityStore.items = [
 				{
 					id: 'a1',
@@ -157,8 +150,11 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				}
 			];
 
-			expect(ctx.todayEntries).toHaveLength(1);
-			expect(ctx.statusBreakdown.get('st1')?.count).toBe(1);
+			const { bottomLine } = ctx.strength;
+			expect([bottomLine.available, bottomLine.assigned]).toEqual([0, 1]);
+			expect(bottomLine.outPeople.map(({ personnelId, statusTypeId }) => [personnelId, statusTypeId])).toEqual([
+				['p1', 'st1']
+			]);
 		});
 	});
 

@@ -2,7 +2,6 @@ import type { AvailabilityEntry } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 
 export interface TodayAvailability {
-	entries: AvailabilityEntry[];
 	byPersonnelId: ReadonlyMap<string, AvailabilityEntry>;
 }
 
@@ -11,14 +10,12 @@ export function indexTodayAvailability(
 	today: string,
 	rosterById: ReadonlyMap<string, Personnel>
 ): TodayAvailability {
-	const entries: AvailabilityEntry[] = [];
 	const byPersonnelId = new Map<string, AvailabilityEntry>();
 	for (const entry of availability) {
 		if (entry.startDate > today || entry.endDate < today || !rosterById.has(entry.personnelId)) continue;
-		entries.push(entry);
 		if (!byPersonnelId.has(entry.personnelId)) byPersonnelId.set(entry.personnelId, entry);
 	}
-	return { entries, byPersonnelId };
+	return { byPersonnelId };
 }
 
 export function indexById<T extends { id: string }>(items: readonly T[]): ReadonlyMap<string, T> {

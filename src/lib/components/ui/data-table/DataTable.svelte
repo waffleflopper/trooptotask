@@ -10,6 +10,7 @@
 		DataTableState,
 		DataTableStateSnippet,
 		GroupDef,
+		PageLabels,
 		RowKey,
 		SortDirection
 	} from './types.js';
@@ -48,7 +49,7 @@
 		rowDetail?: DataTableRowDetailSnippet<T>;
 		rowDetailVisible?: (row: T) => boolean;
 		rowHidden?: (row: T) => boolean;
-		pageLabels?: { previous: string; next: string };
+		pageLabels?: PageLabels;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;

@@ -41,7 +41,7 @@
 		},
 		{ key: 'area', header: 'Area', value: (entry) => entry.area, width: '8.5rem' },
 		{ key: 'event', header: 'Event', value: (entry) => entry.sentence, maxWidth: 'none' },
-		{ key: 'actor', header: 'Actor', value: (entry) => entry.actor ?? 'System', width: '13rem' }
+		{ key: 'actor', header: 'Actor', value: (entry) => entry.actor, width: '13rem' }
 	];
 	const table = useDataTable({
 		data: () => scopedEntries,
@@ -56,9 +56,10 @@
 		for (const entry of table.allRows) counts.set(entry.day, (counts.get(entry.day) ?? 0) + 1);
 		return counts;
 	});
-	/** The oldest loaded day may continue past the 100 loaded entries. */
+	const truncated = $derived(logs !== null && logs.auditLog.totalCount > entries.length);
+	/** The oldest loaded day may continue past the loaded entries; a scoped or searched count is exact within them. */
 	const cutOffDay = $derived.by(() => {
-		if (!logs || logs.auditLog.totalCount <= entries.length || entries.length === 0) return undefined;
+		if (!truncated || scope !== 'all' || table.search.trim() || entries.length === 0) return undefined;
 		return entries.reduce((oldest, entry) => (entry.at < oldest.at ? entry : oldest)).day;
 	});
 	/** Rows that open a day on the current page; sorting by anything but time drops the day heads. */
@@ -131,7 +132,16 @@
 			ariaLabel="Organization audit log entries"
 			{emptyMessage}
 			stickyHeader={false}
-			pageLabels={{ previous: 'Newer', next: 'Older' }}
+			pageLabels={{
+				previous: 'Newer',
+				next: 'Older',
+				range: truncated
+					? ({ first, last, total }) =>
+							total === entries.length
+								? `${first}–${last} of the latest ${total}`
+								: `${first}–${last} of ${total} in the latest ${entries.length}`
+					: undefined
+			}}
 		>
 			{#snippet row(entry: AuditEntryView)}
 				{#if dayStarts.has(entry.id)}
@@ -156,10 +166,10 @@
 					</Table.Cell>
 					<Table.Cell data-max-width="none" class="leading-5 whitespace-normal">{entry.sentence}</Table.Cell>
 					<Table.Cell class="font-mono text-xs leading-5">
-						{#if entry.actor}
-							<span class="block max-w-52 truncate @max-2xl/data-table:max-w-full">{entry.actor}</span>
-						{:else}
+						{#if entry.system}
 							<span class="text-muted-foreground italic">System</span>
+						{:else}
+							<span class="block max-w-52 truncate @max-2xl/data-table:max-w-full">{entry.actor}</span>
 						{/if}
 					</Table.Cell>
 				</Table.Row>

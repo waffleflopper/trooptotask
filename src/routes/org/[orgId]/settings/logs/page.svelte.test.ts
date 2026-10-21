@@ -78,6 +78,7 @@ const MIXED: Row[] = [
 		action: 'personnel.updated',
 		createdAt: '2026-10-15T12:00:00Z',
 		details: { subject_label: 'SPC Reed' },
+		userId: null,
 		actor: null
 	}
 ];
@@ -104,6 +105,41 @@ describe('logs settings page', () => {
 			['2026-10-15T12:00:00.000Z', 'System']
 		]);
 		expect(screen.getByText('96 this month · 1,284 total')).toBeTruthy();
+	});
+
+	it('names System only for an entry with no actor, and an unnamed member as Unknown member', () => {
+		const table = renderLogs([
+			{ action: 'personnel.updated', createdAt: '2026-10-19T12:00:00Z', userId: null, actor: null },
+			{ action: 'personnel.updated', createdAt: '2026-10-19T11:00:00Z', userId: 'removed-member', actor: null }
+		]);
+
+		expect(entries(table).map(([, , actor]) => actor)).toEqual(['System', 'Unknown member']);
+	});
+
+	it('marks the cut-off day as a floor only in the unfiltered list', async () => {
+		const table = renderLogs(MIXED, { recentCount: 96, totalCount: 1284 });
+
+		await fireEvent.click(screen.getByRole('radio', { name: 'Records' }));
+		expect(days(table)).toEqual([{ title: '15 Oct', count: '1', entries: ['2026-10-15T12:00:00.000Z'] }]);
+
+		await fireEvent.click(screen.getByRole('radio', { name: 'All' }));
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search audit log' }), {
+			target: { value: 'SPC Reed' }
+		});
+		expect(days(table)).toEqual([{ title: '15 Oct', count: '1', entries: ['2026-10-15T12:00:00.000Z'] }]);
+	});
+
+	it('says the pages cover only the latest entries when the log holds more', async () => {
+		const rows = Array.from({ length: 30 }, (_, index) => ({
+			action: index < 28 ? 'status_type.created' : 'member.invite',
+			createdAt: new Date(Date.UTC(2026, 9, 19, 23, 0) - index * 60_000).toISOString()
+		}));
+		renderLogs(rows, { recentCount: 30, totalCount: 110 });
+
+		expect(screen.getByText('1–25 of the latest 30')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('radio', { name: 'Records' }));
+		expect(screen.getByText('1–25 of 28 in the latest 30')).toBeTruthy();
 	});
 
 	it('narrows rows to a quick scope and combines it with search', async () => {

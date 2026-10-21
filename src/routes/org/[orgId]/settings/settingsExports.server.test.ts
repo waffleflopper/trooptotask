@@ -42,10 +42,9 @@ function setup(role: 'owner' | 'admin', latest: Record<string, AuditLogEntry>) {
 
 describe('Exports settings load', () => {
 	it('streams the unit counts that scope an export', async () => {
-		const { ports, auditReads } = setup('owner', {});
+		const { ports } = setup('owner', {});
 
 		expect(await loadExportsSettings(ports).scopeCounts).toEqual({ activePersonnel: 1, trainingRecords: 2 });
-		expect(auditReads).toEqual([]);
 	});
 });
 

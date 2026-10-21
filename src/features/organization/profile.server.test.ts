@@ -98,22 +98,29 @@ describe('renameOrganization', () => {
 
 	it('returns only after the rename audit write has settled', async () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
-		let settleAudit: () => void = () => {};
+		const written: unknown[] = [];
 		const audit = {
-			log: () => new Promise<void>((resolve) => (settleAudit = resolve))
+			log: (entry: unknown) =>
+				new Promise<void>((resolve) =>
+					setTimeout(() => {
+						written.push(entry);
+						resolve();
+					})
+				)
 		};
-		let returned = false;
 
-		const renamed = renameOrganization(
+		await renameOrganization(
 			{ auth: ctx.auth, audit, administration: createOrganizationProfilePort() },
 			{ name: 'Alpha Company' }
-		).then(() => (returned = true));
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(returned).toBe(false);
+		);
 
-		settleAudit();
-		await renamed;
-		expect(returned).toBe(true);
+		expect(written).toEqual([
+			{
+				action: 'org.renamed',
+				resourceType: 'organization',
+				details: { name: 'Alpha Company' }
+			}
+		]);
 	});
 
 	it('caps normalized Organization names at the retained 100-character limit', async () => {

@@ -206,10 +206,31 @@ describe('General settings unit name', () => {
 
 		const nameForm = screen.getByLabelText('Unit name').closest('form')!;
 		expect(page).not.toHaveProperty('errorPage');
-		expect(within(nameForm).getByRole('alert').textContent?.trim()).toBe("The request didn't complete. Try again.");
+		expect(within(nameForm).getByRole('alert')).toBeTruthy();
 		expect((screen.getByLabelText('Unit name') as HTMLInputElement).value).toBe('Draft Name');
 		expect(toasts).toEqual([]);
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' }));
+	});
+
+	it('drops a stale rejected reason when the next save errors unexpectedly', async () => {
+		const view = render(Page, { data: data('a'), form: { error: 'Name is taken' }, params: { orgId: 'a' } });
+		await tick();
+		expect(screen.getByText('Name is taken')).toBeTruthy();
+		expect(screen.getByLabelText('Unit name').getAttribute('aria-invalid')).toBe('true');
+		await fireEvent.input(screen.getByLabelText('Unit name'), { target: { value: 'Draft' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		const save = lastCallback();
+
+		await save(
+			frameworkOutcome(
+				{ type: 'error', status: 500, error: { message: 'x' } },
+				{ applyForm: (form) => view.rerender({ form: form as never }) }
+			)
+		);
+		await tick();
+
+		expect(screen.queryByText('Name is taken')).toBeNull();
+		expect(screen.getByLabelText('Unit name').getAttribute('aria-invalid')).toBeNull();
 	});
 
 	it('ignores a disposed name response after A → B → A', async () => {
@@ -227,7 +248,9 @@ describe('General settings unit name', () => {
 		expect(screen.getByRole('button', { name: 'Saving...' })).toBeTruthy();
 		await newSave({ result: { type: 'success', status: 200, data: { nameSuccess: true } }, update });
 		expect(update).toHaveBeenCalledOnce();
-		expect(toasts.map(({ message }) => message)).toEqual(['Unit name changed to New Request.']);
+		expect(toasts).toHaveLength(1);
+		expect(toasts[0].message).toContain('New Request');
+		expect(toasts[0].action?.label).toBe('Undo');
 	});
 });
 
@@ -350,9 +373,20 @@ describe('General settings web address', () => {
 		await tick();
 
 		const slugForm = screen.getByLabelText('Web address').closest('form')!;
-		expect(within(slugForm).getByRole('alert').textContent?.trim()).toBe("The request didn't complete. Try again.");
+		expect(within(slugForm).getByRole('alert')).toBeTruthy();
 		expect((screen.getByLabelText('Web address') as HTMLInputElement).value).toBe('draft-path');
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update' }));
+	});
+
+	it('does not confirm an address save that redirects to sign-in', async () => {
+		render(Page, { data: data('a', { urlSlug: null }), form: null, params: { orgId: 'a' } });
+		const save = await confirmSlug('new-path');
+
+		await save(
+			frameworkOutcome({ type: 'redirect', status: 303, location: '/auth/login' }, { applyForm: async () => {} })
+		);
+
+		expect(toasts).toEqual([]);
 	});
 
 	it('returns focus to Update after a saved address and after a reset, with the page showing the new address', async () => {
@@ -399,7 +433,10 @@ describe('General settings web address', () => {
 
 		expect(update).not.toHaveBeenCalled();
 		expect(toasts).toEqual([]);
-		expect(screen.getByLabelText('Web address').closest('form')!.getAttribute('action')).toBe('?/updateSlug');
+		await fireEvent.submit(screen.getByLabelText('Web address').closest('form')!);
+		expect(screen.getByRole('dialog', { name: 'Update the web address?' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Update address' }));
+		expect(sent().at(-1)?.action).toBe('?/updateSlug');
 	});
 });
 

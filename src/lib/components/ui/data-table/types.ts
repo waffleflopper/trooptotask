@@ -18,8 +18,18 @@ export interface ColumnDef<T> {
 	maxWidth?: 'none';
 	/** Body cells in this column are the row's header (`th scope="row"`). */
 	rowHeader?: boolean;
-	/** Hides the column's header and cells below the `md` breakpoint with CSS, so the server render already fits a narrow screen. */
-	hiddenBelow?: 'md';
+	/**
+	 * Hides the column's header and cells with CSS, so the server render already fits a narrow screen.
+	 * `'md'` follows the viewport; `'@3xl'` follows the table's own width (below 48rem), for a table beside other columns.
+	 */
+	hiddenBelow?: 'md' | '@3xl';
+}
+
+export interface PageLabels {
+	previous: string;
+	next: string;
+	/** The editorial pager's range line, for a table whose rows are only part of a larger set. */
+	range?: (range: { first: number; last: number; total: number }) => string;
 }
 
 export interface GroupDef<T> {

@@ -76,16 +76,14 @@ describe('loadPoliciesSettings', () => {
 		);
 	});
 
-	it('takes the defaults for missing settings and has no archive date when no one is archived', async () => {
-		const { value, findOldestArchivedAt } = ports([], null);
-		findOldestArchivedAt.mockResolvedValue(null);
+	it('takes the defaults for missing settings', async () => {
+		const { value } = ports([], null);
 
 		const data = await loadPoliciesSettings(value, { today: '2026-10-21' });
 
 		expect([data.lossWarningWindowDays, data.trainingReadinessGoalPercent, data.archiveRetentionMonths]).toEqual([
 			180, 90, 36
 		]);
-		expect(data.oldestArchivedAt).toBeNull();
 	});
 
 	it('skips the loss dates and the training briefing for features that are off', async () => {

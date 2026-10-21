@@ -20,6 +20,7 @@ export type {
 	DataTableState,
 	GroupDef,
 	GroupHeaderContext,
+	PageLabels,
 	RowKey,
 	SortDirection
 } from './types.js';

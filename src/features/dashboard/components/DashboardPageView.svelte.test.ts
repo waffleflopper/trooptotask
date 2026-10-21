@@ -238,14 +238,14 @@ describe('Dashboard feature switches', () => {
 	const offFor = (...off: string[]) => ({ isFeatureOn: (feature: string) => !off.includes(feature) });
 
 	it('drops Evaluations from the readiness card and Requires Attention when the unit turns them off', () => {
-		const ctx = makeCtx({
-			...offFor('evaluations'),
-			ratingStats: { overdue: 2, 'due-30': 1, 'due-60': 0, current: 0 }
-		});
-		render(DashboardPageView, { props: { ctx } });
+		const ratingStats = { overdue: 2, 'due-30': 1, 'due-60': 0, current: 0 };
+		render(DashboardPageView, { props: { ctx: makeCtx({ ratingStats }) } });
+		expect(screen.getByText('2 overdue evaluations')).toBeTruthy();
+		expect(screen.getByText('1 evaluation due within 30 days')).toBeTruthy();
+		cleanup();
 
+		render(DashboardPageView, { props: { ctx: makeCtx({ ...offFor('evaluations'), ratingStats }) } });
 		expect(screen.getByRole('heading', { name: 'Training' })).toBeTruthy();
-		expect(screen.queryByText('evals overdue')).toBeNull();
 		expect(screen.queryByText('2 overdue evaluations')).toBeNull();
 		expect(screen.queryByText('1 evaluation due within 30 days')).toBeNull();
 	});

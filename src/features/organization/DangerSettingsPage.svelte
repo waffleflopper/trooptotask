@@ -6,8 +6,6 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { settleAction } from '$lib/utils/settleAction';
@@ -239,26 +237,18 @@
 					id="delete-org-form"
 					method="POST"
 					action="?/deleteOrganization"
-					class="grid gap-2"
 					use:enhance={deleteEnhance}
 					onsubmit={(event) => {
 						if (!deleteConfirmMatches) event.preventDefault();
 					}}
 				>
-					<Label for="confirmDelete">Type {unit} to confirm</Label>
-					<Input
+					<AppDialog.TypeToConfirm
 						id="confirmDelete"
 						name="confirmName"
-						type="text"
+						phrase={unit}
+						matches={deleteConfirmMatches}
 						bind:value={deleteConfirmText}
-						autocomplete="off"
-						aria-describedby={deleteConfirmMatches ? undefined : 'confirmDelete-hint'}
 					/>
-					{#if !deleteConfirmMatches}
-						<p id="confirmDelete-hint" class="font-mono text-xs leading-5 text-muted-foreground">
-							Keep typing. It has to match exactly.
-						</p>
-					{/if}
 				</form>
 			</AppDialog.Body>
 			<AppDialog.Footer>
@@ -281,17 +271,19 @@
 {/if}
 
 {#if transferState.showTransferConfirm && transferState.transferTargetId}
+	{@const email = transferState.selectedTransferCandidate?.email ?? ''}
 	<AppDialog.Root
 		bind:open={transferState.showTransferConfirm}
+		tone="destructive"
 		busy={transferLoading}
 		closeBlocked={transferState.transferCloseBlocked}
 		onClose={closeTransferDialog}
 	>
 		<AppDialog.Content>
-			<AppDialog.Header>
-				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
+			<AppDialog.Header eyebrow="Transfer ownership · Only the new Owner can undo it">
+				<AppDialog.Title>Make {email} the Owner?</AppDialog.Title>
 				<AppDialog.Description>
-					Transfer owner authority to {transferState.selectedTransferCandidate?.email ?? 'the selected member'}.
+					They take over the Owner role for {unit}. You become an Admin and keep your access.
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
@@ -300,37 +292,30 @@
 						<Alert.Description>{transferRequestError ?? form?.transferError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				<form
-					id="transfer-ownership-form"
-					method="POST"
-					action="?/transferOwnership"
-					class="grid gap-2"
-					use:enhance={transferEnhance}
-				>
+				<form id="transfer-ownership-form" method="POST" action="?/transferOwnership" use:enhance={transferEnhance}>
 					<input type="hidden" name="newOwnerId" value={transferState.transferTargetId} />
-					<Label for="confirmTransferOwner">Type the member email to confirm</Label>
-					<Input
+					<AppDialog.TypeToConfirm
 						id="confirmTransferOwner"
 						name="confirmTransferEmail"
-						type="text"
+						phrase={email}
+						matches={transferState.transferConfirmMatches}
 						bind:value={transferState.transferConfirmText}
-						placeholder={transferState.selectedTransferCandidate?.email ?? 'member@example.com'}
-						autocomplete="off"
 					/>
 				</form>
 			</AppDialog.Body>
 			<AppDialog.Footer>
+				<p class="font-mono text-xs leading-5 text-muted-foreground sm:mr-auto">Signed in as Owner</p>
 				<Button type="button" variant="outline" disabled={transferLoading} onclick={closeTransferDialog}>Cancel</Button>
 				<Button
 					bind:ref={transferButton}
 					type="submit"
 					form="transfer-ownership-form"
-					variant="destructive"
+					variant={transferState.transferConfirmMatches ? 'destructive-solid' : 'outline'}
 					disabled={!transferState.transferConfirmMatches}
 					aria-disabled={transferLoading ? 'true' : undefined}
 					aria-busy={transferLoading || undefined}
 				>
-					{transferLoading ? 'Transferring...' : 'Transfer Ownership'}
+					{transferLoading ? 'Transferring...' : 'Transfer ownership'}
 				</Button>
 			</AppDialog.Footer>
 		</AppDialog.Content>

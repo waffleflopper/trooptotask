@@ -28,7 +28,7 @@ export function retentionCutoff(now: Date, retentionMonths: number): string {
 }
 
 /** The `/api/cleanup-archived-records` cron fires at `0 5 * * *` in `vercel.json`. */
-const CLEANUP_RUN_HOUR_UTC = 5;
+export const CLEANUP_RUN_HOUR_UTC = 5;
 
 /**
  * The first daily cleanup run that deletes a record archived at `archivedAt`: the first 05:00 UTC whose

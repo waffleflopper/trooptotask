@@ -120,6 +120,33 @@ describe('Archived personnel countdown', () => {
 		);
 	});
 
+	it('moves a countdown past the cleanup run without a remount', async () => {
+		vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+		vi.setSystemTime(new Date('2026-11-02T04:59:00Z'));
+		renderRoster();
+		const laneCountdown = () => within(bodyRows()[0]).getAllByRole('cell')[3].textContent?.trim();
+		expect(laneCountdown()).toBe('1 day');
+
+		vi.advanceTimersByTime(2 * 60_000);
+		await tick();
+
+		expect(laneCountdown()).toBe('Due now');
+	});
+
+	it('refreshes the countdowns when the page becomes visible again', async () => {
+		vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+		vi.setSystemTime(new Date('2026-11-02T04:59:00Z'));
+		renderRoster();
+		const laneCountdown = () => within(bodyRows()[0]).getAllByRole('cell')[3].textContent?.trim();
+		expect(laneCountdown()).toBe('1 day');
+
+		vi.setSystemTime(new Date('2026-11-02T06:00:00Z'));
+		document.dispatchEvent(new Event('visibilitychange'));
+		await tick();
+
+		expect(laneCountdown()).toBe('Due now');
+	});
+
 	it('shows only the people a search matches, says when no one matches and restores everyone after clearing', async () => {
 		renderRoster();
 

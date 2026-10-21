@@ -21,7 +21,7 @@
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
-	import { deletionCountdown } from '../archiveCountdown';
+	import { deletionCountdown, nextCleanupRun } from '../archiveCountdown';
 	import { ARCHIVED_PEOPLE_DEPENDENCY } from '../settingsDependencies';
 	import { formatRosterDate, pluralize } from '../settingsWorkspaceFormatters';
 	import type { SettingsArchivedPersonnelRow } from '../settingsSectionTypes';
@@ -30,7 +30,11 @@
 
 	const orgId = $derived($page.params.orgId ?? '');
 	const archived = createSettingsArchivedPersonnelState(() => data.archivesSettings.sections.archivedPersonnel);
-	const now = new Date();
+	let now = $state(new Date());
+	$effect(() => {
+		const timer = setTimeout(() => (now = new Date()), nextCleanupRun(now).getTime() - now.getTime());
+		return () => clearTimeout(timer);
+	});
 	const removedIds = new SvelteSet<string>();
 	let search = $state('');
 	let restoring = $state<string | null>(null);
@@ -167,6 +171,8 @@
 
 	const unit = $derived(data.orgName ?? 'the unit');
 </script>
+
+<svelte:document onvisibilitychange={() => document.visibilityState === 'visible' && (now = new Date())} />
 
 <SettingsPageHeader
 	page="archives"

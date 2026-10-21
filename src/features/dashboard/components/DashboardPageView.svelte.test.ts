@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { calendarStore } from '$features/calendar';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import DashboardPageView from './DashboardPageView.svelte';
@@ -143,6 +144,17 @@ function makeStarterPack(overrides: Partial<StarterConfigurationPackSupport> = {
 }
 
 describe('DashboardPageView', () => {
+	it('opens Calendar on the viewer day even when Calendar was left in another month', async () => {
+		calendarStore.goToMonth(2026, 2);
+		render(DashboardPageView, { props: { ...frame, ctx: makeCtx() } });
+		const link = screen.getByRole('link', { name: 'Open calendar' });
+		link.addEventListener('click', (event) => event.preventDefault());
+
+		await fireEvent.click(link);
+
+		expect([calendarStore.year, calendarStore.month]).toEqual([2026, 9]);
+	});
+
 	it('renders the overview directly without tabs or toolbar', () => {
 		const ctx = makeCtx({ strength: strengthOf(50), totalPersonnel: 50 });
 

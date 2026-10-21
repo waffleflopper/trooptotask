@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
-import { buildStrengthBand, formatForecastHeadline, type StrengthInputs } from './strengthBand';
+import { buildStrengthBand, firstUncoveredDay, formatForecastHeadline, type StrengthInputs } from './strengthBand';
 
 const TODAY = '2026-10-19';
 const DAYS = [
@@ -126,6 +126,46 @@ describe('forecast headline (frame 03)', () => {
 		expect(headlineOf(result)).toEqual({
 			headline: { kind: 'steady', min: 20, max: 21 },
 			text: 'Steady: 20 to 21 available every day'
+		});
+	});
+
+	it('C: ignores a weekend dip when the duty days are level', () => {
+		const result = band({ availability: away(ids(1, 4), 'leave', '2026-10-24', '2026-10-25') });
+
+		expect(flaggedDates(result)).toEqual([]);
+		expect(headlineOf(result)).toEqual({
+			headline: { kind: 'steady', min: 22, max: 22 },
+			text: 'Steady: 22 available every day'
+		});
+	});
+
+	it('B: takes the range and the lowest day from duty days when a weekend is lower still', () => {
+		const result = band({
+			availability: [
+				...away(ids(1, 4), 'leave', '2026-10-24', '2026-10-25'),
+				...away(ids(5, 6), 'tdy', '2026-10-28', '2026-10-28')
+			]
+		});
+
+		expect(headlineOf(result)).toEqual({
+			headline: { kind: 'above', min: 20, max: 22, lowest: '2026-10-28' },
+			text: '20 to 22 available, lowest Wednesday 28th'
+		});
+	});
+
+	it('C: a single flagged duty day with one-person variation reads as a dip, not steady', () => {
+		const result = band({
+			floorPercent: 95,
+			availability: [
+				...away(['p1'], 'leave', '2026-10-19', '2026-11-01'),
+				...away(['p2'], 'appt', '2026-10-21', '2026-10-21')
+			]
+		});
+
+		expect(flaggedDates(result)).toEqual(['2026-10-21']);
+		expect(headlineOf(result)).toEqual({
+			headline: { kind: 'dips', floorPercent: 95, from: '2026-10-21', days: 1 },
+			text: 'Below 95% on Wednesday 21st'
 		});
 	});
 
@@ -332,5 +372,25 @@ describe('by group', () => {
 		expect(result.groups.rows).toHaveLength(7);
 		expect(result.groups.shown).toBe(5);
 		expect(result.groups.rows.slice(0, 2).map((row) => row.name)).toEqual(['G1', 'G3']);
+	});
+});
+
+describe('firstUncoveredDay', () => {
+	it('reads back-to-back entries as one absence', () => {
+		const entries = [
+			{ startDate: '2026-10-20', endDate: '2026-10-22' },
+			{ startDate: '2026-10-19', endDate: '2026-10-19' }
+		];
+
+		expect(firstUncoveredDay(entries, '2026-10-19')).toBe('2026-10-23');
+	});
+
+	it('stops at the first gap', () => {
+		const entries = [
+			{ startDate: '2026-10-19', endDate: '2026-10-20' },
+			{ startDate: '2026-10-22', endDate: '2026-10-24' }
+		];
+
+		expect(firstUncoveredDay(entries, '2026-10-19')).toBe('2026-10-21');
 	});
 });

@@ -33,6 +33,8 @@ export interface ForecastColumn {
 	isToday: boolean;
 	/** False on weekends and stored Special Days, which are never flagged. */
 	isDutyDay: boolean;
+	/** "Weekend" or the stored Special Day's name; null on a duty day. */
+	offDutyLabel: string | null;
 	assigned: number;
 	available: number;
 	/** People out that day per status, in catalog order, nonzero only. */
@@ -168,7 +170,7 @@ function indexDayStatuses(inputs: StrengthInputs): DayStatuses {
 
 /** One column per forecast day: who is out by status, and whether a duty day falls below the floor. */
 export function buildForecastColumns(inputs: StrengthInputs, statuses = indexDayStatuses(inputs)): ForecastColumn[] {
-	const nonDutyDates = new Set(inputs.specialDays.map((day) => day.date));
+	const specialDayNames = new Map(inputs.specialDays.map((day) => [day.date, day.name]));
 	const order = sortedStatusTypes(inputs.statusTypes);
 	const assigned = inputs.personnel.length;
 
@@ -176,11 +178,13 @@ export function buildForecastColumns(inputs: StrengthInputs, statuses = indexDay
 		const out = statuses.get(date) ?? new Map();
 		const counts = countByStatus(out.values());
 		const available = assigned - out.size;
-		const isDutyDay = !isWeekend(date) && !nonDutyDates.has(date);
+		const offDutyLabel = specialDayNames.get(date) ?? (isWeekend(date) ? 'Weekend' : null);
+		const isDutyDay = offDutyLabel === null;
 		return {
 			date,
 			isToday: date === inputs.today,
 			isDutyDay,
+			offDutyLabel,
 			assigned,
 			available,
 			byStatus: order.flatMap((type) => {
@@ -194,7 +198,8 @@ export function buildForecastColumns(inputs: StrengthInputs, statuses = indexDay
 
 /**
  * The forecast's headline. A run of flagged days is consecutive flagged duty days; a weekend or
- * closure between them neither ends the run nor counts toward it.
+ * closure between them neither ends the run nor counts toward it. A flagged day always outranks
+ * Steady, and the range and lowest day of the unflagged headlines come from duty days alone.
  */
 export function pickForecastHeadline(columns: readonly ForecastColumn[], floorPercent: number): ForecastHeadline {
 	const dutyDays = columns.filter((column) => column.isDutyDay);
@@ -209,13 +214,13 @@ export function pickForecastHeadline(columns: readonly ForecastColumn[], floorPe
 		return { kind: 'dips', floorPercent, from: run[0].date, days: run.length };
 	}
 
-	const counts = columns.map((column) => column.available);
+	const basis = dutyDays.length > 0 ? dutyDays : columns;
+	const counts = basis.map((column) => column.available);
 	const min = Math.min(...counts);
 	const max = Math.max(...counts);
 	if (max - min <= 1) return { kind: 'steady', min, max };
 
-	const candidates = dutyDays.length > 0 ? dutyDays : columns;
-	const lowest = candidates.reduce((low, column) => (column.available < low.available ? column : low));
+	const lowest = basis.reduce((low, column) => (column.available < low.available ? column : low));
 	return { kind: 'above', min, max, lowest: lowest.date };
 }
 
@@ -351,7 +356,22 @@ function tomorrowLine(
 	return `${head} ${sentence}.`;
 }
 
-/** The day after each person's continuous run of entries that covers today ends. */
+/**
+ * The first day from `from` that no entry covers. Entries that touch or overlap form one run, so
+ * Leave ending the 19th and TDY from the 20th read as one absence.
+ */
+export function firstUncoveredDay(
+	entries: readonly Pick<AvailabilityEntry, 'startDate' | 'endDate'>[],
+	from: string
+): string {
+	let end = toDayNumber(from) - 1;
+	for (const entry of [...entries].sort((a, b) => a.startDate.localeCompare(b.startDate))) {
+		if (toDayNumber(entry.startDate) > end + 1) break;
+		end = Math.max(end, toDayNumber(entry.endDate));
+	}
+	return fromDayNumber(end + 1);
+}
+
 function returnDays(inputs: StrengthInputs, personnelIds: readonly string[]): ReadonlyMap<string, string> {
 	const wanted = new Set(personnelIds);
 	const byPerson = new Map<string, AvailabilityEntry[]>();
@@ -361,18 +381,9 @@ function returnDays(inputs: StrengthInputs, personnelIds: readonly string[]): Re
 		if (entries) entries.push(entry);
 		else byPerson.set(entry.personnelId, [entry]);
 	}
-
-	const back = new Map<string, string>();
-	for (const [personnelId, entries] of byPerson) {
-		entries.sort((a, b) => a.startDate.localeCompare(b.startDate));
-		let end = toDayNumber(inputs.today) - 1;
-		for (const entry of entries) {
-			if (toDayNumber(entry.startDate) > end + 1) break;
-			end = Math.max(end, toDayNumber(entry.endDate));
-		}
-		back.set(personnelId, fromDayNumber(end + 1));
-	}
-	return back;
+	return new Map(
+		[...byPerson].map(([personnelId, entries]) => [personnelId, firstUncoveredDay(entries, inputs.today)])
+	);
 }
 
 function buildGroupStrength(inputs: StrengthInputs, outToday: ReadonlyMap<string, AvailabilityEntry>): GroupStrength {

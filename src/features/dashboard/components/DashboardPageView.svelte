@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { calendarStore } from '$features/calendar';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -43,6 +44,11 @@
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 
 	let openQuickAdd = $state<QuickAddEntry | null>(null);
+
+	/** Calendar opens on the month it was left in; the link is for the viewer's today. */
+	function openCalendarAt(day: string) {
+		calendarStore.goToMonth(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1);
+	}
 
 	const EYEBROW = 'font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase';
 	const BAND = 'grid gap-14 border-t-2 border-foreground pt-6';
@@ -123,6 +129,7 @@
 								band={model.strength}
 								today={model.today}
 								calendarHref="/org/{model.data.orgId}/calendar"
+								onOpenCalendar={() => openCalendarAt(model.today)}
 							>
 								{#snippet lanes()}
 									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} />

@@ -51,56 +51,33 @@ function band(out: number, size = 42) {
 }
 
 describe('BottomLine at counts scale', () => {
-	it('folds origins past two groups and opens every name out today in place', async () => {
+	it('keeps every name out today behind a disclosure that opens in place', async () => {
 		const strength = band(3);
 		render(BottomLine, { props: { line: strength.bottomLine, statusById: strength.statusById } });
 
-		const rows = within(screen.getByRole('list', { name: 'Out today by status' })).getAllByRole('listitem');
-		expect(rows.map((row) => row.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
-			'Leave 3 Group 0 1 · Group 1 1 · 1 more back 21 Oct'
-		]);
-		const toggle = screen.getByRole('button', { name: 'All 3 names' });
-		const names = document.getElementById(toggle.getAttribute('aria-controls')!)!;
-		expect([toggle.getAttribute('aria-expanded'), names.hidden]).toEqual(['false', true]);
+		const toggle = screen.getByRole('button', { expanded: false });
+		expect(screen.queryByRole('list', { name: 'Everyone out today' })).toBeNull();
 
 		await fireEvent.click(toggle);
 
-		expect([toggle.textContent?.trim(), toggle.getAttribute('aria-expanded'), names.hidden]).toEqual([
-			'Fewer names',
-			'true',
-			false
-		]);
-		expect(names.textContent).toContain('SPC Last2, Pat');
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		const names = screen.getByRole('list', { name: 'Everyone out today' });
+		expect(within(names).getByText('SPC Last2, Pat')).toBeTruthy();
 	});
 });
 
-describe('GroupStrength at people scale', () => {
-	it('folds past six groups as it does at counts scale', async () => {
-		render(GroupStrength, { props: { groups: band(3, 21).groups, mode: 'people' } });
+describe.each(['people', 'counts'] as const)('GroupStrength at %s scale', (mode) => {
+	it('lists the lowest groups first and reaches the rest through the disclosure', async () => {
+		render(GroupStrength, { props: { groups: band(3, mode === 'people' ? 21 : 42).groups, mode } });
 
 		const list = screen.getByRole('list', { name: 'Available by group' });
-		expect(within(list).getAllByRole('listitem')).toHaveLength(5);
+		expect(within(list).getByText('Group 0')).toBeTruthy();
+		expect(within(list).queryByText('Group 6')).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'All 7 groups' }));
+		const toggle = screen.getByRole('button', { expanded: false });
+		await fireEvent.click(toggle);
 
-		expect(within(list).getAllByRole('listitem')).toHaveLength(7);
-	});
-});
-
-describe('GroupStrength at counts scale', () => {
-	it('shows the lowest five of seven groups and unfolds the rest in place', async () => {
-		render(GroupStrength, { props: { groups: band(3).groups, mode: 'counts' } });
-
-		expect(screen.getByText('By group · lowest 5 of 7')).toBeTruthy();
-		const list = screen.getByRole('list', { name: 'Available by group' });
-		expect(within(list).getAllByRole('listitem')).toHaveLength(5);
-		expect(list.textContent).toContain('Group 0');
-		expect(list.textContent).not.toContain('Group 6');
-
-		await fireEvent.click(screen.getByRole('button', { name: 'All 7 groups' }));
-
-		expect(screen.getByText('By group · all 7 · lowest first')).toBeTruthy();
-		expect(within(list).getAllByRole('listitem')).toHaveLength(7);
-		expect(screen.getByRole('button', { name: 'Fewer groups' }).getAttribute('aria-expanded')).toBe('true');
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		expect(within(list).getByText('Group 6')).toBeTruthy();
 	});
 });

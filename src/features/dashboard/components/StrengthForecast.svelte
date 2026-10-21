@@ -1,17 +1,25 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { formatForecastHeadline, forecastDayLabel, longDay, type StrengthBand } from '../read-model/strengthBand';
+	import {
+		formatForecastHeadline,
+		forecastDayLabel,
+		longDay,
+		type ForecastColumn,
+		type StrengthBand
+	} from '../read-model/strengthBand';
 
 	interface Props {
 		band: StrengthBand;
 		today: string;
 		calendarHref: string;
+		/** Runs when Open calendar is chosen, before the navigation. */
+		onOpenCalendar?: () => void;
 		/** Overlay lanes under the day labels. */
 		lanes?: Snippet;
 	}
 
-	let { band, today, calendarHref, lanes }: Props = $props();
+	let { band, today, calendarHref, onOpenCalendar, lanes }: Props = $props();
 
 	const BAR_HEIGHT = 131;
 
@@ -28,13 +36,28 @@
 		});
 		return runs;
 	});
+	function describeDay(column: ForecastColumn): string {
+		const day = column.isToday ? `Today, ${longDay(column.date)}` : longDay(column.date);
+		const duty = column.isDutyDay ? 'Duty day.' : `Not a duty day: ${column.offDutyLabel}.`;
+		const out = column.byStatus.map((entry) => `${band.statusById.get(entry.statusTypeId)?.name} ${entry.count}`);
+		return [
+			`${day}: ${column.available} of ${column.assigned} available.`,
+			duty,
+			column.belowFloor && 'Below the floor.',
+			out.length > 0 && `Out: ${out.join(', ')}.`
+		]
+			.filter(Boolean)
+			.join(' ');
+	}
 	const floorOffset = $derived(Math.round(BAR_HEIGHT * (1 - Math.min(band.floorPercent, 100) / 100)));
 </script>
 
 <div class="grid gap-[18px]">
 	<div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
 		<p class="font-heading text-[26px] leading-7 font-bold">{headline}</p>
-		<Button variant="link" size="none" class="underline" href={calendarHref}>Open calendar</Button>
+		<Button variant="link" size="none" class="underline" href={calendarHref} onclick={onOpenCalendar}
+			>Open calendar</Button
+		>
 	</div>
 
 	<div class="overflow-x-auto">
@@ -57,6 +80,8 @@
 						></div>
 					{/if}
 					<span
+						role="img"
+						aria-label={describeDay(column)}
 						class={[
 							'relative row-start-1 pt-2 pb-1.5 text-center font-heading text-xl leading-5',
 							tone === 'flagged' && 'font-extrabold text-accent-text',
@@ -66,11 +91,7 @@
 						]}
 						style:grid-column={index + 1}
 					>
-						{column.available}<span class="sr-only">
-							available {column.isToday ? 'today' : longDay(column.date)}{column.belowFloor
-								? ', below the floor'
-								: ''}</span
-						>
+						<span aria-hidden="true">{column.available}</span>
 					</span>
 					<span
 						class="relative row-start-2 mx-1.5 flex flex-col gap-px"

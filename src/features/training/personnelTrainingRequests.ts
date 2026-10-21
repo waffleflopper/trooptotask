@@ -1,6 +1,7 @@
 import type { ReadinessCertificate } from '$lib/components/patterns/readiness-items';
 import { buildRequestError } from '$lib/stores/core';
 import type { TrainingBatchImportResult, TrainingBatchRecord } from './contracts';
+import type { PersonnelTraining } from './training.types';
 
 export interface TrainingCompletionLog {
 	personnelId: string;
@@ -31,6 +32,26 @@ export async function recordTrainingCompletions(
 		body: JSON.stringify({ records })
 	});
 	if (!response.ok) throw await buildRequestError(response, 'POST', 'training completions');
+	return response.json();
+}
+
+export async function loadPersonTrainingRecords(orgId: string, personnelId: string): Promise<PersonnelTraining[]> {
+	const response = await fetch(`/org/${orgId}/api/personnel-trainings?${new URLSearchParams({ personnelId })}`);
+	if (!response.ok) throw await buildRequestError(response, 'GET', 'training records');
+	return response.json();
+}
+
+/** Creates the Person's record for the type, or updates the one they have. */
+export async function saveTrainingRecord(
+	orgId: string,
+	record: Omit<PersonnelTraining, 'id'>
+): Promise<PersonnelTraining> {
+	const response = await fetch(`/org/${orgId}/api/personnel-trainings`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(record)
+	});
+	if (!response.ok) throw await buildRequestError(response, 'POST', 'training record');
 	return response.json();
 }
 

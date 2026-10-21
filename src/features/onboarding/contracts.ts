@@ -60,6 +60,11 @@ export interface OnboardingBootstrap {
 	archiveRetentionMonths: number | null;
 }
 export type OnboardingWorkspaceData = OnboardingBootstrap;
+/** What starting a packet needs outside the Onboarding workspace. */
+export interface OnboardingStartOptions extends Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'> {
+	templates: OnboardingTemplate[];
+	hasTemplateSteps: boolean;
+}
 export type OnboardingWorkspaceHydrationMode = 'replace' | 'preserve-client';
 export interface OnboardingWorkspaceHydrationTarget<T> {
 	mode: OnboardingWorkspaceHydrationMode;

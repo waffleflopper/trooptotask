@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
-	import type {
-		AvailabilityEditorRequest,
-		AvailabilityOutcome
-	} from '$features/calendar/contexts/CalendarPageContext.svelte';
+	import type { AvailabilityEditorRequest } from '$features/calendar/contexts/CalendarPageContext.svelte';
+	import type { AvailabilityOutcome } from '$features/calendar/availabilitySave';
 	import { validateDateRange, type AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
 	import { parseDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';

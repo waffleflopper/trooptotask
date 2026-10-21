@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { tick } from 'svelte';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
 import { createClientAccess } from '$lib/access/clientAccess';
+import { dashboardWorkspaceHydrator } from '$features/dashboard';
 
 import Page from './+page.svelte';
 
@@ -40,7 +42,9 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 					personnel: [],
 					groups: [],
 					statusTypes: [],
-					trainingTypes: []
+					trainingTypes: [],
+					specialDays: [],
+					strengthFloorPercent: 80
 				},
 				hydration: { orgId }
 			}
@@ -71,6 +75,27 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 		...base,
 		...overrides
 	};
+}
+
+async function hydrateEmptyWorkspace(orgId: string) {
+	const range = { rangeStart: '2026-10-19', rangeEnd: '2026-11-01' };
+	const empty = (key: string) => ({ mode: 'replace' as const, snapshotKey: `${key}:${orgId}`, items: [] });
+	await dashboardWorkspaceHydrator.hydrate({
+		orgId,
+		confirmedChangesByTab: {},
+		personnel: empty('personnel'),
+		groups: empty('groups'),
+		statusTypes: empty('status-types'),
+		availabilityEntries: { mode: 'range', snapshotKey: `availability:${orgId}`, items: [], range },
+		calendarAssignments: {
+			mode: 'range',
+			snapshotKey: `assignments:${orgId}`,
+			items: { types: [], assignments: [] },
+			range
+		},
+		trainingTypes: empty('training-types'),
+		pinnedGroups: empty('pinned')
+	});
 }
 
 describe('dashboard page', () => {
@@ -109,4 +134,27 @@ describe('dashboard page', () => {
 			expect(screen.queryByRole('alert')).toBeNull();
 		}
 	);
+
+	it('keeps the last summary through a background refresh, including one that fails, but not across Organizations', async () => {
+		await hydrateEmptyWorkspace('org-1');
+		const view = render(Page, { props: { data: makePageData() } });
+		await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+
+		let reject!: (reason: Error) => void;
+		const refresh = new Promise((_, rejectPromise) => {
+			reject = rejectPromise;
+		});
+		await view.rerender({ data: makePageData({ summary: refresh }) });
+		expect(screen.queryByRole('status')).toBeNull();
+		reject(new Error('Summary unavailable'));
+		await refresh.catch(() => {});
+		await tick();
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(screen.queryByRole('status')).toBeNull();
+
+		await view.rerender({
+			data: makePageData({ orgId: 'org-2', orgName: 'Second Unit', summary: new Promise(() => {}) })
+		});
+		expect(screen.getByRole('status').textContent).toBe('Loading Dashboard');
+	});
 });

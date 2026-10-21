@@ -2,6 +2,7 @@ export type { TrainingType, PersonnelTraining, TrainingStatus, TrainingView } fr
 export { TRAINING_STATUS_COLORS } from './training.types';
 
 export { personnelTrainingsStore } from './stores/personnelTrainings.svelte';
+export { loadPersonTrainingRecords, recordTrainingCompletions, saveTrainingRecord } from './personnelTrainingRequests';
 export { trainingTypeSource, trainingTypeHydration } from './webSources.svelte';
 
 export { isTrainingApplicable } from './utils/applicability';
@@ -43,7 +44,11 @@ export { default as TrainingReportsPage } from './components/TrainingReportsPage
 export { default as PersonnelTrainingReadinessTable } from './components/PersonnelTrainingReadinessTable.svelte';
 export { default as PersonnelTrainingDrawer } from './components/PersonnelTrainingDrawer.svelte';
 
-export { recordTrainingCompletions } from './personnelTrainingRequests';
 export function loadRecordClassDialog() {
 	return import('./components/RecordClassDialog.svelte');
+}
+
+/** The record editor, loaded on first open. */
+export function loadTrainingRecordModal() {
+	return import('./components/TrainingRecordModal.svelte');
 }

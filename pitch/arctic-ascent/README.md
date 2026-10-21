@@ -46,25 +46,25 @@ The thesis: leaders spend hours chasing answers scattered across trackers. Troop
 
 ## Slides
 
-The deck picks up where the opener leaves off, with one slide per feature area for the deeper talk. It shares the video's type, color and "Available today" / "In design" chips.
+The deck picks up where the opener leaves off, with one slide per feature area for the deeper talk. It shares the video's type and color, and its status chips mark what's shipped and what's planned.
 
 | # | Slide | Status |
 | --- | --- | --- |
-| 1 | Holding slide (TroopToTask · Arctic Ascent 2026) | |
+| 1 | Holding slide (TroopToTask · SSG Robert Baddeley, MEDDAC-AK · Arctic Ascent 2026) | |
 | 2 | The opener (plays the final video) | |
 | 3 | Calendar: Who's where. Every day. | Available today |
-| 4 | Personnel details: Every Soldier. One page. | Just shipped |
-| 5 | Training & Training reports: See the drop before it lands. | Available today |
+| 4 | Personnel details: Every Soldier. One page. | Just landed |
+| 5 | Training & Training reports: Project drop-offs, maximize training impact. | |
 | 6 | Events & Taskings: Every tasking. Tracked to done. | In design |
-| 7 | Drop Zone & AI: Just say it. | In design |
-| 8 | Security & access: Built for CUI. Scoped by design. | |
+| 7 | Drop Zone & AI: Just say it. | In development |
+| 8 | Security & access: Built to maximize security. | |
 | 9 | Close: Less time on admin. More time with Soldiers. That's readiness. | |
 
 - `deck.html`: open it in Chrome and press F for full screen. → / Space / PageDown (most clickers) advance; ← goes back. The opener slide plays the video with sound when you land on it.
-- `deck-render.mjs`: `node deck-render.mjs` writes `out/slides/slide-NN.png`, the speaker notes and `out/troop-to-task-arctic-ascent-slides.pdf`.
-- `deck-pptx.py`: `~/.cache/t2t-pitch-audio/venv/bin/python deck-pptx.py` builds `out/troop-to-task-arctic-ascent-slides.pptx` from those images, with the talk track as speaker notes and the video embedded on slide 2 (click once on that slide to start it).
+- `deck-render.mjs`: `node deck-render.mjs` writes `out/slides/slide-NN.png`, the slide list and `out/troop-to-task-arctic-ascent-slides.pdf`.
+- `deck-pptx.py`: `~/.cache/t2t-pitch-audio/venv/bin/python deck-pptx.py` builds `out/troop-to-task-arctic-ascent-slides.pptx` from those images, with the video embedded on slide 2 (click once on that slide to start it).
 
-Each slide's talk track (about 65 words, 25 seconds) is in its `data-notes` in `deck.html`. At a normal speaking pace the talk runs about 2:45, which with the 2:20 opener comes to about 5:05 before the ask. Rehearse with a timer and trim where it runs long. The close's notes hold a placeholder for your ask.
+The deck carries no speaker notes; Robert keeps his own talk track.
 
 ## Music
 
@@ -87,7 +87,7 @@ The video stands on its own, and the Drop Zone line is already Robert's own reco
 ## Before showing judges
 
 - Play it once on the room's speakers. Sound effects that feel right on headphones can be too loud on a PA; the music-only version is the fallback.
-- Personnel details shipped on 19 October 2026 and is labeled "Just shipped". Drop Zone, Events & Taskings and the AI tiles are labeled "Next" or "In design". They show planned work, not shipped features.
+- Personnel details shipped on 19 October 2026 and is labeled "Just shipped" in the video and "Just landed" on its slide. Drop Zone, Events & Taskings and the AI tiles are labeled "Next", "In design" or "In development". They show planned work, not shipped features.
 - The racing clock and the Drop Zone stopwatch are dramatizations. Swap in a real number if you have one (for example, your own time to build a training meeting slide deck).
 - If CPT Zugg agrees, quote the October 2026 feedback asking for a "brain dump" AI in the live pitch. It shows that a commander asked for Drop Zone.
 - Before showing it, confirm the CPT and SFC are comfortable being quoted with their rank and unit (no names are shown). The 18th CSSB quote is anonymous and credited to the battalion only.

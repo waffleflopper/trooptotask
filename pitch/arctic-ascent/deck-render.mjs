@@ -1,5 +1,5 @@
-// Renders deck.html to slide images, a PDF and the speaker notes the PowerPoint build reads.
-//   node deck-render.mjs   → out/slides/slide-NN.png, out/slides/notes.json, out/troop-to-task-arctic-ascent-slides.pdf
+// Renders deck.html to slide images, a PDF and the slide list the PowerPoint build reads.
+//   node deck-render.mjs   → out/slides/slide-NN.png, out/slides/slides.json, out/troop-to-task-arctic-ascent-slides.pdf
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -34,24 +34,24 @@ const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 await page.goto(url);
 await settle(page);
 const n = await page.evaluate(() => window.slideCount);
-const notes = [];
+const slides = [];
 for (let i = 0; i < n; i++) {
   const info = await page.evaluate((i) => {
     window.go(i);
     const s = document.querySelectorAll('.slide')[i];
     if (s.id === 's-video') { const v = s.querySelector('video'); v.pause(); v.removeAttribute('src'); v.load(); }
-    return { notes: s.dataset.notes || '', video: s.id === 's-video' };
+    return { video: s.id === 's-video' };
   }, i);
   await settle(page);
   const file = `slide-${String(i + 1).padStart(2, '0')}.png`;
   await page.screenshot({ path: join(dir, file) });
-  notes.push({ file, ...info });
+  slides.push({ file, ...info });
 }
-writeFileSync(join(dir, 'notes.json'), JSON.stringify(notes, null, 2));
+writeFileSync(join(dir, 'slides.json'), JSON.stringify(slides, null, 2));
 
 const pdf = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 await pdf.goto(url + '?print');
 await settle(pdf);
 await pdf.pdf({ path: join(out, 'troop-to-task-arctic-ascent-slides.pdf'), width: '1920px', height: '1080px', printBackground: true, pageRanges: '' });
 await browser.close();
-console.log(`wrote ${n} slides, notes.json and the PDF`);
+console.log(`wrote ${n} slides, slides.json and the PDF`);

@@ -1,0 +1,38 @@
+[
+  {
+    "file": "slide-01.png",
+    "video": false
+  },
+  {
+    "file": "slide-02.png",
+    "video": true
+  },
+  {
+    "file": "slide-03.png",
+    "video": false
+  },
+  {
+    "file": "slide-04.png",
+    "video": false
+  },
+  {
+    "file": "slide-05.png",
+    "video": false
+  },
+  {
+    "file": "slide-06.png",
+    "video": false
+  },
+  {
+    "file": "slide-07.png",
+    "video": false
+  },
+  {
+    "file": "slide-08.png",
+    "video": false
+  },
+  {
+    "file": "slide-09.png",
+    "video": false
+  }
+]

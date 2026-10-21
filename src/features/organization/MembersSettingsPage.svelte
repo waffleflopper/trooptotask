@@ -418,7 +418,7 @@
 				{@const changes = member.membershipRole === 'member' ? member.overriddenCapabilityLabels.length : 0}
 				<li
 					id="member-row-{member.id}"
-					class="grid gap-2 border-b py-3 md:grid-cols-[minmax(0,1fr)_170px_170px_120px] md:items-center md:gap-4"
+					class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 border-b py-3 md:grid-cols-[minmax(0,1fr)_170px_170px_120px] md:items-center md:gap-4"
 				>
 					<div class="flex min-w-0 items-center gap-3">
 						<span
@@ -432,7 +432,7 @@
 							<span class="rounded-sm border px-1.5 font-mono text-[11px] tracking-[0.08em] uppercase">You</span>
 						{/if}
 					</div>
-					<p class="grid pl-11 md:pl-0">
+					<p class="col-span-2 grid pl-11 md:col-span-1 md:pl-0">
 						<span class="sr-only">Access:</span>
 						<span
 							class={cn(
@@ -446,7 +446,7 @@
 							>
 						{/if}
 					</p>
-					<p class="pl-11 md:pl-0">
+					<p class="col-span-2 pl-11 md:col-span-1 md:pl-0">
 						<span class="sr-only">Groups:</span>
 						<span
 							class={cn(
@@ -457,7 +457,7 @@
 							)}>{member.scopeDisplayLabel}</span
 						>
 					</p>
-					<div class="flex items-center gap-1 pl-11 md:justify-end md:pl-0">
+					<div class="col-start-2 row-start-1 flex items-center justify-end gap-1 md:col-start-auto md:row-start-auto">
 						{#if canManage(member)}
 							<Button
 								type="button"

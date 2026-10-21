@@ -169,4 +169,20 @@ describe('GET /api/calendar-range', () => {
 			dailyAssignments: [expect.objectContaining({ id: 'da1' })]
 		});
 	});
+
+	it('sends every collection to a request that names none, as a tab loaded before collections did', async () => {
+		const ctx = createTestContext();
+		seedMarch(ctx);
+		const input = _getConfig.parseInput!({
+			url: new URL('https://trooptotask.test/org/o/api/calendar-range?rangeStart=2026-03-01&rangeEnd=2026-03-31')
+		} as never);
+
+		expect(JSON.parse(JSON.stringify(await handleUseCaseRequest(_getConfig, ctx, input, () => ctx)))).toEqual({
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-03-31',
+			availabilityEntries: [expect.objectContaining({ id: 'a1' })],
+			specialDays: [expect.objectContaining({ id: 'sd1' })],
+			dailyAssignments: [expect.objectContaining({ id: 'da1' })]
+		});
+	});
 });

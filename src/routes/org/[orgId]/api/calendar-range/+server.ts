@@ -52,8 +52,11 @@ export const _getConfig: RouteConfig<
 	parseInput: (event) => ({
 		rangeStart: event.url.searchParams.get('rangeStart') ?? '',
 		rangeEnd: event.url.searchParams.get('rangeEnd') ?? '',
-		// `input` validates each name before `fn` runs.
-		collections: (event.url.searchParams.get('collections')?.split(',') ?? []) as CalendarRangeCollection[]
+		// `input` validates each name before `fn` runs. A tab loaded before this parameter existed sends
+		// none and still receives every collection, as it did then.
+		collections: (event.url.searchParams.get('collections')?.split(',') ?? [
+			...CALENDAR_RANGE_COLLECTIONS
+		]) as CalendarRangeCollection[]
 	}),
 	fn: async (ctx, input) => fetchCalendarRangeData(ctx, input)
 };

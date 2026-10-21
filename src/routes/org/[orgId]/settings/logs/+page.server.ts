@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestOrganizationAuditLogContext } from '$lib/server/adapters/requestContexts.server';
 import { viewerTimeZone } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { loadLogsSettings } from '../settingsLogs.server';
 import type { LogsSettingsData } from '../settingsSectionTypes';
 import {
@@ -16,6 +17,7 @@ interface LogsPageData extends CommonSettingsPageData {
 }
 
 export const load: PageServerLoad = async (event) => {
+	event.depends(VIEWER_DAY_DEPENDENCY);
 	const parentData = await event.parent();
 	if (parentData.shell.kind === 'suspended') return {};
 

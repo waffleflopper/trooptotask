@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **13** [#1286](https://github.com/waffleflopper/trooptotask/issues/1286) is active on milestone **11**, activated from main `8e5bb3364` after Phase 12 #1285 and milestone 10 closed. D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) is in progress in two PRs, split for the review file limit.
+**Active checkpoint:** Phase **13** [#1286](https://github.com/waffleflopper/trooptotask/issues/1286) is active on milestone **11**, activated from main `8e5bb3364` after Phase 12 #1285 and milestone 10 closed. D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) is complete on its second PR's merge, after [#1789](https://github.com/waffleflopper/trooptotask/pull/1789). D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) is next.
 
 ## Execution rules
 
@@ -68,11 +68,11 @@ Final phase [#1286](https://github.com/waffleflopper/trooptotask/issues/1286), m
 
 | Child                                                                            | Outcome                                                                                                                                                                              | State     |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) Code sweep | Dispositions for the `billing` staff role, the Bits UI `postinstall` patch and the 11 suppressions in `src`; demonstrably unused dependencies, scripts, config and comments removed. | Active    |
-| D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) Docs prune | Default-delete prune of `plans/`, `docs/`, `.agents/`, `README.md` and `AGENTS.md` under #1286's keep-or-delete rule, with every link repaired.                                      | After D01 |
+| D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) Code sweep | Dispositions for the `billing` staff role, the Bits UI `postinstall` patch and the 11 suppressions in `src`; demonstrably unused dependencies, scripts, config and comments removed. | Done      |
+| D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) Docs prune | Default-delete prune of `plans/`, `docs/`, `.agents/`, `README.md` and `AGENTS.md` under #1286's keep-or-delete rule, with every link repaired.                                      | READY     |
 | D03 [#1787](https://github.com/waffleflopper/trooptotask/issues/1787) Test prune | `prune-tests` over the baseline testing audit's candidate families and tests of removed features, in one PR.                                                                         | After D02 |
 | D04 [#1788](https://github.com/waffleflopper/trooptotask/issues/1788) Retirement | One independent read-only review, the owner checklist from RELEASE, then deletion of the stabilization workflow, skill and `docs/stabilization/`, and closure of #1275.              | After D03 |
 
 ## Next executable task
 
-D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785), code and dependency sweep. PR 1 carries this activation edit, every disposition, the dependency and configuration removals and the `src/features` comment cleanup. PR 2 carries the comment cleanup in `src/lib`, `src/routes`, `src/tests`, `scripts`, the root configs and the verification helpers. Never touch remote production or existing local data.
+D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786), aggressive documentation prune, from updated `main` after D01 merges. Never touch remote production or existing local data.

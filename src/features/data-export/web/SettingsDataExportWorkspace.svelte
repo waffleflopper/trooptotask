@@ -1,19 +1,27 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { invalidate } from '$app/navigation';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { formatDate, formatDayMonthYear } from '$lib/utils/dates';
-	import type {
-		ExportScopeCounts,
-		ExportsSettingsData,
-		LastExport,
-		OrganizationExportFormat
+	import {
+		LAST_EXPORT_DEPENDENCY,
+		type ExportScopeCounts,
+		type ExportsSettingsData,
+		type LastExport,
+		type LastExportData,
+		type OrganizationExportFormat
 	} from '../exportsSettingsTypes';
 
-	let { orgId, orgName, settings }: { orgId: string; orgName: string | null; settings: ExportsSettingsData } = $props();
+	let {
+		orgId,
+		orgName,
+		settings,
+		lastExport
+	}: { orgId: string; orgName: string | null; settings: ExportsSettingsData; lastExport: LastExportData } = $props();
 
 	const FORMATS = {
 		json: { name: 'JSON', summary: 'For backups and integrations', endpoint: 'export', extension: 'json' },
@@ -28,7 +36,6 @@
 	let running = $state<Record<OrganizationExportFormat, boolean>>({ json: false, excel: false });
 	let errors = $state<Partial<Record<OrganizationExportFormat, string>>>({});
 	let announcement = $state('');
-	let exportedHere = $state<LastExport | null>(null);
 
 	const unit = $derived(orgName ?? 'the unit');
 
@@ -78,7 +85,7 @@
 			downloadBlob(blob, filename);
 			if (active) {
 				announcement = `${name} export downloaded.`;
-				exportedHere = { format, at: new Date().toISOString(), actor: 'you' };
+				if (lastExport) void invalidate(LAST_EXPORT_DEPENDENCY);
 			}
 		} catch {
 			fail(`${name} export failed. Please try again.`);
@@ -128,6 +135,7 @@
 		{@render chips(counts)}
 	{:catch}
 		{@render chips(null)}
+		<p class="font-mono text-xs leading-6 text-foreground">What an export of {unit} contains could not be counted.</p>
 	{/await}
 	<div class="flex flex-col gap-3 sm:flex-row">
 		{@render tile('json')}
@@ -139,22 +147,16 @@
 		</Alert.Root>
 	{/each}
 	<p role="status" class="sr-only">{announcement}</p>
-	{#if settings.lastExport}
-		{#if exportedHere}
-			<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">
-				{lastExportLine(exportedHere)}
-			</p>
-		{:else}
-			{#await settings.lastExport}
-				<Skeleton class="h-5 w-80 max-w-full" aria-hidden="true" />
-				<span class="sr-only">Loading the last export</span>
-			{:then last}
-				{#if last}
-					<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">{lastExportLine(last)}</p>
-				{/if}
-			{:catch}
-				<p class="font-mono text-xs leading-5 text-muted-foreground">The last export could not be loaded.</p>
-			{/await}
-		{/if}
+	{#if lastExport}
+		{#await lastExport}
+			<Skeleton class="h-5 w-80 max-w-full" aria-hidden="true" />
+			<span class="sr-only">Loading the last export</span>
+		{:then last}
+			{#if last}
+				<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">{lastExportLine(last)}</p>
+			{/if}
+		{:catch}
+			<p class="font-mono text-xs leading-5 text-muted-foreground">The last export could not be loaded.</p>
+		{/await}
 	{/if}
 </div>

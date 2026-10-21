@@ -14,6 +14,10 @@ export interface LastExport {
 
 export interface ExportsSettingsData {
 	scopeCounts: Promise<ExportScopeCounts>;
-	/** Null for a member who cannot read the audit log, so the line stays empty and the read never runs. */
-	lastExport: Promise<LastExport | null> | null;
 }
+
+/** The load that reads the last export declares this; a finished download invalidates it to re-read the Audit log. */
+export const LAST_EXPORT_DEPENDENCY = 'app:settings-last-export';
+
+/** Null for a member who cannot read the audit log, so the line stays empty and the read never runs. */
+export type LastExportData = Promise<LastExport | null> | null;

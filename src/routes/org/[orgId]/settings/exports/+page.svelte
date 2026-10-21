@@ -3,10 +3,11 @@
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { SettingsPageHeader } from '$features/organization';
-	import type { PageProps } from './$types';
+	import type { LayoutData, PageProps } from './$types';
 	import { SettingsDataExportWorkspace } from '$features/data-export/index.web';
 
-	let { data }: PageProps = $props();
+	// The load's suspended branch types as a string index, which hides the exports layout's data from PageProps.
+	let { data }: Omit<PageProps, 'data'> & { data: PageProps['data'] & LayoutData } = $props();
 
 	const unit = $derived(data.orgName ?? 'the unit');
 </script>
@@ -24,7 +25,12 @@
 	>
 		{#snippet details()}
 			{#key data.orgId}
-				<SettingsDataExportWorkspace orgId={data.orgId} orgName={data.orgName} settings={data.exportsSettings} />
+				<SettingsDataExportWorkspace
+					orgId={data.orgId}
+					orgName={data.orgName}
+					settings={data.exportsSettings}
+					lastExport={data.lastExport}
+				/>
 			{/key}
 		{/snippet}
 	</PageShell.FactRow>

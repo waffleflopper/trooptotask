@@ -5,6 +5,7 @@ import {
 	EXPORT_SCOPE_COUNT_KEYS,
 	type ExportsSettingsData,
 	type LastExport,
+	type LastExportData,
 	type OrganizationExportFormat
 } from '$features/data-export/index.web';
 import { canReadAuditLog, type SettingsUnitSummaryPorts } from './settingsLoad.server';
@@ -27,10 +28,14 @@ async function readLastExport(ports: SettingsUnitSummaryPorts): Promise<LastExpo
 	return latest && { format: EXPORT_AUDIT_ACTIONS[latest.action], at: latest.createdAt, actor: latest.actor };
 }
 
-/** The export tiles render on first paint; the scope counts and the last export stream. */
+/** The export tiles render on first paint; the scope counts stream. */
 export function loadExportsSettings(ports: SettingsUnitSummaryPorts): ExportsSettingsData {
 	return {
-		scopeCounts: keepStreamedRejectionObserved(readUnitCounts(ports.unitCounts, EXPORT_SCOPE_COUNT_KEYS)),
-		lastExport: canReadAuditLog(ports.auth) ? keepStreamedRejectionObserved(readLastExport(ports)) : null
+		scopeCounts: keepStreamedRejectionObserved(readUnitCounts(ports.unitCounts, EXPORT_SCOPE_COUNT_KEYS))
 	};
+}
+
+/** Streams the newest export event. Its own load, so a finished download re-reads it without recounting the unit. */
+export function loadLastExport(ports: SettingsUnitSummaryPorts): LastExportData {
+	return canReadAuditLog(ports.auth) ? keepStreamedRejectionObserved(readLastExport(ports)) : null;
 }

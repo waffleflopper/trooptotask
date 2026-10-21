@@ -69,6 +69,7 @@ it('keeps Delete unit usable when the counts fail', async () => {
 	await vi.runAllTimersAsync();
 
 	expect(screen.queryByRole('list', { name: 'What deleting Example Organization destroys' })).toBeNull();
+	expect(screen.getByText('What deleting Example Organization destroys could not be counted.')).toBeTruthy();
 	expect(await openDelete()).toBeTruthy();
 });
 

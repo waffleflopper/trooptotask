@@ -6,23 +6,27 @@ import Page from './+page.svelte';
 
 const downloads = vi.hoisted(() => ({ save: vi.fn() }));
 vi.mock('$lib/utils/downloadBlob', () => ({ downloadBlob: downloads.save }));
+const navigation = vi.hoisted(() => ({ invalidate: vi.fn(() => Promise.resolve()) }));
+vi.mock('$app/navigation', () => ({ invalidate: navigation.invalidate }));
 
 type PageData = ComponentProps<typeof Page>['data'];
 type Settings = PageData['exportsSettings'];
+type LastExport = PageData['lastExport'];
 
 const COUNTS = { activePersonnel: 22, trainingRecords: 912 };
 
-function data(orgId: string, settings: Partial<Settings> = {}) {
+function data(orgId: string, settings: Partial<Settings> = {}, lastExport: LastExport = null) {
 	return {
 		orgId,
 		orgName: 'C Co',
 		orgUrlSegment: orgId,
-		exportsSettings: { scopeCounts: Promise.resolve(COUNTS), lastExport: null, ...settings }
+		exportsSettings: { scopeCounts: Promise.resolve(COUNTS), ...settings },
+		lastExport
 	} as PageData;
 }
 
-function mount(orgId = 'organization-a', settings: Partial<Settings> = {}) {
-	return render(Page, { data: data(orgId, settings), form: null, params: { orgId: 'slug-a' } });
+function mount(orgId = 'organization-a', settings: Partial<Settings> = {}, lastExport: LastExport = null) {
+	return render(Page, { data: data(orgId, settings, lastExport), form: null, params: { orgId: 'slug-a' } });
 }
 
 function deferred<T>() {
@@ -74,7 +78,7 @@ describe('Exports page', () => {
 
 	it('shows owners the last export from the audit log', async () => {
 		const at = new Date(2026, 9, 12, 9, 14).toISOString();
-		mount('organization-a', { lastExport: Promise.resolve({ format: 'excel', at, actor: 'whitaker@example.com' }) });
+		mount('organization-a', {}, Promise.resolve({ format: 'excel', at, actor: 'whitaker@example.com' }));
 
 		expect(await screen.findByText('Last export · Excel · 12 Oct 2026, 09:14 by whitaker@example.com')).toBeTruthy();
 	});
@@ -86,17 +90,91 @@ describe('Exports page', () => {
 		expect(screen.queryByText(/Last export/)).toBeNull();
 	});
 
-	it('moves the last export line to an export finished on this page', async () => {
-		vi.useFakeTimers({ toFake: ['Date'] });
-		vi.setSystemTime(new Date(2026, 9, 20, 14, 5));
-		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(success('fresh.json')));
-		mount('organization-a', {
-			lastExport: Promise.resolve({ format: 'excel', at: new Date(2026, 9, 12, 9, 14).toISOString(), actor: 'x' })
+	it('explains a failed count and keeps both exports usable', async () => {
+		mount('organization-a', { scopeCounts: Promise.reject(new Error('count failed')) });
+
+		expect(await screen.findByText('What an export of C Co contains could not be counted.')).toBeTruthy();
+		expect(
+			within(screen.getByRole('list', { name: 'What an export of C Co contains' }))
+				.getAllByRole('listitem')
+				.map((chip) => chip.textContent?.trim())
+		).toEqual(['Calendar', 'Personnel', 'Training', 'Onboarding', 'Sign-in rosters']);
+		idle();
+	});
+
+	describe('last export line after a download', () => {
+		const earlier = new Date(2026, 9, 12, 9, 14).toISOString();
+		const newest = new Date(2026, 9, 20, 14, 5).toISOString();
+
+		it('keeps the audit value until the server answers, then shows the server answer', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(success('fresh.json')));
+			const view = mount(
+				'organization-a',
+				{},
+				Promise.resolve({ format: 'excel', at: earlier, actor: 'x@example.com' })
+			);
+			expect(await screen.findByText('Last export · Excel · 12 Oct 2026, 09:14 by x@example.com')).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+			await waitFor(() => expect(downloads.save).toHaveBeenCalledOnce());
+
+			expect(navigation.invalidate).toHaveBeenCalledExactlyOnceWith('app:settings-last-export');
+			expect(screen.queryByText(/ by you/)).toBeNull();
+			expect(screen.getByText('Last export · Excel · 12 Oct 2026, 09:14 by x@example.com')).toBeTruthy();
+
+			const reread = deferred<Awaited<LastExport>>();
+			await view.rerender({ data: data('organization-a', {}, reread.promise) });
+			expect(screen.getByText('Loading the last export')).toBeTruthy();
+			expect(screen.queryByText(/Last export ·/)).toBeNull();
+
+			reread.resolve({ format: 'json', at: newest, actor: 'whitaker@example.com' });
+			expect(await screen.findByText('Last export · JSON · 20 Oct 2026, 14:05 by whitaker@example.com')).toBeTruthy();
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+		it('shows the newest audit event when the older export response lands last', async () => {
+			const json = deferred<Response>();
+			const excel = deferred<Response>();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((url: string) => (url.endsWith('/export') ? json.promise : excel.promise))
+			);
+			const view = mount(
+				'organization-a',
+				{},
+				Promise.resolve({ format: 'excel', at: earlier, actor: 'x@example.com' })
+			);
+			await screen.findByText(/Last export ·/);
+			await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
 
-		expect(await screen.findByText('Last export · JSON · 20 Oct 2026, 14:05 by you')).toBeTruthy();
+			excel.resolve(success('newer.xlsx'));
+			await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'newer.xlsx'));
+			json.resolve(success('older.json'));
+			await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'older.json'));
+			expect(navigation.invalidate).toHaveBeenCalledTimes(2);
+
+			await view.rerender({
+				data: data(
+					'organization-a',
+					{},
+					Promise.resolve({ format: 'excel', at: newest, actor: 'whitaker@example.com' })
+				)
+			});
+
+			expect(await screen.findByText('Last export · Excel · 20 Oct 2026, 14:05 by whitaker@example.com')).toBeTruthy();
+			expect(screen.queryByText(/ by you/)).toBeNull();
+		});
+
+		it('does not re-read the audit log for a member who never sees the line', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(success('fresh.json')));
+			mount();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+			await waitFor(() => expect(downloads.save).toHaveBeenCalledOnce());
+
+			expect(navigation.invalidate).not.toHaveBeenCalled();
+			expect(screen.queryByText(/Last export/)).toBeNull();
+		});
 	});
 
 	it('runs JSON and Excel side by side, each with progress on its own button', async () => {

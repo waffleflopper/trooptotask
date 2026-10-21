@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { AuditLogEntry } from '$lib/audit/contracts';
-import { loadExportsSettings } from './settingsExports.server';
+import { loadExportsSettings, loadLastExport } from './settingsExports.server';
 
 function exportEvent(action: string, createdAt: string, actor: string): AuditLogEntry {
 	return {
@@ -41,20 +41,26 @@ function setup(role: 'owner' | 'admin', latest: Record<string, AuditLogEntry>) {
 }
 
 describe('Exports settings load', () => {
-	it('gives owners the newer of the latest JSON and Excel exports, and the scope counts', async () => {
+	it('streams the unit counts that scope an export', async () => {
+		const { ports, auditReads } = setup('owner', {});
+
+		expect(await loadExportsSettings(ports).scopeCounts).toEqual({ activePersonnel: 1, trainingRecords: 2 });
+		expect(auditReads).toEqual([]);
+	});
+});
+
+describe('Last export load', () => {
+	it('gives owners the newer of the latest JSON and Excel exports', async () => {
 		const { ports } = setup('owner', {
 			'export.created': exportEvent('export.created', '2026-10-01T08:00:00.000Z', 'lane@example.com'),
 			'export.excel_created': exportEvent('export.excel_created', '2026-10-12T09:14:00.000Z', 'whitaker@example.com')
 		});
 
-		const data = loadExportsSettings(ports);
-
-		expect(await data.lastExport).toEqual({
+		expect(await loadLastExport(ports)).toEqual({
 			format: 'excel',
 			at: '2026-10-12T09:14:00.000Z',
 			actor: 'whitaker@example.com'
 		});
-		expect(await data.scopeCounts).toEqual({ activePersonnel: 1, trainingRecords: 2 });
 	});
 
 	it('reads JSON as the last export when the unit has never exported Excel', async () => {
@@ -62,7 +68,7 @@ describe('Exports settings load', () => {
 			'export.created': exportEvent('export.created', '2026-10-01T08:00:00.000Z', 'lane@example.com')
 		});
 
-		expect(await loadExportsSettings(ports).lastExport).toEqual({
+		expect(await loadLastExport(ports)).toEqual({
 			format: 'json',
 			at: '2026-10-01T08:00:00.000Z',
 			actor: 'lane@example.com'
@@ -72,18 +78,15 @@ describe('Exports settings load', () => {
 	it('reads no last export when the audit log holds none', async () => {
 		const { ports } = setup('owner', {});
 
-		expect(await loadExportsSettings(ports).lastExport).toBeNull();
+		expect(await loadLastExport(ports)).toBeNull();
 	});
 
-	it('leaves the last export empty for admins without reading the audit log', async () => {
+	it('leaves the last export empty for admins without reading the audit log', () => {
 		const { ports, auditReads } = setup('admin', {
 			'export.created': exportEvent('export.created', '2026-10-01T08:00:00.000Z', 'lane@example.com')
 		});
 
-		const data = loadExportsSettings(ports);
-
-		expect(data.lastExport).toBeNull();
+		expect(loadLastExport(ports)).toBeNull();
 		expect(auditReads).toEqual([]);
-		expect(await data.scopeCounts).toEqual({ activePersonnel: 1, trainingRecords: 2 });
 	});
 });

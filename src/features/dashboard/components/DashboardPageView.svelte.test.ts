@@ -458,6 +458,65 @@ describe('Dashboard sections', () => {
 
 		expect(within(queue).getAllByRole('link')).toHaveLength(10);
 		expect(within(queue).queryByText('+3 more')).toBeNull();
+		expect(document.activeElement).toBe(within(queue).getByRole('link', { name: 'SGT Person 8' }));
+	});
+
+	it("shows four of the week's changes until asked for all of them", async () => {
+		const ctx = createDashboardScreenModel(pageData(), {
+			sources: {
+				...sources,
+				personnel: {
+					items: ['Ames', 'Bell', 'Cruz', 'Diaz', 'Eto'].map((lastName) => ({
+						id: lastName,
+						rank: 'SPC',
+						lastName,
+						firstName: 'A',
+						mos: '68W',
+						clinicRole: '',
+						groupId: null,
+						groupName: ''
+					})),
+					loading: false
+				},
+				statusTypes: {
+					items: [
+						{ id: 'leave', name: 'Leave', color: '#336699', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+					],
+					loading: false
+				},
+				availability: {
+					items: ['Ames', 'Bell', 'Cruz', 'Diaz', 'Eto'].map((personnelId, index) => ({
+						id: `leave-${personnelId}`,
+						personnelId,
+						statusTypeId: 'leave',
+						startDate: `2026-10-2${index}`,
+						endDate: '2026-10-30'
+					})),
+					loading: false
+				}
+			}
+		} as Parameters<typeof createDashboardScreenModel>[1]);
+
+		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+
+		const changes = within(screen.getByRole('region', { name: 'Coming and going · 7 days' })).getByRole('list');
+		expect(
+			within(changes)
+				.getAllByRole('listitem')
+				.map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
+		).toEqual([
+			'Tue 20 ↓ Leaving SPC Ames Leave',
+			'Wed 21 ↓ Leaving SPC Bell Leave',
+			'Thu 22 ↓ Leaving SPC Cruz Leave',
+			'Fri 23 ↓ Leaving SPC Diaz Leave'
+		]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'All 5 changes' }));
+
+		const rows = within(changes).getAllByRole('listitem');
+		expect(rows).toHaveLength(5);
+		expect(rows[4].textContent?.replace(/\s+/g, ' ').trim()).toBe('Sat 24 ↓ Leaving SPC Eto Leave');
+		expect(document.activeElement).toBe(rows[4]);
 	});
 
 	it("names tomorrow's duty even when today is open", () => {

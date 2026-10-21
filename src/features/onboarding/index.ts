@@ -1,6 +1,3 @@
-// Onboarding feature barrel export
-
-// Types
 export type {
 	OnboardingStepType,
 	OnboardingStatus,
@@ -11,7 +8,6 @@ export type {
 	PersonnelOnboarding
 } from './contracts';
 
-// Stores
 export { onboardingStore } from './stores/onboarding.svelte';
 export { createOnboardingTemplateWorkspace, onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
 export type {
@@ -23,7 +19,6 @@ export type {
 	OnboardingTemplateWorkspaceResult
 } from './stores/onboardingTemplate.svelte';
 
-// Context
 export { OnboardingPageContext, MODAL_IDS } from './contexts/OnboardingPageContext.svelte';
 
 export { default as TemplateHeader } from './components/templates/TemplateHeader.svelte';

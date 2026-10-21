@@ -8,7 +8,6 @@
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
-	// Typed payloads
 	type RecordPayload = { person: Personnel; type: TrainingType; training?: PersonnelTraining };
 	type PersonEditorPayload = { person: Personnel };
 	type TrainingRecordModalModule = typeof import('$features/training/components/TrainingRecordModal.svelte');

@@ -1,7 +1,3 @@
-// ============================================================
-// Onboarding
-// ============================================================
-
 export type OnboardingStepType = 'training' | 'paperwork' | 'checkbox';
 export type OnboardingStatus = 'in_progress' | 'completed' | 'cancelled';
 

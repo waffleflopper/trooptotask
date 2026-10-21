@@ -1,12 +1,5 @@
 /**
- * Onboarding lifecycle use cases — start, cancel, complete, and reopen an onboarding record.
- *
- * `startOnboarding(ctx, input)` instantiates a new onboarding record from a template,
- * creating step records for each template step. Returns the created record ID.
- *
  * Lifecycle transitions require the expected saved status at the parent mutation.
- * For step-level progress, see `onboardingStepProgress.server.ts`.
- * For expiry-based permanent deletion of terminal packets, see Onboarding-owned `cleanupExpiredOnboardings`.
  */
 import { fail } from '$lib/errors';
 import type { OnboardingTrainingPorts, OnboardingLifecyclePorts } from './onboardingPorts.server';
@@ -229,7 +222,6 @@ export async function completeOnboarding(
 		fail(400, 'Only in-progress onboardings can be completed');
 	}
 
-	// Count incomplete active steps (type-agnostic)
 	const incompleteSteps = await ctx.onboardingWorkflow.listIncompleteActiveStepIds(id);
 
 	const updated = await persistTransition(ctx, id, { kind: 'complete', at: completedOn });

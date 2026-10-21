@@ -1,10 +1,3 @@
-/**
- * Onboarding step progress use cases — toggle individual step completion.
- *
- * `toggleCheckbox(ctx, input)` marks a step complete or incomplete.
- *
- * For lifecycle transitions (start, cancel, complete the whole record), see `onboardingLifecycle.server.ts`.
- */
 import { fail } from '$lib/errors';
 import type { OnboardingNoteAppendResult } from '../contracts';
 import type {

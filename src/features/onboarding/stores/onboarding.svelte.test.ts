@@ -950,14 +950,11 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 
 		const updatePromise = onboardingStore.toggleCheckbox('step-1', true);
 
-		// Optimistic: step should show completed
 		const ob = onboardingStore.getById('ob-1');
 		expect(ob?.steps[0].completed).toBe(true);
 
-		// Stale load (step not completed)
 		onboardingStore.load([mockOnboarding], 'org-1');
 
-		// Should NOT clobber optimistic update
 		const obAfterLoad = onboardingStore.getById('ob-1');
 		expect(obAfterLoad?.steps[0].completed).toBe(true);
 
@@ -980,7 +977,6 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 
 		const pending = onboardingStore.toggleCheckbox('step-1', true);
 
-		// Different org — should go through
 		onboardingStore.load([], 'org-2');
 		expect(onboardingStore.items).toEqual([]);
 

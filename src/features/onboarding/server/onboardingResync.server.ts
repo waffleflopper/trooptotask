@@ -1,6 +1,4 @@
 /**
- * Onboarding resync use case — reconciles step progress rows when a template is edited.
- *
  * When steps are added/removed from an onboarding template after active onboarding records
  * exist, `resyncOnboarding(ctx, onboardingId)` adds missing step rows and retains
  * removed steps as inactive history, preserving completion and attributed notes.

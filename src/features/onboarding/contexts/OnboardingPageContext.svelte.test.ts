@@ -29,8 +29,6 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-// ── Fixtures ──────────────────────────────────────────────────
-
 function makeStep(overrides: Partial<OnboardingStepProgress> = {}): OnboardingStepProgress {
 	return {
 		id: 'step-1',
@@ -654,8 +652,6 @@ describe('OnboardingPageContext onboarding actions', () => {
 	});
 });
 
-// ── getProgress ────────────────────────────────────────────────
-
 describe('getProgress', () => {
 	it('returns 0/0 when there are no steps', () => {
 		const ob = makeOnboarding({ steps: [] });
@@ -726,8 +722,6 @@ describe('getProgress', () => {
 		expect(getProgress(ob)).toEqual({ completed: 2, total: 3 });
 	});
 });
-
-// ── formatTimestamp ────────────────────────────────────────────
 
 describe('formatTimestamp', () => {
 	it('formats a valid ISO string to readable format', () => {

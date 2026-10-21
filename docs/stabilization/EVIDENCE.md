@@ -230,17 +230,17 @@ Useful at large wide is 262 before and 255 ms after warm, and 361 and 346 ms col
 
 D06 measured Calendar initial load at small, typical and large, and range navigation, 3-month search, assignment save and Calendar reports at the workloads PR 1 and PR 2 record, for both actors. The Month journeys were measured at large only. The group filters are registered but have only exploratory observations with no comparable baseline, so they carry no verdict. Every measured cell passes; a blocked or unmeasured cell stays so. At large, on one environment:
 
-| Journey, large                  | D01/PR 1 before, wide / scoped | Final, wide / scoped | Budget | Verdict |
-| ------------------------------- | ------------------------------ | -------------------- | ------ | ------- |
-| Calendar initial warm, settled  | 1539 / 401                     | 318 / 234            | ≤ 1000 | pass    |
-| Calendar initial cold, settled  | 1681 / 518                     | 445 / 365            | ≤ 1000 | pass    |
-| Status-day report, current year | 2356 / 513                     | 279 / 74 (PR 1)      | ≤ 1000 | pass    |
-| Assignment save, confirmed      | 1319 / 865                     | 112 / 69 (PR 1)      | ≤ 1000 | pass    |
-| Range (next period)             | 184 / 99                       | 66 / 66              | class  | pass    |
-| 3-month search                  | 48 / 14                        | 48 / 15              | class  | pass    |
+| Journey, large                  | D01/PR 1 before, wide / scoped | Final, wide / scoped | Budget | Verdict        |
+| ------------------------------- | ------------------------------ | -------------------- | ------ | -------------- |
+| Calendar initial warm, settled  | 1539 / 401                     | 318 / 234            | ≤ 1000 | pass           |
+| Calendar initial cold, settled  | 1681 / 518                     | 445 / 365            | ≤ 1000 | pass           |
+| Status-day report, current year | 2356 / 513                     | 279 / 74 (PR 1)      | ≤ 1000 | pass           |
+| Assignment save, confirmed      | 1319 / 865                     | 112 / 69 (PR 1)      | ≤ 1000 | pass           |
+| Range (next period)             | 184 / 99                       | 66 / 66              | class  | pass           |
+| 3-month search                  | 48 / 14                        | 48 / 15              | class  | pass           |
 | Month next, settled             | not in D01                     | blocked / 64         | class  | blocked / pass |
-| Month previous, settled         | not in D01                     | 178 / 98             | class  | pass    |
-| Month search, settled           | not in D01                     | 80 / 15              | class  | pass    |
+| Month previous, settled         | not in D01                     | 178 / 98             | class  | pass           |
+| Month search, settled           | not in D01                     | 80 / 15              | class  | pass           |
 
 - The before column's Calendar initial cells came from the earlier observer and read low. The final Calendar initial and Month cells are fix 1's, with the corrected observer. Every other final cell is an interaction from PR 1 or PR 2 with the earlier settled rule. Month next at large wide was blocked by host contention on both sides ([fix 1](#d06-pr-2-fix-1-the-observer-clock-month-journeys-and-review-fixes)).
 

@@ -11,5 +11,11 @@ describe('General settings reset submission lifetime', () => {
 		workspace.dispose();
 		await pending;
 		expect(requestSubmit).not.toHaveBeenCalled();
+
+		const live = new GeneralSettingsWorkspace(() => null);
+		const liveSubmit = vi.fn();
+		live.requestSlugClear();
+		await live.confirmSlugAction({ requestSubmit: liveSubmit } as unknown as HTMLFormElement);
+		expect(liveSubmit).toHaveBeenCalledOnce();
 	});
 });

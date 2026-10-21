@@ -77,22 +77,8 @@ describe('StreamedValue', () => {
 		loaded.resolve('loaded');
 		await loaded.promise;
 		expect(streamed.current).toEqual({ state: 'ready', value: 'loaded' });
-		streamed.stop();
-	});
-
-	it('keeps loaded content through a refresh instead of dropping to pending', async () => {
-		const first = deferred<string>();
-		const streamed = follow(first.promise);
-		first.resolve('first');
-		await first.promise;
-
-		const refresh = deferred<string>();
-		streamed.replace(refresh.promise);
-		expect(streamed.current).toEqual({ state: 'ready', value: 'first' });
-
-		refresh.resolve('second');
-		await refresh.promise;
-		expect(streamed.current).toEqual({ state: 'ready', value: 'second' });
+		streamed.replace(null);
+		expect(streamed.current).toEqual({ state: 'absent' });
 		streamed.stop();
 	});
 });

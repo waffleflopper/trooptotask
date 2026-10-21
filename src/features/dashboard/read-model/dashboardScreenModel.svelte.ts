@@ -15,6 +15,16 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getProgress } from '$features/onboarding/contracts';
 import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import {
+	activeDashboardSections,
+	type DashboardBlock,
+	type DashboardInputs,
+	type DashboardSection,
+	type QuickAddEntry
+} from '../sections/dashboardSections';
+import { buildNeedsYouQueue, type NeedsYouQueue } from '../sections/needsYou';
+import { placeForecastLaneMarks, type PlacedLaneMark } from '../sections/forecastLanes';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
@@ -48,7 +58,17 @@ export interface DashboardStoreSources {
 
 export interface DashboardScreenModelOptions {
 	sources?: DashboardStoreSources;
+	/** Every section the page can show; the model keeps the ones whose feature is on. */
+	sections?: readonly DashboardSection[];
 }
+
+export interface DashboardForecastLaneView {
+	id: string;
+	label: string;
+	marks: readonly PlacedLaneMark[];
+}
+
+const FORECAST_DAYS = 14;
 
 export interface DashboardSupportData {
 	trainingTypeCount?: number;
@@ -159,6 +179,8 @@ export function createDashboardScreenModel(
 export class DashboardScreenModel {
 	readonly data: DashboardPageData;
 	readonly today: string;
+	readonly forecastDays: readonly string[];
+	readonly sections: readonly DashboardSection[];
 	private readonly sources: DashboardStoreSources;
 
 	private rosterView = $derived.by<RosterReadModelView>(() => {
@@ -180,6 +202,45 @@ export class DashboardScreenModel {
 	private statusTypeById = $derived.by(() => indexById(this.sources.statusTypes.items));
 	private groupById = $derived.by(() => indexById(this.sources.groups.items));
 
+	private inputs = $derived.by<DashboardInputs>(() => ({
+		today: this.today,
+		timeZone: this.data.viewerDay.timeZone,
+		forecastDays: this.forecastDays,
+		personnel: this.rosterView.flatPersonnel,
+		availability: this.sources.availability.items,
+		statusTypes: this.sources.statusTypes.items,
+		groups: this.sources.groups.items,
+		assignmentTypes: this.sources.dailyAssignments.types,
+		assignments: this.sources.dailyAssignments.assignments,
+		page: this.data
+	}));
+
+	needsYou = $derived.by<NeedsYouQueue>(() =>
+		buildNeedsYouQueue(this.sections.flatMap((entry) => entry.needsYou.map((source) => source(this.inputs))))
+	);
+
+	forecastLanes = $derived.by<DashboardForecastLaneView[]>(() =>
+		this.sections.flatMap((entry) =>
+			entry.forecastLanes.map((lane) => ({
+				id: lane.id,
+				label: lane.label,
+				marks: placeForecastLaneMarks(this.forecastDays, lane.marks(this.inputs))
+			}))
+		)
+	);
+
+	get quickAdd(): readonly QuickAddEntry[] {
+		return this.sections.flatMap((entry) => entry.quickAdd);
+	}
+
+	get readinessColumns(): readonly DashboardBlock[] {
+		return this.sections.flatMap((entry) => (entry.readiness ? [entry.readiness] : []));
+	}
+
+	get onDutyBlocks(): readonly DashboardBlock[] {
+		return this.sections.flatMap((entry) => entry.onDuty);
+	}
+
 	gettingStartedDismissed = $state(false);
 	starterPackApplyState = $state<DashboardStarterPackApplyState>({
 		status: 'idle',
@@ -191,7 +252,10 @@ export class DashboardScreenModel {
 	constructor(data: DashboardPageData, options: DashboardScreenModelOptions = {}) {
 		this.data = data;
 		this.today = data.viewerDay.date;
+		const todayNumber = toDayNumber(this.today);
+		this.forecastDays = Array.from({ length: FORECAST_DAYS }, (_, offset) => fromDayNumber(todayNumber + offset));
 		this.sources = options.sources ?? createDefaultDashboardStoreSources();
+		this.sections = activeDashboardSections(options.sections ?? [], data.disabledFeatures);
 
 		if (
 			typeof data.onboardingTemplateStepCount === 'number' &&

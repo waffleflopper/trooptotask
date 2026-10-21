@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import Check from '@lucide/svelte/icons/check';
 	import { enhance } from '$app/forms';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -58,6 +59,7 @@
 	const areaChangeCount = $derived(workspace.areaChangeCount);
 	const shownError = $derived(requestError ?? (errorMemberId === member?.id ? accessError : undefined));
 
+	const SECTION_TITLE = 'flex-1 font-heading text-lg leading-[22px] font-semibold';
 	const ROLE_OPTIONS = SETTINGS_GOVERNANCE_ROLE_OPTIONS.map(({ value, label }) => ({ value, label }));
 	const PRESET_OPTIONS = SETTINGS_ACCESS_OPTIONS.map(({ value, label }) => ({ value, label }));
 	const SCOPE_OPTIONS: Array<{ value: ScopeSet['kind']; label: string }> = [
@@ -99,17 +101,17 @@
 >
 	{#if member && draft}
 		<Sheet.Content
-			class="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
+			class="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-140"
 			aria-busy={loading || undefined}
 			showCloseButton={!loading}
 			escapeKeydownBehavior={loading ? 'ignore' : 'close'}
 			interactOutsideBehavior={loading ? 'ignore' : 'close'}
 		>
-			<Sheet.Header class="border-b p-6">
+			<Sheet.Header class="gap-2 border-b-2 border-foreground px-5 pt-7 pb-5 sm:px-8">
 				<p class="font-mono text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
 					Manage access
 				</p>
-				<Sheet.Title class="font-heading text-[22px] leading-[26px] font-bold wrap-anywhere">
+				<Sheet.Title class="font-heading text-[32px] leading-8 font-bold tracking-[-0.01em] wrap-anywhere">
 					{member.email ?? 'Selected member'}
 				</Sheet.Title>
 				<Sheet.Description class="font-mono text-xs">{summary(member)}</Sheet.Description>
@@ -144,45 +146,49 @@
 					};
 				}}
 			>
-				<fieldset class="grid min-h-0 min-w-0 flex-1 content-start gap-8 overflow-y-auto p-6" disabled={loading}>
+				<fieldset class="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 sm:px-8" disabled={loading}>
 					<input type="hidden" name="membershipId" value={member.id} />
 					<input type="hidden" name="membershipRole" value={draft.role} />
 					<input type="hidden" name="memberPreset" value={draft.preset} />
 
-					<section class="grid gap-2" aria-label="Role">
-						<h3 class="text-sm font-semibold">Role</h3>
-						{#if isOwner}
-							<SegmentedFilter.Root
-								label="Role"
-								describedBy="access-role-helper"
-								options={ROLE_OPTIONS}
-								bind:value={() => draft.role, (role: EditableMembershipRole) => workspace.setRole(role)}
-							/>
-						{:else}
-							<p class="text-sm">{draft.role === 'admin' ? 'Admin' : 'Member'}</p>
-						{/if}
+					<section class="grid gap-2 border-b py-4.5" aria-label="Role">
+						<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+							<h3 class={SECTION_TITLE}>Role</h3>
+							{#if isOwner}
+								<SegmentedFilter.Root
+									label="Role"
+									describedBy="access-role-helper"
+									options={ROLE_OPTIONS}
+									bind:value={() => draft.role, (role: EditableMembershipRole) => workspace.setRole(role)}
+								/>
+							{:else}
+								<p class="text-sm">{draft.role === 'admin' ? 'Admin' : 'Member'}</p>
+							{/if}
+						</div>
 						<p id="access-role-helper" class="text-sm text-muted-foreground">{roleHelper(draft.role)}</p>
 					</section>
 
 					{#if draft.role === 'member'}
-						<section class="grid gap-2" aria-label="Preset">
-							<h3 class="text-sm font-semibold">Preset</h3>
-							<SegmentedFilter.Root
-								label="Preset"
-								describedBy="access-preset-helper"
-								options={PRESET_OPTIONS}
-								bind:value={() => draft.preset, (preset: EditablePreset) => workspace.setPreset(preset)}
-							/>
+						<section class="grid gap-2 border-b py-4.5" aria-label="Preset">
+							<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+								<h3 class={SECTION_TITLE}>Preset</h3>
+								<SegmentedFilter.Root
+									label="Preset"
+									describedBy="access-preset-helper"
+									options={PRESET_OPTIONS}
+									bind:value={() => draft.preset, (preset: EditablePreset) => workspace.setPreset(preset)}
+								/>
+							</div>
 							<p id="access-preset-helper" class="text-sm text-muted-foreground">{presetHelper(draft.preset)}</p>
 						</section>
 
-						<section class="grid gap-3" aria-label="Area by area">
-							<div class="flex flex-wrap items-baseline justify-between gap-x-4 border-b-2 border-foreground pb-2">
-								<h3 class="text-sm font-semibold">Area by area</h3>
+						<section class="grid pt-4.5" aria-label="Area by area">
+							<div class="flex flex-wrap items-baseline gap-x-3 pb-1">
+								<h3 class={SECTION_TITLE}>Area by area</h3>
 								<p
 									class={cn(
 										'font-mono text-xs',
-										areaChangeCount > 0 ? 'text-warning-foreground' : 'text-muted-foreground'
+										areaChangeCount > 0 ? 'font-semibold text-warning-foreground' : 'text-muted-foreground'
 									)}
 								>
 									{areaChangeCount > 0
@@ -190,23 +196,26 @@
 										: `Matches ${presetLabel(draft.preset)}`}
 								</p>
 							</div>
+							<p class="pb-2 text-sm text-muted-foreground">
+								Change an area only when the preset is too broad or too narrow for it.
+							</p>
 							<ul class="grid">
 								{#each SETTINGS_ACCESS_LANES as lane (lane.id)}
 									{@const off = workspace.isOff(lane.id)}
 									{@const gap = workspace.presetGap(lane.id)}
-									<li class="grid gap-2 border-b py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+									<li class="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-b py-1.5">
 										<input type="hidden" name="capabilityOverride:{lane.id}" value={draft.levels[lane.id]} />
-										<div class="grid min-w-0 gap-0.5">
-											<p class="flex items-center gap-2 text-sm font-medium">
-												{lane.label}
-												{#if gap}
-													<span class="size-1.5 rounded-full bg-warning" aria-hidden="true"></span>
-												{/if}
-											</p>
+										<span class="flex w-2 shrink-0" aria-hidden="true">
+											{#if gap}
+												<span class="size-1.5 rounded-full bg-warning"></span>
+											{/if}
+										</span>
+										<div class="grid min-w-24 flex-1">
+											<p class={cn('text-sm', gap && 'font-semibold')}>{lane.label}</p>
 											{#if off}
-												<p class="font-mono text-xs text-muted-foreground">Off for {unit}</p>
+												<p class="font-mono text-[11px] leading-3.5 text-muted-foreground">Off for {unit}</p>
 											{:else if gap}
-												<p class="font-mono text-xs text-warning-foreground">{gap}</p>
+												<p class="font-mono text-[11px] leading-3.5 text-muted-foreground">{gap}</p>
 											{/if}
 										</div>
 										<SegmentedFilter.Root
@@ -222,28 +231,35 @@
 							</ul>
 						</section>
 
-						<section class="grid gap-3" aria-label="Groups">
-							<h3 class="text-sm font-semibold">Groups</h3>
+						<section class="grid gap-2.5 py-4.5" aria-label="Groups">
+							<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+								<h3 class={SECTION_TITLE}>Groups</h3>
+								<SegmentedFilter.Root
+									label="Groups"
+									options={SCOPE_OPTIONS}
+									bind:value={() => draft.scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
+								/>
+							</div>
 							<input type="hidden" name="scopeSetKind" value={draft.scope.kind} />
-							<SegmentedFilter.Root
-								label="Groups"
-								options={SCOPE_OPTIONS}
-								bind:value={() => draft.scope.kind, (kind: ScopeSet['kind']) => workspace.setScopeKind(kind)}
-							/>
 							{#if draft.scope.kind === 'groups'}
 								{@const selected = draft.scope.groupIds}
-								<div class="flex flex-wrap gap-2">
+								<div class="flex flex-wrap gap-1.5">
 									{#each groups as group (group.id)}
-										{#if selected.includes(group.id)}
+										{@const chosen = selected.includes(group.id)}
+										{#if chosen}
 											<input type="hidden" name="scopeSetGroupIds" value={group.id} />
 										{/if}
 										<Button
 											type="button"
 											size="sm"
-											variant={selected.includes(group.id) ? 'default' : 'outline'}
-											aria-pressed={selected.includes(group.id)}
-											onclick={() => workspace.toggleScopeGroup(group.id)}>{group.name}</Button
+											variant={chosen ? 'default' : 'outline'}
+											class="rounded-full text-[13px]"
+											aria-pressed={chosen}
+											onclick={() => workspace.toggleScopeGroup(group.id)}
 										>
+											{#if chosen}<Check data-icon="inline-start" aria-hidden="true" />{/if}
+											{group.name}
+										</Button>
 									{/each}
 								</div>
 							{/if}
@@ -259,19 +275,19 @@
 							</p>
 						</section>
 					{:else}
-						<p class="text-sm text-muted-foreground">
+						<p class="py-4.5 text-sm text-muted-foreground">
 							Admins work across every area and group in {unit}. Presets and groups apply to members.
 						</p>
 					{/if}
 
 					{#if shownError}
-						<Alert.Root variant="destructive">
+						<Alert.Root variant="destructive" class="mb-4.5">
 							<Alert.Description>{shownError}</Alert.Description>
 						</Alert.Root>
 					{/if}
 				</fieldset>
 				<!-- Outside the fieldset so Save keeps focus (aria-disabled) while the request is pending. -->
-				<Sheet.Footer class="flex-row flex-wrap items-center border-t p-6">
+				<Sheet.Footer class="flex-row flex-wrap items-center gap-2 border-t bg-muted px-5 py-3.5 sm:px-8">
 					<Button
 						type="button"
 						variant="ghost"

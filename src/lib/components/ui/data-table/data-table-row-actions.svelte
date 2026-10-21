@@ -19,7 +19,7 @@
 </script>
 
 <DropdownMenu.Root onOpenChange={(open) => (opened ||= open)}>
-	<DropdownMenu.Trigger>
+	<DropdownMenu.Trigger disabled={busy}>
 		{#snippet child({ props })}
 			<Button
 				type="button"

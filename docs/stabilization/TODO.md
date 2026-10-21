@@ -64,7 +64,7 @@ Issues #1559 and #1572 are closed by D03's #1734, and #1570 is closed as superse
 
 ## 13 — Close-out
 
-Final phase [#1286](https://github.com/waffleflopper/trooptotask/issues/1286), milestone **11**. It absorbs the former Phase 14 audit ([#1287](https://github.com/waffleflopper/trooptotask/issues/1287)) and Phase 15 release handoff ([#1288](https://github.com/waffleflopper/trooptotask/issues/1288)), which Robert closed as not planned on 2026-10-21. #1286 is the authoritative scope. Deliver one PR per child, in order.
+Final phase [#1286](https://github.com/waffleflopper/trooptotask/issues/1286), milestone **11**. It absorbs the former Phase 14 audit ([#1287](https://github.com/waffleflopper/trooptotask/issues/1287)) and Phase 15 release handoff ([#1288](https://github.com/waffleflopper/trooptotask/issues/1288)), which Robert closed as not planned on 2026-10-21. #1286 is the authoritative scope. Deliver the children in order, one PR each unless the review file limit requires a split.
 
 | Child                                                                            | Outcome                                                                                                                                                                              | State     |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |

@@ -2,16 +2,24 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/svelte';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import { buildSettingsShell } from './settingsShell';
 import SettingsShell from './SettingsShell.svelte';
 
-const navigation = vi.hoisted(() => ({ navigating: { to: null as { url: URL } | null } }));
+type Navigating = { to: { url: URL } | null };
+const navigation = vi.hoisted(() => ({ current: { to: null } as Navigating }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
-vi.mock('$app/state', () => navigation);
+vi.mock('$app/state', () => ({
+	get navigating() {
+		return navigation.current;
+	}
+}));
+const navigating = $state<Navigating>({ to: null });
+navigation.current = navigating;
 afterEach(() => {
 	cleanup();
-	navigation.navigating.to = null;
+	vi.useRealTimers();
+	navigating.to = null;
 });
 
 const organization = { id: 'org-a', name: 'Synthetic Alpha', urlSlug: 'alpha', urlSegment: 'alpha' };
@@ -83,18 +91,53 @@ describe('Organization settings navigation', () => {
 		expect(nav.getByRole('link', { name: 'Members' })).toBeInTheDocument();
 	});
 
-	it('marks the content busy and announces the loading page while a navigation is pending', () => {
-		navigation.navigating.to = { url: new URL('http://localhost/org/alpha/settings/members') };
-		render(SettingsShell, {
+	function renderGeneral() {
+		return render(SettingsShell, {
 			settingsShell: buildSettingsShell('owner', organization),
 			navCounts: { pendingInvitations: Promise.resolve(1), pendingApprovals: Promise.resolve(1) },
 			activePath: '/org/alpha/settings/general',
 			orgUrlSegment: 'org-a',
 			children
 		});
+	}
 
-		expect(screen.getByRole('status')).toHaveTextContent(/Members/);
-		expect(screen.getByText('Settings content').closest('[aria-busy="true"]')).not.toBeNull();
-		expect(screen.getByRole('status').closest('[aria-busy="true"]')).not.toBeNull();
+	async function navigateTo(path: string | null) {
+		navigating.to = path ? { url: new URL(`http://localhost${path}`) } : null;
+		await tick();
+	}
+
+	it('shows the target page header over a skeleton once a settings navigation outlasts 150 ms', async () => {
+		vi.useFakeTimers();
+		renderGeneral();
+
+		await navigateTo('/org/alpha/settings/archives');
+		expect(screen.getByRole('status')).toHaveTextContent('Loading Archives...');
+		await vi.advanceTimersByTimeAsync(149);
+		expect(screen.getByText('Settings content')).toBeVisible();
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+
+		await vi.advanceTimersByTimeAsync(1);
+		expect(screen.getByRole('heading', { level: 1, name: 'Archives' })).toBeVisible();
+		expect(screen.getByText('Unit settings · Owners and admins')).toBeVisible();
+		expect(screen.getByText('Settings content')).not.toBeVisible();
+		expect(screen.getByRole('status')).toHaveTextContent('Loading Archives...');
+
+		await navigateTo(null);
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+		expect(screen.getByText('Settings content')).toBeVisible();
+		expect(screen.getByRole('status').textContent?.trim()).toBe('');
+	});
+
+	it('keeps the current page without a skeleton when a navigation settles within 150 ms', async () => {
+		vi.useFakeTimers();
+		renderGeneral();
+
+		await navigateTo('/org/alpha/settings/members');
+		await vi.advanceTimersByTimeAsync(120);
+		await navigateTo(null);
+		await vi.advanceTimersByTimeAsync(500);
+
+		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+		expect(screen.getByText('Settings content')).toBeVisible();
 	});
 });

@@ -104,9 +104,18 @@ export interface TrainingIssue {
 	daysUntilExpiration: number | null;
 }
 
+/** Every expired applicable Person for one training type, uncapped. */
+export interface ExpiredTrainingType {
+	trainingTypeId: string;
+	personnelIds: string[];
+	/** Days since the oldest of these expirations. */
+	maxDaysLate: number;
+}
+
 export interface TrainingSummary {
 	stats: TrainingStats;
 	issues: TrainingIssue[];
+	expiredByType: ExpiredTrainingType[];
 	expiredPersonnelCount: number;
 	groupDelinquencies: Array<{
 		groupId: string | null;

@@ -25,6 +25,3 @@ plans/*.md
 .claude/
 .worktrees/
 
-# Vendored agent skills
-.agents/skills/impeccable/
-skills-lock.json

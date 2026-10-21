@@ -87,8 +87,6 @@ export default ts.config(
 			'.superpowers/',
 			'.sandcastle/',
 			'.worktrees/',
-			'.agents/skills/impeccable/agents/',
-			'.agents/skills/impeccable/scripts/',
 			'.vercel/',
 			'tmp/'
 		]

@@ -82,6 +82,7 @@ function makeBootstrap(range = { rangeStart: '2026-01-01', rangeEnd: '2026-05-31
 		laneKey: 'calendar',
 		data: {
 			...range,
+			availabilityRange: range,
 			availabilityEntries: [],
 			specialDays: [],
 			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' },
@@ -187,6 +188,8 @@ function makePageData(range?: { rangeStart: string; rangeEnd: string }) {
 
 describe('calendar page', () => {
 	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-20T12:00:00'));
 		loadCalendarRangeMock.mockReset();
 		loadCalendarRangeMock.mockResolvedValue({
 			rangeStart: '2026-06-01',
@@ -202,6 +205,7 @@ describe('calendar page', () => {
 	afterEach(() => {
 		cleanup();
 		calendarStore.goToMonth(2026, 3);
+		vi.useRealTimers();
 	});
 
 	it('settles on nothing when the streamed workspace rejects, leaving the load error to the Calendar layout', async () => {
@@ -217,7 +221,7 @@ describe('calendar page', () => {
 		expect(view.container.textContent).toBe('');
 	});
 
-	it('loads a larger calendar range on demand when navigating beyond the buffered window', async () => {
+	it('reads the visible month of availability and the lookback of assignments beyond the buffered window', async () => {
 		render(WithPreferences, {
 			props: {
 				data: makePageData()
@@ -229,10 +233,10 @@ describe('calendar page', () => {
 		calendarStore.goToMonth(2026, 7);
 
 		await waitFor(() => {
-			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {
-				rangeStart: '2026-06-01',
-				rangeEnd: '2026-08-31'
-			});
+			expect(loadCalendarRangeMock.mock.calls).toEqual([
+				['org-1', { rangeStart: '2026-08-01', rangeEnd: '2026-08-31', collections: ['availability'] }],
+				['org-1', { rangeStart: '2026-06-01', rangeEnd: '2026-08-31', collections: ['assignments'] }]
+			]);
 		});
 	});
 
@@ -252,7 +256,7 @@ describe('calendar page', () => {
 			}
 		});
 
-		calendarStore.goToMonth(2026, 7);
+		calendarStore.goToMonth(2026, 5);
 
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
@@ -263,7 +267,7 @@ describe('calendar page', () => {
 
 		resolveRange?.({
 			rangeStart: '2026-06-01',
-			rangeEnd: '2026-08-31',
+			rangeEnd: '2026-06-30',
 			availabilityEntries: [],
 			specialDays: [],
 			dailyAssignments: []
@@ -287,10 +291,9 @@ describe('calendar page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 months' }));
 
 		await waitFor(() => {
-			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {
-				rangeStart: '2026-06-01',
-				rangeEnd: '2026-08-31'
-			});
+			expect(loadCalendarRangeMock.mock.calls).toEqual([
+				['org-1', { rangeStart: '2026-06-01', rangeEnd: '2026-08-31', collections: ['availability', 'assignments'] }]
+			]);
 			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-06-01`);
 		});
 	});
@@ -299,7 +302,7 @@ describe('calendar page', () => {
 		loadCalendarRangeMock.mockReset();
 		loadCalendarRangeMock.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({
 			rangeStart: '2026-06-01',
-			rangeEnd: '2026-08-31',
+			rangeEnd: '2026-06-30',
 			availabilityEntries: [],
 			specialDays: [],
 			dailyAssignments: []
@@ -311,7 +314,7 @@ describe('calendar page', () => {
 			}
 		});
 
-		calendarStore.goToMonth(2026, 7);
+		calendarStore.goToMonth(2026, 5);
 
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
@@ -330,13 +333,14 @@ describe('calendar page', () => {
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenNthCalledWith(2, 'org-1', {
 				rangeStart: '2026-06-01',
-				rangeEnd: '2026-08-31'
+				rangeEnd: '2026-06-30',
+				collections: ['availability', 'assignments']
 			});
 			expect(screen.queryByText('Additional calendar data is temporarily unavailable.')).toBeNull();
 		});
 	});
 
-	it('stores the viewed calendar month as a bootstrap anchor cookie for future requests', async () => {
+	it('stores the month the viewer moves to as the anchor for the next server bootstrap', async () => {
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
 
 		render(WithPreferences, {
@@ -345,8 +349,10 @@ describe('calendar page', () => {
 			}
 		});
 
+		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+
 		await waitFor(() => {
-			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-04-01`);
+			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-05-01`);
 		});
 
 		calendarStore.goToMonth(2026, 7);

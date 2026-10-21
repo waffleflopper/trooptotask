@@ -7,6 +7,7 @@ import {
 	groupManifest,
 	inFlight,
 	installSettledObserver,
+	readSettledSample,
 	statementTotals,
 	statementCategories,
 	maintenanceDuring,
@@ -291,6 +292,17 @@ function pageWindow() {
 			observe({ type }) {
 				observed.push(type);
 			}
+		},
+		MutationObserver: class {
+			constructor(callback) {
+				win.mutate = callback;
+			}
+			observe() {
+				win.observing = true;
+			}
+			disconnect() {
+				win.observing = false;
+			}
 		}
 	};
 	return win;
@@ -374,10 +386,17 @@ function livePage() {
 		querySelector: (selector) => page.document.matches[selector]?.[0] ?? null,
 		querySelectorAll: (selector) => page.document.matches[selector] ?? []
 	};
-	page.performance.now = () => 1000;
+	page.clock = 0;
+	page.performance.now = () => page.clock;
+	page.performance.getEntriesByType = () => [];
 	page.requestAnimationFrame = (callback) => frames.push(callback);
 	page.URL = { createObjectURL: () => 'blob:1' };
-	page.step = (now) => frames.shift()(now);
+	// The browser began the frame at `frameTime`; its callback runs at `clock`.
+	page.step = (frameTime, clock = frameTime) => {
+		page.clock = clock;
+		frames.shift()(frameTime);
+	};
+	page.pending = () => frames.length;
 	return page;
 }
 
@@ -400,11 +419,12 @@ test('a milestone waits for its row text, exact row count and download', () => {
 	page.step(200);
 	page.document.matches.tr = [row, {}];
 	page.step(300);
+	page.clock = 350;
 	page.URL.createObjectURL({ size: 2048, type: 'application/json' });
 	page.step(400);
 	const state = page.__t2tPerfSettled;
 	assert.deepEqual(state.milestones, { rows: 300, useful: 400 });
-	assert.deepEqual(state.download, { at: 1000, bytes: 2048, type: 'application/json' });
+	assert.deepEqual(state.download, { at: 350, bytes: 2048, type: 'application/json' });
 	assert.equal(state.done, true);
 });
 
@@ -426,7 +446,7 @@ test('an interaction milestone is measured on a clock that cannot precede the in
 	assert.equal(page.__t2tPerfSettled.startEvent.type, 'pointerdown');
 });
 
-test('a navigation milestone keeps the frame timestamp', () => {
+test('a navigation milestone is the time its frame callback ran, not the frame start a long task delayed', () => {
 	const page = livePage();
 	installSettledObserver(page, {
 		name: 'load',
@@ -434,8 +454,76 @@ test('a navigation milestone keeps the frame timestamp', () => {
 		milestones: [{ name: 'useful', present: ['Saved'] }]
 	});
 	page.document.body.textContent = 'Saved';
-	page.step(240);
-	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 240 });
+	// D06 PR 2's large cold trace: the frame began at 195 ms, and a 233 ms task held its callback to 450 ms.
+	page.step(195, 450);
+	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 450 });
+});
+
+test('the last frame after a DOM change is the rendered time, until a newer observer replaces this one', () => {
+	const page = livePage();
+	installSettledObserver(page, {
+		name: 'load',
+		start: 'navigation',
+		milestones: [{ name: 'useful', present: ['Saved'] }]
+	});
+	page.clock = 120;
+	page.mutate();
+	page.document.body.textContent = 'Saved';
+	page.step(130);
+	page.clock = 231;
+	page.mutate();
+	page.step(240, 396);
+	page.step(410);
+	const state = page.__t2tPerfSettled;
+	assert.deepEqual(state.milestones, { useful: 130 });
+	assert.equal(state.renderedAt, 396);
+	assert.equal(state.frames, 1);
+	page.__t2tPerfSettled = {};
+	page.step(426);
+	assert.equal(page.pending(), 0);
+});
+
+test("the sample's final read ends the observer, so a later DOM change cannot move its rendered time", async () => {
+	const page = livePage();
+	installSettledObserver(page, {
+		name: 'load',
+		start: 'navigation',
+		milestones: [{ name: 'useful', present: ['Saved'] }]
+	});
+	page.clock = 100;
+	page.mutate();
+	page.document.body.textContent = 'Saved';
+	page.step(116);
+	const sample = await readSettledSample(page, 0, true);
+	assert.equal(sample.observer.renderedAt, 116);
+	page.clock = 5000;
+	page.mutate();
+	page.step(5016);
+	assert.equal(page.__t2tPerfSettled.renderedAt, 116);
+	assert.equal(page.pending(), 0);
+	assert.equal(page.observing, false);
+});
+
+test('an interaction ignores DOM changes from before its input', () => {
+	const page = livePage();
+	const listeners = {};
+	page.addEventListener = (type, listener) => (listeners[type] = listener);
+	installSettledObserver(page, {
+		name: 'search',
+		start: 'input',
+		milestones: [{ name: 'useful', present: ['Saved'] }]
+	});
+	page.clock = 4990;
+	page.mutate();
+	listeners.keydown({ timeStamp: 5000, isTrusted: true });
+	page.step(5016);
+	assert.equal(page.__t2tPerfSettled.renderedAt, null);
+	page.clock = 5020;
+	page.mutate();
+	page.document.body.textContent = 'Saved';
+	page.step(5033);
+	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 33 });
+	assert.equal(page.__t2tPerfSettled.renderedAt, 33);
 });
 
 test('milestone text matches across markup whitespace', () => {

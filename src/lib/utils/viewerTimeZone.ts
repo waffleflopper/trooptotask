@@ -3,6 +3,9 @@ import { isTimeZone } from './dates';
 /** Holds the browser's IANA time zone so server reads can use the viewer's calendar day. */
 export const VIEWER_TIME_ZONE_COOKIE = 't2t_tz';
 
+/** Every load that reads the viewer's day depends on this, so a newly recorded zone reruns only those loads. */
+export const VIEWER_DAY_DEPENDENCY = 'app:viewer-day';
+
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 function storedTimeZone(): string | undefined {

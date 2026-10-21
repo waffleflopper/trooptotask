@@ -40,24 +40,60 @@ export function shiftCalendarPeriod(anchor: Date, view: CalendarViewMode, direct
 /** The longest span one `/api/calendar-range` read accepts, in inclusive days. */
 export const MAX_CALENDAR_RANGE_DAYS = 366;
 
-/** How far before the first visible day a view reads, so each slot can see its last duty. */
+/** How far before the first visible day a view reads assignments, so each slot can see its last duty. */
 export const DUTY_LOOKBACK_DAYS = 90;
 
-/** The span a Calendar view holds: its visible months plus the duty lookback before them. */
-export function calendarReadRange(anchor: Date, view: CalendarViewMode): CalendarBufferedRange {
-	const firstVisible = formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
-	const lastVisibleMonth = new Date(anchor.getFullYear(), anchor.getMonth() + PERIODS[view].months - 1, 1);
+/** The collections one range read returns; Special Days travel with assignments. */
+export const CALENDAR_RANGE_COLLECTIONS = ['availability', 'assignments'] as const;
+
+export type CalendarRangeCollection = (typeof CALENDAR_RANGE_COLLECTIONS)[number];
+
+/** The days of each collection that a view needs or a coordinator holds. */
+export type CalendarCoverage = Partial<Record<CalendarRangeCollection, CalendarBufferedRange>>;
+
+/** One `/api/calendar-range` read: the collections it returns over one span. */
+export interface CalendarRangeRequest extends CalendarBufferedRange {
+	collections: CalendarRangeCollection[];
+}
+
+function coverageThrough(firstVisible: string, lastVisible: string, today: string): Required<CalendarCoverage> {
+	const lookbackStart = shiftDate(firstVisible, -DUTY_LOOKBACK_DAYS);
+	// The title row counts today's availability; reading back to today inside the lookback keeps that count.
+	const availabilityStart = today >= lookbackStart && today < firstVisible ? today : firstVisible;
 	return {
-		rangeStart: fromDayNumber(toDayNumber(firstVisible) - DUTY_LOOKBACK_DAYS),
-		rangeEnd: formatDate(endOfMonth(lastVisibleMonth))
+		availability: { rangeStart: availabilityStart, rangeEnd: lastVisible },
+		assignments: { rangeStart: lookbackStart, rangeEnd: lastVisible }
 	};
 }
 
-export function createInitialCalendarBufferedRange(anchorDate: Date): CalendarBufferedRange {
-	return {
-		rangeStart: calendarReadRange(anchorDate, 'month').rangeStart,
-		rangeEnd: formatDate(endOfMonth(new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 1)))
-	};
+/** What a Calendar view needs: availability over its visible months, assignments from the duty lookback before them. */
+export function calendarViewCoverage(
+	anchor: Date,
+	view: CalendarViewMode,
+	today: string = formatDate(new Date())
+): Required<CalendarCoverage> {
+	const lastVisibleMonth = new Date(anchor.getFullYear(), anchor.getMonth() + PERIODS[view].months - 1, 1);
+	return coverageThrough(
+		formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1)),
+		formatDate(endOfMonth(lastVisibleMonth)),
+		today
+	);
+}
+
+/**
+ * The bootstrap holds the anchor month's view and the month after it, so Next month needs no read.
+ * The server knows only its UTC day, and every viewer's day is within one day of it, so availability
+ * starts at the earliest of those days that the lookback holds and covers each viewer's today.
+ */
+export function initialCalendarCoverage(anchor: Date, serverToday: string): Required<CalendarCoverage> {
+	const firstVisible = formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
+	const lookbackStart = shiftDate(firstVisible, -DUTY_LOOKBACK_DAYS);
+	const viewerDays = [-1, 0, 1].map((days) => shiftDate(serverToday, days));
+	return coverageThrough(
+		firstVisible,
+		formatDate(endOfMonth(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))),
+		viewerDays.find((day) => day >= lookbackStart) ?? firstVisible
+	);
 }
 
 function shiftDate(dateKey: string, days: number): string {
@@ -111,6 +147,25 @@ export function chunkCalendarReadRange(range: CalendarBufferedRange): CalendarBu
 		});
 	}
 	return chunks;
+}
+
+/**
+ * The reads that bring `loaded` up to `needed`: each collection's missing days, in spans of at most
+ * `MAX_CALENDAR_RANGE_DAYS`, with collections that miss the same span sharing one read.
+ */
+export function planCalendarRangeReads(loaded: CalendarCoverage, needed: CalendarCoverage): CalendarRangeRequest[] {
+	const reads = new Map<string, CalendarRangeRequest>();
+	for (const collection of CALENDAR_RANGE_COLLECTIONS) {
+		const range = needed[collection];
+		if (!range) continue;
+		for (const gap of getCalendarRangeGaps(loaded[collection] ?? null, range).flatMap(chunkCalendarReadRange)) {
+			const key = `${gap.rangeStart}:${gap.rangeEnd}`;
+			const read = reads.get(key) ?? { ...gap, collections: [] };
+			read.collections.push(collection);
+			reads.set(key, read);
+		}
+	}
+	return [...reads.values()];
 }
 
 /** Whether a range read returns this span; it returns every span that overlaps the range. */

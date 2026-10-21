@@ -27,7 +27,8 @@ import {
 import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import { withCalendarTiming } from '$features/calendar/index.server';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/index.server';
-import { createInitialCalendarBufferedRange } from '$features/calendar/index.server';
+import { initialCalendarCoverage } from '$features/calendar/index.server';
+import { formatDate } from '$lib/utils/dates';
 import { readConfirmedChangeCookies, type ConfirmedChangesByTab } from '$lib/stores/core';
 
 function createCalendarHydrationTarget<T>(items: HydrationItems<T>): CalendarWorkspaceHydrationTarget<T> {
@@ -94,10 +95,7 @@ export function createCalendarWorkspaceHydration(
 		personnel: createCalendarHydrationTarget(data.personnel),
 		groups: createCalendarHydrationTarget(data.groups),
 		statusTypes: createCalendarHydrationTarget(data.statusTypes),
-		availabilityEntries: createCalendarRangeHydrationTarget(data.availabilityEntries, {
-			rangeStart: data.rangeStart,
-			rangeEnd: data.rangeEnd
-		}),
+		availabilityEntries: createCalendarRangeHydrationTarget(data.availabilityEntries, data.availabilityRange),
 		specialDays: createCalendarRangeHydrationTarget(data.specialDays, data.specialDaysRange),
 		calendarAssignments: createCalendarAssignmentsHydrationTarget(data),
 		pinnedGroups: createCalendarHydrationTarget(data.pinnedGroups)
@@ -123,12 +121,12 @@ export async function streamCalendarWorkspaceBootstrap(
 		fn: async (ctx) => {
 			const today = new Date();
 			const anchorDate = resolveCalendarAnchorDate(context.cookies.get(CALENDAR_ANCHOR_COOKIE), today);
-			const { rangeStart, rangeEnd } = createInitialCalendarBufferedRange(anchorDate);
+			const { availability, assignments } = initialCalendarCoverage(anchorDate, formatDate(today));
 			const data = await withCalendarTiming(context.orgId, 'workspace-bootstrap', async () => {
 				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
 					fetchCalendarBootstrap(ctx, {
-						rangeStart,
-						rangeEnd,
+						...assignments,
+						availabilityRange: availability,
 						specialDaysRange: createSpecialDaysCatalogRange(anchorDate, today)
 					}),
 					getActiveOnboardingPersonnelIds(ctx)

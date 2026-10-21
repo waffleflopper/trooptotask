@@ -269,8 +269,8 @@ export class CalendarPageContext {
 	});
 
 	readonly todayAvailability: TodayAvailability | null = $derived.by(() => {
-		const { rangeStart, rangeEnd } = this.#workspaceData ?? {};
-		if (!rangeStart || !rangeEnd || !rangeCoversDate({ rangeStart, rangeEnd })({ date: this.#today })) return null;
+		const availabilityRange = this.#workspaceData?.availabilityRange;
+		if (!availabilityRange || !rangeCoversDate(availabilityRange)({ date: this.#today })) return null;
 		const people = this.allPersonnelFlat;
 		const [out = 0] = this.availabilityTracks.outCounts(
 			people.map((person) => person.id),
@@ -445,7 +445,9 @@ export class CalendarPageContext {
 			try {
 				ranges = await withinOrganizationLifetime(
 					Promise.all(
-						[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
+						[...new Set(dates)].map((date) =>
+							loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date, collections: ['availability'] })
+						)
 					)
 				);
 			} catch (error) {
@@ -453,17 +455,14 @@ export class CalendarPageContext {
 				throw error;
 			}
 			if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
-			for (const range of ranges) {
+			const entriesByRange = ranges.map((range) => ({ range, entries: range.availabilityEntries ?? [] }));
+			for (const { range, entries } of entriesByRange) {
 				availabilityStore.load(
-					availabilityStore.orgId === expectedOrgId
-						? read.reconcile(range.availabilityEntries, rangeCoversSpan(range))
-						: range.availabilityEntries,
+					availabilityStore.orgId === expectedOrgId ? read.reconcile(entries, rangeCoversSpan(range)) : entries,
 					expectedOrgId
 				);
 			}
-			return [
-				...new Map(ranges.flatMap((range) => range.availabilityEntries.map((entry) => [entry.id, entry]))).values()
-			];
+			return [...new Map(entriesByRange.flatMap(({ entries }) => entries.map((entry) => [entry.id, entry]))).values()];
 		} finally {
 			read.close();
 		}

@@ -392,7 +392,8 @@ describe('CalendarPageContext', () => {
 			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('saved');
 			expect(loadCalendarRange).toHaveBeenCalledExactlyOnceWith('org1', {
 				rangeStart: '2026-04-07',
-				rangeEnd: '2026-04-07'
+				rangeEnd: '2026-04-07',
+				collections: ['availability']
 			});
 		});
 
@@ -440,7 +441,10 @@ describe('CalendarPageContext', () => {
 			const promise = new Promise<T>((settle) => (resolve = settle));
 			return { promise, resolve };
 		}
-		const readOfApril7 = ['org1', { rangeStart: '2026-04-07', rangeEnd: '2026-04-07' }] as const;
+		const readOfApril7 = [
+			'org1',
+			{ rangeStart: '2026-04-07', rangeEnd: '2026-04-07', collections: ['availability'] }
+		] as const;
 
 		it('saves an edit as one update of the same entry and announces it only once the update lands', async () => {
 			const success = vi.spyOn(toastStore, 'success');
@@ -625,11 +629,13 @@ describe('CalendarPageContext', () => {
 
 			expect(loadCalendarRange).toHaveBeenCalledWith('org1', {
 				rangeStart: '2026-04-07',
-				rangeEnd: '2026-04-07'
+				rangeEnd: '2026-04-07',
+				collections: ['availability']
 			});
 			expect(loadCalendarRange).toHaveBeenCalledWith('org1', {
 				rangeStart: '2026-04-09',
-				rangeEnd: '2026-04-09'
+				rangeEnd: '2026-04-09',
+				collections: ['availability']
 			});
 			expect(saved).toEqual([savedEntry]);
 		});
@@ -907,9 +913,18 @@ describe('CalendarPageContext', () => {
 		} satisfies StatusType;
 		const carol: Personnel = { ...mockPersonnel[0], id: 'p3', firstName: 'Carol', lastName: 'Diaz' };
 		const roster = [...mockPersonnel, carol];
-		const loaded = (rangeStart: string, rangeEnd: string): CalendarPageData => ({
+		/** Availability covers the given days; assignments reach from the lookback start through the same end. */
+		const loaded = (rangeStart: string, rangeEnd: string, assignmentStart = rangeStart): CalendarPageData => ({
 			...mockData,
-			calendar: { data: { rangeStart, rangeEnd, personnel: roster, allPersonnel: roster } }
+			calendar: {
+				data: {
+					rangeStart: assignmentStart,
+					rangeEnd,
+					availabilityRange: { rangeStart, rangeEnd },
+					personnel: roster,
+					allPersonnel: roster
+				}
+			}
 		});
 		const entry = (id: string, personnelId: string, startDate: string, endDate: string): AvailabilityEntry => ({
 			id,
@@ -957,8 +972,9 @@ describe('CalendarPageContext', () => {
 			expect(scoped.todayAvailability).toEqual({ date: new Date(2026, 9, 16), available: 1, total: 2 });
 		});
 
-		it('is hidden while the loaded range does not include today', () => {
+		it('is hidden while the loaded availability does not include today', () => {
 			expect(makeContext(loaded('2027-01-01', '2027-03-31'), org, TODAY).todayAvailability).toBeNull();
+			expect(makeContext(loaded('2026-11-01', '2026-12-31', '2026-08-03'), org, TODAY).todayAvailability).toBeNull();
 			expect(makeContext(mockData, org, TODAY).todayAvailability).toBeNull();
 			expect(makeContext(loaded('2026-10-16', '2026-10-31'), org, TODAY).todayAvailability).toEqual({
 				date: new Date(2026, 9, 16),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
-import { calendarReadRange } from './calendarRange';
+import { calendarViewCoverage } from './calendarRange';
 import { dutyFairness, type DutyFairnessRow } from './dutyFairness';
 import { indexDutyAvailability, indexDutyHistory } from './dutyReadModel';
 
@@ -89,14 +89,14 @@ describe('dutyFairness', () => {
 		]);
 	});
 
-	it('stays inside the range a Calendar month read loads, for months of every length', () => {
+	it('stays inside the assignments a Calendar month read loads, for months of every length', () => {
 		for (const [month, last] of [
 			['2026-02', '2026-02-28'],
 			['2026-04', '2026-04-30'],
 			['2028-02', '2028-02-29'],
 			['2026-12', '2026-12-31']
 		]) {
-			const read = calendarReadRange(new Date(`${month}-01T12:00:00`), 'month');
+			const read = calendarViewCoverage(new Date(`${month}-01T12:00:00`), 'month').assignments;
 			const { window } = fairness({ month: { rangeStart: `${month}-01`, rangeEnd: last } });
 
 			expect(window.start >= read.rangeStart).toBe(true);

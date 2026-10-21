@@ -228,7 +228,7 @@ describe('dashboard page server load', () => {
 		} as never);
 
 		expect(depends).toHaveBeenCalledWith('app:org-core');
-		expect(depends).toHaveBeenCalledWith('app:dashboard-data');
+		expect(depends).toHaveBeenCalledWith('app:dashboard-data', 'app:viewer-day');
 		expect(result).not.toHaveProperty('breadcrumbLabel');
 		expect(result.summary).toBeInstanceOf(Promise);
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();

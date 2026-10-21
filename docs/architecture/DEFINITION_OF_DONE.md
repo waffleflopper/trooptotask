@@ -80,24 +80,24 @@ When a measurement is requested, record before and after revisions, production b
 
 Budgets apply at the large workload: an Organization of 400 active People. Each journey is timed to its visible result as a warm median on a production build with no network latency, for an Organization-wide actor and a Group-scoped actor. The default rule: a **feedback** interaction that redraws data already on the page is bounded at 200 ms useful or 1000 ms settled; a **load or result** that needs a server round trip or produces a file is bounded at 1000 ms useful or settled. A journey listed below uses its own budget. Never raise a budget to pass.
 
-| Journey at large                         | Budget (ms)     | Last measured, wide / scoped                 |
-| ---------------------------------------- | --------------- | -------------------------------------------- |
-| Calendar initial, warm and cold settled  | ≤ 1000          | warm 318 / 234, cold 445 / 365               |
-| Calendar status-day report, current year | ≤ 1000          | 279 / 74                                     |
-| Calendar assignment save, confirmed      | ≤ 1000          | 112 / 69                                     |
-| Calendar range, Month paging and search  | default rule    | range 66 / 66, 3-month search 48 / 15        |
-| Personnel list, warm useful / settled    | ≤ 200 / ≤ 400   | 171 / 171 wide, 82 / 135 scoped              |
-| Personnel list, cold settled             | ≤ 400           | 326 / 278                                    |
-| Person detail open, useful               | ≤ 150           | 75 / 80                                      |
-| Person detail edit, settled              | ≤ 450           | 234 / 219                                    |
-| Personnel edit; import of 100 rows       | ≤ 300           | 190 / 192; 249 / 132                         |
-| Personnel filter                         | ≤ 200           | 164 / 15                                     |
-| Dashboard, warm useful / cold settled    | ≤ 1000 / ≤ 2000 | 502 / 117, 943 / 319                         |
-| Critical Tasks and Training reports      | ≤ 1000 settled  | Critical Tasks 646 / 354, Training 405 / 227 |
-| Briefing detail open; Training workbook  | ≤ 1000          | 166 / 57; 249 / 66                           |
-| Organization data export (28.8 MB)       | ≤ 5000          | 2799                                         |
-| Members list; platform user directory    | ≤ 1000          | 203; 60                                      |
-| Organization switch; sidebar navigation  | default rule    | switch settles 107–185, scoped useful 92     |
+| Journey at large                         | Budget (ms)     |
+| ---------------------------------------- | --------------- |
+| Calendar initial, warm and cold settled  | ≤ 1000          |
+| Calendar status-day report, current year | ≤ 1000          |
+| Calendar assignment save, confirmed      | ≤ 1000          |
+| Calendar range, Month paging and search  | default rule    |
+| Personnel list, warm useful / settled    | ≤ 200 / ≤ 400   |
+| Personnel list, cold settled             | ≤ 400           |
+| Person detail open, useful               | ≤ 150           |
+| Person detail edit, settled              | ≤ 450           |
+| Personnel edit; import of 100 rows       | ≤ 300           |
+| Personnel filter                         | ≤ 200           |
+| Dashboard, warm useful / cold settled    | ≤ 1000 / ≤ 2000 |
+| Critical Tasks and Training reports      | ≤ 1000 settled  |
+| Briefing detail open; Training workbook  | ≤ 1000          |
+| Organization data export (28.8 MB)       | ≤ 5000          |
+| Members list; platform user directory    | ≤ 1000          |
+| Organization switch; sidebar navigation  | default rule    |
 
 Request and payload rules at large, where a regression is visible in review without a measurement:
 

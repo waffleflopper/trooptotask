@@ -10,6 +10,10 @@ Robert owns incidents and coordinates severity, containment, communication and r
 | Sev 2    | Suspected unauthorized access, provider compromise or incident with customer impact, repeated auth anomalies, file concerns | Same business day triage             |
 | Sev 3    | Low-impact vulnerability report, unconfirmed suspicious activity, process gap                                               | Review within 2 business days        |
 
+## Reviews
+
+Robert reviews this runbook quarterly and after material auth, Storage or admin changes. He reviews audit logs for authentication, permission, export, admin and unusual access events monthly during launch, and after an incident or suspicious report. Review outcomes stay outside the repository.
+
 ## Identification
 
 Watch for unusual audit log patterns (bulk reads, export spikes, failed sign-ins), Supabase dashboard alerts and user reports. Record the date, reporter, affected Organization and initial severity.

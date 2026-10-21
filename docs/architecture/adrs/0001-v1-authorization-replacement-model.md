@@ -2,7 +2,7 @@
 
 ## Decision
 
-- `owner`, `admin` and `member` are fixed Organization governance roles. `admin` does the same governance work as `owner`. Ownership transfer and Organization deletion stay owner-only.
+- `owner`, `admin` and `member` are fixed Organization governance roles. `admin` does the same governance work as `owner`, except that changing an admin's access, transferring ownership, deleting the Organization and reading audit logs stay owner-only.
 - A member's access is an assigned preset (`viewer`, `operator` or `editor`), explicit per-lane capability overrides against that preset, and one shared scope set. A manual change keeps the preset and records an override.
 - Capability levels are `none`, `view`, `operate` and `configure`.
 - The durable feature lanes are `calendar`, `personnel`, `training`, `criticalTasks`, `onboarding` and `ratingScheme`. Page or route placement never defines lane ownership. Rating Scheme is grantable independently of Personnel even though it renders inside Personnel.

@@ -21,6 +21,10 @@ Remove access when a person leaves, changes role, no longer needs it, fails [acc
 
 Organization owner and admin changes need a request from an authorized owner or approved representative. If a data correction seems necessary, stop and ask Robert before touching any database.
 
+## Legacy invitations
+
+Robert still needs to review pending legacy invitations that have no linked Access Request. Resending one does not approve access. An invitee without a reviewed request must use Request Access or receive a new authorized invitation.
+
 ## Secrets review
 
 Before release and after any provider, staff, incident or secret change, confirm each deployment variable exists in the right environment and has an owner and rotation path. Record existence, owner and review date only.

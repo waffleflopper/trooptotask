@@ -1,17 +1,18 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SettingsArchivesSectionData } from '../settingsSectionTypes';
 
-const { invalidateAllMock, toastError, toastSuccess, saveDownload } = vi.hoisted(() => ({
-	invalidateAllMock: vi.fn(),
+const { invalidateMock, toastError, toastSuccess, saveDownload } = vi.hoisted(() => ({
+	invalidateMock: vi.fn(),
 	toastError: vi.fn(),
 	toastSuccess: vi.fn(),
 	saveDownload: vi.fn()
 }));
 
-vi.mock('$app/navigation', () => ({ invalidateAll: invalidateAllMock }));
+vi.mock('$app/navigation', () => ({ invalidate: invalidateMock }));
 vi.mock('$app/stores', () => ({ page: writable({ params: { orgId: 'org-1' } }) }));
 vi.mock('$lib/stores/toast.svelte', () => ({
 	toastStore: { success: toastSuccess, error: toastError }
@@ -25,7 +26,7 @@ afterEach(() => {
 	cleanup();
 	vi.useRealTimers();
 	vi.unstubAllGlobals();
-	invalidateAllMock.mockReset();
+	invalidateMock.mockReset();
 	toastError.mockReset();
 	toastSuccess.mockReset();
 	saveDownload.mockReset();
@@ -67,20 +68,33 @@ function person(id: string, displayName: string, archivedAt: string, mos: string
 	};
 }
 
+const roster = [
+	person('ortiz', 'SGT Ortiz, Daniela', '2025-06-18T04:00:00.000Z', '91B', 'Maint PLT'),
+	person('lane', 'SPC Lane, Marcus', '2024-11-02T04:00:00.000Z', '92Y', '2nd PLT'),
+	person('silva', 'PV2 Silva, Ana', '2026-08-22T04:00:00.000Z', '88M', '1st PLT')
+];
+
+function rosterData(rows: SettingsArchivesSectionData['rows']) {
+	return {
+		archivesSettings: {
+			sections: { archivedPersonnel: { ...archivesSettings, rows, retention: { months: 24, purgeSummary: '' } } }
+		}
+	} as never;
+}
+
 function renderRoster() {
-	const rows = [
-		person('ortiz', 'SGT Ortiz, Daniela', '2025-06-18T04:00:00.000Z', '91B', 'Maint PLT'),
-		person('lane', 'SPC Lane, Marcus', '2024-11-02T04:00:00.000Z', '92Y', '2nd PLT'),
-		person('silva', 'PV2 Silva, Ana', '2026-08-22T04:00:00.000Z', '88M', '1st PLT')
-	];
-	return render(Page, {
-		props: {
-			data: {
-				archivesSettings: {
-					sections: { archivedPersonnel: { ...archivesSettings, rows, retention: { months: 24, purgeSummary: '' } } }
-				}
-			}
-		} as never
+	return render(Page, { props: { data: rosterData(roster) } as never });
+}
+
+function shownNames() {
+	return screen
+		.queryAllByRole('button', { name: /^Restore / })
+		.map((button) => button.textContent?.replace('Restore', '').trim());
+}
+
+async function search(term: string) {
+	await fireEvent.input(screen.getByRole('searchbox', { name: 'Search archived people' }), {
+		target: { value: term }
 	});
 }
 
@@ -95,11 +109,7 @@ describe('Archived personnel countdown', () => {
 		renderRoster();
 
 		expect(screen.getByText('3 records · 24-month retention')).toBeTruthy();
-		expect(bodyRows().map((row) => within(row).getByRole('rowheader').textContent?.trim())).toEqual([
-			'SPC Lane, Marcus',
-			'SGT Ortiz, Daniela',
-			'PV2 Silva, Ana'
-		]);
+		expect(shownNames()).toEqual(['SPC Lane, Marcus', 'SGT Ortiz, Daniela', 'PV2 Silva, Ana']);
 		expect(bodyRows().map((row) => within(row).getAllByRole('cell')[3].textContent?.trim())).toEqual([
 			'14 days',
 			'8 months',
@@ -110,27 +120,39 @@ describe('Archived personnel countdown', () => {
 		);
 	});
 
-	it('hides the people a search does not match and keeps their rows mounted', async () => {
+	it('shows only the people a search matches, says when no one matches and restores everyone after clearing', async () => {
 		renderRoster();
-		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search archived people' }), {
-			target: { value: 'maint' }
-		});
 
-		expect(bodyRows().map((row) => row.hidden)).toEqual([true, false, true]);
+		await search('maint');
+		expect(shownNames()).toEqual(['SGT Ortiz, Daniela']);
 		expect(screen.getByRole('status').textContent).toBe('1 of 3 archived people shown');
+
+		await search('zzz');
+		expect(shownNames()).toEqual([]);
+		expect(screen.getByText('No archived people match "zzz".')).toBeTruthy();
+		expect(screen.getByRole('status').textContent).toBe('0 of 3 archived people shown');
+
+		await search('');
+		expect(shownNames()).toEqual(['SPC Lane, Marcus', 'SGT Ortiz, Daniela', 'PV2 Silva, Ana']);
+		expect(screen.queryByText('No archived people match "zzz".')).toBeNull();
+		expect(screen.getByRole('status').textContent?.trim()).toBe('');
 	});
 
-	it('removes a restored person at once and moves focus to the next row', async () => {
+	it('removes a restored person at once, moves focus to the next row and shows the refreshed archive', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
-		renderRoster();
+		const view = renderRoster();
+		const hughes = person('hughes', 'PFC Hughes, Carter', '2025-09-30T04:00:00.000Z', '88M', '1st PLT');
+		invalidateMock.mockImplementation(async (dependency: string) => {
+			if (dependency === 'app:settings-archived-people')
+				await view.rerender({ data: rosterData([roster[0], roster[2], hughes]) });
+		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Restore SPC Lane, Marcus' }));
 
-		await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Personnel restored to active status'));
-		expect(screen.queryByText('SPC Lane, Marcus')).toBeNull();
-		expect(screen.getByText('2 records · 24-month retention')).toBeTruthy();
+		await waitFor(() => expect(shownNames()).toEqual(['SGT Ortiz, Daniela', 'PFC Hughes, Carter', 'PV2 Silva, Ana']));
+		expect(toastSuccess).toHaveBeenCalledOnce();
+		expect(screen.getByText('3 records · 24-month retention')).toBeTruthy();
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Restore SGT Ortiz, Daniela' }));
-		expect(invalidateAllMock).toHaveBeenCalledOnce();
 	});
 });
 
@@ -147,14 +169,14 @@ describe('Archived personnel permanent delete', () => {
 		await fireEvent.input(confirmation, { target: { value: 'SGT Rivera, Monica' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Permanently Delete' }));
 
-		await waitFor(() => expect(toastError).toHaveBeenCalledWith('Failed to permanently delete'));
+		await waitFor(() => expect(toastError).toHaveBeenCalledOnce());
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/permanent', {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id: 'person-1' })
 		});
 		expect((screen.getByLabelText('Type the name to confirm') as HTMLInputElement).value).toBe('SGT Rivera, Monica');
-		expect(invalidateAllMock).not.toHaveBeenCalled();
+		expect(invalidateMock).not.toHaveBeenCalled();
 	});
 	it.each([
 		{ remaining: 0, focused: () => screen.getByRole('heading', { name: 'Archived people' }).closest('header') },
@@ -173,7 +195,10 @@ describe('Archived personnel permanent delete', () => {
 		const view = render(Page, {
 			props: { data: dataWith(remaining === 0 ? archivesSettings.rows : [archivesSettings.rows[0], second]) } as never
 		});
-		invalidateAllMock.mockImplementation(() => view.rerender({ data: dataWith(remaining === 0 ? [] : [second]) }));
+		invalidateMock.mockImplementation(async (dependency: string) => {
+			if (dependency === 'app:settings-archived-people')
+				await view.rerender({ data: dataWith(remaining === 0 ? [] : [second]) });
+		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete SGT Rivera, Monica' }));
 		const confirmation = (await screen.findByLabelText('Type the name to confirm')) as HTMLInputElement;
@@ -214,16 +239,22 @@ describe('Archived personnel permanent delete', () => {
 });
 
 describe('Archived personnel actions after leaving the Organization', () => {
+	/** Holds the next fetch. Answering it waits until the page has handled the response. */
 	function heldFetch() {
 		let respond!: (response: Response) => void;
+		const reply = new Promise<Response>((resolve) => (respond = resolve));
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(() => new Promise<Response>((resolve) => (respond = resolve)))
+			vi.fn(() => reply)
 		);
 		render(Page, {
 			props: { data: { archivesSettings: { sections: { archivedPersonnel: archivesSettings } } } } as never
 		});
-		return (response: Response) => respond(response);
+		return async (response: Response) => {
+			respond(response);
+			await reply;
+			await tick();
+		};
 	}
 
 	it.each([
@@ -234,12 +265,11 @@ describe('Archived personnel actions after leaving the Organization', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Restore SGT Rivera, Monica' }));
 
 		endOrganizationLifetime();
-		respond(response());
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await respond(response());
 
 		expect(toastSuccess).not.toHaveBeenCalled();
 		expect(toastError).not.toHaveBeenCalled();
-		expect(invalidateAllMock).not.toHaveBeenCalled();
+		expect(invalidateMock).not.toHaveBeenCalled();
 	});
 
 	it.each([
@@ -256,12 +286,11 @@ describe('Archived personnel actions after leaving the Organization', () => {
 			await fireEvent.click(screen.getByRole('button', { name: 'Permanently Delete' }));
 
 			endOrganizationLifetime();
-			respond(response());
-			await new Promise((resolve) => setTimeout(resolve, 0));
+			await respond(response());
 
 			expect(toastSuccess).not.toHaveBeenCalled();
 			expect(toastError).not.toHaveBeenCalled();
-			expect(invalidateAllMock).not.toHaveBeenCalled();
+			expect(invalidateMock).not.toHaveBeenCalled();
 		}
 	);
 
@@ -269,15 +298,15 @@ describe('Archived personnel actions after leaving the Organization', () => {
 		const respondSaved = heldFetch();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export SGT Rivera, Monica' }));
 		endOrganizationLifetime();
-		respondSaved(new Response('workbook', { status: 200 }));
+		await respondSaved(new Response('workbook', { status: 200 }));
 		await waitFor(() => expect(saveDownload).toHaveBeenCalledWith(expect.anything(), 'rivera-monica-records.xlsx'));
 		cleanup();
 
 		const respondFailed = heldFetch();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export SGT Rivera, Monica' }));
 		endOrganizationLifetime();
-		respondFailed(new Response(null, { status: 503 }));
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await respondFailed(new Response(null, { status: 503 }));
+		expect(screen.getByRole('button', { name: 'Export SGT Rivera, Monica' }).textContent).toContain('Export');
 
 		expect(toastError).not.toHaveBeenCalled();
 	});

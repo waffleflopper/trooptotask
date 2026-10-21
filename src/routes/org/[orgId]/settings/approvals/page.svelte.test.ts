@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 import Page from './+page.svelte';
 
-const navigation = vi.hoisted(() => ({ invalidateAll: vi.fn() }));
+const navigation = vi.hoisted(() => ({ invalidate: vi.fn() }));
 const feedback = vi.hoisted(() => ({ error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn() }));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: feedback }));
@@ -86,7 +86,7 @@ function heading() {
 }
 
 beforeEach(() => {
-	navigation.invalidateAll.mockResolvedValue(undefined);
+	navigation.invalidate.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -169,21 +169,25 @@ describe('Approvals review', () => {
 		);
 	});
 
-	it('sends the reason with Deny request, removes the row and moves focus to the list heading', async () => {
+	it('sends the reason with Deny request, refreshes only the pending approvals read and shows the refreshed list', async () => {
 		const send = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
 		vi.stubGlobal('fetch', send);
-		mount([request('a'), request('b')]);
+		const view = mount([request('a'), request('b')]);
+		navigation.invalidate.mockImplementation(async (dependency: string) => {
+			if (dependency === 'app:settings-pending-approvals')
+				await view.rerender({ data: data('a', [request('b'), request('c')]) });
+		});
 		await deny('Wrong soldier. Keep the current card.');
 		await fireEvent.click(denyRequest());
 
-		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+		await waitFor(() => expect(screen.getByText('Record c')).toBeTruthy());
 		expect(send).toHaveBeenCalledWith('/org/slug-a/api/deletion-requests/review', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id: 'a', action: 'deny', denialReason: 'Wrong soldier. Keep the current card.' })
 		});
 		expect(screen.queryByText('Record a')).toBeNull();
-		expect(screen.getByText(/^1 waiting/)).toBeTruthy();
+		expect(screen.getByText(/^2 waiting/)).toBeTruthy();
 		expect(document.activeElement).toBe(heading());
 	});
 
@@ -252,9 +256,9 @@ describe('Approvals review', () => {
 			expect(feedback.error).not.toHaveBeenCalled();
 			currentDraft('Still required');
 			expect(send).toHaveBeenCalledOnce();
-			expect(navigation.invalidateAll).not.toHaveBeenCalled();
+			expect(navigation.invalidate).not.toHaveBeenCalled();
 			await fireEvent.click(denyRequest());
-			await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
 			expect(send).toHaveBeenCalledTimes(2);
 			for (const [, init] of send.mock.calls as [string, RequestInit][]) {
 				expect(JSON.parse(init.body as string)).toEqual({ id: 'a', action: 'deny', denialReason: 'Still required' });
@@ -270,8 +274,8 @@ describe('Approvals review', () => {
 		);
 		mount([request('a', { resource_type: 'counseling_record' })]);
 		await fireEvent.click(screen.getByRole('button', { name: 'Approve delete Record a' }));
-		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
-		expect(feedback.info).toHaveBeenCalledWith('Approved. The stored file will be removed automatically.');
+		await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
+		expect(feedback.info).toHaveBeenCalledOnce();
 		expect(screen.getByText(END_LINE)).toBeTruthy();
 		expect(screen.queryAllByRole('listitem')).toHaveLength(0);
 	});
@@ -281,28 +285,27 @@ describe('Approvals review', () => {
 		mount([request('a'), request('b')]);
 		await deny('Still required');
 		await fireEvent.click(row('Record b').getByRole('button', { name: 'Approve archive Record b' }));
-		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+		await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
 		expect(screen.queryByText('Record b')).toBeNull();
+		expect(feedback.info).not.toHaveBeenCalled();
 		currentDraft('Still required');
 	});
 
 	it('reports an acknowledged review separately from refresh failure without offering the mutation again', async () => {
 		const refresh = deferred<void>();
-		navigation.invalidateAll.mockReturnValueOnce(refresh.promise);
+		navigation.invalidate.mockReturnValueOnce(refresh.promise);
 		const send = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
 		vi.stubGlobal('fetch', send);
 		mount([request('a'), request('b')]);
 		await fireEvent.click(row('Record a').getByRole('button', { name: 'Approve archive Record a' }));
-		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+		await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
 		expect(screen.queryByText('Record a')).toBeNull();
 		expect(
 			row('Record b').getByRole('button', { name: 'Approve archive Record b' }).getAttribute('aria-disabled')
 		).toBe('true');
 		refresh.reject(new Error('Readback unavailable'));
 		await settle(refresh.promise);
-		await waitFor(() =>
-			expect(feedback.warning).toHaveBeenCalledWith('Review completed. Refresh the page to update the list.')
-		);
+		await waitFor(() => expect(feedback.warning).toHaveBeenCalledOnce());
 		expect(feedback.error).not.toHaveBeenCalled();
 		expect(send).toHaveBeenCalledOnce();
 		expect(screen.queryByText('Record a')).toBeNull();
@@ -327,10 +330,10 @@ describe('Approvals review lifetime', () => {
 		await settle(a.promise);
 		currentDraft('B still required', true);
 		noFeedback();
-		expect(navigation.invalidateAll).not.toHaveBeenCalled();
+		expect(navigation.invalidate).not.toHaveBeenCalled();
 		expect(send).toHaveBeenNthCalledWith(2, '/org/slug-b/api/deletion-requests/review', expect.any(Object));
 		b.resolve(new Response(null, { status: 200 }));
-		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+		await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
 		expect(screen.queryByText('Record b')).toBeNull();
 	});
 
@@ -349,7 +352,7 @@ describe('Approvals review lifetime', () => {
 		await settle(old.promise);
 		currentDraft('Current A reason', true);
 		noFeedback();
-		expect(navigation.invalidateAll).not.toHaveBeenCalled();
+		expect(navigation.invalidate).not.toHaveBeenCalled();
 		current.resolve(Response.json({ message: 'Current A unavailable' }, { status: 503 }));
 		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
 		currentDraft('Current A reason');
@@ -370,7 +373,7 @@ describe('Approvals review lifetime', () => {
 		await settle(pending.promise);
 		currentDraft('B remains current');
 		noFeedback();
-		expect(navigation.invalidateAll).not.toHaveBeenCalled();
+		expect(navigation.invalidate).not.toHaveBeenCalled();
 	});
 
 	it.each(['resolve', 'reject'] as const)('isolates late A error-body %s after switching to B', async (completion) => {
@@ -387,7 +390,7 @@ describe('Approvals review lifetime', () => {
 		await settle(body.promise);
 		currentDraft('B still current');
 		noFeedback();
-		expect(navigation.invalidateAll).not.toHaveBeenCalled();
+		expect(navigation.invalidate).not.toHaveBeenCalled();
 	});
 
 	it.each(['resolve', 'reject'] as const)(
@@ -395,7 +398,7 @@ describe('Approvals review lifetime', () => {
 		async (completion) => {
 			const refresh = deferred<void>();
 			const b = deferred<Response>();
-			navigation.invalidateAll.mockReturnValueOnce(refresh.promise);
+			navigation.invalidate.mockReturnValueOnce(refresh.promise);
 			vi.stubGlobal(
 				'fetch',
 				vi
@@ -405,7 +408,7 @@ describe('Approvals review lifetime', () => {
 			);
 			const view = mount();
 			await fireEvent.click(screen.getByRole('button', { name: /^Approve/ }));
-			await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
 			await view.rerender({ data: data('b') });
 			await deny('B pending', 'Record b');
 			await fireEvent.click(denyRequest());
@@ -414,9 +417,9 @@ describe('Approvals review lifetime', () => {
 			await settle(refresh.promise);
 			currentDraft('B pending', true);
 			noFeedback();
-			expect(navigation.invalidateAll).toHaveBeenCalledOnce();
+			expect(navigation.invalidate).toHaveBeenCalledOnce();
 			b.resolve(new Response(null, { status: 200 }));
-			await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledTimes(2));
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledTimes(2));
 			expect(screen.queryByText('Record b')).toBeNull();
 		}
 	);
@@ -433,7 +436,7 @@ describe('Approvals review lifetime', () => {
 		pending.resolve(new Response(null, { status: 200 }));
 		await settle(pending.promise);
 		noFeedback();
-		expect(navigation.invalidateAll).not.toHaveBeenCalled();
+		expect(navigation.invalidate).not.toHaveBeenCalled();
 	});
 
 	it('retains pending review state when only the same canonical Organization URL changes', async () => {

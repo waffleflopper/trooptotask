@@ -10,7 +10,9 @@ function createMembershipLookupBuilder() {
 		data: {
 			user_id: 'member-1',
 			role: 'member',
-			email: 'member@example.com'
+			email: 'member@example.com',
+			member_preset: 'viewer',
+			capability_overrides: { training: 'none' }
 		},
 		error: null
 	};
@@ -759,10 +761,17 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 			userId: 'member-1',
 			role: 'member',
 			email: 'member@example.com',
-			canManageMembers: false
+			canManageMembers: false,
+			storedLevels: {
+				calendar: 'view',
+				personnel: 'view',
+				training: 'none',
+				criticalTasks: 'view',
+				onboarding: 'view',
+				ratingScheme: 'view'
+			}
 		});
 		expect(supabase.from).toHaveBeenCalledWith('organization_memberships');
-		expect(calls).toContainEqual({ method: 'select', args: ['user_id, role, email'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'membership-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 	});

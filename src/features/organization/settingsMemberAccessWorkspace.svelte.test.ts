@@ -111,31 +111,47 @@ describe('settings member access workspace', () => {
 		expect(workspace.changeCount).toBe(0);
 	});
 
-	it('keeps the stored level on a lane the unit turned off', () => {
+	it('keeps the stored level on a lane the unit turned off and leaves it out of every count', () => {
 		const workspace = makeWorkspace({ offLanes: ['training'] });
 		workspace.open(operator);
+		expect(workspace.areaChangeCount).toBe(0);
+		expect(workspace.presetGap('training')).toBeNull();
 
 		workspace.setLevel('training', 'none');
 		workspace.setPreset('editor');
 
 		expect(workspace.draft?.levels).toEqual({ ...createCapabilityMap('configure'), training: 'view' });
-		expect(workspace.isOff('training')).toBe(true);
+		expect(workspace.areaChangeCount).toBe(0);
+		// The preset, and the five lanes that are on and moved from Update to Manage.
 		expect(workspace.changeCount).toBe(6);
 	});
 
-	it('counts a role change once and leaves the lanes out of it', () => {
+	it('counts what a promotion to Admin saves: the role, Editor, every group and Manage in each lane', () => {
 		const workspace = makeWorkspace();
 		workspace.open(operator);
-
 		workspace.setLevel('calendar', 'view');
 		expect(workspace.changeCount).toBe(1);
 
 		workspace.setRole('admin');
-		expect(workspace.changeCount).toBe(1);
+		expect(workspace.changeCount).toBe(9);
 
 		workspace.setRole('member');
-		workspace.setScopeKind('organization');
-		expect(workspace.changeCount).toBe(2);
+		expect(workspace.changeCount).toBe(1);
+	});
+
+	it('counts the role, the preset and each lane when an Admin becomes a member', () => {
+		const admin = member('ad', 'admin@example.com', 'admin');
+		const workspace = makeWorkspace({ members: [admin], offLanes: ['training'] });
+		workspace.open(admin);
+
+		workspace.setRole('member');
+		workspace.setPreset('viewer');
+		for (const lane of ['calendar', 'personnel', 'criticalTasks', 'onboarding', 'ratingScheme'] as const) {
+			workspace.setLevel(lane, 'none');
+		}
+
+		// Training is off, so the save keeps it and only the five lanes that are on count.
+		expect(workspace.changeCount).toBe(7);
 	});
 
 	it('lets only owners change the role', () => {

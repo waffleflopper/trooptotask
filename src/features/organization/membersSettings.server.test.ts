@@ -390,15 +390,17 @@ describe('members settings section shaping', () => {
 		]);
 	});
 
-	it('names the lanes whose feature the unit turned off and keeps stored levels on the rows', () => {
+	it('keeps stored levels in lanes the unit turned off but counts only the area changes in effect', () => {
 		const section = buildSection({
-			members: [memberRow({ member_preset: 'operator', capability_overrides: { training: 'view' } })],
+			members: [
+				memberRow({ member_preset: 'operator', capability_overrides: { training: 'view', personnel: 'view' } })
+			],
 			disabledFeatures: ['training', 'evaluations', 'lossesAndAwards']
 		});
 
 		expect(section.offLanes).toEqual(['training', 'ratingScheme']);
 		expect(section.rows[0].access.capabilityMap.training).toBe('view');
-		expect(section.rows[0].overriddenCapabilityLabels).toEqual(['Training: View']);
+		expect(section.rows[0].overriddenCapabilityLabels).toEqual(['Personnel: View']);
 	});
 
 	it('labels a member scoped to no groups', () => {

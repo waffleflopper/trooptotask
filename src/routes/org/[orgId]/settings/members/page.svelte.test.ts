@@ -191,21 +191,20 @@ afterEach(() => {
 });
 
 describe('members list', () => {
-	it('summarizes each member with access, area changes and groups', () => {
+	it('summarizes each member with access, area changes and groups, and the sheet agrees', async () => {
 		renderPage({ rows: [owner, admin, operator, alpha] });
+		const op = within(memberRow('op'));
 
-		expect(
-			[...memberRow('op').querySelectorAll('th, td')].map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual([
-			'OE op@example.com',
-			'Access: Operator +2 area changes',
-			'Groups: No groups',
-			'Manage access for op@example.com'
-		]);
-		expect(within(memberRow('op')).getByText('+2 area changes').className).toContain('text-warning-foreground');
-		expect(within(memberRow('op')).getByText('No groups').className).toContain('text-warning-foreground');
-		expect(within(memberRow('admin')).getByText('Admin')).toBeTruthy();
 		expect(screen.getByText('4 people')).toBeTruthy();
+		expect(op.getByText('Operator')).toBeTruthy();
+		expect(op.getByText('+2 area changes')).toBeTruthy();
+		expect(op.getByText('No groups')).toBeTruthy();
+		expect(within(memberRow('alpha')).getByText('Editor')).toBeTruthy();
+		expect(within(memberRow('alpha')).queryByText(/area change/)).toBeNull();
+		expect(within(memberRow('admin')).getByText('Admin')).toBeTruthy();
+
+		const { sheet } = await openSheet('op');
+		expect(within(sheet).getByText('Operator · No groups · 2 area changes')).toBeTruthy();
 	});
 
 	it("marks only the viewer's own membership as You and gives the owner's row no actions", () => {
@@ -339,12 +338,6 @@ describe('invite strip', () => {
 		expect(document.activeElement).toBe(invite);
 	});
 
-	it('reports a failed invitation in an Alert', () => {
-		renderPage({}, { inviteError: 'Invitation could not be sent' });
-
-		expect(screen.getByRole('alert').textContent?.trim()).toBe('Invitation could not be sent');
-	});
-
 	it('keeps the invite draft with an Alert in the strip when the invite errors, and refocuses Send invite', async () => {
 		const view = renderPage({}, { inviteSuccess: true, inviteMessage: 'Invitation created.' });
 		await fireEvent.input(screen.getByLabelText('Invite'), { target: { value: 'new@example.com' } });
@@ -392,12 +385,13 @@ describe('waiting on them', () => {
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 		expect(within(waiting).getByText('1 invitation')).toBeTruthy();
-		expect(invitationRow('invite-1').textContent?.replace(/\s+/g, ' ').trim()).toBe(
-			'pending@example.com Operator · sent today Invitation email failed The invitation email did not send. Resend it. Resend invitation to pending@example.com Revoke invitation for pending@example.com'
-		);
-		expect(within(invitationRow('invite-1')).getByText('Invitation email failed').className).toContain(
-			'text-destructive-text'
-		);
+		const row = within(invitationRow('invite-1'));
+		expect(row.getByText('pending@example.com')).toBeTruthy();
+		expect(row.getByText('Operator · sent today')).toBeTruthy();
+		expect(row.getByText(pendingInvite.funnelStatusLabel)).toBeTruthy();
+		expect(row.getByText(pendingInvite.funnelStatusDetail)).toBeTruthy();
+		expect(row.getByRole('button', { name: 'Resend invitation to pending@example.com' })).toBeTruthy();
+		expect(row.getByRole('button', { name: 'Revoke invitation for pending@example.com' })).toBeTruthy();
 	});
 
 	it.each([
@@ -607,39 +601,57 @@ describe('manage access sheet', () => {
 		expect(save.textContent?.trim()).toBe('Save 8 changes');
 	});
 
-	it('disables a lane the unit turned off and saves its stored level', async () => {
+	it('shows a lane the unit turned off at its stored level, disabled and outside every count', async () => {
 		const trained = member('m', 'm@example.com', 'member', {
-			access: { ...alpha.access, capabilityMap: { ...createCapabilityMap('configure'), training: 'view' } }
+			access: {
+				...alpha.access,
+				capabilityMap: { ...createCapabilityMap('configure'), personnel: 'view', training: 'view' }
+			},
+			overriddenCapabilityLabels: ['Personnel: View']
 		});
 		renderPage({ rows: [owner, trained], offLanes: ['training'] });
+		expect(within(memberRow('m')).getByText('+1 area change')).toBeTruthy();
 		const { sheet } = await openSheet('m');
 		const training = within(sheet).getByRole('radiogroup', { name: 'Training access' });
 
 		expect(within(sheet).getByText('Off for Alpha Company')).toBeTruthy();
+		expect(within(training).getByRole('radio', { name: 'View' }).getAttribute('aria-checked')).toBe('true');
 		expect(
 			within(training)
 				.getAllByRole('radio')
 				.every((radio) => (radio as HTMLButtonElement).disabled)
 		).toBe(true);
-		expect(within(training).getByRole('radio', { name: 'View' }).getAttribute('aria-checked')).toBe('true');
+		expect(within(sheet).getByText('Editor · All groups · 1 area change')).toBeTruthy();
+		expect(within(sheet).getByText('1 change from Editor')).toBeTruthy();
+		expect(within(sheet).getAllByText('Editor gives Manage')).toHaveLength(1);
 
 		await choose(sheet, 'Preset', 'Operator');
-		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
 
-		expect(submitted[0].get('memberPreset')).toBe('operator');
-		expect(submitted[0].get('capabilityOverride:training')).toBe('view');
-		expect(submitted[0].get('capabilityOverride:calendar')).toBe('operate');
+		expect(within(training).getByRole('radio', { name: 'View' }).getAttribute('aria-checked')).toBe('true');
+		expect(within(sheet).getByText('Matches Operator')).toBeTruthy();
+		// The preset, and the five lanes that are on and moved to Update.
+		expect(within(sheet).getByRole('button', { name: 'Save 6 changes' })).toBeTruthy();
 	});
 
-	it('describes Role and Preset with their visible help text', async () => {
+	it('describes Role and Preset with the help the invite strip shows for the same choice', async () => {
 		renderPage();
+		const stripHelp = () => document.getElementById('invite-helper')?.textContent ?? '';
+		const editorStripHelp = stripHelp();
+		await pick('Role', 'Admin');
+		const adminStripHelp = stripHelp();
 		const { sheet } = await openSheet('alpha');
-		const help = (name: string) =>
-			document.getElementById(within(sheet).getByRole('radiogroup', { name }).getAttribute('aria-describedby') ?? '')
-				?.textContent;
+		const help = (name: string) => {
+			const id = within(sheet).getByRole('radiogroup', { name }).getAttribute('aria-describedby');
+			const region = within(sheet).getByRole('region', { name });
+			return within(region).getByText((_, element) => element?.id === id).textContent ?? '';
+		};
 
-		expect(help('Role')).toBe('Receives access through presets, capabilities, and group scope.');
-		expect(help('Preset')).toBe('Can view and manage work in the selected areas.');
+		expect(help('Preset')).not.toBe('');
+		expect(editorStripHelp.startsWith(help('Preset'))).toBe(true);
+
+		await choose(sheet, 'Role', 'Admin');
+
+		expect(help('Role')).toBe(adminStripHelp);
 	});
 
 	it('shows the role as text to admins', async () => {

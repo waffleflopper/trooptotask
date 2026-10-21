@@ -674,7 +674,7 @@ Phase 12 owns measured performance, including F05/detail-load latency. Phase 13 
 
 ## Calendar lanes
 
-The candidate adds [`20261015000100_calendar_lanes.sql`](../../supabase/migrations/20261015000100_calendar_lanes.sql), SHA-256 `09da087c4a6f9c3349815b7b39a97910a5e6b4218765230a35ce9eb37df72abf`, for [#1683](https://github.com/waffleflopper/trooptotask/issues/1683). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261015000100_calendar_lanes.sql`](../../supabase/migrations/20261015000100_calendar_lanes.sql), SHA-256 `09da087c4a6f9c3349815b7b39a97910a5e6b4218765230a35ce9eb37df72abf`, for [#1683](https://github.com/waffleflopper/trooptotask/issues/1683). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it replaces the single date header with ordered Calendar lanes:
 
@@ -690,7 +690,7 @@ An application rollback needs a reverse migration that restores the column name,
 
 ## Calendar status types: one-day label and order
 
-The candidate adds [`20261016000100_status_type_label_and_order.sql`](../../supabase/migrations/20261016000100_status_type_label_and_order.sql), SHA-256 `44bc7d679e33ae39f372d3f5c366a435375f8ee1e3d28056bbf783e01da3d07d`, for [#1684](https://github.com/waffleflopper/trooptotask/issues/1684). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261016000100_status_type_label_and_order.sql`](../../supabase/migrations/20261016000100_status_type_label_and_order.sql), SHA-256 `44bc7d679e33ae39f372d3f5c366a435375f8ee1e3d28056bbf783e01da3d07d`, for [#1684](https://github.com/waffleflopper/trooptotask/issues/1684). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it gives status types a saved one-day label and an atomic order command:
 
@@ -705,7 +705,7 @@ An application rollback can leave the column and function in place. Dropping the
 
 ## Calendar closure date ranges
 
-The candidate adds [`20261016000200_closure_day_ranges.sql`](../../supabase/migrations/20261016000200_closure_day_ranges.sql), SHA-256 `640d1e14f4b3b31638a929ac34a11e98e2ff9c6ab9e7b4e0e2457d2dc929844e`, for [#1686](https://github.com/waffleflopper/trooptotask/issues/1686). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261016000200_closure_day_ranges.sql`](../../supabase/migrations/20261016000200_closure_day_ranges.sql), SHA-256 `640d1e14f4b3b31638a929ac34a11e98e2ff9c6ab9e7b4e0e2457d2dc929844e`, for [#1686](https://github.com/waffleflopper/trooptotask/issues/1686). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one command and changes no table:
 
@@ -719,7 +719,7 @@ An application rollback can leave the function in place. Dropping it needs a rev
 
 ## Phase 12 D04 set-based completion read scope
 
-The candidate adds [`20261018000100_set_based_completion_read_scope.sql`](../../supabase/migrations/20261018000100_set_based_completion_read_scope.sql), SHA-256 `b50ba5fc24ec17953d0271804d4aff827d9f5937f30919f272545bb818c8d039`, for [#1708](https://github.com/waffleflopper/trooptotask/issues/1708). The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261018000100_set_based_completion_read_scope.sql`](../../supabase/migrations/20261018000100_set_based_completion_read_scope.sql), SHA-256 `b50ba5fc24ec17953d0271804d4aff827d9f5937f30919f272545bb818c8d039`, for [#1708](https://github.com/waffleflopper/trooptotask/issues/1708). Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it changes who pays for a completion read, not who sees what:
 
@@ -733,7 +733,7 @@ The migration and the application release are independent. No application code n
 
 ## Phase 12 D05 set-based Critical Tasks read models
 
-The candidate adds [`20261019000100_set_based_critical_tasks_read_models.sql`](../../supabase/migrations/20261019000100_set_based_critical_tasks_read_models.sql), SHA-256 `304a0c5b7df045496c045eefa4a8592261a84ec7b2e9965b88eea3106e495704`, for [#1709](https://github.com/waffleflopper/trooptotask/issues/1709). The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261019000100_set_based_critical_tasks_read_models.sql`](../../supabase/migrations/20261019000100_set_based_critical_tasks_read_models.sql), SHA-256 `304a0c5b7df045496c045eefa4a8592261a84ec7b2e9965b88eea3106e495704`, for [#1709](https://github.com/waffleflopper/trooptotask/issues/1709). Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it changes who pays for a Critical Tasks read-model call, not who sees what:
 
@@ -744,7 +744,7 @@ The migration and the application release are independent. No application code n
 
 ## Personnel training history and certificates
 
-The candidate adds [`20261020000100_personnel_training_history.sql`](../../supabase/migrations/20261020000100_personnel_training_history.sql), SHA-256 `4d93d1f9226008d79c6c618cbeb81d4534d332d998c2fba9afbaf299c2567151`, for the Personnel detail Readiness tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000100_personnel_training_history.sql`](../../supabase/migrations/20261020000100_personnel_training_history.sql), SHA-256 `4d93d1f9226008d79c6c618cbeb81d4534d332d998c2fba9afbaf299c2567151`, for the Personnel detail Readiness tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one table, one private bucket and three commands, and changes no existing column:
 
@@ -759,7 +759,7 @@ An application rollback can leave the table, bucket and commands in place. Dropp
 
 ## Personnel Data sheet columns
 
-The candidate adds [`20261020000200_personnel_data_sheet_columns.sql`](../../supabase/migrations/20261020000200_personnel_data_sheet_columns.sql), SHA-256 `88b57418b2f08ccb78f691d08a0b7155a79e407e0f2b501221bd6618b938c417`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000200_personnel_data_sheet_columns.sql`](../../supabase/migrations/20261020000200_personnel_data_sheet_columns.sql), SHA-256 `88b57418b2f08ccb78f691d08a0b7155a79e407e0f2b501221bd6618b938c417`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds two nullable columns and changes no existing row, policy or grant:
 
@@ -770,7 +770,7 @@ Apply the migration before the application release. Without it the new applicati
 
 ## Personnel Log and Archived attribution
 
-The candidate adds [`20261020000300_personnel_log_attribution.sql`](../../supabase/migrations/20261020000300_personnel_log_attribution.sql), SHA-256 `8107efdcc290585b5b2312b060b25ada8d11e39432448ccdb34b7f83cba23f3f`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000300_personnel_log_attribution.sql`](../../supabase/migrations/20261020000300_personnel_log_attribution.sql), SHA-256 `8107efdcc290585b5b2312b060b25ada8d11e39432448ccdb34b7f83cba23f3f`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds columns and triggers, and rewrites one timestamp on every existing leader note:
 
@@ -782,7 +782,7 @@ Apply the migration before the application release. Without it the new applicati
 
 ## Counseling conductor
 
-The candidate adds [`20261020000400_counseling_conducted_by.sql`](../../supabase/migrations/20261020000400_counseling_conducted_by.sql), SHA-256 `c217c17a8bad1071cfb577dd2f37a8fc736994a12914c33dd2719bd8dadf5b6b`, for the Personnel detail Files tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000400_counseling_conducted_by.sql`](../../supabase/migrations/20261020000400_counseling_conducted_by.sql), SHA-256 `c217c17a8bad1071cfb577dd2f37a8fc736994a12914c33dd2719bd8dadf5b6b`, for the Personnel detail Files tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one nullable column and changes no existing row, policy or grant:
 
@@ -792,7 +792,7 @@ Apply the migration before the application release. Without it the new applicati
 
 ## Personnel Data sheet saver stamp
 
-The candidate adds [`20261020000500_personnel_extended_info_saver_stamp.sql`](../../supabase/migrations/20261020000500_personnel_extended_info_saver_stamp.sql), SHA-256 `98a3a16fd7ba6785e1bef590ef279115fb46f6a4f97622dbf68ee43217801bee`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000500_personnel_extended_info_saver_stamp.sql`](../../supabase/migrations/20261020000500_personnel_extended_info_saver_stamp.sql), SHA-256 `98a3a16fd7ba6785e1bef590ef279115fb46f6a4f97622dbf68ee43217801bee`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one trigger function and one trigger, and changes no column or data:
 
@@ -803,7 +803,7 @@ The migration and the application release are independent. The application alrea
 
 ## Phase 12 D06 set-based Calendar read scope
 
-The candidate adds [`20261020000600_set_based_calendar_read_scope.sql`](../../supabase/migrations/20261020000600_set_based_calendar_read_scope.sql), SHA-256 `41e5274fc7393d809f986b8236b40c6c721512625c5d78bb65a7aebd2db0f90a`, for [#1710](https://github.com/waffleflopper/trooptotask/issues/1710). The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261020000600_set_based_calendar_read_scope.sql`](../../supabase/migrations/20261020000600_set_based_calendar_read_scope.sql), SHA-256 `41e5274fc7393d809f986b8236b40c6c721512625c5d78bb65a7aebd2db0f90a`, for [#1710](https://github.com/waffleflopper/trooptotask/issues/1710). Robert reported on 2026-10-20 that he has applied it to the hosted database, which closes its owner-operated migration gate. This is an owner report; the agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it changes who pays for a Calendar read or assignment save, not who sees or saves what:
 

@@ -2,6 +2,8 @@
 
 A leader opens the Calendar, Personnel, the Organization Dashboard, a report or an export for a platoon-, company- or battalion-sized unit, works in it, and waits for each step to be usable. This recipe measures those waits reproducibly: three deterministic synthetic Organizations, an Organization-wide actor, a Group-scoped operator and a Group-scoped editor, one journey registry, a fixed cold/warm protocol, and request, byte, main-thread, server-timing and query evidence for every sample. It measures; it does not classify or fix.
 
+Run this recipe only when Robert asks for a measurement. Ordinary verification, review, audit and release work does not include it; changes are reviewed against the [regression budgets](../../../../docs/architecture/DEFINITION_OF_DONE.md#regression-budgets) instead ([Definition of Done](../../../../docs/architecture/DEFINITION_OF_DONE.md#reproducible-performance-evidence)).
+
 ## Sub-features
 
 - `workloads`: `seed workload small|typical|large` creates one synthetic Organization of 20, 100 or 400 active People from the declarative table in `helpers/perf-workloads.mjs`, journaled before any write. `clean-seeds` removes exactly those rows, plus the rows the app wrote while the workload was driven (audit rows survive Organization deletion, so they are journaled and removed by ID first), and reads every ID back.

@@ -4,7 +4,7 @@ import { loadArchivesSettings } from './settingsArchives.server';
 
 describe('loadArchivesSettings', () => {
 	it.each([0, null, 'failure'] as const)(
-		'retains retention zero/default and propagates read failures (%s)',
+		'reads missing or zero retention as the 36-month default and propagates read failures (%s)',
 		async (value) => {
 			const ctx = createQueryWithRawStorePortsContext();
 			ctx.organizationSettings.findArchiveRetentionMonths = async () => {
@@ -13,7 +13,7 @@ describe('loadArchivesSettings', () => {
 			};
 			const pending = loadArchivesSettings(ctx, { isAdmin: false });
 			if (value === 'failure') await expect(pending).rejects.toThrow('Retention unavailable');
-			else expect((await pending).sections.archivedPersonnel.retention.months).toBe(value === 0 ? 0 : 36);
+			else expect((await pending).sections.archivedPersonnel.retention.months).toBe(36);
 		}
 	);
 

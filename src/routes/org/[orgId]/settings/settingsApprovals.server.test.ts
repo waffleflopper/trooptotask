@@ -1,41 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { buildApprovalsSettingsData } from './settingsApprovals.server';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
+import { createDeletionRequestTestStore, savedRequest } from '$features/deletion-requests/testing.server';
+import { loadApprovalsSettings } from './settingsApprovals.server';
 
-function makeDeletionRequest(id: string, status: 'pending' | 'approved', createdAt: string) {
-	return {
-		id,
-		status,
-		created_at: createdAt,
-		requested_by_email: null,
-		resource_description: null,
-		resource_type: 'personnel',
-		resource_url: null,
-		denial_reason: null
-	};
-}
+describe('loadApprovalsSettings', () => {
+	it('returns only the pending requests, without requester or resource ids', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({ auth: { role: 'admin', orgId: 'org-a' } });
+		ctx.store.seed(
+			'deletion_requests',
+			[
+				savedRequest('older', { created_at: '2026-10-01T10:00:00Z' }),
+				savedRequest('newer', { created_at: '2026-10-02T10:00:00Z', resource_type: 'personnel' }),
+				savedRequest('denied', { status: 'denied', denial_reason: 'No' }),
+				savedRequest('approved', { status: 'approved' })
+			].map((row) => ({ ...row }))
+		);
 
-describe('approvals settings read model', () => {
-	it('builds approval activity data without export controls', () => {
-		const approvalsSettings = buildApprovalsSettingsData({
-			approvalRequests: [
-				makeDeletionRequest('request-1', 'approved', '2026-05-01T12:00:00Z'),
-				makeDeletionRequest('request-2', 'pending', '2026-05-02T12:00:00Z')
-			]
+		const settings = await loadApprovalsSettings({
+			auth: ctx.auth,
+			audit: ctx.audit,
+			store: createDeletionRequestTestStore(ctx.rawStore!)
 		});
 
-		expect(approvalsSettings).toEqual({
-			sections: {
-				approvals: {
-					activity: {
-						pendingApprovalsCount: 1,
-						approvalRequests: [
-							makeDeletionRequest('request-1', 'approved', '2026-05-01T12:00:00Z'),
-							makeDeletionRequest('request-2', 'pending', '2026-05-02T12:00:00Z')
-						]
-					}
-				}
+		expect(settings.pendingRequests).toEqual([
+			{
+				id: 'newer',
+				status: 'pending',
+				requested_by_email: 'saved@example.test',
+				resource_description: 'Saved description',
+				resource_type: 'personnel',
+				resource_url: '/org/saved/training',
+				created_at: '2026-10-02T10:00:00Z',
+				denial_reason: null
+			},
+			{
+				id: 'older',
+				status: 'pending',
+				requested_by_email: 'saved@example.test',
+				resource_description: 'Saved description',
+				resource_type: 'training_type',
+				resource_url: '/org/saved/training',
+				created_at: '2026-10-01T10:00:00Z',
+				denial_reason: null
 			}
-		});
-		expect('exports' in approvalsSettings.sections).toBe(false);
+		]);
 	});
 });

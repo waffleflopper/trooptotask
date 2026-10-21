@@ -17,6 +17,8 @@
 					'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground',
 				destructive:
 					'bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive-text focus-visible:border-destructive/40 dark:hover:bg-destructive/30',
+				'ghost-destructive':
+					'text-destructive-text hover:bg-destructive/10 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:hover:bg-destructive/20 dark:focus-visible:ring-destructive/40',
 				'destructive-solid':
 					'bg-destructive text-destructive-foreground hover:brightness-90 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/70 dark:hover:bg-destructive/80 dark:focus-visible:ring-destructive/40',
 				link: 'text-primary underline-offset-4 hover:underline',

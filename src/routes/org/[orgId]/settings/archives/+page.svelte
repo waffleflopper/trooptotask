@@ -1,37 +1,99 @@
 <script lang="ts">
 	import { SettingsPageHeader } from '$features/organization';
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
+	import { tick } from 'svelte';
+	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
+	import SearchIcon from '@lucide/svelte/icons/search';
 	import type { PageProps } from './$types';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
+	import * as DataTable from '$lib/components/ui/data-table/index.js';
+	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
+	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import ArchivedPersonnelSettingsSection from '../ArchivedPersonnelSettingsSection.svelte';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
+	import { deletionCountdown } from '../archiveCountdown';
+	import { formatRosterDate, pluralize } from '../settingsWorkspaceFormatters';
+	import type { SettingsArchivedPersonnelRow } from '../settingsSectionTypes';
 
 	let { data }: PageProps = $props();
 
-	const orgId = $derived($page.params.orgId);
-	const archivedPersonnelState = createSettingsArchivedPersonnelState(
-		() => data.archivesSettings.sections.archivedPersonnel
-	);
-	const archivedPersonnelSection = $derived({
-		rows: archivedPersonnelState.rows,
-		retention: archivedPersonnelState.retention,
-		commands: archivedPersonnelState.commands
-	});
+	const orgId = $derived($page.params.orgId ?? '');
+	const archived = createSettingsArchivedPersonnelState(() => data.archivesSettings.sections.archivedPersonnel);
+	const now = new Date();
+	const wide = new MediaQuery('min-width: 48rem', true);
+	const removedIds = new SvelteSet<string>();
+	let search = $state('');
 	let restoring = $state<string | null>(null);
 	let exportingPerson = $state<string | null>(null);
 	let permanentlyDeletingPerson = $state<string | null>(null);
 	const permanentDeleteInFlight = $derived(
-		permanentlyDeletingPerson !== null &&
-			permanentlyDeletingPerson === archivedPersonnelState.confirmPermanentDelete?.id
+		permanentlyDeletingPerson !== null && permanentlyDeletingPerson === archived.confirmPermanentDelete?.id
 	);
+
+	const months = $derived(archived.retention.months);
+	// Retention is one length for the unit, so the oldest archive is always the next to be deleted.
+	const rows = $derived(
+		archived.rows
+			.filter((row) => !removedIds.has(row.id))
+			.toSorted((a, b) => Date.parse(a.archivedAt) - Date.parse(b.archivedAt))
+	);
+	const query = $derived(search.trim().toLowerCase());
+	const matches = (row: SettingsArchivedPersonnelRow) =>
+		!query || [row.displayName, row.mos, row.groupName].some((value) => value?.toLowerCase().includes(query));
+	const shownCount = $derived(query ? rows.filter(matches).length : rows.length);
+	const countdowns = $derived(new Map(rows.map((row) => [row.id, deletionCountdown(row.archivedAt, months, now)])));
+
+	const wideColumns = (
+		[
+			['name', 'Name', undefined],
+			['mos', 'MOS', '4rem'],
+			['group', 'Group', '6.25rem'],
+			['archived', 'Archived', '6rem'],
+			['deletedIn', 'Deleted in', '7.5rem'],
+			['actions', '', '14.75rem']
+		] as const
+	).map(
+		([key, header, width]): ColumnDef<SettingsArchivedPersonnelRow> => ({
+			key,
+			header,
+			width,
+			headerAriaLabel: key === 'actions' ? 'Actions' : undefined,
+			rowHeader: key === 'name',
+			value: () => '',
+			sortable: false,
+			searchable: false
+		})
+	);
+	const narrowColumns = wideColumns.filter((column) => column.key === 'name' || column.key === 'actions');
+	const table = useDataTable<SettingsArchivedPersonnelRow>({
+		data: () => rows,
+		columns: () => (wide.current ? wideColumns : narrowColumns),
+		rowKey: (row) => row.id
+	});
+
+	function rowInFlight(id: string): boolean {
+		return restoring === id || exportingPerson === id;
+	}
+
+	/** The row that takes focus when `id` leaves the list: the next shown row, else the previous, else the heading. */
+	function focusTargetAfter(id: string): () => HTMLElement | null {
+		const shown = rows.filter(matches);
+		const index = shown.findIndex((row) => row.id === id);
+		const neighbor = shown[index + 1] ?? shown[index - 1];
+		return () =>
+			(neighbor ? document.getElementById(`restore-${neighbor.id}`) : null) ??
+			document.getElementById('archived-people-heading');
+	}
 
 	async function handleRestore(id: string) {
 		restoring = id;
@@ -48,7 +110,11 @@
 				toastStore.error(errData.message ?? 'Failed to restore');
 				return;
 			}
+			const focusTarget = focusTargetAfter(id);
+			removedIds.add(id);
 			toastStore.success('Personnel restored to active status');
+			await tick();
+			focusTarget()?.focus();
 			await invalidateAll();
 		} catch {
 			toastStore.error('Failed to restore personnel');
@@ -60,7 +126,6 @@
 	async function handlePermanentDelete(id: string) {
 		if (permanentlyDeletingPerson === id) return;
 		permanentlyDeletingPerson = id;
-		const index = archivedPersonnelState.rows.findIndex((row) => row.id === id);
 		try {
 			const res = await withinOrganizationLifetime(
 				fetch(`/org/${orgId}/api/personnel/permanent`, {
@@ -70,16 +135,12 @@
 				})
 			);
 			if (!res.ok) throw new Error();
+			const focusTarget = focusTargetAfter(id);
+			removedIds.add(id);
 			toastStore.success('Personnel permanently deleted');
-			archivedPersonnelState.clearPermanentDeleteConfirmation();
+			archived.clearPermanentDeleteConfirmation();
+			focusAfterDialogCloses(focusTarget);
 			await invalidateAll();
-			focusAfterDialogCloses(() => {
-				const rows = document.querySelectorAll('[aria-label="Archived personnel records"] tbody tr');
-				return (
-					(rows[index] ?? rows[index - 1])?.querySelector('button') ??
-					document.getElementById('archived-records-heading')
-				);
-			});
 		} catch {
 			toastStore.error('Failed to permanently delete');
 		} finally {
@@ -108,29 +169,128 @@
 
 <SettingsPageHeader
 	page="archives"
-	subtitle={`People who left ${unit}. Their records wait here for ${archivedPersonnelSection.retention.months} months, then delete themselves. Restore anyone who comes back, exactly as they left.`}
+	subtitle={`People who left ${unit}. Their records wait here for ${months} months, then delete themselves. Restore anyone who comes back, exactly as they left.`}
 />
 
-<ArchivedPersonnelSettingsSection
-	section={archivedPersonnelSection}
-	{restoring}
-	{exportingPerson}
-	onRestore={handleRestore}
-	onExport={handlePersonnelExport}
-	onConfirmPermanentDelete={(person) => archivedPersonnelState.openPermanentDeleteConfirmation(person)}
-/>
+<section aria-labelledby="archived-people-heading">
+	<PageShell.SectionHeader
+		id="archived-people-heading"
+		tabindex={-1}
+		title="Archived people"
+		detail={`${rows.length} ${pluralize('record', rows.length)} · ${months}-month retention`}
+		size="compact"
+		ruled
+	>
+		{#snippet action()}
+			<div class="w-full md:w-55">
+				<InputGroup.Root>
+					<InputGroup.Addon>
+						<SearchIcon aria-hidden="true" />
+					</InputGroup.Addon>
+					<InputGroup.Input
+						type="search"
+						bind:value={search}
+						placeholder="Search archived"
+						aria-label="Search archived people"
+					/>
+				</InputGroup.Root>
+			</div>
+		{/snippet}
+	</PageShell.SectionHeader>
+	{#if query}
+		<p class="sr-only" role="status">{shownCount} of {rows.length} archived people shown</p>
+	{/if}
 
-{#if archivedPersonnelState.confirmPermanentDelete}
+	<DataTable.DataTable
+		{table}
+		variant="editorial"
+		ariaLabel="Archived personnel records"
+		emptyMessage={query ? `No archived people match "${search.trim()}".` : 'No one is archived.'}
+		stickyHeader={false}
+		cell={archiveCell}
+		rowHidden={(row) => !matches(row)}
+	/>
+
+	<div class="flex items-center gap-2 py-3.5">
+		<p class="flex-1 font-mono text-xs leading-5 text-muted-foreground">Retention is set in Policies.</p>
+		<a
+			class="text-sm font-medium underline underline-offset-4"
+			href={resolve('/org/[orgId]/settings/policies', { orgId })}
+		>
+			Change retention
+		</a>
+	</div>
+</section>
+
+{#snippet countdown(row: SettingsArchivedPersonnelRow)}
+	{@const left = countdowns.get(row.id)!}
+	<div class="grid w-30 gap-1">
+		<span class="font-mono text-xs leading-5 {left.soon ? 'font-semibold text-warning-foreground' : ''}">
+			{left.label}
+		</span>
+		<div class="flex h-[3px] overflow-hidden rounded-[2px] bg-border" aria-hidden="true">
+			<div class={left.soon ? 'bg-warning' : 'bg-chart-5'} style:width={`${Math.round(left.elapsed * 100)}%`}></div>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet archiveCell(row: SettingsArchivedPersonnelRow, column: ColumnDef<SettingsArchivedPersonnelRow>)}
+	{#if column.key === 'name'}
+		<span class="font-semibold whitespace-normal">{row.displayName}</span>
+		{#if !wide.current}
+			<p class="mt-0.5 font-mono text-xs whitespace-normal text-muted-foreground">
+				{[row.mos, row.groupName, `Archived ${formatRosterDate(row.archivedAt)}`].filter(Boolean).join(' · ')}
+			</p>
+			<div class="mt-1.5">{@render countdown(row)}</div>
+		{/if}
+	{:else if column.key === 'mos'}
+		<span class="font-mono text-xs">{row.mos || '--'}</span>
+	{:else if column.key === 'group'}
+		<span class="font-mono text-xs whitespace-normal text-muted-foreground">{row.groupName || '--'}</span>
+	{:else if column.key === 'archived'}
+		<span class="font-mono text-xs text-muted-foreground">{formatRosterDate(row.archivedAt)}</span>
+	{:else if column.key === 'deletedIn'}
+		{@render countdown(row)}
+	{:else if column.key === 'actions'}
+		<div class="flex flex-col items-end gap-1 md:flex-row md:justify-end">
+			<Button
+				id="restore-{row.id}"
+				variant="outline"
+				onclick={() => handleRestore(row.id)}
+				disabled={!archived.commands.canRestore || rowInFlight(row.id)}
+			>
+				{#if restoring === row.id}<Spinner />{/if}
+				Restore <span class="sr-only">{row.displayName}</span>
+			</Button>
+			<Button
+				variant="ghost"
+				onclick={() => handlePersonnelExport(row.id, row.exportFileStem)}
+				disabled={!archived.commands.canExport || rowInFlight(row.id)}
+			>
+				{exportingPerson === row.id ? 'Exporting...' : 'Export'} <span class="sr-only">{row.displayName}</span>
+			</Button>
+			<Button
+				variant="ghost-destructive"
+				onclick={() => archived.openPermanentDeleteConfirmation(row)}
+				disabled={!archived.commands.canPermanentlyDelete || rowInFlight(row.id)}
+			>
+				Delete <span class="sr-only">{row.displayName}</span>
+			</Button>
+		</div>
+	{/if}
+{/snippet}
+
+{#if archived.confirmPermanentDelete}
 	<AppDialog.Root
-		open={Boolean(archivedPersonnelState.confirmPermanentDelete)}
+		open={Boolean(archived.confirmPermanentDelete)}
 		busy={permanentDeleteInFlight}
-		onClose={() => archivedPersonnelState.clearPermanentDeleteConfirmation()}
+		onClose={() => archived.clearPermanentDeleteConfirmation()}
 	>
 		<AppDialog.Content>
 			<AppDialog.Header>
 				<AppDialog.Title>Permanently Delete Personnel</AppDialog.Title>
 				<AppDialog.Description>
-					Permanently delete {archivedPersonnelState.confirmPermanentDelete.name}. This action cannot be undone.
+					Permanently delete {archived.confirmPermanentDelete.name}. This action cannot be undone.
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
@@ -139,7 +299,7 @@
 					<Input
 						id="confirmPermanentDeletePersonnel"
 						type="text"
-						bind:value={archivedPersonnelState.permanentDeleteConfirmText}
+						bind:value={archived.permanentDeleteConfirmText}
 						autocomplete="off"
 					/>
 				</Field.Root>
@@ -149,13 +309,13 @@
 					type="button"
 					variant="outline"
 					disabled={permanentDeleteInFlight}
-					onclick={() => archivedPersonnelState.clearPermanentDeleteConfirmation()}>Cancel</Button
+					onclick={() => archived.clearPermanentDeleteConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="button"
 					variant="destructive"
-					disabled={permanentDeleteInFlight || !archivedPersonnelState.permanentDeleteConfirmMatches}
-					onclick={() => handlePermanentDelete(archivedPersonnelState.confirmPermanentDelete!.id)}
+					disabled={permanentDeleteInFlight || !archived.permanentDeleteConfirmMatches}
+					onclick={() => handlePermanentDelete(archived.confirmPermanentDelete!.id)}
 				>
 					{permanentDeleteInFlight ? 'Deleting...' : 'Permanently Delete'}
 				</Button>

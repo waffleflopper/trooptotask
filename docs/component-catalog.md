@@ -987,7 +987,7 @@ Consumers: confirmations in Calendar, Critical Tasks, Onboarding, Personnel, Rat
 
 ## `ui/button`
 
-Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `destructive-solid`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `ghost-destructive` (a text button in `text-destructive-text` with no fill until hover, for a destructive action beside quieter ones, such as Delete in an Archives row or Clear month in the Calendar planner column menu), `destructive-solid`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
 
 Use `variant="destructive-solid"` only for the action that permanently destroys a unit or its data, such as Danger zone `Delete unit…` and the `Delete permanently` confirmation. Every other destructive action keeps the soft `destructive` tint.
 

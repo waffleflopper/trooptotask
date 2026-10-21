@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SettingsArchivesSectionData } from '../settingsSectionTypes';
@@ -23,6 +23,7 @@ import { endOrganizationLifetime } from '$lib/stores/core';
 
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	invalidateAllMock.mockReset();
 	toastError.mockReset();
@@ -49,6 +50,90 @@ const archivesSettings: SettingsArchivesSectionData = {
 	commands: { canRestore: true, canExport: true, canPermanentlyDelete: true }
 };
 
+function person(id: string, displayName: string, archivedAt: string, mos: string, groupName: string) {
+	const [rank, rest] = [displayName.split(' ')[0], displayName.slice(displayName.indexOf(' ') + 1)];
+	const [lastName, firstName] = rest.split(', ');
+	return {
+		id,
+		rank,
+		firstName,
+		lastName,
+		mos,
+		groupName,
+		archivedAt,
+		groupId: null,
+		displayName,
+		exportFileStem: id
+	};
+}
+
+function renderRoster() {
+	const rows = [
+		person('ortiz', 'SGT Ortiz, Daniela', '2025-06-18T04:00:00.000Z', '91B', 'Maint PLT'),
+		person('lane', 'SPC Lane, Marcus', '2024-11-02T04:00:00.000Z', '92Y', '2nd PLT'),
+		person('silva', 'PV2 Silva, Ana', '2026-08-22T04:00:00.000Z', '88M', '1st PLT')
+	];
+	return render(Page, {
+		props: {
+			data: {
+				archivesSettings: {
+					sections: { archivedPersonnel: { ...archivesSettings, rows, retention: { months: 24, purgeSummary: '' } } }
+				}
+			}
+		} as never
+	});
+}
+
+function bodyRows() {
+	return screen.getAllByRole('row', { hidden: true }).slice(1);
+}
+
+describe('Archived personnel countdown', () => {
+	it('lists the next deletion first and counts each person down to their automatic deletion', () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-19T12:00:00Z'));
+		renderRoster();
+
+		expect(screen.getByText('3 records · 24-month retention')).toBeTruthy();
+		expect(bodyRows().map((row) => within(row).getByRole('rowheader').textContent?.trim())).toEqual([
+			'SPC Lane, Marcus',
+			'SGT Ortiz, Daniela',
+			'PV2 Silva, Ana'
+		]);
+		expect(bodyRows().map((row) => within(row).getAllByRole('cell')[3].textContent?.trim())).toEqual([
+			'14 days',
+			'8 months',
+			'22 months'
+		]);
+		expect(screen.getByRole('link', { name: 'Change retention' }).getAttribute('href')).toBe(
+			'/org/org-1/settings/policies'
+		);
+	});
+
+	it('hides the people a search does not match and keeps their rows mounted', async () => {
+		renderRoster();
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search archived people' }), {
+			target: { value: 'maint' }
+		});
+
+		expect(bodyRows().map((row) => row.hidden)).toEqual([true, false, true]);
+		expect(screen.getByRole('status').textContent).toBe('1 of 3 archived people shown');
+	});
+
+	it('removes a restored person at once and moves focus to the next row', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+		renderRoster();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Restore SPC Lane, Marcus' }));
+
+		await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Personnel restored to active status'));
+		expect(screen.queryByText('SPC Lane, Marcus')).toBeNull();
+		expect(screen.getByText('2 records · 24-month retention')).toBeTruthy();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Restore SGT Ortiz, Daniela' }));
+		expect(invalidateAllMock).toHaveBeenCalledOnce();
+	});
+});
+
 describe('Archived personnel permanent delete', () => {
 	it('keeps the typed name when the delete is rejected', async () => {
 		const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 500 }));
@@ -57,7 +142,7 @@ describe('Archived personnel permanent delete', () => {
 			props: { data: { archivesSettings: { sections: { archivedPersonnel: archivesSettings } } } } as never
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete SGT Rivera, Monica' }));
 		const confirmation = (await screen.findByLabelText('Type the name to confirm')) as HTMLInputElement;
 		await fireEvent.input(confirmation, { target: { value: 'SGT Rivera, Monica' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Permanently Delete' }));
@@ -72,10 +157,16 @@ describe('Archived personnel permanent delete', () => {
 		expect(invalidateAllMock).not.toHaveBeenCalled();
 	});
 	it.each([
-		{ remaining: 0, focused: () => screen.getByRole('heading', { name: 'Archived Records' }) },
-		{ remaining: 1, focused: () => screen.getAllByRole('button', { name: 'Restore' })[0] }
+		{ remaining: 0, focused: () => screen.getByRole('heading', { name: 'Archived people' }).closest('header') },
+		{ remaining: 1, focused: () => screen.getByRole('button', { name: 'Restore SGT Chen, Lee' }) }
 	])('moves focus to a stable target after deleting a row leaves $remaining rows', async ({ remaining, focused }) => {
-		const second = { ...archivesSettings.rows[0], id: 'person-2', lastName: 'Chen', firstName: 'Lee' };
+		const second = {
+			...archivesSettings.rows[0],
+			id: 'person-2',
+			lastName: 'Chen',
+			firstName: 'Lee',
+			displayName: 'SGT Chen, Lee'
+		};
 		const dataWith = (rows: typeof archivesSettings.rows) =>
 			({ archivesSettings: { sections: { archivedPersonnel: { ...archivesSettings, rows } } } }) as never;
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
@@ -84,7 +175,7 @@ describe('Archived personnel permanent delete', () => {
 		});
 		invalidateAllMock.mockImplementation(() => view.rerender({ data: dataWith(remaining === 0 ? [] : [second]) }));
 
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete SGT Rivera, Monica' }));
 		const confirmation = (await screen.findByLabelText('Type the name to confirm')) as HTMLInputElement;
 		await fireEvent.input(confirmation, { target: { value: 'SGT Rivera, Monica' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Permanently Delete' }));
@@ -102,19 +193,23 @@ describe('Archived personnel permanent delete', () => {
 			props: { data: { archivesSettings: { sections: { archivedPersonnel: archivesSettings } } } } as never
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Restore SGT Rivera, Monica' }));
 
 		for (const name of [/Restore/, /Export/, /Delete/]) {
 			expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
 		}
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete SGT Rivera, Monica' }));
 		expect(screen.queryByRole('dialog')).toBeNull();
 
 		respond(new Response(null, { status: 500 }));
 		await waitFor(() =>
-			expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false)
+			expect((screen.getByRole('button', { name: 'Delete SGT Rivera, Monica' }) as HTMLButtonElement).disabled).toBe(
+				false
+			)
 		);
-		expect((screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement).disabled).toBe(false);
+		expect((screen.getByRole('button', { name: 'Export SGT Rivera, Monica' }) as HTMLButtonElement).disabled).toBe(
+			false
+		);
 	});
 });
 
@@ -136,7 +231,7 @@ describe('Archived personnel actions after leaving the Organization', () => {
 		['failure', () => Response.json({ message: 'Restore denied' }, { status: 403 })]
 	] as const)('reports nothing when a restore %s finishes after the shell ends', async (_outcome, response) => {
 		const respond = heldFetch();
-		await fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Restore SGT Rivera, Monica' }));
 
 		endOrganizationLifetime();
 		respond(response());
@@ -154,7 +249,7 @@ describe('Archived personnel actions after leaving the Organization', () => {
 		'reports nothing when a permanent delete %s finishes after the shell ends',
 		async (_outcome, response) => {
 			const respond = heldFetch();
-			await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Delete SGT Rivera, Monica' }));
 			await fireEvent.input(await screen.findByLabelText('Type the name to confirm'), {
 				target: { value: 'SGT Rivera, Monica' }
 			});
@@ -172,14 +267,14 @@ describe('Archived personnel actions after leaving the Organization', () => {
 
 	it('still downloads a requested export but reports no late export failure', async () => {
 		const respondSaved = heldFetch();
-		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Export SGT Rivera, Monica' }));
 		endOrganizationLifetime();
 		respondSaved(new Response('workbook', { status: 200 }));
 		await waitFor(() => expect(saveDownload).toHaveBeenCalledWith(expect.anything(), 'rivera-monica-records.xlsx'));
 		cleanup();
 
 		const respondFailed = heldFetch();
-		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Export SGT Rivera, Monica' }));
 		endOrganizationLifetime();
 		respondFailed(new Response(null, { status: 503 }));
 		await new Promise((resolve) => setTimeout(resolve, 0));

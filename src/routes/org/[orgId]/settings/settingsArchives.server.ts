@@ -62,7 +62,11 @@ export function buildArchivesSettingsData(
 ): ArchivesSettingsData {
 	const isOwner = ctx.auth.role === 'owner';
 	const canManageMembers = ctx.auth.canManageMembers;
-	const archiveRetentionMonths = input.archiveRetentionMonths ?? DEFAULT_ARCHIVE_RETENTION_MONTHS;
+	// The cleanup run reads a missing or non-positive retention as the default, so the countdown does too.
+	const archiveRetentionMonths =
+		input.archiveRetentionMonths && input.archiveRetentionMonths > 0
+			? input.archiveRetentionMonths
+			: DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	const rows = input.archivedPersonnel.map(shapeArchivedPersonnelRow);
 
 	return {

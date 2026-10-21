@@ -5,10 +5,6 @@ import { loadSettingsPage } from '../settingsLoad.server';
 import { createSettingsApprovalsContext } from '../settingsRequestContexts.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, createSettingsApprovalsContext, async (ctx) => ({
-		approvalsSettings: await loadApprovalsSettings({
-			auth: ctx.auth,
-			audit: ctx.audit,
-			store: createRequestDeletionRequestStore(event.locals)
-		})
-	}));
+	loadSettingsPage(event, createSettingsApprovalsContext, async (ctx) =>
+		loadApprovalsSettings({ auth: ctx.auth, audit: ctx.audit, store: createRequestDeletionRequestStore(event.locals) })
+	);

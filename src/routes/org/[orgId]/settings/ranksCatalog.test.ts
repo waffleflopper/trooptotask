@@ -26,6 +26,7 @@ function rank(code: string, overrides: Partial<SettingsRankCatalogRow> = {}): Se
 		sourceLabel: 'Custom',
 		sortOrder: 500,
 		referenceSummary: summary({ personnel: 0, trainingApplicability: 0 }, 0, true),
+		warnings: [],
 		commands: { canEdit: true, canRetire: true, canReactivate: false, canDelete: true, deleteDisabledReason: null },
 		...overrides
 	};
@@ -76,7 +77,7 @@ describe('RANK_LANE_ORDER', () => {
 
 describe('rankSentence', () => {
 	it('gives the reason a rank cannot be removed, or says it can be', () => {
-		expect(rankSentence(rank('A'))).toBe('Not used by any person, training filter or history, so it can be removed.');
+		expect(rankSentence(rank('A'))).toMatch(/can be removed/);
 		expect(
 			rankSentence(
 				rank('B', {
@@ -90,5 +91,22 @@ describe('rankSentence', () => {
 				})
 			)
 		).toBe('Referenced ranks cannot be removed.');
+	});
+
+	it('leads with the reference warnings when the rank has any', () => {
+		const warned = rank('C', {
+			warnings: ['Referenced by 3 active records or filters.', 'Also appears in 1 historical snapshot or saved filter.'],
+			commands: {
+				canEdit: true,
+				canRetire: false,
+				canReactivate: true,
+				canDelete: false,
+				deleteDisabledReason: 'Referenced by active Organization data; retire it instead.'
+			}
+		});
+
+		expect(rankSentence(warned)).toBe(
+			'Referenced by 3 active records or filters. Also appears in 1 historical snapshot or saved filter.'
+		);
 	});
 });

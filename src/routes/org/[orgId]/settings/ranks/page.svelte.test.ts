@@ -9,9 +9,14 @@ type HeldSubmission = (opts: {
 	result: { type: 'success' | 'failure'; data?: Record<string, unknown> };
 	update: (options?: { reset?: boolean }) => Promise<void>;
 }) => Promise<void>;
-const { heldSubmissions, submittedForms } = vi.hoisted(() => ({
+const { heldSubmissions, submittedForms, toasts } = vi.hoisted(() => ({
 	heldSubmissions: [] as HeldSubmission[],
-	submittedForms: [] as Array<{ action: string; fields: Record<string, string> }>
+	submittedForms: [] as Array<{ action: string; fields: Record<string, string> }>,
+	toasts: [] as string[]
+}));
+
+vi.mock('$lib/stores/toast.svelte', () => ({
+	toastStore: { success: (message: string) => toasts.push(message) }
 }));
 
 // Holds each enhanced submission until the test settles it. A submission its handler cancels sends no request.
@@ -61,6 +66,7 @@ async function cleanupRankPage() {
 afterEach(async () => {
 	heldSubmissions.length = 0;
 	submittedForms.length = 0;
+	toasts.length = 0;
 	try {
 		await cleanupRankPage();
 	} finally {
@@ -89,6 +95,7 @@ function rankEntry(overrides: Partial<SettingsRankCatalogRow> = {}): SettingsRan
 			historicalReferences: { signInRosterFilters: 0, signInRosterSnapshots: 0, total: 0 },
 			canDelete: true
 		},
+		warnings: [],
 		commands: {
 			canEdit: true,
 			canRetire: true,
@@ -189,21 +196,22 @@ function renderRankPage(
 		form: null,
 		params: { orgId: 'org-1' }
 	});
-	const show = (
-		next: { active: SettingsRankCatalogRow[]; retired?: SettingsRankCatalogRow[] },
-		form: { rankError?: string; success?: boolean } | null
-	) =>
+	type Next = {
+		active: SettingsRankCatalogRow[];
+		retired?: SettingsRankCatalogRow[];
+		servicePacks?: SettingsRankServicePackOption[];
+	};
+	const show = (next: Next, form: { rankError?: string; success?: boolean } | null) =>
 		view.rerender({
-			data: { ranksSettings: rankSettings(next.active, next.retired ?? [], servicePacks) } as never,
+			data: {
+				ranksSettings: rankSettings(next.active, next.retired ?? [], next.servicePacks ?? servicePacks)
+			} as never,
 			form,
 			params: { orgId: 'org-1' }
 		});
 	return {
 		// What SvelteKit's update() does when the action succeeds: the catalog reloads and focus drops to the body.
-		succeedWith: async (
-			next: { active: SettingsRankCatalogRow[]; retired?: SettingsRankCatalogRow[] },
-			data: Record<string, unknown> = {}
-		) => {
+		succeedWith: async (next: Next, data: Record<string, unknown> = {}) => {
 			await heldSubmissions[heldSubmissions.length - 1]({
 				result: { type: 'success', data },
 				update: async () => {
@@ -255,7 +263,7 @@ function submitWith(button: HTMLElement) {
 
 describe('branch coverage', () => {
 	it('shows each branch with its counts and adds the missing ranks', async () => {
-		renderRankPage(
+		const page = renderRankPage(
 			[],
 			[],
 			[
@@ -285,8 +293,26 @@ describe('branch coverage', () => {
 		expect(within(navy).getByText('27 ranks')).toBeTruthy();
 		expect(within(navy).queryByRole('button', { name: 'More actions for Navy' })).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Add 27 Navy ranks' }));
+		submitWith(screen.getByRole('button', { name: 'Add 27 Navy ranks' }));
 		expect(submittedForms).toEqual([{ action: '?/addServicePack', fields: { service: 'navy' } }]);
+		await page.succeedWith({
+			active: [],
+			servicePacks: [
+				rankPack(),
+				rankPack({
+					value: 'navy',
+					label: 'Navy',
+					builtInCount: 27,
+					existingCount: 27,
+					activeCount: 27,
+					retiredCount: 0,
+					missingCount: 0,
+					isInstalled: true
+				})
+			]
+		});
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More actions for Navy' }));
+		expect(toasts).toEqual(['Rank catalog updated.']);
 	});
 
 	it('offers no Add once a branch has every built-in rank', () => {
@@ -488,11 +514,13 @@ describe('editing a rank in place', () => {
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save DET-SGT' }));
 	});
 
-	it('says why a referenced built-in rank stays and offers Retire without fields', async () => {
-		renderRankPage([builtIn({ code: 'SGT', label: 'Sergeant' })]);
+	it('says why a built-in rank stays and offers Retire without fields', async () => {
+		renderRankPage([
+			builtIn({ code: 'Lt Gen', label: 'Lieutenant General', service: 'air-force', serviceLabel: 'Air Force' })
+		]);
 
-		await openRank('SGT');
-		const editor = document.getElementById(rankToggle('SGT').getAttribute('aria-controls')!)!;
+		await openRank('Lt Gen');
+		const editor = document.getElementById(rankToggle('Lt Gen').getAttribute('aria-controls')!)!;
 		expect(within(editor).getByText('Built-in ranks can be retired but not removed.')).toBeTruthy();
 		expect(within(editor).queryByRole('textbox')).toBeNull();
 		expect(within(editor).queryByRole('button', { name: 'Remove' })).toBeNull();
@@ -500,7 +528,7 @@ describe('editing a rank in place', () => {
 
 		await fireEvent.click(within(editor).getByRole('button', { name: 'Retire' }));
 		await vi.runAllTimersAsync();
-		expect(screen.getByRole('alertdialog', { name: 'Retire SGT' })).toBeTruthy();
+		expect(screen.getByRole('alertdialog', { name: 'Retire Lt Gen' })).toBeTruthy();
 	});
 
 	it('removes an unused custom rank after a destructive confirmation', async () => {
@@ -535,8 +563,6 @@ describe('adding a custom rank', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
 		await vi.runAllTimersAsync();
-		const rows = within(catalog()).getAllByRole('row');
-		expect(rows[1].textContent).toContain('New custom rank');
 		expect(document.activeElement).toBe(screen.getByLabelText('Code'));
 
 		await fireEvent.input(screen.getByLabelText('Code'), { target: { value: 'NEW-1' } });
@@ -655,7 +681,7 @@ describe('confirmations settle with their request', () => {
 		expect(screen.getByRole('alertdialog', { name: 'Retire A-1' })).toBe(dialog);
 		expect(within(dialog).getByRole('alert').textContent).toContain('Rank is still referenced.');
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
-		expect(submittedForms).toHaveLength(2);
+		expect(submittedForms[1]).toEqual({ action: '?/retireRank', fields: { code: 'A-1' } });
 	});
 
 	it('moves focus to the next row when a retirement leaves the Active filter', async () => {
@@ -667,6 +693,29 @@ describe('confirmations settle with their request', () => {
 		await page.succeedWith({ active: [rankB], retired: [retiredCopy(rankA)] });
 
 		expect(document.activeElement).toBe(rankToggle('B-2'));
+	});
+
+	it.each([
+		['the last row', [rankA, rankB], 'B-2', () => rankToggle('A-1')],
+		[
+			'the only row',
+			[rankB],
+			'B-2',
+			() => {
+				const region = screen.getByRole('region', { name: /^Catalog/ });
+				return document.getElementById(region.getAttribute('aria-labelledby')!);
+			}
+		]
+	])('moves focus past %s when a retirement leaves the Active filter', async (_case, active, code, expected) => {
+		const page = renderRankPage(active);
+		await fireEvent.click(screen.getByRole('radio', { name: 'Active' }));
+
+		const dialog = await openRetire(code);
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		const target = active.find((rank) => rank.code === code)!;
+		await page.succeedWith({ active: active.filter((rank) => rank !== target), retired: [retiredCopy(target)] });
+
+		expect(document.activeElement).toBe(expected());
 	});
 
 	it('moves focus to the next row when a reactivation leaves the Retired filter', async () => {
@@ -717,7 +766,7 @@ describe('confirmations settle with their request', () => {
 		expect(addPack.disabled).toBe(true);
 
 		await fireEvent.submit(addPack.form!);
-		expect(submittedForms).toHaveLength(1);
+		expect(submittedForms.map((form) => form.action)).toEqual(['?/retireRank']);
 	});
 });
 

@@ -65,6 +65,8 @@ export type SettingsRankCatalogRow = {
 	sourceLabel: string;
 	sortOrder: number;
 	referenceSummary: OrganizationRankCatalogReferenceSummary;
+	/** What the rank's references mean for removing it, one sentence each. */
+	warnings: string[];
 	commands: {
 		canEdit: boolean;
 		canRetire: boolean;

@@ -4,14 +4,16 @@
 		RANK_ALREADY_EXISTS_MESSAGE,
 		RANK_CODE_REQUIRED_MESSAGE,
 		RANK_LABEL_REQUIRED_MESSAGE,
+		RANK_TIE_BREAK_MAX,
+		RANK_TIE_BREAK_MIN,
 		RANK_TIE_BREAK_RANGE_MESSAGE,
 		RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
 	} from '$features/personnel/contracts';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { tick } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
-	import { MediaQuery } from 'svelte/reactivity';
 	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { restoreFocus } from '$lib/utils/settleAction';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -74,7 +76,7 @@
 		form
 	}: {
 		ranksSettings: RanksSettingsData;
-		form: { [key: string]: unknown; rankError?: string; success?: boolean } | null;
+		form: { [key: string]: unknown; rankError?: string } | null;
 	} = $props();
 
 	let savingAction = $state<string | null>(null);
@@ -92,11 +94,9 @@
 	let pendingRankRetire = $state<SettingsRankCatalogRow | null>(null);
 	let pendingRankDelete = $state<SettingsRankCatalogRow | null>(null);
 
-	const wide = new MediaQuery('min-width: 48rem', true);
 	const ranks = $derived(ranksSettings.sections.ranks);
 	const canManage = $derived(ranks.commands.canManageCatalog);
 	const rankError = $derived(typeof form?.rankError === 'string' ? form.rankError : null);
-	const actionSucceeded = $derived(Boolean(form?.success));
 	const branchFilterOptions = $derived([{ value: 'all' as const, label: 'All branches' }, ...ranks.options.services]);
 
 	const allRanks = $derived([...ranks.entries.active, ...ranks.entries.retired]);
@@ -117,7 +117,7 @@
 	);
 	const rankErrorField = $derived(rankError ? (RANK_FIELD_ERRORS.get(rankError) ?? null) : null);
 
-	const wideColumns = (
+	const columns = (
 		[
 			['rank', 'Rank', undefined],
 			['branch', 'Branch', '6.875rem'],
@@ -141,11 +141,10 @@
 			searchable: false
 		})
 	);
-	const narrowColumns = wideColumns.filter((column) => column.key === 'rank' || column.key === 'actions');
 
 	const catalogTable = useDataTable<CatalogRow>({
 		data: () => catalogRows,
-		columns: () => (wide.current ? wideColumns : narrowColumns),
+		columns,
 		initialSortKey: 'rank',
 		rowKey: (row) => (row.kind === 'new' ? 'new-rank' : `rank-${row.rank.code}`)
 	});
@@ -261,6 +260,7 @@
 					settleSubmission?.(succeeded);
 					settleSubmission = null;
 				}
+				if (succeeded) toastStore.success('Rank catalog updated.');
 				const savedCode = succeeded && typeof result.data?.code === 'string' ? result.data.code : null;
 				if (focusAfter) {
 					await focusAfter(succeeded, savedCode);
@@ -466,12 +466,6 @@
 </script>
 
 <div class="grid gap-10">
-	{#if actionSucceeded}
-		<Alert.Root variant="success">
-			<Alert.Description>Rank catalog updated.</Alert.Description>
-		</Alert.Root>
-	{/if}
-
 	{#if rankError && rankErrorScope === 'global' && !confirmFailed}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{rankError}</Alert.Description>
@@ -504,7 +498,7 @@
 						<span class="h-1.5 w-2.5 rounded-full bg-muted-foreground" aria-hidden="true"></span>Retired
 					</li>
 					<li class="flex items-center gap-1.5">
-						<span class="h-1.5 w-2.5 rounded-full bg-border" aria-hidden="true"></span>Missing
+						<span class="h-1.5 w-2.5 rounded-full bg-input" aria-hidden="true"></span>Missing
 					</li>
 				</ul>
 			{/snippet}
@@ -518,7 +512,7 @@
 				>
 					<h3 class="text-sm {added ? 'font-semibold' : 'text-muted-foreground'}">{pack.label}</h3>
 					<div
-						class="col-span-2 row-start-2 flex h-1.5 overflow-hidden rounded-full bg-border md:col-span-1 md:row-start-auto"
+						class="col-span-2 row-start-2 flex h-1.5 overflow-hidden rounded-full bg-input md:col-span-1 md:row-start-auto"
 						role="img"
 						aria-label={`${pack.label}: ${pack.activeCount} active, ${pack.retiredCount} retired, ${pack.missingCount} missing of ${pack.builtInCount} built-in ranks`}
 					>
@@ -659,6 +653,7 @@
 			<DataTable.DataTable
 				table={catalogTable}
 				variant="editorial"
+				stacked
 				ariaLabel="Organization ranks"
 				emptyMessage={emptyFilterMessage}
 				stickyHeader={false}
@@ -742,13 +737,6 @@
 				<span class="min-w-18 shrink-0 font-mono text-[13px] font-semibold">{entry.code}</span>
 				<span class="min-w-0">{entry.label}</span>
 			</button>
-			{#if !wide.current}
-				<p class="mt-0.5 font-mono text-xs whitespace-normal text-muted-foreground">
-					{entry.serviceLabel} · {entry.payGradeLabel} · {entry.sourceLabel} · {inUse.text} · {retired
-						? 'Retired'
-						: 'Active'}
-				</p>
-			{/if}
 		{:else if column.key === 'branch'}
 			<span class="font-mono text-xs text-muted-foreground">{entry.serviceLabel}</span>
 		{:else if column.key === 'grade'}
@@ -808,8 +796,8 @@
 				class={[
 					'grid gap-3',
 					isNew
-						? 'md:grid-cols-[8rem_minmax(0,1fr)_8.125rem_7rem_5rem]'
-						: 'md:grid-cols-[minmax(0,1fr)_8.125rem_7rem_5rem]'
+						? '@2xl/data-table:grid-cols-[8rem_minmax(0,1fr)_8.125rem_7rem_5rem]'
+						: '@2xl/data-table:grid-cols-[minmax(0,1fr)_8.125rem_7rem_5rem]'
 				]}
 				use:enhance={enhancedForm(key, {
 					focusAfter: saveFocus(isNew ? { kind: 'new' } : { kind: 'rank', code: entry.code }, () =>
@@ -876,11 +864,14 @@
 						name="sortOrder"
 						type="number"
 						value={entry?.sortOrder ?? 500}
+						min={RANK_TIE_BREAK_MIN}
+						max={RANK_TIE_BREAK_MAX}
+						step="1"
 						aria-describedby={`${domId}-tie-break-help`}
 					/>
 					{#if fieldError('sortOrder')}<Field.Error>{fieldError('sortOrder')}</Field.Error>{/if}
 				</Field.Root>
-				<Field.Description id={`${domId}-tie-break-help`} class="md:col-span-full">
+				<Field.Description id={`${domId}-tie-break-help`} class="col-span-full">
 					{ranks.copy.tieBreakHelp}
 				</Field.Description>
 			</form>
@@ -892,11 +883,11 @@
 			</Alert.Root>
 		{/if}
 
-		<div class="flex flex-col gap-2 md:flex-row md:items-center">
+		<div class="flex flex-col gap-2 @2xl/data-table:flex-row @2xl/data-table:items-center">
 			{#if sentence}
 				<p class="flex-1 text-sm text-muted-foreground">{sentence}</p>
 			{/if}
-			<div class="flex flex-wrap items-center justify-end gap-2 md:ml-auto">
+			<div class="flex flex-wrap items-center justify-end gap-2 @2xl/data-table:ml-auto">
 				{#if entry?.commands.canDelete}
 					<Button
 						type="button"

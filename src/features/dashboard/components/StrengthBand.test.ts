@@ -11,14 +11,14 @@ afterEach(cleanup);
 
 const leave = { id: 'leave', name: 'Leave', color: '#aa0000', textColor: '#ffffff', sortOrder: 0 } as StatusType;
 
-/** 42 people across seven groups of six; the first `out` are on Leave today. */
-function band(out: number) {
+/** `size` people spread across seven groups; the first `out` are on Leave today. */
+function band(out: number, size = 42) {
 	const groups = Array.from(
 		{ length: 7 },
 		(_, index) => ({ id: `g${index}`, name: `Group ${index}`, sortOrder: index }) as Group
 	);
 	const personnel = Array.from(
-		{ length: 42 },
+		{ length: size },
 		(_, index) =>
 			({
 				id: `p${index}`,
@@ -71,6 +71,19 @@ describe('BottomLine at counts scale', () => {
 			false
 		]);
 		expect(names.textContent).toContain('SPC Last2, Pat');
+	});
+});
+
+describe('GroupStrength at people scale', () => {
+	it('folds past six groups as it does at counts scale', async () => {
+		render(GroupStrength, { props: { groups: band(3, 21).groups, mode: 'people' } });
+
+		const list = screen.getByRole('list', { name: 'Available by group' });
+		expect(within(list).getAllByRole('listitem')).toHaveLength(5);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'All 7 groups' }));
+
+		expect(within(list).getAllByRole('listitem')).toHaveLength(7);
 	});
 });
 

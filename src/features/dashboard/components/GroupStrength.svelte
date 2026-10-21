@@ -26,17 +26,21 @@
 {/snippet}
 
 {#if total > 0}
-	{#if mode === 'people'}
-		<ul class="flex flex-wrap gap-y-2 border-t border-border pt-3.5" aria-label="Available by group">
-			{#each groups.rows as row (row.id)}
-				<li class="flex min-w-24 flex-1 items-baseline gap-2">
-					<span class="font-heading text-base font-bold tracking-[0.02em] uppercase">{row.name}</span>
-					{@render count(row)}
-				</li>
-			{/each}
-		</ul>
-	{:else}
-		<div class="grid gap-2.5">
+	<div class="grid gap-2.5">
+		{#if mode === 'people'}
+			<ul
+				id="{uid}-groups"
+				class="flex flex-wrap gap-y-2 border-t border-border pt-3.5"
+				aria-label="Available by group"
+			>
+				{#each visible as row (row.id)}
+					<li class="flex min-w-24 flex-1 items-baseline gap-2">
+						<span class="font-heading text-base font-bold tracking-[0.02em] uppercase">{row.name}</span>
+						{@render count(row)}
+					</li>
+				{/each}
+			</ul>
+		{:else}
 			<h3 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{eyebrow}</h3>
 			<ul id="{uid}-groups" class="border-t border-foreground" aria-label="Available by group">
 				{#each visible as row (row.id)}
@@ -54,20 +58,20 @@
 					</li>
 				{/each}
 			</ul>
-			{#if folded}
-				<div>
-					<Button
-						variant="link"
-						size="none"
-						class="underline"
-						aria-expanded={showAll}
-						aria-controls="{uid}-groups"
-						onclick={() => (showAll = !showAll)}
-					>
-						{showAll ? 'Fewer groups' : `All ${total} groups`}
-					</Button>
-				</div>
-			{/if}
-		</div>
-	{/if}
+		{/if}
+		{#if folded}
+			<div>
+				<Button
+					variant="link"
+					size="none"
+					class="underline"
+					aria-expanded={showAll}
+					aria-controls="{uid}-groups"
+					onclick={() => (showAll = !showAll)}
+				>
+					{showAll ? 'Fewer groups' : `All ${total} groups`}
+				</Button>
+			</div>
+		{/if}
+	</div>
 {/if}

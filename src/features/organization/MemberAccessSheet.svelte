@@ -99,7 +99,7 @@
 >
 	{#if member && draft}
 		<Sheet.Content
-			class="w-full gap-0 overflow-y-auto sm:max-w-xl"
+			class="w-full gap-0 overflow-y-auto data-[side=right]:sm:max-w-xl"
 			aria-busy={loading || undefined}
 			showCloseButton={!loading}
 			escapeKeydownBehavior={loading ? 'ignore' : 'close'}

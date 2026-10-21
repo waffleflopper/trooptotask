@@ -16,7 +16,7 @@ export const changelog: ChangelogEntry[] = [
 			'Features also holds the strength floor, 80% by default. Groups with fewer people available than the floor turn amber on the Dashboard.',
 			'Policies explains each number as you type. Change the loss warning window and it shows how many people would be flagged today. Change archive retention and it shows the date of the next deletion.',
 			'On General, rename the unit in place and use Undo if you change your mind. The web address shows the full link and warns you before a change breaks saved bookmarks.',
-			'Ranks shows which ranks each branch is missing and adds them in one click. Click a rank to edit it right under its row. An In use column shows whether anyone holds it.',
+			'Ranks shows how many ranks each branch is missing and adds them in one click. Click a custom rank to edit it right under its row. An In use column shows whether anyone holds a rank.',
 			'On Members, invite someone in one line with their email, role, preset and groups. Manage access shows every area with None, View, Update or Manage, and marks where a member differs from their preset.',
 			'On Approvals, Deny opens a reason field right under the request.',
 			'Archives shows how long until each archived person is deleted. Deletions due within 30 days are amber.',

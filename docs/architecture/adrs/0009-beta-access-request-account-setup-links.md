@@ -1,127 +1,40 @@
-# ADR 0009: Beta Access Request Account Setup Links
-
-Status: Accepted
-Date: 2026-05-18
-
-## Context
-
-### Current-state truth
-
-- TroopToTask uses Supabase Auth as the authentication provider.
-- The beta **Access Request** flow currently approves requests by sending Supabase invite emails with `inviteUserByEmail`.
-- Supabase invite links expire after 24 hours.
-- Many beta recipients use military email addresses, may only check those inboxes during the duty week, and may miss links sent or approved near a weekend.
-- When the link expires, Supabase may already have a partial **User Account**, which makes the recovery path feel like password reset even though the recipient thinks they are still trying to register.
-- `/auth/renew-invite` already provides a self-service escape hatch for approved incomplete requests, but the default approval link still creates avoidable expiry pressure.
-- The legacy `/auth/register` invite-code path no longer has known unused codes in the wild.
-- Follow-up update, 2026-06-01: `/auth/register`, `registration_invites`, and `access_requests.invite_id` were fully removed.
-- Follow-up update, 2026-08-03: **Access Request** approval is no longer always a platform-admin act. Requests bridged from an **Organization Invitation** are auto-approved by the inviting organization owner or admin, and their **Account Setup Link** is issued at invite time. See [ADR 0012](0012-organization-invited-platform-access-auto-approval.md).
-- **Access Requests** exist for beta-period platform access control and cost control by the developer, not as a permanent replacement for organization governance.
-
-### Decision pressure
-
-- The 24-hour Supabase invite expiry blocks practical Friday, Saturday, and Sunday approvals.
-- The recovery flow is unintuitive because recipients do not know whether they have a **User Account**, an expired setup link, or a pending request.
-- Sending temporary passwords would avoid the 24-hour email link but would create worse credential handling and support problems.
-- Future contributors need a clear rule for whether beta entry, **User Account** creation, and **Organization Membership** creation are the same workflow. They are not.
+# ADR 0009: Access Requests and Account Setup Links
 
 ## Decision
 
-- Replace Supabase invite emails as the product-level beta setup mechanism with app-owned **Account Setup Links**.
-- Keep Supabase Auth as the authentication provider.
-- **Access Request** approval creates or renews an app-owned setup token, not a Supabase **User Account**.
-- Store setup tokens only as hashes. Raw setup tokens may appear only in the emailed setup URL.
-- Each approved **Access Request** may have only one active **Account Setup Link** at a time.
-- Creating a fresh setup link revokes any older unused setup links for the same **Access Request**.
-- **Account Setup Links** expire after 14 days.
-- Approved **Access Requests** remain eligible for fresh setup links for 90 days unless closed. Amended 2026-10-12: a platform rescind closes an approved incomplete request, and an invitation-origin approval stops issuing links while none of its invitations is live ([ADR 0012](0012-organization-invited-platform-access-auto-approval.md#failure-and-concurrency-semantics)).
-- When a valid **Account Setup Link** is used, the recipient chooses their own password before TroopToTask creates or activates the Supabase **User Account**.
-- If a Supabase **User Account** already exists for the setup email, completing the **Account Setup Link** activates that existing account and replaces its password with the password entered in the setup form. This keeps overlapping beta access and organization-invite paths on one identity, but the setup page must be treated as an account-credential reset for that email.
-- The Supabase **User Account** should be created with the email already confirmed because the one-time setup link sent to that address is the email-control proof.
-- Completing beta account setup creates only a **User Account**. It does not create an **Organization Member**.
-- Existing **Organization Invitation** and membership acceptance behavior remains a separate organization-governance workflow.
-- `/auth/renew-invite` is the self-service path for fresh **Account Setup Links** when a link expires or is replaced. Issuing a fresh link does not clear a held completion claim.
-- `/auth/request-access` should route duplicate approved-but-incomplete emails into fresh setup delivery instead of creating another pending request.
-- `/auth/register` invite-code registration is deprecated and should not remain a parallel registration system.
-- Cleanup may revoke stale unclaimed setup links. It must retain unresolved claimed links until their provider operation is reconciled; it should not delete **Access Requests** or Supabase **User Accounts** by default.
+- Supabase Auth stays the authentication provider. TroopToTask does not use Supabase invite emails for account setup. It issues its own **Account Setup Links**.
+- Public `/auth/sign-up` redirects to `/auth/request-access`. Platform entry is a reviewed **Access Request**.
+- Approving an **Access Request** issues a setup link. It does not create a Supabase **User Account**.
+- The database stores only the SHA-256 hash of a setup token. The raw token appears only in the emailed URL and cannot be recovered.
+- An **Access Request** has at most one active setup link. Issuing a new link revokes older unclaimed links.
+- A setup link expires after 14 days. An approved request can receive fresh links for 90 days unless it is closed. [ADR 0012](0012-organization-invited-platform-access-auto-approval.md) defines when an invitation-origin approval stops issuing links.
+- The recipient chooses their own password. Only then does TroopToTask create the **User Account**, with the email already confirmed, because the link proves control of the address.
+- If a **User Account** already exists for the email, completing setup activates it and replaces its password. Treat the setup page as a credential reset for that email.
+- Completing setup creates a **User Account** only. It never creates an **Organization Member**. **Organization Invitation** acceptance is a separate workflow.
+- `/auth/renew-invite` sends a fresh link. `/auth/request-access` sends a fresh link instead of a duplicate request when the email already has an approved incomplete request.
+- Cleanup may revoke stale unclaimed links. It never deletes **Access Requests** or **User Accounts** by default.
 
-## Rejected Or Deferred Alternatives
+## Why
 
-- Continue using Supabase invite emails as the product-level approval flow.
-  - Rejected because the 24-hour expiry is too short for the military-email and weekend approval reality.
-- Tell users to use password reset whenever an invite expires.
-  - Rejected because it exposes backend implementation details and confuses users who do not know a partial **User Account** may already exist.
-- Email temporary passwords and force a password change on first sign-in.
-  - Rejected because credentials in email create worse security, support, and cleanup problems than app-owned setup tokens.
-- Create Supabase **User Accounts** at approval time and clean up unclaimed accounts later.
-  - Rejected because account deletion is riskier than deleting setup-link records, and account identity should be created only after valid setup plus password entry.
-- Keep invite-code registration as a long-term parallel path.
-  - Rejected because known legacy invite codes have already been used and the path exists only as old compatibility.
-- Create **Organization Members** during beta access setup.
-  - Rejected because beta platform access, **User Account** activation, and **Organization Membership** are separate domain concepts with different governance rules.
+Supabase invite links expire after 24 hours. Many recipients use military email they check only during the duty week, so weekend approvals expired before anyone opened them. Emailing temporary passwords is worse credential handling. Creating accounts at approval time would force risky account deletion for unclaimed invites.
 
-## Guardrails And Exceptions
+## Held claims
 
-- Do not use Supabase invite email expiry as the product-level beta approval window.
+The one-active-link rule covers one **Access Request**, not password writes for one email. A claimed link can coexist with a fresh link, and two approved requests can share a normalized email. So completing a link first takes an email-scoped claim in the database, before any Supabase Auth write. While any earlier claim for that email is unresolved, no other link for the email can start a password write. A fresh link does not release a held claim.
+
+Each claim carries an attempt ID, written in the claim transaction. The Auth create or password update carries that ID in a metadata marker. A database trigger witnesses the committed Auth write and removes the marker. Reconciling a still-started attempt fences the marker before another password write can begin. A provider response or elapsed time is never proof of a write or a rollback.
+
+- If the witness committed, a valid link for an approved request at the same email finishes identity, profile, request and link tracking without a new password.
+- A witnessed no-write is fenced, and a fresh valid link can then set a password. Reconciliation consumes the fenced source link.
+- The browser receives progress and guidance only. It never receives the witness, the provider identity or staff-release authority.
+
+The database forbids changing the email of an approved request or of any request with an issued link, so a pending Auth write cannot leave its email-scoped hold. Correcting such an address needs a new request.
+
+Claims without an attempt ID, inconsistent records and failed reconciliation need staff. Follow [Account Setup claim recovery](../../operations/account-setup-claim-recovery.md).
+
+## Constraints
+
 - Do not email temporary passwords.
-- Do not create unaffiliated Supabase **User Accounts** before a valid setup link is used and a password is chosen.
-- The 2026-06-16 billing-enabled public signup exception was superseded by
-  stabilization task 03-01a on 2026-09-18. Public GET/POST `/auth/sign-up`
-  always redirects to reviewed acquisition; authenticated requests preserve
-  their existing continuation. Account setup remains distinct from Organization Membership.
-- Do not treat **Access Requests** as **Organization Invitations**.
-- Do not create **Organization Members** from beta **Access Request** completion.
-- Keep auth-provider-specific implementation at auth edges or adapters as allowed by ADR 0004.
-- Legacy code that handles existing Supabase invite or recovery states may remain temporarily as migration compatibility, but new beta setup behavior should follow this ADR.
-- Exception, 2026-08-03: **Account Setup Links** may be issued by a second, non-platform-admin path — the organization-invitation auto-approval flow in [ADR 0012](0012-organization-invited-platform-access-auto-approval.md) — for new invitees unconditionally since stabilization 03-01b. Every rule in this ADR about token hashing, single active link, 14-day expiry, and identity creation after password entry applies unchanged to that path. New issuers compose Identity's `accountSetupLinkIssuance` service rather than re-implementing create-then-deliver.
-
-### Held claims and recovery (2026-09-25)
-
-The single-active-link index covers pending links on one **Access Request**, not password writes for one email. A claimed link can coexist with a fresh link, and separate approved requests can share the same normalized email. Completing a link therefore acquires an email-scoped claim in the database before Supabase Auth. Another link for that email cannot start password mutation while any earlier claim is unresolved, even if that older link expired or was revoked. Fresh-link issuance remains available for delivery and invitation recovery, but a newly issued link cannot unlock a held claim.
-
-The 2026-09-26 follow-up gives new claims a durable attempt ID in the same transaction as claim admission. Admin Auth creation or password update carries that ID in a metadata marker. A database trigger witnesses a committed Auth write and removes the marker; reconciling a still-started attempt fences the marker before another password write can begin. Provider responses and elapsed time are not proof of a write or rollback. If the witness committed, a person holding a valid link for an approved request at the same normalized email can finish identity, profile, request, and link tracking without entering another password. A witnessed no-write can be fenced and a fresh valid link can set a password. A source link fenced by reconciliation is consumed; the person must use a fresh link to retry. The browser receives progress and guidance, not the witness, provider identity, or staff-release authority.
-
-An approved **Access Request** email is immutable, as is the email on any request with an issued setup link. The database enforces this so a pending Auth write cannot be moved out of its original email-scoped hold. Correcting such an address requires a new request and new email proof.
-
-Claims that predate the witness migration have no attempt ID and remain held for staff investigation. Inconsistent records and failed reconciliation also require staff. Staff release retains the authenticated operator, provider-operation evidence, case reference, and audit procedure in [Account Setup claim recovery](../../operations/account-setup-claim-recovery.md). Organization membership remains independent of setup and invitation resend still does not mint setup authority.
-
-## Consequences
-
-- Expected benefits:
-  - Friday and weekend approvals become practical because the setup window is 14 days instead of 24 hours.
-  - Expired setup recovery becomes self-service and understandable.
-  - User identity is created only after the recipient proves email control and chooses a password.
-  - Cleanup can revoke expired unclaimed setup records without deleting real accounts; unresolved claimed records remain until reconciled.
-  - Beta access control remains platform-level and does not muddy organization membership semantics.
-- Tradeoffs:
-  - TroopToTask now owns token creation, hashing, expiry, renewal, and delivery for beta account setup.
-  - The setup flow needs careful audit and rate-limit treatment because it can create **User Accounts**.
-  - Some existing auth routes and copy need migration away from Supabase-invite language.
-- New risks or migration costs:
-  - Existing partial Supabase invite users need a legacy compatibility branch during rollout.
-  - Email delivery templates and local auth testing need updates.
-  - Admin UI must explain setup states without leaking token details.
-
-## Rollout And Follow-Up
-
-- Add setup-link storage for approved **Access Requests**, including hashed token, `expires_at`, `used_at`, and `revoked_at`.
-- Add explicit setup completion tracking such as `access_requests.setup_completed_at`.
-- Update approval and resend actions to create **Account Setup Links** instead of calling `inviteUserByEmail` as the main path.
-- Build `/auth/setup-account` to validate setup tokens and create or activate Supabase **User Accounts** after password entry.
-- Convert `/auth/renew-invite` into the fresh setup-link request path.
-- Removed `/auth/register` on 2026-06-01 after legacy invite-code links no longer needed a handoff route.
-- Update request-access copy so the user understands the 14-day setup window and the fresh-link path.
-- Add cleanup for stale setup-link records.
-- Keep tests around expired links, replaced links, duplicate requests, existing-user compatibility, and setup completion.
-
-## Links
-
-- Related PRD:
-- Related issue:
-- Related ADRs:
-  - [ADR 0004: V1 Provider Boundary Contract](0004-v1-provider-boundary-contract.md)
-- Related docs:
-  - `CONTEXT.md`
-  - [CONTEXT language](../../../CONTEXT.md#language)
-  - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
-  - `docs/architecture/ADR_INDEX.md`
+- Do not create a **User Account** before a valid link is used and a password is chosen.
+- Do not treat an **Access Request** as an **Organization Invitation**.
+- Hashing, single active link, expiry and identity-after-password apply to every issuer.

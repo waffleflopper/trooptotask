@@ -75,4 +75,4 @@ body:
     attributes:
       label: ADR notes
       description: Does this slice likely need a new ADR or update an ADR candidate?
-      placeholder: Reference docs/architecture/ADR_GUIDANCE.md or the affected accepted ADR if relevant.
+      placeholder: Reference the affected ADR in docs/architecture/ADR_INDEX.md if relevant.

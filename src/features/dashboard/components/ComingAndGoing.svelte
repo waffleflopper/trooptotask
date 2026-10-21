@@ -37,7 +37,7 @@
 						]}
 					>
 						<span aria-hidden="true">{change.direction === 'leaving' ? '↓' : '↑'}</span>
-						<span class="sr-only">{change.direction === 'leaving' ? 'Leaving' : 'Returning'}</span>
+						{#if change.direction === 'leaving'}<span class="sr-only">Leaving</span>{/if}
 					</span>
 					<span class="min-w-0 flex-1 truncate text-sm leading-[18px] text-foreground">{change.personName}</span>
 					<span class="shrink-0 text-sm leading-[18px] text-muted-foreground">{change.label}</span>

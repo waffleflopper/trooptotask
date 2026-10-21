@@ -2,13 +2,13 @@
 
 Use this map for architecture, authorization, provider-boundary, terminology or governance work.
 
-| Task                                                            | Read                                                                                                                                                 |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Adding or moving feature code, module seams                     | [Architecture](../architecture/ARCHITECTURE.md#modules-and-delivery) and `scripts/module-boundaries.json`                                            |
+| Task                                                            | Read                                                                                                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Adding or moving feature code, module seams                     | [Architecture](../architecture/ARCHITECTURE.md#modules-and-delivery) and `scripts/module-boundaries.json`                                               |
 | Authentication, authorization, membership or provider ownership | [Authorization and provider boundaries](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) and the relevant [ADRs](../architecture/ADR_INDEX.md) |
-| Governance rule change                                          | `scripts/check-governance.mjs`, `scripts/module-boundaries.ts` and their tests                                                                       |
-| Domain naming                                                   | [CONTEXT.md](../../CONTEXT.md#language)                                                                                                              |
-| Completion criteria                                             | [Definition of Done](../architecture/DEFINITION_OF_DONE.md)                                                                                          |
+| Governance rule change                                          | `scripts/check-governance.mjs`, `scripts/module-boundaries.ts` and their tests                                                                          |
+| Domain naming                                                   | [CONTEXT.md](../../CONTEXT.md#language)                                                                                                                 |
+| Completion criteria                                             | [Definition of Done](../architecture/DEFINITION_OF_DONE.md)                                                                                             |
 
 ## Guardrails
 

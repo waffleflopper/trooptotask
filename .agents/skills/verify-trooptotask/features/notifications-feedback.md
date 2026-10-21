@@ -4,7 +4,7 @@ Members read their own Organization notifications, send feedback about the curre
 
 ## Sub-features
 
-- `toast-theme`: success/error feedback follows the explicitly selected app theme. The [shared theme pass](shared-ui.md#theme-and-viewport-preparation-for-phase-09) owns its narrow/wide and opposite-system-preference proof.
+- `toast-theme`: success/error feedback follows the explicitly selected app theme. The [shared theme pass](shared-ui.md#theme-and-viewport) owns its narrow/wide and opposite-system-preference proof.
 - `recipient-delivery`: current Organization owners/admins receive real membership-event notifications; the triggering actor, ordinary members and foreign Organizations are excluded where the producer requires it.
 - `notification-lifecycle`: the bell lists the newest twenty own notifications, opens links and marks one/all read; supported API deletion preserves peer and foreign rows.
 - `notification-recovery`: failed loads/writes remain recoverable, and delayed responses cannot populate another Organization's bell or choose its mutation target.

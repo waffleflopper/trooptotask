@@ -10,11 +10,11 @@ Without the label every job reports skipped. Add `run-ci` once hosted review of 
 
 A PR's run tests its merge with `main` as of that run. When an exact `main` commit needs CI evidence, run `gh workflow run ci.yml --ref main`, which validates everything. To rerun a PR against a newer `main`, remove and re-add `run-ci`; a job rerun reuses the old merge ref.
 
-| Job                        | Scope                                                                                                                                                                                                                                         |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Select checks              | Classifies the full PR diff, including deletions and renames, with `scripts/ci/changes.mjs`. Manual runs validate everything.                                                                                                                 |
+| Job                        | Scope                                                                                                                                                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Select checks              | Classifies the full PR diff, including deletions and renames, with `scripts/ci/changes.mjs`. Manual runs validate everything.                                                                                                                |
 | Repository and application | Checks changed Markdown formatting with `--ignore-path /dev/null`, local links and anchors across all tracked Markdown, and whitespace. For executable changes: format check, lint, governance, Svelte and types, full Vitest and the build. |
-| Database contracts         | Runs when Supabase, CI tooling, package manifests or the Node version change. Fresh disposable migration replay, all SQL contracts, populated-upgrade regressions and provider probes.                                                        |
+| Database contracts         | Runs when Supabase, CI tooling, package manifests or the Node version change. Fresh disposable migration replay, all SQL contracts, populated-upgrade regressions and provider probes.                                                       |
 
 Only Markdown under `docs/` and the root `README.md`, `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` skip application validation. Unknown paths run it. GitHub runners are about 2.5 times slower than Depot's, so keep timeouts generous rather than retrying.
 

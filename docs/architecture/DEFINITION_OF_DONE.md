@@ -105,9 +105,45 @@ Verify both allowed and denied Organization/Group and privilege cases, effective
 
 ### Reproducible performance evidence
 
-For performance work, record before/after revisions, production build/start commands, hardware/runtime/browser versions, synthetic fixture sizes and roles, exact journey, cache state, warm-up, repetitions, units and result distribution. Use identical workloads and environments; define the budget from the task's expected usage before changing code.
+Run the [performance recipe](../../.agents/skills/verify-trooptotask/features/performance.md) only when Robert asks for a measurement, in the current request or in an issue he wrote for the task. No other verification, review, audit, phase gate or release step requires one, and an unmeasured journey is not a blocker. Work without a requested measurement makes no measured performance claim. Review a change on a measured journey's path against the [regression budgets](#regression-budgets) by reading what it does to request count, rows read, payload and repeated work, and name a likely regression in the PR.
+
+When a measurement is requested, record before/after revisions, production build/start commands, hardware/runtime/browser versions, synthetic fixture sizes and roles, exact journey, cache state, warm-up, repetitions, units and result distribution. Use identical workloads and environments; define the budget from the task's expected usage before changing code.
 
 Measure server/query time, network time, HTML/data payload, actual transferred JavaScript, hydration/main-thread work, request counts and interaction latency separately where relevant. Static bundle/manifest totals are dependency diagnostics, not transferred bytes or runtime speed. Missing timings stay **not measured**; fewer files, a framework change or a raised budget is not performance evidence.
+
+#### Regression budgets
+
+Phase 12 set these from measured distributions and expected usage. Budgets are stated at the large workload, a battalion-sized Organization of 400 active People and the largest the repairs measured. Each journey is timed to its visible result as a warm median on a production build with no network latency, for an Organization-wide actor and a Group-scoped actor. The default rule follows two kinds. A **feedback** interaction redraws data already on the page; its bound is 200 ms useful (INP good) or 1000 ms settled. A **load or result** needs a server round trip or produces a file; its bound is 1000 ms useful or settled (RAIL load and the flow-of-thought limit). A journey listed below uses its own budget, set by the repair that measured it. A measurement may never raise a budget to pass.
+
+| Journey at large                         | Budget (ms)     | Owning repair's result, wide / scoped        | Source                                                                                          |
+| ---------------------------------------- | --------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Calendar initial, warm and cold settled  | ≤ 1000          | warm 318 / 234, cold 445 / 365               | [D06](../stabilization/EVIDENCE.md#12-01-d06-calendar-initial-load-reports-and-assignment-save) |
+| Calendar status-day report, current year | ≤ 1000          | 279 / 74                                     | D06                                                                                             |
+| Calendar assignment save, confirmed      | ≤ 1000          | 112 / 69                                     | D06                                                                                             |
+| Calendar range, Month paging and search  | default rule    | range 66 / 66, 3-month search 48 / 15        | D06                                                                                             |
+| Personnel list, warm useful / settled    | ≤ 200 / ≤ 400   | 171 / 171 wide, 82 / 135 scoped              | [D03](../stabilization/EVIDENCE.md#12-02-d03-personnel-roster-detail-and-mutation-refresh-cost) |
+| Personnel list, cold settled             | ≤ 400           | 326 / 278                                    | D03                                                                                             |
+| Person detail open, useful               | ≤ 150           | 75 / 80                                      | D03                                                                                             |
+| Person detail edit, settled              | ≤ 450           | 234 / 219                                    | D03                                                                                             |
+| Personnel edit; import of 100 rows       | ≤ 300           | 190 / 192; 249 / 132                         | D03                                                                                             |
+| Personnel filter                         | ≤ 200           | 164 / 15                                     | D03                                                                                             |
+| Dashboard, warm useful / cold settled    | ≤ 1000 / ≤ 2000 | 502 / 117, 943 / 319                         | [D04](../stabilization/EVIDENCE.md#12-03-d04-dashboard-initial-and-deferred-load)               |
+| Critical Tasks and Training reports      | ≤ 1000 settled  | Critical Tasks 646 / 354, Training 405 / 227 | [D05](../stabilization/EVIDENCE.md#12-04-d05-reports-large-lists-and-exports)                   |
+| Briefing detail open; Training workbook  | ≤ 1000          | 166 / 57; 249 / 66                           | D05                                                                                             |
+| Organization data export (28.8 MB)       | ≤ 5000          | 2799                                         | D05                                                                                             |
+| Members list; platform user directory    | ≤ 1000          | 203; 60                                      | D05                                                                                             |
+| Organization switch; sidebar navigation  | default rule    | switch settles 107–185, scoped useful 92     | [D02](../stabilization/EVIDENCE.md#12-base-d01-baseline), D03                                   |
+
+Request and payload characteristics at large, where a regression is visible in review without a measurement:
+
+- **Request path.** Identity, admission, `organizations` and membership statements took 1.8–4.2 ms of database time per page load in D02. A change must not add a server-to-self HTTP hop or a serial lookup for independent data.
+- **Row visibility.** Training, Critical Tasks, availability and assignment reads decide visibility once per statement through `member_access_private.viewable_personnel(lane)` and `calendar_private.viewable_assignees()`. A new SELECT policy or read-model function on those tables must not call a definer function per scanned row.
+- **Calendar.** A cold visit loads the workspace once. Availability is read for the shown days only, and a range change sends one read with one availability and one assignment page. The large wide first document is about 1.00 MB. Search sends no request.
+- **Personnel.** One roster read per workspace load. Detail open does not run the Personnel workspace layout, and a Personnel mutation refreshes only the loads that own its data.
+- **Reports.** The Critical Tasks report reads outside the workspace stream; its large wide document is about 364 kB.
+- **Paged reads.** Every `OFFSET` reader orders by a unique key.
+
+The load values in the table were taken before or after the D06 observer-clock correction, as each source records. The earlier clock read load times low by about 70 to 260 ms, so a fresh measurement near a budget is compared against its source's clock.
 
 ## Required When Behavior Changes
 

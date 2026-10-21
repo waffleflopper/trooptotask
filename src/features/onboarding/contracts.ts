@@ -196,8 +196,8 @@ export interface OnboardingPacketCreationResult {
 export interface OnboardingPacketCreationPort {
 	/**
 	 * Save the new packet and its template's current steps together, or save
-	 * neither. The database derives Training completion from saved records and
-	 * ignores the prepared steps.
+	 * neither. The database derives Training completion from saved records, not
+	 * from the prepared steps.
 	 */
 	create(organizationId: string, input: OnboardingPacketCreationInput): Promise<OnboardingPacketCreationResult>;
 }

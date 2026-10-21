@@ -85,7 +85,7 @@ function read(
 function sdkFixture(
 	contract: (typeof contracts)[number],
 	count: number,
-	fault?: 'null' | 'terminal-null' | 'first' | 'late'
+	fault?: 'null' | 'terminal-null' | 'first' | 'late' | 'unstructured'
 ) {
 	const requests: URL[] = [];
 	const rows = Array.from({ length: count }, (_, index) => ({
@@ -106,6 +106,7 @@ function sdkFixture(
 				expect(url.searchParams.get('select')).toBe(contract.fields);
 				const from = Number(url.searchParams.get('offset') ?? 0);
 				expect(url.searchParams.get('limit')).toBe('1000');
+				if (fault === 'unstructured') return Response.json('Read refused', { status: 403 });
 				if (fault === 'first' || (fault === 'late' && from === 1000))
 					return Response.json({ message: 'Provider refused read', code: '42501' }, { status: 403 });
 				if (fault === 'null' || (fault === 'terminal-null' && from === 1000)) return Response.json(null);
@@ -144,6 +145,11 @@ describe('five ordinary Organization settings reads with the installed SDK', () 
 		const empty = sdkFixture(contract, 0, 'null');
 		expect(await read(empty.reader, contract.method, ORG)).toEqual([]);
 		expect(empty.requests).toHaveLength(1);
+	});
+	it.each(contracts)('$method identifies unit settings when a provider failure has no message', async (contract) => {
+		const { reader } = sdkFixture(contract, 0, 'unstructured');
+
+		await expect(read(reader, contract.method, ORG)).rejects.toEqual(new Error('Unit settings read failed'));
 	});
 	it.each(contracts)(
 		'$method rejects first and later provider errors without returning partial data',

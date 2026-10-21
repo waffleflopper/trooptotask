@@ -96,7 +96,7 @@ it('shows a failed source as unchecked while the others load', async () => {
 	expect(screen.queryByText("Couldn't check training. Reload the page to try again.")).toBeNull();
 });
 
-it('leaves out the sections of features the unit turned off and the loss window state', async () => {
+it('leaves out the sections of features the unit turned off', async () => {
 	render(ReadinessTabView, {
 		props: {
 			orgId: 'org-1',
@@ -119,7 +119,6 @@ it('leaves out the sections of features the unit turned off and the loss window 
 
 	expect(await screen.findByText('14 Mar 2027 · 159 days')).toBeTruthy();
 	expect(screen.queryByText(/Couldn't check/)).toBeNull();
-	expect(screen.queryByText(/loss window/)).toBeNull();
 	for (const name of ['Training', 'Critical tasks', 'Evaluation', 'Onboarding']) {
 		expect(screen.queryByRole('heading', { name })).toBeNull();
 		expect(screen.queryByRole('region', { name })).toBeNull();

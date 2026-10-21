@@ -61,7 +61,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 			);
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationSettingsMembershipRow);
 		},
@@ -81,7 +81,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 			});
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationSettingsInvitationRow);
 		},
@@ -98,7 +98,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 			);
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationSettingsInvitationDeliveryRow);
 		},
@@ -115,7 +115,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 			);
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationOwnershipCandidateMembershipRow);
 		},
@@ -218,10 +218,10 @@ export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClie
 				const current = await findFeatureSettings(orgId);
 				if (current && !isSameValue(current.storedDisabledFeatures, ifDisabledFeatures)) return { status: 'stale' };
 			}
-			if (error) return { status: 'failed', message: error.message || 'Organization settings update failed' };
+			if (error) return { status: 'failed', message: error.message || 'Unit settings update failed' };
 			return data?.id === orgId && Object.entries(updates).every(([field, value]) => isSameValue(data[field], value))
 				? { status: 'saved' }
-				: { status: 'failed', message: 'Unable to confirm Organization settings update' };
+				: { status: 'failed', message: 'Unable to confirm Unit settings update' };
 		}
 	};
 }

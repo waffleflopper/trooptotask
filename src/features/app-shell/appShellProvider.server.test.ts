@@ -135,6 +135,27 @@ describe('createSupabaseOrgAccessPort', () => {
 		expect(result.scopeSet).toEqual({ kind: 'organization' });
 	});
 
+	it('keeps switched-off features disabled for owners in membership and organization state', async () => {
+		const membershipRow = {
+			role: 'owner',
+			member_preset: 'viewer',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		} satisfies OrganizationMembershipFacts;
+		const { builder } = createMembershipQueryBuilder(membershipRow);
+		const port = createSupabaseOrgAccessPort({
+			orgId: 'org-1',
+			userId: 'user-1',
+			userSupabase: createMockSupabase(builder),
+			orgName: 'Test Org',
+			disabledFeatures: ['training']
+		});
+
+		expect((await port.getMembership()).capabilityMap.training).toBe('none');
+		expect((await port.getOrgState()).disabledFeatures).toEqual(['training']);
+	});
+
 	it('rejects malformed access facts supplied by a request cache instead of exposing member capabilities', async () => {
 		const port = createSupabaseOrgAccessPort({
 			orgId: 'org-1',

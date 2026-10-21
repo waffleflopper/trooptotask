@@ -104,19 +104,19 @@ describe('Organization policy save acknowledgement with the actual installed SDK
 		]);
 	});
 	it.each([
-		'null',
-		'empty',
-		'foreign',
-		'stale-retention',
-		'stale-warning',
-		'stale-goal',
-		'stale-cap',
-		'single-error',
-		'error',
-		'empty-error'
-	] as const)('rejects an unacknowledged policy save without success or audit (%s)', async (outcome) => {
+		['null', 'Unable to confirm Unit settings update'],
+		['empty', 'Unable to confirm Unit settings update'],
+		['foreign', 'Unable to confirm Unit settings update'],
+		['stale-retention', 'Unable to confirm Unit settings update'],
+		['stale-warning', 'Unable to confirm Unit settings update'],
+		['stale-goal', 'Unable to confirm Unit settings update'],
+		['stale-cap', 'Unable to confirm Unit settings update'],
+		['single-error', 'JSON object requested, multiple (or no) rows returned'],
+		['error', 'Save unavailable'],
+		['empty-error', 'Unit settings update failed']
+	] as const)('rejects an unacknowledged policy save without success or audit (%s)', async (outcome, message) => {
 		const { ctx, rows, before } = fixture(outcome);
-		await expect(updateOrganizationSettings(ctx, submitted)).rejects.toThrow();
+		await expect(updateOrganizationSettings(ctx, submitted)).rejects.toMatchObject({ status: 500, message });
 		expect(rows).toEqual(before);
 		expect(ctx.auditPort.events).toEqual([]);
 	});

@@ -3,8 +3,8 @@
 	import {
 		DASHBOARD_SECTIONS,
 		DashboardPageView,
-		createDashboardScreenModel,
-		type DashboardAccess
+		createDashboardAccess,
+		createDashboardScreenModel
 	} from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
@@ -116,9 +116,7 @@
 	);
 
 	const shellUI = getAppShellContext();
-	const access: DashboardAccess = {
-		can: (action) => shellUI.affordanceForFeatureAction(action, { kind: 'unscoped' }).allowed
-	};
+	const access = createDashboardAccess(shellUI);
 
 	$effect(() => {
 		if (ctx) shellUI.autoShowWhatsNew();

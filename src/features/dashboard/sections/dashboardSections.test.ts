@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { parseDisabledFeatures } from '$lib/access/featureSwitches';
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	activeDashboardSections,
 	composeDashboardSections,
+	createDashboardAccess,
 	dashboardSection,
+	personnelResource,
 	type DashboardAccess,
 	type DashboardBlock,
 	type QuickAddEntry
@@ -201,5 +205,34 @@ describe('composeDashboardSections', () => {
 		expect(
 			composeDashboardSections(sections, inputs, [], { ...access, can: () => true }).quickAdd.map((entry) => entry.id)
 		).toEqual(['status', 'training', 'onboarding']);
+	});
+});
+
+describe('createDashboardAccess', () => {
+	const manageAvailability = POLICY_ACTION_CATALOG.calendar.manageAvailability;
+
+	it('lets a Group-scoped operator act somewhere, but only on people in their groups', () => {
+		const access = createDashboardAccess(
+			createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('view'), calendar: 'operate' },
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			})
+		);
+
+		expect(access.can(manageAvailability)).toBe(true);
+		expect(access.can(manageAvailability, personnelResource({ groupId: 'alpha' }))).toBe(true);
+		expect(access.can(manageAvailability, personnelResource({ groupId: 'bravo' }))).toBe(false);
+		expect(access.can(manageAvailability, personnelResource({ groupId: null }))).toBe(false);
+		expect(access.can(POLICY_ACTION_CATALOG.training.recordCompletions)).toBe(false);
+	});
+
+	it('denies a view-only member everywhere', () => {
+		const access = createDashboardAccess(
+			createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })
+		);
+
+		expect(access.can(manageAvailability)).toBe(false);
+		expect(access.can(manageAvailability, personnelResource({ groupId: null }))).toBe(false);
 	});
 });

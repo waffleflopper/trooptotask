@@ -5,10 +5,8 @@ import AvailabilityModal from './AvailabilityModal.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import type {
-	AvailabilityEditorRequest,
-	AvailabilityOutcome
-} from '$features/calendar/contexts/CalendarPageContext.svelte';
+import type { AvailabilityEditorRequest } from '$features/calendar/contexts/CalendarPageContext.svelte';
+import type { AvailabilityOutcome } from '$features/calendar/availabilitySave';
 import type { AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
 
 afterEach(() => {

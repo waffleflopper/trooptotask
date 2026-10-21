@@ -1,6 +1,8 @@
 import type { Component } from 'svelte';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
+import type { ClientAccess } from '$lib/access/clientAccess';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardInputs } from './dashboardInputs';
 import { placeForecastLaneMarks, type DashboardForecastLaneView, type ForecastLaneMark } from './forecastLanes';
@@ -12,8 +14,18 @@ export type DashboardSectionId = 'availability' | FeatureKey;
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
 
 export interface DashboardAccess {
-	/** Advisory permission to act somewhere within the viewer's scope. */
-	readonly can: (action: FeatureLanePolicyAction) => boolean;
+	/** Advisory permission to act on the resource, or somewhere within the viewer's scope when none is given. */
+	readonly can: (action: FeatureLanePolicyAction, resource?: PolicyResource) => boolean;
+}
+
+export function createDashboardAccess(policy: Pick<ClientAccess, 'affordanceForFeatureAction'>): DashboardAccess {
+	return {
+		can: (action, resource = { kind: 'unscoped' }) => policy.affordanceForFeatureAction(action, resource).allowed
+	};
+}
+
+export function personnelResource(person: { readonly groupId?: string | null }): PolicyResource {
+	return scopeSetResourceForGroupId(person.groupId);
 }
 
 export type DashboardPartAvailability = (inputs: DashboardInputs, access: DashboardAccess) => boolean;

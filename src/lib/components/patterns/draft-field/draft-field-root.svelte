@@ -63,7 +63,8 @@
 	onsubmit={submit}
 >
 	<div class="flex shrink-0 items-center gap-3">{@render field(aria)}</div>
-	<p id="{id}-sentence" class="min-w-0 flex-1 text-sm text-foreground">{@render children?.()}</p>
+	<!-- A div, not a p, so a sentence can hold a block skeleton while part of it streams. -->
+	<div id="{id}-sentence" class="min-w-0 flex-1 text-sm text-foreground">{@render children?.()}</div>
 	{#if inlineStatus || draft.changed}
 		<div class="flex shrink-0 flex-wrap items-center gap-2">
 			{#if inlineStatus}<Status {draft} {was} />{/if}

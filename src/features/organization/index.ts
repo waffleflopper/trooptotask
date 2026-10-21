@@ -8,7 +8,7 @@ export { default as FeaturesSettingsPage } from './FeaturesSettingsPage.svelte';
 
 export { default as MembersSettingsPage } from './MembersSettingsPage.svelte';
 
-export { default as PoliciesSettingsPage } from './PoliciesSettingsPage.svelte';
+export { saveOrganizationSettings } from './saveOrganizationSettings';
 
 export { default as SettingsShell } from './SettingsShell.svelte';
 export { default as SettingsPageHeader } from './SettingsPageHeader.svelte';

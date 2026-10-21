@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { retentionCutoff, retentionDeletionDate } from './retentionCutoff';
+import { nextCleanupRun, retentionCutoff, retentionDeletionDate } from './retentionCutoff';
 
 const cases = [
 	{
@@ -95,5 +95,15 @@ describe('retentionDeletionDate', () => {
 		{ archivedAt: '2024-11-02T03:00:00.000Z', months: Number.NaN }
 	])('rejects archivedAt=$archivedAt months=$months', ({ archivedAt, months }) => {
 		expect(() => retentionDeletionDate(archivedAt, months)).toThrow(RangeError);
+	});
+});
+
+describe('nextCleanupRun', () => {
+	it.each([
+		{ now: '2026-10-21T04:59:59.000Z', run: '2026-10-21T05:00:00.000Z' },
+		{ now: '2026-10-21T05:00:00.000Z', run: '2026-10-22T05:00:00.000Z' },
+		{ now: '2026-12-31T23:00:00.000Z', run: '2027-01-01T05:00:00.000Z' }
+	])('after $now is $run', ({ now, run }) => {
+		expect(nextCleanupRun(new Date(now)).toISOString()).toBe(run);
 	});
 });

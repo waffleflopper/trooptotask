@@ -59,12 +59,15 @@ export type {
 } from './settingsTypes';
 export { isOrganizationRawExportTable } from './rawExportTypes';
 export type { OrganizationRawExportTable, OrganizationRawExportReader } from './rawExportTypes';
-export type { PoliciesSettingsData, SettingsPoliciesSectionData } from './policiesSettingsTypes';
 export type { UnitCountKey, UnitCounts } from './unitCounts';
 export {
 	DEFAULT_ARCHIVE_RETENTION_MONTHS,
 	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 	DEFAULT_STRENGTH_FLOOR_PERCENT,
+	DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
+	ARCHIVE_RETENTION_CONSTRAINT,
+	LOSS_WARNING_CONSTRAINT,
+	TRAINING_READINESS_GOAL_CONSTRAINT,
 	readLossWarningWindowDays
 } from './policyConstraints';
 

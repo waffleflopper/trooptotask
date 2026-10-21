@@ -54,3 +54,10 @@ export function retentionDeletionDate(archivedAt: Date | string, retentionMonths
 	}
 	return run;
 }
+
+/** The first daily cleanup run after `now`, which is when anything already past its retention is deleted. */
+export function nextCleanupRun(now: Date): Date {
+	const run = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), CLEANUP_RUN_HOUR_UTC));
+	if (run.getTime() <= now.getTime()) run.setUTCDate(run.getUTCDate() + 1);
+	return run;
+}

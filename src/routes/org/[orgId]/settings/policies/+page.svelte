@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import { PoliciesSettingsPage, SettingsPageHeader } from '$features/organization';
+	import { SettingsPageHeader } from '$features/organization';
+	import PoliciesSettingsPage from '../PoliciesSettingsPage.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -13,5 +14,5 @@
 />
 
 {#key data.orgId}
-	<PoliciesSettingsPage orgUrlSegment={data.orgUrlSegment} policies={data.policiesSettings.sections.policies} />
+	<PoliciesSettingsPage orgUrlSegment={data.orgUrlSegment} unitName={unit} policies={data.policiesSettings} />
 {/key}

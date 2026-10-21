@@ -1,6 +1,6 @@
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
-import { loadRosterPersonnel } from '$features/personnel/index.server';
+import { findOldestArchivedAt, loadRosterPersonnel } from '$features/personnel/index.server';
 import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportData } from '$features/training/contracts';
 import {
 	DEFAULT_ARCHIVE_RETENTION_MONTHS,
@@ -15,7 +15,7 @@ export interface PoliciesSettingsPorts {
 	/** The admitted request already read the switches with the organization row. */
 	disabledFeatures: readonly FeatureKey[];
 	organizationSettings: Pick<OrganizationSettingsReader, 'findPolicies'>;
-	roster: Parameters<typeof loadRosterPersonnel>[0]['roster'];
+	roster: Parameters<typeof loadRosterPersonnel>[0]['roster'] & Parameters<typeof findOldestArchivedAt>[0]['roster'];
 	readTrainingBriefing: (
 		input: typeof DEFAULT_TRAINING_BRIEFING_INPUT,
 		asOf: string
@@ -40,10 +40,10 @@ export async function loadPoliciesSettings(
 	const groupReadiness = ports.disabledFeatures.includes('training')
 		? null
 		: keepStreamedRejectionObserved(readGroupReadiness(ports, input.today));
-	const [policies, active, archived] = await Promise.all([
+	const [policies, active, oldestArchivedAt] = await Promise.all([
 		ports.organizationSettings.findPolicies(ports.auth.orgId),
 		lossesOn ? loadRosterPersonnel(ports, { status: 'active' }) : null,
-		loadRosterPersonnel(ports, { status: 'archived', order: 'archived-newest' })
+		findOldestArchivedAt(ports)
 	]);
 	return {
 		lossWarningWindowDays: policies?.lossWarningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
@@ -54,7 +54,7 @@ export async function loadPoliciesSettings(
 			active
 				?.filter((person) => person.ets || person.deros)
 				.map(({ id, rank, lastName, ets, deros, groupId }) => ({ id, rank, lastName, ets, deros, groupId })) ?? null,
-		oldestArchivedAt: archived.at(-1)?.archivedAt ?? null,
+		oldestArchivedAt,
 		groupReadiness
 	};
 }

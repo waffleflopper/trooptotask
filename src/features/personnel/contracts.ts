@@ -51,6 +51,7 @@ export interface Group {
 export interface PersonnelRosterReader {
 	list(options?: { status?: 'active' | 'archived' | 'all'; order?: 'archived-newest' }): Promise<Personnel[]>;
 	countArchived(): Promise<number>;
+	findOldestArchivedAt(): Promise<string | null>;
 }
 
 export interface PersonnelLifecycleReference {

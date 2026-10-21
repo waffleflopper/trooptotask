@@ -41,6 +41,21 @@ export function createSupabasePersonnelRosterReader(
 			const { count, error } = await query.limit(0);
 			if (error) throw new Error(error.message);
 			return count ?? 0;
+		},
+		async findOldestArchivedAt() {
+			if (groupIds?.length === 0) return null;
+			let query = client
+				.from('personnel')
+				.select('archived_at')
+				.eq('organization_id', orgId)
+				.not('archived_at', 'is', null);
+			if (groupIds) query = query.in('group_id', groupIds);
+			const { data, error } = await query
+				.order('archived_at', { ascending: true })
+				.limit(1)
+				.returns<Array<{ archived_at: string }>>();
+			if (error) throw new Error(error.message);
+			return data?.[0]?.archived_at ?? null;
 		}
 	};
 }

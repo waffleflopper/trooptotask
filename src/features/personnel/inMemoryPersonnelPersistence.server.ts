@@ -170,6 +170,15 @@ export function createInMemoryPersonnelRosterReader(store: PersonnelMemoryStore,
 				limit: 0
 			});
 			return count ?? 0;
+		},
+		async findOldestArchivedAt() {
+			const [oldest] = await store.findMany<{ archived_at: string }>('personnel', orgId, undefined, {
+				select: 'archived_at',
+				isNull: { archived_at: false },
+				orderBy: [{ column: 'archived_at', ascending: true }],
+				limit: 1
+			});
+			return oldest?.archived_at ?? null;
 		}
 	};
 }

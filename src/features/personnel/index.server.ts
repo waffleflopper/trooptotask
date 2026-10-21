@@ -23,7 +23,7 @@ export { LEADER_NOTES_FIRST_PAGE, isCalendarTimestamp } from './leaderNotePaging
 export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
 export { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 export type { PersonnelTrainingRosterPort } from './contracts';
-export { countArchivedPersonnel, loadRosterPersonnel } from './rosterRead.server';
+export { countArchivedPersonnel, findOldestArchivedAt, loadRosterPersonnel } from './rosterRead.server';
 export { createSupabasePersonnelNamesReader } from './personnelNames.server';
 export { findGroupNamesByIds, listGroupCatalog, visiblePinnedGroupNames } from './groupCatalog.server';
 export { createGroup, updateGroup, deleteGroup } from './groupOperations.server';

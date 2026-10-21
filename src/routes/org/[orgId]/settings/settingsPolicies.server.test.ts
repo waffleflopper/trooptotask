@@ -19,10 +19,6 @@ function person(id: string, dates: Partial<Personnel>): Personnel {
 }
 
 const ACTIVE = [person('reed', { deros: '2027-03-02' }), person('hale', {}), person('kim', { ets: '2026-11-20' })];
-const ARCHIVED = [
-	person('vance', { archivedAt: '2025-06-01T10:00:00.000Z' }),
-	person('lane', { archivedAt: '2024-11-02T03:00:00.000Z' })
-];
 
 function readiness(ready: number, applicable: number, percent: number | null) {
 	return { ready, applicable, percent, band: 'goal' };
@@ -44,16 +40,17 @@ function ports(
 	disabledFeatures: FeatureKey[],
 	stored: Awaited<ReturnType<PoliciesSettingsPorts['organizationSettings']['findPolicies']>>
 ) {
-	const list = vi.fn(async (options?: { status?: string }) => (options?.status === 'archived' ? ARCHIVED : ACTIVE));
+	const list = vi.fn(async () => ACTIVE);
+	const findOldestArchivedAt = vi.fn(async (): Promise<string | null> => '2024-11-02T03:00:00.000Z');
 	const readTrainingBriefing = vi.fn(async () => REPORT);
 	const value: PoliciesSettingsPorts = {
 		auth: { orgId: 'org-1' },
 		disabledFeatures,
 		organizationSettings: { findPolicies: async () => stored },
-		roster: { list },
+		roster: { list, findOldestArchivedAt },
 		readTrainingBriefing
 	};
-	return { value, list, readTrainingBriefing };
+	return { value, list, findOldestArchivedAt, readTrainingBriefing };
 }
 
 describe('loadPoliciesSettings', () => {
@@ -90,8 +87,8 @@ describe('loadPoliciesSettings', () => {
 	});
 
 	it('takes the defaults for missing settings and has no archive date when no one is archived', async () => {
-		const { value, list } = ports([], null);
-		list.mockImplementation(async (options) => (options?.status === 'archived' ? [] : ACTIVE));
+		const { value, findOldestArchivedAt } = ports([], null);
+		findOldestArchivedAt.mockResolvedValue(null);
 
 		const data = await loadPoliciesSettings(value, { today: '2026-10-21' });
 
@@ -109,7 +106,7 @@ describe('loadPoliciesSettings', () => {
 		expect(data.lossCandidates).toBeNull();
 		expect(data.groupReadiness).toBeNull();
 		expect(readTrainingBriefing).not.toHaveBeenCalled();
-		expect(list.mock.calls.map(([options]) => options?.status)).toEqual(['archived']);
+		expect(list).not.toHaveBeenCalled();
 	});
 
 	it('renders the page while the briefing read fails, which only its sentence reports', async () => {

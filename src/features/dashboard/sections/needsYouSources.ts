@@ -2,12 +2,11 @@ import { calendarLaneTypes, indexAssignmentsBySlot, openAssignmentDates } from '
 import { clockLabel, summarizePacket } from '$features/onboarding/contracts';
 import { evaluateUpcomingLosses, type Personnel } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
-import { formatDayMonth, formatDayOffset, parseDate } from '$lib/utils/dates';
+import { formatDayMonth, formatDayOffset, formatWeekdayDay, parseDate } from '$lib/utils/dates';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from './dashboardInputs';
 import type { NeedsYouSource } from './dashboardSections';
 
-const SHORT_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const NAMED_LIMIT = 4;
 
 function orgPath(inputs: DashboardInputs): string {
@@ -40,7 +39,7 @@ function nameList(names: readonly string[]): string {
 function dayList(dates: readonly string[]): string {
 	const named = dates.length <= NAMED_LIMIT ? dates : dates.slice(0, NAMED_LIMIT - 1);
 	const labels = named.map((date, index) => {
-		const day = `${SHORT_WEEKDAYS[parseDate(date).getDay()]} ${Number(date.slice(8, 10))}`;
+		const day = formatWeekdayDay(date);
 		const next = named[index + 1];
 		return next && next.slice(0, 7) === date.slice(0, 7) ? day : `${day} ${formatDayMonth(date).split(' ')[1]}`;
 	});

@@ -18,15 +18,6 @@ const mutableAvailabilityStore = availabilityStore as unknown as {
 };
 const mutableDailyAssignmentsStore = dailyAssignmentsStore as unknown as { loading: boolean };
 const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
-const emptyTrainingStats = {
-	current: 0,
-	expired: 0,
-	warningOrange: 0,
-	warningYellow: 0,
-	notCompleted: 0,
-	notRequired: 0,
-	total: 0
-};
 
 vi.mock('$app/environment', () => ({ browser: false }));
 
@@ -189,53 +180,10 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				total: 8
 			};
 			const dataWithStats = makeData({
-				trainingSummary: { stats, issues: [], expiredPersonnelCount: 1, groupDelinquencies: [] }
+				trainingSummary: { stats, issues: [], expiredByType: [], expiredPersonnelCount: 1, groupDelinquencies: [] }
 			});
 			const c = createDashboardScreenModel(dataWithStats);
 			expect(c.trainingStats).toEqual(stats);
-		});
-	});
-
-	describe('upcomingChanges', () => {
-		it('returns an empty array when no availability entries', () => {
-			expect(ctx.upcomingChanges).toHaveLength(0);
-		});
-
-		it('assigns unique keys when repeated changes land on the same day', () => {
-			mutableRosterStore.items = [
-				{ id: 'p1', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Alex' },
-				{ id: 'p2', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Avery' }
-			];
-			mutableStatusTypesStore.items = [{ id: 'st1', name: 'Unit', color: '#111111', textColor: '#ffffff' }];
-			mutableAvailabilityStore.items = [
-				{
-					id: 'a1',
-					personnelId: 'p1',
-					statusTypeId: 'st1',
-					startDate: '2099-01-01',
-					endDate: '2099-01-03'
-				},
-				{
-					id: 'a2',
-					personnelId: 'p2',
-					statusTypeId: 'st1',
-					startDate: '2099-01-01',
-					endDate: '2099-01-03'
-				}
-			];
-
-			const dashboardModel = createDashboardScreenModel(
-				makeData({ viewerDay: { date: '2098-12-31', timeZone: 'UTC' } })
-			);
-			const keys = dashboardModel.upcomingChanges.map((change) => change.key);
-
-			expect(keys).toEqual([
-				'a1-departing-2099-01-01',
-				'a2-departing-2099-01-01',
-				'a1-returning-2099-01-03',
-				'a2-returning-2099-01-03'
-			]);
-			expect(new Set(keys).size).toBe(keys.length);
 		});
 	});
 
@@ -323,96 +271,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			expect(ctx.ratingSchemeEntryCount).toBe(3);
 			expect(ctx.orgMemberCount).toBe(2);
 			expect(ctx.gettingStartedDismissed).toBe(true);
-		});
-	});
-
-	describe('formatShortDate', () => {
-		it('formats a YYYY-MM-DD date as "Mon DD"', () => {
-			const result = ctx.formatShortDate('2026-03-15');
-			expect(result).toMatch(/Mar 15/);
-		});
-	});
-
-	describe('upcomingLosses', () => {
-		function makePerson(id: string, ets: string | null = null, deros: string | null = null) {
-			return {
-				id,
-				rank: 'SGT',
-				lastName: 'Doe',
-				firstName: 'Jane',
-				mos: '',
-				clinicRole: '',
-				ets,
-				deros,
-				groupId: null,
-				archivedAt: null
-			};
-		}
-
-		function daysOut(ctx: DashboardScreenModel, n: number): string {
-			const d = new Date(ctx.today + 'T00:00:00');
-			d.setDate(d.getDate() + n);
-			return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-		}
-
-		it('returns an empty array when no personnel have tracked dates', () => {
-			mutableRosterStore.items = [makePerson('p1')];
-			ctx = createDashboardScreenModel(makeData());
-			expect(ctx.upcomingLosses).toEqual([]);
-		});
-
-		it('returns a record for personnel whose ETS is within the warning window', () => {
-			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 60))];
-			expect(ctx.upcomingLosses).toHaveLength(1);
-			expect(ctx.upcomingLosses[0].triggerType).toBe('ETS');
-		});
-
-		it('returns a record for personnel whose DEROS is within the warning window', () => {
-			mutableRosterStore.items = [makePerson('p1', null, daysOut(ctx, 45))];
-			expect(ctx.upcomingLosses).toHaveLength(1);
-			expect(ctx.upcomingLosses[0].triggerType).toBe('PCS / DEROS');
-		});
-
-		it('shows no losses when the unit turns Losses and awards off', () => {
-			ctx = createDashboardScreenModel(makeData({ disabledFeatures: ['lossesAndAwards'] }));
-			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 30))];
-			expect(ctx.upcomingLosses).toEqual([]);
-		});
-
-		it('respects the configured lossWarningWindowDays from the workspace data', () => {
-			ctx = createDashboardScreenModel(makeData({}, { lossWarningWindowDays: 30 }));
-			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 60))];
-			expect(ctx.upcomingLosses).toHaveLength(0);
-		});
-
-		it('only includes personnel that appear in the scoped rosterStore', () => {
-			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 30)), makePerson('p2')];
-			expect(ctx.upcomingLosses).toHaveLength(1);
-			expect(ctx.upcomingLosses[0].personId).toBe('p1');
-		});
-
-		it('orders results nearest first', () => {
-			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 90)), makePerson('p2', daysOut(ctx, 30))];
-			const result = ctx.upcomingLosses;
-			expect(result[0].personId).toBe('p2');
-			expect(result[1].personId).toBe('p1');
-		});
-
-		it('marks awardDueSoon true for every entry', () => {
-			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 45))];
-			expect(ctx.upcomingLosses[0].awardDueSoon).toBe(true);
-		});
-
-		it('keeps the loss entry but suppresses the award badge when award tracking is acknowledged', () => {
-			ctx = createDashboardScreenModel(
-				makeData({}, { awardTrackingAcknowledgedPersonnelIds: ['p1'], lossWarningWindowDays: 180 })
-			);
-			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 45))];
-
-			expect(ctx.upcomingLosses).toHaveLength(1);
-			expect(ctx.upcomingLosses[0].personId).toBe('p1');
-			expect(ctx.upcomingLosses[0].awardDueSoon).toBe(false);
-			expect(ctx.upcomingLosses[0].awardTrackingAcknowledged).toBe(true);
 		});
 	});
 });

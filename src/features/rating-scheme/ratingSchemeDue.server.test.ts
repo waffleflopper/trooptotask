@@ -80,7 +80,7 @@ function pageRows(): ProviderRow[] {
 			id: `evaluation-${String(index).padStart(4, '0')}`,
 			organization_id: 'org-a',
 			rated_person_id: 'person-a',
-			eval_type: 'NCOER',
+			eval_type: 'NCOER' as const,
 			rating_period_end: '2026-01-01',
 			status: 'active' as const
 		})),
@@ -88,7 +88,7 @@ function pageRows(): ProviderRow[] {
 			id: 'evaluation-1000',
 			organization_id: 'org-a',
 			rated_person_id: 'person-a',
-			eval_type: 'NCOER',
+			eval_type: 'NCOER' as const,
 			rating_period_end: '2030-12-31',
 			status: 'completed' as const
 		}
@@ -281,7 +281,13 @@ describe('Rating Scheme due projection', () => {
 				}
 			})
 		).resolves.toEqual([
-			{ id: 'evaluation-1', ratedPersonId: 'person-a', evalType: 'NCOER', ratingPeriodEnd: '2026-10-20', status: 'active' }
+			{
+				id: 'evaluation-1',
+				ratedPersonId: 'person-a',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-10-20',
+				status: 'active'
+			}
 		]);
 	});
 

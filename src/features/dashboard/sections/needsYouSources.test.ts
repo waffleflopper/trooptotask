@@ -139,15 +139,18 @@ function inputs(loaded: Loaded): DashboardInputs {
 							expirationMonths: 12,
 							warningDaysYellow: 60,
 							warningDaysOrange: 30,
-							requiredForRoles: [],
+							appliesToRoles: [],
+							appliesToMos: [],
+							appliesToRanks: [],
+							excludedRoles: [],
+							excludedMos: [],
+							excludedRanks: [],
 							color: '#000000',
 							sortOrder: 0,
 							expirationDateOnly: false,
 							canBeExempted: false,
 							exemptPersonnelIds: [],
-							appliesToRanks: [],
-							appliesToMos: [],
-							excludedRanks: []
+							isOptional: false
 						}
 					],
 					lossWarningWindowDays: 180,

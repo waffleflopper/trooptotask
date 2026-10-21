@@ -509,43 +509,6 @@ describe('createDashboardScreenModel', () => {
 		expect(model.gettingStartedItems.some((item) => !item.complete)).toBe(true);
 		expect(model.shouldShowGettingStarted).toBe(false);
 	});
-
-	it('lists upcoming departures and returns soonest first', () => {
-		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
-			sources: makeSources({
-				personnel: [
-					{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
-					{ id: 'p2', rank: 'SPC', firstName: 'Bo', lastName: 'Jones', groupId: null }
-				],
-				groups: [{ id: 'g1', name: 'Alpha', sortOrder: 1 }],
-				statusTypes: [{ id: 'st1', name: 'Leave', color: '#aa0000', textColor: '#ffffff' }],
-				availabilityEntries: [
-					{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-04-25', endDate: '2026-04-27' },
-					{ id: 'a2', personnelId: 'p2', statusTypeId: 'st1', startDate: '2026-04-26', endDate: '2026-04-28' }
-				]
-			})
-		});
-
-		expect(model.upcomingChanges.map((change) => change.date)).toEqual([
-			'2026-04-25',
-			'2026-04-26',
-			'2026-04-27',
-			'2026-04-28'
-		]);
-	});
-});
-
-it('resolves saved Group duty by ID after the Group is renamed', () => {
-	const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-09-19', timeZone: 'UTC' } }), {
-		sources: makeSources({
-			groups: [{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 }],
-			assignmentTypes: [{ id: 'group-duty', name: 'Group Duty', assignTo: 'group' }],
-			dailyAssignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }]
-		})
-	});
-	expect(model.dutyForDays(1)[0].assignments).toEqual([
-		expect.objectContaining({ id: 'saved', assigneeName: 'Alpha Renamed' })
-	]);
 });
 
 describe('Dashboard Training identity attribution', () => {
@@ -563,6 +526,7 @@ describe('Dashboard Training identity attribution', () => {
 						total: 5
 					},
 					issues: [],
+					expiredByType: [],
 					expiredPersonnelCount: 1,
 					groupDelinquencies: [
 						{ groupId: 'alpha', expiredPersonnelCount: 0, delinquentPersonnelCount: 1 },
@@ -585,7 +549,6 @@ describe('Dashboard Training identity attribution', () => {
 			}
 		);
 
-		expect(model.expiredTrainingPersonnelCount).toBe(1);
 		expect(model.trainingGroupDelinquencies).toEqual([
 			{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 0, pct: 50 },
 			{ groupId: 'bravo', groupName: 'Bravo', count: 1, expiredPersonnelCount: 1, pct: 100 }
@@ -623,6 +586,7 @@ describe('Dashboard Training identity attribution', () => {
 							daysUntilExpiration: -1
 						}
 					],
+					expiredByType: [],
 					expiredPersonnelCount: 1,
 					groupDelinquencies: [
 						{ groupId: 'alpha', expiredPersonnelCount: 0, delinquentPersonnelCount: 1 },
@@ -670,6 +634,7 @@ describe('Dashboard Training identity attribution', () => {
 						total: 2
 					},
 					issues: [],
+					expiredByType: [],
 					expiredPersonnelCount: 0,
 					groupDelinquencies: []
 				}
@@ -712,6 +677,7 @@ describe('Dashboard Onboarding progress', () => {
 							total: 0
 						},
 						issues: [],
+						expiredByType: [],
 						expiredPersonnelCount: 0,
 						groupDelinquencies: []
 					}

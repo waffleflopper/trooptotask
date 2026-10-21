@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { AttentionActionRowSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
@@ -155,17 +156,9 @@
 						{#if parts}
 							<NeedsYouQueue queue={parts.needsYou} />
 						{:else}
-							<div class="grid border-t border-border" aria-hidden="true">
+							<div class="grid border-t border-foreground" aria-hidden="true">
 								{#each { length: 5 }, index (index)}
-									<div class="flex min-h-[72px] items-center gap-4 border-b border-border pl-4">
-										<Skeleton class="h-3 w-[84px]" />
-										<div class="grid flex-1 gap-1.5">
-											<Skeleton class="h-4 w-[55%]" />
-											<Skeleton class="h-3.5 w-[35%]" />
-										</div>
-										<Skeleton class="h-3 w-16" />
-										<Skeleton class="h-8 w-28" />
-									</div>
+									<AttentionActionRowSkeleton />
 								{/each}
 							</div>
 						{/if}

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import DashboardPageView from './DashboardPageView.svelte';
@@ -56,7 +56,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			warningYellow: 0,
 			current: 0
 		},
-		expiredTrainingPersonnelCount: 0,
 		trainingCurrencyPct: 100,
 		ratingStats: {
 			overdue: 0,
@@ -65,8 +64,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			current: 0
 		},
 		activeOnboardings: [],
-		upcomingChanges: [],
-		upcomingLosses: [],
 		dutyStrengthPct: 100,
 		availableCount: 10,
 		totalPersonnel: 10,
@@ -75,8 +72,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		trainingGroupDelinquencies: [],
 		personnelCount: 0,
 		trainingTypeCount: 0,
-		formatShortDate: (date: string) => date,
-		dutyForDays: () => [],
 		dismissGettingStarted: () => {},
 		forecastDays: [],
 		inputs: { forecastDays: [] }
@@ -133,24 +128,12 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('/ 50')).toBeTruthy();
 	});
 
-	it('keeps saved Calendar assignments visible without presenting unavailable Training as current', () => {
+	it('does not present unavailable Training as current', () => {
 		const ctx = makeCtx({
 			trainingStats: null,
-			groupBreakdown: [
-				{ id: 'alpha', name: 'Clinic group', pct: 100, total: 1, available: 1, statusCounts: new Map() }
-			],
-			dutyForDays: () => [
-				{
-					date: '2026-09-21',
-					label: 'Today',
-					isToday: true,
-					assignments: [{ id: 'saved', typeName: 'Clinic Coverage', assigneeName: 'Alpha' }]
-				}
-			]
+			groupBreakdown: [{ id: 'alpha', name: 'Clinic group', pct: 100, total: 1, available: 1, statusCounts: new Map() }]
 		});
 		render(DashboardPageView, { props: { ...frame, ctx } });
-		expect(screen.getByText('Clinic Coverage')).toBeTruthy();
-		expect(screen.getByText('Alpha')).toBeTruthy();
 		expect(screen.queryByText('training current')).toBeNull();
 		const evaluations = screen.getByRole('heading', { name: 'Evaluations' }).closest('[data-slot="card"]')!;
 		expect(within(evaluations as HTMLElement).queryByText('Clinic group')).toBeNull();
@@ -200,39 +183,27 @@ describe('Dashboard Training attention', () => {
 		expect(within(group).getByText(`${pct}%`)).toBeTruthy();
 		expect(within(group).queryByText('100%')).toBeNull();
 	});
-	it('shows the distinct expired-person total and expired-only groups while retaining record warnings', () => {
-		const ctx = makeCtx({
-			trainingStats: { expired: 2, warningOrange: 1, warningYellow: 0, current: 1 },
-			expiredTrainingPersonnelCount: 1,
-			trainingGroupDelinquencies: [
-				{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 0, pct: 100 },
-				{ groupId: 'bravo', groupName: 'Bravo', count: 1, expiredPersonnelCount: 1, pct: 100 }
-			]
-		});
+	it('counts expired and expiring Training records in the readiness card', () => {
+		const ctx = makeCtx({ trainingStats: { expired: 2, warningOrange: 1, warningYellow: 0, current: 1 } });
 		render(DashboardPageView, { props: { ...frame, ctx } });
 
-		expect(screen.getByText('1 personnel with expired training')).toBeTruthy();
-		expect(screen.getByText('Bravo (1)')).toBeTruthy();
-		expect(screen.queryByText(/Alpha \(1\)/)).toBeNull();
-		expect(screen.getByText('2 expired')).toBeTruthy();
-		expect(screen.getByText('1 training items expiring soon')).toBeTruthy();
+		const training = screen.getByRole('heading', { name: 'Training & Evaluations' }).closest('[data-slot="card"]')!;
+		expect(within(training as HTMLElement).getByText('2 expired')).toBeTruthy();
 	});
 });
 
 describe('Dashboard feature switches', () => {
 	const offFor = (...off: string[]) => ({ isFeatureOn: (feature: string) => !off.includes(feature) });
 
-	it('drops Evaluations from the readiness card and Requires Attention when the unit turns them off', () => {
+	it('drops Evaluations from the readiness card when the unit turns them off', () => {
 		const ratingStats = { overdue: 2, 'due-30': 1, 'due-60': 0, current: 0 };
 		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ratingStats }) } });
-		expect(screen.getByText('2 overdue evaluations')).toBeTruthy();
-		expect(screen.getByText('1 evaluation due within 30 days')).toBeTruthy();
+		expect(screen.getByText('evals overdue')).toBeTruthy();
 		cleanup();
 
 		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ...offFor('evaluations'), ratingStats }) } });
 		expect(screen.getByRole('heading', { name: 'Training' })).toBeTruthy();
-		expect(screen.queryByText('2 overdue evaluations')).toBeNull();
-		expect(screen.queryByText('1 evaluation due within 30 days')).toBeNull();
+		expect(screen.queryByText('evals overdue')).toBeNull();
 	});
 
 	it('removes the readiness card when Training and Evaluations are both off', () => {
@@ -277,7 +248,7 @@ describe('Dashboard frame', () => {
 			expect(band?.getAttribute('aria-busy')).toBe('true');
 			expect(band?.querySelector('[data-slot="skeleton"]')).not.toBeNull();
 		}
-		expect(screen.queryByText('Requires Attention')).toBeNull();
+		expect(screen.queryByRole('list', { name: 'Needs you' })).toBeNull();
 	});
 
 	it('replaces the bands with the failure and keeps the header', () => {
@@ -410,9 +381,10 @@ describe('Dashboard sections', () => {
 		render(DashboardPageView, { props: { ...frame, ctx, sections } });
 
 		expect(screen.getByText('Needs you · 1')).toBeTruthy();
-		const row = within(screen.getByRole('list', { name: 'Needs you' })).getByRole('link');
-		expect(row.getAttribute('href')).toBe('/org/org-1/personnel/p1');
-		expect(row.textContent).toContain('SGT Diaz');
+		const queue = screen.getByRole('list', { name: 'Needs you' });
+		expect(within(queue).getByRole('link', { name: 'SGT Diaz' }).getAttribute('href')).toBe('/org/org-1/personnel/p1');
+		expect(within(queue).getByText('Leaving')).toBeTruthy();
+		expect(within(queue).getByText('PCS to Fort Hood')).toBeTruthy();
 		const lane = screen.getByRole('list', { name: 'Exercises' });
 		expect(within(lane).getByText('FTX')).toBeTruthy();
 		expect(bands().every((band) => band?.getAttribute('aria-busy') === 'false')).toBe(true);
@@ -443,5 +415,101 @@ describe('Dashboard sections', () => {
 
 		expect(screen.getByText('Nothing needs you right now.')).toBeTruthy();
 		expect(screen.queryByRole('list', { name: 'Exercises' })).toBeNull();
+	});
+	function leaving(index: number) {
+		return {
+			kind: 'leaving' as const,
+			id: `leaving-${index}`,
+			personnelId: `p${index}`,
+			title: `SGT Person ${index}`,
+			subtitle: 'ETS',
+			timing: `in ${index} days`,
+			href: `/org/org-1/personnel/p${index}`,
+			action: null,
+			urgency: { date: `2026-10-${String(19 + index).padStart(2, '0')}` }
+		};
+	}
+
+	function renderQueue(count: number) {
+		const many = dashboardSection('lossesAndAwards', {
+			needsYou: [() => Array.from({ length: count }, (_, index) => leaving(index + 1))]
+		});
+		render(DashboardPageView, {
+			props: { ...frame, ctx: createDashboardScreenModel(pageData(), { sources }), sections: [many] }
+		});
+		return screen.getByRole('list', { name: 'Needs you' });
+	}
+
+	it('shows nine rows in full without a fold', () => {
+		const queue = renderQueue(9);
+
+		expect(within(queue).getAllByRole('link')).toHaveLength(9);
+		expect(within(queue).queryByRole('button', { name: /Show all/ })).toBeNull();
+	});
+
+	it('folds a tenth row into the top seven and a summary that expands in place', async () => {
+		const queue = renderQueue(10);
+
+		expect(within(queue).getAllByRole('link')).toHaveLength(7);
+		expect(within(queue).getByText('+3 more')).toBeTruthy();
+		expect(within(queue).getByText('SGT Person 8 · SGT Person 9 · SGT Person 10')).toBeTruthy();
+
+		await fireEvent.click(within(queue).getByRole('button', { name: 'Show all 10' }));
+
+		expect(within(queue).getAllByRole('link')).toHaveLength(10);
+		expect(within(queue).queryByText('+3 more')).toBeNull();
+	});
+
+	it("names tomorrow's duty even when today is open", () => {
+		const ctx = createDashboardScreenModel(pageData(), {
+			sources: {
+				...sources,
+				personnel: {
+					items: [
+						{
+							id: 'p1',
+							rank: 'SSG',
+							lastName: 'Okafor',
+							firstName: 'Ada',
+							mos: '68W',
+							clinicRole: '',
+							groupId: null,
+							groupName: ''
+						}
+					],
+					loading: false
+				},
+				dailyAssignments: {
+					types: [
+						{
+							id: 'staff-duty',
+							name: 'Staff Duty',
+							shortName: 'SD',
+							assignTo: 'personnel',
+							color: '#1f6feb',
+							exemptPersonnelIds: [],
+							showOnCalendar: true,
+							sortOrder: 0
+						}
+					],
+					assignments: [{ id: 'sd-20', date: '2026-10-20', assignmentTypeId: 'staff-duty', assigneeId: 'p1' }],
+					loading: false
+				}
+			}
+		} as Parameters<typeof createDashboardScreenModel>[1]);
+
+		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+
+		const duty = screen.getByRole('row', { name: /Staff Duty/ });
+		expect(
+			within(duty)
+				.getAllByRole('cell')
+				.map((cell) => cell.textContent?.trim())
+		).toEqual(['Open', 'SSG Okafor']);
+		expect(screen.getAllByRole('columnheader').map((cell) => cell.textContent?.trim())).toEqual([
+			'Duty',
+			'Mon 19',
+			'Tue 20'
+		]);
 	});
 });

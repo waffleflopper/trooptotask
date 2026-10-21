@@ -40,9 +40,7 @@ export function createSupabaseRatingSchemeDuePort(
 			]);
 			if (error) throw new Error((error as { message: string }).message);
 			const archived = toArchivedPersonIds(archivedIds);
-			return (data ?? [])
-				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
-				.map(toDueEntry);
+			return (data ?? []).filter((row) => !isArchivedPerson(archived, row.rated_person_id)).map(toDueEntry);
 		}
 	};
 }

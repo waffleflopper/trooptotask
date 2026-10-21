@@ -105,7 +105,7 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					organization_id: ids.orgA,
 					personnel_id: ids.personA,
 					template_id: ids.onboardingTemplate,
-					started_at: dates.ui,
+					started_at: date(-8),
 					status: 'in_progress'
 				}
 			]
@@ -134,6 +134,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					step_type: 'paperwork',
 					sort_order: 1,
 					stages: ['Submitted', 'Reviewed', 'Filed'],
+					current_stage: 'Submitted',
+					progress_changed_at: `${date(-8)}T12:00:00Z`,
 					completed: false,
 					active: true
 				},

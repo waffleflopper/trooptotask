@@ -437,6 +437,7 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 				id: 'e-active',
 				organization_id: ORG,
 				rated_person_id: 'p-active',
+				eval_type: 'NCOER',
 				rating_period_end: '2026-09-25',
 				status: 'active'
 			},
@@ -444,12 +445,15 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 				id: 'e-archived',
 				organization_id: ORG,
 				rated_person_id: 'p-archived',
+				eval_type: 'NCOER',
 				rating_period_end: '2026-09-20',
 				status: 'active'
 			}
 		]);
 		const result = await load(ctx);
-		expect(result.ratingSchemeEntries).toEqual([{ ratingPeriodEnd: '2026-09-25', status: 'active' }]);
+		expect(result.ratingSchemeEntries).toEqual([
+			{ id: 'e-active', ratedPersonId: 'p-active', evalType: 'NCOER', ratingPeriodEnd: '2026-09-25', status: 'active' }
+		]);
 	});
 
 	it('surfaces an authorized projection failure instead of reporting zero evaluations', async () => {

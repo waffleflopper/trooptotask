@@ -63,7 +63,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/inline-edit-row`](#patternsinline-edit-row)                     | `Root`                                                                                                                                              | The person record's Log tab: follow-ups and leader notes.                                                                                                                |
 | [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `SectionHeader`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                           | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                  |
 | [`patterns/readiness-band`](#patternsreadiness-band)                       | `Cell`, `Legend`; `readinessBandTone`                                                                                                               | Critical Tasks and Training reports.                                                                                                                                     |
-| [`patterns/readiness-items`](#patternsreadiness-items)                     | `ReadinessItemTable`, `AttentionList`, their skeletons; `readinessItemStatusVisuals`                                                                | Personnel Readiness tab tables and the Overview's Needs attention list.                                                                                                  |
+| [`patterns/readiness-items`](#patternsreadiness-items) | `ReadinessItemTable`, `AttentionList`, `AttentionActionRow`, their skeletons; `readinessItemStatusVisuals` | Personnel Readiness tab tables, the person Overview's Needs attention list and the Dashboard's Needs you queue. |
 | [`patterns/reorder-list`](#patternsreorder-list)                           | `ReorderList`, `ReorderItem`, `ReorderGrip`                                                                                                         | Onboarding template steps and paperwork stages; Calendar lanes and status types in Calendar settings.                                                                    |
 | [`patterns/report-chart`](#patternsreport-chart)                           | See its section                                                                                                                                     | Critical Tasks reports, Training Reports and the platform admin dashboard.                                                                                               |
 | [`patterns/report-workspace`](#patternsreport-workspace)                   | See its section                                                                                                                                     | Calendar, Critical Tasks and Training reports.                                                                                                                           |
@@ -644,6 +644,16 @@ Rules:
 `patterns/readiness-items` lists one Person's dated requirements as leaders triage them: problems first, then a `Current · N` group soonest expiry first, with `Show N more current` past the preview. Status comes from `ReadinessItemStatus` in `src/lib/domain/readinessItem.ts`; features map their items to `ReadinessItemRow` and own the detail line.
 
 `AttentionList` is the cross-source version for one Person: one ranked list of linked rows with a status word on the left rule, the item, a category and a relative timing. Rows add `due` and `upcoming` to the problem statuses for evaluations and losses.
+
+`AttentionActionRow` is the same row when it can act in place. It is one `li` for a consumer's `ul`: a `tone` rule (`danger`, `warning` or `info`) with its kind `label`, the `title` and `subtitle`, the `timing`, an optional `action` snippet and a chevron link to `href`. The link stretches over the row, so a click anywhere opens the owning page, and buttons in `action` sit above it. Columns are fixed at 84, flexible, 84 and 172 pixels so rows align; below `sm` the label and timing share the first line. `children` renders an expanded panel under the row inside the same rule. `AttentionActionRowSkeleton` is one row at the loaded height.
+
+```svelte
+<ul class="border-t border-foreground" aria-label="Needs you">
+	<AttentionActionRow tone="danger" label="Overdue" title="NCOER for SSG Alvarez, Marisol" subtitle="Thru date 13 Oct" timing="6 days late" href={entryHref}>
+		{#snippet action()}<Button variant="outline" onclick={openEntry}>Update status</Button>{/snippet}
+	</AttentionActionRow>
+</ul>
+```
 
 ```svelte
 <script lang="ts">

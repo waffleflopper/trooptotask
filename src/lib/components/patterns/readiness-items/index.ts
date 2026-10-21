@@ -7,3 +7,6 @@ export type { ReadinessCertificate, ReadinessHistoryEntry } from './readiness-hi
 export { default as AttentionList } from './attention-list.svelte';
 export type { AttentionListRow, AttentionListStatus } from './attention-list.svelte';
 export { default as AttentionListSkeleton } from './attention-list-skeleton.svelte';
+export { default as AttentionActionRow } from './attention-action-row.svelte';
+export type { AttentionTone } from './attention-action-row.svelte';
+export { default as AttentionActionRowSkeleton } from './attention-action-row-skeleton.svelte';

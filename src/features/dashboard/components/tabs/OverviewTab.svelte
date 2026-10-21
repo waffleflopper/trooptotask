@@ -19,89 +19,17 @@
 	const view = $derived(ctx.unitReadiness);
 	const statusEntries = $derived(view.statusEntries);
 	const trainingGroupDelinquencies = $derived(ctx.trainingGroupDelinquencies);
-	const dutyDays = $derived(ctx.dutyForDays(1));
-	const todayDuty = $derived(dutyDays.find((d) => d.isToday));
-	const tomorrowDuty = $derived(dutyDays.find((d) => !d.isToday));
 
-	let changesExpanded = $state(false);
 	let outTodayExpanded = $state(false);
-	let lossesExpanded = $state(false);
 
-	const visibleChanges = $derived(changesExpanded ? ctx.upcomingChanges : ctx.upcomingChanges.slice(0, CARD_LIMIT));
 	const visibleOutToday = $derived(
 		outTodayExpanded ? ctx.nonAvailablePersonnel : ctx.nonAvailablePersonnel.slice(0, CARD_LIMIT)
 	);
-	const LOSSES_LIMIT = 3;
-	const visibleLosses = $derived(lossesExpanded ? ctx.upcomingLosses : ctx.upcomingLosses.slice(0, LOSSES_LIMIT));
 	const showsEvaluations = $derived(ctx.isFeatureOn('evaluations'));
 	const showsTraining = $derived(ctx.trainingStats !== null);
 	const readinessCardTitle = $derived(
 		[showsTraining && 'Training', showsEvaluations && 'Evaluations'].filter(Boolean).join(' & ')
 	);
-
-	interface AttentionItem {
-		severity: 'danger' | 'warning' | 'info';
-		message: string;
-		detail: string;
-		count?: number;
-	}
-
-	const attentionItems = $derived.by((): AttentionItem[] => {
-		const items: AttentionItem[] = [];
-		const stats = ctx.trainingStats;
-		const ratings = ctx.ratingStats;
-
-		const expiredPersonnel = ctx.expiredTrainingPersonnelCount;
-		if (stats && expiredPersonnel > 0) {
-			items.push({
-				severity: 'danger',
-				message: `${expiredPersonnel} personnel with expired training`,
-				detail: trainingGroupDelinquencies
-					.filter((group) => group.expiredPersonnelCount > 0)
-					.slice(0, 3)
-					.map((g) => `${g.groupName} (${g.expiredPersonnelCount})`)
-					.join(', '),
-				count: expiredPersonnel
-			});
-		}
-
-		if (showsEvaluations && ratings.overdue > 0) {
-			items.push({
-				severity: 'danger',
-				message: `${ratings.overdue} overdue evaluation${ratings.overdue !== 1 ? 's' : ''}`,
-				detail: 'Requires immediate attention',
-				count: ratings.overdue
-			});
-		}
-
-		if (stats && stats.warningOrange > 0) {
-			items.push({
-				severity: 'warning',
-				message: `${stats.warningOrange} training items expiring soon`,
-				detail: 'Within the configured Training warning window',
-				count: stats.warningOrange
-			});
-		}
-
-		if (showsEvaluations && ratings['due-30'] > 0) {
-			items.push({
-				severity: 'warning',
-				message: `${ratings['due-30']} evaluation${ratings['due-30'] !== 1 ? 's' : ''} due within 30 days`,
-				detail: 'Across all groups',
-				count: ratings['due-30']
-			});
-		}
-
-		return items;
-	});
-
-	function severityDot(severity: AttentionItem['severity']): string {
-		return { danger: 'bg-destructive', warning: 'bg-warning', info: 'bg-info' }[severity];
-	}
-
-	function severityText(severity: AttentionItem['severity']): string {
-		return { danger: 'text-destructive', warning: 'text-warning-foreground', info: 'text-info-foreground' }[severity];
-	}
 </script>
 
 <section class="px-3 pb-12 sm:px-4">
@@ -162,75 +90,6 @@
 					</div>
 				{/if}
 			</Card.Content>
-		</Card.Root>
-
-		<Card.Root class="row-span-2 flex flex-col">
-			<Card.Header>
-				<div class="flex items-center justify-between">
-					<Card.Title>Requires Attention</Card.Title>
-					{#if attentionItems.length > 0}
-						<Badge variant="destructive">{attentionItems.length}</Badge>
-					{/if}
-				</div>
-			</Card.Header>
-			<div class="flex flex-1 flex-col divide-y overflow-auto">
-				{#if attentionItems.length === 0}
-					<div class="flex flex-1 items-center justify-center p-4">
-						<p class="font-mono text-xs uppercase tracking-widest text-muted-foreground">No items require attention</p>
-					</div>
-				{:else}
-					{#each attentionItems as item, i (i)}
-						<div class="flex items-start gap-3 px-4 py-3">
-							<span class="mt-1 size-2 shrink-0 rounded-full {severityDot(item.severity)}"></span>
-							<div class="min-w-0 flex-1">
-								<div class="text-sm font-medium text-foreground">{item.message}</div>
-								{#if item.detail}
-									<div class="mt-0.5 font-mono text-[0.625rem] text-muted-foreground">{item.detail}</div>
-								{/if}
-							</div>
-							{#if item.count}
-								<span class="shrink-0 font-mono text-xs font-semibold {severityText(item.severity)}">
-									{item.count}
-								</span>
-							{/if}
-						</div>
-					{/each}
-				{/if}
-
-				{#if ctx.upcomingLosses.length > 0}
-					<div class="px-4 py-3">
-						<div class="mb-2 font-mono text-[0.625rem] font-semibold uppercase tracking-widest text-muted-foreground">
-							Upcoming Losses
-						</div>
-						<div id="{uid}-losses">
-							{#each visibleLosses as loss (loss.personId)}
-								<div class="flex items-baseline justify-between gap-2 py-1">
-									<span class="min-w-0 truncate text-sm text-foreground">{loss.personName}</span>
-									<span class="shrink-0 font-mono text-[0.625rem] text-muted-foreground">
-										{ctx.formatShortDate(loss.targetDate)}
-									</span>
-								</div>
-							{/each}
-						</div>
-						{#if ctx.upcomingLosses.length > LOSSES_LIMIT}
-							<Button
-								variant="ghost"
-								size="sm"
-								class="mt-1"
-								aria-expanded={lossesExpanded}
-								aria-controls="{uid}-losses"
-								onclick={() => (lossesExpanded = !lossesExpanded)}
-							>
-								{lossesExpanded ? 'Show less' : `+${ctx.upcomingLosses.length - LOSSES_LIMIT} more`}<span
-									class="sr-only"
-								>
-									in Upcoming Losses</span
-								>
-							</Button>
-						{/if}
-					</div>
-				{/if}
-			</div>
 		</Card.Root>
 
 		{#if showsTraining || showsEvaluations}
@@ -304,43 +163,6 @@
 			</Card.Root>
 		{/if}
 
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Calendar Assignments</Card.Title>
-			</Card.Header>
-			<Card.Content>
-				{#if todayDuty}
-					<div class="mb-1 font-mono text-[0.625rem] uppercase tracking-widest text-muted-foreground">Today</div>
-					{#if todayDuty.assignments.length === 0}
-						<p class="py-2 font-mono text-[0.625rem] text-muted-foreground">No assignments today</p>
-					{:else}
-						{#each todayDuty.assignments as a (a.id)}
-							<div class="flex items-baseline justify-between gap-2 border-t border-border/60 py-1.5">
-								<span class="font-mono text-[0.625rem] uppercase text-muted-foreground">{a.typeName}</span>
-								<span class="text-sm text-foreground">{a.assigneeName}</span>
-							</div>
-						{/each}
-					{/if}
-				{/if}
-
-				{#if tomorrowDuty}
-					<div class="mb-1 mt-3 font-mono text-[0.625rem] uppercase tracking-widest text-muted-foreground">
-						Tomorrow
-					</div>
-					{#if tomorrowDuty.assignments.length === 0}
-						<p class="py-2 font-mono text-[0.625rem] text-muted-foreground">No assignments tomorrow</p>
-					{:else}
-						{#each tomorrowDuty.assignments as a (a.id)}
-							<div class="flex items-baseline justify-between gap-2 border-t border-border/60 py-1.5">
-								<span class="font-mono text-[0.625rem] uppercase text-muted-foreground">{a.typeName}</span>
-								<span class="text-sm text-foreground">{a.assigneeName}</span>
-							</div>
-						{/each}
-					{/if}
-				{/if}
-			</Card.Content>
-		</Card.Root>
-
 		{#if ctx.isFeatureOn('onboarding')}
 			<Card.Root>
 				<Card.Header>
@@ -377,53 +199,6 @@
 				{/if}
 			</Card.Root>
 		{/if}
-
-		<Card.Root>
-			<Card.Header>
-				<div class="flex items-center justify-between">
-					<Card.Title>Upcoming Changes</Card.Title>
-					{#if ctx.upcomingChanges.length > 0}
-						<Badge variant="secondary">{ctx.upcomingChanges.length}</Badge>
-					{/if}
-				</div>
-			</Card.Header>
-			{#if ctx.upcomingChanges.length === 0}
-				<Card.Content>
-					<p class="font-mono text-[0.625rem] uppercase tracking-widest text-muted-foreground">
-						No changes in the next 7 days
-					</p>
-				</Card.Content>
-			{:else}
-				<div id="{uid}-changes" class="divide-y">
-					{#each visibleChanges as change (change.key)}
-						<div class="flex items-baseline justify-between gap-2 px-4 py-2">
-							<span class="min-w-0 truncate text-sm text-foreground">{change.personName}</span>
-							<span class="shrink-0 font-mono text-[0.625rem] text-muted-foreground">
-								{ctx.formatShortDate(change.date)} · {change.direction === 'departing'
-									? change.statusName
-									: 'Returning'}
-							</span>
-						</div>
-					{/each}
-				</div>
-				{#if ctx.upcomingChanges.length > CARD_LIMIT}
-					<div class="border-t">
-						<Button
-							variant="ghost"
-							size="sm"
-							class="w-full"
-							aria-expanded={changesExpanded}
-							aria-controls="{uid}-changes"
-							onclick={() => (changesExpanded = !changesExpanded)}
-						>
-							{changesExpanded ? 'Show less' : `+${ctx.upcomingChanges.length - CARD_LIMIT} more`}<span class="sr-only">
-								in Upcoming Changes</span
-							>
-						</Button>
-					</div>
-				{/if}
-			{/if}
-		</Card.Root>
 
 		{#if ctx.nonAvailablePersonnel.length > 0}
 			<Card.Root>

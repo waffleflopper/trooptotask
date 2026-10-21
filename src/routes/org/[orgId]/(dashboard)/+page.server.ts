@@ -1,4 +1,8 @@
-import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
+import {
+	formatDashboardDisplayDate,
+	type DashboardViewerDay,
+	type DashboardWorkspaceResult
+} from '$features/dashboard/contracts';
 import { fetchDashboardSummary, withDashboardTiming } from '$features/dashboard/index.server';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -48,7 +52,9 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 	);
 
 	return {
-		summary
+		summary,
+		breadcrumbLabel: formatDashboardDisplayDate(asOf),
+		viewerDay: { date: asOf, timeZone } satisfies DashboardViewerDay
 	};
 };
 

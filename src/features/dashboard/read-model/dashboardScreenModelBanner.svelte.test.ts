@@ -7,7 +7,6 @@ import {
 	calendarAssignmentsSource as dailyAssignmentsStore
 } from '$features/calendar';
 import { groupsStore } from '$features/personnel';
-import type { TrainingIssue } from '$features/training/contracts';
 import type { DashboardWorkspaceResult } from '../contracts';
 import type { DashboardPageData } from '../contracts';
 
@@ -73,6 +72,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
+		viewerDay: { date: '2026-04-23', timeZone: 'UTC' },
 		disabledFeatures: [],
 		dashboard: {
 			workspaceKey: 'dashboard',
@@ -108,15 +108,14 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 	});
 
 	describe('today', () => {
-		it('is a string in YYYY-MM-DD format', () => {
-			expect(ctx.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-		});
-	});
+		it("is the page load's viewer day even when the browser clock reads another day", () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-10-20T03:00:00Z'));
+			const model = createDashboardScreenModel(
+				makeData({ viewerDay: { date: '2026-10-19', timeZone: 'America/Los_Angeles' } })
+			);
 
-	describe('todayDisplay', () => {
-		it('returns a human-readable date string', () => {
-			expect(ctx.todayDisplay).toMatch(/\d{4}/);
-			expect(ctx.todayDisplay).toMatch(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/);
+			expect(model.today).toBe('2026-10-19');
 		});
 	});
 
@@ -163,21 +162,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	describe('statusTypeCount', () => {
-		it('reads from dashboard workspace data', () => {
-			const c = createDashboardScreenModel(
-				makeData({}, { statusTypes: [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' }] })
-			);
-			expect(c.statusTypeCount).toBe(1);
-		});
-	});
-
-	describe('dutyAssignments', () => {
-		it('returns an empty array when no assignments exist', () => {
-			expect(ctx.dutyAssignments).toHaveLength(0);
-		});
-	});
-
 	describe('isHydrating', () => {
 		it('is false once the composite stores are loaded', () => {
 			expect(ctx.isHydrating).toBe(false);
@@ -212,76 +196,12 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	describe('topTrainingIssues', () => {
-		it('returns empty array when no summary', () => {
-			expect(ctx.topTrainingIssues).toHaveLength(0);
-		});
-
-		it('returns issues from trainingSummary', () => {
-			const issues: TrainingIssue[] = [
-				{
-					personnelId: 'smith',
-					daysUntilExpiration: -1,
-					personName: 'SGT Smith',
-					typeName: 'CPR',
-					status: 'expired',
-					label: 'Expired'
-				}
-			];
-			const c = createDashboardScreenModel(
-				makeData({
-					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
-				})
-			);
-			expect(c.topTrainingIssues).toHaveLength(1);
-			expect(c.topTrainingIssues[0].personName).toBe('SGT Smith');
-		});
-
-		it('returns multiple issues ordered as provided', () => {
-			const issues: TrainingIssue[] = [
-				{
-					personnelId: 'smith',
-					daysUntilExpiration: -1,
-					personName: 'SGT Smith',
-					typeName: 'CPR',
-					status: 'expired',
-					label: 'Expired'
-				},
-				{
-					personnelId: 'jones',
-					daysUntilExpiration: 15,
-					personName: 'PFC Jones',
-					typeName: 'BLS',
-					status: 'warning-orange',
-					label: 'Expiring'
-				},
-				{
-					personnelId: 'clark',
-					daysUntilExpiration: -1,
-					personName: 'SPC Clark',
-					typeName: 'SHARP',
-					status: 'expired',
-					label: 'Expired'
-				}
-			];
-			const c = createDashboardScreenModel(
-				makeData({
-					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
-				})
-			);
-			expect(c.topTrainingIssues).toHaveLength(3);
-			expect(c.topTrainingIssues[1].typeName).toBe('BLS');
-		});
-	});
-
 	describe('upcomingChanges', () => {
 		it('returns an empty array when no availability entries', () => {
 			expect(ctx.upcomingChanges).toHaveLength(0);
 		});
 
 		it('assigns unique keys when repeated changes land on the same day', () => {
-			vi.useFakeTimers();
-			vi.setSystemTime(new Date('2098-12-31T12:00:00Z'));
 			mutableRosterStore.items = [
 				{ id: 'p1', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Alex' },
 				{ id: 'p2', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Avery' }
@@ -304,7 +224,9 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				}
 			];
 
-			const dashboardModel = createDashboardScreenModel(makeData());
+			const dashboardModel = createDashboardScreenModel(
+				makeData({ viewerDay: { date: '2098-12-31', timeZone: 'UTC' } })
+			);
 			const keys = dashboardModel.upcomingChanges.map((change) => change.key);
 
 			expect(keys).toEqual([
@@ -317,12 +239,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	describe('upcomingByDate', () => {
-		it('returns an empty Map when no upcoming changes', () => {
-			expect(ctx.upcomingByDate.size).toBe(0);
-		});
-	});
-
 	describe('ratingStats', () => {
 		afterEach(() => vi.useRealTimers());
 		it('returns zero counts with no rating entries', () => {
@@ -332,9 +248,9 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			expect(ctx.ratingStats.current).toBe(0);
 		});
 
-		it('buckets only the projected dates and record statuses using the local day', () => {
+		it("buckets only the projected dates and record statuses against the viewer's day", () => {
 			vi.useFakeTimers({ toFake: ['Date'] });
-			vi.setSystemTime(new Date('2026-09-30T00:00:00'));
+			vi.setSystemTime(new Date('2026-11-30T00:00:00'));
 			const entries = [
 				{ ratingPeriodEnd: '2026-09-25', status: 'active' },
 				{ ratingPeriodEnd: '2026-09-28', status: 'active' },
@@ -346,15 +262,10 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				{ ratingPeriodEnd: '2026-12-29', status: 'active' },
 				{ ratingPeriodEnd: '2026-07-02', status: 'completed' }
 			];
-			const model = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
+			const model = createDashboardScreenModel(
+				makeData({ viewerDay: { date: '2026-09-30', timeZone: 'UTC' } }, { ratingSchemeEntries: entries })
+			);
 			expect(model.ratingStats).toEqual({ overdue: 2, 'due-30': 4, 'due-60': 1, current: 1 });
-			expect(model.ratingTotal).toBe(8);
-		});
-	});
-
-	describe('ratingTotal', () => {
-		it('sums all non-completed entries', () => {
-			expect(ctx.ratingTotal).toBe(0);
 		});
 	});
 

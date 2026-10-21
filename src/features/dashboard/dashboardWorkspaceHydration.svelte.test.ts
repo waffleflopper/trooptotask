@@ -8,8 +8,7 @@ import { createMockAdapter, createStore, endOrganizationLifetime } from '$lib/st
 import { dailyAssignmentsStore } from '$features/calendar';
 import { confirmedChangesSentNow } from '$lib/test-support/confirmedChangeCookies';
 import { createDashboardWorkspaceHydrator, type DashboardHydrationStores } from './dashboardWorkspaceHydration.svelte';
-import { createDashboardScreenModel } from './read-model/dashboardScreenModel.svelte';
-import type { DashboardPageData, DashboardWorkspaceHydration } from './contracts';
+import type { DashboardWorkspaceHydration } from './contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -242,13 +241,7 @@ describe('Dashboard workspace hydration adapter', () => {
 		expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
 		late.resolve({ types: [chargeOfQuarters, runnerTeam], assignments: [cqDuty, runnerDutyByB] });
 		await pending;
-		const model = createDashboardScreenModel({ orgId: 'org-1', orgName: 'Unit' } as DashboardPageData, {
-			today,
-			storage: { getItem: () => null, setItem: () => {} }
-		});
-
-		expect(model.dutyAssignments.map(({ id, typeName }) => ({ id, typeName }))).toEqual([
-			{ id: 'cq-duty', typeName: 'Charge of Quarters' }
-		]);
+		expect(dailyAssignmentsStore.types.map(({ id }) => id)).toEqual(['cq']);
+		expect(dailyAssignmentsStore.assignments.map(({ id }) => id)).toEqual(['cq-duty']);
 	});
 });

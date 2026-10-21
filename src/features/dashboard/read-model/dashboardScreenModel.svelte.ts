@@ -1,4 +1,3 @@
-import { browser } from '$app/environment';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
 import { calendarStatusSource, calendarAvailabilitySource, calendarAssignmentsSource } from '$features/calendar';
@@ -6,32 +5,23 @@ import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
-import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
-import { formatDate, formatToday, parseDate } from '$lib/utils/dates';
-import { formatDashboardDisplayDate } from '$features/dashboard/contracts';
+import { formatDate, parseDate } from '$lib/utils/dates';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { DashboardPageData } from '$features/dashboard/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { TrainingIssue } from '$features/training/contracts';
 import { getProgress } from '$features/onboarding/contracts';
 import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import type { DashboardInputs } from '../sections/dashboardInputs';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
 	StarterConfigurationPackSupport
 } from '$features/dashboard/contracts';
-
-export type GroupedEntries<T> = Array<[string, T[]]>;
-export type UpcomingGroupBy = 'date' | 'group';
-
-export interface DashboardStoragePort {
-	getItem(key: string): string | null;
-	setItem(key: string, value: string): void;
-}
 
 export interface DashboardCollectionSource<T> {
 	items: T[];
@@ -59,10 +49,10 @@ export interface DashboardStoreSources {
 }
 
 export interface DashboardScreenModelOptions {
-	today?: string;
-	storage?: DashboardStoragePort;
 	sources?: DashboardStoreSources;
 }
+
+const FORECAST_DAYS = 14;
 
 export interface DashboardSupportData {
 	trainingTypeCount?: number;
@@ -154,14 +144,6 @@ export interface DashboardDutyDayView {
 	assignments: DashboardDutyAssignmentRow[];
 }
 
-export interface DashboardGroupedPreferenceView<Mode extends string, Row> {
-	mode: Mode;
-	setMode(mode: Mode): void;
-	byStatus: GroupedEntries<Row>;
-	byGroup: GroupedEntries<Row>;
-	byDate: GroupedEntries<Row>;
-}
-
 export interface DashboardUnitReadinessView {
 	availabilityColor(pct: number): string;
 	trainingCurrencyColor(pct: number): string;
@@ -169,13 +151,7 @@ export interface DashboardUnitReadinessView {
 	availColor: string;
 	trainingColor: string;
 	statusEntries: Array<[string, DashboardStatusBreakdown]>;
-	upcomingChanges: Pick<
-		DashboardGroupedPreferenceView<UpcomingGroupBy, DashboardUpcomingChangeRow>,
-		'mode' | 'setMode' | 'byGroup'
-	>;
 }
-
-const UPCOMING_KEY = 'dashboard-upcoming-group-by';
 
 export function createDashboardScreenModel(
 	data: DashboardPageData,
@@ -187,10 +163,9 @@ export function createDashboardScreenModel(
 export class DashboardScreenModel {
 	readonly data: DashboardPageData;
 	readonly today: string;
+	readonly forecastDays: readonly string[];
 	private readonly sources: DashboardStoreSources;
-	private readonly storage: DashboardStoragePort | null;
 
-	private upcomingGroupBy = $state<UpcomingGroupBy>('date');
 	private rosterView = $derived.by<RosterReadModelView>(() => {
 		const groupOrder = [...this.sources.groups.items]
 			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
@@ -210,6 +185,20 @@ export class DashboardScreenModel {
 	private statusTypeById = $derived.by(() => indexById(this.sources.statusTypes.items));
 	private groupById = $derived.by(() => indexById(this.sources.groups.items));
 
+	/** The loaded data as plain values, for the Dashboard sections. */
+	inputs = $derived.by<DashboardInputs>(() => ({
+		today: this.today,
+		timeZone: this.data.viewerDay.timeZone,
+		forecastDays: this.forecastDays,
+		personnel: this.rosterView.flatPersonnel,
+		availability: this.sources.availability.items,
+		statusTypes: this.sources.statusTypes.items,
+		groups: this.sources.groups.items,
+		assignmentTypes: this.sources.dailyAssignments.types,
+		assignments: this.sources.dailyAssignments.assignments,
+		page: this.data
+	}));
+
 	gettingStartedDismissed = $state(false);
 	starterPackApplyState = $state<DashboardStarterPackApplyState>({
 		status: 'idle',
@@ -220,10 +209,10 @@ export class DashboardScreenModel {
 
 	constructor(data: DashboardPageData, options: DashboardScreenModelOptions = {}) {
 		this.data = data;
-		this.today = options.today ?? formatToday();
+		this.today = data.viewerDay.date;
+		const todayNumber = toDayNumber(this.today);
+		this.forecastDays = Array.from({ length: FORECAST_DAYS }, (_, offset) => fromDayNumber(todayNumber + offset));
 		this.sources = options.sources ?? createDefaultDashboardStoreSources();
-		this.storage = options.storage ?? createBrowserStoragePort();
-		this.upcomingGroupBy = readPreference(this.storage, UPCOMING_KEY, ['date', 'group'], 'date');
 
 		if (
 			typeof data.onboardingTemplateStepCount === 'number' &&
@@ -242,24 +231,12 @@ export class DashboardScreenModel {
 		}
 	}
 
-	get todayDisplay(): string {
-		return formatDashboardDisplayDate(this.today);
-	}
-
 	get personnelCount(): number {
 		return this.data.dashboard.data.personnel.length;
 	}
 
-	get statusTypeCount(): number {
-		return this.data.dashboard.data.statusTypes.length;
-	}
-
 	get trainingTypeCount(): number {
 		return this.supportData?.trainingTypeCount ?? dashboardTrainingTypeCount(this.data);
-	}
-
-	get assignmentTypeCount(): number {
-		return this.data.dashboard.data.assignmentTypes.length;
 	}
 
 	get userRole(): string | undefined {
@@ -481,18 +458,8 @@ export class DashboardScreenModel {
 		return map;
 	}
 
-	get dutyAssignments(): DashboardDutyAssignmentRow[] {
-		return this.sources.dailyAssignments.assignments
-			.filter((a) => a.date === this.today)
-			.map((a) => this.toDutyAssignmentRow(a));
-	}
-
 	get trainingStats() {
 		return this.data.trainingSummary?.stats ?? null;
-	}
-
-	get topTrainingIssues(): TrainingIssue[] {
-		return this.data.trainingSummary?.issues ?? [];
 	}
 
 	upcomingChanges = $derived.by<DashboardUpcomingChangeRow[]>(() => {
@@ -537,16 +504,6 @@ export class DashboardScreenModel {
 
 		return changes.sort((a, b) => a.date.localeCompare(b.date));
 	});
-
-	get upcomingByDate(): Map<string, DashboardUpcomingChangeRow[]> {
-		return new SvelteMap(
-			groupEntries(
-				this.upcomingChanges,
-				(change) => change.date,
-				(a, b) => a.localeCompare(b)
-			)
-		);
-	}
 
 	get activeOnboardings(): DashboardOnboardingProgressRow[] {
 		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => this.findRosterPerson(o.personnelId));
@@ -620,19 +577,14 @@ export class DashboardScreenModel {
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number; current: number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0 };
+		const today = parseDate(this.today);
 		for (const entry of this.data.dashboard.data.ratingSchemeEntries) {
-			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
+			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today);
 			if (status !== 'completed') {
 				counts[status as keyof typeof counts]++;
 			}
 		}
 		return counts;
-	}
-
-	get ratingTotal(): number {
-		return (
-			this.ratingStats.overdue + this.ratingStats['due-30'] + this.ratingStats['due-60'] + this.ratingStats.current
-		);
 	}
 
 	nonAvailablePersonnel = $derived.by<DashboardOutTodayRow[]>(() =>
@@ -683,42 +635,6 @@ export class DashboardScreenModel {
 			0
 		);
 		return Math.max(0, Math.round(((this.totalPersonnel - delinquentPersonnel) / this.totalPersonnel) * 100));
-	}
-
-	get onLeaveCount(): number {
-		return this.todayEntries.filter((e) => {
-			const st = this.statusTypeById.get(e.statusTypeId);
-			return st?.name?.toLowerCase().includes('leave') ?? false;
-		}).length;
-	}
-
-	quickStatValue(metricId: string): number {
-		switch (metricId) {
-			case 'present-strength':
-				return this.availableCount;
-			case 'total-strength':
-				return this.totalPersonnel;
-			case 'non-available-today':
-				return this.todayAvailability.byPersonnelId.size;
-			case 'on-leave':
-				return this.onLeaveCount;
-			case 'training-currency':
-				return this.trainingCurrencyPct;
-			case 'expired-training':
-				return this.trainingStats?.expired ?? 0;
-			case 'onboardings-in-progress':
-				return this.activeOnboardings.length;
-			case 'evaluations-overdue':
-				return this.ratingStats.overdue;
-			case 'evaluations-due-30':
-				return this.ratingStats['due-30'];
-			default:
-				return 0;
-		}
-	}
-
-	quickStatUnit(metricId: string): string {
-		return metricId === 'training-currency' ? '%' : '';
 	}
 
 	get expiredTrainingPersonnelCount(): number {
@@ -777,30 +693,8 @@ export class DashboardScreenModel {
 			availPct,
 			availColor: availabilityColor(availPct),
 			trainingColor: trainingCurrencyColor(this.trainingCurrencyPct),
-			statusEntries: [...this.statusBreakdown.entries()],
-			upcomingChanges: {
-				mode: this.upcomingGroupBy,
-				setMode: (mode) => this.setUpcomingGroupBy(mode),
-				byGroup: this.upcomingChangesByGroup
-			}
+			statusEntries: [...this.statusBreakdown.entries()]
 		};
-	}
-
-	get upcomingChangesByGroup(): GroupedEntries<DashboardUpcomingChangeRow> {
-		return groupEntries(this.upcomingChanges, (change) => change.groupName, sortGroupName);
-	}
-
-	get upcomingChangesByDate(): GroupedEntries<DashboardUpcomingChangeRow> {
-		return groupEntries(
-			this.upcomingChanges,
-			(change) => change.date,
-			(a, b) => a.localeCompare(b)
-		);
-	}
-
-	private setUpcomingGroupBy(mode: UpcomingGroupBy) {
-		this.upcomingGroupBy = mode;
-		writePreference(this.storage, UPCOMING_KEY, mode);
 	}
 
 	private toDutyAssignmentRow(assignment: DailyAssignment): DashboardDutyAssignmentRow {
@@ -844,44 +738,6 @@ function createDefaultDashboardStoreSources(): DashboardStoreSources {
 	};
 }
 
-function createBrowserStoragePort(): DashboardStoragePort | null {
-	const storage = getBrowserLocalStorage();
-	if (!browser || !storage) return null;
-
-	return {
-		getItem(key) {
-			return storage.getItem(key);
-		},
-		setItem(key, value) {
-			storage.setItem(key, value);
-		}
-	};
-}
-
-function readPreference<T extends string>(
-	storage: DashboardStoragePort | null,
-	key: string,
-	allowed: readonly T[],
-	fallback: T
-): T {
-	if (!storage) return fallback;
-	try {
-		const saved = storage.getItem(key);
-		return allowed.includes(saved as T) ? (saved as T) : fallback;
-	} catch {
-		return fallback;
-	}
-}
-
-function writePreference(storage: DashboardStoragePort | null, key: string, value: string) {
-	if (!storage) return;
-	try {
-		storage.setItem(key, value);
-	} catch {
-		// Preference persistence is best-effort; the UI state has already updated.
-	}
-}
-
 function dashboardTrainingTypeCount(data: DashboardPageData): number {
 	return data.dashboard?.data?.trainingTypes?.length ?? 0;
 }
@@ -898,25 +754,6 @@ function errorMessage(error: unknown, fallback: string): string {
 function checklistRefreshWarning(packName: string, detail: string): string {
 	const base = `${packName} applied, but the setup checklist could not refresh. Reload the page to see the latest setup state.`;
 	return detail && detail !== 'Checklist could not refresh.' ? `${base} ${detail}` : base;
-}
-
-function groupEntries<T>(
-	items: T[],
-	getKey: (item: T) => string,
-	sort: (a: string, b: string) => number
-): GroupedEntries<T> {
-	const grouped: Record<string, T[]> = {};
-	for (const item of items) {
-		const key = getKey(item);
-		(grouped[key] ??= []).push(item);
-	}
-	return Object.entries(grouped).sort(([a], [b]) => sort(a, b));
-}
-
-function sortGroupName(a: string, b: string): number {
-	if (a === 'Unassigned') return 1;
-	if (b === 'Unassigned') return -1;
-	return a.localeCompare(b);
 }
 
 function strengthColor(pct: number, floorPercent: number): string {

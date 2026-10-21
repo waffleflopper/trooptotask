@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
+import { createClientAccess } from '$lib/access/clientAccess';
 
 import Page from './+page.svelte';
 
@@ -11,7 +12,9 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-vi.mock('$features/app-shell', () => ({ getAppShellContext: () => ({ autoShowWhatsNew: vi.fn() }) }));
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({ ...createClientAccess({ membershipRole: 'owner' }), autoShowWhatsNew: vi.fn() })
+}));
 
 function makePageData(overrides: Record<string, unknown> = {}) {
 	const orgId = typeof overrides.orgId === 'string' ? overrides.orgId : 'org-1';
@@ -42,6 +45,7 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 				hydration: { orgId }
 			}
 		},
+		viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 		summary: {
 			trainingSummary: {
 				stats: {

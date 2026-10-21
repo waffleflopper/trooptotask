@@ -4,7 +4,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType, DailyAssignment, AssignmentType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/contracts';
-import { createDashboardScreenModel, type DashboardStoragePort } from './dashboardScreenModel.svelte';
+import { createDashboardScreenModel } from './dashboardScreenModel.svelte';
 import type { DashboardWorkspaceResult } from '../contracts';
 import type { DashboardPageData } from '../contracts';
 import type {
@@ -16,20 +16,6 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function createMemoryStorage(initial: Record<string, string> = {}): DashboardStoragePort & {
-	values: Record<string, string>;
-} {
-	return {
-		values: { ...initial },
-		getItem(key: string) {
-			return this.values[key] ?? null;
-		},
-		setItem(key: string, value: string) {
-			this.values[key] = value;
-		}
-	};
-}
-
 function makeData(
 	overrides: Partial<DashboardPageData> = {},
 	workspaceOverrides: Record<string, unknown> = {}
@@ -38,6 +24,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
+		viewerDay: { date: '2026-04-23', timeZone: 'UTC' },
 		disabledFeatures: [],
 		dashboard: {
 			workspaceKey: 'dashboard',
@@ -146,7 +133,6 @@ describe('createDashboardScreenModel', () => {
 	it('keeps getting started dismissed after a successful dismissal request', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
 		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
 			sources: makeSources()
 		});
 
@@ -159,7 +145,6 @@ describe('createDashboardScreenModel', () => {
 	it('rolls back getting started dismissal when the request fails', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
 		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
 			sources: makeSources()
 		});
 
@@ -171,7 +156,6 @@ describe('createDashboardScreenModel', () => {
 	it('rolls back getting started dismissal when the request rejects', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network unavailable')));
 		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
 			sources: makeSources()
 		});
 
@@ -198,7 +182,6 @@ describe('createDashboardScreenModel', () => {
 				}
 			),
 			{
-				storage: createMemoryStorage(),
 				sources: makeSources()
 			}
 		);
@@ -243,7 +226,6 @@ describe('createDashboardScreenModel', () => {
 				}
 			),
 			{
-				storage: createMemoryStorage(),
 				sources: makeSources()
 			}
 		);
@@ -284,7 +266,6 @@ describe('createDashboardScreenModel', () => {
 				}
 			),
 			{
-				storage: createMemoryStorage(),
 				sources: makeSources()
 			}
 		);
@@ -324,7 +305,6 @@ describe('createDashboardScreenModel', () => {
 				}
 			),
 			{
-				storage: createMemoryStorage(),
 				sources: makeSources()
 			}
 		);
@@ -364,7 +344,6 @@ describe('createDashboardScreenModel', () => {
 			});
 		vi.stubGlobal('fetch', fetchMock);
 		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
 			sources: makeSources()
 		});
 		model.applySupportData({
@@ -423,7 +402,6 @@ describe('createDashboardScreenModel', () => {
 			});
 		vi.stubGlobal('fetch', fetchMock);
 		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
 			sources: makeSources()
 		});
 		model.applySupportData({
@@ -462,7 +440,6 @@ describe('createDashboardScreenModel', () => {
 		});
 		vi.stubGlobal('fetch', fetchMock);
 		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
 			sources: makeSources()
 		});
 
@@ -489,7 +466,6 @@ describe('createDashboardScreenModel', () => {
 			});
 		vi.stubGlobal('fetch', fetchMock);
 		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
 			sources: makeSources()
 		});
 		model.applySupportData({
@@ -525,7 +501,6 @@ describe('createDashboardScreenModel', () => {
 				gettingStartedDismissed: false
 			}),
 			{
-				storage: createMemoryStorage(),
 				sources: makeSources()
 			}
 		);
@@ -535,11 +510,8 @@ describe('createDashboardScreenModel', () => {
 		expect(model.shouldShowGettingStarted).toBe(false);
 	});
 
-	it('pre-shapes upcoming changes with the persisted grouping mode', () => {
-		const storage = createMemoryStorage({ 'dashboard-upcoming-group-by': 'group' });
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
-			storage,
+	it('lists upcoming departures and returns soonest first', () => {
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: makeSources({
 				personnel: [
 					{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
@@ -554,13 +526,6 @@ describe('createDashboardScreenModel', () => {
 			})
 		});
 
-		expect(model.unitReadiness.upcomingChanges.mode).toBe('group');
-		expect(model.unitReadiness.upcomingChanges.byGroup.map(([label]) => label)).toEqual(['Alpha', 'Unassigned']);
-
-		model.unitReadiness.upcomingChanges.setMode('date');
-
-		expect(model.unitReadiness.upcomingChanges.mode).toBe('date');
-		expect(storage.values['dashboard-upcoming-group-by']).toBe('date');
 		expect(model.upcomingChanges.map((change) => change.date)).toEqual([
 			'2026-04-25',
 			'2026-04-26',
@@ -568,33 +533,19 @@ describe('createDashboardScreenModel', () => {
 			'2026-04-28'
 		]);
 	});
-
-	it('defaults today through the shared date formatter when no explicit date is supplied', () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-04-23T12:00:00'));
-
-		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-
-		expect(model.today).toBe('2026-04-23');
-
-		vi.useRealTimers();
-	});
 });
 
 it('resolves saved Group duty by ID after the Group is renamed', () => {
-	const model = createDashboardScreenModel(makeData(), {
-		today: '2026-09-19',
-		storage: createMemoryStorage(),
+	const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-09-19', timeZone: 'UTC' } }), {
 		sources: makeSources({
 			groups: [{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 }],
 			assignmentTypes: [{ id: 'group-duty', name: 'Group Duty', assignTo: 'group' }],
 			dailyAssignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }]
 		})
 	});
-	expect(model.dutyAssignments).toEqual([expect.objectContaining({ id: 'saved', assigneeName: 'Alpha Renamed' })]);
+	expect(model.dutyForDays(1)[0].assignments).toEqual([
+		expect.objectContaining({ id: 'saved', assigneeName: 'Alpha Renamed' })
+	]);
 });
 
 describe('Dashboard Training identity attribution', () => {
@@ -620,7 +571,6 @@ describe('Dashboard Training identity attribution', () => {
 				}
 			}),
 			{
-				storage: createMemoryStorage(),
 				sources: makeSources({
 					personnel: [
 						{ id: 'able', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'alpha' },
@@ -640,7 +590,6 @@ describe('Dashboard Training identity attribution', () => {
 			{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 0, pct: 50 },
 			{ groupId: 'bravo', groupName: 'Bravo', count: 1, expiredPersonnelCount: 1, pct: 100 }
 		]);
-		expect(model.quickStatValue('expired-training')).toBe(2);
 	});
 
 	it('uses complete Group counts, including Unassigned, when displayed issues omit a Person', () => {
@@ -683,7 +632,6 @@ describe('Dashboard Training identity attribution', () => {
 				}
 			}),
 			{
-				storage: createMemoryStorage(),
 				sources: makeSources({
 					personnel: [
 						{ id: 'able', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'alpha' },
@@ -810,9 +758,7 @@ describe('Dashboard today availability', () => {
 	};
 
 	it('counts each active Person out today once and lists every entry that covers today', () => {
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
-			storage: createMemoryStorage(),
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: makeSources({
 				...roster,
 				availabilityEntries: [
@@ -828,8 +774,6 @@ describe('Dashboard today availability', () => {
 
 		expect(model.totalPersonnel).toBe(3);
 		expect(model.availableCount).toBe(1);
-		expect(model.quickStatValue('non-available-today')).toBe(2);
-		expect(model.onLeaveCount).toBe(1);
 		expect(
 			model.groupBreakdown.map(({ name, total, available, pct, statusCounts }) => ({
 				name,
@@ -867,9 +811,7 @@ describe('Dashboard today availability', () => {
 			] as AvailabilityEntry[],
 			loading: false
 		});
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
-			storage: createMemoryStorage(),
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: { ...makeSources(roster), availability }
 		});
 

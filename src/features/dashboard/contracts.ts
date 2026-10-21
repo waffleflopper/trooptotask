@@ -11,7 +11,6 @@ import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { TrainingSummary } from '$features/training/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-export type { TrainingIssue } from '$features/training/contracts';
 
 export interface DashboardIctlMosReadiness {
 	mos: string;
@@ -72,10 +71,17 @@ export interface DashboardSetupSupport {
 	starterConfigurationPacks: StarterConfigurationPackSupport[];
 }
 
+/** The viewer's calendar day and IANA zone from the page load; the Dashboard's only "today". */
+export interface DashboardViewerDay {
+	date: string;
+	timeZone: string;
+}
+
 export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
+	viewerDay: DashboardViewerDay;
 	/** Features off for the unit, from the app shell's Organization row. */
 	disabledFeatures: readonly FeatureKey[];
 	dashboard: DashboardWorkspaceResult;
@@ -222,7 +228,7 @@ export interface StarterConfigurationPackApplyResult {
 	failed: StarterConfigurationPackFailedItem[];
 }
 
-export { formatDashboardDisplayDate } from './dashboardDate';
+export { formatDashboardDisplayDate, formatDashboardTitleDate } from './dashboardDate';
 export interface DashboardPageSummaryData {
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;

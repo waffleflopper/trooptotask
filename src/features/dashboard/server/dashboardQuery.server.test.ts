@@ -312,6 +312,15 @@ describe('fetchDashboardBootstrap', () => {
 		});
 	});
 
+	it("reads UTC day -2 through +15 so every viewer's yesterday through today plus 14 is loaded", async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-19T23:30:00Z'));
+
+		const result = await fetchDashboardBootstrap(buildCtx());
+
+		expect(result.range).toEqual({ rangeStart: '2026-10-17', rangeEnd: '2026-11-03' });
+	});
+
 	it('defaults the strength floor to 80 percent', async () => {
 		const result = await fetchDashboardBootstrap(buildCtx());
 

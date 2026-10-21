@@ -1,11 +1,15 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
+	import {
+		DASHBOARD_SECTIONS,
+		DashboardPageView,
+		createDashboardScreenModel,
+		type DashboardAccess
+	} from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
 	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
@@ -95,6 +99,7 @@
 			orgName: data.shell.org.name,
 			userId: shell?.user.id ?? null,
 			userRole: shell?.member.role,
+			viewerDay: data.viewerDay,
 			disabledFeatures: shell?.org.disabledFeatures ?? [],
 			dashboard,
 			trainingSummary: summary.trainingSummary,
@@ -104,9 +109,6 @@
 	}
 
 	const loadError = $derived(workspaceError ?? summaryError);
-	const workspacePending = $derived(!!data.dashboard?.data && dashboardBootstrap === null && workspaceError === null);
-	const summaryPending = $derived(!!data.summary && summaryData === null && summaryError === null);
-	const pending = $derived(workspacePending || summaryPending);
 	const ctx = $derived(
 		dashboardBootstrap && summaryData
 			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData))
@@ -114,32 +116,26 @@
 	);
 
 	const shellUI = getAppShellContext();
+	const access: DashboardAccess = {
+		can: (action) => shellUI.affordanceForFeatureAction(action, { kind: 'unscoped' }).allowed
+	};
 
 	$effect(() => {
 		if (ctx) shellUI.autoShowWhatsNew();
 	});
 </script>
 
-{#if loadError}
+{#snippet loadFailure()}
 	<WorkspaceLoadError subject="Dashboard" />
-{:else if pending}
-	<section class="grid gap-4 p-4" aria-live="polite" role="status">
-		<div class="grid grid-cols-1 items-stretch gap-4 min-[721px]:grid-cols-[minmax(0,1fr)_auto]">
-			<div class="grid gap-3">
-				<Skeleton class="h-3 w-[92px]" />
-				<Skeleton class="h-14 w-full" />
-				<Skeleton class="h-[18px] w-[78%]" />
-				<Skeleton class="h-[18px] w-[62%]" />
-			</div>
-			<Skeleton class="h-[88px] w-[136px]" />
-		</div>
-		<div class="grid grid-cols-1 gap-4 min-[721px]:grid-cols-2">
-			<Skeleton class="h-[200px] w-full" />
-			<Skeleton class="h-[200px] w-full" />
-			<Skeleton class="h-[240px] w-full" />
-			<Skeleton class="h-[240px] w-full" />
-		</div>
-	</section>
-{:else if ctx}
-	<DashboardPageView {ctx} />
+{/snippet}
+
+{#if data.dashboard?.data}
+	<DashboardPageView
+		orgName={data.shell.org.name}
+		viewerDay={data.viewerDay}
+		{ctx}
+		{access}
+		sections={DASHBOARD_SECTIONS}
+		failure={loadError ? loadFailure : undefined}
+	/>
 {/if}

@@ -2,10 +2,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import DashboardPageView from './DashboardPageView.svelte';
 import { createDashboardScreenModel, type DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardPageData, StarterConfigurationPackSupport } from '$features/dashboard/contracts';
-import { dashboardSection, type QuickAddEntry } from '../sections/dashboardSections';
+import { dashboardSection, type DashboardAccess, type QuickAddEntry } from '../sections/dashboardSections';
 import { DASHBOARD_SECTIONS } from '../sections/dashboardSectionRegistry';
 
 afterEach(() => {
@@ -13,7 +14,10 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-const frame = { orgName: 'Test Unit', viewerDay: { date: '2026-10-19', timeZone: 'UTC' }, sections: [] };
+const access: DashboardAccess = {
+	can: () => true
+};
+const frame = { orgName: 'Test Unit', viewerDay: { date: '2026-10-19', timeZone: 'UTC' }, sections: [], access };
 
 function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel {
 	const starterPack = overrides.firstStarterConfigurationPack as StarterConfigurationPackSupport | null | undefined;
@@ -119,19 +123,12 @@ function makeStarterPack(overrides: Partial<StarterConfigurationPackSupport> = {
 
 describe('DashboardPageView', () => {
 	it('renders the overview directly without tabs or toolbar', () => {
-		const ctx = makeCtx();
+		const ctx = makeCtx({ availableCount: 42, totalPersonnel: 50 });
 
 		render(DashboardPageView, { props: { ...frame, ctx } });
 
 		expect(screen.queryByRole('toolbar')).toBeNull();
 		expect(screen.queryByRole('tablist')).toBeNull();
-	});
-
-	it('renders overview content when not hydrating', () => {
-		const ctx = makeCtx({ availableCount: 42, totalPersonnel: 50 });
-
-		render(DashboardPageView, { props: { ...frame, ctx } });
-
 		expect(screen.getByText('42')).toBeTruthy();
 		expect(screen.getByText('/ 50')).toBeTruthy();
 	});
@@ -177,6 +174,7 @@ describe('DashboardPageView', () => {
 			]
 		});
 		render(DashboardPageView, { props: { ...frame, ctx } });
+		expect(screen.getByText('/ 10')).toBeTruthy();
 		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
 		expect(screen.queryByRole('link', { name: 'Open Import or add the roster' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
@@ -240,6 +238,7 @@ describe('Dashboard feature switches', () => {
 	it('removes the readiness card when Training and Evaluations are both off', () => {
 		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ...offFor('evaluations'), trainingStats: null }) } });
 
+		expect(screen.getByText('/ 10')).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: /Training|Evaluations/ })).toBeNull();
 	});
 
@@ -291,19 +290,26 @@ describe('Dashboard frame', () => {
 		expect(bands()).toEqual([null, null, null]);
 	});
 
-	it('shows Quick add only when a section offers an entry', () => {
-		render(DashboardPageView, { props: { ...frame, ctx: makeCtx() } });
-		expect(screen.queryByRole('group', { name: 'Quick add' })).toBeNull();
-		cleanup();
-
-		const dialog = (() => {}) as unknown as QuickAddEntry['dialog'];
+	it('shows ordered usable Quick add entries and hides the label when none are usable', async () => {
+		const dialog: QuickAddEntry['dialog'] = () => ({});
 		const quickAdd: QuickAddEntry[] = [
-			{ id: 'status', label: 'Status', dialog },
-			{ id: 'training', label: 'Training', dialog }
+			{
+				id: 'training',
+				label: 'Training',
+				order: 20,
+				dialog,
+				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.training.recordCompletions)
+			},
+			{
+				id: 'status',
+				label: 'Status',
+				order: 10,
+				dialog,
+				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
+			}
 		];
-		render(DashboardPageView, {
-			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
-		});
+		const props = { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] };
+		const view = render(DashboardPageView, { props });
 
 		const group = screen.getByRole('group', { name: 'Quick add' });
 		expect(
@@ -311,6 +317,20 @@ describe('Dashboard frame', () => {
 				.getAllByRole('button')
 				.map((button) => button.textContent?.trim())
 		).toEqual(['Status', 'Training']);
+
+		await view.rerender({
+			...props,
+			access: { ...access, can: (action) => action.id === 'calendar.manageAvailability' }
+		});
+		expect(
+			within(screen.getByRole('group', { name: 'Quick add' }))
+				.getByRole('button')
+				.textContent?.trim()
+		).toBe('Status');
+
+		await view.rerender({ ...props, access: { ...access, can: () => false } });
+		expect(screen.getByText('/ 10')).toBeTruthy();
+		expect(screen.queryByRole('group', { name: 'Quick add' })).toBeNull();
 	});
 });
 

@@ -1,5 +1,6 @@
 import type { Component } from 'svelte';
 import type { FeatureKey } from '$lib/access/featureSwitches';
+import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardInputs } from './dashboardInputs';
 import { placeForecastLaneMarks, type DashboardForecastLaneView, type ForecastLaneMark } from './forecastLanes';
@@ -10,6 +11,13 @@ export type DashboardSectionId = 'availability' | FeatureKey;
 
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
 
+export interface DashboardAccess {
+	/** Advisory permission to act somewhere within the viewer's scope. */
+	readonly can: (action: FeatureLanePolicyAction) => boolean;
+}
+
+export type DashboardPartAvailability = (inputs: DashboardInputs, access: DashboardAccess) => boolean;
+
 export interface ForecastLane {
 	id: string;
 	label: string;
@@ -19,12 +27,21 @@ export interface ForecastLane {
 export interface DashboardBlock {
 	id: string;
 	component: Component<{ model: DashboardScreenModel }>;
+	available?: DashboardPartAvailability;
+}
+
+export interface OnDutyBlock extends DashboardBlock {
+	/** Ascending slots: 10 Tonight and tomorrow, 20 Taskings due, 30 Coming and going. */
+	order: number;
 }
 
 export interface QuickAddEntry {
 	id: string;
 	label: string;
+	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding. */
+	order: number;
 	dialog: Component<{ model: DashboardScreenModel; onClose: () => void }>;
+	available?: DashboardPartAvailability;
 }
 
 export interface DashboardSection {
@@ -34,7 +51,7 @@ export interface DashboardSection {
 	needsYou: readonly NeedsYouSource[];
 	readiness: DashboardBlock | null;
 	quickAdd: readonly QuickAddEntry[];
-	onDuty: readonly DashboardBlock[];
+	onDuty: readonly OnDutyBlock[];
 	forecastLanes: readonly ForecastLane[];
 }
 
@@ -67,13 +84,14 @@ export interface DashboardSectionParts {
 	forecastLanes: readonly DashboardForecastLaneView[];
 	quickAdd: readonly QuickAddEntry[];
 	readinessColumns: readonly DashboardBlock[];
-	onDutyBlocks: readonly DashboardBlock[];
+	onDutyBlocks: readonly OnDutyBlock[];
 }
 
 export function composeDashboardSections(
 	sections: readonly DashboardSection[],
 	inputs: DashboardInputs,
-	disabledFeatures: readonly FeatureKey[]
+	disabledFeatures: readonly FeatureKey[],
+	access: DashboardAccess
 ): DashboardSectionParts {
 	const active = activeDashboardSections(sections, disabledFeatures);
 	return {
@@ -85,8 +103,16 @@ export function composeDashboardSections(
 				marks: placeForecastLaneMarks(inputs.forecastDays, lane.marks(inputs))
 			}))
 		),
-		quickAdd: active.flatMap((entry) => entry.quickAdd),
-		readinessColumns: active.flatMap((entry) => (entry.readiness ? [entry.readiness] : [])),
-		onDutyBlocks: active.flatMap((entry) => entry.onDuty)
+		quickAdd: active
+			.flatMap((entry) => entry.quickAdd)
+			.filter((part) => part.available?.(inputs, access) ?? true)
+			.sort((a, b) => a.order - b.order),
+		readinessColumns: active.flatMap((entry) =>
+			entry.readiness && (entry.readiness.available?.(inputs, access) ?? true) ? [entry.readiness] : []
+		),
+		onDutyBlocks: active
+			.flatMap((entry) => entry.onDuty)
+			.filter((part) => part.available?.(inputs, access) ?? true)
+			.sort((a, b) => a.order - b.order)
 	};
 }

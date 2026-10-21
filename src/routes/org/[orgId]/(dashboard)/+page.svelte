@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { DASHBOARD_SECTIONS, DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
+	import {
+		DASHBOARD_SECTIONS,
+		DashboardPageView,
+		createDashboardScreenModel,
+		type DashboardAccess
+	} from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
@@ -111,6 +116,9 @@
 	);
 
 	const shellUI = getAppShellContext();
+	const access: DashboardAccess = {
+		can: (action) => shellUI.affordanceForFeatureAction(action, { kind: 'unscoped' }).allowed
+	};
 
 	$effect(() => {
 		if (ctx) shellUI.autoShowWhatsNew();
@@ -126,6 +134,7 @@
 		orgName={data.shell.org.name}
 		viewerDay={data.viewerDay}
 		{ctx}
+		{access}
 		sections={DASHBOARD_SECTIONS}
 		failure={loadError ? loadFailure : undefined}
 	/>

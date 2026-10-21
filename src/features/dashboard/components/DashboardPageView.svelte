@@ -5,7 +5,12 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
-	import { composeDashboardSections, type DashboardSection, type QuickAddEntry } from '../sections/dashboardSections';
+	import {
+		composeDashboardSections,
+		type DashboardAccess,
+		type DashboardSection,
+		type QuickAddEntry
+	} from '../sections/dashboardSections';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
 	import OverviewTab from './tabs/OverviewTab.svelte';
@@ -17,18 +22,21 @@
 		ctx: DashboardScreenModel | null;
 		/** Every section the page can show; those whose feature is off add nothing. */
 		sections: readonly DashboardSection[];
+		access: DashboardAccess;
 		/** Replaces the bands when a source fails; the header stays. */
 		failure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, failure }: Props = $props();
+	let { orgName, viewerDay, ctx, sections, access, failure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
 	const eyebrow = $derived(
 		model ? `Dashboard · ${orgName} · ${model.totalPersonnel} personnel` : `Dashboard · ${orgName}`
 	);
-	const parts = $derived(model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures) : null);
+	const parts = $derived(
+		model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures, access) : null
+	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 
 	let openQuickAdd = $state<QuickAddEntry | null>(null);

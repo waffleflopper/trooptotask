@@ -274,7 +274,7 @@ Consumers: the Organization settings shell.
 
 ## `patterns/draft-field`
 
-A settings field that saves on its own, as the Policies rows and the Features strength floor do. `FieldDraft` holds the draft against the saved value. `DraftField.Root` is the field's panel and form. `DraftField.Status` states whether the draft is saved.
+A settings field that saves on its own, such as the Features strength floor. `FieldDraft` holds the draft against the saved value. `DraftField.Root` is the field's panel and form. `DraftField.Status` states whether the draft is saved.
 
 ```svelte
 <script lang="ts">
@@ -297,7 +297,7 @@ A settings field that saves on its own, as the Policies rows and the Features st
 
 - `FieldDraft<T>(saved: () => T)`: `value` (bind the input to it), `saved`, `changed`, `saving`, `error`, `save(write)`, `undo()`. The draft follows the saved value until the user edits it. `save` runs one write at a time; a failed write keeps the draft and sets `error` to its message. A value typed while a save is in flight is kept when that save lands.
 - `Root` props: `draft`, `id` (prefixes `<id>-sentence` and `<id>-error`), `name` (completes the Save and Undo names, such as `Save strength floor`), `was` (the saved value as the status says it), `save` (writes the value and throws an `Error` whose message is shown), `inlineStatus?` (default true), the `field` snippet and children for the live sentence. `field` receives `aria-describedby` and `aria-invalid` to spread on the input. A changed draft turns the panel border amber and shows Undo and Save. The form is `novalidate`, so the server's field error shows under the field. After a save lands, focus moves from the removed Save button to the field.
-- `Status` props: `draft`, `was`. It reads `Unsaved · was <was>` in amber while the draft differs, otherwise `Saved`. `Root` shows it at the end of the panel. A row with a free control lane, as on Policies, passes `inlineStatus={false}` and puts `DraftField.Status` in its `FactRow` `control` snippet instead.
+- `Status` props: `draft`, `was`. It reads `Unsaved · was <was>` in amber while the draft differs, otherwise `Saved`. `Root` shows it at the end of the panel. A row with a free control lane passes `inlineStatus={false}` and puts `DraftField.Status` in its `FactRow` `control` snippet instead.
 
 ---
 

@@ -1,9 +1,13 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportData } from '$features/training/contracts';
+import {
+	DEFAULT_TRAINING_BRIEFING_INPUT,
+	type TrainingBriefingReportData,
+	type TrainingBriefingReportInput,
+	type TrainingType
+} from '$features/training/contracts';
 import { buildTrainingBriefing } from '$features/training';
-import type { TrainingType } from '$features/training/training.types';
 import Page from './+page.svelte';
 
 vi.mock('$app/navigation', async (importOriginal) => ({
@@ -33,7 +37,11 @@ const CPR: TrainingType = {
 	isOptional: false
 };
 
-function report(organizationName: string, soldiers: number, horizonDays = 90): TrainingBriefingReportData {
+function report(
+	organizationName: string,
+	soldiers: number,
+	horizonDays: TrainingBriefingReportInput['horizonDays'] = 90
+): TrainingBriefingReportData {
 	return {
 		input: { ...DEFAULT_TRAINING_BRIEFING_INPUT, horizonDays },
 		organizationName,

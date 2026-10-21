@@ -956,9 +956,9 @@ async function main() {
 									: destination === 'critical-tasks'
 										? ['Critical Tasks', 'Access restricted']
 										: destination === 'settings/archives'
-											? ['Archived Records', "You don't have permission to view this page"]
+											? ['Archived people', "You don't have permission to view this page"]
 											: destination === 'settings/approvals'
-												? ['Approval Requests', "You don't have permission to view this page"]
+												? ['Pending requests', "You don't have permission to view this page"]
 												: destination === 'settings/policies'
 													? ['Archive Retention', "You don't have permission to view this page"]
 													: destination === 'settings/general'
@@ -2619,7 +2619,7 @@ async function main() {
 				'org/new': ['/org/new', '', 'error']
 			}[family];
 			const settingsPage =
-				/^settings-page\/(general|members|policies|approvals|logs|exports|danger)$/.exec(family)?.[1] ?? null;
+				/^settings-page\/(general|members|policies|approvals|archives|logs|exports|danger)$/.exec(family)?.[1] ?? null;
 			if (
 				![
 					'audit-page',

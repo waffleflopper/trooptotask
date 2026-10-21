@@ -127,7 +127,7 @@
 					<div class="grid min-w-0 flex-1 gap-0.5">
 						{#if request.resource_url}
 							<a
-								class="w-fit text-base leading-[22px] font-semibold underline decoration-border underline-offset-4 hover:decoration-foreground"
+								class="w-fit text-base text-foreground leading-[22px] font-semibold underline decoration-border underline-offset-4 hover:decoration-foreground"
 								href={resolve(request.resource_url as '/')}
 							>
 								{name}
@@ -173,7 +173,7 @@
 							type="text"
 							aria-label="Denial reason"
 							placeholder="Reason, sent to the requester"
-							class="min-w-0 flex-1"
+							class="min-w-0 flex-1 bg-background"
 							bind:value={denialReason}
 							readonly={reviewing}
 							onkeydown={(event) => {

@@ -74,7 +74,7 @@
 			searchable: false
 		})
 	);
-	const narrowColumns = wideColumns.filter((column) => column.key === 'name' || column.key === 'actions');
+	const narrowColumns = wideColumns.filter((column) => column.key === 'name');
 	const table = useDataTable<SettingsArchivedPersonnelRow>({
 		data: () => rows,
 		columns: () => (wide.current ? wideColumns : narrowColumns),
@@ -169,10 +169,10 @@
 
 <SettingsPageHeader
 	page="archives"
-	subtitle={`People who left ${unit}. Their records wait here for ${months} months, then delete themselves. Restore anyone who comes back, exactly as they left.`}
+	subtitle={`People who left ${unit}. Their records wait here for ${months} ${pluralize('month', months)}, then delete themselves. Restore anyone who comes back, exactly as they left.`}
 />
 
-<section aria-labelledby="archived-people-heading">
+<section aria-label="Archived people">
 	<PageShell.SectionHeader
 		id="archived-people-heading"
 		tabindex={-1}
@@ -214,7 +214,7 @@
 	<div class="flex items-center gap-2 py-3.5">
 		<p class="flex-1 font-mono text-xs leading-5 text-muted-foreground">Retention is set in Policies.</p>
 		<a
-			class="text-sm font-medium underline underline-offset-4"
+			class="text-sm font-medium text-foreground underline underline-offset-4"
 			href={resolve('/org/[orgId]/settings/policies', { orgId })}
 		>
 			Change retention
@@ -234,6 +234,34 @@
 	</div>
 {/snippet}
 
+{#snippet actions(row: SettingsArchivedPersonnelRow)}
+	<div class="flex items-center gap-1 md:justify-end">
+		<Button
+			id="restore-{row.id}"
+			variant="outline"
+			onclick={() => handleRestore(row.id)}
+			disabled={!archived.commands.canRestore || rowInFlight(row.id)}
+		>
+			{#if restoring === row.id}<Spinner />{/if}
+			Restore <span class="sr-only">{row.displayName}</span>
+		</Button>
+		<Button
+			variant="ghost"
+			onclick={() => handlePersonnelExport(row.id, row.exportFileStem)}
+			disabled={!archived.commands.canExport || rowInFlight(row.id)}
+		>
+			{exportingPerson === row.id ? 'Exporting...' : 'Export'} <span class="sr-only">{row.displayName}</span>
+		</Button>
+		<Button
+			variant="ghost-destructive"
+			onclick={() => archived.openPermanentDeleteConfirmation(row)}
+			disabled={!archived.commands.canPermanentlyDelete || rowInFlight(row.id)}
+		>
+			Delete <span class="sr-only">{row.displayName}</span>
+		</Button>
+	</div>
+{/snippet}
+
 {#snippet archiveCell(row: SettingsArchivedPersonnelRow, column: ColumnDef<SettingsArchivedPersonnelRow>)}
 	{#if column.key === 'name'}
 		<span class="font-semibold whitespace-normal">{row.displayName}</span>
@@ -242,6 +270,7 @@
 				{[row.mos, row.groupName, `Archived ${formatRosterDate(row.archivedAt)}`].filter(Boolean).join(' · ')}
 			</p>
 			<div class="mt-1.5">{@render countdown(row)}</div>
+			<div class="mt-2">{@render actions(row)}</div>
 		{/if}
 	{:else if column.key === 'mos'}
 		<span class="font-mono text-xs">{row.mos || '--'}</span>
@@ -252,31 +281,7 @@
 	{:else if column.key === 'deletedIn'}
 		{@render countdown(row)}
 	{:else if column.key === 'actions'}
-		<div class="flex flex-col items-end gap-1 md:flex-row md:justify-end">
-			<Button
-				id="restore-{row.id}"
-				variant="outline"
-				onclick={() => handleRestore(row.id)}
-				disabled={!archived.commands.canRestore || rowInFlight(row.id)}
-			>
-				{#if restoring === row.id}<Spinner />{/if}
-				Restore <span class="sr-only">{row.displayName}</span>
-			</Button>
-			<Button
-				variant="ghost"
-				onclick={() => handlePersonnelExport(row.id, row.exportFileStem)}
-				disabled={!archived.commands.canExport || rowInFlight(row.id)}
-			>
-				{exportingPerson === row.id ? 'Exporting...' : 'Export'} <span class="sr-only">{row.displayName}</span>
-			</Button>
-			<Button
-				variant="ghost-destructive"
-				onclick={() => archived.openPermanentDeleteConfirmation(row)}
-				disabled={!archived.commands.canPermanentlyDelete || rowInFlight(row.id)}
-			>
-				Delete <span class="sr-only">{row.displayName}</span>
-			</Button>
-		</div>
+		{@render actions(row)}
 	{/if}
 {/snippet}
 

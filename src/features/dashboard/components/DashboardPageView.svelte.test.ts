@@ -391,6 +391,25 @@ describe('Dashboard frame', () => {
 		);
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
+
+	it('lets the viewer try again when the dialog fails to load', async () => {
+		const loadDialog = vi
+			.fn<QuickAddEntry['loadDialog']>()
+			.mockRejectedValueOnce(new Error('Chunk unavailable'))
+			.mockImplementation(() => import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [{ id: 'status', label: 'Status', icon, order: 10, loadDialog }];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await vi.waitFor(() => expect(loadDialog).toHaveBeenCalledTimes(1));
+		expect(screen.queryByRole('dialog')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		expect(await screen.findByRole('dialog', { name: 'Quick add for Test Unit' })).toBeTruthy();
+	});
 });
 
 describe('Dashboard sections', () => {

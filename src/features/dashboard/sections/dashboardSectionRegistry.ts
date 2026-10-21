@@ -3,8 +3,9 @@ import CheckIcon from '@lucide/svelte/icons/check';
 import PlusIcon from '@lucide/svelte/icons/plus';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { actionablePersonnel, dashboardSection, type DashboardSection } from './dashboardSections';
+import { startOnboardingChoices } from './startOnboardingChoices';
 
-const { calendar, onboarding, personnel, training } = POLICY_ACTION_CATALOG;
+const { calendar, training } = POLICY_ACTION_CATALOG;
 
 export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	dashboardSection('availability', {
@@ -45,10 +46,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				icon: PlusIcon,
 				order: 30,
 				loadDialog: () => import('../components/quick-add/StartOnboardingQuickAdd.svelte'),
-				// Start onboarding can add the new arrival, so it stays usable with no one loaded yet.
-				available: (inputs, access) =>
-					actionablePersonnel(inputs.personnel, access, onboarding.manageWorkflows).length > 0 ||
-					(access.can(onboarding.manageWorkflows) && access.can(personnel.createRecords))
+				available: (inputs, access) => startOnboardingChoices(inputs, access).usable
 			}
 		]
 	})

@@ -1,9 +1,10 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { Component, Snippet } from 'svelte';
 	import { calendarStore } from '$features/calendar';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
 	import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
@@ -11,6 +12,7 @@
 		composeDashboardSections,
 		type DashboardAccess,
 		type DashboardSection,
+		type QuickAddDialogProps,
 		type QuickAddEntry
 	} from '../sections/dashboardSections';
 	import BottomLine from './BottomLine.svelte';
@@ -45,12 +47,22 @@
 	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 
-	let openQuickAdd = $state<QuickAddEntry | null>(null);
+	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
 
 	// An Organization switch unloads the model; the open dialog belongs to the old one.
 	$effect(() => {
-		if (!model) openQuickAdd = null;
+		if (!model) QuickAddDialog = null;
 	});
+
+	async function openQuickAdd(entry: QuickAddEntry) {
+		const openedIn = model?.data.orgId;
+		try {
+			const { default: dialog } = await entry.loadDialog();
+			if (model?.data.orgId === openedIn) QuickAddDialog = dialog;
+		} catch {
+			if (model?.data.orgId === openedIn) toastStore.error(`Could not open ${entry.label}. Try again.`);
+		}
+	}
 
 	/** Calendar opens on the month it was left in; the link is for the viewer's today. */
 	function openCalendarAt(day: string) {
@@ -69,7 +81,7 @@
 	<div class="flex flex-wrap items-center gap-2 pb-1" role="group" aria-labelledby="dashboard-quick-add">
 		<span id="dashboard-quick-add" class="pr-1.5 {EYEBROW}">Quick add</span>
 		{#each quickAdd as entry, index (entry.id)}
-			<Button variant={index === quickAdd.length - 1 ? 'default' : 'outline'} onclick={() => (openQuickAdd = entry)}>
+			<Button variant={index === quickAdd.length - 1 ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
 				<entry.icon data-icon="inline-start" aria-hidden="true" />
 				{entry.label}
 			</Button>
@@ -264,8 +276,6 @@
 	</div>
 </div>
 
-{#if openQuickAdd && model}
-	{#await openQuickAdd.loadDialog() then { default: QuickAddDialog }}
-		<QuickAddDialog {model} {access} {updates} onClose={() => (openQuickAdd = null)} />
-	{/await}
+{#if QuickAddDialog && model}
+	<QuickAddDialog {model} {access} {updates} onClose={() => (QuickAddDialog = null)} />
 {/if}

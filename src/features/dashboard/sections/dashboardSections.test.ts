@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
+import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import { createClientAccess } from '$lib/access/clientAccess';
@@ -293,6 +294,30 @@ describe('the Quick add entries', () => {
 		expect(labelsFor(member('training'), onlyBravo)).toEqual([]);
 		expect(labelsFor(member('onboarding'), onlyBravo)).toEqual([]);
 		expect(labelsFor({ membershipRole: 'owner' }, nobody)).toEqual(['Start onboarding']);
+	});
+
+	it('hides Start onboarding once everyone the viewer may choose has a packet, unless they can add the person', () => {
+		const allStarted: DashboardInputs = {
+			...withTrainingType,
+			personnel: [alphaPerson],
+			page: {
+				...withTrainingType.page,
+				dashboard: {
+					...withTrainingType.page.dashboard,
+					data: {
+						...withTrainingType.page.dashboard.data,
+						activeOnboardings: [{ id: 'packet-1', personnelId: alphaPerson.id } as PersonnelOnboarding]
+					}
+				}
+			}
+		};
+
+		expect(labelsFor(member('onboarding'), allStarted)).toEqual([]);
+		expect(labelsFor({ membershipRole: 'owner' }, allStarted)).toEqual([
+			'Status',
+			'Training record',
+			'Start onboarding'
+		]);
 	});
 
 	it('offers a Dashboard viewer nothing', () => {

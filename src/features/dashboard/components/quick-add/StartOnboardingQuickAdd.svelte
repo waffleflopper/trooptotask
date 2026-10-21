@@ -8,13 +8,13 @@
 	} from '$features/onboarding';
 	import { createPersonnel } from '$features/personnel';
 	import type { Personnel } from '$features/personnel/contracts';
-	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { rejectedRequestMessage } from '$lib/stores/core';
-	import { actionablePersonnel, type QuickAddDialogProps } from '../../sections/dashboardSections';
+	import type { QuickAddDialogProps } from '../../sections/dashboardSections';
+	import { startOnboardingChoices } from '../../sections/startOnboardingChoices';
 
 	let { model, access, updates, onClose }: QuickAddDialogProps = $props();
 
@@ -23,7 +23,6 @@
 		| { status: 'ready'; options: OnboardingStartOptions }
 		| { status: 'failed'; message: string };
 
-	const createRecords = POLICY_ACTION_CATALOG.personnel.createRecords;
 	const startOnboardingModal = loadStartOnboardingModal();
 	const orgId = $derived(model.data.orgId);
 	let read = $state<StartOptionsRead>({ status: 'loading' });
@@ -32,14 +31,7 @@
 		active = false;
 	});
 
-	const people = $derived(
-		actionablePersonnel(model.inputs.personnel, access, POLICY_ACTION_CATALOG.onboarding.manageWorkflows)
-	);
-	const startedPersonnelIds = $derived(model.data.dashboard.data.activeOnboardings.map((packet) => packet.personnelId));
-	const creationGroups = $derived(
-		model.inputs.groups.filter((group) => access.can(createRecords, { kind: 'group', groupId: group.id }))
-	);
-	const allowUnassigned = $derived(access.can(createRecords, { kind: 'organization' }));
+	const choices = $derived(startOnboardingChoices(model.inputs, access));
 
 	async function loadOptions() {
 		read = { status: 'loading' };
@@ -71,11 +63,11 @@
 	{@const options = read.options}
 	{#await startOnboardingModal then { default: StartOnboardingModal }}
 		<StartOnboardingModal
-			personnel={people}
-			canAddPerson={access.can(createRecords) && (allowUnassigned || creationGroups.length > 0)}
-			existingOnboardingPersonnelIds={startedPersonnelIds}
-			groups={creationGroups}
-			{allowUnassigned}
+			personnel={choices.people}
+			canAddPerson={choices.canAddPerson}
+			existingOnboardingPersonnelIds={choices.startedPersonnelIds}
+			groups={choices.groups}
+			allowUnassigned={choices.allowUnassigned}
 			rankCatalog={options.rankCatalog}
 			rankCatalogUnavailable={options.rankCatalogUnavailable}
 			templates={options.templates}

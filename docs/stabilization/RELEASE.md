@@ -6,7 +6,52 @@ Stabilization is complete. These external actions were still open in the release
 
 - [ ] Apply `20261021000100_organization_feature_switches.sql` (SHA-256 `ccab7bde…5a95`) if it is not already applied. It merged in #1796, and without it no Organization page loads.
 - [ ] Check the hosted migration ledger for the migrations no owner report confirms: `20260923000000_retire_duty_schema`, `20260926000200`, `20260926000300`, `20260928000100`, `20260929000100`, `20260929000200`, `20260930000100`, `20261001000100_personnel_archive_retention` (SHA-256 `8681e85f…54e8`), `20261004000200_critical_task_archive_retention` (SHA-256 `0f6a4e55…9c3b`), `20261004100618` and `20261012000100` through `20261012000700`.
-- [ ] Before ever running `VALIDATE CONSTRAINT` on the `NOT VALID` composite foreign keys (Critical Tasks completions, availability status, Training type references, Personnel Group), run the private read-only mismatch counts and settle each nonzero row.
+- [ ] Before running `VALIDATE CONSTRAINT` on any `NOT VALID` constraint, run the [validation preflight](#validation-preflight) and settle each nonzero row individually. Never delete or reassign a row to make a count pass.
+
+### Validation preflight
+
+Run this privately with a role that sees every row, such as one with `BYPASSRLS`, and keep the results outside Git. `row_security = off` makes the transaction fail instead of returning a partial count when RLS would hide rows. The first result lists every unvalidated constraint. The second counts foreign-key references whose parent is missing or belongs to another Organization; no rows means none. The third counts `access_requests` rows that fail their unvalidated checks. A constraint in the first list that neither count covers needs its own count first.
+
+```sql
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL row_security = off;
+SELECT conrelid::regclass AS table_name, conname, contype
+FROM pg_constraint
+WHERE NOT convalidated AND connamespace = 'public'::regnamespace
+ORDER BY 1, 2;
+WITH refs (source, organization_id, parent_table, parent_id) AS (
+  SELECT 'personnel_ict_completions.ict_task_id', organization_id, 'ict_tasks', ict_task_id FROM public.personnel_ict_completions
+  UNION ALL SELECT 'availability_entries.status_type_id', organization_id, 'status_types', status_type_id FROM public.availability_entries
+  UNION ALL SELECT 'personnel_trainings.training_type_id', organization_id, 'training_types', training_type_id FROM public.personnel_trainings
+  UNION ALL SELECT 'onboarding_template_steps.training_type_id', organization_id, 'training_types', training_type_id FROM public.onboarding_template_steps
+  UNION ALL SELECT 'onboarding_step_progress.training_type_id', organization_id, 'training_types', training_type_id FROM public.onboarding_step_progress
+  UNION ALL SELECT 'personnel.group_id', organization_id, 'groups', group_id FROM public.personnel
+  UNION ALL SELECT 'rating_scheme_entries.rater_person_id', organization_id, 'personnel', rater_person_id FROM public.rating_scheme_entries
+  UNION ALL SELECT 'rating_scheme_entries.senior_rater_person_id', organization_id, 'personnel', senior_rater_person_id FROM public.rating_scheme_entries
+  UNION ALL SELECT 'rating_scheme_entries.intermediate_rater_person_id', organization_id, 'personnel', intermediate_rater_person_id FROM public.rating_scheme_entries
+  UNION ALL SELECT 'rating_scheme_entries.reviewer_person_id', organization_id, 'personnel', reviewer_person_id FROM public.rating_scheme_entries
+),
+parents (parent_table, id, organization_id) AS (
+  SELECT 'ict_tasks', id, organization_id FROM public.ict_tasks
+  UNION ALL SELECT 'status_types', id, organization_id FROM public.status_types
+  UNION ALL SELECT 'training_types', id, organization_id FROM public.training_types
+  UNION ALL SELECT 'groups', id, organization_id FROM public.groups
+  UNION ALL SELECT 'personnel', id, organization_id FROM public.personnel
+)
+SELECT r.source, count(*) AS mismatched_references
+FROM refs r
+LEFT JOIN parents p ON p.parent_table = r.parent_table AND p.id = r.parent_id
+WHERE r.parent_id IS NOT NULL
+  AND (p.id IS NULL OR p.organization_id IS DISTINCT FROM r.organization_id)
+GROUP BY r.source
+ORDER BY r.source;
+SELECT
+  count(*) FILTER (WHERE (first_name IS NULL OR length(btrim(first_name)) > 0) IS FALSE) AS bad_first_name,
+  count(*) FILTER (WHERE (last_name IS NULL OR length(btrim(last_name)) > 0) IS FALSE) AS bad_last_name,
+  count(*) FILTER (WHERE (heard_about IS NULL OR heard_about = ANY (ARRAY['word_of_mouth', 'unit_peer', 'search_engine', 'social_media', 'reddit', 'army_community', 'other'])) IS FALSE) AS bad_heard_about
+FROM public.access_requests;
+ROLLBACK;
+```
 
 ## Stripe and billing shutdown
 

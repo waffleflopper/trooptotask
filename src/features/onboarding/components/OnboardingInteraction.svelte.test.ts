@@ -2,6 +2,7 @@
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import OnboardingActiveView from './OnboardingActiveView.svelte';
 import OnboardingModals from './OnboardingModals.svelte';
@@ -15,7 +16,17 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OnboardingStepProgress, PersonnelOnboarding } from '../onboarding.types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn(), invalidateAll: vi.fn() }));
+const pageState = vi.hoisted(() => ({ url: new URL('http://localhost/org/org-1/onboarding'), state: {} }));
+
+vi.mock('$app/state', () => ({ page: pageState }));
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn(),
+	replaceState: (url: URL) => {
+		pageState.url = new URL(url);
+	}
+}));
 
 const NOW = '2026-06-15T12:00:00.000Z';
 
@@ -161,6 +172,7 @@ afterEach(async () => {
 	onboardingStore.load([], 'reset');
 	onboardingTemplateStore.load([], [], 'reset');
 	personnelRosterHydration.load([], 'reset');
+	pageState.url = new URL('http://localhost/org/org-1/onboarding');
 });
 
 describe('Onboarding Active list', () => {
@@ -296,6 +308,28 @@ describe('Onboarding Active list', () => {
 		expect(within(dialog).getByRole('img', { name: '1 of 2 steps done' })).toBeTruthy();
 		expect(within(dialog).getByText('1 stalled')).toBeTruthy();
 		expect(within(dialog).getByRole('button', { name: 'Close out · 1 open' })).toBeTruthy();
+	});
+
+	it('opens the packet a Dashboard row links to at its waiting step, once', async () => {
+		pageState.url = new URL('http://localhost/org/org-1/onboarding?packet=packet-2');
+		mount();
+
+		const dialog = await screen.findByRole('dialog', { name: 'CPL Jones, Alex' });
+		expect(within(dialog).getByRole('heading', { level: 4, name: 'Finance' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /CPL Jones, Alex/ }).getAttribute('aria-current')).toBe('true');
+		expect(pageState.url.search).toBe('');
+
+		await closePacket(dialog);
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('opens no packet for a link to one that is no longer in processing', async () => {
+		pageState.url = new URL('http://localhost/org/org-1/onboarding?packet=packet-gone');
+		mount();
+		await tick();
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(pageState.url.search).toBe('');
 	});
 
 	it('returns focus to the row when the packet closes', async () => {

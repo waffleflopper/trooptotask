@@ -21,13 +21,15 @@
 		timing: string;
 		/** The owning page at this record; the whole row opens it. */
 		href: string;
+		/** Runs before the link navigates, for a destination that opens from client state rather than the URL. */
+		onOpen?: () => void;
 		/** Buttons that act in place, beside the chevron. */
 		action?: Snippet;
 		/** An expanded panel under the row, inside the same rule. */
 		children?: Snippet;
 	}
 
-	let { tone, label, title, subtitle, timing, href, action, children }: Props = $props();
+	let { tone, label, title, subtitle, timing, href, onOpen, action, children }: Props = $props();
 
 	const visual = $derived(TONE_VISUALS[tone]);
 </script>
@@ -53,6 +55,7 @@
 			{/if}
 			<a
 				{href}
+				onclick={onOpen}
 				aria-label={title}
 				class="flex h-8 w-7 items-center justify-center rounded-md text-muted-foreground after:absolute after:inset-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
 			>

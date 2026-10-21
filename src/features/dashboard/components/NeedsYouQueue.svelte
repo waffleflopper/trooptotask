@@ -33,6 +33,7 @@
 				subtitle={item.subtitle}
 				timing={item.timing}
 				href={item.href}
+				onOpen={item.onOpen}
 			/>
 		{/each}
 		{#if queue.fold && !showAll}

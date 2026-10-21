@@ -4,6 +4,7 @@ import { evaluateUpcomingLosses, type Personnel } from '$features/personnel/cont
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
 import { formatDayMonth, formatDayOffset, formatWeekdayDay, parseDate } from '$lib/utils/dates';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { openCalendarAt } from '../calendarLink';
 import { projectTrainingSteps } from '../read-model/dashboardIndexes';
 import type { DashboardInputs } from './dashboardInputs';
 import type { NeedsYouSource } from './dashboardSections';
@@ -109,6 +110,7 @@ export const unfilledDuty: NeedsYouSource = (inputs) => {
 				subtitle: dayList(openDates),
 				timing: formatDayOffset(daysBetween(inputs.today, openDates[0])),
 				href: `${orgPath(inputs)}/calendar`,
+				onOpen: () => openCalendarAt(openDates[0]),
 				action: null,
 				urgency: { date: openDates[0] }
 			}
@@ -133,7 +135,7 @@ export const stalledOnboarding: NeedsYouSource = (inputs) => {
 				title: `${fullName(person)} · onboarding`,
 				subtitle: `${summary.focus.stepName} · waiting ${plural(summary.stallDays, 'day', 'days')} · ${summary.done} of ${summary.total}`,
 				timing: clockLabel(summary.clock).toLowerCase(),
-				href: `${orgPath(inputs)}/onboarding`,
+				href: `${orgPath(inputs)}/onboarding?${new URLSearchParams({ packet: packet.id })}`,
 				action: null,
 				urgency: { date: fromDayNumber(toDayNumber(inputs.today) - summary.stallDays) }
 			}

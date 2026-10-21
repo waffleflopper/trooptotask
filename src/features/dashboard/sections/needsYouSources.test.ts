@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { calendarStore } from '$features/calendar';
 import type { AssignmentType } from '$features/calendar/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -321,10 +322,30 @@ describe('unfilledDuty', () => {
 				subtitle: 'Tue 27, Wed 28 Oct, Sun 1 Nov',
 				timing: 'in 8 days',
 				href: '/org/org-1/calendar',
+				onOpen: expect.any(Function),
 				action: null,
 				urgency: { date: '2026-10-27' }
 			}
 		]);
+	});
+
+	it('opens the Calendar at the month of the first open day, not the month it was left in', () => {
+		calendarStore.goToMonth(2026, 0);
+		const [row] = unfilledDuty(
+			inputs({
+				personnel: [alvarez],
+				assignments: FORECAST.filter((date) => date !== '2026-11-01').map((date) => ({
+					id: `slot-${date}`,
+					date,
+					assignmentTypeId: 'staff-duty',
+					assigneeId: 'p-alvarez'
+				}))
+			})
+		);
+
+		row.onOpen?.();
+
+		expect(calendarStore.currentDate).toEqual(new Date(2026, 10, 1));
 	});
 });
 
@@ -341,7 +362,7 @@ describe('stalledOnboarding', () => {
 				title: 'PFC Brooks, Jalen · onboarding',
 				subtitle: 'Orders packet · waiting 10 days · 1 of 3',
 				timing: 'day 9',
-				href: '/org/org-1/onboarding',
+				href: '/org/org-1/onboarding?packet=onboarding-brooks',
 				action: null,
 				urgency: { date: '2026-10-09' }
 			}

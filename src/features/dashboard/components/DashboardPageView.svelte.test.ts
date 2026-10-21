@@ -8,6 +8,7 @@ import { createDashboardScreenModel, type DashboardScreenModel } from '../read-m
 import type { DashboardPageData, StarterConfigurationPackSupport } from '$features/dashboard/contracts';
 import { dashboardSection, type DashboardAccess, type QuickAddEntry } from '../sections/dashboardSections';
 import { DASHBOARD_SECTIONS } from '../sections/dashboardSectionRegistry';
+import { calendarStore } from '$features/calendar';
 
 afterEach(() => {
 	cleanup();
@@ -570,5 +571,41 @@ describe('Dashboard sections', () => {
 			'Mon 19',
 			'Tue 20'
 		]);
+	});
+
+	it('opens the Calendar at the month of the first unfilled day', async () => {
+		calendarStore.goToMonth(2026, 0);
+		const filled = Array.from({ length: 13 }, (_, index) => `2026-10-${19 + index}`);
+		const ctx = createDashboardScreenModel(pageData(), {
+			sources: {
+				...sources,
+				dailyAssignments: {
+					types: [
+						{
+							id: 'staff-duty',
+							name: 'Staff Duty',
+							shortName: 'SD',
+							assignTo: 'personnel',
+							color: '#1f6feb',
+							exemptPersonnelIds: [],
+							showOnCalendar: true,
+							sortOrder: 0
+						}
+					],
+					assignments: filled.map((date) => ({ id: date, date, assignmentTypeId: 'staff-duty', assigneeId: 'p1' })),
+					loading: false
+				}
+			}
+		} as Parameters<typeof createDashboardScreenModel>[1]);
+		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+		const link = within(screen.getByRole('list', { name: 'Needs you' })).getByRole('link', {
+			name: '1 Staff Duty day unfilled'
+		});
+		link.addEventListener('click', (event) => event.preventDefault());
+
+		await fireEvent.click(link);
+
+		expect(link.getAttribute('href')).toBe('/org/org-1/calendar');
+		expect(calendarStore.currentDate).toEqual(new Date(2026, 10, 1));
 	});
 });

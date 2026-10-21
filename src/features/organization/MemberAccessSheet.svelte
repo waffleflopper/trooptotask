@@ -99,7 +99,7 @@
 >
 	{#if member && draft}
 		<Sheet.Content
-			class="w-full gap-0 overflow-y-auto data-[side=right]:sm:max-w-xl"
+			class="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
 			aria-busy={loading || undefined}
 			showCloseButton={!loading}
 			escapeKeydownBehavior={loading ? 'ignore' : 'close'}
@@ -144,7 +144,7 @@
 					};
 				}}
 			>
-				<fieldset class="grid gap-8 p-6" disabled={loading}>
+				<fieldset class="grid min-h-0 min-w-0 flex-1 content-start gap-8 overflow-y-auto p-6" disabled={loading}>
 					<input type="hidden" name="membershipId" value={member.id} />
 					<input type="hidden" name="membershipRole" value={draft.role} />
 					<input type="hidden" name="memberPreset" value={draft.preset} />
@@ -271,7 +271,7 @@
 					{/if}
 				</fieldset>
 				<!-- Outside the fieldset so Save keeps focus (aria-disabled) while the request is pending. -->
-				<Sheet.Footer class="mt-auto flex-row flex-wrap items-center border-t p-6">
+				<Sheet.Footer class="flex-row flex-wrap items-center border-t p-6">
 					<Button
 						type="button"
 						variant="ghost"

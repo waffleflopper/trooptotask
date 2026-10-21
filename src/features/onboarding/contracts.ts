@@ -17,6 +17,7 @@ import type { TrainingType } from '$features/training/contracts';
 import type { NoteAuthorLabels } from './onboardingNoteAuthors';
 import type { Personnel } from '$features/personnel/contracts';
 export { getProgress } from './onboardingProgress';
+export { clockLabel, summarizePacket } from './onboardingStatus';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,

@@ -121,8 +121,11 @@ export interface RatingSchemeWorkspaceRouteData {
 	ratingScheme: { data: Promise<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted> };
 }
 
-/** Evaluation facts needed for browser-local Dashboard due calculations. */
+/** Evaluation facts the Dashboard needs to bucket due dates and name an overdue entry; evaluators and notes stay out. */
 export interface RatingSchemeDueEntry {
+	id: string;
+	ratedPersonId: string;
+	evalType: 'OER' | 'NCOER' | 'WOER';
 	ratingPeriodEnd: string;
 	status: 'active' | 'completed' | 'change-of-rater';
 }

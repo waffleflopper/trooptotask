@@ -5,15 +5,14 @@ import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
-import { formatDate, parseDate } from '$lib/utils/dates';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
-import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { parseDate } from '$lib/utils/dates';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { DashboardPageData } from '$features/dashboard/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getProgress } from '$features/onboarding/contracts';
-import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
+import { groupPersonnelByGroupId, indexById, indexTodayAvailability, projectTrainingSteps } from './dashboardIndexes';
 import { availabilityPercent } from '$features/organization/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from '../sections/dashboardInputs';
@@ -78,26 +77,6 @@ export interface DashboardGettingStartedItem {
 	complete: boolean;
 }
 
-export interface DashboardDutyAssignmentRow {
-	id: string;
-	typeName: string;
-	shortName: string;
-	color: string;
-	textColor: string;
-	assigneeName: string;
-}
-
-export interface DashboardUpcomingChangeRow {
-	key: string;
-	date: string;
-	personName: string;
-	statusName: string;
-	statusColor: string;
-	direction: 'departing' | 'returning';
-	groupId: string | null;
-	groupName: string;
-}
-
 export interface DashboardOnboardingProgressRow {
 	id: string;
 	personnelId: string;
@@ -115,12 +94,6 @@ export interface DashboardGroupBreakdownRow {
 	pct: number;
 	statusCounts: Map<string, number>;
 	isPinned: boolean;
-}
-
-export interface DashboardDutyDayView {
-	date: string;
-	isToday: boolean;
-	assignments: DashboardDutyAssignmentRow[];
 }
 
 export interface DashboardUnitReadinessView {
@@ -420,64 +393,14 @@ export class DashboardScreenModel {
 		return this.data.trainingSummary?.stats ?? null;
 	}
 
-	upcomingChanges = $derived.by<DashboardUpcomingChangeRow[]>(() => {
-		const sevenDaysOut = dateAfter(this.today, 7);
-		const changes: DashboardUpcomingChangeRow[] = [];
-
-		for (const entry of this.sources.availability.items) {
-			const person = this.findRosterPerson(entry.personnelId);
-			const st = this.statusTypeById.get(entry.statusTypeId);
-			if (!person || !st) continue;
-
-			const groupId = person.groupId ?? null;
-			const group = groupId ? this.groupById.get(groupId) : null;
-			const groupName = group?.name ?? 'Unassigned';
-
-			if (entry.startDate > this.today && entry.startDate <= sevenDaysOut) {
-				changes.push({
-					key: `${entry.id}-departing-${entry.startDate}`,
-					date: entry.startDate,
-					personName: `${person.rank} ${person.lastName}`,
-					statusName: st.name,
-					statusColor: st.color,
-					direction: 'departing',
-					groupId,
-					groupName
-				});
-			}
-
-			if (entry.endDate >= this.today && entry.endDate <= sevenDaysOut) {
-				changes.push({
-					key: `${entry.id}-returning-${entry.endDate}`,
-					date: entry.endDate,
-					personName: `${person.rank} ${person.lastName}`,
-					statusName: st.name,
-					statusColor: st.color,
-					direction: 'returning',
-					groupId,
-					groupName
-				});
-			}
-		}
-
-		return changes.sort((a, b) => a.date.localeCompare(b.date));
-	});
-
 	get activeOnboardings(): DashboardOnboardingProgressRow[] {
 		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => this.findRosterPerson(o.personnelId));
-		const completionSet = new SvelteSet(this.data.onboardingTrainingCompletions ?? []);
+		const project = projectTrainingSteps(this.data);
 
 		return onboardings.map((o) => {
 			const person = this.findRosterPerson(o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
-			const steps = o.steps.map((step) => {
-				if (this.data.trainingSummary && step.active && step.stepType === 'training' && step.trainingTypeId) {
-					const hasTraining = completionSet.has(`${o.personnelId}-${step.trainingTypeId}`);
-					return { ...step, completed: hasTraining };
-				}
-				return step;
-			});
-			const { total: totalSteps, completed: completedSteps } = getProgress({ ...o, steps });
+			const { total: totalSteps, completed: completedSteps } = getProgress(project(o));
 
 			return {
 				id: o.id,
@@ -541,18 +464,6 @@ export class DashboardScreenModel {
 		return counts;
 	}
 
-	dutyForDays(count: number): DashboardDutyDayView[] {
-		const days: DashboardDutyDayView[] = [];
-		for (let i = 0; i < count; i++) {
-			const dateStr = dateAfter(this.today, i);
-			const assignments = this.sources.dailyAssignments.assignments
-				.filter((a) => a.date === dateStr)
-				.map((a) => this.toDutyAssignmentRow(a));
-			days.push({ date: dateStr, isToday: i === 0, assignments });
-		}
-		return days;
-	}
-
 	get trainingCurrencyPct(): number {
 		const summary = this.data.trainingSummary;
 		if (!summary || this.totalPersonnel === 0) return 100;
@@ -562,10 +473,6 @@ export class DashboardScreenModel {
 			0
 		);
 		return Math.max(0, Math.round(((this.totalPersonnel - delinquentPersonnel) / this.totalPersonnel) * 100));
-	}
-
-	get expiredTrainingPersonnelCount(): number {
-		return this.data.trainingSummary?.expiredPersonnelCount ?? 0;
 	}
 
 	get trainingGroupDelinquencies(): {
@@ -596,45 +503,10 @@ export class DashboardScreenModel {
 			.sort((a, b) => b.count - a.count);
 	}
 
-	formatShortDate(dateStr: string): string {
-		const d = parseDate(dateStr);
-		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-		return `${months[d.getMonth()]} ${d.getDate()}`;
-	}
-
-	get upcomingLosses(): UpcomingLossRecord[] {
-		if (!this.isFeatureOn('lossesAndAwards')) return [];
-		const warningWindowDays = this.data.dashboard.data.lossWarningWindowDays ?? 180;
-		return evaluateUpcomingLosses(this.rosterPersonnel, warningWindowDays, this.today, {
-			awardTrackingAcknowledgedPersonnelIds: this.data.dashboard.data.awardTrackingAcknowledgedPersonnelIds ?? []
-		});
-	}
-
 	get unitReadiness(): DashboardUnitReadinessView {
 		return {
 			trainingCurrencyColor,
 			trainingColor: trainingCurrencyColor(this.trainingCurrencyPct)
-		};
-	}
-
-	private toDutyAssignmentRow(assignment: DailyAssignment): DashboardDutyAssignmentRow {
-		const type = this.sources.dailyAssignments.types.find((t) => t.id === assignment.assignmentTypeId);
-		let assigneeName = '';
-		if (type?.assignTo === 'personnel') {
-			const person = this.findRosterPerson(assignment.assigneeId);
-			if (person) assigneeName = `${person.rank} ${person.lastName}`;
-		} else {
-			assigneeName =
-				this.sources.groups.items.find((group) => group.id === assignment.assigneeId)?.name ?? 'Unknown Group';
-		}
-		const color = type?.color ?? '#9e9e9e';
-		return {
-			id: assignment.id,
-			typeName: type?.name ?? 'Unknown',
-			shortName: type?.shortName ?? '',
-			color,
-			textColor: hexToTextColor(color),
-			assigneeName
 		};
 	}
 
@@ -680,20 +552,4 @@ function trainingCurrencyColor(pct: number): string {
 	if (pct >= 90) return 'var(--success-foreground)';
 	if (pct >= 75) return 'var(--warning-foreground)';
 	return 'var(--danger-foreground)';
-}
-
-function hexToTextColor(hex: string): string {
-	const clean = hex.replace('#', '');
-	const r = parseInt(clean.slice(0, 2), 16) / 255;
-	const g = parseInt(clean.slice(2, 4), 16) / 255;
-	const b = parseInt(clean.slice(4, 6), 16) / 255;
-	const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
-	const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-	return L > 0.179 ? '#1a1a1a' : '#ffffff';
-}
-
-function dateAfter(dateStr: string, days: number): string {
-	const d = new SvelteDate(`${dateStr}T00:00:00`);
-	d.setDate(d.getDate() + days);
-	return formatDate(d);
 }

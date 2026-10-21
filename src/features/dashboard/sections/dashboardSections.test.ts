@@ -159,7 +159,9 @@ describe('composeDashboardSections', () => {
 					...inputs.page.dashboard,
 					data: {
 						...inputs.page.dashboard.data,
-						ratingSchemeEntries: [{ ratingPeriodEnd: '2026-10-10', status: 'active' }]
+						ratingSchemeEntries: [
+							{ id: 'e1', ratedPersonId: 'p1', evalType: 'NCOER', ratingPeriodEnd: '2026-10-10', status: 'active' }
+						]
 					}
 				}
 			}
@@ -308,7 +310,9 @@ describe('the Quick add entries', () => {
 					...withTrainingType.page.dashboard,
 					data: {
 						...withTrainingType.page.dashboard.data,
-						activeOnboardings: [{ id: 'packet-1', personnelId: alphaPerson.id } as PersonnelOnboarding]
+						activeOnboardings: [
+							{ id: 'packet-1', personnelId: alphaPerson.id, steps: [] } as unknown as PersonnelOnboarding
+						]
 					}
 				}
 			}

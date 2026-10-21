@@ -1281,7 +1281,9 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				inMemoryArchivedPersonIds(rawStore, actor.orgId)
 			]);
 			const rows = await rawStore.findMany<{
+				id: string;
 				rated_person_id: string;
+				eval_type: 'OER' | 'NCOER' | 'WOER';
 				rating_period_end: string;
 				status: 'active' | 'completed' | 'change-of-rater';
 			}>(
@@ -1293,7 +1295,13 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 			const archived = toArchivedPersonIds(archivedIds);
 			return rows
 				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
-				.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
+				.map((row) => ({
+					id: row.id,
+					ratedPersonId: row.rated_person_id,
+					evalType: row.eval_type,
+					ratingPeriodEnd: row.rating_period_end,
+					status: row.status
+				}));
 		}
 	};
 }

@@ -22,7 +22,8 @@
 		trainingType: TrainingType;
 		existingTraining: PersonnelTraining | undefined;
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
-		onRemove: (id: string, isCurrent?: () => boolean) => void | Promise<void>;
+		/** Offers Delete on an existing record when given. */
+		onRemove?: (id: string, isCurrent?: () => boolean) => void | Promise<void>;
 		onClose: () => void;
 		canBeExempted?: boolean;
 		isExempt?: boolean;
@@ -152,7 +153,7 @@
 	}
 
 	async function doRemove() {
-		if (existingTraining && isCurrent()) {
+		if (existingTraining && onRemove && isCurrent()) {
 			try {
 				await onRemove(existingTraining.id, isCurrent);
 				if (!isCurrent()) return;
@@ -282,7 +283,7 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			{#if !isExempt && existingTraining}
+			{#if !isExempt && existingTraining && onRemove}
 				<Button variant="destructive" type="button" onclick={() => (showRemoveConfirm = true)} disabled={isSaving}>
 					Delete
 				</Button>

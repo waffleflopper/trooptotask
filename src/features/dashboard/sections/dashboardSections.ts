@@ -3,6 +3,7 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { ClientAccess } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
+import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardInputs } from './dashboardInputs';
 import { placeForecastLaneMarks, type DashboardForecastLaneView, type ForecastLaneMark } from './forecastLanes';
@@ -47,12 +48,20 @@ export interface OnDutyBlock extends DashboardBlock {
 	order: number;
 }
 
+export interface QuickAddDialogProps {
+	model: DashboardScreenModel;
+	access: DashboardAccess;
+	updates: DashboardPageUpdates;
+	onClose: () => void;
+}
+
 export interface QuickAddEntry {
 	id: string;
 	label: string;
 	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding. */
 	order: number;
-	dialog: Component<{ model: DashboardScreenModel; onClose: () => void }>;
+	/** Loaded on first open, so the dialogs stay out of the page's first load. */
+	loadDialog: () => Promise<{ default: Component<QuickAddDialogProps> }>;
 	available?: DashboardPartAvailability;
 }
 

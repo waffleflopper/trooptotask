@@ -103,7 +103,7 @@ const access: DashboardAccess = {
 	can: (action) => action.id === 'calendar.manageAvailability' || action.id === 'onboarding.manageWorkflows'
 };
 const component: DashboardBlock['component'] = () => ({});
-const dialog: QuickAddEntry['dialog'] = () => ({});
+const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
 
 describe('composeDashboardSections', () => {
 	it('interleaves On duty blocks across sections and omits unavailable parts', () => {
@@ -165,7 +165,7 @@ describe('composeDashboardSections', () => {
 	it('orders usable Quick add entries across sections after filtering by loaded data and access', () => {
 		const sections = [
 			dashboardSection('onboarding', {
-				quickAdd: [{ id: 'onboarding', label: 'Start onboarding', order: 30, dialog }]
+				quickAdd: [{ id: 'onboarding', label: 'Start onboarding', order: 30, loadDialog }]
 			}),
 			dashboardSection('training', {
 				quickAdd: [
@@ -173,7 +173,7 @@ describe('composeDashboardSections', () => {
 						id: 'training',
 						label: 'Training record',
 						order: 20,
-						dialog,
+						loadDialog,
 						available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.training.recordCompletions)
 					}
 				]
@@ -184,14 +184,14 @@ describe('composeDashboardSections', () => {
 						id: 'status',
 						label: 'Status',
 						order: 10,
-						dialog,
+						loadDialog,
 						available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
 					},
 					{
 						id: 'assignment',
 						label: 'Assign duty',
 						order: 0,
-						dialog,
+						loadDialog,
 						available: (loaded) => loaded.assignmentTypes.length > 0
 					}
 				]

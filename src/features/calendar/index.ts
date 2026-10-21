@@ -20,7 +20,17 @@ export { getDefaultFederalHolidays } from './utils/federalHolidays';
 export { exportMonthToExcel, exportQuarterToExcel } from './utils/calendarExport';
 
 export { CalendarPageContext } from './contexts/CalendarPageContext.svelte';
-export type { CalendarPageData, CalendarPageAccess } from './contexts/CalendarPageContext.svelte';
+export type {
+	AvailabilityEditorRequest,
+	CalendarPageData,
+	CalendarPageAccess
+} from './contexts/CalendarPageContext.svelte';
+export { saveAvailabilityChange, type AvailabilityOutcome } from './availabilitySave';
+
+/** The status editor, loaded on first open. */
+export function loadAvailabilityModal() {
+	return import('./components/AvailabilityModal.svelte');
+}
 
 export { calendarStore } from './stores/calendar.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';

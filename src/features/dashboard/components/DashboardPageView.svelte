@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
+	import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 	import {
 		composeDashboardSections,
@@ -23,11 +24,12 @@
 		/** Every section the page can show; those whose feature is off add nothing. */
 		sections: readonly DashboardSection[];
 		access: DashboardAccess;
+		updates: DashboardPageUpdates;
 		/** Replaces the bands when a source fails; the header stays. */
 		failure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, failure }: Props = $props();
+	let { orgName, viewerDay, ctx, sections, access, updates, failure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -40,6 +42,11 @@
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 
 	let openQuickAdd = $state<QuickAddEntry | null>(null);
+
+	// An Organization switch unloads the model; the open dialog belongs to the old one.
+	$effect(() => {
+		if (!model) openQuickAdd = null;
+	});
 
 	const EYEBROW = 'font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase';
 	const BAND = 'grid gap-14 border-t-2 border-foreground pt-6';
@@ -236,5 +243,7 @@
 </div>
 
 {#if openQuickAdd && model}
-	<openQuickAdd.dialog {model} onClose={() => (openQuickAdd = null)} />
+	{#await openQuickAdd.loadDialog() then { default: QuickAddDialog }}
+		<QuickAddDialog {model} {access} {updates} onClose={() => (openQuickAdd = null)} />
+	{/await}
 {/if}

@@ -17,7 +17,14 @@ afterEach(() => {
 const access: DashboardAccess = {
 	can: () => true
 };
-const frame = { orgName: 'Test Unit', viewerDay: { date: '2026-10-19', timeZone: 'UTC' }, sections: [], access };
+const updates = { refreshSummary: () => {}, putRecord: () => {} };
+const frame = {
+	orgName: 'Test Unit',
+	viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
+	sections: [],
+	access,
+	updates
+};
 
 function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel {
 	const starterPack = overrides.firstStarterConfigurationPack as StarterConfigurationPackSupport | null | undefined;
@@ -291,20 +298,20 @@ describe('Dashboard frame', () => {
 	});
 
 	it('shows ordered usable Quick add entries and hides the label when none are usable', async () => {
-		const dialog: QuickAddEntry['dialog'] = () => ({});
+		const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
 		const quickAdd: QuickAddEntry[] = [
 			{
 				id: 'training',
 				label: 'Training',
 				order: 20,
-				dialog,
+				loadDialog,
 				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.training.recordCompletions)
 			},
 			{
 				id: 'status',
 				label: 'Status',
 				order: 10,
-				dialog,
+				loadDialog,
 				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
 			}
 		];

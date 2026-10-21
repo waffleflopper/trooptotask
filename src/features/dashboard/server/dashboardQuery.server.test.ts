@@ -321,6 +321,25 @@ describe('fetchDashboardBootstrap', () => {
 		expect(result.range).toEqual({ rangeStart: '2026-10-17', rangeEnd: '2026-11-03' });
 	});
 
+	it('returns the stored holidays and closures inside the window for the forecast', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-19T12:00:00Z'));
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('special_days', [
+			{ id: 'before', organization_id: ORG, date: '2026-10-16', name: 'Training holiday', type: 'org-closure' },
+			{ id: 'veterans', organization_id: ORG, date: '2026-11-11', name: 'Veterans Day', type: 'federal-holiday' },
+			{ id: 'closure', organization_id: ORG, date: '2026-10-30', name: 'Unit closure', type: 'org-closure' },
+			{ id: 'foreign', organization_id: 'another-org', date: '2026-10-28', name: 'Other', type: 'org-closure' }
+		]);
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.specialDays.map((day) => [day.id, day.date, day.type])).toEqual([
+			['closure', '2026-10-30', 'org-closure']
+		]);
+	});
+
 	it('defaults the strength floor to 80 percent', async () => {
 		const result = await fetchDashboardBootstrap(buildCtx());
 

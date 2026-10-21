@@ -338,7 +338,7 @@ export async function seedDashboardOverflow({ client, fixture, tag, ownedState, 
 		today: dates.ui,
 		people: people.map(({ id, last_name, ets }) => ({ id, lastName: last_name, ets: ets ?? null })),
 		expected:
-			'On the ordinary fixture as dashboardView, Out Today lists eight People (seven seeded plus Baker), Upcoming Changes ten rows (seven returns plus Baker three) and Upcoming Losses four People with ETS in 20, 25, 30 and 35 days. The three expand buttons read "+2 more", "+4 more" and "+1 more". Other seeds add rows and change these counts.',
+			'On the ordinary fixture as dashboardView, Bottom line names all eight People out (seven seeded plus Baker), Upcoming Changes has ten rows (seven returns plus Baker three) and Upcoming Losses four People with ETS in 20, 25, 30 and 35 days. The two expand buttons read "+4 more" and "+1 more". Other seeds add rows and change these counts.',
 		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
 	};
 }

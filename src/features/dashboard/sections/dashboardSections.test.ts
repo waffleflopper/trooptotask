@@ -44,6 +44,7 @@ const inputs: DashboardInputs = {
 	timeZone: 'UTC',
 	forecastDays: [],
 	personnel: [],
+	specialDays: [],
 	availability: [],
 	statusTypes: [],
 	groups: [],
@@ -71,7 +72,8 @@ const inputs: DashboardInputs = {
 				trainingTypes: [],
 				lossWarningWindowDays: 180,
 				strengthFloorPercent: 80,
-				awardTrackingAcknowledgedPersonnelIds: []
+				awardTrackingAcknowledgedPersonnelIds: [],
+				specialDays: []
 			},
 			hydration: {
 				orgId: 'org-1',

@@ -43,6 +43,7 @@ function makeData(
 				lossWarningWindowDays: 180,
 				strengthFloorPercent: 80,
 				awardTrackingAcknowledgedPersonnelIds: [],
+				specialDays: [],
 				...workspaceOverrides
 			},
 			hydration: { orgId: 'org-1' } as DashboardWorkspaceResult['hydration']
@@ -752,12 +753,12 @@ describe('Dashboard today availability', () => {
 			{ id: 'g1', name: 'Alpha', sortOrder: 1 }
 		],
 		statusTypes: [
-			{ id: 'leave', name: 'Leave', color: '#aa0000', textColor: '#ffffff' },
-			{ id: 'school', name: 'School', color: '#0000aa', textColor: '#ffffff' }
+			{ id: 'leave', name: 'Leave', color: '#aa0000', textColor: '#ffffff', sortOrder: 0 },
+			{ id: 'school', name: 'School', color: '#0000aa', textColor: '#ffffff', sortOrder: 1 }
 		]
 	};
 
-	it('counts each active Person out today once and lists every entry that covers today', () => {
+	it('counts each active Person out today once, under the first status type in catalog order', () => {
 		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: makeSources({
 				...roster,
@@ -773,7 +774,19 @@ describe('Dashboard today availability', () => {
 		});
 
 		expect(model.totalPersonnel).toBe(3);
-		expect(model.availableCount).toBe(1);
+		const { bottomLine } = model.strength;
+		expect([bottomLine.available, bottomLine.assigned, bottomLine.percent]).toEqual([1, 3, 33]);
+		expect(
+			bottomLine.outPeople.map(({ personnelId, name, statusTypeId }) => [personnelId, name, statusTypeId])
+		).toEqual([
+			['p1', 'SGT Smith, Ann', 'leave'],
+			['p3', 'SPC Lee, Cy', 'school']
+		]);
+		expect(bottomLine.strip.map(({ statusTypeId, count }) => [statusTypeId, count])).toEqual([
+			[null, 1],
+			['leave', 1],
+			['school', 1]
+		]);
 		expect(
 			model.groupBreakdown.map(({ name, total, available, pct, statusCounts }) => ({
 				name,
@@ -785,22 +798,6 @@ describe('Dashboard today availability', () => {
 		).toEqual([
 			{ name: 'Alpha', total: 2, available: 1, pct: 50, statusCounts: { leave: 1 } },
 			{ name: 'Bravo', total: 1, available: 0, pct: 0, statusCounts: { school: 1 } }
-		]);
-		expect(
-			model.nonAvailablePersonnel.map(({ id, personName, statusName, groupName }) => [
-				id,
-				personName,
-				statusName,
-				groupName
-			])
-		).toEqual([
-			['a1', 'SGT Smith, Ann', 'Leave', 'Alpha'],
-			['a2', 'SGT Smith, Ann', 'School', 'Alpha'],
-			['a3', 'SPC Lee, Cy', 'School', 'Bravo']
-		]);
-		expect(model.unitReadiness.statusEntries.map(([id, { count }]) => [id, count])).toEqual([
-			['leave', 1],
-			['school', 2]
 		]);
 	});
 
@@ -816,9 +813,9 @@ describe('Dashboard today availability', () => {
 		});
 
 		const groupBreakdown = model.groupBreakdown;
-		const nonAvailablePersonnel = model.nonAvailablePersonnel;
+		const strength = model.strength;
 		expect(model.groupBreakdown).toBe(groupBreakdown);
-		expect(model.nonAvailablePersonnel).toBe(nonAvailablePersonnel);
+		expect(model.strength).toBe(strength);
 
 		availability.items = [
 			...availability.items,
@@ -835,22 +832,12 @@ describe('Dashboard today availability', () => {
 			['Alpha', 0],
 			['Bravo', 1]
 		]);
-		expect(model.nonAvailablePersonnel.map(({ id }) => id)).toEqual(['a1', 'a2']);
+		expect(model.strength).not.toBe(strength);
+		expect(model.strength.bottomLine.outPeople.map(({ personnelId }) => personnelId)).toEqual(['p1', 'p2']);
 	});
 });
 
 describe('Dashboard readiness colors', () => {
-	it('colors duty strength against the unit strength floor', () => {
-		const view = createDashboardScreenModel(makeData({}, { strengthFloorPercent: 70 })).unitReadiness;
-
-		expect([100, 70, 69, 10].map(view.availabilityColor)).toEqual([
-			'var(--success-foreground)',
-			'var(--success-foreground)',
-			'var(--warning-foreground)',
-			'var(--warning-foreground)'
-		]);
-	});
-
 	it('keeps the 90 and 75 percent cutoffs for Training currency', () => {
 		const view = createDashboardScreenModel(makeData({}, { strengthFloorPercent: 70 })).unitReadiness;
 

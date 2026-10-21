@@ -3,6 +3,7 @@ import type {
 	AssignmentType,
 	AvailabilityEntry,
 	CalendarDateRange,
+	SpecialDay,
 	StatusType,
 	DailyAssignment
 } from '$features/calendar/contracts';
@@ -116,6 +117,8 @@ export interface DashboardBootstrap {
 	strengthFloorPercent: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
 	awardTrackingAcknowledgedPersonnelIds: string[];
+	/** Stored federal holidays and closures within `range`; the forecast never flags them. */
+	specialDays: SpecialDay[];
 }
 
 export const DASHBOARD_WORKSPACE_KEY = 'dashboard' as const;

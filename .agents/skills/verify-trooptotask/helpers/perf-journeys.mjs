@@ -566,8 +566,8 @@ export const journeys = {
 		trigger: () => ({ click: { role: 'link', name: 'Personnel' } }),
 		milestones: (terms) => [{ name: 'useful', ...roster(terms) }]
 	},
-	// The Dashboard renders no in-page link. Its overflow toggles exist only from typical, and the
-	// scoped actor has no Out Today at large, so the control present in every cell is the sidebar.
+	// The Dashboard's overflow toggles exist only from typical, so the measured control is the
+	// sidebar link, which every cell has and earlier runs measured.
 	'dashboard-navigation': {
 		area: 'dashboard',
 		kind: 'interaction',

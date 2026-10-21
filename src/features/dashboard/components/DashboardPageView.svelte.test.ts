@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { calendarStore } from '$features/calendar';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import DashboardPageView from './DashboardPageView.svelte';
@@ -8,6 +9,8 @@ import { createDashboardScreenModel, type DashboardScreenModel } from '../read-m
 import type { DashboardPageData, StarterConfigurationPackSupport } from '$features/dashboard/contracts';
 import { dashboardSection, type DashboardAccess, type QuickAddEntry } from '../sections/dashboardSections';
 import { DASHBOARD_SECTIONS } from '../sections/dashboardSectionRegistry';
+import { buildStrengthBand } from '../read-model/strengthBand';
+import type { Personnel } from '$features/personnel/contracts';
 
 afterEach(() => {
 	cleanup();
@@ -25,6 +28,31 @@ const frame = {
 	access,
 	updates
 };
+
+/** Everyone on the roster is available today. */
+function strengthOf(assigned: number, group: { id: string; name: string } | null = null) {
+	const personnel = Array.from(
+		{ length: assigned },
+		(_, index) =>
+			({
+				id: `p${index}`,
+				rank: 'SPC',
+				firstName: 'Pat',
+				lastName: `Last${index}`,
+				groupId: group?.id ?? null
+			}) as Personnel
+	);
+	return buildStrengthBand({
+		today: '2026-10-19',
+		forecastDays: ['2026-10-19'],
+		personnel,
+		availability: [],
+		statusTypes: [],
+		specialDays: [],
+		groups: group ? [{ ...group, sortOrder: 0 }] : [],
+		floorPercent: 80
+	});
+}
 
 function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel {
 	const starterPack = overrides.firstStarterConfigurationPack as StarterConfigurationPackSupport | null | undefined;
@@ -48,14 +76,9 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		starterPackApplyState: { status: 'idle', message: null, result: null },
 		applyStarterConfigurationPack: () => {},
 		isHydrating: false,
-		statusBreakdown: new Map(),
 		unitReadiness: {
-			availabilityColor: () => 'var(--success-foreground)',
 			trainingCurrencyColor: () => 'var(--success-foreground)',
-			availPct: 100,
-			availColor: 'var(--success-foreground)',
-			trainingColor: 'var(--success-foreground)',
-			statusEntries: []
+			trainingColor: 'var(--success-foreground)'
 		},
 		trainingStats: {
 			expired: 0,
@@ -74,11 +97,10 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		activeOnboardings: [],
 		upcomingChanges: [],
 		upcomingLosses: [],
-		dutyStrengthPct: 100,
-		availableCount: 10,
 		totalPersonnel: 10,
+		strength: strengthOf(10),
+		today: '2026-10-19',
 		groupBreakdown: [],
-		nonAvailablePersonnel: [],
 		trainingGroupDelinquencies: [],
 		personnelCount: 0,
 		trainingTypeCount: 0,
@@ -129,23 +151,32 @@ function makeStarterPack(overrides: Partial<StarterConfigurationPackSupport> = {
 }
 
 describe('DashboardPageView', () => {
+	it('opens Calendar on the viewer day even when Calendar was left in another month', async () => {
+		calendarStore.goToMonth(2026, 2);
+		render(DashboardPageView, { props: { ...frame, ctx: makeCtx() } });
+		const link = screen.getByRole('link', { name: 'Open calendar' });
+		link.addEventListener('click', (event) => event.preventDefault());
+
+		await fireEvent.click(link);
+
+		expect([calendarStore.year, calendarStore.month]).toEqual([2026, 9]);
+	});
+
 	it('renders the overview directly without tabs or toolbar', () => {
-		const ctx = makeCtx({ availableCount: 42, totalPersonnel: 50 });
+		const ctx = makeCtx({ strength: strengthOf(50), totalPersonnel: 50 });
 
 		render(DashboardPageView, { props: { ...frame, ctx } });
 
 		expect(screen.queryByRole('toolbar')).toBeNull();
 		expect(screen.queryByRole('tablist')).toBeNull();
-		expect(screen.getByText('42')).toBeTruthy();
-		expect(screen.getByText('/ 50')).toBeTruthy();
+		expect(screen.getByText('of 50')).toBeTruthy();
+		expect(screen.getByText('Available · 100%')).toBeTruthy();
 	});
 
 	it('keeps saved Calendar assignments visible without presenting unavailable Training as current', () => {
 		const ctx = makeCtx({
 			trainingStats: null,
-			groupBreakdown: [
-				{ id: 'alpha', name: 'Clinic group', pct: 100, total: 1, available: 1, statusCounts: new Map() }
-			],
+			strength: strengthOf(1, { id: 'alpha', name: 'Clinic group' }),
 			dutyForDays: () => [
 				{
 					date: '2026-09-21',
@@ -161,7 +192,7 @@ describe('DashboardPageView', () => {
 		expect(screen.queryByText('training current')).toBeNull();
 		const evaluations = screen.getByRole('heading', { name: 'Evaluations' }).closest('[data-slot="card"]')!;
 		expect(within(evaluations as HTMLElement).queryByText('Clinic group')).toBeNull();
-		expect(screen.getByText('Clinic group')).toBeTruthy();
+		expect(within(screen.getByRole('list', { name: 'Available by group' })).getByText('Clinic group')).toBeTruthy();
 	});
 
 	it('keeps Workspace Setup and its starter pack hidden even for an eligible owner', () => {
@@ -181,7 +212,7 @@ describe('DashboardPageView', () => {
 			]
 		});
 		render(DashboardPageView, { props: { ...frame, ctx } });
-		expect(screen.getByText('/ 10')).toBeTruthy();
+		expect(screen.getByText('of 10')).toBeTruthy();
 		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
 		expect(screen.queryByRole('link', { name: 'Open Import or add the roster' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
@@ -245,7 +276,7 @@ describe('Dashboard feature switches', () => {
 	it('removes the readiness card when Training and Evaluations are both off', () => {
 		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ...offFor('evaluations'), trainingStats: null }) } });
 
-		expect(screen.getByText('/ 10')).toBeTruthy();
+		expect(screen.getByText('of 10')).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: /Training|Evaluations/ })).toBeNull();
 	});
 
@@ -339,9 +370,10 @@ describe('Dashboard frame', () => {
 		).toBe('Status');
 
 		await view.rerender({ ...props, access: { ...access, can: () => false } });
-		expect(screen.getByText('/ 10')).toBeTruthy();
+		expect(screen.getByText('of 10')).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Quick add' })).toBeNull();
 	});
+
 	it('opens the chosen entry in its own dialog, loaded on first open, and closes it', async () => {
 		const loadDialog = vi.fn(() => import('./quick-add/QuickAddDialogTestDouble.svelte'));
 		const icon: QuickAddEntry['icon'] = () => ({});
@@ -385,7 +417,8 @@ describe('Dashboard sections', () => {
 					trainingTypes: [],
 					lossWarningWindowDays: 180,
 					strengthFloorPercent: 80,
-					awardTrackingAcknowledgedPersonnelIds: []
+					awardTrackingAcknowledgedPersonnelIds: [],
+					specialDays: []
 				},
 				hydration: { orgId: 'org-1' } as DashboardPageData['dashboard']['hydration']
 			},

@@ -4,7 +4,6 @@ import type { ForecastLaneMark } from './dashboardSections';
 export type PlacedLaneMark = ForecastLaneMark & {
 	/** 1-based grid column of the first forecast day the mark covers. */
 	column: number;
-	/** How many day columns it covers. */
 	span: number;
 };
 

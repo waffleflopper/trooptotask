@@ -5,6 +5,8 @@ TroopToTask v1 is one SvelteKit application backed by Supabase. **Organization**
 ## Stabilization decisions
 
 - Billing and Duty Roster are removed end to end. Do not add plan, tier, quota or commercial gates, billing scaffolding, Duty Roster generation or Calendar duty hydration. Calendar availability, special days, types and persisted daily assignments, Personnel Duty Role (`clinicRole`) and Sign-in Rosters remain.
+- A persisted daily assignment keeps one slot per Organization, assignment type and date, with a Person or Group assignee. Manual edits, exports and audit behavior stay.
+- Retention windows, export lifecycle and audit, file size limits and batch bounds are safety limits, not entitlements.
 - There is no repository browser-test suite and no runtime test bypass. Real user journeys are verified with [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md).
 - A migration or cutover is finished only when every consumer moves and the replaced code, wrappers, aliases and configuration are deleted. Compatibility facades and partial migrations are not completion.
 

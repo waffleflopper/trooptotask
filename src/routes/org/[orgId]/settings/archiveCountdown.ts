@@ -1,4 +1,4 @@
-import { CLEANUP_RUN_HOUR_UTC, retentionDeletionDate } from '$lib/utils/retentionCutoff';
+import { retentionDeletionDate } from '$lib/utils/retentionCutoff';
 
 export interface DeletionCountdown {
 	label: string;
@@ -29,12 +29,4 @@ function countdownLabel(daysLeft: number): string {
 	if (daysLeft <= 0) return 'Due now';
 	if (daysLeft < DAYS_LABEL_BELOW) return `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`;
 	return `${Math.round(daysLeft / AVERAGE_MONTH_DAYS)} months`;
-}
-
-/** The first 05:00 UTC cleanup run after `now`, when every countdown label can change. */
-export function nextCleanupRun(now: Date): Date {
-	const run = new Date(now);
-	run.setUTCHours(CLEANUP_RUN_HOUR_UTC, 0, 0, 0);
-	if (run.getTime() <= now.getTime()) run.setUTCDate(run.getUTCDate() + 1);
-	return run;
 }

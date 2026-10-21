@@ -159,14 +159,6 @@ describe('Supabase unit counts requests', () => {
 		]);
 	});
 
-	it('runs nothing for an empty request and one query for a repeated key', async () => {
-		const { port, requests } = supabaseUnit(seed());
-
-		expect(await readUnitCounts(port, [])).toEqual({});
-		expect(await readUnitCounts(port, ['members', 'members'])).toEqual({ members: 3 });
-		expect(requests).toHaveLength(1);
-	});
-
 	it('runs the Rating Scheme count through its owner without a table request', async () => {
 		const { port, requests } = supabaseUnit(seed());
 

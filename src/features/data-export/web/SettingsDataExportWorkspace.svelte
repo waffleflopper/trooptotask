@@ -135,8 +135,10 @@
 	{:then counts}
 		{@render chips(counts)}
 	{:catch}
-		{@render chips(null)}
-		<p class="font-mono text-xs leading-6 text-foreground">What an export of {unit} contains could not be counted.</p>
+		<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+			{@render chips(null)}
+			<p class="font-mono text-xs leading-6 text-foreground">Records could not be counted.</p>
+		</div>
 	{/await}
 	<div class="flex flex-col gap-3 sm:flex-row">
 		{@render tile('json')}

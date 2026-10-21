@@ -11,7 +11,7 @@ describe('loadArchivesSettings', () => {
 				if (value === 'failure') throw new Error('Retention unavailable');
 				return value;
 			};
-			const pending = loadArchivesSettings(ctx, { isAdmin: false });
+			const pending = loadArchivesSettings(ctx, { isAdmin: false, timeZone: 'UTC' });
 			if (value === 'failure') await expect(pending).rejects.toThrow('Retention unavailable');
 			else expect((await pending).sections.archivedPersonnel.retention.months).toBe(36);
 		}
@@ -65,7 +65,7 @@ describe('loadArchivesSettings', () => {
 			}
 		]);
 
-		const settings = await loadArchivesSettings(ctx, { isAdmin: false });
+		const settings = await loadArchivesSettings(ctx, { isAdmin: false, timeZone: 'UTC' });
 		expect(settings.sections.archivedPersonnel.rows.map((person) => person.id)).toEqual(['newer', 'older']);
 	});
 });

@@ -4,12 +4,16 @@ export function normalizeOrganizationName(value: string): string {
 	return value.trim().replace(/\s+/g, ' ');
 }
 
-export function formatRosterDate(dateStr: string): string {
-	const date = new Date(dateStr);
-	const day = date.toLocaleDateString('en-US', { day: '2-digit' });
-	const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-	const year = date.toLocaleDateString('en-US', { year: '2-digit' });
-	return `${day} ${month} ${year}`;
+/** "02 NOV 24" for the day `dateStr` falls on in `timeZone`. */
+export function formatRosterDate(dateStr: string, timeZone: string): string {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		day: '2-digit',
+		month: 'short',
+		year: '2-digit'
+	}).formatToParts(new Date(dateStr));
+	const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? '';
+	return `${part('day')} ${part('month').toUpperCase()} ${part('year')}`;
 }
 
 export function pluralize(label: string, count: number): string {
@@ -31,14 +35,4 @@ export function getPresetLabel(preset: PermissionPreset): string {
 		case 'custom':
 			return 'Custom';
 	}
-}
-
-export function formatCompactDate(date: Date): string {
-	return date
-		.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: '2-digit'
-		})
-		.toUpperCase();
 }

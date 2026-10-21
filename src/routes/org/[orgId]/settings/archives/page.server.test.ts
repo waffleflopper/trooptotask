@@ -3,17 +3,16 @@ import { createSuspendedAppShellRouteData } from '../../appShell.test-support';
 import { load } from './+page.server';
 
 describe('archives settings page load', () => {
-	it('registers the archived people read so a restore or delete refreshes the list without other loads', async () => {
+	it('registers the archived people read for restore and delete refreshes', async () => {
 		const depends = vi.fn();
 
-		const result = await load({
+		await load({
 			locals: {},
 			cookies: {},
 			depends,
 			parent: async () => createSuspendedAppShellRouteData()
 		} as never);
 
-		expect(depends.mock.calls).toEqual([['app:settings-archived-people']]);
-		expect(result).toEqual({});
+		expect(depends.mock.calls).toEqual([['app:settings-archived-people', 'app:viewer-day']]);
 	});
 });

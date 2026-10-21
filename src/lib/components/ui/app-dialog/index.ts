@@ -3,6 +3,7 @@ import Content from './app-dialog-content.svelte';
 import Header from './app-dialog-header.svelte';
 import Body from './app-dialog-body.svelte';
 import Footer from './app-dialog-footer.svelte';
+import TypeToConfirm from './app-dialog-type-to-confirm.svelte';
 import * as Dialog from '$lib/components/ui/dialog';
 
 const Title = Dialog.Title;
@@ -18,6 +19,7 @@ export {
 	Description,
 	Body,
 	Footer,
+	TypeToConfirm,
 	Trigger,
 	Close,
 	Root as AppDialog,

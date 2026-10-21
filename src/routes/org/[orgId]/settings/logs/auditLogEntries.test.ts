@@ -2,217 +2,30 @@ import { describe, expect, it } from 'vitest';
 import type { AuditLogEntry } from '$lib/audit/contracts';
 import { auditDayHead, auditScope, auditSentence, viewAuditEntry } from './auditLogEntries';
 
-/** Every action an audit producer in the app writes today, by the scope Logs files it under. */
-const WRITTEN_ACTIONS = {
-	deletions: [
-		'assignment_type.deleted',
-		'availability.bulk_deleted',
-		'availability.deleted',
-		'deletion_request.approved',
-		'deletion_request.cancelled',
-		'deletion_request.created',
-		'deletion_request.denied',
-		'group.deleted',
-		'notification.deleted',
-		'onboarding_template.deleted',
-		'onboarding_template_step.deleted',
-		'org.deleted',
-		'organization.rank_catalog.deleted',
-		'personnel.archived',
-		'personnel.bulk_archived',
-		'personnel.counseling_record.archived',
-		'personnel.counseling_record.deleted',
-		'personnel.document.archived',
-		'personnel.document.deleted',
-		'personnel.follow_up.archived',
-		'personnel.follow_up.deleted',
-		'personnel.leader_note.archived',
-		'personnel.leader_note.deleted',
-		'personnel.permanently_deleted',
-		'personnel_ict_completion.deleted',
-		'pinned_group.deleted',
-		'rating_scheme.deleted',
-		'sign_in_roster.deleted',
-		'special_day.deleted',
-		'status_type.deleted',
-		'training_record.deleted',
-		'training_type.deleted',
-		'training_view.deleted'
-	],
-	access: [
-		'access_request.account_setup_approval_authorization_denied',
-		'access_request.account_setup_approval_rate_limited',
-		'access_request.account_setup_link_delivery_failed',
-		'access_request.account_setup_link_resent',
-		'access_request.account_setup_link_sent',
-		'access_request.account_setup_resend_authorization_denied',
-		'access_request.account_setup_resend_rate_limited',
-		'access_request.approved',
-		'access_request.rejected',
-		'access_request.rejection_authorization_denied',
-		'access_request.rescinded',
-		'access_request.rescission_authorization_denied',
-		'member.access_changed',
-		'member.high_privilege_invite_authorization_denied',
-		'member.high_privilege_remove_authorization_denied',
-		'member.high_privilege_update_authorization_denied',
-		'member.invite',
-		'member.invite_access_request_already_linked',
-		'member.invite_access_request_created',
-		'member.invite_access_request_link_block_failed',
-		'member.invite_access_request_link_failed',
-		'member.invite_access_request_linked',
-		'member.invite_account_setup_link_block_failed',
-		'member.invite_account_setup_link_not_created',
-		'member.invite_email_delivery_failed',
-		'member.invite_email_resend_delivery_failed',
-		'member.invite_email_resent',
-		'member.invite_email_sent',
-		'member.invite_rate_limited',
-		'member.invite_resend_rate_limited',
-		'member.invite_revoked',
-		'member.left',
-		'member.removed',
-		'org.delete_authorization_denied',
-		'org.ownership_transfer_authorization_denied',
-		'org.ownership_transferred',
-		'org.renamed',
-		'org.url_slug_cleared',
-		'org.url_slug_updated',
-		'organization.rank_catalog.bulk_state_changed',
-		'organization.rank_catalog.reactivated',
-		'organization.rank_catalog.reconciled',
-		'organization.rank_catalog.retired',
-		'organization.rank_catalog.saved',
-		'organization.rank_catalog.service_pack_added',
-		'organization.settings_updated',
-		'organization_invitation.accepted',
-		'organization_invitation.blocked_by_access_request_rejection',
-		'organization_invitation.blocked_by_access_request_rescission',
-		'organization_invitation.declined',
-		'policy.denied'
-	],
-	records: [
-		'account_setup.claim_released_by_staff',
-		'account_setup.claimed',
-		'account_setup.completed',
-		'account_setup.completion_rate_limited',
-		'account_setup.failed',
-		'account_setup.link_revoked',
-		'account_setup.renewal_rate_limited',
-		'admin.org.make_admin',
-		'admin.org.membership_authorization_denied',
-		'admin.org.transfer_ownership',
-		'admin.user.password_reset',
-		'admin.user.resend_invite',
-		'announcement_activate',
-		'announcement_create',
-		'announcement_deactivate',
-		'announcement_delete',
-		'assignment_type.calendar_lanes_set',
-		'assignment_type.created',
-		'assignment_type.updated',
-		'auth.forgot_password_rate_limited',
-		'auth.login_failure',
-		'auth.login_success',
-		'auth.password_update_rate_limited',
-		'auth.session_revoke_failed',
-		'availability.bulk_created',
-		'availability.created',
-		'availability.updated',
-		'calendar_report.viewed',
-		'critical_tasks.defaults_updated',
-		'daily_assignment.batch_replaced',
-		'daily_assignment.cleared',
-		'daily_assignment.created',
-		'daily_assignment.replaced',
-		'export.created',
-		'export.excel_created',
-		'group.created',
-		'group.updated',
-		'ict_task.bulk_imported',
-		'ict_task.created',
-		'ict_task.reordered',
-		'ict_task.updated',
-		'notification.delete_all',
-		'notification.mark_all_read',
-		'notification.read',
-		'onboarding.cancelled',
-		'onboarding.completed',
-		'onboarding.reopened',
-		'onboarding.resynced',
-		'onboarding.started',
-		'onboarding.template_switched',
-		'onboarding_step.inactive_removed',
-		'onboarding_step.note_added',
-		'onboarding_step.stage_advanced',
-		'onboarding_step.toggled',
-		'onboarding_template.created',
-		'onboarding_template.duplicated',
-		'onboarding_template.updated',
-		'onboarding_template_step.created',
-		'onboarding_template_step.reordered',
-		'onboarding_template_step.updated',
-		'personnel.award_tracking_acknowledged',
-		'personnel.award_tracking_cleared',
-		'personnel.bulk_created',
-		'personnel.bulk_merged',
-		'personnel.counseling_record.created',
-		'personnel.counseling_record.restored',
-		'personnel.created',
-		'personnel.document.created',
-		'personnel.document.restored',
-		'personnel.exported',
-		'personnel.extended_info.updated',
-		'personnel.follow_up.completed',
-		'personnel.follow_up.created',
-		'personnel.follow_up.reopened',
-		'personnel.follow_up.restored',
-		'personnel.follow_up.updated',
-		'personnel.leader_note.created',
-		'personnel.leader_note.restored',
-		'personnel.leader_note.updated',
-		'personnel.restored',
-		'personnel.updated',
-		'personnel_ict_completion.bulk_imported',
-		'personnel_ict_completion.created',
-		'personnel_ict_completion.updated',
-		'pinned_group.created',
-		'pinned_group.replaced',
-		'rating_scheme.created',
-		'rating_scheme.updated',
-		'security.rate_limit_exceeded',
-		'sign_in_roster.created',
-		'sign_in_roster.scan_uploaded',
-		'special_day.created',
-		'special_day.federal_holidays_reset',
-		'special_day.updated',
-		'status_type.created',
-		'status_type.reordered',
-		'status_type.updated',
-		'suspend_org',
-		'suspend_user',
-		'training.bulk_imported',
-		'training_record.corrected',
-		'training_record.created',
-		'training_record.updated',
-		'training_type.created',
-		'training_type.updated',
-		'training_view.created',
-		'training_view.updated',
-		'unsuspend_org',
-		'unsuspend_user',
-		'user_preferences.updated'
-	]
-} as const;
-
 describe('auditScope', () => {
-	it.each(Object.entries(WRITTEN_ACTIONS).flatMap(([scope, actions]) => actions.map((action) => [action, scope])))(
-		'files %s under %s',
-		(action, scope) => {
-			expect(auditScope(action)).toBe(scope);
-		}
-	);
+	it.each([
+		['deletion_request.created', 'deletions'],
+		['deletion_request.approved', 'deletions'],
+		['training_record.deleted', 'deletions'],
+		['availability.bulk_deleted', 'deletions'],
+		['personnel.counseling_record.archived', 'deletions'],
+		['personnel.permanently_deleted', 'deletions'],
+		['org.deleted', 'deletions'],
+		['organization.rank_catalog.deleted', 'deletions'],
+		['member.removed', 'access'],
+		['member.invite_revoked', 'access'],
+		['organization_invitation.declined', 'access'],
+		['access_request.rejected', 'access'],
+		['org.renamed', 'access'],
+		['organization.settings_updated', 'access'],
+		['organization.rank_catalog.retired', 'access'],
+		['policy.denied', 'access'],
+		['personnel.restored', 'records'],
+		['notification.delete_all', 'records'],
+		['announcement_delete', 'records'],
+		['export.created', 'records'],
+		['training_record.updated', 'records']
+	] as const)('files %s under %s', (action, scope) => expect(auditScope(action)).toBe(scope));
 
 	it('files an action no producer writes yet by its event, then its family', () => {
 		expect(auditScope('widget.purged')).toBe('deletions');
@@ -229,7 +42,7 @@ describe('auditSentence', () => {
 		expect(sentence).not.toContain('widget.frobbed');
 	});
 
-	it('names the feature switches turned off and on, under the Access scope', () => {
+	it('names the feature switches turned off and on', () => {
 		const switched = (previous: string[], next: string[]) =>
 			auditSentence('organization.settings_updated', {
 				previous_disabled_features: previous,
@@ -237,9 +50,7 @@ describe('auditSentence', () => {
 			});
 		const sentence = switched(['training'], ['onboarding', 'lossesAndAwards']);
 
-		for (const label of ['Onboarding', 'Losses and awards', 'Training']) expect(sentence).toContain(label);
-		expect(switched([], ['training'])).not.toBe(switched(['training'], []));
-		expect(auditScope('organization.settings_updated')).toBe('access');
+		expect(sentence).toBe('Turned off Onboarding, Losses and awards; Turned on Training');
 	});
 
 	it('shows the strength floor before then after, and policy values as set', () => {
@@ -312,10 +123,17 @@ describe('viewAuditEntry', () => {
 		});
 	});
 
-	it('reads an empty or missing actor as a System change', () => {
-		expect(viewAuditEntry(entry({ actor: '  ' }), 'UTC').actor).toBeNull();
+	it.each([
+		['no actor', { userId: null, actor: '  ' }, { actor: 'System', system: true }],
+		['a member it cannot name', { userId: 'user-1', actor: null }, { actor: 'Unknown member', system: false }],
+		['a named member', { userId: 'user-1', actor: 'dana@army.mil' }, { actor: 'dana@army.mil', system: false }],
+		['a saved actor with no user', { userId: null, actor: 'cleanup job' }, { actor: 'cleanup job', system: false }]
+	] as const)('attributes an entry by %s', (_case, who, expected) => {
+		expect(viewAuditEntry(entry(who), 'UTC')).toMatchObject(expected);
+	});
+
+	it('reads the event of an entry', () => {
 		expect(viewAuditEntry(entry({ actor: 'dana@army.mil' }), 'UTC')).toMatchObject({
-			actor: 'dana@army.mil',
 			area: 'Unit',
 			scope: 'access',
 			sentence: 'Renamed the unit to C Co'

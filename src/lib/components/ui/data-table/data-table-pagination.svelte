@@ -2,12 +2,12 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { DataTableState } from './types.js';
+	import type { DataTableState, PageLabels } from './types.js';
 
 	type Props = {
 		table: DataTableState<T>;
 		label?: string;
-		labels?: { previous: string; next: string };
+		labels?: PageLabels;
 		variant?: 'framed' | 'editorial';
 	};
 
@@ -20,6 +20,10 @@
 
 	const firstRow = $derived((table.page - 1) * table.pageSize + 1);
 	const lastRow = $derived(Math.min(table.page * table.pageSize, table.totalRows));
+	const rangeLine = $derived(
+		labels.range?.({ first: firstRow, last: lastRow, total: table.totalRows }) ??
+			`${firstRow}–${lastRow} of ${table.totalRows}`
+	);
 
 	let previous = $state<HTMLButtonElement | null>(null);
 	let next = $state<HTMLButtonElement | null>(null);
@@ -78,7 +82,7 @@
 			: 'flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-3 py-2 text-sm'}
 	>
 		{#if variant === 'editorial'}
-			<p class="font-mono text-xs text-muted-foreground">{firstRow}–{lastRow} of {table.totalRows}</p>
+			<p class="font-mono text-xs text-muted-foreground">{rangeLine}</p>
 		{:else}
 			<p class="text-muted-foreground">Page {table.page} of {table.totalPages}</p>
 		{/if}

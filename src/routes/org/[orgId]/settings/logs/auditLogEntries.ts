@@ -442,8 +442,9 @@ export interface AuditEntryView {
 	scope: AuditScope;
 	area: string;
 	sentence: string;
-	/** Null for an automatic change, shown as System. */
-	actor: string | null;
+	/** The member's label, "Unknown member" when the member can no longer be named, or "System" for an entry with no actor. */
+	actor: string;
+	system: boolean;
 }
 
 export function viewAuditEntry(entry: AuditLogEntry, timeZone: string): AuditEntryView {
@@ -458,7 +459,8 @@ export function viewAuditEntry(entry: AuditLogEntry, timeZone: string): AuditEnt
 		scope: auditScope(entry.action),
 		area: auditArea(entry.action),
 		sentence: auditSentence(entry.action, entry.details),
-		actor: entry.actor?.trim() || null
+		actor: entry.actor?.trim() || (entry.userId ? 'Unknown member' : 'System'),
+		system: !entry.actor?.trim() && !entry.userId
 	};
 }
 

@@ -337,7 +337,7 @@ describe('fetchAuditLogs', () => {
 		adminStore.seed('audit_logs', [
 			auditLog({ id: 'recent-create', action: 'personnel.create', timestamp: '2026-04-20T10:00:00Z' }),
 			auditLog({ id: 'recent-training', action: 'training.update', timestamp: '2026-04-19T10:00:00Z' }),
-			auditLog({ id: 'recent-auth', action: 'auth.login_success', timestamp: '2026-04-18T10:00:00Z' }),
+			auditLog({ id: 'recent-auth', action: 'auth.login_success', timestamp: '2026-04-21T10:00:00Z' }),
 			auditLog({ id: 'older-create', action: 'personnel.create', timestamp: '2026-03-01T10:00:00Z' })
 		]);
 

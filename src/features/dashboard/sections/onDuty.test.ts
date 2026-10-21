@@ -37,6 +37,7 @@ function inputs(loaded: Partial<DashboardInputs>): DashboardInputs {
 			{ id: 'leave', name: 'Leave', color: '#336699', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
 		],
 		groups: [{ id: 'alpha', name: 'Alpha Platoon', sortOrder: 0 }],
+		specialDays: [],
 		assignmentTypes: [],
 		assignments: [],
 		page: {} as DashboardInputs['page'],

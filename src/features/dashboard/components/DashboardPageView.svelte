@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
+	import { openCalendarAt } from '../calendarLink';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 	import {
 		composeDashboardSections,
@@ -12,8 +13,11 @@
 		type DashboardSection,
 		type QuickAddEntry
 	} from '../sections/dashboardSections';
+	import BottomLine from './BottomLine.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
+	import GroupStrength from './GroupStrength.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
+	import StrengthForecast from './StrengthForecast.svelte';
 	import OverviewTab from './tabs/OverviewTab.svelte';
 
 	interface Props {
@@ -88,7 +92,9 @@
 				>
 					<div class="grid min-w-0 content-start gap-[18px]">
 						<h2 class={EYEBROW}>Bottom line · Today</h2>
-						{#if !model}
+						{#if model}
+							<BottomLine line={model.strength.bottomLine} statusById={model.strength.statusById} />
+						{:else}
 							<div class="grid gap-[18px]" aria-hidden="true">
 								<div class="flex items-end gap-4">
 									<Skeleton class="h-24 w-28" />
@@ -115,7 +121,17 @@
 					<div class="grid min-w-0 content-start gap-[18px]">
 						<h2 class={EYEBROW}>Available · next 14 days</h2>
 						{#if model && parts}
-							<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} />
+							<StrengthForecast
+								band={model.strength}
+								today={model.today}
+								calendarHref="/org/{model.data.orgId}/calendar"
+								onOpenCalendar={() => openCalendarAt(model.today)}
+							>
+								{#snippet lanes()}
+									<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} />
+								{/snippet}
+							</StrengthForecast>
+							<GroupStrength groups={model.strength.groups} mode={model.strength.bottomLine.mode} />
 						{:else}
 							<div class="grid gap-[18px]" aria-hidden="true">
 								<Skeleton class="h-7 w-[60%]" />

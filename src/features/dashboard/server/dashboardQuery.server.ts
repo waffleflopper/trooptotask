@@ -16,6 +16,7 @@ import {
 	listAssignmentTypes,
 	listAvailabilityEntries,
 	listDailyAssignments,
+	listSpecialDaysInRange,
 	listStatusTypes
 } from '$features/calendar/index.server';
 import type { OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
@@ -29,7 +30,7 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 		roster: Pick<PersonnelRosterReader, 'list'>;
 		groups: Pick<GroupPersistence, 'listCatalog'>;
 		selfPins: Pick<SelfPinPersistence, 'listNames'>;
-		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes'>;
+		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes' | 'listSpecialDays'>;
 		onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listSavedActivePackets'>;
 		trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
 		organizationSettings: Pick<OrganizationSettingsReader, 'findPolicies'>;
@@ -74,7 +75,8 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		statusTypes,
 		trainingTypes,
 		policies,
-		awardTrackingAcknowledgedPersonnelIds
+		awardTrackingAcknowledgedPersonnelIds,
+		specialDays
 	] = await Promise.all([
 		listAssignmentTypes(ctx.calendarCatalogs),
 		ctx.selfPins.listNames(),
@@ -89,7 +91,8 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 			? []
 			: ctx.personnelAwardAcknowledgement
 				? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
-				: Promise.reject(new Error('Personnel award acknowledgement port is required'))
+				: Promise.reject(new Error('Personnel award acknowledgement port is required')),
+		listSpecialDaysInRange(ctx.calendarCatalogs, range)
 	]);
 
 	return {
@@ -106,6 +109,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		trainingTypes,
 		lossWarningWindowDays: policies?.lossWarningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 		strengthFloorPercent: policies?.strengthFloorPercent ?? DEFAULT_STRENGTH_FLOOR_PERCENT,
-		awardTrackingAcknowledgedPersonnelIds
+		awardTrackingAcknowledgedPersonnelIds,
+		specialDays
 	};
 }

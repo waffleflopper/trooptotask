@@ -345,7 +345,7 @@ export async function seedDashboardOverflow({ client, fixture, tag, ownedState, 
 		today: dates.ui,
 		people: people.map(({ id, last_name, ets }) => ({ id, lastName: last_name, ets: ets ?? null })),
 		expected:
-			'After seed dashboard, as dashboardView, Out Today lists eight People (seven seeded plus Baker) behind "+2 more in Out Today", Coming and going eight changes (seven returns plus Baker\'s) behind "All 8 changes", and Needs you eleven rows, the four added Leaving rows among them, with seven shown above "+4 more" and "Show all 11". Other seeds add rows and change these counts.',
+			'After seed dashboard, as dashboardView, Bottom line names all eight People out (seven seeded plus Baker), Coming and going eight changes (seven returns plus Baker\'s) behind "All 8 changes", and Needs you eleven rows, the four added Leaving rows among them, with seven shown above "+4 more" and "Show all 11". Other seeds add rows and change these counts.',
 		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
 	};
 }

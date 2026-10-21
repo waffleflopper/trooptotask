@@ -112,6 +112,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 		availability: [],
 		statusTypes: [],
 		groups: [],
+		specialDays: [],
 		assignmentTypes: [staffDuty],
 		assignments: loaded.assignments ?? [],
 		page: {
@@ -124,6 +125,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 				workspaceKey: 'dashboard',
 				data: {
 					availabilityEntries: [],
+					specialDays: [],
 					assignmentTypes: [staffDuty],
 					todayAssignments: [],
 					range,

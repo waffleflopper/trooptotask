@@ -54,6 +54,45 @@ function parseFeatureSwitch(value: unknown): FeatureSwitchChange | undefined {
 	return { feature: change.feature, on: change.on };
 }
 
+const SWITCH_WRITE_ATTEMPTS = 3;
+
+/**
+ * Reads what a switch or floor change replaces. A switch applies to the stored set and writes only while
+ * that set is unchanged, so two admins' overlapping saves both land and each audit names what it replaced.
+ */
+async function withFeatureSettings(
+	port: OrganizationPolicyWritePort,
+	orgId: string,
+	featureSwitch: FeatureSwitchChange | undefined,
+	strengthFloorPercent: number | undefined
+): Promise<{
+	changes: OrganizationPolicyChanges;
+	details: Record<string, number | FeatureKey[]>;
+	ifDisabledFeatures?: readonly string[];
+}> {
+	if (featureSwitch === undefined && strengthFloorPercent === undefined) return { changes: {}, details: {} };
+	const previous = await port.findFeatureSettings(orgId);
+	if (!previous) fail(404, 'Organization not found');
+	const details: Record<string, number | FeatureKey[]> = {};
+	if (strengthFloorPercent !== undefined) {
+		details.previous_strength_floor_percent = previous.strengthFloorPercent;
+		details.strength_floor_percent = strengthFloorPercent;
+	}
+	if (featureSwitch === undefined) return { changes: {}, details };
+	const disabledFeatures = FEATURE_KEYS.filter((key) =>
+		key === featureSwitch.feature ? !featureSwitch.on : previous.disabledFeatures.includes(key)
+	);
+	return {
+		changes: { disabledFeatures },
+		details: {
+			previous_disabled_features: previous.disabledFeatures,
+			disabled_features: disabledFeatures,
+			...details
+		},
+		ifDisabledFeatures: previous.storedDisabledFeatures
+	};
+}
+
 export async function updateOrganizationSettings(
 	ports: PolicyPorts,
 	input: OrganizationSettingsInput
@@ -111,30 +150,25 @@ export async function updateOrganizationSettings(
 	if (Object.keys(changes).length === 0 && featureSwitch === undefined)
 		fail(400, 'At least one organization setting must be provided');
 	const orgId = ports.auth.orgId.toLowerCase();
-	if (featureSwitch !== undefined || strengthFloorPercent !== undefined) {
-		const previous = await ports.organizationPolicyWrite.findFeatureSettings(orgId);
-		if (!previous) fail(404, 'Organization not found');
-		if (featureSwitch !== undefined) {
-			// One switch changes against the stored set, so a save never reverts a switch changed since the page loaded.
-			const disabledFeatures = FEATURE_KEYS.filter((key) =>
-				key === featureSwitch.feature ? !featureSwitch.on : previous.disabledFeatures.includes(key)
-			);
-			changes.disabledFeatures = disabledFeatures;
-			details.previous_disabled_features = previous.disabledFeatures;
-			details.disabled_features = disabledFeatures;
+	for (let attempt = 1; ; attempt++) {
+		const write = await withFeatureSettings(ports.organizationPolicyWrite, orgId, featureSwitch, strengthFloorPercent);
+		const result = await ports.organizationPolicyWrite.updatePolicies(
+			orgId,
+			{ ...changes, ...write.changes },
+			write.ifDisabledFeatures
+		);
+		if (result.status === 'failed') fail(500, result.message);
+		if (result.status === 'saved') {
+			ports.audit.log({
+				action: 'organization.settings_updated',
+				resourceType: 'organization',
+				resourceId: ports.auth.orgId,
+				details: { ...details, ...write.details }
+			});
+			break;
 		}
-		if (strengthFloorPercent !== undefined) {
-			details.previous_strength_floor_percent = previous.strengthFloorPercent;
-			details.strength_floor_percent = strengthFloorPercent;
-		}
+		if (attempt === SWITCH_WRITE_ATTEMPTS)
+			fail(409, 'Another change to the feature switches saved at the same time. Try again.');
 	}
-	const message = await ports.organizationPolicyWrite.updatePolicies(orgId, changes);
-	if (message) fail(500, message);
-	ports.audit.log({
-		action: 'organization.settings_updated',
-		resourceType: 'organization',
-		resourceId: ports.auth.orgId,
-		details
-	});
 	return { success: true };
 }

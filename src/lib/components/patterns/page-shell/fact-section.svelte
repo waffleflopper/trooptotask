@@ -7,6 +7,8 @@
 
 	type Props = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
 		open?: boolean;
+		/** `destructive` draws the section's 2px rule in the destructive color, for Danger zone. */
+		variant?: 'default' | 'destructive';
 		children?: Snippet;
 	} & (
 			| {
@@ -18,18 +20,28 @@
 			| { title?: undefined; summary?: undefined }
 		);
 
-	let { title, summary, open = $bindable(false), children, class: className, ...restProps }: Props = $props();
+	let {
+		title,
+		summary,
+		open = $bindable(false),
+		variant = 'default',
+		children,
+		class: className,
+		...restProps
+	}: Props = $props();
+
+	const rule = $derived(variant === 'destructive' ? 'border-destructive' : 'border-foreground');
 </script>
 
 <section data-slot="fact-section" class={cn('min-w-0', className)} {...restProps}>
 	{#if title === undefined}
-		<dl class="border-t-2 border-foreground">{@render children?.()}</dl>
+		<dl class={cn('border-t-2', rule)}>{@render children?.()}</dl>
 	{:else if summary === undefined}
-		<h2 class="border-b-2 border-foreground pb-2 font-heading text-xl font-semibold">{title}</h2>
+		<h2 class={cn('border-b-2 pb-2 font-heading text-xl font-semibold', rule)}>{title}</h2>
 		<dl>{@render children?.()}</dl>
 	{:else}
 		<Collapsible.Root bind:open>
-			<h2 class="border-t-2 border-foreground">
+			<h2 class={cn('border-t-2', rule)}>
 				<Collapsible.Trigger
 					class="flex w-full items-baseline gap-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 				>

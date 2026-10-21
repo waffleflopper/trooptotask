@@ -78,7 +78,10 @@ describe('/api/organization/settings', () => {
 		createRequestOrganizationPolicyContextMock.mockReturnValue({
 			...ctx,
 			organizationPolicyWrite: {
-				updatePolicies: async () => 'new row violates row-level security policy for table "organizations"'
+				updatePolicies: async () => ({
+					status: 'failed',
+					message: 'new row violates row-level security policy for table "organizations"'
+				})
 			}
 		});
 

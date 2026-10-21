@@ -17,6 +17,8 @@ export interface OrganizationPolicySettings {
 export interface OrganizationFeatureSettings {
 	disabledFeatures: FeatureKey[];
 	strengthFloorPercent: number;
+	/** The stored array as read, which a switch write must still find to apply. */
+	storedDisabledFeatures: readonly string[];
 }
 
 /** The Organization facts a Training briefing states: its name and readiness goal. */
@@ -53,9 +55,18 @@ export interface OrganizationPolicyChanges {
 export interface OrganizationPolicyWritePort {
 	/** The values an audited switch or floor change replaces. */
 	findFeatureSettings(orgId: string): Promise<OrganizationFeatureSettings | null>;
-	/** Null means the canonical Organization and every submitted value were acknowledged. */
-	updatePolicies(orgId: string, changes: OrganizationPolicyChanges): Promise<string | null>;
+	/**
+	 * With `ifDisabledFeatures`, the write applies only while the stored switches still equal it,
+	 * and answers `stale` when another write changed them first.
+	 */
+	updatePolicies(
+		orgId: string,
+		changes: OrganizationPolicyChanges,
+		ifDisabledFeatures?: readonly string[]
+	): Promise<PolicyWriteResult>;
 }
+
+export type PolicyWriteResult = { status: 'saved' } | { status: 'stale' } | { status: 'failed'; message: string };
 
 export interface OrganizationSettingsInput {
 	archiveRetentionMonths?: number;

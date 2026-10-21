@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import * as DraftField from '$lib/components/patterns/draft-field';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import type { FeatureKey } from '$lib/access/featureSwitches';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -66,35 +66,15 @@
 		});
 	}
 
-	let savedFloor = $derived(features.strengthFloorPercent);
-	let floorDraft = $derived<number | null>(savedFloor);
-	let floorError = $state<string | null>(null);
-	let savingFloor = $state(false);
-	const floorChanged = $derived(floorDraft !== savedFloor);
+	const floor = new DraftField.FieldDraft<number | null>(() => features.strengthFloorPercent);
 	const floorValid = $derived(
-		floorDraft !== null && Number.isInteger(floorDraft) && floorDraft >= 1 && floorDraft <= 100
+		floor.value !== null && Number.isInteger(floor.value) && floor.value >= 1 && floor.value <= 100
 	);
 
-	async function saveFloor(event: SubmitEvent) {
-		event.preventDefault();
-		if (!floorChanged || savingFloor) return;
-		const submitted = floorDraft;
-		savingFloor = true;
-		floorError = null;
-		try {
-			await saveSettings({ strengthFloorPercent: submitted });
-			savedFloor = submitted ?? savedFloor;
-			toastStore.success(`Strength floor saved at ${submitted}%.`);
-		} catch (error) {
-			floorError = (error as Error).message;
-		} finally {
-			savingFloor = false;
-		}
-	}
-
-	function undoFloor() {
-		floorDraft = savedFloor;
-		floorError = null;
+	async function saveFloor(value: number | null) {
+		// JSON drops an undefined key, and the server answers a missing key with the generic error, not the floor's.
+		await saveSettings({ strengthFloorPercent: value ?? null });
+		toastStore.success(`Strength floor saved at ${value}%.`);
 	}
 </script>
 
@@ -110,133 +90,75 @@
 	{/if}
 {/snippet}
 
-{#snippet row(
-	id: string,
-	label: string,
-	description: string,
-	muted: boolean,
-	holds: import('svelte').Snippet,
-	control: import('svelte').Snippet
-)}
-	<div
-		class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 gap-y-1.5 md:grid-cols-[minmax(0,1fr)_11.25rem_4rem] md:items-start"
+<PageShell.FactSection>
+	<PageShell.FactRow
+		variant="display"
+		label="Availability and calendar"
+		description="Statuses, assignments and the calendar. Drives strength and availability on the dashboard. Always on."
 	>
-		<div class="grid gap-1">
-			<h2 id="{id}-title" class="font-heading text-[22px] leading-6 font-bold {muted ? 'text-muted-foreground' : ''}">
-				{label}
-			</h2>
-			<p id="{id}-description" class="text-sm text-foreground">{description}</p>
-		</div>
-		<div class="col-start-1 font-mono text-xs leading-5 text-muted-foreground md:col-start-2 md:row-start-1">
-			{@render holds()}
-		</div>
-		<div class="col-start-2 row-start-1 flex justify-end pt-px md:col-start-3">
-			{@render control()}
-		</div>
-	</div>
-{/snippet}
-
-<div class="border-t-2 border-foreground">
-	<section class="grid gap-3.5 border-b border-border py-5" aria-labelledby="availability-title">
-		{#snippet availabilityHoldsLane()}
+		{#snippet holds()}
 			{@render lane((value) => ({ text: availabilityHolds(value), notSetUp: false }))}
 		{/snippet}
-		{#snippet always()}
+		{#snippet control()}
 			<span class="pt-0.5 font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
 				Always
 			</span>
 		{/snippet}
-		{@render row(
-			'availability',
-			'Availability and calendar',
-			'Statuses, assignments and the calendar. Drives strength and availability on the dashboard. Always on.',
-			false,
-			availabilityHoldsLane,
-			always
-		)}
-		<form
-			class="grid gap-x-3 gap-y-2 rounded-sm border border-border bg-muted px-3.5 py-3 md:grid-cols-[auto_auto_minmax(0,1fr)] md:items-center"
-			novalidate
-			onsubmit={saveFloor}
-		>
-			<Field.Label for="strength-floor" class="text-sm font-semibold">Strength floor</Field.Label>
-			<InputGroup.Root class="w-24 bg-background">
-				<InputGroup.Input
-					id="strength-floor"
-					type="number"
-					inputmode="numeric"
-					min="1"
-					max="100"
-					step="1"
-					class="text-center font-mono font-semibold"
-					bind:value={floorDraft}
-					aria-invalid={floorError ? true : undefined}
-					aria-describedby="strength-floor-sentence{floorError ? ' strength-floor-error' : ''}"
-				/>
-				<InputGroup.Addon align="inline-end"><InputGroup.Text>%</InputGroup.Text></InputGroup.Addon>
-			</InputGroup.Root>
-			<p id="strength-floor-sentence" class="text-sm text-foreground">
+		{#snippet details()}
+			<DraftField.Root draft={floor} id="strength-floor" name="strength floor" was="{floor.saved}%" save={saveFloor}>
+				{#snippet field(aria)}
+					<Field.Label for="strength-floor" class="text-sm font-semibold">Strength floor</Field.Label>
+					<InputGroup.Root class="w-24 bg-background">
+						<InputGroup.Input
+							id="strength-floor"
+							type="number"
+							inputmode="numeric"
+							min="1"
+							max="100"
+							step="1"
+							class="text-center font-mono font-semibold"
+							bind:value={floor.value}
+							{...aria}
+						/>
+						<InputGroup.Addon align="inline-end" variant="muted"><InputGroup.Text>%</InputGroup.Text></InputGroup.Addon>
+					</InputGroup.Root>
+				{/snippet}
 				Groups under this line turn amber on the dashboard.
-				{#if floorValid && floorDraft !== null && counts.current.state === 'ready'}
-					{strengthFloorSentence(floorDraft, counts.current.value.activePersonnel)}
+				{#if floorValid && floor.value !== null && counts.current.state === 'ready'}
+					{strengthFloorSentence(floor.value, counts.current.value.activePersonnel)}
 				{:else if floorValid && counts.current.state === 'pending'}
 					<Skeleton class="inline-block h-3.5 w-56 bg-foreground/10 align-middle" aria-hidden="true" />
 				{/if}
-			</p>
-			{#if floorChanged || floorError}
-				<div class="flex flex-wrap items-center gap-2 md:col-span-3">
-					{#if floorChanged}
-						<span class="font-mono text-xs font-semibold text-warning-foreground">Unsaved · was {savedFloor}%</span>
-						<!-- aria-disabled keeps focus on Save while it saves. -->
-						<Button
-							type="submit"
-							size="sm"
-							aria-disabled={savingFloor || undefined}
-							aria-busy={savingFloor || undefined}
-						>
-							{#if savingFloor}<Spinner />{/if}
-							{savingFloor ? 'Saving...' : 'Save'} <span class="sr-only">strength floor</span>
-						</Button>
-						<Button type="button" size="sm" variant="ghost" onclick={undoFloor} disabled={savingFloor}>
-							Undo <span class="sr-only">strength floor change</span>
-						</Button>
-					{/if}
-					{#if floorError}
-						<Field.Error id="strength-floor-error" class="basis-full">{floorError}</Field.Error>
-					{/if}
-				</div>
-			{/if}
-		</form>
-	</section>
+			</DraftField.Root>
+		{/snippet}
+	</PageShell.FactRow>
 
 	{#each FEATURE_ROWS as feature (feature.key)}
 		{@const on = isOn(feature.key)}
-		<section class="border-b border-border py-5" aria-labelledby="{feature.key}-title">
-			{#snippet featureHolds()}
+		<PageShell.FactRow
+			variant="display"
+			label={feature.label}
+			labelFor="feature-{feature.key}"
+			description={on ? feature.description : feature.offDescription}
+			muted={!on}
+		>
+			{#snippet holds()}
 				{#if feature.holds}
-					{@const holds = feature.holds}
-					{@render lane((value) => holdsLane(holds(value), on))}
+					{@const read = feature.holds}
+					{@render lane((value) => holdsLane(read(value), on))}
 				{:else}
 					{lossWindowHolds(features.lossWarningWindowDays)}
 				{/if}
 			{/snippet}
-			{#snippet featureSwitch()}
+			{#snippet control()}
 				<Switch
+					id="feature-{feature.key}"
 					bind:checked={() => on, (next) => setFeature(feature, next)}
-					aria-labelledby="{feature.key}-title"
-					aria-describedby="{feature.key}-description"
+					aria-describedby="feature-{feature.key}-description"
 					aria-disabled={pending[feature.key] !== undefined || undefined}
 					aria-busy={pending[feature.key] !== undefined || undefined}
 				/>
 			{/snippet}
-			{@render row(
-				feature.key,
-				feature.label,
-				on ? feature.description : feature.offDescription,
-				!on,
-				featureHolds,
-				featureSwitch
-			)}
-		</section>
+		</PageShell.FactRow>
 	{/each}
-</div>
+</PageShell.FactSection>

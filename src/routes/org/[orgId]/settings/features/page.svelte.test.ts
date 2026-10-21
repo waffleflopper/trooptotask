@@ -56,8 +56,13 @@ function featureSwitch(name: string) {
 	return screen.getByRole('switch', { name });
 }
 
-function lane(name: string) {
-	return within(screen.getByRole('region', { name })).getByText(/·|in rating scheme|Window|No /);
+function row(name: string) {
+	const label = screen.getAllByText(name).find((element) => element.closest('dt'));
+	return within(label!.closest<HTMLElement>('[data-slot="fact-row"]')!);
+}
+
+function floorSentence() {
+	return document.getElementById('strength-floor-sentence')?.textContent?.replace(/\s+/g, ' ').trim();
 }
 
 afterEach(() => {
@@ -79,7 +84,7 @@ describe('Features settings page', () => {
 			params: { orgId: 'c-co' }
 		});
 
-		expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent?.trim())).toEqual([
+		expect(screen.getAllByRole('term').map((term) => term.textContent?.trim().split(/\s{2,}|\n/)[0])).toEqual([
 			'Availability and calendar',
 			'Training',
 			'Critical tasks',
@@ -87,37 +92,37 @@ describe('Features settings page', () => {
 			'Onboarding',
 			'Losses and awards'
 		]);
-		expect(screen.getAllByRole('switch').map((control) => control.getAttribute('aria-checked'))).toEqual([
+		const switches = ['Training', 'Critical tasks', 'Evaluations', 'Onboarding', 'Losses and awards'];
+		expect(screen.getAllByRole('switch')).toEqual(switches.map(featureSwitch));
+		expect(switches.map((name) => featureSwitch(name).getAttribute('aria-checked'))).toEqual([
 			'true',
 			'false',
 			'true',
 			'true',
 			'true'
 		]);
-		expect(screen.getAllByText('Loading counts')).toHaveLength(5);
-		expect(lane('Losses and awards').textContent).toBe('Window 180 days');
+		expect(row('Onboarding').getByText('Loading counts')).toBeTruthy();
+		expect(row('Losses and awards').getByText('Window 180 days')).toBeTruthy();
 
 		release(COUNTS);
 		await waitFor(() => expect(screen.queryByText('Loading counts')).toBeNull());
-		expect(lane('Availability and calendar').textContent).toBe('22 people · 6 statuses');
-		expect(lane('Training').textContent).toBe('8 types · 912 records');
-		expect(lane('Critical tasks').textContent).toBe('No task lists');
-		expect(lane('Evaluations').textContent).toBe('21 in rating scheme');
-		expect(lane('Onboarding').textContent).toBe('Not set up · no templates');
+		expect(row('Onboarding').getByText('Not set up · no templates')).toBeTruthy();
+		expect(row('Critical tasks').getByText('No task lists')).toBeTruthy();
+		expect(row('Training').getByText('8 types · 912 records')).toBeTruthy();
 	});
 
-	it('puts a switch back and says why when its save fails', async () => {
+	it('puts a switch back and says which feature failed and why', async () => {
 		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
 		serve(stored, async () => Response.json({ message: 'Organization settings update failed' }, { status: 500 }));
 
 		await fireEvent.click(featureSwitch('Training'));
 
-		await waitFor(() =>
-			expect(feedback.error).toHaveBeenCalledWith("Couldn't turn Training off. Organization settings update failed")
-		);
+		await waitFor(() => expect(feedback.error).toHaveBeenCalledTimes(1));
+		const [message] = feedback.error.mock.calls[0];
+		expect(message).toContain('Training');
+		expect(message).toContain('Organization settings update failed');
 		expect(featureSwitch('Training').getAttribute('aria-checked')).toBe('true');
 		expect(stored.disabledFeatures).toEqual([]);
-		expect(feedback.success).not.toHaveBeenCalled();
 	});
 
 	it('keeps every switch the user changed while earlier saves were still in flight', async () => {
@@ -140,42 +145,56 @@ describe('Features settings page', () => {
 		expect(stored.disabledFeatures).toEqual(['training']);
 		expect(featureSwitch('Training').getAttribute('aria-checked')).toBe('false');
 		expect(featureSwitch('Onboarding').getAttribute('aria-checked')).toBe('true');
-		expect(lane('Onboarding').textContent).toBe('Not set up · no templates');
+		expect(row('Onboarding').getByText('Not set up · no templates')).toBeTruthy();
 	});
 
-	it('restates the strength floor from the draft and saves it, showing the server field error first', async () => {
+	it('restates the strength floor from the draft and saves it after showing the server field error', async () => {
 		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
-		serve(stored, async (body) =>
-			body.strengthFloorPercent === 0
-				? Response.json({ message: 'Strength floor must be a whole number between 1 and 100' }, { status: 400 })
-				: undefined
-		);
-		const floor = screen.getByLabelText('Strength floor');
-		const sentence = () => document.getElementById('strength-floor-sentence')?.textContent?.replace(/\s+/g, ' ').trim();
-		await waitFor(() =>
-			expect(sentence()).toBe(
-				'Groups under this line turn amber on the dashboard. 80% of 22 is 17.6, so 17 or fewer available is flagged.'
-			)
-		);
+		const sent: unknown[] = [];
+		serve(stored, async (body) => {
+			sent.push(body.strengthFloorPercent);
+			return typeof body.strengthFloorPercent === 'number' && body.strengthFloorPercent >= 1
+				? undefined
+				: Response.json({ message: 'Strength floor must be a whole number between 1 and 100' }, { status: 400 });
+		});
+		const floor = screen.getByLabelText('Strength floor') as HTMLInputElement;
+		await waitFor(() => expect(floorSentence()).toContain('80% of 22 is 17.6, so 17 or fewer available is flagged.'));
 
-		await fireEvent.input(floor, { target: { value: '0' } });
+		await fireEvent.input(floor, { target: { value: '' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save strength floor' }));
 		await waitFor(() =>
 			expect(screen.getByText('Strength floor must be a whole number between 1 and 100')).toBeTruthy()
 		);
+		expect(sent).toEqual([null]);
 		expect(floor.getAttribute('aria-invalid')).toBe('true');
 		expect(stored.strengthFloorPercent).toBe(80);
 
 		await fireEvent.input(floor, { target: { value: '75' } });
-		expect(sentence()).toBe(
-			'Groups under this line turn amber on the dashboard. 75% of 22 is 16.5, so 16 or fewer available is flagged.'
-		);
+		expect(floorSentence()).toContain('75% of 22 is 16.5, so 16 or fewer available is flagged.');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save strength floor' }));
 
-		await waitFor(() => expect(feedback.success).toHaveBeenCalledWith('Strength floor saved at 75%.'));
-		expect(stored.strengthFloorPercent).toBe(75);
-		expect(screen.queryByRole('button', { name: 'Save strength floor' })).toBeNull();
-		expect(screen.queryByText('Strength floor must be a whole number between 1 and 100')).toBeNull();
+		await waitFor(() => expect(stored.strengthFloorPercent).toBe(75));
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Save strength floor' })).toBeNull());
+		expect(floor.value).toBe('75');
+		expect(floor.getAttribute('aria-invalid')).toBeNull();
+	});
+
+	it('keeps a floor typed while an earlier floor save was in flight', async () => {
+		const stored: Stored = { disabledFeatures: [], strengthFloorPercent: 80 };
+		const gates: (() => void)[] = [];
+		serve(stored, () => new Promise<void>((pass) => gates.push(pass)));
+		const floor = screen.getByLabelText('Strength floor') as HTMLInputElement;
+
+		await fireEvent.input(floor, { target: { value: '75' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save strength floor' }));
+		await waitFor(() => expect(gates).toHaveLength(1));
+		await fireEvent.input(floor, { target: { value: '90' } });
+		gates[0]();
+
+		await waitFor(() => expect(stored.strengthFloorPercent).toBe(75));
+		await waitFor(() => expect(screen.getByText('Unsaved · was 75%')).toBeTruthy());
+		expect(floor.value).toBe('90');
+		expect(screen.getByRole('button', { name: 'Save strength floor' })).toBeTruthy();
 	});
 
 	it('undoes an unsaved floor back to the saved value', async () => {

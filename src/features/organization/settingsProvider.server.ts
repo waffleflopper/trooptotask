@@ -197,24 +197,30 @@ export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClie
 			return data
 				? {
 						disabledFeatures: parseDisabledFeatures(data.disabled_features),
-						strengthFloorPercent: data.strength_floor_percent
+						strengthFloorPercent: data.strength_floor_percent,
+						storedDisabledFeatures: data.disabled_features
 					}
 				: null;
 		},
-		async updatePolicies(orgId, changes) {
+		async updatePolicies(orgId, changes, ifDisabledFeatures) {
 			const updates = toOrganizationPolicyColumns(changes);
-			const { data, error } = await supabase
-				.from('organizations')
-				.update(updates)
-				.eq('id', orgId)
+			let write = supabase.from('organizations').update(updates).eq('id', orgId);
+			if (ifDisabledFeatures) write = write.eq('disabled_features', toTextArrayLiteral(ifDisabledFeatures));
+			const { data, error } = await write
 				.select(['id', ...Object.keys(updates)].join(', '))
 				.single<{ id: string; [field: string]: unknown }>();
-			if (error) return error.message || 'Organization settings update failed';
+			// PGRST116 is the zero-row answer; under the switch guard it means another write changed them first.
+			if (ifDisabledFeatures && error?.code === 'PGRST116') return { status: 'stale' };
+			if (error) return { status: 'failed', message: error.message || 'Organization settings update failed' };
 			return data?.id === orgId && Object.entries(updates).every(([field, value]) => isSameValue(data[field], value))
-				? null
-				: 'Unable to confirm Organization settings update';
+				? { status: 'saved' }
+				: { status: 'failed', message: 'Unable to confirm Organization settings update' };
 		}
 	};
+}
+
+function toTextArrayLiteral(values: readonly string[]): string {
+	return `{${values.map((value) => JSON.stringify(value)).join(',')}}`;
 }
 
 export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges): Record<string, number | string[]> {

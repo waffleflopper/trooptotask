@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
+import type { TrainingBatchRecord } from '../contracts';
 import type { TrainingType } from '../training.types';
 import RecordClassDialog from './RecordClassDialog.svelte';
 
@@ -36,8 +37,10 @@ const cpr: TrainingType = {
 
 const people = [person('p-okafor', 'Okafor'), person('p-brooks', 'Brooks'), person('p-liang', 'Liang')];
 
-function open(props: { trainingType?: TrainingType; onSave?: ReturnType<typeof vi.fn> } = {}) {
-	const onSave = props.onSave ?? vi.fn().mockResolvedValue(undefined);
+type SaveRecords = (records: TrainingBatchRecord[]) => Promise<void>;
+
+function open(props: { trainingType?: TrainingType; onSave?: Mock<SaveRecords> } = {}) {
+	const onSave = props.onSave ?? vi.fn<SaveRecords>().mockResolvedValue(undefined);
 	const onClose = vi.fn();
 	render(RecordClassDialog, {
 		props: { trainingType: props.trainingType ?? cpr, people, today: '2026-10-21', onSave, onClose }
@@ -93,7 +96,7 @@ describe('RecordClassDialog', () => {
 		await fireEvent.click(save);
 
 		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-		expect(onSave.mock.calls[0][0].map((record: { completionDate: string }) => record.completionDate)).toEqual([
+		expect(onSave.mock.calls[0][0].map((record) => record.completionDate)).toEqual([
 			'2027-03-01',
 			'2027-03-01',
 			'2027-03-01'

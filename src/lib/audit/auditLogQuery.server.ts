@@ -102,19 +102,18 @@ export async function fetchAuditLogs(
 	input: AuditLogQueryInput,
 	labels: AuditLabelReads
 ): Promise<AuditLogQueryResult> {
-	const { page, action = '', limit = 50 } = input;
+	const { page, action = '', limit = 50, recentSince } = input;
 	const safePage = Math.max(1, page);
 	const offset = (safePage - 1) * limit;
-	const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-	const [pagedResult, last30DaysCount, availableActions] = await Promise.all([
+	const [pagedResult, recentCount, availableActions] = await Promise.all([
 		store.listLogs({ orgId, action: action || undefined, offset, limit }),
-		store.countRecent({ orgId, cutoff }),
+		store.countRecent({ orgId, cutoff: recentSince }),
 		store.listActions(orgId)
 	]);
 	return {
 		logs: await hydrateAuditLogRows(pagedResult.logs, labels),
 		totalCount: pagedResult.totalCount,
-		last30DaysCount,
+		recentCount,
 		page: safePage,
 		limit,
 		actionFilter: action,

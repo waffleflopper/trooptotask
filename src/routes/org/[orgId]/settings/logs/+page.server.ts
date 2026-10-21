@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestOrganizationAuditLogContext } from '$lib/server/adapters/requestContexts.server';
+import { viewerTimeZone } from '$lib/server/viewerDay.server';
 import { loadLogsSettings } from '../settingsLogs.server';
 import type { LogsSettingsData } from '../settingsSectionTypes';
 import {
@@ -36,7 +37,10 @@ export const load: PageServerLoad = async (event) => {
 			policyResource: { kind: 'organization' },
 			fn: async (ctx) => ({
 				...common,
-				logsSettings: await loadLogsSettings(ctx, ctx.auditStore, ctx.auditLabels)
+				logsSettings: await loadLogsSettings(ctx, ctx.auditStore, ctx.auditLabels, {
+					timeZone: viewerTimeZone(event.cookies),
+					now: new Date()
+				})
 			})
 		}
 	);

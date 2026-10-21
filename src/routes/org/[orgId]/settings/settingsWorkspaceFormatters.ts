@@ -4,53 +4,6 @@ export function normalizeOrganizationName(value: string): string {
 	return value.trim().replace(/\s+/g, ' ');
 }
 
-function formatActionSegment(segment: string): string {
-	return segment.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-export function getAuditActionParts(action: string): { area: string; event: string } {
-	const [area = action, ...eventParts] = action.split(/[.>]/);
-	const event = eventParts.join(' ') || area;
-	return {
-		area: formatActionSegment(area),
-		event: formatActionSegment(event)
-	};
-}
-
-export function getAuditTone(action: string): string {
-	const area = action.split(/[.>_]/)[0] ?? '';
-	switch (area) {
-		case 'billing':
-		case 'export':
-		case 'data':
-			return 'info';
-		case 'personnel':
-		case 'member':
-		case 'members':
-			return 'danger';
-		case 'training':
-		case 'critical':
-			return 'success';
-		case 'duty':
-		case 'calendar':
-			return 'warning';
-		default:
-			return 'neutral';
-	}
-}
-
-export function formatAuditTimestamp(dateStr: string): string {
-	const date = new Date(dateStr);
-	const day = date.toLocaleDateString('en-US', { day: '2-digit' });
-	const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-	const time = date.toLocaleTimeString('en-US', {
-		hour: '2-digit',
-		minute: '2-digit',
-		hour12: false
-	});
-	return `${day} ${month} · ${time}`;
-}
-
 export function formatRosterDate(dateStr: string): string {
 	const date = new Date(dateStr);
 	const day = date.toLocaleDateString('en-US', { day: '2-digit' });

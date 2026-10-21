@@ -91,6 +91,37 @@ export function localDateIn(timeZone: string, now: Date): string {
 	return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+function zoneOffsetMs(timeZone: string, instant: number): number {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		hourCycle: 'h23',
+		year: 'numeric',
+		month: 'numeric',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: 'numeric',
+		second: 'numeric'
+	}).formatToParts(new Date(instant));
+	const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((entry) => entry.type === type)?.value);
+	const wallClock = Date.UTC(
+		part('year'),
+		part('month') - 1,
+		part('day'),
+		part('hour'),
+		part('minute'),
+		part('second')
+	);
+	return wallClock - Math.floor(instant / 1000) * 1000;
+}
+
+/** The instant the calendar month containing `now` began in `timeZone`. */
+export function startOfMonthIn(timeZone: string, now: Date): Date {
+	const [year, month] = localDateIn(timeZone, now).split('-').map(Number);
+	const wallMidnight = Date.UTC(year, month - 1, 1);
+	const guess = wallMidnight - zoneOffsetMs(timeZone, wallMidnight);
+	return new Date(wallMidnight - zoneOffsetMs(timeZone, guess));
+}
+
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** True for a strict "YYYY-MM-DD" string naming a real calendar day from year 1000; no timezone is involved. */

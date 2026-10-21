@@ -116,6 +116,25 @@ describe('shadcn DataTable foundation', () => {
 		expect(screen.getByText('Charlie')).toBeTruthy();
 	});
 
+	test('pages an editorial table by row range with the given labels', async () => {
+		render(Table, {
+			props: {
+				data: testData,
+				columns,
+				pageSize: 2,
+				variant: 'editorial',
+				pageLabels: { previous: 'Newer', next: 'Older' }
+			}
+		});
+
+		expect(screen.getByText('1–2 of 3')).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Newer' }) as HTMLButtonElement).disabled).toBe(true);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Older' }));
+		expect(screen.getByText('3–3 of 3')).toBeTruthy();
+		expect(screen.getByText('Charlie')).toBeTruthy();
+	});
+
 	test('keeps keyboard focus on pagination when a button disables at either end', async () => {
 		const data = [...testData, { id: '4', name: 'Diana', age: 28, group: 'B' }];
 		render(Table, { props: { data, columns, pageSize: 2 } });

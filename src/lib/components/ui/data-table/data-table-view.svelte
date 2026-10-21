@@ -46,6 +46,7 @@
 		 * and group headers stay shown.
 		 */
 		rowHidden?: (row: T) => boolean;
+		pageLabels?: { previous: string; next: string };
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -74,6 +75,7 @@
 		rowDetail,
 		rowDetailVisible,
 		rowHidden,
+		pageLabels,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -288,7 +290,7 @@
 	{/if}
 
 	{#if !loading && table.groups.length === 0}
-		<DataTablePagination {table} />
+		<DataTablePagination {table} {variant} labels={pageLabels} />
 	{/if}
 
 	{#if footer}

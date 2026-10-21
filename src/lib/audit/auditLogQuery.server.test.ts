@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchAuditLogs as queryAuditLogs, fetchLatestAuditEvent, type AuditLabelReads } from './auditLogQuery.server';
 import type { AuditLogQueryInput } from './contracts';
@@ -41,10 +41,15 @@ function labelReads(store: ReturnType<typeof createInMemoryDataStore>, orgId: st
 function fetchAuditLogs(
 	ctx: ReturnType<typeof createQueryPortsContext>,
 	store: ReturnType<typeof createInMemoryDataStore>,
-	input: AuditLogQueryInput
+	input: Omit<AuditLogQueryInput, 'recentSince'> & { recentSince?: string }
 ) {
 	const orgId = ctx.auth.orgId;
-	return queryAuditLogs(orgId, createInMemoryOrganizationAuditStore(store), input, labelReads(store, orgId));
+	return queryAuditLogs(
+		orgId,
+		createInMemoryOrganizationAuditStore(store),
+		{ recentSince: '2026-04-01T00:00:00Z', ...input },
+		labelReads(store, orgId)
+	);
 }
 
 const ORG = 'test-org';
@@ -325,9 +330,7 @@ describe('fetchAuditLogs', () => {
 		expect(result.availableActions).toEqual(['personnel.create', 'training.update']);
 	});
 
-	it('computes last-30-days count with excluded actions and without selected action filtering', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-04-27T12:00:00Z'));
+	it('counts entries since the given instant with excluded actions and without selected action filtering', async () => {
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
@@ -341,15 +344,14 @@ describe('fetchAuditLogs', () => {
 		const result = await fetchAuditLogs(ctx, adminStore, {
 			page: 1,
 			limit: 10,
-			action: 'personnel.create'
+			action: 'personnel.create',
+			recentSince: '2026-04-19T10:00:00Z'
 		});
 
 		expect(result.logs.map((log) => log.id)).toEqual(['recent-create', 'older-create']);
 		expect(result.totalCount).toBe(2);
-		expect(result.last30DaysCount).toBe(2);
+		expect(result.recentCount).toBe(2);
 		expect(result.availableActions).toEqual(['personnel.create', 'training.update']);
-
-		vi.useRealTimers();
 	});
 
 	it('does not leak logs from other organizations through the paged path', async () => {
@@ -374,8 +376,6 @@ describe('fetchAuditLogs', () => {
 	});
 
 	it('returns an empty selected page when the action filter is excluded', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-04-27T12:00:00Z'));
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
@@ -392,10 +392,8 @@ describe('fetchAuditLogs', () => {
 
 		expect(result.logs).toEqual([]);
 		expect(result.totalCount).toBe(0);
-		expect(result.last30DaysCount).toBe(1);
+		expect(result.recentCount).toBe(1);
 		expect(result.availableActions).toEqual(['personnel.create']);
-
-		vi.useRealTimers();
 	});
 });
 
@@ -494,7 +492,7 @@ describe('Audit disclosure and incomplete counts', () => {
 
 		expect(result.logs).toHaveLength(2);
 		expect(result.totalCount).toBe(0);
-		expect(result.last30DaysCount).toBe(0);
+		expect(result.recentCount).toBe(0);
 	});
 });
 

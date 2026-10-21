@@ -1,10 +1,8 @@
 import type { Component } from 'svelte';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { ClientAccess } from '$lib/access/clientAccess';
-import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
-import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
+import type { DashboardAccess } from './dashboardAccess';
 import type { DashboardInputs } from './dashboardInputs';
 import { placeForecastLaneMarks, type DashboardForecastLaneView, type ForecastLaneMark } from './forecastLanes';
 import { buildNeedsYouQueue, type NeedsYouItem, type NeedsYouQueue } from './needsYou';
@@ -13,29 +11,6 @@ import { buildNeedsYouQueue, type NeedsYouItem, type NeedsYouQueue } from './nee
 export type DashboardSectionId = 'availability' | FeatureKey;
 
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
-
-export interface DashboardAccess {
-	/** Advisory permission to act on the resource, or somewhere within the viewer's scope when none is given. */
-	readonly can: (action: FeatureLanePolicyAction, resource?: PolicyResource) => boolean;
-}
-
-export function createDashboardAccess(policy: Pick<ClientAccess, 'affordanceForFeatureAction'>): DashboardAccess {
-	return {
-		can: (action, resource = { kind: 'unscoped' }) => policy.affordanceForFeatureAction(action, resource).allowed
-	};
-}
-
-export function personnelResource(person: { readonly groupId?: string | null }): PolicyResource {
-	return scopeSetResourceForGroupId(person.groupId);
-}
-
-export function actionablePersonnel<P extends { readonly groupId?: string | null }>(
-	personnel: readonly P[],
-	access: DashboardAccess,
-	action: FeatureLanePolicyAction
-): P[] {
-	return personnel.filter((person) => access.can(action, personnelResource(person)));
-}
 
 export type DashboardPartAvailability = (inputs: DashboardInputs, access: DashboardAccess) => boolean;
 
@@ -117,6 +92,13 @@ export interface DashboardSectionParts {
 	onDutyBlocks: readonly OnDutyBlock[];
 }
 
+/** A row keeps its link when the viewer may not act on it; only the action goes. */
+function permittedActions(items: readonly NeedsYouItem[], access: DashboardAccess): readonly NeedsYouItem[] {
+	return items.map((item) =>
+		item.action && !access.can(item.action.policy, item.action.resource) ? { ...item, action: null } : item
+	);
+}
+
 export function composeDashboardSections(
 	sections: readonly DashboardSection[],
 	inputs: DashboardInputs,
@@ -125,7 +107,9 @@ export function composeDashboardSections(
 ): DashboardSectionParts {
 	const active = activeDashboardSections(sections, disabledFeatures);
 	return {
-		needsYou: buildNeedsYouQueue(active.flatMap((entry) => entry.needsYou.map((source) => source(inputs)))),
+		needsYou: buildNeedsYouQueue(
+			active.flatMap((entry) => entry.needsYou.map((source) => permittedActions(source(inputs), access)))
+		),
 		forecastLanes: active.flatMap((entry) =>
 			entry.forecastLanes.map((lane) => ({
 				id: lane.id,

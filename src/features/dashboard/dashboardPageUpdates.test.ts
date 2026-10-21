@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
-import type { DashboardWorkspaceResult } from './contracts';
-import { overlayDashboardRecords, putDashboardRecord } from './dashboardPageUpdates';
+import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
+import type { DashboardPageSummaryData, DashboardWorkspaceResult } from './contracts';
+import {
+	overlayDashboardRecords,
+	overlayDashboardSummary,
+	putDashboardRecord,
+	putDashboardSummaryChange
+} from './dashboardPageUpdates';
 
 function packet(id: string, personnelId: string): PersonnelOnboarding {
 	return {
@@ -13,12 +19,33 @@ function packet(id: string, personnelId: string): PersonnelOnboarding {
 	} as unknown as PersonnelOnboarding;
 }
 
-function workspace(activeOnboardings: PersonnelOnboarding[]): DashboardWorkspaceResult {
+function workspace(
+	activeOnboardings: PersonnelOnboarding[],
+	more: { ratingSchemeEntries?: RatingSchemeDueEntry[]; awardTrackingAcknowledgedPersonnelIds?: string[] } = {}
+): DashboardWorkspaceResult {
 	return {
 		workspaceKey: 'dashboard',
-		data: { activeOnboardings },
+		data: { activeOnboardings, ratingSchemeEntries: [], awardTrackingAcknowledgedPersonnelIds: [], ...more },
 		hydration: {}
 	} as unknown as DashboardWorkspaceResult;
+}
+
+function entry(status: RatingSchemeDueEntry['status']): RatingSchemeDueEntry {
+	return { id: 'e1', ratedPersonId: 'alpha', evalType: 'NCOER', ratingPeriodEnd: '2026-09-30', status };
+}
+
+function summary(expiredByType: Array<{ trainingTypeId: string; personnelIds: string[] }>): DashboardPageSummaryData {
+	return {
+		trainingSummary: {
+			stats: { total: 4 },
+			issues: [],
+			expiredByType: expiredByType.map((expired) => ({ ...expired, maxDaysLate: 12 })),
+			expiredPersonnelCount: 3,
+			groupDelinquencies: []
+		},
+		ictlSummary: null,
+		onboardingTrainingCompletions: []
+	} as unknown as DashboardPageSummaryData;
 }
 
 describe('the Dashboard record overlay', () => {
@@ -49,5 +76,52 @@ describe('the Dashboard record overlay', () => {
 			base: newer,
 			changes: [{ list: 'activeOnboardings', record: packet('p3', 'charlie') }]
 		});
+	});
+
+	it('replaces a saved evaluation and adds an acknowledged award once', () => {
+		const base = workspace([], {
+			ratingSchemeEntries: [entry('active')],
+			awardTrackingAcknowledgedPersonnelIds: ['bravo']
+		});
+		let overlay = putDashboardRecord(null, base, { list: 'ratingSchemeEntries', record: entry('completed') });
+		overlay = putDashboardRecord(overlay, base, {
+			list: 'awardTrackingAcknowledgedPersonnelIds',
+			personnelId: 'alpha'
+		});
+		overlay = putDashboardRecord(overlay, base, {
+			list: 'awardTrackingAcknowledgedPersonnelIds',
+			personnelId: 'alpha'
+		});
+
+		const data = overlayDashboardRecords(base, overlay).data;
+		expect(data.ratingSchemeEntries).toEqual([entry('completed')]);
+		expect(data.awardTrackingAcknowledgedPersonnelIds).toEqual(['bravo', 'alpha']);
+	});
+});
+
+describe('the Dashboard summary overlay', () => {
+	it('takes recorded People off their type and drops a type once nobody is left', () => {
+		const base = summary([
+			{ trainingTypeId: 'cpr', personnelIds: ['okafor', 'brooks', 'liang'] },
+			{ trainingTypeId: 'sharp', personnelIds: ['kim'] }
+		]);
+		let overlay = putDashboardSummaryChange(null, base, { trainingTypeId: 'cpr', recordedPersonnelIds: ['okafor'] });
+		overlay = putDashboardSummaryChange(overlay, base, { trainingTypeId: 'sharp', recordedPersonnelIds: ['kim'] });
+
+		expect(overlayDashboardSummary(base, overlay).trainingSummary?.expiredByType).toEqual([
+			{ trainingTypeId: 'cpr', personnelIds: ['brooks', 'liang'], maxDaysLate: 12 }
+		]);
+		expect(base.trainingSummary?.expiredByType.map((expired) => expired.personnelIds)).toEqual([
+			['okafor', 'brooks', 'liang'],
+			['kim']
+		]);
+	});
+
+	it('drops once the refreshed summary arrives', () => {
+		const base = summary([{ trainingTypeId: 'cpr', personnelIds: ['okafor'] }]);
+		const overlay = putDashboardSummaryChange(null, base, { trainingTypeId: 'cpr', recordedPersonnelIds: ['okafor'] });
+		const refreshed = summary([{ trainingTypeId: 'cpr', personnelIds: ['brooks'] }]);
+
+		expect(overlayDashboardSummary(refreshed, overlay)).toBe(refreshed);
 	});
 });

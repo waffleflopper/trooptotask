@@ -7,9 +7,12 @@
 		createDashboardAccess,
 		createDashboardScreenModel,
 		overlayDashboardRecords,
+		overlayDashboardSummary,
 		putDashboardRecord,
+		putDashboardSummaryChange,
 		type DashboardPageUpdates,
-		type DashboardRecordOverlay
+		type DashboardRecordOverlay,
+		type DashboardSummaryOverlay
 	} from '$features/dashboard';
 	import {
 		DASHBOARD_SUMMARY_DEPENDENCY,
@@ -30,6 +33,7 @@
 	let dashboardBootstrap = $state<DashboardWorkspaceResult | null>(null);
 	let latestSummary = $state<{ orgId: string; summary: DashboardPageSummaryData } | null>(null);
 	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
+	let summaryOverlay = $state.raw<DashboardSummaryOverlay | null>(null);
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
@@ -122,9 +126,7 @@
 			viewerDay: data.viewerDay,
 			disabledFeatures: shell?.org.disabledFeatures ?? [],
 			dashboard: overlayDashboardRecords(dashboard, recordOverlay),
-			trainingSummary: summary.trainingSummary,
-			ictlSummary: summary.ictlSummary,
-			onboardingTrainingCompletions: summary.onboardingTrainingCompletions
+			...overlayDashboardSummary(summary, summaryOverlay)
 		};
 	}
 
@@ -138,7 +140,11 @@
 	const shellUI = getAppShellContext();
 	const access = createDashboardAccess(shellUI);
 	const updates: DashboardPageUpdates = {
-		refreshSummary: () => void invalidate(DASHBOARD_SUMMARY_DEPENDENCY),
+		refreshSummary: (meanwhile) => {
+			if (meanwhile && summaryData && meanwhile.orgId === orgId)
+				summaryOverlay = putDashboardSummaryChange(summaryOverlay, summaryData, meanwhile.change);
+			void invalidate(DASHBOARD_SUMMARY_DEPENDENCY);
+		},
 		putRecord: (savedIn, change) => {
 			if (dashboardBootstrap && savedIn === orgId)
 				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change);

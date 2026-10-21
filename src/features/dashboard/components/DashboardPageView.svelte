@@ -11,11 +11,11 @@
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 	import {
 		composeDashboardSections,
-		type DashboardAccess,
 		type DashboardSection,
 		type QuickAddDialogProps,
 		type QuickAddEntry
 	} from '../sections/dashboardSections';
+	import type { DashboardAccess } from '../sections/dashboardAccess';
 	import BottomLine from './BottomLine.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
@@ -194,8 +194,8 @@
 								<p class="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">Act here, or open the page</p>
 							{/snippet}
 						</PageShell.SectionHeader>
-						{#if parts}
-							<NeedsYouQueue queue={parts.needsYou} />
+						{#if parts && model}
+							<NeedsYouQueue queue={parts.needsYou} {model} {access} {updates} />
 						{:else}
 							<div class="grid border-t border-foreground" aria-hidden="true">
 								{#each { length: 5 }, index (index)}

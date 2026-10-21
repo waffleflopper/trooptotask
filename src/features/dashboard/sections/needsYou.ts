@@ -1,3 +1,9 @@
+import type { Component } from 'svelte';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import type { DashboardPageUpdates } from '../dashboardPageUpdates';
+import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
+import type { DashboardAccess } from './dashboardAccess';
+
 export type NeedsYouSeverity = 'danger' | 'warning' | 'info';
 
 /** Something a viewer can clear from the Dashboard; the owning page remains the full workflow. */
@@ -13,9 +19,42 @@ interface NeedsYouItemBase {
 	action: NeedsYouAction | null;
 }
 
-export interface NeedsYouAction {
-	label: string;
+/** What every panel an action opens receives from the row, beside its own props. */
+export interface NeedsYouPanelProps {
+	model: DashboardScreenModel;
+	access: DashboardAccess;
+	updates: DashboardPageUpdates;
+	/** Saves through the row: resolves once saved, rejects with the message the row shows. */
+	save: (command: () => Promise<void>) => Promise<void>;
+	saving: boolean;
+	failure: string | null;
+	close: () => void;
 }
+
+/** A panel component with its own props bound, ready for the row to render. */
+export interface NeedsYouPanel {
+	component: Component<NeedsYouPanelProps & Record<string, unknown>>;
+	props: Record<string, unknown>;
+}
+
+export function needsYouPanel<P extends object>(component: Component<NeedsYouPanelProps & P>, props: P): NeedsYouPanel {
+	return { component: component as unknown as NeedsYouPanel['component'], props: props as Record<string, unknown> };
+}
+
+/**
+ * Acting on a row in place. A `run` saves from the row itself, a `dialog` or `expand` opens a panel
+ * (loaded with whatever it reads first), and a `link` opens the owning page at the step.
+ */
+export type NeedsYouAction = {
+	label: string;
+	/** The action is absent when the viewer may not do this; the row keeps its link. */
+	policy: FeatureLanePolicyAction;
+	resource?: PolicyResource;
+} & (
+	| { mode: 'run'; run: (updates: DashboardPageUpdates) => Promise<void> }
+	| { mode: 'dialog' | 'expand'; open: () => Promise<NeedsYouPanel> }
+	| { mode: 'link'; href: string }
+);
 
 interface LateItem {
 	urgency: { daysLate: number };
@@ -53,6 +92,9 @@ const KIND_INFO = new Map<NeedsYouKind, NeedsYouKindInfo & { tier: number }>(
 export function needsYouKindInfo(kind: NeedsYouKind): NeedsYouKindInfo {
 	return KIND_INFO.get(kind)!;
 }
+
+/** A fill offers at most this many open days; the duty planner takes the rest. */
+export const DUTY_FILL_DAYS = 7;
 
 export const NEEDS_YOU_FULL_LENGTH = 9;
 export const NEEDS_YOU_FOLDED_LENGTH = 7;

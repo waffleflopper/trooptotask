@@ -4,7 +4,8 @@ import PlusIcon from '@lucide/svelte/icons/plus';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import ComingAndGoing from '../components/ComingAndGoing.svelte';
 import TonightAndTomorrow from '../components/TonightAndTomorrow.svelte';
-import { actionablePersonnel, dashboardSection, type DashboardSection } from './dashboardSections';
+import { dashboardSection, type DashboardSection } from './dashboardSections';
+import { actionablePersonnel } from './dashboardAccess';
 import {
 	expiredTraining,
 	leavingWithoutAward,

@@ -11,7 +11,8 @@
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import * as Field from '$lib/components/ui/field';
-	import { actionablePersonnel, type QuickAddDialogProps } from '../../sections/dashboardSections';
+	import { type QuickAddDialogProps } from '../../sections/dashboardSections';
+	import { actionablePersonnel } from '../../sections/dashboardAccess';
 	import QuickAddPersonPicker from './QuickAddPersonPicker.svelte';
 
 	let { model, access, updates, onClose }: QuickAddDialogProps = $props();

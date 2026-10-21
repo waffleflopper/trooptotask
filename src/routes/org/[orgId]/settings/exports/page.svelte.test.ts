@@ -177,7 +177,7 @@ describe('Exports page', () => {
 		});
 	});
 
-	it('runs JSON and Excel side by side, each with progress on its own button', async () => {
+	it('keeps JSON and Excel distinguishable by accessible name while both exports run', async () => {
 		const json = deferred<Response>();
 		const excel = deferred<Response>();
 		const request = vi.fn((url: string) => (url.endsWith('/export') ? json.promise : excel.promise));
@@ -193,12 +193,13 @@ describe('Exports page', () => {
 			'/org/organization-a/api/export',
 			'/org/organization-a/api/export-excel'
 		]);
-		expect(screen.getAllByRole('button', { name: 'Generating…' })).toHaveLength(2);
+		expect(screen.getByRole('button', { name: 'Generating JSON export…' }).getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Generating Excel export…' }).getAttribute('aria-disabled')).toBe('true');
 
 		excel.resolve(success('unit.xlsx'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'unit.xlsx'));
 		expect(screen.getByRole('button', { name: 'Export Excel' }).hasAttribute('aria-disabled')).toBe(false);
-		expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Generating JSON export…' }).getAttribute('aria-disabled')).toBe('true');
 
 		json.resolve(success('unit.json'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'unit.json'));
@@ -219,7 +220,9 @@ describe('Organization export target lifetime', () => {
 			mount();
 			await fireEvent.click(screen.getByRole('button', { name: `Export ${label}` }));
 			expect(request).toHaveBeenCalledWith(`/org/organization-a/api/${endpoint}`, { method: 'POST' });
-			expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
+			expect(screen.getByRole('button', { name: `Generating ${label} export…` }).getAttribute('aria-disabled')).toBe(
+				'true'
+			);
 			expect(screen.getByRole('status').textContent).toBe(`Generating ${label} export...`);
 			expect(downloads.save).not.toHaveBeenCalled();
 			pending.resolve(success(header));
@@ -291,7 +294,7 @@ describe('Organization export target lifetime', () => {
 		a.resolve(success('requested-a.json'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'requested-a.json'));
 		expect(await downloads.save.mock.calls[0][0].text()).toBe('organization-a artifact');
-		expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Generating Excel export…' }).getAttribute('aria-disabled')).toBe('true');
 		noFeedback();
 		b.resolve(new Response('organization-b artifact', { status: 200 }));
 		await waitFor(() =>
@@ -313,7 +316,7 @@ describe('Organization export target lifetime', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
 		old.resolve(success('old-a.json'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'old-a.json'));
-		expect(screen.getByRole('button', { name: 'Generating…' }).getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Generating Excel export…' }).getAttribute('aria-disabled')).toBe('true');
 		noFeedback();
 		current.resolve(success('current-a.xlsx'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'current-a.xlsx'));
@@ -376,7 +379,7 @@ describe('Organization export target lifetime', () => {
 		const view = mount();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
 		await view.rerender({ data: data('organization-a'), params: { orgId: 'new-slug-a' } });
-		expect(screen.getByRole('button', { name: 'Generating…' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Generating JSON export…' })).toBeTruthy();
 		pending.resolve(success());
 		await waitFor(() =>
 			expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'org-export-organization-a.json')

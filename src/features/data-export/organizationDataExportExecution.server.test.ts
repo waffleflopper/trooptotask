@@ -5,7 +5,10 @@ import {
 	type OrganizationDataExportArtifact
 } from './organizationDataExportExecution.server';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.useRealTimers();
+});
 
 function jsonArtifact(overrides: Partial<Extract<OrganizationDataExportArtifact, { kind: 'json' }>> = {}) {
 	return {
@@ -41,6 +44,31 @@ function seedCompletedExports(ctx: ReturnType<typeof createTestContext>, count: 
 }
 
 describe('executeOrganizationDataExport', () => {
+	it.each([
+		['JSON', 'export.created', jsonArtifact],
+		['Excel', 'export.excel_created', workbookArtifact]
+	] as const)('returns the %s response only after its audit event is recorded', async (_format, action, build) => {
+		vi.useFakeTimers();
+		const ctx = createTestContext();
+		const recordAudit = ctx.audit.log.bind(ctx.audit);
+		vi.spyOn(ctx.audit, 'log').mockImplementation(async (event) => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 1));
+			await recordAudit(event);
+		});
+		const artifact = build();
+		const response = executeOrganizationDataExport(ctx, {
+			requestedByEmail: 'leader@example.com',
+			auditAction: action,
+			buildArtifact: async () => artifact
+		}).then((result) => ({ result, events: [...ctx.auditPort.events] }));
+
+		await vi.runAllTimersAsync();
+		const { result, events } = await response;
+
+		expect(result).toEqual({ status: 'ready', artifact });
+		expect(events).toEqual([expect.objectContaining({ action, resourceType: 'data_export' })]);
+	});
+
 	it('completes concurrent exports above former quotas without any plan or usage reads', async () => {
 		const ctx = createTestContext();
 		seedCompletedExports(ctx, 11);

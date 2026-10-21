@@ -117,6 +117,7 @@
 			variant={running[format] ? 'outline' : 'default'}
 			onclick={() => startExport(format)}
 			aria-disabled={running[format] ? 'true' : undefined}
+			aria-label={running[format] ? `Generating ${name} export…` : undefined}
 		>
 			{#if running[format]}<Spinner role="presentation" aria-hidden="true" />Generating…{:else}Export {name}{/if}
 		</Button>

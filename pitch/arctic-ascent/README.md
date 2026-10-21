@@ -57,14 +57,14 @@ The deck picks up where the opener leaves off, with one slide per feature area f
 | 5 | Training & Training reports: See the drop before it lands. | Available today |
 | 6 | Events & Taskings: Every tasking. Tracked to done. | In design |
 | 7 | Drop Zone & AI: Just say it. | In design |
-| 8 | Close: Less time on admin. More time with Soldiers. That's readiness. | |
-| 9 | Backup, if asked: security and access | |
+| 8 | Security & access: Built for CUI. Scoped by design. | |
+| 9 | Close: Less time on admin. More time with Soldiers. That's readiness. | |
 
 - `deck.html`: open it in Chrome and press F for full screen. → / Space / PageDown (most clickers) advance; ← goes back. The opener slide plays the video with sound when you land on it.
 - `deck-render.mjs`: `node deck-render.mjs` writes `out/slides/slide-NN.png`, the speaker notes and `out/troop-to-task-arctic-ascent-slides.pdf`.
 - `deck-pptx.py`: `~/.cache/t2t-pitch-audio/venv/bin/python deck-pptx.py` builds `out/troop-to-task-arctic-ascent-slides.pptx` from those images, with the talk track as speaker notes and the video embedded on slide 2 (click once on that slide to start it).
 
-Each slide's talk track (about 65 words, 25 seconds) is in its `data-notes` in `deck.html`. At a normal speaking pace the talk runs about 2:20, which with the 2:20 opener comes to about 4:40 and leaves about 20 seconds for the ask. Rehearse with a timer. The close's notes hold a placeholder for your ask.
+Each slide's talk track (about 65 words, 25 seconds) is in its `data-notes` in `deck.html`. At a normal speaking pace the talk runs about 2:45, which with the 2:20 opener comes to about 5:05 before the ask. Rehearse with a timer and trim where it runs long. The close's notes hold a placeholder for your ask.
 
 ## Music
 

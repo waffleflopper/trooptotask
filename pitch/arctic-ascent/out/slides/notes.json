@@ -36,12 +36,12 @@
   },
   {
     "file": "slide-08.png",
-    "notes": "Every minute TroopToTask saves goes back to training. Less time on admin. More time with Soldiers. That’s readiness. [Make your ask here.] Thank you.",
+    "notes": "Before you trust any of this with your Soldiers’ data: it’s built for CUI. Access is enforced by the server, by Group and by feature, exactly like the scoped access you saw. Data is encrypted in transit and at rest, with MFA and a year of audit history. It’s aligned with NIST 800-171 on SOC 2 hosting. We’re honest that it isn’t FedRAMP yet.",
     "video": false
   },
   {
     "file": "slide-09.png",
-    "notes": "Backup, only if asked. Be precise: aligned with NIST SP 800-171, not certified, not FedRAMP. Data is treated as CUI. Hosting is Vercel and Supabase, both SOC 2 Type II.",
+    "notes": "Every minute TroopToTask saves goes back to training. Less time on admin. More time with Soldiers. That’s readiness. [Make your ask here.] Thank you.",
     "video": false
   }
 ]

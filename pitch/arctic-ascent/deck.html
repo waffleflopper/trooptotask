@@ -220,22 +220,13 @@ body.print #hint { display: none; }
     </div>
   </section>
 
-  <!-- 7 · Close -->
-  <section class="slide" data-notes="Every minute TroopToTask saves goes back to training. Less time on admin. More time with Soldiers. That’s readiness. [Make your ask here.] Thank you.">
-    <div class="abs display center" id="close-1">Less time on admin.</div>
-    <div class="abs display center" id="close-2">More time with Soldiers.</div>
-    <div class="abs kicker center" id="close-3s">That's</div>
-    <div class="abs display center" id="close-3">Readiness.</div>
-    <div class="abs center" id="close-url">trooptotask.org</div>
-  </section>
-
-  <!-- 8 · Backup: security and access (only if asked) -->
-  <section class="slide" data-notes="Backup, only if asked. Be precise: aligned with NIST SP 800-171, not certified, not FedRAMP. Data is treated as CUI. Hosting is Vercel and Supabase, both SOC 2 Type II.">
-    <div class="abs copy" style="width:1680px">
-      <div class="kicker">Backup · if asked</div>
+  <!-- 7 · Security and access -->
+  <section class="slide" data-notes="Before you trust any of this with your Soldiers’ data: it’s built for CUI. Access is enforced by the server, by Group and by feature, exactly like the scoped access you saw. Data is encrypted in transit and at rest, with MFA and a year of audit history. It’s aligned with NIST 800-171 on SOC 2 hosting. We’re honest that it isn’t FedRAMP yet.">
+    <div class="abs copy" style="width:1680px;top:250px">
+      <div class="kicker">Security · access</div>
       <h1 class="display" style="margin-bottom:64px">Built for CUI. Scoped by design.</h1>
     </div>
-    <div class="abs" style="left:120px;right:120px;top:400px;display:grid;grid-template-columns:1fr 1fr;gap:70px">
+    <div class="abs" style="left:120px;right:120px;top:520px;display:grid;grid-template-columns:1fr 1fr;gap:70px">
       <ul class="pts">
         <li><b>Scoped access, enforced by the server.</b> Organization-wide or by Group, set per feature: none, view, operate or configure.</li>
         <li><b>Viewer, Operator and Editor presets</b>, with per-feature overrides. Archive and delete requests need approval.</li>
@@ -247,6 +238,15 @@ body.print #hint { display: none; }
         <li><b>Aligned with NIST SP 800-171</b> and hosted on SOC 2 Type II providers. Not FedRAMP-authorized.</li>
       </ul>
     </div>
+  </section>
+
+  <!-- 8 · Close -->
+  <section class="slide" data-notes="Every minute TroopToTask saves goes back to training. Less time on admin. More time with Soldiers. That’s readiness. [Make your ask here.] Thank you.">
+    <div class="abs display center" id="close-1">Less time on admin.</div>
+    <div class="abs display center" id="close-2">More time with Soldiers.</div>
+    <div class="abs kicker center" id="close-3s">That's</div>
+    <div class="abs display center" id="close-3">Readiness.</div>
+    <div class="abs center" id="close-url">trooptotask.org</div>
   </section>
 
 </div>

@@ -77,6 +77,7 @@
 		if (!active || processingApproval || reviewedIds.has(id)) return;
 		processingApproval = id;
 		reviewError = null;
+		announcement = '';
 		const failureMessage = 'Unable to confirm the review. Refresh the page or try again.';
 		try {
 			const res = await fetch(`/org/${orgId}/api/deletion-requests/review`, {

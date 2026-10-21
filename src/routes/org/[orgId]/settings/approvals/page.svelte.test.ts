@@ -218,6 +218,29 @@ describe('Approvals review', () => {
 			expect(screen.getByRole('status').textContent).toBe('Approved Record b.');
 		});
 
+		it('announces each review again when two requests share a description', async () => {
+			const second = deferred<Response>();
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockResolvedValueOnce(new Response(null, { status: 200 }))
+					.mockReturnValueOnce(second.promise)
+			);
+			mount([request('a', { resource_description: 'Same name' }), request('b', { resource_description: 'Same name' })]);
+			const [first, next] = screen.getAllByRole('button', { name: 'Approve archive Same name' });
+
+			await fireEvent.click(first);
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
+			await tick();
+			expect(screen.getByText('Approved Same name.')).toBeTruthy();
+			await fireEvent.click(next);
+
+			expect(screen.queryByText('Approved Same name.')).toBeNull();
+			second.resolve(new Response(null, { status: 200 }));
+			await waitFor(() => expect(screen.getByText('Approved Same name.')).toBeTruthy());
+		});
+
 		it('moves focus to the previous request when the last one is reviewed', async () => {
 			mount([request('a'), request('b'), request('c')]);
 			await fireEvent.click(row('Record c').getByRole('button', { name: 'Approve archive Record c' }));

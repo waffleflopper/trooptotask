@@ -1,5 +1,9 @@
 import { toDayNumber } from '$lib/utils/dayNumber';
-import type { ForecastLaneMark } from './dashboardSections';
+
+/** A mark under the forecast's day labels. An overlay never changes the availability numbers. */
+export type ForecastLaneMark =
+	| { kind: 'span'; id: string; start: string; end: string; label: string; emphasis: 'strong' | 'quiet' }
+	| { kind: 'point'; id: string; date: string; label: string };
 
 export type PlacedLaneMark = ForecastLaneMark & {
 	/** 1-based grid column of the first forecast day the mark covers. */
@@ -24,4 +28,10 @@ export function placeForecastLaneMarks(
 		const to = Math.min(end, last);
 		return [{ ...mark, column: from - first + 1, span: to - from + 1 }];
 	});
+}
+
+export interface DashboardForecastLaneView {
+	id: string;
+	label: string;
+	marks: readonly PlacedLaneMark[];
 }

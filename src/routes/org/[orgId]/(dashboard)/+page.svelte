@@ -106,9 +106,7 @@
 	const loadError = $derived(workspaceError ?? summaryError);
 	const ctx = $derived(
 		dashboardBootstrap && summaryData
-			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData), {
-					sections: DASHBOARD_SECTIONS
-				})
+			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData))
 			: null
 	);
 
@@ -128,6 +126,7 @@
 		orgName={data.shell.org.name}
 		viewerDay={data.viewerDay}
 		{ctx}
+		sections={DASHBOARD_SECTIONS}
 		failure={loadError ? loadFailure : undefined}
 	/>
 {/if}

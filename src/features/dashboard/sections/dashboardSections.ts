@@ -1,37 +1,14 @@
 import type { Component } from 'svelte';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { Group, Personnel } from '$features/personnel/contracts';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, StatusType } from '$features/calendar/contracts';
-import type { DashboardPageData } from '../contracts';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
-import type { NeedsYouItem } from './needsYou';
+import type { DashboardInputs } from './dashboardInputs';
+import { placeForecastLaneMarks, type DashboardForecastLaneView, type ForecastLaneMark } from './forecastLanes';
+import { buildNeedsYouQueue, type NeedsYouItem, type NeedsYouQueue } from './needsYou';
 
 /** Availability and Calendar is always on; every other section belongs to one feature switch. */
 export type DashboardSectionId = 'availability' | FeatureKey;
 
-/** What the page has loaded, as plain data, so a section's sources stay pure. */
-export interface DashboardInputs {
-	/** The viewer's day, "YYYY-MM-DD". */
-	today: string;
-	timeZone: string;
-	/** Today through today plus 13, the forecast's columns. */
-	forecastDays: readonly string[];
-	/** Active personnel inside the viewer's scope. */
-	personnel: readonly Personnel[];
-	availability: readonly AvailabilityEntry[];
-	statusTypes: readonly StatusType[];
-	groups: readonly Group[];
-	assignmentTypes: readonly AssignmentType[];
-	assignments: readonly DailyAssignment[];
-	page: DashboardPageData;
-}
-
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
-
-/** A mark under the forecast's day labels. An overlay never changes the availability numbers. */
-export type ForecastLaneMark =
-	| { kind: 'span'; id: string; start: string; end: string; label: string; emphasis: 'strong' | 'quiet' }
-	| { kind: 'point'; id: string; date: string; label: string };
 
 export interface ForecastLane {
 	id: string;
@@ -82,4 +59,34 @@ export function activeDashboardSections(
 	disabledFeatures: readonly FeatureKey[]
 ): readonly DashboardSection[] {
 	return sections.filter((entry) => entry.feature === null || !disabledFeatures.includes(entry.feature));
+}
+
+/** Everything the active sections add to the page, computed from one read of the inputs. */
+export interface DashboardSectionParts {
+	needsYou: NeedsYouQueue;
+	forecastLanes: readonly DashboardForecastLaneView[];
+	quickAdd: readonly QuickAddEntry[];
+	readinessColumns: readonly DashboardBlock[];
+	onDutyBlocks: readonly DashboardBlock[];
+}
+
+export function composeDashboardSections(
+	sections: readonly DashboardSection[],
+	inputs: DashboardInputs,
+	disabledFeatures: readonly FeatureKey[]
+): DashboardSectionParts {
+	const active = activeDashboardSections(sections, disabledFeatures);
+	return {
+		needsYou: buildNeedsYouQueue(active.flatMap((entry) => entry.needsYou.map((source) => source(inputs)))),
+		forecastLanes: active.flatMap((entry) =>
+			entry.forecastLanes.map((lane) => ({
+				id: lane.id,
+				label: lane.label,
+				marks: placeForecastLaneMarks(inputs.forecastDays, lane.marks(inputs))
+			}))
+		),
+		quickAdd: active.flatMap((entry) => entry.quickAdd),
+		readinessColumns: active.flatMap((entry) => (entry.readiness ? [entry.readiness] : [])),
+		onDutyBlocks: active.flatMap((entry) => entry.onDuty)
+	};
 }

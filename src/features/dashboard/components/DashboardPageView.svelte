@@ -5,7 +5,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
-	import type { QuickAddEntry } from '../sections/dashboardSections';
+	import { composeDashboardSections, type DashboardSection, type QuickAddEntry } from '../sections/dashboardSections';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
 	import OverviewTab from './tabs/OverviewTab.svelte';
@@ -15,18 +15,21 @@
 		viewerDay: DashboardViewerDay;
 		/** Null until the workspace and summary have both arrived. */
 		ctx: DashboardScreenModel | null;
+		/** Every section the page can show; those whose feature is off add nothing. */
+		sections: readonly DashboardSection[];
 		/** Replaces the bands when a source fails; the header stays. */
 		failure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, failure }: Props = $props();
+	let { orgName, viewerDay, ctx, sections, failure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
 	const eyebrow = $derived(
 		model ? `Dashboard · ${orgName} · ${model.totalPersonnel} personnel` : `Dashboard · ${orgName}`
 	);
-	const quickAdd = $derived(model?.quickAdd ?? []);
+	const parts = $derived(model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures) : null);
+	const quickAdd = $derived(parts?.quickAdd ?? []);
 
 	let openQuickAdd = $state<QuickAddEntry | null>(null);
 
@@ -102,8 +105,8 @@
 					</div>
 					<div class="grid min-w-0 content-start gap-[18px]">
 						<h2 class={EYEBROW}>Available · next 14 days</h2>
-						{#if model}
-							<ForecastLanes days={model.forecastDays} lanes={model.forecastLanes} />
+						{#if model && parts}
+							<ForecastLanes days={model.forecastDays} lanes={parts.forecastLanes} />
 						{:else}
 							<div class="grid gap-[18px]" aria-hidden="true">
 								<Skeleton class="h-7 w-[60%]" />
@@ -134,15 +137,15 @@
 					<div class="grid min-w-0 content-start gap-4">
 						<PageShell.SectionHeader
 							size="compact"
-							eyebrow={model ? `Needs you · ${model.needsYou.ranked.length}` : 'Needs you'}
+							eyebrow={parts ? `Needs you · ${parts.needsYou.ranked.length}` : 'Needs you'}
 							title="Most urgent first"
 						>
 							{#snippet action()}
 								<p class="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">Act here, or open the page</p>
 							{/snippet}
 						</PageShell.SectionHeader>
-						{#if model}
-							<NeedsYouQueue queue={model.needsYou} />
+						{#if parts}
+							<NeedsYouQueue queue={parts.needsYou} />
 						{:else}
 							<div class="grid border-t border-border" aria-hidden="true">
 								{#each { length: 5 }, index (index)}
@@ -161,8 +164,8 @@
 					</div>
 					<div class="grid min-w-0 content-start gap-4">
 						<PageShell.SectionHeader size="compact" eyebrow="On duty" title="Tonight and tomorrow" />
-						{#if model}
-							{#each model.onDutyBlocks as block (block.id)}
+						{#if model && parts}
+							{#each parts.onDutyBlocks as block (block.id)}
 								<block.component {model} />
 							{/each}
 						{:else}
@@ -192,10 +195,10 @@
 
 				<section class="{BAND} gap-5" aria-label="Readiness" aria-busy={!model} data-dashboard-band="readiness">
 					<PageShell.SectionHeader size="compact" eyebrow="Readiness · as of today" title="Where the unit stands" />
-					{#if model}
-						{#if model.readinessColumns.length > 0}
+					{#if model && parts}
+						{#if parts.readinessColumns.length > 0}
 							<div class="grid gap-6 lg:auto-cols-fr lg:grid-flow-col lg:gap-0">
-								{#each model.readinessColumns as column (column.id)}
+								{#each parts.readinessColumns as column (column.id)}
 									<div class="min-w-0 lg:border-l lg:border-border lg:px-7 lg:first:border-l-0 lg:first:pl-0">
 										<column.component {model} />
 									</div>

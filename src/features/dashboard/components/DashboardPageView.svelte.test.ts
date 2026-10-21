@@ -13,7 +13,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-const frame = { orgName: 'Test Unit', viewerDay: { date: '2026-10-19', timeZone: 'UTC' } };
+const frame = { orgName: 'Test Unit', viewerDay: { date: '2026-10-19', timeZone: 'UTC' }, sections: [] };
 
 function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel {
 	const starterPack = overrides.firstStarterConfigurationPack as StarterConfigurationPackSupport | null | undefined;
@@ -21,6 +21,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		data: {
 			orgName: 'Test Unit',
 			orgId: 'org-1',
+			disabledFeatures: [],
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 0
@@ -73,12 +74,8 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		formatShortDate: (date: string) => date,
 		dutyForDays: () => [],
 		dismissGettingStarted: () => {},
-		quickAdd: [],
 		forecastDays: [],
-		forecastLanes: [],
-		needsYou: { ranked: [], rows: [], fold: null },
-		onDutyBlocks: [],
-		readinessColumns: []
+		inputs: { forecastDays: [] }
 	};
 
 	return {
@@ -304,7 +301,9 @@ describe('Dashboard frame', () => {
 			{ id: 'status', label: 'Status', dialog },
 			{ id: 'training', label: 'Training', dialog }
 		];
-		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ quickAdd }) } });
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
 
 		const group = screen.getByRole('group', { name: 'Quick add' });
 		expect(
@@ -386,9 +385,9 @@ describe('Dashboard sections', () => {
 			]
 		});
 		const sections = DASHBOARD_SECTIONS.map((entry) => (entry.id === 'criticalTasks' ? exercises : entry));
-		const ctx = createDashboardScreenModel(pageData(), { sources, sections });
+		const ctx = createDashboardScreenModel(pageData(), { sources });
 
-		render(DashboardPageView, { props: { ...frame, ctx } });
+		render(DashboardPageView, { props: { ...frame, ctx, sections } });
 
 		expect(screen.getByText('Needs you · 1')).toBeTruthy();
 		const row = within(screen.getByRole('list', { name: 'Needs you' })).getByRole('link');
@@ -418,12 +417,9 @@ describe('Dashboard sections', () => {
 			],
 			forecastLanes: [{ id: 'exercises', label: 'Exercises', marks: () => [] }]
 		});
-		const ctx = createDashboardScreenModel(
-			{ ...pageData(), disabledFeatures: ['criticalTasks'] },
-			{ sources, sections: [exercises] }
-		);
+		const ctx = createDashboardScreenModel({ ...pageData(), disabledFeatures: ['criticalTasks'] }, { sources });
 
-		render(DashboardPageView, { props: { ...frame, ctx } });
+		render(DashboardPageView, { props: { ...frame, ctx, sections: [exercises] } });
 
 		expect(screen.getByText('Nothing needs you right now.')).toBeTruthy();
 		expect(screen.queryByRole('list', { name: 'Exercises' })).toBeNull();

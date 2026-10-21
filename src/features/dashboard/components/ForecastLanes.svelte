@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { DashboardForecastLaneView } from '../read-model/dashboardScreenModel.svelte';
+	import type { DashboardForecastLaneView } from '../sections/forecastLanes';
 
 	let { days, lanes }: { days: readonly string[]; lanes: readonly DashboardForecastLaneView[] } = $props();
 </script>

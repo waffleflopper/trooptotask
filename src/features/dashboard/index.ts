@@ -5,6 +5,6 @@ export {
 	type DashboardSupportData,
 	type DashboardStoreSources
 } from './read-model/dashboardScreenModel.svelte';
-export type { DashboardPageData, TrainingIssue } from './contracts';
+export type { DashboardPageData } from './contracts';
 
 export { dashboardWorkspaceHydrator } from './dashboardWorkspaceHydration.svelte';

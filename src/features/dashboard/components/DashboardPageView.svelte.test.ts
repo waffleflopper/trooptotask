@@ -38,13 +38,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			availPct: 100,
 			availColor: 'var(--success-foreground)',
 			trainingColor: 'var(--success-foreground)',
-			statusEntries: [],
-			upcomingChanges: {
-				mode: 'date',
-				setMode: () => {},
-				byGroup: [],
-				byDate: []
-			}
+			statusEntries: []
 		},
 		trainingStats: {
 			expired: 0,
@@ -60,24 +54,17 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			'due-60': 0,
 			current: 0
 		},
-		ratingTotal: 0,
 		activeOnboardings: [],
 		upcomingChanges: [],
 		upcomingLosses: [],
-		upcomingByDate: new Map(),
-		dutyAssignments: [],
 		dutyStrengthPct: 100,
 		availableCount: 10,
 		totalPersonnel: 10,
-		topTrainingIssues: [],
 		groupBreakdown: [],
 		nonAvailablePersonnel: [],
 		trainingGroupDelinquencies: [],
 		personnelCount: 0,
-		statusTypeCount: 0,
 		trainingTypeCount: 0,
-		assignmentTypeCount: 0,
-		todayDisplay: 'Thursday, Apr 2 2026',
 		formatShortDate: (date: string) => date,
 		dutyForDays: () => [],
 		dismissGettingStarted: () => {}

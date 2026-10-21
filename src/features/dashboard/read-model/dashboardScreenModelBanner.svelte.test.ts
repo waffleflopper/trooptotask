@@ -7,7 +7,6 @@ import {
 	calendarAssignmentsSource as dailyAssignmentsStore
 } from '$features/calendar';
 import { groupsStore } from '$features/personnel';
-import type { TrainingIssue } from '$features/training/contracts';
 import type { DashboardWorkspaceResult } from '../contracts';
 import type { DashboardPageData } from '../contracts';
 
@@ -113,13 +112,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	describe('todayDisplay', () => {
-		it('returns a human-readable date string', () => {
-			expect(ctx.todayDisplay).toMatch(/\d{4}/);
-			expect(ctx.todayDisplay).toMatch(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/);
-		});
-	});
-
 	describe('totalPersonnel / availableCount', () => {
 		it('starts at 0 with no store data', () => {
 			expect(ctx.totalPersonnel).toBe(0);
@@ -163,21 +155,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	describe('statusTypeCount', () => {
-		it('reads from dashboard workspace data', () => {
-			const c = createDashboardScreenModel(
-				makeData({}, { statusTypes: [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' }] })
-			);
-			expect(c.statusTypeCount).toBe(1);
-		});
-	});
-
-	describe('dutyAssignments', () => {
-		it('returns an empty array when no assignments exist', () => {
-			expect(ctx.dutyAssignments).toHaveLength(0);
-		});
-	});
-
 	describe('isHydrating', () => {
 		it('is false once the composite stores are loaded', () => {
 			expect(ctx.isHydrating).toBe(false);
@@ -209,68 +186,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			});
 			const c = createDashboardScreenModel(dataWithStats);
 			expect(c.trainingStats).toEqual(stats);
-		});
-	});
-
-	describe('topTrainingIssues', () => {
-		it('returns empty array when no summary', () => {
-			expect(ctx.topTrainingIssues).toHaveLength(0);
-		});
-
-		it('returns issues from trainingSummary', () => {
-			const issues: TrainingIssue[] = [
-				{
-					personnelId: 'smith',
-					daysUntilExpiration: -1,
-					personName: 'SGT Smith',
-					typeName: 'CPR',
-					status: 'expired',
-					label: 'Expired'
-				}
-			];
-			const c = createDashboardScreenModel(
-				makeData({
-					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
-				})
-			);
-			expect(c.topTrainingIssues).toHaveLength(1);
-			expect(c.topTrainingIssues[0].personName).toBe('SGT Smith');
-		});
-
-		it('returns multiple issues ordered as provided', () => {
-			const issues: TrainingIssue[] = [
-				{
-					personnelId: 'smith',
-					daysUntilExpiration: -1,
-					personName: 'SGT Smith',
-					typeName: 'CPR',
-					status: 'expired',
-					label: 'Expired'
-				},
-				{
-					personnelId: 'jones',
-					daysUntilExpiration: 15,
-					personName: 'PFC Jones',
-					typeName: 'BLS',
-					status: 'warning-orange',
-					label: 'Expiring'
-				},
-				{
-					personnelId: 'clark',
-					daysUntilExpiration: -1,
-					personName: 'SPC Clark',
-					typeName: 'SHARP',
-					status: 'expired',
-					label: 'Expired'
-				}
-			];
-			const c = createDashboardScreenModel(
-				makeData({
-					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
-				})
-			);
-			expect(c.topTrainingIssues).toHaveLength(3);
-			expect(c.topTrainingIssues[1].typeName).toBe('BLS');
 		});
 	});
 
@@ -317,12 +232,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	describe('upcomingByDate', () => {
-		it('returns an empty Map when no upcoming changes', () => {
-			expect(ctx.upcomingByDate.size).toBe(0);
-		});
-	});
-
 	describe('ratingStats', () => {
 		afterEach(() => vi.useRealTimers());
 		it('returns zero counts with no rating entries', () => {
@@ -348,13 +257,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			];
 			const model = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
 			expect(model.ratingStats).toEqual({ overdue: 2, 'due-30': 4, 'due-60': 1, current: 1 });
-			expect(model.ratingTotal).toBe(8);
-		});
-	});
-
-	describe('ratingTotal', () => {
-		it('sums all non-completed entries', () => {
-			expect(ctx.ratingTotal).toBe(0);
 		});
 	});
 

@@ -11,7 +11,6 @@ import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { TrainingSummary } from '$features/training/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-export type { TrainingIssue } from '$features/training/contracts';
 
 export interface DashboardIctlMosReadiness {
 	mos: string;

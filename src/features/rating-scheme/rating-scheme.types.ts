@@ -1,7 +1,3 @@
-// ============================================================
-// Rating Scheme
-// ============================================================
-
 export type ReportType = 'AN' | 'CR' | 'CTR' | 'RFC' | 'SO' | 'EA' | 'RO';
 
 export interface ReportTypeOption {

@@ -4,6 +4,16 @@
 
 All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9` unless a different accepted candidate is explicit. They preserve the recorded commands, environments, failed attempts and review dispositions. Temporary directories, screenshots and private local logs mentioned in those records are **not durable artifacts** and are not required to retrieve these summaries. A committed report of an observation is not the raw observation itself; reproduce from maintained procedures when current proof is required.
 
+## 13 D01 code and dependency sweep
+
+**In progress.** Child [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) of [#1286](https://github.com/waffleflopper/trooptotask/issues/1286), in two PRs split for the hosted review file limit. [#1789](https://github.com/waffleflopper/trooptotask/pull/1789) records each disposition and removal with its evidence; the second PR is comment-only.
+
+**Live.** `npm run verify:app` on Node 24.22.0 and Chromium 154 drove the Calendar month view and upcoming-loss flag, a 21-slot monthly planner batch save, slot and month clears, the Dashboard date and counts, and Personnel follow-ups and leader notes, as `calendarOperate`, `dashboardView` and `manager`. It ran on candidate `1530e1c3d73de13cbd63b107bd07a69cfe43ad80` (digest `3f4c9402…41cc1`) and on base `9db46370593e279a195202ad3a64a983ca1c9309` (digest `8dbe5e60…1cf37`), with the same results apart from the order of two groups tied on `sortOrder`. The production `Content-Security-Policy` header is byte-identical. Every later commit is comment-only, and a comment-free AST and token comparison against `1530e1c3d` reports no code change, so the live result still applies.
+
+**Archives.** [`1785-d01-candidate.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1785-d01-candidate.tar.gz) (SHA-256 `9c3afb7ff20ff1fa078fe6813edbbda81dcd666af176c1fe8afebf6ea11a7120`, 47 files) and [`1785-d01-base.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1785-d01-base.tar.gz) (SHA-256 `d24f9c2586ea440d2e6cd723fe943a705a853d710c880bf6497642285c939851`, 31 files). Verify with `sha256sum`, extract with `tar xzf`, then run `sha256sum -c INVENTORY.sha256` inside the extracted directory. Both were re-extracted and verified before upload.
+
+**Independent review.** Codex `gpt-6.1-sol` reviewed #1789 read-only and accepted it with fixes: restore the assignment-replacement atomicity contract and the app-shell scope-change reason, drop two descriptive comments, and record the `billing` audit-tone disposition. All are applied.
+
 ## 12-VERIFY D07 phase acceptance
 
 **Ready to close on merge.** Child [#1711](https://github.com/waffleflopper/trooptotask/issues/1711), parent [#1285](https://github.com/waffleflopper/trooptotask/issues/1285), milestone 10. The candidate is main `a549e31e8c83bb209ee18d63d8a1538197206fe8`, which contains every Phase 12 merge, plus this close-out's documentation. The close-out changes no application source, migration, fixture or control. At Robert's request on 2026-10-20 this one PR closes both #1711 and #1285; that replaces, for this phase only, the rule that a child PR never closes its parent. Milestone 10 closes after the merge, with readback.

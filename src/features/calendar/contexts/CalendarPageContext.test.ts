@@ -54,10 +54,6 @@ function makeContext(data: CalendarPageData | (() => CalendarPageData), org: Cal
 	return new CalendarPageContext(data, org, savePreferences, today);
 }
 
-// ---------------------------------------------------------------------------
-// Minimal mock data
-// ---------------------------------------------------------------------------
-
 const mockPersonnel: Personnel[] = [
 	{
 		id: 'p1',
@@ -115,10 +111,6 @@ function makeMockOrg(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('CalendarPageContext', () => {
 	let ctx: CalendarPageContext;
 	let org: CalendarPageAccess;
@@ -139,8 +131,6 @@ describe('CalendarPageContext', () => {
 		vi.restoreAllMocks();
 		ctx = makeContext(mockData, org);
 	});
-
-	// ---- Derived permission flags ------------------------------------------
 
 	describe('permission flags', () => {
 		it('canManageConfig is false when not owner/admin/fullEditor', () => {
@@ -226,8 +216,6 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	// ---- Modal registry removed (Phase 3.3 — modals inlined into CalendarPageView) ----
-
 	describe('syncUserPreferences', () => {
 		it('honors a saved personnel role display preference', () => {
 			ctx.syncUserPreferences({ showStatusText: true, showPersonnelRoles: true, highlightOnboarding: false });
@@ -238,8 +226,6 @@ describe('CalendarPageContext', () => {
 			expect(savePreferences).not.toHaveBeenCalled();
 		});
 	});
-
-	// ---- View mode state ---------------------------------------------------
 
 	describe('viewMode', () => {
 		it('defaults to month', () => {
@@ -257,17 +243,14 @@ describe('CalendarPageContext', () => {
 			ctx.setViewMode('3-month');
 			expect(ctx.viewMode).toBe('3-month');
 
-			const targetDate = new Date(2026, 5, 15); // June 2026
+			const targetDate = new Date(2026, 5, 15);
 			ctx.navigateToMonth(targetDate);
 
 			expect(ctx.viewMode).toBe('month');
-			// calendarStore should have navigated to June 2026
 			expect(calendarStore.month).toBe(5);
 			expect(calendarStore.year).toBe(2026);
 		});
 	});
-
-	// ---- Selected state ----------------------------------------------------
 
 	describe('selection state', () => {
 		it('assignmentDate starts null', () => expect(ctx.assignmentDate).toBeNull());
@@ -740,8 +723,6 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	// ---- handleDateClick / closeAssignmentModal ---------------------------
-
 	describe('handleDateClick / closeAssignmentModal', () => {
 		it('sets assignmentDate', () => {
 			const d = new Date('2026-04-01');
@@ -772,8 +753,6 @@ describe('CalendarPageContext', () => {
 			expect(manager.popover).toBeNull();
 		});
 	});
-
-	// ---- toggleHighlightOnboarding ----------------------------------------
 
 	describe('toggleHighlightOnboarding', () => {
 		it('flips highlightOnboarding', () => {
@@ -806,8 +785,6 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	// ---- calendarPersonnel / scopedPersonnelIds ---------------------------
-
 	describe('calendarPersonnel', () => {
 		it('uses workspace personnel when the route data is nested under calendar.data', () => {
 			const workspacePerson = { ...mockPersonnel[0], id: 'workspace-person', lastName: 'Workspace' };
@@ -827,7 +804,6 @@ describe('CalendarPageContext', () => {
 			);
 
 			expect(nestedCtx.calendarPersonnel).toEqual([workspacePerson]);
-			expect(nestedCtx.scopedPersonnelIds).toEqual(new Set(['workspace-person']));
 			expect(nestedCtx.activeOnboardingPersonnelIds).toEqual(['workspace-person']);
 		});
 
@@ -838,16 +814,6 @@ describe('CalendarPageContext', () => {
 
 		it('uses allPersonnel when present', () => {
 			expect(ctx.calendarPersonnel).toEqual(mockPersonnel);
-		});
-	});
-
-	describe('scopedPersonnelIds', () => {
-		it('contains ids from personnel (scoped set)', () => {
-			expect(ctx.scopedPersonnelIds.has('p1')).toBe(true);
-		});
-
-		it('does not contain unknown ids', () => {
-			expect(ctx.scopedPersonnelIds.has('unknown')).toBe(false);
 		});
 	});
 
@@ -983,8 +949,6 @@ describe('CalendarPageContext', () => {
 			});
 		});
 	});
-
-	// ---- upcomingLossMap -------------------------------------------------------
 
 	describe('upcomingLossMap', () => {
 		const TODAY = '2026-04-14';

@@ -372,7 +372,6 @@ function buildReadinessMatrix(input: {
 		seedRowKeys,
 		seedColKeys: categories.map((category) => category.key)
 	});
-	// A row total is the same fold one level coarser.
 	const rowTotals = tallyReadinessBy(facts, ICT_MATRIX_ROLLUP, rowKeyOf, { seedKeys: seedRowKeys });
 
 	const rows = [...grid.entries()]

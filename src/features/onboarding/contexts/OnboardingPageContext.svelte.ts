@@ -23,19 +23,12 @@ export { getProgress } from '../onboardingProgress';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 
-// ── Modal IDs ─────────────────────────────────────────────────
-
 export const MODAL_IDS = {
 	startOnboarding: 'startOnboarding',
 	assignTemplate: 'assignTemplate',
 	cancelConfirm: 'cancelConfirm'
 } as const;
 
-// ── Pure exported functions (testable) ───────────────────────
-
-/**
- * Formats an ISO timestamp string to a human-readable "Jan 15 at 2:30 PM" format.
- */
 export function formatTimestamp(isoStr: string): string {
 	const d = new SvelteDate(isoStr);
 	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -46,32 +39,21 @@ export function formatTimestamp(isoStr: string): string {
 	return `${months[d.getMonth()]} ${d.getDate()} at ${hour}:${m} ${ampm}`;
 }
 
-/**
- * Formats a personnel record as "RANK LastName, FirstName".
- */
 export function getPersonDisplayName(personnelId: string, personnel: Personnel[]): string {
 	const p = personnel.find((pr) => pr.id === personnelId);
 	return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
 }
 
-/**
- * Returns the group name for a personnel record, or null if unassigned.
- */
 export function getPersonGroupDisplayName(personnelId: string, personnel: Personnel[]): string | null {
 	const p = personnel.find((pr) => pr.id === personnelId);
 	return p?.groupName || null;
 }
 
-/**
- * Returns the template name, or a fallback for null/deleted templates.
- */
 export function getTemplateDisplayName(templateId: string | null, templates: OnboardingTemplate[]): string {
 	if (!templateId) return 'No template';
 	const tmpl = templates.find((t) => t.id === templateId);
 	return tmpl?.name ?? 'Template deleted';
 }
-
-// ── Step type constants ───────────────────────────────────────
 
 export const STEP_TYPE_LABELS: Record<string, string> = {
 	training: 'Training',
@@ -79,10 +61,7 @@ export const STEP_TYPE_LABELS: Record<string, string> = {
 	checkbox: 'Checkbox'
 };
 
-// ── Context class ─────────────────────────────────────────────
-
 export class OnboardingPageContext {
-	// Injected dependencies
 	readonly #org: OnboardingPageAccess;
 	readonly orgId: string;
 	readonly modals: ModalRegistry;
@@ -91,19 +70,16 @@ export class OnboardingPageContext {
 	#assignTemplateRequest = 0;
 	#switchTemplateRequest = 0;
 
-	// UI state
 	cancellingId = $state<string | null>(null);
 	assigningTemplateId = $state<string | null>(null);
 	assignTemplateSelected = $state('');
 	assigningTemplate = $state(false);
 	assignTemplateError = $state('');
 	removingDeprecatedStepId = $state<string | null>(null);
-	// Switch template state
 	switchingTemplateId = $state<string | null>(null);
 	switchTemplateSelected = $state('');
 	switchingTemplate = $state(false);
 	switchTemplateError = $state('');
-	// Complete confirmation state
 	completingId = $state<string | null>(null);
 	completingIncompleteCount = $state(0);
 	readonly #rosterView = $derived.by<RosterReadModelView>(() =>
@@ -125,8 +101,6 @@ export class OnboardingPageContext {
 		this.orgId = org.orgId;
 		this.noteAuthorName = noteAuthorName;
 	}
-
-	// ── Permission flags (advisory feature policy) ─────────────
 
 	get canManageWorkflows(): boolean {
 		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.manageWorkflows, {
@@ -174,8 +148,6 @@ export class OnboardingPageContext {
 			.allowed;
 	}
 
-	// ── Derived ────────────────────────────────────────────────
-
 	get hasTemplateSteps() {
 		return onboardingTemplateStore.allSteps.length > 0;
 	}
@@ -195,8 +167,6 @@ export class OnboardingPageContext {
 	get templatesUrl(): string {
 		return `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/onboarding/templates`;
 	}
-
-	// ── Helpers ────────────────────────────────────────────────
 
 	getPersonName(personnelId: string): string {
 		return this.rosterView.displayName(personnelId);
@@ -264,8 +234,6 @@ export class OnboardingPageContext {
 	dispose() {
 		this.#disposed = true;
 	}
-
-	// ── Event handlers ─────────────────────────────────────────
 
 	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null): Promise<boolean> {
 		const version = onboardingStore.organizationVersion;
@@ -468,8 +436,6 @@ export class OnboardingPageContext {
 		);
 		if (this.#isCurrent(version)) this.removingDeprecatedStepId = null;
 	}
-
-	// ── Store accessors (for view) ─────────────────────────────
 
 	get onboardings() {
 		return onboardingStore.items;

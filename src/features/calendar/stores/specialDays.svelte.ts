@@ -1,14 +1,3 @@
-/**
- * Special days store — federal holidays and org closures shown on the calendar.
- *
- * Extended methods:
- * - `addClosureDays({ name, dates })` — one request that adds a closure on each date not already taken
- * - `getByDate(date)` — returns the SpecialDay for a given date, or undefined
- * - `isSpecialDay(date)` — boolean check used to render calendar cell indicators
- * - `getByYear(year)` — all special days for a given year (for the special day manager UI)
- *
- * Loaded by the calendar and dashboard page load functions.
- */
 import {
 	buildRequestError,
 	defineStore,

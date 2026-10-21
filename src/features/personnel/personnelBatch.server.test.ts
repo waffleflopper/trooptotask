@@ -645,7 +645,6 @@ describe('importPersonnelBatch', () => {
 	it('validates and inserts valid records', async () => {
 		const ctx = buildContext();
 
-		// Seed groups for name matching
 		ctx.store.seed('groups', [{ id: 'group-1', organization_id: 'test-org', name: 'Alpha' }]);
 
 		const result = await importPersonnelBatch(ctx, {
@@ -658,7 +657,6 @@ describe('importPersonnelBatch', () => {
 		expect(result.inserted).toHaveLength(2);
 		expect(result.errors).toHaveLength(0);
 
-		// Verify records in store
 		const personnel = await ctx.store.findMany('personnel', 'test-org');
 		expect(personnel).toHaveLength(2);
 	});

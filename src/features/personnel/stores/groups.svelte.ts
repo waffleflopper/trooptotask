@@ -1,12 +1,6 @@
 /**
- * Groups store — org-level list of personnel groups, sorted by `sortOrder`.
- *
- * Extends the base store with name-safe add/rename helpers.
  * `add` silently no-ops on empty strings or duplicate names (case-insensitive).
  * `rename` returns false for an empty name or a Group no longer loaded, and rejects a duplicate name.
- *
- * Consumed by the sidebar group selector, personnel filter, and any component that needs
- * the org's group list. Load through the org shell workspace bootstraps.
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';

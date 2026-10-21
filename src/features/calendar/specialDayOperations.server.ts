@@ -1,9 +1,3 @@
-/**
- * Calendar special-day operations — add closure days, update, delete, and reset holidays.
- *
- * Special days mark dates with custom labels on the calendar (training holidays, federal holidays,
- * unit stand-downs, etc.).
- */
 import { closureDaysInput, specialDayUpdateInput } from './calendarPersistenceMapping.server';
 import { getDefaultFederalHolidays } from './utils/federalHolidays';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy, type CalendarCatalogPorts } from './calendarPolicy.server';

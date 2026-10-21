@@ -16,15 +16,13 @@ type TestRow = {
 	group: string;
 };
 
-// @testing-library/svelte cannot infer generics on Svelte 5 components.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Table = DataTable as any;
-
 const testData: TestRow[] = [
 	{ id: '1', name: 'Alice', age: 30, group: 'A' },
 	{ id: '2', name: 'Bob', age: 25, group: 'B' },
 	{ id: '3', name: 'Charlie', age: 35, group: 'A' }
 ];
+
+const Table = DataTable<TestRow>;
 
 const columns: ColumnDef<TestRow>[] = [
 	{ key: 'name', header: 'Name', value: (row) => row.name },

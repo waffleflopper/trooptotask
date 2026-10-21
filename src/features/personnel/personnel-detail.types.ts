@@ -28,7 +28,6 @@ export interface PersonnelLogNotes {
 }
 
 export interface PersonnelLogPageData {
-	/** Open and completed follow-ups. */
 	followUps: Promise<PersonnelFollowUp[]>;
 	notes: Promise<PersonnelLogNotes>;
 }

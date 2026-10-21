@@ -31,7 +31,6 @@ function getObservedDate(date: Date): Date {
 export function getFederalHolidays(year: number): SpecialDay[] {
 	const holidays: SpecialDay[] = [];
 
-	// New Year's Day - January 1
 	const newYears = getObservedDate(new Date(year, 0, 1));
 	holidays.push({
 		id: `new-years-${year}`,
@@ -67,7 +66,6 @@ export function getFederalHolidays(year: number): SpecialDay[] {
 		type: 'federal-holiday'
 	});
 
-	// Juneteenth - June 19
 	const juneteenth = getObservedDate(new Date(year, 5, 19));
 	holidays.push({
 		id: `juneteenth-${year}`,
@@ -76,7 +74,6 @@ export function getFederalHolidays(year: number): SpecialDay[] {
 		type: 'federal-holiday'
 	});
 
-	// Independence Day - July 4
 	const independenceDay = getObservedDate(new Date(year, 6, 4));
 	holidays.push({
 		id: `independence-day-${year}`,
@@ -103,7 +100,6 @@ export function getFederalHolidays(year: number): SpecialDay[] {
 		type: 'federal-holiday'
 	});
 
-	// Veterans Day - November 11
 	const veteransDay = getObservedDate(new Date(year, 10, 11));
 	holidays.push({
 		id: `veterans-day-${year}`,
@@ -121,7 +117,6 @@ export function getFederalHolidays(year: number): SpecialDay[] {
 		type: 'federal-holiday'
 	});
 
-	// Christmas Day - December 25
 	const christmas = getObservedDate(new Date(year, 11, 25));
 	holidays.push({
 		id: `christmas-${year}`,

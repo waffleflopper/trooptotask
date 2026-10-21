@@ -287,7 +287,6 @@ describe('BulkStatusImport', () => {
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Parse' }));
 
-		// The rank-conflict warning copy renders on the preview row.
 		expect(await screen.findByText(/roster rank/)).toBeTruthy();
 
 		// The warning row stays selectable, so Next is enabled and the import proceeds

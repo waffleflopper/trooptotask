@@ -69,7 +69,6 @@ export async function approveDeletionRequest(
 	const outcome = await approveTarget(boundRequestId, resourceId, reviewedAt);
 	if (outcome) fileCleanup = outcome.fileCleanup;
 
-	// Notify the requester
 	const isPersonnel = resourceType === 'personnel';
 	const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
 	const actionWord = isPersonnel ? 'archive' : 'delete';

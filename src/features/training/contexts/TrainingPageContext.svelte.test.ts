@@ -50,10 +50,6 @@ vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn()
 }));
 
-// ---------------------------------------------------------------------------
-// Minimal stubs
-// ---------------------------------------------------------------------------
-
 function makeOrg() {
 	return {
 		orgId: 'test-org',
@@ -158,10 +154,6 @@ function makeData(overrides: Record<string, unknown> = {}) {
 		...overrides
 	};
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 const submitRemovalRequest = vi.fn().mockResolvedValue(true);
 type ContextArgs = ConstructorParameters<typeof TrainingPageContext>;
@@ -290,7 +282,6 @@ describe('TrainingPageContext', () => {
 	describe('filteredPersonnel', () => {
 		it('returns all personnel sorted by last name when no group selected', () => {
 			const ctx = makeContext(makeData(), modals, makeOrg());
-			// Adams before Smith
 			expect(ctx.filteredPersonnel[0].lastName).toBe('Adams');
 			expect(ctx.filteredPersonnel[1].lastName).toBe('Smith');
 		});

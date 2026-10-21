@@ -21,7 +21,7 @@
 	}: Props = $props();
 </script>
 
-<!-- Native button with its own classes: a month renders 651+ cells and remounts them on every navigation. The ui/button wrapper slowed load and navigation, and the shared `cell` variant classes slowed load (EVIDENCE.md, Phase 10 D03). -->
+<!-- Native button with its own classes: a month renders 651+ cells and remounts them on every navigation. The ui/button wrapper slowed load and navigation, and the shared `cell` variant classes slowed load. -->
 <button
 	data-slot="date-cell"
 	class={cn(

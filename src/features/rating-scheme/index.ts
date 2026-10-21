@@ -1,6 +1,3 @@
-// Rating Scheme feature barrel export
-
-// Types
 export type {
 	WorkflowStatus,
 	WorkflowStatusOption,
@@ -19,7 +16,6 @@ export {
 	RATING_STATUS_COLORS
 } from './contracts';
 
-// Utils
 export { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './utils/ratingScheme';
 export { exportRatingScheme } from './utils/ratingSchemeExport';
 

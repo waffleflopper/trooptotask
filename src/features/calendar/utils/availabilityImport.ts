@@ -1,21 +1,10 @@
 /**
- * Availability Status Import — the provider-free rules that turn spreadsheet rows into
- * Availability Status batch records.
- *
- * This module owns the import-only rules the Import surface previously kept inline
- * (and implemented twice, with drift between the copies):
- * - matching a row to a Personnel Record by name, with Rank disambiguation
- * - row validation across matching, dates, status presence and note length
- * - planning which CSV status names need manual resolution to a Status Type
- * - building the final batch records, with skip reasons for rows that drop out
- *
  * Its boundary is string-free: issues and skip reasons are stable codes, and the import
  * surface maps codes to copy — the same discipline as a Policy Reason Code outside the
  * Policy Evaluator. A Rank that contradicts a unique name match is a `rank-conflict`
  * warning, not a hard block: the row stays importable against the matched person.
  *
- * It is intentionally pure: no store, no fetch, no `$app`. The shared range rules stay
- * in the sibling availabilityMutation module. The interface is the test surface.
+ * It is intentionally pure: no store, no fetch, no `$app`.
  */
 import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
@@ -169,7 +158,6 @@ export function matchPersonnelRow(row: AvailabilityImportRowValues, index: Roste
 /** The saved note limit; the database rejects a longer note and fails the whole batch. */
 const NOTE_MAX_LENGTH = 200;
 
-/** Validate one import row across personnel matching, date parsing, status presence and note length. */
 export function validateAvailabilityImportRow(
 	row: AvailabilityImportRowValues,
 	index: RosterNameIndex
@@ -209,7 +197,6 @@ export function validateAvailabilityImportRow(
 export interface UnresolvedStatusName {
 	/** The status name as it first appears in the rows, original casing preserved. */
 	csvName: string;
-	/** How many rows carry this status name. */
 	count: number;
 }
 

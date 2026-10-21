@@ -1,7 +1,4 @@
 /**
- * Onboarding retention deletes completed or cancelled records beyond the Organization retention period,
- * then notifies administrators with a summary.
- *
  * The scheduled service supplies Organization-scoped persistence without a user session.
  */
 import type { OnboardingRetentionStore } from './onboardingRetentionPorts.server';

@@ -141,7 +141,7 @@ describe('advanceStage', () => {
 
 	it('rejects advancing a non-paperwork step type', async () => {
 		const ctx = buildContext();
-		seedStep(ctx); // checkbox step
+		seedStep(ctx);
 
 		await expect(advanceStage(ctx, { stepId: 'step-1', stageName: 'submitted' })).rejects.toThrow(
 			'Only paperwork steps can be advanced'

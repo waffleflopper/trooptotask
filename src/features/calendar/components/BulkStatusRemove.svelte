@@ -60,12 +60,10 @@
 
 	const todayStr = formatDate(new Date());
 
-	// Selection state
 	let selectedStatusSelection = $state('');
 	let startDate = $state(todayStr);
 	let endDate = $state(todayStr);
 
-	// Step state
 	let step = $state<'select' | 'confirm'>('select');
 	let matchResult = $state<ClassifiedOverlaps>({ exact: [], partial: [] });
 	let reviewCriteria = $state<ReviewCriteria | null>(null);
@@ -78,7 +76,6 @@
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
 
-	// ---- Validation ----
 	const range = $derived.by(() => {
 		const validated = validateDateRange(startDate, endDate);
 		if (validated.valid && validated.dayCount > MAX_CALENDAR_RANGE_DAYS) {
@@ -110,7 +107,6 @@
 		}
 	}
 
-	// ---- Two-step flow ----
 	async function handleFindMatching() {
 		if (!isValid || isLoadingMatches) return;
 

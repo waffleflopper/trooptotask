@@ -1,5 +1,4 @@
 /**
- * Create, update and delete OER/NCOER/WOER evaluation records.
  * The rated Person anchors Group access; internal evaluators stay Organization-local.
  *
  * Empty string fields are coerced to null before persistence (optional fields pattern).

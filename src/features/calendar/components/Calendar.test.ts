@@ -375,14 +375,11 @@ describe('Calendar', () => {
 		expect(onPersonClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'person-120' }));
 	});
 
-	// ---- Upcoming-loss indicators ------------------------------------------
-
 	describe('upcoming-loss indicators', () => {
 		it('renders a loss indicator chip in the row header for a person in the loss map', () => {
 			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
 			const { container } = renderCalendar({ upcomingLossMap: lossMap });
 
-			// Chip must exist for person-1
 			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]');
 			expect(chip).toBeTruthy();
 		});
@@ -404,7 +401,6 @@ describe('Calendar', () => {
 		});
 
 		it('does not render a chip for a person not in the loss map', () => {
-			// Empty map — neither person has an upcoming loss
 			const { container } = renderCalendar({ upcomingLossMap: new Map() });
 
 			expect(container.querySelector('[data-testid="loss-indicator-person-1"]')).toBeNull();
@@ -412,7 +408,6 @@ describe('Calendar', () => {
 		});
 
 		it('does not render a chip at all when no loss map is provided', () => {
-			// No upcomingLossMap prop at all
 			const { container } = renderCalendar();
 
 			expect(container.querySelector('[data-testid^="loss-indicator-"]')).toBeNull();
@@ -429,7 +424,6 @@ describe('Calendar', () => {
 		});
 
 		it('only shows chips for personnel that have a loss record, leaving others clean', () => {
-			// Only person-1 is in the map; person-2 must not get a chip
 			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
 			const { container } = renderCalendar({ upcomingLossMap: lossMap });
 

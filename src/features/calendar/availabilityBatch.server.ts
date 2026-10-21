@@ -1,11 +1,3 @@
-/**
- * Bulk availability use case — set or clear availability for multiple personnel at once.
- *
- * `createAvailabilityBatch` inserts availability entries for the given personnel IDs
- * within a date range, up to AVAILABILITY_BATCH_LIMIT entries per call.
- *
- * Single-record availability uses Calendar-owned operations behind the route.
- */
 import { error } from '@sveltejs/kit';
 import {
 	CALENDAR_POLICY_ACTIONS,

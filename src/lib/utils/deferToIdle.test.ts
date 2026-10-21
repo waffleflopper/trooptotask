@@ -52,16 +52,12 @@ describe('deferToIdle', () => {
 
 	it('no-ops during SSR when window is undefined', () => {
 		const callback = vi.fn();
-		const originalWindow = globalThis.window;
-		// @ts-expect-error -- simulating SSR by removing window
-		delete globalThis.window;
+		vi.stubGlobal('window', undefined);
 
 		const cancel = deferToIdle(callback);
 		vi.advanceTimersByTime(100);
 
 		expect(callback).not.toHaveBeenCalled();
 		expect(cancel).toBeTypeOf('function');
-
-		globalThis.window = originalWindow;
 	});
 });

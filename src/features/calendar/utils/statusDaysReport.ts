@@ -13,10 +13,6 @@ export interface StatusDaysResult {
 	activeStatusTypeIds: string[]; // status type IDs that appear in results, in catalog order (for column headers)
 }
 
-/**
- * Expand a date range string pair into individual YYYY-MM-DD date strings,
- * clamped to the report's start/end bounds.
- */
 function expandDateRange(entryStart: string, entryEnd: string, reportStart: string, reportEnd: string): string[] {
 	const start = clampDate(entryStart, reportStart, reportEnd);
 	const end = clampDate(entryEnd, reportStart, reportEnd);
@@ -38,9 +34,6 @@ function clampDate(date: string, min: string, max: string): string {
 	return date;
 }
 
-/**
- * Compute status day counts for each person.
- */
 export function computeStatusDays(
 	personnel: Personnel[],
 	entries: AvailabilityEntry[],
@@ -48,7 +41,6 @@ export function computeStatusDays(
 	startDate: string,
 	endDate: string
 ): StatusDaysResult {
-	// Index entries by personnelId for fast lookup
 	const entriesByPerson = new Map<string, AvailabilityEntry[]>();
 	for (const entry of entries) {
 		let list = entriesByPerson.get(entry.personnelId);

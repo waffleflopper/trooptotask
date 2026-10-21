@@ -19,7 +19,6 @@ const range = {
 	collections: ['availability', 'assignments'] as const
 };
 
-// Independent R6 facts: no duty run/template is needed to read these saved slots.
 // The edited slot was generated for p-alpha, but its saved assignee is now p-bravo.
 const savedSlots = [
 	{

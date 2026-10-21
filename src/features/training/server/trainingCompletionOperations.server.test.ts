@@ -436,7 +436,6 @@ describe('createTrainingRecord', () => {
 	it('errors when training type not found', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
-		// no training type seeded
 
 		await expect(createTrainingRecord(ctx, validInput)).rejects.toMatchObject({ status: 404 });
 	});
@@ -662,7 +661,6 @@ describe('deleteTrainingRecord', () => {
 		const result = await deleteTrainingRecord(ctx, RECORD);
 		expect(result).toMatchObject({ requiresApproval: true });
 
-		// Record should NOT be deleted
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
 	});

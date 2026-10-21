@@ -7,7 +7,7 @@ import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDate, formatToday, parseDate } from '$lib/utils/dates';
 import { formatDashboardDisplayDate } from '$features/dashboard/contracts';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -207,9 +207,6 @@ export class DashboardScreenModel {
 	private statusTypeById = $derived.by(() => indexById(this.sources.statusTypes.items));
 	private groupById = $derived.by(() => indexById(this.sources.groups.items));
 
-	// ---------------------------------------------------------------------------
-	// Banner / getting-started support state
-	// ---------------------------------------------------------------------------
 	gettingStartedDismissed = $state(false);
 	starterPackApplyState = $state<DashboardStarterPackApplyState>({
 		status: 'idle',
@@ -220,9 +217,7 @@ export class DashboardScreenModel {
 
 	constructor(data: DashboardPageData, options: DashboardScreenModelOptions = {}) {
 		this.data = data;
-		// Date is intentional here so callers using fake timers can snapshot today deterministically.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		this.today = options.today ?? formatToday(new Date());
+		this.today = options.today ?? formatToday();
 		this.sources = options.sources ?? createDefaultDashboardStoreSources();
 		this.storage = options.storage ?? createBrowserStoragePort();
 		this.upcomingGroupBy = readPreference(this.storage, UPCOMING_KEY, ['date', 'group'], 'date');
@@ -244,17 +239,10 @@ export class DashboardScreenModel {
 		}
 	}
 
-	// ---------------------------------------------------------------------------
-	// Display helper for the current date
-	// ---------------------------------------------------------------------------
 	get todayDisplay(): string {
 		return formatDashboardDisplayDate(this.today);
 	}
 
-	// ---------------------------------------------------------------------------
-	// Typed counts that flow through the page-data index signature
-	// (bootstrap counts — distinct from the live store-backed totals)
-	// ---------------------------------------------------------------------------
 	get personnelCount(): number {
 		return this.data.dashboard.data.personnel.length;
 	}
@@ -275,9 +263,6 @@ export class DashboardScreenModel {
 		return this.data.userRole as string | undefined;
 	}
 
-	// ---------------------------------------------------------------------------
-	// Getting-started checklist support data
-	// ---------------------------------------------------------------------------
 	get hasSupportData(): boolean {
 		return this.supportData !== null;
 	}
@@ -939,12 +924,8 @@ function hexToTextColor(hex: string): string {
 	return L > 0.179 ? '#1a1a1a' : '#ffffff';
 }
 
-function formatToday(date: Date | SvelteDate): string {
-	return formatDate(date);
-}
-
 function dateAfter(dateStr: string, days: number): string {
 	const d = new SvelteDate(`${dateStr}T00:00:00`);
 	d.setDate(d.getDate() + days);
-	return formatToday(d);
+	return formatDate(d);
 }

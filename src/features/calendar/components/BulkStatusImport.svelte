@@ -38,21 +38,17 @@
 
 	let { personnel, statusTypes, onComplete }: Props = $props();
 
-	// State machine
 	type Step = 'upload' | 'preview' | 'resolve' | 'results';
 	let step = $state<Step>('upload');
 
-	// Upload state
 	let rawRows = $state<string[][]>([]);
 	let pasteText = $state('');
 	let parseError = $state('');
 
-	// Resolve state
 	type StatusMapping = { csvName: string; count: number; resolvedId: string | null };
 	let unmatchedStatuses = $state<StatusMapping[]>([]);
 	let savedCheckedRows = $state<{ rowNumber: number; values: Record<string, string> }[]>([]);
 
-	// Import state
 	let importing = $state(false);
 	let importResult = $state<{ inserted: number; notInserted: number; skipped: number; reason?: string } | null>(null);
 	let completionNotified = false;
@@ -216,7 +212,6 @@
 			statusTypes
 		).map((unresolved) => ({ ...unresolved, resolvedId: null }));
 
-		// If no unmatched, go straight to import
 		if (unmatchedStatuses.length === 0) {
 			handleImport();
 		} else {

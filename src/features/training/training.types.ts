@@ -44,7 +44,7 @@ export interface TrainingCompletionHistoryEntry {
 export interface TrainingView {
 	id: string;
 	name: string;
-	columnIds: string[]; // ordered array of training_type IDs
+	columnIds: string[];
 	createdBy: string;
 	createdAt: string;
 	updatedAt: string;
@@ -60,11 +60,11 @@ export type TrainingStatus =
 	| 'exempt';
 
 export const TRAINING_STATUS_COLORS: Record<TrainingStatus, string> = {
-	current: '#22c55e', // green
-	'warning-yellow': '#eab308', // yellow
-	'warning-orange': '#f97316', // orange
-	expired: '#ef4444', // red
-	'not-completed': '#6b7280', // gray
-	'not-required': '#d1d5db', // light gray
-	exempt: '#9ca3af' // grey
+	current: '#22c55e',
+	'warning-yellow': '#eab308',
+	'warning-orange': '#f97316',
+	expired: '#ef4444',
+	'not-completed': '#6b7280',
+	'not-required': '#d1d5db',
+	exempt: '#9ca3af'
 };

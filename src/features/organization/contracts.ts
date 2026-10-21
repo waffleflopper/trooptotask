@@ -23,7 +23,6 @@ export interface OrganizationFileUploadRegistration {
 /** A committed deletion's stored file is removed now, or later by scheduled cleanup. */
 export type FileCleanup = 'complete' | 'pending';
 
-/** Derived account setup state for this Organization's own invitations. */
 export interface OrganizationInvitationSetupStateLookupPort {
 	findSetupStateByInvitationId(orgId: string, invitationIds: string[]): Promise<Map<string, AccessRequestSetupState>>;
 }

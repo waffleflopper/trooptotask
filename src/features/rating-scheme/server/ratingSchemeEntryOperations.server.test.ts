@@ -371,7 +371,6 @@ describe('Rating scheme entry — delete', () => {
 		const result = await remove(ctx, ENTRY);
 		expect(result).toMatchObject({ requiresApproval: true });
 
-		// Entry should NOT be deleted
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: ENTRY });
 		expect(stored).not.toBeNull();
 	});

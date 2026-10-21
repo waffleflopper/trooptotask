@@ -1,10 +1,3 @@
-/**
- * Calendar page query — fetches all data needed to render the calendar for a date range.
- *
- * `fetchCalendarData(ctx, { rangeStart, rangeEnd })` returns availability entries,
- * special days, assignment types, daily assignments, and pinned groups for the given
- * ISO-string date window. Scoped collections are filtered from the caller's Scope Set.
- */
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import type { CalendarRangeCollection } from './utils/calendarRange';

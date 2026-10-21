@@ -31,7 +31,6 @@ describe('createAvailabilityBatch', () => {
 
 		const result = await createAvailabilityBatch(ctx, { records: validRecords });
 
-		// Returns inserted records in camelCase
 		expect(result.inserted).toHaveLength(2);
 		expect(result.inserted).toEqual(
 			expect.arrayContaining([
@@ -51,11 +50,9 @@ describe('createAvailabilityBatch', () => {
 			])
 		);
 
-		// Data persisted in store
 		const stored = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(stored).toHaveLength(2);
 
-		// Audit logged with count
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'availability.bulk_created',
@@ -240,7 +237,6 @@ describe('deleteAvailabilityBatch', () => {
 
 		expect(result).toEqual({ deleted: 2 });
 
-		// Only e-keep remains
 		const remaining = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(remaining).toHaveLength(1);
 
@@ -299,7 +295,6 @@ describe('deleteAvailabilityBatch', () => {
 			message: 'You do not have access to that Calendar scope'
 		});
 
-		// Nothing deleted
 		const remaining = await ctx.rawStore!.findMany('availability_entries', 'test-org');
 		expect(remaining).toHaveLength(3);
 	});

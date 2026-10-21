@@ -1,7 +1,4 @@
 /**
- * Calendar navigation store: the anchor date whose month both Calendar views start at.
- * `dates` returns every day of that month for the Month grid.
- *
  * The anchor cookie mirrors this month so the server bootstraps the month the viewer left.
  * The store starts from that cookie, so a reload shows the month the bootstrap holds.
  */

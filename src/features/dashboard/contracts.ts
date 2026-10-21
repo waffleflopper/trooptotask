@@ -71,7 +71,6 @@ export interface DashboardSetupSupport {
 	starterConfigurationPacks: StarterConfigurationPackSupport[];
 }
 
-// Shape of page data from (dashboard)/+layout.server.ts + +page.server.ts
 export interface DashboardPageData {
 	orgId: string;
 	orgName: string;

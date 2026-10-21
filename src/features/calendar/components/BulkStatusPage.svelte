@@ -48,7 +48,6 @@
 	);
 	const canMutate = $derived(availabilityAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
-	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
 	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'add', label: 'Add' },
@@ -71,7 +70,6 @@
 		goto(resolve(target), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
-	// ---- Personnel data ----
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const rosterView = $derived(
 		createRosterReadModel({
@@ -99,7 +97,6 @@
 		active = false;
 	});
 
-	// ---- Callbacks for child components ----
 	async function handleBulkApply(
 		personnelIds: string[],
 		statusTypeId: string,

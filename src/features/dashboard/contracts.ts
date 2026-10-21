@@ -228,7 +228,7 @@ export interface StarterConfigurationPackApplyResult {
 	failed: StarterConfigurationPackFailedItem[];
 }
 
-export { formatDashboardDisplayDate } from './dashboardDate';
+export { formatDashboardDisplayDate, formatDashboardTitleDate } from './dashboardDate';
 export interface DashboardPageSummaryData {
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;

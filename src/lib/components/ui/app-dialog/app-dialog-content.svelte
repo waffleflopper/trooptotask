@@ -55,6 +55,7 @@
 			'max-h-[min(42rem,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-lg',
 			size === 'wide' && 'sm:max-w-3xl',
 			size === 'fullscreen' && 'h-[calc(100dvh-2rem)] sm:max-w-5xl',
+			dialog.tone === 'destructive' && 'border-t-4 border-t-destructive',
 			className
 		)}
 		{...restProps}

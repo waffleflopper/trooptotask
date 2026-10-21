@@ -931,9 +931,9 @@ Shared shadcn-svelte-backed dialog foundation for information, edit, form, and r
 
 Public components:
 
-- `AppDialog.Root`: controlled open state and dismissal policy. Props: `open?: boolean` (bindable), `busy?: boolean`, `closeBlocked?: boolean`, `onClose?: () => void`, plus shadcn dialog root props.
+- `AppDialog.Root`: controlled open state and dismissal policy. Props: `open?: boolean` (bindable), `busy?: boolean`, `closeBlocked?: boolean`, `onClose?: () => void`, `tone?: 'default' | 'destructive'`, plus shadcn dialog root props. `tone="destructive"` is for a confirmation that permanently destroys data, such as deleting a unit. It draws a 4px destructive top rule, sets the title as an uppercase heading, widens the padding and gives the footer a muted band.
 - `AppDialog.Content`: shared shell with close button, constrained viewport and mobile-safe width. It reads `busy` and `closeBlocked` from Root. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `showCloseButton?: boolean`, `presentation?: 'dialog' | 'sheet'`. `presentation="sheet"` renders the same dialog as a right-side `ui/sheet` with the same busy and close-blocked rules, for a long editor that benefits from the page staying visible. `size` applies only to the centered dialog. The built-in close button is named `Close`; set `showCloseButton={false}` whenever the footer shows its own `Close` button, so the dialog never offers two.
-- `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context.
+- `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context. `Header` takes `eyebrow?: string`, a short mono label above the title such as `Delete unit · Cannot be undone`; it reads in the destructive color under the destructive tone.
 - `AppDialog.Body`: scrollable dialog body. Put long content and forms here.
 - `AppDialog.Footer`: sticky action area outside the scrollable body.
 
@@ -987,7 +987,9 @@ Consumers: confirmations in Calendar, Critical Tasks, Onboarding, Personnel, Rat
 
 ## `ui/button`
 
-Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `destructive-solid`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+
+Use `variant="destructive-solid"` only for the action that permanently destroys a unit or its data, such as Danger zone `Delete unit…` and the `Delete permanently` confirmation. Every other destructive action keeps the soft `destructive` tint.
 
 Use `variant="accent"` for the filled amber call to action on the public site (nav Request Access, CTA and landing hero actions); it lightens on hover through `bg-accent-hover`.
 

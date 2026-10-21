@@ -1,35 +1,23 @@
 import { listDeletionRequests, type DeletionRequestReadContext } from '$features/deletion-requests/index.server';
 import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
-import type { SettingsApprovalsSectionData } from './settingsSectionTypes';
 
-export interface ApprovalsSettingsData {
-	sections: {
-		approvals: SettingsApprovalsSectionData;
-	};
-}
-
-export interface BuildApprovalsSettingsDataInput {
-	approvalRequests: DeletionRequestApproval[];
-}
+export type ApprovalsSettingsData = {
+	/** Newest first. */
+	pendingRequests: DeletionRequestApproval[];
+};
 
 export async function loadApprovalsSettings(ctx: DeletionRequestReadContext): Promise<ApprovalsSettingsData> {
-	const approvalRequests = await listDeletionRequests(ctx);
-	return buildApprovalsSettingsData({ approvalRequests });
-}
-
-export function buildApprovalsSettingsData(input: BuildApprovalsSettingsDataInput): ApprovalsSettingsData {
+	const requests = await listDeletionRequests(ctx, { status: 'pending' });
 	return {
-		sections: {
-			approvals: {
-				activity: {
-					pendingApprovalsCount: countPendingApprovals(input.approvalRequests),
-					approvalRequests: input.approvalRequests
-				}
-			}
-		}
+		pendingRequests: requests.map((request) => ({
+			id: request.id,
+			status: request.status,
+			requested_by_email: request.requested_by_email,
+			resource_description: request.resource_description,
+			resource_type: request.resource_type,
+			resource_url: request.resource_url,
+			created_at: request.created_at,
+			denial_reason: request.denial_reason
+		}))
 	};
-}
-
-function countPendingApprovals(approvalRequests: Array<Pick<DeletionRequestApproval, 'status'>>): number {
-	return approvalRequests.filter((request) => request.status === 'pending').length;
 }

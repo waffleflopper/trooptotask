@@ -987,7 +987,7 @@ Consumers: confirmations in Calendar, Critical Tasks, Onboarding, Personnel, Rat
 
 ## `ui/button`
 
-Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `destructive-solid`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `ghost-destructive` (a text button in `text-destructive-text` with no fill until hover, for a destructive action beside quieter ones, such as Delete in an Archives row or Clear month in the Calendar planner column menu), `destructive-solid`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
 
 Use `variant="destructive-solid"` only for the action that permanently destroys a unit or its data, such as Danger zone `Delete unit…` and the `Delete permanently` confirmation. Every other destructive action keeps the soft `destructive` tint.
 
@@ -1428,7 +1428,7 @@ Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scr
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `rowDetail?: (row: T)`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
-`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `maxWidth?`, `rowHeader?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell. Body cells are capped at 20rem and wrap; `maxWidth: 'none'` lifts the cap for a column whose content sets its own width, such as Roster Picker's availability day strip.
+`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `maxWidth?`, `rowHeader?`, `hiddenBelow?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell. `hiddenBelow: 'md'` hides the column's header and cells below 768 px with CSS. Use it instead of swapping columns on a media query, which renders the wide layout on the server and shifts on a narrow screen; carry the hidden values in another cell that shows below `md`. Body cells are capped at 20rem and wrap; `maxWidth: 'none'` lifts the cap for a column whose content sets its own width, such as Roster Picker's availability day strip.
 
 `DataTableState<T>` provides: `columns`, `rows`, `allRows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `setPageSize()`, `toggleGroup()`, `expandAll()`, `collapseAll()`, `getRowKey()`, `isRowDisabled()`
 

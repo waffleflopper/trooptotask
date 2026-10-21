@@ -81,10 +81,6 @@ async function settle(promise: Promise<unknown>) {
 	await tick();
 }
 
-function heading() {
-	return screen.getByRole('heading', { level: 2, name: 'Pending requests' });
-}
-
 beforeEach(() => {
 	navigation.invalidate.mockResolvedValue(undefined);
 });
@@ -188,7 +184,40 @@ describe('Approvals review', () => {
 		});
 		expect(screen.queryByText('Record a')).toBeNull();
 		expect(screen.getByText(/^2 waiting/)).toBeTruthy();
-		expect(document.activeElement).toBe(heading());
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Deny Record b' }));
+	});
+
+	describe('after a request is reviewed', () => {
+		beforeEach(() => {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+		});
+
+		it('moves focus to the next request and announces the result', async () => {
+			mount([request('a'), request('b'), request('c')]);
+			await fireEvent.click(row('Record b').getByRole('button', { name: 'Approve archive Record b' }));
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
+
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Deny Record c' }));
+			expect(screen.getByRole('status').textContent).toBe('Approved Record b.');
+		});
+
+		it('moves focus to the previous request when the last one is reviewed', async () => {
+			mount([request('a'), request('b'), request('c')]);
+			await fireEvent.click(row('Record c').getByRole('button', { name: 'Approve archive Record c' }));
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
+
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Deny Record b' }));
+		});
+
+		it('moves focus to the end line when no request is left', async () => {
+			mount([request('a')]);
+			await deny('Not needed');
+			await fireEvent.keyDown(reasonField(), { key: 'Enter' });
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledOnce());
+
+			expect(document.activeElement).toBe(screen.getByText(END_LINE));
+			expect(screen.getByRole('status').textContent).toBe('Denied Record a.');
+		});
 	});
 
 	it('starts a fresh denial draft for a different request', async () => {

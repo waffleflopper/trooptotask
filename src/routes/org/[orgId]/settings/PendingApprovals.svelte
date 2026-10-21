@@ -20,7 +20,8 @@
 	let denialReason = $state('');
 	let processingApproval = $state<string | null>(null);
 	let reviewError = $state<{ id: string; message: string } | null>(null);
-	let heading = $state<HTMLHeadingElement | null>(null);
+	let endLine = $state<HTMLParagraphElement | null>(null);
+	let announcement = $state('');
 	const reviewedIds = new SvelteSet<string>();
 	let active = true;
 	onDestroy(() => {
@@ -38,6 +39,16 @@
 
 	function requestName(request: DeletionRequestApproval) {
 		return request.resource_description ?? approvalKind(request.resource_type).label;
+	}
+
+	/** The row that takes focus when `id` leaves the list: the next request, else the previous, else the end line. */
+	function focusTargetAfter(id: string): () => HTMLElement | null {
+		const index = pending.findIndex((request) => request.id === id);
+		const neighbor = pending[index + 1] ?? pending[index - 1];
+		return () =>
+			(neighbor
+				? (document.getElementById(`deny-${neighbor.id}`) ?? document.getElementById(`denial-reason-${neighbor.id}`))
+				: null) ?? endLine;
 	}
 
 	async function focusById(id: string) {
@@ -83,6 +94,9 @@
 			const body: unknown = await res.json().catch(() => null);
 			if (!active) return;
 			// HTTP acknowledgment is separate from refreshing the current read model.
+			const focusTarget = focusTargetAfter(id);
+			const reviewed = requests.find((request) => request.id === id);
+			announcement = `${action === 'approve' ? 'Approved' : 'Denied'} ${reviewed ? requestName(reviewed) : 'request'}.`;
 			reviewedIds.add(id);
 			if (body && typeof body === 'object' && 'fileCleanup' in body && body.fileCleanup === 'pending')
 				toastStore.info('Approved. The stored file will be removed automatically.');
@@ -91,7 +105,7 @@
 				denialReason = '';
 			}
 			await tick();
-			heading?.focus();
+			focusTarget()?.focus();
 			try {
 				await invalidate(PENDING_APPROVALS_DEPENDENCY);
 			} catch {
@@ -106,7 +120,8 @@
 </script>
 
 <section class="border-t-2 border-foreground" aria-labelledby="pending-approvals-heading">
-	<h2 bind:this={heading} id="pending-approvals-heading" tabindex="-1" class="sr-only">Pending requests</h2>
+	<h2 id="pending-approvals-heading" class="sr-only">Pending requests</h2>
+	<p role="status" class="sr-only">{announcement}</p>
 	{#if summary}
 		<div class="flex items-center gap-4 border-b py-3 font-mono text-xs leading-5">
 			<p class="flex-1 font-semibold text-warning-foreground">{summary}</p>
@@ -208,7 +223,7 @@
 			</li>
 		{/each}
 	</ul>
-	<p class="flex items-center gap-2.5 py-5 text-sm leading-5 text-muted-foreground">
+	<p bind:this={endLine} tabindex="-1" class="flex items-center gap-2.5 py-5 text-sm leading-5 text-muted-foreground">
 		<CheckIcon class="size-3.5 shrink-0 text-success" aria-hidden="true" />
 		That’s everything. Approved and denied requests move to Logs.
 	</p>

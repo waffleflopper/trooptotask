@@ -154,7 +154,7 @@
 							{#if block.action}<Skeleton class="h-8 w-55 max-w-1/2" />{/if}
 						</div>
 					{:else if block.kind === 'toolbar'}
-						<div class="flex items-center gap-2 py-3">
+						<div class="flex items-center gap-2" style:height="{block.height}px">
 							<Skeleton class="h-8 w-64" />
 							<Skeleton class="ml-auto h-8 w-60 max-w-1/3" />
 						</div>

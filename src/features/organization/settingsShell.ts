@@ -39,8 +39,8 @@ export type SettingsSkeletonBlock =
 	| { kind: 'rows'; heights: readonly number[]; rule?: 'destructive'; endRule?: boolean }
 	/** A compact section title over a 2px rule, with a control on the right when `action` is set. */
 	| { kind: 'heading'; action?: boolean }
-	/** A row of filters above a list. */
-	| { kind: 'toolbar' }
+	/** A row of filters above a list, `height` px from its top to the list. */
+	| { kind: 'toolbar'; height: number }
 	/** A muted strip of inputs, as Members' invite strip. */
 	| { kind: 'strip' }
 	/** `rows` rows of `height` px on 1px rules, under a column-header row when `header` is set. */
@@ -91,7 +91,7 @@ export const SETTINGS_PAGES = {
 			{ kind: 'heading' },
 			{ kind: 'list', rows: 6, height: 45 },
 			{ kind: 'heading', action: true },
-			{ kind: 'toolbar' },
+			{ kind: 'toolbar', height: 56 },
 			{ kind: 'list', rows: 5, height: 49, header: true }
 		]
 	},
@@ -136,7 +136,10 @@ export const SETTINGS_PAGES = {
 		group: 'Records',
 		ownerOnly: true,
 		width: 'table',
-		skeleton: [{ kind: 'toolbar' }, { kind: 'list', rows: 8, height: 49, header: true }]
+		skeleton: [
+			{ kind: 'toolbar', height: 48 },
+			{ kind: 'list', rows: 8, height: 49, header: true }
+		]
 	},
 	danger: {
 		label: 'Danger zone',

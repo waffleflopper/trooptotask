@@ -115,7 +115,6 @@ describe('password update rate limits', () => {
 	});
 });
 
-// Retained provider-acknowledgment coverage from the former cross-owner limiter consumer suite.
 it('retains both password budgets and accepts only acknowledged durable decisions', async () => {
 	const now = new Date('2026-09-17T12:00:00Z');
 	const rpc = vi.fn().mockResolvedValue({ data: [{ limited: false, retry_after_ms: 900_000 }], error: null });

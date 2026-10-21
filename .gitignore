@@ -51,8 +51,6 @@ supabase/schema_remote_live.sql
 test-data/
 tmp/
 
-# Docs artifacts
-docs/pr74_full_diff.txt
 .env*.local
 
 # Local v2 workspace

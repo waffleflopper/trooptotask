@@ -158,7 +158,6 @@ export async function importTrainingRecords(
 		}
 	});
 
-	// Build exempted results
 	const exemptedResults: Array<{ index: number; personnelId: string; trainingTypeId: string }> = [];
 	for (let i = 0; i < records.length; i++) {
 		if (records[i].status === 'exempt' && !batchErrors.some((e) => e.index === i)) {

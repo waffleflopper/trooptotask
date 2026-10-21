@@ -1,23 +1,13 @@
 /**
- * Daily assignments store — assignment types and daily assignment records for the calendar.
- *
  * Combines two collections in one store: `types` (named Calendar assignments like "CQ", "SDO")
  * and `assignments` (the actual date-assignee records). Kept together because every
  * mutation needs both collections in scope.
- *
- * Key extended methods:
- * - `setAssignment(date, assignmentTypeId, assigneeId)` — upserts one assignment
- * - `removeAssignment(date, assignmentTypeId)` — deletes one assignment
- * - `setAssignmentBatch(assignments[])` — bulk upsert used by the assignment planner
- * - `getAssignmentsForDate(date)` — fast lookup for rendering a calendar row
- *
- * Loaded by the calendar and dashboard page load functions.
  */
 import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { assignmentTypesSchema, type AssignmentType, type DailyAssignment } from '$features/calendar/contracts';
-import { assignmentSlotKey } from '$features/calendar/utils/calendarIndexes';
+import { assignmentSlotKey, duplicateAssignmentSlot } from '$features/calendar/utils/calendarIndexes';
 import { calendarLaneIds, calendarLaneTypes } from '$features/calendar/utils/calendarLanes';
 import { sameIdList } from '$features/calendar/utils/idList';
 import { confirmedNotSaved } from './calendarCommandResponse';
@@ -85,20 +75,6 @@ interface AssignmentExtensions extends Record<string, unknown> {
 }
 
 type AssignmentBatchRecord = { date: string; assignmentTypeId: string; assigneeId: string };
-
-function duplicateAssignmentBatchSlot(assignments: AssignmentBatchRecord[]): AssignmentBatchRecord | null {
-	// Local duplicate detection is not read by Svelte reactivity; avoid SvelteSet overhead here.
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity
-	const seen = new Set<string>();
-
-	for (const assignment of assignments) {
-		const key = assignmentSlotKey(assignment.date, assignment.assignmentTypeId);
-		if (seen.has(key)) return assignment;
-		seen.add(key);
-	}
-
-	return null;
-}
 
 function inSlot(date: string, assignmentTypeId: string) {
 	return (assignment: DailyAssignment) => assignment.date === date && assignment.assignmentTypeId === assignmentTypeId;
@@ -336,7 +312,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			if (disputed && !typesStore.busy) void reconcileCatalog(confirmed);
 		},
 
-		// Assignment Type methods
 		async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
 			if (currentLaneFlight()) return null;
 			const write = admitTypeWrite();
@@ -367,7 +342,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			if (!type) return false;
 			const write = admitTypeWrite();
 
-			// Cascade: optimistically remove affected assignments via log
 			const ofType = (assignment: DailyAssignment) => assignment.assignmentTypeId === id;
 			const affectedIds = getAssignmentSnapshot()
 				.filter(ofType)
@@ -386,7 +360,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				confirmedCatalog = write;
 			}
 
-			// Resolve cascade log (success = serverState updated, failure = auto-rollback)
 			if (cascadeMutationId) {
 				internals.log.resolve(cascadeMutationId);
 			}
@@ -416,7 +389,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			return typesStore.getById(id);
 		},
 
-		// Daily Assignment methods
 		async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
 			const existing = getAssignmentSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
 
@@ -486,7 +458,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 		): Promise<boolean> {
 			const normalizedAssignments = normalizeAssignmentBatch(assignments);
-			const duplicateSlot = duplicateAssignmentBatchSlot(normalizedAssignments);
+			const duplicateSlot = duplicateAssignmentSlot(normalizedAssignments);
 			if (duplicateSlot) {
 				toastStore.error(
 					`Duplicate daily assignment slot in batch: ${duplicateSlot.date} / ${duplicateSlot.assignmentTypeId}`

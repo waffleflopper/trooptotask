@@ -14,9 +14,6 @@ import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/perso
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 
-// ---------------------------------------------------------------------------
-// Data shape expected from the page server / layout
-// ---------------------------------------------------------------------------
 export interface PersonnelPageData {
 	orgId: string;
 	orgName: string;
@@ -25,17 +22,14 @@ export interface PersonnelPageData {
 	personnel?: Personnel[];
 	/** Org-configured loss warning window in days; `null` when the setting could not be read. */
 	lossWarningWindowDays?: number | null;
-	/** Personnel IDs whose award tracking has been acknowledged. */
 	awardTrackingAcknowledgedPersonnelIds?: string[];
 	/** Features off for the unit, from the app shell's Organization row. */
 	disabledFeatures?: readonly FeatureKey[];
 	[key: string]: unknown;
 }
 
-// ---------------------------------------------------------------------------
 // Reactive store accessors — injected so the context is testable without
 // importing the real module-singleton stores.
-// ---------------------------------------------------------------------------
 export interface PersonnelStoreAccessor {
 	readonly items: Personnel[];
 }
@@ -44,26 +38,17 @@ export interface PinnedGroupsAccessor {
 	readonly list: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Context class
-// ---------------------------------------------------------------------------
 export class PersonnelPageContext {
-	// ---- Reactive state ----
 	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	searchQuery = $state('');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
-	// ---- Injected deps ----
 	readonly #data: PersonnelPageData;
 	readonly #modals: ModalRegistry;
 	readonly #org: PersonnelPageAccess;
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
-	/**
-	 * Reference date for upcoming-loss evaluation.
-	 * Injectable so tests can pin the date without real-time dependencies.
-	 * Defaults to today's local date in production.
-	 */
+	/** Injectable so tests can pin the date without real-time dependencies. */
 	readonly #today: string;
 
 	constructor(
@@ -78,13 +63,11 @@ export class PersonnelPageContext {
 		this.#modals = modals;
 		this.#org = org;
 
-		// Pin to the provided date or fall back to the local calendar date
 		const now = new SvelteDate();
 		this.#today =
 			today ??
 			`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-		// Allow plain arrays (for tests) or store objects (for the real app)
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {
 					get items() {
@@ -101,8 +84,6 @@ export class PersonnelPageContext {
 				}
 			: (pinnedGroupsStore as PinnedGroupsAccessor);
 	}
-
-	// ---- Permission flags ----
 
 	get canViewRoster(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.viewRoster, {
@@ -177,8 +158,6 @@ export class PersonnelPageContext {
 		return this.personnelArchiveAffordance(person).allowed;
 	}
 
-	// ---- Derived: filtered personnel ----
-
 	get filteredPersonnel(): Personnel[] {
 		return this.rosterView.flatPersonnel;
 	}
@@ -206,16 +185,7 @@ export class PersonnelPageContext {
 		return this.alphabeticalPersonnel.length;
 	}
 
-	// ---- Derived: upcoming losses ----
-
-	/**
-	 * Map of personId → UpcomingLossRecord for personnel inside the configured
-	 * warning window.  Used by the roster to render per-row loss indicators
-	 * without duplicating date-threshold logic.
-	 *
-	 * Reuses the same shared evaluation path as the dashboard widget so the
-	 * roster and dashboard always agree on who is "approaching loss."
-	 */
+	/** Reuses the same shared evaluation path as the dashboard widget so the roster and dashboard always agree on who is "approaching loss." */
 	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
 		const map = new SvelteMap<string, UpcomingLossRecord>();
 		const warningWindowDays = this.#data.lossWarningWindowDays;
@@ -236,8 +206,6 @@ export class PersonnelPageContext {
 	get lossWarningsUnavailable(): boolean {
 		return this.#data.lossWarningWindowDays === null;
 	}
-
-	// ---- Data accessors (for view/modals) ----
 
 	get data(): PersonnelPageData {
 		return this.#data;
@@ -262,8 +230,6 @@ export class PersonnelPageContext {
 	getPersonnelById(personnelId: string): Personnel | undefined {
 		return this.rosterViewWithoutSearch.getById(personnelId);
 	}
-
-	// ---- Event handlers ----
 
 	handleAdd(): void {
 		this.#modals.open('personnel-modal', { person: null });

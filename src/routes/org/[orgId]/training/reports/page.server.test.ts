@@ -53,14 +53,15 @@ function loadFor(training: 'none' | 'view', query: string, timeZone?: string) {
 		config.fn(ctx as never)
 	) as unknown as typeof loadWithContext;
 	const load = _createTrainingReportsPageLoad({ loadWithContext: loadWithContextFn });
+	const depends = vi.fn();
 	const result = load({
 		params: { orgId: 'test-org' },
 		url: new URL(`https://example.test/org/test-org/training/reports?${query}`),
 		locals: {} as App.Locals,
 		cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as never,
-		depends: vi.fn()
+		depends
 	} as never);
-	return { result, loadWithContextFn };
+	return { result, loadWithContextFn, depends };
 }
 
 describe('Training reports page load', () => {
@@ -79,9 +80,11 @@ describe('Training reports page load', () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
 		try {
-			const { trainingReport: eastern } = await loadFor('view', '', 'America/New_York').result;
+			const easternLoad = loadFor('view', '', 'America/New_York');
+			const { trainingReport: eastern } = await easternLoad.result;
 			const { trainingReport: fallback } = await loadFor('view', '', 'Not/AZone').result;
 
+			expect(easternLoad.depends).toHaveBeenCalledWith('app:training-reports', 'app:viewer-day');
 			expect(eastern.briefing.bottomLine.asOf).toBe('2026-10-14');
 			expect(fallback.briefing.bottomLine.asOf).toBe('2026-10-15');
 		} finally {

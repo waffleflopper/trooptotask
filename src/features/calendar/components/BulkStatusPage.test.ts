@@ -68,7 +68,10 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 	pinnedGroupsStore: { list: [] }
 }));
 
-function renderPage(orgId = 'org-1', loaded?: { rangeStart: string; rangeEnd: string }) {
+type Range = { rangeStart: string; rangeEnd: string };
+
+/** `loaded` is the workspace's availability; its assignments reach back to `assignmentStart`. */
+function renderPage(orgId = 'org-1', loaded?: Range, assignmentStart = loaded?.rangeStart) {
 	return render(BulkStatusPage, {
 		props: {
 			org,
@@ -77,7 +80,11 @@ function renderPage(orgId = 'org-1', loaded?: { rangeStart: string; rangeEnd: st
 				orgName: 'Test Unit',
 				personnel: [],
 				allPersonnel: [],
-				calendar: loaded ? { data: { ...loaded, personnel: [] } } : undefined
+				calendar: loaded
+					? {
+							data: { rangeStart: assignmentStart, rangeEnd: loaded.rangeEnd, availabilityRange: loaded, personnel: [] }
+						}
+					: undefined
 			}
 		}
 	});
@@ -151,6 +158,18 @@ describe('BulkStatusPage', () => {
 		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
 	});
 
+	it('reads Add dates the workspace holds assignments for but not availability', async () => {
+		renderPage('org-1', { rangeStart: '2026-01-15', rangeEnd: '2026-02-28' }, '2025-10-17');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Read covered dates' }));
+
+		expect(loadCalendarRangeMock).toHaveBeenCalledExactlyOnceWith('org-1', {
+			rangeStart: '2026-01-10',
+			rangeEnd: '2026-01-12',
+			collections: ['availability']
+		});
+	});
+
 	it('reads Add dates outside the loaded range with the canonical organization id', async () => {
 		loadCalendarRangeMock.mockResolvedValue({
 			rangeStart: '2026-06-01',
@@ -166,7 +185,8 @@ describe('BulkStatusPage', () => {
 		await waitFor(() => expect(screen.getByRole('status').textContent).toContain('far ready'));
 		expect(loadCalendarRangeMock).toHaveBeenCalledExactlyOnceWith('canonical-org-id', {
 			rangeStart: '2026-06-01',
-			rangeEnd: '2026-06-03'
+			rangeEnd: '2026-06-03',
+			collections: ['availability']
 		});
 	});
 
@@ -181,7 +201,8 @@ describe('BulkStatusPage', () => {
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledWith('canonical-org-id', {
 				rangeStart: '2026-01-01',
-				rangeEnd: '2026-01-31'
+				rangeEnd: '2026-01-31',
+				collections: ['availability']
 			});
 		});
 		expect(mergeCalendarRangeIntoStoresMock).toHaveBeenCalledWith(
@@ -209,7 +230,8 @@ describe('BulkStatusPage', () => {
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-a', {
 				rangeStart: '2026-01-01',
-				rangeEnd: '2026-01-31'
+				rangeEnd: '2026-01-31',
+				collections: ['availability']
 			});
 		});
 		await view.rerender({ org, data: { orgId: 'org-b' } });

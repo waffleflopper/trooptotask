@@ -69,7 +69,12 @@ export {
 } from './calendar.types';
 
 export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
-export { createInitialCalendarBufferedRange, MAX_CALENDAR_RANGE_DAYS } from './utils/calendarRange';
+export {
+	CALENDAR_RANGE_COLLECTIONS,
+	initialCalendarCoverage,
+	MAX_CALENDAR_RANGE_DAYS,
+	type CalendarRangeCollection
+} from './utils/calendarRange';
 export { withCalendarTiming } from './calendarTiming.server';
 
 export { createSupabaseCalendarExportReader } from './calendarExportRead.server';

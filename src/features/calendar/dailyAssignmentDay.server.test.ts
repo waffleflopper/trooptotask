@@ -33,7 +33,6 @@ describe('replaceDailyAssignmentDay', () => {
 	it('deletes existing assignments for the date and inserts new batch', async () => {
 		const ctx = buildContext();
 
-		// Seed existing assignments for the target date
 		ctx.store.seed('daily_assignments', [
 			{
 				id: 'old-1',
@@ -49,7 +48,6 @@ describe('replaceDailyAssignmentDay', () => {
 				assignment_type_id: TYPE_2,
 				assignee_id: PERSON_2
 			},
-			// Different date — should NOT be deleted
 			{
 				id: 'keep-1',
 				organization_id: 'test-org',
@@ -67,7 +65,6 @@ describe('replaceDailyAssignmentDay', () => {
 			]
 		});
 
-		// New records returned
 		expect(result).toHaveLength(2);
 		expect(result).toEqual(
 			expect.arrayContaining([
@@ -76,19 +73,15 @@ describe('replaceDailyAssignmentDay', () => {
 			])
 		);
 
-		// Old records for that date are gone, replaced by new ones
 		const remaining = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
-		expect(remaining).toHaveLength(3); // 2 new + 1 kept from other date
+		expect(remaining).toHaveLength(3);
 
-		// The old IDs should not exist
 		const ids = remaining.map((r) => r.id);
 		expect(ids).not.toContain('old-1');
 		expect(ids).not.toContain('old-2');
 
-		// The other date's record persists
 		expect(ids).toContain('keep-1');
 
-		// Audit logged
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'daily_assignment.replaced',
@@ -124,7 +117,6 @@ describe('replaceDailyAssignmentDay', () => {
 			message: 'You do not have access to that Calendar scope'
 		});
 
-		// Nothing should have been inserted
 		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(0);
 	});

@@ -1,5 +1,4 @@
 /**
- * Environment variable validation.
  * Import this module early (e.g., in hooks.server.ts) to catch missing secrets at startup.
  */
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
@@ -59,7 +58,6 @@ export function validateEnvironmentConfig(input: EnvironmentConfigInput): Enviro
 		{ name: 'PUBLIC_SUPABASE_URL', value: input.env.PUBLIC_SUPABASE_URL, required: true },
 		{ name: 'PUBLIC_SUPABASE_ANON_KEY', value: input.env.PUBLIC_SUPABASE_ANON_KEY, required: true },
 
-		// Dynamic private
 		{ name: 'SUPABASE_SERVICE_ROLE_KEY', value: input.env.SUPABASE_SERVICE_ROLE_KEY, required: true },
 
 		// Optional — only needed for email invitations

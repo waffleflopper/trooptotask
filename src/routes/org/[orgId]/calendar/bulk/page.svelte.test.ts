@@ -41,7 +41,7 @@ it('reviews a whole saved overlap through the shell Organization when the route 
 	calendarAvailabilityHydration.load([], orgId);
 	calendarAssignmentsHydration.load([], [], orgId);
 	const fetchRange = vi.fn(async (url: string) => {
-		if (url !== `/org/${orgId}/api/calendar-range?rangeStart=2026-01-15&rangeEnd=2026-01-15`) {
+		if (url !== `/org/${orgId}/api/calendar-range?rangeStart=2026-01-15&rangeEnd=2026-01-15&collections=availability`) {
 			return new Response('', { status: 404 });
 		}
 		return Response.json({
@@ -90,7 +90,7 @@ it('reviews a whole saved overlap through the shell Organization when the route 
 	await fireEvent.click(screen.getByRole('button', { name: 'Review Matching Entries' }));
 
 	expect(fetchRange).toHaveBeenCalledWith(
-		'/org/d9b34493-79a0-4284-985d-b54903409955/api/calendar-range?rangeStart=2026-01-15&rangeEnd=2026-01-15'
+		'/org/d9b34493-79a0-4284-985d-b54903409955/api/calendar-range?rangeStart=2026-01-15&rangeEnd=2026-01-15&collections=availability'
 	);
 	expect(await screen.findByRole('heading', { name: /partial overlap.*removed entirely/i })).toBeTruthy();
 	expect(screen.getByText('SGT Smith, Alex')).toBeTruthy();

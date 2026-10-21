@@ -42,7 +42,6 @@ export const GROUP_NAME_EXISTS_MESSAGE = 'A Group with that name already exists.
 export const GROUP_UNAVAILABLE_MESSAGE = 'That Group is no longer available.';
 export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
 
-/** Stable Organization Group identity and display order. */
 export interface Group {
 	id: string;
 	name: string;
@@ -140,7 +139,6 @@ export interface PersonnelCalendarStatusSnapshot {
 	textColor: string;
 }
 
-/** Calendar availability fields used by Personnel readiness and history export. */
 export interface PersonnelAvailabilityPeriod {
 	statusTypeId: string;
 	startDate: string;
@@ -148,7 +146,6 @@ export interface PersonnelAvailabilityPeriod {
 	note?: string | null;
 }
 
-/** Read-only rank meaning and ordering shared with other feature lanes. */
 export { BUILT_IN_ARMY_RANK_OPTIONS, BUILT_IN_RANK_CATALOG, compareRankCodes, resolveBuiltInRank } from './rankCatalog';
 export type { RankCatalogEntry, RankCategory, RankPayGrade, RankService, RankState } from './rankCatalog';
 export { observedRankCodesForOptions, rankCodesForOptions } from './rankOptions';

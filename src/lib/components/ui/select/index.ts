@@ -24,7 +24,6 @@ export {
 	GroupHeading,
 	Portal,
 	listboxName,
-	//
 	Root as Select,
 	Group as SelectGroup,
 	Label as SelectLabel,

@@ -66,7 +66,12 @@ function renderAdd(
 		loadRange: options.loadRange ?? (async (_orgId, range) => rangeData(range)),
 		mergeRangeIntoStores: vi.fn()
 	});
-	if (options.loaded !== false) rangeCoordinator.includeBootstrap({ rangeStart: '2026-09-01', rangeEnd: '2026-10-31' });
+	if (options.loaded !== false)
+		rangeCoordinator.includeBootstrap({
+			rangeStart: '2026-06-03',
+			rangeEnd: '2026-10-31',
+			availabilityRange: { rangeStart: '2026-09-01', rangeEnd: '2026-10-31' }
+		});
 	render(BulkStatusAdd, {
 		props: {
 			personnelByGroup: roster,

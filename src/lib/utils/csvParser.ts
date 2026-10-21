@@ -1,20 +1,11 @@
-// src/lib/utils/csvParser.ts
 import type ExcelJS from 'exceljs';
 import { isDateOnly } from '$lib/utils/dates';
 import { resolveExcelWorkbookConstructor } from '$lib/utils/excelWorkbook';
 
-/**
- * Parse CSV text into a 2D array of strings.
- * Handles comma-separated values with basic trimming.
- */
 export async function parseCSVText(text: string): Promise<string[][]> {
 	return parseDelimitedText(text);
 }
 
-/**
- * Parse an uploaded file (Excel or CSV) into a 2D array of strings.
- * Returns a Promise because FileReader is async.
- */
 export function parseFile(file: File): Promise<string[][]> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -138,18 +129,13 @@ function parseDelimitedText(text: string): string[][] {
 	return rows;
 }
 
-/**
- * Parse a date string in various formats to YYYY-MM-DD.
- */
 export function parseDateString(str: string): string | null {
 	const trimmed = str.trim();
 
-	// ISO: YYYY-MM-DD
 	if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
 		return isDateOnly(trimmed) ? trimmed : null;
 	}
 
-	// US: MM/DD/YYYY
 	const usMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
 	if (usMatch) {
 		const [, mm, dd, yyyy] = usMatch;
@@ -157,7 +143,6 @@ export function parseDateString(str: string): string | null {
 		return isDateOnly(candidate) ? candidate : null;
 	}
 
-	// Excel serial number
 	if (/^\d+$/.test(trimmed)) {
 		const serial = parseInt(trimmed, 10);
 		if (serial >= 25569 && serial <= 60000) {

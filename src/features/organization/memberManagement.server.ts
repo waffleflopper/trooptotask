@@ -141,7 +141,6 @@ export interface OrganizationSettingsMemberManagementPort {
 	removeMembership(orgId: string, membershipId: string, expectedRole: EditableMembershipRole): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
 	getOrganizationName(orgId: string): Promise<string | null>;
-	/** Returns the subset of `groupIds` that name groups in the organization. */
 	findOrganizationGroupIds(orgId: string, groupIds: string[]): Promise<string[]>;
 }
 

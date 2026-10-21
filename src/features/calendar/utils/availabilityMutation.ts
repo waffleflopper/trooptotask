@@ -1,23 +1,6 @@
-/**
- * Availability mutation — the provider-free rules shared by the calendar and the Add, Remove,
- * and Import bulk status surfaces.
- *
- * This module owns the domain rules those surfaces previously each re-derived:
- * - validating a Daily Assignment Slot date range and counting the days it covers
- * - the canonical Availability Status interval-overlap predicate
- * - classifying which existing Availability Status entries a removal would touch,
- *   split into entries fully inside the range (exact) and entries that extend beyond it (partial)
- * - classifying which people a bulk add would overlap, where an entry of the same status blocks them
- * - building the batch of availability records for a bulk add
- * - judging whether a calendar write whose reply was lost landed anyway
- *
- * It is intentionally pure: no store, no fetch, no `$app`. Callers own selection,
- * provider dispatch, and presentation; this module owns the rules. The interface is the
- * test surface.
- */
+/** It is intentionally pure: no store, no fetch, no `$app`. */
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 
-/** The shape the availability batch endpoint and store accept for a bulk add. */
 export interface AvailabilityRecord {
 	personnelId: string;
 	statusTypeId: string;
@@ -158,7 +141,6 @@ export function classifyBulkAddOverlaps(input: {
 	return overlaps;
 }
 
-/** Build the batch of availability records to apply one status/range to many personnel. */
 export function buildAddRecords(
 	personnelIds: readonly string[],
 	statusTypeId: string,

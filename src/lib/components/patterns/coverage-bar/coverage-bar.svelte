@@ -26,7 +26,6 @@
 		/** Spoken for a dashed segment, after its label. */
 		gapText: string;
 		class?: string;
-		/** The caption under the bar. */
 		children?: Snippet;
 	} = $props();
 </script>

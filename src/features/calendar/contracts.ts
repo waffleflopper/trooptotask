@@ -24,8 +24,6 @@ export interface CalendarSettingsPageAccess {
 	) => Pick<ClientAffordance, 'allowed' | 'visible'>;
 }
 
-/** Calendar facts shared with its web and server consumers. */
-
 export interface StatusType {
 	id: string;
 	name: string;
@@ -223,7 +221,7 @@ export interface CalendarAssignmentReader {
 	>;
 }
 
-/** One committed replacement of selected slots or complete days. */
+/** Replaces the selected slots or complete days in one transaction; a failure keeps the existing assignments. */
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
 }

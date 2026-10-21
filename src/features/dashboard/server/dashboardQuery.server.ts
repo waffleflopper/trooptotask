@@ -1,14 +1,4 @@
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS, DEFAULT_STRENGTH_FLOOR_PERCENT } from '$features/organization/contracts';
-/**
- * Dashboard query use case — fetches all data needed to render the dashboard widgets.
- *
- * Returns availability entries, daily assignments, assignment types, pinned groups,
- * rating scheme entries, and active onboarding records for a given date window.
- * Scoped collections are filtered through feature-owned Policy Decisions and Scope Set data.
- *
- * Separate from `calendarQuery.ts` because the dashboard shows different widgets and
- * includes data (onboarding, rating scheme) the calendar page doesn't need.
- */
 import type { DashboardBootstrap } from '../contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';

@@ -113,7 +113,6 @@
 			: null
 	);
 
-	// Track whether we've auto-shown What's New (must persist across re-renders)
 	const shellUI = getAppShellContext();
 
 	$effect(() => {

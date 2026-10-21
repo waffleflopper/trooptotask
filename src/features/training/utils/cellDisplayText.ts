@@ -27,10 +27,6 @@ export function formatTrainingCellText(status: TrainingStatus, label: string, da
 	}
 }
 
-/**
- * Returns the text to display inside a heatmap cell.
- * Current and warning statuses show date-only text; non-date statuses show short labels.
- */
 export function getCellDisplayText(
 	statusInfo: TrainingStatusInfo,
 	training: PersonnelTraining | undefined,

@@ -13,9 +13,12 @@ const G_ALPHA = '00000000-0000-4000-8000-000000000016';
 const G_BRAVO = '00000000-0000-4000-8000-000000000017';
 const G_CHARLIE = '00000000-0000-4000-8000-000000000018';
 
-const range = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };
+const range = {
+	rangeStart: '2026-03-01',
+	rangeEnd: '2026-03-31',
+	collections: ['availability', 'assignments'] as const
+};
 
-// Independent R6 facts: no duty run/template is needed to read these saved slots.
 // The edited slot was generated for p-alpha, but its saved assignee is now p-bravo.
 const savedSlots = [
 	{

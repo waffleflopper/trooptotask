@@ -193,8 +193,6 @@ describe('calculateExpirationDate', () => {
 	});
 
 	it('clamps month-end overflow instead of rolling into the next month', () => {
-		// BUG-FIX (issue #1148): was `date.setMonth(+n)` which overflowed
-		// 2026-01-31 + 1 month → 2026-03-03. Now clamps to the last valid day.
 		expect(calculateExpirationDate('2026-01-31', 1)).toBe('2026-02-28');
 	});
 
@@ -277,15 +275,12 @@ describe('getTrainingStatus adapter', () => {
 			expect(info).toMatchObject({ status: 'current', label: 'Current', daysUntilExpiration: 90 });
 		});
 
-		// BUG-FIX (issue #1148): inclusive `<=` boundary.
 		it('counts the orange threshold day itself as warning-orange', () => {
-			// days === warningDaysOrange (30). Was `warning-yellow` under the old strict `<`; now warning-orange.
 			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(30) }), baseType(), basePerson());
 			expect(info.status).toBe('warning-orange');
 		});
 
 		it('counts the yellow threshold day itself as warning-yellow', () => {
-			// days === warningDaysYellow (60). Was `current` under the old strict `<`; now warning-yellow.
 			const info = getTrainingStatus(baseTraining({ expirationDate: isoDaysFromToday(60) }), baseType(), basePerson());
 			expect(info.status).toBe('warning-yellow');
 		});

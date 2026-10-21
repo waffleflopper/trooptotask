@@ -55,7 +55,7 @@
 	}
 </script>
 
-<!-- The last grid row is the reserved commitment slot (#1537), so filling it can never move a bar. -->
+<!-- The last grid row is the reserved commitment slot, so filling it can never move a bar. -->
 <div
 	data-slot="bar-track"
 	class={[

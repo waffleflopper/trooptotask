@@ -2,6 +2,7 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { loadRequestPersonnelDetailHeader } from '$lib/server/adapters/personnelDetailHeaderLoad';
 import { loadRequestPersonnelReadiness } from '$lib/server/adapters/personnelReadinessLoad';
 import { viewerToday } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import type { PageServerLoadEvent } from './$types';
 
 export interface PersonnelReadinessPageLoadDeps {
@@ -14,7 +15,7 @@ export function _createPersonnelReadinessPageLoad(deps: PersonnelReadinessPageLo
 	const loadReadiness = deps.loadReadiness ?? loadRequestPersonnelReadiness;
 
 	return async (event: PageServerLoadEvent) => {
-		event.depends('app:personnel-detail-readiness');
+		event.depends('app:personnel-detail-readiness', VIEWER_DAY_DEPENDENCY);
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
 		const asOf = viewerToday(event.cookies);
 		const { training, criticalTasks, evaluation, loss, onboarding } = await loadReadiness(

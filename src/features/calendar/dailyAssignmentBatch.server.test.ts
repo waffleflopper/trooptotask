@@ -246,7 +246,6 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 	it('clears affected slots and inserts upserts', async () => {
 		const ctx = buildContext();
 
-		// Seed an existing assignment that should be cleared
 		ctx.store.seed('daily_assignments', [
 			{
 				id: 'existing-1',
@@ -260,14 +259,13 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		const result = await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [
 				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
-				{ date: '2026-03-22', assignmentTypeId: TYPE_B, assigneeId: '' } // clear slot
+				{ date: '2026-03-22', assignmentTypeId: TYPE_B, assigneeId: '' }
 			]
 		});
 
 		expect(result.inserted).toHaveLength(1);
 		expect(result.cleared).toBe(1);
 
-		// Verify old assignment was cleared
 		const remaining = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(remaining).toHaveLength(1);
 		expect((remaining[0] as Record<string, unknown>).assignee_id).toBe(PERSON_1);

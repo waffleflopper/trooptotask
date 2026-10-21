@@ -19,7 +19,7 @@ function deferred<T>() {
 	return { promise, resolve };
 }
 
-function range(month: '10' | '12'): CalendarRangeData {
+function range(month: '10' | '12'): Required<CalendarRangeData> {
 	const date = `2026-${month}-15`;
 	return {
 		rangeStart: `2026-${month}-01`,
@@ -33,14 +33,15 @@ function range(month: '10' | '12'): CalendarRangeData {
 }
 
 function workspace() {
-	const availability = deferred<CalendarRangeData['availabilityEntries']>();
-	const specialDays = deferred<CalendarRangeData['specialDays']>();
-	const assignments = deferred<{ types: []; assignments: CalendarRangeData['dailyAssignments'] }>();
+	const availability = deferred<Required<CalendarRangeData>['availabilityEntries']>();
+	const specialDays = deferred<Required<CalendarRangeData>['specialDays']>();
+	const assignments = deferred<{ types: []; assignments: Required<CalendarRangeData>['dailyAssignments'] }>();
 	const value: CalendarWorkspaceResult = {
 		laneKey: 'calendar',
 		data: {
 			rangeStart: '2026-10-01',
 			rangeEnd: '2026-10-31',
+			availabilityRange: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' },
 			specialDaysRange: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' },
 			personnel: [],
 			groups: [],

@@ -6,7 +6,6 @@ export interface DefineStoreConfig<T extends { id: string }> {
 	table: string;
 	/** Sort order using camelCase field names. Auto-generates comparator. */
 	orderBy?: Array<{ field: keyof T & string; ascending?: boolean }>;
-	/** Additional overrides passed to createStore (beforeAdd, adapter, etc.) */
 	overrides?: Partial<StoreConfig<T>>;
 }
 
@@ -24,7 +23,6 @@ export function buildComparator<T>(
 			const aVal = a[field as keyof T];
 			const bVal = b[field as keyof T];
 
-			// Nulls last when ascending, first when descending
 			if (aVal == null && bVal == null) continue;
 			if (aVal == null) return ascending ? 1 : -1;
 			if (bVal == null) return ascending ? -1 : 1;
@@ -73,12 +71,10 @@ export function defineStore<T extends { id: string }, E extends Record<string, u
 	const extensions = (enhance as (base: Store<T>, internals: StoreInternals<T>) => E)(store, internals);
 	const merged = Object.create(null) as Store<T> & E;
 
-	// Copy base store — preserving getters
 	for (const key of Object.keys(Object.getOwnPropertyDescriptors(store)) as (keyof Store<T>)[]) {
 		const desc = Object.getOwnPropertyDescriptor(store, key);
 		if (desc) Object.defineProperty(merged, key, desc);
 	}
-	// Copy prototype properties (methods defined on the store object literal)
 	let proto = Object.getPrototypeOf(store);
 	while (proto && proto !== Object.prototype) {
 		for (const key of Object.getOwnPropertyNames(proto)) {
@@ -91,7 +87,6 @@ export function defineStore<T extends { id: string }, E extends Record<string, u
 		proto = Object.getPrototypeOf(proto);
 	}
 
-	// Copy extensions — enhanced methods override base if same name
 	for (const key of Object.keys(extensions)) {
 		const desc = Object.getOwnPropertyDescriptor(extensions, key);
 		if (desc) Object.defineProperty(merged, key, desc);

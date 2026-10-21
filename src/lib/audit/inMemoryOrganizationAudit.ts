@@ -27,7 +27,6 @@ interface MemoryAuditRows {
 	): Promise<{ data: T[]; count: number | null }>;
 }
 
-/** Synthetic persistence used by owned query/composition tests. */
 export function createInMemoryOrganizationAuditStore(store: MemoryAuditRows): OrganizationAuditStore {
 	const excluded = { notInFilters: { action: ORGANIZATION_AUDIT_EXCLUDED_ACTIONS } };
 	return {

@@ -10,6 +10,7 @@ import {
 } from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { fetchOnboardingWorkspace } from '$features/onboarding/index.server';
 import { viewerToday } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 
 async function streamOnboardingWorkspaceBootstrap(
 	context: FeatureLaneWorkspaceRequestContext
@@ -33,7 +34,7 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 
 	return async (event) =>
 		streamReadyFeatureLaneWorkspace(event, {
-			dependencies: ['app:org-core', 'app:onboarding-data'],
+			dependencies: ['app:org-core', 'app:onboarding-data', VIEWER_DAY_DEPENDENCY],
 			createContext: ({ locals, cookies }, shell) => {
 				const decision = policyEvaluator.evaluate({
 					decisionKind: 'server-authoritative',

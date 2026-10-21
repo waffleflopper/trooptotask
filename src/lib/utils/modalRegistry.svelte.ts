@@ -1,9 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
 
-/**
- * ModalRegistry — a shared registry for managing modal visibility and payloads.
- * Replaces scattered boolean $state variables across route pages.
- */
 export class ModalRegistry {
 	#modals = $state(new SvelteMap<string, unknown>());
 	#closers: Record<string, () => void> = Object.create(null);

@@ -8,11 +8,8 @@ import { createAuthCookieWriter, readIdentitySession, readIdentityAdmission } fr
 import { requireActiveOrganization } from '$features/organization/index.server';
 import '$lib/server/env'; // validate env vars on startup
 
-const impeccableLiveDevSources = import.meta.env.DEV ? ' http://localhost:8400 http://127.0.0.1:8400' : '';
-const devConnectSources = import.meta.env.DEV ? ' http://localhost:8400 http://127.0.0.1:8400' : '';
-
 const securityHeaders: Record<string, string> = {
-	'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${impeccableLiveDevSources}; style-src 'self' 'unsafe-inline'; frame-src 'none'; connect-src 'self' https://vitals.vercel-insights.com${devConnectSources}; img-src 'self' data: blob:; font-src 'self'`,
+	'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; frame-src 'none'; connect-src 'self' https://vitals.vercel-insights.com; img-src 'self' data: blob:; font-src 'self'`,
 	'X-Frame-Options': 'DENY',
 	'X-Content-Type-Options': 'nosniff',
 	'Referrer-Policy': 'strict-origin-when-cross-origin',

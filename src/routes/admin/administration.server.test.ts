@@ -27,7 +27,7 @@ function pageEvent(authenticated = true) {
 }
 
 // The provider exposes retained support data only. HTTP requests are serialized
-// by the real SDK; commercial RPCs/columns fail as they would after retirement.
+// by the real SDK.
 function provider(role: () => string | null) {
 	return vi.fn<typeof fetch>(async (input, init) => {
 		const url = new URL(String(input));

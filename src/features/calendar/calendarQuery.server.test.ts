@@ -111,7 +111,6 @@ describe('fetchCalendarData', () => {
 
 		const result = await fetchCalendarData(ctx, RANGE);
 
-		// Availability entries — camelCase transform
 		expect(result.availabilityEntries).toHaveLength(1);
 		expect(result.availabilityEntries[0]).toMatchObject({
 			id: 'a1',
@@ -121,11 +120,9 @@ describe('fetchCalendarData', () => {
 			endDate: '2026-03-05'
 		});
 
-		// Special days
 		expect(result.specialDays).toHaveLength(1);
 		expect(result.specialDays[0]).toMatchObject({ id: 'sd1', name: 'Training Holiday', date: '2026-03-15' });
 
-		// Assignment types — camelCase transform
 		expect(result.assignmentTypes).toHaveLength(1);
 		expect(result.assignmentTypes[0]).toMatchObject({
 			id: 'at1',
@@ -135,7 +132,6 @@ describe('fetchCalendarData', () => {
 			exemptPersonnelIds: []
 		});
 
-		// Daily assignments — camelCase transform
 		expect(result.dailyAssignments).toHaveLength(1);
 		expect(result.dailyAssignments[0]).toMatchObject({
 			id: 'da1',
@@ -143,10 +139,8 @@ describe('fetchCalendarData', () => {
 			assigneeId: 'p1'
 		});
 
-		// Pinned groups — custom transform returns just the group_name string
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 
-		// Roster history no longer returned from calendarQuery
 		expect((result as unknown as Record<string, unknown>).rosterHistory).toBeUndefined();
 	});
 
@@ -264,7 +258,6 @@ describe('fetchCalendarData', () => {
 
 	it('excludes availability entries outside the date range (overlap logic)', async () => {
 		const ctx = buildCtx();
-		// Entry entirely before range
 		ctx.store.seed('availability_entries', [
 			{
 				id: 'before',
@@ -276,7 +269,6 @@ describe('fetchCalendarData', () => {
 				note: null
 			}
 		]);
-		// Entry entirely after range
 		ctx.store.seed('availability_entries', [
 			{
 				id: 'after',
@@ -288,7 +280,6 @@ describe('fetchCalendarData', () => {
 				note: null
 			}
 		]);
-		// Entry overlapping range start
 		ctx.store.seed('availability_entries', [
 			{
 				id: 'overlap',
@@ -561,7 +552,7 @@ describe('fetchCalendarRangeData', () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		seedCalendarData(ctx.store);
 
-		const result = await fetchCalendarRangeData(ctx, RANGE);
+		const result = await fetchCalendarRangeData(ctx, { ...RANGE, collections: ['availability', 'assignments'] });
 
 		expect(result).toEqual({
 			rangeStart: '2026-03-01',

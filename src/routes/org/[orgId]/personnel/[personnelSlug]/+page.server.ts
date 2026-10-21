@@ -14,6 +14,7 @@ import { loadRequestPersonnelReadiness } from '$lib/server/adapters/personnelRea
 import { createRequestPersonnelOverviewContext } from '$lib/server/adapters/requestContexts.server';
 import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
 import { viewerToday } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { PageServerLoadEvent } from './$types';
 
@@ -76,6 +77,7 @@ export function _createPersonnelOverviewPageLoad(deps: PersonnelOverviewPageLoad
 
 	return async (event: PageServerLoadEvent) => {
 		const { params, locals, cookies } = event;
+		event.depends(VIEWER_DAY_DEPENDENCY);
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
 		const asOf = viewerToday(cookies);
 		const [readiness, streams] = await Promise.all([

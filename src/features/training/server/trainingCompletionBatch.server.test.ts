@@ -114,7 +114,6 @@ describe('importTrainingRecords', () => {
 			])
 		);
 
-		// Audit logged
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'training.bulk_imported',
@@ -191,7 +190,6 @@ describe('importTrainingRecords', () => {
 		expect(result.exempted[0]).toMatchObject({ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE });
 		expect(result.errors).toHaveLength(0);
 
-		// Training type should have both existing and new personnel in exempt list
 		const types = await ctx.store.findMany<{ exempt_personnel_ids: string[] }>('training_types', 'test-org');
 		expect(types[0].exempt_personnel_ids).toContain(PERSON_EXISTING);
 		expect(types[0].exempt_personnel_ids).toContain(PERSON_1);
@@ -290,7 +288,6 @@ describe('importTrainingRecords', () => {
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: 12 });
 
-		// Seed an existing training record
 		ctx.store.seed('personnel_trainings', [
 			{
 				id: RECORD,
@@ -307,7 +304,6 @@ describe('importTrainingRecords', () => {
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
-				// Should UPDATE existing p-1 + tt-1
 				{
 					personnelId: PERSON_1,
 					trainingTypeId: TRAINING_TYPE,
@@ -315,7 +311,6 @@ describe('importTrainingRecords', () => {
 					status: 'completed',
 					notes: 'new notes'
 				},
-				// Should INSERT new p-2 + tt-1
 				{ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE, completionDate: '2025-07-01', status: 'completed' }
 			]
 		});
@@ -362,7 +357,6 @@ describe('importTrainingRecords', () => {
 
 		expect(result.errors).toHaveLength(0);
 
-		// Audit reflects both counts
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			details: { inserted: 1, updated: 1 }
@@ -645,7 +639,7 @@ describe('importTrainingRecords', () => {
 	it('collects per-record error for unknown training type while succeeding on valid records', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
-		seedTrainingType(ctx); // tt-1 exists
+		seedTrainingType(ctx);
 
 		const result = await importTrainingRecords(ctx, {
 			records: [

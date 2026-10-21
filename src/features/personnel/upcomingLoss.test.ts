@@ -1,17 +1,6 @@
-/**
- * Tests for the shared upcoming-loss evaluation path.
- *
- * Tests verify external behavior: who appears in the list, how entries are labeled and ordered,
- * when award-due signals fire, and how edge cases (both dates, past dates, boundary days) resolve.
- * No coupling to implementation internals.
- */
 import { describe, it, expect } from 'vitest';
 import { evaluateUpcomingLosses } from './upcomingLoss';
 import type { Personnel } from '$features/personnel/personnel.types';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makePerson(overrides: Partial<Personnel> = {}): Personnel {
 	return {
@@ -30,7 +19,6 @@ function makePerson(overrides: Partial<Personnel> = {}): Personnel {
 	};
 }
 
-/** Returns a YYYY-MM-DD date string offset by `days` from `base` */
 function addDays(base: string, days: number): string {
 	const d = new Date(base + 'T00:00:00');
 	d.setDate(d.getDate() + days);
@@ -43,29 +31,17 @@ function addDays(base: string, days: number): string {
 const TODAY = '2026-04-14';
 const WINDOW = 180;
 
-// ---------------------------------------------------------------------------
-// Tracer bullet: no personnel data → empty result
-// ---------------------------------------------------------------------------
-
 describe('evaluateUpcomingLosses', () => {
 	it('returns an empty array when there are no personnel', () => {
 		const result = evaluateUpcomingLosses([], WINDOW, TODAY);
 		expect(result).toEqual([]);
 	});
 
-	// -------------------------------------------------------------------------
-	// Exclusion: no tracked dates
-	// -------------------------------------------------------------------------
-
 	it('omits personnel with no ETS or DEROS dates', () => {
 		const person = makePerson({ ets: null, deros: null });
 		const result = evaluateUpcomingLosses([person], WINDOW, TODAY);
 		expect(result).toHaveLength(0);
 	});
-
-	// -------------------------------------------------------------------------
-	// ETS-only cases
-	// -------------------------------------------------------------------------
 
 	it('includes a person whose ETS falls within the warning window', () => {
 		const etsDate = addDays(TODAY, 90);
@@ -95,10 +71,6 @@ describe('evaluateUpcomingLosses', () => {
 		expect(result).toHaveLength(0);
 	});
 
-	// -------------------------------------------------------------------------
-	// Boundary: last day of window is included; day after is excluded
-	// -------------------------------------------------------------------------
-
 	it('includes ETS exactly on the last day of the window (boundary inclusive)', () => {
 		const person = makePerson({ ets: addDays(TODAY, WINDOW) });
 		const result = evaluateUpcomingLosses([person], WINDOW, TODAY);
@@ -117,10 +89,6 @@ describe('evaluateUpcomingLosses', () => {
 		expect(result).toHaveLength(1);
 		expect(result[0].daysRemaining).toBe(0);
 	});
-
-	// -------------------------------------------------------------------------
-	// DEROS-only cases
-	// -------------------------------------------------------------------------
 
 	it('includes a person whose DEROS falls within the warning window', () => {
 		const derosDate = addDays(TODAY, 60);
@@ -144,15 +112,11 @@ describe('evaluateUpcomingLosses', () => {
 		expect(result).toHaveLength(0);
 	});
 
-	// -------------------------------------------------------------------------
-	// Both dates in window: show the nearer one only
-	// -------------------------------------------------------------------------
-
 	it('shows only the nearer date when both ETS and DEROS are in-window', () => {
 		const person = makePerson({
 			id: 'p3',
-			ets: addDays(TODAY, 60), // farther
-			deros: addDays(TODAY, 30) // nearer
+			ets: addDays(TODAY, 60),
+			deros: addDays(TODAY, 30)
 		});
 		const result = evaluateUpcomingLosses([person], WINDOW, TODAY);
 
@@ -179,10 +143,6 @@ describe('evaluateUpcomingLosses', () => {
 		expect(entry.triggerType).toBe('PCS / DEROS');
 	});
 
-	// -------------------------------------------------------------------------
-	// Ordering: sorted by nearest date first (ascending daysRemaining)
-	// -------------------------------------------------------------------------
-
 	it('orders results by nearest date first across multiple personnel', () => {
 		const people = [
 			makePerson({ id: 'p1', ets: addDays(TODAY, 90) }),
@@ -205,10 +165,6 @@ describe('evaluateUpcomingLosses', () => {
 		expect(result[0].personId).toBe('p2');
 	});
 
-	// -------------------------------------------------------------------------
-	// Award-due signal
-	// -------------------------------------------------------------------------
-
 	it('sets awardDueSoon to true for all in-window entries', () => {
 		const people = [
 			makePerson({ id: 'p1', ets: addDays(TODAY, 45) }),
@@ -229,10 +185,6 @@ describe('evaluateUpcomingLosses', () => {
 		expect(entry.awardDueSoon).toBe(false);
 		expect(entry.awardTrackingAcknowledged).toBe(true);
 	});
-
-	// -------------------------------------------------------------------------
-	// Result shape
-	// -------------------------------------------------------------------------
 
 	it('returns the correct personId, personName, and rank for each entry', () => {
 		const person = makePerson({ id: 'abc', rank: 'CPT', lastName: 'Jones', ets: addDays(TODAY, 15) });
@@ -257,25 +209,17 @@ describe('evaluateUpcomingLosses', () => {
 		expect(entry.groupId).toBeNull();
 	});
 
-	// -------------------------------------------------------------------------
-	// daysRemaining calculation
-	// -------------------------------------------------------------------------
-
 	it('calculates daysRemaining correctly', () => {
 		const person = makePerson({ ets: addDays(TODAY, 45) });
 		const [entry] = evaluateUpcomingLosses([person], WINDOW, TODAY);
 		expect(entry.daysRemaining).toBe(45);
 	});
 
-	// -------------------------------------------------------------------------
-	// Scope: personnel without dates don't contaminate the list
-	// -------------------------------------------------------------------------
-
 	it('only includes personnel with in-window dates even in a mixed list', () => {
 		const people = [
-			makePerson({ id: 'p1', ets: addDays(TODAY, 30) }), // in window
-			makePerson({ id: 'p2', ets: null, deros: null }), // no dates
-			makePerson({ id: 'p3', ets: addDays(TODAY, WINDOW + 5) }) // outside window
+			makePerson({ id: 'p1', ets: addDays(TODAY, 30) }),
+			makePerson({ id: 'p2', ets: null, deros: null }),
+			makePerson({ id: 'p3', ets: addDays(TODAY, WINDOW + 5) })
 		];
 		const result = evaluateUpcomingLosses(people, WINDOW, TODAY);
 		expect(result).toHaveLength(1);

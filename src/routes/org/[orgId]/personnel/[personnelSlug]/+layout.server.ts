@@ -8,6 +8,7 @@ import { loadRequestPersonnelReadinessBadge } from '$lib/server/adapters/personn
 import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
 import { createRequestPersonnelDetailLayoutContext } from '$lib/server/adapters/requestContexts.server';
 import { viewerToday } from '$lib/server/viewerDay.server';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import type { LayoutServerLoadEvent } from './$types';
 
 type LoadWithContext = typeof loadWithContext;
@@ -22,7 +23,7 @@ export function _createPersonnelDetailLayoutLoad(deps: PersonnelDetailLayoutLoad
 	const loadReadinessBadge = deps.loadReadinessBadge ?? loadRequestPersonnelReadinessBadge;
 	return async (event: LayoutServerLoadEvent) => {
 		const { params, locals, cookies, depends } = event;
-		depends('app:personnel-detail-header', 'app:personnel-detail-counts');
+		depends('app:personnel-detail-header', 'app:personnel-detail-counts', VIEWER_DAY_DEPENDENCY);
 		const personnelDetailHeader = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
 		const { person } = personnelDetailHeader;
 		const today = viewerToday(cookies);

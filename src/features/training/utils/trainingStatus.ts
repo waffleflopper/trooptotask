@@ -33,12 +33,6 @@ function present(status: TrainingStatus, label: string, daysUntilExpiration: num
 }
 
 /**
- * Training status presenter — a thin adapter over the shared Currency Status core.
- *
- * The Training-only concerns stay here, on either side of the core:
- *   - BEFORE: exemption, applicability (N/A), and the never-expires shortcut.
- *   - AFTER: mapping currency state → TrainingStatus union + color + label.
- *
  * `expirationMonths === null` means "never expires" for Training, so that case is
  * resolved here rather than handed to the core. Training keeps using the stored
  * `training.expirationDate`; it is not recomputed at status time.
@@ -51,32 +45,24 @@ export function getTrainingStatus(
 ): TrainingStatusInfo {
 	const isRequired = isTrainingApplicable(type, person);
 
-	// Check exemption before other status checks
 	if (type.canBeExempted && type.exemptPersonnelIds.includes(person.id)) {
 		return present('exempt', 'Exempt', null);
 	}
 
-	// For optional training: show N/A only if no training record exists
-	// If they have a record with a date, show normal status
 	if (!isRequired && !training) {
 		return present('not-required', 'N/A', null);
 	}
 
-	// No training record for required training
 	if (!training) {
 		return present('not-completed', 'Not Done', null);
 	}
 
-	// Never-expires training: if record exists, it's current
-	// (record can exist without date for never-expires types)
 	// Must be checked BEFORE the optional-without-completionDate check below,
 	// since never-expires training is validly complete with null completionDate
 	if (!type.expirationDateOnly && type.expirationMonths === null) {
 		return present('current', 'Current', null);
 	}
 
-	// For optional training without a completion date, show N/A
-	// (never-expires is already handled above)
 	if (!isRequired && !training.completionDate) {
 		return present('not-required', 'N/A', null);
 	}
@@ -127,7 +113,6 @@ export function getDelinquentTrainings(
 ): DelinquentTraining[] {
 	const { groupId, includeNotCompleted = true, asOf } = options;
 
-	// Create a map of trainings by personnel+type
 	const trainingMap = new Map<string, PersonnelTraining>();
 	for (const t of trainings) {
 		trainingMap.set(`${t.personnelId}-${t.trainingTypeId}`, t);
@@ -136,14 +121,12 @@ export function getDelinquentTrainings(
 	const delinquent: DelinquentTraining[] = [];
 
 	for (const person of personnel) {
-		// Filter by group if specified
 		if (groupId && person.groupId !== groupId) continue;
 
 		for (const type of types) {
 			const training = trainingMap.get(`${person.id}-${type.id}`);
 			const statusInfo = getTrainingStatus(training, type, person, asOf);
 
-			// Include if expired, warning, or (optionally) not completed
 			if (
 				statusInfo.status === 'expired' ||
 				statusInfo.status === 'warning-orange' ||
@@ -160,7 +143,6 @@ export function getDelinquentTrainings(
 			TRAINING_STATUS_SORT_ORDER[a.statusInfo.status] - TRAINING_STATUS_SORT_ORDER[b.statusInfo.status];
 		if (statusDiff !== 0) return statusDiff;
 
-		// Within same status, sort by days (most urgent first)
 		const aDays = a.statusInfo.daysUntilExpiration ?? Infinity;
 		const bDays = b.statusInfo.daysUntilExpiration ?? Infinity;
 		return aDays - bDays;
@@ -186,7 +168,6 @@ export function getTrainingStats(
 	groupId?: string,
 	asOf?: string
 ): TrainingStats {
-	// Create a map of trainings by personnel+type
 	const trainingMap = new Map<string, PersonnelTraining>();
 	for (const t of trainings) {
 		trainingMap.set(`${t.personnelId}-${t.trainingTypeId}`, t);
@@ -203,7 +184,6 @@ export function getTrainingStats(
 	};
 
 	for (const person of personnel) {
-		// Filter by group if specified
 		if (groupId && person.groupId !== groupId) continue;
 
 		for (const type of types) {

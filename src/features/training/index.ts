@@ -1,12 +1,9 @@
-// Types
 export type { TrainingType, PersonnelTraining, TrainingStatus, TrainingView } from './training.types';
 export { TRAINING_STATUS_COLORS } from './training.types';
 
-// Stores
 export { personnelTrainingsStore } from './stores/personnelTrainings.svelte';
 export { trainingTypeSource, trainingTypeHydration } from './webSources.svelte';
 
-// Utils
 export { isTrainingApplicable } from './utils/applicability';
 export { filterColumnsByView } from './utils/viewFiltering';
 export {
@@ -32,7 +29,6 @@ export type {
 	TrainingBriefingInput
 } from './utils/trainingBriefing.types';
 
-// Context
 export { TrainingPageContext } from './contexts/TrainingPageContext.svelte';
 export type { TrainingPageData } from './contexts/TrainingPageContext.svelte';
 

@@ -21,7 +21,6 @@ export interface OrganizationFeatureSettings {
 	storedDisabledFeatures: readonly string[];
 }
 
-/** The Organization facts a Training briefing states: its name and readiness goal. */
 export interface OrganizationTrainingBriefingContext {
 	name: string;
 	trainingReadinessGoalPercent: number;

@@ -29,13 +29,8 @@ const emptyTrainingStats = {
 	total: 0
 };
 
-// ---------------------------------------------------------------------------
-// Minimal stubs for stores & browser APIs
-// ---------------------------------------------------------------------------
-
 vi.mock('$app/environment', () => ({ browser: false }));
 
-// Stub all stores — each returns a minimal reactive-compatible object
 vi.mock('$features/personnel', () => ({
 	rosterStore: { items: [] },
 	groupsStore: { items: [], loading: false },
@@ -49,10 +44,6 @@ vi.mock('$features/calendar', () => ({
 vi.mock('$features/training', () => ({
 	trainingTypesStore: { items: [] }
 }));
-
-// ---------------------------------------------------------------------------
-// Helpers to build minimal page data shapes
-// ---------------------------------------------------------------------------
 
 function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 	return {
@@ -99,10 +90,6 @@ function makeData(
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('DashboardScreenModel (migrated context coverage)', () => {
 	let ctx: DashboardScreenModel;
 
@@ -120,9 +107,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		vi.useRealTimers();
 	});
 
-	// -------------------------------------------------------------------------
-	// today / todayDisplay
-	// -------------------------------------------------------------------------
 	describe('today', () => {
 		it('is a string in YYYY-MM-DD format', () => {
 			expect(ctx.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -131,15 +115,11 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 
 	describe('todayDisplay', () => {
 		it('returns a human-readable date string', () => {
-			// Should contain a month abbreviation and a year
 			expect(ctx.todayDisplay).toMatch(/\d{4}/);
 			expect(ctx.todayDisplay).toMatch(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/);
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// Strength derived values
-	// -------------------------------------------------------------------------
 	describe('totalPersonnel / availableCount', () => {
 		it('starts at 0 with no store data', () => {
 			expect(ctx.totalPersonnel).toBe(0);
@@ -153,9 +133,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// statusBreakdown
-	// -------------------------------------------------------------------------
 	describe('statusBreakdown', () => {
 		it('returns an empty Map when no availability entries exist', () => {
 			expect(ctx.statusBreakdown.size).toBe(0);
@@ -195,9 +172,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// dutyAssignments
-	// -------------------------------------------------------------------------
 	describe('dutyAssignments', () => {
 		it('returns an empty array when no assignments exist', () => {
 			expect(ctx.dutyAssignments).toHaveLength(0);
@@ -215,9 +189,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// trainingStats / topTrainingIssues
-	// -------------------------------------------------------------------------
 	describe('trainingStats', () => {
 		it('is null when trainingSummary is null', () => {
 			expect(ctx.trainingStats).toBeNull();
@@ -303,9 +274,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// upcomingChanges / upcomingByDate
-	// -------------------------------------------------------------------------
 	describe('upcomingChanges', () => {
 		it('returns an empty array when no availability entries', () => {
 			expect(ctx.upcomingChanges).toHaveLength(0);
@@ -355,9 +323,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// ratingStats / ratingTotal
-	// -------------------------------------------------------------------------
 	describe('ratingStats', () => {
 		afterEach(() => vi.useRealTimers());
 		it('returns zero counts with no rating entries', () => {
@@ -393,27 +358,18 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// activeOnboardings
-	// -------------------------------------------------------------------------
 	describe('activeOnboardings', () => {
 		it('returns empty array when none in data', () => {
 			expect(ctx.activeOnboardings).toHaveLength(0);
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// groupBreakdown
-	// -------------------------------------------------------------------------
 	describe('groupBreakdown', () => {
 		it('returns an empty array when no groups', () => {
 			expect(ctx.groupBreakdown).toHaveLength(0);
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// gettingStartedDismissed
-	// -------------------------------------------------------------------------
 	describe('gettingStartedDismissed', () => {
 		it('reads from data prop', () => {
 			const c = createDashboardScreenModel(makeData({ gettingStartedDismissed: true }));
@@ -459,9 +415,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// formatShortDate helper
-	// -------------------------------------------------------------------------
 	describe('formatShortDate', () => {
 		it('formats a YYYY-MM-DD date as "Mon DD"', () => {
 			const result = ctx.formatShortDate('2026-03-15');
@@ -469,11 +422,7 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// upcomingLosses (derived from rosterStore + lossWarningWindowDays)
-	// -------------------------------------------------------------------------
 	describe('upcomingLosses', () => {
-		/** Builds a personnel item with enough fields to satisfy the Personnel type */
 		function makePerson(id: string, ets: string | null = null, deros: string | null = null) {
 			return {
 				id,
@@ -489,7 +438,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			};
 		}
 
-		/** Returns a date string N days from ctx.today */
 		function daysOut(ctx: DashboardScreenModel, n: number): string {
 			const d = new Date(ctx.today + 'T00:00:00');
 			d.setDate(d.getDate() + n);
@@ -521,18 +469,13 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 
 		it('respects the configured lossWarningWindowDays from the workspace data', () => {
-			// Window = 30 days; person at 60 days should be excluded
 			ctx = createDashboardScreenModel(makeData({}, { lossWarningWindowDays: 30 }));
 			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 60))];
 			expect(ctx.upcomingLosses).toHaveLength(0);
 		});
 
 		it('only includes personnel that appear in the scoped rosterStore', () => {
-			// Two personnel in store, one with an in-window ETS
-			mutableRosterStore.items = [
-				makePerson('p1', daysOut(ctx, 30)),
-				makePerson('p2') // no dates
-			];
+			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 30)), makePerson('p2')];
 			expect(ctx.upcomingLosses).toHaveLength(1);
 			expect(ctx.upcomingLosses[0].personId).toBe('p1');
 		});

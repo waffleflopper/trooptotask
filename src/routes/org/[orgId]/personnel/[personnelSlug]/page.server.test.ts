@@ -191,9 +191,11 @@ describe('personnel Overview page server load', () => {
 		try {
 			const ctx = detailTestContext();
 			const cookies = { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) };
+			const depends = vi.fn();
 
-			const result = await overviewLoad(ctx)(detailEvent({ cookies }));
+			const result = await overviewLoad(ctx)(detailEvent({ cookies, depends }));
 
+			expect(depends).toHaveBeenCalledWith('app:viewer-day');
 			expect(result.asOf).toBe('2026-05-14');
 			await expect(result.overview.nextDays).resolves.toMatchObject({
 				rangeStart: '2026-05-14',

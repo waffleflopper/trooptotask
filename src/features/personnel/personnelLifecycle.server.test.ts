@@ -113,7 +113,6 @@ describe('Personnel — archive', () => {
 		const result = await archivePersonnelRecord(ctx, 'p-1');
 		expect(result).toMatchObject({ requiresApproval: true });
 
-		// Should NOT have archived
 		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
 		expect(stored.archived_at).toBeNull();
 	});

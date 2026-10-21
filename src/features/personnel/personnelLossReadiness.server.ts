@@ -16,7 +16,6 @@ function lossDate(date: string | null | undefined, today: string): PersonnelLoss
 	return date ? { date, daysRemaining: calendarDayDiff(parseDate(today), parseDate(date)) } : null;
 }
 
-/** ETS and DEROS against the Organization's loss window, under the same Personnel roster admission as the old lane. */
 export async function loadPersonnelLossReadiness(
 	ctx: Parameters<typeof authorizePersonnelLane>[0],
 	person: Personnel,

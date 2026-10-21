@@ -1,11 +1,3 @@
-/**
- * Bulk personnel import — creates up to MAX_BATCH_SIZE personnel records from a CSV upload.
- *
- * Validates each row against Group scope and the Organization rank catalog,
- * sanitizes string fields, and reports invalid rows without discarding valid ones.
- *
- * Single-record creation and editing use Personnel-owned record operations.
- */
 import { fail } from '$lib/errors';
 import { isDateOnly } from '$lib/utils/dates';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -80,11 +72,9 @@ export async function importPersonnelBatch(
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	// Fetch groups for name matching
 	const groups = await listGroupCatalog(ctx);
 	const groupMap = new Map(groups.map((g) => [g.name.toLowerCase(), g.id]));
 
-	// Validate all records
 	const validRows: ValidImportRow[] = [];
 	const errors: PersonnelBatchMessage[] = [];
 	const existingSlugRows = await ctx.personnel.listImportSlugs();

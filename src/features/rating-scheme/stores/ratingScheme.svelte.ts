@@ -1,6 +1,4 @@
 /**
- * Internal Evals state for the Organization's OER/NCOER/WOER evaluation records.
- *
  * Uses `overrides: { resource: 'rating-scheme' }` so API calls hit `/api/rating-scheme`
  * instead of the default table-name-derived path.
  *

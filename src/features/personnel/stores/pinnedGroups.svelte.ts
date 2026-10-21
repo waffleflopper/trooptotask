@@ -1,13 +1,8 @@
 /**
- * Pinned groups store — the ordered list this user has pinned in the active Organization.
- *
  * All mutations (pin, unpin, reorder) are optimistic: the UI updates instantly and rolls
  * back on API failure, and a failed pin or unpin says so. A `#pendingMutations` counter prevents same-Organization hydration
  * from overwriting in-flight client changes. A response from another Organization or a shell lifetime the user has left
  * changes nothing and says nothing.
- *
- * Persisted server-side per user (see `pinnedGroupOperations.server.ts`). Workspace hydration supplies
- * each Organization snapshot.
  */
 import { organizationLifetime, stillInOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -69,7 +64,6 @@ export class PinnedGroupsStore {
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
-		// Optimistic: add immediately
 		this.#pinnedGroups = [...this.#pinnedGroups, group];
 
 		try {
@@ -81,7 +75,6 @@ export class PinnedGroupsStore {
 			if (!res.ok) throw new Error('Failed to pin group');
 			return current();
 		} catch {
-			// Rollback on failure
 			if (current()) {
 				this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
 				toastStore.error(PIN_FAILURE_MESSAGE);
@@ -96,7 +89,6 @@ export class PinnedGroupsStore {
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
-		// Optimistic: remove immediately
 		const originalIndex = this.#pinnedGroups.indexOf(group);
 		this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
 
@@ -109,7 +101,6 @@ export class PinnedGroupsStore {
 			if (!res.ok) throw new Error('Failed to unpin group');
 			return current();
 		} catch {
-			// Rollback on failure
 			if (current() && originalIndex >= 0 && !this.#pinnedGroups.includes(group)) {
 				const restored = [...this.#pinnedGroups];
 				restored.splice(Math.min(originalIndex, restored.length), 0, group);
@@ -138,7 +129,6 @@ export class PinnedGroupsStore {
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
-		// Optimistic: reorder immediately
 		const newList = [...this.#pinnedGroups];
 		[newList[index - 1], newList[index]] = [newList[index], newList[index - 1]];
 		this.#pinnedGroups = newList;
@@ -152,7 +142,6 @@ export class PinnedGroupsStore {
 			if (!res.ok) throw new Error('Failed to reorder pinned groups');
 			return current();
 		} catch {
-			// Rollback on failure
 			if (current()) this.#rollbackSwap(group, precedingGroup);
 			return false;
 		} finally {
@@ -168,7 +157,6 @@ export class PinnedGroupsStore {
 		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
-		// Optimistic: reorder immediately
 		const newList = [...this.#pinnedGroups];
 		[newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
 		this.#pinnedGroups = newList;
@@ -182,7 +170,6 @@ export class PinnedGroupsStore {
 			if (!res.ok) throw new Error('Failed to reorder pinned groups');
 			return current();
 		} catch {
-			// Rollback on failure
 			if (current()) this.#rollbackSwap(followingGroup, group);
 			return false;
 		} finally {

@@ -187,7 +187,6 @@ describe('approveDeletionRequest', () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);
 
-		// Seed the personnel record that will be archived
 		ctx.store.seed('personnel', [
 			{ id: 'person-1', organization_id: 'test-org', last_name: 'Smith', archived_at: null }
 		]);
@@ -197,7 +196,6 @@ describe('approveDeletionRequest', () => {
 
 		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
 
-		// Request status updated to approved
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request).toMatchObject({
 			status: 'approved',
@@ -208,7 +206,6 @@ describe('approveDeletionRequest', () => {
 		const person = await ctx.store.findOne<Record<string, unknown>>('personnel', 'test-org', { id: 'person-1' });
 		expect(person!.archived_at).toBe(request!.reviewed_at);
 
-		// Notification created for the requester
 		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
 		expect(notifications[0].target).toBe('user');
@@ -218,7 +215,6 @@ describe('approveDeletionRequest', () => {
 			title: 'Archival Approved'
 		});
 
-		// Audit logged
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.approved',
@@ -258,16 +254,13 @@ describe('approveDeletionRequest', () => {
 			resource_description: 'Counseling session'
 		});
 
-		// Seed the counseling record
 		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'test-org', notes: 'Some notes' }]);
 
 		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
 
-		// Record hard-deleted (not archived)
 		const record = await ctx.store.findOne<Record<string, unknown>>('counseling_records', 'test-org', { id: 'cr-1' });
 		expect(record).toBeNull();
 
-		// Notification says "Deletion" not "Archival"
 		const notifications = ctx.notifications.notifications;
 		expect(notifications[0].notification).toMatchObject({
 			type: 'deletion_approved',
@@ -514,7 +507,6 @@ describe('denyDeletionRequest', () => {
 
 		await denyDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', 'Not approved by commander');
 
-		// Status updated to denied
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request).toMatchObject({
 			status: 'denied',
@@ -523,7 +515,6 @@ describe('denyDeletionRequest', () => {
 		});
 		expect(request!.reviewed_at).toBeTruthy();
 
-		// Notification includes denial reason
 		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
 		expect(notifications[0].target).toBe('user');
@@ -534,7 +525,6 @@ describe('denyDeletionRequest', () => {
 		});
 		expect(notifications[0].notification.message).toContain('Not approved by commander');
 
-		// Audit logged
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.denied',

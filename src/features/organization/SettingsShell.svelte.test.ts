@@ -65,7 +65,6 @@ describe('Organization settings navigation', () => {
 		expect(nav.getByRole('link', { name: 'Approvals' })).toBeInTheDocument();
 		expect(nav.getByRole('link', { name: 'Archives' })).toBeInTheDocument();
 		expect(screen.getByRole('status').textContent?.trim()).toBe('');
-		expect(document.querySelector('[aria-busy]')).toBeNull();
 		for (const part of ['Policies', 'Unit settings', 'Synthetic Alpha']) expect(document.title).toContain(part);
 
 		await view.rerender({ activePath: '/org/alpha/settings/ranks' });

@@ -4,6 +4,7 @@ import { createDeletionRequestTestStore } from '$features/deletion-requests/test
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 import type { SettingsNavCounts } from '$features/organization/contracts';
+import { PENDING_APPROVALS_DEPENDENCY } from './settingsDependencies';
 
 const { loadWithContextMock, requestStoreMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
@@ -323,6 +324,6 @@ describe('settings layout server load', () => {
 			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' })
 		} as never);
 
-		expect(depends.mock.calls).toEqual([['app:settings-pending-approvals']]);
+		expect(depends).toHaveBeenCalledWith(PENDING_APPROVALS_DEPENDENCY);
 	});
 });

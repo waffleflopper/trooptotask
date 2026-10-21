@@ -30,6 +30,7 @@ afterEach(() => {
 	toastStore.dismiss();
 	cleanup();
 	vi.restoreAllMocks();
+	vi.useRealTimers();
 });
 
 describe('Toaster theme', () => {
@@ -99,6 +100,7 @@ describe('Toaster announcements and dismissal', () => {
 	});
 
 	it('keeps a toast with an action open while keyboard focus is inside it and dismisses it after focus leaves', async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
 		render(ToasterTest);
 		const edit = screen.getByRole('button', { name: 'Edit Able' });
 
@@ -107,11 +109,12 @@ describe('Toaster announcements and dismissal', () => {
 		await fireEvent.focusIn(undo, { relatedTarget: edit });
 		undo.focus();
 
-		await new Promise((resolve) => setTimeout(resolve, 800));
+		await vi.advanceTimersByTimeAsync(800);
 		expect(screen.getByText('Unit name changed to Alpha.')).toBeTruthy();
 
 		await fireEvent.focusOut(undo, { relatedTarget: edit });
-		await waitFor(() => expect(screen.queryByText('Unit name changed to Alpha.')).toBeNull(), { timeout: 2000 });
+		await vi.advanceTimersByTimeAsync(800);
+		await waitFor(() => expect(screen.queryByText('Unit name changed to Alpha.')).toBeNull());
 	});
 
 	it('keeps an open dialog when a toast is pressed, while a press elsewhere still closes it', async () => {

@@ -9,6 +9,8 @@
 		open?: boolean;
 		/** `destructive` draws the section's 2px rule in the destructive color, for Danger zone. */
 		variant?: 'default' | 'destructive';
+		/** Closes the untitled rows with a rule after the last one, for a page that ends on them. */
+		endRule?: boolean;
 		children?: Snippet;
 	} & (
 			| {
@@ -25,6 +27,7 @@
 		summary,
 		open = $bindable(false),
 		variant = 'default',
+		endRule = false,
 		children,
 		class: className,
 		...restProps
@@ -35,7 +38,7 @@
 
 <section data-slot="fact-section" class={cn('min-w-0', className)} {...restProps}>
 	{#if title === undefined}
-		<dl class={cn('border-t-2', rule)}>{@render children?.()}</dl>
+		<dl class={cn('border-t-2', rule, endRule && 'border-b border-b-border')}>{@render children?.()}</dl>
 	{:else if summary === undefined}
 		<h2 class={cn('border-b-2 pb-2 font-heading text-xl font-semibold', rule)}>{title}</h2>
 		<dl>{@render children?.()}</dl>

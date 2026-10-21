@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
+import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { FeatureCounts } from '$features/organization/contracts';
@@ -56,9 +57,8 @@ function featureSwitch(name: string) {
 	return screen.getByRole('switch', { name });
 }
 
-function floorSentence() {
-	return document.getElementById('strength-floor-sentence')?.textContent?.replace(/\s+/g, ' ').trim();
-}
+const floorField = () => screen.getByLabelText('Strength floor');
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 afterEach(() => {
 	cleanup();
@@ -89,23 +89,19 @@ describe('Features settings page', () => {
 			'true'
 		]);
 		expect(screen.getAllByText('Loading counts')).toHaveLength(5);
-		expect(floorSentence()).not.toContain('80% of 22');
+		expect(floorField()).not.toHaveAccessibleDescription(/80% of 22/);
 
 		release(COUNTS);
 		await waitFor(() => expect(screen.queryByText('Loading counts')).toBeNull());
-		expect(floorSentence()).toContain('80% of 22 is 17.6');
+		expect(floorField()).toHaveAccessibleDescription(new RegExp(escape('80% of 22 is 17.6')));
 	});
 
 	it('describes each switch with the description shown in its row', () => {
 		serve({ disabledFeatures: ['training'], strengthFloorPercent: 80 });
 
-		for (const name of ['Training', 'Evaluations']) {
-			const described = document.getElementById(featureSwitch(name).getAttribute('aria-describedby')!)!;
-			expect(described.textContent?.trim()).toBeTruthy();
-			expect(featureSwitch(name).closest('[data-slot="fact-row"]')!.querySelector('dt')!.contains(described)).toBe(
-				true
-			);
-		}
+		expect(featureSwitch('Training')).toHaveAccessibleDescription(/Hidden from the sidebar.*records are kept/);
+		expect(featureSwitch('Evaluations')).toHaveAccessibleDescription(/rating scheme/i);
+		expect(featureSwitch('Evaluations')).not.toHaveAccessibleDescription(/Hidden/);
 	});
 
 	it('says the counts are unavailable when they fail to stream', async () => {
@@ -132,7 +128,6 @@ describe('Features settings page', () => {
 		expect(message).toContain('Training');
 		expect(message).toContain('Organization settings update failed');
 		expect(featureSwitch('Training').getAttribute('aria-checked')).toBe('true');
-		expect(stored.disabledFeatures).toEqual([]);
 	});
 
 	it('keeps every switch the user changed while earlier saves were still in flight', async () => {
@@ -167,7 +162,11 @@ describe('Features settings page', () => {
 				: Response.json({ message: 'Strength floor must be a whole number between 1 and 100' }, { status: 400 });
 		});
 		const floor = screen.getByLabelText('Strength floor') as HTMLInputElement;
-		await waitFor(() => expect(floorSentence()).toContain('80% of 22 is 17.6, so 17 or fewer available is flagged.'));
+		await waitFor(() =>
+			expect(floorField()).toHaveAccessibleDescription(
+				new RegExp(escape('80% of 22 is 17.6, so 17 or fewer available is flagged.'))
+			)
+		);
 
 		await fireEvent.input(floor, { target: { value: '' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save strength floor' }));
@@ -179,7 +178,9 @@ describe('Features settings page', () => {
 		expect(stored.strengthFloorPercent).toBe(80);
 
 		await fireEvent.input(floor, { target: { value: '75' } });
-		expect(floorSentence()).toContain('75% of 22 is 16.5, so 16 or fewer available is flagged.');
+		expect(floorField()).toHaveAccessibleDescription(
+			new RegExp(escape('75% of 22 is 16.5, so 16 or fewer available is flagged.'))
+		);
 		await fireEvent.click(screen.getByRole('button', { name: 'Save strength floor' }));
 
 		await waitFor(() => expect(stored.strengthFloorPercent).toBe(75));

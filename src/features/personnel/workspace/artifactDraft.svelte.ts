@@ -65,7 +65,6 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 		this.fields = $state(spec.createEmptyInput());
 	}
 
-	/** The validation message for one field, or an empty string. */
 	fieldError(field: keyof TInput): string {
 		return this.issue?.field === field ? this.issue.message : '';
 	}

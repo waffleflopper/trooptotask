@@ -1,17 +1,7 @@
 /**
- * Daily assignments store — assignment types and daily assignment records for the calendar.
- *
  * Combines two collections in one store: `types` (named Calendar assignments like "CQ", "SDO")
  * and `assignments` (the actual date-assignee records). Kept together because every
  * mutation needs both collections in scope.
- *
- * Key extended methods:
- * - `setAssignment(date, assignmentTypeId, assigneeId)` — upserts one assignment
- * - `removeAssignment(date, assignmentTypeId)` — deletes one assignment
- * - `setAssignmentBatch(assignments[])` — bulk upsert used by the assignment planner
- * - `getAssignmentsForDate(date)` — fast lookup for rendering a calendar row
- *
- * Loaded by the calendar and dashboard page load functions.
  */
 import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
@@ -322,7 +312,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			if (disputed && !typesStore.busy) void reconcileCatalog(confirmed);
 		},
 
-		// Assignment Type methods
 		async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
 			if (currentLaneFlight()) return null;
 			const write = admitTypeWrite();
@@ -353,7 +342,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			if (!type) return false;
 			const write = admitTypeWrite();
 
-			// Cascade: optimistically remove affected assignments via log
 			const ofType = (assignment: DailyAssignment) => assignment.assignmentTypeId === id;
 			const affectedIds = getAssignmentSnapshot()
 				.filter(ofType)
@@ -372,7 +360,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				confirmedCatalog = write;
 			}
 
-			// Resolve cascade log (success = serverState updated, failure = auto-rollback)
 			if (cascadeMutationId) {
 				internals.log.resolve(cascadeMutationId);
 			}
@@ -402,7 +389,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			return typesStore.getById(id);
 		},
 
-		// Daily Assignment methods
 		async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
 			const existing = getAssignmentSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
 

@@ -207,9 +207,6 @@ export class DashboardScreenModel {
 	private statusTypeById = $derived.by(() => indexById(this.sources.statusTypes.items));
 	private groupById = $derived.by(() => indexById(this.sources.groups.items));
 
-	// ---------------------------------------------------------------------------
-	// Banner / getting-started support state
-	// ---------------------------------------------------------------------------
 	gettingStartedDismissed = $state(false);
 	starterPackApplyState = $state<DashboardStarterPackApplyState>({
 		status: 'idle',
@@ -242,17 +239,10 @@ export class DashboardScreenModel {
 		}
 	}
 
-	// ---------------------------------------------------------------------------
-	// Display helper for the current date
-	// ---------------------------------------------------------------------------
 	get todayDisplay(): string {
 		return formatDashboardDisplayDate(this.today);
 	}
 
-	// ---------------------------------------------------------------------------
-	// Typed counts that flow through the page-data index signature
-	// (bootstrap counts — distinct from the live store-backed totals)
-	// ---------------------------------------------------------------------------
 	get personnelCount(): number {
 		return this.data.dashboard.data.personnel.length;
 	}
@@ -273,9 +263,6 @@ export class DashboardScreenModel {
 		return this.data.userRole as string | undefined;
 	}
 
-	// ---------------------------------------------------------------------------
-	// Getting-started checklist support data
-	// ---------------------------------------------------------------------------
 	get hasSupportData(): boolean {
 		return this.supportData !== null;
 	}

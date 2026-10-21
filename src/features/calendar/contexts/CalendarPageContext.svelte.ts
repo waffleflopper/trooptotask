@@ -7,7 +7,7 @@ import {
 	type AvailabilityChange
 } from '$features/calendar/utils/availabilityMutation';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDate, formatToday, parseDate } from '$lib/utils/dates';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -26,7 +26,6 @@ import { rejectedRequestMessage, StoreRequestError, withinOrganizationLifetime }
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
-import { SvelteDate } from 'svelte/reactivity';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 
@@ -85,10 +84,6 @@ export interface CalendarPageAccess {
 	) => { readonly allowed: boolean; readonly reason: PolicyDecision['reasonCode'] };
 }
 
-// ---------------------------------------------------------------------------
-// Page data shape (subset of layout + page server data)
-// ---------------------------------------------------------------------------
-
 export interface CalendarPageData {
 	orgId: string;
 	orgName?: string;
@@ -99,22 +94,15 @@ export interface CalendarPageData {
 		data?: CalendarWorkspaceData;
 	};
 	activeOnboardingPersonnelIds?: string[];
-	// Allow additional layout fields to pass through without type errors
 	[key: string]: unknown;
 }
 
-// ---------------------------------------------------------------------------
-// Context class
-// ---------------------------------------------------------------------------
-
 export class CalendarPageContext {
-	// ---- page data (reactive getter — always reads current $props value) ---
 	readonly #getData: () => CalendarPageData;
 	get #data(): CalendarPageData {
 		return this.#getData();
 	}
 
-	// ---- injected deps -----------------------------------------------------
 	readonly #org: CalendarPageAccess;
 	readonly #savePreferences: (patch: Partial<CalendarDisplayPreferences>) => void;
 
@@ -122,16 +110,13 @@ export class CalendarPageContext {
 		return JSON.stringify([this.#org.userId, this.#org.role, this.#org.capabilityMap.calendar, this.#org.scopeSet]);
 	}
 
-	// ---- selection state ---------------------------------------------------
 	popover = $state.raw<CalendarPopover | null>(null);
 	editor = $state.raw<AvailabilityEditorRequest | null>(null);
 	assignmentDate = $state<Date | null>(null);
 	savingAvailability = $state(false);
 
-	// ---- view mode ---------------------------------------------------------
 	viewMode = $state<CalendarViewMode>('month');
 
-	// ---- display prefs -----------------------------------------------------
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
@@ -142,7 +127,6 @@ export class CalendarPageContext {
 		return this.#data.calendar?.data;
 	}
 
-	// ---- derived: personnel ------------------------------------------------
 	get calendarPersonnel(): Personnel[] {
 		return (
 			this.#workspaceData?.allPersonnel ??
@@ -153,12 +137,9 @@ export class CalendarPageContext {
 		);
 	}
 
-	// ---- derived: onboarding data ------------------------------------------
 	get activeOnboardingPersonnelIds(): string[] {
 		return this.#workspaceData?.activeOnboardingPersonnelIds ?? this.#data.activeOnboardingPersonnelIds ?? [];
 	}
-
-	// ---- derived: permission flags -----------------------------------------
 
 	get isHydrating(): boolean {
 		return (
@@ -195,7 +176,6 @@ export class CalendarPageContext {
 		).allowed;
 	}
 
-	// ---- derived: personnel groupings --------------------------------------
 	readonly #calendarRoster = $derived(
 		createRosterReadModel({
 			personnel: this.calendarPersonnel,
@@ -234,24 +214,8 @@ export class CalendarPageContext {
 
 	readonly availabilityTracks = $derived(buildAvailabilityTracks(availabilityStore.items, statusTypesStore.items));
 
-	// ---- reference date (for upcoming-loss evaluation) --------------------
-	/**
-	 * Calendar date used as "today" when evaluating upcoming losses.
-	 * Injectable via the fourth constructor argument so tests can pin the date
-	 * without real-time dependencies.
-	 */
 	readonly #today: string;
 
-	// ---- derived: upcoming losses ------------------------------------------
-
-	/**
-	 * Map of personId → UpcomingLossRecord for personnel inside the org's
-	 * configured loss warning window.  Consumed by CalendarRow to render
-	 * per-row indicators without duplicating date-threshold arithmetic.
-	 *
-	 * Reuses the same evaluation path as the dashboard widget so the calendar
-	 * and dashboard always agree on who is approaching a loss event.
-	 */
 	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
 		const windowDays = this.#workspaceData?.lossWarningWindowDays;
 		const losses =
@@ -277,7 +241,6 @@ export class CalendarPageContext {
 		return this.#workspaceData?.lossWarningWindowDays === null;
 	}
 
-	// ---- constructor -------------------------------------------------------
 	constructor(
 		getData: CalendarPageData | (() => CalendarPageData),
 		org: CalendarPageAccess,
@@ -288,22 +251,14 @@ export class CalendarPageContext {
 		this.#org = org;
 		this.#savePreferences = savePreferences;
 
-		// Pin to the provided date or fall back to the local calendar date
-		const now = new SvelteDate();
-		this.#today =
-			today ??
-			`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+		this.#today = today ?? formatToday();
 	}
-
-	// ---- lifecycle methods (called from route $effect) ---------------------
 
 	syncUserPreferences(preferences: CalendarDisplayPreferences): void {
 		this.showStatusText = preferences.showStatusText;
 		this.showPersonnelRoles = preferences.showPersonnelRoles;
 		this.highlightOnboarding = preferences.highlightOnboarding;
 	}
-
-	// ---- handlers ----------------------------------------------------------
 
 	setViewMode(view: CalendarViewMode): void {
 		this.viewMode = view;

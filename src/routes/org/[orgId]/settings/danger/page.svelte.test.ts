@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import type { ComponentProps } from 'svelte';
 import type { ActionResult } from '@sveltejs/kit';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
@@ -82,12 +83,13 @@ it('enables Delete permanently only once the typed name matches exactly', async 
 	for (const partial of ['', 'Example Organ', 'example organization', 'Example Organization Two']) {
 		await fireEvent.input(input, { target: { value: partial } });
 		expect(remove.disabled).toBe(true);
-		expect(input.getAttribute('aria-describedby')).toBe('confirmDelete-hint');
+		expect(input).toHaveAccessibleDescription('Keep typing. It has to match exactly.');
 	}
 
 	await fireEvent.input(input, { target: { value: '  Example   Organization ' } });
 	expect(remove.disabled).toBe(false);
-	expect(input.hasAttribute('aria-describedby')).toBe(false);
+	expect(input).not.toHaveAccessibleDescription();
+	expect(dialog.queryByText('Keep typing. It has to match exactly.')).toBeNull();
 });
 
 it('shows a deletion failure in the active dialog and retains confirmation for retry', async () => {
@@ -140,7 +142,7 @@ it.each(['failure', 'redirect'] as const)(
 
 const serverError: ActionResult = { type: 'error', status: 500, error: { message: 'Internal Error' } };
 
-async function openTransfer() {
+async function chooseTransferTarget() {
 	const data = makeData();
 	data.dangerSettings.transferOwnershipCandidates = [
 		{ id: 'm-1', userId: 'u-1', email: 'next@example.com', membershipRole: 'admin' }
@@ -154,7 +156,12 @@ async function openTransfer() {
 	await fireEvent.pointerUp(option, { pointerType: 'mouse', button: 0 });
 	await fireEvent.click(screen.getByRole('button', { name: 'Transfer' }));
 	await vi.runAllTimersAsync();
-	const dialog = screen.getByRole('dialog', { name: 'Transfer Ownership' });
+	const dialog = screen.getByRole('dialog', { name: 'Make next@example.com the Owner?' });
+	return { view, data, dialog };
+}
+
+async function openTransfer() {
+	const { view, data, dialog } = await chooseTransferTarget();
 	await fireEvent.input(within(dialog).getByRole('textbox'), { target: { value: 'next@example.com' } });
 	const callback = enhancements.get('transfer-ownership-form')!({ cancel: () => {} }) as (
 		input: unknown
@@ -175,7 +182,23 @@ it.each([
 
 	expect(within(dialog).getByRole('alert')).toBeTruthy();
 	expect((within(dialog).getByRole('textbox') as HTMLInputElement).value).toBe('next@example.com');
-	expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Transfer Ownership' }));
+	expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Transfer ownership' }));
+});
+
+it('names the email to type and enables Transfer ownership once it matches, ignoring case', async () => {
+	const { dialog } = await chooseTransferTarget();
+	const input = within(dialog).getByRole('textbox', { name: 'Type next@example.com to confirm' });
+	const transfer = within(dialog).getByRole('button', { name: 'Transfer ownership' }) as HTMLButtonElement;
+
+	for (const partial of ['', 'next@example', 'other@example.com']) {
+		await fireEvent.input(input, { target: { value: partial } });
+		expect(transfer.disabled).toBe(true);
+		expect(input).toHaveAccessibleDescription('Keep typing. It has to match exactly.');
+	}
+
+	await fireEvent.input(input, { target: { value: ' Next@Example.com ' } });
+	expect(transfer.disabled).toBe(false);
+	expect(input).not.toHaveAccessibleDescription();
 });
 
 it('keeps the delete confirmation with an Alert in its dialog when deletion errors', async () => {
@@ -214,7 +237,7 @@ it('keeps focus on Delete permanently while deletion is pending and ignores a se
 	expect(repeat).toHaveBeenCalledOnce();
 });
 
-it('keeps focus on Transfer Ownership while the transfer is pending and ignores a second submission', async () => {
+it('keeps focus on Transfer ownership while the transfer is pending and ignores a second submission', async () => {
 	const { dialog } = await openTransfer();
 	await vi.runAllTimersAsync();
 	const transfer = within(dialog).getByRole('button', { name: 'Transferring...' }) as HTMLButtonElement;

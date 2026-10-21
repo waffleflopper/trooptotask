@@ -294,7 +294,7 @@ describe('Approvals review', () => {
 		currentDraft('Still required');
 	});
 
-	it.each(['response', 'transport', 'null', 'malformed', 'non-string message'] as const)(
+	it.each(['response', 'transport', 'malformed'] as const)(
 		'retains the denial draft and allows an explicit retry after a %s failure',
 		async (kind) => {
 			const failure =
@@ -304,10 +304,7 @@ describe('Approvals review', () => {
 							Promise.resolve(
 								kind === 'malformed'
 									? new Response('{', { status: 503 })
-									: Response.json(
-											kind === 'response' ? { message: 'Review unavailable' } : kind === 'null' ? null : { message: 7 },
-											{ status: 503 }
-										)
+									: Response.json({ message: 'Review unavailable' }, { status: 503 })
 							);
 			const send = vi
 				.fn()

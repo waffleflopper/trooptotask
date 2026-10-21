@@ -16,7 +16,8 @@
 		DataTableRowDetailSnippet,
 		DataTableRowSnippet,
 		DataTableState,
-		DataTableStateSnippet
+		DataTableStateSnippet,
+		PageLabels
 	} from './types.js';
 
 	type Props = {
@@ -48,7 +49,7 @@
 		 * and group headers stay shown.
 		 */
 		rowHidden?: (row: T) => boolean;
-		pageLabels?: { previous: string; next: string };
+		pageLabels?: PageLabels;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -84,6 +85,8 @@
 		toolbar,
 		footer
 	}: Props = $props();
+
+	const HIDDEN_BELOW = { md: 'max-md:hidden!', '@3xl': '@max-3xl/data-table:hidden!' } as const;
 
 	const resolvedDensity = $derived(compact ? 'dense' : density);
 	const cols = $derived(table.columns);
@@ -139,7 +142,7 @@
 	{@const alignClass = cn(
 		column.align === 'center' && 'text-center',
 		column.align === 'right' && 'text-right',
-		column.hiddenBelow === 'md' && 'max-md:hidden!'
+		column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow]
 	)}
 	{#if column.rowHeader}
 		<th
@@ -174,7 +177,7 @@
 						class={cn(
 							column.align === 'center' && 'text-center',
 							column.align === 'right' && 'text-right',
-							column.hiddenBelow === 'md' && 'max-md:hidden!'
+							column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow]
 						)}
 						style={column.width ? `width: ${column.width}` : undefined}
 					>

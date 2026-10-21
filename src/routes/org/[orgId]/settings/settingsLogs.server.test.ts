@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { createSupabaseOrganizationAuditStore } from '$lib/audit/index.server';
+import { createSupabaseOrganizationAuditStore, type OrganizationAuditStore } from '$lib/audit/index.server';
 import { createSupabasePersonnelNamesReader } from '$features/personnel/index.server';
 import { createSupabaseTrainingTypeNamesReader } from '$features/training/index.server';
 import { createSupabaseStatusTypeNamesReader } from '$features/calendar/index.server';
@@ -9,6 +9,32 @@ import { createSupabaseOrganizationMemberEmailsReader } from '$features/organiza
 import { loadLogsSettings } from './settingsLogs.server';
 
 const VIEWER = { timeZone: 'America/New_York', now: new Date('2026-10-20T02:00:00Z') };
+
+describe('loadLogsSettings', () => {
+	it("counts this month from the start of the month in the viewer's time zone", async () => {
+		const ctx = createQueryPortsContext();
+		const written = ['2026-10-01T03:59:00Z', '2026-10-01T04:00:00Z', '2026-10-19T12:00:00Z'].map(Date.parse);
+		const store: OrganizationAuditStore = {
+			listLogs: async () => ({ logs: [], totalCount: written.length }),
+			countRecent: async ({ cutoff }) => written.filter((at) => at >= Date.parse(cutoff)).length,
+			listActions: async () => []
+		};
+		const none = async () => new Map<string, string>();
+
+		const result = await loadLogsSettings(
+			ctx,
+			store,
+			{ personnelNames: none, trainingTypeNames: none, statusTypeNames: none, actorEmails: none },
+			VIEWER
+		);
+
+		expect(result).toMatchObject({
+			today: '2026-10-19',
+			timeZone: 'America/New_York',
+			auditLog: { totalCount: 3, recentCount: 2 }
+		});
+	});
+});
 
 describe('admitted Logs source composition', () => {
 	it('binds same-Organization source labels and exact emails while preserving masking and saved actor precedence', async () => {

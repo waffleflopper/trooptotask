@@ -12,8 +12,6 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
@@ -21,7 +19,8 @@
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
-	import { deletionCountdown, nextCleanupRun } from '../archiveCountdown';
+	import { nextCleanupRun } from '$lib/utils/retentionCutoff';
+	import { deletionCountdown } from '../archiveCountdown';
 	import { ARCHIVED_PEOPLE_DEPENDENCY } from '../settingsDependencies';
 	import { formatRosterDate, pluralize } from '../settingsWorkspaceFormatters';
 	import type { SettingsArchivedPersonnelRow } from '../settingsSectionTypes';
@@ -45,6 +44,7 @@
 	);
 
 	const months = $derived(archived.retention.months);
+	const timeZone = $derived(data.archivesSettings.timeZone);
 	// Retention is one length for the unit, so the oldest archive is always the next to be deleted.
 	const rows = $derived(
 		archived.rows
@@ -57,7 +57,7 @@
 	const shownCount = $derived(query ? rows.filter(matches).length : rows.length);
 	const countdowns = $derived(new Map(rows.map((row) => [row.id, deletionCountdown(row.archivedAt, months, now)])));
 
-	// Below md the name cell carries the detail lanes, and the actions shrink to their stacked buttons.
+	// While the table is narrower than 48rem the name cell carries the detail lanes, and the actions stack.
 	const columns = (
 		[
 			['name', 'Name', undefined],
@@ -74,7 +74,7 @@
 			width,
 			headerAriaLabel: key === 'actions' ? 'Actions' : undefined,
 			rowHeader: key === 'name',
-			hiddenBelow: key === 'name' || key === 'actions' ? undefined : 'md',
+			hiddenBelow: key === 'name' || key === 'actions' ? undefined : '@3xl',
 			value: () => '',
 			sortable: false,
 			searchable: false
@@ -242,7 +242,9 @@
 {/snippet}
 
 {#snippet actions(row: SettingsArchivedPersonnelRow)}
-	<div class="flex flex-col items-end gap-1 md:w-59 md:flex-row md:items-center md:justify-end">
+	<div
+		class="flex flex-col items-end gap-1 @3xl/data-table:w-59 @3xl/data-table:flex-row @3xl/data-table:items-center @3xl/data-table:justify-end"
+	>
 		<Button
 			id="restore-{row.id}"
 			variant="outline"
@@ -272,9 +274,9 @@
 {#snippet archiveCell(row: SettingsArchivedPersonnelRow, column: ColumnDef<SettingsArchivedPersonnelRow>)}
 	{#if column.key === 'name'}
 		<span class="font-semibold whitespace-normal">{row.displayName}</span>
-		<div class="md:hidden">
+		<div class="@3xl/data-table:hidden">
 			<p class="mt-0.5 font-mono text-xs whitespace-normal text-muted-foreground">
-				{[row.mos, row.groupName, `Archived ${formatRosterDate(row.archivedAt)}`].filter(Boolean).join(' · ')}
+				{[row.mos, row.groupName, `Archived ${formatRosterDate(row.archivedAt, timeZone)}`].filter(Boolean).join(' · ')}
 			</p>
 			<div class="mt-1.5">{@render countdown(row)}</div>
 		</div>
@@ -283,7 +285,7 @@
 	{:else if column.key === 'group'}
 		<span class="font-mono text-xs whitespace-normal text-muted-foreground">{row.groupName || '--'}</span>
 	{:else if column.key === 'archived'}
-		<span class="font-mono text-xs text-muted-foreground">{formatRosterDate(row.archivedAt)}</span>
+		<span class="font-mono text-xs text-muted-foreground">{formatRosterDate(row.archivedAt, timeZone)}</span>
 	{:else if column.key === 'deletedIn'}
 		{@render countdown(row)}
 	{:else if column.key === 'actions'}
@@ -292,28 +294,36 @@
 {/snippet}
 
 {#if archived.confirmPermanentDelete}
+	{@const person = archived.confirmPermanentDelete}
 	<AppDialog.Root
-		open={Boolean(archived.confirmPermanentDelete)}
+		open
+		tone="destructive"
 		busy={permanentDeleteInFlight}
+		closeBlocked={archived.permanentDeleteConfirmText.trim() !== ''}
 		onClose={() => archived.clearPermanentDeleteConfirmation()}
 	>
 		<AppDialog.Content>
-			<AppDialog.Header>
-				<AppDialog.Title>Permanently Delete Personnel</AppDialog.Title>
+			<AppDialog.Header eyebrow="Delete person · Cannot be undone">
+				<AppDialog.Title>Delete {person.name}?</AppDialog.Title>
 				<AppDialog.Description>
-					Permanently delete {archived.confirmPermanentDelete.name}. This action cannot be undone.
+					This permanently deletes {person.name} and every record kept for them. Restore is no longer possible.
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
-				<Field.Root>
-					<Field.Label for="confirmPermanentDeletePersonnel">Type the name to confirm</Field.Label>
-					<Input
+				<form
+					id="permanent-delete-form"
+					onsubmit={(event) => {
+						event.preventDefault();
+						if (archived.permanentDeleteConfirmMatches) handlePermanentDelete(person.id);
+					}}
+				>
+					<AppDialog.TypeToConfirm
 						id="confirmPermanentDeletePersonnel"
-						type="text"
+						phrase={person.name}
+						matches={archived.permanentDeleteConfirmMatches}
 						bind:value={archived.permanentDeleteConfirmText}
-						autocomplete="off"
 					/>
-				</Field.Root>
+				</form>
 			</AppDialog.Body>
 			<AppDialog.Footer>
 				<Button
@@ -323,12 +333,14 @@
 					onclick={() => archived.clearPermanentDeleteConfirmation()}>Cancel</Button
 				>
 				<Button
-					type="button"
-					variant="destructive"
-					disabled={permanentDeleteInFlight || !archived.permanentDeleteConfirmMatches}
-					onclick={() => handlePermanentDelete(archived.confirmPermanentDelete!.id)}
+					type="submit"
+					form="permanent-delete-form"
+					variant={archived.permanentDeleteConfirmMatches ? 'destructive-solid' : 'outline'}
+					disabled={!archived.permanentDeleteConfirmMatches}
+					aria-disabled={permanentDeleteInFlight ? 'true' : undefined}
+					aria-busy={permanentDeleteInFlight || undefined}
 				>
-					{permanentDeleteInFlight ? 'Deleting...' : 'Permanently Delete'}
+					{permanentDeleteInFlight ? 'Deleting...' : 'Delete permanently'}
 				</Button>
 			</AppDialog.Footer>
 		</AppDialog.Content>

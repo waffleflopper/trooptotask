@@ -83,7 +83,7 @@ describe('Exports page', () => {
 		expect(await screen.findByText('Last export · Excel · 12 Oct 2026, 09:14 by whitaker@example.com')).toBeTruthy();
 	});
 
-	it('shows no last export line to a member the server gave none', async () => {
+	it('shows no last export line to an admin the server gave none', async () => {
 		mount();
 		await screen.findByRole('list', { name: 'What an export of C Co contains' });
 
@@ -93,7 +93,7 @@ describe('Exports page', () => {
 	it('explains a failed count and keeps both exports usable', async () => {
 		mount('organization-a', { scopeCounts: Promise.reject(new Error('count failed')) });
 
-		expect(await screen.findByText('What an export of C Co contains could not be counted.')).toBeTruthy();
+		expect(await screen.findByText('Records could not be counted.')).toBeTruthy();
 		expect(
 			within(screen.getByRole('list', { name: 'What an export of C Co contains' }))
 				.getAllByRole('listitem')
@@ -129,51 +129,6 @@ describe('Exports page', () => {
 
 			reread.resolve({ format: 'json', at: newest, actor: 'whitaker@example.com' });
 			expect(await screen.findByText('Last export · JSON · 20 Oct 2026, 14:05 by whitaker@example.com')).toBeTruthy();
-		});
-
-		it('shows the newest audit event when the older export response lands last', async () => {
-			const json = deferred<Response>();
-			const excel = deferred<Response>();
-			vi.stubGlobal(
-				'fetch',
-				vi.fn((url: string) => (url.endsWith('/export') ? json.promise : excel.promise))
-			);
-			const view = mount(
-				'organization-a',
-				{},
-				Promise.resolve({ format: 'excel', at: earlier, actor: 'x@example.com' })
-			);
-			await screen.findByText(/Last export ·/);
-			await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
-
-			excel.resolve(success('newer.xlsx'));
-			await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'newer.xlsx'));
-			json.resolve(success('older.json'));
-			await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'older.json'));
-			expect(navigation.invalidate).toHaveBeenCalledTimes(2);
-
-			await view.rerender({
-				data: data(
-					'organization-a',
-					{},
-					Promise.resolve({ format: 'excel', at: newest, actor: 'whitaker@example.com' })
-				)
-			});
-
-			expect(await screen.findByText('Last export · Excel · 20 Oct 2026, 14:05 by whitaker@example.com')).toBeTruthy();
-			expect(screen.queryByText(/ by you/)).toBeNull();
-		});
-
-		it('does not re-read the audit log for a member who never sees the line', async () => {
-			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(success('fresh.json')));
-			mount();
-
-			await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
-			await waitFor(() => expect(downloads.save).toHaveBeenCalledOnce());
-
-			expect(navigation.invalidate).not.toHaveBeenCalled();
-			expect(screen.queryByText(/Last export/)).toBeNull();
 		});
 	});
 

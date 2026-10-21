@@ -208,7 +208,6 @@
 	showCta={false}
 	showFaqLink
 >
-	<!-- ───────────────────────── HERO ───────────────────────── -->
 	<section
 		bind:this={heroEl}
 		class="relative overflow-hidden bg-chrome pt-[calc(56px_+_clamp(4rem,9vh,8rem))] pb-[clamp(4rem,9vh,8rem)] text-chrome-text before:pointer-events-none before:absolute before:inset-0 before:bg-chrome-dots max-sm:pt-[calc(56px_+_2.5rem)] max-sm:pb-12"
@@ -241,7 +240,6 @@
 		</div>
 	</section>
 
-	<!-- ──────────────────── PRODUCT SHOWCASE ──────────────────── -->
 	<section class="bg-background py-[clamp(5rem,10vh,9rem)]">
 		<div class={[containerClass, 'max-w-[1320px]']}>
 			<div class="reveal mx-auto mb-[clamp(2.5rem,4vw,4rem)] max-w-[620px] text-center">
@@ -267,7 +265,6 @@
 		</div>
 	</section>
 
-	<!-- ──────────────────── FEATURE HIGHLIGHTS ──────────────────── -->
 	<section class="bg-background pt-[clamp(2rem,4vh,4rem)] pb-[clamp(5rem,10vh,9rem)]">
 		<div class={[containerClass, 'flex max-w-[1200px] flex-col gap-[clamp(5rem,10vh,8rem)]']}>
 			{#each features as feature, i (feature.index)}
@@ -313,7 +310,6 @@
 		</div>
 	</section>
 
-	<!-- ──────────────────── SOCIAL PROOF ──────────────────── -->
 	<section class="border-y border-border bg-muted py-[clamp(5rem,10vh,8rem)]">
 		<div class={[containerClass, 'max-w-[1000px]']}>
 			<div class="reveal">
@@ -343,7 +339,6 @@
 		</div>
 	</section>
 
-	<!-- ──────────────────── FAQ ──────────────────── -->
 	<section class="bg-background py-[clamp(5rem,10vh,9rem)]" id="faq">
 		<div class={[containerClass, 'max-w-[760px]']}>
 			<div class="reveal mb-[clamp(2rem,4vw,3.5rem)] text-center">
@@ -370,7 +365,6 @@
 		</div>
 	</section>
 
-	<!-- ──────────────────── CTA ──────────────────── -->
 	<section class="bg-chrome py-[clamp(5rem,12vh,9rem)] text-center text-chrome-text" id="cta">
 		<div class={[containerClass, 'reveal max-w-[640px]']}>
 			<span class={[labelClass, 'text-accent']}>GET STARTED</span>

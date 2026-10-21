@@ -3,15 +3,9 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-/**
- * Regression test: fonts must be self-hosted via @fontsource packages.
- * No route should reference Google Fonts externally.
- */
-
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const ROUTES_DIR = resolve(currentDir, '../routes');
 
-/** Recursively find all .svelte files under a directory */
 function findSvelteFiles(dir: string): string[] {
 	const results: string[] = [];
 	for (const entry of readdirSync(dir)) {

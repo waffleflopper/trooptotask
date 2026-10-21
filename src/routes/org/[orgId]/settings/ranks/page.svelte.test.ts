@@ -205,7 +205,6 @@ describe('rank settings page', () => {
 		expect(screen.getAllByRole('columnheader', { name: 'Branch' }).length).toBeGreaterThan(0);
 		expect(screen.getByText('Denied write')).toBeTruthy();
 
-		// Custom rank form is collapsed until requested, and carries the co-located help text.
 		expect(screen.queryByRole('heading', { name: 'Add Custom Rank' })).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
 		expect(screen.getByRole('heading', { name: 'Add Custom Rank' })).toBeTruthy();
@@ -214,7 +213,6 @@ describe('rank settings page', () => {
 		expect(screen.getByText(/Pay grade groups ranks/)).toBeTruthy();
 		expect(screen.getByText(/Tie-break order only decides display order/)).toBeTruthy();
 
-		// Branch-pack bulk actions live in an overflow menu and confirm before applying.
 		await fireEvent.click(screen.getByRole('button', { name: 'More actions for Navy' }));
 		await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire active ranks (2)' }));
 		expect(screen.getByRole('heading', { name: 'Retire Navy ranks' })).toBeTruthy();
@@ -222,10 +220,8 @@ describe('rank settings page', () => {
 		expect(screen.getByRole('button', { name: 'Retire active ranks' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-		// Show active and retired entries together in the single catalog table.
 		await fireEvent.click(screen.getByRole('button', { name: 'All' }));
 
-		// Expanding a rank reveals its references and inline edit form.
 		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
 		expect(
 			screen.getByText('Referenced by 2 active records or filters. Retire this rank to preserve existing records.')
@@ -233,13 +229,11 @@ describe('rank settings page', () => {
 		expect(screen.getByText('Edit rank')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Save DET-SGT' })).toBeTruthy();
 
-		// Referenced custom rank can be retired but not removed; unreferenced retired rank can be reactivated or removed.
 		await fireEvent.click(screen.getByRole('button', { name: 'Actions for DET-SGT' }));
 		expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeTruthy();
 		expect(screen.getByRole('menuitem', { name: 'Retire' })).toBeTruthy();
 		expect(screen.queryByRole('menuitem', { name: 'Remove' })).toBeNull();
 
-		// Those actions are reachable from the retired rank's overflow menu.
 		await fireEvent.click(screen.getByRole('button', { name: 'Actions for OLD-SGT' }));
 		expect(screen.getByRole('menuitem', { name: 'Reactivate' })).toBeTruthy();
 		expect(screen.getByRole('menuitem', { name: 'Remove' })).toBeTruthy();
@@ -323,7 +317,6 @@ describe('rank settings page', () => {
 		});
 
 		expect(screen.getByRole('button', { name: 'Show details for Lt Gen' })).toBeTruthy();
-		// Built-in active rank can be retired but not edited or removed.
 		await fireEvent.click(screen.getByRole('button', { name: 'Actions for Lt Gen' }));
 		expect(screen.getByRole('menuitem', { name: 'Retire' })).toBeTruthy();
 		expect(screen.queryByRole('menuitem', { name: 'Edit' })).toBeNull();
@@ -409,7 +402,6 @@ describe('rank settings page', () => {
 			}
 		});
 
-		// Retired entries are shown via the state filter.
 		await fireEvent.click(screen.getByRole('button', { name: 'Retired' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Actions for SP4' }));
 		expect(screen.getByRole('menuitem', { name: 'Reactivate' })).toBeTruthy();

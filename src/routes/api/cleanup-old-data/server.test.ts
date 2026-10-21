@@ -29,7 +29,6 @@ describe('scheduled audit cleanup', () => {
 			const response = await GET(request(`Bearer ${secret}`));
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({ auditLogsDeleted: 3 });
-			// No other stored records, including the retired webhook ledger, may be deleted.
 			expect(rpc.mock.calls).toEqual([['cleanup_old_audit_logs']]);
 		}
 	);

@@ -2,8 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-
-	// Server-side guard ensures only suspended users see this
 </script>
 
 <svelte:head>

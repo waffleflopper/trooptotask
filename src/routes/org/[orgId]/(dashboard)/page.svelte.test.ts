@@ -42,7 +42,9 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 					personnel: [],
 					groups: [],
 					statusTypes: [],
-					trainingTypes: []
+					trainingTypes: [],
+					specialDays: [],
+					strengthFloorPercent: 80
 				},
 				hydration: { orgId }
 			}

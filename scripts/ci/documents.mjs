@@ -2,9 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** Remove examples before looking for navigable Markdown links and headings.
- * @param {string} markdown
- */
+/** @param {string} markdown */
 function prose(markdown) {
 	let fence = '';
 	let width = 0;
@@ -61,9 +59,7 @@ function referenceKey(label) {
 	return label.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-/** Extract common inline, image and reference destinations, ignoring inline code.
- * @param {string} markdown
- */
+/** @param {string} markdown */
 function destinations(markdown) {
 	const text = prose(markdown).replace(/(`+)([\s\S]*?)\1(?!`)/g, '');
 	const definitions = new Map();
@@ -82,7 +78,7 @@ function destinations(markdown) {
 	return found;
 }
 
-/** Check explicit existing Markdown sources. External URLs are never fetched.
+/** External URLs are never fetched.
  * Non-Markdown destinations are checked for existence; their fragment semantics
  * belong to their renderer (for example GitHub source-code line links).
  * @param {string} repoRoot

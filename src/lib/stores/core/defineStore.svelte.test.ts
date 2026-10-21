@@ -25,9 +25,6 @@ function mockAdapter(overrides: Partial<ApiAdapter<TestItem>> = {}): ApiAdapter<
 	});
 }
 
-// ──────────────────────────────────────────────────────────────
-// tableToResource
-// ──────────────────────────────────────────────────────────────
 describe('tableToResource', () => {
 	it('replaces underscores with hyphens', () => {
 		expect(tableToResource('training_types')).toBe('training-types');
@@ -42,9 +39,6 @@ describe('tableToResource', () => {
 	});
 });
 
-// ──────────────────────────────────────────────────────────────
-// buildComparator
-// ──────────────────────────────────────────────────────────────
 describe('buildComparator', () => {
 	it('returns undefined when orderBy is empty', () => {
 		expect(buildComparator([])).toBeUndefined();
@@ -124,9 +118,6 @@ describe('buildComparator', () => {
 	});
 });
 
-// ──────────────────────────────────────────────────────────────
-// defineStore — Tier 2: enhance function
-// ──────────────────────────────────────────────────────────────
 describe('defineStore (Tier 2 — enhance)', () => {
 	it('enhance function can call base methods directly', async () => {
 		const store = defineStore({ table: 'test_items', overrides: { adapter: mockAdapter() } }, (base) => ({
@@ -158,7 +149,6 @@ describe('defineStore (Tier 2 — enhance)', () => {
 			'org-1'
 		);
 
-		// `items` getter should be live and sorted
 		expect(store.items.map((i) => i.rank)).toEqual([1, 3]);
 		expect(store.count()).toBe(2);
 	});
@@ -191,9 +181,6 @@ describe('defineStore (Tier 2 — enhance)', () => {
 	});
 });
 
-// ──────────────────────────────────────────────────────────────
-// defineStore — Tier 3: enhance with internals
-// ──────────────────────────────────────────────────────────────
 describe('defineStore (Tier 3 — enhance with internals)', () => {
 	it('enhanced stores can expose behavior built from live store internals', () => {
 		const store = defineStore<TestItem, InternalsEnhancements>(
@@ -214,9 +201,6 @@ describe('defineStore (Tier 3 — enhance with internals)', () => {
 	});
 });
 
-// ──────────────────────────────────────────────────────────────
-// defineStore — tracer bullet + integration
-// ──────────────────────────────────────────────────────────────
 describe('defineStore', () => {
 	it('returns a Store that loads and exposes items', () => {
 		const store = defineStore<TestItem>({
@@ -261,7 +245,6 @@ describe('defineStore', () => {
 		];
 		store.load(items, 'org-1');
 
-		// No sort applied — original order preserved
 		expect(store.items.map((i) => i.id)).toEqual(['3', '1', '2']);
 	});
 

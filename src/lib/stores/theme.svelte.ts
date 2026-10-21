@@ -1,11 +1,6 @@
 /**
- * Theme store — light/dark mode preference.
- *
  * Starts with the server-rendered default, then reads `localStorage` on mount.
- * Applies the theme to `document.documentElement[data-theme]` so CSS variables respond.
  * Call `themeStore.init()` in the root layout's `onMount` to sync the DOM after hydration.
- *
- * Persisted to `localStorage` under key `'theme'`.
  */
 import { browser } from '$app/environment';
 

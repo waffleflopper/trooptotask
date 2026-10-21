@@ -492,7 +492,6 @@ export function statementCategory(row) {
 	return categoryRules.find(([, matches]) => matches(row))?.[0] ?? 'other';
 }
 
-/** Calls and time per request-path category in each window, as distributions over the windows. */
 export function statementCategories(windows) {
 	const names = [...categoryRules.map(([name]) => name), 'other'];
 	const totals = windows.map((rows) => {

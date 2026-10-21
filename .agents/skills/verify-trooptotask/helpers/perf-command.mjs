@@ -98,7 +98,6 @@ async function runDirectory(ctx, options) {
 
 const scopes = { perfWide: 'wide', perfScoped: 'scoped', perfScopedLeader: 'scoped', platformReviewer: null };
 
-/** What a journey needs to know about one seeded workload as one actor, all from the seed ledger. */
 export function journeyTerms(seeded, workload, actor) {
 	const item = seeded[workload];
 	const scope = scopes[actor];
@@ -599,7 +598,7 @@ export function controlUid(snapshot, { role, name, within, partial }) {
 	return match.match(/uid=([^\s]+)/)[1];
 }
 
-/** Runs one native step from the registry on the page. A wait may take the whole cap. */
+/** A wait may take the whole cap. */
 export async function step(ctx, pageId, action) {
 	if (action.wait) return ctx.tool('wait_for', { pageId, text: action.wait, timeout: capMs });
 	if (action.type !== undefined) return ctx.tool('type_text', { pageId, text: action.type });

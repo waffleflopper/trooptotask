@@ -98,7 +98,6 @@ export function readToolbar(target, label) {
 	};
 }
 
-// Source for one settled read: fonts loaded, two animation frames, then the pure read, on the owned origin only.
 export function toolbarReadSource(label, origin) {
 	return `async () => {
 		if (location.origin !== ${JSON.stringify(origin)}) throw new Error('Use an owned app page');

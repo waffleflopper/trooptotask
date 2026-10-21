@@ -1,7 +1,3 @@
 import Root from './date-picker.svelte';
 
-export {
-	Root,
-	//
-	Root as DatePicker
-};
+export { Root, Root as DatePicker };

@@ -374,15 +374,12 @@ describe('createStore', () => {
 
 			const addPromise = store.add({ name: 'New' });
 
-			// Optimistic item should be present
 			expect(store.items.length).toBe(2);
 			expect(store.items.some((i) => i.name === 'New')).toBe(true);
 
-			// Stale load arrives — should be blocked
 			store.load([{ id: '1', name: 'Existing' }], 'org-1');
 			expect(store.items.some((i) => i.name === 'New')).toBe(true);
 
-			// Resolve
 			resolveCreate({ id: 'server-1', name: 'New' });
 			await addPromise;
 
@@ -407,7 +404,6 @@ describe('createStore', () => {
 
 			expect(store.items[0].name).toBe('Updated');
 
-			// Stale load
 			store.load([{ id: '1', name: 'Original' }], 'org-1');
 			expect(store.items[0].name).toBe('Updated');
 
@@ -439,7 +435,6 @@ describe('createStore', () => {
 			expect(store.items.length).toBe(1);
 			expect(store.items[0].id).toBe('2');
 
-			// Stale load
 			store.load(
 				[
 					{ id: '1', name: 'Alpha' },
@@ -468,7 +463,6 @@ describe('createStore', () => {
 
 			const pendingAdd = store.add({ name: 'New' });
 
-			// Different org — should go through
 			store.load([{ id: '10', name: 'Other Org Item' }], 'org-2');
 
 			expect(store.items).toEqual([{ id: '10', name: 'Other Org Item' }]);
@@ -1130,12 +1124,10 @@ describe('createStore', () => {
 				'org-1'
 			);
 
-			// Before update: sorted = [Bravo(1), Alpha(2)]
 			expect(store.items[0].name).toBe('Bravo');
 
 			await store.update('1', { sortOrder: 0 });
 
-			// After update: Alpha sortOrder=0, Bravo sortOrder=1
 			expect(store.items[0].name).toBe('Alpha');
 		});
 
@@ -1149,7 +1141,6 @@ describe('createStore', () => {
 				'org-1'
 			);
 
-			// rawItems same as items when no sort
 			expect(store.rawItems).toEqual(store.items);
 		});
 	});
@@ -1183,22 +1174,18 @@ describe('createStore', () => {
 				'org-1'
 			);
 
-			// Both updates start concurrently
 			const updateA = store.update('1', { name: 'Alicia' });
 			const updateB = store.update('2', { name: 'Bobby' });
 
-			// Both optimistic changes visible
 			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alicia');
 			expect(store.items.find((i) => i.id === '2')?.name).toBe('Bobby');
 
-			// A fails — B's optimistic state must survive
 			rejectA(new Error('network error'));
 			await updateA;
 
-			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alice'); // rolled back
-			expect(store.items.find((i) => i.id === '2')?.name).toBe('Bobby'); // preserved!
+			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alice');
+			expect(store.items.find((i) => i.id === '2')?.name).toBe('Bobby');
 
-			// B succeeds
 			resolveB({ id: '2', name: 'Bobby' });
 			await updateB;
 
@@ -1233,19 +1220,16 @@ describe('createStore', () => {
 			const addA = store.add({ name: 'Alpha' });
 			const addB = store.add({ name: 'Bravo' });
 
-			// Both optimistic items visible
 			expect(store.items.length).toBe(2);
 			expect(store.items.some((i) => i.name === 'Alpha')).toBe(true);
 			expect(store.items.some((i) => i.name === 'Bravo')).toBe(true);
 
-			// A fails — B's optimistic item must survive
 			rejectA(new Error('fail'));
 			await expect(addA).rejects.toThrow('fail');
 
 			expect(store.items.length).toBe(1);
 			expect(store.items[0].name).toBe('Bravo');
 
-			// B succeeds
 			resolveB({ id: 'server-b', name: 'Bravo' });
 			await addB;
 
@@ -1271,10 +1255,8 @@ describe('createStore', () => {
 
 			const updateP = store.update('1', { name: 'Alicia' });
 
-			// Optimistic update visible
 			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alicia');
 
-			// Server load arrives with new item (e.g., another user added item 3)
 			store.load(
 				[
 					{ id: '1', name: 'Alice' },
@@ -1284,7 +1266,6 @@ describe('createStore', () => {
 				'org-1'
 			);
 
-			// Optimistic update survives load, AND new item is visible
 			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alicia');
 			expect(store.items.find((i) => i.id === '3')?.name).toBe('Charlie');
 

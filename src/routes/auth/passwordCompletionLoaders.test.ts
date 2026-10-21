@@ -40,7 +40,6 @@ it.each([
 		} as unknown as App.Locals;
 		const attemptId = '00000000-0000-4000-8000-000000000099';
 		for (const state of ['started', 'pending', 'complete', 'failed'] as const) {
-			// Arrange independently stored facts; reload must read them without starting a mutation.
 			rpc.mockReset().mockResolvedValue({
 				data: { id: attemptId, state, flow, expiresAt: session.expires_at, acquired: false },
 				error: null

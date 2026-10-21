@@ -6,7 +6,6 @@ import {
 import { getPersonnelOrganizationDefaults } from '$features/personnel/index.server';
 import { getCalendarOrganizationDefaults } from '$features/calendar/index.server';
 
-/** Compose Organization creation with the defaults Personnel and Calendar own at the request boundary. */
 export function createOrganizationProvisioningDelivery(locals: Pick<App.Locals, 'supabase'>): OrgProvisioningPort {
 	const defaults: OrganizationDefaults = {
 		...getPersonnelOrganizationDefaults(),

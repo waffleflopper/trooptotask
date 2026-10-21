@@ -20,7 +20,6 @@ export {
 	Footer,
 	Trigger,
 	Close,
-	//
 	Root as AppDialog,
 	Content as AppDialogContent,
 	Header as AppDialogHeader,

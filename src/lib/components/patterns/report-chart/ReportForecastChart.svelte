@@ -32,7 +32,6 @@
 		goal: { value: number; label: string };
 		band: ReportForecastBand | null;
 		xTicks: Array<{ date: string; label: string }>;
-		/** Text color class for the end point and its label. */
 		endTone: string;
 		ariaLabel: string;
 		heightClass?: string;

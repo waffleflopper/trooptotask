@@ -459,7 +459,6 @@ export async function runBlock(config) {
 	return out;
 }
 
-/** Runs inside the page: facts that decide whether the measurement is valid. */
 export function readPageFacts() {
 	const resources = performance.getEntriesByType('resource').map((entry) => entry.name);
 	const group = [...document.querySelectorAll('[aria-label="Calendar group filter"]')].find(
@@ -482,7 +481,6 @@ export function readPageFacts() {
 	};
 }
 
-/** Runs inside the page: the group filter's own counts, read by opening and closing it. */
 export async function readRoster() {
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 	const trigger = [...document.querySelectorAll('[aria-label="Calendar group filter"]')].find(
@@ -520,7 +518,6 @@ export function median(values) {
 
 const round = (value, digits = 1) => (value === null || value === undefined ? null : Number(value.toFixed(digits)));
 
-/** Reduces the measured (non-warm-up) records of one run to one row per interaction. */
 export function summarizeRun(records) {
 	const rows = {};
 	for (const id of Object.keys(INTERACTIONS)) {

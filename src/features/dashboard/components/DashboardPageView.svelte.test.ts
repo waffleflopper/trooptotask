@@ -403,6 +403,31 @@ describe('Dashboard frame', () => {
 		expect(error).not.toHaveBeenCalled();
 		expect(screen.getByRole('dialog', { name: 'Quick add for Test Unit' })).toBeTruthy();
 	});
+	it('drops a dialog still loading when the Organization unloads, even if the viewer comes back', async () => {
+		let finishStatus!: (module: Awaited<ReturnType<QuickAddEntry['loadDialog']>>) => void;
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [
+			{
+				id: 'status',
+				label: 'Status',
+				icon,
+				order: 10,
+				loadDialog: () => new Promise((resolve) => (finishStatus = resolve))
+			}
+		];
+		const props = { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] };
+		const view = render(DashboardPageView, { props });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await view.rerender({ ...props, ctx: null });
+		await view.rerender(props);
+		finishStatus(await import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
 	it('lets the viewer try again when the dialog fails to load', async () => {
 		const loadDialog = vi
 			.fn<QuickAddEntry['loadDialog']>()

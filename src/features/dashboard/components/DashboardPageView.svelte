@@ -49,13 +49,14 @@
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 
 	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
-
-	// An Organization switch unloads the model; the open dialog belongs to the old one.
-	$effect(() => {
-		if (!model) QuickAddDialog = null;
-	});
-
 	let latestOpen = 0;
+
+	// An Organization switch unloads the model; the open or loading dialog belongs to the old one.
+	$effect(() => {
+		if (model) return;
+		QuickAddDialog = null;
+		latestOpen++;
+	});
 
 	async function openQuickAdd(entry: QuickAddEntry) {
 		const request = ++latestOpen;

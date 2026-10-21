@@ -2,7 +2,9 @@ import CalendarIcon from '@lucide/svelte/icons/calendar';
 import CheckIcon from '@lucide/svelte/icons/check';
 import PlusIcon from '@lucide/svelte/icons/plus';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { dashboardSection, type DashboardSection } from './dashboardSections';
+import { actionablePersonnel, dashboardSection, type DashboardSection } from './dashboardSections';
+
+const { calendar, onboarding, personnel, training } = POLICY_ACTION_CATALOG;
 
 export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	dashboardSection('availability', {
@@ -13,7 +15,8 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				icon: CalendarIcon,
 				order: 10,
 				loadDialog: () => import('../components/quick-add/StatusQuickAdd.svelte'),
-				available: (_, access) => access.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
+				available: (inputs, access) =>
+					actionablePersonnel(inputs.personnel, access, calendar.manageAvailability).length > 0
 			}
 		]
 	}),
@@ -27,7 +30,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				loadDialog: () => import('../components/quick-add/TrainingRecordQuickAdd.svelte'),
 				available: (inputs, access) =>
 					inputs.page.dashboard.data.trainingTypes.length > 0 &&
-					access.can(POLICY_ACTION_CATALOG.training.recordCompletions)
+					actionablePersonnel(inputs.personnel, access, training.recordCompletions).length > 0
 			}
 		]
 	}),
@@ -42,7 +45,10 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				icon: PlusIcon,
 				order: 30,
 				loadDialog: () => import('../components/quick-add/StartOnboardingQuickAdd.svelte'),
-				available: (_, access) => access.can(POLICY_ACTION_CATALOG.onboarding.manageWorkflows)
+				// Start onboarding can add the new arrival, so it stays usable with no one loaded yet.
+				available: (inputs, access) =>
+					actionablePersonnel(inputs.personnel, access, onboarding.manageWorkflows).length > 0 ||
+					(access.can(onboarding.manageWorkflows) && access.can(personnel.createRecords))
 			}
 		]
 	})

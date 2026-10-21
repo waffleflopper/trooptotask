@@ -8,7 +8,7 @@
 		type AvailabilityOutcome
 	} from '$features/calendar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import { personnelResource, type QuickAddDialogProps } from '../../sections/dashboardSections';
+	import { actionablePersonnel, type QuickAddDialogProps } from '../../sections/dashboardSections';
 	import QuickAddPersonPicker from './QuickAddPersonPicker.svelte';
 
 	let { model, access, onClose }: QuickAddDialogProps = $props();
@@ -23,9 +23,7 @@
 	});
 
 	const people = $derived(
-		model.inputs.personnel.filter((person) =>
-			access.can(POLICY_ACTION_CATALOG.calendar.manageAvailability, personnelResource(person))
-		)
+		actionablePersonnel(model.inputs.personnel, access, POLICY_ACTION_CATALOG.calendar.manageAvailability)
 	);
 
 	async function save(change: AvailabilityChange): Promise<AvailabilityOutcome> {

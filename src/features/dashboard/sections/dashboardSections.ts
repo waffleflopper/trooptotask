@@ -29,6 +29,14 @@ export function personnelResource(person: { readonly groupId?: string | null }):
 	return scopeSetResourceForGroupId(person.groupId);
 }
 
+export function actionablePersonnel<P extends { readonly groupId?: string | null }>(
+	personnel: readonly P[],
+	access: DashboardAccess,
+	action: FeatureLanePolicyAction
+): P[] {
+	return personnel.filter((person) => access.can(action, personnelResource(person)));
+}
+
 export type DashboardPartAvailability = (inputs: DashboardInputs, access: DashboardAccess) => boolean;
 
 export interface ForecastLane {

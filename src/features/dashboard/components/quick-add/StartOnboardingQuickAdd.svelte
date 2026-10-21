@@ -14,7 +14,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { rejectedRequestMessage } from '$lib/stores/core';
-	import { personnelResource, type QuickAddDialogProps } from '../../sections/dashboardSections';
+	import { actionablePersonnel, type QuickAddDialogProps } from '../../sections/dashboardSections';
 
 	let { model, access, updates, onClose }: QuickAddDialogProps = $props();
 
@@ -33,9 +33,7 @@
 	});
 
 	const people = $derived(
-		model.inputs.personnel.filter((person) =>
-			access.can(POLICY_ACTION_CATALOG.onboarding.manageWorkflows, personnelResource(person))
-		)
+		actionablePersonnel(model.inputs.personnel, access, POLICY_ACTION_CATALOG.onboarding.manageWorkflows)
 	);
 	const startedPersonnelIds = $derived(model.data.dashboard.data.activeOnboardings.map((packet) => packet.personnelId));
 	const creationGroups = $derived(

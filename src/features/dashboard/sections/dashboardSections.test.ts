@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
@@ -243,8 +244,11 @@ describe('createDashboardAccess', () => {
 });
 
 describe('the Quick add entries', () => {
+	const alphaPerson = { id: 'p-alpha', groupId: 'alpha' } as Personnel;
+	const bravoPerson = { id: 'p-bravo', groupId: 'bravo' } as Personnel;
 	const withTrainingType: DashboardInputs = {
 		...inputs,
+		personnel: [alphaPerson, bravoPerson],
 		page: {
 			...inputs.page,
 			dashboard: {
@@ -267,16 +271,26 @@ describe('the Quick add entries', () => {
 		expect(labelsFor({ membershipRole: 'owner' })).toEqual(['Status', 'Training record', 'Start onboarding']);
 	});
 
-	it('offers each lane operator only their own entry, including a Group-scoped one', () => {
-		const member = (lane: 'calendar' | 'training' | 'onboarding') => ({
-			membershipRole: 'member' as const,
-			capabilityMap: { ...createCapabilityMap('view'), [lane]: 'operate' as const },
-			scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] }
-		});
+	const member = (lane: 'calendar' | 'training' | 'onboarding', groupIds = ['alpha']) => ({
+		membershipRole: 'member' as const,
+		capabilityMap: { ...createCapabilityMap('view'), [lane]: 'operate' as const },
+		scopeSet: { kind: 'groups' as const, groupIds }
+	});
 
+	it('offers each lane operator only their own entry, including a Group-scoped one', () => {
 		expect(labelsFor(member('calendar'))).toEqual(['Status']);
 		expect(labelsFor(member('training'))).toEqual(['Training record']);
 		expect(labelsFor(member('onboarding'))).toEqual(['Start onboarding']);
+	});
+
+	it('hides an entry whose operator has no loaded person to act on, unless they can add the person', () => {
+		const onlyBravo = { ...withTrainingType, personnel: [bravoPerson] };
+		const nobody = { ...withTrainingType, personnel: [] };
+
+		expect(labelsFor(member('calendar'), onlyBravo)).toEqual([]);
+		expect(labelsFor(member('training'), onlyBravo)).toEqual([]);
+		expect(labelsFor(member('onboarding'), onlyBravo)).toEqual([]);
+		expect(labelsFor({ membershipRole: 'owner' }, nobody)).toEqual(['Start onboarding']);
 	});
 
 	it('offers a Dashboard viewer nothing', () => {
@@ -284,7 +298,10 @@ describe('the Quick add entries', () => {
 	});
 
 	it('drops Training record until a Training type exists, and entries whose feature is off', () => {
-		expect(labelsFor({ membershipRole: 'owner' }, inputs)).toEqual(['Status', 'Start onboarding']);
+		expect(labelsFor({ membershipRole: 'owner' }, { ...inputs, personnel: [alphaPerson] })).toEqual([
+			'Status',
+			'Start onboarding'
+		]);
 		expect(labelsFor({ membershipRole: 'owner' }, withTrainingType, ['training', 'onboarding'])).toEqual(['Status']);
 	});
 });

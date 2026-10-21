@@ -265,7 +265,7 @@
 					bind:ref={deleteButton}
 					type="submit"
 					form="delete-org-form"
-					variant="destructive-solid"
+					variant={deleteConfirmMatches ? 'destructive-solid' : 'outline'}
 					disabled={!deleteConfirmMatches}
 					aria-disabled={deleteLoading ? 'true' : undefined}
 					aria-busy={deleteLoading || undefined}

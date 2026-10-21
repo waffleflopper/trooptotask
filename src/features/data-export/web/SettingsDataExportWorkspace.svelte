@@ -43,7 +43,9 @@
 		return [
 			'Calendar',
 			counts ? `Personnel · ${counts.activePersonnel}` : 'Personnel',
-			counts ? `Training · ${counts.trainingRecords} records` : 'Training',
+			counts
+				? `Training · ${counts.trainingRecords} ${counts.trainingRecords === 1 ? 'record' : 'records'}`
+				: 'Training',
 			'Onboarding',
 			'Sign-in rosters'
 		];
@@ -152,14 +154,16 @@
 				<p role="status" class="sr-only">{announcement}</p>
 				{#if settings.lastExport}
 					{#if exportedHere}
-						<p class="font-mono text-xs leading-5 text-muted-foreground">{lastExportLine(exportedHere)}</p>
+						<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">
+							{lastExportLine(exportedHere)}
+						</p>
 					{:else}
 						{#await settings.lastExport}
 							<Skeleton class="h-5 w-80 max-w-full" aria-hidden="true" />
 							<span class="sr-only">Loading the last export</span>
 						{:then last}
 							{#if last}
-								<p class="font-mono text-xs leading-5 text-muted-foreground">{lastExportLine(last)}</p>
+								<p class="font-mono text-xs leading-5 wrap-anywhere text-muted-foreground">{lastExportLine(last)}</p>
 							{/if}
 						{:catch}
 							<p class="font-mono text-xs leading-5 text-muted-foreground">The last export could not be loaded.</p>

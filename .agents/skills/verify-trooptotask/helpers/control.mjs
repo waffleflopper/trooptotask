@@ -964,7 +964,7 @@ async function main() {
 													: destination === 'settings/general'
 														? ['Unit name', "You don't have permission to view this page"]
 														: destination === 'settings/members'
-															? ['Access Management', "You don't have permission to view this page"]
+															? ['Send invite', "You don't have permission to view this page"]
 															: destination === 'settings/exports'
 																? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
 																: destination === 'settings/danger'

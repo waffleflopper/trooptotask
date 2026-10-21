@@ -31,7 +31,8 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'personnel_extended_info',
 	'deletion_requests',
 	'status_types',
-	'audit_logs'
+	'audit_logs',
+	'organization_invitations'
 ]);
 const ORGANIZATION_COLUMN = { organizations: 'id', audit_logs: 'org_id' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

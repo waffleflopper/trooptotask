@@ -57,6 +57,7 @@ export function createSettingsMembersContext(request: AdmittedOrganizationReques
 	} {
 	return {
 		...createRequestGroupContext(request),
+		disabledFeatures: request.disabledFeatures,
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		organizationInvitationSetupStateLookup: createOrganizationInvitationSetupStateLookup()
 	};

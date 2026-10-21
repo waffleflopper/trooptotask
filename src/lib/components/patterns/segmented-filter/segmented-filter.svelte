@@ -1,5 +1,5 @@
 <script lang="ts" generics="T extends string">
-	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 
 	interface Option {
 		value: T;
@@ -11,26 +11,27 @@
 		options: readonly Option[];
 		value: T;
 		label: string;
+		/** Shows the chosen option but takes no input, such as a setting the unit turned off. */
+		disabled?: boolean;
+		/** The id of visible help text for the choice, such as a preset's description. */
+		describedBy?: string;
 	}
 
-	let { options, value = $bindable(), label }: Props = $props();
+	let { options, value = $bindable(), label, disabled = false, describedBy }: Props = $props();
 </script>
 
-<ToggleGroup.Root
-	type="single"
-	size="sm"
+<RadioGroup.Root
+	variant="segmented"
+	orientation="horizontal"
 	class="max-w-full flex-wrap"
 	aria-label={label}
-	bind:value={
-		() => value,
-		(next) => {
-			if (next) value = next as T;
-		}
-	}
+	aria-describedby={describedBy}
+	{disabled}
+	bind:value={() => value, (next) => (value = next as T)}
 >
 	{#each options as option (option.value)}
-		<ToggleGroup.Item value={option.value}>
+		<RadioGroup.Item value={option.value}>
 			{option.count === undefined ? option.label : `${option.label} · ${option.count}`}
-		</ToggleGroup.Item>
+		</RadioGroup.Item>
 	{/each}
-</ToggleGroup.Root>
+</RadioGroup.Root>

@@ -29,11 +29,10 @@ export interface OrganizationInvitationSetupStateLookupPort {
 }
 
 export type {
+	SettingsInvitationHistoryRow,
 	SettingsMemberRow,
-	SettingsMembersSectionData,
-	SettingsInvitationFunnelStatus
+	SettingsPendingInvitationRow
 } from './memberSettingsTypes';
-export type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 export type { DangerSettingsData, SettingsDangerSectionData } from './dangerSettingsTypes';
 

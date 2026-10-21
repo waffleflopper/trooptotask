@@ -1467,15 +1467,22 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 					'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
 				orderBy: [{ column: 'id', ascending: true }]
 			}),
-		listInvitations: (orgId) =>
-			store.findMany<OrganizationSettingsInvitationRow>('organization_invitations', orgId.toLowerCase(), undefined, {
-				select:
-					'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
-				orderBy: [
-					{ column: 'created_at', ascending: false },
-					{ column: 'id', ascending: true }
-				]
-			}),
+		listInvitations: async (orgId, status) =>
+			(
+				await store.findMany<OrganizationSettingsInvitationRow>(
+					'organization_invitations',
+					orgId.toLowerCase(),
+					undefined,
+					{
+						select:
+							'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
+						orderBy: [
+							{ column: 'created_at', ascending: false },
+							{ column: 'id', ascending: true }
+						]
+					}
+				)
+			).filter((row) => (row.status === 'pending') === (status === 'pending')),
 		listInvitationDeliveries: (orgId) =>
 			store.findMany<OrganizationSettingsInvitationDeliveryRow>(
 				'organization_invitation_email_outbox',

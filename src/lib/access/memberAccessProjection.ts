@@ -83,6 +83,17 @@ export function projectEffectiveMemberAccess(
 	};
 }
 
+/** The levels the row keeps on file. Owners and admins project to Manage everywhere but still carry these. */
+export function storedCapabilityMap(
+	row: Pick<MemberAccessProjectionRow, 'member_preset' | 'capability_overrides'>
+): CapabilityMap {
+	return resolveStoredMemberAccessShape({
+		membershipRole: 'member',
+		memberPreset: parseStoredMemberPreset(row.member_preset),
+		capabilityOverrides: parseCapabilityOverrideMap(row.capability_overrides)
+	}).capabilityMap;
+}
+
 function withFeatureLanesOff(capabilityMap: CapabilityMap, disabledFeatures: readonly FeatureKey[]): CapabilityMap {
 	const gated = { ...capabilityMap };
 	for (const lane of disabledFeatureLanes(disabledFeatures)) gated[lane] = 'none';

@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { MembershipRole, MemberPreset } from '$lib/access/memberAccessShape';
-import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
-import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
+import {
+	createCapabilityMap,
+	type DurableFeatureLane,
+	type MembershipRole,
+	type MemberPreset
+} from '$lib/access/memberAccessShape';
+import type { SettingsMemberRow } from './memberSettingsTypes';
+import { ALL_GROUPS, createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
 
 function member(
 	id: string,
 	email: string,
 	membershipRole: MembershipRole,
-	overrides: Partial<SettingsMemberAccessRow['access']> = {}
-): SettingsMemberAccessRow {
+	access: Partial<SettingsMemberRow['access']> = {},
+	storedLevels?: SettingsMemberRow['storedLevels']
+): SettingsMemberRow {
 	return {
 		id,
 		organizationId: 'org-1',
@@ -17,187 +23,207 @@ function member(
 		membershipRole,
 		createdAt: '2026-04-01T00:00:00Z',
 		access: {
-			memberPreset: 'editor',
-			capabilityMap: {
-				calendar: 'configure',
-				personnel: 'configure',
-				training: 'configure',
-				criticalTasks: 'configure',
-				onboarding: 'configure',
-				ratingScheme: 'configure'
-			},
+			memberPreset: 'editor' as MemberPreset,
+			capabilityMap: createCapabilityMap('configure'),
 			scopeSet: { kind: 'organization' },
-			organizationGovernanceActions:
-				membershipRole === 'owner' || membershipRole === 'admin' ? ['organization.accessGovernance'] : [],
-			...overrides
-		}
+			organizationGovernanceActions: [],
+			...access
+		},
+		storedLevels: storedLevels ?? access.capabilityMap ?? createCapabilityMap('configure'),
+		scopeDisplayLabel: 'All groups',
+		overriddenCapabilityLabels: []
 	};
 }
 
-function invite(memberPreset: MemberPreset): SettingsInvitationAccessRow {
-	return {
-		id: 'invite-1',
-		email: 'invite@example.com',
-		status: 'pending',
-		membershipRole: 'member',
-		createdAt: '2026-04-01T00:00:00Z',
-		access: {
-			memberPreset,
-			capabilityMap: {
-				calendar: 'view',
-				personnel: 'view',
-				training: 'view',
-				criticalTasks: 'view',
-				onboarding: 'view',
-				ratingScheme: 'view'
-			},
-			scopeSet: { kind: 'organization' },
-			organizationGovernanceActions: []
-		}
-	};
-}
+const operator = member('op', 'op@example.com', 'member', {
+	memberPreset: 'operator',
+	capabilityMap: { ...createCapabilityMap('operate'), training: 'view' },
+	scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+});
 
-function makeWorkspace(overrides: Partial<{ members: SettingsMemberAccessRow[]; isOwner: boolean }> = {}) {
+function makeWorkspace(
+	options: Partial<{ members: SettingsMemberRow[]; isOwner: boolean; offLanes: DurableFeatureLane[] }> = {}
+) {
 	return createSettingsMemberAccessWorkspace({
-		members: overrides.members ?? [
-			member('owner', 'owner@example.com', 'owner'),
-			member('alpha', 'alpha@example.com', 'member'),
-			member('admin', 'admin@example.com', 'admin')
-		],
-		invitations: [],
+		members: options.members ?? [operator],
 		groups: [
-			{ id: 'group-alpha', name: '1st Platoon' },
-			{ id: 'group-bravo', name: '2nd Platoon' }
+			{ id: 'g-1', name: 'HQ PLT' },
+			{ id: 'g-2', name: '1st PLT' }
 		],
-		isOwner: overrides.isOwner ?? true
+		isOwner: options.isOwner ?? true,
+		offLanes: options.offLanes ?? []
 	});
 }
 
 describe('settings member access workspace', () => {
-	it('opens and clears a member editor draft with preset and Scope Set state', () => {
+	it('lists the owner first, then members by email, and filters by email', () => {
 		const workspace = makeWorkspace({
 			members: [
-				member('member-1', 'member-a@example.com', 'member', {
-					memberPreset: 'viewer',
-					capabilityMap: {
-						calendar: 'operate',
-						personnel: 'view',
-						training: 'view',
-						criticalTasks: 'view',
-						onboarding: 'view',
-						ratingScheme: 'none'
-					},
-					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
-				})
+				member('c', 'charlie@example.com', 'member'),
+				member('a', 'alpha@example.com', 'admin'),
+				member('o', 'zulu-owner@example.com', 'owner')
 			]
 		});
-		const [editableMember] = workspace.sortedMembers;
 
-		workspace.openMemberEditor(editableMember);
-
-		expect(workspace.memberEditorId).toBe('member-1');
-		expect(workspace.getSelectedMembershipRole(editableMember)).toBe('member');
-		expect(workspace.getSelectedPreset(editableMember)).toBe('viewer');
-		expect(workspace.getSelectedScopeKind(editableMember)).toBe('groups');
-		expect(workspace.getSelectedScopeGroupIds(editableMember)).toEqual(['group-alpha']);
-		expect(workspace.overriddenCapabilityLabels(editableMember)).toEqual([
-			'Calendar: Can update',
-			'Rating Scheme: No access'
+		expect(workspace.visibleMembers.map((row) => row.email)).toEqual([
+			'zulu-owner@example.com',
+			'alpha@example.com',
+			'charlie@example.com'
 		]);
-		expect(workspace.formatScopeSet(workspace.getMemberAccessShape(editableMember).scopeSet)).toBe('1st Platoon');
 
-		workspace.toggleMemberScopeGroup('member-1', 'group-bravo', true);
-		expect(workspace.getSelectedScopeGroupIds(editableMember)).toEqual(['group-alpha', 'group-bravo']);
+		workspace.filter = '  CHAR ';
 
-		workspace.closeMemberEditor('member-1');
-
-		expect(workspace.memberEditorId).toBeNull();
-		expect(workspace.memberSelectedMembershipRole).toEqual({});
-		expect(workspace.memberSelectedPreset).toEqual({});
-		expect(workspace.memberSelectedScopeKind).toEqual({});
-		expect(workspace.memberSelectedScopeGroupIds).toEqual({});
+		expect(workspace.visibleMembers.map((row) => row.email)).toEqual(['charlie@example.com']);
 	});
 
-	it('normalizes custom member presets to an editable draft preset', () => {
-		const workspace = makeWorkspace({
-			members: [
-				member('member-1', 'member-a@example.com', 'member', {
-					memberPreset: 'custom',
-					capabilityMap: {
-						calendar: 'operate',
-						personnel: 'configure',
-						training: 'configure',
-						criticalTasks: 'configure',
-						onboarding: 'configure',
-						ratingScheme: 'configure'
-					}
-				})
-			]
+	it('opens a draft of the saved access and never opens one for the owner', () => {
+		const workspace = makeWorkspace({ members: [operator, member('o', 'owner@example.com', 'owner')] });
+
+		workspace.open(member('o', 'owner@example.com', 'owner'));
+		expect(workspace.draft).toBeNull();
+
+		workspace.open(operator);
+		expect(workspace.draft).toEqual({
+			memberId: 'op',
+			role: 'member',
+			preset: 'operator',
+			levels: { ...createCapabilityMap('operate'), training: 'view' },
+			scope: { kind: 'groups', groupIds: ['g-1'] }
 		});
-		const [editableMember] = workspace.sortedMembers;
-
-		expect(workspace.getSelectedPreset(editableMember)).toBe('editor');
-
-		workspace.openMemberEditor(editableMember);
-
-		expect(workspace.getSelectedPreset(editableMember)).toBe('editor');
+		expect(workspace.changeCount).toBe(0);
+		expect(workspace.areaChangeCount).toBe(1);
+		expect(workspace.presetGap('training')).toBe('Operator gives Update');
+		expect(workspace.presetGap('calendar')).toBeNull();
 	});
 
-	it('keeps membership role controls separate from member preset choices', () => {
-		const ownerWorkspace = makeWorkspace({ isOwner: true });
-		const adminMember = ownerWorkspace.sortedMembers.find((candidate) => candidate.membershipRole === 'admin');
-		if (!adminMember) throw new Error('Expected admin member');
+	it('snaps the lanes to a new preset and restores the saved levels on the saved preset', () => {
+		const workspace = makeWorkspace();
+		workspace.open(operator);
 
-		expect(ownerWorkspace.availablePresetOptions.map((option) => option.value)).toEqual([
-			'editor',
-			'operator',
-			'viewer'
-		]);
-		expect(ownerWorkspace.availableMembershipRoleOptions.map((option) => option.value)).toEqual(['member', 'admin']);
-		ownerWorkspace.openMemberEditor(adminMember);
-		expect(ownerWorkspace.getSelectedMembershipRole(adminMember)).toBe('admin');
-		expect(ownerWorkspace.getSelectedPreset(adminMember)).toBe('editor');
-		expect(ownerWorkspace.getMemberAccessBadge(adminMember, ownerWorkspace.getMemberAccessShape(adminMember))).toBe(
-			'admin'
+		workspace.setPreset('viewer');
+
+		expect(workspace.draft?.levels).toEqual(createCapabilityMap('view'));
+		expect(workspace.areaChangeCount).toBe(0);
+		// The preset, and the five lanes that moved from Update to View.
+		expect(workspace.changeCount).toBe(6);
+
+		workspace.setPreset('operator');
+
+		expect(workspace.draft?.levels).toEqual({ ...createCapabilityMap('operate'), training: 'view' });
+		expect(workspace.changeCount).toBe(0);
+	});
+
+	it('keeps the stored level on a lane the unit turned off and leaves it out of every count', () => {
+		const workspace = makeWorkspace({ offLanes: ['training'] });
+		workspace.open(operator);
+		expect(workspace.areaChangeCount).toBe(0);
+		expect(workspace.presetGap('training')).toBeNull();
+
+		workspace.setLevel('training', 'none');
+		workspace.setPreset('editor');
+
+		expect(workspace.draft?.levels).toEqual({ ...createCapabilityMap('configure'), training: 'view' });
+		expect(workspace.areaChangeCount).toBe(0);
+		// The preset, and the five lanes that are on and moved from Update to Manage.
+		expect(workspace.changeCount).toBe(6);
+	});
+
+	it('counts what a promotion to Admin saves: the role, Editor, every group and Manage in each lane', () => {
+		const workspace = makeWorkspace();
+		workspace.open(operator);
+		workspace.setLevel('calendar', 'view');
+		expect(workspace.changeCount).toBe(1);
+
+		workspace.setRole('admin');
+		expect(workspace.changeCount).toBe(9);
+
+		workspace.setRole('member');
+		expect(workspace.changeCount).toBe(1);
+	});
+
+	it('counts the role, the preset and each lane when an Admin becomes a member', () => {
+		const admin = member('ad', 'admin@example.com', 'admin');
+		const workspace = makeWorkspace({ members: [admin], offLanes: ['training'] });
+		workspace.open(admin);
+
+		workspace.setRole('member');
+		workspace.setPreset('viewer');
+		for (const lane of ['calendar', 'personnel', 'criticalTasks', 'onboarding', 'ratingScheme'] as const) {
+			workspace.setLevel(lane, 'none');
+		}
+
+		// Training is off, so the save keeps it and only the five lanes that are on count.
+		expect(workspace.changeCount).toBe(7);
+	});
+
+	it('shows the stored level on a lane the unit turned off while an Admin becomes a member', () => {
+		const admin = member(
+			'ad',
+			'admin@example.com',
+			'admin',
+			{},
+			{ ...createCapabilityMap('configure'), training: 'view' }
 		);
-		expect(ownerWorkspace.getAccessLabel('admin')).toBe('Admin');
+		const workspace = makeWorkspace({ members: [admin], offLanes: ['training'] });
+		workspace.open(admin);
 
-		const adminWorkspace = makeWorkspace({ isOwner: false });
-		expect(adminWorkspace.availableMembershipRoleOptions.map((option) => option.value)).toEqual(['member']);
+		workspace.setRole('member');
+		workspace.setPreset('viewer');
+
+		expect(workspace.draft?.levels.training).toBe('view');
+		expect(workspace.draft?.levels.calendar).toBe('view');
 	});
 
-	it('owns invite preset and Scope Set draft state alongside member access state', () => {
-		const workspace = makeWorkspace();
+	it('lets only owners change the role', () => {
+		const workspace = makeWorkspace({ isOwner: false });
+		workspace.open(operator);
 
-		expect(workspace.invitePreset).toBe('editor');
-		expect(workspace.inviteMembershipRole).toBe('member');
-		expect(workspace.inviteScopeKind).toBe('organization');
-		expect(workspace.inviteScopeGroupIds).toEqual([]);
+		workspace.setRole('admin');
 
-		workspace.inviteEmail = 'leader@example.com';
-		workspace.setInviteMembershipRole('admin');
-		workspace.invitePreset = 'operator';
-		workspace.setInviteScopeKind('groups');
-		workspace.toggleInviteScopeGroup('group-alpha', true);
-		workspace.toggleInviteScopeGroup('group-alpha', true);
-		workspace.toggleInviteScopeGroup('group-bravo', true);
-		workspace.toggleInviteScopeGroup('group-alpha', false);
-
-		expect(workspace.inviteEmail).toBe('leader@example.com');
-		expect(workspace.inviteMembershipRole).toBe('admin');
-		expect(workspace.invitePreset).toBe('operator');
-		expect(workspace.inviteScopeKind).toBe('groups');
-		expect(workspace.inviteScopeGroupIds).toEqual(['group-bravo']);
-
-		workspace.clearInviteEmail();
-		expect(workspace.inviteEmail).toBe('');
-		expect(workspace.inviteMembershipRole).toBe('member');
-		expect(workspace.inviteScopeKind).toBe('organization');
-		expect(workspace.inviteScopeGroupIds).toEqual([]);
+		expect(workspace.draft?.role).toBe('member');
 	});
 
-	it('reads pending invitation presets from shaped access data', () => {
+	it('starts Selected groups empty and toggles group chips', () => {
+		const workspace = makeWorkspace({ members: [member('m', 'm@example.com', 'member')] });
+		workspace.open(member('m', 'm@example.com', 'member'));
+
+		workspace.setScopeKind('groups');
+		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: [] });
+
+		workspace.toggleScopeGroup('g-2');
+		workspace.toggleScopeGroup('g-1');
+		workspace.toggleScopeGroup('g-2');
+
+		expect(workspace.draft?.scope).toEqual({ kind: 'groups', groupIds: ['g-1'] });
+		expect(workspace.changeCount).toBe(1);
+	});
+
+	it('treats All groups and the group picks in the invite select as exclusive', () => {
 		const workspace = makeWorkspace();
-		expect(workspace.getInvitePreset(invite('viewer'))).toBe('viewer');
+		expect(workspace.inviteGroupsValue).toEqual([ALL_GROUPS]);
+		expect(workspace.inviteGroupsLabel).toBe('All groups');
+
+		workspace.setInviteGroups([ALL_GROUPS, 'g-1']);
+		expect(workspace.invite.groupIds).toEqual(['g-1']);
+		expect(workspace.inviteGroupsLabel).toBe('HQ PLT');
+
+		workspace.setInviteGroups(['g-1', 'g-2']);
+		expect(workspace.inviteGroupsLabel).toBe('2 groups');
+
+		workspace.setInviteGroups(['g-1', 'g-2', ALL_GROUPS]);
+		expect(workspace.invite.groupIds).toEqual([]);
+
+		workspace.setInviteGroups(['g-2']);
+		workspace.setInviteGroups([]);
+		expect(workspace.inviteGroupsValue).toEqual([ALL_GROUPS]);
+	});
+
+	it('clears the invite after a send but keeps the chosen preset', () => {
+		const workspace = makeWorkspace();
+		workspace.invite = { email: 'new@example.com', role: 'admin', preset: 'viewer', groupIds: ['g-1'] };
+
+		workspace.resetInvite();
+
+		expect(workspace.invite).toEqual({ email: '', role: 'member', preset: 'viewer', groupIds: [] });
 	});
 });

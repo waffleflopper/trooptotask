@@ -101,8 +101,10 @@ function buildSection(overrides: Partial<BuildMembersSettingsDataInput> = {}) {
 		isAdmin: true,
 		members: [],
 		invitations: [invitationRow()],
+		closedInvitations: Promise.resolve([]),
 		invitationDeliveries: [deliveryRow()],
 		groups: [],
+		disabledFeatures: [],
 		now: NOW,
 		...overrides
 	});
@@ -258,15 +260,21 @@ describe('members settings invitation funnel status', () => {
 		}
 	});
 
-	it('leaves closed invitations out of the funnel entirely', () => {
+	it('leaves closed invitations out of the funnel entirely', async () => {
 		const section = buildSection({
-			invitations: [invitationRow({ id: 'invite-1', status: 'revoked', revoked_at: '2026-08-02T09:00:00Z' })],
-			invitationSetupStates: new Map()
+			invitations: [],
+			closedInvitations: Promise.resolve([
+				invitationRow({ id: 'invite-1', status: 'revoked', revoked_at: '2026-08-02T09:00:00Z' })
+			]),
+			invitationSetupStates: new Map([['invite-1', 'delivery_failed']])
 		});
 
 		expect(section.invitations).toHaveLength(0);
-		expect(section.invitationHistory).toHaveLength(1);
-		expect(section.invitationHistory[0]).not.toHaveProperty('funnelStatusLabel');
+		const history = await section.invitationHistory;
+		expect(history.map(({ id, lifecycleStatusLabel }) => [id, lifecycleStatusLabel])).toEqual([
+			['invite-1', 'Revoked']
+		]);
+		expect(history[0]).not.toHaveProperty('funnelStatusLabel');
 	});
 
 	it('carries no renew URL onto the invitation row', () => {
@@ -281,6 +289,7 @@ function makeLoadContext(
 ): Parameters<typeof loadMembersSettings>[0] {
 	return {
 		auth: { orgId: 'org-1', role: 'owner', canManageMembers: true },
+		disabledFeatures: [],
 		organizationSettings: {
 			listMemberAccess: vi.fn(async () => [memberRow()]),
 			listInvitations: vi.fn(async () => [invitationRow()]),
@@ -310,7 +319,7 @@ describe('members settings setup-state lookup degradation', () => {
 		const data = await loadMembersSettings(context, {
 			isAdmin: true,
 			groups: Promise.resolve([]),
-			pendingApprovalSummary: Promise.resolve({ count: 0, oldestCreatedAt: null })
+			closedInvitations: Promise.resolve([])
 		});
 
 		expect(data.sections.members.invitations).toHaveLength(1);
@@ -329,7 +338,7 @@ describe('members settings setup-state lookup degradation', () => {
 		const data = await loadMembersSettings(context, {
 			isAdmin: true,
 			groups: Promise.resolve([]),
-			pendingApprovalSummary: Promise.resolve({ count: 0, oldestCreatedAt: null })
+			closedInvitations: Promise.resolve([])
 		});
 
 		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe('Invitation email failed');
@@ -343,7 +352,7 @@ describe('members settings setup-state lookup degradation', () => {
 		const data = await loadMembersSettings(context, {
 			isAdmin: true,
 			groups: Promise.resolve([]),
-			pendingApprovalSummary: Promise.resolve({ count: 0, oldestCreatedAt: null })
+			closedInvitations: Promise.resolve([])
 		});
 
 		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe("Setup email didn't reach them");
@@ -351,36 +360,55 @@ describe('members settings setup-state lookup degradation', () => {
 });
 
 describe('members settings section shaping', () => {
-	it('splits actionable invitations from closed history', () => {
+	it('streams lapsed and closed invitations into history, newest first, and keeps only actionable ones pending', async () => {
 		const section = buildSection({
 			invitations: [
 				invitationRow({ id: 'invite-pending' }),
-				invitationRow({ id: 'invite-revoked', status: 'revoked', revoked_at: '2026-08-02T09:00:00Z' }),
-				invitationRow({ id: 'invite-lapsed', expires_at: '2026-08-03T09:00:00Z' })
+				invitationRow({ id: 'invite-lapsed', created_at: '2026-07-20T09:00:00Z', expires_at: '2026-08-03T09:00:00Z' })
 			],
+			closedInvitations: Promise.resolve([
+				invitationRow({
+					id: 'invite-revoked',
+					status: 'revoked',
+					created_at: '2026-07-25T09:00:00Z',
+					revoked_at: '2026-08-02T09:00:00Z'
+				})
+			]),
 			invitationDeliveries: []
 		});
 
 		expect(section.invitations.map((invitation) => invitation.id)).toEqual(['invite-pending']);
-		expect(section.invitationHistory.map((invitation) => invitation.lifecycleStatusLabel)).toEqual([
-			'Revoked',
-			'Expired'
+		expect(
+			(await section.invitationHistory).map(({ id, lifecycleStatusLabel, lifecycleAt }) => [
+				id,
+				lifecycleStatusLabel,
+				lifecycleAt
+			])
+		).toEqual([
+			['invite-revoked', 'Revoked', '2026-08-02T09:00:00Z'],
+			['invite-lapsed', 'Expired', '2026-08-03T09:00:00Z']
 		]);
 	});
 
-	it('summarizes membership roles and pending approvals', () => {
+	it('keeps stored levels in lanes the unit turned off but counts only the area changes in effect', () => {
 		const section = buildSection({
 			members: [
-				memberRow({ id: 'member-owner', user_id: 'user-1', email: 'owner@example.com', role: 'owner' }),
-				memberRow({ id: 'member-admin', user_id: 'user-2', email: 'admin@example.com', role: 'admin' }),
-				memberRow({ id: 'member-1', user_id: 'user-3', email: 'member@example.com', role: 'member' })
+				memberRow({ member_preset: 'operator', capability_overrides: { training: 'view', personnel: 'view' } })
 			],
-			pendingApprovalSummary: { count: 2, oldestCreatedAt: '2026-07-28T09:00:00Z' }
+			disabledFeatures: ['training', 'evaluations', 'lossesAndAwards']
 		});
 
-		expect(section.roleCounts).toEqual({ owner: 1, admin: 1, member: 1 });
-		expect(section.memberRoleSummary).toBe('1 Owner · 1 Admin · 1 Member');
-		expect(section.pendingApprovalSummary).toEqual({ count: 2, oldestCreatedAt: '2026-07-28T09:00:00Z' });
+		expect(section.offLanes).toEqual(['training', 'ratingScheme']);
+		expect(section.rows[0].access.capabilityMap.training).toBe('view');
+		expect(section.rows[0].overriddenCapabilityLabels).toEqual(['Personnel: View']);
+	});
+
+	it('labels a member scoped to no groups', () => {
+		const section = buildSection({
+			members: [memberRow({ access_scope_kind: 'groups', access_scope_group_ids: [] })]
+		});
+
+		expect(section.rows[0].scopeDisplayLabel).toBe('No groups');
 	});
 
 	it('withholds invite and access management from members who cannot manage members', () => {

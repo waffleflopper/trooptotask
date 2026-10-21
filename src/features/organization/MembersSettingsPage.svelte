@@ -253,7 +253,7 @@
 					{/each}
 				{/if}
 				<div class="flex flex-wrap items-center gap-2">
-					<Label for="invite-email" class="w-14 shrink-0">Invite</Label>
+					<Label for="invite-email" class="w-14 shrink-0 font-semibold">Invite</Label>
 					<Input
 						bind:ref={inviteEmailInput}
 						id="invite-email"

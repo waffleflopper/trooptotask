@@ -11,6 +11,7 @@ import {
 } from '$features/identity/index.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateUUID } from '$lib/server/validation';
+import { storedCapabilityMap } from '$lib/access/memberAccessProjection';
 
 interface OrganizationInvitationLookupRow {
 	id: string;
@@ -38,6 +39,8 @@ interface OrganizationMembershipLookupRow {
 	user_id: string | null;
 	role: string | null;
 	email: string | null;
+	member_preset: unknown;
+	capability_overrides: unknown;
 }
 
 interface OrganizationRow {
@@ -225,7 +228,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		async findMembershipById(orgId, membershipId) {
 			const { data, error } = await supabase
 				.from('organization_memberships')
-				.select('user_id, role, email')
+				.select('user_id, role, email, member_preset, capability_overrides')
 				.eq('id', membershipId)
 				.eq('organization_id', orgId)
 				.single<OrganizationMembershipLookupRow>();
@@ -238,7 +241,8 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				userId: data.user_id,
 				role: data.role,
 				email: data.email,
-				canManageMembers: data.role === 'admin' || data.role === 'owner'
+				canManageMembers: data.role === 'admin' || data.role === 'owner',
+				storedLevels: storedCapabilityMap(data)
 			};
 		},
 

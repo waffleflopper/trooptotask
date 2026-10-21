@@ -3,7 +3,9 @@ import {
 	isCapabilityLevel,
 	serializeScopeSetForStorage,
 	targetMemberAccessToStorage,
+	type CapabilityMap,
 	type CapabilityOverrideMap,
+	type DurableFeatureLane,
 	type MembershipRole,
 	type ScopeSet,
 	type StoredMemberPreset
@@ -85,6 +87,17 @@ function normalizeMemberAccessStorageCommand(command: {
 		capabilityOverrides: memberAccess.capabilityOverrides,
 		scopeSet
 	});
+}
+
+/** Sets each of `lanes` to its stored level, so a save cannot move a lane nobody could edit. */
+export function keepStoredLanes(
+	memberAccess: TargetMemberAccessCommand,
+	storedLevels: CapabilityMap,
+	lanes: readonly DurableFeatureLane[]
+): TargetMemberAccessCommand {
+	const capabilityOverrides = { ...memberAccess.capabilityOverrides };
+	for (const lane of lanes) capabilityOverrides[lane] = storedLevels[lane];
+	return { ...memberAccess, capabilityOverrides };
 }
 
 export function defaultMemberAccessForRole(role: EditableMembershipRole): TargetMemberAccessCommand {

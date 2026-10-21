@@ -7,6 +7,7 @@ import {
 	type ScopeSet,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
+import { defaultMemberAccessForRole } from '$lib/access/memberAccessCommands';
 import type { SettingsMemberRow } from './memberSettingsTypes';
 import {
 	CAPABILITY_LEVEL_LABELS,
@@ -78,6 +79,18 @@ export function memberInitials(email: string | null | undefined): string {
 		.slice(0, 2)
 		.map((part) => part[0]?.toUpperCase())
 		.join('');
+}
+
+/** An Admin save stores the default access, whatever the sheet showed before the role changed. */
+function adminDraft(memberId: string): MemberAccessDraft {
+	const { memberPreset, scopeSet } = defaultMemberAccessForRole('admin');
+	return {
+		memberId,
+		role: 'admin',
+		preset: memberPreset,
+		levels: TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset],
+		scope: scopeSet
+	};
 }
 
 function editablePreset(memberPreset: MemberPreset): StoredMemberPreset {
@@ -188,10 +201,10 @@ export class SettingsMemberAccessWorkspace {
 			: [...scope.groupIds, groupId];
 	}
 
-	/** "<preset> gives <level>" for a lane that differs from the chosen preset, or null when it matches. */
+	/** "<preset> gives <level>" for a lane that differs from the chosen preset, or null when it matches or is off. */
 	presetGap(lane: DurableFeatureLane): string | null {
 		const draft = this.draft;
-		if (!draft) return null;
+		if (!draft || this.isOff(lane)) return null;
 		const presetLevel = TARGET_MEMBER_PRESET_CAPABILITIES[draft.preset][lane];
 		return draft.levels[lane] === presetLevel
 			? null
@@ -202,19 +215,19 @@ export class SettingsMemberAccessWorkspace {
 		return SETTINGS_ACCESS_LANES.filter(({ id }) => this.presetGap(id) !== null).length;
 	}
 
-	/** One change each for role, preset, scope, and every lane that moved; a role change hides the lanes it resets. */
+	/** One change each for role, preset, scope, and every lane the save moves. The server keeps off lanes as stored. */
 	get changeCount(): number {
 		const member = this.editingMember;
 		const draft = this.draft;
 		if (!draft || !member) return 0;
 		const saved = savedDraft(member);
-		const roleChanged = draft.role !== saved.role;
-		if (draft.role === 'admin') return roleChanged ? 1 : 0;
-		let count = roleChanged ? 1 : 0;
-		if (draft.preset !== saved.preset) count++;
-		if (!roleChanged) count += SETTINGS_ACCESS_LANES.filter(({ id }) => draft.levels[id] !== saved.levels[id]).length;
-		if (!sameScope(draft.scope, saved.scope)) count++;
-		return count;
+		const next = draft.role === 'admin' ? adminDraft(draft.memberId) : draft;
+		return [
+			next.role !== saved.role,
+			next.preset !== saved.preset,
+			!sameScope(next.scope, saved.scope),
+			...SETTINGS_ACCESS_LANES.map(({ id }) => !this.isOff(id) && next.levels[id] !== saved.levels[id])
+		].filter(Boolean).length;
 	}
 
 	/** The groups select offers "All groups" beside each group; picking it clears the rest, and clearing the rest picks it. */

@@ -159,7 +159,8 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = createSettingsSensitiveNotificationContext(await buildRouteRequest(event));
+			const routeRequest = await buildRouteRequest(event);
+			const ctx = createSettingsSensitiveNotificationContext(routeRequest);
 			const accessCommand = parseMemberAccessEditFormData(formData);
 			return await updateOrganizationMemberAccess(
 				{
@@ -168,7 +169,8 @@ export const actions: Actions = {
 					notifications: ctx.notifications,
 
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
-					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
+					disabledFeatures: routeRequest.disabledFeatures
 				},
 				{
 					membershipId: (formData.get('membershipId') as string) ?? '',

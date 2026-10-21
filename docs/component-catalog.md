@@ -272,7 +272,7 @@ Consumers: the Organization settings shell.
 
 ## `patterns/segmented-filter`
 
-`SegmentedFilter.Root` is a single-choice filter on `ui/toggle-group`. Pressing the chosen option again keeps it chosen. The group wraps onto a second line when the container is narrower than its options. The group is a radio group: arrow keys move between options. Props: `options` (`{ value, label, count? }`, rendered `Label · N` when `count` is set), bindable `value`, `label` (names the group), `disabled?` (shows the chosen option but takes no input, such as an area whose feature the unit turned off), `describedBy?` (the id of visible help text for the choice).
+`SegmentedFilter.Root` is a single-choice filter on `ui/radio-group` with `variant="segmented"`. Pressing the chosen option again keeps it chosen. The group wraps onto a second line when the container is narrower than its options. The group is a radio group with one Tab stop on the chosen option. Arrow keys move to the next or previous option and choose it, so a consumer's change runs on every press. Props: `options` (`{ value, label, count? }`, rendered `Label · N` when `count` is set), bindable `value`, `label` (names the group), `disabled?` (shows the chosen option but takes no input, such as an area whose feature the unit turned off), `describedBy?` (the id of visible help text for the choice).
 
 ---
 
@@ -1084,6 +1084,7 @@ Public components:
 - `Field.Control`: control slot wrapper that keeps shared controls full-width without route-local styling.
 - `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire the label with `for` or `aria-labelledby`. Each rendered Description and Error inside a `Field.Root` registers its ID (generated unless the caller passes `id`), and the contained `Input`, `Textarea`, `NativeSelect`, `Select.Trigger`, `Combobox.Trigger` and `DatePicker` add those IDs to `aria-describedby` and set `aria-invalid="true"` while an Error is shown. A caller's own `aria-describedby` IDs come first and a caller's `aria-invalid` wins. Popover content starts outside the Field, so a search box in a popup is not described by the trigger's Field. Registration happens on mount; a server-rendered form whose errors must be associated before hydration still wires its IDs explicitly, as `AuthField` does.
 - `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `NativeSelect.Root/Option/OptGroup`, `Checkbox` and `RadioGroup.Root/Item` are the shared controls.
+- `RadioGroup.Root variant="segmented"` draws its items as one muted track with the chosen item raised, using the shared `toggle` variants. Items take their label as children. `patterns/segmented-filter` is its consumer.
 
 Rules:
 

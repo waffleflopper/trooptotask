@@ -1,5 +1,5 @@
 <script lang="ts" generics="T extends string">
-	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 
 	interface Option {
 		value: T;
@@ -20,28 +20,18 @@
 	let { options, value = $bindable(), label, disabled = false, describedBy }: Props = $props();
 </script>
 
-<ToggleGroup.Root
-	type="single"
-	size="sm"
+<RadioGroup.Root
+	variant="segmented"
+	orientation="horizontal"
 	class="max-w-full flex-wrap"
 	aria-label={label}
 	aria-describedby={describedBy}
 	{disabled}
-	bind:value={
-		() => value,
-		(next) => {
-			if (next) value = next as T;
-		}
-	}
+	bind:value={() => value, (next) => (value = next as T)}
 >
-	{#snippet child({ props })}
-		<!-- bits-ui names a single-choice group `group`; its items are radios, so the group is a radiogroup. -->
-		<div {...props} role="radiogroup">
-			{#each options as option (option.value)}
-				<ToggleGroup.Item value={option.value}>
-					{option.count === undefined ? option.label : `${option.label} · ${option.count}`}
-				</ToggleGroup.Item>
-			{/each}
-		</div>
-	{/snippet}
-</ToggleGroup.Root>
+	{#each options as option (option.value)}
+		<RadioGroup.Item value={option.value}>
+			{option.count === undefined ? option.label : `${option.label} · ${option.count}`}
+		</RadioGroup.Item>
+	{/each}
+</RadioGroup.Root>

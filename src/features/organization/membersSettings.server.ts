@@ -1,6 +1,7 @@
 import {
 	DURABLE_FEATURE_LANES,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
+	type DurableFeatureLane,
 	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
@@ -139,9 +140,10 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 		.map((invitation) => shapeInvitationRow(invitation, groups, latestDeliveryByInvitationId, now))
 		.map((invitation) => withInvitationFunnelStatus(invitation, input.invitationSetupStates));
 	const lapsedInvitations = pendingInvitations.filter((invitation) => !isActionableInvitation(invitation, now));
+	const offLanes = disabledFeatureLanes(input.disabledFeatures);
 
 	return {
-		rows: input.members.map((row) => shapeMemberRow(buildSettingsMemberAccessRow(row), groups)),
+		rows: input.members.map((row) => shapeMemberRow(buildSettingsMemberAccessRow(row), groups, offLanes)),
 		invitations,
 		invitationHistory: input.closedInvitations.then((closed) =>
 			[...lapsedInvitations, ...closed.map(buildSettingsInvitationAccessRow)]
@@ -149,7 +151,7 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 				.map((invitation) => shapeInvitationHistoryRow(invitation, now))
 		),
 		groups,
-		offLanes: disabledFeatureLanes(input.disabledFeatures),
+		offLanes,
 		canInvite: canManageMembers,
 		canManageMemberAccess: canManageMembers
 	};
@@ -157,12 +159,13 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 
 function shapeMemberRow(
 	member: ReturnType<typeof buildSettingsMemberAccessRow>,
-	groups: Array<{ id: string; name: string }>
+	groups: Array<{ id: string; name: string }>,
+	offLanes: readonly DurableFeatureLane[]
 ): SettingsMemberRow {
 	return {
 		...member,
 		scopeDisplayLabel: formatScopeSet(member.access.scopeSet, groups),
-		overriddenCapabilityLabels: overriddenCapabilityLabels(member)
+		overriddenCapabilityLabels: overriddenCapabilityLabels(member, offLanes)
 	};
 }
 
@@ -369,10 +372,16 @@ function editablePresetForMemberPreset(memberPreset: string): StoredMemberPreset
 		: 'editor';
 }
 
-function overriddenCapabilityLabels(member: ReturnType<typeof buildSettingsMemberAccessRow>): string[] {
+/** Lanes whose feature is off are not in effect, so they are not counted as changes. */
+function overriddenCapabilityLabels(
+	member: ReturnType<typeof buildSettingsMemberAccessRow>,
+	offLanes: readonly DurableFeatureLane[]
+): string[] {
 	const memberPreset = editablePresetForMemberPreset(member.access.memberPreset);
 	return DURABLE_FEATURE_LANES.filter(
-		(lane) => member.access.capabilityMap[lane] !== TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset][lane]
+		(lane) =>
+			!offLanes.includes(lane) &&
+			member.access.capabilityMap[lane] !== TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset][lane]
 	).map((lane) => `${ACCESS_LANE_LABELS[lane]}: ${CAPABILITY_LEVEL_LABELS[member.access.capabilityMap[lane]]}`);
 }
 

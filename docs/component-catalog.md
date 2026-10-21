@@ -1424,7 +1424,7 @@ Route configuration rules:
 - Routes may configure data, columns, cell snippets, labels, row actions, disabled states, expandable row details, filters, search, pagination, grouping, row click handlers, and bulk actions.
 - Routes may not override visual appearance through route-local Tailwind classes, CSS selectors, arbitrary spacing/color/radius values, or table-specific wrapper styling.
 - If a table needs a new durable visual state or behavior primitive, add it under `src/lib/components/ui/data-table/**`, document it here and verify the affected tables.
-- Use `rowHidden` for a filter the user changes as they type. Hidden rows stay mounted, so clearing the filter does not rebuild every row. The empty state shows when every row is hidden.
+- Use `rowHidden` for a filter the user changes as they type, on a table without a `row` snippet, `pageSize` or `groupBy`. Hidden rows stay mounted, so clearing the filter does not rebuild every row. The empty state shows when every row is hidden.
 - Use `RowActions` for dropdown row commands and `SelectionCheckbox` plus `useDataTableSelection` for selectable rows.
 - Mark action/display-only columns with `sortable: false` and `searchable: false`.
 - Provide `rowActionLabel` whenever rows are clickable so keyboard and screen-reader users get a clear action name.

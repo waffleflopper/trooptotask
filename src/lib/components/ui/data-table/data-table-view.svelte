@@ -40,7 +40,11 @@
 		row?: DataTableRowSnippet<T>;
 		rowDetail?: DataTableRowDetailSnippet<T>;
 		rowDetailVisible?: (row: T) => boolean;
-		/** Hidden rows stay mounted, so a filter that changes as the user types does not remount them. */
+		/**
+		 * Hidden rows stay mounted, so a filter that changes as the user types does not remount them. Applies to
+		 * default-rendered rows on an unpaginated, ungrouped table: a `row` snippet renders its own row, pages count hidden rows
+		 * and group headers stay shown.
+		 */
 		rowHidden?: (row: T) => boolean;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;

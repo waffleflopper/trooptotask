@@ -2,9 +2,6 @@ import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { UserOrgPreferences } from '$features/identity/contracts';
 
 import type { Announcement } from '$features/notifications/contracts';
-// ---------------------------------------------------------------------------
-// App shell data — first paint and deferred chrome
-// ---------------------------------------------------------------------------
 
 export interface OrganizationSwitcherOrg {
 	id: string;
@@ -128,10 +125,6 @@ export function createReadyAppShell(config: {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Port input/output types
-// ---------------------------------------------------------------------------
-
 export interface MembershipInfo {
 	orgId: string;
 	membershipId: string | null;
@@ -145,10 +138,6 @@ export interface MembershipInfo {
 export interface OrgState {
 	orgName: string;
 }
-
-// ---------------------------------------------------------------------------
-// Port interfaces — framework-agnostic, pre-configured per request
-// ---------------------------------------------------------------------------
 
 export interface OrgAccessPort {
 	getMembership(): Promise<MembershipInfo>;

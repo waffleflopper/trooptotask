@@ -2,9 +2,7 @@
 
 /** One already-classified (subject × requirement) cell. Keys are opaque join keys. */
 export interface ReadinessFact<S extends string = string> {
-	/** Soldier / Personnel Record id (or any subject the feature folds over). */
 	subjectKey: string;
-	/** Training Type id / Critical Task id (or any requirement key). */
 	requirementKey: string;
 	/** Feature-owned, already-classified state. Opaque to this module. */
 	state: S;
@@ -24,13 +22,9 @@ export interface ReadinessTallyConfig<S extends string = string, Z extends 0 | n
 	zeroApplicablePercent: Z;
 }
 
-/** The accumulated result for one fold bucket. */
 export interface ReadinessTally<S extends string = string, Z extends 0 | null = 0 | null> {
-	/** Facts not in inapplicableStates. */
 	applicable: number;
-	/** Applicable facts whose state is in readyStates. */
 	ready: number;
-	/** Math.round((ready / applicable) * 100), else zeroApplicablePercent. */
 	percent: number | Z;
 	/** Every fact's state, INCLUDING inapplicable ones. Missing key = 0. */
 	stateCounts: ReadonlyMap<S, number>;
@@ -93,7 +87,6 @@ function configSets<S extends string>(
 	};
 }
 
-/** 0D: the overall tally. */
 export function tallyReadiness<S extends string, Z extends 0 | null>(
 	facts: readonly ReadinessFact<S>[],
 	config: ReadinessTallyConfig<S, Z>

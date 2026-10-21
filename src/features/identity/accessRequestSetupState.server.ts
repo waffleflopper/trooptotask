@@ -92,7 +92,6 @@ export function isSetupGrantWithdrawn(request: {
 	return request.status === 'approved' && !request.setupCompletedAt && !request.setupGrantLive;
 }
 
-/** {@link classifyAccessRequestSetupState} over raw joined rows. */
 export function resolveAccessRequestSetupState(
 	source: AccessRequestSetupStateSource,
 	now: Date

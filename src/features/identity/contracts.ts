@@ -150,7 +150,6 @@ export type PasswordCompletionState = 'started' | 'failed' | 'pending' | 'comple
 
 export type AccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'rescinded';
 
-/** Who vouched for an approved or rescinded Access Request (ADR 0012). */
 export type AccessRequestApprovalBasis = 'platform_review' | 'organization_invitation';
 
 export type AccessRequestSetupState =

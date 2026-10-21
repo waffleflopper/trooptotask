@@ -75,7 +75,6 @@ export type SettingsRankCatalogRow = {
 	sourceLabel: string;
 	sortOrder: number;
 	referenceSummary: OrganizationRankCatalogReferenceSummary;
-	warnings: string[];
 	commands: {
 		canEdit: boolean;
 		canRetire: boolean;

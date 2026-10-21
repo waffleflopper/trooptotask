@@ -95,7 +95,10 @@ describe('rankSentence', () => {
 
 	it('leads with the reference warnings when the rank has any', () => {
 		const warned = rank('C', {
-			warnings: ['Referenced by 3 active records or filters.', 'Also appears in 1 historical snapshot or saved filter.'],
+			warnings: [
+				'Referenced by 3 active records or filters.',
+				'Also appears in 1 historical snapshot or saved filter.'
+			],
 			commands: {
 				canEdit: true,
 				canRetire: false,

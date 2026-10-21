@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **13** [#1286](https://github.com/waffleflopper/trooptotask/issues/1286) is active on milestone **11**, activated from main `8e5bb3364` after Phase 12 #1285 and milestone 10 closed. D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) is complete on its second PR's merge, after [#1789](https://github.com/waffleflopper/trooptotask/pull/1789). D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) is complete on its single PR's merge. D03 [#1787](https://github.com/waffleflopper/trooptotask/issues/1787) is next.
+**Active checkpoint:** Phase **13** [#1286](https://github.com/waffleflopper/trooptotask/issues/1286) is active on milestone **11**, activated from main `8e5bb3364` after Phase 12 #1285 and milestone 10 closed. D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) is complete on its second PR's merge, after [#1789](https://github.com/waffleflopper/trooptotask/pull/1789). D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) is complete on its single PR's merge. D03 [#1787](https://github.com/waffleflopper/trooptotask/issues/1787) is complete on its single PR's merge. D04 [#1788](https://github.com/waffleflopper/trooptotask/issues/1788) is next.
 
 ## Execution rules
 
@@ -66,13 +66,13 @@ Issues #1559 and #1572 are closed by D03's #1734, and #1570 is closed as superse
 
 Final phase [#1286](https://github.com/waffleflopper/trooptotask/issues/1286), milestone **11**. It absorbs the former Phase 14 audit ([#1287](https://github.com/waffleflopper/trooptotask/issues/1287)) and Phase 15 release handoff ([#1288](https://github.com/waffleflopper/trooptotask/issues/1288)), which Robert closed as not planned on 2026-10-21. #1286 is the authoritative scope. Deliver the children in order, one PR each unless the review file limit requires a split.
 
-| Child                                                                            | Outcome                                                                                                                                                                              | State     |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) Code sweep | Dispositions for the `billing` staff role, the Bits UI `postinstall` patch and the 11 suppressions in `src`; demonstrably unused dependencies, scripts, config and comments removed. | Done      |
-| D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) Docs prune | Default-delete prune of `plans/`, `docs/`, `.agents/`, `README.md` and `AGENTS.md` under #1286's keep-or-delete rule, with every link repaired.                                      | Done      |
-| D03 [#1787](https://github.com/waffleflopper/trooptotask/issues/1787) Test prune | `prune-tests` over the baseline testing audit's candidate families and tests of removed features, in one PR.                                                                         | READY     |
-| D04 [#1788](https://github.com/waffleflopper/trooptotask/issues/1788) Retirement | One independent read-only review, the owner checklist from RELEASE, then deletion of the stabilization workflow, skill and `docs/stabilization/`, and closure of #1275.              | After D03 |
+| Child                                                                            | Outcome                                                                                                                                                                              | State |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| D01 [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) Code sweep | Dispositions for the `billing` staff role, the Bits UI `postinstall` patch and the 11 suppressions in `src`; demonstrably unused dependencies, scripts, config and comments removed. | Done  |
+| D02 [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) Docs prune | Default-delete prune of `plans/`, `docs/`, `.agents/`, `README.md` and `AGENTS.md` under #1286's keep-or-delete rule, with every link repaired.                                      | Done  |
+| D03 [#1787](https://github.com/waffleflopper/trooptotask/issues/1787) Test prune | `prune-tests` over the baseline testing audit's candidate families and tests of removed features, in one PR.                                                                         | Done  |
+| D04 [#1788](https://github.com/waffleflopper/trooptotask/issues/1788) Retirement | One independent read-only review, the owner checklist from RELEASE, then deletion of the stabilization workflow, skill and `docs/stabilization/`, and closure of #1275.              | READY |
 
 ## Next executable task
 
-D03 [#1787](https://github.com/waffleflopper/trooptotask/issues/1787), targeted test pruning, from updated `main` after D02 merges. Never touch remote production or existing local data.
+D04 [#1788](https://github.com/waffleflopper/trooptotask/issues/1788), final check and process retirement, from updated `main` after D03 merges. Never touch remote production or existing local data.

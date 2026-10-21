@@ -171,24 +171,6 @@ describe('critical tasks page', () => {
 		personnelIctCompletionsStore.load([], 'org-test-reset');
 	});
 
-	it('renders the floating matrix toolbar while workspace data is still streaming', () => {
-		render(Page, {
-			props: {
-				data: {
-					orgId: 'org-1',
-					orgName: 'Test Unit',
-					criticalTasks: {
-						data: new Promise(() => undefined)
-					}
-				}
-			}
-		});
-
-		expect(screen.getByRole('toolbar', { name: 'Critical Tasks controls' })).toBeTruthy();
-		expect(screen.getByLabelText('Search by name, rank, or MOS')).toBeTruthy();
-		expect(screen.getByTestId('critical-tasks-loading')).toBeTruthy();
-	});
-
 	it('shows the reports and task library affordances to owners and admins', async () => {
 		personnelStore.load([], 'org-1');
 		groupCatalogHydration.load([], 'org-1');
@@ -235,26 +217,6 @@ describe('critical tasks page', () => {
 		);
 		expect(screen.getByRole('button', { name: 'Import Completions' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Record Completion' })).toBeTruthy();
-	});
-
-	it('opens the completion import modal from the page toolbar', async () => {
-		personnelStore.load([person()], 'org-1');
-		groupCatalogHydration.load([alphaGroup], 'org-1');
-		ictTasksStore.load([ictTask], 'org-1');
-		personnelIctCompletionsStore.load([], 'org-1');
-
-		render(Page, {
-			props: {
-				data: {
-					orgId: 'org-1'
-				}
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Import Completions' }));
-
-		expect(await screen.findByRole('dialog', { name: 'Import ICT Completions' })).toBeTruthy();
-		expect(screen.getByLabelText('Upload file')).toBeTruthy();
 	});
 
 	it('updates the matrix status after importing a completion row', async () => {

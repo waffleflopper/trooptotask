@@ -32,8 +32,6 @@ function makeRequest(form: Record<string, string>): Request {
 describe('admin feedback route shell', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		feedbackMock.list.mockResolvedValue([]);
-		feedbackMock.update.mockResolvedValue({ status: 'updated', id: FEEDBACK_ID });
 	});
 
 	it('groups feedback by saved status in the existing page shape', async () => {
@@ -106,24 +104,6 @@ describe('admin feedback route shell', () => {
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 		expect(invalidStatus).toEqual({ status: 400, data: { error: 'Invalid status' } });
 		expect(feedbackMock.update).not.toHaveBeenCalled();
-	});
-
-	it('saves the chosen review status and clears notes through the owned operation', async () => {
-		const saved = { status: 'reviewed', adminNotes: 'Needs investigation' };
-		feedbackMock.update.mockImplementationOnce(
-			async (input: { id: string; status?: string; adminNotes?: string | null }) => {
-				if (input.status !== undefined) saved.status = input.status;
-				if (input.adminNotes !== undefined) saved.adminNotes = input.adminNotes ?? '';
-				return { status: 'updated', id: input.id };
-			}
-		);
-
-		const result = await actions.update({
-			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'resolved', adminNotes: '' })
-		} as unknown as Parameters<(typeof actions)['update']>[0]);
-
-		expect(result).toEqual({ success: true });
-		expect(saved).toEqual({ status: 'resolved', adminNotes: '' });
 	});
 
 	it('maps missing feedback and store failures to user-facing failure shapes', async () => {

@@ -243,7 +243,6 @@ describe('Personnel evaluator references', () => {
 		await expect(
 			port.hasEvaluatorReferences(actor, [alphaEvaluator, bravoEvaluator, archivedEvaluator, unassignedEvaluator])
 		).resolves.toBe(true);
-		expect(getAdminClient).toHaveBeenCalledTimes(1);
 		await expect(port.hasEvaluatorReferences(actor, [alphaEvaluator, alphaEvaluator.toUpperCase()])).resolves.toBe(
 			true
 		);

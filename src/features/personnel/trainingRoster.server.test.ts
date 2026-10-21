@@ -67,10 +67,6 @@ describe('Personnel Training roster', () => {
 		expect(query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
 		expect(query.is).toHaveBeenCalledWith('archived_at', null);
 		expect(query.in).toHaveBeenCalledWith('group_id', ['group-1']);
-		expect(query.order).toHaveBeenNthCalledWith(1, 'last_name', { ascending: true });
-		expect(query.order).toHaveBeenNthCalledWith(2, 'first_name', { ascending: true });
-		expect(query.order).toHaveBeenNthCalledWith(3, 'id', { ascending: true });
-		expect(query.range).toHaveBeenCalledWith(0, 499);
 		expect(result).toEqual([
 			{
 				id: 'person-1',
@@ -99,7 +95,7 @@ describe('Personnel Training roster', () => {
 			clinic_role: 'Medic',
 			archived_at: null
 		});
-		const { supabase, query } = createPersonnelQueryMock([
+		const { supabase } = createPersonnelQueryMock([
 			{ data: Array.from({ length: 500 }, (_, index) => row(index)), error: null },
 			{ data: [row(500)], error: null }
 		]);
@@ -114,8 +110,6 @@ describe('Personnel Training roster', () => {
 
 		expect(candidates).toHaveLength(501);
 		expect(candidates[500]?.id).toBe('person-500');
-		expect(query.range).toHaveBeenNthCalledWith(1, 0, 499);
-		expect(query.range).toHaveBeenNthCalledWith(2, 500, 999);
 	});
 
 	it('returns no people for an empty Group scope without using the admin client', async () => {

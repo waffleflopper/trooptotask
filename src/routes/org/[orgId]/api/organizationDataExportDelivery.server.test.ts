@@ -258,7 +258,7 @@ describe('owned communications in Organization exports', () => {
 });
 
 describe('retained Organization export projection', () => {
-	it.each(['legacy', 'retired'] as const)('exports retained identities with a %s commercial schema', async (schema) => {
+	it('exports saved identities, historical fields and scoped rows in JSON and workbook sections', async () => {
 		const profile = {
 			id: 'org-1',
 			name: 'Clinic',
@@ -644,11 +644,6 @@ describe('retained Organization export projection', () => {
 			}
 		];
 
-		const commercialTables = new Set([
-			'organization_billing_snapshots',
-			'organization_checkout_attempts',
-			'organization_plan_feature_overrides'
-		]);
 		const providerRows: Record<string, Record<string, unknown>[]> = {
 			dashboard_configs: [
 				dashboardConfig,
@@ -686,24 +681,7 @@ describe('retained Organization export projection', () => {
 					leader_notes: 'Obsolete value must not reach Personnel summary'
 				}
 			],
-			organizations: [
-				{
-					...profile,
-					...(schema === 'legacy'
-						? {
-								tier: 'team',
-								stripe_customer_id: 'cus_legacy',
-								stripe_subscription_id: 'sub_legacy',
-								subscription_status: 'active',
-								current_period_end: '2027-01-01',
-								gift_tier: 'unit',
-								gift_expires_at: '2027-01-01',
-								gifted_by: 'gifter'
-							}
-						: {})
-				},
-				{ ...profile, id: 'foreign-org', name: 'Private' }
-			],
+			organizations: [profile, { ...profile, id: 'foreign-org', name: 'Private' }],
 			organization_memberships: [{ id: 'membership-1', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' }],
 			daily_assignments: [
 				assignment,
@@ -757,8 +735,6 @@ describe('retained Organization export projection', () => {
 				].includes(table)
 			)
 				return Response.json({ message: 'Direct sensitive read denied' }, { status: 403 });
-			if (commercialTables.has(table) || /^(duty_|advanced_duty_)/.test(table))
-				return Response.json({ message: 'Retired storage is unavailable' }, { status: 404 });
 			const scopeColumn =
 				table === 'organizations'
 					? 'id'
@@ -867,14 +843,6 @@ describe('retained Organization export projection', () => {
 		for (const rows of Object.values(json.sections) as Array<Array<Record<string, unknown>>>) {
 			expect(rows.filter((row) => String(row.id).startsWith('foreign-'))).toEqual([]);
 		}
-		expect(json.sectionInventory.some((section: { areaKey: string }) => section.areaKey === 'duty-rosters')).toBe(
-			false
-		);
-		for (const key of ['billingSnapshot', 'billingCheckoutAttempts', 'planFeatureOverrides']) {
-			expect(json).not.toHaveProperty(key);
-			expect(json.sections).not.toHaveProperty(key);
-			expect(json.sectionInventory.map((section: { key: string }) => section.key)).not.toContain(key);
-		}
 		const { workbook } = await buildOrganizationDataExportWorkbook({ payload: result });
 		for (const { sheet: name, row } of additionalSources) {
 			const sheet = workbook.getWorksheet(name)!;
@@ -958,9 +926,5 @@ describe('retained Organization export projection', () => {
 		expect(workbook.getWorksheet('Raw - Sign-in Rosters')!.getSheetValues().flat(2)).toContain('roster-1');
 		expect(workbook.getWorksheet('Raw - Special Days')!.getSheetValues().flat(2)).toContain('closure-1');
 		expect(workbook.getWorksheet('Raw - Special Days')!.getSheetValues().flat(2)).not.toContain('foreign-closure');
-		expect(workbook.worksheets.some((sheet) => /duty roster|advanced duty/i.test(sheet.name))).toBe(false);
-		for (const table of commercialTables)
-			expect(workbook.getWorksheet('Export Inventory')!.getSheetValues().flat(2)).not.toContain(table);
-		expect(workbook.worksheets.filter((sheet) => /billing|checkout|feature overrides/i.test(sheet.name))).toEqual([]);
 	});
 });

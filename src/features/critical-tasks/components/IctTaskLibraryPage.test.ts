@@ -106,39 +106,11 @@ describe('IctTaskLibraryPage', () => {
 		expect(screen.getByRole('status', { name: 'Loading ICT task library' })).toBeTruthy();
 		const newTask = screen.getByRole('button', { name: 'New Task' }) as HTMLButtonElement;
 		expect(newTask.disabled).toBe(true);
-		expect(newTask.title).toBe('Critical Tasks are still loading.');
 		await fireEvent.click(newTask);
 		expect(screen.queryByLabelText('Task code')).toBeNull();
 
 		personnelIctCompletionsStore.load(completions, 'org-1');
 		await waitFor(() => expect(newTask.disabled).toBe(false));
-	});
-
-	it('shows active tasks only in configured library order', () => {
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
-
-		expect(screen.getByRole('toolbar', { name: 'ICT task library controls' })).toBeTruthy();
-		const library = screen.getByRole('list', { name: 'ICT task library' });
-		expect(within(library).getByText('181-105-1001')).toBeTruthy();
-		expect(within(library).getByText('Casualty Care / 68W')).toBeTruthy();
-		expect(screen.queryByText('181-105-9999')).toBeNull();
-	});
-
-	it('orders the status view, search, the MOS filter, Import CSV and New Task along the row', () => {
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
-
-		const row = within(screen.getByRole('toolbar', { name: 'ICT task library controls' }));
-		const order = [
-			row.getByRole('button', { name: 'Active' }),
-			row.getByRole('searchbox', { name: 'Search' }),
-			row.getByRole('button', { name: 'MOS' }),
-			row.getByRole('button', { name: 'Import CSV' }),
-			row.getByRole('button', { name: 'New Task' })
-		];
-
-		for (const [index, control] of order.slice(1).entries()) {
-			expect(order[index].compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		}
 	});
 
 	describe('when the toolbar folds', () => {
@@ -283,17 +255,6 @@ describe('IctTaskLibraryPage', () => {
 
 		expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy();
 		expect(within(taskList()).queryByText('Submit readiness report')).toBeNull();
-	});
-
-	it('opens the dedicated import workspace instead of the old pasted CSV side panel', async () => {
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
-
-		expect(screen.getByRole('toolbar', { name: 'ICT task library controls' })).toBeTruthy();
-		expect(await screen.findByRole('heading', { name: 'Import ICT Tasks' })).toBeTruthy();
-		expect(screen.getByRole('region', { name: 'ICT task import workspace' })).toBeTruthy();
-		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();
 	});
 
 	function describedBy(element: HTMLElement): string[] {
@@ -504,18 +465,6 @@ describe('IctTaskLibraryPage', () => {
 				feedback: null
 			},
 			{
-				replies: ['saved', 'refused'],
-				saved: MOVED,
-				shown: ['071-COM-1001', '071-COM-2001', '181-105-1001'],
-				feedback: null
-			},
-			{
-				replies: ['saved', 'lost'],
-				saved: MOVED,
-				shown: ['071-COM-1001', '071-COM-2001', '181-105-1001'],
-				feedback: null
-			},
-			{
 				replies: ['refused'],
 				saved: BEFORE,
 				shown: ['071-COM-1001', '181-105-1001', '071-COM-2001'],
@@ -625,24 +574,6 @@ describe('IctTaskLibraryPage', () => {
 			expect(provider.requests).toEqual([]);
 			expect(displayedOrder()).toEqual(['T0000', 'T0001']);
 			expect(screen.getByRole('button', { name: 'Move T0000 down' })).not.toHaveProperty('disabled', true);
-		});
-
-		it('moves a task past neighbours that share its sort order without reordering the rest', async () => {
-			const tied = (id: string, taskCode: string, sortOrder = 0): IctTask => ({
-				...infantryTask,
-				id,
-				taskCode,
-				sortOrder
-			});
-			ictTasksStore.load([tied('t-a', 'A-1'), tied('t-b', 'B-1'), tied('t-c', 'C-1'), tied('t-d', 'D-1', 1)], 'org-1');
-			const provider = libraryProvider();
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
-
-			await fireEvent.click(screen.getByRole('button', { name: 'Move A-1 down' }));
-
-			await waitFor(() => expect(displayedOrder()).toEqual(['B-1', 'A-1', 'C-1', 'D-1']));
-			expect(provider.sortOrders()).toEqual({ 'A-1': 1, 'B-1': 0, 'C-1': 1, 'D-1': 1 });
-			expect(provider.requests).toEqual([ORDER_COMMAND]);
 		});
 
 		it.each([

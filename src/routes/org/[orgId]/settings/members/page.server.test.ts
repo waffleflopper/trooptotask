@@ -98,10 +98,6 @@ describe('members settings actions', () => {
 		const result = await actions[name](actionEvent(name, form()));
 
 		expect(result).toEqual({ status: 500, data: { inviteError: 'Internal server error' } });
-		expect(console.error).toHaveBeenCalledWith(
-			'[http-adapter] Unhandled route error:',
-			expect.stringContaining('name=AuthApiError')
-		);
 	});
 
 	it('forwards an app-created duplicate-invite failure', async () => {

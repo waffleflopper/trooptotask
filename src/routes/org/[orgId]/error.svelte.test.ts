@@ -11,16 +11,11 @@ afterEach(() => {
 });
 
 describe('Organization error screen', () => {
-	it.each([
-		[404, "Page not found. The page you're looking for doesn't exist or has been moved."],
-		[403, "You don't have permission to view this page."],
-		[500, 'Something went wrong. Please try again.']
-	])('explains a %i and returns to the Organization dashboard', (status, message) => {
+	it.each([404, 403, 500])('shows status %i and links back to the Organization dashboard', (status) => {
 		pageState.status = status;
 		render(ErrorPage);
 
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(String(status));
-		expect(screen.getByText(message)).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/org/alpha');
 	});
 

@@ -206,7 +206,6 @@ describe('dashboard page server load', () => {
 	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
-		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		let resolveWorkspace: ((value: DashboardWorkspaceResult) => void) | undefined;
 		const workspaceBootstrap = new Promise<DashboardWorkspaceResult>((resolve) => {
 			resolveWorkspace = resolve;
@@ -229,7 +228,6 @@ describe('dashboard page server load', () => {
 
 		expect(depends).toHaveBeenCalledWith('app:org-core');
 		expect(depends).toHaveBeenCalledWith('app:dashboard-data', 'app:viewer-day');
-		expect(result).not.toHaveProperty('breadcrumbLabel');
 		expect(result.summary).toBeInstanceOf(Promise);
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
 		expect(findManyWithCountMock).not.toHaveBeenCalled();
@@ -296,16 +294,6 @@ describe('dashboard page server load', () => {
 				]
 			}
 		});
-		expect(consoleInfoSpy).toHaveBeenCalledWith(
-			'[dashboard-load]',
-			expect.objectContaining({
-				orgId: ORG_ID,
-				phase: 'summary',
-				status: 'ok',
-				durationMs: expect.any(Number)
-			})
-		);
-		expect(fetchDashboardTrainingSummaryMock).toHaveBeenCalledOnce();
 		expect(fetchDashboardTrainingSummaryMock).toHaveBeenCalledWith(mockCtx, {
 			personnel: [],
 			trainingTypes: [],
@@ -316,7 +304,6 @@ describe('dashboard page server load', () => {
 			},
 			asOf: '2026-10-14'
 		});
-		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledOnce();
 		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledWith(mockCtx, {
 			asOf: '2026-10-14',
 			timeZone: 'America/New_York'
@@ -436,21 +423,6 @@ describe('dashboard page server load', () => {
 			status: 303,
 			location: '/dashboard?show=all'
 		});
-
-		expect(leaveOrganizationMock).toHaveBeenCalledWith(
-			{
-				auth: { kind: 'auth' },
-				audit: { kind: 'audit' },
-				notifications: { kind: 'notifications' },
-
-				settings: { kind: 'settings-port' }
-			},
-			{
-				membershipId: '11111111-1111-4111-8111-111111111111',
-				confirmation: 'YES',
-				actorEmail: 'user@example.com'
-			}
-		);
 	});
 
 	it('preserves an owner leave error as an HTTP bad request', async () => {

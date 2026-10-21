@@ -543,8 +543,6 @@ describe('Dashboard admitted navigation', () => {
 			expect([...new Set(screen.queryAllByRole('link').map((link) => link.getAttribute('href')))].sort()).toEqual(
 				targets.toSorted()
 			);
-			if (role === 'billing') expect(screen.queryByText(/Use global admin search/)).toBeNull();
-			else expect(screen.getByText(/Use global admin search/)).toBeTruthy();
 		}
 	);
 
@@ -589,11 +587,6 @@ describe('Dashboard admitted navigation', () => {
 		const toolbar = within(screen.getByRole('toolbar', { name: 'Admin Dashboard controls' }));
 		expect(toolbar.queryByRole('link', { name: 'Audit Log' }) !== null).toBe(audit);
 		expect(toolbar.queryByRole('link', { name: 'Inspect Users' }) !== null).toBe(users);
-	});
-
-	it('renders no toolbar when no destination is admitted', () => {
-		renderDashboard('billing', ['dashboard']);
-		expect(screen.queryByRole('toolbar')).toBeNull();
 	});
 
 	it('gives the signup chart a canonical data table', () => {

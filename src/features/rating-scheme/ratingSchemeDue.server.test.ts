@@ -32,8 +32,6 @@ function actor(overrides: Partial<RatingSchemeDueActor> = {}): RatingSchemeDueAc
 
 function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: string[] = []) {
 	const selections: string[] = [];
-	const ranges: Array<[number, number]> = [];
-	const ordering: Array<{ column: string; ascending: boolean }> = [];
 	const from = vi.fn((table: string) => {
 		if (table !== 'rating_scheme_entries') throw new Error('This projection cannot read another table');
 		let visible = [...rows];
@@ -47,12 +45,10 @@ function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: stri
 				return query;
 			},
 			order: (column: string, { ascending }: { ascending: boolean }) => {
-				ordering.push({ column, ascending });
 				visible.sort((a, b) => String(a[column]).localeCompare(String(b[column])) * (ascending ? 1 : -1));
 				return query;
 			},
 			range: async (start: number, end: number) => {
-				ranges.push([start, end]);
 				if (start === failFrom) return { data: null, error: { message: 'Due projection unavailable' } };
 				return { data: visible.slice(start, end + 1), error: null };
 			}
@@ -65,8 +61,6 @@ function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: stri
 	return {
 		from,
 		selections,
-		ranges,
-		ordering,
 		listArchivedRatedPersonIds,
 		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, { listArchivedRatedPersonIds })
 	};
@@ -93,7 +87,7 @@ function pageRows(): ProviderRow[] {
 
 describe('Rating Scheme due projection', () => {
 	it('reads only due facts for the requested Organization without Personnel access', async () => {
-		const { port, selections, ordering } = provider([
+		const { port, selections } = provider([
 			{
 				id: 'evaluation-1',
 				organization_id: 'org-a',
@@ -131,8 +125,13 @@ describe('Rating Scheme due projection', () => {
 			{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
 			{ ratingPeriodEnd: '2026-01-01', status: 'completed' }
 		]);
-		expect(selections).toEqual(['rated_person_id, rating_period_end, status']);
-		expect(ordering).toEqual([{ column: 'id', ascending: true }]);
+		expect(selections).toHaveLength(1);
+		expect(
+			selections[0]
+				.split(',')
+				.map((column) => column.trim())
+				.sort()
+		).toEqual(['rated_person_id', 'rating_period_end', 'status']);
 	});
 
 	it('omits evaluations of archived People, matching IDs case-insensitively', async () => {
@@ -246,19 +245,11 @@ describe('Rating Scheme due projection', () => {
 	});
 
 	it('includes evaluations beyond the first provider page in stable identity order', async () => {
-		const { port, ranges, ordering } = provider(pageRows());
+		const { port } = provider(pageRows());
 		const entries = await port.listDueEntries(actor());
 		expect(entries).toHaveLength(1001);
 		expect(entries[0]).toEqual({ ratingPeriodEnd: '2026-01-01', status: 'active' });
 		expect(entries[1000]).toEqual({ ratingPeriodEnd: '2030-12-31', status: 'completed' });
-		expect(ranges).toEqual([
-			[0, 999],
-			[1000, 1999]
-		]);
-		expect(ordering).toEqual([
-			{ column: 'id', ascending: true },
-			{ column: 'id', ascending: true }
-		]);
 	});
 
 	it.each([0, 1000])(

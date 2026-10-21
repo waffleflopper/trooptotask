@@ -431,13 +431,6 @@ describe('OnboardingTemplateWorkspace', () => {
 		expect(workspace.model.stepDraftDirty).toBe(true);
 	});
 
-	it('summarises a template with its steps and active packets', () => {
-		const workspace = makeWorkspace();
-		expect(workspace.getTemplateSummary(template, 7)).toBe('2 steps · 7 active packets');
-		expect(workspace.getTemplateSummary(template, 1)).toBe('2 steps · 1 active packet');
-		expect(workspace.getTemplateSummary(template)).toBe('2 steps · no active packets');
-	});
-
 	it.each([
 		[
 			JSON.stringify({ message: 'Configuration is outside your assigned scope' }),

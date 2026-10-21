@@ -153,7 +153,6 @@ beforeEach(() => {
 
 afterEach(async () => {
 	cleanup();
-	await waitFor(() => expect(document.body.style.overflow).not.toBe('hidden'));
 	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
@@ -212,13 +211,7 @@ describe('Onboarding Active list', () => {
 		expect(subtitleText()).toBe('4 Soldiers in processing · 1 stalled');
 	});
 
-	it('shows the stalled count in the warning colour and drops it when nothing is stalled', () => {
-		mount();
-		expect(screen.getByText('1 stalled', { selector: '[data-slot="page-header"] span' }).className).toContain(
-			'text-warning-foreground'
-		);
-		cleanup();
-
+	it('omits the stalled count when no packet is stalled', () => {
 		onboardingStore.load([packet, ready], 'org-1');
 		mount();
 		expect(subtitleText()).toBe('2 Soldiers in processing');

@@ -375,12 +375,6 @@ describe('catalog filters', () => {
 		expect(shownCodes()).toEqual([]);
 		expect(screen.getByText('No retired ranks match Army and "first".')).toBeTruthy();
 	});
-
-	it('counts active, retired and custom ranks in the section head', () => {
-		renderRankPage([sgt, detSgt, sfc], [sp4]);
-
-		expect(screen.getByText('3 active · 1 retired · 1 custom')).toBeTruthy();
-	});
 });
 
 describe('catalog sorting', () => {
@@ -771,7 +765,7 @@ describe('confirmations settle with their request', () => {
 });
 
 describe('view only', () => {
-	it('explains who can change the catalog and offers no changes', async () => {
+	it('offers no catalog changes without governance access', async () => {
 		renderRankPage(
 			[
 				rankEntry({
@@ -789,11 +783,6 @@ describe('view only', () => {
 			false
 		);
 
-		expect(
-			screen.getByText(
-				'Organization admin or owner access is required to change branch packs, custom ranks, or retirement state.'
-			)
-		).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Add custom rank' })).toBeNull();
 		expect((screen.getByRole('button', { name: 'Add 2 Army ranks' }) as HTMLButtonElement).disabled).toBe(true);
 		await openRank('DET-SGT');

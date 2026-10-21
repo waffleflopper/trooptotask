@@ -119,7 +119,8 @@ describe('TrainingRecordModal', () => {
 				})
 		);
 		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
-		const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+		const inDisabledGroup = (control: HTMLElement) =>
+			control.matches(':disabled') || control.closest('fieldset[disabled]') !== null;
 		render(TrainingRecordModal, {
 			props: {
 				person,
@@ -244,6 +245,7 @@ describe('TrainingRecordModal', () => {
 			rejectSave = reject;
 		});
 		const successToast = vi.spyOn(toast, 'success').mockImplementation(() => 'success');
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
 		const onClose = vi.fn();
 		const view = render(TrainingRecordModal, {
 			props: {
@@ -271,8 +273,13 @@ describe('TrainingRecordModal', () => {
 		else rejectSave(new Error('Retired response'));
 		await tick();
 
-		expect({ success: successToast.mock.calls.length, close: onClose.mock.calls.length }).toEqual({
+		expect({
+			success: successToast.mock.calls.length,
+			error: errorToast.mock.calls.length,
+			close: onClose.mock.calls.length
+		}).toEqual({
 			success: 0,
+			error: 0,
 			close: 0
 		});
 	});

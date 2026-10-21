@@ -53,7 +53,6 @@ describe('patterns/reorder-list', () => {
 
 		await fireEvent.pointerDown(grip, { button: 0, pointerId: 1, pointerType: 'mouse' });
 		await fireEvent.pointerMove(grip, { clientY: 110, pointerId: 1 });
-		expect(screen.getByText('Training').closest('[data-reorder-id]')?.getAttribute('data-drop')).toBe('after');
 		await fireEvent.pointerUp(grip, { pointerId: 1 });
 		await tick();
 

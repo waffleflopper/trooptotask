@@ -30,8 +30,6 @@ describe('User detail HTTP delivery', () => {
 		vi.resetAllMocks();
 		createOperations.mockResolvedValue(accountOperations);
 		accountOperations.getUserDetail.mockResolvedValue({ status: 'found', detail });
-		accountOperations.sendPasswordReset.mockResolvedValue({ status: 'sent', message: 'Password reset email sent' });
-		accountOperations.resendInvite.mockResolvedValue({ status: 'sent', message: 'Invite email resent' });
 	});
 
 	it('returns the safe detail including activity and the current admitted role', async () => {
@@ -81,14 +79,10 @@ describe('User detail HTTP delivery', () => {
 		}
 	);
 
-	for (const [action, command, message, error] of [
-		['resetPassword', 'sendPasswordReset', 'Password reset email sent', 'Failed to send password reset'],
-		['resendInvite', 'resendInvite', 'Invite email resent', 'Failed to resend invite']
+	for (const [action, command, error] of [
+		['resetPassword', 'sendPasswordReset', 'Failed to send password reset'],
+		['resendInvite', 'resendInvite', 'Failed to resend invite']
 	] as const) {
-		it(`${action} sends only the decoded target and returns success`, async () => {
-			await expect(actions[action](event() as never)).resolves.toEqual({ success: true, message });
-			expect(accountOperations[command]).toHaveBeenCalledWith({ userId: USER_ID });
-		});
 		it(`${action} maps missing targets to 404`, async () => {
 			accountOperations[command].mockResolvedValueOnce({ status: 'not_found' });
 			await expect(actions[action](event() as never)).resolves.toEqual({

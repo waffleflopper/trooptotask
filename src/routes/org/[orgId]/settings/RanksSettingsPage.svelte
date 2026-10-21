@@ -504,24 +504,24 @@
 			{/snippet}
 		</PageShell.SectionHeader>
 
-		<ul>
+		<ul class="@container">
 			{#each ranks.servicePacks as pack (pack.value)}
 				{@const added = pack.existingCount > 0}
 				<li
-					class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 border-b py-2.5 md:grid-cols-[8.75rem_minmax(0,1fr)_9.375rem_5.625rem_7.5rem] md:py-1.5"
+					class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 border-b py-2.5 @xl:grid-cols-[8.75rem_minmax(0,1fr)_9.375rem_5.625rem_7.5rem] @xl:py-1.5"
 				>
 					<h3 class="text-sm {added ? 'font-semibold' : 'text-muted-foreground'}">{pack.label}</h3>
 					<div
-						class="col-span-2 row-start-2 flex h-1.5 overflow-hidden rounded-full bg-input md:col-span-1 md:row-start-auto"
+						class="col-span-2 row-start-2 flex h-1.5 overflow-hidden rounded-full bg-input @xl:col-span-1 @xl:row-start-auto"
 						role="img"
 						aria-label={`${pack.label}: ${pack.activeCount} active, ${pack.retiredCount} retired, ${pack.missingCount} missing of ${pack.builtInCount} built-in ranks`}
 					>
 						<div class="bg-foreground" style:width={packShare(pack.activeCount, pack)}></div>
 						<div class="bg-muted-foreground" style:width={packShare(pack.retiredCount, pack)}></div>
 					</div>
-					<p class="row-start-3 font-mono text-xs text-muted-foreground md:row-start-auto">{packCountText(pack)}</p>
+					<p class="row-start-3 font-mono text-xs text-muted-foreground @xl:row-start-auto">{packCountText(pack)}</p>
 					<p
-						class="row-start-3 font-mono text-xs md:row-start-auto {added && pack.missingCount > 0
+						class="row-start-3 font-mono text-xs @xl:row-start-auto {added && pack.missingCount > 0
 							? 'font-semibold text-warning-foreground'
 							: 'text-muted-foreground'}"
 					>
@@ -531,7 +531,9 @@
 							{pack.missingCount} missing
 						{/if}
 					</p>
-					<div class="col-start-2 row-start-1 flex items-center justify-end gap-1 md:col-start-auto md:row-start-auto">
+					<div
+						class="col-start-2 row-start-1 flex items-center justify-end gap-1 @xl:col-start-auto @xl:row-start-auto"
+					>
 						{#if pack.missingCount > 0}
 							<form
 								method="POST"

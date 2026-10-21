@@ -218,14 +218,16 @@
 												<p class="font-mono text-[11px] leading-3.5 text-muted-foreground">{gap}</p>
 											{/if}
 										</div>
-										<SegmentedFilter.Root
-											label={`${lane.label} access`}
-											options={SETTINGS_CAPABILITY_OPTIONS}
-											disabled={off}
-											bind:value={
-												() => draft.levels[lane.id], (level: CapabilityLevel) => workspace.setLevel(lane.id, level)
-											}
-										/>
+										<div class="ml-auto">
+											<SegmentedFilter.Root
+												label={`${lane.label} access`}
+												options={SETTINGS_CAPABILITY_OPTIONS}
+												disabled={off}
+												bind:value={
+													() => draft.levels[lane.id], (level: CapabilityLevel) => workspace.setLevel(lane.id, level)
+												}
+											/>
+										</div>
 									</li>
 								{/each}
 							</ul>
@@ -291,7 +293,7 @@
 					<Button
 						type="button"
 						variant="ghost"
-						class="mr-auto text-destructive-text"
+						class="text-destructive-text"
 						disabled={loading}
 						onclick={() => {
 							const target = member;
@@ -299,22 +301,24 @@
 							onRemove(target);
 						}}>Remove from {unit}</Button
 					>
-					<Button type="button" variant="outline" disabled={loading} onclick={close}>Cancel</Button>
-					<Button
-						bind:ref={saveButton}
-						type="submit"
-						disabled={changeCount === 0}
-						aria-disabled={loading ? 'true' : undefined}
-						aria-busy={loading || undefined}
-					>
-						{#if loading}
-							Saving...
-						{:else if changeCount > 0}
-							Save {plural(changeCount, 'change')}
-						{:else}
-							No changes
-						{/if}
-					</Button>
+					<div class="ml-auto flex gap-2">
+						<Button type="button" variant="outline" disabled={loading} onclick={close}>Cancel</Button>
+						<Button
+							bind:ref={saveButton}
+							type="submit"
+							disabled={changeCount === 0}
+							aria-disabled={loading ? 'true' : undefined}
+							aria-busy={loading || undefined}
+						>
+							{#if loading}
+								Saving...
+							{:else if changeCount > 0}
+								Save {plural(changeCount, 'change')}
+							{:else}
+								No changes
+							{/if}
+						</Button>
+					</div>
 				</Sheet.Footer>
 			</form>
 		</Sheet.Content>

@@ -111,7 +111,7 @@
 		{#if slowKey}
 			<SettingsPageHeader page={slowKey}>
 				{#snippet subtitle()}
-					<div class="grid gap-2 pt-1" aria-hidden="true">
+					<div class="grid gap-2" aria-hidden="true">
 						<Skeleton class="h-4 w-full max-w-xl" />
 						<Skeleton class="h-4 w-2/3" />
 					</div>

@@ -197,9 +197,9 @@
 			</div>
 		{/snippet}
 	</PageShell.SectionHeader>
-	{#if query}
-		<p class="sr-only" role="status">{shownCount} of {rows.length} archived people shown</p>
-	{/if}
+	<p class="sr-only" role="status">
+		{#if query}{shownCount} of {rows.length} archived people shown{/if}
+	</p>
 
 	<DataTable.DataTable
 		{table}

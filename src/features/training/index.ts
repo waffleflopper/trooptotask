@@ -42,3 +42,8 @@ export { default as TrainingViewsPage } from './components/TrainingViewsPage.sve
 export { default as TrainingReportsPage } from './components/TrainingReportsPage.svelte';
 export { default as PersonnelTrainingReadinessTable } from './components/PersonnelTrainingReadinessTable.svelte';
 export { default as PersonnelTrainingDrawer } from './components/PersonnelTrainingDrawer.svelte';
+
+export { recordTrainingCompletions } from './personnelTrainingRequests';
+export function loadRecordClassDialog() {
+	return import('./components/RecordClassDialog.svelte');
+}

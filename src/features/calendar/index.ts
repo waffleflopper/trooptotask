@@ -28,6 +28,15 @@ export { CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
 export { calendarViewCoverage, rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 export { assignmentSlotKey, indexAssignmentsBySlot, openAssignmentDates } from './utils/calendarIndexes';
 export { calendarLaneTypes } from './utils/calendarLanes';
+export { loadDutyHistory } from './utils/calendarRangeLoader';
+export { indexDutyAvailability, indexDutyHistory } from './utils/dutyReadModel';
+export { planDutyFill, type DutyFillSlot } from './utils/dutyFill';
+export type { DutyPickerOption } from './utils/dutyPickerOptions';
+
+/** The duty picker popover, loaded when a slot first opens it. */
+export function loadDutyPicker() {
+	return import('./components/DutyPicker.svelte');
+}
 
 // Routed page components are separate public files so each route loads only its own page.
 

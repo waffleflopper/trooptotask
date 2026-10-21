@@ -67,6 +67,10 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	setAssignmentBatch: (
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 	) => Promise<boolean>;
+	/** Like `setAssignmentBatch`, but rejects with the failure message instead of showing a toast. */
+	setAssignmentBatchOrThrow: (
+		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
+	) => Promise<void>;
 	getAssignmentsForDate: (date: string) => DailyAssignment[];
 	getAssignmentForDate: (date: string, assignmentTypeId: string) => DailyAssignment | undefined;
 	getAssignmentsForPersonnel: (personnelId: string) => DailyAssignment[];
@@ -276,6 +280,76 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		return res;
 	}
 
+	async function setAssignmentBatchOrThrow(assignments: AssignmentBatchRecord[]): Promise<void> {
+		const normalizedAssignments = normalizeAssignmentBatch(assignments);
+		const duplicateSlot = duplicateAssignmentSlot(normalizedAssignments);
+		if (duplicateSlot) {
+			throw new Error(
+				`Duplicate daily assignment slot in batch: ${duplicateSlot.date} / ${duplicateSlot.assignmentTypeId}`
+			);
+		}
+
+		const existingIds: string[] = [];
+		const tempIds: string[] = [];
+		const addData: Omit<DailyAssignment, 'id'>[] = [];
+		const existingBySlotKey = new Map(
+			getAssignmentSnapshot().map((assignment) => [
+				assignmentSlotKey(assignment.date, assignment.assignmentTypeId),
+				assignment
+			])
+		);
+
+		for (const a of normalizedAssignments) {
+			const existing = existingBySlotKey.get(assignmentSlotKey(a.date, a.assignmentTypeId));
+			if (existing) existingIds.push(existing.id);
+
+			if (a.assigneeId) {
+				tempIds.push(`temp-${crypto.randomUUID()}`);
+				addData.push({
+					date: a.date,
+					assignmentTypeId: a.assignmentTypeId,
+					assigneeId: a.assigneeId
+				});
+			}
+		}
+
+		let removeMutationId: string | null = null;
+		if (existingIds.length > 0) {
+			removeMutationId = crypto.randomUUID();
+			internals.log.push({ type: 'remove-batch', mutationId: removeMutationId, targetIds: existingIds });
+		}
+
+		let addMutationId: string | null = null;
+		if (tempIds.length > 0) {
+			addMutationId = crypto.randomUUID();
+			internals.log.push({ type: 'add-batch', mutationId: addMutationId, tempIds, data: addData });
+		}
+
+		try {
+			const { inserted } = await internals.withinOrganization(
+				sendAssignments(
+					'/batch',
+					'POST',
+					{ records: normalizedAssignments },
+					'Failed to batch update assignments'
+				).then((res) => res.json() as Promise<{ inserted: DailyAssignment[] }>)
+			);
+
+			const replacedSlots = new Set(normalizedAssignments.map((a) => assignmentSlotKey(a.date, a.assignmentTypeId)));
+			internals.commit({
+				deletedWhere: (assignment) => replacedSlots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+			});
+			internals.commit({ saved: inserted });
+
+			if (removeMutationId) internals.log.resolve(removeMutationId);
+			if (addMutationId) internals.log.resolve(addMutationId);
+		} catch (error) {
+			if (removeMutationId) internals.log.resolve(removeMutationId);
+			if (addMutationId) internals.log.resolve(addMutationId);
+			throw error;
+		}
+	}
+
 	return {
 		get types() {
 			return typesStore.items;
@@ -454,81 +528,17 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 		},
 
-		async setAssignmentBatch(
-			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
-		): Promise<boolean> {
-			const normalizedAssignments = normalizeAssignmentBatch(assignments);
-			const duplicateSlot = duplicateAssignmentSlot(normalizedAssignments);
-			if (duplicateSlot) {
-				toastStore.error(
-					`Duplicate daily assignment slot in batch: ${duplicateSlot.date} / ${duplicateSlot.assignmentTypeId}`
-				);
-				return false;
-			}
-
-			const existingIds: string[] = [];
-			const tempIds: string[] = [];
-			const addData: Omit<DailyAssignment, 'id'>[] = [];
-			const existingBySlotKey = new Map(
-				getAssignmentSnapshot().map((assignment) => [
-					assignmentSlotKey(assignment.date, assignment.assignmentTypeId),
-					assignment
-				])
-			);
-
-			for (const a of normalizedAssignments) {
-				const existing = existingBySlotKey.get(assignmentSlotKey(a.date, a.assignmentTypeId));
-				if (existing) existingIds.push(existing.id);
-
-				if (a.assigneeId) {
-					tempIds.push(`temp-${crypto.randomUUID()}`);
-					addData.push({
-						date: a.date,
-						assignmentTypeId: a.assignmentTypeId,
-						assigneeId: a.assigneeId
-					});
-				}
-			}
-
-			let removeMutationId: string | null = null;
-			if (existingIds.length > 0) {
-				removeMutationId = crypto.randomUUID();
-				internals.log.push({ type: 'remove-batch', mutationId: removeMutationId, targetIds: existingIds });
-			}
-
-			let addMutationId: string | null = null;
-			if (tempIds.length > 0) {
-				addMutationId = crypto.randomUUID();
-				internals.log.push({ type: 'add-batch', mutationId: addMutationId, tempIds, data: addData });
-			}
-
+		async setAssignmentBatch(assignments: AssignmentBatchRecord[]): Promise<boolean> {
 			try {
-				const { inserted } = await internals.withinOrganization(
-					sendAssignments(
-						'/batch',
-						'POST',
-						{ records: normalizedAssignments },
-						'Failed to batch update assignments'
-					).then((res) => res.json() as Promise<{ inserted: DailyAssignment[] }>)
-				);
-
-				const replacedSlots = new Set(normalizedAssignments.map((a) => assignmentSlotKey(a.date, a.assignmentTypeId)));
-				internals.commit({
-					deletedWhere: (assignment) =>
-						replacedSlots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
-				});
-				internals.commit({ saved: inserted });
-
-				if (removeMutationId) internals.log.resolve(removeMutationId);
-				if (addMutationId) internals.log.resolve(addMutationId);
+				await setAssignmentBatchOrThrow(assignments);
 				return true;
 			} catch (error) {
-				if (removeMutationId) internals.log.resolve(removeMutationId);
-				if (addMutationId) internals.log.resolve(addMutationId);
 				toastStore.error(error instanceof Error ? error.message : 'Failed to batch update assignments');
 				return false;
 			}
 		},
+
+		setAssignmentBatchOrThrow,
 
 		getAssignmentsForDate(date: string): DailyAssignment[] {
 			return getAssignmentSnapshot().filter((a) => a.date === date);

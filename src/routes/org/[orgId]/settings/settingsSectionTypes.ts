@@ -114,11 +114,9 @@ export type RanksSettingsData = {
 };
 
 export interface LogsSettingsData {
-	sections: {
-		logs: SettingsLogsSectionData;
-	};
-}
-
-export interface SettingsLogsSectionData {
-	auditLogPage: AuditLogQueryResult;
+	auditLog: AuditLogQueryResult;
+	/** The viewer's IANA time zone; day heads and clock times use it so server and browser render the same text. */
+	timeZone: string;
+	/** "YYYY-MM-DD" in `timeZone` when the page loaded. */
+	today: string;
 }

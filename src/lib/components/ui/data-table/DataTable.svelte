@@ -36,6 +36,7 @@
 		loadingRows?: number;
 		density?: 'default' | 'dense';
 		variant?: 'framed' | 'editorial';
+		stacked?: boolean;
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -47,6 +48,7 @@
 		rowDetail?: DataTableRowDetailSnippet<T>;
 		rowDetailVisible?: (row: T) => boolean;
 		rowHidden?: (row: T) => boolean;
+		pageLabels?: { previous: string; next: string };
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -73,6 +75,7 @@
 		loadingRows,
 		density,
 		variant,
+		stacked,
 		compact,
 		striped,
 		stickyHeader = true,
@@ -84,6 +87,7 @@
 		rowDetail,
 		rowDetailVisible,
 		rowHidden,
+		pageLabels,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -124,6 +128,7 @@
 	{rowActionLabel}
 	{density}
 	{variant}
+	{stacked}
 	{compact}
 	{striped}
 	{stickyHeader}
@@ -135,6 +140,7 @@
 	{rowDetail}
 	{rowDetailVisible}
 	{rowHidden}
+	{pageLabels}
 	{headerCell}
 	{groupHeader}
 	{toolbar}

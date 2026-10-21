@@ -39,12 +39,14 @@ export interface AuditLogQueryInput {
 	page: number;
 	action?: string;
 	limit?: number;
+	/** ISO instant from which `recentCount` counts entries. */
+	recentSince: string;
 }
 
 export interface AuditLogQueryResult {
 	logs: AuditLogEntry[];
 	totalCount: number;
-	last30DaysCount: number;
+	recentCount: number;
 	page: number;
 	limit: number;
 	actionFilter: string;

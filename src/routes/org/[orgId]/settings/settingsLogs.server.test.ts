@@ -8,6 +8,8 @@ import { createSupabaseStatusTypeNamesReader } from '$features/calendar/index.se
 import { createSupabaseOrganizationMemberEmailsReader } from '$features/organization/index.server';
 import { loadLogsSettings } from './settingsLogs.server';
 
+const VIEWER = { timeZone: 'America/New_York', now: new Date('2026-10-20T02:00:00Z') };
+
 describe('admitted Logs source composition', () => {
 	it('binds same-Organization source labels and exact emails while preserving masking and saved actor precedence', async () => {
 		const ctx = createQueryPortsContext();
@@ -104,13 +106,18 @@ describe('admitted Logs source composition', () => {
 			}
 		});
 		const result = (
-			await loadLogsSettings(ctx, createSupabaseOrganizationAuditStore(client), {
-				personnelNames: createSupabasePersonnelNamesReader(client, orgId),
-				trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, orgId),
-				statusTypeNames: createSupabaseStatusTypeNamesReader(client, orgId),
-				actorEmails: createSupabaseOrganizationMemberEmailsReader(client, orgId)
-			})
-		).sections.logs.auditLogPage;
+			await loadLogsSettings(
+				ctx,
+				createSupabaseOrganizationAuditStore(client),
+				{
+					personnelNames: createSupabasePersonnelNamesReader(client, orgId),
+					trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, orgId),
+					statusTypeNames: createSupabaseStatusTypeNamesReader(client, orgId),
+					actorEmails: createSupabaseOrganizationMemberEmailsReader(client, orgId)
+				},
+				VIEWER
+			)
+		).auditLog;
 		expect(result.logs).toEqual([
 			expect.objectContaining({
 				id: 'labeled',
@@ -165,12 +172,17 @@ describe('admitted Logs source composition', () => {
 				}
 			});
 			await expect(
-				loadLogsSettings(ctx, createSupabaseOrganizationAuditStore(client), {
-					personnelNames: createSupabasePersonnelNamesReader(client, ctx.auth.orgId),
-					trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, ctx.auth.orgId),
-					statusTypeNames: createSupabaseStatusTypeNamesReader(client, ctx.auth.orgId),
-					actorEmails: createSupabaseOrganizationMemberEmailsReader(client, ctx.auth.orgId)
-				})
+				loadLogsSettings(
+					ctx,
+					createSupabaseOrganizationAuditStore(client),
+					{
+						personnelNames: createSupabasePersonnelNamesReader(client, ctx.auth.orgId),
+						trainingTypeNames: createSupabaseTrainingTypeNamesReader(client, ctx.auth.orgId),
+						statusTypeNames: createSupabaseStatusTypeNamesReader(client, ctx.auth.orgId),
+						actorEmails: createSupabaseOrganizationMemberEmailsReader(client, ctx.auth.orgId)
+					},
+					VIEWER
+				)
 			).rejects.toThrow('Current labels unavailable');
 		}
 	);

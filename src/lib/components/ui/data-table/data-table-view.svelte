@@ -30,6 +30,8 @@
 		rowActionLabel?: (row: T) => string;
 		density?: 'default' | 'dense';
 		variant?: 'framed' | 'editorial';
+		/** When the table is narrower than 42rem, rows become wrapping lines instead of columns; see the catalog. */
+		stacked?: boolean;
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -46,6 +48,7 @@
 		 * and group headers stay shown.
 		 */
 		rowHidden?: (row: T) => boolean;
+		pageLabels?: { previous: string; next: string };
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -63,6 +66,7 @@
 		rowActionLabel,
 		density = 'default',
 		variant = 'framed',
+		stacked = false,
 		compact = false,
 		striped = false,
 		stickyHeader = false,
@@ -74,6 +78,7 @@
 		rowDetail,
 		rowDetailVisible,
 		rowHidden,
+		pageLabels,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -148,7 +153,7 @@
 	{/if}
 {/snippet}
 
-<DataTableRoot density={resolvedDensity} {variant} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
+<DataTableRoot density={resolvedDensity} {variant} {stacked} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
 	{#if toolbar}
 		<div data-slot="data-table-toolbar" class="border-b border-border bg-muted/20 p-2">
 			{@render toolbar(table)}
@@ -288,7 +293,7 @@
 	{/if}
 
 	{#if !loading && table.groups.length === 0}
-		<DataTablePagination {table} />
+		<DataTablePagination {table} {variant} labels={pageLabels} />
 	{/if}
 
 	{#if footer}

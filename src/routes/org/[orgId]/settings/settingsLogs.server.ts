@@ -1,29 +1,19 @@
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fetchAuditLogs, type AuditLabelReads, type OrganizationAuditStore } from '$lib/audit/index.server';
-import type { AuditLogQueryResult } from '$lib/audit/contracts';
+import { localDateIn, startOfMonthIn } from '$lib/utils/dates';
 import type { LogsSettingsData } from './settingsSectionTypes';
-
-export interface BuildLogsSettingsDataInput {
-	auditLogPage: AuditLogQueryResult;
-}
 
 export async function loadLogsSettings(
 	ctx: { auth: Pick<OrganizationAccessGrant, 'orgId'> },
 	store: OrganizationAuditStore,
-	labels: AuditLabelReads
+	labels: AuditLabelReads,
+	viewer: { timeZone: string; now: Date }
 ): Promise<LogsSettingsData> {
-	const orgId = ctx.auth.orgId;
-	const auditLogPage = await fetchAuditLogs(orgId, store, { page: 1, limit: 100 }, labels);
-
-	return buildLogsSettingsData({ auditLogPage });
-}
-
-export function buildLogsSettingsData(input: BuildLogsSettingsDataInput): LogsSettingsData {
-	return {
-		sections: {
-			logs: {
-				auditLogPage: input.auditLogPage
-			}
-		}
-	};
+	const auditLog = await fetchAuditLogs(
+		ctx.auth.orgId,
+		store,
+		{ page: 1, limit: 100, recentSince: startOfMonthIn(viewer.timeZone, viewer.now).toISOString() },
+		labels
+	);
+	return { auditLog, timeZone: viewer.timeZone, today: localDateIn(viewer.timeZone, viewer.now) };
 }

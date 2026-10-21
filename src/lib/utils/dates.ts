@@ -1,3 +1,5 @@
+import { CalendarDate, toZoned } from '@internationalized/date';
+
 /** "Jan 5, 2026" — for displaying date-only strings (YYYY-MM-DD) */
 export function formatDisplayDate(dateStr: string | null): string {
 	if (!dateStr) return '-';
@@ -89,6 +91,12 @@ export function localDateIn(timeZone: string, now: Date): string {
 	}).formatToParts(now);
 	const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? '';
 	return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+/** The instant the calendar month containing `now` began in `timeZone`. A skipped midnight starts it at the first local time that exists. */
+export function startOfMonthIn(timeZone: string, now: Date): Date {
+	const [year, month] = localDateIn(timeZone, now).split('-').map(Number);
+	return toZoned(new CalendarDate(year, month, 1), timeZone, 'compatible').toDate();
 }
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;

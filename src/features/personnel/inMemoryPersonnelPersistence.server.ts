@@ -37,8 +37,11 @@ import {
 	type SelfPinPersistence
 } from './contracts';
 import {
+	LOSS_CANDIDATE_FIELDS,
 	PERSONNEL_FIELDS,
+	toLossCandidates,
 	toPersonnel,
+	type LossCandidateRow,
 	personnelEditableRow,
 	personnelInsertRow
 } from './personnelPersistenceMapping.server';
@@ -179,6 +182,14 @@ export function createInMemoryPersonnelRosterReader(store: PersonnelMemoryStore,
 				limit: 1
 			});
 			return oldest?.archived_at ?? null;
+		},
+		async listLossCandidates() {
+			const rows = await store.findMany<LossCandidateRow>('personnel', orgId, undefined, {
+				select: LOSS_CANDIDATE_FIELDS,
+				isNull: { archived_at: true },
+				orderBy: [{ column: 'id', ascending: true }]
+			});
+			return toLossCandidates(rows);
 		}
 	};
 }

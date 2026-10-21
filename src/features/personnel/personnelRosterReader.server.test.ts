@@ -76,6 +76,27 @@ describe('ordinary Personnel roster persistence', () => {
 		expect(state.requests).toHaveLength(requests);
 		expect(await createSupabasePersonnelRosterReader(client, 'org-c').findOldestArchivedAt()).toBeNull();
 	});
+	it('lists only admitted active people with a loss date, holding the fields the loss window reads', async () => {
+		const { client, state } = personnelProvider({
+			personnel: [
+				{ ...SAVED, id: 'kim', ets: '2026-11-20' },
+				{ ...SAVED, id: 'reed', deros: '2027-03-02', group_id: 'bravo' },
+				{ ...SAVED, id: 'hale' },
+				{ ...SAVED, id: 'gone', ets: '2026-11-01', archived_at: '2026-01-01' },
+				{ ...SAVED, id: 'foreign', organization_id: 'org-b', ets: '2026-11-01' }
+			]
+		});
+		expect(await createSupabasePersonnelRosterReader(client, 'org-a').listLossCandidates()).toEqual([
+			{ id: 'kim', rank: 'SGT', lastName: 'Smith', ets: '2026-11-20', deros: null, groupId: 'alpha' },
+			{ id: 'reed', rank: 'SGT', lastName: 'Smith', ets: null, deros: '2027-03-02', groupId: 'bravo' }
+		]);
+		const alpha = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: ['alpha'] });
+		expect((await alpha.listLossCandidates()).map((person) => person.id)).toEqual(['kim']);
+		const requests = state.requests.length;
+		const empty = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: [] });
+		expect(await empty.listLossCandidates()).toEqual([]);
+		expect(state.requests).toHaveLength(requests);
+	});
 	it('rejects a later page failure without publishing a partial roster', async () => {
 		const { client, state } = personnelProvider({
 			personnel: Array.from({ length: 1001 }, (_, i) => ({ ...SAVED, id: `p-${i}` }))

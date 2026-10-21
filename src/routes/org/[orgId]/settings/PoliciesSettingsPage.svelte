@@ -50,6 +50,7 @@
 	});
 
 	const now = new Date();
+	const lossCandidates = new StreamedValue(() => policies.lossCandidates);
 	const groupReadiness = new StreamedValue(() => policies.groupReadiness);
 
 	const isWhole = (value: number | null, range: Range): value is number =>
@@ -164,11 +165,16 @@
 {/snippet}
 
 {#snippet lossSentence(days: number)}
-	{#if policies.lossCandidates === null}
+	{#if lossCandidates.current.state === 'absent'}
 		{FEATURE_SWITCHES.lossesAndAwards.label} is off for {unitName}, so no one is flagged. The window applies again when
 		it's back on.
+	{:else if lossCandidates.current.state === 'ready'}
+		{lossWindowSentence(lossCandidates.current.value, days, lossWindow.draft.saved ?? days, policies.today)}
+	{:else if lossCandidates.current.state === 'failed'}
+		Loss dates couldn't load.
 	{:else}
-		{lossWindowSentence(policies.lossCandidates, days, lossWindow.draft.saved ?? days, policies.today)}
+		At {days} days,
+		{@render pendingTail('w-44', 'Loading the people flagged')}
 	{/if}
 {/snippet}
 
@@ -183,19 +189,27 @@
 		{:else if groupReadiness.current.state === 'failed'}
 			Group readiness couldn't load.
 		{:else}
-			<Skeleton class="inline-block h-3.5 w-64 bg-foreground/10 align-middle" aria-hidden="true" />
-			<span class="sr-only">Loading group readiness</span>
+			{@render pendingTail('w-80', 'Loading group readiness')}
 		{/if}
 	{/if}
+{/snippet}
+
+<!-- Sized to the typical streamed text, so it wraps where that text does and the row below stays put. -->
+{#snippet pendingTail(width: string, label: string)}
+	<Skeleton class="inline-block h-3.5 max-w-full {width} bg-foreground/10 align-middle" aria-hidden="true" />
+	<span class="sr-only">{label}</span>
 {/snippet}
 
 {#snippet retentionSentenceFor(months: number)}
 	{retentionSentence(policies.oldestArchivedAt, months, now)}
 {/snippet}
 
-<PageShell.FactSection>
-	{@render policyRow(lossWindow, !lossesOn, lossSentence)}
-	{@render policyRow(readinessGoal, !trainingOn, readinessSentence)}
-	{@render policyRow(retention, false, retentionSentenceFor)}
-</PageShell.FactSection>
-<p class="border-t border-border py-4 font-mono text-xs leading-5 text-muted-foreground">{ranges}</p>
+<!-- One block, so the settings body's gap does not separate the ranges line from the last row. -->
+<div>
+	<PageShell.FactSection>
+		{@render policyRow(lossWindow, !lossesOn, lossSentence)}
+		{@render policyRow(readinessGoal, !trainingOn, readinessSentence)}
+		{@render policyRow(retention, false, retentionSentenceFor)}
+	</PageShell.FactSection>
+	<p class="border-t border-border py-4 font-mono text-xs leading-5 text-muted-foreground">{ranges}</p>
+</div>

@@ -1,6 +1,6 @@
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
-import { findOldestArchivedAt, loadRosterPersonnel } from '$features/personnel/index.server';
+import { findOldestArchivedAt, loadLossCandidates } from '$features/personnel/index.server';
 import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportData } from '$features/training/contracts';
 import {
 	DEFAULT_ARCHIVE_RETENTION_MONTHS,
@@ -15,7 +15,7 @@ export interface PoliciesSettingsPorts {
 	/** The admitted request already read the switches with the organization row. */
 	disabledFeatures: readonly FeatureKey[];
 	organizationSettings: Pick<OrganizationSettingsReader, 'findPolicies'>;
-	roster: Parameters<typeof loadRosterPersonnel>[0]['roster'] & Parameters<typeof findOldestArchivedAt>[0]['roster'];
+	roster: Parameters<typeof loadLossCandidates>[0]['roster'] & Parameters<typeof findOldestArchivedAt>[0]['roster'];
 	readTrainingBriefing: (
 		input: typeof DEFAULT_TRAINING_BRIEFING_INPUT,
 		asOf: string
@@ -36,13 +36,14 @@ export async function loadPoliciesSettings(
 	ports: PoliciesSettingsPorts,
 	input: { today: string }
 ): Promise<PoliciesSettingsData> {
-	const lossesOn = !ports.disabledFeatures.includes('lossesAndAwards');
+	const lossCandidates = ports.disabledFeatures.includes('lossesAndAwards')
+		? null
+		: keepStreamedRejectionObserved(loadLossCandidates(ports));
 	const groupReadiness = ports.disabledFeatures.includes('training')
 		? null
 		: keepStreamedRejectionObserved(readGroupReadiness(ports, input.today));
-	const [policies, active, oldestArchivedAt] = await Promise.all([
+	const [policies, oldestArchivedAt] = await Promise.all([
 		ports.organizationSettings.findPolicies(ports.auth.orgId),
-		lossesOn ? loadRosterPersonnel(ports, { status: 'active' }) : null,
 		findOldestArchivedAt(ports)
 	]);
 	return {
@@ -50,10 +51,7 @@ export async function loadPoliciesSettings(
 		trainingReadinessGoalPercent: policies?.trainingReadinessGoalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
 		archiveRetentionMonths: policies?.archiveRetentionMonths ?? DEFAULT_ARCHIVE_RETENTION_MONTHS,
 		today: input.today,
-		lossCandidates:
-			active
-				?.filter((person) => person.ets || person.deros)
-				.map(({ id, rank, lastName, ets, deros, groupId }) => ({ id, rank, lastName, ets, deros, groupId })) ?? null,
+		lossCandidates,
 		oldestArchivedAt,
 		groupReadiness
 	};

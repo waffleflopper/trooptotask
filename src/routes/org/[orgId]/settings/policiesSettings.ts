@@ -10,7 +10,7 @@ export interface GroupReadiness {
 	percent: number;
 }
 
-/** The saved policies and the archive date come with the page; the group readiness streams. */
+/** The saved policies and the archive date come with the page; the loss dates and group readiness stream. */
 export interface PoliciesSettingsData {
 	lossWarningWindowDays: number;
 	trainingReadinessGoalPercent: number;
@@ -18,7 +18,7 @@ export interface PoliciesSettingsData {
 	/** The viewer's day, which the loss window counts from. */
 	today: string;
 	/** Active people with an ETS or DEROS date; null when Losses and awards is off for the unit. */
-	lossCandidates: LossCandidate[] | null;
+	lossCandidates: Promise<LossCandidate[]> | null;
 	oldestArchivedAt: string | null;
 	/** Null when Training is off for the unit. */
 	groupReadiness: Promise<GroupReadiness[]> | null;

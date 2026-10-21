@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick, type ComponentProps } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { LossCandidate } from '$features/personnel/contracts';
 import type { GroupReadiness, PoliciesSettingsData } from '../policiesSettings';
 import Page from './+page.svelte';
 
@@ -14,17 +15,19 @@ const GROUPS: GroupReadiness[] = [
 	{ name: 'HQ PLT', ready: 95, applicable: 100, percent: 95 }
 ];
 
+const PEOPLE: LossCandidate[] = [
+	{ id: 'kim', rank: 'SGT', lastName: 'Kim', ets: '2026-11-20', deros: null, groupId: null },
+	{ id: 'reed', rank: 'SPC', lastName: 'Reed', ets: null, deros: '2027-03-02', groupId: null },
+	{ id: 'diaz', rank: 'PFC', lastName: 'Diaz', ets: '2027-03-31', deros: null, groupId: null }
+];
+
 function policies(overrides: Partial<PoliciesSettingsData> = {}): PoliciesSettingsData {
 	return {
 		lossWarningWindowDays: 180,
 		trainingReadinessGoalPercent: 90,
 		archiveRetentionMonths: 24,
 		today: '2026-10-21',
-		lossCandidates: [
-			{ id: 'kim', rank: 'SGT', lastName: 'Kim', ets: '2026-11-20', deros: null, groupId: null },
-			{ id: 'reed', rank: 'SPC', lastName: 'Reed', ets: null, deros: '2027-03-02', groupId: null },
-			{ id: 'diaz', rank: 'PFC', lastName: 'Diaz', ets: '2027-03-31', deros: null, groupId: null }
-		],
+		lossCandidates: Promise.resolve(PEOPLE),
 		oldestArchivedAt: '2024-11-02T03:00:00.000Z',
 		groupReadiness: Promise.resolve(GROUPS),
 		...overrides
@@ -42,6 +45,12 @@ function data(policiesSettings: PoliciesSettingsData, orgId = 'org-a') {
 
 function show(policiesSettings = policies()) {
 	return render(Page, { data: data(policiesSettings), form: null, params: { orgId: 'slug-org-a' } });
+}
+
+async function showStreamed(policiesSettings = policies()) {
+	const view = show(policiesSettings);
+	await waitFor(() => expect(sentence('loss-warning-window')).toMatch(/flagged today/));
+	return view;
 }
 
 function stubFetch(answer: () => Promise<Response> = async () => Response.json({ success: true })) {
@@ -73,10 +82,16 @@ afterEach(() => {
 });
 
 describe('Policies settings page', () => {
-	it('renders every row saved with its sentence and holds only the group readiness until it streams', async () => {
-		let release!: (groups: GroupReadiness[]) => void;
+	it('renders every row saved on first paint and fills the loss and readiness sentences as they stream', async () => {
+		let releasePeople!: (people: LossCandidate[]) => void;
+		let releaseGroups!: (groups: GroupReadiness[]) => void;
 		stubFetch();
-		show(policies({ groupReadiness: new Promise((resolve) => (release = resolve)) }));
+		show(
+			policies({
+				lossCandidates: new Promise((resolve) => (releasePeople = resolve)),
+				groupReadiness: new Promise((resolve) => (releaseGroups = resolve))
+			})
+		);
 
 		expect(['Loss warning window', 'Training readiness goal', 'Archive retention'].map((l) => field(l).value)).toEqual([
 			'180',
@@ -85,19 +100,32 @@ describe('Policies settings page', () => {
 		]);
 		expect(screen.getAllByText('Saved')).toHaveLength(3);
 		expect(screen.queryByRole('button', { name: /Save|Undo/ })).toBeNull();
-		expect(sentence('loss-warning-window')).toBe('At 180 days, 3 people are flagged today.');
+		expect(sentence('loss-warning-window')).toBe('At 180 days, Loading the people flagged');
+		expect(sentence('training-readiness-goal')).toBe('Groups under 90% current show amber. Loading group readiness');
 		expect(sentence('archive-retention')).toBe(
 			'Archived people are deleted 24 months after archiving. The next one goes on 2 Nov 2026.'
 		);
-		expect(sentence('training-readiness-goal')).toBe('Groups under 90% current show amber. Loading group readiness');
 		expect(screen.getByText('Ranges · window 1–365 days · goal 1–100% · retention 1–120 months')).toBeTruthy();
 
-		release(GROUPS);
+		releasePeople(PEOPLE);
+		releaseGroups(GROUPS);
+		await waitFor(() => expect(sentence('loss-warning-window')).toBe('At 180 days, 3 people are flagged today.'));
 		await waitFor(() =>
 			expect(sentence('training-readiness-goal')).toBe(
 				"Groups under 90% current show amber. Today that's 2nd PLT (81%) and Maint PLT (78%)."
 			)
 		);
+	});
+
+	it('says the loss dates could not load and keeps the other rows working', async () => {
+		const request = stubFetch();
+		show(policies({ lossCandidates: Promise.reject(new Error('down')) }));
+
+		await waitFor(() => expect(sentence('loss-warning-window')).toBe("Loss dates couldn't load."));
+		await fireEvent.input(field('Archive retention'), { target: { value: '48' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save archive retention' }));
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledWith('Retention policy saved'));
+		expect(JSON.parse(String(request.mock.calls[0][1].body))).toEqual({ archiveRetentionMonths: 48 });
 	});
 
 	it('says the group readiness could not load when the briefing read fails', async () => {
@@ -113,7 +141,7 @@ describe('Policies settings page', () => {
 
 	it('recomputes each sentence from the draft and marks the row unsaved', async () => {
 		stubFetch();
-		show();
+		await showStreamed();
 		await waitFor(() => expect(sentence('training-readiness-goal')).toContain("Today that's"));
 
 		await fireEvent.input(field('Loss warning window'), { target: { value: '140' } });
@@ -135,22 +163,25 @@ describe('Policies settings page', () => {
 		);
 	});
 
-	it('undoes a draft without saving it', async () => {
+	it('undoes a draft without saving it and keeps focus in the field', async () => {
 		const request = stubFetch();
-		show();
+		await showStreamed();
 
 		await fireEvent.input(field('Loss warning window'), { target: { value: '140' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Undo loss warning window change' }));
+		const undo = screen.getByRole('button', { name: 'Undo loss warning window change' });
+		undo.focus();
+		await fireEvent.click(undo);
 
 		expect(field('Loss warning window').value).toBe('180');
 		expect(sentence('loss-warning-window')).toBe('At 180 days, 3 people are flagged today.');
 		expect(screen.getAllByText('Saved')).toHaveLength(3);
+		await waitFor(() => expect(document.activeElement).toBe(field('Loss warning window')));
 		expect(request).not.toHaveBeenCalled();
 	});
 
 	it('saves one row through the settings endpoint and compares later drafts with the new value', async () => {
 		const request = stubFetch();
-		show();
+		await showStreamed();
 
 		await fireEvent.input(field('Loss warning window'), { target: { value: '140' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save loss warning window' }));
@@ -185,23 +216,24 @@ describe('Policies settings page', () => {
 		expect(JSON.parse(String(request.mock.calls[0][1].body))).toEqual({ trainingReadinessGoalPercent: 85 });
 	});
 
-	it('states the range for an invalid draft and refuses to save it with an error on the field', async () => {
-		const request = stubFetch();
-		show();
-		const input = field('Training readiness goal');
+	it.each(['', '0', '101', '90.5'])(
+		'states the range for the invalid draft %j and refuses to save it with an error on the field',
+		async (value) => {
+			const request = stubFetch();
+			show();
+			const input = field('Training readiness goal');
 
-		for (const value of ['', '0', '101', '90.5']) {
 			await fireEvent.input(input, { target: { value } });
 			expect(sentence('training-readiness-goal')).toBe('Enter a whole percent from 1 to 100.');
-		}
-		await fireEvent.click(screen.getByRole('button', { name: 'Save training readiness goal' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Save training readiness goal' }));
 
-		await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
-		const error = document.getElementById('training-readiness-goal-error');
-		expect(error?.textContent?.trim()).toBe('The training readiness goal must be a whole number from 1 to 100.');
-		expect(input.getAttribute('aria-describedby')?.split(' ')).toContain('training-readiness-goal-error');
-		expect(request).not.toHaveBeenCalled();
-	});
+			await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
+			const error = document.getElementById('training-readiness-goal-error');
+			expect(error?.textContent?.trim()).toBe('The training readiness goal must be a whole number from 1 to 100.');
+			expect(input.getAttribute('aria-describedby')?.split(' ')).toContain('training-readiness-goal-error');
+			expect(request).not.toHaveBeenCalled();
+		}
+	);
 
 	it('keeps a refused draft unsaved with the server reason on the field', async () => {
 		stubFetch(async () => Response.json({ message: 'Retention months must be between 1 and 120' }, { status: 400 }));

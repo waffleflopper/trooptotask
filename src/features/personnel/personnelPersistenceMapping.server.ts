@@ -1,4 +1,4 @@
-import type { Personnel, PersonnelEditableFields, PersonnelInsert } from './contracts';
+import type { LossCandidate, Personnel, PersonnelEditableFields, PersonnelInsert } from './contracts';
 
 export const PERSONNEL_FIELDS = '*, groups:groups!personnel_organization_group_fkey(name)';
 
@@ -51,4 +51,28 @@ export function throwPersonnelMutationError(error: { code?: string; message: str
 		throw Object.assign(new Error(error.message), { code: error.code, details: error.details });
 	}
 	throw new Error(error.message);
+}
+
+export const LOSS_CANDIDATE_FIELDS = 'id, rank, last_name, ets, deros, group_id';
+
+export interface LossCandidateRow {
+	id: string;
+	rank: string;
+	last_name: string;
+	ets: string | null;
+	deros: string | null;
+	group_id: string | null;
+}
+
+export function toLossCandidates(rows: readonly LossCandidateRow[]): LossCandidate[] {
+	return rows
+		.filter((row) => row.ets || row.deros)
+		.map((row) => ({
+			id: row.id,
+			rank: row.rank,
+			lastName: row.last_name,
+			ets: row.ets,
+			deros: row.deros,
+			groupId: row.group_id
+		}));
 }

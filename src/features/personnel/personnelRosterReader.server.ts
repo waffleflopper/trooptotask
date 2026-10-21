@@ -2,7 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelRosterReader } from './contracts';
-import { PERSONNEL_FIELDS, toPersonnel } from './personnelPersistenceMapping.server';
+import {
+	LOSS_CANDIDATE_FIELDS,
+	PERSONNEL_FIELDS,
+	toLossCandidates,
+	toPersonnel,
+	type LossCandidateRow
+} from './personnelPersistenceMapping.server';
 
 export function createSupabasePersonnelRosterReader(
 	client: SupabaseClient,
@@ -56,6 +62,24 @@ export function createSupabasePersonnelRosterReader(
 				.returns<Array<{ archived_at: string }>>();
 			if (error) throw new Error(error.message);
 			return data?.[0]?.archived_at ?? null;
+		},
+		async listLossCandidates() {
+			if (groupIds?.length === 0) return [];
+			const result = await selectAllSupabaseRows<LossCandidateRow>(async (from, to) => {
+				let query = client
+					.from('personnel')
+					.select(LOSS_CANDIDATE_FIELDS)
+					.eq('organization_id', orgId)
+					.is('archived_at', null);
+				if (groupIds) query = query.in('group_id', groupIds);
+				const { data, error } = await query
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<LossCandidateRow[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return toLossCandidates(result.data ?? []);
 		}
 	};
 }

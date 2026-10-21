@@ -2,9 +2,9 @@
 
 ## Goal and scope
 
-Detect consequential behavior and boundary regressions at the lowest stable seam that can prove them. Apply this policy when adding, rewriting, pruning or reviewing tests, including stabilization safety-net work.
+Detect consequential behavior and boundary regressions at the lowest stable seam that can prove them. Apply this policy when adding, rewriting, pruning or reviewing tests.
 
-Adapted from [v2's testing strategy](https://github.com/TroopToTask/trooptotask-v2/blob/b04e557d5f1d39585ab570f7b3c9c21a1f5c1a02/docs/architecture/TESTING.md). V1's [verification contract](DEFINITION_OF_DONE.md#verification-contract) owns commands, computer-use evidence and isolated database checks; its [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) retire the former browser-spec framework and application bypasses; real user journeys remain end-to-end verification.
+The [Definition of Done](DEFINITION_OF_DONE.md#verification-contract) owns commands, flow evidence and isolated database checks. There is no repository browser-test suite; real user journeys are verified with [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md).
 
 ## Behavioral bar
 
@@ -40,7 +40,7 @@ Never weaken assertions, add skips, hide scan paths, add waivers or relax checks
 | Application and route | Real policy/use-case orchestration with in-memory ports: allowed/denied requests, observable mutations, retained identities, failure behavior, replay and idempotency as applicable. Fake persistence does not prove database enforcement. |
 | Adapter and database  | Provider mapping and query semantics; constraints, functions, migration reproducibility, positive/negative RLS and Organization/Group isolation in the authorized disposable local stack.                                                  |
 | Component             | Consequential interaction, accessibility semantics, keyboard operation and states only the rendered component can establish.                                                                                                               |
-| Computer-use evidence | Affected retained journeys and visual review through the maintained [control toolkit](../../.agents/skills/verify-trooptotask/SKILL.md). Drive the real UI from feature recipes; keep meaningful lower-level tests separate.               |
+| Computer-use evidence | Affected journeys and visual review through [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md). Drive the real UI from feature recipes; keep meaningful lower-level tests separate.                                    |
 
 Use roles, accessible names and labels to locate and operate controls. Keep focus and disabled-state assertions when that state is the interaction contract, such as first-invalid focus, restoring focus after a dialog closes or Save reflecting a semantic edit. Keep normalization permutations in domain tests and one representative component proof of the resulting control behavior.
 
@@ -50,7 +50,7 @@ Accessible names, stable error reasons, public responses, SQL constraints and ap
 
 Classify individual suspect tests as `DELETE`, `REWRITE` or `KEEP`; a file can contain all three. Recommend `DELETE` by default. A `KEEP` or `REWRITE` disposition requires written evidence for all six items in the behavioral bar. Without that justification, recommend deletion rather than preserving implementation trivia under a new name.
 
-A review disposition is not edit authorization. Apply deletion or rewriting within the authorized cleanup scope. During stabilization, follow the owning [queue task](../stabilization/TODO.md): map consequential retained contracts to named executable protection before removing low-value assertions. Billing-only, Duty Roster-only and E2E tests retire with their owning tasks; mixed files keep retained coverage until its replacement exists.
+A review disposition is not edit authorization. Before removing low-value assertions, map consequential contracts to named executable protection. Mixed files keep their meaningful coverage.
 
 When cleanup is authorized, remove unused fixtures, helpers, snapshots, imports and setup left by the deleted tests. A replacement should contain only the setup, action and assertions needed for the independently justified behavior. Do not change production behavior merely to satisfy a test. Report conflicting requirements or failed gates instead of adding a waiver.
 

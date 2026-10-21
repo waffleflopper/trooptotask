@@ -1,202 +1,27 @@
 # Troop to Task
 
-A military unit management platform for personnel tracking, calendar/availability, training records, counseling, onboarding, and daily assignments. Built with SvelteKit and Supabase.
+A military unit management platform for personnel tracking, calendar and availability, training records, counseling, onboarding and daily assignments. Built with SvelteKit 2, Svelte 5, TypeScript and Supabase, deployed on Vercel.
 
-## Features
+## Getting started
 
-### Dashboard
-
-- Organization overview with key metrics at a glance
-- Focused readiness, people/duty, and training/evaluation views
-- Quick access to all features
-
-### Calendar & Availability
-
-- Visual monthly calendar showing all personnel availability
-- Color-coded, customizable status types (Leave, TDY, School, Sick, etc.)
-- Daily assignment planning (MOD, Front Desk, CQ, etc.)
-- Monthly assignment planner with quick-fill options
-- 3-month long-range planning view
-- Today's breakdown with real-time coverage gaps
-- Bulk status application and removal
-- Status notes for additional context
-- Weekend and federal holiday management
-
-### Personnel Management
-
-- Organize personnel by groups and sections
-- Track rank, MOS, contact info, and extended personnel data
-- Bulk import via CSV or Excel
-- Personnel archival system with configurable retention
-- Group-scoped access for team leaders
-
-### Training & Certifications
-
-- Customizable training types with expiration tracking
-- Multi-threshold warnings (60 days, 30 days, expired)
-- Training matrix showing all personnel x training types
-- Bulk import training records via CSV or Excel
-- Delinquency reports sorted by urgency
-- Rating schemes for performance tracking
-
-### Onboarding
-
-- Template-based onboarding workflows
-- Track new personnel through customizable checklists
-- Visual progress indicators
-
-### Personnel Detail, Counseling & Follow-Ups
-
-- Personnel-owned counseling PDF storage
-- Soldier Data Sheet details and leader notes
-- Follow-ups for counseling reminders, action items, and development tracking
-- General Personnel document uploads
-
-### Sign-In Rosters
-
-- Printable sign-in roster generation
-
-### Administration
-
-- Owner/Admin governance roles and scoped Member capabilities across independent feature lanes
-- Group-scoped access control for team leaders
-- Deletion approval workflow for non-privileged users
-- Personnel archival with admin review
-- Audit logging for compliance
-- Notification system (bell icon with real-time unread count)
-
-### Platform
-
-- Light and dark mode
-- Mobile responsive with bottom tab navigation
-- Multi-organization support
-- What's New changelog for users
-- Feedback submission system
-
-## Tech Stack
-
-- **Framework**: SvelteKit 2 + Svelte 5 (runes)
-- **Language**: TypeScript
-- **Database**: Supabase (PostgreSQL + Row Level Security)
-- **Authentication**: Supabase Auth
-- **Styling**: Tailwind v4, shadcn-svelte and shared design tokens
-- **Deployment**: Vercel
-- **Testing**: Vitest and isolated SQL contracts, with computer-use flow evidence; repository browser suites and runtime test bypasses have been removed.
-
-## Getting Started
-
-This maintenance checkout uses its own 563xx Supabase stack, with API port 56321.
-See [Local maintenance environment](docs/local-maintenance-environment.md) before
-following the generic setup instructions below.
-
-### Prerequisites
-
-- Node.js 24.x (use `.nvmrc` with `nvm use` if you use nvm)
-- npm 11.12.1 (upgrade npm to 11.12.1 if your Node install ships a different version)
-- [Supabase CLI](https://supabase.com/docs/guides/cli) (for local development)
-
-### Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/waffleflopper/trooptotask.git
-   cd trooptotask
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm ci
-   ```
-
-3. Start the local Supabase instance:
-
-   ```bash
-   supabase start
-   ```
-
-4. Create a `.env` file from the template, then fill in your local Supabase credentials:
-
-   ```bash
-   cp .env.example .env
-   supabase status -o env
-   ```
-
-   Use the URL and keys from this checkout's `trooptotask-v1-maintenance` stack
-   together. The API URL should be `http://127.0.0.1:56321`; port 54321 belongs to
-   the frozen reference database and must not be used by this maintenance app.
-
-5. Start the development server:
-
-   ```bash
-   npm run dev
-   ```
-
-6. Open [http://localhost:5173](http://localhost:5173)
-
-### Local Auth Testing
-
-Follow [Local Auth Testing](docs/local-auth-testing.md) for focused Vitest checks,
-disposable synthetic Supabase/Mailpit setup and recorded computer-use flows. Use
-the guide's isolated environment for verification; do not reuse an existing stack
-or run a repository E2E suite.
-
-### Scripts
+Prerequisites: Node.js 24 (`.nvmrc`), npm 11.12.1 and the [Supabase CLI](https://supabase.com/docs/guides/cli).
 
 ```bash
-npm run dev          # Start dev server
-npm run build        # Production build
-npm run check        # TypeScript/Svelte type checking
-npm run gate         # Run format check, lint, governance, check, and tests
-npm run lint         # ESLint
-npm run format       # Prettier formatting
-npm run test         # Unit tests (Vitest)
+npm ci
+supabase start
+cp .env.example .env
+supabase status -o env
+npm run dev
 ```
 
-### Verification Gate
+Fill `.env` from the `supabase status` output and open <http://localhost:5173>.
 
-Follow the [verification contract](docs/architecture/DEFINITION_OF_DONE.md#verification-contract)
-for the required command sequence and acceptance evidence. `npm run gate` runs
-format checking, lint, governance, Svelte/TypeScript checks and Vitest; formatting
-writes and the production build are separate steps. [GitHub Actions](docs/ci.md) runs
-candidate validation on PR updates and `main`; pushes do not run the full suite
-locally. Use focused local checks while developing, and review CI results before
-merging. Robert intentionally keeps `main` unprotected on the current GitHub
-plan; paid protection is not a prerequisite. Failed or unavailable checks are not
-a pass.
+This checkout's Supabase project is `trooptotask-v1-maintenance` on ports 56320–56329, so the API URL is `http://127.0.0.1:56321`. Port 54321 belongs to a frozen reference database; never point this app at it. `supabase/config.toml` disables the legacy seed, so use synthetic fixtures. On Robert's workstation, `trooptotask-local maintenance` (`check`, `db-start`, `status`, `app`) starts this stack and rejects any other project or port configuration.
 
-## Project Structure
+## Checks
 
-```
-src/
-  app.css                    # Tailwind v4 setup, design tokens and shared utilities
-  features/                  # Feature modules: UI, client state, domain rules and server operations
-    app-shell/               # Sidebar navigation, header and banners
-    calendar/                # Calendar views, availability, statuses and assignments
-    critical-tasks/          # Critical task library, completions, matrix and reports
-    personnel/               # Personnel records, groups and bulk import
-    training/                # Training types, matrix, reports and bulk import
-    ...                      # Dashboard, onboarding, organization, identity and others
-  lib/
-    components/ui/           # Shared shadcn-svelte primitives (Button, Field, DataTable, etc.)
-    components/patterns/     # Shared neutral compositions (PageShell, WorkspaceToolbar, etc.)
-    components/public/       # Public marketing site shell
-    server/                  # Server adapters, Supabase clients and environment
-    stores/                  # Shared cross-cutting stores
-    utils/                   # Shared utilities
-  routes/
-    org/[orgId]/             # Main app (thin routes composing feature modules)
-    admin/                   # Platform admin
-    auth/                    # Login, callback, registration
-```
-
-Each feature keeps its own UI, client state, domain rules and server operations. Import another feature only through its public seam, such as `$features/training` or `$features/training/index.server`.
+The [Definition of Done](docs/architecture/DEFINITION_OF_DONE.md#required-commands) lists the checks each kind of change needs. [CI](docs/ci.md) runs them on labeled pull requests.
 
 ## License
 
-This project is proprietary software. All rights reserved.
-
-## Contributing
-
-Contributions welcome! Please open an issue to discuss proposed changes before submitting a PR.
+Proprietary software. All rights reserved.

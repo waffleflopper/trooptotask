@@ -12,7 +12,7 @@ Never reset, migrate, delete tables from, delete entries in, or otherwise touch 
 
 Robert likes ambitious ideas, simple systems, creative takes, and software that feels obvious. Understand the real constraint and choose the smallest model that makes correct behavior unsurprising. Inspect the nearest analogous implementation, reuse shared concepts, and keep scope focused. Existing complexity needs a reason to stay; new abstractions need a demonstrated use. Prefer clear types and narrow interfaces, with inference where it keeps code readable.
 
-Make the app feel responsive. Consider request waterfalls, repeated work, data volume and feedback latency; use the [performance guidance](docs/architecture/MODULE_CONVENTIONS.md#performance) when changing those paths.
+Make the app feel responsive. Consider request waterfalls, repeated work, data volume and feedback latency; use the [performance guidance](docs/architecture/ARCHITECTURE.md#performance) when changing those paths.
 
 Carry authorized work through its acceptance criteria, affected consumers and verification. Resolve routine choices using these defaults and existing authorization. Ask when a missing decision materially changes product behavior, scope or a protected boundary. Current user instructions supersede repository and skill guidance within system/developer constraints. The database protections above and explicit security/release gates are firm boundaries. See [operating rules](docs/agents/operating-rules.md) for execution and communication.
 
@@ -46,7 +46,6 @@ The shared pstack plugin supplies general engineering methods. When using Poteto
 - Adding, rewriting, pruning or reviewing tests: [Testing strategy](docs/architecture/TESTING.md).
 - Svelte/SvelteKit implementation or framework questions: [Svelte guidance](docs/agents/svelte.md).
 - Components, route UI, shared styling or app shell: [UI system](docs/agents/ui-system.md).
-- Architecture, authorization, provider boundaries or governance: [Architecture and governance](docs/agents/architecture-governance.md).
-- Adding or moving feature code: [Feature organization](docs/agents/feature-organization.md).
+- Architecture, authorization, provider boundaries, governance, or adding and moving feature code: [Architecture and governance](docs/agents/architecture-governance.md).
 - Reading or updating GitHub issues: [Issue tracker](docs/agents/issue-tracker.md); for labels, [Triage labels](docs/agents/triage-labels.md).
 - Domain behavior or naming: [Domain docs](docs/agents/domain.md).

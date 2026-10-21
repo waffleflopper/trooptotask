@@ -376,7 +376,6 @@ test('category totals are distributions over the sample windows', () => {
 	assert.deepEqual(result.auth.calls.samples, [0, 0]);
 });
 
-// A page whose body text and matching elements the test sets per frame.
 function livePage() {
 	const page = pageWindow();
 	const frames = [];
@@ -454,7 +453,6 @@ test('a navigation milestone is the time its frame callback ran, not the frame s
 		milestones: [{ name: 'useful', present: ['Saved'] }]
 	});
 	page.document.body.textContent = 'Saved';
-	// D06 PR 2's large cold trace: the frame began at 195 ms, and a 233 ms task held its callback to 450 ms.
 	page.step(195, 450);
 	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 450 });
 });

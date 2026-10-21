@@ -222,7 +222,6 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 	};
 }
 
-/** Add capped-detail and yellow-only source facts without expanding the roster. */
 export async function seedDashboardCurrency({ client, fixture, tag, ownedState, save }) {
 	if (ownedState.seeded.some((item) => item.kind === 'dashboard-currency'))
 		throw new Error('Clean the existing Dashboard currency seed before preparing another cohort.');

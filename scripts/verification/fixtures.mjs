@@ -764,7 +764,6 @@ export async function seed(session) {
 	dates.ui = localDate(now);
 	dates.uiBefore = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
 	dates.uiAfter = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
-	// D11 records these examples through the UI, preserving the library baseline.
 	// Clamp the anniversary before deriving a 12-month completion for leap years.
 	const ictWarningExpiration = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 15);
 	if (ictWarningExpiration.getMonth() === 1 && ictWarningExpiration.getDate() === 29) ictWarningExpiration.setDate(28);

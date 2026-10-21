@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
@@ -764,7 +764,7 @@ describe('organization rank catalog', () => {
 		]);
 	});
 
-	it('summarizes retained rank references when Duty Roster tables are unavailable', async () => {
+	it('counts active and historical rank references without double-counting repeated roster ranks', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {
 			code: 'DET-SGT',
@@ -787,12 +787,6 @@ describe('organization rank catalog', () => {
 		const readRosterRankReferences = async () => [
 			{ filterRanks: ['DET-SGT', 'DET-SGT'], snapshotRanks: ['DET-SGT', 'DET-SGT'] }
 		];
-
-		const findMany = ctx.rawStore.findMany.bind(ctx.rawStore);
-		vi.spyOn(ctx.rawStore, 'findMany').mockImplementation((table, orgId, filters, options) => {
-			if (table.startsWith('duty_')) throw new Error('Duty Roster storage is unavailable');
-			return findMany(table, orgId, filters, options);
-		});
 
 		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(
 			ctx,

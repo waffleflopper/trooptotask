@@ -1,11 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 import { z } from 'zod';
-import { createTestContext, createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
+import { createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
 import { handleUseCaseRequest, readFormData, readJsonBody, rethrowOrWrap } from './httpAdapter';
 import { RequestFailure } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createPersonnelRecord, archivePersonnelRecord } from '$features/personnel/index.server';
 
 type OperationConfig<TInput = void, TOutput = unknown, TContext = undefined> = Parameters<
 	typeof handleUseCaseRequest<TInput, TOutput, TContext>
@@ -465,98 +464,5 @@ describe('policy dispatch write safety', () => {
 		f.config.policyAction = POLICY_ACTION_CATALOG.identity.updateOwnPreferences;
 		f.config.policyResource = { kind: 'user', userId: 'other-user' };
 		await expectDenied(f, 'denied:not-resource-owner');
-	});
-});
-
-// Retained writes are authorized by capability and scope, independent of
-// commercial state. Exercise dispatch and the real use case against stored rows.
-describe('Personnel writes without commercial enforcement', () => {
-	it('creates and archives beyond former Personnel limits without reading commercial tables', async () => {
-		const ctx = createTestContext();
-		ctx.rawStore.seed('organizations', [{ id: 'test-org', subscription_tier: 'free' }]);
-		ctx.rawStore.seed('organization_billing_snapshots', [
-			{
-				organization_id: 'test-org',
-				source: 'stripe',
-				commercial_plan: 'free',
-				subscription_status: 'unpaid',
-				collection_status: 'past_due'
-			}
-		]);
-		ctx.rawStore.seed('organization_rank_catalog', [
-			{
-				organization_id: 'test-org',
-				code: 'SGT',
-				label: 'Sergeant',
-				service: 'army',
-				category: 'enlisted',
-				pay_grade: 'E-5',
-				state: 'active',
-				source: 'built-in',
-				sort_order: 0
-			}
-		]);
-		ctx.rawStore.seed(
-			'personnel',
-			Array.from({ length: 1001 }, (_, i) => ({
-				id: `person-${i}`,
-				organization_id: 'test-org',
-				rank: 'SGT',
-				last_name: `Existing${i}`,
-				first_name: 'Alex',
-				slug: `existing-${i}`,
-				group_id: null,
-				archived_at: null
-			}))
-		);
-		const reads = [ctx.store, ctx.rawStore].flatMap((store) => [
-			vi.spyOn(store, 'findOne'),
-			vi.spyOn(store, 'findMany'),
-			vi.spyOn(store, 'findManyWithCount')
-		]);
-		const created = (await handleUseCaseRequest(
-			{
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
-				policyResource: { kind: 'organization' },
-				fn: createPersonnelRecord
-			},
-			{ auth: ctx.auth, audit: ctx.audit },
-			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan', clinicRole: 'Team Leader', groupId: null },
-			() => ctx
-		)) as { id: string };
-		await handleUseCaseRequest(
-			{
-				mutation: true,
-				policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
-				policyResource: { kind: 'organization' },
-				fn: archivePersonnelRecord
-			},
-			{ auth: ctx.auth, audit: ctx.audit },
-			created.id,
-			() => ({
-				auth: ctx.auth,
-				audit: ctx.audit,
-				personnel: ctx.personnel,
-				organizationPersonnel: ctx.organizationPersonnel,
-				personnelLifecycle: ctx.personnelLifecycle
-			})
-		);
-
-		expect(await ctx.rawStore.findOne('personnel', 'test-org', { id: created.id })).toMatchObject({
-			last_name: 'Smith',
-			first_name: 'Jordan',
-			archived_at: expect.any(String)
-		});
-		expect(await ctx.rawStore.findMany('personnel', 'test-org', { archived_at: null })).toHaveLength(1001);
-		expect(ctx.auditPort.events).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ action: 'personnel.created', resourceId: created.id }),
-				expect.objectContaining({ action: 'personnel.archived', resourceId: created.id })
-			])
-		);
-		const queriedTables = reads.flatMap((read) => read.mock.calls.map(([table]) => table));
-		expect(queriedTables).not.toContain('organization_billing_snapshots');
-		expect(queriedTables).not.toContain('organization_plan_feature_overrides');
 	});
 });

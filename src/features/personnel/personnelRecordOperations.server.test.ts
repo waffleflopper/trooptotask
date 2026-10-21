@@ -288,7 +288,7 @@ function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Re
 }
 
 describe('Personnel — create', () => {
-	it('inserts personnel and audits without a subscription provider', async () => {
+	it('inserts personnel and audits the creation', async () => {
 		const ctx = buildContext();
 
 		const result = await createPersonnelRecord(ctx, { ...validInput });

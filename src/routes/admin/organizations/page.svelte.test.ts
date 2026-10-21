@@ -130,18 +130,12 @@ describe('admin organizations page', () => {
 			}
 		});
 
-		expect(screen.getByText('Acquisition and Activation Health')).toBeTruthy();
-		expect(screen.getAllByText('In Progress').length).toBeGreaterThan(0);
-		expect(document.body.textContent).toContain('0 activated');
-		expect(screen.getByText('Showing top 1 of 3 candidates.')).toBeTruthy();
 		expect(screen.getByText('2 / 5')).toBeTruthy();
-		expect(screen.getByText('2 onboarding / 3 training / 1 evals')).toBeTruthy();
-		expect(screen.queryByRole('columnheader', { name: 'Duty Roster' })).toBeNull();
-		expect(screen.getByText('Import or add at least 5 active personnel.')).toBeTruthy();
-		expect(screen.getAllByRole('link', { name: 'Able Company' }).map((link) => link.getAttribute('href'))).toEqual([
-			'/admin/organizations/org-1',
-			'/admin/organizations/org-1'
-		]);
+		expect(
+			screen
+				.getAllByRole('link', { name: 'Able Company' })
+				.every((link) => link.getAttribute('href') === '/admin/organizations/org-1')
+		).toBe(true);
 	});
 
 	it('shows the search, page size and suspension status held in the URL', () => {

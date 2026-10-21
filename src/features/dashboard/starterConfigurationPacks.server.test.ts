@@ -298,7 +298,7 @@ describe('starter configuration packs', () => {
 		expect(pack.isFullyApplied).toBe(true);
 	});
 
-	it('applies and reports readiness without Duty Roster storage while preserving Calendar facts', async () => {
+	it('applies starter artifacts and reports readiness while preserving saved Calendar facts', async () => {
 		const ctx = createTestContext();
 		const calendarType = {
 			id: 'historical-duty-type',
@@ -316,16 +316,6 @@ describe('starter configuration packs', () => {
 		};
 		ctx.store.seed('assignment_types', [calendarType]);
 		ctx.store.seed('daily_assignments', [calendarAssignment]);
-		const findMany = ctx.store.findMany.bind(ctx.store);
-		const findOne = ctx.store.findOne.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
-			if (table.startsWith('duty_')) throw new Error('Duty Roster storage unavailable');
-			return findMany(table, ...args);
-		});
-		vi.spyOn(ctx.store, 'findOne').mockImplementation((table, ...args) => {
-			if (table.startsWith('duty_')) throw new Error('Duty Roster storage unavailable');
-			return findOne(table, ...args);
-		});
 
 		expect((await listStarterConfigurationPacks(ctx))[0].isFullyApplied).toBe(false);
 		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');

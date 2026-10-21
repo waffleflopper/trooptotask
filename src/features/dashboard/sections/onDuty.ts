@@ -1,6 +1,6 @@
 import { assignmentSlotKey, calendarLaneTypes, indexAssignmentsBySlot } from '$features/calendar';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
-import type { AvailabilityEntry } from '$features/calendar/contracts';
+import { availabilityRuns, backDate } from '../read-model/availabilityRuns';
 import type { DashboardInputs } from './dashboardInputs';
 
 export interface DutyRow {
@@ -44,48 +44,37 @@ export interface DutyChange {
 	label: string;
 }
 
-/**
- * Departures and returns after today through `days` ahead, soonest first. A Person returns the
- * day after a status ends, unless another status already covers that day.
- */
+/** Departures and returns after today through `days` ahead, soonest first, at the edges of each continuous absence. */
 export function comingAndGoing(inputs: DashboardInputs, days: number): DutyChange[] {
 	const people = new Map(inputs.personnel.map((person) => [person.id, person]));
 	const statusNames = new Map(inputs.statusTypes.map((status) => [status.id, status.name]));
 	const last = fromDayNumber(toDayNumber(inputs.today) + days);
-	const entriesByPerson = new Map<string, AvailabilityEntry[]>();
-	for (const entry of inputs.availability) {
-		const entries = entriesByPerson.get(entry.personnelId);
-		if (entries) entries.push(entry);
-		else entriesByPerson.set(entry.personnelId, [entry]);
-	}
+	const within = (date: string) => date > inputs.today && date <= last;
 	const changes: DutyChange[] = [];
-	for (const entry of inputs.availability) {
-		const person = people.get(entry.personnelId);
-		const statusName = statusNames.get(entry.statusTypeId);
-		if (!person || !statusName) continue;
+	for (const [personnelId, runs] of availabilityRuns(inputs.availability)) {
+		const person = people.get(personnelId);
+		if (!person) continue;
 		const personName = `${person.rank} ${person.lastName}`;
-		if (entry.startDate > inputs.today && entry.startDate <= last) {
-			changes.push({
-				id: `${entry.id}:leaving`,
-				date: entry.startDate,
-				direction: 'leaving',
-				personName,
-				label: statusName
-			});
-		}
-		const returns = fromDayNumber(toDayNumber(entry.endDate) + 1);
-		if (returns <= inputs.today || returns > last) continue;
-		const covered = entriesByPerson
-			.get(entry.personnelId)!
-			.some((other) => other.startDate <= returns && other.endDate >= returns);
-		if (!covered) {
-			changes.push({
-				id: `${entry.id}:returning`,
-				date: returns,
-				direction: 'returning',
-				personName,
-				label: 'Returning'
-			});
+		for (const run of runs) {
+			if (within(run.startDate)) {
+				changes.push({
+					id: `${run.first.id}:leaving`,
+					date: run.startDate,
+					direction: 'leaving',
+					personName,
+					label: statusNames.get(run.first.statusTypeId) ?? 'Out'
+				});
+			}
+			const back = backDate(run);
+			if (within(back)) {
+				changes.push({
+					id: `${run.first.id}:returning`,
+					date: back,
+					direction: 'returning',
+					personName,
+					label: 'Returning'
+				});
+			}
 		}
 	}
 	return changes.sort((a, b) => a.date.localeCompare(b.date) || a.personName.localeCompare(b.personName));

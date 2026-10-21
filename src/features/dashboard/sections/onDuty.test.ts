@@ -109,18 +109,38 @@ describe('comingAndGoing', () => {
 		]);
 	});
 
-	it('skips a return when another status already covers that day', () => {
+	it('treats back-to-back statuses as one absence, back on the first uncovered day', () => {
 		const changes = comingAndGoing(
 			inputs({
 				availability: [
-					entry('leave', 'p-okafor', '2026-10-15', '2026-10-20'),
-					entry('tdy', 'p-okafor', '2026-10-21', '2026-11-05')
+					entry('leave', 'p-okafor', '2026-10-12', '2026-10-19'),
+					entry('tdy', 'p-okafor', '2026-10-20', '2026-10-22'),
+					entry('leave-liang', 'p-liang', '2026-10-21', '2026-10-22'),
+					entry('tdy-liang', 'p-liang', '2026-10-23', '2026-10-24')
 				]
 			}),
 			7
 		);
 
-		expect(changes.map((change) => change.id)).toEqual(['tdy:leaving']);
+		expect(changes.map(({ id, date, label }) => [id, date, label])).toEqual([
+			['leave-liang:leaving', '2026-10-21', 'Leave'],
+			['leave:returning', '2026-10-23', 'Returning'],
+			['leave-liang:returning', '2026-10-25', 'Returning']
+		]);
+	});
+
+	it('returns a Person once when two overlapping statuses end on the same day', () => {
+		const changes = comingAndGoing(
+			inputs({
+				availability: [
+					entry('leave', 'p-okafor', '2026-10-15', '2026-10-20'),
+					entry('appointment', 'p-okafor', '2026-10-18', '2026-10-20')
+				]
+			}),
+			7
+		);
+
+		expect(changes.map(({ id, date }) => [id, date])).toEqual([['leave:returning', '2026-10-21']]);
 	});
 
 	it('leaves out a Person outside the roster', () => {

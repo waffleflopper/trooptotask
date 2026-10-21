@@ -16,16 +16,13 @@ import {
 } from '$lib/server/adapters/requestContexts.server';
 import { fetchLatestAuditEvent } from '$lib/audit/index.server';
 import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
-import type {
-	loadDangerSettings,
-	loadMembersSettings,
-	loadPoliciesSettings
-} from '$features/organization/index.server';
+import type { loadMembersSettings, loadPoliciesSettings } from '$features/organization/index.server';
 import type { listGroupCatalog } from '$features/personnel/index.server';
 import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
-import type { GeneralSettingsPorts } from './settingsGeneral.server';
 import type { FeaturesSettingsPorts } from './settingsFeatures.server';
+import type { DangerSettingsPorts } from './settingsDanger.server';
+import type { SettingsUnitSummaryPorts } from './settingsLoad.server';
 
 export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
 	typeof streamSettingsNavCounts
@@ -72,10 +69,12 @@ export function createSettingsPoliciesContext(
 	};
 }
 
-export function createSettingsDangerContext(
-	request: AdmittedOrganizationRequest
-): Parameters<typeof loadDangerSettings>[0] {
-	return { auth: request.auth, organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase) };
+export function createSettingsDangerContext(request: AdmittedOrganizationRequest): DangerSettingsPorts {
+	return {
+		auth: request.auth,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		...createRequestUnitCountsContext(request)
+	};
 }
 
 export function createSettingsApprovalsContext(request: AdmittedOrganizationRequest) {
@@ -97,7 +96,7 @@ export function createSettingsRanksContext(request: AdmittedOrganizationRequest)
 	};
 }
 
-export function createSettingsGeneralContext(request: AdmittedOrganizationRequest): GeneralSettingsPorts {
+export function createSettingsUnitSummaryContext(request: AdmittedOrganizationRequest): SettingsUnitSummaryPorts {
 	return {
 		auth: request.auth,
 		...createRequestUnitCountsContext(request),

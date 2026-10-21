@@ -10,10 +10,10 @@ import {
 import { toActionFailure } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsPage } from '../settingsLoad.server';
 import { loadGeneralSettings } from '../settingsGeneral.server';
-import { createSettingsGeneralContext } from '../settingsRequestContexts.server';
+import { createSettingsUnitSummaryContext } from '../settingsRequestContexts.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, createSettingsGeneralContext, (ctx, { organization }) => ({
+	loadSettingsPage(event, createSettingsUnitSummaryContext, (ctx, { organization }) => ({
 		generalSettings: loadGeneralSettings(ctx, organization)
 	}));
 

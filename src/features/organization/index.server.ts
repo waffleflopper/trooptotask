@@ -37,7 +37,6 @@ export { createSupabaseOrganizationDestructionPort } from './destructionProvider
 export { createSupabaseOrganizationAdministratorRecipients } from './administratorRecipients.server';
 export { createSupabaseFeedbackOrganizationContextPort } from './feedbackOrganizationContext.server';
 
-export { loadDangerSettings } from './dangerSettings.server';
 export { registerOrganizationFileUpload } from './fileUploadRegistration.server';
 export {
 	drainRetiredOrganizationFiles,

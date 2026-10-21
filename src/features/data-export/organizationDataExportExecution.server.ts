@@ -56,7 +56,11 @@ export async function executeOrganizationDataExport<TArtifact extends Organizati
 			fileSizeBytes: artifact.fileSizeBytes
 		});
 
-		ctx.audit.log({ action: options.auditAction, resourceType: 'data_export', resourceId: exportRecord.exportId });
+		await ctx.audit.log({
+			action: options.auditAction,
+			resourceType: 'data_export',
+			resourceId: exportRecord.exportId
+		});
 
 		try {
 			await ctx.notifications.notifyAdmins(orgId, userId, {

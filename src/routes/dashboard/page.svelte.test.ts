@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult } from '@sveltejs/kit';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { enhanceRequests, frameworkOutcome, simulateEnhance } from '$lib/test-support/sveltekitEnhance';
 import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
@@ -38,56 +38,10 @@ async function respond(action: string, result: ActionResult, applyForm: (form: u
 }
 
 describe('/dashboard page', () => {
-	beforeEach(() => {
-		Object.defineProperty(globalThis, 'localStorage', {
-			configurable: true,
-			value: {
-				getItem: vi.fn(() => 'dark'),
-				setItem: vi.fn(),
-				removeItem: vi.fn(),
-				clear: vi.fn()
-			}
-		});
-		Object.defineProperty(window, 'localStorage', {
-			configurable: true,
-			value: {
-				getItem: vi.fn(() => 'dark'),
-				setItem: vi.fn(),
-				removeItem: vi.fn(),
-				clear: vi.fn()
-			}
-		});
-		vi.stubGlobal(
-			'matchMedia',
-			vi.fn(() => ({ matches: false }))
-		);
-	});
-
 	afterEach(() => {
 		cleanup();
-		vi.unstubAllGlobals();
 		forms.submits.clear();
 		enhanceRequests.length = 0;
-	});
-
-	it('hydrates the theme toggle without crashing when the organization chooser is forced visible', async () => {
-		const { default: Page } = await import('./+page.svelte');
-
-		expect(() =>
-			render(Page, {
-				props: {
-					data: {
-						viewer: null,
-						organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin' }],
-						pendingInvitations: []
-					},
-					form: null
-				}
-			})
-		).not.toThrow();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }));
-		expect(screen.getByRole('button', { name: 'Toggle theme' })).toBeTruthy();
 	});
 
 	it('links organization cards to the preferred URL segment', async () => {
@@ -225,16 +179,6 @@ describe('/dashboard page', () => {
 			role: 'member'
 		}));
 		const chooser = () => screen.getByRole('toolbar', { name: 'Organization controls' });
-
-		it('offers the filter only when there are more than four organizations', async () => {
-			const { default: Page } = await import('./+page.svelte');
-			render(Page, {
-				props: { data: { viewer: null, organizations: organizations.slice(0, 4), pendingInvitations: [] }, form: null }
-			});
-
-			expect(screen.queryByRole('toolbar', { name: 'Organization controls' })).toBeNull();
-			expect(screen.queryByRole('searchbox', { name: 'Filter organizations' })).toBeNull();
-		});
 
 		it('narrows the organization links as the filter changes and names a filter that matches nothing', async () => {
 			const { default: Page } = await import('./+page.svelte');

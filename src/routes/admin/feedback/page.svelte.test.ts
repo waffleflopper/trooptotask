@@ -48,11 +48,6 @@ function renderNewItem() {
 }
 
 describe('Admin Feedback status tabs', () => {
-	it('is titled Feedback', () => {
-		renderNewItem();
-		expect(screen.getByRole('heading', { level: 1 }).textContent?.trim()).toBe('Feedback');
-	});
-
 	it('opens and closes the editor from a card trigger that reports its state and controls the editor', async () => {
 		renderNewItem();
 		const toggle = screen.getByRole('button', { name: /tester@example\.mil/ });

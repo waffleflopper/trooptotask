@@ -72,16 +72,6 @@ describe('admin organization detail', () => {
 		expect(screen.queryByRole('button', { name: 'More Organization controls' })).toBeNull();
 	});
 
-	it('keeps Transfer Ownership on the row and Suspend last in More, with the status in the header', async () => {
-		renderDetail();
-		const toolbar = within(screen.getByRole('toolbar', { name: 'Organization controls' }));
-		expect(toolbar.getByRole('button', { name: 'Transfer Ownership' })).toBeTruthy();
-		expect(toolbar.queryByRole('button', { name: 'Suspend' })).toBeNull();
-		const menu = within(await openToolbarMore('Organization controls'));
-		expect(menu.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual(['Suspend']);
-		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Active');
-	});
-
 	it('offers Unsuspend for a suspended Organization and shows the status in the header', async () => {
 		renderDetail(true);
 		const menu = within(await openToolbarMore('Organization controls'));

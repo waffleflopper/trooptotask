@@ -139,7 +139,7 @@
 	{@const alignClass = cn(
 		column.align === 'center' && 'text-center',
 		column.align === 'right' && 'text-right',
-		column.hiddenBelow === 'md' && 'hidden md:table-cell'
+		column.hiddenBelow === 'md' && 'max-md:hidden!'
 	)}
 	{#if column.rowHeader}
 		<th
@@ -174,7 +174,7 @@
 						class={cn(
 							column.align === 'center' && 'text-center',
 							column.align === 'right' && 'text-right',
-							column.hiddenBelow === 'md' && 'hidden md:table-cell'
+							column.hiddenBelow === 'md' && 'max-md:hidden!'
 						)}
 						style={column.width ? `width: ${column.width}` : undefined}
 					>

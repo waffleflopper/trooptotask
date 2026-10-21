@@ -221,6 +221,7 @@ export interface CalendarAssignmentReader {
 	>;
 }
 
+/** Replaces the selected slots or complete days in one transaction; a failure keeps the existing assignments. */
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
 }

@@ -197,7 +197,6 @@ export function validateAvailabilityImportRow(
 export interface UnresolvedStatusName {
 	/** The status name as it first appears in the rows, original casing preserved. */
 	csvName: string;
-	/** How many rows carry this status name. */
 	count: number;
 }
 

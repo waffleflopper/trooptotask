@@ -1,7 +1,4 @@
-/**
- * Mutations go through the entity CRUD route.
- * The active view is tracked in `TrainingPageContext.svelte.ts`, not in this store.
- */
+/** The active view is tracked in `TrainingPageContext.svelte.ts`, not in this store. */
 import { defineStore } from '$lib/stores/core';
 import type { TrainingView } from '$features/training/training.types';
 

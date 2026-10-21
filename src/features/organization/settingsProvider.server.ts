@@ -7,7 +7,12 @@ import type {
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { OrganizationSettingsReader, OrganizationPolicyWritePort } from './settingsTypes';
+import type {
+	OrganizationSettingsReader,
+	OrganizationPolicyChanges,
+	OrganizationPolicyWritePort
+} from './settingsTypes';
+import { parseDisabledFeatures } from '$lib/access/featureSwitches';
 
 /** The ordinary request client keeps these reads and writes under Organization RLS. */
 export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClient): OrganizationSettingsReader {
@@ -56,26 +61,27 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 			);
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationSettingsMembershipRow);
 		},
-		async listInvitations(orgId) {
-			const { data, error } = await selectAllSupabaseRows<OrganizationSettingsInvitationRow>(async (from, to) =>
-				supabase
+		async listInvitations(orgId, status) {
+			const { data, error } = await selectAllSupabaseRows<OrganizationSettingsInvitationRow>(async (from, to) => {
+				const query = supabase
 					.from('organization_invitations')
 					.select(
 						'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 					)
-					.eq('organization_id', orgId.toLowerCase())
+					.eq('organization_id', orgId.toLowerCase());
+				return (status === 'pending' ? query.eq('status', 'pending') : query.neq('status', 'pending'))
 					.order('created_at', { ascending: false })
 					.order('id')
 					.range(from, to)
-					.returns<OrganizationSettingsInvitationRow[]>()
-			);
+					.returns<OrganizationSettingsInvitationRow[]>();
+			});
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationSettingsInvitationRow);
 		},
@@ -92,7 +98,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 			);
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationSettingsInvitationDeliveryRow);
 		},
@@ -109,7 +115,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 			);
 			if (error)
 				throw new Error(
-					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Unit settings read failed'
 				);
 			return (data ?? []).map(mapOrganizationOwnershipCandidateMembershipRow);
 		},
@@ -141,7 +147,9 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 		async findPolicies(orgId) {
 			const { data, error } = await supabase
 				.from('organizations')
-				.select('archive_retention_months, loss_warning_window_days, training_readiness_goal_percent')
+				.select(
+					'archive_retention_months, loss_warning_window_days, training_readiness_goal_percent, strength_floor_percent'
+				)
 				.eq('id', orgId.toLowerCase())
 				.maybeSingle();
 			if (error) throw new Error(error.message);
@@ -149,7 +157,8 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 				? {
 						archiveRetentionMonths: data.archive_retention_months,
 						lossWarningWindowDays: data.loss_warning_window_days,
-						trainingReadinessGoalPercent: data.training_readiness_goal_percent
+						trainingReadinessGoalPercent: data.training_readiness_goal_percent,
+						strengthFloorPercent: data.strength_floor_percent
 					}
 				: null;
 		},
@@ -178,28 +187,65 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 }
 
 export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClient): OrganizationPolicyWritePort {
+	async function findFeatureSettings(orgId: string) {
+		const { data, error } = await supabase
+			.from('organizations')
+			.select('disabled_features, strength_floor_percent')
+			.eq('id', orgId)
+			.maybeSingle();
+		if (error) throw new Error(error.message);
+		return data
+			? {
+					disabledFeatures: parseDisabledFeatures(data.disabled_features),
+					strengthFloorPercent: data.strength_floor_percent,
+					storedDisabledFeatures: data.disabled_features
+				}
+			: null;
+	}
+
 	return {
-		async updatePolicies(orgId, changes) {
-			const updates: Record<string, number> = {};
-			if (changes.archiveRetentionMonths !== undefined)
-				updates.archive_retention_months = changes.archiveRetentionMonths;
-			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
-			if (changes.trainingReadinessGoalPercent !== undefined)
-				updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
-			if (changes.personnelDocumentStorageCapBytes !== undefined)
-				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
-			const { data, error } = await supabase
-				.from('organizations')
-				.update(updates)
-				.eq('id', orgId)
+		findFeatureSettings,
+		async updatePolicies(orgId, changes, ifDisabledFeatures) {
+			const updates = toOrganizationPolicyColumns(changes);
+			let write = supabase.from('organizations').update(updates).eq('id', orgId);
+			if (ifDisabledFeatures) write = write.eq('disabled_features', toTextArrayLiteral(ifDisabledFeatures));
+			const { data, error } = await write
 				.select(['id', ...Object.keys(updates)].join(', '))
-				.single<{ id: string; [field: string]: string | number | null }>();
-			if (error) return error.message || 'Organization settings update failed';
-			return data?.id === orgId && Object.entries(updates).every(([field, value]) => data[field] === value)
-				? null
-				: 'Unable to confirm Organization settings update';
+				.single<{ id: string; [field: string]: unknown }>();
+			// A zero-row update under the guard is a concurrent change only when the stored switches differ now;
+			// otherwise the row refused the write and retrying would only repeat it.
+			if (ifDisabledFeatures && error?.code === 'PGRST116') {
+				const current = await findFeatureSettings(orgId);
+				if (current && !isSameValue(current.storedDisabledFeatures, ifDisabledFeatures)) return { status: 'stale' };
+			}
+			if (error) return { status: 'failed', message: error.message || 'Unit settings update failed' };
+			return data?.id === orgId && Object.entries(updates).every(([field, value]) => isSameValue(data[field], value))
+				? { status: 'saved' }
+				: { status: 'failed', message: 'Unable to confirm Unit settings update' };
 		}
 	};
+}
+
+function toTextArrayLiteral(values: readonly string[]): string {
+	return `{${values.map((value) => JSON.stringify(value)).join(',')}}`;
+}
+
+export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges): Record<string, number | string[]> {
+	const updates: Record<string, number | string[]> = {};
+	if (changes.archiveRetentionMonths !== undefined) updates.archive_retention_months = changes.archiveRetentionMonths;
+	if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
+	if (changes.trainingReadinessGoalPercent !== undefined)
+		updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
+	if (changes.personnelDocumentStorageCapBytes !== undefined)
+		updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
+	if (changes.disabledFeatures !== undefined) updates.disabled_features = changes.disabledFeatures;
+	if (changes.strengthFloorPercent !== undefined) updates.strength_floor_percent = changes.strengthFloorPercent;
+	return updates;
+}
+
+function isSameValue(saved: unknown, sent: number | readonly string[]): boolean {
+	if (typeof sent === 'number') return saved === sent;
+	return Array.isArray(saved) && saved.length === sent.length && sent.every((item, index) => saved[index] === item);
 }
 
 function mapOrganizationSettingsMembershipRow(

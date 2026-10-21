@@ -7,7 +7,7 @@ interface RankCatalogPorts {
 }
 
 const UNKNOWN_PERSONNEL_RANK_MESSAGE =
-	'Unknown rank "{rank}". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.';
+	'Unknown rank "{rank}". Update the Organization rank catalog in Unit settings > Ranks, then try again.';
 
 interface PersonnelRankResolver {
 	normalize(input: string): string | null;

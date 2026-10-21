@@ -74,10 +74,18 @@ const contracts = [
 	row: object;
 }>;
 
+function read(
+	reader: ReturnType<typeof createSupabaseOrganizationSettingsReader>,
+	method: (typeof contracts)[number]['method'],
+	orgId: string
+) {
+	return method === 'listInvitations' ? reader.listInvitations(orgId, 'pending') : reader[method](orgId);
+}
+
 function sdkFixture(
 	contract: (typeof contracts)[number],
 	count: number,
-	fault?: 'null' | 'terminal-null' | 'first' | 'late'
+	fault?: 'null' | 'terminal-null' | 'first' | 'late' | 'unstructured'
 ) {
 	const requests: URL[] = [];
 	const rows = Array.from({ length: count }, (_, index) => ({
@@ -98,6 +106,7 @@ function sdkFixture(
 				expect(url.searchParams.get('select')).toBe(contract.fields);
 				const from = Number(url.searchParams.get('offset') ?? 0);
 				expect(url.searchParams.get('limit')).toBe('1000');
+				if (fault === 'unstructured') return Response.json('Read refused', { status: 403 });
 				if (fault === 'first' || (fault === 'late' && from === 1000))
 					return Response.json({ message: 'Provider refused read', code: '42501' }, { status: 403 });
 				if (fault === 'null' || (fault === 'terminal-null' && from === 1000)) return Response.json(null);
@@ -120,7 +129,7 @@ describe('five ordinary Organization settings reads with the installed SDK', () 
 		async (contract) => {
 			const { reader, requests } = sdkFixture(contract, 1001);
 			expect(requests).toEqual([]);
-			const rows = await reader[contract.method](ORG.toUpperCase());
+			const rows = await read(reader, contract.method, ORG.toUpperCase());
 			const expected = Array.from({ length: 1001 }, (_, index) => ({
 				...contract.row,
 				id: `saved-${String(index).padStart(4, '0')}`
@@ -131,18 +140,23 @@ describe('five ordinary Organization settings reads with the installed SDK', () 
 	);
 	it.each(contracts)('$method completes an exact full page and accepts a null terminal page', async (contract) => {
 		const full = sdkFixture(contract, 1000, 'terminal-null');
-		expect(await full.reader[contract.method](ORG)).toHaveLength(1000);
+		expect(await read(full.reader, contract.method, ORG)).toHaveLength(1000);
 		expect(full.requests.map((url) => url.searchParams.get('offset'))).toEqual(['0', '1000']);
 		const empty = sdkFixture(contract, 0, 'null');
-		expect(await empty.reader[contract.method](ORG)).toEqual([]);
+		expect(await read(empty.reader, contract.method, ORG)).toEqual([]);
 		expect(empty.requests).toHaveLength(1);
+	});
+	it.each(contracts)('$method identifies unit settings when a provider failure has no message', async (contract) => {
+		const { reader } = sdkFixture(contract, 0, 'unstructured');
+
+		await expect(read(reader, contract.method, ORG)).rejects.toEqual(new Error('Unit settings read failed'));
 	});
 	it.each(contracts)(
 		'$method rejects first and later provider errors without returning partial data',
 		async (contract) => {
 			for (const fault of ['first', 'late'] as const) {
 				const fixture = sdkFixture(contract, 1001, fault);
-				await expect(fixture.reader[contract.method](ORG)).rejects.toEqual(new Error('Provider refused read'));
+				await expect(read(fixture.reader, contract.method, ORG)).rejects.toEqual(new Error('Provider refused read'));
 			}
 		}
 	);
@@ -177,9 +191,25 @@ describe('five ordinary Organization settings reads with the installed SDK', () 
 				}
 			});
 			const reader = createSupabaseOrganizationSettingsReader(client);
-			expect((await reader[contract.method](ORG)).map(({ id }) => id)).toEqual(['b-new', 'c-new', 'a-old']);
+			expect((await read(reader, contract.method, ORG)).map(({ id }) => id)).toEqual(['b-new', 'c-new', 'a-old']);
 		}
 	);
+	it('filters invitations to pending or every other status', async () => {
+		const filters: Array<string | null> = [];
+		const client = createClient('http://settings.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input) => {
+					filters.push(new URL(String(input)).searchParams.get('status'));
+					return Response.json([]);
+				}
+			}
+		});
+		const reader = createSupabaseOrganizationSettingsReader(client);
+		await reader.listInvitations(ORG, 'pending');
+		await reader.listInvitations(ORG, 'closed');
+		expect(filters).toEqual(['eq.pending', 'neq.pending']);
+	});
 	it('keeps omitted access fields omitted and present nulls intact', async () => {
 		const client = createClient('http://settings.invalid', 'synthetic-request-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
@@ -187,7 +217,7 @@ describe('five ordinary Organization settings reads with the installed SDK', () 
 		});
 		const reader = createSupabaseOrganizationSettingsReader(client);
 		expect(await reader.listMemberAccess(ORG)).toEqual([{ id: 'sparse', email: null }]);
-		expect(await reader.listInvitations(ORG)).toEqual([{ id: 'sparse', email: null }]);
+		expect(await reader.listInvitations(ORG, 'pending')).toEqual([{ id: 'sparse', email: null }]);
 	});
 	it('reads the pair once with single semantics, preserving null/omission and plain errors', async () => {
 		const calls: { url: URL; accept: string | null }[] = [];

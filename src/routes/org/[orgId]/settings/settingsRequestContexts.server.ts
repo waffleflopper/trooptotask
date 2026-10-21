@@ -10,27 +10,31 @@ import {
 	createRequestGroupContext,
 	createRequestNotificationContext,
 	createRequestSensitiveActionContext,
-	createRequestActorContext
+	createRequestActorContext,
+	createRequestOrganizationAuditLogContext,
+	createRequestUnitCountsContext
 } from '$lib/server/adapters/requestContexts.server';
+import { fetchLatestAuditEvent } from '$lib/audit/index.server';
 import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
-import type {
-	loadDangerSettings,
-	loadMembersSettings,
-	loadPoliciesSettings
-} from '$features/organization/index.server';
+import type { loadMembersSettings } from '$features/organization/index.server';
+import { fetchTrainingBriefingReport } from '$features/training/index.server';
+import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { listGroupCatalog } from '$features/personnel/index.server';
-import type { loadSettingsShell } from './settingsShell.server';
+import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
+import type { FeaturesSettingsPorts } from './settingsFeatures.server';
+import type { DangerSettingsPorts } from './settingsDanger.server';
+import type { SettingsUnitSummaryPorts } from './settingsLoad.server';
+import type { PoliciesSettingsPorts } from './settingsPolicies.server';
 
 export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
-	typeof loadSettingsShell
+	typeof streamSettingsNavCounts
 >[0] & {
 	auth: AdmittedOrganizationRequest['auth'];
 	audit: AdmittedOrganizationRequest['audit'];
 } {
 	return {
 		...createRequestActorContext(request),
-		...createRequestPersonnelRosterContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};
 }
@@ -53,24 +57,28 @@ export function createSettingsMembersContext(request: AdmittedOrganizationReques
 	} {
 	return {
 		...createRequestGroupContext(request),
+		disabledFeatures: request.disabledFeatures,
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		organizationInvitationSetupStateLookup: createOrganizationInvitationSetupStateLookup()
 	};
 }
 
-export function createSettingsPoliciesContext(
-	request: AdmittedOrganizationRequest
-): Parameters<typeof loadPoliciesSettings>[0] {
+export function createSettingsPoliciesContext(request: AdmittedOrganizationRequest): PoliciesSettingsPorts {
 	return {
-		auth: request.auth,
-		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
+		...createRequestPersonnelRosterContext(request),
+		disabledFeatures: request.disabledFeatures,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		readTrainingBriefing: (input, asOf) =>
+			fetchTrainingBriefingReport(createRequestTrainingBriefingContext(request), input, asOf)
 	};
 }
 
-export function createSettingsDangerContext(
-	request: AdmittedOrganizationRequest
-): Parameters<typeof loadDangerSettings>[0] {
-	return { auth: request.auth, organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase) };
+export function createSettingsDangerContext(request: AdmittedOrganizationRequest): DangerSettingsPorts {
+	return {
+		auth: request.auth,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		...createRequestUnitCountsContext(request)
+	};
 }
 
 export function createSettingsApprovalsContext(request: AdmittedOrganizationRequest) {
@@ -89,5 +97,25 @@ export function createSettingsRanksContext(request: AdmittedOrganizationRequest)
 		...createRequestRankCatalogContext(request),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		readSignInRosterRankReferences: createSupabaseSignInRosterRankReferenceReader(request.supabase, request.auth.orgId)
+	};
+}
+
+export function createSettingsUnitSummaryContext(request: AdmittedOrganizationRequest): SettingsUnitSummaryPorts {
+	return {
+		auth: request.auth,
+		...createRequestUnitCountsContext(request),
+		readLatestAuditEvent: (action) => {
+			const { auditStore, auditLabels } = createRequestOrganizationAuditLogContext(request);
+			return fetchLatestAuditEvent(request.auth.orgId, auditStore, action, auditLabels);
+		}
+	};
+}
+
+export function createSettingsFeaturesContext(request: AdmittedOrganizationRequest): FeaturesSettingsPorts {
+	return {
+		auth: request.auth,
+		disabledFeatures: request.disabledFeatures,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		...createRequestUnitCountsContext(request)
 	};
 }

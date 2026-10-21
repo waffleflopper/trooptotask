@@ -2,14 +2,28 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { DataTableState } from './types.js';
+	import type { DataTableState, PageLabels } from './types.js';
 
 	type Props = {
 		table: DataTableState<T>;
 		label?: string;
+		labels?: PageLabels;
+		variant?: 'framed' | 'editorial';
 	};
 
-	let { table, label = 'Table pagination' }: Props = $props();
+	let {
+		table,
+		label = 'Table pagination',
+		labels = { previous: 'Previous', next: 'Next' },
+		variant = 'framed'
+	}: Props = $props();
+
+	const firstRow = $derived((table.page - 1) * table.pageSize + 1);
+	const lastRow = $derived(Math.min(table.page * table.pageSize, table.totalRows));
+	const rangeLine = $derived(
+		labels.range?.({ first: firstRow, last: lastRow, total: table.totalRows }) ??
+			`${firstRow}–${lastRow} of ${table.totalRows}`
+	);
 
 	let previous = $state<HTMLButtonElement | null>(null);
 	let next = $state<HTMLButtonElement | null>(null);
@@ -62,9 +76,16 @@
 		aria-label={label}
 		{@attach keepFocusInTable}
 		data-slot="data-table-pagination"
-		class="flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-3 py-2 text-sm"
+		data-variant={variant}
+		class={variant === 'editorial'
+			? 'flex items-center justify-between gap-3 py-4 text-sm'
+			: 'flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-3 py-2 text-sm'}
 	>
-		<p class="text-muted-foreground">Page {table.page} of {table.totalPages}</p>
+		{#if variant === 'editorial'}
+			<p class="font-mono text-xs text-muted-foreground">{rangeLine}</p>
+		{:else}
+			<p class="text-muted-foreground">Page {table.page} of {table.totalPages}</p>
+		{/if}
 		<div class="flex items-center gap-2">
 			<Button
 				type="button"
@@ -74,8 +95,8 @@
 				disabled={table.page <= 1}
 				onclick={() => goTo(table.page - 1, previous)}
 			>
-				<ChevronLeftIcon aria-hidden="true" />
-				Previous
+				{#if variant === 'framed'}<ChevronLeftIcon aria-hidden="true" />{/if}
+				{labels.previous}
 			</Button>
 			<Button
 				type="button"
@@ -85,8 +106,8 @@
 				disabled={table.page >= table.totalPages}
 				onclick={() => goTo(table.page + 1, next)}
 			>
-				Next
-				<ChevronRightIcon aria-hidden="true" />
+				{labels.next}
+				{#if variant === 'framed'}<ChevronRightIcon aria-hidden="true" />{/if}
 			</Button>
 		</div>
 	</nav>

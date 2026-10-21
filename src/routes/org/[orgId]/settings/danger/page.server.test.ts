@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
+import { createTestContext } from '$lib/server/adapters/inMemory';
 
 const {
 	buildRouteRequestMock,
@@ -111,12 +112,14 @@ describe('danger settings page server', () => {
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
 	});
 
-	it('redirects non-owners away from danger settings without loading transfer candidates', async () => {
+	it('redirects non-owners away from danger settings without reading candidates or counts', async () => {
 		const findMany = vi.fn();
+		const countRows = vi.fn();
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
 				auth: { orgId: 'org-1', role: 'admin', canManageMembers: true },
-				organizationSettings: { listOwnershipCandidateMemberships: findMany }
+				organizationSettings: { listOwnershipCandidateMemberships: findMany },
+				unitCounts: { countRows, countRatingSchemeEntries: countRows }
 			})
 		);
 
@@ -137,9 +140,10 @@ describe('danger settings page server', () => {
 			location: '/org/test-org/settings/general'
 		});
 		expect(findMany).not.toHaveBeenCalled();
+		expect(countRows).not.toHaveBeenCalled();
 	});
 
-	it('loads owner danger settings with shared page context and ownership candidates', async () => {
+	it('gives owners the transfer candidates and streams what deleting the unit destroys', async () => {
 		const findMany = vi.fn().mockResolvedValue([
 			{
 				id: 'member-1',
@@ -154,14 +158,31 @@ describe('danger settings page server', () => {
 				role: 'owner'
 			}
 		]);
+		const testContext = createTestContext({ auth: { orgId: 'org-1', role: 'owner' } });
+		testContext.rawStore.seed('personnel', [
+			{ id: 'p1', organization_id: 'org-1', archived_at: null },
+			{ id: 'p2', organization_id: 'org-1', archived_at: null },
+			{ id: 'p3', organization_id: 'org-1', archived_at: '2026-01-01T00:00:00.000Z' },
+			{ id: 'p4', organization_id: 'org-2', archived_at: null }
+		]);
+		testContext.rawStore.seed('personnel_trainings', [
+			{ id: 't1', organization_id: 'org-1' },
+			{ id: 't2', organization_id: 'org-1' },
+			{ id: 't3', organization_id: 'org-1' }
+		]);
+		testContext.rawStore.seed('organization_memberships', [
+			{ id: 'member-1', organization_id: 'org-1' },
+			{ id: 'owner-1', organization_id: 'org-1' }
+		]);
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
 				auth: { orgId: 'org-1', role: 'owner', canManageMembers: true },
-				organizationSettings: { listOwnershipCandidateMemberships: findMany }
+				organizationSettings: { listOwnershipCandidateMemberships: findMany },
+				unitCounts: testContext.unitCounts
 			})
 		);
 
-		const result = await load({
+		const result = (await load({
 			locals: {},
 			cookies: {},
 			parent: async () =>
@@ -171,37 +192,27 @@ describe('danger settings page server', () => {
 					orgUrlSegment: 'test-org',
 					role: 'owner'
 				})
-		} as never);
+		} as never)) as { dangerSettings: { destructionCounts: Promise<unknown> } };
 
 		expect(result).toMatchObject({
 			orgId: 'org-1',
-			orgUrlSegment: 'test-org',
-			orgUrlSlug: 'test-org',
 			orgName: 'Test Org',
-			isAdmin: false,
 			dangerSettings: {
-				currentMember: {
-					role: 'owner',
-					isOwner: true,
-					canManageMembers: true
-				},
-				sections: {
-					dangerZone: {
-						transferOwnershipCandidates: [
-							{
-								id: 'member-1',
-								userId: 'user-2',
-								email: 'next-owner@example.com',
-								membershipRole: 'admin'
-							}
-						],
-						commands: {
-							canTransferOwnership: true,
-							canDeleteOrganization: true
-						}
+				transferOwnershipCandidates: [
+					{
+						id: 'member-1',
+						userId: 'user-2',
+						email: 'next-owner@example.com',
+						membershipRole: 'admin'
 					}
-				}
+				]
 			}
+		});
+		expect(await result.dangerSettings.destructionCounts).toEqual({
+			activePersonnel: 2,
+			trainingRecords: 3,
+			members: 2,
+			archivedPersonnel: 1
 		});
 	});
 

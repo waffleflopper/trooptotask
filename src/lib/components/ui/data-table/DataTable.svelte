@@ -10,6 +10,7 @@
 		DataTableState,
 		DataTableStateSnippet,
 		GroupDef,
+		PageLabels,
 		RowKey,
 		SortDirection
 	} from './types.js';
@@ -35,6 +36,8 @@
 		loading?: boolean;
 		loadingRows?: number;
 		density?: 'default' | 'dense';
+		variant?: 'framed' | 'editorial';
+		stacked?: boolean;
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -45,6 +48,8 @@
 		row?: DataTableRowSnippet<T>;
 		rowDetail?: DataTableRowDetailSnippet<T>;
 		rowDetailVisible?: (row: T) => boolean;
+		rowHidden?: (row: T) => boolean;
+		pageLabels?: PageLabels;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -70,6 +75,8 @@
 		loading,
 		loadingRows,
 		density,
+		variant,
+		stacked,
 		compact,
 		striped,
 		stickyHeader = true,
@@ -80,6 +87,8 @@
 		row,
 		rowDetail,
 		rowDetailVisible,
+		rowHidden,
+		pageLabels,
 		headerCell,
 		groupHeader,
 		toolbar,
@@ -119,6 +128,8 @@
 	{onRowClick}
 	{rowActionLabel}
 	{density}
+	{variant}
+	{stacked}
 	{compact}
 	{striped}
 	{stickyHeader}
@@ -129,6 +140,8 @@
 	{row}
 	{rowDetail}
 	{rowDetailVisible}
+	{rowHidden}
+	{pageLabels}
 	{headerCell}
 	{groupHeader}
 	{toolbar}

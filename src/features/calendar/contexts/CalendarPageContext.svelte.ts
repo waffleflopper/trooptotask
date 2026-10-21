@@ -27,6 +27,7 @@ import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
@@ -94,6 +95,7 @@ export interface CalendarPageData {
 		data?: CalendarWorkspaceData;
 	};
 	activeOnboardingPersonnelIds?: string[];
+	disabledFeatures?: readonly FeatureKey[];
 	[key: string]: unknown;
 }
 
@@ -219,7 +221,7 @@ export class CalendarPageContext {
 	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
 		const windowDays = this.#workspaceData?.lossWarningWindowDays;
 		const losses =
-			windowDays === null
+			windowDays === null || this.#getData().disabledFeatures?.includes('lossesAndAwards')
 				? []
 				: evaluateUpcomingLosses(this.calendarPersonnel, windowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS, this.#today);
 		return indexByPersonId(losses);

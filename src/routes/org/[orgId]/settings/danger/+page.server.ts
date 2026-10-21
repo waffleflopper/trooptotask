@@ -9,25 +9,17 @@ import {
 	transferOrganizationOwnership
 } from '$features/organization/index.server';
 import { toActionFailure } from '$lib/server/adapters/httpAdapter';
-import { loadDangerSettings } from '$features/organization/index.server';
 import { loadSettingsPage } from '../settingsLoad.server';
+import { loadDangerSettings } from '../settingsDanger.server';
 import {
 	createSettingsDangerContext,
 	createSettingsSensitiveNotificationContext
 } from '../settingsRequestContexts.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, createSettingsDangerContext, async (ctx, { common, organization }) => {
-		const dangerSettings = await loadDangerSettings(ctx, {
-			isAdmin: common.isAdmin,
-			organization
-		});
-
-		if (!dangerSettings.currentMember.isOwner) {
-			redirect(303, `/org/${common.orgUrlSegment}/settings/general`);
-		}
-
-		return { dangerSettings };
+	loadSettingsPage(event, createSettingsDangerContext, async (ctx, { common }) => {
+		if (ctx.auth.role !== 'owner') redirect(303, `/org/${common.orgUrlSegment}/settings/general`);
+		return { dangerSettings: await loadDangerSettings(ctx) };
 	});
 
 export const actions: Actions = {

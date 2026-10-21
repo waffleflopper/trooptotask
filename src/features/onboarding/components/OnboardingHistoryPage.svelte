@@ -39,7 +39,7 @@
 		noteAuthorName: NoteAuthorLookup;
 		/** Months the Organization keeps finished packets, the same figure the cleanup job uses. */
 		archiveRetentionMonths: number | null;
-		/** Whether this member may open Organization settings, where the retention period is set. */
+		/** Whether this member may open Unit settings, where the retention period is set. */
 		canOpenOrganizationSettings: boolean;
 	}
 
@@ -220,10 +220,10 @@
 						{#if canOpenOrganizationSettings}
 							<a
 								href={`/org/${orgUrlSegment}/settings/policies`}
-								class="underline underline-offset-3 hover:text-foreground">Organization settings</a
+								class="underline underline-offset-3 hover:text-foreground">Unit settings</a
 							>.
 						{:else}
-							Organization settings.
+							Unit settings.
 						{/if}
 					</p>
 				{/if}

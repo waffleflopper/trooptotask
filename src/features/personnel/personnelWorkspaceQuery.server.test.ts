@@ -305,6 +305,23 @@ describe('loadPersonnelWorkspace — loss warning window', () => {
 
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p1']);
 	});
+
+	it('returns no award acknowledgements without reading them while the unit has Losses and awards off', async () => {
+		const base = createQueryWithRawStorePortsContext({ disabledFeatures: ['lossesAndAwards'] });
+		seedPersonnel(base.store);
+		const ctx = {
+			...base,
+			personnelAwardAcknowledgement: {
+				listAcknowledgedPersonnelIds: async (): Promise<string[]> => {
+					throw new Error('Award acknowledgements must not be read while Losses and awards is off');
+				}
+			}
+		};
+
+		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(base))).data;
+
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
+	});
 });
 
 describe('Personnel workspace isolation and failures', () => {

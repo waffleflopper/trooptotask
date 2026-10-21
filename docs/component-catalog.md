@@ -13,7 +13,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | `ui/accordion`                                                             | `Root`, `Item`, `Trigger`, `Content`                                                                                                                | Onboarding History packet list; landing page FAQ.                                                                                                                        |
 | `ui/alert`                                                                 | `Root`, `Title`, `Description`, `Action`; `alertVariants`                                                                                           | Inline errors and notices in most features; report and bulk import states.                                                                                               |
 | `ui/alert-dialog`                                                          | `Root`, `Content`, `Header`, `Footer`, `Title`, `Description`, `Action`, `Cancel`, `Overlay`, `Portal`, `Trigger`                                   | Foundation primitive, used by [`ui/confirm-dialog`](#uiconfirm-dialog).                                                                                                  |
-| [`ui/app-dialog`](#uiapp-dialog)                                           | `Root`, `Content`, `Header`, `Title`, `Description`, `Body`, `Footer`                                                                               | Edit, form and review dialogs in most features.                                                                                                                          |
+| [`ui/app-dialog`](#uiapp-dialog)                                           | `Root`, `Content`, `Header`, `Title`, `Description`, `Body`, `Footer`, `TypeToConfirm`                                                              | Edit, form and review dialogs in most features.                                                                                                                          |
 | [`ui/badge`](#uibadge)                                                     | `Badge`; `badgeVariants`                                                                                                                            | Status labels in most features.                                                                                                                                          |
 | `ui/breadcrumb`                                                            | `Root`, `List`, `Item`, `Link`, `Page`, `Separator`, `Ellipsis`                                                                                     | App shell header.                                                                                                                                                        |
 | [`ui/button`](#uibutton)                                                   | `Button`; `buttonVariants`                                                                                                                          | Every feature.                                                                                                                                                           |
@@ -33,7 +33,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`ui/empty`](#uiempty)                                                     | `Root`, `Header`, `Media`, `Title`, `Description`, `Content`                                                                                        | Empty and error states in most features and every error boundary.                                                                                                        |
 | [`ui/field`](#shared-form-controls)                                        | `Root`, `Control`, `Label`, `Description`, `Error`, `Title`, `Set`, `Legend`, `Group`, `Content`, `Separator`                                       | Forms in most features.                                                                                                                                                  |
 | [`ui/input`](#shared-form-controls)                                        | `Root`                                                                                                                                              | Forms in most features.                                                                                                                                                  |
-| `ui/input-group`                                                           | `Root`, `Addon`, `Button`, `Input`, `Text`, `Textarea`                                                                                              | Foundation primitive, used by the `WorkspaceToolbar` search field and `Command.Input`.                                                                                   |
+| `ui/input-group`                                                           | `Root`, `Addon`, `Button`, `Input`, `Text`, `Textarea`                                                                                              | Foundation primitive, used by the `WorkspaceToolbar` search, `Command.Input` and the General web address (`Addon variant="muted"`).                                      |
 | `ui/label`                                                                 | `Root`                                                                                                                                              | App shell header, Calendar closures, Feedback, Organization danger zone and members settings; `Field.Label`.                                                             |
 | [`ui/native-select`](#shared-form-controls)                                | `Root`, `Option`, `OptGroup`                                                                                                                        | Plain form choices in Calendar, Critical Tasks, Personnel import, platform admin, Account Profile and Ranks settings.                                                    |
 | [`ui/operational-matrix`](#uioperational-matrix)                           | See its section                                                                                                                                     | Critical Tasks matrix and readiness table, Training matrix and Training Reports.                                                                                         |
@@ -58,6 +58,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                                |
 | [`patterns/coverage-bar`](#patternscoverage-bar)                           | `CoverageBar`                                                                                                                                       | Personnel Files counseling coverage.                                                                                                                                     |
 | [`patterns/dropzone`](#patternsdropzone)                                   | `Dropzone`                                                                                                                                          | Personnel Files upload.                                                                                                                                                  |
+| [`patterns/draft-field`](#patternsdraft-field)                             | `Root`, `Status`; `FieldDraft`                                                                                                                      | The Features strength floor and the three Policies rows.                                                                                                                 |
 | [`patterns/calendar-bars`](#patternscalendar-bars)                         | `StatusBar`, `AvailabilityStrip`; `layoutBars`, `oneDayLabel`                                                                                       | Calendar grid, popovers, legends and roster picker; the person Overview's next 14 days.                                                                                  |
 | [`patterns/inline-edit-row`](#patternsinline-edit-row)                     | `Root`                                                                                                                                              | The person record's Log tab: follow-ups and leader notes.                                                                                                                |
 | [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `SectionHeader`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                           | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                  |
@@ -67,7 +68,8 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/report-chart`](#patternsreport-chart)                           | See its section                                                                                                                                     | Critical Tasks reports, Training Reports and the platform admin dashboard.                                                                                               |
 | [`patterns/report-workspace`](#patternsreport-workspace)                   | See its section                                                                                                                                     | Calendar, Critical Tasks and Training reports.                                                                                                                           |
 | [`patterns/requirement-status-badge`](#patternsrequirement-status-badge)   | `RequirementStatusBadge`                                                                                                                            | Critical Tasks and Training status badges.                                                                                                                               |
-| [`patterns/segmented-filter`](#patternssegmented-filter)                   | `Root`                                                                                                                                              | The person record's Archived tab.                                                                                                                                        |
+| [`patterns/section-nav`](#patternssection-nav)                             | `SectionNav`                                                                                                                                        | Organization settings.                                                                                                                                                   |
+| [`patterns/segmented-filter`](#patternssegmented-filter)                   | `Root`                                                                                                                                              | The person record's Archived tab, the Ranks catalog state filter and the Members access controls.                                                                        |
 | [`patterns/type-management-workspace`](#patternstype-management-workspace) | See its section                                                                                                                                     | Training types and views; Onboarding templates.                                                                                                                          |
 | [`patterns/workspace-toolbar`](#patternsworkspace-toolbar)                 | See its section                                                                                                                                     | Authenticated workspace toolbars.                                                                                                                                        |
 
@@ -99,7 +101,7 @@ Command input and result items must share one `Command.Root`. For server-filtere
 
 ## Transient feedback
 
-The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter. The Toaster keeps toasts clickable above modal layers: a modal sets `pointer-events: none` on `<body>`, so the Toaster restores it for its own list and stops `pointerdown` from reaching the open dialog or drawer, which would otherwise treat a touch on the toast as an outside press and close itself. While a modal's focus scope is active, keyboard focus stays in the modal; the toast is still announced through the Toaster's live region and dismisses itself.
+The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter. The Toaster keeps toasts clickable above modal layers: a modal sets `pointer-events: none` on `<body>`, so the Toaster restores it for its own list and stops `pointerdown` from reaching the open dialog or drawer, which would otherwise treat a touch on the toast as an outside press and close itself. While a modal's focus scope is active, keyboard focus stays in the modal; the toast is still announced through the Toaster's live region and dismisses itself. Keyboard focus inside a toast pauses its timer like hover does, so an `Undo` stays available while a keyboard user reaches it; the timer resumes when focus leaves.
 
 ## Password MFA continuation
 
@@ -193,12 +195,14 @@ Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
 - `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?` (a string, or a snippet for a meta line of badges and facts; both render in `data-slot="page-header-subtitle"`), `variant?: 'default' | 'display'` (`display` sets the title large, condensed and uppercase, for the record a page is about, such as the person record), snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
-- `SectionHeader`: the heading of one block on a page. Props: `eyebrow?` (short uppercase label), `title` (the headline figure, such as `3 open`), `detail?`, `detailTone?: 'default' | 'destructive'`, `size?: 'default' | 'compact'` (`compact` titles one of several sections, such as the person Overview's), `action?` (sits at the end of the headline row, such as an `Open log` link), `children?` (sits below the headline, such as a filter for the list it introduces).
-- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
+- `SectionHeader`: the heading of one block on a page. Props: `eyebrow?` (short uppercase label), `title` (the headline figure, such as `3 open`), `detail?`, `detailTone?: 'default' | 'destructive'`, `size?: 'default' | 'compact'` (`compact` titles one of several sections, such as the person Overview's), `ruled?: boolean` (draws the 2px rule that opens the list below, for a settings page with several lists such as Ranks), `action?` (sits at the end of the headline row, such as an `Open log` link), `children?` (sits below the headline, such as a filter for the list it introduces).
+- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `tag`, `destructive`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. A `tag` is a short mono label after the label, such as `Owner`, and joins the link name. `destructive` colors the tab like a destructive action at the normal tab size. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
-- `FactSection`: a titled block of label and value rows. Props: `title`, `summary?`, `open?` (bindable), `children?`. Passing a `summary` makes the section collapsible; the closed section shows the summary beside its title.
-- `FactRow`: one label and value row inside a `FactSection`. Props: `label`, `value?` (an empty value reads "Not set"), `mono?`, `labelFor?`, `changed?`, `hint?`, `error?`, `children?`. Children replace `value` for anything richer, such as the controls of an edit form; `labelFor` then names the control and `changed` marks a field that differs from the saved record.
+- `FactSection`: a block of label and value rows. Props: `title?`, `summary?`, `open?` (bindable), `variant?: 'default' | 'destructive'`, `endRule?`, `children?`. A titled section sets its title over a 2px rule. Passing a `summary` with the title makes the section collapsible; the closed section shows the summary beside its title. Without a title the rows start under a bare 2px rule, as a settings page body does under its header. `destructive` draws that rule in the destructive color, for Danger zone. `endRule` closes untitled rows with a 1px rule after the last row, for a page that ends on its rows, such as Features.
+- `FactRow`: one label and value row inside a `FactSection`. Props: `label`, `variant?` (`default` or `display`), `description?`, `muted?`, `holds?`, `control?`, `details?` (the last four are `display` only), `value?` (an empty value reads "Not set"), `mono?`, `labelFor?`, `changed?`, `hint?`, `error?`, `children?`. Children replace `value` for anything richer, such as the controls of an edit form; `labelFor` then names the control and `changed` marks a field that differs from the saved record.
+- `FactRow` `variant="display"` is the editorial settings row: what the row is (`label`, in large condensed type), one `description` sentence on what it controls or what changing it does, then the controls as children. The label lane is 300px wide at `md` and up and stacks above the controls below it. Rows sit 24px apart on 1px rules, and the last row has none. Put a muted mono line under the controls for what the row holds, such as `Last changed 14 Mar 2026 · actor`.
+- A `display` row with any of the `holds`, `control` or `details` snippets uses the lanes of the settings grammar instead of children: the label and description, `holds?` (mono and muted, 180px wide), and `control?` on the right (a switch, `Always`, or `DraftField.Status`). `details?` spans the lanes below them, for a field with its live sentence such as `DraftField.Root`. `muted` mutes the label, for something switched off. Lanes replace `value`, `mono`, `hint`, `error` and children, and the types reject mixing them or using lanes on the default variant. Below `md` the lanes stack, with the control under the text. With `labelFor`, the description gets the id `<labelFor>-description` so the control can name it in `aria-describedby`. Features is the example.
 
 Rules:
 
@@ -207,10 +211,48 @@ Rules:
 - Use `Header` for route-local title, subtitle and metadata such as badges and status text. Page commands go in the page's `WorkspaceToolbar`. Calendar's title row is the `aside` example: today's count and the Month / 3-Month switch, which changes the period the title names. Do not duplicate the authenticated app breadcrumb bar inside route content.
 - Use `Tabs` for route-level Overview/History/Settings style navigation.
 - Use `FactGrid` and `Metric` for dense operational summaries instead of route-local summary wrappers.
-- Use `FactSection` and `FactRow` for a record's labelled facts, read or edited in place, instead of route-local definition lists.
+- Use `FactSection` and `FactRow` for a record's labelled facts, read or edited in place, instead of route-local definition lists. Settings pages use one untitled `FactSection` of `display` rows for their body. The settings shell sets the body width per page from `SETTINGS_PAGES[].width`: `form` pages are 820px wide and `table` pages 912px.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
 
-Consumers: the Account and Organization settings shells, the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+Consumers: the Account and Organization settings shells (Organization settings reaches `Tabs` through `section-nav`), the General and Features settings pages (`display` rows), the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+
+---
+
+## `patterns/section-nav`
+
+`patterns/section-nav` is the vertical secondary nav for an area with several pages, such as Organization settings. It renders labelled groups of links, then one item set apart below a rule in the destructive color. Below `md` it renders the same items through `PageShell.Tabs`, so the owner passes one item list.
+
+```svelte
+<script lang="ts">
+	import { SectionNav } from '$lib/components/patterns/section-nav';
+
+	const groups = [
+		{ label: 'Unit', items: [{ label: 'General', href: '/org/alpha/settings/general', active: true }] },
+		{
+			label: 'Access',
+			items: [
+				{ label: 'Members', href: '/org/alpha/settings/members', count: { value: 2, label: '2 pending invitations' } }
+			]
+		}
+	];
+</script>
+
+<SectionNav
+	label="Unit settings"
+	{groups}
+	apart={{ label: 'Danger zone', href: '/org/alpha/settings/danger', tag: 'Owner' }}
+/>
+```
+
+Props are `label` (the navigation's accessible name), `groups` (`{ label, items }[]`) and `apart?` (one item). An item has `label`, `href`, `active?`, `count?` and `tag?`.
+
+- `count` is `{ value, label }` or a promise of one. It shows as an amber badge, because a count here is something waiting on the reader. Zero shows nothing. A pending promise shows a skeleton announced as count loading, and a rejection shows an outline dash announced as count unavailable. Assistive technology hears `label` in place of the value.
+- `tag` is a short mono label after the link text, such as `Owner`.
+- The active link carries `aria-current="page"`. Each group is a `group` named by its label.
+
+Place it as the first column of a `PageShell.Root` body (`md:grid-cols-[auto_minmax(0,1fr)]`) and the page content in the second. Routes pass items and do not restyle the nav.
+
+Consumers: the Organization settings shell.
 
 ---
 
@@ -230,9 +272,38 @@ Consumers: the Account and Organization settings shells, the person record layou
 
 ---
 
+## `patterns/draft-field`
+
+A settings field that saves on its own, such as the Features strength floor. `FieldDraft` holds the draft against the saved value. `DraftField.Root` is the field's panel and form. `DraftField.Status` states whether the draft is saved.
+
+```svelte
+<script lang="ts">
+	import * as DraftField from '$lib/components/patterns/draft-field';
+
+	const floor = new DraftField.FieldDraft<number | null>(() => settings.strengthFloorPercent);
+</script>
+
+<DraftField.Root draft={floor} id="strength-floor" name="strength floor" was="{floor.saved}%" save={saveFloor}>
+	{#snippet field(aria)}
+		<Field.Label for="strength-floor">Strength floor</Field.Label>
+		<InputGroup.Root class="w-24">
+			<InputGroup.Input id="strength-floor" type="number" bind:value={floor.value} {...aria} />
+			<InputGroup.Addon align="inline-end" variant="muted"><InputGroup.Text>%</InputGroup.Text></InputGroup.Addon>
+		</InputGroup.Root>
+	{/snippet}
+	The live sentence for the draft value.
+</DraftField.Root>
+```
+
+- `FieldDraft<T>(saved: () => T)`: `value` (bind the input to it), `saved`, `changed`, `saving`, `error`, `save(write)`, `undo()`. The draft follows the saved value until the user edits it. `save` runs one write at a time; a failed write keeps the draft and sets `error` to its message. A value typed while a save is in flight is kept when that save lands.
+- `Root` props: `draft`, `id` (prefixes `<id>-sentence` and `<id>-error`), `name` (completes the Save and Undo names, such as `Save strength floor`), `was` (the saved value as the status says it), `save` (writes the value and throws an `Error` whose message is shown), `inlineStatus?` (default true), the `field` snippet and children for the live sentence. The sentence sits in a `div`, so it can hold a `Skeleton` while part of it streams. `field` receives `aria-describedby` and `aria-invalid` to spread on the input. A changed draft turns the panel border amber and shows Undo and Save. The form is `novalidate`, so the server's field error shows under the field. After a save lands, focus moves from the removed Save button to the field.
+- `Status` props: `draft`, `was`. It reads `Unsaved · was <was>` in amber while the draft differs, otherwise `Saved`. `Root` shows it at the end of the panel. A row with a free control lane passes `inlineStatus={false}` and puts `DraftField.Status` in its `FactRow` `control` snippet instead.
+
+---
+
 ## `patterns/segmented-filter`
 
-`SegmentedFilter.Root` is a single-choice filter on `ui/toggle-group`. Pressing the chosen option again keeps it chosen. The group wraps onto a second line when the container is narrower than its options. Props: `options` (`{ value, label, count? }`, rendered `Label · N` when `count` is set), bindable `value`, `label` (names the group).
+`SegmentedFilter.Root` is a single-choice filter on `ui/radio-group` with `variant="segmented"`. Pressing the chosen option again keeps it chosen. The group wraps onto a second line when the container is narrower than its options. The group is a radio group with one Tab stop on the chosen option. Arrow keys move to the next or previous option and choose it, so a consumer's change runs on every press. Props: `options` (`{ value, label, count? }`, rendered `Label · N` when `count` is set), bindable `value`, `label` (names the group), `disabled?` (shows the chosen option but takes no input, such as an area whose feature the unit turned off), `describedBy?` (the id of visible help text for the choice).
 
 ---
 
@@ -860,10 +931,11 @@ Shared shadcn-svelte-backed dialog foundation for information, edit, form, and r
 
 Public components:
 
-- `AppDialog.Root`: controlled open state and dismissal policy. Props: `open?: boolean` (bindable), `busy?: boolean`, `closeBlocked?: boolean`, `onClose?: () => void`, plus shadcn dialog root props.
+- `AppDialog.Root`: controlled open state and dismissal policy. Props: `open?: boolean` (bindable), `busy?: boolean`, `closeBlocked?: boolean`, `onClose?: () => void`, `tone?: 'default' | 'destructive'`, plus shadcn dialog root props. `tone="destructive"` is for a confirmation that permanently destroys data, such as deleting a unit. It draws a 4px destructive top rule, sets the title as an uppercase heading, widens the padding and gives the footer a muted band.
 - `AppDialog.Content`: shared shell with close button, constrained viewport and mobile-safe width. It reads `busy` and `closeBlocked` from Root. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `showCloseButton?: boolean`, `presentation?: 'dialog' | 'sheet'`. `presentation="sheet"` renders the same dialog as a right-side `ui/sheet` with the same busy and close-blocked rules, for a long editor that benefits from the page staying visible. `size` applies only to the centered dialog. The built-in close button is named `Close`; set `showCloseButton={false}` whenever the footer shows its own `Close` button, so the dialog never offers two.
-- `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context.
+- `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context. `Header` takes `eyebrow?: string`, a short mono label above the title such as `Delete unit · Cannot be undone`; it reads in the destructive color under the destructive tone.
 - `AppDialog.Body`: scrollable dialog body. Put long content and forms here.
+- `AppDialog.TypeToConfirm`: the type-to-confirm field of a destructive dialog. Props: `id`, `phrase` (the exact text to type, shown as "Type <phrase> to confirm"), `matches` (the caller's comparison), `value` (bindable), `name?`. Until `matches` is true it shows and describes the field with "Keep typing. It has to match exactly." Keep the confirm button disabled until it matches. Delete unit, Transfer ownership and the Archives Delete use it.
 - `AppDialog.Footer`: sticky action area outside the scrollable body.
 
 Allowed route behavior knobs:
@@ -916,7 +988,9 @@ Consumers: confirmations in Calendar, Critical Tasks, Onboarding, Personnel, Rat
 
 ## `ui/button`
 
-Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `ghost-destructive` (a text button in `text-destructive-text` with no fill until hover, for a destructive action beside quieter ones, such as Delete in an Archives row or Clear month in the Calendar planner column menu), `destructive-solid`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+
+Use `variant="destructive-solid"` only for the action that permanently destroys a unit or its data, such as Danger zone `Delete unit…` and the `Delete permanently` confirmation. Every other destructive action keeps the soft `destructive` tint.
 
 Use `variant="accent"` for the filled amber call to action on the public site (nav Request Access, CTA and landing hero actions); it lightens on hover through `bg-accent-hover`.
 
@@ -1044,6 +1118,7 @@ Public components:
 - `Field.Control`: control slot wrapper that keeps shared controls full-width without route-local styling.
 - `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire the label with `for` or `aria-labelledby`. Each rendered Description and Error inside a `Field.Root` registers its ID (generated unless the caller passes `id`), and the contained `Input`, `Textarea`, `NativeSelect`, `Select.Trigger`, `Combobox.Trigger` and `DatePicker` add those IDs to `aria-describedby` and set `aria-invalid="true"` while an Error is shown. A caller's own `aria-describedby` IDs come first and a caller's `aria-invalid` wins. Popover content starts outside the Field, so a search box in a popup is not described by the trigger's Field. Registration happens on mount; a server-rendered form whose errors must be associated before hydration still wires its IDs explicitly, as `AuthField` does.
 - `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `NativeSelect.Root/Option/OptGroup`, `Checkbox` and `RadioGroup.Root/Item` are the shared controls.
+- `RadioGroup.Root variant="segmented"` draws its items as one muted track with the chosen item raised, using the shared `toggle` variants. Items take their label as children. `patterns/segmented-filter` is its consumer.
 
 Rules:
 
@@ -1344,13 +1419,17 @@ Exports:
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `rowHidden?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`, `variant?: 'framed' | 'editorial'`, `stacked?: boolean`, `pageLabels?: { previous: string; next: string; range?: ({ first, last, total }) => string }` (pager button text, default `Previous` and `Next`; `range` replaces the editorial range line)
+
+`variant="editorial"` drops the card frame and fill so the table reads as ruled rows on the page, flush with the section rule above it. Its pager is a plain row range such as `1–25 of 100` beside the two page buttons, without chevrons. Organization Ranks and Members use it under a ruled `SectionHeader`. Organization Logs pages its entries 25 at a time with `pageLabels={{ previous: 'Newer', next: 'Older' }}` and opens each day with a header row from its `row` snippet. When the unit has more entries than it loaded, its `range` reads `1–25 of the latest 100`.
+
+`stacked` lets an editorial table turn its rows into lines when the table itself is narrower than 42rem, which covers phones and the settings body beside the app sidebar on laptops. The header row becomes a line of its sort controls. In each body row the cells flow inline and wrap, and the flexible column (`maxWidth: 'none'`, or `data-max-width="none"` on a `row` snippet's cell) takes a line of its own. Organization Logs reads as time and area, then the event sentence, then the actor. Nothing scrolls sideways, so a stacked table needs no `scrollRegionLabel`.
 
 Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it. `Table.Root` also takes `containerClass`, merged into that scroll container's classes, for a table that scrolls vertically inside its own region, such as the Monthly Assignment Planner's `max-h-[calc(100dvh-15rem)] min-h-64 overflow-y-auto`; `class` still styles the `table` element.
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `rowDetail?: (row: T)`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
-`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `maxWidth?`, `rowHeader?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell. Body cells are capped at 20rem and wrap; `maxWidth: 'none'` lifts the cap for a column whose content sets its own width, such as Roster Picker's availability day strip.
+`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `maxWidth?`, `rowHeader?`, `hiddenBelow?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell. `hiddenBelow: 'md'` hides the column's header and cells below 768 px with CSS. `hiddenBelow: '@3xl'` hides them while the table itself is narrower than 48rem, which is the right test for a table beside the app sidebar and a section nav. Use either instead of swapping columns on a media query, which renders the wide layout on the server and shifts on a narrow screen; carry the hidden values in another cell that shows at the same size (`@3xl/data-table:hidden` for the container case). Organization Archives uses `'@3xl'`. Body cells are capped at 20rem and wrap; `maxWidth: 'none'` lifts the cap for a column whose content sets its own width, such as Roster Picker's availability day strip.
 
 `DataTableState<T>` provides: `columns`, `rows`, `allRows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `setPageSize()`, `toggleGroup()`, `expandAll()`, `collapseAll()`, `getRowKey()`, `isRowDisabled()`
 
@@ -1382,6 +1461,7 @@ Route configuration rules:
 - Routes may configure data, columns, cell snippets, labels, row actions, disabled states, expandable row details, filters, search, pagination, grouping, row click handlers, and bulk actions.
 - Routes may not override visual appearance through route-local Tailwind classes, CSS selectors, arbitrary spacing/color/radius values, or table-specific wrapper styling.
 - If a table needs a new durable visual state or behavior primitive, add it under `src/lib/components/ui/data-table/**`, document it here and verify the affected tables.
+- Use `rowHidden` for a filter the user changes as they type, on a table without a `row` snippet, `pageSize` or `groupBy`. Hidden rows stay mounted, so clearing the filter does not rebuild every row. The empty state shows when every row is hidden.
 - Use `RowActions` for dropdown row commands and `SelectionCheckbox` plus `useDataTableSelection` for selectable rows.
 - Mark action/display-only columns with `sortable: false` and `searchable: false`.
 - Provide `rowActionLabel` whenever rows are clickable so keyboard and screen-reader users get a clear action name.

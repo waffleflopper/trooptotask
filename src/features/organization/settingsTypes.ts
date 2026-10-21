@@ -1,3 +1,4 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type {
 	OrganizationCriticalTasksDefaults,
 	OrganizationSettingsMembershipRow,
@@ -10,6 +11,14 @@ export interface OrganizationPolicySettings {
 	archiveRetentionMonths?: number | null;
 	lossWarningWindowDays?: number | null;
 	trainingReadinessGoalPercent: number;
+	strengthFloorPercent: number;
+}
+
+export interface OrganizationFeatureSettings {
+	disabledFeatures: FeatureKey[];
+	strengthFloorPercent: number;
+	/** The stored array as read, which a switch write must still find to apply. */
+	storedDisabledFeatures: readonly string[];
 }
 
 export interface OrganizationTrainingBriefingContext {
@@ -21,7 +30,8 @@ export interface OrganizationTrainingBriefingContext {
 export interface OrganizationSettingsReader {
 	findCriticalTasksDefaults(orgId: string): Promise<OrganizationCriticalTasksDefaults | null>;
 	listMemberAccess(orgId: string): Promise<OrganizationSettingsMembershipRow[]>;
-	listInvitations(orgId: string): Promise<OrganizationSettingsInvitationRow[]>;
+	/** `closed` is every invitation whose status left `pending`; a pending invitation past its expiry is still `pending`. */
+	listInvitations(orgId: string, status: 'pending' | 'closed'): Promise<OrganizationSettingsInvitationRow[]>;
 	listInvitationDeliveries(orgId: string): Promise<OrganizationSettingsInvitationDeliveryRow[]>;
 	listOwnershipCandidateMemberships(orgId: string): Promise<OrganizationOwnershipCandidateMembershipRow[]>;
 	findMemberLabels(orgId: string, userIds: string[]): Promise<Map<string, string>>;
@@ -38,18 +48,39 @@ export interface OrganizationPolicyChanges {
 	lossWarningWindowDays?: number;
 	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapBytes?: number;
+	disabledFeatures?: FeatureKey[];
+	strengthFloorPercent?: number;
 }
 
 export interface OrganizationPolicyWritePort {
-	/** Null means the canonical Organization and every submitted value were acknowledged. */
-	updatePolicies(orgId: string, changes: OrganizationPolicyChanges): Promise<string | null>;
+	/** The values an audited switch or floor change replaces. */
+	findFeatureSettings(orgId: string): Promise<OrganizationFeatureSettings | null>;
+	/**
+	 * With `ifDisabledFeatures`, the write applies only while the stored switches still equal it,
+	 * and answers `stale` when another write changed them first.
+	 */
+	updatePolicies(
+		orgId: string,
+		changes: OrganizationPolicyChanges,
+		ifDisabledFeatures?: readonly string[]
+	): Promise<PolicyWriteResult>;
 }
+
+export type PolicyWriteResult = { status: 'saved' } | { status: 'stale' } | { status: 'failed'; message: string };
 
 export interface OrganizationSettingsInput {
 	archiveRetentionMonths?: number;
 	lossWarningWindowDays?: number;
 	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapMb?: number;
+	featureSwitch?: FeatureSwitchChange;
+	strengthFloorPercent?: number;
+}
+
+/** Turns one feature on or off for the unit and leaves the other switches as stored. */
+export interface FeatureSwitchChange {
+	feature: FeatureKey;
+	on: boolean;
 }
 
 export interface OrganizationRetentionConfiguration {

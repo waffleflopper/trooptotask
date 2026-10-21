@@ -1,70 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { createSettingsMemberAccessWorkspace } from '$features/organization';
-import type { SettingsMembersSectionData } from '$features/organization/contracts';
 import type { SettingsArchivesSectionData } from './settingsSectionTypes';
 import { createSettingsArchivedPersonnelState } from './settingsWorkspaceState.svelte';
 
-const capabilityMap = {
-	calendar: 'configure',
-	personnel: 'configure',
-	training: 'configure',
-	criticalTasks: 'configure',
-	onboarding: 'configure',
-	ratingScheme: 'configure'
-} as const;
-
 type SettingsStateTestData = {
-	currentMember: { isOwner: boolean };
 	sections: {
-		members: SettingsMembersSectionData;
 		archivedPersonnel: SettingsArchivesSectionData;
 	};
 };
 
 function makeSettingsData(): SettingsStateTestData {
 	return {
-		currentMember: {
-			isOwner: true
-		},
 		sections: {
-			members: {
-				rows: [
-					{
-						id: 'member-1',
-						organizationId: 'org-1',
-						userId: 'user-1',
-						email: 'member@example.com',
-						membershipRole: 'member',
-						createdAt: '2026-05-20T12:00:00Z',
-						access: {
-							memberPreset: 'editor',
-							capabilityMap,
-							scopeSet: { kind: 'organization' },
-							organizationGovernanceActions: []
-						},
-						editor: {
-							selectedPreset: 'editor',
-							scopeKind: 'organization',
-							scopeGroupIds: [],
-							availablePresetOptions: [],
-							availableGroups: []
-						},
-						accessBadge: 'editor',
-						scopeDisplayLabel: 'All groups',
-						overriddenCapabilityLabels: []
-					}
-				],
-				invitations: [],
-				invitationHistory: [],
-				groups: [],
-				roleCounts: { owner: 0, admin: 0, member: 1 },
-				memberRoleSummary: '0 Owners · 0 Admins · 1 Member',
-				pendingApprovalSummary: { count: 0, oldestCreatedAt: null },
-				availableAccessLanes: [],
-				capabilityOptions: [],
-				canInvite: true,
-				canManageMemberAccess: true
-			},
 			archivedPersonnel: {
 				rows: [
 					{
@@ -95,22 +41,6 @@ function makeSettingsData(): SettingsStateTestData {
 }
 
 describe('settings workspace state', () => {
-	it('composes member editor state from Members section data', () => {
-		const data = makeSettingsData();
-		const state = createSettingsMemberAccessWorkspace({
-			members: data.sections.members.rows,
-			invitations: data.sections.members.invitations,
-			groups: data.sections.members.groups,
-			isOwner: data.currentMember.isOwner
-		});
-		const member = state.sortedMembers[0];
-
-		state.openMemberEditor(member);
-
-		expect(state.memberEditorId).toBe('member-1');
-		expect(state.getSelectedPreset(member)).toBe('editor');
-	});
-
 	it('owns archived personnel delete confirmation command state from Archives section data', () => {
 		const state = createSettingsArchivedPersonnelState(makeSettingsData().sections.archivedPersonnel);
 		const archivedPerson = state.rows[0];
@@ -131,26 +61,5 @@ describe('settings workspace state', () => {
 
 		expect(state.confirmPermanentDelete).toBeNull();
 		expect(state.permanentDeleteConfirmText).toBe('');
-	});
-
-	it('owns member capability edits while the editor is open', () => {
-		const data = makeSettingsData();
-		const state = createSettingsMemberAccessWorkspace({
-			members: data.sections.members.rows,
-			invitations: data.sections.members.invitations,
-			groups: data.sections.members.groups,
-			isOwner: data.currentMember.isOwner
-		});
-		const member = state.sortedMembers.find((row) => row.id === 'member-1');
-		expect(member).toBeTruthy();
-
-		state.openMemberEditor(member!);
-		state.setMemberCapability(member!.id, 'calendar', 'view');
-
-		expect(state.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('view');
-
-		state.closeMemberEditor(member!.id);
-
-		expect(state.getEditorCapabilityValue(member!, 'calendar', 'editor')).toBe('configure');
 	});
 });

@@ -47,7 +47,8 @@ import {
 	createSupabaseOrganizationMemberEmailsReader,
 	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationRawExportReader,
-	createSupabaseOrganizationSettingsReader
+	createSupabaseOrganizationSettingsReader,
+	createSupabaseOrganizationUnitCountsPort
 } from '$features/organization/index.server';
 import {
 	createSupabasePersonnelExportReader,
@@ -83,6 +84,7 @@ import {
 	createSupabaseSignInRosterScanPort
 } from '$features/sign-in-rosters/index.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import {
 	createSupabaseAuditExportReader,
 	createSupabaseAuditAdapter,
@@ -107,7 +109,11 @@ import {
 	createSupabaseOnboardingCatalogPersistence,
 	createSupabaseOnboardingWorkflowPersistence
 } from '$features/onboarding/index.server';
-import { loadPersonnelDocumentStorageCapBytes, requireActiveOrganization } from '$features/organization/index.server';
+import {
+	loadPersonnelDocumentStorageCapBytes,
+	requireActiveOrganization,
+	type ActiveOrganization
+} from '$features/organization/index.server';
 import type { LeaderNoteContext, PersonnelArtifactsContext } from '$features/personnel/index.server';
 
 import { readOrganizationMembershipForRequest } from '$features/organization/index.server';
@@ -124,6 +130,8 @@ export interface AdmittedOrganizationRequest {
 	readonly supabase: SupabaseClient;
 	readonly session: Session | null;
 	readonly scope: PersonnelScopeEnforcement;
+	/** Read with the active Organization row, so consumers of a switch add no query. */
+	readonly disabledFeatures: readonly FeatureKey[];
 }
 
 export type RequestContextBuilder<TContext> = (request: AdmittedOrganizationRequest) => TContext;
@@ -137,38 +145,40 @@ async function createOrganizationRequest(
 	locals: App.Locals,
 	supabase: SupabaseClient,
 	userId: string,
-	orgId: string,
+	organization: ActiveOrganization,
 	audit: AuditPort
 ): Promise<AdmittedOrganizationRequest> {
+	const orgId = organization.id;
 	const membership = await getOrLoadRequestMembership(locals, userId, orgId, () =>
 		readOrganizationMembershipForRequest(supabase, userId, orgId)
 	);
-	const auth = projectOrganizationAccessGrant(membership, userId, orgId);
+	const auth = projectOrganizationAccessGrant(membership, userId, orgId, organization);
 	return {
 		auth,
 		audit,
 		supabase,
 		session: locals.session,
-		scope: createSupabaseScopeEnforcementAdapter({ supabase, orgId, scopeSet: auth.scopeSet })
+		scope: createSupabaseScopeEnforcementAdapter({ supabase, orgId, scopeSet: auth.scopeSet }),
+		disabledFeatures: organization.disabledFeatures
 	};
 }
 
 export async function buildRouteRequest(event: RequestEvent): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(event.locals);
-	const orgId = await requireActiveOrganization(event.locals, event.params.orgId as string);
+	const organization = await requireActiveOrganization(event.locals, event.params.orgId as string);
 	return createOrganizationRequest(
 		event.locals,
 		supabase,
 		userId,
-		orgId,
-		createSupabaseAuditAdapter(orgId, getRequestInfo(event))
+		organization,
+		createSupabaseAuditAdapter(organization.id, getRequestInfo(event))
 	);
 }
 
 export async function buildLayoutRequest(locals: App.Locals, orgId: string): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(locals);
-	const canonicalOrgId = await requireActiveOrganization(locals, orgId);
-	return createOrganizationRequest(locals, supabase, userId, canonicalOrgId, { log() {} });
+	const organization = await requireActiveOrganization(locals, orgId);
+	return createOrganizationRequest(locals, supabase, userId, organization, { log() {} });
 }
 
 export function createRequestPersonnelArtifactsContext(
@@ -465,7 +475,8 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: request.auth, rankCatalog: rankCatalog }),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase),
-		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 
@@ -506,7 +517,8 @@ export function createRequestPersonnelReadinessContext(request: AdmittedOrganiza
 		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		findPersonNames: (ids: string[]) => personnel.findDisplayNamesByIds(ids),
-		loadLossWarningWindowDays: () => organizationSettings.findLossWarningWindowDays(request.auth.orgId)
+		loadLossWarningWindowDays: () => organizationSettings.findLossWarningWindowDays(request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 
@@ -587,7 +599,8 @@ export function createRequestCalendarWorkspaceContext(request: AdmittedOrganizat
 	return {
 		...createRequestCalendarRangeContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
-		onboardingCalendarMarkers: createSupabaseOnboardingCalendarMarkersPort(request.supabase)
+		onboardingCalendarMarkers: createSupabaseOnboardingCalendarMarkersPort(request.supabase),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 
@@ -706,6 +719,16 @@ export function createRequestGettingStartedContext(request: AdmittedOrganization
 	};
 }
 
+export function createRequestUnitCountsContext(request: AdmittedOrganizationRequest) {
+	return {
+		unitCounts: createSupabaseOrganizationUnitCountsPort(
+			request.supabase,
+			request.auth.orgId,
+			createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
+		)
+	};
+}
+
 export function createRequestDashboardWorkspaceContext(request: AdmittedOrganizationRequest) {
 	return {
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
@@ -717,7 +740,8 @@ export function createRequestDashboardWorkspaceContext(request: AdmittedOrganiza
 			request.supabase,
 			createSupabasePersonnelRatingSchemeRosterPort(request.supabase, getAdminClient)
 		),
-		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase)
+		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 

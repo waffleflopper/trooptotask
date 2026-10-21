@@ -23,13 +23,21 @@ describe('SupabaseAuditAdapter', () => {
 		mockAuditLog.mockResolvedValue(undefined);
 	});
 
-	it('swallows errors from auditLog (fire-and-forget)', () => {
-		mockAuditLog.mockRejectedValue(new Error('DB down'));
+	it('settles only after the write, and swallows its failure', async () => {
+		let failWrite!: (error: Error) => void;
+		mockAuditLog.mockReturnValue(
+			new Promise((_, reject) => {
+				failWrite = reject;
+			})
+		);
 
-		const audit = createSupabaseAuditAdapter(orgId, requestInfo);
+		const settled = createSupabaseAuditAdapter(orgId, requestInfo).log({
+			action: 'create',
+			resourceType: 'personnel'
+		}) as Promise<void>;
 
-		expect(() => {
-			audit.log({ action: 'create', resourceType: 'personnel' });
-		}).not.toThrow();
+		expect(await Promise.race([settled, Promise.resolve('pending')])).toBe('pending');
+		failWrite(new Error('DB down'));
+		await expect(settled).resolves.toBeUndefined();
 	});
 });

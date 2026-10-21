@@ -2,7 +2,6 @@ import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
 import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
-import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 
 export type SettingsArchivedPersonnelRow = {
 	id: string;
@@ -28,15 +27,6 @@ export type SettingsArchivesSectionData = {
 		canExport: boolean;
 		canPermanentlyDelete: boolean;
 	};
-};
-
-export type SettingsActivityData = {
-	pendingApprovalsCount: number;
-	approvalRequests: DeletionRequestApproval[];
-};
-
-export type SettingsApprovalsSectionData = {
-	activity: SettingsActivityData;
 };
 
 export type SettingsCurrentMemberData = {
@@ -75,6 +65,7 @@ export type SettingsRankCatalogRow = {
 	sourceLabel: string;
 	sortOrder: number;
 	referenceSummary: OrganizationRankCatalogReferenceSummary;
+	/** What the rank's references mean for removing it, one sentence each. */
 	warnings: string[];
 	commands: {
 		canEdit: boolean;
@@ -115,11 +106,9 @@ export type RanksSettingsData = {
 };
 
 export interface LogsSettingsData {
-	sections: {
-		logs: SettingsLogsSectionData;
-	};
-}
-
-export interface SettingsLogsSectionData {
-	auditLogPage: AuditLogQueryResult;
+	auditLog: AuditLogQueryResult;
+	/** The viewer's IANA time zone; day heads and clock times use it so server and browser render the same text. */
+	timeZone: string;
+	/** "YYYY-MM-DD" in `timeZone` when the page loaded. */
+	today: string;
 }

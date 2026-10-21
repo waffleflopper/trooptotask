@@ -47,6 +47,17 @@ describe('loadPersonnelLossReadiness', () => {
 		});
 	});
 
+	it('reports plain dates with no window when the unit turned Losses and awards off', async () => {
+		const { ctx, person } = await personWith({ ets: '2027-03-14', deros: '2027-06-01' });
+
+		await expect(loadPersonnelLossReadiness(ctx, person, AS_OF, null)).resolves.toEqual({
+			windowDays: null,
+			ets: { date: '2027-03-14', daysRemaining: 159 },
+			deros: { date: '2027-06-01', daysRemaining: 238 },
+			inWindow: null
+		});
+	});
+
 	it('fails rather than guessing when the window setting cannot be read', async () => {
 		const { ctx, person } = await personWith({ ets: '2027-03-14', deros: null });
 

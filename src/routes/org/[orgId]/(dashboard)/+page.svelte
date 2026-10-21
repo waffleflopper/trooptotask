@@ -95,6 +95,7 @@
 			orgName: data.shell.org.name,
 			userId: shell?.user.id ?? null,
 			userRole: shell?.member.role,
+			disabledFeatures: shell?.org.disabledFeatures ?? [],
 			dashboard,
 			trainingSummary: summary.trainingSummary,
 			ictlSummary: summary.ictlSummary,

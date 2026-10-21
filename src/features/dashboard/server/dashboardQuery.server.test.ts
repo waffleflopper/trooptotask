@@ -6,16 +6,23 @@ import {
 } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { createQueryPortsContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { fetchDashboardBootstrap } from './dashboardQuery.server';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 
 const ORG = 'test-org';
 const USER = 'user-1';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): ReturnType<
-	typeof createQueryPortsContext
-> & {
+function buildCtx(overrides?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	disabledFeatures?: FeatureKey[];
+}): ReturnType<typeof createQueryPortsContext> & {
 	store: ReturnType<typeof createQueryPortsContext>['store'];
 } {
-	return createQueryPortsContext(withOnboardingPersistence({ auth: { orgId: ORG, userId: USER, ...overrides?.auth } }));
+	return createQueryPortsContext(
+		withOnboardingPersistence({
+			auth: { orgId: ORG, userId: USER, ...overrides?.auth },
+			disabledFeatures: overrides?.disabledFeatures
+		})
+	);
 }
 
 describe('Dashboard packet read', () => {
@@ -112,11 +119,12 @@ describe('fetchDashboardBootstrap', () => {
 		'keeps an early %s failure handled while eager reads are pending, then exposes it to the consumer',
 		async (table, field) => {
 			const ctx = buildCtx();
-			let release!: (days: number) => void;
-			ctx.organizationSettings.findLossWarningWindowDays = () =>
-				new Promise<number>((resolve) => {
+			let release!: () => void;
+			const findPolicies = ctx.organizationSettings.findPolicies.bind(ctx.organizationSettings);
+			ctx.organizationSettings.findPolicies = (orgId) =>
+				new Promise<void>((resolve) => {
 					release = resolve;
-				});
+				}).then(() => findPolicies(orgId));
 			const findMany = ctx.store.findMany.bind(ctx.store);
 			const reads: string[] = [];
 			vi.spyOn(ctx.store, 'findMany').mockImplementation((name, ...args) => {
@@ -126,7 +134,7 @@ describe('fetchDashboardBootstrap', () => {
 			const bootstrap = fetchDashboardBootstrap(ctx);
 			await new Promise<void>((resolve) => setImmediate(resolve));
 			expect(reads).toEqual(expect.arrayContaining(['availability_entries', 'daily_assignments']));
-			release(90);
+			release();
 			const data = await bootstrap;
 			await expect(data[field]).rejects.toThrow('Deferred source unavailable');
 		}
@@ -201,18 +209,20 @@ describe('fetchDashboardBootstrap', () => {
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 	});
 
-	it.each([0, null] as const)('preserves configured zero and missing-setting defaults (%s)', async (value) => {
+	it.each([
+		[0, 0],
+		[null, 180]
+	] as const)('reads a configured loss warning window of %s as %s days', async (value, expected) => {
 		const ctx = buildCtx();
-		ctx.organizationSettings.findLossWarningWindowDays = async () => {
-			return value;
-		};
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('organizations', [{ id: ORG, loss_warning_window_days: value }]);
 		const data = await fetchDashboardBootstrap(ctx);
-		expect(data.lossWarningWindowDays).toBe(value === 0 ? 0 : 180);
+		expect(data.lossWarningWindowDays).toBe(expected);
 	});
 
 	it('preserves a loss-setting provider failure instead of inventing a warning window', async () => {
 		const ctx = buildCtx();
-		ctx.organizationSettings.findLossWarningWindowDays = async () => {
+		ctx.organizationSettings.findPolicies = async () => {
 			throw new Error('Settings unavailable');
 		};
 		await expect(fetchDashboardBootstrap(ctx)).rejects.toThrow('Settings unavailable');
@@ -263,6 +273,49 @@ describe('fetchDashboardBootstrap', () => {
 		const result = await fetchDashboardBootstrap(ctx);
 
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p-1']);
+	});
+
+	it('skips the reads of each feature the unit has turned off', async () => {
+		const ctx = buildCtx({ disabledFeatures: ['training', 'evaluations', 'onboarding', 'lossesAndAwards'] });
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('organizations', [{ id: ORG, loss_warning_window_days: 90, strength_floor_percent: 70 }]);
+		store.seed('training_types', [{ id: 't1', organization_id: ORG, name: 'Annual', sort_order: 0 }]);
+		store.seed('personnel_onboardings', [
+			{ id: 'po1', organization_id: ORG, personnel_id: 'p1', status: 'in_progress', onboarding_step_progress: [] }
+		]);
+		store.seed('personnel_extended_info', [
+			{ id: 'ext-1', organization_id: ORG, personnel_id: 'p1', award_tracking_acknowledged_at: '2026-04-14T12:00:00Z' }
+		]);
+		ctx.ratingSchemeDue = {
+			listDueEntries: async () => {
+				throw new Error('Evaluations are off for this unit');
+			}
+		};
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		const reads: string[] = [];
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((name, ...args) => {
+			reads.push(name);
+			return findMany(name, ...args);
+		});
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(reads).not.toContain('personnel_onboardings');
+		expect(reads).not.toContain('training_types');
+		expect(result).toMatchObject({
+			ratingSchemeEntries: [],
+			activeOnboardings: [],
+			trainingTypes: [],
+			awardTrackingAcknowledgedPersonnelIds: [],
+			lossWarningWindowDays: 90,
+			strengthFloorPercent: 70
+		});
+	});
+
+	it('defaults the strength floor to 80 percent', async () => {
+		const result = await fetchDashboardBootstrap(buildCtx());
+
+		expect(result.strengthFloorPercent).toBe(80);
 	});
 
 	it('filters onboardings at query time', async () => {

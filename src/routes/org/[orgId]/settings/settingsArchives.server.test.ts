@@ -4,16 +4,16 @@ import { loadArchivesSettings } from './settingsArchives.server';
 
 describe('loadArchivesSettings', () => {
 	it.each([0, null, 'failure'] as const)(
-		'retains retention zero/default and propagates read failures (%s)',
+		'reads missing or zero retention as the 36-month default and propagates read failures (%s)',
 		async (value) => {
 			const ctx = createQueryWithRawStorePortsContext();
 			ctx.organizationSettings.findArchiveRetentionMonths = async () => {
 				if (value === 'failure') throw new Error('Retention unavailable');
 				return value;
 			};
-			const pending = loadArchivesSettings(ctx, { isAdmin: false });
+			const pending = loadArchivesSettings(ctx, { isAdmin: false, timeZone: 'UTC' });
 			if (value === 'failure') await expect(pending).rejects.toThrow('Retention unavailable');
-			else expect((await pending).sections.archivedPersonnel.retention.months).toBe(value === 0 ? 0 : 36);
+			else expect((await pending).sections.archivedPersonnel.retention.months).toBe(36);
 		}
 	);
 
@@ -65,7 +65,7 @@ describe('loadArchivesSettings', () => {
 			}
 		]);
 
-		const settings = await loadArchivesSettings(ctx, { isAdmin: false });
+		const settings = await loadArchivesSettings(ctx, { isAdmin: false, timeZone: 'UTC' });
 		expect(settings.sections.archivedPersonnel.rows.map((person) => person.id)).toEqual(['newer', 'older']);
 	});
 });

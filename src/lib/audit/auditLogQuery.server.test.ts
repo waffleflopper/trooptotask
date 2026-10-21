@@ -1,15 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { fetchAuditLogs as queryAuditLogs } from './auditLogQuery.server';
+import { fetchAuditLogs as queryAuditLogs, fetchLatestAuditEvent, type AuditLabelReads } from './auditLogQuery.server';
 import type { AuditLogQueryInput } from './contracts';
 import { createInMemoryOrganizationAuditStore } from './inMemoryOrganizationAudit';
 
-function fetchAuditLogs(
-	ctx: ReturnType<typeof createQueryPortsContext>,
-	store: ReturnType<typeof createInMemoryDataStore>,
-	input: AuditLogQueryInput
-) {
-	const orgId = ctx.auth.orgId;
+function labelReads(store: ReturnType<typeof createInMemoryDataStore>, orgId: string): AuditLabelReads {
 	const names = async (table: string, ids: string[]) => {
 		if (!ids.length) return new Map<string, string>();
 		const rows = await store.findMany<Record<string, unknown>>(table, orgId, undefined, { inFilters: { id: ids } });
@@ -22,7 +17,7 @@ function fetchAuditLogs(
 			])
 		);
 	};
-	return queryAuditLogs(orgId, createInMemoryOrganizationAuditStore(store), input, {
+	return {
 		personnelNames: (ids) => names('personnel', ids),
 		trainingTypeNames: (ids) => names('training_types', ids),
 		statusTypeNames: (ids) => names('status_types', ids),
@@ -40,7 +35,21 @@ function fetchAuditLogs(
 					.map((row) => [row.user_id, row.email])
 			);
 		}
-	});
+	};
+}
+
+function fetchAuditLogs(
+	ctx: ReturnType<typeof createQueryPortsContext>,
+	store: ReturnType<typeof createInMemoryDataStore>,
+	input: Omit<AuditLogQueryInput, 'recentSince'> & { recentSince?: string }
+) {
+	const orgId = ctx.auth.orgId;
+	return queryAuditLogs(
+		orgId,
+		createInMemoryOrganizationAuditStore(store),
+		{ recentSince: '2026-04-01T00:00:00Z', ...input },
+		labelReads(store, orgId)
+	);
 }
 
 const ORG = 'test-org';
@@ -321,31 +330,28 @@ describe('fetchAuditLogs', () => {
 		expect(result.availableActions).toEqual(['personnel.create', 'training.update']);
 	});
 
-	it('computes last-30-days count with excluded actions and without selected action filtering', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-04-27T12:00:00Z'));
+	it('counts entries since the given instant with excluded actions and without selected action filtering', async () => {
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [
 			auditLog({ id: 'recent-create', action: 'personnel.create', timestamp: '2026-04-20T10:00:00Z' }),
 			auditLog({ id: 'recent-training', action: 'training.update', timestamp: '2026-04-19T10:00:00Z' }),
-			auditLog({ id: 'recent-auth', action: 'auth.login_success', timestamp: '2026-04-18T10:00:00Z' }),
+			auditLog({ id: 'recent-auth', action: 'auth.login_success', timestamp: '2026-04-21T10:00:00Z' }),
 			auditLog({ id: 'older-create', action: 'personnel.create', timestamp: '2026-03-01T10:00:00Z' })
 		]);
 
 		const result = await fetchAuditLogs(ctx, adminStore, {
 			page: 1,
 			limit: 10,
-			action: 'personnel.create'
+			action: 'personnel.create',
+			recentSince: '2026-04-19T10:00:00Z'
 		});
 
 		expect(result.logs.map((log) => log.id)).toEqual(['recent-create', 'older-create']);
 		expect(result.totalCount).toBe(2);
-		expect(result.last30DaysCount).toBe(2);
+		expect(result.recentCount).toBe(2);
 		expect(result.availableActions).toEqual(['personnel.create', 'training.update']);
-
-		vi.useRealTimers();
 	});
 
 	it('does not leak logs from other organizations through the paged path', async () => {
@@ -370,8 +376,6 @@ describe('fetchAuditLogs', () => {
 	});
 
 	it('returns an empty selected page when the action filter is excluded', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-04-27T12:00:00Z'));
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
@@ -388,10 +392,8 @@ describe('fetchAuditLogs', () => {
 
 		expect(result.logs).toEqual([]);
 		expect(result.totalCount).toBe(0);
-		expect(result.last30DaysCount).toBe(1);
+		expect(result.recentCount).toBe(1);
 		expect(result.availableActions).toEqual(['personnel.create']);
-
-		vi.useRealTimers();
 	});
 });
 
@@ -490,6 +492,73 @@ describe('Audit disclosure and incomplete counts', () => {
 
 		expect(result.logs).toHaveLength(2);
 		expect(result.totalCount).toBe(0);
-		expect(result.last30DaysCount).toBe(0);
+		expect(result.recentCount).toBe(0);
+	});
+});
+
+describe('fetchLatestAuditEvent', () => {
+	const latestRename = (store: ReturnType<typeof createInMemoryDataStore>) =>
+		fetchLatestAuditEvent(ORG, createInMemoryOrganizationAuditStore(store), 'org.renamed', labelReads(store, ORG));
+
+	it('returns the newest entry for the action with its actor', async () => {
+		const store = createInMemoryDataStore();
+		store.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'first@example.com' },
+			{ id: 'm2', organization_id: ORG, user_id: 'u2', email: 'second@example.com' }
+		]);
+		store.seed('audit_logs', [
+			{
+				id: 'a',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'org.renamed',
+				details: { name: 'Alpha' },
+				timestamp: '2026-03-01T10:00:00Z'
+			},
+			{
+				id: 'b',
+				org_id: ORG,
+				user_id: 'u2',
+				action: 'org.renamed',
+				details: { name: 'Bravo' },
+				timestamp: '2026-03-14T10:00:00Z'
+			},
+			{
+				id: 'c',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'org.url_slug_updated',
+				details: null,
+				timestamp: '2026-03-20T10:00:00Z'
+			},
+			{
+				id: 'd',
+				org_id: 'other-org',
+				user_id: 'u1',
+				action: 'org.renamed',
+				details: null,
+				timestamp: '2026-04-01T10:00:00Z'
+			}
+		]);
+
+		const entry = await latestRename(store);
+
+		expect(entry).toMatchObject({ id: 'b', actor: 'second@example.com', createdAt: '2026-03-14T10:00:00Z' });
+	});
+
+	it('returns null when no entry for the action remains', async () => {
+		const store = createInMemoryDataStore();
+		store.seed('audit_logs', [
+			{
+				id: 'c',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'org.url_slug_updated',
+				details: null,
+				timestamp: '2026-03-20T10:00:00Z'
+			}
+		]);
+
+		expect(await latestRename(store)).toBeNull();
 	});
 });

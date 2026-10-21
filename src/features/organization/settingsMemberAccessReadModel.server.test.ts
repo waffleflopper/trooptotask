@@ -124,6 +124,26 @@ describe('settings member access read model', () => {
 		expect(owner.access.organizationGovernanceActions).toContain('organization.deleteOrganization');
 	});
 
+	it('keeps the stored levels of an admin whose effective access is Manage everywhere', () => {
+		const admin = buildSettingsMemberAccessRow({
+			id: 'admin-1',
+			organization_id: 'org-1',
+			user_id: 'admin-user',
+			email: 'admin@example.com',
+			role: 'admin',
+			created_at: '2026-05-20T12:00:00Z',
+			...replacementAccessRow,
+			member_preset: 'editor',
+			capability_overrides: { training: 'view' },
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		});
+
+		expect(admin.access.capabilityMap.training).toBe('configure');
+		expect(admin.storedLevels.training).toBe('view');
+		expect(admin.storedLevels.calendar).toBe('configure');
+	});
+
 	it('translates a replacement invitation row into shaped pending access', () => {
 		const invitation = buildSettingsInvitationAccessRow({
 			id: 'invite-1',

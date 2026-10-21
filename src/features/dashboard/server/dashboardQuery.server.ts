@@ -1,6 +1,7 @@
-import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
+import { DEFAULT_LOSS_WARNING_WINDOW_DAYS, DEFAULT_STRENGTH_FLOOR_PERCENT } from '$features/organization/contracts';
 import type { DashboardBootstrap } from '../contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { CalendarCatalogPersistence } from '$features/calendar/contracts';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
@@ -31,9 +32,10 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes'>;
 		onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listSavedActivePackets'>;
 		trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
-		organizationSettings: Pick<OrganizationSettingsReader, 'findLossWarningWindowDays'>;
+		organizationSettings: Pick<OrganizationSettingsReader, 'findPolicies'>;
 		ratingSchemeDue?: RatingSchemeDuePort;
 		personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
+		disabledFeatures: readonly FeatureKey[];
 	};
 
 async function loadRatingSchemeDueEntries(ctx: DashboardQueryContext): Promise<RatingSchemeDueEntry[]> {
@@ -52,6 +54,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 	// original promises still reject, so hydration can show the source error.
 	void availabilityEntries.catch(() => undefined);
 	void todayAssignments.catch(() => undefined);
+	const isOff = (feature: FeatureKey) => ctx.disabledFeatures.includes(feature);
 
 	const [
 		assignmentTypes,
@@ -62,23 +65,24 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		groups,
 		statusTypes,
 		trainingTypes,
-		warningWindow,
+		policies,
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
 		listAssignmentTypes(ctx.calendarCatalogs),
 		ctx.selfPins.listNames(),
-		loadRatingSchemeDueEntries(ctx),
-		ctx.onboardingWorkflow.listSavedActivePackets(),
+		isOff('evaluations') ? [] : loadRatingSchemeDueEntries(ctx),
+		isOff('onboarding') ? [] : ctx.onboardingWorkflow.listSavedActivePackets(),
 		ctx.roster.list({ status: 'active' }),
 		ctx.groups.listCatalog(),
 		listStatusTypes(ctx.calendarCatalogs),
-		ctx.trainingCatalog.listTypes(),
-		ctx.organizationSettings.findLossWarningWindowDays(orgId),
-		ctx.personnelAwardAcknowledgement
-			? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
-			: Promise.reject(new Error('Personnel award acknowledgement port is required'))
+		isOff('training') ? [] : ctx.trainingCatalog.listTypes(),
+		ctx.organizationSettings.findPolicies(orgId),
+		isOff('lossesAndAwards')
+			? []
+			: ctx.personnelAwardAcknowledgement
+				? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
+				: Promise.reject(new Error('Personnel award acknowledgement port is required'))
 	]);
-	const lossWarningWindowDays = warningWindow ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS;
 
 	return {
 		availabilityEntries,
@@ -92,7 +96,8 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		groups,
 		statusTypes,
 		trainingTypes,
-		lossWarningWindowDays,
+		lossWarningWindowDays: policies?.lossWarningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+		strengthFloorPercent: policies?.strengthFloorPercent ?? DEFAULT_STRENGTH_FLOOR_PERCENT,
 		awardTrackingAcknowledgedPersonnelIds
 	};
 }

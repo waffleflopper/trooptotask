@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { FeatureKey } from '$lib/access/featureSwitches';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { PersonnelWorkspaceRestricted, PersonnelWorkspaceResult } from '../contracts';
@@ -16,9 +17,10 @@
 		dataSheet: Promise<PersonnelExtendedInfo | null>;
 		/** The Personnel workspace streamed by the parent layout, which carries the edit form's catalogs. */
 		workspace: Promise<PersonnelWorkspaceResult | PersonnelWorkspaceRestricted>;
+		disabledFeatures: readonly FeatureKey[];
 	}
 
-	let { orgId, orgUrlSegment, person, today, editing, dataSheet, workspace }: Props = $props();
+	let { orgId, orgUrlSegment, person, today, editing, dataSheet, workspace, disabledFeatures }: Props = $props();
 
 	// An await block rebuilds when its expression is re-evaluated, even for the same promise. A layout refresh hands
 	// this page new props holding the same loads, so the blocks read deriveds that change only with the promises.
@@ -74,7 +76,9 @@
 					{info}
 					groups={loaded.data.groups}
 					rankCatalog={loaded.data.rankCatalog}
-					lossWarningWindowDays={loaded.data.lossWarningWindowDays}
+					lossWarningWindowDays={disabledFeatures.includes('lossesAndAwards')
+						? null
+						: loaded.data.lossWarningWindowDays}
 					{today}
 				/>
 			{/if}

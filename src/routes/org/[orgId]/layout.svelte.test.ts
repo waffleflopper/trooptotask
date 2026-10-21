@@ -14,7 +14,7 @@ import PreferenceProbe from '$features/app-shell/test-support/PreferenceProbe.sv
 import type { LayoutData } from './$types';
 
 const { pageStore, invalidate } = vi.hoisted(() => {
-	let current = { url: new URL('https://example.test/org/alpha'), data: {} };
+	let current = { url: new URL('https://example.test/org/alpha'), data: {}, route: { id: '/org/[orgId]/(dashboard)' } };
 	const subscribers = new Set<(value: typeof current) => void>();
 	return {
 		invalidate: vi.fn(),
@@ -24,8 +24,8 @@ const { pageStore, invalidate } = vi.hoisted(() => {
 				fn(current);
 				return () => subscribers.delete(fn);
 			},
-			setPath(path: string) {
-				current = { url: new URL(`https://example.test${path}`), data: {} };
+			setPath(path: string, routeId = '/org/[orgId]/(dashboard)') {
+				current = { url: new URL(`https://example.test${path}`), data: {}, route: { id: routeId } };
 				for (const subscriber of subscribers) subscriber(current);
 			}
 		}
@@ -63,7 +63,12 @@ function deferred<T>() {
 function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') {
 	const shell: ReadyAppShell = {
 		kind: 'ready',
-		org: { id: orgId, urlSegment: orgId === 'org-a' ? 'alpha' : 'bravo', name: orgId === 'org-a' ? 'Alpha' : 'Bravo' },
+		org: {
+			id: orgId,
+			urlSegment: orgId === 'org-a' ? 'alpha' : 'bravo',
+			name: orgId === 'org-a' ? 'Alpha' : 'Bravo',
+			disabledFeatures: []
+		},
 		user: { id: userId },
 		member: {
 			membershipId: `membership-${userId}-${orgId}`,
@@ -395,5 +400,35 @@ describe('organization layout session unavailable', () => {
 		expect(within(main).getByRole('alert').textContent).toBe(
 			'Workspace session unavailable. Refresh or sign in again.'
 		);
+	});
+});
+
+describe('organization layout feature off state', () => {
+	function withTrainingOff(role: 'owner' | 'admin' | 'member') {
+		const data = workspace();
+		data.shell.org.disabledFeatures = ['training'];
+		data.shell.member = { ...data.shell.member, role, isOwner: role === 'owner', isAdmin: role === 'admin' };
+		return data;
+	}
+
+	it.each([
+		['owner', '/org/alpha/settings/features'],
+		['admin', '/org/alpha/settings/features'],
+		['member', null]
+	] as const)('replaces a disabled feature route for the %s', (role, settingsHref) => {
+		pageStore.setPath('/org/alpha/training', '/org/[orgId]/training/(workspace)');
+		render(Layout, { data: withTrainingOff(role), children });
+
+		expect(screen.getByRole('heading', { name: 'Training is off for Alpha.' })).toBeTruthy();
+		expect(screen.queryByText('Org child')).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Manage features' })?.getAttribute('href') ?? null).toBe(settingsHref);
+	});
+
+	it('renders the routes of features that are still on', () => {
+		pageStore.setPath('/org/alpha/calendar', '/org/[orgId]/calendar');
+		render(Layout, { data: withTrainingOff('owner'), children });
+
+		expect(screen.getByText('Org child')).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Training is off for Alpha.' })).toBeNull();
 	});
 });

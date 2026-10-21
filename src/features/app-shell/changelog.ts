@@ -7,6 +7,26 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-21-unit-settings',
+		date: '2026-10-21',
+		title: 'Unit Settings, Redone',
+		items: [
+			'Unit settings has a new design. A grouped list on the left replaces the row of tabs, with Unit, Access and Records sections and Danger zone at the bottom. Members and Approvals show how many items are waiting.',
+			'A new Features page lets owners and admins turn Training, Critical tasks, Evaluations, Onboarding, or Losses and awards off for the whole unit. A feature that is off is hidden for everyone. Its records are kept, and turning it back on restores everything.',
+			'Features also holds the strength floor, 80% by default. Groups with fewer people available than the floor turn amber on the Dashboard.',
+			'Policies explains each number as you type. Change the loss warning window and it shows how many people would be flagged today. Change archive retention and it shows the date of the next deletion.',
+			'On General, rename the unit in place and use Undo if you change your mind. The web address shows the full link and warns you before a change breaks saved bookmarks.',
+			'Ranks shows how many ranks each branch is missing and adds them in one click. Click a custom rank to edit it right under its row. An In use column shows whether anyone holds a rank.',
+			'On Members, invite someone in one line with their email, role, preset and groups. Manage access shows every area with None, View, Update or Manage, and marks where a member differs from their preset.',
+			'On Approvals, Deny opens a reason field right under the request.',
+			'Archives shows how long until each archived person is deleted. Deletions due within 30 days are amber.',
+			'Exports shows how many people and training records the export includes.',
+			'Logs groups entries by day and reads each one as a sentence. Quick filters narrow the list to access changes, records or deletions.',
+			'Danger zone lists what deleting the unit removes: its people, training records and archived records, and the members who lose access. You type the unit name to confirm.',
+			'If something looks off or you have an idea for Unit settings, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-19-new-personnel-details',
 		date: '2026-10-19',
 		title: 'A New Personnel Details Page',

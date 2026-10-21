@@ -15,8 +15,14 @@ import type {
 } from '$features/organization/contracts';
 import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '$features/training/contracts';
-import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
-import type { FileCleanup } from '$features/organization/contracts';
+import {
+	loadOrganizationMemberLabels,
+	toOrganizationPolicyColumns,
+	type OrganizationMemberLabelRow,
+	type OrganizationUnitCountsPort
+} from '$features/organization/index.server';
+import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
+import { DEFAULT_STRENGTH_FLOOR_PERCENT, type FileCleanup } from '$features/organization/contracts';
 import {
 	createInMemoryPersonnelRecordPersistence,
 	createInMemoryPersonnelRosterReader,
@@ -119,6 +125,7 @@ type TestContextOptions = {
 	trainingCatalogFactory?: (store: FixtureRowStore, orgId: string) => TrainingCatalogPersistence;
 	trainingCompletionsFactory?: (store: FixtureRowStore, orgId: string) => TrainingCompletionPersistence;
 	auth?: Parameters<typeof createTestAuthContext>[0];
+	disabledFeatures?: FeatureKey[];
 	calendarCatalogsFactory?: (rawStore: FixtureRowStore, orgId: string) => CalendarCatalogPersistence;
 	calendarAvailabilityFactory?: (
 		rawStore: FixtureRowStore,
@@ -1459,15 +1466,22 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 					'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
 				orderBy: [{ column: 'id', ascending: true }]
 			}),
-		listInvitations: (orgId) =>
-			store.findMany<OrganizationSettingsInvitationRow>('organization_invitations', orgId.toLowerCase(), undefined, {
-				select:
-					'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
-				orderBy: [
-					{ column: 'created_at', ascending: false },
-					{ column: 'id', ascending: true }
-				]
-			}),
+		listInvitations: async (orgId, status) =>
+			(
+				await store.findMany<OrganizationSettingsInvitationRow>(
+					'organization_invitations',
+					orgId.toLowerCase(),
+					undefined,
+					{
+						select:
+							'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
+						orderBy: [
+							{ column: 'created_at', ascending: false },
+							{ column: 'id', ascending: true }
+						]
+					}
+				)
+			).filter((row) => (row.status === 'pending') === (status === 'pending')),
 		listInvitationDeliveries: (orgId) =>
 			store.findMany<OrganizationSettingsInvitationDeliveryRow>(
 				'organization_invitation_email_outbox',
@@ -1504,17 +1518,19 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 				archive_retention_months?: number | null;
 				loss_warning_window_days?: number | null;
 				training_readiness_goal_percent: number;
+				strength_floor_percent?: number;
 			}>(
 				'organizations',
 				orgId.toLowerCase(),
 				{},
-				'archive_retention_months, loss_warning_window_days, training_readiness_goal_percent'
+				'archive_retention_months, loss_warning_window_days, training_readiness_goal_percent, strength_floor_percent'
 			);
 			return row
 				? {
 						archiveRetentionMonths: row.archive_retention_months,
 						lossWarningWindowDays: row.loss_warning_window_days,
-						trainingReadinessGoalPercent: row.training_readiness_goal_percent
+						trainingReadinessGoalPercent: row.training_readiness_goal_percent,
+						strengthFloorPercent: row.strength_floor_percent ?? DEFAULT_STRENGTH_FLOOR_PERCENT
 					}
 				: null;
 		},
@@ -1545,19 +1561,52 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 	};
 }
 
+function createInMemoryOrganizationUnitCountsPort(
+	store: FixtureRowStore,
+	orgId: string,
+	ratingScheme: Pick<RatingSchemePersistence, 'countEntries'>
+): OrganizationUnitCountsPort {
+	return {
+		async countRows({ table, archived }) {
+			const { count } = await store.findManyWithCount(table, orgId, undefined, {
+				select: 'id',
+				limit: 0,
+				...(archived === undefined ? {} : { isNull: { archived_at: !archived } })
+			});
+			return count ?? 0;
+		},
+		countRatingSchemeEntries: () => ratingScheme.countEntries()
+	};
+}
+
 function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): OrganizationPolicyWritePort {
 	return {
-		async updatePolicies(orgId, changes) {
-			const updates: Record<string, number> = {};
-			if (changes.archiveRetentionMonths !== undefined)
-				updates.archive_retention_months = changes.archiveRetentionMonths;
-			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
-			if (changes.trainingReadinessGoalPercent !== undefined)
-				updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
-			if (changes.personnelDocumentStorageCapBytes !== undefined)
-				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
-			await store.updateById('organizations', orgId, updates);
-			return null;
+		async findFeatureSettings(orgId) {
+			const row = await store.findOne<{ disabled_features?: string[]; strength_floor_percent?: number }>(
+				'organizations',
+				orgId.toLowerCase(),
+				{},
+				'disabled_features, strength_floor_percent'
+			);
+			return row
+				? {
+						disabledFeatures: parseDisabledFeatures(row.disabled_features),
+						strengthFloorPercent: row.strength_floor_percent ?? DEFAULT_STRENGTH_FLOOR_PERCENT,
+						storedDisabledFeatures: [...(row.disabled_features ?? [])]
+					}
+				: null;
+		},
+		async updatePolicies(orgId, changes, ifDisabledFeatures) {
+			const row = await store.findOne<{ disabled_features?: string[] }>('organizations', orgId.toLowerCase(), {});
+			// The check and the write run in one turn, as the provider's conditional update does in one statement.
+			const stored = row?.disabled_features ?? [];
+			if (
+				ifDisabledFeatures &&
+				(stored.length !== ifDisabledFeatures.length || stored.some((key, index) => key !== ifDisabledFeatures[index]))
+			)
+				return { status: 'stale' };
+			await store.updateById('organizations', orgId, toOrganizationPolicyColumns(changes));
+			return { status: 'saved' };
 		}
 	};
 }
@@ -1843,6 +1892,7 @@ export function createTestContext(
 	const criticalTasksReadModel =
 		overrides?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary, criticalTaskCompletions) ??
 		unavailableCriticalTasksReadModel();
+	const ratingScheme = overrides?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, overrides),
 		...createTestTrainingPersistence(store, auth.orgId, overrides),
@@ -1881,7 +1931,8 @@ export function createTestContext(
 		criticalTasksReadModel,
 		criticalTaskLibrary,
 		criticalTaskCompletions,
-		ratingScheme: overrides?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
+		ratingScheme,
+		unitCounts: createInMemoryOrganizationUnitCountsPort(rawStore, auth.orgId, ratingScheme),
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1901,7 +1952,8 @@ export function createTestContext(
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
-		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
+		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth),
+		disabledFeatures: overrides?.disabledFeatures ?? []
 	};
 }
 
@@ -2075,6 +2127,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
 		criticalTaskLibrary,
@@ -2110,6 +2163,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		store,
 		auth,
 		rawStore,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
 		criticalTaskLibrary,

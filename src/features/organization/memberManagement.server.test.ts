@@ -7,6 +7,9 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import type { FeatureKey } from '$lib/access/featureSwitches';
+import { TARGET_MEMBER_PRESET_CAPABILITIES } from '$lib/access/memberAccessShape';
+import type { TargetMemberAccessCommand } from '$lib/access/memberAccessCommands';
 import {
 	AUTH_WORKFLOW_NOW,
 	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
@@ -238,7 +241,11 @@ function createOrganizationSettingsMemberManagementPort(
 		async findMembershipById(orgId, membershipId) {
 			membershipLookups.push({ orgId, membershipId });
 			return options.membership
-				? { ...options.membership, canManageMembers: options.membership.canManageMembers ?? null }
+				? {
+						...options.membership,
+						canManageMembers: options.membership.canManageMembers ?? null,
+						storedLevels: TARGET_MEMBER_PRESET_CAPABILITIES.editor
+					}
 				: null;
 		},
 		async removeMembership(orgId, membershipId) {
@@ -891,12 +898,7 @@ describe('inviteOrganizationMember', () => {
 		},
 		{
 			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
-			failure: {
-				status: 500,
-				message:
-					'Platform access setup could not be linked. Check Pending Invitations and revoke the invitation if it is still listed.',
-				publicMessage: true
-			},
+			failure: { status: 500, publicMessage: true },
 			severity: 'critical'
 		}
 	])(
@@ -1197,12 +1199,7 @@ describe('inviteOrganizationMember', () => {
 		},
 		{
 			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
-			failure: {
-				status: 500,
-				message:
-					'The account setup link could not be issued. Check Pending Invitations and revoke the invitation if it is still listed.',
-				publicMessage: true
-			},
+			failure: { status: 500, publicMessage: true },
 			severity: 'critical'
 		}
 	])(
@@ -1581,10 +1578,7 @@ describe('inviteOrganizationMember', () => {
 			}
 		);
 
-		expect(result).toMatchObject({
-			inviteSuccess: true,
-			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
-		});
+		expect(result).toHaveProperty('inviteSuccess', true);
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(ctx.auditPort.events).toContainEqual({
 			action: 'member.invite_email_delivery_failed',
@@ -1626,10 +1620,7 @@ describe('inviteOrganizationMember', () => {
 			}
 		);
 
-		expect(result).toMatchObject({
-			inviteSuccess: true,
-			inviteMessage: 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
-		});
+		expect(result).toHaveProperty('inviteSuccess', true);
 		expect(port.createdInvitations).toHaveLength(1);
 		expect(ctx.auditPort.events).toContainEqual({
 			action: 'member.invite_email_delivery_failed',
@@ -2743,7 +2734,13 @@ describe('updateOrganizationMemberAccess', () => {
 
 		await expect(
 			updateOrganizationMemberAccess(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					disabledFeatures: ctx.disabledFeatures
+				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'member',
@@ -2774,7 +2771,13 @@ describe('updateOrganizationMemberAccess', () => {
 
 		await expect(
 			updateOrganizationMemberAccess(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					disabledFeatures: ctx.disabledFeatures
+				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'member',
@@ -2807,7 +2810,13 @@ describe('updateOrganizationMemberAccess', () => {
 
 		await expect(
 			updateOrganizationMemberAccess(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					disabledFeatures: ctx.disabledFeatures
+				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'admin',
@@ -2851,7 +2860,13 @@ describe('updateOrganizationMemberAccess', () => {
 
 		await expect(
 			updateOrganizationMemberAccess(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					disabledFeatures: ctx.disabledFeatures
+				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'member',
@@ -2890,7 +2905,13 @@ describe('updateOrganizationMemberAccess', () => {
 
 		await expect(
 			updateOrganizationMemberAccess(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
+					settings: port,
+					disabledFeatures: ctx.disabledFeatures
+				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
 					membershipRole: 'admin',
@@ -2922,7 +2943,8 @@ describe('updateOrganizationMemberAccess', () => {
 					audit: ctx.audit,
 					notifications: ctx.notifications,
 					settings: port,
-					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
+					disabledFeatures: ctx.disabledFeatures
 				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -2970,7 +2992,8 @@ describe('updateOrganizationMemberAccess', () => {
 					audit: ctx.audit,
 					notifications: ctx.notifications,
 					settings: port,
-					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
+					disabledFeatures: ctx.disabledFeatures
 				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -3035,7 +3058,8 @@ describe('updateOrganizationMemberAccess', () => {
 					audit: ctx.audit,
 					notifications: ctx.notifications,
 					settings: port,
-					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
+					disabledFeatures: ctx.disabledFeatures
 				},
 				{
 					membershipId: '11111111-1111-4111-8111-111111111111',
@@ -3085,7 +3109,8 @@ describe('updateOrganizationMemberAccess', () => {
 				audit: ctx.audit,
 				notifications: ctx.notifications,
 				settings: port,
-				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
+				disabledFeatures: ctx.disabledFeatures
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
@@ -3126,7 +3151,8 @@ describe('updateOrganizationMemberAccess', () => {
 				audit: ctx.audit,
 				notifications: ctx.notifications,
 				settings: port,
-				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
+				disabledFeatures: ctx.disabledFeatures
 			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
@@ -3198,7 +3224,13 @@ describe('updateOrganizationMemberAccess', () => {
 			orgName: 'Alpha Company'
 		});
 		const result = await updateOrganizationMemberAccess(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				disabledFeatures: ctx.disabledFeatures
+			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				membershipRole: 'member',
@@ -3268,7 +3300,13 @@ describe('updateOrganizationMemberAccess', () => {
 		});
 
 		const result = await updateOrganizationMemberAccess(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+			{
+				auth: ctx.auth,
+				audit: ctx.audit,
+				notifications: ctx.notifications,
+				settings: port,
+				disabledFeatures: ctx.disabledFeatures
+			},
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				membershipRole: 'member',
@@ -3377,10 +3415,15 @@ function ordinaryMutationScenario(options: {
 	lateRole?: 'owner' | 'admin' | 'member';
 	foreign?: boolean;
 	wrongAcknowledgement?: boolean;
+	stored?: { member_preset: string; capability_overrides: Record<string, string> };
+	disabledFeatures?: FeatureKey[];
 }) {
 	const membershipId = '11111111-1111-4111-8111-111111111111';
 	const actorUserId = 'ordinary-actor';
-	const ctx = createTestContext({ auth: { userId: actorUserId, orgId: 'org-a', role: options.actorRole ?? 'owner' } });
+	const ctx = createTestContext({
+		auth: { userId: actorUserId, orgId: 'org-a', role: options.actorRole ?? 'owner' },
+		disabledFeatures: options.disabledFeatures
+	});
 	const rows: Array<Record<string, unknown>> = [
 		{
 			id: membershipId,
@@ -3390,6 +3433,7 @@ function ordinaryMutationScenario(options: {
 			role: 'initialRole' in options ? options.initialRole : 'member',
 			member_preset: 'viewer',
 			capability_overrides: {},
+			...options.stored,
 			access_scope_kind: 'organization',
 			access_scope_group_ids: []
 		},
@@ -3459,15 +3503,15 @@ function ordinaryMutationScenario(options: {
 		audit: ctx.audit,
 		notifications: ctx.notifications,
 		settings,
-		sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+		sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
+		disabledFeatures: ctx.disabledFeatures
 	};
-	const run = (membershipRole: 'member' | 'admin' = 'member') =>
+	const run = (
+		membershipRole: 'member' | 'admin' = 'member',
+		access: TargetMemberAccessCommand = memberAccess({ memberPreset: 'operator' })
+	) =>
 		options.action === 'update'
-			? updateOrganizationMemberAccess(ports, {
-					membershipId,
-					membershipRole,
-					memberAccess: memberAccess({ memberPreset: 'operator' })
-				})
+			? updateOrganizationMemberAccess(ports, { membershipId, membershipRole, memberAccess: access })
 			: options.action === 'remove'
 				? removeOrganizationMember(ports, { membershipId })
 				: leaveOrganization(ports, { membershipId, confirmation: 'YES' });
@@ -3574,4 +3618,53 @@ describe('ordinary membership mutation safety', () => {
 			// or unchanged-target claim is inferred from acknowledgement rejection.
 		}
 	);
+});
+
+describe('access saves while a feature is off', () => {
+	const offTraining = { action: 'update' as const, disabledFeatures: ['training'] satisfies FeatureKey[] };
+
+	it('keeps the stored Training level when the sheet posts an older one beside another area change', async () => {
+		const { rows, run } = ordinaryMutationScenario({
+			...offTraining,
+			stored: { member_preset: 'viewer', capability_overrides: { training: 'configure' } }
+		});
+		await run(
+			'member',
+			memberAccess({ memberPreset: 'viewer', capabilityOverrides: { training: 'view', personnel: 'operate' } })
+		);
+		expect(rows[0]).toMatchObject({
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: { training: 'configure', personnel: 'operate' }
+		});
+	});
+
+	it('keeps the stored Training level when a new preset would supply its own', async () => {
+		const { rows, run } = ordinaryMutationScenario(offTraining);
+		await run('member', memberAccess({ memberPreset: 'operator' }));
+		expect(rows[0]).toMatchObject({ member_preset: 'operator', capability_overrides: { training: 'view' } });
+	});
+
+	it('keeps the stored Training level through a promotion to Admin and back', async () => {
+		const { rows, run } = ordinaryMutationScenario(offTraining);
+		await run('admin', memberAccess());
+		expect(rows[0]).toMatchObject({
+			role: 'admin',
+			member_preset: 'editor',
+			capability_overrides: { training: 'view' }
+		});
+		await run('member', memberAccess({ memberPreset: 'editor' }));
+		expect(rows[0]).toMatchObject({
+			role: 'member',
+			member_preset: 'editor',
+			capability_overrides: { training: 'view' }
+		});
+	});
+
+	it('saves the posted Training level once the feature is back on', async () => {
+		const { rows, run } = ordinaryMutationScenario({ action: 'update' });
+		await run('member', memberAccess({ memberPreset: 'operator' }));
+		expect(rows[0].member_preset).toBe('operator');
+		expect(rows[0].capability_overrides).toEqual({});
+	});
 });

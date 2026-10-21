@@ -1,4 +1,5 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { UserOrgPreferences } from '$features/identity/contracts';
 
 import type { Announcement } from '$features/notifications/contracts';
@@ -16,6 +17,7 @@ export interface ReadyAppShell {
 		id: string;
 		urlSegment: string;
 		name: string;
+		disabledFeatures: FeatureKey[];
 	};
 	user: {
 		id: string;
@@ -104,7 +106,8 @@ export function createReadyAppShell(config: {
 		org: {
 			id: membership.orgId,
 			urlSegment: config.orgUrlSegment,
-			name: orgState.orgName
+			name: orgState.orgName,
+			disabledFeatures: orgState.disabledFeatures
 		},
 		user: {
 			id: membership.userId
@@ -137,6 +140,7 @@ export interface MembershipInfo {
 
 export interface OrgState {
 	orgName: string;
+	disabledFeatures: FeatureKey[];
 }
 
 export interface OrgAccessPort {

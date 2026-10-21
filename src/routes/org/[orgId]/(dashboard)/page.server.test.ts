@@ -248,7 +248,8 @@ describe('dashboard page server load', () => {
 				groups: [],
 				statusTypes: [],
 				trainingTypes: [],
-				lossWarningWindowDays: 180
+				lossWarningWindowDays: 180,
+				strengthFloorPercent: 80
 			} as unknown as DashboardWorkspaceData,
 			hydration: { orgId: ORG_ID } as DashboardWorkspaceResult['hydration']
 		});
@@ -355,7 +356,8 @@ describe('dashboard page server load', () => {
 				groups: [],
 				statusTypes: [],
 				trainingTypes: [],
-				lossWarningWindowDays: 180
+				lossWarningWindowDays: 180,
+				strengthFloorPercent: 80
 			} as unknown as DashboardWorkspaceData,
 			hydration: { orgId: ORG_ID } as DashboardWorkspaceResult['hydration']
 		});

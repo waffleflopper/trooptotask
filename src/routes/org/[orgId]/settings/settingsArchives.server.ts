@@ -14,6 +14,8 @@ export interface ArchivesSettingsData {
 	sections: {
 		archivedPersonnel: SettingsArchivesSectionData;
 	};
+	/** The viewer's IANA zone, so the server and the browser show the same archive day. */
+	timeZone: string;
 }
 
 export type SettingsArchivedPersonnelSourceRow = Pick<
@@ -26,7 +28,7 @@ export async function loadArchivesSettings(
 		auth: Pick<OrganizationAccessGrant, 'orgId' | 'role' | 'canManageMembers'>;
 		organizationSettings: Pick<OrganizationSettingsReader, 'findArchiveRetentionMonths'>;
 	},
-	input: { isAdmin: boolean }
+	input: { isAdmin: boolean; timeZone: string }
 ): Promise<ArchivesSettingsData> {
 	const [archiveRetentionMonths, archivedPersonnel] = await Promise.all([
 		ctx.organizationSettings.findArchiveRetentionMonths(ctx.auth.orgId),
@@ -38,6 +40,7 @@ export async function loadArchivesSettings(
 
 	return buildArchivesSettingsData(ctx, {
 		isAdmin: input.isAdmin,
+		timeZone: input.timeZone,
 		archiveRetentionMonths,
 		archivedPersonnel: archivedPersonnel.map((p) => ({
 			id: p.id,
@@ -56,13 +59,18 @@ export function buildArchivesSettingsData(
 	ctx: Pick<Parameters<typeof loadArchivesSettings>[0], 'auth'>,
 	input: {
 		isAdmin: boolean;
+		timeZone: string;
 		archiveRetentionMonths: number | null | undefined;
 		archivedPersonnel: SettingsArchivedPersonnelSourceRow[];
 	}
 ): ArchivesSettingsData {
 	const isOwner = ctx.auth.role === 'owner';
 	const canManageMembers = ctx.auth.canManageMembers;
-	const archiveRetentionMonths = input.archiveRetentionMonths ?? DEFAULT_ARCHIVE_RETENTION_MONTHS;
+	// The cleanup run reads a missing or non-positive retention as the default, so the countdown does too.
+	const archiveRetentionMonths =
+		input.archiveRetentionMonths && input.archiveRetentionMonths > 0
+			? input.archiveRetentionMonths
+			: DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	const rows = input.archivedPersonnel.map(shapeArchivedPersonnelRow);
 
 	return {
@@ -88,7 +96,8 @@ export function buildArchivesSettingsData(
 					canPermanentlyDelete: canManageMembers
 				}
 			}
-		}
+		},
+		timeZone: input.timeZone
 	};
 }
 

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../../appShell.test-support';
 
@@ -20,10 +20,11 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));
 import { load } from './+page.server';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
-function event(suspended = false) {
+function event(suspended = false, depends = vi.fn()) {
 	return {
 		locals: {},
-		cookies: {},
+		depends,
+		cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) },
 		parent: async () =>
 			(suspended ? createSuspendedAppShellRouteData : createReadyAppShellRouteData)({
 				orgId: 'org-1',
@@ -57,6 +58,7 @@ function admit(role: 'owner' | 'admin' | 'member') {
 
 describe('logs settings page server', () => {
 	beforeEach(() => vi.clearAllMocks());
+	afterEach(() => vi.useRealTimers());
 
 	it('returns no page data for a suspended Organization without constructing privileged readers', async () => {
 		expect(await load(event(true))).toEqual({});
@@ -71,6 +73,8 @@ describe('logs settings page server', () => {
 	});
 
 	it('admits an owner with no feature grants and composes current labels under the requested Organization', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-20T02:00:00Z'));
 		admit('owner');
 		const person = '11111111-1111-4111-8111-111111111111';
 		getAdminClientMock.mockReturnValue(
@@ -109,21 +113,21 @@ describe('logs settings page server', () => {
 				}
 			})
 		);
-		const result = await load(event());
+		const depends = vi.fn();
+		const result = await load(event(false, depends));
+		expect(depends).toHaveBeenCalledWith('app:viewer-day');
 		expect(result).toMatchObject({
 			orgId: 'org-1',
 			orgUrlSegment: 'test-org',
 			orgName: 'Test Org',
 			logsSettings: {
-				sections: {
-					logs: {
-						auditLogPage: {
-							page: 1,
-							limit: 100,
-							totalCount: 1,
-							logs: [{ id: 'event-1', actor: 'owner@example.test', details: { personnel: 'SPC Able Synthetic' } }]
-						}
-					}
+				timeZone: 'America/New_York',
+				today: '2026-10-19',
+				auditLog: {
+					page: 1,
+					limit: 100,
+					totalCount: 1,
+					logs: [{ id: 'event-1', actor: 'owner@example.test', details: { personnel: 'SPC Able Synthetic' } }]
 				}
 			}
 		});

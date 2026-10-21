@@ -181,7 +181,7 @@ function buildRankCatalogRow(
 		sourceLabel: SOURCE_LABELS[entry.source],
 		sortOrder: entry.sortOrder,
 		referenceSummary: summary,
-		warnings: buildReferenceWarnings(summary),
+		warnings: referenceWarnings(entry, summary),
 		commands: {
 			canEdit: canManageCatalog && !isBuiltIn,
 			canRetire: canManageCatalog && entry.state === 'active',
@@ -241,22 +241,29 @@ function deleteDisabledReason(
 	return null;
 }
 
-function buildReferenceWarnings(summary: OrganizationRankCatalogReferenceSummary): string[] {
+function referenceWarnings(
+	entry: OrganizationRankCatalogEntry,
+	summary: OrganizationRankCatalogReferenceSummary
+): string[] {
 	const warnings: string[] = [];
-	if (summary.activeReferences.total > 0) {
+	const { activeReferences, historicalReferences } = summary;
+	if (activeReferences.total > 0) {
+		const records = countLabel(activeReferences.total, 'active record or filter', 'active records or filters');
 		warnings.push(
-			`Referenced by ${referenceCountLabel(summary.activeReferences.total, 'active record or filter', 'active records or filters')}. Retire this rank to preserve existing records.`
+			entry.state === 'active'
+				? `Referenced by ${records}. Retire this rank to preserve existing records.`
+				: `Referenced by ${records}.`
 		);
 	}
-	if (summary.historicalReferences.total > 0) {
+	if (historicalReferences.total > 0) {
 		warnings.push(
-			`Also appears in ${referenceCountLabel(summary.historicalReferences.total, 'historical snapshot or saved filter', 'historical snapshots or saved filters')}.`
+			`Also appears in ${countLabel(historicalReferences.total, 'historical snapshot or saved filter', 'historical snapshots or saved filters')}.`
 		);
 	}
 	return warnings;
 }
 
-function referenceCountLabel(count: number, singular: string, plural: string): string {
+function countLabel(count: number, singular: string, plural: string): string {
 	return `${count} ${count === 1 ? singular : plural}`;
 }
 

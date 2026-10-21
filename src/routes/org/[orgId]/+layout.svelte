@@ -2,10 +2,26 @@
 	import { AppShell } from '$features/app-shell';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { page } from '$app/stores';
+	import { FEATURE_SWITCHES, findDisabledFeatureRoute } from '$lib/access/featureSwitches';
+	import WorkspaceFeatureOff from './WorkspaceFeatureOff.svelte';
 	let { children, data } = $props();
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const suspendedShell = $derived(data.shell.kind === 'suspended' ? data.shell : null);
+	const featureOff = $derived(readyShell && findDisabledFeatureRoute($page.route.id, readyShell.org.disabledFeatures));
 </script>
+
+{#snippet featureOffState()}
+	{#if readyShell && featureOff}
+		<WorkspaceFeatureOff
+			feature={FEATURE_SWITCHES[featureOff].label}
+			unitName={readyShell.org.name}
+			settingsHref={readyShell.member.isOwner || readyShell.member.isAdmin
+				? `/org/${readyShell.org.urlSegment}/settings/features`
+				: null}
+		/>
+	{/if}
+{/snippet}
 
 {#if suspendedShell}
 	<main class="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
@@ -25,7 +41,12 @@
 	</main>
 {:else if readyShell && data.identitySessionScope?.userId === readyShell.user.id}
 	{#key `${readyShell.user.id}:${readyShell.org.id}:${data.identitySessionScope.sessionId}`}
-		<AppShell shell={readyShell} {children} onToggleTheme={() => themeStore.toggle()} isDarkTheme={themeStore.isDark}>
+		<AppShell
+			shell={readyShell}
+			children={featureOff ? featureOffState : children}
+			onToggleTheme={() => themeStore.toggle()}
+			isDarkTheme={themeStore.isDark}
+		>
 			{#snippet feedback(props)}
 				{#await import('$features/feedback') then { FeedbackModal }}
 					<FeedbackModal {...props} />

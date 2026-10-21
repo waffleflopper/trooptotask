@@ -1,4 +1,5 @@
 import type { CapabilityMap, DurableFeatureLane } from '$lib/access/memberAccessShape';
+import { SETTINGS_PAGES } from '$features/organization/contracts';
 
 export type OrgNavIcon =
 	| 'dashboard'
@@ -50,8 +51,11 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	}
 };
 
-const SUPPORT_ROUTE_BREADCRUMBS: Record<string, string> = {
-	settings: 'Settings'
+const SUPPORT_ROUTE_BREADCRUMBS: Record<string, { label: string; children: Record<string, string> }> = {
+	settings: {
+		label: 'Unit settings',
+		children: Object.fromEntries(Object.entries(SETTINGS_PAGES).map(([key, page]) => [key, page.label]))
+	}
 };
 
 export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavItem[] {
@@ -191,13 +195,17 @@ function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): 
 		.slice(orgBasePath.length + 1)
 		.split('/')
 		.filter(Boolean);
-	const [primarySegment] = segments;
+	const [primarySegment, childSegment] = segments;
 
-	const primaryLabel = SUPPORT_ROUTE_BREADCRUMBS[primarySegment];
-	if (!primaryLabel) {
+	const route = SUPPORT_ROUTE_BREADCRUMBS[primarySegment];
+	if (!route) {
 		return null;
 	}
 
-	const breadcrumbs: OrgBreadcrumb[] = [orgCrumb, { label: primaryLabel }];
-	return breadcrumbs;
+	const childLabel = childSegment && route.children[childSegment];
+	if (!childLabel) {
+		return [orgCrumb, { label: route.label }];
+	}
+
+	return [orgCrumb, { label: route.label, href: `${orgBasePath}/${primarySegment}` }, { label: childLabel }];
 }

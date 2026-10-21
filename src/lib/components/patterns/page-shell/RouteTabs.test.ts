@@ -32,6 +32,17 @@ describe('patterns/page-shell RouteTabs', () => {
 		expect(within(nav).getByText('Archives').closest('[aria-disabled="true"]')).not.toBeNull();
 	});
 
+	it('keeps a tag in the link name', () => {
+		render(Tabs, {
+			props: {
+				label: 'Organization settings sections',
+				items: [{ label: 'Logs', href: '/org/alpha/settings/logs', tag: 'Owner' }]
+			}
+		});
+
+		expect(screen.getByRole('link', { name: 'Logs Owner' }).getAttribute('href')).toBe('/org/alpha/settings/logs');
+	});
+
 	it('announces a streamed badge as loading, then its count, or unavailable when it fails', async () => {
 		let resolveLog!: (badge: RouteTabBadge | null) => void;
 		render(Tabs, {

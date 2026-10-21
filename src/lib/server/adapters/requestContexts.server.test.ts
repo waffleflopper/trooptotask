@@ -7,8 +7,11 @@ import {
 	buildLayoutRequest,
 	createRequestSensitiveActionContext,
 	createRequestOrganizationExportContext,
-	createRequestPersonnelWorkspaceContext
+	createRequestPersonnelWorkspaceContext,
+	createRequestUnitCountsContext,
+	type AdmittedOrganizationRequest
 } from './requestContexts.server';
+import { readUnitCounts } from '$features/organization/index.server';
 import { createRequestTrainingRosterContext } from './featureRequestContexts.server';
 
 const { getAdminClient } = vi.hoisted(() => ({
@@ -277,4 +280,60 @@ describe('request-bound communications exports', () => {
 			expect(getAdminClient).not.toHaveBeenCalled();
 		}
 	);
+});
+
+describe('request-bound unit counts', () => {
+	it('counts the admitted Organization through the request client, Rating Scheme included', async () => {
+		getAdminClient.mockClear();
+		const tables: Record<string, Array<{ organization_id: string }>> = {
+			organization_memberships: [
+				...Array.from({ length: 3 }, () => ({ organization_id: ORG_ID })),
+				...Array.from({ length: 9 }, () => ({ organization_id: OTHER_ORG_ID }))
+			],
+			rating_scheme_entries: [
+				...Array.from({ length: 5 }, () => ({ organization_id: ORG_ID })),
+				...Array.from({ length: 2 }, () => ({ organization_id: OTHER_ORG_ID }))
+			]
+		};
+		const seen: Array<{ table: string; method: string; exact: boolean | undefined; authorization: string | null }> = [];
+		const supabase = createClient('http://counts.invalid', 'ordinary-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					const url = new URL(request.url);
+					const table = url.pathname.replace('/rest/v1/', '');
+					seen.push({
+						table,
+						method: request.method,
+						exact: request.headers.get('prefer')?.includes('count=exact'),
+						authorization: request.headers.get('authorization')
+					});
+					const matching = (tables[table] ?? []).filter(
+						(row) => url.searchParams.get('organization_id') === `eq.${row.organization_id}`
+					);
+					return new Response(null, { status: 200, headers: { 'Content-Range': `*/${matching.length}` } });
+				}
+			}
+		});
+		const ctx = createRequestUnitCountsContext({
+			auth: { orgId: ORG_ID },
+			supabase
+		} as unknown as AdmittedOrganizationRequest);
+
+		expect(await readUnitCounts(ctx.unitCounts, ['members', 'ratingSchemeEntries'])).toEqual({
+			members: 3,
+			ratingSchemeEntries: 5
+		});
+		expect(seen.sort((a, b) => a.table.localeCompare(b.table))).toEqual([
+			{
+				table: 'organization_memberships',
+				method: 'HEAD',
+				exact: true,
+				authorization: 'Bearer ordinary-request-key'
+			},
+			{ table: 'rating_scheme_entries', method: 'HEAD', exact: true, authorization: 'Bearer ordinary-request-key' }
+		]);
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
 });

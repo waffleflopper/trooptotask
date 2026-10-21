@@ -96,6 +96,33 @@ describe('renameOrganization', () => {
 		]);
 	});
 
+	it('returns only after the rename audit write has settled', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		const written: unknown[] = [];
+		const audit = {
+			log: (entry: unknown) =>
+				new Promise<void>((resolve) =>
+					setTimeout(() => {
+						written.push(entry);
+						resolve();
+					})
+				)
+		};
+
+		await renameOrganization(
+			{ auth: ctx.auth, audit, administration: createOrganizationProfilePort() },
+			{ name: 'Alpha Company' }
+		);
+
+		expect(written).toEqual([
+			{
+				action: 'org.renamed',
+				resourceType: 'organization',
+				details: { name: 'Alpha Company' }
+			}
+		]);
+	});
+
 	it('caps normalized Organization names at the retained 100-character limit', async () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
 		const port = createOrganizationProfilePort();

@@ -94,7 +94,9 @@ export function _createPersonnelOverviewPageLoad(deps: PersonnelOverviewPageLoad
 			overview: {
 				...streams,
 				attention: readiness.attention,
-				evaluation: keepStreamedRejectionObserved(hiddenWhenDenied(readiness.evaluation))
+				evaluation: readiness.evaluation
+					? keepStreamedRejectionObserved(hiddenWhenDenied(readiness.evaluation))
+					: Promise.resolve(null)
 			}
 		};
 	};

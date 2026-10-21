@@ -16,7 +16,8 @@
 		DataTableRowDetailSnippet,
 		DataTableRowSnippet,
 		DataTableState,
-		DataTableStateSnippet
+		DataTableStateSnippet,
+		PageLabels
 	} from './types.js';
 
 	type Props = {
@@ -29,6 +30,9 @@
 		onRowClick?: (row: T) => void;
 		rowActionLabel?: (row: T) => string;
 		density?: 'default' | 'dense';
+		variant?: 'framed' | 'editorial';
+		/** When the table is narrower than 42rem, rows become wrapping lines instead of columns; see the catalog. */
+		stacked?: boolean;
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -39,6 +43,13 @@
 		row?: DataTableRowSnippet<T>;
 		rowDetail?: DataTableRowDetailSnippet<T>;
 		rowDetailVisible?: (row: T) => boolean;
+		/**
+		 * Hidden rows stay mounted, so a filter that changes as the user types does not remount them. Applies to
+		 * default-rendered rows on an unpaginated, ungrouped table: a `row` snippet renders its own row, pages count hidden rows
+		 * and group headers stay shown.
+		 */
+		rowHidden?: (row: T) => boolean;
+		pageLabels?: PageLabels;
 		headerCell?: DataTableHeaderSnippet<T>;
 		groupHeader?: DataTableGroupHeaderSnippet;
 		toolbar?: DataTableStateSnippet<T>;
@@ -55,6 +66,8 @@
 		onRowClick,
 		rowActionLabel,
 		density = 'default',
+		variant = 'framed',
+		stacked = false,
 		compact = false,
 		striped = false,
 		stickyHeader = false,
@@ -65,14 +78,19 @@
 		row: rowSnippet,
 		rowDetail,
 		rowDetailVisible,
+		rowHidden,
+		pageLabels,
 		headerCell,
 		groupHeader,
 		toolbar,
 		footer
 	}: Props = $props();
 
+	const HIDDEN_BELOW = { md: 'max-md:hidden!', '@3xl': '@max-3xl/data-table:hidden!' } as const;
+
 	const resolvedDensity = $derived(compact ? 'dense' : density);
 	const cols = $derived(table.columns);
+	const allRowsHidden = $derived(rowHidden !== undefined && table.rows.every(rowHidden));
 
 	function isSortable(column: ColumnDef<T>): boolean {
 		return column.sortable !== false;
@@ -121,7 +139,11 @@
 </script>
 
 {#snippet bodyCell(row: T, column: ColumnDef<T>)}
-	{@const alignClass = cn(column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
+	{@const alignClass = cn(
+		column.align === 'center' && 'text-center',
+		column.align === 'right' && 'text-right',
+		column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow]
+	)}
 	{#if column.rowHeader}
 		<th
 			scope="row"
@@ -138,7 +160,7 @@
 	{/if}
 {/snippet}
 
-<DataTableRoot density={resolvedDensity} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
+<DataTableRoot density={resolvedDensity} {variant} {stacked} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
 	{#if toolbar}
 		<div data-slot="data-table-toolbar" class="border-b border-border bg-muted/20 p-2">
 			{@render toolbar(table)}
@@ -152,7 +174,11 @@
 					<Table.Head
 						scope="col"
 						aria-sort={ariaSort(column)}
-						class={cn(column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
+						class={cn(
+							column.align === 'center' && 'text-center',
+							column.align === 'right' && 'text-right',
+							column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow]
+						)}
 						style={column.width ? `width: ${column.width}` : undefined}
 					>
 						{#if headerCell}
@@ -213,6 +239,7 @@
 							{:else}
 								<Table.Row
 									class={rowClass(row)}
+									hidden={rowHidden?.(row)}
 									tabindex={onRowClick && !table.isRowDisabled(row) ? 0 : undefined}
 									aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
 									aria-disabled={table.isRowDisabled(row) || undefined}
@@ -224,7 +251,7 @@
 									{/each}
 								</Table.Row>
 								{#if rowDetail && rowDetailVisible?.(row)}
-									<Table.Row data-slot="data-table-detail-row">
+									<Table.Row data-slot="data-table-detail-row" hidden={rowHidden?.(row)}>
 										<Table.Cell colspan={cols.length} class="bg-muted/25 whitespace-normal">
 											<!-- The detail spans every column, so on a scrolled narrow table it is pinned to the visible width. -->
 											<div data-slot="data-table-detail" class="sticky left-2 w-[calc(100cqw-1rem)] min-w-0">
@@ -246,6 +273,7 @@
 					{:else}
 						<Table.Row
 							class={rowClass(row)}
+							hidden={rowHidden?.(row)}
 							tabindex={onRowClick && !table.isRowDisabled(row) ? 0 : undefined}
 							aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
 							aria-disabled={table.isRowDisabled(row) || undefined}
@@ -257,7 +285,7 @@
 							{/each}
 						</Table.Row>
 						{#if rowDetail && rowDetailVisible?.(row)}
-							<Table.Row data-slot="data-table-detail-row">
+							<Table.Row data-slot="data-table-detail-row" hidden={rowHidden?.(row)}>
 								<Table.Cell colspan={cols.length} class="bg-muted/25 whitespace-normal">
 									<div data-slot="data-table-detail" class="sticky left-2 w-[calc(100cqw-1rem)] min-w-0">
 										{@render rowDetail(row)}
@@ -271,12 +299,12 @@
 		{/if}
 	</Table.Root>
 
-	{#if !loading && table.groups.length === 0 && table.rows.length === 0}
+	{#if !loading && table.groups.length === 0 && (table.rows.length === 0 || allRowsHidden)}
 		<DataTableEmpty message={emptyMessage} level={emptyLevel} />
 	{/if}
 
 	{#if !loading && table.groups.length === 0}
-		<DataTablePagination {table} />
+		<DataTablePagination {table} {variant} labels={pageLabels} />
 	{/if}
 
 	{#if footer}

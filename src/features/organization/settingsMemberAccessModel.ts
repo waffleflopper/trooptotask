@@ -18,6 +18,8 @@ export interface SettingsMemberAccessRow {
 	membershipRole: MembershipRole;
 	createdAt: string;
 	access: SettingsAccessShape;
+	/** The levels on file. `access` projects Owners and Admins to Manage, but a save keeps these for lanes whose feature is off. */
+	storedLevels: CapabilityMap;
 }
 
 export interface SettingsInvitationAccessRow {

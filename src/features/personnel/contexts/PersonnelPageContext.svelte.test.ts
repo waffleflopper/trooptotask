@@ -483,6 +483,14 @@ describe('PersonnelPageContext', () => {
 			expect(record?.triggerType).toBe('PCS / DEROS');
 		});
 
+		it('shows no loss flags when the unit turns Losses and awards off', () => {
+			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
+			const data = makeData({ disabledFeatures: ['lossesAndAwards'] });
+			const ctx = new PersonnelPageContext(data, makeModals(), makeOrg(), people, [], TODAY);
+			expect(ctx.upcomingLossMap.size).toBe(0);
+			expect(ctx.lossWarningsUnavailable).toBe(false);
+		});
+
 		it('excludes a person whose ETS falls outside the warning window', () => {
 			const people = [makePerson({ id: 'p1', ets: OUT_OF_WINDOW })];
 			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);

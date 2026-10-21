@@ -129,9 +129,7 @@
 		</Field.Group>
 
 		<div class="flex items-center gap-2">
-			<Button variant="ghost" size="sm" class="text-destructive-text" disabled={locked} onclick={clearMonth}>
-				Clear month
-			</Button>
+			<Button variant="ghost-destructive" size="sm" disabled={locked} onclick={clearMonth}>Clear month</Button>
 			<Button variant="ghost" size="sm" class="ml-auto" onclick={() => changeOpen(false)}>Cancel</Button>
 			<Button size="sm" disabled={locked || !assigneeId || batch.length === 0} onclick={apply}>
 				{applying ? 'Filling…' : fillLabel}

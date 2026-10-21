@@ -59,6 +59,7 @@ function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 		statusTypes: [],
 		trainingTypes: [],
 		lossWarningWindowDays: 180,
+		strengthFloorPercent: 80,
 		awardTrackingAcknowledgedPersonnelIds: [],
 		...overrides
 	};
@@ -72,6 +73,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
+		disabledFeatures: [],
 		dashboard: {
 			workspaceKey: 'dashboard',
 			data: makeWorkspaceData(workspaceOverrides),
@@ -458,6 +460,12 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			mutableRosterStore.items = [makePerson('p1', null, daysOut(ctx, 45))];
 			expect(ctx.upcomingLosses).toHaveLength(1);
 			expect(ctx.upcomingLosses[0].triggerType).toBe('PCS / DEROS');
+		});
+
+		it('shows no losses when the unit turns Losses and awards off', () => {
+			ctx = createDashboardScreenModel(makeData({ disabledFeatures: ['lossesAndAwards'] }));
+			mutableRosterStore.items = [makePerson('p1', daysOut(ctx, 30))];
+			expect(ctx.upcomingLosses).toEqual([]);
 		});
 
 		it('respects the configured lossWarningWindowDays from the workspace data', () => {

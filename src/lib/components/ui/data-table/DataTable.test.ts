@@ -114,6 +114,25 @@ describe('shadcn DataTable foundation', () => {
 		expect(screen.getByText('Charlie')).toBeTruthy();
 	});
 
+	test('pages an editorial table by row range with the given labels', async () => {
+		render(Table, {
+			props: {
+				data: testData,
+				columns,
+				pageSize: 2,
+				variant: 'editorial',
+				pageLabels: { previous: 'Newer', next: 'Older' }
+			}
+		});
+
+		expect(screen.getByText('1–2 of 3')).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Newer' }) as HTMLButtonElement).disabled).toBe(true);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Older' }));
+		expect(screen.getByText('3–3 of 3')).toBeTruthy();
+		expect(screen.getByText('Charlie')).toBeTruthy();
+	});
+
 	test('keeps keyboard focus on pagination when a button disables at either end', async () => {
 		const data = [...testData, { id: '4', name: 'Diana', age: 28, group: 'B' }];
 		render(Table, { props: { data, columns, pageSize: 2 } });
@@ -186,6 +205,21 @@ describe('shadcn DataTable foundation', () => {
 		render(Table, { props: { data: testData, columns, loading: true, loadingRows: 2 } });
 		expect(screen.getByLabelText('Loading table rows').getAttribute('aria-busy')).toBe('true');
 		expect(screen.getAllByRole('row')).toHaveLength(3);
+	});
+
+	test('hides rows a rowHidden predicate excludes and shows the empty state when none remain', async () => {
+		const view = render(Table, {
+			props: {
+				data: testData,
+				columns,
+				emptyMessage: 'No personnel found.',
+				rowHidden: (row: TestRow) => row.group === 'A'
+			}
+		});
+		expect(screen.getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Bob', '25', 'B']);
+
+		await view.rerender({ data: testData, columns, emptyMessage: 'No personnel found.', rowHidden: () => true });
+		expect(screen.getByRole('heading', { level: 3, name: 'No personnel found.' })).toBeTruthy();
 	});
 
 	test('supports grouped rows and collapse behavior', async () => {

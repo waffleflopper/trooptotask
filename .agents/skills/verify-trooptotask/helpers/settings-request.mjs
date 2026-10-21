@@ -10,7 +10,9 @@ export async function requestSettings(target, { origin, organizationSegment, fam
 			'trainingReadinessGoalPercent',
 			'personnelDocumentStorageCapMb',
 			'criticalTasksDefaultExpirationMonths',
-			'criticalTasksExpiringSoonWarningDays'
+			'criticalTasksExpiringSoonWarningDays',
+			'featureSwitch',
+			'strengthFloorPercent'
 		],
 		'settings/general/updateName': ['name'],
 		'settings/general/updateSlug': ['urlSlug'],
@@ -22,7 +24,13 @@ export async function requestSettings(target, { origin, organizationSegment, fam
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Use a JSON object');
 	for (const [key, value] of Object.entries(body)) {
 		if (!fields[family].includes(key)) throw new Error('Unsupported settings field');
-		if (value !== null && !['string', 'number', 'boolean'].includes(typeof value))
+		// A feature switch is the one structured field; the server parses its key.
+		const featureSwitch =
+			key === 'featureSwitch' &&
+			typeof value?.feature === 'string' &&
+			typeof value.on === 'boolean' &&
+			Object.keys(value).length === 2;
+		if (!featureSwitch && value !== null && !['string', 'number', 'boolean'].includes(typeof value))
 			throw new Error('Use scalar settings values');
 	}
 	const form = family !== 'organization/settings';

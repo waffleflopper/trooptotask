@@ -14,9 +14,11 @@ import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { DashboardPageData } from '$features/dashboard/contracts';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { TrainingIssue } from '$features/training/contracts';
 import { getProgress } from '$features/onboarding/contracts';
 import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
+import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
@@ -162,6 +164,7 @@ export interface DashboardGroupedPreferenceView<Mode extends string, Row> {
 
 export interface DashboardUnitReadinessView {
 	availabilityColor(pct: number): string;
+	trainingCurrencyColor(pct: number): string;
 	availPct: number;
 	availColor: string;
 	trainingColor: string;
@@ -261,6 +264,10 @@ export class DashboardScreenModel {
 
 	get userRole(): string | undefined {
 		return this.data.userRole as string | undefined;
+	}
+
+	isFeatureOn(feature: FeatureKey): boolean {
+		return !this.data.disabledFeatures.includes(feature);
 	}
 
 	get hasSupportData(): boolean {
@@ -600,7 +607,7 @@ export class DashboardScreenModel {
 				name: group.name,
 				total,
 				available,
-				pct: total > 0 ? Math.round((available / total) * 100) : 100,
+				pct: availabilityPercent(available, total),
 				statusCounts,
 				isPinned: pinnedSet.has(group.name)
 			};
@@ -608,7 +615,7 @@ export class DashboardScreenModel {
 	});
 
 	get dutyStrengthPct(): number {
-		return this.totalPersonnel > 0 ? Math.round((this.availableCount / this.totalPersonnel) * 100) : 100;
+		return availabilityPercent(this.availableCount, this.totalPersonnel);
 	}
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number; current: number } {
@@ -753,6 +760,7 @@ export class DashboardScreenModel {
 	}
 
 	get upcomingLosses(): UpcomingLossRecord[] {
+		if (!this.isFeatureOn('lossesAndAwards')) return [];
 		const warningWindowDays = this.data.dashboard.data.lossWarningWindowDays ?? 180;
 		return evaluateUpcomingLosses(this.rosterPersonnel, warningWindowDays, this.today, {
 			awardTrackingAcknowledgedPersonnelIds: this.data.dashboard.data.awardTrackingAcknowledgedPersonnelIds ?? []
@@ -761,11 +769,14 @@ export class DashboardScreenModel {
 
 	get unitReadiness(): DashboardUnitReadinessView {
 		const availPct = this.dutyStrengthPct;
+		const floor = this.data.dashboard.data.strengthFloorPercent;
+		const availabilityColor = (pct: number) => strengthColor(pct, floor);
 		return {
 			availabilityColor,
+			trainingCurrencyColor,
 			availPct,
 			availColor: availabilityColor(availPct),
-			trainingColor: availabilityColor(this.trainingCurrencyPct),
+			trainingColor: trainingCurrencyColor(this.trainingCurrencyPct),
 			statusEntries: [...this.statusBreakdown.entries()],
 			upcomingChanges: {
 				mode: this.upcomingGroupBy,
@@ -908,7 +919,11 @@ function sortGroupName(a: string, b: string): number {
 	return a.localeCompare(b);
 }
 
-function availabilityColor(pct: number): string {
+function strengthColor(pct: number, floorPercent: number): string {
+	return isBelowStrengthFloor(pct, floorPercent) ? 'var(--warning-foreground)' : 'var(--success-foreground)';
+}
+
+function trainingCurrencyColor(pct: number): string {
 	if (pct >= 90) return 'var(--success-foreground)';
 	if (pct >= 75) return 'var(--warning-foreground)';
 	return 'var(--danger-foreground)';

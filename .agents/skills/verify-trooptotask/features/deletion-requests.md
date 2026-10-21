@@ -13,7 +13,7 @@ Ordinary members request approval when their source permission permits an operat
 
 ## How to get to it (user POV)
 
-Choose an Organization and open **Personnel**, **Training** or **Evals**. Use the source's Archive/Delete control as an ordinary operator. A reviewer opens **Settings → Approvals**, checks the description and requester, then **Approve** or **Deny**. Denial allows a reason. Reload and revisit the source to confirm the effect. Cancellation and retained Training type/counseling submission currently use the supported HTTP interface; do not describe them as visible UI.
+Choose an Organization and open **Personnel**, **Training** or **Evals**. Use the source's Archive/Delete control as an ordinary operator. A reviewer opens **Settings → Approvals**, checks the kind, description and requester, then **Approve archive** (Personnel), **Approve delete** (other kinds) or **Deny**. Deny opens a reason field under the row. Reload and revisit the source to confirm the effect. Cancellation and retained Training type/counseling submission currently use the supported HTTP interface; do not describe them as visible UI.
 
 ## Driving it with verify:app
 

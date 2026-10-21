@@ -52,7 +52,11 @@ const SAFE_STRING_KEYS = new Set([
 	'hasreason',
 	'has_reason',
 	'overrideid',
-	'override_id'
+	'override_id',
+	'disabledfeatures',
+	'disabled_features',
+	'previousdisabledfeatures',
+	'previous_disabled_features'
 ]);
 const REDACTED_KEY_PARTS = [
 	'phone',

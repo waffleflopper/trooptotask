@@ -6,6 +6,8 @@ import {
 	type MemberAccessProjectionRow
 } from './memberAccessProjection';
 
+const everyFeatureOn = { disabledFeatures: [] };
+
 const baseMemberRow: MemberAccessProjectionRow = {
 	role: 'member',
 	member_preset: 'viewer',
@@ -16,14 +18,17 @@ const baseMemberRow: MemberAccessProjectionRow = {
 
 describe('member access projection', () => {
 	it('projects privileged effective access without using stored row limits', () => {
-		const projection = projectEffectiveMemberAccess({
-			...baseMemberRow,
-			role: 'admin',
-			member_preset: 'viewer',
-			capability_overrides: { calendar: 'none' },
-			access_scope_kind: 'groups',
-			access_scope_group_ids: ['group-alpha']
-		});
+		const projection = projectEffectiveMemberAccess(
+			{
+				...baseMemberRow,
+				role: 'admin',
+				member_preset: 'viewer',
+				capability_overrides: { calendar: 'none' },
+				access_scope_kind: 'groups',
+				access_scope_group_ids: ['group-alpha']
+			},
+			everyFeatureOn
+		);
 
 		expect(projection.isPrivileged).toBe(true);
 		expect(projection.memberPreset).toBe('editor');
@@ -40,13 +45,16 @@ describe('member access projection', () => {
 	});
 
 	it('projects replacement storage for effective nonprivileged scope and capabilities', () => {
-		const projection = projectEffectiveMemberAccess({
-			...baseMemberRow,
-			member_preset: 'viewer',
-			capability_overrides: { calendar: 'operate', ratingScheme: 'none' },
-			access_scope_kind: 'groups',
-			access_scope_group_ids: ['stored-group', 'stored-group', 'other-group']
-		});
+		const projection = projectEffectiveMemberAccess(
+			{
+				...baseMemberRow,
+				member_preset: 'viewer',
+				capability_overrides: { calendar: 'operate', ratingScheme: 'none' },
+				access_scope_kind: 'groups',
+				access_scope_group_ids: ['stored-group', 'stored-group', 'other-group']
+			},
+			everyFeatureOn
+		);
 
 		expect(projection.scopeSet).toEqual({ kind: 'groups', groupIds: ['stored-group', 'other-group'] });
 		expect(projection.memberPreset).toBe('viewer');
@@ -56,9 +64,12 @@ describe('member access projection', () => {
 
 	it('fails fast when nonprivileged access is missing replacement storage', () => {
 		expect(() =>
-			projectEffectiveMemberAccess({
-				role: 'member'
-			})
+			projectEffectiveMemberAccess(
+				{
+					role: 'member'
+				},
+				everyFeatureOn
+			)
 		).toThrow('Member access projection requires normalized replacement storage');
 	});
 
@@ -128,7 +139,7 @@ describe('Organization access grant projection', () => {
 			access_scope_group_ids: ['alpha', 'alpha', 'bravo']
 		};
 
-		expect(projectOrganizationAccessGrant(membership, 'admitted-user', 'canonical-org')).toEqual({
+		expect(projectOrganizationAccessGrant(membership, 'admitted-user', 'canonical-org', everyFeatureOn)).toEqual({
 			userId: 'admitted-user',
 			orgId: 'canonical-org',
 			role: 'member',
@@ -157,7 +168,8 @@ describe('Organization access grant projection', () => {
 					access_scope_group_ids: ['ignored']
 				},
 				'admitted-user',
-				'canonical-org'
+				'canonical-org',
+				everyFeatureOn
 			)
 		).toEqual({
 			userId: 'admitted-user',
@@ -188,7 +200,8 @@ describe('Organization access grant projection', () => {
 					access_scope_group_ids: []
 				},
 				'admitted-user',
-				'canonical-org'
+				'canonical-org',
+				everyFeatureOn
 			)
 		).toEqual({
 			userId: 'admitted-user',
@@ -210,7 +223,62 @@ describe('Organization access grant projection', () => {
 
 	it.each([undefined, null, 'custom'])('does not construct a member grant from preset %s', (memberPreset) => {
 		expect(() =>
-			projectOrganizationAccessGrant({ role: 'member', member_preset: memberPreset }, 'admitted-user', 'canonical-org')
+			projectOrganizationAccessGrant(
+				{ role: 'member', member_preset: memberPreset },
+				'admitted-user',
+				'canonical-org',
+				everyFeatureOn
+			)
 		).toThrow('Member access projection requires normalized replacement storage');
+	});
+});
+
+describe('feature switches in the member access projection', () => {
+	it('turns a disabled feature lane off for an owner and records it as off for the unit', () => {
+		const projection = projectEffectiveMemberAccess(
+			{ role: 'owner' },
+			{ disabledFeatures: ['training', 'evaluations', 'lossesAndAwards'] }
+		);
+
+		expect(projection.capabilityMap).toEqual({
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'none',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'none'
+		});
+		expect(projection.disabledFeatures).toEqual(['training', 'evaluations', 'lossesAndAwards']);
+	});
+
+	it('overrides a stored member grant without changing the stored lanes it does not name', () => {
+		expect(
+			projectOrganizationAccessGrant(
+				{ ...baseMemberRow, member_preset: 'operator', capability_overrides: { onboarding: 'configure' } },
+				'admitted-user',
+				'canonical-org',
+				{ disabledFeatures: ['criticalTasks', 'onboarding'] }
+			).capabilityMap
+		).toEqual({
+			calendar: 'operate',
+			personnel: 'operate',
+			training: 'operate',
+			criticalTasks: 'none',
+			onboarding: 'none',
+			ratingScheme: 'operate'
+		});
+	});
+
+	it('leaves every lane alone when only Losses and awards is off', () => {
+		expect(
+			projectEffectiveMemberAccess({ role: 'admin' }, { disabledFeatures: ['lossesAndAwards'] }).capabilityMap
+		).toEqual({
+			calendar: 'configure',
+			personnel: 'configure',
+			training: 'configure',
+			criticalTasks: 'configure',
+			onboarding: 'configure',
+			ratingScheme: 'configure'
+		});
 	});
 });

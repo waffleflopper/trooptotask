@@ -11,6 +11,7 @@ import type { PersonnelAffordance, PersonnelPageAccess } from '../contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 
 export interface PersonnelPageData {
@@ -22,6 +23,8 @@ export interface PersonnelPageData {
 	/** Org-configured loss warning window in days; `null` when the setting could not be read. */
 	lossWarningWindowDays?: number | null;
 	awardTrackingAcknowledgedPersonnelIds?: string[];
+	/** Features off for the unit, from the app shell's Organization row. */
+	disabledFeatures?: readonly FeatureKey[];
 	[key: string]: unknown;
 }
 
@@ -186,7 +189,7 @@ export class PersonnelPageContext {
 	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
 		const map = new SvelteMap<string, UpcomingLossRecord>();
 		const warningWindowDays = this.#data.lossWarningWindowDays;
-		if (warningWindowDays === null) return map;
+		if (warningWindowDays === null || this.#data.disabledFeatures?.includes('lossesAndAwards')) return map;
 		const losses = evaluateUpcomingLosses(
 			this.allActivePersonnel,
 			warningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,

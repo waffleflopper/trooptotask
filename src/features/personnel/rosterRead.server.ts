@@ -8,3 +8,9 @@ export function loadRosterPersonnel(
 export function countArchivedPersonnel(ctx: { roster: Pick<PersonnelRosterReader, 'countArchived'> }) {
 	return ctx.roster.countArchived();
 }
+export function findOldestArchivedAt(ctx: { roster: Pick<PersonnelRosterReader, 'findOldestArchivedAt'> }) {
+	return ctx.roster.findOldestArchivedAt();
+}
+export function loadLossCandidates(ctx: { roster: Pick<PersonnelRosterReader, 'listLossCandidates'> }) {
+	return ctx.roster.listLossCandidates();
+}

@@ -16,6 +16,8 @@ import {
 	RANK_ALREADY_EXISTS_MESSAGE,
 	RANK_CODE_REQUIRED_MESSAGE,
 	RANK_LABEL_REQUIRED_MESSAGE,
+	RANK_TIE_BREAK_MAX,
+	RANK_TIE_BREAK_MIN,
 	RANK_TIE_BREAK_RANGE_MESSAGE,
 	type OrganizationRankCatalogEntry,
 	type OrganizationRankCatalogReferenceSummary,
@@ -77,8 +79,6 @@ const RANK_PAY_GRADES = new Set<RankPayGrade>([
 	'E-9',
 	'ungraded'
 ]);
-const PG_INTEGER_MIN = -2_147_483_648;
-const PG_INTEGER_MAX = 2_147_483_647;
 
 export interface RankCatalogAdministrationPort {
 	deleteRankCatalogEntry(orgId: string, entryId: string, code: string): Promise<void>;
@@ -624,7 +624,7 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 	}
 
 	const sortOrder = Number.isFinite(input.sortOrder) ? input.sortOrder : 0;
-	if (!Number.isInteger(sortOrder) || sortOrder < PG_INTEGER_MIN || sortOrder > PG_INTEGER_MAX) {
+	if (!Number.isInteger(sortOrder) || sortOrder < RANK_TIE_BREAK_MIN || sortOrder > RANK_TIE_BREAK_MAX) {
 		fail(400, RANK_TIE_BREAK_RANGE_MESSAGE);
 	}
 

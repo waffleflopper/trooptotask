@@ -139,7 +139,8 @@ describe('Personnel Critical Tasks roster', () => {
 				access_scope_group_ids: []
 			},
 			'test-user',
-			'org-1'
+			'org-1',
+			{ disabledFeatures: [] }
 		);
 		const storedActor = createTestAuthContext({ ...context, orgId: 'org-1' });
 		await expect(port.listActiveForReadiness(storedActor)).resolves.toEqual([]);

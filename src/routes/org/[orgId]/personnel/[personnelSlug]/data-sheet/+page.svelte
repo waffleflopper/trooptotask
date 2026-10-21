@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
+	import type { AppShellRouteData } from '$features/app-shell/contracts';
 	import { PersonnelDataSheetPageView } from '$features/personnel';
 	import type {
 		PersonnelDataSheetPageData,
@@ -9,7 +10,7 @@
 		PersonnelWorkspaceResult
 	} from '$features/personnel/contracts';
 
-	interface PersonnelDataSheetData extends PersonnelDataSheetPageData {
+	interface PersonnelDataSheetData extends PersonnelDataSheetPageData, AppShellRouteData {
 		personnelDetailHeader: PersonnelDetailHeader;
 		today: string;
 		personnel: { data: Promise<PersonnelWorkspaceResult | PersonnelWorkspaceRestricted> };
@@ -30,5 +31,6 @@
 		{editing}
 		dataSheet={data.dataSheet}
 		workspace={data.personnel.data}
+		disabledFeatures={data.shell.kind === 'ready' ? data.shell.org.disabledFeatures : []}
 	/>
 {/key}

@@ -362,6 +362,20 @@ describe('getActiveOnboardingPersonnelIds', () => {
 
 		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual(['unassigned']);
 	});
+
+	it('returns no markers without reading them while the unit has Onboarding off', async () => {
+		const ctx = {
+			...buildCtx(),
+			disabledFeatures: ['onboarding' as const],
+			onboardingCalendarMarkers: {
+				listActivePersonnelIds: async (): Promise<string[]> => {
+					throw new Error('Onboarding markers must not be read while Onboarding is off');
+				}
+			}
+		};
+
+		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual([]);
+	});
 });
 
 describe('fetchCalendarBootstrap', () => {

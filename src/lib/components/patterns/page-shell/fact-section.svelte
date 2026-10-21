@@ -6,23 +6,45 @@
 	import { cn } from '$lib/utils.js';
 
 	type Props = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
-		title: string;
-		/** A one-line digest that makes the section collapsible, shown beside the title while it is closed. */
-		summary?: string;
 		open?: boolean;
+		/** `destructive` draws the section's 2px rule in the destructive color, for Danger zone. */
+		variant?: 'default' | 'destructive';
+		/** Closes the untitled rows with a rule after the last one, for a page that ends on them. */
+		endRule?: boolean;
 		children?: Snippet;
-	};
+	} & (
+			| {
+					title: string;
+					/** A one-line digest that makes the section collapsible, shown beside the title while it is closed. */
+					summary?: string;
+			  }
+			/** Without a title the rows open under the page header, as the settings pages do. */
+			| { title?: undefined; summary?: undefined }
+		);
 
-	let { title, summary, open = $bindable(false), children, class: className, ...restProps }: Props = $props();
+	let {
+		title,
+		summary,
+		open = $bindable(false),
+		variant = 'default',
+		endRule = false,
+		children,
+		class: className,
+		...restProps
+	}: Props = $props();
+
+	const rule = $derived(variant === 'destructive' ? 'border-destructive' : 'border-foreground');
 </script>
 
 <section data-slot="fact-section" class={cn('min-w-0', className)} {...restProps}>
-	{#if summary === undefined}
-		<h2 class="border-b-2 border-foreground pb-2 font-heading text-xl font-semibold">{title}</h2>
+	{#if title === undefined}
+		<dl class={cn('border-t-2', rule, endRule && 'border-b border-b-border')}>{@render children?.()}</dl>
+	{:else if summary === undefined}
+		<h2 class={cn('border-b-2 pb-2 font-heading text-xl font-semibold', rule)}>{title}</h2>
 		<dl>{@render children?.()}</dl>
 	{:else}
 		<Collapsible.Root bind:open>
-			<h2 class="border-t-2 border-foreground">
+			<h2 class={cn('border-t-2', rule)}>
 				<Collapsible.Trigger
 					class="flex w-full items-baseline gap-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 				>

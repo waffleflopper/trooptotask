@@ -13,10 +13,13 @@
 	};
 
 	let { row, actions, ariaLabel = 'Open row actions', busy = false }: Props = $props();
+
+	// A table mounts one menu per row and most never open, so the menu content mounts on first open.
+	let opened = $state(false);
 </script>
 
-<DropdownMenu.Root>
-	<DropdownMenu.Trigger>
+<DropdownMenu.Root onOpenChange={(open) => (opened ||= open)}>
+	<DropdownMenu.Trigger disabled={busy}>
 		{#snippet child({ props })}
 			<Button
 				type="button"
@@ -31,15 +34,17 @@
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
-	<DropdownMenu.Content align="end">
-		{#each actions as action (action.label)}
-			<DropdownMenu.Item
-				disabled={action.disabled}
-				variant={action.destructive ? 'destructive' : undefined}
-				onSelect={() => action.onSelect(row)}
-			>
-				{action.label}
-			</DropdownMenu.Item>
-		{/each}
-	</DropdownMenu.Content>
+	{#if opened}
+		<DropdownMenu.Content align="end">
+			{#each actions as action (action.label)}
+				<DropdownMenu.Item
+					disabled={action.disabled}
+					variant={action.destructive ? 'destructive' : undefined}
+					onSelect={() => action.onSelect(row)}
+				>
+					{action.label}
+				</DropdownMenu.Item>
+			{/each}
+		</DropdownMenu.Content>
+	{/if}
 </DropdownMenu.Root>

@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createSupabaseOrganizationSettingsReader } from './settingsProvider.server';
-import { loadPoliciesSettings } from './policiesSettings.server';
 import { loadPersonnelDocumentStorageCapBytes } from './personnelDocumentSettings.server';
 
 const ORG = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
@@ -15,6 +13,7 @@ function fixture(value: number | null | 'missing' | 'failure', missingCount = fa
 		'archive_retention_months',
 		'loss_warning_window_days',
 		'training_readiness_goal_percent',
+		'strength_floor_percent',
 		'personnel_document_storage_cap_bytes'
 	];
 	const rows: { id: string; [field: string]: unknown }[] = [
@@ -104,13 +103,19 @@ describe('Organization runtime settings with the actual SDK', () => {
 		expect(await reader.findPolicies(ORG.toUpperCase())).toEqual({
 			archiveRetentionMonths: 0,
 			lossWarningWindowDays: 0,
-			trainingReadinessGoalPercent: 0
+			trainingReadinessGoalPercent: 0,
+			strengthFloorPercent: 0
 		});
 		expect(await reader.findArchiveRetentionMonths(ORG)).toBe(0);
 		expect(await reader.findLossWarningWindowDays(ORG)).toBe(0);
 		expect(await reader.findStorageCapBytes(ORG)).toBe(0);
 		expect(requests.map((request) => request.select?.split(',').map((column) => column.trim()))).toEqual([
-			['archive_retention_months', 'loss_warning_window_days', 'training_readiness_goal_percent'],
+			[
+				'archive_retention_months',
+				'loss_warning_window_days',
+				'training_readiness_goal_percent',
+				'strength_floor_percent'
+			],
 			['archive_retention_months'],
 			['loss_warning_window_days'],
 			['personnel_document_storage_cap_bytes']
@@ -135,28 +140,19 @@ describe('Organization runtime settings with the actual SDK', () => {
 		expect(await reader.countPendingInvitations(ORG)).toBe(0);
 	});
 	it.each([null, 'missing'] as const)(
-		'keeps missing policy and document defaults at the owning application boundary (%s)',
+		'keeps missing document defaults at the owning application boundary (%s)',
 		async (value) => {
 			const { reader } = fixture(value);
-			const ctx = createTestContext({ auth: { orgId: ORG } });
-			const data = await loadPoliciesSettings({ auth: ctx.auth, organizationSettings: reader }, { isAdmin: false });
-			expect(data.sections.policies.archiveRetention.savedMonths).toBe(36);
-			expect(data.sections.policies.lossWarning.savedDays).toBe(180);
-			expect(data.sections.policies.trainingReadinessGoal.savedPercent).toBe(90);
 			expect(await loadPersonnelDocumentStorageCapBytes(reader, ORG)).toBe(104857600);
 		}
 	);
-	it('propagates provider failures from each narrow read, Policies and document-cap loading', async () => {
+	it('propagates provider failures from each narrow read and document-cap loading', async () => {
 		const { reader } = fixture('failure');
-		const ctx = createTestContext({ auth: { orgId: ORG } });
 		await expect(reader.findPolicies(ORG)).rejects.toThrow('Settings unavailable');
 		await expect(reader.findArchiveRetentionMonths(ORG)).rejects.toThrow('Settings unavailable');
 		await expect(reader.findLossWarningWindowDays(ORG)).rejects.toThrow('Settings unavailable');
 		await expect(reader.findStorageCapBytes(ORG)).rejects.toThrow('Settings unavailable');
 		await expect(reader.countPendingInvitations(ORG)).rejects.toThrow('Settings unavailable');
-		await expect(
-			loadPoliciesSettings({ auth: ctx.auth, organizationSettings: reader }, { isAdmin: false })
-		).rejects.toThrow('Settings unavailable');
 		await expect(loadPersonnelDocumentStorageCapBytes(reader, ORG)).rejects.toThrow('Settings unavailable');
 	});
 });

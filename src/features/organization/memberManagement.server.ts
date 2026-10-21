@@ -3,11 +3,16 @@ import { fail } from '$lib/errors';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
+	defaultMemberAccessForRole,
+	keepStoredLanes,
 	memberAccessCommandToStorage,
 	type EditableMembershipRole,
 	type TargetMemberAccessCommand
 } from '$lib/access/memberAccessCommands';
+import { disabledFeatureLanes } from '$lib/access/featureSwitches';
+import type { OrganizationFeatureSwitches } from '$lib/access/memberAccessProjection';
 import {
+	type CapabilityMap,
 	type CapabilityOverrideMap,
 	type OrganizationAccessGrant,
 	type StoredMemberPreset
@@ -100,6 +105,8 @@ interface OrganizationMembershipRecord {
 	role: string | null;
 	email: string | null;
 	canManageMembers: boolean | null;
+	/** The levels on file, which a lane whose feature is off keeps through any save. */
+	storedLevels: CapabilityMap;
 }
 
 export type OrganizationInvitationRevokeStatus =
@@ -347,7 +354,7 @@ export async function inviteOrganizationMember(
 		inviteEmail: email,
 		inviteMessage:
 			deliveryStatus === 'failed'
-				? 'Invitation created, but email delivery failed. You can resend it from Pending Invitations.'
+				? 'Invitation created, but email delivery failed. You can resend it from Waiting on them.'
 				: deliveryStatus === 'sent'
 					? 'Invitation created and email delivery was queued.'
 					: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
@@ -382,7 +389,7 @@ async function bridgeInvitationToAccessRequest(
 			publicMessages: {
 				blocked: 'Invitation could not be created because platform access setup could not be linked',
 				failed:
-					'Platform access setup could not be linked. Check Pending Invitations and revoke the invitation if it is still listed.'
+					'Platform access setup could not be linked. Check Waiting on them and revoke the invitation if it is still listed.'
 			}
 		});
 	}
@@ -533,7 +540,7 @@ async function issueInvitationAccountSetupLink(
 		publicMessages: {
 			blocked: 'Invitation could not be created because the account setup link could not be issued',
 			failed:
-				'The account setup link could not be issued. Check Pending Invitations and revoke the invitation if it is still listed.'
+				'The account setup link could not be issued. Check Waiting on them and revoke the invitation if it is still listed.'
 		}
 	});
 }
@@ -835,7 +842,7 @@ export async function leaveOrganization(
 }
 
 export async function updateOrganizationMemberAccess(
-	ports: OrganizationSettingsMemberManagementPorts,
+	ports: OrganizationSettingsMemberManagementPorts & OrganizationFeatureSwitches,
 	input: UpdateOrganizationMemberAccessInput
 ): Promise<{ accessSuccess: true }> {
 	if (!validateUUID(input.membershipId)) {
@@ -861,9 +868,13 @@ export async function updateOrganizationMemberAccess(
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateMemberAccess);
 	}
 
+	const requestedAccess =
+		input.memberAccess ?? (input.membershipRole === 'admin' ? defaultMemberAccessForRole('admin') : null);
 	const accessCommand = memberAccessCommandToStorage({
 		membershipRole: input.membershipRole,
-		memberAccess: input.memberAccess
+		memberAccess:
+			requestedAccess &&
+			keepStoredLanes(requestedAccess, targetMembership.storedLevels, disabledFeatureLanes(ports.disabledFeatures))
 	});
 	await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
 	const updatesHighPrivilegeAccess =

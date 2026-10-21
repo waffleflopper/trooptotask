@@ -105,7 +105,28 @@ test('dispatches the actual source before holding and releases its unchanged res
 	control.command('restore');
 });
 
-test('Organization setting control leaves profile, membership, full policies, B and writes untouched', async () => {
+test('fails an A count read and the audit log read by its org_id column', async () => {
+	const dispatched = [];
+	const control = controller(async (...args) => {
+		dispatched.push(args);
+		return new Response('real');
+	});
+	const count = `${providerUrl}/rest/v1/special_days?select=id&organization_id=eq.${orgA}`;
+	control.command('arm', { table: 'special_days', mode: 'fail-hard' });
+	assert.equal(await (await control.fetch(count.replace(orgA, orgB), { method: 'HEAD' })).text(), 'real');
+	assert.equal((await control.fetch(count, { method: 'HEAD' })).status, 500);
+	control.command('restore');
+
+	const audit = `${providerUrl}/rest/v1/audit_logs?select=id&org_id=eq.${orgA}&action=eq.org.renamed`;
+	control.command('arm', { table: 'audit_logs', mode: 'fail-hard' });
+	assert.equal(await (await control.fetch(audit.replace('org_id=', 'organization_id='))).text(), 'real');
+	assert.equal(await (await control.fetch(audit.replace(orgA, orgB))).text(), 'real');
+	assert.equal((await control.fetch(audit)).status, 500);
+	control.command('restore');
+	assert.equal(dispatched.length, 3);
+});
+
+test('Organization setting control leaves profile, membership, partial settings, B and writes untouched', async () => {
 	const dispatched = [];
 	const control = controller(async (...args) => {
 		dispatched.push(args);
@@ -142,6 +163,36 @@ test('Organization setting control leaves profile, membership, full policies, B 
 	control.command('restore');
 });
 
+test('Personnel control matches only the narrow A loss-date read', async () => {
+	const dispatched = [];
+	const control = controller(async (...args) => {
+		dispatched.push(args);
+		return new Response('ordinary Personnel read');
+	});
+	control.command('arm', { table: 'personnel', mode: 'fail-hard' });
+	const losses = `${providerUrl}/rest/v1/personnel?select=id,rank,last_name,ets,deros,group_id&organization_id=eq.${orgA}&archived_at=is.null`;
+	const ordinary = [
+		[
+			losses.replace(
+				'select=id,rank,last_name,ets,deros,group_id',
+				'select=*,groups:groups!personnel_organization_group_fkey(name)'
+			)
+		],
+		[losses.replace('select=id,rank,last_name,ets,deros,group_id', 'select=archived_at')],
+		[losses.replace(orgA, orgB)],
+		[losses, { method: 'HEAD' }],
+		[losses, { method: 'PATCH' }]
+	];
+	for (const input of ordinary) {
+		assert.equal(await (await control.fetch(...input)).text(), 'ordinary Personnel read');
+		assert.deepEqual(dispatched.at(-1), [input[0], input[1]]);
+	}
+	assert.equal(control.command('state').control.matches, 0);
+	assert.equal((await control.fetch(losses)).status, 500);
+	assert.equal(dispatched.length, ordinary.length);
+	control.command('restore');
+});
+
 test('Organization setting control holds only the real narrow A setting response until release', async () => {
 	const source = deferred();
 	let dispatched = false;
@@ -167,6 +218,17 @@ test('Organization setting control holds only the real narrow A setting response
 	control.command('release');
 	assert.equal(await response, saved);
 	assert.deepEqual(await saved.json(), { loss_warning_window_days: 90 });
+	control.command('restore');
+});
+
+test('Organization setting control also fails the Dashboard policy read that carries the loss window', async () => {
+	const control = controller(async () => new Response('real'));
+	control.command('arm', { table: 'organizations', mode: 'fail' });
+	const policies =
+		'archive_retention_months,loss_warning_window_days,training_readiness_goal_percent,strength_floor_percent';
+	const failure = await control.fetch(`${providerUrl}/rest/v1/organizations?select=${policies}&id=eq.${orgA}`);
+	assert.equal(failure.status, 503);
+	assert.equal(control.command('state').control.matches, 1);
 	control.command('restore');
 });
 

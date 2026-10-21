@@ -129,7 +129,7 @@ const tableColumns = {
 };
 const tableSelect = {
 	organizations:
-		'id,name,url_slug,created_by,created_at,suspended_at,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,training_readiness_goal_percent',
+		'id,name,url_slug,created_by,created_at,suspended_at,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,training_readiness_goal_percent,disabled_features,strength_floor_percent',
 	personnel_extended_info:
 		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at,updated_by',
 	organization_rank_catalog:
@@ -956,15 +956,15 @@ async function main() {
 									: destination === 'critical-tasks'
 										? ['Critical Tasks', 'Access restricted']
 										: destination === 'settings/archives'
-											? ['Archived Records', "You don't have permission to view this page"]
+											? ['Archived people', "You don't have permission to view this page"]
 											: destination === 'settings/approvals'
-												? ['Approval Requests', "You don't have permission to view this page"]
+												? ['Pending requests', "You don't have permission to view this page"]
 												: destination === 'settings/policies'
 													? ['Archive Retention', "You don't have permission to view this page"]
 													: destination === 'settings/general'
-														? ['Organization Profile', "You don't have permission to view this page"]
+														? ['Unit name', "You don't have permission to view this page"]
 														: destination === 'settings/members'
-															? ['Access Management', "You don't have permission to view this page"]
+															? ['Send invite', "You don't have permission to view this page"]
 															: destination === 'settings/exports'
 																? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
 																: destination === 'settings/danger'
@@ -2619,7 +2619,9 @@ async function main() {
 				'org/new': ['/org/new', '', 'error']
 			}[family];
 			const settingsPage =
-				/^settings-page\/(general|members|policies|approvals|logs|exports|danger)$/.exec(family)?.[1] ?? null;
+				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
+					family
+				)?.[1] ?? null;
 			if (
 				![
 					'audit-page',

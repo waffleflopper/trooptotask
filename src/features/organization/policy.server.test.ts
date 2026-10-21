@@ -191,4 +191,106 @@ describe('Organization policy updates', () => {
 		).toEqual({ success: true });
 		expect(ctx.auditPort.events[1]).toMatchObject({ details: { loss_warning_window_days: 91 } });
 	});
+
+	it('changes one feature switch against the stored set and audits what it replaced', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [
+			{ id: ctx.auth.orgId, disabled_features: ['onboarding'], strength_floor_percent: 80 }
+		]);
+
+		expect(
+			await updateOrganizationSettings(ctx, {
+				featureSwitch: { feature: 'training', on: false },
+				strengthFloorPercent: 65
+			})
+		).toEqual({ success: true });
+		expect(await updateOrganizationSettings(ctx, { featureSwitch: { feature: 'onboarding', on: true } })).toEqual({
+			success: true
+		});
+
+		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
+			disabled_features: ['training'],
+			strength_floor_percent: 65
+		});
+		expect(ctx.auditPort.events.map((event) => event.details)).toEqual([
+			{
+				previous_disabled_features: ['onboarding'],
+				disabled_features: ['training', 'onboarding'],
+				previous_strength_floor_percent: 80,
+				strength_floor_percent: 65
+			},
+			{ previous_disabled_features: ['training', 'onboarding'], disabled_features: ['training'] }
+		]);
+	});
+
+	it('keeps both of two overlapping switch saves and audits what each one replaced', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [{ id: ctx.auth.orgId, disabled_features: [], strength_floor_percent: 80 }]);
+		const port = ctx.organizationPolicyWrite;
+		const read = port.findFeatureSettings.bind(port);
+		let bothRead!: () => void;
+		const barrier = new Promise<void>((resolve) => (bothRead = resolve));
+		let reads = 0;
+		port.findFeatureSettings = async (orgId) => {
+			const settings = await read(orgId);
+			if (++reads === 2) bothRead();
+			if (reads <= 2) await barrier;
+			return settings;
+		};
+
+		expect(
+			await Promise.all([
+				updateOrganizationSettings(ctx, { featureSwitch: { feature: 'training', on: false } }),
+				updateOrganizationSettings(ctx, { featureSwitch: { feature: 'onboarding', on: false } })
+			])
+		).toEqual([{ success: true }, { success: true }]);
+
+		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
+			disabled_features: ['training', 'onboarding']
+		});
+		expect(ctx.auditPort.events.map((event) => event.details)).toEqual([
+			{ previous_disabled_features: [], disabled_features: ['training'] },
+			{ previous_disabled_features: ['training'], disabled_features: ['training', 'onboarding'] }
+		]);
+	});
+
+	it('gives up with a conflict after three switch writes lose to other saves', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [{ id: ctx.auth.orgId, disabled_features: [], strength_floor_percent: 80 }]);
+		const port = ctx.organizationPolicyWrite;
+		const read = port.findFeatureSettings.bind(port);
+		const flips: (readonly string[])[] = [['criticalTasks'], [], ['criticalTasks']];
+		port.findFeatureSettings = async (orgId) => {
+			const settings = await read(orgId);
+			await ctx.rawStore.updateById('organizations', ctx.auth.orgId, { disabled_features: flips.shift() });
+			return settings;
+		};
+
+		await expect(
+			updateOrganizationSettings(ctx, { featureSwitch: { feature: 'training', on: false } })
+		).rejects.toMatchObject({ status: 409 });
+		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
+			disabled_features: ['criticalTasks']
+		});
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it.each([
+		[{ featureSwitch: { feature: 'dutyRoster', on: false } }, 'field:featureSwitch'],
+		[{ featureSwitch: { feature: 'training' } }, 'field:featureSwitch'],
+		[{ featureSwitch: 'training' }, 'field:featureSwitch'],
+		[{ strengthFloorPercent: 0 }, 'field:strengthFloorPercent'],
+		[{ strengthFloorPercent: 101 }, 'field:strengthFloorPercent'],
+		[{ strengthFloorPercent: 79.5 }, 'field:strengthFloorPercent']
+	])('rejects %j with a field error before any write', async (input, reason) => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [{ id: ctx.auth.orgId, disabled_features: [], strength_floor_percent: 80 }]);
+
+		await expect(updateOrganizationSettings(ctx, input as never)).rejects.toMatchObject({ status: 400, reason });
+		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
+			disabled_features: [],
+			strength_floor_percent: 80
+		});
+		expect(ctx.auditPort.events).toEqual([]);
+	});
 });

@@ -1,7 +1,3 @@
-/**
- * Fires-and-forgets audit events — failures are silently swallowed so they never
- * block the main request.
- */
 import type { AuditPort } from './contracts';
 import { auditLog } from './auditLog.server';
 
@@ -14,8 +10,8 @@ interface RequestInfo {
 
 export function createSupabaseAuditAdapter(orgId: string | null, requestInfo: RequestInfo): AuditPort {
 	return {
-		log(event): void {
-			auditLog(
+		log(event) {
+			return auditLog(
 				{
 					action: event.action,
 					resourceType: event.resourceType,

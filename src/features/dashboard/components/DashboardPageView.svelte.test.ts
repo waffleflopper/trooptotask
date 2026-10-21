@@ -21,6 +21,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			orgMemberCount: 0
 		},
 		userRole: 'member',
+		isFeatureOn: () => true,
 		hasSupportData: true,
 		gettingStartedDismissed: true,
 		gettingStartedItems: [],
@@ -32,14 +33,11 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		isHydrating: false,
 		statusBreakdown: new Map(),
 		unitReadiness: {
-			availabilityColor: (pct: number) => {
-				if (pct >= 90) return 'var(--chart-2)';
-				if (pct >= 75) return 'var(--accent)';
-				return 'var(--destructive)';
-			},
+			availabilityColor: () => 'var(--success-foreground)',
+			trainingCurrencyColor: () => 'var(--success-foreground)',
 			availPct: 100,
-			availColor: 'var(--chart-2)',
-			trainingColor: 'var(--chart-2)',
+			availColor: 'var(--success-foreground)',
+			trainingColor: 'var(--success-foreground)',
 			statusEntries: [],
 			upcomingChanges: {
 				mode: 'date',
@@ -170,8 +168,8 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('Clinic Coverage')).toBeTruthy();
 		expect(screen.getByText('Alpha')).toBeTruthy();
 		expect(screen.queryByText('training current')).toBeNull();
-		const training = screen.getByRole('heading', { name: 'Training & Evaluations' }).closest('[data-slot="card"]')!;
-		expect(within(training as HTMLElement).queryByText('Clinic group')).toBeNull();
+		const evaluations = screen.getByRole('heading', { name: 'Evaluations' }).closest('[data-slot="card"]')!;
+		expect(within(evaluations as HTMLElement).queryByText('Clinic group')).toBeNull();
 		expect(screen.getByText('Clinic group')).toBeTruthy();
 	});
 
@@ -233,5 +231,35 @@ describe('Dashboard Training attention', () => {
 		expect(screen.queryByText(/Alpha \(1\)/)).toBeNull();
 		expect(screen.getByText('2 expired')).toBeTruthy();
 		expect(screen.getByText('1 training items expiring soon')).toBeTruthy();
+	});
+});
+
+describe('Dashboard feature switches', () => {
+	const offFor = (...off: string[]) => ({ isFeatureOn: (feature: string) => !off.includes(feature) });
+
+	it('drops Evaluations from the readiness card and Requires Attention when the unit turns them off', () => {
+		const ratingStats = { overdue: 2, 'due-30': 1, 'due-60': 0, current: 0 };
+		render(DashboardPageView, { props: { ctx: makeCtx({ ratingStats }) } });
+		expect(screen.getByText('2 overdue evaluations')).toBeTruthy();
+		expect(screen.getByText('1 evaluation due within 30 days')).toBeTruthy();
+		cleanup();
+
+		render(DashboardPageView, { props: { ctx: makeCtx({ ...offFor('evaluations'), ratingStats }) } });
+		expect(screen.getByRole('heading', { name: 'Training' })).toBeTruthy();
+		expect(screen.queryByText('2 overdue evaluations')).toBeNull();
+		expect(screen.queryByText('1 evaluation due within 30 days')).toBeNull();
+	});
+
+	it('removes the readiness card when Training and Evaluations are both off', () => {
+		render(DashboardPageView, { props: { ctx: makeCtx({ ...offFor('evaluations'), trainingStats: null }) } });
+
+		expect(screen.queryByRole('heading', { name: /Training|Evaluations/ })).toBeNull();
+	});
+
+	it('removes the Onboarding card when the unit turns Onboarding off', () => {
+		render(DashboardPageView, { props: { ctx: makeCtx(offFor('onboarding')) } });
+
+		expect(screen.queryByRole('heading', { name: 'Onboarding' })).toBeNull();
+		expect(screen.getByRole('heading', { name: 'Training & Evaluations' })).toBeTruthy();
 	});
 });

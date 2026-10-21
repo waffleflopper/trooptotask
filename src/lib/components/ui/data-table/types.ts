@@ -18,6 +18,8 @@ export interface ColumnDef<T> {
 	maxWidth?: 'none';
 	/** Body cells in this column are the row's header (`th scope="row"`). */
 	rowHeader?: boolean;
+	/** Hides the column's header and cells below the `md` breakpoint with CSS, so the server render already fits a narrow screen. */
+	hiddenBelow?: 'md';
 }
 
 export interface GroupDef<T> {

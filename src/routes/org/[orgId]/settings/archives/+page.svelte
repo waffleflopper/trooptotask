@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { tick } from 'svelte';
-	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
+	import { SvelteSet } from 'svelte/reactivity';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import type { PageProps } from './$types';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -31,7 +31,6 @@
 	const orgId = $derived($page.params.orgId ?? '');
 	const archived = createSettingsArchivedPersonnelState(() => data.archivesSettings.sections.archivedPersonnel);
 	const now = new Date();
-	const wide = new MediaQuery('min-width: 48rem', true);
 	const removedIds = new SvelteSet<string>();
 	let search = $state('');
 	let restoring = $state<string | null>(null);
@@ -54,14 +53,15 @@
 	const shownCount = $derived(query ? rows.filter(matches).length : rows.length);
 	const countdowns = $derived(new Map(rows.map((row) => [row.id, deletionCountdown(row.archivedAt, months, now)])));
 
-	const wideColumns = (
+	// Below md the name cell carries the detail lanes, and the actions shrink to their stacked buttons.
+	const columns = (
 		[
 			['name', 'Name', undefined],
 			['mos', 'MOS', '4rem'],
 			['group', 'Group', '6.25rem'],
 			['archived', 'Archived', '6rem'],
 			['deletedIn', 'Deleted in', '7.5rem'],
-			['actions', '', '14.75rem']
+			['actions', '', '1%']
 		] as const
 	).map(
 		([key, header, width]): ColumnDef<SettingsArchivedPersonnelRow> => ({
@@ -70,15 +70,15 @@
 			width,
 			headerAriaLabel: key === 'actions' ? 'Actions' : undefined,
 			rowHeader: key === 'name',
+			hiddenBelow: key === 'name' || key === 'actions' ? undefined : 'md',
 			value: () => '',
 			sortable: false,
 			searchable: false
 		})
 	);
-	const narrowColumns = wideColumns.filter((column) => column.key === 'name');
 	const table = useDataTable<SettingsArchivedPersonnelRow>({
 		data: () => rows,
-		columns: () => (wide.current ? wideColumns : narrowColumns),
+		columns,
 		rowKey: (row) => row.id
 	});
 
@@ -236,7 +236,7 @@
 {/snippet}
 
 {#snippet actions(row: SettingsArchivedPersonnelRow)}
-	<div class="flex items-center gap-1 md:justify-end">
+	<div class="flex flex-col items-end gap-1 md:w-59 md:flex-row md:items-center md:justify-end">
 		<Button
 			id="restore-{row.id}"
 			variant="outline"
@@ -266,13 +266,12 @@
 {#snippet archiveCell(row: SettingsArchivedPersonnelRow, column: ColumnDef<SettingsArchivedPersonnelRow>)}
 	{#if column.key === 'name'}
 		<span class="font-semibold whitespace-normal">{row.displayName}</span>
-		{#if !wide.current}
+		<div class="md:hidden">
 			<p class="mt-0.5 font-mono text-xs whitespace-normal text-muted-foreground">
 				{[row.mos, row.groupName, `Archived ${formatRosterDate(row.archivedAt)}`].filter(Boolean).join(' · ')}
 			</p>
 			<div class="mt-1.5">{@render countdown(row)}</div>
-			<div class="mt-2">{@render actions(row)}</div>
-		{/if}
+		</div>
 	{:else if column.key === 'mos'}
 		<span class="font-mono text-xs">{row.mos || '--'}</span>
 	{:else if column.key === 'group'}

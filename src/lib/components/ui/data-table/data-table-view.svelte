@@ -136,7 +136,11 @@
 </script>
 
 {#snippet bodyCell(row: T, column: ColumnDef<T>)}
-	{@const alignClass = cn(column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
+	{@const alignClass = cn(
+		column.align === 'center' && 'text-center',
+		column.align === 'right' && 'text-right',
+		column.hiddenBelow === 'md' && 'hidden md:table-cell'
+	)}
 	{#if column.rowHeader}
 		<th
 			scope="row"
@@ -167,7 +171,11 @@
 					<Table.Head
 						scope="col"
 						aria-sort={ariaSort(column)}
-						class={cn(column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
+						class={cn(
+							column.align === 'center' && 'text-center',
+							column.align === 'right' && 'text-right',
+							column.hiddenBelow === 'md' && 'hidden md:table-cell'
+						)}
 						style={column.width ? `width: ${column.width}` : undefined}
 					>
 						{#if headerCell}

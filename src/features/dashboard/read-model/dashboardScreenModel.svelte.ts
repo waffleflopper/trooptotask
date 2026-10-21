@@ -5,7 +5,7 @@ import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
-import { formatDate, formatToday, parseDate } from '$lib/utils/dates';
+import { formatDate, parseDate } from '$lib/utils/dates';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
@@ -47,7 +47,6 @@ export interface DashboardStoreSources {
 }
 
 export interface DashboardScreenModelOptions {
-	today?: string;
 	sources?: DashboardStoreSources;
 }
 
@@ -191,7 +190,7 @@ export class DashboardScreenModel {
 
 	constructor(data: DashboardPageData, options: DashboardScreenModelOptions = {}) {
 		this.data = data;
-		this.today = options.today ?? formatToday();
+		this.today = data.viewerDay.date;
 		this.sources = options.sources ?? createDefaultDashboardStoreSources();
 
 		if (
@@ -557,8 +556,9 @@ export class DashboardScreenModel {
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number; current: number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0 };
+		const today = parseDate(this.today);
 		for (const entry of this.data.dashboard.data.ratingSchemeEntries) {
-			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
+			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today);
 			if (status !== 'completed') {
 				counts[status as keyof typeof counts]++;
 			}

@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { navigating } from '$app/state';
 	import { page } from '$app/stores';
-	import { onMount, onDestroy, untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import BadgeCheck from '@lucide/svelte/icons/badge-check';
 	import Bell from '@lucide/svelte/icons/bell';
@@ -20,8 +20,7 @@
 	import Sun from '@lucide/svelte/icons/sun';
 	import UserCircle from '@lucide/svelte/icons/user-circle';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
-	import { formatDate, formatRelativeDate } from '$lib/utils/dates';
-	import { formatDashboardDisplayDate } from '$features/dashboard/contracts';
+	import { formatRelativeDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import AppShellNavigation from './AppShellNavigation.svelte';
 	import { getOrgBreadcrumbs, getOrgNavigation } from './orgNavigation';
@@ -71,7 +70,6 @@
 	// The mobile drawer leaves no room beside it, so its menus open vertically as in the shadcn sidebar blocks.
 	const isMobile = new IsMobile();
 	const drawerMenuSide = $derived(isMobile.current ? 'bottom' : 'right');
-	let clientDashboardDateLabel = $state<string | null>(null);
 	let orgSwitcherOpen = $state(false);
 	let orgSwitcherOrgs = $state<OrganizationSwitcherOrg[]>([]);
 	let orgSwitcherLoaded = $state(false);
@@ -97,14 +95,8 @@
 	let localUnreadCount = $state(0);
 	const notificationScope = $derived(`${userId}/${orgId}/${orgUrlSegment}/${membershipId ?? ''}`);
 	const pathname = $derived($page.url.pathname);
-	const dashboardPath = $derived(`/org/${orgUrlSegment}`);
-	const isDashboardRoot = $derived(pathname === dashboardPath);
 	const routeLeafLabel = $derived(
-		isDashboardRoot
-			? clientDashboardDateLabel
-			: typeof $page.data?.breadcrumbLabel === 'string'
-				? $page.data.breadcrumbLabel
-				: undefined
+		typeof $page.data?.breadcrumbLabel === 'string' ? $page.data.breadcrumbLabel : undefined
 	);
 	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
@@ -138,10 +130,6 @@
 		canLeaveOrganization && Boolean(membershipId) && leaveOrganizationConfirmText === 'YES'
 	);
 	const accountInitials = $derived('ME');
-
-	onMount(() => {
-		clientDashboardDateLabel = formatDashboardDisplayDate(formatDate(new Date()));
-	});
 
 	function getInitials(value: string) {
 		const words = value

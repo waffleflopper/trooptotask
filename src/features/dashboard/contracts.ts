@@ -71,10 +71,17 @@ export interface DashboardSetupSupport {
 	starterConfigurationPacks: StarterConfigurationPackSupport[];
 }
 
+/** The viewer's calendar day and IANA zone from the page load; the Dashboard's only "today". */
+export interface DashboardViewerDay {
+	date: string;
+	timeZone: string;
+}
+
 export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
+	viewerDay: DashboardViewerDay;
 	/** Features off for the unit, from the app shell's Organization row. */
 	disabledFeatures: readonly FeatureKey[];
 	dashboard: DashboardWorkspaceResult;

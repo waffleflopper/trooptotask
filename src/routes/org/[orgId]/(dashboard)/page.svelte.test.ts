@@ -42,6 +42,7 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 				hydration: { orgId }
 			}
 		},
+		viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
 		summary: {
 			trainingSummary: {
 				stats: {

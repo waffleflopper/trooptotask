@@ -853,16 +853,13 @@ describe('AppShellHeader', () => {
 		expect(breadcrumb.textContent).not.toContain('Person');
 	});
 
-	it('uses a client-local dashboard date crumb for the dashboard root', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date(2026, 3, 26, 9));
-		pageStore.setPath('/org/org-1', { breadcrumbLabel: 'Server Date Should Not Render' });
+	it("names the dashboard root by the page's viewer-day label", async () => {
+		pageStore.setPath('/org/org-1', { breadcrumbLabel: 'Monday, Oct 19 2026' });
 
 		renderHeader();
 
 		const breadcrumb = screen.getByLabelText('Current section');
-		await waitFor(() => expect(breadcrumb.textContent).toContain('Sunday, Apr 26 2026'));
-		expect(breadcrumb.textContent).not.toContain('Server Date Should Not Render');
+		await waitFor(() => expect(breadcrumb.textContent).toContain('Monday, Oct 19 2026'));
 		expect(within(breadcrumb).getByRole('link', { name: 'Dashboard' }).getAttribute('href')).toBe('/org/org-1');
 	});
 });

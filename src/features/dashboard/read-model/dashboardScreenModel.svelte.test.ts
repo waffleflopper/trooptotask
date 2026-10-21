@@ -24,6 +24,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
+		viewerDay: { date: '2026-04-23', timeZone: 'UTC' },
 		disabledFeatures: [],
 		dashboard: {
 			workspaceKey: 'dashboard',
@@ -510,8 +511,7 @@ describe('createDashboardScreenModel', () => {
 	});
 
 	it('lists upcoming departures and returns soonest first', () => {
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: makeSources({
 				personnel: [
 					{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
@@ -533,24 +533,10 @@ describe('createDashboardScreenModel', () => {
 			'2026-04-28'
 		]);
 	});
-
-	it('defaults today through the shared date formatter when no explicit date is supplied', () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-04-23T12:00:00'));
-
-		const model = createDashboardScreenModel(makeData(), {
-			sources: makeSources()
-		});
-
-		expect(model.today).toBe('2026-04-23');
-
-		vi.useRealTimers();
-	});
 });
 
 it('resolves saved Group duty by ID after the Group is renamed', () => {
-	const model = createDashboardScreenModel(makeData(), {
-		today: '2026-09-19',
+	const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-09-19', timeZone: 'UTC' } }), {
 		sources: makeSources({
 			groups: [{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 }],
 			assignmentTypes: [{ id: 'group-duty', name: 'Group Duty', assignTo: 'group' }],
@@ -772,8 +758,7 @@ describe('Dashboard today availability', () => {
 	};
 
 	it('counts each active Person out today once and lists every entry that covers today', () => {
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: makeSources({
 				...roster,
 				availabilityEntries: [
@@ -826,8 +811,7 @@ describe('Dashboard today availability', () => {
 			] as AvailabilityEntry[],
 			loading: false
 		});
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: { ...makeSources(roster), availability }
 		});
 

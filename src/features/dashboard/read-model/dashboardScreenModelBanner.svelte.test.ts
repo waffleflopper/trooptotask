@@ -72,6 +72,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
+		viewerDay: { date: '2026-04-23', timeZone: 'UTC' },
 		disabledFeatures: [],
 		dashboard: {
 			workspaceKey: 'dashboard',
@@ -107,8 +108,14 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 	});
 
 	describe('today', () => {
-		it('is a string in YYYY-MM-DD format', () => {
-			expect(ctx.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		it("is the page load's viewer day even when the browser clock reads another day", () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-10-20T03:00:00Z'));
+			const model = createDashboardScreenModel(
+				makeData({ viewerDay: { date: '2026-10-19', timeZone: 'America/Los_Angeles' } })
+			);
+
+			expect(model.today).toBe('2026-10-19');
 		});
 	});
 
@@ -195,8 +202,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 
 		it('assigns unique keys when repeated changes land on the same day', () => {
-			vi.useFakeTimers();
-			vi.setSystemTime(new Date('2098-12-31T12:00:00Z'));
 			mutableRosterStore.items = [
 				{ id: 'p1', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Alex' },
 				{ id: 'p2', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Avery' }
@@ -219,7 +224,9 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				}
 			];
 
-			const dashboardModel = createDashboardScreenModel(makeData());
+			const dashboardModel = createDashboardScreenModel(
+				makeData({ viewerDay: { date: '2098-12-31', timeZone: 'UTC' } })
+			);
 			const keys = dashboardModel.upcomingChanges.map((change) => change.key);
 
 			expect(keys).toEqual([
@@ -241,9 +248,9 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			expect(ctx.ratingStats.current).toBe(0);
 		});
 
-		it('buckets only the projected dates and record statuses using the local day', () => {
+		it("buckets only the projected dates and record statuses against the viewer's day", () => {
 			vi.useFakeTimers({ toFake: ['Date'] });
-			vi.setSystemTime(new Date('2026-09-30T00:00:00'));
+			vi.setSystemTime(new Date('2026-11-30T00:00:00'));
 			const entries = [
 				{ ratingPeriodEnd: '2026-09-25', status: 'active' },
 				{ ratingPeriodEnd: '2026-09-28', status: 'active' },
@@ -255,7 +262,9 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				{ ratingPeriodEnd: '2026-12-29', status: 'active' },
 				{ ratingPeriodEnd: '2026-07-02', status: 'completed' }
 			];
-			const model = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
+			const model = createDashboardScreenModel(
+				makeData({ viewerDay: { date: '2026-09-30', timeZone: 'UTC' } }, { ratingSchemeEntries: entries })
+			);
 			expect(model.ratingStats).toEqual({ overdue: 2, 'due-30': 4, 'due-60': 1, current: 1 });
 		});
 	});

@@ -41,12 +41,21 @@
 
 	let form = $state<HTMLFormElement>();
 
+	// A landed save or an undo removes the focused button; keep focus in the field instead of the page body.
+	async function keepFocusInField() {
+		await tick();
+		if (document.activeElement === document.body) form?.querySelector('input')?.focus();
+	}
+
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
 		await draft.save(save);
-		await tick();
-		// A landed save removes the focused Save button; keep focus in the field instead of the page body.
-		if (document.activeElement === document.body) form?.querySelector('input')?.focus();
+		await keepFocusInField();
+	}
+
+	function undo() {
+		draft.undo();
+		void keepFocusInField();
 	}
 </script>
 
@@ -63,12 +72,13 @@
 	onsubmit={submit}
 >
 	<div class="flex shrink-0 items-center gap-3">{@render field(aria)}</div>
-	<p id="{id}-sentence" class="min-w-0 flex-1 text-sm text-foreground">{@render children?.()}</p>
+	<!-- A div, not a p, so a sentence can hold a block skeleton while part of it streams. -->
+	<div id="{id}-sentence" class="min-w-0 flex-1 text-sm text-foreground">{@render children?.()}</div>
 	{#if inlineStatus || draft.changed}
 		<div class="flex shrink-0 flex-wrap items-center gap-2">
 			{#if inlineStatus}<Status {draft} {was} />{/if}
 			{#if draft.changed}
-				<Button type="button" size="sm" variant="ghost" onclick={() => draft.undo()} disabled={draft.saving}>
+				<Button type="button" size="sm" variant="ghost" onclick={undo} disabled={draft.saving}>
 					Undo <span class="sr-only">{name} change</span>
 				</Button>
 				<!-- aria-disabled keeps focus on Save while it saves. -->

@@ -10,6 +10,11 @@ const LOSS_WINDOW_READS = [
 	'loss_warning_window_days',
 	'archive_retention_months,loss_warning_window_days,training_readiness_goal_percent,strength_floor_percent'
 ];
+// Only the Policies loss sentence reads People this narrowly, so roster, record and archive reads pass through.
+const NARROW_READS = {
+	organizations: LOSS_WINDOW_READS,
+	personnel: ['id,rank,last_name,ets,deros,group_id']
+};
 
 export const SERVER_SOURCE_TABLES = Object.freeze([
 	'personnel_onboardings',
@@ -32,7 +37,8 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'deletion_requests',
 	'status_types',
 	'audit_logs',
-	'organization_invitations'
+	'organization_invitations',
+	'personnel'
 ]);
 const ORGANIZATION_COLUMN = { organizations: 'id', audit_logs: 'org_id' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -118,10 +124,10 @@ export function createServerSourceController({ providerUrl, orgId, fetch: origin
 		const method = String(init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
 		const organizations = url.searchParams.getAll(ORGANIZATION_COLUMN[control.table] ?? 'organization_id');
 		const selection = url.searchParams.getAll('select');
-		const matchesSelection =
-			control.table !== 'organizations' || (selection.length === 1 && LOSS_WINDOW_READS.includes(selection[0]));
-		// Counts are HEAD reads; the narrow Organization setting stays GET only.
-		const readMethod = method === 'GET' || (method === 'HEAD' && control.table !== 'organizations');
+		const narrow = NARROW_READS[control.table];
+		const matchesSelection = !narrow || (selection.length === 1 && narrow.includes(selection[0]));
+		// Counts are HEAD reads; the narrow reads stay GET only.
+		const readMethod = method === 'GET' || (method === 'HEAD' && !narrow);
 		if (
 			!readMethod ||
 			url.origin !== origin ||

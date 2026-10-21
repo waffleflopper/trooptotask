@@ -1,0 +1,58 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
+import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
+import { findOldestArchivedAt, loadLossCandidates } from '$features/personnel/index.server';
+import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportData } from '$features/training/contracts';
+import {
+	DEFAULT_ARCHIVE_RETENTION_MONTHS,
+	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+	DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
+	type OrganizationSettingsReader
+} from '$features/organization/contracts';
+import type { GroupReadiness, PoliciesSettingsData } from './policiesSettings';
+
+export interface PoliciesSettingsPorts {
+	auth: { orgId: string };
+	/** The admitted request already read the switches with the organization row. */
+	disabledFeatures: readonly FeatureKey[];
+	organizationSettings: Pick<OrganizationSettingsReader, 'findPolicies'>;
+	roster: Parameters<typeof loadLossCandidates>[0]['roster'] & Parameters<typeof findOldestArchivedAt>[0]['roster'];
+	readTrainingBriefing: (
+		input: typeof DEFAULT_TRAINING_BRIEFING_INPUT,
+		asOf: string
+	) => Promise<TrainingBriefingReportData>;
+}
+
+/** The group rows Training Reports opens on, which its heat map grades against the goal. */
+async function readGroupReadiness(ports: PoliciesSettingsPorts, asOf: string): Promise<GroupReadiness[]> {
+	const report = await ports.readTrainingBriefing({ ...DEFAULT_TRAINING_BRIEFING_INPUT, rowsBy: 'group' }, asOf);
+	return report.briefing.grid.rows.flatMap(({ label, today }) =>
+		today.percent === null
+			? []
+			: [{ name: label, ready: today.ready, applicable: today.applicable, percent: today.percent }]
+	);
+}
+
+export async function loadPoliciesSettings(
+	ports: PoliciesSettingsPorts,
+	input: { today: string }
+): Promise<PoliciesSettingsData> {
+	const lossCandidates = ports.disabledFeatures.includes('lossesAndAwards')
+		? null
+		: keepStreamedRejectionObserved(loadLossCandidates(ports));
+	const groupReadiness = ports.disabledFeatures.includes('training')
+		? null
+		: keepStreamedRejectionObserved(readGroupReadiness(ports, input.today));
+	const [policies, oldestArchivedAt] = await Promise.all([
+		ports.organizationSettings.findPolicies(ports.auth.orgId),
+		findOldestArchivedAt(ports)
+	]);
+	return {
+		lossWarningWindowDays: policies?.lossWarningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+		trainingReadinessGoalPercent: policies?.trainingReadinessGoalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
+		archiveRetentionMonths: policies?.archiveRetentionMonths ?? DEFAULT_ARCHIVE_RETENTION_MONTHS,
+		today: input.today,
+		lossCandidates,
+		oldestArchivedAt,
+		groupReadiness
+	};
+}

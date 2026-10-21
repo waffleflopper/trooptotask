@@ -16,13 +16,16 @@ import {
 } from '$lib/server/adapters/requestContexts.server';
 import { fetchLatestAuditEvent } from '$lib/audit/index.server';
 import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
-import type { loadMembersSettings, loadPoliciesSettings } from '$features/organization/index.server';
+import type { loadMembersSettings } from '$features/organization/index.server';
+import { fetchTrainingBriefingReport } from '$features/training/index.server';
+import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { listGroupCatalog } from '$features/personnel/index.server';
 import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 import type { FeaturesSettingsPorts } from './settingsFeatures.server';
 import type { DangerSettingsPorts } from './settingsDanger.server';
 import type { SettingsUnitSummaryPorts } from './settingsLoad.server';
+import type { PoliciesSettingsPorts } from './settingsPolicies.server';
 
 export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
 	typeof streamSettingsNavCounts
@@ -60,12 +63,13 @@ export function createSettingsMembersContext(request: AdmittedOrganizationReques
 	};
 }
 
-export function createSettingsPoliciesContext(
-	request: AdmittedOrganizationRequest
-): Parameters<typeof loadPoliciesSettings>[0] {
+export function createSettingsPoliciesContext(request: AdmittedOrganizationRequest): PoliciesSettingsPorts {
 	return {
-		auth: request.auth,
-		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
+		...createRequestPersonnelRosterContext(request),
+		disabledFeatures: request.disabledFeatures,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		readTrainingBriefing: (input, asOf) =>
+			fetchTrainingBriefingReport(createRequestTrainingBriefingContext(request), input, asOf)
 	};
 }
 

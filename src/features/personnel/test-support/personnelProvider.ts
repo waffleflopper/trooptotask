@@ -60,7 +60,15 @@ export function personnelProvider(initial: Partial<Record<PersonnelTable, Row[]>
 					(row) => {
 						for (const [column, filter] of url.searchParams) {
 							if (['select', 'order', 'offset', 'limit', 'columns'].includes(column)) continue;
-							if (filter.startsWith('eq.')) {
+							if (column === 'or') {
+								const alternatives = filter.slice(1, -1).split(',');
+								const holds = alternatives.some((alternative) => {
+									const [name, ...predicate] = alternative.split('.');
+									if (predicate.join('.') === 'not.is.null') return row[name] != null;
+									throw new Error('Unexpected Personnel predicate');
+								});
+								if (!holds) return false;
+							} else if (filter.startsWith('eq.')) {
 								if (String(row[column]) !== filter.slice(3)) return false;
 							} else if (filter.startsWith('in.(')) {
 								if (

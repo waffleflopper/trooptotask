@@ -163,6 +163,36 @@ test('Organization setting control leaves profile, membership, partial settings,
 	control.command('restore');
 });
 
+test('Personnel control matches only the narrow A loss-date read', async () => {
+	const dispatched = [];
+	const control = controller(async (...args) => {
+		dispatched.push(args);
+		return new Response('ordinary Personnel read');
+	});
+	control.command('arm', { table: 'personnel', mode: 'fail-hard' });
+	const losses = `${providerUrl}/rest/v1/personnel?select=id,rank,last_name,ets,deros,group_id&organization_id=eq.${orgA}&archived_at=is.null`;
+	const ordinary = [
+		[
+			losses.replace(
+				'select=id,rank,last_name,ets,deros,group_id',
+				'select=*,groups:groups!personnel_organization_group_fkey(name)'
+			)
+		],
+		[losses.replace('select=id,rank,last_name,ets,deros,group_id', 'select=archived_at')],
+		[losses.replace(orgA, orgB)],
+		[losses, { method: 'HEAD' }],
+		[losses, { method: 'PATCH' }]
+	];
+	for (const input of ordinary) {
+		assert.equal(await (await control.fetch(...input)).text(), 'ordinary Personnel read');
+		assert.deepEqual(dispatched.at(-1), [input[0], input[1]]);
+	}
+	assert.equal(control.command('state').control.matches, 0);
+	assert.equal((await control.fetch(losses)).status, 500);
+	assert.equal(dispatched.length, ordinary.length);
+	control.command('restore');
+});
+
 test('Organization setting control holds only the real narrow A setting response until release', async () => {
 	const source = deferred();
 	let dispatched = false;

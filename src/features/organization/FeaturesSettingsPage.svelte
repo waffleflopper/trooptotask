@@ -20,6 +20,7 @@
 		type HoldsLane,
 		type FeaturesSettingsData
 	} from './featuresSettings';
+	import { saveOrganizationSettings } from './saveOrganizationSettings';
 
 	let {
 		orgUrlSegment,
@@ -29,16 +30,7 @@
 
 	const counts = new StreamedValue(() => features.counts);
 
-	async function saveSettings(body: Record<string, unknown>) {
-		const response = await fetch(`/org/${orgUrlSegment}/api/organization/settings`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body)
-		});
-		if (response.ok) return;
-		const failure: { message?: unknown } | null = await response.json().catch(() => null);
-		throw new Error(typeof failure?.message === 'string' ? failure.message : 'Try again.');
-	}
+	const saveSettings = (body: Record<string, unknown>) => saveOrganizationSettings(orgUrlSegment, body);
 
 	/** The state each switch is saving toward; a switch shows it until the refreshed organization row agrees. */
 	let pending = $state<Partial<Record<FeatureKey, boolean>>>({});

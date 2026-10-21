@@ -18,6 +18,9 @@ import type { Personnel } from './personnel.types';
 
 export type LossTriggerType = 'ETS' | 'PCS / DEROS';
 
+/** The fields of a person the loss window reads. */
+export type LossCandidate = Pick<Personnel, 'id' | 'rank' | 'lastName' | 'ets' | 'deros' | 'groupId'>;
+
 export interface UpcomingLossRecord {
 	/**
 	 * Stable identifiers for the same person.
@@ -85,7 +88,7 @@ export function isInLossWindow(date: string | null | undefined, today: string, w
  * - Results are sorted ascending by daysRemaining (nearest departure first).
  */
 export function evaluateUpcomingLosses(
-	personnel: Personnel[],
+	personnel: readonly LossCandidate[],
 	warningWindowDays: number,
 	today: string,
 	options?: {

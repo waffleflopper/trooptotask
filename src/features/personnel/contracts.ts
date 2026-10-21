@@ -31,6 +31,7 @@ import { isDateOnly } from '$lib/utils/dates';
 import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
 import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
+import type { LossCandidate } from './upcomingLoss';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 
 export type { Personnel, PersonnelLookup } from './personnel.types';
@@ -51,6 +52,9 @@ export interface Group {
 export interface PersonnelRosterReader {
 	list(options?: { status?: 'active' | 'archived' | 'all'; order?: 'archived-newest' }): Promise<Personnel[]>;
 	countArchived(): Promise<number>;
+	findOldestArchivedAt(): Promise<string | null>;
+	/** Active people with an ETS or DEROS date, holding only the fields the loss window reads. */
+	listLossCandidates(): Promise<LossCandidate[]>;
 }
 
 export interface PersonnelLifecycleReference {
@@ -429,7 +433,7 @@ export type {
 } from './personnelReadiness.types';
 export { buildPersonnelAttention } from './personnelAttention';
 export { evaluateUpcomingLosses } from './upcomingLoss';
-export type { UpcomingLossRecord } from './upcomingLoss';
+export type { LossCandidate, UpcomingLossRecord } from './upcomingLoss';
 
 /** Soldier Data Sheet fields shared by its Server read and Web editor. */
 export type { PersonnelDataSheetSaveResult, PersonnelExtendedInfo } from './personnelExtendedInfo.types';

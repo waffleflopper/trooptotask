@@ -4,6 +4,10 @@
 
 All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9` unless a different accepted candidate is explicit. They preserve the recorded commands, environments, failed attempts and review dispositions. Temporary directories, screenshots and private local logs mentioned in those records are **not durable artifacts** and are not required to retrieve these summaries. A committed report of an observation is not the raw observation itself; reproduce from maintained procedures when current proof is required.
 
+## 13 D02 documentation prune
+
+**Complete on its single PR's merge.** Child [#1786](https://github.com/waffleflopper/trooptotask/issues/1786) of [#1286](https://github.com/waffleflopper/trooptotask/issues/1286). The PR body lists each kept, trimmed and deleted document with its keep reason. Documentation-only: no application, script, test or migration changed, so no live run applies. The documentation check (formatting with `--ignore-path /dev/null`, local links and anchors across every tracked Markdown file, `git diff --check`) passes, and `scripts/verification/core.test.ts` still passes over the trimmed recipes.
+
 ## 13 D01 code and dependency sweep
 
 **Complete on the second PR's merge.** Child [#1785](https://github.com/waffleflopper/trooptotask/issues/1785) of [#1286](https://github.com/waffleflopper/trooptotask/issues/1286), in two PRs split for the hosted review file limit. [#1789](https://github.com/waffleflopper/trooptotask/pull/1789) merged as `808b1489a` after green CI run `39552998027`; its body records each disposition and removal with its evidence. The second PR is comment-only in `src/lib`, `src/routes`, `src/tests`, `scripts`, the root configs and the verification helpers.

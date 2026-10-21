@@ -82,7 +82,7 @@
 	{/if}
 {/snippet}
 
-<PageShell.FactSection>
+<PageShell.FactSection endRule>
 	<PageShell.FactRow
 		variant="display"
 		label="Availability and calendar"

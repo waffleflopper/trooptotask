@@ -8,6 +8,7 @@
 		type SettingsPage,
 		type SettingsPageKey,
 		type SettingsShell,
+		type SettingsSkeletonBlock,
 		type SettingsNavCounts
 	} from './settingsShell';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
@@ -18,6 +19,7 @@
 		type SectionNavItem
 	} from '$lib/components/patterns/section-nav/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import { cn } from '$lib/utils.js';
 
 	let {
 		children,
@@ -48,20 +50,28 @@
 		approvals: navCounts?.pendingApprovals.then((value) => counted(value, 'pending request'))
 	});
 
+	const visiblePages = $derived(
+		(Object.entries(SETTINGS_PAGES) as [SettingsPageKey, SettingsPage][]).filter(
+			([, page]) => !page.ownerOnly || settingsShell?.currentMember.isOwner
+		)
+	);
+	const loadingKey = $derived(
+		visiblePages.find(([key]) => key !== activeKey && `${baseHref}/${key}` === navigating.to?.url.pathname)?.[0]
+	);
+	// The nav answers a click right away; the body waits for the page or the skeleton below.
+	const shownKey = $derived(loadingKey ?? activeKey);
 	const pages = $derived(
-		(Object.entries(SETTINGS_PAGES) as [SettingsPageKey, SettingsPage][])
-			.filter(([, page]) => !page.ownerOnly || settingsShell?.currentMember.isOwner)
-			.map(([key, page]) => ({
-				key,
-				group: page.group,
-				item: {
-					label: page.label,
-					href: `${baseHref}/${key}`,
-					active: key === activeKey,
-					count: counts[key],
-					tag: page.ownerOnly ? 'Owner' : undefined
-				} satisfies SectionNavItem
-			}))
+		visiblePages.map(([key, page]) => ({
+			key,
+			group: page.group,
+			item: {
+				label: page.label,
+				href: `${baseHref}/${key}`,
+				active: key === shownKey,
+				count: counts[key],
+				tag: page.ownerOnly ? 'Owner' : undefined
+			} satisfies SectionNavItem
+		}))
 	);
 	const groups = $derived<SectionNavGroup[]>(
 		SETTINGS_GROUPS.map((label) => ({
@@ -70,10 +80,6 @@
 		}))
 	);
 	const apart = $derived(pages.find(({ group }) => group === null)?.item);
-	const loading = $derived(
-		navigating.to ? pages.find(({ item }) => !item.active && item.href === navigating.to?.url.pathname) : undefined
-	);
-	const loadingKey = $derived(loading?.key);
 	// A navigation that settles within the delay keeps the current page, so fast switches do not flash a skeleton.
 	let slowKey = $state<SettingsPageKey | null>(null);
 	$effect(() => {
@@ -85,7 +91,10 @@
 			slowKey = null;
 		};
 	});
-	const bodyPage = $derived(slowKey ? SETTINGS_PAGES[slowKey] : activePage);
+	const slowPage = $derived<SettingsPage | undefined>(slowKey ? SETTINGS_PAGES[slowKey] : undefined);
+	const bodyPage = $derived(slowPage ?? activePage);
+	const skeleton = $derived<readonly SettingsSkeletonBlock[]>(slowPage?.skeleton ?? []);
+	const subtitleLines = $derived(slowPage?.subtitleLines ?? 2);
 </script>
 
 <svelte:head>
@@ -98,27 +107,79 @@
 	<SectionNav label="Unit settings" {groups} {apart} />
 	<div
 		class="grid w-full min-w-0 content-start gap-7 {bodyWidth[bodyPage?.width ?? 'form']}"
-		aria-busy={loading ? 'true' : undefined}
+		aria-busy={loadingKey ? 'true' : undefined}
 	>
-		<p role="status" class="sr-only">{loading ? `Loading ${loading.item.label}...` : ''}</p>
+		<p role="status" class="sr-only">{loadingKey ? `Loading ${SETTINGS_PAGES[loadingKey].label}...` : ''}</p>
 		{#if slowKey}
 			<SettingsPageHeader page={slowKey}>
 				{#snippet subtitle()}
-					<div class="grid gap-2 pt-1" aria-hidden="true">
-						<Skeleton class="h-4 w-full max-w-xl" />
-						<Skeleton class="h-4 w-2/3" />
+					<div class="grid" aria-hidden="true">
+						{#each { length: subtitleLines }, line (line)}
+							<div class="flex h-5 items-center">
+								<Skeleton class={cn('h-4', line === 0 ? 'w-full max-w-xl' : 'w-2/3')} />
+							</div>
+						{/each}
 					</div>
 				{/snippet}
 			</SettingsPageHeader>
-			<div class="border-t-2 border-foreground" aria-hidden="true">
-				{#each [0, 1, 2, 3] as row (row)}
-					<div class="flex items-center gap-4 border-b py-4.5">
-						<div class="grid flex-1 gap-2">
-							<Skeleton class="h-4 w-40" />
-							<Skeleton class="h-3 w-64 max-w-full" />
+			<div class="grid" aria-hidden="true" data-settings-skeleton={slowKey}>
+				{#each skeleton as block, index (index)}
+					{@const opensSection = index > 0 && (block.kind === 'heading' || block.kind === 'strip')}
+					{#if block.kind === 'rows'}
+						<div
+							class={cn(
+								'border-t-2',
+								block.rule === 'destructive' ? 'border-destructive' : 'border-foreground',
+								block.endRule && 'border-b'
+							)}
+						>
+							{#each block.heights as height, row (row)}
+								<div class="flex items-center gap-4 border-b last:border-b-0" style:height="{height}px">
+									<div class="grid flex-1 gap-2">
+										<Skeleton class="h-5 w-40" />
+										<Skeleton class="h-3.5 w-80 max-w-full" />
+									</div>
+									<Skeleton class="h-8 w-20 shrink-0" />
+								</div>
+							{/each}
 						</div>
-						<Skeleton class="h-8 w-20 shrink-0" />
-					</div>
+					{:else if block.kind === 'heading'}
+						<div
+							class={cn(
+								'flex items-end justify-between gap-4 border-b-2 border-foreground pb-3',
+								opensSection && 'mt-10'
+							)}
+						>
+							<Skeleton class="h-6.5 w-44" />
+							{#if block.action}<Skeleton class="h-8 w-55 max-w-1/2" />{/if}
+						</div>
+					{:else if block.kind === 'toolbar'}
+						<div class="flex items-center gap-2" style:height="{block.height}px">
+							<Skeleton class="h-8 w-64" />
+							<Skeleton class="ml-auto h-8 w-60 max-w-1/3" />
+						</div>
+					{:else if block.kind === 'strip'}
+						<div class={cn('grid gap-2.5 rounded-sm border bg-muted p-3.5', opensSection && 'mt-10')}>
+							<Skeleton class="h-8 w-full bg-foreground/10" />
+							<Skeleton class="h-5 w-2/3 bg-foreground/10" />
+						</div>
+					{:else}
+						<div>
+							{#if block.header}
+								<div class="flex h-10 items-center gap-4 border-b">
+									<Skeleton class="h-3 w-24" />
+									<Skeleton class="h-3 w-16" />
+								</div>
+							{/if}
+							{#each { length: block.rows } as _, row (row)}
+								<div class="flex items-center gap-4 border-b" style:height="{block.height}px">
+									<Skeleton class="h-4 w-48" />
+									<Skeleton class="h-3.5 w-24" />
+									<Skeleton class="ml-auto h-7 w-16" />
+								</div>
+							{/each}
+						</div>
+					{/if}
 				{/each}
 			</div>
 		{/if}

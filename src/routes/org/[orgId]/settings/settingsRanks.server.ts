@@ -181,6 +181,7 @@ function buildRankCatalogRow(
 		sourceLabel: SOURCE_LABELS[entry.source],
 		sortOrder: entry.sortOrder,
 		referenceSummary: summary,
+		warnings: referenceWarnings(entry, summary),
 		commands: {
 			canEdit: canManageCatalog && !isBuiltIn,
 			canRetire: canManageCatalog && entry.state === 'active',
@@ -238,6 +239,32 @@ function deleteDisabledReason(
 		return 'Referenced by historical snapshots or saved filters; retire it instead.';
 	}
 	return null;
+}
+
+function referenceWarnings(
+	entry: OrganizationRankCatalogEntry,
+	summary: OrganizationRankCatalogReferenceSummary
+): string[] {
+	const warnings: string[] = [];
+	const { activeReferences, historicalReferences } = summary;
+	if (activeReferences.total > 0) {
+		const records = countLabel(activeReferences.total, 'active record or filter', 'active records or filters');
+		warnings.push(
+			entry.state === 'active'
+				? `Referenced by ${records}. Retire this rank to preserve existing records.`
+				: `Referenced by ${records}.`
+		);
+	}
+	if (historicalReferences.total > 0) {
+		warnings.push(
+			`Also appears in ${countLabel(historicalReferences.total, 'historical snapshot or saved filter', 'historical snapshots or saved filters')}.`
+		);
+	}
+	return warnings;
+}
+
+function countLabel(count: number, singular: string, plural: string): string {
+	return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function optionLabel<Value extends string>(options: Array<SettingsRankOption<Value>>, value: Value): string {

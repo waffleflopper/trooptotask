@@ -3,6 +3,7 @@
 	import type { Notification } from '$features/notifications/contracts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { navigating } from '$app/state';
 	import { page } from '$app/stores';
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -107,7 +108,21 @@
 	);
 	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
-	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
+	const settingsPath = $derived(`/org/${orgUrlSegment}/settings`);
+	const inSettings = (path: string) => path === settingsPath || path.startsWith(`${settingsPath}/`);
+	// Between settings pages the crumb names the target right away, as the settings nav does.
+	const crumbPath = $derived.by(() => {
+		const target = navigating.to?.url.pathname;
+		return target && inSettings(target) && inSettings(pathname) ? target : pathname;
+	});
+	const breadcrumbs = $derived(getOrgBreadcrumbs(crumbPath, orgName, allNavItems, routeLeafLabel));
+	// A narrow header clips the unit name first, then the crumbs between, and keeps the page name. Flex shrinks in
+	// proportion, so a smaller factor on the unit name still clips the others by a fraction of a pixel.
+	function crumbClass(index: number, count: number) {
+		if (count > 1 && index === 0) return 'min-w-10 shrink-[100000]';
+		if (count > 1 && index === count - 1) return 'max-w-3/5 shrink-0';
+		return 'min-w-0';
+	}
 	const activeOrg = $derived({
 		...(orgSwitcherOrgs.find((org) => org.id === orgId) ?? { id: orgId, role: userRole, urlSegment: orgUrlSegment }),
 		name: orgName
@@ -450,11 +465,7 @@
 				<Sidebar.Menu>
 					{#if canAccessOrganizationSettings}
 						<Sidebar.MenuItem>
-							<Sidebar.MenuButton
-								isActive={pathname === `/org/${orgUrlSegment}/settings` ||
-									pathname.startsWith(`/org/${orgUrlSegment}/settings/`)}
-								tooltipContent="Unit settings"
-							>
+							<Sidebar.MenuButton isActive={inSettings(pathname)} tooltipContent="Unit settings">
 								{#snippet child({ props })}
 									<a
 										{...props}
@@ -559,7 +570,7 @@
 				<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">
 					<Breadcrumb.List class="flex-nowrap overflow-hidden">
 						{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
-							<Breadcrumb.Item class="min-w-0">
+							<Breadcrumb.Item class={crumbClass(index, breadcrumbs.length)}>
 								{#if crumb.href && index < breadcrumbs.length - 1}
 									<Breadcrumb.Link href={resolve(crumb.href as `/org/${string}`)} class="truncate">
 										{crumb.label}

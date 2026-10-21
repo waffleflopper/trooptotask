@@ -88,6 +88,10 @@ describe('rank settings read model', () => {
 				},
 				canDelete: false
 			},
+			warnings: [
+				'Referenced by 2 active records or filters. Retire this rank to preserve existing records.',
+				'Also appears in 2 historical snapshots or saved filters.'
+			],
 			commands: {
 				canEdit: true,
 				canRetire: true,
@@ -354,6 +358,7 @@ describe('rank settings read model', () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					code: 'DET-SGT',
+					warnings: ['Also appears in 1 historical snapshot or saved filter.'],
 					commands: expect.objectContaining({
 						canDelete: false,
 						deleteDisabledReason: 'Referenced by historical snapshots or saved filters; retire it instead.'

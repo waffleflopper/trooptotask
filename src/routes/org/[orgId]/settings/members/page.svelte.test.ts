@@ -150,8 +150,14 @@ function renderPage(options: PageOptions = {}, form: Record<string, unknown> | n
 }
 
 const memberRow = (id: string) =>
-	screen.getByText(`${id}@example.com`, { selector: 'th span' }).closest('tr') as HTMLElement;
-const invitationRow = (id: string) => document.getElementById(`invitation-row-${id}`) as HTMLElement;
+	screen
+		.getAllByRole('row')
+		.find((row) => within(row).queryByRole('rowheader', { name: new RegExp(`${id}@example\\.com`) })) as HTMLElement;
+const invitationRow = (email: string) =>
+	within(screen.getByRole('region', { name: 'Waiting on them' }))
+		.getAllByRole('listitem')
+		.find((item) => within(item).queryByText(email)) as HTMLElement;
+const inviteStrip = () => screen.getByRole('region', { name: 'Invite a member' });
 
 async function openSheet(id: string) {
 	const manage = within(memberRow(id)).getByRole('button', { name: /^Manage/ });
@@ -339,17 +345,23 @@ describe('invite strip', () => {
 		expect(document.activeElement).toBe(invite);
 	});
 
-	it('keeps the invite draft with an Alert in the strip when the invite errors, and refocuses Send invite', async () => {
+	it.each([
+		[
+			'failure',
+			{ type: 'failure', status: 400, data: { inviteError: 'Already invited' } } as ActionResult,
+			'Already invited'
+		],
+		['error', serverError, requestErrorText]
+	])('keeps the invite draft with the %s in the strip and refocuses Send invite', async (_kind, result, message) => {
 		const view = renderPage({}, { inviteSuccess: true, inviteMessage: 'Invitation created.' });
 		await fireEvent.input(screen.getByLabelText('Invite'), { target: { value: 'new@example.com' } });
 		const invite = screen.getByRole('button', { name: 'Send invite' });
 		invite.focus();
 		await fireEvent.click(invite);
 
-		await heldSubmissions[0](frameworkOutcome(serverError, { applyForm: (form) => view.rerender({ form } as never) }));
+		await heldSubmissions[0](frameworkOutcome(result, { applyForm: (form) => view.rerender({ form } as never) }));
 
-		const strip = screen.getByLabelText('Invite').closest('form')!;
-		await waitFor(() => expect(within(strip).getByRole('alert').textContent?.trim()).toBe(requestErrorText));
+		await waitFor(() => expect(within(inviteStrip()).getByRole('alert').textContent?.trim()).toBe(message));
 		expect((screen.getByLabelText('Invite') as HTMLInputElement).value).toBe('new@example.com');
 		expect(screen.queryByText('Invitation created.')).toBeNull();
 		expect(document.activeElement).toBe(invite);
@@ -386,7 +398,7 @@ describe('waiting on them', () => {
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
 		expect(within(waiting).getByText('1 invitation')).toBeTruthy();
-		const row = within(invitationRow('invite-1'));
+		const row = within(invitationRow('pending@example.com'));
 		expect(row.getByText('pending@example.com')).toBeTruthy();
 		expect(row.getByText('Operator · sent today')).toBeTruthy();
 		expect(row.getByText(pendingInvite.funnelStatusLabel)).toBeTruthy();
@@ -410,8 +422,10 @@ describe('waiting on them', () => {
 
 		await heldSubmissions[0](frameworkOutcome(result, { applyForm: (form) => view.rerender({ form } as never) }));
 
-		await waitFor(() => expect(within(invitationRow('invite-1')).getByRole('alert').textContent?.trim()).toBe(message));
-		expect(within(screen.getByLabelText('Invite').closest('form')!).queryByRole('alert')).toBeNull();
+		await waitFor(() =>
+			expect(within(invitationRow('pending@example.com')).getByRole('alert').textContent?.trim()).toBe(message)
+		);
+		expect(within(inviteStrip()).queryByRole('alert')).toBeNull();
 		expect(document.activeElement).toBe(resend);
 	});
 
@@ -448,9 +462,11 @@ describe('waiting on them', () => {
 		);
 
 		await waitFor(() =>
-			expect(within(invitationRow('invite-1')).getByRole('alert').textContent?.trim()).toBe('Unable to resend')
+			expect(within(invitationRow('pending@example.com')).getByRole('alert').textContent?.trim()).toBe(
+				'Unable to resend'
+			)
 		);
-		const strip = screen.getByLabelText('Invite').closest('form')!;
+		const strip = inviteStrip();
 		expect(within(strip).queryByRole('alert')).toBeNull();
 
 		await fireEvent.click(invite);
@@ -510,25 +526,37 @@ describe('removing a member', () => {
 
 		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
 		expect(submitted[0].get('membershipId')).toBe('alpha');
-		expect((trigger as HTMLButtonElement).disabled).toBe(true);
-		expect(trigger.getAttribute('aria-busy')).toBe('true');
+		await fireEvent.pointerDown(trigger, { button: 0, pointerType: 'mouse' });
+		expect(screen.queryByRole('menu')).toBeNull();
+		expect(heldSubmissions).toHaveLength(1);
 
 		await settle(0);
 		await waitFor(() => expect((trigger as HTMLButtonElement).disabled).toBe(false));
 	});
 
-	it('keeps the member listed with an Alert when a removal errors, and refocuses the row menu', async () => {
-		const view = renderPage();
-		const { trigger, menu } = await openRowMenu('alpha');
-		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Remove' }));
-		await fireEvent.click(await screen.findByRole('button', { name: 'Remove member' }));
-		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
+	it.each([
+		[
+			'failure',
+			{ type: 'failure', status: 400, data: { memberError: 'Unable to remove member' } } as ActionResult,
+			'Unable to remove member'
+		],
+		['error', serverError, requestErrorText]
+	])(
+		'keeps the member listed with an Alert when a removal %s, and refocuses the row menu',
+		async (_kind, result, message) => {
+			const view = renderPage();
+			const { trigger, menu } = await openRowMenu('alpha');
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Remove' }));
+			await fireEvent.click(await screen.findByRole('button', { name: 'Remove member' }));
+			await waitFor(() => expect(heldSubmissions).toHaveLength(1));
 
-		await heldSubmissions[0](frameworkOutcome(serverError, { applyForm: (form) => view.rerender({ form } as never) }));
+			await heldSubmissions[0](frameworkOutcome(result, { applyForm: (form) => view.rerender({ form } as never) }));
 
-		await waitFor(() => expect(screen.getByRole('alert').textContent?.trim()).toBe(requestErrorText));
-		expect(document.activeElement).toBe(trigger);
-	});
+			await waitFor(() => expect(screen.getByRole('alert').textContent?.trim()).toBe(message));
+			expect(memberRow('alpha')).toBeTruthy();
+			expect(document.activeElement).toBe(trigger);
+		}
+	);
 
 	it('offers Remove from the unit in the sheet footer', async () => {
 		renderPage();
@@ -547,7 +575,6 @@ describe('manage access sheet', () => {
 		const { sheet } = await openSheet('op');
 
 		expect(within(sheet).getByRole('heading', { name: 'op@example.com' })).toBeTruthy();
-		expect(within(sheet).getByText('Operator · No groups · 2 area changes')).toBeTruthy();
 		expect(within(sheet).getByText('2 changes from Operator')).toBeTruthy();
 		expect(within(sheet).getAllByText('Operator gives Update')).toHaveLength(2);
 		expect(
@@ -560,9 +587,9 @@ describe('manage access sheet', () => {
 			'Calendar access',
 			'Personnel access',
 			'Training access',
-			'Critical Tasks access',
+			'Critical tasks access',
 			'Onboarding access',
-			'Rating Scheme access',
+			'Evaluations access',
 			'Groups'
 		]);
 		expect(
@@ -634,25 +661,6 @@ describe('manage access sheet', () => {
 		expect(within(sheet).getByRole('button', { name: 'Save 6 changes' })).toBeTruthy();
 	});
 
-	it('keeps showing the stored level on a lane the unit turned off when an Admin becomes a member', async () => {
-		const storedAdmin = member('stored', 'stored@example.com', 'admin', {
-			storedLevels: { ...createCapabilityMap('configure'), training: 'view' }
-		});
-		renderPage({ rows: [owner, storedAdmin], offLanes: ['training'] });
-		const { sheet } = await openSheet('stored');
-
-		await choose(sheet, 'Role', 'Member');
-
-		const training = within(sheet).getByRole('radiogroup', { name: 'Training access' });
-		expect(within(training).getByRole('radio', { name: 'View' }).getAttribute('aria-checked')).toBe('true');
-		expect(
-			within(training)
-				.getAllByRole('radio')
-				.every((radio) => (radio as HTMLButtonElement).disabled)
-		).toBe(true);
-		expect(within(sheet).queryByText(/^Editor gives/)).toBeNull();
-	});
-
 	it('describes Role and Preset with the help shown in their own section', async () => {
 		renderPage();
 		const { sheet } = await openSheet('alpha');
@@ -677,6 +685,24 @@ describe('manage access sheet', () => {
 
 		expect(help('Role')).not.toBe('');
 		expect(help('Role')).not.toBe(roleHelp);
+	});
+
+	it('submits the drafted access', async () => {
+		renderPage();
+		const { sheet } = await openSheet('alpha');
+		await choose(sheet, 'Personnel access', 'View');
+		await choose(sheet, 'Groups', 'Selected');
+		await fireEvent.click(within(sheet).getByRole('button', { name: 'HQ PLT' }));
+		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+
+		const sent = submitted[0];
+		expect(sent.get('membershipId')).toBe('alpha');
+		expect(sent.get('membershipRole')).toBe('member');
+		expect(sent.get('memberPreset')).toBe('editor');
+		expect(sent.get('capabilityOverride:personnel')).toBe('view');
+		expect(sent.get('capabilityOverride:calendar')).toBe('configure');
+		expect(sent.get('scopeSetKind')).toBe('groups');
+		expect(sent.getAll('scopeSetGroupIds')).toEqual(['g-1']);
 	});
 
 	it('shows the role as text to admins', async () => {

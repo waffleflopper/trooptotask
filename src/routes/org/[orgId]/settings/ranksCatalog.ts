@@ -106,7 +106,8 @@ export const RANK_LANE_ORDER = {
 	state: (a, b) => a.state.localeCompare(b.state) || compareRankPrecedence(a, b)
 } satisfies Record<string, RankComparator>;
 
-/** What removing or retiring this rank would do, in one sentence. */
+/** What removing or retiring this rank would do: its reference warnings, else why it stays, else that it can go. */
 export function rankSentence(entry: SettingsRankCatalogRow): string {
+	if (entry.warnings.length > 0) return entry.warnings.join(' ');
 	return entry.commands.deleteDisabledReason ?? (entry.commands.canDelete ? REMOVABLE_SENTENCE : '');
 }

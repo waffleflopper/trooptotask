@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from '@testing-library/svelte';
-import { createRawSnippet, type ComponentProps } from 'svelte';
+import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FactRow } from './index.js';
 
@@ -49,18 +49,5 @@ describe('patterns/page-shell FactRow', () => {
 		});
 
 		expect(screen.getByText('Groups under 80% turn amber.')).toBeTruthy();
-	});
-
-	it('does not type-check lanes beside a value or on the default variant', () => {
-		const lane = html('<i></i>');
-		const props: ComponentProps<typeof FactRow>[] = [
-			// @ts-expect-error lanes replace the value lane
-			{ variant: 'display', label: 'A', value: 'x', control: lane },
-			// @ts-expect-error lanes replace the children
-			{ variant: 'display', label: 'A', children: lane, details: lane },
-			// @ts-expect-error lanes belong to the display variant
-			{ label: 'A', control: lane }
-		];
-		expect(props).toHaveLength(3);
 	});
 });

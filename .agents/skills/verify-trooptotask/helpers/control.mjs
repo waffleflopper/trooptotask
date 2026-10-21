@@ -2619,7 +2619,9 @@ async function main() {
 				'org/new': ['/org/new', '', 'error']
 			}[family];
 			const settingsPage =
-				/^settings-page\/(general|members|policies|approvals|archives|logs|exports|danger)$/.exec(family)?.[1] ?? null;
+				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
+					family
+				)?.[1] ?? null;
 			if (
 				![
 					'audit-page',

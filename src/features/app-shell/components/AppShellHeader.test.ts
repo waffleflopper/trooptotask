@@ -32,6 +32,13 @@ const { pageStore } = vi.hoisted(() => {
 	};
 });
 
+const navigation = vi.hoisted(() => ({ to: null as { url: URL } | null }));
+vi.mock('$app/state', () => ({
+	get navigating() {
+		return navigation;
+	}
+}));
+
 const { goto } = vi.hoisted(() => {
 	return { goto: vi.fn() };
 });
@@ -64,6 +71,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
 	pageStore.setPath('/org/org-1/personnel');
+	navigation.to = null;
 	setWindowSize(1024, 768);
 });
 
@@ -802,6 +810,20 @@ describe('AppShellHeader', () => {
 		expect(breadcrumb.textContent).toContain('Test Org');
 		expect(breadcrumb.textContent).toContain('Calendar');
 		expect(breadcrumb.textContent).toContain('Settings');
+	});
+
+	it.each([
+		['/org/org-1/settings/members', 'Members'],
+		['/org/org-1/personnel', 'General']
+	])('names the settings page in the breadcrumb while a navigation to %s is pending', (target, leaf) => {
+		pageStore.setPath('/org/org-1/settings/general');
+		navigation.to = { url: new URL(`https://example.test${target}`) };
+
+		renderHeader();
+
+		const breadcrumb = screen.getByLabelText('Current section');
+		expect(within(breadcrumb).getByRole('link', { name: 'Unit settings' })).toBeTruthy();
+		expect(within(breadcrumb).getByText(leaf).getAttribute('aria-current')).toBe('page');
 	});
 
 	it('links Calendar parent breadcrumbs on subpages', () => {

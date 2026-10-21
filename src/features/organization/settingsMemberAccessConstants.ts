@@ -17,9 +17,9 @@ export const ACCESS_LANE_LABELS: Record<DurableFeatureLane, string> = {
 	calendar: 'Calendar',
 	personnel: 'Personnel',
 	training: 'Training',
-	criticalTasks: 'Critical Tasks',
+	criticalTasks: 'Critical tasks',
 	onboarding: 'Onboarding',
-	ratingScheme: 'Rating Scheme'
+	ratingScheme: 'Evaluations'
 };
 
 export const SETTINGS_ACCESS_OPTIONS: AccessOption[] = [

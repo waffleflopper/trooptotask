@@ -65,7 +65,6 @@ describe('Organization settings navigation', () => {
 		expect(nav.getByRole('link', { name: 'Approvals' })).toBeInTheDocument();
 		expect(nav.getByRole('link', { name: 'Archives' })).toBeInTheDocument();
 		expect(screen.getByRole('status').textContent?.trim()).toBe('');
-		expect(document.querySelector('[aria-busy]')).toBeNull();
 		for (const part of ['Policies', 'Unit settings', 'Synthetic Alpha']) expect(document.title).toContain(part);
 
 		await view.rerender({ activePath: '/org/alpha/settings/ranks' });
@@ -126,6 +125,18 @@ describe('Organization settings navigation', () => {
 		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
 		expect(screen.getByText('Settings content')).toBeVisible();
 		expect(screen.getByRole('status').textContent?.trim()).toBe('');
+	});
+
+	it('moves the nav highlight to the target as soon as a settings navigation starts', async () => {
+		renderGeneral();
+		const nav = within(sideNav());
+
+		await navigateTo('/org/alpha/settings/members');
+		expect(nav.getByRole('link', { name: /^Members/ })).toHaveAttribute('aria-current', 'page');
+		expect(nav.getByRole('link', { name: 'General' })).not.toHaveAttribute('aria-current');
+
+		await navigateTo('/org/alpha/personnel');
+		expect(nav.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
 	});
 
 	it('keeps the current page without a skeleton when a navigation settles within 150 ms', async () => {

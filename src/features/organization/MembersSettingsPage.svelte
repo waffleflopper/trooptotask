@@ -120,6 +120,14 @@
 	const invitationForm = $derived(form === invitationSupersededForm ? undefined : form);
 	const inviteLoading = $derived(invitationPending && invitationOwner === NEW_INVITATION);
 	const inviteError = $derived(invitationRequestError ?? invitationForm?.inviteError);
+	// The confirmation stays until the next invite starts taking shape.
+	let confirmedDraft = $state(JSON.stringify(workspace.invite));
+	const inviteConfirmed = $derived(
+		invitationOwner === NEW_INVITATION &&
+			!invitationPending &&
+			invitationForm?.inviteSuccess === true &&
+			confirmedDraft === JSON.stringify(workspace.invite)
+	);
 
 	let removeForm = $state<HTMLFormElement | null>(null);
 	let removeMemberId = $state('');
@@ -149,7 +157,10 @@
 				settled: (error) => {
 					invitationRequestError = error;
 					invitationPending = false;
-					if (!error && owner === NEW_INVITATION && result.type === 'success') workspace.resetInvite();
+					if (!error && owner === NEW_INVITATION && result.type === 'success') {
+						workspace.resetInvite();
+						confirmedDraft = JSON.stringify(workspace.invite);
+					}
 				},
 				focus: () => [submitter as HTMLElement | null, inviteEmailInput, filterInput]
 			});
@@ -230,16 +241,6 @@
 				class="grid gap-2.5 rounded-sm border bg-muted p-3.5"
 				use:enhance={invitationEnhance}
 			>
-				{#if invitationOwner === NEW_INVITATION && inviteError}
-					<Alert.Root variant="destructive">
-						<Alert.Description>{inviteError}</Alert.Description>
-					</Alert.Root>
-				{/if}
-				{#if invitationOwner === NEW_INVITATION && invitationForm?.inviteSuccess && !invitationRequestError}
-					<Alert.Root role="status">
-						<Alert.Description>{invitationForm.inviteMessage ?? 'Invitation created.'}</Alert.Description>
-					</Alert.Root>
-				{/if}
 				<input type="hidden" name="membershipRole" value={workspace.invite.role} />
 				{#if workspace.invite.role === 'member'}
 					<input type="hidden" name="memberPreset" value={workspace.invite.preset} />
@@ -320,7 +321,16 @@
 						aria-busy={inviteLoading || undefined}>{inviteLoading ? 'Sending...' : 'Send invite'}</Button
 					>
 				</div>
-				<p id="invite-helper" class="text-sm text-muted-foreground sm:pl-16">{inviteHelper}</p>
+				<!-- The outcome takes the helper's line so the strip keeps its height. -->
+				{#if invitationOwner === NEW_INVITATION && inviteError}
+					<p id="invite-helper" role="alert" class="text-sm text-destructive-text sm:pl-16">{inviteError}</p>
+				{:else if inviteConfirmed}
+					<p id="invite-helper" role="status" class="text-sm sm:pl-16">
+						{invitationForm?.inviteMessage ?? 'Invitation created.'}
+					</p>
+				{:else}
+					<p id="invite-helper" class="text-sm text-muted-foreground sm:pl-16">{inviteHelper}</p>
+				{/if}
 			</form>
 		</section>
 	{/if}
@@ -337,7 +347,6 @@
 				{#each section.invitations as invite (invite.id)}
 					{@const failed = isFailedDelivery(invite.funnelStatus)}
 					<li
-						id="invitation-row-{invite.id}"
 						class="grid gap-3 border-b py-3.5 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)_auto] md:items-center md:gap-4"
 					>
 						<div class="flex min-w-0 items-center gap-3">
@@ -564,7 +573,11 @@
 		<p class="grid">{@render accessLane(member)}</p>
 	{:else if column.key === 'groups'}
 		<p>{@render groupsLane(member)}</p>
-	{:else if column.key === 'actions' && canManage(member)}
+	{:else if column.key === 'actions' && !canManage(member)}
+		<p class="text-right font-mono text-xs text-muted-foreground">
+			<span aria-hidden="true">—</span><span class="sr-only">No actions</span>
+		</p>
+	{:else if column.key === 'actions'}
 		<div class="flex items-center justify-end gap-1" data-member-actions={member.id}>
 			<Button
 				type="button"

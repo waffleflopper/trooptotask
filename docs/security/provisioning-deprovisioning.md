@@ -1,63 +1,30 @@
-# Provisioning And Deprovisioning Runbook
+# Provisioning and deprovisioning
 
-This runbook covers launch-safe access grants and removals for platform administration, support, and Organization-level administration. It documents the process; it does not authorize production database changes or secret disclosure.
+Robert approves each access change and sweeps for stale access monthly during launch.
 
-## Owner And Cadence
+## Granting access
 
-- **Owner:** Robert.
-- **Cadence:** per access change, with a monthly stale-access sweep during launch ramp.
-- **Evidence:** external evidence held by the security owner, such as approval notes, support tickets, provider audit entries, or a sanitized access-change log.
+1. Confirm the business need, role, environment and approver.
+2. Grant the least privileged role. Prefer time-bounded access for support and incident work.
+3. Limit support access to the affected Organization's admin diagnostics, and to provider logs only when the case needs them.
+4. Record the approver, date, role and review date outside the repository.
 
-## Provisioning Platform Admin Access
+## Removing access
 
-1. Confirm the business need, requested role, environment, and approval owner.
-2. Grant the least privileged role required for the task.
-3. Prefer time-bounded access for support, launch, or incident work.
-4. Record the approver, date, role, environment, and expected review date in external evidence.
-5. Do not copy invite links, recovery links, temporary passwords, API keys, webhook secrets, session cookies, or provider secrets into repo docs or issues.
+Remove access when a person leaves, changes role, no longer needs it, fails [access review](access-review.md) or is involved in a suspected compromise.
 
-## Provisioning Support Access
+1. Revoke app, provider and repository access that is no longer needed.
+2. Remove or downgrade Organization owner and admin roles where appropriate.
+3. Revoke active sessions when compromise, departure or a role change warrants it.
+4. Rotate shared or exposed credentials.
+5. Record the date, systems and outcome outside the repository.
 
-Support access should be limited to the systems required for the support case:
+Organization owner and admin changes need a request from an authorized owner or approved representative. If a data correction seems necessary, stop and ask Robert before touching any database.
 
-- TroopToTask admin diagnostics for the affected Organization.
-- Provider logs or dashboard views only when necessary for incident response or launch verification.
+## Secrets review
 
-Support notes may include support-safe identifiers such as Organization ID or a sanitized provider request ID when those identifiers are needed to reproduce the support trail. Do not include card details, raw webhook payloads, API keys, webhook signatures, or secret values.
+Before release and after any provider, staff, incident or secret change, confirm each deployment variable exists in the right environment and has an owner and rotation path. Record existence, owner and review date only.
 
-## Deprovisioning Access
+## Support notes
 
-Trigger deprovisioning when a person leaves, changes role, no longer needs access, fails access review, or is involved in a suspected compromise.
-
-1. Revoke app, provider, and repository access that is no longer needed.
-2. Remove or downgrade Organization owner/admin roles where appropriate.
-3. Revoke active sessions when compromise, departure, or role transition warrants it.
-4. Rotate shared or potentially exposed credentials after staff departure, incident, or accidental disclosure.
-5. Record the date, systems touched, reviewer, and sanitized outcome externally.
-
-## Organization Owner/Admin Changes
-
-When an Organization needs owner/admin changes:
-
-- Confirm the request comes from an authorized owner or approved representative.
-- Preserve least privilege; assign owner/admin only when the role is necessary.
-- Document the approval source and affected role externally.
-- Avoid destructive database edits. If a data correction appears necessary, stop and ask Robert for explicit approval before touching any database.
-
-## Departing Or Stale Users
-
-For departing personnel or stale users:
-
-- Disable or remove access according to Organization direction.
-- Confirm pending invites and dormant admin accounts are still needed.
-- Review whether the user owned exports, integrations, or sensitive workflows.
-- Keep evidence support-safe and external; do not paste raw roster exports into repo docs.
-
-## Environment And Secrets Review
-
-Before launch and after any provider, staff, incident, or deployment-secret change:
-
-- Confirm required deployment variables exist in the correct environment.
-- Confirm each secret has an owner and rotation path.
-- Confirm no secret values were copied into docs, issues, pull requests, screenshots, or support notes.
-- Record existence, owner, and last-reviewed date only; never record secret values.
+Account and Organization support uses `support@trooptotask.org`. Privacy requests use `privacy@trooptotask.org`. Correlate cases with Organization ID, user ID and audit-log ID. Support notes never contain invite or recovery links, passwords, API keys, session cookies, raw provider payloads or raw roster exports.

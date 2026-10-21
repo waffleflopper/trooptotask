@@ -295,7 +295,7 @@ export async function seedDashboardCurrency({ client, fixture, tag, ownedState, 
 	};
 }
 
-/** Seven Alpha People out today and returning within a week, four with an ETS, so each Overview list passes its row limit. */
+/** Seven Alpha People out today and returning within a week, four with an ETS, so Out Today, Coming and going and Needs you pass their row limits. */
 export async function seedDashboardOverflow({ client, fixture, tag, ownedState, save }) {
 	if (ownedState.seeded.some((item) => item.kind === 'dashboard-overflow'))
 		throw new Error('Clean the existing Dashboard overflow seed before preparing another cohort.');
@@ -345,7 +345,7 @@ export async function seedDashboardOverflow({ client, fixture, tag, ownedState, 
 		today: dates.ui,
 		people: people.map(({ id, last_name, ets }) => ({ id, lastName: last_name, ets: ets ?? null })),
 		expected:
-			'On the ordinary fixture as dashboardView, Out Today lists eight People (seven seeded plus Baker), Upcoming Changes ten rows (seven returns plus Baker three) and Upcoming Losses four People with ETS in 20, 25, 30 and 35 days. The three expand buttons read "+2 more", "+4 more" and "+1 more". Other seeds add rows and change these counts.',
+			'After seed dashboard, as dashboardView, Out Today lists eight People (seven seeded plus Baker) behind "+2 more in Out Today", Coming and going eight changes (seven returns plus Baker\'s) behind "All 8 changes", and Needs you eleven rows, the four added Leaving rows among them, with seven shown above "+4 more" and "Show all 11". Other seeds add rows and change these counts.',
 		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
 	};
 }

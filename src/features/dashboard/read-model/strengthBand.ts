@@ -451,7 +451,7 @@ function ordinal(day: number): string {
 }
 
 /** "Monday 26th". */
-function longDay(date: string): string {
+export function longDay(date: string): string {
 	return `${WEEKDAYS[weekdayOf(date)]} ${ordinal(dayOfMonth(date))}`;
 }
 

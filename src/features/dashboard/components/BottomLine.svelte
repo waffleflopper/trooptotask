@@ -30,9 +30,10 @@
 
 {#snippet personRows(rows: readonly OutPersonRow[])}
 	{#each rows as row (row.personnelId)}
+		{@const name = statusById.get(row.statusTypeId)?.name}
 		<li class="flex h-9 items-center gap-2.5 border-b border-border">
 			{@render swatch(row.statusTypeId)}
-			<span class="w-16 shrink-0 truncate text-sm">{statusById.get(row.statusTypeId)?.name}</span>
+			<span class="w-16 shrink-0 truncate text-sm" title={name}>{name}</span>
 			<span class="min-w-0 flex-1 truncate text-sm text-secondary-foreground">{row.name}</span>
 			<span class="shrink-0 font-mono text-xs text-muted-foreground">{row.backLabel}</span>
 		</li>
@@ -82,11 +83,14 @@
 		<div class="grid gap-2.5">
 			<ul aria-label="Out today by status">
 				{#each line.outByStatus as row (row.statusTypeId)}
+					{@const name = statusById.get(row.statusTypeId)?.name}
 					<li class="flex h-9 items-center gap-2.5 border-b border-border">
 						{@render swatch(row.statusTypeId)}
-						<span class="w-16 shrink-0 truncate text-sm leading-[18px]">{statusById.get(row.statusTypeId)?.name}</span>
+						<span class="w-16 shrink-0 truncate text-sm leading-[18px]" title={name}>{name}</span>
 						<span class="w-7 shrink-0 font-heading text-lg leading-[22px] font-bold">{row.count}</span>
-						<span class="min-w-0 flex-1 truncate text-sm leading-[18px] text-muted-foreground">{row.originsLabel}</span>
+						<span class="min-w-0 flex-1 truncate text-sm leading-[18px] text-muted-foreground" title={row.originsLabel}
+							>{row.originsLabel}</span
+						>
 						<span class="shrink-0 font-mono text-xs text-muted-foreground">{row.returnLabel}</span>
 					</li>
 				{/each}

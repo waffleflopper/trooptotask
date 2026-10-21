@@ -27,9 +27,9 @@
 
 {#if total > 0}
 	{#if mode === 'people'}
-		<ul class="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-3.5" aria-label="Available by group">
+		<ul class="flex flex-wrap gap-y-2 border-t border-border pt-3.5" aria-label="Available by group">
 			{#each groups.rows as row (row.id)}
-				<li class="flex items-baseline gap-2">
+				<li class="flex min-w-24 flex-1 items-baseline gap-2">
 					<span class="font-heading text-base font-bold tracking-[0.02em] uppercase">{row.name}</span>
 					{@render count(row)}
 				</li>
@@ -40,11 +40,13 @@
 			<h3 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{eyebrow}</h3>
 			<ul id="{uid}-groups" class="border-t border-foreground" aria-label="Available by group">
 				{#each visible as row (row.id)}
-					<li class="flex h-[38px] items-center gap-3 border-b border-border">
-						<span class="w-[110px] shrink-0 truncate text-sm font-semibold">{row.name}</span>
+					<li class="flex h-[38px] items-center gap-3.5 border-b border-border">
+						<span class="w-[110px] shrink-0 truncate font-heading text-base leading-5 font-bold uppercase"
+							>{row.name}</span
+						>
 						<span class="h-2 flex-1 bg-border" aria-hidden="true">
 							<span
-								class={['block h-full', row.belowFloor ? 'bg-accent-text' : 'bg-secondary-foreground']}
+								class={['block h-full', row.belowFloor ? 'bg-accent-text' : 'bg-foreground']}
 								style:width="{row.percent}%"
 							></span>
 						</span>

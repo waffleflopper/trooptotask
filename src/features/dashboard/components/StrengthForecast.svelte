@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { formatForecastHeadline, forecastDayLabel, type StrengthBand } from '../read-model/strengthBand';
+	import { formatForecastHeadline, forecastDayLabel, longDay, type StrengthBand } from '../read-model/strengthBand';
 
 	interface Props {
 		band: StrengthBand;
@@ -67,7 +67,9 @@
 						style:grid-column={index + 1}
 					>
 						{column.available}<span class="sr-only">
-							available {labels[index]}{column.belowFloor ? ', below the floor' : ''}</span
+							available {column.isToday ? 'today' : longDay(column.date)}{column.belowFloor
+								? ', below the floor'
+								: ''}</span
 						>
 					</span>
 					<span
@@ -122,7 +124,7 @@
 		</div>
 	</div>
 
-	<ul class="flex flex-wrap justify-end gap-x-3 gap-y-1 font-mono text-[11px] leading-[14px] text-muted-foreground">
+	<ul class="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] leading-[14px] text-muted-foreground">
 		{#each band.legend as statusType (statusType.id)}
 			<li class="flex items-center gap-[5px]">
 				<span class="size-2 rounded-[2px]" style:background-color={statusType.color} aria-hidden="true"></span>

@@ -110,6 +110,8 @@ export interface OnboardingWorkflowPersistence {
 	/** Start and finish dates of packets completed on or after `since` (YYYY-MM-DD). */
 	listCompletionsSince(since: string): Promise<OnboardingCompletion[]>;
 	listSavedActivePackets(): Promise<PersonnelOnboarding[]>;
+	/** The distinct people with an in-progress packet among the packets the requester may see, without steps or notes. */
+	listActivePacketPersonnelIds(): Promise<string[]>;
 	findPacketReference(id: string): Promise<OnboardingPacketReference | null>;
 	findStepReference(id: string): Promise<OnboardingProgressReference | null>;
 	listActivePacketIdsForPersonnel(personnelId: string): Promise<string[]>;

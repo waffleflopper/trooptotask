@@ -300,6 +300,26 @@ describe('the Quick add entries', () => {
 		expect(labelsFor({ membershipRole: 'owner' }, nobody)).toEqual(['Start onboarding']);
 	});
 
+	it('offers Training record only when a Group-scoped operator has a non-exempt person and type pair', () => {
+		const loaded: DashboardInputs = {
+			...withTrainingType,
+			personnel: [alphaPerson],
+			page: {
+				...withTrainingType.page,
+				dashboard: {
+					...withTrainingType.page.dashboard,
+					data: {
+						...withTrainingType.page.dashboard.data,
+						trainingTypes: [{ id: 'sharp', canBeExempted: true, exemptPersonnelIds: ['p-alpha'] } as TrainingType]
+					}
+				}
+			}
+		};
+		expect(labelsFor(member('training'), loaded)).toEqual([]);
+		loaded.page.dashboard.data.trainingTypes[0].exemptPersonnelIds = [];
+		expect(labelsFor(member('training'), loaded)).toEqual(['Training record']);
+	});
+
 	it('hides Start onboarding once everyone the viewer may choose has a packet, unless they can add the person', () => {
 		const allStarted: DashboardInputs = {
 			...withTrainingType,

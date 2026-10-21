@@ -228,7 +228,7 @@ describe('dashboard page server load', () => {
 		} as never);
 
 		expect(depends).toHaveBeenCalledWith('app:org-core');
-		expect(depends).toHaveBeenCalledWith('app:dashboard-data', 'app:viewer-day', 'app:dashboard-summary');
+		expect(depends).toHaveBeenCalledWith('app:dashboard-data', 'app:viewer-day');
 		expect(result.breadcrumbLabel).toBe('Wednesday, Oct 14 2026');
 		expect(result.viewerDay).toEqual({ date: '2026-10-14', timeZone: 'America/New_York' });
 		expect(result.summary).toBeInstanceOf(Promise);
@@ -258,6 +258,7 @@ describe('dashboard page server load', () => {
 		await expect(result.summary).resolves.toEqual({
 			trainingSummary: { stats: null, issues: [] },
 			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: ['p2'],
 			ictlSummary: {
 				hasActiveTasks: true,
 				overallReadinessPercent: 68,
@@ -366,6 +367,7 @@ describe('dashboard page server load', () => {
 		await expect(result.summary).resolves.toEqual({
 			trainingSummary: { stats: null, issues: [] },
 			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: [],
 			ictlSummary: null
 		});
 		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
@@ -393,6 +395,7 @@ describe('dashboard page server load', () => {
 		await expect(result.summary).resolves.toEqual({
 			trainingSummary: null,
 			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: [],
 			ictlSummary: expect.objectContaining({ hasActiveTasks: true })
 		});
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();

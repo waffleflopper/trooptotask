@@ -1,6 +1,10 @@
 import { fetchDashboardTrainingSummary } from '$features/training/index.server';
 import { fetchCriticalTasksDashboardSummary } from '$features/critical-tasks/index.server';
 import type { IctReportDashboardSummary } from '$features/critical-tasks/contracts';
+import type { FeatureKey } from '$lib/access/featureSwitches';
+import type { OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
+import type { Personnel, PersonnelRosterReader } from '$features/personnel/contracts';
+import type { TrainingCatalogPersistence, TrainingType } from '$features/training/contracts';
 import type { DashboardBootstrap, DashboardIctlSummary, DashboardPageSummaryData } from '../contracts';
 
 type DashboardSummaryContext = Parameters<typeof fetchDashboardTrainingSummary>[0] &
@@ -65,28 +69,85 @@ async function loadDashboardIctlSummary(
 	return toDashboardIctlSummary(report);
 }
 
-export async function fetchDashboardSummary(
+type DashboardSummaryAccess = { training: boolean; criticalTasks: boolean };
+
+interface TrainingSummaryPopulation {
+	personnel: Personnel[];
+	trainingTypes: TrainingType[];
+	onboardingPersonnelIds: string[];
+}
+
+export type DashboardSummaryRefreshContext = DashboardSummaryContext & {
+	roster: Pick<PersonnelRosterReader, 'list'>;
+	trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
+	onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listActivePacketPersonnelIds'>;
+	disabledFeatures: readonly FeatureKey[];
+};
+
+async function summarize(
 	ctx: DashboardSummaryContext,
-	workspace: DashboardBootstrap,
-	access: { training: boolean; criticalTasks: boolean },
+	readTrainingPopulation: () => Promise<TrainingSummaryPopulation>,
+	access: DashboardSummaryAccess,
 	asOf: string,
 	timeZone: string
 ): Promise<DashboardPageSummaryData> {
 	const [trainingData, ictlSummary] = await Promise.all([
 		access.training
-			? fetchDashboardTrainingSummary(ctx, {
-					personnel: workspace.personnel,
-					trainingTypes: workspace.trainingTypes,
-					onboardingPersonnelIds: workspace.activeOnboardings.map((o) => o.personnelId),
-					options: { issueLimit: 25, issueStatuses: ['expired', 'warning-orange'] },
-					asOf
-				})
+			? readTrainingPopulation().then(async (inputs) => ({
+					onboardingPersonnelIds: [...new Set(inputs.onboardingPersonnelIds)],
+					summary: await fetchDashboardTrainingSummary(ctx, {
+						personnel: inputs.personnel,
+						trainingTypes: inputs.trainingTypes,
+						onboardingPersonnelIds: inputs.onboardingPersonnelIds,
+						options: { issueLimit: 25, issueStatuses: ['expired', 'warning-orange'] },
+						asOf
+					})
+				}))
 			: null,
 		loadDashboardIctlSummary(ctx, access.criticalTasks, asOf, timeZone)
 	]);
 	return {
-		trainingSummary: trainingData?.trainingSummary ?? null,
+		trainingSummary: trainingData?.summary.trainingSummary ?? null,
 		ictlSummary,
-		onboardingTrainingCompletions: trainingData ? [...trainingData.onboardingTrainingCompletions] : []
+		onboardingTrainingCompletions: trainingData ? [...trainingData.summary.onboardingTrainingCompletions] : [],
+		onboardingPersonnelIds: trainingData?.onboardingPersonnelIds ?? []
 	};
+}
+
+export function fetchDashboardSummary(
+	ctx: DashboardSummaryContext,
+	workspace: Pick<DashboardBootstrap, 'personnel' | 'trainingTypes' | 'activeOnboardings'>,
+	access: DashboardSummaryAccess,
+	asOf: string,
+	timeZone: string
+): Promise<DashboardPageSummaryData> {
+	return summarize(
+		ctx,
+		async () => ({
+			personnel: workspace.personnel,
+			trainingTypes: workspace.trainingTypes,
+			onboardingPersonnelIds: workspace.activeOnboardings.map((packet) => packet.personnelId)
+		}),
+		access,
+		asOf,
+		timeZone
+	);
+}
+
+export function refreshDashboardSummary(
+	ctx: DashboardSummaryRefreshContext,
+	access: DashboardSummaryAccess,
+	asOf: string,
+	timeZone: string
+): Promise<DashboardPageSummaryData> {
+	const isOff = (feature: FeatureKey) => ctx.disabledFeatures.includes(feature);
+	const readTrainingPopulation = async (): Promise<TrainingSummaryPopulation> => {
+		const [personnel, trainingTypes, onboardingPersonnelIds] = await Promise.all([
+			ctx.roster.list({ status: 'active' }),
+			isOff('training') ? [] : ctx.trainingCatalog.listTypes(),
+			isOff('onboarding') ? [] : ctx.onboardingWorkflow.listActivePacketPersonnelIds()
+		]);
+		return { personnel, trainingTypes, onboardingPersonnelIds };
+	};
+	return summarize(ctx, readTrainingPopulation, access, asOf, timeZone);
 }

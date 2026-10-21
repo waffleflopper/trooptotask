@@ -4,7 +4,7 @@ import PlusIcon from '@lucide/svelte/icons/plus';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import ComingAndGoing from '../components/ComingAndGoing.svelte';
 import TonightAndTomorrow from '../components/TonightAndTomorrow.svelte';
-import { actionablePersonnel, dashboardSection, type DashboardSection } from './dashboardSections';
+import { actionablePersonnel, dashboardSection, personnelResource, type DashboardSection } from './dashboardSections';
 import {
 	expiredTraining,
 	leavingWithoutAward,
@@ -46,8 +46,13 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				order: 20,
 				loadDialog: () => import('../components/quick-add/TrainingRecordQuickAdd.svelte'),
 				available: (inputs, access) =>
-					inputs.page.dashboard.data.trainingTypes.length > 0 &&
-					actionablePersonnel(inputs.personnel, access, training.recordCompletions).length > 0
+					inputs.personnel.some(
+						(person) =>
+							access.can(training.recordCompletions, personnelResource(person)) &&
+							inputs.page.dashboard.data.trainingTypes.some(
+								(type) => !type.canBeExempted || !type.exemptPersonnelIds.includes(person.id)
+							)
+					)
 			}
 		]
 	}),

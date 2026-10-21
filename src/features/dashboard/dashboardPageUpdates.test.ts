@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
-import type { DashboardWorkspaceResult } from './contracts';
-import { overlayDashboardRecords, putDashboardRecord } from './dashboardPageUpdates';
+import type { DashboardPageSummaryData, DashboardWorkspaceResult } from './contracts';
+import { getProgress } from '$features/onboarding/contracts';
+import { projectTrainingSteps } from './read-model/dashboardIndexes';
+import { overlayDashboardRecords, overlayDashboardSummary, putDashboardRecord } from './dashboardPageUpdates';
 
 function packet(id: string, personnelId: string): PersonnelOnboarding {
 	return {
@@ -49,5 +51,72 @@ describe('the Dashboard record overlay', () => {
 			base: newer,
 			changes: [{ list: 'activeOnboardings', record: packet('p3', 'charlie') }]
 		});
+	});
+	it('preserves completed Training when a newly started packet is projected over a summary without that person', () => {
+		const base = workspace([]);
+		const started: PersonnelOnboarding = {
+			...packet('packet-bravo', 'bravo'),
+			steps: [
+				{
+					id: 'step-sharp',
+					onboardingId: 'packet-bravo',
+					stepName: 'SHARP',
+					stepType: 'training',
+					trainingTypeId: 'sharp',
+					stages: null,
+					sortOrder: 0,
+					completed: true,
+					currentStage: null,
+					notes: [],
+					templateStepId: 'template-sharp',
+					active: true,
+					progressChangedAt: '2026-10-19'
+				}
+			]
+		};
+		started.steps.push(
+			...['Orientation', 'Paperwork'].map((name, i) => ({
+				...started.steps[0],
+				id: `step-${i}`,
+				stepName: name,
+				stepType: 'checkbox' as const,
+				trainingTypeId: null,
+				completed: false
+			}))
+		);
+		const overlay = putDashboardRecord(null, base, { list: 'activeOnboardings', record: started });
+		const summary = {
+			trainingSummary: {
+				stats: {
+					total: 2,
+					current: 2,
+					expired: 0,
+					warningOrange: 0,
+					warningYellow: 0,
+					notCompleted: 0,
+					notRequired: 0
+				},
+				issues: [],
+				expiredByType: [],
+				expiredPersonnelCount: 0,
+				groupDelinquencies: []
+			},
+			ictlSummary: null,
+			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: []
+		} satisfies DashboardPageSummaryData;
+		const overlaid = overlayDashboardRecords(base, overlay).data.activeOnboardings[0];
+		const progress = (next: DashboardPageSummaryData) =>
+			getProgress(projectTrainingSteps(overlayDashboardSummary(next, base, overlay))(overlaid));
+		expect(progress(summary)).toEqual({ completed: 1, total: 3 });
+		const stale = { ...summary, onboardingTrainingCompletions: ['alpha-sharp'] };
+		expect(overlayDashboardSummary(stale, base, overlay).onboardingTrainingCompletions).toEqual([
+			'alpha-sharp',
+			'bravo-sharp'
+		]);
+		expect(progress(stale)).toEqual({ completed: 1, total: 3 });
+		const fresh = { ...summary, onboardingPersonnelIds: ['bravo'], onboardingTrainingCompletions: ['bravo-sharp'] };
+		expect(progress(fresh)).toEqual({ completed: 1, total: 3 });
+		expect(progress({ ...fresh, onboardingTrainingCompletions: [] })).toEqual({ completed: 0, total: 3 });
 	});
 });

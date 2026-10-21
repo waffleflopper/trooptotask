@@ -1,5 +1,5 @@
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
-import type { DashboardWorkspaceResult } from './contracts';
+import type { DashboardPageSummaryData, DashboardWorkspaceResult } from './contracts';
 
 /** A record the viewer just saved, for the list in the static page data it belongs to. */
 export type DashboardRecordChange = { list: 'activeOnboardings'; record: PersonnelOnboarding };
@@ -39,4 +39,22 @@ export function overlayDashboardRecords(
 			: [...records, record];
 	}
 	return { ...dashboard, data };
+}
+
+export function overlayDashboardSummary(
+	summary: DashboardPageSummaryData,
+	dashboard: DashboardWorkspaceResult,
+	overlay: DashboardRecordOverlay | null
+): DashboardPageSummaryData {
+	if (overlay?.base !== dashboard) return summary;
+	const covered = new Set(summary.onboardingPersonnelIds);
+	const completions = new Set(summary.onboardingTrainingCompletions);
+	for (const { record } of overlay.changes) {
+		if (covered.has(record.personnelId)) continue;
+		for (const step of record.steps) {
+			if (step.active && step.stepType === 'training' && step.trainingTypeId && step.completed)
+				completions.add(`${record.personnelId}-${step.trainingTypeId}`);
+		}
+	}
+	return { ...summary, onboardingTrainingCompletions: [...completions] };
 }

@@ -8,6 +8,7 @@ export {
 export type { DashboardPageData } from './contracts';
 export {
 	overlayDashboardRecords,
+	overlayDashboardSummary,
 	putDashboardRecord,
 	type DashboardPageUpdates,
 	type DashboardRecordChange,

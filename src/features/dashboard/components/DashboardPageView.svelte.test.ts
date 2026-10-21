@@ -403,6 +403,41 @@ describe('Dashboard frame', () => {
 		expect(error).not.toHaveBeenCalled();
 		expect(screen.getByRole('dialog', { name: 'Quick add for Test Unit' })).toBeTruthy();
 	});
+	it('keeps the newer dialog when an earlier import succeeds late', async () => {
+		let finishStatus!: (module: Awaited<ReturnType<QuickAddEntry['loadDialog']>>) => void;
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [
+			{
+				id: 'status',
+				label: 'Status',
+				icon,
+				order: 10,
+				loadDialog: () =>
+					new Promise((resolve) => {
+						finishStatus = resolve;
+					})
+			},
+			{
+				id: 'training-record',
+				label: 'Training record',
+				icon,
+				order: 20,
+				loadDialog: () => import('./quick-add/QuickAddTrainingDialogTestDouble.svelte')
+			}
+		];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Training record' }));
+		await screen.findByRole('dialog', { name: 'Training record dialog' });
+		finishStatus(await import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(screen.getByRole('dialog', { name: 'Training record dialog' })).toBeTruthy();
+		expect(screen.queryByRole('dialog', { name: 'Quick add for Test Unit' })).toBeNull();
+	});
+
 	it('drops a dialog still loading when the Organization unloads, even if the viewer comes back', async () => {
 		let finishStatus!: (module: Awaited<ReturnType<QuickAddEntry['loadDialog']>>) => void;
 		const icon: QuickAddEntry['icon'] = () => ({});

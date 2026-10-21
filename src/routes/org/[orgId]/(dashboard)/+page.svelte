@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import {
 		DASHBOARD_SECTIONS,
@@ -7,12 +7,12 @@
 		createDashboardAccess,
 		createDashboardScreenModel,
 		overlayDashboardRecords,
+		overlayDashboardSummary,
 		putDashboardRecord,
 		type DashboardPageUpdates,
 		type DashboardRecordOverlay
 	} from '$features/dashboard';
 	import {
-		DASHBOARD_SUMMARY_DEPENDENCY,
 		type DashboardPageData,
 		type DashboardPageSummaryData,
 		type DashboardWorkspaceResult
@@ -32,12 +32,14 @@
 	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
+	let summaryRequest = 0;
+	onDestroy(() => {
+		summaryRequest++;
+	});
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const orgId = $derived(data.shell.org.id);
-	// Deriving the streamed values keeps a summary-only rerun from restarting the workspace read.
 	const streamedWorkspace = $derived(data.dashboard?.data);
 	const streamedSummary = $derived(data.summary);
-	// A background refresh keeps showing the last summary of the same Organization.
 	const summaryData = $derived.by(() => {
 		const latest = latestSummary;
 		return latest && latest.orgId === orgId ? latest.summary : null;
@@ -79,6 +81,7 @@
 		let cancelled = false;
 		const summaryOrgId = orgId;
 		const streamed = streamedSummary;
+		const request = ++summaryRequest;
 
 		summaryError = null;
 
@@ -97,14 +100,14 @@
 				latestSummary = { orgId: summaryOrgId, summary };
 			},
 			onReject: (error) => {
-				// A failed background refresh keeps the last values without an error.
 				if (latestSummary?.orgId !== summaryOrgId) summaryError = error;
 			},
-			isCancelled: () => cancelled
+			isCancelled: () => cancelled || request !== summaryRequest
 		});
 
 		return () => {
 			cancelled = true;
+			summaryRequest++;
 		};
 	});
 
@@ -113,6 +116,7 @@
 		dashboard: DashboardWorkspaceResult,
 		summary: DashboardPageSummaryData
 	): DashboardPageData {
+		const projectedSummary = overlayDashboardSummary(summary, dashboard, recordOverlay);
 		return {
 			...data,
 			orgId: data.shell.org.id,
@@ -122,9 +126,9 @@
 			viewerDay: data.viewerDay,
 			disabledFeatures: shell?.org.disabledFeatures ?? [],
 			dashboard: overlayDashboardRecords(dashboard, recordOverlay),
-			trainingSummary: summary.trainingSummary,
-			ictlSummary: summary.ictlSummary,
-			onboardingTrainingCompletions: summary.onboardingTrainingCompletions
+			trainingSummary: projectedSummary.trainingSummary,
+			ictlSummary: projectedSummary.ictlSummary,
+			onboardingTrainingCompletions: projectedSummary.onboardingTrainingCompletions
 		};
 	}
 
@@ -135,10 +139,25 @@
 			: null
 	);
 
+	async function refreshSummary() {
+		const savedIn = orgId;
+		const workspace = streamedWorkspace;
+		const request = ++summaryRequest;
+		try {
+			const response = await fetch(`/org/${savedIn}/api/dashboard/summary`, { cache: 'no-store' });
+			if (!response.ok) return;
+			const summary: DashboardPageSummaryData = await response.json();
+			if (request === summaryRequest && savedIn === orgId && workspace === streamedWorkspace)
+				latestSummary = { orgId: savedIn, summary };
+		} catch {
+			return;
+		}
+	}
+
 	const shellUI = getAppShellContext();
 	const access = createDashboardAccess(shellUI);
 	const updates: DashboardPageUpdates = {
-		refreshSummary: () => void invalidate(DASHBOARD_SUMMARY_DEPENDENCY),
+		refreshSummary: () => void refreshSummary(),
 		putRecord: (savedIn, change) => {
 			if (dashboardBootstrap && savedIn === orgId)
 				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change);

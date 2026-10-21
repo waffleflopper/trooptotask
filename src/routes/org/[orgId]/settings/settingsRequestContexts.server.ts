@@ -25,6 +25,7 @@ import type { listGroupCatalog } from '$features/personnel/index.server';
 import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 import type { GeneralSettingsPorts } from './settingsGeneral.server';
+import type { FeaturesSettingsPorts } from './settingsFeatures.server';
 
 export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
 	typeof streamSettingsNavCounts
@@ -103,5 +104,14 @@ export function createSettingsGeneralContext(request: AdmittedOrganizationReques
 			const { auditStore, auditLabels } = createRequestOrganizationAuditLogContext(request);
 			return fetchLatestAuditEvent(request.auth.orgId, auditStore, action, auditLabels);
 		}
+	};
+}
+
+export function createSettingsFeaturesContext(request: AdmittedOrganizationRequest): FeaturesSettingsPorts {
+	return {
+		auth: request.auth,
+		disabledFeatures: request.disabledFeatures,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		...createRequestUnitCountsContext(request)
 	};
 }

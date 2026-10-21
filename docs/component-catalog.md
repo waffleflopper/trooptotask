@@ -58,6 +58,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                                |
 | [`patterns/coverage-bar`](#patternscoverage-bar)                           | `CoverageBar`                                                                                                                                       | Personnel Files counseling coverage.                                                                                                                                     |
 | [`patterns/dropzone`](#patternsdropzone)                                   | `Dropzone`                                                                                                                                          | Personnel Files upload.                                                                                                                                                  |
+| [`patterns/draft-field`](#patternsdraft-field)                             | `Root`, `Status`; `FieldDraft`                                                                                                                      | The Features strength floor.                                                                                                                                             |
 | [`patterns/calendar-bars`](#patternscalendar-bars)                         | `StatusBar`, `AvailabilityStrip`; `layoutBars`, `oneDayLabel`                                                                                       | Calendar grid, popovers, legends and roster picker; the person Overview's next 14 days.                                                                                  |
 | [`patterns/inline-edit-row`](#patternsinline-edit-row)                     | `Root`                                                                                                                                              | The person record's Log tab: follow-ups and leader notes.                                                                                                                |
 | [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `SectionHeader`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                           | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                  |
@@ -198,9 +199,10 @@ Public components:
 - `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `tag`, `destructive`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. A `tag` is a short mono label after the label, such as `Owner`, and joins the link name. `destructive` colors the tab like a destructive action at the normal tab size. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
-- `FactSection`: a block of label and value rows. Props: `title?`, `summary?`, `open?` (bindable), `children?`. A titled section sets its title over a 2px rule. Passing a `summary` with the title makes the section collapsible; the closed section shows the summary beside its title. Without a title the rows start under a bare 2px rule, as a settings page body does under its header.
-- `FactRow`: one label and value row inside a `FactSection`. Props: `label`, `value?` (an empty value reads "Not set"), `mono?`, `labelFor?`, `changed?`, `hint?`, `error?`, `children?`. Children replace `value` for anything richer, such as the controls of an edit form; `labelFor` then names the control and `changed` marks a field that differs from the saved record.
+- `FactSection`: a block of label and value rows. Props: `title?`, `summary?`, `open?` (bindable), `variant?: 'default' | 'destructive'`, `children?`. A titled section sets its title over a 2px rule. Passing a `summary` with the title makes the section collapsible; the closed section shows the summary beside its title. Without a title the rows start under a bare 2px rule, as a settings page body does under its header. `destructive` draws that rule in the destructive color, for Danger zone.
+- `FactRow`: one label and value row inside a `FactSection`. Props: `label`, `variant?` (`default` or `display`), `description?`, `muted?`, `holds?`, `control?`, `details?` (the last four are `display` only), `value?` (an empty value reads "Not set"), `mono?`, `labelFor?`, `changed?`, `hint?`, `error?`, `children?`. Children replace `value` for anything richer, such as the controls of an edit form; `labelFor` then names the control and `changed` marks a field that differs from the saved record.
 - `FactRow` `variant="display"` is the editorial settings row: what the row is (`label`, in large condensed type), one `description` sentence on what it controls or what changing it does, then the controls as children. The label lane is 300px wide at `md` and up and stacks above the controls below it. Rows sit 24px apart on 1px rules, and the last row has none. Put a muted mono line under the controls for what the row holds, such as `Last changed 14 Mar 2026 · actor`.
+- A `display` row with any of the `holds`, `control` or `details` snippets uses the lanes of the settings grammar instead of children: the label and description, `holds?` (mono and muted, 180px wide), and `control?` on the right (a switch, `Always`, or `DraftField.Status`). `details?` spans the lanes below them, for a field with its live sentence such as `DraftField.Root`. `muted` mutes the label, for something switched off. Lanes replace `value`, `mono`, `hint`, `error` and children, and the types reject mixing them or using lanes on the default variant. Below `md` the lanes stack, with the control under the text. With `labelFor`, the description gets the id `<labelFor>-description` so the control can name it in `aria-describedby`. Features is the example.
 
 Rules:
 
@@ -212,7 +214,7 @@ Rules:
 - Use `FactSection` and `FactRow` for a record's labelled facts, read or edited in place, instead of route-local definition lists. Settings pages use one untitled `FactSection` of `display` rows for their body. The settings shell sets the body width per page from `SETTINGS_PAGES[].width`: `form` pages are 820px wide and `table` pages 912px.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
 
-Consumers: the Account and Organization settings shells (Organization settings reaches `Tabs` through `section-nav`), the General settings page (`display` rows), the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+Consumers: the Account and Organization settings shells (Organization settings reaches `Tabs` through `section-nav`), the General and Features settings pages (`display` rows), the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
 
 ---
 
@@ -267,6 +269,35 @@ Consumers: the Organization settings shell.
 ```
 
 `InlineEditRow.Trigger` is the neutral text button that opens the editor (`onclick`, `children`, bindable `ref`, `struck?` for a finished row). `InlineEditRow.Root` props: `editing`, `label` (names the open editor), `pending?` (`'save'` or `'archive'` while a command is in flight; it disables Save and Archive so commands cannot overlap), `error?`, `onSave`, `onCancel`, `onArchive?`, snippets `display` and `editor`, and `lead?` for a control that sits before Archive in the footer, such as a due date. The parent returns focus to the control that opened the editor after it closes.
+
+---
+
+## `patterns/draft-field`
+
+A settings field that saves on its own, such as the Features strength floor. `FieldDraft` holds the draft against the saved value. `DraftField.Root` is the field's panel and form. `DraftField.Status` states whether the draft is saved.
+
+```svelte
+<script lang="ts">
+	import * as DraftField from '$lib/components/patterns/draft-field';
+
+	const floor = new DraftField.FieldDraft<number | null>(() => settings.strengthFloorPercent);
+</script>
+
+<DraftField.Root draft={floor} id="strength-floor" name="strength floor" was="{floor.saved}%" save={saveFloor}>
+	{#snippet field(aria)}
+		<Field.Label for="strength-floor">Strength floor</Field.Label>
+		<InputGroup.Root class="w-24">
+			<InputGroup.Input id="strength-floor" type="number" bind:value={floor.value} {...aria} />
+			<InputGroup.Addon align="inline-end" variant="muted"><InputGroup.Text>%</InputGroup.Text></InputGroup.Addon>
+		</InputGroup.Root>
+	{/snippet}
+	The live sentence for the draft value.
+</DraftField.Root>
+```
+
+- `FieldDraft<T>(saved: () => T)`: `value` (bind the input to it), `saved`, `changed`, `saving`, `error`, `save(write)`, `undo()`. The draft follows the saved value until the user edits it. `save` runs one write at a time; a failed write keeps the draft and sets `error` to its message. A value typed while a save is in flight is kept when that save lands.
+- `Root` props: `draft`, `id` (prefixes `<id>-sentence` and `<id>-error`), `name` (completes the Save and Undo names, such as `Save strength floor`), `was` (the saved value as the status says it), `save` (writes the value and throws an `Error` whose message is shown), `inlineStatus?` (default true), the `field` snippet and children for the live sentence. `field` receives `aria-describedby` and `aria-invalid` to spread on the input. A changed draft turns the panel border amber and shows Undo and Save. The form is `novalidate`, so the server's field error shows under the field. After a save lands, focus moves from the removed Save button to the field.
+- `Status` props: `draft`, `was`. It reads `Unsaved · was <was>` in amber while the draft differs, otherwise `Saved`. `Root` shows it at the end of the panel. A row with a free control lane passes `inlineStatus={false}` and puts `DraftField.Status` in its `FactRow` `control` snippet instead.
 
 ---
 

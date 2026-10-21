@@ -186,35 +186,47 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 }
 
 export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClient): OrganizationPolicyWritePort {
+	async function findFeatureSettings(orgId: string) {
+		const { data, error } = await supabase
+			.from('organizations')
+			.select('disabled_features, strength_floor_percent')
+			.eq('id', orgId)
+			.maybeSingle();
+		if (error) throw new Error(error.message);
+		return data
+			? {
+					disabledFeatures: parseDisabledFeatures(data.disabled_features),
+					strengthFloorPercent: data.strength_floor_percent,
+					storedDisabledFeatures: data.disabled_features
+				}
+			: null;
+	}
+
 	return {
-		async findFeatureSettings(orgId) {
-			const { data, error } = await supabase
-				.from('organizations')
-				.select('disabled_features, strength_floor_percent')
-				.eq('id', orgId)
-				.maybeSingle();
-			if (error) throw new Error(error.message);
-			return data
-				? {
-						disabledFeatures: parseDisabledFeatures(data.disabled_features),
-						strengthFloorPercent: data.strength_floor_percent
-					}
-				: null;
-		},
-		async updatePolicies(orgId, changes) {
+		findFeatureSettings,
+		async updatePolicies(orgId, changes, ifDisabledFeatures) {
 			const updates = toOrganizationPolicyColumns(changes);
-			const { data, error } = await supabase
-				.from('organizations')
-				.update(updates)
-				.eq('id', orgId)
+			let write = supabase.from('organizations').update(updates).eq('id', orgId);
+			if (ifDisabledFeatures) write = write.eq('disabled_features', toTextArrayLiteral(ifDisabledFeatures));
+			const { data, error } = await write
 				.select(['id', ...Object.keys(updates)].join(', '))
 				.single<{ id: string; [field: string]: unknown }>();
-			if (error) return error.message || 'Organization settings update failed';
+			// A zero-row update under the guard is a concurrent change only when the stored switches differ now;
+			// otherwise the row refused the write and retrying would only repeat it.
+			if (ifDisabledFeatures && error?.code === 'PGRST116') {
+				const current = await findFeatureSettings(orgId);
+				if (current && !isSameValue(current.storedDisabledFeatures, ifDisabledFeatures)) return { status: 'stale' };
+			}
+			if (error) return { status: 'failed', message: error.message || 'Organization settings update failed' };
 			return data?.id === orgId && Object.entries(updates).every(([field, value]) => isSameValue(data[field], value))
-				? null
-				: 'Unable to confirm Organization settings update';
+				? { status: 'saved' }
+				: { status: 'failed', message: 'Unable to confirm Organization settings update' };
 		}
 	};
+}
+
+function toTextArrayLiteral(values: readonly string[]): string {
+	return `{${values.map((value) => JSON.stringify(value)).join(',')}}`;
 }
 
 export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges): Record<string, number | string[]> {
@@ -230,8 +242,8 @@ export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges):
 	return updates;
 }
 
-function isSameValue(saved: unknown, sent: number | string[]): boolean {
-	if (!Array.isArray(sent)) return saved === sent;
+function isSameValue(saved: unknown, sent: number | readonly string[]): boolean {
+	if (typeof sent === 'number') return saved === sent;
 	return Array.isArray(saved) && saved.length === sent.length && sent.every((item, index) => saved[index] === item);
 }
 

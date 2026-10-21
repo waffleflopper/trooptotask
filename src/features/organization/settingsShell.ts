@@ -42,6 +42,7 @@ export interface SettingsPage {
 /** Every settings page in nav order. Admins do not see owner-only pages; those routes guard themselves. */
 export const SETTINGS_PAGES = {
 	general: { label: 'General', group: 'Unit', ownerOnly: false, width: 'form' },
+	features: { label: 'Features', group: 'Unit', ownerOnly: false, width: 'form' },
 	policies: { label: 'Policies', group: 'Unit', ownerOnly: false, width: 'form' },
 	ranks: { label: 'Ranks', group: 'Unit', ownerOnly: false, width: 'table' },
 	members: { label: 'Members', group: 'Access', ownerOnly: false, width: 'table' },

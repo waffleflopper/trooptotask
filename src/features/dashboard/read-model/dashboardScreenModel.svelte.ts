@@ -18,6 +18,7 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { TrainingIssue } from '$features/training/contracts';
 import { getProgress } from '$features/onboarding/contracts';
 import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
+import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
@@ -623,7 +624,7 @@ export class DashboardScreenModel {
 				name: group.name,
 				total,
 				available,
-				pct: total > 0 ? Math.round((available / total) * 100) : 100,
+				pct: availabilityPercent(available, total),
 				statusCounts,
 				isPinned: pinnedSet.has(group.name)
 			};
@@ -631,7 +632,7 @@ export class DashboardScreenModel {
 	});
 
 	get dutyStrengthPct(): number {
-		return this.totalPersonnel > 0 ? Math.round((this.availableCount / this.totalPersonnel) * 100) : 100;
+		return availabilityPercent(this.availableCount, this.totalPersonnel);
 	}
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number; current: number } {
@@ -936,7 +937,7 @@ function sortGroupName(a: string, b: string): number {
 }
 
 function strengthColor(pct: number, floorPercent: number): string {
-	return pct >= floorPercent ? 'var(--success-foreground)' : 'var(--warning-foreground)';
+	return isBelowStrengthFloor(pct, floorPercent) ? 'var(--warning-foreground)' : 'var(--success-foreground)';
 }
 
 function trainingCurrencyColor(pct: number): string {

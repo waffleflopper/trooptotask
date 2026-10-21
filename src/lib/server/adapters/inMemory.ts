@@ -1576,7 +1576,7 @@ function createInMemoryOrganizationUnitCountsPort(
 function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): OrganizationPolicyWritePort {
 	return {
 		async findFeatureSettings(orgId) {
-			const row = await store.findOne<{ disabled_features?: unknown; strength_floor_percent?: number }>(
+			const row = await store.findOne<{ disabled_features?: string[]; strength_floor_percent?: number }>(
 				'organizations',
 				orgId.toLowerCase(),
 				{},
@@ -1585,13 +1585,22 @@ function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): Orga
 			return row
 				? {
 						disabledFeatures: parseDisabledFeatures(row.disabled_features),
-						strengthFloorPercent: row.strength_floor_percent ?? DEFAULT_STRENGTH_FLOOR_PERCENT
+						strengthFloorPercent: row.strength_floor_percent ?? DEFAULT_STRENGTH_FLOOR_PERCENT,
+						storedDisabledFeatures: [...(row.disabled_features ?? [])]
 					}
 				: null;
 		},
-		async updatePolicies(orgId, changes) {
+		async updatePolicies(orgId, changes, ifDisabledFeatures) {
+			const row = await store.findOne<{ disabled_features?: string[] }>('organizations', orgId.toLowerCase(), {});
+			// The check and the write run in one turn, as the provider's conditional update does in one statement.
+			const stored = row?.disabled_features ?? [];
+			if (
+				ifDisabledFeatures &&
+				(stored.length !== ifDisabledFeatures.length || stored.some((key, index) => key !== ifDisabledFeatures[index]))
+			)
+				return { status: 'stale' };
 			await store.updateById('organizations', orgId, toOrganizationPolicyColumns(changes));
-			return null;
+			return { status: 'saved' };
 		}
 	};
 }

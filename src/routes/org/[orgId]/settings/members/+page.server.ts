@@ -1,8 +1,8 @@
-import { readPendingDeletionRequestSummary } from '$features/deletion-requests/index.server';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
-import { createRequestDeletionRequestStore, toActionFailure } from '$lib/server/adapters/httpAdapter';
+import { toActionFailure } from '$lib/server/adapters/httpAdapter';
+import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
 import {
 	buildRouteRequest,
 	createAccountSetupLinkIssuancePorts,
@@ -26,17 +26,17 @@ import {
 } from '../settingsRequestContexts.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, createSettingsMembersContext, async (ctx, { common }) => ({
-		membersSettings: await loadMembersSettings(ctx, {
+	loadSettingsPage(event, createSettingsMembersContext, async (ctx, { common }) => {
+		const membersSettings = await loadMembersSettings(ctx, {
 			isAdmin: common.isAdmin,
 			groups: listGroupCatalog(ctx),
-			pendingApprovalSummary: readPendingDeletionRequestSummary({
-				auth: ctx.auth,
-				audit: ctx.audit,
-				store: createRequestDeletionRequestStore(event.locals)
-			})
-		})
-	}));
+			closedInvitations: keepStreamedRejectionObserved(
+				ctx.organizationSettings.listInvitations(ctx.auth.orgId, 'closed')
+			)
+		});
+		keepStreamedRejectionObserved(membersSettings.sections.members.invitationHistory);
+		return { membersSettings };
+	});
 
 export const actions: Actions = {
 	invite: async (event) => {

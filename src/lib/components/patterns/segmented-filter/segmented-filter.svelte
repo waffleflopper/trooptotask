@@ -11,9 +11,11 @@
 		options: readonly Option[];
 		value: T;
 		label: string;
+		/** Shows the chosen option but takes no input, such as a setting the unit turned off. */
+		disabled?: boolean;
 	}
 
-	let { options, value = $bindable(), label }: Props = $props();
+	let { options, value = $bindable(), label, disabled = false }: Props = $props();
 </script>
 
 <ToggleGroup.Root
@@ -21,6 +23,7 @@
 	size="sm"
 	class="max-w-full flex-wrap"
 	aria-label={label}
+	{disabled}
 	bind:value={
 		() => value,
 		(next) => {
@@ -28,9 +31,14 @@
 		}
 	}
 >
-	{#each options as option (option.value)}
-		<ToggleGroup.Item value={option.value}>
-			{option.count === undefined ? option.label : `${option.label} · ${option.count}`}
-		</ToggleGroup.Item>
-	{/each}
+	{#snippet child({ props })}
+		<!-- bits-ui names a single-choice group `group`; its items are radios, so the group is a radiogroup. -->
+		<div {...props} role="radiogroup">
+			{#each options as option (option.value)}
+				<ToggleGroup.Item value={option.value}>
+					{option.count === undefined ? option.label : `${option.label} · ${option.count}`}
+				</ToggleGroup.Item>
+			{/each}
+		</div>
+	{/snippet}
 </ToggleGroup.Root>

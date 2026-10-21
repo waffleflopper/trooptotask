@@ -1,4 +1,5 @@
 import {
+	CAPABILITY_LEVELS,
 	DURABLE_FEATURE_LANES,
 	type CapabilityLevel,
 	type DurableFeatureLane,
@@ -37,9 +38,13 @@ export const SETTINGS_ACCESS_LANES: AccessLaneConfig[] = DURABLE_FEATURE_LANES.m
 	label: ACCESS_LANE_LABELS[id]
 }));
 
-export const SETTINGS_CAPABILITY_OPTIONS: Array<{ value: CapabilityLevel; label: string }> = [
-	{ value: 'none', label: 'No access' },
-	{ value: 'view', label: 'View only' },
-	{ value: 'operate', label: 'Can update' },
-	{ value: 'configure', label: 'Can manage' }
-];
+export const CAPABILITY_LEVEL_LABELS: Record<CapabilityLevel, string> = {
+	none: 'None',
+	view: 'View',
+	operate: 'Update',
+	configure: 'Manage'
+};
+
+export const SETTINGS_CAPABILITY_OPTIONS: Array<{ value: CapabilityLevel; label: string }> = CAPABILITY_LEVELS.map(
+	(value) => ({ value, label: CAPABILITY_LEVEL_LABELS[value] })
+);

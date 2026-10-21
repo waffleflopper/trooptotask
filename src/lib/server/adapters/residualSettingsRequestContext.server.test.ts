@@ -109,7 +109,7 @@ describe('residual settings through actual admitted request factories', () => {
 		const data = await loadMembersSettings(members, {
 			isAdmin: true,
 			groups: Promise.resolve([]),
-			pendingApprovalSummary: Promise.resolve({ count: 2, oldestCreatedAt: '2026-10-01' })
+			closedInvitations: Promise.resolve([])
 		});
 		expect(data.sections.members.rows.map((row) => [row.id, row.userId, row.membershipRole])).toEqual([
 			['owner-id', 'owner-user', 'owner'],
@@ -117,7 +117,6 @@ describe('residual settings through actual admitted request factories', () => {
 			['blank-email', 'blank-user', 'member'],
 			['no-account', '', 'member']
 		]);
-		expect(data.sections.members.pendingApprovalSummary).toEqual({ count: 2, oldestCreatedAt: '2026-10-01' });
 		expect(data.sections.members.invitations).toEqual([]);
 		expect(await loadOwnershipTransferCandidates(danger)).toEqual([
 			{ id: 'admin-id', userId: 'admin-user', email: '  admin@example.test  ', membershipRole: 'admin' }

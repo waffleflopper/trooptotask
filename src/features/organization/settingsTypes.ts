@@ -29,7 +29,8 @@ export interface OrganizationTrainingBriefingContext {
 export interface OrganizationSettingsReader {
 	findCriticalTasksDefaults(orgId: string): Promise<OrganizationCriticalTasksDefaults | null>;
 	listMemberAccess(orgId: string): Promise<OrganizationSettingsMembershipRow[]>;
-	listInvitations(orgId: string): Promise<OrganizationSettingsInvitationRow[]>;
+	/** `closed` is every invitation whose status left `pending`; a pending invitation past its expiry is still `pending`. */
+	listInvitations(orgId: string, status: 'pending' | 'closed'): Promise<OrganizationSettingsInvitationRow[]>;
 	listInvitationDeliveries(orgId: string): Promise<OrganizationSettingsInvitationDeliveryRow[]>;
 	listOwnershipCandidateMemberships(orgId: string): Promise<OrganizationOwnershipCandidateMembershipRow[]>;
 	findMemberLabels(orgId: string, userIds: string[]): Promise<Map<string, string>>;

@@ -1,16 +1,7 @@
-import type { CapabilityLevel, DurableFeatureLane, ScopeSet } from '$lib/access/memberAccessShape';
-import type { EditablePreset } from './settingsMemberAccessConstants';
+import type { DurableFeatureLane, MembershipRole } from '$lib/access/memberAccessShape';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 export type SettingsMemberRow = SettingsMemberAccessRow & {
-	editor: {
-		selectedPreset: EditablePreset;
-		scopeKind: ScopeSet['kind'];
-		scopeGroupIds: string[];
-		availablePresetOptions: Array<{ value: EditablePreset; label: string; helper: string }>;
-		availableGroups: Array<{ id: string; name: string }>;
-	};
-	accessBadge: 'owner' | 'admin' | 'viewer' | 'operator' | 'editor' | 'custom';
 	scopeDisplayLabel: string;
 	overriddenCapabilityLabels: string[];
 };
@@ -23,7 +14,6 @@ export type SettingsInvitationFunnelStatus =
 	| 'waiting_on_them_to_accept';
 
 export type SettingsInvitationRow = SettingsInvitationAccessRow & {
-	accessBadge: 'admin' | 'viewer' | 'operator' | 'editor' | 'custom';
 	scopeDisplayLabel: string;
 	deliveryStatus: 'not_sent' | 'pending' | 'sent' | 'failed';
 	deliveryStatusLabel: string;
@@ -40,23 +30,43 @@ export type SettingsPendingInvitationRow = SettingsInvitationRow & {
 	funnelStatusDetail: string;
 };
 
-export type SettingsInvitationHistoryRow = SettingsInvitationRow & {
+export type SettingsInvitationHistoryRow = SettingsInvitationAccessRow & {
 	lifecycleStatus: 'accepted' | 'declined' | 'revoked' | 'expired' | 'blocked' | 'closed';
 	lifecycleStatusLabel: string;
-	lifecycleDetail: string | null;
 	lifecycleAt: string;
 };
 
 export type SettingsMembersSectionData = {
 	rows: SettingsMemberRow[];
 	invitations: SettingsPendingInvitationRow[];
-	invitationHistory: SettingsInvitationHistoryRow[];
+	/** Streams after first paint; closed invitations sit behind a collapsed row. */
+	invitationHistory: Promise<SettingsInvitationHistoryRow[]>;
 	groups: Array<{ id: string; name: string }>;
-	roleCounts: Record<'owner' | 'admin' | 'member', number>;
-	memberRoleSummary: string;
-	pendingApprovalSummary: { count: number; oldestCreatedAt: string | null };
-	availableAccessLanes: Array<{ id: DurableFeatureLane; label: string }>;
-	capabilityOptions: Array<{ value: CapabilityLevel; label: string }>;
+	/** Lanes whose feature the unit turned off. Members keep their stored level in these lanes. */
+	offLanes: DurableFeatureLane[];
 	canInvite: boolean;
 	canManageMemberAccess: boolean;
 };
+
+export interface MembersSettingsData {
+	currentMember: {
+		role: MembershipRole;
+		isOwner: boolean;
+		isAdmin: boolean;
+		canManageMembers: boolean;
+	};
+	sections: {
+		members: SettingsMembersSectionData;
+	};
+}
+
+/** What a Members action returns; each key belongs to the control that sent the request. */
+export type MembersSettingsActionData = {
+	[key: string]: unknown;
+	inviteError?: string;
+	inviteSuccess?: boolean;
+	inviteMessage?: string;
+	memberError?: string;
+	accessError?: string;
+	accessSuccess?: boolean;
+} | null;

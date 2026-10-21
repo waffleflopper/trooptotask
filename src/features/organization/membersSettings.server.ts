@@ -1,7 +1,6 @@
 import {
 	DURABLE_FEATURE_LANES,
 	TARGET_MEMBER_PRESET_CAPABILITIES,
-	type CapabilityLevel,
 	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
@@ -13,46 +12,20 @@ import type {
 	SettingsInvitationFunnelStatus,
 	SettingsInvitationHistoryRow,
 	SettingsInvitationRow,
+	MembersSettingsData,
+	SettingsMembersSectionData,
 	SettingsMemberRow,
 	SettingsPendingInvitationRow
 } from './memberSettingsTypes';
-import {
-	ACCESS_LANE_LABELS,
-	SETTINGS_ACCESS_LANES,
-	SETTINGS_ACCESS_OPTIONS,
-	SETTINGS_CAPABILITY_OPTIONS
-} from './settingsMemberAccessConstants';
+import { disabledFeatureLanes, type FeatureKey } from '$lib/access/featureSwitches';
+import type { SettingsInvitationAccessRow } from './settingsMemberAccessModel';
+import { ACCESS_LANE_LABELS, CAPABILITY_LEVEL_LABELS } from './settingsMemberAccessConstants';
 
 export interface LoadMembersSettingsInput {
 	isAdmin: boolean;
 	groups: Promise<Array<{ id: string; name: string }>>;
-	pendingApprovalSummary: Promise<PendingApprovalSummary>;
-}
-
-export interface MembersSettingsData {
-	currentMember: {
-		role: MembershipRole;
-		isOwner: boolean;
-		isAdmin: boolean;
-		canManageMembers: boolean;
-	};
-	sections: {
-		members: MembersSettingsSection;
-	};
-}
-
-export interface MembersSettingsSection {
-	rows: SettingsMemberRow[];
-	invitations: SettingsPendingInvitationRow[];
-	invitationHistory: SettingsInvitationHistoryRow[];
-	groups: Array<{ id: string; name: string }>;
-	roleCounts: Record<'owner' | 'admin' | 'member', number>;
-	memberRoleSummary: string;
-	pendingApprovalSummary: PendingApprovalSummary;
-	availableAccessLanes: typeof SETTINGS_ACCESS_LANES;
-	capabilityOptions: typeof SETTINGS_CAPABILITY_OPTIONS;
-	canInvite: boolean;
-	canManageMemberAccess: boolean;
+	/** Invitations whose status left `pending`. Streams into the history row, so the roster does not wait on it. */
+	closedInvitations: Promise<SettingsAccessSourceRow[]>;
 }
 
 export interface BuildMembersSettingsDataInput {
@@ -60,22 +33,20 @@ export interface BuildMembersSettingsDataInput {
 	canManageMembers: boolean;
 	isAdmin: boolean;
 	members: SettingsAccessSourceRow[];
+	/** Invitations still `pending`; those past their expiry join the history. */
 	invitations: SettingsAccessSourceRow[];
+	closedInvitations: Promise<SettingsAccessSourceRow[]>;
 	invitationDeliveries?: OrganizationSettingsInvitationDeliveryRow[];
 	/** Platform Account Setup state per invitation id. Absent entries mean no Access Request exists. */
 	invitationSetupStates?: Map<string, AccessRequestSetupState>;
-	pendingApprovalSummary?: PendingApprovalSummary;
 	groups: Array<{ id: string; name: string }>;
+	disabledFeatures: readonly FeatureKey[];
 	now?: Date;
-}
-
-export interface PendingApprovalSummary {
-	count: number;
-	oldestCreatedAt: string | null;
 }
 
 interface MembersSettingsLoadContext {
 	auth: { orgId: string; role: MembershipRole; canManageMembers: boolean };
+	disabledFeatures: readonly FeatureKey[];
 	organizationSettings: Pick<
 		OrganizationSettingsReader,
 		'listMemberAccess' | 'listInvitations' | 'listInvitationDeliveries'
@@ -87,12 +58,11 @@ export async function loadMembersSettings(
 	ctx: MembersSettingsLoadContext,
 	input: LoadMembersSettingsInput
 ): Promise<MembersSettingsData> {
-	const [membershipRows, invitationRows, invitationDeliveryRows, groups, pendingApprovalSummary] = await Promise.all([
+	const [membershipRows, invitationRows, invitationDeliveryRows, groups] = await Promise.all([
 		ctx.organizationSettings.listMemberAccess(ctx.auth.orgId),
-		ctx.organizationSettings.listInvitations(ctx.auth.orgId),
+		ctx.organizationSettings.listInvitations(ctx.auth.orgId, 'pending'),
 		ctx.organizationSettings.listInvitationDeliveries(ctx.auth.orgId),
-		input.groups,
-		input.pendingApprovalSummary
+		input.groups
 	]);
 
 	return buildMembersSettingsData({
@@ -101,10 +71,11 @@ export async function loadMembersSettings(
 		isAdmin: input.isAdmin,
 		members: membershipRows,
 		invitations: invitationRows,
+		closedInvitations: input.closedInvitations,
 		invitationDeliveries: invitationDeliveryRows,
 		invitationSetupStates: await loadInvitationSetupStates(ctx, invitationRows),
-		pendingApprovalSummary,
-		groups
+		groups,
+		disabledFeatures: ctx.disabledFeatures
 	});
 }
 
@@ -157,43 +128,28 @@ export function buildMembersSettingsData(input: BuildMembersSettingsDataInput): 
 	};
 }
 
-export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput): MembersSettingsSection {
+export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput): SettingsMembersSectionData {
 	const canManageMembers = input.canManageMembers;
 	const groups = input.groups.map(({ id, name }) => ({ id, name }));
-	const availablePresetOptions = canManageMembers ? [...SETTINGS_ACCESS_OPTIONS] : [];
-	const members = input.members.map((row) =>
-		shapeMemberRow(buildSettingsMemberAccessRow(row), groups, availablePresetOptions)
-	);
 	const now = input.now ?? new Date();
 	const latestDeliveryByInvitationId = buildLatestDeliveryByInvitationId(input.invitationDeliveries ?? []);
-	const shapedInvitations = input.invitations.map((row) =>
-		shapeInvitationRow(buildSettingsInvitationAccessRow(row), groups, latestDeliveryByInvitationId, now)
-	);
-	const invitations = shapedInvitations
+	const pendingInvitations = input.invitations.map(buildSettingsInvitationAccessRow);
+	const invitations = pendingInvitations
 		.filter((invitation) => isActionableInvitation(invitation, now))
+		.map((invitation) => shapeInvitationRow(invitation, groups, latestDeliveryByInvitationId, now))
 		.map((invitation) => withInvitationFunnelStatus(invitation, input.invitationSetupStates));
-	const invitationHistory = shapedInvitations
-		.filter((invitation) => !isActionableInvitation(invitation, now))
-		.map((invitation) => shapeInvitationHistoryRow(invitation, now));
-	const roleCounts = members.reduce(
-		(counts, member) => {
-			counts[member.membershipRole] += 1;
-			return counts;
-		},
-		{ owner: 0, admin: 0, member: 0 }
-	);
-	const pendingApprovalSummary = input.pendingApprovalSummary ?? { count: 0, oldestCreatedAt: null };
+	const lapsedInvitations = pendingInvitations.filter((invitation) => !isActionableInvitation(invitation, now));
 
 	return {
-		rows: members,
+		rows: input.members.map((row) => shapeMemberRow(buildSettingsMemberAccessRow(row), groups)),
 		invitations,
-		invitationHistory,
+		invitationHistory: input.closedInvitations.then((closed) =>
+			[...lapsedInvitations, ...closed.map(buildSettingsInvitationAccessRow)]
+				.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+				.map((invitation) => shapeInvitationHistoryRow(invitation, now))
+		),
 		groups,
-		roleCounts,
-		memberRoleSummary: `${roleCounts.owner} ${pluralize('Owner', roleCounts.owner)} · ${roleCounts.admin} ${pluralize('Admin', roleCounts.admin)} · ${roleCounts.member} ${pluralize('Member', roleCounts.member)}`,
-		pendingApprovalSummary,
-		availableAccessLanes: SETTINGS_ACCESS_LANES,
-		capabilityOptions: SETTINGS_CAPABILITY_OPTIONS,
+		offLanes: disabledFeatureLanes(input.disabledFeatures),
 		canInvite: canManageMembers,
 		canManageMemberAccess: canManageMembers
 	};
@@ -201,26 +157,10 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 
 function shapeMemberRow(
 	member: ReturnType<typeof buildSettingsMemberAccessRow>,
-	groups: Array<{ id: string; name: string }>,
-	availablePresetOptions: SettingsMemberRow['editor']['availablePresetOptions']
+	groups: Array<{ id: string; name: string }>
 ): SettingsMemberRow {
-	const editorPreset = editablePresetForMemberPreset(member.access.memberPreset);
-	const scopeGroupIds = member.access.scopeSet.kind === 'groups' ? member.access.scopeSet.groupIds : [];
-	const accessBadge =
-		member.membershipRole === 'owner' || member.membershipRole === 'admin'
-			? member.membershipRole
-			: member.access.memberPreset;
-
 	return {
 		...member,
-		editor: {
-			selectedPreset: editorPreset,
-			scopeKind: member.access.scopeSet.kind,
-			scopeGroupIds,
-			availablePresetOptions,
-			availableGroups: groups
-		},
-		accessBadge,
 		scopeDisplayLabel: formatScopeSet(member.access.scopeSet, groups),
 		overriddenCapabilityLabels: overriddenCapabilityLabels(member)
 	};
@@ -237,7 +177,6 @@ function shapeInvitationRow(
 
 	return {
 		...invitation,
-		accessBadge: invitation.membershipRole === 'admin' ? 'admin' : invitation.access.memberPreset,
 		scopeDisplayLabel: formatScopeSet(invitation.access.scopeSet, groups),
 		deliveryStatus,
 		deliveryStatusLabel: invitationDeliveryStatusLabel(deliveryStatus),
@@ -349,19 +288,18 @@ function invitationDeliveryStatusLabel(status: SettingsInvitationRow['deliverySt
 	}
 }
 
-function shapeInvitationHistoryRow(invitation: SettingsInvitationRow, now: Date): SettingsInvitationHistoryRow {
+function shapeInvitationHistoryRow(invitation: SettingsInvitationAccessRow, now: Date): SettingsInvitationHistoryRow {
 	const lifecycleStatus = getInvitationLifecycleStatus(invitation, now);
 	const historyStatus = lifecycleStatus === 'pending' ? 'closed' : lifecycleStatus;
 	return {
 		...invitation,
 		lifecycleStatus: historyStatus,
 		lifecycleStatusLabel: invitationLifecycleStatusLabel(historyStatus),
-		lifecycleDetail: invitationLifecycleDetail(historyStatus),
 		lifecycleAt: getInvitationLifecycleAt(invitation, historyStatus)
 	};
 }
 
-function isActionableInvitation(invitation: SettingsInvitationRow, now: Date): boolean {
+function isActionableInvitation(invitation: SettingsInvitationAccessRow, now: Date): boolean {
 	return getInvitationLifecycleStatus(invitation, now) === 'pending';
 }
 
@@ -376,7 +314,7 @@ function isPendingUnexpiredInvitation(
 }
 
 function getInvitationLifecycleStatus(
-	invitation: SettingsInvitationRow,
+	invitation: SettingsInvitationAccessRow,
 	now: Date
 ): SettingsInvitationHistoryRow['lifecycleStatus'] | 'pending' {
 	if (
@@ -405,7 +343,7 @@ function getInvitationLifecycleStatus(
 }
 
 function getInvitationLifecycleAt(
-	invitation: SettingsInvitationRow,
+	invitation: SettingsInvitationAccessRow,
 	lifecycleStatus: SettingsInvitationHistoryRow['lifecycleStatus']
 ): string {
 	if (lifecycleStatus === 'accepted') return invitation.acceptedAt ?? invitation.createdAt;
@@ -425,14 +363,6 @@ function invitationLifecycleStatusLabel(lifecycleStatus: SettingsInvitationHisto
 	return 'Closed';
 }
 
-function invitationLifecycleDetail(lifecycleStatus: SettingsInvitationHistoryRow['lifecycleStatus']): string | null {
-	if (lifecycleStatus === 'blocked') {
-		return 'Linked platform access was rejected or closed before account setup finished.';
-	}
-
-	return null;
-}
-
 function editablePresetForMemberPreset(memberPreset: string): StoredMemberPreset {
 	return memberPreset === 'viewer' || memberPreset === 'operator' || memberPreset === 'editor'
 		? memberPreset
@@ -443,7 +373,7 @@ function overriddenCapabilityLabels(member: ReturnType<typeof buildSettingsMembe
 	const memberPreset = editablePresetForMemberPreset(member.access.memberPreset);
 	return DURABLE_FEATURE_LANES.filter(
 		(lane) => member.access.capabilityMap[lane] !== TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset][lane]
-	).map((lane) => `${ACCESS_LANE_LABELS[lane]}: ${formatCapability(member.access.capabilityMap[lane])}`);
+	).map((lane) => `${ACCESS_LANE_LABELS[lane]}: ${CAPABILITY_LEVEL_LABELS[member.access.capabilityMap[lane]]}`);
 }
 
 function formatScopeSet(
@@ -455,12 +385,4 @@ function formatScopeSet(
 	return scopeSet.groupIds
 		.map((groupId) => groups.find((group) => group.id === groupId)?.name ?? 'Unknown group')
 		.join(', ');
-}
-
-function formatCapability(level: CapabilityLevel): string {
-	return level[0].toUpperCase() + level.slice(1);
-}
-
-function pluralize(label: string, count: number): string {
-	return count === 1 ? label : `${label}s`;
 }

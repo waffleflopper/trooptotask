@@ -1,53 +1,114 @@
 import {
 	TARGET_MEMBER_PRESET_CAPABILITIES,
 	type CapabilityLevel,
+	type CapabilityMap,
 	type DurableFeatureLane,
 	type MemberPreset,
 	type ScopeSet,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
-import type {
-	SettingsAccessShape,
-	SettingsInvitationAccessRow,
-	SettingsMemberAccessRow
-} from './settingsMemberAccessModel';
+import type { SettingsMemberRow } from './memberSettingsTypes';
 import {
+	CAPABILITY_LEVEL_LABELS,
 	SETTINGS_ACCESS_LANES,
 	SETTINGS_ACCESS_OPTIONS,
 	SETTINGS_GOVERNANCE_ROLE_OPTIONS,
-	SETTINGS_CAPABILITY_OPTIONS,
-	type AccessLaneConfig,
-	type AccessOption,
-	type EditablePreset,
 	type EditableMembershipRole,
-	type GovernanceRoleOption
+	type EditablePreset
 } from './settingsMemberAccessConstants';
 
-export type MemberAccessBadge = MemberPreset | 'admin' | 'owner';
-export type ScopeKind = ScopeSet['kind'];
-export type { AccessLaneConfig, AccessOption, EditablePreset, EditableMembershipRole, GovernanceRoleOption };
+export type { EditableMembershipRole, EditablePreset };
 
 export interface SettingsMemberAccessData {
-	members: SettingsMemberAccessRow[];
-	invitations: SettingsInvitationAccessRow[];
+	members: SettingsMemberRow[];
 	groups: Array<{ id: string; name: string }>;
 	isOwner: boolean;
+	/** Lanes whose feature the unit turned off. Their stored level is shown and kept, never edited. */
+	offLanes: DurableFeatureLane[];
+}
+
+/** The Manage access sheet edits one member at a time; the draft is that member's access as it would save. */
+export interface MemberAccessDraft {
+	memberId: string;
+	role: EditableMembershipRole;
+	preset: EditablePreset;
+	levels: CapabilityMap;
+	scope: ScopeSet;
+}
+
+export interface InviteDraft {
+	email: string;
+	role: EditableMembershipRole;
+	preset: EditablePreset;
+	/** Empty means every group. */
+	groupIds: string[];
+}
+
+export const ALL_GROUPS = 'all';
+
+const PRESET_LABELS: Record<MemberPreset, string> = {
+	editor: 'Editor',
+	operator: 'Operator',
+	viewer: 'Viewer',
+	custom: 'Custom'
+};
+
+export function accessLabel(member: Pick<SettingsMemberRow, 'membershipRole' | 'access'>): string {
+	if (member.membershipRole === 'owner') return 'Owner';
+	if (member.membershipRole === 'admin') return 'Admin';
+	return PRESET_LABELS[member.access.memberPreset];
+}
+
+export function presetLabel(preset: EditablePreset): string {
+	return PRESET_LABELS[preset];
+}
+
+export function presetHelper(preset: EditablePreset): string {
+	return SETTINGS_ACCESS_OPTIONS.find((option) => option.value === preset)?.helper ?? '';
+}
+
+export function roleHelper(role: EditableMembershipRole): string {
+	return SETTINGS_GOVERNANCE_ROLE_OPTIONS.find((option) => option.value === role)?.helper ?? '';
+}
+
+export function memberInitials(email: string | null | undefined): string {
+	return (email?.trim() || 'Member')
+		.split(/[^a-zA-Z0-9]+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((part) => part[0]?.toUpperCase())
+		.join('');
+}
+
+function editablePreset(memberPreset: MemberPreset): StoredMemberPreset {
+	return memberPreset === 'custom' ? 'editor' : memberPreset;
+}
+
+function savedDraft(member: SettingsMemberRow): MemberAccessDraft {
+	return {
+		memberId: member.id,
+		role: member.membershipRole === 'admin' ? 'admin' : 'member',
+		preset: editablePreset(member.access.memberPreset),
+		levels: { ...member.access.capabilityMap },
+		scope:
+			member.access.scopeSet.kind === 'groups'
+				? { kind: 'groups', groupIds: [...member.access.scopeSet.groupIds] }
+				: { kind: 'organization' }
+	};
+}
+
+function sameScope(a: ScopeSet, b: ScopeSet): boolean {
+	if (a.kind !== b.kind) return false;
+	if (a.kind === 'organization' || b.kind === 'organization') return true;
+	return [...a.groupIds].sort().join(',') === [...b.groupIds].sort().join(',');
 }
 
 export class SettingsMemberAccessWorkspace {
 	readonly #getData: () => SettingsMemberAccessData;
 
-	memberEditorId = $state<string | null>(null);
-	inviteEmail = $state('');
-	inviteMembershipRole = $state<EditableMembershipRole>('member');
-	invitePreset = $state<EditablePreset>('editor');
-	inviteScopeKind = $state<ScopeKind>('organization');
-	inviteScopeGroupIds = $state<string[]>([]);
-	memberSelectedMembershipRole = $state<Record<string, EditableMembershipRole>>({});
-	memberSelectedPreset = $state<Record<string, EditablePreset>>({});
-	memberSelectedCapabilities = $state<Record<string, Partial<Record<DurableFeatureLane, CapabilityLevel>>>>({});
-	memberSelectedScopeKind = $state<Record<string, ScopeKind>>({});
-	memberSelectedScopeGroupIds = $state<Record<string, string[]>>({});
+	draft = $state<MemberAccessDraft | null>(null);
+	invite = $state<InviteDraft>({ email: '', role: 'member', preset: 'editor', groupIds: [] });
+	filter = $state('');
 
 	constructor(data: SettingsMemberAccessData | (() => SettingsMemberAccessData)) {
 		this.#getData = typeof data === 'function' ? data : () => data;
@@ -57,7 +118,8 @@ export class SettingsMemberAccessWorkspace {
 		return this.#getData();
 	}
 
-	get sortedMembers(): SettingsMemberAccessRow[] {
+	/** The owner first, then everyone by email. */
+	get members(): SettingsMemberRow[] {
 		return [...this.#data.members].sort((a, b) => {
 			if (a.membershipRole === 'owner' && b.membershipRole !== 'owner') return -1;
 			if (b.membershipRole === 'owner' && a.membershipRole !== 'owner') return 1;
@@ -65,297 +127,115 @@ export class SettingsMemberAccessWorkspace {
 		});
 	}
 
-	get availablePresetOptions(): AccessOption[] {
-		return SETTINGS_ACCESS_OPTIONS;
+	get visibleMembers(): SettingsMemberRow[] {
+		const query = this.filter.trim().toLowerCase();
+		const members = this.members;
+		return query ? members.filter((member) => (member.email ?? '').toLowerCase().includes(query)) : members;
 	}
 
-	get availableMembershipRoleOptions(): GovernanceRoleOption[] {
-		return this.#data.isOwner
-			? SETTINGS_GOVERNANCE_ROLE_OPTIONS
-			: SETTINGS_GOVERNANCE_ROLE_OPTIONS.filter((option) => option.value === 'member');
+	get editingMember(): SettingsMemberRow | null {
+		const draft = this.draft;
+		return draft ? (this.#data.members.find((member) => member.id === draft.memberId) ?? null) : null;
 	}
 
-	get accessLanes(): AccessLaneConfig[] {
-		return SETTINGS_ACCESS_LANES;
+	isOff(lane: DurableFeatureLane): boolean {
+		return this.#data.offLanes.includes(lane);
 	}
 
-	get capabilityOptions(): Array<{ value: CapabilityLevel; label: string }> {
-		return SETTINGS_CAPABILITY_OPTIONS;
-	}
-
-	getMemberInitials(email: string | null | undefined): string {
-		const fallback = email?.trim() || 'Member';
-		return fallback
-			.split(/[^a-zA-Z0-9]+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((part) => part[0]?.toUpperCase())
-			.join('');
-	}
-
-	getGroupName(groupId: string | null | undefined): string | null {
-		if (!groupId) return null;
+	groupName(groupId: string): string {
 		return this.#data.groups.find((group) => group.id === groupId)?.name ?? 'Unknown group';
 	}
 
-	getInvitePreset(invite: SettingsInvitationAccessRow): MemberAccessBadge {
-		if (invite.membershipRole === 'admin') return 'admin';
-		return invite.access.memberPreset;
-	}
-
-	getMemberAccessBadge(member: SettingsMemberAccessRow, accessShape: SettingsAccessShape): MemberAccessBadge {
-		if (member.membershipRole === 'owner') return 'owner';
-		if (member.membershipRole === 'admin') return 'admin';
-		return accessShape.memberPreset;
-	}
-
-	getAccessLabel(memberPreset: MemberAccessBadge): string {
-		switch (memberPreset) {
-			case 'owner':
-				return 'Owner';
-			case 'admin':
-				return 'Admin';
-			case 'editor':
-				return 'Editor';
-			case 'operator':
-				return 'Operator';
-			case 'viewer':
-				return 'Viewer';
-			case 'custom':
-				return 'Custom';
-			default:
-				return memberPreset;
-		}
-	}
-
-	getAccessOptionHelper(preset: EditablePreset): string {
-		return SETTINGS_ACCESS_OPTIONS.find((option) => option.value === preset)?.helper ?? '';
-	}
-
-	getGovernanceRoleHelper(role: EditableMembershipRole): string {
-		return SETTINGS_GOVERNANCE_ROLE_OPTIONS.find((option) => option.value === role)?.helper ?? '';
-	}
-
-	getGovernanceRoleLabel(role: EditableMembershipRole): string {
-		return SETTINGS_GOVERNANCE_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? 'Member';
-	}
-
-	editablePresetForMemberPreset(memberPreset: MemberPreset): StoredMemberPreset {
-		return memberPreset === 'viewer' || memberPreset === 'operator' || memberPreset === 'editor'
-			? memberPreset
-			: 'editor';
-	}
-
-	getMemberAccessShape(member: SettingsMemberAccessRow): SettingsAccessShape {
-		return member.access;
-	}
-
-	formatScopeSet(scopeSet: ScopeSet): string {
-		if (scopeSet.kind === 'organization') return 'All groups';
-		if (scopeSet.groupIds.length === 0) return 'No groups';
-		return scopeSet.groupIds.map((groupId) => this.getGroupName(groupId) ?? 'Unknown group').join(', ');
-	}
-
-	formatCapability(level: CapabilityLevel): string {
-		return SETTINGS_CAPABILITY_OPTIONS.find((option) => option.value === level)?.label ?? level;
-	}
-
-	overriddenCapabilityLabels(member: SettingsMemberAccessRow): string[] {
-		const shape = this.getMemberAccessShape(member);
-		const memberPreset = this.editablePresetForMemberPreset(shape.memberPreset);
-		return SETTINGS_ACCESS_LANES.filter(
-			(lane) => shape.capabilityMap[lane.id] !== TARGET_MEMBER_PRESET_CAPABILITIES[memberPreset][lane.id]
-		).map((lane) => `${lane.label}: ${this.formatCapability(shape.capabilityMap[lane.id])}`);
-	}
-
-	getEditorCapabilityValue(
-		member: SettingsMemberAccessRow,
-		lane: DurableFeatureLane,
-		selectedPreset: EditablePreset
-	): CapabilityLevel {
-		const selectedCapability = this.memberSelectedCapabilities[member.id]?.[lane];
-		if (selectedCapability) return selectedCapability;
-
-		const accessShape = this.getMemberAccessShape(member);
-		const currentPreset = this.editablePresetForMemberPreset(accessShape.memberPreset);
-		if (selectedPreset !== currentPreset) {
-			return TARGET_MEMBER_PRESET_CAPABILITIES[selectedPreset][lane];
-		}
-
-		return accessShape.capabilityMap[lane];
-	}
-
-	getSelectedMembershipRole(member: SettingsMemberAccessRow): EditableMembershipRole {
-		return this.memberSelectedMembershipRole[member.id] ?? (member.membershipRole === 'admin' ? 'admin' : 'member');
-	}
-
-	getSelectedPreset(member: SettingsMemberAccessRow): EditablePreset {
-		const accessShape = this.getMemberAccessShape(member);
-		return this.memberSelectedPreset[member.id] ?? this.editablePresetForMemberPreset(accessShape.memberPreset);
-	}
-
-	getSelectedScopeKind(member: SettingsMemberAccessRow): ScopeKind {
-		return this.memberSelectedScopeKind[member.id] ?? this.getMemberAccessShape(member).scopeSet.kind;
-	}
-
-	getSelectedScopeGroupIds(member: SettingsMemberAccessRow): string[] {
-		const current = this.getMemberAccessShape(member).scopeSet;
-		return this.memberSelectedScopeGroupIds[member.id] ?? (current.kind === 'groups' ? current.groupIds : []);
-	}
-
-	openMemberEditor(member: SettingsMemberAccessRow): void {
+	open(member: SettingsMemberRow): void {
 		if (member.membershipRole === 'owner') return;
-		const accessShape = this.getMemberAccessShape(member);
-		const scopeGroupIds = accessShape.scopeSet.kind === 'groups' ? accessShape.scopeSet.groupIds : [];
-		this.memberEditorId = member.id;
-		this.memberSelectedMembershipRole = {
-			...this.memberSelectedMembershipRole,
-			[member.id]: member.membershipRole === 'admin' ? 'admin' : 'member'
-		};
-		this.memberSelectedPreset = {
-			...this.memberSelectedPreset,
-			[member.id]: this.editablePresetForMemberPreset(accessShape.memberPreset)
-		};
-		const remainingCapabilities = { ...this.memberSelectedCapabilities };
-		delete remainingCapabilities[member.id];
-		this.memberSelectedCapabilities = remainingCapabilities;
-		this.memberSelectedScopeKind = {
-			...this.memberSelectedScopeKind,
-			[member.id]: accessShape.scopeSet.kind
-		};
-		this.memberSelectedScopeGroupIds = {
-			...this.memberSelectedScopeGroupIds,
-			[member.id]: scopeGroupIds
-		};
+		this.draft = savedDraft(member);
 	}
 
-	closeMemberEditor(memberId: string): void {
-		this.memberEditorId = null;
-		const remainingRoles = { ...this.memberSelectedMembershipRole };
-		const remainingPresets = { ...this.memberSelectedPreset };
-		const remainingCapabilities = { ...this.memberSelectedCapabilities };
-		const remainingScopeKinds = { ...this.memberSelectedScopeKind };
-		const remainingScopeGroups = { ...this.memberSelectedScopeGroupIds };
-		delete remainingRoles[memberId];
-		delete remainingPresets[memberId];
-		delete remainingCapabilities[memberId];
-		delete remainingScopeKinds[memberId];
-		delete remainingScopeGroups[memberId];
-		this.memberSelectedMembershipRole = remainingRoles;
-		this.memberSelectedPreset = remainingPresets;
-		this.memberSelectedCapabilities = remainingCapabilities;
-		this.memberSelectedScopeKind = remainingScopeKinds;
-		this.memberSelectedScopeGroupIds = remainingScopeGroups;
+	close(): void {
+		this.draft = null;
 	}
 
-	setMemberMembershipRole(memberId: string, role: EditableMembershipRole): void {
-		this.memberSelectedMembershipRole = {
-			...this.memberSelectedMembershipRole,
-			[memberId]: role
-		};
+	setRole(role: EditableMembershipRole): void {
+		if (this.draft && this.#data.isOwner) this.draft.role = role;
 	}
 
-	setMemberPreset(memberId: string, preset: EditablePreset): void {
-		this.memberSelectedPreset = {
-			...this.memberSelectedPreset,
-			[memberId]: preset
-		};
+	/** A preset rewrites every lane the unit has on; returning to the saved preset restores the saved levels. */
+	setPreset(preset: EditablePreset): void {
+		const member = this.editingMember;
+		if (!this.draft || !member) return;
+		const saved = savedDraft(member);
+		const levels = preset === saved.preset ? saved.levels : TARGET_MEMBER_PRESET_CAPABILITIES[preset];
+		this.draft.preset = preset;
+		this.draft.levels = Object.fromEntries(
+			SETTINGS_ACCESS_LANES.map(({ id }) => [id, this.isOff(id) ? saved.levels[id] : levels[id]])
+		) as CapabilityMap;
 	}
 
-	setMemberScopeKind(memberId: string, scopeKind: ScopeKind): void {
-		this.memberSelectedScopeKind = {
-			...this.memberSelectedScopeKind,
-			[memberId]: scopeKind
-		};
+	setLevel(lane: DurableFeatureLane, level: CapabilityLevel): void {
+		if (this.draft && !this.isOff(lane)) this.draft.levels[lane] = level;
 	}
 
-	setMemberCapability(memberId: string, lane: DurableFeatureLane, capability: CapabilityLevel): void {
-		this.memberSelectedCapabilities = {
-			...this.memberSelectedCapabilities,
-			[memberId]: {
-				...this.memberSelectedCapabilities[memberId],
-				[lane]: capability
-			}
-		};
+	setScopeKind(kind: ScopeSet['kind']): void {
+		if (!this.draft || this.draft.scope.kind === kind) return;
+		this.draft.scope = kind === 'groups' ? { kind: 'groups', groupIds: [] } : { kind: 'organization' };
 	}
 
-	toggleMemberScopeGroup(memberId: string, groupId: string, checked: boolean): void {
-		const current = this.memberSelectedScopeGroupIds[memberId] ?? [];
-		const next = checked
-			? current.includes(groupId)
-				? current
-				: [...current, groupId]
-			: current.filter((id) => id !== groupId);
-		this.memberSelectedScopeGroupIds = { ...this.memberSelectedScopeGroupIds, [memberId]: next };
+	toggleScopeGroup(groupId: string): void {
+		const scope = this.draft?.scope;
+		if (scope?.kind !== 'groups') return;
+		scope.groupIds = scope.groupIds.includes(groupId)
+			? scope.groupIds.filter((id) => id !== groupId)
+			: [...scope.groupIds, groupId];
 	}
 
-	setInviteScopeKind(scopeKind: ScopeKind): void {
-		this.inviteScopeKind = scopeKind;
+	/** "<preset> gives <level>" for a lane that differs from the chosen preset, or null when it matches. */
+	presetGap(lane: DurableFeatureLane): string | null {
+		const draft = this.draft;
+		if (!draft) return null;
+		const presetLevel = TARGET_MEMBER_PRESET_CAPABILITIES[draft.preset][lane];
+		return draft.levels[lane] === presetLevel
+			? null
+			: `${presetLabel(draft.preset)} gives ${CAPABILITY_LEVEL_LABELS[presetLevel]}`;
 	}
 
-	setInviteMembershipRole(role: EditableMembershipRole): void {
-		this.inviteMembershipRole = role;
+	get areaChangeCount(): number {
+		return SETTINGS_ACCESS_LANES.filter(({ id }) => this.presetGap(id) !== null).length;
 	}
 
-	isRoleChanged(member: SettingsMemberAccessRow): boolean {
-		const saved: EditableMembershipRole = member.membershipRole === 'admin' ? 'admin' : 'member';
-		return this.getSelectedMembershipRole(member) !== saved;
-	}
-
-	isPresetChanged(member: SettingsMemberAccessRow): boolean {
-		const saved = this.editablePresetForMemberPreset(member.access.memberPreset);
-		return this.getSelectedPreset(member) !== saved;
-	}
-
-	isCapabilityChanged(member: SettingsMemberAccessRow, lane: DurableFeatureLane): boolean {
-		const saved = member.access.capabilityMap[lane];
-		const selected = this.getEditorCapabilityValue(member, lane, this.getSelectedPreset(member));
-		return selected !== saved;
-	}
-
-	isScopeChanged(member: SettingsMemberAccessRow): boolean {
-		const savedKind = this.getMemberAccessShape(member).scopeSet.kind;
-		const selectedKind = this.getSelectedScopeKind(member);
-		if (savedKind !== selectedKind) return true;
-		if (selectedKind === 'groups') {
-			const savedSet = this.getMemberAccessShape(member).scopeSet;
-			const savedGroupIds = savedSet.kind === 'groups' ? [...savedSet.groupIds].sort() : [];
-			const selectedGroupIds = [...this.getSelectedScopeGroupIds(member)].sort();
-			return savedGroupIds.join(',') !== selectedGroupIds.join(',');
-		}
-		return false;
-	}
-
-	editorChangeCount(member: SettingsMemberAccessRow): number {
-		let count = 0;
-		const roleChanged = this.isRoleChanged(member);
-		if (roleChanged) count++;
-		const selectedRole = this.getSelectedMembershipRole(member);
-		if (selectedRole === 'member') {
-			if (this.isPresetChanged(member)) count++;
-			if (!roleChanged) {
-				for (const lane of SETTINGS_ACCESS_LANES) {
-					if (this.isCapabilityChanged(member, lane.id)) count++;
-				}
-			}
-			if (this.isScopeChanged(member)) count++;
-		}
+	/** One change each for role, preset, scope, and every lane that moved; a role change hides the lanes it resets. */
+	get changeCount(): number {
+		const member = this.editingMember;
+		const draft = this.draft;
+		if (!draft || !member) return 0;
+		const saved = savedDraft(member);
+		const roleChanged = draft.role !== saved.role;
+		if (draft.role === 'admin') return roleChanged ? 1 : 0;
+		let count = roleChanged ? 1 : 0;
+		if (draft.preset !== saved.preset) count++;
+		if (!roleChanged) count += SETTINGS_ACCESS_LANES.filter(({ id }) => draft.levels[id] !== saved.levels[id]).length;
+		if (!sameScope(draft.scope, saved.scope)) count++;
 		return count;
 	}
 
-	toggleInviteScopeGroup(groupId: string, checked: boolean): void {
-		this.inviteScopeGroupIds = checked
-			? this.inviteScopeGroupIds.includes(groupId)
-				? this.inviteScopeGroupIds
-				: [...this.inviteScopeGroupIds, groupId]
-			: this.inviteScopeGroupIds.filter((id) => id !== groupId);
+	/** The groups select offers "All groups" beside each group; picking it clears the rest, and clearing the rest picks it. */
+	setInviteGroups(values: string[]): void {
+		const hadAll = this.invite.groupIds.length === 0;
+		const groupIds = values.filter((value) => value !== ALL_GROUPS);
+		this.invite.groupIds = !hadAll && values.includes(ALL_GROUPS) ? [] : groupIds;
 	}
 
-	clearInviteEmail(): void {
-		this.inviteEmail = '';
-		this.inviteMembershipRole = 'member';
-		this.inviteScopeKind = 'organization';
-		this.inviteScopeGroupIds = [];
+	get inviteGroupsValue(): string[] {
+		return this.invite.groupIds.length === 0 ? [ALL_GROUPS] : this.invite.groupIds;
+	}
+
+	get inviteGroupsLabel(): string {
+		const ids = this.invite.groupIds;
+		if (ids.length === 0) return 'All groups';
+		return ids.length === 1 ? this.groupName(ids[0]) : `${ids.length} groups`;
+	}
+
+	resetInvite(): void {
+		this.invite = { email: '', role: 'member', preset: this.invite.preset, groupIds: [] };
 	}
 }
 

@@ -65,19 +65,20 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 				);
 			return (data ?? []).map(mapOrganizationSettingsMembershipRow);
 		},
-		async listInvitations(orgId) {
-			const { data, error } = await selectAllSupabaseRows<OrganizationSettingsInvitationRow>(async (from, to) =>
-				supabase
+		async listInvitations(orgId, status) {
+			const { data, error } = await selectAllSupabaseRows<OrganizationSettingsInvitationRow>(async (from, to) => {
+				const query = supabase
 					.from('organization_invitations')
 					.select(
 						'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 					)
-					.eq('organization_id', orgId.toLowerCase())
+					.eq('organization_id', orgId.toLowerCase());
+				return (status === 'pending' ? query.eq('status', 'pending') : query.neq('status', 'pending'))
 					.order('created_at', { ascending: false })
 					.order('id')
 					.range(from, to)
-					.returns<OrganizationSettingsInvitationRow[]>()
-			);
+					.returns<OrganizationSettingsInvitationRow[]>();
+			});
 			if (error)
 				throw new Error(
 					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'

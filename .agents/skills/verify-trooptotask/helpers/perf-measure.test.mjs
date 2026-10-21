@@ -7,6 +7,7 @@ import {
 	groupManifest,
 	inFlight,
 	installSettledObserver,
+	readSettledSample,
 	statementTotals,
 	statementCategories,
 	maintenanceDuring,
@@ -296,7 +297,12 @@ function pageWindow() {
 			constructor(callback) {
 				win.mutate = callback;
 			}
-			observe() {}
+			observe() {
+				win.observing = true;
+			}
+			disconnect() {
+				win.observing = false;
+			}
 		}
 	};
 	return win;
@@ -382,6 +388,7 @@ function livePage() {
 	};
 	page.clock = 0;
 	page.performance.now = () => page.clock;
+	page.performance.getEntriesByType = () => [];
 	page.requestAnimationFrame = (callback) => frames.push(callback);
 	page.URL = { createObjectURL: () => 'blob:1' };
 	// The browser began the frame at `frameTime`; its callback runs at `clock`.
@@ -474,6 +481,27 @@ test('the last frame after a DOM change is the rendered time, until a newer obse
 	page.__t2tPerfSettled = {};
 	page.step(426);
 	assert.equal(page.pending(), 0);
+});
+
+test("the sample's final read ends the observer, so a later DOM change cannot move its rendered time", async () => {
+	const page = livePage();
+	installSettledObserver(page, {
+		name: 'load',
+		start: 'navigation',
+		milestones: [{ name: 'useful', present: ['Saved'] }]
+	});
+	page.clock = 100;
+	page.mutate();
+	page.document.body.textContent = 'Saved';
+	page.step(116);
+	const sample = await readSettledSample(page, 0, true);
+	assert.equal(sample.observer.renderedAt, 116);
+	page.clock = 5000;
+	page.mutate();
+	page.step(5016);
+	assert.equal(page.__t2tPerfSettled.renderedAt, 116);
+	assert.equal(page.pending(), 0);
+	assert.equal(page.observing, false);
 });
 
 test('an interaction ignores DOM changes from before its input', () => {

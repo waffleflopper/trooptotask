@@ -186,11 +186,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const navigate = (ctx, pageId, url, initScript) =>
 	ctx.tool('navigate_page', { pageId, type: 'url', url, initScript, timeout: capMs });
 
-async function sampleOf(ctx, pageId, cap = capMs) {
+async function sampleOf(ctx, pageId, cap = capMs, final = false) {
 	const begun = Date.now();
 	for (;;) {
 		const wait = Math.max(0, Math.min(pollMs, cap - (Date.now() - begun)));
-		const sample = await ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, ${wait})`);
+		const sample = await ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, ${wait}, ${final})`);
 		if (sample.observer?.done || wait === 0) return sample;
 	}
 }
@@ -262,7 +262,7 @@ async function drain(ctx, pageId) {
 async function settle(ctx, pageId) {
 	const first = await sampleOf(ctx, pageId);
 	const network = await drain(ctx, pageId);
-	const sample = await sampleOf(ctx, pageId, 0);
+	const sample = await sampleOf(ctx, pageId, 0, true);
 	return { ...sample, useful: first.observer?.done ?? false, network, document: await documentEnd(ctx, pageId) };
 }
 

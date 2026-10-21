@@ -228,7 +228,7 @@ Useful at large wide is 262 before and 255 ms after warm, and 361 and 346 ms col
 
 ### D06 issue acceptance
 
-D06 covers Calendar initial load, Month and range navigation, Month and 3-month search, assignment save and Calendar reports at small, typical and large for both actors. At large, on one environment:
+D06 measured Calendar initial load at small, typical and large, and range navigation, 3-month search, assignment save and Calendar reports at the workloads PR 1 and PR 2 record, for both actors. The Month journeys were measured at large only. The group filters are registered but have only exploratory observations with no comparable baseline, so they carry no verdict. Every measured cell passes; a blocked or unmeasured cell stays so. At large, on one environment:
 
 | Journey, large                  | D01/PR 1 before, wide / scoped | Final, wide / scoped | Budget | Verdict |
 | ------------------------------- | ------------------------------ | -------------------- | ------ | ------- |
@@ -238,7 +238,7 @@ D06 covers Calendar initial load, Month and range navigation, Month and 3-month 
 | Assignment save, confirmed      | 1319 / 865                     | 112 / 69 (PR 1)      | ≤ 1000 | pass    |
 | Range (next period)             | 184 / 99                       | 66 / 66              | class  | pass    |
 | 3-month search                  | 48 / 14                        | 48 / 15              | class  | pass    |
-| Month next, settled             | not in D01                     | blocked / 64         | class  | pass    |
+| Month next, settled             | not in D01                     | blocked / 64         | class  | blocked / pass |
 | Month previous, settled         | not in D01                     | 178 / 98             | class  | pass    |
 | Month search, settled           | not in D01                     | 80 / 15              | class  | pass    |
 
@@ -246,6 +246,7 @@ D06 covers Calendar initial load, Month and range navigation, Month and 3-month 
 
 - PR 1 removed the per-row RLS cost on both Calendar tables and scoped the save. PR 2 removed the lookback rows, the cold double load and the reload defect. The report, export and save rows reuse PR 1's after cells, because PR 2 changed none of their code.
 - Found defects: the reload anchor is repaired. The one cold `__data.json` 500 seen in D01 did not recur in PR 1's or PR 2's runs.
+- **#1555**, a 501-Person Group scope, stays owner-deferred. D06 claims no scale acceptance for it.
 - **#1570** is superseded. The redesigned Calendar replaced its targets, and 3-month search takes 15 to 48 ms at large and 15 to 33 ms at typical for both actors, and Month search 15 to 80 ms at large, each with no request.
 - The hosted speedup from PR 1 still needs the owner to apply `20261020000600_set_based_calendar_read_scope.sql`. PR 2 needs no migration.
 

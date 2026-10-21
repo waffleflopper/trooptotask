@@ -91,11 +91,16 @@ export function installSettledObserver(win, spec) {
 	};
 	const final = spec.milestones.at(-1).name;
 	// A re-render after the milestone, such as one an invalidated load's data drives, mutates the
-	// DOM, and the next frame paints it. The loop keeps running after the final milestone until a
-	// newer observer replaces this one, so a later read sees the last such frame.
+	// DOM, and the next frame paints it. The loop keeps running after the final milestone until the
+	// sample's final read (at network idle) or a newer observer, so later DOM changes do not count.
 	let mutatedAt = null;
 	let paintedFor = null;
-	new win.MutationObserver(() => (mutatedAt = win.performance.now())).observe(win.document, {
+	const live = () => win[key] === state && !state.final;
+	const changes = new win.MutationObserver(() => {
+		if (live()) mutatedAt = win.performance.now();
+		else changes.disconnect();
+	});
+	changes.observe(win.document, {
 		subtree: true,
 		childList: true,
 		characterData: true,
@@ -106,7 +111,7 @@ export function installSettledObserver(win, spec) {
 	// then handles. Every milestone therefore reads the clock inside the callback, on the
 	// navigation's timeline (startedAt 0) or the input event's.
 	const frame = () => {
-		if (win[key] !== state) return;
+		if (!live()) return changes.disconnect();
 		const now = win.performance.now();
 		if (!state.done) {
 			state.frames++;
@@ -139,13 +144,17 @@ export function installSettledObserver(win, spec) {
 			);
 }
 
-/** Runs inside the page; read-only. Resolves when the observer finished or the deadline passed. */
-export function readSettledSample(win, deadlineMs) {
+/**
+ * Runs inside the page. Resolves when the observer finished or the deadline passed; a final read
+ * also ends the observer, so nothing after it moves the sample's rendered time.
+ */
+export function readSettledSample(win, deadlineMs, final = false) {
 	return new Promise((resolve) => {
 		const begun = Date.now();
 		const tick = () => {
 			const state = win.__t2tPerfSettled;
 			if (!state?.done && Date.now() - begun < deadlineMs) return setTimeout(tick, 50);
+			if (final && state) state.final = true;
 			const navigation = win.performance.getEntriesByType('navigation')[0];
 			const entry = (item) => ({
 				name: item.name,

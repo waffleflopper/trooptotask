@@ -6,7 +6,7 @@ Music: "Vanguard" by Scott Buckley, released under CC BY 4.0 (www.scottbuckley.c
 The video's cuts sit on this track's bar grid (133⅓ BPM, 1.8 s bars). Three pieces, no repeats:
 v = m − 10.111 (intro build), m − 26.311 from 41.8 (break, melodic middle), m − 91.111 from 58.0
 (closing section, entering under Drop Zone's low-pass). Hits land on WHO'S READY (2.2), the logo (13.0),
-WHAT'S NEXT (45.4), READINESS (129.96) and the end logo (135.53).
+Personnel details (45.4), WHAT'S NEXT (54.4), READINESS (129.96) and the end logo (135.53).
 """
 from pathlib import Path
 
@@ -219,11 +219,13 @@ for at in (33.7, 36.4, 39.1):
     put(blip(1760), at + 0.2, -24)
 put(tonal_hit(55), 41.8, -10)
 
-# What's next (the music's re-entry) / Personnel details
+# Personnel details lands on the music's re-entry; What's next gets its own hit
 put(boom(1.0, f0=110, f1=36, crack=0.3), 45.4, -5)
 put(shimmer(), 45.45, -20)
-for at in (49.0, 53.5):
-    put(whoosh(0.45, 300, 7000, (0.6, -0.6)), at - 0.35, -17)
+put(whoosh(0.45, 300, 7000, (0.6, -0.6)), 49.9 - 0.35, -17)
+put(whoosh(0.5, 6000, 300, (0.5, -0.5), peak=0.85), 54.4 - 0.3, -16)
+put(boom(0.9, f0=105, f1=38, crack=0.25), 54.4, -7)
+put(shimmer(), 54.45, -22)
 
 # Drop Zone (starts 58.0: Robert speaks 58.7–64.7, parse 64.8, approve 69.4)
 put(whoosh(0.6, 500, 9000, (-0.5, 0.5)), 57.6, -16)

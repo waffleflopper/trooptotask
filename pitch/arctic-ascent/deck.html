@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TroopToTask — Arctic Ascent</title>
+<style>
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url(assets/fonts/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url(assets/fonts/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 800; src: url(assets/fonts/barlow-condensed-latin-800-normal.woff2); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; src: url(assets/fonts/ibm-plex-mono-latin-400-normal.woff2); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 500; src: url(assets/fonts/ibm-plex-mono-latin-500-normal.woff2); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 600; src: url(assets/fonts/ibm-plex-mono-latin-600-normal.woff2); }
+@font-face { font-family: 'Source Serif 4'; font-weight: 400; src: url(assets/fonts/source-serif-4-latin-400-normal.woff2); }
+@font-face { font-family: 'Source Serif 4'; font-weight: 600; src: url(assets/fonts/source-serif-4-latin-600-normal.woff2); }
+@font-face { font-family: 'Source Serif 4'; font-weight: 400; font-style: italic; src: url(assets/fonts/source-serif-4-latin-400-italic.woff2); }
+
+:root {
+  --charcoal: oklch(14.7% 0.004 49.25);
+  --ivory: oklch(98.5% 0.001 106.423);
+  --ash: oklch(97% 0.001 106.424);
+  --stone: oklch(44.4% 0.011 73.639);
+  --parade: oklch(92.3% 0.003 48.717);
+  --field: oklch(21.6% 0.006 56.043);
+  --amber: oklch(66.6% 0.179 58.318);
+  --amber-hi: oklch(76.9% 0.188 70.08);
+  --red: oklch(57.7% 0.245 27.325);
+  --green: oklch(62.7% 0.194 149.214);
+  --blue: oklch(58.8% 0.158 241.966);
+  --chrome-text: oklch(95.2% 0.006 95);
+  --chrome-muted: oklch(72% 0.01 73.639);
+  --head: 'Barlow Condensed', sans-serif;
+  --body: 'Source Serif 4', serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; height: 100%; overflow: hidden; }
+#deck { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+.slide { position: absolute; inset: 0; overflow: hidden; display: none; background: var(--charcoal); color: var(--chrome-text); font-family: var(--body);
+  background-image: radial-gradient(ellipse 120% 90% at 30% 40%, oklch(19% 0.006 56) 0%, transparent 70%); }
+.slide.on { display: block; }
+.abs { position: absolute; }
+.kicker { font-family: var(--mono); font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber-hi); }
+.display { font-family: var(--head); font-weight: 800; text-transform: uppercase; line-height: 0.95; letter-spacing: 0.005em; }
+.chip { font-family: var(--mono); font-size: 20px; letter-spacing: 0.14em; color: var(--amber-hi); border: 1.5px solid var(--amber); padding: 9px 16px 8px; border-radius: 4px; display: inline-block; }
+.chip b { display: inline-block; width: 11px; height: 11px; background: var(--amber-hi); border-radius: 50%; margin-right: 11px; vertical-align: 1px; }
+.chip.design { color: var(--chrome-muted); border-color: oklch(40% 0.01 70); }
+.chip.design b { background: transparent; border: 1.5px solid var(--chrome-muted); }
+.folio { right: 80px; bottom: 50px; font-family: var(--mono); font-size: 18px; letter-spacing: 0.14em; color: oklch(50% 0.01 70); }
+.mark { left: 120px; bottom: 50px; font-family: var(--head); font-weight: 800; font-size: 26px; letter-spacing: 0.02em; text-transform: uppercase; color: oklch(55% 0.01 70); }
+
+/* Feature slide: copy left, product right */
+.copy { left: 120px; top: 110px; width: 700px; }
+.copy .chip { margin-bottom: 44px; }
+.copy .kicker { font-size: 24px; margin-bottom: 18px; }
+.copy h1 { font-size: 112px; color: var(--ivory); margin-bottom: 52px; }
+.pts { list-style: none; display: grid; gap: 30px; }
+.pts li { font-size: 29px; line-height: 1.32; color: var(--chrome-muted); padding-left: 30px; position: relative; }
+.pts li::before { content: ''; position: absolute; left: 0; top: 15px; width: 12px; height: 3px; background: var(--amber); }
+.pts li b { color: var(--chrome-text); font-weight: 600; }
+.shot { position: absolute; overflow: hidden; background: var(--ivory); border-radius: 10px; box-shadow: 0 40px 90px oklch(0% 0 0 / 0.6), 0 0 0 1px oklch(100% 0 0 / 0.08); }
+.shot img { position: absolute; display: block; }
+.shot.bleed { border-radius: 10px 0 0 0; }
+.inset { box-shadow: 0 30px 70px oklch(0% 0 0 / 0.7), 0 0 0 1px oklch(0% 0 0 / 0.2); }
+.caption { font-family: var(--mono); font-size: 17px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome-muted); }
+
+/* Title / close */
+.center { left: 0; right: 0; text-align: center; }
+#title-word { top: 330px; font-size: 220px; color: var(--ivory); }
+#title-bar { left: 50%; top: 570px; width: 520px; height: 8px; background: var(--amber); transform: translateX(-50%); }
+#title-event { top: 630px; font-size: 24px; color: var(--chrome-muted); }
+#title-tag { top: 700px; font-size: 44px; font-style: italic; color: var(--chrome-text); }
+
+/* Video */
+#s-video { background: #000; }
+#s-video video { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+
+/* AI */
+.dz { left: 900px; top: 110px; width: 900px; }
+.dz .card { padding: 16px 26px 16px 28px; }
+.dz-say { font-size: 32px; line-height: 1.4; color: var(--chrome-text); padding: 30px 36px; border-left: 4px solid var(--amber); background: oklch(19% 0.006 56); border-radius: 0 8px 8px 0; margin-bottom: 26px; }
+.dz-say .who { font-family: var(--mono); font-size: 17px; letter-spacing: 0.14em; color: var(--amber-hi); text-transform: uppercase; display: block; margin-bottom: 12px; }
+.dz-arrow { font-family: var(--mono); font-size: 18px; letter-spacing: 0.14em; color: var(--chrome-muted); text-transform: uppercase; margin: 0 0 14px 4px; }
+.card { background: var(--ivory); color: var(--charcoal); border-radius: 8px; padding: 18px 26px 18px 28px; margin-bottom: 12px; border-left: 6px solid var(--c); display: grid; grid-template-columns: 1fr auto; align-items: center; }
+.card .k { font-family: var(--mono); font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--stone); }
+.card .k b { color: var(--c); font-weight: 600; }
+.card .n { font-family: var(--head); font-weight: 700; font-size: 34px; margin: 2px 0 0; }
+.card .d { font-size: 22px; color: var(--stone); }
+.card .ok { font-family: var(--mono); font-size: 15px; letter-spacing: 0.1em; color: var(--green); text-transform: uppercase; }
+.dz-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+.dz-foot i { font-size: 26px; color: var(--chrome-muted); }
+.dz-btn { font-family: var(--body); font-size: 24px; font-weight: 600; background: var(--ivory); color: var(--charcoal); padding: 14px 26px; border-radius: 6px; }
+.asks { left: 120px; width: 680px; top: 745px; display: grid; gap: 22px; }
+.ask { border-top: 2px solid oklch(32% 0.01 70); padding-top: 14px; display: grid; grid-template-columns: 170px 1fr; align-items: baseline; }
+.ask .v { font-family: var(--head); font-weight: 800; font-size: 40px; text-transform: uppercase; color: var(--amber-hi); }
+.ask .q { font-size: 25px; color: var(--chrome-text); line-height: 1.3; }
+
+/* Close */
+#close-1 { top: 250px; font-size: 140px; color: var(--chrome-muted); }
+#close-2 { top: 400px; font-size: 140px; color: var(--ivory); }
+#close-3s { top: 600px; font-size: 32px; }
+#close-3 { top: 650px; font-size: 190px; color: var(--amber-hi); }
+#close-url { bottom: 60px; font-family: var(--mono); font-size: 24px; letter-spacing: 0.14em; color: var(--chrome-muted); }
+
+/* Print: one slide per page */
+@page { size: 1920px 1080px; margin: 0; }
+body.print { overflow: visible; height: auto; background: var(--charcoal); }
+body.print #deck { position: static; transform: none !important; width: auto; height: auto; }
+body.print .slide { display: block; position: relative; width: 1920px; height: 1080px; break-after: page; }
+body.print #hint { display: none; }
+#hint { position: fixed; right: 16px; bottom: 12px; font: 12px var(--mono); color: #666; opacity: 0; transition: opacity 0.4s; }
+</style>
+</head>
+<body>
+<div id="deck">
+
+  <!-- 0 · Holding slide (on screen while the room settles) -->
+  <section class="slide" data-notes="Holding slide. Advance to roll the opener.">
+    <div class="abs display center" id="title-word">TroopToTask</div>
+    <div class="abs" id="title-bar"></div>
+    <div class="abs kicker center" id="title-event">Arctic Ascent 2026 · 11th Airborne Division</div>
+    <div class="abs center" id="title-tag">Less admin. More time with Soldiers.</div>
+  </section>
+
+  <!-- 1 · Opener video -->
+  <section class="slide" id="s-video" data-notes="The opener plays (2:20). Advance when the end card holds.">
+    <video src="out/troop-to-task-arctic-ascent-final.mp4" poster="out/poster.png" preload="auto" playsinline></video>
+  </section>
+
+  <!-- 2 · Calendar -->
+  <section class="slide" data-notes="Start with the Calendar, because every question starts with “who’s here?” Every leave, TDY and appointment is one bar: drag across the days to add one, drag the end to change it. Duty has its own lane. The picker puts whoever’s gone longest first, dims anyone who’s away, and filters by rank, role and MOS. And when the 1SG wants paper, it prints exactly what you see.">
+    <div class="abs copy">
+      <div class="chip"><b></b>AVAILABLE TODAY</div>
+      <div class="kicker">Calendar</div>
+      <h1 class="display">Who's where.<br>Every day.</h1>
+      <ul class="pts">
+        <li><b>One bar per status.</b> Leave, TDY and appointments across a month or a quarter, by Group.</li>
+        <li><b>Drag to add, click to change.</b> No forms, no reloads.</li>
+        <li><b>Duty that picks fairly.</b> Longest since last duty comes first, anyone away is dimmed, and you can filter by rank, role and MOS.</li>
+        <li><b>Prints like it looks.</b> The same bars on paper for formation.</li>
+      </ul>
+    </div>
+    <div class="shot bleed" style="left:900px;top:110px;width:1020px;height:970px" data-src="assets/live/calendar-duty-picker.png" data-x="1" data-t="0.02" data-s="1.85"></div>
+  </section>
+
+  <!-- 3 · Personnel details -->
+  <section class="slide" data-notes="This just shipped. Open any Soldier and you get their next two weeks, then what needs action, most urgent first: expired CPR, missing SHARP, a weapons qual about to lapse, the NCOER, the ETS window. If we can’t check something, it says so instead of showing green. Snap the certificate, see the new expiration, save. The leader book and the counseling folder, on one page.">
+    <div class="abs copy">
+      <div class="chip"><b></b>JUST SHIPPED</div>
+      <div class="kicker">Personnel details</div>
+      <h1 class="display">Every Soldier.<br>One page.</h1>
+      <ul class="pts">
+        <li><b>The next 14 days</b>, straight from the Calendar.</li>
+        <li><b>Needs attention, most urgent first.</b> Training, critical tasks, the NCOER and the ETS window.</li>
+        <li><b>Log it where you see it.</b> Snap the certificate and see the new expiration before you save.</li>
+        <li><b>Follow-ups, notes and counselings</b> on the same page.</li>
+      </ul>
+    </div>
+    <div class="shot bleed" style="left:900px;top:110px;width:1020px;height:970px" data-src="assets/live/personnel-overview.png" data-l="0.15" data-t="0.025" data-s="1.65"></div>
+  </section>
+
+  <!-- 4 · Training & Training reports -->
+  <section class="slide" data-notes="Training is where admin time goes to die. Every Soldier, every requirement, one matrix, with critical tasks, onboarding and evals alongside. Training reports answer the commander’s real question: where will we be? This is live data: 79% today, 63% in 180 days if nobody renews, which sections fall first, and which training buys the most back. Print it for the training meeting.">
+    <div class="abs copy">
+      <div class="chip"><b></b>AVAILABLE TODAY</div>
+      <div class="kicker">Training · Training reports</div>
+      <h1 class="display" style="font-size:100px">See the drop<br>before it lands.</h1>
+      <ul class="pts">
+        <li><b>Every Soldier, every requirement.</b> One matrix, with critical tasks, onboarding and evals alongside.</li>
+        <li><b>Forecast up to 180 days.</b> 79% ready today, 63% if nobody renews.</li>
+        <li><b>Hot spots and focus areas.</b> Which sections fall first, and which training buys the most back.</li>
+        <li><b>Ready to brief.</b> Print it or export it to Excel.</li>
+      </ul>
+    </div>
+    <div class="shot" style="left:900px;top:110px;width:900px;height:600px" data-src="assets/training-reports.jpg" data-l="0.03" data-t="0.03" data-s="1.15"></div>
+    <div class="shot inset" style="left:1220px;top:560px;width:640px;height:380px" data-src="assets/live/training.png" data-l="0.08" data-t="0.1" data-s="1.6"></div>
+    <div class="abs caption" style="left:900px;top:740px">Live data · real unit</div>
+  </section>
+
+  <!-- 5 · Events & Taskings -->
+  <section class="slide" data-notes="Here’s what’s next. A FRAGO drops: the Best Medic Competition needs lanes, medics and graders. Today that’s a spreadsheet and a phone tree. Here the event holds its taskings, each routed to the Group that owns it. When you pick people you see their leave, TDY and other taskings before you commit them, and the board shows what’s overdue, blocked or still short.">
+    <div class="abs copy">
+      <div class="chip design"><b></b>IN DESIGN</div>
+      <div class="kicker">Events &amp; Taskings</div>
+      <h1 class="display" style="font-size:100px">Every tasking.<br>Tracked to done.</h1>
+      <ul class="pts">
+        <li><b>From the FRAGO to a plan.</b> An event holds its taskings before, during and after.</li>
+        <li><b>Routed to the owner.</b> Each tasking goes to a Group, or stays with the whole unit.</li>
+        <li><b>Staff it without the phone tree.</b> Leave, TDY and other taskings show before you commit anyone.</li>
+        <li><b>Overdue, blocked, short people.</b> The whole board at a glance.</li>
+      </ul>
+    </div>
+    <div class="shot bleed" style="left:900px;top:140px;width:1020px;height:800px;border-radius:10px 0 0 10px" data-src="assets/taskings.jpg" data-l="0.15" data-t="0" data-s="1.3"></div>
+  </section>
+
+  <!-- 6 · AI -->
+  <section class="slide" data-notes="And the one leaders keep asking for. A captain wrote in: let me brain dump, with a way to verify what it does. That’s Drop Zone. Talk at the end of formation, TroopToTask turns it into changes, and nothing saves until you approve. It has your access, nothing more. Then ask your data anything, draft the training meeting slides, forecast who won’t be ready for JPMRC.">
+    <div class="abs copy">
+      <div class="chip design"><b></b>IN DESIGN</div>
+      <div class="kicker">Drop Zone · AI across the platform</div>
+      <h1 class="display" style="margin-bottom:40px">Just say it.</h1>
+      <ul class="pts">
+        <li><b>Brain dump in, updates out.</b> Talk or paste. TroopToTask finds the changes.</li>
+        <li><b>You stay in command.</b> Nothing changes until you approve it.</li>
+        <li><b>Scoped like everything else.</b> It only sees and changes what you can.</li>
+      </ul>
+    </div>
+    <div class="abs dz">
+      <div class="dz-say"><span class="who">● You, at the end of formation</span>“Okafor is on leave Wednesday through Friday. Patel recerted CPR this morning, and I still need one more medic for the trauma lane Monday.”</div>
+      <div class="dz-arrow">↓ 3 changes found · review before saving</div>
+      <div class="card" style="--c:var(--green)"><div><div class="k"><b>Calendar</b> · add status</div><div class="n">SGT Okafor, Daniel</div><div class="d">Leave · Wed 21 – Fri 23 Oct</div></div><div class="ok">✓ no conflicts</div></div>
+      <div class="card" style="--c:var(--blue)"><div><div class="k"><b>Training</b> · log completion</div><div class="n">SPC Patel, Ravi</div><div class="d">CPR / BLS · completed today</div></div><div class="ok">✓ current to Oct 2028</div></div>
+      <div class="card" style="--c:var(--amber)"><div><div class="k"><b>Taskings</b> · assign person</div><div class="n">SPC Fischer, Ana</div><div class="d">Provide 4 trauma-lane medics · Mon 19 Oct</div></div><div class="ok">✓ fills 4 of 4</div></div>
+      <div class="dz-foot"><i>Nothing changes until you approve.</i><span class="dz-btn">Approve 3 changes</span></div>
+    </div>
+    <div class="abs asks">
+      <div class="kicker" style="font-size:20px">Then ask your data</div>
+      <div class="ask"><div class="v">Ask</div><div class="q">“Who can make the range Tuesday?”</div></div>
+      <div class="ask"><div class="v">Brief</div><div class="q">“Build my training meeting slides.”</div></div>
+      <div class="ask"><div class="v">Forecast</div><div class="q">“Who still needs their AFT and Weapons Qual before JPMRC?”</div></div>
+    </div>
+  </section>
+
+  <!-- 7 · Close -->
+  <section class="slide" data-notes="Every minute TroopToTask saves goes back to training. Less time on admin. More time with Soldiers. That’s readiness. [Make your ask here.] Thank you.">
+    <div class="abs display center" id="close-1">Less time on admin.</div>
+    <div class="abs display center" id="close-2">More time with Soldiers.</div>
+    <div class="abs kicker center" id="close-3s">That's</div>
+    <div class="abs display center" id="close-3">Readiness.</div>
+    <div class="abs center" id="close-url">trooptotask.org</div>
+  </section>
+
+  <!-- 8 · Backup: security and access (only if asked) -->
+  <section class="slide" data-notes="Backup, only if asked. Be precise: aligned with NIST SP 800-171, not certified, not FedRAMP. Data is treated as CUI. Hosting is Vercel and Supabase, both SOC 2 Type II.">
+    <div class="abs copy" style="width:1680px">
+      <div class="kicker">Backup · if asked</div>
+      <h1 class="display" style="margin-bottom:64px">Built for CUI. Scoped by design.</h1>
+    </div>
+    <div class="abs" style="left:120px;right:120px;top:400px;display:grid;grid-template-columns:1fr 1fr;gap:70px">
+      <ul class="pts">
+        <li><b>Scoped access, enforced by the server.</b> Organization-wide or by Group, set per feature: none, view, operate or configure.</li>
+        <li><b>Viewer, Operator and Editor presets</b>, with per-feature overrides. Archive and delete requests need approval.</li>
+        <li><b>Separate Organizations.</b> One account can switch between units, and their data never mixes.</li>
+      </ul>
+      <ul class="pts">
+        <li><b>Encrypted</b> in transit (TLS 1.2+) and at rest (AES-256). Files open through 5-minute private links.</li>
+        <li><b>MFA, 24-hour sessions</b>, and a verified session for sensitive owner actions. Audit log kept for a year.</li>
+        <li><b>Aligned with NIST SP 800-171</b> and hosted on SOC 2 Type II providers. Not FedRAMP-authorized.</li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+<div id="hint">← → · F fullscreen</div>
+
+<script>
+const deck = document.getElementById('deck');
+const slides = [...document.querySelectorAll('.slide')];
+const print = new URLSearchParams(location.search).has('print');
+if (print) document.body.classList.add('print');
+
+// Crop each screenshot like the video's camera: focal point (x, y as fractions of the image) and zoom s
+// (s = 1 fits the image's width to the frame).
+for (const el of document.querySelectorAll('.shot')) {
+  const img = new Image();
+  img.src = el.dataset.src;
+  img.onload = () => {
+    const W = el.clientWidth || parseFloat(el.style.width), H = el.clientHeight || parseFloat(el.style.height);
+    const s = +el.dataset.s, w = W * s, h = (w * img.naturalHeight) / img.naturalWidth;
+    // data-l / data-t pin an image edge (fraction) to the frame's left / top instead of centering on x / y
+    const left = Math.min(0, Math.max(W - w, 'l' in el.dataset ? -el.dataset.l * w : W / 2 - +el.dataset.x * w));
+    const top = Math.min(0, Math.max(H - h, 't' in el.dataset ? -el.dataset.t * h : H / 2 - +el.dataset.y * h));
+    Object.assign(img.style, { width: w + 'px', height: h + 'px', left: left + 'px', top: top + 'px' });
+  };
+  el.appendChild(img);
+}
+
+let cur = 0;
+const video = document.querySelector('#s-video video');
+function go(i) {
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, j) => s.classList.toggle('on', j === cur));
+  if (slides[cur].id === 's-video') { video.currentTime = 0; video.play(); } else video.pause();
+  history.replaceState(null, '', '#' + (cur + 1));
+}
+function fit() {
+  const k = Math.min(innerWidth / 1920, innerHeight / 1080);
+  deck.style.transform = `translate(${(innerWidth - 1920 * k) / 2}px, ${(innerHeight - 1080 * k) / 2}px) scale(${k})`;
+}
+if (!print) {
+  addEventListener('resize', fit); fit();
+  addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) go(cur + 1);
+    else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) go(cur - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(slides.length - 1);
+    else if (e.key === 'f') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    else return;
+    e.preventDefault();
+  });
+  addEventListener('click', () => go(cur + 1));
+  addEventListener('mousemove', () => { const h = document.getElementById('hint'); h.style.opacity = 1; clearTimeout(h.t); h.t = setTimeout(() => (h.style.opacity = 0), 1500); });
+  go(Math.max(0, (parseInt(location.hash.slice(1)) || 1) - 1));
+}
+window.slideCount = slides.length;
+window.go = go;
+</script>
+</body>
+</html>

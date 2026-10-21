@@ -253,14 +253,14 @@ body.rendering #controls { display: none; }
     </div>
   </section>
 
-  <!-- 6 · Next -->
+  <!-- 6 · Personnel details (live) -->
+  <section class="scene" id="pdetail"></section>
+
+  <!-- 7 · Next -->
   <section class="scene" id="next">
     <div class="abs display" id="next-word">What's next</div>
     <div class="abs kicker" id="next-sub">In design now · built on the same foundation</div>
   </section>
-
-  <!-- 7 · Personnel details (next) -->
-  <section class="scene" id="pdetail"></section>
 
   <!-- 8 · Drop Zone -->
   <section class="scene" id="drop">
@@ -380,8 +380,8 @@ function wipe(el, t, a, d = 0.4, o = Infinity, od = 0.25) {
 // ---------- Timeline ----------
 // Cut to Vanguard's bar grid (133⅓ BPM, 1.8 s bars): every scene boundary is a downbeat.
 const T = {
-  cold: [0, 4], chaos: [4, 13], logo: [13, 16.6], today: [16.6, 31], scope: [31, 45.4], next: [45.4, 49],
-  pdetail: [49, 58], drop: [58, 74.2], tasking: [74.2, 83.2], ai: [83.2, 99.4], bookend: [99.4, 110.2],
+  cold: [0, 4], chaos: [4, 13], logo: [13, 16.6], today: [16.6, 31], scope: [31, 45.4], pdetail: [45.4, 54.4],
+  next: [54.4, 58], drop: [58, 74.2], tasking: [74.2, 83.2], ai: [83.2, 99.4], bookend: [99.4, 110.2],
   voices: [110.2, 124.6], close: [124.6, 140],
 };
 const DURATION = 140;
@@ -453,9 +453,9 @@ const TODAY_SHOTS = [
 
 const pdetail = $('pdetail');
 const PDETAIL_SHOTS = [
-  { a: 0, b: 4.5, shot: makeShot(pdetail, 'assets/personnel.jpg', 2000, 1819, 'Next · Personnel details', 'Every Soldier.<br>One page.', 'IN DESIGN'),
+  { a: 0, b: 4.5, shot: makeShot(pdetail, 'assets/personnel.jpg', 2000, 1819, 'Personnel details', 'Every Soldier.<br>One page.', 'JUST SHIPPED'),
     from: { x: 0.36, y: 0.16, s: 1.35 }, to: { x: 0.40, y: 0.32, s: 1.55 } },
-  { a: 4.5, b: 9, shot: makeShot(pdetail, 'assets/readiness.jpg', 1994, 2000, 'Next · Personnel details', 'What needs action.<br>Most urgent first.', 'IN DESIGN'),
+  { a: 4.5, b: 9, shot: makeShot(pdetail, 'assets/readiness.jpg', 1994, 2000, 'Personnel details · readiness', 'What needs action.<br>Most urgent first.', 'JUST SHIPPED'),
     from: { x: 0.40, y: 0.30, s: 1.6 }, to: { x: 0.40, y: 0.40, s: 1.85 } },
 ];
 
@@ -733,7 +733,10 @@ function render(t) {
     reveal($('scope-cap'), lt, 10.8, 0.5, 14.0, 0.3, 30);
   }
 
-  // 6 · Next
+  // 6 · Personnel details
+  if ((lt = show('pdetail', t)) !== null) playShots(PDETAIL_SHOTS, lt);
+
+  // 7 · Next
   if ((lt = show('next', t)) !== null) {
     snowAlpha = 0.6;
     const p = eExpo(prog(lt, 0, 0.4));
@@ -741,9 +744,6 @@ function render(t) {
     $('next-word').style.transform = `scale(${lerp(0.85, 1, p)})`;
     reveal($('next-sub'), lt, 0.4, 0.4, 3.3, 0.25, 20);
   }
-
-  // 7 · Personnel details
-  if ((lt = show('pdetail', t)) !== null) playShots(PDETAIL_SHOTS, lt);
 
   // 8 · Drop Zone
   if ((lt = show('drop', t)) !== null) {

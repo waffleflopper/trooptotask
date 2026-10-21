@@ -1,11 +1,11 @@
 # Arctic Ascent opener — TroopToTask
 
-A 2:20 scored opener for the five-minute pitch. Every scene boundary is a downbeat of the music (1.8-second bars), so the big hits land on WHO'S READY, the logo, WHAT'S NEXT, READINESS and the end logo.
+A 2:20 scored opener for the five-minute pitch. Every scene boundary is a downbeat of the music (1.8-second bars), so the big hits land on WHO'S READY, the logo, Personnel details, WHAT'S NEXT, READINESS and the end logo.
 
 - `video.html`: the composition. Open it in a browser to scrub and preview.
 - `render.mjs`: `node render.mjs` writes the silent `out/troop-to-task-arctic-ascent.mp4` (1080p30, about a minute). `--stills 12 50` writes review frames; `--fps 60` renders at 60 fps.
 - `audio.py`: builds the soundtrack (music edit, synthesized sound design, mix and master). Run it with `~/.cache/t2t-pitch-audio/venv/bin/python audio.py` (about 3 seconds).
-- `assets/`: Paper mockups (TroopToTask file), the live training screenshot, brand fonts and the music source.
+- `assets/`: Paper mockups (TroopToTask file), the live training screenshots, brand fonts and the music source. `assets/live/` holds captures of the shipped app (origin/main, 20 Oct 2026) with synthetic data: Calendar and its duty picker, Personnel details (Overview, Readiness, Log), Training, Training reports, the roster and Home.
 
 ## Outputs (`out/`)
 
@@ -35,14 +35,36 @@ The thesis: leaders spend hours chasing answers scattered across trackers. Troop
 | 0:13 | Logo | Everything collapses into **TROOPTOTASK** as the drums enter |
 | 0:17 | Available today | Dashboard → Calendar → Training matrix → Training reports (79% → 63% if no one renews, the 180-day forecast) |
 | 0:31 | Scoped access | Commander · 1SG → Platoon Sergeant → Squad Leader → Team Leader. The music drops into its break under "Every leader owns their piece." |
-| 0:45 | What's next | In design now, on the music's re-entry |
-| 0:49 | Personnel details | Every Soldier, one page; what needs action, most urgent first |
+| 0:45 | Personnel details | **Just shipped**, on the music's re-entry: the camera leaves the team leader's Soldiers for one Soldier's page, then what needs action, most urgent first |
+| 0:54 | What's next | In design now · built on the same foundation |
 | 0:58 | Drop Zone | Robert's recorded brain dump plays as the music ducks under a filter; the transcript types in time with his words and the waveform follows his voice. It becomes three reviewed changes, approved at 0:11 on the stopwatch; approval launches the closing section |
 | 1:14 | Events & Taskings | Taskings list → Alpha-scoped staffing |
 | 1:23 | AI across the platform | One verb per two bars (3.6 seconds): Ask, Brief, Forecast, Fill, each with a one-line question and answer, then the recap |
 | 1:39 | Bookend | The cold open returns: 0547 · First formation, **WHO'S READY?** The music muffles, then opens as the dashboard answers it on one screen: 0548 · Answered. Before formation. |
 | 1:50 | Testimonials | "From leaders using it today": three quotes stamped down line by line on the beat, each with its attribution, while a row fills in JBER, Alaska · Grafenwöhr, Germany · Fort Bliss, Texas. The SFC's "all my day with the Soldiers" hands straight to the close |
 | 2:05 | Close | Less time on admin. More time with Soldiers. The music drops out under "That's", slams on **READINESS** (2:10), and the tagline builds through the swell to the end logo on the final hit (2:16) |
+
+## Slides
+
+The deck picks up where the opener leaves off, with one slide per feature area for the deeper talk. It shares the video's type, color and "Available today" / "In design" chips.
+
+| # | Slide | Status |
+| --- | --- | --- |
+| 1 | Holding slide (TroopToTask · Arctic Ascent 2026) | |
+| 2 | The opener (plays the final video) | |
+| 3 | Calendar: Who's where. Every day. | Available today |
+| 4 | Personnel details: Every Soldier. One page. | Just shipped |
+| 5 | Training & Training reports: See the drop before it lands. | Available today |
+| 6 | Events & Taskings: Every tasking. Tracked to done. | In design |
+| 7 | Drop Zone & AI: Just say it. | In design |
+| 8 | Close: Less time on admin. More time with Soldiers. That's readiness. | |
+| 9 | Backup, if asked: security and access | |
+
+- `deck.html`: open it in Chrome and press F for full screen. → / Space / PageDown (most clickers) advance; ← goes back. The opener slide plays the video with sound when you land on it.
+- `deck-render.mjs`: `node deck-render.mjs` writes `out/slides/slide-NN.png`, the speaker notes and `out/troop-to-task-arctic-ascent-slides.pdf`.
+- `deck-pptx.py`: `~/.cache/t2t-pitch-audio/venv/bin/python deck-pptx.py` builds `out/troop-to-task-arctic-ascent-slides.pptx` from those images, with the talk track as speaker notes and the video embedded on slide 2 (click once on that slide to start it).
+
+Each slide's talk track (about 65 words, 25 seconds) is in its `data-notes` in `deck.html`. At a normal speaking pace the talk runs about 2:20, which with the 2:20 opener comes to about 4:40 and leaves about 20 seconds for the ask. Rehearse with a timer. The close's notes hold a placeholder for your ask.
 
 ## Music
 
@@ -65,8 +87,8 @@ The video stands on its own, and the Drop Zone line is already Robert's own reco
 ## Before showing judges
 
 - Play it once on the room's speakers. Sound effects that feel right on headphones can be too loud on a PA; the music-only version is the fallback.
-- Drop Zone, Personnel details, Events & Taskings and the AI tiles are labeled "Next" or "In design". They show planned work, not shipped features.
+- Personnel details shipped on 19 October 2026 and is labeled "Just shipped". Drop Zone, Events & Taskings and the AI tiles are labeled "Next" or "In design". They show planned work, not shipped features.
 - The racing clock and the Drop Zone stopwatch are dramatizations. Swap in a real number if you have one (for example, your own time to build a training meeting slide deck).
 - If CPT Zugg agrees, quote the October 2026 feedback asking for a "brain dump" AI in the live pitch. It shows that a commander asked for Drop Zone.
 - Before showing it, confirm the CPT and SFC are comfortable being quoted with their rank and unit (no names are shown). The 18th CSSB quote is anonymous and credited to the battalion only.
-- The Training reports shot is the live page for Kamish SCMH (unit name, Group names and percentages; no Soldier names). Apart from it and the testimonials, all names, units and numbers are the synthetic data from the Paper mockups.
+- The Training reports shot is the live page for Kamish SCMH (unit name, Group names and percentages; no Soldier names). Apart from it and the testimonials, all names, units and numbers are the synthetic data from the Paper mockups. The video's Personnel details shots stay on the Paper mockup of SGT Okafor so the Soldier matches the scope zoom and your Drop Zone line; the shipped page has the same sections. The slides use the live captures in `assets/live/` (synthetic Soldiers, C Co, 526th BSB) for Calendar, Personnel details and the Training matrix, plus the Kamish SCMH Training reports shot.

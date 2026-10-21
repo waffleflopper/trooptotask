@@ -36,6 +36,7 @@
 		loadingRows?: number;
 		density?: 'default' | 'dense';
 		variant?: 'framed' | 'editorial';
+		stacked?: boolean;
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -74,6 +75,7 @@
 		loadingRows,
 		density,
 		variant,
+		stacked,
 		compact,
 		striped,
 		stickyHeader = true,
@@ -126,6 +128,7 @@
 	{rowActionLabel}
 	{density}
 	{variant}
+	{stacked}
 	{compact}
 	{striped}
 	{stickyHeader}

@@ -30,6 +30,8 @@
 		rowActionLabel?: (row: T) => string;
 		density?: 'default' | 'dense';
 		variant?: 'framed' | 'editorial';
+		/** When the table is narrower than 42rem, rows become wrapping lines instead of columns; see the catalog. */
+		stacked?: boolean;
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -64,6 +66,7 @@
 		rowActionLabel,
 		density = 'default',
 		variant = 'framed',
+		stacked = false,
 		compact = false,
 		striped = false,
 		stickyHeader = false,
@@ -150,7 +153,7 @@
 	{/if}
 {/snippet}
 
-<DataTableRoot density={resolvedDensity} {variant} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
+<DataTableRoot density={resolvedDensity} {variant} {stacked} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
 	{#if toolbar}
 		<div data-slot="data-table-toolbar" class="border-b border-border bg-muted/20 p-2">
 			{@render toolbar(table)}

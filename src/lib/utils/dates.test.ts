@@ -60,6 +60,12 @@ describe('startOfMonthIn', () => {
 			'2026-12-01T05:00:00.000Z'
 		);
 	});
+
+	it('starts the month at the first local time that exists when midnight is skipped', () => {
+		expect(startOfMonthIn('America/Asuncion', new Date('2023-10-15T12:00:00Z')).toISOString()).toBe(
+			'2023-10-01T04:00:00.000Z'
+		);
+	});
 });
 
 describe('isTimeZone', () => {

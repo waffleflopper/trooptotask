@@ -127,6 +127,7 @@
 		<DataTable.DataTable
 			{table}
 			variant="editorial"
+			stacked
 			ariaLabel="Organization audit log entries"
 			{emptyMessage}
 			stickyHeader={false}
@@ -137,7 +138,7 @@
 					{@const head = auditDayHead(entry.day, logs.today, dayCounts.get(entry.day) ?? 0, {
 						cutOff: entry.day === cutOffDay
 					})}
-					<Table.Row data-slot="audit-day-head" class="border-b-foreground hover:bg-transparent">
+					<Table.Row class="border-b-foreground hover:bg-transparent">
 						<th scope="colgroup" colspan={columns.length} class="pt-5 pb-2 text-left font-normal">
 							<span class="font-heading text-lg leading-[22px] font-bold">{head.title}</span>
 							<span class="ml-3 font-mono text-xs text-muted-foreground">{head.detail}</span>
@@ -153,10 +154,10 @@
 							{entry.area}
 						</span>
 					</Table.Cell>
-					<Table.Cell data-max-width="none" class="min-w-56 leading-5 whitespace-normal">{entry.sentence}</Table.Cell>
+					<Table.Cell data-max-width="none" class="leading-5 whitespace-normal">{entry.sentence}</Table.Cell>
 					<Table.Cell class="font-mono text-xs leading-5">
 						{#if entry.actor}
-							<span class="block max-w-52 truncate">{entry.actor}</span>
+							<span class="block max-w-52 truncate @max-2xl/data-table:max-w-full">{entry.actor}</span>
 						{:else}
 							<span class="text-muted-foreground italic">System</span>
 						{/if}

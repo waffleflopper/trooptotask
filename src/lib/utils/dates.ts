@@ -1,3 +1,5 @@
+import { CalendarDate, toZoned } from '@internationalized/date';
+
 /** "Jan 5, 2026" — for displaying date-only strings (YYYY-MM-DD) */
 export function formatDisplayDate(dateStr: string | null): string {
 	if (!dateStr) return '-';
@@ -91,35 +93,10 @@ export function localDateIn(timeZone: string, now: Date): string {
 	return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-function zoneOffsetMs(timeZone: string, instant: number): number {
-	const parts = new Intl.DateTimeFormat('en-US', {
-		timeZone,
-		hourCycle: 'h23',
-		year: 'numeric',
-		month: 'numeric',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: 'numeric',
-		second: 'numeric'
-	}).formatToParts(new Date(instant));
-	const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((entry) => entry.type === type)?.value);
-	const wallClock = Date.UTC(
-		part('year'),
-		part('month') - 1,
-		part('day'),
-		part('hour'),
-		part('minute'),
-		part('second')
-	);
-	return wallClock - Math.floor(instant / 1000) * 1000;
-}
-
-/** The instant the calendar month containing `now` began in `timeZone`. */
+/** The instant the calendar month containing `now` began in `timeZone`. A skipped midnight starts it at the first local time that exists. */
 export function startOfMonthIn(timeZone: string, now: Date): Date {
 	const [year, month] = localDateIn(timeZone, now).split('-').map(Number);
-	const wallMidnight = Date.UTC(year, month - 1, 1);
-	const guess = wallMidnight - zoneOffsetMs(timeZone, wallMidnight);
-	return new Date(wallMidnight - zoneOffsetMs(timeZone, guess));
+	return toZoned(new CalendarDate(year, month, 1), timeZone, 'compatible').toDate();
 }
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;

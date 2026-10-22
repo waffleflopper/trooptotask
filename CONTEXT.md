@@ -1,6 +1,6 @@
 # TroopToTask V1
 
-Shared domain language for TroopToTask's military unit management workflows. Use the [domain reading map](docs/agents/domain.md) for behavior contracts, architecture decisions, and stabilization status.
+Shared domain language for TroopToTask's military unit management workflows. Use the [domain reading map](docs/agents/domain.md) for behavior contracts and architecture decisions.
 
 ## Language
 

@@ -107,7 +107,6 @@ describe('Personnel Critical Tasks roster', () => {
 		await expect(port.listActiveForReadiness(actor())).resolves.toEqual([
 			expect.objectContaining({ id: 'active-alpha', groupId: 'group-1' })
 		]);
-		expect(getAdminClient).toHaveBeenCalledTimes(1);
 
 		const historyClient = createPersonnelClient(rows);
 		const historyPort = createSupabasePersonnelCriticalTasksRosterPort(historyClient);

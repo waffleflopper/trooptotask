@@ -46,7 +46,7 @@ describe('Vercel build selection', () => {
 		for (const file of [
 			'README.md',
 			'AGENTS.md',
-			'docs/stabilization/EVIDENCE.md',
+			'docs/architecture/ARCHITECTURE.md',
 			'.agents/skills/verify-trooptotask/features/calendar.md',
 			'src/features/calendar/components/Calendar.test.ts',
 			'scripts/ci/changes.test.ts',

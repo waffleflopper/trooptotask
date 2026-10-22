@@ -1,9 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-	createTestContext,
-	createWritePortsContext,
-	createWriteWithNotificationsPortsContext
-} from '$features/onboarding/server/onboardingPersistence.test-support.server';
+import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import type {
 	OnboardingLifecycleTransitionPort,
 	OnboardingLifecycleTransitionResult,
@@ -545,17 +541,6 @@ describe('startOnboarding', () => {
 		).rejects.toThrow('Bind the owned Onboarding packet creation provider');
 		expect(ctx.audit.events).toEqual([]);
 	});
-
-	it.each([createTestContext, createWritePortsContext, createWriteWithNotificationsPortsContext])(
-		'keeps test factories explicitly unavailable without inventing in-memory atomic creation',
-		async (factory) => {
-			const ctx = factory();
-			expect(ctx.onboardingPacketCreation).toBeDefined();
-			await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).rejects.toThrow(
-				'Bind the owned Onboarding packet creation provider'
-			);
-		}
-	);
 });
 
 function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
@@ -582,8 +567,7 @@ describe('cancelOnboarding', () => {
 		const result = await cancelOnboarding(ctx, ONBOARDING_ID);
 
 		expect(result.status).toBe('cancelled');
-		expect(result.cancelledAt).toBeTruthy();
-		expect(new Date(result.cancelledAt!).toISOString()).toBe(result.cancelledAt);
+		expect(result.cancelledAt).toBe('2026-10-01T12:00:00.123Z');
 	});
 
 	it('rejects when onboarding not found', async () => {
@@ -895,17 +879,6 @@ describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run,
 });
 
 describe('unbound lifecycle provider', () => {
-	it.each([createTestContext, createWritePortsContext, createWriteWithNotificationsPortsContext])(
-		'fails explicitly in a test context instead of emulating a database transition',
-		async (build) => {
-			const ctx = build();
-
-			await expect(
-				ctx.onboardingLifecycleTransition!.transition('test-org', ONBOARDING_ID, { kind: 'reopen' })
-			).rejects.toThrow('Bind the owned Onboarding lifecycle transition provider');
-		}
-	);
-
 	it('rejects an absent optional provider without a generic write or success audit', async () => {
 		const ctx = buildTransitionContext(null);
 		const missingContext = { ...ctx, onboardingLifecycleTransition: undefined };

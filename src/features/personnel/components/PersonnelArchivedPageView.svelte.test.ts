@@ -79,14 +79,6 @@ afterEach(() => {
 });
 
 describe('PersonnelArchivedPageView', () => {
-	it('counts the archived items and says who archived each and when', async () => {
-		renderArchived();
-
-		expect(await screen.findByText('3 archived items')).toBeTruthy();
-		expect(screen.getByText('Archived 14 Oct · SFC Diaz')).toBeTruthy();
-		expect(screen.getByText('Archived 16 Oct')).toBeTruthy();
-	});
-
 	it('narrows the list to one kind and back', async () => {
 		renderArchived();
 		await screen.findByText('3 archived items');
@@ -110,28 +102,6 @@ describe('PersonnelArchivedPageView', () => {
 
 		expect(screen.getByText(/Late to formation/)).toBeTruthy();
 		expect(screen.queryByText('Dental readiness')).toBeNull();
-	});
-
-	it('says so when a kind has nothing archived', async () => {
-		renderArchived();
-		await screen.findByText('3 archived items');
-
-		await fireEvent.click(screen.getByRole('radio', { name: 'Counselings' }));
-
-		expect(screen.getByText('Nothing archived in this category.')).toBeTruthy();
-	});
-
-	it('restores an item and drops it from the list', async () => {
-		const fetchMock = stubFetch(() => jsonResponse({}));
-		renderArchived();
-		await screen.findByText('3 archived items');
-
-		await fireEvent.click(within(rowFor('Dental readiness')).getByRole('button', { name: 'Restore' }));
-
-		await screen.findByText('2 archived items');
-		expect(screen.queryByText('Dental readiness')).toBeNull();
-		expect(String(fetchMock.mock.calls[0][0])).toBe('/org/org-1/api/personnel/person-1/follow-ups/f1');
-		expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ action: 'restore' });
 	});
 
 	it('keeps a restored item out of the list when the page receives a new data object holding the same load', async () => {

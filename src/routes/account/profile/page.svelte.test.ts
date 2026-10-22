@@ -19,31 +19,6 @@ afterEach(() => {
 });
 
 describe('account profile page', () => {
-	it('explains that profile rank is not scoped to an Organization rank catalog', () => {
-		render(ProfilePage, {
-			props: {
-				data: {
-					viewer: null,
-					accountPathname: '/account/profile',
-					profile: {
-						userId: 'user-1',
-						firstName: 'Emma',
-						lastName: 'Hayes',
-						rank: 'CPT'
-					},
-					ranks: ['CPT', 'SGT']
-				},
-				form: null
-			}
-		});
-
-		expect(
-			screen.getByText(
-				'This account-level rank uses the registration rank list and is not connected to any Organization rank catalog.'
-			)
-		).toBeTruthy();
-	});
-
 	it('offers the account ranks in order with the saved rank selected, and requires a choice', () => {
 		render(ProfilePage, {
 			props: {

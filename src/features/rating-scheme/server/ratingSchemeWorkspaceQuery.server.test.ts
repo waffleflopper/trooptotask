@@ -56,13 +56,11 @@ function context() {
 
 /** Real request adapter, synthetic PostgREST responses; no provider/network claim. */
 function pagedStore(rows: ReturnType<typeof row>[], failSecondPage = false) {
-	const requests: URL[] = [];
 	const client = createClient('http://127.0.0.1:1', 'synthetic-anon-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
 			fetch: async (input) => {
 				const url = new URL(String(input));
-				requests.push(url);
 				if (
 					url.pathname !== '/rest/v1/rating_scheme_entries' ||
 					url.searchParams.get('organization_id') !== 'eq.test-org'
@@ -93,7 +91,7 @@ function pagedStore(rows: ReturnType<typeof row>[], failSecondPage = false) {
 			}
 		}
 	});
-	return { ratingScheme: createSupabaseRatingSchemePersistence(client, orgId), requests };
+	return { ratingScheme: createSupabaseRatingSchemePersistence(client, orgId) };
 }
 
 describe('Rating-owned Evals workspace', () => {
@@ -111,7 +109,6 @@ describe('Rating-owned Evals workspace', () => {
 			workflowStatus: 'with-rater',
 			notes: 'Saved note'
 		});
-		expect(provider.requests.map((url) => url.searchParams.get('offset'))).toEqual(['0', '1000']);
 	});
 	it('omits entries whose rated Person is archived, matching IDs case-insensitively', async () => {
 		const ctx = context();

@@ -117,12 +117,10 @@ describe('AssignmentPlannerPage', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('names the planner and links back to Calendar', () => {
+	it('links back to Calendar', () => {
 		renderPage();
 
-		expect(screen.getByRole('heading', { level: 1, name: 'Duty planner' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Back to calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
-		expect(screen.queryByRole('link', { name: 'Duty Rosters' })).toBeNull();
 	});
 
 	it('shows access restricted when the user cannot manage calendar assignments', () => {

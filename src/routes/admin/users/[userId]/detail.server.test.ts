@@ -26,8 +26,6 @@ function event(authenticated = true) {
 	} as unknown as Parameters<typeof load>[0];
 }
 
-// Retained-only provider schema, reached through the real SDK and route admission.
-// Missing commercial columns reject requests instead of silently supplying fixtures.
 function provider() {
 	return vi.fn<typeof fetch>(async (input, init) => {
 		const url = new URL(String(input));
@@ -45,7 +43,6 @@ function provider() {
 				expect(params.get('is_active')).toBe('eq.true');
 				return Response.json(currentRole ? { role: currentRole } : null);
 			case '/rest/v1/organization_memberships':
-				if (params.get('select')?.match(/\b(tier|gift_tier)\b/)) break;
 				return Response.json(
 					params.get('user_id') === `eq.${userId}`
 						? [
@@ -123,40 +120,37 @@ describe('user detail request admission and retained projections', () => {
 	});
 	afterEach(() => vi.restoreAllMocks());
 
-	it.each(['super_admin', 'support'])(
-		'loads identity, memberships, suspension and activity for %s without commercial data',
-		async (role) => {
-			currentRole = role;
-			await expect(load(event())).resolves.toEqual({
-				adminRole: role,
-				user: {
-					id: userId,
-					email: 'soldier@example.test',
-					createdAt,
-					lastSignInAt: null,
-					emailConfirmedAt: createdAt,
-					emailConfirmationStatus: 'confirmed'
-				},
-				organizations: [
-					{ id: 'org-a', name: 'Able Clinic', role: 'owner', personnelCount: 3 },
-					{ id: 'org-b', name: 'Bravo Clinic', role: 'member', personnelCount: 1 }
-				],
-				suspension: { suspendedAt: createdAt, suspendedBy: 'admin-1', reason: 'Support review' },
-				isSuspended: true,
-				recentActivity: [
-					{
-						id: 'audit-1',
-						action: 'view_personnel',
-						resourceType: 'personnel',
-						resourceId: 'person-1',
-						orgId: 'org-a',
-						timestamp: createdAt,
-						severity: 'info'
-					}
-				]
-			});
-		}
-	);
+	it.each(['super_admin', 'support'])('loads identity, memberships, suspension and activity for %s', async (role) => {
+		currentRole = role;
+		await expect(load(event())).resolves.toEqual({
+			adminRole: role,
+			user: {
+				id: userId,
+				email: 'soldier@example.test',
+				createdAt,
+				lastSignInAt: null,
+				emailConfirmedAt: createdAt,
+				emailConfirmationStatus: 'confirmed'
+			},
+			organizations: [
+				{ id: 'org-a', name: 'Able Clinic', role: 'owner', personnelCount: 3 },
+				{ id: 'org-b', name: 'Bravo Clinic', role: 'member', personnelCount: 1 }
+			],
+			suspension: { suspendedAt: createdAt, suspendedBy: 'admin-1', reason: 'Support review' },
+			isSuspended: true,
+			recentActivity: [
+				{
+					id: 'audit-1',
+					action: 'view_personnel',
+					resourceType: 'personnel',
+					resourceId: 'person-1',
+					orgId: 'org-a',
+					timestamp: createdAt,
+					severity: 'info'
+				}
+			]
+		});
+	});
 
 	it.each([
 		{ role: 'billing', authenticated: true, status: 403 },

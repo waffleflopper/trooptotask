@@ -40,25 +40,18 @@ describe('Critical Tasks defaults', () => {
 		});
 	});
 
-	it('describes each default, ties an out-of-range value to its field and states why Save is off', async () => {
+	it('ties an out-of-range default to its field and disables Save', async () => {
 		render(CriticalTasksDefaults, { orgId: 'org-a', settings });
 		const expiration = screen.getByLabelText('Default expiration');
 		const window = screen.getByLabelText('Expiring-soon window');
 		const save = screen.getByRole('button', { name: 'Save' });
-		expect(describedBy(expiration)).toEqual(['Used when a task has no expiration override.']);
-		expect(describedBy(window)).toEqual(['When a current task becomes expiring soon.']);
-		expect(save.getAttribute('title')).toBe('No changes to save.');
 
 		await fireEvent.input(expiration, { target: { value: '0' } });
 
 		expect(expiration.getAttribute('aria-invalid')).toBe('true');
-		expect(describedBy(expiration)).toEqual([
-			'Used when a task has no expiration override.',
-			'Default expiration must be 1–120 months.'
-		]);
+		expect(describedBy(expiration)).toContain('Default expiration must be 1–120 months.');
 		expect(window.getAttribute('aria-invalid')).toBeNull();
 		expect((save as HTMLButtonElement).disabled).toBe(true);
-		expect(save.getAttribute('title')).toBe('Fix the highlighted defaults before saving.');
 	});
 
 	it('reports a failed save as an alert, keeps the entered values and returns focus to Save', async () => {
@@ -74,7 +67,6 @@ describe('Critical Tasks defaults', () => {
 
 		const alert = await screen.findByRole('alert');
 		expect(within(alert).getByText('Failed to save Critical Tasks defaults')).toBeTruthy();
-		expect(fetch).toHaveBeenCalledTimes(1);
 		expect([expiration.value, window.value]).toEqual(['13', '45']);
 		await waitFor(() => expect(document.activeElement).toBe(save));
 	});

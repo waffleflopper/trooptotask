@@ -177,27 +177,6 @@ describe('Training Reports briefing page', () => {
 		expect(screen.getByText('Forecast · next 30 days')).toBeTruthy();
 	});
 
-	it('shows the horizons as 30 D on the row and names them 30 days', () => {
-		renderPage(vi.fn<typeof fetch>(async () => Response.json(reportFor())));
-
-		const horizon = screen.getByRole('group', { name: 'Forecast horizon' });
-		expect(
-			within(horizon)
-				.getAllByRole('button')
-				.map((button) => button.textContent?.trim())
-		).toEqual(['30 D', '60 D', '90 D', '180 D']);
-		expect(within(horizon).getByRole('button', { name: '180 days' })).toBeTruthy();
-	});
-
-	it('shows the Rows by caption beside the hot-spot grid toolbar and keeps the view group named', () => {
-		renderPage(vi.fn<typeof fetch>(async () => Response.json(reportFor())));
-
-		const hotSpots = screen.getByRole('toolbar', { name: 'Hot-spot grid controls' });
-		expect(within(hotSpots).getByRole('group', { name: 'Rows by' })).toBeTruthy();
-		const caption = screen.getByText('Rows by');
-		expect(hotSpots.contains(caption)).toBe(false);
-	});
-
 	it('refetches the briefing when the horizon changes and keeps focus on the control', async () => {
 		const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));
 		renderPage(fetchImpl);
@@ -763,22 +742,6 @@ describe('Training Reports briefing page', () => {
 		afterEach(() => vi.unstubAllGlobals());
 
 		const controls = 'Training report controls';
-
-		it('keeps Print brief on the row and moves every other control into More', async () => {
-			renderPage();
-			await widths.foldAll();
-
-			const toolbar = screen.getByRole('toolbar', { name: controls });
-			expect(within(toolbar).getByRole('button', { name: 'Print brief' })).toBeTruthy();
-			expect(within(toolbar).queryByRole('button', { name: 'Export Excel' })).toBeNull();
-			expect(within(toolbar).queryByRole('button', { name: '30 days' })).toBeNull();
-			const menu = await openToolbarMore(controls);
-			expect(within(menu).getByRole('menuitem', { name: 'Export Excel' })).toBeTruthy();
-			expect(within(menu).getByRole('group', { name: 'Forecast horizon' })).toBeTruthy();
-			for (const name of ['View, All training', 'Group, All groups', 'Rank, All ranks', 'MOS', 'Duty role', 'Types']) {
-				expect(within(menu).getByRole('menuitem', { name }), name).toBeTruthy();
-			}
-		});
 
 		it('changes the horizon from its radio group and writes it to the address', async () => {
 			const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));

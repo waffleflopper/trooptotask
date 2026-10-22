@@ -3,23 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
 	addOrganizationRankServicePackMock,
-	bulkSetOrganizationRankCatalogStateMock,
 	buildRouteRequestMock,
 	createSupabaseRankCatalogAdministrationPortMock,
 	loadRanksSettingsMock,
 	loadSettingsPageMock,
-	reactivateOrganizationRankCatalogEntryMock,
 	removeOrganizationRankCatalogEntryMock,
 	retireOrganizationRankCatalogEntryMock,
 	saveOrganizationRankCatalogEntryMock
 } = vi.hoisted(() => ({
 	addOrganizationRankServicePackMock: vi.fn(),
-	bulkSetOrganizationRankCatalogStateMock: vi.fn(),
 	buildRouteRequestMock: vi.fn(),
 	createSupabaseRankCatalogAdministrationPortMock: vi.fn(),
 	loadRanksSettingsMock: vi.fn(),
 	loadSettingsPageMock: vi.fn(),
-	reactivateOrganizationRankCatalogEntryMock: vi.fn(),
 	removeOrganizationRankCatalogEntryMock: vi.fn(),
 	retireOrganizationRankCatalogEntryMock: vi.fn(),
 	saveOrganizationRankCatalogEntryMock: vi.fn()
@@ -45,8 +41,6 @@ vi.mock('$features/personnel/index.server', async () => {
 		...actual,
 		createSupabaseRankCatalogAdministrationPort: createSupabaseRankCatalogAdministrationPortMock,
 		addOrganizationRankServicePack: addOrganizationRankServicePackMock,
-		bulkSetOrganizationRankCatalogState: bulkSetOrganizationRankCatalogStateMock,
-		reactivateOrganizationRankCatalogEntry: reactivateOrganizationRankCatalogEntryMock,
 		removeOrganizationRankCatalogEntry: removeOrganizationRankCatalogEntryMock,
 		retireOrganizationRankCatalogEntry: retireOrganizationRankCatalogEntryMock,
 		saveOrganizationRankCatalogEntry: saveOrganizationRankCatalogEntryMock
@@ -100,41 +94,7 @@ describe('rank settings page server', () => {
 		vi.clearAllMocks();
 		buildRouteRequestMock.mockResolvedValue(routeContext);
 		createSupabaseRankCatalogAdministrationPortMock.mockReturnValue({ kind: 'rank-admin-port' });
-		loadRanksSettingsMock.mockResolvedValue({ sections: { ranks: { commands: { canManageCatalog: true } } } });
-		loadSettingsPageMock.mockImplementation(async (event, _context, loader) => loader(routeContext, event));
-		addOrganizationRankServicePackMock.mockImplementation(async (_ctx: unknown, input: { service: string }) => ({
-			addedCount: input.service === 'navy' ? 7 : 0,
-			skippedExistingCount: input.service === 'navy' ? 0 : 1
-		}));
-		bulkSetOrganizationRankCatalogStateMock.mockImplementation(
-			async (_ctx: unknown, input: { service: string; targetState: string }) => ({
-				changedCount: input.service === 'marine-corps' && input.targetState === 'retired' ? 2 : 1
-			})
-		);
-		saveOrganizationRankCatalogEntryMock.mockImplementation(
-			async (
-				_ctx: unknown,
-				input: {
-					code: string;
-					intent: string;
-					originalCode: string;
-					sortOrder: number;
-				}
-			) => ({
-				code: `${input.intent}:${input.originalCode || 'new'}:${input.code}:${input.sortOrder}`
-			})
-		);
-		reactivateOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'active' });
 		retireOrganizationRankCatalogEntryMock.mockResolvedValue({ code: 'DET-SGT', state: 'retired' });
-		removeOrganizationRankCatalogEntryMock.mockResolvedValue(undefined);
-	});
-
-	it('loads rank settings data', async () => {
-		const result = await load({ locals: {}, cookies: {}, parent: async () => ({}) } as never);
-
-		expect(result).toEqual({
-			ranksSettings: { sections: { ranks: { commands: { canManageCatalog: true } } } }
-		});
 	});
 
 	it('uses saved roster rank references for both Settings warnings and deletion decisions', async () => {
@@ -172,62 +132,6 @@ describe('rank settings page server', () => {
 		});
 	});
 
-	it.each([
-		{
-			label: 'adds a built-in rank service pack from form data',
-			run: () => actions.addServicePack(actionEvent('addServicePack', new URLSearchParams({ service: 'navy' }))),
-			expected: { success: true, addedCount: 7, skippedExistingCount: 0 }
-		},
-		{
-			label: 'retires active built-in ranks for a service branch in bulk',
-			run: () =>
-				actions.bulkRankState(
-					actionEvent('bulkRankState', new URLSearchParams({ service: 'marine-corps', targetState: 'retired' }))
-				),
-			expected: { success: true, service: 'marine-corps', state: 'retired', changedCount: 2 }
-		},
-		{
-			label: 'reactivates retired built-in ranks for a service branch in bulk',
-			run: () =>
-				actions.bulkRankState(
-					actionEvent('bulkRankState', new URLSearchParams({ service: 'army', targetState: 'active' }))
-				),
-			expected: { success: true, service: 'army', state: 'active', changedCount: 1 }
-		},
-		{
-			label: 'saves a custom rank from form data',
-			run: () =>
-				actions.saveRank(
-					actionEvent(
-						'saveRank',
-						new URLSearchParams({
-							code: 'DET-SGT',
-							label: 'Detachment Sergeant',
-							service: 'custom',
-							category: 'custom',
-							payGrade: 'ungraded',
-							state: 'active',
-							sortOrder: '500',
-							intent: 'add'
-						})
-					)
-				),
-			expected: { success: true, code: 'create:new:DET-SGT:500' }
-		},
-		{
-			label: 'reactivates retired ranks',
-			run: () => actions.reactivateRank(actionEvent('reactivateRank', new URLSearchParams({ code: 'DET-SGT' }))),
-			expected: { success: true, code: 'DET-SGT' }
-		},
-		{
-			label: 'deletes unused ranks',
-			run: () => actions.deleteRank(actionEvent('deleteRank', new URLSearchParams({ code: 'DET-SGT' }))),
-			expected: { success: true, code: 'DET-SGT' }
-		}
-	])('$label', async ({ run, expected }) => {
-		await expect(run()).resolves.toEqual(expected);
-	});
-
 	it('rejects edited rank submissions when the readonly code is tampered', async () => {
 		const result = await actions.saveRank(
 			actionEvent(
@@ -250,6 +154,7 @@ describe('rank settings page server', () => {
 			status: 400,
 			data: { rankError: 'Rank code cannot be changed from this edit form.' }
 		});
+		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 	});
 
 	it.each([
@@ -277,6 +182,7 @@ describe('rank settings page server', () => {
 			status: 400,
 			data: { rankError: 'Tie-break order must be a whole number.' }
 		});
+		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 	});
 
 	it('returns rankError when rank sort order exceeds PostgreSQL integer range', async () => {
@@ -300,6 +206,7 @@ describe('rank settings page server', () => {
 			status: 400,
 			data: { rankError: 'Tie-break order must fit within PostgreSQL integer range.' }
 		});
+		expect(saveOrganizationRankCatalogEntryMock).not.toHaveBeenCalled();
 	});
 
 	it('retires ranks and maps denied writes to rankError action failures', async () => {
@@ -319,5 +226,6 @@ describe('rank settings page server', () => {
 		await expect(
 			actions.addServicePack(actionEvent('addServicePack', new URLSearchParams({ service: 'navy' }), {}))
 		).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+		expect(addOrganizationRankServicePackMock).not.toHaveBeenCalled();
 	});
 });

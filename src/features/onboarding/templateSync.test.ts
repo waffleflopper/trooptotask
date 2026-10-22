@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { describeTemplateSync, syncTemplatePackets } from './templateSync';
+import { syncTemplatePackets } from './templateSync';
 import type { PersonnelOnboarding } from './onboarding.types';
 
 function packet(id: string): PersonnelOnboarding {
@@ -18,13 +18,13 @@ function packet(id: string): PersonnelOnboarding {
 const packets = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(packet);
 
 describe('syncing the active packets on a template', () => {
-	it('syncs every packet and reports one message', async () => {
-		const resync = vi.fn(async () => ({ success: true }));
+	it('syncs every packet once and counts each as synced', async () => {
+		const resync = vi.fn(async (_id: string) => ({ success: true }));
 
 		const result = await syncTemplatePackets({ packets, counted: 7, mayManage: () => true, resync });
 
-		expect(resync).toHaveBeenCalledTimes(7);
-		expect(describeTemplateSync(result)).toBe('Synced 7 packets');
+		expect(resync.mock.calls.map(([id]) => id).sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+		expect(result).toEqual({ total: 7, synced: 7, outsideAccess: 0, failed: 0 });
 	});
 
 	it('skips packets the member may not manage and says how many', async () => {
@@ -35,7 +35,7 @@ describe('syncing the active packets on a template', () => {
 
 		expect(resync).not.toHaveBeenCalledWith('f');
 		expect(resync).not.toHaveBeenCalledWith('g');
-		expect(describeTemplateSync(result)).toBe('Synced 5 of 7. 2 are outside your access.');
+		expect(result).toEqual({ total: 7, synced: 5, outsideAccess: 2, failed: 0 });
 	});
 
 	it('reports packets that failed to sync, and packets the server counted but this client does not hold', async () => {
@@ -48,7 +48,7 @@ describe('syncing the active packets on a template', () => {
 			resync
 		});
 
-		expect(describeTemplateSync(result)).toBe('Synced 2 of 4. 2 could not be synced. Try again.');
+		expect(result).toEqual({ total: 4, synced: 2, outsideAccess: 0, failed: 2 });
 	});
 
 	it('reports access and failures together', async () => {
@@ -60,36 +60,30 @@ describe('syncing the active packets on a template', () => {
 			resync
 		});
 
-		expect(describeTemplateSync(result)).toBe(
-			'Synced 2 of 4. 1 is outside your access. 1 could not be synced. Try again.'
-		);
+		expect(result).toEqual({ total: 4, synced: 2, outsideAccess: 1, failed: 1 });
 	});
 
-	it('uses singular wording for one packet and says when there is nothing to sync', async () => {
-		const one = await syncTemplatePackets({
-			packets: [packet('a')],
-			counted: 1,
-			mayManage: () => true,
-			resync: async () => ({ success: true })
+	it('syncs packets concurrently in bounded waves and counts all admitted results', async () => {
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
 		});
-		expect(describeTemplateSync(one)).toBe('Synced 1 packet');
-
-		const none = await syncTemplatePackets({ packets: [], counted: 0, mayManage: () => true, resync: vi.fn() });
-		expect(describeTemplateSync(none)).toBe('No active packets to sync.');
-	});
-
-	it('never has more than four syncs in flight', async () => {
-		let inFlight = 0;
-		let peak = 0;
-		const resync = async () => {
-			peak = Math.max(peak, ++inFlight);
-			await new Promise((resolve) => setTimeout(resolve, 1));
-			inFlight--;
+		const started: string[] = [];
+		const resync = async (id: string) => {
+			started.push(id);
+			await gate;
 			return { success: true };
 		};
 
-		await syncTemplatePackets({ packets, counted: 7, mayManage: () => true, resync });
+		const pending = syncTemplatePackets({ packets, counted: 7, mayManage: () => true, resync });
+		try {
+			expect(started.length).toBeGreaterThan(1);
+			expect(started.length).toBeLessThan(packets.length);
+		} finally {
+			release();
+		}
 
-		expect(peak).toBe(4);
+		expect(await pending).toEqual({ total: 7, synced: 7, outsideAccess: 0, failed: 0 });
+		expect(started.sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
 	});
 });

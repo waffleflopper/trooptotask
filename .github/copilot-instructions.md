@@ -49,19 +49,16 @@ For v1 work, use the relevant sections of:
 - `AGENTS.md`
 - `docs/architecture/ARCHITECTURE.md`
 - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
-- `docs/architecture/MODULE_CONVENTIONS.md`
-- `docs/architecture/DRIFT_LEDGER.md`
-- `docs/architecture/CURRENT_OWNERSHIP.md` and `docs/architecture/adrs/0013-v1-module-and-delivery-contract.md` for module work
 - `CONTEXT.md#language` for domain terminology
 
 Use these repo-specific rules:
 
 - Treat `Organization` and `Group` as canonical v1 current-state terms.
 - Do not present v2 `Account` / `Unit` / `Element` terminology as if it already describes v1.
-- Keep current Supabase Auth, membership, identifiers, authorization, SQL/RLS and tenant guarantees authoritative while their owned boundaries are narrowed through the stabilization queue.
+- Keep current Supabase Auth, membership, identifiers, authorization, SQL/RLS and tenant guarantees authoritative.
 - Use current `src/features/*` placement honestly. New cross-owner calls use declared public seams, and privileged feature operations use SvelteKit-recognized server-only files; the module checker fails on any boundary finding.
 - Route server files never use `locals.supabase` or an admin client directly; pass the request to an owned operation or bind service-role ports in a Delivery adapter.
-- Keep the six distinct current feature permission lanes; do not borrow another lane for new behavior. Critical Tasks' former Training coupling is resolved.
+- Keep the six distinct current feature permission lanes; do not borrow another lane for new behavior.
 - `npm run governance:check` has no exception file: route provider usage, permission couplings and module-boundary findings all fail. Do not add exceptions or manifest declarations to pass it.
 - Preserve compatibility with legacy clinic-era names, but prefer Army/military-oriented canonical terms in docs, UX copy, and new abstractions.
 - Do not deepen demo or sandbox behavior.

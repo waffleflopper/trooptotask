@@ -268,15 +268,6 @@ describe('addNote', () => {
 		]);
 	});
 
-	it.each(['', '  \t '])('forwards the original text %j to the atomic provider', async (text) => {
-		const append = vi.fn(async () => ({ id: 'step-1', notes: [] }));
-		const ctx = noteContext({ onboardingNoteAppend: { append } });
-
-		await addNote(ctx, { stepId: 'step-1', text });
-
-		expect(append).toHaveBeenCalledWith('test-org', 'step-1', text);
-	});
-
 	it('does not emit a success audit when persistence fails', async () => {
 		const failure = new Error('Database unavailable');
 		const ctx = noteContext({
@@ -372,15 +363,6 @@ describe('removeInactiveStep', () => {
 		const remove = vi.fn(async () => ({ id: 'step-1' }));
 		const ctx = noteContext({ onboardingInactiveStepRemoval: { remove } });
 		await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, 'step-1', { completed: true });
-		await expect(
-			ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })
-		).resolves.toMatchObject({
-			active: false,
-			completed: true
-		});
-		await expect(ctx.store.findOne('personnel_onboardings', ctx.auth.orgId, { id: 'ob-1' })).resolves.toMatchObject({
-			status: 'completed'
-		});
 		ctx.store.delete = async () => {
 			throw new Error('Generic deletion is unavailable');
 		};

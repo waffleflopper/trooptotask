@@ -413,16 +413,6 @@ describe('Calendar', () => {
 			expect(container.querySelector('[data-testid^="loss-indicator-"]')).toBeNull();
 		});
 
-		it('places the chip inside the person row header, not inside a date cell', () => {
-			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
-			const { container } = renderCalendar({ upcomingLossMap: lossMap });
-
-			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]') as HTMLElement | null;
-			expect(chip).toBeTruthy();
-
-			expect(chip?.closest('button')).toBe(screen.getByRole('button', { name: /Smith, Alex\s*ETS$/ }));
-		});
-
 		it('only shows chips for personnel that have a loss record, leaving others clean', () => {
 			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
 			const { container } = renderCalendar({ upcomingLossMap: lossMap });

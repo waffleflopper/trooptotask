@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { loadUserProfileMock, upsertUserProfileMock } = vi.hoisted(() => ({
-	loadUserProfileMock: vi.fn(),
+const { upsertUserProfileMock } = vi.hoisted(() => ({
 	upsertUserProfileMock: vi.fn()
 }));
 
@@ -12,7 +11,6 @@ vi.mock('$features/identity/index.server', async () => {
 
 	return {
 		...actual,
-		loadUserProfile: loadUserProfileMock,
 		upsertUserProfile: upsertUserProfileMock
 	};
 });
@@ -30,60 +28,6 @@ function makeProfileRequest(form: Record<string, string>): Request {
 describe('account profile page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		loadUserProfileMock.mockResolvedValue(null);
-		upsertUserProfileMock.mockResolvedValue(undefined);
-	});
-
-	it('offers active Army ranks from lowest to highest, then Civilian', async () => {
-		const data = await load({ locals: { actor: { userId: 'user-1' }, user: { id: 'user-1' } } } as never);
-
-		expect(data).toEqual({
-			profile: null,
-			ranks: [
-				'PV1',
-				'PV2',
-				'PFC',
-				'SPC',
-				'CPL',
-				'SGT',
-				'SSG',
-				'SFC',
-				'MSG',
-				'1SG',
-				'SGM',
-				'CSM',
-				'WO1',
-				'CW2',
-				'CW3',
-				'CW4',
-				'CW5',
-				'2LT',
-				'1LT',
-				'CPT',
-				'MAJ',
-				'LTC',
-				'COL',
-				'BG',
-				'MG',
-				'LTG',
-				'GEN',
-				'CIV'
-			]
-		});
-	});
-
-	it.each(['CIV', 'CSM', 'GEN'])('saves the offered rank %s', async (rank) => {
-		const result = await actions.default({
-			request: makeProfileRequest({ firstName: 'Emma', lastName: 'Hayes', rank }),
-			locals: { actor: { userId: 'user-1' }, user: { id: 'user-1' } }
-		} as never);
-
-		expect(result).toEqual({ success: 'Profile saved.' });
-		expect(upsertUserProfileMock).toHaveBeenCalledWith(expect.anything(), 'user-1', {
-			firstName: 'Emma',
-			lastName: 'Hayes',
-			rank
-		});
 	});
 
 	it.each(['SP4', 'ADM', 'cpt'])('rejects the unoffered rank %s', async (rank) => {

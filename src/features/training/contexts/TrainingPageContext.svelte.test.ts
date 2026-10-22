@@ -337,7 +337,7 @@ describe('TrainingPageContext', () => {
 			const ctx = makeContext(makeData(), modals, makeOrg());
 
 			expect(ctx.groups).toEqual(mockGroups);
-			expect(ctx.groupOrder).toEqual(mockGroups.map((group) => group.name));
+			expect(ctx.groupOrder).toEqual(['Alpha', 'Bravo', 'Charlie']);
 		});
 	});
 

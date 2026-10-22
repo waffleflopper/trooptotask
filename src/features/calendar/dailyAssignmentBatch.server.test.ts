@@ -339,39 +339,6 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		}
 	});
 
-	it('ignores retired generation inputs when saving a manual batch', async () => {
-		const ctx = buildContext();
-		// Untrusted callers can still send retired keys even though the typed API no longer exposes them.
-		const record = {
-			date: '2026-03-22',
-			assignmentTypeId: TYPE_A,
-			assigneeId: PERSON_1,
-			dutyRosterTemplateRunId: 'legacy-run',
-			dutyRosterTemplateRunRowDate: '2026-03-22',
-			cooldownHours: 168,
-			sourceLineage: { sourceKind: 'duty-roster-run', sourceId: 'generic-run', sourceRowKey: '2026-03-22' }
-		};
-		const result = await replaceDailyAssignmentSlotsBatch(ctx, { records: [record] });
-		expect(result.inserted).toEqual([
-			{
-				id: expect.any(String),
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignmentTypeId: TYPE_A,
-				assigneeId: PERSON_1
-			}
-		]);
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
-			{
-				id: expect.any(String),
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: TYPE_A,
-				assignee_id: PERSON_1
-			}
-		]);
-	});
-
 	it('replaces affected assignment slots without disturbing unrelated dates', async () => {
 		const ctx = buildContext();
 

@@ -653,7 +653,6 @@ describe('onboarding templates page', () => {
 
 		const type = (name: string) => screen.getByRole('radio', { name });
 		expect(type('Checkbox').getAttribute('data-state')).toBe('on');
-		expect(type('Checkbox').className).toContain('data-[state=on]:bg-primary');
 		await fireEvent.click(type('Paperwork'));
 		expect(type('Paperwork').getAttribute('data-state')).toBe('on');
 		expect(type('Checkbox').getAttribute('data-state')).toBe('off');

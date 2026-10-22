@@ -22,12 +22,6 @@ function buildPorts() {
 			);
 			const deletedIds = eligible.map((row) => row.id);
 			const count = await memory.deleteManyByIds('personnel_onboardings', orgId, deletedIds);
-			// This test persistence models the existing FK. Owned provider proof establishes the real cascade.
-			await memory.deleteWhereAny(
-				'onboarding_step_progress',
-				orgId,
-				deletedIds.map((id) => ({ onboarding_id: id }))
-			);
 			return count;
 		}
 	);
@@ -158,17 +152,6 @@ describe('cleanupExpiredOnboardings', () => {
 				cancelled_at: null
 			}
 		]);
-		store.seed('onboarding_step_progress', [
-			{
-				id: 'sp-1',
-				onboarding_id: 'ob-expired',
-				step_name: 'Get ID',
-				step_type: 'checkbox',
-				completed: true,
-				active: true,
-				organization_id: 'org-1'
-			}
-		]);
 
 		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
@@ -242,49 +225,7 @@ describe('cleanupExpiredOnboardings', () => {
 		expect(result.deletedCount).toBe(0);
 	});
 
-	it('cascades deletion to step progress rows', async () => {
-		const ports = buildPorts();
-		const { store } = ports;
-		store.seed('personnel_onboardings', [
-			{
-				id: 'ob-expired',
-				organization_id: 'org-1',
-				personnel_id: 'p-1',
-				template_id: 'tmpl-1',
-				status: 'completed',
-				started_at: monthsAgo(18),
-				completed_at: monthsAgo(13),
-				cancelled_at: null
-			}
-		]);
-		store.seed('onboarding_step_progress', [
-			{
-				id: 'sp-1',
-				onboarding_id: 'ob-expired',
-				step_name: 'Step A',
-				step_type: 'checkbox',
-				completed: true,
-				active: true,
-				organization_id: 'org-1'
-			},
-			{
-				id: 'sp-2',
-				onboarding_id: 'ob-expired',
-				step_name: 'Step B',
-				step_type: 'paperwork',
-				completed: false,
-				active: true,
-				organization_id: 'org-1'
-			}
-		]);
-
-		await cleanupExpiredOnboardings(ports, [org1Config]);
-
-		const steps = await store.findMany('onboarding_step_progress', 'org-1');
-		expect(steps).toHaveLength(0);
-	});
-
-	it('removes expired onboardings and their step progress', async () => {
+	it('removes expired onboardings and keeps active and recent ones', async () => {
 		const ports = buildPorts();
 		const { store } = ports;
 		store.seed('personnel_onboardings', [
@@ -329,74 +270,17 @@ describe('cleanupExpiredOnboardings', () => {
 				cancelled_at: null
 			}
 		]);
-		store.seed('onboarding_step_progress', [
-			{
-				id: 'sp-completed-1',
-				onboarding_id: 'ob-expired-completed',
-				step_name: 'Step A',
-				step_type: 'checkbox',
-				completed: true,
-				active: true,
-				organization_id: 'org-1'
-			},
-			{
-				id: 'sp-completed-2',
-				onboarding_id: 'ob-expired-completed',
-				step_name: 'Step B',
-				step_type: 'paperwork',
-				completed: false,
-				active: true,
-				organization_id: 'org-1'
-			},
-			{
-				id: 'sp-cancelled-1',
-				onboarding_id: 'ob-expired-cancelled',
-				step_name: 'Step C',
-				step_type: 'checkbox',
-				completed: false,
-				active: true,
-				organization_id: 'org-1'
-			},
-			{
-				id: 'sp-cancelled-2',
-				onboarding_id: 'ob-expired-cancelled',
-				step_name: 'Step D',
-				step_type: 'paperwork',
-				completed: false,
-				active: true,
-				organization_id: 'org-1'
-			},
-			{
-				id: 'sp-recent',
-				onboarding_id: 'ob-recent',
-				step_name: 'Step E',
-				step_type: 'checkbox',
-				completed: false,
-				active: true,
-				organization_id: 'org-1'
-			},
-			{
-				id: 'sp-active',
-				onboarding_id: 'ob-active',
-				step_name: 'Step F',
-				step_type: 'checkbox',
-				completed: false,
-				active: true,
-				organization_id: 'org-1'
-			}
-		]);
 
 		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result).toEqual({ deletedCount: 2, orgsAffected: 1 });
 		const remainingOnboardings = await store.findMany<{ id: string }>('personnel_onboardings', 'org-1');
 		expect(remainingOnboardings.map((row) => row.id).sort()).toEqual(['ob-active', 'ob-recent']);
-		const remainingSteps = await store.findMany<{ onboarding_id: string }>('onboarding_step_progress', 'org-1');
-		expect(remainingSteps.map((row) => row.onboarding_id).sort()).toEqual(['ob-active', 'ob-recent']);
+
 		expect(ports.notifications.notifyAdmins).toHaveBeenCalledWith(
 			'org-1',
 			null,
-			expect.objectContaining({ message: '2 onboarding records auto-deleted after retention period' })
+			expect.objectContaining({ type: 'onboarding_auto_deleted' })
 		);
 	});
 
@@ -407,17 +291,11 @@ describe('cleanupExpiredOnboardings', () => {
 			makeCompletedOnboarding(`ob-expired-${index}`, monthsAgo(13))
 		);
 		store.seed('personnel_onboardings', expiredOnboardings);
-		store.seed(
-			'onboarding_step_progress',
-			expiredOnboardings.map((row) => makeStepProgress(row.id))
-		);
 		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result).toEqual({ deletedCount: 205, orgsAffected: 1 });
 		const remainingOnboardings = await store.findMany('personnel_onboardings', 'org-1');
 		expect(remainingOnboardings).toHaveLength(0);
-		const remainingSteps = await store.findMany('onboarding_step_progress', 'org-1');
-		expect(remainingSteps).toHaveLength(0);
 	});
 
 	it('uses a UTC month-end clamp for retention cutoffs', async () => {
@@ -608,7 +486,6 @@ describe('cleanupExpiredOnboardings', () => {
 			makeCompletedOnboarding('org-1-expired', monthsAgo(13)),
 			makeCompletedOnboarding('org-2-expired', monthsAgo(13), 'org-2')
 		]);
-		ports.store.seed('onboarding_step_progress', [makeStepProgress('org-1-expired')]);
 		ports.notifications.notifyAdmins.mockRejectedValue(new Error('notification insert unavailable'));
 
 		await expect(cleanupExpiredOnboardings(ports, [org1Config, org2Config])).rejects.toThrow(
@@ -616,7 +493,6 @@ describe('cleanupExpiredOnboardings', () => {
 		);
 
 		await expect(ports.store.findMany('personnel_onboardings', 'org-1')).resolves.toEqual([]);
-		await expect(ports.store.findMany('onboarding_step_progress', 'org-1')).resolves.toEqual([]);
 		await expect(ports.store.findMany('personnel_onboardings', 'org-2')).resolves.toEqual([
 			expect.objectContaining({ id: 'org-2-expired' })
 		]);

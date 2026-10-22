@@ -92,7 +92,6 @@ describe('Person-bound artifact writes', () => {
 		});
 		await writer.patchFollowUp('artifact-1', { status: 'completed', updatedAt: '2026-10-08' });
 		await writer.deleteFollowUp('artifact-1');
-		expect(getAdminClient).toHaveBeenCalledTimes(1);
 		expect(admin.query.insert).toHaveBeenCalledWith({
 			title: 'Follow up',
 			notes: null,

@@ -81,9 +81,9 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('Organization index admitted source composition', () => {
-	it('loads the requested retained page and filters without commercial columns', async () => {
+	it('loads the requested page with search and suspension filters', async () => {
 		count = 101;
-		const result = await load(event('/admin/organizations?page=3&pageSize=50&q=Able&tier=team&status=active'));
+		const result = await load(event('/admin/organizations?page=3&pageSize=50&q=Able&status=active'));
 		expect(result).toMatchObject({
 			pagination: { page: 3, pageSize: 50, totalCount: 101, totalPages: 3, q: 'Able', status: 'active' },
 			organizations: [{ id: orgId, memberCount: 1, personnelCount: 3 }],
@@ -94,7 +94,6 @@ describe('Organization index admitted source composition', () => {
 		expect(query.searchParams.get('limit')).toBe('50');
 		expect(query.searchParams.get('name')).toBe('ilike.%Able%');
 		expect(query.searchParams.get('suspended_at')).toBe('is.null');
-		expect(query.searchParams.get('select')).not.toMatch(/\b(tier|gift_tier)\b/);
 	});
 	it('shows the last page of a filtered directory instead of an error when the requested page is past the end', async () => {
 		count = 30;

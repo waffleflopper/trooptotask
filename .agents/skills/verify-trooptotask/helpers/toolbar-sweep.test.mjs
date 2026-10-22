@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { Window } from 'happy-dom';
 import {
 	checkSweep,
@@ -453,12 +454,50 @@ test('reports a control past either edge of the row content box, search included
 	assert.deepEqual(readToolbar(window, 'Controls').clipped, []);
 });
 
-test('the injected page source reads only on the owned origin after fonts and two frames', () => {
-	const source = toolbarReadSource('Critical Tasks controls', 'http://127.0.0.1:4100');
-	assert.match(source, /location\.origin !== "http:\/\/127\.0\.0\.1:4100"/);
-	assert.match(source, /"Critical Tasks controls"/);
-	assert.match(source, /fonts\?\.ready/);
-	assert.equal(source.match(/requestAnimationFrame/g).length, 2);
+test('the injected reader rejects a foreign origin before accessing the page', async () => {
+	const source = toolbarReadSource('Controls', 'http://127.0.0.1:4100');
+	await assert.rejects(
+		runInNewContext(`(${source})()`, { location: { origin: 'http://127.0.0.1:4200' } }),
+		/Use an owned app page/
+	);
+});
+
+test('the injected reader waits for fonts and two frames before reading the named toolbar', async (t) => {
+	const window = page(fitted(['export', 'record']));
+	t.after(() => window.happyDOM.close());
+	const fonts = Promise.withResolvers();
+	const frames = [];
+	let reads = 0;
+	const select = window.document.querySelectorAll.bind(window.document);
+	window.document.querySelectorAll = (selector) => {
+		reads++;
+		return select(selector);
+	};
+	let result;
+	const source = toolbarReadSource('Controls', 'http://127.0.0.1:4100');
+	const reading = runInNewContext(`(${source})()`, {
+		location: { origin: 'http://127.0.0.1:4100' },
+		document: { fonts: { ready: fonts.promise } },
+		window,
+		requestAnimationFrame: (callback) => frames.push(callback)
+	}).then((value) => (result = value));
+	await new Promise(setImmediate);
+	assert.equal(result, undefined);
+	assert.equal(reads, 0);
+	assert.equal(frames.length, 0);
+
+	fonts.resolve();
+	await new Promise(setImmediate);
+	assert.equal(reads, 0);
+	assert.equal(frames.length, 1);
+	frames.shift()();
+	assert.equal(result, undefined);
+	assert.equal(reads, 0);
+	assert.equal(frames.length, 1);
+	frames.shift()();
+	await reading;
+	assert.equal(result.fitted, true);
+	assert.deepEqual(Array.from(result.ids), ['export', 'record']);
 });
 
 test('sweeps widths downward in whole steps and always ends on the target', () => {

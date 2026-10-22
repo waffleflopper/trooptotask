@@ -94,6 +94,28 @@ function context(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 }
 
 describe('importPersonnelRecords', () => {
+	it('updates a person created by an earlier import', async () => {
+		const ctx = context();
+		const first = await importPersonnelRecords(ctx, {
+			records: [{ op: 'create', rank: 'SGT', firstName: 'New', lastName: 'Person' }]
+		});
+		const personnelId = first.created[0].id;
+		const result = await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId, changes: { mos: '68V' } }]
+		});
+		expect(result).toMatchObject({
+			created: [],
+			updated: [{ id: personnelId, firstName: 'New', lastName: 'Person', mos: '68V' }],
+			errors: []
+		});
+		await expect(ctx.personnel.findById(personnelId)).resolves.toMatchObject({
+			firstName: 'New',
+			lastName: 'Person',
+			mos: '68V',
+			archivedAt: null
+		});
+	});
+
 	it('does not change a Person archived after the import references were loaded', async () => {
 		const ctx = context();
 		const { client, state } = personnelProvider({

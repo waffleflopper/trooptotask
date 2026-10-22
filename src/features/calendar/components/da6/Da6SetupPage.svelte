@@ -47,8 +47,9 @@
 		Object.fromEntries(current.numbers.map(({ personId, track, count }) => [keyOf(personId, track), `${count}`]));
 
 	// Typed values belong to the form they were typed on, so a reload after a refusal keeps them on the same form.
+	// Once the numbers are part of the record, the record shows instead.
 	let edits = $state.raw<{ formId: string; values: Record<string, string> } | null>(null);
-	const values = $derived(form ? (edits?.formId === form.id ? edits.values : savedValues(form)) : {});
+	const values = $derived(form ? (editable && edits?.formId === form.id ? edits.values : savedValues(form)) : {});
 	let refusal = $state.raw<{ formId: string; message: string } | null>(null);
 	const TRACK_LABEL = { all: '', weekday: 'weekday ', weekend: 'weekend and holiday ' } as const;
 	const saving = new PendingSave();
@@ -284,17 +285,17 @@
 					{/each}
 				</tbody>
 			</Table.Root>
-			<footer
-				class="flex flex-col gap-4 border-t bg-card-alt px-4 py-3 lg:flex-row lg:items-start lg:justify-between"
-			>
+			<footer class="flex flex-col gap-4 border-t bg-card-alt px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
 				<div class="flex flex-col gap-1 text-sm">
 					{#if form.weekendMode === 'separate'}
 						<p>Red is the weekend &amp; holiday count, kept separately because this roster uses a separate count.</p>
 					{/if}
-					<p class="text-muted-foreground">
-						Someone marked A on your paper form? Enter the number they're holding. Their leave already lives in
-						TroopToTask statuses.
-					</p>
+					{#if editable}
+						<p class="text-muted-foreground">
+							Someone marked A on your paper form? Enter the number they're holding. Their leave already lives in
+							TroopToTask statuses.
+						</p>
+					{/if}
 				</div>
 				<div class="min-w-0 lg:max-w-[50%]">
 					<h3 class="font-mono text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">Remarks</h3>

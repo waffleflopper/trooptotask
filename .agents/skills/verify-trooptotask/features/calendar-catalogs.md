@@ -20,7 +20,9 @@ their references through edits, while confirmed type deletion explains and remov
   weekend mode closes the open DA 6 form on the day Save is pressed, saves it, and opens the next form the day after,
   carrying everyone's count. An excusal change saves in place. Switching the type to Group closes its open form the same
   way, and switching back to Person opens a fresh one. Only Settings loads the rank catalog; while it loads or after it
-  fails, the rules editor alone waits or explains, and the rest of Calendar is unaffected.
+  fails, the rules editor alone waits or explains, and the rest of Calendar is unaffected. A saved Person type's sheet
+  ends with a `Starting numbers` row that says whether the open form's numbers can still be copied in from a paper DA 6
+  and links to [DA 6 setup](calendar-da6.md).
 - `calendar-lanes`: choose which assignment types appear as lanes under the dates and in what order; every change is one
   ordered command that refuses a stale list.
 - `catalog-delete`: deleting a retiring assignment type removes its linked assignment but preserves unrelated and
@@ -348,6 +350,12 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       and `roster_weekend_mode` `same`. `$V rows roster_forms orgA assignment_type_id <id>` shows one open form starting
       today (UTC) with those rules, and `$V rows roster_excusals orgA assignment_type_id <id>` shows Able with reason
       `Profile`, `starts_on` the browser's today and `ends_on` null.
+    - **Starting numbers row.** Reopen the type's `Edit`. Under `Weekends & holidays` a `Starting numbers` row reads
+      `Everyone starts even. Keeping a paper DA 6 already? You can copy it in until the first <code> is pulled.` with a
+      `Copy it in` link to `/calendar/rosters/<id>?setup=1`. Change the name: the link becomes a disabled button and
+      the row adds `Save or cancel your changes first.` A new type's sheet has no row. After copied numbers are saved it
+      reads `Copied from a paper DA 6. You can change them until the first <code> is pulled.` with `Change them`; once a
+      detail is served it reads `… has been pulled, so they’re part of the record now.` with no button. Choose `Cancel`.
     - **A rule change starts a new form.** Reopen the type's `Edit`. Under `Weekends & holidays` choose
       `Separate count`, then `Save Changes`. A `Start a new DA 6?` dialog reads
       `This starts a new DA 6 on <tomorrow as D Mon>. The current form closes as it is. Everyone keeps their current count.`
@@ -358,7 +366,8 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       tomorrow with rules `{"pool":{…},"weekendMode":"separate"}`.
       `$V rows roster_starting_numbers orgA form_id <new form>` carries Unassigned at `0` on both the `weekday` and
       `weekend` tracks with origin `carried`. Able stays excused with the same `roster_excusals` row. Reopen `Edit` and
-      the sheet reads back `Separate count`, the SPC to SPC and 68W rules, and Able's chip.
+      the sheet reads back `Separate count`, the SPC to SPC and 68W rules, and Able's chip. The `Starting numbers` row
+      reads `Carried over from the last DA 6 when the roster rules changed. They’re part of the record.` with no button.
     - **A second change the same day.** Edit again, remove the MOS rule with `Remove the MOS rule`, and confirm. The
       count first reads `2 people on this roster`. The open form keeps its id and tomorrow's start with the new rules in
       place; no third form appears.

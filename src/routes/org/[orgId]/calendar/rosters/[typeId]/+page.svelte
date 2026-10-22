@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Da6Page from '$features/calendar/components/da6/Da6Page.svelte';
-	import Da6SetupPage from '$features/calendar/components/da6/Da6SetupPage.svelte';
-	import type { Da6Setup, Da6View } from '$features/calendar';
+	import { Da6SetupPage, type Da6Setup, type Da6View } from '$features/calendar';
 	import { observeDeferred } from '$lib/utils/streamedRouteData';
 	import WorkspaceAccessRestricted from '../../../WorkspaceAccessRestricted.svelte';
 	import WorkspaceLoadError from '../../../WorkspaceLoadError.svelte';

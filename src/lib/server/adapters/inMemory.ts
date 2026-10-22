@@ -52,7 +52,7 @@ import type {
 	AssignmentSource
 } from '$features/calendar/contracts';
 import { fail } from '$lib/errors';
-import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED } from '$features/calendar/dailyAssignmentPersistence.server';
+import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED } from '$features/calendar/index.server';
 import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTaskLibraryPersistence,

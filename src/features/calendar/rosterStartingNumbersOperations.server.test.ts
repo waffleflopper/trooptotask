@@ -156,11 +156,7 @@ describe('saveStartingNumbers', () => {
 		const view = await loadDa6View(ctx, { typeId: SD, month: '2026-10', today: TODAY });
 
 		// Pike's blank starts at Lee's 4, the lowest typed number. Kim's 9 counts until the 17th, Lee's 4 until the 18th.
-		expect(gridLines(view.sheets[0].segment!)).toEqual([
-			'PFC Lee 5 *6 1 *2',
-			'SGT Pike 5 6 *7 1',
-			'SPC Kim *10 1 2 3'
-		]);
+		expect(gridLines(view.sheets[0].segment!)).toEqual(['PFC Lee 5 *6 1 *2', 'SGT Pike 5 6 *7 1', 'SPC Kim *10 1 2 3']);
 	});
 
 	it('refuses once a detail on the form is served, and changes nothing', async () => {
@@ -206,7 +202,7 @@ describe('saveStartingNumbers', () => {
 				isPrivileged: false,
 				scopeSet: { kind: 'organization' },
 				capabilityMap: {
-					calendar: 'edit',
+					calendar: 'operate',
 					personnel: 'view',
 					training: 'view',
 					criticalTasks: 'view',

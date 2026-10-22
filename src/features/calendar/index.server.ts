@@ -32,11 +32,7 @@ export {
 export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';
 export { saveRosterSettings } from './rosterSettingsOperations.server';
 export { loadDa6View } from './da6Operations.server';
-export {
-	loadDa6Setup,
-	loadStartingNumbersStatus,
-	saveStartingNumbers
-} from './rosterStartingNumbersOperations.server';
+export { loadDa6Setup, loadStartingNumbersStatus, saveStartingNumbers } from './rosterStartingNumbersOperations.server';
 export { DA6_DEPENDENCY, parseMonth } from './utils/da6View';
 export { previewStatusEffect } from './statusEffectPreview.server';
 export {
@@ -52,7 +48,11 @@ export {
 export { createCalendarSupportReader } from './platformCatalogCounts.server';
 export { listDailyAssignments } from './dailyAssignmentRead.server';
 export { loadPersonnelCalendarWindow } from './personnelCalendarWindow.server';
-export { createSupabaseCalendarAssignmentReplacementPort } from './dailyAssignmentPersistence.server';
+export {
+	createSupabaseCalendarAssignmentReplacementPort,
+	ROSTER_CHANGED,
+	STARTING_NUMBERS_LOCKED
+} from './dailyAssignmentPersistence.server';
 export { createSupabaseCalendarCatalogPersistence } from './calendarCatalogPersistence.server';
 export { createSupabaseCalendarAvailabilityPersistence } from './calendarAvailabilityPersistence.server';
 export { createSupabaseCalendarAssignmentReader } from './calendarAssignmentReader.server';

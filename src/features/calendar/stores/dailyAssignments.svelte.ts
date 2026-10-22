@@ -657,7 +657,9 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				}
 				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The starting numbers were not saved.'));
 				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
-				const slots = new Set(saved.map((assignment) => assignmentSlotKey(assignment.date, assignment.assignmentTypeId)));
+				const slots = new Set(
+					saved.map((assignment) => assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+				);
 				internals.commit({
 					deletedWhere: (assignment) => slots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
 				});

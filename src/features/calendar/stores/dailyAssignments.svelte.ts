@@ -15,7 +15,8 @@ import {
 	assignmentTypesSchema,
 	type AssignmentType,
 	type DailyAssignment,
-	type RosterSettingsInput
+	type RosterSettingsInput,
+	type StartingNumberInput
 } from '$features/calendar/contracts';
 import { assignmentSlotKey, duplicateAssignmentSlot } from '$features/calendar/utils/calendarIndexes';
 import { calendarLaneIds, calendarLaneTypes } from '$features/calendar/utils/calendarLanes';
@@ -85,6 +86,9 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	 * the preview, so the caller can show the new picks.
 	 */
 	fillFromRoster: (fill: RosterFill) => Promise<'saved' | 'changed' | 'failed'>;
+	saveStartingNumbers: (
+		input: StartingNumbersSave
+	) => Promise<{ status: 'saved' } | { status: 'refused'; message: string } | { status: 'failed' }>;
 	getAssignmentsForDate: (date: string) => DailyAssignment[];
 	getAssignmentForDate: (date: string, assignmentTypeId: string) => DailyAssignment | undefined;
 	getAssignmentsForPersonnel: (personnelId: string) => DailyAssignment[];
@@ -93,6 +97,13 @@ interface AssignmentExtensions extends Record<string, unknown> {
 }
 
 type AssignmentBatchRecord = { date: string; assignmentTypeId: string; assigneeId: string };
+
+export interface StartingNumbersSave {
+	typeId: string;
+	formId: string;
+	today: string;
+	numbers: StartingNumberInput[];
+}
 
 export interface RosterFill {
 	typeId: string;
@@ -618,6 +629,43 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				internals.log.resolve(mutationId);
 				toastStore.error(error instanceof Error ? error.message : 'The roster picks were not saved.');
 				return 'failed';
+			}
+		},
+
+		/**
+		 * Saves an open form's typed starting numbers and swaps in the roster picks they re-picked. A refusal carries
+		 * the server's reason, such as duty already pulled on the form.
+		 */
+		async saveStartingNumbers(
+			input: StartingNumbersSave
+		): Promise<{ status: 'saved' } | { status: 'refused'; message: string } | { status: 'failed' }> {
+			try {
+				const res = await internals.withinOrganization(
+					fetch(`/org/${internals.orgId()}/api/duty-rosters/starting-numbers`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(input)
+					})
+				);
+				if (res.status === 409) {
+					return {
+						status: 'refused',
+						message: await internals.withinOrganization(
+							readResponseErrorMessage(res, 'This roster changed. Reload and try again.')
+						)
+					};
+				}
+				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The starting numbers were not saved.'));
+				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+				const slots = new Set(saved.map((assignment) => assignmentSlotKey(assignment.date, assignment.assignmentTypeId)));
+				internals.commit({
+					deletedWhere: (assignment) => slots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+				});
+				internals.commit({ saved });
+				return { status: 'saved' };
+			} catch (error) {
+				toastStore.error(error instanceof Error ? error.message : 'The starting numbers were not saved.');
+				return { status: 'failed' };
 			}
 		},
 

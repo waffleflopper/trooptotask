@@ -1,5 +1,5 @@
 import { formatDayMonth, formatDayMonthYear } from '$lib/utils/dates';
-import { toDayNumber } from '$lib/utils/dayNumber';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type {
 	Da6Cell,
 	Da6Column,
@@ -9,8 +9,11 @@ import type {
 	DateKey,
 	MonthKey,
 	PersonRef,
-	RosterCode
+	RosterCode,
+	TrackId,
+	WeekendMode
 } from '../roster/rosterTypes';
+import type { StartingNumberInput, StartingNumbersState } from '../contracts';
 
 export interface Da6Roster {
 	readonly id: string;
@@ -38,6 +41,28 @@ export interface Da6View {
 	readonly sheets: readonly Da6Sheet[];
 }
 
+/** The open form in setup mode: its first day on each track, where a paper DA 6's last numbers go. */
+export interface Da6SetupForm {
+	readonly id: string;
+	readonly state: StartingNumbersState;
+	readonly weekendMode: WeekendMode;
+	readonly from: DateKey;
+	/** One per track, oldest first. */
+	readonly columns: readonly { readonly date: DateKey; readonly track: TrackId }[];
+	/** The pool on the first column's day, in DA 6 order. */
+	readonly rows: readonly PersonRef[];
+	readonly numbers: readonly StartingNumberInput[];
+	/** The excused, as the form's remarks. */
+	readonly remarks: readonly Da6Remark[];
+}
+
+export interface Da6Setup {
+	readonly roster: Da6Roster;
+	readonly today: DateKey;
+	/** Null when the type keeps no open form. */
+	readonly form: Da6SetupForm | null;
+}
+
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const MONTH_NAMES = [
 	'January',
@@ -54,11 +79,20 @@ const MONTH_NAMES = [
 	'December'
 ];
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** The DA 6 page's own load, so setup mode can reload without the whole Calendar. */
+export const DA6_DEPENDENCY = 'app:da6';
 
 /** The DA 6 page for one roster. The month defaults to the current one. */
 export function da6Href(orgUrlSegment: string, typeId: string, month?: MonthKey): string {
 	const path = `/org/${orgUrlSegment}/calendar/rosters/${typeId}`;
 	return month ? `${path}?month=${month}` : path;
+}
+
+/** The DA 6 page in setup mode, where a unit copies in the last numbers from its paper DA 6. */
+export function da6SetupHref(orgUrlSegment: string, typeId: string): string {
+	return `${da6Href(orgUrlSegment, typeId)}?setup=1`;
 }
 
 export function parseMonth(value: string | null, today: DateKey): MonthKey {
@@ -85,6 +119,14 @@ export function monthOfAnchor(anchor: Date): MonthKey {
 export function weekdayLetter(date: DateKey): string {
 	// Day 0 is Thursday 1 Jan 1970.
 	return WEEKDAY_LETTERS[(toDayNumber(date) + 4) % 7];
+}
+
+export function weekdayShort(date: DateKey): string {
+	return WEEKDAY_SHORT[(toDayNumber(date) + 4) % 7];
+}
+
+export function addDays(date: DateKey, days: number): DateKey {
+	return fromDayNumber(toDayNumber(date) + days);
 }
 
 export function dayOfMonth(date: DateKey): number {

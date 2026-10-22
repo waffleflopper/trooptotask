@@ -52,6 +52,7 @@ import type {
 	AssignmentSource
 } from '$features/calendar/contracts';
 import { fail } from '$lib/errors';
+import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED } from '$features/calendar/dailyAssignmentPersistence.server';
 import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTaskLibraryPersistence,
@@ -863,6 +864,53 @@ function createInMemoryCalendarAssignmentReplacementPort(
 				fail(409, 'This assignment slot is unavailable. Refresh the Calendar and try again.');
 			}
 			return rawStore.replaceDailyAssignmentSlots(orgId, [], slots, 'roster');
+		},
+		// Mirrors public.set_roster_starting_numbers, except that a No duty weekend assignment also locks.
+		async setRosterStartingNumbers(orgId, input) {
+			const typeId = input.assignmentTypeId;
+			const [form] = await rawStore.findMany<{ id: string; starts_on: string }>('roster_forms', orgId, {
+				assignment_type_id: typeId,
+				ends_on: null
+			});
+			if (form?.id !== input.formId) fail(409, ROSTER_CHANGED);
+			const numbers = await rawStore.findMany<{ origin: string }>('roster_starting_numbers', orgId, {
+				form_id: form.id
+			});
+			const days = await rawStore.findMany<{ date: string; assignee_id: string; source?: string }>(
+				'daily_assignments',
+				orgId,
+				{ assignment_type_id: typeId }
+			);
+			if (
+				numbers.some((number) => number.origin === 'carried') ||
+				days.some((day) => day.date >= form.starts_on && day.date <= input.today)
+			) {
+				fail(409, STARTING_NUMBERS_LOCKED);
+			}
+			const moved = input.repicks.some(
+				(repick) =>
+					!days.some((day) => day.date === repick.date && day.assignee_id === repick.was && day.source === 'roster')
+			);
+			if (moved) fail(409, ROSTER_CHANGED);
+			await rawStore.deleteWhere('roster_starting_numbers', orgId, { form_id: form.id });
+			await rawStore.insertMany(
+				'roster_starting_numbers',
+				orgId,
+				input.numbers.map(({ personId, track, count }) => ({
+					form_id: form.id,
+					personnel_id: personId,
+					track,
+					count,
+					origin: 'typed'
+				}))
+			);
+			if (!input.repicks.length) return [];
+			return rawStore.replaceDailyAssignmentSlots(
+				orgId,
+				[],
+				input.repicks.map(({ date, assigneeId }) => ({ date, assignmentTypeId: typeId, assigneeId })),
+				'roster'
+			);
 		}
 	};
 }

@@ -3,8 +3,12 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { SavedAssignment } from '$features/calendar/contracts';
 import { fail } from '$lib/errors';
+import { DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
 
 const SLOT_UNAVAILABLE = 'This assignment slot is unavailable. Refresh the Calendar and try again.';
+export const STARTING_NUMBERS_LOCKED =
+	'Duty has been pulled on this DA 6, so its starting numbers are part of the record now.';
+export const ROSTER_CHANGED = 'This roster changed while you were editing. Reload and try again.';
 
 type DailyAssignmentRow = {
 	id: string;
@@ -37,6 +41,27 @@ export function createSupabaseCalendarAssignmentReplacementPort(
 				p_slots: slots.map(toSlotRow)
 			});
 			if (error) failReplacement(error);
+			return ((data ?? []) as DailyAssignmentRow[]).map(toSavedAssignment);
+		},
+		async setRosterStartingNumbers(orgId, input): Promise<SavedAssignment[]> {
+			const { data, error } = await roster.admin().rpc('set_roster_starting_numbers', {
+				p_actor: roster.actorId,
+				p_organization_id: orgId,
+				p_assignment_type_id: input.assignmentTypeId,
+				p_form_id: input.formId,
+				p_today: input.today,
+				p_numbers: input.numbers.map(({ personId, track, count }) => ({ personnel_id: personId, track, count })),
+				p_repicks: input.repicks.map(({ date, assigneeId, was }) => ({ date, assignee_id: assigneeId, was }))
+			});
+			if (error) {
+				if (error.code === 'RSL01') fail(409, STARTING_NUMBERS_LOCKED);
+				if (error.code === 'RSF01' || error.code === 'P0001') fail(409, ROSTER_CHANGED);
+				if (error.code === 'RSD01') fail(400, DEVICE_DATE_MESSAGE);
+				if (error.code === 'P0002') fail(404, 'That duty roster is no longer available.');
+				if (error.code === '22023') fail(400, 'Invalid starting numbers');
+				if (error.code === '42501') fail(403, 'You do not have access to configure the Calendar');
+				throw new Error(error.message);
+			}
 			return ((data ?? []) as DailyAssignmentRow[]).map(toSavedAssignment);
 		}
 	};

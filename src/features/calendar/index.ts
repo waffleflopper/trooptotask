@@ -26,8 +26,8 @@ export { calendarStore } from './stores/calendar.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 export { CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
 export { calendarViewCoverage, rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
-export { da6Href } from './utils/da6View';
-export type { Da6View } from './utils/da6View';
+export { da6Href, da6SetupHref } from './utils/da6View';
+export type { Da6Setup, Da6View } from './utils/da6View';
 
 // Routed page components are separate public files so each route loads only its own page.
 

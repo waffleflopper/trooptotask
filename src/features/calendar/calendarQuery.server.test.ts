@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
-import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { createQueryPortsContext } from './calendarPersistence.test-support.server';
 import {
 	fetchCalendarData,
@@ -11,10 +10,8 @@ import {
 
 const ORG = 'test-org';
 
-// The Calendar request reads the rank catalog under Calendar access, so Calendar-only members still load it.
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
-	const ctx = createQueryPortsContext({ auth: { orgId: ORG, ...overrides?.auth } });
-	return { ...ctx, loadRankCatalog: () => loadOrganizationRankCatalog(ctx, { authorization: 'calendar-view' }) };
+	return createQueryPortsContext({ auth: { orgId: ORG, ...overrides?.auth } });
 }
 
 const RANGE = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };

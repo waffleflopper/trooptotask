@@ -82,7 +82,6 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		assignmentTypes: [{ id: 'at1', name: 'CQ' } as AssignmentType],
 		dailyAssignments,
 		pinnedGroups: ['Alpha'],
-		rankCatalog: [],
 
 		personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 		groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],

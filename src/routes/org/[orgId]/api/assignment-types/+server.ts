@@ -9,7 +9,8 @@ import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	createRequestCalendarCatalogDeletionContext,
-	createRequestCalendarCatalogContext
+	createRequestCalendarCatalogContext,
+	createRequestRosterSettingsContext
 } from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
 
@@ -29,12 +30,12 @@ export const _postConfig = {
 } satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 
 export const _putConfig = {
-	context: createRequestCalendarCatalogContext,
+	context: createRequestRosterSettingsContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => updateAssignmentType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestRosterSettingsContext>>;
 
 export const _deleteConfig = {
 	context: createRequestCalendarCatalogDeletionContext,

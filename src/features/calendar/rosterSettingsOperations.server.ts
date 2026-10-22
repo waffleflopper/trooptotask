@@ -17,7 +17,7 @@ import type { OpenForm, RosterFacts, RosterRules } from './roster/rosterTypes';
 
 export interface RosterSettingsPorts extends CalendarCatalogPorts {
 	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
-	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange'>;
+	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange' | 'listRosterDetailDays'>;
 	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'listAttributeTimelines'>;
 	loadRankCatalog: () => Promise<OrganizationRankCatalogEntry[]>;
 }
@@ -56,7 +56,7 @@ export async function saveRosterSettings(
 
 	if (excusalsChanged) {
 		await ctx.calendarCatalogs.setRosterExcusals(id, today, excusals);
-		ctx.audit.log({
+		await ctx.audit.log({
 			action: 'assignment_type.roster_excusals_set',
 			resourceType: 'assignment_type',
 			resourceId: id,
@@ -74,7 +74,7 @@ export async function saveRosterSettings(
 			weekendMode,
 			...(await closing(ctx, type, form, today, weekendMode))
 		});
-		ctx.audit.log({
+		await ctx.audit.log({
 			action: 'assignment_type.roster_form_closed',
 			resourceType: 'assignment_type',
 			resourceId: id,
@@ -82,6 +82,24 @@ export async function saveRosterSettings(
 		});
 	}
 	return excusalsChanged || rulesChanged ? findRosterType(ctx, id) : type;
+}
+
+/**
+ * A type that becomes a Group assignment closes its open DA 6 form on `today` with the record the engine computes,
+ * and keeps no form. Resolves without a change when the type keeps no form.
+ */
+export async function endRoster(ctx: RosterSettingsPorts, id: string, today: string | undefined): Promise<void> {
+	const form = await ctx.calendarCatalogs.findOpenRosterForm(id);
+	if (!form) return;
+	if (!today || today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+	const { record } = await closing(ctx, await findRosterType(ctx, id), form, today, form.rules.weekendMode);
+	await ctx.calendarCatalogs.endRosterForm({ assignmentTypeId: id, formId: form.id, today, record });
+	await ctx.audit.log({
+		action: 'assignment_type.roster_form_closed',
+		resourceType: 'assignment_type',
+		resourceId: id,
+		details: { closedFormId: record ? form.id : null, openFormId: null, rules: null }
+	});
 }
 
 async function findRosterType(ctx: RosterSettingsPorts, id: string): Promise<SavedAssignmentType> {
@@ -104,7 +122,10 @@ async function closing(
 	return { record: { segments }, carry: carryOver(carry, form.rules.weekendMode, weekendMode) };
 }
 
-/** The whole open form's facts through `today`, plus the day each side the engine reads for D and U. */
+/**
+ * The whole open form's facts through `today`, plus the day each side the engine reads for D and U. This type's
+ * duty days include those of deleted assignees, which still moved everyone else's count.
+ */
 export async function loadRosterFacts(
 	ctx: RosterSettingsPorts,
 	type: Pick<SavedAssignmentType, 'id' | 'name'>,
@@ -112,7 +133,7 @@ export async function loadRosterFacts(
 	today: string
 ): Promise<RosterFacts> {
 	const range = { rangeStart: addDays(form.startsOn, -1), rangeEnd: addDays(today, 1) };
-	const [timelines, excusals, rankCatalog, statusTypes, types, availability, specialDays, assignments] =
+	const [timelines, excusals, rankCatalog, statusTypes, types, availability, specialDays, assignments, detailDays] =
 		await Promise.all([
 			ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth),
 			ctx.calendarCatalogs.listRosterExcusals(type.id),
@@ -121,7 +142,8 @@ export async function loadRosterFacts(
 			ctx.calendarCatalogs.listAssignmentTypes(),
 			ctx.calendarAvailability.listOverlapping(range),
 			ctx.calendarCatalogs.listSpecialDays(range),
-			ctx.calendarAssignments.listRange(range)
+			ctx.calendarAssignments.listRange(range),
+			ctx.calendarAssignments.listRosterDetailDays(type.id, { from: range.rangeStart, through: range.rangeEnd })
 		]);
 	const personTypes = new Map(types.filter((t) => t.assignTo === 'personnel').map((t) => [t.id, t.name]));
 	return {
@@ -145,9 +167,12 @@ export async function loadRosterFacts(
 		statusTypes: statusTypes.map(({ id, name }) => ({ id, name, rosterEffect: 'A' as const })),
 		availability,
 		holidays: specialDays.map(({ date }) => date),
-		assignments: assignments
-			.filter(({ assignmentTypeId }) => personTypes.has(assignmentTypeId))
-			.map(({ date, assignmentTypeId, assigneeId }) => ({ date, assignmentTypeId, assigneeId, source: 'manual' })),
+		assignments: [
+			...assignments.filter(
+				({ assignmentTypeId }) => assignmentTypeId !== type.id && personTypes.has(assignmentTypeId)
+			),
+			...detailDays.map(({ date, assigneeId }) => ({ date, assignmentTypeId: type.id, assigneeId }))
+		].map(({ date, assignmentTypeId, assigneeId }) => ({ date, assignmentTypeId, assigneeId, source: 'manual' })),
 		assignmentTypeNames: personTypes
 	};
 }

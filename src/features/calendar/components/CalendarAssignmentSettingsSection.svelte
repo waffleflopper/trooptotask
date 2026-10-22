@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import { groupsStore, rosterStore } from '$features/personnel';
-	import { calendarRankCatalogStore } from '$features/calendar/stores/rankCatalog.svelte';
 	import type { AssignmentType } from '$features/calendar/contracts';
+	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarLaneIds, movedTo } from '$features/calendar/utils/calendarLanes';
 	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
@@ -18,9 +18,27 @@
 	type Props = {
 		canMutate: boolean;
 		searchQuery: string;
+		rankCatalog: Promise<readonly RankCatalogEntry[]>;
 	};
 
-	let { canMutate, searchQuery }: Props = $props();
+	let { canMutate, searchQuery, rankCatalog }: Props = $props();
+
+	let catalog = $state<readonly RankCatalogEntry[] | 'loading' | 'failed'>('loading');
+	$effect(() => {
+		let current = true;
+		catalog = 'loading';
+		rankCatalog.then(
+			(entries) => {
+				if (current) catalog = entries;
+			},
+			() => {
+				if (current) catalog = 'failed';
+			}
+		);
+		return () => {
+			current = false;
+		};
+	});
 
 	let editor = $state<{ type?: AssignmentType } | null>(null);
 	let confirmDelete = $state<AssignmentType | null>(null);
@@ -179,7 +197,7 @@
 		type={editor.type}
 		{roster}
 		groups={groupsStore.items}
-		rankCatalog={calendarRankCatalogStore.items}
+		rankCatalog={catalog}
 		onClose={() => (editor = null)}
 	/>
 {/if}

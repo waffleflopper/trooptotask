@@ -401,6 +401,23 @@ export function createSupabaseCalendarCatalogPersistence(
 				},
 				z.string().uuid()
 			);
+		},
+		async endRosterForm(input) {
+			await calendarCommand(
+				client,
+				'close_roster_form',
+				{
+					p_organization_id: orgId,
+					p_assignment_type_id: input.assignmentTypeId,
+					p_form_id: input.formId,
+					p_today: input.today,
+					p_pool_rules: null,
+					p_weekend_mode: null,
+					p_record: input.record,
+					p_carry: []
+				},
+				z.null()
+			);
 		}
 	};
 }

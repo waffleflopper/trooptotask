@@ -32,7 +32,6 @@ function preserveClientHydration(
 			range: OCTOBER
 		},
 		pinnedGroups: { mode: 'preserve-client', snapshotKey: 'pins', items: [] },
-		rankCatalog: { mode: 'preserve-client', snapshotKey: 'rank-catalog', items: [] },
 		...overrides
 	};
 }
@@ -49,8 +48,7 @@ describe('Shared workspace lane navigation', () => {
 					snapshotKey: 'allowed-groups',
 					items: [{ id: 'alpha', name: 'Alpha', sortOrder: 0 }]
 				},
-				pinnedGroups: { mode: 'replace', snapshotKey: 'allowed-pins', items: ['Alpha'] },
-				rankCatalog: { mode: 'replace', snapshotKey: 'rank-catalog', items: [] }
+				pinnedGroups: { mode: 'replace', snapshotKey: 'allowed-pins', items: ['Alpha'] }
 			});
 			await calendar.hydrate(hydration);
 			expect(personnelRosterHydration.items.map((person) => person.id)).toEqual(['p1']);

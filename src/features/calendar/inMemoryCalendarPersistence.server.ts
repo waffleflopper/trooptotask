@@ -74,9 +74,15 @@ export function createInMemoryCalendarCatalogPersistence(
 	// Mirrors calendar_private.open_roster_form.
 	async function ensureOpenForm(row: AssignmentTypeRow) {
 		if (row.assign_to !== 'personnel' || (await openForm(row.id))) return;
+		const closed = await store.findMany<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: row.id });
+		const afterClosed =
+			closed
+				.map(({ ends_on }) => (ends_on ? addDays(ends_on, 1) : ''))
+				.sort()
+				.at(-1) ?? '';
 		await store.insert('roster_forms', orgId, {
 			assignment_type_id: row.id,
-			starts_on: utcDate(),
+			starts_on: afterClosed > utcDate() ? afterClosed : utcDate(),
 			ends_on: null,
 			rules: { pool: row.roster_pool_rules, weekendMode: row.roster_weekend_mode },
 			record: null
@@ -171,6 +177,8 @@ export function createInMemoryCalendarCatalogPersistence(
 			return toAssignmentType({ ...row, roster_excusals: [] });
 		},
 		async updateAssignmentType(id, patch) {
+			if (patch.assignTo === 'group' && (await openForm(id)))
+				throw new Error('Close the DA 6 form before the type becomes a Group assignment');
 			const row = await updateExisting<AssignmentTypeRow>(
 				'assignment_types',
 				id,
@@ -336,6 +344,20 @@ export function createInMemoryCalendarCatalogPersistence(
 				roster_weekend_mode: input.weekendMode
 			});
 			return next;
+		},
+		async endRosterForm(input) {
+			checkDeviceDate(input.today);
+			await rosterType(input.assignmentTypeId);
+			const form = await openForm(input.assignmentTypeId);
+			if (form?.id !== input.formId) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+			if (form.starts_on > input.today !== (input.record === null)) fail(400, 'Invalid Calendar configuration');
+			if (input.record === null) {
+				await store.deleteWhere('roster_starting_numbers', orgId, { form_id: form.id });
+				await store.delete('roster_forms', orgId, form.id);
+			} else {
+				await store.update('roster_forms', orgId, form.id, { ends_on: input.today, record: input.record });
+			}
+			await store.update('assignment_types', orgId, input.assignmentTypeId, { assign_to: 'group' });
 		}
 	};
 }
@@ -470,6 +492,23 @@ export function createInMemoryCalendarAssignmentReader(
 					{ select: 'assignment_type_id, assignee_id' }
 				)
 			).map((row) => ({ assignmentTypeId: row.assignment_type_id, assigneeId: row.assignee_id }));
+		},
+		async listRosterDetailDays(assignmentTypeId, span) {
+			return (
+				await store.findMany<AssignmentRow>(
+					'daily_assignments',
+					orgId,
+					{ assignment_type_id: assignmentTypeId },
+					{
+						rangeFilters: [
+							{ column: 'date', op: 'gte', value: span.from },
+							{ column: 'date', op: 'lte', value: span.through }
+						]
+					}
+				)
+			)
+				.map(({ date, assignee_id }) => ({ date, assigneeId: assignee_id }))
+				.sort((a, b) => a.date.localeCompare(b.date));
 		},
 		async listSlotReferences(slots) {
 			if (slots.length === 0) return [];

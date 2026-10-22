@@ -34,10 +34,8 @@ GRANT ALL ON TABLE public.personnel_attribute_history TO service_role;
 CREATE FUNCTION organization_private.record_personnel_attributes() RETURNS trigger
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
-  v_on date := CASE
-    WHEN TG_OP = 'INSERT' THEN (NEW.created_at AT TIME ZONE 'UTC')::date
-    ELSE (pg_catalog.now() AT TIME ZONE 'UTC')::date
-  END;
+  -- The day of the write, not created_at, which a client can set.
+  v_on date := (pg_catalog.now() AT TIME ZONE 'UTC')::date;
 BEGIN
   INSERT INTO public.personnel_attribute_history
     (organization_id, personnel_id, effective_on, rank, mos, clinic_role, group_id, archived)

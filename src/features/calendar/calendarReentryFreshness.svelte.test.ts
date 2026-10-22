@@ -76,7 +76,6 @@ function workspace(rows: Rows, range = OCTOBER, specialDaysRange = CATALOG_YEARS
 		groups: { mode: 'replace', snapshotKey: key, items: [] },
 		statusTypes: { mode: 'replace', snapshotKey: key, items: [] },
 		pinnedGroups: { mode: 'replace', snapshotKey: key, items: [] },
-		rankCatalog: { mode: 'replace', snapshotKey: key, items: [] },
 		availabilityEntries: { mode: 'range', snapshotKey: key, items: rows.availability, range },
 		specialDays: { mode: 'range', snapshotKey: key, items: rows.specialDays, range: specialDaysRange },
 		calendarAssignments: {

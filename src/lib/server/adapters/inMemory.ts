@@ -280,7 +280,8 @@ function createTestCalendarPersistence(
 				findOpenRosterForm: unavailableCalendarPersistence,
 				listRosterExcusals: unavailableCalendarPersistence,
 				setRosterExcusals: unavailableCalendarPersistence,
-				closeRosterForm: unavailableCalendarPersistence
+				closeRosterForm: unavailableCalendarPersistence,
+				endRosterForm: unavailableCalendarPersistence
 			} satisfies CalendarCatalogPersistence),
 		calendarAvailability:
 			options?.calendarAvailabilityFactory?.(
@@ -304,6 +305,7 @@ function createTestCalendarPersistence(
 			({
 				listRange: unavailableCalendarPersistence,
 				listDayReferences: unavailableCalendarPersistence,
+				listRosterDetailDays: unavailableCalendarPersistence,
 				listSlotReferences: unavailableCalendarPersistence
 			} satisfies CalendarAssignmentReader)
 	};

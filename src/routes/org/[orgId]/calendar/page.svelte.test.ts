@@ -89,7 +89,6 @@ function makeBootstrap(range = { rangeStart: '2026-01-01', rangeEnd: '2026-05-31
 			assignmentTypes: [],
 			dailyAssignments: [],
 			pinnedGroups: [],
-			rankCatalog: [],
 
 			personnel: [
 				{
@@ -145,8 +144,7 @@ function makeBootstrap(range = { rangeStart: '2026-01-01', rangeEnd: '2026-05-31
 				items: { types: [], assignments: [] },
 				range
 			},
-			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: [] },
-			rankCatalog: { mode: 'replace', snapshotKey: 'rank-catalog', items: [] }
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: [] }
 		}
 	};
 }

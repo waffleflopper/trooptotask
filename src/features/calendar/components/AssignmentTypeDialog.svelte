@@ -34,7 +34,7 @@
 		type?: AssignmentType;
 		roster: readonly Personnel[];
 		groups: readonly Group[];
-		rankCatalog: readonly RankCatalogEntry[];
+		rankCatalog: readonly RankCatalogEntry[] | 'loading' | 'failed';
 		onClose: () => void;
 	}
 
@@ -54,9 +54,8 @@
 	let rosterDraft = $state(rosterDraftFrom(initial));
 	let triedSave = $state(false);
 	let confirmingNewForm = $state(false);
-	// The editor's calendar day. A rule change closes the open DA 6 on it.
-	const today = formatDate(new Date());
-	const tomorrow = fromDayNumber(toDayNumber(today) + 1);
+	// The editor's calendar day, read again when Save is pressed. A rule change closes the open DA 6 on it.
+	let today = $state(formatDate(new Date()));
 	let shown = $state(initial?.showOnCalendar ?? false);
 	let lanesNotice = $state('');
 	const saving = new PendingSave();
@@ -117,7 +116,8 @@
 				else toastStore.error(failure);
 				return created;
 			}
-			if (detailsDirty && !(await dailyAssignmentsStore.updateType(editing.id, details))) {
+			// Becoming a Group assignment closes the open DA 6 on the editor's day.
+			if (detailsDirty && !(await dailyAssignmentsStore.updateType(editing.id, details, today))) {
 				toastStore.error(failure);
 				return null;
 			}
@@ -145,6 +145,7 @@
 	function requestSave() {
 		triedSave = true;
 		if (!valid) return;
+		today = formatDate(new Date());
 		if (closesForm) confirmingNewForm = true;
 		else void saving.run(save);
 	}
@@ -303,7 +304,7 @@
 {#if confirmingNewForm}
 	<ConfirmDialog
 		title="Start a new DA 6?"
-		message={`This starts a new DA 6 on ${formatDayMonth(tomorrow)}. The current form closes as it is. Everyone keeps their current count.`}
+		message={`This starts a new DA 6 on ${formatDayMonth(fromDayNumber(toDayNumber(today) + 1))}. The current form closes as it is. Everyone keeps their current count.`}
 		confirmLabel="Save changes"
 		variant="default"
 		onConfirm={async () => {

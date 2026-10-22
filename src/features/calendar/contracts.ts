@@ -255,6 +255,11 @@ export interface CalendarCatalogPersistence {
 	 * `today` in place. Otherwise the open form closes on `today` with this record and the next opens on `today + 1`.
 	 */
 	closeRosterForm(input: RosterFormClose): Promise<string>;
+	/**
+	 * Closes the open form on `today` with this record, or removes it when it starts after `today` (a null record),
+	 * and makes the type a Group assignment, which keeps no form.
+	 */
+	endRosterForm(input: Omit<RosterFormClose, 'poolRules' | 'weekendMode' | 'carry'>): Promise<void>;
 }
 
 export interface RosterFormClose {
@@ -291,6 +296,14 @@ export interface CalendarAssignmentReader {
 			assigneeId: string;
 		}>
 	>;
+	/**
+	 * Every duty day of this type from `from` through `through`, including days whose assignee was deleted, which
+	 * `listRange` leaves out. Days of people outside the reader's Calendar scope stay hidden.
+	 */
+	listRosterDetailDays(
+		assignmentTypeId: string,
+		span: { from: string; through: string }
+	): Promise<Array<{ date: string; assigneeId: string }>>;
 	listSlotReferences(slots: Array<{ date: string; assignmentTypeId: string }>): Promise<
 		Array<{
 			date: string;

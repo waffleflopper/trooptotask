@@ -21,12 +21,7 @@ import { readLossWarningWindowDays, type OrganizationSettingsReader } from '$fea
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
 import type { AuditPort } from '$lib/audit/contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import type {
-	GroupPersistence,
-	PersonnelCalendarRosterPort,
-	RankCatalogEntry,
-	SelfPinPersistence
-} from '$features/personnel/contracts';
+import type { GroupPersistence, PersonnelCalendarRosterPort, SelfPinPersistence } from '$features/personnel/contracts';
 import { visiblePinnedGroupNames } from '$features/personnel/index.server';
 
 interface CalendarQueryPorts {
@@ -139,7 +134,6 @@ export async function fetchCalendarBootstrap(
 	ctx: CalendarQueryPorts & {
 		personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, 'listAssigneeIds' | 'listActive'>;
 		organizationSettings: Pick<OrganizationSettingsReader, 'findLossWarningWindowDays'>;
-		loadRankCatalog: () => Promise<RankCatalogEntry[]>;
 	},
 	input: CalendarBootstrapQueryInput
 ): Promise<Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'>> {
@@ -162,16 +156,14 @@ export async function fetchCalendarBootstrap(
 	void specialDays.catch(() => undefined);
 	void dailyAssignments.catch(() => undefined);
 
-	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, lossWarningWindowDays, rankCatalog] =
-		await Promise.all([
-			listAssignmentTypes(ctx.calendarCatalogs),
-			ctx.selfPins.listNames(),
-			requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
-			ctx.groups.listCatalog(),
-			listStatusTypes(ctx.calendarCatalogs),
-			readLossWarningWindowDays(ctx.organizationSettings.findLossWarningWindowDays(orgId)),
-			ctx.loadRankCatalog()
-		]);
+	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, lossWarningWindowDays] = await Promise.all([
+		listAssignmentTypes(ctx.calendarCatalogs),
+		ctx.selfPins.listNames(),
+		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
+		ctx.groups.listCatalog(),
+		listStatusTypes(ctx.calendarCatalogs),
+		readLossWarningWindowDays(ctx.organizationSettings.findLossWarningWindowDays(orgId))
+	]);
 
 	return {
 		rangeStart,
@@ -186,7 +178,6 @@ export async function fetchCalendarBootstrap(
 		personnel,
 		groups,
 		statusTypes,
-		rankCatalog,
 		lossWarningWindowDays
 	};
 }

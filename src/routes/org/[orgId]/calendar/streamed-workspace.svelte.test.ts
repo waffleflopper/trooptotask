@@ -47,7 +47,6 @@ function workspace() {
 			groups: [],
 			statusTypes: [],
 			pinnedGroups: [],
-			rankCatalog: [],
 			assignmentTypes: [],
 			activeOnboardingPersonnelIds: [],
 			lossWarningWindowDays: 180,
@@ -62,7 +61,6 @@ function workspace() {
 			groups: { mode: 'replace', snapshotKey: 'groups', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'statuses', items: [] },
 			pinnedGroups: { mode: 'replace', snapshotKey: 'pins', items: [] },
-			rankCatalog: { mode: 'replace', snapshotKey: 'rank-catalog', items: [] },
 			availabilityEntries: {
 				mode: 'range',
 				snapshotKey: 'october-availability',

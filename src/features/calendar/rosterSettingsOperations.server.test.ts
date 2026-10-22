@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
 import { saveRosterSettings } from './rosterSettingsOperations.server';
+import { updateAssignmentType } from './assignmentTypeOperations.server';
 
 const TYPE = '00000000-0000-4000-a000-000000000001';
 const PIKE = '00000000-0000-4000-a000-000000000011';
 const KIM = '00000000-0000-4000-a000-000000000012';
+const GONE = '00000000-0000-4000-a000-000000000013';
 const LEAVE = '00000000-0000-4000-a000-000000000021';
 const TODAY = '2026-10-17';
 
@@ -140,6 +142,48 @@ describe('saveRosterSettings', () => {
 		]);
 	});
 
+	it('counts a duty day whose assignee was deleted, which the assignment read leaves out', async () => {
+		const base = createWriteWithNotificationsPortsContext();
+		const ctx = {
+			...base,
+			calendarAssignments: {
+				...base.calendarAssignments,
+				listRange: async (range: Parameters<Context['calendarAssignments']['listRange']>[0]) =>
+					(await base.calendarAssignments.listRange(range)).filter(({ assigneeId }) => assigneeId !== GONE)
+			}
+		};
+		seedRoster(ctx, {
+			startsOn: '2026-10-15',
+			numbers: [
+				[PIKE, 2],
+				[KIM, 2]
+			]
+		});
+		ctx.store.seed('daily_assignments', [
+			{ id: 'sd-15', organization_id: ctx.auth.orgId, date: '2026-10-15', assignment_type_id: TYPE, assignee_id: GONE },
+			{ id: 'sd-16', organization_id: ctx.auth.orgId, date: '2026-10-16', assignment_type_id: TYPE, assignee_id: PIKE }
+		]);
+
+		await saveRosterSettings(ctx, settings({ weekendMode: 'none' }));
+
+		// The 15th moved Pike and Kim to 3. Pike pulled the 16th and Kim moved to 4.
+		expect(await numbersOf(ctx, (await forms(ctx))[1].id)).toEqual([
+			[PIKE, 'weekday', 0],
+			[KIM, 'weekday', 4]
+		]);
+	});
+
+	it.each([
+		['an excusal change', settings({ excusals: [{ personId: KIM, reason: 'Profile' }] })],
+		['a rule change', settings({ weekendMode: 'none' })]
+	])('fails %s whose audit write fails', async (_, input) => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedRoster(ctx, { startsOn: '2026-10-01', numbers: [] });
+		ctx.audit.log = () => Promise.reject(new Error('audit unavailable'));
+
+		await expect(saveRosterSettings(ctx, input)).rejects.toThrow('audit unavailable');
+	});
+
 	it('takes new rules in place on a form that has not started yet', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		seedRoster(ctx, { startsOn: '2026-10-18', numbers: [[PIKE, 4]] });
@@ -178,6 +222,34 @@ describe('saveRosterSettings', () => {
 		await expect(saveRosterSettings(ctx, input)).rejects.toMatchObject({ status: 400 });
 
 		expect(await ctx.store.findMany('roster_excusals', ctx.auth.orgId)).toEqual([]);
+		expect((await forms(ctx)).map(({ ends_on }) => ends_on)).toEqual([null]);
+	});
+
+	it('closes the open form with its record when the type becomes a Group assignment, and opens a fresh one on a switch back', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedRoster(ctx, { startsOn: '2026-10-15', numbers: [[PIKE, 3]] });
+		ctx.store.seed('daily_assignments', [
+			{ id: 'sd-16', organization_id: ctx.auth.orgId, date: '2026-10-16', assignment_type_id: TYPE, assignee_id: PIKE }
+		]);
+
+		await updateAssignmentType(ctx, { id: TYPE, assignTo: 'group', today: TODAY });
+
+		expect(await forms(ctx)).toMatchObject([
+			{ id: 'form-open', ends_on: TODAY, record: { segments: expect.arrayContaining([expect.anything()]) } }
+		]);
+		await updateAssignmentType(ctx, { id: TYPE, assignTo: 'personnel' });
+		expect((await forms(ctx)).map(({ starts_on, ends_on }) => [starts_on, ends_on])).toEqual([
+			['2026-10-15', TODAY],
+			['2026-10-18', null]
+		]);
+	});
+
+	it('refuses a switch to Group without the device date and keeps the form open', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedRoster(ctx, { startsOn: '2026-10-15', numbers: [] });
+
+		await expect(updateAssignmentType(ctx, { id: TYPE, assignTo: 'group' })).rejects.toMatchObject({ status: 400 });
+
 		expect((await forms(ctx)).map(({ ends_on }) => ends_on)).toEqual([null]);
 	});
 

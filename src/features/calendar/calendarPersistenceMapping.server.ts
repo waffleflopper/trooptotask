@@ -210,7 +210,7 @@ export const assignmentTypeCreateInput = assignmentTypeFields.extend({
 });
 export const assignmentTypeUpdateInput = assignmentTypeFields
 	.partial()
-	.extend({ id: uuidSchema, showOnCalendar: z.never().optional() });
+	.extend({ id: uuidSchema, showOnCalendar: z.never().optional(), today: dateOnlySchema.optional() });
 const excusalReason = z
 	.string()
 	.trim()

@@ -13,8 +13,10 @@ their references through edits, while confirmed type deletion explains and remov
   history remains readable but not an active choice.
 - `duty-roster`: a Person type keeps a DA 6 duty roster. Its pool rules, dated excusals with reasons and weekend mode
   are set in the sheet's `Duty roster` section, and a live count shows who the rules match. Changing the rules or
-  weekend mode closes the open DA 6 form today, saves it, and opens the next form tomorrow carrying everyone's count. An
-  excusal change saves in place.
+  weekend mode closes the open DA 6 form on the day Save is pressed, saves it, and opens the next form the day after,
+  carrying everyone's count. An excusal change saves in place. Switching the type to Group closes its open form the same
+  way, and switching back to Person opens a fresh one. Only Settings loads the rank catalog; while it loads or after it
+  fails, the rules editor alone waits or explains, and the rest of Calendar is unaffected.
 - `calendar-lanes`: choose which assignment types appear as lanes under the dates and in what order; every change is one
   ordered command that refuses a stale list.
 - `catalog-delete`: deleting a retiring assignment type removes its linked assignment but preserves unrelated and
@@ -358,6 +360,17 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       `roster_excusals` row is deleted (it started today), and the forms are unchanged.
     - **Group types.** Open `More actions for Verification Group Duty` → `Edit`; there is no `Duty roster` section and
       no `Excuse someone`.
+    - **Switching to Group closes the form.** Edit the new type, choose `Group` and `Save Changes`.
+      `$V rows roster_forms orgA assignment_type_id <id>` shows no open form; the last form ends today (UTC) with a
+      saved `record`, and `$V rows assignment_types orgA name <name>` reads `assign_to` `group`. Edit again, choose
+      `Person` and save: one new open form starts tomorrow.
+    - **Rank catalog unavailable.** Run `$V server-source arm organization_rank_catalog fail-hard 1 120000` (the client
+      retries a 503, so plain `fail` recovers), reload `/calendar/settings` and open the type's `Edit`.
+      `Who pulls this duty` shows a `role="alert"` reading `Ranks unavailable` in place of `Everyone` and the rules,
+      while `Excuse someone` and `Weekends & holidays` still work. `$V server-source state` shows the matched read.
+      Choose `Cancel`, `$V server-source restore`, then arm it again and open the sidebar `Calendar`: the planner and
+      its lanes load with no `role="alert"`, and `server-source state` shows no match, because only Settings reads the
+      catalog. Restore the control.
     - **Layout.** With the match rules and an excusal showing, capture the sheet at 1440x900 light, 900x800 and 390x844
       dark. Below 1024 px the sheet fills the width, the rule rows wrap without horizontal scrolling, and
       `document.documentElement.scrollWidth` equals `innerWidth`.

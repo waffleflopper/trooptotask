@@ -12,12 +12,14 @@
 		type Personnel,
 		type RankCatalogEntry
 	} from '$features/personnel/contracts';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as Popover from '$lib/components/ui/popover';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 
 	interface Props {
@@ -25,7 +27,8 @@
 		/** Active people in the Organization. */
 		roster: readonly Personnel[];
 		groups: readonly Group[];
-		rankCatalog: readonly RankCatalogEntry[];
+		/** The rules editor waits for the catalog; excusals and weekends do not. */
+		rankCatalog: readonly RankCatalogEntry[] | 'loading' | 'failed';
 		today: string;
 		/** Set once a save was tried, so an unfinished rule shows its error. */
 		showProblems: boolean;
@@ -63,13 +66,14 @@
 			})
 		)
 	);
+	const catalog = $derived(typeof rankCatalog === 'string' ? [] : rankCatalog);
 	const byId = $derived(new Map(roster.map((person) => [person.id, person])));
 	const pool = $derived(
 		poolOn({
 			rules: draftPoolRules(draft),
 			people,
 			excusals: draft.excusals.map(({ personId, reason }) => ({ personId, reason, from: today, through: null })),
-			catalog: rankCatalog,
+			catalog,
 			on: today
 		}).members
 	);
@@ -83,7 +87,7 @@
 
 	const rankOptions = $derived(
 		rankCodesForOptions({
-			rankCatalog,
+			rankCatalog: catalog,
 			observedRanks: roster.map((person) => person.rank),
 			preserveRanks: [draft.rank?.from ?? '', draft.rank?.to ?? '']
 		})
@@ -223,90 +227,106 @@
 
 	<Field.Root>
 		<Field.Title id="duty-roster-who">Who pulls this duty</Field.Title>
-		<ToggleGroup.Root
-			type="single"
-			variant="outline"
-			aria-labelledby="duty-roster-who"
-			class="w-full"
-			bind:value={() => draft.mode, setMode}
-		>
-			<ToggleGroup.Item value="everyone" class={SEGMENT}>Everyone</ToggleGroup.Item>
-			<ToggleGroup.Item value="match" class={SEGMENT}>Only people who match</ToggleGroup.Item>
-		</ToggleGroup.Root>
-		{#if draft.mode === 'everyone'}
-			<Field.Description>
-				All {roster.length} people in the Organization, minus anyone excused below. Add rules when only certain ranks, MOSs
-				or roles pull this duty.
-			</Field.Description>
-		{:else}
-			<div class="@container flex flex-col overflow-hidden rounded-lg border" data-testid="duty-roster-rules">
-				{#if draft.rank}
-					{@render ruleRow('Rank', () => (draft.rank = null), rankRange)}
-				{/if}
-				{#if draft.mos}
-					{@render listRule('MOS', mosOptions, draft.mos, (next) => (draft.mos = next))}
-				{/if}
-				{#if draft.role}
-					{@render listRule('Role', roleOptions, draft.role, (next) => (draft.role = next))}
-				{/if}
-				{#if draft.groupIds}
-					{@render listRule('Group', groupOptions, draft.groupIds, (next) => (draft.groupIds = next), groupNames)}
-				{/if}
-				{#if !draft.rank || !draft.mos || !draft.role || !draft.groupIds}
-					<div class="flex flex-wrap items-center gap-2 border-t px-4 py-3 first:border-t-0">
-						<span class="text-sm text-muted-foreground"
-							>{draft.rank || draft.mos || draft.role || draft.groupIds ? 'And also' : 'Match on'}</span
-						>
-						{#if !draft.rank}
-							<Button variant="outline" size="xs" onclick={() => (draft.rank = { from: '', to: '' })}
-								><Plus />Rank</Button
-							>
-						{/if}
-						{#if !draft.mos}
-							<Button variant="outline" size="xs" onclick={() => (draft.mos = [])}><Plus />MOS</Button>
-						{/if}
-						{#if !draft.role}
-							<Button variant="outline" size="xs" onclick={() => (draft.role = [])}><Plus />Role</Button>
-						{/if}
-						{#if !draft.groupIds}
-							<Button variant="outline" size="xs" onclick={() => (draft.groupIds = [])}><Plus />Group</Button>
-						{/if}
-					</div>
-				{/if}
-				<div class="flex items-center gap-3 border-t bg-muted/40 px-4 py-3">
-					<div class="flex min-w-0 flex-1 flex-col">
-						<span class="text-sm font-medium" role="status" data-testid="duty-roster-count">
-							{pool.length}
-							{pool.length === 1 ? 'person' : 'people'} on this roster
-						</span>
-						<span class="truncate text-sm text-muted-foreground">{poolPreview || 'Nobody matches yet.'}</span>
-					</div>
-					{#if pool.length > 0}
-						<Popover.Root>
-							<Popover.Trigger>
-								{#snippet child({ props })}
-									<Button {...props} variant="link" size="sm">See list</Button>
-								{/snippet}
-							</Popover.Trigger>
-							<Popover.Content
-								align="end"
-								class="max-h-80 w-72 max-w-(--bits-popover-content-available-width) overflow-y-auto p-3"
-							>
-								<Popover.Header>
-									<Popover.Title>{pool.length} {pool.length === 1 ? 'person' : 'people'} on this roster</Popover.Title>
-								</Popover.Header>
-								<ol class="flex flex-col gap-1 text-sm">
-									{#each pool as person (person.id)}
-										<li>{person.rank} {person.lastName}, {person.firstName}</li>
-									{/each}
-								</ol>
-							</Popover.Content>
-						</Popover.Root>
-					{/if}
-				</div>
+		{#if rankCatalog === 'loading'}
+			<div class="flex flex-col gap-2" role="status">
+				<span class="sr-only">Loading ranks</span>
+				<Skeleton class="h-8 w-full" />
+				<Skeleton class="h-4 w-3/4" />
 			</div>
-			{#if problem}
-				<Field.Error>{problem}</Field.Error>
+		{:else if rankCatalog === 'failed'}
+			<Alert.Root variant="destructive">
+				<Alert.Title>Ranks unavailable</Alert.Title>
+				<Alert.Description
+					>Reload this page to change who pulls this duty. Excusals and weekends still save.</Alert.Description
+				>
+			</Alert.Root>
+		{:else}
+			<ToggleGroup.Root
+				type="single"
+				variant="outline"
+				aria-labelledby="duty-roster-who"
+				class="w-full"
+				bind:value={() => draft.mode, setMode}
+			>
+				<ToggleGroup.Item value="everyone" class={SEGMENT}>Everyone</ToggleGroup.Item>
+				<ToggleGroup.Item value="match" class={SEGMENT}>Only people who match</ToggleGroup.Item>
+			</ToggleGroup.Root>
+			{#if draft.mode === 'everyone'}
+				<Field.Description>
+					All {roster.length} people in the Organization, minus anyone excused below. Add rules when only certain ranks, MOSs
+					or roles pull this duty.
+				</Field.Description>
+			{:else}
+				<div class="@container flex flex-col overflow-hidden rounded-lg border" data-testid="duty-roster-rules">
+					{#if draft.rank}
+						{@render ruleRow('Rank', () => (draft.rank = null), rankRange)}
+					{/if}
+					{#if draft.mos}
+						{@render listRule('MOS', mosOptions, draft.mos, (next) => (draft.mos = next))}
+					{/if}
+					{#if draft.role}
+						{@render listRule('Role', roleOptions, draft.role, (next) => (draft.role = next))}
+					{/if}
+					{#if draft.groupIds}
+						{@render listRule('Group', groupOptions, draft.groupIds, (next) => (draft.groupIds = next), groupNames)}
+					{/if}
+					{#if !draft.rank || !draft.mos || !draft.role || !draft.groupIds}
+						<div class="flex flex-wrap items-center gap-2 border-t px-4 py-3 first:border-t-0">
+							<span class="text-sm text-muted-foreground"
+								>{draft.rank || draft.mos || draft.role || draft.groupIds ? 'And also' : 'Match on'}</span
+							>
+							{#if !draft.rank}
+								<Button variant="outline" size="xs" onclick={() => (draft.rank = { from: '', to: '' })}
+									><Plus />Rank</Button
+								>
+							{/if}
+							{#if !draft.mos}
+								<Button variant="outline" size="xs" onclick={() => (draft.mos = [])}><Plus />MOS</Button>
+							{/if}
+							{#if !draft.role}
+								<Button variant="outline" size="xs" onclick={() => (draft.role = [])}><Plus />Role</Button>
+							{/if}
+							{#if !draft.groupIds}
+								<Button variant="outline" size="xs" onclick={() => (draft.groupIds = [])}><Plus />Group</Button>
+							{/if}
+						</div>
+					{/if}
+					<div class="flex items-center gap-3 border-t bg-muted/40 px-4 py-3">
+						<div class="flex min-w-0 flex-1 flex-col">
+							<span class="text-sm font-medium" role="status" data-testid="duty-roster-count">
+								{pool.length}
+								{pool.length === 1 ? 'person' : 'people'} on this roster
+							</span>
+							<span class="truncate text-sm text-muted-foreground">{poolPreview || 'Nobody matches yet.'}</span>
+						</div>
+						{#if pool.length > 0}
+							<Popover.Root>
+								<Popover.Trigger>
+									{#snippet child({ props })}
+										<Button {...props} variant="link" size="sm">See list</Button>
+									{/snippet}
+								</Popover.Trigger>
+								<Popover.Content
+									align="end"
+									class="max-h-80 w-72 max-w-(--bits-popover-content-available-width) overflow-y-auto p-3"
+								>
+									<Popover.Header>
+										<Popover.Title>{pool.length} {pool.length === 1 ? 'person' : 'people'} on this roster</Popover.Title
+										>
+									</Popover.Header>
+									<ol class="flex flex-col gap-1 text-sm">
+										{#each pool as person (person.id)}
+											<li>{person.rank} {person.lastName}, {person.firstName}</li>
+										{/each}
+									</ol>
+								</Popover.Content>
+							</Popover.Root>
+						{/if}
+					</div>
+				</div>
+				{#if problem}
+					<Field.Error>{problem}</Field.Error>
+				{/if}
 			{/if}
 		{/if}
 	</Field.Root>

@@ -98,8 +98,7 @@ export function createCalendarWorkspaceHydration(
 		availabilityEntries: createCalendarRangeHydrationTarget(data.availabilityEntries, data.availabilityRange),
 		specialDays: createCalendarRangeHydrationTarget(data.specialDays, data.specialDaysRange),
 		calendarAssignments: createCalendarAssignmentsHydrationTarget(data),
-		pinnedGroups: createCalendarHydrationTarget(data.pinnedGroups),
-		rankCatalog: createCalendarHydrationTarget(data.rankCatalog)
+		pinnedGroups: createCalendarHydrationTarget(data.pinnedGroups)
 	};
 }
 

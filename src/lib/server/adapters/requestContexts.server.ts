@@ -609,11 +609,8 @@ export function createRequestCalendarRangeContext(request: AdmittedOrganizationR
 }
 
 export function createRequestCalendarWorkspaceContext(request: AdmittedOrganizationRequest) {
-	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestCalendarRangeContext(request),
-		loadRankCatalog: () =>
-			loadOrganizationRankCatalog({ auth: request.auth, rankCatalog }, { authorization: 'calendar-view' }),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		onboardingCalendarMarkers: createSupabaseOnboardingCalendarMarkersPort(request.supabase),
 		disabledFeatures: request.disabledFeatures

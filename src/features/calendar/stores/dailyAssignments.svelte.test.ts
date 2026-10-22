@@ -1553,3 +1553,68 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		expect(toasts[0]).toMatch(/Retiring/);
 	});
 });
+
+describe('dailyAssignmentsStore - roster saves', () => {
+	const staff = { ...guardType, id: 'staff', name: 'Staff Duty' };
+	const settings = (weekendMode: 'separate' | 'none') => ({
+		poolRules: null,
+		weekendMode,
+		excusals: [],
+		today: '2026-10-17'
+	});
+	const saved = (weekendMode: 'separate' | 'none') => ({
+		ok: true,
+		status: 200,
+		json: () => Promise.resolve({ ...staff, weekendMode })
+	});
+	let releases: Array<(response: unknown) => void>;
+	let fetchMock: ReturnType<typeof vi.fn>;
+
+	beforeEach(() => {
+		vi.restoreAllMocks();
+		releases = [];
+		// Only roster saves answer. Reads left over from earlier tests stay pending.
+		fetchMock = vi.fn((url: string) =>
+			url.endsWith('/roster') ? new Promise((resolve) => releases.push(resolve)) : new Promise(() => {})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		dailyAssignmentsStore.load([staff], [], 'org-roster');
+	});
+
+	it('locks edits and deletes of assignment types until the save settles', async () => {
+		const save = dailyAssignmentsStore.saveRosterSettings('staff', settings('none'));
+
+		expect(dailyAssignmentsStore.typesBusy).toBe(true);
+		expect(await dailyAssignmentsStore.removeType('staff')).toBe(false);
+		expect(await dailyAssignmentsStore.updateType('staff', { name: 'Renamed' })).toBe(false);
+		expect(fetchMock.mock.calls.map(([url, init]) => `${init?.method} ${url}`)).toEqual([
+			'PUT /org/org-roster/api/assignment-types/roster'
+		]);
+
+		releases[0](saved('none'));
+		await save;
+		expect(dailyAssignmentsStore.typesBusy).toBe(false);
+	});
+
+	it('keeps the newer save when the older response arrives last', async () => {
+		const older = dailyAssignmentsStore.saveRosterSettings('staff', settings('separate'));
+		const newer = dailyAssignmentsStore.saveRosterSettings('staff', settings('none'));
+
+		releases[1](saved('none'));
+		expect((await newer)?.weekendMode).toBe('none');
+		releases[0](saved('separate'));
+
+		expect(await older).toBeNull();
+		expect(dailyAssignmentsStore.types.map((type) => type.weekendMode)).toEqual(['none']);
+	});
+
+	it('ignores a save that finishes after the Organization changed', async () => {
+		const save = dailyAssignmentsStore.saveRosterSettings('staff', settings('none'));
+		dailyAssignmentsStore.load([{ ...guardType, id: 'bravo' }], [], 'org-2');
+
+		releases[0](saved('none'));
+
+		await expect(save).resolves.toBeNull();
+		expect(dailyAssignmentsStore.types.map((type) => type.id)).toEqual(['bravo']);
+	});
+});

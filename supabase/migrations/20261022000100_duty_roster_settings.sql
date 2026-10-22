@@ -1,9 +1,10 @@
 -- Every person-assigned assignment type is a duty roster. Its pool rules and
 -- weekend mode live on the type, and each run under one set of rules is a DA 6
--- form. close_roster_form is the only application writer of the rules: it
--- closes the open form with the record the application computed, carries the
--- counts, and opens the next form the following day. Dated excusals with a
--- reason replace exempt_personnel_ids.
+-- form. close_roster_form is the only application writer of the rules, the
+-- forms and their starting numbers: it closes the open form with the record the
+-- application computed, carries the counts, and opens the next form the
+-- following day, or ends the roster when the type becomes a Group assignment.
+-- Dated excusals with a reason replace exempt_personnel_ids.
 BEGIN;
 
 ALTER TABLE public.assignment_types
@@ -94,24 +95,11 @@ GRANT ALL ON TABLE public.roster_forms TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.roster_starting_numbers TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.roster_excusals TO anon, authenticated, service_role;
 
--- A closed form is the DA 6 as it stood. Deleting its assignment type still
--- removes it.
-CREATE FUNCTION calendar_private.keep_closed_roster_form() RETURNS trigger
-LANGUAGE plpgsql SET search_path = '' AS $$
-BEGIN
-  RAISE EXCEPTION 'A closed DA 6 form cannot change' USING ERRCODE = '42501';
-END;
-$$;
-REVOKE ALL ON FUNCTION calendar_private.keep_closed_roster_form() FROM PUBLIC, anon, authenticated, service_role;
-CREATE TRIGGER keep_closed_roster_form BEFORE UPDATE ON public.roster_forms
-  FOR EACH ROW WHEN (OLD.ends_on IS NOT NULL)
-  EXECUTE FUNCTION calendar_private.keep_closed_roster_form();
-
 -- Changing the rules without closing the form would rewrite the open form's past.
 CREATE FUNCTION calendar_private.guard_roster_rules() RETURNS trigger
 LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
-  IF pg_catalog.current_setting('trooptotask.roster_rules', true) IS DISTINCT FROM 'on' THEN
+  IF pg_catalog.current_setting('trooptotask.roster_close', true) IS DISTINCT FROM 'on' THEN
     RAISE EXCEPTION 'Roster rules change only when the DA 6 form closes' USING ERRCODE = '42501';
   END IF;
   RETURN NEW;
@@ -123,19 +111,26 @@ CREATE TRIGGER guard_roster_rules BEFORE UPDATE OF roster_pool_rules, roster_wee
     OR OLD.roster_weekend_mode IS DISTINCT FROM NEW.roster_weekend_mode)
   EXECUTE FUNCTION calendar_private.guard_roster_rules();
 
--- A type that becomes person-assigned on any write path gets its open form.
--- A type switched back to Group keeps its open form for a later switch.
+-- A type that becomes person-assigned on any write path gets a fresh open form,
+-- starting after any form it closed. A Group type never holds an open form:
+-- close_roster_form closes it before the type becomes a Group assignment.
 CREATE FUNCTION calendar_private.open_roster_form() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-BEGIN
-  IF NEW.assign_to = 'personnel' AND NOT EXISTS (
+DECLARE
+  v_open boolean := EXISTS (
     SELECT 1 FROM public.roster_forms WHERE assignment_type_id = NEW.id AND ends_on IS NULL
-  ) THEN
+  );
+BEGIN
+  IF NEW.assign_to = 'personnel' AND NOT v_open THEN
     INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, rules)
     VALUES (
-      NEW.organization_id, NEW.id, (pg_catalog.now() AT TIME ZONE 'UTC')::date,
+      NEW.organization_id, NEW.id,
+      GREATEST((pg_catalog.now() AT TIME ZONE 'UTC')::date,
+        (SELECT pg_catalog.max(f.ends_on) + 1 FROM public.roster_forms f WHERE f.assignment_type_id = NEW.id)),
       pg_catalog.jsonb_build_object('pool', NEW.roster_pool_rules, 'weekendMode', NEW.roster_weekend_mode)
     );
+  ELSIF NEW.assign_to = 'group' AND v_open THEN
+    RAISE EXCEPTION 'Close the DA 6 form before the type becomes a Group assignment' USING ERRCODE = '55000';
   END IF;
   RETURN NULL;
 END;
@@ -163,6 +158,26 @@ JOIN public.roster_forms f ON f.assignment_type_id = t.id AND f.ends_on IS NULL
 WHERE t.assign_to = 'personnel';
 
 ALTER TABLE public.assignment_types DROP COLUMN exempt_personnel_ids;
+
+-- Forms and starting numbers change only inside close_roster_form, which sets
+-- trooptotask.roster_close for its transaction, or inside another trigger: the
+-- one that opens a form and the cascades from a deleted type or Person.
+CREATE FUNCTION calendar_private.guard_roster_forms() RETURNS trigger
+LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  IF pg_catalog.pg_trigger_depth() < 2
+    AND pg_catalog.current_setting('trooptotask.roster_close', true) IS DISTINCT FROM 'on'
+  THEN
+    RAISE EXCEPTION 'DA 6 forms change only when a form closes' USING ERRCODE = '42501';
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+REVOKE ALL ON FUNCTION calendar_private.guard_roster_forms() FROM PUBLIC, anon, authenticated, service_role;
+CREATE TRIGGER guard_roster_forms BEFORE INSERT OR UPDATE OR DELETE ON public.roster_forms
+  FOR EACH ROW EXECUTE FUNCTION calendar_private.guard_roster_forms();
+CREATE TRIGGER guard_roster_starting_numbers BEFORE INSERT OR UPDATE OR DELETE ON public.roster_starting_numbers
+  FOR EACH ROW EXECUTE FUNCTION calendar_private.guard_roster_forms();
 
 -- p_excusals is the open set the caller wants: [{personnel_id, reason}].
 -- Someone left out is reinstated today. Someone new is excused from today. An
@@ -274,7 +289,9 @@ GRANT EXECUTE ON FUNCTION public.set_roster_excusals(uuid, uuid, date, jsonb) TO
 -- the count engine. p_form_id is the open form it read, so a close that raced
 -- another fails instead of closing twice. A form that starts after p_today has
 -- no day to record; it takes the new rules and starting numbers in place.
--- p_carry is [{personnel_id, track, count, origin}].
+-- p_carry is [{personnel_id, track, count, origin}]. A null p_weekend_mode ends
+-- the roster: the form closes without a next one and the type becomes a Group
+-- assignment.
 CREATE FUNCTION public.close_roster_form(
   p_organization_id uuid,
   p_assignment_type_id uuid,
@@ -293,6 +310,7 @@ DECLARE
   v_rules jsonb;
   v_next uuid;
   v_pool jsonb := NULLIF(p_pool_rules, 'null'::jsonb);
+  v_ending boolean := p_weekend_mode IS NULL;
 BEGIN
   IF auth.uid() IS NULL OR p_organization_id IS NULL
     OR public.can_manage_calendar_configuration(p_organization_id) IS NOT TRUE
@@ -300,10 +318,11 @@ BEGIN
     RAISE EXCEPTION 'Calendar configuration is not allowed' USING ERRCODE = '42501';
   END IF;
   IF p_assignment_type_id IS NULL OR p_form_id IS NULL
-    OR p_weekend_mode IS NULL OR p_weekend_mode NOT IN ('same', 'separate', 'none')
+    OR p_weekend_mode NOT IN ('same', 'separate', 'none')
     OR (v_pool IS NOT NULL AND pg_catalog.jsonb_typeof(v_pool) <> 'object')
     OR (p_record IS NOT NULL AND pg_catalog.jsonb_typeof(p_record) <> 'object')
     OR p_carry IS NULL OR pg_catalog.jsonb_typeof(p_carry) <> 'array'
+    OR (v_ending AND (v_pool IS NOT NULL OR pg_catalog.jsonb_array_length(p_carry) > 0))
   THEN
     RAISE EXCEPTION 'Invalid roster rules' USING ERRCODE = '22023';
   END IF;
@@ -335,15 +354,20 @@ BEGIN
   END IF;
 
   v_rules := pg_catalog.jsonb_build_object('pool', v_pool, 'weekendMode', p_weekend_mode);
-  IF p_record IS NULL THEN
+  PERFORM pg_catalog.set_config('trooptotask.roster_close', 'on', true);
+  IF p_record IS NULL AND v_ending THEN
+    DELETE FROM public.roster_forms WHERE id = v_form.id;
+  ELSIF p_record IS NULL THEN
     UPDATE public.roster_forms SET rules = v_rules WHERE id = v_form.id;
     DELETE FROM public.roster_starting_numbers WHERE form_id = v_form.id;
     v_next := v_form.id;
   ELSE
     UPDATE public.roster_forms SET ends_on = p_today, record = p_record WHERE id = v_form.id;
-    INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, rules)
-    VALUES (p_organization_id, p_assignment_type_id, p_today + 1, v_rules)
-    RETURNING id INTO v_next;
+    IF NOT v_ending THEN
+      INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, rules)
+      VALUES (p_organization_id, p_assignment_type_id, p_today + 1, v_rules)
+      RETURNING id INTO v_next;
+    END IF;
   END IF;
 
   -- People deleted since the application read the form have nothing to carry.
@@ -355,13 +379,26 @@ BEGIN
     WHERE v.organization_id = p_organization_id
   );
 
-  PERFORM pg_catalog.set_config('trooptotask.roster_rules', 'on', true);
-  UPDATE public.assignment_types SET roster_pool_rules = v_pool, roster_weekend_mode = p_weekend_mode
-  WHERE organization_id = p_organization_id AND id = p_assignment_type_id;
-  PERFORM pg_catalog.set_config('trooptotask.roster_rules', '', true);
+  IF v_ending THEN
+    UPDATE public.assignment_types SET assign_to = 'group'
+    WHERE organization_id = p_organization_id AND id = p_assignment_type_id;
+  ELSE
+    UPDATE public.assignment_types SET roster_pool_rules = v_pool, roster_weekend_mode = p_weekend_mode
+    WHERE organization_id = p_organization_id AND id = p_assignment_type_id;
+  END IF;
+  PERFORM pg_catalog.set_config('trooptotask.roster_close', '', true);
 
   IF public.can_manage_calendar_configuration(p_organization_id) IS NOT TRUE THEN
     RAISE EXCEPTION 'Calendar configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+  IF v_ending THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.assignment_types
+      WHERE organization_id = p_organization_id AND id = p_assignment_type_id AND assign_to = 'group'
+    ) THEN
+      RAISE EXCEPTION 'The DA 6 form was not saved' USING ERRCODE = 'RSF01';
+    END IF;
+    RETURN NULL;
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.assignment_types
@@ -379,5 +416,39 @@ $$;
 REVOKE ALL ON FUNCTION public.close_roster_form(uuid, uuid, uuid, date, jsonb, text, jsonb, jsonb)
   FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.close_roster_form(uuid, uuid, uuid, date, jsonb, text, jsonb, jsonb) TO authenticated;
+
+-- A duty day still counts for the pool after its assignee is deleted, but the
+-- assignment read shows only days of people the caller can see. This read keeps
+-- those days and still hides days of people outside the caller's scope.
+CREATE FUNCTION public.list_roster_detail_days(
+  p_organization_id uuid, p_assignment_type_id uuid, p_from date, p_through date
+) RETURNS TABLE(date date, assignee_id text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF auth.uid() IS NULL OR p_organization_id IS NULL OR public.can_view_calendar(p_organization_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Calendar access is not allowed' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  SELECT a.date, a.assignee_id
+  FROM public.daily_assignments a
+  WHERE a.organization_id = p_organization_id AND a.assignment_type_id = p_assignment_type_id
+    AND a.date BETWEEN p_from AND p_through
+    AND (
+      a.assignee_id IN (
+        SELECT v.personnel_id::text FROM member_access_private.viewable_personnel('calendar') v
+        WHERE v.organization_id = p_organization_id
+      )
+      OR NOT EXISTS (
+        SELECT 1 FROM public.personnel p WHERE p.organization_id = p_organization_id AND p.id::text = a.assignee_id
+      )
+    )
+  ORDER BY a.date;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.list_roster_detail_days(uuid, uuid, date, date) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.list_roster_detail_days(uuid, uuid, date, date) TO authenticated;
 
 COMMIT;

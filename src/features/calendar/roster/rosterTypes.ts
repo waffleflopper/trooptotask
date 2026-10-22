@@ -1,10 +1,23 @@
-import type { AssignmentSlotChange, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 
 /** 'YYYY-MM-DD' in the Organization's calendar. */
 export type DateKey = string;
 /** 'YYYY-MM'. */
 export type MonthKey = string;
+
+/** The calendar records the engine reads. Declared here because the calendar contracts import roster types. */
+export interface RosterAvailability {
+	readonly personnelId: string;
+	readonly statusTypeId: string;
+	readonly startDate: DateKey;
+	readonly endDate: DateKey;
+}
+
+interface AssignmentSlot {
+	readonly date: DateKey;
+	readonly assignmentTypeId: string;
+	readonly assigneeId: string;
+}
 
 /** Inclusive on both ends. */
 export interface DateSpan {
@@ -72,7 +85,7 @@ export interface RosterStatusType {
 	readonly rosterEffect: RosterEffect;
 }
 
-export type RosterAssignment = Pick<DailyAssignment, 'date' | 'assignmentTypeId' | 'assigneeId'> & {
+export type RosterAssignment = AssignmentSlot & {
 	readonly source: AssignmentSource;
 };
 
@@ -137,7 +150,7 @@ export interface RosterFacts {
 	/** The Organization's catalog. Ties and rank ranges read only this. */
 	readonly rankCatalog: readonly RankCatalogEntry[];
 	readonly statusTypes: readonly RosterStatusType[];
-	readonly availability: readonly AvailabilityEntry[];
+	readonly availability: readonly RosterAvailability[];
 	/** Special Days. Each counts as a weekend-and-holiday date. */
 	readonly holidays: readonly DateKey[];
 	/** This type and other person-assigned types. */
@@ -321,4 +334,4 @@ export interface CountChange {
 	readonly to: Da6Cell;
 }
 
-export type RosterSlotChange = AssignmentSlotChange & { readonly source: 'roster' };
+export type RosterSlotChange = AssignmentSlot & { readonly source: 'roster' };

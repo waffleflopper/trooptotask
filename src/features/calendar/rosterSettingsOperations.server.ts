@@ -14,6 +14,7 @@ import {
 } from './contracts';
 import { carryOver, closeForm } from './roster/rosterEngine';
 import type { OpenForm, RosterFacts, RosterRules } from './roster/rosterTypes';
+import { MAX_CALENDAR_RANGE_DAYS } from './utils/calendarRange';
 
 export interface RosterSettingsPorts extends CalendarCatalogPorts {
 	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
@@ -128,9 +129,9 @@ async function closing(
 }
 
 /**
- * The whole open form's facts through `through` (today unless a caller reads planned days too), plus the day each
- * side the engine reads for D and U. This type's duty days include those of deleted assignees, which still moved
- * everyone else's count.
+ * The whole open form's facts through `through` (today unless a caller reads planned days too), capped at today
+ * plus the Calendar's planning horizon, plus the day each side the engine reads for D and U. This type's duty days
+ * include those of deleted assignees, which still moved everyone else's count.
  */
 export async function loadRosterFacts(
 	ctx: RosterSettingsPorts,
@@ -139,7 +140,9 @@ export async function loadRosterFacts(
 	today: string,
 	through: string = today
 ): Promise<RosterFacts> {
-	const range = { rangeStart: addDays(form.startsOn, -1), rangeEnd: addDays(through, 1) };
+	const horizon = addDays(today, MAX_CALENDAR_RANGE_DAYS);
+	const window = { from: form.startsOn, through: through < horizon ? through : horizon };
+	const range = { rangeStart: addDays(window.from, -1), rangeEnd: addDays(window.through, 1) };
 	const [timelines, excusals, rankCatalog, statusTypes, types, availability, specialDays, assignments, detailDays] =
 		await Promise.all([
 			ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth),
@@ -155,7 +158,7 @@ export async function loadRosterFacts(
 	const personTypes = new Map(types.filter((t) => t.assignTo === 'personnel').map((t) => [t.id, t.name]));
 	return {
 		today,
-		window: { from: form.startsOn, through },
+		window,
 		type: { id: type.id, name: type.name },
 		form,
 		people: timelines.map((person) => ({

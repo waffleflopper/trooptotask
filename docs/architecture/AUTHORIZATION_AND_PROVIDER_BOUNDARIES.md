@@ -68,7 +68,12 @@ Provider sessions and tokens stay in HttpOnly cookies. The root layout serialize
 
 The six lanes are `calendar`, `personnel`, `training`, `criticalTasks`, `onboarding` and `ratingScheme`. Each is independently grantable, and no lane borrows another. A feature that needs roster data reads it through a Personnel-owned server port that checks the caller's own lane before a privileged, Organization- and Group-scoped read. A Rating Scheme-only member can use Evals without Personnel access. Dashboard shows Training readiness only with Training `view`.
 
-An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/featureSwitches.ts)) projects its lane to `none` in the app projection. Member edits keep the stored level of a switched-off lane. RLS does not read the switch.
+An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/featureSwitches.ts)) turns a feature off for every role, owners and admins included ([`20261021000200_organization_feature_switch_enforcement.sql`](../../supabase/migrations/20261021000200_organization_feature_switch_enforcement.sql)).
+
+- The app projects the lane to `none`. RLS, Storage policies and RPCs deny it too, because `member_access_has_capability` reads the switch outside the owner/admin bypass. `organization_feature_enabled` covers the paths without a lane: Onboarding reads through Personnel `view`, Calendar onboarding markers and award-tracking acknowledgements. Deletion approvals for a switched-off feature stay pending.
+- Feature routes check the switch on each request before loading data and show the off state. While Training is off, Onboarding reads no Training completions and Training steps are completed by hand.
+- Exception: the owner-only retained-file Storage policy that Organization deletion uses still reads Training certificates and roster scans, so deletion leaves no orphaned files. The owner can turn the feature back on anyway.
+- Settings stay readable and writable by role. Member edits and switch changes keep stored lane levels, so turning a feature back on restores exactly the earlier access.
 
 ### Group scope
 

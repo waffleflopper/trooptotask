@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(85);
+SELECT plan(92);
 
 CREATE FUNCTION pg_temp.id(p_suffix text) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
 	SELECT ('c6430000-0000-4000-8000-' || lpad(p_suffix, 12, '0'))::uuid;
@@ -374,6 +374,47 @@ FROM actor_baseline ORDER BY actor;
 SELECT is(pg_temp.writable_as(actor, '101'), pg_temp.without(writes, 'lossesAndAwards'),
 	label || ' cannot acknowledge awards but keeps the Data Sheet while Losses and awards is off')
 FROM actor_baseline ORDER BY actor;
+
+SELECT ok(
+  NOT has_column_privilege('authenticated', 'public.personnel_extended_info', 'award_tracking_acknowledged_at', 'SELECT')
+    AND NOT has_any_column_privilege('anon', 'public.personnel_extended_info', 'SELECT'),
+  'acknowledgements have no direct authenticated read grant and anonymous callers have no Data Sheet read grants'
+);
+SELECT is(
+  ARRAY(SELECT attname::text FROM pg_attribute
+    WHERE attrelid = 'public.personnel_extended_info'::regclass AND attnum > 0 AND NOT attisdropped
+      AND attname <> 'award_tracking_acknowledged_at'
+      AND NOT has_column_privilege('authenticated', attrelid, attnum, 'SELECT') ORDER BY attname),
+  ARRAY[]::text[],
+  'every non-acknowledgement Data Sheet column has an explicit read grant, including future columns'
+);
+SELECT pg_temp.act_as('2');
+SELECT throws_ok(
+  $$ SELECT award_tracking_acknowledged_at FROM public.personnel_extended_info WHERE organization_id = pg_temp.id('101') $$,
+  '42501', NULL, 'an admin cannot read the award acknowledgement column directly'
+);
+SELECT is(
+  (SELECT blood_type FROM public.personnel_extended_info WHERE personnel_id = pg_temp.id('301')),
+  'O+', 'other Data Sheet fields stay readable while Losses and awards is off'
+);
+SELECT throws_ok(
+  $$ INSERT INTO public.personnel_extended_info (organization_id, personnel_id, award_tracking_acknowledged_at)
+    VALUES (pg_temp.id('101'), pg_temp.id('302'), now()) $$,
+  '42501', NULL, 'inserting an acknowledgement is denied while Losses and awards is off'
+);
+SELECT lives_ok(
+  $$ INSERT INTO public.personnel_extended_info (organization_id, personnel_id, blood_type)
+    VALUES (pg_temp.id('101'), pg_temp.id('302'), 'A+') RETURNING id, personnel_id, blood_type $$,
+  'a Data Sheet insert returning ordinary fields succeeds while Losses and awards is off'
+);
+SELECT lives_ok(
+  $$ INSERT INTO public.personnel_extended_info (organization_id, personnel_id, blood_type)
+    VALUES (pg_temp.id('101'), pg_temp.id('302'), 'B+')
+    ON CONFLICT (personnel_id) DO UPDATE SET blood_type = EXCLUDED.blood_type
+    RETURNING id, personnel_id, blood_type $$,
+  'a Data Sheet upsert can return ordinary fields without reading the acknowledgement'
+);
+SELECT pg_temp.act_as_fixture();
 
 SELECT pg_temp.switch_off('101', ARRAY['training', 'criticalTasks', 'evaluations', 'onboarding', 'lossesAndAwards']);
 SELECT is(

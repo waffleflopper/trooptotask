@@ -4,53 +4,89 @@
 -- turning the feature back on restores exactly the access members had.
 BEGIN;
 
+CREATE FUNCTION organization_private.lane_feature(p_lane text) RETURNS text
+LANGUAGE sql IMMUTABLE SET search_path = ''
+AS $$ SELECT CASE p_lane WHEN 'ratingScheme' THEN 'evaluations' ELSE p_lane END; $$;
+ALTER FUNCTION organization_private.lane_feature(text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION organization_private.lane_feature(text) FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE FUNCTION public.organization_access_admitted(p_organization_id uuid, p_feature text)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+  SELECT NOT EXISTS (
+    SELECT 1 FROM public.user_suspensions WHERE user_suspensions.user_id = auth.uid()
+  ) AND EXISTS (
+    SELECT 1 FROM public.organizations AS o
+    WHERE o.id = p_organization_id AND o.suspended_at IS NULL
+      AND (p_feature IS NULL OR NOT (p_feature = ANY (o.disabled_features)))
+  );
+$$;
+ALTER FUNCTION public.organization_access_admitted(uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.organization_access_admitted(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.organization_access_admitted(p_organization_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$ SELECT public.organization_access_admitted(p_organization_id, NULL); $$;
+ALTER FUNCTION public.organization_access_admitted(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.organization_access_admitted(uuid) FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.member_access_has_capability(
-  p_organization_id uuid,
-  p_lane text,
-  p_required_capability text
+  p_organization_id uuid, p_lane text, p_required_capability text
 ) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = ''
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
 AS $$
   SELECT EXISTS (
-    SELECT 1
-    FROM public.organization_memberships AS m
-    JOIN public.organizations AS o ON o.id = m.organization_id
-    WHERE m.organization_id = p_organization_id
-      AND m.user_id = auth.uid()
-      AND o.suspended_at IS NULL
-      AND NOT (CASE p_lane WHEN 'ratingScheme' THEN 'evaluations' ELSE p_lane END = ANY (o.disabled_features))
+    SELECT 1 FROM public.organization_memberships AS m
+    WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
       AND (
         m.role IN ('owner', 'admin')
         OR public.member_access_required_capability_rank(
           public.member_access_lane_capability(m.member_preset, m.capability_overrides, p_lane)
         ) >= public.member_access_required_capability_rank(p_required_capability)
       )
-  ) AND NOT EXISTS (
-    SELECT 1 FROM public.user_suspensions WHERE user_suspensions.user_id = auth.uid()
-  );
+  ) AND public.organization_access_admitted(p_organization_id, organization_private.lane_feature(p_lane));
 $$;
+ALTER FUNCTION public.member_access_has_capability(uuid, text, text) OWNER TO postgres;
 
--- Members already read the switches on their Organization row. Outsiders learn nothing.
-CREATE FUNCTION public.organization_feature_enabled(p_organization_id uuid, p_feature text)
+CREATE FUNCTION organization_private.feature_is_off(p_organization_id uuid, p_feature text)
 RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = ''
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
 AS $$
   SELECT EXISTS (
-    SELECT 1
-    FROM public.organization_memberships AS m
-    JOIN public.organizations AS o ON o.id = m.organization_id
-    WHERE m.organization_id = p_organization_id
-      AND m.user_id = auth.uid()
-      AND o.suspended_at IS NULL
-      AND NOT (p_feature = ANY (o.disabled_features))
-  ) AND NOT EXISTS (
-    SELECT 1 FROM public.user_suspensions WHERE user_suspensions.user_id = auth.uid()
+    SELECT 1 FROM public.organizations AS o
+    WHERE o.id = p_organization_id AND p_feature = ANY (o.disabled_features)
   );
 $$;
-REVOKE ALL ON FUNCTION public.organization_feature_enabled(uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.organization_feature_enabled(uuid, text) TO authenticated, service_role;
+ALTER FUNCTION organization_private.feature_is_off(uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION organization_private.feature_is_off(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION organization_private.feature_is_off(uuid, text) TO service_role;
+GRANT USAGE ON SCHEMA organization_private TO service_role;
+
+CREATE FUNCTION public.organization_feature_enabled(p_organization_id uuid, p_feature text)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.organization_memberships AS m
+    WHERE m.organization_id = p_organization_id AND m.user_id = auth.uid()
+  ) AND public.organization_access_admitted(p_organization_id, p_feature);
+$$;
+ALTER FUNCTION public.organization_feature_enabled(uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.organization_feature_enabled(uuid, text) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.organization_feature_enabled(uuid, text) TO authenticated;
+
+-- New Data Sheet columns need an explicit SELECT grant.
+REVOKE SELECT ON public.personnel_extended_info FROM anon, authenticated;
+GRANT SELECT (
+  id, organization_id, personnel_id, emergency_contact_name, emergency_contact_relationship,
+  emergency_contact_phone, spouse_name, spouse_phone, vehicle_make_model, vehicle_plate,
+  vehicle_color, personal_email, personal_phone, address_street, address_city, address_state,
+  address_zip, created_at, updated_at, blood_type, basd, date_of_rank,
+  marital_status, number_of_dependents, children, civilian_education, military_education,
+  marital_status_date, updated_by
+) ON public.personnel_extended_info TO authenticated;
 
 -- The Personnel-view branch serves the Dashboard's Onboarding section, which exists only while Onboarding is on.
 ALTER POLICY "Onboarding or Personnel readers can view scoped workflows" ON public.personnel_onboardings
@@ -112,10 +148,7 @@ BEGIN
         WHEN 'INSERT' THEN NEW.award_tracking_acknowledged_at IS NOT NULL
         ELSE NEW.award_tracking_acknowledged_at IS DISTINCT FROM OLD.award_tracking_acknowledged_at
       END)
-    AND EXISTS (
-      SELECT 1 FROM public.organizations AS o
-      WHERE o.id = NEW.organization_id AND 'lossesAndAwards' = ANY (o.disabled_features)
-    )
+    AND organization_private.feature_is_off(NEW.organization_id, 'lossesAndAwards')
   THEN
     RAISE EXCEPTION 'Losses and awards is turned off for this organization' USING ERRCODE = '42501';
   END IF;
@@ -142,15 +175,11 @@ LANGUAGE plpgsql SECURITY INVOKER
 SET search_path = ''
 AS $$
 BEGIN
-	IF EXISTS (
-		SELECT 1 FROM public.organizations AS o
-		WHERE o.id = p_organization_id
-			AND (CASE p_resource_type
-				WHEN 'training_type' THEN 'training'
-				WHEN 'personnel_training' THEN 'training'
-				WHEN 'rating_scheme_entry' THEN 'evaluations'
-			END) = ANY (o.disabled_features)
-	) THEN
+	IF organization_private.feature_is_off(p_organization_id, CASE p_resource_type
+		WHEN 'training_type' THEN 'training'
+		WHEN 'personnel_training' THEN 'training'
+		WHEN 'rating_scheme_entry' THEN 'evaluations'
+	END) THEN
 		RAISE EXCEPTION 'This feature is turned off for the organization' USING ERRCODE = '42501';
 	END IF;
 
@@ -200,7 +229,6 @@ AS $$
 DECLARE
   packet public.personnel_onboardings%ROWTYPE;
   result_steps jsonb;
-  training_on boolean;
 BEGIN
   IF auth.uid() IS NULL OR p_organization_id IS NULL
     OR public.can_edit_onboarding(p_organization_id) IS NOT TRUE
@@ -233,9 +261,6 @@ BEGIN
     RAISE EXCEPTION 'Onboarding start is not allowed' USING ERRCODE = '42501';
   END IF;
 
-  SELECT NOT ('training' = ANY (o.disabled_features)) INTO training_on
-  FROM public.organizations AS o WHERE o.id = p_organization_id;
-
   -- A Training step starts complete when the Person has a saved record of its
   -- type, as the app's Training read decides.
   WITH saved AS (
@@ -244,7 +269,7 @@ BEGIN
       training_type_id, stages, sort_order, completed, current_stage, notes, active
     ) SELECT p_organization_id, packet.id, s.id, s.name, s.step_type,
       s.training_type_id, s.stages, s.sort_order,
-      training_on AND s.step_type = 'training' AND s.training_type_id IS NOT NULL AND EXISTS (
+      NOT organization_private.feature_is_off(p_organization_id, 'training') AND s.step_type = 'training' AND s.training_type_id IS NOT NULL AND EXISTS (
         SELECT 1 FROM public.personnel_trainings AS record
         WHERE record.organization_id = p_organization_id
           AND record.personnel_id = p_personnel_id
@@ -269,6 +294,16 @@ BEGIN
   RETURN jsonb_build_object('onboarding', to_jsonb(packet), 'steps', result_steps);
 END;
 $$;
+
+CREATE FUNCTION onboarding_private.admitted_member_training_is_off(p_organization_id uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+  SELECT public.is_org_member(p_organization_id)
+    AND organization_private.feature_is_off(p_organization_id, 'training');
+$$;
+ALTER FUNCTION onboarding_private.admitted_member_training_is_off(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION onboarding_private.admitted_member_training_is_off(uuid) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION onboarding_private.admitted_member_training_is_off(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION organization_private.require_onboarding_operation_rules() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
@@ -309,7 +344,7 @@ BEGIN
 		AND (CASE NEW.step_type
 			WHEN 'checkbox' THEN NEW.current_stage IS NOT DISTINCT FROM OLD.current_stage
 			WHEN 'training' THEN NEW.current_stage IS NOT DISTINCT FROM OLD.current_stage
-				AND NOT public.organization_feature_enabled(NEW.organization_id, 'training')
+				AND onboarding_private.admitted_member_training_is_off(NEW.organization_id)
 			WHEN 'paperwork' THEN jsonb_typeof(NEW.stages) = 'array'
 				AND NEW.stages @> jsonb_build_array(NEW.current_stage)
 				AND NEW.completed = (NEW.current_stage = NEW.stages ->> -1)
@@ -335,5 +370,12 @@ END;
 $$;
 REVOKE ALL ON FUNCTION organization_private.require_onboarding_operation_rules()
 	FROM PUBLIC, anon, authenticated, service_role;
+
+ALTER FUNCTION public.active_onboarding_calendar_personnel_ids(uuid) OWNER TO postgres;
+ALTER FUNCTION public.list_personnel_award_tracking_acknowledged(uuid) OWNER TO postgres;
+ALTER FUNCTION organization_private.require_award_tracking_enabled() OWNER TO postgres;
+ALTER FUNCTION public.approve_record_deletion_request(uuid, uuid, text, uuid, uuid, timestamptz) OWNER TO postgres;
+ALTER FUNCTION public.start_onboarding_packet(uuid, uuid, uuid, date, jsonb) OWNER TO postgres;
+ALTER FUNCTION organization_private.require_onboarding_operation_rules() OWNER TO postgres;
 
 COMMIT;

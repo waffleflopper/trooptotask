@@ -75,6 +75,8 @@ export async function loadRosters(
 	ctx: RosterFactsPorts,
 	input: { today: DateKey; window: DateSpan; typeIds?: readonly string[] }
 ): Promise<RosterFacts[]> {
+	// Started beside the roster lookups so an Organization with rosters waits for one round of reads, not two.
+	const people = readRosterPeople(ctx);
 	const types = await ctx.calendarCatalogs.listAssignmentTypes();
 	const names = personTypeNames(types);
 	const wanted = types.filter(
@@ -91,9 +93,11 @@ export async function loadRosters(
 			})
 		)
 	).flat();
-	if (!rosters.length) return [];
+	if (!rosters.length) {
+		people.catch(() => {});
+		return [];
+	}
 
-	const people = readRosterPeople(ctx);
 	const before = addDays(input.window.from, -1);
 	const after = addDays(input.window.through, 1);
 	const startOf = new Map(rosters.map(({ type, form }) => [type.id, addDays(form.startsOn, -1)]));

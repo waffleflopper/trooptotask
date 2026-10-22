@@ -234,7 +234,7 @@ describe('loadPlannerRosters', () => {
 		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2027-10' })).resolves.toHaveLength(1);
 	});
 
-	it('reads no personnel, ranks or statuses when the Organization has no open roster', async () => {
+	it('settles its shared reads when the Organization has no open roster', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('assignment_types', [
 			{
@@ -251,13 +251,15 @@ describe('loadPlannerRosters', () => {
 				archived_at: null
 			}
 		]);
-		const timelines = vi.spyOn(ctx.personnelCalendarRoster, 'listAttributeTimelines');
-		const ranks = vi.spyOn(ctx, 'loadRankCatalog');
-		const statuses = vi.spyOn(ctx.calendarCatalogs, 'listStatusTypes');
+		vi.spyOn(ctx.personnelCalendarRoster, 'listAttributeTimelines').mockRejectedValue(new Error('timelines down'));
+		const unhandled = vi.fn();
+		process.on('unhandledRejection', unhandled);
 
 		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2026-10' })).resolves.toEqual([]);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		process.off('unhandledRejection', unhandled);
 
-		expect([timelines, ranks, statuses].map((read) => read.mock.calls.length)).toEqual([0, 0, 0]);
+		expect(unhandled).not.toHaveBeenCalled();
 	});
 
 	it('keeps roster counts from a Group-scoped operator', async () => {

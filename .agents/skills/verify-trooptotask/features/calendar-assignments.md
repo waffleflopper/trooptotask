@@ -242,9 +242,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
 
 12. **Fill from roster.** As `calendarOperate` on October 2026 at 1440x900 light, open
     `Verification Staff Duty column actions`. The popover is named `Fill from roster, Verification Staff Duty`, with
-    `First day` on today and `Last day` on October 31, the open-day count under them, and a preview of the picks (`Day`,
-    `Next up`, `Count`): starting from no details, Able then Unassigned alternating, the first pick at count 1 and the
-    rest at 2 and up, five rows with `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change
+    `First day` on tomorrow and `Last day` on October 31, the open-day count under them, and a preview of the picks
+    (`Day`, `Next up`, `Count`): starting from no details, Able then Unassigned alternating, the first pick at count 1
+    and the rest at 2 and up, five rows with `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change
     `First day` and require a fresh preview. Before committing, send an authenticated POST from the signed-in page that
     saves Unassigned on the second day of the range; then click `Fill`: the server answers `409`, the popover stays open
     with `The roster changed since this preview. Review the new picks and fill again.` and a new preview that leaves

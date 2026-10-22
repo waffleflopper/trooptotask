@@ -872,6 +872,7 @@ describe('setup hints', () => {
 		);
 		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss the Onboarding hint' }));
 		expect(hintTexts()).toEqual(["Training is on, but there are no training types yet, so it isn't shown here."]);
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Dismiss the Training hint' }));
 		cleanup();
 
 		viewAs('user-1');

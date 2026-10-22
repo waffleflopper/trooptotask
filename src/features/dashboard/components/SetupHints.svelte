@@ -11,6 +11,16 @@
 
 	let { hints, onDismiss }: Props = $props();
 
+	// Keep keyboard focus among the hints rather than dropping it to the page.
+	function dismiss(event: MouseEvent & { currentTarget: HTMLButtonElement }, feature: FeatureKey) {
+		const hint = event.currentTarget.closest('[data-setup-hint]');
+		const neighbour = [hint?.nextElementSibling, hint?.previousElementSibling].find((element) =>
+			element?.matches('[data-setup-hint]')
+		);
+		onDismiss(feature);
+		neighbour?.querySelector('button')?.focus();
+	}
+
 	const LINK = 'text-sm leading-5 font-medium underline decoration-1 underline-offset-2';
 </script>
 
@@ -28,7 +38,7 @@
 			size="icon-xs"
 			class="text-muted-foreground"
 			aria-label="Dismiss the {FEATURE_SWITCHES[hint.feature].label} hint"
-			onclick={() => onDismiss(hint.feature)}
+			onclick={(event) => dismiss(event, hint.feature)}
 		>
 			<XIcon aria-hidden="true" />
 		</Button>

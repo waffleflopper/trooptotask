@@ -317,8 +317,14 @@ describe('bottom line scale (frame 02)', () => {
 			{ statusTypeId: 'tdy', count: 1 }
 		]);
 		expect(result.bottomLine.outByStatus).toEqual([
-			{ statusTypeId: 'leave', count: 6, originsLabel: 'Alpha 3 · Bravo 2 · 1 more', returnLabel: '2 back tomorrow' },
-			{ statusTypeId: 'tdy', count: 1, originsLabel: 'Alpha 1', returnLabel: 'back 22 Oct' }
+			{
+				statusTypeId: 'leave',
+				count: 6,
+				originsLabel: 'Alpha 3 · Bravo 2',
+				moreOrigins: 1,
+				returnLabel: '2 back tomorrow'
+			},
+			{ statusTypeId: 'tdy', count: 1, originsLabel: 'Alpha 1', moreOrigins: 0, returnLabel: 'back 22 Oct' }
 		]);
 		expect(result.bottomLine.tomorrow).toBe('Tomorrow 36. 2 return.');
 		expect(result.groups.rows.map((row) => [row.name, `${row.available}/${row.assigned}`, row.belowFloor])).toEqual([

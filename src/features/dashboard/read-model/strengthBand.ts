@@ -68,8 +68,10 @@ export interface OutPersonRow {
 export interface OutStatusRow {
 	statusTypeId: string;
 	count: number;
-	/** Source groups, largest first: "B Co 9 · HHC 6 · 4 more". */
+	/** The largest source groups: "B Co 9 · HHC 6". */
 	originsLabel: string;
+	/** Source groups past those named. */
+	moreOrigins: number;
 	/** The soonest return: "back tomorrow", "2 back 23 Oct". */
 	returnLabel: string;
 }
@@ -293,10 +295,11 @@ function buildBottomLine(
 			{
 				statusTypeId: type.id,
 				count: people.length,
-				originsLabel: [
-					...origins.slice(0, ORIGINS_SHOWN).map(([name, count]) => `${name} ${count}`),
-					...(origins.length > ORIGINS_SHOWN ? [`${origins.length - ORIGINS_SHOWN} more`] : [])
-				].join(' · '),
+				originsLabel: origins
+					.slice(0, ORIGINS_SHOWN)
+					.map(([name, count]) => `${name} ${count}`)
+					.join(' · '),
+				moreOrigins: Math.max(origins.length - ORIGINS_SHOWN, 0),
 				returnLabel: returning === people.length ? `back ${when}` : `${returning} back ${when}`
 			}
 		];

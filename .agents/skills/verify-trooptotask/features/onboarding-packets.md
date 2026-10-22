@@ -713,7 +713,7 @@ and exact helper ledger; it accepts no arbitrary SQL or target ID:
 
 ```bash
 python3 .agents/skills/verify-trooptotask/helpers/onboarding-start-provider.py capture \
-  --worker 1 --session-id SESSION_UUID --seed .verification/evidence/verify-trooptotask/RUN/seed.json \
+  --worker "$WORKER" --session-id SESSION_UUID --seed .verification/evidence/verify-trooptotask/RUN/seed.json \
   --evidence .verification/evidence/verify-trooptotask/RUN
 ```
 

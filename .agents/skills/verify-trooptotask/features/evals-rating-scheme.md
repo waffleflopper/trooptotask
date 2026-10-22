@@ -39,8 +39,8 @@ downloads with `workbook FILE 'Rating Scheme'`. The [Evals recipe](evals-rating-
 
 ## Driving it with verify:app
 
-Record the local/browser date. Set `V='node .agents/skills/verify-trooptotask/helpers/control.mjs --worker 1'` (or owned
-worker 2). Run `$V seed rating-scheme` once and save its returned exact IDs, dates and examples. The
+Record the local/browser date. Set `V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"` for
+the owned worker. Run `$V seed rating-scheme` once and save its returned exact IDs, dates and examples. The
 [helper controls](#helper-controls) describe the `rating*` actors. Use `$V actor ROLE evals` or `home`; use `manager` as
 the Personnel-only denied actor and `orgOwner` for direct deletion.
 

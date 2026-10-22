@@ -219,17 +219,17 @@ only affected scan cases for a lifecycle repair.
    control. Restore after the case.
 
 5. Measure the real authenticated provider timeout with
-   `python3 .agents/skills/verify-trooptotask/helpers/roster-provider.py timeout --worker 1 orgA ALPHA_ROSTER_ID`. This
-   installs one temporary read-only probe RPC on the owned provider, invokes it with the synthetic manager's ordinary
-   provider login, then removes the function and revokes that probe session. Preserve the returned setting and actor.
-   For a bounded replacement overlap, run `roster-provider.py hold --worker 1 orgA ALPHA_ROSTER_ID`. After `HOLDING`,
-   run `$V roster-replace PAGE orgA rosterAlpha FIRST_PDF SECOND_PDF`. The optional second PDF dispatches two ordinary
-   authenticated requests concurrently. The holder independently queries the actual direct and transitive waiter graph,
-   labels each waiter `attach`, `remove`, `delete` or a direct write, and rolls back after both writers arrive. It
-   captures the holder and writer PIDs before release. A ten-second overall deadline, two-second first-waiter deadline,
-   and twelve-second idle transaction limit prevent indefinite holds. No timed sleep establishes ordering. Require
-   `RELEASE_GRAPH` with `overlap:true`, both real responses, and `HOLDER_ABSENT`. Compare every stored key with the
-   final pointer, retirements and exact hashes.
+   `python3 .agents/skills/verify-trooptotask/helpers/roster-provider.py timeout --worker "$WORKER" orgA ALPHA_ROSTER_ID`.
+   This installs one temporary read-only probe RPC on the owned provider, invokes it with the synthetic manager's
+   ordinary provider login, then removes the function and revokes that probe session. Preserve the returned setting and
+   actor. For a bounded replacement overlap, run `roster-provider.py hold --worker "$WORKER" orgA ALPHA_ROSTER_ID`.
+   After `HOLDING`, run `$V roster-replace PAGE orgA rosterAlpha FIRST_PDF SECOND_PDF`. The optional second PDF
+   dispatches two ordinary authenticated requests concurrently. The holder independently queries the actual direct and
+   transitive waiter graph, labels each waiter `attach`, `remove`, `delete` or a direct write, and rolls back after both
+   writers arrive. It captures the holder and writer PIDs before release. A ten-second overall deadline, two-second
+   first-waiter deadline, and twelve-second idle transaction limit prevent indefinite holds. No timed sleep establishes
+   ordering. Require `RELEASE_GRAPH` with `overlap:true`, both real responses, and `HOLDER_ABSENT`. Compare every stored
+   key with the final pointer, retirements and exact hashes.
 
    For replacement versus Remove, substitute `remove` for the second PDF. It sends the pointer read before dispatch as
    the expected key. For whole-roster deletion, substitute `delete`. Each request pair runs in one ordinary page

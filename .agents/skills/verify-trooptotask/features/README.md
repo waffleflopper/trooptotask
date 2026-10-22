@@ -139,6 +139,7 @@ means the workspace reloaded.
 - [Bulk status changes](bulk-status.md): bulk selection and import.
 - [Calendar catalogs](calendar-catalogs.md): status and assignment type settings, including duty roster rules.
 - [Manual assignments](calendar-assignments.md): assignment planner and quick fill.
+- [DA 6](calendar-da6.md): one duty roster's read-only DA 6 for a month, Show the work and print.
 - [Special days](special-days.md): holidays, closures and federal reset.
 - [Reports and history](reports-history.md): Calendar reports and workbooks.
 - [Organization switching](organization-switching.md): A/B isolation and delayed responses.
@@ -157,6 +158,8 @@ Done; never aim them at the existing local or remote database. A browser request
 UI affordance does not establish RLS.
 
 Run `node --test scripts/verification/pointer-drag.test.mjs` for its boundaries.
+
+Run `node --test .agents/skills/verify-trooptotask/helpers/da6-fixtures.test.mjs` for the DA 6 seed's pick rule.
 
 For focused checks of network response ordering, feedback and scoped request capture, run
 `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs .agents/skills/verify-trooptotask/helpers/feedback-control.test.mjs`.

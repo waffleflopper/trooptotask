@@ -214,7 +214,9 @@ export interface PersonnelTrainingRosterPort {
 
 /** Scoped Personnel references for the independently authorized Rating Scheme lane. */
 export interface PersonnelRatingSchemeRosterPort {
-	listActiveReferences(actor: PersonnelRosterActor): Promise<PersonnelLookup[]>;
+	listActiveReferences(
+		actor: Pick<PersonnelRosterActor, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'>
+	): Promise<PersonnelLookup[]>;
 	/** Archived People rated in an evaluation, IDs only, so Rating can hide their entries without Personnel access. */
 	listArchivedRatedPersonIds(
 		actor: Pick<PersonnelRosterActor, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'>

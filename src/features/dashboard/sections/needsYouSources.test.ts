@@ -278,6 +278,26 @@ describe('overdueEvaluations', () => {
 			}
 		]);
 	});
+
+	it('keeps an overdue row with a generic title when a saved entry has no name or roster', () => {
+		const rows = overdueEvaluations(
+			inputs({
+				personnel: [],
+				ratingSchemeEntries: [
+					{
+						id: 'eval-late',
+						ratedPersonId: 'p-alvarez',
+						evalType: 'NCOER',
+						ratingPeriodEnd: '2026-10-13',
+						status: 'active'
+					}
+				]
+			})
+		);
+		expect(rows).toMatchObject([
+			{ id: 'overdue:eval-late', title: 'NCOER for a Soldier', href: '/org/org-1/evals?entry=eval-late' }
+		]);
+	});
 });
 
 describe('expiredTraining', () => {
@@ -455,7 +475,7 @@ describe('leavingWithoutAward', () => {
 });
 
 describe('Group scope', () => {
-	it('keeps every Person-bound row inside the roster the viewer can see', () => {
+	it('uses the authorized Rating entries and limits other Person-bound rows to the roster', () => {
 		const loaded: Loaded = {
 			personnel: [alvarez, brooks],
 			ratingSchemeEntries: [
@@ -465,8 +485,7 @@ describe('Group scope', () => {
 					evalType: 'NCOER',
 					ratingPeriodEnd: '2026-10-13',
 					status: 'active'
-				},
-				{ id: 'eval-bravo', ratedPersonId: 'p-kim', evalType: 'NCOER', ratingPeriodEnd: '2026-10-10', status: 'active' }
+				}
 			],
 			expiredByType: [{ trainingTypeId: 'sharp', personnelIds: ['p-brooks', 'p-kim'], maxDaysLate: 4 }],
 			activeOnboardings: [{ ...brooksPacket, id: 'onboarding-kim', personnelId: 'p-kim' }]

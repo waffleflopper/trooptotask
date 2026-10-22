@@ -251,8 +251,8 @@ describe('Rating Scheme due projection', () => {
 		expect(listArchivedRatedPersonIds).toHaveBeenCalledWith(reader);
 	});
 
-	it('reads entries and archived IDs concurrently', async () => {
-		const { port, from, listArchivedRatedPersonIds } = provider();
+	it('reads entries, archived IDs and roster references concurrently', async () => {
+		const { port, from, listArchivedRatedPersonIds, listActiveReferences } = provider();
 		let release!: () => void;
 		const wait = new Promise<void>((resolve) => {
 			release = resolve;
@@ -266,6 +266,7 @@ describe('Rating Scheme due projection', () => {
 			await vi.waitFor(() => {
 				expect(from).toHaveBeenCalledTimes(1);
 				expect(listArchivedRatedPersonIds).toHaveBeenCalledTimes(1);
+				expect(listActiveReferences).toHaveBeenCalledTimes(1);
 			});
 		} finally {
 			release();

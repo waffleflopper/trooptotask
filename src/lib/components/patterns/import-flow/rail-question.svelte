@@ -27,7 +27,8 @@
 		onCreate: (name: string) => Promise<{ refused: string } | null>;
 	} = $props();
 
-	const id = $derived(`rail-${question.key.replace(/[^a-z0-9]/gi, '-')}`);
+	const uid = $props.id();
+	const id = `rail-${uid}`;
 	const accepts = $derived(question.accepts);
 	const options = $derived.by(() => {
 		if (accepts.kind !== 'pick') return [];

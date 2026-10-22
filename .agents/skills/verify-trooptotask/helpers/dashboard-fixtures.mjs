@@ -295,7 +295,7 @@ export async function seedDashboardCurrency({ client, fixture, tag, ownedState, 
 	};
 }
 
-/** Seven Alpha People out today and returning within a week, four with an ETS, so Out Today, Coming and going and Needs you pass their row limits. */
+/** Seven Alpha People out today and returning within a week, four with an ETS, so Coming and going and Needs you pass their row limits while Bottom line lists all eight People out without a toggle. */
 export async function seedDashboardOverflow({ client, fixture, tag, ownedState, save }) {
 	if (ownedState.seeded.some((item) => item.kind === 'dashboard-overflow'))
 		throw new Error('Clean the existing Dashboard overflow seed before preparing another cohort.');

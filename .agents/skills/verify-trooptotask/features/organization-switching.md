@@ -1,42 +1,115 @@
 # Organization switching
 
-A member of two Organizations switches Calendar context without carrying the first Organization's catalogs, saved statuses, late responses or feedback into the second.
+A member of two Organizations switches Calendar context without carrying the first Organization's catalogs, saved
+statuses, late responses or feedback into the second.
 
 ## Sub-features
 
-- `switch-catalogs`: A Settings and Calendar show A labels; B Calendar shows only B labels and closure while B Settings restricts configuration.
+- `switch-catalogs`: A Settings and Calendar show A labels; B Calendar shows only B labels and closure while B Settings
+  restricts configuration.
 - `late-range`: an A range response released after switching to B cannot restore A data in B.
-- `late-mutation`: a saved A status whose response arrives after switching to B remains saved only in A and shows no stale A feedback in B.
-- `late-assignment`: an A Planner assignment save whose success or failure arrives after switching to B, or after switching to B and back to A, changes neither the current Organization's slots nor its feedback, while the A write stays truthful in A.
-- `late-settings`: an A Calendar settings save whose success or failure arrives after switching to B reports nothing in B.
-- `permission-narrowing`: an already-open A Calendar loses access when its grant narrows; a denied range/reload stops exposing A labels, presents a settled access state, and preserves historical data.
+- `late-mutation`: a saved A status whose response arrives after switching to B remains saved only in A and shows no
+  stale A feedback in B.
+- `late-assignment`: an A Planner assignment save whose success or failure arrives after switching to B, or after
+  switching to B and back to A, changes neither the current Organization's slots nor its feedback, while the A write
+  stays truthful in A.
+- `late-settings`: an A Calendar settings save whose success or failure arrives after switching to B reports nothing in
+  B.
+- `permission-narrowing`: an already-open A Calendar loses access when its grant narrows; a denied range/reload stops
+  exposing A labels, presents a settled access state, and preserves historical data.
 
 ## How to get to it (user POV)
 
-Sign in as `calendarSwitch`, who belongs to Verification Organizations A and B, and use the `Switch organization` menu. This actor can configure A Settings and view B Calendar; B Settings displays `Access restricted`. Calendar's `3-Month` view requests additional dates; an availability modal submits a status while the page remains open.
+Sign in as `calendarSwitch`, who belongs to Verification Organizations A and B, and use the `Switch organization` menu.
+This actor can configure A Settings and view B Calendar; B Settings displays `Access restricted`. Calendar's `3-Month`
+view requests additional dates; an availability modal submits a status while the page remains open.
 
 ## Driving it with verify:app
 
-Preconditions: doctor passes; `$V actor calendarSwitch calendar/settings` returns `PAGE`; `$V fixture` gives both Organization IDs, A/B status/closure IDs and today's date. Keep one page and one browser context for the switch. The `network` helper controls only A endpoints, and every arm must be released/restored after the attempt. Capture route, Organization name, visible labels, request status, and exact saved-row readback before and after switching.
+Preconditions: doctor passes; `$V actor calendarSwitch calendar/settings` returns `PAGE`; `$V fixture` gives both
+Organization IDs, A/B status/closure IDs and today's date. Keep one page and one browser context for the switch. The
+`network` helper controls only A endpoints, and every arm must be released/restored after the attempt. Capture route,
+Organization name, visible labels, request status, and exact saved-row readback before and after switching.
 
-Save the `network arm-hold`, `network state` (while held and after release), and `network release` JSON outputs with the B before/after observations and exact A/B row readbacks. A B screenshot alone does not establish that a real A response was held or released.
+Save the `network arm-hold`, `network state` (while held and after release), and `network release` JSON outputs with the
+B before/after observations and exact A/B row readbacks. A B screenshot alone does not establish that a real A response
+was held or released.
 
-1. In A Settings, capture `Verification Leave` and no `Foreign Private Status`; in A Calendar September, capture Leave/`Verification Unit Closure` and no B labels. Use `Switch organization` → `Verification Organization B` from a fresh snapshot. B Settings must say `Access restricted`; follow `View calendar` and capture `Foreign Private Status`/`Foreign Private Closure` with no A Leave/closure. Switch back to A for the delayed paths.
-2. From A Calendar with an uncovered future range, arm `$V network arm-hold $PAGE calendar-range`. Click `3-Month` or `Next 3 months`, then require `$V network state $PAGE` to show a real A `200` held. While it is held, use the actual Organization switcher to choose B. Capture B's route/labels before release, run `$V network release $PAGE`, then capture after settlement. B must still show B's status/closure and never A's. Restore the hook. If no range request was intercepted, choose an uncovered range and retry; do not count a cached view as a delayed-response exercise.
-3. Back in A after visiting B, open Able's unoccupied today cell, select `Verification Leave`, and fill a unique note. Arm `$V network arm-hold $PAGE availability` and click `Add Status`. `network state` must show the real `200` held after persistence, and `$V rows availability_entries orgA note "$NOTE"` must show one Able/A row. The pending modal prevents the Organization menu from opening; invoke browser History Back in the same page with `tool evaluate_script` and `history.back()` to return to the prior B route. Neither before nor after `$V network release $PAGE` may B show A's note/Leave or an A `added —`/error toast. `$V rows availability_entries orgB note "$NOTE"` stays empty; reload B and confirm the same. Restore the hook and remove only the new A row through the normal A UI when back in A. Record the menu transition as unreachable, separately from the History Back result.
-4. Late assignment saves. Preflight an empty A Planner date with `$V rows daily_assignments orgA date DATE`; use September 22, 2026 unless fixtures changed. Start with `$V actor calendarSwitch calendar`, open `Duty planner`, press `Previous month` until the month button reads `September 2026` (the Planner reopens on the current month after each reload, but keeps September after a client switch back to A, so read the month button before pressing; the heading is always `Duty planner`) and arm `$V feedback arm $PAGE` for rendered toasts. The switcher keeps the route, so B opens on its restricted Planner; follow B's `Calendar` link to reach B Calendar. The switch is client-side and keeps the armed hook. Each table cell is a button named `Assign <duty>, <date>` while open, or `<duty>, <date>: <person>` once assigned. Click the cell for September 22, `type_text` the name (for example `Able`) in the `Find person` box of the picker, then press Enter.
-   - **A to B success.** Arm `$V network arm-hold $PAGE daily-assignments`, choose Able in the picker of an empty `Verification Staff Duty` cell on the Duty planner and require a held real `200` in `network state` plus one A row. Switch to B through the menu and open B Calendar. Release, then require B labels only, no A feedback in `feedback state`, and zero B rows for that date. Back in A after reload, the slot shows Able. Clear it through the visible control and read back zero rows.
-   - **A to B failure.** Arm `$V network arm-hold-fail $PAGE daily-assignments`, choose Able in the same empty slot and switch to B before releasing. Require no `Synthetic request failure` or other A error toast in B and zero A and B rows.
-   - **A to B to A success.** The control holds only its first matching request, so the later Baker save goes through. Arm `arm-hold` again, choose Able, then switch to B and back to A Planner while it is held. In the returned planner choose Unassigned (Baker is exempt from Staff and is not offered) in the same cell's picker, wait for its save and read back one A row with that Person. Release the held Able response. The slot must keep that Person, with no Able value, duplicate row or stale toast, before and after reload. Clear the slot and read back zero rows.
-   - **A to B to A failure.** Repeat with `arm-hold-fail` and choose Able. Release after returning to A. The returned Planner must show no stale error and keep the empty slot, with zero rows.
-   - **Batch.** Repeat the A to B to A success and failure paths through Quick fill with `daily-assignments/batch`, editing one filled slot in the returned planner before release. Open `Verification Staff Duty column actions`, choose a Person in `Assignee` (a native select), leave `Days` on `Weekdays` or pick `Weekends`, and click the `Fill N days` button. Quick fill acts on the displayed month, so preflight the month's empty days and clear them afterward with `Clear month` (confirm it) in a month that holds no seeded row, or one by one with each cell's picker `Clear assignment` (`Clear month` on September would also remove the seeded September 15 row).
-   - **Leave the Organization.** Arm `arm-hold-fail` on a Duty planner save, then leave the Organization shell through `Switch organization` → `Manage Organizations`, a client navigation to `/dashboard?show=all` that keeps the hook. Release there and require no A toast in `feedback state` and zero rows. Repeat for a held settings status-type save through the same path (see Settings below).
-   - **Settings.** The inline `New status type` form does not block the Organization menu while its save is held. From `$V actor calendarSwitch calendar/settings`, click `Add new`, fill a unique name, arm `$V network arm-hold-fail $PAGE status-types` and `$V feedback arm $PAGE`, click `Add status type`, choose `Switch organization` → `Verification Organization B` during the hold, and release on B's restricted Settings. Require no `Failed to add status type` or other A toast in `feedback state` and no new A or B status type. Repeat with `arm-hold`: the held real `200` persists the A type; after release B shows no feedback and the type appears in A after reload. Delete that type through A's visible control. Record the menu switch during the held save as reachable; `history.back()` is not needed.
-     Save each arm, held `network state`, release and `feedback state` output beside the captures and row readbacks. Restore the network and feedback controls after each path. Removal uses DELETE, which `arm-hold-fail` does not intercept. Its late failure is covered by the store's deferred-response tests, and its held success uses `arm-hold` through the Calendar date-header `Daily Assignments` modal's remove control.
-5. With A Calendar open, run `$V calendar-grant calendarSwitch none`, then use the same browser page for an authenticated A `GET /api/calendar-range` over September 14–16. Expect `403` or `404`, no `availabilityAlpha` ID, and a settled access restriction or empty state without A labels after reload; a permanently busy page is a failure. `$V rows availability_entries orgA id <availabilityHistorical>` must still show the March row. Restore with `$V calendar-grant calendarSwitch restore` and doctor before a further drive.
+1. In A Settings, capture `Verification Leave` and no `Foreign Private Status`; in A Calendar September, capture
+   Leave/`Verification Unit Closure` and no B labels. Use `Switch organization` → `Verification Organization B` from a
+   fresh snapshot. B Settings must say `Access restricted`; follow `View calendar` and capture
+   `Foreign Private Status`/`Foreign Private Closure` with no A Leave/closure. Switch back to A for the delayed paths.
+2. From A Calendar with an uncovered future range, arm `$V network arm-hold $PAGE calendar-range`. Click `3-Month` or
+   `Next 3 months`, then require `$V network state $PAGE` to show a real A `200` held. While it is held, use the actual
+   Organization switcher to choose B. Capture B's route/labels before release, run `$V network release $PAGE`, then
+   capture after settlement. B must still show B's status/closure and never A's. Restore the hook. If no range request
+   was intercepted, choose an uncovered range and retry; do not count a cached view as a delayed-response exercise.
+3. Back in A after visiting B, open Able's unoccupied today cell, select `Verification Leave`, and fill a unique note.
+   Arm `$V network arm-hold $PAGE availability` and click `Add Status`. `network state` must show the real `200` held
+   after persistence, and `$V rows availability_entries orgA note "$NOTE"` must show one Able/A row. The pending modal
+   prevents the Organization menu from opening; invoke browser History Back in the same page with `tool evaluate_script`
+   and `history.back()` to return to the prior B route. Neither before nor after `$V network release $PAGE` may B show
+   A's note/Leave or an A `added —`/error toast. `$V rows availability_entries orgB note "$NOTE"` stays empty; reload B
+   and confirm the same. Restore the hook and remove only the new A row through the normal A UI when back in A. Record
+   the menu transition as unreachable, separately from the History Back result.
+4. Late assignment saves. Preflight an empty A Planner date with `$V rows daily_assignments orgA date DATE`; use
+   September 22, 2026 unless fixtures changed. Start with `$V actor calendarSwitch calendar`, open `Duty planner`, press
+   `Previous month` until the month button reads `September 2026` (the Planner reopens on the current month after each
+   reload, but keeps September after a client switch back to A, so read the month button before pressing; the heading is
+   always `Duty planner`) and arm `$V feedback arm $PAGE` for rendered toasts. The switcher keeps the route, so B opens
+   on its restricted Planner; follow B's `Calendar` link to reach B Calendar. The switch is client-side and keeps the
+   armed hook. Each table cell is a button named `Assign <duty>, <date>` while open, or `<duty>, <date>: <person>` once
+   assigned. Click the cell for September 22, `type_text` the name (for example `Able`) in the `Find person` box of the
+   picker, then press Enter.
+   - **A to B success.** Arm `$V network arm-hold $PAGE daily-assignments`, choose Able in the picker of an empty
+     `Verification Staff Duty` cell on the Duty planner and require a held real `200` in `network state` plus one A row.
+     Switch to B through the menu and open B Calendar. Release, then require B labels only, no A feedback in
+     `feedback state`, and zero B rows for that date. Back in A after reload, the slot shows Able. Clear it through the
+     visible control and read back zero rows.
+   - **A to B failure.** Arm `$V network arm-hold-fail $PAGE daily-assignments`, choose Able in the same empty slot and
+     switch to B before releasing. Require no `Synthetic request failure` or other A error toast in B and zero A and B
+     rows.
+   - **A to B to A success.** The control holds only its first matching request, so the later Baker save goes through.
+     Arm `arm-hold` again, choose Able, then switch to B and back to A Planner while it is held. In the returned planner
+     choose Unassigned (Baker is exempt from Staff and is not offered) in the same cell's picker, wait for its save and
+     read back one A row with that Person. Release the held Able response. The slot must keep that Person, with no Able
+     value, duplicate row or stale toast, before and after reload. Clear the slot and read back zero rows.
+   - **A to B to A failure.** Repeat with `arm-hold-fail` and choose Able. Release after returning to A. The returned
+     Planner must show no stale error and keep the empty slot, with zero rows.
+   - **Batch.** Repeat the A to B to A success and failure paths through Quick fill with `daily-assignments/batch`,
+     editing one filled slot in the returned planner before release. Open `Verification Staff Duty column actions`,
+     choose a Person in `Assignee` (a native select), leave `Days` on `Weekdays` or pick `Weekends`, and click the
+     `Fill N days` button. Quick fill acts on the displayed month, so preflight the month's empty days and clear them
+     afterward with `Clear month` (confirm it) in a month that holds no seeded row, or one by one with each cell's
+     picker `Clear assignment` (`Clear month` on September would also remove the seeded September 15 row).
+   - **Leave the Organization.** Arm `arm-hold-fail` on a Duty planner save, then leave the Organization shell through
+     `Switch organization` → `Manage Organizations`, a client navigation to `/dashboard?show=all` that keeps the hook.
+     Release there and require no A toast in `feedback state` and zero rows. Repeat for a held settings status-type save
+     through the same path (see Settings below).
+   - **Settings.** The inline `New status type` form does not block the Organization menu while its save is held. From
+     `$V actor calendarSwitch calendar/settings`, click `Add new`, fill a unique name, arm
+     `$V network arm-hold-fail $PAGE status-types` and `$V feedback arm $PAGE`, click `Add status type`, choose
+     `Switch organization` → `Verification Organization B` during the hold, and release on B's restricted Settings.
+     Require no `Failed to add status type` or other A toast in `feedback state` and no new A or B status type. Repeat
+     with `arm-hold`: the held real `200` persists the A type; after release B shows no feedback and the type appears in
+     A after reload. Delete that type through A's visible control. Record the menu switch during the held save as
+     reachable; `history.back()` is not needed. Save each arm, held `network state`, release and `feedback state` output
+     beside the captures and row readbacks. Restore the network and feedback controls after each path. Removal uses
+     DELETE, which `arm-hold-fail` does not intercept. Its late failure is covered by the store's deferred-response
+     tests, and its held success uses `arm-hold` through the Calendar date-header `Daily Assignments` modal's remove
+     control.
+5. With A Calendar open, run `$V calendar-grant calendarSwitch none`, then use the same browser page for an
+   authenticated A `GET /api/calendar-range` over September 14–16. Expect `403` or `404`, no `availabilityAlpha` ID, and
+   a settled access restriction or empty state without A labels after reload; a permanently busy page is a failure.
+   `$V rows availability_entries orgA id <availabilityHistorical>` must still show the March row. Restore with
+   `$V calendar-grant calendarSwitch restore` and doctor before a further drive.
 
 ## Gotchas
 
-- Use the Organization switcher for the delayed range. For the held mutation, prepare B as the previous browser history entry before returning to A; the pending status modal blocks the switcher. A navigation that destroys the armed page hook before a response is observed is a control failure, not proof of isolation.
-- The held mutation is deliberately persisted before its response is released. Confirm exact A/B rows as well as the visible B feedback; an empty B screen alone does not establish where the write went.
-- A narrowed grant is not a data deletion. Restore the synthetic member's original grant even after failure. The Calendar range coordinator/store tests cover additional ordering cases separately.
+- Use the Organization switcher for the delayed range. For the held mutation, prepare B as the previous browser history
+  entry before returning to A; the pending status modal blocks the switcher. A navigation that destroys the armed page
+  hook before a response is observed is a control failure, not proof of isolation.
+- The held mutation is deliberately persisted before its response is released. Confirm exact A/B rows as well as the
+  visible B feedback; an empty B screen alone does not establish where the write went.
+- A narrowed grant is not a data deletion. Restore the synthetic member's original grant even after failure. The
+  Calendar range coordinator/store tests cover additional ordering cases separately.

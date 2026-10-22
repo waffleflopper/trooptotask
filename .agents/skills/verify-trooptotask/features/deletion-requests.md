@@ -1,47 +1,201 @@
 # Request and review archival or deletion
 
-Ordinary members request approval when their source permission permits an operation but lacks direct archival/deletion authority. Organization reviewers approve or deny the request; requesters can cancel their own pending requests. This recipe owns the cross-feature workflow; each source's recipe owns its source operations.
+Ordinary members request approval when their source permission permits an operation but lacks direct archival/deletion
+authority. Organization reviewers approve or deny the request; requesters can cancel their own pending requests. This
+recipe owns the cross-feature workflow; each source's recipe owns its source operations.
 
 ## Sub-features
 
-- Personnel single and bulk archival, Training completion deletion and Rating Scheme deletion through their visible source controls.
+- Personnel single and bulk archival, Training completion deletion and Rating Scheme deletion through their visible
+  source controls.
 - Retained authenticated Training type and counseling-record request interfaces; these have no requester UI.
-- Settings approval list, approval, denial with reason, requester identification, reload persistence and failure recovery.
-- Own list/cancel, pending duplicate 409, reviewer admission, source policy admission, Group and foreign Organization protection.
-- Approved Personnel archival, Training type/record and Rating removal; counseling row/status atomicity and separate file removal.
-- Partial bulk outcomes, request winner preservation and failure/retry; file-bearing failures and concurrency are separate provider/SQL proof.
+- Settings approval list, approval, denial with reason, requester identification, reload persistence and failure
+  recovery.
+- Own list/cancel, pending duplicate 409, reviewer admission, source policy admission, Group and foreign Organization
+  protection.
+- Approved Personnel archival, Training type/record and Rating removal; counseling row/status atomicity and separate
+  file removal.
+- Partial bulk outcomes, request winner preservation and failure/retry; file-bearing failures and concurrency are
+  separate provider/SQL proof.
 
 ## How to get to it (user POV)
 
-Choose an Organization and open **Personnel**, **Training** or **Evals**. Use the source's Archive/Delete control as an ordinary operator. A reviewer opens **Settings → Approvals**, checks the kind, description and requester, then **Approve archive** (Personnel), **Approve delete** (other kinds) or **Deny**. Deny opens a reason field under the row. Reload and revisit the source to confirm the effect. Cancellation and retained Training type/counseling submission use the authenticated HTTP interface; they have no visible UI.
+Choose an Organization and open **Personnel**, **Training** or **Evals**. Use the source's Archive/Delete control as an
+ordinary operator. A reviewer opens **Settings → Approvals**, checks the kind, description and requester, then **Approve
+archive** (Personnel), **Approve delete** (other kinds) or **Deny**. Deny opens a reason field under the row. Reload and
+revisit the source to confirm the effect. Cancellation and retained Training type/counseling submission use the
+authenticated HTTP interface; they have no visible UI.
+
+## Helper controls
+
+Deletion review uses the [request/review recipe](deletion-requests.md), dedicated `deletionRequester`, `deletionPeer`,
+`deletionScoped`, `deletionReviewer` and `deletionForeign` actors, `actor ROLE settings/approvals`, and
+`seed deletion-sources`. `deletion-request PAGE orgA|orgB list|submit|cancel|review JSON` submits ordinary authenticated
+HTTP on the owned signed-in page; only named request fields/endpoints are allowed. Label it separately from native
+interaction. `rows deletion_requests orgA resource_id ID` retains requester/reason/status/review metadata. Temporary
+source cleanup also removes requests targeting its recorded IDs; it never deletes original request rows.
+
+For `deletion-requests/review`, `network arm-reject PAGE FAMILY` rejects one exact A POST with a synthetic `TypeError`
+before dispatch; it returns no HTTP response or status. This establishes client transport recovery, not an actual
+connection outage or provider failure. `arm-hold-fail` also supports review, holding one synthetic 503 before dispatch
+until release for Organization/route lifetime proof. Review controls resolve A's current canonical slug and leave other
+methods, endpoints and Organizations untouched. Preserve `network state`, request/source readbacks and visible feedback,
+then restore every hook. Component tests cover malformed, null or delayed error bodies and failed readback after a
+successful review.
+
+`deletion-review-failure arm REQUEST_ID` installs a temporary, unvalidated CHECK constraint in the owned disposable
+provider. It rejects only that recorded synthetic request's transition to approved, leaving its pending row and other
+requests admissible. Arm requires a pending A/B request targeting an exact saved `deletion-sources` seed ID; it cannot
+target original fixtures or another database. `deletion-review-failure state` returns sanitized ownership/phase/target
+information. Preserve state and request/source/file reads before native approval. The resulting real provider rejection
+can establish effect-before-status failure and counseling Storage-before-RPC ordering; it is distinct from synthetic
+browser 503/rejection. `deletion-review-failure restore` removes only the receipt-bound owned constraint, including
+interrupted-install recovery, and never alters row data. Restore before retry or cleanup; `clean-seeds` also restores
+before removing recorded source rows. Run `python3 -m unittest scripts.verification.test_environment` for this control's
+denied and interrupted paths. This fixture DDL is not a migration or remote database action.
 
 ## Driving it with verify:app
 
 Set `V='node .agents/skills/verify-trooptotask/helpers/control.mjs --worker 1'` for the owned worker.
 
-`deletionRequester` operates Personnel, Training and Rating Scheme in A; it has no configure or Organization-review authority. `deletionPeer` views those lanes, `deletionScoped` operates Alpha only, `deletionReviewer` is an A admin with all source lanes absent, and `deletionForeign` is a B admin with source lanes absent. Review is Organization governance, independently checked again by each source owner; source lanes alone do not grant review. Existing source configure actors distinguish configure from governance authority.
+`deletionRequester` operates Personnel, Training and Rating Scheme in A; it has no configure or Organization-review
+authority. `deletionPeer` views those lanes, `deletionScoped` operates Alpha only, `deletionReviewer` is an A admin with
+all source lanes absent, and `deletionForeign` is a B admin with source lanes absent. Review is Organization governance,
+independently checked again by each source owner; source lanes alone do not grant review. Existing source configure
+actors distinguish configure from governance authority.
 
-Run `$V seed deletion-sources` and preserve its exact A/B IDs, descriptions and recorded counseling PDF paths. It creates temporary People, a Training type/completion, Rating entry and an actual counseling PDF per Organization. The separate Personnel archival target has no dependencies. Use existing Personnel fixtures for cascade/bulk cases and preserve their original rows. Setup is provider seeding, not native creation/upload evidence.
+Run `$V seed deletion-sources` and preserve its exact A/B IDs, descriptions and recorded counseling PDF paths. It
+creates temporary People, a Training type/completion, Rating entry and an actual counseling PDF per Organization. The
+separate Personnel archival target has no dependencies. Use existing Personnel fixtures for cascade/bulk cases and
+preserve their original rows. Setup is provider seeding, not native creation/upload evidence.
 
-1. **Native source submission and duplicate.** Enter `$V actor deletionRequester personnel`, find the temporary archival target and use its Archive confirmation. Expect approval submission, a pending request and an unchanged active Person. The saved description and link come from the loaded record, never from client text. Repeating must report already pending and keep one request. If the Organization already holds one or more pending rows for the same target, including rows another member filed, repetition must still return 409 and Personnel bulk must acknowledge approval requested; preserve every saved row and emit no extra creation effects. Simultaneous submissions must enforce the same rule without deleting historical duplicate rows. `deletion_request_submission_concurrency.sql` must establish one admitted insert and a duplicate response for the loser. Client roles cannot insert requests directly; `feature_direct_write_authority.sql` covers that denial. Repeat the source's visible completion deletion in Training and entry deletion in Evals; keep those rows until approval. Inspect source permission and request HTTP statuses separately. An HTTP 503 injected through `network arm-fail PAGE deletion-requests` must report failure and allow the identical submission to be retried. A denied source operation must not become an approval request merely because it failed.
-2. **Review, denial and recovery.** Enter `$V actor deletionReviewer settings/approvals`. The saved requester email must be identifiable, the correct description visible and the resource unchanged while pending. Opening a different request's denial starts with an empty reason. While a review is pending, all review and draft controls are disabled; Enter/Escape cannot submit another review or discard a pending draft. Completing another row's approval preserves an unrelated denial draft. Deny one request with a recorded reason; preserve snapshots, HTTP response, exact row and source unchanged after reload. Resubmit that same source after denial. Exercise `network arm-fail PAGE deletion-requests/review` and `arm-reject` separately, capturing useful feedback, the retained same-request draft, unchanged request/resource and explicit retry after restoration. Pending cards disappear only after acknowledged review; capture Settings counts and source/provider persistence after reload. If readback fails after acknowledgment, report completed review with refresh uncertainty and do not offer the same mutation again. Synthetic response/rejection controls establish client recovery, not provider atomicity; component tests own malformed/null error bodies and refresh failure.
-3. **Every approved source.** Submit retained `training_type` and `counseling_record` through `$V deletion-request PAGE orgA submit JSON` with the seed's exact type/id and the source URL. A Training type request needs Organization-wide Training configure; a counseling request needs Personnel operate on the record's Person within scope. The saved description and link come from the loaded record, so a forged `resourceDescription`/`resourceUrl` must not reach the saved row. Out-of-scope, B-Organization and unknown IDs create no row. Label this authenticated HTTP proof separately. Approve each of the five resource types through native Settings controls. Personnel retains its ID and gains `archived_at`; Training type/record and Rating rows disappear with their request approved in the same database command; counseling row disappears and its request becomes approved together. Approving a saved request whose target is in B or missing must report not found, keep the request pending and change nothing. `artifact-files orgA PARENT counseling RECORDED_PATH` establishes actual PDF presence before and absence after; B's matching rows/file remain unchanged. Approve completion before its type so cascading type deletion cannot masquerade as completion approval.
-4. **Own requests, cancellation and boundaries.** `deletion-request PAGE orgA list '{"status":"pending"}'` uses the ordinary page session. The requester sees its rows, a peer initially sees none, then sees only its own after submitting against a distinct temporary target from a second `deletion-sources` seed; the reviewer sees both requesters. Repeat the same submission and expect 409 with no extra row. Use `cancel '{"id":"REQUEST_ID"}'` as requester: expect success, status cancelled, no resource effect. Peer cancellation and ordinary-member review must fail without effects. B's reviewer must not read/review/cancel A's row, and an A request targeting a B resource must never alter B. Preserve exact HTTP/provider evidence, including failures; UI hiding alone proves no server denial.
-5. **Scope, partial results and switching.** Use Alpha-only source actors against Alpha, Bravo, unassigned and foreign IDs. Verify manage/operate admission precedes the direct-deletion check; fallback is limited to missing capability. Exercise separate configure/direct-archive and operator/approval-required batches through the visible bulk control plus exact response, including already-pending and per-record failures. A fixed Personnel capability does not mix direct archival and approval fallback in one batch. Use the existing `orgSettingsSwitch` A/B admin for review switching; `deletionReviewer` belongs only to A. Hold an A review with `network arm-hold` or `arm-hold-fail`, switch visibly to B and release. A's state/draft/result must not contaminate B; revisit A and inspect persistence. A completed server review may still persist in A after leaving. Route/component tests cover A→B→A, leaving Approvals, delayed error-body/refresh completion and unchanged canonical Organization with a changed slug. Record inaccessible entries or missing controls explicitly.
-6. **Cancellation provider protection.** Ordinary cancellation changes only the requester's matching pending status, retaining the request metadata and every source row/file. It works without source capability or a surviving source target. Repeat and approved/denied/cancelled requests fail with 404; an ordinary peer is concealed with 404 while a reviewer who can read another requester's row is denied with 403. Verify the narrow ordinary RPC grants and continued direct UPDATE denial in `deletion_request_cancellation.sql`. `deletion_request_cancellation_concurrency.sql` observes actual lock waits: exactly one competing cancellation succeeds, cancellation cannot overwrite a review committed before it resumes, and membership loss or account/Organization suspension during the wait denies it. Approve/deny must also preserve a competing terminal winner under an actual conditional UPDATE wait; test cancellation and reviewer writers separately. A losing Training or Rating approval keeps its source row because the deletion and status write share one transaction; Counseling approval must also keep its row and file when the transaction loses. A losing Personnel approval must also preserve the Person and its artifacts. Personnel approval runs the request transition and archive cascade in one command. `personnel_lifecycle_concurrency.sql` must establish terminal winners and revoked-authority rollback after actual request, Person and child waits. Fresh and populated migration replay must preserve all existing request/source fields before exercising the RPC.
-7. **Separate provider/SQL obligations.** On a temporary pending Personnel request, preserve the Person and all available artifact rows, arm `$V deletion-review-failure arm REQUEST_ID`, then approve through native Settings. A rejected status write must preserve the pending request, active Person and exact artifact state. Restore the constraint and explicitly retry that request; require approved status and the Person archive event to persist together after reload. A separate real SQL lock-wait run must make deny or cancellation win against Personnel approval and preserve all source state; also exercise competing approvals and direct restore/archive when they share the command. `counseling_deletion_approval_atomic.sql` and the governance-provider tests cover counseling pending status/row atomicity. On a temporary pending Training Type request, arm `$V deletion-review-failure arm REQUEST_ID`, capture state and exact A/B rows, then approve natively. Expect a real status-write rejection while the Type and its pending request both remain. Restore the constraint and explicitly retry the same request; the approval deletes the Type and acknowledges approval without touching B. Approve its completion first or use a separate seed to avoid mistaking a Type cascade for completion approval. Repeat with the temporary counseling request and real PDF: failed RPC must retain the counseling row, pending request and exact PDF together; restore and retry to complete row/status and remove the file. Separately arm `counseling-file-remove` before approval. Expect the row/status transaction to complete with visible pending-cleanup feedback. Read `artifact-deletion orgA PARENT counseling RECORD_ID`, reload Approvals, restore the fault and run `retention cron run records`; then require the exact PDF absent and the receipt complete. Preserve the B PDF hash. This Storage ordering is not atomic file deletion. Record each source's retry independently using real provider rows; synthetic HTTP holds cannot prove it. Conditional reviewer writes require actual database lock-wait proof that a competing terminal result is not overwritten, with any preceding source effect separately identified.
+1. **Native source submission and duplicate.** Enter `$V actor deletionRequester personnel`, find the temporary archival
+   target and use its Archive confirmation. Expect approval submission, a pending request and an unchanged active
+   Person. The saved description and link come from the loaded record, never from client text. Repeating must report
+   already pending and keep one request. If the Organization already holds one or more pending rows for the same target,
+   including rows another member filed, repetition must still return 409 and Personnel bulk must acknowledge approval
+   requested; preserve every saved row and emit no extra creation effects. Simultaneous submissions must enforce the
+   same rule without deleting historical duplicate rows. `deletion_request_submission_concurrency.sql` must establish
+   one admitted insert and a duplicate response for the loser. Client roles cannot insert requests directly;
+   `feature_direct_write_authority.sql` covers that denial. Repeat the source's visible completion deletion in Training
+   and entry deletion in Evals; keep those rows until approval. Inspect source permission and request HTTP statuses
+   separately. An HTTP 503 injected through `network arm-fail PAGE deletion-requests` must report failure and allow the
+   identical submission to be retried. A denied source operation must not become an approval request merely because it
+   failed.
+2. **Review, denial and recovery.** Enter `$V actor deletionReviewer settings/approvals`. The saved requester email must
+   be identifiable, the correct description visible and the resource unchanged while pending. Opening a different
+   request's denial starts with an empty reason. While a review is pending, all review and draft controls are disabled;
+   Enter/Escape cannot submit another review or discard a pending draft. Completing another row's approval preserves an
+   unrelated denial draft. Deny one request with a recorded reason; preserve snapshots, HTTP response, exact row and
+   source unchanged after reload. Resubmit that same source after denial. Exercise
+   `network arm-fail PAGE deletion-requests/review` and `arm-reject` separately, capturing useful feedback, the retained
+   same-request draft, unchanged request/resource and explicit retry after restoration. Pending cards disappear only
+   after acknowledged review; capture Settings counts and source/provider persistence after reload. If readback fails
+   after acknowledgment, report completed review with refresh uncertainty and do not offer the same mutation again.
+   Synthetic response/rejection controls establish client recovery, not provider atomicity; component tests own
+   malformed/null error bodies and refresh failure.
+3. **Every approved source.** Submit retained `training_type` and `counseling_record` through
+   `$V deletion-request PAGE orgA submit JSON` with the seed's exact type/id and the source URL. A Training type request
+   needs Organization-wide Training configure; a counseling request needs Personnel operate on the record's Person
+   within scope. The saved description and link come from the loaded record, so a forged
+   `resourceDescription`/`resourceUrl` must not reach the saved row. Out-of-scope, B-Organization and unknown IDs create
+   no row. Label this authenticated HTTP proof separately. Approve each of the five resource types through native
+   Settings controls. Personnel retains its ID and gains `archived_at`; Training type/record and Rating rows disappear
+   with their request approved in the same database command; counseling row disappears and its request becomes approved
+   together. Approving a saved request whose target is in B or missing must report not found, keep the request pending
+   and change nothing. `artifact-files orgA PARENT counseling RECORDED_PATH` establishes actual PDF presence before and
+   absence after; B's matching rows/file remain unchanged. Approve completion before its type so cascading type deletion
+   cannot masquerade as completion approval.
+4. **Own requests, cancellation and boundaries.** `deletion-request PAGE orgA list '{"status":"pending"}'` uses the
+   ordinary page session. The requester sees its rows, a peer initially sees none, then sees only its own after
+   submitting against a distinct temporary target from a second `deletion-sources` seed; the reviewer sees both
+   requesters. Repeat the same submission and expect 409 with no extra row. Use `cancel '{"id":"REQUEST_ID"}'` as
+   requester: expect success, status cancelled, no resource effect. Peer cancellation and ordinary-member review must
+   fail without effects. B's reviewer must not read/review/cancel A's row, and an A request targeting a B resource must
+   never alter B. Preserve exact HTTP/provider evidence, including failures; UI hiding alone proves no server denial.
+5. **Scope, partial results and switching.** Use Alpha-only source actors against Alpha, Bravo, unassigned and foreign
+   IDs. Verify manage/operate admission precedes the direct-deletion check; fallback is limited to missing capability.
+   Exercise separate configure/direct-archive and operator/approval-required batches through the visible bulk control
+   plus exact response, including already-pending and per-record failures. A fixed Personnel capability does not mix
+   direct archival and approval fallback in one batch. Use the existing `orgSettingsSwitch` A/B admin for review
+   switching; `deletionReviewer` belongs only to A. Hold an A review with `network arm-hold` or `arm-hold-fail`, switch
+   visibly to B and release. A's state/draft/result must not contaminate B; revisit A and inspect persistence. A
+   completed server review may still persist in A after leaving. Route/component tests cover A→B→A, leaving Approvals,
+   delayed error-body/refresh completion and unchanged canonical Organization with a changed slug. Record inaccessible
+   entries or missing controls explicitly.
+6. **Cancellation provider protection.** Ordinary cancellation changes only the requester's matching pending status,
+   retaining the request metadata and every source row/file. It works without source capability or a surviving source
+   target. Repeat and approved/denied/cancelled requests fail with 404; an ordinary peer is concealed with 404 while a
+   reviewer who can read another requester's row is denied with 403. Verify the narrow ordinary RPC grants and continued
+   direct UPDATE denial in `deletion_request_cancellation.sql`. `deletion_request_cancellation_concurrency.sql` observes
+   actual lock waits: exactly one competing cancellation succeeds, cancellation cannot overwrite a review committed
+   before it resumes, and membership loss or account/Organization suspension during the wait denies it. Approve/deny
+   must also preserve a competing terminal winner under an actual conditional UPDATE wait; test cancellation and
+   reviewer writers separately. A losing Training or Rating approval keeps its source row because the deletion and
+   status write share one transaction; Counseling approval must also keep its row and file when the transaction loses. A
+   losing Personnel approval must also preserve the Person and its artifacts. Personnel approval runs the request
+   transition and archive cascade in one command. `personnel_lifecycle_concurrency.sql` must establish terminal winners
+   and revoked-authority rollback after actual request, Person and child waits. Fresh and populated migration replay
+   must preserve all existing request/source fields before exercising the RPC.
+7. **Separate provider/SQL obligations.** On a temporary pending Personnel request, preserve the Person and all
+   available artifact rows, arm `$V deletion-review-failure arm REQUEST_ID`, then approve through native Settings. A
+   rejected status write must preserve the pending request, active Person and exact artifact state. Restore the
+   constraint and explicitly retry that request; require approved status and the Person archive event to persist
+   together after reload. A separate real SQL lock-wait run must make deny or cancellation win against Personnel
+   approval and preserve all source state; also exercise competing approvals and direct restore/archive when they share
+   the command. `counseling_deletion_approval_atomic.sql` and the governance-provider tests cover counseling pending
+   status/row atomicity. On a temporary pending Training Type request, arm `$V deletion-review-failure arm REQUEST_ID`,
+   capture state and exact A/B rows, then approve natively. Expect a real status-write rejection while the Type and its
+   pending request both remain. Restore the constraint and explicitly retry the same request; the approval deletes the
+   Type and acknowledges approval without touching B. Approve its completion first or use a separate seed to avoid
+   mistaking a Type cascade for completion approval. Repeat with the temporary counseling request and real PDF: failed
+   RPC must retain the counseling row, pending request and exact PDF together; restore and retry to complete row/status
+   and remove the file. Separately arm `counseling-file-remove` before approval. Expect the row/status transaction to
+   complete with visible pending-cleanup feedback. Read `artifact-deletion orgA PARENT counseling RECORD_ID`, reload
+   Approvals, restore the fault and run `retention cron run records`; then require the exact PDF absent and the receipt
+   complete. Preserve the B PDF hash. This Storage ordering is not atomic file deletion. Record each source's retry
+   independently using real provider rows; synthetic HTTP holds cannot prove it. Conditional reviewer writes require
+   actual database lock-wait proof that a competing terminal result is not overwritten, with any preceding source effect
+   separately identified.
 
-For bulk recovery, seed temporary lifecycle/archival targets and preserve their exact rows and independent A/B sentinels. Drive separate configure archival and operator approval batches natively with `network arm-observe PAGE personnel/archive-batch`. Capture the one submitted ID array and actual result, active versus archived state and pending requests. Inject 503 and rejection separately; require useful feedback, unchanged provider state and one explicit retry with the same unconfirmed IDs. For a real partial operator result, open a two-Person confirmation, archive one through a second configure actor, then confirm the stale selection. Only the active Person receives a pending request; the archived Person fails. Restore that failed target through Archives and retry it alone, retaining the first request without duplication. Scoped/empty/foreign valid-ID batch probes use `personnel-archive-batch` and remain separate HTTP authorization evidence. Hold an A batch, navigate visibly to B and release to test late result isolation. The busy confirmation blocks the header switch; establish B→A through the visible Organization menu before submission, then use native browser Back to return to B. Require the control still armed/held after navigation, so a destroyed hook cannot masquerade as ordering proof. Exercise held real 200 and held synthetic 503 separately. After acknowledged work, a readback failure must distinguish completed work from refresh uncertainty and retain only failed recovery IDs; component tests may cover rejected/malformed JSON and deferred refresh protection.
+For bulk recovery, seed temporary lifecycle/archival targets and preserve their exact rows and independent A/B
+sentinels. Drive separate configure archival and operator approval batches natively with
+`network arm-observe PAGE personnel/archive-batch`. Capture the one submitted ID array and actual result, active versus
+archived state and pending requests. Inject 503 and rejection separately; require useful feedback, unchanged provider
+state and one explicit retry with the same unconfirmed IDs. For a real partial operator result, open a two-Person
+confirmation, archive one through a second configure actor, then confirm the stale selection. Only the active Person
+receives a pending request; the archived Person fails. Restore that failed target through Archives and retry it alone,
+retaining the first request without duplication. Scoped/empty/foreign valid-ID batch probes use
+`personnel-archive-batch` and remain separate HTTP authorization evidence. Hold an A batch, navigate visibly to B and
+release to test late result isolation. The busy confirmation blocks the header switch; establish B→A through the visible
+Organization menu before submission, then use native browser Back to return to B. Require the control still armed/held
+after navigation, so a destroyed hook cannot masquerade as ordering proof. Exercise held real 200 and held synthetic 503
+separately. After acknowledged work, a readback failure must distinguish completed work from refresh uncertainty and
+retain only failed recovery IDs; component tests may cover rejected/malformed JSON and deferred refresh protection.
 
-Read consumers require native Settings rail/count and separate ordinary authenticated Members page-data count/oldest observations, with pending requests separated from approved/denied/cancelled history. Members does not render oldestCreatedAt; preserve only the narrow summary projection without capturing the full session-bearing page-data response. Capture actual Organization JSON and Excel downloads, then inspect full deletion-request fields and saved values in both JSON locations and Excel's Raw - Deletion Requests sheet. Export authority is independent of source-review authority. Preserve ordinary requester/peer/reviewer/foreign list visibility and arbitrary status filtering when transferring these reads to the owner.
+Read consumers require native Settings rail/count and separate ordinary authenticated Members page-data count/oldest
+observations, with pending requests separated from approved/denied/cancelled history. Members does not render
+oldestCreatedAt; preserve only the narrow summary projection without capturing the full session-bearing page-data
+response. Capture actual Organization JSON and Excel downloads, then inspect full deletion-request fields and saved
+values in both JSON locations and Excel's Raw - Deletion Requests sheet. Export authority is independent of
+source-review authority. Preserve ordinary requester/peer/reviewer/foreign list visibility and arbitrary status
+filtering when transferring these reads to the owner.
 
-`deletion-request PAGE orgA|orgB list|submit|cancel|review JSON` permits only the named endpoints/fields on the signed-in owned page, with no provider credentials. `rows deletion_requests orgA resource_id ID` includes requester, reason, status and review metadata. Existing rows and artifact-file controls supply source readbacks. Record actual status/body and exact source IDs.
+`deletion-request PAGE orgA|orgB list|submit|cancel|review JSON` permits only the named endpoints/fields on the
+signed-in owned page, with no provider credentials. `rows deletion_requests orgA resource_id ID` includes requester,
+reason, status and review metadata. Existing rows and artifact-file controls supply source readbacks. Record actual
+status/body and exact source IDs.
 
-Restore every network/feedback hook. `clean-seeds` removes only recorded temporary source IDs, their matching request rows and registered PDF paths; terminal request history has no UI deletion control. Read back absence.
+Restore every network/feedback hook. `clean-seeds` removes only recorded temporary source IDs, their matching request
+rows and registered PDF paths; terminal request history has no UI deletion control. Read back absence.
 
 ## Gotchas
 
-- Configure does not imply Organization governance review. Ordinary configure members still require approval where source direct-deletion policy says so; Training type configuration deletes directly.
-- Counseling UI archives/restores and permanently deletes archived artifacts; retained counseling requests are a different supported HTTP entry.
-- Submission's identity admission does not establish source authorization; the source operation and approved effect have separate policy checks.
-- Provider readbacks use privileged disposable access and establish persistence, not ordinary-user authorization. Native review and authenticated HTTP remain distinct.
+- Configure does not imply Organization governance review. Ordinary configure members still require approval where
+  source direct-deletion policy says so; Training type configuration deletes directly.
+- Counseling UI archives/restores and permanently deletes archived artifacts; retained counseling requests are a
+  different supported HTTP entry.
+- Submission's identity admission does not establish source authorization; the source operation and approved effect have
+  separate policy checks.
+- Provider readbacks use privileged disposable access and establish persistence, not ordinary-user authorization. Native
+  review and authenticated HTTP remain distinct.

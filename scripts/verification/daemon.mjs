@@ -9,6 +9,8 @@ import {
 	repository,
 	root,
 	candidate,
+	candidateSnapshot,
+	changedCandidatePaths,
 	assertCurrentCandidate,
 	snapshot,
 	readJSON,
@@ -131,7 +133,12 @@ async function cleanup() {
 async function fresh() {
 	if (state.phase !== 'running' || !app || app.exitCode !== null || app.signalCode)
 		throw new Blocked('APP_UNAVAILABLE', 'Owned production app is unavailable. Cleanup and launch again.');
-	assertCurrentCandidate(state, await candidate(), await candidate(path.join(session, 'app')));
+	const current = await candidateSnapshot();
+	const artifact = await candidateSnapshot(path.join(session, 'app'), Object.keys(state.candidateFiles));
+	assertCurrentCandidate(state, current.digest, artifact.digest, [
+		...changedCandidatePaths(state.candidateFiles, current.files).map((file) => `checkout: ${file}`),
+		...changedCandidatePaths(state.candidateFiles, artifact.files).map((file) => `owned app: ${file}`)
+	]);
 	if (
 		(await directoryDigest(path.join(session, 'app'), ignoredBuildPaths)) !== state.sourceDigest ||
 		(await directoryDigest(path.join(session, 'app/.svelte-kit/output'))) !== state.buildDigest
@@ -161,7 +168,9 @@ try {
 	state.browser = await browser(true);
 	state.recording = await recording();
 	continuing();
-	state.candidate = await candidate();
+	const source = await candidateSnapshot();
+	state.candidate = source.digest;
+	state.candidateFiles = source.files;
 	state.revision = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repository })).stdout.trim();
 	const copy = path.join(session, 'app');
 	await snapshot(copy);

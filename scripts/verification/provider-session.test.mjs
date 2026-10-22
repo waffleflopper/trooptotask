@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { runInNewContext } from 'node:vm';
+import { changelog } from '../../src/features/app-shell/changelog.ts';
 import { actorArguments, entryPath, sessionCookie, sessionPage } from './provider-session.mjs';
 
 const origin = 'http://127.0.0.1:4100';
@@ -42,10 +44,12 @@ test('a verified authenticator sends the actor to the challenge with its destina
 test('actor uses a provider session unless --form asks for the visible sign-in form', () => {
 	assert.deepEqual(actorArguments(['--form', 'identityMfa', 'dashboard']), {
 		form: true,
+		showWhatsNew: false,
 		args: ['identityMfa', 'dashboard']
 	});
 	assert.deepEqual(actorArguments(['perfWide', 'personnel', 'large']), {
 		form: false,
+		showWhatsNew: false,
 		args: ['perfWide', 'personnel', 'large']
 	});
 });
@@ -55,6 +59,7 @@ function scenario({ grantStatus = 200 } = {}) {
 	const opened = [];
 	const cookies = [];
 	const resources = { disconnected: false };
+	const storage = new Map();
 	let pageUrl;
 	const fetch = async (url, init) => {
 		requests.push({ url, apikey: init.headers.apikey, body: JSON.parse(init.body) });
@@ -69,7 +74,14 @@ function scenario({ grantStatus = 200 } = {}) {
 	const browser = {
 		pages: async () => [
 			{ url: () => `${origin}/og-image.png?session=other` },
-			{ url: () => pageUrl, browserContext: () => ({ setCookie: async (cookie) => cookies.push(cookie) }) }
+			{
+				url: () => pageUrl,
+				browserContext: () => ({ setCookie: async (cookie) => cookies.push(cookie) }),
+				evaluate: async (script) =>
+					runInNewContext(script, {
+						localStorage: { setItem: (key, value) => storage.set(key, value), removeItem: (key) => storage.delete(key) }
+					})
+			}
 		],
 		disconnect: async () => {
 			resources.disconnected = true;
@@ -87,7 +99,7 @@ function scenario({ grantStatus = 200 } = {}) {
 				fetch
 			}
 		);
-	return { run, requests, opened, cookies, resources };
+	return { run, requests, opened, cookies, resources, storage };
 }
 
 const input = {
@@ -133,4 +145,17 @@ test('a destination outside the app is refused before any sign-in', async () => 
 	for (const destination of ['//foreign.example/org', 'org/a', undefined])
 		await assert.rejects(run({ ...input, destination }), { code: 'SESSION_INPUT' });
 	assert.deepEqual(requests, []);
+});
+
+test('owned sessions persist the app dismissal preference before navigation, with an opt-out', async () => {
+	const { run, storage } = scenario();
+	await run(input);
+	assert.equal(storage.get('changelog-last-seen-user-1'), changelog[0].id);
+	await run({ ...input, showWhatsNew: true });
+	assert.equal(storage.has('changelog-last-seen-user-1'), false);
+	assert.deepEqual(actorArguments(['--show-whats-new', '--form', 'manager', 'home']), {
+		form: true,
+		showWhatsNew: true,
+		args: ['manager', 'home']
+	});
 });

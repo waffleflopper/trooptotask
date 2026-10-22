@@ -599,6 +599,32 @@ def _provider_environment(repository, workdir, execute):
     return environment
 
 
+def validate_seeds(repository, workdir, execute, psql):
+    errors = []
+
+    def check_seed(name, sql):
+        print(f'Checking seed schema: {name}', flush=True)
+        result = execute([*psql[:2], '-i', *psql[2:], '-X', '-q', '-v', 'VERBOSITY=terse'],
+                         workdir, input_text=sql, quiet=True, check=False)
+        if result.returncode:
+            reason = '\n'.join(line for line in result.stdout.splitlines() if 'ERROR:' in line)
+            errors.append(f'{name}: {reason or "psql failed"}. Update the seed for the replayed schema.')
+
+    demo = (repository / 'scripts/demo-clinic/seed.sql').read_text()
+    # The demo owns its transaction. Move its boundary around the prerequisite fixture too.
+    demo, starts = re.subn(r'^BEGIN;\s*$', '', demo, count=1, flags=re.MULTILINE)
+    demo, ends = re.subn(r'COMMIT;\s*$', '', demo)
+    if starts != 1 or ends != 1:
+        raise ValueError('Review scripts/demo-clinic/seed.sql transaction boundaries before seed validation')
+    prerequisite = (repository / 'scripts/ci/demo-seed-before.sql').read_text()
+    check_seed('scripts/demo-clinic/seed.sql', f'BEGIN;\n{prerequisite}\n{demo}\nROLLBACK;\n')
+    generated = execute(['node', str(repository / 'scripts/ci/seed-columns.mjs')], workdir, quiet=True).stdout
+    check_seed('perf-workloads.mjs generated columns', generated)
+    if errors:
+        raise ValueError('\n'.join(errors))
+    print('SQL seeds rolled back and generated performance seed columns resolved.', flush=True)
+
+
 def validate(repository, *, staged_upgrade=False):
     global _spawning, _deferred_signal
     execute = partial(run, environment=_receipt.environment() if _receipt else local_docker_environment(repository))
@@ -715,6 +741,8 @@ def validate(repository, *, staged_upgrade=False):
             workdir, environment=provider_environment)
         run(["node", str(repository / "scripts/ci/onboarding_start_provider_probe.mjs")],
             workdir, environment=provider_environment)
+        # The legacy dump advances sequences even when rolled back. Keep it after contracts.
+        validate_seeds(repository, workdir, execute, psql)
         print("Fresh replay, SQL contracts, migration regressions and provider probes passed.", flush=True)
     finally:
         for sock in held_ports:

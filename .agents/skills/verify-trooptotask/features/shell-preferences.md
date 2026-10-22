@@ -1,64 +1,231 @@
 # App shell and saved preferences
 
-A member reaches authorized screens while optional header content loads separately, and their Calendar and Training choices persist for their own user and Organization without resetting a newer selection.
+A member reaches authorized screens while optional header content loads separately, and their Calendar and Training
+choices persist for their own user and Organization without resetting a newer selection.
 
 ## Sub-features
 
-- `theme-persistence`: an explicit header theme choice persists after reload and wins over the system preference. Shared UI and toasts follow that selected theme.
-- `first-paint`: authorized navigation and the current screen are usable before optional notification-count and Organization-switcher replies settle.
-- `optional-chrome`: a failed optional read leaves the screen, Account menu and permitted navigation usable; explicit switcher close/reopen retries without a request loop; a fresh load recovers other optional reads.
-- `training-preferences`: Group, saved View and matrix mode filter loaded data immediately; preference-only saves cause no Training workspace request or loading reset.
-- `pending-preferences`: edits within the debounce window and while an earlier save is held preserve the latest Group/View after settlement, navigation and full reload.
-- `concurrent-preferences`: separate requests for the same user/Organization preserve disjoint fields, including initial creation; repeated conflicts fail visibly rather than silently overwriting another saved field.
-- `save-failure`: failed persistence remains visible; retry does not lose an unrelated pending field or silently claim persistence.
+- `theme-persistence`: an explicit header theme choice persists after reload and wins over the system preference. Shared
+  UI and toasts follow that selected theme.
+- `first-paint`: authorized navigation and the current screen are usable before optional notification-count and
+  Organization-switcher replies settle.
+- `optional-chrome`: a failed optional read leaves the screen, Account menu and permitted navigation usable; explicit
+  switcher close/reopen retries without a request loop; a fresh load recovers other optional reads.
+- `training-preferences`: Group, saved View and matrix mode filter loaded data immediately; preference-only saves cause
+  no Training workspace request or loading reset.
+- `pending-preferences`: edits within the debounce window and while an earlier save is held preserve the latest
+  Group/View after settlement, navigation and full reload.
+- `concurrent-preferences`: separate requests for the same user/Organization preserve disjoint fields, including initial
+  creation; repeated conflicts fail visibly rather than silently overwriting another saved field.
+- `save-failure`: failed persistence remains visible; retry does not lose an unrelated pending field or silently claim
+  persistence.
 - `calendar-preferences`: Display options save and reload independently of Training preferences.
-- `scope-lifetime`: admitted account, Organization and stable sign-in session own one shell, modal and preference lifetime. A/B or new actors/sessions retire old responses, drafts and unsent saves; same-scope navigation and token refresh preserve newer local intent.
-- `shell-modals`: leave confirmation and Feedback/What's New visibility reset on scope replacement. What's New is per-account, supports manual reopening and still closes when browser storage is unavailable.
-- `mobile-navigation`: Home (including the current URL) and other ordinary navigation close the drawer; Escape closes it and returns focus. Modified new-tab activation preserves the drawer, and collapsed desktop navigation retains its tooltips.
-- `admission`: a nonmember cannot read shell data or save another Organization's preferences; the server derives the actor rather than trusting body IDs.
-- `provider-self-scope`: preferences and Getting Started progress belong to the caller in a current Organization membership; ordinary administrators cannot read another user's choices, and removed membership hides historical self rows without deleting them.
+- `scope-lifetime`: admitted account, Organization and stable sign-in session own one shell, modal and preference
+  lifetime. A/B or new actors/sessions retire old responses, drafts and unsent saves; same-scope navigation and token
+  refresh preserve newer local intent.
+- `shell-modals`: leave confirmation and Feedback/What's New visibility reset on scope replacement. What's New is
+  per-account, supports manual reopening and still closes when browser storage is unavailable.
+- `mobile-navigation`: Home (including the current URL) and other ordinary navigation close the drawer; Escape closes it
+  and returns focus. Modified new-tab activation preserves the drawer, and collapsed desktop navigation retains its
+  tooltips.
+- `admission`: a nonmember cannot read shell data or save another Organization's preferences; the server derives the
+  actor rather than trusting body IDs.
+- `provider-self-scope`: preferences and Getting Started progress belong to the caller in a current Organization
+  membership; ordinary administrators cannot read another user's choices, and removed membership hides historical self
+  rows without deleting them.
 
 ## How to get to it (user POV)
 
-Sign in normally and choose Training or Calendar in the app navigation. Training has Group, saved View and matrix-view controls. Calendar's `Display` menu contains Show Status Text and Show Personnel Roles, and Show Onboarding when onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the sidebar's Switch organization and Account menus for scope/session changes.
+Sign in normally and choose Training or Calendar in the app navigation. Training has Group, saved View and matrix-view
+controls. Calendar's `Display` menu contains Show Status Text and Show Personnel Roles, and Show Onboarding when
+onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the
+sidebar's Switch organization and Account menus for scope/session changes.
 
-Getting Started has an API and model but no visible checklist or dismiss control. Its GET/POST/DELETE behavior belongs in separately labeled authenticated HTTP/provider proof. Do not invent a browser journey for that endpoint.
+Getting Started has an API and model but no visible checklist or dismiss control. Its GET/POST/DELETE behavior belongs
+in separately labeled authenticated HTTP/provider proof. Do not invent a browser journey for that endpoint.
+
+## Helper controls
+
+Shell and preference verification uses the [shell/preference recipe](shell-preferences.md). `preferences ROLE orgA|orgB`
+reads only the named synthetic user's saved preference and Getting Started rows.
+`network arm-observe|arm-fail|arm-hold|arm-hold-fail PAGE user-preferences` binds the exact same-origin A PATCH using
+its Organization UUID, as the Calendar/Training savers do; it records only known preference fields.
+`shell-notification-count` and `shell-organization-switcher` use the canonical Organization route segment and support
+observation, failure and hold for their exact GET/query part, installing before an automatic reload. Restore every
+control. These browser controls establish client scheduling/recovery and do not establish real provider failures.
+`server-source arm user_org_preferences|getting_started_progress fail-hard` separately injects one synthetic
+provider-read 500 in the owned app process for first-paint fallback and strict save/read failure proof; restore it
+before retry. Run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method, query,
+origin, tenant and response-order isolation.
 
 ## Driving it with verify:app
 
-Preconditions: launch and doctor pass on the owned worker. Use `$V actor trainingSwitch training` for A/B Training, `trainingOperate` for an independent A user, `trainingForeign` for B-only denial, and `$V actor calendarSwitch calendar` for Calendar. `$V fixture` supplies exact Group/View and Organization IDs. Keep native snapshots, screenshots, preference PATCH/request observations and `$V preferences ROLE orgA|orgB` reads together. Privileged readback is distinct from ordinary UI or authorization proof.
+Preconditions: launch and doctor pass on the owned worker. Use `$V actor trainingSwitch training` for A/B Training,
+`trainingOperate` for an independent A user, `trainingForeign` for B-only denial, and `$V actor calendarSwitch calendar`
+for Calendar. `$V fixture` supplies exact Group/View and Organization IDs. Keep native snapshots, screenshots,
+preference PATCH/request observations and `$V preferences ROLE orgA|orgB` reads together. Privileged readback is
+distinct from ordinary UI or authorization proof.
 
-1. Record a fresh Training snapshot and initial `$V preferences trainingSwitch orgA` and `orgB`. Use `$V network arm-observe PAGE user-preferences`; choose Focus View and Alpha from fresh native snapshots. The filtered matrix must update immediately. Save network state and native `list_network_requests` before/after; require successful PATCH, no subsequent Training `__data.json` workspace navigation caused solely by that save, and no loading reset. Reload and compare visible choices and exact saved IDs. Restore the control.
-2. Arm `$V network arm-hold PAGE user-preferences`, change only View, and require state to report the real PATCH `200` held after dispatch. While it remains held, change Group and matrix mode. Capture the immediate latest visible choices and saved first-patch rows. Before releasing, visit Reports and return to Training through native navigation; the newer Group/View/matrix choice must remain visible while the first response is still held. Record requests caused by those explicit navigations separately. Release, record subsequent PATCHes and requests, then capture after settlement, navigation away/back and full reload. Latest choices must survive all three. Repeat with both fields changed within one debounce interval using ordinary visible controls; distinguish this from edits made after the first PATCH was dispatched. Never call context setters directly.
-3. Arm `arm-fail` on `user-preferences`, change a filter, and capture error feedback plus unchanged saved values. Restore and explicitly choose the desired filter again; require saved rows and reload to agree. A synthetic 503 is client recovery proof, not a real database outage. `arm-hold-fail` holds a failure before provider dispatch and permits Organization/session lifetime checks. It must leave persistence unchanged.
-4. With a real A PATCH held, switch to B through the visible switcher. Record B's route, filters and exact A/B rows before release. Release A, then require B state and feedback to remain scoped to B. Return to A and reload to inspect the actual A saved choices. Repeat pending failure with `arm-hold-fail` and sign out via Account → Sign Out; require the public landing page without app navigation or stale save feedback. This ordinary POST/logout performs full-document navigation and destroys the control; a false `release` afterward does not establish a delivered late-session response. Retain that same-document lifetime case as lower-level or unavailable proof. A fresh login as another synthetic user must start from that user's rows. Use one browser context for actual sign-out, and label separate-context user reads accurately.
-5. Use `dashboardSwitch`, which has both Training and Calendar lanes in A/B. Establish nondefault Training choices visibly before following Calendar. Record original Display values and those Training sentinel preferences. Toggle a Display preference with `user-preferences` observation, inspect saved rows and reload. Training fields must be unchanged. Switch A→B→A and confirm each Organization's own Display values. Restore the original Training and Calendar values through the UI and verify readback. `calendarSwitch` can separately exercise Calendar but has no Training lane/sentinel.
-6. `$V network arm-hold PAGE shell-notification-count` installs before reload. Require the recorded GET/real status to be held while the Training screen, permitted navigation and Account menu remain usable. Release and capture settlement. Repeat `arm-fail` for notification count and `shell-organization-switcher`. Opening Notifications after a failed count retries it and shows `Loading notifications...` until it settles, never a stale message. The one-shot `arm-fail` fails only the first request, so that retry recovers and shows the true state; the failure text `Could not load notifications. Reopen to retry.` appears only when the retry also fails, and an unknown count never reads `No notifications`; explicitly open Switch organization to dispatch the lazy switcher GET. The other chrome part and page must remain usable, then restore the switcher control, close/reopen Switch organization and require both choices without a request loop. A fresh reload separately recovers notification count. These controls isolate exact A GET parts; they do not prove provider-source failure or first-paint server timing.
-7. As `trainingForeign`, use read-only authenticated fetch on the signed-in owned page to request A shell chrome, and separately submit an ordinary A preference PATCH with an explicit harmless filter. Require denied 403/404 and unchanged A/B user rows. Keep direct HTTP actions distinct from native interaction. Getting Started GET/POST/DELETE similarly needs own-user persistence, foreign-Organization denial and cross-user sentinels; restore dismissal through DELETE when it was originally absent.
+1. Record a fresh Training snapshot and initial `$V preferences trainingSwitch orgA` and `orgB`. Use
+   `$V network arm-observe PAGE user-preferences`; choose Focus View and Alpha from fresh native snapshots. The filtered
+   matrix must update immediately. Save network state and native `list_network_requests` before/after; require
+   successful PATCH, no subsequent Training `__data.json` workspace navigation caused solely by that save, and no
+   loading reset. Reload and compare visible choices and exact saved IDs. Restore the control.
+2. Arm `$V network arm-hold PAGE user-preferences`, change only View, and require state to report the real PATCH `200`
+   held after dispatch. While it remains held, change Group and matrix mode. Capture the immediate latest visible
+   choices and saved first-patch rows. Before releasing, visit Reports and return to Training through native navigation;
+   the newer Group/View/matrix choice must remain visible while the first response is still held. Record requests caused
+   by those explicit navigations separately. Release, record subsequent PATCHes and requests, then capture after
+   settlement, navigation away/back and full reload. Latest choices must survive all three. Repeat with both fields
+   changed within one debounce interval using ordinary visible controls; distinguish this from edits made after the
+   first PATCH was dispatched. Never call context setters directly.
+3. Arm `arm-fail` on `user-preferences`, change a filter, and capture error feedback plus unchanged saved values.
+   Restore and explicitly choose the desired filter again; require saved rows and reload to agree. A synthetic 503 is
+   client recovery proof, not a real database outage. `arm-hold-fail` holds a failure before provider dispatch and
+   permits Organization/session lifetime checks. It must leave persistence unchanged.
+4. With a real A PATCH held, switch to B through the visible switcher. Record B's route, filters and exact A/B rows
+   before release. Release A, then require B state and feedback to remain scoped to B. Return to A and reload to inspect
+   the actual A saved choices. Repeat pending failure with `arm-hold-fail` and sign out via Account → Sign Out; require
+   the public landing page without app navigation or stale save feedback. This ordinary POST/logout performs
+   full-document navigation and destroys the control; a false `release` afterward does not establish a delivered
+   late-session response. Retain that same-document lifetime case as lower-level or unavailable proof. A fresh login as
+   another synthetic user must start from that user's rows. Use one browser context for actual sign-out, and label
+   separate-context user reads accurately.
+5. Use `dashboardSwitch`, which has both Training and Calendar lanes in A/B. Establish nondefault Training choices
+   visibly before following Calendar. Record original Display values and those Training sentinel preferences. Toggle a
+   Display preference with `user-preferences` observation, inspect saved rows and reload. Training fields must be
+   unchanged. Switch A→B→A and confirm each Organization's own Display values. Restore the original Training and
+   Calendar values through the UI and verify readback. `calendarSwitch` can separately exercise Calendar but has no
+   Training lane/sentinel.
+6. `$V network arm-hold PAGE shell-notification-count` installs before reload. Require the recorded GET/real status to
+   be held while the Training screen, permitted navigation and Account menu remain usable. Release and capture
+   settlement. Repeat `arm-fail` for notification count and `shell-organization-switcher`. Opening Notifications after a
+   failed count retries it and shows `Loading notifications...` until it settles, never a stale message. The one-shot
+   `arm-fail` fails only the first request, so that retry recovers and shows the true state; the failure text
+   `Could not load notifications. Reopen to retry.` appears only when the retry also fails, and an unknown count never
+   reads `No notifications`; explicitly open Switch organization to dispatch the lazy switcher GET. The other chrome
+   part and page must remain usable, then restore the switcher control, close/reopen Switch organization and require
+   both choices without a request loop. A fresh reload separately recovers notification count. These controls isolate
+   exact A GET parts; they do not prove provider-source failure or first-paint server timing.
+7. As `trainingForeign`, use read-only authenticated fetch on the signed-in owned page to request A shell chrome, and
+   separately submit an ordinary A preference PATCH with an explicit harmless filter. Require denied 403/404 and
+   unchanged A/B user rows. Keep direct HTTP actions distinct from native interaction. Getting Started GET/POST/DELETE
+   similarly needs own-user persistence, foreign-Organization denial and cross-user sentinels; restore dismissal through
+   DELETE when it was originally absent.
 
-8. For server-read failure, arm `$V server-source arm user_org_preferences fail-hard` before an ordinary reload. The shell must remain usable with display defaults, while actual saved preferences stay unchanged. Restore and reload to recover saved choices. Separately arm the same control on the already-loaded Training page, then change a visible filter: the preference PATCH must fail when its merge read fails, with visible feedback and unchanged saved fields. Restore and explicitly retry. `getting_started_progress` is also an allowed source for separate authenticated GET/reset failure proof. These controls return one marked synthetic provider 500 before dispatch; they establish application handling of that response, not a production outage or database-policy failure.
+8. For server-read failure, arm `$V server-source arm user_org_preferences fail-hard` before an ordinary reload. The
+   shell must remain usable with display defaults, while actual saved preferences stay unchanged. Restore and reload to
+   recover saved choices. Separately arm the same control on the already-loaded Training page, then change a visible
+   filter: the preference PATCH must fail when its merge read fails, with visible feedback and unchanged saved fields.
+   Restore and explicitly retry. `getting_started_progress` is also an allowed source for separate authenticated
+   GET/reset failure proof. These controls return one marked synthetic provider 500 before dispatch; they establish
+   application handling of that response, not a production outage or database-policy failure.
 
-9. Separately labeled ordinary HTTP/provider concurrency proof: arm `$V server-source arm user_org_preferences hold` on a signed-in owned page, start one preference PATCH and wait for source state `phase: held` with real GET 200. The control holds the already-fetched database snapshot. Complete a second same-user/Organization PATCH changing a disjoint field, then release the first and await both responses. Require both fields in ordinary response/readback and after reload. Repeat for different fields within Calendar and for initially absent preferences using another synthetic user. No direct app-context mutation or privileged save is allowed. Existing-row writes compare the exact raw JSON snapshot in the database; initial inserts ignore duplicate rows. A collision rereads/merges only the caller's patch, for at most three total attempts; exhaustion returns HTTP 409 and does not audit success. Same-field saves use the last successful database write. Keep this separate from native edits and direct RLS proof.
+9. Separately labeled ordinary HTTP/provider concurrency proof: arm `$V server-source arm user_org_preferences hold` on
+   a signed-in owned page, start one preference PATCH and wait for source state `phase: held` with real GET 200. The
+   control holds the already-fetched database snapshot. Complete a second same-user/Organization PATCH changing a
+   disjoint field, then release the first and await both responses. Require both fields in ordinary response/readback
+   and after reload. Repeat for different fields within Calendar and for initially absent preferences using another
+   synthetic user. No direct app-context mutation or privileged save is allowed. Existing-row writes compare the exact
+   raw JSON snapshot in the database; initial inserts ignore duplicate rows. A collision rereads/merges only the
+   caller's patch, for at most three total attempts; exhaustion returns HTTP 409 and does not audit success. Same-field
+   saves use the last successful database write. Keep this separate from native edits and direct RLS proof.
 
-10. With `notificationSwitch` and communications seeds, hold a real A notification-count reply while marking B's own unread notification read. Capture A one versus B zero before release; releasing A must leave B zero. For the lazy switcher, exercise a held A reply through A→B→A using native history, then require the current instance's own choices/loading. Separate lower-level tests own precise same-document actor/session replacement where native sign-out destroys hooks.
-11. On mobile width, open Toggle Sidebar, select the current Home link and require the drawer to close. Reopen, focus Home and press Escape; require settled closure and focus restoration, then reopen and follow another permitted link. Confirm expanded/mobile links do not leave an invisible tooltip intercepting Escape; collapsed desktop links still show their tooltips. Repeat the shared drawer behavior on an admitted Platform page because it uses the same Sidebar primitive.
-12. Open Leave Organization as a nonowner, enter YES and cancel without dispatching. Open it again then replace Organization through native history; old confirmation cannot remain armed. Open What's New manually, close and reload to check the account's last-seen behavior. Keep auto-open timing after Dashboard readiness and failures of optional storage distinct from persisted provider state. These paths share the shell's scope; no pathname key or global modal bit is permitted.
+10. With `notificationSwitch` and communications seeds, hold a real A notification-count reply while marking B's own
+    unread notification read. Capture A one versus B zero before release; releasing A must leave B zero. For the lazy
+    switcher, exercise a held A reply through A→B→A using native history, then require the current instance's own
+    choices/loading. Separate lower-level tests own precise same-document actor/session replacement where native
+    sign-out destroys hooks.
+11. On mobile width, open Toggle Sidebar, select the current Home link and require the drawer to close. Reopen, focus
+    Home and press Escape; require settled closure and focus restoration, then reopen and follow another permitted link.
+    Confirm expanded/mobile links do not leave an invisible tooltip intercepting Escape; collapsed desktop links still
+    show their tooltips. Repeat the shared drawer behavior on an admitted Platform page because it uses the same Sidebar
+    primitive.
+12. Open Leave Organization as a nonowner, enter YES and cancel without dispatching. Open it again then replace
+    Organization through native history; old confirmation cannot remain armed. Open What's New manually, close and
+    reload to check the account's last-seen behavior. Keep auto-open timing after Dashboard readiness and failures of
+    optional storage distinct from persisted provider state. These paths share the shell's scope; no pathname key or
+    global modal bit is permitted.
 
-13. **App frame, error boundaries and restricted workspaces.** As `manager` on Personnel, capture the frame at 1280x800 light and dark and 390x844 light and dark: header breadcrumb (`Current section`), Toggle Sidebar, Toggle theme, Notifications, Switch organization and Account menu, plus the sidebar navigation and Skip to main content (first Tab stop at both widths, before an announcement banner, visible above the sidebar, which moves focus to main). Follow a breadcrumb link and require the parent page. Open Account menu → What's New: the dialog has its title, keeps focus inside, and Got it closes it with focus returned to Account menu. Open Account menu → Send Feedback, Tab through Category and Message, and Cancel with focus returned. At 390x844 these menus live in the drawer; record where focus returns after the drawer closes. Then open `/no-such-page` signed in (root `+error`: `404`, the not-found message and Go Home; signed out it redirects to sign-in). An unmatched path under an Organization also renders the root `+error`, because SvelteKit uses the root boundary when no route matches. The Organization `+error` needs an error thrown by a matched Organization route: as `manager`, who has no Onboarding lane, open `/org/ORG_A/onboarding` for `403`, `You don't have permission to view this page.` and Back to Dashboard inside the app frame. Follow each button. For `WorkspaceAccessRestricted`, use `$V actor ictViewer personnel` (no Personnel lane): `Access Restricted` with its explanation, the sidebar without Personnel, and the frame still usable. Capture each error and restricted screen at 1280x800 light and 390x844 dark.
-14. **Toast stacking over the mobile drawer.** At 390x844 as `manager`, open Toggle Sidebar, then Account menu → Send Feedback inside the drawer, submit a unique General Feedback message and capture immediately with `$V feedback arm PAGE` armed. The success toast must render above every open layer and stay readable and dismissible. Record the drawer state after submit, the toast's bounding box, and with read-only `evaluate_script` the computed `z-index`/`position` of `[data-sonner-toaster]`, the drawer sheet and its overlay, `document.body`'s `pointer-events`, and `document.elementFromPoint` at the toast's center. Click Close toast natively within about two seconds and read the toast's `data-removed`; press Alt+T and read `document.activeElement`. Compare with the same toast at 1280 width from the header Send feedback button, where no drawer is open. Read back the stored row with `$V communications manager`.
-15. **Overlay layering.** As `manager`, load Personnel at 1280x800 and resize to 390x844 without reloading. Open Toggle Sidebar, then Account menu → Leave Organization. The dialog must be the top, interactive layer even though its portal mounted before the drawer's. Use read-only `evaluate_script` to record the `<body>` child-node order and computed `z-index` of the sheet overlay, the drawer and the dialog, and `elementFromPoint` at Cancel's centre. A native Cancel click must close the dialog, return focus to the drawer's Account menu and leave the drawer open. Repeat for the drawer's What's New and Send Feedback. Then run `$V seed communications` and reload. The announcement banner must draw below the open drawer at 390 and below a dialog's overlay at 1280, including What's New's top edge and Close. It must stay above the desktop sidebar at 1280 with the `below-banner` offset, and its Dismiss must be reachable when no modal is open. While a modal is open, `body` has `pointer-events: none`, so the banner is never a hit target. Judge its paint order from the screenshot. Run `clean-seeds` afterwards.
+13. **App frame, error boundaries and restricted workspaces.** As `manager` on Personnel, capture the frame at 1280x800
+    light and dark and 390x844 light and dark: header breadcrumb (`Current section`), Toggle Sidebar, Toggle theme,
+    Notifications, Switch organization and Account menu, plus the sidebar navigation and Skip to main content (first Tab
+    stop at both widths, before an announcement banner, visible above the sidebar, which moves focus to main). Follow a
+    breadcrumb link and require the parent page. Open Account menu → What's New: the dialog has its title, keeps focus
+    inside, and Got it closes it with focus returned to Account menu. Open Account menu → Send Feedback, Tab through
+    Category and Message, and Cancel with focus returned. At 390x844 these menus live in the drawer; record where focus
+    returns after the drawer closes. Then open `/no-such-page` signed in (root `+error`: `404`, the not-found message
+    and Go Home; signed out it redirects to sign-in). An unmatched path under an Organization also renders the root
+    `+error`, because SvelteKit uses the root boundary when no route matches. The Organization `+error` needs an error
+    thrown by a matched Organization route: as `manager`, who has no Onboarding lane, open `/org/ORG_A/onboarding` for
+    `403`, `You don't have permission to view this page.` and Back to Dashboard inside the app frame. Follow each
+    button. For `WorkspaceAccessRestricted`, use `$V actor ictViewer personnel` (no Personnel lane): `Access Restricted`
+    with its explanation, the sidebar without Personnel, and the frame still usable. Capture each error and restricted
+    screen at 1280x800 light and 390x844 dark.
+14. **Toast stacking over the mobile drawer.** At 390x844 as `manager`, open Toggle Sidebar, then Account menu → Send
+    Feedback inside the drawer, submit a unique General Feedback message and capture immediately with
+    `$V feedback arm PAGE` armed. The success toast must render above every open layer and stay readable and
+    dismissible. Record the drawer state after submit, the toast's bounding box, and with read-only `evaluate_script`
+    the computed `z-index`/`position` of `[data-sonner-toaster]`, the drawer sheet and its overlay, `document.body`'s
+    `pointer-events`, and `document.elementFromPoint` at the toast's center. Click Close toast natively within about two
+    seconds and read the toast's `data-removed`; press Alt+T and read `document.activeElement`. Compare with the same
+    toast at 1280 width from the header Send feedback button, where no drawer is open. Read back the stored row with
+    `$V communications manager`.
+15. **Overlay layering.** As `manager`, load Personnel at 1280x800 and resize to 390x844 without reloading. Open Toggle
+    Sidebar, then Account menu → Leave Organization. The dialog must be the top, interactive layer even though its
+    portal mounted before the drawer's. Use read-only `evaluate_script` to record the `<body>` child-node order and
+    computed `z-index` of the sheet overlay, the drawer and the dialog, and `elementFromPoint` at Cancel's centre. A
+    native Cancel click must close the dialog, return focus to the drawer's Account menu and leave the drawer open.
+    Repeat for the drawer's What's New and Send Feedback. Then run `$V seed communications` and reload. The announcement
+    banner must draw below the open drawer at 390 and below a dialog's overlay at 1280, including What's New's top edge
+    and Close. It must stay above the desktop sidebar at 1280 with the `below-banner` offset, and its Dismiss must be
+    reachable when no modal is open. While a modal is open, `body` has `pointer-events: none`, so the banner is never a
+    hit target. Judge its paint order from the screenshot. Run `clean-seeds` afterwards.
 
-Direct SQL proof uses the canonical `python3 scripts/ci/database.py` runner under the repository's Node version, which owns fresh disposable projects and disables seeds. Its `account_preferences_rls.sql` contract exercises ordinary database roles for both tables, including no-feature-grant self actions, forged actor/Organization mutations, multi-membership, removal and anonymous callers. The populated `account_preferences_scope_before/after.sql` fixtures also prove that tightening progress scope preserves saved rows, JSON, timestamps and unaffected enforcement objects. This is provider/database proof, distinct from the native and HTTP steps above. `is_org_member` checks membership existence; fresh user/Organization suspension admission remains an independent HTTP boundary, and this contract does not claim direct-provider suspension denial.
+Direct SQL proof uses the canonical `python3 scripts/ci/database.py` runner under the repository's Node version, which
+owns fresh disposable projects and disables seeds. Its `account_preferences_rls.sql` contract exercises ordinary
+database roles for both tables, including no-feature-grant self actions, forged actor/Organization mutations,
+multi-membership, removal and anonymous callers. The populated `account_preferences_scope_before/after.sql` fixtures
+also prove that tightening progress scope preserves saved rows, JSON, timestamps and unaffected enforcement objects.
+This is provider/database proof, distinct from the native and HTTP steps above. `is_org_member` checks membership
+existence; fresh user/Organization suspension admission remains an independent HTTP boundary, and this contract does not
+claim direct-provider suspension denial.
 
-For theme work, run the [shared theme and viewport pass](shared-ui.md#theme-and-viewport). Toggle the visible header control, reload and verify the same theme through the document attribute, saved browser preference and visible shell. System-preference emulation must not replace the explicit choice.
+For theme work, run the [shared theme and viewport pass](shared-ui.md#theme-and-viewport). Toggle the visible header
+control, reload and verify the same theme through the document attribute, saved browser preference and visible shell.
+System-preference emulation must not replace the explicit choice.
 
 Restore every control before reload or cleanup. Restore original preferences with native controls and verify exact rows.
 
+## What's New fixture state
+
+The owned session writes `changelog-last-seen-USER_ID` in local storage with the current changelog ID before navigation.
+AppShell writes that same key and value when a real user closes the dialog. There is no provider preference row for this
+dialog. Provider-session actors, seeded login contexts and `actor --form` use it.
+
+Run `$V actor --show-whats-new manager home` to leave that key absent. Take a fresh snapshot and verify the What's New
+dialog appears, close it through its visible control, then reload and verify it stays dismissed. Use the Account menu to
+reopen it manually. Compare the saved key only in the owned synthetic browser.
+
 ## Gotchas
 
-- When preference lifetime wiring changes, repeat the preference-triggered reload and held-save navigation checks in steps 1 and 2.
-- Browser preferences use the first admitted shell seed for a user/Organization provider lifetime. Same-Organization navigation or an older revalidated seed must not replace local intent; full reload and a new admitted user/Organization/session lifetime read a fresh seed. Leaving a scope cancels undispatched saves; an already-dispatched write may persist, but its late state/feedback is ignored. Record the actual saved rows before returning, and distinguish cancellation from successful persistence.
-- Shell controls automatically reload to install before the deferred requests start; preference controls install on the already-open page. `arm-hold` dispatches the real request before delaying its response; `arm-hold-fail` dispatches nothing. Record which boundary was exercised.
-- A control destroyed by full navigation is not a released late response. Keep state/release receipts and distinguish native interaction, provider reads, source mapping and lower-level tests.
-- Saved/deleted Group or View IDs need selection validation, but never reintroduce a deleted catalog merely to satisfy a preference. Record unavailable stale-choice proof explicitly until the owned fixture can exercise it.
-- First-paint and deferred chrome reads, optional fallbacks, lazy parts, request-local membership reuse, canonical redirects, header count and switcher races, and account/Organization/session replacement are covered by AppShell `appShellRead.server.test.ts` and `appShellProvider.server.test.ts`, Delivery `appShellRequestDelivery.test.ts`, Dashboard `dashboardSetupSupport.server.test.ts`, and the root-layout, Organization admission, chrome JSON route, Organization membership provider, Getting Started route, AppShell Header, Organization Layout and Identity session metadata tests. Inspect actual behavior; screenshots alone cannot prove server timing or request-local state.
+- When preference lifetime wiring changes, repeat the preference-triggered reload and held-save navigation checks in
+  steps 1 and 2.
+- Browser preferences use the first admitted shell seed for a user/Organization provider lifetime. Same-Organization
+  navigation or an older revalidated seed must not replace local intent; full reload and a new admitted
+  user/Organization/session lifetime read a fresh seed. Leaving a scope cancels undispatched saves; an
+  already-dispatched write may persist, but its late state/feedback is ignored. Record the actual saved rows before
+  returning, and distinguish cancellation from successful persistence.
+- Shell controls automatically reload to install before the deferred requests start; preference controls install on the
+  already-open page. `arm-hold` dispatches the real request before delaying its response; `arm-hold-fail` dispatches
+  nothing. Record which boundary was exercised.
+- A control destroyed by full navigation is not a released late response. Keep state/release receipts and distinguish
+  native interaction, provider reads, source mapping and lower-level tests.
+- Saved/deleted Group or View IDs need selection validation, but never reintroduce a deleted catalog merely to satisfy a
+  preference. Record unavailable stale-choice proof explicitly until the owned fixture can exercise it.
+- First-paint and deferred chrome reads, optional fallbacks, lazy parts, request-local membership reuse, canonical
+  redirects, header count and switcher races, and account/Organization/session replacement are covered by AppShell
+  `appShellRead.server.test.ts` and `appShellProvider.server.test.ts`, Delivery `appShellRequestDelivery.test.ts`,
+  Dashboard `dashboardSetupSupport.server.test.ts`, and the root-layout, Organization admission, chrome JSON route,
+  Organization membership provider, Getting Started route, AppShell Header, Organization Layout and Identity session
+  metadata tests. Inspect actual behavior; screenshots alone cannot prove server timing or request-local state.

@@ -298,9 +298,9 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
   Verification Training. The out list names `SPC Baker, Synthetic` with `back` and the first day no entry covers Baker.
   The tomorrow line starts `Tomorrow 3.`
 - An absence that runs past the bootstrap window still reports its real return. Through Quick add › Status, give one
-  Person Verification Leave from today for 31 days and a second Verification Leave starting the next day for 4 days, and
-  give another Person the same first leave with the second starting one day later. After a reload the first reads `back`
-  the day after the second leave ends and the other reads `back` the day after its first leave ends. With
+  Person Verification Leave from today through today + 30 and a second Verification Leave from today + 31 through
+  today + 34. Give another Person the same first leave and a second from today + 32 through today + 34, leaving a
+  one-day gap. After a reload the first reads `back` on today + 35 and the other on today + 31. With
   `server-source arm availability_entries hold 2` (the follow-up read for absences that reach the window's end) every
   band stays in its skeleton and no `back` date shows; `fail-hard 2` replaces the page like any failed availability
   read, and `Retry Dashboard` after restore shows both dates. `dashboardScoped` sees only its Alpha Person's return.

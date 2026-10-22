@@ -15,7 +15,7 @@ import type {
 } from './types';
 import { questionKey } from './types';
 import type { ImportSchema, Layout, LoadedFile } from './workbookSource';
-import { headerKey } from './workbookSource';
+import { targetsForHeaders } from './workbookSource';
 import { parseImportDate, parseValue, type DateSystem } from './values';
 
 export interface SourceRow {
@@ -47,7 +47,7 @@ export function buildSourceRows<C extends ImportColumns>(
 		const settings = layout.sheets[sheetIndex];
 		if (!settings?.included || settings.headerRow === null) continue;
 		const headers = sheet.rows[settings.headerRow] ?? [];
-		const targets = headers.map((cell) => layout.columns.get(headerKey(cell)));
+		const targets = targetsForHeaders(headers, layout.columns);
 		const hasPivotField = targets.some((target) => target?.kind === 'field' && target.field === lane.pivot?.field);
 		for (let rowIndex = settings.headerRow + 1; rowIndex < sheet.rows.length; rowIndex++) {
 			const cells = sheet.rows[rowIndex];

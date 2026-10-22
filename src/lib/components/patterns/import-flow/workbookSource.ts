@@ -50,6 +50,18 @@ export function headerKey(cell: string): HeaderKey {
 	return normalizeHeader(cell) as HeaderKey;
 }
 
+export function targetsForHeaders(headers: readonly string[], columns: Layout['columns']): readonly ColumnTarget[] {
+	const seen = new Set<HeaderKey>();
+	return headers.map((header): ColumnTarget => {
+		const key = headerKey(header);
+		const target = columns.get(key) ?? { kind: 'ignore' };
+		if (target.kind === 'pivot') return target;
+		if (seen.has(key)) return { kind: 'ignore' };
+		seen.add(key);
+		return target;
+	});
+}
+
 function cellText(value: ExcelJS.CellValue): string {
 	if (value === null || value === undefined) return '';
 	if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.toISOString().slice(0, 10) : '';
@@ -241,10 +253,7 @@ export function extendColumnTargets<C extends ImportColumns>(
 		const longFormat =
 			lane.pivot && detected.some((target) => target?.kind === 'field' && target.field === lane.pivot?.field);
 		const claimed = fieldsForTargets(
-			cells.flatMap((cell) => {
-				const target = columns.get(headerKey(cell));
-				return target && target.kind !== 'pivot' ? [target] : [];
-			}),
+			targetsForHeaders(cells, columns).filter((target) => target.kind !== 'pivot'),
 			lane
 		);
 		for (let column = 0; column < cells.length; column++) {
@@ -274,9 +283,8 @@ export function duplicateMappedFields<C extends ImportColumns>(
 		if (!settings.included || settings.headerRow === null) continue;
 		const fields = new Set<string>();
 		const repeated = new Set<string>();
-		for (const header of file.sheets[i].rows[settings.headerRow] ?? []) {
-			const target = layout.columns.get(headerKey(header));
-			if (!target || target.kind === 'pivot') continue;
+		for (const target of targetsForHeaders(file.sheets[i].rows[settings.headerRow] ?? [], layout.columns)) {
+			if (target.kind === 'pivot') continue;
 			for (const field of fieldsForTargets([target], lane)) {
 				if (fields.has(field)) repeated.add(field);
 				fields.add(field);
@@ -297,10 +305,7 @@ export function missingRequiredFields<C extends ImportColumns>(
 		const sheet = layout.sheets[i];
 		if (!sheet.included) continue;
 		const headers = sheet.headerRow === null ? [] : (file.sheets[i].rows[sheet.headerRow] ?? []);
-		const fields = fieldsForTargets(
-			headers.flatMap((cell) => layout.columns.get(headerKey(cell)) ?? []),
-			lane
-		);
+		const fields = fieldsForTargets(targetsForHeaders(headers, layout.columns), lane);
 		for (const field in lane.columns) {
 			const column = lane.columns[field];
 			if (column.required && !fields.has(field)) missing.set(field, column.label);

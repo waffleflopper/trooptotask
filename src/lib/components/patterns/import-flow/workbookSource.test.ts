@@ -48,7 +48,7 @@ describe('workbook source', () => {
 			sheets: [
 				{ index: 0, name: 'HQ', hidden: false, rows: [['Last name', 'First name', 'Rank']] },
 				{ index: 1, name: 'PLT', hidden: false, rows: [['Surname', 'First name', 'Rank']] },
-				{ index: 2, name: 'Lookups', hidden: true, rows: [['Last name', 'Last name', 'First name', 'Rank']] }
+				{ index: 2, name: 'Lookups', hidden: true, rows: [['Last name', 'Extra', 'First name', 'Rank']] }
 			]
 		};
 		const detected = detectLayout(file, lane);
@@ -59,7 +59,11 @@ describe('workbook source', () => {
 		);
 		expect(duplicateMappedFields(layout, file, lane)).toEqual([]);
 		expect(layout.columns.get(headerKey('Surname'))).toEqual({ kind: 'field', field: 'lastName' });
-		const withLookups = { ...layout, sheets: layout.sheets.map((sheet) => ({ ...sheet, included: true })) };
+		const withLookups = {
+			...layout,
+			columns: new Map(layout.columns).set(headerKey('Extra'), { kind: 'field', field: 'lastName' } as const),
+			sheets: layout.sheets.map((sheet) => ({ ...sheet, included: true }))
+		};
 		expect(duplicateMappedFields(withLookups, file, lane)).toEqual([{ label: 'Last name', sheet: 'Lookups' }]);
 	});
 	it('reads matching roster tabs, a cover, and hidden lookups with physical rows and cached formulas', async () => {

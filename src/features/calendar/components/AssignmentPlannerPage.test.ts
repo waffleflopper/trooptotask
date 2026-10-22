@@ -74,12 +74,15 @@ const personnel: Personnel[] = [
 	}
 ];
 
-/** Answers roster reads with `rosters` and sends every other request to `rest`. */
+/** Answers month roster reads with `rosters`, day reads with a type that has no open roster, and every other request with `rest`. */
 function routedFetch(
 	rest: (url: string, init?: RequestInit) => Promise<Response>,
 	rosters: () => Promise<Response> = async () => Response.json([])
 ) {
-	return vi.fn((url: string, init?: RequestInit) => (url.includes('/api/duty-rosters') ? rosters() : rest(url, init)));
+	return vi.fn((url: string, init?: RequestInit) => {
+		if (url.includes('/api/duty-rosters/day')) return Promise.resolve(Response.json(null));
+		return url.includes('/api/duty-rosters') ? rosters() : rest(url, init);
+	});
 }
 
 function renderPage(

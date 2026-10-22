@@ -35,6 +35,95 @@ function datesOf(batch: { date: string }[]): string[] {
 	return batch.map((write) => write.date);
 }
 
+describe('buildPlannerTable double-booking', () => {
+	const columns = [type('sd', { name: 'Staff Duty' }), type('cq', { name: 'CQ' }), type('gg', { assignTo: 'group' })];
+	const assignments = [
+		assignment('2026-10-20', 'sd', 'p-kim'),
+		assignment('2026-10-20', 'cq', 'p-kim'),
+		assignment('2026-10-21', 'sd', 'p-kim'),
+		assignment('2026-10-21', 'cq', 'p-okafor'),
+		assignment('2026-10-22', 'sd', 'g-2nd'),
+		assignment('2026-10-22', 'gg', 'g-2nd')
+	];
+
+	function table(rosters?: Parameters<typeof buildPlannerTable>[0]['rosters']) {
+		return buildPlannerTable({
+			rosters,
+			anchor: october,
+			todayKey: '2026-10-16',
+			columns,
+			assignmentsBySlot: indexAssignmentsBySlot(assignments),
+			conflicts: findDutyConflicts({
+				assignments,
+				assignmentTypes: columns,
+				availabilityByPerson: indexDutyAvailability([]),
+				range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' }
+			}),
+			personnel: [person('p-kim', 'SGT', 'Kim', 'Jae-won'), person('p-okafor', 'SGT', 'Okafor', 'Ife')],
+			groups: [{ id: 'g-2nd', name: '2nd Platoon', sortOrder: 0 }],
+			specialDays: [],
+			statusTypes: []
+		});
+	}
+
+	it('flags a person holding two duties on one day with D, each naming the other duty, when no roster view is used', () => {
+		const result = table();
+
+		expect(result.conflicts.map((conflict) => [conflict.typeId, conflict.dateKey, conflict.reason])).toEqual([
+			['sd', '2026-10-20', 'CQ (D)'],
+			['cq', '2026-10-20', 'Staff Duty (D)']
+		]);
+		const cell = result.rows.find((row) => row.dateKey === '2026-10-20')!.cells[0];
+		expect(cell.conflict?.assignee.name).toBe('Kim');
+	});
+
+	it("leaves the double-booking to a roster on the days it covers and names it locally on the days it doesn't", () => {
+		const everyOctoberDay = new Set(
+			Array.from({ length: 31 }, (_, at) => `2026-10-${String(at + 1).padStart(2, '0')}`)
+		);
+		const roster = { covered: everyOctoberDay, conflicts: [] };
+
+		expect(
+			table(
+				new Map([
+					['sd', roster],
+					['cq', roster]
+				])
+			).conflicts
+		).toEqual([]);
+	});
+
+	it('flags a Saturday double-booking with D naming the other duty when the roster is a No duty roster that skips weekends', () => {
+		const saturday = '2026-10-24';
+		const weekdays = new Set(['2026-10-23', '2026-10-26']);
+		const noDuty = { covered: weekdays, conflicts: [] };
+		const weekend = [assignment(saturday, 'sd', 'p-kim'), assignment(saturday, 'cq', 'p-kim')];
+
+		const result = buildPlannerTable({
+			anchor: october,
+			todayKey: '2026-10-16',
+			columns,
+			assignmentsBySlot: indexAssignmentsBySlot(weekend),
+			conflicts: findDutyConflicts({
+				assignments: weekend,
+				assignmentTypes: columns,
+				availabilityByPerson: indexDutyAvailability([]),
+				range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' }
+			}),
+			rosters: new Map([['sd', noDuty]]),
+			personnel: [person('p-kim', 'SGT', 'Kim', 'Jae-won')],
+			groups: [],
+			specialDays: [],
+			statusTypes: []
+		});
+
+		expect(result.conflicts.map((conflict) => [conflict.typeId, conflict.dateKey, conflict.reason])).toEqual([
+			['sd', saturday, 'CQ (D)'],
+			['cq', saturday, 'Staff Duty (D)']
+		]);
+	});
+});
+
 describe('buildQuickFillBatch', () => {
 	const occupied = indexAssignmentsBySlot([
 		assignment('2026-10-17', 'sd', 'p-hale'),

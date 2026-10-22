@@ -115,7 +115,8 @@
 	const conflicts = $derived(
 		findDutyConflicts({ assignments, assignmentTypes: columns, availabilityByPerson, range: monthRange })
 	);
-	const rosterViews = $derived(rosters?.status === 'ready' ? rosters.views : null);
+	// A stale view trails the saved availability, so it must not replace the local A, D and U check on the days it covers.
+	const rosterViews = $derived(rosters?.status === 'ready' && !rosters.stale ? rosters.views : null);
 	const table = $derived(
 		buildPlannerTable({
 			anchor: monthStart,
@@ -213,7 +214,11 @@
 			date: parseDate(dateKey),
 			occupied: current !== undefined,
 			counts: counted
-				? { status: read?.status ?? 'loading', onRetry: () => counted.retryDay(type.id, dateKey) }
+				? {
+						status: read?.status ?? 'loading',
+						stale: read?.status === 'ready' && read.stale === true,
+						onRetry: () => counted.retryDay(type.id, dateKey)
+					}
 				: undefined,
 			options: dutyPickerOptions({
 				type,
@@ -223,6 +228,7 @@
 				availabilityByPerson,
 				statusTypes,
 				roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
+				unreadRoster: counted && read?.status !== 'ready' ? (read?.status ?? 'loading') : undefined,
 				currentAssigneeId: current?.assigneeId
 			})
 		};

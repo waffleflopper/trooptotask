@@ -21,6 +21,7 @@ import type {
 } from './contracts';
 import { requireDeviceDate, type RosterSettingsPorts } from './rosterSettingsOperations.server';
 import { addDays, loadRosters } from './rosterFacts.server';
+import { MAX_CALENDAR_RANGE_DAYS } from './utils/calendarRange';
 import {
 	detailConflicts,
 	poolOn,
@@ -42,6 +43,13 @@ const resource = { kind: 'unscoped' } as const;
 const MAX_FILL_DAYS = 366;
 const MAX_REPICK_DAYS = 366;
 
+/** The last day a roster is simulated to, as in `loadRosterFacts`; the engine builds a standing for every day up to it. */
+const planningHorizon = (today: string) => addDays(today, MAX_CALENDAR_RANGE_DAYS);
+
+function requireWithinHorizon(first: string, today: string) {
+	if (first > planningHorizon(today)) fail(400, 'Duty rosters are planned at most a year ahead.');
+}
+
 /** A roster counts everyone in the Organization, so its counts and picks are for Organization-wide operators only. */
 function requireOrganizationWide(ctx: RosterSettingsPorts) {
 	if (!ctx.auth.isPrivileged && ctx.auth.scopeSet.kind !== 'organization') {
@@ -60,6 +68,7 @@ export async function loadPlannerRosters(
 	requireDeviceDate(today);
 	await requireCalendarPolicy(ctx, action, resource);
 	requireOrganizationWide(ctx);
+	requireWithinHorizon(`${month}-01`, today);
 
 	const shown = { from: `${month}-01`, through: endOfMonth(month) };
 	const read = {
@@ -132,6 +141,7 @@ export async function loadRosterDay(
 	requireDeviceDate(today);
 	await requireCalendarPolicy(ctx, action, resource);
 	requireOrganizationWide(ctx);
+	requireWithinHorizon(date, today);
 
 	const [facts] = await loadRosters(ctx, { today, window: { from: date, through: date }, typeIds: [typeId] });
 	if (!facts) return null;
@@ -165,14 +175,17 @@ async function planFill(
 	ctx: RosterSettingsPorts,
 	input: { typeId: string; today: string; from: string; through: string }
 ) {
-	const { typeId, today, from, through } = input;
+	const { typeId, today, from } = input;
 	requireDeviceDate(today);
 	await requireCalendarPolicy(ctx, action, resource);
 	requireOrganizationWide(ctx);
 	if (from < today) fail(400, 'Fill from today or a later day.');
-	if (through < from) fail(400, 'The last day comes before the first.');
-	if (toDayNumber(through) - toDayNumber(from) >= MAX_FILL_DAYS)
+	if (input.through < from) fail(400, 'The last day comes before the first.');
+	if (toDayNumber(input.through) - toDayNumber(from) >= MAX_FILL_DAYS)
 		fail(400, `Fill at most ${MAX_FILL_DAYS} days at once.`);
+	requireWithinHorizon(from, today);
+	const horizon = planningHorizon(today);
+	const through = input.through < horizon ? input.through : horizon;
 
 	const [facts] = await loadRosters(ctx, { today, window: { from, through }, typeIds: [typeId] });
 	if (!facts) fail(404, 'That duty roster is no longer available.');
@@ -239,8 +252,10 @@ async function planReplacement(
 	requireDeviceDate(today);
 	await requireCalendarPolicy(ctx, action, resource);
 	requireOrganizationWide(ctx);
+	requireWithinHorizon(date, today);
 
-	const horizon = addDays(date, MAX_REPICK_DAYS);
+	const repickEnd = addDays(date, MAX_REPICK_DAYS);
+	const horizon = repickEnd < planningHorizon(today) ? repickEnd : planningHorizon(today);
 	const [facts] = await loadRosters(ctx, { today, window: { from: date, through: horizon }, typeIds: [typeId] });
 	if (!facts) fail(404, 'That duty roster is no longer available.');
 	// The run stops at the last planned roster day, the last day a re-pick can touch.

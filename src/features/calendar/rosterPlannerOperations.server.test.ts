@@ -228,6 +228,43 @@ describe('loadPlannerRosters', () => {
 		expect(december.conflicts).toEqual([]);
 	});
 
+	it('refuses a month starting beyond the planning horizon before reading or simulating', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+
+		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '9999-12' })).rejects.toMatchObject({ status: 400 });
+		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2027-11' })).rejects.toMatchObject({ status: 400 });
+		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2027-10' })).resolves.toHaveLength(1);
+	});
+
+	it('settles its shared reads when the Organization has no open roster', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		ctx.store.seed('assignment_types', [
+			{
+				id: TYPE,
+				organization_id: ctx.auth.orgId,
+				name: 'Staff Duty',
+				short_name: 'SD',
+				assign_to: 'personnel',
+				color: '#dc2626',
+				sort_order: 0,
+				show_on_calendar: true,
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same',
+				archived_at: null
+			}
+		]);
+		vi.spyOn(ctx.personnelCalendarRoster, 'listAttributeTimelines').mockRejectedValue(new Error('timelines down'));
+		const unhandled = vi.fn();
+		process.on('unhandledRejection', unhandled);
+
+		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2026-10' })).resolves.toEqual([]);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		process.off('unhandledRejection', unhandled);
+
+		expect(unhandled).not.toHaveBeenCalled();
+	});
+
 	it('keeps roster counts from a Group-scoped operator', async () => {
 		const ctx = createWriteWithNotificationsPortsContext({
 			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
@@ -251,6 +288,18 @@ function dayLines(day: RosterDay) {
 }
 
 describe('loadRosterDay', () => {
+	it('refuses a day beyond the planning horizon', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+
+		await expect(loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '9999-12-31' })).rejects.toMatchObject({
+			status: 400
+		});
+		await expect(loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2027-10-18' })).rejects.toMatchObject({
+			status: 400
+		});
+	});
+
 	it('returns the standing going into a detail day', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		seedR4(ctx);
@@ -354,6 +403,28 @@ describe('Fill from roster', () => {
 			commitRosterFill(ctx, { ...fillInput(), picks: preview.picks.map(({ date, personId }) => ({ date, personId })) })
 		).rejects.toMatchObject({ status: 409 });
 		expect((await staffDuty(ctx)).filter((row) => row.date > TODAY).map((row) => row.date)).toEqual(['2026-10-18']);
+	});
+
+	it('refuses a fill starting beyond the planning horizon', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+		const far = fillInput({ from: '9999-12-01', through: '9999-12-31' });
+
+		await expect(previewRosterFill(ctx, far)).rejects.toMatchObject({ status: 400 });
+		await expect(
+			commitRosterFill(ctx, { ...far, picks: [{ date: '9999-12-01', personId: idOf('kim') }] })
+		).rejects.toMatchObject({ status: 400 });
+		expect(await staffDuty(ctx)).toHaveLength(16);
+	});
+
+	it('clamps a fill that runs past the planning horizon to the horizon', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+
+		const preview = await previewRosterFill(ctx, fillInput({ from: '2027-10-14', through: '2028-03-01' }));
+
+		expect(preview.picks.map((pick) => pick.date)).toEqual(['2027-10-14', '2027-10-15', '2027-10-16', '2027-10-17']);
+		expect(preview.unfilled).toEqual([]);
 	});
 
 	it('fills from today at the earliest', async () => {
@@ -566,5 +637,14 @@ describe('Find replacement', () => {
 		seedR4(ctx);
 
 		await expect(previewRosterReplacement(ctx, replacementInput())).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('refuses a replacement beyond the planning horizon before reading the roster', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+
+		await expect(previewRosterReplacement(ctx, replacementInput({ date: '9999-12-31' }))).rejects.toMatchObject({
+			status: 400
+		});
 	});
 });

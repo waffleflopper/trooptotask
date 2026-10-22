@@ -61,14 +61,15 @@ export const overdueEvaluations: NeedsYouSource = (inputs) => {
 	const today = parseDate(inputs.today);
 	return inputs.page.dashboard.data.ratingSchemeEntries.flatMap((entry) => {
 		const person = people.get(entry.ratedPersonId);
-		if (!person || getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today) !== 'overdue') return [];
+		if (getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today) !== 'overdue') return [];
+		const ratedPersonName = entry.ratedPersonName ?? (person ? fullName(person) : 'a Soldier');
 		const daysLate = daysBetween(entry.ratingPeriodEnd, inputs.today);
 		return [
 			{
 				kind: 'overdue' as const,
 				id: `overdue:${entry.id}`,
 				ratingSchemeEntryId: entry.id,
-				title: `${entry.evalType} for ${fullName(person)}`,
+				title: `${entry.evalType} for ${ratedPersonName}`,
 				subtitle: `Thru date ${formatDayMonth(entry.ratingPeriodEnd)}`,
 				timing: `${plural(daysLate, 'day', 'days')} late`,
 				href: `${orgPath(inputs)}/evals?${new URLSearchParams({ entry: entry.id })}`,

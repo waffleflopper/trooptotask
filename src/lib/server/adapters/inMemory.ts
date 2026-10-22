@@ -1278,9 +1278,10 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 	return {
 		async listDueEntries(actor) {
 			if (actor.capabilityMap.ratingScheme === 'none') return [];
-			const [people, archivedIds] = await Promise.all([
+			const [people, archivedIds, references] = await Promise.all([
 				actor.scopeSet.kind === 'groups' ? inMemoryPersonnelRows(rawStore, actor, 'all') : null,
-				inMemoryArchivedPersonIds(rawStore, actor.orgId)
+				inMemoryArchivedPersonIds(rawStore, actor.orgId),
+				createInMemoryPersonnelRatingSchemeRosterPort(rawStore).listActiveReferences(actor)
 			]);
 			const rows = await rawStore.findMany<{
 				id: string;
@@ -1295,11 +1296,15 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				people ? { inFilters: { rated_person_id: people.map((person) => person.id) } } : undefined
 			);
 			const archived = toArchivedPersonIds(archivedIds);
+			const names = new Map(
+				references.map((person) => [person.id, `${person.rank} ${person.lastName}, ${person.firstName}`])
+			);
 			return rows
 				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
 				.map((row) => ({
 					id: row.id,
 					ratedPersonId: row.rated_person_id,
+					...(names.has(row.rated_person_id) ? { ratedPersonName: names.get(row.rated_person_id) } : {}),
 					evalType: row.eval_type,
 					ratingPeriodEnd: row.rating_period_end,
 					status: row.status

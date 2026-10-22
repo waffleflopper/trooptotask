@@ -1,3 +1,4 @@
+import { projectOnboardingTrainingSteps } from '../onboardingTrainingProjection';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import { fetchOnboardingTemplatesData } from './onboardingTemplateRead.server';
 import type {
@@ -48,24 +49,6 @@ export async function fetchOnboardingStartOptions(ctx: OnboardingStartOptionsPor
 		loadPersonnelCreationRanks(ctx)
 	]);
 	return { templates, hasTemplateSteps: templateSteps.length > 0, ...ranks };
-}
-
-function applyTrainingCompletionStatuses(
-	onboarding: PersonnelOnboarding,
-	completedTrainingTypeIdsByPersonnelId: Map<string, Set<string>>
-): PersonnelOnboarding {
-	const completedTrainingTypeIds = completedTrainingTypeIdsByPersonnelId.get(onboarding.personnelId) ?? new Set();
-
-	return {
-		...onboarding,
-		steps: onboarding.steps.map((step) => {
-			if (step.stepType !== 'training' || !step.active || step.trainingTypeId === null) {
-				return step;
-			}
-
-			return { ...step, completed: completedTrainingTypeIds.has(step.trainingTypeId) };
-		})
-	};
 }
 
 function collectActiveTrainingTypeIds(onboarding: PersonnelOnboarding): string[] {
@@ -173,7 +156,11 @@ export async function fetchOnboardingBootstrap(
 		const refreshedOnboardingById = new Map(
 			trainingOnboardings.map((onboarding) => [
 				onboarding.id,
-				applyTrainingCompletionStatuses(onboarding, completedTrainingTypeIdsByPersonnelId)
+				projectOnboardingTrainingSteps(
+					onboarding,
+					(trainingTypeId) =>
+						completedTrainingTypeIdsByPersonnelId.get(onboarding.personnelId)?.has(trainingTypeId) ?? false
+				)
 			])
 		);
 

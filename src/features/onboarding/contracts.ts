@@ -16,6 +16,7 @@ import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/co
 import type { TrainingType } from '$features/training/contracts';
 import type { NoteAuthorLabels } from './onboardingNoteAuthors';
 import type { Personnel } from '$features/personnel/contracts';
+export { projectOnboardingTrainingSteps } from './onboardingTrainingProjection';
 export { getProgress } from './onboardingProgress';
 export { clockLabel, summarizePacket } from './onboardingStatus';
 import type {

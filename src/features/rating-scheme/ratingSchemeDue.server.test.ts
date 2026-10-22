@@ -57,14 +57,19 @@ function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: stri
 		};
 		return query;
 	});
+	const listActiveReferences = vi.fn<PersonnelRatingSchemeRosterPort['listActiveReferences']>().mockResolvedValue([]);
 	const listArchivedRatedPersonIds = vi
 		.fn<PersonnelRatingSchemeRosterPort['listArchivedRatedPersonIds']>()
 		.mockResolvedValue(archivedIds);
 	return {
 		from,
 		selections,
+		listActiveReferences,
 		listArchivedRatedPersonIds,
-		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, { listArchivedRatedPersonIds })
+		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, {
+			listActiveReferences,
+			listArchivedRatedPersonIds
+		})
 	};
 }
 
@@ -160,6 +165,48 @@ describe('Rating Scheme due projection', () => {
 		).toEqual(['eval_type', 'id', 'rated_person_id', 'rating_period_end', 'status']);
 	});
 
+	it('names the rated Person for a Rating-only reader through Rating roster references', async () => {
+		const { port, listActiveReferences } = provider([
+			{
+				id: 'evaluation-1',
+				organization_id: 'org-a',
+				rated_person_id: 'person-a',
+				eval_type: 'NCOER',
+				rating_period_end: '2026-09-25',
+				status: 'active'
+			}
+		]);
+		listActiveReferences.mockResolvedValue([{ id: 'person-a', rank: 'SGT', lastName: 'Able', firstName: 'Synthetic' }]);
+		await expect(port.listDueEntries(actor())).resolves.toEqual([
+			{
+				id: 'evaluation-1',
+				ratedPersonId: 'person-a',
+				ratedPersonName: 'SGT Able, Synthetic',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-09-25',
+				status: 'active'
+			}
+		]);
+	});
+
+	it('returns no names or entries without permission to read Rating roster references', async () => {
+		const { port, listActiveReferences } = provider([
+			{
+				id: 'evaluation-1',
+				organization_id: 'org-a',
+				rated_person_id: 'person-a',
+				eval_type: 'NCOER',
+				rating_period_end: '2026-09-25',
+				status: 'active'
+			}
+		]);
+		listActiveReferences.mockRejectedValue(new Error('Roster references must not be read'));
+		const reader = actor();
+		await expect(
+			port.listDueEntries({ ...reader, capabilityMap: { ...reader.capabilityMap, ratingScheme: 'none' } })
+		).resolves.toEqual([]);
+		expect(listActiveReferences).not.toHaveBeenCalled();
+	});
 	it('omits evaluations of archived People, matching IDs case-insensitively', async () => {
 		const { port, listArchivedRatedPersonIds } = provider(
 			[
@@ -204,8 +251,8 @@ describe('Rating Scheme due projection', () => {
 		expect(listArchivedRatedPersonIds).toHaveBeenCalledWith(reader);
 	});
 
-	it('reads entries and archived IDs concurrently', async () => {
-		const { port, from, listArchivedRatedPersonIds } = provider();
+	it('reads entries, archived IDs and roster references concurrently', async () => {
+		const { port, from, listArchivedRatedPersonIds, listActiveReferences } = provider();
 		let release!: () => void;
 		const wait = new Promise<void>((resolve) => {
 			release = resolve;
@@ -219,6 +266,7 @@ describe('Rating Scheme due projection', () => {
 			await vi.waitFor(() => {
 				expect(from).toHaveBeenCalledTimes(1);
 				expect(listArchivedRatedPersonIds).toHaveBeenCalledTimes(1);
+				expect(listActiveReferences).toHaveBeenCalledTimes(1);
 			});
 		} finally {
 			release();

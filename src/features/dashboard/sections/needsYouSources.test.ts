@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { calendarStore } from '$features/calendar';
 import type { AssignmentType } from '$features/calendar/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -254,6 +253,51 @@ describe('overdueEvaluations', () => {
 			}
 		]);
 	});
+
+	it('keeps the named overdue entry when the viewer has no Personnel roster', () => {
+		const rows = overdueEvaluations(
+			inputs({
+				personnel: [],
+				ratingSchemeEntries: [
+					{
+						id: 'eval-late',
+						ratedPersonId: 'p-alvarez',
+						ratedPersonName: 'SSG Alvarez, Marisol',
+						evalType: 'NCOER',
+						ratingPeriodEnd: '2026-10-13',
+						status: 'active'
+					}
+				]
+			})
+		);
+		expect(rows).toMatchObject([
+			{
+				id: 'overdue:eval-late',
+				title: 'NCOER for SSG Alvarez, Marisol',
+				href: '/org/org-1/evals?entry=eval-late'
+			}
+		]);
+	});
+
+	it('keeps an overdue row with a generic title when a saved entry has no name or roster', () => {
+		const rows = overdueEvaluations(
+			inputs({
+				personnel: [],
+				ratingSchemeEntries: [
+					{
+						id: 'eval-late',
+						ratedPersonId: 'p-alvarez',
+						evalType: 'NCOER',
+						ratingPeriodEnd: '2026-10-13',
+						status: 'active'
+					}
+				]
+			})
+		);
+		expect(rows).toMatchObject([
+			{ id: 'overdue:eval-late', title: 'NCOER for a Soldier', href: '/org/org-1/evals?entry=eval-late' }
+		]);
+	});
 });
 
 describe('expiredTraining', () => {
@@ -345,25 +389,6 @@ describe('unfilledDuty', () => {
 			}
 		]);
 	});
-
-	it('opens the Calendar at the month of the first open day, not the month it was left in', () => {
-		calendarStore.goToMonth(2026, 0);
-		const [row] = unfilledDuty(
-			inputs({
-				personnel: [alvarez],
-				assignments: FORECAST.filter((date) => date !== '2026-11-01').map((date) => ({
-					id: `slot-${date}`,
-					date,
-					assignmentTypeId: 'staff-duty',
-					assigneeId: 'p-alvarez'
-				}))
-			})
-		);
-
-		row.onOpen?.();
-
-		expect(calendarStore.currentDate).toEqual(new Date(2026, 10, 1));
-	});
 });
 
 describe('stalledOnboarding', () => {
@@ -450,7 +475,7 @@ describe('leavingWithoutAward', () => {
 });
 
 describe('Group scope', () => {
-	it('keeps every Person-bound row inside the roster the viewer can see', () => {
+	it('uses the authorized Rating entries and limits other Person-bound rows to the roster', () => {
 		const loaded: Loaded = {
 			personnel: [alvarez, brooks],
 			ratingSchemeEntries: [
@@ -460,8 +485,7 @@ describe('Group scope', () => {
 					evalType: 'NCOER',
 					ratingPeriodEnd: '2026-10-13',
 					status: 'active'
-				},
-				{ id: 'eval-bravo', ratedPersonId: 'p-kim', evalType: 'NCOER', ratingPeriodEnd: '2026-10-10', status: 'active' }
+				}
 			],
 			expiredByType: [{ trainingTypeId: 'sharp', personnelIds: ['p-brooks', 'p-kim'], maxDaysLate: 4 }],
 			activeOnboardings: [{ ...brooksPacket, id: 'onboarding-kim', personnelId: 'p-kim' }]

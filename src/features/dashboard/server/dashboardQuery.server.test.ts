@@ -574,7 +574,15 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 		});
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 		store.seed('personnel', [
-			{ id: 'p-active', organization_id: ORG, group_id: 'g-1', archived_at: null },
+			{
+				id: 'p-active',
+				organization_id: ORG,
+				group_id: 'g-1',
+				archived_at: null,
+				rank: 'SGT',
+				last_name: 'Able',
+				first_name: 'Synthetic'
+			},
 			{ id: 'p-archived', organization_id: ORG, group_id: 'g-1', archived_at: '2026-10-01T00:00:00Z' }
 		]);
 		store.seed('rating_scheme_entries', [
@@ -597,7 +605,14 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 		]);
 		const result = await load(ctx);
 		expect(result.ratingSchemeEntries).toEqual([
-			{ id: 'e-active', ratedPersonId: 'p-active', evalType: 'NCOER', ratingPeriodEnd: '2026-09-25', status: 'active' }
+			{
+				id: 'e-active',
+				ratedPersonId: 'p-active',
+				ratedPersonName: 'SGT Able, Synthetic',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-09-25',
+				status: 'active'
+			}
 		]);
 	});
 

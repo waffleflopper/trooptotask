@@ -131,6 +131,7 @@ export interface RatingSchemeWorkspaceRouteData {
 export interface RatingSchemeDueEntry {
 	id: string;
 	ratedPersonId: string;
+	ratedPersonName?: string;
 	evalType: 'OER' | 'NCOER' | 'WOER';
 	ratingPeriodEnd: string;
 	status: 'active' | 'completed' | 'change-of-rater';

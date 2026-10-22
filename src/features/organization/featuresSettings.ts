@@ -101,11 +101,11 @@ export function lossWindowHolds(days: number): string {
 
 export type HoldsLane = { text: string; notSetUp: boolean };
 
-/** An off feature's records are closed to every role, so its row cannot count them. */
+/** "Not set up" applies only to a feature that is on; an off feature just says what it lacks. */
 export function holdsLane(holds: FeatureHolds, on: boolean): HoldsLane {
-	if (!on) return { text: 'Not counted while off', notSetUp: false };
 	if (holds.missing === null) return { text: holds.text, notSetUp: false };
-	return { text: `Not set up · no ${holds.missing}`, notSetUp: true };
+	if (on) return { text: `Not set up · no ${holds.missing}`, notSetUp: true };
+	return { text: `No ${holds.missing}`, notSetUp: false };
 }
 
 /** States the unit-wide cutoff the dashboard applies, using the dashboard's own rounding. */

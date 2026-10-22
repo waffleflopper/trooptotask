@@ -35,7 +35,7 @@ describe('Features holds lanes', () => {
 		]);
 	});
 
-	it('flags a feature that is on and holds nothing, and counts nothing while it is off', () => {
+	it('flags a feature that is on and holds nothing, and only names the gap when it is off', () => {
 		expect(lanes(empty, true)).toEqual([
 			['Training', { text: 'Not set up · no training types', notSetUp: true }],
 			['Critical tasks', { text: 'Not set up · no task lists', notSetUp: true }],
@@ -43,9 +43,9 @@ describe('Features holds lanes', () => {
 			['Onboarding', { text: 'Not set up · no templates', notSetUp: true }],
 			['Losses and awards', null]
 		]);
-		expect(lanes(stocked, false).slice(0, 2)).toEqual([
-			['Training', { text: 'Not counted while off', notSetUp: false }],
-			['Critical tasks', { text: 'Not counted while off', notSetUp: false }]
+		expect(lanes(empty, false).slice(0, 2)).toEqual([
+			['Training', { text: 'No training types', notSetUp: false }],
+			['Critical tasks', { text: 'No task lists', notSetUp: false }]
 		]);
 	});
 });

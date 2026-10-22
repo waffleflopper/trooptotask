@@ -265,7 +265,7 @@ export interface PlannerRoster {
 	/** Counts after the last detail on or before today, per track. Null when today is outside the open form. */
 	current: { track: TrackId; standing: number[] }[] | null;
 	todayAssignee: string | null;
-	/** The month's detail days. */
+	/** Each day of the month the roster can detail, with the standing going into it. */
 	days: { date: string; track: TrackId; standing: number[] }[];
 	/** Excused today, for the panel footer. */
 	excused: string[];
@@ -437,3 +437,4 @@ export interface CalendarAvailabilityRemovalPort {
 }
 
 export type { CalendarSupportReader } from './supportReadTypes';
+export type { AssignmentSource } from './roster/rosterTypes';

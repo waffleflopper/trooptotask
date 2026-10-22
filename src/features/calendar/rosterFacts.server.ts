@@ -1,7 +1,15 @@
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
-import type { SavedAssignmentType } from './contracts';
-import type { RosterSettingsPorts } from './rosterSettingsOperations.server';
+import type { OrganizationRankCatalogEntry, PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import type { CalendarCatalogPorts } from './calendarPolicy.server';
+import type { CalendarAssignmentReader, CalendarAvailabilityPersistence, SavedAssignmentType } from './contracts';
 import type { DateKey, DateSpan, Excusal, OpenForm, RosterAssignment, RosterFacts } from './roster/rosterTypes';
+
+export interface RosterFactsPorts extends CalendarCatalogPorts {
+	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
+	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange' | 'listRosterDetailDays'>;
+	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'listAttributeTimelines'>;
+	loadRankCatalog: () => Promise<OrganizationRankCatalogEntry[]>;
+}
 
 export const addDays = (date: DateKey, days: number) => fromDayNumber(toDayNumber(date) + days);
 
@@ -9,7 +17,7 @@ type PeopleFacts = Pick<RosterFacts, 'people' | 'rankCatalog' | 'statusTypes'>;
 type CalendarFacts = Pick<RosterFacts, 'availability' | 'holidays'>;
 
 /** The Organization-wide reads that do not depend on dates. */
-export async function readRosterPeople(ctx: RosterSettingsPorts): Promise<PeopleFacts> {
+export async function readRosterPeople(ctx: RosterFactsPorts): Promise<PeopleFacts> {
 	const [timelines, rankCatalog, statusTypes] = await Promise.all([
 		ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth),
 		ctx.loadRankCatalog(),
@@ -32,7 +40,7 @@ export async function readRosterPeople(ctx: RosterSettingsPorts): Promise<People
 }
 
 /** Availability and Special Days from `span.from` through `span.through`. */
-export async function readRosterCalendar(ctx: RosterSettingsPorts, span: DateSpan): Promise<CalendarFacts> {
+export async function readRosterCalendar(ctx: RosterFactsPorts, span: DateSpan): Promise<CalendarFacts> {
 	const range = { rangeStart: span.from, rangeEnd: span.through };
 	const [availability, specialDays] = await Promise.all([
 		ctx.calendarAvailability.listOverlapping(range),
@@ -64,7 +72,7 @@ const personTypeNames = (types: readonly SavedAssignmentType[]) =>
  * window's day before, so counts are exact and other rosters' D covers the window plus a day each side.
  */
 export async function loadRosters(
-	ctx: RosterSettingsPorts,
+	ctx: RosterFactsPorts,
 	input: { today: DateKey; window: DateSpan; typeIds?: readonly string[] }
 ): Promise<RosterFacts[]> {
 	const people = readRosterPeople(ctx);

@@ -40,8 +40,8 @@ export function shiftCalendarPeriod(anchor: Date, view: CalendarViewMode, direct
 /** The longest span one `/api/calendar-range` read accepts, in inclusive days. */
 export const MAX_CALENDAR_RANGE_DAYS = 366;
 
-/** How far before the first visible day a view reads assignments, so each slot can see its last duty. */
-export const DUTY_LOOKBACK_DAYS = 90;
+/** A view starting up to this many days after today also reads availability back to today, for the title row's count. */
+const TODAY_READ_BACK_DAYS = 90;
 
 /** The collections one range read returns; Special Days travel with assignments. */
 export const CALENDAR_RANGE_COLLECTIONS = ['availability', 'assignments'] as const;
@@ -57,16 +57,15 @@ export interface CalendarRangeRequest extends CalendarBufferedRange {
 }
 
 function coverageThrough(firstVisible: string, lastVisible: string, today: string): Required<CalendarCoverage> {
-	const lookbackStart = shiftDate(firstVisible, -DUTY_LOOKBACK_DAYS);
-	// The title row counts today's availability; reading back to today inside the lookback keeps that count.
-	const availabilityStart = today >= lookbackStart && today < firstVisible ? today : firstVisible;
+	const readBackStart = shiftDate(firstVisible, -TODAY_READ_BACK_DAYS);
+	const availabilityStart = today >= readBackStart && today < firstVisible ? today : firstVisible;
 	return {
 		availability: { rangeStart: availabilityStart, rangeEnd: lastVisible },
-		assignments: { rangeStart: lookbackStart, rangeEnd: lastVisible }
+		assignments: { rangeStart: firstVisible, rangeEnd: lastVisible }
 	};
 }
 
-/** What a Calendar view needs: availability over its visible months, assignments from the duty lookback before them. */
+/** What a Calendar view needs: availability and assignments over its visible months. */
 export function calendarViewCoverage(
 	anchor: Date,
 	view: CalendarViewMode,
@@ -83,16 +82,16 @@ export function calendarViewCoverage(
 /**
  * The bootstrap holds the anchor month's view and the month after it, so Next month needs no read.
  * The server knows only its UTC day, and every viewer's day is within one day of it, so availability
- * starts at the earliest of those days that the lookback holds and covers each viewer's today.
+ * starts at the earliest of those days within the read-back and covers each viewer's today.
  */
 export function initialCalendarCoverage(anchor: Date, serverToday: string): Required<CalendarCoverage> {
 	const firstVisible = formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
-	const lookbackStart = shiftDate(firstVisible, -DUTY_LOOKBACK_DAYS);
+	const readBackStart = shiftDate(firstVisible, -TODAY_READ_BACK_DAYS);
 	const viewerDays = [-1, 0, 1].map((days) => shiftDate(serverToday, days));
 	return coverageThrough(
 		firstVisible,
 		formatDate(endOfMonth(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))),
-		viewerDays.find((day) => day >= lookbackStart) ?? firstVisible
+		viewerDays.find((day) => day >= readBackStart) ?? firstVisible
 	);
 }
 

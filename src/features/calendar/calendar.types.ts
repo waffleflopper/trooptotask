@@ -10,10 +10,10 @@ import type {
 import type { Group } from '$features/personnel/contracts';
 
 export interface CalendarBootstrap {
-	/** The assignment span: the visible days and the duty lookback before them. */
+	/** The assignment span: the visible days. */
 	rangeStart: string;
 	rangeEnd: string;
-	/** Availability covers the visible days without the duty lookback. */
+	/** Availability covers the visible days, and back to today when today falls shortly before them. */
 	availabilityRange: CalendarDateRange;
 	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
 	specialDays: SpecialDay[] | Promise<SpecialDay[]>;

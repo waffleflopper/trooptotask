@@ -1,26 +1,21 @@
 import { error } from '@sveltejs/kit';
-import type { OrganizationRankCatalogEntry, PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
-import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy, type CalendarCatalogPorts } from './calendarPolicy.server';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy.server';
 import { rosterSettingsInput } from './calendarPersistenceMapping.server';
 import { DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
-import {
-	normalizePoolRules,
-	type CalendarAssignmentReader,
-	type CalendarAvailabilityPersistence,
-	type SavedAssignmentType
-} from './contracts';
+import { normalizePoolRules, type SavedAssignmentType } from './contracts';
 import { carryOver, closeForm } from './roster/rosterEngine';
-import { addDays, readRosterCalendar, readRosterPeople, rosterFacts } from './rosterFacts.server';
+import {
+	addDays,
+	readRosterCalendar,
+	readRosterPeople,
+	rosterFacts,
+	type RosterFactsPorts
+} from './rosterFacts.server';
 import type { OpenForm, RosterFacts, RosterRules } from './roster/rosterTypes';
 
-export interface RosterSettingsPorts extends CalendarCatalogPorts {
-	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
-	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange' | 'listRosterDetailDays'>;
-	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'listAttributeTimelines'>;
-	loadRankCatalog: () => Promise<OrganizationRankCatalogEntry[]>;
-}
+export type RosterSettingsPorts = RosterFactsPorts;
 
 const action = CALENDAR_POLICY_ACTIONS.configureAssignmentTypes;
 const resource = { kind: 'organization' } as const;

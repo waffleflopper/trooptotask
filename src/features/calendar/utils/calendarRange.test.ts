@@ -13,21 +13,21 @@ import {
 } from './calendarRange';
 
 describe('calendarViewCoverage', () => {
-	it('reads availability for the visible month and assignments from 90 days before it, across a year boundary', () => {
+	it('reads availability and assignments for the visible month only', () => {
 		expect(calendarViewCoverage(new Date(2027, 0, 15), 'month', '2027-01-15')).toEqual({
 			availability: { rangeStart: '2027-01-01', rangeEnd: '2027-01-31' },
-			assignments: { rangeStart: '2026-10-03', rangeEnd: '2027-01-31' }
+			assignments: { rangeStart: '2027-01-01', rangeEnd: '2027-01-31' }
 		});
 	});
 
 	it('reads all three months of a 3-Month view that ends in the next year', () => {
 		expect(calendarViewCoverage(new Date(2026, 10, 18), '3-month', '2026-11-18')).toEqual({
 			availability: { rangeStart: '2026-11-01', rangeEnd: '2027-01-31' },
-			assignments: { rangeStart: '2026-08-03', rangeEnd: '2027-01-31' }
+			assignments: { rangeStart: '2026-11-01', rangeEnd: '2027-01-31' }
 		});
 	});
 
-	it('starts availability at today when today falls inside the lookback, and not when it falls before it', () => {
+	it('starts availability at today when today falls within 90 days before the view, and not when it falls earlier', () => {
 		expect(calendarViewCoverage(new Date(2026, 10, 1), 'month', '2026-10-20').availability).toEqual({
 			rangeStart: '2026-10-20',
 			rangeEnd: '2026-11-30'
@@ -41,14 +41,14 @@ describe('calendarViewCoverage', () => {
 	it('seeds the bootstrap with the anchor month and the month after it', () => {
 		expect(initialCalendarCoverage(new Date(2026, 3, 10), '2026-04-10')).toEqual({
 			availability: { rangeStart: '2026-04-01', rangeEnd: '2026-05-31' },
-			assignments: { rangeStart: '2026-01-01', rangeEnd: '2026-05-31' }
+			assignments: { rangeStart: '2026-04-01', rangeEnd: '2026-05-31' }
 		});
 	});
 
 	it('starts availability for a later anchor month on the day before the server day, so a viewer still on yesterday needs no read', () => {
 		expect(initialCalendarCoverage(new Date(2026, 10, 1), '2026-10-21')).toEqual({
 			availability: { rangeStart: '2026-10-20', rangeEnd: '2026-12-31' },
-			assignments: { rangeStart: '2026-08-03', rangeEnd: '2026-12-31' }
+			assignments: { rangeStart: '2026-11-01', rangeEnd: '2026-12-31' }
 		});
 		expect(
 			planCalendarRangeReads(
@@ -58,11 +58,11 @@ describe('calendarViewCoverage', () => {
 		).toEqual([]);
 	});
 
-	it('covers viewers behind, on and ahead of the server day when the lookback starts on the server day', () => {
+	it('covers viewers behind, on and ahead of the server day when the read-back starts on the server day', () => {
 		const january = new Date(2027, 0, 1);
 		expect(initialCalendarCoverage(january, '2026-10-03')).toEqual({
 			availability: { rangeStart: '2026-10-03', rangeEnd: '2027-02-28' },
-			assignments: { rangeStart: '2026-10-03', rangeEnd: '2027-02-28' }
+			assignments: { rangeStart: '2027-01-01', rangeEnd: '2027-02-28' }
 		});
 		expect(
 			['2026-10-02', '2026-10-03', '2026-10-04'].map((viewerDay) =>
@@ -74,7 +74,7 @@ describe('calendarViewCoverage', () => {
 		).toEqual([[], [], []]);
 	});
 
-	it('starts availability where the lookback starts for a server day just before or after it', () => {
+	it('starts availability where the read-back starts for a server day just before or after it', () => {
 		const january = new Date(2027, 0, 1);
 		expect(initialCalendarCoverage(january, '2026-10-02').availability.rangeStart).toBe('2026-10-03');
 		expect(initialCalendarCoverage(january, '2026-10-04').availability.rangeStart).toBe('2026-10-03');
@@ -100,10 +100,9 @@ describe('planCalendarRangeReads', () => {
 		]);
 	});
 
-	it('reads the previous month of availability and only the lookback prefix of assignments', () => {
+	it('reads only the collection a month is missing', () => {
 		expect(planCalendarRangeReads(loaded, calendarViewCoverage(new Date(2026, 8, 1), 'month', '2026-10-20'))).toEqual([
-			{ rangeStart: '2026-09-01', rangeEnd: '2026-09-30', collections: ['availability'] },
-			{ rangeStart: '2026-06-03', rangeEnd: '2026-07-02', collections: ['assignments'] }
+			{ rangeStart: '2026-09-01', rangeEnd: '2026-09-30', collections: ['availability'] }
 		]);
 	});
 
@@ -144,7 +143,7 @@ describe('getCalendarRangeGaps', () => {
 
 		expect(
 			getCalendarRangeGaps(initialCalendarCoverage(new Date(2026, 3, 10), '2026-04-10').assignments, jumped)
-		).toEqual([{ rangeStart: '2028-01-02', rangeEnd: '2028-04-30' }]);
+		).toEqual([{ rangeStart: '2028-04-01', rangeEnd: '2028-04-30' }]);
 	});
 });
 

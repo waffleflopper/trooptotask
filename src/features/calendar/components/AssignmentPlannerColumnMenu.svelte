@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ComponentProps } from 'svelte';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import type { AssignmentWrite, QuickFillDays } from '$features/calendar/utils/assignmentPlanner';
@@ -9,6 +10,9 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import RosterFillForm from './RosterFillForm.svelte';
+
+	type RosterFill = Omit<ComponentProps<typeof RosterFillForm>, 'typeId' | 'busy' | 'onClose' | 'onClearMonth'>;
 
 	interface Props {
 		type: AssignmentType;
@@ -17,11 +21,15 @@
 		buildBatch: (assigneeId: string, days: QuickFillDays, onlyOpenDays: boolean) => AssignmentWrite[];
 		onApply: (batch: AssignmentWrite[]) => Promise<boolean>;
 		onClearMonth: () => void;
+		/** Present when this type fills from its roster; Quick fill then stays one link away. */
+		rosterFill?: RosterFill;
 	}
 
-	let { type, choices, busy, buildBatch, onApply, onClearMonth }: Props = $props();
+	let { type, choices, busy, buildBatch, onApply, onClearMonth, rosterFill }: Props = $props();
 
 	let open = $state(false);
+	let mode = $state<'roster' | 'person'>('roster');
+	const fromRoster = $derived(rosterFill !== undefined && mode === 'roster');
 	let assigneeId = $state('');
 	let days = $state<QuickFillDays>('weekdays');
 	let onlyOpenDays = $state(true);
@@ -36,6 +44,7 @@
 	function changeOpen(next: boolean) {
 		open = next;
 		if (next) {
+			mode = 'roster';
 			assigneeId = '';
 			days = 'weekdays';
 			onlyOpenDays = true;
@@ -73,67 +82,90 @@
 	</Popover.Trigger>
 	<Popover.Content
 		align="end"
+		collisionPadding={8}
 		role="dialog"
-		aria-label={`Quick fill, ${type.name}`}
-		class="w-80 max-w-(--bits-popover-content-available-width) gap-3 p-3"
+		aria-label={`${fromRoster ? 'Fill from roster' : 'Quick fill'}, ${type.name}`}
+		class={['max-w-(--bits-popover-content-available-width) gap-3 p-3', fromRoster ? 'w-[23rem]' : 'w-80']}
 	>
-		<Popover.Header>
-			<p class="font-mono text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">{type.name}</p>
-			<Popover.Title>Quick fill</Popover.Title>
+		<Popover.Header class="flex flex-row items-end justify-between gap-2">
+			<div class="grid gap-1">
+				<p class="font-mono text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">{type.name}</p>
+				<Popover.Title>{fromRoster ? 'Fill from roster' : 'Quick fill'}</Popover.Title>
+			</div>
+			{#if rosterFill}
+				<Button
+					variant="link"
+					size="xs"
+					class="h-auto p-0"
+					onclick={() => (mode = mode === 'roster' ? 'person' : 'roster')}
+				>
+					{mode === 'roster' ? 'One person instead' : 'Fill from roster'}
+				</Button>
+			{/if}
 		</Popover.Header>
 
-		<Field.Group>
-			<Field.Root>
-				<Field.Label for={`quick-fill-assignee-${type.id}`}>Assignee</Field.Label>
-				<NativeSelect id={`quick-fill-assignee-${type.id}`} bind:value={assigneeId} disabled={locked} class="w-full">
-					<option value="">Select {subject}…</option>
-					{#each choices as choice (choice.id)}
-						<option value={choice.id}>
-							{choice.kind === 'personnel' ? `${choice.prefix} ${choice.label}` : choice.label}
-						</option>
-					{/each}
-				</NativeSelect>
-			</Field.Root>
+		{#if rosterFill && fromRoster}
+			<RosterFillForm
+				{...rosterFill}
+				typeId={type.id}
+				{busy}
+				onClose={() => changeOpen(false)}
+				onClearMonth={clearMonth}
+			/>
+		{:else}
+			<Field.Group>
+				<Field.Root>
+					<Field.Label for={`quick-fill-assignee-${type.id}`}>Assignee</Field.Label>
+					<NativeSelect id={`quick-fill-assignee-${type.id}`} bind:value={assigneeId} disabled={locked} class="w-full">
+						<option value="">Select {subject}…</option>
+						{#each choices as choice (choice.id)}
+							<option value={choice.id}>
+								{choice.kind === 'personnel' ? `${choice.prefix} ${choice.label}` : choice.label}
+							</option>
+						{/each}
+					</NativeSelect>
+				</Field.Root>
 
-			<Field.Root>
-				<Field.Label>Days</Field.Label>
-				<ToggleGroup.Root
-					type="single"
-					size="sm"
-					aria-label="Days"
-					class="w-full"
-					disabled={locked}
-					bind:value={() => days, chooseDays}
-				>
-					<ToggleGroup.Item value="weekdays" class="flex-1">Weekdays</ToggleGroup.Item>
-					<ToggleGroup.Item value="weekends" class="flex-1">Weekends</ToggleGroup.Item>
-					<ToggleGroup.Item value="all" class="flex-1">All</ToggleGroup.Item>
-				</ToggleGroup.Root>
-			</Field.Root>
+				<Field.Root>
+					<Field.Label>Days</Field.Label>
+					<ToggleGroup.Root
+						type="single"
+						size="sm"
+						aria-label="Days"
+						class="w-full"
+						disabled={locked}
+						bind:value={() => days, chooseDays}
+					>
+						<ToggleGroup.Item value="weekdays" class="flex-1">Weekdays</ToggleGroup.Item>
+						<ToggleGroup.Item value="weekends" class="flex-1">Weekends</ToggleGroup.Item>
+						<ToggleGroup.Item value="all" class="flex-1">All</ToggleGroup.Item>
+					</ToggleGroup.Root>
+				</Field.Root>
 
-			<Field.Root orientation="horizontal">
-				<Checkbox id={`quick-fill-open-${type.id}`} bind:checked={onlyOpenDays} disabled={locked} />
-				<Field.Content>
-					<Field.Label for={`quick-fill-open-${type.id}`}>Only open days</Field.Label>
-					<Field.Description>
-						{#if replaced === 0}
-							None of these days has anyone yet.
-						{:else if onlyOpenDays}
-							Keeps the {replaced} {replaced === 1 ? 'day' : 'days'} already assigned.
-						{:else}
-							Replaces the {replaced} {replaced === 1 ? 'day' : 'days'} already assigned.
-						{/if}
-					</Field.Description>
-				</Field.Content>
-			</Field.Root>
-		</Field.Group>
+				<Field.Root orientation="horizontal">
+					<Checkbox id={`quick-fill-open-${type.id}`} bind:checked={onlyOpenDays} disabled={locked} />
+					<Field.Content>
+						<Field.Label for={`quick-fill-open-${type.id}`}>Only open days</Field.Label>
+						<Field.Description>
+							{#if replaced === 0}
+								None of these days has anyone yet.
+							{:else if onlyOpenDays}
+								Keeps the {replaced} {replaced === 1 ? 'day' : 'days'} already assigned.
+							{:else}
+								Replaces the {replaced} {replaced === 1 ? 'day' : 'days'} already assigned.
+							{/if}
+						</Field.Description>
+					</Field.Content>
+				</Field.Root>
+			</Field.Group>
 
-		<div class="flex items-center gap-2">
-			<Button variant="ghost-destructive" size="sm" disabled={locked} onclick={clearMonth}>Clear month</Button>
-			<Button variant="ghost" size="sm" class="ml-auto" onclick={() => changeOpen(false)}>Cancel</Button>
-			<Button size="sm" disabled={locked || !assigneeId || batch.length === 0} onclick={apply}>
-				{applying ? 'Filling…' : fillLabel}
-			</Button>
-		</div>
+			<div class="flex items-center gap-2">
+				<Button variant="ghost-destructive" size="sm" disabled={locked} onclick={clearMonth}>Clear month</Button>
+				<Button variant="ghost" size="sm" class="ml-auto" onclick={() => changeOpen(false)}>Cancel</Button>
+				<Button size="sm" disabled={locked || !assigneeId || batch.length === 0} onclick={apply}>
+					{applying ? 'Filling…' : fillLabel}
+				</Button>
+			</div>
+		{/if}
 	</Popover.Content>
 </Popover.Root>

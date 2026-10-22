@@ -2674,6 +2674,9 @@ async function main() {
 					'availability/batch',
 					'daily-assignments',
 					'daily-assignments/batch',
+					'duty-rosters',
+					'duty-rosters/fill',
+					'duty-rosters/fill/preview',
 					'status-types',
 					'assignment-types',
 					'assignment-types/lanes',
@@ -2769,6 +2772,7 @@ async function main() {
 					'pinned-groups',
 					'daily-assignments',
 					'daily-assignments/batch',
+					'duty-rosters/fill',
 					'status-types',
 					'ict-tasks/batch',
 					'ict-tasks/order'
@@ -2783,6 +2787,7 @@ async function main() {
 					'availability/batch',
 					'daily-assignments',
 					'daily-assignments/batch',
+					'duty-rosters/fill',
 					'special-days'
 				].includes(family)
 			)

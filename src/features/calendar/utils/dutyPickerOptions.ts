@@ -1,20 +1,13 @@
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { availabilityEntryLabel } from './availabilityLabels';
-import { DUTY_LOOKBACK_DAYS } from './calendarRange';
-import { lastDutyBefore, type DutyAvailabilityIndex, type DutyHistoryIndex, type LastDuty } from './dutyReadModel';
+import type { DutyAvailabilityIndex } from './dutyReadModel';
+import { effectLabel, type RosterStanding } from './plannerRosters';
 
 /** Someone or something a duty of this type may be given to, in name order. */
 export type AssigneeChoice =
 	| { readonly kind: 'group'; readonly id: string; readonly label: string }
-	| {
-			readonly kind: 'personnel';
-			readonly id: string;
-			readonly label: string;
-			readonly prefix: string;
-			readonly role: string;
-			readonly mos: string;
-	  };
+	| { readonly kind: 'personnel'; readonly id: string; readonly label: string; readonly prefix: string };
 
 export type DutyPickerOption =
 	| { readonly kind: 'group'; readonly id: string; readonly label: string; readonly current: boolean }
@@ -23,12 +16,13 @@ export type DutyPickerOption =
 			readonly id: string;
 			readonly label: string;
 			readonly prefix: string;
-			readonly role: string;
-			readonly mos: string;
 			readonly current: boolean;
-			/** Every availability entry covering the date, such as "Leave 26 Oct – 3 Nov". */
+			/** Roster code and reason, such as "Leave (A)", or without roster counts every availability entry covering the date. */
 			readonly unavailable?: string;
-			readonly lastDuty: LastDuty;
+			/** The roster count going into the date. Absent without roster counts. */
+			readonly count?: number;
+			/** Outside the roster's pool, so offered only to a name search. */
+			readonly offRoster: boolean;
 	  };
 
 export interface DutyPickerInput {
@@ -38,7 +32,8 @@ export interface DutyPickerInput {
 	groups: readonly Group[];
 	availabilityByPerson: DutyAvailabilityIndex;
 	statusTypes: readonly StatusType[];
-	history: DutyHistoryIndex;
+	/** The roster's standing going into the date, when the operator can see roster counts. */
+	standing?: RosterStanding;
 	currentAssigneeId?: string;
 }
 
@@ -53,55 +48,63 @@ export function eligibleAssignees(
 			.sort((a, b) => a.name.localeCompare(b.name) || compareIds(a.id, b.id))
 			.map((group) => ({ kind: 'group', id: group.id, label: group.name }));
 	}
-
-	const exempt = new Set(type.excusals.map(({ personId }) => personId));
-	return personnel
-		.filter((person) => !exempt.has(person.id))
-		.sort(
-			(a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName) || compareIds(a.id, b.id)
-		)
-		.map((person) => ({
-			kind: 'personnel',
-			id: person.id,
-			label: `${person.lastName}, ${person.firstName}`,
-			prefix: person.rank,
-			role: person.clinicRole,
-			mos: person.mos
-		}));
+	return notExcused(type, personnel).map(personChoice);
 }
 
-/** Options for one slot. People who have gone longest without this duty come first. */
+/**
+ * Options for one slot. With roster counts, the pool comes first in roster order, highest count first and ties in
+ * DA 6 order, and everyone else follows as off the roster. Without counts, people are in name order.
+ */
 export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
-	const choices = eligibleAssignees(input.type, input.personnel, input.groups);
 	const isCurrent = (id: string) => id === input.currentAssigneeId;
-
-	const statusName = new Map(input.statusTypes.map((status) => [status.id, status.name]));
-	const options: DutyPickerOption[] = [];
-	for (const choice of choices) {
-		if (choice.kind === 'group') {
-			options.push({ ...choice, current: isCurrent(choice.id) });
-			continue;
-		}
-		const covering = input.availabilityByPerson
-			.get(choice.id)
-			?.filter((entry) => entry.startDate <= input.dateKey && entry.endDate >= input.dateKey)
-			.map((entry) => availabilityEntryLabel(entry, statusName));
-		options.push({
-			...choice,
-			current: isCurrent(choice.id),
-			unavailable: covering?.length ? covering.join('; ') : undefined,
-			lastDuty: lastDutyBefore({
-				history: input.history,
-				assignmentTypeId: input.type.id,
-				personnelId: choice.id,
-				dateKey: input.dateKey
-			})
-		});
+	if (input.type.assignTo === 'group') {
+		return eligibleAssignees(input.type, input.personnel, input.groups).flatMap((choice) =>
+			choice.kind === 'group' ? [{ ...choice, current: isCurrent(choice.id) }] : []
+		);
 	}
 
-	// Array.sort is stable, so the name order from eligibleAssignees breaks ties.
-	if (input.type.assignTo === 'personnel') options.sort((a, b) => idleDays(b) - idleDays(a));
-	return options;
+	const statusName = new Map(input.statusTypes.map((status) => [status.id, status.name]));
+	const covering = (personId: string) => {
+		const labels = input.availabilityByPerson
+			.get(personId)
+			?.filter((entry) => entry.startDate <= input.dateKey && entry.endDate >= input.dateKey)
+			.map((entry) => availabilityEntryLabel(entry, statusName));
+		return labels?.length ? labels.join('; ') : undefined;
+	};
+
+	if (!input.standing) {
+		return notExcused(input.type, input.personnel).map((person) => ({
+			...personChoice(person),
+			current: isCurrent(person.id),
+			unavailable: covering(person.id),
+			offRoster: false
+		}));
+	}
+
+	const personById = new Map(input.personnel.map((person) => [person.id, person]));
+	const pool: DutyPickerOption[] = input.standing.entries.flatMap((entry) => {
+		const person = personById.get(entry.personId);
+		if (!person) return [];
+		return [
+			{
+				...personChoice(person),
+				current: isCurrent(person.id),
+				unavailable: entry.effect ? effectLabel(entry.effect) : undefined,
+				count: entry.count,
+				offRoster: false
+			}
+		];
+	});
+	const inPool = new Set(input.standing.entries.map((entry) => entry.personId));
+	const others = byName(input.personnel.filter((person) => !inPool.has(person.id))).map(
+		(person): DutyPickerOption => ({
+			...personChoice(person),
+			current: isCurrent(person.id),
+			unavailable: covering(person.id),
+			offRoster: true
+		})
+	);
+	return [...pool, ...others];
 }
 
 /**
@@ -119,10 +122,19 @@ export function dutySearchScore(_value: string, search: string, keywords: readon
 		: 0;
 }
 
-/** No duty in the window counts as longer ago than any duty inside it. */
-function idleDays(option: DutyPickerOption): number {
-	if (option.kind === 'group' || option.lastDuty.kind === 'none') return DUTY_LOOKBACK_DAYS + 1;
-	return option.lastDuty.daysSince;
+function notExcused(type: AssignmentType, personnel: readonly Personnel[]): Personnel[] {
+	const excused = new Set(type.excusals.map(({ personId }) => personId));
+	return byName(personnel.filter((person) => !excused.has(person.id)));
+}
+
+function byName(personnel: readonly Personnel[]): Personnel[] {
+	return [...personnel].sort(
+		(a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName) || compareIds(a.id, b.id)
+	);
+}
+
+function personChoice(person: Personnel): Extract<AssigneeChoice, { kind: 'personnel' }> {
+	return { kind: 'personnel', id: person.id, label: `${person.lastName}, ${person.firstName}`, prefix: person.rank };
 }
 
 function compareIds(a: string, b: string): number {

@@ -74,6 +74,14 @@ const personnel: Personnel[] = [
 	}
 ];
 
+/** Answers roster reads with `rosters` and sends every other request to `rest`. */
+function routedFetch(
+	rest: (url: string, init?: RequestInit) => Promise<Response>,
+	rosters: () => Promise<Response> = async () => Response.json([])
+) {
+	return vi.fn((url: string, init?: RequestInit) => (url.includes('/api/duty-rosters') ? rosters() : rest(url, init)));
+}
+
 function renderPage(
 	data: {
 		orgId: string;
@@ -106,6 +114,14 @@ function renderPage(
 		}
 	});
 }
+
+// Roster counts load on every Organization-wide render; a test that reads them stubs fetch itself.
+beforeEach(() => {
+	vi.stubGlobal(
+		'fetch',
+		routedFetch(() => new Promise(() => {}))
+	);
+});
 
 describe('AssignmentPlannerPage', () => {
 	beforeEach(() => {
@@ -188,17 +204,18 @@ it('saves a Group duty chosen in a cell or the column menu by the Group id', asy
 		'org-1'
 	);
 	const saved: Record<string, unknown>[] = [];
+	const rosters = vi.fn(async () => Response.json([]));
 	vi.stubGlobal(
 		'fetch',
-		vi.fn(async (_url, init) => {
-			const payload = JSON.parse(init.body);
+		routedFetch(async (_url, init) => {
+			const payload = JSON.parse(String(init?.body));
 			saved.push(payload);
 			return Response.json(
 				payload.records
 					? { inserted: payload.records.map((row: object, index: number) => ({ id: `batch-${index}`, ...row })) }
 					: { id: 'saved', ...payload }
 			);
-		})
+		}, rosters)
 	);
 	try {
 		renderPage();
@@ -216,13 +233,14 @@ it('saves a Group duty chosen in a cell or the column menu by the Group id', asy
 		const rows = batch?.records as Array<{ assigneeId: string; assignmentTypeId: string }>;
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.every((row) => row.assigneeId === 'group-bravo' && row.assignmentTypeId === 'group-duty')).toBe(true);
+		await waitFor(() => expect(rosters).toHaveBeenCalledTimes(3));
 	} finally {
 		cleanup();
 		vi.unstubAllGlobals();
 	}
 });
 
-it('offers a Group-scoped member only the Groups in their scope, in the pickers and the fairness panel', async () => {
+it('offers a Group-scoped member only the Groups in their scope, and no roster counts', async () => {
 	mockOrg = makeOrg({ scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } });
 	calendarStore.goToMonth(2026, 8);
 	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
@@ -234,22 +252,73 @@ it('offers a Group-scoped member only the Groups in their scope, in the pickers 
 		],
 		'org-1'
 	);
+	const fetch = vi.fn();
+	vi.stubGlobal('fetch', fetch);
 	try {
 		renderPage();
-		const fairness = screen.getByRole('table', { name: 'Group Duty fairness' });
-		expect(
-			within(fairness)
-				.getAllByRole('rowheader')
-				.map((header) => header.textContent!.trim())
-		).toEqual(['Alpha']);
-
 		await fireEvent.click(screen.getByRole('button', { name: /^Assign Group Duty, Tue 1 Sept?/ }));
 
 		expect(await screen.findByRole('option', { name: 'Alpha' })).toBeTruthy();
 		expect(screen.queryByRole('option', { name: 'Bravo' })).toBeNull();
+		expect(screen.queryByRole('region', { name: 'Roster · count today' })).toBeNull();
+		expect(fetch).not.toHaveBeenCalled();
 	} finally {
 		cleanup();
+		vi.unstubAllGlobals();
 	}
+});
+
+describe('planner roster counts', () => {
+	afterEach(() => {
+		cleanup();
+		vi.unstubAllGlobals();
+	});
+
+	it('offers edits while roster counts load, keeps them when the counts fail, and reads again on retry', async () => {
+		mockOrg = makeOrg();
+		calendarStore.goToMonth(2026, 8);
+		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
+		let fail!: () => void;
+		const rosters = vi
+			.fn<() => Promise<Response>>()
+			.mockReturnValueOnce(new Promise((resolve) => (fail = () => resolve(new Response('', { status: 503 })))))
+			.mockResolvedValueOnce(Response.json([]));
+		vi.stubGlobal(
+			'fetch',
+			routedFetch(() => new Promise(() => {}), rosters)
+		);
+		renderPage();
+
+		const panel = screen.getByRole('region', { name: 'Roster · count today' });
+		expect(within(panel).getByRole('status', { name: 'Loading roster counts' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /^Assign Charge of Quarters, Tue 22 Sept?/ })).toBeTruthy();
+		expect(rosters).toHaveBeenCalledTimes(1);
+
+		fail();
+		await fireEvent.click(await within(panel).findByRole('button', { name: 'Retry roster counts' }));
+
+		expect(screen.getByRole('button', { name: /^Assign Charge of Quarters, Tue 22 Sept?/ })).toBeTruthy();
+		await waitFor(() => expect(within(panel).getByText('This duty has no roster yet.')).toBeTruthy());
+		expect(rosters).toHaveBeenCalledTimes(2);
+	});
+
+	it('reads the counts again after an assignment saves', async () => {
+		mockOrg = makeOrg();
+		calendarStore.goToMonth(2026, 8);
+		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
+		const rosters = vi.fn(async () => Response.json([]));
+		vi.stubGlobal(
+			'fetch',
+			routedFetch(async (_url, init) => Response.json({ id: 'a-1', ...JSON.parse(String(init?.body)) }), rosters)
+		);
+		renderPage();
+		await waitFor(() => expect(rosters).toHaveBeenCalledTimes(1));
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Assign Charge of Quarters, Tue 22 Sept?/ }));
+		await fireEvent.click(await screen.findByRole('option', { name: /Smith, Alex/ }));
+
+		await waitFor(() => expect(rosters).toHaveBeenCalledTimes(2));
+	});
 });
 
 describe('planner conflicts', () => {
@@ -279,12 +348,10 @@ describe('planner conflicts', () => {
 			[{ id: 'e-1', personnelId: 'person-1', statusTypeId: 'leave', startDate: '2026-09-21', endDate: '2026-09-23' }],
 			'org-1'
 		);
+		const rosters = vi.fn(async () => Response.json([]));
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async (_url, init) => {
-				const payload = JSON.parse(init.body);
-				return Response.json({ id: 'a-1', ...payload });
-			})
+			routedFetch(async (_url, init) => Response.json({ id: 'a-1', ...JSON.parse(String(init?.body)) }), rosters)
 		);
 		try {
 			renderPage();
@@ -296,6 +363,7 @@ describe('planner conflicts', () => {
 
 			await waitFor(() => expect(screen.queryByRole('button', { name: /^Find replacement/ })).toBeNull());
 			expect(screen.getByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: CPT Taylor, Jamie/ })).toBeTruthy();
+			await waitFor(() => expect(rosters).toHaveBeenCalledTimes(2));
 		} finally {
 			cleanup();
 			vi.unstubAllGlobals();
@@ -342,22 +410,22 @@ describe('planner visible-month loading', () => {
 		});
 	}
 	/** Answers a range read with exactly the collections its URL names. */
-	function answer(url: string) {
+	function answer(url: string, dailyAssignments = [saved]) {
 		const params = new URL(url, 'http://localhost').searchParams;
 		const collections = params.get('collections')?.split(',') ?? [];
 		return Response.json({
 			rangeStart: params.get('rangeStart'),
 			rangeEnd: params.get('rangeEnd'),
 			...(collections.includes('availability') && { availabilityEntries: [] }),
-			...(collections.includes('assignments') && { specialDays: [], dailyAssignments: [saved] })
+			...(collections.includes('assignments') && { specialDays: [], dailyAssignments })
 		});
 	}
 	it('loads the displayed month on a cold start outside bootstrap coverage before offering edits', async () => {
 		const pending: Array<{ url: string; resolve: (value: Response) => void }> = [];
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(
-				(url: string) =>
+			routedFetch(
+				(url) =>
 					new Promise<Response>((resolve) => {
 						pending.push({ url, resolve });
 					})
@@ -366,53 +434,25 @@ describe('planner visible-month loading', () => {
 		renderPage(staleBootstrap);
 		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
-		await waitFor(() => expect(pending).toHaveLength(2));
-		expect(pending.map(({ url }) => url)).toEqual([
-			'/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability',
-			'/org/org-1/api/calendar-range?rangeStart=2026-06-03&rangeEnd=2026-09-30&collections=assignments'
-		]);
+		await waitFor(() => expect(pending).toHaveLength(1));
+		expect(pending[0].url).toBe(
+			'/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability%2Cassignments'
+		);
 		pending[0].resolve(answer(pending[0].url));
-		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
-		pending[1].resolve(answer(pending[1].url));
 		await waitFor(() =>
 			expect(screen.getByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: SGT Smith, Alex/ })).toBeTruthy()
 		);
 		expect(document.cookie).toContain('ttt-calendar-anchor-date=2026-09-01');
 	});
-	it('keeps the month non-editable until the 90-day lookback before it is loaded', async () => {
-		let resolve!: (value: Response) => void;
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(
-				() =>
-					new Promise<Response>((r) => {
-						resolve = r;
-					})
-			)
-		);
-		renderPage({
-			orgId: 'org-1',
-			calendar: {
-				data: {
-					personnel,
-					rangeStart: '2026-09-01',
-					rangeEnd: '2026-10-31',
-					availabilityRange: { rangeStart: '2026-09-01', rangeEnd: '2026-10-31' }
-				}
-			}
-		});
-		await waitFor(() => expect(resolve).toBeTypeOf('function'));
-		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
-		resolve(response([], '2026-06-03', '2026-08-31'));
-		expect(await screen.findByRole('button', { name: /^Assign Charge of Quarters, Tue 22 Sept?/ })).toBeTruthy();
-	});
 	it('keeps failed dates non-editable and recovers the saved slot on explicit retry', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi
-				.fn()
-				.mockResolvedValueOnce(new Response('', { status: 503 }))
-				.mockImplementation(async (url: string) => answer(url))
+			routedFetch(
+				vi
+					.fn()
+					.mockResolvedValueOnce(new Response('', { status: 503 }))
+					.mockImplementation(async (url: string) => answer(url))
+			)
 		);
 		renderPage(staleBootstrap);
 		const retry = await screen.findByRole('button', { name: 'Retry calendar load' });
@@ -424,13 +464,13 @@ describe('planner visible-month loading', () => {
 		);
 	});
 	it('loads far-month assignments after navigation and ignores a superseded response', async () => {
-		const pending: Array<(value: Response) => void> = [];
+		const pending: Array<{ url: string; resolve: (value: Response) => void }> = [];
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(
-				() =>
+			routedFetch(
+				(url) =>
 					new Promise<Response>((resolve) => {
-						pending.push(resolve);
+						pending.push({ url, resolve });
 					})
 			)
 		);
@@ -440,13 +480,15 @@ describe('planner visible-month loading', () => {
 		await waitFor(() => expect(pending).toHaveLength(1));
 		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
-		await waitFor(() => expect(pending).toHaveLength(2));
-		pending[1](response([{ ...saved, id: 'saved-december', date: '2026-12-31' }], '2026-11-01', '2026-12-31'));
+		await waitFor(() => expect(pending).toHaveLength(3));
+		for (const { url, resolve } of pending.slice(1)) {
+			resolve(answer(url, [{ ...saved, id: 'saved-december', date: '2026-12-31' }]));
+		}
 		await waitFor(() =>
 			expect(screen.getByRole('button', { name: 'Charge of Quarters, Thu 31 Dec: SGT Smith, Alex' })).toBeTruthy()
 		);
 		await act(async () => {
-			pending[0](
+			pending[0].resolve(
 				response(
 					[{ ...saved, id: 'stale-november', date: '2026-11-15', assigneeId: 'person-2' }],
 					'2026-11-01',
@@ -462,7 +504,7 @@ describe('planner visible-month loading', () => {
 		let resolve!: (value: Response) => void;
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(
+			routedFetch(
 				() =>
 					new Promise<Response>((r) => {
 						resolve = r;

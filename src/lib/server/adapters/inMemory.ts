@@ -48,9 +48,9 @@ import type {
 	CalendarAvailabilityRemovalPort,
 	CalendarAvailabilityPersistence,
 	CalendarCatalogPersistence,
-	SavedAssignment
+	SavedAssignment,
+	AssignmentSource
 } from '$features/calendar/contracts';
-import type { AssignmentSource } from '$features/calendar/roster/rosterTypes';
 import { fail } from '$lib/errors';
 import type {
 	CriticalTaskCompletionPersistence,

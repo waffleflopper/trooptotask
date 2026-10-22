@@ -15,7 +15,8 @@
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
 	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
 	import { dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
-	import { indexDutyAvailability, indexDutyHistory } from '$features/calendar/utils/dutyReadModel';
+	import { indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
+	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
@@ -121,7 +122,7 @@
 			groups: ctx.scopedGroups,
 			actions: ctx.canManageAssignments
 				? {
-						// An open day offers no picker until its 90-day history has loaded.
+						// An open day offers no picker until the shown range has loaded, so it knows the slot's assignee.
 						openDay:
 							rangeStatus === 'ready' ? (typeId, date, anchor) => ctx.openDutyPicker(typeId, date, anchor) : undefined,
 						editDay: (date) => ctx.handleDateClick(date)
@@ -145,7 +146,6 @@
 		untrack(() => ctx.closePopover());
 	});
 
-	const dutyHistory = $derived(indexDutyHistory(dailyAssignmentsStore.assignments));
 	const availabilityByPerson = $derived(indexDutyAvailability(availabilityStore.items));
 
 	const dutyPick = $derived.by(() => {
@@ -156,10 +156,13 @@
 		const current = dailyAssignmentsStore.assignments.find(
 			(assignment) => assignment.date === dateKey && assignment.assignmentTypeId === type.id
 		);
+		const counted = type.assignTo === 'personnel' && ctx.seesRosterCounts;
 		return {
 			...pick,
 			type,
 			dateKey,
+			counted,
+			countsLoading: counted && rosterRead.status === 'loading',
 			options: dutyPickerOptions({
 				type,
 				dateKey,
@@ -167,11 +170,25 @@
 				groups: ctx.scopedGroups,
 				availabilityByPerson,
 				statusTypes: statusTypesStore.items,
-				history: dutyHistory,
+				standing: counted ? rosterRead.rosters.get(type.id)?.byDate.get(dateKey) : undefined,
 				currentAssigneeId: current?.assigneeId
 			})
 		};
 	});
+
+	// The picker reads the roster counts of the month it opens in, once per month.
+	const rosterRead = new PlannerRosterRead();
+	$effect(() => {
+		if (!dutyPick?.counted) return;
+		const month = dutyPick.dateKey.slice(0, 7);
+		untrack(() => rosterRead.load({ orgId: data.orgId, month, today: formatDate(new Date()) }));
+	});
+
+	async function assignDuty(dateKey: string, typeId: string, assigneeId: string) {
+		const saved = await dailyAssignmentsStore.setAssignment(dateKey, typeId, assigneeId);
+		if (saved && rosterRead.status !== 'idle') rosterRead.refresh();
+		return saved;
+	}
 
 	async function loadDutyPicker() {
 		const current = stillInOrganizationLifetime();
@@ -386,13 +403,13 @@
 	{#key dutyPick.anchor}
 		{#await loadDutyPicker() then { default: DutyPicker }}
 			<DutyPicker
-				typeId={dutyPick.type.id}
 				typeName={dutyPick.type.name}
 				assignTo={dutyPick.type.assignTo}
 				date={dutyPick.date}
 				anchor={dutyPick.anchor}
 				options={dutyPick.options}
-				onAssign={(assigneeId) => dailyAssignmentsStore.setAssignment(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
+				countsLoading={dutyPick.countsLoading}
+				onAssign={(assigneeId) => assignDuty(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
 				onClose={() => ctx.closePopover()}
 			/>
 		{:catch}

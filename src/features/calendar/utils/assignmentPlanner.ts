@@ -3,7 +3,8 @@ import type { Group, Personnel } from '$features/personnel/contracts';
 import { formatDate, getMonthDates, isWeekend, parseDate } from '$lib/utils/dates';
 import { availabilityEntryLabel } from './availabilityLabels';
 import { assignmentSlotKey } from './calendarIndexes';
-import type { DutyConflict, DutyConflicts } from './dutyReadModel';
+import type { DutyConflicts } from './dutyReadModel';
+import { effectLabel, type RosterConflict } from './plannerRosters';
 
 export type QuickFillDays = 'weekdays' | 'weekends' | 'all';
 
@@ -28,8 +29,8 @@ export interface PlannerConflict {
 	readonly dateKey: string;
 	readonly dateLabel: string;
 	readonly assignee: PlannerAssignee;
-	/** Every covering entry, such as "Leave 20–23 Oct; TDY 21–25 Oct". */
-	readonly availabilityLabel: string;
+	/** The roster code and reason, such as "CQ (D)", or every covering entry, such as "Leave 20–23 Oct; TDY 21–25 Oct". */
+	readonly reason: string;
 }
 
 export interface PlannerCell {
@@ -73,6 +74,8 @@ export function buildPlannerTable(input: {
 	columns: readonly AssignmentType[];
 	assignmentsBySlot: ReadonlyMap<string, DailyAssignment>;
 	conflicts: DutyConflicts;
+	/** A, D and U conflicts by type. A type listed here takes its conflicts from the roster, not availability. */
+	rosterConflicts?: ReadonlyMap<string, readonly RosterConflict[]>;
 	personnel: readonly Personnel[];
 	groups: readonly Group[];
 	specialDays: readonly SpecialDay[];
@@ -104,27 +107,42 @@ export function buildPlannerTable(input: {
 		};
 	}
 
-	function presentConflict(item: DutyConflict, type: AssignmentType): PlannerConflict {
-		const { date, assigneeId } = item.assignment;
+	function presentConflict(type: AssignmentType, date: string, assigneeId: string, reason: string): PlannerConflict {
 		return {
 			typeId: type.id,
 			typeName: type.name,
 			dateKey: date,
 			dateLabel: DATE_LABEL.format(parseDate(date)),
 			assignee: assigneeFor(type, assigneeId),
-			availabilityLabel: item.entries.map((entry) => availabilityEntryLabel(entry, statusName)).join('; ')
+			reason
 		};
 	}
 
-	const conflictBySlot = new Map<string, PlannerConflict>();
+	const rosterConflicts = input.rosterConflicts ?? new Map<string, readonly RosterConflict[]>();
 	const conflicts: PlannerConflict[] = [];
 	for (const item of input.conflicts.items) {
 		const type = typeById.get(item.assignment.assignmentTypeId);
-		if (!type) continue;
-		const conflict = presentConflict(item, type);
-		conflicts.push(conflict);
-		conflictBySlot.set(assignmentSlotKey(conflict.dateKey, conflict.typeId), conflict);
+		if (!type || rosterConflicts.has(type.id)) continue;
+		const { date, assigneeId } = item.assignment;
+		const reason = item.entries.map((entry) => availabilityEntryLabel(entry, statusName)).join('; ');
+		conflicts.push(presentConflict(type, date, assigneeId, reason));
 	}
+	for (const [typeId, items] of rosterConflicts) {
+		const type = typeById.get(typeId);
+		if (!type) continue;
+		for (const item of items) {
+			// A count read can trail a write, so only a conflict on the slot's current assignee shows.
+			if (input.assignmentsBySlot.get(assignmentSlotKey(item.date, typeId))?.assigneeId !== item.personId) continue;
+			conflicts.push(presentConflict(type, item.date, item.personId, effectLabel(item)));
+		}
+	}
+	const columnOrder = new Map(input.columns.map((type, index) => [type.id, index]));
+	conflicts.sort(
+		(a, b) => a.dateKey.localeCompare(b.dateKey) || (columnOrder.get(a.typeId) ?? 0) - (columnOrder.get(b.typeId) ?? 0)
+	);
+	const conflictBySlot = new Map(
+		conflicts.map((conflict) => [assignmentSlotKey(conflict.dateKey, conflict.typeId), conflict])
+	);
 
 	const filled = new Map(input.columns.map((type) => [type.id, 0]));
 	const dates = getMonthDates(input.anchor.getFullYear(), input.anchor.getMonth());

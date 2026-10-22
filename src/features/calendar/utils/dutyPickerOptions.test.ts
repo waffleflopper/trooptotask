@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import type { AssignmentType, AvailabilityEntry } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import { dutyPickerOptions, dutySearchScore, type DutyPickerInput } from './dutyPickerOptions';
-import { indexDutyAvailability, indexDutyHistory } from './dutyReadModel';
+import { indexDutyAvailability } from './dutyReadModel';
+import type { RosterStanding } from './plannerRosters';
 
 const staffDuty: AssignmentType = {
 	id: 'sd',
@@ -25,10 +26,6 @@ function leave(personnelId: string, startDate: string, endDate: string): Availab
 	return { id: `${personnelId}-${startDate}`, personnelId, statusTypeId: 'leave', startDate, endDate };
 }
 
-function duty(id: string, date: string, assigneeId: string, assignmentTypeId = 'sd'): DailyAssignment {
-	return { id, date, assignmentTypeId, assigneeId };
-}
-
 const roster = [
 	person('p-ortiz-b', 'SPC', 'Ortiz', 'Lucia'),
 	person('p-kim', 'SGT', 'Kim', 'Jae-won'),
@@ -39,17 +36,14 @@ const roster = [
 	person('p-liang', 'SPC', 'Liang', 'Wei')
 ];
 
-function options(
-	overrides: { assignments?: DailyAssignment[]; entries?: AvailabilityEntry[] } & Partial<DutyPickerInput> = {}
-) {
-	const { assignments = [], entries = [], ...input } = overrides;
+function options(overrides: { entries?: AvailabilityEntry[] } & Partial<DutyPickerInput> = {}) {
+	const { entries = [], ...input } = overrides;
 	return dutyPickerOptions({
 		type: staffDuty,
 		dateKey: '2026-10-27',
 		personnel: roster,
 		groups: [],
 		availabilityByPerson: indexDutyAvailability(entries),
-		history: indexDutyHistory(assignments),
 		statusTypes: [
 			{
 				id: 'leave',
@@ -67,7 +61,7 @@ function options(
 }
 
 describe('dutyPickerOptions', () => {
-	it('omits exempt people and, with no history, orders by name with a stable tie-break', () => {
+	it('without roster counts, omits excused people and orders by name with a stable tie-break', () => {
 		expect(options().map((option) => [option.id, option.label, option.current])).toEqual([
 			['p-hale', 'Hale, Corey', true],
 			['p-liang', 'Liang, Wei', false],
@@ -78,24 +72,31 @@ describe('dutyPickerOptions', () => {
 		]);
 	});
 
-	it('puts people with no duty in 90 days first, then the longest since their last duty', () => {
-		const result = options({
-			assignments: [
-				duty('a', '2026-10-01', 'p-hale'),
-				duty('b', '2026-08-10', 'p-reed'),
-				duty('c', '2026-10-01', 'p-liang'),
-				duty('d', '2026-07-28', 'p-ortiz-a'),
-				duty('e', '2026-10-26', 'p-ortiz-c', 'other-type')
+	it("with roster counts, lists the pool in the roster's order and everyone else after it, off the roster", () => {
+		const standing: RosterStanding = {
+			track: 'all',
+			entries: [
+				{ personId: 'p-reed', count: 12, effect: null },
+				{ personId: 'p-liang', count: 12, effect: { code: 'A', reason: 'Leave' } },
+				{ personId: 'p-hale', count: 9, effect: { code: 'D', reason: 'CQ' } },
+				{ personId: 'p-gone', count: 4, effect: null }
 			]
-		});
+		};
 
-		expect(result.map((option) => [option.id, option.kind === 'personnel' ? option.lastDuty : null])).toEqual([
-			['p-ortiz-c', { kind: 'none' }],
-			['p-ortiz-a', { kind: 'none' }],
-			['p-ortiz-b', { kind: 'none' }],
-			['p-reed', { kind: 'previous', date: '2026-08-10', daysSince: 78 }],
-			['p-hale', { kind: 'previous', date: '2026-10-01', daysSince: 26 }],
-			['p-liang', { kind: 'previous', date: '2026-10-01', daysSince: 26 }]
+		expect(
+			options({ standing }).map((option) =>
+				option.kind === 'personnel'
+					? [option.id, option.count, option.unavailable, option.offRoster, option.current]
+					: [option.id]
+			)
+		).toEqual([
+			['p-reed', 12, undefined, false, false],
+			['p-liang', 12, 'Leave (A)', false, false],
+			['p-hale', 9, 'CQ (D)', false, true],
+			['p-kim', undefined, undefined, true, false],
+			['p-ortiz-c', undefined, undefined, true, false],
+			['p-ortiz-a', undefined, undefined, true, false],
+			['p-ortiz-b', undefined, undefined, true, false]
 		]);
 	});
 

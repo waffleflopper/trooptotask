@@ -107,7 +107,7 @@ function supabaseUnit(tables: Record<string, Row[]>) {
 	});
 	return {
 		requests,
-		port: createSupabaseOrganizationUnitCountsPort(client, ORG, inMemoryContext(tables).ratingScheme)
+		port: createSupabaseOrganizationUnitCountsPort(() => client, ORG, inMemoryContext(tables).ratingScheme)
 	};
 }
 
@@ -171,7 +171,7 @@ describe('Supabase unit counts requests', () => {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 			global: { fetch: async () => Response.json({ message: 'permission denied' }, { status: 403 }) }
 		});
-		const port = createSupabaseOrganizationUnitCountsPort(client, ORG, inMemoryContext({}).ratingScheme);
+		const port = createSupabaseOrganizationUnitCountsPort(() => client, ORG, inMemoryContext({}).ratingScheme);
 
 		await expect(readUnitCounts(port, ['members'])).rejects.toThrow();
 	});

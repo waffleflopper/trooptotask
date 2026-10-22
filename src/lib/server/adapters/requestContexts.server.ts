@@ -723,13 +723,15 @@ export function createRequestGettingStartedContext(request: AdmittedOrganization
 	};
 }
 
+/** Counts what the Organization retains, turned-off features included, so only governance pages may use it. */
 export function createRequestUnitCountsContext(request: AdmittedOrganizationRequest) {
+	const orgId = request.auth.orgId;
+	let admin: ReturnType<typeof getAdminClient> | undefined;
+	const client = () => (admin ??= getAdminClient());
 	return {
-		unitCounts: createSupabaseOrganizationUnitCountsPort(
-			request.supabase,
-			request.auth.orgId,
-			createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
-		)
+		unitCounts: createSupabaseOrganizationUnitCountsPort(client, orgId, {
+			countEntries: () => createSupabaseRatingSchemePersistence(client(), orgId).countEntries()
+		})
 	};
 }
 

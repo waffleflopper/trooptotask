@@ -2,8 +2,12 @@
 SELECT is((SELECT count(*)::integer FROM upgrade_fixture.organization_file_upload_current_rows),17,'all historical witnesses remain');
 SELECT results_eq($$SELECT * FROM upgrade_fixture.organization_file_upload_current_rows ORDER BY 1,2$$,
   $$SELECT * FROM upgrade_fixture.organization_file_upload_before_rows ORDER BY 1,2$$,'upgrade preserves every historical ID and saved value');
-SELECT ok(NOT has_schema_privilege('authenticated','organization_private','USAGE')
-  AND NOT has_schema_privilege('service_role','organization_private','USAGE'),'private registrations are not exposed to SDK clients');
+SELECT ok(NOT has_schema_privilege('anon','organization_private','USAGE')
+  AND NOT has_schema_privilege('authenticated','organization_private','USAGE')
+  AND NOT EXISTS (
+    SELECT 1 FROM unnest(ARRAY['anon','authenticated','service_role']) AS client(role_name)
+    WHERE has_table_privilege(role_name,'organization_private.file_uploads','SELECT,INSERT,UPDATE,DELETE')
+  ),'private registrations are not directly accessible to SDK clients');
 SELECT ok(has_function_privilege('service_role','public.register_organization_file_upload(uuid,uuid,uuid,text,text)','EXECUTE')
   AND NOT has_function_privilege('authenticated','public.register_organization_file_upload(uuid,uuid,uuid,text,text)','EXECUTE')
   AND NOT has_function_privilege('anon','public.register_organization_file_upload(uuid,uuid,uuid,text,text)','EXECUTE'),'only trusted server registration is granted');

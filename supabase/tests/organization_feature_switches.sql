@@ -2,7 +2,16 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(92);
+SELECT plan(93);
+
+SELECT ok(NOT EXISTS (
+	SELECT 1
+	FROM pg_proc AS p
+	JOIN pg_namespace AS n ON n.oid = p.pronamespace
+	CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) AS acl
+	WHERE n.nspname = 'organization_private'
+		AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+), 'private helpers never inherit public execution');
 
 CREATE FUNCTION pg_temp.id(p_suffix text) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
 	SELECT ('c6430000-0000-4000-8000-' || lpad(p_suffix, 12, '0'))::uuid;

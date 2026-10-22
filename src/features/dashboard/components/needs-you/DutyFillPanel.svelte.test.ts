@@ -153,7 +153,7 @@ describe('DutyFillPanel', () => {
 		open(['2026-10-27']);
 
 		expect((await screen.findByRole('alert')).textContent).toContain('Duty history did not load');
-		expect((screen.getByRole('button', { name: 'Assign all 1' }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('button', { name: 'Assign all 1' }).getAttribute('aria-disabled')).toBe('true');
 		// Without history the plan is unreliable, so no slot names or counts a suggestion.
 		expect(slotNames()).toEqual(['Tue 27: not suggested, swap']);
 		expect(screen.queryByText('SPC Adams, Ana')).toBeNull();

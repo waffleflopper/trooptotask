@@ -54,6 +54,7 @@
 	}
 
 	const actionId = (id: string) => `needs-you-action-${id}`;
+	const panelIdOf = (id: string) => `needs-you-panel-${id}`;
 
 	// A closed panel or a row that left takes focus with it: return it to the action, or to the row now in its place.
 	async function keepFocus(id: string, index: number) {
@@ -61,6 +62,14 @@
 		if (disposed || (document.activeElement && document.activeElement !== document.body)) return;
 		const next = list?.children[Math.min(index, list.children.length - 1)];
 		(document.getElementById(actionId(id)) ?? next?.querySelector<HTMLElement>('a, button') ?? empty)?.focus();
+	}
+
+	// An optimistic save that took the row away and then failed brings it back as a new row: focus its submit again.
+	async function restoreFocusAfterFailure(id: string) {
+		await tick();
+		if (disposed || (document.activeElement && document.activeElement !== document.body)) return;
+		const target = document.getElementById(panelIdOf(id))?.querySelector<HTMLElement>('[data-needs-you-submit]');
+		(target ?? document.getElementById(actionId(id)))?.focus();
 	}
 
 	function messageOf(error: unknown, fallback: string): string {
@@ -86,6 +95,7 @@
 		} catch (error) {
 			const message = messageOf(error, `${label} was not saved`);
 			send(id, { type: 'failed', message });
+			void restoreFocusAfterFailure(id);
 			throw new Error(message);
 		}
 	}
@@ -111,7 +121,7 @@
 			{@const state = stateOf(item.id)}
 			{@const panel = panelOf(state)}
 			{@const busy = state.status === 'opening' || state.status === 'saving'}
-			{@const panelId = `needs-you-panel-${item.id}`}
+			{@const panelId = panelIdOf(item.id)}
 			{#snippet actionCell()}
 				{#if act?.mode === 'link'}
 					<Button variant="outline" href={act.href}>{act.label}</Button>

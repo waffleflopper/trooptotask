@@ -10,6 +10,7 @@ export {
 	overlayDashboardRecords,
 	overlayDashboardSummary,
 	putDashboardRecord,
+	retireTrainingCompletions,
 	type DashboardPageUpdates,
 	type DashboardRecordChange,
 	type DashboardRecordOverlay

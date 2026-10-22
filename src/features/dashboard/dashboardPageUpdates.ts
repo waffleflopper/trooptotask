@@ -18,18 +18,37 @@ export interface DashboardPageUpdates {
 	putRecord(orgId: string, change: DashboardRecordChange): void;
 }
 
+/** A change with the page's running save number, so a summary read can tell whether it started after the save. */
+export interface SavedRecordChange {
+	change: DashboardRecordChange;
+	saveNumber: number;
+}
+
 /** Records saved on top of one workspace read; a newer read already includes them, so the overlay drops. */
 export interface DashboardRecordOverlay {
 	base: DashboardWorkspaceResult;
-	changes: readonly DashboardRecordChange[];
+	changes: readonly SavedRecordChange[];
 }
 
 export function putDashboardRecord(
 	overlay: DashboardRecordOverlay | null,
 	base: DashboardWorkspaceResult,
-	change: DashboardRecordChange
+	change: DashboardRecordChange,
+	saveNumber: number
 ): DashboardRecordOverlay {
-	return { base, changes: [...(overlay?.base === base ? overlay.changes : []), change] };
+	return { base, changes: [...(overlay?.base === base ? overlay.changes : []), { change, saveNumber }] };
+}
+
+/** A summary read that started after a Training save already reflects it, so that save's projection retires. */
+export function retireTrainingCompletions(
+	overlay: DashboardRecordOverlay | null,
+	readStartedAfterSave: number
+): DashboardRecordOverlay | null {
+	if (!overlay) return overlay;
+	const changes = overlay.changes.filter(
+		({ change, saveNumber }) => change.list !== 'trainingCompletions' || saveNumber > readStartedAfterSave
+	);
+	return changes.length === overlay.changes.length ? overlay : { ...overlay, changes };
 }
 
 function upsert<T extends { id: string }>(records: readonly T[], record: T): T[] {
@@ -44,7 +63,7 @@ export function overlayDashboardRecords(
 ): DashboardWorkspaceResult {
 	if (overlay?.base !== dashboard || overlay.changes.length === 0) return dashboard;
 	const data = { ...dashboard.data };
-	for (const change of overlay.changes) {
+	for (const { change } of overlay.changes) {
 		switch (change.list) {
 			case 'activeOnboardings':
 				data.activeOnboardings = upsert(data.activeOnboardings, change.record);
@@ -87,7 +106,7 @@ export function overlayDashboardSummary(
 	const covered = new Set(summary.onboardingPersonnelIds);
 	const completions = new Set(summary.onboardingTrainingCompletions);
 	let trainingSummary = summary.trainingSummary;
-	for (const change of overlay.changes) {
+	for (const { change } of overlay.changes) {
 		if (change.list === 'trainingCompletions') {
 			if (trainingSummary)
 				trainingSummary = withoutRecorded(trainingSummary, change.trainingTypeId, change.personnelIds);

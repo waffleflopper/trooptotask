@@ -19,7 +19,10 @@ interface NeedsYouItemBase {
 	action: NeedsYouAction | null;
 }
 
-/** What every panel an action opens receives from the row, beside its own props. */
+/**
+ * What every panel an action opens receives from the row, beside its own props. A panel marks its submit
+ * control `data-needs-you-submit` (focusable while it waits) so a failed save can return focus to it.
+ */
 export interface NeedsYouPanelProps {
 	model: DashboardScreenModel;
 	access: DashboardAccess;

@@ -158,7 +158,7 @@
 			</Button>
 		{/if}
 		<Button variant="ghost" class="px-1.5 text-muted-foreground" onclick={close} disabled={saving}>Cancel</Button>
-		<Button onclick={assignAll} disabled={!canAssign && !saving} aria-disabled={saving} aria-busy={saving}>
+		<Button data-needs-you-submit onclick={assignAll} aria-disabled={!canAssign} aria-busy={saving}>
 			{saving ? 'Assigning...' : `Assign all ${filled.length}`}
 		</Button>
 	</div>

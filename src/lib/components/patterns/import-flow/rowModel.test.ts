@@ -321,4 +321,45 @@ describe('row review', () => {
 		);
 		expect(outsideCandidates.rows[0]).toMatchObject({ outcome: 'fix' });
 	});
+	it('lists a created option on every question for that reference', () => {
+		const lane = personnelLane();
+		const file: LoadedFile = {
+			name: 'people.csv',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Last name', 'First name', 'Rank'],
+						['Smith', 'Alex', 'Sgt.'],
+						['Jones', 'Pat', 'Serg']
+					]
+				}
+			]
+		};
+		const rows = buildSourceRows(file, detectLayout(file, lane), lane);
+		const memo = new ReviewMemo();
+		reviewRows(rows, lane, new Map(), new Set(), memo);
+		memo.addCreated('rank', { id: 'sergeant', label: 'Sergeant', value: 'SGT' });
+		const answered = reviewRows(
+			rows,
+			lane,
+			new Map([[questionKey({ reference: 'rank', key: 'sgt.' }), { kind: 'pick', optionId: 'sergeant' }]]),
+			new Set(),
+			memo
+		);
+		const serg = answered.questions.find(
+			(question) => question.key === questionKey({ reference: 'rank', key: 'serg' })
+		);
+		expect(serg?.accepts).toEqual({
+			kind: 'pick',
+			canCreate: false,
+			options: [
+				{ id: 'SGT', label: 'SGT', value: 'SGT' },
+				{ id: 'CPL', label: 'CPL', value: 'CPL' },
+				{ id: 'sergeant', label: 'Sergeant', value: 'SGT' }
+			]
+		});
+	});
 });

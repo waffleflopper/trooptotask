@@ -192,6 +192,7 @@ export class ReviewMemo<Change = unknown> {
 	addCreated(reference: string, option: ReferenceOption<unknown>): void {
 		const created = this.created.get(reference) ?? new Map<string, ReferenceOption<unknown>>();
 		this.created.set(reference, created.set(option.id, option));
+		this.rows = new WeakMap();
 	}
 	option(reference: string, id: string): ReferenceOption<unknown> | undefined {
 		return this.options.get(reference)?.get(id) ?? this.created.get(reference)?.get(id);

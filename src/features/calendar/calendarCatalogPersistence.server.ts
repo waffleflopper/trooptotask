@@ -3,10 +3,14 @@ import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { CalendarCatalogPersistence, FederalHolidayDefault } from './contracts';
+import { lastDayOf } from './utils/da6View';
 import {
 	ASSIGNMENT_TYPE_FIELDS,
+	CLOSED_ROSTER_FORM_FIELDS,
 	ROSTER_FORM_FIELDS,
+	toClosedFormMonth,
 	toOpenRosterForm,
+	type ClosedRosterFormRow,
 	type RosterExcusalRow,
 	type RosterFormRow,
 	SPECIAL_DAY_FIELDS,
@@ -181,6 +185,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					.from('assignment_types')
 					.select(ASSIGNMENT_TYPE_FIELDS)
 					.eq('organization_id', orgId)
+					.is('roster_excusals.ends_on', null)
 					.order('sort_order', { ascending: true })
 					.order('id', { ascending: true })
 					.range(from, to)
@@ -242,6 +247,7 @@ export function createSupabaseCalendarCatalogPersistence(
 				})
 				.eq('organization_id', orgId)
 				.eq('id', id)
+				.is('roster_excusals.ends_on', null)
 				.select(ASSIGNMENT_TYPE_FIELDS)
 				.maybeSingle<AssignmentTypeRow>();
 			if (error) throw new Error(error.message);
@@ -347,6 +353,20 @@ export function createSupabaseCalendarCatalogPersistence(
 				.maybeSingle<RosterFormRow>();
 			if (error) throw new Error(error.message);
 			return data && toOpenRosterForm(data);
+		},
+		async listClosedRosterForms(assignmentTypeId, month) {
+			const { data, error } = await client
+				.from('roster_forms')
+				.select(CLOSED_ROSTER_FORM_FIELDS)
+				.eq('organization_id', orgId)
+				.eq('assignment_type_id', assignmentTypeId)
+				.not('ends_on', 'is', null)
+				.lte('starts_on', lastDayOf(month))
+				.gte('ends_on', `${month}-01`)
+				.order('starts_on', { ascending: true })
+				.returns<ClosedRosterFormRow[]>();
+			if (error) throw new Error(error.message);
+			return data.map((row) => toClosedFormMonth(row, month));
 		},
 		async listRosterExcusals(assignmentTypeId) {
 			const result = await selectAllSupabaseRows<RosterExcusalRow & { id: string }>(async (from, to) => {

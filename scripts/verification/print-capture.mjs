@@ -7,7 +7,14 @@ import { Blocked, processIdentity, repository } from './core.mjs';
 
 const evidenceRoot = path.join(repository, '.verification/evidence/verify-trooptotask');
 const documentState = '() => ({ url: location.href, timeOrigin: performance.timeOrigin, ready: document.readyState })';
-const queryKeys = new Set(['view', 'group', 'rank', 'mos', 'role', 'types', 'horizon', 'rowsBy']);
+// Printable pages and the query keys each one reads.
+const printPages = [
+	{
+		path: /^\/org\/[A-Za-z0-9][A-Za-z0-9_-]*\/training\/reports$/,
+		keys: new Set(['view', 'group', 'rank', 'mos', 'role', 'types', 'horizon', 'rowsBy'])
+	},
+	{ path: /^\/org\/[A-Za-z0-9][A-Za-z0-9_-]*\/calendar\/rosters\/[0-9a-f-]{36}$/, keys: new Set(['month']) }
+];
 const paperSizes = { letter: { width: 8.5, height: 11 }, a4: { width: 210 / 25.4, height: 297 / 25.4 } };
 const fail = (code, message) => {
 	throw new Blocked(code, message);
@@ -40,10 +47,11 @@ function captureInput(input, origin) {
 		url.password ||
 		url.hash ||
 		url.href !== input.expectedUrl ||
-		!/^\/org\/[A-Za-z0-9][A-Za-z0-9_-]*\/training\/reports$/.test(url.pathname) ||
-		[...url.searchParams.keys()].some((key) => !queryKeys.has(key))
+		!printPages.some(
+			(page) => page.path.test(url.pathname) && [...url.searchParams.keys()].every((key) => page.keys.has(key))
+		)
 	)
-		fail('PRINT_URL', 'Use the loaded Training report URL in this owned app.');
+		fail('PRINT_URL', 'Use the loaded Training report or DA 6 URL in this owned app.');
 	const target = path.resolve(repository, input.filePath);
 	if (!target.startsWith(evidenceRoot + path.sep) || path.extname(target) !== '.pdf')
 		fail('PRINT_PATH', 'PDF must be under .verification/evidence/verify-trooptotask.');

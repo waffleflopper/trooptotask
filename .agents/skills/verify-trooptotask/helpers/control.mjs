@@ -41,6 +41,7 @@ import { buildAvailabilityVolume } from './availability-volume-fixture.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
+import { seedDa6 } from './da6-fixtures.mjs';
 import {
 	seedPlatform,
 	seedOrganizationPages,
@@ -1824,7 +1825,8 @@ async function main() {
 				'account-setup',
 				'roster-shared-keys',
 				'federal-reset-sentinels',
-				'workload'
+				'workload',
+				'da6'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1847,6 +1849,10 @@ async function main() {
 		}
 		if (kind === 'training-print') {
 			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'da6') {
+			note(await seedDa6({ client, fixture, tag, ownedState, save, month: args[1], size: args[2] }));
 			return;
 		}
 		if (kind === 'availability-volume') {

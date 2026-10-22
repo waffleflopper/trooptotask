@@ -370,6 +370,12 @@
 	}
 }
 
+@page da6 {
+	size: landscape;
+	margin: 10mm;
+	background: oklch(100% 0 0);
+}
+
 [data-print-brief='training'] {
 	--training-print-goal: #eef6ef;
 	--training-print-near: #fbf2dd;
@@ -381,7 +387,7 @@
 }
 
 @media print {
-	html:root:has([data-print-report='training']) {
+	html:root:has([data-print-report]) {
 		color-scheme: light;
 		background: oklch(100% 0 0);
 		color: oklch(14.7% 0.004 49.25);
@@ -423,37 +429,88 @@
 		--sidebar-border: oklch(92.3% 0.003 48.717);
 	}
 
-	body:has([data-print-report='training']),
-	body:has([data-print-report='training']) [data-slot='sidebar-wrapper'],
-	body:has([data-print-report='training']) [data-slot='sidebar-inset'],
-	body:has([data-print-report='training']) #main-content {
+	body:has([data-print-report]),
+	body:has([data-print-report]) [data-slot='sidebar-wrapper'],
+	body:has([data-print-report]) [data-slot='sidebar-inset'],
+	body:has([data-print-report]) #main-content {
 		background: oklch(100% 0 0) !important;
 		color: oklch(14.7% 0.004 49.25);
 	}
 
-	body:has([data-print-report='training']) [data-print-chrome],
-	body:has([data-print-report='training']) [data-slot='sidebar'] {
+	body:has([data-print-report]) [data-print-chrome],
+	body:has([data-print-report]) [data-slot='sidebar'] {
 		display: none !important;
 	}
 
-	html:root:has([data-print-report='training']),
-	body:has([data-print-report='training']),
-	body:has([data-print-report='training']) :has([data-print-report='training']) {
+	html:root:has([data-print-report]),
+	body:has([data-print-report]),
+	body:has([data-print-report]) :has([data-print-report]) {
 		height: auto !important;
 		min-height: 0 !important;
 		max-height: none !important;
 		overflow: visible !important;
 	}
 
-	body:has([data-print-report='training']) [data-slot='sidebar-wrapper'],
-	body:has([data-print-report='training']) [data-slot='sidebar-inset'],
-	body:has([data-print-report='training']) #main-content {
+	body:has([data-print-report]) [data-slot='sidebar-wrapper'],
+	body:has([data-print-report]) [data-slot='sidebar-inset'],
+	body:has([data-print-report]) #main-content {
 		display: block !important;
 		margin-top: 0 !important;
 	}
 
 	[data-print-report='training'] {
 		page: training-brief;
+	}
+
+	[data-print-report='da6'] {
+		page: da6;
+		max-width: none;
+		padding: 0;
+		print-color-adjust: exact;
+		-webkit-print-color-adjust: exact;
+	}
+
+	[data-print-report='da6'] [data-slot='table-container'] {
+		overflow: visible;
+	}
+
+	[data-print-report='da6'] table {
+		width: 100%;
+		font-size: 9px;
+	}
+
+	/* Grade and Name take what they need; the day columns share the rest. */
+	[data-print-report='da6'] tr > th:nth-child(-n + 2) {
+		width: 1%;
+		white-space: nowrap;
+	}
+
+	/* A 31-day month at the screen's 36 px would not fit the page. */
+	[data-print-report='da6'] thead tr > th:nth-child(n + 3) {
+		width: auto;
+	}
+
+	/* A long roster continues on the next sheet like a paper DA 6: the column header repeats, no row splits. */
+	[data-print-report='da6'] thead {
+		display: table-header-group;
+	}
+
+	[data-print-report='da6'] tr {
+		break-inside: avoid;
+	}
+
+	[data-print-report='da6'] footer {
+		padding: 4px 8px;
+		break-inside: avoid;
+	}
+
+	/* Cells stay positioned for their corner marks; only the sticky columns let go. */
+	[data-print-report='da6'] :is(th, td) {
+		position: relative;
+		left: auto;
+		min-width: 0;
+		height: auto;
+		padding: 2px 3px;
 	}
 
 	[data-print-brief='training'] thead,

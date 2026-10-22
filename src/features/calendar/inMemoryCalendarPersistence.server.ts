@@ -2,6 +2,7 @@ import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { fail } from '$lib/errors';
 import { CALENDAR_CHANGE_NOT_SAVED_MESSAGE, DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
 import { sameIdList } from './utils/idList';
+import { lastDayOf } from './utils/da6View';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 type CalendarMemoryStore = Pick<
@@ -20,6 +21,7 @@ import {
 	toAssignment,
 	toAssignmentType,
 	toAvailability,
+	toClosedFormMonth,
 	toOpenRosterForm,
 	toSpecialDay,
 	toStatusType,
@@ -71,7 +73,7 @@ export function createInMemoryCalendarCatalogPersistence(
 		const excusals = await store.findMany<RosterExcusalMemoryRow>('roster_excusals', orgId);
 		return rows.map((row) => ({
 			...row,
-			roster_excusals: excusals.filter((excusal) => excusal.assignment_type_id === row.id)
+			roster_excusals: excusals.filter((excusal) => excusal.assignment_type_id === row.id && !excusal.ends_on)
 		}));
 	}
 	const openForm = (assignmentTypeId: string) =>
@@ -281,6 +283,17 @@ export function createInMemoryCalendarCatalogPersistence(
 				origin: 'typed' | 'carried';
 			}>('roster_starting_numbers', orgId, { form_id: form.id });
 			return toOpenRosterForm({ ...form, roster_starting_numbers: numbers });
+		},
+		async listClosedRosterForms(assignmentTypeId, month) {
+			return (
+				await store.findMany<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: assignmentTypeId })
+			)
+				.filter(
+					(form): form is RosterFormMemoryRow & { ends_on: string } =>
+						form.ends_on !== null && form.starts_on <= lastDayOf(month) && form.ends_on >= `${month}-01`
+				)
+				.sort((a, b) => a.starts_on.localeCompare(b.starts_on))
+				.map((form) => toClosedFormMonth(form, month));
 		},
 		async listRosterExcusals(assignmentTypeId) {
 			return (

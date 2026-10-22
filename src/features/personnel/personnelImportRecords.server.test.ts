@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { importPersonnelRecords } from './personnelImportRecords.server';
+import { createSupabasePersonnelRecordPersistence } from './personnelRecordPersistence.server';
+import { personnelProvider } from './test-support/personnelProvider';
 
 function context(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	const ctx = withPersonnelPersistence(createWritePortsContext(overrides));
@@ -92,6 +94,79 @@ function context(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 }
 
 describe('importPersonnelRecords', () => {
+	it('does not change a Person archived after the import references were loaded', async () => {
+		const ctx = context();
+		const { client, state } = personnelProvider({
+			personnel: [
+				{
+					id: 'person-a',
+					organization_id: 'test-org',
+					rank: 'SGT',
+					first_name: 'Jamie',
+					last_name: 'Smith',
+					group_id: 'alpha',
+					mos: '68W',
+					clinic_role: 'Medic',
+					archived_at: null
+				}
+			]
+		});
+		const personnel = createSupabasePersonnelRecordPersistence(client, 'test-org');
+		const references = personnel.listArchiveCandidates;
+		personnel.listArchiveCandidates = async (ids) => {
+			const people = await references(ids);
+			state.rows.personnel[0].archived_at = '2026-10-22T12:00:00Z';
+			return people;
+		};
+		const result = await importPersonnelRecords(
+			{ ...ctx, personnel },
+			{ records: [{ op: 'update', personnelId: 'person-a', changes: { mos: '68V' } }] }
+		);
+		expect(result).toMatchObject({
+			created: [],
+			updated: [],
+			errors: [{ index: 0, message: expect.stringMatching(/active personnel/) }]
+		});
+		expect(state.rows.personnel).toEqual([
+			expect.objectContaining({ id: 'person-a', mos: '68W', archived_at: '2026-10-22T12:00:00Z' })
+		]);
+	});
+
+	it('updates 500 people when an unbounded ID filter exceeds the provider URL limit', async () => {
+		const ctx = context();
+		const ids = Array.from({ length: 500 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`);
+		ctx.store.seed(
+			'personnel',
+			ids.map((id) => ({
+				id,
+				organization_id: 'test-org',
+				rank: 'SGT',
+				first_name: 'Synthetic',
+				last_name: 'Person',
+				group_id: 'alpha',
+				mos: '68W',
+				clinic_role: 'Medic',
+				archived_at: null
+			}))
+		);
+		const references = ctx.personnel.listArchiveCandidates;
+		ctx.personnel.listArchiveCandidates = async (requestedIds) => {
+			if (requestedIds.length > 200) throw new Error('414 URI Too Long');
+			return references(requestedIds);
+		};
+		const result = await importPersonnelRecords(ctx, {
+			records: ids.map((personnelId) => ({
+				op: 'update',
+				personnelId,
+				changes: { mos: '68V' }
+			}))
+		});
+		expect(result).toMatchObject({ created: [], errors: [] });
+		expect(result.updated).toHaveLength(500);
+		expect(result.updated[499]).toMatchObject({ id: '00000000-0000-4000-8000-000000000499', mos: '68V' });
+		await expect(ctx.personnel.findById('00000000-0000-4000-8000-000000000499')).resolves.toMatchObject({ mos: '68V' });
+	});
+
 	it('accepts 500 records and returns all saved rows', async () => {
 		const ctx = context();
 		const result = await importPersonnelRecords(ctx, {

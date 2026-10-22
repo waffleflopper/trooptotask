@@ -127,8 +127,10 @@ export function createInMemoryPersonnelRecordPersistence(
 				)
 			).map(toPersonnel);
 		},
-		async updateEditable(id, patch) {
-			if (!(await store.findOne('personnel', orgId, { id }))) return null;
+		async updateEditable(id, patch, options) {
+			if (!(await store.findOne('personnel', orgId, { id, ...(options?.onlyActive ? { archived_at: null } : {}) }))) {
+				return null;
+			}
 			return toPersonnel(
 				await store.update(
 					'personnel',

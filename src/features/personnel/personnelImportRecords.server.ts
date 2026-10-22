@@ -61,17 +61,23 @@ export async function importPersonnelRecords(
 
 	const catalog = ctx.loadRankCatalog();
 	const catalogPorts = { loadRankCatalog: () => catalog };
-	const updateIds = input.records.flatMap((record) => (record.op === 'update' ? [record.personnelId] : []));
+	const updateIds = [
+		...new Set(input.records.flatMap((record) => (record.op === 'update' ? [record.personnelId] : [])))
+	];
+	const referenceReads = [];
+	for (let start = 0; start < updateIds.length; start += 100) {
+		referenceReads.push(ctx.personnel.listArchiveCandidates(updateIds.slice(start, start + 100)));
+	}
 	const hasCreates = input.records.some((record) => record.op === 'create');
 	const [groups, references, slugs, createRanks, updateRanks] = await Promise.all([
 		ctx.groups.listCatalog(),
-		updateIds.length ? ctx.personnel.listArchiveCandidates(updateIds) : [],
+		Promise.all(referenceReads),
 		hasCreates ? ctx.personnel.listImportSlugs() : [],
 		createActivePersonnelRankResolver(catalogPorts),
 		createPersonnelCatalogRankResolver(catalogPorts)
 	]);
 	const groupIds = new Set(groups.map((group) => group.id));
-	const people = new Map(references.map((person) => [person.id, person]));
+	const people = new Map(references.flat().map((person) => [person.id, person]));
 	const creates: ImportCreateRow[] = [];
 	const updated: Personnel[] = [];
 	const errors: PersonnelBatchMessage[] = [];
@@ -154,7 +160,7 @@ export async function importPersonnelRecords(
 		}
 
 		try {
-			const saved = await ctx.personnel.updateEditable(record.personnelId, patch);
+			const saved = await ctx.personnel.updateEditable(record.personnelId, patch, { onlyActive: true });
 			if (!saved) {
 				errors.push({ index, message: 'No active personnel row is available in your scope' });
 				people.delete(record.personnelId);

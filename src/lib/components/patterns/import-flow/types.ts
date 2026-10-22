@@ -37,6 +37,7 @@ export interface ColumnSplitter<C extends ImportColumns> {
 	fills: readonly (keyof C & string)[];
 
 	split(raw: string): Partial<Record<keyof C & string, string>> | null;
+	join?(values: Readonly<Partial<Record<keyof C & string, string>>>): string;
 }
 
 export interface PivotSpec<C extends ImportColumns> {

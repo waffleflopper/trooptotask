@@ -22,7 +22,9 @@
 	const sheetLayout = $derived(layout?.sheets[previewIndex]);
 	const headerRow = $derived(sheetLayout?.headerRow ?? null);
 	const headers = $derived(headerRow === null ? [] : (sheet?.rows[headerRow] ?? []));
-	const previewRows = $derived(sheet?.rows.slice(0, (headerRow ?? 0) + 1 + PREVIEW_DATA_ROWS) ?? []);
+	const previewRows = $derived(
+		sheet?.rows.slice(0, headerRow === null ? HEADER_SCAN_ROWS : headerRow + 1 + PREVIEW_DATA_ROWS) ?? []
+	);
 	const columnCount = $derived(Math.max(headers.length, ...previewRows.map((row) => row.length)));
 	const rowsPerSheet = $derived(
 		session.sourceRows.reduce<Map<number, number>>(

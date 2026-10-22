@@ -17,7 +17,8 @@ export const nameSplitter: ColumnSplitter<typeof personnelColumns> = {
 	split(raw) {
 		const [lastName, firstName] = raw.split(',').map((value) => value.trim());
 		return lastName && firstName ? { lastName, firstName } : null;
-	}
+	},
+	join: ({ lastName, firstName }) => `${lastName ?? ''}, ${firstName ?? ''}`
 };
 
 export interface PersonnelChange {

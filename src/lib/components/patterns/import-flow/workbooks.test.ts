@@ -172,6 +172,31 @@ describe('workbook export', () => {
 		const exported = await readBack(await buildNotImported(file, layout, receipt));
 		expect(exported.worksheets[0].getRow(2).values).toEqual([undefined, 'Smith', 'Alex', 'SGT', 'Skipped']);
 	});
+	it('joins corrected split-name fields back into the combined column of the not-imported file', async () => {
+		const file: LoadedFile = {
+			name: 'input.xlsx',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Name', 'Rank'],
+						['Smith, Alx', 'SGT']
+					]
+				}
+			]
+		};
+		const lane = personnelLane();
+		const layout = detectLayout(file, lane);
+		const [row] = applyEdits(
+			buildSourceRows(file, layout, lane),
+			new Map([[sourceRowId(0, 1), { firstName: 'Alex' }]])
+		);
+		const receipt = buildReceipt([{ row, reason: 'Skipped' }], new Map(), new Map([[row.id, row]]), null);
+		const exported = await readBack(await buildNotImported(file, layout, receipt, lane.splitters));
+		expect(exported.worksheets[0].getRow(2).values).toEqual([undefined, 'Smith, Alex', 'SGT', 'Skipped']);
+	});
 	it('keeps 1904 serial dates meaningful after exporting and re-importing a skipped row', async () => {
 		const file: LoadedFile = {
 			name: 'dates.xlsx',

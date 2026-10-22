@@ -63,5 +63,6 @@ export const lastFirstSplitter: ColumnSplitter<typeof personnelImportColumns> = 
 				: [text.split(' ')[0], text.split(' ').slice(1).join(' ')];
 		const firstName = rest.replace(/ [A-Za-z]\.?$/, '').trim();
 		return lastName && firstName ? { lastName, firstName } : null;
-	}
+	},
+	join: ({ lastName, firstName }) => `${lastName ?? ''}, ${firstName ?? ''}`
 };

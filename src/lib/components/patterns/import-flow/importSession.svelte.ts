@@ -1,5 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type { Answer, ImportColumns, ImportLane, ImportReferences, QuestionKey, RowId } from './types';
+import type { Answer, ColumnSplitter, ImportColumns, ImportLane, ImportReferences, QuestionKey, RowId } from './types';
 import type { ColumnTarget, HeaderKey, Layout, LoadedFile } from './workbookSource';
 import {
 	ACCEPTED_EXTENSIONS,
@@ -244,6 +244,12 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	async downloadNotImported(): Promise<void> {
 		if (!this.file || !this.layout || this.phase.step !== 'done') return;
 		const generation = this.#generation;
-		await downloadNotImported(this.file, this.layout, this.phase.receipt, () => generation === this.#generation);
+		await downloadNotImported(
+			this.file,
+			this.layout,
+			this.phase.receipt,
+			(this.lane.splitters ?? []) as readonly ColumnSplitter<ImportColumns>[],
+			() => generation === this.#generation
+		);
 	}
 }

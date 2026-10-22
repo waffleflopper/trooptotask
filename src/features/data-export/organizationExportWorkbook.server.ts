@@ -58,8 +58,11 @@ export async function buildOrganizationDataExportWorkbook(
 export function buildOrganizationDataExportWorkbookPlan(
 	input: OrganizationDataExportWorkbookInput
 ): OrganizationDataExportWorkbookPlan {
-	const rawSections = ORGANIZATION_DATA_EXPORT_SECTIONS;
-	const readableSheets = ORGANIZATION_DATA_EXPORT_READABLE_SHEETS;
+	const rawSections = ORGANIZATION_DATA_EXPORT_SECTIONS.filter((section) =>
+		Object.hasOwn(input.payload.sections, section.key)
+	);
+	const includedAreas = new Set(rawSections.map((section) => section.areaKey));
+	const readableSheets = ORGANIZATION_DATA_EXPORT_READABLE_SHEETS.filter((sheet) => includedAreas.has(sheet.areaKey));
 	const labels = buildLabels(input.payload.sections);
 
 	return {
@@ -71,18 +74,20 @@ export function buildOrganizationDataExportWorkbookPlan(
 				{ header: 'Section', key: 'title', width: 34 },
 				{ header: 'Raw Table', key: 'table', width: 38 },
 				{ header: 'JSON Key', key: 'key', width: 34 },
-				{ header: 'Rows', key: 'rowCount', width: 10 }
+				{ header: 'Rows', key: 'rowCount', width: 10 },
+				{ header: 'Notes', key: 'note', width: 70 }
 			],
-			rows: toWorkbookRows(
-				rawSections.map((section) => ({
+			rows: toWorkbookRows([
+				...rawSections.map((section) => ({
 					key: section.key,
 					title: section.title,
 					table: section.table,
 					area: section.areaLabel,
 					areaKey: section.areaKey,
 					rowCount: input.payload.sections[section.key]?.length ?? 0
-				}))
-			)
+				})),
+				...(input.payload.notes ?? []).map((note) => ({ note }))
+			])
 		},
 		readableSheets: readableSheets.map((sheet) => toSheetPlan(sheet.name, sheet.rows(input.payload.sections, labels))),
 		rawArchiveSheets: rawSections.map((section) =>

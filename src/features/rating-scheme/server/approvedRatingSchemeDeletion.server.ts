@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
+import { featureOffMessage, type FeatureKey } from '$lib/access/featureSwitches';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 
@@ -12,7 +13,7 @@ interface ApprovedRatingSchemeDeletionActor {
 
 export interface ApprovedRatingSchemeDeletionPort {
 	approveRatingSchemeEntryDeletion(
-		actor: ApprovedRatingSchemeDeletionActor,
+		ctx: { readonly auth: ApprovedRatingSchemeDeletionActor; readonly disabledFeatures: readonly FeatureKey[] },
 		requestId: string,
 		entryId: string,
 		reviewedAt: string
@@ -24,7 +25,8 @@ export function createSupabaseApprovedRatingSchemeDeletionPort(
 	getAdminClient: () => SupabaseClient
 ): ApprovedRatingSchemeDeletionPort {
 	return {
-		async approveRatingSchemeEntryDeletion(actor, requestId, entryId, reviewedAt) {
+		async approveRatingSchemeEntryDeletion(ctx, requestId, entryId, reviewedAt) {
+			const actor = ctx.auth;
 			const decision = evaluatePolicyDecision({
 				decisionKind: 'server-authoritative',
 				actor: { membershipRole: actor.role, userId: actor.userId },
@@ -34,6 +36,7 @@ export function createSupabaseApprovedRatingSchemeDeletionPort(
 				resource: { kind: 'organization' }
 			});
 			if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
+			if (ctx.disabledFeatures.includes('evaluations')) fail(403, featureOffMessage('evaluations'));
 
 			const { error } = await getAdminClient().rpc('approve_record_deletion_request', {
 				p_organization_id: actor.orgId,

@@ -8,6 +8,7 @@ import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/adapters/featureLaneWorkspaceLoad';
+import { requireFeatureOn } from '$lib/server/adapters/featureSwitchRoute';
 import { fetchOnboardingWorkspace } from '$features/onboarding/index.server';
 import { viewerToday } from '$lib/server/viewerDay.server';
 import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
@@ -32,8 +33,9 @@ export interface OnboardingLayoutLoadDeps {
 export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {}): LayoutServerLoad {
 	const streamOnboardingWorkspace = deps.streamOnboardingWorkspace ?? streamOnboardingWorkspaceBootstrap;
 
-	return async (event) =>
-		streamReadyFeatureLaneWorkspace(event, {
+	return async (event) => {
+		await requireFeatureOn(event, 'onboarding');
+		return streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:onboarding-data', VIEWER_DAY_DEPENDENCY],
 			createContext: ({ locals, cookies }, shell) => {
 				const decision = policyEvaluator.evaluate({
@@ -49,6 +51,7 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 			},
 			streamWorkspace: streamOnboardingWorkspace
 		});
+	};
 }
 
 export const load: LayoutServerLoad = _createOnboardingLayoutLoad();

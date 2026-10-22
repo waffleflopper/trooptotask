@@ -16,6 +16,7 @@ import {
 	type LoadAuthorizationConfig,
 	type RouteAuthorizationConfig
 } from '$lib/access/index.server';
+import { FEATURE_KEYS, FEATURE_SWITCHES, featureOffMessage } from '$lib/access/featureSwitches';
 import { fail, RequestFailure, type RequestFailureDetails } from '$lib/errors';
 import { getAdminClient } from '$lib/server/supabase';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
@@ -114,7 +115,14 @@ async function withRequestFailureBoundary<T>(operation: Promise<T>): Promise<T> 
 	}
 }
 
-type PolicyRequest = Pick<AdmittedOrganizationRequest, 'auth' | 'audit'>;
+type PolicyRequest = Pick<AdmittedOrganizationRequest, 'auth' | 'audit' | 'disabledFeatures'>;
+
+function disabledPolicyFeature(request: PolicyRequest, config: LoadAuthorizationConfig) {
+	const owner = config.policyAction.owner;
+	if (owner.kind !== 'feature-lane') return undefined;
+	const feature = FEATURE_KEYS.find((key) => FEATURE_SWITCHES[key].lane === owner.lane);
+	return feature && request.disabledFeatures.includes(feature) ? feature : undefined;
+}
 
 type RouteBehavior<TInput, TOutput, TContext> = {
 	input?: z.ZodType<TInput>;
@@ -143,6 +151,8 @@ export async function handleUseCaseRequest<TInput, TOutput, TContext>(
 	rawInput: unknown,
 	selectContext: () => TContext
 ): Promise<TOutput> {
+	const feature = disabledPolicyFeature(request, config);
+	if (feature) fail(403, featureOffMessage(feature));
 	await enforceRouteAuthorization(request, config);
 	let input: TInput;
 	if (config.input) {
@@ -186,24 +196,15 @@ export function loadWithContextCore<T, TContext>(
 	config: LoadOperationConfig<T, TContext>,
 	selectContext: () => TContext
 ): Promise<T> | { data: Promise<T> } {
+	const feature = disabledPolicyFeature(request, config);
+	if (feature) error(403, { message: featureOffMessage(feature), featureOff: feature });
 	const data = withRequestFailureBoundary(
-		Promise.resolve(enforceLoadAuthorization(request, config)).then(() => config.fn(selectContext()))
+		Promise.resolve().then(async () => {
+			await enforceLoadAuthorization(request, config);
+			return config.fn(selectContext());
+		})
 	);
 	return config.defer ? { data: keepStreamedRejectionObserved(data) } : data;
-}
-
-export function loadWithDeferredContext<T, TContext, TRequest extends PolicyRequest>(
-	request: Promise<TRequest>,
-	config: LoadOperationConfig<T, TContext> & { defer: true },
-	selectContext: (request: TRequest) => TContext
-): { data: Promise<T> } {
-	return {
-		data: keepStreamedRejectionObserved(
-			withHttpErrorBoundary(
-				request.then((admitted) => loadWithContextCore(admitted, config, () => selectContext(admitted)).data)
-			)
-		)
-	};
 }
 
 export async function loadWithContext<T, TContext>(
@@ -224,10 +225,15 @@ export async function loadWithContext<T, TContext>(
 	orgId: string,
 	config: LoadConfig<T, TContext>
 ): Promise<T | { data: Promise<T> }> {
-	const request = buildLayoutRequest(locals, orgId);
-	if (config.defer) return loadWithDeferredContext(request, { ...config, defer: true }, config.context);
 	return withHttpErrorBoundary(
-		request.then((admitted) => loadWithContextCore(admitted, config, () => config.context(admitted)))
+		(async () => {
+			const request = await buildLayoutRequest(locals, orgId);
+			if (config.defer) {
+				const { data } = loadWithContextCore(request, { ...config, defer: true }, () => config.context(request));
+				return { data: keepStreamedRejectionObserved(withHttpErrorBoundary(data)) };
+			}
+			return loadWithContextCore(request, config, () => config.context(request));
+		})()
 	);
 }
 

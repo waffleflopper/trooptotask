@@ -20,7 +20,7 @@ function data(orgId: string, settings: Partial<Settings> = {}, lastExport: LastE
 		orgId,
 		orgName: 'C Co',
 		orgUrlSegment: orgId,
-		exportsSettings: { scopeCounts: Promise.resolve(COUNTS), ...settings },
+		exportsSettings: { scopeCounts: Promise.resolve(COUNTS), disabledFeatures: [], ...settings },
 		lastExport
 	} as PageData;
 }

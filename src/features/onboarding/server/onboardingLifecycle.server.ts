@@ -11,6 +11,7 @@ import {
 	requireOnboardingManagePolicyForOnboarding,
 	requireOnboardingManagePolicyForPersonnel
 } from './onboardingPolicy.server';
+import { onboardingResponse } from './manualTrainingSteps.server';
 
 interface StartInput {
 	personnelId: string;
@@ -63,7 +64,7 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		.map((step) => step.trainingTypeId!);
 	const completedTrainingTypeIds =
 		trainingTypeIds.length > 0
-			? ((await ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, [input.personnelId], trainingTypeIds)).get(
+			? ((await ctx.trainingOnboardingReferences.completedTypeIds(ctx, [input.personnelId], trainingTypeIds)).get(
 					input.personnelId
 				) ?? new Set<string>())
 			: new Set<string>();
@@ -95,7 +96,23 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		}
 	});
 
-	return {
+	const startedSteps = steps.map((step) => ({
+		id: step.id,
+		onboardingId: step.onboarding_id,
+		stepName: step.step_name,
+		stepType: step.step_type,
+		trainingTypeId: step.training_type_id,
+		stages: step.stages,
+		sortOrder: step.sort_order,
+		completed: step.completed,
+		currentStage: step.current_stage,
+		notes: step.notes,
+		templateStepId: step.template_step_id,
+		active: step.active,
+		progressChangedAt: step.progress_changed_at
+	}));
+
+	return onboardingResponse(ctx, {
 		id: onboarding.id,
 		personnelId: onboarding.personnel_id,
 		templateId: onboarding.template_id,
@@ -103,22 +120,8 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		startedAt: onboarding.started_at,
 		completedAt: onboarding.completed_at,
 		cancelledAt: onboarding.cancelled_at,
-		steps: steps.map((step) => ({
-			id: step.id,
-			onboardingId: step.onboarding_id,
-			stepName: step.step_name,
-			stepType: step.step_type,
-			trainingTypeId: step.training_type_id,
-			stages: step.stages,
-			sortOrder: step.sort_order,
-			completed: step.completed,
-			currentStage: step.current_stage,
-			notes: step.notes,
-			templateStepId: step.template_step_id,
-			active: step.active,
-			progressChangedAt: step.progress_changed_at
-		}))
-	};
+		steps: startedSteps
+	});
 }
 
 function resolveStartedAt(startedAt?: string): string {

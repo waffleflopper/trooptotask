@@ -8,7 +8,7 @@ import type {
 	PersonnelSheetExportFacts
 } from './personnelSheetPersistence';
 const SELECT =
-	'id,personnel_id,organization_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at,updated_by';
+	'id,personnel_id,organization_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,created_at,updated_at,updated_by';
 function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 	return {
 		id: row.id,
@@ -39,9 +39,6 @@ function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 		...(row.address_city !== undefined ? { address_city: row.address_city } : {}),
 		...(row.address_state !== undefined ? { address_state: row.address_state } : {}),
 		...(row.address_zip !== undefined ? { address_zip: row.address_zip } : {}),
-		...(row.award_tracking_acknowledged_at !== undefined
-			? { award_tracking_acknowledged_at: row.award_tracking_acknowledged_at }
-			: {}),
 		...(row.created_at !== undefined ? { created_at: row.created_at } : {}),
 		...(row.updated_at !== undefined ? { updated_at: row.updated_at } : {}),
 		...(row.updated_by !== undefined ? { updated_by: row.updated_by } : {})

@@ -218,3 +218,15 @@ describe('Onboarding reconciliation application boundary', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 });
+
+it.each(operations)('$name keeps Training steps tickable while Training is off', async ({ run }) => {
+	const saved = savedResult();
+	saved.steps[1] = { ...saved.steps[1], active: true, completed: false };
+	const ctx = context({ disabledFeatures: ['training'], onboardingReconciliation: { reconcile: async () => saved } });
+	const result = await run(ctx);
+	expect(result.steps.find((step) => step.id === 'saved-history')).toMatchObject({
+		stepType: 'checkbox',
+		completed: false,
+		active: true
+	});
+});

@@ -1,3 +1,4 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { describe, it, expect, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 import { z } from 'zod';
@@ -10,10 +11,14 @@ type OperationConfig<TInput = void, TOutput = unknown, TContext = undefined> = P
 	typeof handleUseCaseRequest<TInput, TOutput, TContext>
 >[0];
 
-function buildTestRequest(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
+function buildTestRequest(overrides?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	disabledFeatures?: FeatureKey[];
+}) {
 	return {
 		auth: createTestAuthContext(overrides?.auth),
-		audit: createTestAuditPort()
+		audit: createTestAuditPort(),
+		disabledFeatures: overrides?.disabledFeatures ?? []
 	};
 }
 
@@ -465,4 +470,22 @@ describe('policy dispatch write safety', () => {
 		f.config.policyResource = { kind: 'user', userId: 'other-user' };
 		await expectDenied(f, 'denied:not-resource-owner');
 	});
+});
+
+it('denies an API operation with the feature message before selecting its provider', async () => {
+	const request = buildTestRequest({ disabledFeatures: ['evaluations'] });
+	const selectContext = vi.fn();
+	await expect(
+		handleUseCaseRequest(
+			{ policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries, fn: async () => ['protected'] },
+			request,
+			undefined,
+			selectContext
+		)
+	).rejects.toMatchObject({
+		status: 403,
+		message:
+			'This organization has turned off Evaluations. Speak with the organization owner to have it turned back on.'
+	});
+	expect(selectContext).not.toHaveBeenCalled();
 });

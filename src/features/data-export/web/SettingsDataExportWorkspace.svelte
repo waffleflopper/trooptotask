@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
+	import { featureExportNote } from '$lib/access/featureSwitches';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { formatDate, formatDayMonthYear } from '$lib/utils/dates';
 	import {
@@ -15,6 +16,7 @@
 		type LastExportData,
 		type OrganizationExportFormat
 	} from '../exportsSettingsTypes';
+	import { exportScopeChips } from '../exportAreas';
 
 	let {
 		orgId,
@@ -38,18 +40,6 @@
 	let announcement = $state('');
 
 	const unit = $derived(orgName ?? 'the unit');
-
-	function scopeChips(counts: ExportScopeCounts | null): string[] {
-		return [
-			'Calendar',
-			counts ? `Personnel · ${counts.activePersonnel}` : 'Personnel',
-			counts
-				? `Training · ${counts.trainingRecords} ${counts.trainingRecords === 1 ? 'record' : 'records'}`
-				: 'Training',
-			'Onboarding',
-			'Sign-in rosters'
-		];
-	}
 
 	function lastExportLine(last: LastExport): string {
 		const at = new Date(last.at);
@@ -97,7 +87,7 @@
 
 {#snippet chips(counts: ExportScopeCounts | null)}
 	<ul class="flex flex-wrap gap-1.5" aria-label={`What an export of ${unit} contains`}>
-		{#each scopeChips(counts) as chip (chip)}
+		{#each exportScopeChips(counts, settings.disabledFeatures) as chip (chip)}
 			<li class="flex h-6 items-center rounded border border-border bg-muted px-2 font-mono text-[11px] leading-[14px]">
 				{chip}
 			</li>
@@ -140,6 +130,9 @@
 			<p class="font-mono text-xs leading-6 text-foreground">Records could not be counted.</p>
 		</div>
 	{/await}
+	{#each settings.disabledFeatures as key (key)}
+		<p class="font-mono text-xs leading-5 text-muted-foreground">{featureExportNote(key)}</p>
+	{/each}
 	<div class="flex flex-col gap-3 sm:flex-row">
 		{@render tile('json')}
 		{@render tile('excel')}

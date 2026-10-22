@@ -40,6 +40,8 @@ describe('CI job selection', () => {
 			'supabase/config.toml',
 			'supabase/tests/scope.sql',
 			'scripts/ci/database.py',
+			'scripts/demo-clinic/seed.sql',
+			'.agents/skills/verify-trooptotask/helpers/perf-workloads.mjs',
 			'.depot/workflows/ci.yml',
 			'.github/workflows/ci.yml',
 			'package.json',
@@ -82,5 +84,26 @@ describe('CI job selection', () => {
 	it('fails on missing PR metadata or history instead of reporting a docs-only success', () => {
 		const { root } = repository();
 		expect(() => selectScope(root, 'pull_request', {})).toThrow('base SHA');
+	});
+
+	it('limits local documentation checks to the chosen integration branch', () => {
+		const { root, git } = repository();
+		writeFileSync(path.join(root, 'app.js'), 'export const value = 1;');
+		git('add', '.');
+		git('commit', '--quiet', '-m', 'integration change');
+		git('branch', 'feat/integration');
+		writeFileSync(path.join(root, 'README.md'), '# Updated fixture\n');
+		expect(selectScope(root, undefined, {}, 'feat/integration').files).toEqual(['README.md']);
+	});
+
+	it('keeps the PR event base authoritative when a local base is supplied', () => {
+		const { root, git, base } = repository();
+		writeFileSync(path.join(root, 'app.js'), 'export const value = 1;');
+		git('add', '.');
+		git('commit', '--quiet', '-m', 'application change');
+		git('branch', 'feat/integration');
+		expect(
+			selectScope(root, 'pull_request', { pull_request: { base: { sha: base } } }, 'feat/integration').files
+		).toEqual(['app.js']);
 	});
 });

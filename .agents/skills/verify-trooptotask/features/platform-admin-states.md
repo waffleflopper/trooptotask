@@ -1,32 +1,72 @@
 # Platform admin: raw controls and screen states
 
-A platform administrator can reach every admin control by keyboard, sees which page, row or panel is current or expanded, keeps entered values after a failed save, and gets a clear loading, empty, error and denied state on every admin page and modal at desktop and phone widths, in light and dark.
+A platform administrator can reach every admin control by keyboard, sees which page, row or panel is current or
+expanded, keeps entered values after a failed save, and gets a clear loading, empty, error and denied state on every
+admin page and modal at desktop and phone widths, in light and dark.
 
 ## Sub-features
 
-- `shell`: the admin sidebar, its current-page state, the collapsible sidebar and its phone sheet, `Toggle theme`, `Exit Admin` and the role badge; no focusable control without an action.
-- `search`: the global `Search platform admin records` command palette with its searching, empty, failed and result states, keyboard selection and a single instance per width.
-- `role-visibility`: super-admin, support and billing see only their admitted pages, toolbar actions, quick actions and record actions; inactive and ordinary accounts are denied.
-- `dashboard`: metrics, pending alerts, the signup chart with its screen-reader data `Table`, recent activity and quick actions.
-- `directories`: Users and Organizations search, filters, row count and paging held in the URL, with empty and failed reads.
-- `records`: User and Organization detail, account-support buttons, and the `SuspendModal` and `TransferOwnershipModal` dialogs with focus entry, focus return, busy and failed-save states.
-- `access-requests`: Pending and Reviewed tabs, Approve, Reject and setup-link actions, failed review with its automatic re-read and the read-only `Reload requests` retry.
-- `feedback`: New, Reviewed and Resolved tabs, the `Collapsible` card trigger, Status and Admin Notes, the saved toast, failed save and `Reload Feedback`.
-- `announcements`: the create form, Activate or Deactivate, the Delete confirmation, failed create and `Reload Announcements`.
-- `audit`: Action and Severity filters and paging in the URL, the `Collapsible` details disclosure and empty and failed reads.
-- `screen-states`: loading, empty, error, denied, disabled, 1280x800 light and 390x844 dark for every admin page and modal.
+- `shell`: the admin sidebar, its current-page state, the collapsible sidebar and its phone sheet, `Toggle theme`,
+  `Exit Admin` and the role badge; no focusable control without an action.
+- `search`: the global `Search platform admin records` command palette with its searching, empty, failed and result
+  states, keyboard selection and a single instance per width.
+- `role-visibility`: super-admin, support and billing see only their admitted pages, toolbar actions, quick actions and
+  record actions; inactive and ordinary accounts are denied.
+- `dashboard`: metrics, pending alerts, the signup chart with its screen-reader data `Table`, recent activity and quick
+  actions.
+- `directories`: Users and Organizations search, filters, row count and paging held in the URL, with empty and failed
+  reads.
+- `records`: User and Organization detail, account-support buttons, and the `SuspendModal` and `TransferOwnershipModal`
+  dialogs with focus entry, focus return, busy and failed-save states.
+- `access-requests`: Pending and Reviewed tabs, Approve, Reject and setup-link actions, failed review with its automatic
+  re-read and the read-only `Reload requests` retry.
+- `feedback`: New, Reviewed and Resolved tabs, the `Collapsible` card trigger, Status and Admin Notes, the saved toast,
+  failed save and `Reload Feedback`.
+- `announcements`: the create form, Activate or Deactivate, the Delete confirmation, failed create and
+  `Reload Announcements`.
+- `audit`: Action and Severity filters and paging in the URL, the `Collapsible` details disclosure and empty and failed
+  reads.
+- `screen-states`: loading, empty, error, denied, disabled, 1280x800 light and 390x844 dark for every admin page and
+  modal.
 
 ## How to get to it (user POV)
 
-Sign in as a platform administrator and open `/admin`. The sidebar lists Dashboard, then Support (Users, Organizations, Access Requests, Feedback) and System (Audit Log, Announcements) as the role admits. The header holds `Toggle Sidebar`, the global search (below the header under 1024 px), `Toggle theme` and the role badge. Follow `Inspect` on a User row or an Organization name to open its detail. Super-admins see `Suspend User`, `Suspend`/`Unsuspend` and `Transfer Ownership` there.
+Sign in as a platform administrator and open `/admin`. The sidebar lists Dashboard, then Support (Users, Organizations,
+Access Requests, Feedback) and System (Audit Log, Announcements) as the role admits. The header holds `Toggle Sidebar`,
+the global search (below the header under 1024 px), `Toggle theme` and the role badge. Follow `Inspect` on a User row or
+an Organization name to open its detail. Super-admins see `Suspend User`, `Suspend`/`Unsuspend` and `Transfer Ownership`
+there.
 
 ## Driving it with verify:app
 
-The [platform administration](platform-administration.md), [platform support content](platform-support-content.md) and [notifications and feedback](notifications-feedback.md) recipes own data, permission, persistence, stale-response and step-up journeys. This recipe adds the presentation and state checks they do not state and does not repeat their mutations or direct HTTP proof. Record each cell PASS, FAIL, UNAVAILABLE or UNRUN with the actor, width and theme.
+The [platform administration](platform-administration.md), [platform support content](platform-support-content.md) and
+[notifications and feedback](notifications-feedback.md) recipes own data, permission, persistence, stale-response and
+step-up journeys. This recipe adds the presentation and state checks they do not state and does not repeat their
+mutations or direct HTTP proof. Record each cell PASS, FAIL, UNAVAILABLE or UNRUN with the actor, width and theme.
 
-Actors: `platformReviewer` (active super-admin), `platformSupport` (support), `platformBilling` (retained billing role), `platformInactive` (inactive super-admin row) and `orgMember` (ordinary member, no platform row). `$V actor ROLE admin|admin/users|admin/organizations|admin/access-requests|admin/feedback|admin/audit|admin/announcements` signs in a new context. Seeds, in this order: `$V seed platform-admin` (temporary Organization, `orgCreator`/`orgInvitee`/`orgMember` memberships, two pending requests, one completed approved request and the unconfirmed account `platform-pending-TAG@example.test`), then `$V seed audit` (105 same-action A events); `$V seed organization-pages` (30 extra Organizations named `Paging verification TAG NN`, removed by `clean-seeds`) only when the Organizations paging cell runs. `$V platform-state` reads the platform seed's rows. Run the announcement Empty cell before any announcement exists; `seed communications` is not needed for this recipe.
+Actors: `platformReviewer` (active super-admin), `platformSupport` (support), `platformBilling` (retained billing role),
+`platformInactive` (inactive super-admin row) and `orgMember` (ordinary member, no platform row).
+`$V actor ROLE admin|admin/users|admin/organizations|admin/access-requests|admin/feedback|admin/audit|admin/announcements`
+signs in a new context. Seeds, in this order: `$V seed platform-admin` (temporary Organization,
+`orgCreator`/`orgInvitee`/`orgMember` memberships, two pending requests, one completed approved request and the
+unconfirmed account `platform-pending-TAG@example.test`), then `$V seed audit` (105 same-action A events);
+`$V seed organization-pages` (30 extra Organizations named `Paging verification TAG NN`, removed by `clean-seeds`) only
+when the Organizations paging cell runs. `$V platform-state` reads the platform seed's rows. Run the announcement Empty
+cell before any announcement exists; `seed communications` is not needed for this recipe.
 
-Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use native `resize_page` (1280x800, 390x844) and the admin header's visible `Toggle theme` for dark; the theme is per browser context, so set it once per actor and read `document.documentElement.dataset.theme`. Start a keyboard step with `focus()` on the control, then press real `Tab`, `Enter`, `Space`, `ArrowDown` and `Escape`. For the focus ring read `getComputedStyle` `outline` and `box-shadow` while the control matches `:focus-visible` after a real key press. The app ring is a Tailwind `ring` box-shadow (`ring-ring/50` 3px on `Button`, `ring-sidebar-ring` 2px in the sidebar); a UA `auto` outline is the default ring, not the app ring. At each capture read `document.documentElement.scrollWidth` against `innerWidth` and the main region's `scrollWidth` against its `clientWidth`. Page-data failure and hold use `$V network arm-load-error|arm-fail|arm-hold PAGE admin-dashboard-read|admin-users-read|admin-organizations-read|admin-feedback-read|admin-announcements-read|admin-audit-read|admin-access-read|admin-user-detail-read|admin-organization-detail-read`; arm on another admin page, then follow the visible sidebar link. Focus the link before arming so a hover prefetch does not consume the one-shot fault, and `network restore` after each case. `arm-load-error` returns the real read with its page node replaced by a 503 server-load error, which renders the admin error page inside the admin navigation; `arm-fail` fails the whole `__data.json` request, which SvelteKit always sends to the site-wide error page.
+Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use native `resize_page` (1280x800,
+390x844) and the admin header's visible `Toggle theme` for dark; the theme is per browser context, so set it once per
+actor and read `document.documentElement.dataset.theme`. Start a keyboard step with `focus()` on the control, then press
+real `Tab`, `Enter`, `Space`, `ArrowDown` and `Escape`. For the focus ring read `getComputedStyle` `outline` and
+`box-shadow` while the control matches `:focus-visible` after a real key press. The app ring is a Tailwind `ring`
+box-shadow (`ring-ring/50` 3px on `Button`, `ring-sidebar-ring` 2px in the sidebar); a UA `auto` outline is the default
+ring, not the app ring. At each capture read `document.documentElement.scrollWidth` against `innerWidth` and the main
+region's `scrollWidth` against its `clientWidth`. Page-data failure and hold use
+`$V network arm-load-error|arm-fail|arm-hold PAGE admin-dashboard-read|admin-users-read|admin-organizations-read|admin-feedback-read|admin-announcements-read|admin-audit-read|admin-access-read|admin-user-detail-read|admin-organization-detail-read`;
+arm on another admin page, then follow the visible sidebar link. Focus the link before arming so a hover prefetch does
+not consume the one-shot fault, and `network restore` after each case. `arm-load-error` returns the real read with its
+page node replaced by a 503 server-load error, which renders the admin error page inside the admin navigation;
+`arm-fail` fails the whole `__data.json` request, which SvelteKit always sends to the site-wide error page.
 
 1. **Shell and navigation.** As `platformReviewer` on Dashboard at 1280 light, then 390 dark.
 
@@ -39,7 +79,8 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
    | Role badge, `Exit Admin`            | `SUPER ADMIN`; `Exit Admin`                                                                                                  | Badge hidden at 390 is acceptable; `Exit Admin` is a link to `/dashboard`                                                                                                                                                                                                                                                               |
    | Narrow                              | 390 dark                                                                                                                     | No page overflow; the header fits; the search sits below the header                                                                                                                                                                                                                                                                     |
 
-2. **Global search (`AdminSearch`).** As `platformReviewer`, 1280 light then 390 dark. Use the seed's temporary Organization name and `orgInvitee`'s email from `$V fixture`.
+2. **Global search (`AdminSearch`).** As `platformReviewer`, 1280 light then 390 dark. Use the seed's temporary
+   Organization name and `orgInvitee`'s email from `$V fixture`.
 
    | Control or state | How to reach it                                                                                  | Expected                                                                                                                                                                                                                                                           |
    | ---------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -52,7 +93,8 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
    | Dismissal        | Escape in the open list                                                                          | The list closes, focus stays in the input, `aria-expanded` returns to false. Escape during a held lookup keeps the list closed after release until new input or a refocus                                                                                          |
    | Short query      | Type two characters                                                                              | No request and no open list                                                                                                                                                                                                                                        |
 
-3. **Role visibility and denial.** Each actor enters `admin` at 1280 light, then each page below directly. Capture the sidebar and every action named here.
+3. **Role visibility and denial.** Each actor enters `admin` at 1280 light, then each page below directly. Capture the
+   sidebar and every action named here.
 
    | Item                                                                | `platformReviewer`                                                                                                                          | `platformSupport`                                                                                                                                                                      | `platformBilling`                           | `platformInactive`, `orgMember` |
    | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------- |
@@ -66,7 +108,11 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
    | `admin/audit`, `admin/announcements`                                | Admitted                                                                                                                                    | Denied                                                                                                                                                                                 | Denied                                      | Denied                          |
    | `admin/users`, `admin/organizations`, `access-requests`, `feedback` | Admitted                                                                                                                                    | Admitted                                                                                                                                                                               | Denied                                      | Denied                          |
 
-   Denied state: a page that says access is denied, with a way back (`Go Home`, `Back to Dashboard` or the admin sidebar for an admitted admin), no privileged data in the page or its `__data.json`, and the HTTP status recorded. An admitted platform admin (support or billing) denied one page sees the admin error page's 403 inside the admin layout, with `Back to Dashboard` and the sidebar filtered to that admin's role. This is intended. An inactive or ordinary account gets the site-wide 403 with no admin navigation. Absent actions must be absent, not disabled.
+   Denied state: a page that says access is denied, with a way back (`Go Home`, `Back to Dashboard` or the admin sidebar
+   for an admitted admin), no privileged data in the page or its `__data.json`, and the HTTP status recorded. An
+   admitted platform admin (support or billing) denied one page sees the admin error page's 403 inside the admin layout,
+   with `Back to Dashboard` and the sidebar filtered to that admin's role. This is intended. An inactive or ordinary
+   account gets the site-wide 403 with no admin navigation. Absent actions must be absent, not disabled.
 
 4. **Dashboard.** As `platformReviewer` at 1280 light then 390 dark.
 
@@ -80,7 +126,8 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
    | Empty                 | Source-mapped                                                                        | `No signup data available.` and `No recent activity.` are `Empty` states; a seeded worker always has accounts and events                                                                                                                                                                                                                                  |
    | Narrow                | 390 dark                                                                             | Metrics stack; the chart fits; no page overflow                                                                                                                                                                                                                                                                                                           |
 
-5. **Users directory and detail.** As `platformReviewer`, 1280 light then 390 dark; repeat role rows as `platformSupport`.
+5. **Users directory and detail.** As `platformReviewer`, 1280 light then 390 dark; repeat role rows as
+   `platformSupport`.
 
    | Control or state          | How to reach it                                                                                                                                               | Expected                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
    | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -95,7 +142,8 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
    | Detail actions, pending   | Search `platform-pending` and open the seed's unconfirmed account                                                                                             | The header shows `Email pending` and `Email Confirmation` reads `Pending`. The `User controls` row holds `Resend Invite` and `Send Password Reset`, with `Suspend User` in `More User controls`, at 1280 and 390. At 352px and below `Resend Invite` folds into `More User controls`, ahead of the separator and `Suspend User`; `Send Password Reset` fits down to 244px                                                                                                                                                                                                                                                                                              |
    | Account email result      | `$V network arm-hold PAGE admin-account/orgInvitee/resetPassword` (or `admin-account/pendingUser/resendInvite` on the pending account), then press the button | While held, the pressed button keeps focus and is `aria-disabled` and `aria-busy` (a toolbar `loading` control), and a second press or Enter sends nothing (`network state` shows one POST); a success is an app toast announced by the Toaster's live region; a failure (the synthetic email failure, a request that never completes, or an account re-read that fails after a sent email) is a destructive `Alert` (`role="alert"`) below the actions that stays until the next attempt or navigation. Focus returns to the toolbar button, or to `More User controls` when it is folded, once the request settles, and the page never swaps to the admin error page |
 
-6. **`SuspendModal`.** As `platformReviewer` on `orgInvitee`'s detail and on the seeded Organization's detail, 1280 light then 390 dark.
+6. **`SuspendModal`.** As `platformReviewer` on `orgInvitee`'s detail and on the seeded Organization's detail, 1280
+   light then 390 dark.
 
    | Control or state | How to reach it                                                                                                       | Expected                                                                                                                                                                                                                                                                                                           |
    | ---------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -133,7 +181,8 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
    | Error            | `admin-access-read` `arm-load-error` from Users, then `Access Requests`                                                  | An error state with a retry or reload action and admin navigation still usable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
    | Empty            | Source-mapped after the seed (`No pending requests.`, `No reviewed requests yet.`); live if the unseeded worker has none | `Empty` states inside the tab panel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
-9. **Feedback.** As `notificationMember`, submit one unique General Feedback (`Send Feedback`) and read it with `$V communications notificationMember`. Then as `platformReviewer`, 1280 light then 390 dark.
+9. **Feedback.** As `notificationMember`, submit one unique General Feedback (`Send Feedback`) and read it with
+   `$V communications notificationMember`. Then as `platformReviewer`, 1280 light then 390 dark.
 
    | Control or state | How to reach it                                                                                    | Expected                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
    | ---------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -147,7 +196,8 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
    | Error            | `admin-feedback-read` `arm-load-error` from Users, then `Feedback`                                 | An error state with a retry or reload action and admin navigation still usable                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
    | Support          | `platformSupport`                                                                                  | Same page and editor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
-10. **Announcements.** As `platformReviewer`, 1280 light then 390 dark. Create rows only with a unique `Baseline1605` title and delete each through the visible control.
+10. **Announcements.** As `platformReviewer`, 1280 light then 390 dark. Create rows only with a unique `Baseline1605`
+    title and delete each through the visible control.
 
     | Control or state    | How to reach it                                                                                                  | Expected                                                                                                                                                                                                                                                                                                                                              |
     | ------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -175,8 +225,18 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use
 
 ## Gotchas
 
-- Admin pages load on the server. Page-data controls fail or hold a SvelteKit client navigation only; a full reload is not intercepted. Arm, then use a visible sidebar link.
+- Admin pages load on the server. Page-data controls fail or hold a SvelteKit client navigation only; a full reload is
+  not intercepted. Arm, then use a visible sidebar link.
 - `admin-access-read`, `admin-access/*` and `admin-transfer` need `seed platform-admin` first.
-- `clean-seeds` refuses a remaining seeded suspension; restore any suspension visibly first. Feedback rows have no delete and stay until worker cleanup.
-- A failed suspend or transfer marks the dialog uncertain; it closes only through `Reload details` and then `Cancel` or a matching current state.
-- Toolbar fold sweeps, as `platformReviewer` with the page already open: `Admin Dashboard controls` `--expect audit-log --pinned inspect-users --to 240` (nothing folds above 244px); `Users controls` `--no-fold --pinned access-requests --search`; `Organizations controls` `--expect rows,status --search` (`Rows` folds at 392px); `Audit Log controls` `--expect severity,action --to 240` (`Severity` folds at 280px); `Announcements controls` `--no-fold --pinned create`; `Organization controls` `--more-always --pinned transfer`; `User controls` on a confirmed account `--more-always --pinned reset-password`, and on the pending account `--more-always --expect resend-invite --pinned reset-password --to 244` (`Resend Invite` folds at 352px). The last two keep `More` at every width because `Suspend` is `menuOnly`.
+- `clean-seeds` refuses a remaining seeded suspension; restore any suspension visibly first. Feedback rows have no
+  delete and stay until worker cleanup.
+- A failed suspend or transfer marks the dialog uncertain; it closes only through `Reload details` and then `Cancel` or
+  a matching current state.
+- Toolbar fold sweeps, as `platformReviewer` with the page already open: `Admin Dashboard controls`
+  `--expect audit-log --pinned inspect-users --to 240` (nothing folds above 244px); `Users controls`
+  `--no-fold --pinned access-requests --search`; `Organizations controls` `--expect rows,status --search` (`Rows` folds
+  at 392px); `Audit Log controls` `--expect severity,action --to 240` (`Severity` folds at 280px);
+  `Announcements controls` `--no-fold --pinned create`; `Organization controls` `--more-always --pinned transfer`;
+  `User controls` on a confirmed account `--more-always --pinned reset-password`, and on the pending account
+  `--more-always --expect resend-invite --pinned reset-password --to 244` (`Resend Invite` folds at 352px). The last two
+  keep `More` at every width because `Suspend` is `menuOnly`.

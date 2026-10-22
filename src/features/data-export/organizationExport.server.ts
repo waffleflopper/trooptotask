@@ -1,3 +1,5 @@
+import { featureExportNote, type FeatureKey } from '$lib/access/featureSwitches';
+import { disabledExportAreaKeys } from './exportAreas';
 import {
 	assertOrganizationDataExportManifestIsSafe,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,
@@ -11,10 +13,11 @@ export type OrganizationExportSections = OrganizationDataExportSections;
 export type OrganizationDataExportReads = Record<
 	OrganizationDataExportSectionKey,
 	() => Promise<Record<string, unknown>[]>
->;
+> & { readonly disabledFeatures?: readonly FeatureKey[] };
 
 export type OrganizationExportPayload = {
 	exportedAt: string;
+	notes?: string[];
 	organizationId: string;
 	sectionInventory: Array<
 		Pick<OrganizationExportSection, 'key' | 'title' | 'table'> & {
@@ -34,7 +37,9 @@ export async function loadOrganizationExportPayload(
 	reads: OrganizationDataExportReads
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
-	const exportSections = ORGANIZATION_DATA_EXPORT_SECTIONS;
+	const disabledFeatures = reads.disabledFeatures ?? [];
+	const disabledAreas = disabledExportAreaKeys(disabledFeatures);
+	const exportSections = ORGANIZATION_DATA_EXPORT_SECTIONS.filter((section) => !disabledAreas.has(section.areaKey));
 	const entries: Array<readonly [string, Record<string, unknown>[]]> = [];
 	for (const batch of chunkArray(exportSections, ORGANIZATION_EXPORT_QUERY_BATCH_SIZE)) {
 		entries.push(
@@ -54,6 +59,7 @@ export async function loadOrganizationExportPayload(
 	return {
 		exportedAt: new Date().toISOString(),
 		organizationId: orgId,
+		notes: disabledFeatures.map(featureExportNote),
 		sectionInventory,
 		sections,
 		...sections

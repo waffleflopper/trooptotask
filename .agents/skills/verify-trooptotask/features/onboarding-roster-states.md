@@ -1,28 +1,61 @@
 # Onboarding and Sign-in Rosters: raw controls and screen states
 
-A member working an Onboarding packet or a Sign-in Roster can reach every control by keyboard, sees which item is selected or expanded, and gets a clear loading, empty, error and denied state on every screen at desktop and phone widths, in light and dark.
+A member working an Onboarding packet or a Sign-in Roster can reach every control by keyboard, sees which item is
+selected or expanded, and gets a clear loading, empty, error and denied state on every screen at desktop and phone
+widths, in light and dark.
 
 ## Sub-features
 
-- `list-controls`: the Onboarding list's packet rows, the packet panel (beside the list at 1280, a sheet at 390), the shared stage controls and their `Advance`, the checkbox steps, the done-steps toggle, `Add note`, `Close out` and the `More packet actions` menu expose a name, a role, keyboard operation, a visible app focus ring and their state (`aria-current`, `aria-expanded`, `aria-controls` or state text, `disabled`).
-- `list-roles`: `Close out`, `Add note`, stage and checkbox changes and `Cancel onboarding` follow the actor's Onboarding role; `Re-sync with template`, `Switch template` and `Assign template` also need configure; view members can open a packet but cannot change it. `Start onboarding` follows the role and is disabled with `Build a template first` when no template has steps. An incomplete Training step's `Record training` link follows the actor's Training access, not the Onboarding role.
-- `history-controls`: History's packet accordion and its read-only final packet and notes; the [History recipe](onboarding-history.md) owns it.
-- `template-controls`: the empty template's `Add step` action, step and stage grips reordered by keyboard with an announcement, the type-management list and detail, the toolbar search, and denial for non-configurators.
-- `roster-controls`: the Sign-in Roster modal's saved-roster row toggle, create and `Generate & Print`, signed-scan upload through the native file input, download, remove and delete confirmation; viewer denial; list failure with retry; empty list.
-- `screen-states`: loading, empty, error, denied, disabled, 1280x800 light and 390x844 dark for the Onboarding list, History, Templates and the roster modal.
-- `workspace-load-error`: a rejected Onboarding workspace source shows one `WorkspaceLoadError` (`Unable to load Onboarding` with `Retry Onboarding`), never a stuck skeleton.
+- `list-controls`: the Onboarding list's packet rows, the packet panel (beside the list at 1280, a sheet at 390), the
+  shared stage controls and their `Advance`, the checkbox steps, the done-steps toggle, `Add note`, `Close out` and the
+  `More packet actions` menu expose a name, a role, keyboard operation, a visible app focus ring and their state
+  (`aria-current`, `aria-expanded`, `aria-controls` or state text, `disabled`).
+- `list-roles`: `Close out`, `Add note`, stage and checkbox changes and `Cancel onboarding` follow the actor's
+  Onboarding role; `Re-sync with template`, `Switch template` and `Assign template` also need configure; view members
+  can open a packet but cannot change it. `Start onboarding` follows the role and is disabled with
+  `Build a template first` when no template has steps. An incomplete Training step's `Record training` link follows the
+  actor's Training access, not the Onboarding role.
+- `history-controls`: History's packet accordion and its read-only final packet and notes; the
+  [History recipe](onboarding-history.md) owns it.
+- `template-controls`: the empty template's `Add step` action, step and stage grips reordered by keyboard with an
+  announcement, the type-management list and detail, the toolbar search, and denial for non-configurators.
+- `roster-controls`: the Sign-in Roster modal's saved-roster row toggle, create and `Generate & Print`, signed-scan
+  upload through the native file input, download, remove and delete confirmation; viewer denial; list failure with
+  retry; empty list.
+- `screen-states`: loading, empty, error, denied, disabled, 1280x800 light and 390x844 dark for the Onboarding list,
+  History, Templates and the roster modal.
+- `workspace-load-error`: a rejected Onboarding workspace source shows one `WorkspaceLoadError`
+  (`Unable to load Onboarding` with `Retry Onboarding`), never a stuck skeleton.
 
 ## How to get to it (user POV)
 
-Choose `Onboard` in Organization navigation for the Onboarding list. Choose a row to open its packet beside the list, or in a sheet below 1280. Search, the `Group` select (when the Organization has Groups), `History`, `Templates` and `Start onboarding` are in the `Onboarding controls` toolbar above the list. Sign-in Rosters: `Training`, then `Sign-In Rosters` in the page actions (or `More training actions` at 390).
+Choose `Onboard` in Organization navigation for the Onboarding list. Choose a row to open its packet beside the list, or
+in a sheet below 1280. Search, the `Group` select (when the Organization has Groups), `History`, `Templates` and
+`Start onboarding` are in the `Onboarding controls` toolbar above the list. Sign-in Rosters: `Training`, then
+`Sign-In Rosters` in the page actions (or `More training actions` at 390).
 
 ## Driving it with verify:app
 
-The [packet](onboarding-packets.md), [template](onboarding-templates.md) and [roster](sign-in-rosters.md) recipes own data, permission, scope and failure-recovery steps, including API, RLS, provider-sized and cross-Organization journeys. This recipe adds presentation and state checks against the [component contracts](component-foundation.md). Record each cell PASS, FAIL, UNAVAILABLE or UNRUN with the actor, width and theme. A defect stays FAIL until the same step passes on a later candidate.
+The [packet](onboarding-packets.md), [template](onboarding-templates.md) and [roster](sign-in-rosters.md) recipes own
+data, permission, scope and failure-recovery steps, including API, RLS, provider-sized and cross-Organization journeys.
+This recipe adds presentation and state checks against the [component contracts](component-foundation.md). Record each
+cell PASS, FAIL, UNAVAILABLE or UNRUN with the actor, width and theme. A defect stays FAIL until the same step passes on
+a later candidate.
 
-Preconditions: owned launch and `doctor` pass. Save `component-foundation.md`'s state reader as `reader.js`. Dismiss `What's New` (`Got it`) on each actor's first load. Use native `resize_page` (1280x800, 390x844) and the visible `Toggle theme` for dark. Start a keyboard step with `focus()` on the control, then press real `Tab`, `Enter`, `Space` and `Escape` instead of counting Tab presses. For the focus ring read `getComputedStyle` `outline` and `box-shadow` while the control has `:focus-visible` after a real key press. The app ring is the 3px `ring-ring/50` box-shadow; a UA `auto` outline is the default ring, not the app ring. At each capture read `document.documentElement.scrollWidth` against `innerWidth`.
+Preconditions: owned launch and `doctor` pass. Save `component-foundation.md`'s state reader as `reader.js`. Use native
+`resize_page` (1280x800, 390x844) and the visible `Toggle theme` for dark. Start a keyboard step with `focus()` on the
+control, then press real `Tab`, `Enter`, `Space` and `Escape` instead of counting Tab presses. For the focus ring read
+`getComputedStyle` `outline` and `box-shadow` while the control has `:focus-visible` after a real key press. The app
+ring is the 3px `ring-ring/50` box-shadow; a UA `auto` outline is the default ring, not the app ring. At each capture
+read `document.documentElement.scrollWidth` against `innerWidth`.
 
-Packet setup, in this order. As `onboardingOperate`, `Start onboarding` for Able with the seeded template and read `$V rows personnel_onboardings orgA personnel_id ABLE` (one new in-progress row). Its row reads `On track` with `1 of 3`, because the seeded Training step is already complete. Run `$V seed onboarding-legacy`, then as `onboardingConfigure` open that Person's row and choose `More packet actions`, then `Assign template` with `Verification Onboarding A`; the packet then holds three new active steps and inactive `Orientation` (completed), `Paperwork` (Reviewed, incomplete) and `Historic task` (completed). Visibly cancel both packets (`More packet actions`, then `Cancel onboarding`) at the end and run `clean-seeds`; packets have no hard delete.
+Packet setup, in this order. As `onboardingOperate`, `Start onboarding` for Able with the seeded template and read
+`$V rows personnel_onboardings orgA personnel_id ABLE` (one new in-progress row). Its row reads `On track` with
+`1 of 3`, because the seeded Training step is already complete. Run `$V seed onboarding-legacy`, then as
+`onboardingConfigure` open that Person's row and choose `More packet actions`, then `Assign template` with
+`Verification Onboarding A`; the packet then holds three new active steps and inactive `Orientation` (completed),
+`Paperwork` (Reviewed, incomplete) and `Historic task` (completed). Visibly cancel both packets (`More packet actions`,
+then `Cancel onboarding`) at the end and run `clean-seeds`; packets have no hard delete.
 
 1. **List, rows and packet panel.** As `onboardingConfigure` at 1280 light, then 390 dark.
 
@@ -38,7 +71,11 @@ Packet setup, in this order. As `onboardingOperate`, `Start onboarding` for Able
    | `Close out`                                | `Close out · <n> open` while steps are open, otherwise `Close out`                                                          | Opens `Complete Onboarding` with `There is 1 step still incomplete.` (or `are n steps`) when steps are open. Dismiss once without a write; focus returns to `Close out`                                                                                                                                                                                                                                                         |
    | `More packet actions`                      | A `menu` with `Re-sync with template`, `Switch template` (or `Assign template`), `Remove <step>` and `Cancel onboarding`    | `Remove <step>` appears only for an incomplete inactive step, and inactive steps are not listed in the packet. Open `Cancel onboarding` once and dismiss without a write. Configure sees every item; operate sees only `Remove` and `Cancel onboarding`; view sees no menu. `Open profile` sits beside the menu only for a member who can read sensitive Personnel records (`orgAdmin` sees it, `onboardingConfigure` does not) |
 
-   As `onboardingOperate` and `onboardingView` open the same packet and record which actions render. `Record training` shows only on an incomplete Training step and only to a member who can open Training: start a packet for Baker (its seeded Training step stays incomplete), then require no link for `onboardingConfigure` and `onboardingView` (Training none) and a `Record training` link to `/org/<orgA>/training` for `trainingOnboarding` (Onboarding configure, Training view) that opens Training. The list has no drag or reorder; its order comes from packet status.
+   As `onboardingOperate` and `onboardingView` open the same packet and record which actions render. `Record training`
+   shows only on an incomplete Training step and only to a member who can open Training: start a packet for Baker (its
+   seeded Training step stays incomplete), then require no link for `onboardingConfigure` and `onboardingView` (Training
+   none) and a `Record training` link to `/org/<orgA>/training` for `trainingOnboarding` (Onboarding configure, Training
+   view) that opens Training. The list has no drag or reorder; its order comes from packet status.
 
 2. **List states.**
 
@@ -54,7 +91,8 @@ Packet setup, in this order. As `onboardingOperate`, `Start onboarding` for Able
    | Read-only                | `onboardingView`'s stage controls                                                                                                                                                                                                                                | Each paperwork step shows a read-only stage list: earlier stages read `Cleared` and the current stage shows its days at stage (amber from 7), with `aria-current="step"`; no `Set` or `Advance` buttons, checkboxes, `Add note`, `Close out`, menu or disabled controls                                                                                                                                                                                                                                                                                                                                                              |
    | Narrow                   | 390 dark, configure, packet open                                                                                                                                                                                                                                 | No page overflow; the `Onboarding controls` toolbar keeps search and `Start onboarding` visible at 390; record which of `Group`, `History` and `Templates` stay on the row and which fold into More, read as toolbar `scrollWidth` equal to `clientWidth` and each action's right edge at most 390, because the shell `main` clips horizontal overflow and the document width alone hides it; the packet sheet fills 390 and its footer actions stay on one row                                                                                                                                                                      |
 
-3. **History.** Driven by the [History recipe](onboarding-history.md): the packet accordion, the read-only final packet, notes with authors, filters, the retention line and every page state at 1280 light and 390 dark.
+3. **History.** Driven by the [History recipe](onboarding-history.md): the packet accordion, the read-only final packet,
+   notes with authors, filters, the retention line and every page state at 1280 light and 390 dark.
 
 4. **Templates.** As `onboardingConfigure` on `Templates`, 1280 light then 390 dark.
 
@@ -69,7 +107,8 @@ Packet setup, in this order. As `onboardingOperate`, `Start onboarding` for Able
    | Loading                         | `$V server-source arm personnel_onboardings hold 1 60000`, full load of `/onboarding/templates` | UNAVAILABLE with the documented controls. The hold blocks the full load before the page renders, so the document shows an empty busy root until `restore`. The `role="status"` `Loading onboarding templates...` region renders only before the template store hydrates, and no documented control holds that window. Release with `restore`                                                                                                                                                                                                                                                             |
    | Denied                          | `onboardingView`, `onboardingOperate`, `onboardingScoped` and `onboardingEmpty`                 | No `Templates` action in the Active page toolbar (it shows for configurers only); a direct `/onboarding/templates` load shows the `Error 403` page, not the editor                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
-5. **Sign-in Roster modal.** As `rosterManager` from Training, 1280 light then 390 dark. Generate a small synthetic PDF under the run directory for the scan.
+5. **Sign-in Roster modal.** As `rosterManager` from Training, 1280 light then 390 dark. Generate a small synthetic PDF
+   under the run directory for the scan.
 
    | Control                       | Accessible name and state                                 | Expected                                                                                                                                                                                                                             |
    | ----------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -89,8 +128,10 @@ Packet setup, in this order. As `onboardingOperate`, `Start onboarding` for Able
 
 ## Gotchas
 
-- `server-source` controls one GET per arm in the app process; an SPA navigation inside the Onboarding layout does not reload the workspace. Enter `Onboard` from another feature or load the URL fully.
+- `server-source` controls one GET per arm in the app process; an SPA navigation inside the Onboarding layout does not
+  reload the workspace. Enter `Onboard` from another feature or load the URL fully.
 - `network arm-fail` is single use. Run `network restore` after each case.
-- The packet sheet at 390 opens from component state, not a `Sheet.Trigger`; on close focus returns to the row by its `data-onboarding-id`.
+- The packet sheet at 390 opens from component state, not a `Sheet.Trigger`; on close focus returns to the row by its
+  `data-onboarding-id`.
 - Paperwork stage and checkbox saves are optimistic; read the provider row, not only the row status.
 - UI-created packets cannot be hard-deleted. Cancel them visibly; owned cleanup disposes the provider.

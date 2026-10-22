@@ -1,28 +1,56 @@
 # Dashboard and Training: raw controls, failed saves, field errors and screen states
 
-A member whose Training save fails keeps every value they entered and sees where the error belongs (an Alert inside a dialog, a `Field.Error` on a form field). Every Dashboard and Training screen has a clear loading, empty, error, denied, disabled, narrow and dark state, and each hand-built control exposes its name and state.
+A member whose Training save fails keeps every value they entered and sees where the error belongs (an Alert inside a
+dialog, a `Field.Error` on a form field). Every Dashboard and Training screen has a clear loading, empty, error, denied,
+disabled, narrow and dark state, and each hand-built control exposes its name and state.
 
 ## Sub-features
 
-- `raw-control-states`: the Dashboard expanders, the matrix sort and person buttons and the applicability chips are canonical `Button`s that expose a name, a role, keyboard operation, a visible app focus ring and a state (`aria-expanded` and `aria-controls`, `aria-sort`, focus handed to a neighbor chip).
-- `failed-save-keeps-values`: a rejected save leaves the form open with every value, selection and chip in place, the saved row unchanged and an explicit retry that saves once.
-- `field-error-association`: a validation or save error on a field is rendered by `Field.Error`, the control is `aria-invalid="true"` and its `aria-describedby` resolves to the message (the importer cell resolves to its sr-only issue text). A dialog save failure is an Alert titled `Training record was not saved` inside the dialog. A raw `<p>`, a toast or text inside a row status is a failure.
-- `screen-states`: loading, empty, error, denied, disabled, 1280x800 light, 390x844 dark, keyboard and focus, and URL state for the Dashboard and the Training screens.
-- `data-color`: a Training type color is stored data. A literal hex in source is a style default and must not replace the stored color.
-- `table-semantics-and-print`: the Type risk table (`Table`, with readable `Records` text) and the three named print tables expose headers, and print preview renders them.
-- `workspace-load-error`: a rejected streamed workspace source shows one `WorkspaceLoadError` (`Unable to load <subject>` with `Retry <subject>`) on the Dashboard, the Training matrix, Types and Views, never a stuck skeleton or a render throw.
+- `raw-control-states`: the Dashboard expanders, the matrix sort and person buttons and the applicability chips are
+  canonical `Button`s that expose a name, a role, keyboard operation, a visible app focus ring and a state
+  (`aria-expanded` and `aria-controls`, `aria-sort`, focus handed to a neighbor chip).
+- `failed-save-keeps-values`: a rejected save leaves the form open with every value, selection and chip in place, the
+  saved row unchanged and an explicit retry that saves once.
+- `field-error-association`: a validation or save error on a field is rendered by `Field.Error`, the control is
+  `aria-invalid="true"` and its `aria-describedby` resolves to the message (the importer cell resolves to its sr-only
+  issue text). A dialog save failure is an Alert titled `Training record was not saved` inside the dialog. A raw `<p>`,
+  a toast or text inside a row status is a failure.
+- `screen-states`: loading, empty, error, denied, disabled, 1280x800 light, 390x844 dark, keyboard and focus, and URL
+  state for the Dashboard and the Training screens.
+- `data-color`: a Training type color is stored data. A literal hex in source is a style default and must not replace
+  the stored color.
+- `table-semantics-and-print`: the Type risk table (`Table`, with readable `Records` text) and the three named print
+  tables expose headers, and print preview renders them.
+- `workspace-load-error`: a rejected streamed workspace source shows one `WorkspaceLoadError`
+  (`Unable to load <subject>` with `Retry <subject>`) on the Dashboard, the Training matrix, Types and Views, never a
+  stuck skeleton or a render throw.
 
 ## How to get to it (user POV)
 
-Dashboard: sign in, enter an Organization and choose **Home**. Training: **Training** in the sidebar, then **Manage Types**, **Manage Views**, **Reports**, **Import**, a Person's name (the `Training Records` dialog) or a matrix cell (the `Add Training Record` or `Edit Training Record` dialog).
+Dashboard: sign in, enter an Organization and choose **Home**. Training: **Training** in the sidebar, then **Manage
+Types**, **Manage Views**, **Reports**, **Import**, a Person's name (the `Training Records` dialog) or a matrix cell
+(the `Add Training Record` or `Edit Training Record` dialog).
 
 ## Driving it with verify:app
 
-Record each cell PASS, FAIL, UNAVAILABLE or UNRUN with the actor, width and theme. A defect stays FAIL until the same step passes on a later candidate. This recipe adds what the [Dashboard](dashboard.md), [Training catalog and views](training-catalog-views.md) and [Training completions](training-completions-reports.md) recipes do not state. Their data, permission and scope steps stay authoritative.
+Record each cell PASS, FAIL, UNAVAILABLE or UNRUN with the actor, width and theme. A defect stays FAIL until the same
+step passes on a later candidate. This recipe adds what the [Dashboard](dashboard.md),
+[Training catalog and views](training-catalog-views.md) and [Training completions](training-completions-reports.md)
+recipes do not state. Their data, permission and scope steps stay authoritative.
 
-Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run `$V seed dashboard-overflow` for the Dashboard buttons and clean it with `clean-seeds` before the Training steps. Use unique `Baseline<tag>` names for every draft. Dismiss the `What's New` dialog (`Got it`) on each actor's first load before any capture. Starting a keyboard step with `focus()` on the control and then pressing real keys is faster than counting Tab presses. The key names are `Enter`, `Space` and `Escape`. Failed saves and the Reports refresh use a synthetic undispatched 503 from `$V network arm-fail`, which proves client recovery only. Run `$V network restore PAGE` after each of those cases: an armed hook that has already matched does not re-arm, and the next save then succeeds. Streamed-source failures and loading use the `$V server-source arm` hooks named in steps 1 and 5; release them with `$V server-source restore`.
+Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run `$V seed dashboard-overflow` for the
+Dashboard buttons and clean it with `clean-seeds` before the Training steps. Use unique `Baseline<tag>` names for every
+draft. Starting a keyboard step with `focus()` on the control and then pressing real keys is faster than counting Tab
+presses. The key names are `Enter`, `Space` and `Escape`. Failed saves and the Reports refresh use a synthetic
+undispatched 503 from `$V network arm-fail`, which proves client recovery only. Run `$V network restore PAGE` after each
+of those cases: an armed hook that has already matched does not re-arm, and the next save then succeeds. Streamed-source
+failures and loading use the `$V server-source arm` hooks named in steps 1 and 5; release them with
+`$V server-source restore`.
 
-1. **Dashboard expanders, loading and error.** As `dashboardView` after `$V seed dashboard` and `$V seed dashboard-overflow`, the Dashboard has two `Button` expanders. Bottom line names every Person out at that size, so it has no toggle. Record name, size, state, Tab, Enter and Space results, focus and ring at both widths. The expected list sizes are in the overflow seed's `expected` text.
+1. **Dashboard expanders, loading and error.** As `dashboardView` after `$V seed dashboard` and
+   `$V seed dashboard-overflow`, the Dashboard has two `Button` expanders. Bottom line names every Person out at that
+   size, so it has no toggle. Record name, size, state, Tab, Enter and Space results, focus and ring at both widths. The
+   expected list sizes are in the overflow seed's `expected` text.
 
    | Control (source)                              | Accessible name and state                                                                                                                                                                                              | Expected                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
    | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -40,9 +68,15 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run
    | Matrix `Name ▲` sort button                   | Name carries the direction glyph; the `th` carries `aria-sort` (`ascending` or `descending`) | 64.4x28. Enter and Space toggle the direction and keep focus; the other headers read `none`                                                                                              |
    | Matrix type header buttons                    | `Verification Targeted Training` (then with `▲` or `▼`); the color square is `aria-hidden`   | 210.3x55 at 1280 and 99x55 at 390. `aria-sort` follows the active column; Enter and Space toggle and keep focus                                                                          |
 
-   The matrix `table` is named `Training status matrix`. Matrix view mode (`A-Z`, `Group`), `Training view filter` and `Training group filter` leave the URL empty and survive a reload. Reset them to `Group`, `All Trainings` and `Group: All` afterward. The `Training controls` toolbar stays on one row: `scrollWidth` equals `clientWidth`, `Manage Types` stays on it at every width, and the controls that do not fit move into `More Training controls`, which is 32x32 at 390.
+   The matrix `table` is named `Training status matrix`. Matrix view mode (`A-Z`, `Group`), `Training view filter` and
+   `Training group filter` leave the URL empty and survive a reload. Reset them to `Group`, `All Trainings` and
+   `Group: All` afterward. The `Training controls` toolbar stays on one row: `scrollWidth` equals `clientWidth`,
+   `Manage Types` stays on it at every width, and the controls that do not fit move into `More Training controls`, which
+   is 32x32 at 390.
 
-3. **Failed save keeps entered values.** For every form fill every field with a distinct value, arm the named family, submit, then capture the open form, every value, the visible error and where it renders, `network state` with one 503 and the unchanged row. Restore, retry once, reload and read back. Run `$V network restore PAGE` after every case.
+3. **Failed save keeps entered values.** For every form fill every field with a distinct value, arm the named family,
+   submit, then capture the open form, every value, the visible error and where it renders, `network state` with one 503
+   and the unchanged row. Restore, retry once, reload and read back. Run `$V network restore PAGE` after every case.
 
    | Form                              | Entry (actor `trainingConfigure`)                                                                                                         | Family armed                | Expected                                                                                                                                                                                                                                                                          |
    | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -54,9 +88,11 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run
    | Person editor edit and add        | Person name, row `Edit`, and the Optional type's `Add`                                                                                    | `personnel-trainings`       | Retention (Notes, URL, `Mark as Complete`). The same inside-dialog Alert (it names the type), focus on `Save`, Escape blocked while dirty. `Mark All Completed Today` failures still show a toast and leave the confirm dialog open                                               |
    | Bulk importer                     | Import, paste three CSV rows with the header `Last Name,First Name,Training Type,Date / Status,Notes` (one unknown type), Preview, Import | `personnel-trainings/batch` | Retention (rows, edits, selection; count unchanged). `role="alert"` titled `Import failed` with `<request message> Your preview is unchanged. Try again.`; focus returns to `Import`; Escape is blocked after pasting text or editing a preview cell (an unedited preview closes) |
 
-   Retry once after each failure and read the row back. Remove every temporary record through the visible controls (`Remove <type> record`, then `Delete`) and read the original rows back before cleanup.
+   Retry once after each failure and read the row back. Remove every temporary record through the visible controls
+   (`Remove <type> record`, then `Delete`) and read the original rows back before cleanup.
 
-4. **Field error association.** Read `aria-invalid` and the resolved `aria-describedby` for the field the message belongs to.
+4. **Field error association.** Read `aria-invalid` and the resolved `aria-describedby` for the field the message
+   belongs to.
 
    | Form                        | Trigger                                   | Expected                                                                                                                                                             |
    | --------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,7 +102,8 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run
    | Record modal, Person editor | a failed save                             | An Alert inside the dialog, not a field association; the fields stay valid and keep their values                                                                     |
    | Bulk importer               | unknown training type                     | The row's `Training Type for source row N` input has `aria-invalid="true"` and `aria-describedby` resolving to the row issue text; the checkbox name also carries it |
 
-5. **Screen states.** Capture at 1280x800 light and 390x844 dark with the actors named. Use native `resize_page` and `emulate` with `colorScheme`, and toggle the theme with `Toggle theme` (it does not follow `emulate`).
+5. **Screen states.** Capture at 1280x800 light and 390x844 dark with the actors named. Use native `resize_page` and
+   `emulate` with `colorScheme`, and toggle the theme with `Toggle theme` (it does not follow `emulate`).
 
    | State                   | How to reach it                                                                                   | Expected                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
    | ----------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -81,7 +118,10 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run
    | Toolbar width           | 1280 light, `trainingConfigure`                                                                   | `Training controls` `scrollWidth` equals `clientWidth` and `Manage Types` ends inside the viewport. At 390 light and dark the Reports toolbar keeps `Print brief` on the row and folds the rest into `More Training report controls`. The Types and Views toolbars have nothing to fold: `toolbar-sweep --no-fold` from 1800 down to 390 never shows More on either, or on their detail toolbars. `+ New Type` and `Edit` stay on the row, and Views keeps `Back to Matrix` beside `New View` at 390 |
    | Narrow                  | 390 dark: Types form, Views, Reports, record modal                                                | No page overflow. The `Hot-spot grid` region scrolls inside its 358 column; the record modal is 358 wide with 326x32 buttons and a 28x28 Close                                                                                                                                                                                                                                                                                                                                                       |
 
-6. **URL and query state.** On Reports choose `180 days`, `Rows by` MOS and `Filter by group` Alpha (open the filter and use ArrowDown and Enter). The address becomes `?group=<id>&horizon=180&rowsBy=mos`; a reload restores the same pressed `180 days` and `MOS` buttons, the group and a `Clear filters` button. Choosing a cell does not change the address. Training has no tabs.
+6. **URL and query state.** On Reports choose `180 days`, `Rows by` MOS and `Filter by group` Alpha (open the filter and
+   use ArrowDown and Enter). The address becomes `?group=<id>&horizon=180&rowsBy=mos`; a reload restores the same
+   pressed `180 days` and `MOS` buttons, the group and a `Clear filters` button. Choosing a cell does not change the
+   address. Training has no tabs.
 
 7. **Dialog focus.** Record where focus lands when each dialog opens and where it returns.
 
@@ -92,14 +132,33 @@ Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Run
    | `Delete Training Type`, `Delete Saved View` | the alertdialog container itself  | the opening `Delete Type` or `Delete View` button                                                      |
    | `Bulk Training Import`                      | the `Upload training file` button | the `Import` button after Done or Escape (`More Training controls` at 390)                             |
 
-8. **Color is data.** In Manage Types create a type with a custom color through the native color input (set `#cc3366`, dispatch `input` and `change`). Read back `training_types.color`. The list swatch, the matrix column square and the Person editor badge all render that stored color; the three seeded types store `#6b7280` and render `rgb(107, 114, 128)`. `#6b7280` is also the new-type form default, which is saved as data. The `PersonTrainingEditor` fallback literal for a type missing from the catalog cannot be reached from the UI: record it as source only. Delete the temporary type through `Delete Type` and read back absence.
+8. **Color is data.** In Manage Types create a type with a custom color through the native color input (set `#cc3366`,
+   dispatch `input` and `change`). Read back `training_types.color`. The list swatch, the matrix column square and the
+   Person editor badge all render that stored color; the three seeded types store `#6b7280` and render
+   `rgb(107, 114, 128)`. `#6b7280` is also the new-type form default, which is saved as data. The `PersonTrainingEditor`
+   fallback literal for a type missing from the catalog cannot be reached from the UI: record it as source only. Delete
+   the temporary type through `Delete Type` and read back absence.
 
-9. **Tables and print.** On Reports the Type risk table is `table[aria-label="Not ready and lapsing requirements by training type"]` (a `Table`) with column headers Type, Records, Not ready and By <date> (`scope="col"`) and `th scope="row"` per type. Each Records cell holds an `aria-hidden` bar and an sr-only `N not ready, M lapsing by <date>`. Arm `$V print arm PAGE`, choose `Print brief`, read `$V print state PAGE`, then run `$V print save PAGE <exact reports URL> FILE.pdf letter on` and `$V print restore PAGE`. The print DOM then holds two print-only tables named `Training types with the most requirements not ready or lapsing` (with `Share` as a screen-reader column) and `Training status of each training type by <noun>`; open a cell first to add the third, `Affected soldiers by requirement` (`#`, Rank, Name, Group, Training type, Status today, Expiration date, Lapses by <date>). All use `th scope`. Extract the PDF with `pdftotext -layout` and `pdftoppm` for the evidence. The ordinary three-Person fixture prints 2 pages, and 3 with the detail table.
+9. **Tables and print.** On Reports the Type risk table is
+   `table[aria-label="Not ready and lapsing requirements by training type"]` (a `Table`) with column headers Type,
+   Records, Not ready and By <date> (`scope="col"`) and `th scope="row"` per type. Each Records cell holds an
+   `aria-hidden` bar and an sr-only `N not ready, M lapsing by <date>`. Arm `$V print arm PAGE`, choose `Print brief`,
+   read `$V print state PAGE`, then run `$V print save PAGE <exact reports URL> FILE.pdf letter on` and
+   `$V print restore PAGE`. The print DOM then holds two print-only tables named
+   `Training types with the most requirements not ready or lapsing` (with `Share` as a screen-reader column) and
+   `Training status of each training type by <noun>`; open a cell first to add the third,
+   `Affected soldiers by requirement` (`#`, Rank, Name, Group, Training type, Status today, Expiration date, Lapses by
+   <date>). All use `th scope`. Extract the PDF with `pdftotext -layout` and `pdftoppm` for the evidence. The ordinary
+   three-Person fixture prints 2 pages, and 3 with the detail table.
 
-10. **Access Restricted.** The app-level `WorkspaceAccessRestricted` card (step 5, `viewer`) is the only denial on `/training` itself; there is no in-page Access Restricted branch. Reports keeps its separate 403 page (step 5). Measured for that card: 1280x800 column `[256,56,1024,744]`; 390x844 column `[0,56,390,788]`.
+10. **Access Restricted.** The app-level `WorkspaceAccessRestricted` card (step 5, `viewer`) is the only denial on
+    `/training` itself; there is no in-page Access Restricted branch. Reports keeps its separate 403 page (step 5).
+    Measured for that card: 1280x800 column `[256,56,1024,744]`; 390x844 column `[0,56,390,788]`.
 
 ## Gotchas
 
 - The shadcn `Select` options do not appear in the accessibility snapshot. Open the control and use ArrowDown and Enter.
-- A PDF capture from the print helper counts its own `beforeprint` and `afterprint` events. Read `print state` after the button click and before the save.
-- `seed dashboard-overflow` and `seed dashboard` change the Training matrix and Reports. Clean seeds before reading the unchanged Training numbers.
+- A PDF capture from the print helper counts its own `beforeprint` and `afterprint` events. Read `print state` after the
+  button click and before the save.
+- `seed dashboard-overflow` and `seed dashboard` change the Training matrix and Reports. Clean seeds before reading the
+  unchanged Training numbers.

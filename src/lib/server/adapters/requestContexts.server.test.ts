@@ -282,58 +282,69 @@ describe('request-bound communications exports', () => {
 	);
 });
 
-describe('request-bound unit counts', () => {
-	it('counts the admitted Organization through the request client, Rating Scheme included', async () => {
+describe('governance unit counts', () => {
+	it('count what the Organization retains through the trusted client, a turned-off feature included', async () => {
 		getAdminClient.mockClear();
 		const tables: Record<string, Array<{ organization_id: string }>> = {
 			organization_memberships: [
 				...Array.from({ length: 3 }, () => ({ organization_id: ORG_ID })),
 				...Array.from({ length: 9 }, () => ({ organization_id: OTHER_ORG_ID }))
 			],
+			personnel_trainings: [
+				...Array.from({ length: 4 }, () => ({ organization_id: ORG_ID })),
+				...Array.from({ length: 6 }, () => ({ organization_id: OTHER_ORG_ID }))
+			],
 			rating_scheme_entries: [
 				...Array.from({ length: 5 }, () => ({ organization_id: ORG_ID })),
 				...Array.from({ length: 2 }, () => ({ organization_id: OTHER_ORG_ID }))
 			]
 		};
-		const seen: Array<{ table: string; method: string; exact: boolean | undefined; authorization: string | null }> = [];
-		const supabase = createClient('http://counts.invalid', 'ordinary-request-key', {
+		const seen: Array<{ table: string; exact: boolean | undefined; authorization: string | null }> = [];
+		const options = (fetch: typeof globalThis.fetch) => ({
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-			global: {
-				fetch: async (input, init) => {
-					const request = new Request(input, init);
-					const url = new URL(request.url);
-					const table = url.pathname.replace('/rest/v1/', '');
-					seen.push({
-						table,
-						method: request.method,
-						exact: request.headers.get('prefer')?.includes('count=exact'),
-						authorization: request.headers.get('authorization')
-					});
-					const matching = (tables[table] ?? []).filter(
-						(row) => url.searchParams.get('organization_id') === `eq.${row.organization_id}`
-					);
-					return new Response(null, { status: 200, headers: { 'Content-Range': `*/${matching.length}` } });
-				}
-			}
+			global: { fetch }
 		});
+		const adminClient = createClient(
+			'http://counts.invalid',
+			'service-key',
+			options(async (input, init) => {
+				const request = new Request(input, init);
+				const url = new URL(request.url);
+				const table = url.pathname.replace('/rest/v1/', '');
+				seen.push({
+					table,
+					exact: request.headers.get('prefer')?.includes('count=exact'),
+					authorization: request.headers.get('authorization')
+				});
+				const matching = (tables[table] ?? []).filter(
+					(row) => url.searchParams.get('organization_id') === `eq.${row.organization_id}`
+				);
+				return new Response(null, { status: 200, headers: { 'Content-Range': `*/${matching.length}` } });
+			})
+		);
+		getAdminClient.mockImplementationOnce(() => adminClient as never);
+		const supabase = createClient(
+			'http://counts.invalid',
+			'ordinary-request-key',
+			options(async () => new Response(null, { status: 200, headers: { 'Content-Range': '*/0' } }))
+		);
 		const ctx = createRequestUnitCountsContext({
 			auth: { orgId: ORG_ID },
-			supabase
+			supabase,
+			disabledFeatures: ['training', 'evaluations']
 		} as unknown as AdmittedOrganizationRequest);
+		expect(getAdminClient).not.toHaveBeenCalled();
 
-		expect(await readUnitCounts(ctx.unitCounts, ['members', 'ratingSchemeEntries'])).toEqual({
+		expect(await readUnitCounts(ctx.unitCounts, ['members', 'trainingRecords', 'ratingSchemeEntries'])).toEqual({
 			members: 3,
+			trainingRecords: 4,
 			ratingSchemeEntries: 5
 		});
 		expect(seen.sort((a, b) => a.table.localeCompare(b.table))).toEqual([
-			{
-				table: 'organization_memberships',
-				method: 'HEAD',
-				exact: true,
-				authorization: 'Bearer ordinary-request-key'
-			},
-			{ table: 'rating_scheme_entries', method: 'HEAD', exact: true, authorization: 'Bearer ordinary-request-key' }
+			{ table: 'organization_memberships', exact: true, authorization: 'Bearer service-key' },
+			{ table: 'personnel_trainings', exact: true, authorization: 'Bearer service-key' },
+			{ table: 'rating_scheme_entries', exact: true, authorization: 'Bearer service-key' }
 		]);
-		expect(getAdminClient).not.toHaveBeenCalled();
+		expect(getAdminClient).toHaveBeenCalledTimes(1);
 	});
 });

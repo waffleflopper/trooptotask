@@ -90,6 +90,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261020000500_personnel_extended_info_saver_stamp.sql",
     "20261020000600_set_based_calendar_read_scope.sql",
     "20261021000100_organization_feature_switches.sql",
+    "20261021000200_organization_feature_switch_enforcement.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -533,6 +534,24 @@ def local_docker_environment(workdir):
     return environment
 
 
+def startup_diagnostics(output):
+    lines = []
+    for line in output.splitlines():
+        if not re.search(r'error|toomanyrequests|timeout|denied', line, re.IGNORECASE):
+            continue
+        line = re.sub(r'(://)[^/\s@]+@', r'\1[REDACTED]@', line)
+        line = re.sub(
+            r'\b(?:eyJ[\w-]*\.[\w-]+\.[\w-]+|sb_(?:secret|publishable)_[\w-]+|sbp_\w+|'
+            r'gh[pousr]_\w+|github_pat_\w+|sk-[\w-]+)\b', '[REDACTED]', line)
+        line = re.sub(r'\b(?:Bearer|Basic)\s+\S+', '[REDACTED]', line, flags=re.IGNORECASE)
+        # Opaque or quoted credentials can contain spaces. Suppress the whole value suffix.
+        line = re.sub(
+            r'''(\b[\w-]*(?:key|token|jwt|password|secret|auth)[\w-]*\b["']?'''
+            r'(?:\s*[:=]\s*|\s+)).*', r'\1[REDACTED]', line, flags=re.IGNORECASE)
+        lines.append(line)
+    return '\n'.join(lines)
+
+
 def run(command, workdir, *, quiet=False, check=True, environment=None, input_text=None):
     global _spawning, _deferred_signal
     print("+ " + " ".join(command), flush=True)
@@ -574,8 +593,11 @@ def run(command, workdir, *, quiet=False, check=True, environment=None, input_te
             _receipt.save()
     result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
     if quiet and check and result.returncode:
-        # Supabase startup prints generated credentials. Never publish that output.
         print("Command failed; credential-bearing startup output was suppressed.", flush=True)
+        if command[:2] == ['supabase', 'start']:
+            diagnostics = startup_diagnostics(result.stdout)
+            if diagnostics:
+                print(diagnostics, flush=True)
     if check and result.returncode:
         raise subprocess.CalledProcessError(result.returncode, command)
     return result
@@ -596,6 +618,32 @@ def _provider_environment(repository, workdir, execute):
         "T2T_PROBE_ANON_KEY": status["ANON_KEY"],
     })
     return environment
+
+
+def validate_seeds(repository, workdir, execute, psql):
+    errors = []
+
+    def check_seed(name, sql):
+        print(f'Checking seed schema: {name}', flush=True)
+        result = execute([*psql[:2], '-i', *psql[2:], '-X', '-q', '-v', 'VERBOSITY=terse'],
+                         workdir, input_text=sql, quiet=True, check=False)
+        if result.returncode:
+            reason = '\n'.join(line for line in result.stdout.splitlines() if 'ERROR:' in line)
+            errors.append(f'{name}: {reason or "psql failed"}. Update the seed for the replayed schema.')
+
+    demo = (repository / 'scripts/demo-clinic/seed.sql').read_text()
+    # The demo owns its transaction. Move its boundary around the prerequisite fixture too.
+    demo, starts = re.subn(r'^BEGIN;\s*$', '', demo, count=1, flags=re.MULTILINE)
+    demo, ends = re.subn(r'COMMIT;\s*$', '', demo)
+    if starts != 1 or ends != 1:
+        raise ValueError('Review scripts/demo-clinic/seed.sql transaction boundaries before seed validation')
+    prerequisite = (repository / 'scripts/ci/demo-seed-before.sql').read_text()
+    check_seed('scripts/demo-clinic/seed.sql', f'BEGIN;\n{prerequisite}\n{demo}\nROLLBACK;\n')
+    generated = execute(['node', str(repository / 'scripts/ci/seed-columns.mjs')], workdir, quiet=True).stdout
+    check_seed('perf-workloads.mjs generated columns', generated)
+    if errors:
+        raise ValueError('\n'.join(errors))
+    print('SQL seeds rolled back and generated performance seed columns resolved.', flush=True)
 
 
 def validate(repository, *, staged_upgrade=False):
@@ -714,6 +762,8 @@ def validate(repository, *, staged_upgrade=False):
             workdir, environment=provider_environment)
         run(["node", str(repository / "scripts/ci/onboarding_start_provider_probe.mjs")],
             workdir, environment=provider_environment)
+        # The legacy dump advances sequences even when rolled back. Keep it after contracts.
+        validate_seeds(repository, workdir, execute, psql)
         print("Fresh replay, SQL contracts, migration regressions and provider probes passed.", flush=True)
     finally:
         for sock in held_ports:

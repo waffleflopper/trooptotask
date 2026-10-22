@@ -7,6 +7,7 @@ export function createOrganizationDataExportReads(
 	ctx: Pick<
 		ReturnType<typeof createRequestOrganizationExportContext>,
 		| 'auth'
+		| 'disabledFeatures'
 		| 'archiveReaders'
 		| 'organizationRawExport'
 		| 'personnelOrganizationExport'
@@ -21,6 +22,7 @@ export function createOrganizationDataExportReads(
 	const orgId = auth.orgId;
 
 	return {
+		disabledFeatures: ctx.disabledFeatures,
 		organizationProfile: () => organizationRawExport.listRows(orgId, 'organizations'),
 		memberships: () => organizationRawExport.listRows(orgId, 'organization_memberships'),
 		invitations: () => organizationRawExport.listRows(orgId, 'organization_invitations'),
@@ -39,7 +41,12 @@ export function createOrganizationDataExportReads(
 		betaFeedback: () => ctx.feedbackExport.listRows(orgId),
 		groups: () => archiveReaders.personnel.listRows('groups'),
 		personnel: () => archiveReaders.personnel.listRows('personnel'),
-		personnelExtendedInfo: () => personnelOrganizationExport.listRows(auth, 'personnel_extended_info'),
+		personnelExtendedInfo: async () => {
+			const rows = await personnelOrganizationExport.listRows(auth, 'personnel_extended_info');
+			return ctx.disabledFeatures.includes('lossesAndAwards')
+				? rows.map(({ award_tracking_acknowledged_at: _ack, ...sheet }) => sheet)
+				: rows;
+		},
 		counselingRecords: () => personnelOrganizationExport.listRows(auth, 'counseling_records'),
 		leaderNotes: () => personnelOrganizationExport.listRows(auth, 'leader_notes'),
 		personnelFollowUps: () => personnelOrganizationExport.listRows(auth, 'personnel_follow_ups'),

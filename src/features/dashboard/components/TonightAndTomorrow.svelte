@@ -36,10 +36,16 @@
 							</span>
 						</span>
 					</th>
-					<td class="w-[110px] py-2 pr-2 text-[15px] leading-[18px] font-semibold wrap-break-word text-foreground">
+					<td
+						class="w-[110px] truncate py-2 pr-2 text-[15px] leading-[18px] font-semibold text-foreground"
+						title={row.today ?? undefined}
+					>
 						{row.today ?? 'Open'}
 					</td>
-					<td class="w-[110px] py-2 text-[15px] leading-[18px] wrap-break-word text-muted-foreground">
+					<td
+						class="w-[110px] truncate py-2 text-[15px] leading-[18px] text-muted-foreground"
+						title={row.tomorrow ?? undefined}
+					>
 						{row.tomorrow ?? 'Open'}
 					</td>
 				</tr>

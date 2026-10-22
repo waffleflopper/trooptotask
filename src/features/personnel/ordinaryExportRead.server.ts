@@ -2,7 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { RequestFailure } from '$lib/errors';
 
-const EXPORT_TABLES = ['groups', 'personnel', 'organization_rank_catalog', 'user_pinned_groups'] as const;
+const EXPORT_TABLES = [
+	'groups',
+	'personnel',
+	'personnel_attribute_history',
+	'organization_rank_catalog',
+	'user_pinned_groups'
+] as const;
 
 export type PersonnelExportTable = (typeof EXPORT_TABLES)[number];
 
@@ -17,12 +23,12 @@ export function createSupabasePersonnelExportReader(client: SupabaseClient, orgI
 				throw new RequestFailure(400, 'Unsupported Personnel export table');
 			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
-				const { data, error } = await client
-					.from(table)
-					.select('*')
-					.eq('organization_id', orgId)
-					.order('id', { ascending: true })
-					.range(from, to);
+				const query = client.from(table).select('*').eq('organization_id', orgId);
+				const ordered =
+					table === 'personnel_attribute_history'
+						? query.order('personnel_id', { ascending: true }).order('effective_on', { ascending: true })
+						: query.order('id', { ascending: true });
+				const { data, error } = await ordered.range(from, to);
 				return { data, error };
 			});
 			if (result.error)

@@ -87,6 +87,13 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('betaFeedback', 'Beta Feedback', 'beta_feedback', 'feedback', 'Feedback'),
 	section('groups', 'Groups', 'groups', 'personnel', 'Personnel'),
 	section('personnel', 'Personnel', 'personnel', 'personnel', 'Personnel'),
+	section(
+		'personnelAttributeHistory',
+		'Personnel Attribute History',
+		'personnel_attribute_history',
+		'personnel',
+		'Personnel'
+	),
 	section('personnelExtendedInfo', 'Personnel Extended Info', 'personnel_extended_info', 'personnel', 'Personnel'),
 	section('counselingRecords', 'Counseling Records', 'counseling_records', 'personnel', 'Personnel'),
 	section('leaderNotes', 'Leader Notes', 'leader_notes', 'personnel', 'Personnel'),
@@ -98,6 +105,9 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('assignmentTypes', 'Assignment Types', 'assignment_types', 'calendar', 'Calendar'),
 	section('dailyAssignments', 'Daily Assignments', 'daily_assignments', 'calendar', 'Calendar'),
 	section('specialDays', 'Special Days', 'special_days', 'calendar', 'Calendar'),
+	section('rosterForms', 'Roster Forms', 'roster_forms', 'calendar', 'Calendar'),
+	section('rosterStartingNumbers', 'Roster Starting Numbers', 'roster_starting_numbers', 'calendar', 'Calendar'),
+	section('rosterExcusals', 'Roster Excusals', 'roster_excusals', 'calendar', 'Calendar'),
 	section('trainingTypes', 'Training Types', 'training_types', 'training', 'Training'),
 	section('personnelTrainings', 'Personnel Trainings', 'personnel_trainings', 'training', 'Training'),
 	section(
@@ -160,6 +170,11 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 			})
 	},
 	{ name: 'Groups', areaKey: 'personnel', rows: (sections) => sections.groups ?? [] },
+	{
+		name: 'Personnel Attribute History',
+		areaKey: 'personnel',
+		rows: (sections) => sections.personnelAttributeHistory ?? []
+	},
 	{
 		name: 'Calendar',
 		areaKey: 'calendar',
@@ -277,6 +292,9 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 			}))
 	},
 	{ name: 'Special Days', areaKey: 'calendar', rows: (sections) => sections.specialDays ?? [] },
+	{ name: 'Roster Forms', areaKey: 'calendar', rows: (sections) => sections.rosterForms ?? [] },
+	{ name: 'Roster Starting Numbers', areaKey: 'calendar', rows: (sections) => sections.rosterStartingNumbers ?? [] },
+	{ name: 'Roster Excusals', areaKey: 'calendar', rows: (sections) => sections.rosterExcusals ?? [] },
 	{ name: 'Onboarding Templates', areaKey: 'onboarding', rows: (sections) => sections.onboardingTemplates ?? [] },
 	{
 		name: 'Onboarding Progress',

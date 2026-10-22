@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(94);
+SELECT plan(95);
 
 SELECT ok(NOT EXISTS (
 	SELECT 1
@@ -429,6 +429,11 @@ SELECT lives_ok(
     ON CONFLICT (personnel_id) DO UPDATE SET blood_type = EXCLUDED.blood_type
     RETURNING id, personnel_id, blood_type $$,
   'a Data Sheet upsert can return ordinary fields without reading the acknowledgement'
+);
+SELECT throws_ok(
+  $$ UPDATE public.personnel_extended_info SET award_tracking_acknowledged_at = NULL
+    WHERE personnel_id = pg_temp.id('302') $$,
+  '42501', NULL, 'a no-op acknowledgement update is denied, so it cannot reveal the stored value'
 );
 SELECT pg_temp.act_as_fixture();
 

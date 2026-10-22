@@ -143,10 +143,9 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  IF (CASE TG_OP
-        WHEN 'INSERT' THEN NEW.award_tracking_acknowledged_at IS NOT NULL
-        ELSE NEW.award_tracking_acknowledged_at IS DISTINCT FROM OLD.award_tracking_acknowledged_at
-      END)
+  -- Any UPDATE naming the column is refused, even a no-op, so the outcome
+  -- cannot reveal the stored value the column grant hides.
+  IF (TG_OP = 'UPDATE' OR NEW.award_tracking_acknowledged_at IS NOT NULL)
     AND public.feature_is_off(NEW.organization_id, 'lossesAndAwards')
   THEN
     RAISE EXCEPTION 'Losses and awards is turned off for this organization' USING ERRCODE = '42501';

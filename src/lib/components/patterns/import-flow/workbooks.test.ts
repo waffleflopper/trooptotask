@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { buildNotImported, buildTemplate } from './workbooks';
 import { buildReceipt, type CommitResult } from './commit';
-import { buildSourceRows, reviewRows, ReviewMemo } from './rowModel';
+import { applyEdits, buildSourceRows, reviewRows, ReviewMemo, sourceRowId } from './rowModel';
 import { defineImportLane } from './types';
 import { personnelLane } from './importFlow.test-support';
 import { detectLayout, readImportFile, type LoadedFile } from './workbookSource';
@@ -150,6 +150,28 @@ describe('workbook export', () => {
 		expect(sheet.getRow(2).values).toEqual([undefined, '=BAD()', '+Alex', '-SGT', '@literal', '=Denied']);
 		expect(sheet.getCell('A2').type).toBe(ExcelJS.ValueType.String);
 		expect(sheet.getCell('E2').type).toBe(ExcelJS.ValueType.String);
+	});
+	it('writes the values the user corrected during review into the not-imported file', async () => {
+		const file: LoadedFile = {
+			name: 'input.xlsx',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Last name', 'First name', 'Rank'],
+						['Smith', 'Alex', 'Sgt.']
+					]
+				}
+			]
+		};
+		const lane = personnelLane();
+		const layout = detectLayout(file, lane);
+		const [row] = applyEdits(buildSourceRows(file, layout, lane), new Map([[sourceRowId(0, 1), { rank: 'SGT' }]]));
+		const receipt = buildReceipt([{ row, reason: 'Skipped' }], new Map(), new Map([[row.id, row]]), null);
+		const exported = await readBack(await buildNotImported(file, layout, receipt));
+		expect(exported.worksheets[0].getRow(2).values).toEqual([undefined, 'Smith', 'Alex', 'SGT', 'Skipped']);
 	});
 	it('keeps 1904 serial dates meaningful after exporting and re-importing a skipped row', async () => {
 		const file: LoadedFile = {

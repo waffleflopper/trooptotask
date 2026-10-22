@@ -3,7 +3,7 @@ import { downloadBlob } from '$lib/utils/downloadBlob';
 import type { ImportColumns } from './types';
 import type { Receipt } from './commit';
 import type { Layout, LoadedFile } from './workbookSource';
-import { headerKey } from './workbookSource';
+import { headerKey, targetsForHeaders } from './workbookSource';
 
 function formatCellsAsText(sheet: Worksheet): void {
 	sheet.eachRow((row) =>
@@ -39,11 +39,18 @@ export async function buildNotImported(file: LoadedFile, layout: Layout, receipt
 		const pivotColumns = headers.flatMap((header, column) =>
 			layout.columns.get(headerKey(header))?.kind === 'pivot' ? [column] : []
 		);
+		const fieldColumns = targetsForHeaders(headers, layout.columns).flatMap((target, column) =>
+			target.kind === 'field' ? [[column, target.field] as const] : []
+		);
 		const physicalRows = new Map<number, { cells: string[]; reasons: Set<string> }>();
 		for (const item of items) {
 			let row = physicalRows.get(item.row.rowNumber);
 			if (!row) {
 				row = { cells: [...item.row.cells], reasons: new Set() };
+				for (const [column, field] of fieldColumns) {
+					const reviewed = item.row.raw[field];
+					if (reviewed !== undefined && reviewed !== (row.cells[column] ?? '').trim()) row.cells[column] = reviewed;
+				}
 				if (item.row.pivotColumn !== undefined) for (const column of pivotColumns) row.cells[column] = '';
 				physicalRows.set(item.row.rowNumber, row);
 			}

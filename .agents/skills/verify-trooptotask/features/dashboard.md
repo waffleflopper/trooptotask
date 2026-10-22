@@ -73,7 +73,7 @@ Currency is Person-based, distinct from Training's required-cell readiness denom
 have expired/orange warnings, leaving one current Person. Missing completions and yellow warnings do not add People to
 the source-owned expired/orange attention count. Do not silently redefine a failing example.
 
-1. **Combined native read.** Run `$V actor dashboardView home`, dismiss What's New if it blocks the page, and capture
+1. **Combined native read.** Run `$V actor dashboardView home` and capture
    the Overview. Strength is 3/4 with Baker's Training status; today's duties name Able and Bravo with their saved
    assignment types. Training attention names Alpha and Bravo as expired Groups and shows one expiring record; Evals
    shows one overdue and one 30-day warning; the archived Person's overdue evaluation is not counted. Upcoming losses

@@ -231,7 +231,7 @@ The private-credential controls fill visible fields without printing values:
    page.
 10. **Logout and link errors.**
     - Local-only sign-out. Run `$V actor --form identityRecovery dashboard` (any identity actor works) and keep its
-      Organization page open in this tab (A). Dismiss What's New. Open a second tab in the same cookie jar with native
+      Organization page open in this tab (A). Open a second tab in the same cookie jar with native
       `new_page` using the actor's `browserContext` value as `isolatedContext`, load the same Organization page and
       leave it unreloaded (B). In A choose Account menu → Sign Out and require `/`. In B, still rendered as signed in,
       choose Account menu → Sign Out (at 390 wide, Toggle Sidebar first) and require `/auth/logout`, status 200 for the
@@ -267,8 +267,7 @@ The private-credential controls fill visible fields without printing values:
       browser outline. Tab through Confirm (TroopToTask, Back to site, Toggle theme, `Continue to …`, Terms of Use,
       Privacy Policy), Renew Invite (header controls, Email Address, Email Me a Fresh Setup Link, Sign in) and Profile
       (First name, Last name, Rank, Save Profile). Each stop needs a visible focus ring, and Enter or Space on the
-      focused submit must act; Renew Invite's own limit is 5 per hour. For logout, dismiss What's New if it opens on the
-      first Organization visit, Tab to the Account menu, move to Sign Out with the arrow keys and press Enter; require
+      focused submit must act; Renew Invite's own limit is 5 per hour. For logout, Tab to the Account menu, move to Sign Out with the arrow keys and press Enter; require
       the public page. The `/auth/logout` page's own tab order is part of step 10's local-only check.
 12. **Web boundary.** Run signed-in as any actor (for example `manager`).
     - Headers. `curl -sI ORIGIN/auth/login` must show the Content-Security-Policy with

@@ -1,26 +1,45 @@
 # Invalid, stale and conflicting input
 
-A malformed, missing, foreign or conflicting write gets a controlled 4xx with a readable message and changes nothing. A form that receives one keeps its draft open and shows that message; a server or transport failure keeps the form's existing generic text. Provider, constraint and foreign-Organization details never reach the response.
+A malformed, missing, foreign or conflicting write gets a controlled 4xx with a readable message and changes nothing. A
+form that receives one keeps its draft open and shows that message; a server or transport failure keeps the form's
+existing generic text. Provider, constraint and foreign-Organization details never reach the response.
 
 ## Sub-features
 
-- `ids`: a non-UUID id in a body answers `400 Invalid ID`; a non-UUID Personnel path id answers `404`. A well-formed id that is missing or belongs to another Organization answers `404` with the resource's own message.
-- `dates`: a date-only field accepts only a real `YYYY-MM-DD` day. `not-a-date`, `2026-02-30` and `2026-13-01` answer `400 Use a valid date (YYYY-MM-DD)`; a range whose end precedes its start answers `400`.
-- `types`: a field of the wrong JSON type, a missing required field, malformed JSON, a `null` body, or JSON sent to a file upload answers `400`. `mos: null` stays a `400`; Personnel MOS is a string or omitted.
-- `conflicts`: a duplicate Training type, Onboarding template or Group name answers `409` with a message naming the conflict.
-- `deletes`: deleting a missing Calendar status or assignment type still answers `200`, so a retried delete recovers, but records no audit event and sends no administrator notification.
-- `imports`: a malformed Critical Tasks completion import row, or a Training import status other than `completed` or `exempt`, answers `400` and saves nothing. An impossible CSV date such as `2026-02-30` is flagged during review in the Availability, Training and Critical Tasks imports and is not sent.
-- `forms`: these forms show the server's 4xx message and keep the draft: Training type and view; Calendar status type and closure; Personnel roster edit and the detail page's Data sheet; the follow-up, leader-note, document and counseling add forms; follow-up updates; Group rename; Rating Scheme edit; Onboarding start and packet actions; the Availability edit; and the Critical Tasks defaults. A server or transport failure keeps each form's own text.
+- `ids`: a non-UUID id in a body answers `400 Invalid ID`; a non-UUID Personnel path id answers `404`. A well-formed id
+  that is missing or belongs to another Organization answers `404` with the resource's own message.
+- `dates`: a date-only field accepts only a real `YYYY-MM-DD` day. `not-a-date`, `2026-02-30` and `2026-13-01` answer
+  `400 Use a valid date (YYYY-MM-DD)`; a range whose end precedes its start answers `400`.
+- `types`: a field of the wrong JSON type, a missing required field, malformed JSON, a `null` body, or JSON sent to a
+  file upload answers `400`. `mos: null` stays a `400`; Personnel MOS is a string or omitted.
+- `conflicts`: a duplicate Training type, Onboarding template or Group name answers `409` with a message naming the
+  conflict.
+- `deletes`: deleting a missing Calendar status or assignment type still answers `200`, so a retried delete recovers,
+  but records no audit event and sends no administrator notification.
+- `imports`: a malformed Critical Tasks completion import row, or a Training import status other than `completed` or
+  `exempt`, answers `400` and saves nothing. An impossible CSV date such as `2026-02-30` is flagged during review in the
+  Availability, Training and Critical Tasks imports and is not sent.
+- `forms`: these forms show the server's 4xx message and keep the draft: Training type and view; Calendar status type
+  and closure; Personnel roster edit and the detail page's Data sheet; the follow-up, leader-note, document and
+  counseling add forms; follow-up updates; Group rename; Rating Scheme edit; Onboarding start and packet actions; the
+  Availability edit; and the Critical Tasks defaults. A server or transport failure keeps each form's own text.
 
 ## How to get to it (user POV)
 
-The forms are the normal editors in Training → Manage Types and Manage Views, Calendar → Settings, Personnel, Evals and Onboarding. The other cases have no visible entry point. Drive them as authenticated endpoint probes.
+The forms are the normal editors in Training → Manage Types and Manage Views, Calendar → Settings, Personnel, Evals and
+Onboarding. The other cases have no visible entry point. Drive them as authenticated endpoint probes.
 
 ## Driving it with verify:app
 
-Preconditions: `doctor` passes and `$V fixture` supplies the IDs below. Sign in each actor with `$V actor`: `calendarConfigure calendar/settings` for catalogs, `calendarOperate calendar` for assignments and availability, `manager personnel` for Personnel and Groups, `trainingConfigure training` for Training, `orgOwner home` for Onboarding, Rating Scheme and Critical Tasks. `MISSING` is `00000000-0000-4000-8000-000000000001`.
+Preconditions: `doctor` passes and `$V fixture` supplies the IDs below. Sign in each actor with `$V actor`:
+`calendarConfigure calendar/settings` for catalogs, `calendarOperate calendar` for assignments and availability,
+`manager personnel` for Personnel and Groups, `trainingConfigure training` for Training, `orgOwner home` for Onboarding,
+Rating Scheme and Critical Tasks. `MISSING` is `00000000-0000-4000-8000-000000000001`.
 
-1. **Endpoint matrix.** Send each request from the actor's signed-in page with the `evaluate_script` probe in the [Calendar catalogs recipe](calendar-catalogs.md#driving-it-with-verifyapp), sending the body verbatim (malformed JSON included). Save status and body for every row, then read back that no row named by the request's marker exists and that edited targets are unchanged.
+1. **Endpoint matrix.** Send each request from the actor's signed-in page with the `evaluate_script` probe in the
+   [Calendar catalogs recipe](calendar-catalogs.md#driving-it-with-verifyapp), sending the body verbatim (malformed JSON
+   included). Save status and body for every row, then read back that no row named by the request's marker exists and
+   that edited targets are unchanged.
 
    | Actor             | Request                                                                                                                       | Expected                                                                                                                                                                                |
    | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,15 +64,27 @@ Preconditions: `doctor` passes and `$V fixture` supplies the IDs below. Sign in 
    | orgOwner          | `POST api/personnel-ict-completions/batch` with `{records:[null]}`; `{records:[{rowNumber:2,values:null}]}`; a numeric cell   | `400` ×3 (`Each import row needs a row number and cell values`, `Each import row needs its cell values`, `Import cells must be text`); the Organization's completion rows are unchanged |
    | orgOwner          | `POST api/personnel-trainings/batch` for `personB` on `trainingOptional` with `status:'not-completed'`, then with no status   | `400 Status must be completed or exempt` ×2; the Organization's Training rows are unchanged                                                                                             |
 
-2. **Form messages.** As `trainingConfigure`, open Manage Types → `+ New Type`. The Name field accepts at most 100 characters. Paste a 105-character name through `fill`, then Create. If the browser truncates it, the type saves with 100 characters; delete it visibly. Then create a type named `Verification Required Training`: the form stays open with `A Training type with that name already exists.` and no second row. As `calendarConfigure`, choose `Edit` from `More actions for Verification Leave`, enter a 101-character name in the inline composer and choose `Save changes`. The composer stays open with the draft, the error toast reads `Name must be 100 characters or fewer` and the row is unchanged. As `manager`, rename a Group to `Bravo` from Manage Groups: the message names the duplicate and both Groups keep their names. Capture `$V feedback` and `network arm-observe` state for each save.
-3. **Stale records.** In each case, open the form first, change the record from a second signed-in session, then save. Each save keeps its draft and shows the server's reason:
-   - **Personnel detail Data sheet.** Use a temporary Person deleted elsewhere (archive, then `api/personnel/permanent`). Save changes returns `404` and shows `Personnel record not found` in the form alert.
-   - **Rating Scheme edit.** Delete the entry from the owner's session. A non-owner delete may need approval. Save returns `404` and shows `Rating Scheme entry not found`.
-   - **Onboarding start.** Start the same member from another session. Submit returns `409` and shows `Soldier already has an active onboarding`.
+2. **Form messages.** As `trainingConfigure`, open Manage Types → `+ New Type`. The Name field accepts at most 100
+   characters. Paste a 105-character name through `fill`, then Create. If the browser truncates it, the type saves with
+   100 characters; delete it visibly. Then create a type named `Verification Required Training`: the form stays open
+   with `A Training type with that name already exists.` and no second row. As `calendarConfigure`, choose `Edit` from
+   `More actions for Verification Leave`, enter a 101-character name in the inline composer and choose `Save changes`.
+   The composer stays open with the draft, the error toast reads `Name must be 100 characters or fewer` and the row is
+   unchanged. As `manager`, rename a Group to `Bravo` from Manage Groups: the message names the duplicate and both
+   Groups keep their names. Capture `$V feedback` and `network arm-observe` state for each save.
+3. **Stale records.** In each case, open the form first, change the record from a second signed-in session, then save.
+   Each save keeps its draft and shows the server's reason:
+   - **Personnel detail Data sheet.** Use a temporary Person deleted elsewhere (archive, then
+     `api/personnel/permanent`). Save changes returns `404` and shows `Personnel record not found` in the form alert.
+   - **Rating Scheme edit.** Delete the entry from the owner's session. A non-owner delete may need approval. Save
+     returns `404` and shows `Rating Scheme entry not found`.
+   - **Onboarding start.** Start the same member from another session. Submit returns `409` and shows
+     `Soldier already has an active onboarding`.
 
 ## Gotchas
 
-- An actor without the lane gets its usual `403`/`404` before validation for most routes; use the actor named in the table so the probe reaches the input check.
+- An actor without the lane gets its usual `403`/`404` before validation for most routes; use the actor named in the
+  table so the probe reaches the input check.
 - `rows` reads are privileged readback. They establish no effect, not authorization.
 - Catalog deletes of a missing id are deliberately `200` so a retried delete recovers.
 - Lower-level route and operation tests cover each owner's schema; this matrix is the live sample, not every field.

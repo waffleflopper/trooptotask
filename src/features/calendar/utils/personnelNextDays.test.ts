@@ -10,7 +10,9 @@ const cq = {
 	shortName: 'CQ',
 	assignTo: 'personnel' as const,
 	color: '#57534d',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same' as const,
+	excusals: [],
 	showOnCalendar: true,
 	sortOrder: 0
 };

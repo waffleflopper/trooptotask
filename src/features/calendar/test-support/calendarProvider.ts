@@ -59,7 +59,7 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 				let selected = (state.unstablePages && operation.offset > 0 ? rows[table].toReversed() : rows[table]).filter(
 					(row) => {
 						for (const [column, filter] of url.searchParams) {
-							if (['select', 'order', 'offset', 'limit', 'columns'].includes(column)) continue;
+							if (['select', 'order', 'offset', 'limit', 'columns'].includes(column) || column.includes('.')) continue;
 							if (filter.startsWith('eq.')) {
 								if (String(row[column]) !== filter.slice(3)) return false;
 							} else if (filter.startsWith('in.(')) {
@@ -116,11 +116,18 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 						operation.offset + Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000)
 					);
 				const projection = url.searchParams.get('select');
-				const result = selected.map((row) =>
-					!projection || projection === '*'
-						? row
-						: Object.fromEntries(projection.split(',').map((column) => [column.trim(), row[column.trim()]]))
-				);
+				const embedFilters = [...url.searchParams].filter(([column, filter]) => {
+					if (!column.includes('.')) return false;
+					if (filter !== 'is.null') throw new Error('Unexpected Calendar embed predicate');
+					return true;
+				});
+				const result = selected
+					.map((row) => withEmbedsFiltered(row, embedFilters))
+					.map((row) =>
+						!projection || projection === '*'
+							? row
+							: Object.fromEntries(projectedColumns(projection).map((column) => [column, row[column]]))
+					);
 				if (request.headers.get('accept')?.includes('application/vnd.pgrst.object+json')) {
 					if (result.length !== 1)
 						return Response.json({ code: 'PGRST116', message: 'Expected one row' }, { status: 406 });
@@ -133,4 +140,23 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 		}
 	});
 	return { client, state };
+}
+
+/** Top-level column names. An embed such as `roster_excusals(personnel_id,reason)` returns its seeded rows whole. */
+function projectedColumns(projection: string): string[] {
+	return projection
+		.replace(/\([^)]*\)/g, '')
+		.split(',')
+		.map((column) => column.trim());
+}
+
+/** `embed.column=is.null` keeps the parent row and drops only the embedded rows that have a value. */
+function withEmbedsFiltered(row: Row, filters: [string, string][]): Row {
+	const filtered = { ...row };
+	for (const [path] of filters) {
+		const [embed, column] = path.split('.');
+		if (Array.isArray(filtered[embed]))
+			filtered[embed] = filtered[embed].filter((child: Row) => child[column] === null || child[column] === undefined);
+	}
+	return filtered;
 }

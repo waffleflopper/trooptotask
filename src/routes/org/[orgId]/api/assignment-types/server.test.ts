@@ -30,11 +30,12 @@ describe('assignment-type route', () => {
 				assign_to: 'personnel',
 				color: '#111111',
 				sort_order: 4,
-				exempt_personnel_ids: ['person-1']
+				roster_pool_rules: null,
+				roster_weekend_mode: 'none'
 			}
 		]);
 		const updated = await handleUseCaseRequest(_putConfig, ctx, { id: ID, name: 'New' }, () => ctx);
-		expect(updated).toMatchObject({ id: ID, name: 'New', sortOrder: 4, exemptPersonnelIds: ['person-1'] });
+		expect(updated).toMatchObject({ id: ID, name: 'New', sortOrder: 4, weekendMode: 'none' });
 		expect(await handleUseCaseRequest(_deleteConfig, ctx, { id: ID }, () => ctx)).toEqual({ success: true });
 		expect(await ctx.store.findOne('assignment_types', ctx.auth.orgId, { id: ID })).toBeNull();
 		expect(notifyAdmins).toHaveBeenCalledOnce();
@@ -76,7 +77,8 @@ describe('assignment-type route', () => {
 				color: '#111111',
 				sort_order: 0,
 				show_on_calendar: true,
-				exempt_personnel_ids: []
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same'
 			}
 		]);
 		expect(await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).toEqual([

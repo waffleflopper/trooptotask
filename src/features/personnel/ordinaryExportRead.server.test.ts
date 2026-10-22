@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabasePersonnelExportReader, type PersonnelExportTable } from './ordinaryExportRead.server';
+import { createShiftingPostgrestClient } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -133,6 +134,30 @@ function provider(table: PersonnelExportTable, saved: Row, selfOwned: boolean) {
 }
 
 describe('Personnel ordinary Organization export reads', () => {
+	it('retains dated attribute history with composite keys across shifting pages and excludes foreign rows', async () => {
+		const owned = ['person-a', 'person-b'].flatMap((personnel_id) =>
+			Array.from({ length: 501 }, (_, day) => ({
+				organization_id: ORG,
+				personnel_id,
+				effective_on: new Date(Date.UTC(2024, 0, day + 1)).toISOString().slice(0, 10),
+				rank: 'SSG',
+				mos: '68V',
+				clinic_role: 'Therapist',
+				group_id: null,
+				archived: true
+			}))
+		);
+		const client = createShiftingPostgrestClient({
+			personnel_attribute_history: [
+				...owned.toReversed(),
+				{ ...owned[0], organization_id: 'org-b', personnel_id: 'foreign-person' }
+			]
+		});
+		expect(await createSupabasePersonnelExportReader(client, ORG).listRows('personnel_attribute_history')).toEqual(
+			owned
+		);
+	});
+
 	it.each(cases)(
 		'retains all saved $table fields and pages without foreign rows',
 		async ({ table, saved, selfOwned }) => {

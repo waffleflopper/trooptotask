@@ -41,6 +41,7 @@ export function createOrganizationDataExportReads(
 		betaFeedback: () => ctx.feedbackExport.listRows(orgId),
 		groups: () => archiveReaders.personnel.listRows('groups'),
 		personnel: () => archiveReaders.personnel.listRows('personnel'),
+		personnelAttributeHistory: () => archiveReaders.personnel.listRows('personnel_attribute_history'),
 		personnelExtendedInfo: async () => {
 			const rows = await personnelOrganizationExport.listRows(auth, 'personnel_extended_info');
 			return ctx.disabledFeatures.includes('lossesAndAwards')
@@ -57,6 +58,9 @@ export function createOrganizationDataExportReads(
 		assignmentTypes: () => archiveReaders.calendar.listRows('assignment_types'),
 		dailyAssignments: () => archiveReaders.calendar.listRows('daily_assignments'),
 		specialDays: () => archiveReaders.calendar.listRows('special_days'),
+		rosterForms: () => archiveReaders.calendar.listRows('roster_forms'),
+		rosterStartingNumbers: () => archiveReaders.calendar.listRows('roster_starting_numbers'),
+		rosterExcusals: () => archiveReaders.calendar.listRows('roster_excusals'),
 		trainingTypes: () => archiveReaders.training.listRows('training_types'),
 		personnelTrainings: () => archiveReaders.training.listRows('personnel_trainings'),
 		personnelTrainingHistory: () => archiveReaders.training.listRows('personnel_training_history'),

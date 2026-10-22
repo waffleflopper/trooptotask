@@ -175,7 +175,9 @@ describe('Calendar', () => {
 					shortName: 'MOD',
 					assignTo: 'personnel',
 					color: '#dc2626',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same',
+					excusals: [],
 					showOnCalendar: false,
 					sortOrder: 0
 				}
@@ -432,7 +434,9 @@ describe('Calendar lanes', () => {
 		shortName: 'SD',
 		assignTo: 'personnel',
 		color: '#b91c1c',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0
 	};

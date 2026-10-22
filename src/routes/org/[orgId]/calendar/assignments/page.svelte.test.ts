@@ -26,7 +26,9 @@ it('loads the visible month for the shell Organization from a streamed, differen
 				shortName: 'SD',
 				assignTo: 'personnel',
 				color: '#2563eb',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			}

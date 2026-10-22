@@ -38,7 +38,8 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 			assign_to: 'personnel',
 			color: '#ef4444',
 			sort_order: 0,
-			exempt_personnel_ids: null
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same'
 		}
 	]);
 	store.seed('daily_assignments', [

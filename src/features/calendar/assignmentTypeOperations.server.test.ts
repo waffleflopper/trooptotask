@@ -28,7 +28,8 @@ function seedTypes(ctx: ReturnType<typeof createWriteWithNotificationsPortsConte
 		color: '#dc2626',
 		sort_order: lane ?? 5,
 		show_on_calendar: lane !== null,
-		exempt_personnel_ids: [],
+		roster_pool_rules: null,
+		roster_weekend_mode: 'same',
 		archived_at: null
 	});
 	ctx.store.seed('assignment_types', [type(ID, 'Staff', 0), type(OTHER, 'Group', null)]);
@@ -56,10 +57,22 @@ describe('Calendar assignment-type operations', () => {
 			color: '#dc2626',
 			sort_order: 3,
 			show_on_calendar: false,
-			exempt_personnel_ids: ['person-1'],
+			roster_pool_rules: null,
+			roster_weekend_mode: 'separate',
 			archived_at: '2026-08-01T00:00:00Z'
 		};
 		ctx.store.seed('assignment_types', [original]);
+		ctx.store.seed('roster_excusals', [
+			{
+				id: 'excusal',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: ID,
+				personnel_id: 'person-1',
+				reason: 'First sergeant',
+				starts_on: '2026-07-01',
+				ends_on: null
+			}
+		]);
 		ctx.store.seed('daily_assignments', [
 			{ id: 'saved', organization_id: ctx.auth.orgId, assignment_type_id: ID, assignee_id: 'person-2' }
 		]);
@@ -71,7 +84,8 @@ describe('Calendar assignment-type operations', () => {
 			name: 'Staff Duty Night',
 			shortName: 'SD',
 			sortOrder: 3,
-			exemptPersonnelIds: ['person-1'],
+			weekendMode: 'separate',
+			excusals: [{ personId: 'person-1', reason: 'First sergeant', startsOn: '2026-07-01' }],
 			archivedAt: '2026-08-01T00:00:00Z'
 		});
 		expect(await ctx.store.findOne('daily_assignments', ctx.auth.orgId, { id: 'saved' })).toMatchObject({
@@ -138,7 +152,8 @@ describe('Calendar assignment-type operations', () => {
 				color: '#dc2626',
 				sort_order: index,
 				show_on_calendar: true,
-				exempt_personnel_ids: [],
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same',
 				archived_at: null
 			}))
 		);

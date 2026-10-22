@@ -14,7 +14,9 @@ function type(id: string, name: string, showOnCalendar: boolean, sortOrder: numb
 		shortName: id.toUpperCase(),
 		assignTo: 'personnel',
 		color: '#b91c1c',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar,
 		sortOrder
 	};
@@ -75,7 +77,7 @@ it('keeps a held lane change across a Settings tab switch and saves the moves ma
 			return Response.json({ success: true });
 		})
 	);
-	render(CalendarSettingsPage, { props: { org } });
+	render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 	await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
 
 	await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder Staff Duty' }), { key: 'ArrowDown' });

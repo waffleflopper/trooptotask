@@ -45,7 +45,9 @@ const chargeOfQuarters: AssignmentType = {
 	shortName: 'CQ',
 	assignTo: 'personnel',
 	color: '#2563eb',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [],
 	showOnCalendar: false,
 	sortOrder: 0
 };

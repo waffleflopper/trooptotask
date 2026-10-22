@@ -11,6 +11,7 @@ import {
 	calendarLanesInput
 } from './calendarPersistenceMapping.server';
 import { issueMessage } from '$lib/utils/inputSchemas';
+import { endRoster, type RosterSettingsPorts } from './rosterSettingsOperations.server';
 
 const action = CALENDAR_POLICY_ACTIONS.configureAssignmentTypes;
 const resource = { kind: 'organization' } as const;
@@ -28,11 +29,13 @@ export async function createAssignmentType(ctx: CalendarCatalogPorts, input: Rec
 	return row;
 }
 
-export async function updateAssignmentType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
+/** A switch to Group closes the type's open DA 6 form on the editor's `today` first. */
+export async function updateAssignmentType(ctx: RosterSettingsPorts, input: Record<string, unknown>) {
 	const parsed = assignmentTypeUpdateInput.safeParse(input);
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
-	const { id, ...patch } = parsed.data;
+	const { id, today, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
+	if (patch.assignTo === 'group') await endRoster(ctx, id, today);
 	const row = await ctx.calendarCatalogs.updateAssignmentType(id, patch);
 	if (!row) throw error(404, 'That assignment type is no longer available.');
 	ctx.audit.log({ action: 'assignment_type.updated', resourceType: 'assignment_type', resourceId: id });

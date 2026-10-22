@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import CalendarAssignmentSettingsSection from './CalendarAssignmentSettingsSection.svelte';
 import type { AssignmentType } from '$features/calendar/contracts';
-import type { Personnel } from '$features/personnel/contracts';
+import { BUILT_IN_RANK_CATALOG, type Personnel, type RankCatalogEntry } from '$features/personnel/contracts';
 import { buildRequestError } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 
@@ -16,13 +16,14 @@ const { store, roster } = vi.hoisted(() => ({
 		addType: vi.fn(),
 		updateType: vi.fn(),
 		removeType: vi.fn(),
-		setCalendarLanes: vi.fn()
+		setCalendarLanes: vi.fn(),
+		saveRosterSettings: vi.fn()
 	},
 	roster: { items: [] as Personnel[] }
 }));
 
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({ dailyAssignmentsStore: store }));
-vi.mock('$features/personnel', () => ({ rosterStore: roster }));
+vi.mock('$features/personnel', () => ({ rosterStore: roster, groupsStore: { items: [] } }));
 
 function type(id: string, name: string, overrides: Partial<AssignmentType> = {}): AssignmentType {
 	return {
@@ -31,7 +32,9 @@ function type(id: string, name: string, overrides: Partial<AssignmentType> = {})
 		shortName: name.slice(0, 2).toUpperCase(),
 		assignTo: 'personnel',
 		color: '#b91c1c',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: false,
 		sortOrder: 0,
 		...overrides
@@ -44,8 +47,11 @@ function person(id: string, rank: string, lastName: string, firstName: string): 
 
 const lane = (id: string, name: string, sortOrder: number) => type(id, name, { showOnCalendar: true, sortOrder });
 
-function renderSection(searchQuery = '') {
-	return render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery } });
+function renderSection(
+	searchQuery = '',
+	rankCatalog: Promise<readonly RankCatalogEntry[]> = Promise.resolve(BUILT_IN_RANK_CATALOG)
+) {
+	return render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery, rankCatalog } });
 }
 
 const ON_CALENDAR = /^On the calendar/;
@@ -78,6 +84,7 @@ beforeEach(() => {
 	store.updateType.mockReset().mockResolvedValue(true);
 	store.removeType.mockReset().mockResolvedValue(true);
 	store.setCalendarLanes.mockReset().mockResolvedValue({ status: 'saved' });
+	store.saveRosterSettings.mockReset().mockImplementation(async (id: string) => store.types.find((t) => t.id === id));
 	roster.items = [person('p-pike', 'SGT', 'Pike', 'Dana'), person('p-kim', 'SPC', 'Kim', 'Jae-won')];
 });
 
@@ -147,7 +154,11 @@ describe('CalendarAssignmentSettingsSection', () => {
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
 		await waitFor(() =>
-			expect(store.updateType).toHaveBeenCalledWith('runner', expect.objectContaining({ name: 'Runner (Day)' }))
+			expect(store.updateType).toHaveBeenCalledWith(
+				'runner',
+				expect.objectContaining({ name: 'Runner (Day)' }),
+				expect.any(String)
+			)
 		);
 		expect(store.setCalendarLanes).not.toHaveBeenCalled();
 		detailsSaved(true);
@@ -269,23 +280,167 @@ describe('CalendarAssignmentSettingsSection', () => {
 		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBe(dialog);
 	});
 
-	it('adds and removes exempt people, keeping an unknown person until removed', async () => {
-		store.types = [type('sd', 'Staff Duty', { exemptPersonnelIds: ['p-gone'] })];
+	it('keeps an excusal out until it has a reason, and saves it without starting a new form', async () => {
 		renderSection();
-
-		await openRowMenu('Staff Duty', 'Edit');
+		await openRowMenu('Runner', 'Edit');
 		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
-		expect(within(dialog).getByRole('button', { name: 'Remove Unknown person' })).toBeTruthy();
-		const input = within(dialog).getByRole('combobox', { name: 'Exempt from this duty' });
-		input.focus();
-		await screen.findByRole('listbox');
-		await fireEvent.click(screen.getByRole('option', { name: 'SGT Pike, Dana' }));
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove Unknown person' }));
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Excuse someone' }));
+		const excuse = await screen.findByRole('dialog', { name: 'Excuse someone' });
+		await fireEvent.click(within(excuse).getByRole('button', { name: 'Person to excuse' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Pike, Dana' }));
+		await fireEvent.click(within(excuse).getByRole('button', { name: 'Excuse' }));
+		expect(within(excuse).getByLabelText('Reason').getAttribute('aria-invalid')).toBe('true');
+		expect(within(dialog).queryByRole('button', { name: 'Reinstate SGT Pike' })).toBeNull();
+
+		await fireEvent.input(within(excuse).getByLabelText('Reason'), { target: { value: '  First sergeant ' } });
+		await fireEvent.click(within(excuse).getByRole('button', { name: 'Excuse' }));
+		expect(within(dialog).getByRole('button', { name: 'Reinstate SGT Pike' })).toBeTruthy();
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
 		await waitFor(() =>
-			expect(store.updateType).toHaveBeenCalledWith('sd', expect.objectContaining({ exemptPersonnelIds: ['p-pike'] }))
+			expect(store.saveRosterSettings).toHaveBeenCalledWith(
+				'runner',
+				expect.objectContaining({ poolRules: null, excusals: [{ personId: 'p-pike', reason: 'First sergeant' }] })
+			)
 		);
-		expect(store.setCalendarLanes).not.toHaveBeenCalled();
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+	});
+
+	it('counts the people a rank range matches, minus anyone excused', async () => {
+		roster.items = [
+			person('p-pike', 'SGT', 'Pike', 'Dana'),
+			person('p-kim', 'SPC', 'Kim', 'Jae-won'),
+			person('p-ruiz', 'PFC', 'Ruiz', 'Ana'),
+			person('p-ward', 'SSG', 'Ward', 'Lee')
+		];
+		store.types = [
+			type('runner', 'Runner', { excusals: [{ personId: 'p-kim', reason: 'Profile', startsOn: '2026-01-01' }] })
+		];
+		renderSection();
+		await openRowMenu('Runner', 'Edit');
+		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+
+		await fireEvent.click(await within(dialog).findByRole('radio', { name: 'Only people who match' }));
+		await fireEvent.change(within(dialog).getByRole('combobox', { name: 'From rank' }), { target: { value: 'SGT' } });
+		await fireEvent.change(within(dialog).getByRole('combobox', { name: 'Through rank' }), {
+			target: { value: 'PFC' }
+		});
+
+		expect(within(dialog).getByRole('status').textContent).toMatch(/^\s*2\s+people on this roster/);
+	});
+
+	describe('a rule change on a saved roster', () => {
+		beforeEach(() => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date(2026, 9, 17, 12));
+		});
+		afterEach(() => vi.useRealTimers());
+
+		it('asks before starting a new DA 6 the day after Save is pressed, and saves only once confirmed', async () => {
+			renderSection();
+			await openRowMenu('Runner', 'Edit');
+			const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+
+			await fireEvent.click(within(dialog).getByRole('radio', { name: 'Separate count' }));
+			vi.setSystemTime(new Date(2026, 9, 18, 0, 5));
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+			const confirm = await screen.findByRole('alertdialog', { name: 'Start a new DA 6?' });
+			expect(confirm.textContent).toContain('19 Oct');
+			expect(store.saveRosterSettings).not.toHaveBeenCalled();
+
+			await fireEvent.click(within(confirm).getByRole('button', { name: 'Save changes' }));
+			await waitFor(() =>
+				expect(store.saveRosterSettings).toHaveBeenCalledWith(
+					'runner',
+					expect.objectContaining({ weekendMode: 'separate', today: '2026-10-18' })
+				)
+			);
+		});
+
+		it('closes the DA 6 on the day Save is pressed when the type becomes a Group assignment', async () => {
+			renderSection();
+			await openRowMenu('Runner', 'Edit');
+			const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+
+			await fireEvent.click(within(dialog).getByRole('radio', { name: 'Group' }));
+			vi.setSystemTime(new Date(2026, 9, 18, 0, 5));
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+
+			await waitFor(() =>
+				expect(store.updateType).toHaveBeenCalledWith(
+					'runner',
+					expect.objectContaining({ assignTo: 'group' }),
+					'2026-10-18'
+				)
+			);
+		});
+	});
+
+	describe('while the rank catalog', () => {
+		async function openRunner(rankCatalog: Promise<readonly RankCatalogEntry[]>) {
+			renderSection('', rankCatalog);
+			await openRowMenu('Runner', 'Edit');
+			return screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+		}
+
+		it('loads, holds the rules editor behind a placeholder', async () => {
+			const dialog = await openRunner(new Promise<readonly RankCatalogEntry[]>(() => {}));
+
+			expect(within(dialog).getByRole('status')).toBeTruthy();
+			expect(within(dialog).queryByRole('radio', { name: 'Only people who match' })).toBeNull();
+			expect(within(dialog).getByRole('button', { name: 'Excuse someone' })).toBeTruthy();
+		});
+
+		it('fails, explains it, locks roster rules and weekends, and still saves an excusal', async () => {
+			const dialog = await openRunner(Promise.reject(new Error('rank catalog unavailable')));
+
+			expect((await within(dialog).findByRole('alert')).textContent?.replace(/\s+/g, ' ')).toContain(
+				"roster rules, weekends and switching to Group can't change right now. Excusals still save."
+			);
+			expect((within(dialog).getByRole('radio', { name: 'Group' }) as HTMLButtonElement).disabled).toBe(true);
+			expect(within(dialog).queryByRole('radio', { name: 'Only people who match' })).toBeNull();
+			for (const name of ['Same count', 'Separate count', 'No duty'])
+				expect((within(dialog).getByRole('radio', { name }) as HTMLButtonElement).disabled).toBe(true);
+
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Excuse someone' }));
+			const excuse = await screen.findByRole('dialog', { name: 'Excuse someone' });
+			await fireEvent.click(within(excuse).getByRole('button', { name: 'Person to excuse' }));
+			await fireEvent.click(await screen.findByRole('option', { name: 'SGT Pike, Dana' }));
+			await fireEvent.input(within(excuse).getByLabelText('Reason'), { target: { value: 'First sergeant' } });
+			await fireEvent.click(within(excuse).getByRole('button', { name: 'Excuse' }));
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+
+			await waitFor(() =>
+				expect(store.saveRosterSettings).toHaveBeenCalledWith(
+					'runner',
+					expect.objectContaining({
+						poolRules: null,
+						weekendMode: 'same',
+						excusals: [{ personId: 'p-pike', reason: 'First sergeant' }]
+					})
+				)
+			);
+			expect(screen.queryByRole('alertdialog')).toBeNull();
+		});
+	});
+
+	it('leaves the Group choice open for a new type while the rank catalog failed', async () => {
+		const view = renderSection('', Promise.reject(new Error('rank catalog unavailable')));
+		view.component.openAddDialog();
+		const dialog = await screen.findByRole('dialog', { name: 'Add Assignment Type' });
+
+		await within(dialog).findByRole('alert');
+		expect((within(dialog).getByRole('radio', { name: 'Group' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('shows no duty roster for a group assignment', async () => {
+		store.types = [type('bay', 'Bay Cleanup', { assignTo: 'group' })];
+		renderSection();
+		await openRowMenu('Bay Cleanup', 'Edit');
+		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+
+		expect(within(dialog).queryByRole('region', { name: 'Duty roster' })).toBeNull();
+		expect(within(dialog).queryByRole('button', { name: 'Excuse someone' })).toBeNull();
 	});
 });

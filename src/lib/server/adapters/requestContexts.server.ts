@@ -574,6 +574,17 @@ export function createRequestDailyAssignmentContext(request: AdmittedOrganizatio
 	};
 }
 
+export function createRequestRosterSettingsContext(request: AdmittedOrganizationRequest) {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
+	return {
+		...createRequestAvailabilityContext(request),
+		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
+		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
+		loadRankCatalog: () =>
+			loadOrganizationRankCatalog({ auth: request.auth, rankCatalog }, { authorization: 'calendar-view' })
+	};
+}
+
 export function createRequestAvailabilityRemovalContext(request: AdmittedOrganizationRequest) {
 	return {
 		auth: request.auth,

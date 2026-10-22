@@ -33,7 +33,7 @@ import {
 	createInMemoryGroupPersistence,
 	createInMemorySelfPinPersistence
 } from '$features/personnel/inMemoryPersonnelPersistence.server';
-import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import { loadOrganizationRankCatalog, toAttributeTimeline } from '$features/personnel/index.server';
 import type { createRequestOrganizationExportContext } from './requestContexts.server';
 
 import type { FixtureRowStore, FixtureFindOptions, FixtureFindResult } from './test-support/inMemoryRows.types';
@@ -276,7 +276,12 @@ function createTestCalendarPersistence(
 				updateSpecialDay: unavailableCalendarPersistence,
 				deleteSpecialDay: unavailableCalendarPersistence,
 				resetFederalHolidays: unavailableCalendarPersistence,
-				setCalendarLanes: unavailableCalendarPersistence
+				setCalendarLanes: unavailableCalendarPersistence,
+				findOpenRosterForm: unavailableCalendarPersistence,
+				listRosterExcusals: unavailableCalendarPersistence,
+				setRosterExcusals: unavailableCalendarPersistence,
+				closeRosterForm: unavailableCalendarPersistence,
+				endRosterForm: unavailableCalendarPersistence
 			} satisfies CalendarCatalogPersistence),
 		calendarAvailability:
 			options?.calendarAvailabilityFactory?.(
@@ -300,6 +305,7 @@ function createTestCalendarPersistence(
 			({
 				listRange: unavailableCalendarPersistence,
 				listDayReferences: unavailableCalendarPersistence,
+				listRosterDetailDays: unavailableCalendarPersistence,
 				listSlotReferences: unavailableCalendarPersistence
 			} satisfies CalendarAssignmentReader)
 	};
@@ -1190,6 +1196,12 @@ function createInMemoryPersonnelCalendarRosterPort(rawStore: FixtureRowStore): P
 	return {
 		async listActive(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
+		},
+		async listAttributeTimelines(actor) {
+			const history = await rawStore.findMany<Row>('personnel_attribute_history', actor.orgId);
+			return (await inMemoryPersonnelRows(rawStore, actor, 'all')).map((row) =>
+				toAttributeTimeline({ ...row, history: history.filter((entry) => entry.personnel_id === row.id) })
+			);
 		},
 		async listAssigneeIds(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'all')).map((row) => row.id as string);

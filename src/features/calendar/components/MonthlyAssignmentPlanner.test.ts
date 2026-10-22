@@ -11,7 +11,9 @@ const staffDuty: AssignmentType = {
 	shortName: 'SD',
 	assignTo: 'personnel',
 	color: '#2563eb',
-	exemptPersonnelIds: ['p-hale'],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [{ personId: 'p-hale', reason: 'Excused', startsOn: '2026-01-01' }],
 	showOnCalendar: true,
 	sortOrder: 1
 };
@@ -249,7 +251,9 @@ describe('MonthlyAssignmentPlanner fairness panel', () => {
 		name: 'Group Duty',
 		shortName: 'GD',
 		assignTo: 'group',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		sortOrder: 2
 	};
 
@@ -368,7 +372,18 @@ describe('MonthlyAssignmentPlanner fairness panel', () => {
 	});
 
 	it('says so when no one is eligible for the duty', () => {
-		renderPlanner({ assignmentTypes: [{ ...staffDuty, exemptPersonnelIds: ['p-kim', 'p-okafor', 'p-hale'] }] });
+		renderPlanner({
+			assignmentTypes: [
+				{
+					...staffDuty,
+					excusals: [
+						{ personId: 'p-kim', reason: 'Excused', startsOn: '2026-01-01' },
+						{ personId: 'p-okafor', reason: 'Excused', startsOn: '2026-01-01' },
+						{ personId: 'p-hale', reason: 'Excused', startsOn: '2026-01-01' }
+					]
+				}
+			]
+		});
 
 		expect(screen.getByText('No one is eligible for this duty.')).toBeTruthy();
 		expect(screen.queryByRole('table', { name: 'Staff Duty fairness' })).toBeNull();

@@ -227,7 +227,9 @@ describe('report columns follow the catalog order', () => {
 			shortName: id,
 			assignTo: 'personnel',
 			color: '#2563eb',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		}));

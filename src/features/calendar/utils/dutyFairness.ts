@@ -121,7 +121,7 @@ function relativeDay(daysAgo: number): string {
 
 function exemptNote(type: AssignmentType, personnel: readonly Personnel[]): string | null {
 	if (type.assignTo === 'group') return null;
-	const exempt = new Set(type.exemptPersonnelIds);
+	const exempt = new Set(type.excusals.map(({ personId }) => personId));
 	const names = personnel
 		.filter((person) => exempt.has(person.id))
 		.map((person) => `${person.rank} ${person.lastName}`);

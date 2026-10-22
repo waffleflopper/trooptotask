@@ -29,8 +29,9 @@ SELECT 'status_types'::text AS table_name, id AS row_id, to_jsonb(row_value) - '
   FROM public.status_types AS row_value
   WHERE id IN ('e5000000-0000-4000-8000-000000000401', 'e5000000-0000-4000-8000-000000000402')
 UNION ALL
--- The later Calendar lanes upgrade renames the date-header column.
-SELECT 'assignment_types', id, to_jsonb(row_value) - 'show_on_calendar'
+-- The later Calendar lanes upgrade renames the date-header column. The later
+-- duty roster upgrade replaces exemptions with excusals and adds roster rules.
+SELECT 'assignment_types', id, to_jsonb(row_value) - 'show_on_calendar' - 'roster_pool_rules' - 'roster_weekend_mode'
   || jsonb_build_object('show_in_date_header', row_value.show_on_calendar) FROM public.assignment_types AS row_value
   WHERE id = 'e5000000-0000-4000-8000-000000000501'
 UNION ALL
@@ -43,7 +44,8 @@ SELECT is((SELECT count(*)::integer FROM calendar_catalog_current_rows), 6,
   'all historical catalog and availability rows remain');
 SELECT results_eq(
   $$ SELECT table_name, row_id, row_data FROM calendar_catalog_current_rows ORDER BY table_name, row_id $$,
-  $$ SELECT table_name, row_id, row_data FROM upgrade_fixture.calendar_catalog_before_rows ORDER BY table_name, row_id $$,
+  $$ SELECT table_name, row_id, row_data - 'exempt_personnel_ids' FROM upgrade_fixture.calendar_catalog_before_rows
+     ORDER BY table_name, row_id $$,
   'upgrade preserves exact catalog and availability identities and values');
 SELECT is((SELECT count(*)::integer FROM public.availability_entries a
            JOIN public.status_types s ON s.id = a.status_type_id

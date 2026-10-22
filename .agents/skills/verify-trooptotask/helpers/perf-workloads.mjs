@@ -368,7 +368,6 @@ export function expandWorkload(name, { anchor, owner, scoped, scopedLeader, memb
 				assign_to: assignTo,
 				color: palette[index],
 				sort_order: index,
-				exempt_personnel_ids: [],
 				show_on_calendar: index < shape.calendarLanes
 			})
 		);

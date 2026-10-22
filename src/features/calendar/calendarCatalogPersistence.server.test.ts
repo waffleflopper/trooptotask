@@ -28,7 +28,8 @@ describe('Calendar ordinary catalog persistence', () => {
 				short_name: id,
 				assign_to: 'personnel',
 				show_on_calendar: false,
-				exempt_personnel_ids: []
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same'
 			}))
 		});
 		state.unstablePages = true;
@@ -51,7 +52,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			created_at: TIME,
 			private_column: 'discard'
 		}));
-		const { client } = calendarProvider({
+		const { client, state } = calendarProvider({
 			status_types: [...statuses, { ...statuses[0], id: 'foreign', organization_id: 'org-b' }],
 			assignment_types: [
 				{
@@ -63,7 +64,12 @@ describe('Calendar ordinary catalog persistence', () => {
 					color: '#456789',
 					sort_order: 2,
 					show_on_calendar: false,
-					exempt_personnel_ids: null,
+					roster_pool_rules: null,
+					roster_weekend_mode: 'separate',
+					roster_excusals: [
+						{ personnel_id: 'p-1', reason: 'First sergeant', starts_on: '2026-01-01', ends_on: null },
+						{ personnel_id: 'p-2', reason: 'Reinstated', starts_on: '2026-01-01', ends_on: '2026-02-01' }
+					],
 					archived_at: '2026-01-01',
 					created_at: TIME
 				}
@@ -105,11 +111,18 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#456789',
 				showOnCalendar: false,
 				sortOrder: 2,
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'separate',
+				excusals: [{ personId: 'p-1', reason: 'First sergeant', startsOn: '2026-01-01' }],
 				archivedAt: '2026-01-01',
 				created_at: TIME
 			}
 		]);
+		expect(
+			state.requests
+				.filter(({ table }) => table === 'assignment_types')
+				.map(({ url }) => url.searchParams.get('roster_excusals.ends_on'))
+		).toEqual(['is.null']);
 	});
 
 	it('retains returned null sort order and omission without inventing saved metadata', async () => {
@@ -159,7 +172,8 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#b91c1c',
 			sort_order: 7,
 			show_on_calendar: true,
-			exempt_personnel_ids: []
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same'
 		};
 		const savedStatus = (id: string, organization_id: string, sort_order: number) => ({
 			id,
@@ -214,9 +228,11 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			showOnCalendar: false,
 			sortOrder: 0,
-			exemptPersonnelIds: []
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: []
 		});
-		const edit = { assignTo: 'group' as const, exemptPersonnelIds: ['person-a'], showOnCalendar: false, sortOrder: 2 };
+		const edit = { assignTo: 'group' as const, showOnCalendar: false, sortOrder: 2, weekendMode: 'none' };
 		expect(await port.updateAssignmentType('shown-1', edit)).toEqual({
 			id: 'shown-1',
 			organization_id: ORG,
@@ -227,7 +243,9 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#b91c1c',
 			showOnCalendar: true,
 			sortOrder: 7,
-			exemptPersonnelIds: ['person-a']
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: []
 		});
 		expect(state.rows.status_types).toEqual([
 			...existingStatuses,
@@ -253,7 +271,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			}
 		]);
 		expect(state.rows.assignment_types).toEqual([
-			{ ...shownLane, assign_to: 'group', exempt_personnel_ids: ['person-a'] },
+			{ ...shownLane, assign_to: 'group' },
 			{
 				id: 'saved-3',
 				organization_id: ORG,
@@ -264,7 +282,8 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				sort_order: 0,
 				show_on_calendar: false,
-				exempt_personnel_ids: []
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same'
 			}
 		]);
 		const statusPatches = state.requests.filter(({ table, method }) => table === 'status_types' && method === 'PATCH');
@@ -274,6 +293,13 @@ describe('Calendar ordinary catalog persistence', () => {
 			expect(body).not.toHaveProperty('sort_order');
 			expect(body).not.toHaveProperty('show_on_calendar');
 		}
+		// Roster rules change only when a DA 6 form closes, so a details edit never writes them.
+		const typePatches = state.requests.filter(
+			({ table, method }) => table === 'assignment_types' && method === 'PATCH'
+		);
+		expect(typePatches).toHaveLength(1);
+		expect(typePatches[0].body).not.toHaveProperty('roster_weekend_mode');
+		expect(typePatches[0].body).not.toHaveProperty('roster_pool_rules');
 		await expect(
 			createSupabaseCalendarCatalogPersistence(client, 'org-b').updateStatusType('saved-1', { name: 'Hidden' })
 		).resolves.toBeNull();

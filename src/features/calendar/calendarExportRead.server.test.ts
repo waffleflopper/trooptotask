@@ -32,7 +32,8 @@ const cases = [
 			name: 'Historic',
 			short_name: null,
 			assign_to: 'group',
-			exempt_personnel_ids: ['removed-person'],
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
 			archived_at: '2026-01-02T03:04:05.123456Z'
 		}
 	},
@@ -49,6 +50,28 @@ const cases = [
 	{
 		table: 'special_days',
 		saved: { name: null, date: '2020-01-01', type: 'legacy', notes: false, created_at: '2026-01-02T03:04:05.123456Z' }
+	},
+	{
+		table: 'roster_forms',
+		saved: {
+			assignment_type_id: 'retired-assignment',
+			starts_on: '2020-01-01',
+			ends_on: '2020-01-31',
+			rules: { weekendMode: 'separate', pool: null },
+			record: { counts: [{ personnel_id: 'archived-person', count: 7 }] },
+			created_at: '2020-01-01T03:04:05.123456Z'
+		}
+	},
+	{
+		table: 'roster_excusals',
+		saved: {
+			assignment_type_id: 'retired-assignment',
+			personnel_id: 'archived-person',
+			reason: 'Temporary duty',
+			starts_on: '2020-01-01',
+			ends_on: null,
+			created_at: '2020-01-01T03:04:05.123456Z'
+		}
 	}
 ] as const;
 
@@ -113,6 +136,28 @@ function provider(table: CalendarExportTable, saved: Row) {
 }
 
 describe('Calendar ordinary Organization archive reads', () => {
+	it('retains starting numbers with composite keys across shifting pages and excludes foreign rows', async () => {
+		const owned = ['form-a', 'form-b'].flatMap((form_id) =>
+			pagedIds(167, 'person').flatMap((personnel_id) =>
+				['all', 'weekday', 'weekend'].map((track) => ({
+					organization_id: ORG,
+					form_id,
+					personnel_id,
+					track,
+					count: 7,
+					origin: 'carried'
+				}))
+			)
+		);
+		const client = createShiftingPostgrestClient({
+			roster_starting_numbers: [
+				...owned.toReversed(),
+				{ ...owned[0], organization_id: 'org-b', form_id: 'foreign-form' }
+			]
+		});
+		expect(await createSupabaseCalendarExportReader(client, ORG).listRows('roster_starting_numbers')).toEqual(owned);
+	});
+
 	it.each(cases)(
 		'retains saved $table rows in id order across pages and excludes a foreign Organization',
 		async ({ table, saved }) => {

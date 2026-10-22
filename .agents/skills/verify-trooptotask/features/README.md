@@ -137,7 +137,7 @@ means the workspace reloaded.
 - [Availability status](availability-status.md): status entry lifecycle and recovery.
 - [Calendar access](calendar-access.md): read scope and denied writes.
 - [Bulk status changes](bulk-status.md): bulk selection and import.
-- [Calendar catalogs](calendar-catalogs.md): status and assignment type settings.
+- [Calendar catalogs](calendar-catalogs.md): status and assignment type settings, including duty roster rules.
 - [Manual assignments](calendar-assignments.md): assignment planner and quick fill.
 - [Special days](special-days.md): holidays, closures and federal reset.
 - [Reports and history](reports-history.md): Calendar reports and workbooks.

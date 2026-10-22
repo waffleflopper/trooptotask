@@ -113,7 +113,9 @@ describe('CalendarSettingsPage', () => {
 			shortName: 'CA',
 			assignTo: 'personnel',
 			color: '#2563eb',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		});
@@ -141,7 +143,7 @@ describe('CalendarSettingsPage', () => {
 	it('preserves the restricted settings state for non-managers', () => {
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('view') };
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
@@ -154,7 +156,7 @@ describe('CalendarSettingsPage', () => {
 			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
 			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
 		];
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await layOut(2000);
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Calendar settings controls' });
@@ -177,14 +179,14 @@ describe('CalendarSettingsPage', () => {
 	it('allows Calendar configure capability', () => {
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		expect(screen.getByRole('tablist', { name: 'Calendar settings sections' })).toBeTruthy();
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
 	it('creates a status with no stored one-day label and closes the composer', async () => {
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const composer = screen.getByRole('form', { name: 'New status type' });
 		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: ' Quarters ' } });
@@ -200,7 +202,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('saves a typed one-day label in capitals with the chosen color and text', async () => {
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const composer = screen.getByRole('form', { name: 'New status type' });
 		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: 'Quarters' } });
@@ -220,7 +222,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.add.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const composer = screen.getByRole('form', { name: 'New status type' });
@@ -242,7 +244,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.updateOrThrow.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await openRowAction('Leave', 'Edit');
 		const composer = screen.getByRole('form', { name: 'Edit Leave' });
@@ -266,7 +268,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.items = [
 			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: 'LV', sortOrder: 0 }
 		];
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await openRowAction('Leave', 'Edit');
 		const composer = screen.getByRole('form', { name: 'Edit Leave' });
@@ -293,7 +295,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('keeps a single choice chosen when the chosen text or color is pressed again', async () => {
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const composer = screen.getByRole('form', { name: 'New status type' });
 
@@ -306,7 +308,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('never brings back a cancelled or discarded draft', async () => {
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		const nameField = () =>
 			within(screen.getByRole('form', { name: 'New status type' })).getByLabelText('Name') as HTMLInputElement;
 
@@ -332,7 +334,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.items = [
 			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
 		];
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await openRowAction('Leave', 'Edit');
 		await fireEvent.keyDown(within(screen.getByRole('form', { name: 'Edit Leave' })).getByLabelText('Name'), {
@@ -358,7 +360,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.items = [
 			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
 		];
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		await fireEvent.input(within(screen.getByRole('form', { name: 'New status type' })).getByLabelText('Name'), {
 			target: { value: 'Detail' }
@@ -388,7 +390,7 @@ describe('CalendarSettingsPage', () => {
 			{ id: 'school', name: 'School', color: '#4299e1', textColor: '#ffffff', shortLabel: 'SCH', sortOrder: 1 },
 			{ id: 'sick', name: 'Sick', color: '#e53e3e', textColor: '#ffffff', shortLabel: null, sortOrder: 2 }
 		];
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await layOut(2000);
 
 		await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder Leave' }), { key: 'ArrowDown' });
@@ -417,7 +419,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.remove.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await openRowAction('Leave', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
@@ -432,7 +434,7 @@ describe('CalendarSettingsPage', () => {
 		assignmentTypesStoreMock.addType.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
@@ -446,7 +448,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('keeps the assignment target chosen when the chosen target is pressed again', async () => {
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const dialog = screen.getByRole('dialog', { name: 'Add Assignment Type' });
@@ -464,14 +466,16 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#2563eb',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			}
 		];
 		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
 		await openRowAction('Charge of Quarters', 'Edit');
@@ -492,14 +496,16 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#2563eb',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			}
 		];
 		assignmentTypesStoreMock.removeType.mockResolvedValueOnce(false);
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
 		await openRowAction('Charge of Quarters', 'Delete');
@@ -512,7 +518,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('switches settings sections as tabs and shows only the chosen panel', async () => {
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		const closuresTab = screen.getByRole('tab', { name: /Holidays & closures/ });
 		await fireEvent.click(closuresTab);
@@ -531,7 +537,9 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#2563eb',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			},
@@ -541,13 +549,15 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'SD',
 				assignTo: 'group',
 				color: '#047857',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			}
 		];
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
 		expect(screen.getByRole('button', { name: 'More actions for Charge of Quarters' })).toBeTruthy();
@@ -563,7 +573,7 @@ describe('CalendarSettingsPage', () => {
 		beforeEach(onOctober14);
 
 		async function openComposer(name: string) {
-			render(CalendarSettingsPage, { props: { org } });
+			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 			await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 			await fireEvent.click(screen.getByRole('button', { name: 'New closure' }));
 			const composer = screen.getByRole('form', { name: 'New closure' });
@@ -603,7 +613,7 @@ describe('CalendarSettingsPage', () => {
 		});
 
 		it('returns focus to New closure after Cancel', async () => {
-			render(CalendarSettingsPage, { props: { org } });
+			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 			await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 			const add = screen.getByRole('button', { name: 'New closure' });
 			add.focus();
@@ -641,7 +651,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.remove.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 		await openRowAction('Training Day', 'Remove');
@@ -656,7 +666,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('not-saved');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
@@ -671,7 +681,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('saved-unrefreshed');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
@@ -690,7 +700,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce(result);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
@@ -704,7 +714,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('stale');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
@@ -724,7 +734,7 @@ describe('CalendarSettingsPage', () => {
 			}
 		];
 
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 
@@ -757,7 +767,7 @@ describe('CalendarSettingsPage', () => {
 			let settle!: (created: null) => void;
 			save().mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-			render(CalendarSettingsPage, { props: { org } });
+			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 			if (section) await fireEvent.click(screen.getByRole('tab', { name: section }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 			const dialog = screen.getByRole('dialog', { name: dialogName });
@@ -799,7 +809,7 @@ describe('CalendarSettingsPage', () => {
 		let settle!: (created: null) => void;
 		statusTypesStoreMock.add.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const composer = () => screen.getByRole('form', { name: 'New status type' });
 		const control = (name: string) =>
@@ -827,7 +837,7 @@ describe('CalendarSettingsPage', () => {
 		onOctober14();
 		let settle!: (result: { status: 'not-saved'; message: string }) => void;
 		specialDaysStoreMock.addClosureDays.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'New closure' }));
 		const composer = () => screen.getByRole('form', { name: 'New closure' });
@@ -865,7 +875,7 @@ describe('CalendarSettingsPage', () => {
 		];
 		let settle!: (deleted: boolean) => void;
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await openRowAction('Leave', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
@@ -889,7 +899,7 @@ describe('CalendarSettingsPage', () => {
 		let fail!: (error: Error) => void;
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		render(CalendarSettingsPage, { props: { org } });
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
 		await openRowAction('Leave', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });

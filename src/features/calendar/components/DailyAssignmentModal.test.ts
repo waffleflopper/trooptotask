@@ -15,7 +15,9 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 			shortName: 'CQ',
 			assignTo: 'personnel',
 			color: '#2563eb',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		}
@@ -70,7 +72,10 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 	});
 
 	it('omits exempt people from that duty unless they already hold it', async () => {
-		const exemptType = { ...assignmentTypes[0], exemptPersonnelIds: ['person-1'] };
+		const exemptType = {
+			...assignmentTypes[0],
+			excusals: [{ personId: 'person-1', reason: 'Excused', startsOn: '2026-01-01' }]
+		};
 		const props = {
 			date: new Date(2026, 3, 6),
 			assignmentTypes: [exemptType],
@@ -109,7 +114,9 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 						shortName: 'OLD',
 						assignTo: 'personnel',
 						color: '#6b7280',
-						exemptPersonnelIds: [],
+						poolRules: null,
+						weekendMode: 'same',
+						excusals: [],
 						showOnCalendar: false,
 						sortOrder: 0,
 						archivedAt: '2026-05-04T12:00:00.000Z'
@@ -140,7 +147,9 @@ it('shows Group names while submitting stable Group IDs, including after a renam
 				shortName: 'GD',
 				assignTo: 'group',
 				color: '#123456',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: true,
 				sortOrder: 0
 			}

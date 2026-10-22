@@ -170,7 +170,8 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				assign_to: 'group',
 				color: '#123456',
 				sort_order: 0,
-				exempt_personnel_ids: [],
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same',
 				show_on_calendar: false
 			}
 		]);
@@ -207,7 +208,8 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				assign_to: 'group',
 				color: '#123456',
 				sort_order: 0,
-				exempt_personnel_ids: [],
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same',
 				show_on_calendar: false
 			}
 		]);

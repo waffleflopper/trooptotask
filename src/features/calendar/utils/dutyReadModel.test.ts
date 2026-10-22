@@ -18,7 +18,9 @@ function type(id: string, overrides: Partial<AssignmentType> = {}): AssignmentTy
 		shortName: id,
 		assignTo: 'personnel',
 		color: '#000',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0,
 		...overrides
@@ -141,7 +143,10 @@ describe('findDutyConflicts', () => {
 				duty('c', '2026-10-05', 'p', 'cq'),
 				duty('a', '2026-10-02', 'p')
 			],
-			assignmentTypes: [type('sd', { exemptPersonnelIds: ['p'] }), type('cq')],
+			assignmentTypes: [
+				type('sd', { excusals: [{ personId: 'p', reason: 'Excused', startsOn: '2026-01-01' }] }),
+				type('cq')
+			],
 			availabilityByPerson: indexDutyAvailability([entry('leave-1', 'p', '2026-10-01', '2026-10-31')]),
 			range: october
 		});

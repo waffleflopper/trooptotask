@@ -118,6 +118,7 @@ type RankCatalogReadAuthorization =
 	| 'training-view'
 	| 'training-records'
 	| 'critical-tasks-readiness'
+	| 'calendar-view'
 	| 'organization-governance';
 
 interface RankCatalogReadOptions {
@@ -148,7 +149,9 @@ async function requireRankCatalogReadPolicy(
 				? POLICY_ACTION_CATALOG.training.viewRecords
 				: authorization === 'critical-tasks-readiness'
 					? POLICY_ACTION_CATALOG.criticalTasks.viewReadiness
-					: POLICY_ACTION_CATALOG.personnel.viewRoster;
+					: authorization === 'calendar-view'
+						? POLICY_ACTION_CATALOG.calendar.viewAvailability
+						: POLICY_ACTION_CATALOG.personnel.viewRoster;
 	await requireFeaturePolicy(ports, action, { kind: 'unscoped' }, 'organization_rank_catalog', undefined);
 }
 

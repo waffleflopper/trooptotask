@@ -392,25 +392,35 @@ describe('CalendarAssignmentSettingsSection', () => {
 			expect(within(dialog).getByRole('button', { name: 'Excuse someone' })).toBeTruthy();
 		});
 
-		it('fails, explains it in place of the rules editor and still saves a weekend change', async () => {
+		it('fails, explains it, locks roster rules and weekends, and still saves an excusal', async () => {
 			const dialog = await openRunner(Promise.reject(new Error('rank catalog unavailable')));
 
-			expect(await within(dialog).findByRole('alert')).toBeTruthy();
-			expect(within(dialog).queryByRole('radio', { name: 'Only people who match' })).toBeNull();
-			await fireEvent.click(within(dialog).getByRole('radio', { name: 'Separate count' }));
-			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
-			await fireEvent.click(
-				within(await screen.findByRole('alertdialog', { name: 'Start a new DA 6?' })).getByRole('button', {
-					name: 'Save changes'
-				})
+			expect((await within(dialog).findByRole('alert')).textContent).toContain(
+				"roster rules and weekends can't change right now. Excusals still save."
 			);
+			expect(within(dialog).queryByRole('radio', { name: 'Only people who match' })).toBeNull();
+			for (const name of ['Same count', 'Separate count', 'No duty'])
+				expect((within(dialog).getByRole('radio', { name }) as HTMLButtonElement).disabled).toBe(true);
+
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Excuse someone' }));
+			const excuse = await screen.findByRole('dialog', { name: 'Excuse someone' });
+			await fireEvent.click(within(excuse).getByRole('button', { name: 'Person to excuse' }));
+			await fireEvent.click(await screen.findByRole('option', { name: 'SGT Pike, Dana' }));
+			await fireEvent.input(within(excuse).getByLabelText('Reason'), { target: { value: 'First sergeant' } });
+			await fireEvent.click(within(excuse).getByRole('button', { name: 'Excuse' }));
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
 			await waitFor(() =>
 				expect(store.saveRosterSettings).toHaveBeenCalledWith(
 					'runner',
-					expect.objectContaining({ poolRules: null, weekendMode: 'separate' })
+					expect.objectContaining({
+						poolRules: null,
+						weekendMode: 'same',
+						excusals: [{ personId: 'p-pike', reason: 'First sergeant' }]
+					})
 				)
 			);
+			expect(screen.queryByRole('alertdialog')).toBeNull();
 		});
 	});
 

@@ -16,7 +16,8 @@ their references through edits, while confirmed type deletion explains and remov
   weekend mode closes the open DA 6 form on the day Save is pressed, saves it, and opens the next form the day after,
   carrying everyone's count. An excusal change saves in place. Switching the type to Group closes its open form the same
   way, and switching back to Person opens a fresh one. Only Settings loads the rank catalog; while it loads or after it
-  fails, the rules editor alone waits or explains, and the rest of Calendar is unaffected.
+  fails, the rules editor alone waits or explains, weekends stay locked until it loads, excusals keep saving, and the
+  rest of Calendar is unaffected.
 - `calendar-lanes`: choose which assignment types appear as lanes under the dates and in what order; every change is one
   ordered command that refuses a stale list.
 - `catalog-delete`: deleting a retiring assignment type removes its linked assignment but preserves unrelated and
@@ -366,8 +367,9 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       `Person` and save: one new open form starts tomorrow.
     - **Rank catalog unavailable.** Run `$V server-source arm organization_rank_catalog fail-hard 1 120000` (the client
       retries a 503, so plain `fail` recovers), reload `/calendar/settings` and open the type's `Edit`.
-      `Who pulls this duty` shows a `role="alert"` reading `Ranks unavailable` in place of `Everyone` and the rules,
-      while `Excuse someone` and `Weekends & holidays` still work. `$V server-source state` shows the matched read.
+      `Who pulls this duty` shows a `role="alert"` reading `Ranks unavailable` in place of `Everyone` and the rules, and
+      saying roster rules and weekends can't change right now. The three `Weekends & holidays` choices are disabled,
+      while `Excuse someone` still works and saves in place. `$V server-source state` shows the matched read.
       Choose `Cancel`, `$V server-source restore`, then arm it again and open the sidebar `Calendar`: the planner and
       its lanes load with no `role="alert"`, and `server-source state` shows no match, because only Settings reads the
       catalog. Restore the control.

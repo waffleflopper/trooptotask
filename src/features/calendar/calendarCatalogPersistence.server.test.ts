@@ -52,7 +52,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			created_at: TIME,
 			private_column: 'discard'
 		}));
-		const { client } = calendarProvider({
+		const { client, state } = calendarProvider({
 			status_types: [...statuses, { ...statuses[0], id: 'foreign', organization_id: 'org-b' }],
 			assignment_types: [
 				{
@@ -118,6 +118,11 @@ describe('Calendar ordinary catalog persistence', () => {
 				created_at: TIME
 			}
 		]);
+		expect(
+			state.requests
+				.filter(({ table }) => table === 'assignment_types')
+				.map(({ url }) => url.searchParams.get('roster_excusals.ends_on'))
+		).toEqual(['is.null']);
 	});
 
 	it('retains returned null sort order and omission without inventing saved metadata', async () => {

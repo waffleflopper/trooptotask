@@ -66,7 +66,7 @@ export function createInMemoryCalendarCatalogPersistence(
 		const excusals = await store.findMany<RosterExcusalMemoryRow>('roster_excusals', orgId);
 		return rows.map((row) => ({
 			...row,
-			roster_excusals: excusals.filter((excusal) => excusal.assignment_type_id === row.id)
+			roster_excusals: excusals.filter((excusal) => excusal.assignment_type_id === row.id && !excusal.ends_on)
 		}));
 	}
 	const openForm = (assignmentTypeId: string) =>

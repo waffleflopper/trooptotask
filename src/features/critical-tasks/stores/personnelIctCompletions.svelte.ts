@@ -12,7 +12,7 @@ import {
 	type IctCompletionImportResult
 } from '../contracts';
 import { importRowPersonnelName } from '../utils/ictCompletionImport';
-import { postImportChunk } from './importChunkRequest';
+import { postImportChunk } from '$lib/utils/importChunkRequest';
 
 const MAX_BATCH_SIZE = 500;
 

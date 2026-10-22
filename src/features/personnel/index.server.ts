@@ -66,13 +66,7 @@ export {
 } from './rankCatalogOperations.server';
 export { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdministration.server';
 export { getPersonnelOrganizationDefaults } from './organizationDefaults.server';
-export {
-	createActivePersonnelRankResolver,
-	createPersonnelCatalogRankResolver,
-	normalizeActivePersonnelRank
-} from './rankValidation.server';
-export { importPersonnelBatch } from './personnelBatch.server';
-export { mergePersonnelBatch } from './personnelDateBackfill.server';
+export { createActivePersonnelRankResolver, normalizeActivePersonnelRank } from './rankValidation.server';
 export { exportPersonnelWorkbook } from './personnelExport.server';
 export type { PersonnelExportOutput } from './personnelExport.server';
 export { createSupabasePersonnelRetentionSource, type PersonnelRetentionSource } from './personnelRetention.server';

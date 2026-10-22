@@ -176,7 +176,7 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `personnel-detail-tab-hover`  | Personnel detail tabs         | interaction, read  | wide, leader     | The same click after a hover has preloaded the tab                                        |
 | `personnel-edit`              | Personnel roster dialog       | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
 | `personnel-detail-edit`       | Personnel detail              | interaction, write | wide, leader     | `Save changes` to the Data sheet tab with the refreshed header MOS badge                  |
-| `personnel-import`            | Personnel import              | interaction, write | both             | `Import checked rows` to `Import complete` with the row count saved                       |
+| `personnel-import`            | Personnel import              | interaction, write | both             | `Import N changes` to `N changes saved.` with every row added                             |
 | `dashboard`                   | Dashboard                     | load, read         | both             | Band skeletons below a header (`pending`), then settled bands and panels with no skeleton |
 | `training-report`             | Training Reports              | load, read         | both             | Briefing not busy with the actor's soldier count                                          |
 | `critical-tasks-report`       | Critical Tasks Reports        | load, read         | both             | Metrics with the actor's population, nothing busy                                         |
@@ -373,8 +373,8 @@ each seed to see it grow.
   up as failed requests in every sample; they are not app failures.
 - Some labels are styled upper case. The accessibility snapshot shows `READY TODAY` while the document text is
   `Ready today`; milestones match document text.
-- Native `wait_for` matches one accessibility text node. The import's `5 ready` chip is two nodes and never matches, so
-  a preparation step waits on single-node text such as `5 of 5 selected`.
+- Native `wait_for` matches one accessibility text node. The import's commit bar reads `N changes ready` as one node, so
+  preparation waits on it before the trigger.
 - Document text keeps markup indentation, so the members count reads `5`, a newline, tabs and `members`. Milestones
   collapse whitespace runs to one space before matching.
 - The 3-Month view renders its own virtual rows, not the month grid's. A Person row is the `[data-person-id]` element
@@ -387,10 +387,10 @@ each seed to see it grow.
 - The roster dialog's save updates the open roster in place with only `PUT /api/personnel`, and the detail page's Data
   sheet save patches the roster store from the response and reruns only the header and Data sheet loads:
   `<slug>/data-sheet/__data.json` with `x-sveltekit-invalidated=00011` and no `/api/app-shell-chrome` request. Roster
-  and bulk archive and import return rerun only the Personnel layout (`0010`). Measure each; they are different costs.
-  The [Personnel recipe](personnel-records-lifecycle.md#detail-data-sheet-and-loss-baseline) maps every mutation's bits.
-- A Group-scoped actor importing a file into another Group would import the rows unassigned, so the import file only
-  names the scoped Group.
+  and bulk archive rerun only the Personnel layout (`0010`), and an import commit reruns it under the import page.
+  Measure each; they are different costs. The
+  [Personnel recipe](personnel-records-lifecycle.md#detail-data-sheet-and-loss-baseline) maps every mutation's bits.
+- A Group-scoped actor must give every new Person a permitted Group, so the import file only names the scoped Group.
 - The roster shows `Details` only to an actor who may read sensitive Personnel records unscoped, so the scoped operator
   `perfScoped` sees `Edit` and no `Details` (its direct detail URL is the 403 page); `perfScopedLeader` measures the
   Group-scoped detail.

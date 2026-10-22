@@ -17,7 +17,8 @@ export const nameSplitter: ColumnSplitter<typeof personnelColumns> = {
 	split(raw) {
 		const [lastName, firstName] = raw.split(',').map((value) => value.trim());
 		return lastName && firstName ? { lastName, firstName } : null;
-	}
+	},
+	join: ({ lastName, firstName }) => `${lastName ?? ''}, ${firstName ?? ''}`
 };
 
 export interface PersonnelChange {
@@ -44,8 +45,11 @@ export function personnelLane(onFind: (key: string) => void = () => {}, onReview
 	};
 	return defineImportLane({
 		id: 'personnel-fixture',
-		title: 'Import personnel',
 		noun: { one: 'person', other: 'people' },
+		identity: {
+			fields: ['lastName', 'firstName'],
+			label: (raw) => [raw.lastName, raw.firstName].filter(Boolean).join(', ')
+		},
 		columns: personnelColumns,
 		splitters: [nameSplitter],
 		references: { rank },

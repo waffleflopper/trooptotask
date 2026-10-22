@@ -1,6 +1,6 @@
 import { createWorkbook, styleHeaderRow, workbookBlob, type Workbook, type Worksheet } from '$lib/utils/workbook';
 import { downloadBlob } from '$lib/utils/downloadBlob';
-import type { ImportColumns } from './types';
+import type { ColumnSplitter, ImportColumns } from './types';
 import type { Receipt } from './commit';
 import type { Layout, LoadedFile } from './workbookSource';
 import { headerKey, targetsForHeaders } from './workbookSource';
@@ -24,7 +24,12 @@ export async function buildTemplate(lane: { columns: ImportColumns }): Promise<W
 	return workbook;
 }
 
-export async function buildNotImported(file: LoadedFile, layout: Layout, receipt: Receipt): Promise<Workbook> {
+export async function buildNotImported(
+	file: LoadedFile,
+	layout: Layout,
+	receipt: Receipt,
+	splitters: readonly ColumnSplitter<ImportColumns>[] = []
+): Promise<Workbook> {
 	const workbook = await createWorkbook();
 	workbook.properties.date1904 = file.date1904 === true;
 	for (let index = 0; index < file.sheets.length; index++) {
@@ -39,9 +44,14 @@ export async function buildNotImported(file: LoadedFile, layout: Layout, receipt
 		const pivotColumns = headers.flatMap((header, column) =>
 			layout.columns.get(headerKey(header))?.kind === 'pivot' ? [column] : []
 		);
-		const fieldColumns = targetsForHeaders(headers, layout.columns).flatMap((target, column) =>
+		const targets = targetsForHeaders(headers, layout.columns);
+		const fieldColumns = targets.flatMap((target, column) =>
 			target.kind === 'field' ? [[column, target.field] as const] : []
 		);
+		const splitColumns = targets.flatMap((target, column) => {
+			const splitter = target.kind === 'split' ? splitters[target.splitter] : undefined;
+			return splitter?.join ? [[column, splitter] as const] : [];
+		});
 		const physicalRows = new Map<number, { cells: string[]; reasons: Set<string> }>();
 		for (const item of items) {
 			let row = physicalRows.get(item.row.rowNumber);
@@ -50,6 +60,11 @@ export async function buildNotImported(file: LoadedFile, layout: Layout, receipt
 				for (const [column, field] of fieldColumns) {
 					const reviewed = item.row.raw[field];
 					if (reviewed !== undefined && reviewed !== (row.cells[column] ?? '').trim()) row.cells[column] = reviewed;
+				}
+				for (const [column, splitter] of splitColumns) {
+					const original = splitter.split(row.cells[column] ?? '') ?? {};
+					const edited = splitter.fills.some((field) => (item.row.raw[field] ?? '') !== (original[field] ?? ''));
+					if (edited) row.cells[column] = splitter.join?.(item.row.raw) ?? row.cells[column];
 				}
 				if (item.row.pivotColumn !== undefined) for (const column of pivotColumns) row.cells[column] = '';
 				physicalRows.set(item.row.rowNumber, row);
@@ -85,9 +100,10 @@ export async function downloadNotImported(
 	file: LoadedFile,
 	layout: Layout,
 	receipt: Receipt,
+	splitters: readonly ColumnSplitter<ImportColumns>[],
 	isCurrent: () => boolean = () => true
 ): Promise<void> {
-	const workbook = await buildNotImported(file, layout, receipt);
+	const workbook = await buildNotImported(file, layout, receipt, splitters);
 	if (!isCurrent()) return;
 	const blob = await workbookBlob(workbook);
 	if (!isCurrent()) return;

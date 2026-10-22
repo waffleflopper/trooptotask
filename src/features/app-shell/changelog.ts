@@ -7,6 +7,20 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-22-roster-import',
+		date: '2026-10-22',
+		title: 'Import a Roster From Any Spreadsheet',
+		items: [
+			'Personnel › Import has a new design. One file now adds new people and updates the ones already on your roster, so there is no separate backfill.',
+			'Drop in an .xlsx, .csv or .tsv file. The import reads every tab with the same columns and skips title and banner rows above the header. You can move the header row or turn a tab off. Choose what each column holds, mark a column Don’t import, or read one Name column as Last, First.',
+			'Review shows every row as New, Update, Unchanged or Needs a fix. Updates show the old value under the new one, and a blank cell never clears a saved value. One line counts the rows that already match.',
+			'Fix a bad date or name right in its cell. Questions that repeat, like a rank written as Sgt. or a group name that does not match, are asked once in the fix rail and apply to every row. If you can manage groups, you can create a missing group right there.',
+			'When two people share a name, you choose which one the row means or add it as a new person.',
+			'After the import, a receipt shows what was added and updated. Rows that were not imported can be downloaded with a Reason column, fixed and imported again.',
+			'If something looks off or you have an idea for importing, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-22-new-dashboard',
 		date: '2026-10-22',
 		title: 'A New Dashboard',

@@ -140,12 +140,12 @@ export function applyEdits(rows: readonly SourceRow[], edits: CellEdits): readon
 }
 
 export type Outcome = 'fix' | 'new' | 'update' | 'unchanged' | 'skipped';
-export type ReviewedRow<Change> = { row: SourceRow } & (
+export type ReviewedRow<Change> = { row: SourceRow; resolved?: Readonly<Record<string, string>> } & (
 	| { outcome: 'fix'; problems: readonly CellProblem[]; questions: readonly QuestionKey[] }
 	| { outcome: 'new'; key: string; change: Change }
 	| { outcome: 'update'; key: string; change: Change; diff: readonly FieldDiff[] }
 	| { outcome: 'unchanged'; key: string }
-	| { outcome: 'skipped'; reason: string }
+	| { outcome: 'skipped'; reason: string; question?: QuestionKey }
 );
 
 export interface RailQuestion {
@@ -155,7 +155,12 @@ export interface RailQuestion {
 	skipLabel?: string;
 	rowCount: number;
 	accepts:
-		| { kind: 'pick'; options: readonly Pick<ReferenceOption<unknown>, 'id' | 'label' | 'hint'>[]; canCreate: boolean }
+		| {
+				kind: 'pick';
+				options: readonly Pick<ReferenceOption<unknown>, 'id' | 'label' | 'hint'>[];
+				canCreate: boolean;
+				suggested?: string;
+		  }
 		| { kind: 'fill'; valueKind: 'date' };
 	answer: Answer | undefined;
 	reference?: string;
@@ -237,10 +242,10 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 	const refs: Record<string, ReferenceOption<unknown> | null> = {};
 	const consulted = new Map<QuestionKey, Answer | undefined>();
 	const questions = new Map<QuestionKey, RailQuestion>();
-	let skipReason: string | null = null;
+	let skipped: { reason: string; question: QuestionKey } | null = null;
 	for (const [field, column] of Object.entries(lane.columns)) {
 		const parsed = parseValue(column.kind, row.raw[field] ?? '', column.maxLength, row);
-		if (!parsed.ok) problems.push({ field, message: parsed.message });
+		if (!parsed.ok) problems.push({ field, message: `${column.label}: ${parsed.message}` });
 		else if (parsed.value === null && column.required)
 			problems.push({ field, message: `${column.label} is required.` });
 		else values[field] = parsed.value;
@@ -285,13 +290,14 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			accepts: {
 				kind: 'pick',
 				options: match.kind === 'many' ? match.candidates : withCreated(reference.options, memo.created.get(name)),
-				canCreate: match.kind !== 'many' && reference.create !== undefined
+				canCreate: match.kind !== 'many' && reference.create !== undefined,
+				suggested: match.kind === 'none' ? match.suggestion?.id : undefined
 			},
 			answer
 		};
 		questions.set(key, question);
 		if (answer?.kind === 'skip') {
-			skipReason = `Skipped ${reference.label}: ${lookup.display}`;
+			skipped = { reason: `Skipped ${reference.label}: ${lookup.display}`, question: key };
 			continue;
 		}
 		if (answer?.kind === 'pick') {
@@ -309,9 +315,14 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			message: answer ? 'That option is no longer available.' : `Choose ${reference.label} in the fix rail.`
 		});
 	}
+	const resolved: Record<string, string> = {};
+	for (const [name, reference] of Object.entries(lane.references)) {
+		const option = refs[name];
+		if (option && reference.reads.length === 1) resolved[reference.reads[0]] = option.label;
+	}
 	const unresolved = (): ReviewedRow<Change> => ({ row, outcome: 'fix', problems, questions: [...questions.keys()] });
 	let review: ReviewedRow<Change>;
-	if (skipReason) review = { row, outcome: 'skipped', reason: skipReason };
+	if (skipped) review = { row, outcome: 'skipped', ...skipped };
 	else if (problems.length) review = unresolved();
 	else {
 		const result = lane.review({
@@ -322,7 +333,7 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 				const answer = answers.get(question.key);
 				consulted.set(question.key, answer);
 				questions.set(question.key, railQuestionFor(question, 1, answer));
-				if (answer?.kind === 'skip') skipReason = `Skipped: ${question.subject}`;
+				if (answer?.kind === 'skip') skipped = { reason: `Skipped: ${question.subject}`, question: question.key };
 				return acceptedAnswer(question, answer, row);
 			}
 		});
@@ -330,15 +341,16 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			const answer = answers.get(question.key);
 			consulted.set(question.key, answer);
 			questions.set(question.key, railQuestionFor(question, 1, answer));
-			if (answer?.kind === 'skip') skipReason = `Skipped: ${question.subject}`;
+			if (answer?.kind === 'skip') skipped = { reason: `Skipped: ${question.subject}`, question: question.key };
 		}
-		if (skipReason) review = { row, outcome: 'skipped', reason: skipReason };
+		if (skipped) review = { row, outcome: 'skipped', ...skipped };
 		else if (result.outcome === 'fix')
 			review = { row, outcome: 'fix', problems: result.problems, questions: [...questions.keys()] };
 		else if ([...questions.values()].some((question) => !acceptedAnswer(question, question.answer, row)))
 			review = unresolved();
 		else review = { row, ...result };
 	}
+	if (Object.keys(resolved).length) review = { ...review, resolved };
 	return { review, consulted, questions: [...questions.values()] };
 }
 
@@ -395,6 +407,7 @@ export function reviewRows<C extends ImportColumns, Refs extends ImportReference
 			const other = reviewed[indices[index === indices[0] ? 1 : 0]].row;
 			reviewed[index] = {
 				row: reviewed[index].row,
+				resolved: reviewed[index].resolved,
 				outcome: 'fix',
 				problems: [
 					{ field: '', message: `Same record as row ${other.rowNumber} on ${other.sheetName}. Skip one of these rows.` }

@@ -17,6 +17,7 @@ export type PersonnelAffordance = Pick<ClientAffordance, 'allowed'>;
 
 export { personnelImportRecordsInputSchema } from './personnelImportRecords.contracts';
 export type {
+	PersonnelBatchMessage,
 	PersonnelImportRecordsInput,
 	PersonnelImportRecordsRecord,
 	PersonnelImportRecordsChanges,
@@ -368,16 +369,6 @@ export const personnelLeaderNoteTextSchema = personnelLeaderNoteInputSchema.exte
 });
 
 export { personnelScopeResource } from './personnelScopeResource';
-
-export type {
-	PersonnelImportRecord,
-	PersonnelImportInput,
-	PersonnelImportResult,
-	PersonnelBatchMessage,
-	PersonnelBackfillRecord,
-	PersonnelBackfillInput,
-	PersonnelBackfillResult
-} from './personnelImport.types';
 
 export type { ArchivePersonnelBatchResult } from './personnelArchive.types';
 

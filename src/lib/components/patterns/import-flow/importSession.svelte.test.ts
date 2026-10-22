@@ -71,6 +71,14 @@ describe('import session', () => {
 		});
 		expect(session.dirty).toBe(false);
 	});
+	it('blocks Review when no rows sit under the header', async () => {
+		const lane = personnelLane();
+		const session = new ImportSession(() => lane);
+		await session.chooseFile([new File(['Last name,First name,Rank\n'], 'header.csv')]);
+		expect(session.columnBlockers).toEqual(['No rows under the header row.']);
+		session.goTo('review');
+		expect(session.phase.step).toBe('columns');
+	});
 	it('discards a late file read after a different file is chosen', async () => {
 		const pending = deferred<string>();
 		const first = csv();

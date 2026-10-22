@@ -148,7 +148,6 @@ describe('row review', () => {
 		};
 		const lane = defineImportLane({
 			id: 'training',
-			title: 'Training',
 			noun: { one: 'record', other: 'records' },
 			columns,
 			pivot: { field: 'training', valueField: 'result', label: 'Training type' },

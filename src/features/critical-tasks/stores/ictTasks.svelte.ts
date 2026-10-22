@@ -11,7 +11,7 @@ import {
 	type IctTaskImportResult,
 	type IctTaskOrderChange
 } from '../contracts';
-import { postImportChunk } from './importChunkRequest';
+import { postImportChunk } from '$lib/utils/importChunkRequest';
 import type { IctTaskImportMappedRow, IctTaskImportMode } from '$features/critical-tasks/utils/ictTaskImport';
 
 const MAX_BATCH_SIZE = 500;

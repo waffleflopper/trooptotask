@@ -1,3 +1,4 @@
+import { featureExportNote, type FeatureKey } from '$lib/access/featureSwitches';
 import type { PersonnelWorkbookHistoryReader } from './personnelSheetPersistence';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -18,6 +19,7 @@ import { listGroupCatalog } from './groupCatalog.server';
 
 interface PersonnelExportContext {
 	auth: OrganizationAccessGrant;
+	disabledFeatures: readonly FeatureKey[];
 	audit: PolicyAuditSink;
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findById'>;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
@@ -65,11 +67,12 @@ export async function exportPersonnelWorkbook(
 		id
 	);
 
+	const trainingOff = ctx.disabledFeatures.includes('training');
 	const [trainings, counseling, availability, trainingTypes, statusTypes, groups] = await Promise.all([
-		listPersonnelTrainingExportRows(id),
+		trainingOff ? [] : listPersonnelTrainingExportRows(id),
 		ctx.personnelWorkbookHistory.listCounselingExportFacts(id),
 		listAvailabilityHistory(id),
-		listTrainingTypeLabels(),
+		trainingOff ? [] : listTrainingTypeLabels(),
 		listStatusTypeLabels(),
 		listGroupCatalog(ctx)
 	]);
@@ -126,23 +129,31 @@ export async function exportPersonnelWorkbook(
 		rows: infoRows
 	});
 
-	addMappedSheet(
-		workbook,
-		'Training Records',
-		trainings,
-		[
-			{ header: 'Training Type', key: 'training_type', width: 25 },
-			{ header: 'Completed Date', key: 'completion_date', width: 16 },
-			{ header: 'Expiration Date', key: 'expiration_date', width: 16 },
-			{ header: 'Notes', key: 'notes', width: 40 }
-		],
-		(t) => ({
-			training_type: lookup(trainingTypeMap, t.training_type_id),
-			completion_date: t.completion_date,
-			expiration_date: t.expiration_date,
-			notes: t.notes ?? ''
-		})
-	);
+	if (trainingOff) {
+		addTableSheet(workbook, {
+			name: 'Export Notes',
+			columns: [{ header: 'Notes', key: 'note', width: 70 }],
+			rows: [{ note: featureExportNote('training') }]
+		});
+	} else {
+		addMappedSheet(
+			workbook,
+			'Training Records',
+			trainings,
+			[
+				{ header: 'Training Type', key: 'training_type', width: 25 },
+				{ header: 'Completed Date', key: 'completion_date', width: 16 },
+				{ header: 'Expiration Date', key: 'expiration_date', width: 16 },
+				{ header: 'Notes', key: 'notes', width: 40 }
+			],
+			(t) => ({
+				training_type: lookup(trainingTypeMap, t.training_type_id),
+				completion_date: t.completion_date,
+				expiration_date: t.expiration_date,
+				notes: t.notes ?? ''
+			})
+		);
+	}
 
 	addMappedSheet(
 		workbook,

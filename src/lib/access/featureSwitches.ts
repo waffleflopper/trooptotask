@@ -30,6 +30,10 @@ export function parseDisabledFeatures(value: unknown): FeatureKey[] {
 	return FEATURE_KEYS.filter((key) => value.includes(key));
 }
 
+export function featureOffMessage(key: FeatureKey): string {
+	return `This organization has turned off ${FEATURE_SWITCHES[key].label}. Speak with the organization owner to have it turned back on.`;
+}
+
 export function disabledFeatureLanes(disabledFeatures: readonly FeatureKey[]): DurableFeatureLane[] {
 	return disabledFeatures.flatMap((key) => FEATURE_SWITCHES[key].lane ?? []);
 }
@@ -44,4 +48,9 @@ export function findDisabledFeatureRoute(
 	if (!routeId?.startsWith(ORG_ROUTE_PREFIX)) return null;
 	const [segment] = routeId.slice(ORG_ROUTE_PREFIX.length).split('/');
 	return disabledFeatures.find((key) => FEATURE_SWITCHES[key].routeSegment === segment) ?? null;
+}
+
+export function featureExportNote(key: FeatureKey): string {
+	if (key === 'lossesAndAwards') return 'Losses and awards is turned off; award acknowledgements are not included.';
+	return `${FEATURE_SWITCHES[key].label} is turned off; its records are not included.`;
 }

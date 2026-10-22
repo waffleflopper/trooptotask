@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import { TRAINING_TYPE_FIELDS, toTrainingType, type TrainingTypeRow } from './server/trainingPersistenceMapping.server';
-import type { TrainingOnboardingActor, TrainingOnboardingReferencesPort } from './contracts';
+import type { TrainingOnboardingActor, TrainingOnboardingReferencesPort, TrainingTypeLabel } from './contracts';
 
 const PAGE_SIZE = 500;
 const PERSONNEL_BATCH_SIZE = 100;
@@ -17,6 +16,7 @@ async function requireOnboardingReferenceRead(actor: TrainingOnboardingActor): P
 	);
 }
 
+/** Type names stay readable as step labels while Training is off; completion records do not. */
 export function createSupabaseTrainingOnboardingReferencesPort(
 	getAdminClient: () => SupabaseClient
 ): TrainingOnboardingReferencesPort {
@@ -24,26 +24,28 @@ export function createSupabaseTrainingOnboardingReferencesPort(
 		async listTypes(actor) {
 			await requireOnboardingReferenceRead(actor);
 			const client = getAdminClient();
-			const rows: TrainingTypeRow[] = [];
+			const rows: TrainingTypeLabel[] = [];
 			for (let offset = 0; ; offset += PAGE_SIZE) {
 				const { data, error } = await client
 					.from('training_types')
-					.select(TRAINING_TYPE_FIELDS)
+					.select('id,name')
 					.eq('organization_id', actor.orgId)
 					.order('sort_order', { ascending: true })
 					.order('id', { ascending: true })
 					.range(offset, offset + PAGE_SIZE - 1)
-					.returns<TrainingTypeRow[]>();
+					.returns<TrainingTypeLabel[]>();
 				if (error) throw new Error(error.message);
 				const page = data ?? [];
 				rows.push(...page);
 				if (page.length < PAGE_SIZE) break;
 			}
-			return rows.map(toTrainingType);
+			return rows.map(({ id, name }) => ({ id, name }));
 		},
-		async completedTypeIds(actor, personnelIds, trainingTypeIds) {
+		async completedTypeIds(ctx, personnelIds, trainingTypeIds) {
+			const { auth: actor, disabledFeatures } = ctx;
 			await requireOnboardingReferenceRead(actor);
 			if (
+				disabledFeatures.includes('training') ||
 				personnelIds.length === 0 ||
 				trainingTypeIds.length === 0 ||
 				(actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0)

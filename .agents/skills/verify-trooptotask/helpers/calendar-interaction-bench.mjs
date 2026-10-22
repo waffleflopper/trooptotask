@@ -571,7 +571,7 @@ export function table(rows) {
 
 function parse(argv) {
 	const options = {
-		worker: '1',
+		worker: process.env.VERIFY_WORKER ?? '1',
 		reps: 9,
 		warmup: 2,
 		label: 'run',

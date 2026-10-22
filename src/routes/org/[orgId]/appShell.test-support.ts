@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { AppShellRouteData, ReadyAppShell } from '$features/app-shell/contracts';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 
 export function createReadyAppShellRouteData(
 	overrides: {
@@ -66,10 +67,21 @@ export function createSuspendedAppShellRouteData(
 	};
 }
 
-export function createUrlBlindLayoutEvent<TEvent>(parentData: AppShellRouteData) {
+/** `disabledFeatures` is the switch read fresh for the request; it defaults to what the shell shows. */
+export function createUrlBlindLayoutEvent<TEvent>(
+	parentData: AppShellRouteData,
+	{ disabledFeatures }: { disabledFeatures?: FeatureKey[] } = {}
+) {
 	const depends = vi.fn();
+	const orgId = parentData.shell.org.id;
+	const admission = {
+		id: orgId,
+		disabledFeatures:
+			disabledFeatures ?? (parentData.shell.kind === 'ready' ? parentData.shell.org.disabledFeatures : [])
+	};
 	const event = {
-		locals: {} as App.Locals,
+		locals: { organizationAdmissions: new Map([[orgId, Promise.resolve(admission)]]) } as unknown as App.Locals,
+		params: { orgId },
 		cookies: {} as Cookies,
 		depends,
 		parent: vi.fn(async () => parentData),

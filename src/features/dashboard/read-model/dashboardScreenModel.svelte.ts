@@ -8,6 +8,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { DashboardPageData } from '$features/dashboard/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { DashboardInputs } from '../sections/dashboardInputs';
 import { buildStrengthBand, type StrengthBand } from './strengthBand';
 import type {
@@ -186,8 +187,7 @@ export class DashboardScreenModel {
 
 	get gettingStartedItems(): DashboardGettingStartedItem[] {
 		const orgPath = `/org/${this.data.orgId}`;
-
-		return [
+		const items: Array<DashboardGettingStartedItem & { feature?: FeatureKey }> = [
 			{
 				id: 'personnel',
 				label: 'Import or add the roster',
@@ -207,7 +207,8 @@ export class DashboardScreenModel {
 				label: 'Add training types',
 				description: 'Define the training requirements you want to monitor.',
 				href: `${orgPath}/training/types`,
-				complete: this.trainingTypeCount > 0
+				complete: this.trainingTypeCount > 0,
+				feature: 'training'
 			},
 			{
 				id: 'assignments',
@@ -228,16 +229,21 @@ export class DashboardScreenModel {
 				label: 'Set up onboarding',
 				description: 'Configure template steps for new arrivals.',
 				href: `${orgPath}/onboarding/templates`,
-				complete: this.onboardingTemplateStepCount > 0
+				complete: this.onboardingTemplateStepCount > 0,
+				feature: 'onboarding'
 			},
 			{
 				id: 'ratings',
 				label: 'Configure evals',
 				description: 'Add rating scheme entries for evaluation tracking.',
 				href: `${orgPath}/evals`,
-				complete: this.ratingSchemeEntryCount > 0
+				complete: this.ratingSchemeEntryCount > 0,
+				feature: 'evaluations'
 			}
 		];
+		return items
+			.filter(({ feature }) => feature === undefined || !this.data.disabledFeatures.includes(feature))
+			.map(({ feature: _feature, ...item }) => item);
 	}
 
 	get shouldShowGettingStarted(): boolean {

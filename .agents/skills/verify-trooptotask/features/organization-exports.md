@@ -1,81 +1,246 @@
 # Export Organization data
 
-An Organization owner or admin downloads a complete JSON backup or an Excel workbook for review, with retained source records, readable labels, and an auditable export lifecycle.
+An Organization owner or admin downloads a complete JSON backup or an Excel workbook for review, with retained source
+records, readable labels, and an auditable export lifecycle.
 
 ## Sub-features
 
-- `export-entry`: Settings exposes JSON and Excel downloads to the current Organization owner/admin, with what an export contains and the owner's last export.
-- `export-artifacts`: both formats retain every manifest section, raw row values, empty sections, readable workbook sheets, and existing filenames.
-- `export-sensitive-records`: authorized full exports retain active and archived Personnel artifacts while ordinary display fields keep their blank legacy notes.
-- `export-lifecycle`: each admitted request records its requester, Organization, status, timestamps, and actual artifact size; failures remain visible.
+- `export-entry`: Settings exposes JSON and Excel downloads to the current Organization owner/admin, with what an export
+  contains and the owner's last export.
+- `export-artifacts`: both formats retain enabled manifest sections, raw row values, empty sections, readable workbook
+  sheets, and existing filenames; omitted disabled features have notes.
+- `export-sensitive-records`: authorized full exports retain active and archived Personnel artifacts while ordinary
+  display fields keep their blank legacy notes.
+- `export-lifecycle`: each admitted request records its requester, Organization, status, timestamps, and actual artifact
+  size; failures remain visible.
 - `export-recovery`: a failed request downloads no error body, restores the controls, and permits an explicit retry.
 - `export-scope`: member, scoped-feature, and foreign access cannot produce an unauthorized artifact or lifecycle row.
-- `export-lifetime`: an intentionally requested A download can finish after switching Organizations while B retains its own controls and feedback.
+- `export-lifetime`: an intentionally requested A download can finish after switching Organizations while B retains its
+  own controls and feedback.
 
 ## How to get to it (user POV)
 
-Open an Organization, choose Settings, then Exports. `Everything in <unit>` lists what an export contains as chips, with live Personnel and Training record counts that stream after first paint. Export includes every area whether its feature is on or off. Choose `Export JSON` or `Export Excel` in its tile. Only the pressed button reads `Generating…` while its file builds, with the accessible name `Generating JSON export…` or `Generating Excel export…`, and the other tile stays usable, so both formats can run at once. A successful request downloads the requested file, announces completion in a status region and re-reads the Audit log. For an owner the last export line then shows the newest `export.created` or `export.excel_created` event with its Audit actor, never the browser's time. It shows a skeleton while the read is in flight. With both formats running, the line shows the newest event whichever response lands last. An admin sees no line. A failed count keeps the chips and adds `What an export of <unit> contains could not be counted.` while both export buttons stay usable.
+Open an Organization, choose Settings, then Exports. `Everything in <unit>` lists what an export contains as chips, with
+live Personnel and Training record counts that stream after first paint. Chips for the areas a turned-off feature omits
+(Training and its Sign-in rosters, Onboarding) are left out, with one muted line per turned-off feature that repeats the
+export note. JSON notes and the Excel Export Inventory explain each omission, for example
+`Training is turned off; its records are not included.` Award acknowledgement values are omitted while Losses and awards
+is off. Choose `Export JSON` or `Export Excel` in its tile. Only the pressed button reads `Generating…` while its file
+builds, with the accessible name `Generating JSON export…` or `Generating Excel export…`, and the other tile stays
+usable, so both formats can run at once. A successful request downloads the requested file, announces completion in a
+status region and re-reads the Audit log. For an owner the last export line then shows the newest `export.created` or
+`export.excel_created` event with its Audit actor, never the browser's time. It shows a skeleton while the read is in
+flight. With both formats running, the line shows the newest event whichever response lands last. An admin sees no line.
+A failed count keeps the chips and adds `What an export of <unit> contains could not be counted.` while both export
+buttons stay usable.
 
-Owners see `Last export · <format> · <date>, <time> by <actor>` from the newer `export.created` or `export.excel_created` Audit event. For admins the page sends no Audit read.
+Owners see `Last export · <format> · <date>, <time> by <actor>` from the newer `export.created` or
+`export.excel_created` Audit event. For admins the page sends no Audit read.
 
-`Roster only` is muted and marked Coming soon. It is not a retained export workflow. `One person` links to Archives. Single-Person and feature report workbooks have separate recipes and formats.
+`Roster only` is muted and marked Coming soon. It is not a retained export workflow. `One person` links to Archives.
+Single-Person and feature report workbooks have separate recipes and formats.
+
+## Helper controls
+
+`rows data_exports orgA|orgB` reads the owned Organization’s export lifecycle rows; preserve IDs, requesting user,
+status, byte size and completion time alongside the actual downloaded artifact. These privileged readbacks prove stored
+effects separately from native export actions. Export completion updates remain best-effort; read the actual status
+rather than infer it from a successful download.
+
+For a real download, arm `network arm-observe PAGE training-reports/export` (or `export`, `export-excel`,
+`personnel/PERSON_ID/export`) alongside `export arm`. Observation leaves the real request/response untouched and records
+status plus public Content-Type/Content-Disposition only. Save network state and Blob capture output together; the
+latter includes the observed download-anchor filename, byte count, MIME type and SHA-256. `export state` reports whether
+a Blob was captured, including after a failed export. Restore both controls. JSON captures are inspected as JSON, not
+passed to `workbook`. For separate admission proof, `export request PAGE orgA|orgB json|excel` submits the ordinary POST
+from that signed-in owned app page and returns method/path, status, failure body and public download headers. It does
+not capture a successful artifact or claim a native action; use the visible controls for downloads. Only fixture
+Organizations and the two export endpoints are admitted. Compare `data_exports` and packet/progress readbacks before and
+after denials.
 
 ## Driving it with verify:app
 
 ### Prepare source witnesses
 
-Use `$V fixture` and capture A/B provider rows before any export. `orgOwner` and `orgAdmin` govern A. `orgSettingsPeer` owns B, and `orgSettingsSwitch` is admin in both Organizations. Their stored Personnel override is `none`; owner/admin governance still supplies effective feature access, so these actors do not prove an effective denied Personnel lane. `orgMember`, `viewer`, and `scoped` lack Organization governance; `foreign` belongs only to B.
+Use `$V fixture` and capture A/B provider rows before any export. `orgOwner` and `orgAdmin` govern A. `orgSettingsPeer`
+owns B, and `orgSettingsSwitch` is admin in both Organizations. Their stored Personnel override is `none`; owner/admin
+governance still supplies effective feature access, so these actors do not prove an effective denied Personnel lane.
+`orgMember`, `viewer`, and `scoped` lack Organization governance; `foreign` belongs only to B.
 
-Run compatible temporary seeds once and preserve their returned IDs and literal values. `personnel-artifact-context` supplies active/archived A/B notes, counseling, documents, and follow-ups with real file witnesses. `dashboard` supplies dated Calendar, Training, Critical Tasks, Onboarding, and Rating Scheme facts. `communications` supplies own/peer/foreign inbox rows and announcements, but creates no Feedback rows. Submit a synthetic message through Send feedback as the export actor and preserve `$V communications ROLE` source facts. `audit` supplies stored A/B events. `training-pages` adds 26 Personnel, a UI page cohort that does not cross the export provider's 1,000-row boundary. Provider-sized traversal needs a separate sufficiently large witness. These seeds are privileged setup, not ordinary authorization or native creation proof. Keep the [Personnel](personnel-artifacts.md), [Dashboard](dashboard.md), and [communications](notifications-feedback.md) expectations for source meaning.
+Run compatible temporary seeds once and preserve their returned IDs and literal values. `personnel-artifact-context`
+supplies active/archived A/B notes, counseling, documents, and follow-ups with real file witnesses. `dashboard` supplies
+dated Calendar, Training, Critical Tasks, Onboarding, and Rating Scheme facts. `communications` supplies
+own/peer/foreign inbox rows and announcements, but creates no Feedback rows. Submit a synthetic message through Send
+feedback as the export actor and preserve `$V communications ROLE` source facts. `audit` supplies stored A/B events.
+`training-pages` adds 26 Personnel, a UI page cohort that does not cross the export provider's 1,000-row boundary.
+Provider-sized traversal needs a separate sufficiently large witness. These seeds are privileged setup, not ordinary
+authorization or native creation proof. Keep the [Personnel](personnel-artifacts.md), [Dashboard](dashboard.md), and
+[communications](notifications-feedback.md) expectations for source meaning.
 
-The export rate limit allows ten admitted or denied POST attempts per client IP per hour across Organizations and both formats. Browser-injected failures do not dispatch and consume no server attempt. Plan compatible scenarios within that budget, then clean up and launch another disposable session when more attempts are needed. Preserve each session's separate identities and receipts. A 429 before admission is inconclusive authorization proof; never relabel it as a governance denial or disable the rate limit.
+The export rate limit allows ten admitted or denied POST attempts per client IP per hour across Organizations and both
+formats. Browser-injected failures do not dispatch and consume no server attempt. Plan compatible scenarios within that
+budget, then clean up and launch another disposable session when more attempts are needed. Preserve each session's
+separate identities and receipts. A 429 before admission is inconclusive authorization proof; never relabel it as a
+governance denial or disable the rate limit.
 
-For provider-sized backup source proof, `maintenance-retention-1001` supplies 1,001 expired A assignment types and Critical Tasks, plus saved-reference, recent, active and B controls. Preserve its exact journal and preceding row readbacks. Compare every cohort ID and raw field in JSON and the actual `Raw - Assignment Types` and `Raw - Critical Tasks` worksheets. Expired or inactive records remain backup history; do not run retention jobs during this export scenario. Combine `dashboard` and `audit` only when their source witnesses are needed. Finish every seed-dependent comparison before `clean-seeds`, which removes all journaled cohorts in this worker, including setup-link and Access Request witnesses outside the export. Compare original source rows afterward; legitimate export lifecycle, Audit and notification additions remain separate effects.
+For provider-sized backup source proof, `maintenance-retention-1001` supplies 1,001 expired A assignment types and
+Critical Tasks, plus saved-reference, recent, active and B controls. Preserve its exact journal and preceding row
+readbacks. Compare every cohort ID and raw field in JSON and the actual `Raw - Assignment Types` and
+`Raw - Critical Tasks` worksheets. Expired or inactive records remain backup history; do not run retention jobs during
+this export scenario. Combine `dashboard` and `audit` only when their source witnesses are needed. Finish every
+seed-dependent comparison before `clean-seeds`, which removes all journaled cohorts in this worker, including setup-link
+and Access Request witnesses outside the export. Compare original source rows afterward; legitimate export lifecycle,
+Audit and notification additions remain separate effects.
 
-Export section completeness means complete rows visible to that request's authorized reader. Notifications remain self-owned; Feedback and invitation provenance retain their ordinary/platform-admin RLS limits. A privileged Organization-wide readback is not the expected artifact for these sections. Compare the signed-in actor's permitted rows and denied peers separately. The scoped readback covers all 38 source tables, including `dashboard_configs`, `getting_started_progress`, `user_org_preferences`, `user_pinned_groups`, and `access_request_organization_invitation_links`. An empty stored collection establishes absence and inventory presence; positive saved-field behavior still needs a nonempty source witness or independently specified lower-level coverage.
+Export section completeness means complete rows visible to that request's authorized reader. Notifications remain
+self-owned; Feedback and invitation provenance retain their ordinary/platform-admin RLS limits. A privileged
+Organization-wide readback is not the expected artifact for these sections. Compare the signed-in actor's permitted rows
+and denied peers separately. The scoped readback covers all 38 source tables, including `dashboard_configs`,
+`getting_started_progress`, `user_org_preferences`, `user_pinned_groups`, and
+`access_request_organization_invitation_links`. An empty stored collection establishes absence and inventory presence;
+positive saved-field behavior still needs a nonempty source witness or independently specified lower-level coverage.
 
-Record `$V rows data_exports orgA` and `orgB`, notifications, and source rows before each request. Include `access_request_organization_invitation_links`, `dashboard_configs`, `getting_started_progress`, `user_org_preferences`, `user_pinned_groups` and `beta_feedback` when comparing full saved fields. The readbacks are privileged synthetic source observations; the downloaded rows must still obey the exporting user's ordinary RLS and the separately admitted Personnel artifact reader. Compare original rows after the run. Export requests legitimately add their own lifecycle, Audit, and administrator notification rows; distinguish these effects from unrelated source mutations.
+Record `$V rows data_exports orgA` and `orgB`, notifications, and source rows before each request. Include
+`access_request_organization_invitation_links`, `dashboard_configs`, `getting_started_progress`, `user_org_preferences`,
+`user_pinned_groups` and `beta_feedback` when comparing full saved fields. The readbacks are privileged synthetic source
+observations; the downloaded rows must still obey the exporting user's ordinary RLS and the separately admitted
+Personnel artifact reader. Compare original rows after the run. Export requests legitimately add their own lifecycle,
+Audit, and administrator notification rows; distinguish these effects from unrelated source mutations.
 
 ### Download and inspect both formats
 
-1. Run `$V actor orgOwner settings/exports`. Inspect the loaded Export controls and A header. Arm `$V export arm PAGE` and `$V network arm-observe PAGE export`. Click Export JSON using a fresh snapshot UID. Preserve the request, stable feedback, `$V network state PAGE`, `$V export state PAGE`, and a screenshot. Save the Blob with `$V export save PAGE .verification/evidence/verify-trooptotask/RUN/owner-a.json`. Restore both controls before another request.
-2. Parse the saved JSON. Compare `organizationId`, `exportedAt`, `sectionInventory`, `sections`, and the retained top-level section keys. Every manifest section must exist, including empty arrays. Inventory counts must match actual arrays. Compare explicit IDs and stored values against independent fixture/provider observations, including first/last IDs in a paged cohort. Require A-owned exported source rows; B source rows and private labels, paths, and note values must be absent. Faithful A-owned Audit details may retain historical references to B resource UUIDs; compare the containing source row before classifying a UUID occurrence as foreign row admission.
-3. Compare sensitive raw fields separately. Active and archived leader notes retain stored contributor IDs and text. Counseling, documents, and follow-ups retain their IDs, parent IDs, archive dates, notes, uploader values, and file paths. Ordinary readable Personnel `leader_notes` remains blank. An Organization owner/admin export covers all Groups independently of ordinary Personnel feature access. Do not reinterpret raw note or file-path loss as masking.
-4. Repeat the native action with Export Excel, family `export-excel`, and `owner-a.xlsx`. Use `$V workbook FILE 'Export Inventory'` and inspect the actual downloaded workbook's readable and raw sheets. Compare each inventory count and every selected raw field with that request's preceding provider facts and controlled effects. Unchanged source fields also match JSON; lifecycle, Audit, notification rows, and metadata can change between requests. Readable sheets resolve Person, Group, status, assignment, Training, and task labels while preserving their retained columns. Personnel Documents exposes the stored filename's last path component; its raw sheet retains the full path. Readable Personnel legacy notes remain blank, while the separate Leader Notes sheet preserves authorized notes. Nested raw values serialize as JSON cell text. Empty sheets remain present. Record real worksheet names, including safe truncation and collision suffixes.
-5. For each artifact, read lifecycle rows after completion and again after a visible reload. Require a new row with the exact Organization/requester, completed status, non-null completion time, and byte size equal to the saved artifact. Completion writes are best-effort; a download alone proves no lifecycle update. Preserve missing or inconsistent rows as failures. Capture the corresponding export Audit event and real administrator notification separately.
-6. Repeat positive native downloads as `orgAdmin`. Use `orgSettingsPeer` for a B artifact and require B-only source rows. Use `orgSettingsSwitch` to establish that admin governance can export A with a stored Personnel override of `none`. Record the effective role access accurately. Compare retained raw sections rather than relying on arrival at Settings.
+1. Run `$V actor orgOwner settings/exports`. Inspect the loaded Export controls and A header. Arm `$V export arm PAGE`
+   and `$V network arm-observe PAGE export`. Click Export JSON using a fresh snapshot UID. Preserve the request, stable
+   feedback, `$V network state PAGE`, `$V export state PAGE`, and a screenshot. Save the Blob with
+   `$V export save PAGE .verification/evidence/verify-trooptotask/RUN/owner-a.json`. Restore both controls before
+   another request.
+2. Parse the saved JSON. Compare `organizationId`, `exportedAt`, `sectionInventory`, `sections`, and the retained
+   top-level section keys. Every manifest section of an enabled feature must exist, including empty arrays; a
+   switched-off feature's sections are absent (see Switched-off export sections). Inventory counts must match actual
+   arrays. Compare explicit IDs and stored values against independent fixture/provider observations, including
+   first/last IDs in a paged cohort. Require A-owned exported source rows; B source rows and private labels, paths, and
+   note values must be absent. Faithful A-owned Audit details may retain historical references to B resource UUIDs;
+   compare the containing source row before classifying a UUID occurrence as foreign row admission.
+3. Compare sensitive raw fields separately. Active and archived leader notes retain stored contributor IDs and text.
+   Counseling, documents, and follow-ups retain their IDs, parent IDs, archive dates, notes, uploader values, and file
+   paths. Ordinary readable Personnel `leader_notes` remains blank. An Organization owner/admin export covers all Groups
+   independently of ordinary Personnel feature access. Do not reinterpret raw note or file-path loss as masking.
+4. Repeat the native action with Export Excel, family `export-excel`, and `owner-a.xlsx`. Use
+   `$V workbook FILE 'Export Inventory'` and inspect the actual downloaded workbook's readable and raw sheets. Compare
+   each inventory count and every selected raw field with that request's preceding provider facts and controlled
+   effects. Unchanged source fields also match JSON; lifecycle, Audit, notification rows, and metadata can change
+   between requests. Readable sheets resolve Person, Group, status, assignment, Training, and task labels while
+   preserving their retained columns. Personnel Documents exposes the stored filename's last path component; its raw
+   sheet retains the full path. Readable Personnel legacy notes remain blank, while the separate Leader Notes sheet
+   preserves authorized notes. Nested raw values serialize as JSON cell text. Empty sheets remain present. Record real
+   worksheet names, including safe truncation and collision suffixes.
+5. For each artifact, read lifecycle rows after completion and again after a visible reload. Require a new row with the
+   exact Organization/requester, completed status, non-null completion time, and byte size equal to the saved artifact.
+   Completion writes are best-effort; a download alone proves no lifecycle update. Preserve missing or inconsistent rows
+   as failures. Capture the corresponding export Audit event and real administrator notification separately.
+6. Repeat positive native downloads as `orgAdmin`. Use `orgSettingsPeer` for a B artifact and require B-only source
+   rows. Use `orgSettingsSwitch` to establish that admin governance can export A with a stored Personnel override of
+   `none`. Record the effective role access accurately. Compare retained raw sections rather than relying on arrival at
+   Settings.
 
 ### Failure and explicit recovery
 
-As an authorized actor, arm capture and `$V network arm-fail PAGE export` or `export-excel`. Submit natively. Require visible failure, no captured download, idle controls, and no new lifecycle row because this synthetic browser response blocks dispatch. Restore the hook, retry explicitly, and inspect the resulting artifact and new completed row. This proves client recovery, not a server/provider outage.
+As an authorized actor, arm capture and `$V network arm-fail PAGE export` or `export-excel`. Submit natively. Require
+visible failure, no captured download, idle controls, and no new lifecycle row because this synthetic browser response
+blocks dispatch. Restore the hook, retry explicitly, and inspect the resulting artifact and new completed row. This
+proves client recovery, not a server/provider outage.
 
-For an admitted server export that fails while reading a source, prepare capture, network observation and the fresh control UID first. Arm `$V server-source arm availability_entries fail-hard 1 120000` last, then submit natively immediately. It returns a controlled synthetic 500 before dispatching one allowlisted A provider GET in the owned app process. Capture actual HTTP/error feedback and compare the new failed lifecycle row, no artifact and unchanged source facts. Restore the source control before explicit retry. The successful retry needs its own artifact and completed row. Inspect the control receipt; an expired or unmatched hook, or an SDK retry that recovers, earns no failed-export credit. This control covers one source-read rejection, not lifecycle writes, notifications, all providers or production outages.
+For an admitted server export that fails while reading a source, prepare capture, network observation and the fresh
+control UID first. Arm `$V server-source arm availability_entries fail-hard 1 120000` last, then submit natively
+immediately. It returns a controlled synthetic 500 before dispatching one allowlisted A provider GET in the owned app
+process. Capture actual HTTP/error feedback and compare the new failed lifecycle row, no artifact and unchanged source
+facts. Restore the source control before explicit retry. The successful retry needs its own artifact and completed row.
+Inspect the control receipt; an expired or unmatched hook, or an SDK retry that recovers, earns no failed-export credit.
+This control covers one source-read rejection, not lifecycle writes, notifications, all providers or production outages.
 
-For lifecycle persistence changes, compare each request's preceding and following `data_exports` rows. Require one new row with the signed-in requester and target Organization. A completed row's `file_size_bytes` equals the actual saved artifact bytes, and its timestamps remain in the before/after readbacks. Its immutable artifact may retain that same row as processing. A rejected source produces a failed row without an artifact, and explicit retry creates a separate completed row. Reload and read back both Organizations' history before cleanup.
+For lifecycle persistence changes, compare each request's preceding and following `data_exports` rows. Require one new
+row with the signed-in requester and target Organization. A completed row's `file_size_bytes` equals the actual saved
+artifact bytes, and its timestamps remain in the before/after readbacks. Its immutable artifact may retain that same row
+as processing. A rejected source produces a failed row without an artifact, and explicit retry creates a separate
+completed row. Reload and read back both Organizations' history before cleanup.
 
-Lifecycle insert/update rejection, notification delivery failure, and concurrency have separate service/SQL obligations. Real-SDK checks must preserve missing-row/provider-error acknowledgments and the ordinary client's Organization-bound writes. A failed completion update remains best effort and can leave processing history while returning the artifact. A failed failure update preserves the original artifact error. A completion notification that throws is caught and logged by the execution service, so the artifact is returned and the row stays completed with its audit event. That is service-level proof through the notification port; the real provider returns delivery errors instead of throwing, and no native control injects a thrown notification, so do not claim native or provider proof for it. There is no export cancellation action; the Organization-switch scenario below verifies intentional download completion with isolated feedback.
+Lifecycle insert/update rejection, notification delivery failure, and concurrency have separate service/SQL obligations.
+Real-SDK checks must preserve missing-row/provider-error acknowledgments and the ordinary client's Organization-bound
+writes. A failed completion update remains best effort and can leave processing history while returning the artifact. A
+failed failure update preserves the original artifact error. A completion notification that throws is caught and logged
+by the execution service, so the artifact is returned and the row stays completed with its audit event. That is
+service-level proof through the notification port; the real provider returns delivery errors instead of throwing, and no
+native control injects a thrown notification, so do not claim native or provider proof for it. There is no export
+cancellation action; the Organization-switch scenario below verifies intentional download completion with isolated
+feedback.
 
 ### Denied Organization and sensitive access
 
-Run `$V actor orgMember settings/exports`, then repeat with `viewer` and `scoped`. Capture the actual Settings denial. From each signed-in owned page, run `$V export request PAGE orgA json` and `excel`. Preserve the exact status/body and unchanged A/B lifecycle/source rows. The shared policy may append `policy.denied` Audit warnings; require no export-success event or administrator notification and preserve original Audit rows. Feature configure or scoped Personnel access does not grant Organization governance.
+Run `$V actor orgMember settings/exports`, then repeat with `viewer` and `scoped`. Capture the actual Settings denial.
+From each signed-in owned page, run `$V export request PAGE orgA json` and `excel`. Preserve the exact status/body and
+unchanged A/B lifecycle/source rows. The shared policy may append `policy.denied` Audit warnings; require no
+export-success event or administrator notification and preserve original Audit rows. Feature configure or scoped
+Personnel access does not grant Organization governance.
 
-As `foreign`, attempt A's export endpoints and preserve denial with no new A lifecycle row or returned artifact. As `orgOwner`, attempt B's endpoints for the corresponding negative tenant control. The B owner's positive B download distinguishes a forbidden target from a broken endpoint. These direct authenticated requests are HTTP proof, separate from native download actions. Export admits owners and admins only; a member carrying the legacy `canManageMembers` override is denied in route tests and by `can_export_organization_data`.
+As `foreign`, attempt A's export endpoints and preserve denial with no new A lifecycle row or returned artifact. As
+`orgOwner`, attempt B's endpoints for the corresponding negative tenant control. The B owner's positive B download
+distinguishes a forbidden target from a broken endpoint. These direct authenticated requests are HTTP proof, separate
+from native download actions. Export admits owners and admins only; a member carrying the legacy `canManageMembers`
+override is denied in route tests and by `can_export_organization_data`.
 
 ### Organization switching and delayed responses
 
-Use `$V actor orgSettingsSwitch settings/exports`. Arm capture and `$V network arm-hold PAGE export`, click Export JSON, and preserve the held real-response receipt plus A's completed lifecycle row. While delivery is held, use the visible Organization menu to select B. Capture B's route/header and idle controls with no A success/error feedback. Release A, preserve `$V export state PAGE`, and save the actual Blob with `$V export save PAGE .verification/evidence/verify-trooptotask/RUN/delayed-a.json`. Require A's filename, `organizationId`, and source rows in the parsed file while B stays idle without A feedback. Restore the A hooks, arm fresh capture, then submit B Excel normally and compare its separate B artifact/lifecycle. Restore hooks before navigating again.
+Use `$V actor orgSettingsSwitch settings/exports`. Arm capture and `$V network arm-hold PAGE export`, click Export JSON,
+and preserve the held real-response receipt plus A's completed lifecycle row. While delivery is held, use the visible
+Organization menu to select B. Capture B's route/header and idle controls with no A success/error feedback. Release A,
+preserve `$V export state PAGE`, and save the actual Blob with
+`$V export save PAGE .verification/evidence/verify-trooptotask/RUN/delayed-a.json`. Require A's filename,
+`organizationId`, and source rows in the parsed file while B stays idle without A feedback. Restore the A hooks, arm
+fresh capture, then submit B Excel normally and compare its separate B artifact/lifecycle. Restore hooks before
+navigating again.
 
-Use a held failing provider response or focused deferred component checks for late errors and late body completion. A full document reload destroys browser hooks and establishes no delayed-response isolation. Same-canonical-Organization URL changes preserve the pending export; an A→B→A return must not let the disposed first A request clear the new A request's busy state. Preserve what was actually driven separately from component coverage.
+Use a held failing provider response or focused deferred component checks for late errors and late body completion. A
+full document reload destroys browser hooks and establishes no delayed-response isolation. Same-canonical-Organization
+URL changes preserve the pending export; an A→B→A return must not let the disposed first A request clear the new A
+request's busy state. Preserve what was actually driven separately from component coverage.
 
 ## Gotchas
 
-- Use `$V seed roster-pages` for 1,001 saved A roster rows when roster persistence or its backup reader changes. Preserve the exact preceding `$V rows sign_in_rosters orgA` readback and compare every seeded ID and raw field in JSON and the `Raw - Sign-in Rosters` worksheet, including unknown nested marker fields, null dates and timestamp precision. Check the B roster remains absent. Finish all comparisons that need temporary seeds across this worker before running `clean-seeds`. It removes every journaled seed row, including other cohorts in the same worker; this synthetic setup is separate from native creation and export admission.
+- Use `$V seed roster-pages` for 1,001 saved A roster rows when roster persistence or its backup reader changes.
+  Preserve the exact preceding `$V rows sign_in_rosters orgA` readback and compare every seeded ID and raw field in JSON
+  and the `Raw - Sign-in Rosters` worksheet, including unknown nested marker fields, null dates and timestamp precision.
+  Check the B roster remains absent. Finish all comparisons that need temporary seeds across this worker before running
+  `clean-seeds`. It removes every journaled seed row, including other cohorts in the same worker; this synthetic setup
+  is separate from native creation and export admission.
 
-- JSON and Excel are POST downloads. Native Blob capture proves what the member downloaded; an authenticated fetch returning 200 alone does not.
-- Every paged export reader orders by `id`, so a source larger than one 1,000-row page must still export each row once. Compare exported rows, distinct `id` values and provider rows per table. The performance recipe's `large` workload crosses the page boundary in `personnel_ict_completions` (13,401 rows) and `personnel_trainings` (9,554). The exported `notifications` and `audit_logs` sections omit the export's own administrator notification and Audit event, which the service writes after it builds the payload.
+- JSON and Excel are POST downloads. Native Blob capture proves what the member downloaded; an authenticated fetch
+  returning 200 alone does not.
+- Every paged export reader orders by `id`, so a source larger than one 1,000-row page must still export each row once.
+  Compare exported rows, distinct `id` values and provider rows per table. The performance recipe's `large` workload
+  crosses the page boundary in `personnel_ict_completions` (13,401 rows) and `personnel_trainings` (9,554). The exported
+  `notifications` and `audit_logs` sections omit the export's own administrator notification and Audit event, which the
+  service writes after it builds the payload.
 - `export save` reads the captured Blob in 1 MiB slices and fails unless it saved every byte.
-- The artifact captures the export row while it is processing. After download, provider history can show that same row completed. Do not require the immutable artifact to predict a later lifecycle update or its own later Audit event.
-- Inventory, source rows, readable projections, and lifecycle effects are distinct observations. An empty or successful workbook cannot prove complete source retrieval.
-- Full Organization backup formats and narrower report workbooks have different contracts. Preserve raw sensitive rules and legacy blank fields without expanding the Coming Soon action.
-- Execution/lifecycle/manifest/workbook, Personnel export, JSON/Excel route, and export-workspace tests are the lower-level checks. `data_export_lifecycle_rls.sql` and sensitive Personnel SQL establish database admission separately under the [isolated database contract](../../../../docs/architecture/DEFINITION_OF_DONE.md#isolated-database-checks).
-- Restore every armed `server-source` control and compare original source/file sentinels. Lifecycle/Audit/notification rows created by real exports remain in the disposable project until owned disposal.
+- The artifact captures the export row while it is processing. After download, provider history can show that same row
+  completed. Do not require the immutable artifact to predict a later lifecycle update or its own later Audit event.
+- Inventory, source rows, readable projections, and lifecycle effects are distinct observations. An empty or successful
+  workbook cannot prove complete source retrieval.
+- Full Organization backup formats and narrower report workbooks have different contracts. Preserve raw sensitive rules
+  and legacy blank fields without expanding the Coming Soon action.
+- Execution/lifecycle/manifest/workbook, Personnel export, JSON/Excel route, and export-workspace tests are the
+  lower-level checks. `data_export_lifecycle_rls.sql` and sensitive Personnel SQL establish database admission
+  separately under the
+  [isolated database contract](../../../../docs/architecture/DEFINITION_OF_DONE.md#isolated-database-checks).
+- Restore every armed `server-source` control and compare original source/file sentinels. Lifecycle/Audit/notification
+  rows created by real exports remain in the disposable project until owned disposal.
+
+### Switched-off export sections
+
+As `orgOwner`, turn Training off in Features and export both formats. Training types, completions, history, views, and
+Sign-in Rosters must be absent from JSON sections and workbook sheets. Both artifacts state
+`Training is turned off; its records are not included.` Personnel and Calendar remain present. On Settings > Exports the
+`Training · <n> record` and `Sign-in rosters` chips are gone and `Training is turned off; its records are not included.`
+shows under the chips. On Settings > Danger zone the `training record` count still shows the retained number. With
+Losses and awards off, Personnel extended info excludes `award_tracking_acknowledged_at` and the artifact states
+`Losses and awards is turned off; award acknowledgements are not included.` Restore the switches after checking the
+saved files.

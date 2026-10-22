@@ -157,7 +157,7 @@ describe('the Dashboard record overlay', () => {
 		expect(progress(stale)).toEqual({ completed: 1, total: 3 });
 		const fresh = { ...summary, onboardingPersonnelIds: ['bravo'], onboardingTrainingCompletions: ['bravo-sharp'] };
 		expect(progress(fresh)).toEqual({ completed: 1, total: 3 });
-		expect(progress({ ...fresh, onboardingTrainingCompletions: [] })).toEqual({ completed: 0, total: 3 });
+		expect(progress({ ...fresh, onboardingTrainingCompletions: [] })).toEqual({ completed: 1, total: 3 });
 	});
 
 	it('replaces a saved evaluation and adds an acknowledged award once', () => {

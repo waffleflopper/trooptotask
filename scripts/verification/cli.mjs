@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
+import { commandArguments, runTool } from './cli-output.mjs';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -25,16 +26,15 @@ import {
 	terminateOwnedGroup,
 	profileProcess,
 	launchOptions,
-	restartOptions
+	restartOptions,
+	assertWorkerSession
 } from './core.mjs';
 
-const argv = process.argv.slice(2);
-const option = argv.indexOf('--worker');
-const worker = option === -1 ? '1' : argv.splice(option, 2)[1];
-const [command = 'help', ...args] = argv;
-let session;
+let worker, command, args, session;
 try {
-	if (!['1', '2'].includes(worker)) throw new Blocked('WORKER', 'Choose --worker 1 or --worker 2.');
+	const parsed = commandArguments(process.argv.slice(2));
+	worker = parsed.worker;
+	[command = 'help', ...args] = parsed.args;
 	session = sessionPath(worker);
 } catch (error) {
 	console.log(JSON.stringify({ status: 'BLOCKED', code: error.code, message: error.message }));
@@ -57,7 +57,8 @@ restart [--browser-timezone IANA]
                       previous session's zone unless the flag names another
 login manager|viewer|scoped|foreign   New context signed in with a provider session; no app /auth/ request
 tools                 Native DevTools tool names, descriptions, and JSON argument schemas
-tool NAME '{...}'     Call a native DevTools tool (pageId and snapshot UIDs from its output)
+tool NAME '{...}' [--text] [--save PATH]
+                      Call a native tool; --text unwraps MCP text, --save writes under .verification/evidence/
 mcp                   Stdio MCP proxy for the running owned worker; register this project-local command
 cleanup               Stop exact owned processes/provider; retain captured evidence
 
@@ -72,7 +73,8 @@ Native MCP supplies click/fill/press_key, wait_for, DOM/a11y snapshots, network 
 console, screenshots, performance traces, and screencast_start/screencast_stop (needs ffmpeg; info
 reports it, files stay under .verification/evidence, cleanup stops a running recording). Use tools for schemas, not one-off browser scripts.
 The browser only allows the owned app/provider origins. No attach-to-URL/profile option exists.
-JSON stdout (except help); exit 0 success, 1 behavioral FAIL, 2 BLOCKED/INCONCLUSIVE.
+VERIFY_WORKER supplies the default worker; --worker overrides it.
+JSON stdout (except help and tool --text); exit 0 success, 1 behavioral FAIL, 2 BLOCKED/INCONCLUSIVE.
 Private state: ${sessions}
 Evidence: ${path.join(root, 'evidence')} (survives cleanup; review artifacts for secrets before sharing)
 `;
@@ -84,16 +86,7 @@ async function request(input) {
 	} catch {
 		throw new Blocked('NOT_LAUNCHED', 'No owned session. Run launch first.');
 	}
-	if (
-		state.repository !== repository ||
-		state.worker !== worker ||
-		state.phase !== 'running' ||
-		!Number.isInteger(state.controlPort)
-	)
-		throw new Blocked(
-			'OWNERSHIP',
-			'Session ownership/phase does not match. Inspect info and cleanup before launching.'
-		);
+	await assertWorkerSession(state, worker, session);
 	try {
 		const owner = state.supervisor && (await processIdentity(state.supervisor.pid));
 		if (!owner || owner.start !== state.supervisor.start || owner.command !== state.supervisor.command)
@@ -226,6 +219,7 @@ async function cleanup() {
 try {
 	const options = command === 'launch' ? launchOptions(args) : {};
 	let result;
+	let toolText;
 	if (['help', '--help', '-h'].includes(command)) {
 		console.log(help);
 	} else {
@@ -268,9 +262,12 @@ try {
 			case 'login':
 				result = await request({ command, role: args[0] });
 				break;
-			case 'tool':
-				result = await request({ command, name: args[0], args: JSON.parse(args[1] ?? '{}') });
+			case 'tool': {
+				const invoked = await runTool(args, request, path.join(root, 'evidence'));
+				result = invoked.result;
+				toolText = invoked.output;
 				break;
+			}
 			case 'mcp': {
 				const server = new Server(
 					{ name: 'trooptotask-owned-devtools', version: '1.0.0' },
@@ -292,8 +289,9 @@ try {
 				throw new Blocked('COMMAND', 'Unknown command. Run npm run verify:app -- --help.');
 		}
 		if (result) {
-			console.log(JSON.stringify(result, null, 2));
-			process.exitCode = result.status === 'FAIL' ? 1 : ['BLOCKED', 'INCONCLUSIVE'].includes(result.status) ? 2 : 0;
+			console.log(toolText ?? JSON.stringify(result, null, 2));
+			process.exitCode =
+				result.status === 'FAIL' || result.isError ? 1 : ['BLOCKED', 'INCONCLUSIVE'].includes(result.status) ? 2 : 0;
 		}
 	}
 } catch (error) {

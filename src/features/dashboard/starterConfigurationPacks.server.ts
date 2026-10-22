@@ -8,7 +8,7 @@ import { createTrainingType } from '$features/training/index.server';
 import type { OnboardingTemplate, OnboardingCatalogPersistence } from '$features/onboarding/contracts';
 import type {
 	TrainingOnboardingReferencesPort,
-	TrainingType,
+	TrainingTypeLabel,
 	TrainingCatalogPersistence
 } from '$features/training/contracts';
 import type {
@@ -245,8 +245,8 @@ async function requireStarterPackPreflight(ctx: Pick<OnboardingTemplateWriteCont
 async function applyStarterTrainingTypes(
 	ctx: StarterConfigurationApplyContext,
 	result: StarterConfigurationPackApplyResult
-): Promise<Map<string, TrainingType>> {
-	const trainingTypes = new Map<string, TrainingType>();
+): Promise<Map<string, TrainingTypeLabel>> {
+	const trainingTypes = new Map<string, TrainingTypeLabel>();
 
 	for (const starterType of STARTER_TRAINING_TYPES) {
 		const existing = await ctx.trainingCatalog.findTypeByName(starterType.name);

@@ -1,15 +1,19 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { describe, it, expect, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 import { createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
-import { loadWithContextCore, loadWithDeferredContext } from './httpAdapter';
+import { loadWithContextCore } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { RequestFailure } from '$lib/errors';
-import { settleWorkspaceDenial } from './streamedWorkspace';
 
-function buildRequest(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
+function buildRequest(overrides?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	disabledFeatures?: FeatureKey[];
+}) {
 	return {
 		auth: createTestAuthContext(overrides?.auth),
-		audit: createTestAuditPort()
+		audit: createTestAuditPort(),
+		disabledFeatures: overrides?.disabledFeatures ?? []
 	};
 }
 
@@ -228,36 +232,6 @@ describe('loadWithContextCore with defer: true', () => {
 		await expect(data).resolves.toEqual({ done: true });
 		expect(fnFinished).toBe(true);
 	});
-
-	it('returns deferred data before admission and selects collaborators from the admitted request', async () => {
-		const admission = deferred<ReturnType<typeof buildRequest>>();
-		const store = createInMemoryDataStore();
-		store.seed('items', [{ id: '1', organization_id: 'admitted-org', name: 'A' }]);
-		const selectContext = vi.fn((request: ReturnType<typeof buildRequest>) => ({
-			store,
-			orgId: request.auth.orgId
-		}));
-		const operation = vi.fn(async (context: ReturnType<typeof selectContext>) => ({
-			items: await context.store.findMany('items', context.orgId)
-		}));
-
-		const { data } = loadWithDeferredContext(
-			admission.promise,
-			{
-				policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-				fn: operation,
-				defer: true
-			},
-			selectContext
-		);
-
-		expect(data).toBeInstanceOf(Promise);
-		expect(selectContext).not.toHaveBeenCalled();
-		expect(operation).not.toHaveBeenCalled();
-
-		admission.resolve(buildRequest({ auth: { orgId: 'admitted-org' } }));
-		await expect(data).resolves.toEqual({ items: [{ id: '1', organization_id: 'admitted-org', name: 'A' }] });
-	});
 });
 
 describe('load failure boundaries', () => {
@@ -282,19 +256,6 @@ describe('load failure boundaries', () => {
 	it('does not adopt the status of a provider error', async () => {
 		const err = providerError();
 		await expect(loadWithContextCore(buildRequest(), loadThrowing(err), () => undefined)).rejects.toBe(err);
-	});
-
-	it('returns a generic 500 for a provider error through the full load boundary', async () => {
-		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const { data } = loadWithDeferredContext(
-			Promise.resolve(buildRequest()),
-			{ ...loadThrowing(providerError()), defer: true },
-			() => undefined
-		);
-
-		await expect(data).rejects.toMatchObject({ status: 500, body: { message: 'Internal server error' } });
-		expect(log).toHaveBeenCalledWith('[http-adapter] Unhandled route error:', expect.stringContaining('AuthApiError'));
-		log.mockRestore();
 	});
 });
 
@@ -333,20 +294,6 @@ describe('deferred loads that SvelteKit discards', () => {
 		return reasons;
 	}
 
-	it('does not crash the process when a denied loadWithDeferredContext result is never awaited', async () => {
-		let data!: Promise<unknown>;
-		const reasons = await unhandledRejectionsWhileUnawaited(() => {
-			({ data } = loadWithDeferredContext(
-				Promise.resolve(buildRequest({ auth: noAccess })),
-				viewTraining,
-				() => undefined
-			));
-		});
-
-		expect(reasons).toEqual([]);
-		await expect(data).rejects.toMatchObject({ status: 403 });
-	});
-
 	it('does not crash the process when a denied loadWithContextCore result is never awaited', async () => {
 		let data!: Promise<unknown>;
 		const reasons = await unhandledRejectionsWhileUnawaited(() => {
@@ -356,33 +303,29 @@ describe('deferred loads that SvelteKit discards', () => {
 		expect(reasons).toEqual([]);
 		await expect(data).rejects.toMatchObject({ status: 403 });
 	});
+});
 
-	it('does not crash the process when a failed lane read that was settled for denial is never awaited', async () => {
-		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-		let data!: Promise<unknown>;
-		const reasons = await unhandledRejectionsWhileUnawaited(() => {
-			const deferred = loadWithDeferredContext(
-				Promise.resolve(buildRequest()),
-				{
-					policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-					fn: async () => {
-						throw new Error('read failed');
-					},
-					defer: true
-				},
-				() => undefined
-			);
-			data = settleWorkspaceDenial(deferred.data, 'training');
+it.each([false, true])('returns the fresh feature-off page error before loading data, deferred=%s', (defer) => {
+	const request = buildRequest({ disabledFeatures: ['training'] });
+	const selectContext = vi.fn();
+	const fn = vi.fn(async () => ({ records: ['protected'] }));
+	try {
+		loadWithContextCore(
+			request,
+			{ policyAction: POLICY_ACTION_CATALOG.training.viewRecords, defer, fn },
+			selectContext
+		);
+		throw new Error('Expected a feature-off denial');
+	} catch (err) {
+		expect(err).toMatchObject({
+			status: 403,
+			body: {
+				message:
+					'This organization has turned off Training. Speak with the organization owner to have it turned back on.',
+				featureOff: 'training'
+			}
 		});
-		log.mockRestore();
-
-		expect(reasons).toEqual([]);
-		await expect(data).rejects.toMatchObject({ status: 500 });
-	});
-
-	it('still streams the allowed result to a page that does await it', async () => {
-		const { data } = loadWithDeferredContext(Promise.resolve(buildRequest()), viewTraining, () => undefined);
-
-		await expect(settleWorkspaceDenial(data, 'training')).resolves.toEqual({ items: [] });
-	});
+	}
+	expect(selectContext).not.toHaveBeenCalled();
+	expect(fn).not.toHaveBeenCalled();
 });

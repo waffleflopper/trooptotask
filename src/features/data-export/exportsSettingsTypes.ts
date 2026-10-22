@@ -1,3 +1,4 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { UnitCounts } from '$features/organization/contracts';
 
 export type OrganizationExportFormat = 'json' | 'excel';
@@ -13,6 +14,8 @@ export interface LastExport {
 }
 
 export interface ExportsSettingsData {
+	/** Turned-off features, whose areas an export leaves out. */
+	disabledFeatures: readonly FeatureKey[];
 	scopeCounts: Promise<ExportScopeCounts>;
 }
 

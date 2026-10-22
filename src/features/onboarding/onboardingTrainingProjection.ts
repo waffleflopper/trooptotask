@@ -8,7 +8,7 @@ export function projectOnboardingTrainingSteps(
 		...packet,
 		steps: packet.steps.map((step) =>
 			step.stepType === 'training' && step.active && step.trainingTypeId !== null
-				? { ...step, completed: isCompleted(step.trainingTypeId) }
+				? { ...step, completed: step.completed || isCompleted(step.trainingTypeId) }
 				: step
 		)
 	};

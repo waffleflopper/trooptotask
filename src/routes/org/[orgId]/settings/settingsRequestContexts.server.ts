@@ -24,7 +24,7 @@ import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 import type { FeaturesSettingsPorts } from './settingsFeatures.server';
 import type { DangerSettingsPorts } from './settingsDanger.server';
-import type { SettingsUnitSummaryPorts } from './settingsLoad.server';
+import type { SettingsExportsPorts } from './settingsExports.server';
 import type { PoliciesSettingsPorts } from './settingsPolicies.server';
 
 export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
@@ -100,9 +100,10 @@ export function createSettingsRanksContext(request: AdmittedOrganizationRequest)
 	};
 }
 
-export function createSettingsUnitSummaryContext(request: AdmittedOrganizationRequest): SettingsUnitSummaryPorts {
+export function createSettingsUnitSummaryContext(request: AdmittedOrganizationRequest): SettingsExportsPorts {
 	return {
 		auth: request.auth,
+		disabledFeatures: request.disabledFeatures,
 		...createRequestUnitCountsContext(request),
 		readLatestAuditEvent: (action) => {
 			const { auditStore, auditLabels } = createRequestOrganizationAuditLogContext(request);

@@ -45,7 +45,11 @@ function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } =
 		return query;
 	});
 	const getAdminClient = vi.fn(() => ({ from }) as unknown as SupabaseClient);
-	return { from, getAdminClient, port: createSupabaseTrainingOnboardingReferencesPort(getAdminClient) };
+	return {
+		from,
+		getAdminClient,
+		port: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
+	};
 }
 
 function valueAt(row: Row, path: string): unknown {
@@ -70,16 +74,27 @@ function actor(onboarding: 'none' | 'view' = 'view', groupIds: string[] = ['alph
 }
 
 describe('Training references for Onboarding', () => {
-	it('returns current Training type models to an Onboarding-only reader without exposing other Organizations', async () => {
+	it('returns only Training type IDs and labels to an Onboarding-only reader without exposing other Organizations', async () => {
 		const { port } = provider({
 			trainingTypes: [
 				{ id: 'cpr', organization_id: 'org-1', name: 'CPR', sort_order: 1, expiration_months: 12 },
 				{ id: 'other', organization_id: 'org-2', name: 'Other unit', sort_order: 2 }
 			]
 		});
-		await expect(port.listTypes(actor())).resolves.toMatchObject([
-			{ id: 'cpr', name: 'CPR', sortOrder: 1, expirationMonths: 12 }
-		]);
+		await expect(port.listTypes(actor())).resolves.toEqual([{ id: 'cpr', name: 'CPR' }]);
+	});
+
+	it('keeps Training type names but reads no completion records while Training is off', async () => {
+		const { port, getAdminClient } = provider({
+			trainingTypes: [{ id: 'cpr', organization_id: 'org-1', name: 'CPR', sort_order: 1 }]
+		});
+
+		await expect(port.listTypes(actor())).resolves.toMatchObject([{ id: 'cpr', name: 'CPR' }]);
+		getAdminClient.mockClear();
+		await expect(
+			port.completedTypeIds({ auth: actor(), disabledFeatures: ['training'] }, ['p-alpha'], ['cpr'])
+		).resolves.toEqual(new Map());
+		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('returns only requested completion pairs for the actor Organization and Group, even if expired', async () => {
@@ -131,7 +146,7 @@ describe('Training references for Onboarding', () => {
 			]
 		});
 		const result = await port.completedTypeIds(
-			actor(),
+			{ auth: actor(), disabledFeatures: [] },
 			['p-alpha', 'p-bravo', 'p-other-org', 'p-cross-ref', 'p-cross-type'],
 			['cpr']
 		);
@@ -141,7 +156,9 @@ describe('Training references for Onboarding', () => {
 	it('denies missing Onboarding capability before opening the admin client', async () => {
 		const { port, getAdminClient } = provider();
 		await expect(port.listTypes(actor('none'))).rejects.toMatchObject({ status: 403 });
-		await expect(port.completedTypeIds(actor('none'), ['p-alpha'], ['cpr'])).rejects.toMatchObject({
+		await expect(
+			port.completedTypeIds({ auth: actor('none'), disabledFeatures: [] }, ['p-alpha'], ['cpr'])
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(getAdminClient).not.toHaveBeenCalled();
@@ -149,9 +166,15 @@ describe('Training references for Onboarding', () => {
 
 	it('returns no completions for empty Group scope or empty requests without opening the admin client', async () => {
 		const { port, getAdminClient } = provider();
-		await expect(port.completedTypeIds(actor('view', []), ['p-alpha'], ['cpr'])).resolves.toEqual(new Map());
-		await expect(port.completedTypeIds(actor(), [], ['cpr'])).resolves.toEqual(new Map());
-		await expect(port.completedTypeIds(actor(), ['p-alpha'], [])).resolves.toEqual(new Map());
+		await expect(
+			port.completedTypeIds({ auth: actor('view', []), disabledFeatures: [] }, ['p-alpha'], ['cpr'])
+		).resolves.toEqual(new Map());
+		await expect(port.completedTypeIds({ auth: actor(), disabledFeatures: [] }, [], ['cpr'])).resolves.toEqual(
+			new Map()
+		);
+		await expect(port.completedTypeIds({ auth: actor(), disabledFeatures: [] }, ['p-alpha'], [])).resolves.toEqual(
+			new Map()
+		);
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
@@ -165,7 +188,7 @@ describe('Training references for Onboarding', () => {
 		}));
 		const { port } = provider({ trainingRecords: records });
 		const result = await port.completedTypeIds(
-			actor(),
+			{ auth: actor(), disabledFeatures: [] },
 			records.map((record) => record.personnel_id),
 			Array.from({ length: 6 }, (_, index) => `type-${index}`)
 		);
@@ -183,7 +206,7 @@ describe('Training references for Onboarding', () => {
 		}));
 		const { port } = provider({ trainingRecords: records });
 		const result = await port.completedTypeIds(
-			actor(),
+			{ auth: actor(), disabledFeatures: [] },
 			records.map((row) => row.personnel_id),
 			['cpr']
 		);

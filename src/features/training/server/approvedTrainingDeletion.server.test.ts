@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { createSupabaseApprovedTrainingDeletionPort } from './approvedTrainingDeletion.server';
 
 function provider(error: { code?: string; message: string } | null = null) {
@@ -9,8 +10,8 @@ function provider(error: { code?: string; message: string } | null = null) {
 	return { rpc, getAdminClient, port: createSupabaseApprovedTrainingDeletionPort(getAdminClient) };
 }
 
-function reviewer(role: 'admin' | 'member' = 'admin') {
-	return createTestAuthContext({
+function reviewer(role: 'admin' | 'member' = 'admin', disabledFeatures: FeatureKey[] = []) {
+	const auth = createTestAuthContext({
 		orgId: 'org-1',
 		userId: 'reviewer-1',
 		role,
@@ -24,6 +25,7 @@ function reviewer(role: 'admin' | 'member' = 'admin') {
 			ratingScheme: 'none'
 		}
 	});
+	return { auth, disabledFeatures };
 }
 
 describe('approved Training deletion provider', () => {
@@ -53,6 +55,23 @@ describe('approved Training deletion provider', () => {
 			]);
 		}
 	);
+
+	it('keeps the request pending while Training is off', async () => {
+		const { port, rpc } = provider();
+
+		await expect(
+			port.approveTrainingTypeDeletion(
+				reviewer('admin', ['training']),
+				'request-1',
+				'type-1',
+				'2030-02-01T00:00:00.000Z'
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'This organization has turned off Training. Speak with the organization owner to have it turned back on.'
+		});
+		expect(rpc).not.toHaveBeenCalled();
+	});
 
 	it('reports a foreign, missing or no longer pending target as not found', async () => {
 		const missing = provider({ code: 'P0002', message: 'Deletion target not found' });

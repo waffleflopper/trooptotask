@@ -14,6 +14,7 @@ import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { typicalDaysToFinish, typicalWindowStart } from '../onboardingStatus';
 import { noteAuthorIds, pickNoteAuthorLabels } from '../onboardingNoteAuthors';
 import { normalizeRetentionMonths } from './onboardingRetention.server';
+import { onboardingResponse, trainingStepsAreManual } from './manualTrainingSteps.server';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -70,7 +71,7 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 		return new Map();
 	}
 
-	return ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, personnelIds, trainingTypeIds);
+	return ctx.trainingOnboardingReferences.completedTypeIds(ctx, personnelIds, trainingTypeIds);
 }
 
 /** Names are decoration on the notes, so a failed lookup leaves them unnamed rather than failing the page. */
@@ -148,7 +149,7 @@ export async function fetchOnboardingBootstrap(
 		o.steps.some((s) => s.stepType === 'training' && s.active)
 	);
 
-	if (trainingOnboardings.length > 0) {
+	if (!trainingStepsAreManual(ctx) && trainingOnboardings.length > 0) {
 		const completedTrainingTypeIdsByPersonnelId = await readCompletedTrainingTypeIdsByPersonnelId(
 			ctx,
 			trainingOnboardings
@@ -166,6 +167,8 @@ export async function fetchOnboardingBootstrap(
 
 		onboardings = onboardings.map((onboarding) => refreshedOnboardingById.get(onboarding.id) ?? onboarding);
 	}
+
+	onboardings = onboardings.map((packet) => onboardingResponse(ctx, packet));
 
 	return {
 		onboardingTemplates: templates,

@@ -11,6 +11,7 @@ function payload(overrides: Partial<OrganizationExportPayload['sections']> = {})
 		organizationId: 'org-1',
 		sectionInventory: [],
 		sections: {
+			signInRosters: [],
 			groups: [{ id: 'group-1', name: 'Alpha' }],
 			personnel: [
 				{
@@ -55,12 +56,19 @@ function payload(overrides: Partial<OrganizationExportPayload['sections']> = {})
 }
 
 describe('Organization Data Export workbook', () => {
-	it('plans all readable and raw sheets for the current full export path', () => {
+	it('plans the supplied source sections with readable and raw Training data', () => {
 		const plan = buildOrganizationDataExportWorkbookPlan({
 			payload: payload()
 		});
 
-		expect(plan.inventorySheet.rows.length).toBeGreaterThan(30);
+		expect(plan.inventorySheet.rows).toContainEqual({
+			key: 'personnelTrainings',
+			title: 'Personnel Trainings',
+			table: 'personnel_trainings',
+			area: 'Training',
+			areaKey: 'training',
+			rowCount: 1
+		});
 		expect(plan.readableSheets.map((sheet) => sheet.name)).toContain('Personnel');
 		expect(plan.readableSheets.map((sheet) => sheet.name)).toContain('Training Records');
 		expect(plan.rawArchiveSheets.map((sheet) => sheet.name)).toContain('Raw - Personnel Trainings');

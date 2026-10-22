@@ -1,24 +1,42 @@
 # Personnel, Groups and settings forms: failed saves, field errors and screen states
 
-A member whose save fails keeps every value they typed and sees an error tied to the field or form that failed, and every Personnel, Groups, ranks and archives screen shows a clear empty, restricted, disabled, narrow-screen and dark state.
+A member whose save fails keeps every value they typed and sees an error tied to the field or form that failed, and
+every Personnel, Groups, ranks and archives screen shows a clear empty, restricted, disabled, narrow-screen and dark
+state.
 
 ## Sub-features
 
-- `failed-save-keeps-values`: a rejected or failed save leaves the dialog or form open, every entered value and selected file in place, the saved row unchanged and an explicit retry able to save once.
-- `field-error-association`: a validation error is rendered by `Field.Error` for its field: the control is `aria-invalid="true"` and its `aria-describedby` resolves to the visible message, which is a `role="alert"` element.
-- `screen-states`: each owned screen's empty, restricted/denied, disabled-while-saving, loading, 1280 light, 390 dark, keyboard/focus and URL/query behavior.
+- `failed-save-keeps-values`: a rejected or failed save leaves the dialog or form open, every entered value and selected
+  file in place, the saved row unchanged and an explicit retry able to save once.
+- `field-error-association`: a validation error is rendered by `Field.Error` for its field: the control is
+  `aria-invalid="true"` and its `aria-describedby` resolves to the visible message, which is a `role="alert"` element.
+- `screen-states`: each owned screen's empty, restricted/denied, disabled-while-saving, loading, 1280 light, 390 dark,
+  keyboard/focus and URL/query behavior.
 
 ## How to get to it (user POV)
 
-Personnel → `Add Person`, a row's `Edit`, `Details` (the Data sheet tab and its Edit form, the Overview forms, the Log and Files tabs, Archived), `Import`, `Manage Groups`; Settings → `Archives` and `Ranks` (see the [rank recipe](rank-settings.md)).
+Personnel → `Add Person`, a row's `Edit`, `Details` (the Data sheet tab and its Edit form, the Overview forms, the Log
+and Files tabs, Archived), `Import`, `Manage Groups`; Settings → `Archives` and `Ranks` (see the
+[rank recipe](rank-settings.md)).
 
 ## Driving it with verify:app
 
-The [component contracts](component-foundation.md) apply. Record each cell PASS, FAIL, UNAVAILABLE or UNRUN with the consumer, width and theme. A reproduced defect stays FAIL until the same step passes on a later candidate. The lifecycle, artifact, group and rank recipes own the data and permission steps.
+The [component contracts](component-foundation.md) apply. Record each cell PASS, FAIL, UNAVAILABLE or UNRUN with the
+consumer, width and theme. A reproduced defect stays FAIL until the same step passes on a later candidate. The
+lifecycle, artifact, group and rank recipes own the data and permission steps.
 
-Preconditions: owned launch and `doctor` pass; use the index's `WORKER` and `V`; save `component-foundation.md`'s state reader as `reader.js` in the run directory. Run `$V seed personnel-lifecycle` and `$V seed personnel-artifact-context`; preserve the rows of the dedicated Person for each family. Use unique `MapForm<tag>` values for every draft. Every failure uses a synthetic undispatched 503 from `$V network arm-fail`, which proves client recovery only: pair it with `$V rows` showing no saved effect, restore it and retry visibly with the same draft, then reload and read the saved values.
+Preconditions: owned launch and `doctor` pass; use the index's `WORKER` and `V`; save `component-foundation.md`'s state
+reader as `reader.js` in the run directory. Run `$V seed personnel-lifecycle` and `$V seed personnel-artifact-context`;
+preserve the rows of the dedicated Person for each family. Use unique `MapForm<tag>` values for every draft. Every
+failure uses a synthetic undispatched 503 from `$V network arm-fail`, which proves client recovery only: pair it with
+`$V rows` showing no saved effect, restore it and retry visibly with the same draft, then reload and read the saved
+values.
 
-1. **Failed save keeps entered values.** For each form, fill every field with a distinct value (including each select, date and the selected file), arm the named family, submit, and capture: the form or dialog still open and not `aria-busy`, every field and file as entered, the visible error text and where it is rendered (toast, form message or both), `network state` with one 503, and unchanged rows. Then restore, retry once, reload and compare. Press Escape and the close button in the failed state: a dialog with a draft must not close silently.
+1. **Failed save keeps entered values.** For each form, fill every field with a distinct value (including each select,
+   date and the selected file), arm the named family, submit, and capture: the form or dialog still open and not
+   `aria-busy`, every field and file as entered, the visible error text and where it is rendered (toast, form message or
+   both), `network state` with one 503, and unchanged rows. Then restore, retry once, reload and compare. Press Escape
+   and the close button in the failed state: a dialog with a draft must not close silently.
 
    | Form                        | Entry (actor)                              | Family armed                             | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
    | --------------------------- | ------------------------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -38,7 +56,12 @@ Preconditions: owned launch and `doctor` pass; use the index's `WORKER` and `V`;
    | Archives delete             | Archives → Delete, typed name              | `personnel/permanent`                    | the confirmation stays open with the typed name; `Delete permanently` re-enables                                                                                                                                                                                                                                                                                                                                                                                                                                  |
    | Import submit               | Import after Preview Rows (`manager`)      | `personnel/batch`                        | a whole-request failure keeps the preview with every cell edit and the selection and shows a destructive `Alert` with the server message (a dropped connection instead says the import was not confirmed and some rows may already be saved); Back clears the earlier failure, so Preview with no new file, re-choosing the identical file (no `change` event) or choosing a different file shows none; Import again posts the same rows ([lifecycle step 4](personnel-records-lifecycle.md) owns the row checks) |
 
-2. **Field error association.** For each form below, trigger the validation error, then read the offending control and its message with `reader.js` and `evaluate_script`. Require the error element to be `data-slot="field-error"` with `role="alert"`, the control to have `aria-invalid="true"` only on the rejected field, and its `aria-describedby` to resolve to that message; the label must also resolve. Record the observed element (`Field.Error`, raw `<p>`, `Alert`, toast, tooltip) and each attribute, whether focus moved to the first invalid field, and whether the error clears after correction.
+2. **Field error association.** For each form below, trigger the validation error, then read the offending control and
+   its message with `reader.js` and `evaluate_script`. Require the error element to be `data-slot="field-error"` with
+   `role="alert"`, the control to have `aria-invalid="true"` only on the rejected field, and its `aria-describedby` to
+   resolve to that message; the label must also resolve. Record the observed element (`Field.Error`, raw `<p>`, `Alert`,
+   toast, tooltip) and each attribute, whether focus moved to the first invalid field, and whether the error clears
+   after correction.
 
    | Form                                         | How to trigger                                                    | Expected result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
    | -------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,7 +73,9 @@ Preconditions: owned launch and `doctor` pass; use the index's `WORKER` and `V`;
    | Import preview                               | Preview a row with an invalid rank and date                       | an error cell has `aria-invalid="true"`, the canonical destructive border and an `aria-describedby` equal to its issue text; a warning cell keeps an amber tint with no `aria-invalid`; an empty file or one with only a header row (`Rank,Last Name,First Name`) shows `The file has no rows to import.` on the file field, disables Preview Rows and shows no preview                                                                                                                                                                                                                                                                                                                               |
    | Archives permanent delete                    | type a non-matching name                                          | the button stays disabled; no message appears, as for Organization delete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
-3. **Screen states.** Capture each owned screen in the states below at 1280x800 light and 390x844 dark ([theme pass](shared-ui.md#theme-and-viewport)); the other two combinations are optional. Record UNAVAILABLE with the attempted route where the table says no control exists.
+3. **Screen states.** Capture each owned screen in the states below at 1280x800 light and 390x844 dark
+   ([theme pass](shared-ui.md#theme-and-viewport)); the other two combinations are optional. Record UNAVAILABLE with the
+   attempted route where the table says no control exists.
 
    | Screen                 | Empty                                                           | Restricted/denied                                                                                                                                                                                                                                                                                | Loading                                                                                                                    | Disabled/busy                                                       | URL and query                                  |
    | ---------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- |
@@ -65,14 +90,35 @@ Preconditions: owned launch and `doctor` pass; use the index's `WORKER` and `V`;
    | Settings → Archives    | `No one is archived.` with every record restored                | `manager` and `orgMember` denied by the Settings layout                                                                                                                                                                                                                                          | [settings states](organization-settings-states.md) Loading row                                                             | a spinner in `Restore <name>` and `Exporting...` while held         | none                                           |
    | Settings → Ranks       | [rank recipe](rank-settings.md) step 11                         | same                                                                                                                                                                                                                                                                                             | same                                                                                                                       | same                                                                | none                                           |
 
-   For every screen also record keyboard order with a visible focus ring, Escape and focus return for each overlay, and the focus target after a successful and a failed save.
+   For every screen also record keyboard order with a visible focus ring, Escape and focus return for each overlay, and
+   the focus target after a successful and a failed save.
 
-4. **Theme and viewport.** The theme pass (step 3) is the owner. At 390 require every dialog, the Import preview's horizontal scroll, the group headers and the tab links within the viewport and operable, and light/dark text and error colors readable.
+4. **Theme and viewport.** The theme pass (step 3) is the owner. At 390 require every dialog, the Import preview's
+   horizontal scroll, the group headers and the tab links within the viewport and operable, and light/dark text and
+   error colors readable.
 
 ## Gotchas
 
-- A synthetic 503 is not a provider outage; it proves the browser's recovery and the absence of a write only. Failures that happen after a persisted partial effect belong to the lifecycle and artifact recipes.
-- Several forms close on success even though they keep their draft on failure; compare the dialog state after the failure and after the retry separately.
-- `arm-fail` on `personnel` matches every method of that endpoint, so Add, Edit, Archive and Archives Restore all use the same control; arm it immediately before the action and restore it afterward.
-- The modal's `Group` select shares its name with the toolbar's `Group` view toggle: pick the dialog's with the second match, because a click on the toolbar button closes the dialog and drops the draft. Rank and Group are comboboxes: type the value into the combobox and press Enter. `upload_file` takes `filePaths` (an array) inside the workspace roots, so keep fixture files under `.verification/evidence/` and delete them before packaging. Counseling dates are chosen through the date picker (click the day cell). The `rows` allowlist includes `leader_notes` and `counseling_records`, so read their no-write proof with `$V rows leader_notes orgA personnel_id ID` and `$V rows counseling_records orgA personnel_id ID`. The Archived tab's `Delete` opens a destructive `Delete archived item` confirmation: Cancel and Escape send nothing, and confirm stays open and busy until the DELETE settles (a failure keeps it open with the Alert and Confirm retries), so drive it only on a seeded archived item. On success focus goes to the next row's Restore, else the previous row's, else the `#archived-heading` heading (delete the last item to prove it). The seed's documents are metadata only, and deleting one succeeds because Storage confirms the object is already absent ([Personnel artifacts](personnel-artifacts.md)). For the failure case, arm `$V network arm-fail PAGE personnel/PERSON_ID/documents/DOCUMENT_ID` immediately before Confirm and restore it afterward. During a held Archives Restore that row's Restore, Export and Delete are disabled. Record each observation as it renders; do not redefine the contract to match.
-- `rows` reads prove saved values, not form state. Read the form state from the page after the failure, before any reload.
+- A synthetic 503 is not a provider outage; it proves the browser's recovery and the absence of a write only. Failures
+  that happen after a persisted partial effect belong to the lifecycle and artifact recipes.
+- Several forms close on success even though they keep their draft on failure; compare the dialog state after the
+  failure and after the retry separately.
+- `arm-fail` on `personnel` matches every method of that endpoint, so Add, Edit, Archive and Archives Restore all use
+  the same control; arm it immediately before the action and restore it afterward.
+- The modal's `Group` select shares its name with the toolbar's `Group` view toggle: pick the dialog's with the second
+  match, because a click on the toolbar button closes the dialog and drops the draft. Rank and Group are comboboxes:
+  type the value into the combobox and press Enter. `upload_file` takes `filePaths` (an array) inside the workspace
+  roots, so keep fixture files under `.verification/evidence/` and delete them before packaging. Counseling dates are
+  chosen through the date picker (click the day cell). The `rows` allowlist includes `leader_notes` and
+  `counseling_records`, so read their no-write proof with `$V rows leader_notes orgA personnel_id ID` and
+  `$V rows counseling_records orgA personnel_id ID`. The Archived tab's `Delete` opens a destructive
+  `Delete archived item` confirmation: Cancel and Escape send nothing, and confirm stays open and busy until the DELETE
+  settles (a failure keeps it open with the Alert and Confirm retries), so drive it only on a seeded archived item. On
+  success focus goes to the next row's Restore, else the previous row's, else the `#archived-heading` heading (delete
+  the last item to prove it). The seed's documents are metadata only, and deleting one succeeds because Storage confirms
+  the object is already absent ([Personnel artifacts](personnel-artifacts.md)). For the failure case, arm
+  `$V network arm-fail PAGE personnel/PERSON_ID/documents/DOCUMENT_ID` immediately before Confirm and restore it
+  afterward. During a held Archives Restore that row's Restore, Export and Delete are disabled. Record each observation
+  as it renders; do not redefine the contract to match.
+- `rows` reads prove saved values, not form state. Read the form state from the page after the failure, before any
+  reload.

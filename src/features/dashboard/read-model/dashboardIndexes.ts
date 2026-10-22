@@ -2,8 +2,9 @@ import { projectOnboardingTrainingSteps, type PersonnelOnboarding } from '$featu
 import type { DashboardPageData } from '../contracts';
 
 /**
- * Projects each active Training step from current Training records, so a step counts as done only
- * while a completion covers it. Without the Training summary the saved step snapshot stands.
+ * Projects each active Training step from current Training records. A saved completion stands, so a
+ * step ticked by hand while Training was off stays done. Without the Training summary the saved
+ * step snapshot stands.
  */
 export function projectTrainingSteps(
 	page: Pick<DashboardPageData, 'trainingSummary' | 'onboardingTrainingCompletions'>

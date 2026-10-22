@@ -119,9 +119,10 @@ export async function files() {
 	// .claude/skills aliases the hashed .agents/skills tree for agent tooling; every other link stays rejected.
 	return [...new Set(stdout.split('\0').filter((file) => file && file !== '.claude/skills'))].sort();
 }
-export async function candidate(base = repository) {
+export async function candidateSnapshot(base = repository, sourceFiles) {
+	const entries = {};
 	const hash = createHash('sha256');
-	for (const file of await files()) {
+	for (const file of sourceFiles ?? (await files())) {
 		// Bind authoritative driving instructions to the same freshness check as the app.
 		const verificationMap =
 			file === '.agents/skills/verify-trooptotask/SKILL.md' ||
@@ -130,20 +131,57 @@ export async function candidate(base = repository) {
 		try {
 			const stat = await fs.lstat(path.join(base, file));
 			if (!stat.isFile()) throw new Blocked('SOURCE_TYPE', `Unsupported source entry ${file}; use regular files.`);
+			const content = await fs.readFile(path.join(base, file));
+			entries[file] = createHash('sha256').update(content).digest('hex');
 			hash
 				.update(file + '\0')
-				.update(await fs.readFile(path.join(base, file)))
+				.update(content)
 				.update('\0');
 		} catch (error) {
 			if (error.code !== 'ENOENT') throw error;
+			entries[file] = 'DELETED';
 			hash.update(file + '\0DELETED\0');
 		}
 	}
-	return hash.digest('hex');
+	return { digest: hash.digest('hex'), files: entries };
 }
-export function assertCurrentCandidate(state, currentCandidate, artifactCandidate) {
+export async function candidate(base = repository) {
+	return (await candidateSnapshot(base)).digest;
+}
+export function changedCandidatePaths(before = {}, after = {}) {
+	return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+		.filter((file) => before[file] !== after[file])
+		.sort();
+}
+export function assertCurrentCandidate(state, currentCandidate, artifactCandidate, paths = []) {
 	if (currentCandidate !== state.candidate || artifactCandidate !== state.artifact)
-		throw new Blocked('STALE_CANDIDATE', 'Source or owned artifact changed. Restart before driving this candidate.');
+		throw new Blocked(
+			'STALE_CANDIDATE',
+			`Source or owned artifact changed${paths.length ? `: ${paths.slice(0, 5).join(', ')}${paths.length > 5 ? ` (+${paths.length - 5} more)` : ''}` : ''}. Restart before driving this candidate.`
+		);
+}
+export async function assertWorkerSession(state, worker, session = sessionPath(worker)) {
+	if (state.repository !== repository || state.worker !== worker)
+		throw new Blocked('OWNERSHIP', 'Session ownership does not match this checkout and worker.');
+	if (state.phase === 'starting') {
+		let identity = state.supervisor;
+		if (!identity) {
+			try {
+				identity = (await readJSON(path.join(session, 'launcher.json'))).identity;
+			} catch (error) {
+				if (error.code !== 'ENOENT') throw error;
+			}
+		}
+		const current = identity && (await processIdentity(identity.pid));
+		if (!current || current.state === 'Z' || current.start !== identity.start || current.command !== identity.command)
+			throw new Blocked('LAUNCH_EXITED', `Launch is no longer running; run cleanup --worker ${worker}.`);
+		throw new Blocked(
+			'LAUNCH_PENDING',
+			'This worker is still launching. Wait for launch to finish; inspect its supervisor.log for progress.'
+		);
+	}
+	if (state.phase !== 'running' || !Number.isInteger(state.controlPort))
+		throw new Blocked('OWNERSHIP', 'Session is not running. Inspect info and cleanup before launching.');
 }
 export async function snapshot(destination) {
 	await fs.mkdir(destination, { recursive: true, mode: 0o700 });

@@ -2,10 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 
 const prose = /^(?:README|AGENTS|CLAUDE|CONTEXT)\.md$|^docs\/.*\.md$/;
 const databaseInput =
-	/^(?:supabase\/|scripts\/ci\/|\.depot\/|\.github\/workflows\/ci\.yml$|package(?:-lock)?\.json$|\.nvmrc$)/;
+	/^(?:supabase\/|scripts\/(?:ci|demo-clinic)\/|\.agents\/skills\/verify-trooptotask\/helpers\/perf-workloads\.mjs$|\.depot\/|\.github\/workflows\/ci\.yml$|package(?:-lock)?\.json$|\.nvmrc$)/;
 
 export function classifyChanges(files, full = false) {
 	return {
@@ -33,12 +34,14 @@ export function changedFiles(root, base) {
 	];
 }
 
-export function selectScope(root, eventName, event) {
+export function selectScope(root, eventName, event, baseRef) {
 	let base;
 	const full = eventName !== 'pull_request';
 	if (!full) {
 		if (!event.pull_request?.base?.sha) throw new Error('Pull request base SHA is missing');
 		base = git(root, 'merge-base', 'HEAD', event.pull_request.base.sha).trim();
+	} else if (baseRef) {
+		base = git(root, 'merge-base', 'HEAD', baseRef).trim();
 	} else {
 		const head = git(root, 'rev-parse', 'HEAD').trim();
 		const main = git(root, 'rev-parse', 'origin/main').trim();
@@ -50,9 +53,10 @@ export function selectScope(root, eventName, event) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	const root = process.cwd();
+	const { values } = parseArgs({ options: { documents: { type: 'boolean' }, base: { type: 'string' } } });
 	const event = process.env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')) : {};
-	const scope = selectScope(root, process.env.GITHUB_EVENT_NAME, event);
-	if (process.argv.includes('--documents')) {
+	const scope = selectScope(root, process.env.GITHUB_EVENT_NAME, event, values.base);
+	if (values.documents) {
 		const documents = scope.documents.filter((file) => existsSync(path.join(root, file)));
 		if (documents.length) {
 			execFileSync('npm', ['exec', 'prettier', '--', '--ignore-path', '/dev/null', '--check', ...documents], {

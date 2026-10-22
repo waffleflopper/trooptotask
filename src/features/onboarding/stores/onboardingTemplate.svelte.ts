@@ -1,6 +1,6 @@
 import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
-import type { TrainingType } from '$features/training/contracts';
+import type { TrainingTypeLabel } from '$features/training/contracts';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import type { OnboardingStepType, OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 
@@ -9,7 +9,7 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 export interface OnboardingTemplateWorkspaceData {
 	templates: OnboardingTemplate[];
 	templateSteps: OnboardingTemplateStep[];
-	trainingTypes: TrainingType[];
+	trainingTypes: TrainingTypeLabel[];
 }
 
 export interface OnboardingTemplateWorkspaceOrganization {
@@ -116,7 +116,7 @@ export interface OnboardingTemplateWorkspaceModel {
 	templates: OnboardingTemplate[];
 	selectedTemplate: OnboardingTemplate | null;
 	selectedTemplateSteps: OnboardingTemplateStep[];
-	trainingTypes: TrainingType[];
+	trainingTypes: TrainingTypeLabel[];
 	canMutate: boolean;
 	templateActionDisabled: boolean;
 	creatingTemplate: boolean;
@@ -288,7 +288,7 @@ export class OnboardingTemplateWorkspace {
 
 	#templates = $state.raw<OnboardingTemplate[]>([]);
 	#steps = $state.raw<OnboardingTemplateStep[]>([]);
-	#trainingTypes = $state.raw<TrainingType[]>([]);
+	#trainingTypes = $state.raw<TrainingTypeLabel[]>([]);
 	#selectedTemplateId = $state<string | null>(null);
 	#creatingTemplate = $state(false);
 	#editingTemplate = $state(false);
@@ -383,7 +383,7 @@ export class OnboardingTemplateWorkspace {
 		return this.#steps.filter((step) => step.templateId === selected.id).sort((a, b) => a.sortOrder - b.sortOrder);
 	}
 
-	get trainingTypes(): TrainingType[] {
+	get trainingTypes(): TrainingTypeLabel[] {
 		return this.#trainingTypes;
 	}
 

@@ -11,10 +11,31 @@ permissions:
 
 concurrency:
   # Adding any other label gets its own group, so it cannot cancel a running check.
+  # Removing run-ci emits unlabeled, which is excluded from the workflow triggers.
   group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'run-ci' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  clear-label:
+    name: Clear CI request
+    # Dependabot and fork PRs get a read-only token, so they keep the label and the old per-push runs.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      contains(github.event.pull_request.labels.*.name, 'run-ci') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'run-ci')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove run-ci for this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels/run-ci" --silent
+
   scope:
     name: Select checks
     # PR checks wait for the run-ci label, added once review bots have no actionable findings.
@@ -63,6 +84,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Migration versions, ordering and references
+        run: python3 scripts/ci/migrations.py
       - run: npm install -g npm@11.12.1
       - id: install
         run: npm ci

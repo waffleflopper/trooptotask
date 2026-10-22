@@ -69,6 +69,36 @@ export const textContent = (result) =>
 		.map((item) => item.text)
 		.join('\n') ?? '';
 
+export function roleUid(result, role, name) {
+	const root = result.structuredContent?.snapshot;
+	if (!root || typeof root !== 'object')
+		throw new Blocked('MCP_FORMAT', 'Native structured snapshot is unavailable. Inspect take_snapshot.');
+	const matches = [];
+	const nodes = [root];
+	while (nodes.length) {
+		const node = nodes.pop();
+		if (node.role === role && (node.name ?? '') === name && typeof node.id === 'string') matches.push(node.id);
+		if (Array.isArray(node.children)) nodes.push(...node.children);
+	}
+	if (matches.length !== 1)
+		throw new Blocked('LOCATOR', `Expected one ${role} named ${name}; found ${matches.length}. Inspect take_snapshot.`);
+	return matches[0];
+}
+
+export async function interactByRole(call, action, { pageId, role, name, value }) {
+	if (
+		!['click', 'fill'].includes(action) ||
+		!Number.isInteger(pageId) ||
+		pageId < 1 ||
+		!role ||
+		typeof name !== 'string' ||
+		(action === 'fill' && typeof value !== 'string')
+	)
+		throw new Blocked('ARGUMENTS', 'Use click PAGE ROLE NAME or fill PAGE ROLE NAME VALUE.');
+	const snapshot = await call('take_snapshot', { pageId });
+	return call(action, { pageId, uid: roleUid(snapshot, role, name), ...(action === 'fill' ? { value } : {}) });
+}
+
 export function driver(call, state, fixture, sessionPage) {
 	let pageId;
 	async function tool(name, args = {}) {
@@ -78,14 +108,7 @@ export function driver(call, state, fixture, sessionPage) {
 		return textContent(await tool('take_snapshot'));
 	}
 	async function uid(role, name) {
-		const source = await snapshot();
-		const match = source.split('\n').filter((line) => line.includes(`${role} ${JSON.stringify(name)}`));
-		if (match.length !== 1)
-			throw new Blocked(
-				'LOCATOR',
-				`Expected one ${role} named ${name}; found ${match.length}. Inspect take_snapshot; distinguish map drift from product failure.`
-			);
-		return match[0].match(/uid=([^\s]+)/)?.[1];
+		return roleUid(await tool('take_snapshot'), role, name);
 	}
 	async function evaluate(fn) {
 		const result = textContent(await tool('evaluate_script', { function: fn }));

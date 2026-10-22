@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Blocked } from './core.mjs';
 import { textContent } from './browser.mjs';
+import { changelog } from '../../src/features/app-shell/changelog.ts';
 
 const fail = (code, message) => {
 	throw new Blocked(code, message);
@@ -37,7 +38,18 @@ export function entryPath(grant, destination) {
 
 /** `actor --form ROLE ...` signs in through the visible form; plain `actor ROLE ...` uses a provider session. */
 export function actorArguments(args) {
-	return args[0] === '--form' ? { form: true, args: args.slice(1) } : { form: false, args };
+	return {
+		form: args.includes('--form'),
+		showWhatsNew: args.includes('--show-whats-new'),
+		args: args.filter((arg) => !['--form', '--show-whats-new'].includes(arg))
+	};
+}
+
+export function whatsNewPreferenceScript(userId, showWhatsNew = false) {
+	const key = `changelog-last-seen-${userId}`;
+	return showWhatsNew
+		? `() => { localStorage.removeItem(${JSON.stringify(key)}); return true; }`
+		: `() => { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(changelog[0]?.id ?? '')}); return true; }`;
 }
 
 /**
@@ -57,7 +69,7 @@ export async function sessionPage(
 		fetch = globalThis.fetch
 	} = {}
 ) {
-	const { email, password, destination, isolatedContext } = input ?? {};
+	const { email, password, destination, isolatedContext, showWhatsNew = false } = input ?? {};
 	if (
 		[email, password, isolatedContext].some((value) => typeof value !== 'string' || !value) ||
 		typeof destination !== 'string' ||
@@ -71,7 +83,7 @@ export async function sessionPage(
 		body: JSON.stringify({ email, password })
 	});
 	const grant = await response.json().catch(() => null);
-	if (!response.ok || typeof grant?.access_token !== 'string')
+	if (!response.ok || typeof grant?.access_token !== 'string' || typeof grant.user?.id !== 'string')
 		fail('PROVIDER_SESSION', `Provider sign-in failed (HTTP ${response.status}).`);
 	const url = `${state.origin}/og-image.png?session=${randomUUID()}`;
 	const created = textContent(await call('new_page', { url, isolatedContext }));
@@ -87,6 +99,7 @@ export async function sessionPage(
 		const pages = (await browser.pages()).filter((page) => page.url() === url);
 		if (pages.length !== 1) fail('SESSION_PAGE', 'The new page could not be identified in the owned browser.');
 		await pages[0].browserContext().setCookie(sessionCookie(state.origin, provider.API_URL, grant));
+		await pages[0].evaluate(`(${whatsNewPreferenceScript(grant.user.id, showWhatsNew)})()`);
 	} finally {
 		await Promise.resolve(browser.disconnect()).catch(() => {});
 	}

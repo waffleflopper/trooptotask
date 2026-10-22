@@ -302,6 +302,7 @@ export function createRequestOnboardingStartContext(
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient),
@@ -328,6 +329,7 @@ export function createRequestOnboardingReconciliationContext(
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingReconciliation: createSupabaseOnboardingReconciliationPort(request.supabase)
@@ -340,6 +342,7 @@ export function createRequestOnboardingStepProgressContext(
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingNoteAppend: createSupabaseOnboardingNoteAppendPort(request.supabase)
@@ -385,6 +388,7 @@ export function createRequestOnboardingWorkspaceContext(
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),

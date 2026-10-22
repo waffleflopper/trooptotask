@@ -7,6 +7,7 @@ import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/adapters/featureLaneWorkspaceLoad';
+import { requireFeatureOn } from '$lib/server/adapters/featureSwitchRoute';
 import { loadRatingSchemeWorkspace } from '$features/rating-scheme/index.server';
 import {
 	RATING_SCHEME_WORKSPACE_LANE_KEY,
@@ -52,11 +53,13 @@ export interface EvalsLayoutLoadDeps {
 export function _createEvalsLayoutLoad(deps: EvalsLayoutLoadDeps = {}): LayoutServerLoad {
 	const streamRatingSchemeWorkspace = deps.streamRatingSchemeWorkspace ?? _streamRatingSchemeWorkspace;
 
-	return async (event) =>
-		streamReadyFeatureLaneWorkspace(event, {
+	return async (event) => {
+		await requireFeatureOn(event, 'evaluations');
+		return streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:rating-scheme-data'],
 			streamWorkspace: streamRatingSchemeWorkspace
 		});
+	};
 }
 
 export const load: LayoutServerLoad = _createEvalsLayoutLoad();

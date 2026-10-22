@@ -1,77 +1,404 @@
 # Organization profile, policies and destruction
 
-An Organization owner or admin maintains its name, web address and policies; only its owner can delete it after name confirmation and current identity verification.
+An Organization owner or admin maintains its name, web address and policies; only its owner can delete it after name
+confirmation and current identity verification.
 
 ## Sub-features
 
 - `profile-name`: direct save, Undo, cancellation, saved name, reload and current Organization labels.
 - `custom-url`: valid slug, conflict and invalid input, canonical links, UUID access and reset to the default address.
-- `organization-policies`: independent retention, loss-warning and Training readiness goal saves, retained drafts on failure, and the separate document-cap API contract.
-- `organization-export`: actual JSON/Excel artifacts, all twelve profile fields, raw Organization tables, lifecycle and ordinary export authority.
-- `settings-target-isolation`: Organization switches reset drafts and busy state; an old target’s pending response cannot mark the new target saved or announce success/failure there.
-- `governance-denial`: ordinary members, foreign Organizations and stale governance cannot change saved settings or destroy an Organization.
-- `destruction-safeguards`: owner-only admission, matching name, cancellation, real elapsed-session step-up and an explicit retry after verification.
-- `destruction-effects`: Dashboard return, removed membership/current-target access and observed same-Organization cascades while foreign rows remain unchanged.
-- `unit-route-disposition`: effective schema and real caller evidence classify the legacy endpoint separately from supported Group management.
+- `organization-policies`: independent retention, loss-warning and Training readiness goal saves, retained drafts on
+  failure, and the separate document-cap API contract.
+- `organization-export`: actual JSON/Excel artifacts, all twelve profile fields, raw Organization tables, lifecycle and
+  ordinary export authority.
+- `settings-target-isolation`: Organization switches reset drafts and busy state; an old target’s pending response
+  cannot mark the new target saved or announce success/failure there.
+- `governance-denial`: ordinary members, foreign Organizations and stale governance cannot change saved settings or
+  destroy an Organization.
+- `destruction-safeguards`: owner-only admission, matching name, cancellation, real elapsed-session step-up and an
+  explicit retry after verification.
+- `destruction-effects`: Dashboard return, removed membership/current-target access and observed same-Organization
+  cascades while foreign rows remain unchanged.
+- `unit-route-disposition`: effective schema and real caller evidence classify the legacy endpoint separately from
+  supported Group management.
 
 ## How to get to it (user POV)
 
-Open `Settings` in the Organization navigation. `General` contains `Unit name` with its `Edit`, `Web address` and the Calendar signpost. `Policies` contains `Archive Retention`, `Loss Warning Window` and `Training Readiness`, each with its own `Save` button. Owners also see `Danger zone` below the other settings pages. Its `Delete <Organization name>` row counts what deletion destroys (people, training records, members who lose access and archived records) in a tinted strip that streams after first paint. Choose `Delete unit…`, type the exact name in `Type <Organization name> to confirm` and use `Delete permanently`. Until the name matches, the hint `Keep typing. It has to match exactly.` describes the field and the confirm stays a disabled outline button. `Purge archives now` is muted and marked Coming soon. An admin's direct Danger visit returns to General; an ordinary member cannot enter Organization Settings.
+Open `Settings` in the Organization navigation. `General` contains `Unit name` with its `Edit`, `Web address` and the
+Calendar signpost. `Policies` contains `Archive Retention`, `Loss Warning Window` and `Training Readiness`, each with
+its own `Save` button. Owners also see `Danger zone` below the other settings pages. Its `Delete <Organization name>`
+row counts what deletion destroys (people, training records, members who lose access and archived records) in a tinted
+strip that streams after first paint. The counts include records of a turned-off feature: with Training off,
+`training record` still shows the retained number, because deletion removes them. Choose `Delete unit…`, type the exact
+name in `Type <Organization name> to confirm` and use `Delete permanently`. Until the name matches, the hint
+`Keep typing. It has to match exactly.` describes the field and the confirm stays a disabled outline button.
+`Purge archives now` is muted and marked Coming soon. An admin's direct Danger visit returns to General; an ordinary
+member cannot enter Organization Settings.
 
-Ownership transfer, including sole-owner transfer, former-owner Admin status and stale-authority denial, is driven by [Manage Organization member access and ownership](organization-member-access.md). Repeat that recipe when changing its shared Danger delivery, candidates or identity handoff.
+Ownership transfer, including sole-owner transfer, former-owner Admin status and stale-authority denial, is driven by
+[Manage Organization member access and ownership](organization-member-access.md). Repeat that recipe when changing its
+shared Danger delivery, candidates or identity handoff.
+
+## Helper controls
+
+`reauth PAGE FIXTURE_ROLE` completes the existing owned `/auth/login?reauth=1` handoff through its visible
+email/password form and normal Sign In button. It uses only private synthetic credentials, rejects a different origin or
+page, injects no session and reports the returned Danger snapshot. Use it after an actual elapsed-session denial;
+require a new explicit deletion confirmation after return.
+
+Organization settings proof uses the [settings/destruction recipe](organization-settings-destruction.md).
+`actor ROLE settings/general` opens the profile entry through normal sign-in. `rows organizations orgA|orgB` reads only
+that synthetic Organization's ID, name, URL slug, creator, retention months, warning days, Training readiness goal
+percent, document-cap bytes and retained Critical Tasks defaults. Compare saved values and tenant sentinels before and
+after visible actions; this privileged readback is separate from ordinary authorization. Existing membership and
+feature-row readbacks establish selected cascade witnesses after deletion, while real Storage objects require their own
+file checks.
+
+`settings-request PAGE orgA|orgB FAMILY JSON` submits one ordinary authenticated POST from that signed-in owned app
+page. It accepts only `organization/settings` and the five named settings form actions below, with allowlisted scalar
+fields; the controller resolves the selected synthetic Organization’s canonical slug/UUID through owned readback. JSON
+settings support retention, warning, Training readiness goal, document cap and the two intentionally rejected Critical
+Tasks fields. Form fields are `name`, `urlSlug`, an empty object for clear, `confirmName`, or
+`email`/`membershipRole`/`memberPreset` for `settings/members/invite` (all-Groups scope; denied-role proof, not a
+substitute for the native Invite form). It prints submitted values, exact path, transport status and full response body
+(including the SvelteKit action envelope), without credential headers. It neither follows redirects nor applies results
+to the UI; label this direct API/action proof separately from native interaction. Sign in normally with `actor` first
+and compare A/B provider rows before/after. For example:
+`$V settings-request "$PAGE" orgA organization/settings '{"personnelDocumentStorageCapMb":11}'` and
+`$V settings-request "$PAGE" orgA settings/general/updateName '{"name":"Synthetic denied name"}'`. No service-role
+credentials are used for the request.
+
+`network` also accepts `organization/settings` and the exact A form actions `settings/general/updateName`,
+`settings/general/updateSlug`, `settings/general/clearSlug`, `settings/danger/deleteOrganization`,
+`settings/members/updateMemberAccess`, `settings/members/invite`, `settings/members/resendInvite`,
+`settings/members/revokeInvite`, `settings/members/removeMember`, `settings/danger/transferOwnership` and the six rank
+actions `settings/ranks/saveRank`, `retireRank`, `reactivateRank`, `bulkRankState`, `deleteRank` and `addServicePack`.
+Settings controls read A's current slug from the owned provider and bind to that canonical segment (or its UUID when
+unset) and the exact form action query, leaving another action and Organization untouched. Restore and rearm after
+changing the slug. `orgSettingsPeer` is the independent B owner, and `orgSettingsSwitch` is admin in A/B with all
+feature lanes absent; use them for slug conflicts and settings scope changes. A failed form receives a real SvelteKit
+failure envelope with the appropriate error field; it never sends that request to the provider. `arm-error` answers one
+form action with an unexpected-error result (HTTP 500) instead, also never sent. The account forms
+`dashboard/acceptInvitation`, `dashboard/declineInvitation` and `org/new` accept `arm-fail`, `arm-error` and `arm-hold`
+on their own page. `arm-hold` waits after the real response and can establish persisted-versus-visible ordering. For
+`organization/settings`, `arm-hold-fail` holds one synthetic POST 503 before provider admission, allowing a visible
+Organization switch before error delivery. These controls prove client recovery, not provider atomicity or server error
+handling. `settings-page/general|features|policies|ranks|members|approvals|archives|logs|exports|danger` fails, holds or
+observes only A's canonical page-data GET for that Settings section, like `audit-page` for Logs; use it for a section's
+client navigation loading and error states. Restore every hook before cleanup.
+
+The [Organization destruction recipe](organization-settings-destruction.md) documents `seed organization-destruction`
+and `destruction files|bytes|fault-on|fault-off|overlap-scan|overlap-delete`. Its fixed
+[provider observer](../helpers/organization-destruction-provider.py) verifies the owned worker/provider identity and
+frozen doctor, then observes physical synthetic Storage bytes or installs/removes one marked, ledger-bound temporary
+DELETE fault. The overlap commands prepare an empty inventory and separately inspect an ordinary deletion after a native
+upload. The fixed [pending-upload observer](../helpers/organization-upload-pending.py) supports `gate-on`, `gate-off`,
+`state` and `bytes` for an actual provider call in the same ledger-bound worker. These helpers accept no arbitrary SQL,
+remote endpoint or fixture target. Restore `fault-off` and any installed upload gate with `gate-off` before retry, seed
+cleanup or normal disposal. Native application actions remain the driver; these are separate privileged setup/provider
+observations.
+
+`actor` also accepts `training/reports`, `settings/members`, `settings/exports`, `settings/danger`, `dashboard`, and
+`org/new`; its `access` field reports an explicit visible settings-page denial or `not-assessed`.
+
+Scoped settings/Onboarding capture checks:
+`node --test .agents/skills/verify-trooptotask/helpers/settings-request.test.mjs .agents/skills/verify-trooptotask/helpers/onboarding-request.test.mjs`.
 
 ## Driving it with verify:app
 
-Preconditions: run the owned worker's `doctor` and `fixture`; retain candidate, origin, actor and exact A/B Organization and membership IDs. Use `$V actor orgOwner settings/general`, `$V actor orgAdmin settings/general`, and `$V actor orgMember personnel` in isolated contexts. `$V actor orgSettingsPeer settings/general` admits only B's owner; `$V actor orgSettingsSwitch settings/policies` admits the same admin in A/B with no feature lanes. Read `$V rows organizations orgA` and `$V rows organizations orgB` and the exact A/B membership and affected resource rows before changing anything. The setting readback includes name, slug, retention, loss-warning, Training readiness goal, document cap and retained Critical Tasks defaults. Record snapshots, visible action results, request status/envelope and readback after reload separately. Perform deletion last on this disposable worker, after other journeys that require A. Never target an existing development or remote Organization.
+Preconditions: run the owned worker's `doctor` and `fixture`; retain candidate, origin, actor and exact A/B Organization
+and membership IDs. Use `$V actor orgOwner settings/general`, `$V actor orgAdmin settings/general`, and
+`$V actor orgMember personnel` in isolated contexts. `$V actor orgSettingsPeer settings/general` admits only B's owner;
+`$V actor orgSettingsSwitch settings/policies` admits the same admin in A/B with no feature lanes. Read
+`$V rows organizations orgA` and `$V rows organizations orgB` and the exact A/B membership and affected resource rows
+before changing anything. The setting readback includes name, slug, retention, loss-warning, Training readiness goal,
+document cap and retained Critical Tasks defaults. Record snapshots, visible action results, request status/envelope and
+readback after reload separately. Perform deletion last on this disposable worker, after other journeys that require A.
+Never target an existing development or remote Organization.
 
-For direct JSON/form observations below, use the supported `settings-request PAGE orgA|orgB FAMILY JSON` helper in the normally signed-in native page. Supported families are `organization/settings`, `settings/general/updateName`, `settings/general/updateSlug`, `settings/general/clearSlug` and `settings/danger/deleteOrganization`. Submit JSON scalar fields for policies/cap, `{"name":"Synthetic name"}`, `{"urlSlug":"synthetic-slug"}`, `{}` for clear or `{"confirmName":"<saved name>"}` for deletion. Example: `$V settings-request "$PAGE" orgA organization/settings '{"personnelDocumentStorageCapMb":11}'`. It returns the transport status and full action envelope without applying a result to the UI or following redirects. Capture the actual direct request separately from native clicks; use only synthetic values, record before/after rows and restore successful edits. Do not use a denied actor’s missing page as evidence of a valid action denial.
+For direct JSON/form observations below, use the supported `settings-request PAGE orgA|orgB FAMILY JSON` helper in the
+normally signed-in native page. Supported families are `organization/settings`, `settings/general/updateName`,
+`settings/general/updateSlug`, `settings/general/clearSlug` and `settings/danger/deleteOrganization`. Submit JSON scalar
+fields for policies/cap, `{"name":"Synthetic name"}`, `{"urlSlug":"synthetic-slug"}`, `{}` for clear or
+`{"confirmName":"<saved name>"}` for deletion. Example:
+`$V settings-request "$PAGE" orgA organization/settings '{"personnelDocumentStorageCapMb":11}'`. It returns the
+transport status and full action envelope without applying a result to the UI or following redirects. Capture the actual
+direct request separately from native clicks; use only synthetic values, record before/after rows and restore successful
+edits. Do not use a denied actor’s missing page as evidence of a valid action denial.
 
-1. **Name save, Undo and persistence.** As `orgOwner`, open General → `Edit`, enter a unique name of at most 100 characters and choose `Save`; it saves with no confirmation. Require the `Unit name changed to <name>.` toast, the same saved Organization ID and normalized name after reload; compare General, the settings heading and Organization navigation. Repeat one ordinary save as `orgAdmin` to establish governance admission independently of owner authority. Cancel an edited draft and require the saved name to remain. A blank direct action must fail without changing the row. For a pre-request name failure, use `$V network arm-fail $PAGE settings/general/updateName` on A's current canonical General route; record error/retry behavior and unchanged saved name; otherwise keep that live failure path unrun and retain the existing provider-failure checks separately. Restore the original name through the toast's `Undo` or the editor before other recipes depend on its exact confirmation text, and read one `org.renamed` Audit row per save.
+1. **Name save, Undo and persistence.** As `orgOwner`, open General → `Edit`, enter a unique name of at most 100
+   characters and choose `Save`; it saves with no confirmation. Require the `Unit name changed to <name>.` toast, the
+   same saved Organization ID and normalized name after reload; compare General, the settings heading and Organization
+   navigation. Repeat one ordinary save as `orgAdmin` to establish governance admission independently of owner
+   authority. Cancel an edited draft and require the saved name to remain. A blank direct action must fail without
+   changing the row. For a pre-request name failure, use `$V network arm-fail $PAGE settings/general/updateName` on A's
+   current canonical General route; record error/retry behavior and unchanged saved name; otherwise keep that live
+   failure path unrun and retain the existing provider-failure checks separately. Restore the original name through the
+   toast's `Undo` or the editor before other recipes depend on its exact confirmation text, and read one `org.renamed`
+   Audit row per save.
 
-2. **Custom address and retained route identity.** Enter a unique slug such as `verify-settings-<tag>` and confirm `Update the web address?` (`Update address`). Require redirect to `/org/<normalized-slug>/settings/general`, the same Organization ID/membership, saved `url_slug`, and canonical navigation links using that slug. Follow General, Policies and a retained Personnel or Calendar link; reload and confirm the same target and data. A direct visit using A's UUID must still resolve A. Change to a second unique slug, observe the new canonical path, then check that the old slug no longer resolves A. Exercise a reserved slug such as `admin`, a malformed slug such as `alpha--bravo`, and a short slug; capture useful errors and unchanged saved row. For a true conflict, use a known slug already assigned to B through that Organization's admitted UI or a recorded owned setup fixture; submitting it for A must fail and preserve both Organizations. A repeated slug on A is permitted. Cancel `Reset the web address?` and require unchanged persistence, then confirm `Reset address`; require the UUID General path, null saved slug, canonical UUID links, and no access through either retired custom slug. A failed lookup is distinct from a duplicate: retain provider-failure proof separately when no live control exists.
+2. **Custom address and retained route identity.** Enter a unique slug such as `verify-settings-<tag>` and confirm
+   `Update the web address?` (`Update address`). Require redirect to `/org/<normalized-slug>/settings/general`, the same
+   Organization ID/membership, saved `url_slug`, and canonical navigation links using that slug. Follow General,
+   Policies and a retained Personnel or Calendar link; reload and confirm the same target and data. A direct visit using
+   A's UUID must still resolve A. Change to a second unique slug, observe the new canonical path, then check that the
+   old slug no longer resolves A. Exercise a reserved slug such as `admin`, a malformed slug such as `alpha--bravo`, and
+   a short slug; capture useful errors and unchanged saved row. For a true conflict, use a known slug already assigned
+   to B through that Organization's admitted UI or a recorded owned setup fixture; submitting it for A must fail and
+   preserve both Organizations. A repeated slug on A is permitted. Cancel `Reset the web address?` and require unchanged
+   persistence, then confirm `Reset address`; require the UUID General path, null saved slug, canonical UUID links, and
+   no access through either retired custom slug. A failed lookup is distinct from a duplicate: retain provider-failure
+   proof separately when no live control exists.
 
-**General target lifetime.** Use `orgSettingsSwitch` in one context and capture both original settings rows. Visit B General through `Switch organization`, then A General through that menu so B is the previous history entry. In A, open the name editor and type an unsaved draft, then use browser History Back without saving it. B must show its own canonical UUID/name, with no carried editor, draft or busy state. Repeat with an unsubmitted custom-URL confirmation and, after an admitted temporary A slug save, a reset confirmation. Never submit a carried dialog. Return to A and restore any temporary name/slug through its normal controls.
+**General target lifetime.** Use `orgSettingsSwitch` in one context and capture both original settings rows. Visit B
+General through `Switch organization`, then A General through that menu so B is the previous history entry. In A, open
+the name editor and type an unsaved draft, then use browser History Back without saving it. B must show its own
+canonical UUID/name, with no carried editor, draft or busy state. Repeat with an unsubmitted custom-URL confirmation
+and, after an admitted temporary A slug save, a reset confirmation. Never submit a carried dialog. Return to A and
+restore any temporary name/slug through its normal controls.
 
-For a pending name save, arm `network arm-hold PAGE settings/general/updateName`, confirm the visible A action, and require one real POST200 held plus A's actual saved name readback. History Back to B must leave B idle and show only B's saved name. Release the old response; B must have no stale A success/error or editor change. Repeat A→B→A, open a new A draft before releasing the old response, and require the new draft to remain. The request saves only A; compare exact A/B readbacks and restore the hook. For a URL update/reset, arm the corresponding `settings/general/updateSlug` or `settings/general/clearSlug` control, require the real redirect action response and committed A slug/null, then switch history to B before release. The old response must not redirect B or change B's URL controls. Restore/rearm controls after every slug change. A normal same-target confirmed update/reset must still follow its canonical redirect; UUID navigation must retain its suffix/query through canonical308. Ordinary `arm-fail` name/slug controls establish visible error, retained input, unchanged saved row and explicit retry. Other delayed-result variants and the reset's disposal during its pending DOM update have separate mounted component checks; do not describe those checks as live execution.
+For a pending name save, arm `network arm-hold PAGE settings/general/updateName`, confirm the visible A action, and
+require one real POST200 held plus A's actual saved name readback. History Back to B must leave B idle and show only B's
+saved name. Release the old response; B must have no stale A success/error or editor change. Repeat A→B→A, open a new A
+draft before releasing the old response, and require the new draft to remain. The request saves only A; compare exact
+A/B readbacks and restore the hook. For a URL update/reset, arm the corresponding `settings/general/updateSlug` or
+`settings/general/clearSlug` control, require the real redirect action response and committed A slug/null, then switch
+history to B before release. The old response must not redirect B or change B's URL controls. Restore/rearm controls
+after every slug change. A normal same-target confirmed update/reset must still follow its canonical redirect; UUID
+navigation must retain its suffix/query through canonical308. Ordinary `arm-fail` name/slug controls establish visible
+error, retained input, unchanged saved row and explicit retry. Other delayed-result variants and the reset's disposal
+during its pending DOM update have separate mounted component checks; do not describe those checks as live execution.
 
-3. **Policies, independent fields and retry.** As owner or admin, open Policies. Save a different valid retention month value and require successful feedback, the saved value after reload, and an unchanged warning window/document cap/Critical Tasks defaults. Open Archives and compare its displayed retention with the saved setting; this readback does not execute retention cleanup. Save a valid loss-warning value separately and require the inverse partial-update behavior after reload. Values outside 1–120 months or 1–365 days must prevent a normal UI save; valid direct API boundary values and malformed numeric inputs belong in separate request/lower-level observations. For a failure, arm `$V network arm-fail $PAGE organization/settings`, change a valid value and click that section's `Save`. Require error-only feedback, retained entered value and unsaved state, no success claim and unchanged A/B storage. Restore the control, retry through the same visible button and require persistence. Restore the original policy values through the UI. For loss-warning reverse consumers, use a dedicated `seed personnel-lifecycle` parent from the [record detail recipe](personnel-records-lifecycle.md#detail-data-sheet-and-loss-baseline); retain its ID and original dates. Through Data sheet → Edit, set ETS approximately sixty days after the captured local date and leave PCS / DEROS blank. Save a thirty-day warning window through Policies and reload Personnel, that Person’s detail, Calendar and Dashboard: this Person must have no in-window loss signal. Save ninety days and revisit/reload those four consumers: Personnel/Calendar show this Person’s ETS signal, the detail Readiness tab's Loss block reports `Inside the <n>-day loss window`, and the compact Dashboard shows the in-window Person/date under its independent permission. Capture actual displayed outcomes and exact saved dates/settings, then restore the original dates/window. Evals does not display or use this setting. Source mapping or a saved scalar alone cannot establish these four displayed outcomes.
+3. **Policies, independent fields and retry.** As owner or admin, open Policies. Save a different valid retention month
+   value and require successful feedback, the saved value after reload, and an unchanged warning window/document
+   cap/Critical Tasks defaults. Open Archives and compare its displayed retention with the saved setting; this readback
+   does not execute retention cleanup. Save a valid loss-warning value separately and require the inverse partial-update
+   behavior after reload. Values outside 1–120 months or 1–365 days must prevent a normal UI save; valid direct API
+   boundary values and malformed numeric inputs belong in separate request/lower-level observations. For a failure, arm
+   `$V network arm-fail $PAGE organization/settings`, change a valid value and click that section's `Save`. Require
+   error-only feedback, retained entered value and unsaved state, no success claim and unchanged A/B storage. Restore
+   the control, retry through the same visible button and require persistence. Restore the original policy values
+   through the UI. For loss-warning reverse consumers, use a dedicated `seed personnel-lifecycle` parent from the
+   [record detail recipe](personnel-records-lifecycle.md#detail-data-sheet-and-loss-baseline); retain its ID and
+   original dates. Through Data sheet → Edit, set ETS approximately sixty days after the captured local date and leave
+   PCS / DEROS blank. Save a thirty-day warning window through Policies and reload Personnel, that Person’s detail,
+   Calendar and Dashboard: this Person must have no in-window loss signal. Save ninety days and revisit/reload those
+   four consumers: Personnel/Calendar show this Person’s ETS signal, the detail Readiness tab's Loss block reports
+   `Inside the <n>-day loss window`, and the Dashboard's Arriving and leaving column names the in-window Person and date
+   while Losses and awards is on. Capture actual displayed outcomes and exact saved dates/settings, then restore the
+   original dates/window. Evals does not display or use this setting. Source mapping or a saved scalar alone cannot
+   establish these four displayed outcomes.
 
-   **Training readiness goal.** As owner or admin, open Policies and require `Training readiness goal (%)` at the saved value, 90 for an Organization that never changed it, with the help text `Used for goal lines and heat-map bands on Training Reports.` Enter blank, `0`, `101` and `90.5` in turn: each must show the field error, mark the input invalid with that error in its accessible description, keep `Save` disabled and send no settings request. For blank, focus the field and use native Control+A then Backspace; an empty `fill` may show a blank field without establishing a changed draft. Capture the actual invalid/error state. Enter `85`, use the section's `Save`, and require success feedback, `Saved`, 85 after reload and `training_readiness_goal_percent` 85 in `rows organizations orgA`, with retention, warning window, document cap and B unchanged. Repeat one failed save with `network arm-fail PAGE organization/settings` and require the retained draft and explicit retry, as for the other cards. Restore 90 through the UI. Direct `organization/settings` requests with `trainingReadinessGoalPercent` 0, 101, 90.5, null or `"90"` must return 400 with unchanged rows; unlike the other two policies, a fractional goal is rejected rather than rounded. Training Reports uses the saved goal for its forecast goal line, readiness bands and horizon tones. Changing the goal does not change requirement applicability or saved Training records.
+   **Training readiness goal.** As owner or admin, open Policies and require `Training readiness goal (%)` at the saved
+   value, 90 for an Organization that never changed it, with the help text
+   `Used for goal lines and heat-map bands on Training Reports.` Enter blank, `0`, `101` and `90.5` in turn: each must
+   show the field error, mark the input invalid with that error in its accessible description, keep `Save` disabled and
+   send no settings request. For blank, focus the field and use native Control+A then Backspace; an empty `fill` may
+   show a blank field without establishing a changed draft. Capture the actual invalid/error state. Enter `85`, use the
+   section's `Save`, and require success feedback, `Saved`, 85 after reload and `training_readiness_goal_percent` 85 in
+   `rows organizations orgA`, with retention, warning window, document cap and B unchanged. Repeat one failed save with
+   `network arm-fail PAGE organization/settings` and require the retained draft and explicit retry, as for the other
+   cards. Restore 90 through the UI. Direct `organization/settings` requests with `trainingReadinessGoalPercent` 0, 101,
+   90.5, null or `"90"` must return 400 with unchanged rows; unlike the other two policies, a fractional goal is
+   rejected rather than rounded. Training Reports uses the saved goal for its forecast goal line, readiness bands and
+   horizon tones. Changing the goal does not change requirement applicability or saved Training records.
 
-   For Policies target isolation, use `orgSettingsSwitch` in one context. Record A/B saved policy values; arm `network arm-hold PAGE organization/settings`, edit A retention and use its visible `Save`. Read A’s actual persisted value while the response is held. Use `Switch organization` → B through the visible menu. Require B’s own saved values with idle state and no carried A draft; release the held response and require no stale A success/error feedback or Saved claim on B. Compare exact A/B readbacks and B after reload, then restore the hook and A’s original value through its admitted UI. Repeat A→B→A, including a new A save still pending when the old response arrives. For delayed failure, restore the prior hook and arm `network arm-hold-fail PAGE organization/settings`: this holds one synthetic 503 before provider admission, so A/B rows must remain unchanged. Release it after a visible switch and require no old error or busy-state change in the current workspace. Restore every hook. During an ordinary held same-Organization save, edit that field again; release and require the submitted value persisted while the later draft remains unsaved. Retry it explicitly. Also submit a fractional policy value and compare the API’s committed whole number, displayed value and reload. This Policies path does not establish General/Danger target lifetime isolation.
+   For Policies target isolation, use `orgSettingsSwitch` in one context. Record A/B saved policy values; arm
+   `network arm-hold PAGE organization/settings`, edit A retention and use its visible `Save`. Read A’s actual persisted
+   value while the response is held. Use `Switch organization` → B through the visible menu. Require B’s own saved
+   values with idle state and no carried A draft; release the held response and require no stale A success/error
+   feedback or Saved claim on B. Compare exact A/B readbacks and B after reload, then restore the hook and A’s original
+   value through its admitted UI. Repeat A→B→A, including a new A save still pending when the old response arrives. For
+   delayed failure, restore the prior hook and arm `network arm-hold-fail PAGE organization/settings`: this holds one
+   synthetic 503 before provider admission, so A/B rows must remain unchanged. Release it after a visible switch and
+   require no old error or busy-state change in the current workspace. Restore every hook. During an ordinary held
+   same-Organization save, edit that field again; release and require the submitted value persisted while the later
+   draft remains unsaved. Retry it explicitly. Also submit a fractional policy value and compare the API’s committed
+   whole number, displayed value and reload. This Policies path does not establish General/Danger target lifetime
+   isolation.
 
-4. **Document cap and denied JSON requests.** There is no visible document-cap setting control. Submit an ordinary authenticated `POST /org/<A>/api/organization/settings` with `personnelDocumentStorageCapMb` through a supported owned request control and label this direct API proof. A valid 10–1024 MB value must save its byte equivalent without changing the other settings; restore the original cap afterward. Compare the separate Personnel document write/cap checks for applicability; changing the setting does not prove a real upload obeyed it. Reject empty input, nonnumeric/nonfinite values, out-of-range values, and requests containing either `criticalTasksDefaultExpirationMonths` or `criticalTasksExpiringSoonWarningDays` without any row change. Current numeric inputs are rounded to a whole number before range validation; record the submitted and saved values explicitly. As `orgMember`, send valid partial updates, including `{"trainingReadinessGoalPercent":85}`, and require denial; as A's owner, repeat against B and require denial with both rows unchanged. These normal authenticated requests must pass the ordinary login/policy/RLS path and cannot use the service role. Capture actual status and response body; a malformed request is not governance proof.
+4. **Document cap and denied JSON requests.** There is no visible document-cap setting control. Submit an ordinary
+   authenticated `POST /org/<A>/api/organization/settings` with `personnelDocumentStorageCapMb` through a supported
+   owned request control and label this direct API proof. A valid 10–1024 MB value must save its byte equivalent without
+   changing the other settings; restore the original cap afterward. Compare the separate Personnel document write/cap
+   checks for applicability; changing the setting does not prove a real upload obeyed it. Reject empty input,
+   nonnumeric/nonfinite values, out-of-range values, and requests containing either
+   `criticalTasksDefaultExpirationMonths` or `criticalTasksExpiringSoonWarningDays` without any row change. Current
+   numeric inputs are rounded to a whole number before range validation; record the submitted and saved values
+   explicitly. As `orgMember`, send valid partial updates, including `{"trainingReadinessGoalPercent":85}`, and require
+   denial; as A's owner, repeat against B and require denial with both rows unchanged. These normal authenticated
+   requests must pass the ordinary login/policy/RLS path and cannot use the service role. Capture actual status and
+   response body; a malformed request is not governance proof.
 
-5. **Page/action authority and changed targets.** As ordinary `orgMember`, visit General/Policies and capture the settled access denial. As `orgAdmin`, visit Danger directly and require its General redirect with no owner controls. Submit valid current General name/slug and Danger delete actions as unauthorized actors using a supported signed-in request control; compare unchanged Organization/membership rows. Repeat valid actions using B's target while signed in as A's owner. Record SvelteKit's HTTP status and action envelope: a transport `200` may contain a `failure` with status 403. If reusing the owner-transition recipe, keep the former owner's Danger zone page open across transfer, reload, and require loss of owner-only access; a stale direct delete attempt must preserve A. A transfer denial does not by itself prove delete denial. Never make a privileged actor eligible merely to make a denied scenario pass.
+5. **Page/action authority and changed targets.** As ordinary `orgMember`, visit General/Policies and capture the
+   settled access denial. As `orgAdmin`, visit Danger directly and require its General redirect with no owner controls.
+   Submit valid current General name/slug and Danger delete actions as unauthorized actors using a supported signed-in
+   request control; compare unchanged Organization/membership rows. Repeat valid actions using B's target while signed
+   in as A's owner. Record SvelteKit's HTTP status and action envelope: a transport `200` may contain a `failure` with
+   status 403. If reusing the owner-transition recipe, keep the former owner's Danger zone page open across transfer,
+   reload, and require loss of owner-only access; a stale direct delete attempt must preserve A. A transfer denial does
+   not by itself prove delete denial. Never make a privileged actor eligible merely to make a denied scenario pass.
 
-**Organization exports and target lifetime.** As `orgOwner`, open Settings → Exports. Preserve `rows organizations orgA` / `orgB`, the supported memberships/invitations/invitation-email-outbox readbacks and `rows data_exports orgA` / `orgB`. The maintained rows helper does not expose invitation-provenance links: record that limitation separately from artifact visibility, existing SQL policy and positive provider fixtures; an empty ordinary section does not prove privileged absence. For JSON and Excel independently, arm `network arm-observe PAGE export` or `export-excel` together with `export arm PAGE`, then use the visible export button. Save the real Blob, observed status/Content-Type/Content-Disposition and anchor filename/hash before restoring both controls. Parse JSON directly and Excel with `workbook`; compare all twelve raw profile fields (ID, name, creator, creation time, URL slug, retention months, suspended time, retained Critical Tasks defaults/warning, loss-warning days, document-cap bytes and Training readiness goal percent) with the owned readback. Preserve raw memberships, invitations, invitation-email outbox and provenance links, complete manifest and same-Organization sections; B witnesses must be absent. Compare each new export lifecycle row's ID/requester/status/size/completion with the actual artifact; best-effort completion is read back, never inferred. Owner and admin exports must succeed. Members, including those carrying the legacy `canManageMembers` override, and foreign targets must be denied before any export effect. Use `export request` for separate ordinary API proof and never label it a native download.
+**Organization exports and target lifetime.** As `orgOwner`, open Settings → Exports. Preserve `rows organizations orgA`
+/ `orgB`, the supported memberships/invitations/invitation-email-outbox readbacks and `rows data_exports orgA` / `orgB`.
+The maintained rows helper does not expose invitation-provenance links: record that limitation separately from artifact
+visibility, existing SQL policy and positive provider fixtures; an empty ordinary section does not prove privileged
+absence. For JSON and Excel independently, arm `network arm-observe PAGE export` or `export-excel` together with
+`export arm PAGE`, then use the visible export button. Save the real Blob, observed
+status/Content-Type/Content-Disposition and anchor filename/hash before restoring both controls. Parse JSON directly and
+Excel with `workbook`; compare all twelve raw profile fields (ID, name, creator, creation time, URL slug, retention
+months, suspended time, retained Critical Tasks defaults/warning, loss-warning days, document-cap bytes and Training
+readiness goal percent) with the owned readback. Preserve raw memberships, invitations, invitation-email outbox and
+provenance links, complete manifest and same-Organization sections; B witnesses must be absent. Compare each new export
+lifecycle row's ID/requester/status/size/completion with the actual artifact; best-effort completion is read back, never
+inferred. Owner and admin exports must succeed. Members, including those carrying the legacy `canManageMembers`
+override, and foreign targets must be denied before any export effect. Use `export request` for separate ordinary API
+proof and never label it a native download.
 
-For current-target failure/retry, arm `network arm-fail PAGE export` plus a fresh export capture, click JSON and require an error, enabled retry, no Blob and unchanged lifecycle rows. Restore controls and retry visibly for a real artifact. This synthetic pre-provider 503 proves client recovery, not provider failure. A completed A error must disappear when switching to B.
+For current-target failure/retry, arm `network arm-fail PAGE export` plus a fresh export capture, click JSON and require
+an error, enabled retry, no Blob and unchanged lifecycle rows. Restore controls and retry visibly for a real artifact.
+This synthetic pre-provider 503 proves client recovery, not provider failure. A completed A error must disappear when
+switching to B.
 
-For delayed success, use `orgSettingsSwitch` at Settings → Exports with its ordinary admin authority in A/B. Arm `network arm-hold PAGE export` and `export arm PAGE`, request A JSON visibly and require the real POST 200 held after server completion, plus A's new stored lifecycle row. Use the visible `Switch organization` menu to enter B Exports before releasing. B must show its own target, idle enabled export controls and no A error/success. Release, save the actual A artifact and inspect B again. The intentionally requested A download may finish after B navigation with A's original filename/content; that download alone is not a target-isolation failure. Carried Generating/disabled controls or A feedback on B fail the path. In A→B→A, an old response must not finish or mark saved a fresh current request; meaningful mounted component checks cover this and response-body delays when native controls are costly. There is no export `arm-hold-fail` control: only Policies supports that combined mode. Restore every hook and preserve failed observations. Archives confirmation lifetime is outside this drive.
+For delayed success, use `orgSettingsSwitch` at Settings → Exports with its ordinary admin authority in A/B. Arm
+`network arm-hold PAGE export` and `export arm PAGE`, request A JSON visibly and require the real POST 200 held after
+server completion, plus A's new stored lifecycle row. Use the visible `Switch organization` menu to enter B Exports
+before releasing. B must show its own target, idle enabled export controls and no A error/success. Release, save the
+actual A artifact and inspect B again. The intentionally requested A download may finish after B navigation with A's
+original filename/content; that download alone is not a target-isolation failure. Carried Generating/disabled controls
+or A feedback on B fail the path. In A→B→A, an old response must not finish or mark saved a fresh current request;
+meaningful mounted component checks cover this and response-body delays when native controls are costly. There is no
+export `arm-hold-fail` control: only Policies supports that combined mode. Restore every hook and preserve failed
+observations. Archives confirmation lifetime is outside this drive.
 
-6. **Delete confirmation, cancellation and real step-up.** In a fresh owner context, open Danger → `Delete unit…`. A wrong name keeps `Delete permanently` disabled; `Cancel` closes the dialog and changes no Organization or child rows. Reopen, type the exact name and capture enabled submit without clicking it yet. For the stale-session path, retain the successful normal login time and use the same unexpired session after more than 15 minutes of actual elapsed time without another login or completed MFA. Do other independent verification while waiting. Submit the real visible delete form; require no deletion and a visible identity handoff to `/auth/login?reauth=1&next=...` or the required MFA page. Capture the action denial where observable, the safe return destination, and unchanged provider rows. Complete the normal visible verification, return to Danger, and require another explicit delete confirmation: step-up must not silently replay destruction. Synthetic passwords, cookies and tokens stay private. Altered timestamps/tokens or an injected failure payload do not establish elapsed-session authorization. If this elapsed path cannot be driven, record its precise missing prerequisite rather than claiming the existing unit checks were live execution.
+6. **Delete confirmation, cancellation and real step-up.** In a fresh owner context, open Danger → `Delete unit…`. A
+   wrong name keeps `Delete permanently` disabled; `Cancel` closes the dialog and changes no Organization or child rows.
+   Reopen, type the exact name and capture enabled submit without clicking it yet. For the stale-session path, retain
+   the successful normal login time and use the same unexpired session after more than 15 minutes of actual elapsed time
+   without another login or completed MFA. Do other independent verification while waiting. Submit the real visible
+   delete form; require no deletion and a visible identity handoff to `/auth/login?reauth=1&next=...` or the required
+   MFA page. Capture the action denial where observable, the safe return destination, and unchanged provider rows.
+   Complete the normal visible verification, return to Danger, and require another explicit delete confirmation: step-up
+   must not silently replay destruction. Synthetic passwords, cookies and tokens stay private. Altered timestamps/tokens
+   or an injected failure payload do not establish elapsed-session authorization. If this elapsed path cannot be driven,
+   record its precise missing prerequisite rather than claiming the existing unit checks were live execution.
 
-**Danger target lifetime.** Use ordinary ownership transfers to make `orgSettingsSwitch` owner of A and B, retaining exact membership IDs and each target's original name. These transfers also reset governance member presets; restore accessible fixture fields or record remaining side effects before disposing this worker. Set B's display name to A's through the admitted General `Edit` and `Save` controls and verify its row/reload. Open B Danger, use the visible Organization switcher to A Danger, open deletion and type A's exact name. Press browser Back while the dialog is open. Require B's own canonical UUID and no carried dialog/confirmation; reopen B deletion and require an empty input and disabled final submit. Repeat A→B→A. Before actual deletion, restore B's name and both original owner roles through their admitted controls. Never submit a carried confirmation. For a held or delayed failure response, switch target while the ordinary A form response is held; release and require no stale error, step-up or redirect on the current Organization. Restore the hook.
+**Danger target lifetime.** Use ordinary ownership transfers to make `orgSettingsSwitch` owner of A and B, retaining
+exact membership IDs and each target's original name. These transfers also reset governance member presets; restore
+accessible fixture fields or record remaining side effects before disposing this worker. Set B's display name to A's
+through the admitted General `Edit` and `Save` controls and verify its row/reload. Open B Danger, use the visible
+Organization switcher to A Danger, open deletion and type A's exact name. Press browser Back while the dialog is open.
+Require B's own canonical UUID and no carried dialog/confirmation; reopen B deletion and require an empty input and
+disabled final submit. Repeat A→B→A. Before actual deletion, restore B's name and both original owner roles through
+their admitted controls. Never submit a carried confirmation. For a held or delayed failure response, switch target
+while the ordinary A form response is held; release and require no stale error, step-up or redirect on the current
+Organization. Restore the hook.
 
-**Owned Storage destruction proof.** Seed `$V seed artifact-retention` for real document/counseling bytes and their parent rows, and `$V seed organization-destruction` for 1,002 nested orphan objects plus distinct lowercase/uppercase/mixed-case UUID prefixes with the same nested suffix, root objects and foreign sentinels. New live setup uses committed, known upload registrations; the populated SQL contract covers legacy noncanonical lookalike objects because new uploads cannot register those paths. `seed organization-destruction` uploads synthetic object bytes, not valid PDF content, and copies one to the valid raw key `<Organization UUID>/`; SDK upload would trim that trailing slash. Preserve both public manifests and verify those three raw prefixes differ. Flat Storage V2 listing must preserve full keys, include real objects with a trailing slash, and consume every opaque cursor page before removal; the older case-folded folder listing cannot establish complete cleanup. Local proof does not establish hosted endpoint availability. `$V destruction files` reads each recorded object through the Storage API with bounded concurrency, recording byte hashes or an actual 404; other errors are not absence. `$V destruction bytes` independently inventories the exact owned Storage service's physical files under its configured, verified mount and hashes. Capture these before and after deletion; a Storage-table cascade is insufficient. Upload a real roster PDF through the normal existing Training roster UI as a retained consumer witness.
+**Owned Storage destruction proof.** Seed `$V seed artifact-retention` for real document/counseling bytes and their
+parent rows, and `$V seed organization-destruction` for 1,002 nested orphan objects plus distinct
+lowercase/uppercase/mixed-case UUID prefixes with the same nested suffix, root objects and foreign sentinels. New live
+setup uses committed, known upload registrations; the populated SQL contract covers legacy noncanonical lookalike
+objects because new uploads cannot register those paths. `seed organization-destruction` uploads synthetic object bytes,
+not valid PDF content, and copies one to the valid raw key `<Organization UUID>/`; SDK upload would trim that trailing
+slash. Preserve both public manifests and verify those three raw prefixes differ. Flat Storage V2 listing must preserve
+full keys, include real objects with a trailing slash, and consume every opaque cursor page before removal; the older
+case-folded folder listing cannot establish complete cleanup. Local proof does not establish hosted endpoint
+availability. `$V destruction files` reads each recorded object through the Storage API with bounded concurrency,
+recording byte hashes or an actual 404; other errors are not absence. `$V destruction bytes` independently inventories
+the exact owned Storage service's physical files under its configured, verified mount and hashes. Capture these before
+and after deletion; a Storage-table cascade is insufficient. Upload a real roster PDF through the normal existing
+Training roster UI as a retained consumer witness.
 
-Before successful deletion, `$V destruction fault-on` installs one temporary DELETE fault for the ledgered A final-page object in this owned provider. Submit the normal Danger confirmation. Require an error inside the dialog, no success redirect or audit, and the Organization still present; distinguish files already removed from retained bytes, including unchanged foreign sentinels. `$V destruction fault-off` removes only the exact marked function/trigger and confirms their absence. Retry explicitly after refresh/current-name confirmation. These disposable fault objects are never migrations or release changes. Always remove the fault before retry, `clean-seeds` or disposal; missing/mismatched ownership fails closed. Use `clean-seeds` after all observations; its recorded-file removal is batched to the Storage API maximum. Final integrated safeguards include stale Identity assurance/reauthentication return, current-owner loss, conditional parent acknowledgement and post-cleanup emptiness. Lower-level provider tests cover additional malformed/missing acknowledgements and failures; distinguish their boundary from native proof.
+Before successful deletion, `$V destruction fault-on` installs one temporary DELETE fault for the ledgered A final-page
+object in this owned provider. Submit the normal Danger confirmation. Require an error inside the dialog, no success
+redirect or audit, and the Organization still present; distinguish files already removed from retained bytes, including
+unchanged foreign sentinels. `$V destruction fault-off` removes only the exact marked function/trigger and confirms
+their absence. Retry explicitly after refresh/current-name confirmation. These disposable fault objects are never
+migrations or release changes. Always remove the fault before retry, `clean-seeds` or disposal; missing/mismatched
+ownership fails closed. Use `clean-seeds` after all observations; its recorded-file removal is batched to the Storage
+API maximum. Final integrated safeguards include stale Identity assurance/reauthentication return, current-owner loss,
+conditional parent acknowledgement and post-cleanup emptiness. Lower-level provider tests cover additional
+malformed/missing acknowledgements and failures; distinguish their boundary from native proof.
 
-**Concurrent native upload and the final provider write.** On a fresh owned worker, `destruction overlap-scan` signs in the ordinary owner, completely lists both target inventories, removes the fixture’s existing target files with exact acknowledgments, and freshly verifies both inventories are empty. It records that cleanup, A/Person A, the current saved name and a unique title. Upload one real PDF through Person A’s native Documents form using that title; require its saved row and bytes. `destruction overlap-delete` submits the same conditional ordinary-owner SDK DELETE used by the destruction provider after that earlier scan, then records the exact new document, parent acknowledgment, ID-based row reads and actual downloaded byte hashes. The helper signs the fixture owner into the ordinary provider without exposing credentials and accepts no supplied target. This is a controlled provider ordering case with a native uploader, not a native Danger or Identity/step-up result. The guard must retain the parent/row/file, after which normal freshly confirmed Danger cleanup removes the file and parent. A deleted parent or cascaded row with the uploaded bytes left behind is a failure; preserve it. The helper records the UI-created row/path before attempting deletion so owned seed cleanup can remove the known orphan after observations. Use a fresh worker for each run.
+**Concurrent native upload and the final provider write.** On a fresh owned worker, `destruction overlap-scan` signs in
+the ordinary owner, completely lists both target inventories, removes the fixture’s existing target files with exact
+acknowledgments, and freshly verifies both inventories are empty. It records that cleanup, A/Person A, the current saved
+name and a unique title. Upload one real PDF through Person A’s native Documents form using that title; require its
+saved row and bytes. `destruction overlap-delete` submits the same conditional ordinary-owner SDK DELETE used by the
+destruction provider after that earlier scan, then records the exact new document, parent acknowledgment, ID-based row
+reads and actual downloaded byte hashes. The helper signs the fixture owner into the ordinary provider without exposing
+credentials and accepts no supplied target. This is a controlled provider ordering case with a native uploader, not a
+native Danger or Identity/step-up result. The guard must retain the parent/row/file, after which normal freshly
+confirmed Danger cleanup removes the file and parent. A deleted parent or cascaded row with the uploaded bytes left
+behind is a failure; preserve it. The helper records the UI-created row/path before attempting deletion so owned seed
+cleanup can remove the known orphan after observations. Use a fresh worker for each run.
 
-For the actual in-flight provider boundary, run `python3 .agents/skills/verify-trooptotask/helpers/organization-upload-pending.py --worker 1 gate-on` after `overlap-scan` on the same frozen worker. It installs a marked, temporary INSERT trigger only for A/Person A's document prefix and final UUID versions; the Storage preflight version `1` passes. The final transaction waits twenty seconds after physical upload and before committed metadata, within Storage's thirty-second statement timeout. Prepare the native Danger confirmation in a second same-session tab before uploading the PDF. During the native upload, capture `state` and `bytes`, submit the native final Danger action, and capture `state` again. Require an active `Timeout/PgSleep` session with the exact final version, one committed registration, no committed document/file metadata, the matching physical PDF bytes and a refused parent deletion. Distinguish an elapsed gate or canceled upload from success. After completion require the native saved document, exact actual bytes and no active registration. `gate-off` removes only the exact marked function/trigger and confirms absence. The later `overlap-delete` is a separate completed-upload ordering check; normal freshly confirmed Danger retry must remove every actual target file and parent. Restore the gate before cleanup. This owned temporal fixture is never a migration, an application handler bypass or a browser response hold.
+For the actual in-flight provider boundary, run
+`python3 .agents/skills/verify-trooptotask/helpers/organization-upload-pending.py --worker 1 gate-on` after
+`overlap-scan` on the same frozen worker. It installs a marked, temporary INSERT trigger only for A/Person A's document
+prefix and final UUID versions; the Storage preflight version `1` passes. The final transaction waits twenty seconds
+after physical upload and before committed metadata, within Storage's thirty-second statement timeout. Prepare the
+native Danger confirmation in a second same-session tab before uploading the PDF. During the native upload, capture
+`state` and `bytes`, submit the native final Danger action, and capture `state` again. Require an active
+`Timeout/PgSleep` session with the exact final version, one committed registration, no committed document/file metadata,
+the matching physical PDF bytes and a refused parent deletion. Distinguish an elapsed gate or canceled upload from
+success. After completion require the native saved document, exact actual bytes and no active registration. `gate-off`
+removes only the exact marked function/trigger and confirms absence. The later `overlap-delete` is a separate
+completed-upload ordering check; normal freshly confirmed Danger retry must remove every actual target file and parent.
+Restore the gate before cleanup. This owned temporal fixture is never a migration, an application handler bypass or a
+browser response hold.
 
-7. **Explicit deletion and actual cascades.** Before the final submit, retain A/B Organizations, exact membership IDs, and known A/B resource IDs across Groups, Personnel, Calendar, Training, Critical Tasks, Onboarding, Rating Scheme, invitations/outbox, notifications, exports and audit, including artifact parent/child IDs where present. Inspect the owned effective catalog to classify applicable Organization foreign keys and deletion behavior; a missing setup row cannot witness a cascade. Confirm A's exact name and submit `Delete permanently` only in the freshly verified owner context. Require redirect to `/dashboard?show=all`, absence of A from Dashboard/current Organization choices after reload, no restored A context, and denial or absence when revisiting saved A UUID/slug URLs from already-open owner/admin/member contexts. Read back the exact saved IDs: A's Organization and applicable cascading memberships/resources are absent by their recorded IDs (not merely absent from an Organization-filtered query), and B's recorded rows/values remain unchanged. Query/provider errors are not absence. Audit delivery after deletion and real private Storage objects require their own observed results; a source `org.deleted` call or cascading file metadata cannot establish durable audit retention or byte removal. Preserve failures and any surviving rows/objects rather than calling destruction complete. Before the successful delete, require failures to be visible inside the active confirmation dialog, with confirmation text retained, an enabled explicit retry and working Cancel/focus restoration. Use `$V network arm-fail $PAGE settings/danger/deleteOrganization` on A's current canonical Danger route and prove unchanged rows and an explicit retry. Restore the hook; retain provider failure checks separately. Slug set/reset controls are `settings/general/updateSlug` and `settings/general/clearSlug`, also bound to A's current canonical route and exact action. Restart only this owned worker and run `doctor`/`fixture` before another recipe needs A.
+7. **Explicit deletion and actual cascades.** Before the final submit, retain A/B Organizations, exact membership IDs,
+   and known A/B resource IDs across Groups, Personnel, Calendar, Training, Critical Tasks, Onboarding, Rating Scheme,
+   invitations/outbox, notifications, exports and audit, including artifact parent/child IDs where present. Inspect the
+   owned effective catalog to classify applicable Organization foreign keys and deletion behavior; a missing setup row
+   cannot witness a cascade. Confirm A's exact name and submit `Delete permanently` only in the freshly verified owner
+   context. Require redirect to `/dashboard?show=all`, absence of A from Dashboard/current Organization choices after
+   reload, no restored A context, and denial or absence when revisiting saved A UUID/slug URLs from already-open
+   owner/admin/member contexts. Read back the exact saved IDs: A's Organization and applicable cascading
+   memberships/resources are absent by their recorded IDs (not merely absent from an Organization-filtered query), and
+   B's recorded rows/values remain unchanged. Query/provider errors are not absence. Audit delivery after deletion and
+   real private Storage objects require their own observed results; a source `org.deleted` call or cascading file
+   metadata cannot establish durable audit retention or byte removal. Preserve failures and any surviving rows/objects
+   rather than calling destruction complete. Before the successful delete, require failures to be visible inside the
+   active confirmation dialog, with confirmation text retained, an enabled explicit retry and working Cancel/focus
+   restoration. Use `$V network arm-fail $PAGE settings/danger/deleteOrganization` on A's current canonical Danger route
+   and prove unchanged rows and an explicit retry. Restore the hook; retain provider failure checks separately. Slug
+   set/reset controls are `settings/general/updateSlug` and `settings/general/clearSlug`, also bound to A's current
+   canonical route and exact action. Restart only this owned worker and run `doctor`/`fixture` before another recipe
+   needs A.
 
-8. **Retired Units endpoint and retained Groups.** `/org/<Organization>/api/units` and `personnel.manageUnits` are retired: the isolated effective schema has no Units relation, and maintained source has no caller. Preserve the actual catalog and source-census observations; repository absence does not prove external absence. As normally signed-in `orgOwner`, use native `evaluate_script` for separate authenticated POST, PUT and DELETE requests to A's retired endpoint, each with JSON `{ "id": "11111111-1111-4111-8111-111111111111", "name": "Synthetic retired Units probe" }`. Require 404 for each and exact unchanged A/B Organization and Group rows; this is direct HTTP proof, not a native UI action. Drive [Manage groups](manage-groups.md) independently: create, rename with the same ID, reload, remove, validation and viewer/foreign denial remain supported. Do not invent a Units feature or rename Organization/Group to match this orphan's name.
+8. **Retired Units endpoint and retained Groups.** `/org/<Organization>/api/units` and `personnel.manageUnits` are
+   retired: the isolated effective schema has no Units relation, and maintained source has no caller. Preserve the
+   actual catalog and source-census observations; repository absence does not prove external absence. As normally
+   signed-in `orgOwner`, use native `evaluate_script` for separate authenticated POST, PUT and DELETE requests to A's
+   retired endpoint, each with JSON
+   `{ "id": "11111111-1111-4111-8111-111111111111", "name": "Synthetic retired Units probe" }`. Require 404 for each and
+   exact unchanged A/B Organization and Group rows; this is direct HTTP proof, not a native UI action. Drive
+   [Manage groups](manage-groups.md) independently: create, rename with the same ID, reload, remove, validation and
+   viewer/foreign denial remain supported. Do not invent a Units feature or rename Organization/Group to match this
+   orphan's name.
 
 ## Gotchas
 
-- Organization's owned policy provider must acknowledge the canonical ID and every submitted normalized value before success/audit. Finite installed-SDK fault tests cover missing, foreign and stale acknowledgments. Native response holds and synthetic pre-provider failures establish client lifetime/retry behavior, not those provider acknowledgments.
-- General/Policies admit owner or admin roles. High feature capabilities or Group scope do not grant governance; Danger deletion remains owner-only and sensitive-action assurance supplies no additional role permission.
-- Name changes retain the Organization ID; slug changes affect bookmarks but preserve UUID access. Use exact IDs for provider readback so a changed route segment cannot silently change the tested target.
-- `network arm-fail` prevents one ordinary UI request at the browser boundary. It establishes client retry behavior and unchanged storage, not a failed provider write, concurrency or transactional rollback. Restore every armed control before another path.
-- Deletion ends the fixture's normal membership access. Capture prerequisites and exact resource IDs first, drive it last, and use owned cleanup/restart; do not turn fixture deletion into deletion of existing local development data.
-- Row cascades, durable audit and Storage bytes are separate outcomes. The owned destruction operation confirms ordinary Storage removals and a fresh empty manifest before conditional parent deletion; partial or uncertain effects remain failures for explicit retry.
-- Keep focused owned profile/provider, URL, General lifetime, Organization ownership-transfer/provider/workspace, settings shell/load/danger and settings API checks, plus applicable isolated SQL such as `org_ownership_rpc_contract.sql`. Mounted General checks cover target disposal; named route actions retain separate ordinary authenticated request proof. Tests, direct requests and catalog reads complement native UI observations; none substitutes for another.
+- Organization's owned policy provider must acknowledge the canonical ID and every submitted normalized value before
+  success/audit. Finite installed-SDK fault tests cover missing, foreign and stale acknowledgments. Native response
+  holds and synthetic pre-provider failures establish client lifetime/retry behavior, not those provider
+  acknowledgments.
+- General/Policies admit owner or admin roles. High feature capabilities or Group scope do not grant governance; Danger
+  deletion remains owner-only and sensitive-action assurance supplies no additional role permission.
+- Name changes retain the Organization ID; slug changes affect bookmarks but preserve UUID access. Use exact IDs for
+  provider readback so a changed route segment cannot silently change the tested target.
+- `network arm-fail` prevents one ordinary UI request at the browser boundary. It establishes client retry behavior and
+  unchanged storage, not a failed provider write, concurrency or transactional rollback. Restore every armed control
+  before another path.
+- Deletion ends the fixture's normal membership access. Capture prerequisites and exact resource IDs first, drive it
+  last, and use owned cleanup/restart; do not turn fixture deletion into deletion of existing local development data.
+- Row cascades, durable audit and Storage bytes are separate outcomes. The owned destruction operation confirms ordinary
+  Storage removals and a fresh empty manifest before conditional parent deletion; partial or uncertain effects remain
+  failures for explicit retry.
+- Keep focused owned profile/provider, URL, General lifetime, Organization ownership-transfer/provider/workspace,
+  settings shell/load/danger and settings API checks, plus applicable isolated SQL such as
+  `org_ownership_rpc_contract.sql`. Mounted General checks cover target disposal; named route actions retain separate
+  ordinary authenticated request proof. Tests, direct requests and catalog reads complement native UI observations; none
+  substitutes for another.

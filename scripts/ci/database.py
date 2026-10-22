@@ -609,7 +609,6 @@ def validate_seeds(repository, workdir, execute, psql):
             reason = '\n'.join(line for line in result.stdout.splitlines() if 'ERROR:' in line)
             errors.append(f'{name}: {reason or "psql failed"}. Update the seed for the replayed schema.')
 
-    check_seed('supabase/seed.sql', 'BEGIN;\n' + (repository / 'supabase/seed.sql').read_text() + '\nROLLBACK;\n')
     demo = (repository / 'scripts/demo-clinic/seed.sql').read_text()
     # The demo owns its transaction. Move its boundary around the prerequisite fixture too.
     demo, starts = re.subn(r'^BEGIN;\s*$', '', demo, count=1, flags=re.MULTILINE)

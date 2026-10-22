@@ -63,6 +63,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Migration versions, ordering and references
+        run: python3 scripts/ci/migrations.py
       - run: npm install -g npm@11.12.1
       - id: install
         run: npm ci

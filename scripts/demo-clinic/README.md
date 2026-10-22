@@ -27,7 +27,7 @@ All dates are relative to `CURRENT_DATE` when the seed runs. Fake ICTL codes and
 
 The seed only inserts new demo data. It does not rename the Organization, move existing people, update existing configuration, alter permissions, disable triggers or change the schema. General Demo training/ICTL requirements also apply to the two existing people, so their readiness screens will show missing Demo records unless they already have applicable completions. The seed deliberately leaves those people untouched.
 
-The script refuses a missing Organization, missing active rank catalog entries, ambiguous standard Group names, or a repeated/conflicting demo import. A database error rolls back the entire batch. A second successful import is intentionally prohibited rather than duplicating people or overwriting evaluator edits. Do not use the old whole-environment `supabase/seed.sql` for this import.
+The script refuses a missing Organization, missing active rank catalog entries, ambiguous standard Group names, or a repeated/conflicting demo import. A database error rolls back the entire batch. A second successful import is intentionally prohibited rather than duplicating people or overwriting evaluator edits.
 
 ## Local proof
 

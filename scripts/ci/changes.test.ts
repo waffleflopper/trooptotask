@@ -40,6 +40,8 @@ describe('CI job selection', () => {
 			'supabase/config.toml',
 			'supabase/tests/scope.sql',
 			'scripts/ci/database.py',
+			'scripts/demo-clinic/seed.sql',
+			'.agents/skills/verify-trooptotask/helpers/perf-workloads.mjs',
 			'.depot/workflows/ci.yml',
 			'.github/workflows/ci.yml',
 			'package.json',

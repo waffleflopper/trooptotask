@@ -432,6 +432,7 @@ export function createRequestPersonnelAwardContext(request: AdmittedOrganization
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
 		scope: request.scope
@@ -705,6 +706,7 @@ export function createRequestOrganizationExportContext(request: AdmittedOrganiza
 export function createRequestDeletionReviewContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestPersonnelLifecycleContext(request),
+		disabledFeatures: request.disabledFeatures,
 		notifications: createRequestNotificationDelivery()
 	};
 }
@@ -774,15 +776,16 @@ export function createApprovedDeletionEffects(
 	const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient);
 	const rating = createSupabaseApprovedRatingSchemeDeletionPort(getAdminClient);
 	const counseling = createSupabasePersonnelGovernanceDeletionPort(getAdminClient, requirePending);
+	const reviewer = { ...ctx.auth, disabledFeatures: ctx.disabledFeatures };
 	return {
 		approvePersonnelArchive: (requestId, id, reviewedAt) =>
 			approvePersonnelArchiveRequest(ctx, requestId, id, reviewedAt),
 		approveTrainingType: (requestId, id, reviewedAt) =>
-			training.approveTrainingTypeDeletion(ctx.auth, requestId, id, reviewedAt),
+			training.approveTrainingTypeDeletion(reviewer, requestId, id, reviewedAt),
 		approveTrainingRecord: (requestId, id, reviewedAt) =>
-			training.approveTrainingRecordDeletion(ctx.auth, requestId, id, reviewedAt),
+			training.approveTrainingRecordDeletion(reviewer, requestId, id, reviewedAt),
 		approveRatingEntry: (requestId, id, reviewedAt) =>
-			rating.approveRatingSchemeEntryDeletion(ctx.auth, requestId, id, reviewedAt),
+			rating.approveRatingSchemeEntryDeletion(reviewer, requestId, id, reviewedAt),
 		approveCounseling: (requestId, id, reviewedAt) =>
 			counseling.deleteApprovedCounselingRecord(ctx.auth, requestId, id, reviewedAt)
 	};

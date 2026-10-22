@@ -3,12 +3,14 @@ import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
+import { featureOffMessage, type FeatureKey } from '$lib/access/featureSwitches';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 
 interface PersonnelAwardTrackingContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
+	disabledFeatures: readonly FeatureKey[];
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
 	personnelSheets: Pick<PersonnelSheetPersistence, 'findSheetForPerson' | 'createSheet' | 'setAwardAcknowledgedAt'>;
@@ -30,6 +32,7 @@ export async function setPersonnelAwardTrackingAcknowledged(
 ): Promise<PersonnelAwardTrackingResult> {
 	const { personnelId, acknowledged } = input;
 	if (!personnelId) fail(400, 'personnelId is required');
+	if (ctx.disabledFeatures.includes('lossesAndAwards')) fail(403, featureOffMessage('lossesAndAwards'));
 
 	const person = await ctx.organizationPersonnel.findGroupReference(personnelId);
 	if (!person) fail(404, 'Personnel not found');

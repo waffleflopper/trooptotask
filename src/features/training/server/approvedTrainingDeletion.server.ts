@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
+import { featureOffMessage, type FeatureKey } from '$lib/access/featureSwitches';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 
@@ -8,6 +9,7 @@ export interface ApprovedTrainingDeletionActor {
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly capabilityMap: CapabilityMap;
+	readonly disabledFeatures: readonly FeatureKey[];
 }
 
 export interface ApprovedTrainingDeletionPort {
@@ -45,6 +47,7 @@ export function createSupabaseApprovedTrainingDeletionPort(
 			resource: { kind: 'organization' }
 		});
 		if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
+		if (actor.disabledFeatures.includes('training')) fail(403, featureOffMessage('training'));
 
 		const { error } = await getAdminClient().rpc('approve_record_deletion_request', {
 			p_organization_id: actor.orgId,

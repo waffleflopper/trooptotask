@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { createSupabaseApprovedRatingSchemeDeletionPort } from './approvedRatingSchemeDeletion.server';
 
-function reviewer(role: 'admin' | 'member' = 'admin') {
-	return createTestAuthContext({
+function reviewer(role: 'admin' | 'member' = 'admin', disabledFeatures: FeatureKey[] = []) {
+	const auth = createTestAuthContext({
 		orgId: 'org-1',
 		userId: 'reviewer-1',
 		role,
@@ -18,6 +19,7 @@ function reviewer(role: 'admin' | 'member' = 'admin') {
 			ratingScheme: role === 'admin' ? 'none' : 'configure'
 		}
 	});
+	return { ...auth, disabledFeatures };
 }
 
 function provider(error: { code?: string; message: string } | null = null) {
@@ -27,6 +29,24 @@ function provider(error: { code?: string; message: string } | null = null) {
 }
 
 describe('approved Rating Scheme deletion', () => {
+	it('keeps the request pending while Evaluations is off', async () => {
+		const { port, rpc } = provider();
+
+		await expect(
+			port.approveRatingSchemeEntryDeletion(
+				reviewer('admin', ['evaluations']),
+				'request-1',
+				'entry-1',
+				'2030-02-01T00:00:00.000Z'
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message:
+				'This organization has turned off Evaluations. Speak with the organization owner to have it turned back on.'
+		});
+		expect(rpc).not.toHaveBeenCalled();
+	});
+
 	it('lets an Organization reviewer without a Rating lane delete the bound entry and approve in one command', async () => {
 		const { port, rpc } = provider();
 

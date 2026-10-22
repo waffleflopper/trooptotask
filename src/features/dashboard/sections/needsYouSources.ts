@@ -8,6 +8,13 @@ import { openCalendarAt } from '../calendarLink';
 import { projectTrainingSteps } from '../read-model/dashboardIndexes';
 import type { DashboardInputs } from './dashboardInputs';
 import type { NeedsYouSource } from './dashboardSections';
+import {
+	awardStartedAction,
+	checkOffAction,
+	fillDutyAction,
+	recordClassAction,
+	updateStatusAction
+} from './needsYouActions';
 
 const NAMED_LIMIT = 4;
 
@@ -65,7 +72,7 @@ export const overdueEvaluations: NeedsYouSource = (inputs) => {
 				subtitle: `Thru date ${formatDayMonth(entry.ratingPeriodEnd)}`,
 				timing: `${plural(daysLate, 'day', 'days')} late`,
 				href: `${orgPath(inputs)}/evals?${new URLSearchParams({ entry: entry.id })}`,
-				action: null,
+				action: updateStatusAction(inputs, entry.id),
 				urgency: { daysLate }
 			}
 		];
@@ -89,7 +96,7 @@ export const expiredTraining: NeedsYouSource = (inputs) => {
 			subtitle: nameList(expiredPeople.map((person) => person.lastName)),
 			timing: `since ${formatDayMonth(fromDayNumber(toDayNumber(inputs.today) - expired.maxDaysLate))}`,
 			href: `${orgPath(inputs)}/training/reports?${new URLSearchParams({ types: expired.trainingTypeId })}`,
-			action: null,
+			action: recordClassAction(inputs, expired.trainingTypeId, expiredPeople),
 			urgency: { daysLate: expired.maxDaysLate }
 		};
 	});
@@ -111,7 +118,7 @@ export const unfilledDuty: NeedsYouSource = (inputs) => {
 				timing: formatDayOffset(daysBetween(inputs.today, openDates[0])),
 				href: `${orgPath(inputs)}/calendar`,
 				onOpen: () => openCalendarAt(openDates[0]),
-				action: null,
+				action: fillDutyAction(type.id, openDates.length),
 				urgency: { date: openDates[0] }
 			}
 		];
@@ -126,6 +133,7 @@ export const stalledOnboarding: NeedsYouSource = (inputs) => {
 		const person = people.get(packet.personnelId);
 		const summary = summarizePacket(project(packet), today);
 		if (!person || summary.status !== 'stalled' || !summary.focus) return [];
+		const href = `${orgPath(inputs)}/onboarding?${new URLSearchParams({ packet: packet.id })}`;
 		return [
 			{
 				kind: 'stalled' as const,
@@ -135,8 +143,8 @@ export const stalledOnboarding: NeedsYouSource = (inputs) => {
 				title: `${fullName(person)} · onboarding`,
 				subtitle: `${summary.focus.stepName} · waiting ${plural(summary.stallDays, 'day', 'days')} · ${summary.done} of ${summary.total}`,
 				timing: clockLabel(summary.clock).toLowerCase(),
-				href: `${orgPath(inputs)}/onboarding?${new URLSearchParams({ packet: packet.id })}`,
-				action: null,
+				href,
+				action: checkOffAction(href),
 				urgency: { date: fromDayNumber(toDayNumber(inputs.today) - summary.stallDays) }
 			}
 		];
@@ -162,7 +170,7 @@ export const leavingWithoutAward: NeedsYouSource = (inputs) => {
 				subtitle: 'End-of-tour award not started',
 				timing: formatDayOffset(loss.daysRemaining),
 				href: `${orgPath(inputs)}/personnel/${person.slug ?? person.id}/data-sheet`,
-				action: null,
+				action: awardStartedAction(inputs, person),
 				urgency: { date: loss.targetDate }
 			}
 		];

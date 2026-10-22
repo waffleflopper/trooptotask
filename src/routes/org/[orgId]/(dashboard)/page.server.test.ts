@@ -229,7 +229,7 @@ describe('dashboard page server load', () => {
 		} as never);
 
 		expect(depends).toHaveBeenCalledWith('app:org-core');
-		expect(depends).toHaveBeenCalledWith('app:dashboard-data', 'app:viewer-day');
+		expect(depends).toHaveBeenCalledWith('app:dashboard-data', 'app:viewer-day', 'app:dashboard-summary');
 		expect(result.breadcrumbLabel).toBe('Wednesday, Oct 14 2026');
 		expect(result.viewerDay).toEqual({ date: '2026-10-14', timeZone: 'America/New_York' });
 		expect(result.summary).toBeInstanceOf(Promise);

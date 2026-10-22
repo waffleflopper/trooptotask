@@ -4,7 +4,7 @@ import type { Group, Personnel } from '$features/personnel/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { DashboardIctlSummary, DashboardPageData } from '../contracts';
 import type { DashboardInputs } from './dashboardInputs';
-import type { DashboardAccess } from './dashboardSections';
+import type { DashboardAccess } from './dashboardAccess';
 import {
 	arrivingAndLeavingReadiness,
 	criticalTasksReadiness,

@@ -10,14 +10,12 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	activeDashboardSections,
 	composeDashboardSections,
-	createDashboardAccess,
 	dashboardSection,
-	personnelResource,
-	type DashboardAccess,
 	type DashboardBlock,
 	type QuickAddEntry,
 	type ReadinessSource
 } from './dashboardSections';
+import { createDashboardAccess, personnelResource, type DashboardAccess } from './dashboardAccess';
 import type { DashboardInputs } from './dashboardInputs';
 import { DASHBOARD_SECTIONS } from './dashboardSectionRegistry';
 
@@ -363,5 +361,61 @@ describe('the Quick add entries', () => {
 			'Start onboarding'
 		]);
 		expect(labelsFor({ membershipRole: 'owner' }, withTrainingType, ['training', 'onboarding'])).toEqual(['Status']);
+	});
+});
+
+describe('the Needs you actions', () => {
+	const leaving = (id: string, groupId: string) =>
+		({ id, rank: 'SPC', lastName: id, firstName: 'Ana', groupId, ets: '2026-11-16' }) as Personnel;
+	const loaded: DashboardInputs = {
+		...inputs,
+		personnel: [leaving('alpha-1', 'alpha'), leaving('bravo-1', 'bravo')],
+		page: {
+			...inputs.page,
+			dashboard: {
+				...inputs.page.dashboard,
+				data: {
+					...inputs.page.dashboard.data,
+					ratingSchemeEntries: [
+						{ id: 'e1', ratedPersonId: 'alpha-1', evalType: 'NCOER', ratingPeriodEnd: '2026-10-01', status: 'active' }
+					]
+				}
+			}
+		}
+	};
+
+	function actionsFor(viewer: Parameters<typeof createClientAccess>[0]) {
+		const access = createDashboardAccess(createClientAccess(viewer));
+		return composeDashboardSections(DASHBOARD_SECTIONS, loaded, [], access).needsYou.ranked.map((item) => [
+			item.id,
+			item.action?.label ?? null
+		]);
+	}
+
+	it('gives an owner every row its action', () => {
+		expect(actionsFor({ membershipRole: 'owner' })).toEqual([
+			['overdue:e1', 'Update status'],
+			['leaving:alpha-1', 'Award started'],
+			['leaving:bravo-1', 'Award started']
+		]);
+	});
+
+	it('keeps the rows but drops actions the viewer may not take, per person for a Group-scoped operator', () => {
+		expect(
+			actionsFor({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('view'), personnel: 'operate' },
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			})
+		).toEqual([
+			['overdue:e1', null],
+			['leaving:alpha-1', 'Award started'],
+			['leaving:bravo-1', null]
+		]);
+		expect(actionsFor({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })).toEqual([
+			['overdue:e1', null],
+			['leaving:alpha-1', null],
+			['leaving:bravo-1', null]
+		]);
 	});
 });

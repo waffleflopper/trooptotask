@@ -10,11 +10,12 @@ export {
 	overlayDashboardRecords,
 	overlayDashboardSummary,
 	putDashboardRecord,
+	retireTrainingCompletions,
 	type DashboardPageUpdates,
 	type DashboardRecordChange,
 	type DashboardRecordOverlay
 } from './dashboardPageUpdates';
 export { DASHBOARD_SECTIONS } from './sections/dashboardSectionRegistry';
-export { createDashboardAccess, type DashboardAccess } from './sections/dashboardSections';
+export { createDashboardAccess, type DashboardAccess } from './sections/dashboardAccess';
 
 export { dashboardWorkspaceHydrator } from './dashboardWorkspaceHydration.svelte';

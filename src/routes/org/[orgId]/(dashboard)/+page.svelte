@@ -9,6 +9,7 @@
 		overlayDashboardRecords,
 		overlayDashboardSummary,
 		putDashboardRecord,
+		retireTrainingCompletions,
 		type DashboardPageUpdates,
 		type DashboardRecordOverlay
 	} from '$features/dashboard';
@@ -33,6 +34,7 @@
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
 	let summaryRequest = 0;
+	let saveNumber = 0;
 	onDestroy(() => {
 		summaryRequest++;
 	});
@@ -145,12 +147,15 @@
 		const savedIn = orgId;
 		const workspace = streamedWorkspace;
 		const request = ++summaryRequest;
+		const savedBefore = saveNumber;
 		try {
 			const response = await fetch(`/org/${savedIn}/api/dashboard/summary`, { cache: 'no-store' });
 			if (!response.ok) return;
 			const summary: DashboardPageSummaryData = await response.json();
-			if (request === summaryRequest && savedIn === orgId && workspace === streamedWorkspace)
+			if (request === summaryRequest && savedIn === orgId && workspace === streamedWorkspace) {
 				latestSummary = { orgId: savedIn, summary };
+				recordOverlay = retireTrainingCompletions(recordOverlay, savedBefore);
+			}
 		} catch {
 			return;
 		}
@@ -162,7 +167,7 @@
 		refreshSummary: () => void refreshSummary(),
 		putRecord: (savedIn, change) => {
 			if (dashboardBootstrap && savedIn === orgId)
-				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change);
+				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change, ++saveNumber);
 		}
 	};
 

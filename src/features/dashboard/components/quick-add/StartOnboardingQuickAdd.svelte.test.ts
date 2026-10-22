@@ -54,7 +54,9 @@ function openStart() {
 					if (orgId === 'org-1') saved.push(change);
 				},
 				refreshSummary: () => {
-					refreshPopulations.push(saved.map((change) => change.record.personnelId));
+					refreshPopulations.push(
+						saved.flatMap((change) => (change.list === 'activeOnboardings' ? [change.record.personnelId] : []))
+					);
 				}
 			}
 		}

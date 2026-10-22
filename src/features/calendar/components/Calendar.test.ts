@@ -56,7 +56,15 @@ const personnel: Personnel[] = [
 ];
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: 'LV', sortOrder: 0 }
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#16a34a',
+		textColor: '#ffffff',
+		shortLabel: 'LV',
+		rosterEffect: 'A',
+		sortOrder: 0
+	}
 ];
 const smithOnLeave: AvailabilityEntry = {
 	id: 'entry-1',

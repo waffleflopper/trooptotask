@@ -8,7 +8,15 @@ import CalendarLegend from './CalendarLegend.svelte';
 
 afterEach(cleanup);
 
-const leave = { id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 };
+const leave = {
+	id: 'leave',
+	name: 'Leave',
+	color: '#16a34a',
+	textColor: '#ffffff',
+	shortLabel: null,
+	rosterEffect: 'A' as const,
+	sortOrder: 0
+};
 
 const dutyType: AssignmentType = {
 	id: 'sd',

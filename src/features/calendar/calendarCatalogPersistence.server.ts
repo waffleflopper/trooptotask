@@ -128,6 +128,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					color: input.color ?? '#6b7280',
 					text_color: input.textColor ?? '#ffffff',
 					short_label: input.shortLabel ?? null,
+					roster_effect: input.rosterEffect ?? 'A',
 					sort_order: last.data ? last.data.sort_order + 1 : 0
 				})
 				.select(STATUS_TYPE_FIELDS)
@@ -142,7 +143,8 @@ export function createSupabaseCalendarCatalogPersistence(
 					name: patch.name,
 					color: patch.color,
 					text_color: patch.textColor,
-					short_label: patch.shortLabel
+					short_label: patch.shortLabel,
+					roster_effect: patch.rosterEffect
 				})
 				.eq('organization_id', orgId)
 				.eq('id', id)

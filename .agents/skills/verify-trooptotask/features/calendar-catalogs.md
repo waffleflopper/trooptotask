@@ -7,6 +7,10 @@ their references through edits, while confirmed type deletion explains and remov
 
 - `status-types`: add and edit name, one-day label and colors in the inline composer, reload, keep ID and linked leave;
   confirmed deletion removes linked availability and records an audit/notification effect.
+- `status-effect`: every status type has a roster effect, set under `On duty rosters` in the composer: `Still available`,
+  `Away` (A), `Other duty` (D) or `Misconduct` (U). A status row shows the code chip and effect text. Editing a saved
+  status's effect first lists the numbers it changes on open DA 6 forms and saves only after confirmation; a new
+  status, or an edit that changes no number, saves without one. Saving never changes an assignment or a closed form.
 - `status-order`: drag or keyboard-move status types to set the legend and picker order; every move is one ordered
   command that refuses a stale list.
 - `assignment-types`: add Person and Group choices, edit name/code/color, keep ID/order and saved assignment; archived
@@ -31,8 +35,9 @@ their references through edits, while confirmed type deletion explains and remov
 With Organization-wide Calendar configuration access, choose `Calendar`, then `Settings` under `More Calendar controls`.
 Open the `Status Types` or `Assignment Types` tab, then `Add new` or the row's actions. Status types open in one inline
 composer: `Add new` opens it above the list, and a row's `More actions for <name>` → `Edit` opens it in place of that
-row. A status row shows a `Reorder <name>` grip, a sample bar, the name, `One-day label · XX`, a one-day chip and the
-`More actions for <name>` menu with `Edit` and `Delete`. The list heading reads `N status types` beside
+row. A status row shows a `Reorder <name>` grip, a sample bar, the name, `One-day label · XX`, the roster effect (a code
+chip and `Away, count holds`, `Other duty, count runs` or `Misconduct, count runs`; `Still available` has no chip), a
+one-day chip and the `More actions for <name>` menu with `Edit` and `Delete`. The list heading reads `N status types` beside
 `Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a
 `More actions for <name>` menu with `Edit` and `Delete`. Assignment types sit in two lists: `On the calendar · N lanes`
 in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and
@@ -43,6 +48,7 @@ the third section and is driven in [Special days](special-days.md).
 
 `calendar-lanes` and `status-order` stop `rpc/set_calendar_lanes` and `rpc/set_status_type_order` before dispatch. Their
 `-lost-ack` and `-hold` forms follow the [shared fault variants](special-days.md#helper-controls).
+`$V network arm-fail $PAGE status-types/preview` fails the next effect preview with a 503.
 
 ## Driving it with verify:app
 
@@ -375,6 +381,35 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       dark. Below 1024 px the sheet fills the width, the rule rows wrap without horizontal scrolling, and
       `document.documentElement.scrollWidth` equals `innerWidth`.
     - Remove the type through its visible Delete confirmation; its forms, numbers and excusals go with it.
+
+13. **Status roster effect.** Run after step 12. Record `$V rows status_types orgA`: every seeded status reads
+    `roster_effect` `A`, and each row shows the `A` chip with `Away, count holds`.
+    - **New status.** `Add new`, name `Verification AWOL`. `On duty rosters` shows four cards, `Still available`, `Away`,
+      `Other duty` and `Misconduct`, with `Away` chosen. Choose `Misconduct` and `Add status type`. No confirmation
+      opens. The row reads the `U` chip and `Misconduct, count runs`, and
+      `$V rows status_types orgA name "Verification AWOL"` reads `roster_effect` `U`.
+    - **Seed a number that moves.** Every roster's first form opens today (UTC), and a count moves only on a day with
+      an assignment. Through the signed-in page, POST `api/availability` with personA, statusLeave and today as both
+      `startDate` and `endDate`, then POST `api/daily-assignments` with today's `date`, `typePersonnel` and
+      Unassigned's id from `$V rows personnel orgA`; both answer `200`. Able is away today while Unassigned holds
+      Staff Duty, so Able's count holds at `0` under `A` and runs to `1` under `D`.
+    - **Confirmation lists the change.** Open `More actions for Verification Leave` → `Edit`, choose `Other duty` and
+      `Save changes`. A `Change what this status does?` dialog reads
+      `Saving recalculates the open DA 6 forms below. Closed forms keep their saved numbers.` and lists
+      `SPC Able 0 → 1 on the Verification Staff Duty DA 6`. Choose `Cancel`: `$V rows status_types orgA id <statusLeave>`
+      still reads `A`, and the composer stays open. `Save changes` twice (composer, then dialog): the row reads the `D`
+      chip and `Other duty, count runs`, `roster_effect` reads `D`, and a reload reads both back. No `daily_assignments`,
+      `availability_entries` or `roster_forms` row changed.
+    - **No confirmation without a change.** Edit `Verification AWOL`, choose `Away` and `Save changes`. Nobody held that
+      status, so no dialog opens and `roster_effect` reads `A`.
+    - **Preview failure.** Run `$V network arm-fail $PAGE status-types/preview`, edit `Verification Leave`, choose
+      `Away` and `Save changes`. The dialog titled `Couldn't check roster numbers` says the status is not saved, and
+      `roster_effect` still reads `D`. `$V network restore $PAGE`, choose `Try again`: the confirmation from the first
+      case opens, with `SPC Able 1 → 0`.
+    - **Layout.** Capture the composer and the confirmation at 1440x900, 900x800 and 390x844. Below 1024 px the effect
+      cards stack, the row wraps its effect text, and `document.documentElement.scrollWidth` equals `innerWidth`.
+    - Delete `Verification AWOL` through its Delete confirmation. Set `Verification Leave` back to `Away` so later steps
+      read the seeded effect.
 
 ## Gotchas
 

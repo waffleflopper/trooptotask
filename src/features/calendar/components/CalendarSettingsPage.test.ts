@@ -17,6 +17,7 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 			add: vi.fn(),
 			updateOrThrow: vi.fn(),
 			remove: vi.fn(),
+			previewEffect: vi.fn(),
 			setOrder: vi.fn()
 		},
 		availabilityStoreMock: {
@@ -92,6 +93,8 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.add.mockReset();
 		statusTypesStoreMock.updateOrThrow.mockReset();
 		statusTypesStoreMock.remove.mockReset();
+		statusTypesStoreMock.previewEffect.mockReset();
+		statusTypesStoreMock.previewEffect.mockResolvedValue([]);
 		statusTypesStoreMock.setOrder.mockReset();
 		statusTypesStoreMock.setOrder.mockResolvedValue({ status: 'saved' });
 		statusTypesStoreMock.add.mockResolvedValue({
@@ -153,8 +156,24 @@ describe('CalendarSettingsPage', () => {
 	it('filters the section from the toolbar and keeps Add new pinned when Back to Calendar folds into More', async () => {
 		const { layOut } = stubToolbarWidths();
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
-			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#2563eb',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 0
+			},
+			{
+				id: 'tdy',
+				name: 'TDY',
+				color: '#16a34a',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 1
+			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await layOut(2000);
@@ -196,6 +215,7 @@ describe('CalendarSettingsPage', () => {
 			name: 'Quarters',
 			color: '#4a5568',
 			textColor: '#ffffff',
+			rosterEffect: 'A',
 			shortLabel: null
 		});
 		await waitFor(() => expect(screen.queryByRole('form', { name: 'New status type' })).toBeNull());
@@ -214,6 +234,7 @@ describe('CalendarSettingsPage', () => {
 			name: 'Quarters',
 			color: '#319795',
 			textColor: '#1c1b19',
+			rosterEffect: 'A',
 			shortLabel: 'QTR'
 		});
 	});
@@ -239,7 +260,15 @@ describe('CalendarSettingsPage', () => {
 
 	it('edits in place, keeps a custom text color and a stored label, and stays open when the save fails', async () => {
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#f8f7f4', shortLabel: 'LV', sortOrder: 0 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#f8f7f4',
+				shortLabel: 'LV',
+				rosterEffect: 'A',
+				sortOrder: 0
+			}
 		];
 		statusTypesStoreMock.updateOrThrow.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
@@ -256,6 +285,7 @@ describe('CalendarSettingsPage', () => {
 			name: 'Annual Leave',
 			color: '#48bb78',
 			textColor: '#f8f7f4',
+			rosterEffect: 'A',
 			shortLabel: 'LV'
 		});
 		await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
@@ -266,7 +296,15 @@ describe('CalendarSettingsPage', () => {
 
 	it('saves an edit only when it is valid and changed, and clears a stored label to the derived one', async () => {
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: 'LV', sortOrder: 0 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				shortLabel: 'LV',
+				rosterEffect: 'A',
+				sortOrder: 0
+			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
@@ -290,8 +328,144 @@ describe('CalendarSettingsPage', () => {
 			name: 'Leave',
 			color: '#48bb78',
 			textColor: '#ffffff',
+			rosterEffect: 'A',
 			shortLabel: null
 		});
+	});
+
+	it('creates a status with the roster effect chosen, with no preview', async () => {
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+		const composer = screen.getByRole('form', { name: 'New status type' });
+		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: 'Detail' } });
+		await fireEvent.click(within(composer).getByRole('radio', { name: /Other duty/ }));
+		await fireEvent.click(within(composer).getByRole('button', { name: 'Add status type' }));
+		expect(statusTypesStoreMock.add).toHaveBeenCalledWith(expect.objectContaining({ rosterEffect: 'D' }));
+		expect(statusTypesStoreMock.previewEffect).not.toHaveBeenCalled();
+	});
+
+	describe('changing the roster effect of a saved status', () => {
+		const leave = {
+			id: 'leave',
+			name: 'Leave',
+			color: '#48bb78',
+			textColor: '#ffffff',
+			shortLabel: 'LV',
+			rosterEffect: 'A',
+			sortOrder: 0
+		} as const;
+		const kim = {
+			assignmentTypeId: 'cq',
+			rosterName: 'CQ',
+			track: 'all',
+			personId: 'kim',
+			person: 'SGT Kim',
+			change: { kind: 'number', from: 11, to: 9 }
+		} as const;
+
+		async function chooseOtherDuty() {
+			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+			await openRowAction('Leave', 'Edit');
+			const composer = screen.getByRole('form', { name: 'Edit Leave' });
+			await fireEvent.click(within(composer).getByRole('radio', { name: /Other duty/ }));
+			await fireEvent.click(within(composer).getByRole('button', { name: 'Save changes' }));
+		}
+
+		it('lists the changed numbers and saves nothing until confirmed', async () => {
+			statusTypesStoreMock.items = [leave];
+			statusTypesStoreMock.previewEffect.mockResolvedValueOnce([
+				kim,
+				{ ...kim, personId: 'lee', person: 'SPC Lee', change: { kind: 'earlier', days: 3 } }
+			]);
+			await chooseOtherDuty();
+
+			const dialog = await screen.findByRole('alertdialog');
+			expect(within(dialog).getByText('SGT Kim 11 → 9 on the CQ DA 6')).toBeTruthy();
+			expect(within(dialog).getByText('SPC Lee: 3 earlier days change on the CQ DA 6')).toBeTruthy();
+			expect(statusTypesStoreMock.previewEffect).toHaveBeenCalledWith('leave', 'D', expect.stringMatching(/^\d{4}-/));
+			expect(statusTypesStoreMock.updateOrThrow).not.toHaveBeenCalled();
+
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+			await waitFor(() =>
+				expect(statusTypesStoreMock.updateOrThrow).toHaveBeenCalledWith(
+					'leave',
+					expect.objectContaining({ rosterEffect: 'D' })
+				)
+			);
+		});
+
+		it('saves without a confirmation when no number changes', async () => {
+			statusTypesStoreMock.items = [leave];
+			await chooseOtherDuty();
+
+			await waitFor(() =>
+				expect(statusTypesStoreMock.updateOrThrow).toHaveBeenCalledWith(
+					'leave',
+					expect.objectContaining({ rosterEffect: 'D' })
+				)
+			);
+			expect(screen.queryByRole('alertdialog')).toBeNull();
+		});
+
+		it('keeps the edit unsaved and shows the reason when the preview cannot be read', async () => {
+			statusTypesStoreMock.items = [leave];
+			statusTypesStoreMock.previewEffect.mockRejectedValueOnce(new Error('network'));
+			await chooseOtherDuty();
+
+			const dialog = await screen.findByRole('alertdialog');
+			expect(within(dialog).getByText(/not saved/i)).toBeTruthy();
+			expect(statusTypesStoreMock.updateOrThrow).not.toHaveBeenCalled();
+
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Try again' }));
+			await waitFor(() => expect(statusTypesStoreMock.previewEffect).toHaveBeenCalledTimes(2));
+		});
+
+		it('does not preview an edit that leaves the effect alone', async () => {
+			statusTypesStoreMock.items = [leave];
+			render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+			await openRowAction('Leave', 'Edit');
+			const composer = screen.getByRole('form', { name: 'Edit Leave' });
+			await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: 'Annual Leave' } });
+			await fireEvent.click(within(composer).getByRole('button', { name: 'Save changes' }));
+			await waitFor(() => expect(statusTypesStoreMock.updateOrThrow).toHaveBeenCalled());
+			expect(statusTypesStoreMock.previewEffect).not.toHaveBeenCalled();
+		});
+	});
+
+	it('shows each status effect on its row', () => {
+		statusTypesStoreMock.items = [
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 0
+			},
+			{
+				id: 'dental',
+				name: 'Dental',
+				color: '#4a5568',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'available',
+				sortOrder: 1
+			},
+			{
+				id: 'awol',
+				name: 'AWOL',
+				color: '#dc2626',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'U',
+				sortOrder: 2
+			}
+		];
+		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
+		expect(screen.getByText('Away, count holds')).toBeTruthy();
+		expect(screen.getByText('Still available')).toBeTruthy();
+		expect(screen.getByText('Misconduct, count runs')).toBeTruthy();
 	});
 
 	it('keeps a single choice chosen when the chosen text or color is pressed again', async () => {
@@ -332,7 +506,15 @@ describe('CalendarSettingsPage', () => {
 
 	it('closes the composer on Escape, asking first when it has changes, and returns focus to what opened it', async () => {
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 0
+			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 
@@ -358,7 +540,15 @@ describe('CalendarSettingsPage', () => {
 
 	it('asks before an open composer with changes is replaced', async () => {
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 0
+			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
@@ -386,9 +576,33 @@ describe('CalendarSettingsPage', () => {
 	it('saves the full status order after a keyboard move and offers no grips while the list is filtered', async () => {
 		const { layOut } = stubToolbarWidths();
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
-			{ id: 'school', name: 'School', color: '#4299e1', textColor: '#ffffff', shortLabel: 'SCH', sortOrder: 1 },
-			{ id: 'sick', name: 'Sick', color: '#e53e3e', textColor: '#ffffff', shortLabel: null, sortOrder: 2 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 0
+			},
+			{
+				id: 'school',
+				name: 'School',
+				color: '#4299e1',
+				textColor: '#ffffff',
+				shortLabel: 'SCH',
+				rosterEffect: 'A',
+				sortOrder: 1
+			},
+			{
+				id: 'sick',
+				name: 'Sick',
+				color: '#e53e3e',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 2
+			}
 		];
 		render(CalendarSettingsPage, { props: { org, rankCatalog: Promise.resolve([]) } });
 		await layOut(2000);
@@ -413,6 +627,7 @@ describe('CalendarSettingsPage', () => {
 				color: '#48bb78',
 				textColor: '#ffffff',
 				shortLabel: null,
+				rosterEffect: 'A',
 				sortOrder: 3
 			}
 		];
@@ -871,7 +1086,15 @@ describe('CalendarSettingsPage', () => {
 
 	it('keeps a held status deletion busy and undismissable until it settles', async () => {
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 4 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 4
+			}
 		];
 		let settle!: (deleted: boolean) => void;
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
@@ -894,7 +1117,15 @@ describe('CalendarSettingsPage', () => {
 
 	it('clears busy and keeps a held status deletion open when it rejects', async () => {
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 5 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#48bb78',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 5
+			}
 		];
 		let fail!: (error: Error) => void;
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));

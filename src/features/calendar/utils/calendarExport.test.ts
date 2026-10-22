@@ -39,6 +39,7 @@ function makeOverlappingExportOptions() {
 			color: '#fde68a',
 			textColor: '#111827',
 			shortLabel: null,
+			rosterEffect: 'A',
 			sortOrder: 0
 		},
 		{
@@ -47,6 +48,7 @@ function makeOverlappingExportOptions() {
 			color: '#16a34a',
 			textColor: '#ffffff',
 			shortLabel: null,
+			rosterEffect: 'A',
 			sortOrder: 1
 		}
 	];

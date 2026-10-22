@@ -10,8 +10,14 @@ import type {
 } from './contracts';
 import { fitsOneDayLabel, normalizeShortLabel } from '$lib/components/patterns/calendar-bars';
 import { MAX_CLOSURE_DAYS } from './utils/closureDays';
-import type { OpenForm, PoolRules, TrackId, WeekendMode } from './roster/rosterTypes';
-import { ROSTER_EXCUSAL_REASON_MAX, normalizePoolRules, poolRulesSchema, weekendModeSchema } from './contracts';
+import type { OpenForm, PoolRules, RosterEffect, TrackId, WeekendMode } from './roster/rosterTypes';
+import {
+	ROSTER_EXCUSAL_REASON_MAX,
+	normalizePoolRules,
+	poolRulesSchema,
+	rosterEffectSchema,
+	weekendModeSchema
+} from './contracts';
 
 type SavedRow = { organization_id?: string; created_at?: string };
 
@@ -21,6 +27,7 @@ export type StatusTypeRow = SavedRow & {
 	color: string;
 	text_color: string;
 	short_label: string | null;
+	roster_effect: RosterEffect;
 	sort_order: number;
 };
 export type AssignmentTypeRow = SavedRow & {
@@ -70,7 +77,8 @@ export type AssignmentRow = SavedRow & {
 	assignee_id: string;
 };
 
-export const STATUS_TYPE_FIELDS = 'id, organization_id, name, color, text_color, short_label, sort_order, created_at';
+export const STATUS_TYPE_FIELDS =
+	'id, organization_id, name, color, text_color, short_label, roster_effect, sort_order, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
 	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, roster_pool_rules, roster_weekend_mode, archived_at, created_at, roster_excusals(personnel_id, reason, starts_on, ends_on)';
 export const ROSTER_FORM_FIELDS = 'id, starts_on, rules, roster_starting_numbers(personnel_id, track, count, origin)';
@@ -93,6 +101,7 @@ export function toStatusType(row: StatusTypeRow): SavedStatusType {
 		color: row.color,
 		textColor: row.text_color,
 		shortLabel: row.short_label,
+		rosterEffect: row.roster_effect,
 		sortOrder: row.sort_order,
 		...savedMetadata(row)
 	};
@@ -177,8 +186,12 @@ export const statusTypeCreateInput = z.object({
 		.refine((label) => label === null || fitsOneDayLabel(label), 'A one-day label has up to 3 characters')
 		.nullable()
 		.optional(),
+	rosterEffect: rosterEffectSchema.optional(),
 	sortOrder: z.never({ error: 'Status type order changes through the order command' }).optional()
 });
+export const statusEffectPreviewInput = z
+	.object({ id: uuidSchema, rosterEffect: rosterEffectSchema, today: dateOnlySchema })
+	.strict();
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
 const statusTypeIds = z
 	.array(uuidSchema)

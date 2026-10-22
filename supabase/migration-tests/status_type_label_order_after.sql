@@ -12,7 +12,7 @@ SELECT ok(has_function_privilege('authenticated', 'public.set_status_type_order(
 
 SELECT results_eq($$
   SELECT row_id, row_data FROM (
-    SELECT id AS row_id, to_jsonb(t) - 'short_label' AS row_data FROM public.status_types t
+    SELECT id AS row_id, to_jsonb(t) - 'short_label' - 'roster_effect' AS row_data FROM public.status_types t
       WHERE organization_id::text LIKE 'e1684000-%' AND short_label IS NULL
     UNION ALL
     SELECT id, to_jsonb(a) FROM public.availability_entries a WHERE organization_id::text LIKE 'e1684000-%') AS current_rows

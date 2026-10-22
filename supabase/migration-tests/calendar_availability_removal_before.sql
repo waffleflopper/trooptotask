@@ -43,8 +43,8 @@ SELECT 'personnel',id,to_jsonb(r) FROM public.personnel r WHERE id::text LIKE 'e
 UNION ALL
 SELECT 'groups',id,to_jsonb(r) FROM public.groups r WHERE id::text LIKE 'e6110000-%'
 UNION ALL
--- The later status label upgrade adds a column that these rows leave NULL.
-SELECT 'status_types',id,to_jsonb(r) - 'short_label' FROM public.status_types r WHERE id::text LIKE 'e6110000-%';
+-- Later status type upgrades add columns that these rows leave at their defaults.
+SELECT 'status_types',id,to_jsonb(r) - 'short_label' - 'roster_effect' FROM public.status_types r WHERE id::text LIKE 'e6110000-%';
 CREATE TABLE upgrade_fixture.availability_removal_before_rows AS
 SELECT * FROM upgrade_fixture.availability_removal_current_rows;
 DO $$

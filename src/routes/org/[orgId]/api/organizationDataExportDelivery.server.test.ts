@@ -295,6 +295,7 @@ describe('retained Organization export projection', () => {
 			color: '#4299e1',
 			text_color: '#ffffff',
 			short_label: 'TD',
+			roster_effect: 'D',
 			sort_order: 2,
 			created_at: '2026-09-01T00:00:00Z'
 		};

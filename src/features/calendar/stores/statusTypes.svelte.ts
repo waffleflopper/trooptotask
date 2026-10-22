@@ -2,15 +2,26 @@
  * `setOrder(ids)` saves a new order through one compare-and-replace command. Moves made while
  * it is in flight fold into one follow-up save. Create, update and delete are refused until it settles.
  */
-import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
+import {
+	buildRequestError,
+	defineStore,
+	stillInOrganizationLifetime,
+	withinOrganizationLifetime
+} from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { statusTypesSchema, type StatusType } from '$features/calendar/contracts';
+import {
+	statusEffectChangesSchema,
+	statusTypesSchema,
+	type StatusEffectChange,
+	type StatusType
+} from '$features/calendar/contracts';
+import type { RosterEffect } from '$features/calendar/roster/rosterTypes';
 import { sameIdList } from '$features/calendar/utils/idList';
 import { confirmedNotSaved } from './calendarCommandResponse';
 
 /** The fields an operator edits. Order changes only through `setOrder`. */
-export type StatusTypeDraft = Pick<StatusType, 'name' | 'color' | 'textColor' | 'shortLabel'>;
+export type StatusTypeDraft = Pick<StatusType, 'name' | 'color' | 'textColor' | 'shortLabel' | 'rosterEffect'>;
 
 export type StatusOrderChange =
 	| { status: 'saved' | 'stale' | 'busy' }
@@ -30,6 +41,8 @@ interface StatusTypeExtensions extends Record<string, unknown> {
 	add: (data: StatusTypeDraft) => Promise<StatusType | null>;
 	update: (id: string, data: Partial<StatusTypeDraft>) => Promise<boolean>;
 	remove: (id: string) => Promise<boolean>;
+	/** The numbers on open DA 6 forms that giving the status `rosterEffect` would change. Saves nothing. */
+	previewEffect: (id: string, rosterEffect: RosterEffect, today: string) => Promise<StatusEffectChange[]>;
 	setOrder: (ids: readonly string[]) => Promise<StatusOrderChange>;
 }
 
@@ -159,6 +172,19 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 		async update(id: string, data: Partial<StatusTypeDraft>) {
 			if (currentFlight()) return false;
 			return base.update(id, data);
+		},
+
+		async previewEffect(id: string, rosterEffect: RosterEffect, today: string) {
+			const resource = `/org/${base.orgId}/api/status-types/preview`;
+			const res = await withinOrganizationLifetime(
+				fetch(resource, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ id, rosterEffect, today })
+				})
+			);
+			if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'POST', resource));
+			return statusEffectChangesSchema.parse(await withinOrganizationLifetime(res.json()));
 		},
 
 		async remove(id: string) {

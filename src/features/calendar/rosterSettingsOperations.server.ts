@@ -28,6 +28,11 @@ const resource = { kind: 'organization' } as const;
 const addDays = (date: string, days: number) => fromDayNumber(toDayNumber(date) + days);
 const utcDate = (offsetDays: number) => addDays(new Date().toISOString().slice(0, 10), offsetDays);
 
+/** The device day must sit within a day of the server's UTC day, so a wrong clock cannot place a form boundary. */
+export function requireDeviceDate(today: string | undefined): asserts today is string {
+	if (!today || today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+}
+
 const sameRules = (a: RosterRules, b: RosterRules) =>
 	a.weekendMode === b.weekendMode &&
 	JSON.stringify(a.pool && normalizePoolRules(a.pool)) === JSON.stringify(b.pool && normalizePoolRules(b.pool));
@@ -44,7 +49,7 @@ export async function saveRosterSettings(
 	const parsed = rosterSettingsInput.safeParse(input);
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const { id, poolRules, weekendMode, excusals, today } = parsed.data;
-	if (today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+	requireDeviceDate(today);
 	await requireCalendarPolicy(ctx, action, resource);
 
 	const type = await findRosterType(ctx, id);
@@ -91,7 +96,7 @@ export async function saveRosterSettings(
 export async function endRoster(ctx: RosterSettingsPorts, id: string, today: string | undefined): Promise<void> {
 	const form = await ctx.calendarCatalogs.findOpenRosterForm(id);
 	if (!form) return;
-	if (!today || today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+	requireDeviceDate(today);
 	const { record } = await closing(ctx, await findRosterType(ctx, id), form, today, form.rules.weekendMode);
 	await ctx.calendarCatalogs.endRosterForm({ assignmentTypeId: id, formId: form.id, today, record });
 	await ctx.audit.log({
@@ -163,8 +168,7 @@ export async function loadRosterFacts(
 		})),
 		excusals,
 		rankCatalog,
-		// Status types gain their roster effect in a later release. Until then every status keeps a person off duty.
-		statusTypes: statusTypes.map(({ id, name }) => ({ id, name, rosterEffect: 'A' as const })),
+		statusTypes: statusTypes.map(({ id, name, rosterEffect }) => ({ id, name, rosterEffect })),
 		availability,
 		holidays: specialDays.map(({ date }) => date),
 		assignments: [

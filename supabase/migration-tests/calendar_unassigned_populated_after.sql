@@ -16,7 +16,7 @@ UNION ALL
 SELECT 'public.personnel', id, to_jsonb(row_value) FROM public.personnel AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000301','d5000000-0000-4000-8000-000000000302')
 UNION ALL
 -- The later status label upgrade adds a column that these rows leave NULL.
-SELECT 'public.status_types', id, to_jsonb(row_value) - 'short_label' FROM public.status_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000401'
+SELECT 'public.status_types', id, to_jsonb(row_value) - 'short_label' - 'roster_effect' FROM public.status_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000401'
 UNION ALL
 -- The later Calendar lanes upgrade renames the date-header column. The later
 -- duty roster upgrade replaces exemptions with excusals and adds roster rules.

@@ -50,7 +50,17 @@ function options(
 		groups: [],
 		availabilityByPerson: indexDutyAvailability(entries),
 		history: indexDutyHistory(assignments),
-		statusTypes: [{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
+		statusTypes: [
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#16a34a',
+				textColor: '#fff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 0
+			}
+		],
 		currentAssigneeId: 'p-hale',
 		...input
 	});

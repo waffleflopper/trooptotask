@@ -38,7 +38,7 @@
 		{
 			key: 'status',
 			label: 'Status Types',
-			description: "Set each status's name, color and one-day label, and drag to set the legend and picker order.",
+			description: 'Why someone is unavailable, and what it does to their place on a duty roster.',
 			icon: Palette,
 			getCount: () => statusTypesStore.items.length
 		},

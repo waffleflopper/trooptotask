@@ -1625,6 +1625,7 @@ export function createTestOrganizationArchiveReaders(rawStore: Pick<FixtureRowSt
 					'color',
 					'text_color',
 					'short_label',
+					'roster_effect',
 					'sort_order',
 					'created_at'
 				]);

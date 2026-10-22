@@ -2,7 +2,16 @@ import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
-import type { Da6Segment, Excusal, OpenForm, PoolRules, StartingNumber, WeekendMode } from './roster/rosterTypes';
+import type {
+	Da6Segment,
+	Excusal,
+	OpenForm,
+	PoolRules,
+	RosterEffect,
+	StartingNumber,
+	TrackId,
+	WeekendMode
+} from './roster/rosterTypes';
 
 /** The most records or IDs one availability batch request accepts; the batch RPCs enforce it too. */
 export const AVAILABILITY_BATCH_LIMIT = 500;
@@ -32,6 +41,8 @@ export interface StatusType {
 	textColor: string;
 	/** The stored one-day label, 1-3 code points, or null to derive one from the name. */
 	shortLabel: string | null;
+	/** What this status does to a person's place on a duty roster. */
+	rosterEffect: RosterEffect;
 	sortOrder: number;
 }
 
@@ -84,6 +95,7 @@ export const poolRulesSchema = z.object({
 	groupIds: z.array(z.string())
 }) satisfies z.ZodType<PoolRules>;
 
+export const rosterEffectSchema = z.enum(['available', 'A', 'D', 'U']) satisfies z.ZodType<RosterEffect>;
 export const weekendModeSchema = z.enum(['same', 'separate', 'none']) satisfies z.ZodType<WeekendMode>;
 
 /** One spelling per rule set, so equal rules compare equal and a rule set with nothing in it means Everyone. */
@@ -124,6 +136,7 @@ export const statusTypesSchema = z.array(
 		color: z.string(),
 		textColor: z.string(),
 		shortLabel: z.string().nullable(),
+		rosterEffect: rosterEffectSchema,
 		sortOrder: z.number()
 	})
 ) satisfies z.ZodType<StatusType[]>;
@@ -173,6 +186,7 @@ export interface StatusTypeCreate {
 	color?: string;
 	textColor?: string;
 	shortLabel?: string | null;
+	rosterEffect?: RosterEffect;
 }
 
 export type StatusTypePatch = Partial<StatusTypeCreate>;
@@ -205,6 +219,33 @@ export interface RosterSettingsInput {
 	/** The editor's calendar day. */
 	today: string;
 }
+
+/** One person's change on one roster's open DA 6 form that a status effect change would cause. */
+export interface StatusEffectChange {
+	assignmentTypeId: string;
+	/** The roster's name, as in "on the CQ DA 6". */
+	rosterName: string;
+	/** True when the roster keeps a separate weekend and holiday count, so the line names its track. */
+	track: TrackId;
+	personId: string;
+	/** "SGT Kim". */
+	person: string;
+	change: { kind: 'number'; from: number; to: number } | { kind: 'earlier'; days: number };
+}
+
+export const statusEffectChangesSchema = z.array(
+	z.object({
+		assignmentTypeId: z.string(),
+		rosterName: z.string(),
+		track: z.enum(['all', 'weekday', 'weekend']),
+		personId: z.string(),
+		person: z.string(),
+		change: z.discriminatedUnion('kind', [
+			z.object({ kind: z.literal('number'), from: z.number(), to: z.number() }),
+			z.object({ kind: z.literal('earlier'), days: z.number() })
+		])
+	})
+) satisfies z.ZodType<StatusEffectChange[]>;
 
 export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;
 

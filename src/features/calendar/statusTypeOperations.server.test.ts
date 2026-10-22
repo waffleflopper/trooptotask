@@ -41,6 +41,50 @@ describe('StatusType CRUD use case', () => {
 		expect(ctx.audit.events[0].action).toBe('status_type.created');
 	});
 
+	it('creates a status type that is away by default and one with the chosen effect', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+
+		expect(await createStatusType(ctx, { name: 'Pass' })).toMatchObject({ name: 'Pass', rosterEffect: 'A' });
+		expect(await createStatusType(ctx, { name: 'Dentist', rosterEffect: 'available' })).toMatchObject({
+			name: 'Dentist',
+			rosterEffect: 'available'
+		});
+		expect(
+			(await ctx.store.findMany<{ name: string; roster_effect: string }>('status_types', ctx.auth.orgId))
+				.map(({ name, roster_effect }) => [name, roster_effect])
+				.sort()
+		).toEqual([
+			['Dentist', 'available'],
+			['Pass', 'A']
+		]);
+	});
+
+	it('changes an effect without touching the other fields, and refuses an unknown effect', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		ctx.store.seed('status_types', [
+			{
+				id: ST_ID,
+				organization_id: ctx.auth.orgId,
+				name: 'Leave',
+				color: '#00ff00',
+				text_color: '#ffffff',
+				roster_effect: 'A',
+				sort_order: 3
+			}
+		]);
+
+		expect(await updateStatusType(ctx, { id: ST_ID, rosterEffect: 'U' })).toMatchObject({
+			name: 'Leave',
+			color: '#00ff00',
+			rosterEffect: 'U',
+			sortOrder: 3
+		});
+		await expect(updateStatusType(ctx, { id: ST_ID, rosterEffect: 'maybe' })).rejects.toMatchObject({ status: 400 });
+		expect(
+			(await ctx.store.findOne<{ roster_effect: string }>('status_types', ctx.auth.orgId, { id: ST_ID }))?.roster_effect
+		).toBe('U');
+	});
+
 	it('edits a status label and color while retaining its other fields', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const historical = {
@@ -60,6 +104,7 @@ describe('StatusType CRUD use case', () => {
 			name: 'Annual Leave',
 			color: '#22c55e',
 			textColor: '#ffffff',
+			rosterEffect: 'A',
 			sortOrder: 3,
 			created_at: '2030-01-01T00:00:00Z'
 		});

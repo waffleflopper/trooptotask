@@ -32,7 +32,12 @@ export {
 export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';
 export { saveRosterSettings } from './rosterSettingsOperations.server';
 export { previewStatusEffect } from './statusEffectPreview.server';
-export { commitRosterFill, loadPlannerRosters, previewRosterFill } from './rosterPlannerOperations.server';
+export {
+	commitRosterFill,
+	loadPlannerRosters,
+	loadRosterDay,
+	previewRosterFill
+} from './rosterPlannerOperations.server';
 export {
 	createSupabaseAssignmentTypeRetention,
 	type AssignmentTypeRetentionSource

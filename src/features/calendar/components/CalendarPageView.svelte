@@ -148,6 +148,15 @@
 
 	const availabilityByPerson = $derived(indexDutyAvailability(availabilityStore.items));
 
+	// The picker reads its roster day when it opens. Writes anywhere on the page refetch it through the shared read.
+	const rosterRead = new PlannerRosterRead();
+	const dayRequest = (typeId: string, date: string) => ({
+		orgId: data.orgId,
+		typeId,
+		date,
+		today: formatDate(new Date())
+	});
+
 	const dutyPick = $derived.by(() => {
 		const pick = ctx.popover?.kind === 'duty' ? ctx.popover : null;
 		const type = pick && dailyAssignmentsStore.types.find((candidate) => candidate.id === pick.typeId);
@@ -157,12 +166,15 @@
 			(assignment) => assignment.date === dateKey && assignment.assignmentTypeId === type.id
 		);
 		const counted = type.assignTo === 'personnel' && ctx.seesRosterCounts;
+		const read = counted ? rosterRead.day(dayRequest(type.id, dateKey)) : undefined;
 		return {
 			...pick,
 			type,
 			dateKey,
 			counted,
-			countsLoading: counted && rosterRead.status === 'loading',
+			counts: counted
+				? { status: read?.status ?? 'loading', onRetry: () => rosterRead.retryDay(dayRequest(type.id, dateKey)) }
+				: undefined,
 			options: dutyPickerOptions({
 				type,
 				dateKey,
@@ -170,25 +182,19 @@
 				groups: ctx.scopedGroups,
 				availabilityByPerson,
 				statusTypes: statusTypesStore.items,
-				standing: counted ? rosterRead.rosters.get(type.id)?.byDate.get(dateKey) : undefined,
+				roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
 				currentAssigneeId: current?.assigneeId
 			})
 		};
 	});
 
-	// The picker reads the roster counts of the month it opens in, once per month.
-	const rosterRead = new PlannerRosterRead();
+	// Keyed by the slot alone, so a status change never starts the read again.
+	const dutyPickDay = $derived(dutyPick?.counted ? `${dutyPick.type.id}|${dutyPick.dateKey}` : null);
 	$effect(() => {
-		if (!dutyPick?.counted) return;
-		const month = dutyPick.dateKey.slice(0, 7);
-		untrack(() => rosterRead.load({ orgId: data.orgId, month, today: formatDate(new Date()) }));
+		if (!dutyPickDay) return;
+		const [typeId, dateKey] = dutyPickDay.split('|');
+		rosterRead.loadDay(dayRequest(typeId, dateKey));
 	});
-
-	async function assignDuty(dateKey: string, typeId: string, assigneeId: string) {
-		const saved = await dailyAssignmentsStore.setAssignment(dateKey, typeId, assigneeId);
-		if (saved && rosterRead.status !== 'idle') rosterRead.refresh();
-		return saved;
-	}
 
 	async function loadDutyPicker() {
 		const current = stillInOrganizationLifetime();
@@ -408,8 +414,8 @@
 				date={dutyPick.date}
 				anchor={dutyPick.anchor}
 				options={dutyPick.options}
-				countsLoading={dutyPick.countsLoading}
-				onAssign={(assigneeId) => assignDuty(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
+				counts={dutyPick.counts}
+				onAssign={(assigneeId) => dailyAssignmentsStore.setAssignment(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
 				onClose={() => ctx.closePopover()}
 			/>
 		{:catch}

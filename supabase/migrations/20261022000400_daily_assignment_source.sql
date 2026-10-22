@@ -1,18 +1,36 @@
 -- Every daily assignment says whether a person put it there or Fill from roster
--- picked it. Re-picks only ever move roster picks, so a client must not be able
--- to claim a hand assignment as a roster pick: signed-in callers keep their
--- column grants on every other column and lose them on source, and only the
--- server's Fill from roster path, holding the service role, writes 'roster'.
+-- picked it. Re-picks only ever move roster picks, so every write is a hand
+-- assignment unless it comes through the server's Fill from roster path below.
+-- That includes an edit to a roster pick's assignee, date or type, which would
+-- otherwise keep its roster mark and be re-picked away.
 BEGIN;
 
 ALTER TABLE public.daily_assignments
   ADD COLUMN source text NOT NULL DEFAULT 'manual'
     CONSTRAINT daily_assignments_source_check CHECK (source IN ('manual', 'roster'));
 
-REVOKE INSERT, UPDATE ON public.daily_assignments FROM anon, authenticated;
-GRANT INSERT (id, organization_id, assignment_type_id, date, assignee_id, created_at),
-  UPDATE (id, organization_id, assignment_type_id, date, assignee_id, created_at)
-  ON public.daily_assignments TO anon, authenticated;
+-- The flag is transaction-local and only the roster fill sets it. A signed-in
+-- session that sets it itself still writes manual.
+CREATE FUNCTION calendar_private.stamp_daily_assignment_source() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF current_user IN ('anon', 'authenticated')
+    OR pg_catalog.current_setting('calendar.roster_write', true) IS DISTINCT FROM 'on'
+  THEN
+    NEW.source := 'manual';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION calendar_private.stamp_daily_assignment_source() OWNER TO postgres;
+REVOKE ALL ON FUNCTION calendar_private.stamp_daily_assignment_source() FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER daily_assignments_source
+  BEFORE INSERT OR UPDATE ON public.daily_assignments
+  FOR EACH ROW EXECUTE FUNCTION calendar_private.stamp_daily_assignment_source();
 
 -- Writes roster picks into open slots as p_actor. The replacement RPC runs its
 -- own capability and scope checks against auth.uid(), so the call sets the
@@ -61,10 +79,12 @@ BEGIN
   SELECT array_agg(row_value.id) INTO written
   FROM public.replace_daily_assignment_slots(p_organization_id, '{}'::date[], p_slots) AS row_value;
 
+  PERFORM pg_catalog.set_config('calendar.roster_write', 'on', true);
   RETURN QUERY
     UPDATE public.daily_assignments SET source = 'roster'
     WHERE id = ANY(written)
     RETURNING *;
+  PERFORM pg_catalog.set_config('calendar.roster_write', '', true);
 END;
 $$;
 

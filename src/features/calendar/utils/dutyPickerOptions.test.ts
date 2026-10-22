@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { AssignmentType, AvailabilityEntry } from '$features/calendar/contracts';
+import type { AssignmentType, AvailabilityEntry, RosterDay } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import { dutyPickerOptions, dutySearchScore, type DutyPickerInput } from './dutyPickerOptions';
 import { indexDutyAvailability } from './dutyReadModel';
-import type { RosterStanding } from './plannerRosters';
 
 const staffDuty: AssignmentType = {
 	id: 'sd',
@@ -73,9 +72,9 @@ describe('dutyPickerOptions', () => {
 	});
 
 	it("with roster counts, lists the pool in the roster's order and everyone else after it, off the roster", () => {
-		const standing: RosterStanding = {
+		const roster: RosterDay = {
 			track: 'all',
-			entries: [
+			standing: [
 				{ personId: 'p-reed', count: 12, effect: null },
 				{ personId: 'p-liang', count: 12, effect: { code: 'A', reason: 'Leave' } },
 				{ personId: 'p-hale', count: 9, effect: { code: 'D', reason: 'CQ' } },
@@ -84,7 +83,7 @@ describe('dutyPickerOptions', () => {
 		};
 
 		expect(
-			options({ standing }).map((option) =>
+			options({ roster }).map((option) =>
 				option.kind === 'personnel'
 					? [option.id, option.count, option.unavailable, option.offRoster, option.current]
 					: [option.id]
@@ -97,6 +96,24 @@ describe('dutyPickerOptions', () => {
 			['p-ortiz-c', undefined, undefined, true, false],
 			['p-ortiz-a', undefined, undefined, true, false],
 			['p-ortiz-b', undefined, undefined, true, false]
+		]);
+	});
+
+	it('on a day the roster does not detail, lists the pool without counts and everyone else off the roster', () => {
+		const roster: RosterDay = { track: null, pool: ['p-reed', 'p-hale', 'p-gone'] };
+
+		expect(
+			options({ roster, entries: [leave('p-hale', '2026-10-27', '2026-10-27')] }).map((option) =>
+				option.kind === 'personnel' ? [option.id, option.count, option.offRoster, !!option.unavailable] : [option.id]
+			)
+		).toEqual([
+			['p-reed', undefined, false, false],
+			['p-hale', undefined, false, true],
+			['p-kim', undefined, true, false],
+			['p-liang', undefined, true, false],
+			['p-ortiz-c', undefined, true, false],
+			['p-ortiz-a', undefined, true, false],
+			['p-ortiz-b', undefined, true, false]
 		]);
 	});
 

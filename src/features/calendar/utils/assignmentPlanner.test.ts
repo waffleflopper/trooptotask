@@ -96,8 +96,9 @@ describe('buildPlannerTable', () => {
 		{ id: 'leave-1', personnelId: 'p-okafor', statusTypeId: 'leave', startDate: '2026-10-20', endDate: '2026-10-23' }
 	];
 
-	function table() {
+	function table(rosters?: Parameters<typeof buildPlannerTable>[0]['rosters']) {
 		return buildPlannerTable({
+			rosters,
 			anchor: october,
 			todayKey: '2026-10-16',
 			columns,
@@ -155,5 +156,17 @@ describe('buildPlannerTable', () => {
 		expect(result.conflicts.map((conflict) => [conflict.typeId, conflict.dateKey])).toEqual([['cq', '2026-10-21']]);
 		const flagged = result.rows.flatMap((row) => row.cells).filter((cell) => cell.conflict);
 		expect(flagged.map((cell) => [cell.typeId, cell.dateKey])).toEqual([['cq', '2026-10-21']]);
+	});
+
+	it("takes a roster's conflicts on the days it details and the availability check on every other day", () => {
+		const covered = new Set(['2026-10-22']);
+		const conflicts = [{ date: '2026-10-22', personId: 'p-kim', code: 'D' as const, reason: 'Detail' }];
+
+		const result = table(new Map([['cq', { covered, conflicts }]]));
+
+		expect(result.conflicts.map((conflict) => [conflict.dateKey, conflict.assignee.name])).toEqual([
+			['2026-10-21', 'Okafor'],
+			['2026-10-22', 'Kim']
+		]);
 	});
 });

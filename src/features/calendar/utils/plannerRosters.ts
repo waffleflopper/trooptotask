@@ -26,12 +26,13 @@ export interface RosterView {
 	/** One standing per track, or null before the form's first day. */
 	readonly current: readonly RosterStanding[] | null;
 	readonly todayAssignee: string | null;
-	readonly byDate: ReadonlyMap<string, RosterStanding>;
 	readonly excused: readonly string[];
+	/** The month's detail days. On these days `conflicts` replaces the availability check. */
+	readonly covered: ReadonlySet<string>;
 	readonly conflicts: readonly RosterConflict[];
 }
 
-/** Expands the server's indexed triples into one standing per day and track. */
+/** Expands the server's indexed triples into one standing per track. */
 export function decodePlannerRosters(rosters: readonly PlannerRoster[]): ReadonlyMap<string, RosterView> {
 	return new Map(rosters.map((roster) => [roster.typeId, decodeRoster(roster)]));
 }
@@ -53,8 +54,8 @@ function decodeRoster(roster: PlannerRoster): RosterView {
 		typeId: roster.typeId,
 		current: roster.current?.map(({ track, standing }) => ({ track, entries: entries(standing) })) ?? null,
 		todayAssignee: roster.todayAssignee,
-		byDate: new Map(roster.days.map(({ date, track, standing }) => [date, { track, entries: entries(standing) }])),
 		excused: roster.excused,
+		covered: new Set(roster.covered),
 		conflicts: roster.conflicts
 	};
 }

@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
-import { commitRosterFill, loadPlannerRosters, previewRosterFill } from './rosterPlannerOperations.server';
+import {
+	commitRosterFill,
+	loadPlannerRosters,
+	loadRosterDay,
+	previewRosterFill
+} from './rosterPlannerOperations.server';
 import { octoberDate, R4_PICKS, R4_STARTING } from './roster/rosterFixtures.test-support';
-import type { PlannerRoster } from './contracts';
+import type { PlannerRoster, RosterDay } from './contracts';
 
 const TYPE = '00000000-0000-4000-a000-000000000001';
 const TDY = '00000000-0000-4000-a000-000000000021';
@@ -18,11 +23,15 @@ const idOf = (lastName: string) =>
 	`00000000-0000-4000-a000-0000000001${String(NAMES.findIndex((name) => name.toLowerCase() === lastName.toLowerCase())).padStart(2, '0')}`;
 const nameOf = (id: string) => NAMES[Number(id.slice(-2))].toLowerCase();
 
+type Rules = { pool: { rank: null; mos: string[]; role: string[]; groupIds: string[] } | null; weekendMode: string };
+
 /** Paper frame R4 in storage: Staff Duty from 1 Oct, its first 16 days served, today 16 Oct. */
-function seedR4(ctx: Context, served = 16) {
+function seedR4(ctx: Context, { rules = { pool: null, weekendMode: 'same' } as Rules, medics = [] as string[] } = {}) {
 	const org = ctx.auth.orgId;
 	ctx.store.seed('personnel', [
-		...R4_STARTING.map(([rank, lastName]) => personnel(org, rank, lastName)),
+		...R4_STARTING.map(([rank, lastName]) =>
+			personnel(org, rank, lastName, medics.includes(lastName.toLowerCase()) ? '68V' : '68W')
+		),
 		personnel(org, '1SG', 'Moreno')
 	]);
 	ctx.store.seed('assignment_types', [
@@ -35,8 +44,8 @@ function seedR4(ctx: Context, served = 16) {
 			color: '#dc2626',
 			sort_order: 0,
 			show_on_calendar: true,
-			roster_pool_rules: null,
-			roster_weekend_mode: 'same',
+			roster_pool_rules: rules.pool,
+			roster_weekend_mode: rules.weekendMode,
 			archived_at: null
 		}
 	]);
@@ -47,7 +56,7 @@ function seedR4(ctx: Context, served = 16) {
 			assignment_type_id: TYPE,
 			starts_on: '2026-10-01',
 			ends_on: null,
-			rules: { pool: null, weekendMode: 'same' },
+			rules,
 			record: null
 		}
 	]);
@@ -85,18 +94,18 @@ function seedR4(ctx: Context, served = 16) {
 	]);
 	ctx.store.seed(
 		'daily_assignments',
-		R4_PICKS.slice(0, served).map((lastName, index) => assignment(org, octoberDate(index + 1), lastName))
+		R4_PICKS.slice(0, 16).map((lastName, index) => assignment(org, octoberDate(index + 1), lastName))
 	);
 }
 
-function personnel(org: string, rank: string, lastName: string) {
+function personnel(org: string, rank: string, lastName: string, mos = '68W') {
 	return {
 		id: idOf(lastName),
 		organization_id: org,
 		rank,
 		last_name: lastName,
 		first_name: 'A',
-		mos: '68W',
+		mos,
 		clinic_role: '',
 		group_id: null,
 		archived_at: null,
@@ -162,7 +171,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('loadPlannerRosters', () => {
-	it("returns today's counts, each detail day's standing, today's assignee, the excused and the month's conflicts", async () => {
+	it("returns today's counts, today's assignee, the excused and the month's detail days and conflicts", async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		seedR4(ctx);
 		// Patel on a detail the 28th is a D conflict on a hand-assigned day.
@@ -190,13 +199,30 @@ describe('loadPlannerRosters', () => {
 		]);
 		expect(nameOf(roster.todayAssignee!)).toBe('alvarez');
 		expect(roster.excused.map(nameOf)).toEqual(['moreno']);
-		expect(roster.days.map((day) => day.date)).toEqual(
-			Array.from({ length: 31 }, (_, index) => octoberDate(index + 1))
-		);
-		expect(standingLines(roster, roster.days[11].standing).slice(0, 2)).toEqual(['fuller 12', 'ortiz A12 TDY']);
+		expect(roster.covered).toEqual(Array.from({ length: 31 }, (_, index) => octoberDate(index + 1)));
 		expect(roster.conflicts.map(({ date, personId, code, reason }) => [date, nameOf(personId), code, reason])).toEqual([
 			['2026-10-28', 'patel', 'D', 'Detail']
 		]);
+	});
+
+	it("keeps today's counts for a month away from today and covers only that month's detail days", async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx, { rules: { pool: null, weekendMode: 'none' } });
+		const [october] = await loadPlannerRosters(ctx, { today: TODAY, month: '2026-10' });
+
+		const [december] = await loadPlannerRosters(ctx, { today: TODAY, month: '2026-12' });
+
+		expect(december.current).toEqual(october.current);
+		expect(december.todayAssignee).toBe(october.todayAssignee);
+		expect(december.covered.slice(0, 5)).toEqual([
+			'2026-12-01',
+			'2026-12-02',
+			'2026-12-03',
+			'2026-12-04',
+			'2026-12-07'
+		]);
+		expect(december.covered).toHaveLength(23);
+		expect(december.conflicts).toEqual([]);
 	});
 
 	it('keeps roster counts from a Group-scoped operator', async () => {
@@ -207,6 +233,48 @@ describe('loadPlannerRosters', () => {
 
 		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2026-10' })).rejects.toMatchObject({ status: 403 });
 		await expect(previewRosterFill(ctx, fillInput())).rejects.toMatchObject({ status: 403 });
+		await expect(loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: TODAY })).rejects.toMatchObject({
+			status: 403
+		});
+	});
+});
+
+/** One readable line per picker entry: `kim 12`, `ortiz A12 TDY`. */
+function dayLines(day: RosterDay) {
+	if (day.track === null) return day.pool.map(nameOf);
+	return day.standing.map(({ personId, count, effect }) =>
+		effect ? `${nameOf(personId)} ${effect.code}${count} ${effect.reason}` : `${nameOf(personId)} ${count}`
+	);
+}
+
+describe('loadRosterDay', () => {
+	it('returns the standing going into a detail day', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+
+		const day = await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-10-12' });
+
+		expect(day?.track).toBe('all');
+		expect(dayLines(day!).slice(0, 3)).toEqual(['fuller 12', 'ortiz A12 TDY', 'grant 11']);
+		expect(dayLines(day!)).toHaveLength(13);
+		expect(await loadRosterDay(ctx, { typeId: DETAIL, today: TODAY, date: '2026-10-12' })).toBeNull();
+	});
+
+	it('returns only the pool on a No duty weekend', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const pool = { rank: null, mos: ['68V'], role: [], groupIds: [] };
+		seedR4(ctx, { rules: { pool, weekendMode: 'none' }, medics: ['kim', 'patel'] });
+
+		const saturday = await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-10-17' });
+		const monday = await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-10-19' });
+
+		expect(saturday).toEqual({ track: null, pool: [idOf('kim'), idOf('patel')] });
+		expect(monday?.track).toBe('weekday');
+		expect(
+			dayLines(monday!)
+				.map((line) => line.split(' ')[0])
+				.sort()
+		).toEqual(['kim', 'patel']);
 	});
 });
 

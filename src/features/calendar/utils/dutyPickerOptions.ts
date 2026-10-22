@@ -1,8 +1,8 @@
-import type { AssignmentType, StatusType } from '$features/calendar/contracts';
+import type { AssignmentType, RosterDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { availabilityEntryLabel } from './availabilityLabels';
 import type { DutyAvailabilityIndex } from './dutyReadModel';
-import { effectLabel, type RosterStanding } from './plannerRosters';
+import { effectLabel } from './plannerRosters';
 
 /** Someone or something a duty of this type may be given to, in name order. */
 export type AssigneeChoice =
@@ -32,8 +32,8 @@ export interface DutyPickerInput {
 	groups: readonly Group[];
 	availabilityByPerson: DutyAvailabilityIndex;
 	statusTypes: readonly StatusType[];
-	/** The roster's standing going into the date, when the operator can see roster counts. */
-	standing?: RosterStanding;
+	/** The roster on the date, when the operator can see roster counts. */
+	roster?: RosterDay;
 	currentAssigneeId?: string;
 }
 
@@ -52,8 +52,9 @@ export function eligibleAssignees(
 }
 
 /**
- * Options for one slot. With roster counts, the pool comes first in roster order, highest count first and ties in
- * DA 6 order, and everyone else follows as off the roster. Without counts, people are in name order.
+ * Options for one slot. With a roster, the pool comes first and everyone else follows as off the roster. On a detail
+ * day the pool is in roster order with counts, highest first and ties in DA 6 order; on any other day it is in DA 6
+ * order without counts. Without a roster, people are in name order.
  */
 export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	const isCurrent = (id: string) => id === input.currentAssigneeId;
@@ -72,7 +73,8 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 		return labels?.length ? labels.join('; ') : undefined;
 	};
 
-	if (!input.standing) {
+	const roster = input.roster;
+	if (!roster) {
 		return notExcused(input.type, input.personnel).map((person) => ({
 			...personChoice(person),
 			current: isCurrent(person.id),
@@ -82,20 +84,20 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	}
 
 	const personById = new Map(input.personnel.map((person) => [person.id, person]));
-	const pool: DutyPickerOption[] = input.standing.entries.flatMap((entry) => {
-		const person = personById.get(entry.personId);
+	const entries =
+		roster.track === null
+			? roster.pool.map((personId) => ({ personId, count: undefined, unavailable: covering(personId) }))
+			: roster.standing.map(({ personId, count, effect }) => ({
+					personId,
+					count,
+					unavailable: effect ? effectLabel(effect) : undefined
+				}));
+	const pool: DutyPickerOption[] = entries.flatMap(({ personId, count, unavailable }) => {
+		const person = personById.get(personId);
 		if (!person) return [];
-		return [
-			{
-				...personChoice(person),
-				current: isCurrent(person.id),
-				unavailable: entry.effect ? effectLabel(entry.effect) : undefined,
-				count: entry.count,
-				offRoster: false
-			}
-		];
+		return [{ ...personChoice(person), current: isCurrent(person.id), unavailable, count, offRoster: false }];
 	});
-	const inPool = new Set(input.standing.entries.map((entry) => entry.personId));
+	const inPool = new Set(entries.map((entry) => entry.personId));
 	const others = byName(input.personnel.filter((person) => !inPool.has(person.id))).map(
 		(person): DutyPickerOption => ({
 			...personChoice(person),

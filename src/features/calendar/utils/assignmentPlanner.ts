@@ -4,7 +4,7 @@ import { formatDate, getMonthDates, isWeekend, parseDate } from '$lib/utils/date
 import { availabilityEntryLabel } from './availabilityLabels';
 import { assignmentSlotKey } from './calendarIndexes';
 import type { DutyConflicts } from './dutyReadModel';
-import { effectLabel, type RosterConflict } from './plannerRosters';
+import { effectLabel, type RosterView } from './plannerRosters';
 
 export type QuickFillDays = 'weekdays' | 'weekends' | 'all';
 
@@ -74,8 +74,8 @@ export function buildPlannerTable(input: {
 	columns: readonly AssignmentType[];
 	assignmentsBySlot: ReadonlyMap<string, DailyAssignment>;
 	conflicts: DutyConflicts;
-	/** A, D and U conflicts by type. A type listed here takes its conflicts from the roster, not availability. */
-	rosterConflicts?: ReadonlyMap<string, readonly RosterConflict[]>;
+	/** Rosters by type. On the days a roster details, its A, D and U conflicts replace the availability check. */
+	rosters?: ReadonlyMap<string, Pick<RosterView, 'covered' | 'conflicts'>>;
 	personnel: readonly Personnel[];
 	groups: readonly Group[];
 	specialDays: readonly SpecialDay[];
@@ -118,19 +118,19 @@ export function buildPlannerTable(input: {
 		};
 	}
 
-	const rosterConflicts = input.rosterConflicts ?? new Map<string, readonly RosterConflict[]>();
+	const rosters = input.rosters ?? new Map<string, Pick<RosterView, 'covered' | 'conflicts'>>();
 	const conflicts: PlannerConflict[] = [];
 	for (const item of input.conflicts.items) {
 		const type = typeById.get(item.assignment.assignmentTypeId);
-		if (!type || rosterConflicts.has(type.id)) continue;
 		const { date, assigneeId } = item.assignment;
+		if (!type || rosters.get(type.id)?.covered.has(date)) continue;
 		const reason = item.entries.map((entry) => availabilityEntryLabel(entry, statusName)).join('; ');
 		conflicts.push(presentConflict(type, date, assigneeId, reason));
 	}
-	for (const [typeId, items] of rosterConflicts) {
+	for (const [typeId, roster] of rosters) {
 		const type = typeById.get(typeId);
 		if (!type) continue;
-		for (const item of items) {
+		for (const item of roster.conflicts) {
 			// A count read can trail a write, so only a conflict on the slot's current assignee shows.
 			if (input.assignmentsBySlot.get(assignmentSlotKey(item.date, typeId))?.assigneeId !== item.personId) continue;
 			conflicts.push(presentConflict(type, item.date, item.personId, effectLabel(item)));

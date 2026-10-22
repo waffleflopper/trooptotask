@@ -3,12 +3,24 @@ import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
 import { toDayNumber } from '$lib/utils/dayNumber';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy.server';
-import { plannerRostersInput, rosterFillInput, rosterFillPreviewInput } from './calendarPersistenceMapping.server';
-import type { CalendarAssignmentReplacementPort, PlannerRoster, RosterFillPreview, SavedAssignment } from './contracts';
+import {
+	plannerRostersInput,
+	rosterDayInput,
+	rosterFillInput,
+	rosterFillPreviewInput
+} from './calendarPersistenceMapping.server';
+import type {
+	CalendarAssignmentReplacementPort,
+	PlannerRoster,
+	RosterDay,
+	RosterFillPreview,
+	SavedAssignment
+} from './contracts';
 import { requireDeviceDate, type RosterSettingsPorts } from './rosterSettingsOperations.server';
 import { loadRosters } from './rosterFacts.server';
 import {
 	detailConflicts,
+	poolOn,
 	simulateRoster,
 	slotChanges,
 	type CurrentCount,
@@ -31,7 +43,7 @@ function requireOrganizationWide(ctx: RosterSettingsPorts) {
 	}
 }
 
-/** Every live roster's counts today, its standings on each detail day of `month`, and the month's A, D and U days. */
+/** Every live roster's counts today, today's assignee, the excused, and the month's detail days and A, D and U days. */
 export async function loadPlannerRosters(
 	ctx: RosterSettingsPorts,
 	input: Record<string, unknown>
@@ -43,15 +55,26 @@ export async function loadPlannerRosters(
 	await requireCalendarPolicy(ctx, action, resource);
 	requireOrganizationWide(ctx);
 
-	const first = `${month}-01`;
-	const last = endOfMonth(month);
-	const window = { from: first < today ? first : today, through: last > today ? last : today };
-	const rosters = await loadRosters(ctx, { today, window });
-	return rosters.map((facts) => plannerRoster(simulateRoster(facts), first, last));
+	const shown = { from: `${month}-01`, through: endOfMonth(month) };
+	const read = {
+		from: shown.from < today ? shown.from : today,
+		through: shown.through > today ? shown.through : today
+	};
+	const rosters = await loadRosters(ctx, { today, window: read });
+	return rosters.map((facts) => {
+		// The engine builds a standing for every window day, so a month away from today runs once for the month and
+		// once for today rather than over every day between.
+		const monthRun = simulateRoster({ ...facts, window: shown });
+		const todayRun =
+			today >= shown.from && today <= shown.through
+				? monthRun
+				: simulateRoster({ ...facts, window: { from: today, through: today } });
+		return plannerRoster(monthRun, todayRun);
+	});
 }
 
-function plannerRoster(run: RosterRun, first: string, last: string): PlannerRoster {
-	const { facts } = run;
+function plannerRoster(monthRun: RosterRun, todayRun: RosterRun): PlannerRoster {
+	const { facts } = monthRun;
 	const people: string[] = [];
 	const personIndex = new Map<string, number>();
 	const effects: PlannerRoster['effects'] = [];
@@ -70,26 +93,61 @@ function plannerRoster(run: RosterRun, first: string, last: string): PlannerRost
 	};
 	const flat = (standing: readonly CurrentCount[]) =>
 		standing.flatMap((entry) => [personAt(entry.personId), entry.count, effectAt(entry.effect)]);
-	const inMonth = (date: string) => date >= first && date <= last;
 
 	return {
 		typeId: facts.type.id,
 		people,
 		effects,
-		current: run.current?.map(({ track, counts }) => ({ track, standing: flat(counts) })) ?? null,
-		todayAssignee: run.byDate.get(facts.today)?.detail?.personId ?? null,
-		days: run.days
-			.filter((day) => inMonth(day.date))
-			.map((day) => ({ date: day.date, track: day.track, standing: flat(day.standing) })),
+		current: todayRun.current?.map(({ track, counts }) => ({ track, standing: flat(counts) })) ?? null,
+		todayAssignee: todayRun.byDate.get(facts.today)?.detail?.personId ?? null,
 		excused: facts.excusals
 			.filter((excusal) => excusal.from <= facts.today && (excusal.through === null || excusal.through >= facts.today))
 			.map((excusal) => excusal.personId),
-		conflicts: detailConflicts(run).flatMap((day) => {
+		covered: monthRun.days.map((day) => day.date),
+		conflicts: detailConflicts(monthRun).flatMap((day) => {
 			const detail = day.detail;
-			if (!inMonth(day.date) || detail?.kind !== 'stored' || detail.effect.code === 'available') return [];
+			if (detail?.kind !== 'stored' || detail.effect.code === 'available') return [];
 			return [{ date: day.date, personId: detail.personId, code: detail.effect.code, reason: detail.effect.reason }];
 		})
 	};
+}
+
+/**
+ * One roster on `date`, for the duty picker: the standing going into a detail day, or else who is in the pool.
+ * Null for a type with no open roster form, which keeps the plain picker.
+ */
+export async function loadRosterDay(
+	ctx: RosterSettingsPorts,
+	input: Record<string, unknown>
+): Promise<RosterDay | null> {
+	const parsed = rosterDayInput.safeParse(input);
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
+	const { typeId, today, date } = parsed.data;
+	requireDeviceDate(today);
+	await requireCalendarPolicy(ctx, action, resource);
+	requireOrganizationWide(ctx);
+
+	const [facts] = await loadRosters(ctx, { today, window: { from: date, through: date }, typeIds: [typeId] });
+	if (!facts) return null;
+	const day = simulateRoster(facts).byDate.get(date);
+	if (day) {
+		return {
+			track: day.track,
+			standing: day.standing.map(({ personId, count, effect }) => ({
+				personId,
+				count,
+				effect: effect.code === 'available' ? null : { code: effect.code, reason: effect.reason }
+			}))
+		};
+	}
+	const { members } = poolOn({
+		rules: facts.form.rules.pool,
+		people: facts.people,
+		excusals: facts.excusals,
+		catalog: facts.rankCatalog,
+		on: date
+	});
+	return { track: null, pool: members.map((person) => person.id) };
 }
 
 function endOfMonth(month: string): string {

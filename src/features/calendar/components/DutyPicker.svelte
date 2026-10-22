@@ -14,26 +14,16 @@
 		/** Where focus lands on close, for an anchor that may be gone by then; defaults to the anchor. */
 		returnFocusTo?: () => HTMLElement | null;
 		options: readonly DutyPickerOption[];
-		/** True while the roster counts for this day are still loading. */
-		countsLoading?: boolean;
+		/** The read of this day's roster counts, for an operator who sees them. */
+		counts?: { status: 'loading' | 'ready' | 'error'; onRetry: () => void };
 		onAssign: (assigneeId: string) => Promise<boolean>;
 		/** Offered only for a slot that already has someone. */
 		onClear?: () => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let {
-		typeName,
-		assignTo,
-		date,
-		anchor,
-		returnFocusTo,
-		options,
-		countsLoading = false,
-		onAssign,
-		onClear,
-		onClose
-	}: Props = $props();
+	let { typeName, assignTo, date, anchor, returnFocusTo, options, counts, onAssign, onClear, onClose }: Props =
+		$props();
 
 	let search = $state('');
 	const searching = $derived(search.trim().length > 0);
@@ -109,10 +99,15 @@
 		</Popover.Header>
 		<Command.Root class="rounded-lg!" label={findLabel} filter={dutySearchScore}>
 			<Command.Input placeholder={findLabel} bind:value={search} />
-			{#if countsLoading}
+			{#if counts?.status === 'loading'}
 				<p class="px-3 pt-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase" role="status">
 					Loading roster counts…
 				</p>
+			{:else if counts?.status === 'error'}
+				<div class="flex items-center justify-between gap-2 px-3 pt-1.5" role="alert">
+					<p class="text-xs text-destructive-text">Roster counts could not be loaded.</p>
+					<Button variant="outline" size="xs" onclick={counts.onRetry}>Retry</Button>
+				</div>
 			{/if}
 			<Command.List class={['max-h-80', pending && 'pointer-events-none opacity-60']} aria-busy={pending}>
 				<Command.Empty>{emptyMessage}</Command.Empty>

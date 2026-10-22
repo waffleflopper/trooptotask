@@ -83,11 +83,20 @@
 		rosterRead.load({ orgId: data.orgId, month: rosterMonth, today: formatDate(new Date()) });
 	});
 
-	async function refreshingRosters<T>(write: Promise<T>, moved: (result: T) => boolean): Promise<T> {
-		const result = await write;
-		if (moved(result)) rosterRead.refresh();
+	// Every confirmed write refreshes the counts on its own. A fill the roster moved past wrote nothing, so the counts
+	// are read again for the next preview.
+	async function fillFromRoster(fill: Parameters<typeof dailyAssignmentsStore.fillFromRoster>[0]) {
+		const result = await dailyAssignmentsStore.fillFromRoster(fill);
+		if (result === 'changed') rosterRead.refresh();
 		return result;
 	}
+
+	const dayRequest = (typeId: string, date: string) => ({
+		orgId: data.orgId,
+		typeId,
+		date,
+		today: formatDate(new Date())
+	});
 
 	const rosters = $derived(
 		showsRosters
@@ -99,16 +108,16 @@
 					preview: (typeId: string, from: string, through: string) =>
 						previewRosterFill(data.orgId, { typeId, today: formatDate(new Date()), from, through }),
 					fill: (typeId: string, from: string, through: string, picks: { date: string; personId: string }[]) =>
-						refreshingRosters(
-							dailyAssignmentsStore.fillFromRoster({
-								typeId,
-								today: formatDate(new Date()),
-								from,
-								through,
-								picks: picks.map(({ date, personId }) => ({ date, personId }))
-							}),
-							(result) => result !== 'failed'
-						)
+						fillFromRoster({
+							typeId,
+							today: formatDate(new Date()),
+							from,
+							through,
+							picks: picks.map(({ date, personId }) => ({ date, personId }))
+						}),
+					day: (typeId: string, date: string) => rosterRead.day(dayRequest(typeId, date)),
+					loadDay: (typeId: string, date: string) => rosterRead.loadDay(dayRequest(typeId, date)),
+					retryDay: (typeId: string, date: string) => rosterRead.retryDay(dayRequest(typeId, date))
 				}
 			: undefined
 	);
@@ -171,10 +180,8 @@
 			personnelByGroup={scopedPBG}
 			groups={scopedGroups}
 			{rosters}
-			onSetAssignment={(date, typeId, assigneeId) =>
-				refreshingRosters(dailyAssignmentsStore.setAssignment(date, typeId, assigneeId), Boolean)}
-			onSetAssignmentBatch={(assignments) =>
-				refreshingRosters(dailyAssignmentsStore.setAssignmentBatch(assignments), Boolean)}
+			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
+			onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
 		/>
 	{/if}
 </div>

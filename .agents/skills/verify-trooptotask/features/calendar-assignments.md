@@ -15,16 +15,21 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
 - `duty-picker-order`: for an Organization-wide operator, the lane picker and the planner picker for one slot list the
   same roster pool in the same order, highest count going into that day first, each with `count N` and any roster code;
   exempt people are absent, and anyone else outside the pool appears only for a name search, marked
-  `Not on this roster`. A Group-scoped operator gets name order with no counts.
+  `Not on this roster`. On a day the roster does not detail, such as a No duty weekend, the pool still comes first, in
+  DA 6 order without counts, and everyone outside it stays search-only and marked. Each picker reads its own day when it
+  opens, reads `Loading roster counts…` meanwhile, and on failure reads `Roster counts could not be loaded.` with
+  `Retry` and never reads again on its own. A Group-scoped operator gets name order with no counts.
 - `planner-conflicts`: a person assigned on a day an availability entry with roster code A, D or U covers is flagged in
-  the cell and listed in `Conflicts`, D and U included; `Find replacement` opens the same picker and a replacement
-  clears the entry.
+  the cell and listed in `Conflicts`, D and U included, and on a day the roster does not detail (a No duty weekend, or a
+  day before the open form) any covering availability entry still flags a hand assignment; `Find replacement` opens the
+  same picker and a replacement clears the entry.
 - `planner-roster-counts`: for an Organization-wide operator, the `Roster · count today` panel under `Conflicts` shows
   one duty type's roster after the last detail on or before today, highest count first, with a skeleton while it loads,
   a load error with `Retry roster counts` when it fails (the grid stays usable either way), muted rows carrying the
   roster code, `Today` for today's assignee and an excused footer. One `duty-rosters` read serves the panel and the
-  pickers; it starts beside the month's range read and repeats after each write. A Group-scoped operator sees no panel
-  and sends no roster read.
+  month's conflicts; it starts beside the month's range read and repeats after every assignment or availability write
+  the page confirms, whether made in a cell, Fill from roster, `Daily Assignments` or an availability entry. Those
+  writes also refetch the open picker's day. A Group-scoped operator sees no panel and sends no roster read.
 - `planner-fill`: for an Organization-wide operator a Person type's column actions open `Fill from roster`, which
   previews the roster's picks for the open days from a chosen first day through a last day and writes them with
   `Fill N days`; a roster change since the preview is refused, explained and previewed again. `One person instead` (and,
@@ -156,10 +161,16 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `Find person` keeps that order. Search `baker` and require
    `SPC Baker, Synthetic, unavailable: Verification Training <dates>, not on this roster` with `Not on this roster`
    under the name; Baker can still be chosen. A pool member a roster code covers reads
-   `count N, unavailable: <status> (<code>)` with the status under the name in red. While the roster read is held
-   (`$V network arm-hold $PAGE duty-rosters`), the picker reads `Loading roster counts…` above the people in name order.
-   While `$V network arm-fail $PAGE daily-assignments` is armed, choosing a Person leaves the picker open, the day empty
-   and the failure toast visible; restore and press Enter again to save. Read back one A row for the date and
+   `count N, unavailable: <status> (<code>)` with the status under the name in red. Opening the picker sends one
+   `duty-rosters/day?typeId=…&date=…` read, and closing and reopening the same slot sends none. While that read is held
+   (`$V network arm-hold $PAGE duty-rosters/day`) on a fresh slot, the picker reads `Loading roster counts…` above the
+   people in name order; release. With `$V network arm-fail $PAGE duty-rosters/day` armed, open another fresh slot: the
+   picker reads `Roster counts could not be loaded.` with `Retry`, and after five seconds open `list_network_requests`
+   still shows exactly one day read for it. Restore and press `Retry`: one more read and the counts. Then save an
+   availability entry for a pool member covering that day through the Calendar editor, or an assignment on an earlier
+   day through `Daily Assignments`, and reopen the slot: one new day read, and the moved count or code shows. While
+   `$V network arm-fail $PAGE daily-assignments` is armed, choosing a Person leaves the picker open, the day empty and
+   the failure toast visible; restore and press Enter again to save. Read back one A row for the date and
    `typePersonnel`; the day shows the chosen code. Clear it through `Daily Assignments`. Open Group's `+`: its search
    reads `Find group` and lists Groups with no figures. Close it. A range that is still loading has no `+` (arm
    `$V network arm-hold $PAGE calendar-range`, choose an uncovered month and read the lane before release). As
@@ -197,7 +208,8 @@ action and keep its page ID. The date format in every name is the browser's en-G
    people, and that the Group options in a Group cell's picker, `Quick fill`, the month view's lane picker and the Group
    select in `Daily Assignments` list only Alpha. For the large roster, run `$V seed bulk-501`, reload the planner five
    times and record the first cell paint, long tasks, DOM element count and the `__data.json` and `calendar-range`
-   request counts, and that opening several pickers adds no request. Then run `clean-seeds`.
+   request counts, and that each newly opened picker slot adds one `duty-rosters/day` read and reopening a slot adds
+   none. Then run `clean-seeds`.
 
 10. **Failed clear in the day dialog.** As `calendarOperate`, use an empty date to save one Person assignment through
     the Calendar date-header `Daily Assignments` dialog. Record its exact saved row, reopen the same date and arm
@@ -248,7 +260,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
 
 The assignment write endpoints are `/org/<orgA>/api/daily-assignments` with `POST {date,assignmentTypeId,assigneeId}` or
 `DELETE {date,assignmentTypeId}`, and `/batch` with `POST {records:[{date,assignmentTypeId,assigneeId}]}`. The roster
-endpoints are `GET /org/<orgA>/api/duty-rosters?today=YYYY-MM-DD&month=YYYY-MM` and
+endpoints are `GET /org/<orgA>/api/duty-rosters?today=YYYY-MM-DD&month=YYYY-MM` (counts today, the month's detail days
+and conflicts), `GET /day?typeId=…&date=YYYY-MM-DD&today=YYYY-MM-DD` (the standing going into a detail day,
+`{track:null,pool}` on any other day, `null` for a type with no open form), and
 `POST /fill/preview {typeId,today,from,through}` and `POST /fill` with the same fields plus `picks:[{date,personId}]`,
 which returns `409` when the roster changed. Saved rows carry `source` (`manual` or `roster`); the server sets it and no
 client request names it. Use the signed-in page's read-only `evaluate_script` only for response inspection or an

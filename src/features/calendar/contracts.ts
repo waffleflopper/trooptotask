@@ -265,10 +265,10 @@ export interface PlannerRoster {
 	/** Counts after the last detail on or before today, per track. Null when today is outside the open form. */
 	current: { track: TrackId; standing: number[] }[] | null;
 	todayAssignee: string | null;
-	/** Each day of the month the roster can detail, with the standing going into it. */
-	days: { date: string; track: TrackId; standing: number[] }[];
 	/** Excused today, for the panel footer. */
 	excused: string[];
+	/** The month's days the roster details. On these days its conflicts replace the availability check. */
+	covered: string[];
 	/** Days in the month whose assignee has A, D or U, including assignees outside the pool. */
 	conflicts: { date: string; personId: string; code: RosterCode; reason: string }[];
 }
@@ -280,11 +280,38 @@ export const plannerRostersSchema = z.array(
 		effects: z.array(z.object({ code: rosterCodeSchema, reason: z.string() })),
 		current: z.array(z.object({ track: trackSchema, standing: z.array(z.number()) })).nullable(),
 		todayAssignee: z.string().nullable(),
-		days: z.array(z.object({ date: z.string(), track: trackSchema, standing: z.array(z.number()) })),
 		excused: z.array(z.string()),
+		covered: z.array(z.string()),
 		conflicts: z.array(z.object({ date: z.string(), personId: z.string(), code: rosterCodeSchema, reason: z.string() }))
 	})
 ) satisfies z.ZodType<PlannerRoster[]>;
+
+/**
+ * One roster on one day, for the duty picker. A detail day carries the standing going into it, highest count first
+ * and ties in DA 6 order. Any other day, such as a No duty weekend, carries only the pool in DA 6 order.
+ */
+export type RosterDay =
+	| {
+			track: TrackId;
+			standing: { personId: string; count: number; effect: { code: RosterCode; reason: string } | null }[];
+	  }
+	| { track: null; pool: string[] };
+
+const rosterDaySchema = z.union([
+	z.object({
+		track: trackSchema,
+		standing: z.array(
+			z.object({
+				personId: z.string(),
+				count: z.number(),
+				effect: z.object({ code: rosterCodeSchema, reason: z.string() }).nullable()
+			})
+		)
+	}),
+	z.object({ track: z.null(), pool: z.array(z.string()) })
+]) satisfies z.ZodType<RosterDay>;
+
+export const rosterDayReplySchema = rosterDaySchema.nullable();
 
 export interface RosterFillPick {
 	date: string;

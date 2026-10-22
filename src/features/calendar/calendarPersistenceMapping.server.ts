@@ -196,6 +196,7 @@ export const statusEffectPreviewInput = z
 export const plannerRostersInput = z
 	.object({ today: dateOnlySchema, month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Choose a month') })
 	.strict();
+export const rosterDayInput = z.object({ typeId: uuidSchema, today: dateOnlySchema, date: dateOnlySchema }).strict();
 export const rosterFillPreviewInput = z
 	.object({ typeId: uuidSchema, today: dateOnlySchema, from: dateOnlySchema, through: dateOnlySchema })
 	.strict();

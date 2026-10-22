@@ -86,6 +86,30 @@ describe('createStore', () => {
 		});
 	});
 
+	describe('writes', () => {
+		it('counts each write the server confirmed and no loads or failed writes', async () => {
+			let fail = false;
+			const store = makeStore({
+				adapterOverrides: {
+					update: async (id, data) => {
+						if (fail) throw new Error('rejected');
+						return { id, name: 'default', ...data } as TestItem;
+					}
+				}
+			});
+			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
+			expect(store.writes).toBe(0);
+
+			await store.add({ name: 'Bravo' });
+			await store.update('1', { name: 'Alpha 2' });
+			fail = true;
+			await store.update('1', { name: 'Alpha 3' });
+			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
+
+			expect(store.writes).toBe(2);
+		});
+	});
+
 	describe('loading', () => {
 		it('should be true before load is called', () => {
 			const store = makeStore();

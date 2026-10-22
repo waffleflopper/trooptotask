@@ -2675,6 +2675,7 @@ async function main() {
 					'daily-assignments',
 					'daily-assignments/batch',
 					'duty-rosters',
+					'duty-rosters/day',
 					'duty-rosters/fill',
 					'duty-rosters/fill/preview',
 					'status-types',

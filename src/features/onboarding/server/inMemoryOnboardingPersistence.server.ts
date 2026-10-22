@@ -96,6 +96,9 @@ export function createInMemoryOnboardingCatalogPersistence(
 				stepNames: names.map((row) => row.name)
 			};
 		},
+		async hasAnyTemplate() {
+			return (await store.findMany('onboarding_templates', orgId, {}, { select: 'id', limit: 1 })).length > 0;
+		},
 		async countEstimatedSteps() {
 			return (
 				(

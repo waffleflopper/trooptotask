@@ -49,6 +49,7 @@ const {
 				canManageMembers: false
 			},
 			audit: { log: vi.fn() },
+			disabledFeatures: [],
 			store: {
 				findManyWithCount: findManyWithCountMock,
 				findMany: findManyMock
@@ -94,6 +95,10 @@ import { actions, load } from './+page.server';
 import { RequestFailure } from '$lib/errors';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
+function withLane(lane: keyof typeof mockCtx.auth.capabilityMap, level: 'none' | 'view') {
+	return { ...mockCtx, auth: { ...mockCtx.auth, capabilityMap: { ...mockCtx.auth.capabilityMap, [lane]: level } } };
+}
+
 const easternViewer = { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) };
 
 describe('dashboard page server load', () => {
@@ -332,6 +337,7 @@ describe('dashboard page server load', () => {
 		const workspaceBootstrap = new Promise<DashboardWorkspaceResult>((resolve) => {
 			resolveWorkspace = resolve;
 		});
+		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('criticalTasks', 'none'));
 		const parent = vi.fn().mockResolvedValue({
 			...createReadyAppShellRouteData({ orgId: ORG_ID, criticalTasksCapability: 'none' }),
 			dashboard: {
@@ -380,6 +386,7 @@ describe('dashboard page server load', () => {
 		const shell = requireReadyAppShell(shellData);
 		shell.member.capabilityMap.training = 'none';
 		shell.member.scopeSet = { kind: 'groups', groupIds: ['alpha'] };
+		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('training', 'none'));
 		fetchDashboardTrainingSummaryMock.mockRejectedValue(new Error('You do not have permission to use training data'));
 		const parent = vi.fn().mockResolvedValue({
 			...shellData,

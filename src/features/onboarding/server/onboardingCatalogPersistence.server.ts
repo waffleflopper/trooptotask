@@ -180,6 +180,15 @@ export function createSupabaseOnboardingCatalogPersistence(
 				stepNames: names
 			};
 		},
+		async hasAnyTemplate() {
+			const { data, error } = await client
+				.from('onboarding_templates')
+				.select('id')
+				.eq('organization_id', orgId)
+				.limit(1);
+			if (error) throw new Error(error.message);
+			return data.length > 0;
+		},
 		async countEstimatedSteps() {
 			const { count, error } = await client
 				.from('onboarding_template_steps')

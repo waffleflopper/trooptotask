@@ -5,6 +5,20 @@ const { training, criticalTasks } = vi.hoisted(() => ({ training: vi.fn(), criti
 vi.mock('$features/training/index.server', () => ({ fetchDashboardTrainingSummary: training }));
 vi.mock('$features/critical-tasks/index.server', () => ({ fetchCriticalTasksDashboardSummary: criticalTasks }));
 
+const viewer = {
+	auth: {
+		capabilityMap: {
+			calendar: 'view',
+			personnel: 'view',
+			training: 'view',
+			criticalTasks: 'view',
+			onboarding: 'view',
+			ratingScheme: 'view'
+		}
+	},
+	disabledFeatures: []
+};
+
 describe('Dashboard independent summary reads', () => {
 	it('starts Critical Tasks while Training is held and preserves a source rejection', async () => {
 		let release!: (value: { trainingSummary: null; onboardingTrainingCompletions: Set<string> }) => void;
@@ -20,13 +34,12 @@ describe('Dashboard independent summary reads', () => {
 			})
 		);
 		const pending = fetchDashboardSummary(
-			{} as Parameters<typeof fetchDashboardSummary>[0],
+			viewer as unknown as Parameters<typeof fetchDashboardSummary>[0],
 			{
 				personnel: [],
 				trainingTypes: [],
 				activeOnboardings: []
 			} as unknown as DashboardBootstrap,
-			{ training: true, criticalTasks: true },
 			'2026-10-14',
 			'UTC'
 		);
@@ -44,6 +57,7 @@ describe('Dashboard independent summary reads', () => {
 		criticalTasks.mockRejectedValue(new Error('Critical Tasks unavailable'));
 		const pending = refreshDashboardSummary(
 			{
+				...viewer,
 				roster: {
 					list: () =>
 						new Promise((resolve) => {
@@ -51,10 +65,8 @@ describe('Dashboard independent summary reads', () => {
 						})
 				},
 				trainingCatalog: { listTypes: async () => [] },
-				onboardingWorkflow: { listActivePacketPersonnelIds: async () => ['p1', 'p1'] },
-				disabledFeatures: []
+				onboardingWorkflow: { listActivePacketPersonnelIds: async () => ['p1', 'p1'] }
 			} as unknown as Parameters<typeof refreshDashboardSummary>[0],
-			{ training: true, criticalTasks: true },
 			'2026-10-14',
 			'UTC'
 		);

@@ -18,16 +18,7 @@ export const _getConfig: RouteConfig<
 	context: createRequestDashboardSummaryContext,
 	policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 	parseInput: (event) => ({ asOf: viewerToday(event.cookies), timeZone: viewerTimeZone(event.cookies) }),
-	fn: (ctx, { asOf, timeZone }) =>
-		refreshDashboardSummary(
-			ctx,
-			{
-				training: ctx.auth.capabilityMap.training !== 'none',
-				criticalTasks: ctx.auth.capabilityMap.criticalTasks !== 'none'
-			},
-			asOf,
-			timeZone
-		)
+	fn: (ctx, { asOf, timeZone }) => refreshDashboardSummary(ctx, asOf, timeZone)
 };
 
 export const GET = handle(_getConfig);

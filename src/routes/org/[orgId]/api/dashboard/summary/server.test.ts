@@ -280,7 +280,6 @@ describe('GET /org/[orgId]/api/dashboard/summary', () => {
 		const pageLoad = await fetchDashboardSummary(
 			ctx,
 			{ personnel, trainingTypes, activeOnboardings },
-			{ training: true, criticalTasks: true },
 			'2026-10-14',
 			'America/New_York'
 		);
@@ -320,6 +319,17 @@ describe('GET /org/[orgId]/api/dashboard/summary', () => {
 		expect(fetchCriticalTasksDashboardSummary).not.toHaveBeenCalled();
 	});
 
+	it('skips the Onboarding population, and fails if it is read, without Onboarding access', async () => {
+		blockedTables = new Set(['personnel_onboardings']);
+		admit({ capabilityMap: { onboarding: 'none' } });
+
+		await expect(getSummary()).resolves.toMatchObject({
+			trainingSummary: expectedTrainingSummary,
+			onboardingPersonnelIds: []
+		});
+		expect(requestedTables).not.toContain('personnel_onboardings');
+	});
+
 	it('reads nothing for a viewer with neither lane', async () => {
 		fetchCriticalTasksDashboardSummary.mockRejectedValue(new Error('Critical Tasks read attempted'));
 		blockedTables = new Set(SUMMARY_TABLE_NAMES);
@@ -334,12 +344,12 @@ describe('GET /org/[orgId]/api/dashboard/summary', () => {
 		expect(requestedTables).toEqual([]);
 	});
 
-	it('skips the Training types and Onboarding population an Organization switched off', async () => {
+	it('skips the Training summary and Onboarding population an Organization switched off', async () => {
 		blockedTables = new Set(['training_types', 'personnel_onboardings']);
 		admit({ disabledFeatures: ['training', 'onboarding'] });
 
 		await expect(getSummary()).resolves.toMatchObject({
-			trainingSummary: { stats: { total: 0 } },
+			trainingSummary: null,
 			onboardingPersonnelIds: []
 		});
 	});

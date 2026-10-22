@@ -15,6 +15,14 @@ import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policy
 
 export type PersonnelAffordance = Pick<ClientAffordance, 'allowed'>;
 
+export { personnelImportRecordsInputSchema } from './personnelImportRecords.contracts';
+export type {
+	PersonnelImportRecordsInput,
+	PersonnelImportRecordsRecord,
+	PersonnelImportRecordsChanges,
+	PersonnelImportRecordsResult
+} from './personnelImportRecords.contracts';
+
 /** Personnel consumes routing, scope and live advisory decisions from Delivery. */
 export interface PersonnelPageAccess {
 	readonly orgUrlSegment?: string;
@@ -103,7 +111,11 @@ export interface PersonnelRecordPersistence {
 	create(input: PersonnelInsert): Promise<Personnel>;
 	createMany(inputs: PersonnelInsert[]): Promise<Personnel[]>;
 	/** Resolves null when the Person is no longer in the Organization. */
-	updateEditable(id: string, patch: Partial<PersonnelEditableFields> & { slug?: string }): Promise<Personnel | null>;
+	updateEditable(
+		id: string,
+		patch: Partial<PersonnelEditableFields> & { slug?: string },
+		options?: { onlyActive: true }
+	): Promise<Personnel | null>;
 	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
 	delete(id: string): Promise<void>;
 }

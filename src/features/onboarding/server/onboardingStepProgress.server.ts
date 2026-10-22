@@ -6,7 +6,7 @@ import type {
 	OnboardingInactiveStepRemovalPorts
 } from './onboardingPorts.server';
 import { requireOnboardingManagePolicyForStep } from './onboardingPolicy.server';
-import { trainingStepsAreManual } from './manualTrainingSteps.server';
+import { trainingStepsAreManual, onboardingStepResponse } from './manualTrainingSteps.server';
 
 interface ToggleCheckboxInput {
 	stepId: string;
@@ -58,7 +58,7 @@ export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceS
 		details: { stage_name: input.stageName, completed }
 	});
 
-	return {
+	return onboardingStepResponse(ctx, {
 		id: updated.id,
 		onboardingId: updated.onboardingId,
 		stepName: updated.stepName,
@@ -66,7 +66,7 @@ export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceS
 		completed: updated.completed,
 		currentStage: updated.currentStage,
 		progressChangedAt: updated.progressChangedAt
-	};
+	});
 }
 
 interface AddNoteInput {
@@ -139,7 +139,7 @@ export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: Toggle
 		details: { completed: input.completed }
 	});
 
-	return {
+	return onboardingStepResponse(ctx, {
 		id: updated.id,
 		onboardingId: updated.onboardingId,
 		stepName: updated.stepName,
@@ -147,5 +147,5 @@ export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: Toggle
 		completed: updated.completed,
 		currentStage: updated.currentStage,
 		progressChangedAt: updated.progressChangedAt
-	};
+	});
 }

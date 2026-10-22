@@ -34,7 +34,6 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 	const streamOnboardingWorkspace = deps.streamOnboardingWorkspace ?? streamOnboardingWorkspaceBootstrap;
 
 	return async (event) => {
-		event.depends('app:org-core');
 		await requireFeatureOn(event, 'onboarding');
 		return streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:onboarding-data', VIEWER_DAY_DEPENDENCY],

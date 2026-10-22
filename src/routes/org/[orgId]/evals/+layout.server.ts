@@ -54,7 +54,6 @@ export function _createEvalsLayoutLoad(deps: EvalsLayoutLoadDeps = {}): LayoutSe
 	const streamRatingSchemeWorkspace = deps.streamRatingSchemeWorkspace ?? _streamRatingSchemeWorkspace;
 
 	return async (event) => {
-		event.depends('app:org-core');
 		await requireFeatureOn(event, 'evaluations');
 		return streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:rating-scheme-data'],

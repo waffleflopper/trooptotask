@@ -25,7 +25,7 @@ function reviewer(role: 'admin' | 'member' = 'admin', disabledFeatures: FeatureK
 			ratingScheme: 'none'
 		}
 	});
-	return { ...auth, disabledFeatures };
+	return { auth, disabledFeatures };
 }
 
 describe('approved Training deletion provider', () => {

@@ -29,7 +29,6 @@ export interface SavedPersonnelSheet extends Partial<PersonnelSheetEditableValue
 	id: string;
 	personnel_id: string;
 	organization_id?: string;
-	award_tracking_acknowledged_at?: string | null;
 	created_at?: string | null;
 	updated_at?: string | null;
 }

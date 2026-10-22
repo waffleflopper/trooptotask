@@ -8,6 +8,7 @@ export type {
 	PersonnelOnboarding
 } from './contracts';
 
+export { onboardingTrainingTypes } from './stores/onboardingTrainingTypes.svelte';
 export { onboardingStore } from './stores/onboarding.svelte';
 export { createOnboardingTemplateWorkspace, onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
 export type {

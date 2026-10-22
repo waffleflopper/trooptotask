@@ -26,7 +26,7 @@ function ownInbox() {
 			rows.length = 0;
 		}
 	} as Partial<NotificationStore> as NotificationStore;
-	const ctx = { auth: base.auth, audit: base.audit, store };
+	const ctx = { auth: base.auth, audit: base.audit, disabledFeatures: [], store };
 	return { rows, ctx };
 }
 

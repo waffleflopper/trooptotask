@@ -1,3 +1,4 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
 	PersonnelTraining,
@@ -86,10 +87,15 @@ export interface TrainingOnboardingActor {
 	readonly scopeSet: ScopeSet;
 }
 
+export type TrainingTypeLabel = Pick<TrainingType, 'id' | 'name'>;
+
 export interface TrainingOnboardingReferencesPort {
-	listTypes(actor: TrainingOnboardingActor): Promise<TrainingType[]>;
+	listTypes(actor: TrainingOnboardingActor): Promise<TrainingTypeLabel[]>;
 	completedTypeIds(
-		actor: TrainingOnboardingActor,
+		ctx: {
+			readonly auth: TrainingOnboardingActor;
+			readonly disabledFeatures: readonly FeatureKey[];
+		},
 		personnelIds: string[],
 		trainingTypeIds: string[]
 	): Promise<Map<string, Set<string>>>;

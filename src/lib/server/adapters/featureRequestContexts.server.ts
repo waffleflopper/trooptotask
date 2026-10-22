@@ -281,10 +281,7 @@ export function createRequestOnboardingTemplateStepContext(request: AdmittedOrga
 		audit: request.audit,
 		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(
-			getAdminClient,
-			request.disabledFeatures
-		)
+		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
 	} satisfies Parameters<typeof createOnboardingTemplateStep>[0] & {
 		trainingCatalog: ReturnType<typeof createSupabaseTrainingCatalogPersistence>;
 	};
@@ -305,10 +302,7 @@ export function createRequestOnboardingStartContext(
 		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
-		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(
-			getAdminClient,
-			request.disabledFeatures
-		),
+		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient),
 		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		onboardingPacketCreation: createSupabaseOnboardingPacketCreationPort(request.supabase)
 	};
@@ -332,6 +326,7 @@ export function createRequestOnboardingReconciliationContext(
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingReconciliation: createSupabaseOnboardingReconciliationPort(request.supabase)
@@ -382,9 +377,6 @@ export function createRequestOnboardingWorkspaceContext(
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
-		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(
-			getAdminClient,
-			request.disabledFeatures
-		)
+		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
 	};
 }

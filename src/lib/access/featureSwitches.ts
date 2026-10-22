@@ -49,3 +49,7 @@ export function findDisabledFeatureRoute(
 	const [segment] = routeId.slice(ORG_ROUTE_PREFIX.length).split('/');
 	return disabledFeatures.find((key) => FEATURE_SWITCHES[key].routeSegment === segment) ?? null;
 }
+
+export function featureExportNote(key: FeatureKey): string {
+	return `${FEATURE_SWITCHES[key].label} is turned off; its records are not included.`;
+}

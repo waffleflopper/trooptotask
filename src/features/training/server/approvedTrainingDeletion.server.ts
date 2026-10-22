@@ -9,18 +9,17 @@ export interface ApprovedTrainingDeletionActor {
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly capabilityMap: CapabilityMap;
-	readonly disabledFeatures: readonly FeatureKey[];
 }
 
 export interface ApprovedTrainingDeletionPort {
 	approveTrainingTypeDeletion(
-		actor: ApprovedTrainingDeletionActor,
+		ctx: { readonly auth: ApprovedTrainingDeletionActor; readonly disabledFeatures: readonly FeatureKey[] },
 		requestId: string,
 		typeId: string,
 		reviewedAt: string
 	): Promise<void>;
 	approveTrainingRecordDeletion(
-		actor: ApprovedTrainingDeletionActor,
+		ctx: { readonly auth: ApprovedTrainingDeletionActor; readonly disabledFeatures: readonly FeatureKey[] },
 		requestId: string,
 		recordId: string,
 		reviewedAt: string
@@ -32,12 +31,13 @@ export function createSupabaseApprovedTrainingDeletionPort(
 	getAdminClient: () => SupabaseClient
 ): ApprovedTrainingDeletionPort {
 	async function approve(
-		actor: ApprovedTrainingDeletionActor,
+		ctx: { readonly auth: ApprovedTrainingDeletionActor; readonly disabledFeatures: readonly FeatureKey[] },
 		requestId: string,
 		resourceType: 'training_type' | 'personnel_training',
 		resourceId: string,
 		reviewedAt: string
 	): Promise<void> {
+		const actor = ctx.auth;
 		const decision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
 			actor: { membershipRole: actor.role, userId: actor.userId },
@@ -47,7 +47,7 @@ export function createSupabaseApprovedTrainingDeletionPort(
 			resource: { kind: 'organization' }
 		});
 		if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
-		if (actor.disabledFeatures.includes('training')) fail(403, featureOffMessage('training'));
+		if (ctx.disabledFeatures.includes('training')) fail(403, featureOffMessage('training'));
 
 		const { error } = await getAdminClient().rpc('approve_record_deletion_request', {
 			p_organization_id: actor.orgId,
@@ -62,9 +62,9 @@ export function createSupabaseApprovedTrainingDeletionPort(
 	}
 
 	return {
-		approveTrainingTypeDeletion: (actor, requestId, typeId, reviewedAt) =>
-			approve(actor, requestId, 'training_type', typeId, reviewedAt),
-		approveTrainingRecordDeletion: (actor, requestId, recordId, reviewedAt) =>
-			approve(actor, requestId, 'personnel_training', recordId, reviewedAt)
+		approveTrainingTypeDeletion: (ctx, requestId, typeId, reviewedAt) =>
+			approve(ctx, requestId, 'training_type', typeId, reviewedAt),
+		approveTrainingRecordDeletion: (ctx, requestId, recordId, reviewedAt) =>
+			approve(ctx, requestId, 'personnel_training', recordId, reviewedAt)
 	};
 }

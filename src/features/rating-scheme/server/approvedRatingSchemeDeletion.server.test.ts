@@ -19,7 +19,7 @@ function reviewer(role: 'admin' | 'member' = 'admin', disabledFeatures: FeatureK
 			ratingScheme: role === 'admin' ? 'none' : 'configure'
 		}
 	});
-	return { ...auth, disabledFeatures };
+	return { auth, disabledFeatures };
 }
 
 function provider(error: { code?: string; message: string } | null = null) {

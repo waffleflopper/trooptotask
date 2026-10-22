@@ -25,6 +25,7 @@ export interface OnboardingResourcePorts extends OnboardingPolicyPorts {
 }
 
 export interface OnboardingReconciliationPorts extends OnboardingResourcePorts {
+	readonly disabledFeatures: readonly FeatureKey[];
 	readonly audit: PolicyAuditSink;
 	readonly onboardingReconciliation?: OnboardingReconciliationPort;
 }

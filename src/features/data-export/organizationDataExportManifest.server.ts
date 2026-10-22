@@ -43,7 +43,8 @@ const ORGANIZATION_DATA_EXPORT_RESERVED_PAYLOAD_KEYS = new Set([
 	'exportedAt',
 	'organizationId',
 	'sectionInventory',
-	'sections'
+	'sections',
+	'notes'
 ]);
 
 function section<TKey extends string>(
@@ -91,7 +92,7 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('leaderNotes', 'Leader Notes', 'leader_notes', 'personnel', 'Personnel'),
 	section('personnelFollowUps', 'Personnel Follow-ups', 'personnel_follow_ups', 'personnel', 'Personnel'),
 	section('personnelDocuments', 'Personnel Documents', 'personnel_documents', 'personnel', 'Personnel'),
-	section('signInRosters', 'Sign-in Rosters', 'sign_in_rosters', 'personnel', 'Personnel'),
+	section('signInRosters', 'Sign-in Rosters', 'sign_in_rosters', 'training', 'Training'),
 	section('statusTypes', 'Status Types', 'status_types', 'calendar', 'Calendar'),
 	section('availabilityEntries', 'Availability Entries', 'availability_entries', 'calendar', 'Calendar'),
 	section('assignmentTypes', 'Assignment Types', 'assignment_types', 'calendar', 'Calendar'),

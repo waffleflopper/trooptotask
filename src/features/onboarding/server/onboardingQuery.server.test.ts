@@ -1155,3 +1155,42 @@ describe('fetchOnboardingBootstrap', () => {
 		expect(secondOnboarding?.steps.find((step) => step.id === 'sp3')?.completed).toBe(true);
 	});
 });
+
+it('keeps hand completion visible after Training is re-enabled without a matching record', async () => {
+	const ctx = createWritePortsContext({ auth: { orgId: ORG }, disabledFeatures: ['training'] });
+	ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG }]);
+	ctx.store.seed('onboarding_templates', []);
+	ctx.store.seed('personnel_onboardings', [
+		makeOnboardingRow({
+			onboarding_step_progress: [
+				{
+					id: 'manual-cpr',
+					organization_id: ORG,
+					onboarding_id: 'ob1',
+					step_name: 'CPR',
+					step_type: 'training',
+					training_type_id: 'cpr',
+					completed: true,
+					active: true
+				}
+			]
+		})
+	]);
+	ctx.store.seed('training_types', [{ id: 'cpr', organization_id: ORG, name: 'CPR' }]);
+	ctx.store.seed('onboarding_step_progress', [
+		{
+			id: 'manual-cpr',
+			organization_id: ORG,
+			onboarding_id: 'ob1',
+			step_name: 'CPR',
+			step_type: 'training',
+			training_type_id: 'cpr',
+			completed: true,
+			active: true
+		}
+	]);
+	const off = await fetchOnboardingBootstrap(ctx);
+	expect(off.onboardings[0].steps[0]).toMatchObject({ stepType: 'checkbox', completed: true });
+	const on = await fetchOnboardingBootstrap({ ...ctx, disabledFeatures: [] });
+	expect(on.onboardings[0].steps[0]).toMatchObject({ stepType: 'training', completed: true });
+});

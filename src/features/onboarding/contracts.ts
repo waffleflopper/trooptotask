@@ -13,7 +13,7 @@ export interface OnboardingPageAccess {
 }
 
 import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
-import type { TrainingType } from '$features/training/contracts';
+import type { TrainingTypeLabel } from '$features/training/contracts';
 import type { NoteAuthorLabels } from './onboardingNoteAuthors';
 import type { Personnel } from '$features/personnel/contracts';
 export { getProgress } from './onboardingProgress';
@@ -48,7 +48,7 @@ export interface OnboardingBootstrap {
 	onboardings: PersonnelOnboarding[];
 	personnel: Personnel[];
 	groups: Group[];
-	trainingTypes: TrainingType[];
+	trainingTypes: TrainingTypeLabel[];
 	rankCatalog: OrganizationRankCatalogEntry[];
 	rankCatalogUnavailable: boolean;
 	/** Median days to finish over recent completed packets, or null below three. */
@@ -77,7 +77,7 @@ export interface OnboardingWorkspaceHydration {
 	orgId: string;
 	personnel: OnboardingWorkspaceHydrationTarget<Personnel>;
 	groups: OnboardingWorkspaceHydrationTarget<Group>;
-	trainingTypes: OnboardingWorkspaceHydrationTarget<TrainingType>;
+	trainingTypes: OnboardingWorkspaceHydrationTarget<TrainingTypeLabel>;
 	onboardingTemplates: OnboardingTemplatesWorkspaceHydrationTarget;
 	onboardings: OnboardingWorkspaceHydrationTarget<PersonnelOnboarding>;
 }

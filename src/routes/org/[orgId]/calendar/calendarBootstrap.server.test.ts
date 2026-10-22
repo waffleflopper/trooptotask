@@ -59,7 +59,7 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		seedCalendarData(ctx.store);
 
 		const result = await loadWithContextCore(
-			{ auth: ctx.auth, audit: ctx.audit },
+			{ auth: ctx.auth, audit: ctx.audit, disabledFeatures: ctx.disabledFeatures },
 			{
 				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
 				policyResource: { kind: 'organization' },
@@ -102,7 +102,7 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG, group_id: null }]);
 
 		const result = await loadWithContextCore(
-			{ auth: ctx.auth, audit: ctx.audit },
+			{ auth: ctx.auth, audit: ctx.audit, disabledFeatures: ctx.disabledFeatures },
 			{
 				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
 				policyResource: { kind: 'organization' },

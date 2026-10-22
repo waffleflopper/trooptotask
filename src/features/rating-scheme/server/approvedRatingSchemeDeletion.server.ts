@@ -9,12 +9,11 @@ interface ApprovedRatingSchemeDeletionActor {
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly capabilityMap: CapabilityMap;
-	readonly disabledFeatures: readonly FeatureKey[];
 }
 
 export interface ApprovedRatingSchemeDeletionPort {
 	approveRatingSchemeEntryDeletion(
-		actor: ApprovedRatingSchemeDeletionActor,
+		ctx: { readonly auth: ApprovedRatingSchemeDeletionActor; readonly disabledFeatures: readonly FeatureKey[] },
 		requestId: string,
 		entryId: string,
 		reviewedAt: string
@@ -26,7 +25,8 @@ export function createSupabaseApprovedRatingSchemeDeletionPort(
 	getAdminClient: () => SupabaseClient
 ): ApprovedRatingSchemeDeletionPort {
 	return {
-		async approveRatingSchemeEntryDeletion(actor, requestId, entryId, reviewedAt) {
+		async approveRatingSchemeEntryDeletion(ctx, requestId, entryId, reviewedAt) {
+			const actor = ctx.auth;
 			const decision = evaluatePolicyDecision({
 				decisionKind: 'server-authoritative',
 				actor: { membershipRole: actor.role, userId: actor.userId },
@@ -36,7 +36,7 @@ export function createSupabaseApprovedRatingSchemeDeletionPort(
 				resource: { kind: 'organization' }
 			});
 			if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
-			if (actor.disabledFeatures.includes('evaluations')) fail(403, featureOffMessage('evaluations'));
+			if (ctx.disabledFeatures.includes('evaluations')) fail(403, featureOffMessage('evaluations'));
 
 			const { error } = await getAdminClient().rpc('approve_record_deletion_request', {
 				p_organization_id: actor.orgId,

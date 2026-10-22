@@ -9,7 +9,7 @@ import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { typicalDaysToFinish, typicalWindowStart } from '../onboardingStatus';
 import { noteAuthorIds, pickNoteAuthorLabels } from '../onboardingNoteAuthors';
 import { normalizeRetentionMonths } from './onboardingRetention.server';
-import { asManualTrainingSteps, trainingStepsAreManual } from './manualTrainingSteps.server';
+import { onboardingResponse, trainingStepsAreManual } from './manualTrainingSteps.server';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -46,7 +46,7 @@ function applyTrainingCompletionStatuses(
 				return step;
 			}
 
-			return { ...step, completed: completedTrainingTypeIds.has(step.trainingTypeId) };
+			return { ...step, completed: step.completed || completedTrainingTypeIds.has(step.trainingTypeId) };
 		})
 	};
 }
@@ -70,7 +70,7 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 		return new Map();
 	}
 
-	return ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, personnelIds, trainingTypeIds);
+	return ctx.trainingOnboardingReferences.completedTypeIds(ctx, personnelIds, trainingTypeIds);
 }
 
 /** Names are decoration on the notes, so a failed lookup leaves them unnamed rather than failing the page. */
@@ -148,9 +148,7 @@ export async function fetchOnboardingBootstrap(
 		o.steps.some((s) => s.stepType === 'training' && s.active)
 	);
 
-	if (trainingStepsAreManual(ctx)) {
-		onboardings = onboardings.map((onboarding) => ({ ...onboarding, steps: asManualTrainingSteps(onboarding.steps) }));
-	} else if (trainingOnboardings.length > 0) {
+	if (!trainingStepsAreManual(ctx) && trainingOnboardings.length > 0) {
 		const completedTrainingTypeIdsByPersonnelId = await readCompletedTrainingTypeIdsByPersonnelId(
 			ctx,
 			trainingOnboardings
@@ -164,6 +162,8 @@ export async function fetchOnboardingBootstrap(
 
 		onboardings = onboardings.map((onboarding) => refreshedOnboardingById.get(onboarding.id) ?? onboarding);
 	}
+
+	onboardings = onboardings.map((packet) => onboardingResponse(ctx, packet));
 
 	return {
 		onboardingTemplates: templates,

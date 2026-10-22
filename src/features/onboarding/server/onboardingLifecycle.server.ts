@@ -11,7 +11,7 @@ import {
 	requireOnboardingManagePolicyForOnboarding,
 	requireOnboardingManagePolicyForPersonnel
 } from './onboardingPolicy.server';
-import { asManualTrainingSteps, trainingStepsAreManual } from './manualTrainingSteps.server';
+import { onboardingResponse } from './manualTrainingSteps.server';
 
 interface StartInput {
 	personnelId: string;
@@ -64,7 +64,7 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		.map((step) => step.trainingTypeId!);
 	const completedTrainingTypeIds =
 		trainingTypeIds.length > 0
-			? ((await ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, [input.personnelId], trainingTypeIds)).get(
+			? ((await ctx.trainingOnboardingReferences.completedTypeIds(ctx, [input.personnelId], trainingTypeIds)).get(
 					input.personnelId
 				) ?? new Set<string>())
 			: new Set<string>();
@@ -112,7 +112,7 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		progressChangedAt: step.progress_changed_at
 	}));
 
-	return {
+	return onboardingResponse(ctx, {
 		id: onboarding.id,
 		personnelId: onboarding.personnel_id,
 		templateId: onboarding.template_id,
@@ -120,8 +120,8 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		startedAt: onboarding.started_at,
 		completedAt: onboarding.completed_at,
 		cancelledAt: onboarding.cancelled_at,
-		steps: trainingStepsAreManual(ctx) ? asManualTrainingSteps(startedSteps) : startedSteps
-	};
+		steps: startedSteps
+	});
 }
 
 function resolveStartedAt(startedAt?: string): string {

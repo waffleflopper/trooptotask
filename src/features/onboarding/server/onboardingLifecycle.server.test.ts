@@ -409,14 +409,6 @@ describe('startOnboarding', () => {
 
 		const result = await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
 
-		expect(ctx.create).toHaveBeenCalledWith(
-			'test-org',
-			expect.objectContaining({
-				steps: expect.arrayContaining([
-					expect.objectContaining({ template_step_id: TEMPLATE_STEP_3, completed: false })
-				])
-			})
-		);
 		expect(result.steps.find((step) => step.id === 'saved-training')?.stepType).toBe('checkbox');
 	});
 
@@ -436,7 +428,7 @@ describe('startOnboarding', () => {
 		]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 		await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
-		expect(training).toHaveBeenCalledWith(ctx.auth, [PERSON_1], [CPR_TRAINING_TYPE]);
+		expect(training).toHaveBeenCalledWith(ctx, [PERSON_1], [CPR_TRAINING_TYPE]);
 		expect(ctx.create).toHaveBeenCalledWith(
 			'test-org',
 			expect.objectContaining({

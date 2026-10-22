@@ -27,7 +27,7 @@
 		type PersonnelOnboarding
 	} from '$features/onboarding';
 	import { rosterStore } from '$features/personnel';
-	import { trainingTypeSource } from '$features/training';
+	import { onboardingTrainingTypes } from '$features/onboarding';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -53,7 +53,7 @@
 		return {
 			templates: onboardingTemplateStore.templates,
 			templateSteps: onboardingTemplateStore.allSteps,
-			trainingTypes: trainingTypeSource.items
+			trainingTypes: onboardingTrainingTypes.items
 		};
 	}
 	const workspace = createOnboardingTemplateWorkspace({

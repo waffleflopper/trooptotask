@@ -757,13 +757,18 @@ describe('Dashboard sections', () => {
 			expiredPersonnelCount: 1,
 			groupDelinquencies: [{ groupId: null, expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]
 		};
-		const withPerson = {
-			...sources,
-			personnel: {
-				items: [{ id: 'p1', rank: 'SPC', firstName: 'Pat', lastName: 'Diaz', groupId: null }],
-				loading: false
-			}
-		} as Parameters<typeof createDashboardScreenModel>[1]['sources'];
+		const diaz: Personnel = {
+			id: 'p1',
+			slug: 'p1',
+			rank: 'SPC',
+			firstName: 'Pat',
+			lastName: 'Diaz',
+			mos: '68W',
+			clinicRole: '',
+			groupId: null,
+			groupName: ''
+		};
+		const withPerson = { ...sources, personnel: { items: [diaz], loading: false } };
 		const summaryFailure = createRawSnippet(() => ({
 			render: () => '<div role="alert"><button type="button">Retry Dashboard</button></div>'
 		}));

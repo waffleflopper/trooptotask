@@ -14,6 +14,39 @@ Organization owners inspect their own activity summaries; platform super-admins 
 
 As an Organization owner, open Settings and Logs. Narrow it with the All, Access, Records and Deletions scopes, search or sort the table and use its Newer and Older paging controls. Rows sit under day heads in the viewer's time zone. The screen shows one-sentence summaries (Time, Area, Event and Actor), with before and after values only where the saved details carry them, not event details. As a platform super-admin, open Admin and Audit Log; filter events, navigate pages and open a row's `View` disclosure. Organization administrators and platform support do not have full Audit Log admission.
 
+## Helper controls
+
+Scheduled maintenance is headless service proof. Use `seed maintenance-retention` for expired/unreferenced and
+saved-reference Critical Tasks and Calendar types, active/recent A/B sentinels, old/recent A/B Audit events and
+six account setup lifecycle classes with retained Access Requests. `maintenance-retention-1001` creates 1,001
+eligible rows in each library and 1,001 expired-unused setup links; clean the small cohort first. Setup journals
+exact targets before writes. `retention maintenance` reads only recorded targets in batches, omitting setup
+token hashes; `clean-seeds` removes those recorded rows in dependency order. This is privileged synthetic
+setup/readback, separate from ordinary service admission.
+
+`retention cron missing|wrong|run records|onboarding|audit|setup-links` invokes each configured job on the owned
+origin without browser/session cookies. Capture status, any redirect and full response, then exact row/file and
+notification readback. Missing/wrong credentials must return 401 without effects; admitted jobs must report
+actual effects and preserve ineligible/history witnesses. Repeat to prove zero new mutations and truthful
+repeated summaries. Audit retains a one-year strict cutoff; setup cleanup revokes expired unused links and
+preserves claimed/completed/failed history, Access Requests and User Accounts. A redirect to sign-in is a failed
+admission observation, not an authorized job run. `records` runs the archived-records job. The Personnel,
+artifact and Onboarding recipes own their source-specific setup, failure and provider-sized proof. Exact cutoff
+equality belongs to fixed-time service/SQL checks; these live fixtures do not freeze the application clock.
+External schedules are uninspected.
+
+Audit verification uses the [capture/projection recipe](audit-capture-projections.md), existing Organization
+owner/admin/member and platform super-admin/support roles, and `seed audit`. The seed records all temporary A/B
+audit IDs before writes; `clean-seeds` uses their `org_id` scope. `actor` accepts `settings/logs` and
+`admin/audit`; ordinary Organization actors may attempt the admin destination for denial. `rows audit_logs
+orgA|orgB` also accepts `action`. The `audit-page` network family matches only A's `settings/logs/__data.json`
+navigation request, using its current canonical URL segment. It establishes client failure/retry separately from
+provider failures. `audit-training-update PAGE orgA|orgB JSON` sends a bounded ordinary authenticated PUT to
+`personnel-trainings`, accepting a saved synthetic UUID plus Notes/completion/expiration fields. Capture
+original fields and restore them through the same interface; this is separately identified HTTP producer proof,
+distinct from the native editor’s POST. Privileged stored-event setup, native producer actions, authenticated
+page-data disclosure and visible UI are distinct proof.
+
 ## Driving it with verify:app
 
 Run `doctor` for the selected owned worker, then `$V fixture`. Reuse `orgOwner` (A owner), `orgAdmin` (A administrator), `orgMember`/`viewer` (A member), `orgSettingsPeer` (B owner), `platformReviewer` (super-admin) and `platformSupport` (support). `$V actor ROLE settings/logs` and `$V actor ROLE admin/audit` sign in with a provider session, which writes no `auth.login_success` event; step 5 uses the form for the sign-in producer. Ordinary Organization actors can attempt the admin destination to observe denial; no role is elevated by the helper.

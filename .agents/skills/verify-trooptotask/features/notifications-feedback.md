@@ -16,6 +16,24 @@ Members read their own Organization notifications, send feedback about the curre
 
 Sign in, open an Organization, and use the bell in the header. Select a notification to mark it read and follow its link, or choose `Mark all read`. There is no notification delete control; deletion is a JSON endpoint only. Use `Send Feedback` in the sidebar/account shell to open its modal, choose a category, enter a message and Submit. An active announcement appears above the workspace with `Dismiss announcement: <title>`. Switch Organizations through the header switcher.
 
+## Helper controls
+
+Notifications actors are `notificationMember`, `notificationOther`, `notificationForeign` and
+`notificationSwitch`, with every feature lane absent. Switch belongs to A/B; the others belong only to their
+named Organization. `actor ROLE home` enters the Organization Dashboard through normal sign-in. `seed
+communications` creates 24 own A inbox rows, peer/foreign/switch sentinels and active/inactive/expired global
+announcements. It records exact IDs before insertion; `clean-seeds` removes only those IDs in their recorded
+Organization or the helper-owned global announcement IDs. `fixture` reports public notification account IDs.
+`communications ROLE` reads only that synthetic account's feedback and dismissals of helper-owned announcements.
+`platformReviewer` and `platformSupport` are isolated no-Organization accounts with super-admin/support roles;
+`actor ROLE admin/feedback` uses the normal sign-in form for their existing allowed Feedback review paths.
+Communications readback also retains Admin Notes. See the [communications recipe](notifications-feedback.md).
+
+`network` also supports `notifications` at the exact A endpoint and global `feedback` and
+`announcements/dismiss` endpoints. Their failure/hold controls exercise the same page's real UI response
+handling; they do not prove provider delivery or automatic retry. Restore hooks before cleanup. The owned app
+excludes external feedback tokens, so real GitHub mirroring is not a live-verified path.
+
 ## Driving it with verify:app
 
 Preconditions: `doctor` passes. `$V actor notificationMember home` enters A with every feature lane absent; `notificationOther` is a peer, `notificationForeign` belongs only to B, and `notificationSwitch` belongs to A/B with every lane absent. `$V seed communications` creates twenty-four unread member notifications in A, peer/foreign/switch sentinels, and one active, one inactive and one expired global announcement. Keep the returned IDs/tag and `$V fixture`'s public notification user IDs. `$V rows notifications orgA|orgB` reads exact rows; `$V communications ROLE` reads only that synthetic account's feedback and dismissals of helper-owned announcements. Network controls also accept `notifications` (exact A endpoint), `feedback` and `announcements/dismiss` (exact global endpoints).

@@ -15,6 +15,36 @@ Ordinary members request approval when their source permission permits an operat
 
 Choose an Organization and open **Personnel**, **Training** or **Evals**. Use the source's Archive/Delete control as an ordinary operator. A reviewer opens **Settings → Approvals**, checks the kind, description and requester, then **Approve archive** (Personnel), **Approve delete** (other kinds) or **Deny**. Deny opens a reason field under the row. Reload and revisit the source to confirm the effect. Cancellation and retained Training type/counseling submission use the authenticated HTTP interface; they have no visible UI.
 
+## Helper controls
+
+Deletion review uses the [request/review recipe](deletion-requests.md), dedicated `deletionRequester`,
+`deletionPeer`, `deletionScoped`, `deletionReviewer` and `deletionForeign` actors, `actor ROLE
+settings/approvals`, and `seed deletion-sources`. `deletion-request PAGE orgA|orgB list|submit|cancel|review
+JSON` submits ordinary authenticated HTTP on the owned signed-in page; only named request fields/endpoints are
+allowed. Label it separately from native interaction. `rows deletion_requests orgA resource_id ID` retains
+requester/reason/status/review metadata. Temporary source cleanup also removes requests targeting its recorded
+IDs; it never deletes original request rows.
+
+For `deletion-requests/review`, `network arm-reject PAGE FAMILY` rejects one exact A POST with a synthetic
+`TypeError` before dispatch; it returns no HTTP response or status. This establishes client transport recovery,
+not an actual connection outage or provider failure. `arm-hold-fail` also supports review, holding one synthetic
+503 before dispatch until release for Organization/route lifetime proof. Review controls resolve A's current
+canonical slug and leave other methods, endpoints and Organizations untouched. Preserve `network state`,
+request/source readbacks and visible feedback, then restore every hook. Component tests cover malformed, null or
+delayed error bodies and failed readback after a successful review.
+
+`deletion-review-failure arm REQUEST_ID` installs a temporary, unvalidated CHECK constraint in the owned
+disposable provider. It rejects only that recorded synthetic request's transition to approved, leaving its
+pending row and other requests admissible. Arm requires a pending A/B request targeting an exact saved
+`deletion-sources` seed ID; it cannot target original fixtures or another database. `deletion-review-failure
+state` returns sanitized ownership/phase/target information. Preserve state and request/source/file reads before
+native approval. The resulting real provider rejection can establish effect-before-status failure and counseling
+Storage-before-RPC ordering; it is distinct from synthetic browser 503/rejection. `deletion-review-failure
+restore` removes only the receipt-bound owned constraint, including interrupted-install recovery, and never
+alters row data. Restore before retry or cleanup; `clean-seeds` also restores before removing recorded source
+rows. Run `python3 -m unittest scripts.verification.test_environment` for this control's denied and interrupted
+paths. This fixture DDL is not a migration or remote database action.
+
 ## Driving it with verify:app
 
 Set `V='node .agents/skills/verify-trooptotask/helpers/control.mjs --worker 1'` for the owned worker.

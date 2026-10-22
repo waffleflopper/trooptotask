@@ -24,6 +24,21 @@ Sign in normally and choose Training or Calendar in the app navigation. Training
 
 Getting Started has an API and model but no visible checklist or dismiss control. Its GET/POST/DELETE behavior belongs in separately labeled authenticated HTTP/provider proof. Do not invent a browser journey for that endpoint.
 
+## Helper controls
+
+Shell and preference verification uses the [shell/preference recipe](shell-preferences.md). `preferences ROLE
+orgA|orgB` reads only the named synthetic user's saved preference and Getting Started rows. `network
+arm-observe|arm-fail|arm-hold|arm-hold-fail PAGE user-preferences` binds the exact same-origin A PATCH using its
+Organization UUID, as the Calendar/Training savers do; it records only known preference fields.
+`shell-notification-count` and `shell-organization-switcher` use the canonical Organization route segment and
+support observation, failure and hold for their exact GET/query part, installing before an automatic reload.
+Restore every control. These browser controls establish client scheduling/recovery and do not establish real
+provider failures. `server-source arm user_org_preferences|getting_started_progress fail-hard` separately
+injects one synthetic provider-read 500 in the owned app process for first-paint fallback and strict save/read
+failure proof; restore it before retry. Run `node --test
+.agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method, query, origin, tenant and
+response-order isolation.
+
 ## Driving it with verify:app
 
 Preconditions: launch and doctor pass on the owned worker. Use `$V actor trainingSwitch training` for A/B Training, `trainingOperate` for an independent A user, `trainingForeign` for B-only denial, and `$V actor calendarSwitch calendar` for Calendar. `$V fixture` supplies exact Group/View and Organization IDs. Keep native snapshots, screenshots, preference PATCH/request observations and `$V preferences ROLE orgA|orgB` reads together. Privileged readback is distinct from ordinary UI or authorization proof.
@@ -53,6 +68,16 @@ Direct SQL proof uses the canonical `python3 scripts/ci/database.py` runner unde
 For theme work, run the [shared theme and viewport pass](shared-ui.md#theme-and-viewport). Toggle the visible header control, reload and verify the same theme through the document attribute, saved browser preference and visible shell. System-preference emulation must not replace the explicit choice.
 
 Restore every control before reload or cleanup. Restore original preferences with native controls and verify exact rows.
+
+## What's New fixture state
+
+The owned session writes `changelog-last-seen-USER_ID` in local storage with the current changelog ID before
+navigation. AppShell writes that same key and value when a real user closes the dialog. There is no provider
+preference row for this dialog. Provider-session actors, seeded login contexts and `actor --form` use it.
+
+Run `$V actor --show-whats-new manager home` to leave that key absent. Take a fresh snapshot and verify the
+What's New dialog appears, close it through its visible control, then reload and verify it stays dismissed.
+Use the Account menu to reopen it manually. Compare the saved key only in the owned synthetic browser.
 
 ## Gotchas
 

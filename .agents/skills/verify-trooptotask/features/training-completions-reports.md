@@ -20,6 +20,50 @@ When restoring empty Notes or Certificate URL in the Person editor, focus the te
 
 Choose `Training` in the Organization navigation. Choose a Person's Training cell to add or edit that record, or open the Person editor from the named row. Use `Import` in the `Training controls` toolbar for CSV preview. Use `Export Excel` in that toolbar for the full training matrix, keeping the selected Group and including every Training column even when a saved view hides some. At narrow widths, open `More Training controls` if the action has folded. Open `Reports` for the `Training Reports` briefing: the single-row `Training report controls` toolbar (the `Forecast horizon` buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days` to `180 days`) as pressed toggles, which show as `30 days` to `180 days` radio items in More once the horizon folds, `Filter by view`, `Filter by group`, `Filter by rank`, `Filter by MOS`, `Filter by duty role`, `Filter by training type`, `Clear filters` when the selection is not the default, `Export Excel`, and the primary `Print brief`; the least important controls fold into `More Training report controls` as it narrows), with the `Updating briefing` status staying in the page header while a change loads, the Bottom line, the Forecast chart (`data-testid="training-briefing-forecast"`, with a screen-reader table of weekly points), the Hot-spot grid (the `Hot-spot grid controls` toolbar above it with the `Rows by` buttons, beside a visible `Rows by` caption; each cell is a button named `<row>, <type>: <n>% ready today[, drops <k> points by <date>][, selected]` holding `[data-slot=readiness-band-cell][data-tier]`), the `Already gone vs. about to go` Type risk table (`Not ready and lapsing requirements by training type`: a row header per type, stacked bar, `Not ready` and `By <date>` counts), and the `Where training time buys the most` Focus list (at most three numbered areas, each with its title heading, sentence, what-if chip and a `View <n> soldier(s)` link; the wave area also states `First lapse <date>`). Choosing a cell or focus link opens the `Affected soldiers` region below, moves focus to it and fills the `Affected soldiers` table (Rank, Name, Group, Training type, Status today, Expiration date, Lapses in horizon) with a status line, a `Rows <a>–<b> of <n>` range, `Rows per page` radios (25, 100) and the table's `Previous`/`Next` buttons when there is more than one page; the open focus link carries `aria-current`. The shared pager owns focus while paging: Enter on a pager button keeps focus on it, and when it disables at either end (including after the server page arrives) focus moves to the other, enabled button; if the range shrinks to one page the pager unmounts and focus moves to the table. Filters, horizon and `rowsBy` live in the URL, so a reload restores the same briefing. For the reverse Personnel view, choose `Personnel`, the matching Person's `Details`, then inspect the `Readiness` tab or choose `Export records`. Return to the Organization Dashboard to inspect its Training summary.
 
+## Helper controls
+
+Training actors include `trainingConfigure`, `trainingView`, `trainingOperate`, `trainingScoped`,
+`trainingScopedConfig`, `trainingEmpty`, `trainingSwitch`, `trainingForeign`, `trainingOnboarding`, and
+`trainingOnboardingView` (Onboarding and Training view only).
+
+For print evidence, use a freshly launched owned worker and its already loaded Training Reports page. Arm `print
+arm PAGE`, click the visible **Print brief** with native controls, then save `print state PAGE` before `print
+save`. The observer counts real `beforeprint` and `afterprint` events without replacing `window.print`. PDF
+capture also produces print events, so counts read after capture cannot establish that the button invoked print.
+Restore the observer afterward; reload or navigation discards it.
+
+Reload before each separate print case on the owned headless browser, then recreate the intended filters, detail
+page or error state before arming the observer. Repeated Print brief calls on one document have produced no new
+`beforeprint` event until reload. A PDF from such a call still proves rendering; it does not prove that native
+invocation. Preserve zero-event attempts separately.
+
+`print save PAGE EXACT_REPORT_URL FILE.pdf` renders that document with Chromium's print stylesheet, backgrounds
+and CSS page size. Quote the full current URL, including filters. It admits only this worker's
+`/org/ORG/training/reports` path, the existing report query keys and a new `.pdf` beneath
+`.verification/evidence/verify-trooptotask/`. It rejects mismatched native page IDs, duplicate exact URLs,
+changed documents, stale ownership, symlinks and existing files. Capture has a 20-second deadline, a 20 MiB
+limit and at most two seconds for temporary protocol cleanup. It never navigates or closes the native
+page/browser. Preserve the native click receipt and pre-capture event state separately from the PDF. A PDF
+establishes print rendering, not a system dialog, physical printing or feature permission. Run `node --test
+scripts/verification/print-capture.test.mjs
+.agents/skills/verify-trooptotask/helpers/print-observation.test.mjs` for the fixed control boundaries.
+
+```bash
+$V print arm 2 # observe real beforeprint/afterprint events
+$V print state 2 # save AFTER native Print brief click, BEFORE print save
+$V print save 2 'EXACT_LOADED_REPORT_URL' .verification/evidence/verify-trooptotask/RUN/brief.pdf
+$V print restore 2
+```
+
+Training controls include `personnel-trainings`, `personnel-trainings/batch`, `deletion-requests` for submission
+and `deletion-requests/review` for review; these match exact endpoints.
+
+`trainingEmpty` operates with explicit empty Group scope and Personnel none. `trainingSwitch` operates A and
+views B, also without Personnel access.
+
+`seed training-pages` creates 26 temporary Alpha/PFC People: the first is 68W/Medic, the other 25 are 11B/NCO.
+It records their IDs before insertion and uses ordinary `clean-seeds` cleanup.
+
 ## Driving it with verify:app
 
 Preconditions: `$V fixture` supplies `personA` (Able, Alpha, 68W, Medic), `personB` (Baker, Bravo, 11B, NCO), `personUnassigned` (68W, NCO), `personForeign`, `trainingRequired`, `trainingTargeted`, `trainingOptional`, `trainingCurrent`, and the foreign type/view IDs. It also supplies `dates.ui`, `trainingCompleted`, `trainingExpires`, `trainingExpiredCompleted`, `trainingExpiredExpires`, `trainingWarningCompleted` `trainingWarningExpires` and `trainingWarningDays`. Copy those literal dates into the run note before driving; do not calculate the expectation by calling application status/report functions.

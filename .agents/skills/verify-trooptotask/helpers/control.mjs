@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
-import { isUnderEvidence } from '../../../../scripts/verification/browser.mjs';
+import { isUnderEvidence, interactByRole } from '../../../../scripts/verification/browser.mjs';
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -17,7 +17,8 @@ import {
 	writeJSON,
 	processIdentity,
 	environment,
-	recordingTransition
+	recordingTransition,
+	assertWorkerSession
 } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installBusyControl } from './busy-control.mjs';
@@ -29,7 +30,8 @@ import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors
 import { parseSweepArguments, runSweep, toolbarReadSource } from './toolbar-sweep.mjs';
 import { observePrint } from './print-observation.mjs';
 import { probeAdmission } from './admission-probe.mjs';
-import { actorArguments } from '../../../../scripts/verification/provider-session.mjs';
+import { commandArguments } from '../../../../scripts/verification/cli-output.mjs';
+import { actorArguments, whatsNewPreferenceScript } from '../../../../scripts/verification/provider-session.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
@@ -79,9 +81,7 @@ import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagina
 import { seedWorkload, cleanWorkloads } from './perf-workloads.mjs';
 import { perfCommand, perfHelp } from './perf-command.mjs';
 
-const argv = process.argv.slice(2);
-const workerIndex = argv.indexOf('--worker');
-const worker = workerIndex < 0 ? '1' : argv.splice(workerIndex, 2)[1];
+const { args: argv, worker } = commandArguments(process.argv.slice(2));
 const [command, ...args] = argv;
 const session = sessionPath(worker);
 const scratch = path.join(session, 'verify-trooptotask-owned.json');
@@ -188,8 +188,7 @@ const filters = new Set([
 
 async function owned() {
 	const state = await readJSON(path.join(session, 'session.json'));
-	if (state.repository !== repository || state.worker !== worker || state.phase !== 'running')
-		throw new Error('This worker is not running for this checkout.');
+	assertWorkerSession(state, worker);
 	const process = await processIdentity(state.supervisor?.pid);
 	if (process?.start !== state.supervisor?.start || process?.command !== state.supervisor?.command)
 		throw new Error('Owned supervisor is unavailable or replaced.');
@@ -846,8 +845,21 @@ async function main() {
 		note({ mode: args[1], endpoint, status: response.status, location: response.headers.get('location'), body });
 		return;
 	}
+	if (command === 'click' || command === 'fill') {
+		const [page, role, name, value] = args;
+		if (args.length !== (command === 'fill' ? 4 : 3))
+			throw new Error('Use click PAGE ROLE NAME or fill PAGE ROLE NAME VALUE.');
+		const result = await interactByRole((name, input) => tool(state, name, input), command, {
+			pageId: Number(page),
+			role,
+			name,
+			value
+		});
+		note({ pageId: Number(page), action: command, role, name, result: text(result) });
+		return;
+	}
 	if (command === 'actor') {
-		const { form, args: actorArgs } = actorArguments(args);
+		const { form, showWhatsNew, args: actorArgs } = actorArguments(args);
 		const [role, destination = 'calendar', workloadName] = actorArgs;
 		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
 		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped', 'perfScopedLeader'].includes(role)))
@@ -1004,6 +1016,7 @@ async function main() {
 					?.match(/^(\d+):/)?.[1]
 			);
 			if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
+			await evaluate(state, pageId, whatsNewPreferenceScript(fixture.actors[role].id, showWhatsNew));
 			const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
 			const uid = (label) => {
 				const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
@@ -1030,7 +1043,8 @@ async function main() {
 				email: fixture.actors[role].email,
 				password: fixture.actors[role].password,
 				destination: destinationPath,
-				isolatedContext: browserContext
+				isolatedContext: browserContext,
+				showWhatsNew
 			});
 			pageId = signedIn.pageId;
 			await tool(state, 'navigate_page', { pageId, type: 'url', url: `${doctor.origin}${signedIn.path}` });
@@ -3174,7 +3188,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, roster-insert, roster-shared-keys, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, perf, or workbook.'
+		'Use fixture, actor, click, fill, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, roster-insert, roster-shared-keys, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, perf, or workbook.'
 	);
 }
 

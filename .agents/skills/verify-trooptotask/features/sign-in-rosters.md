@@ -17,6 +17,23 @@ A Training member creates a printable attendance roster from the current Personn
 
 Sign in to Organization A, choose `Training` in the Organization navigation, then `Sign-In Rosters` in the `Training controls` toolbar (in `More Training controls` when it has folded). Choose `New Roster`, enter a title, adjust rank/Group, date, sort and layout choices, then choose `Generate & Print`. Open the saved row to `Re-print`, attach a `Signed Scan`, download its named file, remove the scan, or delete the roster after confirmation.
 
+## Helper controls
+
+Sign-in Roster actors are `rosterManager`, `rosterViewer`, `rosterScoped`, and `rosterForeign`.
+
+```bash
+$V actor rosterManager training # Training entry point with roster operate access
+$V rows sign_in_rosters orgA title 'Unique synthetic title'
+$V roster-files orgA ROSTER_ID # private Storage names, sizes and SHA-256
+$V roster-replace PAGE orgA rosterAlpha EVIDENCE_PDF # ordinary multipart replacement; separate HTTP proof
+$V network arm-fail 2 sign-in-rosters # roster list, or sign-in-rosters/ROSTER_ID/upload
+$V signed-download orgA ROSTER_ID .verification/evidence/verify-trooptotask/RUN/signed.pdf
+```
+
+`roster-files` checks only the named synthetic roster's private Storage path. `signed-download` saves the PDF
+page opened by a visible scan button without printing its token-bearing URL; use native `upload_file` on the
+visible `Signed Scan` input.
+
 ## Driving it with verify:app
 
 Preconditions: `$V fixture` supplies `orgA`, `orgB`, Group, Person and seeded roster IDs. The synthetic roles are `rosterManager` (A, Training `operate`, Personnel `configure`, Organization scope), `rosterViewer` (A, Training `view`, Organization scope), `rosterScoped` (A, Training `operate`, Personnel `none`, Alpha-only Group scope), and `rosterForeign` (B, Training `operate`, Organization scope). The existing `viewer` has Training `none`. The Alpha fixture has a signed PDF and a saved snapshot of `PFC Able, Prior`, while the current Person is `SPC Able, Synthetic`; the mixed Alpha/Bravo and foreign fixtures establish scope. Generate a small valid synthetic PDF under the run evidence directory, for example with the installed `jspdf` package. Use native `upload_file` on the current `Signed Scan` UID. Capture generated/reprinted PDFs with `$V export arm PAGE`, the visible button, `$V export save PAGE ...pdf`, then `$V export restore PAGE`. After clicking a named signed scan, use `$V signed-download orgA ROSTER_ID ...pdf` to preserve the browser-opened PDF without exposing its signed URL. `$V roster-files orgA ROSTER_ID` supplies separate private Storage readback. It reports the exact row, full object keys, downloaded sizes and SHA-256 values, whether each object is referenced, unsettled upload registrations, file retirements, and held releases that wait for another reference to clear. Objects without the current pointer remain visible as orphan witnesses. Query or download failure is an error, never confirmed absence.

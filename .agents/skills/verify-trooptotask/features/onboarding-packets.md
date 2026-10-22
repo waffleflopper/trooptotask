@@ -17,6 +17,60 @@ An Organization member starts a Person's Onboarding checklist, records progress 
 
 Choose Onboard in Organization navigation. The list orders Soldiers in processing Stalled, Ready, On track, then New. Use `Start onboarding` in the toolbar to select a member, start date and template. Choose a row to open its packet beside the list, or in a sheet below 1280, to record checklist and stage progress, add notes or close it out. `More packet actions` re-syncs, switches or assigns its template, removes an inactive step or cancels the packet. `View` in the toolbar (or `All n steps` in the waiting strip) switches the page between List and a Matrix of Soldiers by step; the choice is page state, so a reload returns to List. Choose History to inspect retained packets. Reopening uses the authenticated packet API; History has no visible Reopen control. Templates opens the separate configuration workflow.
 
+## Helper controls
+
+`onboarding-request PAGE orgA|orgB METHOD FAMILY JSON [start]` sends an ordinary authenticated request from that
+signed-in owned app page. It permits `onboarding` POST/PUT, `onboarding-steps` PUT/DELETE and
+`onboarding-resync` POST, with only their scalar input fields; it reports exact submitted values, transport
+status and full business body without credential headers. It does not apply results to the UI. Start fields are
+`personnelId`, `templateId` and optional `startedAt`. Lifecycle PUT uses `id` and `status` for Cancel, Complete
+or Reopen; the app validates the transition and its ordinary permissions. Step PUT fields are `action`,
+`stepId`, `completed`, `stageName` and `text`; DELETE uses `id`. Reconciliation uses `onboardingId` and optional
+`newTemplateId`, with no action discriminator. Label this API proof separately from native clicks and privileged
+setup/readback.
+
+Optional `start` dispatches immediately and records up to four independent pending requests for a bounded
+provider overlap. `onboarding-request-state PAGE` reads their real completed HTTP outcomes or explicit
+transport/body-capture failure; it supplies no verdict. An unavailable response body earns no status/body
+acceptance. Do not navigate/reload or change actors on that page while requests are pending. Release the
+recorded provider holder, drain every request and save its state and native business bodies before
+`onboarding-request-restore PAGE`; restore refuses pending captures. An absent capture after navigation does not
+prove completion or cancellation. This capture touches only its private verification namespace, not application
+state or handlers. The [packet recipe](onboarding-packets.md#supported-step-operations-and-inactive-removal)
+owns the actual sequence and expected behavior.
+
+The fixed [Onboarding removal provider helper](../helpers/onboarding-removal-provider.py) targets only the
+original ledgered `onboarding-legacy` Paperwork row in this checkout's doctor-verified disposable worker. It
+accepts no arbitrary SQL or target IDs. Its `capture`, `fault-on`, `fault-off` and `wait` modes require an
+explicit worker/session, original seed capture and durable evidence root. Follow the [packet
+recipe](onboarding-packets.md#supported-step-operations-and-inactive-removal) for preparation, exact commands,
+observed ordering and cleanup. A successfully installed fault stays armed until `fault-off`; remove it before
+cleaning seeds. Offline guards run with `PYTHONDONTWRITEBYTECODE=1 python3
+.agents/skills/verify-trooptotask/helpers/onboarding-removal-provider.test.py`; they establish no live provider
+or application outcome.
+
+`seed onboarding-legacy` records a temporary Alpha Person, null-template active packet and three retained
+progress/note witnesses before writes. It provides matching Orientation/Paperwork and unmatched Historic task
+for ordinary visible assignment, not a fabricated UI result. `seed onboarding-status` records four tagged
+Alpha/Bravo People with active packets whose backdated `progress_changed_at` and start dates (counted from the
+fixture's local date, the day the Active page counts from) make them Stalled (7 days at a stage), Ready, On
+track (6 days) and New, plus three recent completions for the typical-days figure; the [packet
+recipe](onboarding-packets.md#status-order-and-filters) lists them. `seed onboarding-matrix` records six tagged
+People across the canonical template, a second seeded template and no template, with a stalled, a ready (it has
+a Training record), a missing-step and a fresh packet; the [packet recipe](onboarding-packets.md#matrix-view)
+lists them. `seed onboarding-long-text` records one tagged Alpha Person on its own template with long step
+names, long Paperwork stages and an unbroken-URL note; the [packet recipe](onboarding-packets.md#long-text) uses
+it for overflow proof.
+
+`seed onboarding-retention` records two expired terminal A packets and recent/null-terminal/active A plus recent
+B sentinels, each with progress/notes. `seed onboarding-retention-1001` supplies 1,001 expired completions plus
+one expired cancellation and the same sentinels in bounded batches of 100. Clean the earlier seed before another
+cohort. `retention cron missing|wrong|run onboarding` uses only `/api/cleanup-expired-onboardings` on this owned
+app and its private generated credential, recording the response and any redirect without publishing that
+credential. The [packet recipe](onboarding-packets.md) separates native assignment, real job/provider
+failure/race checks and SQL security proof. These privileged temporary seeds never establish ordinary
+authorization. `clean-seeds` deletes only recorded synthetic rows in reverse dependency order.
+
 ## Driving it with verify:app
 
 Preconditions: `doctor` passes for this checkout and worker; `$V fixture` reports the actual Organization, Group, Person, template and step IDs and local date. A contains Able/Alpha, Baker/Bravo and Unassigned, three configured steps (Orientation checkbox, Paperwork with Submitted → Reviewed → Filed, and Required Training), and Able's completed March packet with retained progress/note. B has Foreign and its private template/Training definition. No active packet is seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, then inspect actual loaded data.

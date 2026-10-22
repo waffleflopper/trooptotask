@@ -20,6 +20,19 @@ A member with Critical Tasks configuration access maintains the unit's task defi
 
 Sign in to Organization A and choose `ICTLs` in the Organization navigation (its tooltip and breadcrumb read `Critical Tasks`), then `Task Library`. Use `New Task`, the selected task's `Edit`, `Archive Task` or `Restore Task`, or `Import CSV` (on the toolbar row, or in `More ICT task library controls` when the row is narrow). `Critical Tasks Defaults` is below the library and uses the same configure permission.
 
+## Helper controls
+
+The [Critical Tasks library recipe](critical-tasks-library.md#driving-it-with-verifyapp) owns `fault arm
+ict-tasks-insert-lost-ack`, `ict-tasks-update-lost-ack` and `ict-tasks-reorder-lost-ack`. They forward one
+matching `POST` or `PATCH` to exact `/rest/v1/ict_tasks`, or one `POST` to `/rest/v1/rpc/reorder_ict_tasks`, on
+this worker's loopback provider, consume a successful reply and throw `TypeError('fetch failed')`. A provider
+refusal passes through unchanged. Reads, other methods, endpoints and origins remain untouched. They are
+table-scoped rather than row- or Organization-scoped, so drive one intended mutation at a time and run `fault
+restore` before unrelated writes. Save `fault state` with its actual `providerStatus`, native counts/errors and
+exact provider rows. These synthetic post-commit transport losses establish committed-versus-reported import
+behavior, not an actual provider outage. Test with `node --test scripts/verification/outbound-controls.test.mjs`
+before freezing controls for a run.
+
 ## Driving it with verify:app
 
 Preconditions: set `V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"`, then run `$V fixture`. It supplies Organization A's active `ictTaskAlpha` (68W, one retained completion) and `ictTaskGeneral` (all MOS), archived `ictTaskArchived`, and Organization B's private `ictTaskForeign`. `ictConfigurator` is an ordinary Organization A member with Critical Tasks `configure`; `ictViewer` has `view`; `ictScoped` has `configure` but Alpha-only Group scope; `ictForeign` configures Organization B. The existing `rosterManager` has Training access and no Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies remain available to an owner.

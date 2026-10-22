@@ -13,6 +13,23 @@ A confirmed account without a membership creates an Organization, becomes its ow
 
 Sign in as an approved, email-confirmed account without an Organization. On `/dashboard`, choose `Create Organization`. The `/org/new` form asks for `Organization Name` and submits with `Create Organization`. After success, the new Organization opens at `/org/<orgId>`; the Dashboard lists it as `Owner`.
 
+## Helper controls
+
+```bash
+$V actor orgCreator org/new # confirmed account for creation
+$V created-org 'Unique synthetic Organization name' # orgCreator-owned row and default readback
+```
+
+`created-org NAME` reads only an Organization with that exact name created by this worker's `orgCreator`, then
+reports its owner membership and default Group, Calendar and rank rows. Use a unique name, read count zero
+before submitting, and read the same name after the visible creation action. It cannot inspect an arbitrary
+Organization ID.
+
+The [Organization creation recipe](organization-creation.md#recoverable-creation) owns the creation faults:
+`org-create` fails `POST rpc/create_organization` before it reaches the provider and `org-create-lost-ack`
+forwards that call, lets it commit and replaces the reply with the same 503 (its receipt adds `providerStatus`).
+Owner-email and default-row failures are isolated SQL proof, not browser faults.
+
 ## Driving it with verify:app
 
 Preconditions: `doctor` passes on the owned worker; `$V fixture` identifies the synthetic `orgCreator` confirmed account without membership. Use `$V actor orgCreator dashboard` and its returned page ID. `$V created-org 'Unique synthetic Organization name'` confines exact row readback to that actor and name.

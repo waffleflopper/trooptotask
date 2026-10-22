@@ -18,6 +18,12 @@ A Calendar configurator manages the Organization's federal holidays and closures
 
 With Organization-wide Calendar configuration access, choose `Calendar`, then `Settings` under `More Calendar controls`, then `Holidays & closures`. The toolbar's `New closure` opens the composer above the `Federal holidays` card (beside the list from 1280 px, above it when narrow). A day row reads its day number, weekday, name and a `Federal` or `Closure` badge, with `More actions for <name>, <Ddd, Mmm D>` → `Edit` or `Remove`. A range row (always within one month) reads `21–24`, `MON – THU · 4 DAYS` and the name; it is a button named `<name>, N days from <first> to <last>` that expands to its days. Months before the viewer's current month sit behind one `January – <month> · N past days` disclosure; a past year collapses entirely and a future year collapses nothing. The Calendar month grid shows a closure in its `Days` lane under the date headers (read as `<name>, closure, <range>`) and tints the date's cells with the name as their title.
 
+## Helper controls
+
+`federal-holiday-reset` stops `rpc/reset_federal_holidays` before dispatch. For this fault and the [Calendar
+catalog faults](calendar-catalogs.md#helper-controls), `-lost-ack` lets the command commit and loses the reply;
+`-hold` holds before dispatch until `fault release NAME`.
+
 ## Driving it with verify:app
 
 Preconditions: `$V actor calendarConfigure calendar/settings` returns `PAGE`; `resize_page` to 1440x900 and use the visible **Toggle theme** for light. `$V fixture` gives `closureA` (`Verification Unit Closure`, 2026-09-15), `closureB` (B's `Foreign Private Closure`, same date) and `holidayCustom` (A's `Verification Custom Holiday`, 2026-09-18). Record the browser's local day with `evaluate_script` (`() => new Date().toLocaleDateString('en-CA')`); the composer's default dates and the past-month collapse follow it. The steps below use November and December 2026 and assume a browser day in October 2026; on a later day choose dates in a later future month and keep the same weekday shapes. Use unique names. Capture Settings and `$V rows special_days orgA name <name>` before each mutation and restore grants even after an unsuccessful request.

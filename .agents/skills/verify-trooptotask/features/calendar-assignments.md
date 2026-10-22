@@ -23,6 +23,15 @@ A Calendar operator plans Person and Group coverage for a day or month. Saved as
 
 Sign in with Calendar operation access and choose `Calendar` → `Duty planner`, which opens the page headed `Duty planner` under the eyebrow `Calendar · Planning`. Its header holds `Today`, `Previous month`, the month title button (it opens the month picker) and `Next month`, then `Back to calendar`. The table has one column per assignment type (Calendar lane types first, then planner-only types, archived types left out) and one row per date. A column header shows the type's chip, name, `N OF M DAYS` and a `<type> column actions` button. An empty cell is an `Assign` button named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named `<type>, <date>: <rank last, first>`, with `, unavailable: <status and dates>` when an availability entry covers the date. Either opens the duty picker for that slot. The `Conflicts` panel beside the table (below it on a narrow page) lists every flagged slot with `Find replacement`. Below `Conflicts`, the `Fairness · 90 days` panel has a `Duty type` toggle group of type codes (each named by its type) and a table named `<type> fairness` whose `Longest since last` rows show the rank and last name, a four-cell duty meter and the `Last` duty as `Today`, `Nd` or `in Nd`, with the date as its tooltip (Group types show the Group name), and a footer sentence such as `<rank> <last name> is exempt.` for exempt people. Click a Calendar date header, an assigned lane day or a row marker to see the `Daily Assignments` modal for that date. An open lane day's `+` opens the same duty picker. `Reports` shows assignment coverage and other Calendar projections. A Calendar reader may see saved assignments but cannot manage them.
 
+## Helper controls
+
+```bash
+$V network arm-hold 2 calendar-reports/status-days # Calendar report data; daily-assignments is the single slot save
+$V workbook .verification/evidence/verify-trooptotask/RUN/assignment-load.xlsx 'Assignment Coverage'
+```
+
+For `daily_assignments`, the filter also accepts `date`, `assignee_id`, and `assignment_type_id`.
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes on a fresh worker; `$V fixture` supplies `orgA`, `orgB` and September 15 seeded assignment/type/assignee IDs. Use September 22, 2026 for the temporary Planner slots only after `$V rows daily_assignments orgA date 2026-09-22` and the corresponding B read both return zero; if fixtures change, record another preflighted empty date. Use `$V actor calendarOperate calendar` for the visible `Duty planner` toolbar action and keep its page ID. The date format in every name is the browser's en-GB short form, which spells September `Sept`. Take exact `$V rows daily_assignments orgA date DATE` readbacks before and after reload.

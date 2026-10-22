@@ -17,6 +17,28 @@ After changing request composition, run the real Organization Home route with Cr
 
 Sign in, enter an Organization and choose **Home** in its sidebar. The Organization breadcrumb also returns to this Dashboard. Its source workspaces remain available through Calendar, Personnel, Training, ICTLs and Onboard when the member has the corresponding access. Use **Switch organization** to select another membership; it preserves the current section, so choose Home afterward when switching from Calendar.
 
+## Helper controls
+
+Dashboard verification uses the [combined Dashboard recipe](dashboard.md). `dashboardView`, `dashboardScoped`,
+`dashboardEmpty`, `dashboardNone`, `dashboardSwitch` and `dashboardForeign` provide full-source, Alpha, empty,
+absent-lane and A/B scope witnesses. `$V actor ROLE home` enters that Organization's Overview. `$V seed
+dashboard` journals current-date source rows and returns their exact facts; `$V seed dashboard-overflow`
+journals seven Alpha People and their leave entries so the Overview toggles appear; `clean-seeds` removes only
+those rows. `network arm-fail|arm-hold|arm-observe PAGE dashboard-page` matches A's canonical Dashboard
+`__data.json` navigation, leaving B and other routes untouched. It controls a whole navigation response, not an
+individual deferred server source; record those proof limits separately.
+
+Dashboard source proof uses the [Dashboard recipe](dashboard.md). `server-source arm TABLE hold|fail|fail-hard
+[ORDINAL] [HOLD_MS]` controls one allowlisted GET, including the Calendar snapshot's `availability_entries`,
+`special_days` and `daily_assignments` reads, to owned A in the verification app process through a private Node
+preload; `state`, `release` and `restore` retain sanitized dispatch/status receipts. Holds dispatch the real
+provider read, then delay its response; `fail` returns a marked synthetic PostgREST 503 before dispatch (the SDK
+may retry); `fail-hard` returns one marked 500 to observe propagated source errors. B, writes, auth and
+unrelated reads pass through. Restore before another arm or cleanup; finite deadlines and process cleanup
+release waits. `dashboard-access dashboardView|dashboardSwitch alpha|no-training|restore` journals and changes
+only an owned A membership, with cleanup restoring original scope/grants. These are fixture controls, not
+ordinary actor mutations or production outages.
+
 ## Driving it with verify:app
 
 Run `$V seed dashboard` once on a fresh session and preserve its returned source rows/tag. It creates only journaled synthetic rows; `clean-seeds` removes them. Existing fixed fixtures retain Able/Alpha, Baker/Bravo, Unassigned and Foreign/B. The new Alpha Person has ETS in 30 days and DEROS in 60 days; the archived Alpha Person is excluded from strength/losses and its saved evaluation is omitted from the due projection but stays stored. Record the fixture/browser local date and timezone.

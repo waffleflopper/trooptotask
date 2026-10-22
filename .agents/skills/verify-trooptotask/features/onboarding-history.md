@@ -17,6 +17,14 @@ A leader reviews finished Onboarding packets: who finished or stopped, how long 
 
 Choose `Onboard` in Organization navigation, then `History`, or open `/onboarding/history` with `$V actor onboardingConfigure onboarding/history`. `Active onboarding` returns to the list. Below `md` (768) the table stacks each row as a card with labelled cells (Template, Dates, Took, Final, Outcome). The toolbar folds items into `More` as the available width requires, at any viewport width.
 
+## Helper controls
+
+`seed onboarding-history-view` records a second template and seven tagged Alpha/Bravo People with packets
+finished 9, 11, 13 and 46 days after starting (two on the second template), two cancelled on one day at 09:00
+and 17:00 UTC and one completed 120 days ago, each with a removed checkbox step and a removed paperwork step
+(four steps, so twelve notes on the first packet), with notes by `onboardingConfigure`, `orgAdmin` and a
+non-member; the [History recipe](onboarding-history.md) lists them.
+
 ## Driving it with verify:app
 
 Preconditions: `doctor` passes for this checkout and worker. `$V seed onboarding-history-view` creates, in Organization A, a second template and seven Persons with packets finished relative to today: Alpha completed in 9 days, Alpha completed in 11 days on the second template, Bravo completed in 13 days, Bravo completed in 46 days on the second template (took long), Alpha cancelled after 8 days at 09:00 UTC, Bravo cancelled after 3 days at 17:00 UTC on the same day, and Bravo completed 120 days ago (outside the 90-day window). Every packet has four steps, two of them removed from the template: a checkbox and a paperwork step that ended on `Reviewed`. Three notes by `onboardingConfigure`, the `orgAdmin` member and a user id that is not a member sit on each of the four steps of the first packet and on the cancelled Alpha packet's first step. The fixture's March packet for Able is also listed, outside the window. Read `$V rows organizations orgA` for `archive_retention_months`. `clean-seeds` removes the cohort, template included.

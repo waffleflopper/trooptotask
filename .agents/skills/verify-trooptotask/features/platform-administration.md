@@ -14,6 +14,23 @@ Platform support investigates accounts, Organization membership and reviewed acc
 
 Sign in as an active platform administrator and open Admin. Choose Users, Organizations or Access Requests in the sidebar. Search the directory and follow a record link to inspect its detail. Super-admins use Suspend/Unsuspend (in `More User controls` and `More Organization controls`) and Organization member actions; support can investigate and manage reviewed access but cannot perform suspension, promotion or ownership transfer.
 
+## Helper controls
+
+Platform administration uses the [access/account/Organization recipe](platform-administration.md), the
+super-admin/support actors and the `platformBilling` and `platformInactive` denial actors. `actor` accepts
+`admin/users`, `admin/organizations` and `admin/access-requests`. `seed platform-admin` records temporary
+review/origin and Organization membership witnesses before writes; `platform-state` returns exact recorded rows
+without setup secrets. `platform-request` sends bounded ordinary same-origin actions; its families/target keys
+and separate HTTP boundary are documented in the recipe. `network arm-fail|arm-hold|arm-observe PAGE
+admin-suspend` matches only `/admin/api/suspend` POST. `admin-search` observes/holds the actual
+`/admin/api/search` response for query lifetime proof. `network arm-drop PAGE admin-suspend|admin-transfer`
+dispatches the real scoped request, records its actual transport status, then rejects the browser response to
+prove unconfirmed-save reconciliation; it does not establish an actual provider outage. Transfer controls bind
+the recorded temporary Organization and exact transfer action, leaving other Organizations/actions untouched. A
+503/lost reply requires a fresh authoritative read before any new explicit confirmation; observing the current
+state does not identify who changed it. Restore User suspension visibly before `clean-seeds`; cleanup refuses
+remaining suspensions and verifies tracked dependent absence.
+
 ## Driving it with verify:app
 
 Reuse `platformReviewer` (super-admin), `platformSupport`, ordinary `viewer` and `orgOwner`; `platformBilling` has the retained billing role and `platformInactive` has an inactive super-admin record. `$V actor ROLE admin/users|admin/organizations|admin/access-requests` uses normal sign-in and accepts denial as an observable outcome, without changing authority.

@@ -14,6 +14,53 @@ Members use shared controls through Personnel forms, import previews and navigat
 
 In Personnel, use a named row's Edit or Archive button. Edit contains ETS and PCS / DEROS date pickers. Import opens the file preview with validation hints. Toggle Sidebar collapses desktop navigation; its icon links and the header theme button expose tooltip labels. An admitted platform administrator uses the same sidebar on Admin screens.
 
+## Helper controls
+
+Toolbar folding verification uses `toolbar-sweep PAGE "TOOLBAR_LABEL" RUN_DIR (--expect ID,ID,... | --no-fold
+(--pinned ID,ID,... | --search) | --more-always --pinned ID,ID,...) [--pinned ID,ID,...] [--search]
+[--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME]`, for example `$V
+toolbar-sweep "$PAGE" "Critical Tasks controls" .verification/evidence/verify-trooptotask/RUN --expect
+export-excel,import-completions,task-library,reports,gaps,group,matrix-view --pinned record-completion --search
+--record sweep-light`. `RUN_DIR` must lie under the skill evidence directory, with no `..` segment or symlink
+below it, and may not already hold `toolbar-sweep.json` or the named video. The page must already show the
+toolbar, whose root is the single `[role=toolbar]` with that `aria-label`. `--expect` lists the toolbar item ids
+in the order they must fold, first folded first; `--no-fold` replaces it for a toolbar with nothing to fold,
+such as one that holds only its primary or only search, and then requires `--pinned`, `--search` or both, fails
+if More appears or if any id on the first row leaves it at any read or hold, and refuses `--more-always`;
+`--more-always` with `--pinned` and no `--expect` is for a toolbar that never folds but whose More holds only
+`menuOnly` items, such as an organization's Suspend, and then requires More at every read and fails if any id on
+the first row leaves it; `--pinned` lists the ids that must stay on the row, and `--search` says the toolbar
+must have search; both are required at every read, hold reads included, so a control that is missing for the
+whole run fails instead of defining itself away. Without them nothing is pinned and search is optional, and the
+trace records what was required. `--more-always` is for a toolbar with `menuOnly` items, such as Calendar's
+Settings, Export to Excel and Print / PDF (its `Display` is a row action that folds): More must then be present
+at every read instead of only while something is folded. The helper reads the live row (`[data-toolbar-row]
+[data-toolbar-item]`, ignoring `[data-toolbar-measure]`), `[data-toolbar-more]`, the search control (any other
+child of the row: the field, the icon, or the open field and Close), `data-toolbar-search` and
+`data-toolbar-ready`, row and root `scrollWidth` against `clientWidth`, every part's edges against the row's
+content box on both sides, and keeps one MutationObserver on the toolbar that counts per-id membership changes
+between reads. It resizes from `--from` down to `--to` and back in `--step` pixels at `--height`, waits two
+animation frames per step, and holds 250 ms with three more reads when the membership changed. `checkSweep` then
+requires one row without horizontal overflow, one id folded per step in `--expect` order with the exact reverse
+going up, More only while something is folded (at every read with `--more-always`), search an icon only after
+every listed id has folded, identical state at equal content widths down and up and at a held width, and at most
+one membership change per id per step. Direction (nothing returns while the row narrows, nothing leaves while it
+widens) is judged by the row's content width, because the shell docks its sidebar at 768px and the row is
+narrower just above it than just below; a step across that change may move several ids. A step that removes two
+ids is reported with both ids, never hidden; rerun with `--step 1` before blaming the toolbar. A toolbar without
+`data-toolbar-row` is reported as `toolbar has no data-toolbar-row; not a fitted toolbar` and the sweep still
+runs, so `--record` captures the old layout. `finally` always stops the recording, restores 1280x800 and writes
+`RUN_DIR/toolbar-sweep.json` (`down`, `up`, `verdict` with `foldedAt` and `restoredAt` widths); the command
+exits 1 when the verdict fails. The sweep takes minutes at `--step 2` and prints progress to stderr. Run it once
+per theme after choosing the theme with the visible **Toggle theme** control, and restore the theme afterward.
+Run `node --test .agents/skills/verify-trooptotask/helpers/toolbar-sweep.test.mjs` for its accepted and rejected
+traces. To find one control on the row or in More, follow the [shared UI
+recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more).
+
+A full `--step 2` sweep records about 26 minutes and 75 MB. `toolbar-sweep` reads observable layout; it does not
+prove frame-level absence of flicker by itself. Play or step through the recording, and keep the trace and video
+together as the evidence.
+
 ## Driving it with verify:app
 
 Sign in normally as `manager` and retain its page/Organization IDs. Preserve the original Personnel rows with `$V rows personnel orgA` before any form interaction and compare them after canceling.
@@ -45,7 +92,18 @@ Before another token/theme or dependency cutover, collect a separate baseline on
 
 ### Find a toolbar control on the row or in More
 
-A workspace toolbar folds its least important controls into a `More <toolbar aria-label>` menu as the page narrows, so the same control sits on the row at one width and in the menu at another. Take a fresh `take_snapshot` and look for the control by its accessible name. If it is on the row, use it there. If it is not, open the `More <toolbar aria-label>` button (for example `More Critical Tasks controls`), take a fresh snapshot of the open menu and choose the control from it. A menu choice that opens a dialog runs after the menu finishes closing, so wait for the dialog in the next snapshot. Record in the notes which side the control was on and at what viewport width. A row action with its own menu (Calendar `Display`) opens that menu on the row, with a heading and checkbox toggles that keep it open after each choice; folded into More it becomes a submenu, so open the submenu before its toggles appear. Do not resize only to make a control reachable unless the recipe row asks for that width. `toolbar-sweep` in the [skill's helpers](../SKILL.md#helpers) proves the folding itself across widths.
+A workspace toolbar folds its least important controls into a `More <toolbar aria-label>` menu as the page narrows, so the same control sits on the row at one width and in the menu at another. Take a fresh `take_snapshot` and look for the control by its accessible name. If it is on the row, use it there. If it is not, open the `More <toolbar aria-label>` button (for example `More Critical Tasks controls`), take a fresh snapshot of the open menu and choose the control from it. A menu choice that opens a dialog runs after the menu finishes closing, so wait for the dialog in the next snapshot. Record in the notes which side the control was on and at what viewport width. A row action with its own menu (Calendar `Display`) opens that menu on the row, with a heading and checkbox toggles that keep it open after each choice; folded into More it becomes a submenu, so open the submenu before its toggles appear. Do not resize only to make a control reachable unless the recipe row asks for that width. `toolbar-sweep` in the [helper controls](#helper-controls) proves the folding itself across widths.
+
+## Native recording
+
+Record with native `screencast_start`
+`{"pageId":N,"filePath":".verification/evidence/verify-trooptotask/RUN/NAME.webm"}` and `screencast_stop`,
+exposed by owned DevTools through `--experimentalScreencast` at 30 fps. They require ffmpeg on the clean PATH;
+info/doctor report `recording.available` and its path/missing reason. `toolbar-sweep --record` stops before
+driving if absent. Paths must be beneath `.verification/evidence/`, without `..`/symlinks below it, and end in
+`.webm`/`.mp4`. Cleanup stops running recordings, but stop explicitly before ending a drive: unstopped files may
+be unplayable, and pages without painted frames (e.g. about:blank) produce empty files. Frames keep the initial
+viewport size; smaller viewports are cropped into the black frame's top left.
 
 ## Gotchas
 

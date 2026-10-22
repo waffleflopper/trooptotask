@@ -13,9 +13,43 @@ An owner invites an existing account or a new person, sees the pending invitatio
 
 Sign in as the Organization owner, open `Settings` → `Members`, and use the invite strip at the top: the `Invite` email field, `Role` (owner only), `Preset`, and `Groups` (`All groups` or one or more groups in a multi-select; clearing the last group returns to `All groups`), then `Send invite` (`Sending...` while pending). The line under the strip restates the preset's helper; with `Role` set to `Admin`, `Preset` reads `Uses Admin authority` and the line describes admin authority. `Waiting on them` appears above `Members` only while invitations are pending. Each row shows the email, `<preset> · sent <relative>`, the funnel status and its detail (failed delivery in the destructive color), `Resend` and `Revoke`. Closed invitations fold into `Invitation history · <n> closed` at the foot of the members list; that read streams after first paint behind a skeleton. An existing invited account signs in and opens `/dashboard`, where its pending Organization card has `Accept` and `Decline`. A new account uses the private Account Setup Link first, signs in, then accepts the separate Organization invitation.
 
+## Helper controls
+
+```bash
+$V actor orgInvitee dashboard # confirmed account without a membership
+$V rows organization_invitations orgA status pending
+```
+
+`fixture` exposes synthetic invitation emails without passwords or tokens.
+
+`rows` also permits `email`, `status`, and `invitation_id` filters for the allowlisted invitation and outbox
+tables. Query stored email values in lowercase.
+
+Real app-issued mail and provider-write faults use the [Organization invitations
+recipe](organization-invitations.md). The owned app is given a synthetic `RESEND_API_KEY` and
+`RESEND_FROM_EMAIL`, and its private Node preload answers only that bearer's `POST
+https://api.resend.com/emails`: every other request passes through, and no message leaves the worker. `mail
+state` lists captured messages by sequence, recipient, subject, `kind` (`account-setup` when the body carries an
+`/auth/setup-account?token=` link, `auth` for an `/auth/confirm` link, otherwise `invitation`),
+`delivered|failed` and link paths with every token replaced by `[redacted]`; bodies and raw links stay in
+preload memory. `mail fail [setup|auth|invitation] [COUNT]` makes the next 1–10 matching sends return a
+synthetic 503 (the app sees a delivery failure and the message is recorded `failed`); `mail restore` disarms it.
+`mail-link PAGE EMAIL setup|auth|invitation [N]` opens the Nth newest delivered link of that kind for one
+synthetic recipient in the named owned page and prints a token-redacted snapshot, as `setup-link` does for
+seeded tokens. The supervisor checks the link's origin against the owned app, refuses to print if the token
+survives and never returns the raw link. A setup link that stays on its token URL is token-bearing, so do not
+`take_snapshot` or `list_pages` it until it navigates away.
+
+Each name matches only its allowlisted method and path on the owned provider: `setup-link-create` is `POST
+rpc/issue_account_setup_link`, `invitation-access-link` is `POST
+rpc/link_organization_invitation_access_request`, and `invitation-block` is a `PATCH organization_invitations`
+setting `status` to `blocked`.
+
+If DevTools fails while `mail-link` opens a link, the error text is withheld because it may carry the token.
+
 ## Driving it with verify:app
 
-Preconditions: `doctor` passes; `$V fixture` identifies Organization A, Alpha/Bravo, `orgOwner`, and `orgInvitee` (an existing confirmed account with no A membership). Use `$V actor orgOwner settings/members` and `$V actor orgInvitee dashboard` in separate browser contexts. Keep one unique invitee email per state-changing case. The helper provides invitation and membership readback for A/B. The owned app's outbound mail is captured privately (`mail state|fail|restore`, `mail-link`) and named provider writes can fail once (`fault arm|state|restore`); see [SKILL.md](../SKILL.md). Restore both controls between cases.
+Preconditions: `doctor` passes; `$V fixture` identifies Organization A, Alpha/Bravo, `orgOwner`, and `orgInvitee` (an existing confirmed account with no A membership). Use `$V actor orgOwner settings/members` and `$V actor orgInvitee dashboard` in separate browser contexts. Keep one unique invitee email per state-changing case. The helper provides invitation and membership readback for A/B. The owned app's outbound mail is captured privately (`mail state|fail|restore`, `mail-link`) and named provider writes can fail once (`fault arm|state|restore`); see [helper controls](#helper-controls). Restore both controls between cases.
 
 1. As `orgOwner`, capture the invite strip. Enter `orgInvitee`'s synthetic email, choose member access and `Groups` → `Alpha`, then click `Send invite`. Save the result and a reload of `Waiting on them`, including email, access label and funnel status. Confirm the invitee is absent from `Members` and from the owned A membership readback before acceptance. A duplicate pending invite must show a visible error and leave one pending invitation.
 2. As `orgInvitee`, open `/dashboard`; save a before snapshot with A under `Pending Invitations` and no A workspace. Click that card's `Accept`, capture the response and resulting `Joined <Organization>` feedback, then reload. A must now appear once under `Organizations`; the invitation must leave Pending and appear in the owner's history. Open A and verify Alpha access without Bravo access using a retained Personnel or Calendar view; Organization B stays absent. Record the exact A membership/access snapshot and invitation state from the owned provider.

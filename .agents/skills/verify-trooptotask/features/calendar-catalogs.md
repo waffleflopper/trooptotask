@@ -15,6 +15,12 @@ An Organization Calendar configurator maintains status and assignment choices; s
 
 With Organization-wide Calendar configuration access, choose `Calendar`, then `Settings` under `More Calendar controls`. Open the `Status Types` or `Assignment Types` tab, then `Add new` or the row's actions. Status types open in one inline composer: `Add new` opens it above the list, and a row's `More actions for <name>` → `Edit` opens it in place of that row. A status row shows a `Reorder <name>` grip, a sample bar, the name, `One-day label · XX`, a one-day chip and the `More actions for <name>` menu with `Edit` and `Delete`. The list heading reads `N status types` beside `Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a `More actions for <name>` menu with `Edit` and `Delete`. Assignment types sit in two lists: `On the calendar · N lanes` in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and Edit open a side sheet. A deletion dialog warns about linked schedule entries or assignments. `Holidays & closures` is the third section and is driven in [Special days](special-days.md).
 
+## Helper controls
+
+`calendar-lanes` and `status-order` stop `rpc/set_calendar_lanes` and `rpc/set_status_type_order` before
+dispatch. Their `-lost-ack` and `-hold` forms follow the [shared fault
+variants](special-days.md#helper-controls).
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes on a fresh seeded worker; `$V actor calendarConfigure calendar/settings` returns `PAGE`; `$V fixture` supplies IDs for seeded Leave/Retiring status, Staff/Group/Retiring/Archived assignment types, their referenced availability/assignments, and the unrelated March record. The seeded A lanes are Staff (`sort_order` 0) then Group (1); Retiring is planner only and Staff exempts Baker. Capture each dialog before confirmation. Row actions are named, such as `More actions for Verification Leave` → `Edit` and `More actions for Verification Retiring Duty`. Run the deletion steps last, after journeys that need those rows.

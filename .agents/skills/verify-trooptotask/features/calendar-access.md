@@ -14,6 +14,16 @@ A member reads only the Calendar people and statuses allowed by their Organizati
 
 Sign in as a Calendar member and choose `Calendar`. A member's Organization and Group grants determine which Person rows and status bars appear. `calendarLane` has Calendar access without Personnel access; `calendarScoped` has Alpha, while `calendarEmpty` has an empty Group grant. The modal and `Bulk Status` are write entry points for an operator.
 
+## Helper controls
+
+```bash
+$V calendar-grant calendarOperate view # simulate an open page losing operate access
+$V calendar-grant calendarOperate restore
+```
+
+`calendar-grant` changes only the named synthetic member's Organization A Calendar capability and records its
+original value for restoration.
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes; `$V fixture` gives `orgA`, `orgB`, known Person/availability/status IDs, and September 14–16, 2026. Use `$V actor ROLE calendar`; use `$V actor manager personnel` for the no-Calendar member's authenticated server probes.

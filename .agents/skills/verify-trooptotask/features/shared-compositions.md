@@ -17,6 +17,14 @@ Members meet the shared type-management workspace, bulk-import workspace, readin
 
 Use Organization navigation to reach Training (Types, Views, Reports, the matrix and its import dialog), Onboarding (Templates), Critical Tasks (Library, Reports, Completions import), Personnel (import, detail), Calendar (Bulk, Reports) and settings (General, Members, Ranks). Account Profile and Security and platform `admin` use the same shell. Switch the theme with `Toggle theme`, and the width with `resize_page`.
 
+## Helper controls
+
+Styling-migration equivalence uses the [shared composition recipe](shared-compositions.md). `style-probe PAGE
+FILE.json [SELECTOR ...]` writes a new evidence-root `.json` of tag, role, text, attributes, size and computed
+styles for the default shared-composition selectors and any extras, without events, attribute writes or
+scrolling. `style-diff BEFORE.json AFTER.json` lists every difference between two such files. Run `node --test
+.agents/skills/verify-trooptotask/helpers/style-probe.test.mjs` for its boundaries.
+
 ## Driving it with verify:app
 
 The [component contracts](component-foundation.md) apply. Record each step PASS, FAIL, UNREACHABLE or UNRUN with actor, width and theme. A FAIL stays FAIL until the same step passes on a later candidate. Never edit the application while a run holds a candidate: edit, commit and relaunch first.

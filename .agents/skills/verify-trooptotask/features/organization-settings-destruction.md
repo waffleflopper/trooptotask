@@ -20,6 +20,75 @@ Open `Settings` in the Organization navigation. `General` contains `Unit name` w
 
 Ownership transfer, including sole-owner transfer, former-owner Admin status and stale-authority denial, is driven by [Manage Organization member access and ownership](organization-member-access.md). Repeat that recipe when changing its shared Danger delivery, candidates or identity handoff.
 
+## Helper controls
+
+`reauth PAGE FIXTURE_ROLE` completes the existing owned `/auth/login?reauth=1` handoff through its visible
+email/password form and normal Sign In button. It uses only private synthetic credentials, rejects a different
+origin or page, injects no session and reports the returned Danger snapshot. Use it after an actual
+elapsed-session denial; require a new explicit deletion confirmation after return.
+
+Organization settings proof uses the [settings/destruction recipe](organization-settings-destruction.md). `actor
+ROLE settings/general` opens the profile entry through normal sign-in. `rows organizations orgA|orgB` reads only
+that synthetic Organization's ID, name, URL slug, creator, retention months, warning days, Training readiness
+goal percent, document-cap bytes and retained Critical Tasks defaults. Compare saved values and tenant sentinels
+before and after visible actions; this privileged readback is separate from ordinary authorization. Existing
+membership and feature-row readbacks establish selected cascade witnesses after deletion, while real Storage
+objects require their own file checks.
+
+`settings-request PAGE orgA|orgB FAMILY JSON` submits one ordinary authenticated POST from that signed-in owned
+app page. It accepts only `organization/settings` and the five named settings form actions below, with
+allowlisted scalar fields; the controller resolves the selected synthetic Organization’s canonical slug/UUID
+through owned readback. JSON settings support retention, warning, Training readiness goal, document cap and the
+two intentionally rejected Critical Tasks fields. Form fields are `name`, `urlSlug`, an empty object for clear,
+`confirmName`, or `email`/`membershipRole`/`memberPreset` for `settings/members/invite` (all-Groups scope;
+denied-role proof, not a substitute for the native Invite form). It prints submitted values, exact path,
+transport status and full response body (including the SvelteKit action envelope), without credential headers.
+It neither follows redirects nor applies results to the UI; label this direct API/action proof separately from
+native interaction. Sign in normally with `actor` first and compare A/B provider rows before/after. For example:
+`$V settings-request "$PAGE" orgA organization/settings '{"personnelDocumentStorageCapMb":11}'` and `$V
+settings-request "$PAGE" orgA settings/general/updateName '{"name":"Synthetic denied name"}'`. No service-role
+credentials are used for the request.
+
+`network` also accepts `organization/settings` and the exact A form actions `settings/general/updateName`,
+`settings/general/updateSlug`, `settings/general/clearSlug`, `settings/danger/deleteOrganization`,
+`settings/members/updateMemberAccess`, `settings/members/invite`, `settings/members/resendInvite`,
+`settings/members/revokeInvite`, `settings/members/removeMember`, `settings/danger/transferOwnership` and the
+six rank actions `settings/ranks/saveRank`, `retireRank`, `reactivateRank`, `bulkRankState`, `deleteRank` and
+`addServicePack`. Settings controls read A's current slug from the owned provider and bind to that canonical
+segment (or its UUID when unset) and the exact form action query, leaving another action and Organization
+untouched. Restore and rearm after changing the slug. `orgSettingsPeer` is the independent B owner, and
+`orgSettingsSwitch` is admin in A/B with all feature lanes absent; use them for slug conflicts and settings
+scope changes. A failed form receives a real SvelteKit failure envelope with the appropriate error field; it
+never sends that request to the provider. `arm-error` answers one form action with an unexpected-error result
+(HTTP 500) instead, also never sent. The account forms `dashboard/acceptInvitation`,
+`dashboard/declineInvitation` and `org/new` accept `arm-fail`, `arm-error` and `arm-hold` on their own page.
+`arm-hold` waits after the real response and can establish persisted-versus-visible ordering. For
+`organization/settings`, `arm-hold-fail` holds one synthetic POST 503 before provider admission, allowing a
+visible Organization switch before error delivery. These controls prove client recovery, not provider atomicity
+or server error handling.
+`settings-page/general|features|policies|ranks|members|approvals|archives|logs|exports|danger` fails, holds or
+observes only A's canonical page-data GET for that Settings section, like `audit-page` for Logs; use it for a
+section's client navigation loading and error states. Restore every hook before cleanup.
+
+The [Organization destruction recipe](organization-settings-destruction.md) documents `seed
+organization-destruction` and `destruction files|bytes|fault-on|fault-off|overlap-scan|overlap-delete`. Its
+fixed [provider observer](../helpers/organization-destruction-provider.py) verifies the owned worker/provider
+identity and frozen doctor, then observes physical synthetic Storage bytes or installs/removes one marked,
+ledger-bound temporary DELETE fault. The overlap commands prepare an empty inventory and separately inspect an
+ordinary deletion after a native upload. The fixed [pending-upload
+observer](../helpers/organization-upload-pending.py) supports `gate-on`, `gate-off`, `state` and `bytes` for an
+actual provider call in the same ledger-bound worker. These helpers accept no arbitrary SQL, remote endpoint or
+fixture target. Restore `fault-off` and any installed upload gate with `gate-off` before retry, seed cleanup or
+normal disposal. Native application actions remain the driver; these are separate privileged setup/provider
+observations.
+
+`actor` also accepts `training/reports`, `settings/members`, `settings/exports`, `settings/danger`, `dashboard`,
+and `org/new`; its `access` field reports an explicit visible settings-page denial or `not-assessed`.
+
+Scoped settings/Onboarding capture checks: `node --test
+.agents/skills/verify-trooptotask/helpers/settings-request.test.mjs
+.agents/skills/verify-trooptotask/helpers/onboarding-request.test.mjs`.
+
 ## Driving it with verify:app
 
 Preconditions: run the owned worker's `doctor` and `fixture`; retain candidate, origin, actor and exact A/B Organization and membership IDs. Use `$V actor orgOwner settings/general`, `$V actor orgAdmin settings/general`, and `$V actor orgMember personnel` in isolated contexts. `$V actor orgSettingsPeer settings/general` admits only B's owner; `$V actor orgSettingsSwitch settings/policies` admits the same admin in A/B with no feature lanes. Read `$V rows organizations orgA` and `$V rows organizations orgB` and the exact A/B membership and affected resource rows before changing anything. The setting readback includes name, slug, retention, loss-warning, Training readiness goal, document cap and retained Critical Tasks defaults. Record snapshots, visible action results, request status/envelope and readback after reload separately. Perform deletion last on this disposable worker, after other journeys that require A. Never target an existing development or remote Organization.

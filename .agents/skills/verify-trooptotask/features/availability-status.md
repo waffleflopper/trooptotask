@@ -18,6 +18,16 @@ A Calendar operator inspects a Soldier's status, changes its note or date range,
 
 Sign in with Calendar operation access and choose `Calendar`. Each entry draws as one bar across its days, named `RANK Last, First, Status, D to D Month YYYY, N days, Note`. Clicking a bar opens a popover with the status, dates and note plus `Edit details` and `Remove`; the bar shows end handles while it is selected. Clicking an empty day opens `Set Personnel Status` for that person and date. Dragging across empty days draws a dashed `N days` box and opens `Add status, <range>` with the status types numbered 1 to 9 and `Add a note or edit dates…`. A row with more than two overlapping entries ends its bottom lane with a `+N` button that lists the rest.
 
+## Helper controls
+
+```bash
+$V rows availability_entries orgA note 'Unique synthetic note'
+$V network arm-hold 2 availability # hold a real response after persistence
+$V network arm-hold-dispatch 2 availability # hold a Calendar save or delete before dispatch; release sends it
+$V network arm-drop 2 availability # persist one create, update or remove, then lose its reply (any method)
+$V pointer drag 2 'EXACT_LOADED_URL' '[data-edge="end"]' '[data-person-id="ID"] [data-day="9"]' # real pointer drag by CSS selector
+```
+
 ## Driving it with verify:app
 
 Preconditions: `$V fixture` supplies the Person/status IDs and local current date. Use a unique note for added rows and restore any temporarily narrowed grant.

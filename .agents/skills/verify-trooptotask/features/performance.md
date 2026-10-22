@@ -20,6 +20,16 @@ Run this recipe only when Robert asks for a measurement. Ordinary verification, 
 
 A member signs in, chooses the Organization and lands on its Dashboard, or opens Calendar or Personnel from the sidebar. The Organization owner sees every Group; the scoped member sees only the first Group. The interactions are the ones a leader repeats: changing the Calendar range, searching, saving an assignment, opening and editing a Person, importing a roster, switching Organization and exporting.
 
+## Helper controls
+
+Performance measurement uses the [performance recipe](performance.md) and runs only when Robert asks for it
+([Definition of Done](../../../../docs/architecture/DEFINITION_OF_DONE.md#reproducible-performance-evidence));
+no other verification includes it. `seed workload small|typical|large` journals one deterministic synthetic
+Organization; `actor perfWide|perfScoped DESTINATION WORKLOAD` signs in its Organization-wide or Group-scoped
+actor; `perf --help` lists the load, interaction, trace, statements, explain and summarize controls. Statements
+and explain run only on the owned database and accept only named, bounded inputs. `clean-seeds` removes each
+workload and reads back its absence.
+
 ## Driving it with verify:app
 
 Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses newer Node. Set `V="mise exec node@24 -- node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"` and `RUN=.verification/evidence/verify-trooptotask/<run>`. `$V perf --help` prints every command.

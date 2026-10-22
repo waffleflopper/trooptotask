@@ -25,6 +25,117 @@ Follow-up, Note, Counseling and Document appear in `Add to record` only for a me
 
 Use `More Personnel record` → Export records in the record header for the single-Person workbook. An Organization owner/admin uses Settings → Exports for complete Organization JSON and Excel, and Settings → Archives for parent Personnel restore. Scheduled retention has no user-facing run button; its admitted job call and provider/file effects are separate from the visible Archived list.
 
+## Helper controls
+
+Personnel file lifecycle faults use `fault arm document-file-remove|counseling-file-remove` to reject one DELETE
+to the named bucket on this worker's provider before dispatch. The corresponding `-lost-ack` names dispatch the
+removal and replace a successful reply with 503. `document-attach` and `counseling-attach` reject one POST to
+`personnel_documents` or `counseling_records` before dispatch, so the uploaded bytes have no row and the upload
+must retire its registration. `document-attach-lost-ack` and `counseling-attach-lost-ack` dispatch one POST to
+`personnel_documents` or `counseling_records`, then replace its successful reply with 503. These controls affect
+the owned app's matching bucket or table, so run one mutation at a time and restore before unrelated file work.
+`fault state` preserves the method, path and actual provider status for lost replies. Capture exact row/file
+readbacks and visible feedback under the [Personnel artifacts
+recipe](personnel-artifacts.md#provider-faults-and-recovery). `artifact-deletion orgA|orgB PERSON_ID
+document|counseling ARTIFACT_ID` reads the exact durable deletion receipt without changing it. It uses
+privileged synthetic readback, not ordinary actor authorization. Pair it with `artifact-files` before and after
+admitted scheduled cleanup. They establish controlled provider outcomes, not an actual outage. Run `node --test
+scripts/verification/outbound-controls.test.mjs` for method, endpoint, origin and one-shot isolation.
+
+Personnel artifact verification uses the [artifact recipe](personnel-artifacts.md). `personnelForeign`
+configures only Organization B; existing `personnelOperate`, `personnelScoped`, `personnelEmpty`, `viewer` and
+`personnelSwitch` preserve their distinct A grants. `network` also accepts exact
+`personnel/PERSON_ID/leader-notes`, `follow-ups`, `counseling-records` and `documents` families, their named
+record endpoints, and a named document's `/download`. It still binds to this worker's exact Organization A path.
+
+`seed personnel-artifact-context` prepares a dedicated positive switching actor, `personnelContext`, with
+Personnel configure in A and one recorded temporary configure membership in B. It creates two active People with
+distinct IDs/names and the same Organization-scoped slug, sixteen active/independently August-archived artifact
+witnesses and eight real synthetic PDFs. The complete row/path ownership manifest is saved before
+inserts/uploads; ordinary `clean-seeds` removes those exact rows/files and the temporary B membership. Existing
+actors and denial grants remain unchanged. Use the returned actor ID, slug, A/B parent IDs, rows and file
+hashes; provider-seeded files are prerequisites, not native upload or ordinary authorization proof. UI-created
+artifacts need their own recorded IDs/paths and ordinary archive/delete cleanup before seed cleanup.
+
+`artifact-files orgA|orgB PERSON_ID [counseling|document FILE_PATH ...]` reads only that synthetic
+Organization/Person's two file-bearing tables, checks their known private Storage paths and reports actual byte
+sizes/SHA-256 or confirmed absence. Optional paths must be previously recorded for the same Person; preserve
+before-path readbacks to inspect removal after its row is gone. Current counseling/document file paths are
+explicitly bound to the named Organization/Person. Query, listing or download failures are errors, never
+absence. These service-role readbacks establish stored bytes separately from an ordinary actor's sensitive-file
+authorization. Create real uploads through the visible forms; the metadata-only lifecycle seed does not
+establish file outcomes. Do not publish signed URLs or credentials.
+
+`artifact-http ROLE orgA|orgB PERSON_ID METHOD FAMILY[/RECORD_ID[/download]] [BODY_FILE]` makes one normal
+authenticated HTTP request after the same owned-worker doctor check. It signs in the named fixture actor through
+the real HTML `/auth/login?/login` form and caches only that admitted session's cookies in the owned worker's
+private directory, bound to its worker session ID, actual app origin and actor ID. Cache directories/files use
+`0700`/`0600`; cookies and credentials never enter evidence or command output. Every command independently
+checks that `/auth/login` redirects the session to `/dashboard` before sending its artifact request. A
+missing/expired cache uses normal login; a rejected cached session clears and permits one fresh normal login and
+confirmation. A cached check returning `429` or `5xx` blocks without another login or artifact request and
+preserves the cache, reporting its status and numeric `Retry-After`. Authentication metadata distinguishes
+`normal` from `reused` and records the actual login/confirmation statuses. Cookie rotations and deletions
+persist. Successful `clean-seeds` removes only this worker session's HTTP cache; owned `verify:app cleanup`
+removes the entire private worker directory. It does not use browser evaluation or the service role. Targets are
+restricted to this worker's Organizations A/B and exact Personnel UUID paths: the four artifact collections
+allow `GET`/`POST`, their record UUIDs allow `PATCH`/`DELETE`, and only a named document's `/download` allows
+`GET`. Redirects are inspected without following them; any location outside the owned origin blocks the command.
+A returned signed download URL is redacted and never fetched.
+
+`POST`/`PATCH` require a JSON object in `BODY_FILE`; `GET`/`DELETE` accept no body file. Both body and upload
+files must resolve inside `.verification/evidence/verify-trooptotask/`, including after resolving symlinks.
+Ordinary JSON fields pass through unchanged. Document/counseling collection `POST` uses multipart fields from
+the object, with an optional `file` descriptor:
+
+```json
+{
+	"title": "Synthetic file guard",
+	"file": {
+		"path": ".verification/evidence/verify-trooptotask/RUN/synthetic.pdf",
+		"type": "application/pdf",
+		"name": "synthetic.pdf"
+	}
+}
+```
+
+Counseling also accepts its normal `dateConducted` and `summary` fields. `type` is explicit and `name` defaults
+to the source basename, so deliberate MIME/name mismatches and unsupported or oversized uploads exercise the
+actual app guards without changing the helper. Omit `file` for a missing-file probe. Multipart fields other than
+`file` must be scalar strings, numbers, or booleans. The helper reports actor/Organization/Person IDs, exact
+method/path, authentication mode/statuses, submitted fields, evidence-relative file names, uploaded byte
+size/SHA-256, HTTP status, public `Retry-After`, redirect location and full response body. Credentials, cookies,
+authorization tokens and signed URL tokens are replaced with `[REDACTED]`; other private response fields remain
+visible for security proof. Bodies are not truncated. Session reuse does not change the app's request limits:
+pace commands, record rate-limit responses and respect `Retry-After`; the helper does not retry artifact
+mutations. Preserve this direct API observation separately from native UI interaction and compare denied writes
+with unchanged provider rows/files. Run `node --test
+.agents/skills/verify-trooptotask/helpers/artifact-http.test.mjs` for its login, cookie, input-boundary and
+redaction checks.
+
+`seed artifact-retention` creates dedicated active A/B Persons and expired A, active/recent A and active/recent
+B rows for all four artifact families. A completed Follow-up history row remains unarchived. `seed
+artifact-retention-1001` creates 1,001 expired A rows per family, with returned final-generated cohort markers.
+These identify known rows/files; their lexical IDs do not establish discovery-page placement without ordered
+provider receipts. Both variants record all exact row IDs and actual file paths before any insert/upload, use
+bounded inserts and support ordinary `clean-seeds` recovery. These are privileged setup fixtures, not native
+uploads or ordinary-actor authorization proof. They do not change Organization settings; use `retention
+settings` to read only the owned A/B `archive_retention_months` values and verify the reported 36-month default
+assumption.
+
+Preserve the seed's parents, classified rows, timestamps, file manifests and markers. `retention files` checks
+every recorded real object independently of surviving metadata, with `observedSize`/`observedSha256` or
+confirmed absence. Small setup stores twelve real PDFs; large setup stores fourteen, including first/last
+expired file witnesses. The other large expired file rows explicitly have `stored:false` metadata-only paths,
+and establish no stored bytes. Each bucket also has a real unrelated object without a metadata row. B controls
+are unexpired because the admitted job processes every Organization; an expired B row would legitimately be
+deleted. Read exact parent/child/provider rows before and after `retention cron missing|wrong|run records`,
+reload native Archived and inspect the actual administrator notification. Strict cutoff equality belongs in
+fixed-time operation checks; these wall-clock fixtures establish old/recent/active behavior without claiming a
+live equality boundary. Preserve provider failures and partial effects. Run `node --test
+.agents/skills/verify-trooptotask/helpers/artifact-retention.test.mjs` for interrupted-insert/upload cleanup
+recovery.
+
 ## Driving it with verify:app
 
 Record baseline, failed, final and unrun paths separately.

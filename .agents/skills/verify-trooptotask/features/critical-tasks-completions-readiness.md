@@ -19,6 +19,29 @@ A member with Critical Tasks operate access records validation results and uses 
 
 Choose `ICTLs` in Organization navigation (its tooltip and breadcrumb read `Critical Tasks`). The matrix toolbar (`Critical Tasks controls`) is one row at every width: the `A-Z`/`Group` view switch, the search field, `Critical Tasks group filter` (whose all-option reads `All groups`), `Gaps only`, `Export Excel`, `Import Completions`, `Task Library` (configure only) and `Reports`, then the primary `Record Completion`. Record and import need operate access. As the page narrows, controls fold one at a time into `More Critical Tasks controls`, starting with `Export Excel`, and the search field becomes an icon only after every other control has folded; `Record Completion` stays on the row at every width. Open a Person's linked name for their individual task record; use a task's `Log Completion` or `Edit` control there. Choose `Reports` for filters and `Export Excel`; its toolbar (`Critical task report controls`) folds the same way, with the `Group`, `Rank`, `MOS` and `Duty role` filters leaving from the last to the first and `Export Excel` pinned. The individual record (`Personnel critical task controls`) and the task library (`ICT task library controls`) use the same toolbar: `Input Task` and `New Task` are pinned, and their other controls fold into More. An authorized Personnel detail lists the Person's critical tasks on its Readiness tab. A view-only member can inspect results without recording them.
 
+## Helper controls
+
+The [completion/readiness recipe](critical-tasks-completions-readiness.md#driving-it-with-verifyapp) owns
+`ict-completions-insert-lost-ack` and `ict-completions-update-lost-ack`. They apply the [same one-shot post-commit transport loss](critical-tasks-library.md#helper-controls) to exact `POST` and `PATCH /rest/v1/personnel_ict_completions`, respectively. Restore
+before another mutation. Capture exact Person/task/date IDs and notes with `rows personnel_ict_completions`,
+separately from native import counts and errors. A committed insert must not be reported as refused, and an
+unresolved update must not be reported as confirmed merely because its content matches a later read.
+
+Critical Tasks actors are `ictConfigurator`, `ictOperator`, `ictViewer`, `ictScoped`, `ictEmpty`, `ictForeign`
+and `ictSwitch`; all have Personnel/Training access absent. `ictSwitch` configures A and views B. `actor`
+accepts `critical-tasks`, `critical-tasks/library` and `critical-tasks/reports`. The [completion/readiness
+recipe](critical-tasks-completions-readiness.md) owns dated examples, import/history and scope checks. `network`
+also accepts `ict-tasks/batch` (Task Library import, including `arm-hold-fail`), `personnel-ict-completions`,
+`personnel-ict-completions/batch`, `critical-tasks/reports/summary`, `critical-tasks/reports/export` and
+`critical-tasks/matrix/export`; it still matches only the exact synthetic A endpoint. `network arm-drop PAGE
+ict-tasks/batch|personnel-ict-completions/batch [ORDINAL]` dispatches only the exact same-origin A POST, records
+its real status and rejects that reply once. Confirm earlier chunks remain counted and lost replies appear not
+confirmed with reload guidance; restore before unrelated actions. `rows personnel_ict_completions orgA
+ict_task_id ID` reads completion IDs and values.
+
+Use `workbook FILE 'Critical Tasks Report'` or `workbook FILE 'Critical Task Matrix'` for the respective
+exports.
+
 ## Driving it with verify:app
 
 Set `V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"` and run `$V fixture`. `ictOperator` has Critical Tasks operate with Personnel/Training none; `ictViewer` has view; `ictScoped` has Alpha-only configure; `ictEmpty` has operate with an empty Group set; `ictForeign` configures B; `ictSwitch` configures A and views B. `rosterManager` has Training without Critical Tasks. `orgOwner` can inspect the reverse Personnel consumer. `$V actor ROLE critical-tasks` or `critical-tasks/reports` uses normal sign-in; navigate to individual records through visible Person links. Do not print credentials or attach to another worker's provider.

@@ -15,6 +15,29 @@ Platform administrators publish global messages, review member Feedback and inve
 
 Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback, Audit Log and Announcements in its sidebar. Select Create Announcement in the Announcements controls toolbar, complete its fields and Save. Deactivate or Activate changes its member visibility. Delete asks for confirmation in an in-app dialog naming the announcement. Expand a Feedback card to change Status or Admin Notes, then choose Save Notes. Audit Log provides Action and Severity controls, Previous/Next pages and View details. The global search opens the already owned User and Organization support pages.
 
+## Helper controls
+
+Platform content verification uses the [announcement/Feedback/Audit recipe](platform-support-content.md).
+Existing platform actors and ordinary `orgMember` may enter `admin` and `admin/announcements` through normal
+sign-in for admission and denial. `platform-content` accepts no targets and reads only helper-recorded
+communications announcements or rows created by this worker's synthetic super-admin. It provides privileged
+persistence readback separately from native interaction and ordinary authorization. Fixed same-origin form
+controls `admin-announcements/create|toggle|delete` and `admin-feedback/update` bind only the named POST action;
+their failure/hold modes reuse the existing SvelteKit envelopes. `arm-reject` rejects one scoped request before
+dispatch. `arm-fail-400` returns the same failure envelope with status 400, a rejected save that leaves its
+retry open. A 5xx or missing save reply blocks new writes until the visible read-only Reload succeeds.
+`content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackUpdate RECORDED_UUID
+JSON` submits bounded ordinary HTTP actions against helper-recorded targets, separately from native UI proof.
+`admin-audit-read`, `admin-dashboard-read`, `admin-users-read`, `admin-organizations-read`,
+`admin-feedback-read`, `admin-announcements-read`, `admin-user-detail-read` (`orgInvitee`) and
+`admin-organization-detail-read` (the `seed platform-admin` Organization) control only their exact page-data
+navigation with failure, hold or observation. `arm-fail` replaces the response with a transport 503, which
+SvelteKit renders on the root error page; `arm-load-error` dispatches the real read and returns its page node as
+a 503 server-load error, which renders the nearest route error page. Restore hooks, original flags and
+UI-created announcement rows before owned cleanup. Run `node --test
+.agents/skills/verify-trooptotask/helpers/platform-network-target.test.mjs` for target isolation and explicit
+retry.
+
 ## Driving it with verify:app
 
 `$V actor platformReviewer admin|admin/announcements|admin/feedback|admin/audit` uses normal login. `platformSupport`, `platformBilling`, `platformInactive` and `orgMember` attempt the same destinations for the permission matrix. Reuse [platform administration](platform-administration.md) for search, User and Organization activity, [communications](notifications-feedback.md) for ordinary Feedback and dismissals, and [Audit capture](audit-capture-projections.md) for the retained masking and stored-event setup. These recipes own those expectations.

@@ -19,6 +19,46 @@ A member completes a second-factor challenge, recovers a forgotten password, act
 
 From Sign In, follow Forgot password, Request access or Request a fresh setup link. Recovery and invite emails open `/auth/confirm`, which waits for an explicit Continue button. A signed-in member opens Account menu → Account, then Security for password and Two-Factor Authentication. An account with a verified authenticator sees Two-Factor Authentication after the password step.
 
+## Helper controls
+
+Identity verification uses the [identity recovery and security recipe](identity-recovery-security.md) and its
+dedicated `identityMfa`, `identityRecovery`, `identitySecurity` and `identitySuspended` actors. The disposable
+provider enables Supabase TOTP for these journeys; seeding gives `identityMfa` a verified factor and
+`identitySuspended` a `user_suspensions` row. `mfa-code PAGE ROLE LABEL [N]` fills the named textbox with the
+role's current TOTP code; the factor secret stays inside the owned provider control. `password PAGE ROLE
+current|next LABEL [N]` fills the current or a privately generated replacement password, and `password-commit
+ROLE` adopts the replacement for later `actor` sign-ins after a visible save. `auth-link PAGE recovery ROLE` or
+`auth-link PAGE invite` navigates the owned page to the app's `/auth/confirm` link from the provider admin API
+and prints a token-redacted snapshot; it proves link handling, not email delivery. `access-request EMAIL` reads
+stored Access Requests and their Account Setup Links for one `@example.test` address. `seed account-setup`
+stores one synthetic Access Request and setup link per page state, keeping raw tokens in private worker state.
+`setup-link PAGE CLASS` navigates the owned page to that class's `/auth/setup-account` link and prints a
+token-redacted snapshot. `fixture` lists the identity actors' addresses under `identityEmails`.
+
+The disposable provider also runs its local Mailpit capture, so the provider's own email-change mail succeeds
+without leaving the worker. Run `node --test
+.agents/skills/verify-trooptotask/helpers/identity-controls.test.mjs` and `python3 -m unittest
+scripts.verification.test_environment` for these boundaries, and `node --test
+.agents/skills/verify-trooptotask/helpers/busy-control.test.mjs` for the busy observer.
+
+The [identity recipe](identity-recovery-security.md) owns the identity faults: `password-update` (`PUT
+/auth/v1/user` with a `password` field, before commit), `password-reconcile` (the `password_change_attempt` RPC
+with `p_action` `reconcile`), `password-revocation` (`POST /auth/v1/logout?scope=others`), `setup-password`
+(`POST /auth/v1/admin/users`), `setup-reconcile` (`rpc/reconcile_account_setup_claim`) and `setup-finalize` /
+`setup-finalize-lost-ack` (`rpc/complete_account_setup_recovery`).
+
+`session-age IDENTITY_ROLE HOURS` (1–48) moves only that synthetic account's provider session starts back so the
+real 24-hour check runs, and read-only `session-count IDENTITY_ROLE` reports how many provider sessions it
+holds. `admission-probe ROLE OTHER_ROLE` signs ROLE in through the provider privately, sends the owned app its
+genuine session cookie as a control plus malformed, bad-signature, subject-swapped and `alg: none` variants on
+Account Security and `/api/auth/mfa/status`, prints statuses and the forged tokens with the genuine signature
+withheld, and revokes only that probe session; `node --test
+.agents/skills/verify-trooptotask/helpers/admission-probe.test.mjs` covers it.
+
+`access-request EMAIL` also returns `reviewed_by`, the invitation bridge rows with each linked invitation's
+`status`, `approval_basis` and `setup_grant_live`, which reports whether the derived invitation or platform
+grant can still mint and admit setup credentials.
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes on the owned worker. `$V fixture` lists the dedicated Organization A members, with their synthetic addresses under `identityEmails`: `identityMfa` (verified TOTP factor from seeding), `identityRecovery`, `identitySecurity` and `identitySuspended` (a `user_suspensions` row). These accounts exist only for this recipe because their credentials, factors or suspension change; never reuse them for another feature's journey. Use `$V actor --form ROLE dashboard` for their sign-in, because this recipe verifies the form, its challenge and the limiter, and a fresh `tool new_page` context for public pages.

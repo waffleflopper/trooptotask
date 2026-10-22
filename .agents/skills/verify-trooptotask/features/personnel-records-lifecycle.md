@@ -21,6 +21,70 @@ A member creates and edits a Soldier's record, imports new People or backfills e
 
 Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row's `Edit` or `Details`, or `Import`. On the import page choose `Add new` or `Backfill ETS/DEROS`, upload a file and review the mapped rows before submitting. Archive from the named roster row, its Edit dialog, its detail page's `More Personnel record` menu, or the roster's `Archive` selection mode. An Organization owner/admin restores records through Settings → `Archives`; archive requests appear under Settings → `Approvals`. The reverse creation path is Onboard → `Start Onboarding` → `Add Person`.
 
+## Helper controls
+
+`manager` can manage Personnel and Groups; `viewer` can read them; `scoped` sees Alpha only.
+
+`network arm-hold-fail PAGE personnel` holds one exact same-origin Organization A Personnel PUT with a synthetic
+503 before dispatch. Other methods, Organizations, origins and endpoints pass through. Release and restore it
+explicitly; capture unchanged rows separately from visible delayed-feedback behavior. The [Personnel lifecycle
+recipe](personnel-records-lifecycle.md) owns the expected outcomes. This control proves client response
+ordering, not a real provider outage.
+
+Synthetic Organizations A/B include active PFC, SPC and SGT rank catalog entries for normal create/import
+validation. Personnel lifecycle actors are `personnelOperate`, `personnelScoped`, `personnelScopedOperate`,
+`personnelEmpty`, and `personnelSwitch`; they have other feature lanes absent. `personnelScoped` configures only
+Alpha; `personnelScopedOperate` operates only Alpha and can import/backfill without single-record creation.
+`personnelEmpty` configures an explicit empty Group scope, and `personnelSwitch` configures A but only views B.
+Use `manager` for Organization-wide Personnel configuration and `orgOwner` for visible Settings
+restore/permanent removal. `actor` accepts `settings/archives`; a configure-only Personnel member has no
+governance access to this page.
+
+`seed personnel-lifecycle` returns one dedicated Alpha Person, two active same-rank/name People in Alpha/Bravo,
+an archived duplicate, and exact artifact/Training/Critical Task IDs. Its fixed older archive timestamp
+identifies independently archived artifacts; one unrelated Able note is a no-effect sentinel. Documents have
+metadata only, without Storage objects: this seed proves row lifecycle, not downloads or file preservation.
+`rows` also permits `leader_notes`, `personnel_follow_ups`, `counseling_records`, and `personnel_documents`,
+plus `last_name`, `first_name` and `slug` filters. The existing `network` commands support `personnel`,
+`personnel/batch`, `personnel/merge`, `personnel/archive-batch` and `personnel/permanent`, still bound to this
+worker's exact Organization A endpoint. Restore controls, visibly remove UI-created People and run
+`clean-seeds`; it removes recorded dependent rows before their seeded parent and preserves original fixture
+People. The [Personnel lifecycle recipe](personnel-records-lifecycle.md) owns the actions and expectations.
+
+`seed personnel-retention` creates two expired A People, recent/active A and recent B sentinels, real PDF
+objects in both Personnel document buckets, active/recent/expired child rows and a retained local Evaluation
+whose four evaluator references point to the first expired Person. It records every row ID and bucket/path/hash
+before writes. `seed personnel-retention-1001` creates 1,001 expired A People with the same bounded sentinels
+and a few real child files; setup and cleanup use batches of 100. `seed personnel-retention-dense` adds 1,001
+active metadata rows per bucket to one expired parent, including a real final-page PDF marker in each; the other
+1,000 rows per bucket have valid metadata-only paths with no stored object. This exercises complete cascade
+retirement within a bounded parent cohort without thousands of uploads. These are privileged synthetic setup,
+not UI uploads or ordinary permission proof. Keep them separate from the accepted metadata-only lifecycle seed.
+`retention files` inspects only recorded objects, reporting confirmed absence or downloaded byte size/hash;
+inspection failures are errors, never absence. `clean-seeds` removes only recorded rows and objects, including
+interrupted setup leftovers.
+
+For Personnel proof, use `retention cron missing|wrong|run records`. `records` requests this owned app's
+`/api/cleanup-archived-records` endpoint. `records` is the default and arbitrary paths are rejected. Launch
+generates a private worker-only credential without inheriting any external secret. The helper records mode,
+endpoint, status, redirect location and body without publishing that credential. Missing/wrong credentials must
+reject without effects. The admitted request processes all synthetic Organizations using their real settings, so
+foreign sentinels must also be unexpired. This is direct job/API proof, separate from native
+Archives/notification interaction. File cleanup is bounded to 1,000 keys per pass. When `files.limitReached` is
+true, repeat admitted passes; it means more work may remain, including after exactly 1,000 keys. Require a final
+pass with `limitReached:false`, `failed:0` and exact recorded file absence before claiming completion. Use
+fixed-time command/provider checks for cutoff equality and controlled partial/failure boundaries; do not freeze
+the app clock or claim browser 503 controls prove provider faults. See the Personnel recipe for actual visible
+and persistence observations.
+
+Personnel bulk proof uses `personnel-archive-batch PAGE orgA|orgB JSON_UUID_ARRAY` for one ordinary
+authenticated HTTP batch, separately from native roster interaction. Only nonempty UUID arrays and the owned
+fixture Organizations are admitted. The `personnel/archive-batch` network family supports failure, rejection,
+hold, held failure and observation; every mode matches only the exact A POST and records its public selected
+IDs/count. Preserve the real response and per-record outcomes; no helper retries a mutation. Run `node --test
+.agents/skills/verify-trooptotask/helpers/deletion-requests.test.mjs
+.agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for the control boundaries.
+
 ## Driving it with verify:app
 
 Keep actual baseline, failed, final and unrun observations separate in the run evidence. The [Deletion Requests recipe](deletion-requests.md#driving-it-with-verifyapp) owns the cross-feature bulk failure/partial/retry and late Organization-switch proof: unconfirmed batches retain selected recovery work, acknowledged archival/approval IDs are not resent, and failed IDs remain available for explicit retry. Configure archival and operator approval-required batches remain separate outcomes. The admitted direct archive and its artifact cascade are one transaction. A rejected transaction has no effects; an unconfirmed reply still requires persisted-state readback before deliberate replay.

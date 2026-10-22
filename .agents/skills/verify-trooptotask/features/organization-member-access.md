@@ -15,6 +15,12 @@ An owner edits a member's role, capabilities and Group scope, then transfers own
 
 As `orgOwner`, open `Settings` → `Members`. Under `Members`, the `Members` table lists everyone with no paging (the member cell is the row header); each row shows the member's Access lane (role or preset, plus an amber `+<n> area changes`) and Groups lane (amber `No groups` when empty). Choose `Manage` on a non-owner row; the owner's row shows a dash in its actions lane, read as `No actions`. The sheet is 560 px wide, titled with the member's email over a summary line (`Operator · HQ PLT · 2 area changes`) and a 2px rule. Each section is one row with its title on the left and its control on the right: `Role` and `Preset` as radio groups, `Area by area` with the sentence `Change an area only when the preset is too broad or too narrow for it.` and six lanes, `Calendar`, `Personnel`, `Training`, `Critical tasks`, `Onboarding` and `Evaluations`, of `None`/`View`/`Update`/`Manage` (a lane off the preset shows an amber dot in its gutter and `<preset> gives <level>`), and `Groups` as `All groups`/`Selected` with group chips and a restating sentence, visible without scrolling at 1440x1000. The footer has `Remove from <unit>` on the left and `Cancel` with `Save <n> changes` together on the right. At 390 a lane's control wraps under its label and stays right-aligned. Escape cancels without saving; a save returns focus to the row's `Manage` button. Below `md` the table keeps the member and actions columns and moves both lanes under the email. `Remove` lives in the row's `More actions for <email>` menu. For ownership, open `Settings` → `Danger Zone`, choose an eligible member under `Transfer ownership`, click `Transfer`, type that member's email in `Type <email> to confirm` in the `Make <email> the Owner?` dialog, and submit `Transfer ownership`.
 
+## Helper controls
+
+```bash
+$V actor orgOwner settings/members # owner entry to member management
+```
+
 ## Driving it with verify:app
 
 Preconditions: `doctor` passes; `$V fixture` identifies Organization A/B, Alpha/Bravo, `orgOwner`, `orgAdmin` and `orgMember`. Use separate signed-in contexts from `$V actor orgOwner settings/members`, `$V actor orgAdmin settings/members`, and `$V actor orgMember personnel`. Read original membership IDs, roles, presets, overrides and Group scope from the owned disposable provider so changes can be compared by ID. Run the transfer after ordinary access checks because it intentionally changes the seeded owner.

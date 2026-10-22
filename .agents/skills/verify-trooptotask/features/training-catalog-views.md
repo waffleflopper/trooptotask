@@ -14,6 +14,12 @@ An Organization Training configurator defines requirements and saved matrix layo
 
 Choose `Training` in the Organization navigation. In the `Training controls` toolbar, open `Manage Types` (the primary action, always on the row) or `Manage Views` (the first control to fold into `More Training controls` as the page narrows; find it with the [shared UI recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more)). Manage Types shows a `Training type controls` toolbar holding `+ New Type` and, in the detail pane, `Training type detail controls` holding `Edit`. Manage Views shows `Training view controls` with the `Back to Matrix` link and `New View`, and `Training view detail controls` with `Edit`; read-only members see none of the create or edit actions. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or `training/views` must enforce the same access rules as visible navigation. Moving between the matrix, `Manage Types` and `Manage Views` reuses the loaded workspace and is not access proof.
 
+## Helper controls
+
+```bash
+$V network arm-fail 2 training-types # fail one Training catalog request; training-views also supported
+```
+
 ## Driving it with verify:app
 
 Preconditions: `$V fixture` supplies `trainingRequired`, `trainingTargeted`, `trainingOptional`, `trainingView`, the matching foreign IDs, Able/Baker/Unassigned IDs and dated Able completion. Use `$V actor trainingConfigure training` and save its returned page ID and Organization ID. The seeded Required type applies to everyone: Able has a current completion, while Baker and Unassigned have no record. Targeted applies to MOS `68W` but excludes role `NCO`: Able is required and incomplete; Baker and Unassigned are not required. Optional does not require a missing record. The saved Focus View orders Targeted before Required and omits Optional.

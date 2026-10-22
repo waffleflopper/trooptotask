@@ -20,6 +20,24 @@ Owners see `Last export · <format> · <date>, <time> by <actor>` from the newer
 
 `Roster only` is muted and marked Coming soon. It is not a retained export workflow. `One person` links to Archives. Single-Person and feature report workbooks have separate recipes and formats.
 
+## Helper controls
+
+`rows data_exports orgA|orgB` reads the owned Organization’s export lifecycle rows; preserve IDs, requesting
+user, status, byte size and completion time alongside the actual downloaded artifact. These privileged readbacks
+prove stored effects separately from native export actions. Export completion updates remain best-effort; read
+the actual status rather than infer it from a successful download.
+
+For a real download, arm `network arm-observe PAGE training-reports/export` (or `export`, `export-excel`,
+`personnel/PERSON_ID/export`) alongside `export arm`. Observation leaves the real request/response untouched and
+records status plus public Content-Type/Content-Disposition only. Save network state and Blob capture output
+together; the latter includes the observed download-anchor filename, byte count, MIME type and SHA-256. `export
+state` reports whether a Blob was captured, including after a failed export. Restore both controls. JSON
+captures are inspected as JSON, not passed to `workbook`. For separate admission proof, `export request PAGE
+orgA|orgB json|excel` submits the ordinary POST from that signed-in owned app page and returns method/path,
+status, failure body and public download headers. It does not capture a successful artifact or claim a native
+action; use the visible controls for downloads. Only fixture Organizations and the two export endpoints are
+admitted. Compare `data_exports` and packet/progress readbacks before and after denials.
+
 ## Driving it with verify:app
 
 ### Prepare source witnesses

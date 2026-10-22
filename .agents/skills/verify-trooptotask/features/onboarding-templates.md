@@ -14,6 +14,28 @@ An Organization Onboarding configurator defines reusable checklists with checkbo
 
 Choose `Onboard` in Organization navigation, then the `Templates` action in the Active page toolbar (configurers only). The page opens with the `Templates` title (an `h1`) and the line `The steps each new arrival works through. Edits apply to new packets right away; active packets update when you sync them.`; the toolbar sits under it. It holds the search `Search templates and steps`, the `Active onboarding` link back to the packet workspace and the primary `New template`. Each list row reads `{k} steps · {m} active packets` (or `no active packets`); `m` counts only in-progress packets, so completed history is not counted. The list is headed `Templates` with the row count. Select a row to open the editor: the eyebrow `Template · {k} steps`, the name (an `h2`, focusable by script) with a pencil `Rename {name}`, an editable description, `Duplicate`, a destructive `Delete`, a `Sync active packets` notice when `m` is above 0, then the `Steps` heading with the caption `in the order Soldiers see them · drag to reorder` and the step list. Each step row has a grip `Reorder {step}`, its number, name, a detail line, its type, and `Edit {step}` and `Delete {step}` icon buttons; `Add step` closes the list. Below 1024 the list and the editor swap and a `Templates` back button returns. The direct `onboarding/templates` route requires Organization-scoped configuration authority; every other actor gets a 403 page. View/operate members read shared definitions through the ordinary Onboarding workspace and its template labels instead.
 
+## Helper controls
+
+Onboarding actors are `onboardingConfigure`, `onboardingOperate`, `onboardingView`, `onboardingScoped`,
+`onboardingEmpty`, `onboardingForeign` and `onboardingSwitch`, with all other feature lanes absent.
+`onboardingPersonnelScoped` additionally configures Personnel, with both lanes restricted to Alpha; use it for
+the shared Personnel creation form. Switch configures A and views B; Scoped configures with Alpha scope and
+Empty has no Groups. The [template/configuration recipe](onboarding-templates.md) owns expectations and
+distinguishes failed catalog affordances from actual server/provider denial. `actor` accepts `onboarding`,
+`onboarding/templates` and `onboarding/history`. `rows` allows `onboarding_template_steps`,
+`personnel_onboardings` and `onboarding_step_progress` as well as templates, with `template_id`, `onboarding_id`
+and `template_step_id` filters. `network` accepts exact A `onboarding-templates`, `onboarding-template-steps`,
+`onboarding-template-steps/reorder`, `onboarding-templates/UUID/duplicate` and `onboarding-resync` endpoints;
+`onboarding-resync` accepts an ordinal, so `arm-fail PAGE onboarding-resync 2` fails only the second packet of a
+bulk sync. Onboarding network controls reload the current page to install before its adapter captures fetch; arm
+before opening/filling the draft. Restore also disables a captured wrapper. Client503/hold controls do not
+establish what the provider committed; use the `onboarding-template-*` provider faults for that.
+
+The [Onboarding templates recipe](onboarding-templates.md) owns `onboarding-template-duplicate|reorder|delete`,
+which stop that database command, their `-lost-ack` forms, which let it commit and lose the answer, and
+`onboarding-steps-insert|update|delete`, which fail one POST, PATCH or DELETE to `onboarding_template_steps` and
+show those commands write no step rows from the app.
+
 ## Driving it with verify:app
 
 Preconditions: `doctor` passes for this checkout and worker. `$V fixture` provides `onboardingTemplate`, three distinguishable A steps (`onboardingCheckbox`, `onboardingPaperwork`, `onboardingTraining`), B's template/step, and `onboardingPacket` with three completed progress snapshots for Able. The completed packet avoids changing active Calendar markers. Seeded A steps are Orientation checkbox, Paperwork with Submitted → Reviewed → Filed stages, and Training Step linked to Required Training, in order 0/1/2. B's private Training step links only to B's private Training type. Use `$V actor ROLE onboarding` (or `onboarding/templates`, `onboarding/history`), record its page/Organization, and inspect actual loaded data.

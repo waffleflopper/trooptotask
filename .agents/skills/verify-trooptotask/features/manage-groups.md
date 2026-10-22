@@ -19,6 +19,15 @@ A manager adds, renames, or removes organization groups from the Personnel roste
 
 Sign in as a member with Organization-wide Personnel configuration access, choose `Personnel`, then `Manage Groups`. A Group-scoped configurer has no `Manage Groups` button. In the dialog, type into `Organization groups` and choose `Add`; each saved group has `Edit <name>` and `Remove <name>` actions. Choose `Done` to return to the roster.
 
+## Helper controls
+
+Group and personal pin verification uses the [Manage Groups recipe](manage-groups.md). `network
+arm-fail|arm-hold|arm-observe PAGE groups|pinned-groups` targets only that exact Organization A endpoint on the
+owned app origin. `arm-hold-fail` additionally supports pinned Groups for a delayed undispatched 503. Restore
+every control and each member's original ordered pin names; `rows user_pinned_groups orgA|orgB user_id ID`
+provides separate privileged readback. Native Pin/Unpin, ordinary preference replacement and provider partial
+failure retain distinct evidence.
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes; `$V fixture` identifies Organizations A/B and seeded Alpha/Bravo. Use a unique new Group name and preserve those original Groups.

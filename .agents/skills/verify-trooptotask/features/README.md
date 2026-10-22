@@ -1,6 +1,6 @@
 # TroopToTask feature map
 
-This is the user-facing map for the owned synthetic web app. Start with the relevant feature file; for a maintenance pass, exercise every file. The [verification skill](../SKILL.md) owns launch, doctor, native DevTools commands, synthetic controls, evidence and cleanup.
+This is the user-facing map for the owned synthetic web app. Start with the relevant feature file; for a maintenance pass, exercise every file. The [verification skill](../SKILL.md) owns launch, doctor, native DevTools commands, generic synthetic controls, evidence and cleanup.
 
 Expected results come from the selected issue's acceptance and the [Organization/Group authorization rules](../../../../docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md). Fixture identities make those rules observable; application output does not define the expectation.
 
@@ -21,6 +21,30 @@ npm run --silent verify:app -- tool click "{\"pageId\":$PAGE,\"uid\":\"$UID\"}" 
 ```
 
 Navigate between user pages through visible links and menus. For a fixed seeded date, use the Month and year picker, then choose the relevant named Person row and date cell. If several cells have the same name, a narrowly scoped DOM click on that visible row/day button through `evaluate_script` is allowed; do not call application handlers. Read-only authenticated `fetch` through that same signed-in page can establish a denied status or compare known fixture IDs in page data. The helper's `rows` command gives exact disposable-provider readback.
+
+## Viewer-day checks
+
+Operational "today" is the viewer's local day, so date checks need a browser day that differs from the UTC day.
+Choose `Pacific/Kiritimati` (UTC+14) when the current UTC hour is 10 or later, otherwise `Pacific/Pago_Pago`
+(UTC−11). After the first page opens, read `() => Intl.DateTimeFormat().resolvedOptions().timeZone` with
+`evaluate_script` and record it; a different answer means the zone did not reach Chrome and the date check is
+unavailable, not passed. The first page writes the browser's zone to the `t2t_tz` cookie and reloads its server
+data once on the browser day, with no manual reload. A server-rendered date still on the UTC day after that is a
+failure. `$V fixture` dates such as `ui` still use the host day; derive the browser day from `evaluate_script`
+(`() => new Date().toLocaleDateString('en-CA')`) and set up date-boundary rows relative to it.
+
+## Workspace reuse
+
+Calendar, Training, Critical Tasks and Onboarding each load one workspace when the feature is entered. Moving
+between that feature's own pages reuses the loaded workspace instead of reloading it. Pages with their own data,
+such as Reports or Onboarding History, still load that data on each visit, but the shared workspace stays client
+state.
+
+To prove reuse, clear resource timings with `evaluate_script` (`() => performance.clearResourceTimings()`),
+switch pages through visible links, then read `() => performance.getEntriesByType('resource').filter((e) =>
+e.name.includes('__data.json')).map((e) => new URL(e.name).pathname + ' ' + new
+URL(e.name).searchParams.get('x-sveltekit-invalidated'))`. Each digit of `x-sveltekit-invalidated` marks one
+server load in the route chain; a `1` in the feature layout's position means the workspace reloaded.
 
 ## Features
 
@@ -97,6 +121,16 @@ Navigate between user pages through visible links and menus. For a fixed seeded 
 ## Lower-level checks
 
 Browser recipes do not replace component, server, provider or SQL checks. For a code change, run the affected Vitest files with `npm run test -- <file>` and follow the [Definition of Done](../../../../docs/architecture/DEFINITION_OF_DONE.md#required-commands). For example, `src/features/calendar/utils/availabilityImport.test.ts`, `stores/availability.svelte.test.ts`, `components/CalendarSettingsPage.test.ts`, `stores/specialDays.svelte.test.ts`, Calendar route server tests, and Personnel/Group route tests cover behavior below the UI. The SQL controls `supabase/tests/calendar_lane_unassigned_scope.sql`, `calendar_catalog_scope.sql`, `calendar_persistence_isolation.sql`, and `personnel_unassigned_row_scope.sql` require the separately owned disposable database procedure in the Definition of Done; never aim them at the existing local or remote database. A browser request denial complements those checks, and a UI affordance does not establish RLS.
+
+Run `node --test scripts/verification/pointer-drag.test.mjs` for its boundaries.
+
+For focused checks of network response ordering, feedback and scoped request capture, run `node --test
+.agents/skills/verify-trooptotask/helpers/network-control.test.mjs
+.agents/skills/verify-trooptotask/helpers/feedback-control.test.mjs`.
+
+Run `node --test scripts/verification/outbound-controls.test.mjs` for the sink and fault boundaries and `node
+--test .agents/skills/verify-trooptotask/helpers/identity-controls.test.mjs` for the command shapes and
+readback.
 
 ## Feature entry contract
 

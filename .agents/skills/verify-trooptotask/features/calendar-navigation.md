@@ -28,6 +28,20 @@ A member moves through the availability calendar, narrows the people shown, and 
 
 Sign in with Calendar access and choose `Calendar` in the sidebar. The title row holds the eyebrow (`Calendar · <Organization> · N personnel`) and the page title, which is the month/year button (opens the month picker; heading level 1, e.g. `October 2026`), then `Previous month`, `Next month` and `Today` in that order, today's `N of M available` count while today is in the loaded range, and `Calendar view` (`Month`, `3-Month`). The Duty planner's header (title `Duty planner`) carries `Today`, then a group of `Previous month`, the month/year button and `Next month`, then `Back to calendar`, from the same shared component with only the month view. In `3-Month` the title names the quarter and the arrows are `Previous 3 months` and `Next 3 months`. The `Calendar controls` toolbar below it holds `Calendar group filter`, the personnel searchbox, `Duty planner` (assignment managers), `Reports`, `Display`, `More Calendar controls` and the pinned `Bulk Status` menu. `Display` holds `Show Onboarding` (when onboarding People exist), `Show Status Text` and `Show Personnel Roles` as checkboxes that keep the menu open. `More Calendar controls` always holds `Settings` (configure access), `Export to Excel` and `Print / PDF`; the exports cover the shown quarter in `3-Month`. The legend under the grid lists statuses; in `Month` it adds `Duty (codes)` for Person duties and, for people who can add availability, `Drag across days to add`. A narrow page moves more controls into More; see [Find a toolbar control on the row or in More](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more).
 
+## Helper controls
+
+When the date grid lacks a unique snapshot UID, use evaluation only to click the visible button in the named
+Person row and recorded day; never invoke app handlers or alter app state directly.
+
+Calendar actors include `calendarView`, `calendarOperate`, `calendarConfigure`, `calendarLane`,
+`calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, `calendarSwitch`, and `calendarConfigureSwitch`. The
+last actor can configure Calendar in both Organizations.
+
+```bash
+$V actor calendarLane calendar # provider session; returns pageId and Organization ID
+$V network arm-fail 2 calendar-range # one scoped synthetic 503; use the actual page ID
+```
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes; `$V fixture` supplies fixed September/March records and the local current date. Restore filters and request controls between cases.

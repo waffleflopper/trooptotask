@@ -13,6 +13,15 @@ A Calendar operator applies a status to selected people, imports reviewed rows, 
 
 From `Calendar`, choose `Bulk Status`. The page opens with the `Bulk status` heading (eyebrow `Calendar · Bulk status`). Beside the title, the `Bulk status sections` switch offers `Add`, `Remove` and `Import CSV` as radios, which keep the choice in the `tab` query, and `Back to calendar` leaves. On a narrow viewport both wrap onto their own line under the title. Add saves from its summary bar (`Add to N people`) with no confirmation step; Remove leads to `Review Matching Entries`, and Import to `Parse`/`Next`. The operator needs Calendar operate access and a scope that includes the selected people; the Import tab accepts pasted CSV. The seeded Able/Baker/Unassigned records belong to A, while Foreign belongs to B.
 
+## Helper controls
+
+```bash
+$V seed duplicate-able # or overlap, bulk-501, availability-volume, training-pages; returns a tag
+$V network arm-fail 2 availability/batch 2 # second matching batch request fails
+$V export save 2 .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
+$V workbook .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
+```
+
 ## Driving it with verify:app
 
 Preconditions: doctor passes; `$V actor calendarOperate calendar/bulk` returns `PAGE` (it lands on the Add tab; the Calendar > Bulk Status menu works too); `$V fixture` supplies `orgA`, `personA`, `personB`, `statusLeave`, `statusTraining`, and `dates.later/ui`. Use a unique note per mutation, capture the tab and selected Person names before saving, and keep helper-created rows marked for `clean-seeds`.

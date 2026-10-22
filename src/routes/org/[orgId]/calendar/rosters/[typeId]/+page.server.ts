@@ -1,5 +1,4 @@
-import { loadDa6View } from '$features/calendar/index.server';
-import { parseMonth } from '$features/calendar/utils/da6View';
+import { loadDa6View, parseMonth } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestRosterSettingsContext } from '$lib/server/adapters/requestContexts.server';

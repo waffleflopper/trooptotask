@@ -479,8 +479,10 @@
 		font-size: 9px;
 	}
 
+	/* Cells stay positioned for their corner marks; only the sticky columns let go. */
 	[data-print-report='da6'] :is(th, td) {
-		position: static;
+		position: relative;
+		left: auto;
 		min-width: 0;
 		height: auto;
 		padding: 2px 3px;

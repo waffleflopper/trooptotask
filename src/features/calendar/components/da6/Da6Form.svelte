@@ -12,18 +12,19 @@
 		weekdayLetter,
 		type Da6Sheet
 	} from '../../utils/da6View';
+	import type { Da6Segment } from '../../roster/rosterTypes';
 
 	interface Props {
 		sheet: Da6Sheet;
+		segment: Da6Segment;
 		orgName: string;
 		today: string;
 		selectedColumn: number | null;
 		onSelectDay: (column: number) => void;
 	}
 
-	let { sheet, orgName, today, selectedColumn, onSelectDay }: Props = $props();
+	let { sheet, segment, orgName, today, selectedColumn, onSelectDay }: Props = $props();
 
-	const segment = $derived(sheet.segment);
 	const separate = $derived(segment.weekendMode === 'separate');
 	const cells = $derived(segment.cells.flat());
 	const legend = $derived({
@@ -74,7 +75,7 @@
 
 	<Table.Root
 		scrollRegionLabel={`${segment.natureOfDuty} DA 6 grid, ${monthTitle(segment.month)}`}
-		class="w-max min-w-full border-separate border-spacing-0 text-sm"
+		class="w-max border-separate border-spacing-0 text-sm"
 	>
 		<caption class="sr-only">
 			Each column is a detail day. Numbers count details since a person last pulled duty.
@@ -107,7 +108,7 @@
 							type="button"
 							class={cn(
 								'flex w-full flex-col items-center gap-0.5 px-1 pt-1.5 pb-1 font-mono leading-none outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset print:pointer-events-none',
-								selectedColumn === index && 'shadow-[inset_0_-3px_0_var(--accent)]',
+								selectedColumn === index && 'shadow-[inset_0_-3px_0_var(--accent)] print:shadow-none',
 								isToday && 'text-accent-text',
 								separate && column.track === 'weekend' && 'text-destructive-text'
 							)}
@@ -144,7 +145,7 @@
 								column.date === today && 'border-r-foreground',
 								cell?.kind === 'detail' && 'font-bold',
 								cell?.kind === 'detail' && cell.when === 'served' && 'bg-warning-muted',
-								(cell?.kind === 'away' || cell?.kind === 'code') && 'bg-muted font-bold',
+								(cell?.kind === 'away' || cell?.kind === 'code') && 'bg-foreground/10 font-bold',
 								separate && column.track === 'weekend' && cell?.kind !== 'away' && 'text-destructive-text'
 							)}
 							title={cell?.kind === 'away' || cell?.kind === 'code' ? cell.reason : undefined}
@@ -176,23 +177,26 @@
 				Pulled duty
 			</li>
 			<li class="flex items-center gap-2">
-				<span aria-hidden="true" class="grid h-6 w-7 place-items-center bg-muted font-mono text-[11px] font-bold"
-					>A</span
+				<span
+					aria-hidden="true"
+					class="grid h-6 w-7 place-items-center bg-foreground/10 font-mono text-[11px] font-bold">A</span
 				>
 				Away, count holds
 			</li>
 			{#if legend.code}
 				<li class="flex items-center gap-2">
-					<span aria-hidden="true" class="grid h-6 w-7 place-items-center bg-muted font-mono text-[11px] font-bold"
-						>D5</span
+					<span
+						aria-hidden="true"
+						class="grid h-6 w-7 place-items-center bg-foreground/10 font-mono text-[11px] font-bold">D5</span
 					>
 					Other duty, count runs
 				</li>
 			{/if}
 			{#if legend.misconduct}
 				<li class="flex items-center gap-2">
-					<span aria-hidden="true" class="grid h-6 w-7 place-items-center bg-muted font-mono text-[11px] font-bold"
-						>U5</span
+					<span
+						aria-hidden="true"
+						class="grid h-6 w-7 place-items-center bg-foreground/10 font-mono text-[11px] font-bold">U5</span
 					>
 					Misconduct, count runs
 				</li>

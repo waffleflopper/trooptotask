@@ -21,7 +21,7 @@ import {
 	toAssignment,
 	toAssignmentType,
 	toAvailability,
-	toClosedRosterForm,
+	toClosedFormMonth,
 	toOpenRosterForm,
 	toSpecialDay,
 	toStatusType,
@@ -293,7 +293,7 @@ export function createInMemoryCalendarCatalogPersistence(
 						form.ends_on !== null && form.starts_on <= lastDayOf(month) && form.ends_on >= `${month}-01`
 				)
 				.sort((a, b) => a.starts_on.localeCompare(b.starts_on))
-				.map((form) => toClosedRosterForm(form, month));
+				.map((form) => toClosedFormMonth(form, month));
 		},
 		async listRosterExcusals(assignmentTypeId) {
 			return (

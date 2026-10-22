@@ -38,7 +38,14 @@ const SAVED: Da6Segment = {
 	remarks: []
 };
 
-function seed(ctx: Context, people = 2, days: string[] = ['2026-10-11', '2026-10-12', '2026-10-13']) {
+function seed(
+	ctx: Context,
+	{
+		people = 2,
+		days = ['2026-10-11', '2026-10-12', '2026-10-13'],
+		record = { segments: [{ ...SAVED, month: '2026-09', columns: [], rows: [], cells: [] }, SAVED] } as unknown
+	} = {}
+) {
 	const org = ctx.auth.orgId;
 	const person = (id: string, rank: string, lastName: string) => ({
 		id,
@@ -79,7 +86,7 @@ function seed(ctx: Context, people = 2, days: string[] = ['2026-10-11', '2026-10
 			starts_on: '2026-09-20',
 			ends_on: '2026-10-10',
 			rules,
-			record: { segments: [{ ...SAVED, month: '2026-09', columns: [], rows: [], cells: [] }, SAVED] }
+			record
 		},
 		{
 			id: 'sd-open',
@@ -131,8 +138,24 @@ describe('loadDa6View', () => {
 			['2026-10-11', null]
 		]);
 		expect(view.sheets[0].segment).toEqual(SAVED);
-		expect(view.sheets[1].segment.formState).toBe('open');
-		expect(gridLines(view.sheets[1].segment)).toEqual(['SGT Pike *4 1 *2', 'SPC Kim 6 *7 1']);
+		expect(view.sheets[1].segment?.formState).toBe('open');
+		expect(gridLines(view.sheets[1].segment!)).toEqual(['SGT Pike *4 1 *2', 'SPC Kim 6 *7 1']);
+	});
+
+	it.each([
+		['an empty record', {}],
+		['a segment missing its cells', { segments: [{ ...SAVED, cells: undefined }] }]
+	])('shows %s as an unreadable closed form and still reads the open one', async (_, record) => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seed(ctx, { record });
+
+		const view = await loadDa6View(ctx, { typeId: SD, month: '2026-10', today: TODAY });
+
+		expect(view.sheets.map(({ formId, from, to, segment }) => [formId, from, to, segment === null])).toEqual([
+			['sd-closed', '2026-10-01', '2026-10-10', true],
+			['sd-open', '2026-10-11', null, false]
+		]);
+		expect(gridLines(view.sheets[1].segment!)).toEqual(['SGT Pike *4 1 *2', 'SPC Kim 6 *7 1']);
 	});
 
 	it('closes the To field on the month’s last day once the month has passed', async () => {
@@ -179,7 +202,7 @@ describe('loadDa6View', () => {
 	it('reads a month with the same queries however many people and duty days it holds', async () => {
 		const reads = async (people: number, days: string[]) => {
 			const ctx = createWriteWithNotificationsPortsContext();
-			seed(ctx, people, days);
+			seed(ctx, { people, days });
 			let count = 0;
 			for (const port of [
 				ctx.calendarCatalogs,
@@ -189,14 +212,14 @@ describe('loadDa6View', () => {
 			]) {
 				for (const [name, method] of Object.entries(port)) {
 					if (typeof method !== 'function') continue;
-					(port as Record<string, unknown>)[name] = (...args: unknown[]) => {
+					(port as unknown as Record<string, unknown>)[name] = (...args: unknown[]) => {
 						count += 1;
 						return method.apply(port, args);
 					};
 				}
 			}
 			const view = await loadDa6View(ctx, { typeId: SD, month: '2026-10', today: TODAY });
-			return { count, rows: view.sheets[1].segment.rows.length, columns: view.sheets[1].segment.columns.length };
+			return { count, rows: view.sheets[1].segment!.rows.length, columns: view.sheets[1].segment!.columns.length };
 		};
 		const october = (from: number, through: number) =>
 			Array.from({ length: through - from + 1 }, (_, index) => `2026-10-${String(from + index).padStart(2, '0')}`);

@@ -4,6 +4,7 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import PrinterIcon from '@lucide/svelte/icons/printer';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as Empty from '$lib/components/ui/empty';
@@ -82,7 +83,7 @@
 						<ArrowLeftIcon aria-hidden="true" />
 						Back to planner
 					</Button>
-					<Button size="sm" disabled={!view?.sheets.length} onclick={() => window.print()}>
+					<Button size="sm" disabled={!view?.sheets.some((sheet) => sheet.segment)} onclick={() => window.print()}>
 						<PrinterIcon aria-hidden="true" />
 						Print DA 6
 					</Button>
@@ -117,7 +118,7 @@
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
-		{#each view.sheets as sheet, index (sheet.segment.formId)}
+		{#each view.sheets as sheet, index (sheet.formId)}
 			{#if index > 0}
 				<p
 					class="border-y border-dashed py-2 text-center font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase"
@@ -127,18 +128,31 @@
 					when the roster rules changed.
 				</p>
 			{/if}
-			<Da6Form
-				{sheet}
-				{orgName}
-				today={view.today}
-				selectedColumn={day?.sheet === index ? day.column : null}
-				onSelectDay={(column) => {
-					if (view) picked = { view, day: { sheet: index, column } };
-				}}
-			/>
+			{#if sheet.segment}
+				<Da6Form
+					{sheet}
+					segment={sheet.segment}
+					{orgName}
+					today={view.today}
+					selectedColumn={day?.sheet === index ? day.column : null}
+					onSelectDay={(column) => {
+						if (view) picked = { view, day: { sheet: index, column } };
+					}}
+				/>
+			{:else}
+				<Alert.Root variant="destructive">
+					<Alert.Title>Unable to load this DA 6</Alert.Title>
+					<Alert.Description>
+						The form saved for {headerDate(sheet.from)} to {headerDate(sheet.to ?? sheet.from)} could not be read.
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
 		{/each}
 		{#if day}
-			<Da6ShowTheWork sheet={view.sheets[day.sheet]} column={day.column} />
+			{@const segment = view.sheets[day.sheet].segment}
+			{#if segment}
+				<Da6ShowTheWork {segment} column={day.column} />
+			{/if}
 		{/if}
 	{/if}
 </div>

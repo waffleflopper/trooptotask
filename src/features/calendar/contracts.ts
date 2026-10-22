@@ -3,8 +3,8 @@ import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 import type {
-	ClosedForm,
 	Da6Segment,
+	DateKey,
 	Excusal,
 	MonthKey,
 	OpenForm,
@@ -14,6 +14,16 @@ import type {
 	TrackId,
 	WeekendMode
 } from './roster/rosterTypes';
+
+/**
+ * One closed form's saved record for a month. A readable record's segment is null when nobody held the duty that
+ * month. An unreadable record is reported, not thrown, so the rest of the month still shows.
+ */
+export type ClosedFormMonth = {
+	readonly id: string;
+	readonly startsOn: DateKey;
+	readonly endsOn: DateKey;
+} & ({ readonly readable: true; readonly segment: Da6Segment | null } | { readonly readable: false });
 
 /** The most records or IDs one availability batch request accepts; the batch RPCs enforce it too. */
 export const AVAILABILITY_BATCH_LIMIT = 500;
@@ -291,7 +301,7 @@ export interface CalendarCatalogPersistence {
 	/** Null for a group-assigned type, or a person-assigned type whose form a concurrent save is replacing. */
 	findOpenRosterForm(assignmentTypeId: string): Promise<OpenForm | null>;
 	/** Closed forms that overlap `month`, oldest first, each carrying only that month's saved segment. */
-	listClosedRosterForms(assignmentTypeId: string, month: MonthKey): Promise<ClosedForm[]>;
+	listClosedRosterForms(assignmentTypeId: string, month: MonthKey): Promise<ClosedFormMonth[]>;
 	/** Every excusal on this roster, reinstated ones included, so a close can save who was excused when. */
 	listRosterExcusals(assignmentTypeId: string): Promise<Excusal[]>;
 	/** Makes `excusals` the open set from `today` on, ending the others yesterday. */

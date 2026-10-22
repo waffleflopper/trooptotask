@@ -31,7 +31,14 @@ export async function loadDa6View(
 				if (!type || !form || form.startsOn > monthEnd) return null;
 				const run = simulateRoster(await loadRosterFacts(ctx, type, form, today, monthEnd));
 				const segment = da6Segment(run, month);
-				return segment && { from: later(monthStart, form.startsOn), to: today > monthEnd ? monthEnd : null, segment };
+				return (
+					segment && {
+						formId: form.id,
+						from: later(monthStart, form.startsOn),
+						to: today > monthEnd ? monthEnd : null,
+						segment
+					}
+				);
 			}
 		)
 	]);
@@ -42,12 +49,18 @@ export async function loadDa6View(
 	const roster = allTypes.find((type) => type.id === typeId && type.assignTo === 'personnel');
 	if (!roster) fail(404, 'That duty roster is not available.');
 
+	// A form that held no duty this month has no sheet. One whose record cannot be read keeps its place as an error.
 	const closedSheets = closedForms.flatMap((form): Da6Sheet[] =>
-		form.segments.map((segment) => ({
-			from: later(monthStart, form.startsOn),
-			to: earlier(form.endsOn, monthEnd),
-			segment
-		}))
+		form.readable && !form.segment
+			? []
+			: [
+					{
+						formId: form.id,
+						from: later(monthStart, form.startsOn),
+						to: earlier(form.endsOn, monthEnd),
+						segment: form.readable ? form.segment : null
+					}
+				]
 	);
 	return {
 		rosters,

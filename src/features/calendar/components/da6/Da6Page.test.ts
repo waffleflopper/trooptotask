@@ -15,7 +15,7 @@ const r4: Da6View = {
 	roster: STAFF_DUTY,
 	month: '2026-10',
 	today: '2026-10-16',
-	sheets: [{ from: '2026-10-01', to: null, segment: da6Segment(simulateRoster(storedR4()), '2026-10')! }]
+	sheets: [{ formId: 'r4', from: '2026-10-01', to: null, segment: da6Segment(simulateRoster(storedR4()), '2026-10')! }]
 };
 
 function renderR4(view: Da6View | null = r4) {
@@ -84,6 +84,21 @@ describe('DA 6 for the R4 fixture', () => {
 		await fireEvent.click(screen.getByRole('radio', { name: 'Charge of Quarters' }));
 
 		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq?month=2026-10');
+	});
+
+	it('shows a closed form it cannot read as a load error and keeps the rest of the month', async () => {
+		renderR4({
+			...r4,
+			sheets: [{ formId: 'broken', from: '2026-10-01', to: '2026-10-05', segment: null }, ...r4.sheets]
+		});
+
+		const error = screen.getByRole('alert');
+		expect(error.textContent).toContain('Unable to load this DA 6');
+		expect(error.textContent).toContain('1 Oct 2026 to 5 Oct 2026');
+		expect(rowCells('Patel', 6, 9)).toEqual(['4', 'D5', 'D6', '7']);
+		await fireEvent.click(screen.getByRole('button', { name: '20 Oct' }));
+		expect(screen.getByRole('region', { name: 'Show the work' }).textContent).toContain('so Nguyen pulls it.');
+		expect((screen.getByRole('button', { name: /Print DA 6/ }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('holds the grid with a skeleton until the month arrives', () => {

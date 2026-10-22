@@ -18,11 +18,15 @@ export interface Da6Roster {
 	readonly shortName: string;
 }
 
-/** One form's part of the month with its header dates. `to` is null while the form is open past the month's end. */
+/**
+ * One form's part of the month with its header dates. `to` is null while the form is open past the month's end.
+ * `segment` is null when a closed form's saved record cannot be read.
+ */
 export interface Da6Sheet {
+	readonly formId: string;
 	readonly from: DateKey;
 	readonly to: DateKey | null;
-	readonly segment: Da6Segment;
+	readonly segment: Da6Segment | null;
 }
 
 export interface Da6View {
@@ -149,7 +153,7 @@ export interface Da6DayRef {
 export function defaultDay(sheets: readonly Da6Sheet[], today: DateKey): Da6DayRef | null {
 	let fallback: Da6DayRef | null = null;
 	for (const [sheet, { segment }] of sheets.entries()) {
-		for (const [column, { date }] of segment.columns.entries()) {
+		for (const [column, { date }] of (segment?.columns ?? []).entries()) {
 			if (date === today) return { sheet, column };
 			if (date < today || fallback === null) fallback = { sheet, column };
 		}
@@ -201,5 +205,8 @@ export function workedExample(segment: Da6Segment, index: number): string {
 	);
 	const highest = `${fullName(pick)} has the highest number${at}, so ${pick.lastName} pulls it.`;
 	if (!tied.length) return highest;
-	return `${list([pick, ...tied].map(fullName))} ${tied.length === 1 ? 'both' : 'all'} sit${at}. ${pick.lastName} is higher on the form, so ${pick.lastName} pulls it.`;
+	const names = [pick, ...tied];
+	const sitting =
+		names.length > 3 ? `All ${names.length}` : `${list(names.map(fullName))} ${names.length === 2 ? 'both' : 'all'}`;
+	return `${sitting} sit${at}. ${pick.lastName} is higher on the form, so ${pick.lastName} pulls it.`;
 }

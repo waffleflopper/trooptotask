@@ -8,7 +8,7 @@ import {
 	ASSIGNMENT_TYPE_FIELDS,
 	CLOSED_ROSTER_FORM_FIELDS,
 	ROSTER_FORM_FIELDS,
-	toClosedRosterForm,
+	toClosedFormMonth,
 	toOpenRosterForm,
 	type ClosedRosterFormRow,
 	type RosterExcusalRow,
@@ -364,7 +364,7 @@ export function createSupabaseCalendarCatalogPersistence(
 				.order('starts_on', { ascending: true })
 				.returns<ClosedRosterFormRow[]>();
 			if (error) throw new Error(error.message);
-			return data.map((row) => toClosedRosterForm(row, month));
+			return data.map((row) => toClosedFormMonth(row, month));
 		},
 		async listRosterExcusals(assignmentTypeId) {
 			const result = await selectAllSupabaseRows<RosterExcusalRow & { id: string }>(async (from, to) => {

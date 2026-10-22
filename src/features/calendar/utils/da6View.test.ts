@@ -32,6 +32,22 @@ describe('Show the work', () => {
 			'Assigned by hand to PFC Brooks at 9. By the rule it would have gone to SPC Patel. A hand-assigned day still counts, so Brooks starts over.'
 		);
 	});
+
+	it('counts a wide tie instead of naming everyone in it', () => {
+		const person = (lastName: string) => ({ personId: lastName, rank: 'SPC', lastName, firstName: 'A' });
+		const people = ['Able', 'Baker', 'Cole', 'Dunn'].map(person);
+		const segment = {
+			...r4,
+			columns: [{ ...r4.columns[0], pick: people[0], passedOver: [], rulePick: null }],
+			rows: people,
+			cells: [
+				[{ kind: 'detail' as const, count: 1, when: 'served' as const }],
+				...people.slice(1).map(() => [{ kind: 'count' as const, count: 1 }])
+			]
+		};
+
+		expect(workedExample(segment, 0)).toBe('All 4 sit at 1. Able is higher on the form, so Able pulls it.');
+	});
 });
 
 describe('remarks', () => {
@@ -43,7 +59,7 @@ describe('remarks', () => {
 });
 
 describe('the default day', () => {
-	const sheets: Da6Sheet[] = [{ from: '2026-10-01', to: null, segment: r4 }];
+	const sheets: Da6Sheet[] = [{ formId: 'r4', from: '2026-10-01', to: null, segment: r4 }];
 
 	it('opens on today', () => {
 		expect(defaultDay(sheets, '2026-10-16')).toEqual({ sheet: 0, column: 15 });

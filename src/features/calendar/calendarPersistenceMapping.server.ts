@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { dateOnlySchema, isUuid, uuidSchema } from '$lib/utils/inputSchemas';
 import type {
+	ClosedFormMonth,
 	RosterExcusal,
 	SavedAssignment,
 	SavedAssignmentType,
@@ -11,7 +12,6 @@ import type {
 import { fitsOneDayLabel, normalizeShortLabel } from '$lib/components/patterns/calendar-bars';
 import { MAX_CLOSURE_DAYS } from './utils/closureDays';
 import type {
-	ClosedForm,
 	Da6Segment,
 	MonthKey,
 	OpenForm,
@@ -68,7 +68,6 @@ export type ClosedRosterFormRow = {
 	id: string;
 	starts_on: string;
 	ends_on: string;
-	rules: { pool: PoolRules | null; weekendMode: WeekendMode };
 	record: unknown;
 };
 export type RosterExcusalRow = { personnel_id: string; reason: string; starts_on: string; ends_on?: string | null };
@@ -97,7 +96,7 @@ export const STATUS_TYPE_FIELDS =
 	'id, organization_id, name, color, text_color, short_label, roster_effect, sort_order, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
 	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, roster_pool_rules, roster_weekend_mode, archived_at, created_at, roster_excusals(personnel_id, reason, starts_on, ends_on)';
-export const CLOSED_ROSTER_FORM_FIELDS = 'id, starts_on, ends_on, rules, record';
+export const CLOSED_ROSTER_FORM_FIELDS = 'id, starts_on, ends_on, record';
 export const ROSTER_FORM_FIELDS = 'id, starts_on, rules, roster_starting_numbers(personnel_id, track, count, origin)';
 export const SPECIAL_DAY_FIELDS = 'id, organization_id, date, name, type, created_at';
 export const AVAILABILITY_FIELDS =
@@ -226,16 +225,16 @@ const da6SegmentSchema = z.object({
 const closedRecordSchema = z.object({ segments: z.array(z.object({ month: z.string() }).passthrough()) });
 
 /** Parses only the segment for `month`, so a long closed form costs one month of validation. */
-export function toClosedRosterForm(row: ClosedRosterFormRow, month: MonthKey): ClosedForm {
-	const segment = closedRecordSchema.parse(row.record).segments.find((candidate) => candidate.month === month);
-	return {
-		kind: 'closed',
-		id: row.id,
-		startsOn: row.starts_on,
-		endsOn: row.ends_on,
-		rules: { pool: row.rules.pool ?? null, weekendMode: row.rules.weekendMode },
-		segments: segment ? [da6SegmentSchema.parse(segment)] : []
-	};
+export function toClosedFormMonth(row: ClosedRosterFormRow, month: MonthKey): ClosedFormMonth {
+	const form = { id: row.id, startsOn: row.starts_on, endsOn: row.ends_on };
+	const record = closedRecordSchema.safeParse(row.record);
+	const saved = record.success ? record.data.segments.find((candidate) => candidate.month === month) : undefined;
+	const segment = saved && da6SegmentSchema.safeParse(saved);
+	if (!record.success || (segment && !segment.success)) {
+		console.error('[da6] Saved DA 6 record does not match the segment shape', { formId: row.id, month });
+		return { ...form, readable: false };
+	}
+	return { ...form, readable: true, segment: segment ? segment.data : null };
 }
 
 function toRosterExcusal(row: RosterExcusalRow): RosterExcusal {

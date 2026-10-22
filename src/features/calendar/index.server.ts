@@ -32,6 +32,7 @@ export {
 export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';
 export { saveRosterSettings } from './rosterSettingsOperations.server';
 export { loadDa6View } from './da6Operations.server';
+export { parseMonth } from './utils/da6View';
 export { previewStatusEffect } from './statusEffectPreview.server';
 export {
 	createSupabaseAssignmentTypeRetention,

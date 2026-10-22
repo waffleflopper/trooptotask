@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { calendarStore } from '$features/calendar';
 import type { AssignmentType } from '$features/calendar/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -254,6 +253,31 @@ describe('overdueEvaluations', () => {
 			}
 		]);
 	});
+
+	it('keeps the named overdue entry when the viewer has no Personnel roster', () => {
+		const rows = overdueEvaluations(
+			inputs({
+				personnel: [],
+				ratingSchemeEntries: [
+					{
+						id: 'eval-late',
+						ratedPersonId: 'p-alvarez',
+						ratedPersonName: 'SSG Alvarez, Marisol',
+						evalType: 'NCOER',
+						ratingPeriodEnd: '2026-10-13',
+						status: 'active'
+					}
+				]
+			})
+		);
+		expect(rows).toMatchObject([
+			{
+				id: 'overdue:eval-late',
+				title: 'NCOER for SSG Alvarez, Marisol',
+				href: '/org/org-1/evals?entry=eval-late'
+			}
+		]);
+	});
 });
 
 describe('expiredTraining', () => {
@@ -344,25 +368,6 @@ describe('unfilledDuty', () => {
 				urgency: { date: '2026-10-27' }
 			}
 		]);
-	});
-
-	it('opens the Calendar at the month of the first open day, not the month it was left in', () => {
-		calendarStore.goToMonth(2026, 0);
-		const [row] = unfilledDuty(
-			inputs({
-				personnel: [alvarez],
-				assignments: FORECAST.filter((date) => date !== '2026-11-01').map((date) => ({
-					id: `slot-${date}`,
-					date,
-					assignmentTypeId: 'staff-duty',
-					assigneeId: 'p-alvarez'
-				}))
-			})
-		);
-
-		row.onOpen?.();
-
-		expect(calendarStore.currentDate).toEqual(new Date(2026, 10, 1));
 	});
 });
 

@@ -98,7 +98,10 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 		return [{ ...personChoice(person), current: isCurrent(person.id), unavailable, count, offRoster: false }];
 	});
 	const inPool = new Set(entries.map((entry) => entry.personId));
-	const others = byName(input.personnel.filter((person) => !inPool.has(person.id))).map(
+	const others = notExcused(
+		input.type,
+		input.personnel.filter((person) => !inPool.has(person.id))
+	).map(
 		(person): DutyPickerOption => ({
 			...personChoice(person),
 			current: isCurrent(person.id),

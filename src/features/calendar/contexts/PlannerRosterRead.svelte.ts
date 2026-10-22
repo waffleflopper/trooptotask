@@ -14,11 +14,14 @@ import { buildRequestError, withinOrganizationLifetime } from '$lib/stores/core'
 
 export type PlannerRosterStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-/** One roster day for the duty picker. A refetch after a write keeps the shown day until the new one arrives. */
+/**
+ * One roster day for the duty picker. A refetch after a write keeps the shown day until the new one arrives, and
+ * marks it stale if the refetch fails.
+ */
 export type RosterDayRead =
 	| { readonly status: 'loading' }
 	/** A null day is a type with no open roster form. */
-	| { readonly status: 'ready'; readonly day: RosterDay | null }
+	| { readonly status: 'ready'; readonly day: RosterDay | null; readonly stale?: true }
 	| { readonly status: 'error' };
 
 type MonthRequest = { readonly orgId: string; readonly month: string; readonly today: string };
@@ -163,7 +166,7 @@ export class PlannerRosterRead {
 		} catch {
 			if (!owns()) return;
 			const current = this.#days.get(key);
-			if (current?.status !== 'ready') this.#days.set(key, { status: 'error' });
+			this.#days.set(key, current?.status === 'ready' ? { ...current, stale: true } : { status: 'error' });
 		}
 	}
 }

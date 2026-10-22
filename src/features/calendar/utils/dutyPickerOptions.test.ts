@@ -92,7 +92,6 @@ describe('dutyPickerOptions', () => {
 			['p-reed', 12, undefined, false, false],
 			['p-liang', 12, 'Leave (A)', false, false],
 			['p-hale', 9, 'CQ (D)', false, true],
-			['p-kim', undefined, undefined, true, false],
 			['p-ortiz-c', undefined, undefined, true, false],
 			['p-ortiz-a', undefined, undefined, true, false],
 			['p-ortiz-b', undefined, undefined, true, false]
@@ -109,12 +108,17 @@ describe('dutyPickerOptions', () => {
 		).toEqual([
 			['p-reed', undefined, false, false],
 			['p-hale', undefined, false, true],
-			['p-kim', undefined, true, false],
 			['p-liang', undefined, true, false],
 			['p-ortiz-c', undefined, true, false],
 			['p-ortiz-a', undefined, true, false],
 			['p-ortiz-b', undefined, true, false]
 		]);
+	});
+
+	it('keeps an excused person out of the off-roster search list, as it does without a roster', () => {
+		const roster: RosterDay = { track: null, pool: ['p-reed'] };
+
+		expect(options({ roster }).map((option) => option.id)).not.toContain('p-kim');
 	});
 
 	it('keeps an unavailable person, naming every covering entry', () => {

@@ -14,8 +14,8 @@
 		/** Where focus lands on close, for an anchor that may be gone by then; defaults to the anchor. */
 		returnFocusTo?: () => HTMLElement | null;
 		options: readonly DutyPickerOption[];
-		/** The read of this day's roster counts, for an operator who sees them. */
-		counts?: { status: 'loading' | 'ready' | 'error'; onRetry: () => void };
+		/** The read of this day's roster counts, for an operator who sees them. `stale`: a refresh failed, so the counts shown may miss the latest write. */
+		counts?: { status: 'loading' | 'ready' | 'error'; stale?: boolean; onRetry: () => void };
 		onAssign: (assigneeId: string) => Promise<boolean>;
 		/** Offered only for a slot that already has someone. */
 		onClear?: () => Promise<boolean>;
@@ -103,7 +103,7 @@
 				<p class="px-3 pt-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase" role="status">
 					Loading roster counts…
 				</p>
-			{:else if counts?.status === 'error'}
+			{:else if counts?.status === 'error' || counts?.stale}
 				<div class="flex items-center justify-between gap-2 px-3 pt-1.5" role="alert">
 					<p class="text-xs text-destructive-text">Roster counts could not be loaded.</p>
 					<Button variant="outline" size="xs" onclick={counts.onRetry}>Retry</Button>

@@ -234,6 +234,32 @@ describe('loadPlannerRosters', () => {
 		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2027-10' })).resolves.toHaveLength(1);
 	});
 
+	it('reads no personnel, ranks or statuses when the Organization has no open roster', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		ctx.store.seed('assignment_types', [
+			{
+				id: TYPE,
+				organization_id: ctx.auth.orgId,
+				name: 'Staff Duty',
+				short_name: 'SD',
+				assign_to: 'personnel',
+				color: '#dc2626',
+				sort_order: 0,
+				show_on_calendar: true,
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same',
+				archived_at: null
+			}
+		]);
+		const timelines = vi.spyOn(ctx.personnelCalendarRoster, 'listAttributeTimelines');
+		const ranks = vi.spyOn(ctx, 'loadRankCatalog');
+		const statuses = vi.spyOn(ctx.calendarCatalogs, 'listStatusTypes');
+
+		await expect(loadPlannerRosters(ctx, { today: TODAY, month: '2026-10' })).resolves.toEqual([]);
+
+		expect([timelines, ranks, statuses].map((read) => read.mock.calls.length)).toEqual([0, 0, 0]);
+	});
+
 	it('keeps roster counts from a Group-scoped operator', async () => {
 		const ctx = createWriteWithNotificationsPortsContext({
 			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['group-a'] } }

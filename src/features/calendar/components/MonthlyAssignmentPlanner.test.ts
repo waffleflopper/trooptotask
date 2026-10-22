@@ -399,6 +399,26 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 			expect(screen.getByRole('button', { name: okaforOn21 })).toBeTruthy();
 			expect(within(screen.getByRole('region', { name: 'Conflicts' })).getByText(/SGT Okafor, Ife/)).toBeTruthy();
 		});
+
+		describe.each([
+			['stale', { views: coveringView, stale: true }],
+			['loading', { views: new Map(), status: 'loading' as const }]
+		])('with a %s roster view', (_state, rosters) => {
+			it('flags a person holding Staff Duty and CQ on one day with D naming the other duty', () => {
+				renderPlanner({
+					assignmentTypes: [staffDuty, { ...staffDuty, id: 'type-cq', name: 'CQ', shortName: 'CQ', excusals: [] }],
+					assignments: [duty('2026-10-21', 'type-sd', 'p-kim'), duty('2026-10-21', 'type-cq', 'p-kim')],
+					rosters
+				});
+
+				expect(
+					screen.getByRole('button', { name: /Staff Duty, Wed 21 Oct: SGT Kim, Jae-won, unavailable: CQ \(D\)/ })
+				).toBeTruthy();
+				expect(
+					screen.getByRole('button', { name: /CQ, Wed 21 Oct: SGT Kim, Jae-won, unavailable: Staff Duty \(D\)/ })
+				).toBeTruthy();
+			});
+		});
 	});
 
 	const detailDay: RosterDayRead = {

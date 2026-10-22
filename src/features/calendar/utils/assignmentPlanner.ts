@@ -136,6 +136,29 @@ export function buildPlannerTable(input: {
 			conflicts.push(presentConflict(type, item.date, item.personId, effectLabel(item)));
 		}
 	}
+	// Without a roster view nothing else sees a person holding two duties on one day, so name it here.
+	if (!input.rosters) {
+		const monthKeys = new Set(getMonthDates(input.anchor.getFullYear(), input.anchor.getMonth()).map(formatDate));
+		const dutiesByPersonDay = new Map<string, DailyAssignment[]>();
+		for (const assignment of input.assignmentsBySlot.values()) {
+			if (typeById.get(assignment.assignmentTypeId)?.assignTo !== 'personnel' || !monthKeys.has(assignment.date))
+				continue;
+			const key = `${assignment.date}|${assignment.assigneeId}`;
+			dutiesByPersonDay.set(key, [...(dutiesByPersonDay.get(key) ?? []), assignment]);
+		}
+		for (const duties of dutiesByPersonDay.values()) {
+			for (const duty of duties) {
+				const others = duties
+					.filter((other) => other !== duty)
+					.map((other) => `${typeById.get(other.assignmentTypeId)!.name} (D)`);
+				if (!others.length) continue;
+				const type = typeById.get(duty.assignmentTypeId)!;
+				const at = conflicts.findIndex((conflict) => conflict.typeId === type.id && conflict.dateKey === duty.date);
+				if (at < 0) conflicts.push(presentConflict(type, duty.date, duty.assigneeId, others.join('; ')));
+				else conflicts[at] = { ...conflicts[at], reason: [conflicts[at].reason, ...others].join('; ') };
+			}
+		}
+	}
 	const columnOrder = new Map(input.columns.map((type, index) => [type.id, index]));
 	conflicts.sort(
 		(a, b) => a.dateKey.localeCompare(b.dateKey) || (columnOrder.get(a.typeId) ?? 0) - (columnOrder.get(b.typeId) ?? 0)

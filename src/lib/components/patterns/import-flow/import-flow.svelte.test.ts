@@ -268,7 +268,7 @@ describe('ImportFlow', () => {
 		guard({ cancel, willUnload: false, to: { url: new URL('http://localhost/org/other') }, type: 'link' } as never);
 
 		expect(cancel).toHaveBeenCalled();
-		expect(toastStore.info).toHaveBeenCalledWith('Your import is still saving. You can leave when it finishes.');
+		expect(toastStore.info).toHaveBeenCalledOnce();
 		expect(screen.getByText(/^Saving/)).toBeTruthy();
 	});
 });

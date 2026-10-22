@@ -1,16 +1,19 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { Component, Snippet } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { AttentionActionRowSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDashboardTitleDate, type DashboardViewerDay } from '../contracts';
 	import { openCalendarAt } from '../calendarLink';
+	import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 	import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 	import {
 		composeDashboardSections,
 		type DashboardAccess,
 		type DashboardSection,
+		type QuickAddDialogProps,
 		type QuickAddEntry
 	} from '../sections/dashboardSections';
 	import BottomLine from './BottomLine.svelte';
@@ -28,11 +31,12 @@
 		/** Every section the page can show; those whose feature is off add nothing. */
 		sections: readonly DashboardSection[];
 		access: DashboardAccess;
+		updates: DashboardPageUpdates;
 		/** Replaces the bands when the workspace fails; the header stays. */
 		failure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, failure }: Props = $props();
+	let { orgName, viewerDay, ctx, sections, access, updates, failure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -44,7 +48,27 @@
 	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
 
-	let openQuickAdd = $state<QuickAddEntry | null>(null);
+	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
+	let latestOpen = 0;
+
+	// An Organization switch unloads the model; the open or loading dialog belongs to the old one.
+	$effect(() => {
+		if (model) return;
+		QuickAddDialog = null;
+		latestOpen++;
+	});
+
+	async function openQuickAdd(entry: QuickAddEntry) {
+		const request = ++latestOpen;
+		const openedIn = model?.data.orgId;
+		const current = () => request === latestOpen && model?.data.orgId === openedIn;
+		try {
+			const { default: dialog } = await entry.loadDialog();
+			if (current()) QuickAddDialog = dialog;
+		} catch {
+			if (current()) toastStore.error(`Could not open ${entry.label}. Try again.`);
+		}
+	}
 
 	const EYEBROW = 'font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase';
 	const BAND = 'grid gap-14 border-t-2 border-foreground pt-6';
@@ -60,7 +84,8 @@
 	<div class="flex flex-wrap items-center gap-2 pb-1" role="group" aria-labelledby="dashboard-quick-add">
 		<span id="dashboard-quick-add" class="pr-1.5 {EYEBROW}">Quick add</span>
 		{#each quickAdd as entry, index (entry.id)}
-			<Button variant={index === quickAdd.length - 1 ? 'default' : 'outline'} onclick={() => (openQuickAdd = entry)}>
+			<Button variant={index === quickAdd.length - 1 ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
+				<entry.icon data-icon="inline-start" aria-hidden="true" />
 				{entry.label}
 			</Button>
 		{/each}
@@ -247,6 +272,6 @@
 	</div>
 </div>
 
-{#if openQuickAdd && model}
-	<openQuickAdd.dialog {model} onClose={() => (openQuickAdd = null)} />
+{#if QuickAddDialog && model}
+	<QuickAddDialog {model} {access} {updates} onClose={() => (QuickAddDialog = null)} />
 {/if}

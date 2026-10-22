@@ -16,6 +16,7 @@ export { createSupabaseTrainingCertificateStore } from './server/trainingCertifi
 export { createSupabaseTrainingTypeNamesReader } from './server/trainingTypeNames.server';
 export {
 	createTrainingRecord,
+	listPersonTrainingRecords,
 	recordTrainingCompletion,
 	correctTrainingCompletion,
 	openTrainingCertificate,

@@ -1,15 +1,23 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import {
 		DASHBOARD_SECTIONS,
 		DashboardPageView,
+		createDashboardAccess,
 		createDashboardScreenModel,
-		type DashboardAccess
+		overlayDashboardRecords,
+		overlayDashboardSummary,
+		putDashboardRecord,
+		type DashboardPageUpdates,
+		type DashboardRecordOverlay
 	} from '$features/dashboard';
-	import type { DashboardPageData } from '$features/dashboard/contracts';
+	import {
+		type DashboardPageData,
+		type DashboardPageSummaryData,
+		type DashboardWorkspaceResult
+	} from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
-	import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
-	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
@@ -20,14 +28,26 @@
 	let { data }: { data: DashboardRouteData } = $props();
 
 	let dashboardBootstrap = $state<DashboardWorkspaceResult | null>(null);
-	let summaryData = $state<DashboardPageSummaryData | null>(null);
+	let latestSummary = $state<{ orgId: string; summary: DashboardPageSummaryData } | null>(null);
+	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
+	let summaryRequest = 0;
+	onDestroy(() => {
+		summaryRequest++;
+	});
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
+	const orgId = $derived(data.shell.org.id);
+	const streamedWorkspace = $derived(data.dashboard?.data);
+	const streamedSummary = $derived(data.summary);
+	const summaryData = $derived.by(() => {
+		const latest = latestSummary;
+		return latest && latest.orgId === orgId ? latest.summary : null;
+	});
 
 	$effect(() => {
 		let cancelled = false;
-		const streamedDashboard = data.dashboard?.data;
+		const streamedDashboard = streamedWorkspace;
 
 		dashboardBootstrap = null;
 		workspaceError = null;
@@ -59,32 +79,35 @@
 
 	$effect(() => {
 		let cancelled = false;
+		const summaryOrgId = orgId;
+		const streamed = streamedSummary;
+		const request = ++summaryRequest;
 
-		summaryData = null;
 		summaryError = null;
 
-		if (!data.summary) {
+		if (!streamed) {
 			return;
 		}
 
-		if (!isPromiseLike(data.summary)) {
-			summaryData = data.summary;
+		if (!isPromiseLike(streamed)) {
+			latestSummary = { orgId: summaryOrgId, summary: streamed };
 			return;
 		}
 
-		void observeDeferred(data.summary, {
+		void observeDeferred(streamed, {
 			fallbackMessage: 'Failed to load dashboard summary',
 			onResolve: (summary) => {
-				summaryData = summary;
+				latestSummary = { orgId: summaryOrgId, summary };
 			},
 			onReject: (error) => {
-				summaryError = error;
+				if (latestSummary?.orgId !== summaryOrgId) summaryError = error;
 			},
-			isCancelled: () => cancelled
+			isCancelled: () => cancelled || request !== summaryRequest
 		});
 
 		return () => {
 			cancelled = true;
+			summaryRequest++;
 		};
 	});
 
@@ -93,6 +116,7 @@
 		dashboard: DashboardWorkspaceResult,
 		summary: DashboardPageSummaryData | null
 	): DashboardPageData {
+		const projectedSummary = summary && overlayDashboardSummary(summary, dashboard, recordOverlay);
 		return {
 			...data,
 			orgId: data.shell.org.id,
@@ -101,10 +125,10 @@
 			userRole: shell?.member.role,
 			viewerDay: data.viewerDay,
 			disabledFeatures: shell?.org.disabledFeatures ?? [],
-			dashboard,
-			trainingSummary: summary?.trainingSummary ?? null,
-			ictlSummary: summary?.ictlSummary ?? null,
-			onboardingTrainingCompletions: summary?.onboardingTrainingCompletions ?? [],
+			dashboard: overlayDashboardRecords(dashboard, recordOverlay),
+			trainingSummary: projectedSummary?.trainingSummary ?? null,
+			ictlSummary: projectedSummary?.ictlSummary ?? null,
+			onboardingTrainingCompletions: projectedSummary?.onboardingTrainingCompletions ?? [],
 			summaryFailed: summary === null
 		};
 	}
@@ -117,9 +141,29 @@
 			: null
 	);
 
+	async function refreshSummary() {
+		const savedIn = orgId;
+		const workspace = streamedWorkspace;
+		const request = ++summaryRequest;
+		try {
+			const response = await fetch(`/org/${savedIn}/api/dashboard/summary`, { cache: 'no-store' });
+			if (!response.ok) return;
+			const summary: DashboardPageSummaryData = await response.json();
+			if (request === summaryRequest && savedIn === orgId && workspace === streamedWorkspace)
+				latestSummary = { orgId: savedIn, summary };
+		} catch {
+			return;
+		}
+	}
+
 	const shellUI = getAppShellContext();
-	const access: DashboardAccess = {
-		can: (action) => shellUI.affordanceForFeatureAction(action, { kind: 'unscoped' }).allowed
+	const access = createDashboardAccess(shellUI);
+	const updates: DashboardPageUpdates = {
+		refreshSummary: () => void refreshSummary(),
+		putRecord: (savedIn, change) => {
+			if (dashboardBootstrap && savedIn === orgId)
+				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change);
+		}
 	};
 
 	$effect(() => {
@@ -137,6 +181,7 @@
 		viewerDay={data.viewerDay}
 		{ctx}
 		{access}
+		{updates}
 		sections={DASHBOARD_SECTIONS}
 		failure={loadError ? loadFailure : undefined}
 	/>

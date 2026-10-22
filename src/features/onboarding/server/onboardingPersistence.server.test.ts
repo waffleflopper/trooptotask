@@ -128,6 +128,18 @@ describe('ordinary Onboarding persistence', () => {
 		});
 		expect(await workflow.findLatestPacketForPersonnel('nobody')).toBeNull();
 	});
+	it('lists each Person with an in-progress packet of this Organization once, without steps', async () => {
+		const { workflow } = ports({
+			personnel_onboardings: [
+				{ ...packet, id: 'first', personnel_id: 'ann' },
+				{ ...packet, id: 'second', personnel_id: 'ann' },
+				{ ...packet, id: 'third', personnel_id: 'bob' },
+				{ ...packet, id: 'done', personnel_id: 'cy', status: 'completed', completed_at: '2026-04-01' },
+				{ ...packet, id: 'foreign', personnel_id: 'dee', organization_id: 'org-b' }
+			]
+		});
+		expect(await workflow.listActivePacketPersonnelIds()).toEqual(['ann', 'bob']);
+	});
 	it('maps same-org singular references and preserves unavailable/error distinctions', async () => {
 		const { catalog, workflow, state } = ports({
 			onboarding_templates: [template],

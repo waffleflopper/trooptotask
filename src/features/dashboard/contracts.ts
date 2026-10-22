@@ -240,4 +240,6 @@ export interface DashboardPageSummaryData {
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
+	/** The people whose active Onboarding the completion read covered; empty when Training was not read. */
+	onboardingPersonnelIds: string[];
 }

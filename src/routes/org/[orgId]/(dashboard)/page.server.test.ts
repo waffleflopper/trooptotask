@@ -259,6 +259,7 @@ describe('dashboard page server load', () => {
 		await expect(result.summary).resolves.toEqual({
 			trainingSummary: { stats: null, issues: [] },
 			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: ['p2'],
 			ictlSummary: {
 				hasActiveTasks: true,
 				overallReadinessPercent: 68,
@@ -368,6 +369,7 @@ describe('dashboard page server load', () => {
 		await expect(result.summary).resolves.toEqual({
 			trainingSummary: { stats: null, issues: [] },
 			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: [],
 			ictlSummary: null
 		});
 		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
@@ -395,6 +397,7 @@ describe('dashboard page server load', () => {
 		await expect(result.summary).resolves.toEqual({
 			trainingSummary: null,
 			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: [],
 			ictlSummary: expect.objectContaining({ hasActiveTasks: true })
 		});
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();

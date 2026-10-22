@@ -2668,6 +2668,7 @@ async function main() {
 					'training-types',
 					'training-views',
 					'onboarding',
+					'onboarding/start-options',
 					'onboarding-steps',
 					'onboarding-resync',
 					'onboarding-templates',

@@ -111,6 +111,8 @@ export interface QuickAddEntry {
 	icon: Component;
 	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding. */
 	order: number;
+	/** The one filled button; a page without this entry has none (frame 05). */
+	primary?: boolean;
 	/** Loaded on first open, so the dialogs stay out of the page's first load. */
 	loadDialog: () => Promise<{ default: Component<QuickAddDialogProps> }>;
 	available?: DashboardPartAvailability;
@@ -197,11 +199,11 @@ export function composeDashboardSections(
 	disabledFeatures: readonly FeatureKey[],
 	access: DashboardAccess
 ): DashboardSectionParts {
-	const notSetUp = activeDashboardSections(sections, disabledFeatures).map((entry) => ({
+	const checked = activeDashboardSections(sections, disabledFeatures).map((entry) => ({
 		entry,
 		unset: entry.setup?.isNotSetUp(inputs) ?? false
 	}));
-	const active = notSetUp.flatMap(({ entry, unset }) => (unset ? [] : [entry]));
+	const active = checked.flatMap(({ entry, unset }) => (unset ? [] : [entry]));
 	const readiness = active.flatMap((entry) => {
 		const column = entry.readiness?.(inputs, access);
 		return column ? [{ column, feedsNeedsYou: entry.needsYou.length > 0 }] : [];
@@ -228,7 +230,7 @@ export function composeDashboardSections(
 			.filter((part) => part.available?.(inputs, access) ?? true)
 			.sort((a, b) => a.order - b.order),
 		setupHints: access.isPrivileged
-			? notSetUp.flatMap(({ entry, unset }) =>
+			? checked.flatMap(({ entry, unset }) =>
 					unset && entry.feature && entry.setup ? [setupHint(entry.feature, entry.setup, inputs)] : []
 				)
 			: []

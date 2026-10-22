@@ -3,33 +3,18 @@
 	import { FEATURE_SWITCHES, type FeatureKey } from '$lib/access/featureSwitches';
 	import { Button } from '$lib/components/ui/button';
 	import type { SetupHint } from '../sections/dashboardSections';
-	import { readDismissedSetupHints, writeDismissedSetupHints } from '../setupHintDismissals';
 
 	interface Props {
 		hints: readonly SetupHint[];
-		orgId: string;
-		userId: string;
+		onDismiss: (feature: FeatureKey) => void;
 	}
 
-	let { hints, orgId, userId }: Props = $props();
-
-	let dismissedNow = $state.raw<{ key: string; features: readonly FeatureKey[] } | null>(null);
-	const key = $derived(`${orgId}:${userId}`);
-	const dismissed = $derived(
-		dismissedNow?.key === key ? dismissedNow.features : readDismissedSetupHints(orgId, userId)
-	);
-	const visible = $derived(hints.filter((hint) => !dismissed.includes(hint.feature)));
-
-	function dismiss(feature: FeatureKey) {
-		const features = [...dismissed, feature];
-		dismissedNow = { key, features };
-		writeDismissedSetupHints(orgId, userId, features);
-	}
+	let { hints, onDismiss }: Props = $props();
 
 	const LINK = 'text-sm leading-5 font-medium underline decoration-1 underline-offset-2';
 </script>
 
-{#each visible as hint (hint.feature)}
+{#each hints as hint (hint.feature)}
 	<div
 		class="flex flex-wrap items-center gap-x-3.5 gap-y-2 rounded-[4px] border border-dashed border-border px-4 py-3"
 		data-setup-hint={hint.feature}
@@ -43,7 +28,7 @@
 			size="icon-xs"
 			class="text-muted-foreground"
 			aria-label="Dismiss the {FEATURE_SWITCHES[hint.feature].label} hint"
-			onclick={() => dismiss(hint.feature)}
+			onclick={() => onDismiss(hint.feature)}
 		>
 			<XIcon aria-hidden="true" />
 		</Button>

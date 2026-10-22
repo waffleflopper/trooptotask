@@ -81,6 +81,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				label: 'Start onboarding',
 				icon: PlusIcon,
 				order: 30,
+				primary: true,
 				loadDialog: () => import('../components/quick-add/StartOnboardingQuickAdd.svelte'),
 				available: (inputs, access) => startOnboardingChoices(inputs, access).usable
 			}

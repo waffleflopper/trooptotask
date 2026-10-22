@@ -121,7 +121,9 @@
 			{@const opening = picker?.status === 'loading' && swapping?.slot.date === slot.date}
 			<li>
 				{#if history === 'loading'}
-					<div class="grid gap-1 rounded-[4px] border border-border bg-background py-2.5 pr-2.5 pl-3">
+					<div
+						class="grid h-full content-start gap-1 rounded-[4px] border border-border bg-background py-2.5 pr-2.5 pl-3"
+					>
 						<span class="font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase">
 							{formatWeekdayDay(slot.date)}
 						</span>
@@ -132,7 +134,7 @@
 					<button
 						type="button"
 						class={[
-							'grid w-full gap-1 rounded-[4px] border py-2.5 pr-2.5 pl-3 text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50',
+							'grid h-full w-full content-start gap-1 rounded-[4px] border py-2.5 pr-2.5 pl-3 text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50',
 							slot.picked ? 'border-foreground bg-muted' : 'border-border bg-background hover:bg-muted/60'
 						]}
 						disabled={saving || history !== 'ready'}

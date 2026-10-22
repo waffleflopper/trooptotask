@@ -667,13 +667,12 @@ describe('CalendarPageView', () => {
 		expect(screen.queryByRole('button', { name: /Alpha/ })).toBeNull();
 	});
 
-	it('marks the shown calendar view in the title row, outside the toolbar', async () => {
+	it('marks the shown calendar view as checked', async () => {
 		mutableAvailabilityStore.loading = false;
 		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		const view = screen.getByRole('group', { name: 'Calendar view' });
-		expect(toolbar().contains(view)).toBe(false);
 		expect(within(view).getByRole('radio', { name: 'Month' }).getAttribute('aria-checked')).toBe('true');
 		await showView('3-Month');
 		expect(within(view).getByRole('radio', { name: '3-Month' }).getAttribute('aria-checked')).toBe('true');

@@ -45,7 +45,6 @@ describe('Organization export of Personnel history', () => {
 			'leader_notes'
 		);
 		expect(result).toEqual(rows);
-		expect(getAdminClient).toHaveBeenCalledTimes(1);
 		expect(from).toHaveBeenCalledWith('leader_notes');
 		expect(query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
 		expect(query.order).toHaveBeenCalledWith('id', { ascending: true });

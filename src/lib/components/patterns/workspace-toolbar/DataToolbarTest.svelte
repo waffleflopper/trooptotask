@@ -6,10 +6,7 @@
 		withExport?: boolean;
 		withDisplayOption?: boolean;
 		withDisplayMenu?: boolean;
-		withSettings?: boolean;
-		searchPlacement?: 'before-filters' | 'after-filters';
 		abbreviateViewOptions?: boolean;
-		destructivePrimary?: boolean;
 		initialSearch?: string;
 		initialStatus?: string[];
 		statusDefaults?: string[];
@@ -27,10 +24,7 @@
 		withExport = false,
 		withDisplayOption = false,
 		withDisplayMenu = false,
-		withSettings = false,
-		searchPlacement,
 		abbreviateViewOptions = false,
-		destructivePrimary = false,
 		initialSearch = '',
 		initialStatus = [],
 		statusDefaults = [],
@@ -164,9 +158,6 @@
 					} satisfies ToolbarItem
 				]
 			: []),
-		...(withSettings
-			? [{ kind: 'action', id: 'settings', label: 'Settings', menuOnly: true, href: '/settings' } satisfies ToolbarItem]
-			: []),
 		...(withArchive
 			? [
 					{
@@ -189,7 +180,6 @@
 		label: 'Search roster',
 		placeholder: 'Search...',
 		value: search,
-		placement: searchPlacement,
 		onValueChange: (value) => (search = value)
 	}}
 	primary={{
@@ -197,7 +187,6 @@
 		id: 'add',
 		label: 'Add status',
 		icon: 'plus',
-		destructive: destructivePrimary,
 		onclick: () => log('add')
 	}}
 />

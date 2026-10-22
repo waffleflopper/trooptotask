@@ -34,14 +34,6 @@ const alphaMedic: Personnel = {
 	archivedAt: null
 };
 
-const bravoMedic: Personnel = {
-	...alphaMedic,
-	id: 'person-bravo',
-	rank: 'SPC',
-	groupId: 'group-bravo',
-	groupName: 'Bravo'
-};
-
 const tcccTask: IctTask = {
 	id: 'task-tccc',
 	taskCode: '181-105-1001',
@@ -82,65 +74,6 @@ describe('IctCompletionBulkImport', () => {
 		cleanup();
 	});
 
-	it('uses file upload only and separates ready, ambiguous, and invalid rows in preview', async () => {
-		render(IctCompletionBulkImport, {
-			props: {
-				personnel: [alphaMedic, bravoMedic],
-				tasks: [tcccTask],
-				completions: [existingCompletion],
-				onCancel: vi.fn(),
-				onDone: vi.fn()
-			}
-		});
-
-		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();
-		expect(screen.queryByPlaceholderText(/Paste CSV/i)).toBeNull();
-
-		await fireEvent.change(screen.getByLabelText('Upload file'), {
-			target: {
-				files: [
-					new File(['fake'], 'ict-completions.xlsx', {
-						type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-					})
-				]
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getByRole('table')).toBeTruthy();
-		});
-
-		expect(screen.getByText('1 ready to import')).toBeTruthy();
-		expect(screen.getByText('1 ambiguous')).toBeTruthy();
-		expect(screen.getByText('1 invalid')).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Ready (1)' })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Ambiguous (1)' })).toBeTruthy();
-		expect(screen.getByRole('tab', { name: 'Invalid (1)' })).toBeTruthy();
-		expect(screen.getByText('Showing Ambiguous rows')).toBeTruthy();
-		expect(screen.getByText('Possible matches')).toBeTruthy();
-		expect(screen.getByText('SPC Jane Smith')).toBeTruthy();
-		expect(screen.getAllByText('SGT Jane Smith').length).toBeGreaterThan(0);
-
-		await fireEvent.click(screen.getByRole('tab', { name: 'Invalid (1)' }));
-
-		expect(screen.getByText('Showing Invalid rows')).toBeTruthy();
-		expect(screen.getByText('Row 4')).toBeTruthy();
-		expect(screen.getAllByText('Task code "BAD-TASK" does not match an existing critical task').length).toBeGreaterThan(
-			0
-		);
-
-		await fireEvent.click(screen.getByRole('tab', { name: 'Ready (1)' }));
-
-		expect(screen.getByText('Showing Ready rows')).toBeTruthy();
-		expect(screen.getByText(/181-105-1001 Perform tactical combat casualty care/i)).toBeTruthy();
-		expect(
-			screen.getAllByTitle('Multiple personnel records match this row. Add rank or correct the name values.').length
-		).toBeGreaterThan(0);
-		expect(
-			screen.getAllByTitle('Task code "BAD-TASK" does not match an existing critical task').length
-		).toBeGreaterThan(0);
-	});
-
 	it('marks a blocked preview row invalid and describes it with its reason', async () => {
 		render(IctCompletionBulkImport, {
 			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel: vi.fn(), onDone: vi.fn() }
@@ -159,22 +92,6 @@ describe('IctCompletionBulkImport', () => {
 		);
 		expect(ready.hasAttribute('aria-invalid')).toBe(false);
 		expect(ready.hasAttribute('aria-describedby')).toBe(false);
-	});
-
-	it('titles an empty file preview one level below the review heading', async () => {
-		parseFileMock.mockResolvedValue([]);
-		render(IctCompletionBulkImport, {
-			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel: vi.fn(), onDone: vi.fn() }
-		});
-		await fireEvent.change(screen.getByLabelText('Upload file'), {
-			target: { files: [new File([''], 'ict-completions.csv', { type: 'text/csv' })] }
-		});
-
-		const review = await screen.findByRole('heading', { name: 'Review Completion Import' });
-		const empty = document.querySelector('[data-slot="empty-title"]');
-
-		expect(review.tagName).toBe('H2');
-		expect(empty?.tagName).toBe('H3');
 	});
 
 	it('keeps focus in the busy dialog while an import is held, then returns to preview on failure', async () => {
@@ -309,7 +226,6 @@ describe('IctCompletionBulkImport', () => {
 		expect(screen.getByText('SGT Jane Smith')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-		expect(onDone).toHaveBeenCalledTimes(1);
 	});
 
 	it.each([

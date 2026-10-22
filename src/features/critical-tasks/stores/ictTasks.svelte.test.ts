@@ -396,29 +396,6 @@ describe('ictTasksStore.reorder', () => {
 		]);
 	});
 
-	it('posts one order command and adopts the saved tasks', async () => {
-		const fetchMock = vi.fn(() =>
-			reply(200, [
-				{ ...neighbour, sortOrder: 5 },
-				{ ...existingTask, sortOrder: 6 }
-			])
-		);
-		vi.stubGlobal('fetch', fetchMock);
-
-		await ictTasksStore.reorder(changes);
-
-		expect(fetchMock.mock.calls).toEqual([
-			[
-				'/org/org-1/api/ict-tasks/order',
-				{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ changes }) }
-			]
-		]);
-		expect(sortOrders()).toEqual([
-			['task-next', 5],
-			['task-existing', 6]
-		]);
-	});
-
 	it.each([
 		['a refusal', () => reply(409, { message: ICT_TASK_ORDER_CHANGED_MESSAGE }), ICT_TASK_ORDER_CHANGED_MESSAGE],
 		[

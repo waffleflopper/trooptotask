@@ -680,10 +680,9 @@ describe('AppShellHeader', () => {
 		expect(screen.queryByRole('menuitem', { name: 'Unit settings' })).toBeNull();
 	});
 
-	it('keeps Calendar and Personnel available after Duty Roster retirement', () => {
+	it('links to Calendar and Personnel in the current Organization', () => {
 		renderHeader();
 
-		expect(screen.queryByRole('link', { name: /Duty Rosters/ })).toBeNull();
 		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(
 			screen

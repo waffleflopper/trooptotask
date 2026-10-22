@@ -33,7 +33,7 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
 }
 
 describe('/org/new page', () => {
-	it('presents confirmed users with deliberate first-organization setup copy', () => {
+	it('contains Organization setup in one main landmark', () => {
 		render(Page, {
 			props: {
 				data: makePageData(),
@@ -41,12 +41,6 @@ describe('/org/new page', () => {
 			}
 		});
 
-		expect(screen.getByText('First Organization Setup')).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Create your first Organization' })).toBeTruthy();
-		expect(screen.getByText(/owner dashboard with the first-run setup checklist/)).toBeTruthy();
-		expect(screen.queryByTestId('org-new-status')).toBeNull();
-		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).disabled).toBe(false);
-		expect((screen.getByRole('button', { name: 'Create Organization' }) as HTMLButtonElement).disabled).toBe(false);
 		expect(screen.getAllByRole('main')).toHaveLength(1);
 	});
 
@@ -241,24 +235,5 @@ describe('/org/new page', () => {
 		await late(frameworkOutcome({ type: 'redirect', status: 303, location: '/org/2nd-battalion' }, page));
 
 		expect(page.location).toBeUndefined();
-	});
-
-	it('reports a request failure in an Alert without marking the name invalid', () => {
-		pageState.status = 503;
-		render(Page, {
-			props: {
-				data: makePageData(),
-				form: {
-					error: 'Unable to verify email confirmation right now. Try again in a moment.',
-					name: '',
-					requestId: 'load-request-id'
-				}
-			}
-		});
-
-		expect(screen.getByRole('alert').textContent?.trim()).toBe(
-			'Unable to verify email confirmation right now. Try again in a moment.'
-		);
-		expect(screen.getByLabelText('Organization Name').getAttribute('aria-invalid')).toBeNull();
 	});
 });

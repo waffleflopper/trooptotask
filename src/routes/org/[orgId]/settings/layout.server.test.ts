@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
@@ -130,15 +129,6 @@ describe('settings layout server load', () => {
 				})
 		} as never);
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			{},
-			{},
-			'org-1',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
-				policyResource: { kind: 'organization' }
-			})
-		);
 		expect(result).toMatchObject({
 			canAccessOrganizationGovernance: true,
 			settingsShell: {

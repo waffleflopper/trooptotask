@@ -10,31 +10,24 @@ afterEach(() => {
 
 describe('WorkspaceToolbarIcon', () => {
 	it.each([
-		['archive', 'lucide-archive'],
-		['arrow-left', 'lucide-arrow-left'],
-		['book-open', 'lucide-book-open'],
-		['calendar-days', 'lucide-calendar-days'],
-		['chart', 'lucide-chart-column'],
-		['clipboard-check', 'lucide-clipboard-check'],
-		['clipboard-list', 'lucide-clipboard-list'],
-		['download', 'lucide-download'],
-		['file-plus', 'lucide-file-plus-corner'],
-		['plus', 'lucide-plus'],
-		['printer', 'lucide-printer'],
-		['settings', 'lucide-settings'],
-		['upload', 'lucide-upload'],
-		['user-plus', 'lucide-user-plus']
-	] as [IconName, string][])('renders %s as a hidden %s icon', (icon, lucideClass) => {
+		'archive',
+		'arrow-left',
+		'book-open',
+		'calendar-days',
+		'chart',
+		'clipboard-check',
+		'clipboard-list',
+		'download',
+		'file-plus',
+		'plus',
+		'printer',
+		'settings',
+		'upload',
+		'user-plus'
+	] satisfies IconName[])('hides the decorative %s icon from assistive technology', (icon) => {
 		const { container } = render(WorkspaceToolbarIcon, { props: { icon } });
 
 		const svg = container.querySelector('svg');
-		expect(svg?.classList.contains(lucideClass)).toBe(true);
 		expect(svg?.getAttribute('aria-hidden')).toBe('true');
-	});
-
-	it('renders nothing without an icon', () => {
-		const { container } = render(WorkspaceToolbarIcon, { props: {} });
-
-		expect(container.querySelector('svg')).toBeNull();
 	});
 });

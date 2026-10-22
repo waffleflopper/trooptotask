@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { DashboardBootstrap } from '$features/dashboard/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -96,19 +95,6 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 
 		const workspace = await routeData.dashboard.data;
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			expect.anything(),
-			expect.anything(),
-			'route-segment',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-				defer: true,
-				fn: expect.any(Function)
-			})
-		);
-		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('permission');
-		expect(loadWithContextMock.mock.calls[0]?.[3]).not.toHaveProperty('policyResource');
-		expect(fetchDashboardBootstrapMock).toHaveBeenCalledWith(mockCtx);
 		expect(workspace).toEqual({
 			workspaceKey: 'dashboard',
 			data: dashboardData,

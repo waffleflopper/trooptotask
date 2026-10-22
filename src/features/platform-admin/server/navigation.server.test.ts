@@ -19,8 +19,4 @@ describe('Platform page navigation', () => {
 	it('offers only the Dashboard to billing administrators', () => {
 		expect(getAccessiblePlatformPages('billing')).toEqual(['dashboard']);
 	});
-	it.each(['super_admin', 'support', 'billing'] as const)('never offers retired commercial pages to %s', (role) => {
-		for (const page of ['gifting', 'subscriptions', 'billing-events'])
-			expect(getAccessiblePlatformPages(role)).not.toContain(page);
-	});
 });

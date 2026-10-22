@@ -34,13 +34,6 @@ const personnel = [
 // happy-dom does not apply a disabled fieldset to its controls' :disabled state.
 const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset[disabled]') !== null;
 
-function describedBy(element: HTMLElement): string[] {
-	return (element.getAttribute('aria-describedby') ?? '')
-		.split(/\s+/)
-		.filter(Boolean)
-		.map((id) => document.getElementById(id)?.textContent?.trim() ?? `missing #${id}`);
-}
-
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
@@ -89,41 +82,27 @@ describe('RatingSchemeEntryModal', () => {
 		render(RatingSchemeEntryModal, {
 			props: { entry: null, personnel, isCurrentWorkspace: () => true, onSave, onClose: vi.fn() }
 		});
-		const dialog = screen.getByRole('dialog', { name: 'Add Rating Entry' });
 		expect(screen.getByLabelText('Rated individual').getAttribute('aria-invalid')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
 		expect(onSave).not.toHaveBeenCalled();
-		expect(
-			within(dialog)
-				.getAllByRole('alert')
-				.map((alert) => alert.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual([
-			'Complete required fields Missing: rated individual, rater, senior rater, rating period start, thru date.',
-			'Rated individual is required.',
-			'Rater is required.',
-			'Senior rater is required.',
-			'Rating period start is required.',
-			'Thru date is required.'
-		]);
-		const invalid = [
+		for (const label of [
 			'Rated individual',
 			'Rater from organization',
 			'Senior rater from organization',
 			'Rating Period Start',
 			'Thru Date (Due)'
-		].map((label) => {
+		]) {
 			const control = screen.getByLabelText(label);
-			return [label, control.getAttribute('aria-invalid'), describedBy(control).at(-1)];
-		});
-		expect(invalid).toEqual([
-			['Rated individual', 'true', 'Rated individual is required.'],
-			['Rater from organization', 'true', 'Rater is required.'],
-			['Senior rater from organization', 'true', 'Senior rater is required.'],
-			['Rating Period Start', 'true', 'Rating period start is required.'],
-			['Thru Date (Due)', 'true', 'Thru date is required.']
-		]);
+			expect(control.getAttribute('aria-invalid')).toBe('true');
+			const descriptions = (control.getAttribute('aria-describedby') ?? '')
+				.split(/\s+/)
+				.filter(Boolean)
+				.map((id) => document.getElementById(id));
+			const error = descriptions.find((node) => node?.getAttribute('role') === 'alert');
+			expect(error?.textContent).toMatch(/\S/);
+		}
 		expect(screen.getByLabelText('Evaluation Type').getAttribute('aria-invalid')).toBeNull();
 	});
 

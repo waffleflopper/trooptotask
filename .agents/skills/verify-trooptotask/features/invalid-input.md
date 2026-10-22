@@ -14,7 +14,7 @@ A malformed, missing, foreign or conflicting write gets a controlled 4xx with a 
 
 ## How to get to it (user POV)
 
-The forms are the normal editors in Training → Manage Types and Manage Views, Calendar → Settings, Personnel, Evals and Onboarding. The other cases have no visible entry point; a user reaches them only through a stale page or a hand-built request, so they are driven as authenticated endpoint probes.
+The forms are the normal editors in Training → Manage Types and Manage Views, Calendar → Settings, Personnel, Evals and Onboarding. The other cases have no visible entry point. Drive them as authenticated endpoint probes.
 
 ## Driving it with verify:app
 
@@ -55,5 +55,5 @@ Preconditions: `doctor` passes and `$V fixture` supplies the IDs below. Sign in 
 
 - An actor without the lane gets its usual `403`/`404` before validation for most routes; use the actor named in the table so the probe reaches the input check.
 - `rows` reads are privileged readback. They establish no effect, not authorization.
-- Catalog deletes of a missing id are deliberately `200`. A `404` there would break D05's retried-delete recovery.
+- Catalog deletes of a missing id are deliberately `200` so a retried delete recovers.
 - Lower-level route and operation tests cover each owner's schema; this matrix is the live sample, not every field.

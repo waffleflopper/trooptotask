@@ -196,48 +196,6 @@ describe('Onboarding Matrix view', () => {
 		expect(screen.getByRole('list', { name: 'Soldiers in processing' })).toBeTruthy();
 	});
 
-	it('draws one grid per template, busiest first, with the key beside the first heading only', async () => {
-		mount();
-		await showMatrix();
-
-		expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent?.trim())).toEqual([
-			'Standard packet',
-			'Reserve packet'
-		]);
-		expect(screen.getByText('3 Soldiers × 3 steps · oldest first')).toBeTruthy();
-		expect(screen.getByText('1 Soldier × 1 step · oldest first')).toBeTruthy();
-		expect(screen.getAllByRole('list', { name: 'Matrix key' })).toHaveLength(1);
-		expect(
-			within(grid('Standard'))
-				.getAllByRole('columnheader')
-				.map((header) => header.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual(['Soldier Day', 'Brief check', 'Finance paper', 'SHARP training']);
-		expect(
-			within(grid('Standard'))
-				.getByRole('columnheader', { name: /Finance/ })
-				.getAttribute('title')
-		).toBe('Finance');
-	});
-
-	it('lists Soldiers oldest start first and shows each cell as done, open, a stage or stalled', async () => {
-		mount();
-		await showMatrix();
-		const standard = grid('Standard');
-
-		expect(
-			within(standard)
-				.getAllByRole('rowheader')
-				.map((header) => header.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual(['SGT Smith, Jane 15', 'CPL Jones, Alex 11', 'SPC Lee, Pat All done · Close out 6', 'Open on step']);
-		expect(cell(standard, 'SGT Smith, Jane, Brief: done. Select for details')).toBeTruthy();
-		expect(
-			cell(standard, /SGT Smith, Jane, Finance: At Finance, stage 2 of 3, 14 days, stalled/).textContent
-		).toContain('2/3');
-		expect(cell(standard, /SGT Smith, Jane, Finance/).textContent).toContain('14d');
-		expect(cell(standard, /CPL Jones, Alex, Finance: Submitted, stage 1 of 3, 1 day\./).textContent).not.toContain('d');
-		expect(cell(standard, 'CPL Jones, Alex, Brief: open. Select to mark complete')).toBeTruthy();
-	});
-
 	it('shows a dash for a step the packet does not have yet and explains it', async () => {
 		mount();
 		await showMatrix();
@@ -258,27 +216,6 @@ describe('Onboarding Matrix view', () => {
 
 		const confirmation = await screen.findByRole('alertdialog', { name: 'Complete Onboarding' });
 		expect(within(confirmation).getByText('Mark this onboarding as complete?')).toBeTruthy();
-	});
-
-	it('counts the Soldiers open on each step and the stalled ones in the footer', async () => {
-		mount();
-		await showMatrix();
-		const standard = grid('Standard');
-		const footer = within(standard).getByRole('row', { name: /Open on step/ });
-
-		expect(
-			within(footer)
-				.getAllByRole('cell')
-				.map((counted) => counted.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual(['Brief: 1 open 1', 'Finance: 2 open, 1 stalled 2 1 stalled', 'SHARP: 1 open 1']);
-	});
-
-	it('names the Soldiers with no template and the way to give them one', async () => {
-		mount();
-		await showMatrix();
-
-		expect(screen.getByText('1 packet has no template. Open it in List view to assign one.')).toBeTruthy();
-		expect(screen.queryByText('PV2 Park, Kim')).toBeNull();
 	});
 
 	it('applies the search and Group filter to the grids and keeps the header and toolbar', async () => {

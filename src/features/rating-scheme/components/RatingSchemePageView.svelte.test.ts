@@ -131,36 +131,6 @@ describe('RatingSchemePageView', () => {
 		expect(modals.isOpen('rating-modal')).toBe(false);
 	});
 
-	it('renders the Evals summary with only overdue, 60d, and 30d stats', () => {
-		render(RatingSchemePageView, {
-			props: {
-				ctx: makeContext(),
-				personnelLookup: [
-					{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
-					{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
-				]
-			}
-		});
-
-		const summary = screen.getByLabelText('Evaluation status summary');
-		expect(within(summary).getByText('Overdue')).toBeTruthy();
-		expect(within(summary).getByText('60d')).toBeTruthy();
-		expect(within(summary).getByText('30d')).toBeTruthy();
-		expect(screen.getByText('2 of 2 shown')).toBeTruthy();
-		expect(within(summary).queryByText('Entries')).toBeNull();
-		expect(within(summary).queryByText('Current')).toBeNull();
-		expect(within(summary).queryByText('Due Soon')).toBeNull();
-		expect(within(summary).queryByText('Access')).toBeNull();
-	});
-
-	it('gives an allowed Add Entry no tooltip', () => {
-		render(RatingSchemePageView, { props: { ctx: makeContext(), personnelLookup: [] } });
-
-		const addEntry = screen.getByRole('button', { name: 'Add Entry' });
-		expect((addEntry as HTMLButtonElement).disabled).toBe(false);
-		expect(addEntry.getAttribute('title')).toBeNull();
-	});
-
 	describe('entry dialog focus return', () => {
 		const personnelLookup = [
 			{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },

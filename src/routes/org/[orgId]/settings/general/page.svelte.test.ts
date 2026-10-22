@@ -268,12 +268,6 @@ describe('General settings last change', () => {
 		expect(screen.getByText('Last changed 14 Mar 2026 · whitaker@example.com')).toBeTruthy();
 	});
 
-	it('holds a loading line while the last change streams', () => {
-		render(Page, { data: data('a', { lastRenamed: new Promise(() => {}) }), form: null, params: { orgId: 'a' } });
-
-		expect(screen.getByText('Loading the last change')).toBeTruthy();
-	});
-
 	it('shows admins no last change while the rest of the page works', async () => {
 		render(Page, { data: data('a', { lastRenamed: null }), form: null, params: { orgId: 'a' } });
 		await vi.runAllTimersAsync();

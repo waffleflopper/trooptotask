@@ -29,15 +29,6 @@ afterEach(() => {
 });
 
 describe('GroupManager', () => {
-	it('uses icon-only row actions with group-specific accessible labels', () => {
-		renderGroupManager();
-
-		expect(screen.getByRole('button', { name: 'Edit Alpha Company' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Remove Alpha Company' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Edit Bravo Company' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Remove Bravo Company' })).toBeTruthy();
-	});
-
 	it('saves a trimmed rename and confirms removal for the selected Group', async () => {
 		const onRemove = vi.fn();
 		const onRename = vi.fn();

@@ -12,41 +12,29 @@ Never reset, migrate, delete tables from, delete entries in, or otherwise touch 
 
 Robert likes ambitious ideas, simple systems, creative takes, and software that feels obvious. Understand the real constraint and choose the smallest model that makes correct behavior unsurprising. Inspect the nearest analogous implementation, reuse shared concepts, and keep scope focused. Existing complexity needs a reason to stay; new abstractions need a demonstrated use. Prefer clear types and narrow interfaces, with inference where it keeps code readable.
 
-Make the app feel responsive. Consider request waterfalls, repeated work, data volume and feedback latency; use the [performance guidance](docs/architecture/MODULE_CONVENTIONS.md#performance) when changing those paths.
+Make the app feel responsive. Consider request waterfalls, repeated work, data volume and feedback latency; use the [performance guidance](docs/architecture/ARCHITECTURE.md#performance) when changing those paths.
 
 Carry authorized work through its acceptance criteria, affected consumers and verification. Resolve routine choices using these defaults and existing authorization. Ask when a missing decision materially changes product behavior, scope or a protected boundary. Current user instructions supersede repository and skill guidance within system/developer constraints. The database protections above and explicit security/release gates are firm boundaries. See [operating rules](docs/agents/operating-rules.md) for execution and communication.
 
-Prefer cohesive deliverables that repair related defects together; before splitting a stabilization issue into another PR, apply [t2t-stabilize's grouping rule](.agents/skills/t2t-stabilize/SKILL.md#bound-the-pr-without-shrinking-the-issue) and explain the concrete reason for the split in the PR body.
-
-## Current priority
-
-The active work is stabilization and user-reported bug fixes: restore a maintainable, workable baseline by removing Billing and Duty Roster and repairing repository structure, architectural boundaries, and shared component usage. Billing and Duty Roster accumulated tightly coupled implementations and unnecessary compatibility layers. Remove them through their owning cleanup tasks while preserving the retained product and data contracts.
-
-Defer new features, ground-up feature rebuilds (including a replacement Duty Roster), and infrastructure improvements outside the stabilization plan. Refactoring needed to complete an authorized cleanup or bug fix remains in scope. Older plans and tickets are backlog context, not authorization to resume deferred work. A current explicit request from Robert can change this priority without another confirmation.
-
-Stabilization completion includes pruning documentation for features, code and systems whose removal is verified: delete obsolete plans and guides, and repair mixed documents and stale links. Keep documentation relevant to the retained project and required migration/security provenance. Revisit this temporary priority section when stabilization is complete.
-
-For stabilization work, follow the [stabilization workflow](docs/agents/stabilization-workflow.md), which routes to the active task, retained contracts, program decisions and evidence. Its phase dependencies and deliverable checkpoints apply to that workflow. A separately requested docs or tooling task does not activate the queue.
+Prefer cohesive deliverables that repair related defects together. Defects that share state handling, consumers and verification belong in one PR. Split only for an independent outcome, a release or migration dependency, or a review-size limit, and give the reason in the PR body.
 
 ## Task-specific guidance
 
 When a project specifies its own verification toolkit or browser workflow in AGENTS.md or an invoked skill, follow that workflow. T3 browser preferences apply only when the project has not specified one.
 
-For stabilization app verification, use the repository's `npm run verify:app` environment, native browser controls and documented verify-trooptotask helpers. Use an integrated browser only when Robert explicitly requests it. The communication app or harness does not change this default; tool availability or a failed call does not authorize switching browsers.
+For app verification, use the repository's `npm run verify:app` environment, native browser controls and documented verify-trooptotask helpers. Use an integrated browser only when Robert explicitly requests it. The communication app or harness does not change this default; tool availability or a failed call does not authorize switching browsers.
 
 Open the relevant sections when the task needs them; links are a reading map, not a mandatory reading sequence.
 
-The shared pstack plugin supplies general engineering methods. When using Poteto Mode in this repository, apply [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md) alongside its chosen playbook. For stabilization continuation, t2t-stabilize remains the coordinator. Follow the [skill integration rules](docs/agents/operating-rules.md#shared-skills-and-project-workflows); project contracts and local verification/PR skills govern TroopToTask work.
+The shared pstack plugin supplies general engineering methods. When using Poteto Mode in this repository, apply [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md) alongside its chosen playbook. Follow the [skill integration rules](docs/agents/operating-rules.md#shared-skills-and-project-workflows); project contracts and local verification/PR skills govern TroopToTask work.
 
 - Engineering investigation, feature work, bug fixes, refactoring, design or review: [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md).
-- Continuing a stabilization issue through its next verified PR, including coverage and review follow-through: [t2t-stabilize](.agents/skills/t2t-stabilize/SKILL.md).
 - Driving the real app, browser debugging or maintaining flow knowledge: [verify-trooptotask](.agents/skills/verify-trooptotask/SKILL.md). Use `npm run verify:app -- --help`; update affected feature recipes alongside behavior changes.
 - PR feedback, current-candidate CI and authorized handoff: the repository's [finish-pr](.agents/skills/finish-pr/SKILL.md).
 
 - Adding, rewriting, pruning or reviewing tests: [Testing strategy](docs/architecture/TESTING.md).
 - Svelte/SvelteKit implementation or framework questions: [Svelte guidance](docs/agents/svelte.md).
 - Components, route UI, shared styling or app shell: [UI system](docs/agents/ui-system.md).
-- Architecture, authorization, provider boundaries or governance: [Architecture and governance](docs/agents/architecture-governance.md).
-- Adding or moving feature code: [Feature organization](docs/agents/feature-organization.md).
+- Architecture, authorization, provider boundaries, governance, or adding and moving feature code: [Architecture and governance](docs/agents/architecture-governance.md).
 - Reading or updating GitHub issues: [Issue tracker](docs/agents/issue-tracker.md); for labels, [Triage labels](docs/agents/triage-labels.md).
 - Domain behavior or naming: [Domain docs](docs/agents/domain.md).

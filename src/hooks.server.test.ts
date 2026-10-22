@@ -65,7 +65,7 @@ interface TestServerClientOptions {
 }
 
 describe('server auth hook', () => {
-	it('keeps restrictive response security policy after payment-provider retirement', async () => {
+	it('sets restrictive response security headers without exposing provider origins', async () => {
 		const { handle, createEvent, resolve } = await createAuthenticatedHookHarness({ data: false, error: null });
 		const response = await handle({ event: createEvent('/auth/login', {}), resolve });
 		const directives = new Map(
@@ -80,7 +80,6 @@ describe('server auth hook', () => {
 		expect(directives.get('script-src')).toEqual(
 			expect.arrayContaining(["'self'", "'unsafe-inline'", 'https://va.vercel-scripts.com'])
 		);
-		expect(directives.get('script-src')).not.toEqual(expect.arrayContaining(['https://js.stripe.com']));
 		// The browser has no provider client; only the server talks to Supabase.
 		expect(directives.get('connect-src')).toEqual(
 			expect.arrayContaining(["'self'", 'https://vitals.vercel-insights.com'])

@@ -1,36 +1,13 @@
-# ADR Index
+# ADR index
 
-This index is the current map of architecture decisions. Use it before reading individual ADRs so current decisions are distinguished from historical rationale. Superseded records can be removed after linking exact committed history and their replacement.
+Every ADR listed here is current.
 
-## Status Model
+| ADR                                                                                                                         | Decision                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [0001: Organization authorization model](adrs/0001-v1-authorization-replacement-model.md)                                   | Fixed governance roles, presets with per-lane capability overrides, one shared scope set and independent feature lanes.                 |
+| [0006: Duty Role terminology](adrs/0006-legacy-terminology-compatibility-policy.md)                                         | Say **Duty Role** to users and keep `clinic_role` and `clinicRole` as compatibility names.                                              |
+| [0009: Access Requests and Account Setup Links](adrs/0009-beta-access-request-account-setup-links.md)                       | App-owned, hashed, 14-day setup links create a **User Account** only after the recipient sets a password, behind an email-scoped claim. |
+| [0011: Platform Administration boundary](adrs/0011-platform-administration-boundary.md)                                     | Platform support is separate from Organization governance, and Organization surfaces read platform state only through narrow ports.     |
+| [0012: Organization-invited platform access auto-approval](adrs/0012-organization-invited-platform-access-auto-approval.md) | An Organization Invitation approves the invitee's Access Request through a grant derived from live invitations.                         |
 
-- `Accepted`: current decision. Follow it unless a newer ADR or the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) supersede its guidance.
-- `Proposed`: draft decision. Do not treat it as binding.
-- `Superseded`: historical decision. Read for context only, then follow the superseding current-state docs or ADR.
-- `Rejected`: explicitly not the project direction.
-
-## Current ADRs
-
-| ADR                                                                                                                         | Status   | Decision Area                                   | Current Use                                                                                                                                                                             |
-| --------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0001: V1 Authorization Replacement Model](adrs/0001-v1-authorization-replacement-model.md)                                 | Accepted | Authorization model direction                   | Read for authz model, presets, capability levels, scope, and migration constraints.                                                                                                     |
-| [0002: V1 Feature Permission Lane Map](adrs/0002-v1-feature-permission-lane-map.md)                                         | Accepted | Feature permission ownership                    | Read before changing feature lanes, route guards, membership flags, invitations, or RLS.                                                                                                |
-| [0004: V1 Provider Boundary Contract](adrs/0004-v1-provider-boundary-contract.md)                                           | Accepted | Provider ownership                              | Read before adding or moving Supabase/provider access.                                                                                                                                  |
-| [0006: Legacy Terminology Compatibility Policy](adrs/0006-legacy-terminology-compatibility-policy.md)                       | Accepted | Canonical language and compatibility names      | Read before renaming domain fields, UX copy, imports/exports, or docs terminology.                                                                                                      |
-| [0009: Beta Access Request Account Setup Links](adrs/0009-beta-access-request-account-setup-links.md)                       | Accepted | Beta access and account setup                   | Read before changing access requests, account setup links, Supabase invite replacement, invite-code registration, or setup-link cleanup.                                                |
-| [0010: Native Workbook Export Boundary](adrs/0010-native-workbook-export-boundary.md)                                       | Accepted | Excel export module boundary                    | Read before adding or changing Excel-labeled exports, workbook generation helpers, or export download/response behavior.                                                                |
-| [0011: Platform Administration Boundary](adrs/0011-platform-administration-boundary.md)                                     | Accepted | Platform admin product boundary                 | Read before changing `/admin`, platform-wide support operations, service-role platform reads, or Platform Administration terminology.                                                   |
-| [0012: Organization-Invited Platform Access Auto-Approval](adrs/0012-organization-invited-platform-access-auto-approval.md) | Accepted | Beta platform entry via organization invitation | Read before changing organization invitations for people without accounts, access-request approval actors, account setup link issuance, or organization-scoped reads of platform state. |
-| [0013: V1 Module And Delivery Contract](adrs/0013-v1-module-and-delivery-contract.md)                                       | Accepted | Feature module and delivery seam                | Read before moving feature code, exporting portable/web/server contracts, or adding cross-owner imports.                                                                                |
-
-## Reading Rules
-
-- For architecture work, use the [task reading map](../agents/architecture-governance.md) and select the ADRs covering the affected seam.
-- For authz work, ADR 0001, 0002, and 0004 are usually relevant.
-- For beta access, account setup, invite replacement, or `/auth/register` deprecation, read ADR 0009.
-- For terminology work, read ADR 0006 and [CONTEXT.md language](../../CONTEXT.md#language). Older ADR references to `UBIQUITOUS_LANGUAGE.md` refer to this maintained language source; there is no separate glossary file.
-- For Excel-labeled exports, read ADR 0010.
-- For Platform Administration work, read ADR 0011.
-- For organization invitations to people without **User Accounts**, setup-link issuance from a non-platform-admin path, or organization-scoped service-role reads, read ADR 0012 alongside 0009 and 0011.
-
-ADR 0007 concerned the removed Advanced Duty snapshot flow. Its [historical decision](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/architecture/adrs/0007-advanced-duty-snapshot-custody.md) remains available for migration provenance; current Calendar preservation and schema retirement obligations live in [RELEASE](../stabilization/RELEASE.md#phase-06-activation-and-release-boundary).
+Write an ADR only for a decision that is current, surprising and hard to reverse. Put it in `adrs/`. Number it 0014 or higher, because deleted numbers are not reused. An ADR states the decision, the non-obvious reason for it and the constraints it imposes. When a decision no longer holds, delete its ADR and its row here.

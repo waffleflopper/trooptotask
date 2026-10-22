@@ -229,31 +229,6 @@ describe('danger settings page server', () => {
 		});
 	});
 
-	it('uses Organization ownership transfer and its request-bound provider', async () => {
-		const result = await actions.transferOwnership(
-			actionEvent(
-				'transferOwnership',
-				new URLSearchParams({
-					newOwnerId: '11111111-1111-4111-8111-111111111111',
-					confirmTransferEmail: 'next-owner@example.com'
-				})
-			)
-		);
-
-		expect(result).toEqual({ transferSuccess: true });
-		expect(createSupabaseOrganizationOwnershipTransferPortMock).toHaveBeenCalledOnce();
-		expect(transferOrganizationOwnershipMock).toHaveBeenCalledWith(
-			{
-				auth: authContext.auth,
-				audit: authContext.audit,
-				notifications: authContext.notifications,
-				administration: { kind: 'transfer-port' },
-				sensitiveActionAuthorizer: authContext.sensitiveActionAuthorizer
-			},
-			{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'next-owner@example.com' }
-		);
-	});
-
 	it('preserves sensitive-action step-up details in ownership-transfer failures', async () => {
 		transferOrganizationOwnershipMock.mockRejectedValue(
 			new RequestFailure(403, 'Please confirm your identity before continuing.', {

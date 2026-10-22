@@ -308,8 +308,9 @@ and conflicts), `GET /day?typeId=…&date=YYYY-MM-DD&today=YYYY-MM-DD` (the stan
 `{track:null,pool}` on any other day, `null` for a type with no open form), and
 `POST /fill/preview {typeId,today,from,through}` and `POST /fill` with the same fields plus `picks:[{date,personId}]`,
 which returns `409` when the roster changed. `POST /replacement/preview {typeId,today,date,assigneeId?}` previews a
-replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `replacing` and
-`repicks:[{date,personId}]` and returns `409` when the plan differs or leaves a day unfilled. Saved rows carry `source`
+replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `assigneeId`, `replacing`
+and `repicks:[{date,was,personId}]` (`was` is who held the day in the preview) and returns `409` when the plan differs,
+any `was` changed, or a day is left unfilled. Saved rows carry `source`
 (`manual` or `roster`); the server sets it and no client request names it. Use the signed-in page's read-only
 `evaluate_script` only for response inspection or an authenticated request probe; actual planning actions use the
 visible controls. Read provider rows only through the owned helper. [Calendar navigation](calendar-navigation.md),

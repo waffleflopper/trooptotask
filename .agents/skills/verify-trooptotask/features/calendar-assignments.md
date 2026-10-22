@@ -17,8 +17,9 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   exempt people are absent, and anyone else outside the pool appears only for a name search, marked
   `Not on this roster`. On a day the roster does not detail, such as a No duty weekend, the pool still comes first, in
   DA 6 order without counts, and everyone outside it stays search-only and marked. Each picker reads its own day when it
-  opens, reads `Loading roster counts…` meanwhile, and on failure reads `Roster counts could not be loaded.` with
-  `Retry` and never reads again on its own. A Group-scoped operator gets name order with no counts.
+  opens, reads `Loading roster counts…` over a skeleton with no options meanwhile, and on failure reads
+  `Roster counts could not be loaded.` with `Retry`, lists no one until a name search, then offers anyone not excused
+  marked `Count unavailable`, and never reads again on its own. A Group-scoped operator gets name order with no counts.
 - `planner-conflicts`: a person assigned on a day an availability entry with roster code A, D or U covers is flagged in
   the cell and listed in `Conflicts`, D and U included, and on a day the roster does not detail (a No duty weekend, or a
   day before the open form) any covering availability entry still flags a hand assignment; `Find replacement` opens the
@@ -163,12 +164,13 @@ action and keep its page ID. The date format in every name is the browser's en-G
    under the name; Baker can still be chosen. A pool member a roster code covers reads
    `count N, unavailable: <status> (<code>)` with the status under the name in red. Opening the picker sends one
    `duty-rosters/day?typeId=…&date=…` read, and closing and reopening the same slot sends none. While that read is held
-   (`$V network arm-hold $PAGE duty-rosters/day`) on a fresh slot, the picker reads `Loading roster counts…` above the
-   people in name order; release. With `$V network arm-fail $PAGE duty-rosters/day` armed, open another fresh slot: the
-   picker reads `Roster counts could not be loaded.` with `Retry`, and after five seconds open `list_network_requests`
-   still shows exactly one day read for it. Restore and press `Retry`: one more read and the counts. Then save an
-   availability entry for a pool member covering that day through the Calendar editor, or an assignment on an earlier
-   day through `Daily Assignments`, and reopen the slot: one new day read, and the moved count or code shows. While
+   (`$V network arm-hold $PAGE duty-rosters/day`) on a fresh slot, the picker reads `Loading roster counts…` above a
+   skeleton with no options; release. With `$V network arm-fail $PAGE duty-rosters/day` armed, open another fresh slot:
+   the picker reads `Roster counts could not be loaded.` with `Retry` and lists no one until a search, when `baker`
+   reads `Count unavailable` instead of `Not on this roster`; after five seconds open `list_network_requests` still
+   shows exactly one day read for it. Restore and press `Retry`: one more read and the counts. Then save an availability
+   entry for a pool member covering that day through the Calendar editor, or an assignment on an earlier day through
+   `Daily Assignments`, and reopen the slot: one new day read, and the moved count or code shows. While
    `$V network arm-fail $PAGE daily-assignments` is armed, choosing a Person leaves the picker open, the day empty and
    the failure toast visible; restore and press Enter again to save. Read back one A row for the date and
    `typePersonnel`; the day shows the chosen code. Clear it through `Daily Assignments`. Open Group's `+`: its search

@@ -23,6 +23,8 @@ export type DutyPickerOption =
 			readonly count?: number;
 			/** Outside the roster's pool, so offered only to a name search. */
 			readonly offRoster: boolean;
+			/** The roster day failed to load, so the person has no count and is offered only to a name search. */
+			readonly countUnavailable?: true;
 	  };
 
 export interface DutyPickerInput {
@@ -34,6 +36,8 @@ export interface DutyPickerInput {
 	statusTypes: readonly StatusType[];
 	/** The roster on the date, when the operator can see roster counts. */
 	roster?: RosterDay;
+	/** A counted type whose roster day is not read yet: `loading` offers no one, `error` offers everyone not excused without counts. */
+	unreadRoster?: 'loading' | 'error';
 	currentAssigneeId?: string;
 }
 
@@ -54,7 +58,8 @@ export function eligibleAssignees(
 /**
  * Options for one slot. With a roster, the pool comes first and everyone else follows as off the roster. On a detail
  * day the pool is in roster order with counts, highest first and ties in DA 6 order; on any other day it is in DA 6
- * order without counts. Without a roster, people are in name order.
+ * order without counts. Without a roster, people are in name order. While the roster day is unread, no one is offered
+ * on `loading`, and everyone not excused is tagged `countUnavailable` on `error`.
  */
 export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	const isCurrent = (id: string) => id === input.currentAssigneeId;
@@ -73,13 +78,16 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 		return labels?.length ? labels.join('; ') : undefined;
 	};
 
+	if (input.unreadRoster === 'loading') return [];
+
 	const roster = input.roster;
 	if (!roster) {
 		return notExcused(input.type, input.personnel).map((person) => ({
 			...personChoice(person),
 			current: isCurrent(person.id),
 			unavailable: covering(person.id),
-			offRoster: false
+			offRoster: false,
+			...(input.unreadRoster === 'error' && { countUnavailable: true as const })
 		}));
 	}
 

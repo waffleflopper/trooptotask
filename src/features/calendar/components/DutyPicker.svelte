@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Command from '$lib/components/ui/command';
 	import * as Popover from '$lib/components/ui/popover';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		typeName: string;
@@ -29,7 +30,11 @@
 	const searching = $derived(search.trim().length > 0);
 	// People outside the pool appear only for a name search, so the list is the roster until someone looks further.
 	const visibleOptions = $derived(
-		searching ? options : options.filter((option) => option.kind === 'group' || !option.offRoster || option.current)
+		searching
+			? options
+			: options.filter(
+					(option) => option.kind === 'group' || (!option.offRoster && !option.countUnavailable) || option.current
+				)
 	);
 
 	const emptyMessage = $derived(assignTo === 'group' ? 'No group matches.' : 'No one matches.');
@@ -75,6 +80,7 @@
 			[option.prefix, option.label].filter(Boolean).join(' ') +
 			(option.count === undefined ? '' : `, count ${option.count}`) +
 			(option.unavailable ? `, unavailable: ${option.unavailable}` : '') +
+			(option.countUnavailable ? ', count unavailable' : '') +
 			(option.offRoster ? ', not on this roster' : '') +
 			(option.current ? ', assigned' : '')
 		);
@@ -109,45 +115,55 @@
 					<Button variant="outline" size="xs" onclick={counts.onRetry}>Retry</Button>
 				</div>
 			{/if}
-			<Command.List class={['max-h-80', pending && 'pointer-events-none opacity-60']} aria-busy={pending}>
-				<Command.Empty>{emptyMessage}</Command.Empty>
-				{#each visibleOptions as option (option.id)}
-					{@const person = option.kind === 'personnel' ? option : null}
-					<Command.Item
-						value={option.id}
-						keywords={[option.label, person?.prefix ?? '']}
-						aria-label={accessibleName(option)}
-						data-checked={option.current}
-						onSelect={() => run(() => onAssign(option.id))}
-					>
-						{#if person?.prefix}
-							<span class="w-9 shrink-0 font-mono text-[10px] font-semibold text-muted-foreground uppercase"
-								>{person.prefix}</span
-							>
-						{/if}
-						<span class="flex min-w-0 flex-1 flex-col">
-							<span class={['truncate', person?.unavailable ? 'text-muted-foreground' : 'font-medium']}
-								>{option.label}</span
-							>
-							{#if person?.unavailable}
-								<span class="truncate font-mono text-[10px] text-destructive uppercase">{person.unavailable}</span>
+			{#if counts?.status === 'loading'}
+				<div class="flex h-48 flex-col gap-2 p-2" aria-hidden="true">
+					{#each { length: 5 } as _, row (row)}
+						<Skeleton class="h-8 w-full" />
+					{/each}
+				</div>
+			{:else}
+				<Command.List class={['max-h-80', pending && 'pointer-events-none opacity-60']} aria-busy={pending}>
+					<Command.Empty>{emptyMessage}</Command.Empty>
+					{#each visibleOptions as option (option.id)}
+						{@const person = option.kind === 'personnel' ? option : null}
+						<Command.Item
+							value={option.id}
+							keywords={[option.label, person?.prefix ?? '']}
+							aria-label={accessibleName(option)}
+							data-checked={option.current}
+							onSelect={() => run(() => onAssign(option.id))}
+						>
+							{#if person?.prefix}
+								<span class="w-9 shrink-0 font-mono text-[10px] font-semibold text-muted-foreground uppercase"
+									>{person.prefix}</span
+								>
 							{/if}
-							{#if person?.offRoster}
-								<span class="truncate font-mono text-[10px] text-muted-foreground uppercase">Not on this roster</span>
+							<span class="flex min-w-0 flex-1 flex-col">
+								<span class={['truncate', person?.unavailable ? 'text-muted-foreground' : 'font-medium']}
+									>{option.label}</span
+								>
+								{#if person?.unavailable}
+									<span class="truncate font-mono text-[10px] text-destructive uppercase">{person.unavailable}</span>
+								{/if}
+								{#if person?.countUnavailable}
+									<span class="truncate font-mono text-[10px] text-muted-foreground uppercase">Count unavailable</span>
+								{:else if person?.offRoster}
+									<span class="truncate font-mono text-[10px] text-muted-foreground uppercase">Not on this roster</span>
+								{/if}
+							</span>
+							{#if person?.count !== undefined}
+								<span
+									class={[
+										'shrink-0 font-mono text-[11px] tabular-nums',
+										person.unavailable ? 'text-muted-foreground' : 'font-semibold'
+									]}
+									aria-hidden="true">{person.count}</span
+								>
 							{/if}
-						</span>
-						{#if person?.count !== undefined}
-							<span
-								class={[
-									'shrink-0 font-mono text-[11px] tabular-nums',
-									person.unavailable ? 'text-muted-foreground' : 'font-semibold'
-								]}
-								aria-hidden="true">{person.count}</span
-							>
-						{/if}
-					</Command.Item>
-				{/each}
-			</Command.List>
+						</Command.Item>
+					{/each}
+				</Command.List>
+			{/if}
 		</Command.Root>
 		{#if onClear}
 			<div class="border-t p-1">

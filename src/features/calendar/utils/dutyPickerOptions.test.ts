@@ -115,6 +115,40 @@ describe('dutyPickerOptions', () => {
 		]);
 	});
 
+	it('offers no one while the roster day is unread, so nothing is picked before the counts arrive', () => {
+		expect(options({ unreadRoster: 'loading' })).toEqual([]);
+	});
+
+	it('tags everyone not excused as count unavailable when the roster day failed, current assignee included', () => {
+		expect(
+			options({ unreadRoster: 'error' }).map((option) =>
+				option.kind === 'personnel'
+					? [option.id, option.count, option.countUnavailable, option.offRoster, option.current]
+					: [option.id]
+			)
+		).toEqual([
+			['p-hale', undefined, true, false, true],
+			['p-liang', undefined, true, false, false],
+			['p-ortiz-c', undefined, true, false, false],
+			['p-ortiz-a', undefined, true, false, false],
+			['p-ortiz-b', undefined, true, false, false],
+			['p-reed', undefined, true, false, false]
+		]);
+	});
+
+	it('lists Groups as usual for a Group duty whatever the roster read is doing', () => {
+		const groupDuty: AssignmentType = { ...staffDuty, assignTo: 'group' };
+		const groups = [
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 0 }
+		];
+
+		expect(options({ type: groupDuty, groups, unreadRoster: 'error' }).map((option) => option.label)).toEqual([
+			'Alpha',
+			'Bravo'
+		]);
+	});
+
 	it('keeps an excused person out of the off-roster search list, as it does without a roster', () => {
 		const roster: RosterDay = { track: null, pool: ['p-reed'] };
 

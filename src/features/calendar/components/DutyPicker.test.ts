@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { ComponentProps } from 'svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import DutyPicker from './DutyPicker.svelte';
 import type { DutyPickerOption } from '$features/calendar/utils/dutyPickerOptions';
 
@@ -40,6 +41,7 @@ function renderPicker(
 		onAssign?: (id: string) => Promise<boolean>;
 		onClear?: () => Promise<boolean>;
 		returnFocusTo?: () => HTMLElement | null;
+		counts?: ComponentProps<typeof DutyPicker>['counts'];
 	} = {}
 ) {
 	const anchor = document.createElement('button');
@@ -56,6 +58,7 @@ function renderPicker(
 			anchor,
 			returnFocusTo: props.returnFocusTo,
 			options: props.options ?? OPTIONS,
+			counts: props.counts,
 			onAssign,
 			onClear,
 			onClose
@@ -213,5 +216,53 @@ describe('DutyPicker', () => {
 		await fireEvent.input(await screen.findByRole('combobox', { name: 'Find person' }), { target: { value: 'zzz' } });
 
 		expect(await screen.findByText('No one matches.')).toBeTruthy();
+	});
+
+	it('holds a fixed-height skeleton and no options while the counts load', async () => {
+		renderPicker({ options: [], counts: { status: 'loading', onRetry: vi.fn() } });
+
+		const dialog = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 27 Oct' });
+		expect(within(dialog).getByRole('status').textContent).toContain('Loading roster counts');
+		expect(within(dialog).queryAllByRole('option')).toEqual([]);
+		expect(within(dialog).queryByText('No one matches.')).toBeNull();
+		expect(dialog.querySelector('[data-slot="skeleton"]')).toBeTruthy();
+	});
+
+	it('reaches a person whose count failed to load only through a name search, tagged Count unavailable', async () => {
+		const onRetry = vi.fn();
+		const unread: DutyPickerOption[] = [
+			{
+				kind: 'personnel',
+				id: 'p-hale',
+				prefix: 'SSG',
+				label: 'Hale, Corey',
+				current: false,
+				countUnavailable: true,
+				offRoster: false
+			},
+			{
+				kind: 'personnel',
+				id: 'p-ortiz',
+				prefix: 'SPC',
+				label: 'Ortiz, Lucia',
+				current: false,
+				countUnavailable: true,
+				offRoster: false
+			}
+		];
+		const { onAssign } = renderPicker({ options: unread, counts: { status: 'error', onRetry } });
+
+		const dialog = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 27 Oct' });
+		expect(within(dialog).getByRole('alert').textContent).toContain('Roster counts could not be loaded.');
+		expect(within(dialog).queryAllByRole('option')).toEqual([]);
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }));
+		expect(onRetry).toHaveBeenCalledTimes(1);
+
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Find person' }), { target: { value: 'ortiz' } });
+		const found = await screen.findByRole('option', { name: /Ortiz, Lucia/ });
+		expect(found.getAttribute('aria-label')).toBe('SPC Ortiz, Lucia, count unavailable');
+		expect(found.textContent).toContain('Count unavailable');
+		await fireEvent.click(found);
+		expect(onAssign).toHaveBeenCalledWith('p-ortiz');
 	});
 });

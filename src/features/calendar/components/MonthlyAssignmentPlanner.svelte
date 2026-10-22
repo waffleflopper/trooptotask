@@ -220,6 +220,7 @@
 				availabilityByPerson,
 				statusTypes,
 				roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
+				unreadRoster: counted && read?.status !== 'ready' ? (read?.status ?? 'loading') : undefined,
 				currentAssigneeId: current?.assigneeId
 			})
 		};

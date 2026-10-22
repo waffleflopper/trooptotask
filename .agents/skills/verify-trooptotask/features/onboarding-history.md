@@ -1,47 +1,105 @@
 # Onboarding History
 
-A leader reviews finished Onboarding packets: who finished or stopped, how long it took against the typical time, how far a cancelled packet got, the final packet and the notes with who wrote them. History is read only. It keeps the member's Organization and Group scope and the Organization's retention period.
+A leader reviews finished Onboarding packets: who finished or stopped, how long it took against the typical time, how
+far a cancelled packet got, the final packet and the notes with who wrote them. History is read only. It keeps the
+member's Organization and Group scope and the Organization's retention period.
 
 ## Sub-features
 
-- `header`: title `History` and a subtitle of up to three parts: `N finished in the last 90 days`, `Typically N days to finish` and `N cancelled`. A part with nothing to say is absent, and the typical figure is absent below three recent completed packets. The counts cover packets finished in the last 90 days whatever the filters.
-- `toolbar`: `Onboarding history controls` hold the outcome view (`All`, `Completed`, `Cancelled`), search by name, rank or MOS, the `Group` and `Template` selects and the `Active onboarding` link. There is no primary action. `Group` is absent when the Organization has no Groups.
-- `table`: `Finished packets`, the count of rows that match, and `most recent first`. Columns are Soldier (with Group and MOS), Template, Dates, Took, Final and Outcome. Rows sort by finish, newest first. A completed packet finishes on its stored completion day and a cancelled one at the time it was cancelled, shown as the viewer's local day (see Viewer day below). Within one day, cancellations list above completions and two cancellations list the later one first.
-- `amber`: `Took` is amber when the packet took well past the typical time, and `Final` is amber for a cancelled packet, which shows how far it got.
-- `expanded-row`: one row opens at a time. The heading `Final packet · read only` lists every step (a check for done, an open circle for open, the paperwork stage it ended on, removed steps last as `Removed from template` or `Previously completed`, a removed paperwork step with the status under its name and the stage it ended on at the right). Every row's trigger names its content through `aria-controls`; the content element is on the page while the row is collapsed (hidden and empty) and holds the steps and notes once open. `Notes · N` lists every note on the packet, oldest first, as the text then `step · author · date`. Nothing in an open row can be changed.
-- `note-authors`: the author is the member's display name or email from Organization membership, `You` for the signed-in member, `Member` for a membership with no email or name (the seeded `onboardingConfigure`, `onboardingOperate` and `onboardingView` memberships carry no email) and `Former member` when no membership row is readable. A bare user id never appears. The Active packet panel shows the same names.
-- `retention`: `Kept N months after finishing, then deleted. Set in Organization settings.` N is the Organization's retention setting. `Organization settings` is a link to Settings → Policies only for a member who can open Organization settings.
-- `states`: `Loading history` (a status with a skeleton of the header, toolbar and table rows while the History read resolves; the previous page does not stay frozen), `No finished packets yet` (nothing finished), `No packets match` with `Clear filters` (filters hide everything), `Unable to load History` with `Retry History` for a failed read, `403` for a member without Onboarding.
+- `header`: title `History` and a subtitle of up to three parts: `N finished in the last 90 days`,
+  `Typically N days to finish` and `N cancelled`. A part with nothing to say is absent, and the typical figure is absent
+  below three recent completed packets. The counts cover packets finished in the last 90 days whatever the filters.
+- `toolbar`: `Onboarding history controls` hold the outcome view (`All`, `Completed`, `Cancelled`), search by name, rank
+  or MOS, the `Group` and `Template` selects and the `Active onboarding` link. There is no primary action. `Group` is
+  absent when the Organization has no Groups.
+- `table`: `Finished packets`, the count of rows that match, and `most recent first`. Columns are Soldier (with Group
+  and MOS), Template, Dates, Took, Final and Outcome. Rows sort by finish, newest first. A completed packet finishes on
+  its stored completion day and a cancelled one at the time it was cancelled, shown as the viewer's local day (see
+  Viewer day below). Within one day, cancellations list above completions and two cancellations list the later one
+  first.
+- `amber`: `Took` is amber when the packet took well past the typical time, and `Final` is amber for a cancelled packet,
+  which shows how far it got.
+- `expanded-row`: one row opens at a time. The heading `Final packet · read only` lists every step (a check for done, an
+  open circle for open, the paperwork stage it ended on, removed steps last as `Removed from template` or
+  `Previously completed`, a removed paperwork step with the status under its name and the stage it ended on at the
+  right). Every row's trigger names its content through `aria-controls`; the content element is on the page while the
+  row is collapsed (hidden and empty) and holds the steps and notes once open. `Notes · N` lists every note on the
+  packet, oldest first, as the text then `step · author · date`. Nothing in an open row can be changed.
+- `note-authors`: the author is the member's display name or email from Organization membership, `You` for the signed-in
+  member, `Member` for a membership with no email or name (the seeded `onboardingConfigure`, `onboardingOperate` and
+  `onboardingView` memberships carry no email) and `Former member` when no membership row is readable. A bare user id
+  never appears. The Active packet panel shows the same names.
+- `retention`: `Kept N months after finishing, then deleted. Set in Organization settings.` N is the Organization's
+  retention setting. `Organization settings` is a link to Settings → Policies only for a member who can open
+  Organization settings.
+- `states`: `Loading history` (a status with a skeleton of the header, toolbar and table rows while the History read
+  resolves; the previous page does not stay frozen), `No finished packets yet` (nothing finished), `No packets match`
+  with `Clear filters` (filters hide everything), `Unable to load History` with `Retry History` for a failed read, `403`
+  for a member without Onboarding.
 
 ## How to get to it (user POV)
 
-Choose `Onboard` in Organization navigation, then `History`, or open `/onboarding/history` with `$V actor onboardingConfigure onboarding/history`. `Active onboarding` returns to the list. Below `md` (768) the table stacks each row as a card with labelled cells (Template, Dates, Took, Final, Outcome). The toolbar folds items into `More` as the available width requires, at any viewport width.
+Choose `Onboard` in Organization navigation, then `History`, or open `/onboarding/history` with
+`$V actor onboardingConfigure onboarding/history`. `Active onboarding` returns to the list. Below `md` (768) the table
+stacks each row as a card with labelled cells (Template, Dates, Took, Final, Outcome). The toolbar folds items into
+`More` as the available width requires, at any viewport width.
 
 ## Helper controls
 
-`seed onboarding-history-view` records a second template and seven tagged Alpha/Bravo People with packets
-finished 9, 11, 13 and 46 days after starting (two on the second template), two cancelled on one day at 09:00
-and 17:00 UTC and one completed 120 days ago, each with a removed checkbox step and a removed paperwork step
-(four steps, so twelve notes on the first packet), with notes by `onboardingConfigure`, `orgAdmin` and a
-non-member; the [History recipe](onboarding-history.md) lists them.
+`seed onboarding-history-view` records a second template and seven tagged Alpha/Bravo People with packets finished 9,
+11, 13 and 46 days after starting (two on the second template), two cancelled on one day at 09:00 and 17:00 UTC and one
+completed 120 days ago, each with a removed checkbox step and a removed paperwork step (four steps, so twelve notes on
+the first packet), with notes by `onboardingConfigure`, `orgAdmin` and a non-member; the
+[History recipe](onboarding-history.md) lists them.
 
 ## Driving it with verify:app
 
-Preconditions: `doctor` passes for this checkout and worker. `$V seed onboarding-history-view` creates, in Organization A, a second template and seven Persons with packets finished relative to today: Alpha completed in 9 days, Alpha completed in 11 days on the second template, Bravo completed in 13 days, Bravo completed in 46 days on the second template (took long), Alpha cancelled after 8 days at 09:00 UTC, Bravo cancelled after 3 days at 17:00 UTC on the same day, and Bravo completed 120 days ago (outside the 90-day window). Every packet has four steps, two of them removed from the template: a checkbox and a paperwork step that ended on `Reviewed`. Three notes by `onboardingConfigure`, the `orgAdmin` member and a user id that is not a member sit on each of the four steps of the first packet and on the cancelled Alpha packet's first step. The fixture's March packet for Able is also listed, outside the window. Read `$V rows organizations orgA` for `archive_retention_months`. `clean-seeds` removes the cohort, template included.
+Preconditions: `doctor` passes for this checkout and worker. `$V seed onboarding-history-view` creates, in Organization
+A, a second template and seven Persons with packets finished relative to today: Alpha completed in 9 days, Alpha
+completed in 11 days on the second template, Bravo completed in 13 days, Bravo completed in 46 days on the second
+template (took long), Alpha cancelled after 8 days at 09:00 UTC, Bravo cancelled after 3 days at 17:00 UTC on the same
+day, and Bravo completed 120 days ago (outside the 90-day window). Every packet has four steps, two of them removed from
+the template: a checkbox and a paperwork step that ended on `Reviewed`. Three notes by `onboardingConfigure`, the
+`orgAdmin` member and a user id that is not a member sit on each of the four steps of the first packet and on the
+cancelled Alpha packet's first step. The fixture's March packet for Able is also listed, outside the window. Read
+`$V rows organizations orgA` for `archive_retention_months`. `clean-seeds` removes the cohort, template included.
 
-1. **Header and table.** As `onboardingConfigure` at 1280 light, then 390 dark. The subtitle reads `6 finished in the last 90 days · Typically 12 days to finish · 2 cancelled` (the median of 9, 11, 13 and 46 is 12). Eight rows, newest finish first, with the 17:00 Bravo cancellation above the 09:00 Alpha one. The 46-day row has amber `Took` and both cancelled rows have amber `Final`.
-2. **Filters.** `Cancelled` leaves the two cancelled rows; `All` restores every row. Search `68w` keeps Persons with that MOS. `Group` Alpha and `Template` the second template each narrow the rows. A combination with no match shows `No packets match`; `Clear filters` restores every row and the toolbar.
-3. **Expanded row.** Open the first completed Alpha packet. `Final packet · read only` lists its steps (both removed steps show `Removed from template` under their names and the paperwork step shows `Reviewed` at the right, clear of the name in both columns at 1280), `Notes · 12` lists each note with step, author and date: `You` for the signed-in member, the `orgAdmin` email, `Former member` for the non-member. Repeat as `orgAdmin`: the `onboardingConfigure` notes read `Member`. Open another row and the first closes. Read each trigger's `aria-controls` and confirm the element exists for every collapsed row and holds the steps for the open one. Reload and reopen with Enter and Space.
-4. **Active panel.** Open an active packet on `Onboard` whose step carries a note by the signed-in member and one by another member. The panel names both as in History.
-5. **Retention.** The line carries the setting read in the preconditions (36 months by default). Change it with Settings → Policies as `orgOwner`, reload History and read the new figure. `Organization settings` is a link for `orgAdmin` and plain text for `onboardingConfigure`.
-6. **Scope.** `onboardingScoped` sees only Alpha rows and the counts in the header follow. `onboardingEmpty` sees `No finished packets yet`. `calendarView` receives `403`. `onboardingView` can read but nothing changes.
-7. **States.** Open `/onboarding` first, since the Onboarding layout reads the same table on a full load. `$V server-source arm personnel_onboardings hold 1 20000`, then choose `History` (in `More` at 390): the `Loading history` skeleton shows at once, the breadcrumb already reads History, and `release` replaces it with the loaded page; `restore`. `server-source arm personnel_onboardings fail-hard 1`, choose `History` again: `Unable to load History` with `Retry History`, which reloads into the page once the control is restored.
+1. **Header and table.** As `onboardingConfigure` at 1280 light, then 390 dark. The subtitle reads
+   `6 finished in the last 90 days · Typically 12 days to finish · 2 cancelled` (the median of 9, 11, 13 and 46 is 12).
+   Eight rows, newest finish first, with the 17:00 Bravo cancellation above the 09:00 Alpha one. The 46-day row has
+   amber `Took` and both cancelled rows have amber `Final`.
+2. **Filters.** `Cancelled` leaves the two cancelled rows; `All` restores every row. Search `68w` keeps Persons with
+   that MOS. `Group` Alpha and `Template` the second template each narrow the rows. A combination with no match shows
+   `No packets match`; `Clear filters` restores every row and the toolbar.
+3. **Expanded row.** Open the first completed Alpha packet. `Final packet · read only` lists its steps (both removed
+   steps show `Removed from template` under their names and the paperwork step shows `Reviewed` at the right, clear of
+   the name in both columns at 1280), `Notes · 12` lists each note with step, author and date: `You` for the signed-in
+   member, the `orgAdmin` email, `Former member` for the non-member. Repeat as `orgAdmin`: the `onboardingConfigure`
+   notes read `Member`. Open another row and the first closes. Read each trigger's `aria-controls` and confirm the
+   element exists for every collapsed row and holds the steps for the open one. Reload and reopen with Enter and Space.
+4. **Active panel.** Open an active packet on `Onboard` whose step carries a note by the signed-in member and one by
+   another member. The panel names both as in History.
+5. **Retention.** The line carries the setting read in the preconditions (36 months by default). Change it with Settings
+   → Policies as `orgOwner`, reload History and read the new figure. `Organization settings` is a link for `orgAdmin`
+   and plain text for `onboardingConfigure`.
+6. **Scope.** `onboardingScoped` sees only Alpha rows and the counts in the header follow. `onboardingEmpty` sees
+   `No finished packets yet`. `calendarView` receives `403`. `onboardingView` can read but nothing changes.
+7. **States.** Open `/onboarding` first, since the Onboarding layout reads the same table on a full load.
+   `$V server-source arm personnel_onboardings hold 1 20000`, then choose `History` (in `More` at 390): the
+   `Loading history` skeleton shows at once, the breadcrumb already reads History, and `release` replaces it with the
+   loaded page; `restore`. `server-source arm personnel_onboardings fail-hard 1`, choose `History` again:
+   `Unable to load History` with `Retry History`, which reloads into the page once the control is restored.
 
 Capture screenshots at 1280 and 390 in light and dark.
 
 ### Viewer day
 
-With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), sign in. Start a packet on the browser day as `onboardingConfigure` and complete it from `Onboard`. `$V rows personnel_onboardings orgA id <packet-id>` shows `completed_at` on the browser day, not the UTC day, and History lists the row with that finish date and `0 days`. Cancel another new packet: its History finish date is also the browser day. The header's 90-day counts end on the browser day. The Active page's `Typically N days to finish` comes from its layout load, so reload Onboarding before reading it after a close-out. Remove both packets afterward.
+With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), sign in. Start a packet on the
+browser day as `onboardingConfigure` and complete it from `Onboard`. `$V rows personnel_onboardings orgA id <packet-id>`
+shows `completed_at` on the browser day, not the UTC day, and History lists the row with that finish date and `0 days`.
+Cancel another new packet: its History finish date is also the browser day. The header's 90-day counts end on the
+browser day. The Active page's `Typically N days to finish` comes from its layout load, so reload Onboarding before
+reading it after a close-out. Remove both packets afterward.
 
 ## Gotchas
 

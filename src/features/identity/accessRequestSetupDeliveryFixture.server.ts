@@ -1,10 +1,23 @@
-import type {
-	AccessRequestSetupDeliveryStore,
-	AccessRequestSetupRequest,
-	CreatePendingAccessRequestInput
+import {
+	createAccessRequestSetupDeliveryService,
+	type AccessRequestSetupDeliveryStore,
+	type AccessRequestSetupRequest,
+	type CreatePendingAccessRequestInput
 } from './accessRequestSetupDelivery.server';
-import type { AccountSetupLinkRecord } from './accountSetupLinks.server';
-import type { AuthEmailOutboxRecord } from './authEmailOutbox.server';
+import {
+	createAccountSetupLinkService,
+	type AccountSetupLinkRecord,
+	type AccountSetupLinkStore
+} from './accountSetupLinks.server';
+import {
+	sendAccountSetupOutboxDelivery,
+	type AuthEmailOutboxRecord,
+	type AuthEmailOutboxStore
+} from './authEmailOutbox.server';
+import {
+	createAccountSetupLinkIssuance,
+	type AccountSetupLinkIssuanceDependencies
+} from './accountSetupLinkIssuance.server';
 import { AUTH_WORKFLOW_CREATED_AT, AUTH_WORKFLOW_REVIEWED_AT } from '$lib/test-support/authWorkflowFixtures';
 import { createAuthEmailOutboxStore, issueSetupLinkInMemory } from './accountSetupFixtures.server';
 
@@ -27,11 +40,13 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 	const insertedRequests: CreatePendingAccessRequestInput[] = [];
 	let linkId = 0;
 
-	const store: AccessRequestSetupDeliveryStore & {
-		insertedRequests: CreatePendingAccessRequestInput[];
-		setupLinks: AccountSetupLinkRecord[];
-		outboxRecords: AuthEmailOutboxRecord[];
-	} = {
+	const store: AccessRequestSetupDeliveryStore &
+		AccountSetupLinkStore &
+		AuthEmailOutboxStore & {
+			insertedRequests: CreatePendingAccessRequestInput[];
+			setupLinks: AccountSetupLinkRecord[];
+			outboxRecords: AuthEmailOutboxRecord[];
+		} = {
 		...outboxStore,
 		insertedRequests,
 		setupLinks,
@@ -103,4 +118,20 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 	};
 
 	return store;
+}
+
+export function createAccessRequestSetupDeliveryFixture(
+	store: ReturnType<typeof createAccessRequestSetupDeliveryStore>,
+	sendSetupEmail: Parameters<typeof sendAccountSetupOutboxDelivery>[1],
+	options: { now: () => Date; audit?: AccountSetupLinkIssuanceDependencies['audit'] }
+) {
+	return createAccessRequestSetupDeliveryService(
+		store,
+		createAccountSetupLinkIssuance({
+			setupLinks: createAccountSetupLinkService(store, { now: options.now }),
+			setupDelivery: { send: (input) => sendAccountSetupOutboxDelivery(store, sendSetupEmail, input) },
+			audit: options.audit ?? (() => {})
+		}),
+		{ now: options.now }
+	);
 }

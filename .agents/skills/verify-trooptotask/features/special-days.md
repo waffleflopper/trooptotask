@@ -1,57 +1,228 @@
 # Special days
 
-A Calendar configurator manages the Organization's federal holidays and closures in Settings → `Holidays & closures`. One closure over a date range saves as one Special Day per date in a single request; dates that already hold a holiday or closure are skipped. Each day stays editable and removable on its own, and federal reset replaces federal holidays while preserving custom closures and the other Organization's days.
+A Calendar configurator manages the Organization's federal holidays and closures in Settings → `Holidays & closures`.
+One closure over a date range saves as one Special Day per date in a single request; dates that already hold a holiday
+or closure are skipped. Each day stays editable and removable on its own, and federal reset replaces federal holidays
+while preserving custom closures and the other Organization's days.
 
 ## Sub-features
 
-- `closure-list`: the year's days grouped by month, an `All` / `Federal` / `Closures` filter, past months collapsed behind one disclosure, and a same-name run of closure days in one month (split only by weekends) shown as one range row that expands to its days; a run that crosses a month shows each month's part in that month.
-- `closure-range`: the `New closure` composer turns a name, a first and last day and `Skip weekends` into the dates it saves, previews them in a Days-lane week strip and saves them with `Add N days`. A last day before the first marks `Last day` invalid and described by the error; Cancel and a save return focus to `New closure`.
-- `closure-overlap`: dates that already hold a day are skipped, both in the preview count and on the server, and the result names any day the server found that the preview did not.
+- `closure-list`: the year's days grouped by month, an `All` / `Federal` / `Closures` filter, past months collapsed
+  behind one disclosure, and a same-name run of closure days in one month (split only by weekends) shown as one range
+  row that expands to its days; a run that crosses a month shows each month's part in that month.
+- `closure-range`: the `New closure` composer turns a name, a first and last day and `Skip weekends` into the dates it
+  saves, previews them in a Days-lane week strip and saves them with `Add N days`. A last day before the first marks
+  `Last day` invalid and described by the error; Cancel and a save return focus to `New closure`.
+- `closure-overlap`: dates that already hold a day are skipped, both in the preview count and on the server, and the
+  result names any day the server found that the preview did not.
 - `closure-day-edit`: a day inside a range keeps its own `Edit` and `Remove`.
-- `closure-failed-save`: a denied add keeps the draft open with the access reason; a denied edit keeps the edit open; a held add is busy; a failed or lost command reports that it couldn't confirm and shows the saved days.
+- `closure-failed-save`: a denied add keeps the draft open with the access reason; a denied edit keeps the edit open; a
+  held add is busy; a failed or lost command reports that it couldn't confirm and shows the saved days.
 - `closure-days-lane`: the Calendar month's `Days` lane shows a new closure without a reload.
-- `federal-reset`: the `Federal holidays` card's `Reset` replaces federal rows with observed defaults for the supported year window and keeps closures.
+- `federal-reset`: the `Federal holidays` card's `Reset` replaces federal rows with observed defaults for the supported
+  year window and keeps closures.
 - `special-day-scope`: A's Calendar shows A's closure, excludes B's; an A actor cannot write B's days.
-- `closure-reentry`: a closure another member removed is gone after Calendar re-entry, and one A adds or removes during the re-entry snapshot keeps A's result; [Calendar navigation](calendar-navigation.md) step 16 drives it.
+- `closure-reentry`: a closure another member removed is gone after Calendar re-entry, and one A adds or removes during
+  the re-entry snapshot keeps A's result; [Calendar navigation](calendar-navigation.md) step 16 drives it.
 
 ## How to get to it (user POV)
 
-With Organization-wide Calendar configuration access, choose `Calendar`, then `Settings` under `More Calendar controls`, then `Holidays & closures`. The toolbar's `New closure` opens the composer above the `Federal holidays` card (beside the list from 1280 px, above it when narrow). A day row reads its day number, weekday, name and a `Federal` or `Closure` badge, with `More actions for <name>, <Ddd, Mmm D>` → `Edit` or `Remove`. A range row (always within one month) reads `21–24`, `MON – THU · 4 DAYS` and the name; it is a button named `<name>, N days from <first> to <last>` that expands to its days. Months before the viewer's current month sit behind one `January – <month> · N past days` disclosure; a past year collapses entirely and a future year collapses nothing. The Calendar month grid shows a closure in its `Days` lane under the date headers (read as `<name>, closure, <range>`) and tints the date's cells with the name as their title.
+With Organization-wide Calendar configuration access, choose `Calendar`, then `Settings` under `More Calendar controls`,
+then `Holidays & closures`. The toolbar's `New closure` opens the composer above the `Federal holidays` card (beside the
+list from 1280 px, above it when narrow). A day row reads its day number, weekday, name and a `Federal` or `Closure`
+badge, with `More actions for <name>, <Ddd, Mmm D>` → `Edit` or `Remove`. A range row (always within one month) reads
+`21–24`, `MON – THU · 4 DAYS` and the name; it is a button named `<name>, N days from <first> to <last>` that expands to
+its days. Months before the viewer's current month sit behind one `January – <month> · N past days` disclosure; a past
+year collapses entirely and a future year collapses nothing. The Calendar month grid shows a closure in its `Days` lane
+under the date headers (read as `<name>, closure, <range>`) and tints the date's cells with the name as their title.
+
+## Helper controls
+
+`federal-holiday-reset` stops `rpc/reset_federal_holidays` before dispatch. For this fault and the
+[Calendar catalog faults](calendar-catalogs.md#helper-controls), `-lost-ack` lets the command commit and loses the
+reply; `-hold` holds before dispatch until `fault release NAME`.
 
 ## Driving it with verify:app
 
-Preconditions: `$V actor calendarConfigure calendar/settings` returns `PAGE`; `resize_page` to 1440x900 and use the visible **Toggle theme** for light. `$V fixture` gives `closureA` (`Verification Unit Closure`, 2026-09-15), `closureB` (B's `Foreign Private Closure`, same date) and `holidayCustom` (A's `Verification Custom Holiday`, 2026-09-18). Record the browser's local day with `evaluate_script` (`() => new Date().toLocaleDateString('en-CA')`); the composer's default dates and the past-month collapse follow it. The steps below use November and December 2026 and assume a browser day in October 2026; on a later day choose dates in a later future month and keep the same weekday shapes. Use unique names. Capture Settings and `$V rows special_days orgA name <name>` before each mutation and restore grants even after an unsuccessful request.
+Preconditions: `$V actor calendarConfigure calendar/settings` returns `PAGE`; `resize_page` to 1440x900 and use the
+visible **Toggle theme** for light. `$V fixture` gives `closureA` (`Verification Unit Closure`, 2026-09-15), `closureB`
+(B's `Foreign Private Closure`, same date) and `holidayCustom` (A's `Verification Custom Holiday`, 2026-09-18). Record
+the browser's local day with `evaluate_script` (`() => new Date().toLocaleDateString('en-CA')`); the composer's default
+dates and the past-month collapse follow it. The steps below use November and December 2026 and assume a browser day in
+October 2026; on a later day choose dates in a later future month and keep the same weekday shapes. Use unique names.
+Capture Settings and `$V rows special_days orgA name <name>` before each mutation and restore grants even after an
+unsuccessful request.
 
-1. **List and filter.** Open `Holidays & closures`. With the year at 2026 the list starts with a `January – September · N past days` disclosure; expand it and find `Verification Unit Closure` and `Verification Custom Holiday` under `September`. Choose `Federal`: only federal days remain. Choose `Closures`: only closures. Choose `All` and year 2025 (past): the fixture alone has no 2025 rows, so the list reads `No holidays or closures for 2025.` (step 13 checks the past-year disclosure after its reset). Return to 2026.
-2. **One day.** Click `New closure`. The `New closure` form's `Name` has focus, both date pickers (`First day`, `Last day`) show the browser day, `Skip weekends` is on and the button reads `Add 1 day` once a name is typed. On a weekend browser day the hint reads `These are all weekend days. Turn off Skip weekends to add them.` and the button `Add 0 days` stays disabled. Picking a first day after the last moves the last day with it. Clicking a picker's selected day clears it, and the hint then reads `Pick a first and last day.` with `Add 0 days` disabled; pick the last day only when it differs. Pick a last day before the first (for example Oct 10 with the first day Oct 17): the hint reads `End date must be on or after the start date.`, `Add 0 days` stays disabled, and the snapshot marks `Last day` invalid with that message as its description; picking a later last day clears both. Fill `Name` with `Verification DONSA <tag>`, set both days to Friday 2026-11-27 and capture the `On the calendar` week strip: November 22–28 with the new name in its `Days` row. Click `Add 1 day`. The toast reads `Added 1 day`, the composer closes with focus back on `New closure`, and `November` lists `27 FRI Verification DONSA <tag>` with `Closure`. `$V rows special_days orgA name 'Verification DONSA <tag>'` shows one `org-closure` on 2026-11-27. Reload and confirm the row. Open `New closure` again and click `Cancel` (an empty draft closes at once): focus returns to `New closure`.
-3. **Range, skip weekends and overlap.** `New closure` again. Name `Verification Block Leave <tag>`, first day Monday 2026-11-23, last day Friday 2026-12-04, `Skip weekends` on. The preview shows the first two weeks with the leave in the `Days` row and the DONSA kept on the 27th, and the button reads `Add 9 days`: ten weekdays minus the taken 27th. The note reads `Saved as 9 closure days you can edit or remove one at a time. Days that already have a holiday or closure are skipped.` Turn `Skip weekends` off and see the count rise to 11 (twelve days minus the 27th), then on again. Arm `$V network arm-observe $PAGE special-days`, click `Add 9 days` and require one `POST` whose body carries `action: 'addClosureDays'` and the ten requested dates, answered `200` with nine `created` rows. The toast reads `Added 9 days`. `$V rows special_days orgA name 'Verification Block Leave <tag>'` shows nine rows, one per weekday except the 27th, and the DONSA row keeps its ID. `November` now reads a `23–26` range (`MON – THU · 4 DAYS`), `27 FRI Verification DONSA <tag>`, and `30 MON Verification Block Leave <tag>` alone, because a range stays within its month; `December` starts with a `1–4` range (`TUE – FRI · 4 DAYS`). The DONSA weekday splits the November run, and a run without a taken weekday still reads as one row per month, such as `23–30` in November. Restore the observer.
-   3a. **Month boundary.** With a browser day in October 2026, `New closure`, name `Verification Month Edge <tag>`, first day Wednesday 2026-09-30, last day Thursday 2026-10-01, `Skip weekends` on (`Add 2 days`). Save. `$V rows` shows two rows. `October`, the current month, lists `1 THU Verification Month Edge <tag>` as its own row; the `January – September` disclosure grew by one day and, expanded, lists `30 WED Verification Month Edge <tag>` under `September`. No range row appears, and October's day is not hidden behind the disclosure. Remove both days through their row actions.
-4. **Server skip.** Open a second tab with the actor's `browserContext` on `calendar/settings` → `Holidays & closures`. On page 1 open `New closure`, name `Verification Stand-down <tag>`, days Monday 2026-12-07 to Wednesday 2026-12-09 (`Add 3 days`). On page 2 add `Verification Range Witness <tag>` on 2026-12-08 alone. Back on page 1, which has not seen it, click `Add 3 days`. The toast reads `Added 2 days. 1 already existed.` and `$V rows` shows the witness alone on the 8th and two stand-down rows on the 7th and 9th. Page 1 lists only the days it added; the witness appears there after a reload or Calendar re-entry. Close page 2.
-5. **Expand and edit one day.** Click the `Verification Block Leave <tag>, 4 days from …` range row; its four days appear with their own actions. Choose `More actions for Verification Block Leave <tag>, Tue, Nov 24` → `Edit`, change `Name` to `Verification Block Leave Moved <tag>` and `Save Changes`. Only that ID changes name; the list regroups into `23`, the renamed `24` and a collapsed `25–26` range. Expand `Verification Block Leave <tag>, 2 days from …`, choose `More actions for Verification Block Leave <tag>, Thu, Nov 26` → `Remove` and confirm `Remove Special Day`. `$V rows` shows that ID gone and the other leave days unchanged.
-6. **Days lane without reload.** From Settings click `Back to Calendar` (no `navigate_page` reload), choose November 2026 and capture the `Days` lane: `Verification DONSA <tag>` on the 27th, the leave segments on the 23rd, 25th and from the 30th, and `Verification Block Leave Moved <tag>` on the 24th. Read `() => performance.getEntriesByType('navigation').length` before and after to show the document did not reload.
-7. **Denied add.** In Settings open `New closure`, name `Verification Denied <tag>`, choose a free weekday in December and run `$V calendar-grant calendarConfigure view` while the composer stays open. Click `Add 1 day`. The route answers `403`, the toast reads `You don't have permission. This requires Calendar can manage permissions. Talk to your organization owner or admin.`, the composer stays open with the name and dates, and `$V rows special_days orgA name 'Verification Denied <tag>'` is empty. Restore with `$V calendar-grant calendarConfigure restore`, then press Escape inside the form and confirm `Discard changes?`. Cancel closes a changed draft without asking.
-8. **Failed edit.** Open `More actions for Verification DONSA <tag>, Fri, Nov 27` → `Edit`, fill a different name and run `$V calendar-grant calendarConfigure view` while the dialog stays open. Click `Save Changes`. Require the denied `PUT` `403`, the same access toast, the retained dialog and draft, and readback showing the old name under the same ID. Restore the grant, Cancel, then edit and save normally and confirm the new name under the same ID, date and `org-closure` type.
-9. **Held add.** Open `New closure`, name `Verification Held <tag>` on a free December weekday, arm `$V network arm-hold $PAGE special-days` and click `Add 1 day`, then press Enter. While held, `Add 1 day` shows a spinner and is disabled with the fields, `network state` shows one `POST`, and Escape inside the form leaves it open. Release with `$V network release $PAGE`: the toast reads `Added 1 day`, the composer closes and the day is listed. Restore the hook. Capture at 1440 light and 390 dark.
-10. **Lost reply and failed command.** For each case open `New closure` with a unique name over two free December weekdays and save `$V fault state` with the rows before and after.
-    - **Lost reply.** Run `$V fault arm closure-days-lost-ack` and click `Add 2 days`. The command commits, the server's SDK then sees a transport failure and the route answers `503`. The page reads the saved days once and the toast reads `We couldn't confirm the closure. The list shows the saved days. Add again if days are missing.` The composer stays open and now reads `Add 0 days` (disabled) because both days are listed. `$V rows` shows exactly two rows. Restore the fault and Cancel the draft.
-    - **Command fails.** Run `$V fault arm closure-days` and click `Add 2 days`. The command gets a synthetic PostgREST 503 before dispatch and the route answers `500`. The toast reads the same unconfirmed message, the composer stays open with `Add 2 days`, and `$V rows` shows no row. Restore the fault, click `Add 2 days` again and read two rows back. The error toast can sit over `Add 2 days` at 1440x900; close it first.
-    - **Read after the command fails.** Run `$V fault arm closure-days` and `$V network arm-fail $PAGE special-days 2`, then click `Add 1 day`. The `POST` answers `500`, the follow-up `GET` fails with `503`, the toast reads `We couldn't confirm the closure. Reload to see the saved days.` and the composer stays open. Restore both controls.
-    - **Ordered overlap.** Open a second tab with the actor's `browserContext` and the same composer, name and dates on both pages. Run `$V fault arm closure-days-hold`, click `Add 2 days` on page 1 and wait until `fault state` shows `held`. Click it on page 2 and wait for its `Added 2 days`. Run `$V fault release closure-days-hold`: page 1's command commits after page 2's and skips both dates, so page 1 reports `Added 0 days. 2 already existed.` and `$V rows` shows one row per date with page 2's IDs. The SQL tests in `supabase/tests/calendar_closure_days_concurrency.sql` prove the database lock and authority rechecks behind this ordering; the hold only orders the commands.
-11. **Appearance.** At 1440x900 light capture the toolbar (`Back to Calendar`, `Filter Holidays & closures`, the pinned `New closure`), the year select with the `All` / `Federal` / `Closures` filter, the past disclosure, month groups, a range row expanded, the open composer with its preview and note, and the `Federal holidays` card. Repeat at 390x844 dark: the controls, composer and card stack above the list, and `document.documentElement.scrollWidth` equals `innerWidth`. Type `zzz` in the filter and capture `No holidays or closures for 2026.`, then clear it with Control+A and Backspace; a native `fill` with an empty value leaves the old text. Below `sm` the range arrow hides and the date pickers stack, and the preview still shows all seven days. The Settings content scrolls inside its panel, so a full-page screenshot shows only the viewport; scroll the composer into view first.
-12. **Scope.** Reload `/calendar` with `navigate_page`, choose September 2026, and confirm `Verification Unit Closure` appears while `Foreign Private Closure` does not. From the A configurator's signed-in page send an authenticated `POST /org/<orgB>/api/special-days` with `{action: 'addClosureDays', name: 'UNIQUE_MARKER', dates: ['2026-09-23']}` using the authenticated `tool evaluate_script` request shape in [Calendar catalogs](calendar-catalogs.md). Expect `403` or `404` and `$V rows special_days orgB name ...` with zero rows; the seeded B closure remains intact. A `POST` without `action` answers `400`.
-13. **Federal reset.** Run it last. Before reset, capture A's custom federal row and A/B closure rows with `$V rows special_days`. The `Federal holidays` card reads `Restore the standard list for <first>–<last>. Custom closures are kept.` for the supported year window. Click `Reset`; the `Reset Federal Holidays` dialog must say custom closures will be preserved. Confirm with the dialog's own `Reset`, which follows the card's button in the snapshot, reload, and compare saved A federal rows against independently calculated observed dates for each supported year: New Year's Day Jan 1, MLK third Monday Jan, Presidents third Monday Feb, Memorial last Monday May, Juneteenth Jun 19, Independence Day Jul 4, Labor first Monday Sep, Columbus second Monday Oct, Veterans Nov 11, Thanksgiving fourth Thursday Nov, Christmas Dec 25. Observe a fixed-date holiday on Friday when it falls Saturday and Monday when it falls Sunday. The custom `holidayCustom` row is replaced; `closureA`, B's `closureB` and every closure added above keep their IDs. For 2026, Independence Day is observed July 3. New Year's Day 2028 is observed Friday, December 31, 2027, so the 2027 list holds 12 federal days and 2028 holds 10. With federal rows present, year 2025 shows every day behind one `January – December` disclosure and 2027 collapses nothing; the fixture alone has no 2025 rows, so step 1 shows `No holidays or closures for 2025.` instead. Capture the complete 2026 list and the supported year bounds, not just a Reset toast. Before another journey needs `holidayCustom`, run `npm run --silent verify:app -- restart --worker "$WORKER"`, then `doctor` and `$V fixture` again.
-14. **Reset recovery and overlap.** After step 13, run `$V seed federal-reset-sentinels` before each case below. Each run journals a new A federal row dated 2019-07-04 and a B federal row dated 2026-07-03. A reset that commits removes the A row, because reset replaces all of A's federal rows in any year, and a rejected command keeps it. Every case keeps B's rows, `closureA` and `closureB`. The expected set is the generator's current output: `getDefaultFederalHolidays()` in `src/features/calendar/utils/federalHolidays.ts` gives 11 holidays for each supported year, so derive the count from that output and do not hardcode a total. Run each case on the same worker. For each case, save `$V fault state`, `$V rows special_days orgA type federal-holiday` (count, IDs and dates), `$V rows special_days orgB`, the visible Settings list and feedback, and the same reads after reload. Reset is one `reset_federal_holidays` command, so a case leaves either the previous federal rows or exactly one default set. No case may leave zero or duplicate federal rows, and a retry must converge to one default set. The SQL tests in `supabase/tests/calendar_configuration_commands.sql` prove a failed insert rolls the delete back; no browser fault can split them.
-    - **Command fails.** Run `$V fault arm federal-holiday-reset`, then `Reset` and confirm. The command gets a synthetic PostgREST 503 before dispatch and the route answers `500`. The page reads the saved days once, closes the dialog and says it couldn't confirm the reset and the list shows the saved days. The previous federal rows, including this case's 2019 sentinel, keep their IDs. Run `$V fault restore`, Reset again and read the rows back after reload.
-    - **Lost reply.** Run `$V fault arm federal-holiday-reset-lost-ack`. The command commits, and the server's SDK then sees a transport failure, so the route answers `503`. The dialog closes with the same unconfirmed message, and the list already shows the new default set that the rows hold. Restore, reload, retry Reset and read the rows back.
-    - **Read after the command fails.** Run `$V fault arm federal-holiday-reset` and `$V network arm-fail $PAGE special-days 2`, then `Reset` and confirm. The reset `POST` answers `500` and `network state` shows the follow-up `GET` failed with `503`. The dialog closes and the page says it couldn't confirm the reset and to reload to see the saved days. The rows, including the sentinel, keep their IDs. Restore both controls.
-    - **Confirmed rejection.** Open `Reset`, run `$V calendar-grant calendarConfigure view`, then confirm Reset. The route answers `403`. The dialog stays open with `Failed to reset federal holidays`, and the rows, including the sentinel, keep their IDs. Restore the grant, Cancel, and read the rows back after reload.
-    - **Overlapping resets.** Open a second tab with the actor's `browserContext`. Arm `$V network arm-observe` on both pages for `special-days`, then run `$V fault arm federal-holiday-reset-hold`. Reset on page 1, then wait until `fault state` shows `held`, which means page 1's command has not been dispatched. Reset on page 2, and wait until its `network state` shows a settled `200`. Then run `$V fault release federal-holiday-reset-hold`. Page 1's command commits last, so A holds exactly one default set with page 1's IDs. Count rows, Reset once more and count again. The hold orders the commands. The database lock and row waits, including the waits at the command's final write, are proved by `supabase/tests/calendar_configuration_command_concurrency.sql`, not by this case.
+1. **List and filter.** Open `Holidays & closures`. With the year at 2026 the list starts with a
+   `January – September · N past days` disclosure; expand it and find `Verification Unit Closure` and
+   `Verification Custom Holiday` under `September`. Choose `Federal`: only federal days remain. Choose `Closures`: only
+   closures. Choose `All` and year 2025 (past): the fixture alone has no 2025 rows, so the list reads
+   `No holidays or closures for 2025.` (step 13 checks the past-year disclosure after its reset). Return to 2026.
+2. **One day.** Click `New closure`. The `New closure` form's `Name` has focus, both date pickers (`First day`,
+   `Last day`) show the browser day, `Skip weekends` is on and the button reads `Add 1 day` once a name is typed. On a
+   weekend browser day the hint reads `These are all weekend days. Turn off Skip weekends to add them.` and the button
+   `Add 0 days` stays disabled. Picking a first day after the last moves the last day with it. Clicking a picker's
+   selected day clears it, and the hint then reads `Pick a first and last day.` with `Add 0 days` disabled; pick the
+   last day only when it differs. Pick a last day before the first (for example Oct 10 with the first day Oct 17): the
+   hint reads `End date must be on or after the start date.`, `Add 0 days` stays disabled, and the snapshot marks
+   `Last day` invalid with that message as its description; picking a later last day clears both. Fill `Name` with
+   `Verification DONSA <tag>`, set both days to Friday 2026-11-27 and capture the `On the calendar` week strip: November
+   22–28 with the new name in its `Days` row. Click `Add 1 day`. The toast reads `Added 1 day`, the composer closes with
+   focus back on `New closure`, and `November` lists `27 FRI Verification DONSA <tag>` with `Closure`.
+   `$V rows special_days orgA name 'Verification DONSA <tag>'` shows one `org-closure` on 2026-11-27. Reload and confirm
+   the row. Open `New closure` again and click `Cancel` (an empty draft closes at once): focus returns to `New closure`.
+3. **Range, skip weekends and overlap.** `New closure` again. Name `Verification Block Leave <tag>`, first day Monday
+   2026-11-23, last day Friday 2026-12-04, `Skip weekends` on. The preview shows the first two weeks with the leave in
+   the `Days` row and the DONSA kept on the 27th, and the button reads `Add 9 days`: ten weekdays minus the taken 27th.
+   The note reads
+   `Saved as 9 closure days you can edit or remove one at a time. Days that already have a holiday or closure are skipped.`
+   Turn `Skip weekends` off and see the count rise to 11 (twelve days minus the 27th), then on again. Arm
+   `$V network arm-observe $PAGE special-days`, click `Add 9 days` and require one `POST` whose body carries
+   `action: 'addClosureDays'` and the ten requested dates, answered `200` with nine `created` rows. The toast reads
+   `Added 9 days`. `$V rows special_days orgA name 'Verification Block Leave <tag>'` shows nine rows, one per weekday
+   except the 27th, and the DONSA row keeps its ID. `November` now reads a `23–26` range (`MON – THU · 4 DAYS`),
+   `27 FRI Verification DONSA <tag>`, and `30 MON Verification Block Leave <tag>` alone, because a range stays within
+   its month; `December` starts with a `1–4` range (`TUE – FRI · 4 DAYS`). The DONSA weekday splits the November run,
+   and a run without a taken weekday still reads as one row per month, such as `23–30` in November. Restore the
+   observer. 3a. **Month boundary.** With a browser day in October 2026, `New closure`, name
+   `Verification Month Edge <tag>`, first day Wednesday 2026-09-30, last day Thursday 2026-10-01, `Skip weekends` on
+   (`Add 2 days`). Save. `$V rows` shows two rows. `October`, the current month, lists
+   `1 THU Verification Month Edge <tag>` as its own row; the `January – September` disclosure grew by one day and,
+   expanded, lists `30 WED Verification Month Edge <tag>` under `September`. No range row appears, and October's day is
+   not hidden behind the disclosure. Remove both days through their row actions.
+4. **Server skip.** Open a second tab with the actor's `browserContext` on `calendar/settings` → `Holidays & closures`.
+   On page 1 open `New closure`, name `Verification Stand-down <tag>`, days Monday 2026-12-07 to Wednesday 2026-12-09
+   (`Add 3 days`). On page 2 add `Verification Range Witness <tag>` on 2026-12-08 alone. Back on page 1, which has not
+   seen it, click `Add 3 days`. The toast reads `Added 2 days. 1 already existed.` and `$V rows` shows the witness alone
+   on the 8th and two stand-down rows on the 7th and 9th. Page 1 lists only the days it added; the witness appears there
+   after a reload or Calendar re-entry. Close page 2.
+5. **Expand and edit one day.** Click the `Verification Block Leave <tag>, 4 days from …` range row; its four days
+   appear with their own actions. Choose `More actions for Verification Block Leave <tag>, Tue, Nov 24` → `Edit`, change
+   `Name` to `Verification Block Leave Moved <tag>` and `Save Changes`. Only that ID changes name; the list regroups
+   into `23`, the renamed `24` and a collapsed `25–26` range. Expand `Verification Block Leave <tag>, 2 days from …`,
+   choose `More actions for Verification Block Leave <tag>, Thu, Nov 26` → `Remove` and confirm `Remove Special Day`.
+   `$V rows` shows that ID gone and the other leave days unchanged.
+6. **Days lane without reload.** From Settings click `Back to Calendar` (no `navigate_page` reload), choose November
+   2026 and capture the `Days` lane: `Verification DONSA <tag>` on the 27th, the leave segments on the 23rd, 25th and
+   from the 30th, and `Verification Block Leave Moved <tag>` on the 24th. Read
+   `() => performance.getEntriesByType('navigation').length` before and after to show the document did not reload.
+7. **Denied add.** In Settings open `New closure`, name `Verification Denied <tag>`, choose a free weekday in December
+   and run `$V calendar-grant calendarConfigure view` while the composer stays open. Click `Add 1 day`. The route
+   answers `403`, the toast reads
+   `You don't have permission. This requires Calendar can manage permissions. Talk to your organization owner or admin.`,
+   the composer stays open with the name and dates, and `$V rows special_days orgA name 'Verification Denied <tag>'` is
+   empty. Restore with `$V calendar-grant calendarConfigure restore`, then press Escape inside the form and confirm
+   `Discard changes?`. Cancel closes a changed draft without asking.
+8. **Failed edit.** Open `More actions for Verification DONSA <tag>, Fri, Nov 27` → `Edit`, fill a different name and
+   run `$V calendar-grant calendarConfigure view` while the dialog stays open. Click `Save Changes`. Require the denied
+   `PUT` `403`, the same access toast, the retained dialog and draft, and readback showing the old name under the same
+   ID. Restore the grant, Cancel, then edit and save normally and confirm the new name under the same ID, date and
+   `org-closure` type.
+9. **Held add.** Open `New closure`, name `Verification Held <tag>` on a free December weekday, arm
+   `$V network arm-hold $PAGE special-days` and click `Add 1 day`, then press Enter. While held, `Add 1 day` shows a
+   spinner and is disabled with the fields, `network state` shows one `POST`, and Escape inside the form leaves it open.
+   Release with `$V network release $PAGE`: the toast reads `Added 1 day`, the composer closes and the day is listed.
+   Restore the hook. Capture at 1440 light and 390 dark.
+10. **Lost reply and failed command.** For each case open `New closure` with a unique name over two free December
+    weekdays and save `$V fault state` with the rows before and after.
+    - **Lost reply.** Run `$V fault arm closure-days-lost-ack` and click `Add 2 days`. The command commits, the server's
+      SDK then sees a transport failure and the route answers `503`. The page reads the saved days once and the toast
+      reads `We couldn't confirm the closure. The list shows the saved days. Add again if days are missing.` The
+      composer stays open and now reads `Add 0 days` (disabled) because both days are listed. `$V rows` shows exactly
+      two rows. Restore the fault and Cancel the draft.
+    - **Command fails.** Run `$V fault arm closure-days` and click `Add 2 days`. The command gets a synthetic PostgREST
+      503 before dispatch and the route answers `500`. The toast reads the same unconfirmed message, the composer stays
+      open with `Add 2 days`, and `$V rows` shows no row. Restore the fault, click `Add 2 days` again and read two rows
+      back. The error toast can sit over `Add 2 days` at 1440x900; close it first.
+    - **Read after the command fails.** Run `$V fault arm closure-days` and `$V network arm-fail $PAGE special-days 2`,
+      then click `Add 1 day`. The `POST` answers `500`, the follow-up `GET` fails with `503`, the toast reads
+      `We couldn't confirm the closure. Reload to see the saved days.` and the composer stays open. Restore both
+      controls.
+    - **Ordered overlap.** Open a second tab with the actor's `browserContext` and the same composer, name and dates on
+      both pages. Run `$V fault arm closure-days-hold`, click `Add 2 days` on page 1 and wait until `fault state` shows
+      `held`. Click it on page 2 and wait for its `Added 2 days`. Run `$V fault release closure-days-hold`: page 1's
+      command commits after page 2's and skips both dates, so page 1 reports `Added 0 days. 2 already existed.` and
+      `$V rows` shows one row per date with page 2's IDs. The SQL tests in
+      `supabase/tests/calendar_closure_days_concurrency.sql` prove the database lock and authority rechecks behind this
+      ordering; the hold only orders the commands.
+11. **Appearance.** At 1440x900 light capture the toolbar (`Back to Calendar`, `Filter Holidays & closures`, the pinned
+    `New closure`), the year select with the `All` / `Federal` / `Closures` filter, the past disclosure, month groups, a
+    range row expanded, the open composer with its preview and note, and the `Federal holidays` card. Repeat at 390x844
+    dark: the controls, composer and card stack above the list, and `document.documentElement.scrollWidth` equals
+    `innerWidth`. Type `zzz` in the filter and capture `No holidays or closures for 2026.`, then clear it with Control+A
+    and Backspace; a native `fill` with an empty value leaves the old text. Below `sm` the range arrow hides and the
+    date pickers stack, and the preview still shows all seven days. The Settings content scrolls inside its panel, so a
+    full-page screenshot shows only the viewport; scroll the composer into view first.
+12. **Scope.** Reload `/calendar` with `navigate_page`, choose September 2026, and confirm `Verification Unit Closure`
+    appears while `Foreign Private Closure` does not. From the A configurator's signed-in page send an authenticated
+    `POST /org/<orgB>/api/special-days` with `{action: 'addClosureDays', name: 'UNIQUE_MARKER', dates: ['2026-09-23']}`
+    using the authenticated `tool evaluate_script` request shape in [Calendar catalogs](calendar-catalogs.md). Expect
+    `403` or `404` and `$V rows special_days orgB name ...` with zero rows; the seeded B closure remains intact. A
+    `POST` without `action` answers `400`.
+13. **Federal reset.** Run it last. Before reset, capture A's custom federal row and A/B closure rows with
+    `$V rows special_days`. The `Federal holidays` card reads
+    `Restore the standard list for <first>–<last>. Custom closures are kept.` for the supported year window. Click
+    `Reset`; the `Reset Federal Holidays` dialog must say custom closures will be preserved. Confirm with the dialog's
+    own `Reset`, which follows the card's button in the snapshot, reload, and compare saved A federal rows against
+    independently calculated observed dates for each supported year: New Year's Day Jan 1, MLK third Monday Jan,
+    Presidents third Monday Feb, Memorial last Monday May, Juneteenth Jun 19, Independence Day Jul 4, Labor first Monday
+    Sep, Columbus second Monday Oct, Veterans Nov 11, Thanksgiving fourth Thursday Nov, Christmas Dec 25. Observe a
+    fixed-date holiday on Friday when it falls Saturday and Monday when it falls Sunday. The custom `holidayCustom` row
+    is replaced; `closureA`, B's `closureB` and every closure added above keep their IDs. For 2026, Independence Day is
+    observed July 3. New Year's Day 2028 is observed Friday, December 31, 2027, so the 2027 list holds 12 federal days
+    and 2028 holds 10. With federal rows present, year 2025 shows every day behind one `January – December` disclosure
+    and 2027 collapses nothing; the fixture alone has no 2025 rows, so step 1 shows `No holidays or closures for 2025.`
+    instead. Capture the complete 2026 list and the supported year bounds, not just a Reset toast. Before another
+    journey needs `holidayCustom`, run `npm run --silent verify:app -- restart --worker "$WORKER"`, then `doctor` and
+    `$V fixture` again.
+14. **Reset recovery and overlap.** After step 13, run `$V seed federal-reset-sentinels` before each case below. Each
+    run journals a new A federal row dated 2019-07-04 and a B federal row dated 2026-07-03. A reset that commits removes
+    the A row, because reset replaces all of A's federal rows in any year, and a rejected command keeps it. Every case
+    keeps B's rows, `closureA` and `closureB`. The expected set is the generator's current output:
+    `getDefaultFederalHolidays()` in `src/features/calendar/utils/federalHolidays.ts` gives 11 holidays for each
+    supported year, so derive the count from that output and do not hardcode a total. Run each case on the same worker.
+    For each case, save `$V fault state`, `$V rows special_days orgA type federal-holiday` (count, IDs and dates),
+    `$V rows special_days orgB`, the visible Settings list and feedback, and the same reads after reload. Reset is one
+    `reset_federal_holidays` command, so a case leaves either the previous federal rows or exactly one default set. No
+    case may leave zero or duplicate federal rows, and a retry must converge to one default set. The SQL tests in
+    `supabase/tests/calendar_configuration_commands.sql` prove a failed insert rolls the delete back; no browser fault
+    can split them.
+    - **Command fails.** Run `$V fault arm federal-holiday-reset`, then `Reset` and confirm. The command gets a
+      synthetic PostgREST 503 before dispatch and the route answers `500`. The page reads the saved days once, closes
+      the dialog and says it couldn't confirm the reset and the list shows the saved days. The previous federal rows,
+      including this case's 2019 sentinel, keep their IDs. Run `$V fault restore`, Reset again and read the rows back
+      after reload.
+    - **Lost reply.** Run `$V fault arm federal-holiday-reset-lost-ack`. The command commits, and the server's SDK then
+      sees a transport failure, so the route answers `503`. The dialog closes with the same unconfirmed message, and the
+      list already shows the new default set that the rows hold. Restore, reload, retry Reset and read the rows back.
+    - **Read after the command fails.** Run `$V fault arm federal-holiday-reset` and
+      `$V network arm-fail $PAGE special-days 2`, then `Reset` and confirm. The reset `POST` answers `500` and
+      `network state` shows the follow-up `GET` failed with `503`. The dialog closes and the page says it couldn't
+      confirm the reset and to reload to see the saved days. The rows, including the sentinel, keep their IDs. Restore
+      both controls.
+    - **Confirmed rejection.** Open `Reset`, run `$V calendar-grant calendarConfigure view`, then confirm Reset. The
+      route answers `403`. The dialog stays open with `Failed to reset federal holidays`, and the rows, including the
+      sentinel, keep their IDs. Restore the grant, Cancel, and read the rows back after reload.
+    - **Overlapping resets.** Open a second tab with the actor's `browserContext`. Arm `$V network arm-observe` on both
+      pages for `special-days`, then run `$V fault arm federal-holiday-reset-hold`. Reset on page 1, then wait until
+      `fault state` shows `held`, which means page 1's command has not been dispatched. Reset on page 2, and wait until
+      its `network state` shows a settled `200`. Then run `$V fault release federal-holiday-reset-hold`. Page 1's
+      command commits last, so A holds exactly one default set with page 1's IDs. Count rows, Reset once more and count
+      again. The hold orders the commands. The database lock and row waits, including the waits at the command's final
+      write, are proved by `supabase/tests/calendar_configuration_command_concurrency.sql`, not by this case.
 
 ## Gotchas
 
-- The composer counts against the days the page already has. A day another member added since the page loaded is skipped by the server and named in the result (`N already existed`), not in the preview.
-- Past months collapse by the browser's local day, not the server's. A seeded September day sits behind the disclosure from October on.
-- Reset intentionally replaces custom federal holidays but preserves Organization closures. A current-month Calendar view may not include the fixed September 2026 closure; choose the seeded month before judging it absent.
-- A failed edit can leave an optimistic draft. Compare the saved row and keep the error dialog in evidence before restoring the grant. A hidden `New closure` button alone is not server authorization proof.
-- Calendar component/store tests cover failed reset, a lost closure reply and late responses after an Organization switch; exercise those paths live when the change affects them. Direct catalog SQL policy remains a separate check.
-- `clean-seeds` does not restore the custom federal fixture after Reset or remove closures created through Settings. Remove the closures you add through their row actions, or restart the owned worker after the reset in step 13, which reseeds the original rows.
+- The composer counts against the days the page already has. A day another member added since the page loaded is skipped
+  by the server and named in the result (`N already existed`), not in the preview.
+- Past months collapse by the browser's local day, not the server's. A seeded September day sits behind the disclosure
+  from October on.
+- Reset intentionally replaces custom federal holidays but preserves Organization closures. A current-month Calendar
+  view may not include the fixed September 2026 closure; choose the seeded month before judging it absent.
+- A failed edit can leave an optimistic draft. Compare the saved row and keep the error dialog in evidence before
+  restoring the grant. A hidden `New closure` button alone is not server authorization proof.
+- Calendar component/store tests cover failed reset, a lost closure reply and late responses after an Organization
+  switch; exercise those paths live when the change affects them. Direct catalog SQL policy remains a separate check.
+- `clean-seeds` does not restore the custom federal fixture after Reset or remove closures created through Settings.
+  Remove the closures you add through their row actions, or restart the owned worker after the reset in step 13, which
+  reseeds the original rows.

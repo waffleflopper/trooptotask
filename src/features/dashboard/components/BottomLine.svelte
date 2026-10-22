@@ -18,6 +18,8 @@
 			.join(', ')
 	);
 	const outCount = $derived(line.outPeople.length);
+
+	const PERSON_ROWS = 'grid grid-cols-[10px_fit-content(9rem)_minmax(0,1fr)_auto] gap-x-2.5';
 </script>
 
 {#snippet swatch(statusTypeId: string)}
@@ -31,17 +33,17 @@
 {#snippet personRows(rows: readonly OutPersonRow[])}
 	{#each rows as row (row.personnelId)}
 		{@const name = statusById.get(row.statusTypeId)?.name}
-		<li class="flex h-9 items-center gap-2.5 border-b border-border">
+		<li class="col-span-full grid h-9 grid-cols-subgrid items-center border-b border-border">
 			{@render swatch(row.statusTypeId)}
-			<span class="w-16 shrink-0 truncate text-sm" title={name}>{name}</span>
-			<span class="min-w-0 flex-1 truncate text-sm text-secondary-foreground">{row.name}</span>
-			<span class="shrink-0 font-mono text-xs text-muted-foreground">{row.backLabel}</span>
+			<span class="truncate text-sm" title={name}>{name}</span>
+			<span class="min-w-0 truncate text-sm text-secondary-foreground">{row.name}</span>
+			<span class="font-mono text-xs whitespace-nowrap text-muted-foreground">{row.backLabel}</span>
 		</li>
 	{/each}
 {/snippet}
 
 <div class="grid gap-[18px]">
-	<div class="flex items-end gap-4">
+	<div class="flex flex-wrap items-end gap-x-4 gap-y-2">
 		<span
 			class={[
 				'font-heading text-[120px] leading-[96px] font-extrabold tracking-[-0.03em]',
@@ -76,26 +78,32 @@
 	{#if outCount === 0}
 		<p class="text-sm text-muted-foreground">Everyone is available today.</p>
 	{:else if line.mode === 'people'}
-		<ul aria-label="Out today">
+		<ul class={PERSON_ROWS} aria-label="Out today">
 			{@render personRows(line.outPeople)}
 		</ul>
 	{:else}
 		<div class="grid gap-2.5">
-			<ul aria-label="Out today by status">
+			<ul
+				class="grid grid-cols-[10px_fit-content(9rem)_28px_minmax(0,1fr)_auto] gap-x-2.5"
+				aria-label="Out today by status"
+			>
 				{#each line.outByStatus as row (row.statusTypeId)}
 					{@const name = statusById.get(row.statusTypeId)?.name}
-					<li class="flex h-9 items-center gap-2.5 border-b border-border">
+					<li class="col-span-full grid h-9 grid-cols-subgrid items-center border-b border-border">
 						{@render swatch(row.statusTypeId)}
-						<span class="w-16 shrink-0 truncate text-sm leading-[18px]" title={name}>{name}</span>
-						<span class="w-7 shrink-0 font-heading text-lg leading-[22px] font-bold">{row.count}</span>
-						<span class="min-w-0 flex-1 truncate text-sm leading-[18px] text-muted-foreground" title={row.originsLabel}
-							>{row.originsLabel}</span
-						>
-						<span class="shrink-0 font-mono text-xs text-muted-foreground">{row.returnLabel}</span>
+						<span class="truncate text-sm leading-[18px]" title={name}>{name}</span>
+						<span class="font-heading text-lg leading-[22px] font-bold">{row.count}</span>
+						<span class="flex min-w-0 text-sm leading-[18px] text-muted-foreground">
+							<span class="truncate" title={row.originsLabel}>{row.originsLabel}</span>
+							{#if row.moreOrigins > 0}
+								<span class="shrink-0 whitespace-pre"> · {row.moreOrigins} more</span>
+							{/if}
+						</span>
+						<span class="font-mono text-xs whitespace-nowrap text-muted-foreground">{row.returnLabel}</span>
 					</li>
 				{/each}
 			</ul>
-			<ul id="{uid}-names" aria-label="Everyone out today" hidden={!showAllNames}>
+			<ul id="{uid}-names" class={PERSON_ROWS} aria-label="Everyone out today" hidden={!showAllNames}>
 				{@render personRows(line.outPeople)}
 			</ul>
 			<div>

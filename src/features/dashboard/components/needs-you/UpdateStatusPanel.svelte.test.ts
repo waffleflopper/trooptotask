@@ -16,12 +16,17 @@ const entry = {
 
 const fetchMock = vi.fn();
 
-function open() {
+function open({
+	personnelLookup = [] as RatingSchemeEntryEditorData['personnelLookup'],
+	loadedEntries = [] as Record<string, unknown>[]
+} = {}) {
 	const updates = { refreshSummary: vi.fn(), putRecord: vi.fn() };
 	const close = vi.fn();
 	render(UpdateStatusPanel, {
 		props: {
-			model: { inputs: { page: { orgId: 'org-1' } } } as DashboardScreenModel,
+			model: {
+				inputs: { page: { orgId: 'org-1', dashboard: { data: { ratingSchemeEntries: loadedEntries } } } }
+			} as unknown as DashboardScreenModel,
 			access: { can: () => true, isPrivileged: false },
 			updates,
 			save: (command: () => Promise<void>) => command(),
@@ -29,7 +34,7 @@ function open() {
 			failure: null,
 			close,
 			orgId: 'org-1',
-			editor: { entry, personnelLookup: [] },
+			editor: { entry, personnelLookup },
 			Modal: EntryModalTestDouble as never
 		}
 	});
@@ -72,6 +77,39 @@ describe('UpdateStatusPanel', () => {
 				status: 'completed'
 			}
 		});
+	});
+
+	it('keeps the rated person named when a save leaves the entry overdue', async () => {
+		const stillOverdue = new Response(JSON.stringify({ ...entry, evalType: 'NCOER', status: 'active' }));
+		const { updates } = open({
+			loadedEntries: [{ ...entry, ratedPersonName: 'SPC Patel, Ravi' }]
+		});
+		fetchMock.mockReturnValueOnce(Promise.resolve(stillOverdue));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
+
+		await waitFor(() => expect(updates.putRecord).toHaveBeenCalledTimes(1));
+		expect(updates.putRecord.mock.calls[0][1].record).toEqual({
+			id: 'e1',
+			ratedPersonId: 'p-patel',
+			evalType: 'NCOER',
+			ratingPeriodEnd: '2026-09-30',
+			status: 'active',
+			ratedPersonName: 'SPC Patel, Ravi'
+		});
+	});
+
+	it('names the rated person from the editor roster when it has them', async () => {
+		const { updates } = open({
+			personnelLookup: [{ id: 'p-patel', rank: 'SGT', lastName: 'Patel', firstName: 'Ravi' }],
+			loadedEntries: [{ ...entry, ratedPersonName: 'SPC Patel, Ravi' }]
+		});
+		fetchMock.mockReturnValueOnce(Promise.resolve(new Response(JSON.stringify(entry))));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark completed' }));
+
+		await waitFor(() => expect(updates.putRecord).toHaveBeenCalledTimes(1));
+		expect(updates.putRecord.mock.calls[0][1].record.ratedPersonName).toBe('SGT Patel, Ravi');
 	});
 
 	it('hands a failed save back to the editor and leaves the page unchanged', async () => {

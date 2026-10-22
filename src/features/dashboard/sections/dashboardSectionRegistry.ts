@@ -5,7 +5,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import ComingAndGoing from '../components/ComingAndGoing.svelte';
 import TonightAndTomorrow from '../components/TonightAndTomorrow.svelte';
 import { dashboardSection, type DashboardSection } from './dashboardSections';
-import { actionablePersonnel, personnelResource } from './dashboardAccess';
+import { actionablePersonnel, personnelResource, seesCalendar } from './dashboardAccess';
 import {
 	expiredTraining,
 	leavingWithoutAward,
@@ -26,6 +26,7 @@ const { calendar, training } = POLICY_ACTION_CATALOG;
 
 export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	dashboardSection('availability', {
+		available: (_, access) => seesCalendar(access),
 		needsYou: [unfilledDuty],
 		onDuty: [
 			{ id: 'tonight-and-tomorrow', order: 10, component: TonightAndTomorrow },

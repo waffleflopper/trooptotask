@@ -1,12 +1,18 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { dailyAssignmentsStore } from '$features/calendar';
+import { dailyAssignmentsStore, loadDutyPicker } from '$features/calendar';
 import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 import DutyFillPanel from './DutyFillPanel.svelte';
+import DutyPickerTestDouble from './DutyPickerTestDouble.svelte';
+
+vi.mock('$features/calendar', async (original) => ({
+	...(await original<typeof import('$features/calendar')>()),
+	loadDutyPicker: vi.fn()
+}));
 
 const TODAY = '2026-10-19';
 const FORECAST = Array.from({ length: 14 }, (_, index) => fromDayNumber(toDayNumber(TODAY) + index));
@@ -176,6 +182,27 @@ describe('DutyFillPanel', () => {
 		);
 		expect(screen.getByRole('button', { name: 'Assign all 3' })).toBeTruthy();
 		expect(screen.getAllByText('Everyone free has a day')).toHaveLength(4);
+	});
+
+	it('shows the picker loading on the chosen day, and a failed load with Try again that keeps the day', async () => {
+		fetchMock.mockReturnValueOnce(respond(history([])));
+		open(['2026-10-27', '2026-10-28']);
+		await waitFor(() => expect(slotNames()).toHaveLength(2));
+		let fail!: (error: Error) => void;
+		vi.mocked(loadDutyPicker).mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
+
+		const day = screen.getByRole('button', { name: 'Wed 28: SPC Baker, Ana, swap' });
+		await fireEvent.click(day);
+		expect(day.getAttribute('aria-busy')).toBe('true');
+		fail(new Error('chunk failed'));
+
+		expect((await screen.findByRole('alert')).textContent).toContain('The duty picker did not load');
+		expect(day.getAttribute('aria-busy')).toBe('false');
+		vi.mocked(loadDutyPicker).mockResolvedValueOnce({ default: DutyPickerTestDouble } as never);
+		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+		expect(await screen.findByRole('dialog', { name: 'Duty picker for 28' })).toBeTruthy();
+		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
 	it('collapses on Cancel without saving', async () => {

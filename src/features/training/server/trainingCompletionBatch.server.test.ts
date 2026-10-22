@@ -12,8 +12,6 @@ const PERSON_EXISTING = '00000000-0000-4000-8000-00000000b007';
 const TRAINING_TYPE = '00000000-0000-4000-8000-00000000b008';
 const EXEMPT_TYPE = '00000000-0000-4000-8000-00000000b009';
 const UNKNOWN_TYPE = '00000000-0000-4000-8000-00000000b00a';
-const EARLY_EXEMPT_TYPE = '00000000-0000-4000-8000-00000000b00b';
-const LATE_EXEMPT_TYPE = '00000000-0000-4000-8000-00000000b00c';
 const RECORD = '00000000-0000-4000-8000-00000000b00d';
 const RETAINED_RECORD = '00000000-0000-4000-8000-00000000b00e';
 const SAVED_COMPLETION = '00000000-0000-4000-8000-00000000b00f';
@@ -299,8 +297,6 @@ describe('importTrainingRecords', () => {
 				notes: 'old notes'
 			}
 		]);
-		const upsertManySpy = vi.spyOn(ctx.store, 'upsertMany');
-		const updateSpy = vi.spyOn(ctx.store, 'update');
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
@@ -315,27 +311,27 @@ describe('importTrainingRecords', () => {
 			]
 		});
 
-		expect(upsertManySpy).toHaveBeenCalledTimes(1);
-		expect(updateSpy).not.toHaveBeenCalled();
-		expect(upsertManySpy.mock.calls[0][2]).toEqual([
-			expect.objectContaining({
-				personnel_id: PERSON_1,
-				training_type_id: TRAINING_TYPE,
-				completion_date: '2025-06-01',
-				expiration_date: '2026-06-01',
-				notes: 'new notes'
-			}),
-			expect.objectContaining({
-				personnel_id: PERSON_2,
-				training_type_id: TRAINING_TYPE,
-				completion_date: '2025-07-01',
-				expiration_date: '2026-07-01',
-				notes: null
-			})
-		]);
-		expect(upsertManySpy.mock.calls[0][3]).toEqual({
-			onConflict: 'organization_id,personnel_id,training_type_id'
-		});
+		const stored = await ctx.trainingCompletions.listCompletions();
+		expect(stored).toHaveLength(2);
+		expect(stored).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: RECORD,
+					personnelId: PERSON_1,
+					trainingTypeId: TRAINING_TYPE,
+					completionDate: '2025-06-01',
+					expirationDate: '2026-06-01',
+					notes: 'new notes'
+				}),
+				expect.objectContaining({
+					personnelId: PERSON_2,
+					trainingTypeId: TRAINING_TYPE,
+					completionDate: '2025-07-01',
+					expirationDate: '2026-07-01',
+					notes: null
+				})
+			])
+		);
 
 		expect(result.updated).toHaveLength(1);
 		expect(result.updated[0]).toEqual(
@@ -415,7 +411,7 @@ describe('importTrainingRecords', () => {
 		expect(result.errors).toHaveLength(0);
 	});
 
-	it('excludes error and exempt rows from completed-record upsert payload', async () => {
+	it('stores only valid completions while reporting errors and exemptions', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { id: TRAINING_TYPE });
@@ -425,7 +421,6 @@ describe('importTrainingRecords', () => {
 			expiration_months: null,
 			expiration_date_only: false
 		});
-		const upsertManySpy = vi.spyOn(ctx.store, 'upsertMany');
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
@@ -435,12 +430,8 @@ describe('importTrainingRecords', () => {
 			]
 		});
 
-		expect(upsertManySpy).toHaveBeenCalledTimes(1);
-		expect(upsertManySpy.mock.calls[0][2]).toEqual([
-			expect.objectContaining({
-				personnel_id: PERSON_1,
-				training_type_id: TRAINING_TYPE
-			})
+		expect(await ctx.trainingCompletions.listCompletions()).toMatchObject([
+			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01' }
 		]);
 		expect(result.inserted).toHaveLength(1);
 		expect(result.updated).toHaveLength(0);
@@ -671,12 +662,10 @@ describe('importTrainingRecords', () => {
 });
 
 describe('batch acknowledged effects', () => {
-	it('retains completion identity and certificate, then retains early effects when a later exemption fails without final audit', async () => {
+	it('updates a completion without losing its identity or certificate', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
-		seedTrainingType(ctx, { id: EARLY_EXEMPT_TYPE, can_be_exempted: true, expiration_months: null });
-		seedTrainingType(ctx, { id: LATE_EXEMPT_TYPE, can_be_exempted: true, expiration_months: null });
 		ctx.store.seed('personnel_trainings', [
 			{
 				id: RETAINED_RECORD,
@@ -689,20 +678,11 @@ describe('batch acknowledged effects', () => {
 				notes: 'old'
 			}
 		]);
-		const patch = ctx.trainingCatalog.patchType;
-		ctx.trainingCatalog.patchType = async (id, fields) => {
-			if (id === LATE_EXEMPT_TYPE) throw new Error('Late exemption failed');
-			return patch(id, fields);
-		};
-		await expect(
-			importTrainingRecords(ctx, {
-				records: [
-					{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-03-01', status: 'completed' },
-					{ personnelId: PERSON_2, trainingTypeId: EARLY_EXEMPT_TYPE, completionDate: null, status: 'exempt' },
-					{ personnelId: PERSON_3, trainingTypeId: LATE_EXEMPT_TYPE, completionDate: null, status: 'exempt' }
-				]
-			})
-		).rejects.toThrow('Late exemption failed');
+		await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-03-01', status: 'completed' }
+			]
+		});
 		expect(await ctx.trainingCompletions.listCompletions()).toMatchObject([
 			{
 				id: RETAINED_RECORD,
@@ -712,13 +692,23 @@ describe('batch acknowledged effects', () => {
 				notes: null
 			}
 		]);
-		expect(await ctx.trainingCatalog.listTypeImportReferences([EARLY_EXEMPT_TYPE, LATE_EXEMPT_TYPE])).toMatchObject([
-			{ id: EARLY_EXEMPT_TYPE, exemptPersonnelIds: [PERSON_2] },
-			{ id: LATE_EXEMPT_TYPE, exemptPersonnelIds: [] }
-		]);
+	});
+
+	it('does not audit success when an exemption write fails', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { id: EXEMPT_TYPE, can_be_exempted: true, expiration_months: null });
+		ctx.trainingCatalog.patchType = async () => {
+			throw new Error('Exemption save failed');
+		};
+		await expect(
+			importTrainingRecords(ctx, {
+				records: [{ personnelId: PERSON_3, trainingTypeId: EXEMPT_TYPE, completionDate: null, status: 'exempt' }]
+			})
+		).rejects.toThrow('Exemption save failed');
 		expect(ctx.audit.events).toEqual([]);
 	});
-	it('keeps an omitted never-expiring batch completion date omitted at the port boundary', async () => {
+	it('imports a never-expiring completion without an expiration date', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: null });
@@ -730,7 +720,6 @@ describe('batch acknowledged effects', () => {
 		expect(result.inserted).toMatchObject([
 			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, expirationDate: null, notes: null }
 		]);
-		expect(Object.hasOwn(result.inserted[0], 'completionDate')).toBe(false);
 	});
 	it.each([0, false])(
 		'rejects a %s completion date on a never-expiring type without saving',

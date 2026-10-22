@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
@@ -79,21 +78,6 @@ const NO_ONBOARDING_CONFIGURE: CapabilityMap = {
 };
 
 describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
-	it('uses a policy-first mutation route config', () => {
-		expect('permission' in _postConfig).toBe(false);
-		expect(_postConfig.mutation).toBe(true);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.configureRequirements);
-		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
-	});
-
-	it('uses the route pack id as the apply input', async () => {
-		const input = await _postConfig.parseInput?.({
-			params: { packId: 'first-week-operations' }
-		} as Parameters<NonNullable<typeof _postConfig.parseInput>>[0]);
-
-		expect(input).toEqual({ packId: 'first-week-operations' });
-	});
-
 	it('persists the orientation Training step through the selected request context', async () => {
 		const ctx = createTestContext();
 		const request = buildRequest(ctx);

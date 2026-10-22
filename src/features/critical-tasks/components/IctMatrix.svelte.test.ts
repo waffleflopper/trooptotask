@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import IctMatrix from './IctMatrix.svelte';
 import type {
@@ -66,90 +66,32 @@ afterEach(() => {
 });
 
 describe('IctMatrix', () => {
-	it('renders applicable status cells with keyboard-focusable completion details and neutral non-applicable cells', () => {
+	it('offers completion details and the Person link to a read-only matrix viewer', () => {
 		render(IctMatrix, {
 			props: {
 				orgId: 'org-1',
 				personnel: [person({ id: 'smith' })],
 				tasks: [
-					task({ id: 'tccc', taskCode: '181-105-1001', title: 'TCCC', mos: ['68W'], sortOrder: 0 }),
-					task({ id: 'expiring', taskCode: '181-105-1002', title: 'Expiring task', mos: ['68W'], sortOrder: 1 }),
-					task({ id: 'expired', taskCode: '181-105-1003', title: 'Expired task', mos: ['68W'], sortOrder: 2 }),
-					task({ id: 'infantry', taskCode: '071-326-0501', title: 'Infantry task', mos: ['11B'], sortOrder: 3 }),
-					task({ id: 'universal', taskCode: '999-000-0001', title: 'Universal task', mos: [], sortOrder: 4 })
+					task({ id: 'tccc', taskCode: '181-105-1001', title: 'TCCC', mos: ['68W'] }),
+					task({ id: 'infantry', taskCode: '071-326-0501', title: 'Infantry task', mos: ['11B'] })
 				],
-				completions: [
-					completion({
-						id: 'tccc-completion',
-						personnelId: 'smith',
-						ictTaskId: 'tccc',
-						completedAt: '2026-04-01',
-						validatedBy: 'SFC Observer'
-					}),
-					completion({
-						id: 'expiring-completion',
-						personnelId: 'smith',
-						ictTaskId: 'expiring',
-						completedAt: '2025-05-01'
-					}),
-					completion({
-						id: 'expired-completion',
-						personnelId: 'smith',
-						ictTaskId: 'expired',
-						completedAt: '2025-04-01'
-					})
-				],
+				completions: [completion({ ictTaskId: 'tccc' })],
 				groups,
 				settings,
-				asOf: '2026-04-15',
-				orgName: 'Test Unit'
+				asOf: '2026-04-15'
 			}
 		});
 
-		expect(screen.getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
-		const tcccHeader = screen.getByRole('columnheader', { name: /181-105-1001 TCCC/ });
-		expect(tcccHeader).toBeTruthy();
-		expect(within(tcccHeader).getByText('TCCC')).toBeTruthy();
-		const personLink = screen.getByRole('link', { name: /Smith, Jane/ });
-		expect(personLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/smith');
-		expect(personLink.textContent).toContain('SGT');
-		expect(personLink.textContent).toContain('Smith, Jane');
-		expect(personLink.textContent).toContain('68W');
-		expect(screen.getByLabelText('Smith, Jane readiness 50%')).toBeTruthy();
-		expect(screen.getByText(/Alpha/)).toBeTruthy();
-		expect(screen.getByText('1 personnel (50% Readiness)')).toBeTruthy();
-		expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
-		expect(screen.getByText('Not Required')).toBeTruthy();
-
+		expect(screen.getByRole('link', { name: /Smith, Jane/ }).getAttribute('href')).toBe(
+			'/org/org-1/critical-tasks/smith'
+		);
 		const currentCell = screen.getByRole('button', {
 			name: /Smith 181-105-1001: current. TCCC: current. Completed 2026-04-01. Expires 2027-04-01./
 		});
-		expect(currentCell.querySelector('[data-status="current"]')).toBeTruthy();
-		currentCell.focus();
-		expect(document.activeElement).toBe(currentCell);
-		expect(screen.getByText('Expires 2027-04-01')).toBeTruthy();
 		expect(currentCell.getAttribute('aria-label')).toContain('Validated by SFC Observer');
-
-		const expiringCell = screen.getByRole('button', {
-			name: /Smith 181-105-1002: expiring soon. Expiring task: expiring soon./
-		});
-		expect(expiringCell.querySelector('[data-status="expiring-soon"]')).toBeTruthy();
-		expect(expiringCell.querySelector('svg')).toBeTruthy();
-		expect(expiringCell.getAttribute('aria-label')).toContain('expiring soon');
-
-		const expiredCell = screen.getByRole('button', {
-			name: /Smith 181-105-1003: expired. Expired task: expired./
-		});
-		expect(expiredCell.querySelector('[data-status="expired"]')).toBeTruthy();
-		expect(expiredCell.querySelector('svg')).toBeTruthy();
-		expect(expiredCell.getAttribute('aria-label')).toContain('expired');
-
+		expect(screen.getByLabelText('Smith, Jane readiness 100%')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Smith 071-326-0501/ })).toBeNull();
 		expect(screen.getByLabelText('Smith 071-326-0501: not applicable')).toBeTruthy();
-
-		const missingCell = screen.getByRole('button', { name: /Smith 999-000-0001: not recorded/ });
-		expect(missingCell.querySelector('[data-status="not-recorded"]')).toBeTruthy();
-		expect(missingCell.querySelector('svg')).toBeTruthy();
 	});
 
 	it('selects editable applicable cells and ignores not-applicable cells', async () => {

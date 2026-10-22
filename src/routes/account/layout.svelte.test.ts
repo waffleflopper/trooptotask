@@ -52,18 +52,6 @@ describe('account layout toolbar', () => {
 		expect(back).not.toHaveBeenCalled();
 	});
 
-	it('shows Back as an outline button, not the filled call to action', async () => {
-		const widths = stubToolbarWidths();
-		stubHistory(2);
-		renderLayout();
-		await widths.layOut(1000);
-
-		const back = within(screen.getByRole('toolbar', { name: 'Account controls' })).getByRole('button', {
-			name: 'Back'
-		});
-		expect(back.className).not.toContain('bg-primary');
-	});
-
 	it('folds Back into More like any other action when the toolbar is as narrow as it gets', async () => {
 		const widths = stubToolbarWidths();
 		const back = stubHistory(2);

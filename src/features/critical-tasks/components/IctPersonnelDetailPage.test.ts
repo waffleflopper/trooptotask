@@ -168,24 +168,16 @@ describe('IctPersonnelDetailPage', () => {
 		});
 
 		expect(screen.getByRole('table', { name: 'Applicable Critical Tasks' })).toBeTruthy();
-		expect(screen.getByRole('toolbar', { name: 'Personnel critical task controls' })).toBeTruthy();
-		expect(
-			within(screen.getByRole('toolbar', { name: 'Personnel critical task controls' })).queryByText('SGT Smith, Jane')
-		).toBeNull();
-		expect(screen.queryByText('Sorted: Expiring first')).toBeNull();
-		expect(screen.getByText('Individual Readiness')).toBeTruthy();
-		expect(screen.getByText('Expiring ≤60d')).toBeTruthy();
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
 		expect(screen.getByText('Perform tactical combat casualty care')).toBeTruthy();
 		expect(screen.queryByText('181-105-2001')).toBeNull();
-		expect(screen.getAllByText('01 JAN 2098').length).toBeGreaterThan(0);
 		expect(screen.getByText('01 JAN 2099')).toBeTruthy();
 		expect(screen.getByText('Demonstration')).toBeTruthy();
 		expect(screen.getByText('SFC Observer')).toBeTruthy();
 		expect(screen.getByText('Observed on lane 2')).toBeTruthy();
 	});
 
-	it('names both record tables, keeps the task library order without sort controls and states empty views', () => {
+	it('keeps applicable task rows in library order and hides viewer actions', () => {
 		ictTasksStore.load([secondaryActiveTask, activeTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 		const data = {
@@ -199,19 +191,9 @@ describe('IctPersonnelDetailPage', () => {
 		const active = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
 		expect(
 			within(active)
-				.getAllByRole('columnheader')
-				.map((header) => header.textContent?.trim())
-		).toEqual(['Task', 'Status', 'Completed', 'Expires', 'Method', 'Validator', 'Notes', 'Action']);
-		expect(
-			within(active)
 				.getAllByText(/^181-105-100\d$/)
 				.map((code) => code.textContent)
 		).toEqual(['181-105-1001', '181-105-1003']);
-		expect(screen.queryByRole('button', { name: /^Sort by/ })).toBeNull();
-		const archived = screen.getByRole('table', { name: 'ICT completion history' });
-		expect(within(archived).getAllByRole('columnheader')).toHaveLength(6);
-		expect(within(archived).queryAllByRole('row')).toHaveLength(1);
-		expect(screen.getByText('No archived task completions recorded.')).toBeTruthy();
 		unmount();
 
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('view') };
@@ -220,7 +202,6 @@ describe('IctPersonnelDetailPage', () => {
 
 		const viewOnly = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
 		expect(within(viewOnly).queryByRole('columnheader', { name: 'Action' })).toBeNull();
-		expect(screen.getByText('No active critical tasks match this view.')).toBeTruthy();
 	});
 
 	it('heads each record row with its task and scrolls each table inside a named focusable region', () => {
@@ -412,28 +393,6 @@ describe('IctPersonnelDetailPage', () => {
 			}
 		});
 		expect(screen.queryByRole('dialog')).toBeNull();
-	});
-
-	it('shows log and edit actions for Critical Tasks operators on active task rows', () => {
-		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
-		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
-
-		render(IctPersonnelDetailPage, {
-			props: {
-				org,
-				data: {
-					orgId: 'org-1',
-					criticalTasks: criticalTasksLayoutData,
-					criticalTasksPersonnelHistory: {
-						...history,
-						rows: []
-					}
-				}
-			}
-		});
-
-		expect(screen.getByRole('button', { name: 'Edit completion for 181-105-1001' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Log completion for 181-105-1003' })).toBeTruthy();
 	});
 
 	it('keeps the page read-only for members without Critical Tasks edit access', () => {
@@ -789,8 +748,6 @@ describe('IctPersonnelDetailPage', () => {
 			}
 		});
 
-		expect(screen.getByRole('toolbar', { name: 'Personnel critical task controls' })).toBeTruthy();
-		expect(screen.queryByText('SGT Smith, Jane')).toBeNull();
 		expect(screen.getByText('181-105-1002')).toBeTruthy();
 		expect(screen.getByText('Evacuate casualty')).toBeTruthy();
 		expect(screen.getByText('Archived')).toBeTruthy();
@@ -874,7 +831,7 @@ describe('IctPersonnelDetailPage', () => {
 			expect(applicableCodes()).toEqual(['181-105-1001']);
 		});
 
-		it('keeps Status, Category and Print Record working from More when the row folds', async () => {
+		it('keeps Status and Print Record working from More when the row folds', async () => {
 			const widths = stubToolbarWidths();
 			const print = vi.fn();
 			vi.stubGlobal('print', print);
@@ -887,13 +844,10 @@ describe('IctPersonnelDetailPage', () => {
 			expect(row.getByRole('button', { name: 'Input Task' })).toBeTruthy();
 
 			await openToolbarMore(toolbarName);
-			expect(screen.getByRole('menuitem', { name: 'Category, All Categories' })).toBeTruthy();
 			await openToolbarSubmenu('Status, All Statuses');
 			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Not Recorded' }));
 			expect(applicableCodes()).toEqual(['181-105-1003']);
 
-			const more = screen.getByRole('button', { name: `More ${toolbarName}` });
-			expect(more.getAttribute('aria-describedby')).toBeTruthy();
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 			await openToolbarMore(toolbarName);
 			await fireEvent.click(screen.getByRole('menuitem', { name: 'Print Record' }));

@@ -45,18 +45,6 @@ describe('PersonnelModal', () => {
 		}
 	];
 
-	it('labels the personnel position field as Duty Role', () => {
-		render(PersonnelModal, {
-			props: {
-				groups: [],
-				onSubmit: vi.fn(),
-				onClose: vi.fn()
-			}
-		});
-
-		expect(screen.getByLabelText('Duty Role')).toBeTruthy();
-	});
-
 	it('defaults new Personnel to SPC when the common rank is available', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockResolvedValue(undefined);

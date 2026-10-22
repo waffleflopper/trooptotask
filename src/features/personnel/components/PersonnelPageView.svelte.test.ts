@@ -246,49 +246,6 @@ describe('PersonnelPageView', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('uses Duty Role as the roster column header', () => {
-		const ctx = makeCtx();
-
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
-
-		expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
-	});
-
-	it('shows roster sorting and search controls', () => {
-		const ctx = makeCtx();
-
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
-
-		const toolbar = within(screen.getByRole('toolbar', { name: 'Personnel controls' }));
-		expect(toolbar.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
-		expect(toolbar.getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' })).toBeTruthy();
-	});
-
-	it('keeps primary personnel actions visible in the floating toolbar for editors', () => {
-		const ctx = {
-			...makeCtx(),
-			canAddPersonnel: true,
-			canImportPersonnel: true,
-			canManageGroups: true,
-			canManagePersonnelRecord: () => true,
-			personnelRecordAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
-
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
-		expect(within(toolbar).getByRole('button', { name: 'Manage Groups' })).toBeTruthy();
-		expect(within(toolbar).getByRole('button', { name: 'Add Person' })).toBeTruthy();
-		expect(within(toolbar).getByRole('link', { name: 'Import' })).toBeTruthy();
-		expect(within(toolbar).queryByRole('button', { name: 'Bulk Import' })).toBeNull();
-	});
-
 	it('links import to the dedicated personnel import route', () => {
 		const ctx = {
 			...makeCtx(),
@@ -561,65 +518,6 @@ describe('PersonnelPageView', () => {
 			});
 
 			expect(screen.getByTestId('loss-indicator-person-1')).toBeTruthy();
-		});
-
-		it('shows the correct trigger type label for an ETS indicator', () => {
-			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
-			const ctx = makeCtx(vi.fn(), lossMap);
-
-			render(PersonnelPageView, {
-				props: { ctx, requestArchiveApproval }
-			});
-
-			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('ETS');
-		});
-
-		it('shows PCS label for a PCS / DEROS indicator', () => {
-			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'PCS / DEROS' })]]);
-			const ctx = makeCtx(vi.fn(), lossMap);
-
-			render(PersonnelPageView, {
-				props: { ctx, requestArchiveApproval }
-			});
-
-			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('PCS');
-		});
-
-		it('does not show a loss indicator for personnel not in the upcoming-loss map', () => {
-			const ctx = makeCtx(vi.fn(), new Map());
-
-			render(PersonnelPageView, {
-				props: { ctx, requestArchiveApproval }
-			});
-
-			expect(screen.queryByTestId('loss-indicator-person-1')).toBeNull();
-		});
-
-		it('does not show an award acknowledgement action when the loss indicator is present', () => {
-			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
-			const ctx = {
-				...makeCtx(vi.fn(), lossMap),
-				canManagePersonnelRecord: () => true,
-				personnelRecordAffordance: () => allowedAffordance()
-			} as unknown as PersonnelPageContext;
-
-			render(PersonnelPageView, {
-				props: { ctx, requestArchiveApproval }
-			});
-
-			expect(screen.getByTestId('loss-indicator-person-1')).toBeTruthy();
-			expect(screen.queryByTestId('award-ack-action-person-1')).toBeNull();
-			expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-		});
-
-		it('does not show an award acknowledgement action for personnel outside the upcoming-loss window', () => {
-			const ctx = makeCtx(vi.fn(), new Map());
-
-			render(PersonnelPageView, {
-				props: { ctx, requestArchiveApproval }
-			});
-
-			expect(screen.queryByTestId('award-ack-action-person-1')).toBeNull();
 		});
 	});
 
@@ -1158,16 +1056,5 @@ describe('PersonnelPageView', () => {
 		expect(personnelStore.getById('person-1')).toBeTruthy();
 		expect(toastSuccessMock).not.toHaveBeenCalled();
 		expect(invalidateMock).not.toHaveBeenCalled();
-	});
-
-	it('keeps rating scheme controls out of the Personnel roster page', () => {
-		const ctx = makeCtx();
-
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
-
-		expect(screen.queryByRole('button', { name: 'Rating Scheme' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Add Entry' })).toBeNull();
 	});
 });

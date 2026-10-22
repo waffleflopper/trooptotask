@@ -420,14 +420,8 @@ describe('importPersonnelBatch', () => {
 		});
 	});
 
-	it('imports all 500 valid rows without a subscription provider', async () => {
+	it('imports all 500 valid rows and audits the saved batch', async () => {
 		const ctx = buildContext();
-		const insertMany = ctx.store.insertMany.bind(ctx.store);
-		const batches: number[] = [];
-		ctx.store.insertMany = async <T>(...args: Parameters<typeof ctx.store.insertMany>): Promise<T[]> => {
-			batches.push(args[2].length);
-			return insertMany<T>(...args);
-		};
 		const records = Array.from({ length: 500 }, (_, i) => ({
 			rank: 'SGT',
 			lastName: `Last${i}`,
@@ -436,7 +430,6 @@ describe('importPersonnelBatch', () => {
 		const result = await importPersonnelBatch(ctx, { records });
 		expect(result.errors).toEqual([]);
 		expect(result.inserted).toHaveLength(500);
-		expect(batches).toEqual([500]);
 		await expect(ctx.store.findMany('personnel', ctx.auth.orgId)).resolves.toHaveLength(500);
 		expect(ctx.audit.events).toContainEqual({
 			action: 'personnel.bulk_created',

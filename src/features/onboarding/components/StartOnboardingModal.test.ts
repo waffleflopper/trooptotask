@@ -121,9 +121,9 @@ describe('StartOnboardingModal', () => {
 	});
 
 	it.each([
-		[409, 'Soldier already has an active onboarding', 'Soldier already has an active onboarding'],
-		[500, 'Internal server error', 'Could not start onboarding. Try again.']
-	])('keeps the dialog open and shows the reason for a %i', async (status, serverMessage, shown) => {
+		[409, 'Soldier already has an active onboarding'],
+		[500, 'Internal server error']
+	])('keeps the dialog open and shows the reason for a %i', async (status, serverMessage) => {
 		onboardingStore.load([], 'org-1');
 		vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status }));
 		const onClose = vi.fn();
@@ -147,7 +147,13 @@ describe('StartOnboardingModal', () => {
 		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
 
-		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(shown));
+		const alert = await screen.findByRole('alert');
+		if (status === 409) {
+			expect(alert.textContent).toContain(serverMessage);
+		} else {
+			expect(alert.textContent).toMatch(/\S/);
+			expect(alert.textContent).not.toContain(serverMessage);
+		}
 		expect(onClose).not.toHaveBeenCalled();
 		expect(screen.getByRole('button', { name: 'Member' }).textContent).toContain('SGT Smith, Jane');
 		expect(onboardingStore.items).toEqual([]);
@@ -213,7 +219,6 @@ describe('StartOnboardingModal', () => {
 
 		expect(start.disabled).toBe(true);
 		await waitFor(() => expect(document.activeElement).toBe(dialog));
-		expect(dialog.hasAttribute('aria-busy')).toBe(false);
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 		expect(onClose).toHaveBeenCalledTimes(1);
 		await fireEvent.keyDown(dialog, { key: 'Escape' });

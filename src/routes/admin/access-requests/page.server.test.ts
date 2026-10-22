@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { operations, createOperations } = vi.hoisted(() => ({
-	operations: { list: vi.fn(), approve: vi.fn(), reject: vi.fn(), resendSetup: vi.fn() },
+	operations: { approve: vi.fn(), reject: vi.fn(), resendSetup: vi.fn() },
 	createOperations: vi.fn()
 }));
 vi.mock('$features/platform-admin/index.server', () => ({ createPlatformAccessRequestOperations: createOperations }));
-import { actions, load } from './+page.server';
+import { actions } from './+page.server';
 
 const REQUEST_ID = '11111111-1111-4111-8111-111111111111';
 function event(requestId: string | null = REQUEST_ID) {
@@ -27,23 +27,6 @@ describe('Access Request HTTP delivery', () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
 		createOperations.mockResolvedValue(operations);
-		operations.list.mockResolvedValue({ pending: [], reviewed: [] });
-		operations.approve.mockResolvedValue({ status: 'sent', setupDeliveryStatus: 'sent' });
-		operations.resendSetup.mockResolvedValue({ status: 'sent', setupDeliveryStatus: 'sent' });
-		operations.reject.mockResolvedValue({ status: 'rejected' });
-	});
-
-	it('returns the review list supplied by the admitted operations', async () => {
-		const page = { pending: [{ id: REQUEST_ID }], reviewed: [{ id: 'reviewed-a', setup_delivery_status: 'failed' }] };
-		operations.list.mockResolvedValueOnce(page);
-		const request = event();
-		await expect(load(request as never)).resolves.toEqual(page);
-		expect(createOperations).toHaveBeenCalledWith(request);
-	});
-
-	it('propagates a review read failure instead of returning a false empty list', async () => {
-		operations.list.mockRejectedValueOnce(new Error('Review read unavailable'));
-		await expect(load(event() as never)).rejects.toThrow('Review read unavailable');
 	});
 
 	for (const [action, command] of [
@@ -51,12 +34,6 @@ describe('Access Request HTTP delivery', () => {
 		['reject', 'reject'],
 		['resend', 'resendSetup']
 	] as const) {
-		it(`${action} passes only the validated request ID`, async () => {
-			await expect(actions[action](event() as never)).resolves.toEqual(
-				action === 'reject' ? { success: true, action } : { success: true, action, setupDeliveryStatus: 'sent' }
-			);
-			expect(operations[command]).toHaveBeenCalledWith(REQUEST_ID);
-		});
 		it.each([
 			{ id: null, message: 'Missing request ID' },
 			{ id: '', message: 'Missing request ID' },

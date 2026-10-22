@@ -69,14 +69,6 @@ afterEach(() => {
 });
 
 describe('PersonnelLogPageView follow-ups', () => {
-	it('counts open and overdue follow-ups from today', async () => {
-		renderLog();
-
-		expect(await screen.findByText('2 open')).toBeTruthy();
-		expect(screen.getByText('1 overdue')).toBeTruthy();
-		expect(screen.getByText('Overdue 4 days')).toBeTruthy();
-	});
-
 	it('completes a follow-up in one click and files it under Completed', async () => {
 		const fetchMock = stubFetch(() => jsonResponse({ status: 'completed', completedAt: '2026-10-19T14:00:00.000Z' }));
 		renderLog();

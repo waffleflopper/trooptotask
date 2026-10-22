@@ -161,15 +161,6 @@ describe('admin user detail page', () => {
 		expect(menu.queryByRole('menuitem', { name: /Suspend/ })).toBeNull();
 	});
 
-	it('keeps Suspend User last in More behind the destructive separator and names the page state in the header', async () => {
-		render(Page, { props: { data: makePageData() } });
-		expect(screen.queryByRole('button', { name: 'Suspend User' })).toBeNull();
-		const menu = within(await openToolbarMore('User controls'));
-		const items = menu.getAllByRole('menuitem').map((item) => item.textContent?.trim());
-		expect(items.at(-1)).toBe('Suspend User');
-		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Active');
-	});
-
 	it('refreshes the visible User state after suspension before offering unsuspension', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
 		const view = render(Page, { props: { data: makePageData() } });

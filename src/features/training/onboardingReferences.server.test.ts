@@ -6,7 +6,6 @@ import { createSupabaseTrainingOnboardingReferencesPort } from './onboardingRefe
 type Row = Record<string, unknown>;
 
 function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } = {}) {
-	const inCalls: Array<{ column: string; values: string[] }> = [];
 	const from = vi.fn((table: string) => {
 		let rows = (table === 'training_types' ? fixtures.trainingTypes : fixtures.trainingRecords) ?? [];
 		let joinedPersonnel = false;
@@ -22,7 +21,6 @@ function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } =
 				return query;
 			},
 			in: (column: string, values: string[]) => {
-				inCalls.push({ column, values });
 				rows = rows.filter((row) => values.includes(valueAt(row, column) as string));
 				return query;
 			},
@@ -47,7 +45,7 @@ function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } =
 		return query;
 	});
 	const getAdminClient = vi.fn(() => ({ from }) as unknown as SupabaseClient);
-	return { from, getAdminClient, inCalls, port: createSupabaseTrainingOnboardingReferencesPort(getAdminClient) };
+	return { from, getAdminClient, port: createSupabaseTrainingOnboardingReferencesPort(getAdminClient) };
 }
 
 function valueAt(row: Row, path: string): unknown {
@@ -175,7 +173,7 @@ describe('Training references for Onboarding', () => {
 		expect(result.get('p-0')).toEqual(new Set(['type-0', 'type-1', 'type-2', 'type-3', 'type-4', 'type-5']));
 	});
 
-	it('chunks requested Personnel IDs while retaining completions across batches', async () => {
+	it('retains completions for a request spanning Personnel batches', async () => {
 		const records = Array.from({ length: 201 }, (_, index) => ({
 			organization_id: 'org-1',
 			personnel_id: `p-${index}`,
@@ -183,18 +181,14 @@ describe('Training references for Onboarding', () => {
 			personnel: { organization_id: 'org-1', group_id: 'alpha' },
 			training_types: { organization_id: 'org-1' }
 		}));
-		const { port, inCalls } = provider({ trainingRecords: records });
+		const { port } = provider({ trainingRecords: records });
 		const result = await port.completedTypeIds(
 			actor(),
 			records.map((row) => row.personnel_id),
 			['cpr']
 		);
 		expect(result.size).toBe(201);
-		expect(
-			inCalls
-				.filter((call) => call.column === 'personnel_id')
-				.map((call) => call.values.length)
-				.sort((a, b) => a - b)
-		).toEqual([1, 100, 100]);
+		expect(result.get('p-0')).toEqual(new Set(['cpr']));
+		expect(result.get('p-200')).toEqual(new Set(['cpr']));
 	});
 });

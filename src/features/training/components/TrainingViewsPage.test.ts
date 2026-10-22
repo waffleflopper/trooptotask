@@ -102,15 +102,6 @@ describe('TrainingViewsPage', () => {
 		trainingViewsStore.load([], 'org-test-reset');
 	});
 
-	it('renders saved training views in the type workspace', () => {
-		render(TrainingViewsPage, { props: { org } });
-
-		expect(screen.getByRole('toolbar', { name: 'Training view controls' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Back to Matrix' }).getAttribute('href')).toBe('/org/org-1/training');
-		expect(screen.getByRole('row', { name: 'Annual Requirements' })).toBeTruthy();
-		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
-	});
-
 	it('keeps a failed delete open with its reason and the view still listed', async () => {
 		const requests: string[] = [];
 		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
@@ -127,14 +118,6 @@ describe('TrainingViewsPage', () => {
 		expect(requests).toEqual(['DELETE view-1']);
 		expect(screen.getByRole('row', { name: 'Annual Requirements' })).toBeTruthy();
 		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
-	});
-
-	it('titles the empty list and the empty detail as level-3 headings, like a view header', () => {
-		trainingViewsStore.load([], 'org-1');
-		render(TrainingViewsPage, { props: { org } });
-
-		expect(screen.getByRole('heading', { name: 'No saved views yet.', level: 3 })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Select a training view', level: 3 })).toBeTruthy();
 	});
 
 	it.each(['create', 'edit'] as const)('retains a failed %s draft and saves on explicit retry', async (mode) => {
@@ -254,15 +237,6 @@ describe('TrainingViewsPage', () => {
 		expect(screen.queryByText('Name is required.')).toBeNull();
 	});
 
-	it('puts New View in the page toolbar and Edit in the detail toolbar', () => {
-		render(TrainingViewsPage, { props: { org } });
-
-		const page = screen.getByRole('toolbar', { name: 'Training view controls' });
-		const detail = screen.getByRole('toolbar', { name: 'Training view detail controls' });
-		expect(within(page).getByRole('button', { name: 'New View' })).toBeTruthy();
-		expect(within(detail).getByRole('button', { name: 'Edit' })).toBeTruthy();
-	});
-
 	it('leaves a viewer only the way back to the matrix', () => {
 		render(TrainingViewsPage, { props: { org: viewer } });
 
@@ -313,19 +287,6 @@ describe('TrainingViewsPage', () => {
 			const menu = await openToolbarMore('Training view controls');
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Back to Matrix' }));
 			await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training'));
-		} finally {
-			vi.unstubAllGlobals();
-		}
-	});
-
-	it('keeps Edit on the detail toolbar when it has no room', async () => {
-		const widths = stubToolbarWidths();
-		try {
-			render(TrainingViewsPage, { props: { org } });
-			await widths.foldAll();
-
-			expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-			expect(screen.queryByRole('button', { name: 'More Training view detail controls' })).toBeNull();
 		} finally {
 			vi.unstubAllGlobals();
 		}

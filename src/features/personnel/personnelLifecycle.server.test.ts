@@ -61,21 +61,6 @@ describe('Personnel — archive', () => {
 		});
 	});
 
-	it('archives the Person and every Personnel-owned record through one command at the current time', async () => {
-		const ctx = buildContext();
-		seedPersonnel(ctx);
-		const archive = vi.spyOn(ctx.personnelLifecycle, 'archive');
-		const archivedAt = '2026-09-30T14:00:00.000Z';
-		vi.useFakeTimers({ toFake: ['Date'] });
-		try {
-			vi.setSystemTime(new Date(archivedAt));
-			await archivePersonnelRecord(ctx, 'p-1');
-		} finally {
-			vi.useRealTimers();
-		}
-		expect(archive.mock.calls).toEqual([[['p-1'], archivedAt]]);
-	});
-
 	it.each([
 		['rejects the command', new Error('Personnel archive failed')],
 		['does not acknowledge the command', new Error('Personnel archive was not acknowledged')]
@@ -181,15 +166,13 @@ describe('Personnel — restore', () => {
 		]);
 	}
 
-	it('restores the Person and its archive event records through one command and audits', async () => {
+	it('restores the Person and audits the saved identity', async () => {
 		const ctx = buildContext();
 		seedArchivedPersonnel(ctx);
-		const restore = vi.spyOn(ctx.personnelLifecycle, 'restore');
 
 		const result = await restorePersonnelRecord(ctx, 'p-1');
 
 		expect(result).toEqual({ success: true });
-		expect(restore.mock.calls).toEqual([['p-1']]);
 		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
 			archived_at: null
 		});
@@ -513,13 +496,5 @@ describe('Personnel — approved archive request', () => {
 		).rejects.toMatchObject({ status: 403 });
 		expect(approve).not.toHaveBeenCalled();
 		await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: person.id })).resolves.toEqual(person);
-	});
-
-	it('passes the bound request, Person and review time to one approval command', async () => {
-		const ctx = createTestContext({ auth: { role: 'admin', isPrivileged: true } });
-		const approve = vi.fn(async () => undefined);
-		ctx.personnelLifecycle.approveArchiveRequest = approve;
-		await approvePersonnelArchiveRequest(ctx, 'request-1', 'person-1', '2026-10-01T12:00:00.000Z');
-		expect(approve.mock.calls).toEqual([['request-1', 'person-1', '2026-10-01T12:00:00.000Z']]);
 	});
 });

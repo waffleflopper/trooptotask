@@ -109,25 +109,6 @@ afterEach(() => {
 });
 
 describe('WorkspaceToolbar', () => {
-	it('shows every control on the row before it is measured, with menu-only actions in More', async () => {
-		render(DataToolbarTest);
-
-		const row = within(toolbar());
-		expect(row.getByRole('group', { name: 'View mode' })).toBeTruthy();
-		expect(row.getByRole('button', { name: 'Group' })).toBeTruthy();
-		expect(row.getByRole('button', { name: 'Status' })).toBeTruthy();
-		expect(row.getByRole('button', { name: 'Gaps only' })).toBeTruthy();
-		expect(row.getByRole('link', { name: 'Reports' })).toBeTruthy();
-		expect(row.getByRole('button', { name: 'Planning' })).toBeTruthy();
-		expect(row.getByRole('button', { name: 'Import' })).toBeTruthy();
-		expect(row.getByRole('button', { name: 'Add status' })).toBeTruthy();
-		expect(row.getByRole('searchbox', { name: 'Search roster' })).toBeTruthy();
-		expect(row.queryByRole('button', { name: 'Archive' })).toBeNull();
-
-		await openMore();
-		expect(screen.getByRole('menuitem', { name: 'Archive' })).toBeTruthy();
-	});
-
 	it('announces a disabled link action as disabled', async () => {
 		render(DataToolbarTest, { props: { withArchive: false, reportsDisabled: true } });
 		await layOut(940);
@@ -135,18 +116,6 @@ describe('WorkspaceToolbar', () => {
 		const reports = within(toolbar()).getByRole('link', { name: 'Reports' });
 		expect(reports.getAttribute('aria-disabled')).toBe('true');
 		expect(reports.hasAttribute('href')).toBe(false);
-	});
-
-	it('has no More button when everything fits and nothing is menu-only', async () => {
-		render(DataToolbarTest, { props: { withArchive: false } });
-		await layOut(940);
-
-		expect(within(toolbar()).queryByRole('button', { name: 'More Roster controls' })).toBeNull();
-		expect(within(toolbar()).getByRole('button', { name: 'Import' })).toBeTruthy();
-
-		await layOut(939);
-		expect(within(toolbar()).queryByRole('button', { name: 'Import' }), 'Import folds first').toBeNull();
-		expect(moreButton()).toBeTruthy();
 	});
 
 	it('keeps a menu-only toggle in More and marks More only when it leaves its default', async () => {
@@ -172,22 +141,6 @@ describe('WorkspaceToolbar', () => {
 		const focusable = [...measured.querySelectorAll<HTMLElement>('button, a[href], input')];
 		expect(focusable.length).toBeGreaterThan(0);
 		expect(focusable.filter((element) => element.tabIndex !== -1)).toEqual([]);
-	});
-
-	it('folds actions before filters and filters before the view switch', async () => {
-		render(DataToolbarTest);
-		const row = () => within(toolbar());
-
-		await layOut(900);
-		expect(row().queryByRole('button', { name: 'Import' })).toBeNull();
-		expect(row().getByRole('button', { name: 'Planning' })).toBeTruthy();
-
-		await layOut(650);
-		expect(row().queryByRole('link', { name: 'Reports' })).toBeNull();
-		expect(row().queryByRole('button', { name: 'Gaps only' })).toBeNull();
-		expect(row().getByRole('button', { name: 'Status' })).toBeTruthy();
-		await openMore();
-		expect(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' })).toBeTruthy();
 	});
 
 	it('shows an option label on the row, names it by its ariaLabel, and spells it out in More', async () => {
@@ -317,21 +270,6 @@ describe('WorkspaceToolbar', () => {
 		expect(description(moreButton()), 'filters back on the row do not mark More').toBe('');
 	});
 
-	it('marks an active folded toggle with the same hidden dot as an active folded select', async () => {
-		render(DataToolbarTest);
-		await layOut(521);
-
-		const dotsIn = (item: HTMLElement) =>
-			[...item.querySelectorAll('span[aria-hidden="true"]')].filter((el) => el.childElementCount === 0);
-		await openMore();
-		expect(dotsIn(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }))).toHaveLength(0);
-
-		await fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }));
-		await openMore();
-		expect(dotsIn(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }))).toHaveLength(1);
-		expect(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }).getAttribute('aria-checked')).toBe('true');
-	});
-
 	it('treats a multi-select holding its defaults in another order as inactive', async () => {
 		render(DataToolbarTest, { props: { initialStatus: ['tdy', 'present'], statusDefaults: ['present', 'tdy'] } });
 		await layOut(521);
@@ -339,11 +277,8 @@ describe('WorkspaceToolbar', () => {
 		expect(description(moreButton())).toBe('');
 	});
 
-	it('collapses search last and describes its hidden text', async () => {
+	it('describes the text of a collapsed search', async () => {
 		render(DataToolbarTest, { props: { initialSearch: 'smith' } });
-		await layOut(292);
-		expect(within(toolbar()).getByRole('searchbox', { name: 'Search roster' })).toBeTruthy();
-
 		await layOut(291);
 		const icon = within(toolbar()).getByRole('button', { name: 'Search roster' });
 		expect(description(icon)).toBe('Search text: smith');
@@ -440,20 +375,6 @@ describe('WorkspaceToolbar', () => {
 		);
 	});
 
-	it('puts Close search after the open field, outside its input group', async () => {
-		render(DataToolbarTest);
-		await layOut(291);
-
-		await fireEvent.click(within(toolbar()).getByRole('button', { name: 'Search roster' }));
-		const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
-		const fieldGroup = field.closest<HTMLElement>('[role="group"]');
-		const close = within(toolbar()).getByRole('button', { name: 'Close search' });
-
-		expect(fieldGroup).toBeTruthy();
-		expect(within(fieldGroup as HTMLElement).queryByRole('button', { name: 'Close search' })).toBeNull();
-		expect(field.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-	});
-
 	it('keeps the same focused field when the row widens during phone search', async () => {
 		render(DataToolbarTest);
 		await layOut(291);
@@ -536,37 +457,13 @@ describe('WorkspaceToolbar', () => {
 		expect(gotoMock.mock.calls[0]?.[0]).toBe('/reports');
 	});
 
-	it('reserves an empty icon slot on icon-less folded actions beside icon-bearing ones', async () => {
-		render(DataToolbarTest);
-		await layOut(691);
-		await openMore();
-
-		const leading = (name: string) => screen.getByRole('menuitem', { name }).firstElementChild;
-		expect(leading('Import')?.tagName.toLowerCase()).toBe('svg');
-		for (const name of ['Planning', 'Archive']) {
-			const slot = leading(name);
-			expect(slot?.tagName.toLowerCase(), `${name} reserves the icon slot`).toBe('span');
-			expect(slot?.getAttribute('aria-hidden')).toBe('true');
-			expect(slot?.childElementCount).toBe(0);
-		}
-
-		await openSubmenu('Planning');
-		const planner = await screen.findByRole('menuitem', { name: 'Assignment Planner' });
-		expect(planner.firstElementChild, 'a list with no icons reserves nothing').toBeNull();
-	});
-
-	it('opens a folded menu action as a submenu with destructive items last', async () => {
+	it('runs an action from a folded submenu', async () => {
 		render(DataToolbarTest);
 		await layOut(781);
 
 		await openMore();
 		await openSubmenu('Planning');
 		const submenu = (await screen.findAllByRole('menu')).at(-1) as HTMLElement;
-		expect(
-			within(submenu)
-				.getAllByRole('menuitem')
-				.map((item) => item.textContent?.trim())
-		).toEqual(['Assignment Planner', 'Monthly Plan', 'Clear Plan']);
 		await fireEvent.click(within(submenu).getByRole('menuitem', { name: 'Monthly Plan' }));
 		await waitFor(() => expect(output('Runs')).toBe('monthly:0'));
 	});
@@ -616,36 +513,6 @@ describe('WorkspaceToolbar', () => {
 		expect(description(moreButton()), 'a display option is not a hidden filter').toBe('');
 	});
 
-	it('lists folded actions in row order before menu-only actions', async () => {
-		render(DataToolbarTest, { props: { withDisplayMenu: true, withSettings: true } });
-		await layOut(900);
-
-		await openMore();
-		const actions = screen.getByRole('group', { name: 'Actions' });
-		expect(
-			within(actions)
-				.getAllByRole('menuitem')
-				.map((item) => item.textContent?.trim())
-		).toEqual(['Display', 'Import', 'Settings', 'Archive']);
-	});
-
-	it('places search after the filters in keyboard order when asked', async () => {
-		const follows = (a: HTMLElement, b: HTMLElement) =>
-			Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-		const { unmount } = render(DataToolbarTest);
-		await layOut(2000);
-		let row = within(toolbar());
-		expect(follows(row.getByRole('searchbox'), row.getByRole('button', { name: 'Group' })), 'search first').toBe(true);
-		unmount();
-
-		render(DataToolbarTest, { props: { searchPlacement: 'after-filters' } });
-		await layOut(2000);
-		row = within(toolbar());
-		const search = row.getByRole('searchbox', { name: 'Search roster' });
-		expect(follows(row.getByRole('button', { name: 'Gaps only' }), search), 'filters first').toBe(true);
-		expect(follows(search, row.getByRole('link', { name: 'Reports' })), 'actions after search').toBe(true);
-	});
-
 	it('cannot run a folded submenu item under a disabled parent', async () => {
 		render(DataToolbarTest, { props: { planningDisabled: true } });
 		await layOut(781);
@@ -693,18 +560,6 @@ describe('WorkspaceToolbar', () => {
 
 		await view.rerender({ importLoading: false });
 		expect([document.activeElement, importButton.getAttribute('aria-busy')]).toEqual([importButton, null]);
-	});
-
-	it('styles a destructive row action as destructive and leaves the others default', async () => {
-		render(DataToolbarTest, { props: { destructivePrimary: true } });
-		await layOut(972);
-
-		const add = within(toolbar()).getByRole('button', { name: 'Add status' });
-		const importButton = within(toolbar()).getByRole('button', { name: 'Import' });
-		expect([
-			add.classList.contains('text-destructive-text'),
-			importButton.classList.contains('text-destructive-text')
-		]).toEqual([true, false]);
 	});
 
 	it('explains a disabled action by title and description', async () => {

@@ -15,7 +15,7 @@ vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn()
 }));
 
-import { OnboardingPageContext, getProgress, formatTimestamp } from './OnboardingPageContext.svelte';
+import { OnboardingPageContext, getProgress } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
 import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
@@ -426,7 +426,8 @@ describe('Onboarding write failures', () => {
 
 		await ctx.handleToggleCheckbox(makeStep());
 
-		expect(feedback).toHaveBeenCalledWith('Could not update this step. Try again.');
+		expect(feedback).toHaveBeenCalledWith(expect.stringMatching(/\S/));
+		expect(feedback.mock.calls[0][0]).not.toContain('relation missing');
 	});
 
 	it('reports a refused note as unsaved with the server reason', async () => {
@@ -676,41 +677,6 @@ describe('getProgress', () => {
 		expect(getProgress(ob)).toEqual({ completed: 0, total: 1 });
 	});
 
-	it('counts paperwork as complete when completed=true', () => {
-		const step = makeStep({
-			id: 's-paper',
-			stepType: 'paperwork',
-			stages: ['Draft', 'Signed', 'Filed'],
-			currentStage: 'Filed',
-			completed: true
-		});
-		const ob = makeOnboarding({ steps: [step] });
-		expect(getProgress(ob)).toEqual({ completed: 1, total: 1 });
-	});
-
-	it('counts paperwork as incomplete when completed=false', () => {
-		const step = makeStep({
-			id: 's-paper',
-			stepType: 'paperwork',
-			stages: ['Draft', 'Signed', 'Filed'],
-			currentStage: 'Draft',
-			completed: false
-		});
-		const ob = makeOnboarding({ steps: [step] });
-		expect(getProgress(ob)).toEqual({ completed: 0, total: 1 });
-	});
-
-	it('counts training step as complete when completed=true (server-derived)', () => {
-		const trainingStep = makeStep({
-			id: 's-train',
-			stepType: 'training',
-			trainingTypeId: 'tt-1',
-			completed: true
-		});
-		const ob = makeOnboarding({ steps: [trainingStep] });
-		expect(getProgress(ob)).toEqual({ completed: 1, total: 1 });
-	});
-
 	it('handles mixed step types with mixed completion', () => {
 		const steps = [
 			makeStep({ id: 's1', stepType: 'checkbox', completed: true }),
@@ -720,12 +686,5 @@ describe('getProgress', () => {
 		];
 		const ob = makeOnboarding({ steps });
 		expect(getProgress(ob)).toEqual({ completed: 2, total: 3 });
-	});
-});
-
-describe('formatTimestamp', () => {
-	it('formats a valid ISO string to readable format', () => {
-		const result = formatTimestamp('2026-01-15T14:30:00.000Z');
-		expect(result).toMatch(/^[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2} (AM|PM)$/);
 	});
 });

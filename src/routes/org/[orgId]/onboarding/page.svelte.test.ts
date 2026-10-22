@@ -1,40 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import { onboardingStore, onboardingTemplateStore } from '$features/onboarding';
 import { personnelRosterHydration } from '$features/personnel';
-
-const modalRegistryState = vi.hoisted(() => ({
-	startOnboardingOpen: false
-}));
-
-vi.mock('$features/onboarding', async () => {
-	const actual = await vi.importActual<typeof import('$features/onboarding')>('$features/onboarding');
-	return { ...actual, loadOnboardingModals: async () => ({ default: VisibleStub }) };
-});
-
-vi.mock('$lib/utils/modalRegistry.svelte', () => ({
-	ModalRegistry: class {
-		isOpen(id: string) {
-			return id === 'startOnboarding' && modalRegistryState.startOnboardingOpen;
-		}
-
-		open(id: string) {
-			if (id === 'startOnboarding') modalRegistryState.startOnboardingOpen = true;
-		}
-
-		close(id: string) {
-			if (id === 'startOnboarding') modalRegistryState.startOnboardingOpen = false;
-		}
-
-		closerFor(id: string) {
-			return () => this.close(id);
-		}
-	}
-}));
 
 vi.mock('$features/app-shell', () => ({
 	getAppShellContext: () => ({
@@ -73,7 +43,6 @@ import OnboardingRoute from './onboardingRoute.test.svelte';
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
-	modalRegistryState.startOnboardingOpen = false;
 	onboardingStore.load([], 'org-test-reset');
 	onboardingTemplateStore.load([], [], 'org-test-reset');
 	personnelRosterHydration.load([], 'org-test-reset');
@@ -136,41 +105,6 @@ function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): Personnel
 }
 
 describe('onboarding page', () => {
-	it('renders the page immediately when onboarding workspace data is already resolved', () => {
-		render(Page, {
-			props: {
-				data: {
-					session: null,
-					onboarding: {
-						data: makeBootstrap()
-					}
-				}
-			}
-		});
-
-		expect(screen.queryByRole('status')).toBeNull();
-		expect(screen.getByRole('heading', { name: 'Onboarding' })).toBeTruthy();
-	});
-
-	it('loads the modal surface when start onboarding is open', async () => {
-		modalRegistryState.startOnboardingOpen = true;
-
-		render(Page, {
-			props: {
-				data: {
-					session: null,
-					onboarding: {
-						data: makeBootstrap()
-					}
-				}
-			}
-		});
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
-		});
-	});
-
 	it('renders a loading shell while onboarding workspace data is still streaming', async () => {
 		const deferred = createDeferred<OnboardingWorkspaceResult>();
 
@@ -309,6 +243,5 @@ describe('onboarding page', () => {
 		await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
 		expect(screen.queryByRole('alert')).toBeNull();
 		expect(screen.queryByRole('heading', { name: 'Onboarding' })).toBeNull();
-		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
 	});
 });

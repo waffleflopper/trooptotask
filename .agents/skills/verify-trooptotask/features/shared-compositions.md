@@ -1,6 +1,6 @@
 # Shared composition equivalence
 
-Members meet the shared type-management workspace, bulk-import workspace, readiness band, report chart, requirement status badge, route tabs and workspace toolbar through ordinary Training, Onboarding, Critical Tasks, Personnel, Calendar, settings and account screens. A styling or markup migration of one of these compositions must leave every consumer's computed appearance, structure and keyboard behavior unchanged unless the issue's acceptance changes it.
+Members meet the shared type-management workspace, bulk-import workspace, readiness band, report chart, requirement status badge, route tabs and workspace toolbar through ordinary Training, Onboarding, Critical Tasks, Personnel, Calendar, settings and account screens. A styling or markup migration of one of these compositions leaves every consumer's computed appearance, structure and keyboard behavior unchanged unless the issue's acceptance changes it.
 
 ## Sub-features
 
@@ -19,7 +19,7 @@ Use Organization navigation to reach Training (Types, Views, Reports, the matrix
 
 ## Driving it with verify:app
 
-Expected results come from the issue's acceptance and the [component contracts](component-foundation.md), not current output. Record each step PASS, FAIL, UNREACHABLE or UNRUN with actor, width and theme. A FAIL stays FAIL until the same step passes on a later candidate. Never edit the application while a run holds a candidate: edit, commit and relaunch first.
+The [component contracts](component-foundation.md) apply. Record each step PASS, FAIL, UNREACHABLE or UNRUN with actor, width and theme. A FAIL stays FAIL until the same step passes on a later candidate. Never edit the application while a run holds a candidate: edit, commit and relaunch first.
 
 1. Launch and `doctor`. Use `$V actor ROLE ROUTE` for `orgOwner` (settings, Personnel, Training), `onboardingConfigure` (Templates), `ratingConfigure` (Evals), `ictConfigurator` (Critical Tasks Library), `ictOperator` (denied Library) and `ictEmpty`/`trainingEmpty` (empty states). Record the returned page and Organization IDs.
 2. Seed the states a screen needs: `$V seed training-print` (112 Personnel, 24 types, readiness drops, tiles, Expiring and Not Required) for the readiness band, charts and badges, and `$V seed personnel-lifecycle` for the Archives tab badge. A pending invitation made through Members supplies its badge. Remove UI-created rows through the UI and run `$V clean-seeds` last.
@@ -51,7 +51,7 @@ Run `node --test .agents/skills/verify-trooptotask/helpers/style-probe.test.mjs`
 
 - The probe measures the page it is on. Identical pages need identical state: the same seeds, rows, theme, width and open dialogs.
 - The theme belongs to the browser context. Account pages have no Toggle theme control; set the theme on an Organization page first and read `html[data-theme]`.
-- Candidate contract: every page, including Account and the Organization suspended and session-unavailable states, has exactly one `main`. The D09 baseline observed otherwise: Organization pages nested `main#main-content` in the shell `main` (the Training matrix had three) and Account pages had none. Admin routes already had one.
+- Every page, including Account and the Organization suspended and session-unavailable states, has exactly one `main`. A nested `main#main-content` inside the shell `main`, or an Account page with none, is a FAIL.
 - The Critical Tasks Library denies `ictOperator`; use `ictConfigurator` for the library itself and keep the denial as its own state.
 - At 390 wide the Personnel and Training `Import` actions are in `More Personnel controls` and `More Training controls`. Calendar's `Import CSV` is always under the pinned `Bulk Status` menu. Critical Tasks uses `More Critical Tasks controls`, which also holds its view, filters and Reports.
 - The probe caps each selector at 200 elements. Large readiness sets compare the first 200; state the count.

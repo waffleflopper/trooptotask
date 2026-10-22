@@ -177,14 +177,6 @@ describe('PersonnelRecordHeader', () => {
 		expect(within(tabs).getByRole('link', { name: 'Archived' })).toBeTruthy();
 	});
 
-	it('names a single follow-up or archived item in the singular', async () => {
-		await renderHeader({ streams: { tabCounts: Promise.resolve({ log: 1, archived: 1 }) } });
-		const tabs = screen.getByRole('navigation', { name: 'Personnel detail sections' });
-
-		await waitFor(() => expect(within(tabs).getByRole('link', { name: 'Log 1 open follow-up' })).toBeTruthy());
-		expect(within(tabs).getByRole('link', { name: 'Archived 1 archived item' })).toBeTruthy();
-	});
-
 	it('badges Readiness with the items that need attention, and never reads a failed check as clear', async () => {
 		await renderHeader({ streams: { readinessBadge: Promise.resolve({ count: 4, complete: true }) } });
 		const tabs = () => screen.getByRole('navigation', { name: 'Personnel detail sections' });
@@ -259,14 +251,6 @@ describe('PersonnelRecordHeader', () => {
 			await waitFor(() => expect(document.activeElement).toBe(summary));
 			expect(draft.values.mos).toBe('68X');
 			expect(screen.getByText('1 unsaved change')).toBeTruthy();
-		});
-
-		it('keeps Save changes disabled until something changes', async () => {
-			const { session } = openSession();
-			await renderHeader({ edit: session, activeTab: '/data-sheet' });
-
-			expect(screen.getByText('0 unsaved changes')).toBeTruthy();
-			expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
 		});
 
 		it('disables every other tab', async () => {

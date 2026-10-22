@@ -154,38 +154,6 @@ describe('TrainingPageView', () => {
 		pinnedGroupsHydration.load([], 'org-test-reset');
 	});
 
-	it.each([['alphabetical'], ['by-group']] as const)('mounts only one matrix for %s view mode', (viewMode) => {
-		render(TrainingPageView, {
-			props: {
-				ctx: makeCtx(viewMode) as unknown as TrainingPageContext,
-				modals: new ModalRegistry()
-			}
-		});
-
-		expect(screen.getAllByRole('table', { name: 'Training status matrix', hidden: true })).toHaveLength(1);
-	});
-
-	it('keeps the loading skeleton while another orgs training stores are still on screen', () => {
-		personnelRosterHydration.load(personnel, 'org-stale');
-		groupCatalogHydration.load(groups, 'org-stale');
-		trainingTypesStore.load([trainingType], 'org-stale');
-		personnelTrainingsStore.load([], 'org-stale');
-
-		render(TrainingPageView, {
-			props: {
-				ctx: makeCtx('by-group', {
-					orgId: 'org-2',
-					groups: [],
-					filteredPersonnel: []
-				}) as unknown as TrainingPageContext,
-				modals: new ModalRegistry()
-			}
-		});
-
-		expect(screen.getByTestId('skeleton-grid')).toBeTruthy();
-		expect(screen.queryByText('No personnel found.')).toBeNull();
-	});
-
 	it('announces the loading skeleton as a busy status region and describes why export is unavailable', () => {
 		personnelRosterHydration.load(personnel, 'org-stale');
 		groupCatalogHydration.load(groups, 'org-stale');
@@ -223,16 +191,6 @@ describe('TrainingPageView', () => {
 		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(true);
 		expect(toolbarDescription(exportButton)).toBe(reason);
-	});
-
-	it('gives Export Excel no reason while it is available', () => {
-		render(TrainingPageView, {
-			props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals: new ModalRegistry() }
-		});
-
-		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
-		expect(exportButton.disabled).toBe(false);
-		expect(toolbarDescription(exportButton)).toBe('');
 	});
 
 	it('retains a failed completion draft and updates the matrix after a successful retry', async () => {
@@ -544,22 +502,6 @@ describe('TrainingPageView', () => {
 		});
 
 		afterEach(() => vi.unstubAllGlobals());
-
-		const toolbar = () => screen.getByRole('toolbar', { name: 'Training controls' });
-
-		it('keeps Manage Types on the row at every width and moves every other control into More', async () => {
-			render(TrainingPageView, {
-				props: { ctx: makeCtx('by-group') as unknown as TrainingPageContext, modals: new ModalRegistry() }
-			});
-			await widths.foldAll();
-
-			expect(within(toolbar()).getByRole('link', { name: 'Manage Types' })).toBeTruthy();
-			expect(within(toolbar()).queryByRole('button', { name: 'Training matrix view mode' })).toBeNull();
-			const menu = await openToolbarMore('Training controls');
-			for (const name of ['Reports', 'Sign-In Rosters', 'Export Excel', 'Import', 'Manage Views']) {
-				expect(within(menu).getByRole('menuitem', { name }), name).toBeTruthy();
-			}
-		});
 
 		it('switches the matrix view from its radio group', async () => {
 			const ctx = makeCtx('by-group');

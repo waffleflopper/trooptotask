@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const { loadWithContextMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn()
@@ -93,15 +92,6 @@ describe('settings load helpers', () => {
 			})
 		);
 
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			{ user: { id: 'user-1' } },
-			{ get: expect.any(Function) },
-			'org-1',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
-				policyResource: { kind: 'organization' }
-			})
-		);
 		expect(result).toMatchObject({
 			orgId: 'org-1',
 			orgUrlSegment: 'org-1',

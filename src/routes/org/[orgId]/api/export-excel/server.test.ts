@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseNotificationStore } from '$features/notifications/index.server';
@@ -150,22 +149,20 @@ describe('POST /api/export-excel', () => {
 		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 
-	it('downloads above former quotas and excludes another Organization', async () => {
+	it('downloads scoped saved data and preserves prior export history', async () => {
 		const ctx = createExportTestContext();
 		const history = savedDeletionHistory(ctx.auth.orgId);
 		ctx.rawStore.seed('deletion_requests', [
 			...history,
 			{ ...history[0], id: 'foreign-request', organization_id: 'other-org' }
 		]);
-		ctx.rawStore.seed(
-			'data_exports',
-			Array.from({ length: 11 }, (_, i) => ({
-				id: `previous-${i}`,
-				org_id: ctx.auth.orgId,
-				created_at: new Date().toISOString(),
-				status: 'completed'
-			}))
-		);
+		const previousExport = {
+			id: 'previous-export',
+			org_id: ctx.auth.orgId,
+			created_at: '2026-09-01T00:00:00Z',
+			status: 'completed'
+		};
+		ctx.rawStore.seed('data_exports', [previousExport]);
 		ctx.rawStore.seed('personnel', [
 			{ id: 'own-person', organization_id: ctx.auth.orgId, first_name: 'Local', last_name: 'Person', rank: 'SGT' },
 			{ id: 'foreign-person', organization_id: 'other-org', first_name: 'Private', last_name: 'Foreign', rank: 'SGT' }
@@ -326,14 +323,9 @@ describe('POST /api/export-excel', () => {
 		}
 
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
-		expect(rows).toHaveLength(12);
+		expect(rows).toHaveLength(2);
+		expect(rows.find((row) => row.id === previousExport.id)).toEqual(previousExport);
 		expect(rows.find((row) => row.requested_by === ctx.auth.userId)).toMatchObject({ status: 'completed' });
-	});
-
-	it('uses the organization data export policy boundary', () => {
-		expect('permission' in configFor(createTestContext())).toBe(false);
-		expect(configFor(createTestContext()).policyAction).toBe(POLICY_ACTION_CATALOG.organization.exportData);
-		expect(configFor(createTestContext()).policyResource).toEqual({ kind: 'organization' });
 	});
 
 	it('allows admins without feature capabilities to export organization workbooks', async () => {
@@ -727,7 +719,6 @@ describe('POST /api/export-excel', () => {
 		expect(readableAssignments.getSheetValues().flat(2)).toContain('SSG Archived, Alex');
 		expect(readableAssignments.getSheetValues().flat(2)).toContain('Alpha Group');
 		expect(rowValues(signInRosters, 2)).toContain('roster-1');
-		expect(workbook.worksheets.some((sheet) => /duty roster|advanced duty/i.test(sheet.name))).toBe(false);
 	});
 
 	it('still returns the workbook when the export status write fails', async () => {

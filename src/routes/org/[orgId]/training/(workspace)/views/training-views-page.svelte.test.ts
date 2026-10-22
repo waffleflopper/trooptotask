@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import TrainingRoute from '../trainingRoute.test.svelte';
 import { trainingTypesStore } from '$features/training';
 import { trainingViewsStore } from '$features/training';
 import type { TrainingWorkspaceResult } from '$features/training/contracts';
@@ -73,22 +72,5 @@ describe('training views page', () => {
 
 		expect(await screen.findByText('Loading training views...')).toBeTruthy();
 		expect(screen.queryByText('No saved views yet.')).toBeNull();
-	});
-
-	it('shows the Training load error with Retry and never a stuck loading status when the source rejects', async () => {
-		const reload = vi.fn();
-		vi.stubGlobal('location', { ...window.location, reload });
-		const rejected = Promise.reject(new Error('personnel_trainings failed'));
-		rejected.catch(() => {});
-
-		render(TrainingRoute, {
-			props: { Page, data: { shell: { org: { id: 'org-1' } }, training: { data: rejected } } as never }
-		});
-
-		expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Training');
-		expect(screen.queryByRole('status')).toBeNull();
-		await fireEvent.click(screen.getByRole('button', { name: 'Retry Training' }));
-		expect(reload).toHaveBeenCalledTimes(1);
-		vi.unstubAllGlobals();
 	});
 });

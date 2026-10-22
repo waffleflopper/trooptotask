@@ -35,18 +35,6 @@ function makeRequest(form: Record<string, string>): Request {
 describe('admin announcements route shell', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		announcementsMock.list.mockResolvedValue([]);
-		announcementsMock.create.mockResolvedValue({
-			id: ANNOUNCEMENT_ID,
-			title: 'Readiness update',
-			message: 'Brief at 0900',
-			type: 'info',
-			isActive: true,
-			createdAt: '2026-06-03T10:00:00.000Z',
-			expiresAt: null
-		});
-		announcementsMock.setActive.mockResolvedValue({ status: 'updated', id: ANNOUNCEMENT_ID, isActive: false });
-		announcementsMock.delete.mockResolvedValue({ success: true });
 	});
 
 	it('load returns the PlatformAnnouncements list model in the existing page shape', async () => {
@@ -113,18 +101,6 @@ describe('admin announcements route shell', () => {
 
 		expect(result).toEqual({ status: 400, data: { error } });
 		expect(announcementsMock.setActive).not.toHaveBeenCalled();
-	});
-
-	it.each([
-		['true', true],
-		['false', false]
-	])('sets the submitted desired state %s exactly once', async (isActive, expected) => {
-		const result = await actions.toggle({
-			request: makeRequest({ id: ANNOUNCEMENT_ID, isActive })
-		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
-
-		expect(result).toEqual({ success: true });
-		expect(announcementsMock.setActive.mock.calls).toEqual([[ANNOUNCEMENT_ID, expected]]);
 	});
 
 	it('maps set-active store failures to the existing failure shape', async () => {

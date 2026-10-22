@@ -5,9 +5,9 @@ description: Apply TroopToTask contracts, affected-baseline verification and ind
 
 # Engineer TroopToTask changes
 
-Apply these project requirements to the requested work. [Operating rules](../../../docs/agents/operating-rules.md#shared-skills-and-project-workflows), [retained contracts](../../../docs/stabilization/BASELINE.md#retained-contracts) and the [Definition of Done](../../../docs/architecture/DEFINITION_OF_DONE.md#required-commands) own project gates. The request sets scope and authority; a read-only investigation stays read-only.
+Apply these project requirements to the requested work. [Operating rules](../../../docs/agents/operating-rules.md#shared-skills-and-project-workflows), [architecture](../../../docs/architecture/ARCHITECTURE.md), the [security contract](../../../docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) and the [Definition of Done](../../../docs/architecture/DEFINITION_OF_DONE.md#required-commands) own project gates. The request sets scope and authority; a read-only investigation stays read-only.
 
-Keep the current coordinator: [t2t-stabilize](../t2t-stabilize/SKILL.md) for stabilization continuation, or an explicitly invoked Poteto Mode and its selected playbook for other work. This skill supplies project requirements and selected methods without starting another Poteto workflow. Direct invocation also works without Poteto. Phase activation and closure remain with the [stabilization workflow](../../../docs/agents/stabilization-workflow.md); finishing an issue does not authorize the next issue or phase.
+Keep the current coordinator, such as an explicitly invoked Poteto Mode and its selected playbook. This skill supplies project requirements and selected methods without starting another Poteto workflow. Direct invocation also works without Poteto. Finishing an issue does not authorize the next one.
 
 ## Use the relevant engineering method
 
@@ -30,9 +30,9 @@ A bug fix may start from a failing reproduction; a refactor requires its affecte
 
 Verify changed behavior and applicable repository checks on the final candidate. After a repair, apply [verification after a fix](../../../docs/architecture/DEFINITION_OF_DONE.md#verification-after-a-fix): rerun the failed case and justified adjacent checks, and reuse applicable passing proof. Do not repeat the original baseline selection automatically. Record version, environment, role, actual actions, expected/observed results and durable sanitized artifacts under the [evidence contract](../../../docs/architecture/DEFINITION_OF_DONE.md#recording-evidence). Keep baseline, final, failed and unrun paths distinct. Routine work covers affected features and dependencies; full-map upkeep remains a separate request.
 
-Independent acceptance reviews the complete diff, requirements, direct/reverse consumers, coverage selection and actual evidence. An isolated reviewer may execute live paths; artifact review is not independent execution, and the same model is not model diversity. Proof of one feature's happy path does not establish another feature's failure or isolation behavior. For intermediate stabilization PRs, apply [scoped acceptance](../t2t-stabilize/SKILL.md#bound-the-pr-without-shrinking-the-issue) while keeping the issue remainder and failures visible.
+Independent acceptance reviews the complete diff, requirements, direct/reverse consumers, coverage selection and actual evidence. An isolated reviewer may execute live paths; artifact review is not independent execution, and the same model is not model diversity. Proof of one feature's happy path does not establish another feature's failure or isolation behavior. For an intermediate PR, keep the issue remainder and failures visible.
 
-Inspect the final diff for intent, security, consumers, performance and unrelated changes. Explain resulting behavior, important files, checks and material limits against the exact candidate. Use the repository's [finish-pr](../finish-pr/SKILL.md) for authorized PR work and t2t-stabilize's proportional CodeRabbit flow during issue continuation. Publication, merge, deployment, messages and database actions require their existing authority; this skill adds none.
+Inspect the final diff for intent, security, consumers, performance and unrelated changes. Explain resulting behavior, important files, checks and material limits against the exact candidate. Use the repository's [finish-pr](../finish-pr/SKILL.md) for authorized PR work. Publication, merge, deployment, messages and database actions require their existing authority; this skill adds none.
 
 ## Bound parallel work
 

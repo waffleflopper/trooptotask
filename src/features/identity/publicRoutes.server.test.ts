@@ -70,11 +70,6 @@ describe('isPublicRoute', () => {
 		}
 	);
 
-	it('does not classify the removed help route as public', () => {
-		expect(isPublicRoute('/help')).toBe(false);
-		expect(isPublicRoute('/help/platform-guide')).toBe(false);
-	});
-
 	it('does not grant anonymous access to retired scheduled billing paths', () => {
 		expect(isPublicRoute('/api/billing-reconciliation')).toBe(false);
 		expect(isPublicRoute('/api/billing-reconciliation/nested')).toBe(false);

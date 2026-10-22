@@ -146,11 +146,9 @@ no print-media option.
    controls and readable content must survive both themes and widths. Do not credit unrelated feature writes or
    all-feature access to `manager`.
 7. Capture the app header's ghost **Toggle theme** button and actual semantic badges: the Personnel record header's
-   warning badge (`<status> today`, for a Person with a Calendar status today), and the Organization Dashboard
-   Overview's success badge (`<n> Present`) using the [Dashboard recipe](dashboard.md#driving-it-with-verifyapp) and its
-   `dashboardView` actor. Record whether `$V seed dashboard` was used; the unseeded fixture shows `2 Present` (2/3), and
-   baseline/final must match. Read computed foreground, background, font size and weight, including the underlying card
-   when colors have transparency. Resolve the effective colors to sRGB, record the method and compare text contrast with
+   warning badge (`<status> today`, for a Person with a Calendar status today); baseline/final must match. Read computed
+   foreground, background, font size and weight, including the underlying card when colors have transparency. Resolve
+   the effective colors to sRGB, record the method and compare text contrast with
    [WCAG 2.2's minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html): normal text requires at
    least 4.5:1. Repeat for the import warning cell and affected light-mode status text. Preserve failures.
 8. In a signed-out owned context, inspect `/` and `/auth/login` and use each visible **Toggle theme** control. Also

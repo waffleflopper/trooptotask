@@ -451,14 +451,14 @@ from authenticated HTTP/provider checks and lower-level deferred/rejected-lane t
 3. **Detail ETS versus global loss signals:** Through the Data sheet edit form, set the dedicated Person's ETS outside
    the configured loss window and PCS / DEROS to today +15 days. Reload detail: Needs attention lists an Upcoming
    `PCS / DEROS` loss row inside the loss window that opens the Data sheet, and the Readiness LOSS card shows both
-   dates. Personnel and Calendar must still show the due PCS / DEROS signal, and the compact Dashboard must show the
-   nearest in-window Person and departure date under its independent permission. Do not require a day-count label that
-   the compact view does not render. Next clear ETS and set DEROS to today +7: the detail loss row and the global views
-   both move to the new PCS / DEROS date. Read the exact saved dates and record the run's local date/window. Restore
-   null dates through the same native form. Global signals choose the nearest nonnegative date within the inclusive
-   window, omit overdue-only records and preserve stable Person identity; detail's inclusive ETS warning, overdue result
-   and default 180-day fallback remain meaningful fixed-date tests. Screenshots establish observed content, not measured
-   performance or a race guarantee.
+   dates. Personnel and Calendar must still show the due PCS / DEROS signal, and the Dashboard's Arriving and leaving
+   column must name the nearest in-window Person and departure date. Do not require a day-count label that column does
+   not render. Next clear ETS and set DEROS to today +7: the detail loss row and the global views both move to the new
+   PCS / DEROS date. Read the exact saved dates and record the run's local date/window. Restore null dates through the
+   same native form. Global signals choose the nearest nonnegative date within the inclusive window, omit overdue-only
+   records and preserve stable Person identity; detail's inclusive ETS warning, overdue result and default 180-day
+   fallback remain meaningful fixed-date tests. Screenshots establish observed content, not measured performance or a
+   race guarantee.
 4. **Award acknowledgement and sibling fields:** Personnel pages have no acknowledgement toggle; the Dashboard's Leaving
    row sets it through `Award started` ([Dashboard actions](dashboard.md#actions)), and clearing has no UI. For each set
    and clear, use `$V artifact-http ROLE orgA|orgB PERSON_ID POST award-tracking BODY_FILE` with an evidence-root JSON
@@ -466,16 +466,16 @@ from authenticated HTTP/provider checks and lower-level deferred/rejected-lane t
    independently confirms the actor session and sends only this collection POST; it accepts no item path, other verb or
    extra body field. Capture actual status/body and the exact full SDS row. Read only the public acknowledgement-ID
    arrays in Personnel/Dashboard data to prove the list behavior; never retain their complete session-bearing data
-   response. Existing Personnel/Calendar loss markers and the compact Dashboard Person/date remain separate visible
-   consumers. There is no native acknowledgement badge transition to claim, even where announcement copy mentions an
-   absent button. The set retains all SDS values and stores a real nonnull acknowledgement timestamp; clear preserves
-   the same row/fields and sets only that value to null, with legitimate updated_at changes. Repeat an SDS update while
-   acknowledgement is set and require the original acknowledgement timestamp unchanged. Clear with no existing SDS row
-   must not create one. Group, empty-scope, foreign and non-operating requests must not alter either record family;
-   preserve the ordinary session's actual denial and full A/B readbacks. Badge listing retains its separate view
-   permission and may expose only authorized Person IDs, without granting sensitive SDS read access. Preserve the audit
-   actions for successful SDS updates and acknowledgement set/clear; failure or denial must not produce a success
-   action.
+   response. Existing Personnel/Calendar loss markers and the Dashboard's Arriving and leaving column remain separate
+   visible consumers. There is no native acknowledgement badge transition to claim, even where announcement copy
+   mentions an absent button. The set retains all SDS values and stores a real nonnull acknowledgement timestamp; clear
+   preserves the same row/fields and sets only that value to null, with legitimate updated_at changes. Repeat an SDS
+   update while acknowledgement is set and require the original acknowledgement timestamp unchanged. Clear with no
+   existing SDS row must not create one. Group, empty-scope, foreign and non-operating requests must not alter either
+   record family; preserve the ordinary session's actual denial and full A/B readbacks. Badge listing retains its
+   separate view permission and may expose only authorized Person IDs, without granting sensitive SDS read access.
+   Preserve the audit actions for successful SDS updates and acknowledgement set/clear; failure or denial must not
+   produce a success action.
 5. **Detail denial matrix and refresh shape.** Load `/org/<A>/personnel/<slug>` as each actor and record the page title,
    `navStatus` and h1; denial arrives as HTTP 200 with a 403/404 node, so also fetch
    `<slug>/__data.json?x-sveltekit-invalidated=00011` with the actor's session. `orgOwner`, `manager` and

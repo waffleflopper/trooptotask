@@ -566,8 +566,8 @@ and offline recovery tests separate from native UI, actual PDF and independent v
 Launch with `--browser-timezone` chosen per the [skill](../SKILL.md#launch) so the browser day differs from the app's
 UTC day, and record both days. As `trainingConfigure`, record a completion for Able whose expiration is the browser day.
 Reload, then read the same requirement in the Training matrix, the Training report (`/training/reports`), the Training
-table on Able's Personnel Readiness tab and the Dashboard Training card. Every surface must treat it as due on the
-browser day (for example `0d left`), not expired; on the UTC-behind zone none may show it as `Expired 1d ago`, and on
-the UTC-ahead zone none may show `1d left`. The report's `Today ·` axis label and the exported workbook's name
-`training-report-<browser day>.xlsx` and `As of` row must carry the browser day. The report URL must not gain an `asOf`
-parameter.
+table on Able's Personnel Readiness tab and the Dashboard's Training readiness column, where it counts as expiring, not
+expired. Every surface must treat it as due on the browser day (for example `0d left`), not expired; on the UTC-behind
+zone none may show it as `Expired 1d ago`, and on the UTC-ahead zone none may show `1d left`. The report's `Today ·`
+axis label and the exported workbook's name `training-report-<browser day>.xlsx` and `As of` row must carry the browser
+day. The report URL must not gain an `asOf` parameter.

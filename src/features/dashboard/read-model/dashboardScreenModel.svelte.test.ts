@@ -225,6 +225,27 @@ describe('createDashboardScreenModel', () => {
 		expect(model.shouldShowGettingStarted).toBe(true);
 	});
 
+	it('leaves setup steps for turned-off features out of the checklist', () => {
+		const model = createDashboardScreenModel(
+			makeData({
+				userRole: 'owner',
+				disabledFeatures: ['training', 'onboarding', 'evaluations'],
+				onboardingTemplateStepCount: 0,
+				ratingSchemeEntryCount: 0,
+				orgMemberCount: 1,
+				gettingStartedDismissed: false
+			}),
+			{ storage: createMemoryStorage(), sources: makeSources() }
+		);
+
+		expect(model.gettingStartedItems.map((item) => item.id)).toEqual([
+			'personnel',
+			'statuses',
+			'assignments',
+			'members'
+		]);
+	});
+
 	it('shows the checklist after deferred support data arrives', () => {
 		const model = createDashboardScreenModel(
 			makeData(

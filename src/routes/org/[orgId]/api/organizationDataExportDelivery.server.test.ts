@@ -1,7 +1,7 @@
 import { createSupabaseSignInRosterExportReader } from '$features/sign-in-rosters/index.server';
 import { createSupabaseDeletionRequestStore } from '$features/deletion-requests/index.server';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { FixtureRowStore } from '$lib/server/adapters/test-support/inMemoryRows.types';
 import { createClient } from '@supabase/supabase-js';
 import { createRequestOrganizationExportContext } from '$lib/server/adapters/requestContexts.server';
@@ -764,6 +764,7 @@ describe('retained Organization export projection', () => {
 			createOrganizationDataExportReads(
 				{
 					auth: actor,
+					disabledFeatures: [],
 					archiveReaders: createRequestOrganizationExportContext({
 						...createTestContext({ auth: { ...actor } }),
 						supabase: client,
@@ -927,4 +928,55 @@ describe('retained Organization export projection', () => {
 		expect(workbook.getWorksheet('Raw - Special Days')!.getSheetValues().flat(2)).toContain('closure-1');
 		expect(workbook.getWorksheet('Raw - Special Days')!.getSheetValues().flat(2)).not.toContain('foreign-closure');
 	});
+});
+
+it('omits switched-off sections from JSON and Excel and retains an omission note', async () => {
+	const ctx = createTestContext({ disabledFeatures: ['training', 'lossesAndAwards'] });
+	ctx.rawStore.seed('personnel_extended_info', [
+		{
+			id: 'sheet-1',
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'p1',
+			blood_type: 'O+',
+			award_tracking_acknowledged_at: '2026-10-01'
+		}
+	]);
+	const readTraining = vi.fn(async () => {
+		throw new Error('Training must not be read');
+	});
+	const reads = createOrganizationDataExportReads(
+		{
+			...ctx,
+			notificationSelf: {
+				...ctx.notificationSelf,
+				store: { ...ctx.notificationSelf.store, listOwnExportRows: async () => [] }
+			},
+			archiveReaders: createTestOrganizationArchiveReaders(ctx.rawStore, ctx.auth.orgId),
+			organizationRawExport: { listRows: async () => [] },
+			personnelOrganizationExport: { listRows: (actor, table) => ctx.rawStore.findMany(table, actor.orgId) },
+			signInRosterExport: { listRows: readTraining },
+			feedbackExport: { listRows: async () => [] }
+		},
+		createDeletionRequestTestStore(ctx.rawStore)
+	);
+	reads.trainingTypes = readTraining;
+	const payload = await loadOrganizationExportPayload(ctx.auth.orgId, reads);
+	const json = JSON.parse(JSON.stringify(payload));
+	expect(json).not.toHaveProperty('trainingTypes');
+	expect(json.sections).not.toHaveProperty('personnelTrainings');
+	expect(json.sections).not.toHaveProperty('signInRosters');
+	expect(json.personnelExtendedInfo).toEqual([
+		{ id: 'sheet-1', organization_id: ctx.auth.orgId, personnel_id: 'p1', blood_type: 'O+' }
+	]);
+	expect(json.notes).toEqual([
+		'Training is turned off; its records are not included.',
+		'Losses and awards is turned off; award acknowledgements are not included.'
+	]);
+	const { workbook } = await buildOrganizationDataExportWorkbook({ payload });
+	expect(workbook.worksheets.some((sheet) => sheet.name === 'Training Types')).toBe(false);
+	const inventory = workbook.getWorksheet('Export Inventory');
+	expect(JSON.stringify(inventory?.getSheetValues())).toContain(
+		'Training is turned off; its records are not included.'
+	);
+	expect(readTraining).not.toHaveBeenCalled();
 });

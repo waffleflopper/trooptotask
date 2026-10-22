@@ -3,19 +3,29 @@
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { page } from '$app/stores';
-	import { FEATURE_SWITCHES, findDisabledFeatureRoute } from '$lib/access/featureSwitches';
+	import { invalidate } from '$app/navigation';
+	import { findDisabledFeatureRoute } from '$lib/access/featureSwitches';
 	import WorkspaceFeatureOff from './WorkspaceFeatureOff.svelte';
 	let { children, data } = $props();
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const suspendedShell = $derived(data.shell.kind === 'suspended' ? data.shell : null);
-	const featureOff = $derived(readyShell && findDisabledFeatureRoute($page.route.id, readyShell.org.disabledFeatures));
+	const featureOff = $derived(
+		readyShell && ($page.error?.featureOff ?? findDisabledFeatureRoute($page.route.id, readyShell.org.disabledFeatures))
+	);
+
+	// A route that found its feature turned off after this shell loaded refreshes the shell, so navigation drops the feature too.
+	$effect(() => {
+		if (featureOff && readyShell && !readyShell.org.disabledFeatures.includes(featureOff)) {
+			void invalidate('app:org-core');
+		}
+	});
 </script>
 
 {#snippet featureOffState()}
 	{#if readyShell && featureOff}
 		<WorkspaceFeatureOff
-			feature={FEATURE_SWITCHES[featureOff].label}
-			unitName={readyShell.org.name}
+			feature={featureOff}
+			dashboardHref={`/org/${readyShell.org.urlSegment}`}
 			settingsHref={readyShell.member.isOwner || readyShell.member.isAdmin
 				? `/org/${readyShell.org.urlSegment}/settings/features`
 				: null}

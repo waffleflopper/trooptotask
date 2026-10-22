@@ -399,6 +399,19 @@ describe('startOnboarding', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
+	it('starts Training steps open and presents them as checkboxes while Training is off', async () => {
+		const ctx = buildStartContext({ disabledFeatures: ['training'] });
+		seedTemplateWithSteps(ctx);
+		ctx.store.seed('training_types', [{ id: CPR_TRAINING_TYPE, name: 'CPR', organization_id: 'test-org' }]);
+		ctx.store.seed('personnel_trainings', [
+			{ id: 'done', personnel_id: PERSON_1, training_type_id: CPR_TRAINING_TYPE, organization_id: 'test-org' }
+		]);
+
+		const result = await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
+
+		expect(result.steps.find((step) => step.id === 'saved-training')?.stepType).toBe('checkbox');
+	});
+
 	it('uses only the target Person and catalog Training IDs, including expired matching presence', async () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
@@ -415,7 +428,7 @@ describe('startOnboarding', () => {
 		]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 		await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
-		expect(training).toHaveBeenCalledWith(ctx.auth, [PERSON_1], [CPR_TRAINING_TYPE]);
+		expect(training).toHaveBeenCalledWith(ctx, [PERSON_1], [CPR_TRAINING_TYPE]);
 		expect(ctx.create).toHaveBeenCalledWith(
 			'test-org',
 			expect.objectContaining({

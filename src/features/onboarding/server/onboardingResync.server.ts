@@ -12,6 +12,8 @@ import {
 	requireOnboardingManagePolicyForOnboarding
 } from './onboardingPolicy.server';
 
+import { onboardingResponse } from './manualTrainingSteps.server';
+
 interface ResyncStepResult {
 	id: string;
 	onboardingId: string;
@@ -74,11 +76,11 @@ export async function resyncOnboarding(
 		details: { templateId: result.template_id }
 	});
 
-	return {
+	return onboardingResponse(ctx, {
 		onboardingId: result.onboarding_id,
 		templateId: result.template_id,
 		steps: result.steps.map(mapToResult)
-	};
+	});
 }
 
 interface SwitchTemplateInput {
@@ -101,9 +103,9 @@ export async function switchTemplate(
 		details: { oldTemplateId: result.old_template_id, newTemplateId: result.template_id }
 	});
 
-	return {
+	return onboardingResponse(ctx, {
 		onboardingId: result.onboarding_id,
 		templateId: result.template_id,
 		steps: result.steps.map(mapToResult)
-	};
+	});
 }

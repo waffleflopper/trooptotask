@@ -14,7 +14,12 @@ import PreferenceProbe from '$features/app-shell/test-support/PreferenceProbe.sv
 import type { LayoutData } from './$types';
 
 const { pageStore, invalidate } = vi.hoisted(() => {
-	let current = { url: new URL('https://example.test/org/alpha'), data: {}, route: { id: '/org/[orgId]/(dashboard)' } };
+	let current: { url: URL; data: object; route: { id: string }; error: App.Error | null } = {
+		url: new URL('https://example.test/org/alpha'),
+		data: {},
+		route: { id: '/org/[orgId]/(dashboard)' },
+		error: null
+	};
 	const subscribers = new Set<(value: typeof current) => void>();
 	return {
 		invalidate: vi.fn(),
@@ -24,8 +29,8 @@ const { pageStore, invalidate } = vi.hoisted(() => {
 				fn(current);
 				return () => subscribers.delete(fn);
 			},
-			setPath(path: string, routeId = '/org/[orgId]/(dashboard)') {
-				current = { url: new URL(`https://example.test${path}`), data: {}, route: { id: routeId } };
+			setPath(path: string, routeId = '/org/[orgId]/(dashboard)', error: App.Error | null = null) {
+				current = { url: new URL(`https://example.test${path}`), data: {}, route: { id: routeId }, error };
 				for (const subscriber of subscribers) subscriber(current);
 			}
 		}
@@ -404,6 +409,9 @@ describe('organization layout session unavailable', () => {
 });
 
 describe('organization layout feature off state', () => {
+	const trainingOffMessage =
+		'This organization has turned off Training. Speak with the organization owner to have it turned back on.';
+
 	function withTrainingOff(role: 'owner' | 'admin' | 'member') {
 		const data = workspace();
 		data.shell.org.disabledFeatures = ['training'];
@@ -419,9 +427,22 @@ describe('organization layout feature off state', () => {
 		pageStore.setPath('/org/alpha/training', '/org/[orgId]/training/(workspace)');
 		render(Layout, { data: withTrainingOff(role), children });
 
-		expect(screen.getByRole('heading', { name: 'Training is off for Alpha.' })).toBeTruthy();
+		expect(screen.getByText(trainingOffMessage)).toBeTruthy();
 		expect(screen.queryByText('Org child')).toBeNull();
+		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/org/alpha');
 		expect(screen.queryByRole('link', { name: 'Manage features' })?.getAttribute('href') ?? null).toBe(settingsHref);
+	});
+
+	it('shows the off state a route reports when this shell still shows the feature on, and refreshes the shell', () => {
+		pageStore.setPath('/org/alpha/training/reports', '/org/[orgId]/training/reports', {
+			message: trainingOffMessage,
+			featureOff: 'training'
+		});
+		render(Layout, { data: workspace(), children });
+
+		expect(screen.getByText(trainingOffMessage)).toBeTruthy();
+		expect(screen.queryByText('Org child')).toBeNull();
+		expect(invalidate).toHaveBeenCalledWith('app:org-core');
 	});
 
 	it('renders the routes of features that are still on', () => {
@@ -429,6 +450,6 @@ describe('organization layout feature off state', () => {
 		render(Layout, { data: withTrainingOff('owner'), children });
 
 		expect(screen.getByText('Org child')).toBeTruthy();
-		expect(screen.queryByRole('heading', { name: 'Training is off for Alpha.' })).toBeNull();
+		expect(screen.queryByText(trainingOffMessage)).toBeNull();
 	});
 });

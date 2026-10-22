@@ -53,7 +53,6 @@ const sheet = {
 	address_state: 'AK',
 	address_zip: '99501',
 	updated_by: 'user-a',
-	award_tracking_acknowledged_at: '2026-10-01T10:00:00Z',
 	created_at: '2020-01-01T00:00:00.123456Z',
 	updated_at: null
 };
@@ -411,7 +410,11 @@ describe('finite Personnel ordinary provider contracts', () => {
 		await expect(port.patchEntryById('rank-a', values)).rejects.toThrow('Rank write denied');
 	});
 	it('SDS replacement and acknowledgement retain all untouched saved fields and canonical organization', async () => {
-		const p = personnelProvider({ personnel_extended_info: [{ ...sheet, retained_metadata: 'history' }] });
+		const p = personnelProvider({
+			personnel_extended_info: [
+				{ ...sheet, award_tracking_acknowledged_at: '2026-10-01T10:00:00Z', retained_metadata: 'history' }
+			]
+		});
 		const port = createSupabasePersonnelSheetPersistence(p.client, 'org-a');
 		expect(await port.findSheetForPerson('person-a')).toEqual(sheet);
 		expect(await port.findSheetForPerson('missing')).toBeNull();
@@ -433,7 +436,6 @@ describe('finite Personnel ordinary provider contracts', () => {
 			id: 'saved-1',
 			personnel_id: 'person-new',
 			organization_id: 'org-a',
-			award_tracking_acknowledged_at: '2026-10-08T12:00:00Z',
 			created_at: '2026-10-08T12:00:00.123456Z'
 		});
 		p.state.failure = () => ({ code: '42501', message: 'Sheet denied', status: 403 });

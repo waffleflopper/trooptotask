@@ -115,13 +115,15 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    under the step after reload, and inspect it again in History's expanded row after completion. Arm `onboarding-steps`
    before opening/filling the next edit (this family reloads the page), then attempt a visible checkbox, paperwork or
    note save. Require 503, rollback/unchanged rows and visible failure, with a failed note keeping its draft; restore
-   and retry visibly. Keep request failure, UI recovery and provider persistence separate. Training steps have no manual
-   completion toggle. Completion is presence-based: an existing matching Training record, including an expired one,
-   completes the active step; no matching record leaves it incomplete. Completed/cancelled history keeps its snapshots.
-   Compare the existing Training record and fresh packet query rather than inferring completion from a checkbox. A real
-   Training change uses a separately authorized Training actor and is verified again after Onboarding reload. In the
-   List panel, type an unsaved note on the open step, expand another step, then reopen the first: the draft text is
-   still in the editor.
+   and retry visibly. Keep request failure, UI recovery and provider persistence separate. While Training is on,
+   Training steps have no manual completion toggle. While Training is off they read and toggle as checkboxes, and a
+   packet started then starts them open; see the [feature switch recipe](organization-settings-states.md) step 14. With
+   Training on, stored completion or an existing matching Training record, including an expired one, completes the
+   active step. A step with neither remains incomplete. Completed/cancelled history keeps its snapshots. Compare the
+   existing Training record and fresh packet query rather than inferring completion from a checkbox. A real Training
+   change uses a separately authorized Training actor and is verified again after Onboarding reload. In the List panel,
+   type an unsaved note on the open step, expand another step, then reopen the first: the draft text is still in the
+   editor.
 3. **Lifecycle and history:** Cancel an active packet through confirmation; dismissing confirmation first must preserve
    it. After confirmed save require cancelled status/timestamp and the same progress/note IDs, then inspect
    History/reload. Separately reopen the cancelled packet through an ordinary authenticated PUT to `onboarding` with
@@ -895,3 +897,9 @@ all-new-container diff can include an unrelated project. Record those resource d
 mounted-volume names and network name/label absence, and retain any unavailable historical full network ID as a
 limitation. Keep credential-bearing Docker inspection and exact SSR-auth originals private with mode0600; check actual
 known token literals across public captures before packaging.
+
+## Training switched off during a packet
+
+With Onboarding on and Training off, resync, switch, and assign responses keep Training steps as manual checkboxes
+without a reload. Tick one, re-enable Training, and reload: its saved completion remains visible even without a matching
+Training record. Onboarding receives only Training type IDs and names, including while Training is on.

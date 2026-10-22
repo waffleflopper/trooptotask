@@ -28,8 +28,9 @@ Open `Settings` in the Organization navigation. `General` contains `Unit name` w
 Calendar signpost. `Policies` contains `Archive Retention`, `Loss Warning Window` and `Training Readiness`, each with
 its own `Save` button. Owners also see `Danger zone` below the other settings pages. Its `Delete <Organization name>`
 row counts what deletion destroys (people, training records, members who lose access and archived records) in a tinted
-strip that streams after first paint. Choose `Delete unit…`, type the exact name in
-`Type <Organization name> to confirm` and use `Delete permanently`. Until the name matches, the hint
+strip that streams after first paint. The counts include records of a turned-off feature: with Training off,
+`training record` still shows the retained number, because deletion removes them. Choose `Delete unit…`, type the exact
+name in `Type <Organization name> to confirm` and use `Delete permanently`. Until the name matches, the hint
 `Keep typing. It has to match exactly.` describes the field and the confirm stays a disabled outline button.
 `Purge archives now` is muted and marked Coming soon. An admin's direct Danger visit returns to General; an ordinary
 member cannot enter Organization Settings.

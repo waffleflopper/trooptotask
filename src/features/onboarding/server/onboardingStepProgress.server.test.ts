@@ -76,6 +76,15 @@ describe('toggleCheckbox', () => {
 		);
 	});
 
+	it('completes a Training step by hand while Training is off', async () => {
+		const ctx = buildContext({ disabledFeatures: ['training'] });
+		seedStep(ctx, { step_type: 'training', training_type_id: 'tt-cpr' });
+
+		const result = await toggleCheckbox(ctx, { stepId: 'step-1', completed: true });
+
+		expect(result.completed).toBe(true);
+	});
+
 	it('rejects toggle on training step types', async () => {
 		const ctx = buildContext();
 		seedStep(ctx, { step_type: 'training', training_type_id: 'tt-cpr' });

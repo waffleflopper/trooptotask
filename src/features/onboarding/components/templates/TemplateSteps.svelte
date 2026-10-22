@@ -5,7 +5,7 @@
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import type { TrainingType } from '$features/training/contracts';
+	import type { TrainingTypeLabel } from '$features/training/contracts';
 	import type { OnboardingTemplateStep } from '../../contracts';
 	import type { OnboardingTemplateWorkspace } from '../../stores/onboardingTemplate.svelte';
 	import TemplateStepEditor from './TemplateStepEditor.svelte';
@@ -23,7 +23,7 @@
 	}: {
 		workspace: OnboardingTemplateWorkspace;
 		steps: OnboardingTemplateStep[];
-		trainingTypes: TrainingType[];
+		trainingTypes: TrainingTypeLabel[];
 		onedit: (step: OnboardingTemplateStep) => void;
 		onadd: () => void;
 		ondelete: (step: OnboardingTemplateStep) => void;

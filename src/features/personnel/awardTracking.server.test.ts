@@ -21,6 +21,22 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: strin
 }
 
 describe('setPersonnelAwardTrackingAcknowledged', () => {
+	it('refuses while Losses and awards is off and stores nothing', async () => {
+		const ctx = createTestContext({ disabledFeatures: ['lossesAndAwards'] });
+		seedPersonnel(ctx);
+
+		await expect(
+			setPersonnelAwardTrackingAcknowledged(ctx, { personnelId: 'person-1', acknowledged: true })
+		).rejects.toMatchObject({
+			status: 403,
+			message:
+				'This organization has turned off Losses and awards. Speak with the organization owner to have it turned back on.'
+		});
+		expect(
+			await ctx.rawStore.findMany('personnel_extended_info', ctx.auth.orgId, { personnel_id: 'person-1' })
+		).toEqual([]);
+	});
+
 	it('persists an acknowledgment timestamp in personnel_extended_info for the person', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);

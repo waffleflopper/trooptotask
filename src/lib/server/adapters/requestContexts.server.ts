@@ -432,6 +432,7 @@ export function createRequestPersonnelAwardContext(request: AdmittedOrganization
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
 		scope: request.scope
@@ -524,6 +525,7 @@ export function createRequestPersonnelReadinessContext(request: AdmittedOrganiza
 
 export function createRequestPersonnelExportContext(request: AdmittedOrganizationRequest) {
 	return {
+		disabledFeatures: request.disabledFeatures,
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		...createRequestAvailabilityContext(request),
@@ -679,6 +681,7 @@ export function createRequestOrganizationPolicyContext(request: AdmittedOrganiza
 export function createRequestOrganizationExportContext(request: AdmittedOrganizationRequest) {
 	return {
 		auth: request.auth,
+		disabledFeatures: request.disabledFeatures,
 		audit: request.audit,
 		exportLifecycle: createSupabaseDataExportLifecycleWriter(request.supabase, request.auth.orgId),
 		notifications: createRequestNotificationDelivery(),
@@ -705,6 +708,7 @@ export function createRequestOrganizationExportContext(request: AdmittedOrganiza
 export function createRequestDeletionReviewContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestPersonnelLifecycleContext(request),
+		disabledFeatures: request.disabledFeatures,
 		notifications: createRequestNotificationDelivery()
 	};
 }
@@ -719,13 +723,15 @@ export function createRequestGettingStartedContext(request: AdmittedOrganization
 	};
 }
 
+/** Counts what the Organization retains, turned-off features included, so only governance pages may use it. */
 export function createRequestUnitCountsContext(request: AdmittedOrganizationRequest) {
+	const orgId = request.auth.orgId;
+	let admin: ReturnType<typeof getAdminClient> | undefined;
+	const client = () => (admin ??= getAdminClient());
 	return {
-		unitCounts: createSupabaseOrganizationUnitCountsPort(
-			request.supabase,
-			request.auth.orgId,
-			createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
-		)
+		unitCounts: createSupabaseOrganizationUnitCountsPort(client, orgId, {
+			countEntries: () => createSupabaseRatingSchemePersistence(client(), orgId).countEntries()
+		})
 	};
 }
 
@@ -778,11 +784,11 @@ export function createApprovedDeletionEffects(
 		approvePersonnelArchive: (requestId, id, reviewedAt) =>
 			approvePersonnelArchiveRequest(ctx, requestId, id, reviewedAt),
 		approveTrainingType: (requestId, id, reviewedAt) =>
-			training.approveTrainingTypeDeletion(ctx.auth, requestId, id, reviewedAt),
+			training.approveTrainingTypeDeletion(ctx, requestId, id, reviewedAt),
 		approveTrainingRecord: (requestId, id, reviewedAt) =>
-			training.approveTrainingRecordDeletion(ctx.auth, requestId, id, reviewedAt),
+			training.approveTrainingRecordDeletion(ctx, requestId, id, reviewedAt),
 		approveRatingEntry: (requestId, id, reviewedAt) =>
-			rating.approveRatingSchemeEntryDeletion(ctx.auth, requestId, id, reviewedAt),
+			rating.approveRatingSchemeEntryDeletion(ctx, requestId, id, reviewedAt),
 		approveCounseling: (requestId, id, reviewedAt) =>
 			counseling.deleteApprovedCounselingRecord(ctx.auth, requestId, id, reviewedAt)
 	};

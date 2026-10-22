@@ -5,7 +5,11 @@ import type {
 	FollowUpRow,
 	LeaderNoteRow
 } from '$features/personnel/contracts';
-import type { PersonnelSheetPersistence, PersonnelWorkbookHistoryReader } from '$features/personnel/contracts';
+import type {
+	PersonnelSheetPersistence,
+	PersonnelWorkbookHistoryReader,
+	SavedPersonnelSheet
+} from '$features/personnel/contracts';
 import type { RankCatalogPersistence } from '$features/personnel/contracts';
 import type {
 	OrganizationSettingsMembershipRow,
@@ -1335,27 +1339,12 @@ function createInMemoryTrainingOnboardingReferencesPort(rawStore: FixtureRowStor
 			});
 			return rows.map((row) => ({
 				id: row.id as string,
-				name: row.name as string,
-				description: (row.description as string | null) ?? null,
-				expirationMonths: (row.expiration_months as number | null) ?? null,
-				warningDaysYellow: (row.warning_days_yellow as number) ?? 60,
-				warningDaysOrange: (row.warning_days_orange as number) ?? 30,
-				appliesToRoles: (row.applies_to_roles as string[]) ?? [],
-				appliesToMos: (row.applies_to_mos as string[]) ?? [],
-				appliesToRanks: (row.applies_to_ranks as string[]) ?? [],
-				excludedRoles: (row.excluded_roles as string[]) ?? [],
-				excludedMos: (row.excluded_mos as string[]) ?? [],
-				excludedRanks: (row.excluded_ranks as string[]) ?? [],
-				color: (row.color as string) ?? '#6b7280',
-				sortOrder: (row.sort_order as number) ?? 0,
-				expirationDateOnly: (row.expiration_date_only as boolean) ?? false,
-				canBeExempted: (row.can_be_exempted as boolean) ?? false,
-				exemptPersonnelIds: (row.exempt_personnel_ids as string[]) ?? [],
-				isOptional: (row.is_optional as boolean) ?? false
+				name: row.name as string
 			}));
 		},
-		async completedTypeIds(actor, personnelIds, trainingTypeIds) {
+		async completedTypeIds({ auth: actor, disabledFeatures }, personnelIds, trainingTypeIds) {
 			if (
+				disabledFeatures.includes('training') ||
 				personnelIds.length === 0 ||
 				trainingTypeIds.length === 0 ||
 				(actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0)
@@ -1832,17 +1821,40 @@ function createTestPersonnelPersistence(
 	auth: OrganizationAccessGrant
 ) {
 	const rankCatalog = createTestRankCatalogPersistence(store, auth.orgId);
+	type StoredSheet = SavedPersonnelSheet & {
+		award_tracking_acknowledged_at?: string | null;
+	};
+	function sheetResult(row: StoredSheet) {
+		const sheet = { ...row };
+		delete sheet.award_tracking_acknowledged_at;
+		return sheet;
+	}
 	const personnelSheets: PersonnelSheetPersistence = {
-		listSheetsForPerson: (personnelId) =>
-			rawStore.findMany('personnel_extended_info', auth.orgId, { personnel_id: personnelId }),
-		findSheetForPerson: (personnelId) =>
-			rawStore.findOne('personnel_extended_info', auth.orgId, { personnel_id: personnelId }),
-		createSheet: (personnelId, values) =>
-			rawStore.insert('personnel_extended_info', auth.orgId, { ...values, personnel_id: personnelId }),
-		replaceEditableSheetFields: (id, values) =>
-			rawStore.update('personnel_extended_info', auth.orgId, id, { ...values }),
+		listSheetsForPerson: async (personnelId) =>
+			(await rawStore.findMany<StoredSheet>('personnel_extended_info', auth.orgId, { personnel_id: personnelId })).map(
+				sheetResult
+			),
+		findSheetForPerson: async (personnelId) => {
+			const row = await rawStore.findOne<StoredSheet>('personnel_extended_info', auth.orgId, {
+				personnel_id: personnelId
+			});
+			return row ? sheetResult(row) : null;
+		},
+		createSheet: async (personnelId, values) =>
+			sheetResult(
+				await rawStore.insert<StoredSheet>('personnel_extended_info', auth.orgId, {
+					...values,
+					personnel_id: personnelId
+				})
+			),
+		replaceEditableSheetFields: async (id, values) => {
+			const row = await rawStore.update<StoredSheet>('personnel_extended_info', auth.orgId, id, { ...values });
+			return sheetResult(row);
+		},
 		setAwardAcknowledgedAt: async (id, value) => {
-			await rawStore.update('personnel_extended_info', auth.orgId, id, { award_tracking_acknowledged_at: value });
+			await rawStore.update<StoredSheet>('personnel_extended_info', auth.orgId, id, {
+				award_tracking_acknowledged_at: value
+			});
 		}
 	};
 	const personnelWorkbookHistory: PersonnelWorkbookHistoryReader = {
@@ -2030,6 +2042,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		store,
 		rawStore,
 		auth,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		audit: createTestAuditPort(),
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
@@ -2074,6 +2087,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		store,
 		rawStore,
 		auth,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),

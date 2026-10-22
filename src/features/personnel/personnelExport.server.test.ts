@@ -402,3 +402,33 @@ describe('Personnel export use case', () => {
 		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.exported')).toEqual([]);
 	});
 });
+
+it('omits the Training sheet and explains its omission when Training is off', async () => {
+	const ctx = createTestContext({ disabledFeatures: ['training'] });
+	seedPersonnelExportDataset(ctx);
+	const trainingRecords = vi.fn(async () => {
+		throw new Error('Training must not be read');
+	});
+	const trainingLabels = vi.fn(async () => {
+		throw new Error('Training must not be read');
+	});
+	const result = await exportPersonnelWorkbook(
+		ctx,
+		{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
+		listAvailabilityHistory,
+		listStatusTypeLabels,
+		trainingLabels,
+		trainingRecords
+	);
+	const workbook = await parseWorkbook(result._buffer);
+	expect(workbook.getWorksheet('Training Records')).toBeUndefined();
+	expect(worksheetRows(worksheetByName(workbook, 'Export Notes'))).toEqual([
+		{ Notes: 'Training is turned off; its records are not included.' }
+	]);
+	expect(worksheetRows(worksheetByName(workbook, 'Personnel Info'))).toContainEqual({
+		Field: 'Last Name',
+		Value: 'Smith'
+	});
+	expect(trainingRecords).not.toHaveBeenCalled();
+	expect(trainingLabels).not.toHaveBeenCalled();
+});

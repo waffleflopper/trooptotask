@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { AuditLogEntry } from '$lib/audit/contracts';
 import { loadExportsSettings, loadLastExport } from './settingsExports.server';
 
@@ -16,7 +17,7 @@ function exportEvent(action: string, createdAt: string, actor: string): AuditLog
 	};
 }
 
-function setup(role: 'owner' | 'admin', latest: Record<string, AuditLogEntry>) {
+function setup(role: 'owner' | 'admin', latest: Record<string, AuditLogEntry>, disabledFeatures: FeatureKey[] = []) {
 	const ctx = createTestContext({ auth: { orgId: 'org-1', role, isPrivileged: true } });
 	ctx.rawStore.seed('personnel', [
 		{ id: 'p1', organization_id: 'org-1', archived_at: null },
@@ -32,6 +33,7 @@ function setup(role: 'owner' | 'admin', latest: Record<string, AuditLogEntry>) {
 	const ports = {
 		auth: ctx.auth,
 		unitCounts: ctx.unitCounts,
+		disabledFeatures,
 		readLatestAuditEvent: async (action: string) => {
 			auditReads.push(action);
 			return latest[action] ?? null;
@@ -45,6 +47,12 @@ describe('Exports settings load', () => {
 		const { ports } = setup('owner', {});
 
 		expect(await loadExportsSettings(ports).scopeCounts).toEqual({ activePersonnel: 1, trainingRecords: 2 });
+	});
+
+	it('hands the page the turned-off features that an export leaves out', () => {
+		const { ports } = setup('owner', {}, ['training', 'onboarding']);
+
+		expect(loadExportsSettings(ports).disabledFeatures).toEqual(['training', 'onboarding']);
 	});
 });
 

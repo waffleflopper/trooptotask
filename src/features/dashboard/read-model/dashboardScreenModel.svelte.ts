@@ -296,8 +296,7 @@ export class DashboardScreenModel {
 
 	get gettingStartedItems(): DashboardGettingStartedItem[] {
 		const orgPath = `/org/${this.data.orgId}`;
-
-		return [
+		const items: Array<DashboardGettingStartedItem & { feature?: FeatureKey }> = [
 			{
 				id: 'personnel',
 				label: 'Import or add the roster',
@@ -317,7 +316,8 @@ export class DashboardScreenModel {
 				label: 'Add training types',
 				description: 'Define the training requirements you want to monitor.',
 				href: `${orgPath}/training/types`,
-				complete: this.trainingTypeCount > 0
+				complete: this.trainingTypeCount > 0,
+				feature: 'training'
 			},
 			{
 				id: 'assignments',
@@ -338,16 +338,21 @@ export class DashboardScreenModel {
 				label: 'Set up onboarding',
 				description: 'Configure template steps for new arrivals.',
 				href: `${orgPath}/onboarding/templates`,
-				complete: this.onboardingTemplateStepCount > 0
+				complete: this.onboardingTemplateStepCount > 0,
+				feature: 'onboarding'
 			},
 			{
 				id: 'ratings',
 				label: 'Configure evals',
 				description: 'Add rating scheme entries for evaluation tracking.',
 				href: `${orgPath}/evals`,
-				complete: this.ratingSchemeEntryCount > 0
+				complete: this.ratingSchemeEntryCount > 0,
+				feature: 'evaluations'
 			}
 		];
+		return items
+			.filter(({ feature }) => feature === undefined || this.isFeatureOn(feature))
+			.map(({ feature: _feature, ...item }) => item);
 	}
 
 	get shouldShowGettingStarted(): boolean {

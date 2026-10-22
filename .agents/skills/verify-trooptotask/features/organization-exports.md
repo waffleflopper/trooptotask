@@ -7,8 +7,8 @@ records, readable labels, and an auditable export lifecycle.
 
 - `export-entry`: Settings exposes JSON and Excel downloads to the current Organization owner/admin, with what an export
   contains and the owner's last export.
-- `export-artifacts`: both formats retain every manifest section, raw row values, empty sections, readable workbook
-  sheets, and existing filenames.
+- `export-artifacts`: both formats retain enabled manifest sections, raw row values, empty sections, readable workbook
+  sheets, and existing filenames; omitted disabled features have notes.
 - `export-sensitive-records`: authorized full exports retain active and archived Personnel artifacts while ordinary
   display fields keep their blank legacy notes.
 - `export-lifecycle`: each admitted request records its requester, Organization, status, timestamps, and actual artifact
@@ -21,9 +21,12 @@ records, readable labels, and an auditable export lifecycle.
 ## How to get to it (user POV)
 
 Open an Organization, choose Settings, then Exports. `Everything in <unit>` lists what an export contains as chips, with
-live Personnel and Training record counts that stream after first paint. Export includes every area whether its feature
-is on or off. Choose `Export JSON` or `Export Excel` in its tile. Only the pressed button reads `Generating…` while its
-file builds, with the accessible name `Generating JSON export…` or `Generating Excel export…`, and the other tile stays
+live Personnel and Training record counts that stream after first paint. Chips for the areas a turned-off feature omits
+(Training and its Sign-in rosters, Onboarding) are left out, with one muted line per turned-off feature that repeats the
+export note. JSON notes and the Excel Export Inventory explain each omission, for example
+`Training is turned off; its records are not included.` Award acknowledgement values are omitted while Losses and awards
+is off. Choose `Export JSON` or `Export Excel` in its tile. Only the pressed button reads `Generating…` while its file
+builds, with the accessible name `Generating JSON export…` or `Generating Excel export…`, and the other tile stays
 usable, so both formats can run at once. A successful request downloads the requested file, announces completion in a
 status region and re-reads the Audit log. For an owner the last export line then shows the newest `export.created` or
 `export.excel_created` event with its Audit actor, never the browser's time. It shows a skeleton while the read is in
@@ -112,7 +115,8 @@ Audit, and administrator notification rows; distinguish these effects from unrel
    `$V export save PAGE .verification/evidence/verify-trooptotask/RUN/owner-a.json`. Restore both controls before
    another request.
 2. Parse the saved JSON. Compare `organizationId`, `exportedAt`, `sectionInventory`, `sections`, and the retained
-   top-level section keys. Every manifest section must exist, including empty arrays. Inventory counts must match actual
+   top-level section keys. Every manifest section of an enabled feature must exist, including empty arrays; a
+   switched-off feature's sections are absent (see Switched-off export sections). Inventory counts must match actual
    arrays. Compare explicit IDs and stored values against independent fixture/provider observations, including
    first/last IDs in a paged cohort. Require A-owned exported source rows; B source rows and private labels, paths, and
    note values must be absent. Faithful A-owned Audit details may retain historical references to B resource UUIDs;
@@ -229,3 +233,14 @@ request's busy state. Preserve what was actually driven separately from componen
   [isolated database contract](../../../../docs/architecture/DEFINITION_OF_DONE.md#isolated-database-checks).
 - Restore every armed `server-source` control and compare original source/file sentinels. Lifecycle/Audit/notification
   rows created by real exports remain in the disposable project until owned disposal.
+
+### Switched-off export sections
+
+As `orgOwner`, turn Training off in Features and export both formats. Training types, completions, history, views, and
+Sign-in Rosters must be absent from JSON sections and workbook sheets. Both artifacts state
+`Training is turned off; its records are not included.` Personnel and Calendar remain present. On Settings > Exports the
+`Training · <n> record` and `Sign-in rosters` chips are gone and `Training is turned off; its records are not included.`
+shows under the chips. On Settings > Danger zone the `training record` count still shows the retained number. With
+Losses and awards off, Personnel extended info excludes `award_tracking_acknowledged_at` and the artifact states
+`Losses and awards is turned off; award acknowledgements are not included.` Restore the switches after checking the
+saved files.

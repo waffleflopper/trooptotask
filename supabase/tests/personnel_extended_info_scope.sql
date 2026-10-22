@@ -145,8 +145,8 @@ SELECT is((SELECT id FROM public.personnel_extended_info),
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', true);
 SET LOCAL ROLE anon;
-SELECT is((SELECT count(*)::integer FROM public.personnel_extended_info), 0,
-  'anonymous cannot read Soldier Data Sheet');
+SELECT throws_ok($$ SELECT id FROM public.personnel_extended_info $$,
+  '42501', NULL, 'anonymous has no Soldier Data Sheet read grant');
 RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

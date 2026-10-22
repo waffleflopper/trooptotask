@@ -47,6 +47,13 @@ test('tool output unwraps all text blocks and saves exactly the printed evidence
 		};
 		assert.equal(await toolOutput(result, options, path.join(root, 'evidence')), 'button "Save"\ntextbox "Name"');
 		assert.equal(await fs.readFile(file, 'utf8'), 'button "Save"\ntextbox "Name"\n');
+		await assert.rejects(
+			toolOutput({ content: [{ type: 'text', text: 'later' }] }, options, path.join(root, 'evidence')),
+			{
+				code: 'EVIDENCE_EXISTS'
+			}
+		);
+		assert.equal(await fs.readFile(file, 'utf8'), 'button "Save"\ntextbox "Name"\n');
 		assert.equal(
 			await toolOutput({ status: 'BLOCKED', code: 'STALE_CANDIDATE' }, { text: true }, root),
 			'{\n  "status": "BLOCKED",\n  "code": "STALE_CANDIDATE"\n}'

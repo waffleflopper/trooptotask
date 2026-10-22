@@ -39,7 +39,7 @@ $V actor rosterManager training # Training entry point with roster operate acces
 $V rows sign_in_rosters orgA title 'Unique synthetic title'
 $V roster-files orgA ROSTER_ID # private Storage names, sizes and SHA-256
 $V roster-replace PAGE orgA rosterAlpha EVIDENCE_PDF # ordinary multipart replacement; separate HTTP proof
-$V network arm-fail 2 sign-in-rosters # roster list, or sign-in-rosters/ROSTER_ID/upload
+$V network arm-fail PAGE sign-in-rosters # roster list, or sign-in-rosters/ROSTER_ID/upload
 $V signed-download orgA ROSTER_ID .verification/evidence/verify-trooptotask/RUN/signed.pdf
 ```
 

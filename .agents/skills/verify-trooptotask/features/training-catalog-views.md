@@ -33,7 +33,7 @@ access proof.
 ## Helper controls
 
 ```bash
-$V network arm-fail 2 training-types # fail one Training catalog request; training-views also supported
+$V network arm-fail "$PAGE" training-types # fail one Training catalog request; training-views also supported
 ```
 
 ## Driving it with verify:app

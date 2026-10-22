@@ -28,6 +28,8 @@ export function toolArguments(input) {
 async function assertSavePath(options, evidenceDirectory) {
 	if (options.save && !(await isUnderEvidence(options.save, evidenceDirectory)))
 		throw new Blocked('EVIDENCE_PATH', '--save needs a path under .verification/evidence/, without .. or a symlink.');
+	if (options.save && (await fs.stat(options.save).catch(() => null)))
+		throw new Blocked('EVIDENCE_EXISTS', `--save ${options.save} already exists; choose a new file name.`);
 }
 
 export async function runTool(input, request, evidenceDirectory) {
@@ -42,7 +44,7 @@ export async function toolOutput(result, options, evidenceDirectory) {
 	if (options.save) {
 		await assertSavePath(options, evidenceDirectory);
 		await fs.mkdir(path.dirname(options.save), { recursive: true });
-		await fs.writeFile(options.save, `${output}\n`, { mode: 0o600 });
+		await fs.writeFile(options.save, `${output}\n`, { mode: 0o600, flag: 'wx' });
 	}
 	return output;
 }

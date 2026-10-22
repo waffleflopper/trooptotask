@@ -199,6 +199,32 @@ describe('previewStatusEffect', () => {
 		]);
 	});
 
+	it('ignores a stored assignment on 9999-12-31 and bounds the facts window to today plus 366 days', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seed(ctx, {
+			leaveOn: '2026-10-18',
+			assignments: [...PIKE_ALL_THREE, ['2026-10-18', PIKE]]
+		});
+		const input = { id: LEAVE, rosterEffect: 'available', today: TODAY };
+		const withoutOutlier = await previewStatusEffect(ctx, input);
+		expect(withoutOutlier).toEqual([kimLine({ kind: 'days', days: 1 })]);
+
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'sd-outlier',
+				organization_id: ctx.auth.orgId,
+				date: '9999-12-31',
+				assignment_type_id: SD,
+				assignee_id: PIKE
+			}
+		]);
+		const form = (await ctx.calendarCatalogs.findOpenRosterForm(SD))!;
+		const facts = await loadRosterFacts(ctx, { id: SD, name: 'Staff Duty' }, form, TODAY, '9999-12-31');
+
+		expect(facts.window).toEqual({ from: '2026-10-15', through: '2027-10-18' });
+		expect(await previewStatusEffect(ctx, input)).toEqual(withoutOutlier);
+	});
+
 	it('reads a form that starts after today through its planned days', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		seed(ctx, {

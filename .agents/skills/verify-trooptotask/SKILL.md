@@ -124,7 +124,7 @@ artifacts before sharing.
 `npm run --silent verify:app -- --help` documents the launcher;
 `npm run --silent verify:app -- tools --worker "$WORKER"` lists native browser operations. The
 [control helper](helpers/control.mjs) uses only the same worker's authenticated supervisor/disposable provider. Run from
-the repository root with `WORKER` set to the launched worker:
+the repository root with `WORKER=1` or `WORKER=2` naming the launched worker:
 
 ```bash
 V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"

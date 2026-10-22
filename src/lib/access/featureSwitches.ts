@@ -51,5 +51,6 @@ export function findDisabledFeatureRoute(
 }
 
 export function featureExportNote(key: FeatureKey): string {
+	if (key === 'lossesAndAwards') return 'Losses and awards is turned off; award acknowledgements are not included.';
 	return `${FEATURE_SWITCHES[key].label} is turned off; its records are not included.`;
 }

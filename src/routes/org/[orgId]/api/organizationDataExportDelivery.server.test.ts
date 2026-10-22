@@ -970,7 +970,7 @@ it('omits switched-off sections from JSON and Excel and retains an omission note
 	]);
 	expect(json.notes).toEqual([
 		'Training is turned off; its records are not included.',
-		'Losses and awards is turned off; its records are not included.'
+		'Losses and awards is turned off; award acknowledgements are not included.'
 	]);
 	const { workbook } = await buildOrganizationDataExportWorkbook({ payload });
 	expect(workbook.worksheets.some((sheet) => sheet.name === 'Training Types')).toBe(false);

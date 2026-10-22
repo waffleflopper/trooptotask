@@ -32,21 +32,41 @@ export function dutyFilterValues(options: readonly DutyPickerOption[], facet: Du
 	return [...values].sort(facet === 'rank' ? compareRankCodes : (a, b) => a.localeCompare(b, 'en-US'));
 }
 
+/** OR within a facet, AND across facets, ignoring case and surrounding space. An empty selection leaves its facet unconstrained. */
+export function matchesFacets<F extends string>(
+	values: Readonly<Record<F, string>>,
+	selection: Readonly<Record<F, readonly string[]>>
+): boolean {
+	return (Object.keys(selection) as F[]).every((facet) => {
+		const selected = selection[facet];
+		if (!selected.length) return true;
+		const value = normalizeFacetValue(values[facet]);
+		return selected.some((candidate) => normalizeFacetValue(candidate) === value);
+	});
+}
+
+function normalizeFacetValue(value: string): string {
+	return value.trim().toLowerCase();
+}
+
 /**
- * OR within a facet, AND across facets. Groups and the current assignee always pass.
+ * Groups and the current assignee always pass.
  * Selected values absent from the options are ignored, so a stale stored selection never empties the list invisibly.
  */
 export function applyDutyFilter(options: readonly DutyPickerOption[], filter: DutyPickerFilter): DutyPickerOption[] {
-	const active = DUTY_FILTER_FACETS.flatMap(({ key }) => {
+	const selection: Record<DutyFilterFacet, string[]> = { rank: [], role: [], mos: [] };
+	for (const { key } of DUTY_FILTER_FACETS) {
 		const present = new Set(dutyFilterValues(options, key));
-		const selected = new Set(filter[key].filter((value) => present.has(value)));
-		return selected.size ? [{ key, selected }] : [];
-	});
-	if (!active.length) return [...options];
+		selection[key] = filter[key].filter((value) => present.has(value));
+	}
+	if (DUTY_FILTER_FACETS.every(({ key }) => !selection[key].length)) return [...options];
 	return options.filter(
 		(option) =>
 			option.kind !== 'personnel' ||
 			option.current ||
-			active.every(({ key, selected }) => selected.has(facetValue(option, key)))
+			matchesFacets(
+				{ rank: facetValue(option, 'rank'), role: facetValue(option, 'role'), mos: facetValue(option, 'mos') },
+				selection
+			)
 	);
 }

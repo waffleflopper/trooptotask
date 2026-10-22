@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyDutyFilter, dutyFilterValues, EMPTY_DUTY_FILTER, type DutyPickerFilter } from './dutyPickerFilter';
+import {
+	applyDutyFilter,
+	dutyFilterValues,
+	EMPTY_DUTY_FILTER,
+	matchesFacets,
+	type DutyPickerFilter
+} from './dutyPickerFilter';
 import type { DutyPickerOption } from './dutyPickerOptions';
 
 function person(id: string, rank: string, role: string, mos: string, current = false): DutyPickerOption {
@@ -73,5 +79,22 @@ describe('applyDutyFilter', () => {
 
 	it('matches trimmed values', () => {
 		expect(ids(applyDutyFilter([person('a', 'SPC', ' Medic ', '68W')], filter({ role: ['Medic'] })))).toEqual(['a']);
+	});
+});
+
+describe('matchesFacets', () => {
+	const medic = { mos: '68W', role: ' Medic ' };
+
+	it('ignores case and surrounding space', () => {
+		expect(matchesFacets(medic, { mos: ['68w'], role: ['MEDIC'] })).toBe(true);
+	});
+
+	it('needs one value per constrained facet and leaves empty facets unconstrained', () => {
+		expect(matchesFacets(medic, { mos: ['88M', '68W'], role: [] })).toBe(true);
+		expect(matchesFacets(medic, { mos: ['68W'], role: ['Driver'] })).toBe(false);
+	});
+
+	it('does not ignore a selected value nobody has', () => {
+		expect(matchesFacets(medic, { mos: ['25B'], role: [] })).toBe(false);
 	});
 });

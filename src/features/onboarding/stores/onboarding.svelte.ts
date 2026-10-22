@@ -7,6 +7,7 @@ import type { Store, StoreInternals } from '$lib/stores/core';
 import { formatToday } from '$lib/utils/dates';
 import type { PersonnelOnboarding, OnboardingStepNote, OnboardingStepProgress } from '../onboarding.types';
 import type { OnboardingNoteAppendResult } from '../contracts';
+import { startOnboardingPacket } from '../onboardingRequests';
 
 interface OnboardingExtensions extends Record<string, unknown> {
 	readonly activeList: PersonnelOnboarding[];
@@ -286,13 +287,7 @@ function enhance(
 			templateId: string | null
 		): Promise<PersonnelOnboarding | null> {
 			const version = organizationVersion;
-			const res = await fetch(apiUrl('onboarding'), {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ personnelId, templateId, startedAt })
-			});
-			if (!res.ok) throw await buildRequestError(res, 'POST', 'onboarding');
-			const newOnboarding = await res.json();
+			const newOnboarding = await startOnboardingPacket(internals.orgId(), { personnelId, templateId, startedAt });
 			if (version !== organizationVersion) return null;
 			internals.serverState.set([...internals.serverState.getSnapshot(), newOnboarding]);
 			return newOnboarding;

@@ -1,6 +1,10 @@
+import CalendarIcon from '@lucide/svelte/icons/calendar';
+import CheckIcon from '@lucide/svelte/icons/check';
+import PlusIcon from '@lucide/svelte/icons/plus';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import ComingAndGoing from '../components/ComingAndGoing.svelte';
 import TonightAndTomorrow from '../components/TonightAndTomorrow.svelte';
-import { dashboardSection, type DashboardSection } from './dashboardSections';
+import { actionablePersonnel, dashboardSection, personnelResource, type DashboardSection } from './dashboardSections';
 import {
 	expiredTraining,
 	leavingWithoutAward,
@@ -8,6 +12,9 @@ import {
 	stalledOnboarding,
 	unfilledDuty
 } from './needsYouSources';
+import { startOnboardingChoices } from './startOnboardingChoices';
+
+const { calendar, training } = POLICY_ACTION_CATALOG;
 
 export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	dashboardSection('availability', {
@@ -15,11 +22,54 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 		onDuty: [
 			{ id: 'tonight-and-tomorrow', order: 10, component: TonightAndTomorrow },
 			{ id: 'coming-and-going', order: 30, component: ComingAndGoing }
+		],
+		quickAdd: [
+			{
+				id: 'status',
+				label: 'Status',
+				icon: CalendarIcon,
+				order: 10,
+				loadDialog: () => import('../components/quick-add/StatusQuickAdd.svelte'),
+				available: (inputs, access) =>
+					inputs.statusTypes.length > 0 &&
+					actionablePersonnel(inputs.personnel, access, calendar.manageAvailability).length > 0
+			}
 		]
 	}),
-	dashboardSection('training', { needsYou: [expiredTraining] }),
+	dashboardSection('training', {
+		needsYou: [expiredTraining],
+		quickAdd: [
+			{
+				id: 'training-record',
+				label: 'Training record',
+				icon: CheckIcon,
+				order: 20,
+				loadDialog: () => import('../components/quick-add/TrainingRecordQuickAdd.svelte'),
+				available: (inputs, access) =>
+					inputs.personnel.some(
+						(person) =>
+							access.can(training.recordCompletions, personnelResource(person)) &&
+							inputs.page.dashboard.data.trainingTypes.some(
+								(type) => !type.canBeExempted || !type.exemptPersonnelIds.includes(person.id)
+							)
+					)
+			}
+		]
+	}),
 	dashboardSection('criticalTasks'),
 	dashboardSection('evaluations', { needsYou: [overdueEvaluations] }),
 	dashboardSection('lossesAndAwards', { needsYou: [leavingWithoutAward] }),
-	dashboardSection('onboarding', { needsYou: [stalledOnboarding] })
+	dashboardSection('onboarding', {
+		needsYou: [stalledOnboarding],
+		quickAdd: [
+			{
+				id: 'start-onboarding',
+				label: 'Start onboarding',
+				icon: PlusIcon,
+				order: 30,
+				loadDialog: () => import('../components/quick-add/StartOnboardingQuickAdd.svelte'),
+				available: (inputs, access) => startOnboardingChoices(inputs, access).usable
+			}
+		]
+	})
 ];

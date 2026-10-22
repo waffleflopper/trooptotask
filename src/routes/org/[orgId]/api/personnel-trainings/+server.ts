@@ -4,7 +4,29 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
-import { createTrainingRecord, deleteTrainingRecord, updateTrainingRecord } from '$features/training/index.server';
+import {
+	createTrainingRecord,
+	deleteTrainingRecord,
+	listPersonTrainingRecords,
+	updateTrainingRecord
+} from '$features/training/index.server';
+import type { PersonnelTraining } from '$features/training/contracts';
+
+export const _getConfig: RouteConfig<
+	{ personnelId: string },
+	PersonnelTraining[],
+	ReturnType<typeof createRequestTrainingRosterContext>
+> = {
+	context: createRequestTrainingRosterContext,
+	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
+	policyResource: { kind: 'unscoped' },
+	parseInput: async (event) => {
+		const personnelId = event.url.searchParams.get('personnelId');
+		if (!personnelId || !validateUUID(personnelId)) fail(400, 'Invalid personnel id');
+		return { personnelId };
+	},
+	fn: (ctx, input) => listPersonTrainingRecords(ctx, input.personnelId)
+};
 
 export const _postConfig: RouteConfig<
 	Record<string, unknown>,
@@ -58,6 +80,7 @@ export const _deleteConfig: RouteConfig<
 	}
 };
 
+export const GET = handle(_getConfig);
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);
 export const DELETE = handle(_deleteConfig);

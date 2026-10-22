@@ -219,6 +219,9 @@ export function createInMemoryOnboardingWorkflowPersistence(
 		async listSavedActivePackets() {
 			return this.listPackets('active');
 		},
+		async listActivePacketPersonnelIds() {
+			return [...new Set((await this.listSavedActivePackets()).map((packet) => packet.personnelId))];
+		},
 		async findPacketReference(id) {
 			const row = await store.findOne<PacketRow>('personnel_onboardings', orgId, { id });
 			return row

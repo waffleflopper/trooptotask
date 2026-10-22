@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { parseDisabledFeatures } from '$lib/access/featureSwitches';
+import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
+import type { PersonnelOnboarding } from '$features/onboarding/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type { StatusType } from '$features/calendar/contracts';
+import type { TrainingType } from '$features/training/contracts';
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	activeDashboardSections,
 	composeDashboardSections,
+	createDashboardAccess,
 	dashboardSection,
+	personnelResource,
 	type DashboardAccess,
 	type DashboardBlock,
 	type QuickAddEntry
@@ -101,7 +109,8 @@ const access: DashboardAccess = {
 	can: (action) => action.id === 'calendar.manageAvailability' || action.id === 'onboarding.manageWorkflows'
 };
 const component: DashboardBlock['component'] = () => ({});
-const dialog: QuickAddEntry['dialog'] = () => ({});
+const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
+const icon: QuickAddEntry['icon'] = () => ({});
 
 describe('composeDashboardSections', () => {
 	it('interleaves On duty blocks across sections and omits unavailable parts', () => {
@@ -165,7 +174,7 @@ describe('composeDashboardSections', () => {
 	it('orders usable Quick add entries across sections after filtering by loaded data and access', () => {
 		const sections = [
 			dashboardSection('onboarding', {
-				quickAdd: [{ id: 'onboarding', label: 'Start onboarding', order: 30, dialog }]
+				quickAdd: [{ id: 'onboarding', label: 'Start onboarding', order: 30, loadDialog, icon }]
 			}),
 			dashboardSection('training', {
 				quickAdd: [
@@ -173,7 +182,8 @@ describe('composeDashboardSections', () => {
 						id: 'training',
 						label: 'Training record',
 						order: 20,
-						dialog,
+						loadDialog,
+						icon,
 						available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.training.recordCompletions)
 					}
 				]
@@ -184,14 +194,16 @@ describe('composeDashboardSections', () => {
 						id: 'status',
 						label: 'Status',
 						order: 10,
-						dialog,
+						loadDialog,
+						icon,
 						available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
 					},
 					{
 						id: 'assignment',
 						label: 'Assign duty',
 						order: 0,
-						dialog,
+						loadDialog,
+						icon,
 						available: (loaded) => loaded.assignmentTypes.length > 0
 					}
 				]
@@ -205,5 +217,148 @@ describe('composeDashboardSections', () => {
 		expect(
 			composeDashboardSections(sections, inputs, [], { ...access, can: () => true }).quickAdd.map((entry) => entry.id)
 		).toEqual(['status', 'training', 'onboarding']);
+	});
+});
+
+describe('createDashboardAccess', () => {
+	const manageAvailability = POLICY_ACTION_CATALOG.calendar.manageAvailability;
+
+	it('lets a Group-scoped operator act somewhere, but only on people in their groups', () => {
+		const access = createDashboardAccess(
+			createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('view'), calendar: 'operate' },
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			})
+		);
+
+		expect(access.can(manageAvailability)).toBe(true);
+		expect(access.can(manageAvailability, personnelResource({ groupId: 'alpha' }))).toBe(true);
+		expect(access.can(manageAvailability, personnelResource({ groupId: 'bravo' }))).toBe(false);
+		expect(access.can(manageAvailability, personnelResource({ groupId: null }))).toBe(false);
+		expect(access.can(POLICY_ACTION_CATALOG.training.recordCompletions)).toBe(false);
+	});
+
+	it('denies a view-only member everywhere', () => {
+		const access = createDashboardAccess(
+			createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })
+		);
+
+		expect(access.can(manageAvailability)).toBe(false);
+		expect(access.can(manageAvailability, personnelResource({ groupId: null }))).toBe(false);
+	});
+});
+
+describe('the Quick add entries', () => {
+	const alphaPerson = { id: 'p-alpha', groupId: 'alpha' } as Personnel;
+	const bravoPerson = { id: 'p-bravo', groupId: 'bravo' } as Personnel;
+	const withTrainingType: DashboardInputs = {
+		...inputs,
+		personnel: [alphaPerson, bravoPerson],
+		statusTypes: [{ id: 'st1' } as StatusType],
+		page: {
+			...inputs.page,
+			dashboard: {
+				...inputs.page.dashboard,
+				data: { ...inputs.page.dashboard.data, trainingTypes: [{ id: 'tt1' } as TrainingType] }
+			}
+		}
+	};
+
+	function labelsFor(
+		viewer: Parameters<typeof createClientAccess>[0],
+		loaded = withTrainingType,
+		disabled = [] as FeatureKey[]
+	) {
+		const access = createDashboardAccess(createClientAccess(viewer));
+		return composeDashboardSections(DASHBOARD_SECTIONS, loaded, disabled, access).quickAdd.map((entry) => entry.label);
+	}
+
+	it('offers an owner Status, then Training record, then Start onboarding', () => {
+		expect(labelsFor({ membershipRole: 'owner' })).toEqual(['Status', 'Training record', 'Start onboarding']);
+	});
+
+	const member = (lane: 'calendar' | 'training' | 'onboarding', groupIds = ['alpha']) => ({
+		membershipRole: 'member' as const,
+		capabilityMap: { ...createCapabilityMap('view'), [lane]: 'operate' as const },
+		scopeSet: { kind: 'groups' as const, groupIds }
+	});
+
+	it('offers each lane operator only their own entry, including a Group-scoped one', () => {
+		expect(labelsFor(member('calendar'))).toEqual(['Status']);
+		expect(labelsFor(member('training'))).toEqual(['Training record']);
+		expect(labelsFor(member('onboarding'))).toEqual(['Start onboarding']);
+	});
+
+	it('hides an entry whose operator has no loaded person to act on, unless they can add the person', () => {
+		const onlyBravo = { ...withTrainingType, personnel: [bravoPerson] };
+		const nobody = { ...withTrainingType, personnel: [] };
+
+		expect(labelsFor(member('calendar'), onlyBravo)).toEqual([]);
+		expect(labelsFor(member('training'), onlyBravo)).toEqual([]);
+		expect(labelsFor(member('onboarding'), onlyBravo)).toEqual([]);
+		expect(labelsFor({ membershipRole: 'owner' }, nobody)).toEqual(['Start onboarding']);
+	});
+
+	it('offers Training record only when a Group-scoped operator has a non-exempt person and type pair', () => {
+		const loaded: DashboardInputs = {
+			...withTrainingType,
+			personnel: [alphaPerson],
+			page: {
+				...withTrainingType.page,
+				dashboard: {
+					...withTrainingType.page.dashboard,
+					data: {
+						...withTrainingType.page.dashboard.data,
+						trainingTypes: [{ id: 'sharp', canBeExempted: true, exemptPersonnelIds: ['p-alpha'] } as TrainingType]
+					}
+				}
+			}
+		};
+		expect(labelsFor(member('training'), loaded)).toEqual([]);
+		loaded.page.dashboard.data.trainingTypes[0].exemptPersonnelIds = [];
+		expect(labelsFor(member('training'), loaded)).toEqual(['Training record']);
+	});
+
+	it('hides Start onboarding once everyone the viewer may choose has a packet, unless they can add the person', () => {
+		const allStarted: DashboardInputs = {
+			...withTrainingType,
+			personnel: [alphaPerson],
+			page: {
+				...withTrainingType.page,
+				dashboard: {
+					...withTrainingType.page.dashboard,
+					data: {
+						...withTrainingType.page.dashboard.data,
+						activeOnboardings: [
+							{ id: 'packet-1', personnelId: alphaPerson.id, steps: [] } as unknown as PersonnelOnboarding
+						]
+					}
+				}
+			}
+		};
+
+		expect(labelsFor(member('onboarding'), allStarted)).toEqual([]);
+		expect(labelsFor({ membershipRole: 'owner' }, allStarted)).toEqual([
+			'Status',
+			'Training record',
+			'Start onboarding'
+		]);
+	});
+
+	it('offers a Dashboard viewer nothing', () => {
+		expect(labelsFor({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })).toEqual([]);
+	});
+
+	it('drops Status until a status type exists, Training record until a Training type exists, and entries whose feature is off', () => {
+		expect(labelsFor({ membershipRole: 'owner' }, { ...withTrainingType, statusTypes: [] })).toEqual([
+			'Training record',
+			'Start onboarding'
+		]);
+		expect(labelsFor({ membershipRole: 'owner' }, { ...withTrainingType, page: inputs.page })).toEqual([
+			'Status',
+			'Start onboarding'
+		]);
+		expect(labelsFor({ membershipRole: 'owner' }, withTrainingType, ['training', 'onboarding'])).toEqual(['Status']);
 	});
 });

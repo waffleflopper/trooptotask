@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { calendarStore } from '$features/calendar';
 import { createRawSnippet } from 'svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { toastStore } from '$lib/stores/toast.svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import { createDashboardScreenModel, type DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardPageData, StarterConfigurationPackSupport } from '$features/dashboard/contracts';
@@ -20,7 +21,14 @@ afterEach(() => {
 const access: DashboardAccess = {
 	can: () => true
 };
-const frame = { orgName: 'Test Unit', viewerDay: { date: '2026-10-19', timeZone: 'UTC' }, sections: [], access };
+const updates = { refreshSummary: () => {}, putRecord: () => {} };
+const frame = {
+	orgName: 'Test Unit',
+	viewerDay: { date: '2026-10-19', timeZone: 'UTC' },
+	sections: [],
+	access,
+	updates
+};
 
 /** Everyone on the roster is available today. */
 function strengthOf(assigned: number, group: { id: string; name: string } | null = null) {
@@ -298,20 +306,23 @@ describe('Dashboard frame', () => {
 	});
 
 	it('shows ordered usable Quick add entries and hides the label when none are usable', async () => {
-		const dialog: QuickAddEntry['dialog'] = () => ({});
+		const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
+		const icon: QuickAddEntry['icon'] = () => ({});
 		const quickAdd: QuickAddEntry[] = [
 			{
 				id: 'training',
 				label: 'Training',
 				order: 20,
-				dialog,
+				loadDialog,
+				icon,
 				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.training.recordCompletions)
 			},
 			{
 				id: 'status',
 				label: 'Status',
 				order: 10,
-				dialog,
+				loadDialog,
+				icon,
 				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
 			}
 		];
@@ -338,6 +349,137 @@ describe('Dashboard frame', () => {
 		await view.rerender({ ...props, access: { ...access, can: () => false } });
 		expect(screen.getByText('of 10')).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Quick add' })).toBeNull();
+	});
+
+	it('opens the chosen entry in its own dialog, loaded on first open, and closes it', async () => {
+		const loadDialog = vi.fn(() => import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [{ id: 'status', label: 'Status', icon, order: 10, loadDialog }];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+		expect(loadDialog).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await fireEvent.click(
+			within(await screen.findByRole('dialog', { name: 'Quick add for Test Unit' })).getByRole('button', {
+				name: 'Done'
+			})
+		);
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('keeps the entry chosen last when an earlier one finishes loading after it', async () => {
+		const error = vi.spyOn(toastStore, 'error');
+		let failStatus!: (reason: Error) => void;
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [
+			{
+				id: 'status',
+				label: 'Status',
+				icon,
+				order: 10,
+				loadDialog: () => new Promise((_, reject) => (failStatus = reject))
+			},
+			{
+				id: 'training-record',
+				label: 'Training record',
+				icon,
+				order: 20,
+				loadDialog: () => import('./quick-add/QuickAddDialogTestDouble.svelte')
+			}
+		];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Training record' }));
+		await screen.findByRole('dialog', { name: 'Quick add for Test Unit' });
+		failStatus(new Error('Chunk unavailable'));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(error).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog', { name: 'Quick add for Test Unit' })).toBeTruthy();
+	});
+	it('keeps the newer dialog when an earlier import succeeds late', async () => {
+		let finishStatus!: (module: Awaited<ReturnType<QuickAddEntry['loadDialog']>>) => void;
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [
+			{
+				id: 'status',
+				label: 'Status',
+				icon,
+				order: 10,
+				loadDialog: () =>
+					new Promise((resolve) => {
+						finishStatus = resolve;
+					})
+			},
+			{
+				id: 'training-record',
+				label: 'Training record',
+				icon,
+				order: 20,
+				loadDialog: () => import('./quick-add/QuickAddTrainingDialogTestDouble.svelte')
+			}
+		];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Training record' }));
+		await screen.findByRole('dialog', { name: 'Training record dialog' });
+		finishStatus(await import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(screen.getByRole('dialog', { name: 'Training record dialog' })).toBeTruthy();
+		expect(screen.queryByRole('dialog', { name: 'Quick add for Test Unit' })).toBeNull();
+	});
+
+	it('drops a dialog still loading when the Organization unloads, even if the viewer comes back', async () => {
+		let finishStatus!: (module: Awaited<ReturnType<QuickAddEntry['loadDialog']>>) => void;
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [
+			{
+				id: 'status',
+				label: 'Status',
+				icon,
+				order: 10,
+				loadDialog: () => new Promise((resolve) => (finishStatus = resolve))
+			}
+		];
+		const props = { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] };
+		const view = render(DashboardPageView, { props });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await view.rerender({ ...props, ctx: null });
+		await view.rerender(props);
+		finishStatus(await import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('lets the viewer try again when the dialog fails to load', async () => {
+		const loadDialog = vi
+			.fn<QuickAddEntry['loadDialog']>()
+			.mockRejectedValueOnce(new Error('Chunk unavailable'))
+			.mockImplementation(() => import('./quick-add/QuickAddDialogTestDouble.svelte'));
+		const icon: QuickAddEntry['icon'] = () => ({});
+		const quickAdd: QuickAddEntry[] = [{ id: 'status', label: 'Status', icon, order: 10, loadDialog }];
+		render(DashboardPageView, {
+			props: { ...frame, ctx: makeCtx(), sections: [dashboardSection('availability', { quickAdd })] }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		await vi.waitFor(() => expect(loadDialog).toHaveBeenCalledTimes(1));
+		expect(screen.queryByRole('dialog')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+		expect(await screen.findByRole('dialog', { name: 'Quick add for Test Unit' })).toBeTruthy();
 	});
 });
 

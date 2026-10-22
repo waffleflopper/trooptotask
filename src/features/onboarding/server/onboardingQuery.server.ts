@@ -1,6 +1,10 @@
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import { fetchOnboardingTemplatesData } from './onboardingTemplateRead.server';
-import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onboarding/contracts';
+import type {
+	OnboardingBootstrap,
+	OnboardingBootstrapMode,
+	OnboardingStartOptions
+} from '$features/onboarding/contracts';
 import { requireOnboardingViewPolicy } from './onboardingPolicy.server';
 import type { OnboardingQueryPorts } from './onboardingPorts.server';
 import { personnelScopeResource, type GroupPersistence } from '$features/personnel/contracts';
@@ -16,8 +20,13 @@ export interface FetchOnboardingBootstrapOptions {
 	today?: string;
 }
 
+type OnboardingStartOptionsPorts = Pick<
+	OnboardingQueryPorts,
+	'auth' | 'audit' | 'onboardingCatalog' | 'loadRankCatalog'
+>;
+
 async function loadPersonnelCreationRanks(
-	ctx: OnboardingQueryPorts
+	ctx: OnboardingStartOptionsPorts
 ): Promise<Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'>> {
 	const resource = personnelScopeResource(ctx.auth.scopeSet);
 	if (resource === null) return { rankCatalog: [], rankCatalogUnavailable: false };
@@ -30,6 +39,15 @@ async function loadPersonnelCreationRanks(
 		console.error('[onboarding-workspace] Personnel rank catalog unavailable', { organizationId: ctx.auth.orgId });
 		return { rankCatalog: [], rankCatalogUnavailable: true };
 	}
+}
+
+/** Templates for the packet, and the rank catalog when the viewer may add the Person on the way. */
+export async function fetchOnboardingStartOptions(ctx: OnboardingStartOptionsPorts): Promise<OnboardingStartOptions> {
+	const [{ templates, templateSteps }, ranks] = await Promise.all([
+		fetchOnboardingTemplatesData(ctx),
+		loadPersonnelCreationRanks(ctx)
+	]);
+	return { templates, hasTemplateSteps: templateSteps.length > 0, ...ranks };
 }
 
 function applyTrainingCompletionStatuses(

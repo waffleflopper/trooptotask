@@ -20,6 +20,8 @@ export interface ImportColumn<K extends ValueKind = ValueKind> {
 
 	example?: string;
 
+	hint?: string;
+
 	maxLength?: number;
 }
 
@@ -55,7 +57,7 @@ export interface ReferenceOption<T> {
 export type ReferenceMatch<T> =
 	| { kind: 'one'; option: ReferenceOption<T> }
 	| { kind: 'many'; candidates: readonly ReferenceOption<T>[] }
-	| { kind: 'none' };
+	| { kind: 'none'; suggestion?: ReferenceOption<T> };
 
 export type CreateOptionResult<T> =
 	| { kind: 'created'; option: ReferenceOption<T> }
@@ -135,8 +137,10 @@ export type ChunkReply =
 
 export interface ImportLane<C extends ImportColumns, Refs extends ImportReferences<C>, Change> {
 	id: string;
-	title: string;
 	noun: { one: string; other: string };
+	intro?: { title: string; body: string };
+	identity?: { fields: readonly (keyof C & string)[]; label(raw: Readonly<Record<string, string>>): string };
+	savedIn?: string;
 	columns: C;
 	splitters?: readonly ColumnSplitter<C>[];
 	pivot?: PivotSpec<C>;

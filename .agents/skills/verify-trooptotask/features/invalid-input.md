@@ -18,7 +18,7 @@ existing generic text. Provider, constraint and foreign-Organization details nev
   but records no audit event and sends no administrator notification.
 - `imports`: a malformed Critical Tasks completion import row, or a Training import status other than `completed` or
   `exempt`, answers `400` and saves nothing. An impossible CSV date such as `2026-02-30` is flagged during review in the
-  Availability, Training and Critical Tasks imports and is not sent.
+  Availability, Training, Critical Tasks and Personnel imports and is not sent.
 - `forms`: these forms show the server's 4xx message and keep the draft: Training type and view; Calendar status type
   and closure; Personnel roster edit and the detail page's Data sheet; the follow-up, leader-note, document and
   counseling add forms; follow-up updates; Group rename; Rating Scheme edit; Onboarding start and packet actions; the

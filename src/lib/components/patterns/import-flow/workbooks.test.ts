@@ -19,7 +19,6 @@ describe('workbook export', () => {
 		const options = ['CPR', 'TCCC', 'PALS', 'ACLS', 'NRP'].map((value) => ({ id: value, label: value, value }));
 		const lane = defineImportLane({
 			id: 'training',
-			title: 'Training',
 			noun: { one: 'record', other: 'records' },
 			columns: {
 				person: { label: 'Person', kind: 'text', required: true, aliases: [] },
@@ -220,7 +219,6 @@ describe('workbook export', () => {
 		const option = { id: 'CPR', label: 'CPR', value: 'CPR' };
 		const lane = defineImportLane({
 			id: 'training',
-			title: 'Training',
 			noun: { one: 'record', other: 'records' },
 			columns,
 			pivot: { field: 'training', valueField: 'result', label: 'Training' },

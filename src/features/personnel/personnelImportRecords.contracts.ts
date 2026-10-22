@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { Personnel } from './personnel.types';
-import type { PersonnelBatchMessage } from './personnelImport.types';
 
 const importFields = {
 	rank: z.string(),
@@ -35,6 +34,11 @@ export const personnelImportRecordsInputSchema = z.object({
 export type PersonnelImportRecordsInput = z.infer<typeof personnelImportRecordsInputSchema>;
 export type PersonnelImportRecordsRecord = PersonnelImportRecordsInput['records'][number];
 export type PersonnelImportRecordsChanges = Extract<PersonnelImportRecordsRecord, { op: 'update' }>['changes'];
+
+export interface PersonnelBatchMessage {
+	index: number;
+	message: string;
+}
 
 export interface PersonnelImportRecordsResult {
 	created: Personnel[];

@@ -203,6 +203,7 @@
 				"src/lib/utils/logSanitize.test.ts",
 				"src/lib/utils/downloadBlob.ts",
 				"src/lib/utils/downloadBlob.test.ts",
+				"src/lib/utils/importChunkRequest.ts",
 				"src/lib/utils/viewerTimeZone.ts"
 			],
 			"packet": "08-M16"

@@ -44,8 +44,11 @@ export function personnelLane(onFind: (key: string) => void = () => {}, onReview
 	};
 	return defineImportLane({
 		id: 'personnel-fixture',
-		title: 'Import personnel',
 		noun: { one: 'person', other: 'people' },
+		identity: {
+			fields: ['lastName', 'firstName'],
+			label: (raw) => [raw.lastName, raw.firstName].filter(Boolean).join(', ')
+		},
 		columns: personnelColumns,
 		splitters: [nameSplitter],
 		references: { rank },

@@ -112,41 +112,46 @@ function isTabDelimited(text: string): boolean {
 	return !lines.some((line) => line.includes(',')) && lines.some((line) => line.includes('\t'));
 }
 
+async function readDelimited(file: File, extension: string): Promise<LoadedFile> {
+	const text = await file.text();
+	const delimiter = extension === '.tsv' || isTabDelimited(text) ? '\t' : ',';
+	return {
+		name: file.name,
+		date1904: false,
+		sheets: [
+			{ index: 0, name: file.name.replace(/\.[^.]+$/, ''), hidden: false, rows: parseDelimited(text, delimiter) }
+		]
+	};
+}
+
+async function readWorkbook(file: File): Promise<LoadedFile> {
+	const workbook = await createWorkbook();
+	await workbook.xlsx.load(await file.arrayBuffer());
+	const sheets = workbook.worksheets.map((sheet, index): SheetGrid => {
+		const rows: string[][] = [];
+		for (let rowNumber = 1; rowNumber <= sheet.rowCount; rowNumber++) {
+			const row = sheet.getRow(rowNumber);
+			const cells: string[] = [];
+			for (let column = 1; column <= row.cellCount; column++) cells.push(cellText(row.getCell(column).value));
+			while (cells.length && cells[cells.length - 1] === '') cells.pop();
+			rows.push(cells);
+		}
+		while (rows.length && rows[rows.length - 1].every((value) => !value.trim())) rows.pop();
+		return { index, name: sheet.name, hidden: sheet.state !== 'visible', rows };
+	});
+	return { name: file.name, date1904: workbook.properties.date1904 === true, sheets };
+}
+
 export async function readImportFile(file: File): Promise<ReadFileResult> {
 	const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
 	if (!ACCEPTED_EXTENSIONS.some((accepted) => accepted === extension)) {
 		return { kind: 'rejected', message: 'Choose an .xlsx, .csv, or .tsv file.' };
 	}
 	try {
-		if (extension !== '.xlsx') {
-			const text = await file.text();
-			const delimiter = extension === '.tsv' || isTabDelimited(text) ? '\t' : ',';
-			return {
-				kind: 'loaded',
-				file: {
-					name: file.name,
-					date1904: false,
-					sheets: [
-						{ index: 0, name: file.name.replace(/\.[^.]+$/, ''), hidden: false, rows: parseDelimited(text, delimiter) }
-					]
-				}
-			};
-		}
-		const workbook = await createWorkbook();
-		await workbook.xlsx.load(await file.arrayBuffer());
-		const sheets = workbook.worksheets.map((sheet, index): SheetGrid => {
-			const rows: string[][] = [];
-			for (let rowNumber = 1; rowNumber <= sheet.rowCount; rowNumber++) {
-				const row = sheet.getRow(rowNumber);
-				const cells: string[] = [];
-				for (let column = 1; column <= row.cellCount; column++) cells.push(cellText(row.getCell(column).value));
-				while (cells.length && cells[cells.length - 1] === '') cells.pop();
-				rows.push(cells);
-			}
-			while (rows.length && rows[rows.length - 1].every((value) => !value.trim())) rows.pop();
-			return { index, name: sheet.name, hidden: sheet.state !== 'visible', rows };
-		});
-		return { kind: 'loaded', file: { name: file.name, date1904: workbook.properties.date1904 === true, sheets } };
+		const loaded = extension === '.xlsx' ? await readWorkbook(file) : await readDelimited(file, extension);
+		if (loaded.sheets.every((sheet) => sheet.rows.every((row) => row.every((cell) => !cell.trim()))))
+			return { kind: 'rejected', message: `${file.name} is empty.` };
+		return { kind: 'loaded', file: loaded };
 	} catch (error) {
 		return { kind: 'rejected', message: error instanceof Error ? error.message : 'The file could not be read.' };
 	}

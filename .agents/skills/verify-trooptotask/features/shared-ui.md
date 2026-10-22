@@ -84,12 +84,11 @@ Sign in normally as `manager` and retain its page/Organization IDs. Preserve the
    retain button focus and change the theme exactly once. Read the actual `html[data-theme]` value, then restore the
    original theme with the same control. Also check hover followed by pointer activation. A tooltip appearing visually
    does not establish its accessible relationship.
-3. **Import validation tooltip.** Follow Import and upload a local synthetic CSV through Upload personnel file. Use the
-   [Personnel lifecycle recipe](personnel-records-lifecycle.md#driving-it-with-verifyapp)'s invalid rank/date row. Wait
-   for Preview Rows to become enabled, open the preview and inspect the actual Row N Rank and ETS fields. Hover and
-   keyboard-focus a field with a validation issue. Its visible tooltip must carry the same issue, a unique ID, the
-   tooltip role and a resolving `aria-describedby`. The invalid row stays unselectable and its field remains editable.
-   Cancel without importing and require unchanged original rows.
+3. **Import problem cells.** Follow Import and upload the workbook from the
+   [Personnel lifecycle recipe](personnel-records-lifecycle.md#driving-it-with-verifyapp), then choose `Review 11 rows`.
+   A problem cell is a textbox with `aria-invalid="true"` and an `aria-describedby` that resolves to its row's visible
+   message line in the grid, or to the message under the field on a 390 px card. Hover and keyboard focus show no
+   tooltip; the message is always visible. Choose `Leave import` from a link out and require unchanged original rows.
 4. **Dialog and date picker.** Open Able's Edit button and require Edit Personnel plus usable focus inside the dialog.
    Use Tab and Shift+Tab at its boundaries to check focus containment. Open ETS, move to the previous month and back,
    and select a literal named date from the grid. Record the selected-date announcement and the draft value through

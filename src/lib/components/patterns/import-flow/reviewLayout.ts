@@ -1,0 +1,63 @@
+import type { BadgeVariant } from '$lib/components/ui/badge';
+import type { Outcome, ReviewedRow } from './rowModel';
+import type { ValueKind } from './types';
+
+export interface ReviewColumn {
+	field: string;
+	label: string;
+	kind: ValueKind;
+}
+
+export const OUTCOMES: Record<Outcome, { label: string; badge: BadgeVariant }> = {
+	fix: { label: 'Needs a fix', badge: 'danger' },
+	new: { label: 'New', badge: 'success' },
+	update: { label: 'Update', badge: 'info' },
+	unchanged: { label: 'Unchanged', badge: 'outline' },
+	skipped: { label: 'Skipped', badge: 'outline' }
+};
+
+const TABLE_ROW = 52;
+const TABLE_MESSAGE = 22;
+const CARD_HEADER = 52;
+const CARD_LINE = 24;
+const CARD_FIELD = 64;
+const CARD_GAP = 12;
+
+export function rowMessages(row: ReviewedRow<unknown>): readonly string[] {
+	if (row.outcome === 'skipped') return [row.reason];
+	if (row.outcome !== 'fix') return [];
+	return [...new Set(row.problems.map((problem) => problem.message))];
+}
+
+export function fieldMessage(row: ReviewedRow<unknown>, field: string): string | undefined {
+	if (row.outcome !== 'fix') return undefined;
+	const messages = row.problems.filter((problem) => problem.field === field).map((problem) => problem.message);
+	return messages.length ? [...new Set(messages)].join(' ') : undefined;
+}
+
+export function looseMessages(row: ReviewedRow<unknown>, editable: ReadonlySet<string>): readonly string[] {
+	if (row.outcome !== 'fix') return [];
+	return [...new Set(row.problems.filter((problem) => !editable.has(problem.field)).map((problem) => problem.message))];
+}
+
+export function editableFields(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): ReadonlySet<string> {
+	if (row.outcome !== 'fix') return new Set();
+	const shown = new Set(columns.map((column) => column.field));
+	return new Set(row.problems.map((problem) => problem.field).filter((field) => shown.has(field)));
+}
+
+export function tableRowHeight(row: ReviewedRow<unknown>): number {
+	return row.outcome === 'fix' ? TABLE_ROW + TABLE_MESSAGE : TABLE_ROW;
+}
+
+export function cardRowHeight(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): number {
+	const body = (() => {
+		if (row.outcome === 'fix') {
+			const fields = editableFields(row, columns);
+			return fields.size * CARD_FIELD + looseMessages(row, fields).length * CARD_LINE;
+		}
+		if (row.outcome === 'update') return row.diff.length * CARD_LINE;
+		return CARD_LINE;
+	})();
+	return CARD_HEADER + body + CARD_GAP;
+}

@@ -23,7 +23,12 @@
 	};
 </script>
 
-<div data-slot="fact-metric" {role} class={cn('grid gap-1 rounded-lg border p-3', className)} {...restProps}>
+<div
+	data-slot="fact-metric"
+	{role}
+	class={cn('grid content-start gap-1 rounded-lg border p-3', className)}
+	{...restProps}
+>
 	<span class="text-xs text-muted-foreground">{label}</span>
 	<strong class="text-xl font-semibold {valueToneClass[tone]}">{value}</strong>
 	{#if children}

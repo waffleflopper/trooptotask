@@ -64,6 +64,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 			problems.push(`Map only one column to ${duplicate.label} on ${duplicate.sheet}.`);
 		if (included.some((sheet) => sheet.headerRow === null))
 			problems.unshift('Choose a header row for every included sheet.');
+		if (!problems.length && !this.sourceRows.length) problems.push('No rows under the header row.');
 		return problems;
 	});
 	readonly commitBlocker: string | null = $derived(this.columnBlockers[0] ?? this.review.commitBlocker);

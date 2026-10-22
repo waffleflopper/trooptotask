@@ -171,6 +171,10 @@ describe('workbook source', () => {
 		]);
 		expect((await readImportFile(new File(['x'], 'bad.pdf'))).kind).toBe('rejected');
 		expect((await readImportFile(new File(['"missing'], 'bad.csv'))).kind).toBe('rejected');
+		expect(await readImportFile(new File([' ,\n,'], 'empty.csv'))).toEqual({
+			kind: 'rejected',
+			message: 'empty.csv is empty.'
+		});
 	});
 	it('weights required coverage, groups reordered headers, and keeps hand mappings after header changes', () => {
 		const file: LoadedFile = {

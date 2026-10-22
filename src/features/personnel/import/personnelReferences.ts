@@ -1,0 +1,175 @@
+import type { ImportReference, ReferenceOption } from '$lib/components/patterns/import-flow';
+import type { Group } from '../contracts';
+import type { Personnel } from '../personnel.types';
+import type { RankCatalogEntry } from '../rankCatalog';
+import { groupManagementStore } from '../stores/groups.svelte';
+import type { personnelImportColumns } from './personnelImportColumns';
+
+type Columns = typeof personnelImportColumns;
+
+export const NEW_PERSON = 'new';
+const NO_GROUP = 'no-group';
+const GROUP_WORDS: Readonly<Record<string, string>> = {
+	plt: 'platoon',
+	pltn: 'platoon',
+	sqd: 'squad',
+	sec: 'section',
+	sect: 'section',
+	co: 'company',
+	tm: 'team',
+	hq: 'headquarters',
+	hqs: 'headquarters',
+	det: 'detachment'
+};
+
+export function normalizeName(value: string): string {
+	return value
+		.normalize('NFKD')
+		.replace(/[̀-ͯ]/g, '')
+		.toLowerCase()
+		.replace(/[.']/g, '')
+		.replace(/[-\s]+/g, ' ')
+		.trim();
+}
+
+export function personNameKey(lastName: string, firstName: string): string {
+	return `${normalizeName(lastName)}|${normalizeName(firstName).replace(/ [a-z]$/, '')}`;
+}
+
+function compactRank(value: string): string {
+	return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function groupWords(value: string): string {
+	return normalizeName(value)
+		.split(' ')
+		.map((word) => GROUP_WORDS[word] ?? word)
+		.join(' ');
+}
+
+function uniqueBy<T>(items: readonly T[], value: (item: T) => string): Map<string, T | null> {
+	const index = new Map<string, T | null>();
+	for (const item of items) {
+		const key = value(item);
+		index.set(key, index.has(key) && index.get(key) !== item ? null : item);
+	}
+	return index;
+}
+
+export function personOption(person: Personnel): ReferenceOption<Personnel> {
+	return {
+		id: person.id,
+		label: `${person.rank} ${person.lastName}, ${person.firstName}`.trim(),
+		hint: person.groupName || 'No group',
+		value: person
+	};
+}
+
+export function personMatchReference(
+	roster: readonly Personnel[]
+): ImportReference<Columns, Personnel | typeof NEW_PERSON> & { whenMissing: 'none-is-new' } {
+	const newOption: ReferenceOption<typeof NEW_PERSON> = {
+		id: NEW_PERSON,
+		label: 'Add as a new person',
+		value: NEW_PERSON
+	};
+	const byName = new Map<string, Personnel[]>();
+	for (const person of roster) {
+		const key = personNameKey(person.lastName, person.firstName);
+		const people = byName.get(key);
+		if (people) people.push(person);
+		else byName.set(key, [person]);
+	}
+	return {
+		label: 'person',
+		reads: ['lastName', 'firstName'],
+		whenMissing: 'none-is-new',
+		options: [...roster.map(personOption), newOption],
+		key(raw) {
+			const lastName = raw.lastName?.trim();
+			const firstName = raw.firstName?.trim();
+			if (!lastName || !firstName) return null;
+			return {
+				key: `${personNameKey(lastName, firstName)}|${groupWords(raw.groupName ?? '')}`,
+				display: `${lastName}, ${firstName}`
+			};
+		},
+		find(key) {
+			const split = key.lastIndexOf('|');
+			const people = byName.get(key.slice(0, split)) ?? [];
+			if (people.length === 0) return { kind: 'none' };
+			if (people.length === 1) return { kind: 'one', option: personOption(people[0]) };
+			const group = key.slice(split + 1);
+			const inGroup = group ? people.filter((person) => groupWords(person.groupName) === group) : [];
+			if (inGroup.length === 1) return { kind: 'one', option: personOption(inGroup[0]) };
+			return { kind: 'many', candidates: [...(inGroup.length ? inGroup : people).map(personOption), newOption] };
+		}
+	};
+}
+
+export function rankReference(catalog: readonly RankCatalogEntry[]): ImportReference<Columns, RankCatalogEntry> {
+	const option = (entry: RankCatalogEntry): ReferenceOption<RankCatalogEntry> => ({
+		id: entry.code,
+		label: entry.code,
+		hint: entry.label,
+		value: entry
+	});
+	const active = catalog.filter((entry) => entry.state === 'active');
+	const exact = new Map(catalog.map((entry) => [entry.code, entry]));
+	const caseless = uniqueBy(catalog, (entry) => entry.code.toUpperCase());
+	const lenient = uniqueBy(
+		active.flatMap((entry) => [
+			{ entry, key: compactRank(entry.code) },
+			{ entry, key: compactRank(entry.label) }
+		]),
+		(item) => item.key
+	);
+	return {
+		label: 'rank',
+		reads: ['rank'],
+		whenMissing: 'ask',
+		options: active.map(option),
+		key: (raw) => (raw.rank?.trim() ? { key: raw.rank.trim(), display: raw.rank.trim() } : null),
+		find(key) {
+			const match = exact.get(key) ?? caseless.get(key.toUpperCase());
+			if (match) return { kind: 'one', option: option(match) };
+			const guess = lenient.get(compactRank(key));
+			return guess ? { kind: 'none', suggestion: option(guess.entry) } : { kind: 'none' };
+		}
+	};
+}
+
+export function groupReference(
+	groups: readonly Group[],
+	{ canCreate, allowUnassigned }: { canCreate: boolean; allowUnassigned: boolean }
+): ImportReference<Columns, Group | null> {
+	const option = (group: Group): ReferenceOption<Group> => ({ id: group.id, label: group.name, value: group });
+	const byName = uniqueBy(groups, (group) => normalizeName(group.name));
+	const byWords = uniqueBy(groups, (group) => groupWords(group.name));
+	return {
+		label: 'group',
+		reads: ['groupName'],
+		whenMissing: 'ask',
+		options: [...groups.map(option), ...(allowUnassigned ? [{ id: NO_GROUP, label: 'No group', value: null }] : [])],
+		key: (raw) => {
+			const display = raw.groupName?.trim();
+			return display ? { key: normalizeName(display), display } : null;
+		},
+		find(key) {
+			const group = byName.get(key);
+			if (group) return { kind: 'one', option: option(group) };
+			const guess = byWords.get(groupWords(key));
+			return guess ? { kind: 'none', suggestion: option(guess) } : { kind: 'none' };
+		},
+		create: canCreate
+			? async (name) => {
+					const wanted = normalizeName(name);
+					const existing = groupManagementStore.items.find((group) => normalizeName(group.name) === wanted);
+					const group = existing ?? (await groupManagementStore.add(name));
+					return group
+						? { kind: 'created', option: option(group) }
+						: { kind: 'refused', message: 'Enter a group name.' };
+				}
+			: undefined
+	};
+}

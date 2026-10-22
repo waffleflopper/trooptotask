@@ -5,7 +5,6 @@ import {
 	da6Segment,
 	detailConflicts,
 	simulateRoster,
-	standingOn,
 	startingNumbersLocked
 } from './rosterEngine';
 import { assigned, CQ, gridLines, person, rosterFacts, status, typed } from './rosterFixtures.test-support';
@@ -47,10 +46,10 @@ describe('review regressions', () => {
 				assignments: [assigned('2026-10-01', 'adams'), assigned('2026-10-03', 'baker')]
 			})
 		);
-		expect(standingOn(run, '2026-10-02').map(({ track, standing }) => ({ track, standing }))).toEqual([
+		expect(run.current).toEqual([
 			{
 				track: 'all',
-				standing: [
+				counts: [
 					{ personId: 'baker', count: 1, effect: { code: 'available' } },
 					{ personId: 'adams', count: 0, effect: { code: 'available' } }
 				]
@@ -81,23 +80,75 @@ describe('review regressions', () => {
 				assignments: [assigned('2026-10-01', 'adams'), assigned('2026-10-03', 'baker')]
 			})
 		);
-		expect(standingOn(run, '2026-10-02').map(({ track, standing }) => ({ track, standing }))).toEqual([
+		expect(run.current).toEqual([
 			{
 				track: 'weekday',
-				standing: [
+				counts: [
 					{ personId: 'baker', count: 2, effect: { code: 'A', reason: 'Leave' } },
 					{ personId: 'adams', count: 0, effect: { code: 'available' } }
 				]
 			},
 			{
 				track: 'weekend',
-				standing: [
+				counts: [
 					{ personId: 'adams', count: 9, effect: { code: 'available' } },
 					{ personId: 'baker', count: 2, effect: { code: 'A', reason: 'Leave' } }
 				]
 			}
 		]);
 	});
+
+	it('projects today on a No duty weekend with today’s effect and no extra count', () => {
+		const run = simulateRoster(
+			rosterFacts({
+				today: '2026-10-03',
+				people: [person('SPC', 'Adams'), person('SGT', 'Baker')],
+				form: { rules: { pool: null, weekendMode: 'none' } },
+				assignments: [assigned('2026-10-01', 'adams')],
+				availability: [status('baker', 'leave', '2026-10-03', '2026-10-03')]
+			})
+		);
+		expect(run.current).toEqual([
+			{
+				track: 'weekday',
+				counts: [
+					{ personId: 'baker', count: 1, effect: { code: 'A', reason: 'Leave' } },
+					{ personId: 'adams', count: 0, effect: { code: 'available' } }
+				]
+			}
+		]);
+	});
+
+	it('includes today’s reset when today is the last simulated day', () => {
+		const run = simulateRoster(
+			rosterFacts({
+				today: '2026-10-02',
+				window: { from: '2026-10-01', through: '2026-10-02' },
+				people: [person('SPC', 'Adams'), person('SGT', 'Baker')],
+				assignments: [assigned('2026-10-01', 'adams'), assigned('2026-10-02', 'baker')]
+			})
+		);
+		expect(run.current).toEqual([
+			{
+				track: 'all',
+				counts: [
+					{ personId: 'adams', count: 1, effect: { code: 'available' } },
+					{ personId: 'baker', count: 0, effect: { code: 'available' } }
+				]
+			}
+		]);
+		expect(run.byDate.get('2026-10-02')?.standing.find((entry) => entry.personId === 'baker')?.count).toBe(2);
+	});
+
+	it.each(['2026-09-30', '2026-10-01', '2026-10-04'])(
+		'does not claim current counts without window coverage of %s',
+		(today) => {
+			const run = simulateRoster(
+				rosterFacts({ today, window: { from: '2026-10-02', through: '2026-10-03' }, people: [person('SPC', 'Adams')] })
+			);
+			expect(run.current).toBeNull();
+		}
+	);
 
 	it('retains departed form members across months and appends entrants by entry date', () => {
 		const run = simulateRoster(
@@ -127,6 +178,33 @@ describe('review regressions', () => {
 				who: { personId: 'clark', rank: 'SSG', lastName: 'Clark', firstName: '' },
 				on: '2026-10-03',
 				cause: 'joined'
+			}
+		]);
+	});
+
+	it('keeps departures in their month and leaves them off later months', () => {
+		const run = simulateRoster(
+			rosterFacts({
+				window: { from: '2026-10-01', through: '2026-11-30' },
+				people: [
+					person('SPC', 'Adams'),
+					person('SGT', 'Baker'),
+					person('SSG', 'Clark', { states: [{}, { from: '2026-10-08', active: false }] })
+				],
+				excusals: [{ personId: 'adams', reason: 'School', from: '2026-10-05', through: null }],
+				assignments: [assigned('2026-10-01', 'adams'), assigned('2026-10-02', 'baker'), assigned('2026-11-02', 'baker')]
+			})
+		);
+		expect(gridLines(da6Segment(run, '2026-10')!)).toEqual(['SSG Clark 1 2', 'SGT Baker 1 *2', 'SPC Adams *1 1']);
+		const november = da6Segment(run, '2026-11')!;
+		expect(gridLines(november)).toEqual(['SGT Baker *1']);
+		expect(november.remarks).toEqual([
+			{
+				kind: 'excused',
+				who: { personId: 'adams', rank: 'SPC', lastName: 'Adams', firstName: '' },
+				reason: 'School',
+				from: '2026-10-05',
+				through: null
 			}
 		]);
 	});
@@ -188,7 +266,7 @@ describe('review regressions', () => {
 				type.id === 'leave' ? { ...type, rosterEffect: 'D' as const } : type
 			)
 		};
-		expect(countChanges(simulateRoster(before), simulateRoster(after), '2026-10-03')).toEqual([
+		expect(countChanges(simulateRoster(before), simulateRoster(after))).toEqual([
 			{
 				date: '2026-10-01',
 				personId: 'adams',
@@ -204,5 +282,43 @@ describe('review regressions', () => {
 				to: { kind: 'detail', count: 6, when: 'served' }
 			}
 		]);
+	});
+
+	it('includes a changed code with an unchanged number and omits hypothetical open-day cells', () => {
+		const before = rosterFacts({
+			today: '2026-10-03',
+			window: { from: '2026-10-01', through: '2026-10-03' },
+			people: [person('SPC', 'Adams'), person('SGT', 'Baker')],
+			form: { startingNumbers: [typed('adams', 4), typed('baker', 0)] },
+			availability: [status('adams', 'detail', '2026-10-01', '2026-10-03')],
+			assignments: [assigned('2026-10-01', 'baker')]
+		});
+		const after = {
+			...before,
+			statusTypes: before.statusTypes.map((type) =>
+				type.id === 'detail' ? { ...type, rosterEffect: 'U' as const } : type
+			)
+		};
+		expect(countChanges(simulateRoster(before), simulateRoster(after))).toEqual([
+			{
+				date: '2026-10-01',
+				personId: 'adams',
+				track: 'all',
+				from: { kind: 'code', code: 'D', count: 5, reason: 'Detail' },
+				to: { kind: 'code', code: 'U', count: 5, reason: 'Detail' }
+			}
+		]);
+	});
+
+	it('refuses a status preview that omits historical columns or mixes planned picks into the facts', () => {
+		const facts = rosterFacts({
+			people: [person('SPC', 'Adams')],
+			assignments: [assigned('2026-10-01', 'adams')]
+		});
+		const before = simulateRoster(facts);
+		const partial = simulateRoster({ ...facts, window: { from: '2026-10-02', through: '2026-10-31' } });
+		expect(() => countChanges(before, partial)).toThrow(RangeError);
+		const filled = simulateRoster(facts, { kind: 'fill', days: { from: '2026-10-02', through: '2026-10-03' } });
+		expect(() => countChanges(before, filled)).toThrow(RangeError);
 	});
 });

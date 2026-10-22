@@ -23,14 +23,6 @@ import type {
 	WeekendMode
 } from './rosterTypes';
 
-/** Per track, the first date on or after `date` inside the window. An open day shows what it would show if filled. */
-export function standingOn(run: RosterRun, date: DateKey): RosterDay[] {
-	return tracksOf(run.facts.form.rules.weekendMode).flatMap((track) => {
-		const day = run.days.find((candidate) => candidate.track === track && candidate.date >= date);
-		return day ? [day] : [];
-	});
-}
-
 /** People ahead of the rule's pick in standing. Every one of them has a code. */
 export function passedOver(day: RosterDay): Standing[] {
 	const at = day.standing.findIndex((entry) => entry.personId === day.rulePick);
@@ -70,31 +62,54 @@ export function replacementOptions(run: RosterRun, date: DateKey): ReplacementOp
 
 /** Days in the window whose assignee has A, D or U that day. */
 export function detailConflicts(run: RosterRun): RosterDay[] {
-	return run.days.filter((day) => {
-		const assignee = assigneeOf(day);
-		const effect = day.standing.find((entry) => entry.personId === assignee)?.effect;
-		return effect !== undefined && effect.code !== 'available';
-	});
+	return run.days.filter((day) => day.detail?.kind === 'stored' && day.detail.effect.code !== 'available');
 }
 
-/** Numbers that differ on `on` between two runs of the same form. Ordered by track, then DA 6 order. */
-export function countChanges(before: RosterRun, after: RosterRun, on: DateKey): CountChange[] {
+/**
+ * Changed numbers or codes over matching whole-form windows, including historical and planned columns.
+ * Both runs must preserve stored assignments and load whole-form D and U facts.
+ * Ordered by date, then DA 6 order.
+ */
+export function countChanges(before: RosterRun, after: RosterRun): CountChange[] {
+	if (
+		before.facts.form.id !== after.facts.form.id ||
+		before.facts.type.id !== after.facts.type.id ||
+		before.facts.form.startsOn !== after.facts.form.startsOn ||
+		before.facts.window.through !== after.facts.window.through ||
+		before.facts.window.from > before.facts.form.startsOn ||
+		after.facts.window.from > after.facts.form.startsOn ||
+		before.changes.length !== 0 ||
+		after.changes.length !== 0
+	) {
+		throw new RangeError('Count changes require matching windows covering the whole open form.');
+	}
 	const order = new Map(
 		inDa6Order(before.facts.people, before.facts.rankCatalog).map((person, index) => [person.id, index])
 	);
-	const afterDays = new Map(standingOn(after, on).map((day) => [day.track, day]));
-	return standingOn(before, on).flatMap((day) => {
-		const counts = new Map(afterDays.get(day.track)?.standing.map((entry) => [entry.personId, entry.count]));
-		return day.standing
-			.filter((entry) => counts.has(entry.personId) && counts.get(entry.personId) !== entry.count)
-			.sort((a, b) => order.get(a.personId)! - order.get(b.personId)!)
-			.map((entry) => ({
-				personId: entry.personId,
-				track: day.track,
-				from: entry.count,
-				to: counts.get(entry.personId)!
-			}));
-	});
+	const dates = new Set([...before.days, ...after.days].filter((day) => day.detail !== null).map((day) => day.date));
+	const changes: CountChange[] = [];
+	for (const date of [...dates].sort()) {
+		const oldDay = before.byDate.get(date);
+		const newDay = after.byDate.get(date);
+		const oldEntries = new Map(oldDay?.standing.map((entry) => [entry.personId, entry]));
+		const newEntries = new Map(newDay?.standing.map((entry) => [entry.personId, entry]));
+		const people = [...new Set([...oldEntries.keys(), ...newEntries.keys()])].sort(
+			(a, b) => order.get(a)! - order.get(b)!
+		);
+		for (const personId of people) {
+			const from = cellOf(oldDay, oldEntries.get(personId));
+			const to = cellOf(newDay, newEntries.get(personId));
+			if (!sameNumberAndCode(from, to)) {
+				changes.push({ date, personId, track: (newDay ?? oldDay)!.track, from, to });
+			}
+		}
+	}
+	return changes;
+}
+
+function sameNumberAndCode(a: Da6Cell, b: Da6Cell): boolean {
+	if (a === null || b === null) return a === b;
+	return a.kind === b.kind && a.count === b.count && (a.kind !== 'code' || (b.kind === 'code' && a.code === b.code));
 }
 
 /** The batch for setAssignmentBatch. */
@@ -119,12 +134,19 @@ function segment(run: RosterRun, month: MonthKey, formState: Da6Segment['formSta
 	if (!days.length) return null;
 
 	const order = new Map(inDa6Order(facts.people, facts.rankCatalog).map((person, index) => [person.id, index]));
-	const firstColumn = new Map<string, number>();
-	days.forEach((day, column) => {
-		for (const entry of day.standing) if (!firstColumn.has(entry.personId)) firstColumn.set(entry.personId, column);
-	});
-	const rowIds = [...firstColumn.keys()].sort(
-		(a, b) => firstColumn.get(a)! - firstColumn.get(b)! || order.get(a)! - order.get(b)!
+	const monthStart = `${month}-01`;
+	const through = [`${month}-31`, facts.window.through].sort()[0];
+	const firstEntry = new Map<string, DateKey>();
+	for (const change of run.poolChanges) {
+		if (change.date > through) break;
+		if (change.kind === 'leave' && change.date < monthStart) {
+			firstEntry.delete(change.personId);
+		} else if (change.kind === 'enter' && !firstEntry.has(change.personId)) {
+			firstEntry.set(change.personId, change.date < monthStart ? monthStart : change.date);
+		}
+	}
+	const rowIds = [...firstEntry.keys()].sort(
+		(a, b) => firstEntry.get(a)!.localeCompare(firstEntry.get(b)!) || order.get(a)! - order.get(b)!
 	);
 
 	const columns: Da6Column[] = days.map((day) => {
@@ -143,15 +165,12 @@ function segment(run: RosterRun, month: MonthKey, formState: Da6Segment['formSta
 	});
 
 	const cells = rowIds.map((personId) =>
-		days.map((day): Da6Cell => {
-			const entry = day.standing.find((candidate) => candidate.personId === personId);
-			if (!entry) return null;
-			if (assigneeOf(day) === personId) return { kind: 'detail', count: entry.count, when: whenOf(day) };
-			const { effect } = entry;
-			if (effect.code === 'available') return { kind: 'count', count: entry.count };
-			if (effect.code === 'A') return { kind: 'away', count: entry.count, reason: effect.reason };
-			return { kind: 'code', code: effect.code, count: entry.count, reason: effect.reason };
-		})
+		days.map((day) =>
+			cellOf(
+				day,
+				day.standing.find((candidate) => candidate.personId === personId)
+			)
+		)
 	);
 
 	return {
@@ -165,6 +184,15 @@ function segment(run: RosterRun, month: MonthKey, formState: Da6Segment['formSta
 		cells,
 		remarks: remarks(run, month, days, ref)
 	};
+}
+
+function cellOf(day: RosterDay | undefined, entry: Standing | undefined): Da6Cell {
+	if (!day?.detail || !entry) return null;
+	if (assigneeOf(day) === entry.personId) return { kind: 'detail', count: entry.count, when: whenOf(day) };
+	const { effect } = entry;
+	if (effect.code === 'available') return { kind: 'count', count: entry.count };
+	if (effect.code === 'A') return { kind: 'away', count: entry.count, reason: effect.reason };
+	return { kind: 'code', code: effect.code, count: entry.count, reason: effect.reason };
 }
 
 function whenOf(day: RosterDay): 'served' | 'planned' {

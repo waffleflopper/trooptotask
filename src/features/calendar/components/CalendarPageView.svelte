@@ -15,7 +15,8 @@
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
 	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
 	import { dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
-	import { indexDutyAvailability, indexDutyHistory } from '$features/calendar/utils/dutyReadModel';
+	import { indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
+	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
@@ -121,7 +122,7 @@
 			groups: ctx.scopedGroups,
 			actions: ctx.canManageAssignments
 				? {
-						// An open day offers no picker until its 90-day history has loaded.
+						// An open day offers no picker until the shown range has loaded, so it knows the slot's assignee.
 						openDay:
 							rangeStatus === 'ready' ? (typeId, date, anchor) => ctx.openDutyPicker(typeId, date, anchor) : undefined,
 						editDay: (date) => ctx.handleDateClick(date)
@@ -145,8 +146,16 @@
 		untrack(() => ctx.closePopover());
 	});
 
-	const dutyHistory = $derived(indexDutyHistory(dailyAssignmentsStore.assignments));
 	const availabilityByPerson = $derived(indexDutyAvailability(availabilityStore.items));
+
+	// The picker reads its roster day when it opens. Writes anywhere on the page refetch it through the shared read.
+	const rosterRead = new PlannerRosterRead();
+	const dayRequest = (typeId: string, date: string) => ({
+		orgId: data.orgId,
+		typeId,
+		date,
+		today: formatDate(new Date())
+	});
 
 	const dutyPick = $derived.by(() => {
 		const pick = ctx.popover?.kind === 'duty' ? ctx.popover : null;
@@ -156,10 +165,20 @@
 		const current = dailyAssignmentsStore.assignments.find(
 			(assignment) => assignment.date === dateKey && assignment.assignmentTypeId === type.id
 		);
+		const counted = type.assignTo === 'personnel' && ctx.seesRosterCounts;
+		const read = counted ? rosterRead.day(dayRequest(type.id, dateKey)) : undefined;
 		return {
 			...pick,
 			type,
 			dateKey,
+			counted,
+			counts: counted
+				? {
+						status: read?.status ?? 'loading',
+						stale: read?.status === 'ready' && read.stale === true,
+						onRetry: () => rosterRead.retryDay(dayRequest(type.id, dateKey))
+					}
+				: undefined,
 			options: dutyPickerOptions({
 				type,
 				dateKey,
@@ -167,10 +186,19 @@
 				groups: ctx.scopedGroups,
 				availabilityByPerson,
 				statusTypes: statusTypesStore.items,
-				history: dutyHistory,
+				roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
+				unreadRoster: counted && read?.status !== 'ready' ? (read?.status ?? 'loading') : undefined,
 				currentAssigneeId: current?.assigneeId
 			})
 		};
+	});
+
+	// Keyed by the slot alone, so a status change never starts the read again.
+	const dutyPickDay = $derived(dutyPick?.counted ? `${dutyPick.type.id}|${dutyPick.dateKey}` : null);
+	$effect(() => {
+		if (!dutyPickDay) return;
+		const [typeId, dateKey] = dutyPickDay.split('|');
+		rosterRead.loadDay(dayRequest(typeId, dateKey));
 	});
 
 	async function loadDutyPicker() {
@@ -386,12 +414,12 @@
 	{#key dutyPick.anchor}
 		{#await loadDutyPicker() then { default: DutyPicker }}
 			<DutyPicker
-				typeId={dutyPick.type.id}
 				typeName={dutyPick.type.name}
 				assignTo={dutyPick.type.assignTo}
 				date={dutyPick.date}
 				anchor={dutyPick.anchor}
 				options={dutyPick.options}
+				counts={dutyPick.counts}
 				onAssign={(assigneeId) => dailyAssignmentsStore.setAssignment(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
 				onClose={() => ctx.closePopover()}
 			/>

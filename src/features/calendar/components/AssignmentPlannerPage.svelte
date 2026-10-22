@@ -4,6 +4,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
+	import { PlannerRosterRead, previewRosterFill } from '../contexts/PlannerRosterRead.svelte';
+	import { formatDate } from '$lib/utils/dates';
 	import { calendarViewCoverage } from '../utils/calendarRange';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import type { CalendarOperationsPageAccess } from '../contracts';
@@ -71,6 +73,55 @@
 			rangeCoordinator.status(monthCoverage) === 'ready'
 	);
 
+	// Counts span the whole Organization, so only an Organization-wide operator reads them. The read starts
+	// beside the range read and never waits on it.
+	const rosterRead = new PlannerRosterRead();
+	const showsRosters = $derived(canMutate && org.scopeSet.kind === 'organization');
+	const rosterMonth = $derived(formatDate(calendarStore.currentDate).slice(0, 7));
+	$effect(() => {
+		if (!showsRosters) return rosterRead.reset();
+		rosterRead.load({ orgId: data.orgId, month: rosterMonth, today: formatDate(new Date()) });
+	});
+
+	// Every confirmed write refreshes the counts on its own. A fill the roster moved past wrote nothing, so the counts
+	// are read again for the next preview.
+	async function fillFromRoster(fill: Parameters<typeof dailyAssignmentsStore.fillFromRoster>[0]) {
+		const result = await dailyAssignmentsStore.fillFromRoster(fill);
+		if (result === 'changed') rosterRead.refresh();
+		return result;
+	}
+
+	const dayRequest = (typeId: string, date: string) => ({
+		orgId: data.orgId,
+		typeId,
+		date,
+		today: formatDate(new Date())
+	});
+
+	const rosters = $derived(
+		showsRosters
+			? {
+					status: rosterRead.status,
+					stale: rosterRead.stale,
+					views: rosterRead.rosters,
+					onRetry: () => rosterRead.retry(),
+					preview: (typeId: string, from: string, through: string) =>
+						previewRosterFill(data.orgId, { typeId, today: formatDate(new Date()), from, through }),
+					fill: (typeId: string, from: string, through: string, picks: { date: string; personId: string }[]) =>
+						fillFromRoster({
+							typeId,
+							today: formatDate(new Date()),
+							from,
+							through,
+							picks: picks.map(({ date, personId }) => ({ date, personId }))
+						}),
+					day: (typeId: string, date: string) => rosterRead.day(dayRequest(typeId, date)),
+					loadDay: (typeId: string, date: string) => rosterRead.loadDay(dayRequest(typeId, date)),
+					retryDay: (typeId: string, date: string) => rosterRead.retryDay(dayRequest(typeId, date))
+				}
+			: undefined
+	);
+
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const rosterView = $derived(
 		createRosterReadModel({
@@ -128,6 +179,7 @@
 			specialDays={specialDaysStore.items}
 			personnelByGroup={scopedPBG}
 			groups={scopedGroups}
+			{rosters}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
 		/>

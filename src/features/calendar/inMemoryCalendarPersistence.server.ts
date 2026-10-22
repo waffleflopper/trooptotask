@@ -532,7 +532,7 @@ export function createInMemoryCalendarAssignmentReader(
 					}
 				)
 			)
-				.map(({ date, assignee_id }) => ({ date, assigneeId: assignee_id }))
+				.map(({ date, assignee_id, source }) => ({ date, assigneeId: assignee_id, source: source ?? 'manual' }))
 				.sort((a, b) => a.date.localeCompare(b.date));
 		},
 		async listSlotReferences(slots) {

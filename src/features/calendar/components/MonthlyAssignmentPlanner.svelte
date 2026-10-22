@@ -6,9 +6,13 @@
 		AssignmentType,
 		AvailabilityEntry,
 		DailyAssignment,
+		RosterFillPick,
+		RosterFillPreview,
 		SpecialDay,
 		StatusType
 	} from '$features/calendar/contracts';
+	import type { PlannerRosterStatus, RosterDayRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
+	import type { RosterView } from '$features/calendar/utils/plannerRosters';
 	import type { Group, Personnel } from '$features/personnel/contracts';
 	import {
 		buildPlannerTable,
@@ -21,8 +25,7 @@
 	import { assignmentSlotKey, indexAssignmentsBySlot } from '$features/calendar/utils/calendarIndexes';
 	import { plannerColumns } from '$features/calendar/utils/calendarLanes';
 	import { dutyPickerOptions, eligibleAssignees } from '$features/calendar/utils/dutyPickerOptions';
-	import { dutyFairness } from '$features/calendar/utils/dutyFairness';
-	import { findDutyConflicts, indexDutyAvailability, indexDutyHistory } from '$features/calendar/utils/dutyReadModel';
+	import { findDutyConflicts, indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
 	import { endOfMonth, formatDate, getMonthName, parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -30,8 +33,8 @@
 	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import AssignmentConflictsPanel from './AssignmentConflictsPanel.svelte';
 	import AssignmentPlannerColumnMenu from './AssignmentPlannerColumnMenu.svelte';
-	import DutyFairnessPanel from './DutyFairnessPanel.svelte';
 	import DutyPicker from './DutyPicker.svelte';
+	import RosterCountPanel from './RosterCountPanel.svelte';
 
 	interface GroupData {
 		group: string;
@@ -51,7 +54,25 @@
 		groups: readonly Group[];
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
 		onSetAssignmentBatch: (assignments: AssignmentWrite[]) => Promise<boolean>;
-		/** True while a Quick fill or Clear month write is in flight, so the page can hold navigation. */
+		/** Roster counts, for an operator who sees the whole Organization. Absent hides counts and Fill from roster. */
+		rosters?: {
+			status: PlannerRosterStatus;
+			stale: boolean;
+			views: ReadonlyMap<string, RosterView>;
+			onRetry: () => void;
+			preview: (typeId: string, from: string, through: string) => Promise<RosterFillPreview>;
+			fill: (
+				typeId: string,
+				from: string,
+				through: string,
+				picks: RosterFillPick[]
+			) => Promise<'saved' | 'changed' | 'failed'>;
+			/** The picker's roster day, read when the picker opens it. */
+			day: (typeId: string, date: string) => RosterDayRead | undefined;
+			loadDay: (typeId: string, date: string) => void;
+			retryDay: (typeId: string, date: string) => void;
+		};
+		/** True while a Quick fill, Fill from roster or Clear month write is in flight, so the page can hold navigation. */
 		busy?: boolean;
 	}
 
@@ -68,6 +89,7 @@
 		groups,
 		onSetAssignment,
 		onSetAssignmentBatch,
+		rosters,
 		busy = $bindable(false)
 	}: Props = $props();
 
@@ -82,12 +104,19 @@
 
 	const columns = $derived(plannerColumns(assignmentTypes));
 	const personnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
+	const personById = $derived(new Map(personnel.map((person) => [person.id, person])));
 	const assignmentsBySlot = $derived(indexAssignmentsBySlot(assignments));
-	const availabilityByPerson = $derived(indexDutyAvailability(availabilityEntries));
-	const history = $derived(indexDutyHistory(assignments));
+	const blockingStatusIds = $derived(
+		new Set(statusTypes.filter((status) => status.rosterEffect !== 'available').map((status) => status.id))
+	);
+	const availabilityByPerson = $derived(
+		indexDutyAvailability(availabilityEntries.filter((entry) => blockingStatusIds.has(entry.statusTypeId)))
+	);
 	const conflicts = $derived(
 		findDutyConflicts({ assignments, assignmentTypes: columns, availabilityByPerson, range: monthRange })
 	);
+	// A stale view trails the saved availability, so it must not replace the local A, D and U check on the days it covers.
+	const rosterViews = $derived(rosters?.status === 'ready' && !rosters.stale ? rosters.views : null);
 	const table = $derived(
 		buildPlannerTable({
 			anchor: monthStart,
@@ -95,6 +124,7 @@
 			columns,
 			assignmentsBySlot,
 			conflicts,
+			rosters: rosterViews ?? undefined,
 			personnel,
 			groups,
 			specialDays,
@@ -102,21 +132,44 @@
 		})
 	);
 
-	let fairnessTypeId = $state<string | null>(null);
-	const fairnessType = $derived(columns.find((type) => type.id === fairnessTypeId) ?? columns[0]);
-	const fairness = $derived(
-		fairnessType &&
-			dutyFairness({
-				type: fairnessType,
-				month: monthRange,
-				todayKey,
-				personnel,
-				groups,
-				history,
-				availabilityByPerson,
-				statusTypes
-			})
-	);
+	const rosterTypes = $derived(columns.filter((type) => type.assignTo === 'personnel'));
+	let countTypeId = $state<string | null>(null);
+	const countType = $derived(rosterTypes.find((type) => type.id === countTypeId) ?? rosterTypes[0]);
+
+	// The fill may start on any day of the shown month from today on, by default tomorrow.
+	const fillDays = $derived(table.rows.map((row) => row.dateKey).filter((dateKey) => dateKey >= todayKey));
+	const fillFrom = $derived(fillDays.find((dateKey) => dateKey > todayKey) ?? fillDays[0]);
+
+	function openDays(type: AssignmentType, from: string, through: string) {
+		return table.rows.filter(
+			(row) =>
+				row.dateKey >= from &&
+				row.dateKey <= through &&
+				!assignmentsBySlot.has(assignmentSlotKey(row.dateKey, type.id)) &&
+				!(type.weekendMode === 'none' && (row.weekend || row.specialDayName))
+		).length;
+	}
+
+	function rosterFillFor(type: AssignmentType) {
+		if (!rosters || type.assignTo !== 'personnel' || !fillDays.length) return undefined;
+		const { preview, fill } = rosters;
+		return {
+			days: fillDays,
+			defaultFrom: fillFrom,
+			personById,
+			openDays: (from: string, through: string) => openDays(type, from, through),
+			preview: (from: string, through: string) => preview(type.id, from, through),
+			commit: async (from: string, through: string, picks: RosterFillPick[]) => {
+				if (rangeStatus !== 'ready' || busy) return 'failed' as const;
+				busy = true;
+				try {
+					return await fill(type.id, from, through, picks);
+				} finally {
+					busy = false;
+				}
+			}
+		};
+	}
 
 	type PickerTarget = { typeId: string; dateKey: string; anchor: HTMLElement };
 	let pickerTarget = $state<PickerTarget | null>(null);
@@ -131,18 +184,39 @@
 		});
 	});
 
+	// The picker reads its roster day when it opens, keyed by the slot alone so a status change never reads it again.
+	const pickerDay = $derived.by(() => {
+		if (!pickerTarget || !rosters) return null;
+		const { typeId, dateKey } = pickerTarget;
+		return columns.find((type) => type.id === typeId)?.assignTo === 'personnel' ? `${typeId}|${dateKey}` : null;
+	});
+	$effect(() => {
+		if (!pickerDay) return;
+		const [typeId, dateKey] = pickerDay.split('|');
+		rosters?.loadDay(typeId, dateKey);
+	});
+
 	const picker = $derived.by(() => {
 		if (!pickerTarget || rangeStatus !== 'ready') return null;
 		const type = columns.find((candidate) => candidate.id === pickerTarget!.typeId);
 		if (!type) return null;
 		const { dateKey, anchor } = pickerTarget;
 		const current = assignmentsBySlot.get(assignmentSlotKey(dateKey, type.id));
+		const counted = rosters && type.assignTo === 'personnel' ? rosters : null;
+		const read = counted?.day(type.id, dateKey);
 		return {
 			type,
 			dateKey,
 			anchor,
 			date: parseDate(dateKey),
 			occupied: current !== undefined,
+			counts: counted
+				? {
+						status: read?.status ?? 'loading',
+						stale: read?.status === 'ready' && read.stale === true,
+						onRetry: () => counted.retryDay(type.id, dateKey)
+					}
+				: undefined,
 			options: dutyPickerOptions({
 				type,
 				dateKey,
@@ -150,7 +224,8 @@
 				groups,
 				availabilityByPerson,
 				statusTypes,
-				history,
+				roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
+				unreadRoster: counted && read?.status !== 'ready' ? (read?.status ?? 'loading') : undefined,
 				currentAssigneeId: current?.assigneeId
 			})
 		};
@@ -195,7 +270,7 @@
 	function cellLabel(column: PlannerColumn, row: PlannerRow, cell: PlannerCell): string {
 		const where = `${column.type.name}, ${row.dateLabel}`;
 		if (!cell.assignee) return `Assign ${where}`;
-		return `${where}: ${cell.assignee.fullName}${cell.conflict ? `, unavailable: ${cell.conflict.availabilityLabel}` : ''}`;
+		return `${where}: ${cell.assignee.fullName}${cell.conflict ? `, unavailable: ${cell.conflict.reason}` : ''}`;
 	}
 </script>
 
@@ -255,6 +330,7 @@
 											})}
 										onApply={writeBatch}
 										onClearMonth={() => (clearTypeId = column.type.id)}
+										rosterFill={rosterFillFor(column.type)}
 									/>
 								</div>
 							</Table.Head>
@@ -322,9 +398,7 @@
 													<span class="truncate font-medium">{cell.assignee.name}</span>
 												</span>
 												{#if cell.conflict}
-													<span class="truncate font-mono text-[10px] uppercase"
-														>On {cell.conflict.availabilityLabel}</span
-													>
+													<span class="truncate font-mono text-[10px] uppercase">On {cell.conflict.reason}</span>
 												{/if}
 											</span>
 										{/if}
@@ -339,11 +413,15 @@
 
 		<div class="grid grid-cols-[minmax(0,1fr)] gap-4">
 			<AssignmentConflictsPanel conflicts={table.conflicts} {busy} onFindReplacement={openPicker} />
-			{#if fairness}
-				<DutyFairnessPanel
-					types={columns}
-					bind:typeId={() => fairness.type.id, (id) => (fairnessTypeId = id)}
-					{fairness}
+			{#if rosters && countType}
+				<RosterCountPanel
+					types={rosterTypes}
+					bind:typeId={() => countType.id, (id) => (countTypeId = id)}
+					status={rosters.status}
+					stale={rosters.stale}
+					roster={rosters.views.get(countType.id)}
+					{personById}
+					onRetry={rosters.onRetry}
 				/>
 			{/if}
 		</div>
@@ -353,7 +431,6 @@
 {#if picker}
 	{#key picker.anchor}
 		<DutyPicker
-			typeId={picker.type.id}
 			typeName={picker.type.name}
 			assignTo={picker.type.assignTo}
 			date={picker.date}
@@ -361,6 +438,7 @@
 			returnFocusTo={() =>
 				document.querySelector<HTMLElement>(`[data-duty-slot="${assignmentSlotKey(picker.dateKey, picker.type.id)}"]`)}
 			options={picker.options}
+			counts={picker.counts}
 			onAssign={(assigneeId) => onSetAssignment(picker.dateKey, picker.type.id, assigneeId)}
 			onClear={picker.occupied ? () => onSetAssignment(picker.dateKey, picker.type.id, '') : undefined}
 			onClose={() => (pickerTarget = null)}

@@ -178,6 +178,11 @@ export class CalendarPageContext {
 		).allowed;
 	}
 
+	/** Roster counts span the whole Organization, so the picker shows them only to an Organization-wide operator. */
+	get seesRosterCounts(): boolean {
+		return this.canManageAssignments && this.#org.scopeSet.kind === 'organization';
+	}
+
 	readonly #calendarRoster = $derived(
 		createRosterReadModel({
 			personnel: this.calendarPersonnel,

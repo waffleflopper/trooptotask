@@ -12,6 +12,7 @@ import type {
 import { fitsOneDayLabel, normalizeShortLabel } from '$lib/components/patterns/calendar-bars';
 import { MAX_CLOSURE_DAYS } from './utils/closureDays';
 import type {
+	AssignmentSource,
 	Da6Segment,
 	MonthKey,
 	OpenForm,
@@ -90,6 +91,7 @@ export type AssignmentRow = SavedRow & {
 	date: string;
 	assignment_type_id: string;
 	assignee_id: string;
+	source?: AssignmentSource;
 };
 
 export const STATUS_TYPE_FIELDS =
@@ -290,6 +292,19 @@ export const statusTypeCreateInput = z.object({
 export const statusEffectPreviewInput = z
 	.object({ id: uuidSchema, rosterEffect: rosterEffectSchema, today: dateOnlySchema })
 	.strict();
+export const plannerRostersInput = z
+	.object({ today: dateOnlySchema, month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Choose a month') })
+	.strict();
+export const rosterDayInput = z.object({ typeId: uuidSchema, today: dateOnlySchema, date: dateOnlySchema }).strict();
+export const rosterFillPreviewInput = z
+	.object({ typeId: uuidSchema, today: dateOnlySchema, from: dateOnlySchema, through: dateOnlySchema })
+	.strict();
+export const rosterFillInput = rosterFillPreviewInput.extend({
+	picks: z
+		.array(z.object({ date: dateOnlySchema, personId: uuidSchema }).strict())
+		.min(1)
+		.max(366)
+});
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
 const statusTypeIds = z
 	.array(uuidSchema)

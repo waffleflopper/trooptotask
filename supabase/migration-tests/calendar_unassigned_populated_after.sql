@@ -25,7 +25,7 @@ SELECT 'public.assignment_types', id, to_jsonb(row_value) - 'show_on_calendar' -
 UNION ALL
 SELECT 'public.availability_entries', id, to_jsonb(row_value) FROM public.availability_entries AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000501','d5000000-0000-4000-8000-000000000502')
 UNION ALL
-SELECT 'public.daily_assignments', id, to_jsonb(row_value) FROM public.daily_assignments AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000601','d5000000-0000-4000-8000-000000000602');
+SELECT 'public.daily_assignments', id, to_jsonb(row_value) - 'source' FROM public.daily_assignments AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000601','d5000000-0000-4000-8000-000000000602');
 SELECT is((SELECT count(*)::integer FROM calendar_unassigned_current_rows), 14, 'all historical Calendar rows remain');
 SELECT results_eq(
   $$ SELECT table_name, row_id, row_data FROM calendar_unassigned_current_rows ORDER BY table_name, row_id $$,

@@ -80,6 +80,11 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	setAssignmentBatch: (
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 	) => Promise<boolean>;
+	/**
+	 * Writes previewed roster picks into open days. Resolves `changed` without a toast when the roster moved since
+	 * the preview, so the caller can show the new picks.
+	 */
+	fillFromRoster: (fill: RosterFill) => Promise<'saved' | 'changed' | 'failed'>;
 	getAssignmentsForDate: (date: string) => DailyAssignment[];
 	getAssignmentForDate: (date: string, assignmentTypeId: string) => DailyAssignment | undefined;
 	getAssignmentsForPersonnel: (personnelId: string) => DailyAssignment[];
@@ -88,6 +93,14 @@ interface AssignmentExtensions extends Record<string, unknown> {
 }
 
 type AssignmentBatchRecord = { date: string; assignmentTypeId: string; assigneeId: string };
+
+export interface RosterFill {
+	typeId: string;
+	today: string;
+	from: string;
+	through: string;
+	picks: { date: string; personId: string }[];
+}
 
 function inSlot(date: string, assignmentTypeId: string) {
 	return (assignment: DailyAssignment) => assignment.date === date && assignment.assignmentTypeId === assignmentTypeId;
@@ -573,6 +586,38 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				if (addMutationId) internals.log.resolve(addMutationId);
 				toastStore.error(error instanceof Error ? error.message : 'Failed to batch update assignments');
 				return false;
+			}
+		},
+
+		async fillFromRoster(fill: RosterFill) {
+			const mutationId = crypto.randomUUID();
+			internals.log.push({
+				type: 'add-batch',
+				mutationId,
+				tempIds: fill.picks.map(() => `temp-${crypto.randomUUID()}`),
+				data: fill.picks.map(({ date, personId }) => ({ date, assignmentTypeId: fill.typeId, assigneeId: personId }))
+			});
+			try {
+				const res = await internals.withinOrganization(
+					fetch(`/org/${internals.orgId()}/api/duty-rosters/fill`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(fill)
+					})
+				);
+				if (res.status === 409) {
+					internals.log.resolve(mutationId);
+					return 'changed';
+				}
+				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The roster picks were not saved.'));
+				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+				internals.commit({ saved });
+				internals.log.resolve(mutationId);
+				return 'saved';
+			} catch (error) {
+				internals.log.resolve(mutationId);
+				toastStore.error(error instanceof Error ? error.message : 'The roster picks were not saved.');
+				return 'failed';
 			}
 		},
 

@@ -38,7 +38,7 @@
 						<span>{conflict.dateLabel}</span>
 						<span class="text-muted-foreground">{conflict.typeName}</span>
 					</p>
-					<p class="text-sm">{conflict.assignee.fullName} is on {conflict.availabilityLabel}.</p>
+					<p class="text-sm">{conflict.assignee.fullName} is on {conflict.reason}.</p>
 					<Button
 						variant="outline"
 						size="sm"

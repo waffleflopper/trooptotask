@@ -35,10 +35,9 @@ long-range views.
 - `calendar-grid-volume`: a large roster keeps virtualized rendering and its request count on load, month navigation and
   long range. When Robert asks for a measurement, step 15's latency harness compares interaction latency between
   revisions.
-- `calendar-read-window`: a month's assignment and closure read covers the 90 days before its first day. Its
-  availability read covers only the shown days, and also today when today falls in that lookback, for the title row's
-  count. The server bootstrap reaches back to the day before its UTC day. A move requests only the part of each not yet
-  loaded.
+- `calendar-read-window`: a month's assignment and closure read covers only the shown days. Its availability read covers
+  the shown days, and also today when today falls in the 90 days before them, for the title row's count. The server
+  bootstrap reaches back to the day before its UTC day. A move requests only the part of each not yet loaded.
 - `calendar-reload-anchor`: a reload opens the month the page last showed, the month the server bootstrapped, with no
   range read.
 - `calendar-reentry`: after leaving Calendar and coming back, another member's deletes and edits show; a save or delete
@@ -232,27 +231,27 @@ filters and request controls between cases.
       then carries B's row, and A's slot must show only A's saved assignee, or stay empty after a clear. Store and
       hydrator tests cover this replacement for a set, a clear and a Planner batch. Restore both controls.
     - **Outside the range.** Visit March 2026 and see `Historical retained`, return with `Today`, then re-enter. The
-      snapshot covers assignments and closures from the 90 days before the anchor month through the month after it, and
-      availability from the anchor month, or from the earliest viewer day the lookback holds when that day is earlier,
-      through the same end. A viewer's day is the server's UTC day or the day either side of it. Arm
+      snapshot covers assignments and closures from the anchor month through the month after it, and availability from
+      the anchor month, or from the earliest viewer day in the 90 days before it when that day is earlier, through the
+      same end. A viewer's day is the server's UTC day or the day either side of it. Arm
       `$V network arm-hold $PAGE calendar-range`, choose March in the month picker and read Able's March 11 while the
       range is held: the entry loaded before re-entry must still render.
 
 17. **Read window.** As `calendarOperate` on `/calendar/assignments` (the planner and Calendar each own a range
     coordinator, so moving between them reads the new page's range again), clear resource timings, then read the
-    `calendar-range` URLs after each move. Each read names its collections. Availability covers the shown month, and
-    assignments with their closures cover the month and its 90-day prefix, so a move fills each gap separately. From an
-    October 2026 bootstrap, `Previous month` into September requests
-    `rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability` and
-    `rangeStart=2026-06-03&rangeEnd=2026-07-02&collections=assignments`; August requests `2026-08-01` to `2026-08-31`
-    availability and `2026-05-03` to `2026-06-02` assignments. `Next month` past the loaded end, where both gaps match,
-    requests that month once with `collections=availability%2Cassignments` (`rangeStart=2026-12-01&rangeEnd=2026-12-31`,
-    then January 2027). `Today` from a December bootstrap requests
-    `rangeStart=2026-10-01&rangeEnd=2026-10-18&collections=availability` and
-    `rangeStart=2026-07-03&rangeEnd=2026-09-01&collections=assignments`, because that bootstrap's availability starts on
-    October 19, the day before the server's day. A read is split into spans of at most 366 days, and a move inside
-    coverage sends no request. Until the displayed month's span has loaded the lanes and the planner offer no `+` or
-    `Assign` button. Arm `$V network arm-hold $PAGE calendar-range` first and release afterwards.
+    `calendar-range` URLs after each move. Each read names its collections. Availability and assignments with their
+    closures both cover the shown month, so a move into an unread month requests it once with
+    `collections=availability%2Cassignments`. From an October 2026 bootstrap, `Previous month` into September requests
+    `rangeStart=2026-09-01&rangeEnd=2026-09-30&collections=availability%2Cassignments`, and August requests `2026-08-01`
+    to `2026-08-31` the same way. `Next month` past the loaded end requests `rangeStart=2026-12-01&rangeEnd=2026-12-31`,
+    then January 2027. An Organization-wide planner also reads `duty-rosters?today=<viewer's day>&month=<YYYY-MM>`
+    beside each move's range read, never after it. `Today` from a December bootstrap requests
+    `rangeStart=2026-10-01&rangeEnd=<two days before the server's day>&collections=availability` and
+    `rangeStart=2026-10-01&rangeEnd=2026-10-31&collections=assignments`, because that bootstrap's availability starts
+    the day before the server's day (with the server on October 22, the availability read ends on October 20). A read is
+    split into spans of at most 366 days, and a move inside coverage sends no request. Until the displayed month's span
+    has loaded the lanes and the planner offer no `+` or `Assign` button. Arm `$V network arm-hold $PAGE calendar-range`
+    first and release afterwards.
 18. **Reload anchor.** As `calendarOperate` on `/calendar` in `Month`, click `Today`, then `Next month` twice to
     December 2026 and clear resource timings. Reload: the title reads `December 2026`, `document.cookie` holds
     `ttt-calendar-anchor-date=2026-12-01`, and no `calendar-range` request follows. Click `Today` and reload again: the

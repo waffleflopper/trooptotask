@@ -95,7 +95,7 @@
 		const numbers = current.columns.flatMap(({ track }) =>
 			current.rows.flatMap(({ personId }) => {
 				const value = values[keyOf(personId, track)]?.trim();
-				return value ? [{ personId, track, count: Number(value) }] : [];
+				return [{ personId, track, count: value ? Number(value) : null }];
 			})
 		);
 		const result = await dailyAssignmentsStore.saveStartingNumbers({

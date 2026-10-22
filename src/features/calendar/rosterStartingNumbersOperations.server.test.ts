@@ -97,7 +97,7 @@ function seed(
 	);
 }
 
-const save = (ctx: Context, numbers: { personId: string; track?: string; count: number }[], overrides = {}) =>
+const save = (ctx: Context, numbers: { personId: string; track?: string; count: number | null }[], overrides = {}) =>
 	saveStartingNumbers(ctx, {
 		typeId: SD,
 		formId: FORM,
@@ -157,6 +157,25 @@ describe('saveStartingNumbers', () => {
 
 		// Pike's blank starts at Lee's 4, the lowest typed number. Kim's 9 counts until the 17th, Lee's 4 until the 18th.
 		expect(gridLines(view.sheets[0].segment!)).toEqual(['PFC Lee 5 *6 1 *2', 'SGT Pike 5 6 *7 1', 'SPC Kim *10 1 2 3']);
+	});
+
+	it('keeps a typed number for anyone the save does not submit, and clears one submitted empty', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seed(ctx, {
+			numbers: [
+				{ personId: KIM, count: 9, origin: 'typed' },
+				{ personId: PIKE, count: 5, origin: 'typed' }
+			]
+		});
+
+		await save(ctx, [{ personId: LEE, count: 4 }]);
+		expect(await typedNumbers(ctx)).toEqual(['kim 9 typed', 'pike 5 typed', 'lee 4 typed']);
+
+		await save(ctx, [
+			{ personId: PIKE, count: null },
+			{ personId: LEE, count: 6 }
+		]);
+		expect(await typedNumbers(ctx)).toEqual(['kim 9 typed', 'lee 6 typed']);
 	});
 
 	it('refuses once a detail on the form is served, and changes nothing', async () => {

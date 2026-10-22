@@ -34,7 +34,7 @@ const startingNumbersInput = z
 					.object({
 						personId: uuidSchema,
 						track: z.enum(['all', 'weekday', 'weekend']),
-						count: z.number().int().min(0).max(MAX_COUNT)
+						count: z.number().int().min(0).max(MAX_COUNT).nullable()
 					})
 					.strict()
 			)
@@ -170,7 +170,8 @@ export async function loadStartingNumbersStatus(
 }
 
 /**
- * Replaces the open form's typed starting numbers. Until a detail on the form is served, the roster's planned
+ * Applies the submitted numbers to the open form's typed ones, a null count clearing that box, and leaves every
+ * person or track not submitted as saved. Until a detail on the form is served, the roster's planned
  * picks after today re-pick under the new numbers in the same write, and hand-assigned days stay. A re-pick nobody
  * can take is refused rather than leaving the old pick on numbers that no longer chose it.
  */
@@ -180,7 +181,7 @@ export async function saveStartingNumbers(
 ): Promise<{ saved: SavedAssignment[] }> {
 	const parsed = startingNumbersInput.safeParse(input);
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
-	const { typeId, formId, today, numbers } = parsed.data;
+	const { typeId, formId, today, numbers: submitted } = parsed.data;
 	requireDeviceDate(today);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.configureAssignmentTypes, { kind: 'organization' });
 
@@ -190,14 +191,25 @@ export async function saveStartingNumbers(
 	]);
 	if (form?.id !== formId) fail(409, 'This roster changed while you were editing. Reload and try again.');
 	const tracks = tracksOf(form.rules.weekendMode);
-	const keys = new Set(numbers.map(({ personId, track }) => `${personId}:${track}`));
-	if (keys.size !== numbers.length || numbers.some(({ track }) => !tracks.includes(track))) {
+	const keyOf = ({ personId, track }: { personId: string; track: string }) => `${personId}:${track}`;
+	if (
+		new Set(submitted.map(keyOf)).size !== submitted.length ||
+		submitted.some(({ track }) => !tracks.includes(track))
+	) {
 		fail(400, 'Invalid starting numbers');
 	}
 
 	const through = planned.reduce((last, { date, source }) => (source === 'roster' && date > last ? date : last), today);
 	const facts = await loadRosterFacts(ctx, type, form, today, later(through, form.startsOn));
 	if (startingNumbersLocked(facts)) fail(409, STARTING_NUMBERS_LOCKED);
+	const merged = new Map(
+		form.startingNumbers.map(({ personId, track, count }) => [keyOf({ personId, track }), { personId, track, count }])
+	);
+	for (const number of submitted) {
+		if (number.count === null) merged.delete(keyOf(number));
+		else merged.set(keyOf(number), { ...number, count: number.count });
+	}
+	const numbers = [...merged.values()];
 	const run = simulateRoster(
 		{
 			...facts,

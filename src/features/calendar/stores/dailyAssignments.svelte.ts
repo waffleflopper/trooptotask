@@ -102,7 +102,8 @@ export interface StartingNumbersSave {
 	typeId: string;
 	formId: string;
 	today: string;
-	numbers: StartingNumberInput[];
+	/** A null count clears that box. A person or track left out keeps the number saved for them. */
+	numbers: (Omit<StartingNumberInput, 'count'> & { count: number | null })[];
 }
 
 export interface RosterFill {

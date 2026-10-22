@@ -62,7 +62,7 @@ describe('DA 6 setup mode', () => {
 		expect(document.activeElement).toBe(input('CPL Tran, weekend and holiday starting number'));
 	});
 
-	it('saves the typed numbers and leaves blanks out, then opens the DA 6', async () => {
+	it('saves the typed numbers, then opens the DA 6', async () => {
 		saveMock.mockResolvedValue({ status: 'saved' });
 		renderSetup();
 
@@ -74,13 +74,35 @@ describe('DA 6 setup mode', () => {
 			expect.objectContaining({
 				typeId: 'cq',
 				formId: 'form-1',
-				numbers: [
+				numbers: expect.arrayContaining([
 					{ personId: 'alvarez', track: 'weekend', count: 3 },
 					{ personId: 'kim', track: 'weekday', count: 11 }
-				]
+				])
 			})
 		);
 		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replaceState: true });
+	});
+
+	it('sends every shown box, with an empty one as a clear, so a number with no box is never touched', async () => {
+		saveMock.mockResolvedValue({ status: 'saved' });
+		renderSetup({
+			rows: [person('alvarez', 'SSG', 'Alvarez'), person('tran', 'CPL', 'Tran')],
+			numbers: [
+				{ personId: 'alvarez', track: 'weekend', count: 7 },
+				{ personId: 'kim', track: 'weekday', count: 9 }
+			]
+		});
+
+		await fireEvent.input(input('SSG Alvarez, weekend and holiday starting number'), { target: { value: '' } });
+		await fireEvent.input(input('CPL Tran, weekday starting number'), { target: { value: '2' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save starting numbers' }));
+
+		expect(saveMock.mock.calls[0][0].numbers).toEqual([
+			{ personId: 'alvarez', track: 'weekend', count: null },
+			{ personId: 'tran', track: 'weekend', count: null },
+			{ personId: 'alvarez', track: 'weekday', count: null },
+			{ personId: 'tran', track: 'weekday', count: 2 }
+		]);
 	});
 
 	it('skips without saving', async () => {

@@ -3,11 +3,14 @@ import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 import type {
+	AssignmentSource,
 	Da6Segment,
 	Excusal,
 	OpenForm,
 	PoolRules,
+	RosterCode,
 	RosterEffect,
+	RosterSlotChange,
 	StartingNumber,
 	TrackId,
 	WeekendMode
@@ -248,6 +251,72 @@ export const statusEffectChangesSchema = z.array(
 	})
 ) satisfies z.ZodType<StatusEffectChange[]>;
 
+const trackSchema = z.enum(['all', 'weekday', 'weekend']);
+const rosterCodeSchema = z.enum(['A', 'D', 'U']);
+
+/**
+ * One roster in the Duty planner. Standings are flat runs of [person, count, effect] that index `people`,
+ * with effect 0 for available and n for `effects[n - 1]`, highest count first and ties in DA 6 order.
+ */
+export interface PlannerRoster {
+	typeId: string;
+	people: string[];
+	effects: { code: RosterCode; reason: string }[];
+	/** Counts after the last detail on or before today, per track. Null when today is outside the open form. */
+	current: { track: TrackId; standing: number[] }[] | null;
+	todayAssignee: string | null;
+	/** The month's detail days. */
+	days: { date: string; track: TrackId; standing: number[] }[];
+	/** Excused today, for the panel footer. */
+	excused: string[];
+	/** Days in the month whose assignee has A, D or U, including assignees outside the pool. */
+	conflicts: { date: string; personId: string; code: RosterCode; reason: string }[];
+}
+
+export const plannerRostersSchema = z.array(
+	z.object({
+		typeId: z.string(),
+		people: z.array(z.string()),
+		effects: z.array(z.object({ code: rosterCodeSchema, reason: z.string() })),
+		current: z.array(z.object({ track: trackSchema, standing: z.array(z.number()) })).nullable(),
+		todayAssignee: z.string().nullable(),
+		days: z.array(z.object({ date: z.string(), track: trackSchema, standing: z.array(z.number()) })),
+		excused: z.array(z.string()),
+		conflicts: z.array(z.object({ date: z.string(), personId: z.string(), code: rosterCodeSchema, reason: z.string() }))
+	})
+) satisfies z.ZodType<PlannerRoster[]>;
+
+export interface RosterFillPick {
+	date: string;
+	personId: string;
+	count: number;
+	/** Higher counts the rule passed over, each with the code that kept them off. */
+	passedOver: { personId: string; count: number; code: RosterCode; reason: string }[];
+	/** The status the pick was away on at their last detail on this track, as in "back from TDY". */
+	returningFrom: string | null;
+}
+
+/** The engine's fill plan for open days. Nobody could take an unfilled day; the fill leaves it open. */
+export interface RosterFillPreview {
+	picks: RosterFillPick[];
+	unfilled: string[];
+}
+
+export const rosterFillPreviewSchema = z.object({
+	picks: z.array(
+		z.object({
+			date: z.string(),
+			personId: z.string(),
+			count: z.number(),
+			passedOver: z.array(
+				z.object({ personId: z.string(), count: z.number(), code: rosterCodeSchema, reason: z.string() })
+			),
+			returningFrom: z.string().nullable()
+		})
+	),
+	unfilled: z.array(z.string())
+}) satisfies z.ZodType<RosterFillPreview>;
+
 export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;
 
 export interface FederalHolidayDefault {
@@ -345,7 +414,7 @@ export interface CalendarAssignmentReader {
 	listRosterDetailDays(
 		assignmentTypeId: string,
 		span: { from: string; through: string }
-	): Promise<Array<{ date: string; assigneeId: string }>>;
+	): Promise<Array<{ date: string; assigneeId: string; source: AssignmentSource }>>;
 	listSlotReferences(slots: Array<{ date: string; assignmentTypeId: string }>): Promise<
 		Array<{
 			date: string;
@@ -358,6 +427,8 @@ export interface CalendarAssignmentReader {
 /** Replaces the selected slots or complete days in one transaction; a failure keeps the existing assignments. */
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
+	/** Writes roster picks into open slots as the signed-in operator, all or none. An occupied slot fails with 409. */
+	fillRoster(orgId: string, slots: readonly RosterSlotChange[]): Promise<SavedAssignment[]>;
 }
 
 export interface CalendarAvailabilityRemovalPort {

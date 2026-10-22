@@ -50,6 +50,8 @@ import type {
 	CalendarCatalogPersistence,
 	SavedAssignment
 } from '$features/calendar/contracts';
+import type { AssignmentSource } from '$features/calendar/roster/rosterTypes';
+import { fail } from '$lib/errors';
 import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTaskLibraryPersistence,
@@ -435,7 +437,8 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 	replaceDailyAssignmentSlots(
 		orgId: string,
 		replaceDays: string[],
-		slots: AssignmentSlotChange[]
+		slots: readonly AssignmentSlotChange[],
+		source?: AssignmentSource
 	): Promise<SavedAssignment[]>;
 } {
 	const tables: TableStore = new Map();
@@ -583,7 +586,7 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 			};
 		},
 
-		async replaceDailyAssignmentSlots(orgId, replaceDays, slots) {
+		async replaceDailyAssignmentSlots(orgId, replaceDays, slots, source = 'manual') {
 			const rows = getRows('daily_assignments');
 			const days = new Set(replaceDays);
 			const slotKeys = new Set(slots.map((slot) => `${slot.date}::${slot.assignmentTypeId}`));
@@ -599,7 +602,8 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 					organization_id: orgId,
 					date: slot.date,
 					assignment_type_id: slot.assignmentTypeId,
-					assignee_id: slot.assigneeId
+					assignee_id: slot.assigneeId,
+					source
 				}));
 			rows.splice(0, rows.length, ...retained, ...inserted);
 			return inserted.map((row) => ({
@@ -841,7 +845,25 @@ function createScopedTestStores(auth: OrganizationAccessGrant): {
 function createInMemoryCalendarAssignmentReplacementPort(
 	rawStore: InMemoryDataStore
 ): CalendarAssignmentReplacementPort {
-	return { replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore) };
+	return {
+		replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore),
+		async fillRoster(orgId, slots) {
+			const taken = await rawStore.findMany<{ date: string; assignment_type_id: string }>(
+				'daily_assignments',
+				orgId,
+				undefined,
+				{ inFilters: { date: [...new Set(slots.map((slot) => slot.date))] } }
+			);
+			if (
+				taken.some((row) =>
+					slots.some((slot) => slot.date === row.date && slot.assignmentTypeId === row.assignment_type_id)
+				)
+			) {
+				fail(409, 'This assignment slot is unavailable. Refresh the Calendar and try again.');
+			}
+			return rawStore.replaceDailyAssignmentSlots(orgId, [], slots, 'roster');
+		}
+	};
 }
 
 function createInMemoryCalendarAvailabilityRemovalPort(

@@ -32,7 +32,7 @@ SELECT results_eq($$
   SELECT row_id, row_data - 'show_on_calendar' - 'sort_order' - 'roster_pool_rules' - 'roster_weekend_mode' FROM (
     SELECT id AS row_id, to_jsonb(t) AS row_data FROM public.assignment_types t WHERE organization_id::text LIKE 'e1683000-%'
     UNION ALL
-    SELECT id, to_jsonb(d) FROM public.daily_assignments d WHERE organization_id::text LIKE 'e1683000-%') AS current_rows
+    SELECT id, to_jsonb(d) - 'source' FROM public.daily_assignments d WHERE organization_id::text LIKE 'e1683000-%') AS current_rows
   ORDER BY row_id $$,
   $$ SELECT row_id, row_data - 'show_in_date_header' - 'sort_order' - 'exempt_personnel_ids'
      FROM upgrade_fixture.calendar_lanes_before_rows ORDER BY row_id $$,

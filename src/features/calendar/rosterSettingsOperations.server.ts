@@ -2,7 +2,6 @@ import { error } from '@sveltejs/kit';
 import type { OrganizationRankCatalogEntry, PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
-import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy, type CalendarCatalogPorts } from './calendarPolicy.server';
 import { rosterSettingsInput } from './calendarPersistenceMapping.server';
 import { DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
@@ -13,6 +12,7 @@ import {
 	type SavedAssignmentType
 } from './contracts';
 import { carryOver, closeForm } from './roster/rosterEngine';
+import { addDays, readRosterCalendar, readRosterPeople, rosterFacts } from './rosterFacts.server';
 import type { OpenForm, RosterFacts, RosterRules } from './roster/rosterTypes';
 
 export interface RosterSettingsPorts extends CalendarCatalogPorts {
@@ -25,7 +25,6 @@ export interface RosterSettingsPorts extends CalendarCatalogPorts {
 const action = CALENDAR_POLICY_ACTIONS.configureAssignmentTypes;
 const resource = { kind: 'organization' } as const;
 
-const addDays = (date: string, days: number) => fromDayNumber(toDayNumber(date) + days);
 const utcDate = (offsetDays: number) => addDays(new Date().toISOString().slice(0, 10), offsetDays);
 
 /** The device day must sit within a day of the server's UTC day, so a wrong clock cannot place a form boundary. */
@@ -139,46 +138,35 @@ export async function loadRosterFacts(
 	today: string,
 	through: string = today
 ): Promise<RosterFacts> {
-	const range = { rangeStart: addDays(form.startsOn, -1), rangeEnd: addDays(through, 1) };
-	const [timelines, excusals, rankCatalog, statusTypes, types, availability, specialDays, assignments, detailDays] =
-		await Promise.all([
-			ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth),
-			ctx.calendarCatalogs.listRosterExcusals(type.id),
-			ctx.loadRankCatalog(),
-			ctx.calendarCatalogs.listStatusTypes(),
-			ctx.calendarCatalogs.listAssignmentTypes(),
-			ctx.calendarAvailability.listOverlapping(range),
-			ctx.calendarCatalogs.listSpecialDays(range),
-			ctx.calendarAssignments.listRange(range),
-			ctx.calendarAssignments.listRosterDetailDays(type.id, { from: range.rangeStart, through: range.rangeEnd })
-		]);
+	const span = { from: addDays(form.startsOn, -1), through: addDays(through, 1) };
+	const [people, calendar, excusals, types, assignments, detailDays] = await Promise.all([
+		readRosterPeople(ctx),
+		readRosterCalendar(ctx, span),
+		ctx.calendarCatalogs.listRosterExcusals(type.id),
+		ctx.calendarCatalogs.listAssignmentTypes(),
+		ctx.calendarAssignments.listRange({ rangeStart: span.from, rangeEnd: span.through }),
+		ctx.calendarAssignments.listRosterDetailDays(type.id, span)
+	]);
 	const personTypes = new Map(types.filter((t) => t.assignTo === 'personnel').map((t) => [t.id, t.name]));
-	return {
-		today,
-		window: { from: form.startsOn, through },
-		type: { id: type.id, name: type.name },
-		form,
-		people: timelines.map((person) => ({
-			id: person.id,
-			rank: person.rank,
-			lastName: person.lastName,
-			firstName: person.firstName,
-			states: person.states.map(({ archived, ...state }) => ({ ...state, active: !archived })) as [
-				RosterFacts['people'][number]['states'][number],
-				...RosterFacts['people'][number]['states']
+	return rosterFacts(
+		{ ...people, ...calendar, assignmentTypeNames: personTypes },
+		{
+			today,
+			window: { from: form.startsOn, through },
+			type,
+			form,
+			excusals,
+			assignments: [
+				...assignments
+					.filter(({ assignmentTypeId }) => assignmentTypeId !== type.id && personTypes.has(assignmentTypeId))
+					.map(({ date, assignmentTypeId, assigneeId }) => ({
+						date,
+						assignmentTypeId,
+						assigneeId,
+						source: 'manual' as const
+					})),
+				...detailDays.map(({ date, assigneeId, source }) => ({ date, assignmentTypeId: type.id, assigneeId, source }))
 			]
-		})),
-		excusals,
-		rankCatalog,
-		statusTypes: statusTypes.map(({ id, name, rosterEffect }) => ({ id, name, rosterEffect })),
-		availability,
-		holidays: specialDays.map(({ date }) => date),
-		assignments: [
-			...assignments.filter(
-				({ assignmentTypeId }) => assignmentTypeId !== type.id && personTypes.has(assignmentTypeId)
-			),
-			...detailDays.map(({ date, assigneeId }) => ({ date, assignmentTypeId: type.id, assigneeId }))
-		].map(({ date, assignmentTypeId, assigneeId }) => ({ date, assignmentTypeId, assigneeId, source: 'manual' })),
-		assignmentTypeNames: personTypes
-	};
+		}
+	);
 }

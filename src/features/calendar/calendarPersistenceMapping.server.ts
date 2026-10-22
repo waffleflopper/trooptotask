@@ -10,7 +10,7 @@ import type {
 } from './contracts';
 import { fitsOneDayLabel, normalizeShortLabel } from '$lib/components/patterns/calendar-bars';
 import { MAX_CLOSURE_DAYS } from './utils/closureDays';
-import type { OpenForm, PoolRules, RosterEffect, TrackId, WeekendMode } from './roster/rosterTypes';
+import type { AssignmentSource, OpenForm, PoolRules, RosterEffect, TrackId, WeekendMode } from './roster/rosterTypes';
 import {
 	ROSTER_EXCUSAL_REASON_MAX,
 	normalizePoolRules,
@@ -75,6 +75,7 @@ export type AssignmentRow = SavedRow & {
 	date: string;
 	assignment_type_id: string;
 	assignee_id: string;
+	source?: AssignmentSource;
 };
 
 export const STATUS_TYPE_FIELDS =
@@ -192,6 +193,18 @@ export const statusTypeCreateInput = z.object({
 export const statusEffectPreviewInput = z
 	.object({ id: uuidSchema, rosterEffect: rosterEffectSchema, today: dateOnlySchema })
 	.strict();
+export const plannerRostersInput = z
+	.object({ today: dateOnlySchema, month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Choose a month') })
+	.strict();
+export const rosterFillPreviewInput = z
+	.object({ typeId: uuidSchema, today: dateOnlySchema, from: dateOnlySchema, through: dateOnlySchema })
+	.strict();
+export const rosterFillInput = rosterFillPreviewInput.extend({
+	picks: z
+		.array(z.object({ date: dateOnlySchema, personId: uuidSchema }).strict())
+		.min(1)
+		.max(366)
+});
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
 const statusTypeIds = z
 	.array(uuidSchema)

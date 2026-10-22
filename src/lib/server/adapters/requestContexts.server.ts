@@ -570,7 +570,10 @@ export function createRequestDailyAssignmentContext(request: AdmittedOrganizatio
 		...createRequestCalendarCatalogContext(request),
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient),
-		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase)
+		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase, {
+			admin: getAdminClient,
+			actorId: request.auth.userId
+		})
 	};
 }
 
@@ -582,6 +585,16 @@ export function createRequestRosterSettingsContext(request: AdmittedOrganization
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog({ auth: request.auth, rankCatalog }, { authorization: 'calendar-view' })
+	};
+}
+
+export function createRequestRosterPlannerContext(request: AdmittedOrganizationRequest) {
+	return {
+		...createRequestRosterSettingsContext(request),
+		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase, {
+			admin: getAdminClient,
+			actorId: request.auth.userId
+		})
 	};
 }
 

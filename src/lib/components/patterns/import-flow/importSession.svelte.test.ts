@@ -15,6 +15,15 @@ function deferred<T>() {
 const csv = (rank = 'SGT') => new File([`Last name,First name,Rank\nSmith,Alex,${rank}`], 'personnel.csv');
 
 describe('import session', () => {
+	it('keeps the first repeated header value and lets the user continue', async () => {
+		const lane = personnelLane();
+		const session = new ImportSession(() => lane);
+		await session.chooseFile([new File(['Last name,First name,Last name,Rank\nSmith,Alex,Jones,SGT'], 'HQ.csv')]);
+		expect(session.columnBlockers).toEqual([]);
+		session.goTo('review');
+		expect(session.phase.step).toBe('review');
+		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { name: 'Smith, Alex' } });
+	});
 	it.each(['direct', 'split'] as const)(
 		'blocks Continue for a hand-mapped %s collision and names the field and sheet',
 		async (mapping) => {

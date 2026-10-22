@@ -58,7 +58,7 @@
 		>
 		<span class="flex items-center justify-end gap-1.5 @max-2xl/attention-row:order-4">
 			{#if action}
-				<span class="relative z-10 flex gap-1.5">{@render action()}</span>
+				<span class="relative z-1 flex gap-1.5">{@render action()}</span>
 			{/if}
 			<a
 				{href}

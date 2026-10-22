@@ -40,13 +40,6 @@ const policies = [
 	{ name: 'invitation renewal', path: '/auth/renew-invite', method: 'POST', limit: 5, windowMs: 3_600_000 },
 	{ name: 'auth forms', path: '/auth/login', method: 'POST', limit: 10, windowMs: 900_000 },
 	{ name: 'Organization exports', path: '/org/org-a/api/export-excel', method: 'POST', limit: 10, windowMs: 3_600_000 },
-	{
-		name: 'getting started',
-		path: '/org/org-a/api/getting-started/item',
-		method: 'DELETE',
-		limit: 20,
-		windowMs: 60_000
-	},
 	{ name: 'Organization writes', path: '/org/org-a/api/personnel', method: 'PUT', limit: 30, windowMs: 60_000 },
 	{ name: 'admin search', path: '/admin/api/search', method: 'GET', limit: 30, windowMs: 60_000 },
 	{ name: 'admin suspension', path: '/admin/api/suspend', method: 'POST', limit: 10, windowMs: 900_000 },

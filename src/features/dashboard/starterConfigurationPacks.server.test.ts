@@ -1,16 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
-import { applyStarterConfigurationPack, listStarterConfigurationPacks } from './starterConfigurationPacks.server';
-
-const NO_TRAINING_CONFIGURE: CapabilityMap = {
-	calendar: 'configure',
-	personnel: 'none',
-	training: 'operate',
-	criticalTasks: 'none',
-	onboarding: 'configure',
-	ratingScheme: 'none'
-};
+import { applyStarterConfigurationPack } from './starterConfigurationPacks.server';
 
 const NO_ONBOARDING_CONFIGURE: CapabilityMap = {
 	calendar: 'configure',
@@ -27,253 +18,6 @@ const RACED_TRAINING_TYPE = '00000000-0000-4000-8000-000000000010';
 const RACED_TEMPLATE = '00000000-0000-4000-8000-000000000011';
 
 describe('starter configuration packs', () => {
-	it('returns the preview and empty-organization readiness', async () => {
-		const ctx = createTestContext();
-
-		const [pack] = await listStarterConfigurationPacks(ctx);
-
-		expect(pack).toMatchObject({
-			id: 'first-week-operations',
-			name: 'First Week Operations',
-			canApply: true,
-			isFullyApplied: false
-		});
-		expect(pack.artifacts.map((artifact) => [artifact.family, artifact.names])).toEqual([
-			['training-types', ['Unit Orientation', 'Required Annual Training']],
-			[
-				'onboarding-template',
-				[
-					'New Arrival Packet',
-					'Confirm contact and roster details',
-					'Complete unit orientation',
-					'Review required documents',
-					'Assign duty role and Group'
-				]
-			]
-		]);
-		expect(pack.readiness.map((family) => [family.family, family.configured, family.starterArtifactCount])).toEqual([
-			['training-types', false, 0],
-			['onboarding-template', false, 0]
-		]);
-	});
-
-	it('reports configured families separately from full starter-pack application', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('training_types', [
-			{
-				id: 'training-custom',
-				organization_id: ctx.auth.orgId,
-				name: 'Local Range Safety',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#6b7280',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-
-		const [pack] = await listStarterConfigurationPacks(ctx);
-
-		expect(pack.readiness.find((family) => family.family === 'training-types')).toMatchObject({
-			configured: true,
-			starterArtifactCount: 0
-		});
-		expect(pack.isFullyApplied).toBe(false);
-	});
-
-	it('does not count starter-named onboarding steps from unrelated templates as starter readiness', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('onboarding_templates', [
-			{
-				id: 'template-custom',
-				organization_id: ctx.auth.orgId,
-				name: 'Reception',
-				description: null
-			}
-		]);
-		ctx.store.seed('onboarding_template_steps', [
-			{
-				id: 'step-custom-1',
-				organization_id: ctx.auth.orgId,
-				template_id: 'template-custom',
-				name: 'Confirm contact and roster details',
-				description: null,
-				step_type: 'checkbox',
-				training_type_id: null,
-				stages: null,
-				sort_order: 0
-			},
-			{
-				id: 'step-custom-2',
-				organization_id: ctx.auth.orgId,
-				template_id: 'template-custom',
-				name: 'Complete unit orientation',
-				description: null,
-				step_type: 'training',
-				training_type_id: 'training-custom',
-				stages: null,
-				sort_order: 1
-			}
-		]);
-
-		const [pack] = await listStarterConfigurationPacks(ctx);
-		const onboardingReadiness = pack.readiness.find((family) => family.family === 'onboarding-template');
-
-		expect(onboardingReadiness).toMatchObject({
-			configured: true,
-			starterArtifactCount: 0,
-			existingStarterArtifactNames: []
-		});
-		expect(pack.isFullyApplied).toBe(false);
-	});
-
-	it('counts unique onboarding starter step names for readiness when duplicate rows exist', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('onboarding_templates', [
-			{
-				id: 'template-starter',
-				organization_id: ctx.auth.orgId,
-				name: 'New Arrival Packet',
-				description: null
-			}
-		]);
-		ctx.store.seed('onboarding_template_steps', [
-			{
-				id: 'step-duplicate-1',
-				organization_id: ctx.auth.orgId,
-				template_id: 'template-starter',
-				name: 'Confirm contact and roster details',
-				description: null,
-				step_type: 'checkbox',
-				training_type_id: null,
-				stages: null,
-				sort_order: 0
-			},
-			{
-				id: 'step-duplicate-2',
-				organization_id: ctx.auth.orgId,
-				template_id: 'template-starter',
-				name: 'Confirm contact and roster details',
-				description: null,
-				step_type: 'checkbox',
-				training_type_id: null,
-				stages: null,
-				sort_order: 1
-			},
-			{
-				id: 'step-duplicate-3',
-				organization_id: ctx.auth.orgId,
-				template_id: 'template-starter',
-				name: 'Confirm contact and roster details',
-				description: null,
-				step_type: 'checkbox',
-				training_type_id: null,
-				stages: null,
-				sort_order: 2
-			},
-			{
-				id: 'step-duplicate-4',
-				organization_id: ctx.auth.orgId,
-				template_id: 'template-starter',
-				name: 'Confirm contact and roster details',
-				description: null,
-				step_type: 'checkbox',
-				training_type_id: null,
-				stages: null,
-				sort_order: 3
-			}
-		]);
-
-		const [pack] = await listStarterConfigurationPacks(ctx);
-		const onboardingReadiness = pack.readiness.find((family) => family.family === 'onboarding-template');
-
-		expect(onboardingReadiness).toMatchObject({
-			configured: true,
-			starterArtifactCount: 2,
-			expectedArtifactCount: 5,
-			existingStarterArtifactNames: ['New Arrival Packet', 'Confirm contact and roster details']
-		});
-		expect(pack.isFullyApplied).toBe(false);
-	});
-
-	it('builds readiness from targeted lookup rows without requiring unrelated full-table reads', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('training_types', [
-			{
-				id: 'training-custom',
-				organization_id: ctx.auth.orgId,
-				name: 'Local Range Safety',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#6b7280',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-		ctx.store.seed('onboarding_templates', [
-			{
-				id: 'template-custom',
-				organization_id: ctx.auth.orgId,
-				name: 'Reception',
-				description: null
-			}
-		]);
-		ctx.store.seed('onboarding_template_steps', [
-			{
-				id: 'step-custom',
-				organization_id: ctx.auth.orgId,
-				template_id: 'template-custom',
-				name: 'Confirm contact and roster details',
-				description: null,
-				step_type: 'checkbox',
-				training_type_id: null,
-				stages: null,
-				sort_order: 0
-			}
-		]);
-		const originalFindMany = ctx.store.findMany.bind(ctx.store);
-		const guardedTables = new Set(['training_types', 'onboarding_templates', 'onboarding_template_steps']);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
-			const hasFilters = filters !== undefined && Object.keys(filters).length > 0;
-			const hasInFilters = options?.inFilters !== undefined && Object.keys(options.inFilters).length > 0;
-			const isLimitCheck = options?.limit === 1;
-			if (guardedTables.has(table) && !hasFilters && !hasInFilters && !isLimitCheck) {
-				throw new Error(`unexpected full-table read: ${table}`);
-			}
-			return originalFindMany(table, orgId, filters, options);
-		});
-
-		const [pack] = await listStarterConfigurationPacks(ctx);
-
-		expect(pack.readiness.map((family) => [family.family, family.configured, family.starterArtifactCount])).toEqual([
-			['training-types', true, 0],
-			['onboarding-template', true, 0]
-		]);
-		expect(pack.isFullyApplied).toBe(false);
-	});
-
 	it('applies starter artifacts for an empty Organization', async () => {
 		const ctx = createTestContext();
 
@@ -293,12 +37,9 @@ describe('starter configuration packs', () => {
 		expect(await ctx.store.findMany('onboarding_templates', ctx.auth.orgId)).toHaveLength(1);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
-
-		const [pack] = await listStarterConfigurationPacks(ctx);
-		expect(pack.isFullyApplied).toBe(true);
 	});
 
-	it('applies starter artifacts and reports readiness while preserving saved Calendar facts', async () => {
+	it('applies starter artifacts while preserving saved Calendar facts', async () => {
 		const ctx = createTestContext();
 		const calendarType = {
 			id: 'historical-duty-type',
@@ -317,11 +58,9 @@ describe('starter configuration packs', () => {
 		ctx.store.seed('assignment_types', [calendarType]);
 		ctx.store.seed('daily_assignments', [calendarAssignment]);
 
-		expect((await listStarterConfigurationPacks(ctx))[0].isFullyApplied).toBe(false);
 		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
 
 		expect(result.failed).toEqual([]);
-		expect((await listStarterConfigurationPacks(ctx))[0].isFullyApplied).toBe(true);
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([calendarType]);
 		expect(await ctx.store.findMany('daily_assignments', ctx.auth.orgId)).toEqual([calendarAssignment]);
 	});
@@ -441,25 +180,5 @@ describe('starter configuration packs', () => {
 			message: 'This starter artifact could not be created. Existing configuration was left unchanged.'
 		});
 		expect(JSON.stringify(result)).not.toContain('duplicate key');
-	});
-
-	it('marks the pack unavailable when the actor lacks configure permissions', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: NO_TRAINING_CONFIGURE
-			}
-		});
-
-		const [pack] = await listStarterConfigurationPacks(ctx);
-
-		expect(pack.canApply).toBe(false);
-		expect(pack.deniedActions).toContainEqual(
-			expect.objectContaining({
-				id: 'training.configureRequirements',
-				reasonCode: 'denied:missing-capability'
-			})
-		);
 	});
 });

@@ -6,6 +6,7 @@ import {
 } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { createQueryPortsContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { fetchDashboardBootstrap } from './dashboardQuery.server';
+import { availabilityRuns, backDate } from '../read-model/availabilityRuns';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 
 const ORG = 'test-org';
@@ -445,6 +446,40 @@ describe('fetchDashboardBootstrap', () => {
 		const result = await fetchDashboardBootstrap(buildCtx());
 
 		expect(result.range).toEqual({ rangeStart: '2026-10-17', rangeEnd: '2026-11-03' });
+	});
+
+	it('reads consecutive statuses past the window so a long absence returns on its true day', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2027-01-01T12:00:00Z'));
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		const entry = (id: string, personnelId: string, startDate: string, endDate: string) => ({
+			id,
+			organization_id: ORG,
+			personnel_id: personnelId,
+			status_type_id: 'leave',
+			start_date: startDate,
+			end_date: endDate
+		});
+		store.seed('availability_entries', [
+			entry('deployed', 'person-a', '2026-12-20', '2027-02-01'),
+			entry('leave-after', 'person-a', '2027-02-02', '2027-02-05'),
+			entry('overlapping-tdy', 'person-a', '2027-02-04', '2027-02-08'),
+			entry('later-appointment', 'person-a', '2027-04-20', '2027-04-20'),
+			entry('school', 'person-b', '2027-01-03', '2027-01-20'),
+			entry('after-gap', 'person-b', '2027-01-22', '2027-01-25'),
+			entry('short', 'person-c', '2027-01-02', '2027-01-04')
+		]);
+		const listOverlapping = vi.spyOn(ctx.calendarAvailability, 'listOverlapping');
+
+		const runs = availabilityRuns(await (await fetchDashboardBootstrap(ctx)).availabilityEntries);
+
+		expect(['person-a', 'person-b', 'person-c'].map((id) => backDate(runs.get(id)![0]))).toEqual([
+			'2027-02-09',
+			'2027-01-21',
+			'2027-01-05'
+		]);
+		expect(listOverlapping).toHaveBeenCalledTimes(2);
 	});
 
 	it('returns the stored holidays and closures inside the window for the forecast', async () => {

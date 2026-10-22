@@ -17,7 +17,15 @@ import {
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	CalendarDateRange,
+	StatusType,
+	DailyAssignment
+} from '$features/calendar/contracts';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
+import { runEndsCovering } from './read-model/availabilityRuns';
 import type {
 	DashboardAssignmentsWorkspaceHydrationTarget,
 	DashboardRangeHydrationTarget,
@@ -95,7 +103,25 @@ function createTargetDescriptor<T>(
 	};
 }
 
-// Dashboard shares Calendar's stores, so its snapshot reconciles only its own date range.
+/**
+ * The server follows each absence that runs past the window to its end, so the snapshot also owns those
+ * People's entries through their return day.
+ */
+function availabilitySnapshotCovers(range: CalendarDateRange, snapshot: readonly AvailabilityEntry[]) {
+	const inRange = rangeCoversSpan(range);
+	const returns = new Map(
+		[...runEndsCovering(snapshot, range.rangeEnd)].map(([personnelId, end]) => [
+			personnelId,
+			fromDayNumber(toDayNumber(end) + 1)
+		])
+	);
+	return (entry: AvailabilityEntry) => {
+		const back = returns.get(entry.personnelId);
+		return inRange(entry) || (back !== undefined && entry.endDate >= range.rangeStart && entry.startDate <= back);
+	};
+}
+
+// Dashboard shares Calendar's stores, so its snapshot reconciles only the dates it read.
 function createAvailabilityDescriptor(
 	target: DashboardRangeHydrationTarget<AvailabilityEntry>,
 	store: DashboardRangeHydrationLoadable<AvailabilityEntry>,
@@ -115,7 +141,10 @@ function createAvailabilityDescriptor(
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => {
 			const entries = items as AvailabilityEntry[];
-			store.load(store.orgId === orgId ? read.reconcile(entries, rangeCoversSpan(target.range)) : entries, orgId);
+			store.load(
+				store.orgId === orgId ? read.reconcile(entries, availabilitySnapshotCovers(target.range, entries)) : entries,
+				orgId
+			);
 		},
 		settle: () => read.close()
 	};

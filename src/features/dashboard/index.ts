@@ -2,7 +2,6 @@ export { default as DashboardPageView } from './components/DashboardPageView.sve
 export {
 	createDashboardScreenModel,
 	type DashboardScreenModel,
-	type DashboardSupportData,
 	type DashboardStoreSources
 } from './read-model/dashboardScreenModel.svelte';
 export type { DashboardPageData } from './contracts';

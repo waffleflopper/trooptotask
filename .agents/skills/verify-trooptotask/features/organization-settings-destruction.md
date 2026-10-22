@@ -334,7 +334,7 @@ behind is a failure; preserve it. The helper records the UI-created row/path bef
 cleanup can remove the known orphan after observations. Use a fresh worker for each run.
 
 For the actual in-flight provider boundary, run
-`python3 .agents/skills/verify-trooptotask/helpers/organization-upload-pending.py --worker 1 gate-on` after
+`python3 .agents/skills/verify-trooptotask/helpers/organization-upload-pending.py --worker "$WORKER" gate-on` after
 `overlap-scan` on the same frozen worker. It installs a marked, temporary INSERT trigger only for A/Person A's document
 prefix and final UUID versions; the Storage preflight version `1` passes. The final transaction waits twenty seconds
 after physical upload and before committed metadata, within Storage's thirty-second statement timeout. Prepare the

@@ -2,7 +2,7 @@ import { fail } from '$lib/errors';
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 type TrainingMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
-	'findOne' | 'findMany' | 'findManyWithCount' | 'insert' | 'update' | 'delete' | 'upsertMany'
+	'findOne' | 'findMany' | 'insert' | 'update' | 'delete' | 'upsertMany'
 >;
 import type { StoragePort } from '$lib/storage/contracts';
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '../contracts';
@@ -65,34 +65,9 @@ export function createInMemoryTrainingCatalogPersistence(
 				)
 			).map((row) => ({ appliesToRanks: row.applies_to_ranks, excludedRanks: row.excluded_ranks }));
 		},
-		async countTypesEstimated() {
-			return (
-				(
-					await store.findManyWithCount('training_types', orgId, undefined, {
-						select: 'id',
-						range: { from: 0, to: 0 },
-						count: 'estimated'
-					})
-				).count ?? 0
-			);
-		},
 		async findTypeByName(name) {
 			const row = await store.findOne<TrainingTypeRow>('training_types', orgId, { name });
 			return row ? toTrainingType(row) : null;
-		},
-		async listExistingTypeNames(names) {
-			if (names.length === 0) return [];
-			return (
-				await store.findMany<{ name: string }>(
-					'training_types',
-					orgId,
-					{},
-					{ select: 'name', inFilters: { name: [...names] } }
-				)
-			).map((row) => row.name);
-		},
-		async hasTypes() {
-			return (await store.findMany('training_types', orgId, {}, { select: 'id', limit: 1 })).length > 0;
 		},
 		async findTypeTiming(id) {
 			const row = await store.findOne<{ expiration_months: number | null; expiration_date_only: boolean | null }>(

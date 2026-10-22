@@ -713,16 +713,6 @@ export function createRequestDeletionReviewContext(request: AdmittedOrganization
 	};
 }
 
-export function createRequestGettingStartedContext(request: AdmittedOrganizationRequest) {
-	return {
-		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		auth: request.auth,
-		audit: request.audit,
-		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
-		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
-	};
-}
-
 /** Counts what the Organization retains, turned-off features included, so only governance pages may use it. */
 export function createRequestUnitCountsContext(request: AdmittedOrganizationRequest) {
 	const orgId = request.auth.orgId;

@@ -44,3 +44,13 @@ export function availabilityRuns(
 export function backDate(run: AvailabilityRun): string {
 	return fromDayNumber(toDayNumber(run.endDate) + 1);
 }
+
+/** The last day of each Person's run that covers `day`. */
+export function runEndsCovering(entries: readonly AvailabilityEntry[], day: string): Map<string, string> {
+	const ends = new Map<string, string>();
+	for (const [personnelId, runs] of availabilityRuns(entries)) {
+		const run = runs.find((candidate) => candidate.startDate <= day && candidate.endDate >= day);
+		if (run) ends.set(personnelId, run.endDate);
+	}
+	return ends;
+}

@@ -33,13 +33,6 @@ export type PreparedOnboardingTemplateStep = OnboardingTemplateStepData & {
 	id?: string;
 };
 
-export interface OnboardingStarterReadiness {
-	template: SavedOnboardingTemplate | null;
-	hasAnyTemplate: boolean;
-	hasAnyStep: boolean;
-	stepNames: string[];
-}
-
 export interface DuplicatedOnboardingTemplate {
 	template: SavedOnboardingTemplate;
 	steps: SavedOnboardingTemplateStep[];
@@ -54,9 +47,7 @@ export interface OnboardingCatalogPersistence {
 	findTemplateByName(name: string): Promise<SavedOnboardingTemplate | null>;
 	findStep(id: string): Promise<SavedOnboardingTemplateStep | null>;
 	findStepByTemplateAndName(templateId: string, name: string): Promise<SavedOnboardingTemplateStep | null>;
-	readStarterReadiness(templateName: string, stepNames: readonly string[]): Promise<OnboardingStarterReadiness>;
 	hasAnyTemplate(): Promise<boolean>;
-	countEstimatedSteps(): Promise<number>;
 	createTemplate(data: OnboardingTemplateData): Promise<SavedOnboardingTemplate>;
 	updateTemplate(id: string, data: Partial<OnboardingTemplateData>): Promise<SavedOnboardingTemplate>;
 	/** Copies the template and its steps once per request id; a retry returns the same copy. */

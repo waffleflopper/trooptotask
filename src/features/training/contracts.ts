@@ -310,10 +310,7 @@ export interface TrainingCatalogPersistence {
 	listViews(): Promise<SavedTrainingView[]>;
 	listTypeLabels(): Promise<Array<Pick<TrainingType, 'id' | 'name'>>>;
 	listRankApplicabilityReferences(): Promise<TrainingRankApplicabilityReference[]>;
-	countTypesEstimated(): Promise<number>;
 	findTypeByName(name: string): Promise<SavedTrainingType | null>;
-	listExistingTypeNames(names: readonly string[]): Promise<string[]>;
-	hasTypes(): Promise<boolean>;
 	findTypeTiming(id: string): Promise<TrainingTypeTiming | null>;
 	listTypeImportReferences(ids: readonly string[]): Promise<TrainingTypeImportReference[]>;
 	findTypeId(id: string): Promise<Pick<TrainingType, 'id'> | null>;

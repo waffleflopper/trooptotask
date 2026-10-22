@@ -55,7 +55,8 @@ doctor                Prove app/provider ownership and current candidate; report
 restart [--browser-timezone IANA]
                       Cleanup this worker, then launch the current candidate. The browser keeps the
                       previous session's zone unless the flag names another
-login manager|viewer|scoped|foreign   New context signed in with a provider session; no app /auth/ request
+login ACTOR           New context signed in as any fixture actor (manager, viewer, scoped, foreign,
+                      calendarOperate, ...) with a provider session; no app /auth/ request
 tools                 Native DevTools tool names, descriptions, and JSON argument schemas
 tool NAME '{...}' [--text] [--save PATH]
                       Call a native tool; --text unwraps MCP text, --save writes under .verification/evidence/

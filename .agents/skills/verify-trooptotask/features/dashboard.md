@@ -222,8 +222,8 @@ and preservation of complete original A/B rows.
 
 ## Gotchas
 
-Starter pack apply has an authenticated endpoint and screen-model method, but no rendered Apply control. When changing
-its request composition, verify the ordinary signed-in
+Starter pack apply has an authenticated endpoint but no rendered Apply control. When changing the apply request
+composition, verify the ordinary signed-in
 `POST /org/ORG_ID/api/starter-configuration-packs/first-week-operations/apply` separately from native Dashboard
 interaction. An Organization owner must create "Complete unit orientation" as a Training step linked to "Unit
 Orientation"; reload and reapply must skip existing artifacts without duplicates. A view-only actor must receive 403
@@ -252,8 +252,10 @@ Evaluations, Arriving and leaving. Bottom line sits beside the forecast once the
 (from about 1260px with the sidebar open) and stacks above it below that. Below 1024px On duty stacks under Needs you.
 Needs you shows up to nine rows; from ten it shows seven and a fold row whose `Show all N` expands in place. A row
 narrower than 672px puts its label and timing on the first line. On duty holds Tonight and tomorrow, one row per
-Calendar lane in lane order, and Coming and going for the next seven days. When On duty has nothing to show, Needs you
-takes the full width. A section whose feature is switched off contributes no row, lane, column or button.
+Calendar lane in lane order, and Coming and going for the next seven days. An assignee name stays on one line and ends
+in an ellipsis at every width; its cell's `title` and the accessibility snapshot keep the full name. When On duty has
+nothing to show, Needs you takes the full width. A section whose feature is switched off contributes no row, lane,
+column or button.
 
 A viewer without the Calendar lane gets one note in the Strength band,
 `You do not have access to Calendar availability, so strength is not shown.`, and no Unfilled row, On duty or forecast
@@ -295,6 +297,13 @@ Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default
 - Bottom line reads `3`, `of 4`, `AVAILABLE · 75%`, amber. The strip has four blocks: three available and one
   Verification Training. The out list names `SPC Baker, Synthetic` with `back` and the first day no entry covers Baker.
   The tomorrow line starts `Tomorrow 3.`
+- An absence that runs past the bootstrap window still reports its real return. Through Quick add › Status, give one
+  Person Verification Leave from today through today + 30 and a second Verification Leave from today + 31 through
+  today + 34. Give another Person the same first leave and a second from today + 32 through today + 34, leaving a
+  one-day gap. After a reload the first reads `back` on today + 35 and the other on today + 31. With
+  `server-source arm availability_entries hold 2` (the follow-up read for absences that reach the window's end) every
+  band stays in its skeleton and no `back` date shows; `fail-hard 2` replaces the page like any failed availability
+  read, and `Retry Dashboard` after restore shows both dates. `dashboardScoped` sees only its Alpha Person's return.
 - The forecast flags today and every other duty day Baker is out; the headline reads `Below 80% today, back above on`
   the first duty day after Baker returns, by weekday alone when it is within a week. The legend lists Verification
   Training and `80% floor`.
@@ -456,7 +465,9 @@ After `$V seed dashboard`, as `orgOwner` at 1440:
    date old enough that the new record is still expired keeps that Person on the row. After a current `Record class`,
    correct the same Person to an expired date through **Quick add → Training record**: the Person returns to the Expired
    row once the summary refresh lands. Read the new `personnel_trainings` row, reload, and confirm the Training matrix
-   shows that cell Current.
+   shows that cell Current. After `$V seed dashboard-currency`, a `Dashboard Currency` row's dialog asks for an
+   `Expiration date` instead: recording it saves `expiration_date` as entered and `completion_date` null, including over
+   an existing record, and the Training record dialog shows that date under `EXPIRATION` with status Current.
 4. **Fill.** Press `Fill 7 days` on a lane's Unfilled row. Only now one
    `GET api/calendar-range?…&collections=assignments` reads the last 90 days. Record its time. With
    `$V network arm-hold PAGE calendar-range` armed, the day cards show skeletons under `aria-busy="true"` and

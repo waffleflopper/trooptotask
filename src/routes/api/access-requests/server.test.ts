@@ -1,18 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { publicSetupDeliveryFixture } from '$lib/server/adapters/test-support/accountSetupDelivery.server';
 
-const { auditLogMock, checkRateLimitMock, submitAccessRequestMock } = vi.hoisted(() => ({
+const { auditLogMock, checkRateLimitMock, submitAccessRequestMock, createDeliveryServiceMock } = vi.hoisted(() => ({
 	auditLogMock: vi.fn(),
 	checkRateLimitMock: vi.fn(),
-	submitAccessRequestMock: vi.fn()
+	submitAccessRequestMock: vi.fn(),
+	createDeliveryServiceMock: vi.fn()
 }));
 
 vi.mock('$features/identity/index.server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/identity/index.server')>()),
 	ACCESS_REQUEST_RATE_LIMIT_MESSAGE: 'Too many access request attempts. Please wait before trying again.',
 	checkAccessRequestSubmissionRateLimit: checkRateLimitMock,
-	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
-		submitAccessRequest: submitAccessRequestMock
-	}))
+	createPublicAccessRequestSetupDeliveryService: createDeliveryServiceMock
 }));
 
 vi.mock('$lib/audit/index.server', () => ({
@@ -58,7 +58,9 @@ describe('POST /api/access-requests', () => {
 			maxRequests: 5
 		});
 		submitAccessRequestMock.mockResolvedValue({ status: 'pending-created' });
+		createDeliveryServiceMock.mockReturnValue({ submitAccessRequest: submitAccessRequestMock });
 	});
+	afterEach(() => vi.unstubAllEnvs());
 
 	it('checks durable email and IP limits before submitting the access request', async () => {
 		const response = await POST(makeEvent());
@@ -126,66 +128,74 @@ describe('POST /api/access-requests', () => {
 		expect(submitAccessRequestMock).not.toHaveBeenCalled();
 	});
 
-	it('audits setup link revocations when a duplicate approved request gets a fresh setup link', async () => {
-		submitAccessRequestMock.mockResolvedValueOnce({
-			status: 'fresh-setup-sent',
-			accessRequestId: 'request-1',
-			setupLinkId: 'setup-link-2',
-			revokedLinkIds: ['setup-link-1']
-		});
+	it.each(['sent', 'failed'] as const)(
+		'resends and audits replaced links when email delivery is %s',
+		async (delivery) => {
+			vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');
+			const fixture = publicSetupDeliveryFixture('soldier@example.mil', delivery);
+			createDeliveryServiceMock.mockImplementationOnce(fixture.createService);
 
-		const response = await POST(makeEvent());
+			const response = await POST(makeEvent());
 
-		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toEqual({ success: true });
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'account_setup.link_revoked',
-				resourceType: 'account_setup_link',
-				resourceId: 'setup-link-1',
-				details: {
-					accessRequestId: 'request-1',
-					replacementSetupLinkId: 'setup-link-2',
-					stateTransition: 'pending.replaced'
+			expect(response.status).toBe(200);
+			await expect(response.json()).resolves.toEqual({ success: true });
+			expect(fixture.sendSetupDelivery).toHaveBeenCalledWith({
+				accessRequestId: 'request-1',
+				setupLinkId: 'setup-link-1',
+				email: 'soldier@example.mil',
+				setupUrl: 'https://trooptotask.test/auth/setup-account?token=synthetic-setup-token',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			});
+			expect(fixture.store.insertPendingAccessRequest).not.toHaveBeenCalled();
+			expect(auditLogMock).toHaveBeenCalledWith(
+				{
+					action:
+						delivery === 'sent'
+							? 'access_request.account_setup_link_resent'
+							: 'access_request.account_setup_link_delivery_failed',
+					resourceType: 'access_request',
+					resourceId: 'request-1',
+					details: {
+						email: 'soldier@example.mil',
+						setupLinkId: 'setup-link-1',
+						outboxId: 'outbox-1',
+						...(delivery === 'sent' ? { expiresAt: '2026-06-01T12:00:00.000Z' } : {})
+					},
+					severity: delivery === 'sent' ? 'info' : 'warning'
+				},
+				{ userId: null, ip: '203.0.113.10', userAgent: 'Vitest' }
+			);
+			expect(JSON.stringify(auditLogMock.mock.calls)).not.toContain('token=');
+			expect(auditLogMock).toHaveBeenCalledWith(
+				{
+					action: 'account_setup.link_revoked',
+					resourceType: 'account_setup_link',
+					resourceId: 'previous-link',
+					details: {
+						accessRequestId: 'request-1',
+						replacementSetupLinkId: 'setup-link-1',
+						stateTransition: 'pending.replaced'
+					}
+				},
+				{
+					userId: null,
+					ip: '203.0.113.10',
+					userAgent: 'Vitest'
 				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'Vitest'
-			}
-		);
-	});
+			);
+		}
+	);
 
-	it('audits setup link revocations even when duplicate approved setup delivery fails', async () => {
-		submitAccessRequestMock.mockResolvedValueOnce({
-			status: 'fresh-setup-delivery-failed',
-			accessRequestId: 'request-1',
-			setupLinkId: 'setup-link-2',
-			revokedLinkIds: ['setup-link-1']
+	it('returns a generic server error when the outbox cannot persist a resubmission', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');
+		const fixture = publicSetupDeliveryFixture('soldier@example.mil');
+		fixture.sendSetupDelivery.mockRejectedValueOnce(new Error('outbox unavailable'));
+		createDeliveryServiceMock.mockImplementationOnce(fixture.createService);
+
+		await expect(POST(makeEvent())).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Failed to submit request' }
 		});
-
-		const response = await POST(makeEvent());
-
-		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toEqual({ success: true });
-		expect(auditLogMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				action: 'account_setup.link_revoked',
-				resourceType: 'account_setup_link',
-				resourceId: 'setup-link-1',
-				details: expect.objectContaining({
-					accessRequestId: 'request-1',
-					replacementSetupLinkId: 'setup-link-2',
-					stateTransition: 'pending.replaced'
-				})
-			}),
-			expect.objectContaining({
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'Vitest'
-			})
-		);
 	});
 
 	it('returns generic retry guidance and skips submission when the durable limiter denies', async () => {

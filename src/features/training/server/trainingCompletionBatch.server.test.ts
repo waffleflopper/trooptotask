@@ -140,10 +140,22 @@ describe('importTrainingRecords', () => {
 		);
 	});
 
-	it('uses completion date directly as expiration for date-only types', async () => {
+	it.each(['new', 'existing'])('saves only the expiration date for a %s date-only record', async (recordState) => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: null, expiration_date_only: true });
+		if (recordState === 'existing') {
+			ctx.store.seed('personnel_trainings', [
+				{
+					id: RECORD,
+					organization_id: 'test-org',
+					personnel_id: PERSON_1,
+					training_type_id: TRAINING_TYPE,
+					completion_date: '2025-01-15',
+					expiration_date: '2025-01-15'
+				}
+			]);
+		}
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
@@ -151,13 +163,22 @@ describe('importTrainingRecords', () => {
 			]
 		});
 
-		expect(result.inserted).toHaveLength(1);
-		expect(result.inserted[0]).toEqual(
-			expect.objectContaining({
-				completionDate: '2026-01-15',
+		expect(result.errors).toEqual([]);
+		expect(recordState === 'existing' ? result.updated : result.inserted).toMatchObject([
+			{
+				completionDate: null,
 				expirationDate: '2026-01-15'
-			})
-		);
+			}
+		]);
+		expect(await ctx.trainingCompletions.listCompletions()).toMatchObject([
+			{
+				...(recordState === 'existing' ? { id: RECORD } : {}),
+				personnelId: PERSON_1,
+				trainingTypeId: TRAINING_TYPE,
+				completionDate: null,
+				expirationDate: '2026-01-15'
+			}
+		]);
 	});
 
 	it('errors when expiration-date-only type has no completion date', async () => {

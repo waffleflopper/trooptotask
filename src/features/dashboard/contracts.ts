@@ -66,14 +66,6 @@ export interface DashboardIctlSummary {
 	atRiskSoldiers: DashboardIctlAtRiskSoldier[];
 }
 
-export interface DashboardSetupSupport {
-	trainingTypeCount: number;
-	onboardingTemplateStepCount: number;
-	ratingSchemeEntryCount: number;
-	orgMemberCount: number;
-	starterConfigurationPacks: StarterConfigurationPackSupport[];
-}
-
 /** The viewer's calendar day and IANA zone from the page load; the Dashboard's only "today". */
 export interface DashboardViewerDay {
 	date: string;
@@ -93,12 +85,6 @@ export interface DashboardPageData {
 	onboardingTrainingCompletions: string[];
 	/** The summary read failed, so a null summary above is unknown rather than withheld. */
 	summaryFailed: boolean;
-	trainingTypeCount?: number;
-	onboardingTemplateStepCount?: number;
-	ratingSchemeEntryCount?: number;
-	orgMemberCount?: number;
-	gettingStartedDismissed?: boolean;
-	starterConfigurationPacks?: StarterConfigurationPackSupport[];
 	[key: string]: unknown;
 }
 
@@ -180,45 +166,9 @@ export interface DashboardWorkspaceResult {
 	hydration: DashboardWorkspaceHydration;
 }
 
-import type { PolicyReasonCode } from '$lib/access/policyEvaluator';
-
 export type StarterConfigurationPackId = 'first-week-operations';
 
 export type StarterConfigurationPackArtifactFamilyId = 'training-types' | 'onboarding-template';
-
-export interface StarterConfigurationPackArtifactPreview {
-	family: StarterConfigurationPackArtifactFamilyId;
-	label: string;
-	names: string[];
-	description: string;
-}
-
-export interface StarterConfigurationPackFamilyReadiness {
-	family: StarterConfigurationPackArtifactFamilyId;
-	label: string;
-	configured: boolean;
-	starterArtifactCount: number;
-	expectedArtifactCount: number;
-	existingStarterArtifactNames: string[];
-}
-
-export interface StarterConfigurationPackDeniedAction {
-	id: string;
-	label: string;
-	reasonCode: PolicyReasonCode;
-}
-
-export interface StarterConfigurationPackSupport {
-	id: StarterConfigurationPackId;
-	name: string;
-	description: string;
-	editableCopy: string;
-	artifacts: StarterConfigurationPackArtifactPreview[];
-	readiness: StarterConfigurationPackFamilyReadiness[];
-	canApply: boolean;
-	deniedActions: StarterConfigurationPackDeniedAction[];
-	isFullyApplied: boolean;
-}
 
 export interface StarterConfigurationPackResultItem {
 	family: StarterConfigurationPackArtifactFamilyId;

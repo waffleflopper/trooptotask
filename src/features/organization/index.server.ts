@@ -74,6 +74,5 @@ export { createOrganizationPlatformInvitationReader } from './invitationSupportR
 
 export {
 	readOrganizationMembershipAccess,
-	readOrganizationMembershipForRequest,
-	countOrganizationMembers
+	readOrganizationMembershipForRequest
 } from './organizationMembershipRead.server';

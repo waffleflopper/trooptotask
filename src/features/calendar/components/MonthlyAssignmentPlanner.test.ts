@@ -368,6 +368,39 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 		).toBeTruthy();
 	});
 
+	describe('conflicts against a roster view', () => {
+		const savedLeave: AvailabilityEntry = {
+			id: 'leave-1',
+			personnelId: 'p-okafor',
+			statusTypeId: 'leave',
+			startDate: '2026-10-20',
+			endDate: '2026-10-23'
+		};
+		const okaforOn21 = /Staff Duty, Wed 21 Oct: SGT Okafor, Ife, unavailable: Leave 20–23 Oct/;
+		const coveringView = new Map([['type-sd', staffDutyRoster({ covered: new Set(['2026-10-21']) })]]);
+
+		it('leaves a fresh roster view to judge the days it details', () => {
+			renderPlanner({
+				assignments: [duty('2026-10-21', 'type-sd', 'p-okafor')],
+				availabilityEntries: [savedLeave],
+				rosters: { views: coveringView }
+			});
+
+			expect(screen.queryByRole('button', { name: okaforOn21 })).toBeNull();
+		});
+
+		it('flags a Leave saved after a roster refresh failed instead of trusting the stale view', () => {
+			renderPlanner({
+				assignments: [duty('2026-10-21', 'type-sd', 'p-okafor')],
+				availabilityEntries: [savedLeave],
+				rosters: { views: coveringView, stale: true }
+			});
+
+			expect(screen.getByRole('button', { name: okaforOn21 })).toBeTruthy();
+			expect(within(screen.getByRole('region', { name: 'Conflicts' })).getByText(/SGT Okafor, Ife/)).toBeTruthy();
+		});
+	});
+
 	const detailDay: RosterDayRead = {
 		status: 'ready',
 		day: {

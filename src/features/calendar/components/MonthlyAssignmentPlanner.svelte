@@ -110,7 +110,8 @@
 	const conflicts = $derived(
 		findDutyConflicts({ assignments, assignmentTypes: columns, availabilityByPerson, range: monthRange })
 	);
-	const rosterViews = $derived(rosters?.status === 'ready' ? rosters.views : null);
+	// A stale view trails the saved availability, so it must not replace the local A, D and U check on the days it covers.
+	const rosterViews = $derived(rosters?.status === 'ready' && !rosters.stale ? rosters.views : null);
 	const table = $derived(
 		buildPlannerTable({
 			anchor: monthStart,

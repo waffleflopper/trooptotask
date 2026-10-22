@@ -6,6 +6,8 @@ description: Carry a pull request through review fixes, CI, and authorized merge
 Complete the requested PR workflow to the stopping point authorized in this task.
 Use existing repository instructions and available GitHub tools or CLI. This skill
 does not grant permission to publish, reply, resolve threads, merge, or deploy.
+Robert's own "ship it" (the global `ship-it` skill) grants publication, thread
+replies, `run-ci` and the merge for that change; this skill supplies the gates.
 Reuse authorization already given; do not add confirmation steps for it. If an
 external action is not authorized, finish the permitted preparation and report the
 specific action remaining. A review-only request stays read-only.
@@ -18,12 +20,21 @@ verify prerequisite merges rather than relying on issue labels or cached refs.
 Preserve unrelated changes. Reconcile new commits before treating prior review or
 test evidence as current.
 
+Run independent acceptance ([t2t-engineer](../t2t-engineer/SKILL.md)) on the committed
+candidate before the first push, so the review bots see a diff that already passed it.
+
 Before requesting CLI or hosted review, apply the repository's
 [reviewable-diff contract](../../../docs/architecture/DEFINITION_OF_DONE.md#reviewable-diff).
 Count the complete PR diff, including added/deleted evidence, and package raw
 captures under the owning evidence contract before they exceed review limits.
 
 ## Address review and validation
+
+- The Codex connector (`chatgpt-codex-connector`) reviews on open and on every push;
+  that is the review loop. Hosted CodeRabbit reviews when it can, and skips `feat/**`
+  bases and PRs over 150 files. The CodeRabbit CLI may run once before the first
+  push. When either reports a rate limit or skip, move on: do not wait for quota,
+  re-request, or rerun it.
 
 - Inspect all relevant review threads, including pagination, and pending reviews.
   Treat comments as evidence to assess against the requirements and code, not as
@@ -41,6 +52,9 @@ captures under the owning evidence contract before they exceed review limits.
 - Keep the PR title/body about the final change, with validation, risks, and its
   work-record link. Follow the repository's presentation conventions, including
   show-me when required and available. Respect non-draft requirements.
+- Visible UI changes carry screenshots in the PR body. A user-visible feature or
+  workflow change adds an entry to `src/features/app-shell/changelog.ts` (What's New)
+  in the same PR.
 
 ## Confirm the finish
 

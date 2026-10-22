@@ -19,6 +19,7 @@ import {
 } from './rowModel';
 import { buildReceipt, runCommit, type CommitProgress, type PlannedChange, type Receipt } from './commit';
 import { downloadNotImported, downloadTemplate } from './workbooks';
+import { emptyMap, emptySet, indexBy, withEntries, withEntry, withMember } from './collections';
 
 export type Phase =
 	| { step: 'file'; error: string | null; reading: boolean }
@@ -33,9 +34,9 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	#memo = new ReviewMemo<Change>();
 	file = $state.raw<LoadedFile | null>(null);
 	layout = $state.raw<Layout | null>(null);
-	skipped = $state.raw<ReadonlySet<RowId>>(new Set());
-	edits = $state.raw<ReadonlyMap<RowId, Readonly<Record<string, string>>>>(new Map());
-	answers = $state.raw<ReadonlyMap<QuestionKey, Answer>>(new Map());
+	skipped = $state.raw<ReadonlySet<RowId>>(emptySet());
+	edits = $state.raw<ReadonlyMap<RowId, Readonly<Record<string, string>>>>(emptyMap());
+	answers = $state.raw<ReadonlyMap<QuestionKey, Answer>>(emptyMap());
 	phase = $state.raw<Phase>({ step: 'file', error: null, reading: false });
 	filter = $state.raw<ReviewFilter>('all');
 	creating = new SvelteMap<QuestionKey, true>();
@@ -93,9 +94,9 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		this.#memo.clear();
 		this.file = null;
 		this.layout = null;
-		this.skipped = new Set();
-		this.edits = new Map();
-		this.answers = new Map();
+		this.skipped = emptySet();
+		this.edits = emptyMap();
+		this.answers = emptyMap();
 		this.creating.clear();
 		this.filter = 'all';
 		this.phase = { step: 'file', error: null, reading: false };
@@ -127,34 +128,28 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	}
 	setColumnTarget(header: HeaderKey, target: ColumnTarget): void {
 		if (!this.layout || this.phase.step === 'committing' || this.phase.step === 'done') return;
-		this.layout = { ...this.layout, columns: new Map(this.layout.columns).set(header, target) };
+		this.layout = { ...this.layout, columns: withEntry(this.layout.columns, header, target) };
 	}
 	setRowSkipped(rowId: RowId, skipped: boolean): void {
 		if (this.phase.step === 'committing' || this.phase.step === 'done') return;
-		const next = new Set(this.skipped);
-		if (skipped) next.add(rowId);
-		else next.delete(rowId);
-		this.skipped = next;
+		this.skipped = withMember(this.skipped, rowId, skipped);
 	}
 	editCell(rowId: RowId, field: keyof C & string, value: string): void {
 		if (this.phase.step === 'committing' || this.phase.step === 'done') return;
 		const row = this.sourceRows.find((item) => item.id === rowId);
 		if (!row) return;
 		const shared = row.pivot && field !== row.pivot.field && field !== row.pivot.valueField;
-		const edits = new Map(this.edits);
-		for (const item of shared
+		const targets = shared
 			? this.sourceRows.filter((item) => item.sheetIndex === row.sheetIndex && item.rowNumber === row.rowNumber)
-			: [row]) {
-			edits.set(item.id, { ...edits.get(item.id), [field]: value });
-		}
-		this.edits = edits;
+			: [row];
+		this.edits = withEntries(
+			this.edits,
+			targets.map((item) => [item.id, { ...this.edits.get(item.id), [field]: value }] as const)
+		);
 	}
 	answer(key: QuestionKey, answer: Answer | null): void {
 		if (this.phase.step === 'committing' || this.phase.step === 'done') return;
-		const answers = new Map(this.answers);
-		if (answer) answers.set(key, answer);
-		else answers.delete(key);
-		this.answers = answers;
+		this.answers = withEntry(this.answers, key, answer ?? undefined);
 	}
 
 	async createOption(key: QuestionKey, name: string): Promise<{ refused: string } | null> {
@@ -216,7 +211,10 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		let receipt = buildReceipt(
 			review.rows.flatMap((item) => (item.outcome === 'skipped' ? [{ row: item.row, reason: item.reason }] : [])),
 			result.results,
-			new Map(review.rows.map((item) => [item.row.id, item.row])),
+			indexBy(
+				review.rows.map((item) => item.row),
+				(row) => row.id
+			),
 			result.stopped,
 			review.counts.unchanged
 		);
@@ -236,12 +234,10 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	async downloadTemplate(): Promise<void> {
 		const generation = this.#generation;
 		await downloadTemplate(this.lane, () => generation === this.#generation);
-		if (generation !== this.#generation) return;
 	}
 	async downloadNotImported(): Promise<void> {
 		if (!this.file || !this.layout || this.phase.step !== 'done') return;
 		const generation = this.#generation;
 		await downloadNotImported(this.file, this.layout, this.phase.receipt, () => generation === this.#generation);
-		if (generation !== this.#generation) return;
 	}
 }

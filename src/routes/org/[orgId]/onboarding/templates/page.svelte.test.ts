@@ -8,6 +8,7 @@ import type { ScopeSet } from '$lib/access/memberAccessShape';
 import {
 	onboardingStore,
 	onboardingTemplateStore,
+	onboardingTrainingTypes,
 	type OnboardingTemplate,
 	type OnboardingTemplateStep,
 	type PersonnelOnboarding
@@ -49,6 +50,7 @@ afterEach(() => {
 	gotoMock.mockReset();
 	onboardingTemplateStore.load([], [], 'org-test-reset');
 	onboardingStore.load([], 'org-test-reset');
+	onboardingTrainingTypes.load([], 'org-test-reset');
 });
 
 function step(id: string, name: string, sortOrder: number, overrides: Partial<OnboardingTemplateStep> = {}) {
@@ -392,6 +394,17 @@ describe('onboarding templates page', () => {
 		});
 
 		expect(screen.getByText(/^Linked to Training: .*Clears itself from training records\.$/)).toBeTruthy();
+	});
+
+	it('names the linked Training type when its labels arrive after the templates', async () => {
+		await renderTemplatesPage({
+			templateSteps: [step('step-1', 'SHARP annual', 0, { stepType: 'training', trainingTypeId: 'tt-1' })]
+		});
+		expect(screen.getByText(/a training type that no longer exists/)).toBeTruthy();
+
+		onboardingTrainingTypes.load([{ id: 'tt-1', name: 'SHARP Annual' }], 'org-1');
+
+		await waitFor(() => expect(screen.getByText(/^Linked to Training: SHARP Annual\./)).toBeTruthy());
 	});
 
 	it('keeps the step editor open and shows the error when saving fails', async () => {

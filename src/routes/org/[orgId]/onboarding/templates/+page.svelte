@@ -84,6 +84,8 @@
 		};
 		const ready = hydrated;
 		const version = onboardingTemplateStore.hydrationVersion;
+		void onboardingTrainingTypes.orgId;
+		void onboardingTrainingTypes.loading;
 
 		untrack(() => {
 			workspace.replaceOrganization(organization);

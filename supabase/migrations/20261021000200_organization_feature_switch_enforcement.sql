@@ -50,7 +50,7 @@ AS $$
 $$;
 ALTER FUNCTION public.member_access_has_capability(uuid, text, text) OWNER TO postgres;
 
-CREATE FUNCTION organization_private.feature_is_off(p_organization_id uuid, p_feature text)
+CREATE FUNCTION public.feature_is_off(p_organization_id uuid, p_feature text)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
 AS $$
@@ -59,10 +59,9 @@ AS $$
     WHERE o.id = p_organization_id AND p_feature = ANY (o.disabled_features)
   );
 $$;
-ALTER FUNCTION organization_private.feature_is_off(uuid, text) OWNER TO postgres;
-REVOKE ALL ON FUNCTION organization_private.feature_is_off(uuid, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION organization_private.feature_is_off(uuid, text) TO service_role;
-GRANT USAGE ON SCHEMA organization_private TO service_role;
+ALTER FUNCTION public.feature_is_off(uuid, text) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.feature_is_off(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.feature_is_off(uuid, text) TO service_role;
 
 CREATE FUNCTION public.organization_feature_enabled(p_organization_id uuid, p_feature text)
 RETURNS boolean
@@ -148,7 +147,7 @@ BEGIN
         WHEN 'INSERT' THEN NEW.award_tracking_acknowledged_at IS NOT NULL
         ELSE NEW.award_tracking_acknowledged_at IS DISTINCT FROM OLD.award_tracking_acknowledged_at
       END)
-    AND organization_private.feature_is_off(NEW.organization_id, 'lossesAndAwards')
+    AND public.feature_is_off(NEW.organization_id, 'lossesAndAwards')
   THEN
     RAISE EXCEPTION 'Losses and awards is turned off for this organization' USING ERRCODE = '42501';
   END IF;
@@ -175,7 +174,7 @@ LANGUAGE plpgsql SECURITY INVOKER
 SET search_path = ''
 AS $$
 BEGIN
-	IF organization_private.feature_is_off(p_organization_id, CASE p_resource_type
+	IF public.feature_is_off(p_organization_id, CASE p_resource_type
 		WHEN 'training_type' THEN 'training'
 		WHEN 'personnel_training' THEN 'training'
 		WHEN 'rating_scheme_entry' THEN 'evaluations'
@@ -269,7 +268,7 @@ BEGIN
       training_type_id, stages, sort_order, completed, current_stage, notes, active
     ) SELECT p_organization_id, packet.id, s.id, s.name, s.step_type,
       s.training_type_id, s.stages, s.sort_order,
-      NOT organization_private.feature_is_off(p_organization_id, 'training') AND s.step_type = 'training' AND s.training_type_id IS NOT NULL AND EXISTS (
+      NOT public.feature_is_off(p_organization_id, 'training') AND s.step_type = 'training' AND s.training_type_id IS NOT NULL AND EXISTS (
         SELECT 1 FROM public.personnel_trainings AS record
         WHERE record.organization_id = p_organization_id
           AND record.personnel_id = p_personnel_id
@@ -299,7 +298,7 @@ CREATE FUNCTION onboarding_private.admitted_member_training_is_off(p_organizatio
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
 AS $$
   SELECT public.is_org_member(p_organization_id)
-    AND organization_private.feature_is_off(p_organization_id, 'training');
+    AND public.feature_is_off(p_organization_id, 'training');
 $$;
 ALTER FUNCTION onboarding_private.admitted_member_training_is_off(uuid) OWNER TO postgres;
 REVOKE ALL ON FUNCTION onboarding_private.admitted_member_training_is_off(uuid) FROM PUBLIC, anon, service_role;

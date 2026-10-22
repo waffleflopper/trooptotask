@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(93);
+SELECT plan(94);
 
 SELECT ok(NOT EXISTS (
 	SELECT 1
@@ -325,6 +325,13 @@ SELECT is(
 			AND p.proname IN ('member_access_has_capability', 'organization_feature_enabled') ORDER BY p.proname),
 	ARRAY['member_access_has_capability:true:s:search_path="":true', 'organization_feature_enabled:true:s:search_path="":true'],
 	'both switch-aware helpers are stable definer functions with a pinned search path that policies can call'
+);
+SELECT is(
+	(SELECT has_function_privilege('anon', p.oid, 'EXECUTE')::text || ':' || has_function_privilege('authenticated', p.oid, 'EXECUTE')::text
+		|| ':' || has_function_privilege('service_role', p.oid, 'EXECUTE')::text
+		FROM pg_proc AS p WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'feature_is_off'),
+	'false:false:true',
+	'only the trusted server role can ask whether a feature is off'
 );
 
 SELECT is(pg_temp.readable_as(actor, '101'), reads, label || ' reads every feature while all are on')

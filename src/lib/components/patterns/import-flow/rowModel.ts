@@ -27,6 +27,7 @@ export interface SourceRow {
 	cells: readonly string[];
 	date1904?: boolean;
 	pivotHeader?: string;
+	pivotColumn?: number;
 	pivot?: { field: string; valueField: string };
 	problems?: readonly CellProblem[];
 }
@@ -86,6 +87,7 @@ export function buildSourceRows<C extends ImportColumns>(
 						id: sourceRowId(sheet.index, rowIndex, column),
 						raw: { ...raw, [lane.pivot.field]: headers[column], [lane.pivot.valueField]: cells[column] },
 						pivotHeader: headers[column],
+						pivotColumn: column,
 						pivot: lane.pivot
 					});
 			} else rows.push({ ...base, id: sourceRowId(sheet.index, rowIndex), raw });
@@ -283,7 +285,7 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			accepts: {
 				kind: 'pick',
 				options: match.kind === 'many' ? match.candidates : withCreated(reference.options, memo.created.get(name)),
-				canCreate: reference.create !== undefined
+				canCreate: match.kind !== 'many' && reference.create !== undefined
 			},
 			answer
 		};

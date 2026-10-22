@@ -3,6 +3,7 @@ import { downloadBlob } from '$lib/utils/downloadBlob';
 import type { ImportColumns } from './types';
 import type { Receipt } from './commit';
 import type { Layout, LoadedFile } from './workbookSource';
+import { headerKey } from './workbookSource';
 
 function formatCellsAsText(sheet: Worksheet): void {
 	sheet.eachRow((row) =>
@@ -35,13 +36,19 @@ export async function buildNotImported(file: LoadedFile, layout: Layout, receipt
 		const width = Math.max(headers.length, ...items.map((item) => item.row.cells.length));
 		const sheet = workbook.addWorksheet(source.name.replace(/[\\/*?:[\]]/g, '_').slice(0, 31) || `Sheet ${index + 1}`);
 		sheet.addRow([...Array.from({ length: width }, (_, column) => headers[column] ?? ''), 'Reason']);
-		const physicalRows = new Map<number, { cells: readonly string[]; reasons: Set<string> }>();
+		const pivotColumns = headers.flatMap((header, column) =>
+			layout.columns.get(headerKey(header))?.kind === 'pivot' ? [column] : []
+		);
+		const physicalRows = new Map<number, { cells: string[]; reasons: Set<string> }>();
 		for (const item of items) {
 			let row = physicalRows.get(item.row.rowNumber);
 			if (!row) {
-				row = { cells: item.row.cells, reasons: new Set() };
+				row = { cells: [...item.row.cells], reasons: new Set() };
+				if (item.row.pivotColumn !== undefined) for (const column of pivotColumns) row.cells[column] = '';
 				physicalRows.set(item.row.rowNumber, row);
 			}
+			if (item.row.pivotColumn !== undefined)
+				row.cells[item.row.pivotColumn] = item.row.cells[item.row.pivotColumn] ?? '';
 			row.reasons.add(item.row.pivotHeader ? `${item.row.pivotHeader}: ${item.reason}` : item.reason);
 		}
 		for (const row of physicalRows.values())

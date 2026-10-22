@@ -240,16 +240,51 @@ export function extendColumnTargets<C extends ImportColumns>(
 		const detected = cells.map((cell) => directTarget(cell, lane));
 		const longFormat =
 			lane.pivot && detected.some((target) => target?.kind === 'field' && target.field === lane.pivot?.field);
+		const claimed = fieldsForTargets(
+			cells.flatMap((cell) => {
+				const target = columns.get(headerKey(cell));
+				return target && target.kind !== 'pivot' ? [target] : [];
+			}),
+			lane
+		);
 		for (let column = 0; column < cells.length; column++) {
 			const key = headerKey(cells[column]);
 			if (!key || columns.has(key)) continue;
-			columns.set(
-				key,
-				detected[column] ?? (lane.pivot && !longFormat && key !== 'reason' ? { kind: 'pivot' } : { kind: 'ignore' })
-			);
+			const target: ColumnTarget =
+				detected[column] ?? (lane.pivot && !longFormat && key !== 'reason' ? { kind: 'pivot' } : { kind: 'ignore' });
+			const fields = target.kind === 'pivot' ? new Set<string>() : fieldsForTargets([target], lane);
+			if ([...fields].some((field) => claimed.has(field))) columns.set(key, { kind: 'ignore' });
+			else {
+				columns.set(key, target);
+				for (const field of fields) claimed.add(field);
+			}
 		}
 	}
 	return { ...layout, columns };
+}
+
+export function duplicateMappedFields<C extends ImportColumns>(
+	layout: Layout,
+	file: LoadedFile,
+	lane: ImportSchema<C>
+): readonly { label: string; sheet: string }[] {
+	const duplicates: { label: string; sheet: string }[] = [];
+	for (let i = 0; i < layout.sheets.length; i++) {
+		const settings = layout.sheets[i];
+		if (!settings.included || settings.headerRow === null) continue;
+		const fields = new Set<string>();
+		const repeated = new Set<string>();
+		for (const header of file.sheets[i].rows[settings.headerRow] ?? []) {
+			const target = layout.columns.get(headerKey(header));
+			if (!target || target.kind === 'pivot') continue;
+			for (const field of fieldsForTargets([target], lane)) {
+				if (fields.has(field)) repeated.add(field);
+				fields.add(field);
+			}
+		}
+		for (const field of repeated) duplicates.push({ label: lane.columns[field].label, sheet: file.sheets[i].name });
+	}
+	return duplicates;
 }
 
 export function missingRequiredFields<C extends ImportColumns>(

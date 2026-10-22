@@ -4,6 +4,7 @@ import type { ColumnTarget, HeaderKey, Layout, LoadedFile } from './workbookSour
 import {
 	ACCEPTED_EXTENSIONS,
 	detectLayout,
+	duplicateMappedFields,
 	extendColumnTargets,
 	missingRequiredFields,
 	readImportFile
@@ -59,6 +60,8 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		const problems = missingRequiredFields(this.layout, this.file, this.lane).map(
 			(column) => `Map a column to ${column.label} on every included sheet.`
 		);
+		for (const duplicate of duplicateMappedFields(this.layout, this.file, this.lane))
+			problems.push(`Map only one column to ${duplicate.label} on ${duplicate.sheet}.`);
 		if (included.some((sheet) => sheet.headerRow === null))
 			problems.unshift('Choose a header row for every included sheet.');
 		return problems;

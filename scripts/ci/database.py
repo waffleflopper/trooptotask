@@ -545,7 +545,7 @@ def startup_diagnostics(output):
         line = re.sub(r'\b(?:Bearer|Basic)\s+\S+', '[REDACTED]', line, flags=re.IGNORECASE)
         # Opaque or quoted credentials can contain spaces. Suppress the whole value suffix.
         line = re.sub(
-            r'''(\b(?:[\w-]*(?:key|token|jwt|password|secret)[\w-]*|authorization)\b["']?'''
+            r'''(\b[\w-]*(?:key|token|jwt|password|secret|auth)[\w-]*\b["']?'''
             r'(?:\s*[:=]\s*|\s+)).*', r'\1[REDACTED]', line, flags=re.IGNORECASE)
         lines.append(line)
     return '\n'.join(lines)

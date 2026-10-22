@@ -8,7 +8,7 @@ CI runs on GitHub-hosted `ubuntu-24.04` runners until Depot CI minutes reset; se
 
 Without the label every job reports skipped. Add `run-ci` once hosted review of the current head has no actionable findings. The run clears the label automatically, so later pushes wait for another deliberate re-add after review is clean. Dependabot and fork PRs get a read-only token, so their label stays and CI runs on each push. Adding any other label skips every job and cannot cancel a running check.
 
-A PR's run tests its merge with `main` as of that run. When an exact `main` commit needs CI evidence, run `gh workflow run ci.yml --ref main`, which validates everything. To rerun a PR against a newer `main`, re-add `run-ci`; a job rerun reuses the old merge ref.
+A PR's run tests its merge with `main` as of that run. When an exact `main` commit needs CI evidence, run `gh workflow run ci.yml --ref main`, which validates everything. To rerun a PR against a newer `main`, re-add `run-ci` (on Dependabot and fork PRs, which keep the label, remove it and add it again); a job rerun reuses the old merge ref.
 
 | Job                        | Scope                                                                                                                                                                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

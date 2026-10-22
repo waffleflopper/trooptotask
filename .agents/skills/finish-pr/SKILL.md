@@ -60,7 +60,8 @@ captures under the owning evidence contract before they exceed review limits.
 
 PR CI waits for the `run-ci` label described in [CI](../../../docs/ci.md#what-runs).
 Add it once hosted review of the current head has no actionable findings. The run
-clears the label automatically. Re-add it when the next review round is clean.
+clears the label automatically. Re-add it when the next review round is clean. On
+Dependabot and fork PRs the label stays; remove and re-add it to start a new run.
 Do not add it to start CI while review is still pending.
 
 Observe required CI for the current head commit and wait for requested reviews to

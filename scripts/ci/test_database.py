@@ -35,6 +35,7 @@ error connecting to postgres://postgres:synthetic-password@localhost/db
 error: authorization: Bearer synthetic-bearer-token
 error: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmaXh0dXJlIn0.c3ludGhldGlj
 error: sb_secret_synthetic123
+error: {"auths":{"ghcr.io":{"auth":"c3ludGhldGljOnBhc3M="}}}
 '''
         self.assertEqual(database.startup_diagnostics(output), '''ToOmAnYrEqUeStS: registry rate limit
 TIMEOUT pulling registry.invalid/db
@@ -46,7 +47,8 @@ error: password: [REDACTED]
 error connecting to postgres://[REDACTED]@localhost/db
 error: authorization: [REDACTED]
 error: [REDACTED]
-error: [REDACTED]''')
+error: [REDACTED]
+error: {"auths":[REDACTED]''')
 
     def test_failed_supabase_start_prints_only_sanitized_diagnostics(self):
         output = io.StringIO()

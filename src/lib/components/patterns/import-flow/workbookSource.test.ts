@@ -134,6 +134,17 @@ describe('workbook source', () => {
 		);
 		expect(review.rows[0]).toMatchObject({ outcome: 'new', change: { ets: '2027-05-01' } });
 	});
+	it('reads a comma file whose banner line holds a tab as comma-delimited', async () => {
+		const result = await readImportFile(
+			new File(['UNCLASSIFIED\t2026\r\nLast name,First name,Rank\r\nSmith,Alex,SGT'], 'roster.csv')
+		);
+		if (result.kind !== 'loaded') throw new Error('CSV rejected');
+		expect(result.file.sheets[0].rows).toEqual([
+			['UNCLASSIFIED\t2026'],
+			['Last name', 'First name', 'Rank'],
+			['Smith', 'Alex', 'SGT']
+		]);
+	});
 	it('loads TSV and quoted CSV cells while preserving empty physical rows', async () => {
 		const result = await readImportFile(
 			new File(['Last name\tFirst name\tRank\r\nSmith\tAlex\tSGT\r\n\r\nJones\tPat\tCPL'], 'roster.tsv')

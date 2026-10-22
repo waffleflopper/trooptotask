@@ -107,6 +107,12 @@ export function parseDelimited(text: string, delimiter: ',' | '\t'): readonly (r
 	return rows;
 }
 
+function isTabDelimited(text: string): boolean {
+	const lines = text.split(/\r?\n/, 15);
+	const count = (separator: string) => lines.filter((line) => line.includes(separator)).length;
+	return count('\t') > count(',');
+}
+
 export async function readImportFile(file: File): Promise<ReadFileResult> {
 	const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
 	if (!ACCEPTED_EXTENSIONS.some((accepted) => accepted === extension)) {
@@ -115,8 +121,7 @@ export async function readImportFile(file: File): Promise<ReadFileResult> {
 	try {
 		if (extension !== '.xlsx') {
 			const text = await file.text();
-			const firstLine = text.split(/\r?\n/, 1)[0];
-			const delimiter = extension === '.tsv' || (!firstLine.includes(',') && firstLine.includes('\t')) ? '\t' : ',';
+			const delimiter = extension === '.tsv' || isTabDelimited(text) ? '\t' : ',';
 			return {
 				kind: 'loaded',
 				file: {

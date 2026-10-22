@@ -16,7 +16,7 @@ import type {
 	PersonnelInsert,
 	PersonnelRecordPersistence
 } from './contracts';
-import { createActivePersonnelRankResolver, createPersonnelCatalogRankResolver } from './rankValidation.server';
+import { createActivePersonnelRankResolver } from './rankValidation.server';
 import {
 	buildAvailablePersonnelSlug,
 	buildPersonnelSlugBase,
@@ -59,8 +59,6 @@ export async function importPersonnelRecords(
 	if (!Array.isArray(input.records) || input.records.length === 0) fail(400, 'records array is required');
 	if (input.records.length > 500) fail(400, 'Maximum 500 records per batch');
 
-	const catalog = ctx.loadRankCatalog();
-	const catalogPorts = { loadRankCatalog: () => catalog };
 	const updateIds = [
 		...new Set(input.records.flatMap((record) => (record.op === 'update' ? [record.personnelId] : [])))
 	];
@@ -69,16 +67,17 @@ export async function importPersonnelRecords(
 		referenceReads.push(ctx.personnel.listArchiveCandidates(updateIds.slice(start, start + 100)));
 	}
 	const hasCreates = input.records.some((record) => record.op === 'create');
-	const [groups, references, slugs, createRanks, updateRanks] = await Promise.all([
+	const [groups, references, slugs, ranks] = await Promise.all([
 		ctx.groups.listCatalog(),
 		Promise.all(referenceReads),
 		hasCreates ? ctx.personnel.listImportSlugs() : [],
-		createActivePersonnelRankResolver(catalogPorts),
-		createPersonnelCatalogRankResolver(catalogPorts)
+		createActivePersonnelRankResolver(ctx)
 	]);
 	const groupIds = new Set(groups.map((group) => group.id));
 	const people = new Map(references.flat().map((person) => [person.id, person]));
 	const creates: ImportCreateRow[] = [];
+	const updates: Array<{ index: number; personnelId: string; patch: Partial<PersonnelEditableFields> }> = [];
+	const seenUpdateIds = new Set<string>();
 	const updated: Personnel[] = [];
 	const errors: PersonnelBatchMessage[] = [];
 
@@ -89,16 +88,27 @@ export async function importPersonnelRecords(
 	}
 
 	for (const [index, record] of input.records.entries()) {
+		if (record.op === 'update') {
+			if (seenUpdateIds.has(record.personnelId)) {
+				errors.push({ index, message: 'This Person is already referenced by an earlier update row' });
+				continue;
+			}
+			seenUpdateIds.add(record.personnelId);
+		}
+		const person = record.op === 'update' ? people.get(record.personnelId) : undefined;
 		const fields = record.op === 'create' ? record : record.changes;
 		const dateError = invalidDate(fields);
 		if (dateError) {
 			errors.push({ index, message: dateError });
 			continue;
 		}
-		const rankResolver = record.op === 'create' ? createRanks : updateRanks;
-		const rank = fields.rank === undefined ? undefined : rankResolver.normalize(fields.rank);
-		if (fields.rank !== undefined && !rank) {
-			errors.push({ index, message: rankResolver.errorMessage(fields.rank) });
+		const keepsRank =
+			fields.rank !== undefined &&
+			person !== undefined &&
+			fields.rank.trim().toUpperCase() === person.rank?.trim().toUpperCase();
+		const rank = fields.rank === undefined || keepsRank ? undefined : ranks.normalize(fields.rank);
+		if (fields.rank !== undefined && !keepsRank && !rank) {
+			errors.push({ index, message: ranks.errorMessage(fields.rank) });
 			continue;
 		}
 
@@ -137,7 +147,6 @@ export async function importPersonnelRecords(
 			continue;
 		}
 
-		const person = people.get(record.personnelId);
 		if (!person || person.archivedAt || !(await canWrite('update', person.groupId))) {
 			errors.push({ index, message: 'No active personnel row is available in your scope' });
 			continue;
@@ -149,8 +158,10 @@ export async function importPersonnelRecords(
 
 		const patch: Partial<PersonnelEditableFields> = {};
 		if (rank) patch.rank = rank;
-		if (fields.mos !== undefined) patch.mos = sanitizeString(fields.mos);
-		if (fields.clinicRole !== undefined) patch.clinicRole = sanitizeString(fields.clinicRole);
+		const mos = sanitizeString(fields.mos);
+		const clinicRole = sanitizeString(fields.clinicRole);
+		if (mos) patch.mos = mos;
+		if (clinicRole) patch.clinicRole = clinicRole;
 		if (fields.groupId !== undefined) patch.groupId = fields.groupId;
 		if (fields.ets !== undefined) patch.ets = fields.ets;
 		if (fields.deros !== undefined) patch.deros = fields.deros;
@@ -159,24 +170,23 @@ export async function importPersonnelRecords(
 			continue;
 		}
 
-		try {
-			const saved = await ctx.personnel.updateEditable(record.personnelId, patch, { onlyActive: true });
-			if (!saved) {
-				errors.push({ index, message: 'No active personnel row is available in your scope' });
-				people.delete(record.personnelId);
-				continue;
-			}
-			updated.push(saved);
-			people.set(saved.id, {
-				...person,
-				rank: saved.rank,
-				groupId: saved.groupId,
-				archivedAt: saved.archivedAt ?? null
-			});
-		} catch {
-			errors.push({ index, message: 'This update could not be confirmed. Review the record before retrying.' });
-			people.delete(record.personnelId);
-		}
+		updates.push({ index, personnelId: record.personnelId, patch });
+	}
+
+	for (let start = 0; start < updates.length; start += 12) {
+		const savedRows = await Promise.all(
+			updates.slice(start, start + 12).map(async ({ index, personnelId, patch }) => {
+				try {
+					const saved = await ctx.personnel.updateEditable(personnelId, patch, { onlyActive: true });
+					if (!saved) errors.push({ index, message: 'No active personnel row is available in your scope' });
+					return saved;
+				} catch {
+					errors.push({ index, message: 'This update could not be confirmed. Review the record before retrying.' });
+					return null;
+				}
+			})
+		);
+		updated.push(...savedRows.filter((row) => row !== null));
 	}
 
 	const created = await createImportRows(ctx, creates, slugs, errors);

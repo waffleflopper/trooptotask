@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { importPersonnelRecords } from './personnelImportRecords.server';
@@ -68,6 +68,19 @@ function context(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 			clinic_role: 'Nurse',
 			archived_at: null
 		},
+		...['person-c', 'person-d'].map((id) => ({
+			id,
+			organization_id: 'test-org',
+			group_id: 'alpha',
+			rank: 'SGT',
+			first_name: 'Synthetic',
+			last_name: id,
+			mos: '68W',
+			clinic_role: 'Medic',
+			ets: '2028-05-01',
+			deros: '2027-11-30',
+			archived_at: null
+		})),
 		{
 			id: 'archived',
 			organization_id: 'test-org',
@@ -302,7 +315,7 @@ describe('importPersonnelRecords', () => {
 					ets: '2028-05-01',
 					deros: '2027-11-30'
 				},
-				{ id: 'person-b', groupId: null, ets: null, deros: '2028-02-29', clinicRole: '' }
+				{ id: 'person-b', groupId: null, ets: null, deros: '2028-02-29', clinicRole: 'Nurse' }
 			],
 			errors: []
 		});
@@ -316,8 +329,150 @@ describe('importPersonnelRecords', () => {
 			groupId: null,
 			ets: null,
 			deros: '2028-02-29',
-			clinicRole: ''
+			clinicRole: 'Nurse'
 		});
+	});
+
+	it.each(['', '   ', '\t\n'])('retains stored text when imported fields sanitize to blank: %j', async (blank) => {
+		const ctx = context();
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{ op: 'update', personnelId: 'person-a', changes: { mos: blank, clinicRole: blank, ets: null, deros: null } }
+			]
+		});
+		expect(result).toMatchObject({
+			created: [],
+			updated: [{ id: 'person-a', mos: '68W', clinicRole: 'Medic', ets: null, deros: null }],
+			errors: []
+		});
+		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({
+			mos: '68W',
+			clinicRole: 'Medic',
+			ets: null,
+			deros: null
+		});
+	});
+
+	it('keeps the current retired rank without writing it when other fields change', async () => {
+		const ctx = context();
+		await ctx.personnel.updateEditable('person-a', { rank: 'SP4' });
+		const update = ctx.personnel.updateEditable;
+		ctx.personnel.updateEditable = async (id, patch, options) => {
+			if (patch.rank !== undefined) throw new Error('A retired rank cannot be written');
+			return update(id, patch, options);
+		};
+		const result = await importPersonnelRecords(ctx, {
+			records: [{ op: 'update', personnelId: 'person-a', changes: { rank: ' sp4 ', mos: '68V' } }]
+		});
+		expect(result).toMatchObject({ created: [], updated: [{ id: 'person-a', rank: 'SP4', mos: '68V' }], errors: [] });
+		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ rank: 'SP4', mos: '68V' });
+	});
+
+	it('rejects later references to a Person even when the first row is invalid', async () => {
+		const ctx = context();
+		const result = await importPersonnelRecords(ctx, {
+			records: [
+				{ op: 'update', personnelId: 'person-a', changes: { mos: '68V' } },
+				{ op: 'update', personnelId: 'person-b', changes: { rank: 'INVALID' } },
+				{ op: 'update', personnelId: 'person-a', changes: { mos: 'BAD' } },
+				{ op: 'update', personnelId: 'person-b', changes: { mos: 'BAD' } },
+				{ op: 'update', personnelId: 'person-a', changes: { groupId: 'bravo' } }
+			]
+		});
+		expect(result).toMatchObject({
+			created: [],
+			updated: [{ id: 'person-a', mos: '68V', groupId: 'alpha' }],
+			errors: [
+				{ index: 1, message: expect.stringMatching(/Unknown rank/) },
+				{ index: 2, message: expect.stringMatching(/already referenced/) },
+				{ index: 3, message: expect.stringMatching(/already referenced/) },
+				{ index: 4, message: expect.stringMatching(/already referenced/) }
+			]
+		});
+		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ mos: '68V', groupId: 'alpha' });
+		await expect(ctx.personnel.findById('person-b')).resolves.toMatchObject({ mos: '68C', rank: 'SGT' });
+	});
+
+	it('bounds concurrent writes and preserves row positions when writes finish out of order or fail', async () => {
+		vi.useFakeTimers();
+		try {
+			const ctx = context();
+			ctx.store.seed(
+				'personnel',
+				Array.from({ length: 20 }, (_, index) => ({
+					id: `person-${index}`,
+					organization_id: 'test-org',
+					rank: 'SGT',
+					first_name: 'Synthetic',
+					last_name: `Person${index}`,
+					group_id: 'alpha',
+					mos: '68W',
+					archived_at: null
+				}))
+			);
+			const update = ctx.personnel.updateEditable;
+			let active = 0;
+			let peak = 0;
+			const completed: string[] = [];
+			ctx.personnel.updateEditable = async (id, patch, options) => {
+				active += 1;
+				peak = Math.max(peak, active);
+				try {
+					await new Promise((resolve) => setTimeout(resolve, id === 'person-0' ? 30 : 1));
+					if (id === 'person-1') throw new Error('Synthetic write failure');
+					if (id === 'person-2') return null;
+					return await update(id, patch, options);
+				} finally {
+					active -= 1;
+					completed.push(id);
+				}
+			};
+			const request = importPersonnelRecords(ctx, {
+				records: Array.from({ length: 20 }, (_, index) => ({
+					op: 'update',
+					personnelId: `person-${index}`,
+					changes: { mos: '68V' }
+				}))
+			});
+			await vi.runAllTimersAsync();
+			const result = await request;
+			expect(peak).toBeGreaterThan(1);
+			expect(peak).toBeLessThanOrEqual(16);
+			expect(active).toBe(0);
+			expect(completed[0]).toBe('person-1');
+			expect(result).toMatchObject({
+				created: [],
+				errors: [
+					{ index: 1, message: expect.stringMatching(/could not be confirmed/) },
+					{ index: 2, message: expect.stringMatching(/active personnel/) }
+				]
+			});
+			expect(result.updated.map(({ id }) => id)).toEqual([
+				'person-0',
+				'person-3',
+				'person-4',
+				'person-5',
+				'person-6',
+				'person-7',
+				'person-8',
+				'person-9',
+				'person-10',
+				'person-11',
+				'person-12',
+				'person-13',
+				'person-14',
+				'person-15',
+				'person-16',
+				'person-17',
+				'person-18',
+				'person-19'
+			]);
+			await expect(ctx.personnel.findById('person-0')).resolves.toMatchObject({ mos: '68V' });
+			await expect(ctx.personnel.findById('person-19')).resolves.toMatchObject({ mos: '68V' });
+			await expect(ctx.personnel.findById('person-1')).resolves.toMatchObject({ mos: '68W' });
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('denies out-of-scope creates, current people and moves per row while saving allowed rows', async () => {
@@ -328,14 +483,14 @@ describe('importPersonnelRecords', () => {
 				{ op: 'create', rank: 'SGT', firstName: 'New', lastName: 'Unassigned', groupId: null },
 				{ op: 'update', personnelId: 'person-b', changes: { groupId: 'alpha' } },
 				{ op: 'update', personnelId: 'person-a', changes: { groupId: 'bravo' } },
-				{ op: 'update', personnelId: 'person-a', changes: { groupId: null } },
+				{ op: 'update', personnelId: 'person-c', changes: { groupId: null } },
 				{ op: 'create', rank: 'SGT', firstName: 'New', lastName: 'Allowed', groupId: 'alpha' },
-				{ op: 'update', personnelId: 'person-a', changes: { mos: '68V' } }
+				{ op: 'update', personnelId: 'person-d', changes: { mos: '68V' } }
 			]
 		});
 		expect(result).toMatchObject({
 			created: [{ lastName: 'Allowed', groupId: 'alpha' }],
-			updated: [{ id: 'person-a', mos: '68V', groupId: 'alpha' }]
+			updated: [{ id: 'person-d', mos: '68V', groupId: 'alpha' }]
 		});
 		expect(result.errors.map(({ index }) => index)).toEqual([0, 1, 2, 3, 4]);
 		await expect(ctx.organizationPersonnel.findById('person-b')).resolves.toMatchObject({
@@ -378,14 +533,14 @@ describe('importPersonnelRecords', () => {
 			records: [
 				{ op: 'create', rank: 'SGT', firstName: 'Test', lastName: 'Foreign', groupId: 'foreign' },
 				{ op: 'update', personnelId: 'person-a', changes: { groupId: 'missing' } },
-				{ op: 'update', personnelId: 'person-a', changes: { groupId: 'foreign' } }
+				{ op: 'update', personnelId: 'person-b', changes: { groupId: 'foreign' } }
 			]
 		});
 		expect(result).toMatchObject({ created: [], updated: [], errors: [{ index: 0 }, { index: 1 }, { index: 2 }] });
 		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ groupId: 'alpha' });
 	});
 
-	it('revalidates ranks and accepts retired catalog codes only for updates', async () => {
+	it('rejects unknown ranks and retired ranks that differ from the current rank', async () => {
 		const ctx = context();
 		const result = await importPersonnelRecords(ctx, {
 			records: [
@@ -397,15 +552,16 @@ describe('importPersonnelRecords', () => {
 		});
 		expect(result).toMatchObject({
 			created: [],
-			updated: [{ id: 'person-b', rank: 'SP4' }],
+			updated: [],
 			errors: [
 				{ index: 0, message: expect.stringMatching(/Unknown rank/) },
 				{ index: 1, message: expect.stringMatching(/retired/) },
-				{ index: 2, message: expect.stringMatching(/Unknown rank/) }
+				{ index: 2, message: expect.stringMatching(/Unknown rank/) },
+				{ index: 3, message: expect.stringMatching(/retired/) }
 			]
 		});
 		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ rank: 'SGT' });
-		await expect(ctx.personnel.findById('person-b')).resolves.toMatchObject({ rank: 'SP4' });
+		await expect(ctx.personnel.findById('person-b')).resolves.toMatchObject({ rank: 'SGT' });
 	});
 
 	it('rejects impossible, empty and non-normalized dates per row', async () => {
@@ -413,17 +569,17 @@ describe('importPersonnelRecords', () => {
 		const result = await importPersonnelRecords(ctx, {
 			records: [
 				{ op: 'create', rank: 'SGT', firstName: 'Invalid', lastName: 'Date', ets: '2027-02-29' },
-				{ op: 'update', personnelId: 'person-a', changes: { ets: '' } },
+				{ op: 'update', personnelId: 'person-b', changes: { ets: '' } },
 				{ op: 'update', personnelId: 'person-a', changes: { deros: ' 2028-02-29 ' } },
-				{ op: 'update', personnelId: 'person-a', changes: { ets: null } }
+				{ op: 'update', personnelId: 'person-c', changes: { ets: null } }
 			]
 		});
 		expect(result).toMatchObject({
 			created: [],
-			updated: [{ id: 'person-a', ets: null, deros: '2027-11-30' }],
+			updated: [{ id: 'person-c', ets: null, deros: '2027-11-30' }],
 			errors: [{ index: 0 }, { index: 1 }, { index: 2 }]
 		});
-		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ ets: null, deros: '2027-11-30' });
+		await expect(ctx.personnel.findById('person-c')).resolves.toMatchObject({ ets: null, deros: '2027-11-30' });
 	});
 
 	it('keeps independent rows after an unconfirmed update without retrying it', async () => {

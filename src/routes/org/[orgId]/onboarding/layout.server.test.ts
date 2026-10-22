@@ -31,6 +31,17 @@ describe('Onboarding layout', () => {
 		expect(stream).not.toHaveBeenCalled();
 	});
 
+	it('stops at the off state before streaming when Onboarding is turned off', async () => {
+		const stream = vi.fn();
+		const load = _createOnboardingLayoutLoad({ streamOnboardingWorkspace: stream });
+		const parentData = createReadyAppShellRouteData({ orgId: 'org-1', role: 'owner' });
+
+		await expect(
+			load(createUrlBlindLayoutEvent<OnboardingLoadEvent>(parentData, { disabledFeatures: ['onboarding'] }).event)
+		).rejects.toMatchObject({ status: 403, body: { featureOff: 'onboarding' } });
+		expect(stream).not.toHaveBeenCalled();
+	});
+
 	it("streams the active workspace for the viewer's day from the time zone cookie", async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));

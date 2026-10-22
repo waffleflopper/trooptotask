@@ -30,6 +30,10 @@ export function parseDisabledFeatures(value: unknown): FeatureKey[] {
 	return FEATURE_KEYS.filter((key) => value.includes(key));
 }
 
+export function featureOffMessage(key: FeatureKey): string {
+	return `This organization has turned off ${FEATURE_SWITCHES[key].label}. Speak with the organization owner to have it turned back on.`;
+}
+
 export function disabledFeatureLanes(disabledFeatures: readonly FeatureKey[]): DurableFeatureLane[] {
 	return disabledFeatures.flatMap((key) => FEATURE_SWITCHES[key].lane ?? []);
 }

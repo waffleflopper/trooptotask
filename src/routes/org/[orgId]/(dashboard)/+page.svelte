@@ -31,7 +31,6 @@
 	let dashboardBootstrap = $state<DashboardWorkspaceResult | null>(null);
 	let latestSummary = $state<{ orgId: string; summary: DashboardPageSummaryData } | null>(null);
 	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
-	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
 	let summaryRequest = 0;
 	let saveNumber = 0;
@@ -52,7 +51,6 @@
 		const streamedDashboard = streamedWorkspace;
 
 		dashboardBootstrap = null;
-		workspaceError = null;
 
 		if (!streamedDashboard) {
 			return;
@@ -63,13 +61,11 @@
 			return;
 		}
 
+		// The layout shows a failed workspace; observing it here only settles the rejection.
 		void observeDeferred(streamedDashboard, {
 			fallbackMessage: 'Failed to load dashboard workspace',
 			onResolve: (dashboard) => {
 				dashboardBootstrap = dashboard;
-			},
-			onReject: (error) => {
-				workspaceError = error;
 			},
 			isCancelled: () => cancelled
 		});
@@ -135,7 +131,6 @@
 		};
 	}
 
-	const loadError = $derived(workspaceError);
 	// A failed summary still opens the page; the columns it feeds say they could not load.
 	const ctx = $derived(
 		dashboardBootstrap && (summaryData || summaryError)
@@ -188,7 +183,6 @@
 		{access}
 		{updates}
 		sections={DASHBOARD_SECTIONS}
-		failure={loadError ? loadFailure : undefined}
 		summaryFailure={loadFailure}
 	/>
 {/if}

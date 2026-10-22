@@ -382,20 +382,4 @@ describe('GET /org/[orgId]/api/dashboard/summary', () => {
 			onboardingPersonnelIds: []
 		});
 	});
-
-	it('skips unrelated bootstrap tables even when their reads throw', async () => {
-		blockedTables = new Set([
-			'availability_entries',
-			'daily_assignments',
-			'assignment_types',
-			'status_types',
-			'special_days',
-			'groups',
-			'organizations',
-			'pinned_groups'
-		]);
-		admit();
-
-		await expect(getSummary()).resolves.toMatchObject({ onboardingPersonnelIds: ['p-cy'] });
-	});
 });

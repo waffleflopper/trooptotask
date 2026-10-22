@@ -1,5 +1,4 @@
 import {
-	DASHBOARD_SUMMARY_DEPENDENCY,
 	formatDashboardDisplayDate,
 	type DashboardViewerDay,
 	type DashboardWorkspaceResult
@@ -21,7 +20,7 @@ import type { Actions, PageServerLoadEvent } from './$types';
 
 export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
-	depends('app:dashboard-data', VIEWER_DAY_DEPENDENCY, DASHBOARD_SUMMARY_DEPENDENCY);
+	depends('app:dashboard-data', VIEWER_DAY_DEPENDENCY);
 	const { orgId } = params;
 	const parentData = await parent();
 	const asOf = viewerToday(cookies);

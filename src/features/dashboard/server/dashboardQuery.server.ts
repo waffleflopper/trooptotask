@@ -19,10 +19,11 @@ import {
 	listSpecialDaysInRange,
 	listStatusTypes
 } from '$features/calendar/index.server';
-import type { OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
+import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence } from '$features/training/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { visiblePinnedGroupNames } from '$features/personnel/index.server';
+import { dashboardSourceAccess } from './dashboardSources.server';
 
 type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] & {
@@ -32,6 +33,7 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 		selfPins: Pick<SelfPinPersistence, 'listNames'>;
 		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes' | 'listSpecialDays'>;
 		onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listSavedActivePackets'>;
+		onboardingCatalog: Pick<OnboardingCatalogPersistence, 'hasAnyTemplate'>;
 		trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
 		organizationSettings: Pick<OrganizationSettingsReader, 'findPolicies'>;
 		ratingSchemeDue?: RatingSchemeDuePort;
@@ -57,19 +59,20 @@ function viewerDayWindowCoverage(now: Date) {
 export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const range = viewerDayWindowCoverage(new Date());
-	const availabilityEntries = listAvailabilityEntries(ctx, range);
-	const todayAssignments = listDailyAssignments(ctx, range, null);
+	const reads = dashboardSourceAccess(ctx);
+	const availabilityEntries = reads('availabilityEntries') ? listAvailabilityEntries(ctx, range) : Promise.resolve([]);
+	const todayAssignments = reads('assignments') ? listDailyAssignments(ctx, range, null) : Promise.resolve([]);
 	// Handle early rejections until streaming attaches its consumers. The returned
 	// original promises still reject, so hydration can show the source error.
 	void availabilityEntries.catch(() => undefined);
 	void todayAssignments.catch(() => undefined);
-	const isOff = (feature: FeatureKey) => ctx.disabledFeatures.includes(feature);
 
 	const [
 		assignmentTypes,
 		pinnedGroups,
 		ratingSchemeEntries,
 		activeOnboardings,
+		hasAnyOnboardingTemplate,
 		personnel,
 		groups,
 		statusTypes,
@@ -78,21 +81,22 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		awardTrackingAcknowledgedPersonnelIds,
 		specialDays
 	] = await Promise.all([
-		listAssignmentTypes(ctx.calendarCatalogs),
+		reads('assignmentTypes') ? listAssignmentTypes(ctx.calendarCatalogs) : [],
 		ctx.selfPins.listNames(),
-		isOff('evaluations') ? [] : loadRatingSchemeDueEntries(ctx),
-		isOff('onboarding') ? [] : ctx.onboardingWorkflow.listSavedActivePackets(),
+		reads('ratingSchemeEntries') ? loadRatingSchemeDueEntries(ctx) : [],
+		reads('activeOnboardings') ? ctx.onboardingWorkflow.listSavedActivePackets() : [],
+		reads('onboardingTemplates') && ctx.onboardingCatalog.hasAnyTemplate(),
 		ctx.roster.list({ status: 'active' }),
 		ctx.groups.listCatalog(),
-		listStatusTypes(ctx.calendarCatalogs),
-		isOff('training') ? [] : ctx.trainingCatalog.listTypes(),
+		reads('statusTypes') ? listStatusTypes(ctx.calendarCatalogs) : [],
+		reads('trainingTypes') ? ctx.trainingCatalog.listTypes() : [],
 		ctx.organizationSettings.findPolicies(orgId),
-		isOff('lossesAndAwards')
-			? []
-			: ctx.personnelAwardAcknowledgement
+		reads('awardAcknowledgements')
+			? ctx.personnelAwardAcknowledgement
 				? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
-				: Promise.reject(new Error('Personnel award acknowledgement port is required')),
-		listSpecialDaysInRange(ctx.calendarCatalogs, range)
+				: Promise.reject(new Error('Personnel award acknowledgement port is required'))
+			: [],
+		reads('specialDays') ? listSpecialDaysInRange(ctx.calendarCatalogs, range) : []
 	]);
 
 	return {
@@ -103,6 +107,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),
 		ratingSchemeEntries,
 		activeOnboardings,
+		hasAnyOnboardingTemplate,
 		personnel,
 		groups,
 		statusTypes,

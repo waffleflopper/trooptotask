@@ -33,7 +33,7 @@ function open() {
 	render(RecordClassPanel, {
 		props: {
 			model: {} as DashboardScreenModel,
-			access: { can: () => true },
+			access: { can: () => true, isPrivileged: false },
 			updates,
 			save: (command: () => Promise<void>) => command(),
 			saving: false,

@@ -1,5 +1,5 @@
 import type { Component } from 'svelte';
-import type { FeatureKey } from '$lib/access/featureSwitches';
+import { FEATURE_SWITCHES, type FeatureKey } from '$lib/access/featureSwitches';
 import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardAccess } from './dashboardAccess';
@@ -79,15 +79,34 @@ export interface QuickAddEntry {
 	icon: Component;
 	/** Ascending slots: 10 Status, 20 Training record, 30 Start onboarding. */
 	order: number;
+	/** The one filled button; a page without this entry has none (frame 05). */
+	primary?: boolean;
 	/** Loaded on first open, so the dialogs stay out of the page's first load. */
 	loadDialog: () => Promise<{ default: Component<QuickAddDialogProps> }>;
 	available?: DashboardPartAvailability;
+}
+
+/** How a feature that is on can still have nothing to show: the gap and the place that fills it. */
+export interface SetupCheck {
+	isNotSetUp: (inputs: DashboardInputs) => boolean;
+	/** Completes "<Feature> is on, but …", as in "there are no templates yet". */
+	gap: string;
+	fix: { label: string; href: (inputs: DashboardInputs) => string };
+}
+
+export interface SetupHint {
+	feature: FeatureKey;
+	message: string;
+	fix: { label: string; href: string };
+	turnOff: { label: string; href: string };
 }
 
 export interface DashboardSection {
 	id: DashboardSectionId;
 	/** The switch that turns the section off, or null when it is always on. */
 	feature: FeatureKey | null;
+	/** A section that is not set up adds nothing; owners and admins see a hint instead. */
+	setup: SetupCheck | null;
 	needsYou: readonly NeedsYouSource[];
 	readiness: ReadinessSource | null;
 	quickAdd: readonly QuickAddEntry[];
@@ -102,6 +121,7 @@ export function dashboardSection(
 	return {
 		id,
 		feature: id === 'availability' ? null : id,
+		setup: null,
 		needsYou: [],
 		readiness: null,
 		quickAdd: [],
@@ -124,7 +144,21 @@ export interface DashboardSectionParts {
 	forecastLanes: readonly DashboardForecastLaneView[];
 	quickAdd: readonly QuickAddEntry[];
 	readinessColumns: readonly ReadinessColumn[];
+	/** Titles of the sections whose Needs you items could not load, so the queue is incomplete. */
+	needsYouUnavailable: readonly string[];
 	onDutyBlocks: readonly OnDutyBlock[];
+	/** Owners and admins only; one per feature that is on but not set up. */
+	setupHints: readonly SetupHint[];
+}
+
+function setupHint(feature: FeatureKey, setup: SetupCheck, inputs: DashboardInputs): SetupHint {
+	const { label } = FEATURE_SWITCHES[feature];
+	return {
+		feature,
+		message: `${label} is on, but ${setup.gap}, so it isn't shown here.`,
+		fix: { label: setup.fix.label, href: setup.fix.href(inputs) },
+		turnOff: { label: `Turn off ${label.toLowerCase()}`, href: `/org/${inputs.page.orgId}/settings/features` }
+	};
 }
 
 /** A row keeps its link when the viewer may not act on it; only the action goes. */
@@ -140,7 +174,15 @@ export function composeDashboardSections(
 	disabledFeatures: readonly FeatureKey[],
 	access: DashboardAccess
 ): DashboardSectionParts {
-	const active = activeDashboardSections(sections, disabledFeatures);
+	const checked = activeDashboardSections(sections, disabledFeatures).map((entry) => ({
+		entry,
+		unset: entry.setup?.isNotSetUp(inputs) ?? false
+	}));
+	const active = checked.flatMap(({ entry, unset }) => (unset ? [] : [entry]));
+	const readiness = active.flatMap((entry) => {
+		const column = entry.readiness?.(inputs, access);
+		return column ? [{ column, feedsNeedsYou: entry.needsYou.length > 0 }] : [];
+	});
 	return {
 		needsYou: buildNeedsYouQueue(
 			active.flatMap((entry) => entry.needsYou.map((source) => permittedActions(source(inputs), access)))
@@ -156,10 +198,18 @@ export function composeDashboardSections(
 			.flatMap((entry) => entry.quickAdd)
 			.filter((part) => part.available?.(inputs, access) ?? true)
 			.sort((a, b) => a.order - b.order),
-		readinessColumns: active.flatMap((entry) => entry.readiness?.(inputs, access) ?? []),
+		readinessColumns: readiness.map(({ column }) => column),
+		needsYouUnavailable: readiness.flatMap(({ column, feedsNeedsYou }) =>
+			column.state === 'failed' && feedsNeedsYou ? [column.title] : []
+		),
 		onDutyBlocks: active
 			.flatMap((entry) => entry.onDuty)
 			.filter((part) => part.available?.(inputs, access) ?? true)
-			.sort((a, b) => a.order - b.order)
+			.sort((a, b) => a.order - b.order),
+		setupHints: access.isPrivileged
+			? checked.flatMap(({ entry, unset }) =>
+					unset && entry.feature && entry.setup ? [setupHint(entry.feature, entry.setup, inputs)] : []
+				)
+			: []
 	};
 }

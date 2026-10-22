@@ -22,7 +22,7 @@ function open() {
 	render(UpdateStatusPanel, {
 		props: {
 			model: { inputs: { page: { orgId: 'org-1' } } } as DashboardScreenModel,
-			access: { can: () => true },
+			access: { can: () => true, isPrivileged: false },
 			updates,
 			save: (command: () => Promise<void>) => command(),
 			saving: false,

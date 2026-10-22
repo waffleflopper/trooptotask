@@ -49,6 +49,7 @@ const {
 				canManageMembers: false
 			},
 			audit: { log: vi.fn() },
+			disabledFeatures: [],
 			store: {
 				findManyWithCount: findManyWithCountMock,
 				findMany: findManyMock
@@ -94,6 +95,10 @@ import { actions, load } from './+page.server';
 import { RequestFailure } from '$lib/errors';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
+function withLane(lane: keyof typeof mockCtx.auth.capabilityMap, level: 'none' | 'view') {
+	return { ...mockCtx, auth: { ...mockCtx.auth, capabilityMap: { ...mockCtx.auth.capabilityMap, [lane]: level } } };
+}
+
 const easternViewer = { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) };
 
 describe('dashboard page server load', () => {
@@ -320,6 +325,7 @@ describe('dashboard page server load', () => {
 		const workspaceBootstrap = new Promise<DashboardWorkspaceResult>((resolve) => {
 			resolveWorkspace = resolve;
 		});
+		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('criticalTasks', 'none'));
 		const parent = vi.fn().mockResolvedValue({
 			...createReadyAppShellRouteData({ orgId: ORG_ID, criticalTasksCapability: 'none' }),
 			dashboard: {
@@ -368,6 +374,7 @@ describe('dashboard page server load', () => {
 		const shell = requireReadyAppShell(shellData);
 		shell.member.capabilityMap.training = 'none';
 		shell.member.scopeSet = { kind: 'groups', groupIds: ['alpha'] };
+		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('training', 'none'));
 		fetchDashboardTrainingSummaryMock.mockRejectedValue(new Error('You do not have permission to use training data'));
 		const parent = vi.fn().mockResolvedValue({
 			...shellData,
@@ -389,6 +396,53 @@ describe('dashboard page server load', () => {
 			ictlSummary: expect.objectContaining({ hasActiveTasks: true })
 		});
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
+	});
+
+	it('keeps packets out of the page summary for a Personnel and Training viewer without Onboarding', async () => {
+		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('onboarding', 'none'));
+		fetchDashboardTrainingSummaryMock.mockResolvedValue({
+			trainingSummary: { stats: null, issues: [] },
+			onboardingTrainingCompletions: new Set(['p-cy-type-cpr'])
+		});
+		const packet = { id: 'packet-1', personnelId: 'p-cy' };
+		const parent = vi.fn().mockResolvedValue({
+			...createReadyAppShellRouteData({ orgId: ORG_ID }),
+			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [packet] } }) }
+		});
+
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: easternViewer,
+			depends: vi.fn(),
+			parent
+		} as never);
+
+		await expect(result.summary).resolves.toMatchObject({ onboardingPersonnelIds: [] });
+		expect(fetchDashboardTrainingSummaryMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ onboardingPersonnelIds: [] })
+		);
+	});
+
+	it('skips the Critical Tasks read an Organization switched off, though the viewer keeps the lane', async () => {
+		createRequestDashboardSummaryContextMock.mockReturnValue({ ...mockCtx, disabledFeatures: ['criticalTasks'] });
+		fetchCriticalTasksDashboardSummaryMock.mockRejectedValue(new Error('Critical Tasks read attempted'));
+		const parent = vi.fn().mockResolvedValue({
+			...createReadyAppShellRouteData({ orgId: ORG_ID }),
+			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [] } }) }
+		});
+
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: easternViewer,
+			depends: vi.fn(),
+			parent
+		} as never);
+
+		await expect(result.summary).resolves.toMatchObject({ ictlSummary: null });
+		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
 	});
 
 	it('preserves Training failures when the member is allowed to view Training', async () => {

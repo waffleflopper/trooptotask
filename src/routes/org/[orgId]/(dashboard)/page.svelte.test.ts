@@ -42,10 +42,11 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 					pinnedGroups: [],
 					ratingSchemeEntries: [],
 					activeOnboardings: [],
+					hasAnyOnboardingTemplate: true,
 					personnel: [],
 					groups: [],
 					statusTypes: [],
-					trainingTypes: [],
+					trainingTypes: [{ id: 'training-1', name: 'SHARP' }],
 					specialDays: [],
 					strengthFloorPercent: 80
 				},

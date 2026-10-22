@@ -2,7 +2,9 @@ import { buildRequestError } from '$lib/stores/core';
 import type { RatingSchemeEntry, RatingSchemeEntryEditorData } from './contracts';
 
 export async function loadRatingSchemeEntryEditor(orgId: string, id: string): Promise<RatingSchemeEntryEditorData> {
-	const response = await fetch(`/org/${orgId}/api/rating-scheme?${new URLSearchParams({ entry: id })}`);
+	const response = await fetch(`/org/${orgId}/api/rating-scheme?${new URLSearchParams({ entry: id })}`, {
+		cache: 'no-store'
+	});
 	if (!response.ok) throw await buildRequestError(response, 'GET', 'rating-scheme');
 	return response.json();
 }

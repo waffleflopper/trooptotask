@@ -4,7 +4,7 @@ import {
 	createRequestRatingSchemeWorkspaceContext
 } from '$lib/server/adapters/featureRequestContexts.server';
 import { json } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, privateJson } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
 import {
@@ -34,7 +34,8 @@ export const _getConfig: RouteConfig<
 	input: entryEditorInput,
 	parseInput: (event) => ({ entry: event.url.searchParams.get('entry') ?? '' }),
 	fn: async (ctx, input) =>
-		(await loadRatingSchemeEntryEditor(ctx, input.entry)) ?? fail(404, 'Rating Scheme entry not found')
+		(await loadRatingSchemeEntryEditor(ctx, input.entry)) ?? fail(404, 'Rating Scheme entry not found'),
+	formatOutput: privateJson
 };
 
 export const _postConfig: RouteConfig<

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import { _getConfig } from './+server';
 
 function seedStartOptions(ctx: ReturnType<typeof createTestContext>) {
@@ -99,5 +100,23 @@ describe('/api/onboarding/start-options route config', () => {
 			rankCatalogUnavailable: false
 		});
 		await expect(handleUseCaseRequest(_getConfig, viewer, {}, () => viewer)).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('refuses an owner while the unit has Onboarding turned off, before any read', async () => {
+		const auth = projectOrganizationAccessGrant({ role: 'owner' }, 'owner-1', 'test-org', {
+			disabledFeatures: ['onboarding']
+		});
+		const ctx = createTestContext({ auth: { ...auth } });
+		seedStartOptions(ctx);
+		const findMany = vi.spyOn(ctx.store, 'findMany').mockRejectedValue(new Error('Onboarding must not be read'));
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, {}, () => ctx)).rejects.toMatchObject({ status: 403 });
+		expect(findMany).not.toHaveBeenCalled();
+	});
+
+	it('marks the read private and non-cacheable', () => {
+		const response = _getConfig.formatOutput!({} as never);
+
+		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 	});
 });

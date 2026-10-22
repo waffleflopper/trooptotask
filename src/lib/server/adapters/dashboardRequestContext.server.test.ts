@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchCriticalTasksDashboardSummary } from '$features/critical-tasks/index.server';
 import { fetchDashboardSummary } from '$features/dashboard/index.server';
 import type { DashboardBootstrap } from '$features/dashboard/contracts';
 import { createTestContext } from './inMemory';
@@ -127,9 +128,7 @@ describe('Dashboard request composition', () => {
 
 	it('loads readiness through the real selected context for a scoped Critical Tasks-only viewer', async () => {
 		const ctx = createRequestDashboardSummaryContext(request());
-		await expect(
-			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true }, '2026-03-20', 'UTC')
-		).resolves.toMatchObject({
+		await expect(fetchDashboardSummary(ctx, workspace, '2026-03-20', 'UTC')).resolves.toMatchObject({
 			trainingSummary: null,
 			ictlSummary: { readyCount: 1, applicableCount: 1, overallReadinessPercent: 100 },
 			onboardingTrainingCompletions: []
@@ -138,9 +137,7 @@ describe('Dashboard request composition', () => {
 
 	it('settles an empty Group scope without acquiring the privileged roster client', async () => {
 		const ctx = createRequestDashboardSummaryContext(request([]));
-		await expect(
-			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true }, '2026-03-20', 'UTC')
-		).resolves.toMatchObject({
+		await expect(fetchDashboardSummary(ctx, workspace, '2026-03-20', 'UTC')).resolves.toMatchObject({
 			ictlSummary: { readyCount: 0, applicableCount: 0 }
 		});
 		expect(getAdminClient).not.toHaveBeenCalled();
@@ -151,16 +148,18 @@ describe('Dashboard request composition', () => {
 		ctx.organizationSettings.findCriticalTasksDefaults = async () => {
 			throw new Error('Disabled summary read Organization settings');
 		};
-		await expect(
-			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: false }, '2026-03-20', 'UTC')
-		).resolves.toMatchObject({ trainingSummary: null, ictlSummary: null, onboardingTrainingCompletions: [] });
+		await expect(fetchDashboardSummary(ctx, workspace, '2026-03-20', 'UTC')).resolves.toMatchObject({
+			trainingSummary: null,
+			ictlSummary: null,
+			onboardingTrainingCompletions: []
+		});
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
-	it('denies a forged readiness request before acquiring the privileged roster client', async () => {
+	it('denies a readiness read without Critical Tasks access before acquiring the privileged roster client', async () => {
 		const ctx = createRequestDashboardSummaryContext(request(['group-alpha'], 'none'));
 		await expect(
-			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true }, '2026-03-20', 'UTC')
+			fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20', timeZone: 'UTC' })
 		).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});

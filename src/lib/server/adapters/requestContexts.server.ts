@@ -735,6 +735,7 @@ export function createRequestDashboardWorkspaceContext(request: AdmittedOrganiza
 		...createRequestCalendarRangeContext(request),
 		...createRequestPersonnelRosterContext(request),
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
+		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		ratingSchemeDue: createSupabaseRatingSchemeDuePort(
 			request.supabase,

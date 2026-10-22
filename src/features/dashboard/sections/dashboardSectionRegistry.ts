@@ -19,6 +19,7 @@ import {
 	evaluationsReadiness,
 	trainingReadiness
 } from './readiness';
+import { criticalTasksSetup, evaluationsSetup, onboardingSetup, trainingSetup } from './setupChecks';
 import { startOnboardingChoices } from './startOnboardingChoices';
 
 const { calendar, training } = POLICY_ACTION_CATALOG;
@@ -44,6 +45,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 		]
 	}),
 	dashboardSection('training', {
+		setup: trainingSetup,
 		needsYou: [expiredTraining],
 		readiness: trainingReadiness,
 		quickAdd: [
@@ -64,10 +66,15 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 			}
 		]
 	}),
-	dashboardSection('criticalTasks', { readiness: criticalTasksReadiness }),
-	dashboardSection('evaluations', { needsYou: [overdueEvaluations], readiness: evaluationsReadiness }),
+	dashboardSection('criticalTasks', { setup: criticalTasksSetup, readiness: criticalTasksReadiness }),
+	dashboardSection('evaluations', {
+		setup: evaluationsSetup,
+		needsYou: [overdueEvaluations],
+		readiness: evaluationsReadiness
+	}),
 	dashboardSection('lossesAndAwards', { needsYou: [leavingWithoutAward], readiness: arrivingAndLeavingReadiness }),
 	dashboardSection('onboarding', {
+		setup: onboardingSetup,
 		needsYou: [stalledOnboarding],
 		quickAdd: [
 			{
@@ -75,6 +82,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 				label: 'Start onboarding',
 				icon: PlusIcon,
 				order: 30,
+				primary: true,
 				loadDialog: () => import('../components/quick-add/StartOnboardingQuickAdd.svelte'),
 				available: (inputs, access) => startOnboardingChoices(inputs, access).usable
 			}

@@ -5,6 +5,7 @@ import { formatDayMonth, parseDate } from '$lib/utils/dates';
 import type { DashboardInputs } from './dashboardInputs';
 import type { ReadinessSource } from './dashboardSections';
 import { LOSS_LABEL, orgPath, plural } from './needsYouSources';
+import { hasOnboardingTemplate } from './setupChecks';
 
 const { criticalTasks, onboarding, ratingScheme, training } = POLICY_ACTION_CATALOG;
 const NAMED_LOSSES = 3;
@@ -170,7 +171,7 @@ export const arrivingAndLeavingReadiness: ReadinessSource = (inputs, access) => 
 	const data = inputs.page.dashboard.data;
 	const windowDays = data.lossWarningWindowDays;
 	const losses = evaluateUpcomingLosses(inputs.personnel, windowDays, inputs.today);
-	const seesOnboarding = access.can(onboarding.viewWorkflows);
+	const seesOnboarding = access.can(onboarding.viewWorkflows) && hasOnboardingTemplate(inputs);
 
 	const named = losses
 		.slice(0, NAMED_LOSSES)

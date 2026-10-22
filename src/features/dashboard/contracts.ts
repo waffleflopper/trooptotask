@@ -111,6 +111,8 @@ export interface DashboardBootstrap {
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeDueEntry[];
 	activeOnboardings: PersonnelOnboarding[];
+	/** False until the unit saves its first Onboarding template; Onboarding is then not set up. */
+	hasAnyOnboardingTemplate: boolean;
 	personnel: Personnel[];
 	groups: Group[];
 	statusTypes: StatusType[];

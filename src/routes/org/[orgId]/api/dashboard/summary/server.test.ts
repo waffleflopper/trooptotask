@@ -255,8 +255,10 @@ async function getSummary() {
 describe('GET /org/[orgId]/api/dashboard/summary', () => {
 	it('returns the viewer-day summary from the people, Training types and Onboarding population alone', async () => {
 		admit();
+		const response = await GET(summaryEvent());
 
-		await expect(getSummary()).resolves.toEqual({
+		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+		await expect(response.json()).resolves.toEqual({
 			trainingSummary: expectedTrainingSummary,
 			ictlSummary: expectedIctlSummary,
 			onboardingTrainingCompletions: ['p-cy-type-cpr'],
@@ -280,7 +282,6 @@ describe('GET /org/[orgId]/api/dashboard/summary', () => {
 		const pageLoad = await fetchDashboardSummary(
 			ctx,
 			{ personnel, trainingTypes, activeOnboardings },
-			{ training: true, criticalTasks: true },
 			'2026-10-14',
 			'America/New_York'
 		);
@@ -320,6 +321,19 @@ describe('GET /org/[orgId]/api/dashboard/summary', () => {
 		expect(fetchCriticalTasksDashboardSummary).not.toHaveBeenCalled();
 	});
 
+	it('returns no packet population or completion keys to a Personnel and Training viewer without Onboarding', async () => {
+		blockedTables = new Set(['personnel_onboardings']);
+		admit({ capabilityMap: { personnel: 'view', training: 'view', onboarding: 'none' } });
+
+		await expect(getSummary()).resolves.toEqual({
+			trainingSummary: expectedTrainingSummary,
+			ictlSummary: expectedIctlSummary,
+			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: []
+		});
+		expect(requestedTables).not.toContain('personnel_onboardings');
+	});
+
 	it('reads nothing for a viewer with neither lane', async () => {
 		fetchCriticalTasksDashboardSummary.mockRejectedValue(new Error('Critical Tasks read attempted'));
 		blockedTables = new Set(SUMMARY_TABLE_NAMES);
@@ -334,12 +348,37 @@ describe('GET /org/[orgId]/api/dashboard/summary', () => {
 		expect(requestedTables).toEqual([]);
 	});
 
-	it('skips the Training types and Onboarding population an Organization switched off', async () => {
-		blockedTables = new Set(['training_types', 'personnel_onboardings']);
+	it('reads no Training or Onboarding table an Organization switched off', async () => {
+		blockedTables = new Set(SUMMARY_TABLE_NAMES);
 		admit({ disabledFeatures: ['training', 'onboarding'] });
 
+		await expect(getSummary()).resolves.toEqual({
+			trainingSummary: null,
+			ictlSummary: expectedIctlSummary,
+			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: []
+		});
+		expect(requestedTables).toEqual([]);
+	});
+
+	it('skips the Critical Tasks read an Organization switched off, though the viewer keeps the lane', async () => {
+		fetchCriticalTasksDashboardSummary.mockRejectedValue(new Error('Critical Tasks read attempted'));
+		admit({ disabledFeatures: ['criticalTasks'] });
+
 		await expect(getSummary()).resolves.toMatchObject({
-			trainingSummary: { stats: { total: 0 } },
+			trainingSummary: expectedTrainingSummary,
+			ictlSummary: null
+		});
+		expect(fetchCriticalTasksDashboardSummary).not.toHaveBeenCalled();
+	});
+
+	it('keeps the Onboarding population out of an Organization that switched Onboarding off', async () => {
+		blockedTables = new Set(['personnel_onboardings']);
+		admit({ disabledFeatures: ['onboarding'] });
+
+		await expect(getSummary()).resolves.toMatchObject({
+			trainingSummary: expectedTrainingSummary,
+			onboardingTrainingCompletions: [],
 			onboardingPersonnelIds: []
 		});
 	});

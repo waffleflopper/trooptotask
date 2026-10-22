@@ -1,7 +1,7 @@
 import { refreshDashboardSummary } from '$features/dashboard/index.server';
 import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, privateJson, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestDashboardSummaryContext } from '$lib/server/adapters/requestContexts.server';
 import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
 
@@ -18,16 +18,8 @@ export const _getConfig: RouteConfig<
 	context: createRequestDashboardSummaryContext,
 	policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 	parseInput: (event) => ({ asOf: viewerToday(event.cookies), timeZone: viewerTimeZone(event.cookies) }),
-	fn: (ctx, { asOf, timeZone }) =>
-		refreshDashboardSummary(
-			ctx,
-			{
-				training: ctx.auth.capabilityMap.training !== 'none',
-				criticalTasks: ctx.auth.capabilityMap.criticalTasks !== 'none'
-			},
-			asOf,
-			timeZone
-		)
+	fn: (ctx, { asOf, timeZone }) => refreshDashboardSummary(ctx, asOf, timeZone),
+	formatOutput: privateJson
 };
 
 export const GET = handle(_getConfig);

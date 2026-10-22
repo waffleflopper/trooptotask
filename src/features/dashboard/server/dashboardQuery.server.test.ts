@@ -27,7 +27,7 @@ function buildCtx(overrides?: {
 
 describe('Dashboard packet read', () => {
 	const load = fetchDashboardBootstrap;
-	it('preserves saved progress and attributed history with Personnel access alone', async () => {
+	it('preserves saved progress and attributed history with Onboarding view and no Training access', async () => {
 		const ctx = buildCtx({
 			auth: {
 				role: 'member',
@@ -36,7 +36,7 @@ describe('Dashboard packet read', () => {
 					personnel: 'view',
 					calendar: 'none',
 					training: 'none',
-					onboarding: 'none',
+					onboarding: 'view',
 					criticalTasks: 'none',
 					ratingScheme: 'none'
 				}
@@ -108,6 +108,37 @@ describe('Dashboard packet read', () => {
 			]
 		});
 		expect(hydrateTraining).not.toHaveBeenCalled();
+	});
+
+	it('returns no packet to a Personnel and Training viewer whose Onboarding lane is none', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel: 'view',
+					calendar: 'none',
+					training: 'view',
+					onboarding: 'none',
+					criticalTasks: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		// RLS lets a Personnel reader select packets, so the store would return this one.
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('personnel_onboardings', [
+			{ id: 'packet-active', organization_id: ORG, personnel_id: 'p1', status: 'in_progress' }
+		]);
+		store.seed('onboarding_templates', [{ id: 'template-1', organization_id: ORG, name: 'Inprocessing' }]);
+		const packets = vi.spyOn(ctx.onboardingWorkflow, 'listSavedActivePackets');
+		const templates = vi.spyOn(ctx.onboardingCatalog, 'hasAnyTemplate');
+
+		const result = await load(ctx);
+
+		expect(result).toMatchObject({ activeOnboardings: [], hasAnyOnboardingTemplate: false });
+		expect(packets).not.toHaveBeenCalled();
+		expect(templates).not.toHaveBeenCalled();
 	});
 });
 
@@ -275,41 +306,136 @@ describe('fetchDashboardBootstrap', () => {
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p-1']);
 	});
 
-	it('skips the reads of each feature the unit has turned off', async () => {
-		const ctx = buildCtx({ disabledFeatures: ['training', 'evaluations', 'onboarding', 'lossesAndAwards'] });
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-		store.seed('organizations', [{ id: ORG, loss_warning_window_days: 90, strength_floor_percent: 70 }]);
-		store.seed('training_types', [{ id: 't1', organization_id: ORG, name: 'Annual', sort_order: 0 }]);
-		store.seed('personnel_onboardings', [
-			{ id: 'po1', organization_id: ORG, personnel_id: 'p1', status: 'in_progress', onboarding_step_progress: [] }
-		]);
-		store.seed('personnel_extended_info', [
-			{ id: 'ext-1', organization_id: ORG, personnel_id: 'p1', award_tracking_acknowledged_at: '2026-04-14T12:00:00Z' }
-		]);
-		ctx.ratingSchemeDue = {
-			listDueEntries: async () => {
-				throw new Error('Evaluations are off for this unit');
-			}
+	function refuse(subject: string) {
+		return async (): Promise<never> => {
+			throw new Error(`${subject} must not be read`);
 		};
-		const findMany = ctx.store.findMany.bind(ctx.store);
-		const reads: string[] = [];
-		vi.spyOn(ctx.store, 'findMany').mockImplementation((name, ...args) => {
-			reads.push(name);
-			return findMany(name, ...args);
+	}
+
+	/** Each gated read throws, so a result proves the read never ran. */
+	function refuseGatedReads(ctx: ReturnType<typeof buildCtx>) {
+		ctx.ratingSchemeDue = { listDueEntries: refuse('Rating Scheme entries') };
+		ctx.onboardingWorkflow.listSavedActivePackets = refuse('Onboarding packets');
+		ctx.onboardingCatalog.hasAnyTemplate = refuse('Onboarding templates');
+		ctx.trainingCatalog.listTypes = refuse('Training types');
+		ctx.personnelAwardAcknowledgement = { listAcknowledgedPersonnelIds: refuse('Award acknowledgements') };
+		ctx.calendarCatalogs.listAssignmentTypes = refuse('Assignment types');
+		ctx.calendarCatalogs.listStatusTypes = refuse('Status types');
+		ctx.calendarCatalogs.listSpecialDays = refuse('Special days');
+		ctx.calendarAvailability.listOverlapping = refuse('Availability');
+		ctx.calendarAssignments.listRange = refuse('Assignments');
+	}
+
+	const NOTHING_GATED = {
+		ratingSchemeEntries: [],
+		activeOnboardings: [],
+		hasAnyOnboardingTemplate: false,
+		trainingTypes: [],
+		awardTrackingAcknowledgedPersonnelIds: [],
+		assignmentTypes: [],
+		statusTypes: [],
+		specialDays: []
+	};
+
+	it('reads no feature source for a member without any lane', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel: 'none',
+					calendar: 'none',
+					training: 'none',
+					onboarding: 'none',
+					criticalTasks: 'none',
+					ratingScheme: 'none'
+				}
+			}
 		});
+		refuseGatedReads(ctx);
 
 		const result = await fetchDashboardBootstrap(ctx);
 
-		expect(reads).not.toContain('personnel_onboardings');
-		expect(reads).not.toContain('training_types');
+		expect(result).toMatchObject(NOTHING_GATED);
+		await expect(result.availabilityEntries).resolves.toEqual([]);
+		await expect(result.todayAssignments).resolves.toEqual([]);
+	});
+
+	it("reads no feature source an owner's unit has turned off", async () => {
+		const ctx = buildCtx({ disabledFeatures: ['training', 'evaluations', 'onboarding', 'lossesAndAwards'] });
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('organizations', [{ id: ORG, loss_warning_window_days: 90, strength_floor_percent: 70 }]);
+		ctx.ratingSchemeDue = { listDueEntries: refuse('Rating Scheme entries') };
+		ctx.onboardingWorkflow.listSavedActivePackets = refuse('Onboarding packets');
+		ctx.onboardingCatalog.hasAnyTemplate = refuse('Onboarding templates');
+		ctx.trainingCatalog.listTypes = refuse('Training types');
+		ctx.personnelAwardAcknowledgement = { listAcknowledgedPersonnelIds: refuse('Award acknowledgements') };
+
+		const result = await fetchDashboardBootstrap(ctx);
+
 		expect(result).toMatchObject({
 			ratingSchemeEntries: [],
 			activeOnboardings: [],
+			hasAnyOnboardingTemplate: false,
 			trainingTypes: [],
 			awardTrackingAcknowledgedPersonnelIds: [],
 			lossWarningWindowDays: 90,
 			strengthFloorPercent: 70
 		});
+	});
+
+	it.each([
+		['ratingScheme', 'ratingSchemeEntries', []],
+		['onboarding', 'activeOnboardings', []],
+		['onboarding', 'hasAnyOnboardingTemplate', false],
+		['training', 'trainingTypes', []],
+		['personnel', 'awardTrackingAcknowledgedPersonnelIds', []],
+		['calendar', 'assignmentTypes', []],
+		['calendar', 'statusTypes', []],
+		['calendar', 'specialDays', []]
+	] as const)("skips a member's read when the %s lane is none (%s)", async (lane, field, empty) => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel: 'view',
+					calendar: 'view',
+					training: 'view',
+					onboarding: 'view',
+					criticalTasks: 'view',
+					ratingScheme: 'view',
+					[lane]: 'none'
+				}
+			}
+		});
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('onboarding_templates', [{ id: 'template-1', organization_id: ORG, name: 'Inprocessing' }]);
+		const gated = {
+			ratingSchemeEntries: () => (ctx.ratingSchemeDue = { listDueEntries: refuse('Rating Scheme entries') }),
+			activeOnboardings: () => (ctx.onboardingWorkflow.listSavedActivePackets = refuse('Onboarding packets')),
+			hasAnyOnboardingTemplate: () => (ctx.onboardingCatalog.hasAnyTemplate = refuse('Onboarding templates')),
+			trainingTypes: () => (ctx.trainingCatalog.listTypes = refuse('Training types')),
+			awardTrackingAcknowledgedPersonnelIds: () =>
+				(ctx.personnelAwardAcknowledgement = { listAcknowledgedPersonnelIds: refuse('Award acknowledgements') }),
+			assignmentTypes: () => (ctx.calendarCatalogs.listAssignmentTypes = refuse('Assignment types')),
+			statusTypes: () => (ctx.calendarCatalogs.listStatusTypes = refuse('Status types')),
+			specialDays: () => (ctx.calendarCatalogs.listSpecialDays = refuse('Special days'))
+		};
+		gated[field]();
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result[field]).toEqual(empty);
+	});
+
+	it('reports whether the unit has saved an Onboarding template', async () => {
+		const ctx = buildCtx();
+		expect((await fetchDashboardBootstrap(ctx)).hasAnyOnboardingTemplate).toBe(false);
+
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('onboarding_templates', [{ id: 'template-1', organization_id: ORG, name: 'Inprocessing' }]);
+		expect((await fetchDashboardBootstrap(ctx)).hasAnyOnboardingTemplate).toBe(true);
 	});
 
 	it("reads UTC day -2 through +15 so every viewer's yesterday through today plus 14 is loaded", async () => {

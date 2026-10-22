@@ -36,17 +36,7 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 				withDashboardTiming(orgId, 'summary', async () => {
 					const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
 					const workspaceData = (await workspaceBootstrap).data;
-					const canViewCriticalTasks =
-						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
-					const canViewTraining =
-						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
-					return fetchDashboardSummary(
-						ctx,
-						workspaceData,
-						{ training: canViewTraining, criticalTasks: canViewCriticalTasks },
-						asOf,
-						timeZone
-					);
+					return fetchDashboardSummary(ctx, workspaceData, asOf, timeZone);
 				})
 		},
 		() => createRequestDashboardSummaryContext(ctx)

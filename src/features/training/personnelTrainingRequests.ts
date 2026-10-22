@@ -36,7 +36,9 @@ export async function recordTrainingCompletions(
 }
 
 export async function loadPersonTrainingRecords(orgId: string, personnelId: string): Promise<PersonnelTraining[]> {
-	const response = await fetch(`/org/${orgId}/api/personnel-trainings?${new URLSearchParams({ personnelId })}`);
+	const response = await fetch(`/org/${orgId}/api/personnel-trainings?${new URLSearchParams({ personnelId })}`, {
+		cache: 'no-store'
+	});
 	if (!response.ok) throw await buildRequestError(response, 'GET', 'training records');
 	return response.json();
 }

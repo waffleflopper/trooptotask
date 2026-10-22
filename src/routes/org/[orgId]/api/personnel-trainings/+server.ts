@@ -1,7 +1,7 @@
 import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { json } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, privateJson, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
 import {
@@ -25,7 +25,8 @@ export const _getConfig: RouteConfig<
 		if (!personnelId || !validateUUID(personnelId)) fail(400, 'Invalid personnel id');
 		return { personnelId };
 	},
-	fn: (ctx, input) => listPersonTrainingRecords(ctx, input.personnelId)
+	fn: (ctx, input) => listPersonTrainingRecords(ctx, input.personnelId),
+	formatOutput: privateJson
 };
 
 export const _postConfig: RouteConfig<

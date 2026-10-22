@@ -13,8 +13,11 @@ import {
 } from './readiness';
 
 const TODAY = '2026-10-19';
-const everything: DashboardAccess = { can: () => true };
-const only = (...ids: string[]): DashboardAccess => ({ can: (action) => ids.includes(action.id) });
+const everything: DashboardAccess = { can: () => true, isPrivileged: false };
+const only = (...ids: string[]): DashboardAccess => ({
+	can: (action) => ids.includes(action.id),
+	isPrivileged: false
+});
 
 function person(id: string, groupId: string | null, extra: Partial<Personnel> = {}): Personnel {
 	return {
@@ -71,6 +74,7 @@ function inputs(loaded: Loaded = {}): DashboardInputs {
 					range: { rangeStart: today, rangeEnd: today },
 					pinnedGroups: [],
 					activeOnboardings: (loaded.activeOnboardings ?? []) as PersonnelOnboarding[],
+					hasAnyOnboardingTemplate: true,
 					ratingSchemeEntries: (loaded.ratingSchemeEntries ?? []) as RatingSchemeDueEntry[],
 					personnel: [],
 					groups: [],

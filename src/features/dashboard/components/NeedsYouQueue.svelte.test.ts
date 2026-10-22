@@ -29,7 +29,7 @@ function show(items: NeedsYouItem[], unavailable: string[] = []) {
 		props: {
 			queue: buildNeedsYouQueue([items]),
 			model: {} as DashboardScreenModel,
-			access: { can: () => true },
+			access: { can: () => true, isPrivileged: false },
 			updates,
 			unavailable
 		}

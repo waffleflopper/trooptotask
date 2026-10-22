@@ -21,6 +21,8 @@
 	import GroupStrength from './GroupStrength.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
 	import ReadinessColumn from './ReadinessColumn.svelte';
+	import SetupHints from './SetupHints.svelte';
+	import { SetupHintDismissals } from '../setupHintDismissals.svelte';
 	import StrengthForecast from './StrengthForecast.svelte';
 
 	interface Props {
@@ -49,9 +51,14 @@
 		model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures, access) : null
 	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
-	const failedFeatures = $derived(
-		parts?.readinessColumns.filter((column) => column.state === 'failed').map((column) => column.title) ?? []
-	);
+	const columnFailed = $derived(parts?.readinessColumns.some((column) => column.state === 'failed') ?? false);
+	const hintDismissals = new SetupHintDismissals(() => ({
+		orgId: model?.data.orgId ?? '',
+		userId: model?.data.userId ?? ''
+	}));
+	const setupHints = $derived(parts ? hintDismissals.visible(parts.setupHints) : []);
+	// With every optional feature off or not set up, Readiness has nothing to say.
+	const showsReadiness = $derived(!parts || parts.readinessColumns.length > 0 || setupHints.length > 0);
 
 	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
 	let latestOpen = 0;
@@ -88,8 +95,8 @@
 {#snippet quickAddButtons()}
 	<div class="flex flex-wrap items-center gap-2 pb-1" role="group" aria-labelledby="dashboard-quick-add">
 		<span id="dashboard-quick-add" class="pr-1.5 {EYEBROW}">Quick add</span>
-		{#each quickAdd as entry, index (entry.id)}
-			<Button variant={index === quickAdd.length - 1 ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
+		{#each quickAdd as entry (entry.id)}
+			<Button variant={entry.primary ? 'default' : 'outline'} onclick={() => openQuickAdd(entry)}>
 				<entry.icon data-icon="inline-start" aria-hidden="true" />
 				{entry.label}
 			</Button>
@@ -114,7 +121,7 @@
 			{:else}
 				{#if !model}
 					<p class="sr-only" role="status">Loading Dashboard</p>
-				{:else if failedFeatures.length > 0}
+				{:else if columnFailed}
 					{@render summaryFailure?.()}
 				{/if}
 
@@ -204,7 +211,13 @@
 							{/snippet}
 						</PageShell.SectionHeader>
 						{#if parts && model}
-							<NeedsYouQueue queue={parts.needsYou} {model} {access} {updates} unavailable={failedFeatures} />
+							<NeedsYouQueue
+								queue={parts.needsYou}
+								{model}
+								{access}
+								{updates}
+								unavailable={parts.needsYouUnavailable}
+							/>
 						{:else}
 							<div class="grid border-t border-foreground" aria-hidden="true">
 								{#each { length: 5 }, index (index)}
@@ -244,36 +257,39 @@
 					</div>
 				</section>
 
-				<section class="{BAND} gap-5" aria-label="Readiness" aria-busy={!model} data-dashboard-band="readiness">
-					<PageShell.SectionHeader size="compact" eyebrow="Readiness · as of today" title="Where the unit stands" />
-					{#if parts}
-						{#if parts.readinessColumns.length > 0}
-							<ul class={LEDGER} aria-label="Readiness by feature">
-								{#each parts.readinessColumns as column (column.id)}
-									<li class={LEDGER_COLUMN}><ReadinessColumn {column} /></li>
+				{#if showsReadiness}
+					<section class="{BAND} gap-5" aria-label="Readiness" aria-busy={!model} data-dashboard-band="readiness">
+						<PageShell.SectionHeader size="compact" eyebrow="Readiness · as of today" title="Where the unit stands" />
+						{#if parts}
+							{#if parts.readinessColumns.length > 0}
+								<ul class={LEDGER} aria-label="Readiness by feature">
+									{#each parts.readinessColumns as column (column.id)}
+										<li class={LEDGER_COLUMN}><ReadinessColumn {column} /></li>
+									{/each}
+								</ul>
+							{/if}
+							<SetupHints hints={setupHints} onDismiss={(feature) => hintDismissals.dismiss(feature)} />
+						{:else}
+							<div class={LEDGER} aria-hidden="true">
+								{#each { length: 4 }, index (index)}
+									<div class="grid content-start gap-3 {LEDGER_COLUMN}">
+										<Skeleton class="h-3.5 w-28" />
+										<div class="flex items-end gap-2">
+											<Skeleton class="h-[50px] w-24" />
+											<Skeleton class="mb-0.5 h-3 w-14" />
+										</div>
+										<Skeleton class="h-2 w-full" />
+										<div class="grid gap-1.5 py-0.5">
+											<Skeleton class="h-3.5 w-full" />
+											<Skeleton class="h-3.5 w-[70%]" />
+										</div>
+										<Skeleton class="h-3.5 w-24" />
+									</div>
 								{/each}
-							</ul>
+							</div>
 						{/if}
-					{:else}
-						<div class={LEDGER} aria-hidden="true">
-							{#each { length: 4 }, index (index)}
-								<div class="grid content-start gap-3 {LEDGER_COLUMN}">
-									<Skeleton class="h-3.5 w-28" />
-									<div class="flex items-end gap-2">
-										<Skeleton class="h-[50px] w-24" />
-										<Skeleton class="mb-0.5 h-3 w-14" />
-									</div>
-									<Skeleton class="h-2 w-full" />
-									<div class="grid gap-1.5 py-0.5">
-										<Skeleton class="h-3.5 w-full" />
-										<Skeleton class="h-3.5 w-[70%]" />
-									</div>
-									<Skeleton class="h-3.5 w-24" />
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</section>
+					</section>
+				{/if}
 			{/if}
 		</div>
 	</div>

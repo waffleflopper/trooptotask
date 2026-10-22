@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import { _deleteConfig, _getConfig, _postConfig } from './+server';
 
 const PERSON_1 = '00000000-0000-4000-8000-000000002001';
@@ -57,6 +58,20 @@ describe('/api/personnel-trainings route config', () => {
 		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_BRAVO }, () => ctx)).rejects.toMatchObject(
 			{ status: 403 }
 		);
+	});
+
+	it("refuses an owner a Person's records while the unit has Training turned off, before any read", async () => {
+		const auth = projectOrganizationAccessGrant({ role: 'owner' }, 'owner-1', 'test-org', {
+			disabledFeatures: ['training']
+		});
+		const ctx = createTestContext({ auth: { ...auth } });
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
+		const findMany = vi.spyOn(ctx.store, 'findMany').mockRejectedValue(new Error('Training must not be read'));
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_1 }, () => ctx)).rejects.toMatchObject({
+			status: 403
+		});
+		expect(findMany).not.toHaveBeenCalled();
 	});
 
 	it.each(['operate', 'configure'] as const)('retains the %s deletion response and target effect', async (training) => {
@@ -270,5 +285,11 @@ describe('/api/personnel-trainings route config', () => {
 				resourceType: 'training.recordCompletions'
 			})
 		]);
+	});
+
+	it('marks the read private and non-cacheable', () => {
+		const response = _getConfig.formatOutput!([]);
+
+		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 	});
 });

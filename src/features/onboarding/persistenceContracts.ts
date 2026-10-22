@@ -55,6 +55,7 @@ export interface OnboardingCatalogPersistence {
 	findStep(id: string): Promise<SavedOnboardingTemplateStep | null>;
 	findStepByTemplateAndName(templateId: string, name: string): Promise<SavedOnboardingTemplateStep | null>;
 	readStarterReadiness(templateName: string, stepNames: readonly string[]): Promise<OnboardingStarterReadiness>;
+	hasAnyTemplate(): Promise<boolean>;
 	countEstimatedSteps(): Promise<number>;
 	createTemplate(data: OnboardingTemplateData): Promise<SavedOnboardingTemplate>;
 	updateTemplate(id: string, data: Partial<OnboardingTemplateData>): Promise<SavedOnboardingTemplate>;

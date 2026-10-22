@@ -13,14 +13,19 @@ import type { DashboardAccess } from '../sections/dashboardAccess';
 import { DASHBOARD_SECTIONS } from '../sections/dashboardSectionRegistry';
 import { buildStrengthBand } from '../read-model/strengthBand';
 import type { Personnel } from '$features/personnel/contracts';
+import type { TrainingType } from '$features/training/contracts';
+
+vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => globalThis.localStorage }));
 
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
+	localStorage.clear();
 });
 
 const access: DashboardAccess = {
-	can: () => true
+	can: () => true,
+	isPrivileged: false
 };
 const updates = { refreshSummary: () => {}, putRecord: () => {} };
 const frame = {
@@ -179,12 +184,12 @@ function bands() {
 }
 
 describe('Dashboard frame', () => {
-	it('names the viewer day and the unit, and counts personnel once the model is ready', () => {
+	it('names the viewer day and the unit, counts personnel once the model is ready, and omits an empty Readiness band', () => {
 		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ totalPersonnel: 42 }) } });
 
 		expect(screen.getByRole('heading', { level: 1, name: 'Monday 19 Oct' })).toBeTruthy();
 		expect(screen.getByText('Dashboard · Test Unit · 42 personnel')).toBeTruthy();
-		expect(bands().map((band) => band?.getAttribute('aria-busy'))).toEqual(['false', 'false', 'false']);
+		expect(bands().map((band) => band?.getAttribute('aria-busy') ?? null)).toEqual(['false', 'false', null]);
 		expect(document.querySelector('[data-slot="skeleton"]')).toBeNull();
 	});
 
@@ -230,6 +235,7 @@ describe('Dashboard frame', () => {
 				id: 'status',
 				label: 'Status',
 				order: 10,
+				primary: true,
 				loadDialog,
 				icon,
 				available: (_, viewer) => viewer.can(POLICY_ACTION_CATALOG.calendar.manageAvailability)
@@ -242,8 +248,11 @@ describe('Dashboard frame', () => {
 		expect(
 			within(group)
 				.getAllByRole('button')
-				.map((button) => button.textContent?.trim())
-		).toEqual(['Status', 'Training']);
+				.map((button) => [button.textContent?.trim(), button.classList.contains('bg-primary')])
+		).toEqual([
+			['Status', true],
+			['Training', false]
+		]);
 
 		await view.rerender({
 			...props,
@@ -409,11 +418,20 @@ describe('Dashboard sections', () => {
 					range: { rangeStart: '2026-10-17', rangeEnd: '2026-11-03' },
 					pinnedGroups: [],
 					activeOnboardings: [],
-					ratingSchemeEntries: [],
+					hasAnyOnboardingTemplate: true,
+					ratingSchemeEntries: [
+						{
+							id: 'entry-1',
+							ratedPersonId: 'p-1',
+							evalType: 'NCOER',
+							ratingPeriodEnd: '2027-06-30',
+							status: 'completed'
+						}
+					],
 					personnel: [],
 					groups: [],
 					statusTypes: [],
-					trainingTypes: [],
+					trainingTypes: [{ id: 'training-1', name: 'SHARP' } as TrainingType],
 					lossWarningWindowDays: 180,
 					strengthFloorPercent: 80,
 					awardTrackingAcknowledgedPersonnelIds: [],
@@ -792,9 +810,7 @@ describe('Dashboard sections', () => {
 			render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS, summaryFailure } });
 
 			expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
-			expect(
-				screen.getByText('Needs you is incomplete. Training and Critical tasks items could not load.')
-			).toBeTruthy();
+			expect(screen.getByText('Needs you is incomplete. Training items could not load.')).toBeTruthy();
 			expect(screen.getAllByRole('button', { name: 'Retry Dashboard' })).toHaveLength(1);
 			expect(readinessTitles()).toEqual(['Training', 'Critical tasks', 'Evaluations', 'Arriving and leaving']);
 		});
@@ -802,6 +818,7 @@ describe('Dashboard sections', () => {
 		it('keeps the empty state and offers no Retry when the actor reads neither summary source', () => {
 			const ctx = createDashboardScreenModel({ ...pageData(), summaryFailed: true }, { sources: withPerson });
 			const noSummaryAccess: DashboardAccess = {
+				isPrivileged: false,
 				can: (action) =>
 					action.id !== POLICY_ACTION_CATALOG.training.viewRecords.id &&
 					action.id !== POLICY_ACTION_CATALOG.criticalTasks.viewReadiness.id
@@ -827,5 +844,49 @@ describe('Dashboard sections', () => {
 		expect(within(row).getByText("Couldn't load Critical Tasks readiness. Reload the page to try again.")).toBeTruthy();
 		expect(within(row).getByText('None due within 60 days. 0 are current.')).toBeTruthy();
 		expect(bands().map((band) => band?.getAttribute('aria-busy'))).toEqual(['false', 'false', 'false']);
+	});
+});
+
+describe('setup hints', () => {
+	const notSetUp = (gap: string) => ({ isNotSetUp: () => true, gap, fix: { label: 'Fix it', href: () => '/fix' } });
+	const sections = [
+		dashboardSection('onboarding', { setup: notSetUp('there are no templates yet') }),
+		dashboardSection('training', { setup: notSetUp('there are no training types yet') })
+	];
+	const owner = { ...access, isPrivileged: true };
+	const viewAs = (userId: string, orgId = 'org-1') =>
+		render(DashboardPageView, {
+			props: {
+				...frame,
+				access: owner,
+				sections,
+				ctx: makeCtx({ data: { orgId, userId }, inputs: { forecastDays: [], page: { orgId } } })
+			}
+		});
+	const hintTexts = () => screen.queryAllByText(/is on, but/).map((hint) => hint.textContent);
+	const readiness = () => screen.queryByRole('region', { name: 'Readiness' });
+
+	it('keeps a dismissed hint hidden for that member and unit after a reload, and drops an empty Readiness band', async () => {
+		viewAs('user-1');
+		expect(screen.getByRole('link', { name: 'Turn off onboarding' }).getAttribute('href')).toBe(
+			'/org/org-1/settings/features'
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss the Onboarding hint' }));
+		expect(hintTexts()).toEqual(["Training is on, but there are no training types yet, so it isn't shown here."]);
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Dismiss the Training hint' }));
+		cleanup();
+
+		viewAs('user-1');
+		expect(hintTexts()).toEqual(["Training is on, but there are no training types yet, so it isn't shown here."]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss the Training hint' }));
+		expect(readiness()).toBeNull();
+		cleanup();
+
+		viewAs('user-2');
+		expect(hintTexts()).toHaveLength(2);
+		cleanup();
+
+		viewAs('user-1', 'org-2');
+		expect(hintTexts()).toHaveLength(2);
 	});
 });

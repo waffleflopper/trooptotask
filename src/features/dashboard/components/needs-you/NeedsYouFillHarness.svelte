@@ -10,4 +10,4 @@
 	const queue = $derived(buildNeedsYouQueue([unfilledDuty(model.inputs)]));
 </script>
 
-<NeedsYouQueue {queue} {model} access={{ can: () => true }} {updates} />
+<NeedsYouQueue {queue} {model} access={{ can: () => true, isPrivileged: false }} {updates} />

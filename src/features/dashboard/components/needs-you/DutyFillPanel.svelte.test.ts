@@ -76,7 +76,7 @@ function open(openDates: readonly string[]) {
 	render(DutyFillPanel, {
 		props: {
 			model,
-			access: { can: () => true },
+			access: { can: () => true, isPrivileged: false },
 			updates: { refreshSummary: vi.fn(), putRecord: vi.fn() },
 			save: (command: () => Promise<void>) => command(),
 			saving: false,

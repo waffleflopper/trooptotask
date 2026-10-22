@@ -30,7 +30,7 @@ The shared pstack plugin supplies general engineering methods. When using Poteto
 
 - Engineering investigation, feature work, bug fixes, refactoring, design or review: [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md).
 - Driving the real app, browser debugging or maintaining flow knowledge: [verify-trooptotask](.agents/skills/verify-trooptotask/SKILL.md). Use `npm run verify:app -- --help`; update affected feature recipes alongside behavior changes.
-- PR feedback, current-candidate CI and authorized handoff: the repository's [finish-pr](.agents/skills/finish-pr/SKILL.md).
+- PR feedback, current-candidate CI and authorized handoff: the repository's [finish-pr](.agents/skills/finish-pr/SKILL.md). Robert's "ship it" runs the global `ship-it` skill under finish-pr's gates.
 
 - Adding, rewriting, pruning or reviewing tests: [Testing strategy](docs/architecture/TESTING.md).
 - Svelte/SvelteKit implementation or framework questions: [Svelte guidance](docs/agents/svelte.md).
@@ -38,3 +38,19 @@ The shared pstack plugin supplies general engineering methods. When using Poteto
 - Architecture, authorization, provider boundaries, governance, or adding and moving feature code: [Architecture and governance](docs/agents/architecture-governance.md).
 - Reading or updating GitHub issues: [Issue tracker](docs/agents/issue-tracker.md); for labels, [Triage labels](docs/agents/triage-labels.md).
 - Domain behavior or naming: [Domain docs](docs/agents/domain.md).
+
+## Review guidelines
+
+Reviewers, human or bot, flag these. Independent acceptance has repeatedly caught them after the review bots passed a PR.
+
+- A state write or navigation after an `await` that does not check the user is still on the same Organization, dialog or request.
+- An attribution column (completed by, archived by, saved by) that a client can set, or a SQL test that proves one as a superuser instead of an ordinary signed-in role.
+- A region with no skeleton while it loads, layout shift when data arrives, or a failed source that breaks the page instead of showing its load error.
+- A layout that breaks below 1024 px or at 390 px.
+- A route or feature that restyles a shared component under `src/lib/components/patterns` instead of extending it.
+- An audit or persistence write that is not awaited.
+- A new or rewritten test that breaks [Testing strategy](docs/architecture/TESTING.md), such as one that still passes when the component renders nothing, or pins copy, mounted-row counts or the real clock.
+- A threshold or color computed from a value the UI shows rounded.
+- A URL-opened drawer or dialog that stays open after Back.
+
+Treat style preferences as non-blocking.

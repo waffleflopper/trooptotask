@@ -11,9 +11,10 @@
 		"npm": "11.12.1"
 	},
 	"scripts": {
-		"verify:app": "node scripts/verification/cli.mjs",
+		"verify:app": "node scripts/check-node.mjs && node scripts/verification/cli.mjs",
 		"dev": "vite dev",
 		"postinstall": "node ./scripts/patch-bits-ui-timers.mjs",
+		"prebuild": "node scripts/check-node.mjs",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

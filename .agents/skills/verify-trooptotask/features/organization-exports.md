@@ -5,7 +5,7 @@ An Organization owner or admin downloads a complete JSON backup or an Excel work
 ## Sub-features
 
 - `export-entry`: Settings exposes JSON and Excel downloads to the current Organization owner/admin, with what an export contains and the owner's last export.
-- `export-artifacts`: both formats retain every manifest section, raw row values, empty sections, readable workbook sheets, and existing filenames.
+- `export-artifacts`: both formats retain enabled manifest sections, raw row values, empty sections, readable workbook sheets, and existing filenames; omitted disabled features have notes.
 - `export-sensitive-records`: authorized full exports retain active and archived Personnel artifacts while ordinary display fields keep their blank legacy notes.
 - `export-lifecycle`: each admitted request records its requester, Organization, status, timestamps, and actual artifact size; failures remain visible.
 - `export-recovery`: a failed request downloads no error body, restores the controls, and permits an explicit retry.
@@ -14,7 +14,7 @@ An Organization owner or admin downloads a complete JSON backup or an Excel work
 
 ## How to get to it (user POV)
 
-Open an Organization, choose Settings, then Exports. `Everything in <unit>` lists what an export contains as chips, with live Personnel and Training record counts that stream after first paint. Export includes every area whether its feature is on or off. Choose `Export JSON` or `Export Excel` in its tile. Only the pressed button reads `Generating…` while its file builds, with the accessible name `Generating JSON export…` or `Generating Excel export…`, and the other tile stays usable, so both formats can run at once. A successful request downloads the requested file, announces completion in a status region and re-reads the Audit log. For an owner the last export line then shows the newest `export.created` or `export.excel_created` event with its Audit actor, never the browser's time. It shows a skeleton while the read is in flight. With both formats running, the line shows the newest event whichever response lands last. An admin sees no line. A failed count keeps the chips and adds `What an export of <unit> contains could not be counted.` while both export buttons stay usable.
+Open an Organization, choose Settings, then Exports. `Everything in <unit>` lists what an export contains as chips, with live Personnel and Training record counts that stream after first paint. Disabled feature sections are omitted. JSON notes and the Excel Export Inventory explain each omission, for example `Training is turned off; its records are not included.` Award acknowledgement values are omitted while Losses and awards is off. Choose `Export JSON` or `Export Excel` in its tile. Only the pressed button reads `Generating…` while its file builds, with the accessible name `Generating JSON export…` or `Generating Excel export…`, and the other tile stays usable, so both formats can run at once. A successful request downloads the requested file, announces completion in a status region and re-reads the Audit log. For an owner the last export line then shows the newest `export.created` or `export.excel_created` event with its Audit actor, never the browser's time. It shows a skeleton while the read is in flight. With both formats running, the line shows the newest event whichever response lands last. An admin sees no line. A failed count keeps the chips and adds `What an export of <unit> contains could not be counted.` while both export buttons stay usable.
 
 Owners see `Last export · <format> · <date>, <time> by <actor>` from the newer `export.created` or `export.excel_created` Audit event. For admins the page sends no Audit read.
 
@@ -79,3 +79,7 @@ Use a held failing provider response or focused deferred component checks for la
 - Full Organization backup formats and narrower report workbooks have different contracts. Preserve raw sensitive rules and legacy blank fields without expanding the Coming Soon action.
 - Execution/lifecycle/manifest/workbook, Personnel export, JSON/Excel route, and export-workspace tests are the lower-level checks. `data_export_lifecycle_rls.sql` and sensitive Personnel SQL establish database admission separately under the [isolated database contract](../../../../docs/architecture/DEFINITION_OF_DONE.md#isolated-database-checks).
 - Restore every armed `server-source` control and compare original source/file sentinels. Lifecycle/Audit/notification rows created by real exports remain in the disposable project until owned disposal.
+
+### Switched-off export sections
+
+As `orgOwner`, turn Training off in Features and export both formats. Training types, completions, history, views, and Sign-in Rosters must be absent from JSON sections and workbook sheets. Both artifacts state `Training is turned off; its records are not included.` Personnel and Calendar remain present. With Losses and awards off, Personnel extended info excludes `award_tracking_acknowledged_at` and the artifact lists that feature's omission. Restore the switches after checking the saved files.

@@ -106,7 +106,12 @@
 	const personnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 	const personById = $derived(new Map(personnel.map((person) => [person.id, person])));
 	const assignmentsBySlot = $derived(indexAssignmentsBySlot(assignments));
-	const availabilityByPerson = $derived(indexDutyAvailability(availabilityEntries));
+	const blockingStatusIds = $derived(
+		new Set(statusTypes.filter((status) => status.rosterEffect !== 'available').map((status) => status.id))
+	);
+	const availabilityByPerson = $derived(
+		indexDutyAvailability(availabilityEntries.filter((entry) => blockingStatusIds.has(entry.statusTypeId)))
+	);
 	const conflicts = $derived(
 		findDutyConflicts({ assignments, assignmentTypes: columns, availabilityByPerson, range: monthRange })
 	);

@@ -95,6 +95,15 @@ function renderPlanner(
 					shortLabel: null,
 					rosterEffect: 'A',
 					sortOrder: 0
+				},
+				{
+					id: 'appt',
+					name: 'Appointment',
+					color: '#a60',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'available',
+					sortOrder: 1
 				}
 			],
 			specialDays: [],
@@ -387,6 +396,16 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 			});
 
 			expect(screen.queryByRole('button', { name: okaforOn21 })).toBeNull();
+		});
+
+		it('does not flag a Still available status while the roster view is stale', () => {
+			renderPlanner({
+				assignments: [duty('2026-10-21', 'type-sd', 'p-okafor')],
+				availabilityEntries: [{ ...savedLeave, id: 'appt-1', statusTypeId: 'appt' }],
+				rosters: { views: coveringView, stale: true }
+			});
+
+			expect(screen.queryByRole('button', { name: /Staff Duty, Wed 21 Oct: SGT Okafor, Ife, unavailable/ })).toBeNull();
 		});
 
 		it('flags a Leave saved after a roster refresh failed instead of trusting the stale view', () => {

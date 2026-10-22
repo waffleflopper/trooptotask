@@ -14,6 +14,7 @@ import {
 	type RosterFactsPorts
 } from './rosterFacts.server';
 import type { OpenForm, RosterFacts, RosterRules } from './roster/rosterTypes';
+import { MAX_CALENDAR_RANGE_DAYS } from './utils/calendarRange';
 
 export type RosterSettingsPorts = RosterFactsPorts;
 
@@ -122,9 +123,9 @@ async function closing(
 }
 
 /**
- * The whole open form's facts through `through` (today unless a caller reads planned days too), plus the day each
- * side the engine reads for D and U. This type's duty days include those of deleted assignees, which still moved
- * everyone else's count.
+ * The whole open form's facts through `through` (today unless a caller reads planned days too), capped at today
+ * plus the Calendar's planning horizon, plus the day each side the engine reads for D and U. This type's duty days
+ * include those of deleted assignees, which still moved everyone else's count.
  */
 export async function loadRosterFacts(
 	ctx: RosterSettingsPorts,
@@ -133,7 +134,9 @@ export async function loadRosterFacts(
 	today: string,
 	through: string = today
 ): Promise<RosterFacts> {
-	const span = { from: addDays(form.startsOn, -1), through: addDays(through, 1) };
+	const horizon = addDays(today, MAX_CALENDAR_RANGE_DAYS);
+	const window = { from: form.startsOn, through: through < horizon ? through : horizon };
+	const span = { from: addDays(window.from, -1), through: addDays(window.through, 1) };
 	const [people, calendar, excusals, types, assignments, detailDays] = await Promise.all([
 		readRosterPeople(ctx),
 		readRosterCalendar(ctx, span),
@@ -147,7 +150,7 @@ export async function loadRosterFacts(
 		{ ...people, ...calendar, assignmentTypeNames: personTypes },
 		{
 			today,
-			window: { from: form.startsOn, through },
+			window,
 			type,
 			form,
 			excusals,

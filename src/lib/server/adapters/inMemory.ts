@@ -1324,7 +1324,10 @@ function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: FixtureRowStore
 	};
 }
 
-function createInMemoryTrainingOnboardingReferencesPort(rawStore: FixtureRowStore): TrainingOnboardingReferencesPort {
+function createInMemoryTrainingOnboardingReferencesPort(
+	rawStore: FixtureRowStore,
+	disabledFeatures: readonly FeatureKey[] = []
+): TrainingOnboardingReferencesPort {
 	return {
 		async listTypes(actor) {
 			const rows = await rawStore.findMany<Row>('training_types', actor.orgId, undefined, {
@@ -1356,6 +1359,7 @@ function createInMemoryTrainingOnboardingReferencesPort(rawStore: FixtureRowStor
 		},
 		async completedTypeIds(actor, personnelIds, trainingTypeIds) {
 			if (
+				disabledFeatures.includes('training') ||
 				personnelIds.length === 0 ||
 				trainingTypeIds.length === 0 ||
 				(actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0)
@@ -1951,7 +1955,7 @@ export function createTestContext(
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
-		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore, overrides?.disabledFeatures),
 		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth),
 		disabledFeatures: overrides?.disabledFeatures ?? []
 	};
@@ -2030,6 +2034,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		store,
 		rawStore,
 		auth,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		audit: createTestAuditPort(),
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
@@ -2051,7 +2056,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
-		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore, options?.disabledFeatures)
 	};
 }
 
@@ -2074,6 +2079,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		store,
 		rawStore,
 		auth,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
@@ -2095,7 +2101,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
-		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore, options?.disabledFeatures)
 	};
 }
 
@@ -2140,7 +2146,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
-		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore, options?.disabledFeatures),
 		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
 	};
 }
@@ -2176,6 +2182,6 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
-		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore, options?.disabledFeatures)
 	};
 }

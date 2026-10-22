@@ -6,6 +6,7 @@ import type {
 	OnboardingInactiveStepRemovalPorts
 } from './onboardingPorts.server';
 import { requireOnboardingManagePolicyForStep } from './onboardingPolicy.server';
+import { trainingStepsAreManual } from './manualTrainingSteps.server';
 
 interface ToggleCheckboxInput {
 	stepId: string;
@@ -125,7 +126,7 @@ export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: Toggle
 		fail(404, 'Step not found');
 	}
 
-	if (step.stepType !== 'checkbox') {
+	if (step.stepType !== 'checkbox' && !(step.stepType === 'training' && trainingStepsAreManual(ctx))) {
 		fail(400, 'Only checkbox steps can be toggled');
 	}
 

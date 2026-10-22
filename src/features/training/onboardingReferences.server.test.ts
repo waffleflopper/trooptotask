@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createSupabaseTrainingOnboardingReferencesPort } from './onboardingReferences.server';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 
 type Row = Record<string, unknown>;
 
-function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } = {}) {
+function provider(
+	fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } = {},
+	disabledFeatures: FeatureKey[] = []
+) {
 	const from = vi.fn((table: string) => {
 		let rows = (table === 'training_types' ? fixtures.trainingTypes : fixtures.trainingRecords) ?? [];
 		let joinedPersonnel = false;
@@ -45,7 +49,11 @@ function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } =
 		return query;
 	});
 	const getAdminClient = vi.fn(() => ({ from }) as unknown as SupabaseClient);
-	return { from, getAdminClient, port: createSupabaseTrainingOnboardingReferencesPort(getAdminClient) };
+	return {
+		from,
+		getAdminClient,
+		port: createSupabaseTrainingOnboardingReferencesPort(getAdminClient, disabledFeatures)
+	};
 }
 
 function valueAt(row: Row, path: string): unknown {
@@ -80,6 +88,18 @@ describe('Training references for Onboarding', () => {
 		await expect(port.listTypes(actor())).resolves.toMatchObject([
 			{ id: 'cpr', name: 'CPR', sortOrder: 1, expirationMonths: 12 }
 		]);
+	});
+
+	it('keeps Training type names but reads no completion records while Training is off', async () => {
+		const { port, getAdminClient } = provider(
+			{ trainingTypes: [{ id: 'cpr', organization_id: 'org-1', name: 'CPR', sort_order: 1 }] },
+			['training']
+		);
+
+		await expect(port.listTypes(actor())).resolves.toMatchObject([{ id: 'cpr', name: 'CPR' }]);
+		getAdminClient.mockClear();
+		await expect(port.completedTypeIds(actor(), ['p-alpha'], ['cpr'])).resolves.toEqual(new Map());
+		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('returns only requested completion pairs for the actor Organization and Group, even if expired', async () => {

@@ -1,5 +1,6 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
@@ -49,6 +50,7 @@ export interface OnboardingLifecyclePorts extends OnboardingResourcePorts {
 
 export interface OnboardingWorkflowPorts extends OnboardingResourcePorts {
 	readonly audit: PolicyAuditSink;
+	readonly disabledFeatures: readonly FeatureKey[];
 	readonly onboardingWorkflow: Pick<
 		OnboardingWorkflowPersistence,
 		'findPacketReference' | 'findStepReference' | 'saveCheckboxCompletion' | 'savePaperworkProgress'
@@ -57,6 +59,7 @@ export interface OnboardingWorkflowPorts extends OnboardingResourcePorts {
 
 export interface OnboardingTrainingPorts extends OnboardingResourcePorts {
 	readonly audit: PolicyAuditSink;
+	readonly disabledFeatures: readonly FeatureKey[];
 	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listSteps'>;
 	readonly onboardingWorkflow: Pick<
 		OnboardingWorkflowPersistence,
@@ -67,6 +70,7 @@ export interface OnboardingTrainingPorts extends OnboardingResourcePorts {
 }
 
 export interface OnboardingQueryPorts extends OnboardingPolicyPorts {
+	readonly disabledFeatures: readonly FeatureKey[];
 	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listTemplates' | 'listSteps'>;
 	readonly onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listPackets' | 'listCompletionsSince'>;
 	/** Read as the viewer, so Organization Row Level Security decides which members and settings they see. */

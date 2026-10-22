@@ -9,6 +9,7 @@ import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { typicalDaysToFinish, typicalWindowStart } from '../onboardingStatus';
 import { noteAuthorIds, pickNoteAuthorLabels } from '../onboardingNoteAuthors';
 import { normalizeRetentionMonths } from './onboardingRetention.server';
+import { asManualTrainingSteps, trainingStepsAreManual } from './manualTrainingSteps.server';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -147,7 +148,9 @@ export async function fetchOnboardingBootstrap(
 		o.steps.some((s) => s.stepType === 'training' && s.active)
 	);
 
-	if (trainingOnboardings.length > 0) {
+	if (trainingStepsAreManual(ctx)) {
+		onboardings = onboardings.map((onboarding) => ({ ...onboarding, steps: asManualTrainingSteps(onboarding.steps) }));
+	} else if (trainingOnboardings.length > 0) {
 		const completedTrainingTypeIdsByPersonnelId = await readCompletedTrainingTypeIdsByPersonnelId(
 			ctx,
 			trainingOnboardings

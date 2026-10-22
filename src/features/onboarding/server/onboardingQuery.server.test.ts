@@ -825,6 +825,48 @@ describe('fetchOnboardingBootstrap', () => {
 		expect(step!.completed).toBe(true);
 	});
 
+	it('keeps the saved completion of Training steps and presents them as checkboxes while Training is off', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG }, disabledFeatures: ['training'] });
+		ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG }]);
+		ctx.store.seed('training_types', [{ id: 'tt1', organization_id: ORG, name: 'CPR' }]);
+		ctx.store.seed('personnel_onboardings', [
+			{
+				id: 'ob1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				started_at: '2026-01-01',
+				completed_at: null,
+				cancelled_at: null,
+				status: 'in_progress',
+				template_id: null,
+				onboarding_step_progress: [
+					{
+						id: 'sp1',
+						onboarding_id: 'ob1',
+						organization_id: ORG,
+						step_name: 'CPR',
+						step_type: 'training',
+						training_type_id: 'tt1',
+						stages: null,
+						sort_order: 0,
+						completed: true,
+						current_stage: null,
+						notes: [],
+						template_step_id: null,
+						active: true
+					}
+				]
+			}
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx);
+
+		expect(result.onboardings[0].steps).toEqual([
+			expect.objectContaining({ id: 'sp1', stepName: 'CPR', stepType: 'checkbox', completed: true })
+		]);
+		expect(result.trainingTypes.map((type) => type.name)).toEqual(['CPR']);
+	});
+
 	it('hydrates active training-backed onboardings for view-only onboarding users', async () => {
 		const ctx = createWritePortsContext({
 			auth: {

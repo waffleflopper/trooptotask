@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { TRAINING_TYPE_FIELDS, toTrainingType, type TrainingTypeRow } from './server/trainingPersistenceMapping.server';
 import type { TrainingOnboardingActor, TrainingOnboardingReferencesPort } from './contracts';
 
@@ -17,8 +18,10 @@ async function requireOnboardingReferenceRead(actor: TrainingOnboardingActor): P
 	);
 }
 
+/** Type names stay readable as step labels while Training is off; completion records do not. */
 export function createSupabaseTrainingOnboardingReferencesPort(
-	getAdminClient: () => SupabaseClient
+	getAdminClient: () => SupabaseClient,
+	disabledFeatures: readonly FeatureKey[]
 ): TrainingOnboardingReferencesPort {
 	return {
 		async listTypes(actor) {
@@ -44,6 +47,7 @@ export function createSupabaseTrainingOnboardingReferencesPort(
 		async completedTypeIds(actor, personnelIds, trainingTypeIds) {
 			await requireOnboardingReferenceRead(actor);
 			if (
+				disabledFeatures.includes('training') ||
 				personnelIds.length === 0 ||
 				trainingTypeIds.length === 0 ||
 				(actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0)

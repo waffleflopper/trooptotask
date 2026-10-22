@@ -281,7 +281,10 @@ export function createRequestOnboardingTemplateStepContext(request: AdmittedOrga
 		audit: request.audit,
 		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
+		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(
+			getAdminClient,
+			request.disabledFeatures
+		)
 	} satisfies Parameters<typeof createOnboardingTemplateStep>[0] & {
 		trainingCatalog: ReturnType<typeof createSupabaseTrainingCatalogPersistence>;
 	};
@@ -299,9 +302,13 @@ export function createRequestOnboardingStartContext(
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
-		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient),
+		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(
+			getAdminClient,
+			request.disabledFeatures
+		),
 		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		onboardingPacketCreation: createSupabaseOnboardingPacketCreationPort(request.supabase)
 	};
@@ -337,6 +344,7 @@ export function createRequestOnboardingStepProgressContext(
 	return {
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingNoteAppend: createSupabaseOnboardingNoteAppendPort(request.supabase)
@@ -370,9 +378,13 @@ export function createRequestOnboardingWorkspaceContext(
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		auth: request.auth,
 		audit: request.audit,
+		disabledFeatures: request.disabledFeatures,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
-		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
+		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(
+			getAdminClient,
+			request.disabledFeatures
+		)
 	};
 }

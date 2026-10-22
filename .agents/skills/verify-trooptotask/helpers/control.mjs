@@ -99,6 +99,10 @@ const tableColumns = {
 	availability_entries: 'organization_id',
 	status_types: 'organization_id',
 	assignment_types: 'organization_id',
+	roster_forms: 'organization_id',
+	roster_starting_numbers: 'organization_id',
+	roster_excusals: 'organization_id',
+	personnel_attribute_history: 'organization_id',
 	daily_assignments: 'organization_id',
 	special_days: 'organization_id',
 	notifications: 'organization_id',
@@ -157,6 +161,11 @@ const tableSelect = {
 	organization_invitation_email_outbox:
 		'id,organization_id,invitation_id,recipient,purpose,status,attempt_count,updated_at,sent_at'
 };
+// Tables keyed by more than one column have no id to page on.
+const tableOrder = {
+	roster_starting_numbers: 'form_id,personnel_id,track',
+	personnel_attribute_history: 'personnel_id,effective_on'
+};
 const filters = new Set([
 	'id',
 	'last_name',
@@ -168,6 +177,7 @@ const filters = new Set([
 	'date',
 	'assignee_id',
 	'assignment_type_id',
+	'form_id',
 	'training_type_id',
 	'personnel_id',
 	'user_id',
@@ -1145,7 +1155,8 @@ async function main() {
 						table === 'organization_invitation_email_outbox' && field === 'email' ? 'recipient' : field,
 						value
 					);
-				return query.order('id').range(from, to);
+				for (const column of (tableOrder[table] ?? 'id').split(',')) query = query.order(column);
+				return query.range(from, to);
 			})
 		);
 		note({ table, organization: orgKey, count: rows.length, rows });

@@ -13,7 +13,9 @@ const staffDuty: AssignmentType = {
 	shortName: 'SD',
 	assignTo: 'personnel',
 	color: '#b91c1c',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [],
 	showOnCalendar: true,
 	sortOrder: 0
 };
@@ -148,7 +150,9 @@ describe('dutyFairness', () => {
 	});
 
 	it('leaves out people the type exempts', () => {
-		const result = fairness({ type: { ...staffDuty, exemptPersonnelIds: ['p-bell'] } });
+		const result = fairness({
+			type: { ...staffDuty, excusals: [{ personId: 'p-bell', reason: 'Excused', startsOn: '2026-01-01' }] }
+		});
 
 		expect(ranking(result).map(([label]) => label)).toEqual(['Avery, Pat', 'Cole, Pat']);
 	});
@@ -215,7 +219,7 @@ describe('dutyFairness', () => {
 		it('names one exempt person in the personnel order it is given', () => {
 			const result = fairness({
 				personnel: crew,
-				type: { ...staffDuty, exemptPersonnelIds: ['p-whitaker'] }
+				type: { ...staffDuty, excusals: [{ personId: 'p-whitaker', reason: 'Excused', startsOn: '2026-01-01' }] }
 			});
 
 			expect(result.exemptNote).toBe('SFC Whitaker is exempt.');
@@ -224,7 +228,13 @@ describe('dutyFairness', () => {
 		it('joins two with "and"', () => {
 			const result = fairness({
 				personnel: crew,
-				type: { ...staffDuty, exemptPersonnelIds: ['p-whitaker', 'p-moreno'] }
+				type: {
+					...staffDuty,
+					excusals: [
+						{ personId: 'p-whitaker', reason: 'Excused', startsOn: '2026-01-01' },
+						{ personId: 'p-moreno', reason: 'Excused', startsOn: '2026-01-01' }
+					]
+				}
 			});
 
 			expect(result.exemptNote).toBe('1SG Moreno and SFC Whitaker are exempt.');
@@ -235,7 +245,11 @@ describe('dutyFairness', () => {
 			expect(
 				fairness({
 					personnel: crew,
-					type: { ...staffDuty, assignTo: 'group', exemptPersonnelIds: ['p-moreno'] }
+					type: {
+						...staffDuty,
+						assignTo: 'group',
+						excusals: [{ personId: 'p-moreno', reason: 'Excused', startsOn: '2026-01-01' }]
+					}
 				}).exemptNote
 			).toBeNull();
 		});

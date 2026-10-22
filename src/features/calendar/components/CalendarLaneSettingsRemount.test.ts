@@ -14,7 +14,9 @@ function type(id: string, name: string, showOnCalendar: boolean, sortOrder: numb
 		shortName: id.toUpperCase(),
 		assignTo: 'personnel',
 		color: '#b91c1c',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar,
 		sortOrder
 	};

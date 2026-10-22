@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
-	import { rosterStore } from '$features/personnel';
+	import { groupsStore, rosterStore } from '$features/personnel';
+	import { calendarRankCatalogStore } from '$features/calendar/stores/rankCatalog.svelte';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarLaneIds, movedTo } from '$features/calendar/utils/calendarLanes';
@@ -174,7 +175,13 @@
 </div>
 
 {#if editor}
-	<AssignmentTypeDialog type={editor.type} {roster} onClose={() => (editor = null)} />
+	<AssignmentTypeDialog
+		type={editor.type}
+		{roster}
+		groups={groupsStore.items}
+		rankCatalog={calendarRankCatalogStore.items}
+		onClose={() => (editor = null)}
+	/>
 {/if}
 
 {#if confirmDelete}

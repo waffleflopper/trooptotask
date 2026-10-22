@@ -1037,7 +1037,6 @@ export async function seed(session) {
 				assign_to: 'personnel',
 				color: '#166534',
 				sort_order: 0,
-				exempt_personnel_ids: [ids.personB],
 				show_on_calendar: true
 			},
 			{
@@ -1048,7 +1047,6 @@ export async function seed(session) {
 				assign_to: 'group',
 				color: '#1d4ed8',
 				sort_order: 1,
-				exempt_personnel_ids: [],
 				show_on_calendar: true
 			},
 			{
@@ -1059,7 +1057,6 @@ export async function seed(session) {
 				assign_to: 'personnel',
 				color: '#7c2d12',
 				sort_order: 2,
-				exempt_personnel_ids: [],
 				show_on_calendar: false
 			},
 			{
@@ -1070,7 +1067,6 @@ export async function seed(session) {
 				assign_to: 'personnel',
 				color: '#525252',
 				sort_order: 3,
-				exempt_personnel_ids: [],
 				show_on_calendar: false,
 				archived_at: '2025-12-31T00:00:00Z'
 			},
@@ -1082,10 +1078,18 @@ export async function seed(session) {
 				assign_to: 'personnel',
 				color: '#7e22ce',
 				sort_order: 0,
-				exempt_personnel_ids: [],
 				show_on_calendar: false
 			}
 		])
+	);
+	checked(
+		await service.from('roster_excusals').insert({
+			organization_id: ids.orgA,
+			assignment_type_id: ids.typePersonnel,
+			personnel_id: ids.personB,
+			reason: 'First sergeant',
+			starts_on: dates.historical
+		})
 	);
 	checked(
 		await service.from('availability_entries').insert([

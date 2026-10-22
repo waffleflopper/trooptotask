@@ -56,7 +56,8 @@ function calendarServer() {
 			assign_to: 'personnel',
 			color: '#2563eb',
 			sort_order: 0,
-			exempt_personnel_ids: [],
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
 			show_on_calendar: true
 		},
 		{
@@ -67,7 +68,8 @@ function calendarServer() {
 			assign_to: 'personnel',
 			color: '#047857',
 			sort_order: 1,
-			exempt_personnel_ids: ['p-exempt'],
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
 			show_on_calendar: false
 		},
 		{
@@ -78,7 +80,8 @@ function calendarServer() {
 			assign_to: 'group',
 			color: '#b45309',
 			sort_order: 2,
-			exempt_personnel_ids: [],
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
 			show_on_calendar: false
 		},
 		{
@@ -89,7 +92,8 @@ function calendarServer() {
 			assign_to: 'personnel',
 			color: '#7c3aed',
 			sort_order: 3,
-			exempt_personnel_ids: [],
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
 			show_on_calendar: false
 		}
 	]);

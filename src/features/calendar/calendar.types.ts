@@ -1,4 +1,4 @@
-import type { Personnel } from '$features/personnel/contracts';
+import type { Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
 	AvailabilityEntry,
@@ -25,6 +25,8 @@ export interface CalendarBootstrap {
 	personnel: Personnel[];
 	groups: Group[];
 	statusTypes: StatusType[];
+	/** The Organization's rank catalog, for duty roster rank rules. */
+	rankCatalog: RankCatalogEntry[];
 	activeOnboardingPersonnelIds: string[];
 	/** Org-configured loss warning window in days; `null` when the setting could not be read. */
 	lossWarningWindowDays: number | null;
@@ -94,6 +96,7 @@ export interface CalendarWorkspaceHydration {
 	specialDays: CalendarRangeHydrationTarget<SpecialDay>;
 	calendarAssignments: CalendarAssignmentsWorkspaceHydrationTarget;
 	pinnedGroups: CalendarWorkspaceHydrationTarget<string>;
+	rankCatalog: CalendarWorkspaceHydrationTarget<RankCatalogEntry>;
 }
 
 export interface CalendarWorkspaceResult {

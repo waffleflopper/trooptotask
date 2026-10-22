@@ -2,6 +2,7 @@ import { availabilityStore } from './stores/availability.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 import { specialDaysStore } from './stores/specialDays.svelte';
 import { statusTypesStore } from './stores/statusTypes.svelte';
+import { calendarRankCatalogStore } from './stores/rankCatalog.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
@@ -12,7 +13,7 @@ import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { Personnel } from '$features/personnel/contracts';
+import type { Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
 	AvailabilityEntry,
@@ -61,6 +62,7 @@ export interface CalendarHydrationStores {
 	specialDaysStore: CalendarRangeHydrationLoadable<SpecialDay>;
 	calendarAssignmentsStore: CalendarAssignmentsHydrationLoadable;
 	pinnedGroupsStore: CalendarPinnedGroupsHydrationLoadable;
+	rankCatalogStore: CalendarHydrationLoadable<RankCatalogEntry>;
 }
 
 export interface CalendarWorkspaceHydrator {
@@ -76,7 +78,8 @@ const defaultCalendarHydrationStores: CalendarHydrationStores = {
 	availabilityEntriesStore: availabilityStore,
 	specialDaysStore,
 	calendarAssignmentsStore: dailyAssignmentsStore,
-	pinnedGroupsStore: pinnedGroupsHydration
+	pinnedGroupsStore: pinnedGroupsHydration,
+	rankCatalogStore: calendarRankCatalogStore
 };
 
 function createTargetDescriptor<T>(
@@ -187,6 +190,7 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 			stores.specialDaysStore.load([], '');
 			stores.calendarAssignmentsStore.load([], [], '');
 			stores.pinnedGroupsStore.load([], '');
+			stores.rankCatalogStore.load([], '');
 		},
 
 		async hydrate(
@@ -222,7 +226,8 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 					'calendarAssignments',
 					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
-				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
+				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
+				createTargetDescriptor(hydration.rankCatalog, stores.rankCatalogStore, orgId, 'rankCatalog')
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);
 
 			await hydrationTargets.applyDescriptors(orgId, descriptors);

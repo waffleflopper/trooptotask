@@ -30,7 +30,9 @@ const assignmentTypes: AssignmentType[] = [
 		shortName: 'CQ',
 		assignTo: 'personnel',
 		color: '#2563eb',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: false,
 		sortOrder: 0
 	}
@@ -42,7 +44,9 @@ const modType: AssignmentType = {
 	shortName: 'MOD',
 	assignTo: 'personnel',
 	color: '#dc2626',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [],
 	showOnCalendar: false,
 	sortOrder: 0
 };

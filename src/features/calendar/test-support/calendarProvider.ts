@@ -119,7 +119,7 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 				const result = selected.map((row) =>
 					!projection || projection === '*'
 						? row
-						: Object.fromEntries(projection.split(',').map((column) => [column.trim(), row[column.trim()]]))
+						: Object.fromEntries(projectedColumns(projection).map((column) => [column, row[column]]))
 				);
 				if (request.headers.get('accept')?.includes('application/vnd.pgrst.object+json')) {
 					if (result.length !== 1)
@@ -133,4 +133,12 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 		}
 	});
 	return { client, state };
+}
+
+/** Top-level column names. An embed such as `roster_excusals(personnel_id,reason)` returns the seeded rows whole. */
+function projectedColumns(projection: string): string[] {
+	return projection
+		.replace(/\([^)]*\)/g, '')
+		.split(',')
+		.map((column) => column.trim());
 }

@@ -42,7 +42,7 @@ export interface DutyPickerInput {
 	currentAssigneeId?: string;
 }
 
-/** A Group type offers every Group. A person type offers everyone it does not exempt. */
+/** A Group type offers every Group. A person type offers everyone it does not excuse. */
 export function eligibleAssignees(
 	type: AssignmentType,
 	personnel: readonly Personnel[],
@@ -54,7 +54,7 @@ export function eligibleAssignees(
 			.map((group) => ({ kind: 'group', id: group.id, label: group.name }));
 	}
 
-	const exempt = new Set(type.exemptPersonnelIds);
+	const exempt = new Set(type.excusals.map(({ personId }) => personId));
 	return personnel
 		.filter((person) => !exempt.has(person.id))
 		.sort(

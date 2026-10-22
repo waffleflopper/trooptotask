@@ -37,7 +37,7 @@ export { pinGroup, replacePinnedGroups, unpinGroup } from './pinnedGroupOperatio
 export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';
 export { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 export type { PersonnelCriticalTasksRosterPort } from './contracts';
-export { createSupabasePersonnelCalendarRosterPort } from './calendarRoster.server';
+export { createSupabasePersonnelCalendarRosterPort, toAttributeTimeline } from './calendarRoster.server';
 export { createSupabasePersonnelCalendarScopeIds } from './calendarScopeIds.server';
 export type { PersonnelCalendarRosterPort } from './contracts';
 export { createSupabasePersonnelOnboardingRosterPort } from './onboardingRoster.server';

@@ -15,7 +15,8 @@ describe('Calendar assignment-type reads', () => {
 				assign_to: 'personnel',
 				color: '#111111',
 				sort_order: 2,
-				exempt_personnel_ids: ['person-1'],
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same',
 				archived_at: '2026-01-01'
 			},
 			{

@@ -19,7 +19,9 @@ function type(overrides: Partial<AssignmentType> & Pick<AssignmentType, 'id' | '
 		shortName: overrides.name.slice(0, 2).toUpperCase(),
 		assignTo: 'personnel',
 		color: '#b91c1c',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0,
 		...overrides

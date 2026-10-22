@@ -32,7 +32,8 @@ const cases = [
 			name: 'Historic',
 			short_name: null,
 			assign_to: 'group',
-			exempt_personnel_ids: ['removed-person'],
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same',
 			archived_at: '2026-01-02T03:04:05.123456Z'
 		}
 	},

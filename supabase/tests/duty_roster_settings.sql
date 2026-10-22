@@ -1,0 +1,274 @@
+-- Duty roster settings: DA 6 forms, starting numbers and excusals are
+-- configured by Organization-wide Calendar configurators, rules change only by
+-- closing a form, and Person attribute history is written only by its trigger.
+-- Run only against the isolated synthetic SQL test database.
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT no_plan();
+
+CREATE FUNCTION pg_temp.id(n integer) RETURNS uuid LANGUAGE sql AS $$
+  SELECT ('d2261022-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid;
+$$;
+-- The configurator holds no Personnel capability, so results name people by number.
+CREATE FUNCTION pg_temp.n(person uuid) RETURNS integer LANGUAGE sql AS $$
+  SELECT right(person::text, 12)::integer;
+$$;
+CREATE FUNCTION pg_temp.today() RETURNS date LANGUAGE sql AS $$
+  SELECT (now() AT TIME ZONE 'UTC')::date;
+$$;
+CREATE FUNCTION pg_temp.act(actor integer) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', pg_temp.id(actor)::text, true);
+END; $$;
+CREATE FUNCTION pg_temp.open_form(type_id integer) RETURNS uuid LANGUAGE sql AS $$
+  SELECT id FROM public.roster_forms WHERE assignment_type_id = pg_temp.id(type_id) AND ends_on IS NULL;
+$$;
+CREATE FUNCTION pg_temp.excusals_sql(today date, excusals jsonb) RETURNS text LANGUAGE sql AS $$
+  SELECT format('SELECT public.set_roster_excusals(%L, %L, %L, %L)', pg_temp.id(101), pg_temp.id(401), today, excusals);
+$$;
+CREATE FUNCTION pg_temp.close_sql(form_id uuid, today date, pool jsonb, weekend text, record jsonb, carry jsonb)
+RETURNS text LANGUAGE sql AS $$
+  SELECT format('SELECT public.close_roster_form(%L, %L, %L, %L, %L, %L, %L, %L)',
+    pg_temp.id(101), pg_temp.id(401), form_id, today, pool, weekend, record, carry);
+$$;
+CREATE FUNCTION pg_temp.excusals(type_id integer) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT coalesce(jsonb_agg(jsonb_build_array(pg_temp.n(x.personnel_id), x.reason, x.starts_on - pg_temp.today(),
+    x.ends_on - pg_temp.today()) ORDER BY x.personnel_id, x.starts_on), '[]')
+  FROM public.roster_excusals x WHERE x.assignment_type_id = pg_temp.id(type_id);
+$$;
+CREATE FUNCTION pg_temp.starting_numbers(p_form uuid) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT coalesce(jsonb_agg(jsonb_build_array(pg_temp.n(s.personnel_id), s.track, s.count, s.origin)
+    ORDER BY s.personnel_id, s.track), '[]')
+  FROM public.roster_starting_numbers s WHERE s.form_id = p_form;
+$$;
+CREATE TEMP TABLE saved(label text PRIMARY KEY, value uuid);
+GRANT ALL ON saved TO authenticated;
+
+INSERT INTO auth.users (id, email)
+SELECT pg_temp.id(n), 'duty-roster-settings-' || n || '@example.test' FROM generate_series(1, 4) AS n;
+INSERT INTO public.organizations (id, name, created_by) VALUES
+  (pg_temp.id(101), 'Roster Alpha', pg_temp.id(1)),
+  (pg_temp.id(102), 'Roster Bravo', pg_temp.id(4));
+INSERT INTO public.organization_memberships (
+  organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids
+) VALUES
+  (pg_temp.id(101), pg_temp.id(1), 'owner', 'editor', '{}', 'organization', ARRAY[]::uuid[]),
+  (pg_temp.id(101), pg_temp.id(2), 'member', 'viewer', '{"calendar":"configure","personnel":"none"}', 'organization', ARRAY[]::uuid[]),
+  (pg_temp.id(101), pg_temp.id(3), 'member', 'viewer', '{"calendar":"view","personnel":"none"}', 'organization', ARRAY[]::uuid[]),
+  (pg_temp.id(102), pg_temp.id(4), 'member', 'viewer', '{"calendar":"configure","personnel":"none"}', 'organization', ARRAY[]::uuid[]);
+INSERT INTO public.personnel (id, organization_id, rank, mos, clinic_role, first_name, last_name, slug, created_at) VALUES
+  (pg_temp.id(301), pg_temp.id(101), 'SPC', '68W', 'Medic', 'Roster', 'Able', 'roster-settings-able', '2026-01-05T12:00:00Z'),
+  (pg_temp.id(302), pg_temp.id(101), 'SGT', '68W', 'NCOIC', 'Roster', 'Baker', 'roster-settings-baker', '2026-01-05T12:00:00Z'),
+  (pg_temp.id(303), pg_temp.id(101), 'PFC', '68C', '', 'Roster', 'Charlie', 'roster-settings-charlie', '2026-01-05T12:00:00Z'),
+  (pg_temp.id(311), pg_temp.id(102), 'SPC', '68W', '', 'Roster', 'Bravo', 'roster-settings-bravo', '2026-01-05T12:00:00Z');
+INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to) VALUES
+  (pg_temp.id(401), pg_temp.id(101), 'Staff Duty', 'SD', 'personnel'),
+  (pg_temp.id(402), pg_temp.id(101), 'Motor Pool', 'MP', 'group'),
+  (pg_temp.id(403), pg_temp.id(101), 'Charge of Quarters', 'CQ', 'personnel');
+INSERT INTO public.roster_starting_numbers (organization_id, form_id, personnel_id, track, count, origin) VALUES
+  (pg_temp.id(101), pg_temp.open_form(403), pg_temp.id(301), 'all', 3, 'typed');
+INSERT INTO public.roster_excusals (id, organization_id, assignment_type_id, personnel_id, reason, starts_on) VALUES
+  (pg_temp.id(701), pg_temp.id(101), pg_temp.id(403), pg_temp.id(302), 'Profile', pg_temp.today()),
+  (pg_temp.id(702), pg_temp.id(101), pg_temp.id(401), pg_temp.id(303), 'Profile', pg_temp.today() - 5);
+
+-- Row security.
+SELECT pg_temp.act(3);
+SELECT is((SELECT count(*)::integer FROM public.roster_forms WHERE organization_id = pg_temp.id(101)), 2,
+  'a Calendar viewer reads the Organization''s DA 6 forms');
+SELECT is((SELECT count(*)::integer FROM public.roster_starting_numbers WHERE organization_id = pg_temp.id(101)), 1,
+  'a Calendar viewer reads the Organization''s starting numbers');
+SELECT is((SELECT count(*)::integer FROM public.roster_excusals WHERE organization_id = pg_temp.id(101)), 2,
+  'a Calendar viewer reads the Organization''s excusals');
+SELECT throws_ok(format($$INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, ends_on, rules, record)
+  VALUES (%L, %L, '2026-01-01', '2026-01-31', '{}', '{}')$$, pg_temp.id(101), pg_temp.id(403)),
+  '42501', NULL, 'a Calendar viewer cannot add a DA 6 form');
+SELECT throws_ok(format($$INSERT INTO public.roster_starting_numbers (organization_id, form_id, personnel_id, track, count, origin)
+  VALUES (%L, %L, %L, 'all', 1, 'typed')$$, pg_temp.id(101), pg_temp.open_form(403), pg_temp.id(302)),
+  '42501', NULL, 'a Calendar viewer cannot add a starting number');
+SELECT throws_ok(format($$INSERT INTO public.roster_excusals (organization_id, assignment_type_id, personnel_id, reason, starts_on)
+  VALUES (%L, %L, %L, 'Leave', %L)$$, pg_temp.id(101), pg_temp.id(403), pg_temp.id(303), pg_temp.today()),
+  '42501', NULL, 'a Calendar viewer cannot add an excusal');
+WITH changed AS (UPDATE public.roster_forms SET rules = '{}' WHERE organization_id = pg_temp.id(101) RETURNING id)
+SELECT is(count(*)::integer, 0, 'a Calendar viewer cannot edit a DA 6 form') FROM changed;
+WITH changed AS (UPDATE public.roster_starting_numbers SET count = 9 WHERE organization_id = pg_temp.id(101) RETURNING form_id)
+SELECT is(count(*)::integer, 0, 'a Calendar viewer cannot edit a starting number') FROM changed;
+WITH removed AS (DELETE FROM public.roster_excusals WHERE organization_id = pg_temp.id(101) RETURNING id)
+SELECT is(count(*)::integer, 0, 'a Calendar viewer cannot remove an excusal') FROM removed;
+WITH removed AS (DELETE FROM public.roster_forms WHERE organization_id = pg_temp.id(101) RETURNING id)
+SELECT is(count(*)::integer, 0, 'a Calendar viewer cannot remove a DA 6 form') FROM removed;
+
+SELECT pg_temp.act(4);
+SELECT is((SELECT count(*)::integer FROM public.roster_forms WHERE organization_id = pg_temp.id(101))
+  + (SELECT count(*)::integer FROM public.roster_starting_numbers WHERE organization_id = pg_temp.id(101))
+  + (SELECT count(*)::integer FROM public.roster_excusals WHERE organization_id = pg_temp.id(101)), 0,
+  'another Organization''s configurator reads no forms, starting numbers or excusals');
+SELECT throws_ok(format($$INSERT INTO public.roster_starting_numbers (organization_id, form_id, personnel_id, track, count, origin)
+  VALUES (%L, %L, %L, 'all', 1, 'typed')$$, pg_temp.id(101), pg_temp.open_form(403), pg_temp.id(302)),
+  '42501', NULL, 'another Organization''s configurator cannot add a starting number');
+SELECT throws_ok(format($$INSERT INTO public.roster_excusals (organization_id, assignment_type_id, personnel_id, reason, starts_on)
+  VALUES (%L, %L, %L, 'Leave', %L)$$, pg_temp.id(101), pg_temp.id(403), pg_temp.id(303), pg_temp.today()),
+  '42501', NULL, 'another Organization''s configurator cannot add an excusal');
+WITH changed AS (UPDATE public.roster_excusals SET reason = 'Changed' WHERE organization_id = pg_temp.id(101) RETURNING id)
+SELECT is(count(*)::integer, 0, 'another Organization''s configurator cannot edit an excusal') FROM changed;
+
+SELECT pg_temp.act(2);
+SAVEPOINT configurator_writes;
+SELECT lives_ok(format($$INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, ends_on, rules, record)
+  VALUES (%L, %L, '2026-01-01', '2026-01-31', '{}', '{}')$$, pg_temp.id(101), pg_temp.id(403)),
+  'a configurator can add a DA 6 form');
+SELECT lives_ok(format($$INSERT INTO public.roster_starting_numbers (organization_id, form_id, personnel_id, track, count, origin)
+  VALUES (%L, %L, %L, 'all', 1, 'typed')$$, pg_temp.id(101), pg_temp.open_form(403), pg_temp.id(302)),
+  'a configurator can add a starting number');
+SELECT lives_ok(format($$INSERT INTO public.roster_excusals (organization_id, assignment_type_id, personnel_id, reason, starts_on)
+  VALUES (%L, %L, %L, 'Leave', %L)$$, pg_temp.id(101), pg_temp.id(403), pg_temp.id(303), pg_temp.today()),
+  'a configurator can add an excusal');
+WITH changed AS (UPDATE public.roster_starting_numbers SET count = 4
+  WHERE form_id = pg_temp.open_form(403) AND personnel_id = pg_temp.id(301) RETURNING count)
+SELECT is(array_agg(count), ARRAY[4], 'a configurator can edit a starting number') FROM changed;
+WITH removed AS (DELETE FROM public.roster_excusals WHERE id = pg_temp.id(701) RETURNING id)
+SELECT is(count(*)::integer, 1, 'a configurator can remove an excusal') FROM removed;
+ROLLBACK TO SAVEPOINT configurator_writes;
+RELEASE SAVEPOINT configurator_writes;
+
+-- Excusal reasons.
+SELECT throws_ok(format($$INSERT INTO public.roster_excusals (organization_id, assignment_type_id, personnel_id, reason, starts_on)
+  VALUES (%L, %L, %L, '', %L)$$, pg_temp.id(101), pg_temp.id(403), pg_temp.id(303), pg_temp.today()),
+  '23514', NULL, 'an excusal needs a reason');
+SELECT throws_ok(format($$INSERT INTO public.roster_excusals (organization_id, assignment_type_id, personnel_id, reason, starts_on)
+  VALUES (%L, %L, %L, '   ', %L)$$, pg_temp.id(101), pg_temp.id(403), pg_temp.id(303), pg_temp.today()),
+  '23514', NULL, 'a whitespace reason is no reason');
+SELECT throws_ok(pg_temp.excusals_sql(pg_temp.today(), jsonb_build_array(
+  jsonb_build_object('personnel_id', pg_temp.id(301), 'reason', '  '))),
+  '22023', NULL, 'set_roster_excusals rejects a whitespace reason');
+
+-- set_roster_excusals.
+SELECT pg_temp.act(3);
+SELECT throws_ok(pg_temp.excusals_sql(pg_temp.today(), '[]'), '42501', NULL, 'a Calendar viewer cannot set excusals');
+SELECT pg_temp.act(2);
+SELECT throws_ok(pg_temp.excusals_sql(pg_temp.today() + 2, '[]'), 'RSD01', NULL,
+  'set_roster_excusals rejects a day two days after the server day');
+SELECT throws_ok(pg_temp.excusals_sql(pg_temp.today() - 2, '[]'), 'RSD01', NULL,
+  'set_roster_excusals rejects a day two days before the server day');
+SELECT lives_ok(pg_temp.excusals_sql(pg_temp.today(), jsonb_build_array(
+  jsonb_build_object('personnel_id', pg_temp.id(301), 'reason', ' Leave '),
+  jsonb_build_object('personnel_id', pg_temp.id(303), 'reason', 'Profile'))),
+  'a configurator excuses a new person and keeps an existing excusal');
+SELECT is(pg_temp.excusals(401), '[[301, "Leave", 0, null], [303, "Profile", -5, null]]',
+  'the new excusal starts today with its trimmed reason and the older one is unchanged');
+SELECT lives_ok(pg_temp.excusals_sql(pg_temp.today(), jsonb_build_array(
+  jsonb_build_object('personnel_id', pg_temp.id(301), 'reason', 'Leave'),
+  jsonb_build_object('personnel_id', pg_temp.id(303), 'reason', 'Temporary profile'))),
+  'a configurator changes a reason');
+SELECT is((SELECT jsonb_build_array(reason, starts_on - pg_temp.today()) FROM public.roster_excusals WHERE id = pg_temp.id(702)),
+  '["Temporary profile", -5]', 'a changed reason updates the excusal in place');
+SELECT lives_ok(pg_temp.excusals_sql(pg_temp.today(), '[]'), 'a configurator reinstates everyone');
+SELECT is(pg_temp.excusals(401), '[[303, "Temporary profile", -5, -1]]',
+  'an older excusal ends yesterday and one that started today is gone');
+
+-- close_roster_form on a form that started before today.
+RESET ROLE;
+UPDATE public.roster_forms SET starts_on = pg_temp.today() - 10 WHERE id = pg_temp.open_form(401);
+INSERT INTO saved VALUES ('first form', pg_temp.open_form(401));
+SELECT pg_temp.act(3);
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), NULL, 'same', '{"rows": []}', '[]'),
+  '42501', NULL, 'a Calendar viewer cannot close a DA 6 form');
+SELECT pg_temp.act(2);
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today() + 2, NULL, 'same', '{"rows": []}', '[]'),
+  'RSD01', NULL, 'close_roster_form rejects a day two days after the server day');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), NULL, 'same', NULL, '[]'),
+  '22023', NULL, 'a form with days to record cannot close without its record');
+SELECT lives_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), '{"ranks": ["SPC", "SGT"]}', 'separate',
+  '{"rows": [{"name": "Able", "count": 4}]}', jsonb_build_array(
+    jsonb_build_object('personnel_id', pg_temp.id(301), 'track', 'weekday', 'count', 4, 'origin', 'carried'),
+    jsonb_build_object('personnel_id', pg_temp.id(302), 'track', 'weekend', 'count', 1, 'origin', 'carried'),
+    jsonb_build_object('personnel_id', pg_temp.id(399), 'track', 'weekday', 'count', 7, 'origin', 'carried'))),
+  'a configurator closes the open form');
+SELECT is((SELECT jsonb_build_array(starts_on - pg_temp.today(), ends_on - pg_temp.today(), record) FROM public.roster_forms
+  WHERE id = (SELECT value FROM saved WHERE label = 'first form')),
+  '[-10, 0, {"rows": [{"name": "Able", "count": 4}]}]', 'the closed form ends today with the record exactly as sent');
+SELECT is((SELECT jsonb_build_array(starts_on - pg_temp.today(), rules) FROM public.roster_forms WHERE id = pg_temp.open_form(401)),
+  '[1, {"pool": {"ranks": ["SPC", "SGT"]}, "weekendMode": "separate"}]', 'the next form opens tomorrow with the new rules');
+SELECT is(pg_temp.starting_numbers(pg_temp.open_form(401)), '[[301, "weekday", 4, "carried"], [302, "weekend", 1, "carried"]]',
+  'the next form starts from the carried counts of people who still exist');
+SELECT is((SELECT jsonb_build_array(roster_pool_rules, roster_weekend_mode) FROM public.assignment_types WHERE id = pg_temp.id(401)),
+  '[{"ranks": ["SPC", "SGT"]}, "separate"]', 'the type takes the new rules');
+SELECT throws_ok(pg_temp.close_sql((SELECT value FROM saved WHERE label = 'first form'), pg_temp.today(), NULL, 'same',
+  '{"rows": []}', '[]'), 'RSF01', NULL, 'a second close with the old form id fails');
+
+-- A second change the same day edits the form that has not started.
+INSERT INTO saved VALUES ('next form', pg_temp.open_form(401));
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), NULL, 'none', '{"rows": []}', '[]'),
+  '22023', NULL, 'a form that has not started has no record to keep');
+SELECT is((SELECT public.close_roster_form(pg_temp.id(101), pg_temp.id(401), pg_temp.open_form(401), pg_temp.today(),
+  NULL, 'none', NULL, jsonb_build_array(
+    jsonb_build_object('personnel_id', pg_temp.id(301), 'track', 'all', 'count', 2, 'origin', 'typed')))),
+  (SELECT value FROM saved WHERE label = 'next form'), 'a second change the same day keeps the form that has not started');
+SELECT is((SELECT jsonb_agg(jsonb_build_array(starts_on - pg_temp.today(), ends_on IS NULL, rules) ORDER BY starts_on)
+  FROM public.roster_forms WHERE assignment_type_id = pg_temp.id(401)),
+  '[[-10, false, {"pool": null, "weekendMode": "same"}], [1, true, {"pool": null, "weekendMode": "none"}]]',
+  'the closed form keeps its rules, the form that has not started takes the newest, and no form is added');
+SELECT is(pg_temp.starting_numbers(pg_temp.open_form(401)), '[[301, "all", 2, "typed"]]',
+  'the newest starting numbers replace the earlier ones');
+SELECT is((SELECT jsonb_build_array(roster_pool_rules, roster_weekend_mode) FROM public.assignment_types WHERE id = pg_temp.id(401)),
+  '[null, "none"]', 'the type takes the newest rules');
+
+-- Rules and closed forms change only through close_roster_form.
+SELECT throws_ok(format($$UPDATE public.assignment_types SET roster_pool_rules = '{"ranks": ["PFC"]}' WHERE id = %L$$, pg_temp.id(401)),
+  '42501', NULL, 'a configurator cannot write pool rules directly');
+SELECT throws_ok(format($$UPDATE public.assignment_types SET roster_weekend_mode = 'separate' WHERE id = %L$$, pg_temp.id(401)),
+  '42501', NULL, 'a configurator cannot write the weekend mode directly');
+SELECT throws_ok(format($$UPDATE public.roster_forms SET record = '{"rows": []}' WHERE id = %L$$,
+  (SELECT value FROM saved WHERE label = 'first form')), '42501', NULL, 'a closed form cannot change');
+
+-- Every person-assigned type has one open form.
+SELECT lives_ok(format($$INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to)
+  VALUES (%L, %L, 'Fire Guard', 'FG', 'personnel'), (%L, %L, 'Area Beautification', 'AB', 'group')$$,
+  pg_temp.id(404), pg_temp.id(101), pg_temp.id(405), pg_temp.id(101)), 'a configurator adds a person and a Group type');
+SELECT is((SELECT jsonb_agg(jsonb_build_array(starts_on - pg_temp.today(), ends_on, rules)) FROM public.roster_forms
+  WHERE assignment_type_id = pg_temp.id(404)), '[[0, null, {"pool": null, "weekendMode": "same"}]]',
+  'a new person-assigned type has one open form from today');
+SELECT is((SELECT count(*)::integer FROM public.roster_forms WHERE assignment_type_id = pg_temp.id(405)), 0,
+  'a new Group type has no form');
+UPDATE public.assignment_types SET assign_to = 'personnel' WHERE id = pg_temp.id(405);
+UPDATE public.assignment_types SET assign_to = 'group' WHERE id = pg_temp.id(405);
+UPDATE public.assignment_types SET assign_to = 'personnel' WHERE id = pg_temp.id(405);
+SELECT is((SELECT count(*)::integer FROM public.roster_forms WHERE assignment_type_id = pg_temp.id(405) AND ends_on IS NULL), 1,
+  'a type switched to person-assigned, back and again has exactly one open form');
+
+-- Person attribute history.
+RESET ROLE;
+INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug, created_at) VALUES
+  (pg_temp.id(304), pg_temp.id(101), 'PV2', 'Roster', 'Delta', 'roster-settings-delta', '2026-03-05T23:30:00-05:00');
+SELECT is((SELECT jsonb_agg(jsonb_build_array(effective_on, rank, archived)) FROM public.personnel_attribute_history
+  WHERE personnel_id = pg_temp.id(304)), '[["2026-03-06", "PV2", false]]',
+  'adding a Person records their attributes on the UTC day they were added');
+UPDATE public.personnel SET rank = 'SSG' WHERE id = pg_temp.id(302);
+SELECT results_eq(format($$SELECT effective_on, rank FROM public.personnel_attribute_history
+  WHERE personnel_id = %L ORDER BY effective_on$$, pg_temp.id(302)),
+  format($$VALUES ('2026-01-05'::date, 'SGT'::text), (%L::date, 'SSG')$$, pg_temp.today()),
+  'a rank change records the new rank from today');
+UPDATE public.personnel SET first_name = 'Renamed', rank = 'SSG' WHERE id = pg_temp.id(302);
+SELECT is((SELECT count(*)::integer FROM public.personnel_attribute_history WHERE personnel_id = pg_temp.id(302)), 2,
+  'a change to nothing tracked records nothing');
+
+SELECT pg_temp.act(1);
+SELECT is((SELECT count(*)::integer FROM public.personnel_attribute_history WHERE personnel_id = pg_temp.id(302)), 2,
+  'an owner reads the attribute history of their people');
+SELECT throws_ok(format($$INSERT INTO public.personnel_attribute_history
+  (organization_id, personnel_id, effective_on, rank, mos, clinic_role, archived)
+  VALUES (%L, %L, '2026-06-01', 'COL', '', '', false)$$, pg_temp.id(101), pg_temp.id(301)),
+  '42501', NULL, 'an owner cannot write attribute history');
+SELECT throws_ok(format($$UPDATE public.personnel_attribute_history SET rank = 'COL' WHERE personnel_id = %L$$, pg_temp.id(301)),
+  '42501', NULL, 'an owner cannot rewrite attribute history');
+SELECT throws_ok(format($$DELETE FROM public.personnel_attribute_history WHERE personnel_id = %L$$, pg_temp.id(301)),
+  '42501', NULL, 'an owner cannot delete attribute history');
+SELECT pg_temp.act(3);
+SELECT is((SELECT count(*)::integer FROM public.personnel_attribute_history WHERE organization_id = pg_temp.id(101)), 5,
+  'a Calendar viewer reads the attribute history of the people they can see');
+SELECT pg_temp.act(4);
+SELECT is((SELECT count(*)::integer FROM public.personnel_attribute_history WHERE organization_id = pg_temp.id(101)), 0,
+  'a viewer of another Organization reads none of its attribute history');
+
+SELECT * FROM finish();
+ROLLBACK;

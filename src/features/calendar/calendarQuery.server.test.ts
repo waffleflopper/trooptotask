@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { createQueryPortsContext } from './calendarPersistence.test-support.server';
 import {
 	fetchCalendarData,
@@ -10,8 +11,10 @@ import {
 
 const ORG = 'test-org';
 
+// The Calendar request reads the rank catalog under Calendar access, so Calendar-only members still load it.
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
-	return createQueryPortsContext({ auth: { orgId: ORG, ...overrides?.auth } });
+	const ctx = createQueryPortsContext({ auth: { orgId: ORG, ...overrides?.auth } });
+	return { ...ctx, loadRankCatalog: () => loadOrganizationRankCatalog(ctx, { authorization: 'calendar-view' }) };
 }
 
 const RANGE = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };
@@ -73,7 +76,8 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 			assign_to: 'personnel',
 			color: '#ef4444',
 			sort_order: 0,
-			exempt_personnel_ids: null
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same'
 		}
 	]);
 	store.seed('daily_assignments', [
@@ -129,7 +133,9 @@ describe('fetchCalendarData', () => {
 			name: 'CQ',
 			shortName: 'CQ',
 			assignTo: 'personnel',
-			exemptPersonnelIds: []
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: []
 		});
 
 		expect(result.dailyAssignments).toHaveLength(1);

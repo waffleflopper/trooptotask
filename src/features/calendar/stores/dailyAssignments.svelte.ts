@@ -3,10 +3,20 @@
  * and `assignments` (the actual date-assignee records). Kept together because every
  * mutation needs both collections in scope.
  */
-import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
+import {
+	buildRequestError,
+	defineStore,
+	stillInOrganizationLifetime,
+	withinOrganizationLifetime
+} from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { assignmentTypesSchema, type AssignmentType, type DailyAssignment } from '$features/calendar/contracts';
+import {
+	assignmentTypesSchema,
+	type AssignmentType,
+	type DailyAssignment,
+	type RosterSettingsInput
+} from '$features/calendar/contracts';
 import { assignmentSlotKey, duplicateAssignmentSlot } from '$features/calendar/utils/calendarIndexes';
 import { calendarLaneIds, calendarLaneTypes } from '$features/calendar/utils/calendarLanes';
 import { sameIdList } from '$features/calendar/utils/idList';
@@ -59,6 +69,8 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	load: (types: AssignmentType[], assignments: DailyAssignment[], orgId: string) => void;
 	addType: (data: Omit<AssignmentType, 'id'>) => Promise<AssignmentType | null>;
 	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>) => Promise<boolean>;
+	/** Resolves null when the save no longer belongs to the shown Organization. */
+	saveRosterSettings: (id: string, settings: RosterSettingsInput) => Promise<AssignmentType | null>;
 	removeType: (id: string) => Promise<boolean>;
 	setCalendarLanes: (laneTypeIds: readonly string[]) => Promise<LaneChange>;
 	getTypeById: (id: string) => AssignmentType | undefined;
@@ -105,6 +117,8 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 	let confirmedCatalog: ConfirmedCatalog | null = null;
 	let disputedDuringWrites: ConfirmedCatalog | null = null;
 	let typeWrites: ConfirmedCatalog[] = [];
+	// A save that outlives its Organization never settles, so only this Organization's saves count.
+	let rosterSaves = $state.raw<ConfirmedCatalog[]>([]);
 	let catalogEpoch = 0;
 	let catalogRead: { epoch: number; confirmed: ConfirmedCatalog } | null = null;
 
@@ -290,7 +304,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		},
 
 		get typeWritesBusy() {
-			return typesStore.busy;
+			return typesStore.busy || rosterSaves.some((save) => save.orgId === typesStore.orgId && save.inLifetime());
 		},
 
 		get pendingLaneIds() {
@@ -332,6 +346,31 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				if (updated) confirmedCatalog = write;
 				return updated;
 			} finally {
+				settleTypeWrite(write);
+			}
+		},
+
+		async saveRosterSettings(id: string, settings: RosterSettingsInput): Promise<AssignmentType | null> {
+			if (currentLaneFlight()) return null;
+			const write = admitTypeWrite();
+			const resource = `/org/${write.orgId}/api/assignment-types/roster`;
+			rosterSaves = [...rosterSaves, write];
+			try {
+				const res = await withinOrganizationLifetime(
+					fetch(resource, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ id, ...settings })
+					})
+				);
+				if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'PUT', resource));
+				const saved = assignmentTypesSchema.element.parse(await withinOrganizationLifetime(res.json()));
+				if (!write.inLifetime() || typesStore.orgId !== write.orgId) return null;
+				typesStore.mergeBatchResults([], [saved]);
+				confirmedCatalog = write;
+				return saved;
+			} finally {
+				rosterSaves = rosterSaves.filter((save) => save !== write);
 				settleTypeWrite(write);
 			}
 		},

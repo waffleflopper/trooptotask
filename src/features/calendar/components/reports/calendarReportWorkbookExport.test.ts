@@ -34,7 +34,9 @@ const staffDuty = {
 	shortName: 'SD',
 	color: '#111827',
 	assignTo: 'personnel',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [],
 	showOnCalendar: true,
 	sortOrder: 0
 } as AssignmentType;

@@ -10,7 +10,9 @@ const staffDuty: AssignmentType = {
 	shortName: 'SD',
 	assignTo: 'personnel',
 	color: '#b91c1c',
-	exemptPersonnelIds: ['p-kim'],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [{ personId: 'p-kim', reason: 'Excused', startsOn: '2026-01-01' }],
 	showOnCalendar: true,
 	sortOrder: 0
 };
@@ -106,7 +108,11 @@ describe('dutyPickerOptions', () => {
 
 	it('lists Groups by name for a Group duty with no exemptions, availability or history', () => {
 		const result = options({
-			type: { ...staffDuty, assignTo: 'group', exemptPersonnelIds: ['g-b'] },
+			type: {
+				...staffDuty,
+				assignTo: 'group',
+				excusals: [{ personId: 'g-b', reason: 'Excused', startsOn: '2026-01-01' }]
+			},
 			groups: [
 				{ id: 'g-b', name: 'Bravo', sortOrder: 0 },
 				{ id: 'g-a', name: 'Alpha', sortOrder: 1 }

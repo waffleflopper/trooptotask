@@ -217,7 +217,9 @@ describe('CalendarPageView', () => {
 					shortName: 'SD',
 					assignTo: 'personnel',
 					color: '#2563eb',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same',
+					excusals: [],
 					showOnCalendar: false,
 					sortOrder: 0
 				}
@@ -271,7 +273,9 @@ describe('CalendarPageView', () => {
 					shortName: 'SD',
 					assignTo: 'personnel',
 					color: '#2563eb',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same',
+					excusals: [],
 					showOnCalendar: true,
 					sortOrder: 0
 				}

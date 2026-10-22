@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$features/personnel/contracts';
+import type { Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
 	AvailabilityEntry,
@@ -111,7 +111,8 @@ function createStores() {
 		availabilityEntriesStore: createRangeLoadable<AvailabilityEntry>(),
 		specialDaysStore: createRangeLoadable<SpecialDay>(),
 		calendarAssignmentsStore: createCalendarAssignmentsLoadable(),
-		pinnedGroupsStore: createLoadable<string>()
+		pinnedGroupsStore: createLoadable<string>(),
+		rankCatalogStore: createLoadable<RankCatalogEntry>()
 	} satisfies CalendarHydrationStores;
 }
 
@@ -133,6 +134,7 @@ function preserveClientHydration(overrides: Partial<CalendarWorkspaceHydration> 
 			range: MAY
 		},
 		pinnedGroups: { mode: 'preserve-client', snapshotKey: 'pinned:preserve', items: [] },
+		rankCatalog: { mode: 'preserve-client', snapshotKey: 'rank-catalog', items: [] },
 		...overrides
 	};
 }
@@ -195,7 +197,8 @@ describe('Calendar workspace hydration adapter', () => {
 					assignments: [incomingAssignment]
 				}
 			},
-			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: ['Alpha'] }
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: ['Alpha'] },
+			rankCatalog: { mode: 'replace', snapshotKey: 'rank-catalog', items: [] }
 		};
 
 		await createCalendarWorkspaceHydrator().hydrate(hydration, stores);

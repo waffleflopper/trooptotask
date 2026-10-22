@@ -1,13 +1,15 @@
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { fail } from '$lib/errors';
-import { CALENDAR_CHANGE_NOT_SAVED_MESSAGE } from './calendarCatalogPersistence.server';
+import { CALENDAR_CHANGE_NOT_SAVED_MESSAGE, DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
 import { sameIdList } from './utils/idList';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 type CalendarMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
 	'findOne' | 'findMany' | 'insert' | 'update' | 'delete' | 'deleteWhere' | 'insertMany'
 >;
 import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { PoolRules, TrackId, WeekendMode } from './roster/rosterTypes';
 import type {
 	CalendarAssignmentReader,
 	CalendarAvailabilityPersistence,
@@ -18,16 +20,35 @@ import {
 	toAssignment,
 	toAssignmentType,
 	toAvailability,
+	toOpenRosterForm,
 	toSpecialDay,
 	toStatusType,
 	type AssignmentRow,
 	type AssignmentTypeRow,
 	type AvailabilityRow,
+	type RosterExcusalRow,
 	type SpecialDayRow,
 	type StatusTypeRow
 } from './calendarPersistenceMapping.server';
 
 const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+type RosterFormMemoryRow = {
+	id: string;
+	assignment_type_id: string;
+	starts_on: string;
+	ends_on: string | null;
+	rules: { pool: PoolRules | null; weekendMode: WeekendMode };
+	record: unknown;
+};
+type RosterExcusalMemoryRow = RosterExcusalRow & { id: string; assignment_type_id: string; ends_on: string | null };
+
+const addDays = (date: string, days: number) => fromDayNumber(toDayNumber(date) + days);
+const utcDate = (offsetDays = 0) => addDays(new Date().toISOString().slice(0, 10), offsetDays);
+
+function checkDeviceDate(today: string) {
+	if (today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+}
 
 export function createInMemoryCalendarCatalogPersistence(
 	store: CalendarMemoryStore,
@@ -40,6 +61,31 @@ export function createInMemoryCalendarCatalogPersistence(
 	async function updateExisting<T>(table: string, id: string, patch: Record<string, unknown>): Promise<T | null> {
 		if (!(await store.findOne(table, orgId, { id }))) return null;
 		return store.update<T>(table, orgId, id, patch);
+	}
+	async function withExcusals(rows: AssignmentTypeRow[]): Promise<AssignmentTypeRow[]> {
+		const excusals = await store.findMany<RosterExcusalMemoryRow>('roster_excusals', orgId);
+		return rows.map((row) => ({
+			...row,
+			roster_excusals: excusals.filter((excusal) => excusal.assignment_type_id === row.id)
+		}));
+	}
+	const openForm = (assignmentTypeId: string) =>
+		store.findOne<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: assignmentTypeId, ends_on: null });
+	// Mirrors calendar_private.open_roster_form.
+	async function ensureOpenForm(row: AssignmentTypeRow) {
+		if (row.assign_to !== 'personnel' || (await openForm(row.id))) return;
+		await store.insert('roster_forms', orgId, {
+			assignment_type_id: row.id,
+			starts_on: utcDate(),
+			ends_on: null,
+			rules: { pool: row.roster_pool_rules, weekendMode: row.roster_weekend_mode },
+			record: null
+		});
+	}
+	async function rosterType(id: string) {
+		const type = await store.findOne<AssignmentTypeRow>('assignment_types', orgId, { id });
+		if (type?.assign_to !== 'personnel') fail(404, 'That assignment type is no longer available.');
+		return type;
 	}
 	async function deleteExisting(table: string, id: string): Promise<boolean> {
 		if (!(await store.findOne(table, orgId, { id }))) return false;
@@ -88,12 +134,14 @@ export function createInMemoryCalendarCatalogPersistence(
 		},
 		async listAssignmentTypes() {
 			return (
-				await store.findMany<AssignmentTypeRow>('assignment_types', orgId, undefined, {
-					orderBy: [
-						{ column: 'sort_order', ascending: true },
-						{ column: 'id', ascending: true }
-					]
-				})
+				await withExcusals(
+					await store.findMany<AssignmentTypeRow>('assignment_types', orgId, undefined, {
+						orderBy: [
+							{ column: 'sort_order', ascending: true },
+							{ column: 'id', ascending: true }
+						]
+					})
+				)
 			).map(toAssignmentType);
 		},
 		async listAssignmentTypeTargets(ids) {
@@ -109,17 +157,18 @@ export function createInMemoryCalendarCatalogPersistence(
 			}));
 		},
 		async createAssignmentType(input) {
-			return toAssignmentType(
-				await store.insert<AssignmentTypeRow>('assignment_types', orgId, {
-					name: input.name,
-					short_name: input.shortName,
-					assign_to: input.assignTo,
-					color: input.color ?? '#6b7280',
-					sort_order: 0,
-					show_on_calendar: false,
-					exempt_personnel_ids: input.exemptPersonnelIds ?? []
-				})
-			);
+			const row = await store.insert<AssignmentTypeRow>('assignment_types', orgId, {
+				name: input.name,
+				short_name: input.shortName,
+				assign_to: input.assignTo,
+				color: input.color ?? '#6b7280',
+				sort_order: 0,
+				show_on_calendar: false,
+				roster_pool_rules: input.poolRules ?? null,
+				roster_weekend_mode: input.weekendMode ?? 'same'
+			});
+			await ensureOpenForm(row);
+			return toAssignmentType({ ...row, roster_excusals: [] });
 		},
 		async updateAssignmentType(id, patch) {
 			const row = await updateExisting<AssignmentTypeRow>(
@@ -129,11 +178,12 @@ export function createInMemoryCalendarCatalogPersistence(
 					name: patch.name,
 					short_name: patch.shortName,
 					assign_to: patch.assignTo,
-					color: patch.color,
-					exempt_personnel_ids: patch.exemptPersonnelIds
+					color: patch.color
 				})
 			);
-			return row && toAssignmentType(row);
+			if (!row) return null;
+			await ensureOpenForm(row);
+			return toAssignmentType((await withExcusals([row]))[0]);
 		},
 		deleteAssignmentType(id) {
 			return deleteExisting('assignment_types', id);
@@ -200,6 +250,92 @@ export function createInMemoryCalendarCatalogPersistence(
 				else if (position < 0 && type.show_on_calendar)
 					await store.update('assignment_types', orgId, type.id, { show_on_calendar: false });
 			}
+		},
+		async findOpenRosterForm(assignmentTypeId) {
+			const form = await openForm(assignmentTypeId);
+			if (!form) return null;
+			const numbers = await store.findMany<{
+				personnel_id: string;
+				track: TrackId;
+				count: number;
+				origin: 'typed' | 'carried';
+			}>('roster_starting_numbers', orgId, { form_id: form.id });
+			return toOpenRosterForm({ ...form, roster_starting_numbers: numbers });
+		},
+		async listRosterExcusals(assignmentTypeId) {
+			return (
+				await store.findMany<RosterExcusalMemoryRow>('roster_excusals', orgId, { assignment_type_id: assignmentTypeId })
+			)
+				.sort((a, b) => a.starts_on.localeCompare(b.starts_on) || compareIds(a.id, b.id))
+				.map((row) => ({ personId: row.personnel_id, reason: row.reason, from: row.starts_on, through: row.ends_on }));
+		},
+		// Mirrors public.set_roster_excusals.
+		async setRosterExcusals(assignmentTypeId, today, excusals) {
+			checkDeviceDate(today);
+			await rosterType(assignmentTypeId);
+			const wanted = new Map(excusals.map(({ personId, reason }) => [personId, reason.trim()]));
+			const open = await store.findMany<RosterExcusalMemoryRow>('roster_excusals', orgId, {
+				assignment_type_id: assignmentTypeId,
+				ends_on: null
+			});
+			for (const excusal of open) {
+				const reason = wanted.get(excusal.personnel_id);
+				if (reason === undefined && excusal.starts_on >= today)
+					await store.delete('roster_excusals', orgId, excusal.id);
+				else if (reason === undefined)
+					await store.update('roster_excusals', orgId, excusal.id, { ends_on: addDays(today, -1) });
+				else if (reason !== excusal.reason) await store.update('roster_excusals', orgId, excusal.id, { reason });
+				wanted.delete(excusal.personnel_id);
+			}
+			for (const [personId, reason] of wanted)
+				await store.insert('roster_excusals', orgId, {
+					assignment_type_id: assignmentTypeId,
+					personnel_id: personId,
+					reason,
+					starts_on: today,
+					ends_on: null
+				});
+		},
+		// Mirrors public.close_roster_form.
+		async closeRosterForm(input) {
+			checkDeviceDate(input.today);
+			await rosterType(input.assignmentTypeId);
+			const form = await openForm(input.assignmentTypeId);
+			if (form?.id !== input.formId) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+			if (form.starts_on > input.today !== (input.record === null)) fail(400, 'Invalid Calendar configuration');
+			const rules = { pool: input.poolRules, weekendMode: input.weekendMode };
+			let next = form.id;
+			if (input.record === null) {
+				await store.update('roster_forms', orgId, form.id, { rules });
+				await store.deleteWhere('roster_starting_numbers', orgId, { form_id: form.id });
+			} else {
+				await store.update('roster_forms', orgId, form.id, { ends_on: input.today, record: input.record });
+				next = (
+					await store.insert<RosterFormMemoryRow>('roster_forms', orgId, {
+						assignment_type_id: input.assignmentTypeId,
+						starts_on: addDays(input.today, 1),
+						ends_on: null,
+						rules,
+						record: null
+					})
+				).id;
+			}
+			await store.insertMany(
+				'roster_starting_numbers',
+				orgId,
+				input.carry.map((number) => ({
+					form_id: next,
+					personnel_id: number.personId,
+					track: number.track,
+					count: number.count,
+					origin: number.origin
+				}))
+			);
+			await store.update('assignment_types', orgId, input.assignmentTypeId, {
+				roster_pool_rules: input.poolRules,
+				roster_weekend_mode: input.weekendMode
+			});
+			return next;
 		}
 	};
 }

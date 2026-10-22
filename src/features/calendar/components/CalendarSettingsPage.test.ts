@@ -113,7 +113,9 @@ describe('CalendarSettingsPage', () => {
 			shortName: 'CA',
 			assignTo: 'personnel',
 			color: '#2563eb',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		});
@@ -464,7 +466,9 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#2563eb',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			}
@@ -492,7 +496,9 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#2563eb',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			}
@@ -531,7 +537,9 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#2563eb',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			},
@@ -541,7 +549,9 @@ describe('CalendarSettingsPage', () => {
 				shortName: 'SD',
 				assignTo: 'group',
 				color: '#047857',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same',
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			}

@@ -2,6 +2,7 @@ import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
+import type { Da6Segment, Excusal, OpenForm, PoolRules, StartingNumber, WeekendMode } from './roster/rosterTypes';
 
 /** The most records or IDs one availability batch request accepts; the batch RPCs enforce it too. */
 export const AVAILABILITY_BATCH_LIMIT = 500;
@@ -50,6 +51,13 @@ export interface SpecialDay {
 	type: 'federal-holiday' | 'org-closure';
 }
 
+/** Someone kept off one duty roster from `startsOn` until they are reinstated. */
+export interface RosterExcusal {
+	personId: string;
+	reason: string;
+	startsOn: string;
+}
+
 export interface AssignmentType {
 	id: string;
 	name: string;
@@ -57,10 +65,39 @@ export interface AssignmentType {
 	assignTo: 'personnel' | 'group';
 	color: string;
 	textColor?: string;
-	exemptPersonnelIds: string[];
+	/** Null means Everyone. Only person-assigned types are rosters. */
+	poolRules: PoolRules | null;
+	weekendMode: WeekendMode;
+	/** Current excusals only. Reinstated people are back in the pool. */
+	excusals: RosterExcusal[];
 	showOnCalendar: boolean;
 	sortOrder: number;
 	archivedAt?: string | null;
+}
+
+export const ROSTER_EXCUSAL_REASON_MAX = 120;
+
+export const poolRulesSchema = z.object({
+	rank: z.object({ from: z.string().min(1), to: z.string().min(1) }).nullable(),
+	mos: z.array(z.string()),
+	role: z.array(z.string()),
+	groupIds: z.array(z.string())
+}) satisfies z.ZodType<PoolRules>;
+
+export const weekendModeSchema = z.enum(['same', 'separate', 'none']) satisfies z.ZodType<WeekendMode>;
+
+/** One spelling per rule set, so equal rules compare equal and a rule set with nothing in it means Everyone. */
+export function normalizePoolRules(rules: PoolRules): PoolRules | null {
+	const distinct = (values: readonly string[]) => [...new Set(values.map((value) => value.trim()))].sort();
+	// Saved rules come back from jsonb with its own key order, so every key is rebuilt in one order.
+	const normalized = {
+		rank: rules.rank && { from: rules.rank.from.trim(), to: rules.rank.to.trim() },
+		mos: distinct(rules.mos),
+		role: distinct(rules.role),
+		groupIds: distinct(rules.groupIds)
+	};
+	const empty = !normalized.rank && !normalized.mos.length && !normalized.role.length && !normalized.groupIds.length;
+	return empty ? null : normalized;
 }
 
 export const assignmentTypesSchema = z.array(
@@ -71,7 +108,9 @@ export const assignmentTypesSchema = z.array(
 		assignTo: z.enum(['personnel', 'group']),
 		color: z.string(),
 		textColor: z.string().optional(),
-		exemptPersonnelIds: z.array(z.string()),
+		poolRules: poolRulesSchema.nullable(),
+		weekendMode: weekendModeSchema,
+		excusals: z.array(z.object({ personId: z.string(), reason: z.string(), startsOn: z.string() })),
 		showOnCalendar: z.boolean(),
 		sortOrder: z.number(),
 		archivedAt: z.string().nullable().optional()
@@ -138,15 +177,34 @@ export interface StatusTypeCreate {
 
 export type StatusTypePatch = Partial<StatusTypeCreate>;
 
-export interface AssignmentTypeCreate {
+export interface AssignmentTypeDetails {
 	name: string;
 	shortName: string;
 	assignTo: 'personnel' | 'group';
 	color?: string;
-	exemptPersonnelIds?: string[];
 }
 
-export type AssignmentTypePatch = Partial<AssignmentTypeCreate>;
+/** A new type opens its first DA 6 form under these rules. */
+export interface AssignmentTypeCreate extends AssignmentTypeDetails {
+	poolRules?: PoolRules | null;
+	weekendMode?: WeekendMode;
+}
+
+export type AssignmentTypePatch = Partial<AssignmentTypeDetails>;
+
+export interface RosterExcusalInput {
+	personId: string;
+	reason: string;
+}
+
+/** The roster settings an editor wants. Changed rules close the open DA 6 form on `today`. */
+export interface RosterSettingsInput {
+	poolRules: PoolRules | null;
+	weekendMode: WeekendMode;
+	excusals: RosterExcusalInput[];
+	/** The editor's calendar day. */
+	today: string;
+}
 
 export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;
 
@@ -186,6 +244,27 @@ export interface CalendarCatalogPersistence {
 	deleteSpecialDay(id: string): Promise<boolean>;
 	resetFederalHolidays(holidays: FederalHolidayDefault[]): Promise<SavedFederalHoliday[]>;
 	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<void>;
+	/** Null for a group-assigned type, or a person-assigned type whose form a concurrent save is replacing. */
+	findOpenRosterForm(assignmentTypeId: string): Promise<OpenForm | null>;
+	/** Every excusal on this roster, reinstated ones included, so a close can save who was excused when. */
+	listRosterExcusals(assignmentTypeId: string): Promise<Excusal[]>;
+	/** Makes `excusals` the open set from `today` on, ending the others yesterday. */
+	setRosterExcusals(assignmentTypeId: string, today: string, excusals: readonly RosterExcusalInput[]): Promise<void>;
+	/**
+	 * Sets the type's rules and returns the open form's id. A null record rewrites a form that starts after
+	 * `today` in place. Otherwise the open form closes on `today` with this record and the next opens on `today + 1`.
+	 */
+	closeRosterForm(input: RosterFormClose): Promise<string>;
+}
+
+export interface RosterFormClose {
+	assignmentTypeId: string;
+	formId: string;
+	today: string;
+	poolRules: PoolRules | null;
+	weekendMode: WeekendMode;
+	record: { segments: readonly Da6Segment[] } | null;
+	carry: readonly StartingNumber[];
 }
 
 export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRemovalPort {

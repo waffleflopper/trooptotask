@@ -20,7 +20,9 @@ const guardType = {
 	shortName: 'GD',
 	assignTo: 'personnel' as const,
 	color: '#000',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same' as const,
+	excusals: [],
 	showOnCalendar: false,
 	sortOrder: 0
 };
@@ -35,7 +37,9 @@ describe('regression: delete type then add type flow', () => {
 			shortName: 'OT',
 			assignTo: 'personnel' as const,
 			color: '#000',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same' as const,
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		};
@@ -53,7 +57,9 @@ describe('regression: delete type then add type flow', () => {
 			shortName: 'NT',
 			assignTo: 'personnel' as const,
 			color: '#fff',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same' as const,
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		};
@@ -63,7 +69,9 @@ describe('regression: delete type then add type flow', () => {
 			shortName: 'NT',
 			assignTo: 'personnel',
 			color: '#fff',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same' as const,
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		});
@@ -105,7 +113,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#fff',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same' as const,
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			});
@@ -118,7 +128,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 						shortName: 'OT',
 						assignTo: 'group' as const,
 						color: '#aaa',
-						exemptPersonnelIds: [],
+						poolRules: null,
+						weekendMode: 'same' as const,
+						excusals: [],
 						showOnCalendar: false,
 						sortOrder: 0
 					}
@@ -134,7 +146,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					shortName: 'OT',
 					assignTo: 'group',
 					color: '#aaa',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same' as const,
+					excusals: [],
 					showOnCalendar: false,
 					sortOrder: 0
 				}
@@ -152,7 +166,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel' as const,
 				color: '#fff',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same' as const,
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			};
@@ -163,7 +179,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#fff',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same' as const,
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			});
@@ -181,7 +199,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					shortName: 'CQ',
 					assignTo: 'personnel',
 					color: '#fff',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same' as const,
+					excusals: [],
 					showOnCalendar: false,
 					sortOrder: 0
 				})
@@ -210,7 +230,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 								shortName: 'CQ',
 								assignTo: 'personnel',
 								color: '#fff',
-								exemptPersonnelIds: [],
+								poolRules: null,
+								weekendMode: 'same' as const,
+								excusals: [],
 								showOnCalendar: false,
 								sortOrder: 0
 							})
@@ -223,7 +245,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#fff',
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'same' as const,
+				excusals: [],
 				showOnCalendar: false,
 				sortOrder: 0
 			});
@@ -786,7 +810,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					shortName: 'NT',
 					assignTo: 'personnel',
 					color: '#000',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same' as const,
+					excusals: [],
 					showOnCalendar: false,
 					sortOrder: 0
 				})
@@ -1155,7 +1181,13 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		color: '#0f766e',
 		sortOrder: 1
 	};
-	const retiring = { ...guardType, id: 'retiring', name: 'Retiring', exemptPersonnelIds: ['p-exempt'], sortOrder: 2 };
+	const retiring = {
+		...guardType,
+		id: 'retiring',
+		name: 'Retiring',
+		excusals: [{ personId: 'p-exempt', reason: 'Excused', startsOn: '2026-01-01' }],
+		sortOrder: 2
+	};
 	const shownGroup = { ...group, showOnCalendar: true, sortOrder: 0 };
 	const confirmed = [shownGroup, { ...staff, showOnCalendar: false }, retiring];
 	const beforeCommit = [staff, group, retiring];
@@ -1360,7 +1392,9 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 			shortName: 'CQ',
 			assignTo: 'personnel' as const,
 			color: '#000',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same' as const,
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 3
 		};

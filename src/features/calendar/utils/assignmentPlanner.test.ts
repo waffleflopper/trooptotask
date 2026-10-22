@@ -18,7 +18,9 @@ function type(id: string, overrides: Partial<AssignmentType> = {}): AssignmentTy
 		shortName: id.toUpperCase(),
 		assignTo: 'personnel',
 		color: '#000',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0,
 		...overrides

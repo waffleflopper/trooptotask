@@ -35,6 +35,7 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	const expired = summary.expiredPersonnelCount;
 	const expiring = delinquent - expired;
 	const current = Math.max(0, total - delinquent);
+	const currentPercent = percentOf(current, total);
 
 	const sentences: string[] = [];
 	if (delinquent === 0) sentences.push('Everyone is current.');
@@ -49,8 +50,8 @@ export const trainingReadiness: ReadinessSource = (inputs, access) => {
 	return {
 		...column,
 		state: 'ready',
-		figure: `${percentOf(current, total)}%`,
-		figureTone: current * 100 >= total * 90 ? 'good' : current * 100 >= total * 75 ? 'warning' : 'critical',
+		figure: `${currentPercent}%`,
+		figureTone: currentPercent >= 90 ? 'good' : currentPercent >= 75 ? 'warning' : 'critical',
 		suffix: 'current',
 		graphic: {
 			kind: 'shares',
@@ -136,9 +137,10 @@ export const evaluationsReadiness: ReadinessSource = (inputs, access) => {
 		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today);
 		if (status !== 'completed') counts[status]++;
 	}
-	const { overdue, current } = counts;
+	const { overdue } = counts;
 	const due30 = counts['due-30'];
 	const due60 = counts['due-60'];
+	const current = counts.current + due60;
 	const due =
 		due30 + due60 === 0
 			? 'None due within 60 days.'
@@ -156,7 +158,7 @@ export const evaluationsReadiness: ReadinessSource = (inputs, access) => {
 			kind: 'shares',
 			shares: [
 				{ label: 'overdue', count: overdue, tone: 'critical' },
-				{ label: 'due within 60 days', count: due30 + due60, tone: 'warning' },
+				{ label: 'due within 30 days', count: due30, tone: 'warning' },
 				{ label: 'current', count: current, tone: 'good' }
 			]
 		},

@@ -34,9 +34,11 @@
 		updates: DashboardPageUpdates;
 		/** Replaces the bands when the workspace fails; the header stays. */
 		failure?: Snippet;
+		/** Offered once above the bands when a summary source failed; the bands that do not need it stay. */
+		summaryFailure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, updates, failure }: Props = $props();
+	let { orgName, viewerDay, ctx, sections, access, updates, failure, summaryFailure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -47,6 +49,9 @@
 		model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures, access) : null
 	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
+	const failedFeatures = $derived(
+		parts?.readinessColumns.filter((column) => column.state === 'failed').map((column) => column.title) ?? []
+	);
 
 	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
 	let latestOpen = 0;
@@ -109,6 +114,8 @@
 			{:else}
 				{#if !model}
 					<p class="sr-only" role="status">Loading Dashboard</p>
+				{:else if failedFeatures.length > 0}
+					{@render summaryFailure?.()}
 				{/if}
 
 				<section
@@ -197,7 +204,7 @@
 							{/snippet}
 						</PageShell.SectionHeader>
 						{#if parts}
-							<NeedsYouQueue queue={parts.needsYou} />
+							<NeedsYouQueue queue={parts.needsYou} unavailable={failedFeatures} />
 						{:else}
 							<div class="grid border-t border-foreground" aria-hidden="true">
 								{#each { length: 5 }, index (index)}

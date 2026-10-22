@@ -134,7 +134,9 @@ describe('dashboard page', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
-	it('still builds the Dashboard after a rejected summary instead of replacing it with the failure', async () => {
+	it('still builds the Dashboard after a rejected summary and offers one Retry', async () => {
+		await hydrateEmptyWorkspace('org-1');
+		const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
 		let reject!: (reason: Error) => void;
 		const pending = new Promise((_, rejectPromise) => {
 			reject = rejectPromise;
@@ -145,8 +147,10 @@ describe('dashboard page', () => {
 		reject(new Error('Source unavailable'));
 
 		await waitFor(() => expect(autoShowWhatsNew).toHaveBeenCalled());
-		expect(screen.queryByRole('alert')).toBeNull();
 		expect(screen.getByRole('region', { name: 'Readiness' })).toBeTruthy();
+		expect(screen.getByText(/Needs you is incomplete/)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry Dashboard' }));
+		expect(reload).toHaveBeenCalledOnce();
 	});
 
 	it('keeps the last summary through a background refresh, including one that fails, but not across Organizations', async () => {

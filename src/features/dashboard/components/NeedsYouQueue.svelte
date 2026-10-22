@@ -4,7 +4,13 @@
 	import { Button } from '$lib/components/ui/button';
 	import { needsYouKindInfo, type NeedsYouQueue } from '../sections/needsYou';
 
-	let { queue }: { queue: NeedsYouQueue } = $props();
+	interface Props {
+		queue: NeedsYouQueue;
+		/** Features whose rows could not load; the queue is then incomplete, not clear. */
+		unavailable?: readonly string[];
+	}
+
+	let { queue, unavailable = [] }: Props = $props();
 
 	let showAll = $state(false);
 	let list = $state<HTMLUListElement>();
@@ -20,8 +26,18 @@
 	}
 </script>
 
+{#snippet incomplete()}
+	<p class="border-t border-border py-3 text-sm text-muted-foreground">
+		Needs you is incomplete. {unavailable.join(' and ')} items could not load.
+	</p>
+{/snippet}
+
 {#if queue.ranked.length === 0}
-	<p class="border-t border-foreground py-4 text-sm text-muted-foreground">Nothing needs you right now.</p>
+	{#if unavailable.length > 0}
+		<div class="border-t border-foreground">{@render incomplete()}</div>
+	{:else}
+		<p class="border-t border-foreground py-4 text-sm text-muted-foreground">Nothing needs you right now.</p>
+	{/if}
 {:else}
 	<ul bind:this={list} class="border-t border-foreground" aria-label="Needs you">
 		{#each rows as item (item.id)}
@@ -54,4 +70,7 @@
 			</li>
 		{/if}
 	</ul>
+	{#if unavailable.length > 0}
+		{@render incomplete()}
+	{/if}
 {/if}

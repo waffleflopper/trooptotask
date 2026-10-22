@@ -750,6 +750,66 @@ describe('Dashboard sections', () => {
 		expect(readinessTitles()).toEqual(['Training', 'Evaluations', 'Arriving and leaving']);
 	});
 
+	describe('with a person expired on training', () => {
+		const expiredSummary: DashboardPageData['trainingSummary'] = {
+			...trainingSummary,
+			expiredByType: [{ trainingTypeId: 'cpr', personnelIds: ['p1'], maxDaysLate: 4 }],
+			expiredPersonnelCount: 1,
+			groupDelinquencies: [{ groupId: null, expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]
+		};
+		const withPerson = {
+			...sources,
+			personnel: {
+				items: [{ id: 'p1', rank: 'SPC', firstName: 'Pat', lastName: 'Diaz', groupId: null }],
+				loading: false
+			}
+		} as Parameters<typeof createDashboardScreenModel>[1]['sources'];
+		const summaryFailure = createRawSnippet(() => ({
+			render: () => '<div role="alert"><button type="button">Retry Dashboard</button></div>'
+		}));
+
+		it('lists the expired row when the summary loaded', () => {
+			const ctx = createDashboardScreenModel(
+				{ ...pageData(), trainingSummary: expiredSummary },
+				{ sources: withPerson }
+			);
+
+			render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS, summaryFailure } });
+
+			expect(within(screen.getByRole('list', { name: 'Needs you' })).getByText(/expired on/)).toBeTruthy();
+			expect(screen.queryByRole('alert')).toBeNull();
+		});
+
+		it('calls Needs you incomplete and offers one Retry instead of reading as clear when the summary failed', () => {
+			const ctx = createDashboardScreenModel({ ...pageData(), summaryFailed: true }, { sources: withPerson });
+
+			render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS, summaryFailure } });
+
+			expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
+			expect(
+				screen.getByText('Needs you is incomplete. Training and Critical tasks items could not load.')
+			).toBeTruthy();
+			expect(screen.getAllByRole('button', { name: 'Retry Dashboard' })).toHaveLength(1);
+			expect(readinessTitles()).toEqual(['Training', 'Critical tasks', 'Evaluations', 'Arriving and leaving']);
+		});
+
+		it('keeps the empty state and offers no Retry when the actor reads neither summary source', () => {
+			const ctx = createDashboardScreenModel({ ...pageData(), summaryFailed: true }, { sources: withPerson });
+			const noSummaryAccess: DashboardAccess = {
+				can: (action) =>
+					action.id !== POLICY_ACTION_CATALOG.training.viewRecords.id &&
+					action.id !== POLICY_ACTION_CATALOG.criticalTasks.viewReadiness.id
+			};
+
+			render(DashboardPageView, {
+				props: { ...frame, ctx, sections: DASHBOARD_SECTIONS, access: noSummaryAccess, summaryFailure }
+			});
+
+			expect(screen.getByText('Nothing needs you right now.')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Retry Dashboard' })).toBeNull();
+		});
+	});
+
 	it('says which columns could not load when the summary fails and keeps every band', () => {
 		const ctx = createDashboardScreenModel({ ...pageData(), summaryFailed: true }, { sources });
 

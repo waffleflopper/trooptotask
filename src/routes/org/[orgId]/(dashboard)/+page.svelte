@@ -184,5 +184,6 @@
 		{updates}
 		sections={DASHBOARD_SECTIONS}
 		failure={loadError ? loadFailure : undefined}
+		summaryFailure={loadFailure}
 	/>
 {/if}

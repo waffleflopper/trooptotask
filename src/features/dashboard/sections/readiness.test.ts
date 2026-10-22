@@ -147,6 +147,8 @@ describe('trainingReadiness', () => {
 
 	it.each([
 		{ total: 10, delinquent: 1, figure: '90%', tone: 'good' },
+		{ total: 199, delinquent: 20, figure: '90%', tone: 'good' },
+		{ total: 199, delinquent: 50, figure: '75%', tone: 'warning' },
 		{ total: 100, delinquent: 11, figure: '89%', tone: 'warning' },
 		{ total: 4, delinquent: 1, figure: '75%', tone: 'warning' },
 		{ total: 100, delinquent: 26, figure: '74%', tone: 'critical' }
@@ -280,11 +282,30 @@ describe('evaluationsReadiness', () => {
 				kind: 'shares',
 				shares: [
 					{ label: 'overdue', count: 2, tone: 'critical' },
-					{ label: 'due within 60 days', count: 5, tone: 'warning' },
-					{ label: 'current', count: 1, tone: 'good' }
+					{ label: 'due within 30 days', count: 4, tone: 'warning' },
+					{ label: 'current', count: 2, tone: 'good' }
 				]
 			},
-			note: '4 more due within 30 days and 1 within 60. 1 is current.'
+			note: '4 more due within 30 days and 1 within 60. 2 are current.'
+		});
+	});
+
+	it('counts an evaluation due in 45 days as current and one due in 20 days as due within 30 days', () => {
+		const ratingSchemeEntries = [
+			{ ratingPeriodEnd: '2026-12-03', status: 'active' },
+			{ ratingPeriodEnd: '2026-11-08', status: 'active' }
+		] as Partial<RatingSchemeDueEntry>[];
+
+		expect(evaluationsReadiness(inputs({ today: '2026-10-19', ratingSchemeEntries }), everything)).toMatchObject({
+			figure: '0',
+			graphic: {
+				kind: 'shares',
+				shares: [
+					{ label: 'overdue', count: 0, tone: 'critical' },
+					{ label: 'due within 30 days', count: 1, tone: 'warning' },
+					{ label: 'current', count: 1, tone: 'good' }
+				]
+			}
 		});
 	});
 

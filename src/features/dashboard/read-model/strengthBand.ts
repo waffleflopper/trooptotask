@@ -1,6 +1,7 @@
 import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
+import { formatDayMonth } from '$lib/utils/dates';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { availabilityRuns, backDate, type AvailabilityRun } from './availabilityRuns';
 
@@ -270,7 +271,7 @@ function buildBottomLine(
 				name: fullName(person),
 				statusTypeId: entry.statusTypeId,
 				back,
-				backLabel: `back ${back === tomorrowDate ? 'tomorrow' : shortDate(back)}`
+				backLabel: `back ${back === tomorrowDate ? 'tomorrow' : formatDayMonth(back)}`
 			};
 		})
 		.sort(
@@ -287,7 +288,7 @@ function buildBottomLine(
 		);
 		const soonest = people.reduce((low, row) => (row.back < low ? row.back : low), people[0].back);
 		const returning = people.filter((row) => row.back === soonest).length;
-		const when = soonest === tomorrowDate ? 'tomorrow' : shortDate(soonest);
+		const when = soonest === tomorrowDate ? 'tomorrow' : formatDayMonth(soonest);
 		return [
 			{
 				statusTypeId: type.id,
@@ -413,7 +414,6 @@ function countBy<T>(items: readonly T[], key: (item: T) => string): [string, num
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** 0 is Sunday. Day 0 of the day-number epoch, 1970-01-01, was a Thursday. */
 function weekdayOf(date: string): number {
@@ -448,11 +448,6 @@ export function longDay(date: string): string {
 /** The weekday alone inside the coming week, else "Thursday 29th". */
 function weekdayWithin(date: string, today: string): string {
 	return toDayNumber(date) - toDayNumber(today) < 7 ? WEEKDAYS[weekdayOf(date)] : longDay(date);
-}
-
-/** "26 Oct". */
-function shortDate(date: string): string {
-	return `${dayOfMonth(date)} ${MONTHS[Number(date.slice(5, 7)) - 1]}`;
 }
 
 function fullName(person: Personnel): string {

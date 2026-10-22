@@ -75,18 +75,39 @@ ALTER TABLE public.roster_forms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roster_starting_numbers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roster_excusals ENABLE ROW LEVEL SECURITY;
 
+CREATE FUNCTION calendar_private.organization_wide_viewer_organizations()
+RETURNS TABLE(organization_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT m.organization_id
+  FROM public.organization_memberships m
+  WHERE m.user_id = auth.uid()
+    AND public.member_access_has_capability(m.organization_id, 'calendar', 'view')
+    AND (m.role IN ('owner', 'admin') OR m.access_scope_kind = 'organization');
+$$;
+
+REVOKE ALL ON FUNCTION calendar_private.organization_wide_viewer_organizations() FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION calendar_private.organization_wide_viewer_organizations() TO authenticated;
+
 CREATE POLICY "Calendar viewers can read DA 6 forms" ON public.roster_forms
-  FOR SELECT USING (public.can_view_calendar(organization_id));
+  FOR SELECT TO authenticated USING (organization_id IN (
+    SELECT v.organization_id FROM calendar_private.organization_wide_viewer_organizations() v
+  ));
 CREATE POLICY "Calendar configurators can manage DA 6 forms" ON public.roster_forms
   USING (public.can_manage_calendar_configuration(organization_id))
   WITH CHECK (public.can_manage_calendar_configuration(organization_id));
 CREATE POLICY "Calendar viewers can read roster starting numbers" ON public.roster_starting_numbers
-  FOR SELECT USING (public.can_view_calendar(organization_id));
+  FOR SELECT TO authenticated USING ((organization_id, personnel_id) IN (
+    SELECT v.organization_id, v.personnel_id FROM member_access_private.viewable_personnel('calendar') v
+  ));
 CREATE POLICY "Calendar configurators can manage roster starting numbers" ON public.roster_starting_numbers
   USING (public.can_manage_calendar_configuration(organization_id))
   WITH CHECK (public.can_manage_calendar_configuration(organization_id));
 CREATE POLICY "Calendar viewers can read roster excusals" ON public.roster_excusals
-  FOR SELECT USING (public.can_view_calendar(organization_id));
+  FOR SELECT TO authenticated USING ((organization_id, personnel_id) IN (
+    SELECT v.organization_id, v.personnel_id FROM member_access_private.viewable_personnel('calendar') v
+  ));
 CREATE POLICY "Calendar configurators can manage roster excusals" ON public.roster_excusals
   USING (public.can_manage_calendar_configuration(organization_id))
   WITH CHECK (public.can_manage_calendar_configuration(organization_id));
@@ -435,6 +456,10 @@ BEGIN
   FROM public.daily_assignments a
   WHERE a.organization_id = p_organization_id AND a.assignment_type_id = p_assignment_type_id
     AND a.date BETWEEN p_from AND p_through
+    AND EXISTS (
+      SELECT 1 FROM public.assignment_types t
+      WHERE t.organization_id = p_organization_id AND t.id = a.assignment_type_id AND t.assign_to = 'personnel'
+    )
     AND (
       a.assignee_id IN (
         SELECT v.personnel_id::text FROM member_access_private.viewable_personnel('calendar') v

@@ -86,6 +86,80 @@ INSERT INTO public.roster_excusals (id, organization_id, assignment_type_id, per
   (pg_temp.id(701), pg_temp.id(101), pg_temp.id(403), pg_temp.id(302), 'Profile', pg_temp.today()),
   (pg_temp.id(702), pg_temp.id(101), pg_temp.id(401), pg_temp.id(303), 'Profile', pg_temp.today() - 5);
 
+SAVEPOINT read_scope;
+INSERT INTO public.groups (id, organization_id, name) VALUES (pg_temp.id(502), pg_temp.id(101), 'Other Platoon');
+INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug) VALUES
+  (pg_temp.id(304), pg_temp.id(101), pg_temp.id(502), 'SGT', 'Other', 'Platoon', 'roster-settings-other-platoon');
+SELECT pg_temp.as_close_rpc(true);
+INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, ends_on, rules, record) VALUES
+  (pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 10, pg_temp.today() - 1, '{}',
+    '{"rows": [{"name": "Roster Able"}, {"name": "Roster Baker"}, {"name": "Other Platoon"}]}');
+INSERT INTO saved VALUES ('scope form', pg_temp.open_form(403));
+INSERT INTO public.roster_starting_numbers (organization_id, form_id, personnel_id, track, count, origin) VALUES
+  (pg_temp.id(101), pg_temp.open_form(403), pg_temp.id(302), 'all', 4, 'typed'),
+  (pg_temp.id(101), pg_temp.open_form(403), pg_temp.id(304), 'all', 5, 'typed');
+SELECT pg_temp.as_close_rpc(false);
+INSERT INTO public.roster_excusals (organization_id, assignment_type_id, personnel_id, reason, starts_on) VALUES
+  (pg_temp.id(101), pg_temp.id(403), pg_temp.id(301), 'Leave', pg_temp.today()),
+  (pg_temp.id(101), pg_temp.id(403), pg_temp.id(304), 'School', pg_temp.today());
+INSERT INTO public.daily_assignments (organization_id, assignment_type_id, date, assignee_id) VALUES
+  (pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 3, pg_temp.id(301)::text),
+  (pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 2, pg_temp.id(302)::text),
+  (pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 1, pg_temp.id(304)::text),
+  (pg_temp.id(101), pg_temp.id(402), pg_temp.today() - 2, pg_temp.id(501)::text),
+  (pg_temp.id(101), pg_temp.id(402), pg_temp.today() - 1, pg_temp.id(502)::text);
+
+SELECT pg_temp.act(6);
+SELECT is((SELECT count(*)::integer FROM public.roster_forms), 0,
+  'a Group-scoped Calendar viewer reads no open or closed DA 6 forms');
+SELECT is(pg_temp.starting_numbers((SELECT value FROM saved WHERE label = 'scope form')), '[[301, "all", 3, "typed"]]',
+  'a Group-scoped Calendar viewer reads starting numbers only for people in their Group');
+SELECT is(pg_temp.excusals(403), '[[301, "Leave", 0, null]]',
+  'a Group-scoped Calendar viewer reads excusal reasons only for people in their Group');
+SELECT is((SELECT jsonb_agg(DISTINCT pg_temp.n(personnel_id) ORDER BY pg_temp.n(personnel_id))
+  FROM public.personnel_attribute_history), '[301]',
+  'a Group-scoped Calendar viewer reads attribute history only for people in their Group');
+SELECT is((SELECT jsonb_agg(pg_temp.n(d.assignee_id::uuid) ORDER BY d.date)
+  FROM public.list_roster_detail_days(pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 10, pg_temp.today()) d), '[301]',
+  'roster detail days hide living people in other Groups and unassigned people from a Group-scoped viewer');
+SELECT is((SELECT count(*)::integer
+  FROM public.list_roster_detail_days(pg_temp.id(101), pg_temp.id(402), pg_temp.today() - 10, pg_temp.today())), 0,
+  'roster detail days do not expose Group assignments through the deleted-person fallback');
+
+SELECT pg_temp.act(3);
+SELECT is((SELECT count(*)::integer FROM public.roster_forms), 3,
+  'an Organization-scoped Calendar viewer reads open and closed DA 6 forms');
+SELECT is(pg_temp.starting_numbers((SELECT value FROM saved WHERE label = 'scope form')),
+  '[[301, "all", 3, "typed"], [302, "all", 4, "typed"], [304, "all", 5, "typed"]]',
+  'an Organization-scoped Calendar viewer reads starting numbers across Groups and for unassigned people');
+SELECT is(pg_temp.excusals(403), '[[301, "Leave", 0, null], [302, "Profile", 0, null], [304, "School", 0, null]]',
+  'an Organization-scoped Calendar viewer reads excusal reasons across Groups and for unassigned people');
+SELECT is((SELECT jsonb_agg(DISTINCT pg_temp.n(personnel_id) ORDER BY pg_temp.n(personnel_id))
+  FROM public.personnel_attribute_history), '[301, 302, 303, 304, 305]',
+  'an Organization-scoped Calendar viewer reads all of their Organization''s attribute history');
+SELECT is((SELECT jsonb_agg(pg_temp.n(d.assignee_id::uuid) ORDER BY d.date)
+  FROM public.list_roster_detail_days(pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 10, pg_temp.today()) d), '[301, 302, 304]',
+  'an Organization-scoped Calendar viewer reads roster detail days across Groups and for unassigned people');
+
+SELECT pg_temp.act(2);
+SELECT is((SELECT count(*)::integer FROM public.roster_forms), 3,
+  'a Calendar configurator still reads every open and closed DA 6 form');
+SELECT is(pg_temp.starting_numbers((SELECT value FROM saved WHERE label = 'scope form')),
+  '[[301, "all", 3, "typed"], [302, "all", 4, "typed"], [304, "all", 5, "typed"]]',
+  'a Calendar configurator still reads all starting numbers');
+SELECT is(pg_temp.excusals(403), '[[301, "Leave", 0, null], [302, "Profile", 0, null], [304, "School", 0, null]]',
+  'a Calendar configurator still reads all excusals');
+SELECT is((SELECT jsonb_agg(DISTINCT pg_temp.n(personnel_id) ORDER BY pg_temp.n(personnel_id))
+  FROM public.personnel_attribute_history), '[301, 302, 303, 304, 305]',
+  'a Calendar configurator still reads all attribute history without Personnel access');
+WITH changed AS (UPDATE public.roster_excusals SET reason = 'School extended'
+  WHERE personnel_id = pg_temp.id(304) RETURNING reason)
+SELECT is((SELECT reason FROM changed), 'School extended',
+  'a Calendar configurator still manages an excusal for a person in another Group');
+RESET ROLE;
+ROLLBACK TO SAVEPOINT read_scope;
+RELEASE SAVEPOINT read_scope;
+
 -- Row security.
 SELECT pg_temp.act(3);
 SELECT is((SELECT count(*)::integer FROM public.roster_forms WHERE organization_id = pg_temp.id(101)), 2,

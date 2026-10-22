@@ -106,20 +106,26 @@ test('print capture saves exact target bytes while another native page is select
 	assert.equal(f.page.listenerCount('close'), 0);
 });
 
-test('report duty-role and repeated MOS filters remain part of the exact captured URL', async (t) => {
-	const f = await fixture(t);
-	const url = reportUrl + '&role=Medic&mos=68W&mos=11B';
-	f.request.input.expectedUrl = url;
-	f.document.url = url;
-	f.nativePages[1].url = url;
-	f.request.call = async (name) =>
-		name === 'list_pages'
-			? { structuredContent: { pages: f.nativePages } }
-			: { content: [{ type: 'text', text: '```json\n' + JSON.stringify(f.document) + '\n```' }] };
-	const result = await capturePrint(f.request, f.options);
-	assert.equal(result.url, url);
-	assert.deepEqual(await fs.readFile(f.target), pdf);
-});
+for (const [name, url] of [
+	['report duty-role and repeated MOS filters remain', reportUrl + '&role=Medic&mos=68W&mos=11B'],
+	[
+		'a DA 6 month remains',
+		'http://127.0.0.1:43210/org/synthetic-a/calendar/rosters/00000000-0000-4000-a000-000000000001?month=2026-10'
+	]
+])
+	test(`${name} part of the exact captured URL`, async (t) => {
+		const f = await fixture(t);
+		f.request.input.expectedUrl = url;
+		f.document.url = url;
+		f.nativePages[1].url = url;
+		f.request.call = async (name) =>
+			name === 'list_pages'
+				? { structuredContent: { pages: f.nativePages } }
+				: { content: [{ type: 'text', text: '```json\n' + JSON.stringify(f.document) + '\n```' }] };
+		const result = await capturePrint(f.request, f.options);
+		assert.equal(result.url, url);
+		assert.deepEqual(await fs.readFile(f.target), pdf);
+	});
 
 test('print input admits no generic endpoint, script, format, foreign URL or outside output', async (t) => {
 	for (const change of [
@@ -135,6 +141,11 @@ test('print input admits no generic endpoint, script, format, foreign URL or out
 		{ expectedUrl: reportUrl + '&access_token=private' },
 		{ expectedUrl: reportUrl + '#part' },
 		{ expectedUrl: 'http://127.0.0.1:43210/auth/login' },
+		{ expectedUrl: 'http://127.0.0.1:43210/org/synthetic-a/calendar/rosters/not-a-roster?month=2026-10' },
+		{
+			expectedUrl:
+				'http://127.0.0.1:43210/org/synthetic-a/calendar/rosters/00000000-0000-4000-a000-000000000001?horizon=30'
+		},
 		{ filePath: '../outside.pdf' },
 		{ filePath: path.join(evidenceRoot, '../outside.pdf') },
 		{ filePath: path.join(evidenceRoot, 'wrong.xlsx') }

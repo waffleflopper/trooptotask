@@ -76,10 +76,6 @@ function makeData(
 		ictlSummary: null,
 		summaryFailed: false,
 		onboardingTrainingCompletions: [],
-		onboardingTemplateStepCount: 0,
-		ratingSchemeEntryCount: 0,
-		orgMemberCount: 0,
-		gettingStartedDismissed: false,
 		...overrides
 	};
 }
@@ -159,51 +155,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		it('is true while any composite store is still loading', () => {
 			mutableAvailabilityStore.loading = true;
 			expect(createDashboardScreenModel(makeData()).isHydrating).toBe(true);
-		});
-	});
-
-	describe('gettingStartedDismissed', () => {
-		it('reads from data prop', () => {
-			const c = createDashboardScreenModel(makeData({ gettingStartedDismissed: true }));
-			expect(c.gettingStartedDismissed).toBe(true);
-		});
-
-		it('defaults to false', () => {
-			expect(ctx.gettingStartedDismissed).toBe(false);
-		});
-	});
-
-	describe('support data', () => {
-		it('starts without support data when checklist metadata is omitted', () => {
-			const c = createDashboardScreenModel(
-				makeData({
-					onboardingTemplateStepCount: undefined,
-					ratingSchemeEntryCount: undefined,
-					orgMemberCount: undefined,
-					gettingStartedDismissed: undefined
-				})
-			);
-
-			expect(c.hasSupportData).toBe(false);
-			expect(c.onboardingTemplateStepCount).toBe(0);
-			expect(c.ratingSchemeEntryCount).toBe(0);
-			expect(c.orgMemberCount).toBe(0);
-			expect(c.gettingStartedDismissed).toBe(false);
-		});
-
-		it('applies deferred checklist metadata without rebuilding the model', () => {
-			ctx.applySupportData({
-				onboardingTemplateStepCount: 4,
-				ratingSchemeEntryCount: 3,
-				orgMemberCount: 2,
-				gettingStartedDismissed: true
-			});
-
-			expect(ctx.hasSupportData).toBe(true);
-			expect(ctx.onboardingTemplateStepCount).toBe(4);
-			expect(ctx.ratingSchemeEntryCount).toBe(3);
-			expect(ctx.orgMemberCount).toBe(2);
-			expect(ctx.gettingStartedDismissed).toBe(true);
 		});
 	});
 });

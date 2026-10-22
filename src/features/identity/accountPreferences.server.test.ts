@@ -1,19 +1,13 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createUserWritePortsContext } from '$lib/server/adapters/inMemory';
-import {
-	loadGettingStartedDismissed,
-	loadUserOrgPreferences,
-	patchUserOrgPreferences,
-	setGettingStartedDismissed
-} from './accountPreferences.server';
+import { loadUserOrgPreferences, patchUserOrgPreferences } from './accountPreferences.server';
 
 interface SavedRow {
 	id: string;
 	user_id: string;
 	organization_id: string;
 	preferences?: unknown;
-	dismissed_at?: string | null;
 	created_at: string;
 }
 
@@ -35,8 +29,7 @@ function provider(rows: SavedRow[] = []) {
 			fetch: async (input, init) => {
 				const request = new Request(input, init);
 				const url = new URL(request.url);
-				if (!['/rest/v1/user_org_preferences', '/rest/v1/getting_started_progress'].includes(url.pathname))
-					throw new Error(`Unexpected endpoint: ${url.pathname}`);
+				if (url.pathname !== '/rest/v1/user_org_preferences') throw new Error(`Unexpected endpoint: ${url.pathname}`);
 				state.methods.push(request.method);
 				if (state.failure === request.method)
 					return Response.json({ code: '42501', message: 'private provider failure' }, { status: 403 });
@@ -301,7 +294,6 @@ describe('Identity account/Organization preferences', () => {
 		});
 		const anonymous = { ...ports, auth: { ...ports.auth, userId: '' } };
 		await expect(patchUserOrgPreferences(anonymous, {})).rejects.toMatchObject({ status: 401 });
-		await expect(setGettingStartedDismissed(anonymous, true)).rejects.toMatchObject({ status: 401 });
 		expect(p.state.methods).toEqual([]);
 	});
 
@@ -337,42 +329,5 @@ describe('Identity account/Organization preferences', () => {
 		await expect(patchUserOrgPreferences(ports, { training: { selectedViewId: 'view-2' } })).resolves.toMatchObject({
 			training: { selectedViewId: 'view-2' }
 		});
-	});
-});
-
-describe('Identity Getting Started progress', () => {
-	it('confirms absence without writing, dismisses once and resets the saved self row while preserving peers/history', async () => {
-		const sentinels = [
-			row({ user_id: 'peer', dismissed_at: null }),
-			row({ organization_id: 'foreign', dismissed_at: '2025-01-01T00:00:00Z' })
-		];
-		const p = provider(sentinels);
-		const ports = writer(p.supabase);
-		await expect(loadGettingStartedDismissed(p, scope)).resolves.toBe(false);
-		await setGettingStartedDismissed(ports, false);
-		expect(p.state.rows).toEqual(sentinels);
-		await setGettingStartedDismissed(ports, true);
-		await expect(loadGettingStartedDismissed(p, scope)).resolves.toBe(true);
-		const saved = structuredClone(p.state.rows[2]);
-		await setGettingStartedDismissed(ports, false);
-		await expect(loadGettingStartedDismissed(p, scope)).resolves.toBe(false);
-		expect(p.state.rows[2]).toEqual({ ...saved, dismissed_at: null });
-		expect(p.state.rows.slice(0, 2)).toEqual(sentinels);
-	});
-
-	it('does not treat failed reads or unconfirmed writes as absence or success', async () => {
-		const p = provider([row({ dismissed_at: null })]);
-		const ports = writer(p.supabase);
-		p.state.failure = 'GET';
-		await expect(loadGettingStartedDismissed(p, scope)).rejects.toThrow('Unable to load');
-		await expect(setGettingStartedDismissed(ports, false)).rejects.toThrow('Unable to load');
-		p.state.failure = 'POST';
-		await expect(setGettingStartedDismissed(ports, true)).rejects.toThrow('Unable to confirm');
-		expect(p.state.rows[0].dismissed_at).toBeNull();
-		p.state.failure = null;
-		p.state.acknowledgment = [];
-		await expect(setGettingStartedDismissed(ports, true)).rejects.toThrow();
-		p.state.acknowledgment = row({ user_id: 'peer', dismissed_at: null });
-		await expect(setGettingStartedDismissed(ports, false)).rejects.toThrow('Unable to confirm');
 	});
 });

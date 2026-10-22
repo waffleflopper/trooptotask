@@ -222,8 +222,9 @@ and preservation of complete original A/B rows.
 
 ## Gotchas
 
-Starter pack apply has an authenticated endpoint and screen-model method, but no rendered Apply control. When changing
-its request composition, verify the ordinary signed-in
+Starter pack apply has an authenticated endpoint, but no rendered Apply control or screen-model action.
+The Dashboard setup hints use workspace data and summary reads; they do not load the retired Getting Started support
+endpoint or starter-pack preview. When changing the apply request composition, verify the ordinary signed-in
 `POST /org/ORG_ID/api/starter-configuration-packs/first-week-operations/apply` separately from native Dashboard
 interaction. An Organization owner must create "Complete unit orientation" as a Training step linked to "Unit
 Orientation"; reload and reapply must skip existing artifacts without duplicates. A view-only actor must receive 403

@@ -93,15 +93,6 @@ export function createSupabaseTrainingCatalogPersistence(
 				excludedRanks: row.excluded_ranks
 			}));
 		},
-		async countTypesEstimated() {
-			const { count, error } = await client
-				.from('training_types')
-				.select('id', { count: 'estimated' })
-				.eq('organization_id', orgId)
-				.range(0, 0);
-			if (error) throw new Error(error.message);
-			return count ?? 0;
-		},
 		async findTypeByName(name) {
 			const { data, error } = await client
 				.from('training_types')
@@ -112,27 +103,6 @@ export function createSupabaseTrainingCatalogPersistence(
 			if (error?.code === 'PGRST116') return null;
 			if (error) throw new Error(error.message);
 			return data ? toTrainingType(data) : null;
-		},
-		async listExistingTypeNames(names) {
-			if (names.length === 0) return [];
-			const result = await selectAllSupabaseRows<{ name: string }>(async (from, to) => {
-				const { data, error } = await client
-					.from('training_types')
-					.select('name')
-					.eq('organization_id', orgId)
-					.in('name', [...names])
-					.order('id', { ascending: true })
-					.range(from, to)
-					.returns<{ name: string }[]>();
-				return { data, error };
-			});
-			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => row.name);
-		},
-		async hasTypes() {
-			const { data, error } = await client.from('training_types').select('id').eq('organization_id', orgId).limit(1);
-			if (error) throw new Error(error.message);
-			return (data?.length ?? 0) > 0;
 		},
 		async findTypeTiming(id) {
 			const { data, error } = await client

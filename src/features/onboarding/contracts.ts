@@ -222,6 +222,5 @@ export type {
 	SavedOnboardingTemplateStep,
 	SavedOnboardingProgress,
 	OnboardingPacketReference,
-	OnboardingProgressReference,
-	OnboardingStarterReadiness
+	OnboardingProgressReference
 } from './persistenceContracts';

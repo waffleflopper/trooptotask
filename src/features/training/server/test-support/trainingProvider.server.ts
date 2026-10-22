@@ -17,7 +17,6 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 		rows,
 		requests,
 		nullData: false,
-		countNull: false,
 		unstablePages: false,
 		failure: null as null | ((request: ProviderRequest) => { code: string; message: string; status: number } | null)
 	};
@@ -119,7 +118,6 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 						return 0;
 					});
 				}
-				const count = selected.length;
 				if (request.method === 'GET')
 					selected = selected.slice(
 						operation.offset,
@@ -138,12 +136,7 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 				}
 				if (request.method !== 'GET' && !request.headers.get('prefer')?.includes('return=representation'))
 					return new Response(null, { status: 204 });
-				return Response.json(result, {
-					headers:
-						request.headers.get('prefer')?.includes('count=estimated') && !state.countNull
-							? { 'content-range': `0-${Math.max(0, result.length - 1)}/${count}` }
-							: {}
-				});
+				return Response.json(result);
 			}
 		}
 	});

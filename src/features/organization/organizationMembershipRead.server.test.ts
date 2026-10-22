@@ -2,13 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import {
-	countOrganizationMembers,
 	readOrganizationMembershipAccess,
 	readOrganizationMembershipForRequest
 } from './organizationMembershipRead.server';
 
 function provider(rows: Array<Record<string, unknown>>) {
-	const state = { fail: false, includeCount: true };
+	const state = { fail: false };
 	const requests: Array<{ url: URL; headers: Headers; returnedRows: number }> = [];
 	const client = createClient('http://organization-membership.invalid', 'synthetic-user-key', {
 		auth: { persistSession: false, autoRefreshToken: false },
@@ -39,15 +38,12 @@ function provider(rows: Array<Record<string, unknown>>) {
 					);
 				const headers = new Headers(init?.headers);
 				requests.push({ url, headers, returnedRows: page.length });
-				const responseHeaders = new Headers();
-				if (state.includeCount && headers.get('prefer')?.includes('count='))
-					responseHeaders.set('content-range', `${selected.length ? '0-0' : '*'}/${selected.length}`);
 				if (headers.get('accept')?.includes('vnd.pgrst.object')) {
 					if (page.length !== 1)
 						return Response.json({ code: 'PGRST116', message: 'Expected one membership row' }, { status: 406 });
-					return Response.json(page[0], { headers: responseHeaders });
+					return Response.json(page[0]);
 				}
-				return Response.json(page, { headers: responseHeaders });
+				return Response.json(page);
 			}
 		}
 	});
@@ -148,39 +144,5 @@ describe('Organization membership failure delivery', () => {
 			status: 403,
 			body: { message: 'Not a member of this organization' }
 		});
-	});
-});
-
-describe('Organization setup member count', () => {
-	it('counts all visible Organization members while transferring only one ID with an estimated count', async () => {
-		const { client, requests } = provider([
-			{
-				id: 'local-owner',
-				organization_id: 'alpha',
-				user_id: 'actor',
-				role: 'owner',
-				email: 'private@example.invalid'
-			},
-			{ id: 'local-member', organization_id: 'alpha', user_id: 'peer', role: 'member' },
-			{ id: 'local-admin', organization_id: 'alpha', user_id: 'leader', role: 'admin' },
-			{ id: 'foreign', organization_id: 'bravo', user_id: 'actor', role: 'owner' }
-		]);
-		await expect(countOrganizationMembers(client, 'alpha')).resolves.toBe(3);
-		expect(requests[0].returnedRows).toBe(1);
-		expect(requests[0].url.searchParams.get('select')).toBe('id');
-		expect(requests[0].headers.get('prefer')).toContain('count=estimated');
-		await expect(countOrganizationMembers(client, 'empty')).resolves.toBe(0);
-	});
-
-	it('keeps the existing zero fallback when the provider omits its count', async () => {
-		const { client, state } = provider([{ id: 'local', organization_id: 'alpha' }]);
-		state.includeCount = false;
-		await expect(countOrganizationMembers(client, 'alpha')).resolves.toBe(0);
-	});
-
-	it('rejects a failed count instead of treating unavailable support as an empty Organization', async () => {
-		const { client, state } = provider([]);
-		state.fail = true;
-		await expect(countOrganizationMembers(client, 'alpha')).rejects.toThrow('membership provider unavailable');
 	});
 });

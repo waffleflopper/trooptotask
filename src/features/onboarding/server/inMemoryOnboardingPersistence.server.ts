@@ -1,7 +1,7 @@
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 type OnboardingMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
-	'findOne' | 'findMany' | 'findManyWithCount' | 'insert' | 'insertMany' | 'update' | 'delete' | 'deleteWhere'
+	'findOne' | 'findMany' | 'insert' | 'insertMany' | 'update' | 'delete' | 'deleteWhere'
 >;
 import { fail } from '$lib/errors';
 import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '../contracts';
@@ -75,40 +75,8 @@ export function createInMemoryOnboardingCatalogPersistence(
 			const row = await store.findOne<StepRow>('onboarding_template_steps', orgId, { template_id: templateId, name });
 			return row ? toStep(row) : null;
 		},
-		async readStarterReadiness(templateName, stepNames) {
-			const template = await this.findTemplateByName(templateName);
-			const [templates, steps] = await Promise.all([
-				store.findMany<{ id: string }>('onboarding_templates', orgId, {}, { select: 'id', limit: 1 }),
-				store.findMany<{ id: string }>('onboarding_template_steps', orgId, {}, { select: 'id', limit: 1 })
-			]);
-			const names = template
-				? await store.findMany<{ name: string }>(
-						'onboarding_template_steps',
-						orgId,
-						{ template_id: template.id },
-						{ inFilters: { name: [...stepNames] }, select: 'name' }
-					)
-				: [];
-			return {
-				template,
-				hasAnyTemplate: templates.length > 0,
-				hasAnyStep: steps.length > 0,
-				stepNames: names.map((row) => row.name)
-			};
-		},
 		async hasAnyTemplate() {
 			return (await store.findMany('onboarding_templates', orgId, {}, { select: 'id', limit: 1 })).length > 0;
-		},
-		async countEstimatedSteps() {
-			return (
-				(
-					await store.findManyWithCount('onboarding_template_steps', orgId, undefined, {
-						select: 'id',
-						range: { from: 0, to: 0 },
-						count: 'estimated'
-					})
-				).count ?? 0
-			);
 		},
 		async createTemplate(data) {
 			await requireUniqueTemplateName(data.name);

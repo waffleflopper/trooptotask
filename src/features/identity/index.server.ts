@@ -27,12 +27,7 @@ export {
 } from './mfaManagement.server';
 
 export { loadUserProfile, parseUserProfileForm, upsertUserProfile } from './userProfile.server';
-export {
-	loadUserOrgPreferences,
-	patchUserOrgPreferences,
-	loadGettingStartedDismissed,
-	setGettingStartedDismissed
-} from './accountPreferences.server';
+export { loadUserOrgPreferences, patchUserOrgPreferences } from './accountPreferences.server';
 export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmation.server';
 
 export { checkSessionAssurance } from './sessionAssurance.server';

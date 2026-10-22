@@ -2,7 +2,7 @@ export { createSupabaseRatingSchemeDuePort } from './ratingSchemeDue.server';
 export { createSupabaseRatingSchemePersistence } from './server/ratingSchemePersistence.server';
 export { loadRatingSchemeEntryEditor, loadRatingSchemeWorkspace } from './server/ratingSchemeWorkspaceQuery.server';
 export { loadPersonnelActiveEvaluation } from './server/personnelActiveEvaluation.server';
-export { createSupabaseRatingSchemeExportReader, countRatingSchemeEntries } from './server/ratingSchemeRead.server';
+export { createSupabaseRatingSchemeExportReader } from './server/ratingSchemeRead.server';
 export {
 	createSupabaseApprovedRatingSchemeDeletionPort,
 	type ApprovedRatingSchemeDeletionPort

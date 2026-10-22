@@ -148,38 +148,6 @@ export function createSupabaseOnboardingCatalogPersistence(
 			if (error) throw new Error(error.message);
 			return data ? toStep(data) : null;
 		},
-		async readStarterReadiness(templateName, stepNames) {
-			const [template, templates, steps] = await Promise.all([
-				this.findTemplateByName(templateName),
-				client.from('onboarding_templates').select('id').eq('organization_id', orgId).limit(1),
-				client.from('onboarding_template_steps').select('id').eq('organization_id', orgId).limit(1)
-			]);
-			if (templates.error) throw new Error(templates.error.message);
-			if (steps.error) throw new Error(steps.error.message);
-			let names: string[] = [];
-			if (template && stepNames.length > 0) {
-				const result = await selectAllSupabaseRows<{ name: string }>(async (from, to) => {
-					const { data, error } = await client
-						.from('onboarding_template_steps')
-						.select('name')
-						.eq('organization_id', orgId)
-						.eq('template_id', template.id)
-						.in('name', [...stepNames])
-						.order('id', { ascending: true })
-						.range(from, to)
-						.returns<{ name: string }[]>();
-					return { data, error };
-				});
-				if (result.error) throw new Error((result.error as { message: string }).message);
-				names = (result.data ?? []).map((row) => row.name);
-			}
-			return {
-				template,
-				hasAnyTemplate: (templates.data?.length ?? 0) > 0,
-				hasAnyStep: (steps.data?.length ?? 0) > 0,
-				stepNames: names
-			};
-		},
 		async hasAnyTemplate() {
 			const { data, error } = await client
 				.from('onboarding_templates')
@@ -188,15 +156,6 @@ export function createSupabaseOnboardingCatalogPersistence(
 				.limit(1);
 			if (error) throw new Error(error.message);
 			return data.length > 0;
-		},
-		async countEstimatedSteps() {
-			const { count, error } = await client
-				.from('onboarding_template_steps')
-				.select('id', { count: 'estimated' })
-				.eq('organization_id', orgId)
-				.range(0, 0);
-			if (error) throw new Error(error.message);
-			return count ?? 0;
 		},
 		async createTemplate(input) {
 			const { data, error } = await client

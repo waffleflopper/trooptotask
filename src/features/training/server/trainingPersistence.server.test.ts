@@ -181,11 +181,6 @@ describe('ordinary Training persistence', () => {
 			{ id: 't0', name: 'Never' },
 			{ id: 't1', name: 'Annual' }
 		]);
-		expect(await catalog.countTypesEstimated()).toBe(2);
-		state.countNull = true;
-		expect(await catalog.countTypesEstimated()).toBe(0);
-		expect(await catalog.hasTypes()).toBe(true);
-		expect(await catalog.listExistingTypeNames(['Annual'])).toEqual(['Annual']);
 		expect((await catalog.findTypeByName('Annual'))?.id).toBe('t1');
 		expect(await catalog.findTypeId('t1')).toEqual({ id: 't1' });
 		expect(await completions.findResource('r1')).toEqual({ personnelId: 'p1', trainingTypeId: 't1' });
@@ -308,7 +303,7 @@ describe('ordinary Training persistence', () => {
 		await expect(completions.createRecord({ personnelId: 'p1', trainingTypeId: 't1' })).rejects.toThrow('Denied');
 	});
 
-	it.each(['types', 'views', 'labels', 'names', 'ranks', 'imports', 'completions', 'pairs', 'export'] as const)(
+	it.each(['types', 'views', 'labels', 'ranks', 'imports', 'completions', 'pairs', 'export'] as const)(
 		'pages tied %s completely under changing provider order and rejects a later error',
 		async (method) => {
 			const ids = Array.from({ length: 1001 }, (_, i) => `row-${String(i).padStart(4, '0')}`);
@@ -333,16 +328,13 @@ describe('ordinary Training persistence', () => {
 					types: async () => (await catalog.listTypes()).map((row) => row.id),
 					views: async () => (await catalog.listViews()).map((row) => row.id),
 					labels: async () => (await catalog.listTypeLabels()).map((row) => row.id),
-					names: () => catalog.listExistingTypeNames(source.map((row) => row.name)),
 					ranks: async () => (await catalog.listRankApplicabilityReferences()).map((row) => row.appliesToRanks),
 					imports: async () => (await catalog.listTypeImportReferences(ids)).map((row) => row.id),
 					completions: async () => (await completions.listCompletions()).map((row) => row.id),
 					pairs: async () => (await completions.listPairReferences(['p1'], ids)).map((row) => row.id),
 					export: async () => (await completions.listPersonExportFacts('p1')).map((row) => row.trainingTypeId)
 				})[method]();
-			expect(await read()).toEqual(
-				method === 'names' ? ids.map((id) => `Name ${id}`) : method === 'ranks' ? ids.map((id) => [id]) : ids
-			);
+			expect(await read()).toEqual(method === 'ranks' ? ids.map((id) => [id]) : ids);
 			state.failure = (r) => (r.offset >= 1000 ? { code: '42501', message: 'Late failure', status: 403 } : null);
 			await expect(read()).rejects.toThrow('Late failure');
 		}

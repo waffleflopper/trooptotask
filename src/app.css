@@ -479,6 +479,16 @@
 		font-size: 9px;
 	}
 
+	/* Grade and Name take what they need; the day columns share the rest. */
+	[data-print-report='da6'] tr > th:nth-child(-n + 2) {
+		width: 1%;
+		white-space: nowrap;
+	}
+
+	[data-print-report='da6'] footer {
+		padding: 4px 8px;
+	}
+
 	/* Cells stay positioned for their corner marks; only the sticky columns let go. */
 	[data-print-report='da6'] :is(th, td) {
 		position: relative;

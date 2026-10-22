@@ -51,18 +51,18 @@
 {/snippet}
 
 <section
-	class="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground print:break-inside-avoid"
+	class="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground"
 	aria-label={`DA 6, ${segment.natureOfDuty}, ${headerDate(sheet.from)} to ${sheet.to ? headerDate(sheet.to) : 'open'}`}
 	data-da6-form={segment.formState}
 >
-	<dl class="grid grid-cols-2 border-b lg:grid-cols-[2fr_2fr_1fr_1fr]">
+	<dl class="grid grid-cols-2 border-b lg:grid-cols-[2fr_2fr_1fr_1fr] print:grid-cols-[2fr_2fr_1fr_1fr]">
 		{#each fields as field, index (field.label)}
 			<div
 				class={cn(
-					'min-w-0 px-4 py-2.5',
+					'min-w-0 px-4 py-2.5 print:px-2 print:py-1',
 					index % 2 === 1 && 'border-l',
-					index >= 2 && 'max-lg:border-t',
-					index === 2 && 'lg:border-l'
+					index >= 2 && 'max-lg:border-t print:border-t-0',
+					index === 2 && 'lg:border-l print:border-l'
 				)}
 			>
 				<dt class="font-mono text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
@@ -165,7 +165,9 @@
 		</tbody>
 	</Table.Root>
 
-	<footer class="flex flex-col gap-4 border-t bg-card-alt px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
+	<footer
+		class="flex flex-col gap-4 border-t bg-card-alt px-4 py-3 lg:flex-row lg:items-start lg:justify-between print:flex-row print:items-start print:justify-between"
+	>
 		<ul class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm" aria-label="Legend">
 			<li class="flex items-center gap-2">
 				<span
@@ -221,7 +223,7 @@
 				</li>
 			{/if}
 		</ul>
-		<div class="min-w-0 lg:max-w-[50%]">
+		<div class="min-w-0 lg:max-w-[50%] print:max-w-[50%]">
 			<h3 class="font-mono text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">Remarks</h3>
 			{#if segment.remarks.length}
 				<ol class="text-sm">

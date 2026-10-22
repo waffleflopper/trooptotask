@@ -167,61 +167,67 @@ const personRefSchema = z.object({
 	firstName: z.string()
 });
 const whenSchema = z.enum(['served', 'planned']);
-const da6SegmentSchema = z.object({
-	formId: z.string(),
-	formState: z.enum(['open', 'closed']),
-	natureOfDuty: z.string(),
-	month: z.string(),
-	weekendMode: weekendModeSchema,
-	columns: z.array(
-		z.object({
-			date: z.string(),
-			track: trackSchema,
-			when: whenSchema,
-			pick: personRefSchema,
-			source: z.enum(['manual', 'roster']),
-			passedOver: z.array(personRefSchema.extend({ count: z.number(), code: codeSchema, reason: z.string() })),
-			rulePick: personRefSchema.nullable()
-		})
-	),
-	rows: z.array(personRefSchema),
-	cells: z.array(
-		z.array(
-			z
-				.discriminatedUnion('kind', [
-					z.object({ kind: z.literal('count'), count: z.number() }),
-					z.object({ kind: z.literal('away'), count: z.number(), reason: z.string() }),
-					z.object({ kind: z.literal('code'), code: z.enum(['D', 'U']), count: z.number(), reason: z.string() }),
-					z.object({ kind: z.literal('detail'), count: z.number(), when: whenSchema })
-				])
-				.nullable()
+const da6SegmentSchema = z
+	.object({
+		formId: z.string(),
+		formState: z.enum(['open', 'closed']),
+		natureOfDuty: z.string(),
+		month: z.string(),
+		weekendMode: weekendModeSchema,
+		columns: z.array(
+			z.object({
+				date: z.string(),
+				track: trackSchema,
+				when: whenSchema,
+				pick: personRefSchema,
+				source: z.enum(['manual', 'roster']),
+				passedOver: z.array(personRefSchema.extend({ count: z.number(), code: codeSchema, reason: z.string() })),
+				rulePick: personRefSchema.nullable()
+			})
+		),
+		rows: z.array(personRefSchema),
+		cells: z.array(
+			z.array(
+				z
+					.discriminatedUnion('kind', [
+						z.object({ kind: z.literal('count'), count: z.number() }),
+						z.object({ kind: z.literal('away'), count: z.number(), reason: z.string() }),
+						z.object({ kind: z.literal('code'), code: z.enum(['D', 'U']), count: z.number(), reason: z.string() }),
+						z.object({ kind: z.literal('detail'), count: z.number(), when: whenSchema })
+					])
+					.nullable()
+			)
+		),
+		remarks: z.array(
+			z.discriminatedUnion('kind', [
+				z.object({
+					kind: z.literal('excused'),
+					who: personRefSchema,
+					reason: z.string(),
+					from: z.string(),
+					through: z.string().nullable()
+				}),
+				z.object({
+					kind: z.literal('left'),
+					who: personRefSchema,
+					on: z.string(),
+					cause: z.enum(['archived', 'unmatched'])
+				}),
+				z.object({
+					kind: z.literal('joined'),
+					who: personRefSchema,
+					on: z.string(),
+					cause: z.enum(['joined', 'matched', 'reactivated'])
+				}),
+				z.object({ kind: z.literal('outside'), who: personRefSchema, date: z.string() })
+			])
 		)
-	),
-	remarks: z.array(
-		z.discriminatedUnion('kind', [
-			z.object({
-				kind: z.literal('excused'),
-				who: personRefSchema,
-				reason: z.string(),
-				from: z.string(),
-				through: z.string().nullable()
-			}),
-			z.object({
-				kind: z.literal('left'),
-				who: personRefSchema,
-				on: z.string(),
-				cause: z.enum(['archived', 'unmatched'])
-			}),
-			z.object({
-				kind: z.literal('joined'),
-				who: personRefSchema,
-				on: z.string(),
-				cause: z.enum(['joined', 'matched', 'reactivated'])
-			}),
-			z.object({ kind: z.literal('outside'), who: personRefSchema, date: z.string() })
-		])
-	)
-}) satisfies z.ZodType<Da6Segment>;
+	})
+	.refine(
+		// The grid indexes cells[row][column] for every row and column.
+		({ rows, columns, cells }) =>
+			cells.length === rows.length && cells.every((rowCells) => rowCells.length === columns.length)
+	) satisfies z.ZodType<Da6Segment>;
 const closedRecordSchema = z.object({ segments: z.array(z.object({ month: z.string() }).passthrough()) });
 
 /** Parses only the segment for `month`, so a long closed form costs one month of validation. */

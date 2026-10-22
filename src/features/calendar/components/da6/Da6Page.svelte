@@ -98,10 +98,6 @@
 		</CalendarPeriodNavigation>
 	</div>
 
-	<p class="hidden font-mono text-xs tracking-[0.08em] uppercase print:block">
-		DA Form 6 · Duty roster · {monthTitle(month)}
-	</p>
-
 	{#if !view}
 		<div class="grid gap-3" role="status" aria-live="polite">
 			<p class="sr-only">Loading the DA 6</p>
@@ -118,36 +114,43 @@
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
-		{#each view.sheets as sheet, index (sheet.formId)}
-			{#if index > 0}
-				<p
-					class="border-y border-dashed py-2 text-center font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase"
-					role="note"
-				>
-					Form closed {headerDate(view.sheets[index - 1].to ?? sheet.from)}. A new DA 6 opened {headerDate(sheet.from)}
-					when the roster rules changed.
-				</p>
-			{/if}
-			{#if sheet.segment}
-				<Da6Form
-					{sheet}
-					segment={sheet.segment}
-					{orgName}
-					today={view.today}
-					selectedColumn={day?.sheet === index ? day.column : null}
-					onSelectDay={(column) => {
-						if (view) picked = { view, day: { sheet: index, column } };
-					}}
-				/>
-			{:else}
-				<Alert.Root variant="destructive">
-					<Alert.Title>Unable to load this DA 6</Alert.Title>
-					<Alert.Description>
-						The form saved for {headerDate(sheet.from)} to {headerDate(sheet.to ?? sheet.from)} could not be read.
-					</Alert.Description>
-				</Alert.Root>
-			{/if}
-		{/each}
+		<div class="grid gap-4 print:gap-2 print:break-inside-avoid" data-da6-month={view.month}>
+			<p class="hidden font-mono text-xs tracking-[0.08em] uppercase print:block">
+				DA Form 6 · Duty roster · {monthTitle(month)}
+			</p>
+			{#each view.sheets as sheet, index (sheet.formId)}
+				{#if index > 0}
+					<p
+						class="border-y border-dashed py-2 text-center font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase"
+						role="note"
+					>
+						Form closed {headerDate(view.sheets[index - 1].to ?? sheet.from)}. A new DA 6 opened {headerDate(
+							sheet.from
+						)}
+						when the roster rules changed.
+					</p>
+				{/if}
+				{#if sheet.segment}
+					<Da6Form
+						{sheet}
+						segment={sheet.segment}
+						{orgName}
+						today={view.today}
+						selectedColumn={day?.sheet === index ? day.column : null}
+						onSelectDay={(column) => {
+							if (view) picked = { view, day: { sheet: index, column } };
+						}}
+					/>
+				{:else}
+					<Alert.Root variant="destructive">
+						<Alert.Title>Unable to load this DA 6</Alert.Title>
+						<Alert.Description>
+							The form saved for {headerDate(sheet.from)} to {headerDate(sheet.to ?? sheet.from)} could not be read.
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
+			{/each}
+		</div>
 		{#if day}
 			{@const segment = view.sheets[day.sheet].segment}
 			{#if segment}

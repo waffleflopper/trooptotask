@@ -14,8 +14,9 @@ show their saved record; the open form is worked out from today's facts. The pag
 - `da6-show-the-work`: the rule (DA PAM 220-45, para 6), the selected day worked out, and the tie-break. A column header
   selects its day; the default is today, else the last day before today, else the first.
 - `da6-form-boundary`: a month that spans a rule change shows the closed form, a boundary note and the new form.
-- `da6-print`: `Print DA 6` prints each form landscape on its own page with header fields, legend, remarks and red
-  weekend numbers; Show the work and the controls are left off.
+- `da6-print`: `Print DA 6` prints one landscape page per month, with every form of that month on it, the closed
+  form's note between them, header fields, legend, remarks and red weekend numbers; Show the work and the controls are
+  left off.
 - `da6-states`: a loading skeleton, the page's own load error, the not-permitted state for a Group-scoped viewer, and a
   load error in place of a closed form whose saved record cannot be read.
 
@@ -76,7 +77,8 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
      red, and the legend adds `Weekend and holiday count`.
 5. **Print.** Run `$V print arm PAGE`, choose `Print DA 6`, and run `$V print state PAGE`: `before` reads `1`. Then run
    `$V print save PAGE '<exact URL>' .verification/evidence/verify-trooptotask/<run>/da6.pdf letter on` and
-   `$V print restore PAGE`. The PDF is 792x612 pt, one page per form:
+   `$V print restore PAGE`. The PDF is 792x612 pt and one page per month, so the closed and open forms of the
+   rule-change month share it:
    - The title line reads `DA Form 6 · Duty roster · <Month YYYY>`.
    - Each page keeps the header fields, corner marks inside their cells, the legend, the remarks and the red weekend
      numbers.
@@ -102,3 +104,5 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
 - A full-page `take_screenshot` captures only the viewport, because the app scrolls inside its main region. Scroll the
   main region for the lower part.
 - `take_screenshot` with `filePath` writes the image; `tool ... --text --save` writes only the text reply.
+- Today, the highlighted column and the default month follow the viewer's day (`t2t_tz`). With the browser zone ahead
+  of UTC, d0 can be yesterday and the highlighted column is the day after d0.

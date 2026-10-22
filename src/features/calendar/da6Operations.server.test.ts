@@ -144,7 +144,11 @@ describe('loadDa6View', () => {
 
 	it.each([
 		['an empty record', {}],
-		['a segment missing its cells', { segments: [{ ...SAVED, cells: undefined }] }]
+		['a segment missing its cells', { segments: [{ ...SAVED, cells: undefined }] }],
+		['a segment with an empty cell matrix', { segments: [{ ...SAVED, cells: [] }] }],
+		['a segment with a row of cells missing', { segments: [{ ...SAVED, cells: [SAVED.cells[0]] }] }],
+		['a segment with a short row of cells', { segments: [{ ...SAVED, cells: [[], SAVED.cells[1]] }] }],
+		['a segment with a column of cells too many', { segments: [{ ...SAVED, cells: [[null, null], [null]] }] }]
 	])('shows %s as an unreadable closed form and still reads the open one', async (_, record) => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		seed(ctx, { record });

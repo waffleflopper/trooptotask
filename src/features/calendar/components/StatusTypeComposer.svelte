@@ -61,9 +61,9 @@
 	let textColor = $state(initial?.textColor ?? WHITE_TEXT);
 	let rosterEffect = $state<RosterEffect>(initial?.rosterEffect ?? DEFAULT_EFFECT);
 	// Editing an effect lists the numbers it changes before saving. A failed look stays unsaved.
-	let review = $state<{ kind: 'changes'; changes: StatusEffectChange[] } | { kind: 'failed'; message: string } | null>(
-		null
-	);
+	let review = $state<
+		{ kind: 'changes'; changes: StatusEffectChange[]; saveError?: string } | { kind: 'failed'; message: string } | null
+	>(null);
 	let alive = true;
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let fields = $state<HTMLFieldSetElement | null>(null);
@@ -127,22 +127,33 @@
 		if (initial) await reviewEffect(initial);
 	}
 
-	async function commit() {
-		review = null;
+	// Saves and closes. A failure goes to `report` and leaves the composer open.
+	async function commit(report: (message: string) => void = (message) => toastStore.error(message)) {
 		const failure = initial ? 'Failed to save status type' : 'Failed to add status type';
 		try {
 			const saved = initial
 				? await statusTypesStore.updateOrThrow(initial.id, draft)
 				: await statusTypesStore.add(draft);
 			if (!saved) {
-				toastStore.error(failure);
+				report(failure);
 				return;
 			}
 		} catch (error) {
-			toastStore.error(rejectedRequestMessage(error, failure));
+			report(rejectedRequestMessage(error, failure));
 			return;
 		}
 		if (alive) onClose();
+	}
+
+	// The dialog stays up and the form stays locked until the save settles, so edits cannot slip in underneath it.
+	function confirmReview() {
+		return saving.run(async () => {
+			if (review?.kind !== 'changes') return;
+			review = { ...review, saveError: undefined };
+			await commit((message) => {
+				if (alive && review?.kind === 'changes') review = { ...review, saveError: message };
+			});
+		});
 	}
 </script>
 
@@ -304,7 +315,7 @@
 			: 'Saving recalculates the open DA 6 forms below. Closed forms keep their saved numbers.'}
 		confirmLabel={review.kind === 'failed' ? 'Try again' : 'Save changes'}
 		variant="default"
-		onConfirm={review.kind === 'failed' ? retryReview : commit}
+		onConfirm={review.kind === 'failed' ? retryReview : confirmReview}
 		onCancel={() => (review = null)}
 	>
 		{#if review.kind === 'changes'}
@@ -316,6 +327,9 @@
 					<li class="px-3 py-2">{statusEffectChangeText(change)}</li>
 				{/each}
 			</ul>
+			{#if review.saveError}
+				<p role="alert" class="text-sm text-destructive">{review.saveError}</p>
+			{/if}
 		{/if}
 	</ConfirmDialog>
 {/if}

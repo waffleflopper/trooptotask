@@ -5,10 +5,18 @@ import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy
 import { statusEffectPreviewInput } from './calendarPersistenceMapping.server';
 import type { StatusEffectChange } from './contracts';
 import { loadRosterFacts, requireDeviceDate, type RosterSettingsPorts } from './rosterSettingsOperations.server';
-import { countChanges, simulateRoster, type RosterEffect, type RosterFacts } from './roster/rosterEngine';
+import {
+	countChanges,
+	simulateRoster,
+	type RosterEffect,
+	type RosterFacts,
+	type RosterRun,
+	type TrackId
+} from './roster/rosterEngine';
 
 const action = CALENDAR_POLICY_ACTIONS.configureStatusTypes;
 const resource = { kind: 'organization' } as const;
+const LAST_DAY = '9999-12-31';
 
 /**
  * Every number an effect change would move on each roster's open DA 6 form, one entry per person and track.
@@ -34,12 +42,18 @@ export async function previewStatusEffect(
 
 	const lines = await Promise.all(
 		types
-			.filter((type) => type.assignTo === 'personnel' && !type.archivedAt)
+			.filter((type) => type.assignTo === 'personnel')
 			.map(async (type) => {
 				const form = await ctx.calendarCatalogs.findOpenRosterForm(type.id);
-				// A form that starts after today has no day to recalculate.
-				if (!form || form.startsOn > today) return [];
-				return changesOn(await loadRosterFacts(ctx, type, form, today), id, rosterEffect);
+				if (!form) return [];
+				// Planned days count too, so the form is read through its last stored duty day.
+				const stored = await ctx.calendarAssignments.listRosterDetailDays(type.id, {
+					from: form.startsOn,
+					through: LAST_DAY
+				});
+				const through = [today, stored.at(-1)?.date ?? today].reduce((a, b) => (a > b ? a : b));
+				if (through < form.startsOn) return [];
+				return changesOn(await loadRosterFacts(ctx, type, form, today, through), id, rosterEffect);
 			})
 	);
 	return lines.flat();
@@ -54,36 +68,47 @@ function changesOn(before: RosterFacts, statusTypeId: string, rosterEffect: Rost
 	};
 	const oldRun = simulateRoster(before);
 	const newRun = simulateRoster(after);
-	const oldCounts = new Map(
-		oldRun.current?.flatMap(({ track, counts }) => counts.map((entry) => [`${entry.personId}:${track}`, entry.count]))
-	);
-	const earlier = new Map<string, Set<string>>();
+	const keyOf = (personId: string, track: TrackId) => `${personId}:${track}`;
+	const counts = (run: RosterRun) =>
+		new Map(
+			run.current?.flatMap(({ track, counts }) => counts.map((entry) => [keyOf(entry.personId, track), entry.count]))
+		);
+	const oldCounts = counts(oldRun);
+	const newCounts = counts(newRun);
+
+	// Everyone whose number today or any day on the form changes, including people who have left the pool.
+	const changed = new Map<string, { personId: string; track: TrackId; earlier: Set<string>; later: Set<string> }>();
+	const entry = (personId: string, track: TrackId) => {
+		const key = keyOf(personId, track);
+		if (!changed.has(key)) changed.set(key, { personId, track, earlier: new Set(), later: new Set() });
+		return changed.get(key)!;
+	};
 	for (const { personId, track, date } of countChanges(oldRun, newRun)) {
-		if (date >= before.today) continue;
-		const key = `${personId}:${track}`;
-		earlier.set(key, (earlier.get(key) ?? new Set()).add(date));
+		entry(personId, track)[date < before.today ? 'earlier' : 'later'].add(date);
+	}
+	for (const [key, to] of newCounts) {
+		const from = oldCounts.get(key);
+		if (from === undefined || from === to) continue;
+		const [personId, track] = key.split(':') as [string, TrackId];
+		entry(personId, track);
 	}
 
 	const people = new Map(before.people.map((person) => [person.id, person]));
-	const lines: StatusEffectChange[] = [];
-	const line = (personId: string, track: StatusEffectChange['track'], change: StatusEffectChange['change']) => {
+	return [...changed].map(([key, { personId, track, earlier, later }]) => {
 		const person = people.get(personId)!;
-		lines.push({
+		const from = oldCounts.get(key);
+		const to = newCounts.get(key);
+		const days = earlier.size + later.size;
+		return {
 			assignmentTypeId: before.type.id,
 			rosterName: before.type.name,
 			track,
 			personId,
 			person: `${person.rank} ${person.lastName}`,
-			change
-		});
-	};
-	for (const { track, counts } of newRun.current ?? []) {
-		for (const { personId, count } of counts) {
-			const key = `${personId}:${track}`;
-			const was = oldCounts.get(key);
-			if (was !== undefined && was !== count) line(personId, track, { kind: 'number', from: was, to: count });
-			else if (earlier.has(key)) line(personId, track, { kind: 'earlier', days: earlier.get(key)!.size });
-		}
-	}
-	return lines;
+			change:
+				from !== undefined && to !== undefined && from !== to
+					? { kind: 'number', from, to }
+					: { kind: later.size === 0 ? 'earlier' : 'days', days }
+		};
+	});
 }

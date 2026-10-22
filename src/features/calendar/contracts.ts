@@ -230,7 +230,8 @@ export interface StatusEffectChange {
 	personId: string;
 	/** "SGT Kim". */
 	person: string;
-	change: { kind: 'number'; from: number; to: number } | { kind: 'earlier'; days: number };
+	/** `earlier` when every changed day is before today. `days` when today or a planned day also changes. */
+	change: { kind: 'number'; from: number; to: number } | { kind: 'earlier' | 'days'; days: number };
 }
 
 export const statusEffectChangesSchema = z.array(
@@ -242,7 +243,7 @@ export const statusEffectChangesSchema = z.array(
 		person: z.string(),
 		change: z.discriminatedUnion('kind', [
 			z.object({ kind: z.literal('number'), from: z.number(), to: z.number() }),
-			z.object({ kind: z.literal('earlier'), days: z.number() })
+			z.object({ kind: z.enum(['earlier', 'days']), days: z.number() })
 		])
 	})
 ) satisfies z.ZodType<StatusEffectChange[]>;

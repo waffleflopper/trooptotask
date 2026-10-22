@@ -394,6 +394,48 @@ describe('CalendarSettingsPage', () => {
 			);
 		});
 
+		it('holds the confirmation and locks the form until a slow save settles', async () => {
+			statusTypesStoreMock.items = [leave];
+			statusTypesStoreMock.previewEffect.mockResolvedValueOnce([kim]);
+			const saved = Promise.withResolvers<boolean>();
+			statusTypesStoreMock.updateOrThrow.mockReturnValueOnce(saved.promise);
+			await chooseOtherDuty();
+
+			const dialog = await screen.findByRole('alertdialog');
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+			await waitFor(() => expect(statusTypesStoreMock.updateOrThrow).toHaveBeenCalledTimes(1));
+			expect(screen.getByRole('alertdialog')).toBeTruthy();
+			expect((within(dialog).getByRole('button', { name: /Save changes/ }) as HTMLButtonElement).disabled).toBe(true);
+			expect((within(dialog).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
+			const composer = screen.getByRole('form', { name: 'Edit Leave' });
+			expect(composer.querySelector('fieldset')?.disabled).toBe(true);
+
+			saved.resolve(true);
+			await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+			expect(screen.queryByRole('form', { name: 'Edit Leave' })).toBeNull();
+		});
+
+		it('keeps the confirmation open with the error when the save fails, and saves on retry', async () => {
+			statusTypesStoreMock.items = [leave];
+			statusTypesStoreMock.previewEffect.mockResolvedValueOnce([kim]);
+			statusTypesStoreMock.updateOrThrow.mockRejectedValueOnce(new Error('Status types are busy'));
+			await chooseOtherDuty();
+
+			const dialog = await screen.findByRole('alertdialog');
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+			const alert = await within(dialog).findByRole('alert');
+			expect(alert.textContent).toBe('Failed to save status type');
+			await waitFor(() =>
+				expect((within(dialog).getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(false)
+			);
+
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+			await waitFor(() => expect(statusTypesStoreMock.updateOrThrow).toHaveBeenCalledTimes(2));
+			await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		});
+
 		it('saves without a confirmation when no number changes', async () => {
 			statusTypesStoreMock.items = [leave];
 			await chooseOtherDuty();

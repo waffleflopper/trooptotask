@@ -128,16 +128,18 @@ async function closing(
 }
 
 /**
- * The whole open form's facts through `today`, plus the day each side the engine reads for D and U. This type's
- * duty days include those of deleted assignees, which still moved everyone else's count.
+ * The whole open form's facts through `through` (today unless a caller reads planned days too), plus the day each
+ * side the engine reads for D and U. This type's duty days include those of deleted assignees, which still moved
+ * everyone else's count.
  */
 export async function loadRosterFacts(
 	ctx: RosterSettingsPorts,
 	type: Pick<SavedAssignmentType, 'id' | 'name'>,
 	form: OpenForm,
-	today: string
+	today: string,
+	through: string = today
 ): Promise<RosterFacts> {
-	const range = { rangeStart: addDays(form.startsOn, -1), rangeEnd: addDays(today, 1) };
+	const range = { rangeStart: addDays(form.startsOn, -1), rangeEnd: addDays(through, 1) };
 	const [timelines, excusals, rankCatalog, statusTypes, types, availability, specialDays, assignments, detailDays] =
 		await Promise.all([
 			ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth),
@@ -153,7 +155,7 @@ export async function loadRosterFacts(
 	const personTypes = new Map(types.filter((t) => t.assignTo === 'personnel').map((t) => [t.id, t.name]));
 	return {
 		today,
-		window: { from: form.startsOn, through: today },
+		window: { from: form.startsOn, through },
 		type: { id: type.id, name: type.name },
 		form,
 		people: timelines.map((person) => ({

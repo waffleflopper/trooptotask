@@ -58,5 +58,5 @@ export function statusEffectChangeText({ person, rosterName, track, change }: St
 	const form = `on the ${rosterName} DA 6${TRACK_SUFFIX[track]}`;
 	return change.kind === 'number'
 		? `${person} ${change.from} → ${change.to} ${form}`
-		: `${person}: ${change.days} earlier ${change.days === 1 ? 'day changes' : 'days change'} ${form}`;
+		: `${person}: ${change.days}${change.kind === 'earlier' ? ' earlier' : ''} ${change.days === 1 ? 'day changes' : 'days change'} ${form}`;
 }

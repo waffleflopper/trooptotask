@@ -10,7 +10,7 @@ their references through edits, while confirmed type deletion explains and remov
 - `status-effect`: every status type has a roster effect, set under `On duty rosters` in the composer: `Still available`,
   `Away` (A), `Other duty` (D) or `Misconduct` (U). A status row shows the code chip and effect text. Editing a saved
   status's effect first lists the numbers it changes on open DA 6 forms and saves only after confirmation; a new
-  status, or an edit that changes no number, saves without one. Saving never changes an assignment or a closed form.
+  status, or an edit that changes no number or day (planned days included), saves without one. Saving never changes an assignment or a closed form.
 - `status-order`: drag or keyboard-move status types to set the legend and picker order; every move is one ordered
   command that refuses a stale list.
 - `assignment-types`: add Person and Group choices, edit name/code/color, keep ID/order and saved assignment; archived
@@ -400,6 +400,15 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       still reads `A`, and the composer stays open. `Save changes` twice (composer, then dialog): the row reads the `D`
       chip and `Other duty, count runs`, `roster_effect` reads `D`, and a reload reads both back. No `daily_assignments`,
       `availability_entries` or `roster_forms` row changed.
+    - **Planned days and a slow save.** Staff excuses Baker, so seed Unassigned instead: POST `api/availability` for
+      personUnassigned and statusLeave on tomorrow, and POST `api/daily-assignments` for tomorrow to Able, so Unassigned
+      is away on a planned duty day. Edit `Verification Leave` to `Other duty` and `Save changes`: the dialog also lists
+      `SPC Unassigned: 1 day changes on the Verification Staff Duty DA 6` (`earlier` wording only when every changed day
+      is before today). Run `$V network arm-hold $PAGE status-types`, choose `Save changes` in the dialog and see it stay
+      open and busy (`Loading Save changes`, Cancel disabled), with `Name`, the effect cards and the composer's buttons
+      disabled until `$V network release $PAGE`; then it closes and `roster_effect` reads `D`. With
+      `$V network arm-fail $PAGE status-types` instead, the dialog stays open, enabled, with `Failed to save status type`
+      under the list and `roster_effect` unchanged; `$V network restore $PAGE` and `Save changes` saves it.
     - **No confirmation without a change.** Edit `Verification AWOL`, choose `Away` and `Save changes`. Nobody held that
       status, so no dialog opens and `roster_effect` reads `A`.
     - **Preview failure.** Run `$V network arm-fail $PAGE status-types/preview`, edit `Verification Leave`, choose

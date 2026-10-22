@@ -17,6 +17,12 @@ describe('statusEffectChangeText', () => {
 		expect(statusEffectChangeText({ ...base, track: 'weekend', change: { kind: 'earlier', days: 1 } })).toBe(
 			'SGT Kim: 1 earlier day changes on the CQ DA 6 (weekends and holidays)'
 		);
+		expect(statusEffectChangeText({ ...base, track: 'all', change: { kind: 'days', days: 2 } })).toBe(
+			'SGT Kim: 2 days change on the CQ DA 6'
+		);
+		expect(statusEffectChangeText({ ...base, track: 'all', change: { kind: 'days', days: 1 } })).toBe(
+			'SGT Kim: 1 day changes on the CQ DA 6'
+		);
 		expect(statusEffectChangeText({ ...base, track: 'weekday', change: { kind: 'number', from: 4, to: 6 } })).toBe(
 			'SGT Kim 4 → 6 on the CQ DA 6 (weekdays)'
 		);

@@ -109,8 +109,7 @@ export function parseDelimited(text: string, delimiter: ',' | '\t'): readonly (r
 
 function isTabDelimited(text: string): boolean {
 	const lines = text.split(/\r?\n/, 15);
-	const count = (separator: string) => lines.filter((line) => line.includes(separator)).length;
-	return count('\t') > count(',');
+	return !lines.some((line) => line.includes(',')) && lines.some((line) => line.includes('\t'));
 }
 
 export async function readImportFile(file: File): Promise<ReadFileResult> {

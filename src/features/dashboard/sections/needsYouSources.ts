@@ -18,7 +18,7 @@ import {
 
 const NAMED_LIMIT = 4;
 
-function orgPath(inputs: DashboardInputs): string {
+export function orgPath(inputs: DashboardInputs): string {
 	return `/org/${inputs.page.orgId}`;
 }
 
@@ -34,7 +34,7 @@ function daysBetween(from: string, to: string): number {
 	return toDayNumber(to) - toDayNumber(from);
 }
 
-function plural(count: number, one: string, many: string): string {
+export function plural(count: number, one: string, many: string): string {
 	return `${count} ${count === 1 ? one : many}`;
 }
 
@@ -151,7 +151,7 @@ export const stalledOnboarding: NeedsYouSource = (inputs) => {
 	});
 };
 
-const LOSS_LABEL = { ETS: 'ETS', 'PCS / DEROS': 'PCS' } as const;
+export const LOSS_LABEL = { ETS: 'ETS', 'PCS / DEROS': 'PCS' } as const;
 
 export const leavingWithoutAward: NeedsYouSource = (inputs) => {
 	const people = peopleById(inputs);

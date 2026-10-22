@@ -19,13 +19,16 @@
 		model: DashboardScreenModel;
 		access: DashboardAccess;
 		updates: DashboardPageUpdates;
+		/** Features whose rows could not load; the queue is then incomplete, not clear. */
+		unavailable?: readonly string[];
 	}
 
-	let { queue, model, access, updates }: Props = $props();
+	let { queue, model, access, updates, unavailable = [] }: Props = $props();
 
 	let showAll = $state(false);
 	let list = $state<HTMLUListElement>();
 	let empty = $state<HTMLParagraphElement>();
+	let incompleteNote = $state<HTMLDivElement>();
 
 	const rows = $derived(showAll ? queue.ranked : queue.rows);
 
@@ -61,7 +64,12 @@
 		await tick();
 		if (disposed || (document.activeElement && document.activeElement !== document.body)) return;
 		const next = list?.children[Math.min(index, list.children.length - 1)];
-		(document.getElementById(actionId(id)) ?? next?.querySelector<HTMLElement>('a, button') ?? empty)?.focus();
+		(
+			document.getElementById(actionId(id)) ??
+			next?.querySelector<HTMLElement>('a, button') ??
+			incompleteNote ??
+			empty
+		)?.focus();
 	}
 
 	// An optimistic save that took the row away and then failed brings it back as a new row: focus its submit again.
@@ -109,10 +117,26 @@
 	}
 </script>
 
-{#if queue.ranked.length === 0}
-	<p bind:this={empty} tabindex="-1" class="border-t border-foreground py-4 text-sm text-muted-foreground outline-none">
-		Nothing needs you right now.
+{#snippet incomplete()}
+	<p class="border-t border-border py-3 text-sm text-muted-foreground">
+		Needs you is incomplete. {unavailable.join(' and ')} items could not load.
 	</p>
+{/snippet}
+
+{#if queue.ranked.length === 0}
+	{#if unavailable.length > 0}
+		<div bind:this={incompleteNote} tabindex="-1" class="border-t border-foreground outline-none">
+			{@render incomplete()}
+		</div>
+	{:else}
+		<p
+			bind:this={empty}
+			tabindex="-1"
+			class="border-t border-foreground py-4 text-sm text-muted-foreground outline-none"
+		>
+			Nothing needs you right now.
+		</p>
+	{/if}
 {:else}
 	<ul bind:this={list} class="border-t border-foreground" aria-label="Needs you">
 		{#each rows as item (item.id)}
@@ -197,4 +221,7 @@
 			</li>
 		{/if}
 	</ul>
+	{#if unavailable.length > 0}
+		{@render incomplete()}
+	{/if}
 {/if}

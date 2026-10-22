@@ -12,10 +12,13 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
+	autoShowWhatsNew.mockClear();
 });
 
+const autoShowWhatsNew = vi.hoisted(() => vi.fn());
+
 vi.mock('$features/app-shell', () => ({
-	getAppShellContext: () => ({ ...createClientAccess({ membershipRole: 'owner' }), autoShowWhatsNew: vi.fn() })
+	getAppShellContext: () => ({ ...createClientAccess({ membershipRole: 'owner' }), autoShowWhatsNew })
 }));
 
 function makePageData(overrides: Record<string, unknown> = {}) {
@@ -113,28 +116,42 @@ describe('dashboard page', () => {
 		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Retry checklist' })).toBeNull();
 	});
-	it.each(['workspace', 'summary'])(
-		'shows a retry after a rejected %s and clears the error on Organization navigation',
-		async (source) => {
-			const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
-			let reject!: (reason: Error) => void;
-			const pending = new Promise((_, rejectPromise) => {
-				reject = rejectPromise;
-			});
-			const view = render(Page, {
-				props: { data: makePageData(source === 'workspace' ? { dashboard: { data: pending } } : { summary: pending }) }
-			});
-			reject(new Error('Source unavailable'));
-			await screen.findByRole('alert');
-			expect(screen.queryByRole('status')).toBeNull();
-			await fireEvent.click(screen.getByRole('button', { name: 'Retry Dashboard' }));
-			expect(reload).toHaveBeenCalledOnce();
+	it('shows a retry after a rejected workspace and clears the error on Organization navigation', async () => {
+		const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+		let reject!: (reason: Error) => void;
+		const pending = new Promise((_, rejectPromise) => {
+			reject = rejectPromise;
+		});
+		const view = render(Page, { props: { data: makePageData({ dashboard: { data: pending } }) } });
+		reject(new Error('Source unavailable'));
+		await screen.findByRole('alert');
+		expect(screen.queryByRole('status')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry Dashboard' }));
+		expect(reload).toHaveBeenCalledOnce();
 
-			await view.rerender({ data: makePageData({ orgId: 'org-2', orgName: 'Second Unit' }) });
-			await waitFor(() => expect(document.title).toContain('Second Unit'));
-			expect(screen.queryByRole('alert')).toBeNull();
-		}
-	);
+		await view.rerender({ data: makePageData({ orgId: 'org-2', orgName: 'Second Unit' }) });
+		await waitFor(() => expect(document.title).toContain('Second Unit'));
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('still builds the Dashboard after a rejected summary and offers one Retry', async () => {
+		await hydrateEmptyWorkspace('org-1');
+		const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+		let reject!: (reason: Error) => void;
+		const pending = new Promise((_, rejectPromise) => {
+			reject = rejectPromise;
+		});
+		render(Page, { props: { data: makePageData({ summary: pending }) } });
+		expect(autoShowWhatsNew).not.toHaveBeenCalled();
+
+		reject(new Error('Source unavailable'));
+
+		await waitFor(() => expect(autoShowWhatsNew).toHaveBeenCalled());
+		expect(screen.getByRole('region', { name: 'Readiness' })).toBeTruthy();
+		expect(screen.getByText(/Needs you is incomplete/)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry Dashboard' }));
+		expect(reload).toHaveBeenCalledOnce();
+	});
 
 	it('keeps the last summary through a background refresh, including one that fails, but not across Organizations', async () => {
 		await hydrateEmptyWorkspace('org-1');
@@ -147,6 +164,8 @@ describe('dashboard page', () => {
 		});
 		await view.rerender({ data: makePageData({ summary: refresh }) });
 		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.getByRole('region', { name: 'Readiness' }).getAttribute('aria-busy')).toBe('false');
+		expect(screen.getByRole('heading', { level: 3, name: 'Training' })).toBeTruthy();
 		reject(new Error('Summary unavailable'));
 		await refresh.catch(() => {});
 		await tick();

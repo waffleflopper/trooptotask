@@ -12,6 +12,41 @@ export type DashboardSectionId = 'availability' | FeatureKey;
 
 export type NeedsYouSource = (inputs: DashboardInputs) => readonly NeedsYouItem[];
 
+/** Green for good, amber for warning, red only for the worst share. */
+export type ReadinessTone = 'good' | 'warning' | 'critical';
+
+export interface ReadinessShare {
+	label: string;
+	count: number;
+	tone: ReadinessTone;
+}
+
+export type ReadinessGraphic =
+	| { kind: 'shares'; shares: readonly ReadinessShare[] }
+	/** One tick per date across a window, nearest first; offsets run 0 to 100. */
+	| { kind: 'timeline'; ticks: readonly { id: string; offsetPercent: number }[] };
+
+export interface ReadinessFigures {
+	state: 'ready';
+	figure: string;
+	/** Absent paints the figure in the body color. */
+	figureTone?: ReadinessTone;
+	suffix: string;
+	/** Points gained or lost over the last 30 days; absent or zero shows nothing. */
+	trend?: number;
+	graphic: ReadinessGraphic;
+	note: string;
+}
+
+export type ReadinessColumn = {
+	id: string;
+	title: string;
+	link: { label: string; href: string };
+} & (ReadinessFigures | { state: 'failed'; subject: string });
+
+/** A section's column, or null when the viewer has nothing to see in it. */
+export type ReadinessSource = (inputs: DashboardInputs, access: DashboardAccess) => ReadinessColumn | null;
+
 export type DashboardPartAvailability = (inputs: DashboardInputs, access: DashboardAccess) => boolean;
 
 export interface ForecastLane {
@@ -54,7 +89,7 @@ export interface DashboardSection {
 	/** The switch that turns the section off, or null when it is always on. */
 	feature: FeatureKey | null;
 	needsYou: readonly NeedsYouSource[];
-	readiness: DashboardBlock | null;
+	readiness: ReadinessSource | null;
 	quickAdd: readonly QuickAddEntry[];
 	onDuty: readonly OnDutyBlock[];
 	forecastLanes: readonly ForecastLane[];
@@ -88,7 +123,7 @@ export interface DashboardSectionParts {
 	needsYou: NeedsYouQueue;
 	forecastLanes: readonly DashboardForecastLaneView[];
 	quickAdd: readonly QuickAddEntry[];
-	readinessColumns: readonly DashboardBlock[];
+	readinessColumns: readonly ReadinessColumn[];
 	onDutyBlocks: readonly OnDutyBlock[];
 }
 
@@ -121,9 +156,7 @@ export function composeDashboardSections(
 			.flatMap((entry) => entry.quickAdd)
 			.filter((part) => part.available?.(inputs, access) ?? true)
 			.sort((a, b) => a.order - b.order),
-		readinessColumns: active.flatMap((entry) =>
-			entry.readiness && (entry.readiness.available?.(inputs, access) ?? true) ? [entry.readiness] : []
-		),
+		readinessColumns: active.flatMap((entry) => entry.readiness?.(inputs, access) ?? []),
 		onDutyBlocks: active
 			.flatMap((entry) => entry.onDuty)
 			.filter((part) => part.available?.(inputs, access) ?? true)

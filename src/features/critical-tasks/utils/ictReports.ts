@@ -242,6 +242,8 @@ export interface IctReportDashboardSummary {
 	};
 	atRiskSoldiers: {
 		totalApplicable: number;
+		/** At or above the threshold with a task expiring soon, so disjoint from the Soldiers below it. */
+		lapsingAboveThresholdCount: number;
 		rows: IctAtRiskSoldierRow[];
 	};
 }
@@ -721,6 +723,7 @@ function buildDashboardRiskRows(input: {
 	limit: number;
 }): {
 	soldiersBelowThresholdCount: number;
+	lapsingAboveThresholdCount: number;
 	totalApplicable: number;
 	rows: IctAtRiskSoldierRow[];
 } {
@@ -731,12 +734,16 @@ function buildDashboardRiskRows(input: {
 	const bySoldier = tallyReadinessBy(facts, ICT_READINESS_ROLLUP, (fact) => fact.subjectKey);
 	const rows: IctAtRiskSoldierRow[] = [];
 	let soldiersBelowThresholdCount = 0;
+	let lapsingAboveThresholdCount = 0;
 
 	for (const [personnelId, tally] of bySoldier) {
 		const person = personnelById.get(personnelId)!;
 		const lastUpdate = lastIctUpdates.get(personnelId) ?? null;
+		const expiringSoonCount = tally.stateCounts.get('expiring-soon') ?? 0;
 		if (tally.percent < CRITICAL_TASK_READINESS_THRESHOLD_PERCENT) {
 			soldiersBelowThresholdCount += 1;
+		} else if (expiringSoonCount > 0) {
+			lapsingAboveThresholdCount += 1;
 		}
 
 		retainTopRows(
@@ -750,7 +757,7 @@ function buildDashboardRiskRows(input: {
 				readinessPercent: tally.percent,
 				applicableCount: tally.applicable,
 				readyCount: tally.ready,
-				tasksExpiringSoonCount: tally.stateCounts.get('expiring-soon') ?? 0,
+				tasksExpiringSoonCount: expiringSoonCount,
 				daysSinceLastIctUpdate: lastUpdate ? daysSinceIctUpdate(lastUpdate.createdAt, asOfDate, input.timeZone) : null,
 				lastIctUpdateAt: lastUpdate?.createdAt ?? null
 			},
@@ -761,6 +768,7 @@ function buildDashboardRiskRows(input: {
 
 	return {
 		soldiersBelowThresholdCount,
+		lapsingAboveThresholdCount,
 		totalApplicable: bySoldier.size,
 		rows
 	};
@@ -1007,6 +1015,7 @@ export function buildIctReportDashboardSummary({
 		tasksBelowThreshold,
 		atRiskSoldiers: {
 			totalApplicable: atRiskSoldiers.totalApplicable,
+			lapsingAboveThresholdCount: atRiskSoldiers.lapsingAboveThresholdCount,
 			rows: atRiskSoldiers.rows
 		}
 	};

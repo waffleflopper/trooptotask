@@ -23,14 +23,15 @@ function leaving(id: string, action: NeedsYouAction | null): NeedsYouItem {
 	};
 }
 
-function show(items: NeedsYouItem[]) {
+function show(items: NeedsYouItem[], unavailable: string[] = []) {
 	const updates = { refreshSummary: vi.fn(), putRecord: vi.fn() };
 	const { rerender } = render(NeedsYouQueue, {
 		props: {
 			queue: buildNeedsYouQueue([items]),
 			model: {} as DashboardScreenModel,
 			access: { can: () => true },
-			updates
+			updates,
+			unavailable
 		}
 	});
 	return { updates, rerender };
@@ -86,6 +87,36 @@ describe('NeedsYouQueue actions', () => {
 		await fireEvent.click(button);
 
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Row p-kim' })));
+	});
+
+	it.each([
+		{ unavailable: [], emptyText: 'Nothing needs you right now.' },
+		{ unavailable: ['Training'], emptyText: 'Needs you is incomplete. Training items could not load.' }
+	])(
+		'moves focus to the empty state ($emptyText) when a saved action clears the queue',
+		async ({ unavailable, emptyText }) => {
+			const harness: { rerender?: ReturnType<typeof show>['rerender'] } = {};
+			const run = vi.fn(async () => {
+				await harness.rerender?.({ queue: buildNeedsYouQueue([[]]) });
+			});
+			harness.rerender = show(
+				[leaving('p-patel', { label: 'Award started', policy, mode: 'run', run })],
+				unavailable
+			).rerender;
+			const button = screen.getByRole('button', { name: 'Award started' });
+
+			button.focus();
+			await fireEvent.click(button);
+
+			await waitFor(() => expect(document.activeElement?.textContent?.trim()).toBe(emptyText));
+		}
+	);
+
+	it('lists the features that could not load under the rows', () => {
+		show([leaving('p-patel', null)], ['Training', 'Critical tasks']);
+
+		expect(screen.getByRole('link', { name: 'Row p-patel' })).toBeTruthy();
+		expect(screen.getByText('Needs you is incomplete. Training and Critical tasks items could not load.')).toBeTruthy();
 	});
 
 	it('shows a panel that failed to open as a message in the row', async () => {

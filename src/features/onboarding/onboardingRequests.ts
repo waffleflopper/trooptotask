@@ -21,7 +21,7 @@ export async function startOnboardingPacket(
 }
 
 export async function loadOnboardingStartOptions(orgId: string): Promise<OnboardingStartOptions> {
-	const response = await fetch(`/org/${orgId}/api/onboarding/start-options`);
+	const response = await fetch(`/org/${orgId}/api/onboarding/start-options`, { cache: 'no-store' });
 	if (!response.ok) throw await buildRequestError(response, 'GET', 'onboarding start options');
 	return response.json();
 }

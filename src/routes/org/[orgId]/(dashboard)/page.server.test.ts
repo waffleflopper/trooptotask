@@ -398,6 +398,53 @@ describe('dashboard page server load', () => {
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
 	});
 
+	it('keeps packets out of the page summary for a Personnel and Training viewer without Onboarding', async () => {
+		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('onboarding', 'none'));
+		fetchDashboardTrainingSummaryMock.mockResolvedValue({
+			trainingSummary: { stats: null, issues: [] },
+			onboardingTrainingCompletions: new Set(['p-cy-type-cpr'])
+		});
+		const packet = { id: 'packet-1', personnelId: 'p-cy' };
+		const parent = vi.fn().mockResolvedValue({
+			...createReadyAppShellRouteData({ orgId: ORG_ID }),
+			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [packet] } }) }
+		});
+
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: easternViewer,
+			depends: vi.fn(),
+			parent
+		} as never);
+
+		await expect(result.summary).resolves.toMatchObject({ onboardingPersonnelIds: [] });
+		expect(fetchDashboardTrainingSummaryMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ onboardingPersonnelIds: [] })
+		);
+	});
+
+	it('skips the Critical Tasks read an Organization switched off, though the viewer keeps the lane', async () => {
+		createRequestDashboardSummaryContextMock.mockReturnValue({ ...mockCtx, disabledFeatures: ['criticalTasks'] });
+		fetchCriticalTasksDashboardSummaryMock.mockRejectedValue(new Error('Critical Tasks read attempted'));
+		const parent = vi.fn().mockResolvedValue({
+			...createReadyAppShellRouteData({ orgId: ORG_ID }),
+			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [] } }) }
+		});
+
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: easternViewer,
+			depends: vi.fn(),
+			parent
+		} as never);
+
+		await expect(result.summary).resolves.toMatchObject({ ictlSummary: null });
+		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
+	});
+
 	it('preserves Training failures when the member is allowed to view Training', async () => {
 		fetchDashboardTrainingSummaryMock.mockRejectedValue(new Error('Training storage unavailable'));
 		const parent = vi.fn().mockResolvedValue({

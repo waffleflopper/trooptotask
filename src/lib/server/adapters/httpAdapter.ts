@@ -257,6 +257,11 @@ function readDefaultInput(event: RequestEvent): Promise<unknown> | undefined {
 	return readJsonBody(event);
 }
 
+/** A per-user JSON read that neither the browser nor an intermediary may store. */
+export function privateJson(result: unknown): Response {
+	return json(result, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } });
+}
+
 export function handle<TInput, TOutput, TContext>(config: RouteConfig<TInput, TOutput, TContext>): RequestHandler {
 	return async (event) => {
 		try {

@@ -89,16 +89,20 @@ async function summarize(
 	const reads = dashboardSourceAccess(ctx);
 	const [trainingData, ictlSummary] = await Promise.all([
 		reads('trainingSummary')
-			? readTrainingPopulation().then(async (inputs) => ({
-					onboardingPersonnelIds: [...new Set(inputs.onboardingPersonnelIds)],
-					summary: await fetchDashboardTrainingSummary(ctx, {
-						personnel: inputs.personnel,
-						trainingTypes: inputs.trainingTypes,
-						onboardingPersonnelIds: inputs.onboardingPersonnelIds,
-						options: { issueLimit: 25, issueStatuses: ['expired', 'warning-orange'] },
-						asOf
-					})
-				}))
+			? readTrainingPopulation().then(async (inputs) => {
+					// The packet population is Onboarding's fact, whichever read supplied it.
+					const onboardingPersonnelIds = reads('activeOnboardings') ? [...new Set(inputs.onboardingPersonnelIds)] : [];
+					return {
+						onboardingPersonnelIds,
+						summary: await fetchDashboardTrainingSummary(ctx, {
+							personnel: inputs.personnel,
+							trainingTypes: inputs.trainingTypes,
+							onboardingPersonnelIds,
+							options: { issueLimit: 25, issueStatuses: ['expired', 'warning-orange'] },
+							asOf
+						})
+					};
+				})
 			: null,
 		reads('ictlSummary') ? loadDashboardIctlSummary(ctx, asOf, timeZone) : null
 	]);

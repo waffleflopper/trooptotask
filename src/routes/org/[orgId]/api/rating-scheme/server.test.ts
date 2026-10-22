@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import { _deleteConfig, _getConfig, _postConfig, _putConfig } from './+server';
 
 const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
@@ -198,5 +199,26 @@ describe('GET /api/rating-scheme', () => {
 		await expect(read(seededContext('none'), '00000000-0000-4000-8000-0000000000e1')).rejects.toMatchObject({
 			status: 403
 		});
+	});
+
+	it('refuses an owner while the unit has Evaluations turned off, before any read', async () => {
+		const auth = projectOrganizationAccessGrant({ role: 'owner' }, 'owner-1', 'test-org', {
+			disabledFeatures: ['evaluations']
+		});
+		const owner = createTestContext({ auth: { ...auth } });
+		const findMany = vi.spyOn(owner.store, 'findMany').mockRejectedValue(new Error('Evaluations must not be read'));
+
+		await expect(
+			handleUseCaseRequest(_getConfig, owner, { entry: '00000000-0000-4000-8000-0000000000e1' }, () => owner)
+		).rejects.toMatchObject({
+			status: 403
+		});
+		expect(findMany).not.toHaveBeenCalled();
+	});
+
+	it('marks the read private and non-cacheable', () => {
+		const response = _getConfig.formatOutput!({} as never);
+
+		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 	});
 });

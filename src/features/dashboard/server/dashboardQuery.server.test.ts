@@ -109,6 +109,37 @@ describe('Dashboard packet read', () => {
 		});
 		expect(hydrateTraining).not.toHaveBeenCalled();
 	});
+
+	it('returns no packet to a Personnel and Training viewer whose Onboarding lane is none', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel: 'view',
+					calendar: 'none',
+					training: 'view',
+					onboarding: 'none',
+					criticalTasks: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		// RLS lets a Personnel reader select packets, so the store would return this one.
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('personnel_onboardings', [
+			{ id: 'packet-active', organization_id: ORG, personnel_id: 'p1', status: 'in_progress' }
+		]);
+		store.seed('onboarding_templates', [{ id: 'template-1', organization_id: ORG, name: 'Inprocessing' }]);
+		const packets = vi.spyOn(ctx.onboardingWorkflow, 'listSavedActivePackets');
+		const templates = vi.spyOn(ctx.onboardingCatalog, 'hasAnyTemplate');
+
+		const result = await load(ctx);
+
+		expect(result).toMatchObject({ activeOnboardings: [], hasAnyOnboardingTemplate: false });
+		expect(packets).not.toHaveBeenCalled();
+		expect(templates).not.toHaveBeenCalled();
+	});
 });
 
 describe('fetchDashboardBootstrap', () => {

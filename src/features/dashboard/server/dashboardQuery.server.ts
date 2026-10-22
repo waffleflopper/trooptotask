@@ -2,7 +2,7 @@ import { DEFAULT_LOSS_WARNING_WINDOW_DAYS, DEFAULT_STRENGTH_FLOOR_PERCENT } from
 import type { DashboardBootstrap } from '../contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { CalendarCatalogPersistence } from '$features/calendar/contracts';
+import type { CalendarCatalogPersistence, CalendarDateRange } from '$features/calendar/contracts';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
 import type {
@@ -24,6 +24,7 @@ import type { TrainingCatalogPersistence } from '$features/training/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { visiblePinnedGroupNames } from '$features/personnel/index.server';
 import { dashboardSourceAccess } from './dashboardSources.server';
+import { runEndsCovering } from '../read-model/availabilityRuns';
 
 type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] & {
@@ -56,11 +57,44 @@ function viewerDayWindowCoverage(now: Date) {
 	return { rangeStart: fromDayNumber(serverDay - 2), rangeEnd: fromDayNumber(serverDay + 15) };
 }
 
+const CONTINUATION_LOOKAHEAD_DAYS = 31;
+
+/**
+ * Window entries plus every entry that continues an absence past the window's last day, so a return
+ * date is never the end of an entry the window cut off. Each pass reads all still-absent people at once.
+ */
+async function listAvailabilityThroughReturns(ctx: DashboardQueryContext, range: CalendarDateRange) {
+	const entries = await listAvailabilityEntries(ctx, range);
+	const loaded = new Set(entries.map((entry) => entry.id));
+	let checkedThrough: number = toDayNumber(range.rangeEnd);
+	for (;;) {
+		const absent = [...runEndsCovering(entries, range.rangeEnd)].filter(
+			([, end]) => toDayNumber(end) >= checkedThrough
+		);
+		if (absent.length === 0) return entries;
+		const furthest = Math.max(...absent.map(([, end]) => toDayNumber(end)));
+		const through = furthest + 1 + CONTINUATION_LOOKAHEAD_DAYS;
+		const continuations = await listAvailabilityEntries(ctx, {
+			rangeStart: fromDayNumber(checkedThrough + 1),
+			rangeEnd: fromDayNumber(through),
+			personnelIds: absent.map(([personnelId]) => personnelId)
+		});
+		for (const entry of continuations) {
+			if (loaded.has(entry.id)) continue;
+			loaded.add(entry.id);
+			entries.push(entry);
+		}
+		checkedThrough = through;
+	}
+}
+
 export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const range = viewerDayWindowCoverage(new Date());
 	const reads = dashboardSourceAccess(ctx);
-	const availabilityEntries = reads('availabilityEntries') ? listAvailabilityEntries(ctx, range) : Promise.resolve([]);
+	const availabilityEntries = reads('availabilityEntries')
+		? listAvailabilityThroughReturns(ctx, range)
+		: Promise.resolve([]);
 	const todayAssignments = reads('assignments') ? listDailyAssignments(ctx, range, null) : Promise.resolve([]);
 	// Handle early rejections until streaming attaches its consumers. The returned
 	// original promises still reject, so hydration can show the source error.

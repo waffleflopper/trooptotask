@@ -1575,9 +1575,11 @@ async function main() {
 		if (
 			args.length !== 2 ||
 			!['dashboardView', 'dashboardSwitch'].includes(role) ||
-			!['alpha', 'no-training', 'restore'].includes(mode)
+			!['alpha', 'no-training', 'no-critical-tasks', 'restore'].includes(mode)
 		)
-			throw new Error('Use dashboard-access dashboardView|dashboardSwitch alpha|no-training|restore.');
+			throw new Error(
+				'Use dashboard-access dashboardView|dashboardSwitch alpha|no-training|no-critical-tasks|restore.'
+			);
 		const client = await provider();
 		const rows = checked(
 			await client
@@ -1602,7 +1604,12 @@ async function main() {
 				? snapshot.original
 				: mode === 'alpha'
 					? { access_scope_kind: 'groups', access_scope_group_ids: [fixture.ids.groupA] }
-					: { capability_overrides: { ...original.capability_overrides, training: 'none' } };
+					: {
+							capability_overrides: {
+								...original.capability_overrides,
+								[mode === 'no-training' ? 'training' : 'criticalTasks']: 'none'
+							}
+						};
 		checked(
 			await client.from('organization_memberships').update(changes).eq('organization_id', org('orgA')).eq('id', id)
 		);
@@ -2675,6 +2682,7 @@ async function main() {
 					'training-types',
 					'training-views',
 					'onboarding',
+					'onboarding/start-options',
 					'onboarding-steps',
 					'onboarding-resync',
 					'onboarding-templates',
@@ -2703,7 +2711,7 @@ async function main() {
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
 				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/data-sheet$/.test(family) &&
-				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:leader-notes|follow-ups|counseling-records)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.test(
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:leader-notes|follow-ups|counseling-records|award-tracking)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.test(
 					family
 				) &&
 				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/documents(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/download)?)?$/.test(

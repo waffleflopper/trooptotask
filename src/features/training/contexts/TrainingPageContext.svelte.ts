@@ -22,7 +22,8 @@ import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
+import type { TrainingBatchRecord } from '../contracts';
+import { recordTrainingCompletions } from '../personnelTrainingRequests';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
@@ -264,20 +265,9 @@ export class TrainingPageContext {
 	async handleSaveTrainingBatch(records: TrainingBatchCompletionRecord[]): Promise<void> {
 		if (!this.#isCurrentWorkspace()) return;
 		try {
-			const res = await fetch(`/org/${this.orgId}/api/personnel-trainings/batch`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ records })
-			});
+			const result = await recordTrainingCompletions(this.orgId, records);
 			if (!this.#isCurrentWorkspace()) return;
-
-			const data: Partial<TrainingBatchImportResult> & { message?: string } = await res.json().catch(() => ({}));
-			if (!this.#isCurrentWorkspace()) return;
-			if (!res.ok) {
-				throw new Error(data.message ?? `HTTP ${res.status}`);
-			}
-
-			personnelTrainingsStore.addBatchResults(data.inserted ?? [], data.updated ?? []);
+			personnelTrainingsStore.addBatchResults(result.inserted, result.updated);
 		} catch (error) {
 			if (this.#isCurrentWorkspace()) throw error;
 		}

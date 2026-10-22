@@ -46,11 +46,11 @@ affordances from actual server/provider denial. `actor` accepts `onboarding`, `o
 `onboarding/history`. `rows` allows `onboarding_template_steps`, `personnel_onboardings` and `onboarding_step_progress`
 as well as templates, with `template_id`, `onboarding_id` and `template_step_id` filters. `network` accepts exact A
 `onboarding-templates`, `onboarding-template-steps`, `onboarding-template-steps/reorder`,
-`onboarding-templates/UUID/duplicate` and `onboarding-resync` endpoints; `onboarding-resync` accepts an ordinal, so
-`arm-fail PAGE onboarding-resync 2` fails only the second packet of a bulk sync. Onboarding network controls reload the
-current page to install before its adapter captures fetch; arm before opening/filling the draft. Restore also disables a
-captured wrapper. Client503/hold controls do not establish what the provider committed; use the `onboarding-template-*`
-provider faults for that.
+`onboarding-templates/UUID/duplicate`, `onboarding-resync` and `onboarding/start-options` (the Dashboard's Start
+onboarding read) endpoints; `onboarding-resync` accepts an ordinal, so `arm-fail PAGE onboarding-resync 2` fails only
+the second packet of a bulk sync. Onboarding network controls reload the current page to install before its adapter
+captures fetch; arm before opening/filling the draft. Restore also disables a captured wrapper. Client503/hold controls
+do not establish what the provider committed; use the `onboarding-template-*` provider faults for that.
 
 The [Onboarding templates recipe](onboarding-templates.md) owns `onboarding-template-duplicate|reorder|delete`, which
 stop that database command, their `-lost-ack` forms, which let it commit and lose the answer, and

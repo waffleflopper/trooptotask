@@ -240,6 +240,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
     Capture the picker at 390x844 dark and read the filter row's bounds against the picker's width. Clear the filter
     before leaving, since it persists in this browser.
 
+The Dashboard's Unfilled `Fill N days` action saves its days through the same `/batch` request; the saved names must
+appear in this Calendar lane and the planner after reload ([Dashboard actions](dashboard.md#actions)).
+
 The assignment write endpoints are `/org/<orgA>/api/daily-assignments` with `POST {date,assignmentTypeId,assigneeId}` or
 `DELETE {date,assignmentTypeId}`, and `/batch` with `POST {records:[{date,assignmentTypeId,assigneeId}]}`. Use the
 signed-in page's read-only `evaluate_script` only for response inspection or an authenticated request probe; actual

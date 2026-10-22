@@ -16,12 +16,14 @@ import {
 	listAssignmentTypes,
 	listAvailabilityEntries,
 	listDailyAssignments,
+	listSpecialDaysInRange,
 	listStatusTypes
 } from '$features/calendar/index.server';
-import type { OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
+import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence } from '$features/training/contracts';
-import { formatDate } from '$lib/utils/dates';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { visiblePinnedGroupNames } from '$features/personnel/index.server';
+import { dashboardSourceAccess } from './dashboardSources.server';
 
 type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] & {
@@ -29,8 +31,9 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 		roster: Pick<PersonnelRosterReader, 'list'>;
 		groups: Pick<GroupPersistence, 'listCatalog'>;
 		selfPins: Pick<SelfPinPersistence, 'listNames'>;
-		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes'>;
+		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes' | 'listSpecialDays'>;
 		onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listSavedActivePackets'>;
+		onboardingCatalog: Pick<OnboardingCatalogPersistence, 'hasAnyTemplate'>;
 		trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
 		organizationSettings: Pick<OrganizationSettingsReader, 'findPolicies'>;
 		ratingSchemeDue?: RatingSchemeDuePort;
@@ -43,61 +46,75 @@ async function loadRatingSchemeDueEntries(ctx: DashboardQueryContext): Promise<R
 	return ctx.ratingSchemeDue.listDueEntries(ctx.auth);
 }
 
+/**
+ * The layout bootstrap does not know the viewer's day, and rerunning it when the zone cookie first lands
+ * would repeat the whole read. Every viewer's day is within one day of the server's UTC day, so reading
+ * UTC day -2 through +15 covers viewer day -1 through +14 everywhere.
+ */
+function viewerDayWindowCoverage(now: Date) {
+	const serverDay = toDayNumber(now.toISOString().slice(0, 10));
+	return { rangeStart: fromDayNumber(serverDay - 2), rangeEnd: fromDayNumber(serverDay + 15) };
+}
+
 export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
-	const serverNow = new Date();
-	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
-	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
-	const availabilityEntries = listAvailabilityEntries(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut });
-	const todayAssignments = listDailyAssignments(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }, null);
+	const range = viewerDayWindowCoverage(new Date());
+	const reads = dashboardSourceAccess(ctx);
+	const availabilityEntries = reads('availabilityEntries') ? listAvailabilityEntries(ctx, range) : Promise.resolve([]);
+	const todayAssignments = reads('assignments') ? listDailyAssignments(ctx, range, null) : Promise.resolve([]);
 	// Handle early rejections until streaming attaches its consumers. The returned
 	// original promises still reject, so hydration can show the source error.
 	void availabilityEntries.catch(() => undefined);
 	void todayAssignments.catch(() => undefined);
-	const isOff = (feature: FeatureKey) => ctx.disabledFeatures.includes(feature);
 
 	const [
 		assignmentTypes,
 		pinnedGroups,
 		ratingSchemeEntries,
 		activeOnboardings,
+		hasAnyOnboardingTemplate,
 		personnel,
 		groups,
 		statusTypes,
 		trainingTypes,
 		policies,
-		awardTrackingAcknowledgedPersonnelIds
+		awardTrackingAcknowledgedPersonnelIds,
+		specialDays
 	] = await Promise.all([
-		listAssignmentTypes(ctx.calendarCatalogs),
+		reads('assignmentTypes') ? listAssignmentTypes(ctx.calendarCatalogs) : [],
 		ctx.selfPins.listNames(),
-		isOff('evaluations') ? [] : loadRatingSchemeDueEntries(ctx),
-		isOff('onboarding') ? [] : ctx.onboardingWorkflow.listSavedActivePackets(),
+		reads('ratingSchemeEntries') ? loadRatingSchemeDueEntries(ctx) : [],
+		reads('activeOnboardings') ? ctx.onboardingWorkflow.listSavedActivePackets() : [],
+		reads('onboardingTemplates') && ctx.onboardingCatalog.hasAnyTemplate(),
 		ctx.roster.list({ status: 'active' }),
 		ctx.groups.listCatalog(),
-		listStatusTypes(ctx.calendarCatalogs),
-		isOff('training') ? [] : ctx.trainingCatalog.listTypes(),
+		reads('statusTypes') ? listStatusTypes(ctx.calendarCatalogs) : [],
+		reads('trainingTypes') ? ctx.trainingCatalog.listTypes() : [],
 		ctx.organizationSettings.findPolicies(orgId),
-		isOff('lossesAndAwards')
-			? []
-			: ctx.personnelAwardAcknowledgement
+		reads('awardAcknowledgements')
+			? ctx.personnelAwardAcknowledgement
 				? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
 				: Promise.reject(new Error('Personnel award acknowledgement port is required'))
+			: [],
+		reads('specialDays') ? listSpecialDaysInRange(ctx.calendarCatalogs, range) : []
 	]);
 
 	return {
 		availabilityEntries,
 		assignmentTypes,
 		todayAssignments,
-		range: { rangeStart: yesterday, rangeEnd: twoWeeksOut },
+		range,
 		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),
 		ratingSchemeEntries,
 		activeOnboardings,
+		hasAnyOnboardingTemplate,
 		personnel,
 		groups,
 		statusTypes,
 		trainingTypes,
 		lossWarningWindowDays: policies?.lossWarningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 		strengthFloorPercent: policies?.strengthFloorPercent ?? DEFAULT_STRENGTH_FLOOR_PERCENT,
-		awardTrackingAcknowledgedPersonnelIds
+		awardTrackingAcknowledgedPersonnelIds,
+		specialDays
 	};
 }

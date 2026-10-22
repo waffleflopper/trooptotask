@@ -23,6 +23,7 @@ import {
 import type {
 	correctTrainingCompletion,
 	createTrainingRecord,
+	listPersonTrainingRecords,
 	openTrainingCertificate,
 	recordTrainingCompletion,
 	updateTrainingRecord,
@@ -76,6 +77,7 @@ import type {
 	advanceStage,
 	cancelOnboarding,
 	createOnboardingTemplateStep,
+	fetchOnboardingStartOptions,
 	fetchOnboardingTemplateActivity,
 	fetchOnboardingWorkspace,
 	removeInactiveStep,
@@ -94,6 +96,7 @@ export function createRequestTrainingCatalogContext(request: AdmittedOrganizatio
 export function createRequestTrainingRosterContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof createTrainingRecord>[0] &
+	Parameters<typeof listPersonTrainingRecords>[0] &
 	Parameters<typeof updateTrainingRecord>[0] &
 	Parameters<typeof deleteTrainingRecord>[0] &
 	Parameters<typeof importTrainingRecords>[0] &
@@ -355,6 +358,18 @@ export function createRequestOnboardingInactiveStepContext(
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingInactiveStepRemoval: createSupabaseOnboardingInactiveStepRemovalPort(request.supabase)
+	};
+}
+
+export function createRequestOnboardingStartOptionsContext(
+	request: AdmittedOrganizationRequest
+): Parameters<typeof fetchOnboardingStartOptions>[0] {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: request.auth, audit: request.audit, rankCatalog })
 	};
 }
 

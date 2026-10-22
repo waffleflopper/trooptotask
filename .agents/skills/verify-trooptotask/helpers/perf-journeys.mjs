@@ -392,13 +392,16 @@ export const journeys = {
 		effect: 'read',
 		actors: both,
 		path: (terms) => org(terms),
-		// The route shows its own skeleton section until both the streamed bootstrap and the
-		// deferred summary resolve; `summary` is the first frame after that, when either the
-		// hydrating panel skeleton or the Overview itself appears.
+		// The header and band frame render at once; each band holds a skeleton until the streamed
+		// workspace, the deferred summary and store hydration have all finished.
 		milestones: () => [
-			{ name: 'pending', presentSelector: [`section[role="status"] ${skeleton}`] },
-			{ name: 'summary', presentSelector: ['[data-testid="skeleton-block"], [aria-label="Personnel availability"]'] },
-			{ name: 'useful', present: ['Upcoming Changes', 'Requires Attention'], absentSelector: [skeleton] }
+			{ name: 'pending', presentSelector: [`[data-dashboard-band][aria-busy="true"] ${skeleton}`] },
+			{
+				name: 'useful',
+				present: ['Coming and going · 7 days'],
+				presentSelector: ['[data-dashboard-band="action"][aria-busy="false"]'],
+				absentSelector: [skeleton]
+			}
 		]
 	},
 	'training-report': {
@@ -563,15 +566,15 @@ export const journeys = {
 		trigger: () => ({ click: { role: 'link', name: 'Personnel' } }),
 		milestones: (terms) => [{ name: 'useful', ...roster(terms) }]
 	},
-	// The Dashboard renders no in-page link. Its overflow toggles exist only from typical, and the
-	// scoped actor has no Out Today at large, so the control present in every cell is the sidebar.
+	// The Dashboard's own links and toggles depend on each workload's data, so the control present
+	// in every cell is the sidebar.
 	'dashboard-navigation': {
 		area: 'dashboard',
 		kind: 'interaction',
 		effect: 'read',
 		actors: both,
 		path: (terms) => org(terms),
-		ready: () => [{ name: 'ready', present: ['Upcoming Changes', 'Requires Attention'], absentSelector: [skeleton] }],
+		ready: () => [{ name: 'ready', present: ['Coming and going · 7 days'], absentSelector: [skeleton] }],
 		trigger: () => ({ click: { role: 'link', name: 'Personnel' } }),
 		// The Dashboard's own lists already name roster People, so the roster text alone is met
 		// before the route changes; the breadcrumb is what only the Personnel page shows.

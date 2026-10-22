@@ -20,6 +20,8 @@ Organization and Group scope.
 - `matrix-view`: the List/Matrix `View` control, one grid per template (Soldier rows oldest first, step columns in
   template order), cell states, the ready row's `Close out`, the open-per-step footer, the no-template line, and the
   cell popover with stage controls and notes.
+- `packet-link`: `/onboarding?packet=<packet id>` opens that active packet, as the Dashboard's Onboarding rows link to
+  it.
 - `workspace-reuse`: moving between the Onboarding list, History and Templates keeps the loaded workspace; History and
   Templates load their own page data on every visit.
 - `scope-and-recovery`: view cannot mutate; operate manages scoped packets; configure additionally reconciles templates.
@@ -211,6 +213,12 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    whose Onboarding layout digit is `0`, and nothing for the return. As Configure, `Templates` likewise loads only its
    own page and the return sends nothing; a template saved there appears in the Start Onboarding dialog without a
    reload.
+9. **Packet link:** Take an active packet ID from `$V rows personnel_onboardings orgA`. From the org's Onboarding URL,
+   append `?packet=<id>` (a Dashboard Onboarding row link does the same). The packet opens beside the list (or in the
+   sheet below 1280) and the address drops the parameter, so a reload shows the plain list with no packet open. An ID
+   that is not an active packet, such as a random UUID or a packet no longer in processing, selects nothing and also
+   drops the parameter. `Start onboarding` from the page POSTs through the same start the Dashboard uses and the new
+   packet joins the list.
 
 `$V rows` supports `personnel_onboardings` and `onboarding_step_progress` with Person/packet/step filters. Choose one
 action (`arm-fail`, `arm-hold` or `arm-observe`) and one family (`onboarding`, `onboarding-steps` or

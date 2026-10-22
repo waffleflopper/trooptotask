@@ -5,11 +5,6 @@ import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
 
 type ReportRequestEvent = Pick<RequestEvent, 'url' | 'cookies'>;
 
-export const PRIVATE_REPORT_HEADERS = {
-	'Cache-Control': 'private, no-store',
-	Vary: 'Cookie'
-} as const;
-
 function optionalParam(value: string | null): string | undefined {
 	return value || undefined;
 }

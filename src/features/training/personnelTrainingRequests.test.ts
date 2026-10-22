@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { trainingCertificateLink } from './personnelTrainingRequests';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { loadPersonTrainingRecords, trainingCertificateLink } from './personnelTrainingRequests';
 
 const RECORD = '00000000-0000-4000-8000-000000006001';
 
@@ -23,5 +23,20 @@ describe('trainingCertificateLink', () => {
 
 	it('shows nothing when the completion has no certificate', () => {
 		expect(trainingCertificateLink('org-1', 'current', RECORD, null)).toBeNull();
+	});
+});
+
+describe('loadPersonTrainingRecords', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it("never answers a Person's records from the browser cache", async () => {
+		const fetch = vi.fn(async () => Response.json([]));
+		vi.stubGlobal('fetch', fetch);
+
+		await loadPersonTrainingRecords('org-1', RECORD);
+
+		expect(fetch).toHaveBeenCalledWith(`/org/org-1/api/personnel-trainings?personnelId=${RECORD}`, {
+			cache: 'no-store'
+		});
 	});
 });

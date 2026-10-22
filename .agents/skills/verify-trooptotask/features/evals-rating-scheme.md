@@ -75,19 +75,21 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    pages to attempt POST/PUT/DELETE against known Bravo, unassigned and foreign IDs: expect 403/404 as appropriate, no
    stored changes, and no disclosure of hidden names/notes. Enter Evals directly as the Personnel-only `manager`: expect
    a settled Access Restricted message, no Evals editor/rows and no persistent busy shell; authenticated workspace data
-   remains restricted and Rating mutations return 403. The mutation endpoint has no GET handler; unsupported GET405
-   supplies no read-denial proof. After an allowed workspace loses access, stale evaluation rows must clear, and late
-   allowed hydration must not refill the restricted workspace. Restored access may load a fresh authorized workspace.
-   View-only and Personnel-only writes must fail, even if a control is hidden. Organization-wide operators retain
-   unassigned access. Separately probe all four evaluator slots using only seeded IDs: new/changed foreign, missing or
-   malformed IDs receive a generic 400 with no mutation; same-Organization archived, cross-Group and unassigned
-   evaluators remain valid even for an Alpha operator. UUID case and repeated IDs represent the same Person. Null/empty
-   clearing and external names remain supported. An unrelated edit that resubmits unchanged historical foreign links
-   preserves those links. Direct provider writes must enforce the same integrity, and a foreign historical link must
-   block and roll back Person deletion rather than alter another Organization. A mixed legacy row can also block local
-   Person deletion when several SET NULL effects recheck untouched foreign slots; expect full rollback, not an automatic
-   history rewrite. `rating_scheme_lane_scope.sql` supplies distinct positive/negative RLS coverage on a disposable
-   provider.
+   remains restricted and Rating mutations return 403. The endpoint's `GET ?entry=<id>` reads one entry for its editor
+   under Rating view and the actor's scope: a missing or malformed `entry` returns 400 and an unknown or hidden ID 404.
+   Probe it with known Bravo, unassigned and foreign IDs as `ratingScoped` and `ratingEmpty` (expect 404), and with any
+   ID as `manager` (expect 403); no response may carry hidden names or notes. After an allowed workspace loses access,
+   stale evaluation rows must clear, and late allowed hydration must not refill the restricted workspace. Restored
+   access may load a fresh authorized workspace. View-only and Personnel-only writes must fail, even if a control is
+   hidden. Organization-wide operators retain unassigned access. Separately probe all four evaluator slots using only
+   seeded IDs: new/changed foreign, missing or malformed IDs receive a generic 400 with no mutation; same-Organization
+   archived, cross-Group and unassigned evaluators remain valid even for an Alpha operator. UUID case and repeated IDs
+   represent the same Person. Null/empty clearing and external names remain supported. An unrelated edit that resubmits
+   unchanged historical foreign links preserves those links. Direct provider writes must enforce the same integrity, and
+   a foreign historical link must block and roll back Person deletion rather than alter another Organization. A mixed
+   legacy row can also block local Person deletion when several SET NULL effects recheck untouched foreign slots; expect
+   full rollback, not an automatic history rewrite. `rating_scheme_lane_scope.sql` supplies distinct positive/negative
+   RLS coverage on a disposable provider.
 4. **Deletion and approval recovery.** Open a dedicated new entry with the ordinary operator and confirm Delete submits
    a request, returns approval-required behavior and leaves the entry stored. Observe the request row and visible
    feedback; repeat for the existing-pending case. Fail the Rating Scheme DELETE and then the `deletion-requests`
@@ -103,27 +105,36 @@ the Personnel-only denied actor and `orgOwner` for direct deletion.
    sentinels. Reload Approvals/Evals and read persistence; do not substitute direct owner deletion.
 5. **Dashboard and switching.** With `ratingOperate` and then `ratingScoped`, compare the Dashboard due projection
    against their accessible non-completed Evals entries: Organization-wide has one overdue and four within 30 days;
-   Alpha has one overdue and two within 30 days. The archived Alpha entry (−2 days) is in neither count. Dashboard's
-   attention cards display overdue and 30-day warnings; Evals also displays the 60-day bucket. Completed/current are
-   excluded. The projection must not borrow Personnel capability or expose Bravo/unassigned to Alpha. Its Dashboard
-   entry payload contains only rating period end and record status, with browser-local bucketing; no evaluator names,
-   notes, rated-person IDs or evaluation IDs are needed. Empty-Group and absent Rating access receive no due entries.
-   Inspect the authorized payload separately from the visible counts. With `ratingSwitch`, enter A, inspect entries and
-   write affordances, switch visibly to B, and confirm only the one foreign example plus view-only affordances remain.
-   Reload B, revisit A, and preserve each scope. Create a separate UI witness for delayed mutation checks; keep every
-   original A/B sentinel untouched. Establish native A → B → A history before editing the witness. Hold its real A
-   response after provider processing, capture the committed provider row and busy controls, then enter B through
-   visible Organization navigation or the documented native `navigate_page` with `type:"back"`. Prove the canonical B
-   URL, admitted B breadcrumb, one Foreign example and view-only affordances before release. The hold must still be
-   active at that point. Release and immediately capture a screenshot, then the native snapshot and feedback state
-   before a transient message can expire. Old responses must not populate B, change its record IDs, emit A success/error
-   feedback there, close a replacement editor or begin a new approval request after departure. A real A provider commit
-   remains real even if its UI continuation is retired. Check B again after reload. Separately hold DELETE202 across
-   departure and require no subsequent approval POST. Hold an already-started approval POST across departure to cover
-   its own feedback; record the actual successful status rather than assuming 201. If additional journaled deletion
-   sources are seeded after the original one-Foreign proof, record their exact rows and use the actual resulting B count
-   for later admissions. If the modal keeps navigation in A, releasing in A and visiting B later supplies no
-   after-B-delivery credit. A script evaluation that calls history.back() is not native browser navigation.
+   Alpha has one overdue and two within 30 days. The archived Alpha entry (−2 days) is in neither count. The Dashboard's
+   Evaluations column draws overdue, due within 30 days and current as shares (org-wide
+   `1 overdue, 4 due within 30 days, 2 current`; Alpha `1 overdue, 2 due within 30 days, 2 current`), and its note names
+   the 30 and 60 day counts separately (`4 more due within 30 days and 1 within 60.`), the 60-day entry counting as
+   current in the bar. Needs you lists only overdue entries, each as an Overdue row that names the rated Person,
+   including for an actor without Personnel access (`ratingOperate`). Evals also displays the 60-day bucket. Completed
+   entries are excluded. An Overdue row's `Update status` opens this page's entry editor for that one entry and saves
+   through the same `PUT api/rating-scheme`; the entry must read Completed here after reload
+   ([Dashboard actions](dashboard.md#actions)). The projection must not borrow Personnel capability or expose
+   Bravo/unassigned to Alpha. Its Dashboard entry payload carries the entry ID, rated Person ID, evaluation type, rating
+   period end and record status, bucketed by the viewer's day, plus `ratedPersonName` (rank and name) from the same
+   scoped Rating roster-reference read as Evals, and its chevron opens the entry. Evaluator names and notes stay absent.
+   A viewer without `ratingScheme.readRosterReferences` receives no names. Empty-Group and absent Rating access receive
+   no due entries. Inspect the authorized payload separately from the visible counts. With `ratingSwitch`, enter A,
+   inspect entries and write affordances, switch visibly to B, and confirm only the one foreign example plus view-only
+   affordances remain. Reload B, revisit A, and preserve each scope. Create a separate UI witness for delayed mutation
+   checks; keep every original A/B sentinel untouched. Establish native A → B → A history before editing the witness.
+   Hold its real A response after provider processing, capture the committed provider row and busy controls, then enter
+   B through visible Organization navigation or the documented native `navigate_page` with `type:"back"`. Prove the
+   canonical B URL, admitted B breadcrumb, one Foreign example and view-only affordances before release. The hold must
+   still be active at that point. Release and immediately capture a screenshot, then the native snapshot and feedback
+   state before a transient message can expire. Old responses must not populate B, change its record IDs, emit A
+   success/error feedback there, close a replacement editor or begin a new approval request after departure. A real A
+   provider commit remains real even if its UI continuation is retired. Check B again after reload. Separately hold
+   DELETE202 across departure and require no subsequent approval POST. Hold an already-started approval POST across
+   departure to cover its own feedback; record the actual successful status rather than assuming 201. If additional
+   journaled deletion sources are seeded after the original one-Foreign proof, record their exact rows and use the
+   actual resulting B count for later admissions. If the modal keeps navigation in A, releasing in A and visiting B
+   later supplies no after-B-delivery credit. A script evaluation that calls history.back() is not native browser
+   navigation.
 
 6. **Personnel readiness and Organization exports.** As `orgOwner`, enter Personnel and open Able or the temporary
    Officer/NCO details. The Overview's **Rating chain · <eval type>** card names the active entry's Rater, Intermediate

@@ -184,10 +184,10 @@ during its pending DOM update have separate mounted component checks; do not des
    PCS / DEROS blank. Save a thirty-day warning window through Policies and reload Personnel, that Person’s detail,
    Calendar and Dashboard: this Person must have no in-window loss signal. Save ninety days and revisit/reload those
    four consumers: Personnel/Calendar show this Person’s ETS signal, the detail Readiness tab's Loss block reports
-   `Inside the <n>-day loss window`, and the compact Dashboard shows the in-window Person/date under its independent
-   permission. Capture actual displayed outcomes and exact saved dates/settings, then restore the original dates/window.
-   Evals does not display or use this setting. Source mapping or a saved scalar alone cannot establish these four
-   displayed outcomes.
+   `Inside the <n>-day loss window`, and the Dashboard's Arriving and leaving column names the in-window Person and date
+   while Losses and awards is on. Capture actual displayed outcomes and exact saved dates/settings, then restore the
+   original dates/window. Evals does not display or use this setting. Source mapping or a saved scalar alone cannot
+   establish these four displayed outcomes.
 
    **Training readiness goal.** As owner or admin, open Policies and require `Training readiness goal (%)` at the saved
    value, 90 for an Organization that never changed it, with the help text

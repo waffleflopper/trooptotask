@@ -73,7 +73,7 @@ test('the Dashboard navigation waits for the Dashboard, then the roster, for bot
 	const navigation = journeyFor('dashboard-navigation', 'perfScoped', 'interaction');
 	assert.equal(navigation, journeys['dashboard-navigation']);
 	assert.deepEqual(navigation.trigger(), { click: { role: 'link', name: 'Personnel' } });
-	assert.deepEqual(navigation.ready()[0].present, ['Upcoming Changes', 'Requires Attention']);
+	assert.deepEqual(navigation.ready()[0].present, ['Coming and going · 7 days']);
 	const [useful] = navigation.milestones({ sentinel: 'Sentinel' });
 	assert.deepEqual(useful.anyPresent, ['Sentinel', 'personnel are loaded']);
 	assert.deepEqual(useful.inside, { 'nav[aria-label="Current section"]': ['Personnel'] });

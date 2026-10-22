@@ -96,6 +96,9 @@ export function createInMemoryOnboardingCatalogPersistence(
 				stepNames: names.map((row) => row.name)
 			};
 		},
+		async hasAnyTemplate() {
+			return (await store.findMany('onboarding_templates', orgId, {}, { select: 'id', limit: 1 })).length > 0;
+		},
 		async countEstimatedSteps() {
 			return (
 				(
@@ -218,6 +221,9 @@ export function createInMemoryOnboardingWorkflowPersistence(
 		},
 		async listSavedActivePackets() {
 			return this.listPackets('active');
+		},
+		async listActivePacketPersonnelIds() {
+			return [...new Set((await this.listSavedActivePackets()).map((packet) => packet.personnelId))];
 		},
 		async findPacketReference(id) {
 			const row = await store.findOne<PacketRow>('personnel_onboardings', orgId, { id });

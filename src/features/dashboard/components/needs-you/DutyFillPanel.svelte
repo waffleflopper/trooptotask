@@ -110,7 +110,7 @@
 						]}
 						disabled={saving || history !== 'ready'}
 						aria-haspopup="dialog"
-						aria-label="{formatWeekdayDay(slot.date)}: {choiceName(slot)}, swap"
+						aria-label="{formatWeekdayDay(slot.date)}: {history === 'ready' ? choiceName(slot) : 'not suggested'}, swap"
 						onclick={(event) => (swapping = { slot, anchor: event.currentTarget })}
 					>
 						<span class="flex items-center justify-between">
@@ -122,9 +122,11 @@
 							<ChevronDownIcon class="size-3 text-muted-foreground" aria-hidden="true" />
 						</span>
 						<span class="truncate text-[15px] leading-5 font-semibold text-foreground">
-							{choiceName(slot)}
+							{history === 'ready' ? choiceName(slot) : 'Not suggested'}
 						</span>
-						<span class="font-mono text-[11px] leading-[14px] text-muted-foreground">{lastDutyLabel(slot)}</span>
+						<span class="font-mono text-[11px] leading-[14px] text-muted-foreground">
+							{history === 'ready' ? lastDutyLabel(slot) : 'History not loaded'}
+						</span>
 					</button>
 				{/if}
 			</li>

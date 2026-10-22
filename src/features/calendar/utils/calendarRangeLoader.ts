@@ -3,7 +3,7 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
 import type { AvailabilityEntry, DailyAssignment, SpecialDay } from '$features/calendar/contracts';
-import type { StoreRead } from '$lib/stores/core';
+import { stillInOrganizationLifetime, type StoreRead } from '$lib/stores/core';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { DUTY_LOOKBACK_DAYS, rangeCoversDate, rangeCoversSpan, type CalendarRangeRequest } from './calendarRange';
 
@@ -77,9 +77,11 @@ export function mergeCalendarRangeIntoStores(orgId: string, data: CalendarRangeD
 
 /**
  * Reads the assignments a duty picker needs for `firstDay` through `lastDay`, from the duty lookback before
- * them, into the shared stores. Nothing is written once the stores belong to another Organization.
+ * them, into the shared stores. Nothing is written once the user has left the Organization lifetime the read
+ * began in, even after returning to the same Organization, or once the stores belong to another Organization.
  */
 export async function loadDutyHistory(orgId: string, days: { firstDay: string; lastDay: string }): Promise<void> {
+	const current = stillInOrganizationLifetime();
 	const read = beginCalendarRangeRead();
 	try {
 		const data = await loadCalendarRange(orgId, {
@@ -87,7 +89,7 @@ export async function loadDutyHistory(orgId: string, days: { firstDay: string; l
 			rangeEnd: days.lastDay,
 			collections: ['assignments']
 		});
-		if (dailyAssignmentsStore.orgId === orgId) mergeCalendarRangeIntoStores(orgId, data, read);
+		if (current() && dailyAssignmentsStore.orgId === orgId) mergeCalendarRangeIntoStores(orgId, data, read);
 	} finally {
 		read.close();
 	}

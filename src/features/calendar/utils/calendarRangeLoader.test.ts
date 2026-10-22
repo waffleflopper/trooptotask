@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
@@ -236,5 +237,32 @@ describe('calendarRangeLoader', () => {
 
 		expect(dailyAssignmentsStore.orgId).toBe('org-2');
 		expect(dailyAssignmentsStore.assignments.map((assignment) => assignment.id)).toEqual(['org-2-row']);
+	});
+
+	it('writes nothing when the user left and came back to the Organization during the read', async () => {
+		let respond!: (value: unknown) => void;
+		fetchMock.mockReturnValue(new Promise((resolve) => (respond = resolve)));
+
+		const read = loadDutyHistory('org-1', { firstDay: '2026-10-27', lastDay: '2026-11-01' });
+		endOrganizationLifetime();
+		dailyAssignmentsStore.load([cq], [], 'org-2');
+		endOrganizationLifetime();
+		dailyAssignmentsStore.load(
+			[cq],
+			[{ id: 'current-row', date: '2026-08-15', assignmentTypeId: 'at1', assigneeId: 'p1' }],
+			'org-1'
+		);
+		respond({
+			ok: true,
+			json: async () => ({
+				rangeStart: '2026-07-29',
+				rangeEnd: '2026-11-01',
+				specialDays: [],
+				dailyAssignments: [{ id: 'stale-row', date: '2026-08-15', assignmentTypeId: 'at1', assigneeId: 'p2' }]
+			})
+		});
+		await read;
+
+		expect(dailyAssignmentsStore.assignments.map((assignment) => assignment.id)).toEqual(['current-row']);
 	});
 });

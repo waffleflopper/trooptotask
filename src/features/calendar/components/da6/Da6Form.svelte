@@ -96,6 +96,10 @@
 				</th>
 				{#each segment.columns as column, index (column.date)}
 					{@const isToday = column.date === today}
+					{@const tone = cn(
+						isToday && 'text-accent-text',
+						separate && column.track === 'weekend' && 'text-destructive-text'
+					)}
 					<th
 						scope="col"
 						class={cn(
@@ -107,10 +111,9 @@
 						<button
 							type="button"
 							class={cn(
-								'flex w-full flex-col items-center gap-0.5 px-1 pt-1.5 pb-1 font-mono leading-none outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset print:pointer-events-none',
-								selectedColumn === index && 'shadow-[inset_0_-3px_0_var(--accent)] print:shadow-none',
-								isToday && 'text-accent-text',
-								separate && column.track === 'weekend' && 'text-destructive-text'
+								'flex w-full flex-col items-center gap-0.5 px-1 pt-1.5 pb-1 font-mono leading-none outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset print:hidden',
+								selectedColumn === index && 'shadow-[inset_0_-3px_0_var(--accent)]',
+								tone
 							)}
 							aria-pressed={selectedColumn === index}
 							title={`Show the work for ${formatDayMonth(column.date)}`}
@@ -120,6 +123,17 @@
 							<span aria-hidden="true" class="font-heading text-base font-semibold">{dayOfMonth(column.date)}</span>
 							<span class="sr-only">{formatDayMonth(column.date)}</span>
 						</button>
+						<!-- A repeated header page does not paint a button's contents, so print draws the day as plain text. -->
+						<div
+							aria-hidden="true"
+							class={cn(
+								'hidden flex-col items-center gap-0.5 px-1 pt-1.5 pb-1 font-mono leading-none print:flex',
+								tone
+							)}
+						>
+							<span class="text-[10px] text-muted-foreground">{weekdayLetter(column.date)}</span>
+							<span class="font-heading text-base font-semibold">{dayOfMonth(column.date)}</span>
+						</div>
 					</th>
 				{/each}
 			</tr>

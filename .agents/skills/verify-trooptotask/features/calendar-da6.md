@@ -14,9 +14,11 @@ show their saved record; the open form is worked out from today's facts. The pag
 - `da6-show-the-work`: the rule (DA PAM 220-45, para 6), the selected day worked out, and the tie-break. A column header
   selects its day; the default is today, else the last day before today, else the first.
 - `da6-form-boundary`: a month that spans a rule change shows the closed form, a boundary note and the new form.
-- `da6-print`: `Print DA 6` prints one landscape page per month, with every form of that month on it, the closed
-  form's note between them, header fields, legend, remarks and red weekend numbers; Show the work and the controls are
-  left off.
+- `da6-print`: `Print DA 6` prints a month at readable size on landscape Letter, with every form of that month in
+  order and never another month; a roster too long for one sheet continues on the next like a paper DA 6, the Grade, Name
+  and day header row repeating at the top of each sheet and no person's row split. The header fields sit on the first
+  sheet, the legend and remarks after the last row, the closed form's note between forms, and weekend numbers are red;
+  Show the work and the controls are left off.
 - `da6-states`: a loading skeleton, the page's own load error, the not-permitted state for a Group-scoped viewer, and a
   load error in place of a closed form whose saved record cannot be read.
 
@@ -36,7 +38,8 @@ Brooks, PFC Ortiz, PV2 Diaz) and two person-assigned types matching MOS `92Y`, `
 every day d0–d20, Charge of Quarters on d1, d5, d9 and d14, both picked by the DA 6 rule, and Okafor has
 `Verification Leave` on d8–d9. The seed returns both type IDs, the people's IDs and the dated picks. `clean-seeds`
 removes it. `$V seed da6 YYYY-MM` (a month within 120 days) instead gives Staff Duty a detail on every day of that
-month and seeds no CQ or leave, for the widest grid: open the month's DA 6 and print it.
+month and seeds no CQ or leave, for the widest grid: open the month's DA 6 and print it. A third argument,
+`$V seed da6 YYYY-MM 60`, adds synthetic `Recruit01`... People (8 to 80 in all) for a roster that spans printed sheets.
 
 The DA 6 data read lists assignment types, so `$V server-source arm assignment_types hold|fail-hard 1` reaches it on a
 client navigation (month change). On a full page load the Calendar layout reads assignment types first and the layout's
@@ -78,12 +81,15 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
      red, and the legend adds `Weekend and holiday count`.
 5. **Print.** Run `$V print arm PAGE`, choose `Print DA 6`, and run `$V print state PAGE`: `before` reads `1`. Then run
    `$V print save PAGE '<exact URL>' .verification/evidence/verify-trooptotask/<run>/da6.pdf letter on` and
-   `$V print restore PAGE`. The PDF is 792x612 pt and one page per month, so the closed and open forms of the
-   rule-change month share it:
+   `$V print restore PAGE`. The PDF is 792x612 pt, one month, and the closed and open forms of the rule-change month
+   follow each other:
    - The title line reads `DA Form 6 · Duty roster · <Month YYYY>`.
    - Each page keeps the header fields, corner marks inside their cells, the legend, the remarks and the red weekend
      numbers.
    - It leaves out the Show the work strip, the selection underline and the controls.
+   - With `$V seed da6 YYYY-MM 60`, the month's 60 rows do not shrink to fit: page 1 holds the header fields and the
+     first rows, page 2 begins with the Grade, Name and day-number header row and carries on, and the legend and remarks
+     come after the last row. No row is cut between pages.
 6. **Layout.** Capture 1440x900, 900x800 and 390x844. `document.documentElement.scrollWidth` equals `innerWidth`. At 390
    px, set the grid region's `scrollLeft` to its maximum. The Grade and Name cells stay at the region's left edge while
    the days scroll.

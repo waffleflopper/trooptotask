@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { da6Segment, simulateRoster } from '../roster/rosterEngine';
-import { assigned, storedR4 } from '../roster/rosterFixtures.test-support';
+import { assigned, status, storedR4, R4_STARTING } from '../roster/rosterFixtures.test-support';
 import { defaultDay, remarkText, workedExample, type Da6Sheet } from './da6View';
 
 const r4 = da6Segment(simulateRoster(storedR4()), '2026-10')!;
@@ -67,6 +67,30 @@ describe('Show the work', () => {
 				overridden.columns.findIndex((candidate) => candidate.date === '2026-10-20')
 			)
 		).toBe('SGT Okafor and SPC Nguyen both sit at 12. Okafor is away (Leave), so Nguyen pulls it. Okafor holds at 12.');
+	});
+
+	it('explains an emergency hand assignment when nobody on the roster could pull the day', () => {
+		const facts = storedR4();
+		const nobody = da6Segment(
+			simulateRoster({
+				...facts,
+				availability: [
+					...facts.availability,
+					...R4_STARTING.map(([, lastName]) =>
+						status(lastName.toLowerCase(), lastName === 'Kim' ? 'detail' : 'leave', '2026-10-05', '2026-10-05')
+					)
+				]
+			}),
+			'2026-10'
+		)!;
+		const text = workedExample(
+			nobody,
+			nobody.columns.findIndex((candidate) => candidate.date === '2026-10-05')
+		);
+		expect(text).toBe(
+			'Nobody on the roster could pull this day. It went to SGT Kim by hand. ' +
+				'Everyone available gets one more, and Kim starts over.'
+		);
 	});
 
 	it('counts a wide tie instead of naming everyone in it', () => {

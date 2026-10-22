@@ -114,7 +114,7 @@
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
-		<div class="grid gap-4 print:gap-2 print:break-inside-avoid" data-da6-month={view.month}>
+		<div class="grid gap-4 print:gap-2" data-da6-month={view.month}>
 			<p class="hidden font-mono text-xs tracking-[0.08em] uppercase print:block">
 				DA Form 6 · Duty roster · {monthTitle(month)}
 			</p>

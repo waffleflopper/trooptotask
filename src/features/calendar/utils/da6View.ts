@@ -186,6 +186,9 @@ export function workedExample(segment: Da6Segment, index: number): string {
 	if (rulePick) {
 		return `Assigned by hand to ${fullName(pick)}${at}. By the rule it would have gone to ${fullName(rulePick)}. A hand-assigned day still counts, so ${pick.lastName} starts over.`;
 	}
+	if (passedOver.some((person) => person.personId === pick.personId)) {
+		return `Nobody on the roster could pull this day. It went to ${fullName(pick)} by hand. Everyone available gets one more, and ${pick.lastName} starts over.`;
+	}
 	if (passedOver.length) {
 		const sitting = passedOver.every((person) => person.count === count)
 			? `${list([...passedOver, pick].map(fullName))} ${passedOver.length === 1 ? 'both' : 'all'} sit at ${count}.`

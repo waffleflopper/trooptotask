@@ -10,11 +10,9 @@ export {
 	overlayDashboardRecords,
 	overlayDashboardSummary,
 	putDashboardRecord,
-	putDashboardSummaryChange,
 	type DashboardPageUpdates,
 	type DashboardRecordChange,
-	type DashboardRecordOverlay,
-	type DashboardSummaryOverlay
+	type DashboardRecordOverlay
 } from './dashboardPageUpdates';
 export { DASHBOARD_SECTIONS } from './sections/dashboardSectionRegistry';
 export { createDashboardAccess, type DashboardAccess } from './sections/dashboardAccess';

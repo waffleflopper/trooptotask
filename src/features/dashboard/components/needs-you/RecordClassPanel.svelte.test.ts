@@ -21,8 +21,8 @@ const sharp = {
 
 const people = [person('p-okafor', 'Okafor'), person('p-brooks', 'Brooks'), person('p-liang', 'Liang')];
 
-function record(personnelId: string) {
-	return { id: `t-${personnelId}`, personnelId, trainingTypeId: 'sharp', completionDate: '2026-10-21' };
+function record(personnelId: string, expirationDate: string | null = '2027-10-21') {
+	return { id: `t-${personnelId}`, personnelId, trainingTypeId: 'sharp', completionDate: '2026-10-21', expirationDate };
 }
 
 const fetchMock = vi.fn();
@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe('RecordClassPanel', () => {
-	it('records the class in one request, refreshes the summary without the recorded people, and closes', async () => {
+	it('records the class in one request, takes the recorded people off the row, refreshes the summary, and closes', async () => {
 		fetchMock.mockResolvedValue(
 			new Response(JSON.stringify({ inserted: people.map((p) => record(p.id)), updated: [], exempted: [], errors: [] }))
 		);
@@ -71,14 +71,35 @@ describe('RecordClassPanel', () => {
 		await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/personnel-trainings/batch');
-		expect(updates.refreshSummary.mock.calls).toEqual([
+		expect(updates.putRecord.mock.calls).toEqual([
 			[
-				{
-					orgId: 'org-1',
-					change: { trainingTypeId: 'sharp', recordedPersonnelIds: ['p-okafor', 'p-brooks', 'p-liang'] }
-				}
+				'org-1',
+				{ list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['p-okafor', 'p-brooks', 'p-liang'] }
 			]
 		]);
+		expect(updates.refreshSummary).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps a person whose new record is already expired on the row until the summary says otherwise', async () => {
+		fetchMock.mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					inserted: [record('p-okafor'), record('p-brooks', '2026-10-20'), record('p-liang', null)],
+					updated: [],
+					exempted: [],
+					errors: []
+				})
+			)
+		);
+		const { updates, close } = open();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Record 3' }));
+
+		await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+		expect(updates.putRecord.mock.calls).toEqual([
+			['org-1', { list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['p-okafor', 'p-liang'] }]
+		]);
+		expect(updates.refreshSummary).toHaveBeenCalledTimes(1);
 	});
 
 	it('removes the people it recorded and keeps the dialog open naming the ones it could not', async () => {
@@ -98,9 +119,10 @@ describe('RecordClassPanel', () => {
 
 		expect(await screen.findByText('1 not recorded. Liang: Person is outside your scope')).toBeTruthy();
 		expect(close).not.toHaveBeenCalled();
-		expect(updates.refreshSummary.mock.calls).toEqual([
-			[{ orgId: 'org-1', change: { trainingTypeId: 'sharp', recordedPersonnelIds: ['p-okafor', 'p-brooks'] } }]
+		expect(updates.putRecord.mock.calls).toEqual([
+			['org-1', { list: 'trainingCompletions', trainingTypeId: 'sharp', personnelIds: ['p-okafor', 'p-brooks'] }]
 		]);
+		expect(updates.refreshSummary).toHaveBeenCalledTimes(1);
 	});
 
 	it('shows a denied request in the dialog and changes nothing on the page', async () => {
@@ -113,5 +135,6 @@ describe('RecordClassPanel', () => {
 
 		expect(await screen.findByText('Recording training is not allowed')).toBeTruthy();
 		expect(updates.refreshSummary).not.toHaveBeenCalled();
+		expect(updates.putRecord).not.toHaveBeenCalled();
 	});
 });

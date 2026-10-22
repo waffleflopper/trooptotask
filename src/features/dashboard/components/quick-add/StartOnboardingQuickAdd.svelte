@@ -55,6 +55,7 @@
 		const savedIn = orgId;
 		const packet = await startOnboardingPacket(savedIn, { personnelId, startedAt, templateId });
 		updates.putRecord(savedIn, { list: 'activeOnboardings', record: packet });
+		if (active && savedIn === model.data.orgId) updates.refreshSummary();
 		return true;
 	}
 

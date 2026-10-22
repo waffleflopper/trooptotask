@@ -6,40 +6,22 @@ import type { DashboardPageSummaryData, DashboardWorkspaceResult } from './contr
 export type DashboardRecordChange =
 	| { list: 'activeOnboardings'; record: PersonnelOnboarding }
 	| { list: 'ratingSchemeEntries'; record: RatingSchemeDueEntry }
-	| { list: 'awardTrackingAcknowledgedPersonnelIds'; personnelId: string };
-
-/** Completions the viewer just recorded for one training type. */
-export interface DashboardSummaryChange {
-	trainingTypeId: string;
-	recordedPersonnelIds: readonly string[];
-}
+	| { list: 'awardTrackingAcknowledgedPersonnelIds'; personnelId: string }
+	/** Completions only the summary derives from; they take these People off the type's expired list. */
+	| { list: 'trainingCompletions'; trainingTypeId: string; personnelIds: readonly string[] };
 
 /** How a save made on the Dashboard shows up without reloading the page. */
 export interface DashboardPageUpdates {
-	/**
-	 * Rereads the server summary in the background; the page keeps its last values until the read lands, and keeps them if it fails.
-	 * A change made in the page's Organization shows on those values meanwhile.
-	 */
-	refreshSummary(meanwhile?: { orgId: string; change: DashboardSummaryChange }): void;
+	/** Rereads the server summary in the background; the page keeps its last values until the read lands, and keeps them if it fails. */
+	refreshSummary(): void;
 	/** Shows a record saved in the Organization in its list until the page data is next read; ignored once the page has moved to another Organization. */
 	putRecord(orgId: string, change: DashboardRecordChange): void;
 }
 
-/** Changes saved on top of one read; a newer read already includes them, so the overlay drops. */
-interface DashboardOverlay<Base, Change> {
-	base: Base;
-	changes: readonly Change[];
-}
-
-export type DashboardRecordOverlay = DashboardOverlay<DashboardWorkspaceResult, DashboardRecordChange>;
-export type DashboardSummaryOverlay = DashboardOverlay<DashboardPageSummaryData, DashboardSummaryChange>;
-
-function putChange<Base, Change>(
-	overlay: DashboardOverlay<Base, Change> | null,
-	base: Base,
-	change: Change
-): DashboardOverlay<Base, Change> {
-	return { base, changes: [...(overlay?.base === base ? overlay.changes : []), change] };
+/** Records saved on top of one workspace read; a newer read already includes them, so the overlay drops. */
+export interface DashboardRecordOverlay {
+	base: DashboardWorkspaceResult;
+	changes: readonly DashboardRecordChange[];
 }
 
 export function putDashboardRecord(
@@ -47,15 +29,7 @@ export function putDashboardRecord(
 	base: DashboardWorkspaceResult,
 	change: DashboardRecordChange
 ): DashboardRecordOverlay {
-	return putChange(overlay, base, change);
-}
-
-export function putDashboardSummaryChange(
-	overlay: DashboardSummaryOverlay | null,
-	base: DashboardPageSummaryData,
-	change: DashboardSummaryChange
-): DashboardSummaryOverlay {
-	return putChange(overlay, base, change);
+	return { base, changes: [...(overlay?.base === base ? overlay.changes : []), change] };
 }
 
 function upsert<T extends { id: string }>(records: readonly T[], record: T): T[] {
@@ -90,20 +64,40 @@ export function overlayDashboardRecords(
 	return { ...dashboard, data };
 }
 
-/** Takes the recorded People off their type's expired list; counts the server derives wait for the refresh. */
+function withoutRecorded(
+	training: NonNullable<DashboardPageSummaryData['trainingSummary']>,
+	trainingTypeId: string,
+	recorded: readonly string[]
+): NonNullable<DashboardPageSummaryData['trainingSummary']> {
+	const expiredByType = training.expiredByType.flatMap((expired) => {
+		if (expired.trainingTypeId !== trainingTypeId) return [expired];
+		const personnelIds = expired.personnelIds.filter((id) => !recorded.includes(id));
+		return personnelIds.length > 0 ? [{ ...expired, personnelIds }] : [];
+	});
+	return { ...training, expiredByType };
+}
+
+/** Projects saved records onto the summary; counts the server derives wait for the refresh. */
 export function overlayDashboardSummary(
 	summary: DashboardPageSummaryData,
-	overlay: DashboardSummaryOverlay | null
+	dashboard: DashboardWorkspaceResult,
+	overlay: DashboardRecordOverlay | null
 ): DashboardPageSummaryData {
-	const training = summary.trainingSummary;
-	if (overlay?.base !== summary || overlay.changes.length === 0 || !training) return summary;
-	let expiredByType = training.expiredByType;
-	for (const { trainingTypeId, recordedPersonnelIds } of overlay.changes) {
-		expiredByType = expiredByType.flatMap((expired) => {
-			if (expired.trainingTypeId !== trainingTypeId) return [expired];
-			const personnelIds = expired.personnelIds.filter((id) => !recordedPersonnelIds.includes(id));
-			return personnelIds.length > 0 ? [{ ...expired, personnelIds }] : [];
-		});
+	if (overlay?.base !== dashboard) return summary;
+	const covered = new Set(summary.onboardingPersonnelIds);
+	const completions = new Set(summary.onboardingTrainingCompletions);
+	let trainingSummary = summary.trainingSummary;
+	for (const change of overlay.changes) {
+		if (change.list === 'trainingCompletions') {
+			if (trainingSummary)
+				trainingSummary = withoutRecorded(trainingSummary, change.trainingTypeId, change.personnelIds);
+			continue;
+		}
+		if (change.list !== 'activeOnboardings' || covered.has(change.record.personnelId)) continue;
+		for (const step of change.record.steps) {
+			if (step.active && step.stepType === 'training' && step.trainingTypeId && step.completed)
+				completions.add(`${change.record.personnelId}-${step.trainingTypeId}`);
+		}
 	}
-	return { ...summary, trainingSummary: { ...training, expiredByType } };
+	return { ...summary, trainingSummary, onboardingTrainingCompletions: [...completions] };
 }

@@ -39,10 +39,19 @@
 	function onSave(records: TrainingBatchRecord[]) {
 		return save(async () => {
 			const result = await recordTrainingCompletions(orgId, records);
-			const recorded = [...result.inserted, ...result.updated].map((record) => record.personnelId);
-			if (recorded.length > 0) {
-				updates.refreshSummary({ orgId, change: { trainingTypeId: trainingType.id, recordedPersonnelIds: recorded } });
+			const saved = [...result.inserted, ...result.updated];
+			// Only a record now current takes its Person off the expired row; an old completion date can stay expired.
+			const current = saved
+				.filter((record) => record.expirationDate === null || record.expirationDate >= today)
+				.map((record) => record.personnelId);
+			if (current.length > 0) {
+				updates.putRecord(orgId, {
+					list: 'trainingCompletions',
+					trainingTypeId: trainingType.id,
+					personnelIds: current
+				});
 			}
+			if (saved.length > 0) updates.refreshSummary();
 			if (result.errors.length > 0) {
 				const failed = result.errors.map((error) => {
 					const person = recordable.find((candidate) => candidate.id === records[error.index]?.personnelId);

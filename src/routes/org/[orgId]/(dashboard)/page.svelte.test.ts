@@ -67,7 +67,8 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 				groupDelinquencies: []
 			},
 			ictlSummary: null,
-			onboardingTrainingCompletions: []
+			onboardingTrainingCompletions: [],
+			onboardingPersonnelIds: []
 		}
 	};
 

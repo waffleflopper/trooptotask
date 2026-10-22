@@ -271,6 +271,7 @@ describe('row review', () => {
 					reads: ['lastName', 'firstName'],
 					options: [{ id: 'c', label: 'Jones, Pat', hint: 'HQ', value: 'c' }],
 					whenMissing: 'none-is-new',
+					create: async () => ({ kind: 'created', option: { id: 'new', label: 'New person', value: 'new' } }),
 					key: (raw) => (raw.lastName ? { key: raw.lastName, display: raw.lastName } : null),
 					find: (key) => (key === 'Smith' ? { kind: 'many', candidates: options } : { kind: 'none' })
 				}

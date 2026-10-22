@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { buildNotImported, buildTemplate } from './workbooks';
-import { buildReceipt } from './commit';
+import { buildReceipt, type CommitResult } from './commit';
 import { buildSourceRows, reviewRows, ReviewMemo } from './rowModel';
 import { defineImportLane } from './types';
 import { personnelLane } from './importFlow.test-support';
@@ -15,6 +15,80 @@ async function readBack(workbook: ExcelJS.Workbook): Promise<ExcelJS.Workbook> {
 }
 
 describe('workbook export', () => {
+	it('retries only skipped and failed pivot items while omitting saved and unchanged cells', async () => {
+		const options = ['CPR', 'TCCC', 'PALS', 'ACLS', 'NRP'].map((value) => ({ id: value, label: value, value }));
+		const lane = defineImportLane({
+			id: 'training',
+			title: 'Training',
+			noun: { one: 'record', other: 'records' },
+			columns: {
+				person: { label: 'Person', kind: 'text', required: true, aliases: [] },
+				training: { label: 'Training', kind: 'text', required: true, aliases: [] },
+				result: { label: 'Result', kind: 'text', required: true, aliases: [] }
+			},
+			pivot: { field: 'training', valueField: 'result', label: 'Training' },
+			references: {
+				training: {
+					label: 'training',
+					reads: ['training'],
+					options,
+					whenMissing: 'ask',
+					key: (raw) => (raw.training ? { key: raw.training, display: raw.training } : null),
+					find(key) {
+						const option = options.find((item) => item.id === key);
+						return option ? { kind: 'one', option } : { kind: 'none' };
+					}
+				}
+			},
+			review: ({ values }) => ({ outcome: 'new', key: `${values.person}:${values.training}`, change: values }),
+			commitChunk: async () => ({ kind: 'unconfirmed' }),
+			exit: { href: '/', label: 'Back' }
+		});
+		const file: LoadedFile = {
+			name: 'wide.xlsx',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Person', 'CPR', 'TCCC', 'PALS', 'ACLS', 'NRP'],
+						['Smith', '01MAY27', '02MAY27', '03MAY27', '04MAY27', '05MAY27']
+					]
+				}
+			]
+		};
+		const layout = detectLayout(file, lane);
+		const rows = buildSourceRows(file, layout, lane);
+		const receipt = buildReceipt(
+			[{ row: rows[4], reason: 'Skipped' }],
+			new Map<(typeof rows)[number]['id'], CommitResult>([
+				[rows[0].id, { kind: 'added' }],
+				[rows[1].id, { kind: 'updated' }],
+				[rows[3].id, { kind: 'failed', reason: 'Denied' }]
+			]),
+			new Map(rows.map((row) => [row.id, row])),
+			null,
+			1
+		);
+		const exported = await readBack(await buildNotImported(file, layout, receipt));
+		expect(exported.worksheets[0].getRow(2).values).toEqual([
+			undefined,
+			'Smith',
+			'',
+			'',
+			'',
+			'04MAY27',
+			'05MAY27',
+			'ACLS: Denied; NRP: Skipped'
+		]);
+		const retry = await readImportFile(new File([await writeWorkbookBuffer(exported)], 'retry.xlsx'));
+		if (retry.kind !== 'loaded') throw new Error('Retry rejected');
+		expect(buildSourceRows(retry.file, detectLayout(retry.file, lane), lane).map((row) => row.raw)).toEqual([
+			{ person: 'Smith', training: 'ACLS', result: '04MAY27' },
+			{ person: 'Smith', training: 'NRP', result: '05MAY27' }
+		]);
+	});
 	it('writes template headers and examples as literal text, including formula prefixes', async () => {
 		const workbook = await readBack(
 			await buildTemplate({

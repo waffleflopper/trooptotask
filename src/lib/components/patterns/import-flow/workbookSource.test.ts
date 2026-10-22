@@ -17,6 +17,29 @@ async function excelFile(workbook: ExcelJS.Workbook): Promise<File> {
 }
 
 describe('workbook source', () => {
+	it('automatically keeps the first source for each field and ignores competing aliases and splitters', () => {
+		const lane = personnelLane();
+		const file: LoadedFile = {
+			name: 'aliases.csv',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Last name', 'Surname', 'First name', 'Name', 'Rank'],
+						['Smith', 'Wrong', 'Alex', 'Other, Pat', 'SGT']
+					]
+				}
+			]
+		};
+		const layout = detectLayout(file, lane);
+		expect(layout.columns.get(headerKey('Surname'))).toEqual({ kind: 'ignore' });
+		expect(layout.columns.get(headerKey('Name'))).toEqual({ kind: 'ignore' });
+		expect(buildSourceRows(file, layout, lane).map((row) => row.raw)).toEqual([
+			{ lastName: 'Smith', firstName: 'Alex', rank: 'SGT' }
+		]);
+	});
 	it('reads matching roster tabs, a cover, and hidden lookups with physical rows and cached formulas', async () => {
 		const workbook = new ExcelJS.Workbook();
 		workbook.addWorksheet('Cover').addRows([['Roster'], ['Rank'], ['Read instructions']]);

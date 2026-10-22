@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ImportSession } from './importSession.svelte';
 import { personnelLane, type PersonnelChange } from './importFlow.test-support';
 import { questionKey, type ChunkReply, type CreateOptionResult } from './types';
+import { headerKey } from './workbookSource';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -14,6 +15,27 @@ function deferred<T>() {
 const csv = (rank = 'SGT') => new File([`Last name,First name,Rank\nSmith,Alex,${rank}`], 'personnel.csv');
 
 describe('import session', () => {
+	it.each(['direct', 'split'] as const)(
+		'blocks Continue for a hand-mapped %s collision and names the field and sheet',
+		async (mapping) => {
+			const lane = personnelLane();
+			const session = new ImportSession(() => lane);
+			await session.chooseFile([new File(['Last name,First name,Rank,Extra\nSmith,Alex,SGT,Jones'], 'HQ.csv')]);
+			session.setColumnTarget(
+				headerKey('Extra'),
+				mapping === 'direct' ? { kind: 'field', field: 'lastName' } : { kind: 'split', splitter: 0 }
+			);
+			expect(session.columnBlockers.some((message) => message.includes('Last name') && message.includes('HQ'))).toBe(
+				true
+			);
+			session.goTo('review');
+			expect(session.phase.step).toBe('columns');
+			session.setColumnTarget(headerKey('Extra'), { kind: 'ignore' });
+			expect(session.columnBlockers).toEqual([]);
+			session.goTo('review');
+			expect(session.phase.step).toBe('review');
+		}
+	);
 	it('loads columns, guards navigation, edits a row, and produces an honest receipt', async () => {
 		const lane = personnelLane();
 		const stored: PersonnelChange[] = [];

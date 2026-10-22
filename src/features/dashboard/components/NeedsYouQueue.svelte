@@ -199,7 +199,9 @@
 						/>
 					</div>
 				{:else if state.status === 'failed'}
-					<p role="alert" class="pb-3 pl-4 text-sm text-destructive @2xl/attention-row:pl-[116px]">{state.message}</p>
+					<p role="alert" class="pb-3 pl-4 text-sm text-danger-foreground @2xl/attention-row:pl-[116px]">
+						{state.message}
+					</p>
 				{/if}
 			</AttentionActionRow>
 		{/each}

@@ -2,7 +2,7 @@
 	export type AttentionTone = 'danger' | 'warning' | 'info';
 
 	const TONE_VISUALS: Record<AttentionTone, { rule: string; text: string }> = {
-		danger: { rule: 'border-l-destructive', text: 'text-destructive' },
+		danger: { rule: 'border-l-destructive', text: 'text-danger-foreground' },
 		warning: { rule: 'border-l-accent', text: 'text-accent-text' },
 		info: { rule: 'border-l-border', text: 'text-muted-foreground' }
 	};

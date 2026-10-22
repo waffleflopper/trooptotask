@@ -26,20 +26,20 @@
 		<tbody>
 			{#each rows as row (row.assignmentTypeId)}
 				<tr class="h-11 border-b border-border">
-					<th scope="row" class="pr-2 text-left font-normal">
+					<th scope="row" class="py-2 pr-2 text-left font-normal">
 						<span class="flex min-w-0 items-center gap-2">
 							<span class="size-2 shrink-0 rounded-[2px]" style:background-color={row.color} aria-hidden="true"></span>
 							<span
-								class="truncate font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-foreground uppercase"
+								class="min-w-0 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] wrap-break-word text-foreground uppercase"
 							>
 								{row.name}
 							</span>
 						</span>
 					</th>
-					<td class="w-[110px] truncate pr-2 text-[15px] leading-[18px] font-semibold text-foreground">
+					<td class="w-[110px] py-2 pr-2 text-[15px] leading-[18px] font-semibold wrap-break-word text-foreground">
 						{row.today ?? 'Open'}
 					</td>
-					<td class="w-[110px] truncate text-[15px] leading-[18px] text-muted-foreground">
+					<td class="w-[110px] py-2 text-[15px] leading-[18px] wrap-break-word text-muted-foreground">
 						{row.tomorrow ?? 'Open'}
 					</td>
 				</tr>

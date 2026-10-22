@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import type { StatusType } from '$features/calendar/contracts';
+import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
@@ -220,6 +220,45 @@ describe('composeDashboardSections', () => {
 		expect(
 			composeDashboardSections(sections, inputs, [], { ...access, can: () => true }).quickAdd.map((entry) => entry.id)
 		).toEqual(['status', 'training', 'onboarding']);
+	});
+});
+
+describe('a viewer without Calendar access', () => {
+	const staffDuty = {
+		id: 'sd',
+		name: 'Staff Duty',
+		assignTo: 'personnel',
+		showOnCalendar: true,
+		exemptPersonnelIds: [],
+		sortOrder: 0
+	} as unknown as AssignmentType;
+	const openDuty: DashboardInputs = {
+		...inputs,
+		forecastDays: ['2026-10-19', '2026-10-20'],
+		personnel: [{ id: 'p1', groupId: null } as Personnel],
+		assignmentTypes: [staffDuty]
+	};
+
+	function calendarParts(calendar: 'none' | 'view') {
+		const access = createDashboardAccess(
+			createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('view'), calendar }
+			})
+		);
+		const parts = composeDashboardSections(DASHBOARD_SECTIONS, openDuty, [], access);
+		return {
+			onDuty: parts.onDutyBlocks.map((block) => block.id),
+			needsYou: parts.needsYou.ranked.map((item) => item.id)
+		};
+	}
+
+	it('gets no On duty blocks or Unfilled rows, since the server withheld that data', () => {
+		expect(calendarParts('none')).toEqual({ onDuty: [], needsYou: [] });
+		expect(calendarParts('view')).toEqual({
+			onDuty: ['tonight-and-tomorrow', 'coming-and-going'],
+			needsYou: ['unfilled:sd']
+		});
 	});
 });
 

@@ -117,21 +117,17 @@ describe('dashboard page', () => {
 		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Retry checklist' })).toBeNull();
 	});
-	it('shows a retry after a rejected workspace and clears the error on Organization navigation', async () => {
-		const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+	it('leaves a rejected workspace to the layout and keeps its skeleton', async () => {
 		let reject!: (reason: Error) => void;
 		const pending = new Promise((_, rejectPromise) => {
 			reject = rejectPromise;
 		});
-		const view = render(Page, { props: { data: makePageData({ dashboard: { data: pending } }) } });
-		reject(new Error('Source unavailable'));
-		await screen.findByRole('alert');
-		expect(screen.queryByRole('status')).toBeNull();
-		await fireEvent.click(screen.getByRole('button', { name: 'Retry Dashboard' }));
-		expect(reload).toHaveBeenCalledOnce();
+		render(Page, { props: { data: makePageData({ dashboard: { data: pending } }) } });
 
-		await view.rerender({ data: makePageData({ orgId: 'org-2', orgName: 'Second Unit' }) });
-		await waitFor(() => expect(document.title).toContain('Second Unit'));
+		reject(new Error('Source unavailable'));
+		await tick();
+
+		expect(screen.getByRole('status').textContent).toBe('Loading Dashboard');
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 

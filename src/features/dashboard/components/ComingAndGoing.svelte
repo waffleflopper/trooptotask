@@ -42,7 +42,7 @@
 					<span
 						class={[
 							'w-4 shrink-0 font-mono text-[13px] leading-4 font-semibold',
-							change.direction === 'leaving' ? 'text-destructive' : 'text-success-foreground'
+							change.direction === 'leaving' ? 'text-danger-foreground' : 'text-success-foreground'
 						]}
 					>
 						<span aria-hidden="true">{change.direction === 'leaving' ? '↓' : '↑'}</span>

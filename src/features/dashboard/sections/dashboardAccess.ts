@@ -1,5 +1,5 @@
 import type { ClientAccess } from '$lib/access/clientAccess';
-import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
 import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 
 export interface DashboardAccess {
@@ -30,4 +30,9 @@ export function actionablePersonnel<P extends { readonly groupId?: string | null
 	action: FeatureLanePolicyAction
 ): P[] {
 	return personnel.filter((person) => access.can(action, personnelResource(person)));
+}
+
+/** The server withholds availability and duty assignments from a viewer without the Calendar lane. */
+export function seesCalendar(access: DashboardAccess): boolean {
+	return access.can(POLICY_ACTION_CATALOG.calendar.viewAvailability);
 }

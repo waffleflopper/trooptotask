@@ -7,9 +7,11 @@
 	interface Props {
 		hints: readonly SetupHint[];
 		onDismiss: (feature: FeatureKey) => void;
+		/** Takes focus once the last hint is gone. */
+		onEmptied: () => void;
 	}
 
-	let { hints, onDismiss }: Props = $props();
+	let { hints, onDismiss, onEmptied }: Props = $props();
 
 	// Keep keyboard focus among the hints rather than dropping it to the page.
 	function dismiss(event: MouseEvent & { currentTarget: Element }, feature: FeatureKey) {
@@ -18,7 +20,8 @@
 			element?.matches('[data-setup-hint]')
 		);
 		onDismiss(feature);
-		neighbour?.querySelector('button')?.focus();
+		if (neighbour) neighbour.querySelector('button')?.focus();
+		else onEmptied();
 	}
 
 	const LINK = 'text-sm leading-5 font-medium underline decoration-1 underline-offset-2';

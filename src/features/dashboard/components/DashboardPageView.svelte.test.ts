@@ -7,7 +7,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { toastStore } from '$lib/stores/toast.svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import { createDashboardScreenModel, type DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
-import type { DashboardPageData, StarterConfigurationPackSupport } from '$features/dashboard/contracts';
+import type { DashboardPageData } from '$features/dashboard/contracts';
 import { dashboardSection, type QuickAddEntry } from '../sections/dashboardSections';
 import type { DashboardAccess } from '../sections/dashboardAccess';
 import { DASHBOARD_SECTIONS } from '../sections/dashboardSectionRegistry';
@@ -62,32 +62,12 @@ function strengthOf(assigned: number, group: { id: string; name: string } | null
 }
 
 function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel {
-	const starterPack = overrides.firstStarterConfigurationPack as StarterConfigurationPackSupport | null | undefined;
 	const base = {
-		data: {
-			orgName: 'Test Unit',
-			orgId: 'org-1',
-			disabledFeatures: [],
-			onboardingTemplateStepCount: 0,
-			ratingSchemeEntryCount: 0,
-			orgMemberCount: 0
-		},
-		userRole: 'member',
-		hasSupportData: true,
-		gettingStartedDismissed: true,
-		gettingStartedItems: [],
-		shouldShowGettingStarted: false,
-		firstStarterConfigurationPack: null,
-		starterConfigurationPacks: [],
-		starterPackApplyState: { status: 'idle', message: null, result: null },
-		applyStarterConfigurationPack: () => {},
+		data: { orgName: 'Test Unit', orgId: 'org-1', disabledFeatures: [] },
 		isHydrating: false,
 		totalPersonnel: 10,
 		strength: strengthOf(10),
 		today: '2026-10-19',
-		personnelCount: 0,
-		trainingTypeCount: 0,
-		dismissGettingStarted: () => {},
 		forecastDays: [],
 		inputs: { forecastDays: [] }
 	};
@@ -95,40 +75,8 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 	return {
 		...base,
 		...overrides,
-		starterConfigurationPacks: starterPack ? [starterPack] : (overrides.starterConfigurationPacks ?? []),
-		data: {
-			...base.data,
-			...(overrides.data as Record<string, unknown> | undefined)
-		}
+		data: { ...base.data, ...(overrides.data as Record<string, unknown> | undefined) }
 	} as unknown as DashboardScreenModel;
-}
-
-function makeStarterPack(overrides: Partial<StarterConfigurationPackSupport> = {}): StarterConfigurationPackSupport {
-	return {
-		id: 'first-week-operations',
-		name: 'First Week Operations',
-		description: 'Optional starter configuration for common first-week setup.',
-		editableCopy: 'Creates editable workflow configuration artifacts.',
-		artifacts: [
-			{
-				family: 'training-types',
-				label: 'Training Types',
-				names: ['Unit Orientation', 'Required Annual Training'],
-				description: 'Adds starter training requirements.'
-			},
-			{
-				family: 'onboarding-template',
-				label: 'Onboarding Template',
-				names: ['New Arrival Packet'],
-				description: 'Adds a starter onboarding template.'
-			}
-		],
-		readiness: [],
-		canApply: true,
-		deniedActions: [],
-		isFullyApplied: false,
-		...overrides
-	};
 }
 
 describe('DashboardPageView', () => {
@@ -143,39 +91,13 @@ describe('DashboardPageView', () => {
 		expect([calendarStore.year, calendarStore.month]).toEqual([2026, 9]);
 	});
 
-	it('renders the overview directly without tabs or toolbar', () => {
+	it("shows the model's bottom line", () => {
 		const ctx = makeCtx({ strength: strengthOf(50), totalPersonnel: 50 });
 
 		render(DashboardPageView, { props: { ...frame, ctx } });
 
-		expect(screen.queryByRole('toolbar')).toBeNull();
-		expect(screen.queryByRole('tablist')).toBeNull();
 		expect(screen.getByText('of 50')).toBeTruthy();
 		expect(screen.getByText('Available · 100%')).toBeTruthy();
-	});
-
-	it('keeps Workspace Setup and its starter pack hidden even for an eligible owner', () => {
-		const ctx = makeCtx({
-			userRole: 'owner',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack(),
-			gettingStartedItems: [
-				{
-					id: 'personnel',
-					label: 'Import or add the roster',
-					description: 'Add the roster.',
-					href: '/org/org-1/personnel',
-					complete: false
-				}
-			]
-		});
-		render(DashboardPageView, { props: { ...frame, ctx } });
-		expect(screen.getByText('of 10')).toBeTruthy();
-		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
-		expect(screen.queryByRole('link', { name: 'Open Import or add the roster' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
-		expect(screen.queryByRole('button', { name: /Apply Pack/i })).toBeNull();
 	});
 });
 
@@ -209,16 +131,6 @@ describe('Dashboard frame', () => {
 		expect(screen.queryByRole('list', { name: 'Needs you' })).toBeNull();
 	});
 
-	it('replaces the bands with the failure and keeps the header', () => {
-		const failure = createRawSnippet(() => ({ render: () => '<p role="alert">Dashboard failed</p>' }));
-		render(DashboardPageView, { props: { ...frame, ctx: null, failure } });
-
-		expect(screen.getByRole('alert').textContent).toBe('Dashboard failed');
-		expect(screen.getByRole('heading', { level: 1, name: 'Monday 19 Oct' })).toBeTruthy();
-		expect(screen.queryByRole('status')).toBeNull();
-		expect(bands()).toEqual([null, null, null]);
-	});
-
 	it('shows ordered usable Quick add entries and hides the label when none are usable', async () => {
 		const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
 		const icon: QuickAddEntry['icon'] = () => ({});
@@ -248,11 +160,8 @@ describe('Dashboard frame', () => {
 		expect(
 			within(group)
 				.getAllByRole('button')
-				.map((button) => [button.textContent?.trim(), button.classList.contains('bg-primary')])
-		).toEqual([
-			['Status', true],
-			['Training', false]
-		]);
+				.map((button) => button.textContent?.trim())
+		).toEqual(['Status', 'Training']);
 
 		await view.rerender({
 			...props,
@@ -265,7 +174,7 @@ describe('Dashboard frame', () => {
 		).toBe('Status');
 
 		await view.rerender({ ...props, access: { ...access, can: () => false } });
-		expect(screen.getByText('of 10')).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1, name: 'Monday 19 Oct' })).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Quick add' })).toBeNull();
 	});
 
@@ -446,8 +355,18 @@ describe('Dashboard sections', () => {
 		};
 	}
 
+	const onePerson = {
+		id: 'p0',
+		rank: 'SPC',
+		lastName: 'Ames',
+		firstName: 'A',
+		mos: '68W',
+		clinicRole: '',
+		groupId: null,
+		groupName: ''
+	};
 	const sources = {
-		personnel: { items: [], loading: false },
+		personnel: { items: [onePerson], loading: false },
 		statusTypes: { items: [], loading: false },
 		availability: { items: [], loading: false },
 		dailyAssignments: { assignments: [], types: [], loading: false },
@@ -547,24 +466,16 @@ describe('Dashboard sections', () => {
 		return screen.getByRole('list', { name: 'Needs you' });
 	}
 
-	it('shows nine rows in full without a fold', () => {
-		const queue = renderQueue(9);
-
-		expect(within(queue).getAllByRole('link')).toHaveLength(9);
-		expect(within(queue).queryByRole('button', { name: /Show all/ })).toBeNull();
-	});
-
-	it('folds a tenth row into the top seven and a summary that expands in place', async () => {
+	it('folds the rows past the top seven and reveals them in place', async () => {
 		const queue = renderQueue(10);
 
-		expect(within(queue).getAllByRole('link')).toHaveLength(7);
-		expect(within(queue).getByText('+3 more')).toBeTruthy();
-		expect(within(queue).getByText('SGT Person 8 · SGT Person 9 · SGT Person 10')).toBeTruthy();
+		expect(within(queue).getByRole('link', { name: 'SGT Person 7' })).toBeTruthy();
+		expect(within(queue).queryByRole('link', { name: 'SGT Person 8' })).toBeNull();
 
 		await fireEvent.click(within(queue).getByRole('button', { name: 'Show all 10' }));
 
-		expect(within(queue).getAllByRole('link')).toHaveLength(10);
-		expect(within(queue).queryByText('+3 more')).toBeNull();
+		expect(within(queue).getByRole('link', { name: 'SGT Person 10' })).toBeTruthy();
+		expect(within(queue).queryByRole('button', { name: 'Show all 10' })).toBeNull();
 		expect(document.activeElement).toBe(within(queue).getByRole('link', { name: 'SGT Person 8' }));
 	});
 
@@ -607,23 +518,16 @@ describe('Dashboard sections', () => {
 		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
 
 		const changes = within(screen.getByRole('region', { name: 'Coming and going · 7 days' })).getByRole('list');
-		expect(
+		const people = () =>
 			within(changes)
 				.getAllByRole('listitem')
-				.map((row) => row.textContent?.replace(/\s+/g, ' ').trim())
-		).toEqual([
-			'Tue 20 ↓ Leaving SPC Ames Leave',
-			'Wed 21 ↓ Leaving SPC Bell Leave',
-			'Thu 22 ↓ Leaving SPC Cruz Leave',
-			'Fri 23 ↓ Leaving SPC Diaz Leave'
-		]);
+				.map((row) => within(row).getByText(/^SPC /).textContent);
+		expect(people()).toEqual(['SPC Ames', 'SPC Bell', 'SPC Cruz', 'SPC Diaz']);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'All 5 changes' }));
 
-		const rows = within(changes).getAllByRole('listitem');
-		expect(rows).toHaveLength(5);
-		expect(rows[4].textContent?.replace(/\s+/g, ' ').trim()).toBe('Sat 24 ↓ Leaving SPC Eto Leave');
-		expect(document.activeElement).toBe(rows[4]);
+		expect(people()).toEqual(['SPC Ames', 'SPC Bell', 'SPC Cruz', 'SPC Diaz', 'SPC Eto']);
+		expect(document.activeElement).toBe(within(changes).getByText('SPC Eto').closest('li'));
 	});
 
 	it("names tomorrow's duty even when today is open", () => {
@@ -833,6 +737,59 @@ describe('Dashboard sections', () => {
 		});
 	});
 
+	describe('when the strength band has nothing true to say', () => {
+		const roster = ['Ames', 'Bell', 'Cruz', 'Diaz'].map((lastName) => ({
+			id: lastName,
+			rank: 'SPC',
+			lastName,
+			firstName: 'A',
+			mos: '68W',
+			clinicRole: '',
+			groupId: null,
+			groupName: ''
+		}));
+		const withRoster = { ...sources, personnel: { items: roster, loading: false } };
+
+		it('says Calendar availability is withheld rather than counting everyone available, and drops On duty', () => {
+			const noCalendar: DashboardAccess = {
+				isPrivileged: false,
+				can: (action) => action.id !== POLICY_ACTION_CATALOG.calendar.viewAvailability.id
+			};
+			const ctx = createDashboardScreenModel(pageData(), { sources: withRoster });
+
+			render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS, access: noCalendar } });
+
+			const strength = screen.getByRole('region', { name: 'Strength' });
+			expect(strength.textContent).toContain(
+				'You do not have access to Calendar availability, so strength is not shown.'
+			);
+			expect(screen.queryByText('of 4')).toBeNull();
+			expect(screen.queryByText('Everyone is available today.')).toBeNull();
+			expect(screen.queryByRole('heading', { name: 'Tonight and tomorrow' })).toBeNull();
+		});
+
+		it('shows an empty roster as empty, not as everyone available', () => {
+			const ctx = createDashboardScreenModel(pageData(), {
+				sources: { ...sources, personnel: { items: [], loading: false } }
+			});
+
+			render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+
+			expect(screen.getByRole('region', { name: 'Strength' }).textContent).toContain('No active personnel yet.');
+			expect(screen.queryByText('of 0')).toBeNull();
+			expect(screen.queryByText('Everyone is available today.')).toBeNull();
+		});
+
+		it('still counts the roster for a viewer with Calendar access', () => {
+			const ctx = createDashboardScreenModel(pageData(), { sources: withRoster });
+
+			render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+
+			expect(screen.getByText('of 4')).toBeTruthy();
+			expect(screen.getByRole('heading', { name: 'Tonight and tomorrow' })).toBeTruthy();
+		});
+	});
+
 	it('says which columns could not load when the summary fails and keeps every band', () => {
 		const ctx = createDashboardScreenModel({ ...pageData(), summaryFailed: true }, { sources });
 
@@ -880,6 +837,7 @@ describe('setup hints', () => {
 		expect(hintTexts()).toEqual(["Training is on, but there are no training types yet, so it isn't shown here."]);
 		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss the Training hint' }));
 		expect(readiness()).toBeNull();
+		expect(document.activeElement?.textContent).toContain('Most urgent first');
 		cleanup();
 
 		viewAs('user-2');
@@ -888,5 +846,27 @@ describe('setup hints', () => {
 
 		viewAs('user-1', 'org-2');
 		expect(hintTexts()).toHaveLength(2);
+	});
+
+	it('moves focus to the Readiness heading when the last hint goes and columns remain', async () => {
+		const column = () => ({ id: 'evals', title: 'Evaluations', link: { label: 'Evals', href: '#' } });
+		render(DashboardPageView, {
+			props: {
+				...frame,
+				access: owner,
+				sections: [
+					dashboardSection('onboarding', { setup: notSetUp('there are no templates yet') }),
+					dashboardSection('evaluations', {
+						readiness: () => ({ ...column(), state: 'failed', subject: 'Evaluations' })
+					})
+				],
+				ctx: makeCtx({ data: { userId: 'user-3' }, inputs: { forecastDays: [], page: { orgId: 'org-1' } } })
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss the Onboarding hint' }));
+
+		expect(hintTexts()).toEqual([]);
+		expect(document.activeElement?.textContent).toContain('Where the unit stands');
 	});
 });

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component, Snippet } from 'svelte';
+	import { tick, type Component, type Snippet } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { AttentionActionRowSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Button } from '$lib/components/ui/button';
@@ -15,7 +15,7 @@
 		type QuickAddDialogProps,
 		type QuickAddEntry
 	} from '../sections/dashboardSections';
-	import type { DashboardAccess } from '../sections/dashboardAccess';
+	import { seesCalendar, type DashboardAccess } from '../sections/dashboardAccess';
 	import BottomLine from './BottomLine.svelte';
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
@@ -34,13 +34,11 @@
 		sections: readonly DashboardSection[];
 		access: DashboardAccess;
 		updates: DashboardPageUpdates;
-		/** Replaces the bands when the workspace fails; the header stays. */
-		failure?: Snippet;
 		/** Offered once above the bands when a summary source failed; the bands that do not need it stay. */
 		summaryFailure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, updates, failure, summaryFailure }: Props = $props();
+	let { orgName, viewerDay, ctx, sections, access, updates, summaryFailure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -59,6 +57,23 @@
 	const setupHints = $derived(parts ? hintDismissals.visible(parts.setupHints) : []);
 	// With every optional feature off or not set up, Readiness has nothing to say.
 	const showsReadiness = $derived(!parts || parts.readinessColumns.length > 0 || setupHints.length > 0);
+	const showsOnDuty = $derived(!parts || parts.onDutyBlocks.length > 0);
+	/** Withheld or empty data would read as everyone available, so the band says why it is blank instead. */
+	const strengthNote = $derived(
+		!model
+			? null
+			: !seesCalendar(access)
+				? 'You do not have access to Calendar availability, so strength is not shown.'
+				: model.strength.bottomLine.assigned === 0
+					? 'No active personnel yet. Strength shows here once people are on the roster.'
+					: null
+	);
+
+	// The last hint can take the Readiness band with it when no column is left.
+	async function focusAfterHints() {
+		await tick();
+		(document.getElementById('dashboard-readiness') ?? document.getElementById('dashboard-needs-you'))?.focus();
+	}
 
 	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
 	let latestOpen = 0;
@@ -83,7 +98,7 @@
 	}
 
 	const EYEBROW = 'font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase';
-	const BAND = 'grid gap-14 border-t-2 border-foreground pt-6';
+	const BAND = 'grid grid-cols-[minmax(0,1fr)] border-t-2 border-foreground pt-6';
 	const LEDGER = 'grid gap-x-7 gap-y-9 sm:grid-cols-2 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none lg:gap-0';
 	const LEDGER_COLUMN = 'min-w-0 lg:border-l lg:border-border lg:px-7 lg:first:border-l-0 lg:first:pl-0';
 </script>
@@ -115,18 +130,21 @@
 			/>
 		</div>
 
-		<div class="grid gap-11 px-4 pt-2 pb-12 sm:px-9">
-			{#if failure}
-				{@render failure()}
-			{:else}
-				{#if !model}
-					<p class="sr-only" role="status">Loading Dashboard</p>
-				{:else if columnFailed}
-					{@render summaryFailure?.()}
-				{/if}
+		<div class="@container/dashboard grid gap-11 px-4 pt-2 pb-12 sm:px-9">
+			{#if !model}
+				<p class="sr-only" role="status">Loading Dashboard</p>
+			{:else if columnFailed}
+				{@render summaryFailure?.()}
+			{/if}
 
+			{#if strengthNote}
+				<section class="{BAND} gap-[18px]" aria-label="Strength" data-dashboard-band="strength">
+					<h2 class={EYEBROW}>Bottom line · Today</h2>
+					<p class="text-sm text-muted-foreground">{strengthNote}</p>
+				</section>
+			{:else}
 				<section
-					class="{BAND} lg:grid-cols-[400px_minmax(0,1fr)]"
+					class="{BAND} gap-14 @min-[936px]/dashboard:grid-cols-[400px_minmax(0,1fr)]"
 					aria-label="Strength"
 					aria-busy={!model}
 					data-dashboard-band="strength"
@@ -193,39 +211,37 @@
 						{/if}
 					</div>
 				</section>
+			{/if}
 
-				<section
-					class="{BAND} lg:grid-cols-[minmax(0,1fr)_340px]"
-					aria-label="Action"
-					aria-busy={!model}
-					data-dashboard-band="action"
-				>
-					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
-						<PageShell.SectionHeader
-							size="compact"
-							eyebrow={parts ? `Needs you · ${parts.needsYou.ranked.length}` : 'Needs you'}
-							title="Most urgent first"
-						>
-							{#snippet action()}
-								<p class="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">Act here, or open the page</p>
-							{/snippet}
-						</PageShell.SectionHeader>
-						{#if parts && model}
-							<NeedsYouQueue
-								queue={parts.needsYou}
-								{model}
-								{access}
-								{updates}
-								unavailable={parts.needsYouUnavailable}
-							/>
-						{:else}
-							<div class="grid border-t border-foreground" aria-hidden="true">
-								{#each { length: 5 }, index (index)}
-									<AttentionActionRowSkeleton />
-								{/each}
-							</div>
-						{/if}
-					</div>
+			<section
+				class={[BAND, 'gap-14', showsOnDuty && 'lg:grid-cols-[minmax(0,1fr)_340px]']}
+				aria-label="Action"
+				aria-busy={!model}
+				data-dashboard-band="action"
+			>
+				<div class="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
+					<PageShell.SectionHeader
+						id="dashboard-needs-you"
+						tabindex={-1}
+						size="compact"
+						eyebrow={parts ? `Needs you · ${parts.needsYou.ranked.length}` : 'Needs you'}
+						title="Most urgent first"
+					>
+						{#snippet action()}
+							<p class="font-mono text-[11px] tracking-[0.04em] text-muted-foreground">Act here, or open the page</p>
+						{/snippet}
+					</PageShell.SectionHeader>
+					{#if parts && model}
+						<NeedsYouQueue queue={parts.needsYou} {model} {access} {updates} unavailable={parts.needsYouUnavailable} />
+					{:else}
+						<div class="grid border-t border-foreground" aria-hidden="true">
+							{#each { length: 5 }, index (index)}
+								<AttentionActionRowSkeleton />
+							{/each}
+						</div>
+					{/if}
+				</div>
+				{#if showsOnDuty}
 					<div class="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4">
 						<PageShell.SectionHeader size="compact" eyebrow="On duty" title="Tonight and tomorrow" />
 						{#if model && parts}
@@ -255,41 +271,51 @@
 							</div>
 						{/if}
 					</div>
-				</section>
-
-				{#if showsReadiness}
-					<section class="{BAND} gap-5" aria-label="Readiness" aria-busy={!model} data-dashboard-band="readiness">
-						<PageShell.SectionHeader size="compact" eyebrow="Readiness · as of today" title="Where the unit stands" />
-						{#if parts}
-							{#if parts.readinessColumns.length > 0}
-								<ul class={LEDGER} aria-label="Readiness by feature">
-									{#each parts.readinessColumns as column (column.id)}
-										<li class={LEDGER_COLUMN}><ReadinessColumn {column} /></li>
-									{/each}
-								</ul>
-							{/if}
-							<SetupHints hints={setupHints} onDismiss={(feature) => hintDismissals.dismiss(feature)} />
-						{:else}
-							<div class={LEDGER} aria-hidden="true">
-								{#each { length: 4 }, index (index)}
-									<div class="grid content-start gap-3 {LEDGER_COLUMN}">
-										<Skeleton class="h-3.5 w-28" />
-										<div class="flex items-end gap-2">
-											<Skeleton class="h-[50px] w-24" />
-											<Skeleton class="mb-0.5 h-3 w-14" />
-										</div>
-										<Skeleton class="h-2 w-full" />
-										<div class="grid gap-1.5 py-0.5">
-											<Skeleton class="h-3.5 w-full" />
-											<Skeleton class="h-3.5 w-[70%]" />
-										</div>
-										<Skeleton class="h-3.5 w-24" />
-									</div>
-								{/each}
-							</div>
-						{/if}
-					</section>
 				{/if}
+			</section>
+
+			{#if showsReadiness}
+				<section class="{BAND} gap-5" aria-label="Readiness" aria-busy={!model} data-dashboard-band="readiness">
+					<PageShell.SectionHeader
+						id="dashboard-readiness"
+						tabindex={-1}
+						size="compact"
+						eyebrow="Readiness · as of today"
+						title="Where the unit stands"
+					/>
+					{#if parts}
+						{#if parts.readinessColumns.length > 0}
+							<ul class={LEDGER} aria-label="Readiness by feature">
+								{#each parts.readinessColumns as column (column.id)}
+									<li class={LEDGER_COLUMN}><ReadinessColumn {column} /></li>
+								{/each}
+							</ul>
+						{/if}
+						<SetupHints
+							hints={setupHints}
+							onDismiss={(feature) => hintDismissals.dismiss(feature)}
+							onEmptied={focusAfterHints}
+						/>
+					{:else}
+						<div class={LEDGER} aria-hidden="true">
+							{#each { length: 4 }, index (index)}
+								<div class="grid content-start gap-3 {LEDGER_COLUMN}">
+									<Skeleton class="h-3.5 w-28" />
+									<div class="flex items-end gap-2">
+										<Skeleton class="h-[50px] w-24" />
+										<Skeleton class="mb-0.5 h-3 w-14" />
+									</div>
+									<Skeleton class="h-2 w-full" />
+									<div class="grid gap-1.5 py-0.5">
+										<Skeleton class="h-3.5 w-full" />
+										<Skeleton class="h-3.5 w-[70%]" />
+									</div>
+									<Skeleton class="h-3.5 w-24" />
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</section>
 			{/if}
 		</div>
 	</div>

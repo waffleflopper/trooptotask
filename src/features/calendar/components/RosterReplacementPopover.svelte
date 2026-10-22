@@ -162,7 +162,7 @@
 				planToken++;
 			}
 		} finally {
-			committing = false;
+			if (!dismissed) committing = false;
 		}
 	}
 

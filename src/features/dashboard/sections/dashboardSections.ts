@@ -105,6 +105,8 @@ export interface DashboardSection {
 	id: DashboardSectionId;
 	/** The switch that turns the section off, or null when it is always on. */
 	feature: FeatureKey | null;
+	/** A section whose data the viewer may not read adds nothing, rather than reading empty data as fact. */
+	available?: DashboardPartAvailability;
 	/** A section that is not set up adds nothing; owners and admins see a hint instead. */
 	setup: SetupCheck | null;
 	needsYou: readonly NeedsYouSource[];
@@ -174,10 +176,12 @@ export function composeDashboardSections(
 	disabledFeatures: readonly FeatureKey[],
 	access: DashboardAccess
 ): DashboardSectionParts {
-	const checked = activeDashboardSections(sections, disabledFeatures).map((entry) => ({
-		entry,
-		unset: entry.setup?.isNotSetUp(inputs) ?? false
-	}));
+	const checked = activeDashboardSections(sections, disabledFeatures)
+		.filter((entry) => entry.available?.(inputs, access) ?? true)
+		.map((entry) => ({
+			entry,
+			unset: entry.setup?.isNotSetUp(inputs) ?? false
+		}));
 	const active = checked.flatMap(({ entry, unset }) => (unset ? [] : [entry]));
 	const readiness = active.flatMap((entry) => {
 		const column = entry.readiness?.(inputs, access);

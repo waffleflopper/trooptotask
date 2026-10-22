@@ -7,6 +7,24 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-22-new-dashboard',
+		date: '2026-10-22',
+		title: 'A New Dashboard',
+		items: [
+			'The Dashboard has a new design. It answers three questions as soon as you open it: who is here, what needs you, and what is coming.',
+			'Bottom line shows how many people are available today, who is out and when they are back. The line under it says how many are available tomorrow and who leaves or returns.',
+			'Next to it, a 14-day forecast shows how many people are available each day against the strength floor you set in Settings › Features. Duty days under the floor are amber. The headline sums it up: under the floor today and when you are back above it, the days ahead that dip under it, steady across the two weeks, or the range you stay in and your lowest day.',
+			'Under the forecast, each group shows how many of its people are available, lowest first. A group under the floor is amber.',
+			'Needs you is one list, most urgent first: overdue evaluations, expired training, unfilled duty days, stalled onboarding and people leaving without an award started.',
+			'Most of those rows can be handled right on the Dashboard, and the row clears once you are done. Update status on an evaluation, Record class for several people at once, Fill duty days with suggested people who have gone longest without the duty, or mark an Award started. Check off opens that person’s onboarding packet.',
+			'On duty shows who has each duty tonight and tomorrow, and who leaves or comes back over the next seven days.',
+			'The readiness row along the bottom covers Training, Critical tasks, Evaluations, and Arriving and leaving, each with a link to its page.',
+			'Quick add beside the date lets you add a status, a training record or start onboarding without leaving the Dashboard.',
+			'Features your unit has turned off disappear from the Dashboard. When a feature is on but not set up yet, owners and admins see a short hint with a link to finish setting it up.',
+			'If something looks off or you have an idea for the Dashboard, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-21-unit-settings',
 		date: '2026-10-21',
 		title: 'Unit Settings, Redone',

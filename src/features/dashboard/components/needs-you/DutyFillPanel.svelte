@@ -14,8 +14,10 @@
 		planDutyFill,
 		type DutyFillSlot
 	} from '$features/calendar';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatWeekdayDay, parseDate } from '$lib/utils/dates';
 	import { openCalendarAt } from '../../calendarLink';
 	import { DUTY_FILL_DAYS, type NeedsYouPanelProps } from '../../sections/needsYou';
@@ -68,6 +70,26 @@
 	const canAssign = $derived(history === 'ready' && filled.length > 0 && !saving);
 
 	let swapping = $state<{ slot: DutyFillSlot; anchor: HTMLElement } | null>(null);
+	type DutyPickerComponent = Awaited<ReturnType<typeof loadDutyPicker>>['default'];
+	let picker = $state.raw<
+		{ status: 'loading' } | { status: 'failed' } | { status: 'ready'; DutyPicker: DutyPickerComponent } | null
+	>(null);
+
+	async function loadPicker() {
+		if (picker?.status === 'loading' || picker?.status === 'ready') return;
+		picker = { status: 'loading' };
+		try {
+			const { default: DutyPicker } = await loadDutyPicker();
+			picker = { status: 'ready', DutyPicker };
+		} catch {
+			picker = { status: 'failed' };
+		}
+	}
+
+	function swap(slot: DutyFillSlot, anchor: HTMLElement) {
+		swapping = { slot, anchor };
+		void loadPicker();
+	}
 
 	function choiceName(slot: DutyFillSlot): string {
 		const choice = slot.choice;
@@ -90,9 +112,14 @@
 </script>
 
 <div class="grid gap-3.5 pt-1 pr-4 pb-[18px] pl-4 @2xl/attention-row:pl-[116px]">
-	<ul class="flex flex-wrap gap-1.5" aria-label="Days to fill" aria-busy={history === 'loading'}>
+	<ul
+		class="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-1.5"
+		aria-label="Days to fill"
+		aria-busy={history === 'loading'}
+	>
 		{#each slots as slot (slot.date)}
-			<li class="min-w-[120px] flex-1 basis-0">
+			{@const opening = picker?.status === 'loading' && swapping?.slot.date === slot.date}
+			<li>
 				{#if history === 'loading'}
 					<div class="grid gap-1 rounded-[4px] border border-border bg-background py-2.5 pr-2.5 pl-3">
 						<span class="font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase">
@@ -110,8 +137,9 @@
 						]}
 						disabled={saving || history !== 'ready'}
 						aria-haspopup="dialog"
+						aria-busy={opening}
 						aria-label="{formatWeekdayDay(slot.date)}: {history === 'ready' ? choiceName(slot) : 'not suggested'}, swap"
-						onclick={(event) => (swapping = { slot, anchor: event.currentTarget })}
+						onclick={(event) => swap(slot, event.currentTarget)}
 					>
 						<span class="flex items-center justify-between">
 							<span
@@ -119,9 +147,13 @@
 							>
 								{slot.picked ? 'Selected' : formatWeekdayDay(slot.date)}
 							</span>
-							<ChevronDownIcon class="size-3 text-muted-foreground" aria-hidden="true" />
+							{#if opening}
+								<Spinner class="size-3 text-muted-foreground" aria-label="Opening the duty picker" />
+							{:else}
+								<ChevronDownIcon class="size-3 text-muted-foreground" aria-hidden="true" />
+							{/if}
 						</span>
-						<span class="truncate text-[15px] leading-5 font-semibold text-foreground">
+						<span class="text-[15px] leading-5 font-semibold wrap-break-word text-foreground">
 							{history === 'ready' ? choiceName(slot) : 'Not suggested'}
 						</span>
 						<span class="font-mono text-[11px] leading-[14px] text-muted-foreground">
@@ -134,53 +166,61 @@
 	</ul>
 
 	{#if history === 'failed'}
-		<p role="alert" class="flex flex-wrap items-center gap-2 text-sm text-destructive">
+		<p role="alert" class="flex flex-wrap items-center gap-2 text-sm text-danger-foreground">
 			Duty history did not load, so nobody is suggested yet.
 			<Button variant="link" class="h-auto px-0" onclick={readHistory}>Try again</Button>
 		</p>
 	{/if}
 	{#if failure}
-		<p role="alert" class="text-sm text-destructive">{failure}</p>
+		<p role="alert" class="text-sm text-danger-foreground">{failure}</p>
+	{/if}
+	{#if swapping && picker?.status === 'failed'}
+		<Alert.Root variant="destructive">
+			<Alert.Description>The duty picker did not load, so this day cannot be swapped yet.</Alert.Description>
+			<Alert.Action>
+				<Button type="button" variant="destructive" size="xs" onclick={loadPicker}>Try again</Button>
+			</Alert.Action>
+		</Alert.Root>
 	{/if}
 
-	<div class="flex flex-wrap items-center gap-3">
+	<div class="flex flex-wrap items-center gap-x-3 gap-y-2">
 		<p class="min-w-[200px] flex-1 text-[13px] leading-[18px] text-muted-foreground italic">
 			Suggested: available that day, longest since their last duty. Choose a day to swap.
 		</p>
-		{#if rest.length > 0}
-			<Button
-				variant="link"
-				class="px-1.5"
-				href="/org/{inputs.page.orgId}/calendar/assignments"
-				onclick={() => openCalendarAt(rest[0])}
-			>
-				Open duty planner for {rest.length} more
-			</Button>
-		{/if}
-		<Button variant="ghost" class="px-1.5 text-muted-foreground" onclick={close} disabled={saving}>Cancel</Button>
-		<Button data-needs-you-submit onclick={assignAll} aria-disabled={!canAssign} aria-busy={saving}>
-			{saving ? 'Assigning...' : `Assign all ${filled.length}`}
-		</Button>
+		<div class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+			{#if rest.length > 0}
+				<Button
+					variant="link"
+					class="px-1.5"
+					href="/org/{inputs.page.orgId}/calendar/assignments"
+					onclick={() => openCalendarAt(rest[0])}
+				>
+					Open duty planner for {rest.length} more
+				</Button>
+			{/if}
+			<span class="flex items-center gap-3">
+				<Button variant="ghost" class="px-1.5 text-muted-foreground" onclick={close} disabled={saving}>Cancel</Button>
+				<Button data-needs-you-submit onclick={assignAll} aria-disabled={!canAssign} aria-busy={saving}>
+					{saving ? 'Assigning...' : `Assign all ${filled.length}`}
+				</Button>
+			</span>
+		</div>
 	</div>
 </div>
 
-{#if swapping && type}
+{#if swapping && type && picker?.status === 'ready'}
 	{@const target = swapping}
-	{#await loadDutyPicker() then { default: DutyPicker }}
-		<DutyPicker
-			typeId={type.id}
-			typeName={type.name}
-			assignTo={type.assignTo}
-			date={parseDate(target.slot.date)}
-			anchor={target.anchor}
-			options={target.slot.options}
-			onAssign={async (assigneeId) => {
-				picks.set(target.slot.date, assigneeId);
-				return true;
-			}}
-			onClose={() => (swapping = null)}
-		/>
-	{:catch}
-		<span class="sr-only">Duty picker failed to load.</span>
-	{/await}
+	<picker.DutyPicker
+		typeId={type.id}
+		typeName={type.name}
+		assignTo={type.assignTo}
+		date={parseDate(target.slot.date)}
+		anchor={target.anchor}
+		options={target.slot.options}
+		onAssign={async (assigneeId) => {
+			picks.set(target.slot.date, assigneeId);
+			return true;
+		}}
+		onClose={() => (swapping = null)}
+	/>
 {/if}

@@ -1,4 +1,5 @@
-import { FEATURE_SWITCHES, featureExportNote, type FeatureKey } from '$lib/access/featureSwitches';
+import { featureExportNote, type FeatureKey } from '$lib/access/featureSwitches';
+import { disabledExportAreaKeys } from './exportAreas';
 import {
 	assertOrganizationDataExportManifestIsSafe,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,
@@ -37,12 +38,7 @@ export async function loadOrganizationExportPayload(
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const disabledFeatures = reads.disabledFeatures ?? [];
-	const disabledAreas = new Set(
-		disabledFeatures.flatMap((key) => {
-			const lane = FEATURE_SWITCHES[key].lane;
-			return lane ? [lane.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)] : [];
-		})
-	);
+	const disabledAreas = disabledExportAreaKeys(disabledFeatures);
 	const exportSections = ORGANIZATION_DATA_EXPORT_SECTIONS.filter((section) => !disabledAreas.has(section.areaKey));
 	const entries: Array<readonly [string, Record<string, unknown>[]]> = [];
 	for (const batch of chunkArray(exportSections, ORGANIZATION_EXPORT_QUERY_BATCH_SIZE)) {

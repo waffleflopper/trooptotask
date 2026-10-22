@@ -8,8 +8,7 @@ export function createSupabaseOrganizationUnitCountsPort(
 ): OrganizationUnitCountsPort {
 	return {
 		async countRows({ table, archived }) {
-			let query = getClient()
-				.from(table).select('id', { count: 'exact', head: true }).eq('organization_id', orgId);
+			let query = getClient().from(table).select('id', { count: 'exact', head: true }).eq('organization_id', orgId);
 			if (archived === false) query = query.is('archived_at', null);
 			if (archived === true) query = query.not('archived_at', 'is', null);
 			const { count, error } = await query;

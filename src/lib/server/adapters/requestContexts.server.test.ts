@@ -322,7 +322,7 @@ describe('governance unit counts', () => {
 				return new Response(null, { status: 200, headers: { 'Content-Range': `*/${matching.length}` } });
 			})
 		);
-		getAdminClient.mockImplementationOnce(() => adminClient);
+		getAdminClient.mockImplementationOnce(() => adminClient as never);
 		const supabase = createClient(
 			'http://counts.invalid',
 			'ordinary-request-key',

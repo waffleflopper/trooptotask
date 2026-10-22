@@ -267,7 +267,11 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			title: match.kind === 'many' ? `Which ${reference.label}?` : `Unknown ${reference.label}`,
 			subject: lookup.display,
 			rowCount: 1,
-			accepts: { kind: 'pick', options: reference.options, canCreate: reference.create !== undefined },
+			accepts: {
+				kind: 'pick',
+				options: match.kind === 'many' ? match.candidates : reference.options,
+				canCreate: reference.create !== undefined
+			},
 			answer
 		};
 		questions.set(key, question);

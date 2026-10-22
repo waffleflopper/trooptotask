@@ -25,7 +25,7 @@ function leaving(id: string, action: NeedsYouAction | null): NeedsYouItem {
 
 function show(items: NeedsYouItem[]) {
 	const updates = { refreshSummary: vi.fn(), putRecord: vi.fn() };
-	render(NeedsYouQueue, {
+	const { rerender } = render(NeedsYouQueue, {
 		props: {
 			queue: buildNeedsYouQueue([items]),
 			model: {} as DashboardScreenModel,
@@ -33,7 +33,7 @@ function show(items: NeedsYouItem[]) {
 			updates
 		}
 	});
-	return { updates };
+	return { updates, rerender };
 }
 
 function deferred() {
@@ -49,24 +49,43 @@ function deferred() {
 afterEach(cleanup);
 
 describe('NeedsYouQueue actions', () => {
-	it('saves from the row, disables the action meanwhile, and keeps a failed row with its message', async () => {
+	it('saves from the row, marks the action busy meanwhile, and keeps a failed row with its message', async () => {
 		const first = deferred();
 		const run = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValueOnce(undefined);
 		const { updates } = show([leaving('p-patel', { label: 'Award started', policy, mode: 'run', run })]);
 		const button = screen.getByRole('button', { name: 'Award started' }) as HTMLButtonElement;
 
+		button.focus();
 		await fireEvent.click(button);
-		expect(button.disabled).toBe(true);
+		await fireEvent.click(button);
+		expect(button.getAttribute('aria-disabled')).toBe('true');
+		expect(run).toHaveBeenCalledTimes(1);
 		expect(run).toHaveBeenCalledWith(updates);
 		first.reject(new Error('You cannot manage this person'));
 
 		expect((await screen.findByRole('alert')).textContent).toBe('You cannot manage this person');
 		expect(screen.getByRole('link', { name: 'Row p-patel' })).toBeTruthy();
-		expect(button.disabled).toBe(false);
+		expect(button.getAttribute('aria-disabled')).toBe('false');
+		expect(document.activeElement).toBe(button);
 
 		await fireEvent.click(button);
 		await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
 		expect(run).toHaveBeenCalledTimes(2);
+	});
+
+	it('moves focus to the row now in its place when a saved row leaves', async () => {
+		const next = leaving('p-kim', null);
+		const harness: { rerender?: ReturnType<typeof show>['rerender'] } = {};
+		const run = vi.fn(async () => {
+			await harness.rerender?.({ queue: buildNeedsYouQueue([[next]]) });
+		});
+		harness.rerender = show([leaving('p-patel', { label: 'Award started', policy, mode: 'run', run }), next]).rerender;
+		const button = screen.getByRole('button', { name: 'Award started' });
+
+		button.focus();
+		await fireEvent.click(button);
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Row p-kim' })));
 	});
 
 	it('shows a panel that failed to open as a message in the row', async () => {
@@ -94,8 +113,11 @@ describe('NeedsYouQueue actions', () => {
 		expect(await screen.findByText('Panel says: Assignment type is archived')).toBeTruthy();
 		expect(screen.queryByRole('alert')).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+		const close = screen.getByRole('button', { name: 'Close panel' });
+		close.focus();
+		await fireEvent.click(close);
 		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		await waitFor(() => expect(document.activeElement).toBe(toggle));
 		expect(screen.getByRole('alert').textContent).toBe('Assignment type is archived');
 	});
 

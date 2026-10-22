@@ -25,6 +25,7 @@
 
 	let showAll = $state(false);
 	let list = $state<HTMLUListElement>();
+	let empty = $state<HTMLParagraphElement>();
 
 	const rows = $derived(showAll ? queue.ranked : queue.rows);
 
@@ -39,11 +40,27 @@
 		return actions.get(id) ?? IDLE_ACTION;
 	}
 
-	function send(id: string, event: NeedsYouActionEvent<NeedsYouPanel>) {
+	function send(id: string, event: NeedsYouActionEvent<NeedsYouPanel>, index = rows.findIndex((row) => row.id === id)) {
 		if (disposed) return;
-		const next = nextActionState(stateOf(id), event);
+		const previous = stateOf(id);
+		const next = nextActionState(previous, event);
 		if (next.status === 'idle') actions.delete(id);
 		else actions.set(id, next);
+		if (event.type === 'saved' || (panelOf(previous) && !panelOf(next))) void keepFocus(id, index);
+	}
+
+	function panelOf(state: NeedsYouActionState<NeedsYouPanel>): NeedsYouPanel | null {
+		return 'panel' in state ? state.panel : null;
+	}
+
+	const actionId = (id: string) => `needs-you-action-${id}`;
+
+	// A closed panel or a row that left takes focus with it: return it to the action, or to the row now in its place.
+	async function keepFocus(id: string, index: number) {
+		await tick();
+		if (disposed || (document.activeElement && document.activeElement !== document.body)) return;
+		const next = list?.children[Math.min(index, list.children.length - 1)];
+		(document.getElementById(actionId(id)) ?? next?.querySelector<HTMLElement>('a, button') ?? empty)?.focus();
 	}
 
 	function messageOf(error: unknown, fallback: string): string {
@@ -61,10 +78,11 @@
 
 	async function save(id: string, label: string, command: () => Promise<void>): Promise<void> {
 		if (stateOf(id).status === 'saving') return;
+		const index = rows.findIndex((row) => row.id === id);
 		send(id, { type: 'save' });
 		try {
 			await command();
-			send(id, { type: 'saved' });
+			send(id, { type: 'saved' }, index);
 		} catch (error) {
 			const message = messageOf(error, `${label} was not saved`);
 			send(id, { type: 'failed', message });
@@ -82,14 +100,16 @@
 </script>
 
 {#if queue.ranked.length === 0}
-	<p class="border-t border-foreground py-4 text-sm text-muted-foreground">Nothing needs you right now.</p>
+	<p bind:this={empty} tabindex="-1" class="border-t border-foreground py-4 text-sm text-muted-foreground outline-none">
+		Nothing needs you right now.
+	</p>
 {:else}
 	<ul bind:this={list} class="border-t border-foreground" aria-label="Needs you">
 		{#each rows as item (item.id)}
 			{@const kind = needsYouKindInfo(item.kind)}
 			{@const act = item.action}
 			{@const state = stateOf(item.id)}
-			{@const panel = 'panel' in state ? state.panel : null}
+			{@const panel = panelOf(state)}
 			{@const busy = state.status === 'opening' || state.status === 'saving'}
 			{@const panelId = `needs-you-panel-${item.id}`}
 			{#snippet actionCell()}
@@ -97,8 +117,9 @@
 					<Button variant="outline" href={act.href}>{act.label}</Button>
 				{:else if act?.mode === 'run'}
 					<Button
+						id={actionId(item.id)}
 						variant="outline"
-						disabled={busy}
+						aria-disabled={busy}
 						aria-busy={busy}
 						onclick={() => save(item.id, act.label, () => act.run(updates)).catch(() => {})}
 					>
@@ -106,13 +127,14 @@
 					</Button>
 				{:else if act}
 					<Button
+						id={actionId(item.id)}
 						variant="outline"
-						disabled={busy}
+						aria-disabled={busy}
 						aria-busy={busy}
 						aria-haspopup={act.mode === 'dialog' ? 'dialog' : undefined}
 						aria-expanded={act.mode === 'expand' ? panel !== null : undefined}
 						aria-controls={act.mode === 'expand' && panel ? panelId : undefined}
-						onclick={() => (panel ? send(item.id, { type: 'close' }) : open(item.id, act))}
+						onclick={() => (busy ? undefined : panel ? send(item.id, { type: 'close' }) : open(item.id, act))}
 					>
 						{act.label}
 					</Button>

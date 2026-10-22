@@ -35,6 +35,7 @@ function makeData(
 				range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' },
 				pinnedGroups: [],
 				activeOnboardings: [],
+				hasAnyOnboardingTemplate: true,
 				ratingSchemeEntries: [],
 				personnel: [],
 				groups: [],
@@ -610,7 +611,7 @@ describe('Dashboard losses', () => {
 			})
 		});
 
-		expect(arrivingAndLeavingReadiness(model.inputs, { can: () => false })).toMatchObject({
+		expect(arrivingAndLeavingReadiness(model.inputs, { can: () => false, isPrivileged: false })).toMatchObject({
 			figure: '1',
 			note: 'Smith ETS 1 Jun.'
 		});

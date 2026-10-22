@@ -12,6 +12,7 @@ import { dashboardSection, type DashboardAccess, type QuickAddEntry } from '../s
 import { DASHBOARD_SECTIONS } from '../sections/dashboardSectionRegistry';
 import { buildStrengthBand } from '../read-model/strengthBand';
 import type { Personnel } from '$features/personnel/contracts';
+import type { TrainingType } from '$features/training/contracts';
 
 afterEach(() => {
 	cleanup();
@@ -19,7 +20,8 @@ afterEach(() => {
 });
 
 const access: DashboardAccess = {
-	can: () => true
+	can: () => true,
+	isPrivileged: false
 };
 const updates = { refreshSummary: () => {}, putRecord: () => {} };
 const frame = {
@@ -408,11 +410,20 @@ describe('Dashboard sections', () => {
 					range: { rangeStart: '2026-10-17', rangeEnd: '2026-11-03' },
 					pinnedGroups: [],
 					activeOnboardings: [],
-					ratingSchemeEntries: [],
+					hasAnyOnboardingTemplate: true,
+					ratingSchemeEntries: [
+						{
+							id: 'entry-1',
+							ratedPersonId: 'p-1',
+							evalType: 'NCOER',
+							ratingPeriodEnd: '2027-06-30',
+							status: 'completed'
+						}
+					],
 					personnel: [],
 					groups: [],
 					statusTypes: [],
-					trainingTypes: [],
+					trainingTypes: [{ id: 'training-1', name: 'SHARP' } as TrainingType],
 					lossWarningWindowDays: 180,
 					strengthFloorPercent: 80,
 					awardTrackingAcknowledgedPersonnelIds: [],
@@ -791,9 +802,7 @@ describe('Dashboard sections', () => {
 			render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS, summaryFailure } });
 
 			expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
-			expect(
-				screen.getByText('Needs you is incomplete. Training and Critical tasks items could not load.')
-			).toBeTruthy();
+			expect(screen.getByText('Needs you is incomplete. Training items could not load.')).toBeTruthy();
 			expect(screen.getAllByRole('button', { name: 'Retry Dashboard' })).toHaveLength(1);
 			expect(readinessTitles()).toEqual(['Training', 'Critical tasks', 'Evaluations', 'Arriving and leaving']);
 		});
@@ -801,6 +810,7 @@ describe('Dashboard sections', () => {
 		it('keeps the empty state and offers no Retry when the actor reads neither summary source', () => {
 			const ctx = createDashboardScreenModel({ ...pageData(), summaryFailed: true }, { sources: withPerson });
 			const noSummaryAccess: DashboardAccess = {
+				isPrivileged: false,
 				can: (action) =>
 					action.id !== POLICY_ACTION_CATALOG.training.viewRecords.id &&
 					action.id !== POLICY_ACTION_CATALOG.criticalTasks.viewReadiness.id

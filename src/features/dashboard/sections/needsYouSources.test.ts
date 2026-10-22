@@ -131,6 +131,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 					range,
 					pinnedGroups: [],
 					activeOnboardings: loaded.activeOnboardings ?? [],
+					hasAnyOnboardingTemplate: true,
 					ratingSchemeEntries: loaded.ratingSchemeEntries ?? [],
 					personnel: [...loaded.personnel],
 					groups: [],

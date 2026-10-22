@@ -43,6 +43,7 @@ function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 		range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' },
 		pinnedGroups: [],
 		activeOnboardings: [],
+		hasAnyOnboardingTemplate: true,
 		ratingSchemeEntries: [],
 		personnel: [],
 		groups: [],

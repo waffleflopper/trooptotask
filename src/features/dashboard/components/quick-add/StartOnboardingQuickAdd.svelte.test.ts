@@ -47,7 +47,7 @@ function openStart() {
 	const view = render(StartOnboardingQuickAdd, {
 		props: {
 			model,
-			access: { can: () => true },
+			access: { can: () => true, isPrivileged: false },
 			onClose: vi.fn(),
 			updates: {
 				putRecord: (orgId, change) => {

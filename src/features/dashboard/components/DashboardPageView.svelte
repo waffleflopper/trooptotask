@@ -21,6 +21,7 @@
 	import GroupStrength from './GroupStrength.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
 	import ReadinessColumn from './ReadinessColumn.svelte';
+	import SetupHints from './SetupHints.svelte';
 	import StrengthForecast from './StrengthForecast.svelte';
 
 	interface Props {
@@ -49,9 +50,7 @@
 		model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures, access) : null
 	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
-	const failedFeatures = $derived(
-		parts?.readinessColumns.filter((column) => column.state === 'failed').map((column) => column.title) ?? []
-	);
+	const columnFailed = $derived(parts?.readinessColumns.some((column) => column.state === 'failed') ?? false);
 
 	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
 	let latestOpen = 0;
@@ -114,7 +113,7 @@
 			{:else}
 				{#if !model}
 					<p class="sr-only" role="status">Loading Dashboard</p>
-				{:else if failedFeatures.length > 0}
+				{:else if columnFailed}
 					{@render summaryFailure?.()}
 				{/if}
 
@@ -204,7 +203,7 @@
 							{/snippet}
 						</PageShell.SectionHeader>
 						{#if parts}
-							<NeedsYouQueue queue={parts.needsYou} unavailable={failedFeatures} />
+							<NeedsYouQueue queue={parts.needsYou} unavailable={parts.needsYouUnavailable} />
 						{:else}
 							<div class="grid border-t border-foreground" aria-hidden="true">
 								{#each { length: 5 }, index (index)}
@@ -253,6 +252,9 @@
 									<li class={LEDGER_COLUMN}><ReadinessColumn {column} /></li>
 								{/each}
 							</ul>
+						{/if}
+						{#if model && parts.setupHints.length > 0}
+							<SetupHints hints={parts.setupHints} orgId={model.data.orgId} userId={model.data.userId ?? ''} />
 						{/if}
 					{:else}
 						<div class={LEDGER} aria-hidden="true">

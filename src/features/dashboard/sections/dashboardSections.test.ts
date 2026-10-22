@@ -68,6 +68,7 @@ const inputs: DashboardInputs = {
 				range: { rangeStart: '2026-10-17', rangeEnd: '2026-11-03' },
 				pinnedGroups: [],
 				activeOnboardings: [],
+				hasAnyOnboardingTemplate: true,
 				ratingSchemeEntries: [],
 				personnel: [],
 				groups: [],
@@ -108,6 +109,7 @@ const inputs: DashboardInputs = {
 };
 
 const access: DashboardAccess = {
+	isPrivileged: false,
 	can: (action) => action.id === 'calendar.manageAvailability' || action.id === 'onboarding.manageWorkflows'
 };
 const component: DashboardBlock['component'] = () => ({});

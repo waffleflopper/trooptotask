@@ -20,6 +20,54 @@ from unittest.mock import patch
 import database
 
 
+class StartupDiagnosticsTests(unittest.TestCase):
+    def test_filters_errors_and_redacts_credentials(self):
+        output = '''Starting containers
+API key: hidden-success-output
+ToOmAnYrEqUeStS: registry rate limit
+TIMEOUT pulling registry.invalid/db
+permission DENIED
+Error: API_KEY=synthetic-api-key
+error: {"token": "synthetic token with spaces"}
+error: JWT_SECRET='synthetic jwt secret'
+error: password: synthetic-password
+error connecting to postgres://postgres:synthetic-password@localhost/db
+error: authorization: Bearer synthetic-bearer-token
+error: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmaXh0dXJlIn0.c3ludGhldGlj
+error: sb_secret_synthetic123
+'''
+        self.assertEqual(database.startup_diagnostics(output), '''ToOmAnYrEqUeStS: registry rate limit
+TIMEOUT pulling registry.invalid/db
+permission DENIED
+Error: API_KEY=[REDACTED]
+error: {"token": [REDACTED]
+error: JWT_SECRET=[REDACTED]
+error: password: [REDACTED]
+error connecting to postgres://[REDACTED]@localhost/db
+error: authorization: [REDACTED]
+error: [REDACTED]
+error: [REDACTED]''')
+
+    def test_failed_supabase_start_prints_only_sanitized_diagnostics(self):
+        output = io.StringIO()
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / 'supabase'
+            executable.write_text(f'''#!{sys.executable}
+import sys
+print('API key: hidden-success-output')
+print('error: token=synthetic-token', file=sys.stderr)
+sys.exit(7)
+''')
+            executable.chmod(0o700)
+            with contextlib.redirect_stdout(output), self.assertRaises(subprocess.CalledProcessError) as error:
+                database.run(['supabase', 'start'], Path(directory), quiet=True,
+                             environment={'PATH': directory})
+        self.assertEqual(error.exception.returncode, 7)
+        self.assertIn('error: token=[REDACTED]', output.getvalue().splitlines())
+        self.assertNotIn('synthetic-token', output.getvalue())
+        self.assertNotIn('hidden-success-output', output.getvalue())
+
+
 class DatabaseCancellationTests(unittest.TestCase):
     def test_signal_during_launch_is_consumed_before_standalone_validation_continues(self):
         program = '''import os, pathlib, signal, subprocess, sys, tempfile

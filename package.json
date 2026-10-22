@@ -18,6 +18,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:docs": "node scripts/ci/changes.mjs --documents",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"gate": "npm run format:check && npm run lint && npm run governance:check && npm run check && npm run test",
 		"governance:check": "node ./scripts/check-governance.mjs",

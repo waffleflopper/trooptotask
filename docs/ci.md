@@ -6,9 +6,9 @@ CI runs on GitHub-hosted `ubuntu-24.04` runners until Depot CI minutes reset; se
 
 [The workflow](../.github/workflows/ci.yml) runs on PRs that target `main` or a `feat/**` integration branch and carry the `run-ci` label, and on manual dispatch. Merging to `main` starts no run. New PR updates cancel superseded runs. CI never deploys or touches a remote database.
 
-Without the label every job reports skipped. Add `run-ci` once hosted review of the current head has no actionable findings; CI then runs on every later push. Before pushing another round of review fixes, remove the label and add it again after that round's review is clean. Adding any other label skips every job and cannot cancel a running check.
+Without the label every job reports skipped. Add `run-ci` once hosted review of the current head has no actionable findings. The run clears the label automatically, so later pushes wait for another deliberate re-add after review is clean. Adding any other label skips every job and cannot cancel a running check.
 
-A PR's run tests its merge with `main` as of that run. When an exact `main` commit needs CI evidence, run `gh workflow run ci.yml --ref main`, which validates everything. To rerun a PR against a newer `main`, remove and re-add `run-ci`; a job rerun reuses the old merge ref.
+A PR's run tests its merge with `main` as of that run. When an exact `main` commit needs CI evidence, run `gh workflow run ci.yml --ref main`, which validates everything. To rerun a PR against a newer `main`, re-add `run-ci`; a job rerun reuses the old merge ref.
 
 | Job                        | Scope                                                                                                                                                                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,7 +18,9 @@ A PR's run tests its merge with `main` as of that run. When an exact `main` comm
 
 Only Markdown under `docs/` and the root `README.md`, `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` skip application validation. Unknown paths run it. GitHub runners are about 2.5 times slower than Depot's, so keep timeouts generous rather than retrying.
 
-`scripts/ci/database.py` creates a uniquely named disposable project outside the checkout with seeds disabled and unused ports, and removes exactly that project afterwards. It never reuses a local project or reads production credentials. It suppresses `supabase start` output because it can contain credentials, so a failed start shows only "Command failed". It keeps the `SUPABASE_INTERNAL_IMAGE_REGISTRY` (GHCR) that the setup-cli action sets, because ECR Public rate-limits GitHub runners.
+Run `npm run check:docs -- --base feat/branch` to check documentation against a local integration branch. CI keeps using the PR event's base SHA.
+
+`scripts/ci/database.py` creates a uniquely named disposable project outside the checkout with seeds disabled and unused ports, and removes exactly that project afterwards. It never reuses a local project or reads production credentials. It suppresses full `supabase start` output because it can contain credentials. A failed start prints only lines matching `error`, `toomanyrequests`, `timeout` or `denied`, with credentials redacted. It keeps the `SUPABASE_INTERNAL_IMAGE_REGISTRY` (GHCR) that the setup-cli action sets, because ECR Public rate-limits GitHub runners.
 
 The repository job rejects migration versions that are not 14-digit timestamps, duplicate versions and missing migration references in `scripts/ci/database.py`. Run `python3 scripts/ci/migrations.py --base origin/main` locally; PR runs use the base SHA from `GITHUB_EVENT_PATH` and reject added migrations that sort at or before that base's newest version, with instructions to rename the file and update runner references.
 
@@ -36,4 +38,4 @@ The `ignoreCommand` in `vercel.json` is also the project's hosted **Ignored Buil
 
 ## Switching back to Depot
 
-Depot registers its triggers from `.depot/workflows/ci.yml` on the default branch, and the Depot Code Access connection must be active. When Depot minutes reset, move (do not copy) the workflow back to `.depot/workflows/ci.yml` and set all three jobs to `runs-on: depot-ubuntu-24.04`, so the two services never validate the same PR. Before merging, run the exact candidate with `depot ci run --workflow .depot/workflows/ci.yml` and record the run URL and job results; after merging, confirm the automatic trigger.
+Depot registers its triggers from `.depot/workflows/ci.yml` on the default branch, and the Depot Code Access connection must be active. When Depot minutes reset, move (do not copy) the workflow back to `.depot/workflows/ci.yml` and set every job to `runs-on: depot-ubuntu-24.04`, so the two services never validate the same PR. Before merging, run the exact candidate with `depot ci run --workflow .depot/workflows/ci.yml` and record the run URL and job results; after merging, confirm the automatic trigger.

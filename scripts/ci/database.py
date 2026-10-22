@@ -533,6 +533,24 @@ def local_docker_environment(workdir):
     return environment
 
 
+def startup_diagnostics(output):
+    lines = []
+    for line in output.splitlines():
+        if not re.search(r'error|toomanyrequests|timeout|denied', line, re.IGNORECASE):
+            continue
+        line = re.sub(r'(://)[^/\s@]+@', r'\1[REDACTED]@', line)
+        line = re.sub(
+            r'\b(?:eyJ[\w-]*\.[\w-]+\.[\w-]+|sb_(?:secret|publishable)_[\w-]+|sbp_\w+|'
+            r'gh[pousr]_\w+|github_pat_\w+|sk-[\w-]+)\b', '[REDACTED]', line)
+        line = re.sub(r'\b(?:Bearer|Basic)\s+\S+', '[REDACTED]', line, flags=re.IGNORECASE)
+        # Opaque or quoted credentials can contain spaces. Suppress the whole value suffix.
+        line = re.sub(
+            r'''(\b(?:[\w-]*(?:key|token|jwt|password|secret)[\w-]*|authorization)\b["']?'''
+            r'(?:\s*[:=]\s*|\s+)).*', r'\1[REDACTED]', line, flags=re.IGNORECASE)
+        lines.append(line)
+    return '\n'.join(lines)
+
+
 def run(command, workdir, *, quiet=False, check=True, environment=None, input_text=None):
     global _spawning, _deferred_signal
     print("+ " + " ".join(command), flush=True)
@@ -574,8 +592,11 @@ def run(command, workdir, *, quiet=False, check=True, environment=None, input_te
             _receipt.save()
     result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
     if quiet and check and result.returncode:
-        # Supabase startup prints generated credentials. Never publish that output.
         print("Command failed; credential-bearing startup output was suppressed.", flush=True)
+        if command[:2] == ['supabase', 'start']:
+            diagnostics = startup_diagnostics(result.stdout)
+            if diagnostics:
+                print(diagnostics, flush=True)
     if check and result.returncode:
         raise subprocess.CalledProcessError(result.returncode, command)
     return result

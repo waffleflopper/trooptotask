@@ -59,9 +59,9 @@ captures under the owning evidence contract before they exceed review limits.
 ## Confirm the finish
 
 PR CI waits for the `run-ci` label described in [CI](../../../docs/ci.md#what-runs).
-Add it once hosted review of the current head has no actionable findings. Remove it
-before pushing a later round of review fixes and add it again when that round is
-clean. Do not add it to start CI while review is still pending.
+Add it once hosted review of the current head has no actionable findings. The run
+clears the label automatically. Re-add it when the next review round is clean.
+Do not add it to start CI while review is still pending.
 
 Observe required CI for the current head commit and wait for requested reviews to
 finish. A lack of comments while review is pending is not a completed review. Use

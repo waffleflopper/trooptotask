@@ -485,6 +485,11 @@
 		white-space: nowrap;
 	}
 
+	/* A 31-day month at the screen's 36 px would not fit the page. */
+	[data-print-report='da6'] thead tr > th:nth-child(n + 3) {
+		width: auto;
+	}
+
 	[data-print-report='da6'] footer {
 		padding: 4px 8px;
 	}

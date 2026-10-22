@@ -41,9 +41,10 @@ export function rulePicks({ size, days, dutyDay, away, otherDuty }) {
 	});
 }
 
-export async function seedDa6({ client, fixture, tag, ownedState, save }) {
+export async function seedDa6({ client, fixture, tag, ownedState, save, month }) {
 	if (ownedState.seeded.some((item) => item.kind === 'da6'))
 		throw new Error('Clean the existing da6 seed before preparing another roster.');
+	if (month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('Use seed da6 [YYYY-MM].');
 	const { ids } = fixture;
 	// Forms open on the UTC day, so the seeded duty starts there.
 	const today = new Date().toISOString().slice(0, 10);
@@ -72,19 +73,21 @@ export async function seedDa6({ client, fixture, tag, ownedState, save }) {
 	});
 	const staffDuty = type('Staff Duty', 'SD', 20);
 	const chargeOfQuarters = type('Charge of Quarters', 'CQ', 21);
-	const away = (slot, day) => slot === LEAVE.person && day >= LEAVE.from && day <= LEAVE.through;
+	// With a month (YYYY-MM within 120 days), Staff Duty alone has a detail every day of it: the widest grid DA 6 prints.
+	const days = month ? 120 : DAYS;
+	const away = (slot, day) => !month && slot === LEAVE.person && day >= LEAVE.from && day <= LEAVE.through;
 	const cqPicks = rulePicks({
 		size: people.length,
-		days: DAYS,
-		dutyDay: (day) => CQ_DAYS.includes(day),
+		days,
+		dutyDay: (day) => !month && CQ_DAYS.includes(day),
 		away,
 		otherDuty: () => false
 	});
 	// CQ is picked first each day, so its detail is other duty for Staff Duty.
 	const sdPicks = rulePicks({
 		size: people.length,
-		days: DAYS,
-		dutyDay: () => true,
+		days,
+		dutyDay: (day) => !month || addDays(today, day).startsWith(month),
 		away,
 		otherDuty: (slot, day) => cqPicks[day] === slot
 	});
@@ -119,8 +122,8 @@ export async function seedDa6({ client, fixture, tag, ownedState, save }) {
 		['personnel', personnel],
 		['assignment_types', [staffDuty, chargeOfQuarters]],
 		['daily_assignments', assignments],
-		['availability_entries', [leave]]
-	];
+		['availability_entries', month ? [] : [leave]]
+	].filter(([, rows]) => rows.length);
 	for (const [table, rows] of batches)
 		ownedState.seeded.push({ kind: 'da6', table, organization: 'orgA', tag, ids: rows.map(({ id }) => id) });
 	await save(ownedState);
@@ -134,9 +137,11 @@ export async function seedDa6({ client, fixture, tag, ownedState, save }) {
 		staffDuty: staffDuty.id,
 		chargeOfQuarters: chargeOfQuarters.id,
 		people: Object.fromEntries(personnel.map(({ id, last_name }) => [last_name, id])),
-		staffDutyDays: sdPicks.map((slot, day) => `${addDays(today, day)} ${people[slot][1]}`),
-		chargeOfQuartersDays: CQ_DAYS.map((day) => `${addDays(today, day)} ${people[cqPicks[day]][1]}`),
-		leave: `Okafor ${leave.start_date} through ${leave.end_date}`,
+		staffDutyDays: sdPicks.flatMap((slot, day) => (slot === null ? [] : [`${addDays(today, day)} ${people[slot][1]}`])),
+		chargeOfQuartersDays: cqPicks.flatMap((slot, day) =>
+			slot === null ? [] : [`${addDays(today, day)} ${people[slot][1]}`]
+		),
+		leave: month ? 'none' : `Okafor ${leave.start_date} through ${leave.end_date}`,
 		boundary:
 			'Journaled source setup only in the toolkit-owned disposable provider. Forms open through the type trigger.'
 	};

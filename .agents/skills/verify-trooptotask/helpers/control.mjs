@@ -1852,7 +1852,7 @@ async function main() {
 			return;
 		}
 		if (kind === 'da6') {
-			note(await seedDa6({ client, fixture, tag, ownedState, save }));
+			note(await seedDa6({ client, fixture, tag, ownedState, save, month: args[1] }));
 			return;
 		}
 		if (kind === 'availability-volume') {

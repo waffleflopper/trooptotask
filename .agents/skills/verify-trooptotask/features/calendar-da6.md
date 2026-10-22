@@ -35,7 +35,8 @@ Brooks, PFC Ortiz, PV2 Diaz) and two person-assigned types matching MOS `92Y`, `
 `Charge of Quarters` (`CQ`). Their forms open on the UTC day the seed runs (call it d0). Staff Duty has an assignment
 every day d0–d20, Charge of Quarters on d1, d5, d9 and d14, both picked by the DA 6 rule, and Okafor has
 `Verification Leave` on d8–d9. The seed returns both type IDs, the people's IDs and the dated picks. `clean-seeds`
-removes it.
+removes it. `$V seed da6 YYYY-MM` (a month within 120 days) instead gives Staff Duty a detail on every day of that
+month and seeds no CQ or leave, for the widest grid: open the month's DA 6 and print it.
 
 The DA 6 data read lists assignment types, so `$V server-source arm assignment_types hold|fail-hard 1` reaches it on a
 client navigation (month change). On a full page load the Calendar layout reads assignment types first and the layout's

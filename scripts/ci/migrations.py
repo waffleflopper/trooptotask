@@ -26,9 +26,9 @@ def check(repository, base):
     versions = {}
     valid = []
     for name in files:
-        match = re.fullmatch(r'([0-9]+)_.+\.sql', name)
+        match = re.fullmatch(r'([0-9]{14})_.+\.sql', name)
         if not match:
-            errors.append(f'{name}: use a migration filename <version>_<name>.sql with a digits-only version.')
+            errors.append(f'{name}: use a migration filename <version>_<name>.sql with a 14-digit UTC timestamp version.')
             continue
         version = match[1]
         valid.append((version, name))
@@ -46,7 +46,7 @@ def check(repository, base):
 
     base_files = migration_names(repository, base)
     base_versions = [Path(name).name.split('_', 1)[0] for name in base_files
-                     if re.fullmatch(r'[0-9]+_.+\.sql', Path(name).name)]
+                     if re.fullmatch(r'[0-9]{14}_.+\.sql', Path(name).name)]
     if base_versions:
         newest = max(base_versions)
         ancestor = git(repository, 'merge-base', 'HEAD', base)

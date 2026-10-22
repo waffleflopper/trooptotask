@@ -56,6 +56,13 @@ class MigrationTests(unittest.TestCase):
         self.assertIn('20261020000100_initial.sql', errors)
         self.assertIn('no_version.sql: use a migration filename', errors)
 
+    def test_rejects_versions_that_are_not_fourteen_digits(self):
+        self.add('202610200001000_long.sql')
+        self.add('2026102000010_short.sql')
+        errors = '\n'.join(migrations.check(self.root, self.base))
+        self.assertIn('202610200001000_long.sql: use a migration filename', errors)
+        self.assertIn('2026102000010_short.sql: use a migration filename', errors)
+
     def test_rejects_older_and_equal_additions_but_allows_edits_to_existing_migration(self):
         self.add('20261019000100_older.sql')
         self.add('20261020000100_equal.sql')

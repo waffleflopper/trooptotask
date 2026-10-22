@@ -41,9 +41,6 @@ controls. Calendar's `Display` menu contains Show Status Text and Show Personnel
 onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the
 sidebar's Switch organization and Account menus for scope/session changes.
 
-The Dashboard uses per-feature setup hints. The old Getting Started checklist, its screen-model actions and its support
-endpoint are removed. Historical progress rows remain available in Organization exports.
-
 ## Helper controls
 
 Shell and preference verification uses the [shell/preference recipe](shell-preferences.md). `preferences ROLE orgA|orgB`
@@ -56,8 +53,8 @@ control. These browser controls establish client scheduling/recovery and do not 
 `server-source arm user_org_preferences|getting_started_progress fail-hard` separately injects one synthetic
 provider-read 500 in the owned app process. Use `user_org_preferences` for first-paint fallback and strict save/read
 failure proof, and `getting_started_progress` for Organization export failure proof. Restore the control before retry.
-Run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method, query,
-origin, tenant and response-order isolation.
+Run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs` for method, query, origin, tenant
+and response-order isolation.
 
 ## Driving it with verify:app
 
@@ -110,17 +107,15 @@ distinct from ordinary UI or authorization proof.
    exact A GET parts; they do not prove provider-source failure or first-paint server timing.
 7. As `trainingForeign`, use read-only authenticated fetch on the signed-in owned page to request A shell chrome, and
    separately submit an ordinary A preference PATCH with an explicit harmless filter. Require denied 403/404 and
-   unchanged A/B user rows. Keep direct HTTP actions distinct from native interaction. The retired Dashboard Getting
-   Started endpoint has no remaining reads or dismissal writes. Stored progress remains available in Organization
-   exports.
+   unchanged A/B user rows. Keep direct HTTP actions distinct from native interaction.
 
 8. For server-read failure, arm `$V server-source arm user_org_preferences fail-hard` before an ordinary reload. The
    shell must remain usable with display defaults, while actual saved preferences stay unchanged. Restore and reload to
    recover saved choices. Separately arm the same control on the already-loaded Training page, then change a visible
    filter: the preference PATCH must fail when its merge read fails, with visible feedback and unchanged saved fields.
-   Restore and explicitly retry. `getting_started_progress` remains an allowed source for Organization export
-   failure proof. These controls return one marked synthetic provider 500 before dispatch; they establish application
-   handling of that response, not a production outage or database-policy failure.
+   Restore and explicitly retry. `getting_started_progress` is also an allowed source for Organization export failure
+   proof. These controls return one marked synthetic provider 500 before dispatch; they establish application handling
+   of that response, not a production outage or database-policy failure.
 
 9. Separately labeled ordinary HTTP/provider concurrency proof: arm `$V server-source arm user_org_preferences hold` on
    a signed-in owned page, start one preference PATCH and wait for source state `phase: held` with real GET 200. The
@@ -226,7 +221,7 @@ reopen it manually. Compare the saved key only in the owned synthetic browser.
   preference. Record unavailable stale-choice proof explicitly until the owned fixture can exercise it.
 - First-paint and deferred chrome reads, optional fallbacks, lazy parts, request-local membership reuse, canonical
   redirects, header count and switcher races, and account/Organization/session replacement are covered by AppShell
-  `appShellRead.server.test.ts` and `appShellProvider.server.test.ts`, Delivery `appShellRequestDelivery.test.ts`,
-  the root-layout, Organization admission, chrome JSON route, Organization membership provider, AppShell Header,
+  `appShellRead.server.test.ts` and `appShellProvider.server.test.ts`, Delivery `appShellRequestDelivery.test.ts`, the
+  root-layout, Organization admission, chrome JSON route, Organization membership provider, AppShell Header,
   Organization Layout and Identity session metadata tests. Inspect actual behavior; screenshots alone cannot prove
   server timing or request-local state.

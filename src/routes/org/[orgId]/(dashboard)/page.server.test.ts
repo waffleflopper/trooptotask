@@ -159,6 +159,7 @@ describe('dashboard page server load', () => {
 			},
 			atRiskSoldiers: {
 				totalApplicable: 1,
+				lapsingAboveThresholdCount: 2,
 				rows: [
 					{
 						personnelId: 'person-1',
@@ -265,6 +266,7 @@ describe('dashboard page server load', () => {
 				readyCount: 17,
 				applicableCount: 25,
 				soldiersBelowThresholdCount: 3,
+				soldiersAtRiskCount: 2,
 				soldiersBelowThresholdTotal: 8,
 				thresholdPercent: 70,
 				expiringSoonCount: 5,

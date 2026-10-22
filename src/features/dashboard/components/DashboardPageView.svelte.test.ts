@@ -59,7 +59,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			orgMemberCount: 0
 		},
 		userRole: 'member',
-		isFeatureOn: () => true,
 		hasSupportData: true,
 		gettingStartedDismissed: true,
 		gettingStartedItems: [],
@@ -69,29 +68,9 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		starterPackApplyState: { status: 'idle', message: null, result: null },
 		applyStarterConfigurationPack: () => {},
 		isHydrating: false,
-		unitReadiness: {
-			trainingCurrencyColor: () => 'var(--success-foreground)',
-			trainingColor: 'var(--success-foreground)'
-		},
-		trainingStats: {
-			expired: 0,
-			warningOrange: 0,
-			warningYellow: 0,
-			current: 0
-		},
-		trainingCurrencyPct: 100,
-		ratingStats: {
-			overdue: 0,
-			'due-30': 0,
-			'due-60': 0,
-			current: 0
-		},
-		activeOnboardings: [],
 		totalPersonnel: 10,
 		strength: strengthOf(10),
 		today: '2026-10-19',
-		groupBreakdown: [],
-		trainingGroupDelinquencies: [],
 		personnelCount: 0,
 		trainingTypeCount: 0,
 		dismissGettingStarted: () => {},
@@ -161,21 +140,6 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('Available · 100%')).toBeTruthy();
 	});
 
-	it('does not present unavailable Training as current', () => {
-		const ctx = makeCtx({
-			trainingStats: null,
-			groupBreakdown: [
-				{ id: 'alpha', name: 'Clinic group', pct: 100, total: 1, available: 1, statusCounts: new Map() }
-			],
-			strength: strengthOf(1, { id: 'alpha', name: 'Clinic group' })
-		});
-		render(DashboardPageView, { props: { ...frame, ctx } });
-		expect(screen.queryByText('training current')).toBeNull();
-		const evaluations = screen.getByRole('heading', { name: 'Evaluations' }).closest('[data-slot="card"]')!;
-		expect(within(evaluations as HTMLElement).queryByText('Clinic group')).toBeNull();
-		expect(within(screen.getByRole('list', { name: 'Available by group' })).getByText('Clinic group')).toBeTruthy();
-	});
-
 	it('keeps Workspace Setup and its starter pack hidden even for an eligible owner', () => {
 		const ctx = makeCtx({
 			userRole: 'owner',
@@ -198,62 +162,6 @@ describe('DashboardPageView', () => {
 		expect(screen.queryByRole('link', { name: 'Open Import or add the roster' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
 		expect(screen.queryByRole('button', { name: /Apply Pack/i })).toBeNull();
-	});
-});
-
-describe('Dashboard Training attention', () => {
-	it.each([
-		{ total: 2, pct: 50 },
-		{ total: 8, pct: 88 }
-	])('renders Group Training currency independently of availability: $pct%', ({ total, pct }) => {
-		const ctx = makeCtx({
-			trainingStats: { expired: 1, warningOrange: 0, warningYellow: 0, current: 1 },
-			groupBreakdown: [{ id: 'alpha', name: 'Alpha', pct: 100, total, available: total, statusCounts: new Map() }],
-			trainingGroupDelinquencies: [
-				{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 1, pct: 50 }
-			]
-		});
-		render(DashboardPageView, { props: { ...frame, ctx } });
-		const training = screen.getByRole('heading', { name: 'Training & Evaluations' }).closest('[data-slot="card"]')!;
-		const group = within(training as HTMLElement).getByText('Alpha').parentElement!;
-		expect(within(group).getByText(`${pct}%`)).toBeTruthy();
-		expect(within(group).queryByText('100%')).toBeNull();
-	});
-	it('counts expired and expiring Training records in the readiness card', () => {
-		const ctx = makeCtx({ trainingStats: { expired: 2, warningOrange: 1, warningYellow: 0, current: 1 } });
-		render(DashboardPageView, { props: { ...frame, ctx } });
-
-		const training = screen.getByRole('heading', { name: 'Training & Evaluations' }).closest('[data-slot="card"]')!;
-		expect(within(training as HTMLElement).getByText('2 expired')).toBeTruthy();
-	});
-});
-
-describe('Dashboard feature switches', () => {
-	const offFor = (...off: string[]) => ({ isFeatureOn: (feature: string) => !off.includes(feature) });
-
-	it('drops Evaluations from the readiness card when the unit turns them off', () => {
-		const ratingStats = { overdue: 2, 'due-30': 1, 'due-60': 0, current: 0 };
-		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ratingStats }) } });
-		expect(screen.getByText('evals overdue')).toBeTruthy();
-		cleanup();
-
-		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ...offFor('evaluations'), ratingStats }) } });
-		expect(screen.getByRole('heading', { name: 'Training' })).toBeTruthy();
-		expect(screen.queryByText('evals overdue')).toBeNull();
-	});
-
-	it('removes the readiness card when Training and Evaluations are both off', () => {
-		render(DashboardPageView, { props: { ...frame, ctx: makeCtx({ ...offFor('evaluations'), trainingStats: null }) } });
-
-		expect(screen.getByText('of 10')).toBeTruthy();
-		expect(screen.queryByRole('heading', { name: /Training|Evaluations/ })).toBeNull();
-	});
-
-	it('removes the Onboarding card when the unit turns Onboarding off', () => {
-		render(DashboardPageView, { props: { ...frame, ctx: makeCtx(offFor('onboarding')) } });
-
-		expect(screen.queryByRole('heading', { name: 'Onboarding' })).toBeNull();
-		expect(screen.getByRole('heading', { name: 'Training & Evaluations' })).toBeTruthy();
 	});
 });
 
@@ -372,6 +280,7 @@ describe('Dashboard sections', () => {
 			},
 			trainingSummary: null,
 			ictlSummary: null,
+			summaryFailed: false,
 			onboardingTrainingCompletions: []
 		};
 	}
@@ -643,5 +552,72 @@ describe('Dashboard sections', () => {
 
 		expect(link.getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(calendarStore.currentDate).toEqual(new Date(2026, 10, 1));
+	});
+
+	const trainingSummary: DashboardPageData['trainingSummary'] = {
+		stats: { current: 0, expired: 0, warningOrange: 0, warningYellow: 0, notCompleted: 0, notRequired: 0, total: 0 },
+		issues: [],
+		expiredByType: [],
+		expiredPersonnelCount: 0,
+		groupDelinquencies: []
+	};
+	const ictlSummary: DashboardPageData['ictlSummary'] = {
+		hasActiveTasks: true,
+		overallReadinessPercent: 57,
+		overallDeltaPercent: -3,
+		readyCount: 57,
+		applicableCount: 100,
+		soldiersBelowThresholdCount: 15,
+		soldiersAtRiskCount: 2,
+		soldiersBelowThresholdTotal: 20,
+		thresholdPercent: 70,
+		expiringSoonCount: 3,
+		expiringSoonAffectedSoldiers: 3,
+		expiringSoonWindowDays: 30,
+		tasksBelowThresholdCount: 0,
+		projectedReadinessPercent: 57,
+		mosReadiness: [],
+		trend: [],
+		tasksBelowThreshold: [],
+		atRiskSoldiers: []
+	};
+
+	function readinessTitles() {
+		return within(screen.getByRole('list', { name: 'Readiness by feature' }))
+			.getAllByRole('heading', { level: 3 })
+			.map((heading) => heading.textContent?.trim());
+	}
+
+	it('gives each section a readiness column and closes ranks when one contributes none', () => {
+		const props = { ...frame, sections: DASHBOARD_SECTIONS };
+		render(DashboardPageView, {
+			props: { ...props, ctx: createDashboardScreenModel({ ...pageData(), trainingSummary, ictlSummary }, { sources }) }
+		});
+		expect(readinessTitles()).toEqual(['Training', 'Critical tasks', 'Evaluations', 'Arriving and leaving']);
+		expect(
+			screen.getByText((_, element) => element?.textContent === 'ready · ▼ 3 pts, down 3 points in 30 days')
+		).toBeTruthy();
+		cleanup();
+
+		render(DashboardPageView, {
+			props: {
+				...props,
+				ctx: createDashboardScreenModel({ ...pageData(), trainingSummary, ictlSummary: null }, { sources })
+			}
+		});
+		expect(readinessTitles()).toEqual(['Training', 'Evaluations', 'Arriving and leaving']);
+	});
+
+	it('says which columns could not load when the summary fails and keeps every band', () => {
+		const ctx = createDashboardScreenModel({ ...pageData(), summaryFailed: true }, { sources });
+
+		render(DashboardPageView, { props: { ...frame, ctx, sections: DASHBOARD_SECTIONS } });
+
+		const row = screen.getByRole('list', { name: 'Readiness by feature' });
+		expect(readinessTitles()).toEqual(['Training', 'Critical tasks', 'Evaluations', 'Arriving and leaving']);
+		expect(within(row).getByText("Couldn't load Training currency. Reload the page to try again.")).toBeTruthy();
+		expect(within(row).getByText("Couldn't load Critical Tasks readiness. Reload the page to try again.")).toBeTruthy();
+		expect(within(row).getByText('None due within 60 days. 0 are current.')).toBeTruthy();
+		expect(bands().map((band) => band?.getAttribute('aria-busy'))).toEqual(['false', 'false', 'false']);
 	});
 });

@@ -73,6 +73,7 @@ function makeData(
 		},
 		trainingSummary: null,
 		ictlSummary: null,
+		summaryFailed: false,
 		onboardingTrainingCompletions: [],
 		onboardingTemplateStepCount: 0,
 		ratingSchemeEntryCount: 0,
@@ -157,71 +158,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		it('is true while any composite store is still loading', () => {
 			mutableAvailabilityStore.loading = true;
 			expect(createDashboardScreenModel(makeData()).isHydrating).toBe(true);
-		});
-	});
-
-	describe('trainingStats', () => {
-		it('is null when trainingSummary is null', () => {
-			expect(ctx.trainingStats).toBeNull();
-		});
-
-		it('uses server-provided stats when trainingSummary is present', () => {
-			const stats = {
-				current: 5,
-				expired: 1,
-				warningOrange: 2,
-				warningYellow: 0,
-				notCompleted: 0,
-				notRequired: 0,
-				total: 8
-			};
-			const dataWithStats = makeData({
-				trainingSummary: { stats, issues: [], expiredByType: [], expiredPersonnelCount: 1, groupDelinquencies: [] }
-			});
-			const c = createDashboardScreenModel(dataWithStats);
-			expect(c.trainingStats).toEqual(stats);
-		});
-	});
-
-	describe('ratingStats', () => {
-		afterEach(() => vi.useRealTimers());
-		it('returns zero counts with no rating entries', () => {
-			expect(ctx.ratingStats.overdue).toBe(0);
-			expect(ctx.ratingStats['due-30']).toBe(0);
-			expect(ctx.ratingStats['due-60']).toBe(0);
-			expect(ctx.ratingStats.current).toBe(0);
-		});
-
-		it("buckets only the projected dates and record statuses against the viewer's day", () => {
-			vi.useFakeTimers({ toFake: ['Date'] });
-			vi.setSystemTime(new Date('2026-11-30T00:00:00'));
-			const entries = [
-				{ ratingPeriodEnd: '2026-09-25', status: 'active' },
-				{ ratingPeriodEnd: '2026-09-28', status: 'active' },
-				{ ratingPeriodEnd: '2026-10-20', status: 'active' },
-				{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
-				{ ratingPeriodEnd: '2026-10-25', status: 'active' },
-				{ ratingPeriodEnd: '2026-10-15', status: 'active' },
-				{ ratingPeriodEnd: '2026-11-14', status: 'active' },
-				{ ratingPeriodEnd: '2026-12-29', status: 'active' },
-				{ ratingPeriodEnd: '2026-07-02', status: 'completed' }
-			];
-			const model = createDashboardScreenModel(
-				makeData({ viewerDay: { date: '2026-09-30', timeZone: 'UTC' } }, { ratingSchemeEntries: entries })
-			);
-			expect(model.ratingStats).toEqual({ overdue: 2, 'due-30': 4, 'due-60': 1, current: 1 });
-		});
-	});
-
-	describe('activeOnboardings', () => {
-		it('returns empty array when none in data', () => {
-			expect(ctx.activeOnboardings).toHaveLength(0);
-		});
-	});
-
-	describe('groupBreakdown', () => {
-		it('returns an empty array when no groups', () => {
-			expect(ctx.groupBreakdown).toHaveLength(0);
 		});
 	});
 

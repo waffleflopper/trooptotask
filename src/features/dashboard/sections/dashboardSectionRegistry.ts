@@ -8,6 +8,12 @@ import {
 	stalledOnboarding,
 	unfilledDuty
 } from './needsYouSources';
+import {
+	arrivingAndLeavingReadiness,
+	criticalTasksReadiness,
+	evaluationsReadiness,
+	trainingReadiness
+} from './readiness';
 
 export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	dashboardSection('availability', {
@@ -17,9 +23,9 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 			{ id: 'coming-and-going', order: 30, component: ComingAndGoing }
 		]
 	}),
-	dashboardSection('training', { needsYou: [expiredTraining] }),
-	dashboardSection('criticalTasks'),
-	dashboardSection('evaluations', { needsYou: [overdueEvaluations] }),
-	dashboardSection('lossesAndAwards', { needsYou: [leavingWithoutAward] }),
+	dashboardSection('training', { needsYou: [expiredTraining], readiness: trainingReadiness }),
+	dashboardSection('criticalTasks', { readiness: criticalTasksReadiness }),
+	dashboardSection('evaluations', { needsYou: [overdueEvaluations], readiness: evaluationsReadiness }),
+	dashboardSection('lossesAndAwards', { needsYou: [leavingWithoutAward], readiness: arrivingAndLeavingReadiness }),
 	dashboardSection('onboarding', { needsYou: [stalledOnboarding] })
 ];

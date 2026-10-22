@@ -91,7 +91,7 @@
 	function toDashboardPageData(
 		data: DashboardRouteData,
 		dashboard: DashboardWorkspaceResult,
-		summary: DashboardPageSummaryData
+		summary: DashboardPageSummaryData | null
 	): DashboardPageData {
 		return {
 			...data,
@@ -102,15 +102,17 @@
 			viewerDay: data.viewerDay,
 			disabledFeatures: shell?.org.disabledFeatures ?? [],
 			dashboard,
-			trainingSummary: summary.trainingSummary,
-			ictlSummary: summary.ictlSummary,
-			onboardingTrainingCompletions: summary.onboardingTrainingCompletions
+			trainingSummary: summary?.trainingSummary ?? null,
+			ictlSummary: summary?.ictlSummary ?? null,
+			onboardingTrainingCompletions: summary?.onboardingTrainingCompletions ?? [],
+			summaryFailed: summary === null
 		};
 	}
 
-	const loadError = $derived(workspaceError ?? summaryError);
+	const loadError = $derived(workspaceError);
+	// A failed summary still opens the page; the columns it feeds say they could not load.
 	const ctx = $derived(
-		dashboardBootstrap && summaryData
+		dashboardBootstrap && (summaryData || summaryError)
 			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData))
 			: null
 	);

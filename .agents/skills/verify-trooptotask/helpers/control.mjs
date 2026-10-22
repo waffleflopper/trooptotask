@@ -1561,9 +1561,11 @@ async function main() {
 		if (
 			args.length !== 2 ||
 			!['dashboardView', 'dashboardSwitch'].includes(role) ||
-			!['alpha', 'no-training', 'restore'].includes(mode)
+			!['alpha', 'no-training', 'no-critical-tasks', 'restore'].includes(mode)
 		)
-			throw new Error('Use dashboard-access dashboardView|dashboardSwitch alpha|no-training|restore.');
+			throw new Error(
+				'Use dashboard-access dashboardView|dashboardSwitch alpha|no-training|no-critical-tasks|restore.'
+			);
 		const client = await provider();
 		const rows = checked(
 			await client
@@ -1588,7 +1590,12 @@ async function main() {
 				? snapshot.original
 				: mode === 'alpha'
 					? { access_scope_kind: 'groups', access_scope_group_ids: [fixture.ids.groupA] }
-					: { capability_overrides: { ...original.capability_overrides, training: 'none' } };
+					: {
+							capability_overrides: {
+								...original.capability_overrides,
+								[mode === 'no-training' ? 'training' : 'criticalTasks']: 'none'
+							}
+						};
 		checked(
 			await client.from('organization_memberships').update(changes).eq('organization_id', org('orgA')).eq('id', id)
 		);

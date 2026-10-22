@@ -197,6 +197,7 @@ function inputs(loaded: Loaded): DashboardInputs {
 							groupDelinquencies: []
 						},
 			ictlSummary: null,
+			summaryFailed: false,
 			onboardingTrainingCompletions: loaded.onboardingTrainingCompletions ?? []
 		}
 	};

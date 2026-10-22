@@ -62,7 +62,7 @@ describe('replacing a conflicted assignee', () => {
 			personId: 'brooks',
 			count: 12,
 			effect: { code: 'available' },
-			adjacent: ['Staff Duty']
+			adjacent: [{ name: 'Staff Duty', day: 'after' }]
 		});
 		expect(options.candidates.map((candidate) => candidate.personId)).not.toContain('kim');
 	});
@@ -87,7 +87,7 @@ describe('replacing a conflicted assignee', () => {
 			}
 		]);
 		expect(slotChanges(repick)).toEqual([
-			{ date: '2026-10-19', assignmentTypeId: 'staff-duty', assigneeId: 'kim', source: 'roster' }
+			{ date: '2026-10-19', assignmentTypeId: 'staff-duty', assigneeId: 'kim', was: 'brooks', source: 'roster' }
 		]);
 	});
 

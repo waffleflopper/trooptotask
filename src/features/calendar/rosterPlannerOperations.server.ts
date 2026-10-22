@@ -7,34 +7,40 @@ import {
 	plannerRostersInput,
 	rosterDayInput,
 	rosterFillInput,
-	rosterFillPreviewInput
+	rosterFillPreviewInput,
+	rosterReplacementInput,
+	rosterReplacementPreviewInput
 } from './calendarPersistenceMapping.server';
 import type {
 	CalendarAssignmentReplacementPort,
 	PlannerRoster,
 	RosterDay,
 	RosterFillPreview,
+	RosterReplacement,
 	SavedAssignment
 } from './contracts';
 import { requireDeviceDate, type RosterSettingsPorts } from './rosterSettingsOperations.server';
-import { loadRosters } from './rosterFacts.server';
+import { addDays, loadRosters } from './rosterFacts.server';
 import {
 	detailConflicts,
 	poolOn,
+	replacementOptions,
 	simulateRoster,
 	slotChanges,
+	withAssignment,
 	type CurrentCount,
 	type Effect,
 	type RosterRun
 } from './roster/rosterEngine';
 
 export interface RosterPlannerPorts extends RosterSettingsPorts {
-	calendarAssignmentReplacement: Pick<CalendarAssignmentReplacementPort, 'fillRoster'>;
+	calendarAssignmentReplacement: Pick<CalendarAssignmentReplacementPort, 'writeRoster'>;
 }
 
 const action = CALENDAR_POLICY_ACTIONS.manageAssignments;
 const resource = { kind: 'unscoped' } as const;
 const MAX_FILL_DAYS = 366;
+const MAX_REPICK_DAYS = 366;
 
 /** A roster counts everyone in the Organization, so its counts and picks are for Organization-wide operators only. */
 function requireOrganizationWide(ctx: RosterSettingsPorts) {
@@ -212,11 +218,118 @@ export async function commitRosterFill(
 		run.changes.every((change, at) => change.date === picks[at].date && change.personId === picks[at].personId);
 	if (!same) fail(409, 'The roster changed since this preview. Review the new picks and fill again.');
 
-	const saved = await ctx.calendarAssignmentReplacement.fillRoster(ctx.auth.orgId, slotChanges(run));
+	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, slotChanges(run));
 	await ctx.audit.log({
 		action: 'daily_assignment.roster_filled',
 		resourceType: 'daily_assignment',
 		details: { assignmentTypeId: plan.typeId, from: plan.from, through: plan.through, days: saved.length }
+	});
+	return { saved };
+}
+
+/**
+ * Find replacement on one roster day: the day's options, and for `assigneeId`, or else the rule's pick, the later
+ * roster days the change re-picks. Re-picks reach at most a year out.
+ */
+async function planReplacement(
+	ctx: RosterSettingsPorts,
+	input: { typeId: string; today: string; date: string; assigneeId?: string }
+) {
+	const { typeId, today, date } = input;
+	requireDeviceDate(today);
+	await requireCalendarPolicy(ctx, action, resource);
+	requireOrganizationWide(ctx);
+
+	const horizon = addDays(date, MAX_REPICK_DAYS);
+	const [facts] = await loadRosters(ctx, { today, window: { from: date, through: horizon }, typeIds: [typeId] });
+	if (!facts) fail(404, 'That duty roster is no longer available.');
+	// The run stops at the last planned roster day, the last day a re-pick can touch.
+	const through = facts.assignments.reduce(
+		(last, assignment) =>
+			assignment.assignmentTypeId === typeId && assignment.source === 'roster' && assignment.date > last
+				? assignment.date
+				: last,
+		date
+	);
+	const scoped = { ...facts, window: { from: date, through: through < horizon ? through : horizon } };
+	const base = simulateRoster(scoped);
+	const detail = base.byDate.get(date)?.detail;
+	if (detail?.kind !== 'stored') fail(409, 'That day changed since the planner loaded. Refresh and try again.');
+
+	const options = replacementOptions(base, date);
+	const selected =
+		options.candidates.find((candidate) => candidate.personId === input.assigneeId)?.personId ?? options.nextUp;
+	const source = selected === options.nextUp ? ('roster' as const) : ('manual' as const);
+	const repick =
+		selected === null
+			? null
+			: simulateRoster(withAssignment(scoped, { date, assigneeId: selected, source }), { kind: 'repick', after: date });
+	return { detail, options, selected, source, repick };
+}
+
+/** Find replacement's preview for a conflicted roster day. Nothing is written. */
+export async function previewRosterReplacement(
+	ctx: RosterSettingsPorts,
+	input: Record<string, unknown>
+): Promise<RosterReplacement> {
+	const parsed = rosterReplacementPreviewInput.safeParse(input);
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
+	const { detail, options, selected, repick } = await planReplacement(ctx, parsed.data);
+	const coded = (effect: Effect) => (effect.code === 'available' ? null : { code: effect.code, reason: effect.reason });
+	return {
+		date: parsed.data.date,
+		replacing: {
+			personId: detail.personId,
+			count: options.day.standing.find((entry) => entry.personId === detail.personId)?.count ?? null,
+			effect: coded(detail.effect)
+		},
+		nextUp: options.nextUp,
+		candidates: options.candidates.map(({ personId, count, adjacent }) => ({
+			personId,
+			count,
+			adjacent: adjacent.map(({ name, day }) => ({ name, day }))
+		})),
+		cantPull: options.cantPull.flatMap(({ personId, count, effect }) =>
+			effect.code === 'available' ? [] : [{ personId, count, code: effect.code, reason: effect.reason }]
+		),
+		selected,
+		repicks: (repick?.changes ?? []).flatMap(({ date, was, personId }) =>
+			was === null ? [] : [{ date, was, personId }]
+		),
+		unfilled: [...(repick?.unfilled ?? [])]
+	};
+}
+
+/**
+ * Puts the chosen person on the conflicted day and writes the later roster days it re-picks, all or none. The day is
+ * a roster pick when the chosen person is the rule's pick and a hand assignment otherwise. The plan is recomputed
+ * first, and a plan that no longer matches the preview, or that leaves a later day with nobody, is refused.
+ */
+export async function commitRosterReplacement(
+	ctx: RosterPlannerPorts,
+	input: Record<string, unknown>
+): Promise<{ saved: SavedAssignment[] }> {
+	const parsed = rosterReplacementInput.safeParse(input);
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
+	const { replacing, repicks, ...request } = parsed.data;
+	const { detail, selected, source, repick } = await planReplacement(ctx, request);
+	const changes = repick?.changes ?? [];
+	const same =
+		detail.personId === replacing &&
+		selected === request.assigneeId &&
+		changes.length === repicks.length &&
+		changes.every((change, at) => change.date === repicks[at].date && change.personId === repicks[at].personId);
+	if (!same || !repick) fail(409, 'The roster changed since this preview. Review the new picks and try again.');
+	if (repick.unfilled.length) fail(409, 'Nobody on the roster can take every re-picked day. Choose someone else.');
+
+	const saved = await ctx.calendarAssignmentReplacement.writeRoster(ctx.auth.orgId, [
+		{ date: request.date, assignmentTypeId: request.typeId, assigneeId: request.assigneeId, was: replacing, source },
+		...slotChanges(repick)
+	]);
+	await ctx.audit.log({
+		action: 'daily_assignment.roster_replaced',
+		resourceType: 'daily_assignment',
+		details: { assignmentTypeId: request.typeId, date: request.date, repicks: changes.length }
 	});
 	return { saved };
 }

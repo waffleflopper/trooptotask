@@ -4,11 +4,11 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
-	import { PlannerRosterRead, previewRosterFill } from '../contexts/PlannerRosterRead.svelte';
+	import { PlannerRosterRead, previewRosterFill, previewRosterReplacement } from '../contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { calendarViewCoverage } from '../utils/calendarRange';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
-	import type { CalendarOperationsPageAccess } from '../contracts';
+	import type { CalendarOperationsPageAccess, RosterReplacement } from '../contracts';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -91,6 +91,20 @@
 		return result;
 	}
 
+	async function replaceFromRoster(typeId: string, preview: RosterReplacement) {
+		if (!preview.selected) return 'failed' as const;
+		const result = await dailyAssignmentsStore.replaceFromRoster({
+			typeId,
+			today: formatDate(new Date()),
+			date: preview.date,
+			assigneeId: preview.selected,
+			replacing: preview.replacing.personId,
+			repicks: preview.repicks.map(({ date, personId }) => ({ date, personId }))
+		});
+		if (result === 'changed') rosterRead.refresh();
+		return result;
+	}
+
 	const dayRequest = (typeId: string, date: string) => ({
 		orgId: data.orgId,
 		typeId,
@@ -115,6 +129,9 @@
 							through,
 							picks: picks.map(({ date, personId }) => ({ date, personId }))
 						}),
+					replacement: (typeId: string, date: string, assigneeId?: string) =>
+						previewRosterReplacement(data.orgId, { typeId, today: formatDate(new Date()), date, assigneeId }),
+					replace: replaceFromRoster,
 					day: (typeId: string, date: string) => rosterRead.day(dayRequest(typeId, date)),
 					loadDay: (typeId: string, date: string) => rosterRead.loadDay(dayRequest(typeId, date)),
 					retryDay: (typeId: string, date: string) => rosterRead.retryDay(dayRequest(typeId, date))

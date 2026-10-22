@@ -434,11 +434,11 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 		updates: CompareAndUpdate[],
 		scope?: Pick<FixtureFindOptions, 'filters' | 'isNull'>
 	): Promise<CompareAndUpdateResult<T>>;
+	/** A slot without a source writes a hand assignment. */
 	replaceDailyAssignmentSlots(
 		orgId: string,
 		replaceDays: string[],
-		slots: readonly AssignmentSlotChange[],
-		source?: AssignmentSource
+		slots: readonly (AssignmentSlotChange & { source?: AssignmentSource })[]
 	): Promise<SavedAssignment[]>;
 } {
 	const tables: TableStore = new Map();
@@ -586,7 +586,7 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 			};
 		},
 
-		async replaceDailyAssignmentSlots(orgId, replaceDays, slots, source = 'manual') {
+		async replaceDailyAssignmentSlots(orgId, replaceDays, slots) {
 			const rows = getRows('daily_assignments');
 			const days = new Set(replaceDays);
 			const slotKeys = new Set(slots.map((slot) => `${slot.date}::${slot.assignmentTypeId}`));
@@ -603,7 +603,7 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 					date: slot.date,
 					assignment_type_id: slot.assignmentTypeId,
 					assignee_id: slot.assigneeId,
-					source
+					source: slot.source ?? 'manual'
 				}));
 			rows.splice(0, rows.length, ...retained, ...inserted);
 			return inserted.map((row) => ({
@@ -847,21 +847,18 @@ function createInMemoryCalendarAssignmentReplacementPort(
 ): CalendarAssignmentReplacementPort {
 	return {
 		replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore),
-		async fillRoster(orgId, slots) {
-			const taken = await rawStore.findMany<{ date: string; assignment_type_id: string }>(
+		async writeRoster(orgId, slots) {
+			const rows = await rawStore.findMany<{ date: string; assignment_type_id: string; assignee_id: string }>(
 				'daily_assignments',
 				orgId,
 				undefined,
 				{ inFilters: { date: [...new Set(slots.map((slot) => slot.date))] } }
 			);
-			if (
-				taken.some((row) =>
-					slots.some((slot) => slot.date === row.date && slot.assignmentTypeId === row.assignment_type_id)
-				)
-			) {
+			const current = new Map(rows.map((row) => [`${row.date}::${row.assignment_type_id}`, row.assignee_id]));
+			if (slots.some((slot) => (current.get(`${slot.date}::${slot.assignmentTypeId}`) ?? null) !== slot.was)) {
 				fail(409, 'This assignment slot is unavailable. Refresh the Calendar and try again.');
 			}
-			return rawStore.replaceDailyAssignmentSlots(orgId, [], slots, 'roster');
+			return rawStore.replaceDailyAssignmentSlots(orgId, [], slots);
 		}
 	};
 }

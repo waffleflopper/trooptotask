@@ -15,7 +15,7 @@ type DailyAssignmentRow = {
 	created_at: string;
 };
 
-/** Only the server may mark a pick as roster, so roster fills run with the service role on behalf of `actorId`. */
+/** Only the server may mark a pick as roster, so roster writes run with the service role on behalf of `actorId`. */
 export function createSupabaseCalendarAssignmentReplacementPort(
 	supabase: SupabaseClient,
 	roster: { admin: () => SupabaseClient; actorId: string }
@@ -30,11 +30,11 @@ export function createSupabaseCalendarAssignmentReplacementPort(
 			if (error) failReplacement(error);
 			return ((data ?? []) as DailyAssignmentRow[]).map(toSavedAssignment);
 		},
-		async fillRoster(orgId, slots): Promise<SavedAssignment[]> {
-			const { data, error } = await roster.admin().rpc('fill_roster_assignment_slots', {
+		async writeRoster(orgId, slots): Promise<SavedAssignment[]> {
+			const { data, error } = await roster.admin().rpc('write_roster_assignment_slots', {
 				p_actor: roster.actorId,
 				p_organization_id: orgId,
-				p_slots: slots.map(toSlotRow)
+				p_slots: slots.map((slot) => ({ ...toSlotRow(slot), was: slot.was, source: slot.source }))
 			});
 			if (error) failReplacement(error);
 			return ((data ?? []) as DailyAssignmentRow[]).map(toSavedAssignment);

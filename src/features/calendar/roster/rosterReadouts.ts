@@ -12,6 +12,7 @@ import type {
 	DateKey,
 	MonthKey,
 	PersonRef,
+	ReplacementCandidate,
 	ReplacementOptions,
 	RosterDay,
 	RosterFacts,
@@ -38,17 +39,18 @@ export function replacementOptions(run: RosterRun, date: DateKey): ReplacementOp
 	const day = run.byDate.get(date);
 	if (!day) throw new RangeError(`${date} is not a detail date inside the window.`);
 	const { facts } = run;
-	const around = new Set([fromDayNumber(toDayNumber(date) - 1), fromDayNumber(toDayNumber(date) + 1)]);
-	const adjacent = new Map<string, string[]>();
-	for (const assignment of facts.assignments) {
-		if (!around.has(assignment.date)) continue;
+	const before = fromDayNumber(toDayNumber(date) - 1);
+	const after = fromDayNumber(toDayNumber(date) + 1);
+	const adjacent = new Map<string, ReplacementCandidate['adjacent'][number][]>();
+	const nextDoor = facts.assignments.filter((assignment) => assignment.date === before || assignment.date === after);
+	for (const assignment of nextDoor.sort((a, b) => a.date.localeCompare(b.date))) {
 		const name =
 			assignment.assignmentTypeId === facts.type.id
 				? facts.type.name
 				: (facts.assignmentTypeNames.get(assignment.assignmentTypeId) ?? assignment.assignmentTypeId);
-		const names = adjacent.get(assignment.assigneeId) ?? [];
-		if (!names.includes(name)) names.push(name);
-		adjacent.set(assignment.assigneeId, names);
+		const duties = adjacent.get(assignment.assigneeId) ?? [];
+		duties.push({ name, day: assignment.date === before ? 'before' : 'after' });
+		adjacent.set(assignment.assigneeId, duties);
 	}
 	return {
 		day,
@@ -112,12 +114,13 @@ function sameNumberAndCode(a: Da6Cell, b: Da6Cell): boolean {
 	return a.kind === b.kind && a.count === b.count && (a.kind !== 'code' || (b.kind === 'code' && a.code === b.code));
 }
 
-/** The batch for setAssignmentBatch. */
+/** The plan's picks as roster writes, each with the assignee it replaces. */
 export function slotChanges(run: RosterRun): RosterSlotChange[] {
 	return run.changes.map((change) => ({
 		date: change.date,
 		assignmentTypeId: run.facts.type.id,
 		assigneeId: change.personId,
+		was: change.was,
 		source: 'roster'
 	}));
 }

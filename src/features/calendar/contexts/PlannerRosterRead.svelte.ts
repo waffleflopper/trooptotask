@@ -4,8 +4,10 @@ import {
 	plannerRostersSchema,
 	rosterDayReplySchema,
 	rosterFillPreviewSchema,
+	rosterReplacementSchema,
 	type RosterDay,
-	type RosterFillPreview
+	type RosterFillPreview,
+	type RosterReplacement
 } from '$features/calendar/contracts';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -188,4 +190,21 @@ export async function previewRosterFill(
 	);
 	if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'POST', resource));
 	return rosterFillPreviewSchema.parse(await withinOrganizationLifetime(res.json()));
+}
+
+/** Who could take a conflicted roster day, and the later roster days `assigneeId` taking it would re-pick. */
+export async function previewRosterReplacement(
+	orgId: string,
+	input: { typeId: string; today: string; date: string; assigneeId?: string }
+): Promise<RosterReplacement> {
+	const resource = `/org/${orgId}/api/duty-rosters/replacement/preview`;
+	const res = await withinOrganizationLifetime(
+		fetch(resource, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(input)
+		})
+	);
+	if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'POST', resource));
+	return rosterReplacementSchema.parse(await withinOrganizationLifetime(res.json()));
 }

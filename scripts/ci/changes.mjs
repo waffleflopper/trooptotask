@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const prose = /^(?:README|AGENTS|CLAUDE|CONTEXT)\.md$|^docs\/.*\.md$/;
 const databaseInput =
-	/^(?:supabase\/|scripts\/ci\/|\.depot\/|\.github\/workflows\/ci\.yml$|package(?:-lock)?\.json$|\.nvmrc$)/;
+	/^(?:supabase\/|scripts\/(?:ci|demo-clinic)\/|\.agents\/skills\/verify-trooptotask\/helpers\/perf-workloads\.mjs$|\.depot\/|\.github\/workflows\/ci\.yml$|package(?:-lock)?\.json$|\.nvmrc$)/;
 
 export function classifyChanges(files, full = false) {
 	return {

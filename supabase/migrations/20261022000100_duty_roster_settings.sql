@@ -7,10 +7,70 @@
 -- Dated excusals with a reason replace exempt_personnel_ids.
 BEGIN;
 
+-- The shapes the application parses (poolRulesSchema and the form rules). The
+-- checks run for every writer, so the functions are executable by all API roles.
+CREATE FUNCTION public.is_roster_pool_rules(p_rules jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $$
+DECLARE
+  v_key text;
+BEGIN
+  IF p_rules IS NULL OR pg_catalog.jsonb_typeof(p_rules) <> 'object'
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(p_rules)) <> 4
+  THEN
+    RETURN false;
+  END IF;
+  FOREACH v_key IN ARRAY ARRAY['mos', 'role', 'groupIds'] LOOP
+    IF pg_catalog.jsonb_typeof(p_rules -> v_key) IS DISTINCT FROM 'array' THEN
+      RETURN false;
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM pg_catalog.jsonb_array_elements(p_rules -> v_key) AS e(value)
+      WHERE pg_catalog.jsonb_typeof(e.value) <> 'string'
+    ) THEN
+      RETURN false;
+    END IF;
+  END LOOP;
+  IF pg_catalog.jsonb_typeof(p_rules -> 'rank') = 'null' THEN
+    RETURN true;
+  END IF;
+  IF pg_catalog.jsonb_typeof(p_rules -> 'rank') IS DISTINCT FROM 'object'
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(p_rules -> 'rank')) <> 2
+  THEN
+    RETURN false;
+  END IF;
+  RETURN pg_catalog.jsonb_typeof(p_rules -> 'rank' -> 'from') IS NOT DISTINCT FROM 'string'
+    AND pg_catalog.jsonb_typeof(p_rules -> 'rank' -> 'to') IS NOT DISTINCT FROM 'string'
+    AND (p_rules -> 'rank' ->> 'from') IS DISTINCT FROM ''
+    AND (p_rules -> 'rank' ->> 'to') IS DISTINCT FROM '';
+END;
+$$;
+
+CREATE FUNCTION public.is_roster_form_rules(p_rules jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $$
+BEGIN
+  IF p_rules IS NULL OR pg_catalog.jsonb_typeof(p_rules) <> 'object'
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(p_rules)) <> 2
+  THEN
+    RETURN false;
+  END IF;
+  IF pg_catalog.jsonb_typeof(p_rules -> 'weekendMode') IS DISTINCT FROM 'string'
+    OR (p_rules ->> 'weekendMode') NOT IN ('same', 'separate', 'none')
+  THEN
+    RETURN false;
+  END IF;
+  RETURN pg_catalog.jsonb_typeof(p_rules -> 'pool') IS NOT DISTINCT FROM 'null'
+    OR public.is_roster_pool_rules(p_rules -> 'pool');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.is_roster_pool_rules(jsonb), public.is_roster_form_rules(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_roster_pool_rules(jsonb), public.is_roster_form_rules(jsonb)
+  TO anon, authenticated, service_role;
+
 ALTER TABLE public.assignment_types
   ADD CONSTRAINT assignment_types_organization_id_id_key UNIQUE (organization_id, id),
   ADD COLUMN roster_pool_rules jsonb NULL
-    CONSTRAINT assignment_types_roster_pool_rules_check CHECK (pg_catalog.jsonb_typeof(roster_pool_rules) = 'object'),
+    CONSTRAINT assignment_types_roster_pool_rules_check CHECK (roster_pool_rules IS NULL OR public.is_roster_pool_rules(roster_pool_rules)),
   ADD COLUMN roster_weekend_mode text NOT NULL DEFAULT 'same'
     CONSTRAINT assignment_types_roster_weekend_mode_check CHECK (roster_weekend_mode IN ('same', 'separate', 'none'));
 
@@ -21,7 +81,7 @@ CREATE TABLE public.roster_forms (
   starts_on date NOT NULL,
   -- Null while the form is open. A closed form keeps its record and never changes.
   ends_on date NULL,
-  rules jsonb NOT NULL CONSTRAINT roster_forms_rules_check CHECK (pg_catalog.jsonb_typeof(rules) = 'object'),
+  rules jsonb NOT NULL CONSTRAINT roster_forms_rules_check CHECK (public.is_roster_form_rules(rules)),
   record jsonb NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT roster_forms_organization_id_id_key UNIQUE (organization_id, id),
@@ -340,12 +400,14 @@ BEGIN
   END IF;
   IF p_assignment_type_id IS NULL OR p_form_id IS NULL
     OR p_weekend_mode NOT IN ('same', 'separate', 'none')
-    OR (v_pool IS NOT NULL AND pg_catalog.jsonb_typeof(v_pool) <> 'object')
     OR (p_record IS NOT NULL AND pg_catalog.jsonb_typeof(p_record) <> 'object')
     OR p_carry IS NULL OR pg_catalog.jsonb_typeof(p_carry) <> 'array'
     OR (v_ending AND (v_pool IS NOT NULL OR pg_catalog.jsonb_array_length(p_carry) > 0))
   THEN
     RAISE EXCEPTION 'Invalid roster rules' USING ERRCODE = '22023';
+  END IF;
+  IF v_pool IS NOT NULL AND NOT public.is_roster_pool_rules(v_pool) THEN
+    RAISE EXCEPTION 'Pool rules need a rank range or null, and lists of MOS, roles and group ids' USING ERRCODE = '22023';
   END IF;
   IF p_today IS NULL OR pg_catalog.abs(p_today - (pg_catalog.now() AT TIME ZONE 'UTC')::date) > 1 THEN
     RAISE EXCEPTION 'The date on this device is off' USING ERRCODE = 'RSD01';

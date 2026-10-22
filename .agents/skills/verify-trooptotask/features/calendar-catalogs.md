@@ -368,8 +368,10 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
     - **Rank catalog unavailable.** Run `$V server-source arm organization_rank_catalog fail-hard 1 120000` (the client
       retries a 503, so plain `fail` recovers), reload `/calendar/settings` and open the type's `Edit`.
       `Who pulls this duty` shows a `role="alert"` reading `Ranks unavailable` in place of `Everyone` and the rules, and
-      saying roster rules and weekends can't change right now. The three `Weekends & holidays` choices are disabled,
-      while `Excuse someone` still works and saves in place. `$V server-source state` shows the matched read.
+      saying roster rules, weekends and switching to Group can't change right now. The three `Weekends & holidays`
+      choices and the `Group` choice of `Assigned to` are disabled, while `Excuse someone` still works and saves in
+      place. Adding a new type through `Add Assignment Type` still offers `Group`. `$V server-source state` shows the
+      matched read.
       Choose `Cancel`, `$V server-source restore`, then arm it again and open the sidebar `Calendar`: the planner and
       its lanes load with no `role="alert"`, and `server-source state` shows no match, because only Settings reads the
       catalog. Restore the control.

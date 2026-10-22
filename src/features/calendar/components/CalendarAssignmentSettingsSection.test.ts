@@ -395,9 +395,10 @@ describe('CalendarAssignmentSettingsSection', () => {
 		it('fails, explains it, locks roster rules and weekends, and still saves an excusal', async () => {
 			const dialog = await openRunner(Promise.reject(new Error('rank catalog unavailable')));
 
-			expect((await within(dialog).findByRole('alert')).textContent).toContain(
-				"roster rules and weekends can't change right now. Excusals still save."
+			expect((await within(dialog).findByRole('alert')).textContent?.replace(/\s+/g, ' ')).toContain(
+				"roster rules, weekends and switching to Group can't change right now. Excusals still save."
 			);
+			expect((within(dialog).getByRole('radio', { name: 'Group' }) as HTMLButtonElement).disabled).toBe(true);
 			expect(within(dialog).queryByRole('radio', { name: 'Only people who match' })).toBeNull();
 			for (const name of ['Same count', 'Separate count', 'No duty'])
 				expect((within(dialog).getByRole('radio', { name }) as HTMLButtonElement).disabled).toBe(true);
@@ -422,6 +423,15 @@ describe('CalendarAssignmentSettingsSection', () => {
 			);
 			expect(screen.queryByRole('alertdialog')).toBeNull();
 		});
+	});
+
+	it('leaves the Group choice open for a new type while the rank catalog failed', async () => {
+		const view = renderSection('', Promise.reject(new Error('rank catalog unavailable')));
+		view.component.openAddDialog();
+		const dialog = await screen.findByRole('dialog', { name: 'Add Assignment Type' });
+
+		await within(dialog).findByRole('alert');
+		expect((within(dialog).getByRole('radio', { name: 'Group' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('shows no duty roster for a group assignment', async () => {

@@ -237,8 +237,8 @@
 			<Alert.Root variant="destructive">
 				<Alert.Title>Ranks unavailable</Alert.Title>
 				<Alert.Description
-					>Ranks could not load, so roster rules and weekends can't change right now. Excusals still save. Reload this
-					page to try again.</Alert.Description
+					>Ranks could not load, so roster rules, weekends and switching to Group can't change right now. Excusals still
+					save. Reload this page to try again.</Alert.Description
 				>
 			</Alert.Root>
 		{:else}

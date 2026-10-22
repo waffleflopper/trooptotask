@@ -92,7 +92,7 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   (pg_temp.id(304), pg_temp.id(101), pg_temp.id(502), 'SGT', 'Other', 'Platoon', 'roster-settings-other-platoon');
 SELECT pg_temp.as_close_rpc(true);
 INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, ends_on, rules, record) VALUES
-  (pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 10, pg_temp.today() - 1, '{}',
+  (pg_temp.id(101), pg_temp.id(403), pg_temp.today() - 10, pg_temp.today() - 1, '{"pool": null, "weekendMode": "same"}',
     '{"rows": [{"name": "Roster Able"}, {"name": "Roster Baker"}, {"name": "Other Platoon"}]}');
 INSERT INTO saved VALUES ('scope form', pg_temp.open_form(403));
 INSERT INTO public.roster_starting_numbers (organization_id, form_id, personnel_id, track, count, origin) VALUES
@@ -169,7 +169,7 @@ SELECT is((SELECT count(*)::integer FROM public.roster_starting_numbers WHERE or
 SELECT is((SELECT count(*)::integer FROM public.roster_excusals WHERE organization_id = pg_temp.id(101)), 2,
   'a Calendar viewer reads the Organization''s excusals');
 SELECT throws_ok(format($$INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, ends_on, rules, record)
-  VALUES (%L, %L, '2026-01-01', '2026-01-31', '{}', '{}')$$, pg_temp.id(101), pg_temp.id(403)),
+  VALUES (%L, %L, '2026-01-01', '2026-01-31', '{"pool": null, "weekendMode": "same"}', '{}')$$, pg_temp.id(101), pg_temp.id(403)),
   '42501', NULL, 'a Calendar viewer cannot add a DA 6 form');
 SELECT throws_ok(format($$INSERT INTO public.roster_starting_numbers (organization_id, form_id, personnel_id, track, count, origin)
   VALUES (%L, %L, %L, 'all', 1, 'typed')$$, pg_temp.id(101), pg_temp.open_form(403), pg_temp.id(302)),
@@ -177,7 +177,7 @@ SELECT throws_ok(format($$INSERT INTO public.roster_starting_numbers (organizati
 SELECT throws_ok(format($$INSERT INTO public.roster_excusals (organization_id, assignment_type_id, personnel_id, reason, starts_on)
   VALUES (%L, %L, %L, 'Leave', %L)$$, pg_temp.id(101), pg_temp.id(403), pg_temp.id(303), pg_temp.today()),
   '42501', NULL, 'a Calendar viewer cannot add an excusal');
-WITH changed AS (UPDATE public.roster_forms SET rules = '{}' WHERE organization_id = pg_temp.id(101) RETURNING id)
+WITH changed AS (UPDATE public.roster_forms SET rules = '{"pool": null, "weekendMode": "same"}' WHERE organization_id = pg_temp.id(101) RETURNING id)
 SELECT is(count(*)::integer, 0, 'a Calendar viewer cannot edit a DA 6 form') FROM changed;
 WITH changed AS (UPDATE public.roster_starting_numbers SET count = 9 WHERE organization_id = pg_temp.id(101) RETURNING form_id)
 SELECT is(count(*)::integer, 0, 'a Calendar viewer cannot edit a starting number') FROM changed;
@@ -210,7 +210,7 @@ SELECT is(count(*)::integer, 1, 'a configurator can remove an excusal') FROM rem
 ROLLBACK TO SAVEPOINT configurator_writes;
 RELEASE SAVEPOINT configurator_writes;
 SELECT throws_ok(format($$INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, ends_on, rules, record)
-  VALUES (%L, %L, '2026-01-01', '2026-01-31', '{}', '{}')$$, pg_temp.id(101), pg_temp.id(403)),
+  VALUES (%L, %L, '2026-01-01', '2026-01-31', '{"pool": null, "weekendMode": "same"}', '{}')$$, pg_temp.id(101), pg_temp.id(403)),
   '42501', NULL, 'a configurator cannot add a DA 6 form directly');
 SELECT throws_ok(format($$UPDATE public.roster_forms SET rules = '{"pool": null, "weekendMode": "none"}' WHERE id = %L$$,
   pg_temp.open_form(403)), '42501', NULL, 'a configurator cannot change the open form''s rules directly');
@@ -273,7 +273,45 @@ SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today() + 2, 
   'RSD01', NULL, 'close_roster_form rejects a day two days after the server day');
 SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), NULL, 'same', NULL, '[]'),
   '22023', NULL, 'a form with days to record cannot close without its record');
-SELECT lives_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), '{"ranks": ["SPC", "SGT"]}', 'separate',
+-- Rules the application could not read are refused before anything is written.
+CREATE FUNCTION pg_temp.roster_state() RETURNS jsonb LANGUAGE sql AS $$
+  SELECT jsonb_build_array(
+    (SELECT jsonb_agg(jsonb_build_array(id, ends_on, rules) ORDER BY starts_on) FROM public.roster_forms
+      WHERE assignment_type_id = pg_temp.id(401)),
+    (SELECT jsonb_build_array(roster_pool_rules, roster_weekend_mode) FROM public.assignment_types WHERE id = pg_temp.id(401)));
+$$;
+RESET ROLE;
+CREATE TEMP TABLE state_before AS SELECT pg_temp.roster_state() AS state;
+GRANT ALL ON state_before TO authenticated;
+SELECT pg_temp.act(2);
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), '{}', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'an empty object is not a rule set');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), '[]', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'an array is not a rule set');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(),
+  '{"rank": null, "mos": "68W", "role": [], "groupIds": []}', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'a list of MOS must be an array');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(),
+  '{"rank": null, "mos": [1], "role": [], "groupIds": []}', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'a list holds only strings');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(),
+  '{"rank": {"from": "SPC"}, "mos": [], "role": [], "groupIds": []}', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'a rank range needs both ends');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(),
+  '{"rank": {"from": "SPC", "to": 5}, "mos": [], "role": [], "groupIds": []}', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'a rank range holds strings');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(),
+  '{"mos": [], "role": [], "groupIds": []}', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'a rule set without a rank key is refused');
+SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(),
+  '{"rank": null, "mos": [], "role": [], "groupIds": [], "ranks": ["SPC"]}', 'same', '{"rows": []}', '[]'),
+  '22023', NULL, 'a rule set with an extra key is refused');
+SELECT is(pg_temp.roster_state(), (SELECT state FROM state_before), 'refused rules change nothing');
+SELECT throws_ok(format($$INSERT INTO public.assignment_types (organization_id, name, short_name, assign_to, roster_pool_rules)
+  VALUES (%L, 'Bad Rules', 'BR', 'personnel', '{}')$$, pg_temp.id(101)),
+  '23514', NULL, 'a type cannot be inserted with malformed rules');
+
+SELECT lives_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), '{"rank": {"from": "SPC", "to": "SGT"}, "mos": ["68W"], "role": [], "groupIds": []}', 'separate',
   '{"rows": [{"name": "Able", "count": 4}]}', jsonb_build_array(
     jsonb_build_object('personnel_id', pg_temp.id(301), 'track', 'weekday', 'count', 4, 'origin', 'carried'),
     jsonb_build_object('personnel_id', pg_temp.id(302), 'track', 'weekend', 'count', 1, 'origin', 'carried'),
@@ -283,11 +321,11 @@ SELECT is((SELECT jsonb_build_array(starts_on - pg_temp.today(), ends_on - pg_te
   WHERE id = (SELECT value FROM saved WHERE label = 'first form')),
   '[-10, 0, {"rows": [{"name": "Able", "count": 4}]}]', 'the closed form ends today with the record exactly as sent');
 SELECT is((SELECT jsonb_build_array(starts_on - pg_temp.today(), rules) FROM public.roster_forms WHERE id = pg_temp.open_form(401)),
-  '[1, {"pool": {"ranks": ["SPC", "SGT"]}, "weekendMode": "separate"}]', 'the next form opens tomorrow with the new rules');
+  '[1, {"pool": {"rank": {"from": "SPC", "to": "SGT"}, "mos": ["68W"], "role": [], "groupIds": []}, "weekendMode": "separate"}]', 'the next form opens tomorrow with the new rules');
 SELECT is(pg_temp.starting_numbers(pg_temp.open_form(401)), '[[301, "weekday", 4, "carried"], [302, "weekend", 1, "carried"]]',
   'the next form starts from the carried counts of people who still exist');
 SELECT is((SELECT jsonb_build_array(roster_pool_rules, roster_weekend_mode) FROM public.assignment_types WHERE id = pg_temp.id(401)),
-  '[{"ranks": ["SPC", "SGT"]}, "separate"]', 'the type takes the new rules');
+  '[{"rank": {"from": "SPC", "to": "SGT"}, "mos": ["68W"], "role": [], "groupIds": []}, "separate"]', 'the type takes the new rules');
 SELECT throws_ok(pg_temp.close_sql((SELECT value FROM saved WHERE label = 'first form'), pg_temp.today(), NULL, 'same',
   '{"rows": []}', '[]'), 'RSF01', NULL, 'a second close with the old form id fails');
 
@@ -309,7 +347,7 @@ SELECT is((SELECT jsonb_build_array(roster_pool_rules, roster_weekend_mode) FROM
   '[null, "none"]', 'the type takes the newest rules');
 
 -- Rules and closed forms change only through close_roster_form.
-SELECT throws_ok(format($$UPDATE public.assignment_types SET roster_pool_rules = '{"ranks": ["PFC"]}' WHERE id = %L$$, pg_temp.id(401)),
+SELECT throws_ok(format($$UPDATE public.assignment_types SET roster_pool_rules = '{"rank": null, "mos": [], "role": [], "groupIds": []}' WHERE id = %L$$, pg_temp.id(401)),
   '42501', NULL, 'a configurator cannot write pool rules directly');
 SELECT throws_ok(format($$UPDATE public.assignment_types SET roster_weekend_mode = 'separate' WHERE id = %L$$, pg_temp.id(401)),
   '42501', NULL, 'a configurator cannot write the weekend mode directly');

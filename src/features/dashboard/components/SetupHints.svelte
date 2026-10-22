@@ -12,7 +12,7 @@
 	let { hints, onDismiss }: Props = $props();
 
 	// Keep keyboard focus among the hints rather than dropping it to the page.
-	function dismiss(event: MouseEvent & { currentTarget: HTMLButtonElement }, feature: FeatureKey) {
+	function dismiss(event: MouseEvent & { currentTarget: Element }, feature: FeatureKey) {
 		const hint = event.currentTarget.closest('[data-setup-hint]');
 		const neighbour = [hint?.nextElementSibling, hint?.previousElementSibling].find((element) =>
 			element?.matches('[data-setup-hint]')

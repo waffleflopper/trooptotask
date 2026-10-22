@@ -1,5 +1,6 @@
 import type { ReadinessCertificate } from '$lib/components/patterns/readiness-items';
 import { buildRequestError } from '$lib/stores/core';
+import type { TrainingBatchImportResult, TrainingBatchRecord } from './contracts';
 import type { PersonnelTraining } from './training.types';
 
 export interface TrainingCompletionLog {
@@ -18,6 +19,20 @@ export interface TrainingCorrectionRequest {
 	completionDate?: string | null;
 	expirationDate?: string | null;
 	notes?: string | null;
+}
+
+/** Records many completions in one request; per-record failures come back in `errors`. */
+export async function recordTrainingCompletions(
+	orgId: string,
+	records: readonly TrainingBatchRecord[]
+): Promise<TrainingBatchImportResult> {
+	const response = await fetch(`/org/${orgId}/api/personnel-trainings/batch`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ records })
+	});
+	if (!response.ok) throw await buildRequestError(response, 'POST', 'training completions');
+	return response.json();
 }
 
 export async function loadPersonTrainingRecords(orgId: string, personnelId: string): Promise<PersonnelTraining[]> {

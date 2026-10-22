@@ -19,7 +19,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function summary(current: number): DashboardPageSummaryData {
+function summary(current: number, expiredIds: string[] = []): DashboardPageSummaryData {
 	return {
 		trainingSummary: {
 			stats: {
@@ -32,8 +32,8 @@ function summary(current: number): DashboardPageSummaryData {
 				notRequired: 0
 			},
 			issues: [],
-			expiredByType: [],
-			expiredPersonnelCount: 0,
+			expiredByType: expiredIds.length ? [{ trainingTypeId: 'cpr', personnelIds: expiredIds, maxDaysLate: 5 }] : [],
+			expiredPersonnelCount: expiredIds.length,
 			groupDelinquencies: []
 		},
 		ictlSummary: null,
@@ -76,6 +76,8 @@ function deferred<T>() {
 	return { promise, resolve };
 }
 const value = () => screen.getByLabelText('Current people').textContent;
+const expired = () => screen.getByLabelText('Expired people').textContent?.trim();
+const recordClass = () => fireEvent.click(screen.getByRole('button', { name: 'Record class' }));
 const refresh = () => fireEvent.click(screen.getByRole('button', { name: 'Refresh summary' }));
 
 describe('Dashboard summary endpoint refresh', () => {
@@ -138,5 +140,35 @@ describe('Dashboard summary endpoint refresh', () => {
 		await tick();
 		await tick();
 		expect(value()).toBe('1');
+	});
+
+	it('shows a person again when a later refresh finds them expired after a Record class save', async () => {
+		const first = deferred<Response>();
+		const second = deferred<Response>();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise));
+		render(Page, { props: { data: data('org-1', summary(1, ['okafor', 'brooks'])) } });
+		await waitFor(() => expect(expired()).toBe('okafor,brooks'));
+		await recordClass();
+		expect(expired()).toBe('brooks');
+		await refresh();
+		first.resolve(Response.json(summary(2, ['brooks'])));
+		await waitFor(() => expect(value()).toBe('2'));
+		expect(expired()).toBe('brooks');
+		await refresh();
+		second.resolve(Response.json(summary(1, ['okafor', 'brooks'])));
+		await waitFor(() => expect(expired()).toBe('okafor,brooks'));
+	});
+
+	it('keeps a newer save hidden when an earlier refresh lands', async () => {
+		const early = deferred<Response>();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(early.promise));
+		render(Page, { props: { data: data('org-1', summary(1, ['okafor', 'brooks'])) } });
+		await waitFor(() => expect(expired()).toBe('okafor,brooks'));
+		await refresh();
+		await recordClass();
+		early.resolve(Response.json(summary(1, ['okafor', 'brooks'])));
+		await waitFor(() => expect(value()).toBe('1'));
+		await tick();
+		expect(expired()).toBe('brooks');
 	});
 });

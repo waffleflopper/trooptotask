@@ -1,4 +1,5 @@
 export type {
+	RatingSchemeEntryEditorData,
 	WorkflowStatus,
 	WorkflowStatusOption,
 	RatingSchemeEntry,
@@ -28,4 +29,9 @@ export { default as PersonnelEvaluationCard } from './components/PersonnelEvalua
 /** Keep the editor deferred while delivery consumes the public Web seam. */
 export function loadRatingSchemeModals() {
 	return import('./components/RatingSchemeModals.svelte');
+}
+
+export { loadRatingSchemeEntryEditor, saveRatingSchemeEntry } from './ratingSchemeRequests';
+export function loadRatingSchemeEntryModal() {
+	return import('./components/RatingSchemeEntryModal.svelte');
 }

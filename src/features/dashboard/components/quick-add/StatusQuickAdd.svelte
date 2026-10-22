@@ -8,7 +8,8 @@
 		type AvailabilityOutcome
 	} from '$features/calendar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import { actionablePersonnel, type QuickAddDialogProps } from '../../sections/dashboardSections';
+	import { type QuickAddDialogProps } from '../../sections/dashboardSections';
+	import { actionablePersonnel } from '../../sections/dashboardAccess';
 	import QuickAddPersonPicker from './QuickAddPersonPicker.svelte';
 
 	let { model, access, onClose }: QuickAddDialogProps = $props();

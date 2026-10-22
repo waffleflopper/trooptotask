@@ -128,6 +128,8 @@ export interface DashboardBootstrap {
 }
 
 export const DASHBOARD_WORKSPACE_KEY = 'dashboard' as const;
+/** Reruns only the Dashboard summary read, so a save made on the Dashboard can refresh it in the background. */
+export const DASHBOARD_SUMMARY_DEPENDENCY = 'app:dashboard-summary';
 export type DashboardWorkspaceData = DashboardBootstrap;
 
 export type DashboardWorkspaceHydrationMode = 'replace' | 'preserve-client';

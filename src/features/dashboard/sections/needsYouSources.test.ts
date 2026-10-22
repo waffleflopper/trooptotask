@@ -5,6 +5,7 @@ import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { ExpiredTrainingType } from '$features/training/contracts';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from './dashboardInputs';
 import {
@@ -244,7 +245,11 @@ describe('overdueEvaluations', () => {
 				subtitle: 'Thru date 13 Oct',
 				timing: '6 days late',
 				href: '/org/org-1/evals?entry=eval-late',
-				action: null,
+				action: expect.objectContaining({
+					label: 'Update status',
+					policy: POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
+					mode: 'dialog'
+				}),
 				urgency: { daysLate: 6 }
 			}
 		]);
@@ -272,7 +277,11 @@ describe('expiredTraining', () => {
 				subtitle: 'Alvarez, Brooks, Patel, Kim',
 				timing: 'since 3 Oct',
 				href: '/org/org-1/training/reports?types=sharp',
-				action: null,
+				action: expect.objectContaining({
+					label: 'Record class',
+					policy: POLICY_ACTION_CATALOG.training.recordCompletions,
+					mode: 'dialog'
+				}),
 				urgency: { daysLate: 16 }
 			}
 		]);
@@ -327,7 +336,11 @@ describe('unfilledDuty', () => {
 				timing: 'in 8 days',
 				href: '/org/org-1/calendar',
 				onOpen: expect.any(Function),
-				action: null,
+				action: expect.objectContaining({
+					label: 'Fill 3 days',
+					policy: POLICY_ACTION_CATALOG.calendar.manageAssignments,
+					mode: 'expand'
+				}),
 				urgency: { date: '2026-10-27' }
 			}
 		]);
@@ -367,7 +380,12 @@ describe('stalledOnboarding', () => {
 				subtitle: 'Orders packet · waiting 10 days · 1 of 3',
 				timing: 'day 9',
 				href: '/org/org-1/onboarding?packet=onboarding-brooks',
-				action: null,
+				action: {
+					label: 'Check off',
+					policy: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
+					mode: 'link',
+					href: '/org/org-1/onboarding?packet=onboarding-brooks'
+				},
 				urgency: { date: '2026-10-09' }
 			}
 		]);
@@ -416,7 +434,12 @@ describe('leavingWithoutAward', () => {
 				subtitle: 'End-of-tour award not started',
 				timing: 'in 28 days',
 				href: '/org/org-1/personnel/patel-p-patel/data-sheet',
-				action: null,
+				action: expect.objectContaining({
+					label: 'Award started',
+					policy: POLICY_ACTION_CATALOG.personnel.manageRecords,
+					resource: { kind: 'group', groupId: 'bravo' },
+					mode: 'run'
+				}),
 				urgency: { date: '2026-11-16' }
 			}
 		]);

@@ -1,7 +1,7 @@
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { DashboardInputs } from './dashboardInputs';
-import { actionablePersonnel, type DashboardAccess } from './dashboardSections';
+import { actionablePersonnel, type DashboardAccess } from './dashboardAccess';
 
 const { onboarding, personnel } = POLICY_ACTION_CATALOG;
 

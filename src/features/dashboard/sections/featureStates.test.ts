@@ -8,7 +8,8 @@ import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import type { DashboardIctlSummary, DashboardPageData } from '../contracts';
 import type { DashboardInputs } from './dashboardInputs';
-import { composeDashboardSections, createDashboardAccess } from './dashboardSections';
+import { createDashboardAccess } from './dashboardAccess';
+import { composeDashboardSections } from './dashboardSections';
 import { DASHBOARD_SECTIONS } from './dashboardSectionRegistry';
 
 const TODAY = '2026-10-19';

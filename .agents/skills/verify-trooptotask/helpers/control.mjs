@@ -188,7 +188,7 @@ const filters = new Set([
 
 async function owned() {
 	const state = await readJSON(path.join(session, 'session.json'));
-	assertWorkerSession(state, worker);
+	await assertWorkerSession(state, worker, session);
 	const process = await processIdentity(state.supervisor?.pid);
 	if (process?.start !== state.supervisor?.start || process?.command !== state.supervisor?.command)
 		throw new Error('Owned supervisor is unavailable or replaced.');

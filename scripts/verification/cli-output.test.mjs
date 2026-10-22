@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { commandArguments, toolArguments, toolOutput, runTool } from './cli-output.mjs';
 import { SnapshotFormatter } from '../../node_modules/chrome-devtools-mcp/build/src/formatters/SnapshotFormatter.js';
 import { interactByRole } from './browser.mjs';
@@ -11,6 +13,7 @@ import {
 	assertWorkerSession,
 	candidateSnapshot,
 	changedCandidatePaths,
+	processIdentity,
 	repository
 } from './core.mjs';
 
@@ -160,10 +163,66 @@ test('checkout additions do not attribute a change to the untouched owned artifa
 	}
 });
 
-test('launch in progress is distinct from foreign ownership or an ended session', () => {
-	const state = { repository, worker: '2', phase: 'starting' };
-	assert.throws(() => assertWorkerSession(state, '2'), { code: 'LAUNCH_PENDING' });
-	assert.throws(() => assertWorkerSession({ ...state, repository: '/other' }, '2'), { code: 'OWNERSHIP' });
-	assert.throws(() => assertWorkerSession({ ...state, phase: 'cleaned' }, '2'), { code: 'OWNERSHIP' });
-	assert.doesNotThrow(() => assertWorkerSession({ ...state, phase: 'running', controlPort: 43000 }, '2'));
+test('a live launch is distinct from foreign ownership or an ended session', async () => {
+	const state = { repository, worker: '2', phase: 'starting', supervisor: await processIdentity(process.pid) };
+	await assert.rejects(async () => assertWorkerSession(state, '2'), { code: 'LAUNCH_PENDING' });
+	await assert.rejects(async () => assertWorkerSession({ ...state, repository: '/other' }, '2'), { code: 'OWNERSHIP' });
+	await assert.rejects(async () => assertWorkerSession({ ...state, phase: 'cleaned' }, '2'), { code: 'OWNERSHIP' });
+	await assert.doesNotReject(async () => assertWorkerSession({ ...state, phase: 'running', controlPort: 43000 }, '2'));
+});
+
+test('launcher identity reports pending before the supervisor registers', async () => {
+	const session = await fs.mkdtemp(path.join(os.tmpdir(), 'verify-launch-'));
+	try {
+		await fs.writeFile(
+			path.join(session, 'launcher.json'),
+			JSON.stringify({ identity: await processIdentity(process.pid) })
+		);
+		await assert.rejects(
+			async () => assertWorkerSession({ repository, worker: '2', phase: 'starting' }, '2', session),
+			{
+				code: 'LAUNCH_PENDING'
+			}
+		);
+	} finally {
+		await fs.rm(session, { recursive: true, force: true });
+	}
+});
+
+test('an interrupted launch directs cleanup instead of waiting for a dead or replaced process', async () => {
+	const session = await fs.mkdtemp(path.join(os.tmpdir(), 'verify-launch-'));
+	const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)']);
+	try {
+		await once(child, 'spawn');
+		const identity = await processIdentity(child.pid);
+		const exited = once(child, 'exit');
+		child.kill('SIGKILL');
+		await exited;
+		const current = await processIdentity(process.pid);
+		for (const supervisor of [identity, { ...current, start: 'replaced' }, { ...current, command: 'replaced' }]) {
+			await fs.writeFile(path.join(session, 'launcher.json'), JSON.stringify({ identity: supervisor }));
+			for (const state of [
+				{ repository, worker: '2', phase: 'starting', supervisor },
+				{ repository, worker: '2', phase: 'starting' }
+			])
+				await assert.rejects(
+					async () => assertWorkerSession(state, '2', session),
+					(error) => {
+						assert.equal(error.code, 'LAUNCH_EXITED');
+						assert.match(error.message, /cleanup --worker 2/);
+						return true;
+					}
+				);
+		}
+		await fs.unlink(path.join(session, 'launcher.json'));
+		await assert.rejects(
+			async () => assertWorkerSession({ repository, worker: '2', phase: 'starting' }, '2', session),
+			{
+				code: 'LAUNCH_EXITED'
+			}
+		);
+	} finally {
+		if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+		await fs.rm(session, { recursive: true, force: true });
+	}
 });

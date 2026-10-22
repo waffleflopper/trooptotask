@@ -160,14 +160,26 @@ export function assertCurrentCandidate(state, currentCandidate, artifactCandidat
 			`Source or owned artifact changed${paths.length ? `: ${paths.slice(0, 5).join(', ')}${paths.length > 5 ? ` (+${paths.length - 5} more)` : ''}` : ''}. Restart before driving this candidate.`
 		);
 }
-export function assertWorkerSession(state, worker) {
+export async function assertWorkerSession(state, worker, session = sessionPath(worker)) {
 	if (state.repository !== repository || state.worker !== worker)
 		throw new Blocked('OWNERSHIP', 'Session ownership does not match this checkout and worker.');
-	if (state.phase === 'starting')
+	if (state.phase === 'starting') {
+		let identity = state.supervisor;
+		if (!identity) {
+			try {
+				identity = (await readJSON(path.join(session, 'launcher.json'))).identity;
+			} catch (error) {
+				if (error.code !== 'ENOENT') throw error;
+			}
+		}
+		const current = identity && (await processIdentity(identity.pid));
+		if (!current || current.state === 'Z' || current.start !== identity.start || current.command !== identity.command)
+			throw new Blocked('LAUNCH_EXITED', `Launch is no longer running; run cleanup --worker ${worker}.`);
 		throw new Blocked(
 			'LAUNCH_PENDING',
 			'This worker is still launching. Wait for launch to finish; inspect its supervisor.log for progress.'
 		);
+	}
 	if (state.phase !== 'running' || !Number.isInteger(state.controlPort))
 		throw new Blocked('OWNERSHIP', 'Session is not running. Inspect info and cleanup before launching.');
 }

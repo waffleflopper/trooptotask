@@ -86,7 +86,7 @@ async function request(input) {
 	} catch {
 		throw new Blocked('NOT_LAUNCHED', 'No owned session. Run launch first.');
 	}
-	assertWorkerSession(state, worker);
+	await assertWorkerSession(state, worker, session);
 	try {
 		const owner = state.supervisor && (await processIdentity(state.supervisor.pid));
 		if (!owner || owner.start !== state.supervisor.start || owner.command !== state.supervisor.command)

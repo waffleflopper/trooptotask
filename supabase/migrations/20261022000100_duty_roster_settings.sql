@@ -7,10 +7,70 @@
 -- Dated excusals with a reason replace exempt_personnel_ids.
 BEGIN;
 
+-- The shapes the application parses (poolRulesSchema and the form rules). The
+-- checks run for every writer, so the functions are executable by all API roles.
+CREATE FUNCTION public.is_roster_pool_rules(p_rules jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $$
+DECLARE
+  v_key text;
+BEGIN
+  IF p_rules IS NULL OR pg_catalog.jsonb_typeof(p_rules) <> 'object'
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(p_rules)) <> 4
+  THEN
+    RETURN false;
+  END IF;
+  FOREACH v_key IN ARRAY ARRAY['mos', 'role', 'groupIds'] LOOP
+    IF pg_catalog.jsonb_typeof(p_rules -> v_key) IS DISTINCT FROM 'array' THEN
+      RETURN false;
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM pg_catalog.jsonb_array_elements(p_rules -> v_key) AS e(value)
+      WHERE pg_catalog.jsonb_typeof(e.value) <> 'string'
+    ) THEN
+      RETURN false;
+    END IF;
+  END LOOP;
+  IF pg_catalog.jsonb_typeof(p_rules -> 'rank') = 'null' THEN
+    RETURN true;
+  END IF;
+  IF pg_catalog.jsonb_typeof(p_rules -> 'rank') IS DISTINCT FROM 'object'
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(p_rules -> 'rank')) <> 2
+  THEN
+    RETURN false;
+  END IF;
+  RETURN pg_catalog.jsonb_typeof(p_rules -> 'rank' -> 'from') IS NOT DISTINCT FROM 'string'
+    AND pg_catalog.jsonb_typeof(p_rules -> 'rank' -> 'to') IS NOT DISTINCT FROM 'string'
+    AND (p_rules -> 'rank' ->> 'from') IS DISTINCT FROM ''
+    AND (p_rules -> 'rank' ->> 'to') IS DISTINCT FROM '';
+END;
+$$;
+
+CREATE FUNCTION public.is_roster_form_rules(p_rules jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $$
+BEGIN
+  IF p_rules IS NULL OR pg_catalog.jsonb_typeof(p_rules) <> 'object'
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(p_rules)) <> 2
+  THEN
+    RETURN false;
+  END IF;
+  IF pg_catalog.jsonb_typeof(p_rules -> 'weekendMode') IS DISTINCT FROM 'string'
+    OR (p_rules ->> 'weekendMode') NOT IN ('same', 'separate', 'none')
+  THEN
+    RETURN false;
+  END IF;
+  RETURN pg_catalog.jsonb_typeof(p_rules -> 'pool') IS NOT DISTINCT FROM 'null'
+    OR public.is_roster_pool_rules(p_rules -> 'pool');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.is_roster_pool_rules(jsonb), public.is_roster_form_rules(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_roster_pool_rules(jsonb), public.is_roster_form_rules(jsonb)
+  TO anon, authenticated, service_role;
+
 ALTER TABLE public.assignment_types
   ADD CONSTRAINT assignment_types_organization_id_id_key UNIQUE (organization_id, id),
   ADD COLUMN roster_pool_rules jsonb NULL
-    CONSTRAINT assignment_types_roster_pool_rules_check CHECK (pg_catalog.jsonb_typeof(roster_pool_rules) = 'object'),
+    CONSTRAINT assignment_types_roster_pool_rules_check CHECK (roster_pool_rules IS NULL OR public.is_roster_pool_rules(roster_pool_rules)),
   ADD COLUMN roster_weekend_mode text NOT NULL DEFAULT 'same'
     CONSTRAINT assignment_types_roster_weekend_mode_check CHECK (roster_weekend_mode IN ('same', 'separate', 'none'));
 
@@ -21,7 +81,7 @@ CREATE TABLE public.roster_forms (
   starts_on date NOT NULL,
   -- Null while the form is open. A closed form keeps its record and never changes.
   ends_on date NULL,
-  rules jsonb NOT NULL CONSTRAINT roster_forms_rules_check CHECK (pg_catalog.jsonb_typeof(rules) = 'object'),
+  rules jsonb NOT NULL CONSTRAINT roster_forms_rules_check CHECK (public.is_roster_form_rules(rules)),
   record jsonb NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT roster_forms_organization_id_id_key UNIQUE (organization_id, id),
@@ -75,18 +135,39 @@ ALTER TABLE public.roster_forms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roster_starting_numbers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roster_excusals ENABLE ROW LEVEL SECURITY;
 
+CREATE FUNCTION calendar_private.organization_wide_viewer_organizations()
+RETURNS TABLE(organization_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT m.organization_id
+  FROM public.organization_memberships m
+  WHERE m.user_id = auth.uid()
+    AND public.member_access_has_capability(m.organization_id, 'calendar', 'view')
+    AND (m.role IN ('owner', 'admin') OR m.access_scope_kind = 'organization');
+$$;
+
+REVOKE ALL ON FUNCTION calendar_private.organization_wide_viewer_organizations() FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION calendar_private.organization_wide_viewer_organizations() TO authenticated;
+
 CREATE POLICY "Calendar viewers can read DA 6 forms" ON public.roster_forms
-  FOR SELECT USING (public.can_view_calendar(organization_id));
+  FOR SELECT TO authenticated USING (organization_id IN (
+    SELECT v.organization_id FROM calendar_private.organization_wide_viewer_organizations() v
+  ));
 CREATE POLICY "Calendar configurators can manage DA 6 forms" ON public.roster_forms
   USING (public.can_manage_calendar_configuration(organization_id))
   WITH CHECK (public.can_manage_calendar_configuration(organization_id));
 CREATE POLICY "Calendar viewers can read roster starting numbers" ON public.roster_starting_numbers
-  FOR SELECT USING (public.can_view_calendar(organization_id));
+  FOR SELECT TO authenticated USING ((organization_id, personnel_id) IN (
+    SELECT v.organization_id, v.personnel_id FROM member_access_private.viewable_personnel('calendar') v
+  ));
 CREATE POLICY "Calendar configurators can manage roster starting numbers" ON public.roster_starting_numbers
   USING (public.can_manage_calendar_configuration(organization_id))
   WITH CHECK (public.can_manage_calendar_configuration(organization_id));
 CREATE POLICY "Calendar viewers can read roster excusals" ON public.roster_excusals
-  FOR SELECT USING (public.can_view_calendar(organization_id));
+  FOR SELECT TO authenticated USING ((organization_id, personnel_id) IN (
+    SELECT v.organization_id, v.personnel_id FROM member_access_private.viewable_personnel('calendar') v
+  ));
 CREATE POLICY "Calendar configurators can manage roster excusals" ON public.roster_excusals
   USING (public.can_manage_calendar_configuration(organization_id))
   WITH CHECK (public.can_manage_calendar_configuration(organization_id));
@@ -319,12 +400,14 @@ BEGIN
   END IF;
   IF p_assignment_type_id IS NULL OR p_form_id IS NULL
     OR p_weekend_mode NOT IN ('same', 'separate', 'none')
-    OR (v_pool IS NOT NULL AND pg_catalog.jsonb_typeof(v_pool) <> 'object')
     OR (p_record IS NOT NULL AND pg_catalog.jsonb_typeof(p_record) <> 'object')
     OR p_carry IS NULL OR pg_catalog.jsonb_typeof(p_carry) <> 'array'
     OR (v_ending AND (v_pool IS NOT NULL OR pg_catalog.jsonb_array_length(p_carry) > 0))
   THEN
     RAISE EXCEPTION 'Invalid roster rules' USING ERRCODE = '22023';
+  END IF;
+  IF v_pool IS NOT NULL AND NOT public.is_roster_pool_rules(v_pool) THEN
+    RAISE EXCEPTION 'Pool rules need a rank range or null, and lists of MOS, roles and group ids' USING ERRCODE = '22023';
   END IF;
   IF p_today IS NULL OR pg_catalog.abs(p_today - (pg_catalog.now() AT TIME ZONE 'UTC')::date) > 1 THEN
     RAISE EXCEPTION 'The date on this device is off' USING ERRCODE = 'RSD01';
@@ -435,6 +518,10 @@ BEGIN
   FROM public.daily_assignments a
   WHERE a.organization_id = p_organization_id AND a.assignment_type_id = p_assignment_type_id
     AND a.date BETWEEN p_from AND p_through
+    AND EXISTS (
+      SELECT 1 FROM public.assignment_types t
+      WHERE t.organization_id = p_organization_id AND t.id = a.assignment_type_id AND t.assign_to = 'personnel'
+    )
     AND (
       a.assignee_id IN (
         SELECT v.personnel_id::text FROM member_access_private.viewable_personnel('calendar') v

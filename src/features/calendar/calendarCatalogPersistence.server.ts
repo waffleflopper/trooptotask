@@ -181,6 +181,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					.from('assignment_types')
 					.select(ASSIGNMENT_TYPE_FIELDS)
 					.eq('organization_id', orgId)
+					.is('roster_excusals.ends_on', null)
 					.order('sort_order', { ascending: true })
 					.order('id', { ascending: true })
 					.range(from, to)
@@ -242,6 +243,7 @@ export function createSupabaseCalendarCatalogPersistence(
 				})
 				.eq('organization_id', orgId)
 				.eq('id', id)
+				.is('roster_excusals.ends_on', null)
 				.select(ASSIGNMENT_TYPE_FIELDS)
 				.maybeSingle<AssignmentTypeRow>();
 			if (error) throw new Error(error.message);

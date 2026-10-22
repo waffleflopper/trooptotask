@@ -10,7 +10,16 @@ import type {
 } from './contracts';
 import { fitsOneDayLabel, normalizeShortLabel } from '$lib/components/patterns/calendar-bars';
 import { MAX_CLOSURE_DAYS } from './utils/closureDays';
-import type { OpenForm, PoolRules, RosterEffect, TrackId, WeekendMode } from './roster/rosterTypes';
+import type {
+	ClosedForm,
+	Da6Segment,
+	MonthKey,
+	OpenForm,
+	PoolRules,
+	RosterEffect,
+	TrackId,
+	WeekendMode
+} from './roster/rosterTypes';
 import {
 	ROSTER_EXCUSAL_REASON_MAX,
 	normalizePoolRules,
@@ -55,6 +64,13 @@ export type RosterFormRow = {
 		origin: 'typed' | 'carried';
 	}> | null;
 };
+export type ClosedRosterFormRow = {
+	id: string;
+	starts_on: string;
+	ends_on: string;
+	rules: { pool: PoolRules | null; weekendMode: WeekendMode };
+	record: unknown;
+};
 export type RosterExcusalRow = { personnel_id: string; reason: string; starts_on: string; ends_on?: string | null };
 export type SpecialDayRow = SavedRow & {
 	id: string;
@@ -81,6 +97,7 @@ export const STATUS_TYPE_FIELDS =
 	'id, organization_id, name, color, text_color, short_label, roster_effect, sort_order, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
 	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, roster_pool_rules, roster_weekend_mode, archived_at, created_at, roster_excusals(personnel_id, reason, starts_on, ends_on)';
+export const CLOSED_ROSTER_FORM_FIELDS = 'id, starts_on, ends_on, rules, record';
 export const ROSTER_FORM_FIELDS = 'id, starts_on, rules, roster_starting_numbers(personnel_id, track, count, origin)';
 export const SPECIAL_DAY_FIELDS = 'id, organization_id, date, name, type, created_at';
 export const AVAILABILITY_FIELDS =
@@ -139,6 +156,85 @@ export function toOpenRosterForm(row: RosterFormRow): OpenForm {
 			count: number.count,
 			origin: number.origin
 		}))
+	};
+}
+
+const trackSchema = z.enum(['all', 'weekday', 'weekend']) satisfies z.ZodType<TrackId>;
+const codeSchema = z.enum(['A', 'D', 'U']);
+const personRefSchema = z.object({
+	personId: z.string(),
+	rank: z.string(),
+	lastName: z.string(),
+	firstName: z.string()
+});
+const whenSchema = z.enum(['served', 'planned']);
+const da6SegmentSchema = z.object({
+	formId: z.string(),
+	formState: z.enum(['open', 'closed']),
+	natureOfDuty: z.string(),
+	month: z.string(),
+	weekendMode: weekendModeSchema,
+	columns: z.array(
+		z.object({
+			date: z.string(),
+			track: trackSchema,
+			when: whenSchema,
+			pick: personRefSchema,
+			source: z.enum(['manual', 'roster']),
+			passedOver: z.array(personRefSchema.extend({ count: z.number(), code: codeSchema, reason: z.string() })),
+			rulePick: personRefSchema.nullable()
+		})
+	),
+	rows: z.array(personRefSchema),
+	cells: z.array(
+		z.array(
+			z
+				.discriminatedUnion('kind', [
+					z.object({ kind: z.literal('count'), count: z.number() }),
+					z.object({ kind: z.literal('away'), count: z.number(), reason: z.string() }),
+					z.object({ kind: z.literal('code'), code: z.enum(['D', 'U']), count: z.number(), reason: z.string() }),
+					z.object({ kind: z.literal('detail'), count: z.number(), when: whenSchema })
+				])
+				.nullable()
+		)
+	),
+	remarks: z.array(
+		z.discriminatedUnion('kind', [
+			z.object({
+				kind: z.literal('excused'),
+				who: personRefSchema,
+				reason: z.string(),
+				from: z.string(),
+				through: z.string().nullable()
+			}),
+			z.object({
+				kind: z.literal('left'),
+				who: personRefSchema,
+				on: z.string(),
+				cause: z.enum(['archived', 'unmatched'])
+			}),
+			z.object({
+				kind: z.literal('joined'),
+				who: personRefSchema,
+				on: z.string(),
+				cause: z.enum(['joined', 'matched', 'reactivated'])
+			}),
+			z.object({ kind: z.literal('outside'), who: personRefSchema, date: z.string() })
+		])
+	)
+}) satisfies z.ZodType<Da6Segment>;
+const closedRecordSchema = z.object({ segments: z.array(z.object({ month: z.string() }).passthrough()) });
+
+/** Parses only the segment for `month`, so a long closed form costs one month of validation. */
+export function toClosedRosterForm(row: ClosedRosterFormRow, month: MonthKey): ClosedForm {
+	const segment = closedRecordSchema.parse(row.record).segments.find((candidate) => candidate.month === month);
+	return {
+		kind: 'closed',
+		id: row.id,
+		startsOn: row.starts_on,
+		endsOn: row.ends_on,
+		rules: { pool: row.rules.pool ?? null, weekendMode: row.rules.weekendMode },
+		segments: segment ? [da6SegmentSchema.parse(segment)] : []
 	};
 }
 

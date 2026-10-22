@@ -3,8 +3,10 @@ import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 import type {
+	ClosedForm,
 	Da6Segment,
 	Excusal,
+	MonthKey,
 	OpenForm,
 	PoolRules,
 	RosterEffect,
@@ -288,6 +290,8 @@ export interface CalendarCatalogPersistence {
 	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<void>;
 	/** Null for a group-assigned type, or a person-assigned type whose form a concurrent save is replacing. */
 	findOpenRosterForm(assignmentTypeId: string): Promise<OpenForm | null>;
+	/** Closed forms that overlap `month`, oldest first, each carrying only that month's saved segment. */
+	listClosedRosterForms(assignmentTypeId: string, month: MonthKey): Promise<ClosedForm[]>;
 	/** Every excusal on this roster, reinstated ones included, so a close can save who was excused when. */
 	listRosterExcusals(assignmentTypeId: string): Promise<Excusal[]>;
 	/** Makes `excusals` the open set from `today` on, ending the others yesterday. */

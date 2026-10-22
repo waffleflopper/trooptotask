@@ -89,6 +89,22 @@ describe('import session', () => {
 		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { rank: 'SGT' } });
 		expect(session.creating.has(key)).toBe(false);
 	});
+	it('resolves a created option before the lane lists it', async () => {
+		const base = personnelLane();
+		const option = { id: 'sergeant', label: 'Sergeant', value: 'SGT' };
+		const lane = {
+			...base,
+			references: {
+				rank: { ...base.references.rank, create: async () => ({ kind: 'created' as const, option }) }
+			}
+		};
+		const session = new ImportSession(() => lane);
+		await session.chooseFile([csv('Sgt.')]);
+		session.goTo('review');
+		const key = questionKey({ reference: 'rank', key: 'sgt.' });
+		expect(await session.createOption(key, 'Sergeant')).toBeNull();
+		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { rank: 'SGT' } });
+	});
 	it('drops stale create and commit continuations after start over', async () => {
 		const pending = deferred<CreateOptionResult<string>>();
 		const committed = deferred<ChunkReply>();

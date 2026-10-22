@@ -178,11 +178,23 @@ export class ReviewMemo<Change = unknown> {
 	rows = new WeakMap<SourceRow, MemoEntry<Change>>();
 	matches = new Map<string, Map<string, ReferenceMatch<unknown>>>();
 	options = new Map<string, ReadonlyMap<string, ReferenceOption<unknown>>>();
+	created = new Map<string, Map<string, ReferenceOption<unknown>>>();
 	clear(): void {
-		this.lane = null;
+		this.resetLane(null);
+		this.created.clear();
+	}
+	resetLane(lane: object | null): void {
+		this.lane = lane;
 		this.rows = new WeakMap();
 		this.matches.clear();
 		this.options.clear();
+	}
+	addCreated(reference: string, option: ReferenceOption<unknown>): void {
+		const created = this.created.get(reference) ?? new Map<string, ReferenceOption<unknown>>();
+		this.created.set(reference, created.set(option.id, option));
+	}
+	option(reference: string, id: string): ReferenceOption<unknown> | undefined {
+		return this.options.get(reference)?.get(id) ?? this.created.get(reference)?.get(id);
 	}
 }
 
@@ -269,7 +281,7 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			rowCount: 1,
 			accepts: {
 				kind: 'pick',
-				options: match.kind === 'many' ? match.candidates : reference.options,
+				options: match.kind === 'many' ? match.candidates : withCreated(reference.options, memo.created.get(name)),
 				canCreate: reference.create !== undefined
 			},
 			answer
@@ -280,7 +292,10 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			continue;
 		}
 		if (answer?.kind === 'pick') {
-			const option = memo.options.get(name)?.get(answer.optionId);
+			const option =
+				match.kind === 'many'
+					? match.candidates.find((candidate) => candidate.id === answer.optionId)
+					: memo.option(name, answer.optionId);
 			if (option) {
 				refs[name] = option;
 				continue;
@@ -324,6 +339,15 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 	return { review, consulted, questions: [...questions.values()] };
 }
 
+function withCreated(
+	options: readonly ReferenceOption<unknown>[],
+	created: ReadonlyMap<string, ReferenceOption<unknown>> | undefined
+): readonly ReferenceOption<unknown>[] {
+	if (!created?.size) return options;
+	const listed = new Set(options.map((option) => option.id));
+	return [...options, ...[...created.values()].filter((option) => !listed.has(option.id))];
+}
+
 export function reviewRows<C extends ImportColumns, Refs extends ImportReferences<C>, Change>(
 	rows: readonly SourceRow[],
 	lane: ImportLane<C, Refs, Change>,
@@ -332,8 +356,7 @@ export function reviewRows<C extends ImportColumns, Refs extends ImportReference
 	memo: ReviewMemo<Change>
 ): ReviewState<Change> {
 	if (memo.lane !== lane) {
-		memo.clear();
-		memo.lane = lane;
+		memo.resetLane(lane);
 		for (const [name, reference] of Object.entries(lane.references))
 			memo.options.set(name, new Map(reference.options.map((option) => [option.id, option])));
 	}

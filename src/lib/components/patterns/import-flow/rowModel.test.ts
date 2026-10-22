@@ -269,7 +269,7 @@ describe('row review', () => {
 				person: {
 					label: 'person',
 					reads: ['lastName', 'firstName'],
-					options: [...options, { id: 'c', label: 'Jones, Pat', hint: 'HQ', value: 'c' }],
+					options: [{ id: 'c', label: 'Jones, Pat', hint: 'HQ', value: 'c' }],
 					whenMissing: 'none-is-new',
 					key: (raw) => (raw.lastName ? { key: raw.lastName, display: raw.lastName } : null),
 					find: (key) => (key === 'Smith' ? { kind: 'many', candidates: options } : { kind: 'none' })
@@ -312,5 +312,13 @@ describe('row review', () => {
 			memo
 		);
 		expect(answered.rows[0]).toMatchObject({ outcome: 'new', key: 'b', change: { target: 'b' } });
+		const outsideCandidates = reviewRows(
+			rows,
+			lane,
+			new Map([[questionKey({ reference: 'person', key: 'Smith' }), { kind: 'pick', optionId: 'c' }]]),
+			new Set(),
+			memo
+		);
+		expect(outsideCandidates.rows[0]).toMatchObject({ outcome: 'fix' });
 	});
 });

@@ -156,8 +156,9 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		if (this.phase.step !== 'review' && this.phase.step !== 'columns') return null;
 		if (this.creating.has(key)) return null;
 		const question = this.review.questions.find((item) => item.key === key);
-		const reference = question?.reference ? this.lane.references[question.reference] : undefined;
-		if (!reference?.create) return { refused: 'This value cannot be created here.' };
+		const referenceName = question?.reference;
+		const reference = referenceName ? this.lane.references[referenceName] : undefined;
+		if (!referenceName || !reference?.create) return { refused: 'This value cannot be created here.' };
 		const generation = this.#generation;
 		const previousAnswer = this.answers.get(key);
 		this.creating.set(key, true);
@@ -165,6 +166,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 			const result = await reference.create(name);
 			if (generation !== this.#generation) return null;
 			if (result.kind === 'refused') return { refused: result.message };
+			this.#memo.addCreated(referenceName, result.option);
 			if (this.answers.get(key) === previousAnswer) this.answer(key, { kind: 'pick', optionId: result.option.id });
 			return null;
 		} catch (error) {

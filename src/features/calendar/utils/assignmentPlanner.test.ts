@@ -111,7 +111,17 @@ describe('buildPlannerTable', () => {
 			personnel: roster,
 			groups: [{ id: 'g-2nd', name: '2nd Platoon', sortOrder: 0 }],
 			specialDays: [{ id: 'sd-1', date: '2026-10-12', name: 'Columbus Day', type: 'federal-holiday' }],
-			statusTypes: [{ id: 'leave', name: 'Leave', color: '#0a0', textColor: '#fff', shortLabel: null, sortOrder: 0 }]
+			statusTypes: [
+				{
+					id: 'leave',
+					name: 'Leave',
+					color: '#0a0',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'A',
+					sortOrder: 0
+				}
+			]
 		});
 	}
 

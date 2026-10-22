@@ -25,7 +25,7 @@ SELECT is((SELECT confdeltype::text FROM pg_constraint
 
 CREATE TEMP TABLE calendar_catalog_current_rows AS
 -- The later status label upgrade adds a column that these rows leave NULL.
-SELECT 'status_types'::text AS table_name, id AS row_id, to_jsonb(row_value) - 'short_label' AS row_data
+SELECT 'status_types'::text AS table_name, id AS row_id, to_jsonb(row_value) - 'short_label' - 'roster_effect' AS row_data
   FROM public.status_types AS row_value
   WHERE id IN ('e5000000-0000-4000-8000-000000000401', 'e5000000-0000-4000-8000-000000000402')
 UNION ALL

@@ -262,7 +262,17 @@ describe('planner conflicts', () => {
 			'org-1'
 		);
 		statusTypesStore.load(
-			[{ id: 'leave', name: 'Leave', color: '#0a0', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
+			[
+				{
+					id: 'leave',
+					name: 'Leave',
+					color: '#0a0',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'A',
+					sortOrder: 0
+				}
+			],
 			'org-1'
 		);
 		availabilityStore.load(

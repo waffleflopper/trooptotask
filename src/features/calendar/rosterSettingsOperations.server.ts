@@ -14,6 +14,7 @@ import {
 } from './contracts';
 import { carryOver, closeForm } from './roster/rosterEngine';
 import type { OpenForm, RosterFacts, RosterRules } from './roster/rosterTypes';
+import { MAX_CALENDAR_RANGE_DAYS } from './utils/calendarRange';
 
 export interface RosterSettingsPorts extends CalendarCatalogPorts {
 	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
@@ -27,6 +28,11 @@ const resource = { kind: 'organization' } as const;
 
 const addDays = (date: string, days: number) => fromDayNumber(toDayNumber(date) + days);
 const utcDate = (offsetDays: number) => addDays(new Date().toISOString().slice(0, 10), offsetDays);
+
+/** The device day must sit within a day of the server's UTC day, so a wrong clock cannot place a form boundary. */
+export function requireDeviceDate(today: string | undefined): asserts today is string {
+	if (!today || today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+}
 
 const sameRules = (a: RosterRules, b: RosterRules) =>
 	a.weekendMode === b.weekendMode &&
@@ -44,7 +50,7 @@ export async function saveRosterSettings(
 	const parsed = rosterSettingsInput.safeParse(input);
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const { id, poolRules, weekendMode, excusals, today } = parsed.data;
-	if (today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+	requireDeviceDate(today);
 	await requireCalendarPolicy(ctx, action, resource);
 
 	const type = await findRosterType(ctx, id);
@@ -91,7 +97,7 @@ export async function saveRosterSettings(
 export async function endRoster(ctx: RosterSettingsPorts, id: string, today: string | undefined): Promise<void> {
 	const form = await ctx.calendarCatalogs.findOpenRosterForm(id);
 	if (!form) return;
-	if (!today || today < utcDate(-1) || today > utcDate(1)) fail(400, DEVICE_DATE_MESSAGE);
+	requireDeviceDate(today);
 	const { record } = await closing(ctx, await findRosterType(ctx, id), form, today, form.rules.weekendMode);
 	await ctx.calendarCatalogs.endRosterForm({ assignmentTypeId: id, formId: form.id, today, record });
 	await ctx.audit.log({
@@ -123,16 +129,20 @@ async function closing(
 }
 
 /**
- * The whole open form's facts through `today`, plus the day each side the engine reads for D and U. This type's
- * duty days include those of deleted assignees, which still moved everyone else's count.
+ * The whole open form's facts through `through` (today unless a caller reads planned days too), capped at today
+ * plus the Calendar's planning horizon, plus the day each side the engine reads for D and U. This type's duty days
+ * include those of deleted assignees, which still moved everyone else's count.
  */
 export async function loadRosterFacts(
 	ctx: RosterSettingsPorts,
 	type: Pick<SavedAssignmentType, 'id' | 'name'>,
 	form: OpenForm,
-	today: string
+	today: string,
+	through: string = today
 ): Promise<RosterFacts> {
-	const range = { rangeStart: addDays(form.startsOn, -1), rangeEnd: addDays(today, 1) };
+	const horizon = addDays(today, MAX_CALENDAR_RANGE_DAYS);
+	const window = { from: form.startsOn, through: through < horizon ? through : horizon };
+	const range = { rangeStart: addDays(window.from, -1), rangeEnd: addDays(window.through, 1) };
 	const [timelines, excusals, rankCatalog, statusTypes, types, availability, specialDays, assignments, detailDays] =
 		await Promise.all([
 			ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth),
@@ -148,7 +158,7 @@ export async function loadRosterFacts(
 	const personTypes = new Map(types.filter((t) => t.assignTo === 'personnel').map((t) => [t.id, t.name]));
 	return {
 		today,
-		window: { from: form.startsOn, through: today },
+		window,
 		type: { id: type.id, name: type.name },
 		form,
 		people: timelines.map((person) => ({
@@ -163,8 +173,7 @@ export async function loadRosterFacts(
 		})),
 		excusals,
 		rankCatalog,
-		// Status types gain their roster effect in a later release. Until then every status keeps a person off duty.
-		statusTypes: statusTypes.map(({ id, name }) => ({ id, name, rosterEffect: 'A' as const })),
+		statusTypes: statusTypes.map(({ id, name, rosterEffect }) => ({ id, name, rosterEffect })),
 		availability,
 		holidays: specialDays.map(({ date }) => date),
 		assignments: [

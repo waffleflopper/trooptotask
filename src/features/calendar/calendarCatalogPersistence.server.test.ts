@@ -201,14 +201,18 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			textColor: '#ffffff',
 			shortLabel: null,
+			rosterEffect: 'A',
 			sortOrder: 10
 		});
-		expect(await port.createStatusType({ name: 'Sick', shortLabel: 'SK' })).toMatchObject({
+		expect(await port.createStatusType({ name: 'Sick', shortLabel: 'SK', rosterEffect: 'D' })).toMatchObject({
 			id: 'saved-2',
 			shortLabel: 'SK',
+			rosterEffect: 'D',
 			sortOrder: 11
 		});
-		expect(await port.updateStatusType('saved-1', { textColor: '#000000', shortLabel: 'LV' })).toEqual({
+		expect(
+			await port.updateStatusType('saved-1', { textColor: '#000000', shortLabel: 'LV', rosterEffect: 'available' })
+		).toEqual({
 			id: 'saved-1',
 			organization_id: ORG,
 			created_at: TIME,
@@ -216,6 +220,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			textColor: '#000000',
 			shortLabel: 'LV',
+			rosterEffect: 'available',
 			sortOrder: 10
 		});
 		expect(await port.createAssignmentType({ name: 'Duty', shortName: 'D', assignTo: 'personnel' })).toEqual({
@@ -257,6 +262,7 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				text_color: '#000000',
 				short_label: 'LV',
+				roster_effect: 'available',
 				sort_order: 10
 			},
 			{
@@ -267,6 +273,7 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				text_color: '#ffffff',
 				short_label: 'SK',
+				roster_effect: 'D',
 				sort_order: 11
 			}
 		]);
@@ -287,7 +294,9 @@ describe('Calendar ordinary catalog persistence', () => {
 			}
 		]);
 		const statusPatches = state.requests.filter(({ table, method }) => table === 'status_types' && method === 'PATCH');
-		expect(statusPatches.map(({ body }) => body)).toEqual([{ text_color: '#000000', short_label: 'LV' }]);
+		expect(statusPatches.map(({ body }) => body)).toEqual([
+			{ text_color: '#000000', short_label: 'LV', roster_effect: 'available' }
+		]);
 		const typeWrites = state.requests.filter(({ table, body }) => table === 'assignment_types' && body);
 		for (const { body } of typeWrites) {
 			expect(body).not.toHaveProperty('sort_order');

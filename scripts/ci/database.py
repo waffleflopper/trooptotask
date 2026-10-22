@@ -93,6 +93,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261021000200_organization_feature_switch_enforcement.sql",
     "20261022000100_duty_roster_settings.sql",
     "20261022000200_personnel_attribute_history.sql",
+    "20261022000300_status_type_roster_effect.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -130,6 +131,7 @@ STAGED_UPGRADE_FIXTURES = (
     "status_type_label_order_before.sql",
     "organization_feature_switches_before.sql",
     "duty_roster_settings_before.sql",
+    "status_type_roster_effect_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -169,6 +171,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "status_type_label_order_after.sql",
     "organization_feature_switches_after.sql",
     "duty_roster_settings_after.sql",
+    "status_type_roster_effect_after.sql",
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (

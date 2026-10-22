@@ -2678,6 +2678,7 @@ async function main() {
 					'assignment-types',
 					'assignment-types/lanes',
 					'status-types/order',
+					'status-types/preview',
 					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',

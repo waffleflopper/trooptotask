@@ -10,6 +10,7 @@ const leave: StatusType = {
 	color: '#15803d',
 	textColor: '#ffffff',
 	shortLabel: null,
+	rosterEffect: 'A',
 	sortOrder: 0
 };
 const school: StatusType = {
@@ -18,6 +19,7 @@ const school: StatusType = {
 	color: '#7c3aed',
 	textColor: '#ffffff',
 	shortLabel: null,
+	rosterEffect: 'A',
 	sortOrder: 1
 };
 const staffDuty: AssignmentType = {

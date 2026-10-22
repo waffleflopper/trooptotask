@@ -55,7 +55,17 @@ function fairness(
 		groups: [],
 		history: indexDutyHistory(assignments),
 		availabilityByPerson: indexDutyAvailability(entries),
-		statusTypes: [{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
+		statusTypes: [
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#16a34a',
+				textColor: '#fff',
+				shortLabel: null,
+				rosterEffect: 'A' as const,
+				sortOrder: 0
+			}
+		],
 		...input
 	});
 }
@@ -282,8 +292,24 @@ describe('dutyFairness', () => {
 
 		it('names the first overlapping entry by its stored short label, or by one derived from the status name', () => {
 			const statusTypes = [
-				{ id: 'tdy', name: 'Temporary Duty', color: '#2563eb', textColor: '#fff', shortLabel: 'TDY', sortOrder: 0 },
-				{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', shortLabel: null, sortOrder: 1 }
+				{
+					id: 'tdy',
+					name: 'Temporary Duty',
+					color: '#2563eb',
+					textColor: '#fff',
+					shortLabel: 'TDY',
+					rosterEffect: 'A' as const,
+					sortOrder: 0
+				},
+				{
+					id: 'leave',
+					name: 'Leave',
+					color: '#16a34a',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'A' as const,
+					sortOrder: 1
+				}
 			];
 			const result = fairness({
 				statusTypes,

@@ -63,7 +63,17 @@ function renderPlanner(
 			assignmentTypes: props.assignmentTypes ?? [staffDuty],
 			assignments: props.assignments ?? [],
 			availabilityEntries: props.availabilityEntries ?? [],
-			statusTypes: [{ id: 'leave', name: 'Leave', color: '#0a0', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
+			statusTypes: [
+				{
+					id: 'leave',
+					name: 'Leave',
+					color: '#0a0',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'A',
+					sortOrder: 0
+				}
+			],
 			specialDays: [],
 			personnelByGroup: [{ group: 'Alpha', personnel: props.personnel ?? [kim, okafor, hale] }],
 			groups: [

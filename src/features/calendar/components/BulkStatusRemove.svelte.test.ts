@@ -28,6 +28,7 @@ const leave: StatusType = {
 	color: '#48bb78',
 	textColor: '#ffffff',
 	shortLabel: null,
+	rosterEffect: 'A',
 	sortOrder: 0
 };
 

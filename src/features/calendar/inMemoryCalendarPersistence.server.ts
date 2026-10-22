@@ -54,10 +54,15 @@ export function createInMemoryCalendarCatalogPersistence(
 	store: CalendarMemoryStore,
 	orgId: string
 ): CalendarCatalogPersistence {
+	// Rows seeded without the column read as the database default does.
+	const withEffectDefault = (row: StatusTypeRow): StatusTypeRow => ({
+		...row,
+		roster_effect: row.roster_effect ?? 'A'
+	});
 	const savedStatusTypes = async () =>
-		(await store.findMany<StatusTypeRow>('status_types', orgId)).sort(
-			(a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id)
-		);
+		(await store.findMany<StatusTypeRow>('status_types', orgId))
+			.map(withEffectDefault)
+			.sort((a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id));
 	async function updateExisting<T>(table: string, id: string, patch: Record<string, unknown>): Promise<T | null> {
 		if (!(await store.findOne(table, orgId, { id }))) return null;
 		return store.update<T>(table, orgId, id, patch);
@@ -114,6 +119,7 @@ export function createInMemoryCalendarCatalogPersistence(
 					color: input.color ?? '#6b7280',
 					text_color: input.textColor ?? '#ffffff',
 					short_label: input.shortLabel ?? null,
+					roster_effect: input.rosterEffect ?? 'A',
 					sort_order: Math.max(-1, ...saved.map((type) => type.sort_order)) + 1
 				})
 			);
@@ -122,9 +128,15 @@ export function createInMemoryCalendarCatalogPersistence(
 			const row = await updateExisting<StatusTypeRow>(
 				'status_types',
 				id,
-				defined({ name: patch.name, color: patch.color, text_color: patch.textColor, short_label: patch.shortLabel })
+				defined({
+					name: patch.name,
+					color: patch.color,
+					text_color: patch.textColor,
+					short_label: patch.shortLabel,
+					roster_effect: patch.rosterEffect
+				})
 			);
-			return row && toStatusType(row);
+			return row && toStatusType(withEffectDefault(row));
 		},
 		deleteStatusType(id) {
 			return deleteExisting('status_types', id);

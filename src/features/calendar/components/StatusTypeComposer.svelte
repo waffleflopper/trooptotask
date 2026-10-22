@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
-	import type { StatusType } from '$features/calendar/contracts';
+	import { onDestroy, onMount, untrack } from 'svelte';
+	import type { StatusEffectChange, StatusType } from '$features/calendar/contracts';
+	import type { RosterEffect } from '$features/calendar/roster/rosterTypes';
+	import { ROSTER_EFFECT_OPTIONS, statusEffectChangeText } from '$features/calendar/utils/rosterEffects';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import {
 		fitsOneDayLabel,
@@ -9,14 +11,19 @@
 		StatusBar,
 		suggestOneDayLabel
 	} from '$lib/components/patterns/calendar-bars';
+	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
 	import { Button } from '$lib/components/ui/button';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { formatDate } from '$lib/utils/dates';
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
+	import RosterCodeChip from './RosterCodeChip.svelte';
 
 	interface Props {
 		/** The type to edit in place. Without it the composer adds a new type. */
@@ -42,6 +49,8 @@
 		{ color: '#4a5568', name: 'Slate' }
 	] as const;
 	const DEFAULT_COLOR = '#4a5568';
+	const DEFAULT_EFFECT: RosterEffect = 'A';
+	const PREVIEW_FAILURE = "We couldn't check which duty roster numbers change.";
 
 	const initial = untrack(() => status);
 	const id = initial?.id ?? 'new';
@@ -50,6 +59,12 @@
 	let typedLabel = $state<string | null>(initial?.shortLabel ?? null);
 	let color = $state(initial?.color ?? DEFAULT_COLOR);
 	let textColor = $state(initial?.textColor ?? WHITE_TEXT);
+	let rosterEffect = $state<RosterEffect>(initial?.rosterEffect ?? DEFAULT_EFFECT);
+	// Editing an effect lists the numbers it changes before saving. A failed look stays unsaved.
+	let review = $state<
+		{ kind: 'changes'; changes: StatusEffectChange[]; saveError?: string } | { kind: 'failed'; message: string } | null
+	>(null);
+	let alive = true;
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let fields = $state<HTMLFieldSetElement | null>(null);
 	const saving = new PendingSave();
@@ -58,7 +73,8 @@
 		name: name.trim(),
 		shortLabel: typedLabel === null ? null : normalizeShortLabel(typedLabel),
 		color,
-		textColor
+		textColor,
+		rosterEffect
 	});
 	const shownLabel = $derived(draft.shortLabel ?? suggestOneDayLabel(draft.name));
 	const labelFits = $derived(fitsOneDayLabel(draft.shortLabel ?? ''));
@@ -68,8 +84,13 @@
 			? draft.name !== initial.name ||
 					draft.shortLabel !== initial.shortLabel ||
 					color !== initial.color ||
-					textColor !== initial.textColor
-			: draft.name !== '' || typedLabel !== null || color !== DEFAULT_COLOR || textColor !== WHITE_TEXT
+					textColor !== initial.textColor ||
+					rosterEffect !== initial.rosterEffect
+			: draft.name !== '' ||
+					typedLabel !== null ||
+					color !== DEFAULT_COLOR ||
+					textColor !== WHITE_TEXT ||
+					rosterEffect !== DEFAULT_EFFECT
 	);
 	const textChoice = $derived(textColor === WHITE_TEXT ? 'white' : textColor === DARK_TEXT ? 'dark' : '');
 	const swatch = $derived(SWATCHES.some((option) => option.color === color) ? color : '');
@@ -81,23 +102,58 @@
 	}
 
 	onMount(() => nameInput?.focus());
+	onDestroy(() => (alive = false));
 
-	async function save() {
-		if (!valid) return;
+	function save() {
+		if (!valid) return Promise.resolve();
+		return initial && rosterEffect !== initial.rosterEffect ? reviewEffect(initial) : commit();
+	}
+
+	// Nothing to confirm when no number changes, so the save goes straight through.
+	async function reviewEffect(saved: StatusType) {
+		let changes: StatusEffectChange[];
+		try {
+			changes = await statusTypesStore.previewEffect(saved.id, rosterEffect, formatDate(new Date()));
+		} catch (error) {
+			if (alive) review = { kind: 'failed', message: rejectedRequestMessage(error, PREVIEW_FAILURE) };
+			return;
+		}
+		if (!alive) return;
+		if (changes.length === 0) await commit();
+		else review = { kind: 'changes', changes };
+	}
+
+	async function retryReview() {
+		if (initial) await reviewEffect(initial);
+	}
+
+	// Saves and closes. A failure goes to `report` and leaves the composer open.
+	async function commit(report: (message: string) => void = (message) => toastStore.error(message)) {
 		const failure = initial ? 'Failed to save status type' : 'Failed to add status type';
 		try {
 			const saved = initial
 				? await statusTypesStore.updateOrThrow(initial.id, draft)
 				: await statusTypesStore.add(draft);
 			if (!saved) {
-				toastStore.error(failure);
+				report(failure);
 				return;
 			}
 		} catch (error) {
-			toastStore.error(rejectedRequestMessage(error, failure));
+			report(rejectedRequestMessage(error, failure));
 			return;
 		}
-		onClose();
+		if (alive) onClose();
+	}
+
+	// The dialog stays up and the form stays locked until the save settles, so edits cannot slip in underneath it.
+	function confirmReview() {
+		return saving.run(async () => {
+			if (review?.kind !== 'changes') return;
+			review = { ...review, saveError: undefined };
+			await commit((message) => {
+				if (alive && review?.kind === 'changes') review = { ...review, saveError: message };
+			});
+		});
 	}
 </script>
 
@@ -191,6 +247,39 @@
 				/>
 			</div>
 		</Field.Root>
+		<Field.Root>
+			<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+				<Field.Title id="status-{id}-effect">On duty rosters</Field.Title>
+				<Field.Description>
+					What this status does to someone's turn. Codes follow DA PAM 220-45, para 7c.
+				</Field.Description>
+			</div>
+			<RadioGroup.Root
+				aria-labelledby="status-{id}-effect"
+				class="grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4"
+				bind:value={
+					() => rosterEffect,
+					(value) => {
+						rosterEffect = value as RosterEffect;
+					}
+				}
+			>
+				{#each ROSTER_EFFECT_OPTIONS as option (option.value)}
+					<TypeWorkspace.Choice
+						class="p-0 transition-colors has-data-[state=checked]:border-foreground has-data-[state=checked]:bg-background"
+					>
+						<label for="status-{id}-effect-{option.value}" class="flex h-full cursor-pointer flex-col gap-1.5 p-3">
+							<span class="flex items-center gap-2 text-sm font-medium">
+								<RadioGroup.Item id="status-{id}-effect-{option.value}" value={option.value} />
+								{option.title}
+								{#if option.code}<RosterCodeChip code={option.code} class="ml-auto" />{/if}
+							</span>
+							<span class="text-sm text-muted-foreground">{option.summary} {option.examples}</span>
+						</label>
+					</TypeWorkspace.Choice>
+				{/each}
+			</RadioGroup.Root>
+		</Field.Root>
 		<div class="flex flex-wrap items-end justify-between gap-4">
 			<div class="flex min-w-0 flex-col gap-2">
 				<span class="font-mono text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
@@ -217,3 +306,30 @@
 		</div>
 	</fieldset>
 </form>
+
+{#if review}
+	<ConfirmDialog
+		title={review.kind === 'failed' ? "Couldn't check roster numbers" : 'Change what this status does?'}
+		message={review.kind === 'failed'
+			? `${review.message} The status is not saved.`
+			: 'Saving recalculates the open DA 6 forms below. Closed forms keep their saved numbers.'}
+		confirmLabel={review.kind === 'failed' ? 'Try again' : 'Save changes'}
+		variant="default"
+		onConfirm={review.kind === 'failed' ? retryReview : confirmReview}
+		onCancel={() => (review = null)}
+	>
+		{#if review.kind === 'changes'}
+			<ul
+				class="max-h-64 divide-y overflow-y-auto rounded-md border text-sm"
+				aria-label="Numbers that change on open DA 6 forms"
+			>
+				{#each review.changes as change (`${change.assignmentTypeId}:${change.personId}:${change.track}`)}
+					<li class="px-3 py-2">{statusEffectChangeText(change)}</li>
+				{/each}
+			</ul>
+			{#if review.saveError}
+				<p role="alert" class="text-sm text-destructive">{review.saveError}</p>
+			{/if}
+		{/if}
+	</ConfirmDialog>
+{/if}

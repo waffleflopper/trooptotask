@@ -31,6 +31,7 @@ export {
 } from './assignmentTypeOperations.server';
 export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';
 export { saveRosterSettings } from './rosterSettingsOperations.server';
+export { previewStatusEffect } from './statusEffectPreview.server';
 export {
 	createSupabaseAssignmentTypeRetention,
 	type AssignmentTypeRetentionSource

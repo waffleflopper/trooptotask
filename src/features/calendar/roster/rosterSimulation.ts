@@ -12,7 +12,8 @@ import type {
 	RosterDay,
 	RosterFacts,
 	RosterRun,
-	Standing
+	Standing,
+	TrackCounts
 } from './rosterTypes';
 
 const AVAILABLE: Effect = { code: 'available' };
@@ -123,22 +124,38 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 	const excludedDates: string[] = [];
 	const next = new Int32Array(n);
 	const effectOf = new Uint16Array(n);
+	let current: readonly TrackCounts[] | null = null;
+	const captureCurrent = () => {
+		if (today < Math.max(start, windowFrom) || today > end) return;
+		const base = (today - start) * n;
+		current = tracks.map((track, ti) => ({
+			track,
+			counts: [...members]
+				.sort((a, b) => counts[ti][b] - counts[ti][a] || a - b)
+				.map((slot) => ({
+					personId: people[slot].id,
+					count: counts[ti][slot],
+					effect: effects[effectAt[base + slot]]
+				}))
+		}));
+	};
 
 	for (let day = start; day <= end; day++) {
+		if (day === today + 1) captureCurrent();
 		if (nextEvent < events.length && events[nextEvent].day === day) {
 			const entrants: number[] = [];
 			for (; nextEvent < events.length && events[nextEvent].day === day; nextEvent++) {
 				const { change } = events[nextEvent];
 				const slot = slotOf.get(change.personId)!;
-				if (day >= windowFrom) poolChanges.push(change);
+				poolChanges.push(change);
 				if (change.kind === 'leave') state[slot] = LEFT;
 				else entrants.push(slot);
 			}
 			// A blank starting number reads the lowest count among members and same-day entrants with a count,
 			// so a blank box on a copied paper form lands with the pool rather than at 0.
-			const current = slotsWhere(state, ON);
+			const present = slotsWhere(state, ON);
 			tracks.forEach((_, ti) => {
-				const known = current.map((slot) => counts[ti][slot]);
+				const known = present.map((slot) => counts[ti][slot]);
 				const blanks: number[] = [];
 				for (const slot of entrants) {
 					const count = state[slot] === NEVER ? starting[ti].get(people[slot].id) : counts[ti][slot];
@@ -212,7 +229,8 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 						personId: stored.assigneeId,
 						source: stored.source,
 						served: day <= today,
-						onRoster
+						onRoster,
+						effect: assigneeSlot === undefined ? AVAILABLE : effects[effectAt[base + assigneeSlot]]
 					};
 				}
 				days.push({ date, track, detail, standing, rulePick });
@@ -227,19 +245,21 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 		}
 		if (onRoster) count[assigneeSlot!] = 0;
 	}
+	if (end === today) captureCurrent();
 
 	const entries: RosterCheckpoint['entries'][number][] = [];
 	for (let slot = 0; slot < n; slot++) {
-		if (state[slot] === NEVER) continue;
-		tracks.forEach((track, ti) =>
-			entries.push({ personId: people[slot].id, track, count: counts[ti][slot], onRoster: state[slot] === ON })
-		);
+		tracks.forEach((track, ti) => {
+			const count = state[slot] === NEVER ? starting[ti].get(people[slot].id) : counts[ti][slot];
+			if (count !== undefined) entries.push({ personId: people[slot].id, track, count, onRoster: state[slot] === ON });
+		});
 	}
 
 	return {
 		facts,
 		days,
 		byDate: new Map(days.map((day) => [day.date, day])),
+		current,
 		poolChanges,
 		changes,
 		unfilled,
@@ -270,10 +290,13 @@ export function withAssignment(facts: RosterFacts, change: Omit<RosterAssignment
 
 /** True once any detail on this form is dated on or before today. Carried numbers are read-only regardless. */
 export function startingNumbersLocked(facts: RosterFacts): boolean {
+	if (facts.form.startingNumbers.some((number) => number.origin === 'carried')) return true;
+	const holidays = new Set(facts.holidays.map(toDayNumber));
 	return facts.assignments.some(
 		(assignment) =>
 			assignment.assignmentTypeId === facts.type.id &&
 			assignment.date >= facts.form.startsOn &&
-			assignment.date <= facts.today
+			assignment.date <= facts.today &&
+			trackOf(facts.form.rules.weekendMode, toDayNumber(assignment.date), holidays) !== null
 	);
 }

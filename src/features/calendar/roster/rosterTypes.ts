@@ -1,23 +1,10 @@
+import type { AssignmentSlotChange, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 
 /** 'YYYY-MM-DD' in the Organization's calendar. */
 export type DateKey = string;
 /** 'YYYY-MM'. */
 export type MonthKey = string;
-
-/** The calendar records the engine reads. Declared here because the calendar contracts import roster types. */
-export interface RosterAvailability {
-	readonly personnelId: string;
-	readonly statusTypeId: string;
-	readonly startDate: DateKey;
-	readonly endDate: DateKey;
-}
-
-interface AssignmentSlot {
-	readonly date: DateKey;
-	readonly assignmentTypeId: string;
-	readonly assigneeId: string;
-}
 
 /** Inclusive on both ends. */
 export interface DateSpan {
@@ -85,7 +72,7 @@ export interface RosterStatusType {
 	readonly rosterEffect: RosterEffect;
 }
 
-export type RosterAssignment = AssignmentSlot & {
+export type RosterAssignment = Pick<DailyAssignment, 'date' | 'assignmentTypeId' | 'assigneeId'> & {
 	readonly source: AssignmentSource;
 };
 
@@ -134,6 +121,7 @@ export interface RosterCheckpoint {
  * Everything one roster's open form needs. Completeness contract:
  * - This type's `assignments`, A-effect `availability`, and `holidays` cover `form.startsOn` through `window.through`.
  * - Other types' `assignments` and D or U `availability` cover `window` plus one day each side.
+ * - Availability and other-roster effects cover everyone in `people`, including assignees outside the pool.
  * Counts are exact under this contract because D and U never move a count.
  */
 export interface RosterFacts {
@@ -149,7 +137,7 @@ export interface RosterFacts {
 	/** The Organization's catalog. Ties and rank ranges read only this. */
 	readonly rankCatalog: readonly RankCatalogEntry[];
 	readonly statusTypes: readonly RosterStatusType[];
-	readonly availability: readonly RosterAvailability[];
+	readonly availability: readonly AvailabilityEntry[];
 	/** Special Days. Each counts as a weekend-and-holiday date. */
 	readonly holidays: readonly DateKey[];
 	/** This type and other person-assigned types. */
@@ -174,6 +162,17 @@ export interface Standing {
 	readonly effect: Effect;
 }
 
+export interface CurrentCount {
+	readonly personId: string;
+	readonly count: number;
+	readonly effect: Effect;
+}
+
+export interface TrackCounts {
+	readonly track: TrackId;
+	readonly counts: readonly CurrentCount[];
+}
+
 export type DayDetail =
 	| {
 			readonly kind: 'stored';
@@ -182,6 +181,8 @@ export type DayDetail =
 			readonly served: boolean;
 			/** false for an emergency detail by someone outside the pool. Nobody resets. */
 			readonly onRoster: boolean;
+			/** Resolved for the actual assignee, including someone outside the pool. */
+			readonly effect: Effect;
 	  }
 	| { readonly kind: 'planned'; readonly personId: string; readonly was: string | null };
 
@@ -220,7 +221,9 @@ export interface RosterRun {
 	/** Detail dates inside the window, ascending. Each date belongs to at most one track. */
 	readonly days: readonly RosterDay[];
 	readonly byDate: ReadonlyMap<DateKey, RosterDay>;
-	/** Pool entries and departures inside the window. */
+	/** Counts after the last detail on or before today, with today's effects. Null when today is outside the window. */
+	readonly current: readonly TrackCounts[] | null;
+	/** Pool entries and departures over the whole form, including before the window. */
 	readonly poolChanges: readonly PoolChange[];
 	/** Empty for the stored plan. */
 	readonly changes: readonly PlannedChange[];
@@ -291,7 +294,7 @@ export interface Da6Segment {
 	readonly month: MonthKey;
 	readonly weekendMode: WeekendMode;
 	readonly columns: readonly Da6Column[];
-	/** Members on the first column in DA 6 order, then later entrants at the foot by entry date. */
+	/** Members at the month boundary in DA 6 order, then entrants by entry date. Departures stay through that month. */
 	readonly rows: readonly PersonRef[];
 	/** cells[row][column]. */
 	readonly cells: readonly (readonly Da6Cell[])[];
@@ -311,10 +314,11 @@ export interface ReplacementOptions {
 }
 
 export interface CountChange {
+	readonly date: DateKey;
 	readonly personId: string;
 	readonly track: TrackId;
-	readonly from: number;
-	readonly to: number;
+	readonly from: Da6Cell;
+	readonly to: Da6Cell;
 }
 
-export type RosterSlotChange = AssignmentSlot & { readonly source: 'roster' };
+export type RosterSlotChange = AssignmentSlotChange & { readonly source: 'roster' };

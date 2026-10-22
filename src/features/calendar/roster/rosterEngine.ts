@@ -10,6 +10,5 @@ export {
 	detailConflicts,
 	passedOver,
 	replacementOptions,
-	slotChanges,
-	standingOn
+	slotChanges
 } from './rosterReadouts';

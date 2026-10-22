@@ -8,7 +8,6 @@ import {
 	replacementOptions,
 	simulateRoster,
 	slotChanges,
-	standingOn,
 	startingNumbersLocked,
 	withAssignment,
 	type RosterFacts,
@@ -21,11 +20,10 @@ function withLeave(facts: RosterFacts, personId: string, date: string): RosterFa
 }
 
 describe('count today', () => {
-	it('lists the pool by count with A holds and today’s detail in DA 6 order', () => {
-		const [day] = standingOn(simulateRoster(storedR4()), '2026-10-16');
+	it('lists current counts after today’s reset, with A holds and ties in DA 6 order', () => {
+		const run = simulateRoster(storedR4());
 
-		expect(day.standing.map((entry) => [entry.personId, entry.count, entry.effect.code])).toEqual([
-			['alvarez', 12, 'available'],
+		expect(run.current?.[0].counts.map((entry) => [entry.personId, entry.count, entry.effect.code])).toEqual([
 			['ortiz', 12, 'A'],
 			['kim', 11, 'available'],
 			['brooks', 10, 'available'],
@@ -37,9 +35,18 @@ describe('count today', () => {
 			['fuller', 4, 'available'],
 			['grant', 3, 'available'],
 			['patel', 2, 'available'],
-			['moss', 1, 'available']
+			['moss', 1, 'available'],
+			['alvarez', 0, 'available']
 		]);
-		expect(day.detail).toEqual({ kind: 'stored', personId: 'alvarez', source: 'manual', served: true, onRoster: true });
+		expect(run.byDate.get('2026-10-16')?.detail).toEqual({
+			kind: 'stored',
+			personId: 'alvarez',
+			source: 'manual',
+			served: true,
+			onRoster: true,
+			effect: { code: 'available' }
+		});
+		expect(run.byDate.get('2026-10-16')?.standing.find((entry) => entry.personId === 'alvarez')?.count).toBe(12);
 	});
 });
 
@@ -165,8 +172,49 @@ describe('changing a status effect', () => {
 			statusTypes: before.statusTypes.map((type) => (type.id === 'tdy' ? { ...type, rosterEffect: 'D' } : type))
 		};
 
-		expect(countChanges(simulateRoster(before), simulateRoster(after), '2026-10-16')).toEqual([
-			{ personId: 'ortiz', track: 'all', from: 12, to: 17 }
+		expect(countChanges(simulateRoster(before), simulateRoster(after))).toEqual([
+			{
+				date: '2026-10-12',
+				personId: 'ortiz',
+				track: 'all',
+				from: { kind: 'away', count: 12, reason: 'TDY' },
+				to: { kind: 'code', code: 'D', count: 13, reason: 'TDY' }
+			},
+			{
+				date: '2026-10-13',
+				personId: 'ortiz',
+				track: 'all',
+				from: { kind: 'away', count: 12, reason: 'TDY' },
+				to: { kind: 'code', code: 'D', count: 14, reason: 'TDY' }
+			},
+			{
+				date: '2026-10-14',
+				personId: 'ortiz',
+				track: 'all',
+				from: { kind: 'away', count: 12, reason: 'TDY' },
+				to: { kind: 'code', code: 'D', count: 15, reason: 'TDY' }
+			},
+			{
+				date: '2026-10-15',
+				personId: 'ortiz',
+				track: 'all',
+				from: { kind: 'away', count: 12, reason: 'TDY' },
+				to: { kind: 'code', code: 'D', count: 16, reason: 'TDY' }
+			},
+			{
+				date: '2026-10-16',
+				personId: 'ortiz',
+				track: 'all',
+				from: { kind: 'away', count: 12, reason: 'TDY' },
+				to: { kind: 'code', code: 'D', count: 17, reason: 'TDY' }
+			},
+			{
+				date: '2026-10-17',
+				personId: 'ortiz',
+				track: 'all',
+				from: { kind: 'detail', count: 13, when: 'planned' },
+				to: { kind: 'detail', count: 18, when: 'planned' }
+			}
 		]);
 	});
 });

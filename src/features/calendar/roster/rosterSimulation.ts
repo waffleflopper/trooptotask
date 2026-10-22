@@ -134,13 +134,19 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 				if (change.kind === 'leave') state[slot] = LEFT;
 				else entrants.push(slot);
 			}
-			// Every entrant of one day reads the lowest count before any of them joins.
+			// A blank starting number reads the lowest count among members and same-day entrants with a count,
+			// so a blank box on a copied paper form lands with the pool rather than at 0.
 			const current = slotsWhere(state, ON);
 			tracks.forEach((_, ti) => {
-				const lowest = current.length ? Math.min(...current.map((slot) => counts[ti][slot])) : 0;
+				const known = current.map((slot) => counts[ti][slot]);
+				const blanks: number[] = [];
 				for (const slot of entrants) {
-					if (state[slot] === NEVER) counts[ti][slot] = starting[ti].get(people[slot].id) ?? lowest;
+					const count = state[slot] === NEVER ? starting[ti].get(people[slot].id) : counts[ti][slot];
+					if (count === undefined) blanks.push(slot);
+					else known.push((counts[ti][slot] = count));
 				}
+				const lowest = known.length ? Math.min(...known) : 0;
+				for (const slot of blanks) counts[ti][slot] = lowest;
 			});
 			for (const slot of entrants) state[slot] = ON;
 			members = slotsWhere(state, ON);
@@ -155,7 +161,7 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 		}
 		const picking = fill
 			? !stored && day >= fill.from && day <= fill.through
-			: stored?.source === 'roster' && day > repickAfter;
+			: stored?.source === 'roster' && day > repickAfter && inWindow;
 		if (!stored && !picking && !inWindow) continue;
 
 		const ti = tracks.indexOf(track);

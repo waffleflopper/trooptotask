@@ -302,6 +302,20 @@ describe('detail days', () => {
 });
 
 describe('starting numbers and entry', () => {
+	it('start a blank box on the first day at the lowest typed number', () => {
+		const run = fill(
+			withPeople(['SSG', 'Adams', 10], ['SGT', 'Baker', 8], ['SPC', 'Clark']),
+			'2026-10-01',
+			'2026-10-01'
+		);
+
+		expect(run.byDate.get('2026-10-01')?.standing.map(({ personId, count }) => [personId, count])).toEqual([
+			['adams', 11],
+			['baker', 9],
+			['clark', 9]
+		]);
+	});
+
 	it('stop mattering after the first detail on the track', () => {
 		const facts = storedR4();
 		const run = simulateRoster({

@@ -149,7 +149,7 @@ export type PickPlan =
 	| { readonly kind: 'stored' }
 	/** Open days in `days` get the rule's pick. Assigned days stay. Must lie inside `window`. */
 	| { readonly kind: 'fill'; readonly days: DateSpan }
-	/** Roster-sourced days after max(`after`, today) get the rule's pick. Manual and served days stay. */
+	/** Roster-sourced days inside `window` after max(`after`, today) get the rule's pick. Manual and served days stay. */
 	| { readonly kind: 'repick'; readonly after: DateKey };
 
 export type Effect = { readonly code: 'available' } | { readonly code: RosterCode; readonly reason: string };

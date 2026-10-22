@@ -84,6 +84,21 @@ describe('replacing a conflicted assignee', () => {
 		]);
 	});
 
+	it('re-picks only inside the window, where other duties are known', () => {
+		const scenario = withAssignment(
+			{ ...storedR4(), window: { from: '2026-10-20', through: '2026-10-24' } },
+			{ date: '2026-10-18', assigneeId: 'brooks', source: 'roster' }
+		);
+		const repick = simulateRoster(scenario, { kind: 'repick', after: '2026-10-18' });
+
+		expect(repick.changes.map(({ date, personId }) => `${date.slice(8)} ${personId}`)).toEqual([
+			'20 kim',
+			'21 nguyen',
+			'22 hale',
+			'23 morales'
+		]);
+	});
+
 	it('re-picks later roster days but never a hand-assigned one', () => {
 		const handAssigned = withAssignment(storedR4(), { date: '2026-10-19', assigneeId: 'brooks', source: 'manual' });
 		const scenario = withAssignment(handAssigned, { date: '2026-10-18', assigneeId: 'brooks', source: 'roster' });
@@ -199,6 +214,10 @@ describe('closing a form', () => {
 
 		const next = simulateRoster({
 			...facts,
+			excusals: [
+				...facts.excusals,
+				{ personId: 'brooks', reason: 'Bereavement', from: '2026-10-02', through: '2026-10-04' }
+			],
 			form: {
 				kind: 'open',
 				id: 'form-2',
@@ -207,7 +226,9 @@ describe('closing a form', () => {
 				startingNumbers: closed.carry
 			}
 		});
-		expect(gridLines(da6Segment(next, '2026-10')!)).toEqual([
+		const nextOctober = da6Segment(next, '2026-10')!;
+		expect(nextOctober.remarks.map((remark) => [remark.kind, remark.who.personId])).toEqual([['excused', 'moreno']]);
+		expect(gridLines(nextOctober)).toEqual([
 			'SSG Alvarez 1 2 3 4 5 6 7 8',
 			'SSG Hale 8 9 10 11 *12 1 2 3',
 			'SGT Kim 12 *13 1 2 3 4 5 6',

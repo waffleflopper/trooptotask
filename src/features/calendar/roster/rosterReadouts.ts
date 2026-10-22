@@ -23,7 +23,7 @@ import type {
 	WeekendMode
 } from './rosterTypes';
 
-/** Per track, the first detail date on or after `date` inside the window. The panel's "count today". */
+/** Per track, the first date on or after `date` inside the window. An open day shows what it would show if filled. */
 export function standingOn(run: RosterRun, date: DateKey): RosterDay[] {
 	return tracksOf(run.facts.form.rules.weekendMode).flatMap((track) => {
 		const day = run.days.find((candidate) => candidate.track === track && candidate.date >= date);
@@ -190,11 +190,12 @@ function remarks(
 	days: readonly RosterDay[],
 	ref: (personId: string) => PersonRef
 ): Da6Remark[] {
-	const monthStart = `${month}-01`;
-	const monthEnd = `${month}-31`;
+	const { form, window } = run.facts;
+	const from = [`${month}-01`, form.startsOn].sort()[1];
+	const through = [`${month}-31`, window.through].sort()[0];
 	const dated: { date: DateKey; remark: Da6Remark }[] = [];
 	for (const excusal of run.facts.excusals) {
-		if (excusal.from > monthEnd || (excusal.through !== null && excusal.through < monthStart)) continue;
+		if (excusal.from > through || (excusal.through !== null && excusal.through < from)) continue;
 		dated.push({
 			date: excusal.from,
 			remark: {

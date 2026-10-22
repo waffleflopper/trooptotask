@@ -51,6 +51,8 @@ export interface DashboardIctlSummary {
 	readyCount: number;
 	applicableCount: number;
 	soldiersBelowThresholdCount: number;
+	/** At or above the threshold with a task expiring soon; never counted below it too. */
+	soldiersAtRiskCount: number;
 	soldiersBelowThresholdTotal: number;
 	thresholdPercent: number;
 	expiringSoonCount: number;
@@ -89,6 +91,8 @@ export interface DashboardPageData {
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
+	/** The summary read failed, so a null summary above is unknown rather than withheld. */
+	summaryFailed: boolean;
 	trainingTypeCount?: number;
 	onboardingTemplateStepCount?: number;
 	ratingSchemeEntryCount?: number;

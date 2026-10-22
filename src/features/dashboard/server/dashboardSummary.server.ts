@@ -20,6 +20,7 @@ function toDashboardIctlSummary(report: IctReportDashboardSummary): DashboardIct
 		readyCount: overallReadiness.readyCount,
 		applicableCount: overallReadiness.applicableCount,
 		soldiersBelowThresholdCount: soldiersBelow70.count,
+		soldiersAtRiskCount: report.atRiskSoldiers.lapsingAboveThresholdCount,
 		soldiersBelowThresholdTotal: soldiersBelow70.totalApplicable,
 		thresholdPercent: soldiersBelow70.thresholdPercent,
 		expiringSoonCount: tasksExpiringSoon.count,

@@ -15,7 +15,8 @@ import {
 	personnelResource,
 	type DashboardAccess,
 	type DashboardBlock,
-	type QuickAddEntry
+	type QuickAddEntry,
+	type ReadinessSource
 } from './dashboardSections';
 import type { DashboardInputs } from './dashboardInputs';
 import { DASHBOARD_SECTIONS } from './dashboardSectionRegistry';
@@ -101,6 +102,7 @@ const inputs: DashboardInputs = {
 		},
 		trainingSummary: null,
 		ictlSummary: null,
+		summaryFailed: false,
 		onboardingTrainingCompletions: []
 	}
 };
@@ -112,6 +114,11 @@ const component: DashboardBlock['component'] = () => ({});
 const loadDialog: QuickAddEntry['loadDialog'] = async () => ({ default: () => ({}) });
 const icon: QuickAddEntry['icon'] = () => ({});
 
+function readiness(id: string, available: (loaded: DashboardInputs) => boolean = () => true): ReadinessSource {
+	return (loaded) =>
+		available(loaded) ? { id, title: id, link: { label: id, href: '#' }, state: 'failed', subject: id } : null;
+}
+
 describe('composeDashboardSections', () => {
 	it('interleaves On duty blocks across sections and omits unavailable parts', () => {
 		const sections = [
@@ -121,22 +128,18 @@ describe('composeDashboardSections', () => {
 					{ id: 'coming-and-going', order: 30, component }
 				]
 			}),
-			dashboardSection('training', { readiness: { id: 'training', component } }),
+			dashboardSection('training', { readiness: readiness('training') }),
 			dashboardSection('criticalTasks', {
 				onDuty: [
 					{ id: 'taskings-due', order: 20, component },
 					{ id: 'unavailable-duty', order: 0, component, available: () => false }
 				],
-				readiness: { id: 'critical-tasks', component }
+				readiness: readiness('critical-tasks')
 			}),
 			dashboardSection('evaluations', {
-				readiness: {
-					id: 'evaluations',
-					component,
-					available: (loaded) => loaded.page.dashboard.data.ratingSchemeEntries.length > 0
-				}
+				readiness: readiness('evaluations', (loaded) => loaded.page.dashboard.data.ratingSchemeEntries.length > 0)
 			}),
-			dashboardSection('lossesAndAwards', { readiness: { id: 'arriving-and-leaving', component } })
+			dashboardSection('lossesAndAwards', { readiness: readiness('arriving-and-leaving') })
 		];
 
 		const parts = composeDashboardSections(sections, inputs, [], access);

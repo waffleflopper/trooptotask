@@ -191,6 +191,7 @@ describe('ictReports', () => {
 		});
 		expect(summary.atRiskSoldiers).toEqual({
 			totalApplicable: full.atRiskSoldiers.rows.length,
+			lapsingAboveThresholdCount: 1,
 			rows: full.atRiskSoldiers.rows.slice(0, 3)
 		});
 		expect(summary).not.toHaveProperty('readinessDistribution');

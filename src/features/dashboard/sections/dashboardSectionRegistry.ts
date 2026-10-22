@@ -12,6 +12,12 @@ import {
 	stalledOnboarding,
 	unfilledDuty
 } from './needsYouSources';
+import {
+	arrivingAndLeavingReadiness,
+	criticalTasksReadiness,
+	evaluationsReadiness,
+	trainingReadiness
+} from './readiness';
 import { startOnboardingChoices } from './startOnboardingChoices';
 
 const { calendar, training } = POLICY_ACTION_CATALOG;
@@ -38,6 +44,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 	}),
 	dashboardSection('training', {
 		needsYou: [expiredTraining],
+		readiness: trainingReadiness,
 		quickAdd: [
 			{
 				id: 'training-record',
@@ -56,9 +63,9 @@ export const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
 			}
 		]
 	}),
-	dashboardSection('criticalTasks'),
-	dashboardSection('evaluations', { needsYou: [overdueEvaluations] }),
-	dashboardSection('lossesAndAwards', { needsYou: [leavingWithoutAward] }),
+	dashboardSection('criticalTasks', { readiness: criticalTasksReadiness }),
+	dashboardSection('evaluations', { needsYou: [overdueEvaluations], readiness: evaluationsReadiness }),
+	dashboardSection('lossesAndAwards', { needsYou: [leavingWithoutAward], readiness: arrivingAndLeavingReadiness }),
 	dashboardSection('onboarding', {
 		needsYou: [stalledOnboarding],
 		quickAdd: [

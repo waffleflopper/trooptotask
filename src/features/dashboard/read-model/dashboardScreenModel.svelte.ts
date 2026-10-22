@@ -4,16 +4,9 @@ import { calendarStatusSource, calendarAvailabilitySource, calendarAssignmentsSo
 import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
-import { getRatingDueStatus } from '$features/rating-scheme/contracts';
-import { parseDate } from '$lib/utils/dates';
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { DashboardPageData } from '$features/dashboard/contracts';
-import type { FeatureKey } from '$lib/access/featureSwitches';
-import { getProgress } from '$features/onboarding/contracts';
-import { groupPersonnelByGroupId, indexById, indexTodayAvailability, projectTrainingSteps } from './dashboardIndexes';
-import { availabilityPercent } from '$features/organization/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from '../sections/dashboardInputs';
 import { buildStrengthBand, type StrengthBand } from './strengthBand';
@@ -77,30 +70,6 @@ export interface DashboardGettingStartedItem {
 	complete: boolean;
 }
 
-export interface DashboardOnboardingProgressRow {
-	id: string;
-	personnelId: string;
-	personName: string;
-	totalSteps: number;
-	completedSteps: number;
-	pct: number;
-}
-
-export interface DashboardGroupBreakdownRow {
-	id: string;
-	name: string;
-	total: number;
-	available: number;
-	pct: number;
-	statusCounts: Map<string, number>;
-	isPinned: boolean;
-}
-
-export interface DashboardUnitReadinessView {
-	trainingCurrencyColor(pct: number): string;
-	trainingColor: string;
-}
-
 export function createDashboardScreenModel(
 	data: DashboardPageData,
 	options: DashboardScreenModelOptions = {}
@@ -126,12 +95,6 @@ export class DashboardScreenModel {
 			fallbackGroupName: this.data.orgName
 		}).full({ status: 'active' });
 	});
-
-	private todayAvailability = $derived.by(() =>
-		indexTodayAvailability(this.sources.availability.items, this.today, this.rosterView.personnelById)
-	);
-	private statusTypeById = $derived.by(() => indexById(this.sources.statusTypes.items));
-	private groupById = $derived.by(() => indexById(this.sources.groups.items));
 
 	/** The loaded data as plain values, for the Dashboard sections. */
 	inputs = $derived.by<DashboardInputs>(() => ({
@@ -195,10 +158,6 @@ export class DashboardScreenModel {
 
 	get userRole(): string | undefined {
 		return this.data.userRole as string | undefined;
-	}
-
-	isFeatureOn(feature: FeatureKey): boolean {
-		return !this.data.disabledFeatures.includes(feature);
 	}
 
 	get hasSupportData(): boolean {
@@ -386,136 +345,7 @@ export class DashboardScreenModel {
 	}
 
 	get totalPersonnel(): number {
-		return this.rosterPersonnel.length;
-	}
-
-	get trainingStats() {
-		return this.data.trainingSummary?.stats ?? null;
-	}
-
-	get activeOnboardings(): DashboardOnboardingProgressRow[] {
-		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => this.findRosterPerson(o.personnelId));
-		const project = projectTrainingSteps(this.data);
-
-		return onboardings.map((o) => {
-			const person = this.findRosterPerson(o.personnelId);
-			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
-			const { total: totalSteps, completed: completedSteps } = getProgress(project(o));
-
-			return {
-				id: o.id,
-				personnelId: o.personnelId,
-				personName,
-				totalSteps,
-				completedSteps,
-				pct: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
-			};
-		});
-	}
-
-	groupBreakdown = $derived.by<DashboardGroupBreakdownRow[]>(() => {
-		const pinnedSet = new SvelteSet(this.sources.pinnedGroups.list);
-		const sorted = [...this.sources.groups.items].sort((a, b) => {
-			const aPinned = pinnedSet.has(a.name);
-			const bPinned = pinnedSet.has(b.name);
-			if (aPinned && !bPinned) return -1;
-			if (!aPinned && bPinned) return 1;
-			return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
-		});
-		const todayByPersonnelId = this.todayAvailability.byPersonnelId;
-		const personnelByGroupId = groupPersonnelByGroupId(this.rosterPersonnel);
-
-		return sorted.map((group) => {
-			const groupPersonnel = personnelByGroupId.get(group.id) ?? [];
-			const total = groupPersonnel.length;
-			const statusCounts = new SvelteMap<string, number>();
-			let unavailable = 0;
-
-			for (const person of groupPersonnel) {
-				const entry = todayByPersonnelId.get(person.id);
-				if (entry) {
-					unavailable++;
-					statusCounts.set(entry.statusTypeId, (statusCounts.get(entry.statusTypeId) ?? 0) + 1);
-				}
-			}
-
-			const available = total - unavailable;
-			return {
-				id: group.id,
-				name: group.name,
-				total,
-				available,
-				pct: availabilityPercent(available, total),
-				statusCounts,
-				isPinned: pinnedSet.has(group.name)
-			};
-		});
-	});
-
-	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number; current: number } {
-		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0 };
-		const today = parseDate(this.today);
-		for (const entry of this.data.dashboard.data.ratingSchemeEntries) {
-			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today);
-			if (status !== 'completed') {
-				counts[status as keyof typeof counts]++;
-			}
-		}
-		return counts;
-	}
-
-	get trainingCurrencyPct(): number {
-		const summary = this.data.trainingSummary;
-		if (!summary || this.totalPersonnel === 0) return 100;
-
-		const delinquentPersonnel = summary.groupDelinquencies.reduce(
-			(total, group) => total + group.delinquentPersonnelCount,
-			0
-		);
-		return Math.max(0, Math.round(((this.totalPersonnel - delinquentPersonnel) / this.totalPersonnel) * 100));
-	}
-
-	get trainingGroupDelinquencies(): {
-		groupId: string | null;
-		groupName: string;
-		count: number;
-		expiredPersonnelCount: number;
-		pct: number;
-	}[] {
-		const groups = new SvelteMap(this.sources.groups.items.map((group) => [group.id, group]));
-		const groupTotals = new SvelteMap<string | null, number>();
-		for (const person of this.rosterPersonnel) {
-			const groupId = person.groupId ?? null;
-			groupTotals.set(groupId, (groupTotals.get(groupId) ?? 0) + 1);
-		}
-		return (this.data.trainingSummary?.groupDelinquencies ?? [])
-			.map((group) => {
-				const total = groupTotals.get(group.groupId) ?? 0;
-				return {
-					groupId: group.groupId,
-					groupName: group.groupId === null ? 'Unassigned' : (groups.get(group.groupId)?.name ?? 'Unknown group'),
-					count: group.delinquentPersonnelCount,
-					expiredPersonnelCount: group.expiredPersonnelCount,
-					pct: total > 0 ? Math.round((group.delinquentPersonnelCount / total) * 100) : 0
-				};
-			})
-			.filter((group) => group.count > 0)
-			.sort((a, b) => b.count - a.count);
-	}
-
-	get unitReadiness(): DashboardUnitReadinessView {
-		return {
-			trainingCurrencyColor,
-			trainingColor: trainingCurrencyColor(this.trainingCurrencyPct)
-		};
-	}
-
-	private get rosterPersonnel(): Personnel[] {
-		return this.rosterView.flatPersonnel;
-	}
-
-	private findRosterPerson(personnelId: string | null | undefined): Personnel | undefined {
-		return personnelId ? this.rosterView.getById(personnelId) : undefined;
+		return this.rosterView.flatPersonnel.length;
 	}
 }
 
@@ -546,10 +376,4 @@ function errorMessage(error: unknown, fallback: string): string {
 function checklistRefreshWarning(packName: string, detail: string): string {
 	const base = `${packName} applied, but the setup checklist could not refresh. Reload the page to see the latest setup state.`;
 	return detail && detail !== 'Checklist could not refresh.' ? `${base} ${detail}` : base;
-}
-
-function trainingCurrencyColor(pct: number): string {
-	if (pct >= 90) return 'var(--success-foreground)';
-	if (pct >= 75) return 'var(--warning-foreground)';
-	return 'var(--danger-foreground)';
 }

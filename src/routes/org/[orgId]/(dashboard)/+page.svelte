@@ -114,9 +114,9 @@
 	function toDashboardPageData(
 		data: DashboardRouteData,
 		dashboard: DashboardWorkspaceResult,
-		summary: DashboardPageSummaryData
+		summary: DashboardPageSummaryData | null
 	): DashboardPageData {
-		const projectedSummary = overlayDashboardSummary(summary, dashboard, recordOverlay);
+		const projectedSummary = summary && overlayDashboardSummary(summary, dashboard, recordOverlay);
 		return {
 			...data,
 			orgId: data.shell.org.id,
@@ -126,15 +126,17 @@
 			viewerDay: data.viewerDay,
 			disabledFeatures: shell?.org.disabledFeatures ?? [],
 			dashboard: overlayDashboardRecords(dashboard, recordOverlay),
-			trainingSummary: projectedSummary.trainingSummary,
-			ictlSummary: projectedSummary.ictlSummary,
-			onboardingTrainingCompletions: projectedSummary.onboardingTrainingCompletions
+			trainingSummary: projectedSummary?.trainingSummary ?? null,
+			ictlSummary: projectedSummary?.ictlSummary ?? null,
+			onboardingTrainingCompletions: projectedSummary?.onboardingTrainingCompletions ?? [],
+			summaryFailed: summary === null
 		};
 	}
 
-	const loadError = $derived(workspaceError ?? summaryError);
+	const loadError = $derived(workspaceError);
+	// A failed summary still opens the page; the columns it feeds say they could not load.
 	const ctx = $derived(
-		dashboardBootstrap && summaryData
+		dashboardBootstrap && (summaryData || summaryError)
 			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData))
 			: null
 	);
@@ -182,5 +184,6 @@
 		{updates}
 		sections={DASHBOARD_SECTIONS}
 		failure={loadError ? loadFailure : undefined}
+		summaryFailure={loadFailure}
 	/>
 {/if}

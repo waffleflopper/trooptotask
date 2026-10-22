@@ -20,23 +20,25 @@
 	import ForecastLanes from './ForecastLanes.svelte';
 	import GroupStrength from './GroupStrength.svelte';
 	import NeedsYouQueue from './NeedsYouQueue.svelte';
+	import ReadinessColumn from './ReadinessColumn.svelte';
 	import StrengthForecast from './StrengthForecast.svelte';
-	import OverviewTab from './tabs/OverviewTab.svelte';
 
 	interface Props {
 		orgName: string;
 		viewerDay: DashboardViewerDay;
-		/** Null until the workspace and summary have both arrived. */
+		/** Null until the workspace and the summary, or its failure, have arrived. */
 		ctx: DashboardScreenModel | null;
 		/** Every section the page can show; those whose feature is off add nothing. */
 		sections: readonly DashboardSection[];
 		access: DashboardAccess;
 		updates: DashboardPageUpdates;
-		/** Replaces the bands when a source fails; the header stays. */
+		/** Replaces the bands when the workspace fails; the header stays. */
 		failure?: Snippet;
+		/** Offered once above the bands when a summary source failed; the bands that do not need it stay. */
+		summaryFailure?: Snippet;
 	}
 
-	let { orgName, viewerDay, ctx, sections, access, updates, failure }: Props = $props();
+	let { orgName, viewerDay, ctx, sections, access, updates, failure, summaryFailure }: Props = $props();
 
 	const ready = $derived(ctx !== null && !ctx.isHydrating);
 	const model = $derived(ready ? ctx : null);
@@ -47,6 +49,9 @@
 		model ? composeDashboardSections(sections, model.inputs, model.data.disabledFeatures, access) : null
 	);
 	const quickAdd = $derived(parts?.quickAdd ?? []);
+	const failedFeatures = $derived(
+		parts?.readinessColumns.filter((column) => column.state === 'failed').map((column) => column.title) ?? []
+	);
 
 	let QuickAddDialog = $state.raw<Component<QuickAddDialogProps> | null>(null);
 	let latestOpen = 0;
@@ -72,6 +77,8 @@
 
 	const EYEBROW = 'font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase';
 	const BAND = 'grid gap-14 border-t-2 border-foreground pt-6';
+	const LEDGER = 'grid gap-x-7 gap-y-9 sm:grid-cols-2 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none lg:gap-0';
+	const LEDGER_COLUMN = 'min-w-0 lg:border-l lg:border-border lg:px-7 lg:first:border-l-0 lg:first:pl-0';
 </script>
 
 <svelte:head>
@@ -107,6 +114,8 @@
 			{:else}
 				{#if !model}
 					<p class="sr-only" role="status">Loading Dashboard</p>
+				{:else if failedFeatures.length > 0}
+					{@render summaryFailure?.()}
 				{/if}
 
 				<section
@@ -195,7 +204,7 @@
 							{/snippet}
 						</PageShell.SectionHeader>
 						{#if parts}
-							<NeedsYouQueue queue={parts.needsYou} />
+							<NeedsYouQueue queue={parts.needsYou} unavailable={failedFeatures} />
 						{:else}
 							<div class="grid border-t border-foreground" aria-hidden="true">
 								{#each { length: 5 }, index (index)}
@@ -237,33 +246,34 @@
 
 				<section class="{BAND} gap-5" aria-label="Readiness" aria-busy={!model} data-dashboard-band="readiness">
 					<PageShell.SectionHeader size="compact" eyebrow="Readiness · as of today" title="Where the unit stands" />
-					{#if model && parts}
+					{#if parts}
 						{#if parts.readinessColumns.length > 0}
-							<div class="grid gap-6 lg:auto-cols-fr lg:grid-flow-col lg:gap-0">
+							<ul class={LEDGER} aria-label="Readiness by feature">
 								{#each parts.readinessColumns as column (column.id)}
-									<div class="min-w-0 lg:border-l lg:border-border lg:px-7 lg:first:border-l-0 lg:first:pl-0">
-										<column.component {model} />
-									</div>
+									<li class={LEDGER_COLUMN}><ReadinessColumn {column} /></li>
 								{/each}
-							</div>
+							</ul>
 						{/if}
 					{:else}
-						<div class="grid gap-6 lg:grid-cols-4 lg:gap-0" aria-hidden="true">
+						<div class={LEDGER} aria-hidden="true">
 							{#each { length: 4 }, index (index)}
-								<div class="grid gap-3 lg:border-l lg:border-border lg:px-7 lg:first:border-l-0 lg:first:pl-0">
-									<Skeleton class="h-3 w-24" />
-									<Skeleton class="h-12 w-20" />
+								<div class="grid content-start gap-3 {LEDGER_COLUMN}">
+									<Skeleton class="h-3.5 w-28" />
+									<div class="flex items-end gap-2">
+										<Skeleton class="h-[50px] w-24" />
+										<Skeleton class="mb-0.5 h-3 w-14" />
+									</div>
 									<Skeleton class="h-2 w-full" />
-									<Skeleton class="h-3.5 w-[80%]" />
+									<div class="grid gap-1.5 py-0.5">
+										<Skeleton class="h-3.5 w-full" />
+										<Skeleton class="h-3.5 w-[70%]" />
+									</div>
+									<Skeleton class="h-3.5 w-24" />
 								</div>
 							{/each}
 						</div>
 					{/if}
 				</section>
-
-				{#if model}
-					<OverviewTab ctx={model} />
-				{/if}
 			{/if}
 		</div>
 	</div>

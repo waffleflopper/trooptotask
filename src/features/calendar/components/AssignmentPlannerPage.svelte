@@ -99,9 +99,13 @@
 			date: preview.date,
 			assigneeId: preview.selected,
 			replacing: preview.replacing.personId,
-			repicks: preview.repicks.map(({ date, personId }) => ({ date, personId }))
+			repicks: preview.repicks.map(({ date, was, personId }) => ({ date, was, personId }))
 		});
-		if (result === 'changed') rosterRead.refresh();
+		if (result === 'changed') {
+			rosterRead.refresh();
+			// The refused write names a drift in the roster's later days, which the grid shows from its own read.
+			await rangeCoordinator.rereadAssignments(data.orgId, monthCoverage);
+		}
 		return result;
 	}
 

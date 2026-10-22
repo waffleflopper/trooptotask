@@ -19,7 +19,7 @@ const DETAIL = '00000000-0000-4000-a000-000000000023';
 const TODAY = '2026-10-16';
 
 type Context = ReturnType<typeof createWriteWithNotificationsPortsContext>;
-type AssignmentRow = { date: string; assignment_type_id: string; assignee_id: string; source?: string };
+type AssignmentRow = { id: string; date: string; assignment_type_id: string; assignee_id: string; source?: string };
 
 const NAMES = [...R4_STARTING.map(([, lastName]) => lastName), 'Moreno'];
 const idOf = (lastName: string) =>
@@ -478,7 +478,7 @@ const commitInput = (preview: RosterReplacement) => ({
 	...replacementInput(),
 	assigneeId: preview.selected,
 	replacing: preview.replacing.personId,
-	repicks: preview.repicks.map(({ date, personId }) => ({ date, personId }))
+	repicks: preview.repicks.map(({ date, was, personId }) => ({ date, was, personId }))
 });
 
 const repickLines = (preview: RosterReplacement) =>
@@ -601,6 +601,28 @@ describe('Find replacement', () => {
 			'21 nguyen roster',
 			'22 moss manual',
 			'23 hale roster',
+			'24 morales roster'
+		]);
+	});
+
+	it('refuses a preview when another operator changed a re-picked day to someone the re-pick leaves anyway', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await seedConflict(ctx);
+		const preview = await previewRosterReplacement(ctx, replacementInput());
+		const [row] = (await staffDuty(ctx)).filter((stored) => stored.date === '2026-10-23');
+		await ctx.store.compareAndUpdateMany('daily_assignments', ctx.auth.orgId, [
+			{ id: row.id, expected: { assignee_id: idOf('hale') }, patch: { assignee_id: idOf('liang') } }
+		]);
+
+		await expect(commitRosterReplacement(ctx, commitInput(preview))).rejects.toMatchObject({ status: 409 });
+		expect(await storedLines(ctx)).toEqual([
+			'17 ortiz roster',
+			'18 kim roster',
+			'19 brooks roster',
+			'20 okafor manual',
+			'21 nguyen roster',
+			'22 moss manual',
+			'23 liang roster',
 			'24 morales roster'
 		]);
 	});

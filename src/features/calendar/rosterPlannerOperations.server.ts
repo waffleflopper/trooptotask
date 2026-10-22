@@ -318,7 +318,8 @@ export async function previewRosterReplacement(
 /**
  * Puts the chosen person on the conflicted day and writes the later roster days it re-picks, all or none. The day is
  * a roster pick when the chosen person is the rule's pick and a hand assignment otherwise. The plan is recomputed
- * first, and a plan that no longer matches the preview, or that leaves a later day with nobody, is refused.
+ * first, and a plan that no longer matches the preview, including who held each re-picked day, or that leaves a
+ * later day with nobody, is refused.
  */
 export async function commitRosterReplacement(
 	ctx: RosterPlannerPorts,
@@ -333,7 +334,10 @@ export async function commitRosterReplacement(
 		detail.personId === replacing &&
 		selected === request.assigneeId &&
 		changes.length === repicks.length &&
-		changes.every((change, at) => change.date === repicks[at].date && change.personId === repicks[at].personId);
+		changes.every(
+			(change, at) =>
+				change.date === repicks[at].date && change.was === repicks[at].was && change.personId === repicks[at].personId
+		);
 	if (!same || !repick) fail(409, 'The roster changed since this preview. Review the new picks and try again.');
 	if (repick.unfilled.length) fail(409, 'Nobody on the roster can take every re-picked day. Choose someone else.');
 

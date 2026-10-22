@@ -110,7 +110,7 @@ export interface RosterReplacementWrite {
 	date: string;
 	assigneeId: string;
 	replacing: string;
-	repicks: { date: string; personId: string }[];
+	repicks: { date: string; was: string; personId: string }[];
 }
 
 function inSlot(date: string, assignmentTypeId: string) {

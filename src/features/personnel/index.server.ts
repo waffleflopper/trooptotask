@@ -157,3 +157,4 @@ export {
 } from './supabasePersonnelSheetPersistence.server';
 
 export { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
+export { importPersonnelRecords } from './personnelImportRecords.server';

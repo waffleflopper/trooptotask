@@ -15,6 +15,14 @@ import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policy
 
 export type PersonnelAffordance = Pick<ClientAffordance, 'allowed'>;
 
+export { personnelImportRecordsInputSchema } from './personnelImportRecords.contracts';
+export type {
+	PersonnelImportRecordsInput,
+	PersonnelImportRecordsRecord,
+	PersonnelImportRecordsChanges,
+	PersonnelImportRecordsResult
+} from './personnelImportRecords.contracts';
+
 /** Personnel consumes routing, scope and live advisory decisions from Delivery. */
 export interface PersonnelPageAccess {
 	readonly orgUrlSegment?: string;

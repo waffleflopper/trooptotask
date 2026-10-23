@@ -192,13 +192,13 @@ describe('Training matrix workbook', () => {
 	it('puts a merged dated notice above a styled header and freezes both', async () => {
 		const sheet = await exportSheet({
 			personnel: [person('avery', 'Able', 'Avery')],
-			trainingTypes: [type('annual', 'Annual', 0)],
+			trainingTypes: [type('annual', 'Annual', 0), type('cpr', 'CPR', 1), type('range', 'Range', 2)],
 			trainings: []
 		});
 		expect(sheet.getCell('A1').value).toBe(NOTICE);
 		expect(sheet.getCell('A1').alignment?.wrapText).toBe(true);
 		expect(sheet.model.merges).toEqual(['A1:D1']);
-		expect(sheet.getRow(2).values).toEqual([undefined, 'Name', 'Rank', 'Group', 'Annual']);
+		expect(sheet.getRow(2).values).toEqual([undefined, 'Name', 'Rank', 'Group', 'Annual', 'CPR', 'Range']);
 		expect(sheet.getCell('A2').font?.bold).toBe(true);
 		expect(cellColors(sheet, 'A2').fill).toBe('FFE8E8E8');
 		expect(sheet.views).toMatchObject([{ state: 'frozen', ySplit: 2 }]);

@@ -28,6 +28,7 @@ const STATUS_STYLES = {
 } as const satisfies Record<TrainingStatus, { fill: string; font: string }>;
 
 const NOTICE_LINE_HEIGHT = 15;
+const NOTICE_MAX_COLUMNS = 4;
 const FIXED_COLUMN_COUNT = 3;
 
 function exportNotice(exportDate: string): string {
@@ -82,12 +83,14 @@ export async function buildTrainingMatrixWorkbook(input: TrainingMatrixWorkbookI
 	const workbook = await createWorkbook();
 	const sheet = addTableSheet(workbook, { name: 'Training Matrix', columns, rows, freezeHeader: false });
 
-	sheet.spliceRows(1, 0, [exportNotice(input.exportDate)]);
-	sheet.mergeCells(1, 1, 1, columns.length);
-	const notice = sheet.getRow(1);
-	notice.getCell(1).alignment = { wrapText: true, vertical: 'top' };
-	const totalWidth = columns.reduce((sum, column) => sum + column.width, 0);
-	notice.height = Math.ceil(exportNotice(input.exportDate).length / totalWidth) * NOTICE_LINE_HEIGHT;
+	// Bounded so the wrapped notice sits inside the first screen however many training columns follow.
+	const noticeColumns = columns.slice(0, NOTICE_MAX_COLUMNS);
+	const noticeWidth = noticeColumns.reduce((sum, column) => sum + column.width, 0);
+	const noticeText = exportNotice(input.exportDate);
+	sheet.spliceRows(1, 0, [noticeText]);
+	sheet.mergeCells(1, 1, 1, noticeColumns.length);
+	sheet.getCell(1, 1).alignment = { wrapText: true, vertical: 'top' };
+	sheet.getRow(1).height = (Math.ceil(noticeText.length / noticeWidth) + 1) * NOTICE_LINE_HEIGHT;
 	sheet.views = [{ state: 'frozen', ySplit: 2 }];
 
 	cells.forEach((rowCells, rowIndex) =>

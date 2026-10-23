@@ -265,4 +265,40 @@ describe('DutyPicker', () => {
 		await fireEvent.click(found);
 		expect(onAssign).toHaveBeenCalledWith('p-ortiz');
 	});
+
+	it('lists everyone off the roster when no one is in the pool that day, rather than nothing', async () => {
+		const { onAssign } = renderPicker({ options: OPTIONS.map((option) => ({ ...option, offRoster: true })) });
+
+		const dialog = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 27 Oct' });
+		expect(
+			within(dialog)
+				.getAllByRole('option')
+				.map((option) => option.getAttribute('aria-label'))
+		).toEqual([
+			'SSG Hale, Corey, count 12, not on this roster',
+			'SPC Liang, Wei, count 11, unavailable: Leave (A), not on this roster',
+			'SPC Ortiz, Lucia, count 3, not on this roster',
+			'1SG Moreno, Ana, not on this roster'
+		]);
+		await fireEvent.click(within(dialog).getByRole('option', { name: /Moreno, Ana/ }));
+		expect(onAssign).toHaveBeenCalledWith('p-moreno');
+	});
+
+	it("says before saving whether a day before the roster's DA 6 counts, and when the DA 6 starts now", async () => {
+		const description = async () => {
+			const dialog = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 27 Oct' });
+			return document.getElementById(dialog.getAttribute('aria-describedby')!)!.textContent!;
+		};
+
+		renderPicker({
+			counts: { status: 'ready', onRetry: vi.fn(), before: { saving: 'counts', formStartsOn: '2026-10-30' } }
+		});
+		expect(await description()).toMatch(/^\s*Counts\..*Fri 30 Oct/s);
+		cleanup();
+
+		renderPicker({
+			counts: { status: 'ready', onRetry: vi.fn(), before: { saving: 'ignored', formStartsOn: '2026-10-30' } }
+		});
+		expect(await description()).toMatch(/Not counted, before this roster's DA 6 \(starts Fri 30 Oct\)/);
+	});
 });

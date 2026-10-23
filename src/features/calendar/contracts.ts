@@ -305,13 +305,20 @@ export const plannerRostersSchema = z.array(
 /**
  * One roster on one day, for the duty picker. A detail day carries the standing going into it, highest count first
  * and ties in DA 6 order. Any other day, such as a No duty weekend, carries only the pool in DA 6 order.
+ *
+ * A day before the open form carries `formStartsOn`, the form's current start. Duty saved there moves the start of a
+ * form that can still move back to that day. It counts when the roster would detail that day and someone was in the
+ * pool, so the day carries the standing as if the form began on it. Otherwise the day carries no one, and `movesStart`
+ * says whether saving still moves the start.
  */
 export type RosterDay =
 	| {
 			track: TrackId;
 			standing: { personId: string; count: number; effect: { code: RosterCode; reason: string } | null }[];
+			formStartsOn?: string;
 	  }
-	| { track: null; pool: string[] };
+	| { track: null; pool: string[] }
+	| { track: null; formStartsOn: string; movesStart: boolean };
 
 const rosterDaySchema = z.union([
 	z.object({
@@ -322,9 +329,11 @@ const rosterDaySchema = z.union([
 				count: z.number(),
 				effect: z.object({ code: rosterCodeSchema, reason: z.string() }).nullable()
 			})
-		)
+		),
+		formStartsOn: z.string().optional()
 	}),
-	z.object({ track: z.null(), pool: z.array(z.string()) })
+	z.object({ track: z.null(), pool: z.array(z.string()) }),
+	z.object({ track: z.null(), formStartsOn: z.string(), movesStart: z.boolean() })
 ]) satisfies z.ZodType<RosterDay>;
 
 export const rosterDayReplySchema = rosterDaySchema.nullable();
@@ -531,6 +540,8 @@ export interface CalendarCatalogPersistence {
 	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<void>;
 	/** Null for a group-assigned type, or a person-assigned type whose form a concurrent save is replacing. */
 	findOpenRosterForm(assignmentTypeId: string): Promise<OpenForm | null>;
+	/** Whether any form of this type has closed, which fixes the open form's start. */
+	hasClosedRosterForm(assignmentTypeId: string): Promise<boolean>;
 	/** Closed forms that overlap `month`, oldest first, each carrying only that month's saved segment. */
 	listClosedRosterForms(assignmentTypeId: string, month: MonthKey): Promise<ClosedFormMonth[]>;
 	/** Excusals overlapping the simulated period, including reinstated ones. */

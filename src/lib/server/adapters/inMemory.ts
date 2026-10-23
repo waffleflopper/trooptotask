@@ -282,6 +282,7 @@ function createTestCalendarPersistence(
 				resetFederalHolidays: unavailableCalendarPersistence,
 				setCalendarLanes: unavailableCalendarPersistence,
 				findOpenRosterForm: unavailableCalendarPersistence,
+				hasClosedRosterForm: unavailableCalendarPersistence,
 				listClosedRosterForms: unavailableCalendarPersistence,
 				listRosterExcusals: unavailableCalendarPersistence,
 				setRosterExcusals: unavailableCalendarPersistence,

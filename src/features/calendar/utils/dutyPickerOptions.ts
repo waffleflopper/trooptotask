@@ -58,8 +58,9 @@ export function eligibleAssignees(
 /**
  * Options for one slot. With a roster, the pool comes first and everyone else follows as off the roster. On a detail
  * day the pool is in roster order with counts, highest first and ties in DA 6 order; on any other day it is in DA 6
- * order without counts. Without a roster, people are in name order. While the roster day is unread, no one is offered
- * on `loading`, and everyone not excused is tagged `countUnavailable` on `error`.
+ * order without counts. Without a roster, or on a day before the roster's form that would not count, people are in
+ * name order. While the roster day is unread, no one is offered on `loading`, and everyone not excused is tagged
+ * `countUnavailable` on `error`.
  */
 export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	const isCurrent = (id: string) => id === input.currentAssigneeId;
@@ -87,7 +88,7 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	if (input.unreadRoster === 'loading') return [];
 
 	const roster = input.roster;
-	if (!roster) {
+	if (!roster || (roster.track === null && 'formStartsOn' in roster)) {
 		return notExcused(input.type, input.personnel).map((person) => ({
 			...personChoice(person),
 			current: isCurrent(person.id),
@@ -124,6 +125,15 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 		})
 	);
 	return [...pool, ...others];
+}
+
+/** What saving duty on a day before the roster's form does: count, only move the form's start back, or neither. */
+export type BeforeRosterForm = { saving: 'counts' | 'moves-start' | 'ignored'; formStartsOn: string };
+
+export function beforeRosterForm(day: RosterDay | null | undefined): BeforeRosterForm | undefined {
+	if (!day || !('formStartsOn' in day) || day.formStartsOn === undefined) return undefined;
+	const saving = day.track !== null ? 'counts' : day.movesStart ? 'moves-start' : 'ignored';
+	return { saving, formStartsOn: day.formStartsOn };
 }
 
 /**

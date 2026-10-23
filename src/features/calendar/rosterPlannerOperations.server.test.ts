@@ -9,6 +9,7 @@ import {
 	previewRosterReplacement
 } from './rosterPlannerOperations.server';
 import { octoberDate, R4_PICKS, R4_STARTING } from './roster/rosterFixtures.test-support';
+import { setDailyAssignmentSlot } from './index.server';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import type { PlannerRoster, RosterDay, RosterReplacement } from './contracts';
 
@@ -281,7 +282,7 @@ describe('loadPlannerRosters', () => {
 
 /** One readable line per picker entry: `kim 12`, `ortiz A12 TDY`. */
 function dayLines(day: RosterDay) {
-	if (day.track === null) return day.pool.map(nameOf);
+	if (day.track === null) return 'pool' in day ? day.pool.map(nameOf) : [];
 	return day.standing.map(({ personId, count, effect }) =>
 		effect ? `${nameOf(personId)} ${effect.code}${count} ${effect.reason}` : `${nameOf(personId)} ${count}`
 	);
@@ -327,6 +328,93 @@ describe('loadRosterDay', () => {
 				.map((line) => line.split(' ')[0])
 				.sort()
 		).toEqual(['kim', 'patel']);
+	});
+});
+
+describe("a duty saved before the roster's DA 6", () => {
+	const todayLines = async (ctx: Context) => {
+		const [roster] = await loadPlannerRosters(ctx, { today: TODAY, month: '2026-10' });
+		return standingLines(roster, roster.current![0].standing);
+	};
+
+	it('counts on a roster whose form can still move, and moves its start back to that day', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+
+		const day = await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-09-30' });
+		expect(day).toMatchObject({ track: 'all', formStartsOn: '2026-10-01' });
+		expect(dayLines(day!)).toEqual([
+			'grant 13',
+			'patel 12',
+			'moss 11',
+			'alvarez 10',
+			'kim 9',
+			'brooks 8',
+			'okafor 7',
+			'nguyen 6',
+			'hale 5',
+			'morales 4',
+			'liang 3',
+			'ortiz 2',
+			'moreno 1',
+			'fuller 1'
+		]);
+		expect((await todayLines(ctx)).slice(0, 2)).toEqual(['ortiz A12 TDY', 'kim 11']);
+		// An excusal that ended before the form started still keeps Grant out of that day.
+		ctx.store.seed('roster_excusals', [
+			{
+				id: 'excusal-grant',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: TYPE,
+				personnel_id: idOf('grant'),
+				reason: 'Schools',
+				starts_on: '2026-09-28',
+				ends_on: '2026-09-29'
+			}
+		]);
+		expect(dayLines((await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-09-29' }))!)[0]).toBe(
+			'patel 12'
+		);
+		// Before anyone in the Organization was added, no one is in the pool to count the day.
+		expect(await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2025-12-31' })).toEqual({
+			track: null,
+			formStartsOn: '2026-10-01',
+			movesStart: true
+		});
+
+		await setDailyAssignmentSlot(ctx, { date: '2026-09-30', assignmentTypeId: TYPE, assigneeId: idOf('kim') });
+
+		expect((await ctx.calendarCatalogs.findOpenRosterForm(TYPE))?.startsOn).toBe('2026-09-30');
+		// Everyone but Ortiz has served since, so only Ortiz carries the extra day.
+		expect((await todayLines(ctx)).slice(0, 2)).toEqual(['ortiz A13 TDY', 'kim 11']);
+	});
+
+	it('is not counted on a roster already running, and leaves its start and counts alone', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+		ctx.store.seed('roster_forms', [
+			{
+				id: 'form-closed',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: TYPE,
+				starts_on: '2026-07-01',
+				ends_on: '2026-09-30',
+				rules: { pool: null, weekendMode: 'same' },
+				record: null
+			}
+		]);
+		expect((await todayLines(ctx)).slice(0, 2)).toEqual(['ortiz A12 TDY', 'kim 11']);
+
+		expect(await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-09-29' })).toEqual({
+			track: null,
+			formStartsOn: '2026-10-01',
+			movesStart: false
+		});
+
+		await setDailyAssignmentSlot(ctx, { date: '2026-09-29', assignmentTypeId: TYPE, assigneeId: idOf('kim') });
+
+		expect((await ctx.calendarCatalogs.findOpenRosterForm(TYPE))?.startsOn).toBe('2026-10-01');
+		expect((await todayLines(ctx)).slice(0, 2)).toEqual(['ortiz A12 TDY', 'kim 11']);
 	});
 });
 

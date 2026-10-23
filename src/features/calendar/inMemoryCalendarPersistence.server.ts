@@ -308,6 +308,11 @@ export function createInMemoryCalendarCatalogPersistence(
 			}
 		},
 		findOpenRosterForm: readOpenRosterForm,
+		async hasClosedRosterForm(assignmentTypeId) {
+			return (
+				await store.findMany<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: assignmentTypeId })
+			).some((form) => form.ends_on !== null);
+		},
 		async listClosedRosterForms(assignmentTypeId, month) {
 			return (
 				await store.findMany<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: assignmentTypeId })

@@ -1,6 +1,11 @@
 <script lang="ts">
 	import type { AssignmentType } from '$features/calendar/contracts';
-	import { dutySearchScore, type DutyPickerOption } from '$features/calendar/utils/dutyPickerOptions';
+	import {
+		dutySearchScore,
+		type BeforeRosterForm,
+		type DutyPickerOption
+	} from '$features/calendar/utils/dutyPickerOptions';
+	import { parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
 	import * as Command from '$lib/components/ui/command';
 	import * as Popover from '$lib/components/ui/popover';
@@ -15,8 +20,16 @@
 		/** Where focus lands on close, for an anchor that may be gone by then; defaults to the anchor. */
 		returnFocusTo?: () => HTMLElement | null;
 		options: readonly DutyPickerOption[];
-		/** The read of this day's roster counts, for an operator who sees them. `stale`: a refresh failed, so the counts shown may miss the latest write. */
-		counts?: { status: 'loading' | 'ready' | 'error'; stale?: boolean; onRetry: () => void };
+		/**
+		 * The read of this day's roster counts, for an operator who sees them. `stale`: a refresh failed, so the counts
+		 * shown may miss the latest write. `before`: the day is before the roster's form, and what saving duty there does.
+		 */
+		counts?: {
+			status: 'loading' | 'ready' | 'error';
+			stale?: boolean;
+			onRetry: () => void;
+			before?: BeforeRosterForm;
+		};
 		onAssign: (assigneeId: string) => Promise<boolean>;
 		/** Offered only for a slot that already has someone. */
 		onClear?: () => Promise<boolean>;
@@ -41,12 +54,16 @@
 
 	let search = $state('');
 	const searching = $derived(search.trim().length > 0);
+	const inPool = (option: DutyPickerOption) =>
+		option.kind === 'group' || (!option.offRoster && !option.countUnavailable);
 	// People outside the pool appear only for a name search, so the list is the roster until someone looks further.
+	// A pool with no one in it that day, such as before anyone's history starts, lists them instead of nothing.
+	const poolEmpty = $derived(!options.some(inPool));
 	const visibleOptions = $derived(
 		searching
 			? options
 			: options.filter(
-					(option) => option.kind === 'group' || (!option.offRoster && !option.countUnavailable) || option.current
+					(option) => inPool(option) || option.current || (poolEmpty && option.kind === 'personnel' && option.offRoster)
 				)
 	);
 
@@ -54,7 +71,13 @@
 
 	const findLabel = $derived(assignTo === 'group' ? 'Find group' : 'Find person');
 
-	const dateTitle = $derived(date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
+	const shortDate = (value: Date) =>
+		value.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+	const dateTitle = $derived(shortDate(date));
+	const before = $derived(counts?.status === 'ready' ? counts.before : undefined);
+	const describedBy = $derived(
+		[replacing && 'duty-picker-replacing', before && 'duty-picker-before'].filter(Boolean).join(' ') || undefined
+	);
 
 	let pending = $state(false);
 	let dismissed = false;
@@ -106,10 +129,10 @@
 		customAnchor={anchor}
 		align="start"
 		collisionPadding={8}
-		class="w-80 max-w-(--bits-popover-content-available-width) gap-0 p-0"
+		class="max-h-(--bits-popover-content-available-height) w-80 max-w-(--bits-popover-content-available-width) gap-0 p-0"
 		role="dialog"
 		aria-label={`${typeName}, ${dateTitle}`}
-		aria-describedby={replacing ? 'duty-picker-replacing' : undefined}
+		aria-describedby={describedBy}
 		onOpenAutoFocus={focusSearch}
 		onCloseAutoFocus={returnFocus}
 	>
@@ -122,7 +145,7 @@
 				</Popover.Description>
 			{/if}
 		</Popover.Header>
-		<Command.Root class="rounded-lg!" label={findLabel} filter={dutySearchScore}>
+		<Command.Root class="min-h-0 rounded-lg!" label={findLabel} filter={dutySearchScore}>
 			<Command.Input placeholder={findLabel} bind:value={search} />
 			{#if counts?.status === 'loading'}
 				<p class="px-3 pt-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase" role="status">
@@ -134,6 +157,21 @@
 					<Button variant="outline" size="xs" onclick={counts.onRetry}>Retry</Button>
 				</div>
 			{/if}
+			{#if before}
+				{@const starts = shortDate(parseDate(before.formStartsOn))}
+				<p id="duty-picker-before" class="px-3 pt-1.5 text-xs text-muted-foreground">
+					{#if before.saving === 'counts'}
+						<strong class="font-semibold text-foreground">Counts.</strong> Saving moves this roster's DA 6 start from
+						{starts} back to this day. Fill from roster counts it.
+					{:else if before.saving === 'moves-start'}
+						<strong class="font-semibold text-foreground">Not counted,</strong> as no one on this roster is detailed
+						this day. Saving still moves its DA 6 start from {starts} back to this day.
+					{:else}
+						<strong class="font-semibold text-foreground">Not counted,</strong> before this roster's DA 6 (starts {starts}).
+						The DA 6 and Fill from roster leave it out.
+					{/if}
+				</p>
+			{/if}
 			{#if counts?.status === 'loading'}
 				<div class="flex h-48 flex-col gap-2 p-2" aria-hidden="true">
 					{#each { length: 5 } as _, row (row)}
@@ -141,7 +179,7 @@
 					{/each}
 				</div>
 			{:else}
-				<Command.List class={['max-h-80', pending && 'pointer-events-none opacity-60']} aria-busy={pending}>
+				<Command.List class={['max-h-80 min-h-0', pending && 'pointer-events-none opacity-60']} aria-busy={pending}>
 					<Command.Empty>{emptyMessage}</Command.Empty>
 					{#each visibleOptions as option (option.id)}
 						{@const person = option.kind === 'personnel' ? option : null}

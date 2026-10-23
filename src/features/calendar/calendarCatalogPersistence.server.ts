@@ -355,6 +355,17 @@ export function createSupabaseCalendarCatalogPersistence(
 			if (error) throw new Error(error.message);
 			return data && toOpenRosterForm({ ...data, starts_on: data.effective_starts_on });
 		},
+		async hasClosedRosterForm(assignmentTypeId) {
+			const { data, error } = await client
+				.from('roster_forms')
+				.select('id')
+				.eq('organization_id', orgId)
+				.eq('assignment_type_id', assignmentTypeId)
+				.not('ends_on', 'is', null)
+				.limit(1);
+			if (error) throw new Error(error.message);
+			return data.length > 0;
+		},
 		async listClosedRosterForms(assignmentTypeId, month) {
 			const { data, error } = await client
 				.from('roster_forms')

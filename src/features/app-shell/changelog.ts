@@ -46,6 +46,16 @@ export const changelog: ChangelogEntry[] = [
 		]
 	},
 	{
+		id: '2026-10-22-training-export-colors',
+		date: '2026-10-22',
+		title: 'Colors in the Training Export',
+		items: [
+			'Export Excel on the Training page now colors each training cell the way the matrix does: green for current, yellow and orange for expiring soon, red for expired, gray for missing and blue for exempt.',
+			'The colors show each status on the day you export. A note at the top of the sheet gives that date and explains that the colors are fixed. They do not change as time passes or when you edit a date in the file.',
+			'If something looks off or you have an idea for the export, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-22-new-dashboard',
 		date: '2026-10-22',
 		title: 'A New Dashboard',

@@ -21,7 +21,14 @@ roster.
 - `matrix-export`: the main Training page exports one alphabetical row per authorized Person in the selected Group and
   every Training type in catalog order, including columns hidden by a saved view. Cells retain saved dates or state
   exemption, missing, not required, or completion without a date. Expiration-only and completion-only columns identify
-  their meaning in the header.
+  their meaning in the header. Row 1 is one wrapped notice merged across the first four columns, "Exported YYYY-MM-DD.
+  Colors reflect training status on this date. These are fixed colors, not Excel conditional formatting. They will not
+  update as time passes or when dates change." with the same local date as the filename. The column header is row 2 and
+  both rows stay frozen. Each training cell has a fixed fill and font from its status on that date: current green
+  `FFDCFCE7`/`FF166534`, yellow `FFFEF9C3`/`FF854D0E`, orange `FFFFEDD5`/`FF9A3412`, expired red `FFFEE2E2`/`FF991B1B`,
+  missing gray `FFF3F4F6`/`FF4B5563`, not required white `FFFFFFFF`/`FF6B7280`, exempt blue `FFE0F2FE`/`FF075985`.
+  Defaults: day -1 expired, days 0-30 orange, 31-60 yellow, 61 current; a stored expiration date decides, not the
+  exported completion date. The sheet has no conditional-formatting rules or formulas.
 - `report-export`: the downloaded workbook has the sheets Summary, Forecast, Hot spots, Focus and Requirements for the
   briefing on screen; Requirements lists every affected requirement of the filtered briefing with status labels and
   saved dates.

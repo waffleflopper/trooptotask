@@ -1,11 +1,24 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { getAppShellContext } from '$features/app-shell';
-	import { DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
-	import type { DashboardPageData } from '$features/dashboard/contracts';
+	import {
+		DASHBOARD_SECTIONS,
+		DashboardPageView,
+		createDashboardAccess,
+		createDashboardScreenModel,
+		overlayDashboardRecords,
+		overlayDashboardSummary,
+		putDashboardRecord,
+		retireTrainingCompletions,
+		type DashboardPageUpdates,
+		type DashboardRecordOverlay
+	} from '$features/dashboard';
+	import {
+		type DashboardPageData,
+		type DashboardPageSummaryData,
+		type DashboardWorkspaceResult
+	} from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
-	import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
-	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
@@ -16,17 +29,28 @@
 	let { data }: { data: DashboardRouteData } = $props();
 
 	let dashboardBootstrap = $state<DashboardWorkspaceResult | null>(null);
-	let summaryData = $state<DashboardPageSummaryData | null>(null);
-	let workspaceError = $state<Error | null>(null);
+	let latestSummary = $state<{ orgId: string; summary: DashboardPageSummaryData } | null>(null);
+	let recordOverlay = $state.raw<DashboardRecordOverlay | null>(null);
 	let summaryError = $state<Error | null>(null);
+	let summaryRequest = 0;
+	let saveNumber = 0;
+	onDestroy(() => {
+		summaryRequest++;
+	});
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
+	const orgId = $derived(data.shell.org.id);
+	const streamedWorkspace = $derived(data.dashboard?.data);
+	const streamedSummary = $derived(data.summary);
+	const summaryData = $derived.by(() => {
+		const latest = latestSummary;
+		return latest && latest.orgId === orgId ? latest.summary : null;
+	});
 
 	$effect(() => {
 		let cancelled = false;
-		const streamedDashboard = data.dashboard?.data;
+		const streamedDashboard = streamedWorkspace;
 
 		dashboardBootstrap = null;
-		workspaceError = null;
 
 		if (!streamedDashboard) {
 			return;
@@ -37,13 +61,11 @@
 			return;
 		}
 
+		// The layout shows a failed workspace; observing it here only settles the rejection.
 		void observeDeferred(streamedDashboard, {
 			fallbackMessage: 'Failed to load dashboard workspace',
 			onResolve: (dashboard) => {
 				dashboardBootstrap = dashboard;
-			},
-			onReject: (error) => {
-				workspaceError = error;
 			},
 			isCancelled: () => cancelled
 		});
@@ -55,91 +77,112 @@
 
 	$effect(() => {
 		let cancelled = false;
+		const summaryOrgId = orgId;
+		const streamed = streamedSummary;
+		const request = ++summaryRequest;
 
-		summaryData = null;
 		summaryError = null;
 
-		if (!data.summary) {
+		if (!streamed) {
 			return;
 		}
 
-		if (!isPromiseLike(data.summary)) {
-			summaryData = data.summary;
+		if (!isPromiseLike(streamed)) {
+			latestSummary = { orgId: summaryOrgId, summary: streamed };
 			return;
 		}
 
-		void observeDeferred(data.summary, {
+		void observeDeferred(streamed, {
 			fallbackMessage: 'Failed to load dashboard summary',
 			onResolve: (summary) => {
-				summaryData = summary;
+				latestSummary = { orgId: summaryOrgId, summary };
 			},
 			onReject: (error) => {
-				summaryError = error;
+				if (latestSummary?.orgId !== summaryOrgId) summaryError = error;
 			},
-			isCancelled: () => cancelled
+			isCancelled: () => cancelled || request !== summaryRequest
 		});
 
 		return () => {
 			cancelled = true;
+			summaryRequest++;
 		};
 	});
 
 	function toDashboardPageData(
 		data: DashboardRouteData,
 		dashboard: DashboardWorkspaceResult,
-		summary: DashboardPageSummaryData
+		summary: DashboardPageSummaryData | null
 	): DashboardPageData {
+		const projectedSummary = summary && overlayDashboardSummary(summary, dashboard, recordOverlay);
 		return {
 			...data,
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
 			userId: shell?.user.id ?? null,
 			userRole: shell?.member.role,
+			viewerDay: data.viewerDay,
 			disabledFeatures: shell?.org.disabledFeatures ?? [],
-			dashboard,
-			trainingSummary: summary.trainingSummary,
-			ictlSummary: summary.ictlSummary,
-			onboardingTrainingCompletions: summary.onboardingTrainingCompletions
+			dashboard: overlayDashboardRecords(dashboard, recordOverlay),
+			trainingSummary: projectedSummary?.trainingSummary ?? null,
+			ictlSummary: projectedSummary?.ictlSummary ?? null,
+			onboardingTrainingCompletions: projectedSummary?.onboardingTrainingCompletions ?? [],
+			summaryFailed: summary === null
 		};
 	}
 
-	const loadError = $derived(workspaceError ?? summaryError);
-	const workspacePending = $derived(!!data.dashboard?.data && dashboardBootstrap === null && workspaceError === null);
-	const summaryPending = $derived(!!data.summary && summaryData === null && summaryError === null);
-	const pending = $derived(workspacePending || summaryPending);
+	// A failed summary still opens the page; the columns it feeds say they could not load.
 	const ctx = $derived(
-		dashboardBootstrap && summaryData
+		dashboardBootstrap && (summaryData || summaryError)
 			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData))
 			: null
 	);
 
+	async function refreshSummary() {
+		const savedIn = orgId;
+		const workspace = streamedWorkspace;
+		const request = ++summaryRequest;
+		const savedBefore = saveNumber;
+		try {
+			const response = await fetch(`/org/${savedIn}/api/dashboard/summary`, { cache: 'no-store' });
+			if (!response.ok) return;
+			const summary: DashboardPageSummaryData = await response.json();
+			if (request === summaryRequest && savedIn === orgId && workspace === streamedWorkspace) {
+				latestSummary = { orgId: savedIn, summary };
+				recordOverlay = retireTrainingCompletions(recordOverlay, savedBefore);
+			}
+		} catch {
+			return;
+		}
+	}
+
 	const shellUI = getAppShellContext();
+	const access = createDashboardAccess(shellUI);
+	const updates: DashboardPageUpdates = {
+		refreshSummary: () => void refreshSummary(),
+		putRecord: (savedIn, change) => {
+			if (dashboardBootstrap && savedIn === orgId)
+				recordOverlay = putDashboardRecord(recordOverlay, dashboardBootstrap, change, ++saveNumber);
+		}
+	};
 
 	$effect(() => {
 		if (ctx) shellUI.autoShowWhatsNew();
 	});
 </script>
 
-{#if loadError}
+{#snippet loadFailure()}
 	<WorkspaceLoadError subject="Dashboard" />
-{:else if pending}
-	<section class="grid gap-4 p-4" aria-live="polite" role="status">
-		<div class="grid grid-cols-1 items-stretch gap-4 min-[721px]:grid-cols-[minmax(0,1fr)_auto]">
-			<div class="grid gap-3">
-				<Skeleton class="h-3 w-[92px]" />
-				<Skeleton class="h-14 w-full" />
-				<Skeleton class="h-[18px] w-[78%]" />
-				<Skeleton class="h-[18px] w-[62%]" />
-			</div>
-			<Skeleton class="h-[88px] w-[136px]" />
-		</div>
-		<div class="grid grid-cols-1 gap-4 min-[721px]:grid-cols-2">
-			<Skeleton class="h-[200px] w-full" />
-			<Skeleton class="h-[200px] w-full" />
-			<Skeleton class="h-[240px] w-full" />
-			<Skeleton class="h-[240px] w-full" />
-		</div>
-	</section>
-{:else if ctx}
-	<DashboardPageView {ctx} />
+{/snippet}
+
+{#if data.dashboard?.data}
+	<DashboardPageView
+		orgName={data.shell.org.name}
+		viewerDay={data.viewerDay}
+		{ctx}
+		{access}
+		{updates}
+		sections={DASHBOARD_SECTIONS}
+		summaryFailure={loadFailure}
+	/>
 {/if}

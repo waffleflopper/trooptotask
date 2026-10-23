@@ -30,7 +30,7 @@ include it; changes are reviewed against the
   applies to (with the reason for any it does not), load or interaction, read or write, its untimed preparation steps,
   its one timed trigger and the milestones the observer waits for. A milestone can wait for texts, selectors, the text
   inside an element, an exact element count and a file download. The last milestone is the first useful render; earlier
-  ones, such as the Dashboard's deferred summary or the Personnel detail header, are reported as their own points.
+  ones, such as the Dashboard's band skeletons or the Personnel detail header, are reported as their own points.
 - `interaction`: an input-to-settled timer with the same two points. It opens the journey page, waits for its ready
   milestone and idle, runs the preparation steps, waits for idle again, then arms the observer and runs the trigger. The
   observer starts at the first trusted input event. A milestone's time is `performance.now()` read inside the first
@@ -177,7 +177,7 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `personnel-edit`              | Personnel roster dialog       | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
 | `personnel-detail-edit`       | Personnel detail              | interaction, write | wide, leader     | `Save changes` to the Data sheet tab with the refreshed header MOS badge                  |
 | `personnel-import`            | Personnel import              | interaction, write | both             | `Import checked rows` to `Import complete` with the row count saved                       |
-| `dashboard`                   | Dashboard                     | load, read         | both             | Skeleton (`pending`), deferred summary resolved (`summary`), then panels with no skeleton |
+| `dashboard`                   | Dashboard                     | load, read         | both             | Band skeletons below a header (`pending`), then settled bands and panels with no skeleton |
 | `training-report`             | Training Reports              | load, read         | both             | Briefing not busy with the actor's soldier count                                          |
 | `critical-tasks-report`       | Critical Tasks Reports        | load, read         | both             | Metrics with the actor's population, nothing busy                                         |
 | `members-list`                | Settings Members              | load, read         | perfWide         | Member count shown                                                                        |
@@ -192,11 +192,11 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `calendar-report`             | Calendar Reports              | interaction, read  | both             | `Run status-day report` (current year) to the table with the actor's personnel count      |
 | `calendar-report-export`      | Calendar Reports              | interaction, read  | both             | `Export status days` to the workbook download                                             |
 
-`dashboard-navigation` is the Dashboard's measured input: the Dashboard renders no in-page link and its `+N more`
-toggles appear only from typical (the scoped actor has no Out Today at large), so the sidebar link is the one control
-present in every cell. The Dashboard's lists already name roster People, so the roster text alone is met before the
-route changes; the breadcrumb is what only the Personnel page shows. Its load-to-usable total is the `dashboard` load's
-`useful` plus this interaction, which starts only after the Dashboard is useful and idle.
+`dashboard-navigation` is the Dashboard's measured input: the Dashboard's own Needs you links and `+N more` toggles
+depend on each workload's data, so the sidebar link is the one control present in every cell. The Dashboard's lists
+already name roster People, so the roster text alone is met before the route changes; the breadcrumb is what only the
+Personnel page shows. Its load-to-usable total is the `dashboard` load's `useful` plus this interaction, which starts
+only after the Dashboard is useful and idle.
 
 The Month journeys open on the anchor month. The bootstrap holds the month after it, so `calendar-month-next` renders
 without a read, and `calendar-month-previous` reads the missing collections of the month before. Both move the anchor
@@ -242,9 +242,9 @@ each seed to see it grow.
   warm-up, three repetitions.
 - `warm`: each sample navigates the signed-in actor page to the journey URL after the warm-up. It is a new document with
   the HTTP cache kept.
-- Each journey's milestones are in the table above and in the registry. The Dashboard shows only its own skeleton until
-  both the streamed bootstrap and the deferred summary resolve, so `summary` is when the summary arrived and `useful` is
-  when the panels finished rendering.
+- Each journey's milestones are in the table above and in the registry. The Dashboard renders its header at once, so
+  `pending` is when the band skeletons appear and `useful` is when the bands and panels have settled with no skeleton
+  left.
 - Every sample then waits for app-origin network idle: no request pending in the native network list, no answered fetch
   still streaming its body, and no new request or Resource Timing entry for 500 ms. The manifest and settled time are
   read there. The sample then waits for its document to end, and only then are server lines and statements read and a

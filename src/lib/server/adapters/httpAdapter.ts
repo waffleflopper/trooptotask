@@ -263,6 +263,16 @@ function readDefaultInput(event: RequestEvent): Promise<unknown> | undefined {
 	return readJsonBody(event);
 }
 
+export const PRIVATE_RESPONSE_HEADERS = {
+	'Cache-Control': 'private, no-store',
+	Vary: 'Cookie'
+} as const;
+
+/** A per-user JSON read that neither the browser nor an intermediary may store. */
+export function privateJson(result: unknown): Response {
+	return json(result, { headers: PRIVATE_RESPONSE_HEADERS });
+}
+
 export function handle<TInput, TOutput, TContext>(config: RouteConfig<TInput, TOutput, TContext>): RequestHandler {
 	return async (event) => {
 		try {

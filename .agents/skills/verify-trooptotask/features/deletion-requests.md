@@ -56,7 +56,7 @@ denied and interrupted paths. This fixture DDL is not a migration or remote data
 
 ## Driving it with verify:app
 
-Set `V='node .agents/skills/verify-trooptotask/helpers/control.mjs --worker 1'` for the owned worker.
+Set `V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"` for the owned worker.
 
 `deletionRequester` operates Personnel, Training and Rating Scheme in A; it has no configure or Organization-review
 authority. `deletionPeer` views those lanes, `deletionScoped` operates Alpha only, `deletionReviewer` is an A admin with

@@ -1,4 +1,8 @@
-import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
+import {
+	formatDashboardDisplayDate,
+	type DashboardViewerDay,
+	type DashboardWorkspaceResult
+} from '$features/dashboard/contracts';
 import { fetchDashboardSummary, withDashboardTiming } from '$features/dashboard/index.server';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -31,24 +35,16 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 				withDashboardTiming(orgId, 'summary', async () => {
 					const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
 					const workspaceData = (await workspaceBootstrap).data;
-					const canViewCriticalTasks =
-						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
-					const canViewTraining =
-						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
-					return fetchDashboardSummary(
-						ctx,
-						workspaceData,
-						{ training: canViewTraining, criticalTasks: canViewCriticalTasks },
-						asOf,
-						timeZone
-					);
+					return fetchDashboardSummary(ctx, workspaceData, asOf, timeZone);
 				})
 		},
 		() => createRequestDashboardSummaryContext(ctx)
 	);
 
 	return {
-		summary
+		summary,
+		breadcrumbLabel: formatDashboardDisplayDate(asOf),
+		viewerDay: { date: asOf, timeZone } satisfies DashboardViewerDay
 	};
 };
 

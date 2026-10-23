@@ -997,6 +997,22 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
 		});
 
+		it('rejects with the server message and rolls back without a toast when asked to throw', async () => {
+			const existing = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			dailyAssignmentsStore.load([], [existing], 'org-1');
+			vi.stubGlobal('fetch', mockFetch({ message: 'Assignment type is archived' }, 409));
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+			await expect(
+				dailyAssignmentsStore.setAssignmentBatchOrThrow([
+					{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-new' }
+				])
+			).rejects.toThrow('Assignment type is archived');
+
+			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
+			expect(errorToast).not.toHaveBeenCalled();
+		});
+
 		it('clears an existing assignment through batch input with a blank assignee', async () => {
 			const existing = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
 			dailyAssignmentsStore.load([], [existing], 'org-1');

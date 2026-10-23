@@ -258,6 +258,7 @@ describe('Critical Tasks report queries', () => {
 		});
 		expect(summary.atRiskSoldiers).toEqual({
 			totalApplicable: 2,
+			lapsingAboveThresholdCount: 0,
 			rows: dashboard.atRiskSoldiers.rows
 		});
 		expect(summary).not.toHaveProperty('readinessDistribution');

@@ -6,7 +6,11 @@ import { makePublicAppUrl } from './publicAppOrigin.server';
  * Names the audit event the issuance emits. It has no other effect: every caller
  * decides for itself whether a non-created result is fatal to its own workflow.
  */
-export type AccountSetupLinkIssuanceOrigin = 'platform_approval' | 'platform_resend' | 'organization_invitation';
+export type AccountSetupLinkIssuanceOrigin =
+	| 'platform_approval'
+	| 'platform_resend'
+	| 'organization_invitation'
+	| 'public_renewal';
 
 export type AccountSetupLinkNotCreatedReason = Exclude<CreateAccountSetupLinkResult['status'], 'created'>;
 
@@ -36,7 +40,7 @@ export interface AccountSetupLinkIssuanceDelivery {
 export interface AccountSetupLinkIssuanceDependencies {
 	setupLinks: AccountSetupLinkIssuanceCreator;
 	setupDelivery: AccountSetupLinkIssuanceDelivery;
-	audit: (event: AccountSetupLinkIssuanceAuditEvent) => void;
+	audit: (event: AccountSetupLinkIssuanceAuditEvent) => void | Promise<void>;
 }
 
 export interface AccountSetupLinkIssuanceCommand {
@@ -44,6 +48,8 @@ export interface AccountSetupLinkIssuanceCommand {
 	email: string;
 	publicOrigin: string;
 	origin: AccountSetupLinkIssuanceOrigin;
+	/** Public renewals keep unexpected persistence failures retryable through their routes. */
+	deliveryErrorMode?: 'return' | 'throw';
 	/** Caller-supplied audit detail. The issuance does not interpret it. */
 	context?: Record<string, unknown>;
 }
@@ -71,6 +77,10 @@ const DELIVERY_AUDIT_ACTIONS: Record<AccountSetupLinkIssuanceOrigin, { sent: str
 	organization_invitation: {
 		sent: 'access_request.account_setup_link_sent',
 		failed: 'access_request.account_setup_link_delivery_failed'
+	},
+	public_renewal: {
+		sent: 'access_request.account_setup_link_resent',
+		failed: 'access_request.account_setup_link_delivery_failed'
 	}
 };
 
@@ -96,22 +106,24 @@ function isCreatedSetupLinkResult(
 	return result.status === 'created';
 }
 
-function auditRevokedSetupLinks(
+async function auditRevokedSetupLinks(
 	audit: AccountSetupLinkIssuanceDependencies['audit'],
 	input: { accessRequestId: string; replacementSetupLinkId: string; revokedLinkIds: string[] }
-): void {
-	for (const revokedLinkId of input.revokedLinkIds) {
-		audit({
-			action: 'account_setup.link_revoked',
-			resourceType: 'account_setup_link',
-			resourceId: revokedLinkId,
-			details: {
-				accessRequestId: input.accessRequestId,
-				replacementSetupLinkId: input.replacementSetupLinkId,
-				stateTransition: 'pending.replaced'
-			}
-		});
-	}
+): Promise<void> {
+	await Promise.all(
+		input.revokedLinkIds.map((revokedLinkId) =>
+			audit({
+				action: 'account_setup.link_revoked',
+				resourceType: 'account_setup_link',
+				resourceId: revokedLinkId,
+				details: {
+					accessRequestId: input.accessRequestId,
+					replacementSetupLinkId: input.replacementSetupLinkId,
+					stateTransition: 'pending.replaced'
+				}
+			})
+		)
+	);
 }
 
 /**
@@ -128,7 +140,7 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 				return { status: 'not_created', reason: setupResult.status };
 			}
 
-			auditRevokedSetupLinks(deps.audit, {
+			await auditRevokedSetupLinks(deps.audit, {
 				accessRequestId: command.accessRequestId,
 				replacementSetupLinkId: setupResult.link.id,
 				revokedLinkIds: setupResult.revokedLinkIds
@@ -148,7 +160,7 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 					expiresAt: setupResult.expiresAt
 				});
 
-				deps.audit({
+				await deps.audit({
 					action: delivery.status === 'sent' ? auditActions.sent : auditActions.failed,
 					resourceType: 'access_request',
 					resourceId: command.accessRequestId,
@@ -166,7 +178,7 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 
 				return delivery.status === 'sent' ? { status: 'sent' } : { status: 'delivery_failed' };
 			} catch (error) {
-				deps.audit({
+				await deps.audit({
 					action: auditActions.failed,
 					resourceType: 'access_request',
 					resourceId: command.accessRequestId,
@@ -178,6 +190,7 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 					},
 					severity: 'warning'
 				});
+				if (command.deliveryErrorMode === 'throw') throw error;
 
 				return { status: 'delivery_failed' };
 			}

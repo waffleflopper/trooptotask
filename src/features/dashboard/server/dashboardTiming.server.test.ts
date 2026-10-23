@@ -23,12 +23,12 @@ describe('withDashboardTiming', () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		const error = new Error('boom');
 
-		await expect(withDashboardTiming('org-1', 'support', async () => Promise.reject(error))).rejects.toThrow('boom');
+		await expect(withDashboardTiming('org-1', 'summary', async () => Promise.reject(error))).rejects.toThrow('boom');
 		expect(consoleInfoSpy).toHaveBeenCalledWith(
 			'[dashboard-load]',
 			expect.objectContaining({
 				orgId: 'org-1',
-				phase: 'support',
+				phase: 'summary',
 				status: 'error',
 				durationMs: expect.any(Number)
 			})

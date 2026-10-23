@@ -4,7 +4,7 @@ import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import { isArchivedPerson, toArchivedPersonIds } from '../archivedPeople';
-import type { RatingSchemePersistence, RatingSchemeWorkspaceData } from '../contracts';
+import type { RatingSchemeEntryEditorData, RatingSchemePersistence, RatingSchemeWorkspaceData } from '../contracts';
 
 interface RatingSchemeWorkspaceContext {
 	auth: OrganizationAccessGrant;
@@ -36,4 +36,14 @@ export async function loadRatingSchemeWorkspace(ctx: RatingSchemeWorkspaceContex
 		personnelLookup,
 		ratingSchemeEntries: ratingSchemeEntries.filter((entry) => !isArchivedPerson(archived, entry.ratedPersonId))
 	};
+}
+
+/** One entry for an editor opened outside the Evals page; null when it is missing or its rated Person is archived. */
+export async function loadRatingSchemeEntryEditor(
+	ctx: RatingSchemeWorkspaceContext,
+	id: string
+): Promise<RatingSchemeEntryEditorData | null> {
+	const { personnelLookup, ratingSchemeEntries } = await loadRatingSchemeWorkspace(ctx);
+	const entry = ratingSchemeEntries.find((candidate) => candidate.id === id);
+	return entry ? { entry, personnelLookup } : null;
 }

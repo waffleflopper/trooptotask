@@ -1,11 +1,8 @@
 import type { Group, Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
-import {
-	rereadDatesFor,
-	classifyAvailabilityWrite,
-	type AvailabilityChange
-} from '$features/calendar/utils/availabilityMutation';
+import type { AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
+import { saveAvailabilityChange, type AvailabilityOutcome } from '$features/calendar/availabilitySave';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { formatDate, formatToday, parseDate } from '$lib/utils/dates';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -18,11 +15,9 @@ import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { groupsInScope } from '$lib/access/scopeSetAccess';
-import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
-import { rangeCoversDate, rangeCoversSpan, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
+import { rangeCoversDate, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$lib/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
-import { rejectedRequestMessage, StoreRequestError, withinOrganizationLifetime } from '$lib/stores/core';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -58,9 +53,6 @@ export type CalendarPopover =
 export type AvailabilityEditorRequest =
 	| { readonly kind: 'create'; readonly person: Personnel; readonly startDate: string; readonly endDate: string }
 	| { readonly kind: 'edit'; readonly person: Personnel; readonly entry: AvailabilityEntry };
-
-/** `busy` means another change was still settling, so this one was not sent. `stale` means the Organization or access changed. */
-export type AvailabilityOutcome = 'saved' | 'not-saved' | 'unconfirmed' | 'stale' | 'busy';
 
 export interface TodayAvailability {
 	readonly date: Date;
@@ -354,72 +346,13 @@ export class CalendarPageContext {
 		this.savingAvailability = true;
 		const orgId = this.#data.orgId;
 		const accessKey = this.#calendarAccessKey();
-		const current = () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey;
-		const entriesBeforeWrite = [...availabilityStore.items];
 		try {
-			let confirmed = false;
-			let refusal: StoreRequestError | null = null;
-			try {
-				confirmed = await writeAvailability(change);
-			} catch (error) {
-				if (error instanceof StoreRequestError && error.status >= 400 && error.status < 500) refusal = error;
-			}
-			if (!current()) return 'stale';
-			if (confirmed) {
-				announceSaved(change);
-				return 'saved';
-			}
-			// A 4xx means the server refused the write and saved nothing, so there is nothing to reconcile.
-			if (refusal) {
-				toastStore.error(rejectedRequestMessage(refusal, 'Could not save status. Try again.'));
-				return 'not-saved';
-			}
-			let reread: AvailabilityEntry[] | null;
-			try {
-				reread = await this.reconcileAvailability(rereadDatesFor(change), orgId);
-			} catch {
-				toastStore.error('Could not confirm the saved status. Reload the calendar before trying again.');
-				return 'unconfirmed';
-			}
-			if (reread === null) return 'stale';
-			const outcome = classifyAvailabilityWrite(change, entriesBeforeWrite, reread);
-			if (outcome === 'saved') announceSaved(change);
-			else toastStore.error(`Could not ${change.kind === 'remove' ? 'remove' : 'save'} status. Try again.`);
-			return outcome;
+			return await saveAvailabilityChange(change, {
+				orgId,
+				isCurrent: () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey
+			});
 		} finally {
 			this.savingAvailability = false;
-		}
-	}
-
-	async reconcileAvailability(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
-		if (this.#data.orgId !== expectedOrgId) return null;
-		const accessKey = this.#calendarAccessKey();
-		const read = availabilityStore.beginRead();
-		try {
-			let ranges: Awaited<ReturnType<typeof loadCalendarRange>>[];
-			try {
-				ranges = await withinOrganizationLifetime(
-					Promise.all(
-						[...new Set(dates)].map((date) =>
-							loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date, collections: ['availability'] })
-						)
-					)
-				);
-			} catch (error) {
-				if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
-				throw error;
-			}
-			if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
-			const entriesByRange = ranges.map((range) => ({ range, entries: range.availabilityEntries ?? [] }));
-			for (const { range, entries } of entriesByRange) {
-				availabilityStore.load(
-					availabilityStore.orgId === expectedOrgId ? read.reconcile(entries, rangeCoversSpan(range)) : entries,
-					expectedOrgId
-				);
-			}
-			return [...new Map(entriesByRange.flatMap(({ entries }) => entries.map((entry) => [entry.id, entry]))).values()];
-		} finally {
-			read.close();
 		}
 	}
 
@@ -435,35 +368,6 @@ export class CalendarPageContext {
 		const resource = policyResourceForPersonnel(person);
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, resource).allowed;
 	}
-}
-
-async function writeAvailability(change: AvailabilityChange): Promise<boolean> {
-	switch (change.kind) {
-		case 'create':
-			return (await availabilityStore.add(change.record)) !== null;
-		case 'update':
-			return availabilityStore.updateOrThrow(change.entry.id, change.changes);
-		case 'remove':
-			return availabilityStore.removeBool(change.entry.id);
-	}
-}
-
-function shortDate(dateKey: string): string {
-	return new Date(`${dateKey}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function announceSaved(change: AvailabilityChange): void {
-	if (change.kind === 'remove') {
-		toastStore.success('Status removed');
-		return;
-	}
-	const values = change.kind === 'create' ? change.record : change.changes;
-	const name = statusTypesStore.items.find((status) => status.id === values.statusTypeId)?.name ?? 'Status';
-	const dates =
-		values.startDate === values.endDate
-			? shortDate(values.startDate)
-			: `${shortDate(values.startDate)}–${shortDate(values.endDate)}`;
-	toastStore.success(`${name} ${change.kind === 'create' ? 'added' : 'updated'} — ${dates}`, 5000);
 }
 
 function policyResourceForPersonnel(person: Personnel): PolicyResource {

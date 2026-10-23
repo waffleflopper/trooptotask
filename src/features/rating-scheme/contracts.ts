@@ -51,6 +51,12 @@ export interface RatingSchemeWorkspaceData {
 	ratingSchemeEntries: RatingSchemeEntry[];
 }
 
+/** One entry with the roster references its editor offers. */
+export interface RatingSchemeEntryEditorData {
+	entry: RatingSchemeEntry;
+	personnelLookup: PersonnelLookup[];
+}
+
 export interface SavedRatingSchemeEntry extends RatingSchemeEntry {
 	readonly organization_id: string;
 	readonly created_at: string;
@@ -121,8 +127,12 @@ export interface RatingSchemeWorkspaceRouteData {
 	ratingScheme: { data: Promise<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted> };
 }
 
-/** Evaluation facts needed for browser-local Dashboard due calculations. */
+/** Evaluation facts the Dashboard needs to bucket due dates and name an overdue entry; evaluators and notes stay out. */
 export interface RatingSchemeDueEntry {
+	id: string;
+	ratedPersonId: string;
+	ratedPersonName?: string;
+	evalType: 'OER' | 'NCOER' | 'WOER';
 	ratingPeriodEnd: string;
 	status: 'active' | 'completed' | 'change-of-rater';
 }

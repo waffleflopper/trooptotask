@@ -61,9 +61,15 @@ not the `dark` class.
    (bar `role=img` named `<Branch>: A active, R retired, M missing of N built-in ranks`, the count lane, amber
    `N missing` or muted `N ranks`, `Add <n>`), the Catalog head (`N active · N retired · N custom`) and the table under
    the default `All` filter. Read `$V rows organization_rank_catalog orgA`: the head counts match the rows. Capture 1440
-   light and dark against Paper frame `MQX-0`, and 390 light and dark; at 1024 and 390 nothing passes the body's right
-   edge, the table container's `scrollWidth` equals its `clientWidth` and every `Actions for CODE` is inside the
-   viewport. In dark the legend's `Missing` swatch and the empty bar tracks are visible.
+   light and dark, and 390 light and dark. At 1440 Branch coverage sits under a 2px rule with one row per branch in the
+   order Army, Navy, Air Force, Marine Corps, Coast Guard and Space Force, and each row keeps fixed lanes: the branch
+   name (140 px), the bar filling the rest, the count (`N active` or `Not added`, 150 px), `N missing` in amber or
+   `N ranks` muted (90 px) and `Add <n>`, followed by the pack menu once the branch is added (120 px). The bar draws
+   active in `--foreground` and retired in `--muted-foreground` over an `--input` track, the legend reads `Active`,
+   `Retired`, `Missing`, and the catalog's columns read Rank, Branch, Grade, Source, In use and State; at 1024 and 390
+   nothing passes the body's right edge, the table container's `scrollWidth` equals its `clientWidth` and every
+   `Actions for CODE` is inside the viewport. In dark the legend's `Missing` swatch and the empty bar tracks are
+   visible.
 2. **Filters and search.** In `Rank filters`, choose `Retired` in `Filter ranks by state` (radio items, `aria-checked`
    moves): `VFY-RETIRED-A` shows and `VFY-ACTIVE-A` does not. Choose a branch in `Filter ranks by branch` with no
    retired rank: require `No retired ranks match <branch>.`. Type in `Search ranks`: require the sr-only status

@@ -120,7 +120,7 @@ export async function importTrainingRecords(
 		completedRows.push({
 			personnelId: rec.personnelId,
 			trainingTypeId: rec.trainingTypeId,
-			completionDate: completionDate,
+			completionDate: isExpirationDateOnly ? null : completionDate,
 			expirationDate: expirationDate,
 			notes: rec.notes ?? null,
 			updatedAt: new Date().toISOString()

@@ -27,12 +27,7 @@ export {
 } from './mfaManagement.server';
 
 export { loadUserProfile, parseUserProfileForm, upsertUserProfile } from './userProfile.server';
-export {
-	loadUserOrgPreferences,
-	patchUserOrgPreferences,
-	loadGettingStartedDismissed,
-	setGettingStartedDismissed
-} from './accountPreferences.server';
+export { loadUserOrgPreferences, patchUserOrgPreferences } from './accountPreferences.server';
 export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmation.server';
 
 export { checkSessionAssurance } from './sessionAssurance.server';
@@ -60,7 +55,10 @@ export { getAuthConfirmState, getAuthConfirmRedirectTo } from './authConfirm.ser
 export { confirmAuthLink } from './confirmAuthLink.server';
 export { requestPublicPasswordRecovery } from './passwordRecoveryRequest.server';
 export { FORGOT_PASSWORD_RATE_LIMIT_MESSAGE } from './forgotPasswordRateLimit.server';
-export { createPublicAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery.server';
+export {
+	createAccessRequestSetupDeliveryService,
+	createPublicAccessRequestSetupDeliveryService
+} from './accessRequestSetupDelivery.server';
 export { createSupabaseAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
 export {
 	readAccountSetupSessionCookie,

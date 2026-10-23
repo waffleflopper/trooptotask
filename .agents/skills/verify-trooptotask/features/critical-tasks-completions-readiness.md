@@ -483,7 +483,6 @@ discard UI-created completions only through this owned worker's cleanup/restart.
 
 Launch with `--browser-timezone` chosen per the [skill](../SKILL.md#launch) and record the browser and UTC days. Choose
 or record a completion whose task expires on the browser day. After a reload, the Critical Tasks matrix, Critical Tasks
-report and the Critical tasks table on Able's Personnel Readiness tab must classify it the same way. The compact
-Dashboard renders no Critical Tasks card, so compare its authorized page-data Critical Tasks summary instead. The report
-export must download `critical-task-report-<browser day>.xlsx` and the matrix export
-`critical-task-matrix-<browser day>.xlsx`.
+report and the Critical tasks table on Able's Personnel Readiness tab must classify it the same way. The Dashboard's
+Critical tasks column must agree, with the same ready percent and lapse count as the report. The report export must
+download `critical-task-report-<browser day>.xlsx` and the matrix export `critical-task-matrix-<browser day>.xlsx`.

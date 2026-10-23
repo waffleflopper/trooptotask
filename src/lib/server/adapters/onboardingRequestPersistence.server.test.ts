@@ -4,10 +4,7 @@ import {
 	createRequestOnboardingWorkspaceContext,
 	createRequestOnboardingStepProgressContext
 } from '$lib/server/adapters/featureRequestContexts.server';
-import {
-	createRequestGettingStartedContext,
-	createRequestDashboardWorkspaceContext
-} from '$lib/server/adapters/requestContexts.server';
+import { createRequestDashboardWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { onboardingProvider } from '$features/onboarding/server/test-support/onboardingProvider.server';
 import { handleUseCaseRequest, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
@@ -45,7 +42,7 @@ function request() {
 	return { ...provider, request: { ...ctx, audit: ctx.auditPort, supabase: provider.client, session: null } };
 }
 describe('captured Onboarding request authority', () => {
-	it('shares admitted canonical ordinary credentials across configure, workspace, progress, Dashboard and setup', async () => {
+	it('shares admitted canonical ordinary credentials across configure, workspace, progress and Dashboard', async () => {
 		const { request: admitted, state } = request();
 		admitted.store.findMany = async () => {
 			throw new Error('Generic ordinary reads are unavailable');
@@ -57,7 +54,6 @@ describe('captured Onboarding request authority', () => {
 		const workspace = createRequestOnboardingWorkspaceContext(admitted);
 		const progress = createRequestOnboardingStepProgressContext(admitted);
 		const dashboard = createRequestDashboardWorkspaceContext(admitted);
-		const setup = createRequestGettingStartedContext(admitted);
 		expect(await configure.onboardingCatalog.createTemplate({ name: 'Saved', description: null })).toEqual({
 			id: 'saved-1',
 			orgId: 'canonical-org',
@@ -75,7 +71,6 @@ describe('captured Onboarding request authority', () => {
 			currentStage: null
 		});
 		expect((await dashboard.onboardingWorkflow.listSavedActivePackets())[0].steps[0].completed).toBe(true);
-		expect(await setup.onboardingCatalog.countEstimatedSteps()).toBe(0);
 		expect(
 			state.requests.every((row) =>
 				row.method === 'POST'

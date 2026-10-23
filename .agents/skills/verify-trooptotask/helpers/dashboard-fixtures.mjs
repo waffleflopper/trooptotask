@@ -13,6 +13,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 	const loss = randomUUID();
 	const archived = randomUUID();
 	const packet = randomUUID();
+	// Every step shares one key set, so PostgREST does not send null for a missing column.
+	const stageChangedAt = `${date(-8)}T12:00:00Z`;
 	const batches = [
 		[
 			'personnel',
@@ -105,7 +107,7 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					organization_id: ids.orgA,
 					personnel_id: ids.personA,
 					template_id: ids.onboardingTemplate,
-					started_at: dates.ui,
+					started_at: date(-8),
 					status: 'in_progress'
 				}
 			]
@@ -123,7 +125,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					step_type: 'checkbox',
 					sort_order: 0,
 					completed: true,
-					active: true
+					active: true,
+					progress_changed_at: stageChangedAt
 				},
 				{
 					id: randomUUID(),
@@ -134,8 +137,10 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					step_type: 'paperwork',
 					sort_order: 1,
 					stages: ['Submitted', 'Reviewed', 'Filed'],
+					current_stage: 'Submitted',
 					completed: false,
-					active: true
+					active: true,
+					progress_changed_at: stageChangedAt
 				},
 				{
 					id: randomUUID(),
@@ -147,7 +152,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					training_type_id: ids.trainingTargeted,
 					sort_order: 2,
 					completed: true,
-					active: true
+					active: true,
+					progress_changed_at: stageChangedAt
 				},
 				{
 					id: randomUUID(),
@@ -158,7 +164,8 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					step_type: 'checkbox',
 					sort_order: 3,
 					completed: true,
-					active: false
+					active: false,
+					progress_changed_at: stageChangedAt
 				}
 			]
 		],
@@ -288,7 +295,7 @@ export async function seedDashboardCurrency({ client, fixture, tag, ownedState, 
 	};
 }
 
-/** Seven Alpha People out today and returning within a week, four with an ETS, so each Overview list passes its row limit. */
+/** Seven Alpha People out today and returning within a week, four with an ETS, so Coming and going and Needs you pass their row limits while Bottom line lists all eight People out without a toggle. */
 export async function seedDashboardOverflow({ client, fixture, tag, ownedState, save }) {
 	if (ownedState.seeded.some((item) => item.kind === 'dashboard-overflow'))
 		throw new Error('Clean the existing Dashboard overflow seed before preparing another cohort.');
@@ -338,7 +345,7 @@ export async function seedDashboardOverflow({ client, fixture, tag, ownedState, 
 		today: dates.ui,
 		people: people.map(({ id, last_name, ets }) => ({ id, lastName: last_name, ets: ets ?? null })),
 		expected:
-			'On the ordinary fixture as dashboardView, Out Today lists eight People (seven seeded plus Baker), Upcoming Changes ten rows (seven returns plus Baker three) and Upcoming Losses four People with ETS in 20, 25, 30 and 35 days. The three expand buttons read "+2 more", "+4 more" and "+1 more". Other seeds add rows and change these counts.',
+			'After seed dashboard, as dashboardView, Bottom line names all eight People out (seven seeded plus Baker), Coming and going eight changes (seven returns plus Baker\'s) behind "All 8 changes", and Needs you eleven rows, the four added Leaving rows among them, with seven shown above "+4 more" and "Show all 11". Other seeds add rows and change these counts.',
 		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
 	};
 }

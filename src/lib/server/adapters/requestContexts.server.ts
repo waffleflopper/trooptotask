@@ -737,16 +737,6 @@ export function createRequestDeletionReviewContext(request: AdmittedOrganization
 	};
 }
 
-export function createRequestGettingStartedContext(request: AdmittedOrganizationRequest) {
-	return {
-		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		auth: request.auth,
-		audit: request.audit,
-		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
-		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
-	};
-}
-
 /** Counts what the Organization retains, turned-off features included, so only governance pages may use it. */
 export function createRequestUnitCountsContext(request: AdmittedOrganizationRequest) {
 	const orgId = request.auth.orgId;
@@ -765,6 +755,7 @@ export function createRequestDashboardWorkspaceContext(request: AdmittedOrganiza
 		...createRequestCalendarRangeContext(request),
 		...createRequestPersonnelRosterContext(request),
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
+		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		ratingSchemeDue: createSupabaseRatingSchemeDuePort(
 			request.supabase,
@@ -787,7 +778,11 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),
-		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
+		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
+		roster: createSupabasePersonnelRosterReader(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 

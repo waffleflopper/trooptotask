@@ -1,16 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { publicSetupDeliveryFixture } from '$lib/server/adapters/test-support/accountSetupDelivery.server';
 
-const { requestFreshSetupLinkMock, checkRenewalRateLimitMock, auditLogMock } = vi.hoisted(() => ({
-	requestFreshSetupLinkMock: vi.fn(),
-	checkRenewalRateLimitMock: vi.fn(),
-	auditLogMock: vi.fn()
-}));
+const { requestFreshSetupLinkMock, checkRenewalRateLimitMock, auditLogMock, createDeliveryServiceMock } = vi.hoisted(
+	() => ({
+		requestFreshSetupLinkMock: vi.fn(),
+		checkRenewalRateLimitMock: vi.fn(),
+		auditLogMock: vi.fn(),
+		createDeliveryServiceMock: vi.fn()
+	})
+);
 
 vi.mock('$features/identity/index.server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/identity/index.server')>()),
-	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
-		requestFreshSetupLink: requestFreshSetupLinkMock
-	})),
+	createPublicAccessRequestSetupDeliveryService: createDeliveryServiceMock,
 	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE:
 		'Too many fresh-link requests. Please wait before trying again, or contact support if you still need access.',
 	checkAccountSetupRenewalRateLimit: checkRenewalRateLimitMock
@@ -41,7 +43,9 @@ describe('/auth/renew-invite actions', () => {
 		vi.clearAllMocks();
 		checkRenewalRateLimitMock.mockReturnValue({ limited: false });
 		requestFreshSetupLinkMock.mockResolvedValue({ status: 'no-public-action' });
+		createDeliveryServiceMock.mockReturnValue({ requestFreshSetupLink: requestFreshSetupLinkMock });
 	});
+	afterEach(() => vi.unstubAllEnvs());
 
 	it.each(['', 'not-an-email'])('rejects invalid renewal input before issuance: %s', async (email) => {
 		expect(await actions.default(makeActionEvent({ email }))).toMatchObject({ status: 400 });
@@ -66,53 +70,74 @@ describe('/auth/renew-invite actions', () => {
 			email: 'missing@example.mil',
 			origin: 'https://trooptotask.test'
 		});
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'account_setup.link_revoked',
-				resourceType: 'account_setup_link',
-				resourceId: 'setup-link-1',
-				details: {
-					accessRequestId: 'request-1',
-					replacementSetupLinkId: 'setup-link-2',
-					stateTransition: 'pending.replaced'
-				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'vitest-agent'
-			}
-		);
 	});
 
-	it('audits setup link revocations even when fresh-link renewal delivery fails', async () => {
-		requestFreshSetupLinkMock.mockResolvedValueOnce({
-			status: 'fresh-setup-delivery-failed',
-			accessRequestId: 'request-1',
-			setupLinkId: 'setup-link-2',
-			revokedLinkIds: ['setup-link-1']
-		});
+	it.each(['sent', 'failed'] as const)(
+		'renews and audits replaced links when email delivery is %s',
+		async (delivery) => {
+			vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');
+			const fixture = publicSetupDeliveryFixture('approved@example.mil', delivery);
+			createDeliveryServiceMock.mockImplementationOnce(fixture.createService);
 
-		const result = await actions.default(makeActionEvent({ email: 'approved@example.mil' }));
+			const result = await actions.default(
+				makeActionEvent({ email: 'approved@example.mil', origin: 'https://untrusted.example/auth/renew-invite' })
+			);
 
-		expect(result).toEqual({ success: true, email: 'approved@example.mil' });
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'account_setup.link_revoked',
-				resourceType: 'account_setup_link',
-				resourceId: 'setup-link-1',
-				details: {
-					accessRequestId: 'request-1',
-					replacementSetupLinkId: 'setup-link-2',
-					stateTransition: 'pending.replaced'
+			expect(result).toEqual({ success: true, email: 'approved@example.mil' });
+			expect(fixture.sendSetupDelivery).toHaveBeenCalledWith({
+				accessRequestId: 'request-1',
+				setupLinkId: 'setup-link-1',
+				email: 'approved@example.mil',
+				setupUrl: 'https://trooptotask.test/auth/setup-account?token=synthetic-setup-token',
+				expiresAt: new Date('2026-06-01T12:00:00.000Z')
+			});
+			expect(fixture.store.insertPendingAccessRequest).not.toHaveBeenCalled();
+			expect(auditLogMock).toHaveBeenCalledWith(
+				{
+					action:
+						delivery === 'sent'
+							? 'access_request.account_setup_link_resent'
+							: 'access_request.account_setup_link_delivery_failed',
+					resourceType: 'access_request',
+					resourceId: 'request-1',
+					details: {
+						email: 'approved@example.mil',
+						setupLinkId: 'setup-link-1',
+						outboxId: 'outbox-1',
+						...(delivery === 'sent' ? { expiresAt: '2026-06-01T12:00:00.000Z' } : {})
+					},
+					severity: delivery === 'sent' ? 'info' : 'warning'
+				},
+				{ userId: null, ip: '203.0.113.10', userAgent: 'vitest-agent' }
+			);
+			expect(JSON.stringify(auditLogMock.mock.calls)).not.toContain('token=');
+			expect(auditLogMock).toHaveBeenCalledWith(
+				{
+					action: 'account_setup.link_revoked',
+					resourceType: 'account_setup_link',
+					resourceId: 'previous-link',
+					details: {
+						accessRequestId: 'request-1',
+						replacementSetupLinkId: 'setup-link-1',
+						stateTransition: 'pending.replaced'
+					}
+				},
+				{
+					userId: null,
+					ip: '203.0.113.10',
+					userAgent: 'vitest-agent'
 				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'vitest-agent'
-			}
-		);
+			);
+		}
+	);
+
+	it('returns a retry error when the outbox cannot persist a renewal', async () => {
+		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');
+		const fixture = publicSetupDeliveryFixture('approved@example.mil');
+		fixture.sendSetupDelivery.mockRejectedValueOnce(new Error('outbox unavailable'));
+		createDeliveryServiceMock.mockImplementationOnce(fixture.createService);
+
+		expect(await actions.default(makeActionEvent({ email: 'approved@example.mil' }))).toMatchObject({ status: 500 });
 	});
 
 	it('returns generic recovery copy when fresh-link renewal is rate-limited', async () => {

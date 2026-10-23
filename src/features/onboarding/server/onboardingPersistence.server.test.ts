@@ -128,6 +128,18 @@ describe('ordinary Onboarding persistence', () => {
 		});
 		expect(await workflow.findLatestPacketForPersonnel('nobody')).toBeNull();
 	});
+	it('lists each Person with an in-progress packet of this Organization once, without steps', async () => {
+		const { workflow } = ports({
+			personnel_onboardings: [
+				{ ...packet, id: 'first', personnel_id: 'ann' },
+				{ ...packet, id: 'second', personnel_id: 'ann' },
+				{ ...packet, id: 'third', personnel_id: 'bob' },
+				{ ...packet, id: 'done', personnel_id: 'cy', status: 'completed', completed_at: '2026-04-01' },
+				{ ...packet, id: 'foreign', personnel_id: 'dee', organization_id: 'org-b' }
+			]
+		});
+		expect(await workflow.listActivePacketPersonnelIds()).toEqual(['ann', 'bob']);
+	});
 	it('maps same-org singular references and preserves unavailable/error distinctions', async () => {
 		const { catalog, workflow, state } = ports({
 			onboarding_templates: [template],
@@ -173,12 +185,6 @@ describe('ordinary Onboarding persistence', () => {
 		expect((await workflow.listSavedActivePackets()).map((row) => row.id)).toEqual(ids);
 		expect(await workflow.listActivePacketIdsForPersonnel('person')).toEqual(ids);
 		expect(await workflow.listIncompleteActiveStepIds('packet')).toEqual(ids);
-		state.rows.onboarding_templates = [template];
-		expect(await catalog.readStarterReadiness('Arrival', ['Paperwork'])).toMatchObject({
-			stepNames: Array(1001).fill('Paperwork'),
-			hasAnyTemplate: true,
-			hasAnyStep: true
-		});
 	});
 	it('rejects the complete read on a later page and preserves PGRST116 null and empty/null reads', async () => {
 		const { catalog, workflow, state } = ports({
@@ -195,32 +201,6 @@ describe('ordinary Onboarding persistence', () => {
 		state.nullData = true;
 		expect(await catalog.listSteps()).toEqual([]);
 		expect(await workflow.listPackets('history')).toEqual([]);
-	});
-	it('keeps count and starter readiness bounded to the current template and strict requested names', async () => {
-		const { catalog, state } = ports({
-			onboarding_templates: [template],
-			onboarding_template_steps: [
-				step,
-				{ ...step, id: 'other', template_id: 'other', name: 'Confirm' },
-				{ ...step, id: 'extra', name: 'Unrelated' }
-			]
-		});
-		expect(await catalog.countEstimatedSteps()).toBe(3);
-		state.countNull = true;
-		expect(await catalog.countEstimatedSteps()).toBe(0);
-		expect(await catalog.readStarterReadiness('Arrival', ['Paperwork', 'Confirm'])).toEqual({
-			template: { id: 'template', orgId: ORG, name: 'Arrival', description: null, createdAt: null },
-			hasAnyTemplate: true,
-			hasAnyStep: true,
-			stepNames: ['Paperwork']
-		});
-		const count = state.requests.filter(
-			(req) => req.url.searchParams.get('select') === 'id' && req.url.searchParams.has('offset')
-		);
-		expect(count.map((req) => [req.offset, req.url.searchParams.get('limit')])).toEqual([
-			[0, '1'],
-			[0, '1']
-		]);
 	});
 	it('counts only in-progress packets of this Organization per template in one request, 0 for the rest', async () => {
 		const { workflow, state } = ports({

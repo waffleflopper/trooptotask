@@ -7,3 +7,9 @@ export function formatDashboardDisplayDate(dateString: string): string {
 	const date = parseDate(dateString);
 	return `${DAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${date.getDate()} ${date.getFullYear()}`;
 }
+
+/** "Monday 19 Oct", the Dashboard title for the viewer's day. */
+export function formatDashboardTitleDate(dateString: string): string {
+	const date = parseDate(dateString);
+	return `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+}

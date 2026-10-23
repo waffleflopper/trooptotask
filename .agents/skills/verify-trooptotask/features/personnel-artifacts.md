@@ -79,8 +79,8 @@ before and after admitted scheduled cleanup. They establish controlled provider 
 Personnel artifact verification uses the [artifact recipe](personnel-artifacts.md). `personnelForeign` configures only
 Organization B; existing `personnelOperate`, `personnelScoped`, `personnelEmpty`, `viewer` and `personnelSwitch`
 preserve their distinct A grants. `network` also accepts exact `personnel/PERSON_ID/leader-notes`, `follow-ups`,
-`counseling-records` and `documents` families, their named record endpoints, and a named document's `/download`. It
-still binds to this worker's exact Organization A path.
+`counseling-records`, `award-tracking` and `documents` families, their named record endpoints, and a named document's
+`/download`. It still binds to this worker's exact Organization A path.
 
 `seed personnel-artifact-context` prepares a dedicated positive switching actor, `personnelContext`, with Personnel
 configure in A and one recorded temporary configure membership in B. It creates two active People with distinct

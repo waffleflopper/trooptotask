@@ -15,6 +15,7 @@ export {
 } from './server/onboardingTemplateOperations.server';
 export { fetchOnboardingTemplateActivity, fetchOnboardingTemplatesData } from './server/onboardingTemplateRead.server';
 export { createSupabaseOnboardingExportReader } from './server/onboardingExportRead.server';
+export { fetchOnboardingStartOptions } from './server/onboardingQuery.server';
 export {
 	fetchOnboardingWorkspace,
 	type OnboardingWorkspaceBootstrapOptions

@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS, STEP_TYPE_LABELS } from '../contexts/OnboardingPageContext.svelte';
 	import type { PersonnelOnboarding } from '../onboarding.types';
@@ -45,7 +47,8 @@
 
 	let search = $state('');
 	let groupId = $state(ALL_GROUPS);
-	let selectedId = $state<string | null>(null);
+	// `?packet=<id>` opens that packet, as a link from the Dashboard; an id no longer in processing selects nothing.
+	let selectedId = $state<string | null>(page.url.searchParams.get('packet'));
 	let view = $state<View>('list');
 
 	const active = $derived(ctx.filteredOnboardings);
@@ -89,6 +92,14 @@
 				) ?? null)
 			: null
 	);
+
+	// The param is dropped once read, so a reload does not reopen a packet the viewer closed.
+	onMount(() => {
+		if (!page.url.searchParams.has('packet')) return;
+		const url = new URL(page.url);
+		url.searchParams.delete('packet');
+		replaceState(url, page.state);
+	});
 
 	function personMeta(onboarding: PersonnelOnboarding): string {
 		return [ctx.getPersonGroupName(onboarding.personnelId), ctx.getPerson(onboarding.personnelId)?.mos]

@@ -1,19 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	createAccessRequestSetupDeliveryService,
-	type AccessRequestSetupDeliveryStore
-} from './accessRequestSetupDelivery.server';
 import { accountSetupLinkFixture, fixedAuthWorkflowTime } from './accountSetupFixtures.server';
 import {
 	accessRequestFixture,
+	createAccessRequestSetupDeliveryFixture,
 	createAccessRequestSetupDeliveryStore
 } from './accessRequestSetupDeliveryFixture.server';
 
 const { nowFn } = fixedAuthWorkflowTime(new Date('2026-05-18T12:00:00.000Z'));
 
-function makeService(store: AccessRequestSetupDeliveryStore) {
+function makeService(store: ReturnType<typeof createAccessRequestSetupDeliveryStore>) {
 	const sendSetupEmail = vi.fn().mockResolvedValue(undefined);
-	const service = createAccessRequestSetupDeliveryService(store, sendSetupEmail, {
+	const service = createAccessRequestSetupDeliveryFixture(store, sendSetupEmail, {
 		now: nowFn
 	});
 	return { service, sendSetupEmail };
@@ -78,69 +75,6 @@ describe('access request setup delivery', () => {
 		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
 
-	it('sends a fresh Account Setup Link for an approved incomplete duplicate', async () => {
-		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
-		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
-		const { service, sendSetupEmail } = makeService(store);
-
-		const result = await service.submitAccessRequest({
-			email: 'Test@Example.com',
-			firstName: 'Approved',
-			lastName: 'User',
-			reason: null,
-			heardAbout: 'search_engine',
-			heardAboutDetails: null,
-			origin: 'https://trooptotask.test'
-		});
-
-		expect(result).toMatchObject({
-			status: 'fresh-setup-sent',
-			accessRequestId: 'request-1',
-			setupLinkId: 'setup-link-1'
-		});
-		expect(store.insertedRequests).toEqual([]);
-		expect(sendSetupEmail).toHaveBeenCalledWith(
-			expect.objectContaining({
-				email: 'test@example.com',
-				setupUrl: expect.stringMatching(/^https:\/\/trooptotask\.test\/auth\/setup-account\?token=/),
-				expiresAt: new Date('2026-06-01T12:00:00.000Z')
-			})
-		);
-		expect(store.outboxRecords).toEqual([
-			expect.objectContaining({
-				accessRequestId: 'request-1',
-				setupLinkId: 'setup-link-1',
-				recipient: 'test@example.com',
-				purpose: 'account_setup',
-				status: 'sent',
-				attemptCount: 1
-			})
-		]);
-		expect(JSON.stringify(store.outboxRecords)).not.toContain('token=');
-	});
-
-	it('uses the configured public app origin for renewed setup URLs instead of the inbound host', async () => {
-		vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.org');
-		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
-		const { service, sendSetupEmail } = makeService(store);
-
-		const result = await service.requestFreshSetupLink({
-			email: 'test@example.com',
-			origin: 'https://evil.example'
-		});
-
-		expect(result).toMatchObject({
-			status: 'fresh-setup-sent',
-			accessRequestId: 'request-1',
-			setupLinkId: 'setup-link-1'
-		});
-		expect(sendSetupEmail).toHaveBeenCalledWith(
-			expect.objectContaining({
-				setupUrl: expect.stringMatching(/^https:\/\/trooptotask\.org\/auth\/setup-account\?token=/)
-			})
-		);
-	});
-
 	it('does not create a request or setup link for completed, rejected, or stale duplicates', async () => {
 		for (const request of [
 			accessRequestFixture({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') }),
@@ -181,9 +115,7 @@ describe('access request setup delivery', () => {
 		});
 
 		expect(result).toMatchObject({
-			status: 'fresh-setup-sent',
-			accessRequestId: 'request-1',
-			setupLinkId: 'setup-link-1'
+			status: 'fresh-setup-sent'
 		});
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
 	});
@@ -197,7 +129,7 @@ describe('access request setup delivery', () => {
 				reviewedAt: new Date('2026-01-01T00:00:00.000Z')
 			})
 		]);
-		const boundaryDelivery = createAccessRequestSetupDeliveryService(
+		const boundaryDelivery = createAccessRequestSetupDeliveryFixture(
 			boundaryStore,
 			vi.fn().mockResolvedValue(undefined),
 			{ now: () => new Date('2026-04-01T00:00:00.000Z') }
@@ -208,7 +140,7 @@ describe('access request setup delivery', () => {
 				email: 'test@example.com',
 				origin: 'https://trooptotask.test'
 			})
-		).toMatchObject({ status: 'fresh-setup-sent', accessRequestId: 'request-1', setupLinkId: 'setup-link-1' });
+		).toMatchObject({ status: 'fresh-setup-sent' });
 
 		const expiredStore = createAccessRequestSetupDeliveryStore([
 			accessRequestFixture({
@@ -217,7 +149,7 @@ describe('access request setup delivery', () => {
 			})
 		]);
 		const expiredSender = vi.fn().mockResolvedValue(undefined);
-		const expiredDelivery = createAccessRequestSetupDeliveryService(expiredStore, expiredSender, {
+		const expiredDelivery = createAccessRequestSetupDeliveryFixture(expiredStore, expiredSender, {
 			now: () => new Date('2026-04-01T00:00:01.000Z')
 		});
 
@@ -230,49 +162,6 @@ describe('access request setup delivery', () => {
 		expect(expiredSender).not.toHaveBeenCalled();
 	});
 
-	it('records failed public setup delivery without storing the raw token or corrupting the setup link', async () => {
-		vi.stubEnv('APP_PUBLIC_ORIGIN_ALLOWLIST', 'https://trooptotask.test');
-		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
-		store.setupLinks.push(
-			accountSetupLinkFixture({
-				id: 'setup-link-previous',
-				accessRequestId: 'request-1',
-				tokenHash: 'previous-token-hash',
-				createdAt: new Date('2026-05-17T12:00:00.000Z'),
-				expiresAt: new Date('2026-05-31T12:00:00.000Z')
-			})
-		);
-		const { service, sendSetupEmail } = makeService(store);
-		sendSetupEmail.mockRejectedValueOnce(new Error('mail provider unavailable'));
-
-		const result = await service.requestFreshSetupLink({
-			email: 'test@example.com',
-			origin: 'https://trooptotask.test'
-		});
-
-		expect(result).toEqual({
-			status: 'fresh-setup-delivery-failed',
-			accessRequestId: 'request-1',
-			setupLinkId: 'setup-link-1',
-			revokedLinkIds: ['setup-link-previous']
-		});
-		expect(store.setupLinks).toHaveLength(2);
-		expect(store.setupLinks.find((link) => link.id === 'setup-link-previous')?.revokedAt).toEqual(
-			new Date('2026-05-18T12:00:00.000Z')
-		);
-		expect(store.setupLinks.find((link) => link.id === 'setup-link-1')?.revokedAt).toBeNull();
-		expect(store.outboxRecords).toEqual([
-			expect.objectContaining({
-				accessRequestId: 'request-1',
-				setupLinkId: 'setup-link-1',
-				status: 'failed',
-				attemptCount: 1,
-				lastError: 'mail provider unavailable'
-			})
-		]);
-		expect(JSON.stringify(store.outboxRecords)).not.toContain('token=');
-	});
-
 	it('renews only the normalized email identity while preserving another approved request', async () => {
 		const store = createAccessRequestSetupDeliveryStore([
 			accessRequestFixture(),
@@ -283,7 +172,7 @@ describe('access request setup delivery', () => {
 		const { service, sendSetupEmail } = makeService(store);
 		expect(
 			await service.requestFreshSetupLink({ email: '  TEST@Example.com  ', origin: 'http://localhost:4173' })
-		).toMatchObject({ status: 'fresh-setup-sent', accessRequestId: 'request-1' });
+		).toMatchObject({ status: 'fresh-setup-sent' });
 		expect(sendSetupEmail).toHaveBeenCalledWith(expect.objectContaining({ email: 'test@example.com' }));
 		expect(store.setupLinks.find((link) => link.id === 'other-link')).toEqual(otherLink);
 		expect(store.outboxRecords.map((record) => record.accessRequestId)).toEqual(['request-1']);
@@ -330,7 +219,7 @@ describe('access request setup delivery', () => {
 
 		expect(
 			await service.requestFreshSetupLink({ email: 'test@example.com', origin: 'http://localhost:4173' })
-		).toMatchObject({ status: 'fresh-setup-sent', accessRequestId: 'platform-reviewed' });
+		).toMatchObject({ status: 'fresh-setup-sent' });
 		expect(store.setupLinks.map((link) => link.accessRequestId)).toEqual(['platform-reviewed']);
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
 	});

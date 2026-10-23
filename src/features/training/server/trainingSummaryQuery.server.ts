@@ -3,6 +3,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type {
 	TrainingType,
 	PersonnelTraining,
+	ExpiredTrainingType,
 	TrainingIssue,
 	TrainingSummary,
 	TrainingSummaryInput,
@@ -46,8 +47,9 @@ function buildTrainingSummary(
 	// Literal person attribution uses the complete applicable result, independently
 	// of the display-only issue filter and limit. Multiple requirements count once.
 	const expiredPersonnel = new Set<string>();
+	const expiredByType = new Map<string, ExpiredTrainingType>();
 	const groups = new Map<string | null, { expired: Set<string>; delinquent: Set<string> }>();
-	for (const { person, statusInfo } of delinquent) {
+	for (const { person, type, statusInfo } of delinquent) {
 		if (statusInfo.status !== 'expired' && statusInfo.status !== 'warning-orange') continue;
 		const groupId = person.groupId ?? null;
 		let group = groups.get(groupId);
@@ -59,6 +61,14 @@ function buildTrainingSummary(
 		if (statusInfo.status === 'expired') {
 			expiredPersonnel.add(person.id);
 			group.expired.add(person.id);
+			const daysLate = -(statusInfo.daysUntilExpiration ?? 0);
+			const expired = expiredByType.get(type.id);
+			if (expired) {
+				expired.personnelIds.push(person.id);
+				expired.maxDaysLate = Math.max(expired.maxDaysLate, daysLate);
+			} else {
+				expiredByType.set(type.id, { trainingTypeId: type.id, personnelIds: [person.id], maxDaysLate: daysLate });
+			}
 		}
 	}
 	const filtered = delinquent.filter((d) => issueStatuses.includes(d.statusInfo.status));
@@ -75,6 +85,7 @@ function buildTrainingSummary(
 	return {
 		stats,
 		issues,
+		expiredByType: [...expiredByType.values()],
 		expiredPersonnelCount: expiredPersonnel.size,
 		groupDelinquencies: Array.from(groups, ([groupId, group]) => ({
 			groupId,

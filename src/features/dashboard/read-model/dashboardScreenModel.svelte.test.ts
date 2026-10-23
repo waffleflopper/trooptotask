@@ -1,35 +1,12 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType, DailyAssignment, AssignmentType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/contracts';
-import { createDashboardScreenModel, type DashboardStoragePort } from './dashboardScreenModel.svelte';
+import { createDashboardScreenModel } from './dashboardScreenModel.svelte';
+import { arrivingAndLeavingReadiness } from '../sections/readiness';
 import type { DashboardWorkspaceResult } from '../contracts';
 import type { DashboardPageData } from '../contracts';
-import type {
-	StarterConfigurationPackApplyResult,
-	StarterConfigurationPackSupport
-} from '$features/dashboard/contracts';
-
-afterEach(() => {
-	vi.unstubAllGlobals();
-});
-
-function createMemoryStorage(initial: Record<string, string> = {}): DashboardStoragePort & {
-	values: Record<string, string>;
-} {
-	return {
-		values: { ...initial },
-		getItem(key: string) {
-			return this.values[key] ?? null;
-		},
-		setItem(key: string, value: string) {
-			this.values[key] = value;
-		}
-	};
-}
-
 function makeData(
 	overrides: Partial<DashboardPageData> = {},
 	workspaceOverrides: Record<string, unknown> = {}
@@ -38,6 +15,7 @@ function makeData(
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
+		viewerDay: { date: '2026-04-23', timeZone: 'UTC' },
 		disabledFeatures: [],
 		dashboard: {
 			workspaceKey: 'dashboard',
@@ -48,6 +26,7 @@ function makeData(
 				range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' },
 				pinnedGroups: [],
 				activeOnboardings: [],
+				hasAnyOnboardingTemplate: true,
 				ratingSchemeEntries: [],
 				personnel: [],
 				groups: [],
@@ -56,12 +35,14 @@ function makeData(
 				lossWarningWindowDays: 180,
 				strengthFloorPercent: 80,
 				awardTrackingAcknowledgedPersonnelIds: [],
+				specialDays: [],
 				...workspaceOverrides
 			},
 			hydration: { orgId: 'org-1' } as DashboardWorkspaceResult['hydration']
 		},
 		trainingSummary: null,
 		ictlSummary: null,
+		summaryFailed: false,
 		onboardingTrainingCompletions: [],
 		...overrides
 	};
@@ -107,711 +88,6 @@ function makeSources(
 	};
 }
 
-function makeStarterPack(overrides: Partial<StarterConfigurationPackSupport> = {}): StarterConfigurationPackSupport {
-	return {
-		id: 'first-week-operations',
-		name: 'First Week Operations',
-		description: 'Optional starter configuration for common first-week setup.',
-		editableCopy: 'Creates editable workflow configuration artifacts.',
-		artifacts: [
-			{
-				family: 'training-types',
-				label: 'Training Types',
-				names: ['Unit Orientation', 'Required Annual Training'],
-				description: 'Adds starter training requirements.'
-			}
-		],
-		readiness: [],
-		canApply: true,
-		deniedActions: [],
-		isFullyApplied: false,
-		...overrides
-	};
-}
-
-function makeApplyResult(
-	overrides: Partial<StarterConfigurationPackApplyResult> = {}
-): StarterConfigurationPackApplyResult {
-	return {
-		packId: 'first-week-operations',
-		packName: 'First Week Operations',
-		created: [{ family: 'training-types', name: 'Unit Orientation' }],
-		skipped: [],
-		failed: [],
-		...overrides
-	};
-}
-
-describe('createDashboardScreenModel', () => {
-	it('keeps getting started dismissed after a successful dismissal request', async () => {
-		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
-		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-
-		await model.dismissGettingStarted();
-
-		expect(model.gettingStartedDismissed).toBe(true);
-		expect(fetch).toHaveBeenCalledWith('/org/org-1/api/getting-started', { method: 'POST' });
-	});
-
-	it('rolls back getting started dismissal when the request fails', async () => {
-		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
-		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-
-		await model.dismissGettingStarted();
-
-		expect(model.gettingStartedDismissed).toBe(false);
-	});
-
-	it('rolls back getting started dismissal when the request rejects', async () => {
-		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network unavailable')));
-		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-
-		await expect(model.dismissGettingStarted()).resolves.toBeUndefined();
-
-		expect(model.gettingStartedDismissed).toBe(false);
-	});
-
-	it('builds incomplete getting started items from workspace and support counts', () => {
-		const model = createDashboardScreenModel(
-			makeData(
-				{
-					userRole: 'owner',
-					onboardingTemplateStepCount: 0,
-					ratingSchemeEntryCount: 1,
-					orgMemberCount: 1,
-					gettingStartedDismissed: false
-				},
-				{
-					personnel: [{ id: 'p1' }],
-					statusTypes: [{ id: 'status-1' }],
-					trainingTypes: [],
-					assignmentTypes: [{ id: 'assignment-1' }]
-				}
-			),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources()
-			}
-		);
-
-		expect(model.gettingStartedItems.map((item) => [item.id, item.complete])).toEqual([
-			['personnel', true],
-			['statuses', false],
-			['training', false],
-			['assignments', false],
-			['members', false],
-			['onboarding', false],
-			['ratings', true]
-		]);
-		expect(model.gettingStartedItems.find((item) => item.id === 'personnel')).toMatchObject({
-			label: 'Import or add the roster',
-			href: '/org/org-1/personnel'
-		});
-		expect(model.gettingStartedItems.find((item) => item.id === 'statuses')).toMatchObject({
-			label: 'Review availability statuses'
-		});
-		expect(model.gettingStartedItems.find((item) => item.id === 'assignments')).toMatchObject({
-			label: 'Review duty assignments'
-		});
-		expect(model.shouldShowGettingStarted).toBe(true);
-	});
-
-	it('leaves setup steps for turned-off features out of the checklist', () => {
-		const model = createDashboardScreenModel(
-			makeData({
-				userRole: 'owner',
-				disabledFeatures: ['training', 'onboarding', 'evaluations'],
-				onboardingTemplateStepCount: 0,
-				ratingSchemeEntryCount: 0,
-				orgMemberCount: 1,
-				gettingStartedDismissed: false
-			}),
-			{ storage: createMemoryStorage(), sources: makeSources() }
-		);
-
-		expect(model.gettingStartedItems.map((item) => item.id)).toEqual([
-			'personnel',
-			'statuses',
-			'assignments',
-			'members'
-		]);
-	});
-
-	it('shows the checklist after deferred support data arrives', () => {
-		const model = createDashboardScreenModel(
-			makeData(
-				{
-					userRole: 'admin',
-					onboardingTemplateStepCount: undefined,
-					ratingSchemeEntryCount: undefined,
-					orgMemberCount: undefined,
-					gettingStartedDismissed: undefined
-				},
-				{
-					personnel: [{ id: 'p1' }],
-					statusTypes: [{ id: 'status-1' }],
-					trainingTypes: [{ id: 'training-1' }],
-					assignmentTypes: [{ id: 'assignment-1' }]
-				}
-			),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources()
-			}
-		);
-
-		expect(model.hasSupportData).toBe(false);
-		expect(model.shouldShowGettingStarted).toBe(false);
-
-		model.applySupportData({
-			trainingTypeCount: 1,
-			onboardingTemplateStepCount: 1,
-			ratingSchemeEntryCount: 1,
-			orgMemberCount: 1,
-			gettingStartedDismissed: false,
-			starterConfigurationPacks: [makeStarterPack()]
-		});
-
-		expect(model.hasSupportData).toBe(true);
-		expect(model.shouldShowGettingStarted).toBe(true);
-		expect(model.gettingStartedItems.find((item) => item.id === 'members')?.complete).toBe(false);
-		expect(model.firstStarterConfigurationPack?.name).toBe('First Week Operations');
-	});
-
-	it('keeps seeded-default review tasks open until dismissed', () => {
-		const model = createDashboardScreenModel(
-			makeData(
-				{
-					userRole: 'owner',
-					onboardingTemplateStepCount: 2,
-					ratingSchemeEntryCount: 1,
-					orgMemberCount: 2,
-					gettingStartedDismissed: false
-				},
-				{
-					personnel: [{ id: 'p1' }],
-					statusTypes: [{ id: 'status-1' }],
-					trainingTypes: [{ id: 'training-1' }],
-					assignmentTypes: [{ id: 'assignment-1' }]
-				}
-			),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources()
-			}
-		);
-
-		expect(model.gettingStartedItems.filter((item) => !item.complete).map((item) => item.id)).toEqual([
-			'statuses',
-			'assignments'
-		]);
-		expect(model.shouldShowGettingStarted).toBe(true);
-
-		model.applySupportData({
-			trainingTypeCount: 0,
-			onboardingTemplateStepCount: 0,
-			ratingSchemeEntryCount: 0,
-			orgMemberCount: 1,
-			gettingStartedDismissed: true,
-			starterConfigurationPacks: []
-		});
-
-		expect(model.gettingStartedDismissed).toBe(true);
-		expect(model.shouldShowGettingStarted).toBe(false);
-	});
-
-	it('uses refreshed support training counts for checklist completion', () => {
-		const model = createDashboardScreenModel(
-			makeData(
-				{
-					userRole: 'owner',
-					onboardingTemplateStepCount: 0,
-					ratingSchemeEntryCount: 0,
-					orgMemberCount: 1,
-					gettingStartedDismissed: false
-				},
-				{
-					personnel: [{ id: 'p1' }],
-					trainingTypes: []
-				}
-			),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources()
-			}
-		);
-
-		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(false);
-
-		model.applySupportData({
-			trainingTypeCount: 2,
-			onboardingTemplateStepCount: 0,
-			ratingSchemeEntryCount: 0,
-			orgMemberCount: 1,
-			gettingStartedDismissed: false,
-			starterConfigurationPacks: [makeStarterPack()]
-		});
-
-		expect(model.trainingTypeCount).toBe(2);
-		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(true);
-	});
-
-	it('applies a starter pack and refreshes support data after success', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => makeApplyResult()
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					trainingTypeCount: 2,
-					onboardingTemplateStepCount: 4,
-					ratingSchemeEntryCount: 0,
-					orgMemberCount: 1,
-					gettingStartedDismissed: false,
-					starterConfigurationPacks: [makeStarterPack({ isFullyApplied: true })]
-				})
-			});
-		vi.stubGlobal('fetch', fetchMock);
-		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-		model.applySupportData({
-			trainingTypeCount: 0,
-			onboardingTemplateStepCount: 0,
-			ratingSchemeEntryCount: 0,
-			orgMemberCount: 1,
-			gettingStartedDismissed: false,
-			starterConfigurationPacks: [makeStarterPack()]
-		});
-
-		const result = await model.applyStarterConfigurationPack('first-week-operations');
-
-		expect(result).toMatchObject({ packName: 'First Week Operations' });
-		expect(fetchMock).toHaveBeenNthCalledWith(
-			1,
-			'/org/org-1/api/starter-configuration-packs/first-week-operations/apply',
-			{
-				method: 'POST'
-			}
-		);
-		expect(fetchMock).toHaveBeenNthCalledWith(2, '/org/org-1/api/getting-started');
-		expect(model.starterPackApplyState.status).toBe('success');
-		expect(model.firstStarterConfigurationPack?.isFullyApplied).toBe(true);
-		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(true);
-		expect(model.gettingStartedItems.find((item) => item.id === 'onboarding')?.complete).toBe(true);
-	});
-
-	it('refreshes support data while keeping error state when starter pack application reports failed artifacts', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () =>
-					makeApplyResult({
-						created: [],
-						failed: [
-							{
-								family: 'training-types',
-								name: 'Unit Orientation',
-								message: 'This starter artifact could not be created. Existing configuration was left unchanged.'
-							}
-						]
-					})
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					trainingTypeCount: 1,
-					onboardingTemplateStepCount: 4,
-					ratingSchemeEntryCount: 0,
-					orgMemberCount: 1,
-					gettingStartedDismissed: false,
-					starterConfigurationPacks: [makeStarterPack({ isFullyApplied: false })]
-				})
-			});
-		vi.stubGlobal('fetch', fetchMock);
-		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-		model.applySupportData({
-			trainingTypeCount: 0,
-			onboardingTemplateStepCount: 0,
-			ratingSchemeEntryCount: 0,
-			orgMemberCount: 1,
-			gettingStartedDismissed: false,
-			starterConfigurationPacks: [makeStarterPack()]
-		});
-
-		const result = await model.applyStarterConfigurationPack('first-week-operations');
-
-		expect(result).toBeNull();
-		expect(fetchMock).toHaveBeenNthCalledWith(
-			1,
-			'/org/org-1/api/starter-configuration-packs/first-week-operations/apply',
-			{
-				method: 'POST'
-			}
-		);
-		expect(fetchMock).toHaveBeenNthCalledWith(2, '/org/org-1/api/getting-started');
-		expect(model.starterPackApplyState).toMatchObject({
-			status: 'error',
-			message: 'Some starter artifacts could not be created.'
-		});
-		expect(model.trainingTypeCount).toBe(1);
-		expect(model.gettingStartedItems.find((item) => item.id === 'onboarding')?.complete).toBe(true);
-		expect(model.firstStarterConfigurationPack?.isFullyApplied).toBe(false);
-	});
-
-	it('preserves starter pack apply error details from failed responses', async () => {
-		const fetchMock = vi.fn().mockResolvedValueOnce({
-			ok: false,
-			json: async () => ({ message: 'Organization is in read-only mode' })
-		});
-		vi.stubGlobal('fetch', fetchMock);
-		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-
-		const result = await model.applyStarterConfigurationPack('first-week-operations');
-
-		expect(result).toBeNull();
-		expect(model.starterPackApplyState).toMatchObject({
-			status: 'error',
-			message: 'Organization is in read-only mode',
-			result: null
-		});
-	});
-
-	it('reports starter pack success when only checklist refresh fails', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => makeApplyResult()
-			})
-			.mockResolvedValueOnce({
-				ok: false,
-				json: async () => ({ error: 'Support data temporarily unavailable' })
-			});
-		vi.stubGlobal('fetch', fetchMock);
-		const model = createDashboardScreenModel(makeData({ userRole: 'owner' }), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-		model.applySupportData({
-			trainingTypeCount: 0,
-			onboardingTemplateStepCount: 0,
-			ratingSchemeEntryCount: 0,
-			orgMemberCount: 1,
-			gettingStartedDismissed: false,
-			starterConfigurationPacks: [makeStarterPack()]
-		});
-
-		const result = await model.applyStarterConfigurationPack('first-week-operations');
-
-		expect(result).toMatchObject({ packName: 'First Week Operations' });
-		expect(model.starterPackApplyState).toMatchObject({
-			status: 'success',
-			result
-		});
-		expect(model.starterPackApplyState.message).toContain('First Week Operations applied');
-		expect(model.starterPackApplyState.message).toContain('setup checklist could not refresh');
-		expect(model.starterPackApplyState.message).toContain('Reload the page');
-		expect(model.starterPackApplyState.message).toContain('Support data temporarily unavailable');
-		expect(model.trainingTypeCount).toBe(0);
-	});
-
-	it('does not show owner setup prompts to non-privileged members', () => {
-		const model = createDashboardScreenModel(
-			makeData({
-				userRole: 'member',
-				onboardingTemplateStepCount: 0,
-				ratingSchemeEntryCount: 0,
-				orgMemberCount: 1,
-				gettingStartedDismissed: false
-			}),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources()
-			}
-		);
-
-		expect(model.hasSupportData).toBe(true);
-		expect(model.gettingStartedItems.some((item) => !item.complete)).toBe(true);
-		expect(model.shouldShowGettingStarted).toBe(false);
-	});
-
-	it('pre-shapes upcoming changes with the persisted grouping mode', () => {
-		const storage = createMemoryStorage({ 'dashboard-upcoming-group-by': 'group' });
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
-			storage,
-			sources: makeSources({
-				personnel: [
-					{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
-					{ id: 'p2', rank: 'SPC', firstName: 'Bo', lastName: 'Jones', groupId: null }
-				],
-				groups: [{ id: 'g1', name: 'Alpha', sortOrder: 1 }],
-				statusTypes: [{ id: 'st1', name: 'Leave', color: '#aa0000', textColor: '#ffffff' }],
-				availabilityEntries: [
-					{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-04-25', endDate: '2026-04-27' },
-					{ id: 'a2', personnelId: 'p2', statusTypeId: 'st1', startDate: '2026-04-26', endDate: '2026-04-28' }
-				]
-			})
-		});
-
-		expect(model.unitReadiness.upcomingChanges.mode).toBe('group');
-		expect(model.unitReadiness.upcomingChanges.byGroup.map(([label]) => label)).toEqual(['Alpha', 'Unassigned']);
-
-		model.unitReadiness.upcomingChanges.setMode('date');
-
-		expect(model.unitReadiness.upcomingChanges.mode).toBe('date');
-		expect(storage.values['dashboard-upcoming-group-by']).toBe('date');
-		expect(model.upcomingChanges.map((change) => change.date)).toEqual([
-			'2026-04-25',
-			'2026-04-26',
-			'2026-04-27',
-			'2026-04-28'
-		]);
-	});
-
-	it('defaults today through the shared date formatter when no explicit date is supplied', () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-04-23T12:00:00'));
-
-		const model = createDashboardScreenModel(makeData(), {
-			storage: createMemoryStorage(),
-			sources: makeSources()
-		});
-
-		expect(model.today).toBe('2026-04-23');
-
-		vi.useRealTimers();
-	});
-});
-
-it('resolves saved Group duty by ID after the Group is renamed', () => {
-	const model = createDashboardScreenModel(makeData(), {
-		today: '2026-09-19',
-		storage: createMemoryStorage(),
-		sources: makeSources({
-			groups: [{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 }],
-			assignmentTypes: [{ id: 'group-duty', name: 'Group Duty', assignTo: 'group' }],
-			dailyAssignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }]
-		})
-	});
-	expect(model.dutyAssignments).toEqual([expect.objectContaining({ id: 'saved', assigneeName: 'Alpha Renamed' })]);
-});
-
-describe('Dashboard Training identity attribution', () => {
-	it('uses actual group counts for warning-only Alpha and expired Bravo instead of distributing record counts', () => {
-		const model = createDashboardScreenModel(
-			makeData({
-				trainingSummary: {
-					stats: {
-						current: 1,
-						expired: 2,
-						warningOrange: 1,
-						warningYellow: 0,
-						notCompleted: 1,
-						notRequired: 0,
-						total: 5
-					},
-					issues: [],
-					expiredPersonnelCount: 1,
-					groupDelinquencies: [
-						{ groupId: 'alpha', expiredPersonnelCount: 0, delinquentPersonnelCount: 1 },
-						{ groupId: 'bravo', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }
-					]
-				}
-			}),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources({
-					personnel: [
-						{ id: 'able', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'alpha' },
-						{ id: 'baker', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'bravo' },
-						{ id: 'other', rank: 'SPC', firstName: 'Other', lastName: 'Person', groupId: 'alpha' }
-					],
-					groups: [
-						{ id: 'alpha', name: 'Alpha', sortOrder: 0 },
-						{ id: 'bravo', name: 'Bravo', sortOrder: 1 }
-					]
-				})
-			}
-		);
-
-		expect(model.expiredTrainingPersonnelCount).toBe(1);
-		expect(model.trainingGroupDelinquencies).toEqual([
-			{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 0, pct: 50 },
-			{ groupId: 'bravo', groupName: 'Bravo', count: 1, expiredPersonnelCount: 1, pct: 100 }
-		]);
-		expect(model.quickStatValue('expired-training')).toBe(2);
-	});
-
-	it('uses complete Group counts, including Unassigned, when displayed issues omit a Person', () => {
-		const model = createDashboardScreenModel(
-			makeData({
-				trainingSummary: {
-					stats: {
-						current: 0,
-						expired: 1,
-						warningOrange: 2,
-						warningYellow: 0,
-						notCompleted: 0,
-						notRequired: 0,
-						total: 3
-					},
-					issues: [
-						{
-							personnelId: 'able',
-							personName: 'SGT Same, Name',
-							typeName: 'Required',
-							status: 'warning-orange',
-							label: '15d left',
-							daysUntilExpiration: 15
-						},
-						{
-							personnelId: 'baker',
-							personName: 'SGT Same, Name',
-							typeName: 'Required',
-							status: 'expired',
-							label: 'Expired',
-							daysUntilExpiration: -1
-						}
-					],
-					expiredPersonnelCount: 1,
-					groupDelinquencies: [
-						{ groupId: 'alpha', expiredPersonnelCount: 0, delinquentPersonnelCount: 1 },
-						{ groupId: 'bravo', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 },
-						{ groupId: null, expiredPersonnelCount: 0, delinquentPersonnelCount: 1 }
-					]
-				}
-			}),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources({
-					personnel: [
-						{ id: 'able', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'alpha' },
-						{ id: 'baker', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'bravo' },
-						{ id: 'other', rank: 'SPC', firstName: 'Other', lastName: 'Person', groupId: null }
-					],
-					groups: [
-						{ id: 'alpha', name: 'Shared name', sortOrder: 0 },
-						{ id: 'bravo', name: 'Shared name', sortOrder: 1 }
-					]
-				})
-			}
-		);
-
-		expect(model.trainingCurrencyPct).toBe(0);
-		expect(new Map(model.trainingGroupDelinquencies.map((group) => [group.groupId, group]))).toEqual(
-			new Map([
-				['alpha', { groupId: 'alpha', groupName: 'Shared name', count: 1, expiredPersonnelCount: 0, pct: 100 }],
-				['bravo', { groupId: 'bravo', groupName: 'Shared name', count: 1, expiredPersonnelCount: 1, pct: 100 }],
-				[null, { groupId: null, groupName: 'Unassigned', count: 1, expiredPersonnelCount: 0, pct: 100 }]
-			])
-		);
-	});
-
-	it.each([0, 1])('keeps yellow-only currency at 100%% with %i scoped People', (count) => {
-		const model = createDashboardScreenModel(
-			makeData({
-				trainingSummary: {
-					stats: {
-						current: 0,
-						expired: 0,
-						warningOrange: 0,
-						warningYellow: 1,
-						notCompleted: 1,
-						notRequired: 0,
-						total: 2
-					},
-					issues: [],
-					expiredPersonnelCount: 0,
-					groupDelinquencies: []
-				}
-			}),
-			{ sources: makeSources({ personnel: count ? [{ id: 'yellow', rank: 'SPC' }] : [] }) }
-		);
-		expect(model.trainingCurrencyPct).toBe(100);
-	});
-});
-
-describe('Dashboard Onboarding progress', () => {
-	const packet = (savedTrainingComplete: boolean): PersonnelOnboarding =>
-		({
-			id: 'packet',
-			personnelId: 'able',
-			steps: [
-				{ stepType: 'checkbox', active: true, completed: true },
-				{ stepType: 'paperwork', active: true, completed: false },
-				{ stepType: 'training', trainingTypeId: 'required', active: true, completed: savedTrainingComplete },
-				{ stepType: 'checkbox', active: false, completed: true }
-			] as OnboardingStepProgress[]
-		}) as PersonnelOnboarding;
-
-	it.each([
-		{ saved: false, authorized: true, keys: ['able-required'], complete: 2, pct: 67 },
-		{ saved: true, authorized: true, keys: [], complete: 1, pct: 33 },
-		{ saved: true, authorized: false, keys: [], complete: 2, pct: 67 }
-	])(
-		'counts active work and preserves authority: $saved / $authorized / $pct%',
-		({ saved, authorized, keys, complete, pct }) => {
-			const summary = authorized
-				? {
-						stats: {
-							current: 0,
-							expired: 0,
-							warningOrange: 0,
-							warningYellow: 0,
-							notCompleted: 0,
-							notRequired: 0,
-							total: 0
-						},
-						issues: [],
-						expiredPersonnelCount: 0,
-						groupDelinquencies: []
-					}
-				: null;
-			const model = createDashboardScreenModel(
-				makeData(
-					{ trainingSummary: summary, onboardingTrainingCompletions: keys },
-					{
-						activeOnboardings: [packet(saved), { ...packet(saved), id: 'excluded', personnelId: 'foreign' }]
-					}
-				),
-				{ sources: makeSources({ personnel: [{ id: 'able', rank: 'SPC', lastName: 'Able', firstName: 'Synthetic' }] }) }
-			);
-			expect(model.activeOnboardings).toEqual([
-				{
-					id: 'packet',
-					personnelId: 'able',
-					personName: 'SPC Able, Synthetic',
-					totalSteps: 3,
-					completedSteps: complete,
-					pct
-				}
-			]);
-		}
-	);
-});
-
 describe('Dashboard today availability', () => {
 	const roster = {
 		personnel: [
@@ -825,15 +101,13 @@ describe('Dashboard today availability', () => {
 			{ id: 'g1', name: 'Alpha', sortOrder: 1 }
 		],
 		statusTypes: [
-			{ id: 'leave', name: 'Leave', color: '#aa0000', textColor: '#ffffff' },
-			{ id: 'school', name: 'School', color: '#0000aa', textColor: '#ffffff' }
+			{ id: 'leave', name: 'Leave', color: '#aa0000', textColor: '#ffffff', sortOrder: 0 },
+			{ id: 'school', name: 'School', color: '#0000aa', textColor: '#ffffff', sortOrder: 1 }
 		]
 	};
 
-	it('counts each active Person out today once and lists every entry that covers today', () => {
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
-			storage: createMemoryStorage(),
+	it('counts each active Person out today once, under the first status type in catalog order', () => {
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: makeSources({
 				...roster,
 				availabilityEntries: [
@@ -848,56 +122,34 @@ describe('Dashboard today availability', () => {
 		});
 
 		expect(model.totalPersonnel).toBe(3);
-		expect(model.availableCount).toBe(1);
-		expect(model.quickStatValue('non-available-today')).toBe(2);
-		expect(model.onLeaveCount).toBe(1);
+		const { bottomLine } = model.strength;
+		expect([bottomLine.available, bottomLine.assigned, bottomLine.percent]).toEqual([1, 3, 33]);
 		expect(
-			model.groupBreakdown.map(({ name, total, available, pct, statusCounts }) => ({
-				name,
-				total,
-				available,
-				pct,
-				statusCounts: Object.fromEntries(statusCounts)
-			}))
+			bottomLine.outPeople.map(({ personnelId, name, statusTypeId }) => [personnelId, name, statusTypeId])
 		).toEqual([
-			{ name: 'Alpha', total: 2, available: 1, pct: 50, statusCounts: { leave: 1 } },
-			{ name: 'Bravo', total: 1, available: 0, pct: 0, statusCounts: { school: 1 } }
+			['p1', 'SGT Smith, Ann', 'leave'],
+			['p3', 'SPC Lee, Cy', 'school']
 		]);
-		expect(
-			model.nonAvailablePersonnel.map(({ id, personName, statusName, groupName }) => [
-				id,
-				personName,
-				statusName,
-				groupName
-			])
-		).toEqual([
-			['a1', 'SGT Smith, Ann', 'Leave', 'Alpha'],
-			['a2', 'SGT Smith, Ann', 'School', 'Alpha'],
-			['a3', 'SPC Lee, Cy', 'School', 'Bravo']
-		]);
-		expect(model.unitReadiness.statusEntries.map(([id, { count }]) => [id, count])).toEqual([
+		expect(bottomLine.strip.map(({ statusTypeId, count }) => [statusTypeId, count])).toEqual([
+			[null, 1],
 			['leave', 1],
-			['school', 2]
+			['school', 1]
 		]);
 	});
 
-	it('reuses Overview rows until a source changes', () => {
+	it('reuses the strength rows until a source changes', () => {
 		const availability = $state({
 			items: [
 				{ id: 'a1', personnelId: 'p1', statusTypeId: 'leave', startDate: '2026-04-23', endDate: '2026-04-23' }
 			] as AvailabilityEntry[],
 			loading: false
 		});
-		const model = createDashboardScreenModel(makeData(), {
-			today: '2026-04-23',
-			storage: createMemoryStorage(),
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
 			sources: { ...makeSources(roster), availability }
 		});
 
-		const groupBreakdown = model.groupBreakdown;
-		const nonAvailablePersonnel = model.nonAvailablePersonnel;
-		expect(model.groupBreakdown).toBe(groupBreakdown);
-		expect(model.nonAvailablePersonnel).toBe(nonAvailablePersonnel);
+		const strength = model.strength;
+		expect(model.strength).toBe(strength);
 
 		availability.items = [
 			...availability.items,
@@ -910,34 +162,32 @@ describe('Dashboard today availability', () => {
 			} as AvailabilityEntry
 		];
 
-		expect(model.groupBreakdown.map(({ name, available }) => [name, available])).toEqual([
-			['Alpha', 0],
-			['Bravo', 1]
-		]);
-		expect(model.nonAvailablePersonnel.map(({ id }) => id)).toEqual(['a1', 'a2']);
+		expect(model.strength).not.toBe(strength);
+		expect(model.strength.bottomLine.outPeople.map(({ personnelId }) => personnelId)).toEqual(['p1', 'p2']);
 	});
 });
 
-describe('Dashboard readiness colors', () => {
-	it('colors duty strength against the unit strength floor', () => {
-		const view = createDashboardScreenModel(makeData({}, { strengthFloorPercent: 70 })).unitReadiness;
+describe('Dashboard losses', () => {
+	it('leaves archived People out of the readiness losses', () => {
+		const model = createDashboardScreenModel(makeData({ viewerDay: { date: '2026-04-23', timeZone: 'UTC' } }), {
+			sources: makeSources({
+				personnel: [
+					{ id: 'leaving', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', ets: '2026-06-01' },
+					{
+						id: 'archived',
+						rank: 'SPC',
+						firstName: 'Di',
+						lastName: 'Gone',
+						ets: '2026-05-01',
+						archivedAt: '2026-04-01T00:00:00Z'
+					}
+				]
+			})
+		});
 
-		expect([100, 70, 69, 10].map(view.availabilityColor)).toEqual([
-			'var(--success-foreground)',
-			'var(--success-foreground)',
-			'var(--warning-foreground)',
-			'var(--warning-foreground)'
-		]);
-	});
-
-	it('keeps the 90 and 75 percent cutoffs for Training currency', () => {
-		const view = createDashboardScreenModel(makeData({}, { strengthFloorPercent: 70 })).unitReadiness;
-
-		expect([90, 89, 75, 74].map(view.trainingCurrencyColor)).toEqual([
-			'var(--success-foreground)',
-			'var(--warning-foreground)',
-			'var(--warning-foreground)',
-			'var(--danger-foreground)'
-		]);
+		expect(arrivingAndLeavingReadiness(model.inputs, { can: () => false, isPrivileged: false })).toMatchObject({
+			figure: '1',
+			note: 'Smith ETS 1 Jun.'
+		});
 	});
 });

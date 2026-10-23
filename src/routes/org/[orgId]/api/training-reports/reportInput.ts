@@ -9,11 +9,6 @@ import {
 } from '$features/training/contracts';
 import { viewerToday } from '$lib/server/viewerDay.server';
 
-export const PRIVATE_REPORT_HEADERS = {
-	'Cache-Control': 'private, no-store',
-	Vary: 'Cookie'
-} as const;
-
 /** A report request evaluated on the viewer's day, kept out of the bookmarkable report URL. */
 export interface ViewerDayRequest<T> {
 	request: T;

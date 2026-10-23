@@ -70,10 +70,16 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 		);
 	}
 
-	const service = createPublicAccessRequestSetupDeliveryService();
+	const service = createPublicAccessRequestSetupDeliveryService((event) =>
+		auditLog(event, {
+			userId: null,
+			ip: clientIp,
+			userAgent: request.headers.get('user-agent') ?? ''
+		})
+	);
 
 	try {
-		const result = await service.submitAccessRequest({
+		await service.submitAccessRequest({
 			email,
 			firstName,
 			lastName,
@@ -82,33 +88,6 @@ export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 			heardAboutDetails: heardAboutDetails || null,
 			origin: new URL(request.url).origin
 		});
-
-		if (result.status === 'already-pending') {
-			return json({ success: true });
-		}
-		if (result.status === 'fresh-setup-sent' || result.status === 'fresh-setup-delivery-failed') {
-			await Promise.all(
-				result.revokedLinkIds.map((revokedLinkId) =>
-					auditLog(
-						{
-							action: 'account_setup.link_revoked',
-							resourceType: 'account_setup_link',
-							resourceId: revokedLinkId,
-							details: {
-								accessRequestId: result.accessRequestId,
-								replacementSetupLinkId: result.setupLinkId,
-								stateTransition: 'pending.replaced'
-							}
-						},
-						{
-							userId: null,
-							ip: clientIp,
-							userAgent: request.headers.get('user-agent') ?? ''
-						}
-					)
-				)
-			);
-		}
 	} catch (submitError) {
 		if (isHttpError(submitError)) {
 			throw submitError;

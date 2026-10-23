@@ -30,6 +30,7 @@ export interface OrgBreadcrumb {
 const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	calendar: {
 		assignments: 'Duty planner',
+		rosters: 'DA 6',
 		bulk: 'Bulk Status',
 		reports: 'Reports',
 		settings: 'Settings'

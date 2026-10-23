@@ -18,7 +18,9 @@ const staffDuty: AssignmentType = {
 	shortName: 'SD',
 	assignTo: 'personnel',
 	color: '#b91c1c',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [],
 	showOnCalendar: true,
 	sortOrder: 0
 };
@@ -50,7 +52,15 @@ const model = {
 } as unknown as DashboardScreenModel;
 
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }));
-const rangeRead = { rangeStart: '', rangeEnd: '', availabilityEntries: [], specialDays: [], dailyAssignments: [] };
+const PREVIEW_URL = '/org/org-1/api/duty-rosters/fill/preview';
+const RANGE_URL = '/org/org-1/api/calendar-range?';
+const preview = (first: string, second: string) => ({
+	picks: [
+		{ date: OPEN[0], personId: first, count: 2, passedOver: [], returningFrom: null },
+		{ date: OPEN[1], personId: second, count: 2, passedOver: [], returningFrom: null }
+	],
+	unfilled: []
+});
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -68,8 +78,16 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
+function answerPreviews(answer: () => Promise<Response>) {
+	fetchMock.mockImplementation((url: string) => {
+		if (url === PREVIEW_URL) return answer();
+		if (url.startsWith(RANGE_URL)) return json({ rangeStart: OPEN[0], rangeEnd: OPEN[1], dailyAssignments: [] });
+		return Promise.reject(new Error(`unexpected ${url}`));
+	});
+}
+
 async function openFill() {
-	fetchMock.mockReturnValueOnce(json(rangeRead));
+	answerPreviews(() => json(preview('p-adams', 'p-baker')));
 	render(NeedsYouFillHarness, { props: { model, updates: { refreshSummary: vi.fn(), putRecord: vi.fn() } } });
 	await fireEvent.click(screen.getByRole('button', { name: 'Fill 2 days' }));
 	const assignAll = await screen.findByRole('button', { name: 'Assign all 2' });
@@ -78,7 +96,7 @@ async function openFill() {
 }
 
 describe('NeedsYouQueue Fill focus', () => {
-	it('returns focus to Assign all when a batch that filled every open day fails and the row comes back', async () => {
+	it('returns focus to Assign all when a fill that covered every open day fails and the row comes back', async () => {
 		const assignAll = await openFill();
 		fetchMock.mockReturnValueOnce(json({ message: 'Batch rejected' }, 400));
 
@@ -89,13 +107,38 @@ describe('NeedsYouQueue Fill focus', () => {
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Assign all 2' })));
 	});
 
-	it('moves focus to the empty queue message when the batch succeeds and no row is left', async () => {
+	it('moves focus to the empty queue message when the fill succeeds and no row is left', async () => {
 		const assignAll = await openFill();
-		fetchMock.mockReturnValueOnce(json({ inserted: OPEN.map((date) => duty(date, 'p-adams')) }));
+		fetchMock.mockReturnValueOnce(json({ saved: [duty(OPEN[0], 'p-adams'), duty(OPEN[1], 'p-baker')] }));
 
 		assignAll.focus();
 		await fireEvent.click(assignAll);
 
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Nothing needs you right now.')));
+	});
+
+	it('says the roster moved and shows the new picks from one more preview when the fill is refused', async () => {
+		const assignAll = await openFill();
+		fetchMock.mockReturnValueOnce(json({ message: 'The roster changed since this preview.' }, 409));
+		answerPreviews(() => json(preview('p-baker', 'p-adams')));
+
+		await fireEvent.click(assignAll);
+
+		expect((await screen.findByRole('alert')).textContent).toBe(
+			'The roster changed since this preview. Review the new picks and fill again.'
+		);
+		await waitFor(() =>
+			expect(screen.getAllByRole('button', { name: /swap$/ }).map((day) => day.getAttribute('aria-label'))).toEqual([
+				'Tue 27: SPC Baker, Ana, swap',
+				'Wed 28: SPC Adams, Ana, swap'
+			])
+		);
+		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+			PREVIEW_URL,
+			'/org/org-1/api/duty-rosters/fill',
+			`${RANGE_URL}rangeStart=${OPEN[0]}&rangeEnd=${OPEN[1]}&collections=assignments`,
+			PREVIEW_URL
+		]);
+		expect(dailyAssignmentsStore.assignments.filter((assignment) => OPEN.includes(assignment.date))).toEqual([]);
 	});
 });

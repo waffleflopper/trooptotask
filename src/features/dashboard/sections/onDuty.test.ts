@@ -15,7 +15,9 @@ function lane(id: string, name: string, overrides: Partial<AssignmentType> = {})
 		shortName: name.slice(0, 2),
 		assignTo: 'personnel',
 		color: '#1f6feb',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0,
 		...overrides
@@ -34,7 +36,15 @@ function inputs(loaded: Partial<DashboardInputs>): DashboardInputs {
 		personnel: [person('p-okafor', 'SSG', 'Okafor'), person('p-liang', 'SPC', 'Liang')],
 		availability: [],
 		statusTypes: [
-			{ id: 'leave', name: 'Leave', color: '#336699', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#336699',
+				textColor: '#ffffff',
+				shortLabel: null,
+				rosterEffect: 'available',
+				sortOrder: 0
+			}
 		],
 		groups: [{ id: 'alpha', name: 'Alpha Platoon', sortOrder: 0 }],
 		specialDays: [],

@@ -9,7 +9,9 @@ const assignmentTypes: AssignmentType[] = [
 		shortName: 'MOD',
 		assignTo: 'personnel',
 		color: '#dc2626',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0
 	}

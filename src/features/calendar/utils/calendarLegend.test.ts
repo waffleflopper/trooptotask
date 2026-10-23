@@ -9,7 +9,9 @@ function dutyType(overrides: Partial<AssignmentType>): AssignmentType {
 		shortName: 'DT',
 		assignTo: 'personnel',
 		color: '#2563eb',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: false,
 		sortOrder: 0,
 		...overrides
@@ -20,8 +22,24 @@ describe('statusLegend', () => {
 	it('keeps the stored status order and offers its hint', () => {
 		const source = statusLegend(
 			[
-				{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', shortLabel: null, sortOrder: 0 },
-				{ id: 'tdy', name: 'TDY', color: '#2563eb', textColor: '#fff', shortLabel: 'T', sortOrder: 1 }
+				{
+					id: 'leave',
+					name: 'Leave',
+					color: '#16a34a',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'A',
+					sortOrder: 0
+				},
+				{
+					id: 'tdy',
+					name: 'TDY',
+					color: '#2563eb',
+					textColor: '#fff',
+					shortLabel: 'T',
+					rosterEffect: 'A',
+					sortOrder: 1
+				}
 			],
 			'Drag across days to add'
 		);

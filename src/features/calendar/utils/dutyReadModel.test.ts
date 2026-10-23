@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
 import { assignmentSlotKey } from './calendarIndexes';
-import { findDutyConflicts, indexDutyAvailability, indexDutyHistory, lastDutyBefore } from './dutyReadModel';
+import { findDutyConflicts, indexDutyAvailability } from './dutyReadModel';
 
 function duty(id: string, date: string, assigneeId: string, assignmentTypeId = 'cq'): DailyAssignment {
 	return { id, date, assignmentTypeId, assigneeId };
@@ -18,73 +18,14 @@ function type(id: string, overrides: Partial<AssignmentType> = {}): AssignmentTy
 		shortName: id,
 		assignTo: 'personnel',
 		color: '#000',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0,
 		...overrides
 	};
 }
-
-function lastDuty(assignments: DailyAssignment[], personnelId: string, dateKey: string, assignmentTypeId = 'cq') {
-	return lastDutyBefore({ history: indexDutyHistory(assignments), assignmentTypeId, personnelId, dateKey });
-}
-
-describe('lastDutyBefore', () => {
-	it('counts a duty exactly 90 days earlier and ignores one 91 days earlier', () => {
-		const assignments = [duty('a', '2026-07-29', 'edge'), duty('b', '2026-07-28', 'beyond')];
-
-		expect(lastDuty(assignments, 'edge', '2026-10-27')).toEqual({
-			kind: 'previous',
-			date: '2026-07-29',
-			daysSince: 90
-		});
-		expect(lastDuty(assignments, 'beyond', '2026-10-27')).toEqual({ kind: 'none' });
-	});
-
-	it('ignores duties on or after the slot date, so a later date in the month cannot change an earlier slot', () => {
-		const assignments = [duty('a', '2026-10-20', 'p'), duty('b', '2026-10-27', 'p'), duty('c', '2026-10-30', 'p')];
-
-		expect(lastDuty(assignments, 'p', '2026-10-27')).toEqual({ kind: 'previous', date: '2026-10-20', daysSince: 7 });
-		expect(lastDuty(assignments, 'p', '2026-10-20')).toEqual({ kind: 'none' });
-		expect(lastDuty(assignments, 'p', '2026-10-31')).toEqual({ kind: 'previous', date: '2026-10-30', daysSince: 1 });
-	});
-
-	it('takes the latest earlier duty and keeps each assignment type separate', () => {
-		const assignments = [
-			duty('a', '2026-08-01', 'p'),
-			duty('b', '2026-10-20', 'p'),
-			duty('c', '2026-10-25', 'p', 'staff-duty')
-		];
-
-		expect(lastDuty(assignments, 'p', '2026-10-27')).toEqual({ kind: 'previous', date: '2026-10-20', daysSince: 7 });
-		expect(lastDuty(assignments, 'p', '2026-10-27', 'staff-duty')).toEqual({
-			kind: 'previous',
-			date: '2026-10-25',
-			daysSince: 2
-		});
-	});
-
-	describe('across a daylight-saving change', () => {
-		const originalTimezone = process.env.TZ;
-		afterEach(() => {
-			if (originalTimezone === undefined) delete process.env.TZ;
-			else process.env.TZ = originalTimezone;
-		});
-
-		it.each([
-			['spring', '2026-03-07', '2026-03-10', 3],
-			['autumn', '2026-10-31', '2026-11-03', 3]
-		])('counts civil days across the %s clock change', (_season, dutyDate, dateKey, daysSince) => {
-			process.env.TZ = 'America/Los_Angeles';
-
-			expect(lastDuty([duty('a', dutyDate, 'p')], 'p', dateKey)).toEqual({
-				kind: 'previous',
-				date: dutyDate,
-				daysSince
-			});
-		});
-	});
-});
 
 describe('findDutyConflicts', () => {
 	const october = { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' };
@@ -141,7 +82,10 @@ describe('findDutyConflicts', () => {
 				duty('c', '2026-10-05', 'p', 'cq'),
 				duty('a', '2026-10-02', 'p')
 			],
-			assignmentTypes: [type('sd', { exemptPersonnelIds: ['p'] }), type('cq')],
+			assignmentTypes: [
+				type('sd', { excusals: [{ personId: 'p', reason: 'Excused', startsOn: '2026-01-01' }] }),
+				type('cq')
+			],
 			availabilityByPerson: indexDutyAvailability([entry('leave-1', 'p', '2026-10-01', '2026-10-31')]),
 			range: october
 		});

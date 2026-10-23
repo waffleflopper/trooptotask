@@ -1,5 +1,6 @@
 import type { CalendarBootstrap, CalendarRangeData } from '$features/calendar/calendar.types';
 import { untrack } from 'svelte';
+import { stillInOrganizationLifetime } from '$lib/stores/core';
 import {
 	CALENDAR_RANGE_COLLECTIONS,
 	extendLoadedRange,
@@ -134,6 +135,29 @@ export class CalendarRangeCoordinator {
 			this.loading = false;
 			this.#failedRangeKey = requestKey;
 			this.#pendingRangeKey = null;
+		} finally {
+			read.close();
+		}
+	}
+
+	/**
+	 * Reads the assignments of `needed` again, loaded or not, after a write the server refused because another
+	 * operator changed them. Coverage and the shown status stay as they are. Nothing is applied when the user has
+	 * left the Organization or the page has left the range meanwhile; a failed read leaves the stores as they were.
+	 */
+	async rereadAssignments(orgId: string, needed: CalendarCoverage): Promise<'read' | 'failed' | 'abandoned'> {
+		if (!needed.assignments) return 'read';
+		const requestSerial = this.#requestSerial;
+		const sameOrganization = stillInOrganizationLifetime();
+		const read = beginCalendarRangeRead();
+		try {
+			const reads = planCalendarRangeReads({}, { assignments: needed.assignments });
+			const rangeDataSets = await this.#readRanges(orgId, reads, requestSerial);
+			if (!sameOrganization() || requestSerial !== this.#requestSerial) return 'abandoned';
+			for (const rangeData of rangeDataSets) this.#mergeRangeIntoStores(orgId, rangeData, read);
+			return 'read';
+		} catch {
+			return sameOrganization() && requestSerial === this.#requestSerial ? 'failed' : 'abandoned';
 		} finally {
 			read.close();
 		}

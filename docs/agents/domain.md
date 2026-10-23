@@ -8,6 +8,6 @@
 | Roles, presets, capabilities, scope or authorization        | [Authorization and provider boundaries](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) and ADR 0001                                                            |
 | Feature behavior, imports, exports or readiness             | The owning feature in `src/features/<owner>/` and its behavioral tests                                                                                                    |
 | Canonical wording versus compatibility names (`clinicRole`) | ADR 0006                                                                                                                                                                  |
-| Removed Billing or Duty Roster terms                        | [Stabilization decisions](../architecture/ARCHITECTURE.md#stabilization-decisions); history does not authorize rebuilding them                                            |
+| Removed Billing or retired Duty Roster terms                | [Stabilization decisions](../architecture/ARCHITECTURE.md#stabilization-decisions); history does not authorize rebuilding them                                            |
 
 When a definition is missing or conflicts with behavior, inspect the implementation and tests before changing it. Ask only when an unresolved domain decision materially affects the task.

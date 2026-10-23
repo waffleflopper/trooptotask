@@ -1,14 +1,23 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { AssignmentType } from '$features/calendar/contracts';
-	import type { Personnel } from '$features/personnel/contracts';
+	import type { Group, Personnel, RankCatalogEntry } from '$features/personnel/contracts';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarLaneIds } from '$features/calendar/utils/calendarLanes';
 	import AssignmentLaneCell from './calendar-lanes/AssignmentLaneCell.svelte';
 	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
+	import DutyRosterSection from './DutyRosterSection.svelte';
+	import {
+		rosterDraftFrom,
+		rosterDraftProblem,
+		rosterExcusalsChanged,
+		rosterRulesChanged,
+		rosterSettingsFrom,
+		draftPoolRules
+	} from '$features/calendar/utils/rosterDraft';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
-	import * as Combobox from '$lib/components/ui/combobox';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -17,15 +26,19 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
+	import { formatDate, formatDayMonth } from '$lib/utils/dates';
+	import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 	interface Props {
 		/** The type to edit. Without it the dialog adds a new type. */
 		type?: AssignmentType;
 		roster: readonly Personnel[];
+		groups: readonly Group[];
+		rankCatalog: readonly RankCatalogEntry[] | 'loading' | 'failed';
 		onClose: () => void;
 	}
 
-	let { type, roster, onClose }: Props = $props();
+	let { type, roster, groups, rankCatalog, onClose }: Props = $props();
 
 	// A color input only accepts #rrggbb, and the chosen value is saved as the type's color.
 	const DEFAULT_ASSIGNMENT_COLOR = '#c47f00';
@@ -38,7 +51,11 @@
 	let shortName = $state(initial?.shortName ?? '');
 	let color = $state(initial?.color ?? DEFAULT_ASSIGNMENT_COLOR);
 	let assignTo = $state<AssignmentType['assignTo']>(initial?.assignTo ?? 'personnel');
-	let exempt = $state<string[]>([...(initial?.exemptPersonnelIds ?? [])]);
+	let rosterDraft = $state(rosterDraftFrom(initial));
+	let triedSave = $state(false);
+	let confirmingNewForm = $state(false);
+	// The editor's calendar day, read again when Save is pressed. A rule change closes the open DA 6 on it.
+	let today = $state(formatDate(new Date()));
 	let shown = $state(initial?.showOnCalendar ?? false);
 	let lanesNotice = $state('');
 	const saving = new PendingSave();
@@ -53,54 +70,56 @@
 		name: name.trim(),
 		shortName: shortName.trim().toUpperCase(),
 		color,
-		assignTo,
-		exemptPersonnelIds: assignTo === 'personnel' ? exempt : []
+		assignTo
 	});
+	const isRoster = $derived(assignTo === 'personnel');
+	// Ending a roster closes its DA 6 with a record the rank catalog computes.
+	const groupLocked = $derived(rankCatalog === 'failed' && editing?.assignTo === 'personnel');
+	// A rule change on a type that already keeps a DA 6 closes it, so it asks first.
+	const closesForm = $derived(
+		isRoster && editing?.assignTo === 'personnel' && rosterRulesChanged(editing, rosterDraft)
+	);
+	const rosterDirty = $derived(
+		isRoster &&
+			(editing
+				? rosterRulesChanged(editing, rosterDraft) || rosterExcusalsChanged(editing, rosterDraft)
+				: rosterDraft.mode === 'match' || rosterDraft.excusals.length > 0 || rosterDraft.weekendMode !== 'same')
+	);
 	const detailsDirty = $derived(
 		!editing ||
 			details.name !== editing.name ||
 			details.shortName !== editing.shortName ||
 			details.color !== editing.color ||
-			details.assignTo !== editing.assignTo ||
-			!sameIds(details.exemptPersonnelIds, editing.exemptPersonnelIds)
+			details.assignTo !== editing.assignTo
 	);
 	const dirty = $derived(
 		editing
-			? detailsDirty || shown !== savedShown
-			: name.trim() !== '' ||
-					shortName.trim() !== '' ||
-					color !== DEFAULT_ASSIGNMENT_COLOR ||
-					shown ||
-					exempt.length > 0
+			? detailsDirty || shown !== savedShown || rosterDirty
+			: name.trim() !== '' || shortName.trim() !== '' || color !== DEFAULT_ASSIGNMENT_COLOR || shown || rosterDirty
 	);
-	const valid = $derived(details.name !== '' && details.shortName !== '');
-
-	const rosterIds = $derived(new Set(roster.map((person) => person.id)));
-	// A person who left, or is outside this roster, keeps their exemption until someone removes it.
-	const exemptOptions = $derived([
-		...[...roster]
-			.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
-			.map((person) => ({ value: person.id, label: `${person.rank} ${person.lastName}, ${person.firstName}` })),
-		...exempt.filter((id) => !rosterIds.has(id)).map((id) => ({ value: id, label: 'Unknown person' }))
-	]);
-
-	const exemptLabels = $derived(new Map(exemptOptions.map((option) => [option.value, option.label])));
+	const valid = $derived(
+		details.name !== '' && details.shortName !== '' && !(isRoster && rosterDraftProblem(rosterDraft))
+	);
 	const sampleAssignee = $derived(roster[0]?.lastName.toUpperCase() ?? 'NAME');
-
-	function sameIds(a: readonly string[], b: readonly string[]) {
-		return a.length === b.length && a.every((id) => b.includes(id));
-	}
 
 	async function saveDetails(): Promise<AssignmentType | null> {
 		const failure = editing ? 'Failed to save assignment type' : 'Failed to add assignment type';
 		try {
 			if (!editing) {
-				const created = await dailyAssignmentsStore.addType({ ...details, showOnCalendar: false, sortOrder: 0 });
+				const created = await dailyAssignmentsStore.addType({
+					...details,
+					showOnCalendar: false,
+					sortOrder: 0,
+					poolRules: isRoster ? draftPoolRules(rosterDraft) : null,
+					weekendMode: isRoster ? rosterDraft.weekendMode : 'same',
+					excusals: []
+				});
 				if (created) createdId = created.id;
 				else toastStore.error(failure);
 				return created;
 			}
-			if (detailsDirty && !(await dailyAssignmentsStore.updateType(editing.id, details))) {
+			// Becoming a Group assignment closes the open DA 6 on the editor's day.
+			if (detailsDirty && !(await dailyAssignmentsStore.updateType(editing.id, details, today))) {
 				toastStore.error(failure);
 				return null;
 			}
@@ -111,11 +130,33 @@
 		}
 	}
 
+	/** Resolves false when the roster was not saved, or the save no longer belongs to this dialog. */
+	async function saveRoster(target: AssignmentType): Promise<boolean> {
+		if (!isRoster || (!rosterRulesChanged(target, rosterDraft) && !rosterExcusalsChanged(target, rosterDraft)))
+			return true;
+		try {
+			return (
+				(await dailyAssignmentsStore.saveRosterSettings(target.id, rosterSettingsFrom(rosterDraft, today))) !== null
+			);
+		} catch (error) {
+			toastStore.error(rejectedRequestMessage(error, 'Failed to save the duty roster'));
+			return false;
+		}
+	}
+
+	function requestSave() {
+		triedSave = true;
+		if (!valid) return;
+		today = formatDate(new Date());
+		if (closesForm) confirmingNewForm = true;
+		else void saving.run(save);
+	}
+
 	async function save() {
 		if (!valid) return;
 		lanesNotice = '';
 		const target = await saveDetails();
-		if (!target) return;
+		if (!target || !(await saveRoster(target))) return;
 
 		const nowShown = laneIds.includes(target.id);
 		if (shown !== nowShown) {
@@ -139,7 +180,7 @@
 </script>
 
 <AppDialog.Root open busy={saving.pending} closeBlocked={dirty} {onClose}>
-	<AppDialog.Content presentation="sheet">
+	<AppDialog.Content presentation="sheet" size="wide">
 		<AppDialog.Header class="border-b pb-4">
 			<AppDialog.Title>{editing ? 'Edit Assignment Type' : 'Add Assignment Type'}</AppDialog.Title>
 			<AppDialog.Description>
@@ -187,11 +228,11 @@
 							}
 						>
 							<ToggleGroup.Item value="personnel">Person</ToggleGroup.Item>
-							<ToggleGroup.Item value="group">Group</ToggleGroup.Item>
+							<ToggleGroup.Item value="group" disabled={groupLocked}>Group</ToggleGroup.Item>
 						</ToggleGroup.Root>
 					</div>
 					<Field.Description>
-						A Group assignment puts the Group name in the lane. Group assignments have no exemptions.
+						A Group assignment puts the Group name in the lane. Group assignments have no duty roster.
 					</Field.Description>
 				</Field.Root>
 				<div class="flex flex-col gap-3 rounded-lg border p-4">
@@ -237,39 +278,26 @@
 						<p class="text-sm text-destructive" role="alert">{lanesNotice}</p>
 					{/if}
 				</div>
-				{#if assignTo === 'personnel'}
-					<Field.Root>
-						<Field.Title>Exempt from this duty</Field.Title>
-						<Combobox.Root items={exemptOptions} multiple bind:value={exempt} label="Exempt from this duty">
-							<Combobox.Chips>
-								<Combobox.Value>
-									{#snippet children(values)}
-										{#each values as id (id)}
-											<Combobox.Chip value={id}>{exemptLabels.get(id)}</Combobox.Chip>
-										{/each}
-										<Combobox.ChipsInput placeholder="Add people" aria-label="Exempt from this duty" />
-									{/snippet}
-								</Combobox.Value>
-							</Combobox.Chips>
-							<Combobox.Content>
-								<Combobox.Empty>No people found.</Combobox.Empty>
-								<Combobox.List>
-									{#snippet children(value, option)}
-										<Combobox.Item {value} label={option.label} />
-									{/snippet}
-								</Combobox.List>
-							</Combobox.Content>
-						</Combobox.Root>
-						<Field.Description>Exempt people don't appear in this duty's picker.</Field.Description>
-					</Field.Root>
+				{#if isRoster}
+					<DutyRosterSection
+						bind:draft={rosterDraft}
+						{roster}
+						{groups}
+						{rankCatalog}
+						{today}
+						showProblems={triedSave}
+						startingNumbers={editing?.assignTo === 'personnel'
+							? { typeId: editing.id, shortName: editing.shortName, blocked: dirty }
+							: undefined}
+					/>
 				{/if}
 			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer class="border-t pt-4">
 			<Button variant="outline" onclick={onClose} disabled={saving.pending}>Cancel</Button>
 			<Button
-				onclick={() => saving.run(save)}
-				disabled={saving.pending || dailyAssignmentsStore.typesBusy || !valid || !dirty}
+				onclick={requestSave}
+				disabled={saving.pending || dailyAssignmentsStore.typesBusy || !dirty || (triedSave && !valid)}
 			>
 				{#if saving.pending}<Spinner />{/if}
 				{editing ? 'Save Changes' : 'Add Assignment Type'}
@@ -277,3 +305,17 @@
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
+
+{#if confirmingNewForm}
+	<ConfirmDialog
+		title="Start a new DA 6?"
+		message={`This starts a new DA 6 on ${formatDayMonth(fromDayNumber(toDayNumber(today) + 1))}. The current form closes as it is. Everyone keeps their current count.`}
+		confirmLabel="Save changes"
+		variant="default"
+		onConfirm={async () => {
+			await saving.run(save);
+			confirmingNewForm = false;
+		}}
+		onCancel={() => (confirmingNewForm = false)}
+	/>
+{/if}

@@ -1,8 +1,11 @@
 import type { Component } from 'svelte';
+import { indexAssignmentsBySlot, openAssignmentDates, trackOf, type AssignmentType } from '$features/calendar';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardAccess } from './dashboardAccess';
+import type { DashboardInputs } from './dashboardInputs';
 
 export type NeedsYouSeverity = 'danger' | 'warning' | 'info';
 
@@ -98,6 +101,19 @@ export function needsYouKindInfo(kind: NeedsYouKind): NeedsYouKindInfo {
 
 /** A fill offers at most this many open days; the duty planner takes the rest. */
 export const DUTY_FILL_DAYS = 7;
+
+/**
+ * A duty's open forecast days. Under No duty a person-assigned roster details nobody on weekends or Special Days,
+ * so those stay out. A Group duty ignores the setting, which it may keep from before it became a Group duty.
+ */
+export function openDutyDates(inputs: DashboardInputs, type: AssignmentType): string[] {
+	const holidays = new Set(inputs.specialDays.map((day) => toDayNumber(day.date)));
+	const dutyDays =
+		type.assignTo === 'personnel'
+			? inputs.forecastDays.filter((date) => trackOf(type.weekendMode, toDayNumber(date), holidays) !== null)
+			: inputs.forecastDays;
+	return openAssignmentDates(indexAssignmentsBySlot(inputs.assignments), type.id, dutyDays);
+}
 
 export const NEEDS_YOU_FULL_LENGTH = 9;
 export const NEEDS_YOU_FOLDED_LENGTH = 7;

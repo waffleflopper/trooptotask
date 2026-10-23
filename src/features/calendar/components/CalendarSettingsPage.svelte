@@ -4,6 +4,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import type { CalendarSettingsPageAccess } from '../contracts';
+	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
@@ -16,7 +17,8 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import Users from '@lucide/svelte/icons/users';
 
-	let { org }: { org: CalendarSettingsPageAccess } = $props();
+	let { org, rankCatalog }: { org: CalendarSettingsPageAccess; rankCatalog: Promise<readonly RankCatalogEntry[]> } =
+		$props();
 	const orgUrlSegment = $derived(org.orgUrlSegment);
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
@@ -36,7 +38,7 @@
 		{
 			key: 'status',
 			label: 'Status Types',
-			description: "Set each status's name, color and one-day label, and drag to set the legend and picker order.",
+			description: 'Why someone is unavailable, and what it does to their place on a duty roster.',
 			icon: Palette,
 			getCount: () => statusTypesStore.items.length
 		},
@@ -150,7 +152,7 @@
 			</Tabs.Content>
 			<Tabs.Content value="assignments" class="overflow-y-auto p-6">
 				{#if activeSection === 'assignments'}
-					<CalendarAssignmentSettingsSection bind:this={assignmentSection} {canMutate} {searchQuery} />
+					<CalendarAssignmentSettingsSection bind:this={assignmentSection} {canMutate} {searchQuery} {rankCatalog} />
 				{/if}
 			</Tabs.Content>
 			<Tabs.Content value="closures" class="overflow-y-auto p-6">

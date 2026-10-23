@@ -14,7 +14,9 @@ const types: AssignmentType[] = [
 		shortName: 'SD',
 		assignTo: 'personnel',
 		color: '#123456',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: false,
 		sortOrder: 0
 	},
@@ -24,7 +26,9 @@ const types: AssignmentType[] = [
 		shortName: 'DT',
 		assignTo: 'group',
 		color: '#654321',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 1
 	}

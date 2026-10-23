@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import type { AssignmentType, AvailabilityEntry, RosterDay } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import { dutyPickerOptions, dutySearchScore, type DutyPickerInput } from './dutyPickerOptions';
-import { indexDutyAvailability, indexDutyHistory } from './dutyReadModel';
+import { indexDutyAvailability } from './dutyReadModel';
 
 const staffDuty: AssignmentType = {
 	id: 'sd',
@@ -10,7 +10,9 @@ const staffDuty: AssignmentType = {
 	shortName: 'SD',
 	assignTo: 'personnel',
 	color: '#b91c1c',
-	exemptPersonnelIds: ['p-kim'],
+	poolRules: null,
+	weekendMode: 'same',
+	excusals: [{ personId: 'p-kim', reason: 'Excused', startsOn: '2026-01-01' }],
 	showOnCalendar: true,
 	sortOrder: 0
 };
@@ -23,10 +25,6 @@ function leave(personnelId: string, startDate: string, endDate: string): Availab
 	return { id: `${personnelId}-${startDate}`, personnelId, statusTypeId: 'leave', startDate, endDate };
 }
 
-function duty(id: string, date: string, assigneeId: string, assignmentTypeId = 'sd'): DailyAssignment {
-	return { id, date, assignmentTypeId, assigneeId };
-}
-
 const roster = [
 	person('p-ortiz-b', 'SPC', 'Ortiz', 'Lucia'),
 	person('p-kim', 'SGT', 'Kim', 'Jae-won'),
@@ -37,25 +35,41 @@ const roster = [
 	person('p-liang', 'SPC', 'Liang', 'Wei')
 ];
 
-function options(
-	overrides: { assignments?: DailyAssignment[]; entries?: AvailabilityEntry[] } & Partial<DutyPickerInput> = {}
-) {
-	const { assignments = [], entries = [], ...input } = overrides;
+function options(overrides: { entries?: AvailabilityEntry[] } & Partial<DutyPickerInput> = {}) {
+	const { entries = [], ...input } = overrides;
 	return dutyPickerOptions({
 		type: staffDuty,
 		dateKey: '2026-10-27',
 		personnel: roster,
 		groups: [],
 		availabilityByPerson: indexDutyAvailability(entries),
-		history: indexDutyHistory(assignments),
-		statusTypes: [{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
+		statusTypes: [
+			{
+				id: 'leave',
+				name: 'Leave',
+				color: '#16a34a',
+				textColor: '#fff',
+				shortLabel: null,
+				rosterEffect: 'A',
+				sortOrder: 0
+			},
+			{
+				id: 'appointment',
+				name: 'Appointment',
+				color: '#2563eb',
+				textColor: '#fff',
+				shortLabel: null,
+				rosterEffect: 'available',
+				sortOrder: 1
+			}
+		],
 		currentAssigneeId: 'p-hale',
 		...input
 	});
 }
 
 describe('dutyPickerOptions', () => {
-	it('omits exempt people and, with no history, orders by name with a stable tie-break', () => {
+	it('without roster counts, omits excused people and orders by name with a stable tie-break', () => {
 		expect(options().map((option) => [option.id, option.label, option.current])).toEqual([
 			['p-hale', 'Hale, Corey', true],
 			['p-liang', 'Liang, Wei', false],
@@ -66,25 +80,88 @@ describe('dutyPickerOptions', () => {
 		]);
 	});
 
-	it('puts people with no duty in 90 days first, then the longest since their last duty', () => {
-		const result = options({
-			assignments: [
-				duty('a', '2026-10-01', 'p-hale'),
-				duty('b', '2026-08-10', 'p-reed'),
-				duty('c', '2026-10-01', 'p-liang'),
-				duty('d', '2026-07-28', 'p-ortiz-a'),
-				duty('e', '2026-10-26', 'p-ortiz-c', 'other-type')
+	it("with roster counts, lists the pool in the roster's order and everyone else after it, off the roster", () => {
+		const roster: RosterDay = {
+			track: 'all',
+			standing: [
+				{ personId: 'p-reed', count: 12, effect: null },
+				{ personId: 'p-liang', count: 12, effect: { code: 'A', reason: 'Leave' } },
+				{ personId: 'p-hale', count: 9, effect: { code: 'D', reason: 'CQ' } },
+				{ personId: 'p-gone', count: 4, effect: null }
 			]
-		});
+		};
 
-		expect(result.map((option) => [option.id, option.kind === 'personnel' ? option.lastDuty : null])).toEqual([
-			['p-ortiz-c', { kind: 'none' }],
-			['p-ortiz-a', { kind: 'none' }],
-			['p-ortiz-b', { kind: 'none' }],
-			['p-reed', { kind: 'previous', date: '2026-08-10', daysSince: 78 }],
-			['p-hale', { kind: 'previous', date: '2026-10-01', daysSince: 26 }],
-			['p-liang', { kind: 'previous', date: '2026-10-01', daysSince: 26 }]
+		expect(
+			options({ roster }).map((option) =>
+				option.kind === 'personnel'
+					? [option.id, option.count, option.unavailable, option.offRoster, option.current]
+					: [option.id]
+			)
+		).toEqual([
+			['p-reed', 12, undefined, false, false],
+			['p-liang', 12, 'Leave (A)', false, false],
+			['p-hale', 9, 'CQ (D)', false, true],
+			['p-ortiz-c', undefined, undefined, true, false],
+			['p-ortiz-a', undefined, undefined, true, false],
+			['p-ortiz-b', undefined, undefined, true, false]
 		]);
+	});
+
+	it('on a day the roster does not detail, lists the pool without counts and everyone else off the roster', () => {
+		const roster: RosterDay = { track: null, pool: ['p-reed', 'p-hale', 'p-gone'] };
+
+		expect(
+			options({ roster, entries: [leave('p-hale', '2026-10-27', '2026-10-27')] }).map((option) =>
+				option.kind === 'personnel' ? [option.id, option.count, option.offRoster, !!option.unavailable] : [option.id]
+			)
+		).toEqual([
+			['p-reed', undefined, false, false],
+			['p-hale', undefined, false, true],
+			['p-liang', undefined, true, false],
+			['p-ortiz-c', undefined, true, false],
+			['p-ortiz-a', undefined, true, false],
+			['p-ortiz-b', undefined, true, false]
+		]);
+	});
+
+	it('offers no one while the roster day is unread, so nothing is picked before the counts arrive', () => {
+		expect(options({ unreadRoster: 'loading' })).toEqual([]);
+	});
+
+	it('tags everyone not excused as count unavailable when the roster day failed, current assignee included', () => {
+		expect(
+			options({ unreadRoster: 'error' }).map((option) =>
+				option.kind === 'personnel'
+					? [option.id, option.count, option.countUnavailable, option.offRoster, option.current]
+					: [option.id]
+			)
+		).toEqual([
+			['p-hale', undefined, true, false, true],
+			['p-liang', undefined, true, false, false],
+			['p-ortiz-c', undefined, true, false, false],
+			['p-ortiz-a', undefined, true, false, false],
+			['p-ortiz-b', undefined, true, false, false],
+			['p-reed', undefined, true, false, false]
+		]);
+	});
+
+	it('lists Groups as usual for a Group duty whatever the roster read is doing', () => {
+		const groupDuty: AssignmentType = { ...staffDuty, assignTo: 'group' };
+		const groups = [
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 0 }
+		];
+
+		expect(options({ type: groupDuty, groups, unreadRoster: 'error' }).map((option) => option.label)).toEqual([
+			'Alpha',
+			'Bravo'
+		]);
+	});
+
+	it('keeps an excused person out of the off-roster search list, as it does without a roster', () => {
+		const roster: RosterDay = { track: null, pool: ['p-reed'] };
+
+		expect(options({ roster }).map((option) => option.id)).not.toContain('p-kim');
 	});
 
 	it('keeps an unavailable person, naming every covering entry', () => {
@@ -104,9 +181,52 @@ describe('dutyPickerOptions', () => {
 		expect(result.find((option) => option.id === 'p-reed')).toMatchObject({ unavailable: undefined });
 	});
 
+	it('offers a person whose only status that day is Still available, with or without a roster', () => {
+		const entries: AvailabilityEntry[] = [
+			{
+				id: 'a-reed',
+				personnelId: 'p-reed',
+				statusTypeId: 'appointment',
+				startDate: '2026-10-27',
+				endDate: '2026-10-27'
+			},
+			{
+				id: 'a-liang',
+				personnelId: 'p-liang',
+				statusTypeId: 'appointment',
+				startDate: '2026-10-27',
+				endDate: '2026-10-27'
+			},
+			leave('p-liang', '2026-10-27', '2026-10-27')
+		];
+		const unavailableOf = (result: ReturnType<typeof options>) =>
+			result.flatMap((option) =>
+				option.kind === 'personnel' && (option.id === 'p-reed' || option.id === 'p-liang')
+					? [[option.id, option.unavailable]]
+					: []
+			);
+
+		expect(unavailableOf(options({ entries }))).toEqual([
+			['p-liang', 'Leave 27 Oct'],
+			['p-reed', undefined]
+		]);
+		expect(unavailableOf(options({ entries, roster: { track: null, pool: ['p-reed', 'p-liang'] } }))).toEqual([
+			['p-reed', undefined],
+			['p-liang', 'Leave 27 Oct']
+		]);
+		expect(unavailableOf(options({ entries, roster: { track: null, pool: ['p-hale'] } }))).toEqual([
+			['p-liang', 'Leave 27 Oct'],
+			['p-reed', undefined]
+		]);
+	});
+
 	it('lists Groups by name for a Group duty with no exemptions, availability or history', () => {
 		const result = options({
-			type: { ...staffDuty, assignTo: 'group', exemptPersonnelIds: ['g-b'] },
+			type: {
+				...staffDuty,
+				assignTo: 'group',
+				excusals: [{ personId: 'g-b', reason: 'Excused', startsOn: '2026-01-01' }]
+			},
 			groups: [
 				{ id: 'g-b', name: 'Bravo', sortOrder: 0 },
 				{ id: 'g-a', name: 'Alpha', sortOrder: 1 }

@@ -3,10 +3,21 @@
  * and `assignments` (the actual date-assignee records). Kept together because every
  * mutation needs both collections in scope.
  */
-import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
+import {
+	buildRequestError,
+	defineStore,
+	stillInOrganizationLifetime,
+	withinOrganizationLifetime
+} from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { assignmentTypesSchema, type AssignmentType, type DailyAssignment } from '$features/calendar/contracts';
+import {
+	assignmentTypesSchema,
+	type AssignmentType,
+	type DailyAssignment,
+	type RosterSettingsInput,
+	type StartingNumberInput
+} from '$features/calendar/contracts';
 import { assignmentSlotKey, duplicateAssignmentSlot } from '$features/calendar/utils/calendarIndexes';
 import { calendarLaneIds, calendarLaneTypes } from '$features/calendar/utils/calendarLanes';
 import { sameIdList } from '$features/calendar/utils/idList';
@@ -58,7 +69,10 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	readonly pendingLaneIds: readonly string[] | null;
 	load: (types: AssignmentType[], assignments: DailyAssignment[], orgId: string) => void;
 	addType: (data: Omit<AssignmentType, 'id'>) => Promise<AssignmentType | null>;
-	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>) => Promise<boolean>;
+	/** A switch to Group closes the type's open DA 6 form on `today`, the editor's calendar day. */
+	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>, today?: string) => Promise<boolean>;
+	/** Resolves null when the save no longer belongs to the shown Organization, or a later roster save replaced it. */
+	saveRosterSettings: (id: string, settings: RosterSettingsInput) => Promise<AssignmentType | null>;
 	removeType: (id: string) => Promise<boolean>;
 	setCalendarLanes: (laneTypeIds: readonly string[]) => Promise<LaneChange>;
 	getTypeById: (id: string) => AssignmentType | undefined;
@@ -67,10 +81,21 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	setAssignmentBatch: (
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 	) => Promise<boolean>;
+	/**
+	 * Writes previewed roster picks into open days. Resolves `changed` without a toast when the roster moved since
+	 * the preview, so the caller can show the new picks.
+	 */
+	fillFromRoster: (fill: RosterFill) => Promise<'saved' | 'changed' | 'failed'>;
+	/** Like `fillFromRoster`, but rejects with the failure message instead of showing a toast. */
+	fillFromRosterOrThrow: (fill: RosterFill) => Promise<'saved' | 'changed'>;
+	replaceFromRoster: (replacement: RosterReplacementWrite) => Promise<'saved' | 'changed' | 'failed'>;
 	/** Like `setAssignmentBatch`, but rejects with the failure message instead of showing a toast. */
 	setAssignmentBatchOrThrow: (
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 	) => Promise<void>;
+	saveStartingNumbers: (
+		input: StartingNumbersSave
+	) => Promise<{ status: 'saved' } | { status: 'refused'; message: string } | { status: 'failed' }>;
 	getAssignmentsForDate: (date: string) => DailyAssignment[];
 	getAssignmentForDate: (date: string, assignmentTypeId: string) => DailyAssignment | undefined;
 	getAssignmentsForPersonnel: (personnelId: string) => DailyAssignment[];
@@ -79,6 +104,32 @@ interface AssignmentExtensions extends Record<string, unknown> {
 }
 
 type AssignmentBatchRecord = { date: string; assignmentTypeId: string; assigneeId: string };
+
+export interface StartingNumbersSave {
+	typeId: string;
+	formId: string;
+	today: string;
+	/** A null count clears that box. A person or track left out keeps the number saved for them. */
+	numbers: (Omit<StartingNumberInput, 'count'> & { count: number | null })[];
+}
+
+export interface RosterFill {
+	typeId: string;
+	today: string;
+	from: string;
+	through: string;
+	picks: { date: string; personId: string }[];
+}
+
+/** A previewed Find replacement: the conflicted day's new assignee and the later roster days it re-picks. */
+export interface RosterReplacementWrite {
+	typeId: string;
+	today: string;
+	date: string;
+	assigneeId: string;
+	replacing: string;
+	repicks: { date: string; was: string; personId: string }[];
+}
 
 function inSlot(date: string, assignmentTypeId: string) {
 	return (assignment: DailyAssignment) => assignment.date === date && assignment.assignmentTypeId === assignmentTypeId;
@@ -109,6 +160,9 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 	let confirmedCatalog: ConfirmedCatalog | null = null;
 	let disputedDuringWrites: ConfirmedCatalog | null = null;
 	let typeWrites: ConfirmedCatalog[] = [];
+	// A save that outlives its Organization never settles, so only this Organization's saves count.
+	let rosterSaves = $state.raw<ConfirmedCatalog[]>([]);
+	let latestRosterSave: ConfirmedCatalog | null = null;
 	let catalogEpoch = 0;
 	let catalogRead: { epoch: number; confirmed: ConfirmedCatalog } | null = null;
 
@@ -118,6 +172,10 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 
 	function isCurrentLaneFlight(flight: LaneFlight): boolean {
 		return currentLaneFlight() === flight;
+	}
+
+	function rosterSaveInFlight(): boolean {
+		return rosterSaves.some((save) => save.orgId === typesStore.orgId && save.inLifetime());
 	}
 
 	function currentConfirmedCatalog(): ConfirmedCatalog | null {
@@ -280,6 +338,32 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		return res;
 	}
 
+	async function fillFromRosterOrThrow(fill: RosterFill): Promise<'saved' | 'changed'> {
+		const mutationId = crypto.randomUUID();
+		internals.log.push({
+			type: 'add-batch',
+			mutationId,
+			tempIds: fill.picks.map(() => `temp-${crypto.randomUUID()}`),
+			data: fill.picks.map(({ date, personId }) => ({ date, assignmentTypeId: fill.typeId, assigneeId: personId }))
+		});
+		try {
+			const res = await internals.withinOrganization(
+				fetch(`/org/${internals.orgId()}/api/duty-rosters/fill`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(fill)
+				})
+			);
+			if (res.status === 409) return 'changed';
+			if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The roster picks were not saved.'));
+			const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+			internals.commit({ saved });
+			return 'saved';
+		} finally {
+			internals.log.resolve(mutationId);
+		}
+	}
+
 	async function setAssignmentBatchOrThrow(assignments: AssignmentBatchRecord[]): Promise<void> {
 		const normalizedAssignments = normalizeAssignmentBatch(assignments);
 		const duplicateSlot = duplicateAssignmentSlot(normalizedAssignments);
@@ -360,11 +444,11 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		},
 
 		get typesBusy() {
-			return typesStore.busy || currentLaneFlight() !== null;
+			return typesStore.busy || currentLaneFlight() !== null || rosterSaveInFlight();
 		},
 
 		get typeWritesBusy() {
-			return typesStore.busy;
+			return typesStore.busy || rosterSaveInFlight();
 		},
 
 		get pendingLaneIds() {
@@ -398,11 +482,11 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 		},
 
-		async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
-			if (currentLaneFlight()) return false;
+		async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>, today?: string): Promise<boolean> {
+			if (currentLaneFlight() || rosterSaveInFlight()) return false;
 			const write = admitTypeWrite();
 			try {
-				const updated = await typesStore.updateOrThrow(id, data);
+				const updated = await typesStore.updateOrThrow(id, today ? ({ ...data, today } as typeof data) : data);
 				if (updated) confirmedCatalog = write;
 				return updated;
 			} finally {
@@ -410,8 +494,34 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 		},
 
+		async saveRosterSettings(id: string, settings: RosterSettingsInput): Promise<AssignmentType | null> {
+			if (currentLaneFlight()) return null;
+			const write = admitTypeWrite();
+			const resource = `/org/${write.orgId}/api/assignment-types/roster`;
+			rosterSaves = [...rosterSaves, write];
+			latestRosterSave = write;
+			try {
+				const res = await withinOrganizationLifetime(
+					fetch(resource, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ id, ...settings })
+					})
+				);
+				if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'PUT', resource));
+				const saved = assignmentTypesSchema.element.parse(await withinOrganizationLifetime(res.json()));
+				if (latestRosterSave !== write || !write.inLifetime() || typesStore.orgId !== write.orgId) return null;
+				typesStore.mergeBatchResults([], [saved]);
+				confirmedCatalog = write;
+				return saved;
+			} finally {
+				rosterSaves = rosterSaves.filter((save) => save !== write);
+				settleTypeWrite(write);
+			}
+		},
+
 		async removeType(id: string): Promise<boolean> {
-			if (currentLaneFlight()) return false;
+			if (currentLaneFlight() || rosterSaveInFlight()) return false;
 			const type = typesStore.getById(id);
 			if (!type) return false;
 			const write = admitTypeWrite();
@@ -538,7 +648,105 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 		},
 
+		async fillFromRoster(fill: RosterFill) {
+			try {
+				return await fillFromRosterOrThrow(fill);
+			} catch (error) {
+				toastStore.error(error instanceof Error ? error.message : 'The roster picks were not saved.');
+				return 'failed';
+			}
+		},
+
+		fillFromRosterOrThrow,
+
+		async replaceFromRoster(replacement: RosterReplacementWrite) {
+			const slots = [{ date: replacement.date, personId: replacement.assigneeId }, ...replacement.repicks];
+			const slotKeys = new Set(slots.map(({ date }) => assignmentSlotKey(date, replacement.typeId)));
+			const inReplacement = (assignment: DailyAssignment) =>
+				slotKeys.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId));
+			const removeMutationId = crypto.randomUUID();
+			const addMutationId = crypto.randomUUID();
+			internals.log.push({
+				type: 'remove-batch',
+				mutationId: removeMutationId,
+				targetIds: getAssignmentSnapshot()
+					.filter(inReplacement)
+					.map(({ id }) => id)
+			});
+			internals.log.push({
+				type: 'add-batch',
+				mutationId: addMutationId,
+				tempIds: slots.map(() => `temp-${crypto.randomUUID()}`),
+				data: slots.map(({ date, personId }) => ({ date, assignmentTypeId: replacement.typeId, assigneeId: personId }))
+			});
+			const settle = () => {
+				internals.log.resolve(removeMutationId);
+				internals.log.resolve(addMutationId);
+			};
+			try {
+				const res = await internals.withinOrganization(
+					fetch(`/org/${internals.orgId()}/api/duty-rosters/replacement`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(replacement)
+					})
+				);
+				if (res.status === 409) {
+					settle();
+					return 'changed';
+				}
+				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The replacement was not saved.'));
+				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+				internals.commit({ deletedWhere: inReplacement });
+				internals.commit({ saved });
+				settle();
+				return 'saved';
+			} catch (error) {
+				settle();
+				toastStore.error(error instanceof Error ? error.message : 'The replacement was not saved.');
+				return 'failed';
+			}
+		},
+
 		setAssignmentBatchOrThrow,
+		/**
+		 * Saves an open form's typed starting numbers and swaps in the roster picks they re-picked. A refusal carries
+		 * the server's reason, such as duty already pulled on the form.
+		 */
+		async saveStartingNumbers(
+			input: StartingNumbersSave
+		): Promise<{ status: 'saved' } | { status: 'refused'; message: string } | { status: 'failed' }> {
+			try {
+				const res = await internals.withinOrganization(
+					fetch(`/org/${internals.orgId()}/api/duty-rosters/starting-numbers`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(input)
+					})
+				);
+				if (res.status === 409) {
+					return {
+						status: 'refused',
+						message: await internals.withinOrganization(
+							readResponseErrorMessage(res, 'This roster changed. Reload and try again.')
+						)
+					};
+				}
+				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The starting numbers were not saved.'));
+				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+				const slots = new Set(
+					saved.map((assignment) => assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+				);
+				internals.commit({
+					deletedWhere: (assignment) => slots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+				});
+				internals.commit({ saved });
+				return { status: 'saved' };
+			} catch (error) {
+				toastStore.error(error instanceof Error ? error.message : 'The starting numbers were not saved.');
+				return { status: 'failed' };
+			}
+		},
 
 		getAssignmentsForDate(date: string): DailyAssignment[] {
 			return getAssignmentSnapshot().filter((a) => a.date === date);

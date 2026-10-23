@@ -169,6 +169,30 @@ _Avoid_: Duty Role, Duty Roster Template
 One Calendar assignment position identified by date and Assignment Type within an Organization. Repeating that pair does not create a second slot.
 _Avoid_: Duplicate assignment row, Duty Roster Run
 
+**Duty roster**:
+The settings on a person-assigned Assignment Type that pick who pulls it in turn: its Pool, its weekend rule and its excusals. The DA 6 form shows it.
+_Avoid_: bare Roster, which is the Personnel roster; Duty Roster Template
+
+**Pool**:
+The people a Duty roster picks from on a day: everyone its rules match, less the excused.
+_Avoid_: Roster members
+
+**Track**:
+One run of detail days a Duty roster counts on its own. A Separate count keeps a weekday track and a weekend and holiday track; otherwise there is one.
+_Avoid_: Column set, list
+
+**Count**:
+A person's number on a Track: detail days since they last pulled the duty. The highest count pulls next, and a count is always derived from assignments and statuses.
+_Avoid_: Score, points, stored count
+
+**DA 6 form**:
+One period of a Duty roster's record, shown as a DA Form 6. A rule change closes the open form and saves it as a record; the next form carries everyone's count over.
+_Avoid_: Duty Roster Run, sheet as the stored record
+
+**Starting number**:
+A person's count going into a DA 6 form's first day on a Track, carried from the last form or typed from a paper DA 6. Typed numbers change only until the first detail on the form is served; then they are part of the record.
+_Avoid_: Initial count, seed
+
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.
 _Avoid_: Closure, org closure in product copy

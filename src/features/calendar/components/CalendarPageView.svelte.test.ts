@@ -217,7 +217,9 @@ describe('CalendarPageView', () => {
 					shortName: 'SD',
 					assignTo: 'personnel',
 					color: '#2563eb',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same',
+					excusals: [],
 					showOnCalendar: false,
 					sortOrder: 0
 				}
@@ -262,7 +264,10 @@ describe('CalendarPageView', () => {
 			mutableAssignmentTypes.types = [];
 		});
 
-		function renderWithDutyLane(rangeStatus: 'loading' | 'ready') {
+		function renderWithDutyLane(
+			rangeStatus: 'loading' | 'ready',
+			org: ReturnType<typeof makeMockOrg> = makeMockOrg({ userRole: 'admin' })
+		) {
 			mutableAvailabilityStore.loading = false;
 			mutableAssignmentTypes.types = [
 				{
@@ -271,15 +276,22 @@ describe('CalendarPageView', () => {
 					shortName: 'SD',
 					assignTo: 'personnel',
 					color: '#2563eb',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same',
+					excusals: [],
 					showOnCalendar: true,
 					sortOrder: 0
 				}
 			];
-			const ctx = makeContext(mockData, makeMockOrg({ userRole: 'admin' }));
+			const ctx = makeContext({ ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel }, org);
 			render(CalendarPageView, {
 				props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' }, rangeStatus }
 			});
+		}
+
+		async function openLanePicker() {
+			await fireEvent.click(screen.getAllByRole('button', { name: /^Assign Staff Duty for / })[0]);
+			return screen.findByRole('dialog', { name: /^Staff Duty,/ });
 		}
 
 		it('offers no Assign on an open day while the 90-day duty history is still loading', () => {
@@ -292,6 +304,53 @@ describe('CalendarPageView', () => {
 			renderWithDutyLane('ready');
 
 			expect(screen.getAllByRole('button', { name: /^Assign Staff Duty for / }).length).toBeGreaterThan(0);
+		});
+
+		it('offers no one while the roster day loads', async () => {
+			vi.stubGlobal('fetch', () => new Promise(() => {}));
+			renderWithDutyLane('ready');
+			const dialog = await openLanePicker();
+
+			expect(within(dialog).getByRole('status').textContent).toContain('Loading roster counts');
+			expect(within(dialog).queryAllByRole('option')).toEqual([]);
+			expect(within(dialog).queryByText('No one matches.')).toBeNull();
+		});
+
+		it('reaches people by name search only, tagged Count unavailable, when the roster day failed', async () => {
+			vi.stubGlobal('fetch', async () => new Response('{}', { status: 500 }));
+			renderWithDutyLane('ready');
+			const dialog = await openLanePicker();
+
+			expect((await within(dialog).findByRole('alert')).textContent).toContain('Roster counts could not be loaded.');
+			expect(within(dialog).getByRole('button', { name: 'Retry' })).toBeTruthy();
+			expect(within(dialog).queryAllByRole('option')).toEqual([]);
+			await fireEvent.input(within(dialog).getByRole('combobox', { name: 'Find person' }), {
+				target: { value: 'jones' }
+			});
+			expect((await within(dialog).findByRole('option', { name: /Jones, Bob/ })).getAttribute('aria-label')).toBe(
+				'SSG Jones, Bob, count unavailable'
+			);
+		});
+
+		it('lists everyone in name order with no counts for a Group-scoped operator', async () => {
+			const fetchSpy = vi.fn();
+			vi.stubGlobal('fetch', fetchSpy);
+			renderWithDutyLane(
+				'ready',
+				makeMockOrg({
+					userRole: 'member',
+					capabilityMap: createCapabilityMap('configure'),
+					scopeSet: { kind: 'groups', groupIds: ['g1', 'g2'] }
+				})
+			);
+			const dialog = await openLanePicker();
+
+			expect(
+				within(dialog)
+					.getAllByRole('option')
+					.map((option) => option.getAttribute('aria-label'))
+			).toEqual(['SSG Jones, Bob', 'SGT Smith, Alice']);
+			expect(fetchSpy).not.toHaveBeenCalled();
 		});
 	});
 

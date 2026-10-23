@@ -22,10 +22,42 @@ const DAYS = [
 ];
 
 const STATUS_TYPES: StatusType[] = [
-	{ id: 'sick', name: 'Sick', color: '#d9473f', textColor: '#fff', shortLabel: null, sortOrder: 4 },
-	{ id: 'leave', name: 'Leave', color: '#5fb37a', textColor: '#fff', shortLabel: null, sortOrder: 0 },
-	{ id: 'tdy', name: 'TDY', color: '#9a7ae0', textColor: '#fff', shortLabel: null, sortOrder: 1 },
-	{ id: 'appt', name: 'Appt', color: '#e08a3c', textColor: '#fff', shortLabel: null, sortOrder: 3 }
+	{
+		id: 'sick',
+		name: 'Sick',
+		color: '#d9473f',
+		textColor: '#fff',
+		shortLabel: null,
+		rosterEffect: 'available',
+		sortOrder: 4
+	},
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#5fb37a',
+		textColor: '#fff',
+		shortLabel: null,
+		rosterEffect: 'available',
+		sortOrder: 0
+	},
+	{
+		id: 'tdy',
+		name: 'TDY',
+		color: '#9a7ae0',
+		textColor: '#fff',
+		shortLabel: null,
+		rosterEffect: 'available',
+		sortOrder: 1
+	},
+	{
+		id: 'appt',
+		name: 'Appt',
+		color: '#e08a3c',
+		textColor: '#fff',
+		shortLabel: null,
+		rosterEffect: 'available',
+		sortOrder: 3
+	}
 ];
 
 function people(count: number, groupId: string | null = 'alpha', from = 1): Personnel[] {

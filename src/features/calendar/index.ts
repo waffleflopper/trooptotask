@@ -37,12 +37,17 @@ export { calendarStore } from './stores/calendar.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 export { CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
 export { calendarViewCoverage, rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
+export { da6Href, da6SetupHref } from './utils/da6View';
+export type { Da6Setup, Da6View } from './utils/da6View';
 export { assignmentSlotKey, indexAssignmentsBySlot, openAssignmentDates } from './utils/calendarIndexes';
 export { calendarLaneTypes } from './utils/calendarLanes';
-export { loadDutyHistory } from './utils/calendarRangeLoader';
-export { indexDutyAvailability, indexDutyHistory } from './utils/dutyReadModel';
+export { indexDutyAvailability } from './utils/dutyReadModel';
 export { isFreeForDuty, planDutyFill, type DutyFillSlot } from './utils/dutyFill';
-export type { DutyPickerOption } from './utils/dutyPickerOptions';
+export { dutyPickerOptions, type DutyPickerOption } from './utils/dutyPickerOptions';
+export { CalendarRangeCoordinator } from './contexts/CalendarRangeCoordinator.svelte';
+export { PlannerRosterRead, previewRosterFill } from './contexts/PlannerRosterRead.svelte';
+export { rosterSkipNote } from './utils/plannerRosters';
+export { trackOf } from './roster/rosterCalendar';
 
 /** The duty picker popover, loaded when a slot first opens it. */
 export function loadDutyPicker() {
@@ -54,6 +59,7 @@ export function loadDutyPicker() {
 export { CalendarStatusBadge } from './components/calendar-status-badge';
 export { default as PersonnelNextDays } from './components/PersonnelNextDays.svelte';
 export { default as PersonnelNextDaysSkeleton } from './components/PersonnelNextDaysSkeleton.svelte';
+export { default as Da6SetupPage } from './components/da6/Da6SetupPage.svelte';
 
 export type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';

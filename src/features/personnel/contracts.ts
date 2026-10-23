@@ -199,8 +199,33 @@ export interface SignInRosterPersonnelLookupPort {
 
 export type PersonnelRosterActor = OrganizationAccessGrant;
 
+/** One dated state: the values in effect from `from` until the next state. */
+export interface PersonnelAttributeState {
+	from: string;
+	archived: boolean;
+	rank: string;
+	mos: string;
+	clinicRole: string;
+	groupId: string | null;
+}
+
+/** A Person's current name and rank, with dated attributes for the requested period. */
+export interface PersonnelAttributeTimeline {
+	id: string;
+	rank: string;
+	lastName: string;
+	firstName: string;
+	/** Ascending by `from`, never empty. */
+	states: [PersonnelAttributeState, ...PersonnelAttributeState[]];
+}
+
 export interface PersonnelCalendarRosterPort {
 	listActive(actor: PersonnelRosterActor): Promise<Personnel[]>;
+	/** State at the period's start plus changes within it; keeps archived people referenced by assignments, remarks or open-form numbers. */
+	listAttributeTimelines(
+		actor: PersonnelRosterActor,
+		span: { from: string; through: string }
+	): Promise<PersonnelAttributeTimeline[]>;
 	listAssigneeIds(actor: PersonnelRosterActor): Promise<string[]>;
 	findGroupIds(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
 }

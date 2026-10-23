@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CalendarRangeCoordinator } from './CalendarRangeCoordinator.svelte';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
+import { mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
+import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 type Range = { rangeStart: string; rangeEnd: string };
 
@@ -247,5 +250,47 @@ describe('CalendarRangeCoordinator', () => {
 		expect(coordinator.loaded).toEqual(both(loaded));
 		expect(coordinator.status(both(covered))).toBe('ready');
 		expect(coordinator.loading).toBe(false);
+	});
+
+	describe('rereadAssignments', () => {
+		const slot = (id: string, assigneeId: string) => ({
+			id,
+			date: '2026-05-04',
+			assignmentTypeId: 'duty',
+			assigneeId
+		});
+
+		it('merges the refreshed assignments and reports the read', async () => {
+			loadRange.mockResolvedValueOnce(makeRangeData({ dailyAssignments: [slot('a', 'p-1')] }));
+
+			const result = await coordinator.rereadAssignments('org-1', { assignments: may });
+
+			expect(result).toBe('read');
+			expect(mergeRangeIntoStores).toHaveBeenCalledOnce();
+		});
+
+		it('reports a failed read and leaves the stores as they were', async () => {
+			loadRange.mockRejectedValueOnce(new Error('offline'));
+
+			const result = await coordinator.rereadAssignments('org-1', { assignments: may });
+
+			expect(result).toBe('failed');
+			expect(mergeRangeIntoStores).not.toHaveBeenCalled();
+		});
+
+		it('drops a late reply from an Organization the user has left, keeping the new Organization assignments', async () => {
+			const real = new CalendarRangeCoordinator({ loadRange, mergeRangeIntoStores: mergeCalendarRangeIntoStores });
+			let reply!: (data: CalendarRangeData) => void;
+			loadRange.mockImplementationOnce(() => new Promise<CalendarRangeData>((resolve) => (reply = resolve)));
+
+			const pending = real.rereadAssignments('org-old', { assignments: may });
+			endOrganizationLifetime();
+			dailyAssignmentsStore.load([], [slot('new-1', 'p-new')], 'org-new');
+			reply(makeRangeData({ dailyAssignments: [slot('old-1', 'p-old')] }));
+
+			expect(await pending).toBe('abandoned');
+			expect(dailyAssignmentsStore.orgId).toBe('org-new');
+			expect(dailyAssignmentsStore.items.map((item) => item.id)).toEqual(['new-1']);
+		});
 	});
 });

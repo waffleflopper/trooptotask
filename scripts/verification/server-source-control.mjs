@@ -38,6 +38,7 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'status_types',
 	'audit_logs',
 	'organization_invitations',
+	'organization_rank_catalog',
 	'personnel'
 ]);
 const ORGANIZATION_COLUMN = { organizations: 'id', audit_logs: 'org_id' };

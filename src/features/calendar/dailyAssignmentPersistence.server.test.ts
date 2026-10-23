@@ -6,6 +6,9 @@ function clientWithResult(result: { data: unknown; error: { code: string; messag
 	return { rpc: vi.fn().mockResolvedValue(result) } as unknown as SupabaseClient;
 }
 
+const portFor = (client: SupabaseClient, admin = clientWithResult({ data: [], error: null })) =>
+	createSupabaseCalendarAssignmentReplacementPort(client, { admin: () => admin, actorId: 'user-a' });
+
 describe('Calendar assignment replacement provider', () => {
 	it('returns the saved assignment identity and retained metadata', async () => {
 		const client = clientWithResult({
@@ -21,7 +24,7 @@ describe('Calendar assignment replacement provider', () => {
 			],
 			error: null
 		});
-		const port = createSupabaseCalendarAssignmentReplacementPort(client);
+		const port = portFor(client);
 
 		await expect(
 			port.replace(
@@ -64,7 +67,7 @@ describe('Calendar assignment replacement provider', () => {
 		],
 		[{ code: '42501', message: 'Permission denied' }, 403]
 	] as const)('turns a scoped or occupied-slot rejection into a safe response', async (error, status) => {
-		const port = createSupabaseCalendarAssignmentReplacementPort(clientWithResult({ data: null, error }));
+		const port = portFor(clientWithResult({ data: null, error }));
 		const rejected = port.replace(
 			'org-a',
 			[],
@@ -85,7 +88,7 @@ describe('Calendar assignment replacement provider', () => {
 	});
 
 	it('does not mislabel an unrelated database failure as a slot conflict', async () => {
-		const port = createSupabaseCalendarAssignmentReplacementPort(
+		const port = portFor(
 			clientWithResult({
 				data: null,
 				error: { code: '22000', message: 'Another database failure' }
@@ -104,5 +107,46 @@ describe('Calendar assignment replacement provider', () => {
 				]
 			)
 		).rejects.toMatchObject({ message: 'Another database failure' });
+	});
+
+	it('writes roster picks through the service role on behalf of the signed-in operator', async () => {
+		const operator = clientWithResult({ data: [], error: null });
+		const admin = clientWithResult({
+			data: [
+				{
+					id: 'roster-id',
+					organization_id: 'org-a',
+					date: '2026-09-23',
+					assignment_type_id: 'type-a',
+					assignee_id: 'person-a',
+					created_at: '2026-09-28T12:00:00Z'
+				}
+			],
+			error: null
+		});
+		const port = portFor(operator, admin);
+
+		await expect(
+			port.writeRoster('org-a', [
+				{ date: '2026-09-23', assignmentTypeId: 'type-a', assigneeId: 'person-a', was: 'person-b', source: 'manual' }
+			])
+		).resolves.toEqual([
+			{
+				id: 'roster-id',
+				organization_id: 'org-a',
+				date: '2026-09-23',
+				assignmentTypeId: 'type-a',
+				assigneeId: 'person-a',
+				created_at: '2026-09-28T12:00:00Z'
+			}
+		]);
+		expect(admin.rpc).toHaveBeenCalledWith('write_roster_assignment_slots', {
+			p_actor: 'user-a',
+			p_organization_id: 'org-a',
+			p_slots: [
+				{ date: '2026-09-23', assignment_type_id: 'type-a', assignee_id: 'person-a', was: 'person-b', source: 'manual' }
+			]
+		});
+		expect(operator.rpc).not.toHaveBeenCalled();
 	});
 });

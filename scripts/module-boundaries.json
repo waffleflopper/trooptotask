@@ -443,6 +443,7 @@
 			"src/features/calendar/components/CalendarPageView.svelte",
 			"src/features/calendar/components/AssignmentPlannerPage.svelte",
 			"src/features/calendar/components/BulkStatusPage.svelte",
+			"src/features/calendar/components/da6/Da6Page.svelte",
 			"src/features/calendar/components/StatusImportPage.svelte",
 			"src/features/calendar/components/reports/CalendarReports.svelte",
 			"src/features/calendar/components/CalendarSettingsPage.svelte",

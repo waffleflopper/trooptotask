@@ -239,7 +239,9 @@ describe('Dashboard workspace hydration adapter', () => {
 			shortName: 'CQ',
 			assignTo: 'group',
 			color: '#2563eb',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		} satisfies AssignmentType;

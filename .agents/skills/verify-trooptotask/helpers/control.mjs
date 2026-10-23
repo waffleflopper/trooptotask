@@ -41,6 +41,7 @@ import { buildAvailabilityVolume } from './availability-volume-fixture.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
+import { seedDa6 } from './da6-fixtures.mjs';
 import {
 	seedPlatform,
 	seedOrganizationPages,
@@ -99,6 +100,10 @@ const tableColumns = {
 	availability_entries: 'organization_id',
 	status_types: 'organization_id',
 	assignment_types: 'organization_id',
+	roster_forms: 'organization_id',
+	roster_starting_numbers: 'organization_id',
+	roster_excusals: 'organization_id',
+	personnel_attribute_history: 'organization_id',
 	daily_assignments: 'organization_id',
 	special_days: 'organization_id',
 	notifications: 'organization_id',
@@ -157,6 +162,11 @@ const tableSelect = {
 	organization_invitation_email_outbox:
 		'id,organization_id,invitation_id,recipient,purpose,status,attempt_count,updated_at,sent_at'
 };
+// Tables keyed by more than one column have no id to page on.
+const tableOrder = {
+	roster_starting_numbers: 'form_id,personnel_id,track',
+	personnel_attribute_history: 'personnel_id,effective_on'
+};
 const filters = new Set([
 	'id',
 	'last_name',
@@ -168,6 +178,7 @@ const filters = new Set([
 	'date',
 	'assignee_id',
 	'assignment_type_id',
+	'form_id',
 	'training_type_id',
 	'personnel_id',
 	'user_id',
@@ -1145,7 +1156,8 @@ async function main() {
 						table === 'organization_invitation_email_outbox' && field === 'email' ? 'recipient' : field,
 						value
 					);
-				return query.order('id').range(from, to);
+				for (const column of (tableOrder[table] ?? 'id').split(',')) query = query.order(column);
+				return query.range(from, to);
 			})
 		);
 		note({ table, organization: orgKey, count: rows.length, rows });
@@ -1820,7 +1832,8 @@ async function main() {
 				'account-setup',
 				'roster-shared-keys',
 				'federal-reset-sentinels',
-				'workload'
+				'workload',
+				'da6'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1843,6 +1856,10 @@ async function main() {
 		}
 		if (kind === 'training-print') {
 			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'da6') {
+			note(await seedDa6({ client, fixture, tag, ownedState, save, month: args[1], size: args[2] }));
 			return;
 		}
 		if (kind === 'availability-volume') {
@@ -2669,10 +2686,17 @@ async function main() {
 					'availability/batch',
 					'daily-assignments',
 					'daily-assignments/batch',
+					'duty-rosters',
+					'duty-rosters/day',
+					'duty-rosters/fill',
+					'duty-rosters/fill/preview',
+					'duty-rosters/replacement',
+					'duty-rosters/replacement/preview',
 					'status-types',
 					'assignment-types',
 					'assignment-types/lanes',
 					'status-types/order',
+					'status-types/preview',
 					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
@@ -2764,6 +2788,8 @@ async function main() {
 					'pinned-groups',
 					'daily-assignments',
 					'daily-assignments/batch',
+					'duty-rosters/fill',
+					'duty-rosters/replacement',
 					'status-types',
 					'ict-tasks/batch',
 					'ict-tasks/order'
@@ -2778,6 +2804,8 @@ async function main() {
 					'availability/batch',
 					'daily-assignments',
 					'daily-assignments/batch',
+					'duty-rosters/fill',
+					'duty-rosters/replacement',
 					'special-days'
 				].includes(family)
 			)

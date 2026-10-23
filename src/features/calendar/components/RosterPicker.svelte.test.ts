@@ -145,6 +145,7 @@ describe('RosterPicker with availability', () => {
 		color: '#48bb78',
 		textColor: '#ffffff',
 		shortLabel: null,
+		rosterEffect: 'A',
 		sortOrder
 	}));
 	const able = personnel({ id: 'able', lastName: 'Able', firstName: 'Ann' });

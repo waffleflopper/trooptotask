@@ -56,7 +56,15 @@ const personnel: Personnel[] = [
 ];
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: 'LV', sortOrder: 0 }
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#16a34a',
+		textColor: '#ffffff',
+		shortLabel: 'LV',
+		rosterEffect: 'A',
+		sortOrder: 0
+	}
 ];
 const smithOnLeave: AvailabilityEntry = {
 	id: 'entry-1',
@@ -175,7 +183,9 @@ describe('Calendar', () => {
 					shortName: 'MOD',
 					assignTo: 'personnel',
 					color: '#dc2626',
-					exemptPersonnelIds: [],
+					poolRules: null,
+					weekendMode: 'same',
+					excusals: [],
 					showOnCalendar: false,
 					sortOrder: 0
 				}
@@ -432,7 +442,9 @@ describe('Calendar lanes', () => {
 		shortName: 'SD',
 		assignTo: 'personnel',
 		color: '#b91c1c',
-		exemptPersonnelIds: [],
+		poolRules: null,
+		weekendMode: 'same',
+		excusals: [],
 		showOnCalendar: true,
 		sortOrder: 0
 	};

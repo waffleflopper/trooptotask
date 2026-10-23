@@ -1,17 +1,8 @@
 import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
 import { assignmentSlotKey } from './calendarIndexes';
 import type { CalendarBufferedRange } from './calendarRange';
-import { DUTY_LOOKBACK_DAYS } from './calendarRange';
-import { fromDayNumber, toDayNumber, type DayNumber, type DayWindow } from '$lib/utils/dayNumber';
-
-/** Duty days per assignment type and assignee, ascending and without repeats. */
-export type DutyHistoryIndex = ReadonlyMap<string, ReadonlyMap<string, readonly DayNumber[]>>;
 
 export type DutyAvailabilityIndex = ReadonlyMap<string, readonly AvailabilityEntry[]>;
-
-export type LastDuty =
-	| { readonly kind: 'none' }
-	| { readonly kind: 'previous'; readonly date: string; readonly daysSince: number };
 
 export interface DutyConflict {
 	readonly assignment: DailyAssignment;
@@ -22,67 +13,6 @@ export interface DutyConflict {
 export interface DutyConflicts {
 	readonly items: readonly DutyConflict[];
 	readonly bySlot: ReadonlyMap<string, DutyConflict>;
-}
-
-export function indexDutyHistory(assignments: readonly DailyAssignment[]): DutyHistoryIndex {
-	const days = new Map<string, Map<string, Set<DayNumber>>>();
-	for (const assignment of assignments) {
-		const byAssignee = days.get(assignment.assignmentTypeId) ?? new Map<string, Set<DayNumber>>();
-		const assigneeDays = byAssignee.get(assignment.assigneeId) ?? new Set<DayNumber>();
-		assigneeDays.add(toDayNumber(assignment.date));
-		byAssignee.set(assignment.assigneeId, assigneeDays);
-		days.set(assignment.assignmentTypeId, byAssignee);
-	}
-	return new Map(
-		[...days].map(([typeId, byAssignee]) => [
-			typeId,
-			new Map([...byAssignee].map(([assigneeId, set]) => [assigneeId, [...set].sort((a, b) => a - b)]))
-		])
-	);
-}
-
-/** The latest duty strictly before `dateKey` and no more than `DUTY_LOOKBACK_DAYS` days earlier. */
-export function lastDutyBefore(input: {
-	history: DutyHistoryIndex;
-	assignmentTypeId: string;
-	personnelId: string;
-	dateKey: string;
-}): LastDuty {
-	const days = input.history.get(input.assignmentTypeId)?.get(input.personnelId);
-	if (!days) return { kind: 'none' };
-	const target = toDayNumber(input.dateKey);
-	const previous = days[lowerBound(days, target) - 1];
-	if (previous === undefined || target - previous > DUTY_LOOKBACK_DAYS) return { kind: 'none' };
-	return { kind: 'previous', date: fromDayNumber(previous), daysSince: target - previous };
-}
-
-export interface DutyTally {
-	readonly count: number;
-	readonly latestDay: DayNumber | null;
-}
-
-export function dutyTallyInWindow(input: {
-	history: DutyHistoryIndex;
-	assignmentTypeId: string;
-	assigneeId: string;
-	window: DayWindow;
-}): DutyTally {
-	const days = input.history.get(input.assignmentTypeId)?.get(input.assigneeId);
-	if (!days) return { count: 0, latestDay: null };
-	const from = lowerBound(days, input.window.start);
-	const to = lowerBound(days, input.window.start + input.window.days);
-	return { count: to - from, latestDay: to > from ? days[to - 1] : null };
-}
-
-function lowerBound(days: readonly DayNumber[], target: number): number {
-	let low = 0;
-	let high = days.length;
-	while (low < high) {
-		const middle = (low + high) >> 1;
-		if (days[middle] < target) low = middle + 1;
-		else high = middle;
-	}
-	return low;
 }
 
 export function indexDutyAvailability(entries: readonly AvailabilityEntry[]): DutyAvailabilityIndex {

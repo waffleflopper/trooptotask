@@ -468,23 +468,49 @@ After `$V seed dashboard`, as `orgOwner` at 1440:
    shows that cell Current. After `$V seed dashboard-currency`, a `Dashboard Currency` row's dialog asks for an
    `Expiration date` instead: recording it saves `expiration_date` as entered and `completion_date` null, including over
    an existing record, and the Training record dialog shows that date under `EXPIRATION` with status Current.
-4. **Fill.** Press `Fill 7 days` on a lane's Unfilled row. Only now one
-   `GET api/calendar-range?…&collections=assignments` reads the last 90 days. Record its time. With
-   `$V network arm-hold PAGE calendar-range` armed, the day cards show skeletons under `aria-busy="true"` and
-   `Assign all N` stays disabled until `network release`. With `arm-fail` on the same family, `Cancel` and expand again:
-   `Duty history did not load, so nobody is suggested yet.` shows with `Try again`, and each day card reads
-   `Not suggested` and `History not loaded` rather than a name. `Try again` reads again once restored. The panel names
-   up to seven open days with a suggested Person or Group each, never the same one twice, ordered by longest since last
-   duty; a day nobody can take reads `Everyone free has a day` or `Nobody eligible is free`. Past seven,
-   `Open duty planner for N more` links to the planner. Swap a day with Enter on its card, choose another name, and the
-   later days re-plan without repeats. Arm `$V feedback arm PAGE` and `arm-fail PAGE daily-assignments/batch`, then
-   choose `Assign all N`: the panel shows the failure, focus is on `Assign all N` (also when the batch covered every
-   open day, so the row left and came back; to reach that state fill the lane's other open days first, for example with
-   a `POST api/daily-assignments/batch` from the signed-in page), `$V feedback state PAGE` has no entry and the rows are
-   unchanged. Restore both and assign: exactly one `POST api/daily-assignments/batch`, the panel closes and the row's
-   count drops, with focus back on `Fill` while days remain, or on the next row's action or link once the row has left.
-   Read `$V rows daily_assignments orgA date DATE` for each day, reload, and find the same names on the Calendar lane.
-   `Cancel` closes the panel with nothing saved.
+4. **Fill.** Press `Fill 7 days` on the Verification Staff Duty row. Only now one `POST api/duty-rosters/fill/preview`
+   with the type, today, the first shown open day as `from` and the seventh as `through` asks for the picks the duty
+   planner's `Fill from roster` makes for those days; no `duty-rosters/day` read is sent. With
+   `$V network arm-hold PAGE duty-rosters/fill/preview` armed, every card shows skeletons under `aria-busy="true"` and
+   `Assign all 0` stays disabled until `network release`. With `arm-fail` on the same family, `Cancel` and expand again:
+   `Roster counts could not be loaded.` shows with `Try again`, every card reads `Not suggested` and `Count unavailable`
+   and is disabled, the list is not busy, and `Assign all 0` stays disabled. `Try again` once restored sends one
+   preview. The panel names up to seven open days, each with the preview's pick and `count N` under the name,
+   `count N · back from …` for a pick returning from a status, and the planner's skip note
+   (`Skipped SPC … (N). On …, count holds.`) under a pick that passed someone over;
+   `Suggested: available that day, next up on the roster. Choose a day to swap.` sits below. The roster's rule decides,
+   so a small pool takes turns and nobody is left out for having a day already: right after `seed dashboard` the seven
+   days from tomorrow read Able `count 1`, DashboardLoss<tag> `count 2`, Unassigned `count 3`, then Able,
+   DashboardLoss<tag>, Unassigned and Able, each `count 3`. Open the duty planner's `Fill from roster` for Verification
+   Staff Duty with the same first and last day: it previews the same seven people with the same counts. A day the
+   preview leaves unfilled reads `Open` and `Nobody eligible is free`. Past seven, `Open duty planner for N more` links
+   to the planner. Swap a day with Enter on its card: the picker reads that day's roster with one
+   `GET api/duty-rosters/day?typeId=…&date=…&today=…`, lists the pool by count, and finds someone off the roster only by
+   a name search (`…, not on this roster`). Choosing a name saves that day at once as a hand assignment with one
+   `POST api/daily-assignments/batch` (`source` `manual`), and the write refreshes the open picker's day read once, as
+   in the planner. Its card stays in place reading `Assigned`, the chosen name and `Saved`, the other cards show
+   skeletons, and one more preview over the remaining open days re-plans the later days around the saved one. A failed
+   swap keeps the picker open and shows the message in the panel. `Assign all N` writes exactly the previewed picks with
+   one `POST api/duty-rosters/fill` (`source` `roster`), the panel closes and the row's count drops, with focus back on
+   `Fill` while days remain, or on the next row's action or link once the row has left. When the roster moved since the
+   preview, the fill is refused with 409: the row shows
+   `The roster changed since this preview. Review the new picks and fill again.`, nothing is saved and one more preview
+   shows the new picks. Arm `$V feedback arm PAGE` and `arm-fail PAGE duty-rosters/fill`, then choose `Assign all N`:
+   the panel shows the failure, focus is on `Assign all N` (also when the fill covered every open day, so the row left
+   and came back), `$V feedback state PAGE` has no entry and the rows are unchanged. Read
+   `$V rows daily_assignments orgA date DATE` for each day, reload, and find the same names on the Calendar lane.
+   `Cancel` closes the panel with nothing saved. A roster whose weekend mode is No duty details nobody on weekends or
+   the Organization's Special Days, so those are not unfilled: send an authenticated `PUT api/assignment-types/roster`
+   from the page that keeps Staff's pool rules and excusals and sets `weekendMode` to `none`, then reload. The Staff row
+   reads `9 Verification Staff Duty days unfilled` with no Saturday or Sunday in its days, `Fill 7 days` shows Fri 23
+   and Mon 26 through Mon 2, the preview's `through` is Mon 2, and `Open duty planner for 2 more` links to the planner;
+   restore `same` afterwards. As `calendarScoped` (Alpha), `Fill 7 days` on Staff sends no `duty-rosters` read and
+   suggests people in scope who are available that day in name order, never the same person twice, each reading
+   `Available`, under `Suggested: available that day, in name order. Choose a day to swap.`; a Group duty reads no
+   roster either. A status whose roster effect is Still available keeps nobody off: as `orgOwner`, create one with
+   `POST api/status-types` (`rosterEffect` `available`) and give Able that status today through `POST api/availability`.
+   The panel still suggests Able on today, and its swap picker lists them with no unavailable note. Delete the entry and
+   the type afterwards.
 5. **Check off.** Focus `Check off` on the Stalled row and press Enter. Onboarding opens with the seeded packet's panel
    open at its waiting step.
 6. **Award started.** Arm `arm-fail PAGE personnel/PERSON_ID/award-tracking` and press `Award started` on the Leaving

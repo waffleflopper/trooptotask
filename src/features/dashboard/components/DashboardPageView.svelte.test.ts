@@ -498,7 +498,15 @@ describe('Dashboard sections', () => {
 				},
 				statusTypes: {
 					items: [
-						{ id: 'leave', name: 'Leave', color: '#336699', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+						{
+							id: 'leave',
+							name: 'Leave',
+							color: '#336699',
+							textColor: '#ffffff',
+							shortLabel: null,
+							rosterEffect: 'available',
+							sortOrder: 0
+						}
 					],
 					loading: false
 				},
@@ -557,7 +565,9 @@ describe('Dashboard sections', () => {
 							shortName: 'SD',
 							assignTo: 'personnel',
 							color: '#1f6feb',
-							exemptPersonnelIds: [],
+							poolRules: null,
+							weekendMode: 'same',
+							excusals: [],
 							showOnCalendar: true,
 							sortOrder: 0
 						}
@@ -597,7 +607,9 @@ describe('Dashboard sections', () => {
 							shortName: 'SD',
 							assignTo: 'personnel',
 							color: '#1f6feb',
-							exemptPersonnelIds: [],
+							poolRules: null,
+							weekendMode: 'same',
+							excusals: [],
 							showOnCalendar: true,
 							sortOrder: 0
 						}

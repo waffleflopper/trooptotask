@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	const org = getAppShellContext();
 	import CalendarSettingsPage from '$features/calendar/components/CalendarSettingsPage.svelte';
+
+	let { data } = $props();
+	const org = getAppShellContext();
 </script>
 
 <svelte:head>
@@ -9,5 +11,5 @@
 </svelte:head>
 
 <div class="mx-auto max-w-[1200px] px-6 py-4 pb-6">
-	<CalendarSettingsPage {org} />
+	<CalendarSettingsPage {org} rankCatalog={data.rankCatalog.data} />
 </div>

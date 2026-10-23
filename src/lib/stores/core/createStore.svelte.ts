@@ -59,6 +59,8 @@ export interface Store<T extends { id: string }> {
 	readonly rawItems: T[];
 	readonly orgId: string;
 	readonly loadVersion: number;
+	/** Writes the server confirmed. Loads and reads leave it unchanged, so a reader can refetch what a write moved. */
+	readonly writes: number;
 	readonly busy: boolean;
 	readonly loading: boolean;
 	load(items: T[], orgId: string): void;
@@ -102,6 +104,8 @@ export function createStoreWithInternals<T extends { id: string }>(
 	const loadedState = createReactiveCollection<T>();
 	const orgIdVal = createReactiveValue('');
 	const loadingVal = createReactiveValue(true);
+	const writesVal = createReactiveValue(0);
+	let writes = 0;
 	const log = createMutationLog<T>();
 	let organizationVersion = 0;
 	let loadedLifetime = organizationLifetime();
@@ -129,6 +133,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		confirmedChanges.push({ ...change, sequence: nextConfirmedSequence(), confirmedAt: Date.now() });
 		pruneConfirmedChanges();
 		loadedState.set(applyConfirmedChange(loadedState.getSnapshot(), change));
+		writesVal.set(++writes);
 	}
 
 	// Writers outside this module only report a new array, so their change is the difference.
@@ -266,6 +271,10 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 		get loadVersion() {
 			return loadVersion;
+		},
+
+		get writes() {
+			return writesVal.value;
 		},
 
 		get busy() {

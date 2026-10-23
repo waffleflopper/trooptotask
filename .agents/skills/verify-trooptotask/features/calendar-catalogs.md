@@ -7,10 +7,26 @@ their references through edits, while confirmed type deletion explains and remov
 
 - `status-types`: add and edit name, one-day label and colors in the inline composer, reload, keep ID and linked leave;
   confirmed deletion removes linked availability and records an audit/notification effect.
+- `status-effect`: every status type has a roster effect, set under `On duty rosters` in the composer:
+  `Still available`, `Away` (A), `Other duty` (D) or `Misconduct` (U). A status row shows the code chip and effect text.
+  Editing a saved status's effect first lists the numbers it changes on open DA 6 forms and saves only after
+  confirmation; a new status, or an edit that changes no number or day (planned days included), saves without one.
+  Saving never changes an assignment or a closed form.
 - `status-order`: drag or keyboard-move status types to set the legend and picker order; every move is one ordered
   command that refuses a stale list.
-- `assignment-types`: add Person and Group choices, edit name/code/color and exemptions, keep ID/order and saved
-  assignment; archived history remains readable but not an active choice.
+- `assignment-types`: add Person and Group choices, edit name/code/color, keep ID/order and saved assignment; archived
+  history remains readable but not an active choice.
+- `duty-roster`: a Person type keeps a DA 6 duty roster. Its pool rules, dated excusals with reasons and weekend mode
+  are set in the sheet's `Duty roster` section, and a live count shows who the rules match. Changing the rules or
+  weekend mode closes the open DA 6 form on the day Save is pressed, saves it, and opens the next form the day after,
+  carrying everyone's count. Only the server closes a form, and SQL rechecks the actor's Organization-wide Calendar
+  configuration access. Successor numbers always have origin `carried`, even on another rule change before the form
+  starts. `supabase/tests/roster_close_server_only.sql` proves the direct-RPC denial and carried-number lock. An excusal
+  change saves in place. Switching the type to Group closes its open form the same way, and switching back to Person
+  opens a fresh one. Only Settings loads the rank catalog; while it loads or after it fails, the rules editor alone
+  waits or explains, weekends stay locked until it loads, excusals keep saving, and the rest of Calendar is unaffected.
+  A saved Person type's sheet ends with a `Starting numbers` row that says whether the open form's numbers can still be
+  copied in from a paper DA 6 and links to [DA 6 setup](calendar-da6.md).
 - `calendar-lanes`: choose which assignment types appear as lanes under the dates and in what order; every change is one
   ordered command that refuses a stale list.
 - `catalog-delete`: deleting a retiring assignment type removes its linked assignment but preserves unrelated and
@@ -25,9 +41,10 @@ their references through edits, while confirmed type deletion explains and remov
 With Organization-wide Calendar configuration access, choose `Calendar`, then `Settings` under `More Calendar controls`.
 Open the `Status Types` or `Assignment Types` tab, then `Add new` or the row's actions. Status types open in one inline
 composer: `Add new` opens it above the list, and a row's `More actions for <name>` → `Edit` opens it in place of that
-row. A status row shows a `Reorder <name>` grip, a sample bar, the name, `One-day label · XX`, a one-day chip and the
-`More actions for <name>` menu with `Edit` and `Delete`. The list heading reads `N status types` beside
-`Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a
+row. A status row shows a `Reorder <name>` grip, a sample bar, the name, `One-day label · XX`, the roster effect (a code
+chip and `Away, count holds`, `Other duty, count runs` or `Misconduct, count runs`; `Still available` has no chip), a
+one-day chip and the `More actions for <name>` menu with `Edit` and `Delete`. The list heading reads `N status types`
+beside `Drag to set legend and picker order.` An assignment type row has a `Show <name> on the calendar` switch and a
 `More actions for <name>` menu with `Edit` and `Delete`. Assignment types sit in two lists: `On the calendar · N lanes`
 in lane order with a `Reorder <name>` grip on each row, and `Duty planner only` sorted by name. Assignment type Add and
 Edit open a side sheet. A deletion dialog warns about linked schedule entries or assignments. `Holidays & closures` is
@@ -37,15 +54,16 @@ the third section and is driven in [Special days](special-days.md).
 
 `calendar-lanes` and `status-order` stop `rpc/set_calendar_lanes` and `rpc/set_status_type_order` before dispatch. Their
 `-lost-ack` and `-hold` forms follow the [shared fault variants](special-days.md#helper-controls).
+`$V network arm-fail $PAGE status-types/preview` fails the next effect preview with a 503.
 
 ## Driving it with verify:app
 
 Preconditions: doctor passes on a fresh seeded worker; `$V actor calendarConfigure calendar/settings` returns `PAGE`;
 `$V fixture` supplies IDs for seeded Leave/Retiring status, Staff/Group/Retiring/Archived assignment types, their
 referenced availability/assignments, and the unrelated March record. The seeded A lanes are Staff (`sort_order` 0) then
-Group (1); Retiring is planner only and Staff exempts Baker. Capture each dialog before confirmation. Row actions are
-named, such as `More actions for Verification Leave` → `Edit` and `More actions for Verification Retiring Duty`. Run the
-deletion steps last, after journeys that need those rows.
+Group (1); Retiring is planner only and Staff excuses Baker with the reason `First sergeant`. Capture each dialog before
+confirmation. Row actions are named, such as `More actions for Verification Leave` → `Edit` and
+`More actions for Verification Retiring Duty`. Run the deletion steps last, after journeys that need those rows.
 
 1. **Status choices:** Open `Status Types`, add a uniquely named type through `Add new`, the `New status type` form's
    `Name` and `Add status type`. Leave `One-day label` untouched: it shows the first three letters or digits of the
@@ -63,26 +81,26 @@ deletion steps last, after journeys that need those rows.
 2. **Assignment choices:** In `Assignment Types`, use `Add new` to add one Person-targeted type and one Group-targeted
    type with unique names and short codes, choosing `Group` under `Assigned to` on the second sheet. Both land in
    `Duty planner only` with `show_on_calendar: false`. Open `More actions for Verification Staff Duty` → `Edit` and
-   change name, code and color; reload. Read back the same type ID, `sort_order` 0, `show_on_calendar: true`, Baker
-   exemption ID and linked saved assignment ID. The active Settings lists exclude `Verification Archived Duty`, but an
-   authenticated Calendar range and a reloaded Calendar page bootstrap for September 15 must still include its archived
-   label and referenced assignment, without the foreign assignment type. Exercise Cancel on a separate edit without
-   changing the row. Edit the same Staff ID back to `Verification Staff Duty`, code `VSD`, color `#166534`, and Person
-   target. Reload and read back the original ID, fields, order 0, Baker exemption, and linked assignment before another
-   journey uses Staff Duty. Remove only the two types you added through their visible Delete confirmations and verify
-   their rows are absent. **Status order.** Record `$V rows status_types orgA` first. Focus `Reorder Verification Leave`
-   and press ArrowDown. The live region says `Verification Leave moved to position 2 of N`, focus stays on the grip, and
-   native `list_network_requests` shows one `PUT api/status-types/order` with the full id list in `statusTypeIds` and
-   the previous list in `expectedStatusTypeIds`. To see moves fold, run `$V network arm-hold $PAGE status-types/order`
-   first (a local `PUT` settles in under 200 ms, so keys pressed by hand each send their own), press ArrowDown twice
-   while the `PUT` is held, and release: `network state` shows one held `PUT`, and one follow-up `PUT` carries both
-   moves. Drag another grip with the pointer. Reload. The list, the Calendar legend and the status choices in the
-   availability dialog and the bulk pages follow the saved order, and `$V rows status_types orgA` shows dense
-   `sort_order` values 0 to N-1 in that order. Type a filter: the grips disappear and the list says
-   `Clear search to reorder.` Clear it. Step 11 drives its failed, lost and concurrent paths. The original positions are
-   not restorable through Settings, so later steps compare positions against this step's readback. **Lanes.** The lane
-   list reads `On the calendar · 2 lanes` with Staff then Group. Switch on
-   `Show Verification Retiring Duty on the calendar`. It moves to the end of the lane list, and native
+   change name, code and color; reload. Read back the same type ID, `sort_order` 0, `show_on_calendar: true`, Baker's
+   open `roster_excusals` row and linked saved assignment ID. The active Settings lists exclude
+   `Verification Archived Duty`, but an authenticated Calendar range and a reloaded Calendar page bootstrap for
+   September 15 must still include its archived label and referenced assignment, without the foreign assignment type.
+   Exercise Cancel on a separate edit without changing the row. Edit the same Staff ID back to
+   `Verification Staff Duty`, code `VSD`, color `#166534`, and Person target. Reload and read back the original ID,
+   fields, order 0, Baker's excusal, and linked assignment before another journey uses Staff Duty. Remove only the two
+   types you added through their visible Delete confirmations and verify their rows are absent. **Status order.** Record
+   `$V rows status_types orgA` first. Focus `Reorder Verification Leave` and press ArrowDown. The live region says
+   `Verification Leave moved to position 2 of N`, focus stays on the grip, and native `list_network_requests` shows one
+   `PUT api/status-types/order` with the full id list in `statusTypeIds` and the previous list in
+   `expectedStatusTypeIds`. To see moves fold, run `$V network arm-hold $PAGE status-types/order` first (a local `PUT`
+   settles in under 200 ms, so keys pressed by hand each send their own), press ArrowDown twice while the `PUT` is held,
+   and release: `network state` shows one held `PUT`, and one follow-up `PUT` carries both moves. Drag another grip with
+   the pointer. Reload. The list, the Calendar legend and the status choices in the availability dialog and the bulk
+   pages follow the saved order, and `$V rows status_types orgA` shows dense `sort_order` values 0 to N-1 in that order.
+   Type a filter: the grips disappear and the list says `Clear search to reorder.` Clear it. Step 11 drives its failed,
+   lost and concurrent paths. The original positions are not restorable through Settings, so later steps compare
+   positions against this step's readback. **Lanes.** The lane list reads `On the calendar · 2 lanes` with Staff then
+   Group. Switch on `Show Verification Retiring Duty on the calendar`. It moves to the end of the lane list, and native
    `list_network_requests` shows one `PUT api/assignment-types/lanes` with `laneTypeIds` [Staff, Group, Retiring] and
    `expectedLaneTypeIds` [Staff, Group]. Focus `Reorder Verification Retiring Duty` and press ArrowUp twice. The live
    region says `Verification Retiring Duty moved to position 1 of 3`, focus stays on the grip, and the moves fold into
@@ -91,11 +109,10 @@ deletion steps last, after journeys that need those rows.
    `$V rows assignment_types orgA` shows `show_on_calendar` true with `sort_order` 0, 1 and 2 in that order. With more
    than three lanes the list notes `Each lane adds about 26px above the roster.` Type `Retiring` in the filter: the
    grips disappear and the list says `Clear search to reorder.` Clear it. Then open
-   `More actions for Verification Retiring Duty` → `Edit`, turn `Show on the calendar` off, add Able under
-   `Exempt from this duty` and save. Retiring returns to `Duty planner only` by name, and its row reads
-   `show_on_calendar: false` with Able's ID in `exempt_personnel_ids`. Edit it again, remove Able and save. Restore the
-   seeded order with the grips: Staff then Group. Read back Staff at 0, Group at 1, Retiring off with no exemptions, and
-   unchanged saved assignments. Step 10 drives its failed, lost and concurrent paths.
+   `More actions for Verification Retiring Duty` → `Edit`, turn `Show on the calendar` off and save. Retiring returns to
+   `Duty planner only` by name, and its row reads `show_on_calendar: false`. Restore the seeded order with the grips:
+   Staff then Group. Read back Staff at 0, Group at 1, Retiring off, and unchanged saved assignments. Step 10 drives its
+   failed, lost and concurrent paths.
 3. **Server configuration boundary:** In separate signed-in pages, send uniquely named authenticated `POST` requests to
    A's `api/status-types`, `api/assignment-types`, and `api/special-days` as `calendarView`, `calendarOperate`,
    `calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, and `manager`. Each must return `403` or `404` and
@@ -135,25 +152,26 @@ deletion steps last, after journeys that need those rows.
 7. **Settings forms and keyboard.** Open `Add new` in each section and capture the named fields: the inline
    `New status type` form's `Name`, `One-day label` with `Up to 3 letters`, the `Text` White/Dark toggle, the `Color`
    swatches with `Custom color`, and the preview of a one-day bar, a name bar and a name-with-note bar; `Full name`,
-   `Short code`, `Color`, the `Assigned to` Person/Group toggle, the `Show on the calendar` switch and
-   `Exempt from this duty`. With the name empty the submit button is disabled. Typing a name updates the untouched
-   `One-day label` and the preview. A saved custom text color selects neither `White` nor `Dark` and is kept until one
-   is chosen. With changes in the status composer, opening `Edit` on another row asks `Discard changes?`; `Cancel` keeps
-   the draft and `Discard` opens the other row. `Add Assignment Type` also stays disabled until `Short code` is filled.
-   The assignment type editor opens as a side sheet. Turning `Show on the calendar` on for a planner-only type shows
-   `Adds lane N of N under the dates.`, a lane preview and the row marker preview; an existing lane reads
-   `Lane N of M under the dates.` Choosing `Group` hides the exemption field. For the assignment type dialog, press
-   Escape on the clean form and record the focused element with read-only evaluation. A dialog with any change refuses
-   Escape (`closeBlocked`); close it with Cancel. The status composer is inline. Escape inside it closes a clean draft
-   and asks `Discard changes?` for a changed one; focus returns to `Add new` or the row's `More actions for <name>`. A
-   second `Add new` with a changed new draft asks the same, and `Discard` opens an empty composer. Using only the
-   keyboard from the selected section tab, press ArrowDown to `Assignment Types`, then press Tab until
-   `More actions for Verification Staff Duty` has focus (the filter, `Back to Calendar`, `Add new`, the tab panel,
-   `Reorder Verification Staff Duty` and `Show Verification Staff Duty on the calendar` come first), press Enter, choose
-   `Edit` with Enter, then press Escape, and record the sheet's name and the focused element after it closes. Record the
-   Tab order through the section tab, `Filter <section>`, `Back to Calendar`, `Add new`, the section's tab panel, each
-   lane row's grip, switch and actions menu, then each planner-only row's switch and actions menu, with a visible focus
-   indicator on each.
+   `Short code`, `Color`, the `Assigned to` Person/Group toggle, the `Show on the calendar` switch and, for a Person
+   type, the `Duty roster` section with `Who pulls this duty`, `Excused from this roster` and `Weekends & holidays`.
+   With the name empty the submit button is disabled. Typing a name updates the untouched `One-day label` and the
+   preview. A saved custom text color selects neither `White` nor `Dark` and is kept until one is chosen. With changes
+   in the status composer, opening `Edit` on another row asks `Discard changes?`; `Cancel` keeps the draft and `Discard`
+   opens the other row. `Add Assignment Type` also stays disabled until `Short code` is filled. The assignment type
+   editor opens as the wide side sheet (`data-size="wide"`). Turning `Show on the calendar` on for a planner-only type
+   shows `Adds lane N of N under the dates.`, a lane preview and the row marker preview; an existing lane reads
+   `Lane N of M under the dates.` Choosing `Group` hides the `Duty roster` section; the `Assigned to` help reads
+   `Group assignments have no duty roster.` For the assignment type dialog, press Escape on the clean form and record
+   the focused element with read-only evaluation. A dialog with any change refuses Escape (`closeBlocked`); close it
+   with Cancel. The status composer is inline. Escape inside it closes a clean draft and asks `Discard changes?` for a
+   changed one; focus returns to `Add new` or the row's `More actions for <name>`. A second `Add new` with a changed new
+   draft asks the same, and `Discard` opens an empty composer. Using only the keyboard from the selected section tab,
+   press ArrowDown to `Assignment Types`, then press Tab until `More actions for Verification Staff Duty` has focus (the
+   filter, `Back to Calendar`, `Add new`, the tab panel, `Reorder Verification Staff Duty` and
+   `Show Verification Staff Duty on the calendar` come first), press Enter, choose `Edit` with Enter, then press Escape,
+   and record the sheet's name and the focused element after it closes. Record the Tab order through the section tab,
+   `Filter <section>`, `Back to Calendar`, `Add new`, the section's tab panel, each lane row's grip, switch and actions
+   menu, then each planner-only row's switch and actions menu, with a visible focus indicator on each.
 8. **Busy and failed save.** Open `More actions for Verification Leave` → `Edit` and change `Name` to a unique marker.
    Arm `$V feedback arm $PAGE` and `$V busy arm $PAGE`, run `$V calendar-grant calendarConfigure view`, then click
    `Save changes`. Require `busy state` to show `Save changes` disabled while the request is pending, the denied
@@ -315,6 +333,111 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       the route answers `200` and no toast shows, so choose moves that differ. The database lock and row waits are
       proved by `supabase/tests/calendar_status_type_order_concurrency.sql`, not by this case.
 
+12. **Duty roster.** Run after step 2 and before steps 4 and 5. A has three active people, all SPC: Able (68W, Alpha),
+    Baker (11B, Bravo) and Unassigned (68W, no Group). Record `$V rows assignment_types orgA`,
+    `$V rows roster_forms orgA` and `$V rows roster_excusals orgA` first. Every Person type has exactly one open form
+    (`ends_on` null), and Staff's open excusal is Baker's.
+    - **Rules and the live count.** As `calendarConfigure`, `Add new` in `Assignment Types` with a unique `Full name`
+      and a `Short code`, leaving `Person`. `Who pulls this duty` starts on `Everyone`, which reads
+      `All 3 people in the Organization`. Choose `Only people who match`. A rank row opens with `From rank` and
+      `Through rank`; choose `Add Assignment Type` with them empty and the field error reads
+      `Pick both ends of the rank range.` While the range is half picked the count still reads all 3. Choose `SPC` and
+      `SPC`: the count reads `3 people on this roster`. Under `And also` choose `MOS`, focus the `MOS` combobox, type
+      `68W` and press Enter: `2 people on this roster`, previewing `SPC Able, SPC Unassigned`. `See list` opens a
+      popover listing the same two.
+    - **Excusal needs a reason.** Choose `Excuse someone`, pick Able under `Person to excuse`, leave `Reason` empty and
+      choose `Excuse`. Able is not excused and the field error reads `Add a reason. It prints as a remark on the DA 6.`
+      Type `Profile` and choose `Excuse`. A chip reads `SPC Able Profile` with `Reinstate SPC Able`, and the count reads
+      `1 person on this roster`. Choose `Add Assignment Type`. No confirmation opens for a new type.
+      `$V rows assignment_types orgA name <name>` reads `roster_pool_rules`
+      `{"mos":["68W"],"rank":{"to":"SPC","from":"SPC"},"role":[],"groupIds":[]}` (all four rules, in jsonb key order)
+      and `roster_weekend_mode` `same`. `$V rows roster_forms orgA assignment_type_id <id>` shows one open form starting
+      today (UTC) with those rules, and `$V rows roster_excusals orgA assignment_type_id <id>` shows Able with reason
+      `Profile`, `starts_on` the browser's today and `ends_on` null.
+    - **Starting numbers row.** Reopen the type's `Edit`. Under `Weekends & holidays` a `Starting numbers` row reads
+      `Everyone starts even. Keeping a paper DA 6 already? You can copy it in until the first <code> is pulled.` with a
+      `Copy it in` link to `/calendar/rosters/<id>?setup=1`. Change the name: the link becomes a disabled button and the
+      row adds `Save or cancel your changes first.` A new type's sheet has no row. After copied numbers are saved it
+      reads `Copied from a paper DA 6. You can change them until the first <code> is pulled.` with `Change them`; once a
+      detail is served it reads `… has been pulled, so they’re part of the record now.` with no button. Choose `Cancel`.
+    - **A rule change starts a new form.** Reopen the type's `Edit`. Under `Weekends & holidays` choose
+      `Separate count`, then `Save Changes`. A `Start a new DA 6?` dialog reads
+      `This starts a new DA 6 on <tomorrow as D Mon>. The current form closes as it is. Everyone keeps their current count.`
+      Choose `Cancel`: no form changes and the sheet stays open. Save again and choose `Save changes`. Native
+      `list_network_requests` shows one `PUT api/assignment-types/roster`.
+      `$V rows roster_forms orgA assignment_type_id <id>` now shows the first form with `ends_on` today and `record`
+      `{"segments":[]}` (a month records a segment only once someone holds the duty in it), and a new open form starting
+      tomorrow with rules `{"pool":{…},"weekendMode":"separate"}`.
+      `$V rows roster_starting_numbers orgA form_id <new form>` carries Unassigned at `0` on both the `weekday` and
+      `weekend` tracks with origin `carried`. Able stays excused with the same `roster_excusals` row. Reopen `Edit` and
+      the sheet reads back `Separate count`, the SPC to SPC and 68W rules, and Able's chip. The `Starting numbers` row
+      reads `Carried over from the last DA 6 when the roster rules changed. They’re part of the record.` with no button.
+    - **A second change the same day.** Edit again, remove the MOS rule with `Remove the MOS rule`, and confirm. The
+      count first reads `2 people on this roster`. The open form keeps its id and tomorrow's start with the new rules in
+      place; no third form appears.
+    - **Excusals alone.** Edit again, choose `Reinstate SPC Able` and `Save Changes`. No confirmation opens, Able's
+      `roster_excusals` row is deleted (it started today), and the forms are unchanged.
+    - **Group types.** Open `More actions for Verification Group Duty` → `Edit`; there is no `Duty roster` section and
+      no `Excuse someone`.
+    - **Switching to Group closes the form.** Edit the new type, choose `Group` and `Save Changes`.
+      `$V rows roster_forms orgA assignment_type_id <id>` shows no open form; the last form ends today (UTC) with a
+      saved `record`, and `$V rows assignment_types orgA name <name>` reads `assign_to` `group`. Edit again, choose
+      `Person` and save: one new open form starts tomorrow.
+    - **Rank catalog unavailable.** Run `$V server-source arm organization_rank_catalog fail-hard 1 120000` (the client
+      retries a 503, so plain `fail` recovers), reload `/calendar/settings` and open the type's `Edit`.
+      `Who pulls this duty` shows a `role="alert"` reading `Ranks unavailable` in place of `Everyone` and the rules, and
+      saying roster rules, weekends and switching to Group can't change right now. The three `Weekends & holidays`
+      choices and the `Group` choice of `Assigned to` are disabled, while `Excuse someone` still works and saves in
+      place. Adding a new type through `Add Assignment Type` still offers `Group`. `$V server-source state` shows the
+      matched read. Choose `Cancel`, `$V server-source restore`, then arm it again and open the sidebar `Calendar`: the
+      planner and its lanes load with no `role="alert"`, and `server-source state` shows no match, because only Settings
+      reads the catalog. Restore the control.
+    - **Layout.** With the match rules and an excusal showing, capture the sheet at 1440x900 light, 900x800 and 390x844
+      dark. At 1440 and 900 the sheet is 560 px wide and every `Who pulls this duty`, `Assigned to` and
+      `Weekends & holidays` choice, including `Only people who match` and `Separate count`, sits on one line (32 px
+      tall). At 390 the sheet fills the width. The rule rows wrap without horizontal scrolling, and
+      `document.documentElement.scrollWidth` equals `innerWidth`.
+    - Remove the type through its visible Delete confirmation; its forms, numbers and excusals go with it.
+
+13. **Status roster effect.** Run after step 12. Record `$V rows status_types orgA`: every seeded status reads
+    `roster_effect` `A`, and each row shows the `A` chip with `Away, count holds`.
+    - **New status.** `Add new`, name `Verification AWOL`. `On duty rosters` shows four cards, `Still available`,
+      `Away`, `Other duty` and `Misconduct`, with `Away` chosen. Choose `Misconduct` and `Add status type`. No
+      confirmation opens. The row reads the `U` chip and `Misconduct, count runs`, and
+      `$V rows status_types orgA name "Verification AWOL"` reads `roster_effect` `U`.
+    - **Seed a number that moves.** Every roster's first form opens today (UTC), and a count moves only on a day with an
+      assignment. Through the signed-in page, POST `api/availability` with personA, statusLeave and today as both
+      `startDate` and `endDate`, then POST `api/daily-assignments` with today's `date`, `typePersonnel` and Unassigned's
+      id from `$V rows personnel orgA`; both answer `200`. Able is away today while Unassigned holds Staff Duty, so
+      Able's count holds at `0` under `A` and runs to `1` under `D`.
+    - **Confirmation lists the change.** Open `More actions for Verification Leave` → `Edit`, choose `Other duty` and
+      `Save changes`. A `Change what this status does?` dialog reads
+      `Saving recalculates the open DA 6 forms below. Closed forms keep their saved numbers.` and lists
+      `SPC Able 0 → 1 on the Verification Staff Duty DA 6`. Choose `Cancel`:
+      `$V rows status_types orgA id <statusLeave>` still reads `A`, and the composer stays open. `Save changes` twice
+      (composer, then dialog): the row reads the `D` chip and `Other duty, count runs`, `roster_effect` reads `D`, and a
+      reload reads both back. No `daily_assignments`, `availability_entries` or `roster_forms` row changed.
+    - **Planned days and a slow save.** Staff excuses Baker, so seed Unassigned instead: POST `api/availability` for
+      personUnassigned and statusLeave on tomorrow, and POST `api/daily-assignments` for tomorrow to Able, so Unassigned
+      is away on a planned duty day. Edit `Verification Leave` to `Other duty` and `Save changes`: the dialog also lists
+      `SPC Unassigned: 1 day changes on the Verification Staff Duty DA 6` (`earlier` wording only when every changed day
+      is before today). Run `$V network arm-hold $PAGE status-types`, choose `Save changes` in the dialog and see it
+      stay open and busy (`Loading Save changes`, Cancel disabled), with `Name`, the effect cards and the composer's
+      buttons disabled until `$V network release $PAGE`; then it closes and `roster_effect` reads `D`. With
+      `$V network arm-fail $PAGE status-types` instead, the dialog stays open, enabled, with
+      `Failed to save status type` under the list and `roster_effect` unchanged; `$V network restore $PAGE` and
+      `Save changes` saves it.
+    - **No confirmation without a change.** Edit `Verification AWOL`, choose `Away` and `Save changes`. Nobody held that
+      status, so no dialog opens and `roster_effect` reads `A`.
+    - **Preview failure.** Run `$V network arm-fail $PAGE status-types/preview`, edit `Verification Leave`, choose
+      `Away` and `Save changes`. The dialog titled `Couldn't check roster numbers` says the status is not saved, and
+      `roster_effect` still reads `D`. `$V network restore $PAGE`, choose `Try again`: the confirmation from the first
+      case opens, with `SPC Able 1 → 0`.
+    - **Layout.** Capture the composer and the confirmation at 1440x900, 900x800 and 390x844. Below 1024 px the effect
+      cards stack, the row wraps its effect text, and `document.documentElement.scrollWidth` equals `innerWidth`.
+    - Delete `Verification AWOL` through its Delete confirmation. Set `Verification Leave` back to `Away` so later steps
+      read the seeded effect.
+
 ## Gotchas
 
 - Malformed, missing and foreign catalog ids and dates, and the editors' visible 4xx messages, are driven in
@@ -324,6 +447,8 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
 - The archived assignment type is excluded from active editing but must remain readable where a saved historical
   assignment references it. Deletion is intentionally destructive only for the selected linked records; retain unrelated
   history.
+- The roster's `today` is the browser's day. The server refuses a day more than one day from UTC with
+  `Check the date on this device, then try again.` A new type's first form opens on the UTC day.
 - Native `fill` accepts select and color inputs when they appear in the snapshot. If a custom control is unnamed,
   inspect its visible label and DOM before a narrowly scoped `evaluate_script` value change, then verify the real Save
   action and persisted readback.
@@ -332,6 +457,8 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
   replace it.
 - Native `fill` with an empty string leaves the `Filter <section>` list filtered, because the empty value fires no input
   event and each section keeps its own filter. To clear one, `type_text` a character and press Backspace.
+- The duty roster's `MOS`, `Role` and `Group` comboboxes and `Person to excuse` render their options without exposing
+  them in `take_snapshot`. Type the value and press Enter, or read them with the `evaluate_script` below.
 - The status `Select` in the availability dialog lists its options only while open, and `take_snapshot` leaves them out.
   Read them with `evaluate_script`
   (`() => [...document.querySelectorAll('[role=option]')].map((o) => o.textContent.trim())`). The Bulk Status page's

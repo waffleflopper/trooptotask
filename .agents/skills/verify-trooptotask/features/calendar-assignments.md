@@ -12,20 +12,35 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   retry can clear it.
 - `monthly-planning`: the Duty planner's month table, with the shared period navigation, one cell per type and date, and
   weekend, closure, today and past rows treated.
-- `duty-picker-order`: the lane picker and the planner picker for one slot list the same people in the same order, the
-  longest without that duty first, with `none in 90d` or `Nd` figures; exempt people are absent.
-- `duty-picker-filter`: a Person duty's picker offers `Rank`, `Role` and `MOS` menus that narrow the list (any value
-  within a menu, every menu with a choice), keep the slot's current assignee listed, and are remembered per assignment
-  type in this browser; Group duties have no menus.
-- `planner-conflicts`: a person assigned on a day an availability entry covers is flagged in the cell and listed in
-  `Conflicts`; `Find replacement` opens the same picker and a replacement clears the entry.
-- `planner-fairness`: the `Fairness` panel under `Conflicts` tallies one duty type's duties over the 90 days ending on
-  the month's last day, longest since last duty first; exempt people are absent and named in a footer note, people
-  unavailable on a remaining day read muted with their status's one-day label in place of the last duty, each row draws
-  a four-cell duty meter, and the panel shows the top 10 rows with `Show all N` for the rest. Switching type adds no
-  request; assigning in the table sends its normal write and the panel updates with no additional read.
-- `planner-quick-fill`: a column's actions menu fills Weekdays, Weekends or All, with `Only open days` on by default,
-  and clears the month after confirmation.
+- `duty-picker-order`: for an Organization-wide operator, the lane picker and the planner picker for one slot list the
+  same roster pool in the same order, highest count going into that day first, each with `count N` and any roster code;
+  exempt people are absent, and anyone else outside the pool appears only for a name search, marked
+  `Not on this roster`. On a day the roster does not detail, such as a No duty weekend, the pool still comes first, in
+  DA 6 order without counts, and everyone outside it stays search-only and marked. Each picker reads its own day when it
+  opens, reads `Loading roster counts…` over a skeleton with no options meanwhile, and on failure reads
+  `Roster counts could not be loaded.` with `Retry`, lists no one until a name search, then offers anyone not excused
+  marked `Count unavailable`, and never reads again on its own. A Group-scoped operator gets name order with no counts.
+- `planner-conflicts`: a person assigned on a day an availability entry with roster code A, D or U covers is flagged in
+  the cell and listed in `Conflicts`, D and U included, and on a day the roster does not detail (a No duty weekend, or a
+  day before the open form) any covering availability entry still flags a hand assignment; `Find replacement` opens the
+  same picker and a replacement clears the entry, except on a roster detail day for an Organization-wide operator, where
+  it opens `planner-replacement`.
+- `planner-replacement`: `Find replacement` on a roster detail day opens a popover beside the conflicted cell (below it
+  on a narrow page) that previews the rule's pick, who can't pull that day and the later roster days the choice
+  re-picks; choosing another candidate previews again, and `Assign <name>` writes the day and its re-picks together. A
+  roster change since the preview is refused, explained and previewed again; hand-assigned days never change.
+- `planner-roster-counts`: for an Organization-wide operator, the `Roster · count today` panel under `Conflicts` shows
+  one duty type's roster after the last detail on or before today, highest count first, with a skeleton while it loads,
+  a load error with `Retry roster counts` when it fails (the grid stays usable either way), muted rows carrying the
+  roster code, `Today` for today's assignee and an excused footer. One `duty-rosters` read serves the panel and the
+  month's conflicts; it starts beside the month's range read and repeats after every assignment or availability write
+  the page confirms, whether made in a cell, Fill from roster, `Daily Assignments` or an availability entry. Those
+  writes also refetch the open picker's day. A Group-scoped operator sees no panel and sends no roster read.
+- `planner-fill`: for an Organization-wide operator a Person type's column header has a `Fill` button (named
+  `Fill <type> from roster`) that opens `Fill from roster`, which previews the roster's picks for the open days from a
+  chosen first day through a last day and writes them with `Fill N days`; a roster change since the preview is refused,
+  explained and previewed again. `One person instead` and the column actions open `Quick fill`, which fills Weekdays,
+  Weekends or All with `Only open days` on by default. Both clear the month after confirmation.
 - `planner-range-retry`: a failed uncovered month load settles with Retry; a successful retry restores editable local
   assignments.
 - `assignment-authorization`: view-only, no-Calendar, Group-scoped and foreign-Organization actors cannot write outside
@@ -44,14 +59,16 @@ Sign in with Calendar operation access and choose `Calendar` → `Duty planner`,
 `Duty planner` under the eyebrow `Calendar · Planning`. Its header holds `Today`, `Previous month`, the month title
 button (it opens the month picker) and `Next month`, then `Back to calendar`. The table has one column per assignment
 type (Calendar lane types first, then planner-only types, archived types left out) and one row per date. A column header
-shows the type's chip, name, `N OF M DAYS` and a `<type> column actions` button. An empty cell is an `Assign` button
-named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named `<type>, <date>: <rank last, first>`, with
-`, unavailable: <status and dates>` when an availability entry covers the date. Either opens the duty picker for that
-slot. The `Conflicts` panel beside the table (below it on a narrow page) lists every flagged slot with
-`Find replacement`. Below `Conflicts`, the `Fairness · 90 days` panel has a `Duty type` toggle group of type codes (each
-named by its type) and a table named `<type> fairness` whose `Longest since last` rows show the rank and last name, a
-four-cell duty meter and the `Last` duty as `Today`, `Nd` or `in Nd`, with the date as its tooltip (Group types show the
-Group name), and a footer sentence such as `<rank> <last name> is exempt.` for exempt people. Click a Calendar date
+shows the type's chip and name with a `<type> column actions` button beside the name, and `N OF M DAYS` under the name.
+For an Organization-wide operator, a Person type also has a `Fill` button (named `Fill <type> from roster`) beside the
+count. An empty cell is an `Assign` button named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named
+`<type>, <date>: <rank last, first>`, with `, unavailable: <status and dates>` when an availability entry covers the
+date. Either opens the duty picker for that slot. The `Conflicts` panel beside the table (below it on a narrow page)
+lists every flagged slot with `Find replacement`. Below `Conflicts`, an Organization-wide operator sees the
+`Roster · count today` panel: a `Duty roster` toggle group of type codes (each named by its type) and a table named
+`<type> roster` whose `Up next` rows show the rank and last name and a `Count` (a code such as `A 0` for someone a
+roster code covers today, `Today` for today's assignee), split into `Weekdays` and `Weekends & holidays` tables for a
+split roster, and a footer sentence such as `<rank> <last name> is excused.` for excused people. Click a Calendar date
 header, an assigned lane day or a row marker to see the `Daily Assignments` modal for that date. An open lane day's `+`
 opens the same duty picker. `Reports` shows assignment coverage and other Calendar projections. A Calendar reader may
 see saved assignments but cannot manage them.
@@ -100,12 +117,12 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `Daily Assignments` modal, set and clear one Person slot there, and check the same persisted row through the helper.
 3. Use `Next month`, `Previous month` and `Today` in the planner header and confirm the title and the selected month's
    rows follow navigation. On an empty month such as November 2026, assign one Person to a weekday through its picker,
-   then open `Verification Staff Duty column actions`, choose another Person in `Assignee`, leave `Days` on `Weekdays`
-   and `Only open days` checked, and read the button (`Fill 20 days` with one weekday taken) and the note
-   (`Keeps the 1 day already assigned.`). Click it and compare exact expected dates and assignee/type IDs with A rows;
-   the earlier slot must keep its Person. Reload and confirm. Open the menu again, choose the first Person, uncheck
-   `Only open days` (the note reads `Replaces the 21 days already assigned.` and the button `Fill 21 days`) and click
-   it; those rows now carry the new assignee. Open the menu, click `Clear month`, read
+   then open `Verification Staff Duty column actions`, which opens `Quick fill`, choose another Person in `Assignee`,
+   leave `Days` on `Weekdays` and `Only open days` checked, and read the button (`Fill 20 days` with one weekday taken)
+   and the note (`Keeps the 1 day already assigned.`). Click it and compare exact expected dates and assignee/type IDs
+   with A rows; the earlier slot must keep its Person. Reload and confirm. Open the column actions again, choose the
+   first Person, uncheck `Only open days` (the note reads `Replaces the 21 days already assigned.` and the button
+   `Fill 21 days`) and click it; those rows now carry the new assignee. Open the menu, click `Clear month`, read
    `Clear every Verification Staff Duty assignment in November 2026?`, cancel once (rows unchanged), then confirm; only
    that type's month rows disappear. Baker, who is exempt from Staff, must be absent from `Assignee`. Restart this owned
    worker if a seeded month was altered.
@@ -142,34 +159,45 @@ action and keep its page ID. The date format in every name is the browser's en-G
    the same modal. Close it. On a preflighted empty date, click
    `Assign Verification Staff Duty for <weekday, month D, YYYY>`. The picker opens beside the day, named by the type and
    date, with focus in `Find person`. Press Escape, focus the same `+` and press Space; the picker opens again. Baker is
-   exempt, so Baker is absent. Press Escape and require focus back on the `+`. **Order and figures.** Before the step,
-   put one Person on Staff duty on an earlier date (October 1 through the planner). On the Staff lane's October 16 `+`
-   the options read, top to bottom, the Person with the oldest last duty then the newer one, each with `Nd` (days since
-   its last Staff duty, 90 at most) or `none in 90d`; the order is the same in the planner's October 16 picker. Search
-   with `fill` on `Find person` keeps that order. On September 14 the picker lists Able as
-   `<rank> <last>, <first>, unavailable: Verification Leave 14–16 Sept, no duty in the last 90 days` with the status and
-   dates under the name in red; Able can still be chosen. While `$V network arm-fail $PAGE daily-assignments` is armed,
-   choosing a Person leaves the picker open, the day empty and the failure toast visible; restore and press Enter again
-   to save. Read back one A row for the date and `typePersonnel`; the day shows the chosen code. Clear it through
-   `Daily Assignments`. Open Group's `+`: its search reads `Find group` and lists Groups with no figures. Close it. A
-   range that is still loading has no `+` (arm `$V network arm-hold $PAGE calendar-range`, choose an uncovered month and
-   read the lane before release). As `calendarView`, the lanes show the same names, but no day has a `+` or opens an
-   editor. Read the accessibility snapshot of Staff's September 15 day: it names
+   exempt, so Baker is absent. Press Escape and require focus back on the `+`. **Order and counts.** On the Staff lane's
+   `+` for a preflighted empty day on or after today the options are the Staff roster pool, highest count going into
+   that day first, ties in DA 6 order: on today with no Staff details yet, `SPC Able, Synthetic, count 1` and
+   `SPC Unassigned, Synthetic, count 1`, and the planner's picker for the same day reads the same. Search with `fill` on
+   `Find person` keeps that order. Search `baker` and require
+   `SPC Baker, Synthetic, unavailable: Verification Training <dates>, not on this roster` with `Not on this roster`
+   under the name; Baker can still be chosen. A pool member a roster code covers reads
+   `count N, unavailable: <status> (<code>)` with the status under the name in red. Opening the picker sends one
+   `duty-rosters/day?typeId=…&date=…` read, and closing and reopening the same slot sends none. While that read is held
+   (`$V network arm-hold $PAGE duty-rosters/day`) on a fresh slot, the picker reads `Loading roster counts…` above a
+   skeleton with no options; release. With `$V network arm-fail $PAGE duty-rosters/day` armed, open another fresh slot:
+   the picker reads `Roster counts could not be loaded.` with `Retry` and lists no one until a search, when `baker`
+   reads `Count unavailable` instead of `Not on this roster`; after five seconds open `list_network_requests` still
+   shows exactly one day read for it. Restore and press `Retry`: one more read and the counts. Then save an availability
+   entry for a pool member covering that day through the Calendar editor, or an assignment on an earlier day through
+   `Daily Assignments`, and reopen the slot: one new day read, and the moved count or code shows. While
+   `$V network arm-fail $PAGE daily-assignments` is armed, choosing a Person leaves the picker open, the day empty and
+   the failure toast visible; restore and press Enter again to save. Read back one A row for the date and
+   `typePersonnel`; the day shows the chosen code. Clear it through `Daily Assignments`. Open Group's `+`: its search
+   reads `Find group` and lists Groups with no figures. Close it. A range that is still loading has no `+` (arm
+   `$V network arm-hold $PAGE calendar-range`, choose an uncovered month and read the lane before release). As
+   `calendarView`, the lanes show the same names, but no day has a `+` or opens an editor. Read the accessibility
+   snapshot of Staff's September 15 day: it names
    `Verification Staff Duty for Tuesday, September 15, 2026: SPC Able, Synthetic` without `Edit assignments`, and the
    row marker is not a button. Capture the picker at both combinations and read its bounds against `innerWidth` at 390.
 9. **Planner states.** As `calendarOperate` open `Duty planner` on October 2026 at 1440x900 light and at 390x844 dark.
    Do not scroll by script before a capture. Record the document title (`Duty planner - Troop to Task`), the
    `CALENDAR · PLANNING` eyebrow, the `Duty planner` heading, the header's `Today`, then the `Previous month`, month
    button and `Next month` group, then the `Back to calendar` link, the table's name `October 2026 duty assignments`,
-   each column header's chip, name, `N OF M DAYS` and `column actions` button, the Date column's day number, weekday and
-   `TODAY` label, page `scrollWidth` against `innerWidth`, and the table's own scroll region
-   (`October 2026 duty assignments`): its header stays sticky while the body scrolls, the current month opens scrolled
-   so today's row is in view at both combinations without scripted scrolling, and at 390 the `Conflicts` panel sits
-   below the table with `Fairness` under it. Open days offer a compact dashed `+ Assign` chip, not a full-width button.
-   Read the rows' computed treatment: weekend rows are tinted, past rows are at opacity 0.7, today's row has its own
-   fill. Then press `Previous month` to September 2026 and record the closure day (September 15): a tint with its name
-   inline beside the weekday, and the two conflict cells on it (a destructive left border and an `ON <status dates>`
-   line), with the `Conflicts` heading in the destructive tone beside its count. With the keyboard, focus
+   each column header's chip, name, `N OF M DAYS`, `column actions` button and, on a Person type, the `Fill` button with
+   its whole label visible and nothing overlapping the name, the Date column's day number, weekday and `TODAY` label,
+   page `scrollWidth` against `innerWidth`, and the table's own scroll region (`October 2026 duty assignments`): its
+   header stays sticky while the body scrolls, the current month opens scrolled so today's row is in view at both
+   combinations without scripted scrolling, and at 390 the `Conflicts` panel sits below the table with
+   `Roster · count today` under it. Open days offer a compact dashed `+ Assign` chip, not a full-width button. Read the
+   rows' computed treatment: weekend rows are tinted, past rows are at opacity 0.7, today's row has its own fill. Then
+   press `Previous month` to September 2026 and record the closure day (September 15): a tint with its name inline
+   beside the weekday, and the two conflict cells on it (a destructive left border and an `ON <status dates>` line),
+   with the `Conflicts` heading in the destructive tone beside its count. With the keyboard, focus
    `Find replacement for Verification Staff Duty, Tue 15 Sept`, press Enter, move to `SPC Unassigned` with ArrowDown and
    press Enter: the picker closes and focus lands on that slot's table cell button
    (`Verification Staff Duty, Tue 15 Sept: SPC Unassigned…`), not on the removed `Find replacement` button. Restore Able
@@ -182,11 +210,13 @@ action and keep its page ID. The date format in every name is the browser's en-G
    where focus lands (back on the cell). Open `<type> column actions`, close it with Escape and with `Cancel`, and open
    `Clear month`, closing it once with Escape and once with `Cancel`, recording focus and unchanged rows each time. As
    `calendarView` and `manager`, open the planner route at both combinations and record the denial with no cell or
-   navigation. As `calendarScoped`, record that a Person cell offers only Alpha people, and that the Group options in a
-   Group cell's picker, Quick fill, the `Fairness` Group table, the month view's lane picker and the Group select in
-   `Daily Assignments` list only Alpha. For the large roster, run `$V seed bulk-501`, reload the planner five times and
-   record the first cell paint, long tasks, DOM element count and the `__data.json` and `calendar-range` request counts,
-   and that opening several pickers adds no request. Then run `clean-seeds`.
+   navigation. As `calendarScoped`, record no `Roster · count today` panel, no `duty-rosters` request in
+   `list_network_requests`, no `Fill` button in any column header, a column menu that opens `Quick fill` directly, and
+   that a Person cell offers only Alpha people, and that the Group options in a Group cell's picker, `Quick fill`, the
+   month view's lane picker and the Group select in `Daily Assignments` list only Alpha. For the large roster, run
+   `$V seed bulk-501`, reload the planner five times and record the first cell paint, long tasks, DOM element count and
+   the `__data.json` and `calendar-range` request counts, and that each newly opened picker slot adds one
+   `duty-rosters/day` read and reopening a slot adds none. Then run `clean-seeds`.
 
 10. **Failed clear in the day dialog.** As `calendarOperate`, use an empty date to save one Person assignment through
     the Calendar date-header `Daily Assignments` dialog. Record its exact saved row, reopen the same date and arm
@@ -199,55 +229,116 @@ action and keep its page ID. The date format in every name is the browser's en-G
     the new context; use the late-response store checks and [Organization switching](organization-switching.md) for that
     boundary.
 
-11. **Fairness panel.** As `calendarOperate` open `Duty planner` on October 2026 at 1440x900 light and at 390x844 dark,
-    and record `list_network_requests` before and after opening and after each type switch below. Opening adds no data
-    or API read beyond the page's existing `__data.json` and `calendar-range` requests (the first open of the planner
-    also loads its route scripts and a font, which are expected), and switching type adds no request. The heading reads
-    `Fairness · 90 days`, and the table's description (visually hidden) reads
-    `Duties 3 Aug – 31 Oct, including this month's plan. Longest since last duty first.` For each of Staff, Group and
-    Retiring, compare the table's names, duty counts (the meter cells' tooltip, `1 duty` or `<n> duties`) and `Last`
-    values (the tooltip date and the relative label against today) against `$V rows daily_assignments orgA` filtered to
-    that type and the dates 2026-08-03 through 2026-10-31. Baker is exempt from Staff, so Staff omits Baker, names
-    `<rank> Baker is exempt.` in the footer, and Able reads `1 duty` with the tooltip `15 Sept`. Retiring lists Baker
-    last, muted, with the status's one-day label in the `Last` column, the tooltip `Verification Training 16–18 Oct` and
-    a visually hidden `Unavailable: Verification Training 16–18 Oct` (the row's text carries the status for assistive
-    tech) and the order unchanged by the muting; this holds while today is on or before 18 October, so preflight another
-    dated entry after that. Group lists Groups with no rank prefix, no muting and no footer. Click the type's code in
-    the `Duty type` toggle group; pressing the active code again keeps it selected. Able already sorts last in the
-    default Staff order, so assign Unassigned, who sorts first with `0 duties` and `None`, to the Staff slot on a
-    preflighted empty October date through the planner: Unassigned's count reads `1` and `Last` shows that date's
-    relative label at once, and Unassigned moves below Able (last duty 15 Sept). Clear the slot and require Unassigned
-    back first with `0 duties` and `None`. Previous month (September) mutes no one, because its remaining days are all
-    past. Prove the boundary where a person's entry crosses it: through [Bulk status](bulk-status.md) add Training for
-    one Person from 30 Sept through a date after today (18 Oct while today is 17 Oct), view September and require that
-    Person not muted, with no `Unavailable:` text, view October and require the muting with the entry's status code and
-    dates, then remove the entry. As `calendarScoped`, the Group table, the Group cell's picker in the planner, the
-    month view's lane picker and the Group select in `Daily Assignments` list only Alpha. The default fixture has 10 or
-    fewer Staff rows, so the panel shows no `Show all` button until a roster adds more. For the large roster, run
-    `$V seed bulk-501`, reload and require 10 rows with `Show all 503`; press it and require the rest of the list with
-    the button now reading `Show fewer`; switch the type and back and require the list folded to 10 rows again. Record
-    the DOM element count folded, and the time to switch type. Then `clean-seeds` and reload.
+11. **Roster counts.** As `calendarOperate` open `Duty planner` on October 2026 at 1440x900 light and at 390x844 dark,
+    and record `list_network_requests`: the month's `calendar-range` read and
+    `duty-rosters?today=<YYYY-MM-DD>&month=2026-10` start together, and moving a month sends that month's range read and
+    roster read again together. The heading reads `Roster · count today`. With no October details yet, the Staff table
+    `Verification Staff Duty roster` lists `SPC Able` and `SPC Unassigned` with count 0 and the footer
+    `SPC Baker is excused. Open the DA 6 to see every number.`, whose link opens the Staff DA 6 at `?month=2026-10`
+    (`2026-11` after `Next month`); Retiring lists Baker muted as `A 0` (accessible text `0, A: Verification Training`)
+    while the training entry covers today. Compare the counts with
+    `GET /org/<orgA>/api/duty-rosters?today=…&month=2026-10` in the signed-in page. Click the type's code in the
+    `Duty roster` toggle group; pressing the active code again keeps it selected, and switching type adds no request.
+    Assign Unassigned to the Staff slot on today through the planner: one `daily-assignments` POST, then one
+    `duty-rosters` read, after which Unassigned reads `Today` (accessible `, count 1`). Clear it and require 0 again.
+    For loading, arm `$V network arm-hold $PAGE duty-rosters` and reload: the panel shows `Loading roster counts` with
+    skeleton rows while every `Assign` cell is already usable; release. For failure, arm
+    `$V network arm-fail $PAGE duty-rosters` and reload: the panel reads `Roster counts could not be loaded.` with
+    `Retry roster counts`, the grid still saves; restore and press Retry to recover the counts. The default fixture has
+    10 or fewer rows, so the panel shows no `Show all` button. For the large roster, run `$V seed bulk-501`, reload and
+    require 10 rows with `Show all <N>`; press it and require the rest with the button now `Show fewer`; switching type
+    folds it again. Then `clean-seeds` and reload.
 
-12. **Picker filters.** As `calendarOperate` on Calendar at 1280x800 light, open a preflighted empty Staff `+`. Under
-    the date, the picker shows `Filter by Rank`, `Filter by Role` and `Filter by MOS` (a menu is absent when no listed
-    Person has that value) with focus still in `Find person`. Open `Filter by Rank`, check one rank and require the list
-    to hold only that rank, the trigger to read `RANK · 1` (named `Filter by Rank, 1 selected`) and the menu to stay
-    open; check a second rank and require both ranks listed. Press Escape: only the menu closes and the picker stays
-    open. Choose values in two menus that no Person shares and require `No one matches these filters.`; `Clear` restores
-    the full list. Leave one rank checked, press Escape twice, open the same type's `+` in the `Duty planner` and
-    require the same rank checked and list narrowed; open a different Person type's `+` and require no filter. On an
-    occupied slot whose assignee the filter excludes, the assignee stays listed. A Group `+` shows no filter row.
-    Capture the picker at 390x844 dark and read the filter row's bounds against the picker's width. Clear the filter
-    before leaving, since it persists in this browser.
+12. **Fill from roster.** As `calendarOperate` on October 2026 at 1440x900 light, click
+    `Fill Verification Staff Duty from roster`, the `Fill` button beside the column's day count; it reads `true` for
+    `aria-expanded` while open, and Escape returns focus to it. `Verification Staff Duty column actions` opens
+    `Quick fill` instead, whose `Fill from roster` link switches to the same popover. The popover is named
+    `Fill from roster, Verification Staff Duty`, with `First day` on tomorrow and `Last day` on October 31, the open-day
+    count under them, and a preview of the picks (`Day`, `Next up`, `Count`): starting from no details, Able then
+    Unassigned alternating, the first pick at count 1 and the rest at 2 and up, five rows with
+    `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change `First day` and require a fresh preview.
+    The popover ends with `Open the DA 6`, linking to this roster's DA 6 for the shown month; a Group duty's header has
+    no `Fill` button and its menu has no such link. Before committing, send an authenticated POST from the signed-in
+    page that saves Unassigned on the second day of the range; then click `Fill`: the server answers `409`, the popover
+    stays open with `The roster changed since this preview. Review the new picks and fill again.`, one
+    `calendar-range?…&collections=assignments` read puts the saved day in the grid, and a new preview leaves that day
+    out. With `$V network arm-fail $PAGE calendar-range` armed before that `Fill`, the re-read fails instead: above the
+    grid `The roster changed, and this month's assignments could not be read again. Assigning waits until they load.`
+    shows with `Retry`, and every cell, column action and `Find replacement` is disabled. Restore and press `Retry`: one
+    range read, the banner leaves and the saved day shows. A refused replacement re-reads the same way. Click `Fill`
+    again: the popover closes, the grid shows every pick, and `$V rows daily_assignments orgA` shows one row per pick
+    with `source` `roster` and the manual day unchanged as `manual`. On Retiring, where Able sits in the Staff pool too,
+    a pick on a day Able holds Staff duty reads `Skipped SPC Able (<n>). On Verification Staff Duty, count runs.` Assign
+    Able to Retiring on a day Able holds Staff duty: both cells read `unavailable: … Duty (D)` and `Conflicts` lists
+    them with `is on Verification Retiring Duty (D).` Capture the column headers and the Fill popover at 900x800 and
+    390x844 dark: the `Fill` label stays visible, the type name and count truncate rather than overlap the buttons, and
+    the popover bounds read: at least 8px inside each viewport edge. As `calendarScoped`, the column menu opens
+    `Quick fill`, and an authenticated `POST /org/<orgA>/api/duty-rosters/fill/preview` or `/fill` returns `403` with
+    nothing written. Clear the month's rows through `Clear month` before leaving.
+
+13. **Find replacement.** As `calendarOperate` on October 2026 at 1440x900 light, fill Verification Staff Duty from 23
+    to 31 Oct with `Fill 9 days` (Able on odd days, Unassigned on even days), hand-assign Able on Fri 30 Oct through its
+    cell's picker, and add Verification Leave for Able on 25 Oct (an authenticated `POST /api/availability` is fine
+    setup). Reload. `Conflicts` lists `SPC Able, Synthetic is on Verification Leave (A).` Focus
+    `Find replacement for Verification Staff Duty, Sun 25 Oct` and press Enter. A dialog named
+    `Replace SPC Able, Verification Staff Duty, Sun 25 Oct` opens right of the 25 Oct cell without covering it, with
+    `Able is on Verification Leave, so their count holds at 1 and they keep their place in line.` and that nobody gets
+    an extra turn The `Next up on the Verification Staff Duty roster` radio group has one checked radio,
+    `SPC Unassigned, count 1, next up, Verification Staff Duty the day before · Verification Staff Duty the next day`,
+    which holds focus once the preview loads. `Can't pull 25 Oct` lists `SPC Able · Verification Leave, holds at 1` with
+    an `A` chip. `Also re-picks 5 planned days` lists 26 MON Unassigned → Able, 27 TUE Able → Unassigned, 28 WED
+    Unassigned → Able, 29 THU Able → Unassigned and 31 SAT Able → Unassigned, then
+    `Days you assigned by hand stay put.`; 30 Oct is absent. Under the footer buttons, a two-line note that is
+    `Someone else`'s accessible description reads
+    `Someone else re-picks the later roster days too. To change only this day, click the name in the planner.` Tab
+    cycles Someone else, Cancel, Assign Unassigned and the radio without leaving the dialog; Escape closes it and focus
+    returns to `Find replacement`. With `$V network arm-hold $PAGE duty-rosters/replacement/preview` armed, reopening
+    shows `Loading the roster` skeleton rows and a disabled `Assign`; release. With
+    `$V network arm-fail $PAGE duty-rosters/replacement/preview`, the dialog reads the failure with `Retry preview`;
+    restore and Retry. `Someone else` opens the duty picker `Verification Staff Duty, Sun 25 Oct` with `Find person`
+    focused, without Able or `Clear assignment`, and under its title the two-line description
+    `A pick here re-picks the later roster days too. To change only this day, click the name in the planner.`; Escape
+    returns to the dialog. Clicking the 25 Oct name in the grid, from the dialog or from that picker, opens the plain
+    picker for that day alone, with no description. For a pick off the roster, set Retiring's pool to MOS 68W (an
+    authenticated `PUT api/assignment-types/roster` as `orgOwner`, restoring `poolRules:null` afterwards), fill it and
+    open `Find replacement` on one of its conflicts (Able's 25 Oct Leave makes one): `Someone else`, search `Baker` and
+    choose `SPC Baker, Synthetic, not on this roster`. The dialog returns with the radio `SPC Baker, Not on this roster`
+    checked and the re-picks the server previewed for Baker (`selected` is Baker), and `Assign Baker` writes Baker on
+    that day as `manual` with the re-picked days `roster`. Reopen and hold the commit with
+    `$V network arm-hold $PAGE duty-rosters/replacement`: `Assign Unassigned` reads busy, every grid cell is disabled
+    and the title still names Able; release. The dialog closes, focus lands on
+    `Verification Staff Duty, Sun 25 Oct: SPC Unassigned, Synthetic`, and `$V rows daily_assignments orgA` shows 25
+    Unassigned `roster`, 26 Able, 27 Unassigned, 28 Able, 29 Unassigned and 31 Unassigned `roster`, 30 Able `manual`.
+    For drift, add Leave for Unassigned on 27 Oct, open its `Find replacement` (`Also re-picks 2 planned days`, 28 and
+    29), then send an authenticated `POST /api/daily-assignments` that hand-assigns Able on 29 Oct and press
+    `Assign Able`: the server answers `409`, the dialog stays open with
+    `The roster changed since this preview. Review the new picks and try again.` and `Also re-picks 1 planned day`.
+    Assign again: 27 Able `roster`, 28 Unassigned `roster`, 29 and 30 Able `manual`. As `calendarScoped`, an
+    authenticated `POST /duty-rosters/replacement/preview` or `/replacement` returns `403` with nothing written. For
+    candidates and widths, `$V seed workload large` and `actor perfWide calendar large`: clear November Staff Duty,
+    `Fill 30 days`, return to October and open `Find replacement for Staff Duty, Thu 22 Oct`. The list holds every
+    available pool member by count with `CPT Baker184` next up; ArrowDown to `CPT Carter185` shows `Loading re-picks`,
+    then `Also re-picks 22 planned days` starting `1 SUN CPT Carter185 → CPT Irwin191`, and `Assign Carter185` writes
+    them: November then reads Irwin191, Reyes356, Smith123, Vance282, Zimmer078 and Carter003 on 1 to 6 Nov. Open
+    `Find replacement for Staff Duty, Sat 31 Oct` at 900x800 (the dialog flips left of the cell) and 390x844 (below the
+    cell, at least 8 px inside each viewport edge); neither covers the cell.
 
 The Dashboard's Unfilled `Fill N days` action saves its days through the same `/batch` request; the saved names must
 appear in this Calendar lane and the planner after reload ([Dashboard actions](dashboard.md#actions)).
 
 The assignment write endpoints are `/org/<orgA>/api/daily-assignments` with `POST {date,assignmentTypeId,assigneeId}` or
-`DELETE {date,assignmentTypeId}`, and `/batch` with `POST {records:[{date,assignmentTypeId,assigneeId}]}`. Use the
-signed-in page's read-only `evaluate_script` only for response inspection or an authenticated request probe; actual
-planning actions use the visible controls. Read provider rows only through the owned helper.
-[Calendar navigation](calendar-navigation.md), [Calendar access](calendar-access.md),
+`DELETE {date,assignmentTypeId}`, and `/batch` with `POST {records:[{date,assignmentTypeId,assigneeId}]}`. The roster
+endpoints are `GET /org/<orgA>/api/duty-rosters?today=YYYY-MM-DD&month=YYYY-MM` (counts today, the month's detail days
+and conflicts), `GET /day?typeId=…&date=YYYY-MM-DD&today=YYYY-MM-DD` (the standing going into a detail day,
+`{track:null,pool}` on any other day, `null` for a type with no open form), and
+`POST /fill/preview {typeId,today,from,through}` and `POST /fill` with the same fields plus `picks:[{date,personId}]`,
+which returns `409` when the roster changed. `POST /replacement/preview {typeId,today,date,assigneeId?}` previews a
+replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `assigneeId`, `replacing`
+and `repicks:[{date,was,personId}]` (`was` is who held the day in the preview) and returns `409` when the plan differs,
+any `was` changed, or a day is left unfilled. Saved rows carry `source` (`manual` or `roster`); the server sets it and
+no client request names it. Use the signed-in page's read-only `evaluate_script` only for response inspection or an
+authenticated request probe; actual planning actions use the visible controls. Read provider rows only through the owned
+helper. [Calendar navigation](calendar-navigation.md), [Calendar access](calendar-access.md),
 [Organization switching](organization-switching.md), and [Reports and history](reports-history.md) own the adjacent
 range/scope/report journeys.
 

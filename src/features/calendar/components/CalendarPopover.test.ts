@@ -29,6 +29,7 @@ const status = (id: string, name: string, sortOrder: number): StatusType => ({
 	color: '#16a34a',
 	textColor: '#ffffff',
 	shortLabel: null,
+	rosterEffect: 'A',
 	sortOrder
 });
 const STATUSES = [status('leave', 'Leave', 0), status('sick', 'Sick', 1), status('tdy', 'TDY', 2)];

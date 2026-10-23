@@ -103,6 +103,7 @@ An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/feat
 
 ## Service-role use
 
+- Closing a duty roster DA 6 uses the service-only `close_roster_form` RPC ([`20261023000900_roster_close_server_only.sql`](../../supabase/migrations/20261023000900_roster_close_server_only.sql)). The server computes its record and carry counts with the roster engine. SQL rechecks the signed-in actor's Organization-wide Calendar configuration authority and writes every carry row as `carried`.
 - Service-role clients serve one named purpose each and run only after authorization. They never make tenant operations generally privileged.
 - An Organization-scoped screen may read platform-owned state only through a narrow port that returns the minimum shape, such as `OrganizationInvitationSetupStateLookupPort` (ADR 0012). Never add an RLS grant on a platform table or a mirror table for it.
 - Bind service-role ports in a Delivery adapter under `src/lib/server/adapters/`. `scripts/check-governance.mjs` rejects route server files that acquire the admin client.

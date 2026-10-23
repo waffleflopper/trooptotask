@@ -128,7 +128,8 @@ describe('Calendar-only group-scoped status import', () => {
 				color: '#000000',
 				textColor: '#ffffff',
 				shortLabel: null,
-				sortOrder: 0
+				sortOrder: 0,
+				rosterEffect: 'A' as const
 			})),
 			entries: [],
 			loaded: [],

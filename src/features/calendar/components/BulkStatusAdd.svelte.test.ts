@@ -33,8 +33,24 @@ const cole = person('person-cole', 'Cole');
 const roster = [{ group: 'Alpha', personnel: [able, baker, cole] }];
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#166534', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
-	{ id: 'training', name: 'Training', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#166534',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 0
+	},
+	{
+		id: 'training',
+		name: 'Training',
+		color: '#2563eb',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 1
+	}
 ];
 
 const START = '2026-09-22';

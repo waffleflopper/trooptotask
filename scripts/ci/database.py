@@ -92,6 +92,14 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261021000100_organization_feature_switches.sql",
     "20261021000200_organization_feature_switch_enforcement.sql",
     "20261022000100_calendar_availability_import.sql",
+    "20261023000100_duty_roster_settings.sql",
+    "20261023000200_personnel_attribute_history.sql",
+    "20261023000300_status_type_roster_effect.sql",
+    "20261023000400_daily_assignment_source.sql",
+    "20261023000600_roster_assignment_writes.sql",
+    "20261023000700_roster_starting_numbers.sql",
+    "20261023000800_roster_inaugural_start_and_bounded_history.sql",
+    "20261023000900_roster_close_server_only.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -128,6 +136,9 @@ STAGED_UPGRADE_FIXTURES = (
     "calendar_lanes_before.sql",
     "status_type_label_order_before.sql",
     "organization_feature_switches_before.sql",
+    "duty_roster_settings_before.sql",
+    "status_type_roster_effect_before.sql",
+    "daily_assignment_source_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -166,9 +177,14 @@ STAGED_UPGRADE_CONTRACTS = (
     "calendar_lanes_after.sql",
     "status_type_label_order_after.sql",
     "organization_feature_switches_after.sql",
+    "duty_roster_settings_after.sql",
+    "status_type_roster_effect_after.sql",
+    "daily_assignment_source_after.sql",
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "roster_close_server_only.sql",
+    "roster_inaugural_start_and_bounded_history.sql",
     "password_attempt_reconciliation.sql",
 )
 

@@ -28,7 +28,8 @@ describe('Calendar ordinary catalog persistence', () => {
 				short_name: id,
 				assign_to: 'personnel',
 				show_on_calendar: false,
-				exempt_personnel_ids: []
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same'
 			}))
 		});
 		state.unstablePages = true;
@@ -51,7 +52,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			created_at: TIME,
 			private_column: 'discard'
 		}));
-		const { client } = calendarProvider({
+		const { client, state } = calendarProvider({
 			status_types: [...statuses, { ...statuses[0], id: 'foreign', organization_id: 'org-b' }],
 			assignment_types: [
 				{
@@ -63,7 +64,12 @@ describe('Calendar ordinary catalog persistence', () => {
 					color: '#456789',
 					sort_order: 2,
 					show_on_calendar: false,
-					exempt_personnel_ids: null,
+					roster_pool_rules: null,
+					roster_weekend_mode: 'separate',
+					roster_excusals: [
+						{ personnel_id: 'p-1', reason: 'First sergeant', starts_on: '2026-01-01', ends_on: null },
+						{ personnel_id: 'p-2', reason: 'Reinstated', starts_on: '2026-01-01', ends_on: '2026-02-01' }
+					],
 					archived_at: '2026-01-01',
 					created_at: TIME
 				}
@@ -105,11 +111,18 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#456789',
 				showOnCalendar: false,
 				sortOrder: 2,
-				exemptPersonnelIds: [],
+				poolRules: null,
+				weekendMode: 'separate',
+				excusals: [{ personId: 'p-1', reason: 'First sergeant', startsOn: '2026-01-01' }],
 				archivedAt: '2026-01-01',
 				created_at: TIME
 			}
 		]);
+		expect(
+			state.requests
+				.filter(({ table }) => table === 'assignment_types')
+				.map(({ url }) => url.searchParams.get('roster_excusals.ends_on'))
+		).toEqual(['is.null']);
 	});
 
 	it('retains returned null sort order and omission without inventing saved metadata', async () => {
@@ -159,7 +172,8 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#b91c1c',
 			sort_order: 7,
 			show_on_calendar: true,
-			exempt_personnel_ids: []
+			roster_pool_rules: null,
+			roster_weekend_mode: 'same'
 		};
 		const savedStatus = (id: string, organization_id: string, sort_order: number) => ({
 			id,
@@ -187,14 +201,18 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			textColor: '#ffffff',
 			shortLabel: null,
+			rosterEffect: 'A',
 			sortOrder: 10
 		});
-		expect(await port.createStatusType({ name: 'Sick', shortLabel: 'SK' })).toMatchObject({
+		expect(await port.createStatusType({ name: 'Sick', shortLabel: 'SK', rosterEffect: 'D' })).toMatchObject({
 			id: 'saved-2',
 			shortLabel: 'SK',
+			rosterEffect: 'D',
 			sortOrder: 11
 		});
-		expect(await port.updateStatusType('saved-1', { textColor: '#000000', shortLabel: 'LV' })).toEqual({
+		expect(
+			await port.updateStatusType('saved-1', { textColor: '#000000', shortLabel: 'LV', rosterEffect: 'available' })
+		).toEqual({
 			id: 'saved-1',
 			organization_id: ORG,
 			created_at: TIME,
@@ -202,6 +220,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			textColor: '#000000',
 			shortLabel: 'LV',
+			rosterEffect: 'available',
 			sortOrder: 10
 		});
 		expect(await port.createAssignmentType({ name: 'Duty', shortName: 'D', assignTo: 'personnel' })).toEqual({
@@ -214,9 +233,11 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			showOnCalendar: false,
 			sortOrder: 0,
-			exemptPersonnelIds: []
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: []
 		});
-		const edit = { assignTo: 'group' as const, exemptPersonnelIds: ['person-a'], showOnCalendar: false, sortOrder: 2 };
+		const edit = { assignTo: 'group' as const, showOnCalendar: false, sortOrder: 2, weekendMode: 'none' };
 		expect(await port.updateAssignmentType('shown-1', edit)).toEqual({
 			id: 'shown-1',
 			organization_id: ORG,
@@ -227,7 +248,9 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#b91c1c',
 			showOnCalendar: true,
 			sortOrder: 7,
-			exemptPersonnelIds: ['person-a']
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: []
 		});
 		expect(state.rows.status_types).toEqual([
 			...existingStatuses,
@@ -239,6 +262,7 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				text_color: '#000000',
 				short_label: 'LV',
+				roster_effect: 'available',
 				sort_order: 10
 			},
 			{
@@ -249,11 +273,12 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				text_color: '#ffffff',
 				short_label: 'SK',
+				roster_effect: 'D',
 				sort_order: 11
 			}
 		]);
 		expect(state.rows.assignment_types).toEqual([
-			{ ...shownLane, assign_to: 'group', exempt_personnel_ids: ['person-a'] },
+			{ ...shownLane, assign_to: 'group' },
 			{
 				id: 'saved-3',
 				organization_id: ORG,
@@ -264,16 +289,26 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				sort_order: 0,
 				show_on_calendar: false,
-				exempt_personnel_ids: []
+				roster_pool_rules: null,
+				roster_weekend_mode: 'same'
 			}
 		]);
 		const statusPatches = state.requests.filter(({ table, method }) => table === 'status_types' && method === 'PATCH');
-		expect(statusPatches.map(({ body }) => body)).toEqual([{ text_color: '#000000', short_label: 'LV' }]);
+		expect(statusPatches.map(({ body }) => body)).toEqual([
+			{ text_color: '#000000', short_label: 'LV', roster_effect: 'available' }
+		]);
 		const typeWrites = state.requests.filter(({ table, body }) => table === 'assignment_types' && body);
 		for (const { body } of typeWrites) {
 			expect(body).not.toHaveProperty('sort_order');
 			expect(body).not.toHaveProperty('show_on_calendar');
 		}
+		// Roster rules change only when a DA 6 form closes, so a details edit never writes them.
+		const typePatches = state.requests.filter(
+			({ table, method }) => table === 'assignment_types' && method === 'PATCH'
+		);
+		expect(typePatches).toHaveLength(1);
+		expect(typePatches[0].body).not.toHaveProperty('roster_weekend_mode');
+		expect(typePatches[0].body).not.toHaveProperty('roster_pool_rules');
 		await expect(
 			createSupabaseCalendarCatalogPersistence(client, 'org-b').updateStatusType('saved-1', { name: 'Hidden' })
 		).resolves.toBeNull();
@@ -608,5 +643,61 @@ describe('Calendar configuration commands', () => {
 		const repeated = [...holidays, holidays[0]];
 		const complete = calendarRpc(() => Response.json([christmas, { ...christmas, id: 'h-3' }, newYear]));
 		expect((await complete.port.resetFederalHolidays(repeated)).map(({ id }) => id)).toEqual(['h-1', 'h-3', 'h-2']);
+	});
+});
+
+describe('server-owned roster form close', () => {
+	it.each(['rules', 'group'] as const)('uses the service credential and bound actor for a %s close', async (kind) => {
+		const actorId = '00000000-0000-4000-a000-000000000001';
+		const nextId = '00000000-0000-4000-a000-000000000002';
+		const requests: Array<{ credential: string | null; body: unknown }> = [];
+		const ordinary = createClient('http://127.0.0.1:9', 'ordinary-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async () => {
+					throw new Error('A client cannot close a roster form');
+				}
+			}
+		});
+		const admin = createClient('http://127.0.0.1:9', 'service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					requests.push({ credential: request.headers.get('apikey'), body: await request.json() });
+					return Response.json(kind === 'rules' ? nextId : null);
+				}
+			}
+		});
+		const port = createSupabaseCalendarCatalogPersistence(ordinary, ORG, { admin: () => admin, actorId });
+		const input = { assignmentTypeId: 'type-a', formId: 'form-a', today: '2026-10-22', record: { segments: [] } };
+		if (kind === 'rules') {
+			expect(
+				await port.closeRosterForm({
+					...input,
+					poolRules: null,
+					weekendMode: 'separate',
+					carry: [{ personId: 'person-a', track: 'weekday', count: 7 }]
+				})
+			).toBe(nextId);
+		} else {
+			await port.endRosterForm(input);
+		}
+		expect(requests).toEqual([
+			{
+				credential: 'service-key',
+				body: {
+					p_actor: actorId,
+					p_organization_id: ORG,
+					p_assignment_type_id: 'type-a',
+					p_form_id: 'form-a',
+					p_today: '2026-10-22',
+					p_pool_rules: null,
+					p_weekend_mode: kind === 'rules' ? 'separate' : null,
+					p_record: { segments: [] },
+					p_carry: kind === 'rules' ? [{ personnel_id: 'person-a', track: 'weekday', count: 7 }] : []
+				}
+			}
+		]);
 	});
 });

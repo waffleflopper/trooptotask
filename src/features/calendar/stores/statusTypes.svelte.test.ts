@@ -5,8 +5,8 @@ import { endOrganizationLifetime } from '$lib/stores/core';
 import type { StatusType } from '$features/calendar/contracts';
 
 const mockTypes: StatusType[] = [
-	{ id: '1', name: 'Leave', color: '#22c55e', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
-	{ id: '2', name: 'TDY', color: '#3b82f6', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
+	{ id: '1', name: 'Leave', color: '#22c55e', textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder: 0 },
+	{ id: '2', name: 'TDY', color: '#3b82f6', textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder: 1 }
 ];
 
 function stubFetch(response: unknown, status = 200) {
@@ -62,6 +62,7 @@ describe('statusTypesStore', () => {
 				color: '#ff0000',
 				textColor: '#ffffff',
 				shortLabel: 'CQ',
+				rosterEffect: 'A',
 				sortOrder: 2
 			};
 			const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(created) });
@@ -71,6 +72,7 @@ describe('statusTypesStore', () => {
 				name: 'CQ',
 				color: '#ff0000',
 				textColor: '#ffffff',
+				rosterEffect: 'A',
 				shortLabel: 'CQ'
 			});
 
@@ -78,7 +80,8 @@ describe('statusTypesStore', () => {
 				name: 'CQ',
 				color: '#ff0000',
 				textColor: '#ffffff',
-				shortLabel: 'CQ'
+				shortLabel: 'CQ',
+				rosterEffect: 'A'
 			});
 			expect(result).toEqual(created);
 			expect(statusTypesStore.items.map((type) => type.id)).toEqual(['1', '2', 'new-1']);
@@ -92,6 +95,39 @@ describe('statusTypesStore', () => {
 			const result = await statusTypesStore.update('1', { name: 'Annual Leave' });
 
 			expect(result).toBe(true);
+		});
+	});
+
+	describe('previewEffect', () => {
+		it('posts the proposed effect and device day, and returns the changed numbers without touching the list', async () => {
+			const changes = [
+				{
+					assignmentTypeId: 'cq',
+					rosterName: 'CQ',
+					track: 'all',
+					personId: 'kim',
+					person: 'SGT Kim',
+					change: { kind: 'number', from: 11, to: 9 }
+				}
+			];
+			const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(changes) });
+			vi.stubGlobal('fetch', fetchMock);
+
+			const result = await statusTypesStore.previewEffect('1', 'D', '2026-10-22');
+
+			expect(result).toEqual(changes);
+			expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/status-types/preview');
+			expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+			expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ id: '1', rosterEffect: 'D', today: '2026-10-22' });
+			expect(statusTypesStore.items).toEqual(mockTypes);
+		});
+
+		it('rejects with the server reason when the preview cannot be read', async () => {
+			stubFetch({ message: 'That status is no longer available.' }, 404);
+
+			await expect(statusTypesStore.previewEffect('1', 'D', '2026-10-22')).rejects.toThrow(
+				'That status is no longer available.'
+			);
 		});
 	});
 
@@ -115,6 +151,7 @@ describe('statusTypesStore', () => {
 			color: '#dc2626',
 			textColor: '#ffffff',
 			shortLabel: 'SK',
+			rosterEffect: 'A',
 			sortOrder: 2
 		};
 		const ids = () => statusTypesStore.items.map((type) => type.id);
@@ -313,7 +350,15 @@ describe('statusTypesStore', () => {
 			const pending = statusTypesStore.setOrder(['2', '1', '3']);
 
 			expect(statusTypesStore.orderBusy).toBe(true);
-			expect(await statusTypesStore.add({ name: 'CQ', color: '#000', textColor: '#fff', shortLabel: null })).toBeNull();
+			expect(
+				await statusTypesStore.add({
+					name: 'CQ',
+					color: '#000',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'A'
+				})
+			).toBeNull();
 			expect(await statusTypesStore.update('1', { name: 'Annual Leave' })).toBe(false);
 			expect(await statusTypesStore.remove('3')).toBe(false);
 			expect(fetchMock).toHaveBeenCalledOnce();

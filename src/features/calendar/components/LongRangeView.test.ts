@@ -34,6 +34,7 @@ const statusTypes: StatusType[] = [
 		color: '#2563eb',
 		textColor: '#ffffff',
 		shortLabel: null,
+		rosterEffect: 'A',
 		sortOrder: 0
 	}
 ];

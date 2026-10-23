@@ -12,6 +12,7 @@ const status = (id: string, name: string, sortOrder: number): StatusType => ({
 	color: '#48bb78',
 	textColor: '#ffffff',
 	shortLabel: null,
+	rosterEffect: 'A',
 	sortOrder
 });
 const leave = status('leave', 'Leave', 0);

@@ -33,7 +33,11 @@ import {
 	createInMemoryGroupPersistence,
 	createInMemorySelfPinPersistence
 } from '$features/personnel/inMemoryPersonnelPersistence.server';
-import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import {
+	loadOrganizationRankCatalog,
+	toAttributeTimeline,
+	boundAttributeTimelines
+} from '$features/personnel/index.server';
 import type { createRequestOrganizationExportContext } from './requestContexts.server';
 
 import type { FixtureRowStore, FixtureFindOptions, FixtureFindResult } from './test-support/inMemoryRows.types';
@@ -48,8 +52,11 @@ import type {
 	CalendarAvailabilityRemovalPort,
 	CalendarAvailabilityPersistence,
 	CalendarCatalogPersistence,
-	SavedAssignment
+	SavedAssignment,
+	AssignmentSource
 } from '$features/calendar/contracts';
+import { fail } from '$lib/errors';
+import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED, effectiveRosterFormStart } from '$features/calendar/index.server';
 import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTaskLibraryPersistence,
@@ -273,7 +280,13 @@ function createTestCalendarPersistence(
 				updateSpecialDay: unavailableCalendarPersistence,
 				deleteSpecialDay: unavailableCalendarPersistence,
 				resetFederalHolidays: unavailableCalendarPersistence,
-				setCalendarLanes: unavailableCalendarPersistence
+				setCalendarLanes: unavailableCalendarPersistence,
+				findOpenRosterForm: unavailableCalendarPersistence,
+				listClosedRosterForms: unavailableCalendarPersistence,
+				listRosterExcusals: unavailableCalendarPersistence,
+				setRosterExcusals: unavailableCalendarPersistence,
+				closeRosterForm: unavailableCalendarPersistence,
+				endRosterForm: unavailableCalendarPersistence
 			} satisfies CalendarCatalogPersistence),
 		calendarAvailability:
 			options?.calendarAvailabilityFactory?.(
@@ -298,6 +311,7 @@ function createTestCalendarPersistence(
 			({
 				listRange: unavailableCalendarPersistence,
 				listDayReferences: unavailableCalendarPersistence,
+				listRosterDetailDays: unavailableCalendarPersistence,
 				listSlotReferences: unavailableCalendarPersistence
 			} satisfies CalendarAssignmentReader)
 	};
@@ -424,10 +438,11 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 		updates: CompareAndUpdate[],
 		scope?: Pick<FixtureFindOptions, 'filters' | 'isNull'>
 	): Promise<CompareAndUpdateResult<T>>;
+	/** A slot without a source writes a hand assignment. */
 	replaceDailyAssignmentSlots(
 		orgId: string,
 		replaceDays: string[],
-		slots: AssignmentSlotChange[]
+		slots: readonly (AssignmentSlotChange & { source?: AssignmentSource })[]
 	): Promise<SavedAssignment[]>;
 } {
 	const tables: TableStore = new Map();
@@ -591,7 +606,8 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 					organization_id: orgId,
 					date: slot.date,
 					assignment_type_id: slot.assignmentTypeId,
-					assignee_id: slot.assigneeId
+					assignee_id: slot.assigneeId,
+					source: slot.source ?? 'manual'
 				}));
 			rows.splice(0, rows.length, ...retained, ...inserted);
 			return inserted.map((row) => ({
@@ -833,7 +849,83 @@ function createScopedTestStores(auth: OrganizationAccessGrant): {
 function createInMemoryCalendarAssignmentReplacementPort(
 	rawStore: InMemoryDataStore
 ): CalendarAssignmentReplacementPort {
-	return { replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore) };
+	return {
+		replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore),
+		async writeRoster(orgId, slots) {
+			const rows = await rawStore.findMany<{ date: string; assignment_type_id: string; assignee_id: string }>(
+				'daily_assignments',
+				orgId,
+				undefined,
+				{ inFilters: { date: [...new Set(slots.map((slot) => slot.date))] } }
+			);
+			const current = new Map(rows.map((row) => [`${row.date}::${row.assignment_type_id}`, row.assignee_id]));
+			if (slots.some((slot) => (current.get(`${slot.date}::${slot.assignmentTypeId}`) ?? null) !== slot.was)) {
+				fail(409, 'This assignment slot is unavailable. Refresh the Calendar and try again.');
+			}
+			return rawStore.replaceDailyAssignmentSlots(orgId, [], slots);
+		},
+		// Mirrors public.set_roster_starting_numbers, except that a No duty weekend assignment also locks.
+		async setRosterStartingNumbers(orgId, input) {
+			const typeId = input.assignmentTypeId;
+			const forms = await rawStore.findMany<{ id: string; starts_on: string; ends_on: string | null }>(
+				'roster_forms',
+				orgId,
+				{ assignment_type_id: typeId }
+			);
+			const form = forms.find((candidate) => candidate.ends_on === null);
+			if (form?.id !== input.formId) fail(409, ROSTER_CHANGED);
+			const numbers = await rawStore.findMany<{ origin: 'carried' | 'typed' }>('roster_starting_numbers', orgId, {
+				form_id: form.id
+			});
+			const days = await rawStore.findMany<{ date: string; assignee_id: string; source?: string }>(
+				'daily_assignments',
+				orgId,
+				{ assignment_type_id: typeId }
+			);
+			const groups = new Set((await rawStore.findMany<{ id: string }>('groups', orgId)).map(({ id }) => id));
+			const personDays = days.filter(({ assignee_id }) => !groups.has(assignee_id));
+			const start = effectiveRosterFormStart({
+				startsOn: form.starts_on,
+				hasClosedPredecessor: forms.some((candidate) => candidate.ends_on !== null),
+				hasCarriedNumbers: numbers.some(({ origin }) => origin === 'carried'),
+				firstAssignment: personDays.map(({ date }) => date).sort()[0] ?? null
+			});
+			if (
+				numbers.some((number) => number.origin === 'carried') ||
+				personDays.some((day) => day.date >= start && day.date <= input.today)
+			) {
+				fail(409, STARTING_NUMBERS_LOCKED);
+			}
+			const moved = input.repicks.some(
+				(repick) =>
+					!days.some((day) => day.date === repick.date && day.assignee_id === repick.was && day.source === 'roster')
+			);
+			if (moved) fail(409, ROSTER_CHANGED);
+			await rawStore.deleteWhere('roster_starting_numbers', orgId, { form_id: form.id });
+			await rawStore.insertMany(
+				'roster_starting_numbers',
+				orgId,
+				input.numbers.map(({ personId, track, count }) => ({
+					form_id: form.id,
+					personnel_id: personId,
+					track,
+					count,
+					origin: 'typed'
+				}))
+			);
+			if (!input.repicks.length) return [];
+			return rawStore.replaceDailyAssignmentSlots(
+				orgId,
+				[],
+				input.repicks.map(({ date, assigneeId }) => ({
+					date,
+					assignmentTypeId: typeId,
+					assigneeId,
+					source: 'roster'
+				}))
+			);
+		}
+	};
 }
 
 function createInMemoryCalendarAvailabilityRemovalPort(
@@ -1188,6 +1280,33 @@ function createInMemoryPersonnelCalendarRosterPort(rawStore: FixtureRowStore): P
 	return {
 		async listActive(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
+		},
+		async listAttributeTimelines(actor, span) {
+			const [history, assignments, excusals, forms, numbers] = await Promise.all([
+				rawStore.findMany<Row>('personnel_attribute_history', actor.orgId),
+				rawStore.findMany<Row & { date: string; assignee_id: string }>('daily_assignments', actor.orgId),
+				rawStore.findMany<Row & { starts_on: string; ends_on: string | null; personnel_id: string }>(
+					'roster_excusals',
+					actor.orgId
+				),
+				rawStore.findMany<Row>('roster_forms', actor.orgId, { ends_on: null }),
+				rawStore.findMany<Row & { form_id: string; personnel_id: string }>('roster_starting_numbers', actor.orgId)
+			]);
+			const openForms = new Set(forms.map(({ id }) => id));
+			const referenced = new Set([
+				...assignments.filter((row) => row.date >= span.from && row.date <= span.through).map((row) => row.assignee_id),
+				...excusals
+					.filter((row) => row.starts_on <= span.through && (row.ends_on === null || row.ends_on >= span.from))
+					.map((row) => row.personnel_id),
+				...numbers.filter((row) => openForms.has(row.form_id)).map((row) => row.personnel_id)
+			]);
+			return boundAttributeTimelines(
+				(await inMemoryPersonnelRows(rawStore, actor, 'all')).map((row) =>
+					toAttributeTimeline({ ...row, history: history.filter((entry) => entry.personnel_id === row.id) })
+				),
+				span,
+				referenced
+			);
 		},
 		async listAssigneeIds(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'all')).map((row) => row.id as string);
@@ -1624,6 +1743,7 @@ export function createTestOrganizationArchiveReaders(rawStore: Pick<FixtureRowSt
 					'color',
 					'text_color',
 					'short_label',
+					'roster_effect',
 					'sort_order',
 					'created_at'
 				]);

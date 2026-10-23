@@ -27,15 +27,16 @@ SELECT results_eq($$
             ('Bravo One', false, 0), ('Bravo Two', false, 1),
             ('Archived Header', false, 0), ('Charlie Active', false, 1) $$,
   'the header ranks first and the others keep their (sort_order, id) order');
+-- The later duty roster upgrade replaces exemptions with excusals and adds roster rules.
 SELECT results_eq($$
-  SELECT row_id, row_data - 'show_on_calendar' - 'sort_order' FROM (
+  SELECT row_id, row_data - 'show_on_calendar' - 'sort_order' - 'roster_pool_rules' - 'roster_weekend_mode' FROM (
     SELECT id AS row_id, to_jsonb(t) AS row_data FROM public.assignment_types t WHERE organization_id::text LIKE 'e1683000-%'
     UNION ALL
-    SELECT id, to_jsonb(d) FROM public.daily_assignments d WHERE organization_id::text LIKE 'e1683000-%') AS current_rows
+    SELECT id, to_jsonb(d) - 'source' FROM public.daily_assignments d WHERE organization_id::text LIKE 'e1683000-%') AS current_rows
   ORDER BY row_id $$,
-  $$ SELECT row_id, row_data - 'show_in_date_header' - 'sort_order'
+  $$ SELECT row_id, row_data - 'show_in_date_header' - 'sort_order' - 'exempt_personnel_ids'
      FROM upgrade_fixture.calendar_lanes_before_rows ORDER BY row_id $$,
-  'every type keeps its identity, details and exemptions, and every daily assignment is unchanged');
+  'every type keeps its identity and details, and every daily assignment is unchanged');
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'e1683000-0000-4000-8000-000000000001', true);

@@ -4,9 +4,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
-	import { calendarViewCoverage } from '../utils/calendarRange';
+	import { PlannerRosterRead, previewRosterFill, previewRosterReplacement } from '../contexts/PlannerRosterRead.svelte';
+	import { formatDate } from '$lib/utils/dates';
+	import { calendarViewCoverage, type CalendarCoverage } from '../utils/calendarRange';
+	import { da6Href } from '../utils/da6View';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
-	import type { CalendarOperationsPageAccess } from '../contracts';
+	import type { CalendarOperationsPageAccess, RosterReplacement } from '../contracts';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -48,6 +51,7 @@
 	$effect(() => {
 		data.orgId;
 		rangeCoordinator.reset();
+		staleRead = null;
 		const bootstrap = data.calendar?.data;
 		if (bootstrap?.rangeStart && bootstrap.rangeEnd && bootstrap.availabilityRange) {
 			rangeCoordinator.includeBootstrap({
@@ -69,6 +73,105 @@
 		dailyAssignmentsStore.orgId === data.orgId &&
 			!dailyAssignmentsStore.loading &&
 			rangeCoordinator.status(monthCoverage) === 'ready'
+	);
+
+	// Counts span the whole Organization, so only an Organization-wide operator reads them. The read starts
+	// beside the range read and never waits on it.
+	const rosterRead = new PlannerRosterRead();
+	const showsRosters = $derived(canMutate && org.scopeSet.kind === 'organization');
+	const rosterMonth = $derived(formatDate(calendarStore.currentDate).slice(0, 7));
+	$effect(() => {
+		if (!showsRosters) return rosterRead.reset();
+		rosterRead.load({ orgId: data.orgId, month: rosterMonth, today: formatDate(new Date()) });
+	});
+
+	// A refused roster write means another operator changed assignments, which the grid must show before anyone
+	// assigns again. When that re-read fails, the month stays locked until a retry reads it.
+	let staleRead = $state<{ orgId: string; coverage: CalendarCoverage } | null>(null);
+	let retryingRead = $state(false);
+	const sameRange = (a: CalendarCoverage, b: CalendarCoverage) =>
+		a.assignments?.rangeStart === b.assignments?.rangeStart && a.assignments?.rangeEnd === b.assignments?.rangeEnd;
+
+	async function rereadAfterRefusal() {
+		const orgId = data.orgId;
+		const coverage = monthCoverage;
+		rosterRead.refresh();
+		if ((await rangeCoordinator.rereadAssignments(orgId, coverage)) === 'failed') staleRead = { orgId, coverage };
+	}
+
+	async function retryRead() {
+		const stale = staleRead;
+		if (!stale || retryingRead) return;
+		retryingRead = true;
+		try {
+			const read = await rangeCoordinator.rereadAssignments(stale.orgId, stale.coverage);
+			if (read === 'read' && staleRead === stale) staleRead = null;
+		} finally {
+			retryingRead = false;
+		}
+	}
+
+	const staleAssignments = $derived(
+		staleRead && staleRead.orgId === data.orgId && sameRange(staleRead.coverage, monthCoverage)
+			? { retrying: retryingRead, onRetry: retryRead }
+			: undefined
+	);
+
+	// Every confirmed write refreshes the counts on its own. A refused fill wrote nothing, so the counts are read
+	// again for the next preview.
+	async function fillFromRoster(fill: Parameters<typeof dailyAssignmentsStore.fillFromRoster>[0]) {
+		const result = await dailyAssignmentsStore.fillFromRoster(fill);
+		if (result === 'changed') await rereadAfterRefusal();
+		return result;
+	}
+
+	async function replaceFromRoster(typeId: string, preview: RosterReplacement) {
+		if (!preview.selected) return 'failed' as const;
+		const result = await dailyAssignmentsStore.replaceFromRoster({
+			typeId,
+			today: formatDate(new Date()),
+			date: preview.date,
+			assigneeId: preview.selected,
+			replacing: preview.replacing.personId,
+			repicks: preview.repicks.map(({ date, was, personId }) => ({ date, was, personId }))
+		});
+		if (result === 'changed') await rereadAfterRefusal();
+		return result;
+	}
+
+	const dayRequest = (typeId: string, date: string) => ({
+		orgId: data.orgId,
+		typeId,
+		date,
+		today: formatDate(new Date())
+	});
+
+	const rosters = $derived(
+		showsRosters
+			? {
+					da6Href: (typeId: string, month: string) => da6Href(orgUrlSegment, typeId, month),
+					status: rosterRead.status,
+					stale: rosterRead.stale,
+					views: rosterRead.rosters,
+					onRetry: () => rosterRead.retry(),
+					preview: (typeId: string, from: string, through: string) =>
+						previewRosterFill(data.orgId, { typeId, today: formatDate(new Date()), from, through }),
+					fill: (typeId: string, from: string, through: string, picks: { date: string; personId: string }[]) =>
+						fillFromRoster({
+							typeId,
+							today: formatDate(new Date()),
+							from,
+							through,
+							picks: picks.map(({ date, personId }) => ({ date, personId }))
+						}),
+					replacement: (typeId: string, date: string, assigneeId?: string) =>
+						previewRosterReplacement(data.orgId, { typeId, today: formatDate(new Date()), date, assigneeId }),
+					replace: replaceFromRoster,
+					day: (typeId: string, date: string) => rosterRead.day(dayRequest(typeId, date)),
+					loadDay: (typeId: string, date: string) => rosterRead.loadDay(dayRequest(typeId, date)),
+					retryDay: (typeId: string, date: string) => rosterRead.retryDay(dayRequest(typeId, date))
+				}
+			: undefined
 	);
 
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
@@ -128,6 +231,8 @@
 			specialDays={specialDaysStore.items}
 			personnelByGroup={scopedPBG}
 			groups={scopedGroups}
+			{rosters}
+			{staleAssignments}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
 		/>

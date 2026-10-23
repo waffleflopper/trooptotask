@@ -23,8 +23,16 @@ const personnel: Personnel[] = [
 ];
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
-	{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#48bb78',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 0
+	},
+	{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', shortLabel: null, rosterEffect: 'A', sortOrder: 1 }
 ];
 
 const groups = [

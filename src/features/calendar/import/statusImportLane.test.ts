@@ -20,7 +20,7 @@ function person(id: string, overrides: Partial<Personnel> = {}): Personnel {
 }
 
 function status(id: string, name: string, shortLabel: string | null = null): StatusType {
-	return { id, name, color: '#4a5568', textColor: '#ffffff', shortLabel, sortOrder: 0 };
+	return { id, name, color: '#4a5568', textColor: '#ffffff', shortLabel, sortOrder: 0, rosterEffect: 'A' };
 }
 
 const leave = status('leave', 'Leave', 'LV');

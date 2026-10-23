@@ -2,15 +2,33 @@ import { describe, expect, it } from 'vitest';
 import type { PersonnelCalendarWindow } from '../calendar.types';
 import { buildPersonnelNextDays } from './personnelNextDays';
 
-const leave = { id: 'leave', name: 'Leave', color: '#f59e0b', textColor: '#000000', shortLabel: 'L', sortOrder: 0 };
-const range = { id: 'range', name: 'Range', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 1 };
+const leave = {
+	id: 'leave',
+	name: 'Leave',
+	color: '#f59e0b',
+	textColor: '#000000',
+	shortLabel: 'L',
+	rosterEffect: 'A' as const,
+	sortOrder: 0
+};
+const range = {
+	id: 'range',
+	name: 'Range',
+	color: '#2563eb',
+	textColor: '#ffffff',
+	shortLabel: null,
+	rosterEffect: 'A' as const,
+	sortOrder: 1
+};
 const cq = {
 	id: 'cq',
 	name: 'Charge of Quarters',
 	shortName: 'CQ',
 	assignTo: 'personnel' as const,
 	color: '#57534d',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same' as const,
+	excusals: [],
 	showOnCalendar: true,
 	sortOrder: 0
 };

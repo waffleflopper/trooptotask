@@ -56,11 +56,11 @@
 	);
 	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
 
-	// A current exempt assignee stays listed so the assignment can still be seen and cleared.
+	// A current excused assignee stays listed so the assignment can still be seen and cleared.
 	function personnelChoices(type: AssignmentType) {
 		const current = getCurrentAssignee(type.id);
 		return personnelOptions.filter(
-			(option) => option.value === current || !type.exemptPersonnelIds.includes(option.value)
+			(option) => option.value === current || !type.excusals.some(({ personId }) => personId === option.value)
 		);
 	}
 

@@ -16,19 +16,21 @@ UNION ALL
 SELECT 'public.personnel', id, to_jsonb(row_value) FROM public.personnel AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000301','d5000000-0000-4000-8000-000000000302')
 UNION ALL
 -- The later status label upgrade adds a column that these rows leave NULL.
-SELECT 'public.status_types', id, to_jsonb(row_value) - 'short_label' FROM public.status_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000401'
+SELECT 'public.status_types', id, to_jsonb(row_value) - 'short_label' - 'roster_effect' FROM public.status_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000401'
 UNION ALL
--- The later Calendar lanes upgrade renames the date-header column.
-SELECT 'public.assignment_types', id, to_jsonb(row_value) - 'show_on_calendar'
+-- The later Calendar lanes upgrade renames the date-header column. The later
+-- duty roster upgrade replaces exemptions with excusals and adds roster rules.
+SELECT 'public.assignment_types', id, to_jsonb(row_value) - 'show_on_calendar' - 'roster_pool_rules' - 'roster_weekend_mode'
   || jsonb_build_object('show_in_date_header', row_value.show_on_calendar) FROM public.assignment_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000402'
 UNION ALL
 SELECT 'public.availability_entries', id, to_jsonb(row_value) FROM public.availability_entries AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000501','d5000000-0000-4000-8000-000000000502')
 UNION ALL
-SELECT 'public.daily_assignments', id, to_jsonb(row_value) FROM public.daily_assignments AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000601','d5000000-0000-4000-8000-000000000602');
+SELECT 'public.daily_assignments', id, to_jsonb(row_value) - 'source' FROM public.daily_assignments AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000601','d5000000-0000-4000-8000-000000000602');
 SELECT is((SELECT count(*)::integer FROM calendar_unassigned_current_rows), 14, 'all historical Calendar rows remain');
 SELECT results_eq(
   $$ SELECT table_name, row_id, row_data FROM calendar_unassigned_current_rows ORDER BY table_name, row_id $$,
-  $$ SELECT table_name, row_id, row_data FROM upgrade_fixture.calendar_unassigned_before_rows ORDER BY table_name, row_id $$,
+  $$ SELECT table_name, row_id, row_data - 'exempt_personnel_ids' FROM upgrade_fixture.calendar_unassigned_before_rows
+     ORDER BY table_name, row_id $$,
   'migration preserves exact Auth, membership, Personnel, availability and assignment values');
 SELECT ok(to_regprocedure('public.can_view_daily_assignment_record(uuid,text)') IS NULL
     AND to_regprocedure('public.can_edit_daily_assignment_record(uuid,text)') IS NULL,

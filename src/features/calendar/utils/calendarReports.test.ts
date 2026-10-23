@@ -36,8 +36,24 @@ function availability(overrides: Partial<AvailabilityEntry>): AvailabilityEntry 
 }
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
-	{ id: 'school', name: 'School', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
+	{
+		id: 'leave',
+		name: 'Leave',
+		color: '#2563eb',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 0
+	},
+	{
+		id: 'school',
+		name: 'School',
+		color: '#16a34a',
+		textColor: '#ffffff',
+		shortLabel: null,
+		rosterEffect: 'A',
+		sortOrder: 1
+	}
 ];
 
 describe('computeAvailabilityForecast', () => {
@@ -192,7 +208,15 @@ describe('computeGroupReadiness', () => {
 describe('report columns follow the catalog order', () => {
 	const catalog: StatusType[] = [
 		...statusTypes,
-		{ id: 'medical', name: 'Medical', color: '#dc2626', textColor: '#ffffff', shortLabel: null, sortOrder: 2 }
+		{
+			id: 'medical',
+			name: 'Medical',
+			color: '#dc2626',
+			textColor: '#ffffff',
+			shortLabel: null,
+			rosterEffect: 'A',
+			sortOrder: 2
+		}
 	];
 	const reverseCatalogEntries = [
 		availability({ id: 'medical-1', statusTypeId: 'medical', startDate: '2026-03-01', endDate: '2026-03-01' }),
@@ -227,7 +251,9 @@ describe('report columns follow the catalog order', () => {
 			shortName: id,
 			assignTo: 'personnel',
 			color: '#2563eb',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: false,
 			sortOrder: 0
 		}));

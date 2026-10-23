@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
-import { endOrganizationLifetime } from '$lib/stores/core';
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
@@ -8,12 +7,7 @@ vi.stubGlobal('fetch', fetchMock);
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import {
-	beginCalendarRangeRead,
-	loadCalendarRange,
-	loadDutyHistory,
-	mergeCalendarRangeIntoStores
-} from './calendarRangeLoader';
+import { beginCalendarRangeRead, loadCalendarRange, mergeCalendarRangeIntoStores } from './calendarRangeLoader';
 
 const cq = {
 	id: 'at1',
@@ -21,7 +15,9 @@ const cq = {
 	shortName: 'CQ',
 	assignTo: 'personnel' as const,
 	color: '#ef4444',
-	exemptPersonnelIds: [],
+	poolRules: null,
+	weekendMode: 'same' as const,
+	excusals: [],
 	showOnCalendar: false,
 	sortOrder: 0
 };
@@ -182,87 +178,5 @@ describe('calendarRangeLoader', () => {
 			{ id: 'da2', date: '2026-06-10', assignmentTypeId: 'at1', assigneeId: 'p2' }
 		]);
 		expect(dailyAssignmentsStore.types).toEqual([cq]);
-	});
-
-	it('reads the duty lookback for the open days into the assignments store and keeps the rows outside it', async () => {
-		dailyAssignmentsStore.load(
-			[cq],
-			[
-				{ id: 'before-lookback', date: '2026-07-01', assignmentTypeId: 'at1', assigneeId: 'p1' },
-				{ id: 'stale', date: '2026-09-01', assignmentTypeId: 'at1', assigneeId: 'p1' }
-			],
-			'org-1'
-		);
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				rangeStart: '2026-07-29',
-				rangeEnd: '2026-11-01',
-				specialDays: [],
-				dailyAssignments: [{ id: 'history', date: '2026-08-15', assignmentTypeId: 'at1', assigneeId: 'p2' }]
-			})
-		});
-
-		await loadDutyHistory('org-1', { firstDay: '2026-10-27', lastDay: '2026-11-01' });
-
-		expect(fetchMock).toHaveBeenCalledWith(
-			'/org/org-1/api/calendar-range?rangeStart=2026-07-29&rangeEnd=2026-11-01&collections=assignments'
-		);
-		expect(dailyAssignmentsStore.assignments.map((assignment) => assignment.id)).toEqual([
-			'before-lookback',
-			'history'
-		]);
-	});
-
-	it('writes nothing when the stores moved to another Organization during the read', async () => {
-		let respond!: (value: unknown) => void;
-		fetchMock.mockReturnValue(new Promise((resolve) => (respond = resolve)));
-
-		const read = loadDutyHistory('org-1', { firstDay: '2026-10-27', lastDay: '2026-11-01' });
-		dailyAssignmentsStore.load(
-			[cq],
-			[{ id: 'org-2-row', date: '2026-10-01', assignmentTypeId: 'at1', assigneeId: 'p9' }],
-			'org-2'
-		);
-		respond({
-			ok: true,
-			json: async () => ({
-				rangeStart: '2026-07-29',
-				rangeEnd: '2026-11-01',
-				specialDays: [],
-				dailyAssignments: [{ id: 'org-1-row', date: '2026-08-15', assignmentTypeId: 'at1', assigneeId: 'p2' }]
-			})
-		});
-		await read;
-
-		expect(dailyAssignmentsStore.orgId).toBe('org-2');
-		expect(dailyAssignmentsStore.assignments.map((assignment) => assignment.id)).toEqual(['org-2-row']);
-	});
-
-	it('writes nothing when the user left and came back to the Organization during the read', async () => {
-		let respond!: (value: unknown) => void;
-		fetchMock.mockReturnValue(new Promise((resolve) => (respond = resolve)));
-
-		const read = loadDutyHistory('org-1', { firstDay: '2026-10-27', lastDay: '2026-11-01' });
-		endOrganizationLifetime();
-		dailyAssignmentsStore.load([cq], [], 'org-2');
-		endOrganizationLifetime();
-		dailyAssignmentsStore.load(
-			[cq],
-			[{ id: 'current-row', date: '2026-08-15', assignmentTypeId: 'at1', assigneeId: 'p1' }],
-			'org-1'
-		);
-		respond({
-			ok: true,
-			json: async () => ({
-				rangeStart: '2026-07-29',
-				rangeEnd: '2026-11-01',
-				specialDays: [],
-				dailyAssignments: [{ id: 'stale-row', date: '2026-08-15', assignmentTypeId: 'at1', assigneeId: 'p2' }]
-			})
-		});
-		await read;
-
-		expect(dailyAssignmentsStore.assignments.map((assignment) => assignment.id)).toEqual(['current-row']);
 	});
 });

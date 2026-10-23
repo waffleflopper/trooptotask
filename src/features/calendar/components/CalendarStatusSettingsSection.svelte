@@ -6,6 +6,8 @@
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { movedTo } from '$features/calendar/utils/calendarLanes';
 	import { oneDayLabel, StatusBar } from '$lib/components/patterns/calendar-bars';
+	import { rosterEffectOption } from '$features/calendar/utils/rosterEffects';
+	import RosterCodeChip from './RosterCodeChip.svelte';
 	import StatusTypeComposer from './StatusTypeComposer.svelte';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { Button } from '$lib/components/ui/button';
@@ -157,6 +159,14 @@
 									One-day label · {oneDayLabel(status)}
 								</span>
 							</div>
+							<span class="flex w-full items-center gap-2 text-sm sm:w-48">
+								{#if rosterEffectOption(status.rosterEffect).code}
+									<RosterCodeChip code={rosterEffectOption(status.rosterEffect).code!} />
+								{:else}
+									<span class="size-5 shrink-0" aria-hidden="true"></span>
+								{/if}
+								<span>{rosterEffectOption(status.rosterEffect).rowText}</span>
+							</span>
 							<div class="ml-auto flex shrink-0 items-center gap-3">
 								<StatusBar
 									class="h-6"

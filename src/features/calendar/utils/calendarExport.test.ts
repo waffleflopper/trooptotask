@@ -39,6 +39,7 @@ function makeOverlappingExportOptions() {
 			color: '#fde68a',
 			textColor: '#111827',
 			shortLabel: null,
+			rosterEffect: 'A',
 			sortOrder: 0
 		},
 		{
@@ -47,6 +48,7 @@ function makeOverlappingExportOptions() {
 			color: '#16a34a',
 			textColor: '#ffffff',
 			shortLabel: null,
+			rosterEffect: 'A',
 			sortOrder: 1
 		}
 	];
@@ -76,7 +78,9 @@ function makeOverlappingExportOptions() {
 			shortName: 'SD',
 			assignTo: 'personnel',
 			color: '#111827',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: true,
 			sortOrder: 0
 		},
@@ -86,7 +90,9 @@ function makeOverlappingExportOptions() {
 			shortName: 'CQ',
 			assignTo: 'personnel',
 			color: '#334155',
-			exemptPersonnelIds: [],
+			poolRules: null,
+			weekendMode: 'same',
+			excusals: [],
 			showOnCalendar: true,
 			sortOrder: 0
 		}

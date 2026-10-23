@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { dateOnlySchema, isUuid, uuidSchema } from '$lib/utils/inputSchemas';
 import type {
+	ClosedFormMonth,
+	RosterExcusal,
 	SavedAssignment,
 	SavedAssignmentType,
 	SavedAvailabilityEntry,
@@ -9,6 +11,23 @@ import type {
 } from './contracts';
 import { fitsOneDayLabel, normalizeShortLabel } from '$lib/components/patterns/calendar-bars';
 import { MAX_CLOSURE_DAYS } from './utils/closureDays';
+import type {
+	AssignmentSource,
+	Da6Segment,
+	MonthKey,
+	OpenForm,
+	PoolRules,
+	RosterEffect,
+	TrackId,
+	WeekendMode
+} from './roster/rosterTypes';
+import {
+	ROSTER_EXCUSAL_REASON_MAX,
+	normalizePoolRules,
+	poolRulesSchema,
+	rosterEffectSchema,
+	weekendModeSchema
+} from './contracts';
 
 type SavedRow = { organization_id?: string; created_at?: string };
 
@@ -18,6 +37,7 @@ export type StatusTypeRow = SavedRow & {
 	color: string;
 	text_color: string;
 	short_label: string | null;
+	roster_effect: RosterEffect;
 	sort_order: number;
 };
 export type AssignmentTypeRow = SavedRow & {
@@ -28,9 +48,30 @@ export type AssignmentTypeRow = SavedRow & {
 	color: string;
 	sort_order: number;
 	show_on_calendar: boolean;
-	exempt_personnel_ids: string[] | null;
+	roster_pool_rules: PoolRules | null;
+	roster_weekend_mode: WeekendMode;
+	/** Nested through the roster_excusals relation, which the provider query limits to current excusals. */
+	roster_excusals?: RosterExcusalRow[] | null;
 	archived_at?: string | null;
 };
+export type RosterFormRow = {
+	id: string;
+	starts_on: string;
+	rules: { pool: PoolRules | null; weekendMode: WeekendMode };
+	roster_starting_numbers: Array<{
+		personnel_id: string;
+		track: TrackId;
+		count: number;
+		origin: 'typed' | 'carried';
+	}> | null;
+};
+export type ClosedRosterFormRow = {
+	id: string;
+	starts_on: string;
+	ends_on: string;
+	record: unknown;
+};
+export type RosterExcusalRow = { personnel_id: string; reason: string; starts_on: string; ends_on?: string | null };
 export type SpecialDayRow = SavedRow & {
 	id: string;
 	date: string;
@@ -50,11 +91,15 @@ export type AssignmentRow = SavedRow & {
 	date: string;
 	assignment_type_id: string;
 	assignee_id: string;
+	source?: AssignmentSource;
 };
 
-export const STATUS_TYPE_FIELDS = 'id, organization_id, name, color, text_color, short_label, sort_order, created_at';
+export const STATUS_TYPE_FIELDS =
+	'id, organization_id, name, color, text_color, short_label, roster_effect, sort_order, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
-	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, exempt_personnel_ids, archived_at, created_at';
+	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, roster_pool_rules, roster_weekend_mode, archived_at, created_at, roster_excusals(personnel_id, reason, starts_on, ends_on)';
+export const CLOSED_ROSTER_FORM_FIELDS = 'id, starts_on, ends_on, record';
+export const ROSTER_FORM_FIELDS = 'id, starts_on, rules, roster_starting_numbers(personnel_id, track, count, origin)';
 export const SPECIAL_DAY_FIELDS = 'id, organization_id, date, name, type, created_at';
 export const AVAILABILITY_FIELDS =
 	'id, organization_id, personnel_id, status_type_id, start_date, end_date, note, created_at';
@@ -74,6 +119,7 @@ export function toStatusType(row: StatusTypeRow): SavedStatusType {
 		color: row.color,
 		textColor: row.text_color,
 		shortLabel: row.short_label,
+		rosterEffect: row.roster_effect,
 		sortOrder: row.sort_order,
 		...savedMetadata(row)
 	};
@@ -88,10 +134,116 @@ export function toAssignmentType(row: AssignmentTypeRow): SavedAssignmentType {
 		color: row.color,
 		showOnCalendar: row.show_on_calendar,
 		sortOrder: row.sort_order,
-		exemptPersonnelIds: row.exempt_personnel_ids ?? [],
+		poolRules: row.roster_pool_rules,
+		weekendMode: row.roster_weekend_mode,
+		excusals: (row.roster_excusals ?? []).map(toRosterExcusal).sort((a, b) => a.personId.localeCompare(b.personId)),
 		...(row.archived_at !== undefined ? { archivedAt: row.archived_at } : {}),
 		...savedMetadata(row)
 	};
+}
+
+export function toOpenRosterForm(row: RosterFormRow): OpenForm {
+	return {
+		kind: 'open',
+		id: row.id,
+		startsOn: row.starts_on,
+		rules: { pool: row.rules.pool ?? null, weekendMode: row.rules.weekendMode },
+		startingNumbers: (row.roster_starting_numbers ?? []).map((number) => ({
+			personId: number.personnel_id,
+			track: number.track,
+			count: number.count,
+			origin: number.origin
+		}))
+	};
+}
+
+const trackSchema = z.enum(['all', 'weekday', 'weekend']) satisfies z.ZodType<TrackId>;
+const codeSchema = z.enum(['A', 'D', 'U']);
+const personRefSchema = z.object({
+	personId: z.string(),
+	rank: z.string(),
+	lastName: z.string(),
+	firstName: z.string()
+});
+const whenSchema = z.enum(['served', 'planned']);
+const da6SegmentSchema = z
+	.object({
+		formId: z.string(),
+		formState: z.enum(['open', 'closed']),
+		natureOfDuty: z.string(),
+		month: z.string(),
+		weekendMode: weekendModeSchema,
+		columns: z.array(
+			z.object({
+				date: z.string(),
+				track: trackSchema,
+				when: whenSchema,
+				pick: personRefSchema,
+				source: z.enum(['manual', 'roster']),
+				passedOver: z.array(personRefSchema.extend({ count: z.number(), code: codeSchema, reason: z.string() })),
+				rulePick: personRefSchema.nullable()
+			})
+		),
+		rows: z.array(personRefSchema),
+		cells: z.array(
+			z.array(
+				z
+					.discriminatedUnion('kind', [
+						z.object({ kind: z.literal('count'), count: z.number() }),
+						z.object({ kind: z.literal('away'), count: z.number(), reason: z.string() }),
+						z.object({ kind: z.literal('code'), code: z.enum(['D', 'U']), count: z.number(), reason: z.string() }),
+						z.object({ kind: z.literal('detail'), count: z.number(), when: whenSchema })
+					])
+					.nullable()
+			)
+		),
+		remarks: z.array(
+			z.discriminatedUnion('kind', [
+				z.object({
+					kind: z.literal('excused'),
+					who: personRefSchema,
+					reason: z.string(),
+					from: z.string(),
+					through: z.string().nullable()
+				}),
+				z.object({
+					kind: z.literal('left'),
+					who: personRefSchema,
+					on: z.string(),
+					cause: z.enum(['archived', 'unmatched'])
+				}),
+				z.object({
+					kind: z.literal('joined'),
+					who: personRefSchema,
+					on: z.string(),
+					cause: z.enum(['joined', 'matched', 'reactivated'])
+				}),
+				z.object({ kind: z.literal('outside'), who: personRefSchema, date: z.string() })
+			])
+		)
+	})
+	.refine(
+		// The grid indexes cells[row][column] for every row and column.
+		({ rows, columns, cells }) =>
+			cells.length === rows.length && cells.every((rowCells) => rowCells.length === columns.length)
+	) satisfies z.ZodType<Da6Segment>;
+const closedRecordSchema = z.object({ segments: z.array(z.object({ month: z.string() }).passthrough()) });
+
+/** Parses only the segment for `month`, so a long closed form costs one month of validation. */
+export function toClosedFormMonth(row: ClosedRosterFormRow, month: MonthKey): ClosedFormMonth {
+	const form = { id: row.id, startsOn: row.starts_on, endsOn: row.ends_on };
+	const record = closedRecordSchema.safeParse(row.record);
+	const saved = record.success ? record.data.segments.find((candidate) => candidate.month === month) : undefined;
+	const segment = saved && da6SegmentSchema.safeParse(saved);
+	if (!record.success || (segment && !segment.success)) {
+		console.error('[da6] Saved DA 6 record does not match the segment shape', { formId: row.id, month });
+		return { ...form, readable: false };
+	}
+	return { ...form, readable: true, segment: segment ? segment.data : null };
+}
+
+function toRosterExcusal(row: RosterExcusalRow): RosterExcusal {
+	return { personId: row.personnel_id, reason: row.reason, startsOn: row.starts_on };
 }
 
 export function toSpecialDay(row: SpecialDayRow): SavedSpecialDay {
@@ -134,7 +286,32 @@ export const statusTypeCreateInput = z.object({
 		.refine((label) => label === null || fitsOneDayLabel(label), 'A one-day label has up to 3 characters')
 		.nullable()
 		.optional(),
+	rosterEffect: rosterEffectSchema.optional(),
 	sortOrder: z.never({ error: 'Status type order changes through the order command' }).optional()
+});
+export const statusEffectPreviewInput = z
+	.object({ id: uuidSchema, rosterEffect: rosterEffectSchema, today: dateOnlySchema })
+	.strict();
+export const plannerRostersInput = z
+	.object({ today: dateOnlySchema, month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Choose a month') })
+	.strict();
+export const rosterDayInput = z.object({ typeId: uuidSchema, today: dateOnlySchema, date: dateOnlySchema }).strict();
+export const rosterFillPreviewInput = z
+	.object({ typeId: uuidSchema, today: dateOnlySchema, from: dateOnlySchema, through: dateOnlySchema })
+	.strict();
+export const rosterFillInput = rosterFillPreviewInput.extend({
+	picks: z
+		.array(z.object({ date: dateOnlySchema, personId: uuidSchema }).strict())
+		.min(1)
+		.max(366)
+});
+export const rosterReplacementPreviewInput = z
+	.object({ typeId: uuidSchema, today: dateOnlySchema, date: dateOnlySchema, assigneeId: uuidSchema.optional() })
+	.strict();
+export const rosterReplacementInput = rosterReplacementPreviewInput.extend({
+	assigneeId: uuidSchema,
+	replacing: uuidSchema,
+	repicks: z.array(z.object({ date: dateOnlySchema, was: uuidSchema, personId: uuidSchema }).strict()).max(366)
 });
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
 const statusTypeIds = z
@@ -147,16 +324,47 @@ const assignmentTypeFields = z.object({
 	name: catalogName,
 	shortName: z.string(),
 	assignTo: z.enum(['personnel', 'group']),
-	color: z.string().optional(),
-	exemptPersonnelIds: z.array(z.string().uuid()).max(500).optional()
+	color: z.string().optional()
 });
-// Calendar visibility and lane order change only through calendarLanesInput.
+// A rank range needs both ends, so `rank: null` is the only way to leave rank unconstrained.
+const poolRulesInput = poolRulesSchema
+	.extend({
+		mos: z.array(z.string().trim().min(1).max(40)).max(50),
+		role: z.array(z.string().trim().min(1).max(80)).max(50),
+		groupIds: z.array(uuidSchema).max(100)
+	})
+	.strict()
+	.transform(normalizePoolRules);
+// Calendar visibility and lane order change only through calendarLanesInput, roster rules only through
+// rosterSettingsInput once the type exists.
 export const assignmentTypeCreateInput = assignmentTypeFields.extend({
-	showOnCalendar: z.literal(false).optional()
+	showOnCalendar: z.literal(false).optional(),
+	poolRules: poolRulesInput.nullable().optional(),
+	weekendMode: weekendModeSchema.optional()
 });
 export const assignmentTypeUpdateInput = assignmentTypeFields
 	.partial()
-	.extend({ id: uuidSchema, showOnCalendar: z.never().optional() });
+	.extend({ id: uuidSchema, showOnCalendar: z.never().optional(), today: dateOnlySchema.optional() });
+const excusalReason = z
+	.string()
+	.trim()
+	.min(1, 'Add a reason')
+	.max(ROSTER_EXCUSAL_REASON_MAX, `A reason has up to ${ROSTER_EXCUSAL_REASON_MAX} characters`);
+export const rosterSettingsInput = z
+	.object({
+		id: uuidSchema,
+		poolRules: poolRulesInput.nullable(),
+		weekendMode: weekendModeSchema,
+		excusals: z
+			.array(z.object({ personId: uuidSchema, reason: excusalReason }).strict())
+			.max(500)
+			.refine(
+				(excusals) => new Set(excusals.map(({ personId }) => personId)).size === excusals.length,
+				'Each person is excused once'
+			),
+		today: dateOnlySchema
+	})
+	.strict();
 const laneTypeIds = z
 	.array(uuidSchema)
 	.refine((ids) => new Set(ids).size === ids.length, 'Each assignment type can be one lane');

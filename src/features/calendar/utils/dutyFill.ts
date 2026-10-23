@@ -1,6 +1,9 @@
 import { dutyPickerOptions, type DutyPickerInput, type DutyPickerOption } from './dutyPickerOptions';
 
-export interface DutyFillInput extends Omit<DutyPickerInput, 'dateKey' | 'currentAssigneeId'> {
+export interface DutyFillInput extends Omit<
+	DutyPickerInput,
+	'dateKey' | 'currentAssigneeId' | 'roster' | 'unreadRoster'
+> {
 	/** The open days to fill, in date order. */
 	dates: readonly string[];
 	/** Assignees the viewer picked, by date; no suggestion repeats them. */
@@ -22,8 +25,8 @@ export function isFreeForDuty(option: DutyPickerOption): boolean {
 }
 
 /**
- * One slot per open day. A day keeps the viewer's pick; otherwise it suggests the duty picker's first
- * option that is available that day and not already picked or suggested in this fill.
+ * One slot per open day, without roster counts. A day keeps the viewer's pick; otherwise it suggests the duty
+ * picker's first option, in name order, that is available that day and not already picked or suggested in this fill.
  */
 export function planDutyFill(input: DutyFillInput): DutyFillSlot[] {
 	const { dates, picks, ...pickerInput } = input;

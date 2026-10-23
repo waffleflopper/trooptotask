@@ -557,6 +557,7 @@ describe('CalendarPageContext', () => {
 			color: '#16a34a',
 			textColor: '#ffffff',
 			shortLabel: null,
+			rosterEffect: 'A',
 			sortOrder: 0
 		} satisfies StatusType;
 		const carol: Personnel = { ...mockPersonnel[0], id: 'p3', firstName: 'Carol', lastName: 'Diaz' };

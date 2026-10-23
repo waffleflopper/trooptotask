@@ -19,6 +19,7 @@ export const changelog: ChangelogEntry[] = [
 			'Each status type now says what it does on a duty roster: still available, away with the count held (A), on other duty with the count running (D), or misconduct with the count running (U). Before you change one, you see every number it moves.',
 			'The DA 6 page shows the form for each roster and month, with A, D and U codes, numbered remarks and a worked example of how a day was picked. Print DA 6 prints it on landscape pages.',
 			'Moving over from a paper DA 6? Copy your last numbers into the first column of the form, or the first weekday and first weekend column when weekends keep a separate count. You can change them until the first duty on the roster is pulled; after that they are part of the record.',
+			'Entering duty for a day before a roster’s DA 6 starts? The duty picker says whether it counts before you save. On a new roster the DA 6 moves back to that day and counts it. On a roster already running, the day is not counted.',
 			'On the Dashboard, Fill duty days now suggests the same people as Fill from roster.',
 			'If something looks off or you have an idea for duty rosters, use Feedback in the upper right to let me know.'
 		]

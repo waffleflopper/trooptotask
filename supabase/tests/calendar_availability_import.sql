@@ -68,12 +68,15 @@ CREATE FUNCTION pg_temp.import_entry(
     'status_type_id','e6200000-0000-4000-8000-000000000401',
     'start_date',start_date,'end_date',end_date,'note',note,'replaces',replaces)
 $$;
-CREATE FUNCTION pg_temp.reviewed(entry text, start_date text DEFAULT '2030-01-05', end_date text DEFAULT '2030-01-12')
+CREATE FUNCTION pg_temp.reviewed(entry text, start_date text DEFAULT '2030-01-05', end_date text DEFAULT '2030-01-12',
+  note text DEFAULT NULL)
 RETURNS jsonb LANGUAGE sql AS $$
   SELECT jsonb_build_object(
     'id','e6200000-0000-4000-8000-000000000' || entry,
     'status_type_id','e6200000-0000-4000-8000-000000000401',
-    'start_date',start_date,'end_date',end_date)
+    'start_date',start_date,'end_date',end_date,
+    'note',CASE entry WHEN '501' THEN 'Alpha leave' WHEN '502' THEN 'Bravo leave'
+      WHEN '503' THEN 'Foreign leave' WHEN '504' THEN 'Bravo course' ELSE note END)
 $$;
 CREATE FUNCTION pg_temp.saved_rows() RETURNS TABLE(id uuid, row_data jsonb) LANGUAGE sql AS $$
   SELECT r.id,to_jsonb(r) FROM public.availability_entries r WHERE r.id::text LIKE 'e6200000-%' ORDER BY r.id
@@ -225,5 +228,36 @@ SELECT is(public.import_availability_entries('e6200000-0000-4000-8000-0000000001
 RESET ROLE;
 SELECT is((SELECT count(*)::integer FROM public.availability_entries WHERE note = 'Dense'),500,
   'all 500 imported rows are saved');
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','e6200000-0000-4000-8000-000000000002',true);
+INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date,note)
+SELECT ('e6200000-0000-4000-8000-000000000' || suffix)::uuid,
+  'e6200000-0000-4000-8000-000000000101','e6200000-0000-4000-8000-000000000301',
+  'e6200000-0000-4000-8000-000000000401','2030-08-05','2030-08-12',note
+FROM (VALUES ('505','Reviewed note'),('506',NULL),('507','Reviewed note'),('508',NULL)) fixture(suffix,note);
+UPDATE public.availability_entries SET note = CASE id::text
+  WHEN 'e6200000-0000-4000-8000-000000000505' THEN 'Edited note'
+  WHEN 'e6200000-0000-4000-8000-000000000506' THEN 'Added note'
+  ELSE NULL END
+WHERE id IN ('e6200000-0000-4000-8000-000000000505','e6200000-0000-4000-8000-000000000506',
+  'e6200000-0000-4000-8000-000000000507');
+SELECT is(public.import_availability_entries('e6200000-0000-4000-8000-000000000101',
+  (SELECT jsonb_agg(pg_temp.import_entry('301','2030-08-03','2030-08-10','Note replacement',
+    jsonb_build_array(pg_temp.reviewed(suffix,'2030-08-05','2030-08-12',note))) ORDER BY suffix)
+  FROM (VALUES ('505','Reviewed note'),('506',NULL),('507','Reviewed note'),('508',NULL)) fixture(suffix,note))),
+  '{"inserted":1,"deleted":1,"stale":[0,1,2]}'::jsonb,
+  'a Group-scoped operator refuses edited, added and cleared notes but replaces an unchanged null note');
+SELECT results_eq(
+  $$ SELECT id::text,note FROM public.availability_entries
+     WHERE id IN ('e6200000-0000-4000-8000-000000000505','e6200000-0000-4000-8000-000000000506',
+       'e6200000-0000-4000-8000-000000000507','e6200000-0000-4000-8000-000000000508') ORDER BY id $$,
+  $$ VALUES ('e6200000-0000-4000-8000-000000000505','Edited note'),
+     ('e6200000-0000-4000-8000-000000000506','Added note'),
+     ('e6200000-0000-4000-8000-000000000507',NULL) $$,
+  'refused replacements retain the saved IDs and the latest notes');
+SELECT is((SELECT count(*)::integer FROM public.availability_entries WHERE note = 'Note replacement'),1,
+  'only the unchanged-note replacement is saved');
+RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

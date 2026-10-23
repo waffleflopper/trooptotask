@@ -273,6 +273,74 @@ describe('calendar status import lane', () => {
 		});
 	});
 
+	it('sends the reviewed notes with replacements, including an empty note', async () => {
+		const session = await reviewed(
+			`${HEADER}\n"Diaz, Renata",TDY,2026-11-01,2026-11-30,`,
+			source({ entries: [entry('approved', { note: 'Approved leave' }), entry('empty')] })
+		);
+		session.answer(OVERLAP, { kind: 'pick', optionId: 'replace' });
+		const bodies: unknown[] = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			bodies.push(JSON.parse(String(init.body)));
+			return Response.json({ added: 1, removed: 2, errors: [] });
+		});
+
+		await session.commit();
+
+		expect(bodies).toEqual([
+			expect.objectContaining({
+				entries: [
+					expect.objectContaining({
+						replaces: [
+							expect.objectContaining({ id: 'approved', note: 'Approved leave' }),
+							expect.objectContaining({ id: 'empty', note: null })
+						]
+					})
+				]
+			})
+		]);
+	});
+
+	it('holds a row replacing 501 saved entries in Review until Keep both or Skip is chosen', async () => {
+		const session = await reviewed(
+			`${HEADER}\n"Diaz, Renata",TDY,2026-11-01,2026-11-30,`,
+			source({ entries: Array.from({ length: 501 }, (_, index) => entry(`saved-${index}`)) })
+		);
+		session.answer(OVERLAP, { kind: 'pick', optionId: 'replace' });
+		expect(session.review.rows[0]).toMatchObject({
+			outcome: 'fix',
+			problems: [expect.objectContaining({ field: 'startDate' })]
+		});
+		expect(session.commitBlocker).toEqual(expect.any(String));
+		const fetch = vi.fn();
+		vi.stubGlobal('fetch', fetch);
+		await session.commit();
+		expect(fetch).not.toHaveBeenCalled();
+
+		session.answer(OVERLAP, { kind: 'skip' });
+		expect(session.review.rows[0].outcome).toBe('skipped');
+		session.answer(OVERLAP, { kind: 'pick', optionId: 'keep' });
+		expect(session.review.rows[0]).toMatchObject({ outcome: 'new', change: { overlap: 'keep' } });
+		expect(session.commitBlocker).toBeNull();
+	});
+
+	it('keeps a row replacing 500 saved entries in one request', async () => {
+		const session = await reviewed(
+			`${HEADER}\n"Diaz, Renata",TDY,2026-11-01,2026-11-30,`,
+			source({ entries: Array.from({ length: 500 }, (_, index) => entry(`saved-${index}`)) })
+		);
+		session.answer(OVERLAP, { kind: 'pick', optionId: 'replace' });
+		expect(session.review.rows[0].outcome).toBe('update');
+		const replaced: string[][] = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			const { entries } = JSON.parse(String(init.body));
+			replaced.push(...entries.map((row: { replaces: { id: string }[] }) => row.replaces.map(({ id }) => id)));
+			return Response.json({ added: 1, removed: 500, errors: [] });
+		});
+		await session.commit();
+		expect(replaced).toEqual([Array.from({ length: 500 }, (_, index) => `saved-${index}`)]);
+	});
+
 	it('loads saved entries across every date in the file before Review opens', async () => {
 		const reloadEntries = vi.fn(async () => {});
 		await reviewed(

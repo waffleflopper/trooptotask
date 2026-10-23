@@ -75,6 +75,29 @@ async function calendar(ctx: ReturnType<typeof context>) {
 }
 
 describe('importAvailabilityEntries', () => {
+	it.each([
+		{ reviewed: 'Saved', current: 'Edited' },
+		{ reviewed: null, current: 'Added' },
+		{ reviewed: 'Saved', current: null }
+	])('keeps a note changed from $reviewed to $current after Review', async ({ reviewed, current }) => {
+		const ctx = context();
+		await ctx.store.update('availability_entries', 'test-org', SAVED_LEAVE, { note: current });
+		const result = await importAvailabilityEntries(ctx, {
+			entries: [
+				row({
+					startDate: '2026-11-03',
+					endDate: '2026-11-06',
+					overlap: 'replace',
+					replaces: [{ ...REVIEWED[SAVED_LEAVE], note: reviewed }]
+				})
+			]
+		});
+		expect(result).toMatchObject({ added: 0, removed: 0, errors: [{ index: 0 }] });
+		expect(await ctx.store.findMany('availability_entries', 'test-org', { id: SAVED_LEAVE })).toEqual([
+			expect.objectContaining({ id: SAVED_LEAVE, note: current })
+		]);
+	});
+
 	it('adds free rows, keeps both on keep, and swaps only the overlapped entries on replace', async () => {
 		const ctx = context();
 

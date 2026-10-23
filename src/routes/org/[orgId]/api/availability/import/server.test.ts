@@ -98,4 +98,34 @@ describe('POST /api/availability/import', () => {
 			)
 		).rejects.toMatchObject({ status: 400 });
 	});
+
+	it('requires the reviewed note before it accepts a replacement', async () => {
+		const ctx = context();
+		await expect(
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					entries: [
+						{
+							...ENTRY,
+							startDate: '2026-12-01',
+							endDate: '2026-12-03',
+							overlap: 'replace',
+							replaces: [
+								{
+									id: '00000000-0000-4000-8000-000000000030',
+									statusTypeId: STATUS,
+									startDate: '2026-12-01',
+									endDate: '2026-12-02'
+								}
+							]
+						}
+					]
+				},
+				() => ctx
+			)
+		).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('availability_entries', 'test-org')).toEqual([]);
+	});
 });

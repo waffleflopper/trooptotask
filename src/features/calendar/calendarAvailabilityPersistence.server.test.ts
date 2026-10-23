@@ -109,8 +109,8 @@ describe('Calendar ordinary availability persistence', () => {
 			startDate: '2026-11-03',
 			endDate: '2026-11-09',
 			replaces: [
-				{ id: 'entry-a', statusTypeId: 'status-a', startDate: '2026-11-01', endDate: '2026-11-04' },
-				{ id: 'entry-b', statusTypeId: 'status-b', startDate: '2026-11-08', endDate: '2026-11-12' }
+				{ id: 'entry-a', statusTypeId: 'status-a', startDate: '2026-11-01', endDate: '2026-11-04', note: 'Approved' },
+				{ id: 'entry-b', statusTypeId: 'status-b', startDate: '2026-11-08', endDate: '2026-11-12', note: null }
 			]
 		};
 		const free = { ...entry, startDate: '2026-12-01', endDate: '2026-12-01', replaces: [] };
@@ -127,8 +127,20 @@ describe('Calendar ordinary availability persistence', () => {
 						end_date: '2026-11-09',
 						note: null,
 						replaces: [
-							{ id: 'entry-a', status_type_id: 'status-a', start_date: '2026-11-01', end_date: '2026-11-04' },
-							{ id: 'entry-b', status_type_id: 'status-b', start_date: '2026-11-08', end_date: '2026-11-12' }
+							{
+								id: 'entry-a',
+								status_type_id: 'status-a',
+								start_date: '2026-11-01',
+								end_date: '2026-11-04',
+								note: 'Approved'
+							},
+							{
+								id: 'entry-b',
+								status_type_id: 'status-b',
+								start_date: '2026-11-08',
+								end_date: '2026-11-12',
+								note: null
+							}
 						]
 					},
 					{

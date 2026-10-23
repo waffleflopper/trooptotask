@@ -268,7 +268,7 @@ export function createStatusImportLane(source: StatusImportSource) {
 						statusTypeId,
 						startDate,
 						endDate,
-						note
+						note: note ?? null
 					}))
 				},
 				diff: overlapping.map((entry) => ({ label: 'Replaces', before: describe(entry), after: '' })),

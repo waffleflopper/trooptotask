@@ -213,9 +213,8 @@ export const availabilityImportInputSchema = z.object({
 
 export type AvailabilityImportInput = z.infer<typeof availabilityImportInputSchema>;
 export type AvailabilityImportEntry = AvailabilityImportInput['entries'][number];
-export type ReviewedAvailabilityEntry = Pick<
-	AvailabilityEntry,
-	'id' | 'statusTypeId' | 'startDate' | 'endDate' | 'note'
+export type ReviewedAvailabilityEntry = Required<
+	Pick<AvailabilityEntry, 'id' | 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
 >;
 export interface AvailabilityImportWrite extends AvailabilityCreate {
 	replaces: readonly ReviewedAvailabilityEntry[];

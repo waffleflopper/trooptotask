@@ -219,6 +219,48 @@ try {
 		'/src/features/personnel/signInRosterPersonnelLookup.server.ts'
 	);
 	const calendar = createSupabasePersonnelCalendarRosterPort(() => service);
+	const { createSupabaseCalendarCatalogPersistence } = await vite.ssrLoadModule(
+		'/src/features/calendar/calendarCatalogPersistence.server.ts'
+	);
+	const today = new Date().toISOString().slice(0, 10);
+	const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+	const dutyType = randomUUID();
+	dataOrThrow(
+		await service.from('assignment_types').insert({
+			id: dutyType,
+			organization_id: ids.orgA,
+			name: 'Provider CQ',
+			short_name: 'PCQ',
+			assign_to: 'personnel'
+		}),
+		'inaugural roster'
+	);
+	dataOrThrow(
+		await service
+			.from('daily_assignments')
+			.insert({ organization_id: ids.orgA, assignment_type_id: dutyType, date: yesterday, assignee_id: ids.activeA1 }),
+		'backdated provider duty'
+	);
+	const catalog = createSupabaseCalendarCatalogPersistence(actors.calendarOrg.client, ids.orgA);
+	assert.equal(
+		(await catalog.findOpenRosterForm(dutyType)).startsOn,
+		yesterday,
+		'the real computed field gives a viewer the effective inaugural start'
+	);
+	assert.deepEqual(
+		(await calendar.listAttributeTimelines(actors.calendarOrg.actor, { from: today, through: today })).map(
+			({ id }) => id
+		),
+		[ids.activeA1, ids.activeA2, ids.activeUnassigned],
+		'the provider omits old archived people without references'
+	);
+	assert.deepEqual(
+		(await calendar.listAttributeTimelines(actors.calendarGroup.actor, { from: today, through: today })).map(
+			({ id }) => id
+		),
+		[ids.activeA1],
+		'the bounded provider read keeps Group scope'
+	);
 	const onboarding = createSupabasePersonnelOnboardingRosterPort(() => service);
 	const training = createSupabasePersonnelTrainingRosterPort(() => service);
 	const criticalTasks = createSupabasePersonnelCriticalTasksRosterPort(() => service);

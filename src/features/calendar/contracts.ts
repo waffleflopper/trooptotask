@@ -6,6 +6,7 @@ import type {
 	AssignmentSource,
 	Da6Segment,
 	DateKey,
+	DateSpan,
 	Excusal,
 	MonthKey,
 	OpenForm,
@@ -470,8 +471,8 @@ export interface CalendarCatalogPersistence {
 	findOpenRosterForm(assignmentTypeId: string): Promise<OpenForm | null>;
 	/** Closed forms that overlap `month`, oldest first, each carrying only that month's saved segment. */
 	listClosedRosterForms(assignmentTypeId: string, month: MonthKey): Promise<ClosedFormMonth[]>;
-	/** Every excusal on this roster, reinstated ones included, so a close can save who was excused when. */
-	listRosterExcusals(assignmentTypeId: string): Promise<Excusal[]>;
+	/** Excusals overlapping the simulated period, including reinstated ones. */
+	listRosterExcusals(assignmentTypeId: string, span: DateSpan): Promise<Excusal[]>;
 	/** Makes `excusals` the open set from `today` on, ending the others yesterday. */
 	setRosterExcusals(assignmentTypeId: string, today: string, excusals: readonly RosterExcusalInput[]): Promise<void>;
 	/**

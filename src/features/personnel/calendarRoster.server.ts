@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { PERSONNEL_FIELDS, toPersonnel } from './personnelPersistenceMapping.server';
@@ -13,9 +14,6 @@ import { queryScopedPersonnelRows } from './scopedRosterQuery.server';
 // Targeted IDs travel in a PostgREST URL. A 500-Person Calendar batch needs
 // smaller lookups so the provider does not reject the request as URI too long.
 const TARGETED_LOOKUP_SIZE = 100;
-
-const TIMELINE_FIELDS = 'id, rank, last_name, first_name, mos, clinic_role, group_id, created_at, archived_at';
-const HISTORY_FIELDS = 'effective_on, rank, mos, clinic_role, group_id, archived';
 
 type HistoryRow = {
 	effective_on: string;
@@ -82,13 +80,25 @@ export function createSupabasePersonnelCalendarRosterPort(
 			});
 			return rows.map(toPersonnel);
 		},
-		async listAttributeTimelines(actor) {
+		async listAttributeTimelines(actor, span) {
 			await requireCalendarRosterRead(actor);
-			const rows = await queryScopedPersonnelRows(getAdminClient, actor.orgId, actor.scopeSet, {
-				select: `${TIMELINE_FIELDS}, history:personnel_attribute_history(${HISTORY_FIELDS})`,
-				status: 'all'
+			if (actor.scopeSet.kind === 'groups' && !actor.scopeSet.groupIds.length) return [];
+			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
+				const { data, error } = await getAdminClient()
+					.rpc('calendar_roster_attribute_timelines', {
+						p_organization_id: actor.orgId,
+						p_from: span.from,
+						p_through: span.through,
+						p_group_ids: actor.scopeSet.kind === 'groups' ? actor.scopeSet.groupIds : null
+					})
+					.order('last_name')
+					.order('first_name')
+					.order('id')
+					.range(from, to);
+				if (error) throw new Error(error.message);
+				return { data, error };
 			});
-			return rows.map(toAttributeTimeline);
+			return (result.data ?? []).map(toAttributeTimeline);
 		},
 		async listAssigneeIds(actor) {
 			await requireCalendarRosterRead(actor);
@@ -118,4 +128,18 @@ export function createSupabasePersonnelCalendarRosterPort(
 			return new Map(pages.flat().map((row) => [row.id as string, (row.group_id as string | null) ?? null]));
 		}
 	};
+}
+
+export function boundAttributeTimelines(
+	people: readonly PersonnelAttributeTimeline[],
+	span: { from: string; through: string },
+	referencedPeople: ReadonlySet<string>
+): PersonnelAttributeTimeline[] {
+	return people.flatMap((person) => {
+		const baseline = person.states.findLastIndex((state) => state.from <= span.from);
+		const states = person.states.slice(Math.max(0, baseline)).filter((state) => state.from <= span.through);
+		if (!states.some((state) => !state.archived) && !referencedPeople.has(person.id)) return [];
+		const [first, ...rest] = states;
+		return first ? [{ ...person, states: [first, ...rest] }] : [];
+	});
 }

@@ -346,13 +346,13 @@ export function createSupabaseCalendarCatalogPersistence(
 		async findOpenRosterForm(assignmentTypeId) {
 			const { data, error } = await client
 				.from('roster_forms')
-				.select(ROSTER_FORM_FIELDS)
+				.select(`${ROSTER_FORM_FIELDS}, effective_starts_on:roster_form_effective_start`)
 				.eq('organization_id', orgId)
 				.eq('assignment_type_id', assignmentTypeId)
 				.is('ends_on', null)
-				.maybeSingle<RosterFormRow>();
+				.maybeSingle<RosterFormRow & { effective_starts_on: string }>();
 			if (error) throw new Error(error.message);
-			return data && toOpenRosterForm(data);
+			return data && toOpenRosterForm({ ...data, starts_on: data.effective_starts_on });
 		},
 		async listClosedRosterForms(assignmentTypeId, month) {
 			const { data, error } = await client
@@ -368,13 +368,15 @@ export function createSupabaseCalendarCatalogPersistence(
 			if (error) throw new Error(error.message);
 			return data.map((row) => toClosedFormMonth(row, month));
 		},
-		async listRosterExcusals(assignmentTypeId) {
+		async listRosterExcusals(assignmentTypeId, span) {
 			const result = await selectAllSupabaseRows<RosterExcusalRow & { id: string }>(async (from, to) => {
 				const { data, error } = await client
 					.from('roster_excusals')
 					.select('id, personnel_id, reason, starts_on, ends_on')
 					.eq('organization_id', orgId)
 					.eq('assignment_type_id', assignmentTypeId)
+					.lte('starts_on', span.through)
+					.or(`ends_on.is.null,ends_on.gte.${span.from}`)
 					.order('starts_on', { ascending: true })
 					.order('id', { ascending: true })
 					.range(from, to)

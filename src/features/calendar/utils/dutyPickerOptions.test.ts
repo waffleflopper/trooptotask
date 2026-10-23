@@ -124,6 +124,23 @@ describe('dutyPickerOptions', () => {
 		]);
 	});
 
+	it("before the roster's DA 6, on a day that would not count, offers everyone not excused in name order", () => {
+		const roster: RosterDay = { track: null, formStartsOn: '2026-10-30', movesStart: false };
+
+		expect(
+			options({ roster }).map((option) =>
+				option.kind === 'personnel' ? [option.id, option.count, option.offRoster] : [option.id]
+			)
+		).toEqual([
+			['p-hale', undefined, false],
+			['p-liang', undefined, false],
+			['p-ortiz-c', undefined, false],
+			['p-ortiz-a', undefined, false],
+			['p-ortiz-b', undefined, false],
+			['p-reed', undefined, false]
+		]);
+	});
+
 	it('offers no one while the roster day is unread, so nothing is picked before the counts arrive', () => {
 		expect(options({ unreadRoster: 'loading' })).toEqual([]);
 	});

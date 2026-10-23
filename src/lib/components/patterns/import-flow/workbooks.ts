@@ -56,7 +56,7 @@ export async function buildNotImported(
 		const physicalRows = new Map<number, { cells: string[]; reasons: Set<string>; occupied: Set<number> }[]>();
 		for (const item of items) {
 			const pivot = item.row.pivot;
-			const pivotHeader = pivot ? (item.row.raw[pivot.field] ?? item.row.pivotHeader) : item.row.pivotHeader;
+			const pivotHeader = (pivot && item.row.raw[pivot.field]?.trim()) || item.row.pivotHeader;
 			let pivotColumn = item.row.pivotColumn;
 			if (
 				pivotColumn !== undefined &&
@@ -72,8 +72,8 @@ export async function buildNotImported(
 				}
 			}
 			const group = physicalRows.get(item.row.rowNumber);
-			let row = group?.[0];
-			if (!row || (pivotColumn !== undefined && row.occupied.has(pivotColumn))) {
+			let row = group?.find((candidate) => pivotColumn === undefined || !candidate.occupied.has(pivotColumn));
+			if (!row) {
 				row = { cells: [...item.row.cells], reasons: new Set(), occupied: new Set() };
 				for (const [column, field] of fieldColumns) {
 					const reviewed = item.row.raw[field];

@@ -24,7 +24,6 @@ const ORG = '00000000-0000-4000-8000-000000000001';
 const PERSON = '00000000-0000-4000-8000-000000000010';
 const LEAVE = '00000000-0000-4000-8000-000000000020';
 const TDY = '00000000-0000-4000-8000-000000000021';
-const RANGE = { rangeStart: '2026-11-01', rangeEnd: '2026-11-30' };
 
 function fixture() {
 	const people = [
@@ -133,10 +132,10 @@ describe('Calendar-only group-scoped status import', () => {
 			})),
 			entries: [],
 			loaded: [],
-			async reloadEntries(range: typeof RANGE) {
+			async reloadEntries(range) {
 				const result = await handleUseCaseRequest(
 					_getConfig,
-					ctx,
+					request,
 					{ ...range, collections: ['availability'] },
 					() => ctx
 				);

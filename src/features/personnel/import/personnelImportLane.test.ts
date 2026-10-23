@@ -97,6 +97,70 @@ describe('personnel import lane', () => {
 		expect(match(source, 'person', { lastName: 'Nguyen', firstName: 'Kim' })).toEqual({ kind: 'none' });
 	});
 
+	it('uses rank to review same-name people in the same group as separate updates', async () => {
+		const source = lane({ personnel: [person('p1'), person('p2', { rank: 'SPC' })] });
+		const session = new ImportSession(() => source);
+		const csv = [
+			'Last name,First name,Group,Rank,MOS',
+			'Garcia,Luis,1st Platoon,SGT,25B',
+			'Garcia,Luis,1st Platoon,SPC,11B'
+		].join('\n');
+
+		await session.chooseFile([new File([csv], 'namesakes.csv')]);
+		session.goTo('review');
+
+		expect(session.review.questions).toEqual([]);
+		expect(session.review.rows).toMatchObject([
+			{ outcome: 'update', key: 'p1', change: { personnelId: 'p1', changes: { mos: '25B' } } },
+			{ outcome: 'update', key: 'p2', change: { personnelId: 'p2', changes: { mos: '11B' } } }
+		]);
+		expect(session.commitBlocker).toBeNull();
+	});
+
+	it('keeps ambiguous ranks in separate questions and applies each answer only to its rank', async () => {
+		const source = lane({ personnel: [person('p1'), person('p2', { rank: 'SPC' })] });
+		const session = new ImportSession(() => source);
+		const csv = ['Last name,First name,Group,Rank', 'Garcia,Luis,1st Platoon,SSG', 'Garcia,Luis,1st Platoon,PFC'].join(
+			'\n'
+		);
+
+		await session.chooseFile([new File([csv], 'promotions.csv')]);
+		session.goTo('review');
+
+		expect(session.review.questions).toMatchObject([
+			{ reference: 'person', rowCount: 1 },
+			{ reference: 'person', rowCount: 1 }
+		]);
+		const [sergeant, privateFirstClass] = session.review.questions;
+		session.answer(sergeant.key, { kind: 'pick', optionId: 'p1' });
+		expect(session.review.rows).toMatchObject([
+			{ outcome: 'update', change: { personnelId: 'p1', changes: { rank: 'SSG' } } },
+			{ outcome: 'fix' }
+		]);
+		session.answer(privateFirstClass.key, { kind: 'pick', optionId: 'p2' });
+		expect(session.review.rows).toMatchObject([
+			{ outcome: 'update', change: { personnelId: 'p1', changes: { rank: 'SSG' } } },
+			{ outcome: 'update', change: { personnelId: 'p2', changes: { rank: 'PFC' } } }
+		]);
+		expect(session.commitBlocker).toBeNull();
+	});
+
+	it('shares a person question for rows with the same name, group and unresolved rank', async () => {
+		const source = lane({ personnel: [person('p1'), person('p2', { rank: 'SPC' })] });
+		const session = new ImportSession(() => source);
+		const csv = ['Last name,First name,Group,Rank', 'Garcia,Luis,1st Platoon,SSG', 'Garcia,Luis,1st Platoon,SSG'].join(
+			'\n'
+		);
+
+		await session.chooseFile([new File([csv], 'duplicates.csv')]);
+		session.goTo('review');
+
+		expect(session.review.questions).toMatchObject([{ reference: 'person', rowCount: 2 }]);
+		session.answer(session.review.questions[0].key, { kind: 'pick', optionId: 'p1' });
+		expect(session.review.rows).toMatchObject([{ outcome: 'fix' }, { outcome: 'fix' }]);
+		expect(session.commitBlocker).not.toBeNull();
+	});
+
 	it('reads ranks exactly and only suggests a lenient spelling', () => {
 		const source = lane();
 		expect(match(source, 'rank', { rank: 'sgt' })).toMatchObject({ kind: 'one', option: { id: 'SGT' } });

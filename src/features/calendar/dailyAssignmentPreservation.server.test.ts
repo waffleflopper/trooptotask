@@ -282,7 +282,11 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 				assigneeId,
 				created_at: '2026-02-01T12:00:00.000Z'
 			});
-			expect((await fetchCalendarRangeData(ctx, range)).dailyAssignments).toEqual([saved]);
+			expect(
+				(await fetchCalendarRangeData(ctx, range)).dailyAssignments?.filter(
+					(row) => row.date === '2026-03-15' && row.assignmentTypeId === GROUP_TYPE
+				)
+			).toEqual([saved]);
 		}
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({ action: 'daily_assignment.updated', resourceId: 'group-slot' }),

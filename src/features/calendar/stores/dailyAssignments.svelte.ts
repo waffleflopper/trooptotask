@@ -575,6 +575,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 
 		async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
 			const existing = getAssignmentSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
+			if (existing?.assigneeId === assigneeId) return true;
 
 			let removeMutationId: string | null = null;
 			if (existing) {

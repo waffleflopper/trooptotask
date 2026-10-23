@@ -439,7 +439,7 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 		updates: CompareAndUpdate[],
 		scope?: Pick<FixtureFindOptions, 'filters' | 'isNull'>
 	): Promise<CompareAndUpdateResult<T>>;
-	/** A slot without a source writes a hand assignment. */
+	/** Changed slots without a source become hand assignments; unchanged slots retain their source. */
 	replaceDailyAssignmentSlots(
 		orgId: string,
 		replaceDays: string[],
@@ -600,23 +600,40 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 					row.organization_id !== orgId ||
 					(!days.has(String(row.date)) && !slotKeys.has(`${row.date}::${row.assignment_type_id}`))
 			);
+			const existingSlots = new Map(
+				rows
+					.filter((row) => row.organization_id === orgId)
+					.map((row) => [`${row.date}::${row.assignment_type_id}`, row])
+			);
 			const inserted = slots
 				.filter((slot) => slot.assigneeId)
-				.map((slot) => ({
-					id: crypto.randomUUID(),
-					organization_id: orgId,
-					date: slot.date,
-					assignment_type_id: slot.assignmentTypeId,
-					assignee_id: slot.assigneeId,
-					source: slot.source ?? 'manual'
-				}));
+				.map((slot) => {
+					const existing = existingSlots.get(`${slot.date}::${slot.assignmentTypeId}`);
+					return {
+						...existing,
+						id: existing ? String(existing.id) : crypto.randomUUID(),
+						organization_id: orgId,
+						date: slot.date,
+						assignment_type_id: slot.assignmentTypeId,
+						assignee_id: slot.assigneeId,
+						...(!existing ? { created_at: new Date().toISOString() } : {}),
+						source:
+							slot.source === 'roster'
+								? 'roster'
+								: existing?.assignee_id === slot.assigneeId
+									? (existing.source ?? 'manual')
+									: 'manual'
+					};
+				})
+				.sort((a, b) => a.date.localeCompare(b.date) || a.assignment_type_id.localeCompare(b.assignment_type_id));
 			rows.splice(0, rows.length, ...retained, ...inserted);
 			return inserted.map((row) => ({
 				id: row.id,
 				date: row.date,
 				assignmentTypeId: row.assignment_type_id,
 				assigneeId: row.assignee_id,
-				organization_id: row.organization_id
+				organization_id: row.organization_id,
+				...(typeof row.created_at === 'string' ? { created_at: row.created_at } : {})
 			}));
 		},
 

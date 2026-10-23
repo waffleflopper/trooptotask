@@ -615,7 +615,10 @@ export interface CalendarAssignmentReader {
 	>;
 }
 
-/** Replaces the selected slots or complete days in one transaction; a failure keeps the existing assignments. */
+/**
+ * Saves selected slots or complete days atomically, preserving surviving slot identities and unchanged rows.
+ * Returns every requested non-empty slot, including unchanged rows; a failure keeps the existing assignments.
+ */
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
 	/**

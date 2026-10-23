@@ -30,7 +30,7 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 }
 
 describe('replaceDailyAssignmentDay', () => {
-	it('deletes existing assignments for the date and inserts new batch', async () => {
+	it('preserves surviving slot identity, removes omitted slots and creates new slots for the day', async () => {
 		const ctx = buildContext();
 
 		ctx.store.seed('daily_assignments', [
@@ -39,7 +39,8 @@ describe('replaceDailyAssignmentDay', () => {
 				organization_id: 'test-org',
 				date: '2025-04-01',
 				assignment_type_id: TYPE_1,
-				assignee_id: PERSON_1
+				assignee_id: PERSON_1,
+				created_at: '2025-03-01T12:00:00.000Z'
 			},
 			{
 				id: 'old-2',
@@ -68,7 +69,13 @@ describe('replaceDailyAssignmentDay', () => {
 		expect(result).toHaveLength(2);
 		expect(result).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ date: '2025-04-01', assignmentTypeId: TYPE_1, assigneeId: PERSON_10 }),
+				expect.objectContaining({
+					id: 'old-1',
+					date: '2025-04-01',
+					assignmentTypeId: TYPE_1,
+					assigneeId: PERSON_10,
+					created_at: '2025-03-01T12:00:00.000Z'
+				}),
 				expect.objectContaining({ date: '2025-04-01', assignmentTypeId: TYPE_3, assigneeId: PERSON_11 })
 			])
 		);
@@ -77,7 +84,13 @@ describe('replaceDailyAssignmentDay', () => {
 		expect(remaining).toHaveLength(3);
 
 		const ids = remaining.map((r) => r.id);
-		expect(ids).not.toContain('old-1');
+		expect(remaining).toContainEqual(
+			expect.objectContaining({
+				id: 'old-1',
+				assignee_id: PERSON_10,
+				created_at: '2025-03-01T12:00:00.000Z'
+			})
+		);
 		expect(ids).not.toContain('old-2');
 
 		expect(ids).toContain('keep-1');

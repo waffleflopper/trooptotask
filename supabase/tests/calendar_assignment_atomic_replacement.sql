@@ -69,6 +69,10 @@ SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
   '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":""}]'::jsonb
 ) $$, 'P0001', 'Assignment slot unavailable', 'hidden occupied Group slot cannot be cleared');
 SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":"b1100000-0000-4000-8000-000000000201"}]'::jsonb
+) $$, 'P0001', 'Assignment slot unavailable', 'hidden occupied Group slot cannot be reassigned');
+SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
   'b1100000-0000-4000-8000-000000000101',ARRAY['2030-03-01']::date[],'[]'::jsonb
 ) $$, 'P0001', 'Assignment slot unavailable', 'whole-day clear cannot partially remove visible rows');
 SELECT is((SELECT count(*)::integer FROM public.daily_assignments WHERE organization_id=
@@ -157,13 +161,18 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','b1100000-0000-4000-8000-000000000001',true);
 SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
   'b1100000-0000-4000-8000-000000000101','{}'::date[],
-  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"}]'::jsonb
-) $$, '23514', 'synthetic insert failure', 'insert failure rolls back the prior delete');
+  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"},
+    {"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":""}]'::jsonb
+) $$, '23514', 'synthetic insert failure', 'insert failure rolls back the companion slot clear');
 RESET ROLE;
 SELECT is((SELECT assignee_id FROM public.daily_assignments WHERE organization_id=
   'b1100000-0000-4000-8000-000000000101' AND date='2030-03-01'
   AND assignment_type_id='b1100000-0000-4000-8000-000000000401'),
   'b1100000-0000-4000-8000-000000000302','the successful replacement survives a later failed replacement');
+SELECT is((SELECT id FROM public.daily_assignments WHERE organization_id=
+  'b1100000-0000-4000-8000-000000000101' AND date='2030-03-01'
+  AND assignment_type_id='b1100000-0000-4000-8000-000000000402'),
+  'b1100000-0000-4000-8000-000000000502'::uuid,'failed upsert restores the companion cleared Group row');
 DROP TRIGGER fail_atomic_assignment_insert ON public.daily_assignments;
 
 SET LOCAL ROLE authenticated;

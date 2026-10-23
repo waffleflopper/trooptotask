@@ -137,7 +137,7 @@ describe('loadRosterSignals', () => {
 				rosterAttentionCell({ kind: 'ready', value: { ...person, loss: null } })
 			])
 		).toEqual([
-			['a', { kind: 'withheld' }, { kind: 'item', text: 'CPR/BLS expired', tone: 'red' }],
+			['a', { kind: 'withheld' }, { kind: 'item', text: 'CPR/BLS expired', more: 0, tone: 'red' }],
 			['b', { kind: 'withheld' }, { kind: 'clear' }]
 		]);
 	});

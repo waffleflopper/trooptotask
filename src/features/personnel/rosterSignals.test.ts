@@ -108,9 +108,9 @@ describe('buildPersonSignalCore', () => {
 	const d = core('d');
 
 	it('shows the most urgent item and counts every other issue, follow-ups by their number', () => {
-		expect(rosterAttentionCell(ready(a))).toEqual({ kind: 'item', text: 'CPR/BLS expired · 3 more', tone: 'red' });
-		expect(rosterAttentionCell(ready(b))).toEqual({ kind: 'item', text: 'SHARP missing', tone: 'red' });
-		expect(rosterAttentionCell(ready(c))).toEqual({ kind: 'item', text: 'NCOER Annual due', tone: 'amber' });
+		expect(rosterAttentionCell(ready(a))).toEqual({ kind: 'item', text: 'CPR/BLS expired', more: 3, tone: 'red' });
+		expect(rosterAttentionCell(ready(b))).toEqual({ kind: 'item', text: 'SHARP missing', more: 0, tone: 'red' });
+		expect(rosterAttentionCell(ready(c))).toEqual({ kind: 'item', text: 'NCOER Annual due', more: 0, tone: 'amber' });
 		expect(rosterAttentionCell(ready(d))).toEqual({ kind: 'clear' });
 	});
 
@@ -118,11 +118,13 @@ describe('buildPersonSignalCore', () => {
 		expect(rosterAttentionCell(ready(a), { kind: 'chip', chip: 'follow-ups' })).toEqual({
 			kind: 'item',
 			text: '2 follow-ups overdue',
+			more: 0,
 			tone: 'red'
 		});
 		expect(rosterAttentionCell(ready(a), { kind: 'chip', chip: 'expiring' })).toEqual({
 			kind: 'item',
 			text: 'Airway expiring',
+			more: 0,
 			tone: 'amber'
 		});
 	});
@@ -149,7 +151,8 @@ describe('buildPersonSignalCore', () => {
 		const person = core('p', { training: [training('SHARP', 'expiring', 2)], followUps: [overdue('f')] });
 		expect(rosterAttentionCell(ready(person))).toEqual({
 			kind: 'item',
-			text: 'SHARP expiring · 1 more',
+			text: 'SHARP expiring',
+			more: 1,
 			tone: 'amber'
 		});
 		const group = summarizeRosterSignals({ rows: [row(person)], access: ALL, lossesEnabled: false, statusTypes: [] });
@@ -181,6 +184,7 @@ describe('buildPersonSignalCore', () => {
 		expect(rosterAttentionCell(ready(core('p', { evaluation: evaluation(-3, 'overdue') })))).toEqual({
 			kind: 'item',
 			text: 'NCOER Annual overdue',
+			more: 0,
 			tone: 'red'
 		});
 	});

@@ -71,14 +71,14 @@
 				sortable: false,
 				width: '28px'
 			},
-			{ key: 'rank', header: 'Rank', value: (p) => p.rank, width: '64px', hiddenBelow: '@xl' },
+			{ key: 'rank', header: 'Rank', value: (p) => p.rank, width: '64px', hiddenBelow: '@3xl' },
 			{
 				key: 'name',
 				header: 'Name',
 				value: (p) => `${p.lastName}, ${p.firstName}`,
 				compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
 			},
-			{ key: 'mos', header: 'MOS', value: (p) => p.mos, width: '72px', hiddenBelow: '@xl' },
+			{ key: 'mos', header: 'MOS', value: (p) => p.mos, width: '72px', hiddenBelow: '@3xl' },
 			{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole, hiddenBelow: '@3xl' },
 			{ key: 'group', header: 'Group', value: (p) => p.groupName, hiddenBelow: '@3xl' },
 			{
@@ -87,7 +87,9 @@
 				value: () => '',
 				searchable: false,
 				sortable: false,
-				width: '170px'
+				// Fixed, so the columns hold still when the lane's text replaces the skeleton.
+				width: 'min(22rem, 35cqw)',
+				hiddenBelow: '@xl'
 			},
 			{
 				key: 'actions',

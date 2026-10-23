@@ -56,6 +56,25 @@
 	}
 </script>
 
+{#snippet attentionText()}
+	{#if attention.kind === 'skeleton'}
+		<Skeleton class="h-3 w-24" />
+	{:else if attention.kind === 'clear'}
+		<span class="font-mono text-xs text-muted-foreground">—</span>
+	{:else if attention.kind === 'item'}
+		{@const more = attention.more > 0 ? ` · ${attention.more} more` : ''}
+		<span
+			class={[
+				'flex min-w-0 @xl/data-table:max-w-[calc(min(22rem,35cqw)-1rem)] font-mono text-xs whitespace-nowrap',
+				attention.tone === 'red' ? 'text-danger-foreground' : 'text-warning-foreground'
+			]}
+			title="{attention.text}{more}"
+			><span class="truncate">{attention.text}</span>{#if more}<span class="shrink-0 whitespace-pre">{more}</span
+				>{/if}</span
+		>
+	{/if}
+{/snippet}
+
 <Table.Row
 	data-roster-row={person.id}
 	data-state={selected ? 'selected' : undefined}
@@ -67,7 +86,13 @@
 	onfocusin={() => controls.focused(person.id)}
 >
 	{#each columns as column (column.key)}
-		<Table.Cell class={DataTable.columnCellClass(column)} style={column.width ? `width: ${column.width}` : undefined}>
+		<Table.Cell
+			class={[
+				DataTable.columnCellClass(column),
+				column.key === 'name' && '@max-xl/data-table:w-full @max-xl/data-table:max-w-0'
+			]}
+			style={column.width ? `width: ${column.width}` : undefined}
+		>
 			{#if column.key === 'select'}
 				<DataTable.SelectionCheckbox
 					checked={selected}
@@ -91,51 +116,46 @@
 					></span>
 				{/if}
 			{:else if column.key === 'name'}
-				<span class="flex min-w-0 items-center gap-2">
-					{#if canOpen}
-						<a
-							href={controls.recordHref(person)}
-							tabindex="-1"
-							class="truncate font-semibold text-foreground hover:underline"
-							data-sveltekit-preload-data="tap"
-						>
-							<span class="@xl/data-table:hidden">{person.rank}</span>
-							{person.lastName}, {person.firstName}
-						</a>
-					{:else}
-						<span class="truncate font-semibold">
-							<span class="@xl/data-table:hidden">{person.rank}</span>
-							{person.lastName}, {person.firstName}
-						</span>
-					{/if}
-					{#if loss}
-						<Badge
-							variant={loss.triggerType === 'ETS' ? 'secondary' : 'outline'}
-							class="shrink-0 font-mono"
-							data-testid="loss-indicator-{person.id}"
-						>
-							{lossBadgeLabel(loss)}
-						</Badge>
-					{/if}
+				<span class="grid min-w-0 gap-0.5">
+					<span class="flex min-w-0 items-center gap-2">
+						{#if canOpen}
+							<a
+								href={controls.recordHref(person)}
+								tabindex="-1"
+								class="truncate font-semibold text-foreground hover:underline"
+								data-sveltekit-preload-data="tap"
+							>
+								<span class="@3xl/data-table:hidden">{person.rank}</span>
+								{person.lastName}, {person.firstName}
+							</a>
+						{:else}
+							<span class="truncate font-semibold">
+								<span class="@3xl/data-table:hidden">{person.rank}</span>
+								{person.lastName}, {person.firstName}
+							</span>
+						{/if}
+						{#if loss}
+							<Badge
+								variant={loss.triggerType === 'ETS' ? 'secondary' : 'outline'}
+								class="shrink-0 font-mono"
+								data-testid="loss-indicator-{person.id}"
+							>
+								{lossBadgeLabel(loss)}
+							</Badge>
+						{/if}
+					</span>
+					<!-- Below 36rem Needs attention folds under the name; the line keeps its height while loading. -->
+					<span class="flex h-4 min-w-0 items-center @xl/data-table:hidden">{@render attentionText()}</span>
 				</span>
 			{:else if column.key === 'attention'}
-				{#if attention.kind === 'skeleton'}
-					<Skeleton class="h-3 w-24" />
-				{:else if attention.kind === 'clear'}
-					<span class="font-mono text-xs text-muted-foreground">—</span>
-				{:else if attention.kind === 'item'}
-					<span
-						class={[
-							'block truncate font-mono text-xs',
-							attention.tone === 'red' ? 'text-danger-foreground' : 'text-warning-foreground'
-						]}
-						title={attention.text}>{attention.text}</span
-					>
-				{/if}
+				{@render attentionText()}
 			{:else if column.key === 'actions'}
 				<span class="flex items-center justify-end gap-1">
 					{#if !controls.selecting}
-						<span class="invisible flex gap-1 group-focus-within/row:visible group-hover/row:visible">
+						<!-- Hover reveals them; a touch screen has no hover, so they stay shown there. -->
+						<span
+							class="invisible flex gap-1 group-focus-within/row:visible group-hover/row:visible [@media(hover:none)]:visible"
+						>
 							{#if canOpen}
 								<Button
 									type="button"

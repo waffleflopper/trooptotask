@@ -387,7 +387,8 @@ export type RosterAttentionCell =
 	| { kind: 'skeleton' }
 	| { kind: 'blank' }
 	| { kind: 'clear' }
-	| { kind: 'item'; text: string; tone: SignalTone };
+	/** `more` counts the person's other items, shown apart so a truncated item never hides it. */
+	| { kind: 'item'; text: string; more: number; tone: SignalTone };
 
 function itemText(item: SignalItem): string {
 	switch (item.kind) {
@@ -402,8 +403,7 @@ function itemText(item: SignalItem): string {
 }
 
 function matchCell(match: ChipMatch): RosterAttentionCell {
-	const more = match.otherCount > 0 ? ` · ${match.otherCount} more` : '';
-	return { kind: 'item', text: `${itemText(match.item)}${more}`, tone: signalTone(match.item) };
+	return { kind: 'item', text: itemText(match.item), more: match.otherCount, tone: signalTone(match.item) };
 }
 
 /** The Needs attention cell: the most urgent item, or the item that matched an active chip. */
@@ -413,11 +413,11 @@ export function rosterAttentionCell(row: SignalRow, filter: RosterFilter | null 
 	const signals = row.value;
 	if (filter?.kind === 'chip') {
 		if (filter.chip === 'counseling' && signals.matches.counseling) {
-			return { kind: 'item', text: 'Counseling due', tone: 'amber' };
+			return { kind: 'item', text: 'Counseling due', more: 0, tone: 'amber' };
 		}
 		if (filter.chip === 'losses' && signals.loss?.chip) {
 			const loss = signals.loss.chip;
-			return { kind: 'item', text: `${lossBadgeLabel(loss)} left`, tone: 'amber' };
+			return { kind: 'item', text: `${lossBadgeLabel(loss)} left`, more: 0, tone: 'amber' };
 		}
 		const match =
 			filter.chip === 'expired' || filter.chip === 'expiring' || filter.chip === 'follow-ups'

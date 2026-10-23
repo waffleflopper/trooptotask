@@ -595,11 +595,11 @@ describe('owned Critical Tasks library provider', () => {
 			}
 		);
 		expect(
-			reply.results.map((result) =>
-				result.kind === 'failed'
-					? [result.kind, result.message]
-					: [result.kind, result.record.id, result.record.title, result.record.archivedAt]
-			)
+			reply.results.map((result) => {
+				if (result.kind === 'failed') return [result.kind, result.message];
+				if (result.kind === 'unchanged') return [result.kind];
+				return [result.kind, result.record.id, result.record.title, result.record.archivedAt];
+			})
 		).toEqual([
 			['added', rows[1].id, 'Kept task', null],
 			['failed', 'This task could not be saved.'],
@@ -626,9 +626,11 @@ function importLost(library: ReturnType<typeof provider>['library'], records = l
 }
 
 const addedCodes = (reply: Awaited<ReturnType<typeof importIctTasksBatch>>) =>
-	reply.results.map((result) =>
-		result.kind === 'failed' ? result.message : `${result.kind} ${result.record.taskCode}`
-	);
+	reply.results.map((result) => {
+		if (result.kind === 'failed') return result.message;
+		if (result.kind === 'unchanged') return result.kind;
+		return `${result.kind} ${result.record.taskCode}`;
+	});
 
 describe('#1643 task import recovery after a lost provider reply', () => {
 	it.each(['transport', 'unavailable'] as const)(

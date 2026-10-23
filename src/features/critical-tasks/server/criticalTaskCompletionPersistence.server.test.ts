@@ -617,9 +617,7 @@ describe('owned Critical Tasks completion provider', () => {
 					}))
 				}
 			);
-			expect(
-				reply.results.map((result) => (result.kind === 'failed' ? result : [result.kind, result.record.id]))
-			).toEqual([
+			expect(reply.results.map((result) => ('record' in result ? [result.kind, result.record.id] : result))).toEqual([
 				['added', rows[0].id],
 				['added', rows[1].id]
 			]);
@@ -691,7 +689,7 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 				['person-b', '2026-04-02']
 			]);
 			expect(
-				reply.results.map((result) => (result.kind === 'failed' ? result : [result.kind, result.record.personnelId]))
+				reply.results.map((result) => ('record' in result ? [result.kind, result.record.personnelId] : result))
 			).toEqual([
 				['added', 'person-a'],
 				['added', 'person-b']
@@ -775,10 +773,13 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 			{ ...ctx, criticalTaskCompletions: ledger },
 			{ records: [row('person-a', 'First'), row('person-a', 'Again')] }
 		);
-		expect(reply.results.map((result) => (result.kind === 'failed' ? result.message : result.record.notes))).toEqual([
-			'First',
-			'This completion appears more than once in this import.'
-		]);
+		expect(
+			reply.results.map((result) => {
+				if (result.kind === 'failed') return result.message;
+				if (result.kind === 'unchanged') return result.kind;
+				return result.record.notes;
+			})
+		).toEqual(['First', 'This completion appears more than once in this import.']);
 		expect(rows.map((saved) => saved.notes)).toEqual(['First']);
 	});
 });

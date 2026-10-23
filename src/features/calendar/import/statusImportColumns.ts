@@ -22,14 +22,6 @@ export const statusImportColumns = {
 		aliases: ['first name', 'firstname', 'first', 'given name', 'fname'],
 		example: 'Luis'
 	},
-	status: {
-		label: 'Status',
-		kind: 'text',
-		required: true,
-		aliases: ['status', 'status type', 'type', 'reason', 'event', 'category'],
-		example: 'Leave',
-		hint: 'Matched to your status types by name.'
-	},
 	startDate: {
 		label: 'From',
 		kind: 'date',
@@ -43,6 +35,14 @@ export const statusImportColumns = {
 		required: true,
 		aliases: ['to', 'end date', 'end', 'through', 'thru', 'ends', 'end dt', 'to date', 'return'],
 		example: '2026-11-09'
+	},
+	status: {
+		label: 'Status',
+		kind: 'text',
+		required: true,
+		aliases: ['status', 'status type', 'type', 'reason', 'event', 'category'],
+		example: 'Leave',
+		hint: 'Matched to your status types by name.'
 	},
 	note: {
 		label: 'Note',

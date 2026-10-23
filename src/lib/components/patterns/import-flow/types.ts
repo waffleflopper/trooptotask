@@ -120,7 +120,14 @@ export interface FieldDiff {
 
 export type RowReview<Change> = (
 	| { outcome: 'new'; key: string; change: Change }
-	| { outcome: 'update'; key: string; change: Change; diff: readonly FieldDiff[] }
+	| {
+			outcome: 'update';
+			key: string;
+			change: Change;
+			diff: readonly FieldDiff[];
+			/** Keys of saved records this change deletes, in the form an Unchanged row gives the same record. */
+			removes?: readonly string[];
+	  }
 	| { outcome: 'unchanged'; key: string }
 	| { outcome: 'fix'; problems: readonly CellProblem[]; questions?: readonly LaneQuestion[] }
 	| { outcome: 'skipped'; reason: string }

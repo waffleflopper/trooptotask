@@ -121,6 +121,9 @@ function withinReplacementCap(entries: readonly AvailabilityImportEntry[]): Avai
 	return parts;
 }
 
+const entryKey = (entry: Pick<AvailabilityEntry, 'personnelId' | 'statusTypeId' | 'startDate' | 'endDate'>) =>
+	`${entry.personnelId}|${entry.statusTypeId}|${entry.startDate}|${entry.endDate}`;
+
 const overlaps = (a: AvailabilityImportEntry, b: AvailabilityImportEntry) =>
 	a.startDate <= b.endDate && a.endDate >= b.startDate;
 
@@ -205,7 +208,7 @@ export function createStatusImportLane(source: StatusImportSource) {
 				return { outcome: 'fix', problems: [{ field: 'endDate', message: 'To is before From.' }] };
 			const person = refs.person.value;
 			const status = refs.status.value;
-			const key = `${person.id}|${status.id}|${startDate}|${endDate}`;
+			const key = entryKey({ personnelId: person.id, statusTypeId: status.id, startDate, endDate });
 			const overlapping = (saved.get(person.id) ?? []).filter(
 				(entry) => entry.startDate <= endDate && entry.endDate >= startDate
 			);
@@ -223,10 +226,9 @@ export function createStatusImportLane(source: StatusImportSource) {
 				note: values.note
 			};
 			if (!overlapping.length) return { outcome: 'new', key, change: { ...entry, overlap: 'none' } };
-			const described = overlapping.map(describe).join(', ');
 			const answer = ask(OVERLAP_QUESTION);
 			if (answer?.kind !== 'pick') {
-				const message = `Overlaps ${described}. Choose what happens in the fix rail.`;
+				const message = `Overlaps ${overlapping.map(describe).join(', ')}. Choose what happens in the fix rail.`;
 				return {
 					outcome: 'fix',
 					problems: [
@@ -250,7 +252,8 @@ export function createStatusImportLane(source: StatusImportSource) {
 						endDate
 					}))
 				},
-				diff: [{ label: 'Replaces', before: described, after: '' }]
+				diff: overlapping.map((entry) => ({ label: 'Replaces', before: describe(entry), after: '' })),
+				removes: overlapping.map(entryKey)
 			};
 		},
 		inFileOverlap: {

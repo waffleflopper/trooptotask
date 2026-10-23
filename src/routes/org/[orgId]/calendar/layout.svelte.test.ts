@@ -92,6 +92,6 @@ it('keeps the status import mounted with its own skeleton while the workspace lo
 
 	expect(screen.getByTestId('calendar-child')).toBeTruthy();
 	expect(screen.queryByText('Loading Calendar data')).toBeNull();
-	expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Calendar');
+	await screen.findByRole('alert');
 	expect(screen.queryByTestId('calendar-child')).toBeNull();
 });

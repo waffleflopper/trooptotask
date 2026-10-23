@@ -51,7 +51,7 @@ BEGIN
   FOR UPDATE;
 
   -- A replaced entry that is gone needs no delete; one that changed or no longer overlaps refuses its row.
-  SELECT coalesce(array_agg(DISTINCT (item.position - 1)::integer), '{}')
+  SELECT coalesce(array_agg(DISTINCT (item.position - 1)::integer ORDER BY (item.position - 1)::integer), '{}')
   INTO stale
   FROM jsonb_array_elements(p_entries) WITH ORDINALITY AS item(value, position)
   CROSS JOIN LATERAL jsonb_to_recordset(coalesce(item.value->'replaces', '[]'::jsonb))

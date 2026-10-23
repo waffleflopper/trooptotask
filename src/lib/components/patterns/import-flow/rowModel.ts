@@ -143,7 +143,7 @@ export type Outcome = 'fix' | 'new' | 'update' | 'unchanged' | 'skipped';
 export type ReviewedRow<Change> = { row: SourceRow; resolved?: Readonly<Record<string, string>> } & (
 	| { outcome: 'fix'; problems: readonly CellProblem[]; questions: readonly QuestionKey[] }
 	| { outcome: 'new'; key: string; change: Change }
-	| { outcome: 'update'; key: string; change: Change; diff: readonly FieldDiff[] }
+	| { outcome: 'update'; key: string; change: Change; diff: readonly FieldDiff[]; removes?: readonly string[] }
 	| { outcome: 'unchanged'; key: string }
 	| { outcome: 'skipped'; reason: string; question?: QuestionKey }
 );
@@ -421,6 +421,7 @@ export function reviewRows<C extends ImportColumns, Refs extends ImportReference
 			};
 		}
 	}
+	holdRemovalsOfKeptRecords(reviewed);
 	if (lane.inFileOverlap) holdInFileOverlaps(reviewed, lane.inFileOverlap, answers, questions);
 	const counts: Record<Outcome, number> = { fix: 0, new: 0, update: 0, unchanged: 0, skipped: 0 };
 	for (const row of reviewed) counts[row.outcome]++;
@@ -436,6 +437,36 @@ export function reviewRows<C extends ImportColumns, Refs extends ImportReference
 				? null
 				: 'There are no changes to import.'
 	};
+}
+
+function holdRemovalsOfKeptRecords<Change>(reviewed: ReviewedRow<Change>[]): void {
+	const kept = new Map<string, number>();
+	reviewed.forEach((item, index) => {
+		if (item.outcome === 'unchanged') kept.set(item.key, index);
+	});
+	if (!kept.size) return;
+	const held = new Map<number, string[]>();
+	const hold = (index: number, message: string) => held.set(index, [...(held.get(index) ?? []), message]);
+	reviewed.forEach((item, index) => {
+		if (item.outcome !== 'update') return;
+		for (const key of item.removes ?? []) {
+			const keeper = kept.get(key);
+			if (keeper === undefined) continue;
+			const { row } = reviewed[keeper];
+			hold(index, `Removes the record row ${row.rowNumber} on ${row.sheetName} keeps. Skip one of these rows.`);
+			hold(keeper, `Row ${item.row.rowNumber} on ${item.row.sheetName} removes this record. Skip one of these rows.`);
+		}
+	});
+	for (const [index, messages] of held) {
+		const { row, resolved } = reviewed[index];
+		reviewed[index] = {
+			row,
+			resolved,
+			outcome: 'fix',
+			problems: messages.map((message) => ({ field: '', message })),
+			questions: []
+		};
+	}
 }
 
 function holdInFileOverlaps<Change>(

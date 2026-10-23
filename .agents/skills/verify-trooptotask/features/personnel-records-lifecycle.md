@@ -1,16 +1,20 @@
 # Manage Personnel records
 
-A member creates and edits a Soldier's record, imports new People or backfills existing dates, and archives or restores
-a record while keeping its identity, permissions and retained history intact.
+A member creates and edits a Soldier's record, imports a roster that adds new People and updates existing ones, and
+archives or restores a record while keeping its identity, permissions and retained history intact.
 
 ## Sub-features
 
 - `record-create-edit`: create through Personnel and Onboarding, edit through the roster modal and detail page, cancel
   or recover a failed save, and retain the Person ID through name, rank and Group changes.
-- `record-import`: upload a roster file, map columns, correct invalid cells, select valid rows, preserve row errors and
-  recover a failed request without claiming an unsaved record.
-- `record-backfill`: match active People by rank/name, disambiguate duplicate names by Group, update only supplied
-  ETS/DEROS dates and skip an unchanged replay.
+- `record-import`: upload a roster workbook with several tabs and a header below a title, confirm the sheets and
+  columns, fix a cell inline or answer a rail question once for many rows, skip rows, commit and download the rows not
+  imported.
+- `record-backfill`: the same import matches active People by name, uses the Group to break a tie and asks
+  `Which person?` when it cannot. Namesakes in one Group always get a question, keyed by the row's rank and with the
+  namesake who holds that rank suggested, because a row may be promoting one of them. Only the same name, Group and rank
+  share a question. It updates only the fields a row fills and differs on, and shows a replay as Unchanged with nothing
+  to save.
 - `record-archive-restore`: single and bulk archive remove People from active views; restore retains their IDs and
   restores only artifacts archived by that parent event.
 - `record-approval`: an operate-only member requests archive approval without archiving the Person; an authorized
@@ -32,11 +36,11 @@ a record while keeping its identity, permissions and retained history intact.
 
 ## How to get to it (user POV)
 
-Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row's `Edit` or `Details`, or `Import`. On
-the import page choose `Add new` or `Backfill ETS/DEROS`, upload a file and review the mapped rows before submitting.
-Archive from the named roster row, its Edit dialog, its detail page's `More Personnel record` menu, or the roster's
-`Archive` selection mode. An Organization owner/admin restores records through Settings → `Archives`; archive requests
-appear under Settings → `Approvals`. The reverse creation path is Onboard → `Start Onboarding` → `Add Person`.
+Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row's `Edit` or `Details`, or `Import`. The
+import page steps through File, Columns, Review and Done; browser Back steps back through them. Archive from the named
+roster row, its Edit dialog, its detail page's `More Personnel record` menu, or the roster's `Archive` selection mode.
+An Organization owner/admin restores records through Settings → `Archives`; archive requests appear under Settings →
+`Approvals`. The reverse creation path is Onboard → `Start Onboarding` → `Add Person`.
 
 ## Helper controls
 
@@ -51,9 +55,9 @@ response ordering, not a real provider outage.
 Synthetic Organizations A/B include active PFC, SPC and SGT rank catalog entries for normal create/import validation.
 Personnel lifecycle actors are `personnelOperate`, `personnelScoped`, `personnelScopedOperate`, `personnelEmpty`, and
 `personnelSwitch`; they have other feature lanes absent. `personnelScoped` configures only Alpha;
-`personnelScopedOperate` operates only Alpha and can import/backfill without single-record creation. `personnelEmpty`
-configures an explicit empty Group scope, and `personnelSwitch` configures A but only views B. Use `manager` for
-Organization-wide Personnel configuration and `orgOwner` for visible Settings restore/permanent removal. `actor` accepts
+`personnelScopedOperate` operates only Alpha and can import without single-record creation. `personnelEmpty` configures
+an explicit empty Group scope, and `personnelSwitch` configures A but only views B. Use `manager` for Organization-wide
+Personnel configuration and `orgOwner` for visible Settings restore/permanent removal. `actor` accepts
 `settings/archives`; a configure-only Personnel member has no governance access to this page.
 
 `seed personnel-lifecycle` returns one dedicated Alpha Person, two active same-rank/name People in Alpha/Bravo, an
@@ -61,11 +65,11 @@ archived duplicate, and exact artifact/Training/Critical Task IDs. Its fixed old
 independently archived artifacts; one unrelated Able note is a no-effect sentinel. Documents have metadata only, without
 Storage objects: this seed proves row lifecycle, not downloads or file preservation. `rows` also permits `leader_notes`,
 `personnel_follow_ups`, `counseling_records`, and `personnel_documents`, plus `last_name`, `first_name` and `slug`
-filters. The existing `network` commands support `personnel`, `personnel/batch`, `personnel/merge`,
-`personnel/archive-batch` and `personnel/permanent`, still bound to this worker's exact Organization A endpoint. Restore
-controls, visibly remove UI-created People and run `clean-seeds`; it removes recorded dependent rows before their seeded
-parent and preserves original fixture People. The [Personnel lifecycle recipe](personnel-records-lifecycle.md) owns the
-actions and expectations.
+filters. The existing `network` commands support `personnel`, `personnel/import`, `personnel/archive-batch` and
+`personnel/permanent`, still bound to this worker's exact Organization A endpoint. Restore controls, visibly remove
+UI-created People and run `clean-seeds`; it removes recorded dependent rows before their seeded parent and preserves
+original fixture People. The [Personnel lifecycle recipe](personnel-records-lifecycle.md) owns the actions and
+expectations.
 
 `seed personnel-retention` creates two expired A People, recent/active A and recent B sentinels, real PDF objects in
 both Personnel document buckets, active/recent/expired child rows and a retained local Evaluation whose four evaluator
@@ -114,7 +118,7 @@ identifies Organizations A/B, Alpha/Bravo, original Person IDs and current dates
 and preserve its output: `tag`, `name` (`MapLifecycle<tag>`), `duplicateName` (`MapDuplicate<tag>`), `ids`, and
 `archivedAt` (`2026-08-01T12:00:00.000Z`). Its `person` is active Alpha/SPC/Synthetic/68W/Medic; duplicateAlpha and
 duplicateBravo share rank/name in different Groups, while archivedDuplicate has the same name and is already archived.
-All start with null ETS/DEROS. Do not rename these match fixtures before the backfill scenario.
+All start with null ETS/DEROS. Do not rename these match fixtures before the import scenario.
 
 The seed's nine artifacts belong to `person`: active/independently archived note, counseling and document;
 open/completed/independently archived follow-up. Independently archived rows carry the literal August timestamp. The
@@ -189,69 +193,98 @@ proof, separately from UI interaction.
    through manager UI, then create the same name in Alpha as the scoped actor: distinct IDs and sequential unique slugs
    must persist without showing the Bravo row. Repeat a scoped rename to a different hidden Bravo name when the update
    slug path changes. Direct authenticated requests establish server/provider behavior separately from these UI actions.
-4. **CSV preview, correction, selection and request recovery:** Save the following as a local synthetic CSV, replacing
-   TAG with the recorded tag, then use native `upload_file` on Upload personnel file. Capture file path/content and
-   Preview Rows.
+4. **Roster import: sheets, columns, review and commit.** Build a synthetic workbook with exceljs, replacing TAG with
+   the seed tag. A `Cover` sheet holds two lines of prose. Sheets `1st PLT`, `2nd PLT` and `HQ` each have a title row
+   and an `UNCLASSIFIED` banner above a header on row 3: `Rank, Name, MOS, Duty Position, PLT, ETS, DEROS, DOD ID`, with
+   Name written `Last, First`. A hidden `Lookups` sheet lists ranks. `1st PLT` holds `Sgt.` on three new People, the
+   unknown Group `1st PLT`, the impossible ETS `2027-02-30`, the military date `15MAR28`, a middle initial
+   (`ImportTAGB, Jae M.`) and the same new Person twice. `2nd PLT` holds the seed's dedicated Person and `Baker` with
+   new ETS dates, and the seed duplicate name with no Group. `HQ` holds one `SSG` row, a rank outside the catalog, and
+   one clean row, both in Alpha. Upload it as `manager` on `Drop a spreadsheet here`.
 
-   ```csv
-   Rank,Last Name,First Name,MOS,Duty Role,Group,ETS,PCS / DEROS
-   SPC,MapImportTAG,Synthetic,68W,Medic,Alpha,2027-05-01,2027-06-01
-   NOTARANK,MapInvalidTAG,Synthetic,68W,Medic,Bravo,2027-02-30,
-   SPC,MapUnassignedTAG,Synthetic,68W,Medic,Unknown Map Group,,
-   ```
+   Columns: `Read sheets` checks the three roster tabs. `Cover` reads `No recognizable header in the first 15 rows` and
+   `Lookups` reads `Hidden in Excel`; both stay unchecked. The summary reads `3 sheets read · 11 rows`. The preview
+   marks row 3 `Header`, hatches the two rows above it and maps Name to `Last, First`, PLT to Group, Duty Position to
+   Duty role, DEROS to PCS / DEROS and DOD ID to `Don't import`. The footer reads
+   `7 of 8 columns used · DOD ID not imported`. `Use row 4 as the header` unmaps every column, shows
+   `Map a column to Last name on every included sheet.` and disables Review; `Use row 3 as the header` restores the
+   mapping. Set `Import Duty Position as` to `Don't import` and back, and require the footer to follow. Nothing is
+   written before the commit.
 
-   Require mapped rank/name/dates, first row valid, second row invalid/unselectable and unknown Group warning on the
-   third. Preview must not write any Person. Attempt both native pointer and keyboard access to Row 3 Rank and ETS,
-   capturing actual focus/value changes or refusal; disabled accessibility labels alone do not establish functional
-   refusal. Editors on source row 3 (the second data row) must remain available for correction while that row's import
-   checkbox is disabled. Leave source row 4, the unknown-Group row with blank dates, unchanged and selectable. Correct
-   Row 3 Rank to SPC, blur and require its checkbox to remain disabled because ETS is still invalid. Correct ETS to
-   `2027-02-28` and blur; require the now-valid row selectable. Select the corrected second row and unknown-Group third
-   row; deliberately unselect the originally valid first row. Arm `personnel/batch` and submit: the preview stays open
-   with every cell edit and the same selection, a destructive alert shows the server message and no matching row exists;
-   capture all three. Restore and press Import checked rows again: the same rows post and the results view appears.
-   Successful recovery must create exactly two People: the corrected Person in Bravo with literal SPC/ETS
-   `2027-02-28`/null DEROS, and the unknown-Group Person unassigned with null dates. The originally valid unselected
-   Person remains absent. Return to Personnel and reload; compare the exact saved identities/fields and unchanged
-   original A/B People. Repeat Add new only when explicitly checking distinct duplicate creates, never as an assumed
-   import upsert. Separately use a valid authenticated batch request containing one good and one invalid row to
-   establish server per-row error indices and saved valid data; UI preview normally prevents submitting invalid cells.
-   Keep that direct HTTP proof separate.
+   Review (`Review 11 rows`) reads `All · 11`, `Needs a fix · 8`, `New · 1` and `Update · 2`. The rail asks
+   `Unknown rank` for `"Sgt."` (3 rows) with SGT preselected, `Unknown group` for `"1st PLT"` (6 rows) with
+   `Create "1st PLT"`, `Which person?` for the seed duplicate with its Alpha and Bravo People and `Add as a new person`,
+   and `Unknown rank` for `"SSG"`. A problem cell is a textbox with `aria-invalid="true"` described by the row's message
+   line, such as `ETS: Enter a valid date.` Each row's header names the Person (`Last, First`) above its outcome and
+   `sheet · row`, and a date cell shows the date that will be saved, `2028-03-15` for `15MAR28`. Apply SGT once and all
+   three cells clear and show `SGT`, not `Sgt.`; a Group typed `alpha` shows `Alpha`. Create the Group: the name field
+   takes focus, `Create group` saves one `groups` row (read it back) and all six rows take it. The in-file duplicate
+   then shows on both rows as `Same record as row N on 1st PLT. Skip one of these rows.` Fill the bad ETS cell with
+   `2027-02-28` and press Enter: the row turns New and focus moves to the next problem cell. Escape reverts a draft and
+   blur commits it. Skip the second duplicate; the row offers Undo and keeps focus on it. Pick the Bravo duplicate.
+   Choose `Skip 1 row` on the SSG question: that row offers `Change skip for … in the fix rail` instead of Undo, which
+   moves focus to the SSG question; `Change` there and map SSG to SGT. `Import 10 changes` (`7 added · 3 updated`) stays
+   disabled while any row waits for a fix.
 
-   Repeat the Import entry as `personnelScopedOperate`: Import must be reachable while Add Person is absent. Upload two
-   unique Alpha rows, save and reload the exact IDs/Group/rank/dates. As `personnelScoped`, Import must also be
-   reachable; explicit empty scope and viewer have no Import affordance. For hidden URL collision proof, create a unique
-   Bravo Person through manager UI, preserve its canonical slug, then send an ordinary authenticated scoped batch
-   containing the same name in Alpha and a second unrelated Alpha name. Confirm Bravo remains hidden and compare all
-   attempted records before/after; this HTTP/provider probe is distinct from native Import. Repeat through native scoped
-   Import: only the colliding name needs the next available suffix, the unrelated name keeps its canonical slug, and the
-   original Bravo record is unchanged. Also include a valid Bravo row in a scoped file: authorized Alpha rows may save
-   while that row reports its own original source number. Review failed rows, correct only its Group to Alpha and blur;
-   acknowledged Alpha rows remain unchecked, the corrected row alone stays selected, and the next actual request sends
-   one row without duplicate creations. Never replay an uncertain creation acknowledgement as an assumed upsert; an
-   unconfirmed provider row requires checking the persisted record before another submission.
+   The commit sends one `POST api/personnel/import`, then `personnel/import/__data.json` with `0010`. Done reads
+   `10 changes saved.` with Added 7, Updated 3 and Skipped 1 and no zero counts, and lists the skipped row as
+   `1st PLT · row 9` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export`: one sheet
+   named `1st PLT` with the original columns, DOD ID included, plus `Reason`. Read the rows back. Seven new People have
+   SGT for both `Sgt.` and `SSG`, `2028-03-15` from `15MAR28`, first name `Jae` without the initial, `2027-02-28` for
+   the corrected date and the new Group. The dedicated Person and Baker changed only ETS, only the Bravo duplicate got
+   `2027-07-01`, and the Alpha and archived duplicates are unchanged.
 
-5. **Backfill matching, ambiguity and replay:** As manager, Import → Backfill ETS/DEROS; upload a CSV with headers
-   Rank,Last Name,First Name,Group,ETS,PCS / DEROS. Include `SPC,name,Synthetic,Alpha,2027-05-01,2027-06-01`;
-   `SPC,duplicateName,Synthetic,,2027-07-01,`; an unmatched unique name with a valid date; and the unique parent name
-   with both dates blank. Substitute actual seed names. Require one updated parent, one ambiguous duplicate, one
-   unmatched error and one blank-date skip; neither duplicate nor archivedDuplicate changes. Save exact results and
-   original IDs. Review failed rows and set the ambiguous row's Group to Bravo; submit that selected row alone. Only
-   duplicateBravo gets ETS `2027-07-01`, with its original ID, null DEROS and unchanged rank/name/Group. Reupload the
-   successfully applied parent and Bravo rows unchanged: require zero updates and same-value skips, no new People and
-   unchanged IDs. Before an additional changed-date backfill, arm `personnel/merge`; failure leaves existing dates
-   unchanged, then restored retry changes only the supplied date. Capture row selection/source numbers and result
-   context, not just a total saved count. Archived names do not enter active matching. Provider failures after an
-   acknowledged earlier update require a separate lower-level proof with independently persisted rows and fresh read
-   copies; the pre-request browser 503 cannot establish that behavior. Results must preserve acknowledged updates and
-   identify unconfirmed source rows for failed-only recovery. After Review failed rows, edit and blur a failed row; only
-   intended failed rows remain selected, while acknowledged and deliberately unchecked rows stay unchecked. Editing a
-   valid unchecked row also keeps it unchecked; correcting an invalid row to valid may select that corrected row. A
-   fresh same-value retry skips already saved dates and updates the remaining row. Repeated rows are processed in file
-   order against acknowledged dates, so equal repeated values skip; blank dates continue to preserve the current value.
-   Conflicting dates in a replayed multi-row file can write again while reaching the same final dates; do not claim
-   every repeated file produces zero writes. A unique active rank/name match ignores stale Group text and retains its
-   stored Group; Group text only disambiguates duplicate matches.
+   Re-import the same file and give the same answers. Once the second duplicate is skipped again, the other ten rows
+   read Unchanged behind `10 rows already match. Nothing to save.` and `Show`, `Import 0 changes` stays disabled, and
+   the active roster keeps the same count and IDs with no duplicate.
+
+   Import `Rank, Last name, First name, Group` with one new name twice, once in Alpha and once in Bravo: both rows read
+   New and save as two People. Import `Last name, First name` with a new name: Review adds a Rank column whose cell on
+   that row is an editor described by `Rank is needed for a new person.`, and `PFC` with Enter turns the row New. As
+   `personnelScopedOperate`, a file without a Group column shows a Group editor the same way.
+
+   Separately seed `duplicate-able`, which adds a PFC namesake beside the original SPC Able in Alpha, and reload. Import
+   `Last name,First name,Group,Rank,MOS` with `Able,Synthetic,Alpha,SPC,25B` and `Able,Synthetic,Alpha,PFC,11B`. Each
+   row asks `Which person?` with the namesake of that rank suggested. Apply both suggestions; the rows read Update and
+   their MOS changes belong to their respective saved IDs. Before saving, replace the file with
+   `Last name,First name,Group,Rank` and the rows `Able,Synthetic,Alpha,SGT` and `Able,Synthetic,Alpha,VFY-ACTIVE-A`.
+   Neither rank settles the tie, so two separate `Which person?` questions each apply to one row. Answer the first with
+   SPC Able and the second with PFC Able. Both rows read Update without an in-file duplicate error. Two rows with the
+   same name, Group and unresolved rank share one question and still receive the in-file duplicate error if mapped to
+   the same saved Person.
+
+   Arm `network arm-fail PAGE personnel/import` before a commit: Done reports `0 changes saved.`,
+   `The last batch was not confirmed` and a `Not confirmed` count with `Check the roster before importing these again.`,
+   beside the Unchanged and Skipped counts; every sent row counts as not imported and no Person changes. Restore, choose
+   `Import another file` and import again.
+
+   A committed write whose provider reply is lost needs separate lower-level proof. The Personnel server, route and
+   import-lane regression tests preserve the structured `unconfirmed` error. With 501 planned rows and an uncertain
+   first chunk, require Not confirmed 500, Not attempted 1 and no second request. The pre-dispatch network control above
+   does not establish provider-response loss.
+
+   A mixed first chunk keeps each confirmed save and known failure. With one confirmed update, one unconfirmed create,
+   one known failure and 497 confirmed creates, require Updated 1, Added 497, Failed 1, Not confirmed 1 and Not
+   attempted 1. No second request runs. The not-imported workbook contains only the unconfirmed, failed and unsent rows,
+   with each row's reason. The confirmed update stays out of that workbook.
+
+   Repeat as `personnelOperate`: Import is reachable without Add Person or Manage Groups, and an unknown Group offers
+   the existing Groups and `No group` with no Create. `personnelScopedOperate` sees only Alpha and no `No group`, so a
+   new Person needs Alpha.
+
+5. **History, leaving, loading and widths.** Back from Review returns to Columns and then File with the file kept;
+   Forward returns to Columns. With a file chosen, a link out asks `Leave this import?`: `Keep importing` stays and
+   `Leave import` follows the link. While Import is saving, links, Back and the Organization switcher do nothing. As
+   `personnelSwitch` with `network arm-hold PAGE personnel/import 2` on the 5,000-row file, choosing Organization B
+   leaves the page on A. After `network release` every batch finishes in A and Done shows there; B then opens with no
+   import state and no new B rows. Reload asks the browser's leave prompt and starts at File, and Back into an earlier
+   import entry also shows File. `$V server-source arm status_types hold 1 60000` holds the Personnel workspace: the
+   header and stepper stay, the File step shows a skeleton of the same layout, and the drop zone arrives at the same
+   position (y 176 px, 256 px tall at 1440). `server-source arm status_types fail-hard 1` shows the shared
+   `Unable to load Personnel` alert, and `Retry Personnel` recovers after restore. At 1280 px and wider the Review grid
+   fits every default column beside the rail, Person first; a narrower grid scrolls sideways under the sticky Person
+   column. Below 1024 px the rail stacks above the rows in focus order, and at 390 the rows become cards. No width
+   scrolls the page sideways.
 6. **Single archive, exact cascade and visible restore:** Preserve parent and all nine artifact rows. As manager,
    archive the dedicated parent from its named roster icon and confirm Archive Personnel. A pre-request `personnel`
    failure must leave parent/artifacts unchanged with useful feedback; restore and retry. Capture absence from active
@@ -312,7 +345,7 @@ proof, separately from UI interaction.
    heading; never `body`.
 8. **Denied capability, Group, empty and foreign scope:** Viewer has no create/edit/import/direct-archive/restore
    controls; attempt valid authenticated writes to establish 403 or concealed 404 with no effect. personnelOperate can
-   update/import/merge but cannot create/direct-restore/permanently delete. personnelScoped can create/edit Alpha and
+   update and import but cannot create/direct-restore/permanently delete. personnelScoped can create/edit Alpha and
    import Alpha; Bravo, unassigned and foreign Person writes and Group reassignment are denied, while mixed import may
    save authorized rows and report rejected rows. Probe same-Organization POST/PUT with a foreign Group ID too: a
    foreign Group must never become a saved reference. Foreign and nonexistent valid Group IDs must produce the same
@@ -321,8 +354,8 @@ proof, separately from UI interaction.
    update omitting Group preserves its reference; a historical foreign reference is retained for review rather than
    silently repaired, and explicitly resubmitting it is rejected. Isolated populated-upgrade/provider proof must
    preserve these historical rows and conceal their foreign Group labels; it does not authorize altering production
-   data. personnelEmpty sees no roster People and cannot create/update/import/merge/archive/restore any Person; an empty
-   set never becomes Organization scope. The authenticated archive/restore RPCs must give restricted and empty-scope
+   data. personnelEmpty sees no roster People and cannot create/update/import/archive/restore any Person; an empty set
+   never becomes Organization scope. The authenticated archive/restore RPCs must give restricted and empty-scope
    configurers the same concealed not-found response for a hidden Person and a nonexistent valid ID, with every row
    unchanged. `personnel_lifecycle_atomic.sql` owns that comparison; `personnel_lifecycle_concurrency.sql` separately
    proves Group moves and authority loss during actual waits. Include valid single and bulk payloads for denied targets
@@ -494,15 +527,16 @@ from authenticated HTTP/provider checks and lower-level deferred/rejected-lane t
    `performance.clearResourceTimings()`, act through the UI, then list `__data.json` (with `x-sveltekit-invalidated`)
    and `/api/*` entries. Node order is root, Organization, Personnel layout, `[personnelSlug]` layout, `[personnelSlug]`
    page; the list page has root, Organization, Personnel layout, page; import has root, Organization, Personnel layout,
-   page. `1` means that node's server load reran. Roster Edit save, Add Person and import submit: the write only. Roster
-   single archive, Edit-dialog archive, bulk archive, import return to Personnel: the write, then
-   `personnel/__data.json` `0010` and no `/api/app-shell-chrome` request. Data sheet save with the same slug: the write,
-   then `<slug>/data-sheet/__data.json` `00011` and no `/api/app-shell-chrome` request; the header and the roster row
-   show the saved values with no reload. Slug change: the write, then the new slug's `data-sheet/__data.json` (replace
-   history) with `00011`. Detail archive: the write, then Personnel opens and refreshes with `personnel/__data.json`
-   `0010`, with no `[slug]` data request and no `/api/app-shell-chrome` request. Detail open from the roster:
-   `[slug]/__data.json` `00011`, which does not rerun the Personnel layout. Tab links: `<tab>/__data.json` `00001`.
-   Sidebar Home to Personnel: `personnel/__data.json` `0010`. Import page open: `import/__data.json` `0001`.
+   page. `1` means that node's server load reran. Roster Edit save and Add Person: the write only. Roster single
+   archive, Edit-dialog archive and bulk archive: the write, then `personnel/__data.json` `0010` and no
+   `/api/app-shell-chrome` request. Import commit: one `personnel/import` request per 500 rows, then
+   `import/__data.json` `0010`. Data sheet save with the same slug: the write, then `<slug>/data-sheet/__data.json`
+   `00011` and no `/api/app-shell-chrome` request; the header and the roster row show the saved values with no reload.
+   Slug change: the write, then the new slug's `data-sheet/__data.json` (replace history) with `00011`. Detail archive:
+   the write, then Personnel opens and refreshes with `personnel/__data.json` `0010`, with no `[slug]` data request and
+   no `/api/app-shell-chrome` request. Detail open from the roster: `[slug]/__data.json` `00011`, which does not rerun
+   the Personnel layout. Tab links: `<tab>/__data.json` `00001`. Sidebar Home to Personnel: `personnel/__data.json`
+   `0010`. Import page open: `import/__data.json` `0001`.
 
 Finish with final `doctor`, restored dates and exact original A/B row comparisons. Helper cleanup removes only recorded
 seeded IDs; the dedicated Person's dependent SDS row may cascade with that owned parent.
@@ -511,10 +545,13 @@ seeded IDs; the dedicated Person's dependent SDS row may cascade with that owned
 
 - Malformed, missing and foreign Personnel input and the edit form's 4xx messages are driven in
   [Invalid input](invalid-input.md).
-- While an import request is in flight, `Add new` and `Backfill ETS/DEROS` in `Personnel import controls` are disabled
-  and described by `Wait for the import to finish before switching modes.`
-- Import accepts an uploaded CSV/XLSX file; it has no paste box. Cell edits commit on change/blur and can reset
-  selection, so take a fresh snapshot before submission. Source row numbers include the header.
+- While the import commits, the commit bar shows `Saving X of Y`; Back and the browser history wait for it to finish,
+  and choosing another Organization shows `Your import is still saving. You can leave when it finishes.` and stays.
+- Import reads `.xlsx`, `.csv` and `.tsv`; it has no paste box. Source row numbers count every row above the header, so
+  a header on row 3 makes the first Person row 4. Native `upload_file` reads only workspace paths, so copy the workbook
+  under `.verification/evidence/` first.
+- Answers apply to one file. Re-importing the same file asks the same rail questions, and the same answers make every
+  saved row Unchanged.
 - Seed the lifecycle bundle once per unchanged scenario. Restore its parent before the next archive; recreate through
   clean-seeds/reseed or owned worker restart after a replay defect. Never repair proof by editing archived_at directly.
 - The seed's archivedDuplicate intentionally remains archived and excluded from matching. Read it by ID; a
@@ -522,19 +559,19 @@ seeded IDs; the dedicated Person's dependent SDS row may cascade with that owned
 - A synthetic pre-request 503 cannot prove transaction rollback or recovery after a committed but lost response. Single
   archive/cascade, review and batch faults need actual SQL/provider proof; preserve historical partial states as
   explicit replay fixtures and retain unexpected partial effects as failures.
-- Network families personnel, personnel/batch, personnel/merge, personnel/archive-batch and personnel/permanent match
-  exact A endpoints. Restore every network/feedback/export control, including after failed or blocked attempts. Metadata
-  without stored files cannot prove file download/export cleanup.
+- Network families personnel, personnel/import, personnel/archive-batch and personnel/permanent match exact A endpoints.
+  Restore every network/feedback/export control, including after failed or blocked attempts. Metadata without stored
+  files cannot prove file download/export cleanup.
 - Configure-only Personnel access does not open Organization governance. Use orgOwner/orgAdmin for visible Archives and
   Approvals; record a member's direct authorized API restore separately from UI reachability.
-- Focused lifecycle, batch, merge, archive-artifact, slug, modal/import/detail/store and denied-route tests cover what
+- Focused lifecycle, import lane, archive-artifact, slug, modal/import/detail/store and denied-route tests cover what
   the browser cannot. Parent and artifact transactions are exercised through Personnel’s lifecycle command port and SQL
   contracts, with batch approval/result composition at Delivery. The route-owned Edit archive integration checks use the
   real lazy dialog/store/helper/approval transport; uncached detail approval-result checks remain lower-level evidence,
   not a normally reachable operate-only detail journey. `supabase/tests/personnel_unassigned_row_scope.sql` and
   `personnel_artifact_rls_group_scope.sql` provide distinct isolated provider/security proof; browser/API checks do not
-  replace them. Existing component tests cover async modal failure and import selection/date validation below the
-  browser.
+  replace them. Existing component tests cover async modal failure and the import flow's history, rail and inline edits
+  below the browser.
 - Dispose of UI-created temporary People visibly where authorized. Pending requests or packets may require an owned
   restart; no broad helper deletion is implied.
 - `src/features/deletion-requests/createDeletionRequest.server.test.ts` covers approval submission's supported-resource,

@@ -3,20 +3,27 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 
-const { restrictMock } = vi.hoisted(() => ({ restrictMock: vi.fn() }));
+const { restrictMock, page } = vi.hoisted(() => ({
+	restrictMock: vi.fn(),
+	page: { data: {} as { ownsWorkspaceLoading?: boolean } }
+}));
+
+vi.mock('$app/state', () => ({ page }));
 
 vi.mock('$features/calendar/calendarWorkspaceHydration.svelte', () => ({
 	calendarWorkspaceHydrator: {
 		hydrate: vi.fn(),
 		restrict: restrictMock,
 		reset: vi.fn()
-	}
+	},
+	setCalendarWorkspaceReady: vi.fn()
 }));
 
 import Layout from './+layout.svelte';
 
 afterEach(() => {
 	cleanup();
+	page.data = {};
 	restrictMock.mockClear();
 	vi.unstubAllGlobals();
 });
@@ -69,4 +76,22 @@ it('replaces the Calendar workspace with a load error and a working retry when t
 	expect(screen.queryByRole('status')).toBeNull();
 	await fireEvent.click(screen.getByRole('button', { name: 'Retry Calendar' }));
 	expect(reload).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the status import mounted with its own skeleton while the workspace loads, and still fails as a whole', async () => {
+	page.data = { ownsWorkspaceLoading: true };
+	const rejected = Promise.reject(new Error('availability failed'));
+	rejected.catch(() => {});
+	const children = createRawSnippet(() => ({
+		render: () => '<section data-testid="calendar-child">Status import</section>'
+	}));
+
+	render(Layout, {
+		props: { children, data: { shell: { org: { id: 'org-1' } }, calendar: { data: rejected } } }
+	});
+
+	expect(screen.getByTestId('calendar-child')).toBeTruthy();
+	expect(screen.queryByText('Loading Calendar data')).toBeNull();
+	await screen.findByRole('alert');
+	expect(screen.queryByTestId('calendar-child')).toBeNull();
 });

@@ -51,6 +51,11 @@ def check(repository, base):
         newest = max(base_versions)
         ancestor = git(repository, 'merge-base', 'HEAD', base)
         inherited = {Path(name).name for name in migration_names(repository, ancestor)}
+        # A feature branch syncing from main inherits the main migrations it merged, which already sort on main.
+        if subprocess.run(['git', 'rev-parse', '--verify', '--quiet', 'origin/main'], cwd=repository,
+                          capture_output=True).returncode == 0:
+            merged_main = git(repository, 'merge-base', 'HEAD', 'origin/main')
+            inherited |= {Path(name).name for name in migration_names(repository, merged_main)}
         for version, name in valid:
             if name not in inherited and version <= newest:
                 errors.append(f'{name}: new migration version must sort after {newest}, the newest version '

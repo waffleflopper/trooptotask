@@ -11,8 +11,9 @@ roster.
 - `completion-recovery`: failed saves and removals leave stored facts unchanged, show useful feedback and allow retry;
   an operate-only deletion request is distinct from a completed deletion. Direct SQL deletion of a completion also needs
   Training configure.
-- `completion-import`: preview valid and invalid CSV rows, correct a row, import selected records, and repeat an import
-  without creating duplicate completion identities.
+- `completion-import`: import a wide or long training tracker on `/training/import`: map columns to training types,
+  answer X marks once per training, fix a cell inline, skip a row, download the rows not imported, and re-import without
+  duplicate completion identities. Exempt marks also need requirement configuration.
 - `matrix-and-report`: Required and targeted applicability, dated status, the briefing's Bottom line, Forecast, Hot-spot
   grid, Type risk bars and Focus areas, URL-kept filters and the Affected soldiers drill-down from a cell or focus link
   agree with independently counted examples; Optional Training remains visible in the matrix without entering required
@@ -48,8 +49,8 @@ repeat only the affected clearing/restoration action.
 ## How to get to it (user POV)
 
 Choose `Training` in the Organization navigation. Choose a Person's Training cell to add or edit that record, or open
-the Person editor from the named row. Use `Import` in the `Training controls` toolbar for CSV preview. Use
-`Export Excel` in that toolbar for the full training matrix, keeping the selected Group and including every Training
+the Person editor from the named row. Use the `Import` link in the `Training controls` toolbar to open the import page.
+Use `Export Excel` in that toolbar for the full training matrix, keeping the selected Group and including every Training
 column even when a saved view hides some. At narrow widths, open `More Training controls` if the action has folded. Open
 `Reports` for the `Training Reports` briefing: the single-row `Training report controls` toolbar (the `Forecast horizon`
 buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days` to `180 days`) as pressed toggles, which show as `30 days`
@@ -218,29 +219,62 @@ percentage.
    deletion is separate lower-level retry proof, not simulated by this pre-request 503. Preserve failures in submission
    or repeated pending requests. Use an owned worker restart for pending-request cleanup rather than deleting request
    rows through the helper.
-4. **CSV validation, failure, import and same-ID upsert:** As `trainingConfigure`, open Import and paste the following
-   into `CSV data`, substituting the actual fixture dates. This journey must start with Baker Required and Able Targeted
-   absent. Record any intervening mutations and restore/restart the owned worker first if necessary.
+4. **Tracker import, failure, re-import and same-ID update:** This journey must start with Baker Required and Able
+   Targeted absent. Record any intervening mutations and restore or restart the owned worker first if necessary. Build
+   `tracker.xlsx` with the tabs `Alpha`, `Bravo` and `HQ`. Each tab has two banner rows (`<TAB> — TRAINING TRACKER`,
+   `UNCLASSIFIED // FOR TRAINING USE ONLY`) above the header
+   `Soldier, GR, Verification Required Training, Targeted, Notes` and one row, substituting the actual fixture dates:
+   Alpha `Able, Synthetic`, `SPC`, `TRAINING_COMPLETED`, `2025-11-31`, blank; Bravo `Baker, Synthetic`, `SPC`, `X`,
+   blank, `Verification expired`; HQ `Unassigned, Synthetic`, `SPC`, `N/A`, blank, blank.
 
-   ```csv
-   Last Name,First Name,Training Type,Date / Status,Notes
-   Baker,Synthetic,Verification Required Training,TRAINING_EXPIRED_COMPLETED,Verification expired
-   Able,Synthetic,Verification Targeted Training,TRAINING_WARNING_COMPLETED,Verification warning
-   Unassigned,Synthetic,Unknown Verification Type,TRAINING_WARNING_COMPLETED,Must be corrected
-   ```
+   As `trainingConfigure`, choose the `Import` link in `Training controls` and upload the workbook on
+   `Drop a spreadsheet here`. Columns: `Read sheets` checks the three tabs at `1 row` each and reads
+   `3 sheets read · 3 rows`. Each tab marks row 3 `Header` and hatches the banner rows. Soldier maps to `Last, First`,
+   GR to Rank, Notes to Notes and `Verification Required Training` to that training type. `Import Targeted as` reads
+   `Pick a training type`, and the footer reads
+   `5 of 5 columns used · Pick a training type for Targeted here or in Review`. The button reads `Review 4 completions`,
+   one per filled training cell; blank cells add nothing. Choosing the type in `Import Targeted as` instead shows it in
+   Review as an answered rail question with `Change`. Nothing is written before the commit.
 
-   Choose Preview. Require the first two rows valid and selectable and the unknown type row visibly invalid and
-   unselectable; preview must not create any completion. Its field editors must remain available in the accessibility
-   tree and through pointer/keyboard interaction while its import checkbox is disabled. Correct its
-   `Training Type for source row 4` to `Verification Optional Training`, confirm the row becomes valid, and deliberately
-   leave it unselected so it does not change the dated scenario. Capture the selected two-row preview. Arm
-   `$V network arm-fail PAGE personnel-trainings/batch`, choose Import, and require visible error with the preview and
-   selection available for retry plus unchanged rows. Restore the control, retry, and require Inserted 2, Updated 0,
-   Errors 0. Choose Done, reload and capture the dated cells and exact new IDs. Repeat the same two valid rows with
-   different Notes; expect Inserted 0, Updated 2 and the same two IDs/dates after reload, with no duplicate Person/type
-   pairs. Capture the actual result counts, JSON response and provider readback. A failed response after a real provider
-   commit is a distinct replay case and must be separately identified; this synthetic 503 control only proves failure
-   before the request reaches the server.
+   Review reads `All · 4`, `Needs a fix · 3` and `Unchanged · 1`. Able Required matches its saved date and stays behind
+   `1 row already matches. Nothing to save.` and `Show`. The rail asks `Unknown training type` for `"Targeted"` (1 row)
+   with Verification Targeted Training preselected, and `Date for Verification Required Training X marks` for `"X"` (1
+   row) with an empty `Date for X` picker, a disabled `Apply to 1 row` and `Leave these X marks out`; no date is
+   assumed. Unassigned's `N/A` cell is described by `Verification Required Training can't be marked exempt.` Apply the
+   training type: Able's Completed cell then reads `Enter a date like 2026-03-11.` Pick `TRAINING_EXPIRED_COMPLETED` for
+   the X marks and apply: Baker's row turns New and shows that date in place of `X`. Fill Able's cell with
+   `TRAINING_WARNING_COMPLETED` and press Enter: the row turns New and focus moves to Unassigned's cell. Skip
+   Unassigned. `Import 2 changes` reads `2 added · 0 updated`. At 1440, Tab moves from the filters and search through
+   the rail, then each editable cell and Skip button, then the commit bar.
+
+   Arm `$V network arm-fail PAGE personnel-trainings/batch` and choose Import. Done reads `0 changes saved.` with
+   Unchanged 1, Skipped 1 and Not confirmed 2, `The last batch was not confirmed` and
+   `Check the training tracker before importing these again.`; `rows personnel_trainings orgA` still holds only the
+   seeded completion. Download the not-imported workbook before leaving Done. Alpha's Targeted cell must contain the
+   reviewed `TRAINING_WARNING_COMPLETED` date instead of the original impossible date. Re-import that download and
+   require the correction to survive. Restore, choose `Import another file` and give the same answers. With
+   `network arm-hold PAGE personnel-trainings/batch` the bar reads `Saving 0 of 2 changes` with Import disabled; release
+   it. Done reads `2 changes saved.` with Added 2, Unchanged 1 and Skipped 1, and lists `Unassigned, Synthetic` at
+   `HQ · row 4` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export`: one `HQ` sheet with
+   the original five columns plus `Reason`, which reads `Verification Required Training: You skipped this row.` Read
+   back two new completions: Baker Required completed `TRAINING_EXPIRED_COMPLETED` with Notes `Verification expired`,
+   and Able Targeted completed `TRAINING_WARNING_COMPLETED` with no Notes. Able Required keeps its ID and dates.
+   `Open training` shows the dated cells without a reload.
+
+   Re-import the workbook with the same answers: the three remaining rows read Unchanged with
+   `3 rows already match. Nothing to save.`, `Import 0 changes` stays disabled and the provider still holds three
+   completions.
+
+   Import a long CSV with the header `Last Name,First Name,Training Type,Date / Status,Notes` and two rows: Baker,
+   Synthetic, Verification Required Training, `TRAINING_EXPIRED_COMPLETED`, `Verification expired v2`; Able, Synthetic,
+   Verification Targeted Training, `TRAINING_WARNING_COMPLETED`, `Verification warning v2`. Columns maps every header.
+   Review reads `Update · 2`; each Notes cell shows the new note above the old one struck through (`was empty` for
+   Able). Done reads `2 changes saved.` with Updated 2. Read back the same two IDs and dates with the new Notes and no
+   duplicate Person/type pair. A blank Notes cell keeps a saved note. A synthetic 503 proves failure before the request
+   reaches the server only; a failed response after a real provider commit is a separate replay case.
+
+   As `trainingView`, Training shows no Import link, `/training/import` shows the `403` page, and a direct
+   `POST api/personnel-trainings/batch` returns `403` with rows unchanged. `trainingOperate` sees Import.
 
    **Expiration-only, exemptions and Person statistics:** When completion writes or Person summary counts are affected,
    create a temporary required type with per-Person expiration and exemptions enabled through Training configuration.
@@ -248,12 +282,16 @@ percentage.
    expiry and notes, then reload and require the same ID and null completion date. In the Person editor require Current
    1, Orange 1 and Not Done 1 (seeded Required, temporary type and missing Targeted); move the temporary expiry to
    yesterday and require Current 1, Expired 1 and Not Done 1. Use a date inside the yellow window for a separate Yellow
-   1 check. Import Baker as exempt for this type, including batch failure/retry and unchanged-row proof; require the
-   type’s exact exempt Person ID, no Baker completion created, and Baker’s summary Current 0/Not Done 1 because exempt
-   and N/A rows do not enter readiness. Record the actual literal dates and independently counted cells. Remove the
-   temporary completion and type visibly, then verify their absence and the original completion’s unchanged ID/dates.
-   These counts assume the unchanged three-Person seed and no dated import from the preceding paragraph; restart the
-   owned worker between scenarios if needed.
+   1 check. Import a CSV with the header `Soldier,<temporary type name>` and the row `"Baker, Synthetic",Exempt` (`N/A`
+   reads the same). As `trainingOperate`, the row needs a fix described by
+   `Marking someone exempt needs permission to configure training requirements.`, the rail card
+   `Exempt marks need access to training requirements` offers only `Leave exempt marks out`, and a direct exempt `POST`
+   returns `403`. As `trainingConfigure`, the row reads New and shows `Exempt`, Done reads Added 1, and a re-import
+   reads Unchanged. Require the type’s exact exempt Person ID, no Baker completion created, and Baker’s summary Current
+   0/Not Done 1 because exempt and N/A rows do not enter readiness. Record the actual literal dates and independently
+   counted cells. Remove the temporary completion and type visibly, then verify their absence and the original
+   completion’s unchanged ID/dates. These counts assume the unchanged three-Person seed and no dated import from the
+   preceding paragraph; restart the owned worker between scenarios if needed.
 
 5. **Dated reports, filters and report recovery:** Open Reports again and require the post-import counts above: 50%
    ready today with Ready 2, expired 1, not recorded 1, and Lapse 1 because Able Targeted lapses inside the 90-day
@@ -535,8 +573,10 @@ and offline recovery tests separate from native UI, actual PDF and independent v
 
 ## Gotchas
 
-- An impossible CSV date such as `2026-02-30` is flagged as an invalid date during import review and not sent. A status
-  other than completed or exempt is refused by the server with `400`. See [Invalid input](invalid-input.md).
+- An impossible date such as `2025-11-31` in a training cell needs a fix (`Enter a date like 2026-03-11.`) and is not
+  sent. X, yes or a check mark never saves today's date: the rail asks once per training column. For an expiration-only
+  type the cell date is the expiration date, and the question reads `Expiration date for … X marks`. A status other than
+  completed or exempt is refused by the server with `400`. See [Invalid input](invalid-input.md).
 - Required Training has three applicable People; Targeted has only Able. Optional records can become Current in the
   matrix while staying outside the report's required-readiness calculation. Do not count N/A as missing. A warning
   record is labeled Expiring, not Current, yet counts as ready in the report's readiness.
@@ -544,8 +584,9 @@ and offline recovery tests separate from native UI, actual PDF and independent v
   restart; avoid comparing a later-day status to an earlier baseline expectation.
 - The matrix's Focus View and Group selector control presentation. Clear stale selections before counting all three
   People or all Training columns; configuration and completion permissions remain distinct.
-- The existing bulk-import toolbar requires configure access. Operate-only members can record individual completions
-  without seeing Import. Group-scoped configuration can retain Import while catalog edits remain denied.
+- Import needs permission to record completions: operate-only members see it and viewers do not. Exempt marks also need
+  requirement configuration, which the server enforces. Group-scoped configuration keeps Import while catalog edits
+  remain denied.
 - Save/upsert is keyed by Organization, Person and type; preserve the recorded ID during edits and repeat imports.
   Notes/certificate readback is needed to distinguish a saved update from an unchanged optimistic row. For repeated
   create on an existing Person/Type pair, omitted dates, Notes and Certificate URL preserve saved values; explicit null

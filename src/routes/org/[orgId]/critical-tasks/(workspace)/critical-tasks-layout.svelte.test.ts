@@ -147,32 +147,30 @@ describe('critical tasks layout client hydration', () => {
 			const json = vi.fn(() => body.promise);
 			const fetchMock = vi.fn(() => (stage === 'response' ? response.promise : Promise.resolve({ ok: true, json })));
 			vi.stubGlobal('fetch', fetchMock);
-			const pendingImport = personnelIctCompletionsStore.importBatch({
-				records: Array.from({ length: 501 }, (_, index) => ({
-					rowNumber: index + 2,
-					values: { firstName: 'Synthetic', lastName: 'Able', taskCode: 'TASK', completedAt: '2026-09-29' }
-				}))
-			});
+			const pendingImport = personnelIctCompletionsStore.importChunk([
+				{ personnelId: 'old-person', ictTaskId: 'old-task', completedAt: '2026-09-29' }
+			]);
 			if (stage === 'body') await vi.waitFor(() => expect(json).toHaveBeenCalledOnce());
 			const nextWorkspace = deferred<CriticalTasksWorkspaceResult>();
 			await rerender({ children, data: { orgId: 'org-2', criticalTasks: { data: nextWorkspace.promise } } });
 			expect(criticalTasksWorkspaceStatus.pending).toBe(true);
 			const oldResult = {
-				inserted: [
+				results: [
 					{
-						id: 'old-import-result',
-						personnelId: 'old-person',
-						ictTaskId: 'old-task',
-						completedAt: '2026-09-29',
-						validationMethod: 'Demonstration',
-						validatedBy: null,
-						notes: 'Old workspace',
-						loggedBy: null,
-						createdAt: '2026-09-29T12:00:00Z'
+						kind: 'added',
+						record: {
+							id: 'old-import-result',
+							personnelId: 'old-person',
+							ictTaskId: 'old-task',
+							completedAt: '2026-09-29',
+							validationMethod: 'Demonstration',
+							validatedBy: null,
+							notes: 'Old workspace',
+							loggedBy: null,
+							createdAt: '2026-09-29T12:00:00Z'
+						}
 					}
-				],
-				updated: [],
-				errors: []
+				]
 			};
 			response.resolve({ ok: true, json: async () => oldResult } as Response);
 			body.resolve(oldResult);
@@ -210,12 +208,9 @@ describe('critical tasks layout client hydration', () => {
 		const response = deferred<Response>();
 		const fetchMock = vi.fn(() => response.promise);
 		vi.stubGlobal('fetch', fetchMock);
-		const pendingImport = personnelIctCompletionsStore.importBatch({
-			records: Array.from({ length: 501 }, (_, index) => ({
-				rowNumber: index + 2,
-				values: { firstName: 'Synthetic', lastName: 'Able', taskCode: 'TASK', completedAt: '2026-09-29' }
-			}))
-		});
+		const pendingImport = personnelIctCompletionsStore.importChunk([
+			{ personnelId: 'saved-person', ictTaskId: 'saved-task', completedAt: '2026-09-29' }
+		]);
 		const replacement = deferred<CriticalTasksWorkspaceResult>();
 		await rerender({ children, data: { orgId: 'org-1', criticalTasks: { data: replacement.promise } } });
 		expect(criticalTasksWorkspaceStatus.pending).toBe(true);
@@ -223,7 +218,7 @@ describe('critical tasks layout client hydration', () => {
 		await waitFor(() => expect(screen.getByText('Critical Tasks child')).toBeTruthy());
 		expect(criticalTasksWorkspaceStatus.pending).toBe(false);
 		expect(personnelIctCompletionsStore.loading).toBe(false);
-		response.resolve({ ok: true, json: async () => ({ inserted: [], updated: [], errors: [] }) } as Response);
+		response.resolve({ ok: true, json: async () => ({ results: [] }) } as Response);
 		await expect(pendingImport).rejects.toThrow('Critical Tasks workspace changed during import');
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(personnelIctCompletionsStore.items).toEqual([savedCompletion]);

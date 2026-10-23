@@ -10,6 +10,10 @@ function normalizeMos(value: string): string {
 	return value.trim().toUpperCase();
 }
 
+export function normalizeIctTaskCode(value: string): string {
+	return value.trim().toUpperCase();
+}
+
 export function parseMosApplicabilityInput(value: string): string[] {
 	const seen = new Set<string>();
 	const result: string[] = [];

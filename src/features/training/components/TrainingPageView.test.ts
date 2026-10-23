@@ -88,8 +88,6 @@ interface TrainingPageViewTestCtx {
 	selectedViewId: string | null;
 	setSelectedViewId: ReturnType<typeof vi.fn>;
 	canManageConfig: boolean;
-	canBulkImport: boolean;
-
 	canViewTraining: boolean;
 	canRecordTraining: boolean;
 	groups: Group[];
@@ -109,7 +107,6 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		selectedViewId: null,
 		setSelectedViewId: vi.fn(),
 		canManageConfig: true,
-		canBulkImport: true,
 		canViewTraining: true,
 		canRecordTraining: true,
 		groups,
@@ -265,13 +262,16 @@ describe('TrainingPageView', () => {
 		expect(manageViews.getAttribute('href')).toBe('/org/org-1/training/views');
 	});
 
-	it('offers Group-scoped configurators bulk import but no catalog management', () => {
+	it.each([
+		['operate', '/org/org-1/training/import'],
+		['view', null]
+	] as const)('links Import to the import page only for someone who can record completions (%s)', (training, href) => {
 		const org = {
 			orgId: 'org-1',
 			orgUrlSegment: 'org-1',
 			...createClientAccess({
 				membershipRole: 'member',
-				capabilityMap: { ...createCapabilityMap('none'), training: 'configure' },
+				capabilityMap: { ...createCapabilityMap('none'), training },
 				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 			})
 		};
@@ -284,8 +284,7 @@ describe('TrainingPageView', () => {
 		);
 		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
 
-		expect(screen.getByRole('button', { name: 'Import' })).toBeTruthy();
-		expect(screen.queryByRole('link', { name: 'Manage Views' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Import' })?.getAttribute('href') ?? null).toBe(href);
 		expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
 	});
 
@@ -601,7 +600,7 @@ describe('TrainingPageView', () => {
 		});
 
 		it('offers a member without Training configuration no config command anywhere on the toolbar', async () => {
-			const ctx = makeCtx('by-group', { canManageConfig: false, canBulkImport: false });
+			const ctx = makeCtx('by-group', { canManageConfig: false });
 			render(TrainingPageView, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
 			await widths.foldAll();
 
@@ -609,7 +608,6 @@ describe('TrainingPageView', () => {
 			expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
 			const menu = await openToolbarMore('Training controls');
 			expect(within(menu).queryByRole('menuitem', { name: 'Manage Views' })).toBeNull();
-			expect(within(menu).queryByRole('menuitem', { name: 'Import' })).toBeNull();
 			expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
 		});
 	});

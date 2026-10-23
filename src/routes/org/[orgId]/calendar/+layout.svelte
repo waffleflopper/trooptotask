@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
+	import { page } from '$app/state';
+	import {
+		calendarWorkspaceHydrator,
+		setCalendarWorkspaceReady
+	} from '$features/calendar/calendarWorkspaceHydration.svelte';
 	import type { CalendarWorkspaceResult, CalendarWorkspaceRestricted } from '$features/calendar';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -10,6 +14,7 @@
 	const workspace = $derived(data.calendar?.data);
 	let settled = $state.raw<{ workspace: unknown; error: Error | null; accessRestricted: boolean } | null>(null);
 	const current = $derived(settled?.workspace === workspace ? settled : null);
+	setCalendarWorkspaceReady(() => current !== null);
 
 	$effect(() => {
 		const requestedWorkspace = workspace;
@@ -44,7 +49,7 @@
 	<WorkspaceLoadError subject="Calendar" />
 {:else if current?.accessRestricted}
 	<WorkspaceAccessRestricted />
-{:else if current || workspace == null}
+{:else if current || workspace == null || page.data.ownsWorkspaceLoading}
 	{@render children()}
 {:else}
 	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" role="status" aria-live="polite">

@@ -117,5 +117,23 @@ UPDATE public.assignment_types SET assign_to = 'personnel' WHERE id = pg_temp.id
 SELECT is((SELECT starts_on FROM public.roster_forms WHERE id = pg_temp.open_form()), pg_temp.today() + 1,
   'the signed-in switch back to personnel opens a fresh form after the closed record');
 RESET ROLE;
+
+SET LOCAL ROLE service_role;
+SELECT lives_ok(pg_temp.close_sql(2, pg_temp.open_form(), pg_temp.today(), NULL, NULL, '[]'),
+  'another Group switch removes the future form and keeps the closed predecessor');
+RESET ROLE;
+
+-- Model several days spent as a Group assignment without changing the server clock.
+SELECT set_config('trooptotask.roster_close', 'on', true);
+UPDATE public.roster_forms SET starts_on = pg_temp.today() - 5, ends_on = pg_temp.today() - 3
+WHERE id = (SELECT id FROM original_form);
+SELECT set_config('trooptotask.roster_close', '', true);
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', pg_temp.id(2)::text, true);
+UPDATE public.assignment_types SET assign_to = 'personnel' WHERE id = pg_temp.id(401);
+SELECT is((SELECT starts_on FROM public.roster_forms WHERE id = pg_temp.open_form()), pg_temp.today() - 2,
+  'a signed-in switch back to Person starts the day after the closed predecessor even before UTC today');
+RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

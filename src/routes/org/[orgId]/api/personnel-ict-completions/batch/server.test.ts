@@ -3,223 +3,109 @@ import { createTestContext } from '$features/critical-tasks/server/criticalTasks
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
+const PERSON_ID = '00000001-0000-4000-8000-000000000001';
+const TASK_ID = '00000002-0000-4000-8000-000000000001';
+
+function seed(ctx: ReturnType<typeof createTestContext>) {
+	ctx.store.seed('personnel', [
+		{
+			id: PERSON_ID,
+			organization_id: ctx.auth.orgId,
+			rank: 'SGT',
+			last_name: 'Smith',
+			first_name: 'Jane',
+			mos: '68W',
+			clinic_role: 'Medic',
+			group_id: 'group-alpha',
+			archived_at: null
+		}
+	]);
+	ctx.store.seed('ict_tasks', [
+		{
+			id: TASK_ID,
+			organization_id: ctx.auth.orgId,
+			task_code: '181-105-1001',
+			title: 'Perform tactical combat casualty care',
+			description: null,
+			mos: ['68W'],
+			expiration_months: 12,
+			sort_order: 1,
+			archived_at: null,
+			created_at: '2026-04-01T00:00:00Z'
+		}
+	]);
+}
+
+function groupOperator(criticalTasks: 'operate' | 'view') {
+	return createTestContext({
+		auth: {
+			role: 'member',
+			isPrivileged: false,
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+			capabilityMap: {
+				calendar: 'none',
+				personnel: 'none',
+				training: 'none',
+				criticalTasks,
+				onboarding: 'none',
+				ratingScheme: 'none'
+			}
+		}
+	});
+}
+
 describe('personnel ICT completions batch API', () => {
-	it('imports completion rows without creating or mutating personnel or ICT task definitions', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'operate',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
-		});
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-1',
-				organization_id: ctx.auth.orgId,
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-alpha',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-1',
-				organization_id: ctx.auth.orgId,
-				task_code: '181-105-1001',
-				title: 'Perform tactical combat casualty care',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 1,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-
+	it('records a completion and ignores fields that would change the person, the task or who logged it', async () => {
+		const ctx = groupOperator('operate');
+		seed(ctx);
 		const personnelBefore = await ctx.store.findMany('personnel', ctx.auth.orgId);
 		const tasksBefore = await ctx.store.findMany('ict_tasks', ctx.auth.orgId);
 
-		const result = await handleUseCaseRequest(
+		const reply = await handleUseCaseRequest(
 			_postConfig,
 			ctx,
 			{
 				records: [
 					{
-						rowNumber: 2,
-						values: {
-							rank: 'SGT',
-							lastName: 'Smith',
-							firstName: 'Jane',
-							taskCode: '181-105-1001',
-							completedAt: '2026-04-15',
-							title: 'Attempted overwrite',
-							mos: '11B',
-							groupId: 'group-bravo'
-						}
+						personnelId: PERSON_ID,
+						ictTaskId: TASK_ID,
+						completedAt: '2026-04-15',
+						title: 'Attempted overwrite',
+						groupId: 'group-bravo',
+						loggedBy: 'forged'
 					}
 				]
 			},
 			() => ctx
 		);
 
-		expect(result).toMatchObject({
-			inserted: [
-				expect.objectContaining({
-					personnelId: 'person-1',
-					ictTaskId: 'task-1',
-					completedAt: '2026-04-15'
-				})
-			],
-			updated: [],
-			errors: []
-		});
-
-		const personnelAfter = await ctx.store.findMany('personnel', ctx.auth.orgId);
-		const tasksAfter = await ctx.store.findMany('ict_tasks', ctx.auth.orgId);
-
-		expect(personnelAfter).toEqual(personnelBefore);
-		expect(tasksAfter).toEqual(tasksBefore);
-	});
-
-	it('does not create personnel or ICT tasks from unmatched completion import rows', async () => {
-		const ctx = createTestContext();
-		const personnelBefore = await ctx.store.findMany('personnel', ctx.auth.orgId);
-		const tasksBefore = await ctx.store.findMany('ict_tasks', ctx.auth.orgId);
-
-		const result = await handleUseCaseRequest(
-			_postConfig,
-			ctx,
+		expect(reply.results).toEqual([
 			{
-				records: [
-					{
-						rowNumber: 2,
-						values: {
-							rank: 'SSG',
-							lastName: 'Unknown',
-							firstName: 'Pat',
-							taskCode: 'BAD-TASK',
-							completedAt: '2026-04-15',
-							title: 'New task title',
-							mos: '68W'
-						}
-					}
-				]
-			},
-			() => ctx
-		);
-
-		expect(result).toEqual({
-			inserted: [],
-			updated: [],
-			errors: [
-				{
-					rowNumber: 2,
-					personnelName: 'SSG Pat Unknown',
-					taskCode: 'BAD-TASK',
-					message: 'Task code "BAD-TASK" does not match an existing critical task'
-				}
-			],
-			unconfirmed: []
-		});
-
-		const personnelAfter = await ctx.store.findMany('personnel', ctx.auth.orgId);
-		const tasksAfter = await ctx.store.findMany('ict_tasks', ctx.auth.orgId);
-		const completionsAfter = await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId);
-
-		expect(personnelAfter).toEqual(personnelBefore);
-		expect(tasksAfter).toEqual(tasksBefore);
-		expect(completionsAfter).toEqual([]);
-	});
-
-	it.each([
-		[{ records: [null] }, 'Each import row needs a row number and cell values'],
-		[{ records: [{ rowNumber: 1, values: null }] }, 'Each import row needs its cell values'],
-		[{ records: [{ rowNumber: 1.5, values: {} }] }, 'Row number must be a whole number'],
-		[
-			{ records: [{ rowNumber: 1, values: { lastName: 42, firstName: 'Jane', completedAt: '2026-04-15' } }] },
-			'Import cells must be text'
-		],
-		[{ records: 'rows' }, 'records array is required']
-	])('refuses malformed import rows with a 400 and saves nothing: %j', async (body, message) => {
-		const ctx = createTestContext();
-		await expect(handleUseCaseRequest(_postConfig, ctx, body, () => ctx)).rejects.toMatchObject({
-			status: 400,
-			message
-		});
-		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([]);
-	});
-
-	it('reads a null cell as an empty cell and reports the row error', async () => {
-		const ctx = createTestContext();
-		const result = await handleUseCaseRequest(
-			_postConfig,
-			ctx,
-			{
-				records: [
-					{
-						rowNumber: 2,
-						values: { lastName: 'Smith', firstName: null, taskCode: 'T-1', completedAt: '2026-04-15' }
-					}
-				]
-			},
-			() => ctx
-		);
-		expect(result.errors).toEqual([
-			{
-				rowNumber: 2,
-				personnelName: 'Smith',
-				taskCode: 'T-1',
-				message: 'First name is required'
-			},
-			{
-				rowNumber: 2,
-				personnelName: 'Smith',
-				taskCode: 'T-1',
-				message: 'Task code "T-1" does not match an existing critical task'
+				kind: 'added',
+				record: expect.objectContaining({ personnelId: PERSON_ID, ictTaskId: TASK_ID, completedAt: '2026-04-15' })
 			}
 		]);
-		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([]);
+		expect(reply.results[0].kind === 'added' && reply.results[0].record.loggedBy).not.toBe('forged');
+		expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toEqual(personnelBefore);
+		expect(await ctx.store.findMany('ict_tasks', ctx.auth.orgId)).toEqual(tasksBefore);
+	});
+
+	it('refuses a record that is not a date or names a person by text', async () => {
+		for (const record of [
+			{ personnelId: PERSON_ID, ictTaskId: TASK_ID, completedAt: '04/15/2026' },
+			{ personnelId: 'Smith, Jane', ictTaskId: TASK_ID, completedAt: '2026-04-15' }
+		])
+			expect(_postConfig.input.safeParse({ records: [record] }).success).toBe(false);
 	});
 
 	it('denies a view-only Critical Tasks member before importing a completion', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'view',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
-		});
+		const ctx = groupOperator('view');
+		seed(ctx);
 		await expect(
 			handleUseCaseRequest(
 				_postConfig,
 				ctx,
-				{
-					records: [
-						{
-							rowNumber: 2,
-							values: { firstName: 'Jane', lastName: 'Smith', taskCode: 'T-1', completedAt: '2026-04-15' }
-						}
-					]
-				},
+				{ records: [{ personnelId: PERSON_ID, ictTaskId: TASK_ID, completedAt: '2026-04-15' }] },
 				() => ctx
 			)
 		).rejects.toMatchObject({ status: 403 });

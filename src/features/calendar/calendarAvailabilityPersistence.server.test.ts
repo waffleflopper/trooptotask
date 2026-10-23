@@ -87,6 +87,90 @@ describe('Calendar ordinary availability persistence', () => {
 		expect(rows).toEqual([original[1]]);
 	});
 
+	it('sends an import as one Organization-bound transaction and trusts only a matching acknowledgment', async () => {
+		const calls: unknown[] = [];
+		let reply: () => Response = () => Response.json({ inserted: 1, deleted: 2, stale: [1] });
+		const client = createClient('http://calendar-import.invalid', 'synthetic-ordinary-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					if (new URL(request.url).pathname !== '/rest/v1/rpc/import_availability_entries')
+						throw new Error('Unexpected import transport');
+					calls.push(await request.json());
+					return reply();
+				}
+			}
+		});
+		const port = persistence(client);
+		const entry = {
+			personnelId: 'person-a',
+			statusTypeId: 'status-a',
+			startDate: '2026-11-03',
+			endDate: '2026-11-09',
+			replaces: [
+				{ id: 'entry-a', statusTypeId: 'status-a', startDate: '2026-11-01', endDate: '2026-11-04', note: 'Approved' },
+				{ id: 'entry-b', statusTypeId: 'status-b', startDate: '2026-11-08', endDate: '2026-11-12', note: null }
+			]
+		};
+		const free = { ...entry, startDate: '2026-12-01', endDate: '2026-12-01', replaces: [] };
+
+		expect(await port.insertReplacing([entry, free])).toEqual({ inserted: 1, deleted: 2, stale: [1] });
+		expect(calls).toEqual([
+			{
+				p_organization_id: 'org-a',
+				p_entries: [
+					{
+						personnel_id: 'person-a',
+						status_type_id: 'status-a',
+						start_date: '2026-11-03',
+						end_date: '2026-11-09',
+						note: null,
+						replaces: [
+							{
+								id: 'entry-a',
+								status_type_id: 'status-a',
+								start_date: '2026-11-01',
+								end_date: '2026-11-04',
+								note: 'Approved'
+							},
+							{
+								id: 'entry-b',
+								status_type_id: 'status-b',
+								start_date: '2026-11-08',
+								end_date: '2026-11-12',
+								note: null
+							}
+						]
+					},
+					{
+						personnel_id: 'person-a',
+						status_type_id: 'status-a',
+						start_date: '2026-12-01',
+						end_date: '2026-12-01',
+						note: null,
+						replaces: []
+					}
+				]
+			}
+		]);
+
+		for (const body of [
+			{ inserted: 0, deleted: 0, stale: [] },
+			{ inserted: 1, deleted: 0 },
+			{ inserted: 0, deleted: 0, stale: [1] }
+		]) {
+			reply = () => Response.json(body);
+			await expect(port.insertReplacing([free])).rejects.toThrow('Invalid Calendar import acknowledgment');
+		}
+		reply = () =>
+			Response.json({ code: '42501', message: 'Calendar availability import is not allowed' }, { status: 403 });
+		await expect(port.insertReplacing([free])).rejects.toMatchObject({
+			status: 403,
+			message: 'You do not have access to that Calendar scope'
+		});
+	});
+
 	it('reads inclusive overlap and exact Person in global end-date order', async () => {
 		const { client } = calendarProvider({
 			availability_entries: [

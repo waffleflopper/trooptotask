@@ -10,8 +10,9 @@ not. MOS applicability excludes unrelated tasks from the denominator.
   require persistence after reload.
 - `completion-recovery`: a failed save retains the modal draft and prior data; a corrected retry persists once. An
   unresolved response cannot be reported as saved.
-- `completion-import`: preview valid, invalid and out-of-scope CSV rows, import only selected valid rows, preserve
-  same-Person/task/date identity on upsert and recover from a failed batch.
+- `completion-import`: import a multi-tab workbook on its own page: match each person by name and ask when two share
+  one, map an unknown task code once for every row, flag a row repeated in the file, fix a date inline, commit, download
+  the rows not imported and read the import back as Unchanged. The import never creates tasks.
 - `import-lost-reply`: distinguish refused and unconfirmed completion writes from confirmed saved rows without
   duplicating dated history.
 - `readiness`: matrix cells, individual readiness, Personnel detail and reports agree on current, expiring, expired,
@@ -22,11 +23,11 @@ not. MOS applicability excludes unrelated tasks from the denominator.
   preserve independently calculated values and scope.
 - `completion-access`: dedicated Critical Tasks operate/view/no-access lanes, Alpha-only/empty Group scopes, unassigned
   Personnel and foreign Organization targets have distinct allowed and denied behavior.
-- `scope-switch`: an A response cannot replace B's records, continue its import in B or enable A's completion controls
-  after switching Organizations.
-- `screen-states`: matrix height and sticky scrolling, landmarks, a rejected workspace source, the Record Completion and
-  import dialogs (focus, held title, failed save), person detail tables, Reports metrics, chart data tables, the
-  `Histogram MOS` select, and loading, empty, error, denied, narrow and dark states (step 11).
+- `scope-switch`: an A response cannot replace B's records or enable A's completion controls after switching
+  Organizations, and the switcher waits while an A import saves.
+- `screen-states`: matrix height and sticky scrolling, landmarks, a rejected workspace source, the Record Completion
+  dialog (focus, held title, failed save), the import page, person detail tables, Reports metrics, chart data tables,
+  the `Histogram MOS` select, and loading, empty, error, denied, narrow and dark states (step 11).
 
 ## How to get to it (user POV)
 
@@ -34,7 +35,8 @@ Choose `ICTLs` in Organization navigation (its tooltip and breadcrumb read `Crit
 (`Critical Tasks controls`) is one row at every width: the `A-Z`/`Group` view switch, the search field,
 `Critical Tasks group filter` (whose all-option reads `All groups`), `Gaps only`, `Export Excel`, `Import Completions`,
 `Task Library` (configure only) and `Reports`, then the primary `Record Completion`. Record and import need operate
-access. As the page narrows, controls fold one at a time into `More Critical Tasks controls`, starting with
+access; `Import Completions` is a link to its own page at `critical-tasks/import`, which steps through File, Columns,
+Review and Done. As the page narrows, controls fold one at a time into `More Critical Tasks controls`, starting with
 `Export Excel`, and the search field becomes an icon only after every other control has folded; `Record Completion`
 stays on the row at every width. Open a Person's linked name for their individual task record; use a task's
 `Log Completion` or `Edit` control there. Choose `Reports` for filters and `Export Excel`; its toolbar
@@ -111,47 +113,71 @@ pre-populating extra completions.
    empty draft, save and require stored null on the same ID. Native `fill` with an empty string may leave text intact; a
    retained value without an empty submitted draft is not an application failure. Run one keyboard submit/cancel and
    verify dialog focus returns to its trigger.
-4. **Import and history:** Use a CSV with
-   `First Name,Last Name,Task Code,Completion Date,Validation Method,Validator,Notes`: one Unassigned/All-MOS row at
-   `dates.ictExpiredCompleted`, one valid Able/Alpha older completion, and one unknown task code. Require visible
-   invalid-row reasons and unchecked invalid rows; select only the valid rows. A failed
-   `personnel-ict-completions/batch` request must keep the review available and store neither marker. Restore/retry,
-   reload and read both persisted rows. A second import of the same Person/task/date with revised notes updates its ID
-   rather than duplicating it. Able's newer seeded Alpha completion must remain the readiness source. Archive Alpha
-   through the configurator's library, then reload the operator's page and reopen Able: its two Alpha dates remain in
-   Historical Completions, while only All-MOS contributes to active readiness. Restore the same task ID. For multi-chunk
-   failures, use the existing 500-row bound and inspect each successful/failed chunk separately; do not infer
-   all-or-nothing import behavior. For mixed valid/invalid previews, clear selection and use Select all import rows.
-   Require only valid rows checked, invalid checkboxes disabled, and their validation reasons still readable. Compare
-   exact provider rows before/after preview and cancel without saving when checking preview behavior alone.
+4. **Import and history:** Run `$V seed duplicate-able` first: it adds a PFC `Able, Synthetic` in Alpha beside the
+   fixture's SPC. Build a synthetic workbook with exceljs. Give tabs `Alpha` and `Bravo` two banner rows above the
+   header `Soldier, Task #, Date, Method, Graded by, Remarks`. `Alpha` holds
+   Able/`VERIFY-ICT-ALPHA`/`2026-09-14`/Demonstration (the seeded completion),
+   Able/`VERIFY-ICT-ALL`/`2026-10-01`/Demonstration/`SFC Lee`/`Range day`, and
+   Baker/`OLD-ALPHA`/`2026-10-02`/Lecture/`SFC Lee`. `Bravo` holds Baker/`OLD-ALPHA`/`2026-10-09`/Lecture/`SFC Lee`,
+   Unassigned/`OLD-ALPHA`/`2026-10-02`/Practical Exercise, Unassigned/`VERIFY-ICT-ALL`/`2026-10-03` twice (Remarks
+   `First entry` and `Typed twice`), and Baker/`VERIFY-ICT-ALL`/`2026-13-40`/Lecture/`Bad date`. Names are written
+   `Last, First`.
 
-   **Committed completion insert with a lost provider reply.** As `ictOperator` on a settled matrix, upload a small CSV
-   using the headers above, an actual fixture Person, `VERIFY-ICT-ALL`, an unused completion date, Demonstration, and a
-   unique Notes marker. Require the preview row valid and selected. Read
-   `$V rows personnel_ict_completions orgA personnel_id PERSON_ID` and require no matching Person/task/date or Notes
-   marker before confirmation. Arm `$V fault arm ict-completions-insert-lost-ack`, then use the ordinary import button.
-   The control lets one exact owned-provider `POST /rest/v1/personnel_ict_completions` commit, consumes its successful
-   reply and throws a synthetic transport error. Save native counts/errors, a screenshot, `$V fault state`, and exact
-   provider rows. Expect the accepted row counted as created, not failed, with exactly one saved Person/task/date row
-   and `providerStatus: 201`. A raw uniqueness error despite a saved row is a failure. Restore `$V fault restore`, use
-   Done and require the updated matrix cell and readiness without manual reload. Then reload and inspect that Person's
-   dated history for the saved note. Keep provider readback distinct from native history. The UI has no
-   completion-delete action; discard the created row only by disposing this owned worker.
+   As `ictOperator`, follow `Import Completions` and drop the file. Columns reads `2 sheets read · 8 rows`; `Soldier`
+   maps to `Last, First` and `Graded by` starts at `Don't import`. Set `Import Graded by as` to `Validator` and require
+   `6 of 6 columns used` and `Review 8 rows`. Review reads `All · 8` and `Needs a fix · 8`. The rail asks
+   `Which person?` for `"Able, Synthetic" · 2 rows`, offering only `SPC Able, Synthetic` and `PFC Able, Synthetic` (both
+   Alpha), and `Unknown task` for `"OLD-ALPHA" · 3 rows`, offering the active tasks only. The two `2026-10-03` rows read
+   `Same record as row 7 on Bravo. Skip one of these rows.` and `Same record as row 6 on Bravo. …`, and the bad date
+   shows an editable Completed cell with `Completed: Enter a valid date.` Choose SPC Able and `Apply to 2 rows`, choose
+   `VERIFY-ICT-ALPHA` and `Apply to 3 rows`, skip one duplicate, and type `2026-10-13` into the Completed cell. Review
+   reads `New · 6`, `Unchanged · 1` and `Skipped · 1` with `1 row already matches. Nothing to save.`; the footer reads
+   `6 changes ready` and `6 added · 0 updated`. Import. Done reads `6 changes saved.` with Added 6, Unchanged 1 and
+   Skipped 1, and the downloaded not-imported workbook holds the skipped row on `Bravo` with `Reason`
+   `You skipped this row.` `$V rows personnel_ict_completions orgA` shows the six new rows on the SPC Able, Baker and
+   Unassigned IDs: `OLD-ALPHA` saved as Alpha for all three rows, a blank method saved as `Other`, `SFC Lee` as the
+   validator where given, and the corrected `2026-10-13`. None belongs to the seeded PFC. The matrix shows the new cells
+   after Done without a reload.
 
-   For an adjacent same-date update when required, record the original completion ID, re-import the same
-   Person/task/date with revised Notes, and arm `$V fault arm ict-completions-update-lost-ack`. A successful PATCH whose
-   reply is lost has an unconfirmed outcome, not a definite refusal. Expect one not-confirmed row, no failed row and no
-   saved-success claim; reload to inspect the actual effect before any new explicit retry. Preserve the same provider ID
-   and unchanged dated-row count. A disarmed ordinary retry must update that ID rather than add history. These controls
-   are table- and method-scoped inside the owned provider, not restricted to one row or Organization. Drive one mutation
-   at a time, restore between cases, and preserve independent row outcomes for genuine refusals.
+   Choose `Import another file`, drop the same workbook with the same mapping and give the same answers and skip. Review
+   reads `Unchanged · 7` behind `7 rows already match. Nothing to save.`, and `Import 0 changes` stays disabled. A row
+   whose Remarks or Method differs from the saved completion for that Person, task and date reads Update, with the old
+   value under the new one; a blank cell never clears a saved value. Run `clean-seeds` once the seeded PFC holds no
+   completion.
+
+   History: the store holds only the latest completion per Person and task, so an older dated row for a pair reads New
+   in Review; the server matches it on Person, task and date and updates that row in place, so dated history is never
+   duplicated. Archive Alpha through the configurator's library, then reload the operator's page and reopen Able: its
+   Alpha dates remain in Historical Completions, while only All-MOS contributes to active readiness. Restore the same
+   task ID.
+
+   **Committed completion insert with a lost provider reply.** As `ictOperator`, import a CSV with header
+   `Last name,First name,Task code,Completed,Validation method,Notes` holding a fixture Person, `VERIFY-ICT-ALL`, an
+   unused date, Demonstration and a unique Notes marker. Read
+   `$V rows personnel_ict_completions orgA personnel_id PERSON_ID` and require no matching row before confirmation. Arm
+   `$V fault arm ict-completions-insert-lost-ack` on Review, then Import. The control lets one exact owned-provider
+   `POST /rest/v1/personnel_ict_completions` commit, consumes its successful reply and throws a synthetic transport
+   error. Expect the row counted as Added, exactly one saved Person/task/date row and `providerStatus: 201`. A raw
+   uniqueness error despite a saved row is a failure. Restore `$V fault restore` and require the matrix cell after Done
+   without a reload. The UI has no completion-delete action; discard the created row only by disposing this owned
+   worker.
+
+   For an adjacent same-date update, record the completion ID, import the same Person/task/date with revised Notes and
+   arm `$V fault arm ict-completions-update-lost-ack` on Review. A successful PATCH whose reply is lost returns an
+   unconfirmed result for that row. Done reads `0 changes saved.` with `Not confirmed 1` and
+   `The last batch was not confirmed`.
+   Reload to inspect the actual effect on the same provider ID before any new import. These controls are table- and
+   method-scoped inside the owned provider, not restricted to one row or Organization; drive one mutation at a time.
+
+   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed.
+   Only confirmed records merge into the completion store. Done counts the unconfirmed rows separately, leaves
+   confirmed rows out of the not-imported workbook, and marks later chunks Not attempted without sending them.
 
    **Lost browser batch reply.** `$V network arm-drop PAGE personnel-ict-completions/batch [ORDINAL]` dispatches only
    the real exact same-origin A POST and rejects its reply once after recording its status. Use the registered
-   `bulk-501` roster from step 8 with ordinal 2. Expect 500 created, 1 not confirmed, 0 failed, no automatic resend, and
-   explicit reload guidance. Exact saved-row readback can show all 501 committed while only 500 are confirmed in the UI.
-   Restore the hook, use Done, and reload for a separate visible saved read. Keep confirmed, unconfirmed and
-   not-imported counts distinct.
+   `bulk-501` roster from step 8 with ordinal 2. Expect Done to read `500 changes saved.` with `Not confirmed 1` and no
+   automatic resend. Exact saved-row readback can show all 501 committed while only 500 are confirmed in the UI. Keep
+   confirmed, unconfirmed and not-imported counts distinct.
 
 5. **Reports and downloaded values:** With the warning Able and current Baker rows, All Groups is 60%, Alpha 100%, Bravo
    100%, and MOS 68W **2/4 (50%)**. Unassigned remains 0/2 because its imported All-MOS is expired. Preserve report and
@@ -177,15 +203,18 @@ pre-populating extra completions.
 6. **Group and lane denials:** `ictViewer` sees results without log/edit/import controls; valid completion
    create/update/delete and batch writes must be denied with unchanged IDs/values. `rosterManager` cannot read/write
    Critical Tasks merely because navigation is under the same Organization. `ictScoped` sees Able only: import a CSV
-   with allowed Able and out-of-scope Baker/unassigned rows. Expect one valid row, two rejected rows and persistence
-   only for Able; then read it after reload. Prove direct Baker/unassigned writes and their detail pages are denied or
-   concealed. A scoped batch may return 200 with per-row errors, and a Bravo report filter may return 200 with an empty
-   authorized projection; require no excluded data or stored rows rather than a particular denial status for those
-   responses. `ictEmpty` sees no Personnel and cannot write a named Person. `ictForeign` sees B only and cannot
-   read/write A, including A IDs in a B payload. For direct authenticated API denials use valid known IDs and payloads:
-   a validation 400 is not access proof. Compare exact `$V rows` before/after, including absent unique notes. Group
-   catalog: as `ictScoped`, the workspace and report Group filters and their page data must name only Alpha; `ictEmpty`
-   receives no Group IDs or names; `ictViewer` (Organization-wide) keeps every Group.
+   with Able, Baker and Unassigned rows. Baker and Unassigned each get an `Unknown person` question whose only choice is
+   `SPC Able, Synthetic`; skip both and import, and Done reads `1 change saved.` with `2 rows not imported`. Only Able's
+   row persists. A direct batch for Baker returns 200 with
+   `This person is not on a roster you can record completions for.` and stores nothing. Prove direct Baker/unassigned
+   writes and their detail pages are denied or concealed. A scoped batch may return 200 with per-row errors, and a Bravo
+   report filter may return 200 with an empty authorized projection; require no excluded data or stored rows rather than
+   a particular denial status for those responses. `ictEmpty` sees no Personnel and cannot write a named Person.
+   `ictForeign` sees B only and cannot read/write A, including A IDs in a B payload. For direct authenticated API
+   denials use valid known IDs and payloads: a validation 400 is not access proof. Compare exact `$V rows` before/after,
+   including absent unique notes. Group catalog: as `ictScoped`, the workspace and report Group filters and their page
+   data must name only Alpha; `ictEmpty` receives no Group IDs or names; `ictViewer` (Organization-wide) keeps every
+   Group.
 7. **Switch and stale response:** As `ictSwitch`, record A's matrix then arm a held completion response or summary
    fetch. After the request starts, use the Organization switcher to B, which is view-only. Release the A response. B
    must retain only its own Person/task, no A note or names, and no completion-write controls. Revisit A and read the
@@ -195,21 +224,16 @@ pre-populating extra completions.
 
 8. **Wide imports and delayed chunks:** Reload the matrix after `$V seed bulk-501`; the import matches names against the
    loaded roster. The seed supplies a unique tag and 501 Alpha People named `Synthetic MapChunk<TAG><000..500>`. Build a
-   CSV for All-MOS and `dates.ui` using those actual names. Require all rows valid. Fail the second batch, require the
-   first 500 exact rows retained and one absent, then retry: 500 updates keep their IDs and the final row is created.
-   Read back all 501 rows and reload. This covers a 500-Person lookup; 501 different dates for Able's one task covers a
-   separate shape. A successful one-Person import cannot prove the wide lookup. Keep all helper seeds registered for
+   CSV for All-MOS and `dates.ui` using those actual names; Review reads `New · 501`. Fail the second batch with
+   `network arm-fail`: Done reads `500 changes saved.` with one Not confirmed, the first 500 rows are saved and one is
+   absent. Import the file again: 500 rows read Unchanged and one New. Read back all 501 rows. This covers a 500-Person
+   lookup; 501 different dates for Able's one task covers a separate shape. Keep all helper seeds registered for
    `clean-seeds`.
 
-   Separately hold the first real 500-row response of a 501-date Able import. After provider persistence, attempt Escape
-   and the visible Organization switcher. The busy import modal may prevent both closing and switching. If they are
-   unavailable, capture the attempted actions, release and restore the control, and record this native case unavailable.
-   Do not bypass the modal or repeat the attempt solely for a new candidate. If the visible UI permits switching, switch
-   to B and release. Require **no subsequent completion batch request to B**, no A data/write controls in B, and exactly
-   500 saved rows in A. Already issued A writes may persist; imports are not transactional. Revisit A, reload and retry
-   the original file; require 500 same-ID updates and one new row. Lower-level deferred tests also cover A→B→A,
-   same-Organization workspace replacement and the interval before the outer replacement workspace promise resolves
-   during response/body delivery; do not claim those as native interaction unless actually driven.
+   Separately hold the first real 500-row response of a 501-date Able import with `network arm-hold`. The footer reads
+   `Saving 0 of 501 changes`, and choosing B in the Organization switcher keeps the A import with
+   `Your import is still saving. You can leave when it finishes.` Release: the second chunk follows in A and B receives
+   no completion batch. The import-flow commit tests cover chunk ordering and the stop after an unconfirmed chunk.
 
 9. **Permission changes and archived Personnel:** Open a completion draft, then use the owner's Members UI to change the
    operator to Critical Tasks view. Saving the old draft must fail with error-only feedback and unchanged rows; reload
@@ -222,7 +246,7 @@ pre-populating extra completions.
    (33%)**. Restore the Person through Organization Settings → Archives and read back the same ID.
 
 10. **Wide reads and provider pagination:** With registered `bulk-501` People, import the same 501 names for both Alpha
-    and All-MOS tasks at `dates.ui` (1,002 checked rows). The existing seed plus those rows gives 1,003 distinct latest
+    and All-MOS tasks at `dates.ui` (1,002 rows). The existing seed plus those rows gives 1,003 distinct latest
     Person/task records. A completion on a nonapplicable task remains stored history; its MOS rule excludes it from the
     readiness denominator. Require the report screen, summary, downloaded report and Dashboard to load for this
     population. Compare an unfiltered owned `rows` read to the disjoint Alpha/All-MOS readback union: all 1,003
@@ -309,15 +333,17 @@ pre-populating extra completions.
         single row back
 
     - ID: M10
-      - Screen and control: Completion import dialog
-      - How to reach it: `Import Completions` (on the row, or in `More Critical Tasks controls` when folded) with a CSV
-        holding one valid row and one unknown task code; then `network arm-fail PAGE personnel-ict-completions/batch`
-        and Import
-      - Expected: On open, focus lands on the `Upload file` file input. The invalid row's control is
-        `aria-invalid="true"` with an `aria-describedby` resolving to its reason. The failed request is an `Alert`
-        inside the dialog, the preview and selection stay, rows are unchanged, and focus does not fall to `body`. Escape
-        returns focus to `Import Completions` on the row, or to `More Critical Tasks controls` when the import was
-        chosen from More. Advancing to the review step moves focus to its heading inside the dialog.
+      - Screen and control: Completion import page
+      - How to reach it: `Import Completions` (on the row, or in `More Critical Tasks controls` when folded), then the
+        step 4 workbook through Review; Tab from `Find a completion`. Separately, a full load of `critical-tasks/import`
+        under `server-source arm ict_tasks hold 1 120000`, then under `server-source arm ict_tasks fail-hard 1`
+      - Expected: The link opens `critical-tasks/import` with `Import completions` and the File, Columns, Review and
+        Done steps; at 390 the More item navigates there. Tab moves through the rail in order (the person radio group,
+        its Skip, the task radio group, its Skip), then each row's fix cells and Skip button; each fix cell is
+        `aria-invalid="true"` with an `aria-describedby` resolving to its message, and the app's 3px ring shows on
+        `:focus-visible`. Under the hold the title and steps stay and the `Loading import` skeleton shows until
+        `server-source restore`. Under fail-hard the page shows `Unable to load Critical Tasks` with
+        `Retry Critical Tasks`, which reaches File after restore
 
     - ID: M11
       - Screen and control: Person detail tables
@@ -383,9 +409,9 @@ pre-populating extra completions.
         icon-less `Task Library` and `Reports` start their text at the same left offset as the icon-bearing two.
         ArrowRight opens the submenu and focuses `All groups`. ArrowLeft closes only the submenu (one menu left) and
         focuses `Group, All groups`. Escape inside the submenu closes both menus in one press and returns focus to
-        `More Critical Tasks controls`; Escape in the top menu does the same. Reports and Task Library navigate, Import
-        Completions opens its dialog after the menu closes, Export Excel downloads the filtered workbook. A view-only
-        actor sees no Import Completions, Task Library or Record Completion in the menu
+        `More Critical Tasks controls`; Escape in the top menu does the same. Reports, Task Library and Import
+        Completions navigate, Export Excel downloads the filtered workbook. A view-only actor sees no Import
+        Completions, Task Library or Record Completion in the menu
 
     - ID: M18
       - Screen and control: Hidden filter dot
@@ -440,13 +466,12 @@ pre-populating extra completions.
     - ID: M23
       - Screen and control: Task library toolbar
       - How to reach it: `ictConfigurator` on `critical-tasks/library`.
-        `$V toolbar-sweep PAGE "ICT task library controls" RUN_DIR --expect import-csv,mos,status --pinned new-task --search --step 4 --record sweep-light`,
-        then dark. At 390, choose `Archived` from the View radio group, then `Import CSV`, then `Cancel`
-      - Expected: `toolbar-sweep.json` passes with `Import CSV` folding first, then `MOS`, then the `Active`/`Archived`
+        `$V toolbar-sweep PAGE "ICT task library controls" RUN_DIR --expect import,mos,status --pinned new-task --search --step 4 --record sweep-light`,
+        then dark. At 390, choose `Archived` from the View radio group, then `Import`
+      - Expected: `toolbar-sweep.json` passes with `Import` folding first, then `MOS`, then the `Active`/`Archived`
         switch, and `New Task` pinned. In More the status switch is the radio group `Filter ICT tasks by status`;
-        choosing `Archived` lists archived tasks and adds `Clear filters`. `Import CSV` opens the import workspace after
-        the menu closes, and `Cancel` returns focus to `More ICT task library controls` (to `Import CSV` when it is on
-        the row). `New Task` is disabled with its loading reason while the library loads
+        choosing `Archived` lists archived tasks and adds `Clear filters`. `Import` navigates to
+        `critical-tasks/library/import`. `New Task` is disabled with its loading reason while the library loads
 
 Use the documented narrow `network arm-fail|arm-hold PAGE FAMILY`, `state`, `release`, `restore`,
 `feedback arm|state|restore` and `export arm|save|restore` controls. Critical Tasks families are
@@ -459,8 +484,8 @@ discard UI-created completions only through this owned worker's cleanup/restart.
 
 ## Gotchas
 
-- An impossible CSV completion date such as `02/30/2026` is flagged during import review. A malformed import row is
-  refused with `400` and saves nothing. See [Invalid input](invalid-input.md).
+- An impossible completion date such as `02/30/2026` is flagged during import review. A malformed import row is refused
+  with `400` and saves nothing. See [Invalid input](invalid-input.md).
 - Critical Tasks operate is independent of Personnel and Training; configure is required for library/default writes, not
   completion recording. Group scope remains authoritative on the server and provider.
 - The latest completion is selected by completion date, then creation time. Older history must not overwrite a newer

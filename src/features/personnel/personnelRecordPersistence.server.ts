@@ -122,14 +122,14 @@ export function createSupabasePersonnelRecordPersistence(
 			if (error) throwPersonnelMutationError(error);
 			return (data ?? []).map(toPersonnel);
 		},
-		async updateEditable(id, patch) {
-			const { data, error } = await client
+		async updateEditable(id, patch, options) {
+			let query = client
 				.from('personnel')
 				.update(personnelEditableRow(patch))
 				.eq('organization_id', orgId)
-				.eq('id', id)
-				.select(PERSONNEL_FIELDS)
-				.maybeSingle<Record<string, unknown>>();
+				.eq('id', id);
+			if (options?.onlyActive) query = query.is('archived_at', null);
+			const { data, error } = await query.select(PERSONNEL_FIELDS).maybeSingle<Record<string, unknown>>();
 			if (error) throwPersonnelMutationError(error);
 			return data ? toPersonnel(data) : null;
 		},

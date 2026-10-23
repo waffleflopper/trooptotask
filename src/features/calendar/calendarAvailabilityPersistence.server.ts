@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { AvailabilityCreate, CalendarAvailabilityPersistence } from './contracts';
 import { createSupabaseCalendarAvailabilityRemovalPort } from './availabilityRemovalPersistence.server';
@@ -147,6 +147,48 @@ export function createSupabaseCalendarAvailabilityPersistence(
 				.returns<AvailabilityRow[]>();
 			requireAvailabilityMutation(error);
 			return (data ?? []).map(toAvailability);
+		},
+		async insertReplacing(entries) {
+			const { data, error } = await client.rpc('import_availability_entries', {
+				p_organization_id: orgId,
+				p_entries: entries.map((entry) => ({
+					personnel_id: entry.personnelId,
+					status_type_id: entry.statusTypeId,
+					start_date: entry.startDate,
+					end_date: entry.endDate,
+					note: entry.note ?? null,
+					replaces: entry.replaces.map((replaced) => ({
+						id: replaced.id,
+						status_type_id: replaced.statusTypeId,
+						start_date: replaced.startDate,
+						end_date: replaced.endDate,
+						note: replaced.note
+					}))
+				}))
+			});
+			if (error?.code === '42501') throw new RequestFailure(403, 'You do not have access to that Calendar scope');
+			if (error?.code === '22023')
+				throw new RequestFailure(400, 'Provide between 1 and 500 statuses and at most 500 replaced entries to import');
+			requireAvailabilityMutation(error);
+			const { inserted, deleted, stale } = (data ?? {}) as { inserted?: unknown; deleted?: unknown; stale?: unknown };
+			const replaced = entries.reduce((total, entry) => total + entry.replaces.length, 0);
+			if (
+				!Array.isArray(stale) ||
+				!stale.every(
+					(index, position) =>
+						Number.isInteger(index) &&
+						index >= 0 &&
+						index < entries.length &&
+						(position === 0 || index > stale[position - 1])
+				) ||
+				inserted !== entries.length - stale.length ||
+				typeof deleted !== 'number' ||
+				!Number.isInteger(deleted) ||
+				deleted < 0 ||
+				deleted > replaced
+			)
+				throw new Error('Invalid Calendar import acknowledgment');
+			return { inserted: entries.length - stale.length, deleted, stale: stale as number[] };
 		}
 	};
 }

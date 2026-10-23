@@ -15,7 +15,6 @@
 	import { rosterStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import {
-		IctCompletionBulkImport,
 		IctCompletionModal,
 		IctMatrix,
 		ictTasksStore,
@@ -42,9 +41,9 @@
 	let personnelSearch = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
-	let showCompletionImportModal = $state(false);
 	const reportsHref = $derived(`/org/${orgUrlSegment}/critical-tasks/reports`);
 	const taskLibraryHref = $derived(`/org/${orgUrlSegment}/critical-tasks/library`);
+	const importHref = $derived(`/org/${orgUrlSegment}/critical-tasks/import`);
 
 	const storesHydratedForOrg = $derived(
 		rosterStore.orgId === orgId &&
@@ -154,13 +153,6 @@
 		showTaskInputModal = true;
 	}
 
-	function handleCompletionImportOpen(): void {
-		if (!canOpenCompletionInput) return;
-		activeCompletionCell = null;
-		showTaskInputModal = false;
-		showCompletionImportModal = true;
-	}
-
 	async function exportMatrixExcel(): Promise<void> {
 		if (matrixExportLoading) return;
 		matrixExportLoading = true;
@@ -228,7 +220,7 @@
 				kind: 'action',
 				id: 'import-completions',
 				label: 'Import Completions',
-				onclick: handleCompletionImportOpen,
+				href: importHref,
 				icon: 'upload',
 				disabled: !canOpenCompletionInput,
 				disabledReason: completionInputDisabledReason('Add personnel and active tasks before importing completions.')
@@ -395,15 +387,5 @@
 		{currentUserDisplayName}
 		onSave={handleCompletionSave}
 		onClose={() => (showTaskInputModal = false)}
-	/>
-{/if}
-
-{#if showCompletionImportModal}
-	<IctCompletionBulkImport
-		personnel={activePersonnel}
-		tasks={ictTasksStore.items}
-		completions={personnelIctCompletionsStore.items}
-		onCancel={() => (showCompletionImportModal = false)}
-		onDone={() => (showCompletionImportModal = false)}
 	/>
 {/if}

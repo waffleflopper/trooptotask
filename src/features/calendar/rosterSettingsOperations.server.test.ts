@@ -230,24 +230,34 @@ describe('saveRosterSettings', () => {
 		expect((await forms(ctx)).map(({ ends_on }) => ends_on)).toEqual([null]);
 	});
 
-	it('closes the open form with its record when the type becomes a Group assignment, and opens a fresh one on a switch back', async () => {
-		const ctx = createWriteWithNotificationsPortsContext();
-		seedRoster(ctx, { startsOn: '2026-10-15', numbers: [[PIKE, 3]] });
-		ctx.store.seed('daily_assignments', [
-			{ id: 'sd-16', organization_id: ctx.auth.orgId, date: '2026-10-16', assignment_type_id: TYPE, assignee_id: PIKE }
-		]);
+	it.each(['2026-10-17T15:00:00Z', '2026-10-19T02:00:00Z'])(
+		'closes the form when the type becomes a Group assignment and reopens after its predecessor at %s',
+		async (reopenedAt) => {
+			const ctx = createWriteWithNotificationsPortsContext();
+			seedRoster(ctx, { startsOn: '2026-10-15', numbers: [[PIKE, 3]] });
+			ctx.store.seed('daily_assignments', [
+				{
+					id: 'sd-16',
+					organization_id: ctx.auth.orgId,
+					date: '2026-10-16',
+					assignment_type_id: TYPE,
+					assignee_id: PIKE
+				}
+			]);
 
-		await updateAssignmentType(ctx, { id: TYPE, assignTo: 'group', today: TODAY });
+			await updateAssignmentType(ctx, { id: TYPE, assignTo: 'group', today: TODAY });
 
-		expect(await forms(ctx)).toMatchObject([
-			{ id: 'form-open', ends_on: TODAY, record: { segments: expect.arrayContaining([expect.anything()]) } }
-		]);
-		await updateAssignmentType(ctx, { id: TYPE, assignTo: 'personnel' });
-		expect((await forms(ctx)).map(({ starts_on, ends_on }) => [starts_on, ends_on])).toEqual([
-			['2026-10-15', TODAY],
-			['2026-10-18', null]
-		]);
-	});
+			expect(await forms(ctx)).toMatchObject([
+				{ id: 'form-open', ends_on: TODAY, record: { segments: expect.arrayContaining([expect.anything()]) } }
+			]);
+			vi.setSystemTime(new Date(reopenedAt));
+			await updateAssignmentType(ctx, { id: TYPE, assignTo: 'personnel' });
+			expect((await forms(ctx)).map(({ starts_on, ends_on }) => [starts_on, ends_on])).toEqual([
+				['2026-10-15', TODAY],
+				['2026-10-18', null]
+			]);
+		}
+	);
 
 	it('refuses a switch to Group without the device date and keeps the form open', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();

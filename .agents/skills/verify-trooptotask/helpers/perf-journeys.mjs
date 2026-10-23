@@ -53,6 +53,7 @@ const calendarReady = ({ month }) => ({
 	absentSelector: [skeleton]
 });
 const org = (terms, path = '') => `/org/${terms.organizationId}${path}`;
+const count = (rows) => rows.toLocaleString('en-US');
 const groupFilterActors = {
 	perfWide: null,
 	perfScoped: 'perfScoped sees one Group, so the group filter has nothing to narrow.'
@@ -370,19 +371,18 @@ export const journeys = {
 		reset: 'imported-personnel',
 		actors: both,
 		path: (terms) => org(terms, '/personnel/import'),
-		ready: () => [{ name: 'ready', present: ['Upload roster file'] }],
+		ready: () => [{ name: 'ready', present: ['Columns we look for'] }],
 		prepare: ({ importFile }) => [
-			{ upload: { role: 'button', name: 'Upload personnel file' }, file: importFile.path },
-			{ click: { role: 'button', name: `Preview ${importFile.rows} Rows` } },
-			{ wait: [`${importFile.rows} of ${importFile.rows} selected`] }
+			{ upload: { role: 'button', name: 'Drop a spreadsheet here', partial: true }, file: importFile.path },
+			{ click: { role: 'button', name: `Review ${count(importFile.rows)} rows` } },
+			{ wait: [`${count(importFile.rows)} changes ready`] }
 		],
-		trigger: () => ({ click: { role: 'button', name: 'Import checked rows' } }),
+		trigger: ({ importFile }) => ({ click: { role: 'button', name: `Import ${count(importFile.rows)} changes` } }),
 		milestones: ({ importFile }) => [
 			{
 				name: 'useful',
-				present: ['Import complete'],
-				absent: ['Import completed with issues'],
-				inside: { '[data-slot="alert"] dl': [`Saved ${importFile.rows}`, 'Failed 0'] }
+				present: [`${count(importFile.rows)} changes saved.`],
+				absent: ['The import stopped', 'The last batch was not confirmed']
 			}
 		]
 	},

@@ -149,13 +149,13 @@ means the workspace reloaded.
 Browser recipes do not replace component, server, provider or SQL checks. For a code change, run the affected Vitest
 files with `npm run test -- <file>` and follow the
 [Definition of Done](../../../../docs/architecture/DEFINITION_OF_DONE.md#required-commands). For example,
-`src/features/calendar/utils/availabilityImport.test.ts`, `stores/availability.svelte.test.ts`,
-`components/CalendarSettingsPage.test.ts`, `stores/specialDays.svelte.test.ts`, Calendar route server tests, and
-Personnel/Group route tests cover behavior below the UI. The SQL controls
+`src/features/calendar/import/statusImportLane.test.ts`, `availabilityImport.server.test.ts`,
+`stores/availability.svelte.test.ts`, `components/CalendarSettingsPage.test.ts`, `stores/specialDays.svelte.test.ts`,
+Calendar route server tests, and Personnel/Group route tests cover behavior below the UI. The SQL controls
 `supabase/tests/calendar_lane_unassigned_scope.sql`, `calendar_catalog_scope.sql`, `calendar_persistence_isolation.sql`,
-and `personnel_unassigned_row_scope.sql` require the separately owned disposable database procedure in the Definition of
-Done; never aim them at the existing local or remote database. A browser request denial complements those checks, and a
-UI affordance does not establish RLS.
+`calendar_availability_import.sql`, and `personnel_unassigned_row_scope.sql` require the separately owned disposable
+database procedure in the Definition of Done; never aim them at the existing local or remote database. A browser request
+denial complements those checks, and a UI affordance does not establish RLS.
 
 Run `node --test scripts/verification/pointer-drag.test.mjs` for its boundaries.
 

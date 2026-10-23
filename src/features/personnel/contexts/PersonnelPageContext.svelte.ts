@@ -280,11 +280,11 @@ export class PersonnelPageContext {
 		this.openGroupManager();
 	}
 
-	/** Group names in the Organization's display order: `sort_order`, then id. */
+	/** Group names in the Organization's display order: `sort_order`, then name (legacy Groups all share 0), then id. */
 	get groupOrder(): string[] {
 		if (this.#groupsStore.orgId !== this.orgId) return [];
 		return [...this.#groupsStore.items]
-			.sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))
+			.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
 			.map((group) => group.name);
 	}
 

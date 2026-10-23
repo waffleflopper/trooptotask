@@ -95,7 +95,9 @@
 				<span class="truncate text-[13px] leading-[18px]">{presence.present} of {presence.people} present</span>
 			{/if}
 		</div>
-		<div class="flex h-5 w-44 shrink-0 items-center font-mono text-xs">
+		<div
+			class="flex h-5 w-44 shrink-0 items-center font-mono text-xs @3xl/data-table:w-[calc(min(22rem,35cqw)-1.5rem)]"
+		>
 			{#if unassigned && ctx.canManageGroups}
 				<button
 					type="button"
@@ -116,31 +118,33 @@
 		</div>
 	</div>
 
-	{#if hasMenu}
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						type="button"
-						variant="ghost"
-						size="icon-sm"
-						class="shrink-0 @max-3xl/data-table:order-2"
-						aria-label="Group actions for {group.label}"
-					>
-						<EllipsisIcon aria-hidden="true" />
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end">
-				{#if canEditGroup}
-					<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Rename</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Add people</DropdownMenu.Item>
-				{/if}
-				<DropdownMenu.Item onSelect={() => onTogglePin(group.key)}>
-					{pinned ? 'Unpin' : 'Pin'}
-				</DropdownMenu.Item>
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
-	{/if}
+	<div class="flex shrink-0 justify-end @max-3xl/data-table:order-2 @3xl/data-table:w-28">
+		{#if hasMenu}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							type="button"
+							variant="ghost"
+							size="icon-sm"
+							class="shrink-0"
+							aria-label="Group actions for {group.label}"
+						>
+							<EllipsisIcon aria-hidden="true" />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					{#if canEditGroup}
+						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Rename</DropdownMenu.Item>
+						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Add people</DropdownMenu.Item>
+					{/if}
+					<DropdownMenu.Item onSelect={() => onTogglePin(group.key)}>
+						{pinned ? 'Unpin' : 'Pin'}
+					</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{/if}
+	</div>
 </div>

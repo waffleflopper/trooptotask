@@ -57,7 +57,18 @@ export async function importIctTasksBatch(
 		seen.add(taskCode);
 		const match = byCode.get(taskCode);
 		if (match) {
-			updates.push({ index, id: match.id, patch: fields });
+			const { title, description, category, mos, ...values } = fields;
+			updates.push({
+				index,
+				id: match.id,
+				patch: {
+					...values,
+					...(title?.trim() ? { title } : {}),
+					...(description?.trim() ? { description } : {}),
+					...(category?.trim() ? { category } : {}),
+					...(mos?.length ? { mos } : {})
+				}
+			});
 			return;
 		}
 		if (!fields.title) {

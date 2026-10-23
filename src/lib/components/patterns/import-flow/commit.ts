@@ -99,6 +99,7 @@ export function buildReceipt(
 	for (const [id, result] of results) {
 		if (result.kind === 'added') receipt.added++;
 		else if (result.kind === 'updated') receipt.updated++;
+		else if (result.kind === 'unchanged') receipt.unchanged++;
 		else {
 			if (result.kind === 'failed') receipt.failed++;
 			else if (result.kind === 'not-confirmed') receipt.unconfirmed++;

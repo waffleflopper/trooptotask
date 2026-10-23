@@ -127,12 +127,14 @@ export async function importIctCompletionsBatch(
 				...(validatedBy ? { validatedBy } : {}),
 				...(notes ? { notes } : {})
 			};
+			if (!Object.keys(patch).length) {
+				results[item.index] = { kind: 'unchanged' };
+				continue;
+			}
 			try {
 				results[item.index] = {
 					kind: 'updated',
-					record: Object.keys(patch).length
-						? await ctx.criticalTaskCompletions.update(item.saved.id, patch)
-						: item.saved
+					record: await ctx.criticalTaskCompletions.update(item.saved.id, patch)
 				};
 				updated++;
 			} catch (error) {

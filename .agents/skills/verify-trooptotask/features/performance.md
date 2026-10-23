@@ -170,11 +170,11 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `personnel-search`            | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
 | `personnel-filter`            | Personnel                     | interaction, read  | both             | Search fill `68W` to exactly the matching row count                                       |
 | `personnel-large-table`       | Personnel A-Z                 | interaction, read  | both             | `Sort by Name` to the descending table                                                    |
-| `personnel-detail`            | Personnel to detail           | interaction, read  | wide, leader     | `Details` to the record tabs (`header`), then `Needs attention` with nothing loading      |
+| `personnel-detail`            | Personnel to detail           | interaction, read  | wide, leader     | The named row to the record tabs (`header`), then `Needs attention` with nothing loading  |
 | `personnel-detail-direct`     | Personnel detail URL          | load, read         | wide, leader     | The record tabs (`header`), then `Needs attention` with nothing loading                   |
 | `personnel-detail-tab`        | Personnel detail tabs         | interaction, read  | wide, leader     | The `Log` tab, unhovered, to that tab current with nothing loading                        |
 | `personnel-detail-tab-hover`  | Personnel detail tabs         | interaction, read  | wide, leader     | The same click after a hover has preloaded the tab                                        |
-| `personnel-edit`              | Personnel roster dialog       | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
+| `personnel-edit`              | Personnel Quick edit dialog   | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
 | `personnel-detail-edit`       | Personnel detail              | interaction, write | wide, leader     | `Save changes` to the Data sheet tab with the refreshed header MOS badge                  |
 | `personnel-import`            | Personnel import              | interaction, write | both             | `Import N changes` to `N changes saved.` with every row added                             |
 | `dashboard`                   | Dashboard                     | load, read         | both             | Band skeletons below a header (`pending`), then settled bands and panels with no skeleton |
@@ -391,9 +391,9 @@ each seed to see it grow.
   Measure each; they are different costs. The
   [Personnel recipe](personnel-records-lifecycle.md#detail-data-sheet-and-loss-baseline) maps every mutation's bits.
 - A Group-scoped actor must give every new Person a permitted Group, so the import file only names the scoped Group.
-- The roster shows `Details` only to an actor who may read sensitive Personnel records unscoped, so the scoped operator
-  `perfScoped` sees `Edit` and no `Details` (its direct detail URL is the 403 page); `perfScopedLeader` measures the
-  Group-scoped detail.
+- A roster row opens its record only for an actor who may read sensitive Personnel records unscoped, so the scoped
+  operator `perfScoped` sees `Quick edit` and a row that does not open (its direct detail URL is the 403 page);
+  `perfScopedLeader` measures the Group-scoped detail.
 - A summary written before `perf summarize` excluded `superseded/` lists superseded runs as current. Regenerate an older
   archive's summaries before citing them.
 - The owned supervisor and its browser can die between two samples while the app and provider keep running. Start

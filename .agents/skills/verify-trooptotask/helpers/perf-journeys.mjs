@@ -75,7 +75,7 @@ const runStatusDays = { click: { role: 'button', name: 'Run status-day report' }
 const findPerson = ({ searchTerm }) => [{ fill: search, value: searchTerm }, { wait: [searchTerm] }];
 const openDetail = (terms) => [
 	...findPerson(terms),
-	{ click: { role: 'button', name: 'Details', within: { role: 'row', name: terms.edit.row } } },
+	{ click: { role: 'row', name: terms.edit.row } },
 	{ wait: ['Add to record'] }
 ];
 const detailTabs = 'nav[aria-label="Personnel detail sections"]';
@@ -294,7 +294,7 @@ export const journeys = {
 		path: (terms) => org(terms, '/personnel'),
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
 		prepare: findPerson,
-		trigger: ({ edit }) => ({ click: { role: 'button', name: 'Details', within: { role: 'row', name: edit.row } } }),
+		trigger: ({ edit }) => ({ click: { role: 'row', name: edit.row } }),
 		milestones: () => [
 			{ name: 'header', ...detailHeaderShown },
 			{ name: 'useful', ...detailSettled }
@@ -323,7 +323,13 @@ export const journeys = {
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
 		prepare: (terms, sample) => [
 			...findPerson(terms),
-			{ click: { role: 'button', name: 'Edit', within: { role: 'row', name: terms.edit.row } } },
+			{
+				click: {
+					role: 'button',
+					name: `Quick edit ${terms.edit.row.replace(/^Open /, '')}`,
+					within: { role: 'row', name: terms.edit.row }
+				}
+			},
 			{ wait: ['Edit Personnel'] },
 			{ fill: { role: 'textbox', name: 'MOS / Job Title' }, value: edited(terms.edit, sample) }
 		],

@@ -49,18 +49,18 @@ repeat only the affected clearing/restoration action.
 ## How to get to it (user POV)
 
 Choose `Training` in the Organization navigation. Choose a Person's Training cell to add or edit that record, or open
-the Person editor from the named row. Use the `Import` link in the `Training controls` toolbar to open the import page.
-Use `Export Excel` in that toolbar for the full training matrix, keeping the selected Group and including every Training
-column even when a saved view hides some. At narrow widths, open `More Training controls` if the action has folded. Open
-`Reports` for the `Training Reports` briefing: the single-row `Training report controls` toolbar (the `Forecast horizon`
-buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days` to `180 days`) as pressed toggles, which show as `30 days`
-to `180 days` radio items in More once the horizon folds, `Filter by view`, `Filter by group`, `Filter by rank`,
-`Filter by MOS`, `Filter by duty role`, `Filter by training type`, `Clear filters` when the selection is not the
-default, `Export Excel`, and the primary `Print brief`; the least important controls fold into
-`More Training report controls` as it narrows), with the `Updating briefing` status staying in the page header while a
-change loads, the Bottom line, the Forecast chart (`data-testid="training-briefing-forecast"`, with a screen-reader
-table of weekly points), the Hot-spot grid (the `Hot-spot grid controls` toolbar above it with the `Rows by` buttons,
-beside a visible `Rows by` caption; each cell is a button named
+the Person editor from the named row's `Quick edit`. Use the `Import` link in the `Training controls` toolbar to open
+the import page. Use `Export Excel` in that toolbar for the full training matrix, keeping the selected Group and
+including every Training column even when a saved view hides some. At narrow widths, open `More Training controls` if
+the action has folded. Open `Reports` for the `Training Reports` briefing: the single-row `Training report controls`
+toolbar (the `Forecast horizon` buttons `30 D`, `60 D`, `90 D` and `180 D` (named `30 days` to `180 days`) as pressed
+toggles, which show as `30 days` to `180 days` radio items in More once the horizon folds, `Filter by view`,
+`Filter by group`, `Filter by rank`, `Filter by MOS`, `Filter by duty role`, `Filter by training type`, `Clear filters`
+when the selection is not the default, `Export Excel`, and the primary `Print brief`; the least important controls fold
+into `More Training report controls` as it narrows), with the `Updating briefing` status staying in the page header
+while a change loads, the Bottom line, the Forecast chart (`data-testid="training-briefing-forecast"`, with a
+screen-reader table of weekly points), the Hot-spot grid (the `Hot-spot grid controls` toolbar above it with the
+`Rows by` buttons, beside a visible `Rows by` caption; each cell is a button named
 `<row>, <type>: <n>% ready today[, drops <k> points by <date>][, selected]` holding
 `[data-slot=readiness-band-cell][data-tier]`), the `Already gone vs. about to go` Type risk table
 (`Not ready and lapsing requirements by training type`: a row header per type, stacked bar, `Not ready` and `By <date>`
@@ -73,8 +73,8 @@ when there is more than one page; the open focus link carries `aria-current`. Th
 Enter on a pager button keeps focus on it, and when it disables at either end (including after the server page arrives)
 focus moves to the other, enabled button; if the range shrinks to one page the pager unmounts and focus moves to the
 table. Filters, horizon and `rowsBy` live in the URL, so a reload restores the same briefing. For the reverse Personnel
-view, choose `Personnel`, the matching Person's `Details`, then inspect the `Readiness` tab or choose `Export records`.
-Return to the Organization Dashboard to inspect its Training summary.
+view, choose `Personnel`, the matching Person's row, then inspect the `Readiness` tab or choose `Export records`. Return
+to the Organization Dashboard to inspect its Training summary.
 
 ## Helper controls
 

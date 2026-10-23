@@ -16,11 +16,15 @@ person's record.
   and keyboard; a pin persists for the member and a collapse lasts for the page visit.
 - `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its absence of URL
   state.
+- `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
+  keyboard and actions, and the signals lane's loading and failure states.
 
 ## How to get to it (user POV)
 
 Sign in, choose `Personnel` in the organization navigation, and use `Search by name, rank, MOS, role, or group`. The
-`Group` and `A-Z` buttons are above the roster. Choose a person's row or its `Details` action to open the record.
+`Group` and `A-Z` buttons are above the roster. Choose a person's row, or focus it and press Enter, to open the record.
+Each row's `Note` and `Quick edit` icon buttons show on hover or focus (always on a touch screen); N and E are their
+keys.
 
 ## Driving it with verify:app
 
@@ -35,12 +39,12 @@ scoped actors retain their baseline grants.
    return. A native `fill` with an empty string can clear the displayed input without dispatching the search update.
 3. Click the `A-Z` button UID and snapshot the alphabetical presentation. Click `Group` and confirm the `Alpha`,
    `Bravo`, and `Unassigned` headings return.
-4. Choose the `Open SPC Able, Synthetic` row or its `Details` button. Confirm the browser moved to that person's detail
-   route and shows the same name. Return through the `Personnel` navigation link. For the Calendar-backed readiness
-   check, run `$V calendar-grant manager view` on this owned worker, reload Personnel, and open Baker's record. Its
-   Overview `Next 14 days` legend must show `Verification Training` through the fixture's `dates.uiAfter`; capture the
-   visible summary and the saved Baker availability row ID from `$V fixture`/`$V rows`. Run
-   `$V calendar-grant manager restore` immediately afterward, including after a failed attempt.
+4. Choose the `Open SPC Able, Synthetic` row. Confirm the browser moved to that person's detail route and shows the same
+   name. Return through the `Personnel` navigation link. For the Calendar-backed readiness check, run
+   `$V calendar-grant manager view` on this owned worker, reload Personnel, and open Baker's record. Its Overview
+   `Next 14 days` legend must show `Verification Training` through the fixture's `dates.uiAfter`; capture the visible
+   summary and the saved Baker availability row ID from `$V fixture`/`$V rows`. Run `$V calendar-grant manager restore`
+   immediately afterward, including after a failed attempt.
 5. Sign in as `viewer` in its own page. The Organization roster must show Able, Baker, and Unassigned, while Foreign is
    absent. Capture the visible rows and an authenticated read-only request to the current `/personnel/__data.json`;
    compare the returned text against `personA`, `personB`, `personUnassigned`, and `personForeign` IDs from
@@ -53,8 +57,8 @@ scoped actors retain their baseline grants.
    buttons (`Sort by Rank`, `Sort by Name`, ...) and the initial Name order. Click `Sort by Name` and require the
    reversed order and changed sort indicator, click it again to restore ascending, then sort by MOS (every fixture
    Person shares one rank, so Rank cannot show a reorder). Filter with the searchbox (`Baker`) and require only Baker's
-   row, then clear with focused `Control+A`/`Backspace`. Use Baker's row `Details` action and require Baker's record
-   route; return through `Personnel`.
+   row, then clear with focused `Control+A`/`Backspace`. Choose Baker's row and require Baker's record route; return
+   through `Personnel`.
 8. **Group header pin and collapse.** As `manager` in `Group` view, read each header's two buttons: `Pin Alpha`
    (`aria-pressed="false"`, `data-state="off"`, title `Pin group to top`) and `Collapse Alpha` (`aria-expanded="true"`).
    The pin is the canonical `Toggle` (`data-slot="toggle"`, default size, 36x32 measured: `h-8 min-w-8 px-2.5`).
@@ -81,25 +85,64 @@ scoped actors retain their baseline grants.
    `arm-hold PAGE personnel/archive-batch`. Loading: Personnel loads in the Organization layout before the page renders,
    and no control holds that load, so record UNAVAILABLE with the attempted route unless a skeleton is observed on
    navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL unchanged, and that
-   Details opens `/org/<org>/personnel/<slug>`. Capture 1280 light and 390 dark, including the `Personnel controls`
-   toolbar at 390: one row with the search field, `More Personnel controls` and `Add Person`, and no horizontal scroll
-   (`scrollWidth` equals the viewport). `Import`, `Archive`, `Manage Groups` and the `A-Z`/`Group` view fold into More
-   in that order (at about 1008, 956, 860 and 450px), so at 390 choose them from More. In `Archive` mode the
-   `Bulk archive controls` toolbar keeps `Select shown`, `Cancel` and `Confirm Archive` on the row at 390 and moves
-   `Clear` into `More Bulk archive controls` (it folds at about 404px).
-10. **Details for operators.** The roster shows `Details` and opens a row on click only to an actor who holds Personnel
-    sensitive-record reading unscoped and record access to that row. As `personnelOperate`, `personnelScopedOperate`
-    (Operator in Alpha) or `perfScoped` on its large workload each row shows `Edit` and no `Details` button, and
-    clicking the row does not navigate (the URL stays on Personnel and no `<slug>/__data.json` request is sent).
-    `personnelOperate`, `personnelScopedOperate` and `perfScoped` loading the detail URL directly still get the 403
-    page. `manager`, `orgOwner`, `personnelScoped` (configure) and `perfScopedLeader` see `Details` on each row they may
-    edit, and it opens the record.
+   choosing a row opens `/org/<org>/personnel/<slug>`. Capture 1280 light and 390 dark, including the
+   `Personnel controls` toolbar at 390: one row with the search field, `More Personnel controls` and `Add Person`, and
+   no horizontal scroll (`scrollWidth` equals the viewport). `Import`, `Archive`, `Manage Groups` and the `A-Z`/`Group`
+   view fold into More in that order (at about 1008, 956, 860 and 450px), so at 390 choose them from More. In `Archive`
+   mode the `Bulk archive controls` toolbar keeps `Select shown`, `Cancel` and `Confirm Archive` on the row at 390 and
+   moves `Clear` into `More Bulk archive controls` (it folds at about 404px).
+10. **Opening a record for operators.** A row opens its record, shows the chevron and `Note for <name>`, and is named
+    `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
+    As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row
+    is named `<name>` and shows `Quick edit <name>` alone, and clicking the row or pressing Enter does not navigate (the
+    URL stays on Personnel and no `<slug>/__data.json` request is sent). `personnelOperate`, `personnelScopedOperate`
+    and `perfScoped` loading the detail URL directly still get the 403 page. `manager`, `orgOwner`, `personnelScoped`
+    (configure) and `perfScopedLeader` open each row they may edit.
+11. **Today's status and Needs attention.** As `orgOwner`, stage one case per source through the app's endpoints in the
+    signed-in page (`evaluate_script` with `fetch`): `POST /org/<org>/api/personnel-trainings` for Able with the
+    fixture's `trainingRequired` type, completed `2024-10-23` and expiring `2025-10-23`;
+    `POST /org/<org>/api/personnel/<personB>/follow-ups` titled `Verify roster overdue follow-up` and due three days
+    ago; `POST /org/<org>/api/rating-scheme` rating `personUnassigned` with an active `NCOER` for `2025-11-06` to
+    `2026-11-05`. Each returns 200 with an `id`; a `verify:app restart` discards them. Reload Personnel at 1440: the
+    header reads `Verification Organization A · Active roster`, `Personnel`, `3`, and the `Today's headcount` strip
+    reads `2 present` and `1 Verification Training`. Able's dot is `Present today` and its Needs attention reads
+    `Verification Required Training expired · 2 more` in red; Baker's dot is `Verification Training today` and reads
+    `Verification All-MOS Critical Task missing · 2 more`; Unassigned reads
+    `Verification All-MOS Critical Task missing · 3 more`. The footer reads `3 of 3 shown` with `N note`, `E quick edit`
+    and `↵ open record`. Turn off `Critical tasks` and `Training` in Settings › Features
+    (`organizations.disabled_features` reads `training, criticalTasks`) and reload: Able reads `—`, Baker
+    `1 follow-up overdue` in red and Unassigned `NCOER due` in amber. Turn both back on afterward. Quick edit (E) on
+    Able, set ETS 41 days out and save: one `PUT` and the name carries the `ETS · 41d` badge (PCS uses the outline
+    badge). `manager` (no Calendar grant) gets no strip and no dots, and its cells still read Baker's
+    `1 follow-up overdue`. Group-scoped `dashboardScoped` reads `1`, `1 present` and only Able's row, named
+    `SPC Able, Synthetic`, with `1 of 1 shown`.
+12. **Row keyboard and actions.** Tab into the table: the first row takes focus with an inset ring and only that row is
+    a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
+    `/personnel/<slug>/log?add=follow-up` with the note field focused, and Back returns to the roster; E opens
+    `Edit Personnel` for that row. The icon buttons are hidden until the row is hovered or holds focus; the verification
+    browser reports `hover: none`, so it always shows them, as a touch screen does. Single archive is Quick edit's
+    `Archive` button. Column hiding follows the table's own width, not the viewport: below 48rem Rank, MOS, Duty Role
+    and Group hide and the rank moves before the name; below 36rem Needs attention folds onto a second line under the
+    name; the actions column hides below the md viewport. At 1440, 900 and 390 the page has no horizontal scroll.
+13. **Signals lane loading, failure and reads.** `$V server-source arm rpc/roster_signal_presence hold 1 90000`, then
+    reload: the roster rows paint at once while each status dot, attention cell and the strip show skeletons, and every
+    row's top offset is unchanged when `$V server-source release` lets the lane through. Arm `fail-hard` instead: the
+    roster stays usable with blank cells, no strip, and one notice
+    `Today's status and Needs attention could not be loaded.` with `Reload`. `server-source restore`, choose `Reload`,
+    and the cells return without a roster read: `$V perf statements reset` before and `perf statements read` after show
+    the six `roster_signal_*` calls and no `FROM "public"."personnel"` statement, and the browser's one request is
+    `__data.json?x-sveltekit-invalidated=0001`. A page load issues one roster read; with Training and Critical tasks off
+    it issues no `roster_signal_training` or `roster_signal_critical_tasks` call, and `dashboardScoped` (no follow-up or
+    counseling access) issues no `roster_signal_follow_ups` or `roster_signal_counseling` call. To exercise the
+    viewer-day rerun, set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the zone
+    and reruns only the signals lane.
 
 ## Gotchas
 
-- `Edit` and `Details` repeat on each row. Choose the UID within the matching person's row.
+- `Note for <name>` and `Quick edit <name>` repeat on each row; name them with the Person, not by position.
 - The fixture's `viewer` and `scoped` actors can read the roster but may not open a Personnel Record, and operate-level
-  actors see `Edit` without `Details` (step 10). Use `manager` for the record-opening step.
+  actors see `Quick edit` without `Note` (step 10). Use `manager` for the record-opening step.
+- A `verify:app restart` rebuilds the provider and discards step 11's staged rows; stage them again.
 - `manager` deliberately starts with no Calendar grant for authorization checks. Temporarily grant it Calendar `view`
   for the integrated readiness check, then restore `none`. A missing availability summary under the default grant does
   not test the Calendar-backed read.

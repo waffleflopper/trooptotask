@@ -123,9 +123,9 @@ export async function importIctCompletionsBatch(
 		for (const item of updates) {
 			const { validationMethod, validatedBy, notes } = item.record;
 			const patch = {
-				...(validationMethod ? { validationMethod } : {}),
-				...(validatedBy ? { validatedBy } : {}),
-				...(notes ? { notes } : {})
+				...(validationMethod && validationMethod !== item.saved.validationMethod ? { validationMethod } : {}),
+				...(validatedBy && validatedBy !== item.saved.validatedBy ? { validatedBy } : {}),
+				...(notes && notes !== item.saved.notes ? { notes } : {})
 			};
 			if (!Object.keys(patch).length) {
 				results[item.index] = { kind: 'unchanged' };

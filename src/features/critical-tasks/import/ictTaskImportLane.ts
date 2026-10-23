@@ -1,6 +1,6 @@
 import { defineImportLane, type FieldDiff, type RowReview } from '$lib/components/patterns/import-flow';
 import { ICT_MOS_CODE, type IctTaskImportRecord } from '../contracts';
-import type { IctTask } from '../criticalTasks.types';
+import { ICT_TASK_SORT_ORDER_MAX, type IctTask } from '../criticalTasks.types';
 import { requestCriticalTasksWorkspaceRefresh } from '../criticalTasksWorkspaceStatus.svelte';
 import { ictTasksStore } from '../stores/ictTasks.svelte';
 import { normalizeIctTaskCode, parseMosApplicabilityInput } from '../utils/ictTaskLibrary';
@@ -92,7 +92,7 @@ export function createIctTaskImportLane(source: IctTaskImportSource) {
 					outcome: 'fix',
 					problems: [{ field: 'expirationMonths', message: 'Use a whole number of months above 0.' }]
 				};
-			if (values.sortOrder !== null && values.sortOrder < 0)
+			if (values.sortOrder !== null && (values.sortOrder < 0 || values.sortOrder > ICT_TASK_SORT_ORDER_MAX))
 				return { outcome: 'fix', problems: [{ field: 'sortOrder', message: 'Use 0 or a larger whole number.' }] };
 			const record: IctTaskImportRecord = {
 				taskCode,

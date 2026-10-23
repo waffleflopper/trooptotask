@@ -103,6 +103,13 @@ describe('critical task library import lane', () => {
 		});
 	});
 
+	it('holds a sort order the server cannot store for a fix before Import', () => {
+		expect(review({ taskCode: 'ICT-9', title: 'New', sortOrder: '2147483648' })).toMatchObject({
+			outcome: 'fix',
+			problems: [{ field: 'sortOrder' }]
+		});
+	});
+
 	it('shows an exact re-import as unchanged, with MOS order and blank cells ignored', () => {
 		expect(
 			review({ taskCode: 'ICT-1', title: 'Title ICT-1', category: 'Airway', mos: '18D, 68W', sortOrder: '4' })

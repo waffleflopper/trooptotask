@@ -66,6 +66,33 @@ async function storedCompletions(ctx: Context) {
 }
 
 describe('importIctCompletionsBatch', () => {
+	it('reports an older saved completion re-imported with its saved fields as unchanged without writing', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('personnel', [person('person-a')]);
+		ctx.store.seed('ict_tasks', [task('task-a')]);
+		ctx.store.seed('personnel_ict_completions', [
+			completion('saved-january', 'person-a', 'task-a', '2026-01-01'),
+			completion('saved-march', 'person-a', 'task-a', '2026-03-01')
+		]);
+		const update = vi.spyOn(ctx.criticalTaskCompletions, 'update');
+
+		const reply = await importIctCompletionsBatch(ctx, {
+			records: [
+				{
+					personnelId: 'person-a',
+					ictTaskId: 'task-a',
+					completedAt: '2026-01-01',
+					validationMethod: 'Lecture',
+					validatedBy: 'MSG Example',
+					notes: 'Saved note'
+				}
+			]
+		});
+
+		expect(reply.results).toEqual([{ kind: 'unchanged' }]);
+		expect(update).not.toHaveBeenCalled();
+	});
+
 	it('reports an older saved completion without optional fields as unchanged and preserves both dates', async () => {
 		const ctx = createWritePortsContext();
 		ctx.store.seed('personnel', [person('person-a')]);

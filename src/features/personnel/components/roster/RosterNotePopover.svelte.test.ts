@@ -195,6 +195,7 @@ describe('RosterNotePopover', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
 		expect(screen.queryByText('Discard what you typed?')).toBeNull();
 		expect((title as HTMLInputElement).value).toBe('Call about leave');
+		await waitFor(() => expect(document.activeElement).toBe(title));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 		await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));

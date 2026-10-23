@@ -42,7 +42,7 @@
 	let confirmingDiscard = $state(false);
 	let titleField = $state<HTMLInputElement | null>(null);
 	let noteField = $state<HTMLTextAreaElement | null>(null);
-	let keepEditing = $state<HTMLButtonElement | null>(null);
+	let keepEditingButton = $state<HTMLButtonElement | null>(null);
 
 	const presets = $derived(dueDatePresets(today));
 	const activePreset = $derived(selectedPreset(presets, due || null));
@@ -62,8 +62,13 @@
 			return true;
 		}
 		confirmingDiscard = true;
-		void tick().then(() => keepEditing?.focus());
+		void tick().then(() => keepEditingButton?.focus());
 		return false;
+	}
+
+	function keepEditing(): void {
+		confirmingDiscard = false;
+		void tick().then(() => (kind === 'follow-up' ? titleField : noteField)?.focus());
 	}
 
 	function chooseDue(date: string): void {
@@ -218,12 +223,8 @@
 		{#if confirmingDiscard}
 			<span class="text-sm" role="alert">Discard what you typed?</span>
 			<span class="flex gap-1.5">
-				<Button
-					type="button"
-					size="sm"
-					variant="outline"
-					bind:ref={keepEditing}
-					onclick={() => (confirmingDiscard = false)}>Keep editing</Button
+				<Button type="button" size="sm" variant="outline" bind:ref={keepEditingButton} onclick={keepEditing}
+					>Keep editing</Button
 				>
 				<Button type="button" size="sm" variant="destructive" onclick={onclose}>Discard</Button>
 			</span>

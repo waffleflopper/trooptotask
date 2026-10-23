@@ -155,6 +155,10 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    `POST api/availability/import` returns 403. The server rechecks scope and overlap per Person: a row whose Person left
    the actor's scope or whose dates now overlap a newer saved entry comes back as not imported with its reason.
 
+   As a Group-scoped Calendar operator with Personnel set to `none`, upload a row that overlaps a saved status for an
+   in-scope Person. Review must ask `Rows overlap the calendar`. An exact re-import reads Unchanged. The
+   `calendar-range` response includes that Person's saved entries and excludes other Groups and Organizations.
+
 3. **Import loading, failure, widths and size.** Start on Personnel, arm
    `$V server-source arm availability_entries hold 1 120000` and follow an in-app link to `/calendar/import`: the header
    and stepper stay and a `Loading import` skeleton holds the drop zone and the column list at their loaded size.
@@ -168,6 +172,12 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    one-day rows from 2028 (every tenth row on an unknown status) reaches Review in about 0.3 s from the drop, and
    answering the 300-row status question takes under 20 ms. Its commit sends six `api/availability/import` requests of
    500 and a replay reads `Unchanged · 3000`.
+
+   Replacement-heavy chunks split into requests of at most 500 replaced entries. With 251 rows each replacing two
+   entries, let the first request confirm 250 updates and fail the second with 503. Done must retain Updated 250 and
+   Not confirmed 1; the retry workbook contains only the last row. A 403 instead counts that last row as Failed with
+   its refusal reason. After either failure, unsent rows in the current chunk and later chunks count as Not attempted.
+
 4. **Removal:** In Remove, select `Verification Training` and Baker, keeping the default today dates; choosing today
    again in a date picker clears that date. Observe the range request with
    `$V network arm-observe $PAGE calendar-range`: it records the GET and its status (`200`) but no IDs or counts

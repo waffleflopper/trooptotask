@@ -1,4 +1,4 @@
-import type { ChunkReply, RowCommitResult, RowId } from './types';
+import type { ChunkReply, ChunkStop, RowCommitResult, RowId } from './types';
 import type { SourceRow } from './rowModel';
 
 export const COMMIT_CHUNK_SIZE = 500;
@@ -17,7 +17,7 @@ export interface NotImportedRow {
 	reason: string;
 }
 export type CommitResult = RowCommitResult | { kind: 'not-confirmed' } | { kind: 'not-attempted'; reason: string };
-export type CommitStop = { kind: 'refused'; message: string } | { kind: 'unconfirmed' } | null;
+export type CommitStop = ChunkStop | null;
 export interface CommitRun {
 	results: ReadonlyMap<RowId, CommitResult>;
 	stopped: CommitStop;
@@ -55,10 +55,17 @@ export async function runCommit<Change>(
 			reply = { kind: 'unconfirmed' };
 		}
 		if (!isCurrent()) return { results, stopped };
-		if (reply.kind === 'saved' && reply.results.length !== chunk.length) reply = { kind: 'unconfirmed' };
+		if (
+			(reply.kind === 'saved' && reply.results.length !== chunk.length) ||
+			(reply.kind === 'stopped' && reply.results.length > chunk.length)
+		)
+			reply = { kind: 'unconfirmed' };
 		if (reply.kind === 'saved') {
 			chunk.forEach((item, index) => results.set(item.rowId, reply.results[index]));
 			if (reply.results.some((result) => result.kind === 'unconfirmed')) stopped = { kind: 'unconfirmed' };
+		} else if (reply.kind === 'stopped') {
+			reply.results.forEach((result, index) => results.set(chunk[index].rowId, result));
+			stopped = reply.stop;
 		} else {
 			stopped = reply;
 			for (const item of chunk)
@@ -68,7 +75,8 @@ export async function runCommit<Change>(
 				);
 		}
 		if (stopped) {
-			for (const item of changes.slice(offset + chunk.length))
+			const attempted = reply.kind === 'stopped' ? reply.results.length : chunk.length;
+			for (const item of changes.slice(offset + attempted))
 				results.set(item.rowId, {
 					kind: 'not-attempted',
 					reason: 'Not attempted because an earlier chunk stopped the import.'

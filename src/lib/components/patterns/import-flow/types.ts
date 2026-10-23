@@ -149,10 +149,12 @@ export type RowCommitResult =
 	| { kind: 'unconfirmed'; reason?: string }
 	| { kind: 'failed'; reason: string };
 
+export type ChunkStop = { kind: 'refused'; message: string } | { kind: 'unconfirmed' };
+
 export type ChunkReply =
 	| { kind: 'saved'; results: readonly RowCommitResult[] }
-	| { kind: 'refused'; message: string }
-	| { kind: 'unconfirmed' };
+	| { kind: 'stopped'; results: readonly RowCommitResult[]; stop: ChunkStop }
+	| ChunkStop;
 
 export interface ImportLane<C extends ImportColumns, Refs extends ImportReferences<C>, Change> {
 	id: string;

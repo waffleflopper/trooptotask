@@ -139,7 +139,7 @@ export function createStatusImportLane(source: StatusImportSource) {
 		`${entry.startDate} → ${entry.endDate} ${statusNames.get(entry.statusTypeId) ?? 'Status'}`;
 	const written = new Map<string, AvailabilityImportEntry[]>();
 
-	async function post(entries: readonly AvailabilityImportEntry[]): Promise<ChunkReply> {
+	async function post(entries: readonly AvailabilityImportEntry[]): Promise<Exclude<ChunkReply, { kind: 'stopped' }>> {
 		const sent = entries.map((entry) => {
 			const alongside = (written.get(entry.personnelId) ?? [])
 				.filter((other) => overlaps(other, entry))
@@ -172,7 +172,15 @@ export function createStatusImportLane(source: StatusImportSource) {
 		const results: RowCommitResult[] = [];
 		for (const part of withinReplacementCap(entries)) {
 			const reply = await post(part);
-			if (reply.kind !== 'saved') return results.length ? { kind: 'unconfirmed' } : reply;
+			if (reply.kind !== 'saved') {
+				results.push(
+					...part.map(
+						(): RowCommitResult =>
+							reply.kind === 'unconfirmed' ? { kind: 'unconfirmed' } : { kind: 'failed', reason: reply.message }
+					)
+				);
+				return { kind: 'stopped', results, stop: reply };
+			}
 			results.push(...reply.results);
 		}
 		return { kind: 'saved', results };

@@ -58,7 +58,7 @@
 					entries: availabilityStore.items,
 					loaded,
 					createStatusType: canConfigureStatusTypes
-						? (name) => statusTypesStore.add({ name, ...NEW_STATUS_TYPE_COLORS, shortLabel: null })
+						? (name) => statusTypesStore.add({ name, ...NEW_STATUS_TYPE_COLORS, shortLabel: null, rosterEffect: 'A' })
 						: undefined,
 					reloadEntries: readEntries
 				})

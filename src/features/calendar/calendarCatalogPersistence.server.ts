@@ -83,7 +83,8 @@ async function calendarCommand<T>(
 
 export function createSupabaseCalendarCatalogPersistence(
 	client: SupabaseClient,
-	orgId: string
+	orgId: string,
+	rosterClose?: { admin: () => SupabaseClient; actorId: string }
 ): CalendarCatalogPersistence {
 	return {
 		async listStatusTypes() {
@@ -405,10 +406,12 @@ export function createSupabaseCalendarCatalogPersistence(
 			);
 		},
 		async closeRosterForm(input) {
+			if (!rosterClose) throw new Error('Roster form closing requires the server close port');
 			return calendarCommand(
-				client,
+				rosterClose.admin(),
 				'close_roster_form',
 				{
+					p_actor: rosterClose.actorId,
 					p_organization_id: orgId,
 					p_assignment_type_id: input.assignmentTypeId,
 					p_form_id: input.formId,
@@ -416,21 +419,22 @@ export function createSupabaseCalendarCatalogPersistence(
 					p_pool_rules: input.poolRules,
 					p_weekend_mode: input.weekendMode,
 					p_record: input.record,
-					p_carry: input.carry.map(({ personId, track, count, origin }) => ({
+					p_carry: input.carry.map(({ personId, track, count }) => ({
 						personnel_id: personId,
 						track,
-						count,
-						origin
+						count
 					}))
 				},
 				z.string().uuid()
 			);
 		},
 		async endRosterForm(input) {
+			if (!rosterClose) throw new Error('Roster form closing requires the server close port');
 			await calendarCommand(
-				client,
+				rosterClose.admin(),
 				'close_roster_form',
 				{
+					p_actor: rosterClose.actorId,
 					p_organization_id: orgId,
 					p_assignment_type_id: input.assignmentTypeId,
 					p_form_id: input.formId,

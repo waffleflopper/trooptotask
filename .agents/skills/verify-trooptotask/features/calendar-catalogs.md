@@ -18,7 +18,10 @@ their references through edits, while confirmed type deletion explains and remov
 - `duty-roster`: a Person type keeps a DA 6 duty roster. Its pool rules, dated excusals with reasons and weekend mode
   are set in the sheet's `Duty roster` section, and a live count shows who the rules match. Changing the rules or
   weekend mode closes the open DA 6 form on the day Save is pressed, saves it, and opens the next form the day after,
-  carrying everyone's count. An excusal change saves in place. Switching the type to Group closes its open form the same
+  carrying everyone's count. Only the server closes a form, and SQL rechecks the actor's Organization-wide Calendar
+  configuration access. Successor numbers always have origin `carried`, even on another rule change before the form
+  starts. `supabase/tests/roster_close_server_only.sql` proves the direct-RPC denial and carried-number lock.
+  An excusal change saves in place. Switching the type to Group closes its open form the same
   way, and switching back to Person opens a fresh one. Only Settings loads the rank catalog; while it loads or after it
   fails, the rules editor alone waits or explains, weekends stay locked until it loads, excusals keep saving, and the
   rest of Calendar is unaffected.

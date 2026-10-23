@@ -581,7 +581,10 @@ export function createRequestRosterSettingsContext(request: AdmittedOrganization
 	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestAvailabilityContext(request),
-		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
+		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId, {
+			admin: getAdminClient,
+			actorId: request.auth.userId
+		}),
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog({ auth: request.auth, rankCatalog }, { authorization: 'calendar-view' })

@@ -494,7 +494,7 @@ export interface RosterFormClose {
 	poolRules: PoolRules | null;
 	weekendMode: WeekendMode;
 	record: { segments: readonly Da6Segment[] } | null;
-	carry: readonly StartingNumber[];
+	carry: readonly Omit<StartingNumber, 'origin'>[];
 }
 
 export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRemovalPort {

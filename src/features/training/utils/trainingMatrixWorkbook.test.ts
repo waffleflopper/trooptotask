@@ -296,7 +296,7 @@ describe('Training matrix workbook', () => {
 			trainingTypes: [type('annual', 'Annual', 0)],
 			trainings: [record('avery', 'annual', '2026-01-01', '2026-06-20')]
 		});
-		expect(sheet.conditionalFormattings).toEqual([]);
+		expect((sheet as unknown as { conditionalFormattings: unknown[] }).conditionalFormattings).toEqual([]);
 		expect(sheet.getCell('D3').type).toBe(ExcelJS.ValueType.String);
 	});
 });

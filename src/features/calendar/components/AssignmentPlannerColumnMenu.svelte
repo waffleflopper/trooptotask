@@ -23,9 +23,11 @@
 		onClearMonth: () => void;
 		/** Present when this type fills from its roster; Quick fill then stays one link away. */
 		rosterFill?: RosterFill;
+		/** The type's DA 6 for the shown month, for an operator who sees the whole Organization. */
+		da6Href?: string;
 	}
 
-	let { type, choices, busy, buildBatch, onApply, onClearMonth, rosterFill }: Props = $props();
+	let { type, choices, busy, buildBatch, onApply, onClearMonth, rosterFill, da6Href }: Props = $props();
 
 	let open = $state(false);
 	let mode = $state<'roster' | 'person'>('roster');
@@ -165,6 +167,11 @@
 				<Button size="sm" disabled={locked || !assigneeId || batch.length === 0} onclick={apply}>
 					{applying ? 'Filling…' : fillLabel}
 				</Button>
+			</div>
+		{/if}
+		{#if da6Href}
+			<div class="-mx-3 -mb-1 border-t px-3 pt-2">
+				<Button variant="link" size="xs" class="h-auto p-0" href={da6Href}>Open the DA 6</Button>
 			</div>
 		{/if}
 	</Popover.Content>

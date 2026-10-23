@@ -6,7 +6,8 @@
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
 	import { PlannerRosterRead, previewRosterFill, previewRosterReplacement } from '../contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
-	import { calendarViewCoverage } from '../utils/calendarRange';
+	import { calendarViewCoverage, type CalendarCoverage } from '../utils/calendarRange';
+	import { da6Href } from '../utils/da6View';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import type { CalendarOperationsPageAccess, RosterReplacement } from '../contracts';
 	import { pinnedGroupsStore } from '$features/personnel';
@@ -50,6 +51,7 @@
 	$effect(() => {
 		data.orgId;
 		rangeCoordinator.reset();
+		staleRead = null;
 		const bootstrap = data.calendar?.data;
 		if (bootstrap?.rangeStart && bootstrap.rangeEnd && bootstrap.availabilityRange) {
 			rangeCoordinator.includeBootstrap({
@@ -83,11 +85,43 @@
 		rosterRead.load({ orgId: data.orgId, month: rosterMonth, today: formatDate(new Date()) });
 	});
 
-	// Every confirmed write refreshes the counts on its own. A fill the roster moved past wrote nothing, so the counts
-	// are read again for the next preview.
+	// A refused roster write means another operator changed assignments, which the grid must show before anyone
+	// assigns again. When that re-read fails, the month stays locked until a retry reads it.
+	let staleRead = $state<{ orgId: string; coverage: CalendarCoverage } | null>(null);
+	let retryingRead = $state(false);
+	const sameRange = (a: CalendarCoverage, b: CalendarCoverage) =>
+		a.assignments?.rangeStart === b.assignments?.rangeStart && a.assignments?.rangeEnd === b.assignments?.rangeEnd;
+
+	async function rereadAfterRefusal() {
+		const orgId = data.orgId;
+		const coverage = monthCoverage;
+		rosterRead.refresh();
+		if ((await rangeCoordinator.rereadAssignments(orgId, coverage)) === 'failed') staleRead = { orgId, coverage };
+	}
+
+	async function retryRead() {
+		const stale = staleRead;
+		if (!stale || retryingRead) return;
+		retryingRead = true;
+		try {
+			const read = await rangeCoordinator.rereadAssignments(stale.orgId, stale.coverage);
+			if (read === 'read' && staleRead === stale) staleRead = null;
+		} finally {
+			retryingRead = false;
+		}
+	}
+
+	const staleAssignments = $derived(
+		staleRead && staleRead.orgId === data.orgId && sameRange(staleRead.coverage, monthCoverage)
+			? { retrying: retryingRead, onRetry: retryRead }
+			: undefined
+	);
+
+	// Every confirmed write refreshes the counts on its own. A refused fill wrote nothing, so the counts are read
+	// again for the next preview.
 	async function fillFromRoster(fill: Parameters<typeof dailyAssignmentsStore.fillFromRoster>[0]) {
 		const result = await dailyAssignmentsStore.fillFromRoster(fill);
-		if (result === 'changed') rosterRead.refresh();
+		if (result === 'changed') await rereadAfterRefusal();
 		return result;
 	}
 
@@ -101,11 +135,7 @@
 			replacing: preview.replacing.personId,
 			repicks: preview.repicks.map(({ date, was, personId }) => ({ date, was, personId }))
 		});
-		if (result === 'changed') {
-			rosterRead.refresh();
-			// The refused write names a drift in the roster's later days, which the grid shows from its own read.
-			await rangeCoordinator.rereadAssignments(data.orgId, monthCoverage);
-		}
+		if (result === 'changed') await rereadAfterRefusal();
 		return result;
 	}
 
@@ -119,6 +149,7 @@
 	const rosters = $derived(
 		showsRosters
 			? {
+					da6Href: (typeId: string, month: string) => da6Href(orgUrlSegment, typeId, month),
 					status: rosterRead.status,
 					stale: rosterRead.stale,
 					views: rosterRead.rosters,
@@ -201,6 +232,7 @@
 			personnelByGroup={scopedPBG}
 			groups={scopedGroups}
 			{rosters}
+			{staleAssignments}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
 		/>

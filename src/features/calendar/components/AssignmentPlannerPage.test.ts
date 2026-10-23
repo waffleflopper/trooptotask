@@ -403,13 +403,26 @@ describe('planner roster replacement', () => {
 		assigneeId
 	});
 
-	/** Routes the Organization's duty roster and calendar range reads; `replaceStatus` answers the replacement write. */
-	function replacementFetch(replaceStatus: number, rangeAssignments: () => ReturnType<typeof planned>[]) {
+	/**
+	 * Routes the Organization's duty roster and calendar range reads; `replaceStatus` answers the replacement write and
+	 * a Fill from roster. `failedRanges` range reads fail before the rest answer.
+	 */
+	function replacementFetch(
+		replaceStatus: number,
+		rangeAssignments: () => ReturnType<typeof planned>[],
+		{ failedRanges = 0 } = {}
+	) {
 		const writes: unknown[] = [];
 		const ranges = vi.fn();
 		const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
 			if (url.endsWith('/replacement/preview')) return Response.json(preview);
-			if (url.endsWith('/api/duty-rosters/replacement')) {
+			if (url.endsWith('/fill/preview')) {
+				return Response.json({
+					picks: [{ date: '2026-10-21', personId: 'person-2', count: 9, passedOver: [], returningFrom: null }],
+					unfilled: []
+				});
+			}
+			if (url.endsWith('/api/duty-rosters/replacement') || url.endsWith('/api/duty-rosters/fill')) {
 				writes.push(JSON.parse(String(init?.body)));
 				return Response.json({ message: 'The roster changed.' }, { status: replaceStatus });
 			}
@@ -417,6 +430,7 @@ describe('planner roster replacement', () => {
 			if (url.includes('/api/duty-rosters')) return Response.json([dutyRoster]);
 			if (url.includes('/api/calendar-range')) {
 				ranges(url);
+				if (ranges.mock.calls.length <= failedRanges) return new Response('', { status: 503 });
 				return Response.json({
 					rangeStart: '2026-10-01',
 					rangeEnd: '2026-10-31',
@@ -437,6 +451,16 @@ describe('planner roster replacement', () => {
 		await fireEvent.click(await within(dialog).findByRole('button', { name: 'Assign Taylor' }));
 		return dialog;
 	}
+
+	async function fillFromRoster() {
+		await fireEvent.click(await screen.findByRole('button', { name: 'Charge of Quarters column actions' }));
+		const menu = await screen.findByRole('dialog', { name: 'Fill from roster, Charge of Quarters' });
+		await fireEvent.click(await within(menu).findByRole('button', { name: 'Fill 1 day' }));
+		return menu;
+	}
+
+	const openSlot = () =>
+		screen.getByRole('button', { name: 'Assign Charge of Quarters, Thu 22 Oct', hidden: true }) as HTMLButtonElement;
 
 	beforeEach(() => {
 		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 16) });
@@ -484,6 +508,69 @@ describe('planner roster replacement', () => {
 		expect(
 			await screen.findByRole('button', { name: 'Charge of Quarters, Fri 23 Oct: SGT Smith, Alex', hidden: true })
 		).toBeTruthy();
+	});
+
+	it("reads the month's assignments again after a refused fill, so a day another operator filled no longer looks open", async () => {
+		const { fetcher, ranges, writes } = replacementFetch(409, () => [
+			planned('a-20', '2026-10-20', 'person-1'),
+			planned('a-21', '2026-10-21', 'person-1'),
+			planned('a-23', '2026-10-23', 'person-2')
+		]);
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+
+		const menu = await fillFromRoster();
+
+		await waitFor(() => expect(writes).toHaveLength(1));
+		await waitFor(() => expect(ranges).toHaveBeenCalledTimes(1));
+		expect(
+			await screen.findByRole('button', { name: 'Charge of Quarters, Wed 21 Oct: SGT Smith, Alex', hidden: true })
+		).toBeTruthy();
+		expect(await within(menu).findByText(/The roster changed since this preview/)).toBeTruthy();
+		expect(screen.queryByText(/could not be read again/)).toBeNull();
+	});
+
+	it('locks the month after a refused fill whose re-read failed, until Retry reads it', async () => {
+		const { fetcher, ranges } = replacementFetch(
+			409,
+			() => [planned('a-20', '2026-10-20', 'person-1'), planned('a-21', '2026-10-21', 'person-1')],
+			{ failedRanges: 1 }
+		);
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+
+		await fillFromRoster();
+
+		const alert = await screen.findByText(/could not be read again/);
+		expect(openSlot().disabled).toBe(true);
+		expect(screen.queryByRole('button', { name: /Wed 21 Oct: SGT Smith/, hidden: true })).toBeNull();
+
+		await fireEvent.click(within(alert.closest('section')!).getByRole('button', { name: 'Retry' }));
+
+		await waitFor(() => expect(screen.queryByText(/could not be read again/)).toBeNull());
+		expect(ranges).toHaveBeenCalledTimes(2);
+		expect(screen.getByRole('button', { name: /Wed 21 Oct: SGT Smith/, hidden: true })).toBeTruthy();
+		expect(openSlot().disabled).toBe(false);
+	});
+
+	it('locks the month after a refused replacement whose re-read failed, until Retry reads it', async () => {
+		const { fetcher, ranges } = replacementFetch(409, () => [planned('a-20', '2026-10-20', 'person-1')], {
+			failedRanges: 1
+		});
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+
+		await assignReplacement();
+
+		const alert = await screen.findByText(/could not be read again/);
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Replace/ })).toBeNull());
+		expect(openSlot().disabled).toBe(true);
+
+		await fireEvent.click(within(alert.closest('section')!).getByRole('button', { name: 'Retry' }));
+
+		await waitFor(() => expect(screen.queryByText(/could not be read again/)).toBeNull());
+		expect(ranges).toHaveBeenCalledTimes(2);
+		expect(openSlot().disabled).toBe(false);
 	});
 });
 

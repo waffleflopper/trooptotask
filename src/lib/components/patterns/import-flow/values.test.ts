@@ -35,5 +35,6 @@ describe('import values', () => {
 		expect(parseValue('text', ' Smith ', 5)).toEqual({ ok: true, value: 'Smith' });
 		expect(parseValue('text', 'Smith', 4).ok).toBe(false);
 		expect(normalizeHeader('\uFEFF Last   NAME ')).toBe('last name');
+		expect(normalizeHeader('Critical_Task_Code')).toBe('critical task code');
 	});
 });

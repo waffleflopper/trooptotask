@@ -38,7 +38,7 @@ export const ictTaskImportColumns = {
 	mos: {
 		label: 'MOS',
 		kind: 'text',
-		aliases: ['mos', "mos's", 'mos applicability', 'mos_applicability', 'applicability', 'applies to mos'],
+		aliases: ['mos', "mos's", 'moss', 'mos applicability', 'mos_applicability', 'applicability', 'applies to mos'],
 		example: '68W, 18D',
 		hint: 'Separate codes with commas.'
 	},

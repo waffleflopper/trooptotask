@@ -31,7 +31,14 @@ export {
 } from './rosterRead.server';
 export { createSupabasePersonnelNamesReader } from './personnelNames.server';
 export { findGroupNamesByIds, listGroupCatalog, visiblePinnedGroupNames } from './groupCatalog.server';
-export { createGroup, updateGroup, deleteGroup } from './groupOperations.server';
+export {
+	createGroup,
+	renameGroup,
+	setGroupOrder,
+	deleteGroup,
+	moveGroupMembers,
+	type GroupMembershipResult
+} from './groupOperations.server';
 export { listPinnedGroupNames } from './pinnedGroupNames.server';
 export { pinGroup, replacePinnedGroups, unpinGroup } from './pinnedGroupOperations.server';
 export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';

@@ -31,6 +31,8 @@ export interface PersonnelMemoryStore {
 
 import {
 	GROUP_NAME_EXISTS_MESSAGE,
+	GROUP_ORDER_CHANGED_MESSAGE,
+	GROUP_UNAVAILABLE_MESSAGE,
 	type PersonnelRecordPersistence,
 	type PersonnelRosterReader,
 	type GroupPersistence,
@@ -145,6 +147,15 @@ export function createInMemoryPersonnelRecordPersistence(
 		async updateDates(id, patch) {
 			return toPersonnel(await store.update('personnel', orgId, id, patch));
 		},
+		async moveToGroup(ids, groupId) {
+			const rows = await store.findMany<{ id: string }>('personnel', orgId, undefined, {
+				select: 'id',
+				inFilters: { id: [...new Set(ids)] },
+				isNull: { archived_at: true }
+			});
+			for (const row of rows) await store.update('personnel', orgId, row.id, { group_id: groupId });
+			return rows.map((row) => row.id);
+		},
 		delete: (id) => store.delete('personnel', orgId, id)
 	};
 }
@@ -237,20 +248,34 @@ export function createInMemoryGroupPersistence(
 			if (await store.findOne('groups', orgId, { name: input.name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
 			return map(await store.insert('groups', orgId, { name: input.name, sort_order: input.sortOrder ?? 0 }));
 		},
-		async update(id, patch) {
-			if (!(await store.findOne('groups', orgId, { id }))) return null;
-			return map(
-				await store.update(
-					'groups',
-					orgId,
-					id,
-					Object.fromEntries(
-						Object.entries({ name: patch.name, sort_order: patch.sortOrder }).filter(([, value]) => value !== undefined)
-					)
-				)
-			);
+		async rename(id, name) {
+			const group = await store.findOne<Record<string, unknown>>('groups', orgId, { id });
+			if (!group) fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			if (group.name === name) return map(group);
+			if (await store.findOne('groups', orgId, { name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
+			const row = map(await store.update('groups', orgId, id, { name }));
+			await store.deleteWhere('user_pinned_groups', orgId, { group_name: name });
+			for (const pin of await store.findMany<{ id: string }>('user_pinned_groups', orgId, { group_name: group.name }))
+				await store.update('user_pinned_groups', orgId, pin.id, { group_name: name });
+			return row;
 		},
-		delete: (id) => store.delete('groups', orgId, id)
+		async setOrder(ids, expectedIds) {
+			const saved = (await rows('id')).map((row) => row.id as string);
+			if (saved.join() === ids.join()) return;
+			if (saved.join() !== expectedIds.join()) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
+			if (ids.length !== saved.length || saved.some((id) => !ids.includes(id))) fail(400, 'Choose every Group once');
+			for (const [index, id] of ids.entries()) await store.update('groups', orgId, id, { sort_order: index });
+		},
+		async deleteWithReassignment(id, targetId) {
+			const group = await store.findOne<{ name: string }>('groups', orgId, { id });
+			if (!group || (targetId && !(await store.findOne('groups', orgId, { id: targetId }))))
+				fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			const members = await store.findMany<{ id: string }>('personnel', orgId, { group_id: id });
+			for (const member of members) await store.update('personnel', orgId, member.id, { group_id: targetId });
+			await store.delete('groups', orgId, id);
+			await store.deleteWhere('user_pinned_groups', orgId, { group_name: group.name });
+			return members.length;
+		}
 	};
 }
 export function createInMemorySelfPinPersistence(

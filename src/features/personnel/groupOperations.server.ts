@@ -1,23 +1,31 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { error } from '@sveltejs/kit';
-import { requireFeaturePolicy } from '$lib/access/index.server';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 import { uuidSchema, issueMessage } from '$lib/utils/inputSchemas';
-import { GROUP_UNAVAILABLE_MESSAGE, type GroupPersistence } from './contracts';
+import { GROUP_UNAVAILABLE_MESSAGE, type GroupPersistence, type PersonnelRecordPersistence } from './contracts';
 
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	groups: Pick<GroupPersistence, 'create' | 'update' | 'delete'>;
+	groups: Pick<GroupPersistence, 'create' | 'rename' | 'setOrder' | 'deleteWithReassignment'>;
 }
-const createInput = z.object({
-	name: z.string().min(1, 'Group name is required').max(100, 'Group name must be 100 characters or fewer'),
-	sortOrder: z.number().int().optional()
+const groupName = z
+	.string()
+	.trim()
+	.min(1, 'Group name is required')
+	.max(100, 'Group name must be 100 characters or fewer');
+const createInput = z.object({ name: groupName, sortOrder: z.number().int().optional() });
+const renameInput = z.object({ id: uuidSchema, name: groupName });
+const orderInput = z.object({
+	groupIds: z.array(uuidSchema).max(1000),
+	expectedGroupIds: z.array(uuidSchema).max(1000)
 });
-const updateInput = createInput.partial().extend({ id: uuidSchema });
-function validatedInput<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
+const deleteInput = z.object({ id: uuidSchema, moveMembersTo: uuidSchema.nullable().default(null) });
+
+function validatedInput<T>(schema: z.ZodType<T>, input: unknown): T {
 	const result = schema.safeParse(input);
 	if (!result.success) throw error(400, issueMessage(result.error));
 	return result.data;
@@ -31,22 +39,105 @@ export async function createGroup(ctx: GroupWriteContext, input: Record<string, 
 	const data = validatedInput(createInput, input);
 	await requireGroupManager(ctx);
 	const row = await ctx.groups.create(data);
-	ctx.audit.log({ action: 'group.created', resourceType: 'group', resourceId: row.id as string | undefined });
+	await ctx.audit.log({ action: 'group.created', resourceType: 'group', resourceId: row.id });
 	return row;
 }
 
-export async function updateGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
-	const data = validatedInput(updateInput, input);
-	const id = data.id as string;
+export async function renameGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
+	const { id, name } = validatedInput(renameInput, input);
 	await requireGroupManager(ctx, id);
-	const row = await ctx.groups.update(id, { name: data.name, sortOrder: data.sortOrder });
-	if (!row) throw error(404, GROUP_UNAVAILABLE_MESSAGE);
-	ctx.audit.log({ action: 'group.updated', resourceType: 'group', resourceId: id });
+	const row = await ctx.groups.rename(id, name);
+	await ctx.audit.log({ action: 'group.updated', resourceType: 'group', resourceId: id });
 	return row;
 }
 
-export async function deleteGroup(ctx: GroupWriteContext, id: string): Promise<void> {
+export async function setGroupOrder(ctx: GroupWriteContext, input: Record<string, unknown>): Promise<void> {
+	const { groupIds, expectedGroupIds } = validatedInput(orderInput, input);
+	await requireGroupManager(ctx);
+	await ctx.groups.setOrder(groupIds, expectedGroupIds);
+	await ctx.audit.log({
+		action: 'group.reordered',
+		resourceType: 'organization',
+		resourceId: ctx.auth.orgId,
+		details: { groupIds }
+	});
+}
+
+/** Deletes the Group after moving its members to `moveMembersTo` (null is Unassigned), all or nothing. */
+export async function deleteGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
+	const { id, moveMembersTo } = validatedInput(deleteInput, input);
+	if (moveMembersTo === id) throw error(400, 'Choose another Group for the members');
 	await requireGroupManager(ctx, id);
-	await ctx.groups.delete(id);
-	ctx.audit.log({ action: 'group.deleted', resourceType: 'group', resourceId: id });
+	const movedCount = await ctx.groups.deleteWithReassignment(id, moveMembersTo);
+	await ctx.audit.log({
+		action: 'group.deleted',
+		resourceType: 'group',
+		resourceId: id,
+		details: { moveMembersTo, movedCount }
+	});
+	return { movedCount };
+}
+
+interface GroupMembershipContext {
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
+	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates' | 'moveToGroup'>;
+	groups: Pick<GroupPersistence, 'findReference'>;
+}
+
+export const GROUP_MEMBERSHIP_BATCH_LIMIT = 500;
+const membershipInput = z.object({
+	personnelIds: z
+		.array(uuidSchema, 'Choose People to move')
+		.min(1, 'Choose People to move')
+		.max(GROUP_MEMBERSHIP_BATCH_LIMIT, `Move at most ${GROUP_MEMBERSHIP_BATCH_LIMIT} People at a time`),
+	groupId: uuidSchema.nullable()
+});
+
+/** `movedIds` are now in the Group, including any already there; `unavailableIds` were not found or are archived. */
+export interface GroupMembershipResult {
+	groupId: string | null;
+	movedIds: string[];
+	unavailableIds: string[];
+}
+
+/**
+ * Moves People into a Group (null is Unassigned) in one statement. The actor needs Manage records over the target
+ * and over every moving Person's current Group, all checked before anything is written.
+ */
+export async function moveGroupMembers(
+	ctx: GroupMembershipContext,
+	input: Record<string, unknown>
+): Promise<GroupMembershipResult> {
+	const { personnelIds, groupId } = validatedInput(membershipInput, input);
+	const ids = [...new Set(personnelIds)];
+	const manageRecords = (group: string | null) =>
+		requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			policyResourceForGroup(group),
+			'personnel'
+		);
+
+	await manageRecords(groupId);
+	if (groupId && !(await ctx.groups.findReference(groupId))) throw error(404, GROUP_UNAVAILABLE_MESSAGE);
+	const active = (await ctx.personnel.listArchiveCandidates(ids)).filter((person) => !person.archivedAt);
+	for (const currentGroup of new Set(active.map((person) => person.groupId))) await manageRecords(currentGroup);
+
+	const already = active.filter((person) => person.groupId === groupId).map((person) => person.id);
+	const moving = active.filter((person) => person.groupId !== groupId).map((person) => person.id);
+	const moved = moving.length ? await ctx.personnel.moveToGroup(moving, groupId) : [];
+	if (moved.length) {
+		await ctx.audit.log({
+			action: 'personnel.group_changed',
+			resourceType: 'personnel',
+			details: { groupId, personnelIds: moved }
+		});
+	}
+	const inGroup = new Set([...already, ...moved]);
+	return {
+		groupId,
+		movedIds: ids.filter((id) => inGroup.has(id)),
+		unavailableIds: ids.filter((id) => !inGroup.has(id))
+	};
 }

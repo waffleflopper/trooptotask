@@ -21,6 +21,18 @@ export const changelog: ChangelogEntry[] = [
 		]
 	},
 	{
+		id: '2026-10-22-training-import',
+		date: '2026-10-22',
+		title: 'Import Training From Your Tracker',
+		items: [
+			'Training › Import now opens its own page and works like the roster import. Drop in a file, check the columns, review every row, then import.',
+			'Use one row per completion, or the tracker you already keep with one column per training. Each column is matched to a training type by name, and you pick the type for any column the app does not recognize.',
+			'A date in a cell records a completion. For cells marked X or yes, the import asks once per training for the date instead of using today. Exempt or N/A marks the person exempt, and blank cells are left alone.',
+			'A completion already saved with the same date shows as Unchanged. A different date shows as an Update with the old date under the new one.',
+			'Anyone who can record training can now import it. Marking someone exempt still needs permission to manage training requirements.'
+		]
+	},
+	{
 		id: '2026-10-22-new-dashboard',
 		date: '2026-10-22',
 		title: 'A New Dashboard',

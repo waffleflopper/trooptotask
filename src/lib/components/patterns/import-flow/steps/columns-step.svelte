@@ -8,6 +8,7 @@
 	import { cn } from '$lib/utils.js';
 	import { HEADER_SCAN_ROWS, headerKey, type ColumnTarget, type HeaderKey } from '../workbookSource';
 	import { plural, type FlowSession } from '../flowTypes';
+	import { questionKey, type QuestionKey } from '../types';
 
 	let { session, onBack }: { session: FlowSession; onBack: () => void } = $props();
 
@@ -26,13 +27,21 @@
 		sheet?.rows.slice(0, headerRow === null ? HEADER_SCAN_ROWS : headerRow + 1 + PREVIEW_DATA_ROWS) ?? []
 	);
 	const columnCount = $derived(Math.max(headers.length, ...previewRows.map((row) => row.length)));
+	const sheetRows = $derived(new Set(session.sourceRows.map((row) => `${row.sheetIndex}:${row.rowNumber}`)));
 	const rowsPerSheet = $derived(
-		session.sourceRows.reduce<Map<number, number>>(
-			(counts, row) => counts.set(row.sheetIndex, (counts.get(row.sheetIndex) ?? 0) + 1),
-			new Map()
-		)
+		[...sheetRows].reduce<Map<number, number>>((counts, key) => {
+			const sheetIndex = Number(key.split(':')[0]);
+			return counts.set(sheetIndex, (counts.get(sheetIndex) ?? 0) + 1);
+		}, new Map())
 	);
+	const reviewNoun = $derived(session.sourceRows.length > sheetRows.size ? session.lane.noun : ROWS);
 	const includedCount = $derived(layout?.sheets.filter((item) => item.included).length ?? 0);
+
+	const pivotReference = $derived.by(() => {
+		const field = session.lane.pivot?.field;
+		const entry = field && Object.entries(session.lane.references).find(([, item]) => item.reads.includes(field));
+		return entry ? { name: entry[0], reference: entry[1], field } : null;
+	});
 
 	const targetOptions = $derived([
 		...Object.entries(session.lane.columns).map(([field, column]) => ({
@@ -40,15 +49,40 @@
 			label: column.label
 		})),
 		...(session.lane.splitters ?? []).map((splitter, index) => ({ value: `split:${index}`, label: splitter.label })),
-		...(session.lane.pivot ? [{ value: 'pivot', label: `${session.lane.pivot.label} (one per column)` }] : []),
-		{ value: 'ignore', label: "Don't import" }
+		...(session.lane.pivot && !pivotReference
+			? [{ value: 'pivot', label: `${session.lane.pivot.label} (one per column)` }]
+			: [])
 	]);
 
-	function targetValue(target: ColumnTarget | undefined): string {
+	function pivotChoice(header: string): { key: QuestionKey; matched?: string; chosen?: string } | null {
+		if (!pivotReference) return null;
+		const lookup = pivotReference.reference.key({ [pivotReference.field]: header.trim() });
+		if (!lookup) return null;
+		const match = pivotReference.reference.find(lookup.key);
+		const key = questionKey({ reference: pivotReference.name, key: lookup.key });
+		const answer = session.answers.get(key);
+		const matched = match.kind === 'one' ? match.option.id : undefined;
+		return { key, matched, chosen: answer ? (answer.kind === 'pick' ? answer.optionId : undefined) : matched };
+	}
+
+	function chooseTarget(header: string, value: string) {
+		const key = headerKey(header);
+		if (!value.startsWith('pivot:')) {
+			session.setColumnTarget(key, parseTarget(value));
+			return;
+		}
+		session.setColumnTarget(key, { kind: 'pivot' });
+		const choice = pivotChoice(header);
+		const optionId = value.slice(6);
+		if (choice) session.answer(choice.key, optionId === choice.matched ? null : { kind: 'pick', optionId });
+	}
+
+	function targetValue(target: ColumnTarget | undefined, header = ''): string {
 		if (!target || target.kind === 'ignore') return 'ignore';
 		if (target.kind === 'field') return `field:${target.field}`;
 		if (target.kind === 'split') return `split:${target.splitter}`;
-		return 'pivot';
+		const chosen = pivotChoice(header)?.chosen;
+		return chosen ? `pivot:${chosen}` : 'pivot';
 	}
 
 	function parseTarget(value: string): ColumnTarget {
@@ -59,7 +93,7 @@
 	}
 
 	const usage = $derived.by(() => {
-		if (!file || !layout) return { used: 0, total: 0, ignored: [] as string[] };
+		if (!file || !layout) return { used: 0, total: 0, ignored: [] as string[], unmatched: [] as string[] };
 		const seen: Record<HeaderKey, string> = {};
 		layout.sheets.forEach((item, index) => {
 			if (!item.included || item.headerRow === null) return;
@@ -68,7 +102,13 @@
 		});
 		const found = Object.entries(seen) as [HeaderKey, string][];
 		const ignored = found.filter(([key]) => targetValue(layout.columns.get(key)) === 'ignore');
-		return { used: found.length - ignored.length, total: found.length, ignored: ignored.map(([, label]) => label) };
+		const unmatched = found.filter(([key, label]) => targetValue(layout.columns.get(key), label) === 'pivot');
+		return {
+			used: found.length - ignored.length,
+			total: found.length,
+			ignored: ignored.map(([, label]) => label),
+			unmatched: pivotReference ? unmatched.map(([, label]) => label) : []
+		};
 	});
 </script>
 
@@ -116,7 +156,7 @@
 				{/each}
 			</ul>
 			<p class="text-sm text-muted-foreground">
-				{includedCount === 1 ? 'One sheet' : `${includedCount} sheets`} read · {plural(session.sourceRows.length, ROWS)}
+				{includedCount === 1 ? 'One sheet' : `${includedCount} sheets`} read · {plural(sheetRows.size, ROWS)}
 			</p>
 		</section>
 
@@ -139,17 +179,30 @@
 								{@const header = headers[column] ?? ''}
 								<th scope="col" class="min-w-36 px-2 py-2 text-left font-normal">
 									{#if header.trim()}
+										{@const value = targetValue(layout.columns.get(headerKey(header)), header)}
 										<NativeSelect.Root
 											size="sm"
 											class="w-full"
 											aria-label="Import {header} as"
-											value={targetValue(layout.columns.get(headerKey(header)))}
-											onchange={(event) =>
-												session.setColumnTarget(headerKey(header), parseTarget(event.currentTarget.value))}
+											{value}
+											onchange={(event) => chooseTarget(header, event.currentTarget.value)}
 										>
 											{#each targetOptions as option (option.value)}
 												<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 											{/each}
+											{#if pivotReference && session.lane.pivot}
+												<NativeSelect.OptGroup label="{session.lane.pivot.label} (one per column)">
+													{#if value === 'pivot'}
+														<NativeSelect.Option value="pivot"
+															>Pick a {pivotReference.reference.label}</NativeSelect.Option
+														>
+													{/if}
+													{#each pivotReference.reference.options as option (option.id)}
+														<NativeSelect.Option value="pivot:{option.id}">{option.label}</NativeSelect.Option>
+													{/each}
+												</NativeSelect.OptGroup>
+											{/if}
+											<NativeSelect.Option value="ignore">Don't import</NativeSelect.Option>
 										</NativeSelect.Root>
 									{/if}
 								</th>
@@ -196,17 +249,22 @@
 		</section>
 
 		<footer class="flex flex-wrap items-center gap-x-4 gap-y-3 border-t pt-4">
-			<p class="min-w-0 flex-1 text-sm text-muted-foreground" role="status">
+			<p class="min-w-0 flex-1 basis-64 text-sm text-muted-foreground" role="status">
 				{#if session.columnBlockers.length}
 					<span class="font-medium text-danger-foreground">{session.columnBlockers[0]}</span>
 				{:else}
 					{usage.used} of {usage.total} columns used
 					{#if usage.ignored.length}· {usage.ignored.join(', ')} not imported{/if}
+					{#if usage.unmatched.length && pivotReference}
+						· <span class="text-warning-foreground"
+							>Pick a {pivotReference.reference.label} for {usage.unmatched.join(', ')} here or in Review</span
+						>
+					{/if}
 				{/if}
 			</p>
 			<Button variant="outline" onclick={onBack}>Back</Button>
 			<Button disabled={session.columnBlockers.length > 0} onclick={() => session.goTo('review')}>
-				Review {plural(session.sourceRows.length, ROWS)}
+				Review {plural(session.sourceRows.length, reviewNoun)}
 				<ArrowRightIcon data-icon="inline-end" />
 			</Button>
 		</footer>

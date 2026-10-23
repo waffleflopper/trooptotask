@@ -1,4 +1,6 @@
-import type { ColumnSplitter } from '$lib/components/patterns/import-flow';
+import type { ColumnSplitter, ImportColumn, ImportColumns } from '$lib/components/patterns/import-flow';
+
+export type PersonNameColumns = ImportColumns & Record<'lastName' | 'firstName', ImportColumn>;
 
 export const personnelImportColumns = {
 	rank: {
@@ -50,7 +52,7 @@ export const personnelImportColumns = {
 	}
 } as const;
 
-export const lastFirstSplitter: ColumnSplitter<typeof personnelImportColumns> = {
+export const lastFirstSplitter = <C extends PersonNameColumns>(): ColumnSplitter<C> => ({
 	label: 'Last, First',
 	aliases: ['name', 'full name', 'last first', 'last, first', 'last name, first name', 'soldier', 'member'],
 	fills: ['lastName', 'firstName'],
@@ -62,7 +64,10 @@ export const lastFirstSplitter: ColumnSplitter<typeof personnelImportColumns> = 
 				? [text.slice(0, comma).trim(), text.slice(comma + 1).trim()]
 				: [text.split(' ')[0], text.split(' ').slice(1).join(' ')];
 		const firstName = rest.replace(/ [A-Za-z]\.?$/, '').trim();
-		return lastName && firstName ? { lastName, firstName } : null;
+		return lastName && firstName ? ({ lastName, firstName } as Partial<Record<keyof C & string, string>>) : null;
 	},
-	join: ({ lastName, firstName }) => `${lastName ?? ''}, ${firstName ?? ''}`
-};
+	join: (values) => {
+		const { lastName, firstName }: Partial<Record<string, string>> = values;
+		return `${lastName ?? ''}, ${firstName ?? ''}`;
+	}
+});

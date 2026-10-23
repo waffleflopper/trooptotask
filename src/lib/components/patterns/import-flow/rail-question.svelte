@@ -35,6 +35,7 @@
 		const suggested = accepts.options.find((option) => option.id === accepts.suggested);
 		return suggested ? [suggested, ...accepts.options.filter((option) => option !== suggested)] : accepts.options;
 	});
+	const skipOnly = $derived(accepts.kind === 'pick' && options.length === 0);
 	let choice = $derived(accepts.kind === 'pick' ? (accepts.suggested ?? '') : '');
 	let createName = $derived(question.subject);
 	let createOpen = $state(false);
@@ -112,19 +113,7 @@
 	{:else}
 		{#if accepts.kind === 'fill'}
 			<DatePicker aria-label="Date for {question.subject}" bind:value={choice} />
-		{:else if options.length <= RADIO_LIMIT}
-			<RadioGroup.Root bind:value={choice} aria-labelledby="{id}-title" class="gap-2">
-				{#each options as option (option.id)}
-					<div class="flex items-start gap-2">
-						<RadioGroup.Item id="{id}-{option.id}" value={option.id} class="mt-0.5" />
-						<label for="{id}-{option.id}" class="grid min-w-0 text-sm">
-							<span class="truncate">{option.label}</span>
-							{#if option.hint}<span class="truncate text-xs text-muted-foreground">{option.hint}</span>{/if}
-						</label>
-					</div>
-				{/each}
-			</RadioGroup.Root>
-		{:else}
+		{:else if options.length > RADIO_LIMIT}
 			<Combobox.Root
 				items={options.map((option) => ({ value: option.id, label: option.label, description: option.hint }))}
 				bind:value={choice}
@@ -138,10 +127,24 @@
 					<Combobox.List />
 				</Combobox.Content>
 			</Combobox.Root>
+		{:else if !skipOnly}
+			<RadioGroup.Root bind:value={choice} aria-labelledby="{id}-title" class="gap-2">
+				{#each options as option (option.id)}
+					<div class="flex items-start gap-2">
+						<RadioGroup.Item id="{id}-{option.id}" value={option.id} class="mt-0.5" />
+						<label for="{id}-{option.id}" class="grid min-w-0 text-sm">
+							<span class="truncate">{option.label}</span>
+							{#if option.hint}<span class="truncate text-xs text-muted-foreground">{option.hint}</span>{/if}
+						</label>
+					</div>
+				{/each}
+			</RadioGroup.Root>
 		{/if}
 		<div class="flex flex-wrap items-center gap-2">
-			<Button size="sm" disabled={!choice} onclick={apply}>Apply to {rows}</Button>
-			<Button variant="ghost" size="sm" onclick={() => void settle({ kind: 'skip' })}>
+			{#if !skipOnly}
+				<Button size="sm" disabled={!choice} onclick={apply}>Apply to {rows}</Button>
+			{/if}
+			<Button variant={skipOnly ? 'outline' : 'ghost'} size="sm" onclick={() => void settle({ kind: 'skip' })}>
 				{question.skipLabel ?? `Skip ${rows}`}
 			</Button>
 		</div>

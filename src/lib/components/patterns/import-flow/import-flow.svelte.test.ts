@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ImportFlow from './import-flow.svelte';
 import { personnelColumns, personnelLane, type PersonnelChange } from './importFlow.test-support';
-import type { ChunkReply, RowReview } from './types';
+import { defineImportLane, questionKey, type ChunkReply, type RowReview } from './types';
 import { go, resetHistory } from './importFlowHistory.test-support.svelte';
 import { beforeNavigate } from '$app/navigation';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -49,6 +49,50 @@ async function toReview(rows: string[], header?: string) {
 function importButton(): HTMLButtonElement {
 	return screen.getByRole('button', { name: /^Import \d/ });
 }
+
+function wideLane(committed: string[] = []) {
+	const options = [
+		{ id: 'cpr', label: 'CPR', value: 'cpr' },
+		{ id: 'drv', label: 'Driving', value: 'drv' }
+	];
+	return defineImportLane({
+		id: 'wide-fixture',
+		noun: { one: 'completion', other: 'completions' },
+		columns: {
+			name: { label: 'Name', kind: 'text', required: true, aliases: ['name'] },
+			training: { label: 'Training', kind: 'text', required: true, aliases: [] },
+			completed: { label: 'Completed', kind: 'text', required: true, aliases: [] }
+		},
+		pivot: { field: 'training', valueField: 'completed', label: 'Training' },
+		references: {
+			training: {
+				label: 'training',
+				reads: ['training'],
+				required: true,
+				whenMissing: 'ask',
+				options,
+				key: (raw) => (raw.training ? { key: raw.training.trim().toLowerCase(), display: raw.training } : null),
+				find(key) {
+					const option = options.find((item) => item.label.toLowerCase() === key);
+					return option ? { kind: 'one', option } : { kind: 'none' };
+				}
+			}
+		},
+		review: ({ values, refs }): RowReview<string> => ({
+			outcome: 'new',
+			key: `${values.name}:${refs.training.value}`,
+			change: refs.training.value
+		}),
+		commitChunk: async (changes: readonly string[]): Promise<ChunkReply> => {
+			committed.push(...changes);
+			return { kind: 'saved', results: changes.map(() => ({ kind: 'added' })) };
+		},
+		exit: { href: '/', label: 'Back' }
+	});
+}
+
+type WideLane = ReturnType<typeof wideLane>;
+const WideFlow = ImportFlow<WideLane['columns'], WideLane['references'], string>;
 
 describe('ImportFlow', () => {
 	it('steps back through Review, Columns and File with browser history and keeps the file', async () => {
@@ -254,6 +298,63 @@ describe('ImportFlow', () => {
 		await toReview(['Smith,Alex,Sgt.,']);
 
 		expect(screen.getByDisplayValue('Sgt.')).toBeTruthy();
+	});
+
+	it('imports an unknown wide column as the training the user maps it to', async () => {
+		const committed: string[] = [];
+		render(WideFlow, { lane: wideLane(committed), title: 'Import', eyebrow: 'Test' });
+		await upload(['Cole,2026-03-11,2026-04-01'], 'Name,CPR,DRIVERS TNG');
+		expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'Import CPR as' }).value).toBe('pivot:cpr');
+
+		await fireEvent.change(screen.getByRole('combobox', { name: 'Import DRIVERS TNG as' }), {
+			target: { value: 'pivot:drv' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /^Review/ }));
+		await waitFor(() => expect(importButton().disabled).toBe(false));
+		await fireEvent.click(importButton());
+
+		await waitFor(() => expect(committed.toSorted()).toEqual(['cpr', 'drv']));
+	});
+
+	it('leaves out the rows a question has nothing to pick for when the user takes the way out', async () => {
+		const title = 'These rows need access you do not have';
+		const skipLabel = 'Leave these rows out';
+		const base = personnelLane();
+		const committed: PersonnelChange[] = [];
+		const lane = {
+			...base,
+			review: (input: Parameters<typeof base.review>[0]): RowReview<PersonnelChange> =>
+				input.values.lastName === 'Smith'
+					? {
+							outcome: 'fix',
+							problems: [{ field: '', message: 'You need access to save this.' }],
+							questions: [
+								{
+									key: questionKey({ lane: 'access' }),
+									title,
+									subject: 'Exempt',
+									skipLabel,
+									accepts: { kind: 'pick', options: [] }
+								}
+							]
+						}
+					: base.review(input),
+			commitChunk: async (changes: readonly PersonnelChange[]): Promise<ChunkReply> => {
+				committed.push(...changes);
+				return { kind: 'saved', results: changes.map(() => ({ kind: 'added' })) };
+			}
+		};
+		render(Flow, { lane, title: 'Import', eyebrow: 'Test' });
+		await toReview(['Smith,Alex,SGT,', 'Jones,Pat,SGT,']);
+		expect(importButton().disabled).toBe(true);
+
+		const card = screen.getByRole('region', { name: title });
+		expect(within(card).queryByRole('radio')).toBeNull();
+		await fireEvent.click(within(card).getByRole('button', { name: skipLabel }));
+		await waitFor(() => expect(importButton().disabled).toBe(false));
+		await fireEvent.click(importButton());
+
+		await waitFor(() => expect(committed.map((change) => change.name)).toEqual(['Jones, Pat']));
 	});
 
 	it('tells the user why leaving is blocked while a commit is saving, and keeps saving', async () => {

@@ -7,8 +7,10 @@
 	import { cn } from '$lib/utils.js';
 	import type { ReviewedRow } from './rowModel';
 	import type { QuestionKey } from './types';
-	import { parseImportDate } from './values';
 	import {
+		cardContext,
+		cellText,
+		changeFor,
 		editableFields,
 		fieldMessage,
 		looseMessages,
@@ -45,18 +47,11 @@
 	const allColumns = $derived([...identityColumns, ...columns]);
 	const editable = $derived(editableFields(row, allColumns));
 	const identityEditors = $derived(identityColumns.filter((column) => editable.has(column.field)));
-	const diff = $derived(new Map(row.outcome === 'update' ? row.diff.map((item) => [item.label, item]) : []));
 	const messageId = $derived(`import-row-${source.id}-message`);
 	const where = $derived(`${source.sheetName} · row ${source.rowNumber}`);
 	const quiet = $derived(row.outcome === 'unchanged' || row.outcome === 'skipped');
+	const context = $derived(cardContext(row, columns));
 	const railQuestion = $derived(row.outcome === 'skipped' ? row.question : undefined);
-
-	function shown(column: ReviewColumn): string {
-		const raw = source.raw[column.field] ?? '';
-		const resolved = row.resolved?.[column.field];
-		if (resolved !== undefined) return resolved;
-		return column.kind === 'date' ? (parseImportDate(raw, source) ?? raw) : raw;
-	}
 </script>
 
 {#snippet skipButton()}
@@ -119,6 +114,9 @@
 			<span class="ml-auto shrink-0 text-xs text-muted-foreground">{where}</span>
 			{@render skipButton()}
 		</header>
+		{#if (row.outcome === 'fix' || row.outcome === 'update') && context}
+			<p class="truncate text-sm text-muted-foreground">{context}</p>
+		{/if}
 		{#if row.outcome === 'fix'}
 			{#each allColumns.filter((column) => editable.has(column.field)) as column (column.field)}
 				<div class="grid gap-1">
@@ -142,7 +140,7 @@
 			{/each}
 		{:else}
 			<p class="truncate text-sm text-muted-foreground">
-				{row.outcome === 'skipped' ? row.reason : columns.map(shown).filter(Boolean).join(' · ')}
+				{row.outcome === 'skipped' ? row.reason : context}
 			</p>
 		{/if}
 	</article>
@@ -173,7 +171,7 @@
 				</span>
 			</div>
 			{#each columns as column (column.field)}
-				{@const change = diff.get(column.label)}
+				{@const change = changeFor(row, column)}
 				<div class="min-w-0" role="cell">
 					{#if editable.has(column.field)}
 						{@render editor(column, messageId, 'border-destructive')}
@@ -182,7 +180,7 @@
 						<span class="block truncate text-xs text-muted-foreground line-through">{change.before || 'was empty'}</span
 						>
 					{:else}
-						{@const value = shown(column)}
+						{@const value = cellText(row, column)}
 						<span class={cn('block truncate', quiet && 'text-muted-foreground')} title={value || undefined}
 							>{value}</span
 						>

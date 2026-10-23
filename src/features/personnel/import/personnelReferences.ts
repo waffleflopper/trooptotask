@@ -4,49 +4,12 @@ import type { Personnel } from '../personnel.types';
 import type { RankCatalogEntry } from '../rankCatalog';
 import { groupManagementStore } from '../stores/groups.svelte';
 import type { personnelImportColumns } from './personnelImportColumns';
+import { compactRank, groupWords, indexByName, normalizeName, personNameKey, personOption } from './personMatching';
 
 type Columns = typeof personnelImportColumns;
 
 export const NEW_PERSON = 'new';
 const NO_GROUP = 'no-group';
-const GROUP_WORDS: Readonly<Record<string, string>> = {
-	plt: 'platoon',
-	pltn: 'platoon',
-	sqd: 'squad',
-	sec: 'section',
-	sect: 'section',
-	co: 'company',
-	tm: 'team',
-	hq: 'headquarters',
-	hqs: 'headquarters',
-	det: 'detachment'
-};
-
-export function normalizeName(value: string): string {
-	return value
-		.normalize('NFKD')
-		.replace(/[̀-ͯ]/g, '')
-		.toLowerCase()
-		.replace(/[.']/g, '')
-		.replace(/[-\s]+/g, ' ')
-		.trim();
-}
-
-export function personNameKey(lastName: string, firstName: string): string {
-	return `${normalizeName(lastName)}|${normalizeName(firstName).replace(/ [a-z]$/, '')}`;
-}
-
-function compactRank(value: string): string {
-	return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
-
-function groupWords(value: string): string {
-	return normalizeName(value)
-		.split(' ')
-		.map((word) => GROUP_WORDS[word] ?? word)
-		.join(' ');
-}
-
 function uniqueBy<T>(items: readonly T[], value: (item: T) => string): Map<string, T | null> {
 	const index = new Map<string, T | null>();
 	for (const item of items) {
@@ -54,15 +17,6 @@ function uniqueBy<T>(items: readonly T[], value: (item: T) => string): Map<strin
 		index.set(key, index.has(key) && index.get(key) !== item ? null : item);
 	}
 	return index;
-}
-
-export function personOption(person: Personnel): ReferenceOption<Personnel> {
-	return {
-		id: person.id,
-		label: `${person.rank} ${person.lastName}, ${person.firstName}`.trim(),
-		hint: person.groupName || 'No group',
-		value: person
-	};
 }
 
 export function personMatchReference(
@@ -73,13 +27,7 @@ export function personMatchReference(
 		label: 'Add as a new person',
 		value: NEW_PERSON
 	};
-	const byName = new Map<string, Personnel[]>();
-	for (const person of roster) {
-		const key = personNameKey(person.lastName, person.firstName);
-		const people = byName.get(key);
-		if (people) people.push(person);
-		else byName.set(key, [person]);
-	}
+	const byName = indexByName(roster);
 	return {
 		label: 'person',
 		reads: ['lastName', 'firstName'],

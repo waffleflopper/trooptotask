@@ -23,6 +23,8 @@ export interface ImportColumn<K extends ValueKind = ValueKind> {
 	hint?: string;
 
 	maxLength?: number;
+
+	skipWhenBlank?: string;
 }
 
 export type ImportColumns = Record<string, ImportColumn>;
@@ -112,15 +114,20 @@ export interface CellProblem<F extends string = string> {
 
 export interface FieldDiff {
 	label: string;
+	field?: string;
 	before: string;
 	after: string;
 }
 
-export type RowReview<Change> =
+export type RowReview<Change> = (
 	| { outcome: 'new'; key: string; change: Change }
 	| { outcome: 'update'; key: string; change: Change; diff: readonly FieldDiff[] }
 	| { outcome: 'unchanged'; key: string }
-	| { outcome: 'fix'; problems: readonly CellProblem[]; questions?: readonly LaneQuestion[] };
+	| { outcome: 'fix'; problems: readonly CellProblem[]; questions?: readonly LaneQuestion[] }
+	| { outcome: 'skipped'; reason: string }
+) & {
+	shown?: Readonly<Record<string, string>>;
+};
 
 export interface ReviewInput<C extends ImportColumns, Refs> {
 	values: RowValues<C>;

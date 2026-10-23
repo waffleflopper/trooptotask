@@ -201,9 +201,7 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    a Members row's `Manage` sheet as `orgOwner` (`settings/members/updateMemberAccess`), a Duty planner column's Clear
    month (column actions → `Clear month`) and its confirmation as `calendarConfigure` (`daily-assignments/batch`; the
    confirmation stays busy and the column actions button disabled while held), and a rank's Retire as `orgOwner` on
-   `settings/ranks` (`settings/ranks/retireRank`, its row actions disabled; reactivate it afterwards). After a Training
-   import as `trainingConfigure` reaches its results, press Escape: the matrix shows the imported record without a
-   reload.
+   `settings/ranks` (`settings/ranks/retireRank`, its row actions disabled; reactivate it afterwards).
 
 5. **Sheet and popover dismissal (`orgOwner`, `manager`).** On `settings/members`, open a row's `Manage`. Press Escape:
    the sheet closes and focus returns to the opening button. Reopen and click the overlay outside the sheet: same

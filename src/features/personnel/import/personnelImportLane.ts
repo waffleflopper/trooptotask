@@ -46,13 +46,24 @@ const FIELD_LABELS: Record<UpdatableField, string> = {
 	deros: columns.deros.label
 };
 
-async function commitChunk(orgId: string, records: readonly PersonnelImportRecordsRecord[]): Promise<ChunkReply> {
+function isSavedPerson(value: unknown): value is Personnel {
+	if (typeof value !== 'object' || value === null) return false;
+	const { id, rank, lastName, firstName } = value as Record<string, unknown>;
+	return [id, rank, lastName, firstName].every((field) => typeof field === 'string');
+}
+
+async function commitChunk(
+	orgId: string,
+	records: readonly PersonnelImportRecordsRecord[],
+	remember: (saved: readonly Personnel[]) => void
+): Promise<ChunkReply> {
 	const reply = await postImportChunk(
 		`/org/${orgId}/api/personnel/import`,
 		{ records },
 		{ fallbackMessage: 'These people could not be imported.', schema: replySchema }
 	);
 	if (reply.kind !== 'saved') return reply;
+	remember([...reply.data.created, ...reply.data.updated].filter(isSavedPerson));
 	const failures = new Map(reply.data.errors.map((error) => [error.index, error]));
 	return {
 		kind: 'saved',
@@ -66,6 +77,14 @@ async function commitChunk(orgId: string, records: readonly PersonnelImportRecor
 
 export function createPersonnelImportLane(source: PersonnelImportSource) {
 	const groupNames = new Map(source.groups.map((group) => [group.id, group.name]));
+	let personReference = personMatchReference(source.personnel);
+	let roster = source.personnel;
+	const remember = (saved: readonly Personnel[]) => {
+		if (saved.length === 0) return;
+		const savedIds = new Set(saved.map((person) => person.id));
+		roster = [...roster.filter((person) => !savedIds.has(person.id)), ...saved];
+		personReference = personMatchReference(roster);
+	};
 	return defineImportLane({
 		id: 'personnel',
 		noun: { one: 'person', other: 'people' },
@@ -80,7 +99,9 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 		columns,
 		splitters: [lastFirstSplitter<typeof columns>()],
 		references: {
-			person: personMatchReference(source.personnel),
+			get person() {
+				return personReference;
+			},
 			rank: rankReference(source.rankCatalog),
 			group: groupReference(source.groups, {
 				canCreate: source.canManageGroups,
@@ -142,7 +163,7 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 			}));
 			return { outcome: 'update', key: person.id, change: { op: 'update', personnelId: person.id, changes }, diff };
 		},
-		commitChunk: (records) => commitChunk(source.orgId, records),
+		commitChunk: (records) => commitChunk(source.orgId, records, remember),
 		afterCommit: () => invalidate('app:personnel-data'),
 		savedIn: 'the roster',
 		exit: { href: `/org/${source.orgUrlSegment}/personnel`, label: 'Open the roster' }

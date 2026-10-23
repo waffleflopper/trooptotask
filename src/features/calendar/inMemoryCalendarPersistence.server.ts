@@ -123,7 +123,7 @@ export function createInMemoryCalendarCatalogPersistence(
 				.at(-1) ?? '';
 		await store.insert('roster_forms', orgId, {
 			assignment_type_id: row.id,
-			starts_on: afterClosed > utcDate() ? afterClosed : utcDate(),
+			starts_on: afterClosed || utcDate(),
 			ends_on: null,
 			rules: { pool: row.roster_pool_rules, weekendMode: row.roster_weekend_mode },
 			record: null

@@ -206,8 +206,8 @@ BEGIN
     INSERT INTO public.roster_forms (organization_id, assignment_type_id, starts_on, rules)
     VALUES (
       NEW.organization_id, NEW.id,
-      GREATEST((pg_catalog.now() AT TIME ZONE 'UTC')::date,
-        (SELECT pg_catalog.max(f.ends_on) + 1 FROM public.roster_forms f WHERE f.assignment_type_id = NEW.id)),
+      COALESCE((SELECT pg_catalog.max(f.ends_on) + 1 FROM public.roster_forms f WHERE f.assignment_type_id = NEW.id),
+        (pg_catalog.now() AT TIME ZONE 'UTC')::date),
       pg_catalog.jsonb_build_object('pool', NEW.roster_pool_rules, 'weekendMode', NEW.roster_weekend_mode)
     );
   ELSIF NEW.assign_to = 'group' AND v_open THEN

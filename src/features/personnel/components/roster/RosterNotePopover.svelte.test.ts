@@ -59,10 +59,10 @@ function makeCtx(row: SignalRow = NONE_OPEN, canOpen = true) {
 
 function mount(ctx: PersonnelPageContext) {
 	const onclose = vi.fn();
-	render(RosterNotePopover, {
+	const { rerender } = render(RosterNotePopover, {
 		props: { ctx, person, recordHref: '/org/org-1/personnel/okafor-daniel', onclose }
 	});
-	return { onclose };
+	return { onclose, rerender };
 }
 
 function postedBody(fetchMock: ReturnType<typeof vi.fn>): unknown {
@@ -85,7 +85,7 @@ describe('RosterNotePopover', () => {
 
 	it('saves a follow-up with the Friday preset, refreshes that Person’s signals and offers the Log in the toast', async () => {
 		const { ctx, refresh } = makeCtx();
-		const { onclose } = mount(ctx);
+		const { onclose, rerender } = mount(ctx);
 
 		const title = await screen.findByRole('textbox', { name: 'Follow-up title' });
 		await waitFor(() => expect(document.activeElement).toBe(title));
@@ -103,6 +103,8 @@ describe('RosterNotePopover', () => {
 		expect(toastSuccessMock).toHaveBeenCalledOnce();
 		const [message, options] = toastSuccessMock.mock.calls[0];
 		expect(message).toBe('Follow-up added for SGT Okafor');
+		// The page clears its target when the popover closes; the toast's link must not follow it.
+		await rerender({ recordHref: 'undefined' });
 		options.action.onClick();
 		expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel/okafor-daniel/log');
 	});

@@ -40,6 +40,8 @@
 
 	async function save(entry: ComposerEntry): Promise<void> {
 		const orgId = ctx.orgId;
+		// The toast outlives this popover, and the props read through to page state that is cleared on close.
+		const logHref = `${recordHref}/log`;
 		await saveRosterEntry(fetch, { orgId, personId: person.id }, entry);
 		// The write landed; a different Organization has nothing to refresh or announce.
 		if (ctx.orgId !== orgId) return;
@@ -49,7 +51,7 @@
 			entry.kind === 'follow-up' ? `Follow-up added for ${subject}` : `Note added for ${subject}`,
 			6000,
 			ctx.canOpenPersonnelDetail(person)
-				? { label: 'Open log', onClick: () => void goto(`${recordHref}/log`) }
+				? { label: 'Open log', onClick: () => void goto(logHref) }
 				: undefined
 		);
 		if (alive) close();

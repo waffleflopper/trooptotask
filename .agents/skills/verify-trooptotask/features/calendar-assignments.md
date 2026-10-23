@@ -20,6 +20,15 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   opens, reads `Loading roster counts…` over a skeleton with no options meanwhile, and on failure reads
   `Roster counts could not be loaded.` with `Retry`, lists no one until a name search, then offers anyone not excused
   marked `Count unavailable`, and never reads again on its own. A Group-scoped operator gets name order with no counts.
+  When no one is in the pool that day, everyone not excused is listed, marked `Not on this roster`, rather than nothing.
+- `duty-before-form`: on a day before a person type's open DA 6 form, the picker says under its search box what saving
+  there does, so a past date never shows a bare `No one matches.` On a form that can still move back (no closed form
+  before it and no carried starting numbers), a day the roster details with someone in the pool reads `Counts.`, names
+  the form's current start, and lists the pool with counts as if the form began that day; saving moves the DA 6 start
+  there and the counts today move with it. On such a form, a day with no one in the pool, or a No duty weekend or
+  holiday, reads `Not counted,` and that saving still moves the DA 6 start. On a roster already running it reads
+  `Not counted, before this roster's DA 6 (starts <day>)`, lists everyone not excused in name order without counts, and
+  saving there moves neither the start nor any count.
 - `planner-conflicts`: a person assigned on a day an availability entry with roster code A, D or U covers is flagged in
   the cell and listed in `Conflicts`, D and U included, and on a day the roster does not detail (a No duty weekend, or a
   day before the open form) any covering availability entry still flags a hand assignment; `Find replacement` opens the
@@ -323,6 +332,27 @@ action and keep its page ID. The date format in every name is the browser's en-G
     `Find replacement for Staff Duty, Sat 31 Oct` at 900x800 (the dialog flips left of the cell) and 390x844 (below the
     cell, at least 8 px inside each viewport edge); neither covers the cell.
 
+14. **Before the DA 6.** On a fresh `$V seed da6` (its people have attribute history from 30 days before d0, so past
+    days have a pool), as `calendarConfigure` open `Duty planner` on d0's month at 1440x900. On Staff Duty's `+ Assign`
+    two days before d0 the picker's description reads
+    `Counts. Saving moves this roster's DA 6 start from <d0> back to this day. Fill from roster counts it.` and lists
+    the eight seeded people at count 1 in DA 6 order, Grant first. In `Roster · count today` choose `SD`: Okafor through
+    Diaz read 1 with Grant `Today`. Search `diaz` and press Enter: `$V rows daily_assignments orgA date <d-2>` shows one
+    `manual` row for Diaz, the panel reads Okafor through Ortiz 2 and Diaz 1, and the Staff Duty DA 6 reads From d-2.
+    For a running roster, edit Charge of Quarters to `Separate count` in Settings → `Assignment Types` and confirm
+    `Start a new DA 6?` (its new form opens d1 after a closed one). Its picker two days before d0 reads
+    `Not counted, before this roster's DA 6 (starts <d1>). The DA 6 and Fill from roster leave it out.` and lists
+    everyone not excused in name order without counts. Save Kim there: an authenticated `GET /day` for d1 returns the
+    same standing before and after clearing that entry through its picker, and its open form still starts d1. On
+    Calendar, Verification Staff Duty's form starts at the fixture's 15 September assignment, and the fixture people
+    have no history before d0: its picker for 14 September reads
+    `Not counted, as no one on this roster is detailed this day. Saving still moves its DA 6 start from Tue 15 Sept back to this day.`
+    and lists everyone. Switch on `Show Staff Duty on the calendar` and open Staff Duty's lane picker before its start:
+    it reads `Counts.` like the planner's. Capture both surfaces at 900x800 and 390x844 dark: the picker keeps at least
+    8px inside each viewport edge, and one opening above a mid-screen cell shrinks its list rather than clipping its
+    title. While `$V network arm-hold $PAGE duty-rosters/day` holds the read, the picker shows `Loading roster counts…`
+    and no description; release.
+
 The Dashboard's Unfilled `Fill N days` action saves its days through the same `/batch` request; the saved names must
 appear in this Calendar lane and the planner after reload ([Dashboard actions](dashboard.md#actions)).
 
@@ -330,7 +360,8 @@ The assignment write endpoints are `/org/<orgA>/api/daily-assignments` with `POS
 `DELETE {date,assignmentTypeId}`, and `/batch` with `POST {records:[{date,assignmentTypeId,assigneeId}]}`. The roster
 endpoints are `GET /org/<orgA>/api/duty-rosters?today=YYYY-MM-DD&month=YYYY-MM` (counts today, the month's detail days
 and conflicts), `GET /day?typeId=…&date=YYYY-MM-DD&today=YYYY-MM-DD` (the standing going into a detail day,
-`{track:null,pool}` on any other day, `null` for a type with no open form), and
+`{track:null,pool}` on any other day, `null` for a type with no open form; before the open form, `formStartsOn` with the
+standing as if the form began that day when saving would count, else `{track:null,formStartsOn,movesStart}`), and
 `POST /fill/preview {typeId,today,from,through}` and `POST /fill` with the same fields plus `picks:[{date,personId}]`,
 which returns `409` when the roster changed. `POST /replacement/preview {typeId,today,date,assigneeId?}` previews a
 replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `assigneeId`, `replacing`

@@ -14,7 +14,7 @@
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
 	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
-	import { dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
+	import { beforeRosterForm, dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
 	import { indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
 	import { PlannerRosterRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
@@ -176,7 +176,8 @@
 				? {
 						status: read?.status ?? 'loading',
 						stale: read?.status === 'ready' && read.stale === true,
-						onRetry: () => rosterRead.retryDay(dayRequest(type.id, dateKey))
+						onRetry: () => rosterRead.retryDay(dayRequest(type.id, dateKey)),
+						before: beforeRosterForm(read?.status === 'ready' ? read.day : undefined)
 					}
 				: undefined,
 			options: dutyPickerOptions({

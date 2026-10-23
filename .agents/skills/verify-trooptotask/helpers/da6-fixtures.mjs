@@ -13,6 +13,7 @@ const people = [
 ];
 const RANKS = ['SGT', 'SPC', 'PFC', 'PV2'];
 const DAYS = 21;
+const HISTORY_DAYS = 30;
 const CQ_DAYS = [1, 5, 9, 14];
 // Okafor holds the lead through day 9, so Nguyen pulls it and Okafor goes first after returning.
 const LEAVE = { person: 1, from: 8, through: 9 };
@@ -146,6 +147,21 @@ export async function seedDa6({ client, fixture, tag, ownedState, save, month, s
 		const result = await client.from(table).insert(rows);
 		if (result.error) throw new Error('Owned da6 setup failed: ' + result.error.message);
 	}
+	// The insert trigger starts each person's history today; an earlier row puts them in the pool on past days too.
+	// Removing the people cascades it.
+	const history = await client.from('personnel_attribute_history').insert(
+		personnel.map((person) => ({
+			organization_id: ids.orgA,
+			personnel_id: person.id,
+			effective_on: addDays(today, -HISTORY_DAYS),
+			rank: person.rank,
+			mos: person.mos,
+			clinic_role: person.clinic_role,
+			group_id: null,
+			archived: false
+		}))
+	);
+	if (history.error) throw new Error('Owned da6 setup failed: ' + history.error.message);
 	return {
 		tag,
 		today,

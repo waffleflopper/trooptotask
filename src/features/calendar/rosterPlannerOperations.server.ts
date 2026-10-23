@@ -31,8 +31,11 @@ import {
 	withAssignment,
 	type CurrentCount,
 	type Effect,
+	type RosterFacts,
+	type RosterDay as SimulatedDay,
 	type RosterRun
 } from './roster/rosterEngine';
+import { formStartFollowsDuty } from './roster/rosterFormStart';
 
 export interface RosterPlannerPorts extends RosterSettingsPorts {
 	calendarAssignmentReplacement: Pick<CalendarAssignmentReplacementPort, 'writeRoster' | 'setRosterStartingNumbers'>;
@@ -128,7 +131,8 @@ function plannerRoster(monthRun: RosterRun, todayRun: RosterRun): PlannerRoster 
 }
 
 /**
- * One roster on `date`, for the duty picker: the standing going into a detail day, or else who is in the pool.
+ * One roster on `date`, for the duty picker: the standing going into a detail day, or else who is in the pool, and
+ * before the open form whether duty there would count.
  * Null for a type with no open roster form, which keeps the plain picker.
  */
 export async function loadRosterDay(
@@ -145,17 +149,9 @@ export async function loadRosterDay(
 
 	const [facts] = await loadRosters(ctx, { today, window: { from: date, through: date }, typeIds: [typeId] });
 	if (!facts) return null;
+	if (date < facts.form.startsOn) return beforeForm(ctx, facts, date);
 	const day = simulateRoster(facts).byDate.get(date);
-	if (day) {
-		return {
-			track: day.track,
-			standing: day.standing.map(({ personId, count, effect }) => ({
-				personId,
-				count,
-				effect: effect.code === 'available' ? null : { code: effect.code, reason: effect.reason }
-			}))
-		};
-	}
+	if (day) return { track: day.track, standing: standingOf(day) };
 	const { members } = poolOn({
 		rules: facts.form.rules.pool,
 		people: facts.people,
@@ -164,6 +160,30 @@ export async function loadRosterDay(
 		on: date
 	});
 	return { track: null, pool: members.map((person) => person.id) };
+}
+
+/**
+ * A day before the open form. Duty saved there moves the start of a form that can still move back to that day, and it
+ * counts only where the roster would detail that day and someone was in the pool to count it.
+ */
+async function beforeForm(ctx: RosterSettingsPorts, facts: RosterFacts, date: string): Promise<RosterDay> {
+	const formStartsOn = facts.form.startsOn;
+	const movable = formStartFollowsDuty({
+		hasCarriedNumbers: facts.form.startingNumbers.some(({ origin }) => origin === 'carried'),
+		hasClosedPredecessor: await ctx.calendarCatalogs.hasClosedRosterForm(facts.type.id)
+	});
+	const day = movable && simulateRoster({ ...facts, form: { ...facts.form, startsOn: date } }).byDate.get(date);
+	return day && day.standing.length
+		? { track: day.track, standing: standingOf(day), formStartsOn }
+		: { track: null, formStartsOn, movesStart: movable };
+}
+
+function standingOf(day: SimulatedDay) {
+	return day.standing.map(({ personId, count, effect }) => ({
+		personId,
+		count,
+		effect: effect.code === 'available' ? null : { code: effect.code, reason: effect.reason }
+	}));
 }
 
 function endOfMonth(month: string): string {

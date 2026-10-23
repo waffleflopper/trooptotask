@@ -25,7 +25,7 @@
 	} from '$features/calendar/utils/assignmentPlanner';
 	import { assignmentSlotKey, indexAssignmentsBySlot } from '$features/calendar/utils/calendarIndexes';
 	import { plannerColumns } from '$features/calendar/utils/calendarLanes';
-	import { dutyPickerOptions, eligibleAssignees } from '$features/calendar/utils/dutyPickerOptions';
+	import { beforeRosterForm, dutyPickerOptions, eligibleAssignees } from '$features/calendar/utils/dutyPickerOptions';
 	import { findDutyConflicts, indexDutyAvailability } from '$features/calendar/utils/dutyReadModel';
 	import { endOfMonth, formatDate, getMonthName, parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
@@ -252,7 +252,8 @@
 				? {
 						status: read?.status ?? 'loading',
 						stale: read?.status === 'ready' && read.stale === true,
-						onRetry: () => counted.retryDay(type.id, dateKey)
+						onRetry: () => counted.retryDay(type.id, dateKey),
+						before: beforeRosterForm(read?.status === 'ready' ? read.day : undefined)
 					}
 				: undefined,
 			// The person being replaced is not a replacement.

@@ -125,8 +125,8 @@ action and keep its page ID. The date format in every name is the browser's en-G
    Repeat Alpha to Bravo to Alpha for the Group slot. Empty-slot creation emits only `daily_assignment.created`. Confirm
    the unrelated four September 15 rows stayed intact. Clear each slot with `Clear assignment` in its picker, then read
    back absence of just those two slots and retention of the seeded IDs. Reload to confirm the clear persisted. Also
-   open an empty Calendar date header, inspect the
-   `Daily Assignments` modal, set and clear one Person slot there, and check the same persisted row through the helper.
+   open an empty Calendar date header, inspect the `Daily Assignments` modal, set and clear one Person slot there, and
+   check the same persisted row through the helper.
 3. Use `Next month`, `Previous month` and `Today` in the planner header and confirm the title and the selected month's
    rows follow navigation. On an empty month such as November 2026, assign one Person to a weekday through its picker,
    then open `Verification Staff Duty column actions`, which opens `Quick fill`, choose another Person in `Assignee`,

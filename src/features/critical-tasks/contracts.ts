@@ -105,6 +105,7 @@ export type IctImportRowResult<T> =
 	| { kind: 'added'; record: T }
 	| { kind: 'updated'; record: T }
 	| { kind: 'unchanged' }
+	| { kind: 'unconfirmed'; message: string }
 	| { kind: 'failed'; message: string };
 
 export interface IctImportReply<T> {
@@ -165,6 +166,7 @@ function importReplySchema<T>(record: z.ZodType<T>): z.ZodType<IctImportReply<T>
 				z.object({ kind: z.literal('added'), record }),
 				z.object({ kind: z.literal('updated'), record }),
 				z.object({ kind: z.literal('unchanged') }),
+				z.object({ kind: z.literal('unconfirmed'), message: z.string() }),
 				z.object({ kind: z.literal('failed'), message: z.string() })
 			])
 		)

@@ -1,4 +1,5 @@
 import {
+	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
 	ICT_IMPORT_MAX_RECORDS,
 	type IctCompletionImportRecord,
 	type IctImportReply,
@@ -12,10 +13,13 @@ import { policyResourceForGroup, requirePolicyDecision } from '$lib/access/index
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail, RequestFailure } from '$lib/errors';
 
-function errorMessage(error: unknown): string {
-	if (isUnconfirmedWrite(error)) throw error;
-	if (error instanceof RequestFailure && error.status < 500) return error.message;
-	return 'This completion could not be saved.';
+function rowFailure(error: unknown): Extract<IctImportRowResult<never>, { message: string }> {
+	if (isUnconfirmedWrite(error)) return { kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE };
+	return {
+		kind: 'failed',
+		message:
+			error instanceof RequestFailure && error.status < 500 ? error.message : 'This completion could not be saved.'
+	};
 }
 
 function rejection(
@@ -106,16 +110,19 @@ export async function importIctCompletionsBatch(
 				creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
 				added += saved.length;
 			} catch (bulkError) {
-				if (isUnconfirmedWrite(bulkError)) throw bulkError;
-				for (const item of creates) {
-					try {
-						results[item.index] = {
-							kind: 'added',
-							record: await ctx.criticalTaskCompletions.create(item.completion)
-						};
-						added++;
-					} catch (error) {
-						results[item.index] = { kind: 'failed', message: errorMessage(error) };
+				if (isUnconfirmedWrite(bulkError)) {
+					for (const item of creates) results[item.index] = rowFailure(bulkError);
+				} else {
+					for (const item of creates) {
+						try {
+							results[item.index] = {
+								kind: 'added',
+								record: await ctx.criticalTaskCompletions.create(item.completion)
+							};
+							added++;
+						} catch (error) {
+							results[item.index] = rowFailure(error);
+						}
 					}
 				}
 			}
@@ -138,7 +145,7 @@ export async function importIctCompletionsBatch(
 				};
 				updated++;
 			} catch (error) {
-				results[item.index] = { kind: 'failed', message: errorMessage(error) };
+				results[item.index] = rowFailure(error);
 			}
 		}
 	} finally {

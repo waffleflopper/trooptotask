@@ -1,6 +1,7 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
+	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
 	ICT_IMPORT_MAX_RECORDS,
 	ICT_TASK_UNAVAILABLE_MESSAGE,
 	type CriticalTaskLibraryPersistence,
@@ -26,10 +27,12 @@ interface IctTaskBatchContext {
 	>;
 }
 
-function errorMessage(error: unknown): string {
-	if (isUnconfirmedWrite(error)) throw error;
-	if (error instanceof RequestFailure && error.status < 500) return error.message;
-	return 'This task could not be saved.';
+function rowFailure(error: unknown): Extract<IctImportRowResult<never>, { message: string }> {
+	if (isUnconfirmedWrite(error)) return { kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE };
+	return {
+		kind: 'failed',
+		message: error instanceof RequestFailure && error.status < 500 ? error.message : 'This task could not be saved.'
+	};
 }
 
 export async function importIctTasksBatch(
@@ -90,13 +93,16 @@ export async function importIctTasksBatch(
 				creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
 				added += saved.length;
 			} catch (bulkError) {
-				if (isUnconfirmedWrite(bulkError)) throw bulkError;
-				for (const item of creates) {
-					try {
-						results[item.index] = { kind: 'added', record: await ctx.criticalTaskLibrary.create(item.task) };
-						added++;
-					} catch (error) {
-						results[item.index] = { kind: 'failed', message: errorMessage(error) };
+				if (isUnconfirmedWrite(bulkError)) {
+					for (const item of creates) results[item.index] = rowFailure(bulkError);
+				} else {
+					for (const item of creates) {
+						try {
+							results[item.index] = { kind: 'added', record: await ctx.criticalTaskLibrary.create(item.task) };
+							added++;
+						} catch (error) {
+							results[item.index] = rowFailure(error);
+						}
 					}
 				}
 			}
@@ -108,7 +114,7 @@ export async function importIctTasksBatch(
 				results[item.index] = { kind: 'updated', record: task };
 				updated++;
 			} catch (error) {
-				results[item.index] = { kind: 'failed', message: errorMessage(error) };
+				results[item.index] = rowFailure(error);
 			}
 		}
 	} finally {

@@ -171,11 +171,15 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
 
    For the adjacent update, record one imported code's ID, import it again with a changed title and arm
    `$V fault arm ict-tasks-update-lost-ack` on Review. This loses one successful exact `PATCH /rest/v1/ict_tasks` reply,
-   and the server answers the whole batch as unconfirmed. Done reads `0 changes saved.` with `Not confirmed 1`,
+   and the server returns an unconfirmed result for that row. Done reads `0 changes saved.` with `Not confirmed 1`,
    `Check the task library before importing these again.` and `The last batch was not confirmed`; the row is listed as
-   `Not confirmed, check before re-importing.` The provider row has the new title on the same ID. Restore the fault
+   the server's check-before-retrying reason. The provider row has the new title on the same ID. Restore the fault
    before other work. These controls match this worker's table and method, not a particular row or Organization; drive
    one mutation at a time.
+
+   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed.
+   Only confirmed records merge into the task library. Done counts the unconfirmed rows separately, leaves confirmed
+   rows out of the not-imported workbook, and marks later chunks Not attempted without sending them.
 
    **Lost browser batch reply.** Use `$V network arm-drop PAGE ict-tasks/batch [ORDINAL]` before Import. This dispatches
    the real exact same-origin A POST, records its status, then rejects the browser reply once. Done counts the affected

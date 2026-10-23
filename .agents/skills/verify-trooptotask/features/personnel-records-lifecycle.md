@@ -251,6 +251,11 @@ proof, separately from UI interaction.
    first chunk, require Not confirmed 500, Not attempted 1 and no second request. The pre-dispatch network control above
    does not establish provider-response loss.
 
+   A mixed first chunk keeps each confirmed save and known failure. With one confirmed update, one unconfirmed create,
+   one known failure and 497 confirmed creates, require Updated 1, Added 497, Failed 1, Not confirmed 1 and Not attempted 1.
+   No second request runs. The not-imported workbook contains only the unconfirmed, failed and unsent rows, with each
+   row's reason. The confirmed update stays out of that workbook.
+
    Repeat as `personnelOperate`: Import is reachable without Add Person or Manage Groups, and an unknown Group offers
    the existing Groups and `No group` with no Create. `personnelScopedOperate` sees only Alpha and no `No group`, so a
    new Person needs Alpha.

@@ -53,13 +53,12 @@ async function commitChunk(orgId: string, records: readonly PersonnelImportRecor
 		{ fallbackMessage: 'These people could not be imported.', schema: replySchema }
 	);
 	if (reply.kind !== 'saved') return reply;
-	if (reply.data.errors.some((error) => error.kind === 'unconfirmed')) return { kind: 'unconfirmed' };
-	const failures = new Map(reply.data.errors.map((error) => [error.index, error.message]));
+	const failures = new Map(reply.data.errors.map((error) => [error.index, error]));
 	return {
 		kind: 'saved',
 		results: records.map((record, index): RowCommitResult => {
-			const reason = failures.get(index);
-			if (reason !== undefined) return { kind: 'failed', reason };
+			const failure = failures.get(index);
+			if (failure) return { kind: failure.kind, reason: failure.message };
 			return { kind: record.op === 'create' ? 'added' : 'updated' };
 		})
 	};

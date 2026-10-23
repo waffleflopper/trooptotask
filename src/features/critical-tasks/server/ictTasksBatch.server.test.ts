@@ -119,9 +119,9 @@ describe('importIctTasksBatch', () => {
 		expect(ictTaskImportReplySchema.parse(reply).results).toEqual([
 			{ kind: 'unconfirmed', message: expect.any(String) }
 		]);
-		expect(await storedTasks(ctx)).toEqual({
-			'ICT-1': { title: 'First', description: null, mos: [], sortOrder: 0, archived: false }
-		});
+		expect(await ctx.store.findMany('ict_tasks', 'test-org')).toEqual([
+			expect.objectContaining({ task_code: 'ICT-1', title: 'First', sort_order: 0, archived_at: null })
+		]);
 		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 0, updated: 0, failed: 0 } })]);
 	});
 

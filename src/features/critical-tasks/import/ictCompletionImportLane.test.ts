@@ -98,6 +98,37 @@ afterEach(() => {
 });
 
 describe('critical task completions import lane', () => {
+	it('keeps confirmed completion updates when another row is unconfirmed', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () =>
+				Response.json({
+					results: [
+						{ kind: 'updated', record: { ...saved, notes: 'Confirmed note' } },
+						{ kind: 'unconfirmed', message: 'Check the new completion before retrying.' },
+						{ kind: 'failed', message: 'This person is archived.' }
+					]
+				})
+			)
+		);
+
+		const reply = await createIctCompletionImportLane(source()).commitChunk([
+			{ personnelId: 'p1', ictTaskId: 't1', completedAt: '2026-03-11', notes: 'Confirmed note' },
+			{ personnelId: 'p1', ictTaskId: 't2', completedAt: '2026-04-02' },
+			{ personnelId: 'p4', ictTaskId: 't2', completedAt: '2026-04-02' }
+		]);
+
+		expect(reply).toEqual({
+			kind: 'saved',
+			results: [
+				{ kind: 'updated' },
+				{ kind: 'unconfirmed', reason: 'Check the new completion before retrying.' },
+				{ kind: 'failed', reason: 'This person is archived.' }
+			]
+		});
+		expect(personnelIctCompletionsStore.items).toEqual([{ ...saved, notes: 'Confirmed note' }]);
+	});
+
 	it('adds a completion for a matched person, task and date and leaves blank cells out of the record', () => {
 		expect(review({ ...abernathy, taskCode: '081-833-0020', completedAt: '2026-04-02' })).toEqual({
 			outcome: 'new',

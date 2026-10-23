@@ -58,6 +58,37 @@ afterEach(() => {
 });
 
 describe('critical task library import lane', () => {
+	it('keeps confirmed task updates when another row is unconfirmed', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () =>
+				Response.json({
+					results: [
+						{ kind: 'updated', record: { ...tasks[0], title: 'Confirmed title' } },
+						{ kind: 'unconfirmed', message: 'Check the new task before retrying.' },
+						{ kind: 'failed', message: 'A new task needs a title.' }
+					]
+				})
+			)
+		);
+
+		const reply = await createIctTaskImportLane({ orgUrlSegment: 'unit', tasks }).commitChunk([
+			{ taskCode: 'ICT-1', title: 'Confirmed title' },
+			{ taskCode: 'ICT-3', title: 'New task' },
+			{ taskCode: 'ICT-4' }
+		]);
+
+		expect(reply).toEqual({
+			kind: 'saved',
+			results: [
+				{ kind: 'updated' },
+				{ kind: 'unconfirmed', reason: 'Check the new task before retrying.' },
+				{ kind: 'failed', reason: 'A new task needs a title.' }
+			]
+		});
+		expect(ictTasksStore.items.find((saved) => saved.id === 'task-active')?.title).toBe('Confirmed title');
+	});
+
 	it('adds a new code under its normalized form and leaves blank cells out of the record', () => {
 		expect(review({ taskCode: ' ict-9 ', title: 'Open an airway', mos: '68w, 18D' })).toEqual({
 			outcome: 'new',

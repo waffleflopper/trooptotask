@@ -114,7 +114,7 @@ describe('policy evaluator', () => {
 			id: 'personnel.createRecords',
 			accessMode: 'write',
 			owner: { kind: 'feature-lane', lane: 'personnel' },
-			requiredCapability: 'configure'
+			requiredCapability: 'operate'
 		});
 		expect(POLICY_ACTION_CATALOG.personnel.manageGroups).toMatchObject({
 			id: 'personnel.manageGroups',

@@ -1,5 +1,5 @@
 import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext as basecreateWritePortsContext } from '$lib/server/adapters/inMemory';
 
 import { createPersonnelRecord, updatePersonnelRecord } from './personnelRecordOperations.server';
@@ -448,7 +448,7 @@ describe('Personnel — create', () => {
 		expect(result).toMatchObject({ firstName: 'John' });
 	});
 
-	it('denies operators from creating personnel records', async () => {
+	it('allows a Group operator to create an active Person only in their allowed Group', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -461,13 +461,22 @@ describe('Personnel — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
 			}
 		});
 
-		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_B })).rejects.toMatchObject({
-			status: 403
+		const created = await createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A });
+		expect(created).toMatchObject({ firstName: 'John', rank: 'SGT', groupId: GROUP_A, archivedAt: null });
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: created.id })).toMatchObject({
+			first_name: 'John',
+			group_id: GROUP_A
 		});
+
+		const create = vi.spyOn(ctx.personnel, 'create');
+		for (const groupId of [GROUP_B, null]) {
+			await expect(createPersonnelRecord(ctx, { ...validInput, groupId })).rejects.toMatchObject({ status: 403 });
+		}
+		expect(create).not.toHaveBeenCalled();
 	});
 
 	it('allows configure-capable multi-Group scoped users to create in any assigned group', async () => {

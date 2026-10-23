@@ -206,6 +206,13 @@ export async function seed(session) {
 			scope: 'groups',
 			groups: [ids.groupA]
 		},
+		onboardingPersonnelScopedOperate: {
+			organization: 'orgA',
+			onboarding: 'operate',
+			personnel: 'operate',
+			scope: 'groups',
+			groups: [ids.groupA]
+		},
 		onboardingForeign: { organization: 'orgB', onboarding: 'configure', scope: 'organization' },
 		onboardingSwitch: { organization: 'orgA', onboarding: 'configure', scope: 'organization' }
 	};

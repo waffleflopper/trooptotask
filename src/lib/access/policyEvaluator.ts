@@ -197,7 +197,7 @@ export const POLICY_ACTION_CATALOG = {
 			label: 'Create personnel records',
 			lane: 'personnel',
 			accessMode: 'write',
-			requiredCapability: 'configure'
+			requiredCapability: 'operate'
 		}),
 		manageGroups: featureAction({
 			id: 'personnel.manageGroups',

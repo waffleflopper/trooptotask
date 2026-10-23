@@ -98,9 +98,9 @@ Person, template and step IDs and local date. A contains Able/Alpha, Baker/Bravo
 packet with retained progress/note. B has Foreign and its private template/Training definition. No active packet is
 seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, then inspect actual loaded data.
 
-1. **Existing Person start and retry:** As Operate, open `Start onboarding`. Inspect A's template and eligible Able,
-   Baker and Unassigned choices; Add Person must be absent. Select Able, confirm a visible valid date, submit and
-   capture the saved packet and its row. Reload/reopen and compare
+1. **Existing Person start and retry:** As `onboardingOperate` (Personnel none), open `Start onboarding`. Inspect A's
+   template and eligible Able, Baker and Unassigned choices; Add Person must be absent. Select Able, confirm a visible
+   valid date, submit and capture the saved packet and its row. Reload/reopen and compare
    `$V rows personnel_onboardings orgA personnel_id PERSON` and
    `$V rows onboarding_step_progress orgA onboarding_id PACKET`. Require one new in-progress packet, exact
    Person/template/date, fresh step IDs and the three snapshots, checkbox false, paperwork Submitted/incomplete, and
@@ -178,10 +178,11 @@ seeded. Use `$V actor ROLE onboarding` or `$V actor ROLE onboarding/history`, th
    close a new form. Restore controls before cleanup. Group catalog: the scoped member's Onboarding page data, and the
    Add Person Group list where Personnel access offers it, name only Alpha; the empty-scope member receives no Group IDs
    or names; an Organization-wide member keeps every Group.
-6. **New Person and reverse effects:** As `onboardingPersonnelScoped`, use `Start onboarding` → Add Person and the
-   [Personnel lifecycle recipe](personnel-records-lifecycle.md) to create one uniquely named Alpha Person. Verify the
-   saved ID is selected, start its packet and reload/read back both IDs. Onboarding-only actors retain lookup labels
-   without Personnel creation authority. Independently inspect the owned Calendar active-Onboarding marker before/after
+6. **New Person and reverse effects:** As `onboardingPersonnelScopedOperate` (Operate in both lanes, Alpha only), use
+   `Start onboarding` → Add Person and the [Personnel lifecycle recipe](personnel-records-lifecycle.md) to create one
+   uniquely named active Alpha Person. The Group list offers only Alpha, with no Bravo or `No group`. Verify the saved
+   ID is selected, start its packet and reload/read back both IDs. Onboarding-only actors retain lookup labels without
+   Personnel creation authority. Independently inspect the owned Calendar active-Onboarding marker before/after
    start/cancel/completion and Dashboard's scoped active count; those are reverse-consumer observations, not inference
    from the Onboarding list. Personnel creation failure cannot silently select an unsaved Person. Visibly cancel
    UI-created active packets and keep their retained history until owned-worker disposal; no visible packet hard-delete

@@ -96,6 +96,7 @@ An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/feat
 ## Database enforcement
 
 - Direct table writes need the same authority as the app operation ([`20261012000600_feature_direct_write_authority.sql`](../../supabase/migrations/20261012000600_feature_direct_write_authority.sql)). Archive, restore and permanent delete of a Person need Personnel `configure`. People and Personnel artifacts must be archived before deletion.
+- Creating active People through Personnel Add Person, Onboarding Add Person and Import needs Personnel `operate` within the member's allowed Groups. Creating an already archived Person still needs `configure`; Group-scoped members cannot create unassigned People.
 - Onboarding packets and steps are created only by `start_onboarding_packet` and `reconcile_onboarding_packet`. Clients update only the columns the app's Onboarding operations write. The Onboarding scope helpers live in the unexposed `onboarding_private` schema.
 - Clients cannot insert or delete deletion requests directly. The submission route loads the target with the requester's scope and policy and takes Organization and requester from the admitted actor.
 - Authenticated invitation updates touch only lifecycle columns.

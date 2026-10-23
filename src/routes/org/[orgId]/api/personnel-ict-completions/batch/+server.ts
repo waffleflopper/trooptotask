@@ -2,25 +2,16 @@ import { createRequestIctCompletionContext } from '$lib/server/adapters/featureR
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { importIctCompletionsBatch } from '$features/critical-tasks/index.server';
-import type { IctCompletionBatchImportInput, IctCompletionBatchImportResult } from '$features/critical-tasks/contracts';
+import {
+	ICT_IMPORT_MAX_RECORDS,
+	ictCompletionImportRecordSchema,
+	type IctImportReply,
+	type PersonnelIctCompletion
+} from '$features/critical-tasks/contracts';
 import { z } from 'zod';
 
-const importCell = z
-	.string({ error: 'Import cells must be text' })
-	.nullable()
-	.transform((value) => value ?? '');
-
 const batchInput = z.object({
-	records: z.array(
-		z.object(
-			{
-				rowNumber: z.number({ error: 'Row number must be a whole number' }).int('Row number must be a whole number'),
-				values: z.record(z.string(), importCell, { error: 'Each import row needs its cell values' })
-			},
-			{ error: 'Each import row needs a row number and cell values' }
-		),
-		{ error: 'records array is required' }
-	)
+	records: z.array(ictCompletionImportRecordSchema).min(1, 'records array is required').max(ICT_IMPORT_MAX_RECORDS)
 });
 
 export const _postConfig = {
@@ -31,8 +22,8 @@ export const _postConfig = {
 	input: batchInput,
 	fn: (ctx, input) => importIctCompletionsBatch(ctx, input)
 } satisfies RouteConfig<
-	IctCompletionBatchImportInput,
-	IctCompletionBatchImportResult,
+	z.infer<typeof batchInput>,
+	IctImportReply<PersonnelIctCompletion>,
 	ReturnType<typeof createRequestIctCompletionContext>
 >;
 

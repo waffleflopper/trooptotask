@@ -1,20 +1,17 @@
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import {
-	CRITICAL_TASK_IMPORT_NOT_ATTEMPTED_MESSAGE,
-	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
-	ictCompletionBatchImportResultSchema,
+	ictCompletionImportReplySchema,
+	type IctCompletionImportRecord,
 	type PersonnelIctCompletion,
-	type PersonnelIctCompletionWrite,
-	type IctCompletionBatchImportInput,
-	type IctCompletionBatchImportResult,
-	type IctCompletionImportMappedRow,
-	type IctCompletionImportResult
+	type PersonnelIctCompletionWrite
 } from '../contracts';
-import { importRowPersonnelName } from '../utils/ictCompletionImport';
 import { postImportChunk } from '$lib/utils/importChunkRequest';
+import { adoptImportReply } from './importReplies';
+import type { ChunkReply } from '$lib/components/patterns/import-flow';
 
-const MAX_BATCH_SIZE = 500;
+const WORKSPACE_CHANGED_MESSAGE =
+	'Critical Tasks workspace changed during import. Reload it to check saved rows before retrying.';
 
 interface PersonnelIctCompletionsExtensions extends Record<string, unknown> {
 	load: (items: PersonnelIctCompletion[], orgId: string) => void;
@@ -26,7 +23,7 @@ interface PersonnelIctCompletionsExtensions extends Record<string, unknown> {
 	getByPersonnelAndTask: (personnelId: string, ictTaskId: string) => PersonnelIctCompletion[];
 	removeByPersonnelLocal: (personnelId: string) => void;
 	removeByIctTaskLocal: (ictTaskId: string) => void;
-	importBatch: (input: IctCompletionBatchImportInput) => Promise<IctCompletionImportResult>;
+	importChunk: (records: IctCompletionImportRecord[]) => Promise<ChunkReply>;
 }
 
 function enhance(
@@ -73,64 +70,16 @@ function enhance(
 			base.removeLocalWhere((item) => item.ictTaskId === ictTaskId);
 		},
 
-		async importBatch(input) {
+		async importChunk(records) {
 			const importVersion = workspaceVersion;
 			const orgId = internals.orgId();
-			function requireCurrentWorkspace() {
-				if (importVersion !== workspaceVersion) {
-					throw new Error(
-						'Critical Tasks workspace changed during import. Reload it to check saved rows before retrying.'
-					);
-				}
-			}
-			const result: IctCompletionImportResult = {
-				inserted: [],
-				updated: [],
-				errors: [],
-				unconfirmed: [],
-				notAttempted: []
-			};
-			const rowIssue = (record: IctCompletionImportMappedRow, message: string) => ({
-				rowNumber: record.rowNumber,
-				personnelName: importRowPersonnelName(record.values),
-				taskCode: (record.values.taskCode ?? '').trim().toUpperCase(),
-				message
-			});
-
-			for (let index = 0; index < input.records.length; index += MAX_BATCH_SIZE) {
-				requireCurrentWorkspace();
-				const chunk = input.records.slice(index, index + MAX_BATCH_SIZE);
-				const reply = await postImportChunk<IctCompletionBatchImportResult>(
-					`/org/${orgId}/api/personnel-ict-completions/batch`,
-					{ records: chunk },
-					{
-						fallbackMessage: 'Failed to import critical task completions',
-						schema: ictCompletionBatchImportResultSchema
-					}
-				);
-				requireCurrentWorkspace();
-				if (reply.kind !== 'saved') {
-					if (reply.kind === 'refused') result.errors.push(...chunk.map((record) => rowIssue(record, reply.message)));
-					else
-						result.unconfirmed.push(
-							...chunk.map((record) => rowIssue(record, CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE))
-						);
-					result.notAttempted.push(
-						...input.records
-							.slice(index + MAX_BATCH_SIZE)
-							.map((record) => rowIssue(record, CRITICAL_TASK_IMPORT_NOT_ATTEMPTED_MESSAGE))
-					);
-					return result;
-				}
-				const { data } = reply;
-				base.mergeBatchResults(data.inserted, data.updated);
-				result.inserted.push(...data.inserted);
-				result.updated.push(...data.updated);
-				result.errors.push(...data.errors);
-				result.unconfirmed.push(...data.unconfirmed);
-			}
-
-			return result;
+			const reply = await postImportChunk(
+				`/org/${orgId}/api/personnel-ict-completions/batch`,
+				{ records },
+				{ fallbackMessage: 'These completions could not be imported.', schema: ictCompletionImportReplySchema }
+			);
+			if (importVersion !== workspaceVersion) throw new Error(WORKSPACE_CHANGED_MESSAGE);
+			return adoptImportReply(reply, (added, updated) => base.mergeBatchResults(added, updated));
 		}
 	};
 }

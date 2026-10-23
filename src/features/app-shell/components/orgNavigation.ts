@@ -43,6 +43,7 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 		types: 'Types'
 	},
 	'critical-tasks': {
+		import: 'Import',
 		library: 'Library',
 		reports: 'Reports'
 	},

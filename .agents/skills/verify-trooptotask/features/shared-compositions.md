@@ -1,20 +1,17 @@
 # Shared composition equivalence
 
-Members meet the shared type-management workspace, bulk-import workspace, import flow, readiness band, report chart,
-requirement status badge, route tabs and workspace toolbar through ordinary Training, Onboarding, Critical Tasks,
-Personnel, Calendar, settings and account screens. A styling or markup migration of one of these compositions leaves
-every consumer's computed appearance, structure and keyboard behavior unchanged unless the issue's acceptance changes
-it.
+Members meet the shared type-management workspace, import flow, readiness band, report chart, requirement status badge,
+route tabs and workspace toolbar through ordinary Training, Onboarding, Critical Tasks, Personnel, Calendar, settings
+and account screens. A styling or markup migration of one of these compositions leaves every consumer's computed
+appearance, structure and keyboard behavior unchanged unless the issue's acceptance changes it.
 
 ## Sub-features
 
 - `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard `grid` of `row` elements,
   a detail form with `Collapsible` disclosures (a trigger `button` with `aria-expanded`, not `details`/`summary`) and a
   color field, and per-row action toolbars.
-- `bulk-import`: Critical Tasks imports render the shared workspace, preview table and validation summary. Critical
-  Tasks completion import adds the header, input panel and file input.
-- `import-flow`: Personnel, Training and Calendar status import pages render the shared File, Columns, Review and Done
-  steps, fix rail, review list and receipt.
+- `import-flow`: Personnel, Training, Calendar status and the Critical Tasks task library and completion import pages
+  render the shared File, Columns, Review and Done steps, fix rail, review list and receipt.
 - `readiness-band`: Training Reports and Critical Tasks Reports render ramp and semantic tiles, drop markers and a
   legend.
 - `report-chart`: Critical Tasks Reports render Bar, Line and ChartTable charts, Training Reports renders the Forecast
@@ -32,9 +29,9 @@ it.
 ## How to get to it (user POV)
 
 Use Organization navigation to reach Training (Types, Views, Reports, the matrix and its import page), Onboarding
-(Templates), Critical Tasks (Library, Reports, Completions import), Personnel (import page, detail), Calendar (Bulk,
-Reports) and settings (General, Members, Ranks). Account Profile and Security and platform `admin` use the same shell.
-Switch the theme with `Toggle theme`, and the width with `resize_page`.
+(Templates), Critical Tasks (Library and its import page, Reports, Completions import page), Personnel (import page,
+detail), Calendar (Bulk, Reports) and settings (General, Members, Ranks). Account Profile and Security and platform
+`admin` use the same shell. Switch the theme with `Toggle theme`, and the width with `resize_page`.
 
 ## Helper controls
 
@@ -65,10 +62,10 @@ run holds a candidate: edit, commit and relaunch first.
    $V style-probe PAGE FILE.json 'EXTRA SELECTOR' ...      # extra selectors append to the defaults
    ```
 
-   The defaults cover the type-management, bulk-import, readiness-band, chart (and its SVG children), badge, route-tabs,
-   toolbar, empty-state, listbox, radio, details/summary, heading, dialog and alert selectors. Each element records tag,
-   role, text, attributes, size and 28 computed properties (colors, borders, radius, shadow, size, display, spacing,
-   type, outline, SVG paint). Pair it with `take_snapshot` and `take_screenshot` `filePath` captures.
+   The defaults cover the type-management, readiness-band, chart (and its SVG children), badge, route-tabs, toolbar,
+   empty-state, listbox, radio, details/summary, heading, dialog and alert selectors. Each element records tag, role,
+   text, attributes, size and 28 computed properties (colors, borders, radius, shadow, size, display, spacing, type,
+   outline, SVG paint). Pair it with `take_snapshot` and `take_screenshot` `filePath` captures.
 
 4. After the candidate runs the same pages, diff each pair. A `0` count is equivalence; every listed difference needs an
    expected-change reason from the issue:

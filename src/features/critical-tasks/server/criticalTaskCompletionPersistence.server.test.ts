@@ -1,7 +1,7 @@
 import { setImmediate } from 'node:timers/promises';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE, ICT_COMPLETION_EXISTS_MESSAGE } from '../contracts';
+import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE } from '../contracts';
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
@@ -517,71 +517,50 @@ describe('owned Critical Tasks completion provider', () => {
 		ctx.store.seed('ict_tasks', [
 			{ id: 'task-a', organization_id: 'org-a', task_code: 'RESP', title: 'Ventilator', mos: [], archived_at: null }
 		]);
-		const result = await importIctCompletionsBatch(
+		const record = (personnelId: string, completedAt: string, notes: string) => ({
+			personnelId,
+			ictTaskId: 'task-a',
+			completedAt,
+			validationMethod: 'Lecture' as const,
+			notes
+		});
+		const reply = await importIctCompletionsBatch(
 			{ ...ctx, criticalTaskCompletions: ledger },
 			{
 				records: [
-					{
-						rowNumber: 2,
-						values: {
-							firstName: 'Amy',
-							lastName: 'Able',
-							taskCode: 'RESP',
-							completedAt: '2026-04-02',
-							validationMethod: 'Lecture',
-							notes: 'Updated same date'
-						}
-					},
-					{
-						rowNumber: 3,
-						values: {
-							firstName: 'Ben',
-							lastName: 'Baker',
-							taskCode: 'RESP',
-							completedAt: '2026-04-03',
-							validationMethod: 'Lecture',
-							notes: 'Kept row'
-						}
-					},
-					{
-						rowNumber: 4,
-						values: {
-							firstName: 'Cal',
-							lastName: 'Charlie',
-							taskCode: 'RESP',
-							completedAt: '2026-04-03',
-							validationMethod: 'Lecture',
-							notes: 'Rejected row'
-						}
-					}
+					record('person-a', '2026-04-02', 'Updated same date'),
+					record('person-new', '2026-04-03', 'Kept row'),
+					record('person-rejected', '2026-04-03', 'Rejected row')
 				]
 			}
 		);
-		expect(result.updated).toEqual([
-			{ ...expected, validationMethod: 'Lecture', validatedBy: null, notes: 'Updated same date' }
-		]);
-		expect(result.inserted).toEqual([
+		expect(reply.results).toEqual([
 			{
-				id: rows[1].id,
-				personnelId: 'person-new',
-				ictTaskId: 'task-a',
-				completedAt: '2026-04-03',
-				validationMethod: 'Lecture',
-				validatedBy: null,
-				notes: 'Kept row',
-				loggedBy: 'ordinary-user',
-				createdAt: '2026-10-06T12:00:00.123456Z'
-			}
-		]);
-		expect(result.errors).toEqual([
-			{ rowNumber: 4, personnelName: 'SPC Cal Charlie', taskCode: 'RESP', message: 'Batch import failed' }
+				kind: 'updated',
+				record: { ...expected, validationMethod: 'Lecture', notes: 'Updated same date' }
+			},
+			{
+				kind: 'added',
+				record: {
+					id: rows[1].id,
+					personnelId: 'person-new',
+					ictTaskId: 'task-a',
+					completedAt: '2026-04-03',
+					validationMethod: 'Lecture',
+					validatedBy: null,
+					notes: 'Kept row',
+					loggedBy: 'ordinary-user',
+					createdAt: '2026-10-06T12:00:00.123456Z'
+				}
+			},
+			{ kind: 'failed', message: 'This completion could not be saved.' }
 		]);
 		expect(rows.map((row) => [row.id, row.personnel_id, row.completed_at, row.notes])).toEqual([
 			['capture-a', 'person-a', '2026-04-02', 'Updated same date'],
 			[expect.any(String), 'person-new', '2026-04-03', 'Kept row']
 		]);
 		expect(ctx.audit.events).toMatchObject([
-			{ action: 'personnel_ict_completion.bulk_imported', details: { inserted: 1, updated: 1, errors: 1 } }
+			{ action: 'personnel_ict_completion.bulk_imported', details: { inserted: 1, updated: 1, failed: 1 } }
 		]);
 	});
 	it.each([false, true])(
@@ -627,40 +606,23 @@ describe('owned Critical Tasks completion provider', () => {
 			ctx.store.seed('ict_tasks', [
 				{ id: 'task-a', organization_id: 'org-a', task_code: 'RESP', title: 'Ventilator', mos: [], archived_at: null }
 			]);
-			const result = await importIctCompletionsBatch(
+			const reply = await importIctCompletionsBatch(
 				{ ...ctx, criticalTaskCompletions: ledger },
 				{
-					records: [
-						{
-							rowNumber: 2,
-							values: {
-								firstName: 'Amy',
-								lastName: 'Able',
-								taskCode: 'RESP',
-								completedAt: '2026-04-03',
-								validationMethod: 'Lecture'
-							}
-						},
-						{
-							rowNumber: 3,
-							values: {
-								firstName: 'Ben',
-								lastName: 'Baker',
-								taskCode: 'RESP',
-								completedAt: '2026-04-03',
-								validationMethod: 'Lecture'
-							}
-						}
-					]
+					records: ['person-a', 'person-b'].map((personnelId) => ({
+						personnelId,
+						ictTaskId: 'task-a',
+						completedAt: '2026-04-03',
+						validationMethod: 'Lecture' as const
+					}))
 				}
 			);
-			expect(result.inserted.map((row) => [row.id, row.personnelId])).toEqual([
-				[rows[0].id, 'person-a'],
-				[rows[1].id, 'person-b']
+			expect(
+				reply.results.map((result) => (result.kind === 'failed' ? result : [result.kind, result.record.id]))
+			).toEqual([
+				['added', rows[0].id],
+				['added', rows[1].id]
 			]);
-			expect(result.updated).toEqual([]);
-			expect(result.errors).toEqual([]);
-			expect(result.unconfirmed).toEqual([]);
 			expect(rows.map((row) => [row.personnel_id, row.completed_at])).toEqual([
 				['person-a', '2026-04-03'],
 				['person-b', '2026-04-03']
@@ -671,7 +633,7 @@ describe('owned Critical Tasks completion provider', () => {
 			expect(ctx.audit.events).toMatchObject([
 				{
 					action: 'personnel_ict_completion.bulk_imported',
-					details: { inserted: 2, updated: 0, errors: 0, unconfirmed: 0 }
+					details: { inserted: 2, updated: 0, failed: 0 }
 				}
 			]);
 		}
@@ -706,9 +668,12 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 		]);
 		return ctx;
 	}
-	const row = (rowNumber: number, firstName: string, lastName: string, notes: string) => ({
-		rowNumber,
-		values: { firstName, lastName, taskCode: 'RESP', completedAt: '2026-04-02', validationMethod: 'Lecture', notes }
+	const row = (personnelId: string, notes: string) => ({
+		personnelId,
+		ictTaskId: 'task-a',
+		completedAt: '2026-04-02',
+		validationMethod: 'Lecture' as const,
+		notes
 	});
 
 	it.each(['transport', 'unavailable'] as const)(
@@ -717,36 +682,33 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 			const { ledger, rows, state } = provider();
 			state.loseReply = { write: 1, as: lost };
 			const ctx = importContext();
-			const result = await importIctCompletionsBatch(
+			const reply = await importIctCompletionsBatch(
 				{ ...ctx, criticalTaskCompletions: ledger },
-				{ records: [row(2, 'Amy', 'Able', 'First'), row(3, 'Ben', 'Baker', 'Second')] }
+				{ records: [row('person-a', 'First'), row('person-b', 'Second')] }
 			);
 			expect(rows.map((saved) => [saved.personnel_id, saved.completed_at])).toEqual([
 				['person-a', '2026-04-02'],
 				['person-b', '2026-04-02']
 			]);
-			expect({ inserted: result.inserted.map((saved) => saved.personnelId), errors: result.errors }).toEqual({
-				inserted: ['person-a', 'person-b'],
-				errors: []
-			});
+			expect(
+				reply.results.map((result) => (result.kind === 'failed' ? result : [result.kind, result.record.personnelId]))
+			).toEqual([
+				['added', 'person-a'],
+				['added', 'person-b']
+			]);
 			expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 		}
 	);
 
-	it('reports a same-date update whose reply is lost as unconfirmed, not failed', async () => {
+	it('rejects an import whose same-date update reply is lost as unconfirmed, not failed', async () => {
 		const { ledger, rows, state } = provider([saved]);
 		state.loseReply = { write: 1, as: 'transport' };
 		const ctx = importContext();
-		const result = await importIctCompletionsBatch(
-			{ ...ctx, criticalTaskCompletions: ledger },
-			{ records: [row(2, 'Amy', 'Able', 'Changed')] }
-		);
+		await expect(
+			importIctCompletionsBatch({ ...ctx, criticalTaskCompletions: ledger }, { records: [row('person-a', 'Changed')] })
+		).rejects.toMatchObject({ status: 503, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
 		expect(rows.map((saved) => [saved.id, saved.notes])).toEqual([['capture-a', 'Changed']]);
-		expect({
-			updated: result.updated,
-			errors: result.errors,
-			unconfirmed: result.unconfirmed.map((entry) => entry.rowNumber)
-		}).toEqual({ updated: [], errors: [], unconfirmed: [2] });
+		expect(ctx.audit.events).toMatchObject([{ details: { inserted: 0, updated: 0, failed: 0 } }]);
 	});
 
 	it('returns a committed single completion whose reply is lost, and keeps a lost update unconfirmed', async () => {
@@ -809,19 +771,14 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 	it('reports a repeated person, task and date in one import as a duplicate in plain words', async () => {
 		const { ledger, rows } = provider();
 		const ctx = importContext();
-		const result = await importIctCompletionsBatch(
+		const reply = await importIctCompletionsBatch(
 			{ ...ctx, criticalTaskCompletions: ledger },
-			{ records: [row(2, 'Amy', 'Able', 'First'), row(3, 'Amy', 'Able', 'Again')] }
+			{ records: [row('person-a', 'First'), row('person-a', 'Again')] }
 		);
-		expect({
-			inserted: result.inserted.map((completion) => completion.notes),
-			errors: result.errors.map((error) => [error.rowNumber, error.message]),
-			unconfirmed: result.unconfirmed
-		}).toEqual({
-			inserted: ['First'],
-			errors: [[3, ICT_COMPLETION_EXISTS_MESSAGE]],
-			unconfirmed: []
-		});
+		expect(reply.results.map((result) => (result.kind === 'failed' ? result.message : result.record.notes))).toEqual([
+			'First',
+			'This completion appears more than once in this import.'
+		]);
 		expect(rows.map((saved) => saved.notes)).toEqual(['First']);
 	});
 });

@@ -4,62 +4,92 @@ import { createWritePortsContext } from './criticalTasksPersistence.test-support
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
 
-function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
-	return createWritePortsContext(overrides);
+type Context = ReturnType<typeof createWritePortsContext>;
+
+function person(id: string, overrides: Record<string, unknown> = {}) {
+	return {
+		id,
+		organization_id: 'test-org',
+		rank: 'SPC',
+		first_name: 'Synthetic',
+		last_name: id,
+		mos: '68W',
+		clinic_role: 'Medic',
+		group_id: 'group-alpha',
+		archived_at: null,
+		...overrides
+	};
+}
+
+function task(id: string, overrides: Record<string, unknown> = {}) {
+	return {
+		id,
+		organization_id: 'test-org',
+		task_code: id.toUpperCase(),
+		title: `Task ${id}`,
+		description: null,
+		mos: [],
+		expiration_months: 12,
+		sort_order: 1,
+		archived_at: null,
+		created_at: '2026-04-01T00:00:00Z',
+		...overrides
+	};
+}
+
+function completion(id: string, personnelId: string, ictTaskId: string, completedAt: string) {
+	return {
+		id,
+		organization_id: 'test-org',
+		personnel_id: personnelId,
+		ict_task_id: ictTaskId,
+		completed_at: completedAt,
+		validation_method: 'Lecture',
+		validated_by: 'MSG Example',
+		notes: 'Saved note',
+		logged_by: 'user-1',
+		created_at: `${completedAt}T12:00:00Z`
+	};
+}
+
+async function storedCompletions(ctx: Context) {
+	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_ict_completions', 'test-org');
+	return rows
+		.map((row) => ({
+			key: `${row.personnel_id}|${row.ict_task_id}|${row.completed_at}`,
+			method: row.validation_method,
+			validatedBy: row.validated_by,
+			notes: row.notes,
+			loggedBy: row.logged_by
+		}))
+		.sort((left, right) => left.key.localeCompare(right.key));
 }
 
 describe('importIctCompletionsBatch', () => {
 	it.each(['people', 'tasks'])(
 		'imports 500 distinct %s through a URL-limited provider without duplicating same-date history',
 		async (dimension) => {
-			const ctx = buildContext();
+			const ctx = createWritePortsContext();
 			const id = (kind: number, index: number) =>
 				`${String(kind).padStart(8, '0')}-0000-4000-8000-${String(index).padStart(12, '0')}`;
-			const people = Array.from({ length: dimension === 'people' ? 500 : 1 }, (_, index) => ({
-				id: id(1, index),
-				organization_id: 'test-org',
-				rank: 'SPC',
-				first_name: 'Synthetic',
-				last_name: `Person${index}`,
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-alpha',
-				archived_at: null
-			}));
-			const tasks = Array.from({ length: dimension === 'tasks' ? 500 : 1 }, (_, index) => ({
-				id: id(2, index),
-				organization_id: 'test-org',
-				task_code: `TASK${index}`,
-				title: `Task ${index}`,
-				description: null,
-				mos: [],
-				expiration_months: 12,
-				sort_order: index,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			}));
+			const people = Array.from({ length: dimension === 'people' ? 500 : 1 }, (_, index) => person(id(1, index)));
+			const tasks = Array.from({ length: dimension === 'tasks' ? 500 : 1 }, (_, index) =>
+				task(id(2, index), { task_code: `TASK${index}` })
+			);
 			const records = Array.from({ length: 500 }, (_, index) => ({
-				rowNumber: index + 2,
-				values: {
-					firstName: 'Synthetic',
-					lastName: people[dimension === 'people' ? index : 0].last_name,
-					taskCode: tasks[dimension === 'tasks' ? index : 0].task_code,
-					completedAt: '2026-04-02',
-					notes: `Checked row ${index}`
-				}
+				personnelId: people[dimension === 'people' ? index : 0].id,
+				ictTaskId: tasks[dimension === 'tasks' ? index : 0].id,
+				completedAt: '2026-04-02',
+				notes: `Checked row ${index}`
 			}));
-			const existing = Array.from({ length: 250 }, (_, index) => ({
-				id: id(3, index),
-				organization_id: 'test-org',
-				personnel_id: people[dimension === 'people' ? index * 2 : 0].id,
-				ict_task_id: tasks[dimension === 'tasks' ? index * 2 : 0].id,
-				completed_at: '2026-04-02',
-				validation_method: 'Lecture',
-				validated_by: null,
-				notes: 'Prior note',
-				logged_by: null,
-				created_at: '2026-04-02T00:00:00Z'
-			}));
+			const existing = Array.from({ length: 250 }, (_, index) =>
+				completion(
+					id(3, index),
+					people[dimension === 'people' ? index * 2 : 0].id,
+					tasks[dimension === 'tasks' ? index * 2 : 0].id,
+					'2026-04-02'
+				)
+			);
 			ctx.store.seed('personnel', people);
 			ctx.store.seed('ict_tasks', tasks);
 			ctx.store.seed('personnel_ict_completions', existing);
@@ -83,365 +113,99 @@ describe('importIctCompletionsBatch', () => {
 					}
 				}
 			});
-			const provider = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
-			const findMany = ctx.store.findMany.bind(ctx.store);
-			ctx.criticalTaskCompletions.listImportHistory = provider.listImportHistory;
-			const result = await importIctCompletionsBatch(ctx, { records });
-			expect(result.errors).toEqual([]);
-			expect(result.inserted).toHaveLength(250);
-			expect(result.updated).toHaveLength(250);
-			expect(result.updated.map((row) => row.id).sort()).toEqual(existing.map((row) => row.id).sort());
-			const stored = await findMany<{ id: string; notes: string }>('personnel_ict_completions', 'test-org');
+			ctx.criticalTaskCompletions.listImportHistory = createSupabaseCriticalTaskCompletionPersistence(
+				client,
+				ctx.auth.orgId
+			).listImportHistory;
+
+			const reply = await importIctCompletionsBatch(ctx, { records });
+
+			const kinds = reply.results.map((result) => result.kind);
+			expect(kinds.filter((kind) => kind === 'added')).toHaveLength(250);
+			expect(kinds.filter((kind) => kind === 'updated')).toHaveLength(250);
+			const stored = await storedCompletions(ctx);
 			expect(stored).toHaveLength(500);
-			expect(stored.map((row) => row.notes).sort()).toEqual(records.map((row) => row.values.notes).sort());
+			expect(stored.map((row) => row.notes).sort()).toEqual(records.map((row) => row.notes).sort());
 		}
 	);
 
 	it('does not write or report success when required task history is unavailable', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-a',
-				organization_id: 'test-org',
-				first_name: 'Synthetic',
-				last_name: 'Able',
-				rank: 'SPC',
-				group_id: 'group-alpha',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed(
-			'ict_tasks',
-			Array.from({ length: 100 }, (_, index) => ({
-				id: `task-${index}`,
-				organization_id: 'test-org',
-				task_code: `TASK${index}`,
-				title: 'Task',
-				mos: [],
-				archived_at: null
-			}))
-		);
-		const findMany = ctx.store.findMany.bind(ctx.store);
+		const ctx = createWritePortsContext();
+		ctx.store.seed('personnel', [person('person-a')]);
+		ctx.store.seed('ict_tasks', [task('task-a')]);
 		vi.spyOn(ctx.criticalTaskCompletions, 'listImportHistory').mockRejectedValue(new Error('History lookup failed'));
+
 		await expect(
 			importIctCompletionsBatch(ctx, {
-				records: Array.from({ length: 100 }, (_, index) => ({
-					rowNumber: index + 2,
-					values: { firstName: 'Synthetic', lastName: 'Able', taskCode: `TASK${index}`, completedAt: '2026-04-02' }
-				}))
+				records: [{ personnelId: 'person-a', ictTaskId: 'task-a', completedAt: '2026-04-02' }]
 			})
 		).rejects.toThrow('History lookup failed');
-		expect(await findMany('personnel_ict_completions', 'test-org')).toEqual([]);
+		expect(await storedCompletions(ctx)).toEqual([]);
 		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it('creates new completion history rows and updates exact same-date matches in one batch', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-alpha',
-				organization_id: 'test-org',
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-alpha',
-				archived_at: null
-			},
-			{
-				id: 'person-leader',
-				organization_id: 'test-org',
-				rank: 'SFC',
-				last_name: 'Smith',
-				first_name: 'John',
-				mos: '68W',
-				clinic_role: 'Team Leader',
-				group_id: 'group-alpha',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-tccc',
-				organization_id: 'test-org',
-				task_code: '181-105-1001',
-				title: 'Perform tactical combat casualty care',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 1,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			},
-			{
-				id: 'task-airway',
-				organization_id: 'test-org',
-				task_code: '081-833-0010',
-				title: 'Open an airway',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 2,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('personnel_ict_completions', [
-			{
-				id: 'completion-existing',
-				organization_id: 'test-org',
-				personnel_id: 'person-alpha',
-				ict_task_id: 'task-tccc',
-				completed_at: '2026-03-01',
-				validation_method: 'Lecture',
-				validated_by: 'MSG Example',
-				notes: 'Old note',
-				logged_by: 'user-1',
-				created_at: '2026-03-01T12:00:00Z'
-			}
-		]);
+	it('adds a new date, updates a same-date match with only the fields sent and never sets who logged it', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('personnel', [person('person-a'), person('person-b')]);
+		ctx.store.seed('ict_tasks', [task('task-a')]);
+		ctx.store.seed('personnel_ict_completions', [completion('saved-1', 'person-a', 'task-a', '2026-03-01')]);
 
-		const result = await importIctCompletionsBatch(ctx, {
+		const reply = await importIctCompletionsBatch(ctx, {
 			records: [
-				{
-					rowNumber: 2,
-					values: {
-						rank: 'SGT',
-						lastName: 'Smith',
-						firstName: 'Jane',
-						taskCode: '181-105-1001',
-						completedAt: '2026-03-01',
-						validationMethod: 'Practical Exercise',
-						validatedBy: 'SFC Taylor Example',
-						notes: 'Updated note'
-					}
-				},
-				{
-					rowNumber: 3,
-					values: {
-						rank: 'SFC',
-						lastName: 'Smith',
-						firstName: 'John',
-						taskCode: '081-833-0010',
-						completedAt: '2026-04-15'
-					}
-				}
+				{ personnelId: 'person-a', ictTaskId: 'task-a', completedAt: '2026-03-01', notes: 'Updated note' },
+				{ personnelId: 'person-b', ictTaskId: 'task-a', completedAt: '2026-04-15', loggedBy: 'forged' } as never
 			]
 		});
 
-		expect(result.errors).toEqual([]);
-		expect(result.updated).toEqual([
-			expect.objectContaining({
-				id: 'completion-existing',
-				personnelId: 'person-alpha',
-				ictTaskId: 'task-tccc',
-				completedAt: '2026-03-01',
-				validationMethod: 'Practical Exercise',
-				validatedBy: 'SFC Taylor Example',
-				notes: 'Updated note'
-			})
+		expect(reply.results.map((result) => result.kind)).toEqual(['updated', 'added']);
+		expect(await storedCompletions(ctx)).toEqual([
+			{
+				key: 'person-a|task-a|2026-03-01',
+				method: 'Lecture',
+				validatedBy: 'MSG Example',
+				notes: 'Updated note',
+				loggedBy: 'user-1'
+			},
+			expect.objectContaining({ key: 'person-b|task-a|2026-04-15', method: 'Other', validatedBy: null, notes: null })
 		]);
-		expect(result.inserted).toEqual([
-			expect.objectContaining({
-				personnelId: 'person-leader',
-				ictTaskId: 'task-airway',
-				completedAt: '2026-04-15',
-				validationMethod: 'Other',
-				validatedBy: null,
-				notes: null
-			})
-		]);
+		expect((await storedCompletions(ctx))[1].loggedBy).not.toBe('forged');
 		expect(ctx.audit.events).toEqual([
 			expect.objectContaining({
 				action: 'personnel_ict_completion.bulk_imported',
-				resourceType: 'personnel_ict_completion',
-				details: {
-					inserted: 1,
-					updated: 1,
-					errors: 0,
-					unconfirmed: 0
-				}
+				details: { inserted: 1, updated: 1, failed: 0 }
 			})
 		]);
 	});
 
-	it('returns invalid and ambiguous rows as import errors without writing them', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-alpha',
-				organization_id: 'test-org',
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-alpha',
-				archived_at: null
-			},
-			{
-				id: 'person-bravo',
-				organization_id: 'test-org',
-				rank: 'SPC',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-bravo',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-tccc',
-				organization_id: 'test-org',
-				task_code: '181-105-1001',
-				title: 'Perform tactical combat casualty care',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 1,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			},
-			{
-				id: 'task-archived',
-				organization_id: 'test-org',
-				task_code: '181-105-1999',
-				title: 'Archived task',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 2,
-				archived_at: '2026-04-14T12:00:00Z',
-				created_at: '2026-04-01T00:00:00Z'
-			}
-		]);
+	it('fails rows for unknown or archived people and tasks and a repeated completion, and saves the rest', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('personnel', [person('person-a'), person('person-gone', { archived_at: '2026-01-01T00:00:00Z' })]);
+		ctx.store.seed('ict_tasks', [task('task-a'), task('task-old', { archived_at: '2026-01-01T00:00:00Z' })]);
+		const row = (personnelId: string, ictTaskId: string) => ({ personnelId, ictTaskId, completedAt: '2026-04-15' });
 
-		const result = await importIctCompletionsBatch(ctx, {
+		const reply = await importIctCompletionsBatch(ctx, {
 			records: [
-				{
-					rowNumber: 2,
-					values: {
-						lastName: 'Smith',
-						firstName: 'Jane',
-						taskCode: '181-105-1001',
-						completedAt: '2026-04-15'
-					}
-				},
-				{
-					rowNumber: 3,
-					values: {
-						rank: 'SGT',
-						lastName: 'Smith',
-						firstName: 'Jane',
-						taskCode: 'BAD-TASK',
-						completedAt: '2026-04-15'
-					}
-				},
-				{
-					rowNumber: 4,
-					values: {
-						rank: 'SGT',
-						lastName: 'Smith',
-						firstName: 'Jane',
-						taskCode: '181-105-1999',
-						completedAt: '2026-04-15'
-					}
-				}
+				row('person-a', 'task-a'),
+				row('person-a', 'task-a'),
+				row('person-missing', 'task-a'),
+				row('person-gone', 'task-a'),
+				row('person-a', 'task-missing'),
+				row('person-a', 'task-old')
 			]
 		});
 
-		expect(result.inserted).toEqual([]);
-		expect(result.updated).toEqual([]);
-		expect(result.errors).toEqual([
-			{
-				rowNumber: 2,
-				personnelName: 'Jane Smith',
-				taskCode: '181-105-1001',
-				message: 'Multiple personnel records match this row. Add rank or correct the name values.'
-			},
-			{
-				rowNumber: 3,
-				personnelName: 'SGT Jane Smith',
-				taskCode: 'BAD-TASK',
-				message: 'Task code "BAD-TASK" does not match an existing critical task'
-			},
-			{
-				rowNumber: 4,
-				personnelName: 'SGT Jane Smith',
-				taskCode: '181-105-1999',
-				message: 'Task code "181-105-1999" is archived and cannot receive new completion imports'
-			}
+		expect(reply.results.slice(1)).toEqual([
+			{ kind: 'failed', message: 'This completion appears more than once in this import.' },
+			{ kind: 'failed', message: 'This person is not on a roster you can record completions for.' },
+			{ kind: 'failed', message: 'This person is archived.' },
+			{ kind: 'failed', message: 'This task is not in the task library.' },
+			{ kind: 'failed', message: 'TASK-OLD is archived. Restore it in the task library first.' }
 		]);
-
-		const stored = await ctx.store.findMany<{ id: string }>('personnel_ict_completions', 'test-org');
-		expect(stored).toEqual([]);
-	});
-
-	it('returns archived personnel rows as import errors without writing them', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-archived',
-				organization_id: 'test-org',
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-alpha',
-				archived_at: '2026-04-14T12:00:00Z'
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-tccc',
-				organization_id: 'test-org',
-				task_code: '181-105-1001',
-				title: 'Perform tactical combat casualty care',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 1,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-
-		const result = await importIctCompletionsBatch(ctx, {
-			records: [
-				{
-					rowNumber: 2,
-					values: {
-						rank: 'SGT',
-						lastName: 'Smith',
-						firstName: 'Jane',
-						taskCode: '181-105-1001',
-						completedAt: '2026-04-15'
-					}
-				}
-			]
-		});
-
-		expect(result.inserted).toEqual([]);
-		expect(result.updated).toEqual([]);
-		expect(result.errors).toEqual([
-			{
-				rowNumber: 2,
-				personnelName: 'SGT Jane Smith',
-				taskCode: '181-105-1001',
-				message: 'Personnel record is archived and cannot receive new completion imports.'
-			}
-		]);
-
-		const stored = await ctx.store.findMany<{ id: string }>('personnel_ict_completions', 'test-org');
-		expect(stored).toEqual([]);
+		expect((await storedCompletions(ctx)).map((stored) => stored.key)).toEqual(['person-a|task-a|2026-04-15']);
 	});
 
 	it('imports for a Critical Tasks-only Group operator without a request-store Personnel read', async () => {
-		const ctx = buildContext({
+		const ctx = createWritePortsContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -456,125 +220,51 @@ describe('importIctCompletionsBatch', () => {
 				}
 			}
 		});
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-alpha',
-				organization_id: 'test-org',
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-alpha',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-tccc',
-				organization_id: 'test-org',
-				task_code: '181-105-1001',
-				title: 'Perform tactical combat casualty care',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 1,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			}
-		]);
+		ctx.store.seed('personnel', [person('person-alpha'), person('person-bravo', { group_id: 'group-bravo' })]);
+		ctx.store.seed('ict_tasks', [task('task-a')]);
 		const requestFindMany = ctx.store.findMany.bind(ctx.store);
 		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) => {
 			if (args[0] === 'personnel') throw new Error('Personnel SELECT denied for this request');
 			return requestFindMany(...args);
 		});
 
-		const result = await importIctCompletionsBatch(ctx, {
+		const reply = await importIctCompletionsBatch(ctx, {
 			records: [
-				{
-					rowNumber: 2,
-					values: {
-						rank: 'SGT',
-						lastName: 'Smith',
-						firstName: 'Jane',
-						taskCode: '181-105-1001',
-						completedAt: '2026-04-15'
-					}
-				}
+				{ personnelId: 'person-alpha', ictTaskId: 'task-a', completedAt: '2026-04-15' },
+				{ personnelId: 'person-bravo', ictTaskId: 'task-a', completedAt: '2026-04-15' }
 			]
 		});
 
-		expect(result.errors).toEqual([]);
-		expect(result.inserted).toHaveLength(1);
-
-		const stored = await ctx.store.findMany<{ id: string }>('personnel_ict_completions', 'test-org');
-		expect(stored).toHaveLength(1);
+		expect(reply.results).toEqual([
+			expect.objectContaining({ kind: 'added' }),
+			{ kind: 'failed', message: 'This person is not on a roster you can record completions for.' }
+		]);
+		expect((await storedCompletions(ctx)).map((stored) => stored.key)).toEqual(['person-alpha|task-a|2026-04-15']);
 	});
 
-	it('keeps successful rows and reports exact failed rows when bulk insert falls back', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-allowed',
-				organization_id: 'test-org',
-				rank: 'SGT',
-				first_name: 'Amy',
-				last_name: 'Able',
-				group_id: 'group-alpha',
-				archived_at: null
-			},
-			{
-				id: 'person-rejected',
-				organization_id: 'test-org',
-				rank: 'SPC',
-				first_name: 'Ben',
-				last_name: 'Baker',
-				group_id: 'group-alpha',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-1',
-				organization_id: 'test-org',
-				task_code: 'T-1',
-				title: 'Task One',
-				mos: [],
-				archived_at: null
-			}
-		]);
+	it('keeps successful rows and fails the exact rows that cannot be saved when the bulk insert falls back', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('personnel', [person('person-allowed'), person('person-rejected')]);
+		ctx.store.seed('ict_tasks', [task('task-a')]);
 		vi.spyOn(ctx.criticalTaskCompletions, 'createMany').mockRejectedValueOnce(new Error('bulk insert unavailable'));
 		const create = ctx.criticalTaskCompletions.create.bind(ctx.criticalTaskCompletions);
 		vi.spyOn(ctx.criticalTaskCompletions, 'create').mockImplementation((input) => {
-			if (input.personnelId === 'person-rejected') {
-				throw new Error('row rejected');
-			}
+			if (input.personnelId === 'person-rejected') throw new Error('row rejected');
 			return create(input);
 		});
 
-		const result = await importIctCompletionsBatch(ctx, {
+		const reply = await importIctCompletionsBatch(ctx, {
 			records: [
-				{
-					rowNumber: 2,
-					values: { rank: 'SGT', firstName: 'Amy', lastName: 'Able', taskCode: 'T-1', completedAt: '2026-04-15' }
-				},
-				{
-					rowNumber: 3,
-					values: { rank: 'SPC', firstName: 'Ben', lastName: 'Baker', taskCode: 'T-1', completedAt: '2026-04-15' }
-				}
+				{ personnelId: 'person-allowed', ictTaskId: 'task-a', completedAt: '2026-04-15' },
+				{ personnelId: 'person-rejected', ictTaskId: 'task-a', completedAt: '2026-04-15' }
 			]
 		});
 
-		expect(result.inserted).toEqual([expect.objectContaining({ personnelId: 'person-allowed' })]);
-		expect(result.updated).toEqual([]);
-		expect(result.errors).toEqual([
-			{ rowNumber: 3, personnelName: 'SPC Ben Baker', taskCode: 'T-1', message: 'Batch import failed' }
+		expect(reply.results).toEqual([
+			expect.objectContaining({ kind: 'added', record: expect.objectContaining({ personnelId: 'person-allowed' }) }),
+			{ kind: 'failed', message: 'This completion could not be saved.' }
 		]);
-		expect(await ctx.store.findMany('personnel_ict_completions', 'test-org')).toEqual([
-			expect.objectContaining({ personnel_id: 'person-allowed' })
-		]);
-		expect(ctx.audit.events).toEqual([
-			expect.objectContaining({ details: { inserted: 1, updated: 0, errors: 1, unconfirmed: 0 } })
-		]);
+		expect((await storedCompletions(ctx)).map((stored) => stored.key)).toEqual(['person-allowed|task-a|2026-04-15']);
+		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 1, updated: 0, failed: 1 } })]);
 	});
 });

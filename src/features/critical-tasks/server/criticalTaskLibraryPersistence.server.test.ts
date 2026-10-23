@@ -584,41 +584,51 @@ describe('owned Critical Tasks library provider', () => {
 		state.rejectBulk = true;
 		state.rejectCodes.add('FAIL');
 		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-		const result = await importIctTasksBatch(
+		const reply = await importIctTasksBatch(
 			{ ...ctx, criticalTaskLibrary: library },
 			{
-				mode: 'upsert',
 				records: [
-					{ rowNumber: 2, values: { taskCode: 'PASS', title: 'Kept task' } },
-					{ rowNumber: 3, values: { taskCode: 'FAIL', title: 'Rejected task' } },
-					{ rowNumber: 4, values: { taskCode: 'OLD', title: 'Restored task' } }
+					{ taskCode: 'PASS', title: 'Kept task' },
+					{ taskCode: 'FAIL', title: 'Rejected task' },
+					{ taskCode: 'OLD', title: 'Restored task' }
 				]
 			}
 		);
-		expect(result.inserted.map((task) => [task.id, task.taskCode, task.title])).toEqual([
-			[rows[1].id, 'PASS', 'Kept task']
-		]);
-		expect(result.updated).toEqual([]);
-		expect(result.restored.map((task) => [task.id, task.title, task.archivedAt])).toEqual([
-			['restore-a', 'Restored task', null]
-		]);
-		expect(result.errors).toEqual([
-			{ rowNumber: 3, taskCode: 'FAIL', title: 'Rejected task', message: 'Batch import failed' }
+		expect(
+			reply.results.map((result) =>
+				result.kind === 'failed'
+					? [result.kind, result.message]
+					: [result.kind, result.record.id, result.record.title, result.record.archivedAt]
+			)
+		).toEqual([
+			['added', rows[1].id, 'Kept task', null],
+			['failed', 'This task could not be saved.'],
+			['updated', 'restore-a', 'Restored task', null]
 		]);
 		expect(rows.map((row) => [row.id, row.task_code, row.archived_at])).toEqual([
 			['restore-a', 'OLD', null],
 			[expect.any(String), 'PASS', null]
 		]);
 		expect(ctx.audit.events).toMatchObject([
-			{ action: 'ict_task.bulk_imported', details: { inserted: 1, updated: 0, restored: 1, errors: 1, unconfirmed: 0 } }
+			{ action: 'ict_task.bulk_imported', details: { inserted: 1, updated: 1, failed: 1 } }
 		]);
 	});
 });
 
 const lostRecords = [
-	{ rowNumber: 2, values: { taskCode: 'LOST-1', title: 'First' } },
-	{ rowNumber: 3, values: { taskCode: 'LOST-2', title: 'Second' } }
+	{ taskCode: 'LOST-1', title: 'First' },
+	{ taskCode: 'LOST-2', title: 'Second' }
 ];
+
+function importLost(library: ReturnType<typeof provider>['library'], records = lostRecords) {
+	const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
+	return { ctx, pending: importIctTasksBatch({ ...ctx, criticalTaskLibrary: library }, { records }) };
+}
+
+const addedCodes = (reply: Awaited<ReturnType<typeof importIctTasksBatch>>) =>
+	reply.results.map((result) =>
+		result.kind === 'failed' ? result.message : `${result.kind} ${result.record.taskCode}`
+	);
 
 describe('#1643 task import recovery after a lost provider reply', () => {
 	it.each(['transport', 'unavailable'] as const)(
@@ -626,22 +636,12 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		async (lost) => {
 			const { library, rows, state } = provider();
 			state.loseReply = { write: 1, as: lost };
-			const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-			const result = await importIctTasksBatch(
-				{ ...ctx, criticalTaskLibrary: library },
-				{ mode: 'create-only', records: lostRecords }
-			);
-			expect({ inserted: result.inserted.map((task) => task.taskCode), errors: result.errors }).toEqual({
-				inserted: ['LOST-1', 'LOST-2'],
-				errors: []
-			});
+			const { ctx, pending } = importLost(library);
+			expect(addedCodes(await pending)).toEqual(['added LOST-1', 'added LOST-2']);
 			expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 			expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 			expect(ctx.audit.events).toMatchObject([
-				{
-					action: 'ict_task.bulk_imported',
-					details: { inserted: 2, updated: 0, restored: 0, errors: 0, unconfirmed: 0 }
-				}
+				{ action: 'ict_task.bulk_imported', details: { inserted: 2, updated: 0, failed: 0 } }
 			]);
 		}
 	);
@@ -663,67 +663,37 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		const { library, rows, state } = provider();
 		state.rejectBulk = true;
 		state.loseReply = { write: 2, as: 'transport' };
-		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-		const result = await importIctTasksBatch(
-			{ ...ctx, criticalTaskLibrary: library },
-			{ mode: 'create-only', records: lostRecords }
-		);
-		expect({ inserted: result.inserted.map((task) => task.taskCode), errors: result.errors }).toEqual({
-			inserted: ['LOST-1', 'LOST-2'],
-			errors: []
-		});
+		const { pending } = importLost(library);
+		expect(addedCodes(await pending)).toEqual(['added LOST-1', 'added LOST-2']);
 		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 	});
 
-	it('reports rows as unconfirmed, without blind per-row retries, when the insert reply and read-back both fail', async () => {
+	it('rejects the chunk as unconfirmed, without blind per-row retries, when the insert reply and read-back both fail', async () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
 		state.failReadsAfterLostReply = true;
-		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-		const result = await importIctTasksBatch(
-			{ ...ctx, criticalTaskLibrary: library },
-			{ mode: 'create-only', records: lostRecords }
-		);
-		expect({
-			inserted: result.inserted,
-			errors: result.errors,
-			unconfirmed: result.unconfirmed.map((row) => row.rowNumber)
-		}).toEqual({ inserted: [], errors: [], unconfirmed: [2, 3] });
+		const { ctx, pending } = importLost(library);
+		await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
 		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
+		expect(ctx.audit.events).toMatchObject([{ details: { inserted: 0, updated: 0, failed: 0 } }]);
 	});
 
 	it('does not resubmit rows as new tasks when the insert never committed and the read-back finds nothing', async () => {
 		const { library, rows, state } = provider();
 		state.dropWrite = 1;
-		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-		const result = await importIctTasksBatch(
-			{ ...ctx, criticalTaskLibrary: library },
-			{ mode: 'create-only', records: lostRecords }
-		);
-		expect({
-			inserted: result.inserted,
-			errors: result.errors,
-			unconfirmed: result.unconfirmed.map((row) => row.rowNumber)
-		}).toEqual({ inserted: [], errors: [], unconfirmed: [2, 3] });
+		const { pending } = importLost(library);
+		await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
 		expect(rows).toEqual([]);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});
 
-	it('keeps every row unconfirmed when the read-back finds only some of the generated ids', async () => {
+	it('rejects the chunk as unconfirmed when the read-back finds only some of the generated ids', async () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
 		state.readbackLimit = 1;
-		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-		const result = await importIctTasksBatch(
-			{ ...ctx, criticalTaskLibrary: library },
-			{ mode: 'create-only', records: lostRecords }
-		);
-		expect({
-			inserted: result.inserted,
-			errors: result.errors,
-			unconfirmed: result.unconfirmed.map((row) => row.rowNumber)
-		}).toEqual({ inserted: [], errors: [], unconfirmed: [2, 3] });
+		const { pending } = importLost(library);
+		await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
 		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});
@@ -758,20 +728,12 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 	);
 
 	it.each(['transport', 'unavailable'] as const)(
-		'reports an update whose reply is lost (%s) as unconfirmed, not failed',
+		'rejects an import whose update reply is lost (%s) as unconfirmed, not failed',
 		async (lost) => {
 			const { library, rows, state } = provider([saved]);
 			state.loseReply = { write: 1, as: lost };
-			const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-			const result = await importIctTasksBatch(
-				{ ...ctx, criticalTaskLibrary: library },
-				{ mode: 'upsert', records: [{ rowNumber: 2, values: { taskCode: 'RESP-200', title: 'Changed' } }] }
-			);
-			expect({
-				updated: result.updated,
-				errors: result.errors,
-				unconfirmed: result.unconfirmed.map((row) => row.rowNumber)
-			}).toEqual({ updated: [], errors: [], unconfirmed: [2] });
+			const { pending } = importLost(library, [{ taskCode: 'RESP-200', title: 'Changed' }]);
+			await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
 			expect(rows.map((row) => [row.task_code, row.title])).toEqual([['RESP-200', 'Changed']]);
 		}
 	);
@@ -779,20 +741,8 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 	it('keeps a refused update as a failed row even though its requested content can match', async () => {
 		const { library, rows, state } = provider([saved]);
 		state.reject = { method: 'PATCH', code: '42501', message: 'Task update refused' };
-		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
-		const result = await importIctTasksBatch(
-			{ ...ctx, criticalTaskLibrary: library },
-			{ mode: 'upsert', records: [{ rowNumber: 2, values: { taskCode: 'RESP-200', title: 'Ventilator setup' } }] }
-		);
-		expect({
-			updated: result.updated,
-			errors: result.errors,
-			unconfirmed: result.unconfirmed
-		}).toEqual({
-			updated: [],
-			errors: [{ rowNumber: 2, taskCode: 'RESP-200', title: 'Ventilator setup', message: 'Batch import failed' }],
-			unconfirmed: []
-		});
+		const { pending } = importLost(library, [{ taskCode: 'RESP-200', title: 'Ventilator setup' }]);
+		expect((await pending).results).toEqual([{ kind: 'failed', message: 'This task could not be saved.' }]);
 		expect(rows.map((row) => row.title)).toEqual(['Ventilator setup']);
 	});
 });

@@ -23,6 +23,7 @@ const CARD_HEADER = 52;
 const CARD_LINE = 28;
 const CARD_FIELD = 76;
 const CARD_GAP = 12;
+const MESSAGE_LINE = 16;
 
 export function rowMessages(row: ReviewedRow<unknown>): readonly string[] {
 	if (row.outcome === 'skipped') return [row.reason];
@@ -80,16 +81,41 @@ export function tableRowHeight(row: ReviewedRow<unknown>, columns: readonly Revi
 	return row.outcome === 'fix' || looseDiff(row, columns).length ? TABLE_ROW + TABLE_MESSAGE : TABLE_ROW;
 }
 
+export function wrappedLines(text: string, width: number, measure: (text: string) => number): number {
+	if (width <= 0) return 1;
+	let lines = 0;
+	let line = '';
+	for (const word of text.split(/\s+/).filter(Boolean)) {
+		const joined = line ? `${line} ${word}` : word;
+		if (measure(joined) <= width) {
+			line = joined;
+			continue;
+		}
+		if (line) lines++;
+		const span = Math.ceil(measure(word) / width);
+		if (span > 1) {
+			lines += span;
+			line = '';
+		} else line = word;
+	}
+	return Math.max(1, lines + (line ? 1 : 0));
+}
+
 export function cardRowHeight(
 	row: ReviewedRow<unknown>,
 	identityColumns: readonly ReviewColumn[],
-	columns: readonly ReviewColumn[]
+	columns: readonly ReviewColumn[],
+	lines: (text: string) => number
 ): number {
+	const message = (text: string, height: number) => height + (lines(text) - 1) * MESSAGE_LINE;
 	const context = (row.outcome === 'fix' || row.outcome === 'update') && cardContext(row, columns) ? CARD_LINE : 0;
 	const body = (() => {
 		if (row.outcome === 'fix') {
 			const fields = editableFields(row, [...identityColumns, ...columns]);
-			return fields.size * CARD_FIELD + looseMessages(row, fields).length * CARD_LINE;
+			let height = 0;
+			for (const field of fields) height += message(fieldMessage(row, field) ?? '', CARD_FIELD);
+			for (const text of looseMessages(row, fields)) height += message(text, CARD_LINE);
+			return height;
 		}
 		if (row.outcome === 'update') return row.diff.length * CARD_LINE;
 		return CARD_LINE;

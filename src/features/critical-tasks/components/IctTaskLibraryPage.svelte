@@ -18,7 +18,6 @@
 		ICT_TASK_MOVE_UNSUPPORTED_MESSAGE,
 		type CriticalTasksPageAccess
 	} from '../contracts';
-	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
 	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -39,13 +38,14 @@
 
 	interface Props {
 		org: CriticalTasksPageAccess;
+		importHref: string;
 		data: {
 			orgId: string;
 			[key: string]: unknown;
 		};
 	}
 
-	let { data, org }: Props = $props();
+	let { data, org, importHref }: Props = $props();
 
 	const orgId = $derived(data.orgId);
 	const settings = $derived(criticalTasksSettingsFromWorkspaceData(data, orgId));
@@ -70,8 +70,6 @@
 	let sortOrderInput = $state<HTMLInputElement | null>(null);
 	let saveButton = $state<HTMLButtonElement | null>(null);
 	let pageRoot = $state<HTMLElement | null>(null);
-	let importRegion = $state<HTMLElement | null>(null);
-	let importingTasks = $state(false);
 	let confirmArchive = $state<IctTask | null>(null);
 	let taskStatusFilter = $state<'active' | 'archived'>('active');
 	let taskSearch = $state('');
@@ -126,7 +124,7 @@
 		{ value: 'archived', label: 'Archived' }
 	];
 	const canReorderTasks = $derived(
-		canManage && taskStatusFilter === 'active' && !editing && !creating && !importingTasks && !filtersActive
+		canManage && taskStatusFilter === 'active' && !editing && !creating && !filtersActive
 	);
 	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
 		const items: ToolbarItem[] = [
@@ -156,11 +154,11 @@
 		if (canManage) {
 			items.push({
 				kind: 'action',
-				id: 'import-csv',
-				label: 'Import CSV',
-				onclick: startImport,
+				id: 'import',
+				label: 'Import',
+				href: importHref,
 				icon: 'upload',
-				disabled: loading || creating || editing || importingTasks,
+				disabled: loading || creating || editing,
 				disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
 			});
 		}
@@ -183,7 +181,7 @@
 					label: 'New Task',
 					onclick: startCreate,
 					icon: 'clipboard-check',
-					disabled: loading || creating || editing || importingTasks,
+					disabled: loading || creating || editing,
 					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
 				}
 			: undefined
@@ -216,7 +214,6 @@
 		editing = false;
 		saving = false;
 		reordering = false;
-		importingTasks = false;
 		confirmArchive = null;
 		taskStatusFilter = 'active';
 		taskSearch = '';
@@ -268,7 +265,7 @@
 	}
 
 	function selectTask(taskId: string) {
-		if (creating || editing || importingTasks) return;
+		if (creating || editing) return;
 		selectedTaskId = taskId;
 	}
 
@@ -296,7 +293,6 @@
 		resetForm();
 		creating = true;
 		editing = false;
-		importingTasks = false;
 		await tick();
 		taskCodeInput?.focus();
 	}
@@ -306,7 +302,6 @@
 		resetForm(selectedTask);
 		editing = true;
 		creating = false;
-		importingTasks = false;
 		await tick();
 		taskCodeInput?.focus();
 	}
@@ -320,26 +315,6 @@
 		fieldErrors = {};
 		await tick();
 		(wasCreating ? toolbarControlOrMore('new-task') : editButton)?.focus();
-	}
-
-	async function startImport() {
-		if (!canManage || loading) return;
-		taskStatusFilter = 'active';
-		selectedTaskId = null;
-		creating = false;
-		editing = false;
-		importingTasks = true;
-		await tick();
-		const heading = importRegion?.querySelector<HTMLElement>('h2');
-		if (!heading) return;
-		heading.tabIndex = -1;
-		heading.focus();
-	}
-
-	async function cancelImport() {
-		importingTasks = false;
-		await tick();
-		toolbarControlOrMore('import-csv')?.focus();
 	}
 
 	function parseWholeNumber(value: string, min: number): number | null {
@@ -549,10 +524,6 @@
 			>
 				<Spinner />
 				<p>Loading ICT task library...</p>
-			</section>
-		{:else if importingTasks}
-			<section bind:this={importRegion}>
-				<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
 			</section>
 		{:else}
 			<div class="grid gap-5 lg:grid-cols-[minmax(290px,360px)_minmax(0,1fr)]">

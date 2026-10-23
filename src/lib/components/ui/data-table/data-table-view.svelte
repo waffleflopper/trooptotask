@@ -8,6 +8,7 @@
 	import DataTableLoading from './data-table-loading.svelte';
 	import DataTablePagination from './data-table-pagination.svelte';
 	import { eventStartedInInteractiveDescendant } from './data-table-context.js';
+	import { columnCellClass } from './column-class.js';
 	import type {
 		ColumnDef,
 		DataTableCellSnippet,
@@ -86,8 +87,6 @@
 		footer
 	}: Props = $props();
 
-	const HIDDEN_BELOW = { md: 'max-md:hidden!', '@3xl': '@max-3xl/data-table:hidden!' } as const;
-
 	const resolvedDensity = $derived(compact ? 'dense' : density);
 	const cols = $derived(table.columns);
 	const allRowsHidden = $derived(rowHidden !== undefined && table.rows.every(rowHidden));
@@ -139,11 +138,7 @@
 </script>
 
 {#snippet bodyCell(row: T, column: ColumnDef<T>)}
-	{@const alignClass = cn(
-		column.align === 'center' && 'text-center',
-		column.align === 'right' && 'text-right',
-		column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow]
-	)}
+	{@const alignClass = columnCellClass(column)}
 	{#if column.rowHeader}
 		<th
 			scope="row"
@@ -174,11 +169,7 @@
 					<Table.Head
 						scope="col"
 						aria-sort={ariaSort(column)}
-						class={cn(
-							column.align === 'center' && 'text-center',
-							column.align === 'right' && 'text-right',
-							column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow]
-						)}
+						class={columnCellClass(column)}
 						style={column.width ? `width: ${column.width}` : undefined}
 					>
 						{#if headerCell}

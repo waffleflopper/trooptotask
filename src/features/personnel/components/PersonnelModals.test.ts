@@ -109,6 +109,7 @@ describe('scoped Personnel creation', () => {
 		const ctx = new PersonnelPageContext(
 			{
 				orgId: 'org-a',
+				asOf: '2026-10-23',
 				orgName: 'A',
 				pinnedGroups: [],
 				rankCatalog: [
@@ -231,7 +232,7 @@ describe('retired Personnel save feedback', () => {
 		const success = vi.spyOn(toastStore, 'success').mockReturnValue('synthetic-success');
 		const modalsA = new ModalRegistry();
 		const ctxA = new PersonnelPageContext(
-			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog },
+			{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [], rankCatalog },
 			modalsA,
 			access('configure'),
 			personnelStore
@@ -249,7 +250,7 @@ describe('retired Personnel save feedback', () => {
 		personnelStore.load([personB], 'org-b');
 		const modalsB = new ModalRegistry();
 		const ctxB = new PersonnelPageContext(
-			{ orgId: 'org-b', orgName: 'B', pinnedGroups: [], rankCatalog },
+			{ orgId: 'org-b', asOf: '2026-10-23', orgName: 'B', pinnedGroups: [], rankCatalog },
 			modalsB,
 			access('view'),
 			personnelStore
@@ -310,7 +311,7 @@ describe('rejected Personnel and Group save feedback', () => {
 		const error = vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
 		const modals = new ModalRegistry();
 		const ctx = new PersonnelPageContext(
-			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog },
+			{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [], rankCatalog },
 			modals,
 			createClientAccess({
 				membershipRole: 'member',

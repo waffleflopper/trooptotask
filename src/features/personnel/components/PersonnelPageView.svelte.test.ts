@@ -7,10 +7,7 @@ import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/access/clientAccess';
-import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
-
-const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
 const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
 	() => ({
@@ -39,6 +36,7 @@ vi.mock('svelte-sonner', () => ({
 }));
 
 import PersonnelPageView from './PersonnelPageView.svelte';
+import { RosterSignals } from '../rosterSignals.svelte';
 
 const personnel: Personnel[] = [
 	{
@@ -89,8 +87,14 @@ function submittedIds(fetchMock: ReturnType<typeof vi.fn>): string[][] {
 	return fetchMock.mock.calls.map((call) => JSON.parse(String(call[1].body)).ids);
 }
 
+/** Archive mode lives under the toolbar's More menu. */
+async function startArchiveMode() {
+	const menu = await openToolbarMore('Personnel controls');
+	await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Archive' }));
+}
+
 async function selectBulkPersonnel(labels: string[]) {
-	await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+	await startArchiveMode();
 	for (const name of labels) await fireEvent.click(screen.getByRole('checkbox', { name }));
 }
 
@@ -157,9 +161,21 @@ function makeCtx(
 	let viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
 	let searchQuery = $state('');
 
+	const signals = new RosterSignals({ readPeople: vi.fn() });
 	const ctx = {
 		data: { orgId: 'org-1' },
 		orgId: 'org-1',
+		orgName: 'C Co',
+		orgUrlSegment: 'org-1',
+		signals,
+		canViewAvailability: false,
+		signalRow: (person: Personnel) => signals.row(person.id),
+		summarizeSignals: (people: Personnel[]) =>
+			signals.summarize(
+				people.map((person) => person.id),
+				new Map(),
+				true
+			),
 		canAddPersonnel: false,
 		canImportPersonnel: false,
 		canManageGroups: false,
@@ -253,7 +269,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
 		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
@@ -270,19 +286,17 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
 		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
-		const row = screen.getByText('Smith, Jane').closest('tr')!;
-		expect(row.getAttribute('tabindex')).toBeNull();
-		expect(row.getAttribute('aria-label')).toBeNull();
-		await fireEvent.click(row);
+		expect(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeNull();
+		expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
+		await fireEvent.click(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
@@ -297,16 +311,16 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Archive SGT Smith, Jane' })).toBeNull();
 
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Archive' }));
-		expect(screen.getByText('0 of 1 selected')).toBeTruthy();
+		await startArchiveMode();
+		expect(await screen.findByText('0 of 1 selected')).toBeTruthy();
 	});
 
 	it('filters the roster from the toolbar search item', async () => {
@@ -332,7 +346,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
 		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' }), {
@@ -347,7 +361,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
 		const azToggle = screen.getByRole('button', { name: 'A-Z' });
@@ -381,7 +395,7 @@ describe('PersonnelPageView', () => {
 		it('keeps Add Person on the row and runs the view switch, Manage Groups and Archive from More', async () => {
 			const widths = stubToolbarWidths();
 			const ctx = editorCtx();
-			render(PersonnelPageView, { props: { ctx, requestArchiveApproval } });
+			render(PersonnelPageView, { props: { ctx } });
 			await widths.foldAll();
 
 			const row = within(screen.getByRole('toolbar', { name: toolbarName }));
@@ -409,7 +423,7 @@ describe('PersonnelPageView', () => {
 
 		it('opens the import route when Import is chosen from More', async () => {
 			const widths = stubToolbarWidths();
-			render(PersonnelPageView, { props: { ctx: editorCtx(), requestArchiveApproval } });
+			render(PersonnelPageView, { props: { ctx: editorCtx() } });
 			await widths.foldAll();
 
 			const menu = await openToolbarMore(toolbarName);
@@ -420,7 +434,7 @@ describe('PersonnelPageView', () => {
 
 		it('keeps actions a roster viewer may not use out of More', async () => {
 			const widths = stubToolbarWidths();
-			render(PersonnelPageView, { props: { ctx: makeCtx(), requestArchiveApproval } });
+			render(PersonnelPageView, { props: { ctx: makeCtx() } });
 			await widths.foldAll();
 
 			const menu = await openToolbarMore(toolbarName);
@@ -433,8 +447,8 @@ describe('PersonnelPageView', () => {
 
 		it('selects and clears archive rows from the folded bulk archive toolbar and blocks Confirm Archive until one is chosen', async () => {
 			const widths = stubToolbarWidths();
-			render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
-			await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
+			await startArchiveMode();
 			await widths.foldAll();
 
 			const bulk = within(screen.getByRole('toolbar', { name: 'Bulk archive controls' }));
@@ -476,7 +490,7 @@ describe('PersonnelPageView', () => {
 		);
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
 		const pin = screen.getByRole('button', { name: 'Pin Alpha' });
@@ -497,7 +511,7 @@ describe('PersonnelPageView', () => {
 		const reload = vi.fn();
 		vi.stubGlobal('location', { ...window.location, reload });
 		const ctx = { ...makeCtx(), lossWarningsUnavailable: true } as unknown as PersonnelPageContext;
-		render(PersonnelPageView, { props: { ctx, requestArchiveApproval } });
+		render(PersonnelPageView, { props: { ctx } });
 
 		expect(screen.getByRole('status').textContent).toContain('Loss warnings could not be loaded');
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
@@ -514,14 +528,14 @@ describe('PersonnelPageView', () => {
 			} as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, {
-				props: { ctx, requestArchiveApproval }
+				props: { ctx }
 			});
 
-			expect(screen.getByTestId('loss-indicator-person-1')).toBeTruthy();
+			expect(screen.getByTestId('loss-indicator-person-1').textContent?.trim()).toBe('ETS · 78d');
 		});
 	});
 
-	it('updates personnel row edit affordances when permissions change after render', async () => {
+	it('updates the row actions when permissions change after render', async () => {
 		const handleEdit = vi.fn();
 		const editableCtx = {
 			...makeCtx(handleEdit),
@@ -533,108 +547,157 @@ describe('PersonnelPageView', () => {
 			canManagePersonnelRecord: () => false,
 			personnelRecordAffordance: () => deniedAffordance()
 		} as unknown as PersonnelPageContext;
-		const view = render(PersonnelPageView, {
-			props: {
-				requestArchiveApproval,
-				ctx: editableCtx
-			}
-		});
+		const view = render(PersonnelPageView, { props: { ctx: editableCtx } });
 
-		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
-		handleEdit.mockClear();
+		expect(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
 
-		await view.rerender({
-			requestArchiveApproval,
-			ctx: viewOnlyCtx
-		});
+		await view.rerender({ ctx: viewOnlyCtx });
 
-		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
-
-		const row = screen.getByText('Smith, Jane').closest('tr');
-		expect(row).toBeTruthy();
-		await fireEvent.click(row!);
-
+		expect(screen.queryByRole('button', { name: 'Quick edit SGT Smith, Jane' })).toBeNull();
+		await fireEvent.click(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
 		expect(handleEdit).not.toHaveBeenCalled();
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
-	it('opens the personnel detail page from row clicks and keeps edit as a modal action', async () => {
-		const handleEdit = vi.fn();
-		const ctx = {
+	function openableCtx(handleEdit = vi.fn()): PersonnelPageContext {
+		return {
 			...makeCtx(handleEdit),
-			canManagePersonnelRecord: () => true,
+			canManagePersonnelRecord: (person: Personnel) => person.id === 'person-1',
 			canReadPersonnelDetails: true,
 			canOpenPersonnelDetail: () => true,
 			personnelRecordAffordance: () => allowedAffordance()
 		} as unknown as PersonnelPageContext;
+	}
 
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
+	it('opens the record from the row and the name link, a note from Note and the edit dialog from Quick edit', async () => {
+		const handleEdit = vi.fn();
+		render(PersonnelPageView, { props: { ctx: openableCtx(handleEdit) } });
 
-		const row = screen.getByText('Smith, Jane').closest('tr');
-		expect(row).toBeTruthy();
-		await fireEvent.click(row!);
-
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel/smith-jane');
-		expect(handleEdit).not.toHaveBeenCalled();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-		expect(handleEdit).toHaveBeenCalledWith(personnel[0]);
-		expect(gotoMock).toHaveBeenCalledTimes(1);
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Details' }));
-		expect(gotoMock).toHaveBeenCalledTimes(2);
-		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
-	});
-
-	it('uses per-record policy affordances instead of legacy canEditPersonnel for edit actions', () => {
-		const ctx = {
-			...makeCtx(),
-			canManagePersonnelRecord: (person: Personnel) => person.id === 'person-1',
-			personnelRecordAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
-
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
-
-		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-	});
-
-	it('archives personnel from a roster icon action after confirmation', async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ success: true })
-		});
-		vi.stubGlobal('fetch', fetchMock);
-		const ctx = {
-			...makeCtx(),
-			canManagePersonnelRecord: () => true,
-			canArchivePersonnelRecord: () => true,
-			personnelRecordAffordance: () => allowedAffordance(),
-			personnelArchiveAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
-
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' }));
-		await confirmArchiveDialog();
-
-		await waitFor(() =>
-			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id: 'person-1' })
-			})
+		expect(screen.getByRole('link', { name: /Smith, Jane/ }).getAttribute('href')).toBe(
+			'/org/org-1/personnel/smith-jane'
 		);
-		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data'));
-		expect(screen.queryByText('Smith, Jane')).toBeNull();
+		await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }));
+		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' }));
+		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
+		expect(gotoMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('moves row focus with the arrow keys and runs N, E and Enter on the focused row only', async () => {
+		personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young', slug: 'young-test' }], 'org-1');
+		const handleEdit = vi.fn();
+		render(PersonnelPageView, { props: { ctx: openableCtx(handleEdit) } });
+		const smith = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
+		const young = screen.getByRole('row', { name: 'Open SGT Young, Test' });
+		expect([smith.tabIndex, young.tabIndex]).toEqual([0, -1]);
+
+		smith.focus();
+		await fireEvent.keyDown(smith, { key: 'ArrowDown' });
+		expect(document.activeElement).toBe(young);
+		expect([smith.tabIndex, young.tabIndex]).toEqual([-1, 0]);
+
+		await fireEvent.keyDown(young, { key: 'e' });
+		expect(handleEdit).not.toHaveBeenCalled();
+		await fireEvent.keyDown(young, { key: 'ArrowUp' });
+		await fireEvent.keyDown(smith, { key: 'e' });
+		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
+		await fireEvent.keyDown(smith, { key: 'n' });
+		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
+		await fireEvent.keyDown(smith, { key: 'Enter' });
+		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
+
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }), { key: 'e' });
+		expect(handleEdit).toHaveBeenCalledTimes(1);
+	});
+
+	describe('roster signals', () => {
+		const LEAVE = { id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', sortOrder: 0 };
+		const ACCESS = {
+			availability: true,
+			training: true,
+			criticalTasks: false,
+			evaluations: false,
+			followUps: false,
+			counseling: false
+		};
+
+		function signalsCtx(canViewAvailability = true) {
+			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young' }], 'org-1');
+			return { ...makeCtx(), canViewAvailability } as unknown as PersonnelPageContext;
+		}
+
+		const lane = (people: unknown[]) => ({ asOf: '2026-10-23', access: ACCESS, statusTypes: [LEAVE], people });
+		const smith = {
+			personnelId: 'person-1',
+			today: { kind: 'known', value: { kind: 'away', statusTypeId: 'leave' } },
+			attention: {
+				kind: 'known',
+				value: {
+					kind: 'attention',
+					first: { kind: 'training', status: 'expired', title: 'CPR/BLS', days: -3 },
+					otherCount: 2,
+					worst: 'red'
+				}
+			},
+			matches: {},
+			openFollowUps: { kind: 'withheld' }
+		};
+		const young = {
+			personnelId: 'person-2',
+			today: { kind: 'known', value: { kind: 'present' } },
+			attention: { kind: 'known', value: { kind: 'clear' } },
+			matches: {},
+			openFollowUps: { kind: 'withheld' }
+		};
+
+		it('holds quiet placeholders until the lane settles, then shows each dot, attention cell and the headcount', async () => {
+			const ctx = signalsCtx();
+			const held = Promise.withResolvers<never>();
+			ctx.signals.observe('org-1', '2026-10-23', held.promise);
+			render(PersonnelPageView, { props: { ctx } });
+
+			const headcount = screen.getByRole('list', { name: "Today's headcount" });
+			expect(within(headcount).queryByText('present')).toBeNull();
+			expect(screen.queryByRole('img', { name: 'Present today' })).toBeNull();
+			expect(screen.getByRole('row', { name: 'SGT Smith, Jane' })).toBeTruthy();
+
+			held.resolve(lane([smith, young]) as never);
+			const smithRow = within(await screen.findByRole('row', { name: 'SGT Smith, Jane' }));
+			await waitFor(() => expect(smithRow.getByRole('img', { name: 'Leave today' })).toBeTruthy());
+			expect(smithRow.getByText('CPR/BLS expired · 2 more')).toBeTruthy();
+			const youngRow = within(screen.getByRole('row', { name: 'SGT Young, Test' }));
+			expect(youngRow.getByRole('img', { name: 'Present today' })).toBeTruthy();
+			expect(youngRow.getByText('—')).toBeTruthy();
+			expect(
+				within(headcount)
+					.getAllByRole('listitem')
+					.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())
+			).toEqual(['1 present', '1 Leave']);
+		});
+
+		it('hides the headcount from a viewer who cannot read availability', () => {
+			const ctx = signalsCtx(false);
+			ctx.signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
+			render(PersonnelPageView, { props: { ctx } });
+			expect(screen.queryByRole('list', { name: "Today's headcount" })).toBeNull();
+		});
+
+		it('keeps the roster usable with blank cells and offers Reload when the lane fails', async () => {
+			const ctx = signalsCtx();
+			ctx.signals.observe('org-1', '2026-10-23', Promise.reject(new Error('statement timeout')));
+			render(PersonnelPageView, { props: { ctx } });
+
+			const reload = await screen.findByRole('button', { name: 'Reload' });
+			expect(screen.queryByRole('list', { name: "Today's headcount" })).toBeNull();
+			expect(screen.queryByRole('img', { name: /today/ })).toBeNull();
+			expect(screen.getByRole('row', { name: 'SGT Smith, Jane' })).toBeTruthy();
+			await fireEvent.click(reload);
+			expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-signals');
+		});
 	});
 
 	it('archives selected personnel from roster archive mode after confirmation', async () => {
@@ -650,10 +713,10 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await startArchiveMode();
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
 		await confirmArchiveDialog();
@@ -681,11 +744,11 @@ describe('PersonnelPageView', () => {
 		ctx.viewMode = 'by-group';
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
 		expect(screen.getByText('Grouped roster paused')).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await startArchiveMode();
 		const bulk = within(screen.getByRole('toolbar', { name: 'Bulk archive controls' }));
 		expect(bulk.queryByRole('button', { name: 'Select shown' })).toBeNull();
 		expect(bulk.getByRole('button', { name: 'Clear' })).toBeTruthy();
@@ -716,10 +779,10 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await startArchiveMode();
 		await fireEvent.click(screen.getByRole('button', { name: 'Select shown' }));
 		expect(screen.getByText('75 of 76 selected')).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
@@ -749,10 +812,10 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await startArchiveMode();
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
 		await confirmArchiveDialog();
@@ -787,10 +850,10 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
+			props: { ctx }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		await startArchiveMode();
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
 		await confirmArchiveDialog();
@@ -821,7 +884,7 @@ describe('PersonnelPageView', () => {
 				batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] })
 			);
 			vi.stubGlobal('fetch', fetchMock);
-			render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 			await selectBulkPersonnel(['Select SGT Smith, Jane']);
 			await submitBulkSelection();
 			await waitFor(() => expect(toastErrorMock).toHaveBeenCalledTimes(1));
@@ -855,9 +918,9 @@ describe('PersonnelPageView', () => {
 				)
 				.mockResolvedValueOnce(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-2'], errors: [] }));
 			vi.stubGlobal('fetch', fetchMock);
-			const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			const view = render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 			invalidateMock.mockImplementationOnce(async () => {
-				await view.rerender({ ctx: archiveCtx(), requestArchiveApproval });
+				await view.rerender({ ctx: archiveCtx() });
 			});
 			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
 			await submitBulkSelection();
@@ -899,10 +962,10 @@ describe('PersonnelPageView', () => {
 				)
 				.mockResolvedValueOnce(batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] }));
 			vi.stubGlobal('fetch', fetchMock);
-			const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			const view = render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 			invalidateMock.mockImplementationOnce(async () => {
 				personnelStore.load(outcome === 'approval' ? [makePerson(2)] : [], 'org-1');
-				await view.rerender({ ctx: archiveCtx(), requestArchiveApproval });
+				await view.rerender({ ctx: archiveCtx() });
 			});
 			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
 			await submitBulkSelection();
@@ -941,7 +1004,7 @@ describe('PersonnelPageView', () => {
 			)
 			.mockResolvedValueOnce(batchResponse({ archivedIds: ['person-2'], approvalRequestedIds: [], errors: [] }));
 		vi.stubGlobal('fetch', fetchMock);
-		render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 		await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
 		await submitBulkSelection();
 		await waitFor(() => expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
@@ -964,7 +1027,7 @@ describe('PersonnelPageView', () => {
 			.fn()
 			.mockResolvedValue(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] }));
 		vi.stubGlobal('fetch', fetchMock);
-		render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 		await selectBulkPersonnel(['Select SGT Smith, Jane']);
 		await submitBulkSelection();
 		await waitFor(() => expect(toastWarningMock).toHaveBeenCalledTimes(1));
@@ -982,13 +1045,13 @@ describe('PersonnelPageView', () => {
 			const newRequest = deferred<ReturnType<typeof batchResponse>>();
 			const fetchMock = vi.fn().mockReturnValueOnce(oldRequest.promise).mockReturnValueOnce(newRequest.promise);
 			vi.stubGlobal('fetch', fetchMock);
-			const oldView = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			const oldView = render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 			await selectBulkPersonnel(['Select SGT Smith, Jane']);
 			await submitBulkSelection();
 			await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 			oldView.unmount();
 			personnelStore.load([personnel[0]], 'org-2');
-			render(PersonnelPageView, { props: { ctx: archiveCtx('org-2'), requestArchiveApproval } });
+			render(PersonnelPageView, { props: { ctx: archiveCtx('org-2') } });
 			await selectBulkPersonnel(['Select SGT Smith, Jane']);
 			await submitBulkSelection();
 			await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -1025,14 +1088,14 @@ describe('PersonnelPageView', () => {
 			.fn()
 			.mockResolvedValue(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] }));
 		vi.stubGlobal('fetch', fetchMock);
-		const oldView = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		const oldView = render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 		await selectBulkPersonnel(['Select SGT Smith, Jane']);
 		await submitBulkSelection();
 		await waitFor(() => expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
 		expect(toastInfoMock).toHaveBeenCalledTimes(1);
 		oldView.unmount();
 		personnelStore.load([personnel[0]], 'org-2');
-		render(PersonnelPageView, { props: { ctx: archiveCtx('org-2'), requestArchiveApproval } });
+		render(PersonnelPageView, { props: { ctx: archiveCtx('org-2') } });
 		await selectBulkPersonnel(['Select SGT Smith, Jane']);
 		refresh.reject(new Error('old readback failed'));
 		await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1046,11 +1109,11 @@ describe('PersonnelPageView', () => {
 		const request = deferred<ReturnType<typeof batchResponse>>();
 		const fetchMock = vi.fn().mockReturnValue(request.promise);
 		vi.stubGlobal('fetch', fetchMock);
-		const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		const view = render(PersonnelPageView, { props: { ctx: archiveCtx() } });
 		await selectBulkPersonnel(['Select SGT Smith, Jane']);
 		await submitBulkSelection();
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-		await view.rerender({ ctx: archiveCtx('org-2'), requestArchiveApproval });
+		await view.rerender({ ctx: archiveCtx('org-2') });
 		request.resolve(batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] }));
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(personnelStore.getById('person-1')).toBeTruthy();

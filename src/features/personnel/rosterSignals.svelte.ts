@@ -1,0 +1,217 @@
+import { untrack } from 'svelte';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { invalidate } from '$app/navigation';
+import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
+import { withinOrganizationLifetime } from '$lib/stores/core';
+import {
+	NO_SIGNAL_ACCESS,
+	PERSONNEL_SIGNALS_DEPENDENCY,
+	ROSTER_SIGNAL_BATCH_LIMIT,
+	matchesRosterFilter,
+	summarizeRosterSignals,
+	type PersonSignalCore,
+	type RosterFilter,
+	type RosterLoss,
+	type RosterSignalRead,
+	type RosterStatusType,
+	type SignalAccess,
+	type SignalRow,
+	type SummaryState
+} from './rosterSignals';
+
+export type RosterSignalsStatus = 'pending' | 'ready' | 'failed';
+
+export interface RosterSignalsOptions {
+	/** Reads the listed People's signals for the viewer's day. */
+	readPeople?: (orgId: string, personnelIds: string[]) => Promise<RosterSignalRead>;
+	invalidate?: (dependency: string) => Promise<void>;
+}
+
+async function readPeopleFromEndpoint(orgId: string, personnelIds: string[]): Promise<RosterSignalRead> {
+	const response = await fetch(`/org/${orgId}/api/personnel/roster-signals`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ personnelIds })
+	});
+	if (!response.ok) throw new Error('Roster signals could not be read');
+	const read = (await response.json()) as RosterSignalRead;
+	if (typeof read?.asOf !== 'string' || !Array.isArray(read.people))
+		throw new Error('Roster signals could not be read');
+	return read;
+}
+
+const withheld = (personnelId: string): PersonSignalCore => ({
+	personnelId,
+	today: { kind: 'withheld' },
+	attention: { kind: 'withheld' },
+	matches: {},
+	openFollowUps: { kind: 'withheld' }
+});
+
+/**
+ * Today's status and attention for the roster. The page hands it each streamed lane; mutations call `refresh` for the
+ * People they changed. A full lane never overwrites a Person refreshed after that lane was requested, and a reply for
+ * another Organization or day is dropped. Create one per page and keep it across Organization changes.
+ */
+export class RosterSignals {
+	status = $state<RosterSignalsStatus>('pending');
+	/** The viewer's day the shown signals were computed for. */
+	asOf = $state('');
+	access = $state.raw<SignalAccess>(NO_SIGNAL_ACCESS);
+	statusTypes = $state.raw<RosterStatusType[]>([]);
+
+	#orgId = '';
+	#lane: Promise<RosterSignalRead> | null = null;
+	#cores = new SvelteMap<string, PersonSignalCore>();
+	/** People with a refresh in flight and no core yet, shown as pending. */
+	#reading = new SvelteSet<string>();
+	/** Counts lanes received; a refresh records the count current when it was issued. */
+	#generation = 0;
+	#refreshedAt = new Map<string, number>();
+	#serial = 0;
+	#latestRefresh = new Map<string, number>();
+	/** The roster the settled lane already covered, taken at the first `ensure` after it settled. */
+	#covered: Set<string> | null = null;
+	#asked = new Set<string>();
+	readonly #readPeople: NonNullable<RosterSignalsOptions['readPeople']>;
+	readonly #invalidate: NonNullable<RosterSignalsOptions['invalidate']>;
+
+	constructor(options: RosterSignalsOptions = {}) {
+		this.#readPeople = options.readPeople ?? readPeopleFromEndpoint;
+		this.#invalidate = options.invalidate ?? invalidate;
+	}
+
+	/** Takes the page's streamed lane. The same promise is observed once. */
+	observe(orgId: string, asOf: string, lane: Promise<RosterSignalRead>): void {
+		untrack(() => {
+			if (lane === this.#lane && orgId === this.#orgId) return;
+			const keepShown = orgId === this.#orgId && asOf === this.asOf && this.status === 'ready';
+			if (orgId !== this.#orgId) this.#forgetRefreshes();
+			this.#orgId = orgId;
+			this.#lane = lane;
+			const generation = ++this.#generation;
+			if (!keepShown) {
+				this.#cores.clear();
+				this.status = 'pending';
+			}
+			this.asOf = asOf;
+			const current = () => this.#lane === lane && this.#orgId === orgId;
+			withinOrganizationLifetime(lane, current).then(
+				(read) => this.#settle(read, generation),
+				() => {
+					this.#cores.clear();
+					this.status = 'failed';
+				}
+			);
+		});
+	}
+
+	#settle(read: RosterSignalRead, generation: number): void {
+		const refreshedSince = (id: string) => (this.#refreshedAt.get(id) ?? -1) >= generation;
+		for (const id of [...this.#cores.keys()]) if (!refreshedSince(id)) this.#cores.delete(id);
+		for (const core of read.people) if (!refreshedSince(core.personnelId)) this.#cores.set(core.personnelId, core);
+		this.access = read.access;
+		this.statusTypes = read.statusTypes;
+		this.#covered = null;
+		this.#asked.clear();
+		this.status = 'ready';
+	}
+
+	#forgetRefreshes(): void {
+		this.#refreshedAt.clear();
+		this.#latestRefresh.clear();
+		this.#reading.clear();
+	}
+
+	get readsAnySource(): boolean {
+		return Object.values(this.access).some(Boolean);
+	}
+
+	/** One Person's signals completed with their roster losses. */
+	row(personnelId: string, loss: RosterLoss | null = null): SignalRow {
+		if (this.status === 'failed') return { kind: 'failed' };
+		const core = this.#cores.get(personnelId);
+		if (this.status === 'pending' || (!core && this.#reading.has(personnelId))) return { kind: 'pending' };
+		return { kind: 'ready', value: { ...(core ?? withheld(personnelId)), loss } };
+	}
+
+	/** Counts for the strip, chips or a Group header, over the People the roster shows. */
+	summarize(
+		personnelIds: readonly string[],
+		losses: ReadonlyMap<string, RosterLoss>,
+		lossesEnabled: boolean
+	): SummaryState {
+		if (this.status !== 'ready') return { kind: this.status };
+		const rows = personnelIds.flatMap((id) => {
+			const row = this.row(id, losses.get(id) ?? null);
+			return row.kind === 'ready' ? [row.value] : [];
+		});
+		return {
+			kind: 'ready',
+			value: summarizeRosterSignals({ rows, access: this.access, lossesEnabled, statusTypes: this.statusTypes })
+		};
+	}
+
+	matches(personnelId: string, filter: RosterFilter, loss: RosterLoss | null = null): boolean {
+		const row = this.row(personnelId, loss);
+		return row.kind === 'ready' && matchesRosterFilter(row.value, filter);
+	}
+
+	/** Rereads the listed People after a change to them. Never throws; a failed read keeps what is shown. */
+	async refresh(personnelIds: readonly string[]): Promise<void> {
+		const ids = [...new Set(personnelIds)];
+		if (ids.length === 0 || this.status === 'failed') return;
+		if (ids.length > ROSTER_SIGNAL_BATCH_LIMIT) return this.reload();
+		const orgId = this.#orgId;
+		const asOf = this.asOf;
+		const serial = ++this.#serial;
+		for (const id of ids) {
+			this.#latestRefresh.set(id, serial);
+			this.#refreshedAt.set(id, this.#generation);
+			this.#reading.add(id);
+		}
+		const owns = (id: string) => this.#orgId === orgId && this.#latestRefresh.get(id) === serial;
+		try {
+			const read = await withinOrganizationLifetime(this.#readPeople(orgId, ids), () => ids.some(owns));
+			if (this.asOf !== asOf) return;
+			// The viewer's day turned while the page was open: the whole lane moves to the new day, not one row.
+			if (read.asOf !== asOf) return await this.#invalidate(VIEWER_DAY_DEPENDENCY);
+			const cores = new Map(read.people.map((core) => [core.personnelId, core]));
+			for (const id of ids) {
+				if (!owns(id)) continue;
+				const core = cores.get(id);
+				if (core) this.#cores.set(id, core);
+				else this.#cores.delete(id);
+			}
+		} catch {
+			// The cells keep their last values; the next lane brings them current.
+		} finally {
+			for (const id of ids) if (owns(id)) this.#reading.delete(id);
+		}
+	}
+
+	/**
+	 * Reads People the roster gained after the lane settled (Add person, a restore, a Group move into scope) in one
+	 * batch. Each Person is asked once per lane.
+	 */
+	ensure(rosterIds: readonly string[]): void {
+		untrack(() => {
+			if (this.status !== 'ready' || !this.readsAnySource) return;
+			if (!this.#covered) {
+				this.#covered = new Set(rosterIds);
+				return;
+			}
+			const covered = this.#covered;
+			const missing = rosterIds.filter((id) => !covered.has(id) && !this.#cores.has(id) && !this.#asked.has(id));
+			if (missing.length === 0) return;
+			for (const id of missing) this.#asked.add(id);
+			if (missing.length > ROSTER_SIGNAL_BATCH_LIMIT) void this.reload();
+			else void this.refresh(missing);
+		});
+	}
+
+	/** Reruns only the signals lane; the roster is not read again. */
+	reload(): Promise<void> {
+		return this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
+	}
+}

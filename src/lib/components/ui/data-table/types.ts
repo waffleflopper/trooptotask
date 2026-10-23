@@ -20,9 +20,10 @@ export interface ColumnDef<T> {
 	rowHeader?: boolean;
 	/**
 	 * Hides the column's header and cells with CSS, so the server render already fits a narrow screen.
-	 * `'md'` follows the viewport; `'@3xl'` follows the table's own width (below 48rem), for a table beside other columns.
+	 * `'md'` follows the viewport; `'@3xl'` and `'@xl'` follow the table's own width (below 48rem and 36rem), for a table
+	 * beside other columns or on a phone.
 	 */
-	hiddenBelow?: 'md' | '@3xl';
+	hiddenBelow?: 'md' | '@3xl' | '@xl';
 }
 
 export interface PageLabels {

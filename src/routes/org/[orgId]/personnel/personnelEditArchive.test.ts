@@ -35,13 +35,17 @@ describe('Personnel Edit archive recovery', () => {
 		groupCatalogHydration.load([{ id: 'alpha', name: 'Alpha', sortOrder: 0 }], 'org-a');
 		personnelStore.load([structuredClone(originalPerson)], 'org-a');
 		const modals = new ModalRegistry();
-		const ctx = new PersonnelPageContext({ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog: [] }, modals, {
-			orgUrlSegment: 'org-a',
-			...createClientAccess({
-				membershipRole: 'member',
-				capabilityMap: { ...createCapabilityMap('none'), personnel: 'operate' }
-			})
-		});
+		const ctx = new PersonnelPageContext(
+			{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [], rankCatalog: [] },
+			modals,
+			{
+				orgUrlSegment: 'org-a',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), personnel: 'operate' }
+				})
+			}
+		);
 		modals.open('personnel-modal', { person: structuredClone(originalPerson) });
 		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
 		return modals;

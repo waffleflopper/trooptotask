@@ -5,6 +5,8 @@
 		pinnedGroupsStore,
 		loadPersonnelModals,
 		PersonnelPageContext,
+		PersonnelRosterSkeleton,
+		RosterSignals,
 		type PersonnelPageData
 	} from '$features/personnel';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -53,10 +55,16 @@
 
 	const org = getAppShellContext();
 	const modals = new ModalRegistry();
+	const signals = new RosterSignals();
+
+	$effect(() => {
+		signals.observe(data.shell.org.id, data.asOf, data.rosterSignals);
+	});
 
 	function createPageData(workspaceData: PersonnelWorkspaceData): PersonnelPageData {
 		return {
 			orgId: data.shell.org.id,
+			asOf: data.asOf,
 			orgName: data.shell.org.name,
 			pinnedGroups: workspaceData.pinnedGroups,
 			rankCatalog: workspaceData.rankCatalog,
@@ -68,7 +76,14 @@
 	}
 
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {
-		return new PersonnelPageContext(createPageData(workspaceData), modals, org, rosterStore, pinnedGroupsStore);
+		return new PersonnelPageContext(
+			createPageData(workspaceData),
+			modals,
+			org,
+			rosterStore,
+			pinnedGroupsStore,
+			signals
+		);
 	}
 </script>
 
@@ -77,14 +92,11 @@
 		<!-- The Personnel layout observes this same source and shows WorkspaceLoadError. -->
 	{:else if workspace}
 		{@const ctx = createContext(workspace.data)}
-		<PersonnelPageView {ctx} {requestArchiveApproval} />
+		<PersonnelPageView {ctx} />
 		{#await loadPersonnelModals() then { default: PersonnelModals }}
 			<PersonnelModals {ctx} {modals} {requestArchiveApproval} />
 		{/await}
 	{:else}
-		<div class="px-6 py-8">
-			<div class="h-8 w-48 animate-pulse rounded bg-muted"></div>
-			<div class="mt-6 h-80 animate-pulse rounded border bg-muted/40"></div>
-		</div>
+		<PersonnelRosterSkeleton />
 	{/if}
 {/key}

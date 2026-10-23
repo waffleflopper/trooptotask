@@ -1,4 +1,4 @@
-import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import { personnelScopeResource } from '../personnelScopeResource';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
@@ -10,12 +10,16 @@ import {
 import type { PersonnelAffordance, PersonnelPageAccess } from '../contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
+import { projectRosterLosses, type RosterLoss, type SignalRow, type SummaryState } from '../rosterSignals';
+import { RosterSignals } from '../rosterSignals.svelte';
 
 export interface PersonnelPageData {
 	orgId: string;
+	/** The viewer's day from the server, so day counts match the Dashboard. */
+	asOf: string;
 	orgName: string;
 	pinnedGroups: string[];
 	rankCatalog?: RankCatalogEntry[];
@@ -48,8 +52,7 @@ export class PersonnelPageContext {
 	readonly #org: PersonnelPageAccess;
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
-	/** Injectable so tests can pin the date without real-time dependencies. */
-	readonly #today: string;
+	readonly signals: RosterSignals;
 
 	constructor(
 		data: PersonnelPageData,
@@ -57,16 +60,12 @@ export class PersonnelPageContext {
 		org: PersonnelPageAccess,
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
-		today?: string
+		signals: RosterSignals = new RosterSignals()
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
-
-		const now = new SvelteDate();
-		this.#today =
-			today ??
-			`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+		this.signals = signals;
 
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {
@@ -87,6 +86,12 @@ export class PersonnelPageContext {
 
 	get canViewRoster(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.viewRoster, {
+			kind: 'unscoped'
+		}).allowed;
+	}
+
+	get canViewAvailability(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.viewAvailability, {
 			kind: 'unscoped'
 		}).allowed;
 	}
@@ -185,21 +190,39 @@ export class PersonnelPageContext {
 		return this.alphabeticalPersonnel.length;
 	}
 
-	/** Reuses the same shared evaluation path as the dashboard widget so the roster and dashboard always agree on who is "approaching loss." */
-	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
-		const map = new SvelteMap<string, UpcomingLossRecord>();
+	get lossesEnabled(): boolean {
+		return !this.#data.disabledFeatures?.includes('lossesAndAwards');
+	}
+
+	/** Badge and chip losses from the roster's own dates, through the same evaluation the Dashboard uses. */
+	readonly rosterLosses: ReadonlyMap<string, RosterLoss> = $derived.by(() => {
 		const warningWindowDays = this.#data.lossWarningWindowDays;
-		if (warningWindowDays === null || this.#data.disabledFeatures?.includes('lossesAndAwards')) return map;
-		const losses = evaluateUpcomingLosses(
-			this.allActivePersonnel,
-			warningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
-			this.#today,
-			{ awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? [] }
+		return projectRosterLosses({
+			people: this.allActivePersonnel,
+			asOf: this.#data.asOf,
+			lossWarningWindowDays: warningWindowDays === undefined ? DEFAULT_LOSS_WARNING_WINDOW_DAYS : warningWindowDays,
+			lossesEnabled: this.lossesEnabled,
+			awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? []
+		});
+	});
+
+	/** People with an ETS or PCS inside the unit's loss window. */
+	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
+		const entries = [...this.rosterLosses].flatMap(([id, loss]) => (loss.badge ? [[id, loss.badge] as const] : []));
+		return new Map(entries);
+	});
+
+	signalRow(person: Pick<Personnel, 'id'>): SignalRow {
+		return this.signals.row(person.id, this.rosterLosses.get(person.id) ?? null);
+	}
+
+	/** Strip, chip or Group header counts over the given People, who are always roster People. */
+	summarizeSignals(people: readonly Pick<Personnel, 'id'>[]): SummaryState {
+		return this.signals.summarize(
+			people.map((person) => person.id),
+			this.rosterLosses,
+			this.lossesEnabled
 		);
-		for (const record of losses) {
-			map.set(record.personId, record);
-		}
-		return map;
 	}
 
 	/** The loss warning window could not be read, so the roster shows no loss flags. */

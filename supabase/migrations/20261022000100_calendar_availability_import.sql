@@ -55,13 +55,14 @@ BEGIN
   INTO stale
   FROM jsonb_array_elements(p_entries) WITH ORDINALITY AS item(value, position)
   CROSS JOIN LATERAL jsonb_to_recordset(coalesce(item.value->'replaces', '[]'::jsonb))
-    AS reviewed(id uuid, status_type_id uuid, start_date date, end_date date)
+    AS reviewed(id uuid, status_type_id uuid, start_date date, end_date date, note text)
   JOIN public.availability_entries saved
     ON saved.organization_id = p_organization_id AND saved.id = reviewed.id
   WHERE saved.personnel_id IS DISTINCT FROM (item.value->>'personnel_id')::uuid
     OR saved.status_type_id IS DISTINCT FROM reviewed.status_type_id
     OR saved.start_date IS DISTINCT FROM reviewed.start_date
     OR saved.end_date IS DISTINCT FROM reviewed.end_date
+    OR saved.note IS DISTINCT FROM reviewed.note
     OR saved.start_date > (item.value->>'end_date')::date
     OR saved.end_date < (item.value->>'start_date')::date;
 

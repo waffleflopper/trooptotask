@@ -328,6 +328,7 @@ export function createInMemoryCalendarAvailabilityPersistence(
 							row.status_type_id !== reviewed.statusTypeId ||
 							row.start_date !== reviewed.startDate ||
 							row.end_date !== reviewed.endDate ||
+							(row.note ?? null) !== reviewed.note ||
 							row.start_date > entry.endDate ||
 							row.end_date < entry.startDate)
 					);

@@ -191,7 +191,7 @@ export const availabilityImportInputSchema = z.object({
 						...availabilityImportFields,
 						overlap: z.literal('replace'),
 						replaces: z
-							.array(z.object({ id: uuidSchema, ...reviewedDates }))
+							.array(z.object({ id: uuidSchema, ...reviewedDates, note: availabilityImportFields.note }))
 							.min(1)
 							.max(AVAILABILITY_BATCH_LIMIT)
 					})
@@ -213,7 +213,10 @@ export const availabilityImportInputSchema = z.object({
 
 export type AvailabilityImportInput = z.infer<typeof availabilityImportInputSchema>;
 export type AvailabilityImportEntry = AvailabilityImportInput['entries'][number];
-export type ReviewedAvailabilityEntry = Pick<AvailabilityEntry, 'id' | 'statusTypeId' | 'startDate' | 'endDate'>;
+export type ReviewedAvailabilityEntry = Pick<
+	AvailabilityEntry,
+	'id' | 'statusTypeId' | 'startDate' | 'endDate' | 'note'
+>;
 export interface AvailabilityImportWrite extends AvailabilityCreate {
 	replaces: readonly ReviewedAvailabilityEntry[];
 }

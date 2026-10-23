@@ -161,7 +161,8 @@ export function createSupabaseCalendarAvailabilityPersistence(
 						id: replaced.id,
 						status_type_id: replaced.statusTypeId,
 						start_date: replaced.startDate,
-						end_date: replaced.endDate
+						end_date: replaced.endDate,
+						note: replaced.note
 					}))
 				}))
 			});

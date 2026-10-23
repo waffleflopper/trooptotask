@@ -53,9 +53,15 @@ function saved(id: string, personnel_id: string, status_type_id: string, start_d
 }
 
 const REVIEWED = {
-	[SAVED_LEAVE]: { id: SAVED_LEAVE, statusTypeId: LEAVE, startDate: '2026-11-05', endDate: '2026-11-12' },
-	[SAVED_TDY]: { id: SAVED_TDY, statusTypeId: TDY, startDate: '2026-11-10', endDate: '2026-11-20' },
-	[BRAVO_LEAVE]: { id: BRAVO_LEAVE, statusTypeId: LEAVE, startDate: '2026-11-05', endDate: '2026-11-12' }
+	[SAVED_LEAVE]: {
+		id: SAVED_LEAVE,
+		statusTypeId: LEAVE,
+		startDate: '2026-11-05',
+		endDate: '2026-11-12',
+		note: 'Saved'
+	},
+	[SAVED_TDY]: { id: SAVED_TDY, statusTypeId: TDY, startDate: '2026-11-10', endDate: '2026-11-20', note: 'Saved' },
+	[BRAVO_LEAVE]: { id: BRAVO_LEAVE, statusTypeId: LEAVE, startDate: '2026-11-05', endDate: '2026-11-12', note: 'Saved' }
 };
 
 async function calendar(ctx: ReturnType<typeof context>) {

@@ -146,7 +146,17 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    `Verification Training` 2027-08-12 to 2027-08-20 over a saved Leave of 2027-08-10 to 2027-08-15, then change that
    Leave's end date in a second signed-in tab (`PUT api/availability`) and Import: Done reads `0 changes saved.` with
    Failed 1 and `An entry this row replaces changed since you reviewed it. Import the file again.`, the Leave keeps its
-   new end date and no Training row is saved. After `$V seed duplicate-able`, an unranked Able row asks `Which person?`
+   new end date and no Training row is saved. Repeat with only the saved Leave's note changed after Review, including
+   adding a note to an empty note and clearing a note. Each import refuses the replacement and preserves the saved ID
+   and latest note. An unchanged empty note still permits replacement.
+
+   For a Person with 501 saved entries inside the incoming row's dates, answer `Replace the calendar entries`. That row
+   stays Needs a fix with `This row overlaps too many saved entries to replace in one import. Choose Keep both or Skip.`
+   and cannot be imported. `Keep both` makes it New; `Skip` leaves every saved entry alone. With exactly 500 saved
+   entries, Replace remains an Update and replaces all 500 in one request. A single row's replacement is never divided
+   across requests.
+
+   After `$V seed duplicate-able`, an unranked Able row asks `Which person?`
    with only `SPC Able, Synthetic` and `PFC Able, Synthetic` and no Create; picking SPC saves to the fixture Able. Run
    `$V clean-seeds` afterward.
 

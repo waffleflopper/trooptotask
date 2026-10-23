@@ -79,7 +79,8 @@ describe('POST /api/availability/import', () => {
 			id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
 			statusTypeId: STATUS,
 			startDate: '2026-12-01',
-			endDate: '2026-12-01'
+			endDate: '2026-12-01',
+			note: null
 		}));
 		await expect(
 			handleUseCaseRequest(

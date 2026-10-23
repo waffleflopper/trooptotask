@@ -247,7 +247,9 @@ describe('calendar status import lane', () => {
 			change: {
 				personnelId: 'diaz',
 				overlap: 'replace',
-				replaces: [{ id: 'diaz-leave', statusTypeId: 'leave', startDate: '2026-11-05', endDate: '2026-11-12' }]
+				replaces: [
+					{ id: 'diaz-leave', statusTypeId: 'leave', startDate: '2026-11-05', endDate: '2026-11-12', note: null }
+				]
 			},
 			diff: [{ label: 'Replaces', before: '2026-11-05 → 2026-11-12 Leave', after: '' }]
 		});
@@ -471,7 +473,8 @@ describe('calendar status import lane', () => {
 			id: `saved-${index}-${half}`,
 			statusTypeId: 'leave',
 			startDate: '2026-11-20',
-			endDate: '2026-11-20'
+			endDate: '2026-11-20',
+			note: null
 		});
 		const rows = Array.from({ length: 251 }, (_, index) => ({
 			personnelId: `person-${index}`,
@@ -591,7 +594,9 @@ describe('calendar status import lane', () => {
 				startDate: '2026-11-03',
 				endDate: '2026-11-09',
 				overlap: 'replace',
-				replaces: [{ id: 'diaz-leave', statusTypeId: 'leave', startDate: '2026-11-05', endDate: '2026-11-12' }]
+				replaces: [
+					{ id: 'diaz-leave', statusTypeId: 'leave', startDate: '2026-11-05', endDate: '2026-11-12', note: null }
+				]
 			},
 			{ ...base, startDate: '2026-12-01', endDate: '2026-12-02', overlap: 'none' }
 		]);

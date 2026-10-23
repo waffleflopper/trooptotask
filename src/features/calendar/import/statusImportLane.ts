@@ -247,17 +247,28 @@ export function createStatusImportLane(source: StatusImportSource) {
 			}
 			if (answer.optionId === OVERLAP_ANSWERS.keep)
 				return { outcome: 'new', key, change: { ...entry, overlap: 'keep' } };
+			if (overlapping.length > AVAILABILITY_BATCH_LIMIT)
+				return {
+					outcome: 'fix',
+					problems: [
+						{
+							field: 'startDate',
+							message: 'This row overlaps too many saved entries to replace in one import. Choose Keep both or Skip.'
+						}
+					]
+				};
 			return {
 				outcome: 'update',
 				key,
 				change: {
 					...entry,
 					overlap: 'replace',
-					replaces: overlapping.map(({ id, statusTypeId, startDate, endDate }) => ({
+					replaces: overlapping.map(({ id, statusTypeId, startDate, endDate, note }) => ({
 						id,
 						statusTypeId,
 						startDate,
-						endDate
+						endDate,
+						note
 					}))
 				},
 				diff: overlapping.map((entry) => ({ label: 'Replaces', before: describe(entry), after: '' })),

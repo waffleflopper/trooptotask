@@ -316,7 +316,7 @@
 			swapFailure = message;
 			return false;
 		} finally {
-			swapsSaving -= 1;
+			if (!gone) swapsSaving -= 1;
 		}
 	}
 

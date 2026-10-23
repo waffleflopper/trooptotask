@@ -105,7 +105,7 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    Unchanged. Fix Baker's To again (it reads Unchanged), then answer `Replace the calendar entries` and
    `Apply to 1 row`: Able's row reads Update with `Replaces` over a struck-through
    `2026-09-14 → 2026-09-16 Verification Leave`, and the bar reads `0 added · 1 updated`. At 900 and 390 the card shows
-   the incoming `Verification Leave · 2026-09-15 · 2026-09-20` line above `Replaces` and the struck-through entry, with
+   the incoming `2026-09-15 · 2026-09-20 · Verification Leave` line above `Replaces` and the struck-through entry, with
    both of its dates in full at 390. Import: Done reads Updated 1 and Unchanged 6. The seeded 14 to 16 September entry
    is gone and Able has one Leave entry from 2026-09-15 to 2026-09-20; Calendar › September 2026 shows the bar from 15
    to 20 with nothing on the 14th. Import the same file a third time: after the same fix all seven rows read Unchanged,
@@ -120,6 +120,20 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    asks `Rows overlap each other` (`One person, overlapping dates in this file · 2 rows`) with `Keep both` and
    `Skip the later rows`; skipping either row clears the other. `Keep both` saves both entries, including when they fall
    in different 500-row requests.
+
+   A replace never removes an entry another row keeps. Import Able on `Verification Leave` 2027-11-05 to 2027-11-12,
+   Baker on `Verification Leave` 2027-11-03 to 2027-11-06 and `Verification Training` 2027-11-10 to 2027-11-10, creating
+   a long status `Temporary Duty - National Training Center Rotation 27-01` for Unassigned on 2027-10-01. Then upload
+   Able's same Leave (Unchanged), Able on the long status 2027-11-10 to 2027-11-15, and Baker on it 2027-11-01 to
+   2027-11-30, and answer `Replace the calendar entries`. Able's two rows read Needs a fix with
+   `Row 3 on <sheet> would remove this saved record. Skip one of these rows.` and
+   `Would remove the saved record that row 2 on <sheet> keeps. Skip one of these rows.`, and Import counts only Baker.
+   Baker's row lists `Replaces` twice, earliest first: `2027-11-03 → 2027-11-06 Verification Leave` and
+   `2027-11-10 → 2027-11-10 Verification Training`. At 900 and 390 the cards read
+   `2027-11-01 · 2027-11-30 · Temporary Duty…` with both dates in full, one struck line per replaced entry, and card
+   heights of 108, 108 and 136 px with no overflow. Skipping Able's long-status row leaves the Leave Unchanged; Import
+   saves Baker's entry, removes Baker's two, and Able's Leave keeps its ID. Skipping the Leave row instead turns the other
+   row into an Update that replaces it.
 
    A corrected date reads the calendar it adds before Import. Upload Able on `Verification Training` 2027-06-01 to
    2027-05-30 beside a saved Able Leave of 2027-06-10 to 2027-06-15 and reload first. Review reads `calendar-range`

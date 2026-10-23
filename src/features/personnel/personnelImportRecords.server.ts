@@ -90,7 +90,7 @@ export async function importPersonnelRecords(
 	for (const [index, record] of input.records.entries()) {
 		if (record.op === 'update') {
 			if (seenUpdateIds.has(record.personnelId)) {
-				errors.push({ index, message: 'This Person is already referenced by an earlier update row' });
+				errors.push({ kind: 'failed', index, message: 'This Person is already referenced by an earlier update row' });
 				continue;
 			}
 			seenUpdateIds.add(record.personnelId);
@@ -99,7 +99,7 @@ export async function importPersonnelRecords(
 		const fields = record.op === 'create' ? record : record.changes;
 		const dateError = invalidDate(fields);
 		if (dateError) {
-			errors.push({ index, message: dateError });
+			errors.push({ kind: 'failed', index, message: dateError });
 			continue;
 		}
 		const keepsRank =
@@ -108,12 +108,12 @@ export async function importPersonnelRecords(
 			fields.rank.trim().toUpperCase() === person.rank?.trim().toUpperCase();
 		const rank = fields.rank === undefined || keepsRank ? undefined : ranks.normalize(fields.rank);
 		if (fields.rank !== undefined && !keepsRank && !rank) {
-			errors.push({ index, message: ranks.errorMessage(fields.rank) });
+			errors.push({ kind: 'failed', index, message: ranks.errorMessage(fields.rank) });
 			continue;
 		}
 
 		if (fields.groupId !== undefined && fields.groupId !== null && !groupIds.has(fields.groupId)) {
-			errors.push({ index, message: 'That Group is not available in your Organization and scope' });
+			errors.push({ kind: 'failed', index, message: 'That Group is not available in your Organization and scope' });
 			continue;
 		}
 
@@ -121,12 +121,12 @@ export async function importPersonnelRecords(
 			const firstName = sanitizeString(record.firstName);
 			const lastName = sanitizeString(record.lastName);
 			if (!rank || !firstName || !lastName) {
-				errors.push({ index, message: 'Rank, Last Name, and First Name are required' });
+				errors.push({ kind: 'failed', index, message: 'Rank, Last Name, and First Name are required' });
 				continue;
 			}
 			const groupId = record.groupId ?? null;
 			if (!(await canWrite('create', groupId))) {
-				errors.push({ index, message: 'You can only add personnel to your assigned groups' });
+				errors.push({ kind: 'failed', index, message: 'You can only add personnel to your assigned groups' });
 				continue;
 			}
 			creates.push({
@@ -148,11 +148,11 @@ export async function importPersonnelRecords(
 		}
 
 		if (!person || person.archivedAt || !(await canWrite('update', person.groupId))) {
-			errors.push({ index, message: 'No active personnel row is available in your scope' });
+			errors.push({ kind: 'failed', index, message: 'No active personnel row is available in your scope' });
 			continue;
 		}
 		if (fields.groupId !== undefined && !(await canWrite('update', fields.groupId))) {
-			errors.push({ index, message: 'You can only move personnel into your assigned groups' });
+			errors.push({ kind: 'failed', index, message: 'You can only move personnel into your assigned groups' });
 			continue;
 		}
 
@@ -166,7 +166,7 @@ export async function importPersonnelRecords(
 		if (fields.ets !== undefined) patch.ets = fields.ets;
 		if (fields.deros !== undefined) patch.deros = fields.deros;
 		if (Object.keys(patch).length === 0) {
-			errors.push({ index, message: 'An update must include at least one changed field' });
+			errors.push({ kind: 'failed', index, message: 'An update must include at least one changed field' });
 			continue;
 		}
 
@@ -178,10 +178,15 @@ export async function importPersonnelRecords(
 			updates.slice(start, start + 12).map(async ({ index, personnelId, patch }) => {
 				try {
 					const saved = await ctx.personnel.updateEditable(personnelId, patch, { onlyActive: true });
-					if (!saved) errors.push({ index, message: 'No active personnel row is available in your scope' });
+					if (!saved)
+						errors.push({ kind: 'failed', index, message: 'No active personnel row is available in your scope' });
 					return saved;
 				} catch {
-					errors.push({ index, message: 'This update could not be confirmed. Review the record before retrying.' });
+					errors.push({
+						kind: 'unconfirmed',
+						index,
+						message: 'This update could not be confirmed. Review the record before retrying.'
+					});
 					return null;
 				}
 			})
@@ -222,7 +227,11 @@ async function createImportRows(
 				conflictingPersonnelSlug(error, ctx.auth.orgId, new Set(subset.map(({ row }) => row.slug))) !== null;
 			if (!confirmed) {
 				for (const { index } of subset) {
-					errors.push({ index, message: 'Unable to confirm this row was created. Check the roster before retrying.' });
+					errors.push({
+						kind: 'unconfirmed',
+						index,
+						message: 'Unable to confirm this row was created. Check the roster before retrying.'
+					});
 				}
 				return;
 			}
@@ -235,6 +244,7 @@ async function createImportRows(
 				await insert(subset, attempt + 1);
 			} else {
 				errors.push({
+					kind: 'failed',
 					index: subset[0].index,
 					message: 'Unable to allocate a unique personnel URL. This row was not created.'
 				});

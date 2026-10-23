@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { IsoDate } from '$lib/components/patterns/import-flow';
-import { buildReceipt, runCommit } from '$lib/components/patterns/import-flow/commit';
-import { buildSourceRows } from '$lib/components/patterns/import-flow/rowModel';
-import { detectLayout } from '$lib/components/patterns/import-flow/workbookSource';
+import { ImportSession, type IsoDate } from '$lib/components/patterns/import-flow';
 import type { Personnel } from '../personnel.types';
 import { BUILT_IN_RANK_CATALOG } from '../rankCatalog';
 import { lastFirstSplitter } from './personnelImportColumns';
@@ -179,21 +176,13 @@ describe('personnel import lane', () => {
 
 	it('stops before row 501 and reports Not confirmed when the server cannot confirm a write', async () => {
 		const source = lane({ personnel: [] });
-		const file = {
-			name: 'roster.csv',
-			sheets: [
-				{
-					index: 0,
-					name: 'Roster',
-					hidden: false,
-					rows: [
-						['Last name', 'First name', 'Rank'],
-						...Array.from({ length: 501 }, (_, index) => [`Person${index}`, 'Synthetic', 'SGT'])
-					]
-				}
-			]
-		};
-		const rows = buildSourceRows(file, detectLayout(file, source), source);
+		const session = new ImportSession(() => source);
+		const csv = [
+			'Last name,First name,Rank',
+			...Array.from({ length: 501 }, (_, index) => `Person${index},Synthetic,SGT`)
+		].join('\n');
+		await session.chooseFile([new File([csv], 'roster.csv')]);
+		session.goTo('review');
 		const request = vi.fn(async () =>
 			Response.json({
 				created: [],
@@ -206,23 +195,11 @@ describe('personnel import lane', () => {
 			})
 		);
 		vi.stubGlobal('fetch', request);
-		const run = await runCommit(
-			rows.map((row) => ({
-				rowId: row.id,
-				change: { op: 'create' as const, rank: 'SGT', lastName: row.raw.lastName, firstName: row.raw.firstName }
-			})),
-			source.commitChunk,
-			() => {},
-			() => true
-		);
-		expect(buildReceipt([], run.results, new Map(rows.map((row) => [row.id, row])), run.stopped)).toMatchObject({
-			added: 0,
-			failed: 0,
-			unconfirmed: 500,
-			notAttempted: 1,
-			stopped: { kind: 'unconfirmed' }
+		await session.commit();
+		expect(session.phase).toMatchObject({
+			step: 'done',
+			receipt: { added: 0, failed: 0, unconfirmed: 500, notAttempted: 1, stopped: { kind: 'unconfirmed' } }
 		});
 		expect(request).toHaveBeenCalledTimes(1);
-		expect(run.results.get(rows[500].id)).toMatchObject({ kind: 'not-attempted' });
 	});
 });

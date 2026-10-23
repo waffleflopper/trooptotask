@@ -305,6 +305,31 @@ describe('personnel follow-ups', () => {
 		expect(saved?.title).toBe('Keep this');
 	});
 
+	it('does not report a follow-up as created until its audit event is recorded', async () => {
+		const ctx = createTestContext({
+			auth: { capabilityMap: { personnel: 'configure' }, userId: LEADER_USER_ID, scopeSet: { kind: 'organization' } }
+		});
+		seedPersonnel(ctx);
+		let recordAudit!: () => void;
+		const audited = new Promise<void>((resolve) => (recordAudit = resolve));
+		const log = vi.fn(() => audited);
+
+		let settled = false;
+		const created = createPersonnelFollowUp(
+			{ ...testPersonnelArtifactsContext(ctx), audit: { log } },
+			{ personnelId: 'person-1', title: 'Complete BLC packet', dueDate: '2026-06-01' }
+		).then(() => (settled = true));
+		await vi.waitFor(() => expect(log).toHaveBeenCalledOnce());
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(settled).toBe(false);
+
+		recordAudit();
+		await created;
+		expect(log).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'personnel.follow_up.created', resourceId: 'person-1' })
+		);
+	});
+
 	it('delegates Soldier scope enforcement to the scope port', async () => {
 		const requireGroupAccess = vi.fn(async () => {
 			throw { status: 403, message: 'Group scope denied' };

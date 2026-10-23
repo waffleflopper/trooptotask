@@ -163,7 +163,7 @@ function makeCtx(
 
 	const signals = new RosterSignals({ readPeople: vi.fn() });
 	const ctx = {
-		data: { orgId: 'org-1' },
+		data: { orgId: 'org-1', asOf: '2026-10-06' },
 		orgId: 'org-1',
 		orgName: 'C Co',
 		orgUrlSegment: 'org-1',
@@ -294,7 +294,7 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeTruthy();
 		expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
 		await fireEvent.click(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
 		expect(gotoMock).not.toHaveBeenCalled();
@@ -580,11 +580,13 @@ describe('PersonnelPageView', () => {
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }));
-		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
+		expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' }));
 		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
-		expect(gotoMock).toHaveBeenCalledTimes(2);
+		expect(gotoMock).toHaveBeenCalledTimes(1);
 	});
 
 	it('moves row focus with the arrow keys and runs N, E and Enter on the focused row only', async () => {
@@ -606,7 +608,10 @@ describe('PersonnelPageView', () => {
 		await fireEvent.keyDown(smith, { key: 'e' });
 		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
 		await fireEvent.keyDown(smith, { key: 'n' });
-		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
+		expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+		expect(gotoMock).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		await fireEvent.keyDown(smith, { key: 'Enter' });
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 

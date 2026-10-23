@@ -698,13 +698,15 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 		}
 	);
 
-	it('rejects an import whose same-date update reply is lost as unconfirmed, not failed', async () => {
+	it('reports an import row whose same-date update reply is lost as unconfirmed', async () => {
 		const { ledger, rows, state } = provider([saved]);
 		state.loseReply = { write: 1, as: 'transport' };
 		const ctx = importContext();
-		await expect(
-			importIctCompletionsBatch({ ...ctx, criticalTaskCompletions: ledger }, { records: [row('person-a', 'Changed')] })
-		).rejects.toMatchObject({ status: 503, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
+		const reply = await importIctCompletionsBatch(
+			{ ...ctx, criticalTaskCompletions: ledger },
+			{ records: [row('person-a', 'Changed')] }
+		);
+		expect(reply.results).toEqual([{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }]);
 		expect(rows.map((saved) => [saved.id, saved.notes])).toEqual([['capture-a', 'Changed']]);
 		expect(ctx.audit.events).toMatchObject([{ details: { inserted: 0, updated: 0, failed: 0 } }]);
 	});

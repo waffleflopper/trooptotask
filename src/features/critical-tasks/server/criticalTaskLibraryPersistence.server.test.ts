@@ -670,12 +670,15 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 	});
 
-	it('rejects the chunk as unconfirmed, without blind per-row retries, when the insert reply and read-back both fail', async () => {
+	it('reports each row as unconfirmed, without blind retries, when the insert reply and read-back both fail', async () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
 		state.failReadsAfterLostReply = true;
 		const { ctx, pending } = importLost(library);
-		await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
+		expect((await pending).results).toEqual([
+			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE },
+			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }
+		]);
 		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 		expect(ctx.audit.events).toMatchObject([{ details: { inserted: 0, updated: 0, failed: 0 } }]);
@@ -685,17 +688,23 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 		const { library, rows, state } = provider();
 		state.dropWrite = 1;
 		const { pending } = importLost(library);
-		await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
+		expect((await pending).results).toEqual([
+			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE },
+			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }
+		]);
 		expect(rows).toEqual([]);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});
 
-	it('rejects the chunk as unconfirmed when the read-back finds only some of the generated ids', async () => {
+	it('reports each row as unconfirmed when the read-back finds only some of the generated ids', async () => {
 		const { library, rows, state } = provider();
 		state.loseReply = { write: 1, as: 'transport' };
 		state.readbackLimit = 1;
 		const { pending } = importLost(library);
-		await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
+		expect((await pending).results).toEqual([
+			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE },
+			{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }
+		]);
 		expect(rows.map((row) => row.task_code)).toEqual(['LOST-1', 'LOST-2']);
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});
@@ -730,12 +739,14 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 	);
 
 	it.each(['transport', 'unavailable'] as const)(
-		'rejects an import whose update reply is lost (%s) as unconfirmed, not failed',
+		'reports an import row whose update reply is lost (%s) as unconfirmed',
 		async (lost) => {
 			const { library, rows, state } = provider([saved]);
 			state.loseReply = { write: 1, as: lost };
 			const { pending } = importLost(library, [{ taskCode: 'RESP-200', title: 'Changed' }]);
-			await expect(pending).rejects.toMatchObject({ status: 503, reason: 'write-unconfirmed' });
+			expect((await pending).results).toEqual([
+				{ kind: 'unconfirmed', message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }
+			]);
 			expect(rows.map((row) => [row.task_code, row.title])).toEqual([['RESP-200', 'Changed']]);
 		}
 	);

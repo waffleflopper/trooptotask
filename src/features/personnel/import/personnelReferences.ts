@@ -38,19 +38,25 @@ export function personMatchReference(
 			const firstName = raw.firstName?.trim();
 			if (!lastName || !firstName) return null;
 			return {
-				key: `${personNameKey(lastName, firstName)}|${groupWords(raw.groupName ?? '')}`,
+				key: [personNameKey(lastName, firstName), groupWords(raw.groupName ?? ''), compactRank(raw.rank ?? '')].join(
+					'|'
+				),
 				display: `${lastName}, ${firstName}`
 			};
 		},
 		find(key) {
-			const split = key.lastIndexOf('|');
-			const people = byName.get(key.slice(0, split)) ?? [];
+			const parts = key.split('|');
+			const rank = parts.pop();
+			const group = parts.pop();
+			const people = byName.get(parts.join('|')) ?? [];
 			if (people.length === 0) return { kind: 'none' };
 			if (people.length === 1) return { kind: 'one', option: personOption(people[0]) };
-			const group = key.slice(split + 1);
 			const inGroup = group ? people.filter((person) => groupWords(person.groupName) === group) : [];
 			if (inGroup.length === 1) return { kind: 'one', option: personOption(inGroup[0]) };
-			return { kind: 'many', candidates: [...(inGroup.length ? inGroup : people).map(personOption), newOption] };
+			const candidates = inGroup.length ? inGroup : people;
+			const inRank = rank ? candidates.filter((person) => compactRank(person.rank) === rank) : [];
+			if (inRank.length === 1) return { kind: 'one', option: personOption(inRank[0]) };
+			return { kind: 'many', candidates: [...candidates.map(personOption), newOption] };
 		}
 	};
 }

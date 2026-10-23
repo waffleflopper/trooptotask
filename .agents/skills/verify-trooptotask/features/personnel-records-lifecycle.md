@@ -10,9 +10,9 @@ archives or restores a record while keeping its identity, permissions and retain
 - `record-import`: upload a roster workbook with several tabs and a header below a title, confirm the sheets and
   columns, fix a cell inline or answer a rail question once for many rows, skip rows, commit and download the rows not
   imported.
-- `record-backfill`: the same import matches active People by name without rank, uses the Group to break a tie and asks
-  `Which person?` when it cannot, updates only the fields a row fills and differs on, and shows a replay as Unchanged
-  with nothing to save.
+- `record-backfill`: the same import matches active People by name, uses Group then rank to break a tie and asks
+  `Which person?` when it cannot. Only the same name, Group and rank share a question. It updates only the fields a row
+  fills and differs on, and shows a replay as Unchanged with nothing to save.
 - `record-archive-restore`: single and bulk archive remove People from active views; restore retains their IDs and
   restores only artifacts archived by that parent event.
 - `record-approval`: an operate-only member requests archive approval without archiving the Person; an authorized
@@ -240,6 +240,15 @@ proof, separately from UI interaction.
    New and save as two People. Import `Last name, First name` with a new name: Review adds a Rank column whose cell on
    that row is an editor described by `Rank is needed for a new person.`, and `PFC` with Enter turns the row New. As
    `personnelScopedOperate`, a file without a Group column shows a Group editor the same way.
+
+   Separately seed `duplicate-able`, which adds a PFC namesake beside the original SPC Able in Alpha, and reload.
+   Import `Last name,First name,Group,Rank,MOS` with `Able,Synthetic,Alpha,SPC,25B` and
+   `Able,Synthetic,Alpha,PFC,11B`. Both rows read Update without a person question, and their MOS changes belong to
+   their respective saved IDs. Before saving, replace the file with `Last name,First name,Group,Rank` and the rows
+   `Able,Synthetic,Alpha,SGT` and `Able,Synthetic,Alpha,SSG`. Neither rank settles the tie, so two separate
+   `Which person?` questions each apply to one row. Answer the first with SPC Able and the second with PFC Able.
+   Both rows read Update without an in-file duplicate error. Two rows with the same name, Group and unresolved rank
+   share one question and still receive the in-file duplicate error if mapped to the same saved Person.
 
    Arm `network arm-fail PAGE personnel/import` before a commit: Done reports `0 changes saved.`,
    `The last batch was not confirmed` and a `Not confirmed` count with `Check the roster before importing these again.`,

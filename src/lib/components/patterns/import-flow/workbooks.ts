@@ -41,7 +41,7 @@ export async function buildNotImported(
 	for (const item of receipt.notImported) {
 		const name = pivotName(item.row);
 		const headers = headersOf(file.sheets.findIndex((sheet) => sheet.index === item.row.sheetIndex));
-		if (name && !headers.some((header) => headerKey(header) === headerKey(name)))
+		if (name && ![...headers, 'Reason'].some((header) => headerKey(header) === headerKey(name)))
 			addedHeaders.set(headerKey(name), addedHeaders.get(headerKey(name)) ?? name);
 	}
 	for (let index = 0; index < file.sheets.length; index++) {
@@ -58,7 +58,11 @@ export async function buildNotImported(
 			...Array.from({ length: width }, (_, column) => headers[column] ?? ''),
 			...(pivotColumns.length ? addedHeaders.values() : [])
 		];
-		const headerColumns = new Map(outputHeaders.map((header, column) => [headerKey(header), column]));
+		const headerColumns = new Map(
+			outputHeaders.flatMap((header, column) =>
+				pivotColumns.includes(column) || column >= width ? [[headerKey(header), column] as const] : []
+			)
+		);
 		const targets = targetsForHeaders(headers, layout.columns);
 		const fieldColumns = targets.flatMap((target, column) =>
 			target.kind === 'field' ? [[column, target.field] as const] : []

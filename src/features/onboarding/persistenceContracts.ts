@@ -33,13 +33,6 @@ export type PreparedOnboardingTemplateStep = OnboardingTemplateStepData & {
 	id?: string;
 };
 
-export interface OnboardingStarterReadiness {
-	template: SavedOnboardingTemplate | null;
-	hasAnyTemplate: boolean;
-	hasAnyStep: boolean;
-	stepNames: string[];
-}
-
 export interface DuplicatedOnboardingTemplate {
 	template: SavedOnboardingTemplate;
 	steps: SavedOnboardingTemplateStep[];
@@ -54,8 +47,7 @@ export interface OnboardingCatalogPersistence {
 	findTemplateByName(name: string): Promise<SavedOnboardingTemplate | null>;
 	findStep(id: string): Promise<SavedOnboardingTemplateStep | null>;
 	findStepByTemplateAndName(templateId: string, name: string): Promise<SavedOnboardingTemplateStep | null>;
-	readStarterReadiness(templateName: string, stepNames: readonly string[]): Promise<OnboardingStarterReadiness>;
-	countEstimatedSteps(): Promise<number>;
+	hasAnyTemplate(): Promise<boolean>;
 	createTemplate(data: OnboardingTemplateData): Promise<SavedOnboardingTemplate>;
 	updateTemplate(id: string, data: Partial<OnboardingTemplateData>): Promise<SavedOnboardingTemplate>;
 	/** Copies the template and its steps once per request id; a retry returns the same copy. */
@@ -110,6 +102,8 @@ export interface OnboardingWorkflowPersistence {
 	/** Start and finish dates of packets completed on or after `since` (YYYY-MM-DD). */
 	listCompletionsSince(since: string): Promise<OnboardingCompletion[]>;
 	listSavedActivePackets(): Promise<PersonnelOnboarding[]>;
+	/** The distinct people with an in-progress packet among the packets the requester may see, without steps or notes. */
+	listActivePacketPersonnelIds(): Promise<string[]>;
 	findPacketReference(id: string): Promise<OnboardingPacketReference | null>;
 	findStepReference(id: string): Promise<OnboardingProgressReference | null>;
 	listActivePacketIdsForPersonnel(personnelId: string): Promise<string[]>;

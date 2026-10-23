@@ -169,8 +169,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				findTemplateByName: unavailable,
 				findStep: unavailable,
 				findStepByTemplateAndName: unavailable,
-				readStarterReadiness: unavailable,
-				countEstimatedSteps: unavailable,
+				hasAnyTemplate: unavailable,
 				createTemplate: unavailable,
 				updateTemplate: unavailable,
 				duplicateTemplate: unavailable,
@@ -186,6 +185,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				listPackets: unavailable,
 				listCompletionsSince: unavailable,
 				listSavedActivePackets: unavailable,
+				listActivePacketPersonnelIds: unavailable,
 				findPacketReference: unavailable,
 				findStepReference: unavailable,
 				listActivePacketIdsForPersonnel: unavailable,
@@ -210,10 +210,7 @@ function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, op
 				listViews: unavailable,
 				listTypeLabels: unavailable,
 				listRankApplicabilityReferences: unavailable,
-				countTypesEstimated: unavailable,
 				findTypeByName: unavailable,
-				listExistingTypeNames: unavailable,
-				hasTypes: unavailable,
 				findTypeTiming: unavailable,
 				listTypeImportReferences: unavailable,
 				findTypeId: unavailable,
@@ -1364,12 +1361,15 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 	return {
 		async listDueEntries(actor) {
 			if (actor.capabilityMap.ratingScheme === 'none') return [];
-			const [people, archivedIds] = await Promise.all([
+			const [people, archivedIds, references] = await Promise.all([
 				actor.scopeSet.kind === 'groups' ? inMemoryPersonnelRows(rawStore, actor, 'all') : null,
-				inMemoryArchivedPersonIds(rawStore, actor.orgId)
+				inMemoryArchivedPersonIds(rawStore, actor.orgId),
+				createInMemoryPersonnelRatingSchemeRosterPort(rawStore).listActiveReferences(actor)
 			]);
 			const rows = await rawStore.findMany<{
+				id: string;
 				rated_person_id: string;
+				eval_type: 'OER' | 'NCOER' | 'WOER';
 				rating_period_end: string;
 				status: 'active' | 'completed' | 'change-of-rater';
 			}>(
@@ -1379,9 +1379,19 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				people ? { inFilters: { rated_person_id: people.map((person) => person.id) } } : undefined
 			);
 			const archived = toArchivedPersonIds(archivedIds);
+			const names = new Map(
+				references.map((person) => [person.id, `${person.rank} ${person.lastName}, ${person.firstName}`])
+			);
 			return rows
 				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
-				.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
+				.map((row) => ({
+					id: row.id,
+					ratedPersonId: row.rated_person_id,
+					...(names.has(row.rated_person_id) ? { ratedPersonName: names.get(row.rated_person_id) } : {}),
+					evalType: row.eval_type,
+					ratingPeriodEnd: row.rating_period_end,
+					status: row.status
+				}));
 		}
 	};
 }

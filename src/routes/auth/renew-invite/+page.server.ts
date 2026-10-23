@@ -63,33 +63,17 @@ export const actions: Actions = {
 		}
 
 		try {
-			const renewal = await createPublicAccessRequestSetupDeliveryService().requestFreshSetupLink({
+			const service = createPublicAccessRequestSetupDeliveryService((event) =>
+				auditLog(event, {
+					userId: null,
+					ip: clientIp,
+					userAgent: request.headers.get('user-agent') ?? ''
+				})
+			);
+			await service.requestFreshSetupLink({
 				email,
 				origin: url.origin
 			});
-			if (renewal.status === 'fresh-setup-sent' || renewal.status === 'fresh-setup-delivery-failed') {
-				await Promise.all(
-					renewal.revokedLinkIds.map((revokedLinkId) =>
-						auditLog(
-							{
-								action: 'account_setup.link_revoked',
-								resourceType: 'account_setup_link',
-								resourceId: revokedLinkId,
-								details: {
-									accessRequestId: renewal.accessRequestId,
-									replacementSetupLinkId: renewal.setupLinkId,
-									stateTransition: 'pending.replaced'
-								}
-							},
-							{
-								userId: null,
-								ip: clientIp,
-								userAgent: request.headers.get('user-agent') ?? ''
-							}
-						)
-					)
-				);
-			}
 		} catch (error) {
 			console.error('Failed to renew approved access request setup link:', error);
 			return fail(500, {

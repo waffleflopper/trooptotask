@@ -8,8 +8,7 @@ import { createMockAdapter, createStore, endOrganizationLifetime } from '$lib/st
 import { dailyAssignmentsStore } from '$features/calendar';
 import { confirmedChangesSentNow } from '$lib/test-support/confirmedChangeCookies';
 import { createDashboardWorkspaceHydrator, type DashboardHydrationStores } from './dashboardWorkspaceHydration.svelte';
-import { createDashboardScreenModel } from './read-model/dashboardScreenModel.svelte';
-import type { DashboardPageData, DashboardWorkspaceHydration } from './contracts';
+import type { DashboardWorkspaceHydration } from './contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -194,6 +193,44 @@ describe('Dashboard workspace hydration adapter', () => {
 		expect(stores.availabilityEntriesStore.items).toEqual([december, saved]);
 	});
 
+	it('drops a removed entry that continued an absence past the range, keeping unrelated later rows', async () => {
+		const stores = createStores();
+		const entry = (id: string, personnelId: string, startDate: string, endDate: string) =>
+			({ id, personnelId, startDate, endDate }) as AvailabilityEntry;
+		const deployment = entry('deployment', 'p1', '2026-05-10', '2026-05-20');
+		const later = entry('later', 'p1', '2026-06-10', '2026-06-12');
+		const otherPerson = entry('other', 'p2', '2026-05-21', '2026-05-23');
+		stores.availabilityEntriesStore.load(
+			[deployment, entry('removed', 'p1', '2026-05-21', '2026-05-25'), later, otherPerson],
+			'org-1'
+		);
+		const hydration: DashboardWorkspaceHydration = {
+			orgId: 'org-1',
+			confirmedChangesByTab: confirmedChangesSentNow(),
+			personnel: { mode: 'preserve-client', snapshotKey: 'personnel', items: [] },
+			groups: { mode: 'preserve-client', snapshotKey: 'groups', items: [] },
+			statusTypes: { mode: 'preserve-client', snapshotKey: 'status-types', items: [] },
+			availabilityEntries: {
+				mode: 'range',
+				snapshotKey: 'availability:continued',
+				items: [deployment],
+				range: DASHBOARD_RANGE
+			},
+			calendarAssignments: {
+				mode: 'preserve-client',
+				snapshotKey: 'assignments',
+				items: { types: [], assignments: [] },
+				range: DASHBOARD_RANGE
+			},
+			trainingTypes: { mode: 'preserve-client', snapshotKey: 'training-types', items: [] },
+			pinnedGroups: { mode: 'preserve-client', snapshotKey: 'pinned', items: [] }
+		};
+
+		await createDashboardWorkspaceHydrator().hydrate(hydration, stores);
+
+		expect(stores.availabilityEntriesStore.items).toEqual([later, otherPerson, deployment]);
+	});
+
 	it("lists only saved types' duty after a type deletion overtakes a Dashboard read", async () => {
 		const today = '2026-05-01';
 		const chargeOfQuarters = {
@@ -244,13 +281,7 @@ describe('Dashboard workspace hydration adapter', () => {
 		expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
 		late.resolve({ types: [chargeOfQuarters, runnerTeam], assignments: [cqDuty, runnerDutyByB] });
 		await pending;
-		const model = createDashboardScreenModel({ orgId: 'org-1', orgName: 'Unit' } as DashboardPageData, {
-			today,
-			storage: { getItem: () => null, setItem: () => {} }
-		});
-
-		expect(model.dutyAssignments.map(({ id, typeName }) => ({ id, typeName }))).toEqual([
-			{ id: 'cq-duty', typeName: 'Charge of Quarters' }
-		]);
+		expect(dailyAssignmentsStore.types.map(({ id }) => id)).toEqual(['cq']);
+		expect(dailyAssignmentsStore.assignments.map(({ id }) => id)).toEqual(['cq-duty']);
 	});
 });

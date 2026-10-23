@@ -19,6 +19,15 @@ export function indexAssignmentsBySlot(assignments: readonly DailyAssignment[]):
 	return bySlot;
 }
 
+/** A Calendar lane's open days: dates with no assignment of the type, weekends and closures included. */
+export function openAssignmentDates(
+	assignedSlots: { has(slot: string): boolean },
+	assignmentTypeId: string,
+	dates: readonly string[]
+): string[] {
+	return dates.filter((date) => !assignedSlots.has(assignmentSlotKey(date, assignmentTypeId)));
+}
+
 export function duplicateAssignmentSlot<T extends { readonly date: string; readonly assignmentTypeId: string }>(
 	assignments: readonly T[]
 ): T | null {

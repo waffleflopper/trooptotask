@@ -315,7 +315,9 @@ percentage.
    capture, choose Export records and inspect its `Training Records` sheet for type labels, Completed Date, Expiration
    Date and Notes; preserve the same dated rows as a separate Person export, not a report workbook. Open the
    Organization Dashboard with Training read authority and inspect the visible expired/warning identities and any saved
-   summary response. Preserve its retained currency meaning without demanding the report's 50% readiness. For Onboarding
+   summary response. Preserve its retained currency meaning without demanding the report's 50% readiness. An Expired
+   row's `Record class` saves one completion per checked Person through the same `POST api/personnel-trainings/batch` as
+   this page; the new record must show here after reload ([Dashboard actions](dashboard.md#actions)). For Onboarding
    completion references, use `trainingOnboarding`: choose Onboard → Templates → Add Template, enter a unique name and
    Create. Add the first step, name it, choose Training and `Verification Required Training`, then Add Step. Return to
    Onboarding → Start Onboarding, select Able and Start with the default date. After reload, its Required step must be
@@ -493,14 +495,26 @@ Support leads the worst-first type-risk summary.
    preserves colored fills despite `printBackground: false`, so those captures do not prove that the background
    preference takes effect. A backgrounds-off PDF is not monochrome proof. Keep headings, totals, drop numbers, N/A and
    text legible. Use new artifact names for each capture.
-9. Inspect **every PDF page**, including the last table row and every column continuation. Compare manually with
-   approved [Print A in Paper](https://app.paper.design/file/01M3HXNN6A4S0FTNQ88XS9YJ9X/p-3-1) and the corrected Sheet 3
-   export. Accepted differences from the design: the transposed matrix is the base, a compact worst-first type-risk
-   summary stays, and more sheets are allowed before shrinking body text, numbers or drops. Require white margins,
-   useful section identity, repeated table headings and context on every sheet. Remove app chrome, actions and
-   pagination. Preserve all selected types and Groups or roles exactly once per relevant table. Reject clipped labels,
-   missing final rows, header-only fragments and content confined to the screen height. Do not copy the private PDF into
-   source or evidence.
+9. Inspect **every PDF page**, including the last table row and every column continuation. Every sheet is landscape (792
+   × 612 pt on Letter). Sheet 1 is the brief: `TRAINING READINESS BRIEF`, the Organization,
+   `<n> soldiers · as of <day> · forecast through <day> (<n> days) · goal <n>%`, the full filter line, Bottom line
+   (ready today → at the horizon, with the requirement counts), the forecast chart, `WHAT · WORST FIRST` with the top
+   five types by not ready plus lapsing, and Focus. The matrix sheets follow, titled `Training type by group` (or
+   `by duty role`): training types down the side in the selected order, Groups or roles across with `All groups`
+   (`All roles`) first and each column's soldier count under its name, and `Not ready` and `Lapse by <day>` requirement
+   counts on the right. Columns that do not fit continue on later sheets titled `…, continued`; with the Dense cohort
+   below, Rows by Group gives five sheets, `GROUPS 1–7 OF 14` on sheets 2 and 3 and `GROUPS 8–14 OF 14` on sheets 4 and
+   5, and Rows by Duty role does the same with `DUTY ROLES`. Each matrix sheet repeats the type labels, the `All`
+   column, the count columns, the column headings, the running header
+   `AS OF <day> · TO <day> · GOAL <n>% · … · MORE FILTERS ON SHEET 1`, the cell explanation and the `KEY` (tint bands
+   from the goal down, bold below the goal, `86▼14` for a drop, `—` where no one requires the type). Types that do not
+   fit continue on the next sheet, and the last sheet of each column run closes with `ALL SELECTED TYPES · TODAY` and
+   `ALL SELECTED TYPES · BY <day>`. Every sheet ends with
+   `TroopToTask · printed from the loaded report · Excel holds every affected requirement` and `Page n of N`. Body text,
+   numbers and drops keep their size; the brief uses more sheets instead. Require white margins, useful section
+   identity, repeated table headings and context on every sheet. Remove app chrome, actions and pagination. Preserve all
+   selected types and Groups or roles exactly once per relevant table. Reject clipped labels, missing final rows,
+   header-only fragments and content confined to the screen height. Do not copy the private PDF into source or evidence.
 
 Before `$V clean-seeds`, complete the Print A PDF/workbook comparisons and all other selected comparisons that depend on
 every still-journaled cohort, including their selected reverse consumers and exact saved sets. Preserve the complete
@@ -552,8 +566,8 @@ and offline recovery tests separate from native UI, actual PDF and independent v
 Launch with `--browser-timezone` chosen per the [skill](../SKILL.md#launch) so the browser day differs from the app's
 UTC day, and record both days. As `trainingConfigure`, record a completion for Able whose expiration is the browser day.
 Reload, then read the same requirement in the Training matrix, the Training report (`/training/reports`), the Training
-table on Able's Personnel Readiness tab and the Dashboard Training card. Every surface must treat it as due on the
-browser day (for example `0d left`), not expired; on the UTC-behind zone none may show it as `Expired 1d ago`, and on
-the UTC-ahead zone none may show `1d left`. The report's `Today ·` axis label and the exported workbook's name
-`training-report-<browser day>.xlsx` and `As of` row must carry the browser day. The report URL must not gain an `asOf`
-parameter.
+table on Able's Personnel Readiness tab and the Dashboard's Training readiness column, where it counts as expiring, not
+expired. Every surface must treat it as due on the browser day (for example `0d left`), not expired; on the UTC-behind
+zone none may show it as `Expired 1d ago`, and on the UTC-ahead zone none may show `1d left`. The report's `Today ·`
+axis label and the exported workbook's name `training-report-<browser day>.xlsx` and `As of` row must carry the browser
+day. The report URL must not gain an `asOf` parameter.

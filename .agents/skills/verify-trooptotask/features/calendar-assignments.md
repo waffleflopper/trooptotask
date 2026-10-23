@@ -301,6 +301,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
     `Find replacement for Staff Duty, Sat 31 Oct` at 900x800 (the dialog flips left of the cell) and 390x844 (below the
     cell, at least 8 px inside each viewport edge); neither covers the cell.
 
+The Dashboard's Unfilled `Fill N days` action saves its days through the same `/batch` request; the saved names must
+appear in this Calendar lane and the planner after reload ([Dashboard actions](dashboard.md#actions)).
+
 The assignment write endpoints are `/org/<orgA>/api/daily-assignments` with `POST {date,assignmentTypeId,assigneeId}` or
 `DELETE {date,assignmentTypeId}`, and `/batch` with `POST {records:[{date,assignmentTypeId,assigneeId}]}`. The roster
 endpoints are `GET /org/<orgA>/api/duty-rosters?today=YYYY-MM-DD&month=YYYY-MM` (counts today, the month's detail days

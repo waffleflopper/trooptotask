@@ -3,6 +3,7 @@ import type {
 	AssignmentType,
 	AvailabilityEntry,
 	CalendarDateRange,
+	SpecialDay,
 	StatusType,
 	DailyAssignment
 } from '$features/calendar/contracts';
@@ -11,7 +12,6 @@ import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { TrainingSummary } from '$features/training/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-export type { TrainingIssue } from '$features/training/contracts';
 
 export interface DashboardIctlMosReadiness {
 	mos: string;
@@ -51,6 +51,8 @@ export interface DashboardIctlSummary {
 	readyCount: number;
 	applicableCount: number;
 	soldiersBelowThresholdCount: number;
+	/** At or above the threshold with a task expiring soon; never counted below it too. */
+	soldiersAtRiskCount: number;
 	soldiersBelowThresholdTotal: number;
 	thresholdPercent: number;
 	expiringSoonCount: number;
@@ -64,30 +66,25 @@ export interface DashboardIctlSummary {
 	atRiskSoldiers: DashboardIctlAtRiskSoldier[];
 }
 
-export interface DashboardSetupSupport {
-	trainingTypeCount: number;
-	onboardingTemplateStepCount: number;
-	ratingSchemeEntryCount: number;
-	orgMemberCount: number;
-	starterConfigurationPacks: StarterConfigurationPackSupport[];
+/** The viewer's calendar day and IANA zone from the page load; the Dashboard's only "today". */
+export interface DashboardViewerDay {
+	date: string;
+	timeZone: string;
 }
 
 export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
+	viewerDay: DashboardViewerDay;
 	/** Features off for the unit, from the app shell's Organization row. */
 	disabledFeatures: readonly FeatureKey[];
 	dashboard: DashboardWorkspaceResult;
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
-	trainingTypeCount?: number;
-	onboardingTemplateStepCount?: number;
-	ratingSchemeEntryCount?: number;
-	orgMemberCount?: number;
-	gettingStartedDismissed?: boolean;
-	starterConfigurationPacks?: StarterConfigurationPackSupport[];
+	/** The summary read failed, so a null summary above is unknown rather than withheld. */
+	summaryFailed: boolean;
 	[key: string]: unknown;
 }
 
@@ -100,6 +97,8 @@ export interface DashboardBootstrap {
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeDueEntry[];
 	activeOnboardings: PersonnelOnboarding[];
+	/** False until the unit saves its first Onboarding template; Onboarding is then not set up. */
+	hasAnyOnboardingTemplate: boolean;
 	personnel: Personnel[];
 	groups: Group[];
 	statusTypes: StatusType[];
@@ -110,6 +109,8 @@ export interface DashboardBootstrap {
 	strengthFloorPercent: number;
 	/** Personnel IDs whose award tracking has been acknowledged. */
 	awardTrackingAcknowledgedPersonnelIds: string[];
+	/** Stored federal holidays and closures within `range`; the forecast never flags them. */
+	specialDays: SpecialDay[];
 }
 
 export const DASHBOARD_WORKSPACE_KEY = 'dashboard' as const;
@@ -165,45 +166,9 @@ export interface DashboardWorkspaceResult {
 	hydration: DashboardWorkspaceHydration;
 }
 
-import type { PolicyReasonCode } from '$lib/access/policyEvaluator';
-
 export type StarterConfigurationPackId = 'first-week-operations';
 
 export type StarterConfigurationPackArtifactFamilyId = 'training-types' | 'onboarding-template';
-
-export interface StarterConfigurationPackArtifactPreview {
-	family: StarterConfigurationPackArtifactFamilyId;
-	label: string;
-	names: string[];
-	description: string;
-}
-
-export interface StarterConfigurationPackFamilyReadiness {
-	family: StarterConfigurationPackArtifactFamilyId;
-	label: string;
-	configured: boolean;
-	starterArtifactCount: number;
-	expectedArtifactCount: number;
-	existingStarterArtifactNames: string[];
-}
-
-export interface StarterConfigurationPackDeniedAction {
-	id: string;
-	label: string;
-	reasonCode: PolicyReasonCode;
-}
-
-export interface StarterConfigurationPackSupport {
-	id: StarterConfigurationPackId;
-	name: string;
-	description: string;
-	editableCopy: string;
-	artifacts: StarterConfigurationPackArtifactPreview[];
-	readiness: StarterConfigurationPackFamilyReadiness[];
-	canApply: boolean;
-	deniedActions: StarterConfigurationPackDeniedAction[];
-	isFullyApplied: boolean;
-}
 
 export interface StarterConfigurationPackResultItem {
 	family: StarterConfigurationPackArtifactFamilyId;
@@ -222,9 +187,11 @@ export interface StarterConfigurationPackApplyResult {
 	failed: StarterConfigurationPackFailedItem[];
 }
 
-export { formatDashboardDisplayDate } from './dashboardDate';
+export { formatDashboardDisplayDate, formatDashboardTitleDate } from './dashboardDate';
 export interface DashboardPageSummaryData {
 	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
+	/** The people whose active Onboarding the completion read covered; empty when Training was not read. */
+	onboardingPersonnelIds: string[];
 }

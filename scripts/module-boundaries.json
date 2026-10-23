@@ -294,7 +294,8 @@
 			"access",
 			"provider",
 			"shared",
-			"web-ui"
+			"web-ui",
+			"web-patterns"
 		],
 		"data-export": [
 			"identity",

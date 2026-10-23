@@ -49,14 +49,3 @@ function assertNormalizedMembershipFacts(data: Record<string, unknown>): void {
 		error(500, 'Membership row is missing normalized member access storage');
 	}
 }
-
-/** Setup support needs an estimated total, with only one membership ID transferred. */
-export async function countOrganizationMembers(supabase: SupabaseClient, orgId: string): Promise<number> {
-	const { count, error: countError } = await supabase
-		.from('organization_memberships')
-		.select('id', { count: 'estimated' })
-		.eq('organization_id', orgId)
-		.range(0, 0);
-	if (countError) throw new Error(countError.message);
-	return count ?? 0;
-}

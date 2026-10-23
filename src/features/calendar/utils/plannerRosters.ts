@@ -1,4 +1,4 @@
-import type { PlannerRoster } from '$features/calendar/contracts';
+import type { PlannerRoster, RosterFillPick } from '$features/calendar/contracts';
 import type { RosterCode, TrackId } from '$features/calendar/roster/rosterTypes';
 
 export interface RosterEntry {
@@ -63,4 +63,14 @@ function decodeRoster(roster: PlannerRoster): RosterView {
 /** Reads as "Leave (A)": the reason, then the code. */
 export function effectLabel(effect: { readonly code: RosterCode; readonly reason: string }): string {
 	return `${effect.reason} (${effect.code})`;
+}
+
+/** Who a fill pick passed over, as in "Skipped SPC Cole (15). On Leave, count holds." */
+export function rosterSkipNote(pick: Pick<RosterFillPick, 'passedOver'>, name: (personId: string) => string): string {
+	return pick.passedOver
+		.map((skip) => {
+			const holds = skip.code === 'A' ? 'count holds' : 'count runs';
+			return `Skipped ${name(skip.personId)} (${skip.count}). On ${skip.reason}, ${holds}.`;
+		})
+		.join(' ');
 }

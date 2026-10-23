@@ -10,6 +10,8 @@ export type {
 
 export { onboardingTrainingTypes } from './stores/onboardingTrainingTypes.svelte';
 export { onboardingStore } from './stores/onboarding.svelte';
+export { loadOnboardingStartOptions, startOnboardingPacket } from './onboardingRequests';
+export type { OnboardingStartOptions } from './contracts';
 export { createOnboardingTemplateWorkspace, onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
 export type {
 	OnboardingTemplateDeleteTarget,
@@ -37,6 +39,11 @@ export { default as PersonnelOnboardingLine } from './components/PersonnelOnboar
 /** Keep packet dialogs lazy behind their consumed Web entry. */
 export function loadOnboardingModals() {
 	return import('./components/OnboardingModals.svelte');
+}
+
+/** The start dialog alone, for starting a packet outside the Onboarding workspace. */
+export function loadStartOnboardingModal() {
+	return import('./components/StartOnboardingModal.svelte');
 }
 
 export type { OnboardingPageAccess } from './contracts';

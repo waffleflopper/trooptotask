@@ -86,7 +86,13 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	 * the preview, so the caller can show the new picks.
 	 */
 	fillFromRoster: (fill: RosterFill) => Promise<'saved' | 'changed' | 'failed'>;
+	/** Like `fillFromRoster`, but rejects with the failure message instead of showing a toast. */
+	fillFromRosterOrThrow: (fill: RosterFill) => Promise<'saved' | 'changed'>;
 	replaceFromRoster: (replacement: RosterReplacementWrite) => Promise<'saved' | 'changed' | 'failed'>;
+	/** Like `setAssignmentBatch`, but rejects with the failure message instead of showing a toast. */
+	setAssignmentBatchOrThrow: (
+		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
+	) => Promise<void>;
 	saveStartingNumbers: (
 		input: StartingNumbersSave
 	) => Promise<{ status: 'saved' } | { status: 'refused'; message: string } | { status: 'failed' }>;
@@ -332,6 +338,102 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		return res;
 	}
 
+	async function fillFromRosterOrThrow(fill: RosterFill): Promise<'saved' | 'changed'> {
+		const mutationId = crypto.randomUUID();
+		internals.log.push({
+			type: 'add-batch',
+			mutationId,
+			tempIds: fill.picks.map(() => `temp-${crypto.randomUUID()}`),
+			data: fill.picks.map(({ date, personId }) => ({ date, assignmentTypeId: fill.typeId, assigneeId: personId }))
+		});
+		try {
+			const res = await internals.withinOrganization(
+				fetch(`/org/${internals.orgId()}/api/duty-rosters/fill`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(fill)
+				})
+			);
+			if (res.status === 409) return 'changed';
+			if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The roster picks were not saved.'));
+			const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+			internals.commit({ saved });
+			return 'saved';
+		} finally {
+			internals.log.resolve(mutationId);
+		}
+	}
+
+	async function setAssignmentBatchOrThrow(assignments: AssignmentBatchRecord[]): Promise<void> {
+		const normalizedAssignments = normalizeAssignmentBatch(assignments);
+		const duplicateSlot = duplicateAssignmentSlot(normalizedAssignments);
+		if (duplicateSlot) {
+			throw new Error(
+				`Duplicate daily assignment slot in batch: ${duplicateSlot.date} / ${duplicateSlot.assignmentTypeId}`
+			);
+		}
+
+		const existingIds: string[] = [];
+		const tempIds: string[] = [];
+		const addData: Omit<DailyAssignment, 'id'>[] = [];
+		const existingBySlotKey = new Map(
+			getAssignmentSnapshot().map((assignment) => [
+				assignmentSlotKey(assignment.date, assignment.assignmentTypeId),
+				assignment
+			])
+		);
+
+		for (const a of normalizedAssignments) {
+			const existing = existingBySlotKey.get(assignmentSlotKey(a.date, a.assignmentTypeId));
+			if (existing) existingIds.push(existing.id);
+
+			if (a.assigneeId) {
+				tempIds.push(`temp-${crypto.randomUUID()}`);
+				addData.push({
+					date: a.date,
+					assignmentTypeId: a.assignmentTypeId,
+					assigneeId: a.assigneeId
+				});
+			}
+		}
+
+		let removeMutationId: string | null = null;
+		if (existingIds.length > 0) {
+			removeMutationId = crypto.randomUUID();
+			internals.log.push({ type: 'remove-batch', mutationId: removeMutationId, targetIds: existingIds });
+		}
+
+		let addMutationId: string | null = null;
+		if (tempIds.length > 0) {
+			addMutationId = crypto.randomUUID();
+			internals.log.push({ type: 'add-batch', mutationId: addMutationId, tempIds, data: addData });
+		}
+
+		try {
+			const { inserted } = await internals.withinOrganization(
+				sendAssignments(
+					'/batch',
+					'POST',
+					{ records: normalizedAssignments },
+					'Failed to batch update assignments'
+				).then((res) => res.json() as Promise<{ inserted: DailyAssignment[] }>)
+			);
+
+			const replacedSlots = new Set(normalizedAssignments.map((a) => assignmentSlotKey(a.date, a.assignmentTypeId)));
+			internals.commit({
+				deletedWhere: (assignment) => replacedSlots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+			});
+			internals.commit({ saved: inserted });
+
+			if (removeMutationId) internals.log.resolve(removeMutationId);
+			if (addMutationId) internals.log.resolve(addMutationId);
+		} catch (error) {
+			if (removeMutationId) internals.log.resolve(removeMutationId);
+			if (addMutationId) internals.log.resolve(addMutationId);
+			throw error;
+		}
+	}
+
 	return {
 		get types() {
 			return typesStore.items;
@@ -536,113 +638,26 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 		},
 
-		async setAssignmentBatch(
-			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
-		): Promise<boolean> {
-			const normalizedAssignments = normalizeAssignmentBatch(assignments);
-			const duplicateSlot = duplicateAssignmentSlot(normalizedAssignments);
-			if (duplicateSlot) {
-				toastStore.error(
-					`Duplicate daily assignment slot in batch: ${duplicateSlot.date} / ${duplicateSlot.assignmentTypeId}`
-				);
-				return false;
-			}
-
-			const existingIds: string[] = [];
-			const tempIds: string[] = [];
-			const addData: Omit<DailyAssignment, 'id'>[] = [];
-			const existingBySlotKey = new Map(
-				getAssignmentSnapshot().map((assignment) => [
-					assignmentSlotKey(assignment.date, assignment.assignmentTypeId),
-					assignment
-				])
-			);
-
-			for (const a of normalizedAssignments) {
-				const existing = existingBySlotKey.get(assignmentSlotKey(a.date, a.assignmentTypeId));
-				if (existing) existingIds.push(existing.id);
-
-				if (a.assigneeId) {
-					tempIds.push(`temp-${crypto.randomUUID()}`);
-					addData.push({
-						date: a.date,
-						assignmentTypeId: a.assignmentTypeId,
-						assigneeId: a.assigneeId
-					});
-				}
-			}
-
-			let removeMutationId: string | null = null;
-			if (existingIds.length > 0) {
-				removeMutationId = crypto.randomUUID();
-				internals.log.push({ type: 'remove-batch', mutationId: removeMutationId, targetIds: existingIds });
-			}
-
-			let addMutationId: string | null = null;
-			if (tempIds.length > 0) {
-				addMutationId = crypto.randomUUID();
-				internals.log.push({ type: 'add-batch', mutationId: addMutationId, tempIds, data: addData });
-			}
-
+		async setAssignmentBatch(assignments: AssignmentBatchRecord[]): Promise<boolean> {
 			try {
-				const { inserted } = await internals.withinOrganization(
-					sendAssignments(
-						'/batch',
-						'POST',
-						{ records: normalizedAssignments },
-						'Failed to batch update assignments'
-					).then((res) => res.json() as Promise<{ inserted: DailyAssignment[] }>)
-				);
-
-				const replacedSlots = new Set(normalizedAssignments.map((a) => assignmentSlotKey(a.date, a.assignmentTypeId)));
-				internals.commit({
-					deletedWhere: (assignment) =>
-						replacedSlots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
-				});
-				internals.commit({ saved: inserted });
-
-				if (removeMutationId) internals.log.resolve(removeMutationId);
-				if (addMutationId) internals.log.resolve(addMutationId);
+				await setAssignmentBatchOrThrow(assignments);
 				return true;
 			} catch (error) {
-				if (removeMutationId) internals.log.resolve(removeMutationId);
-				if (addMutationId) internals.log.resolve(addMutationId);
 				toastStore.error(error instanceof Error ? error.message : 'Failed to batch update assignments');
 				return false;
 			}
 		},
 
 		async fillFromRoster(fill: RosterFill) {
-			const mutationId = crypto.randomUUID();
-			internals.log.push({
-				type: 'add-batch',
-				mutationId,
-				tempIds: fill.picks.map(() => `temp-${crypto.randomUUID()}`),
-				data: fill.picks.map(({ date, personId }) => ({ date, assignmentTypeId: fill.typeId, assigneeId: personId }))
-			});
 			try {
-				const res = await internals.withinOrganization(
-					fetch(`/org/${internals.orgId()}/api/duty-rosters/fill`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(fill)
-					})
-				);
-				if (res.status === 409) {
-					internals.log.resolve(mutationId);
-					return 'changed';
-				}
-				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The roster picks were not saved.'));
-				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
-				internals.commit({ saved });
-				internals.log.resolve(mutationId);
-				return 'saved';
+				return await fillFromRosterOrThrow(fill);
 			} catch (error) {
-				internals.log.resolve(mutationId);
 				toastStore.error(error instanceof Error ? error.message : 'The roster picks were not saved.');
 				return 'failed';
 			}
 		},
+
+		fillFromRosterOrThrow,
 
 		async replaceFromRoster(replacement: RosterReplacementWrite) {
 			const slots = [{ date: replacement.date, personId: replacement.assigneeId }, ...replacement.repicks];
@@ -693,6 +708,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 		},
 
+		setAssignmentBatchOrThrow,
 		/**
 		 * Saves an open form's typed starting numbers and swaps in the roster picks they re-picked. A refusal carries
 		 * the server's reason, such as duty already pulled on the form.

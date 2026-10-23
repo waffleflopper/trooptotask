@@ -1,18 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-	createAccountSetupLinkService,
-	createSupabaseAccountSetupLinkStore,
-	sendAccountSetupLinkEmail,
-	type AccountSetupLinkStore
-} from './accountSetupLinks.server';
-import {
-	createSupabaseAuthEmailOutboxStore,
-	sendAccountSetupOutboxDelivery,
-	type AuthEmailOutboxStore
-} from './authEmailOutbox.server';
 import { addUtcDays } from './accountSetupDates';
 import { isSetupGrantWithdrawn } from './accessRequestSetupState.server';
-import { makePublicAppUrl } from './publicAppOrigin.server';
+import {
+	createAccountSetupLinkIssuance,
+	type AccountSetupLinkIssuance,
+	type AccountSetupLinkIssuanceDependencies
+} from './accountSetupLinkIssuance.server';
+import { createSupabaseAccountSetupLinkIssuancePorts } from './accountSetupLinkIssuanceSupabase.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS, type AccessRequestStatus } from './contracts';
 
@@ -35,7 +29,7 @@ export interface CreatePendingAccessRequestInput {
 	heardAboutDetails: string | null;
 }
 
-export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore, AuthEmailOutboxStore {
+export interface AccessRequestSetupDeliveryStore {
 	listAccessRequestsByEmail(email: string): Promise<AccessRequestSetupRequest[]>;
 	insertPendingAccessRequest(input: CreatePendingAccessRequestInput): Promise<void>;
 }
@@ -43,26 +37,16 @@ export interface AccessRequestSetupDeliveryStore extends AccountSetupLinkStore, 
 export type AccessRequestSubmissionResult =
 	| { status: 'pending-created' }
 	| { status: 'already-pending' }
-	| { status: 'fresh-setup-sent'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
-	| { status: 'fresh-setup-delivery-failed'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
-	| { status: 'no-public-action' };
+	| AccessRequestRenewalResult;
 
 export type AccessRequestRenewalResult =
-	| { status: 'fresh-setup-sent'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
-	| { status: 'fresh-setup-delivery-failed'; accessRequestId: string; setupLinkId: string; revokedLinkIds: string[] }
+	| { status: 'fresh-setup-sent' }
+	| { status: 'fresh-setup-delivery-failed' }
 	| { status: 'no-public-action' };
 
 interface AccessRequestSetupDeliveryOptions {
 	now?: () => Date;
 }
-
-interface SendSetupEmailInput {
-	email: string;
-	setupUrl: string;
-	expiresAt: Date;
-}
-
-type SetupEmailSender = (input: SendSetupEmailInput) => Promise<void>;
 
 interface AccessRequestRow {
 	id: string;
@@ -90,10 +74,6 @@ function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 	};
 }
 
-function makeSetupUrl(origin: string, setupPath: string): string {
-	return makePublicAppUrl(setupPath, { inboundOrigin: origin });
-}
-
 function latestFirst(a: AccessRequestSetupRequest, b: AccessRequestSetupRequest): number {
 	return b.createdAt.getTime() - a.createdAt.getTime();
 }
@@ -109,11 +89,10 @@ function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: 
 
 export function createAccessRequestSetupDeliveryService(
 	store: AccessRequestSetupDeliveryStore,
-	sendSetupEmail: SetupEmailSender,
+	issuance: AccountSetupLinkIssuance,
 	options: AccessRequestSetupDeliveryOptions = {}
 ) {
 	const now = options.now ?? (() => new Date());
-	const setupLinks = createAccountSetupLinkService(store, { now });
 
 	async function deliverFreshSetupLink(
 		request: AccessRequestSetupRequest,
@@ -123,33 +102,19 @@ export function createAccessRequestSetupDeliveryService(
 			return { status: 'no-public-action' };
 		}
 
-		const setupResult = await setupLinks.createForAccessRequest(request.id);
-		if (setupResult.status !== 'created') {
+		const issued = await issuance.issue({
+			accessRequestId: request.id,
+			email: normalizeEmail(request.email),
+			publicOrigin: origin,
+			origin: 'public_renewal',
+			deliveryErrorMode: 'throw'
+		});
+		if (issued.status === 'not_created') {
 			return { status: 'no-public-action' };
 		}
 
-		const delivery = await sendAccountSetupOutboxDelivery(store, sendSetupEmail, {
-			accessRequestId: request.id,
-			setupLinkId: setupResult.link.id,
-			email: normalizeEmail(request.email),
-			setupUrl: makeSetupUrl(origin, setupResult.setupPath),
-			expiresAt: setupResult.expiresAt
-		});
-
-		if (delivery.status === 'failed') {
-			return {
-				status: 'fresh-setup-delivery-failed',
-				accessRequestId: request.id,
-				setupLinkId: setupResult.link.id,
-				revokedLinkIds: setupResult.revokedLinkIds
-			};
-		}
-
 		return {
-			status: 'fresh-setup-sent',
-			accessRequestId: request.id,
-			setupLinkId: setupResult.link.id,
-			revokedLinkIds: setupResult.revokedLinkIds
+			status: issued.status === 'sent' ? 'fresh-setup-sent' : 'fresh-setup-delivery-failed'
 		};
 	}
 
@@ -209,13 +174,7 @@ export function createAccessRequestSetupDeliveryService(
 }
 
 export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseClient): AccessRequestSetupDeliveryStore {
-	const setupLinkStore = createSupabaseAccountSetupLinkStore(client);
-	const outboxStore = createSupabaseAuthEmailOutboxStore(client);
-
 	return {
-		...setupLinkStore,
-		...outboxStore,
-
 		async listAccessRequestsByEmail(email) {
 			const { data, error } = await client
 				.from('access_requests')
@@ -247,13 +206,16 @@ export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseCl
 	};
 }
 
-export function createSupabaseAccessRequestSetupDeliveryService(client: SupabaseClient) {
+export function createSupabaseAccessRequestSetupDeliveryService(
+	client: SupabaseClient,
+	audit: AccountSetupLinkIssuanceDependencies['audit']
+) {
 	return createAccessRequestSetupDeliveryService(
 		createSupabaseAccessRequestSetupDeliveryStore(client),
-		sendAccountSetupLinkEmail
+		createAccountSetupLinkIssuance({ ...createSupabaseAccountSetupLinkIssuancePorts(client), audit })
 	);
 }
 
-export function createPublicAccessRequestSetupDeliveryService() {
-	return createSupabaseAccessRequestSetupDeliveryService(getAdminClient());
+export function createPublicAccessRequestSetupDeliveryService(audit: AccountSetupLinkIssuanceDependencies['audit']) {
+	return createSupabaseAccessRequestSetupDeliveryService(getAdminClient(), audit);
 }

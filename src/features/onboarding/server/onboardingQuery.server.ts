@@ -1,6 +1,11 @@
+import { projectOnboardingTrainingSteps } from '../onboardingTrainingProjection';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import { fetchOnboardingTemplatesData } from './onboardingTemplateRead.server';
-import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onboarding/contracts';
+import type {
+	OnboardingBootstrap,
+	OnboardingBootstrapMode,
+	OnboardingStartOptions
+} from '$features/onboarding/contracts';
 import { requireOnboardingViewPolicy } from './onboardingPolicy.server';
 import type { OnboardingQueryPorts } from './onboardingPorts.server';
 import { personnelScopeResource, type GroupPersistence } from '$features/personnel/contracts';
@@ -17,8 +22,13 @@ export interface FetchOnboardingBootstrapOptions {
 	today?: string;
 }
 
+type OnboardingStartOptionsPorts = Pick<
+	OnboardingQueryPorts,
+	'auth' | 'audit' | 'onboardingCatalog' | 'loadRankCatalog'
+>;
+
 async function loadPersonnelCreationRanks(
-	ctx: OnboardingQueryPorts
+	ctx: OnboardingStartOptionsPorts
 ): Promise<Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'>> {
 	const resource = personnelScopeResource(ctx.auth.scopeSet);
 	if (resource === null) return { rankCatalog: [], rankCatalogUnavailable: false };
@@ -33,22 +43,13 @@ async function loadPersonnelCreationRanks(
 	}
 }
 
-function applyTrainingCompletionStatuses(
-	onboarding: PersonnelOnboarding,
-	completedTrainingTypeIdsByPersonnelId: Map<string, Set<string>>
-): PersonnelOnboarding {
-	const completedTrainingTypeIds = completedTrainingTypeIdsByPersonnelId.get(onboarding.personnelId) ?? new Set();
-
-	return {
-		...onboarding,
-		steps: onboarding.steps.map((step) => {
-			if (step.stepType !== 'training' || !step.active || step.trainingTypeId === null) {
-				return step;
-			}
-
-			return { ...step, completed: step.completed || completedTrainingTypeIds.has(step.trainingTypeId) };
-		})
-	};
+/** Templates for the packet, and the rank catalog when the viewer may add the Person on the way. */
+export async function fetchOnboardingStartOptions(ctx: OnboardingStartOptionsPorts): Promise<OnboardingStartOptions> {
+	const [{ templates, templateSteps }, ranks] = await Promise.all([
+		fetchOnboardingTemplatesData(ctx),
+		loadPersonnelCreationRanks(ctx)
+	]);
+	return { templates, hasTemplateSteps: templateSteps.length > 0, ...ranks };
 }
 
 function collectActiveTrainingTypeIds(onboarding: PersonnelOnboarding): string[] {
@@ -156,7 +157,11 @@ export async function fetchOnboardingBootstrap(
 		const refreshedOnboardingById = new Map(
 			trainingOnboardings.map((onboarding) => [
 				onboarding.id,
-				applyTrainingCompletionStatuses(onboarding, completedTrainingTypeIdsByPersonnelId)
+				projectOnboardingTrainingSteps(
+					onboarding,
+					(trainingTypeId) =>
+						completedTrainingTypeIdsByPersonnelId.get(onboarding.personnelId)?.has(trainingTypeId) ?? false
+				)
 			])
 		);
 

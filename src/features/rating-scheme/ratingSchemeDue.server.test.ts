@@ -7,6 +7,8 @@ import { createSupabaseRatingSchemeDuePort } from './ratingSchemeDue.server';
 type ProviderRow = {
 	id: string;
 	organization_id: string;
+	rated_person_id: string;
+	eval_type: RatingSchemeDueEntry['evalType'];
 	rating_period_end: string;
 	status: RatingSchemeDueEntry['status'];
 } & Record<string, unknown>;
@@ -55,14 +57,19 @@ function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: stri
 		};
 		return query;
 	});
+	const listActiveReferences = vi.fn<PersonnelRatingSchemeRosterPort['listActiveReferences']>().mockResolvedValue([]);
 	const listArchivedRatedPersonIds = vi
 		.fn<PersonnelRatingSchemeRosterPort['listArchivedRatedPersonIds']>()
 		.mockResolvedValue(archivedIds);
 	return {
 		from,
 		selections,
+		listActiveReferences,
 		listArchivedRatedPersonIds,
-		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, { listArchivedRatedPersonIds })
+		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, {
+			listActiveReferences,
+			listArchivedRatedPersonIds
+		})
 	};
 }
 
@@ -72,6 +79,7 @@ function pageRows(): ProviderRow[] {
 			id: `evaluation-${String(index).padStart(4, '0')}`,
 			organization_id: 'org-a',
 			rated_person_id: 'person-a',
+			eval_type: 'NCOER' as const,
 			rating_period_end: '2026-01-01',
 			status: 'active' as const
 		})),
@@ -79,6 +87,7 @@ function pageRows(): ProviderRow[] {
 			id: 'evaluation-1000',
 			organization_id: 'org-a',
 			rated_person_id: 'person-a',
+			eval_type: 'NCOER' as const,
 			rating_period_end: '2030-12-31',
 			status: 'completed' as const
 		}
@@ -86,7 +95,7 @@ function pageRows(): ProviderRow[] {
 }
 
 describe('Rating Scheme due projection', () => {
-	it('reads only due facts for the requested Organization without Personnel access', async () => {
+	it('reads the due facts and entry identity for the requested Organization, without evaluators or notes', async () => {
 		const { port, selections } = provider([
 			{
 				id: 'evaluation-1',
@@ -94,6 +103,7 @@ describe('Rating Scheme due projection', () => {
 				rating_period_end: '2026-09-25',
 				status: 'active',
 				rated_person_id: 'person-a',
+				eval_type: 'NCOER',
 				rater_name: 'Private evaluator name',
 				notes: 'Private evaluation notes'
 			},
@@ -101,6 +111,7 @@ describe('Rating Scheme due projection', () => {
 				id: 'evaluation-2',
 				organization_id: 'org-a',
 				rated_person_id: 'person-b',
+				eval_type: 'OER',
 				rating_period_end: '2026-10-10',
 				status: 'change-of-rater'
 			},
@@ -108,6 +119,7 @@ describe('Rating Scheme due projection', () => {
 				id: 'evaluation-3',
 				organization_id: 'org-a',
 				rated_person_id: 'person-c',
+				eval_type: 'NCOER',
 				rating_period_end: '2026-01-01',
 				status: 'completed'
 			},
@@ -115,15 +127,34 @@ describe('Rating Scheme due projection', () => {
 				id: 'foreign-evaluation',
 				organization_id: 'org-b',
 				rated_person_id: 'person-d',
+				eval_type: 'NCOER',
 				rating_period_end: '2026-08-01',
 				status: 'active'
 			}
 		]);
 
 		await expect(port.listDueEntries(actor())).resolves.toEqual([
-			{ ratingPeriodEnd: '2026-09-25', status: 'active' },
-			{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
-			{ ratingPeriodEnd: '2026-01-01', status: 'completed' }
+			{
+				id: 'evaluation-1',
+				ratedPersonId: 'person-a',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-09-25',
+				status: 'active'
+			},
+			{
+				id: 'evaluation-2',
+				ratedPersonId: 'person-b',
+				evalType: 'OER',
+				ratingPeriodEnd: '2026-10-10',
+				status: 'change-of-rater'
+			},
+			{
+				id: 'evaluation-3',
+				ratedPersonId: 'person-c',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-01-01',
+				status: 'completed'
+			}
 		]);
 		expect(selections).toHaveLength(1);
 		expect(
@@ -131,9 +162,51 @@ describe('Rating Scheme due projection', () => {
 				.split(',')
 				.map((column) => column.trim())
 				.sort()
-		).toEqual(['rated_person_id', 'rating_period_end', 'status']);
+		).toEqual(['eval_type', 'id', 'rated_person_id', 'rating_period_end', 'status']);
 	});
 
+	it('names the rated Person for a Rating-only reader through Rating roster references', async () => {
+		const { port, listActiveReferences } = provider([
+			{
+				id: 'evaluation-1',
+				organization_id: 'org-a',
+				rated_person_id: 'person-a',
+				eval_type: 'NCOER',
+				rating_period_end: '2026-09-25',
+				status: 'active'
+			}
+		]);
+		listActiveReferences.mockResolvedValue([{ id: 'person-a', rank: 'SGT', lastName: 'Able', firstName: 'Synthetic' }]);
+		await expect(port.listDueEntries(actor())).resolves.toEqual([
+			{
+				id: 'evaluation-1',
+				ratedPersonId: 'person-a',
+				ratedPersonName: 'SGT Able, Synthetic',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-09-25',
+				status: 'active'
+			}
+		]);
+	});
+
+	it('returns no names or entries without permission to read Rating roster references', async () => {
+		const { port, listActiveReferences } = provider([
+			{
+				id: 'evaluation-1',
+				organization_id: 'org-a',
+				rated_person_id: 'person-a',
+				eval_type: 'NCOER',
+				rating_period_end: '2026-09-25',
+				status: 'active'
+			}
+		]);
+		listActiveReferences.mockRejectedValue(new Error('Roster references must not be read'));
+		const reader = actor();
+		await expect(
+			port.listDueEntries({ ...reader, capabilityMap: { ...reader.capabilityMap, ratingScheme: 'none' } })
+		).resolves.toEqual([]);
+		expect(listActiveReferences).not.toHaveBeenCalled();
+	});
 	it('omits evaluations of archived People, matching IDs case-insensitively', async () => {
 		const { port, listArchivedRatedPersonIds } = provider(
 			[
@@ -141,6 +214,7 @@ describe('Rating Scheme due projection', () => {
 					id: 'evaluation-active',
 					organization_id: 'org-a',
 					rated_person_id: 'person-active',
+					eval_type: 'NCOER',
 					rating_period_end: '2026-09-25',
 					status: 'active'
 				},
@@ -148,6 +222,7 @@ describe('Rating Scheme due projection', () => {
 					id: 'evaluation-archived',
 					organization_id: 'org-a',
 					rated_person_id: 'person-archived',
+					eval_type: 'NCOER',
 					rating_period_end: '2026-10-10',
 					status: 'active'
 				},
@@ -155,6 +230,7 @@ describe('Rating Scheme due projection', () => {
 					id: 'evaluation-archived-upper',
 					organization_id: 'org-a',
 					rated_person_id: 'PERSON-ARCHIVED-TWO',
+					eval_type: 'NCOER',
 					rating_period_end: '2026-10-11',
 					status: 'change-of-rater'
 				}
@@ -163,12 +239,20 @@ describe('Rating Scheme due projection', () => {
 			['PERSON-ARCHIVED', 'person-archived-two']
 		);
 		const reader = actor();
-		await expect(port.listDueEntries(reader)).resolves.toEqual([{ ratingPeriodEnd: '2026-09-25', status: 'active' }]);
+		await expect(port.listDueEntries(reader)).resolves.toEqual([
+			{
+				id: 'evaluation-active',
+				ratedPersonId: 'person-active',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-09-25',
+				status: 'active'
+			}
+		]);
 		expect(listArchivedRatedPersonIds).toHaveBeenCalledWith(reader);
 	});
 
-	it('reads entries and archived IDs concurrently', async () => {
-		const { port, from, listArchivedRatedPersonIds } = provider();
+	it('reads entries, archived IDs and roster references concurrently', async () => {
+		const { port, from, listArchivedRatedPersonIds, listActiveReferences } = provider();
 		let release!: () => void;
 		const wait = new Promise<void>((resolve) => {
 			release = resolve;
@@ -182,6 +266,7 @@ describe('Rating Scheme due projection', () => {
 			await vi.waitFor(() => {
 				expect(from).toHaveBeenCalledTimes(1);
 				expect(listArchivedRatedPersonIds).toHaveBeenCalledTimes(1);
+				expect(listActiveReferences).toHaveBeenCalledTimes(1);
 			});
 		} finally {
 			release();
@@ -221,6 +306,7 @@ describe('Rating Scheme due projection', () => {
 				id: 'evaluation-1',
 				organization_id: 'org-a',
 				rated_person_id: 'person-a',
+				eval_type: 'NCOER',
 				rating_period_end: '2026-10-20',
 				status: 'active'
 			}
@@ -241,15 +327,23 @@ describe('Rating Scheme due projection', () => {
 					ratingScheme: 'configure'
 				}
 			})
-		).resolves.toEqual([{ ratingPeriodEnd: '2026-10-20', status: 'active' }]);
+		).resolves.toEqual([
+			{
+				id: 'evaluation-1',
+				ratedPersonId: 'person-a',
+				evalType: 'NCOER',
+				ratingPeriodEnd: '2026-10-20',
+				status: 'active'
+			}
+		]);
 	});
 
 	it('includes evaluations beyond the first provider page in stable identity order', async () => {
 		const { port } = provider(pageRows());
 		const entries = await port.listDueEntries(actor());
 		expect(entries).toHaveLength(1001);
-		expect(entries[0]).toEqual({ ratingPeriodEnd: '2026-01-01', status: 'active' });
-		expect(entries[1000]).toEqual({ ratingPeriodEnd: '2030-12-31', status: 'completed' });
+		expect(entries[0]).toMatchObject({ id: 'evaluation-0000', ratingPeriodEnd: '2026-01-01', status: 'active' });
+		expect(entries[1000]).toMatchObject({ id: 'evaluation-1000', ratingPeriodEnd: '2030-12-31', status: 'completed' });
 	});
 
 	it.each([0, 1000])(

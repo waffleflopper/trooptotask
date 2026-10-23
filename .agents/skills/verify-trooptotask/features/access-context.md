@@ -109,9 +109,9 @@ no native download action, so label its authenticated Storage/SQL proof separate
 and denial witnesses before and after any mutation. An empty removal acknowledgment or provider error cannot establish
 that an existing object was removed.
 
-`src/lib/server/adapters/persistenceContract.test.ts` exercises the real SDK against finite synthetic responses for
-Organization binding, Personnel Group filtering before counted pagination, nonempty whole-roster scope, complete
-provider-sized reads and later-page failure. It establishes adapter transport behavior, not live RLS. Personnel's owned
+`src/features/personnel/personnelRosterReader.server.test.ts` exercises the roster reader against a synthetic provider
+for Organization binding, Personnel Group scope captured at construction, an empty scope without provider access,
+complete tied paging and later-page failure. It establishes adapter transport behavior, not live RLS. Personnel's owned
 `scopeEnforcement.server.test.ts`, artifact delivery/writer checks and
 `supabase/tests/{personnel_counseling_file_scope,personnel_sensitive_artifact_reads,sign_in_rosters_rls_scope}.sql`
 establish their separate boundaries.

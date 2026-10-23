@@ -33,6 +33,7 @@ import type {
 	TrainingCompletionPersistence,
 	TrainingTypeTiming
 } from '../contracts';
+import type { PersonnelTraining } from '../training.types';
 import { isOwnedTrainingCertificate, trainingCertificatePath } from './trainingCertificateStore.server';
 import { pdfOrPhotoFileProblem, type PdfOrPhotoProblem } from '$lib/storage/pdfOrPhotoFiles';
 import type { PersonnelWriteSubject } from '$features/personnel/contracts';
@@ -199,6 +200,22 @@ async function writeTrainingCompletion(
 	});
 
 	return row;
+}
+
+/** A Person's current records, for the record editor opened outside the Training workspace. */
+export async function listPersonTrainingRecords(
+	ctx: TrainingPersonnelWriteAuthority & {
+		readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'listPersonCompletions'>;
+	},
+	personnelId: string
+): Promise<PersonnelTraining[]> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.training.recordCompletions,
+		await policyResourceForTrainingPersonnel(ctx, personnelId),
+		AUDIT_RESOURCE
+	);
+	return ctx.trainingCompletions.listPersonCompletions(personnelId);
 }
 
 export async function createTrainingRecord(

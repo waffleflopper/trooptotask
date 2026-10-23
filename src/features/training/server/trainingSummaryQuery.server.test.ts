@@ -256,3 +256,48 @@ describe('literal Dashboard Training person attribution', () => {
 		}
 	});
 });
+
+describe('Dashboard expired Training by type', () => {
+	it('lists every expired Person per type with the oldest lateness, ignoring the issue cap', async () => {
+		const ctx = buildCtx();
+		(ctx.store as ReturnType<typeof createInMemoryDataStore>).seed(
+			'personnel_trainings',
+			[
+				['able', 'required', '2026-09-19'],
+				['baker', 'required', '2026-09-24'],
+				['baker', 'second', '2026-09-28'],
+				['unassigned', 'required', '2026-10-10']
+			].map(([personnelId, typeId, expiry], index) => ({
+				id: `completion-${index}`,
+				organization_id: ORG,
+				personnel_id: personnelId,
+				training_type_id: typeId,
+				completion_date: '2025-09-01',
+				expiration_date: expiry,
+				notes: null,
+				certificate_url: null
+			}))
+		);
+		const personnel = ['able', 'baker', 'unassigned'].map((id) => ({
+			id,
+			groupId: null,
+			rank: 'SGT',
+			lastName: id,
+			firstName: 'Name'
+		})) as never[];
+
+		const { trainingSummary } = await fetchDashboardTrainingSummary(ctx, {
+			personnel,
+			trainingTypes: [makeTrainingType('required'), makeTrainingType('second')],
+			onboardingPersonnelIds: [],
+			asOf: '2026-09-29',
+			options: { issueLimit: 0 }
+		});
+
+		expect(trainingSummary.issues).toEqual([]);
+		expect(trainingSummary.expiredByType).toEqual([
+			{ trainingTypeId: 'required', personnelIds: ['able', 'baker'], maxDaysLate: 10 },
+			{ trainingTypeId: 'second', personnelIds: ['baker'], maxDaysLate: 1 }
+		]);
+	});
+});

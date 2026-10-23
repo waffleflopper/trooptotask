@@ -184,10 +184,10 @@ during its pending DOM update have separate mounted component checks; do not des
    PCS / DEROS blank. Save a thirty-day warning window through Policies and reload Personnel, that Person’s detail,
    Calendar and Dashboard: this Person must have no in-window loss signal. Save ninety days and revisit/reload those
    four consumers: Personnel/Calendar show this Person’s ETS signal, the detail Readiness tab's Loss block reports
-   `Inside the <n>-day loss window`, and the compact Dashboard shows the in-window Person/date under its independent
-   permission. Capture actual displayed outcomes and exact saved dates/settings, then restore the original dates/window.
-   Evals does not display or use this setting. Source mapping or a saved scalar alone cannot establish these four
-   displayed outcomes.
+   `Inside the <n>-day loss window`, and the Dashboard's Arriving and leaving column names the in-window Person and date
+   while Losses and awards is on. Capture actual displayed outcomes and exact saved dates/settings, then restore the
+   original dates/window. Evals does not display or use this setting. Source mapping or a saved scalar alone cannot
+   establish these four displayed outcomes.
 
    **Training readiness goal.** As owner or admin, open Policies and require `Training readiness goal (%)` at the saved
    value, 90 for an Organization that never changed it, with the help text
@@ -334,7 +334,7 @@ behind is a failure; preserve it. The helper records the UI-created row/path bef
 cleanup can remove the known orphan after observations. Use a fresh worker for each run.
 
 For the actual in-flight provider boundary, run
-`python3 .agents/skills/verify-trooptotask/helpers/organization-upload-pending.py --worker 1 gate-on` after
+`python3 .agents/skills/verify-trooptotask/helpers/organization-upload-pending.py --worker "$WORKER" gate-on` after
 `overlap-scan` on the same frozen worker. It installs a marked, temporary INSERT trigger only for A/Person A's document
 prefix and final UUID versions; the Storage preflight version `1` passes. The final transaction waits twenty seconds
 after physical upload and before committed metadata, within Storage's thirty-second statement timeout. Prepare the

@@ -33,9 +33,6 @@ describe('Training catalog reads', () => {
 		]);
 		expect((await ctx.trainingCatalog.findTypeByName('Targeted'))?.id).toBe('targeted');
 		expect(await ctx.trainingCatalog.findTypeByName('Foreign')).toBeNull();
-		expect(await ctx.trainingCatalog.listExistingTypeNames(['Required', 'Foreign'])).toEqual(['Required']);
-		expect(await ctx.trainingCatalog.hasTypes()).toBe(true);
-		expect(await createTestContext({ auth: { orgId: 'empty-org' } }).trainingCatalog.hasTypes()).toBe(false);
 	});
 
 	it('returns only same-Organization rank applicability references for Personnel rank governance', async () => {

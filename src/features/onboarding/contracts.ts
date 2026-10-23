@@ -16,7 +16,9 @@ import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/co
 import type { TrainingTypeLabel } from '$features/training/contracts';
 import type { NoteAuthorLabels } from './onboardingNoteAuthors';
 import type { Personnel } from '$features/personnel/contracts';
+export { projectOnboardingTrainingSteps } from './onboardingTrainingProjection';
 export { getProgress } from './onboardingProgress';
+export { clockLabel, summarizePacket } from './onboardingStatus';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -59,6 +61,11 @@ export interface OnboardingBootstrap {
 	archiveRetentionMonths: number | null;
 }
 export type OnboardingWorkspaceData = OnboardingBootstrap;
+/** What starting a packet needs outside the Onboarding workspace. */
+export interface OnboardingStartOptions extends Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'> {
+	templates: OnboardingTemplate[];
+	hasTemplateSteps: boolean;
+}
 export type OnboardingWorkspaceHydrationMode = 'replace' | 'preserve-client';
 export interface OnboardingWorkspaceHydrationTarget<T> {
 	mode: OnboardingWorkspaceHydrationMode;
@@ -215,6 +222,5 @@ export type {
 	SavedOnboardingTemplateStep,
 	SavedOnboardingProgress,
 	OnboardingPacketReference,
-	OnboardingProgressReference,
-	OnboardingStarterReadiness
+	OnboardingProgressReference
 } from './persistenceContracts';

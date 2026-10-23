@@ -7,40 +7,51 @@ workspace/summary load, and old responses must never restore another Organizatio
 
 ## Sub-features
 
-- `combined-overview`: current strength, availability, Person/Group assignments, Training attention/currency,
-  evaluations, Onboarding and nearest ETS/DEROS use independently known source facts.
+- `strength-band`: Bottom line, the 14-day forecast with its floor line and flagged duty days, and the by-group strip,
+  all from one per-day status index over the loaded window. Steps are under [Strength band](#strength-band).
+- `quick-add`: Status, Training record and Start onboarding beside the title open the Calendar, Training and Onboarding
+  dialogs, and each save shows on the Dashboard without a reload. Steps are under [Quick add](#quick-add).
+- `needs-you-actions`: Update status, Record class, Fill and Award started act on a Needs you row in place, and a saved
+  row leaves the queue. Check off opens Onboarding at the packet. Steps are under [Actions](#actions).
+- `combined-overview`: current strength, availability, Person/Group assignments, Training attention/currency, Critical
+  Tasks readiness, evaluations, Onboarding and nearest ETS/DEROS use independently known source facts. Steps for the
+  Readiness row are under [Readiness row](#readiness-row).
 - `source-admission`: full, Alpha-only, empty-Group and no-lane members have different authorized projections; an
   ordinary foreign member cannot read A.
-- `readiness-data`: Critical Tasks summary is authorized and scoped even though the compact Overview renders no Critical
-  Tasks card. Inspect its ordinary page response separately from visible UI.
+- `readiness-data`: the Critical Tasks summary is authorized and scoped, and the Critical tasks column renders it. A
+  member without Critical Tasks access gets neither the column nor the read. Inspect the ordinary page response
+  separately from the visible column.
 - `reload-and-consumers`: counts persist after reload and navigation to source pages; hydration cannot corrupt the
   source workspaces.
 - `navigation-recovery`: an exact A Dashboard navigation fails once, remains recoverable, and a delayed A navigation
   cannot overwrite B.
+- `feature-states`: a feature that is off contributes nothing and its sources are not read; a feature that is on but not
+  set up is hidden for everyone and gives owners and admins a dismissible hint. Steps are under
+  [Features off or not set up](#features-off-or-not-set-up).
 - `deferred-state`: first-paint shell, workspace/summary pending, rejection and scope replacement. Whole-navigation
   holds do not prove individual server-source delay or failure.
 
 After changing request composition, run the real Organization Home route with Critical Tasks access and inspect its
-settled summary as well as the visible Overview. Tests that mock the summary operation cannot prove the route selected
+settled summary as well as the visible Dashboard. Tests that mock the summary operation cannot prove the route selected
 every required provider. The Dashboard must settle without its load-error alert.
 
 ## How to get to it (user POV)
 
 Sign in, enter an Organization and choose **Home** in its sidebar. The Organization breadcrumb also returns to this
-Dashboard. Its source workspaces remain available through Calendar, Personnel, Training, ICTLs and Onboard when the
-member has the corresponding access. Use **Switch organization** to select another membership; it preserves the current
-section, so choose Home afterward when switching from Calendar.
+Dashboard. Its source workspaces remain available through Calendar, Personnel, Evals, Training, ICTLs and Onboard when
+the member has the corresponding access. Use **Switch organization** to select another membership; it preserves the
+current section, so choose Home afterward when switching from Calendar.
 
 ## Helper controls
 
 Dashboard verification uses the [combined Dashboard recipe](dashboard.md). `dashboardView`, `dashboardScoped`,
 `dashboardEmpty`, `dashboardNone`, `dashboardSwitch` and `dashboardForeign` provide full-source, Alpha, empty,
-absent-lane and A/B scope witnesses. `$V actor ROLE home` enters that Organization's Overview. `$V seed dashboard`
+absent-lane and A/B scope witnesses. `$V actor ROLE home` enters that Organization's Dashboard. `$V seed dashboard`
 journals current-date source rows and returns their exact facts; `$V seed dashboard-overflow` journals seven Alpha
-People and their leave entries so the Overview toggles appear; `clean-seeds` removes only those rows.
-`network arm-fail|arm-hold|arm-observe PAGE dashboard-page` matches A's canonical Dashboard `__data.json` navigation,
-leaving B and other routes untouched. It controls a whole navigation response, not an individual deferred server source;
-record those proof limits separately.
+People and their leave entries so the Needs you fold and the `All N` lists appear; `clean-seeds` removes only those
+rows. `network arm-fail|arm-hold|arm-observe PAGE dashboard-page` matches A's canonical Dashboard `__data.json`
+navigation, leaving B and other routes untouched. It controls a whole navigation response, not an individual deferred
+server source; record those proof limits separately.
 
 Dashboard source proof uses the [Dashboard recipe](dashboard.md).
 `server-source arm TABLE hold|fail|fail-hard [ORDINAL] [HOLD_MS]` controls one allowlisted GET, including the Calendar
@@ -65,38 +76,51 @@ local date and timezone.
 | ------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------ |
 | `dashboardView`, A       | 3/4, 75%; Baker out            | Two expired People (Able and Baker), one warning record (Unassigned), 25% Person-based currency | 1/1; completed and archived People's excluded | Able has 2/3 active steps, 67% |
 | `dashboardScoped`, Alpha | 2/2, 100%; no Baker/unassigned | One expired Person (Able), no warning; 50% currency                                             | 1/0                                           | Same Able packet               |
-| `dashboardEmpty`         | 0/0, settled empty             | No scoped records or people                                                                     | 0/0                                           | None                           |
-| `dashboardNone`          | 0/0; no scoped record facts    | Training/Critical Tasks omitted                                                                 | 0/0                                           | None                           |
+| `dashboardEmpty`         | No-personnel note, settled     | No scoped records or people                                                                     | 0/0                                           | None                           |
+| `dashboardNone`          | 0/0; no scoped record facts    | Training/Critical Tasks omitted; no feature source is read                                      | 0/0                                           | None                           |
 | `dashboardForeign`, B    | 1/1, 100%; Foreign only        | No A Training facts                                                                             | 1/0                                           | None                           |
 
 Currency is Person-based, distinct from Training's required-cell readiness denominator. Three of A's four active People
 have expired/orange warnings, leaving one current Person. Missing completions and yellow warnings do not add People to
 the source-owned expired/orange attention count. Do not silently redefine a failing example.
 
-1. **Combined native read.** Run `$V actor dashboardView home` and capture
-   the Overview. Strength is 3/4 with Baker's Training status; today's duties name Able and Bravo with their saved
-   assignment types. Training attention names Alpha and Bravo as expired Groups and shows one expiring record; Evals
-   shows one overdue and one 30-day warning; the archived Person's overdue evaluation is not counted. Upcoming losses
-   names the new active Alpha Person once with the nearer ETS in 30 days; the archived Person is absent. Onboarding has
-   one Able packet. Orientation is saved complete, Paperwork incomplete and Targeted Training has a seeded completion,
-   yielding two of three active steps. The retired completed step must not alter progress. Reload and read again.
+1. **Combined native read.** Run `$V actor dashboardView home` and capture the page. Strength is 3/4 with Baker's
+   Training status. Needs you lists seven rows, most urgent first. `NCOER for SPC Able, Synthetic` is Overdue, 5 days
+   late; the archived Person's overdue evaluation and the completed one are absent. Expired rows name Able on
+   Verification Targeted Training and Baker on Verification Required Training. Each Calendar lane has an Unfilled row
+   for 13 of the 14 forecast days, tomorrow first. Able's packet is Stalled with
+   `Dashboard Paperwork · waiting 8 days · 2 of 3` and `day 9`. Leaving names the new Alpha Person's ETS in 30 days with
+   no award started; the archived Person is absent. Each row's link opens its owning page at that record. Overdue opens
+   that evaluation's editor. Expired opens Training Reports filtered to that type. Unfilled opens the Calendar at the
+   month of its first open day, even when the Calendar was last left on another month. Stalled opens Onboarding with
+   that packet open at its waiting step. Leaving opens that Person's data sheet. On duty names Able on Verification
+   Staff Duty and Bravo on Verification Group Duty today, with tomorrow Open on both, and Coming and going lists Baker
+   returning on the first day no saved status covers Baker; back-to-back statuses are one absence. The Readiness row
+   reads as in [Readiness row](#readiness-row). Able's packet counts Orientation (saved complete) and Targeted Training
+   (a seeded completion) but not Paperwork, so its Stalled row reads `2 of 3`. The retired completed step must not alter
+   progress. Reload and read again.
 2. **Separate response/readiness proof.** Preserve the ordinary authenticated Dashboard page-data response and compare
    its source IDs with the seed/readbacks. Training statistics contain 12 Person/type cells (four active People × three
    types): five applicable required cells, with one current, two expired, one orange warning and one missing, plus seven
    not-required cells. The optional type does not add a required cell. Critical Tasks has seven applicable Person/task
    cells (the general task for four People, the 68W task for three), with Able's one current completion, so rounded
-   readiness is 14%. Alpha has four applicable cells and one current, 25%. Rating entries contain only end date/status;
-   evaluator names, notes and record/Person IDs are absent. This HTTP observation complements native counts; it does not
-   prove a visible Critical Tasks widget or source-provider atomicity.
-3. **Scope and denial.** Repeat the visible Overview and reload with each actor in the table. `dashboardView` lists
-   Alpha and Bravo; `dashboardScoped` lists only Alpha, and a saved Bravo pin is not returned; `dashboardEmpty` lists no
-   Group. Inspect the page data as well as the visible Group rows. For `dashboardForeign`, make an ordinary
-   authenticated request to A's Dashboard and preserve its denied status/body; no A source facts may be disclosed. For
-   `dashboardNone`, inspect the response as well as absence of UI facts. Do not accept a hidden control as server
-   authorization proof.
-4. **Source consumers and freshness.** From the combined A Overview, use visible links to Calendar, Training, Personnel
-   and Onboarding; inspect the same IDs/progress and return via Dashboard. Preserve meaningful keyboard navigation/focus
-   for the controls actually used. The [Training](training-completions-reports.md), [Evals](evals-rating-scheme.md),
+   readiness is 14%. Alpha has four applicable cells and one current, 25%. Rating entries carry the entry ID, rated
+   Person ID, evaluation type, end date and status, plus `ratedPersonName` (rank and name) only under
+   `ratingScheme.readRosterReferences`, which Needs you uses to name and link an overdue evaluation; evaluator names and
+   notes are absent. The Training summary's `expiredByType` lists each type with expired People, their IDs and the
+   longest days late. This HTTP observation complements native counts; it does not prove a visible Critical Tasks widget
+   or source-provider atomicity.
+3. **Scope and denial.** Repeat the visible Dashboard and reload with each actor in the table. `dashboardView` lists
+   Alpha and Bravo; `dashboardScoped` lists only Alpha, and a saved Bravo pin is not returned. Its Needs you has six
+   rows without Baker's Expired row or return, and its Group Duty lane counts today as unfilled because Bravo's
+   assignment is outside its scope, as its Calendar does; `dashboardEmpty` lists no Group. Inspect the page data as well
+   as the visible Group rows. For `dashboardForeign`, make an ordinary authenticated request to A's Dashboard and
+   preserve its denied status/body; no A source facts may be disclosed. For `dashboardNone`, inspect the response as
+   well as absence of UI facts. Do not accept a hidden control as server authorization proof.
+4. **Source consumers and freshness.** From the combined A Dashboard, use the readiness column links and the other
+   visible links to Calendar, Training, Personnel and Onboarding; inspect the same IDs/progress and return via
+   Dashboard. Preserve meaningful keyboard navigation/focus for the controls actually used. The
+   [Training](training-completions-reports.md), [Evals](evals-rating-scheme.md),
    [Personnel losses](personnel-records-lifecycle.md) and [Onboarding](onboarding-packets.md) recipes own their deeper
    source operations; reuse matching unchanged evidence explicitly. Do not duplicate those whole workflows for each
    Dashboard read.
@@ -111,29 +135,31 @@ the source-owned expired/orange attention count. Do not silently redefine a fail
    switcher to enter B before releasing A; capture B's facts, release/restore and confirm A never repopulates B. Reload
    B, return visibly to A and confirm each Organization's counts. If navigation or the page hook prevents that sequence,
    record the attempted path and limitation rather than crediting a different Calendar hold.
-7. **Currency beyond the detail cap and yellow warnings.** First capture the combined cohort's Training and Strength
-   cards separately: Alpha Training currency is 50%, while Alpha availability is 100%; Bravo Training currency is 0%.
-   Then run `$V seed dashboard-currency` once. Its 12 required A types add 23 expired records (Able has 12, Baker 11),
-   all older than the two existing expired records. Unassigned's orange record therefore falls beyond the 25 displayed
-   issues; three of four People still need attention, so A currency remains 25%. Loss has a yellow completion on one
-   added type and must not become a fourth delinquent Person. A's record statistics are 25 expired, one orange and one
-   yellow; group currency remains Alpha 50% and Bravo 0%. The two new B rows supply one Foreign yellow completion at +45
-   days with yellow/orange windows 60/30: B has zero expired/orange People and currency 100%, even with an unrelated
-   missing completion. Preserve ordinary page-data statistics, capped issue IDs and complete Group counts separately
-   from native card observations. Reload A/B and repeat Alpha-only and empty-scope reads; Alpha remains 50%, empty
-   settles at 100%. `clean-seeds` removes both journaled cohorts.
+7. **Currency beyond the detail cap and yellow warnings.** First capture the Training column and the Strength band's
+   by-group strip separately: the column reads `Bravo is lowest at 0%` (Alpha is 50%), while the strip reads
+   `ALPHA 2/2`. Then run `$V seed dashboard-currency` once. Its 12 required A types add 23 expired records (Able has 12,
+   Baker 11), all older than the two existing expired records. Unassigned's orange record therefore falls beyond the 25
+   displayed issues; three of four People still need attention, so A currency remains 25%. Loss has a yellow completion
+   on one added type and must not become a fourth delinquent Person. A's record statistics are 25 expired, one orange
+   and one yellow; the Training column still names `Bravo is lowest at 0%`. The two new B rows supply one Foreign yellow
+   completion at +45 days with yellow/orange windows 60/30: B has zero expired/orange People and reads `100%` and
+   `Everyone is current.`, even with an unrelated missing completion. Preserve ordinary page-data statistics, capped
+   issue IDs and complete Group counts separately from native column observations. Reload A/B and repeat Alpha-only and
+   empty-scope reads; Alpha remains 50%, empty settles at 100%. `clean-seeds` removes both journaled cohorts.
 
 8. **Independent server sources.** Before a visible Home navigation from Calendar, arm
    `$V server-source arm TABLE hold 1 120000` for each of `personnel_onboardings`, `rating_scheme_entries`,
-   `personnel_trainings`, `availability_entries`, `daily_assignments`, `personnel_ict_completions`, and `organizations`.
-   The last source matches only A's loss window reads: the Dashboard's policy read, which also carries the strength
-   floor, and the scalar `loss_warning_window_days` read. Preserve `server-source state`, the pending shell/widget
-   snapshot, release and settling. Restore after every arm. For each source repeat with `fail-hard`, preserve the marked
-   synthetic provider 500 and actual error/fallback UI, restore and use the visible **Retry Dashboard** button to prove
-   recovery. Preserve the source error alert with usable surrounding navigation; a console exception or stuck skeleton
-   is a failure. Availability/assignments may settle independently; an early rejection must not stop the server before
-   streaming attaches its consumer. Eager workspace/summary sources may reject the workspace. The private preload
-   matches only one owned A GET; B, auth and other reads pass through.
+   `personnel_trainings`, `availability_entries`, `special_days`, `daily_assignments`, `personnel_ict_completions`, and
+   `organizations`. The last source matches only A's loss window reads: the Dashboard's policy read, which also carries
+   the strength floor, and the scalar `loss_warning_window_days` read. Preserve `server-source state`, the pending
+   shell/widget snapshot, release and settling. Restore after every arm. For each source repeat with `fail-hard`,
+   preserve the marked synthetic provider 500 and actual error/fallback UI, restore and use the visible **Retry
+   Dashboard** button, or a reload where the page kept its bands, to prove recovery. A summary source
+   (`personnel_trainings` or `personnel_ict_completions`) keeps every band and fails inside the Training and Critical
+   tasks columns, as in [Page layout](#page-layout). Preserve the source error alert with usable surrounding navigation;
+   a console exception or stuck skeleton is a failure. Availability/assignments may settle independently; an early
+   rejection must not stop the server before streaming attaches its consumer. Eager workspace/summary sources may reject
+   the workspace. The private preload matches only one owned A GET; B, auth and other reads pass through.
 9. **Scope lifetime.** While A's Availability response is held, use the visible switcher to enter B Home, then release
    A. B must retain its own facts. On an already-open A Dashboard, `$V dashboard-access dashboardSwitch alpha` changes
    only this synthetic membership's scope. Reload and require Alpha-only totals, then restore/reload and require A's
@@ -142,25 +168,30 @@ the source-owned expired/orange attention count. Do not silently redefine a fail
    summary, then restore. The helper journals originals before changing access and `clean-seeds` restores interrupted
    Dashboard access changes.
 
-10. **Overflow toggles, loading and error shell.** Run `$V seed dashboard-overflow` on the ordinary fixture (no other
-    Dashboard seed) as `dashboardView`. It adds seven Alpha People with seven availability entries starting today and
-    four with ETS in 20, 25, 30 and 35 days, so Out Today, Upcoming Changes and Upcoming Losses each exceed their
-    display limit and show `+2 more`, `+4 more` and `+1 more`. The three toggles are `Button`s named
-    `+1 more in Upcoming Losses`, `+4 more in Upcoming Changes` and `+2 more in Out Today`, each with `aria-expanded`
-    and an `aria-controls` that resolves to its list; record their names, sizes (28 tall), Tab, Enter and Space results,
-    ring and `Show less` state at 1280 light and 390 dark with the steps in
+10. **Overflow, fold, loading and error shell.** After `$V seed dashboard`, run `$V seed dashboard-overflow` as
+    `dashboardView`. It adds seven Alpha People with seven availability entries starting today and four with ETS in 20,
+    25, 30 and 35 days. Needs you then holds 11 rows and shows the top seven, then a fold row `+4 more` that names the
+    other titles and offers `Show all 11`. Acknowledge one overflow Person's award with
+    `$V artifact-http orgOwner orgA PERSON_ID POST award-tracking BODY_FILE` (see
+    [Personnel records](personnel-records-lifecycle.md)) and reload for 10 rows, `+3 more` and `Show all 10`;
+    acknowledge a second for nine rows and no fold. `Show all` expands in place and moves focus to the first revealed
+    row's link. Coming and going lists four of eight changes (seven returns and Baker's) with `All 8 changes`, which
+    expands and moves focus to the fifth. Bottom line names all eight People out, so it has no toggle. Record both
+    expanders' names, sizes, Tab, Enter and Space results and ring at 1280 light and 390 dark with the steps in
     [Dashboard and Training states](training-form-states.md#driving-it-with-verifyapp). The same recipe records the
-    loading shell (`role="status"`, nine skeletons) and the shared `WorkspaceLoadError` (`Unable to load Dashboard` with
-    `Retry Dashboard`) for a failed source. `clean-seeds` removes the cohort, availability before People, and a second
-    `seed dashboard-overflow` is refused until it runs. Scope and denial results for the five actors are step 3 above.
+    loading state (the header at once, then `Strength`, `Action` and `Readiness` regions with `aria-busy="true"` and
+    skeletons) and the shared `WorkspaceLoadError` (`Unable to load Dashboard` with `Retry Dashboard`) for a failed
+    source. `clean-seeds` removes the cohort, availability before People, and a second `seed dashboard-overflow` is
+    refused until it runs. Scope and denial results for the five actors are step 3 above.
 
 11. **Shared Calendar stores.** Dashboard reconciles the Calendar availability and assignment stores only within its own
-    range (yesterday to about two weeks out). As `calendarConfigure`, enter Calendar from Home and add a status a month
-    or more ahead so the store holds it, then return with `Today`. Add a status for Able today with
+    range, two days before to fifteen days after the server's UTC day, so it covers the viewer's yesterday through two
+    weeks out in any zone. As `calendarConfigure`, enter Calendar from Home and add a status a month or more ahead so
+    the store holds it, then return with `Today`. Add a status for Able today with
     `$V network arm-hold-dispatch PAGE availability`, arm `$V server-source arm availability_entries hold 1 120000` and
     leave with native `navigate_page` `back` to Home. Require `server-source state` `held` with a provider `200` and the
-    pending Dashboard, then `network release` (real `200`, `rows` shows the row) and `server-source release`. Out Today
-    must list Able with that status. Re-enter Calendar and read Able's cell, then arm
+    pending Dashboard, then `network release` (real `200`, `rows` shows the row) and `server-source release`. Bottom
+    line's out list must name Able with that status. Re-enter Calendar and read Able's cell, then arm
     `network arm-hold PAGE calendar-range`, choose the far month and read its status while the range is held. Reload
     both pages and read again; remove the rows through the status dialog.
 
@@ -171,14 +202,18 @@ the source-owned expired/orange attention count. Do not silently redefine a fail
     cells, 86 ready, 57%, 15 of 20 People below threshold, 9 tasks below threshold, 3 at-risk. `perfScoped` (Alpha's 10
     People): 80 cells (53, 3, 2, 9, 11, 2), 7 expired People, 11 issues; Critical Tasks 74 applicable, 42 ready, 57%, 7
     of 10 below threshold, 5 tasks below, 3 at-risk. `perfScoped` has fewer cells than `perfWide` and every issue and
-    at-risk Person belongs to Alpha. Record the observed figures next to these. A change to how the two completion
+    at-risk Person belongs to Alpha. The Critical tasks column shows the same figures: `57%` ready and
+    `15 of 20 Soldiers below the 70% threshold` for `perfWide`, `7 of 10` for `perfScoped`. Its amber share counts
+    People at or above the threshold with a task lapsing soon, so it can differ from the summary's three at-risk names,
+    which are the lowest People overall. Record the observed figures next to these. A change to how the two completion
     tables are read (their read policies, pagination or the summary query) must leave all of them unchanged at small,
-    typical and large (the same `trainingSummary`/`ictlSummary` JSON hashes).
+    typical and large (the same `trainingSummary`/`ictlSummary` JSON hashes). Compare hashes only between runs of one
+    revision, since adding a field such as `expiredByType` changes them.
 
 The Training snapshot is deliberately saved complete. With an authorized Training read, removing its seeded Targeted
-Training completion must lower active progress from 67% to 33% on Dashboard and the source pipeline, including after
-reload. Without Training authority, retain the saved completion snapshot. Source inspection or a whole-navigation delay
-cannot establish independent live source failure.
+Training completion must lower active progress from two of three steps to one, on the Dashboard's Stalled row (`1 of 3`)
+and in the source pipeline, including after reload. Without Training authority, retain the saved completion snapshot.
+Source inspection or a whole-navigation delay cannot establish independent live source failure.
 
 Before `clean-seeds`, finish every comparison that depends on the returned seed IDs, including complete saved rows,
 source responses, reloads and intended removal effects. Restore server-source hooks and temporary membership changes.
@@ -187,8 +222,8 @@ and preservation of complete original A/B rows.
 
 ## Gotchas
 
-Starter pack apply has an authenticated endpoint and screen-model method, but no rendered Apply control. When changing
-its request composition, verify the ordinary signed-in
+Starter pack apply has an authenticated endpoint but no rendered Apply control. When changing the apply request
+composition, verify the ordinary signed-in
 `POST /org/ORG_ID/api/starter-configuration-packs/first-week-operations/apply` separately from native Dashboard
 interaction. An Organization owner must create "Complete unit orientation" as a Training step linked to "Unit
 Orientation"; reload and reapply must skip existing artifacts without duplicates. A view-only actor must receive 403
@@ -202,13 +237,342 @@ establish a native Apply journey.
   absence of A data, not only the transport status.
 - The switcher preserves Calendar when used there. Enter B's Home before releasing the held A Dashboard response;
   whole-navigation isolation does not prove individual deferred-source isolation.
-- Active packet progress excludes the retired step, so it is 67%, not 75%.
+- Active packet progress excludes the retired step, so it is two of three (67%), not 75%.
 - For load time, requests, bytes and queries on a 20/100/400-Person Organization, use the
   [performance recipe](performance.md) instead of timing this fixture.
+
+## Page layout
+
+The page opens with a header and three bands, each under a 2px rule. The eyebrow reads
+`DASHBOARD · <UNIT> · <N> PERSONNEL` once the data is in and drops the count while loading. The title is the viewer day,
+such as `THURSDAY 22 OCT`. Quick add appears beside the title only when an active section offers an entry. `Strength`
+holds Bottom line (400px) and the 14-day forecast with the by-group strip under it, `Action` holds Needs you and On duty
+(340px), and `Readiness` holds one column per active section that has one, in the order Training, Critical tasks,
+Evaluations, Arriving and leaving. Bottom line sits beside the forecast once the page content is at least 936px wide
+(from about 1260px with the sidebar open) and stacks above it below that. Below 1024px On duty stacks under Needs you.
+Needs you shows up to nine rows; from ten it shows seven and a fold row whose `Show all N` expands in place. A row
+narrower than 672px puts its label and timing on the first line. On duty holds Tonight and tomorrow, one row per
+Calendar lane in lane order, and Coming and going for the next seven days. An assignee name stays on one line and ends
+in an ellipsis at every width; its cell's `title` and the accessibility snapshot keep the full name. When On duty has
+nothing to show, Needs you takes the full width. A section whose feature is switched off contributes no row, lane,
+column or button.
+
+A viewer without the Calendar lane gets one note in the Strength band,
+`You do not have access to Calendar availability, so strength is not shown.`, and no Unfilled row, On duty or forecast
+lane, because the server withholds that data. A roster with no active People reads
+`No active personnel yet. Strength shows here once people are on the roster.` instead of `0 of 0`.
+
+While the workspace or summary is pending, each band shows skeletons shaped like its content and one visually hidden
+`role="status"` reads `Loading Dashboard`. A failed summary source keeps every band: the Training and Critical tasks
+columns each read `Couldn't load <subject>. Reload the page to try again.` for a viewer with that access, and Needs you
+says `Needs you is incomplete. Training items could not load.` under its rows, or in place of
+`Nothing needs you right now.`. It names only failed columns whose section feeds Needs you, so Critical tasks never
+appears there. One `Retry Dashboard` alert sits above the bands; a viewer who reads neither summary source sees neither
+the note nor the alert. A failed background refresh after a successful load keeps the last values and shows nothing. A
+failed workspace source is caught by the Dashboard layout, which replaces the whole page. Steps live in
+[Dashboard and Training states](training-form-states.md#driving-it-with-verifyapp).
 
 ## Viewer day
 
 With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), reload the Dashboard after signing
-in. The Training card must agree with the Training pages on the browser day, and a record expiring on that day is not
-counted expired. The Overview renders no Critical Tasks card, so compare the Critical Tasks summary in the Dashboard
-page data with the Critical Tasks pages.
+in. The title and the breadcrumb both name the browser day, and both come from the page load, not the browser clock.
+Strength, Tonight and tomorrow, and Coming and going must agree with Calendar's `TODAY` line, and the Training column
+must agree with the Training pages on the browser day; a record expiring on that day is not counted expired. The
+Critical tasks column must agree with the Critical Tasks pages.
+
+## Strength band
+
+A Person counts once a day. When entries overlap, the status type first in catalog order wins, then the entry that
+started first. Assigned is the active scoped roster. A duty day is a weekday that is not a stored holiday or closure in
+`special_days`; the bootstrap reads those in the same `Promise.all` as the other workspace sources, so a `special_days`
+hold or `fail-hard` behaves like `availability_entries` in step 8 and a failure replaces the page through the Dashboard
+layout. A duty day below the Organization's strength floor (Settings › Features, 80% by default) is flagged: amber count
+and label, and one amber band across each stretch of adjacent flagged columns. Weekends and closures stay dimmed and are
+never flagged, even below the floor, so a run that crosses a weekend shows two bands while the headline counts it as one
+run. A flagged today turns the hero number amber. The range and lowest day in `Steady` and `N to M available` come from
+duty days only, and a flagged duty day always outranks `Steady`.
+
+Worked examples, from `$V seed dashboard` as `dashboardView` on A at the default 80% floor:
+
+- Bottom line reads `3`, `of 4`, `AVAILABLE · 75%`, amber. The strip has four blocks: three available and one
+  Verification Training. The out list names `SPC Baker, Synthetic` with `back` and the first day no entry covers Baker.
+  The tomorrow line starts `Tomorrow 3.`
+- An absence that runs past the bootstrap window still reports its real return. Through Quick add › Status, give one
+  Person Verification Leave from today through today + 30 and a second Verification Leave from today + 31 through
+  today + 34. Give another Person the same first leave and a second from today + 32 through today + 34, leaving a
+  one-day gap. After a reload the first reads `back` on today + 35 and the other on today + 31. With
+  `server-source arm availability_entries hold 2` (the follow-up read for absences that reach the window's end) every
+  band stays in its skeleton and no `back` date shows; `fail-hard 2` replaces the page like any failed availability
+  read, and `Retry Dashboard` after restore shows both dates. `dashboardScoped` sees only its Alpha Person's return.
+- The forecast flags today and every other duty day Baker is out; the headline reads `Below 80% today, back above on`
+  the first duty day after Baker returns, by weekday alone when it is within a week. The legend lists Verification
+  Training and `80% floor`.
+- The by-group strip reads `BRAVO 0/1` (amber) then `ALPHA 2/2`. `Open calendar` opens A's Calendar on the month of the
+  Dashboard's today, even if Calendar was left on another month.
+- `dashboardScoped` reads `2`, `of 2`, `AVAILABLE · 100%`, `Everyone is available today.` and
+  `Steady: 2 available every day`, and the strip shows only `ALPHA 2/2`.
+
+Scale comes from the workloads. On 2026-10-21 `perfWide` read `15 of 20` (`small`, one block per Person, names and
+return dates, `ALPHA 7/10` amber and `BRAVO 8/10`), `86 of 100` (`typical`, one proportional bar, one row per status
+with a count, the two largest source Groups and `N more` Groups, an `All 14 names` toggle, and
+`By group · all 5 · lowest first`) and `295 of 400` (`large`, `By group · lowest 5 of 16` and `All 16 groups`). Up to 40
+People the strip draws a block per Person; above 40 it draws counts. Up to six Groups all show; above six the lowest
+five show, at any roster size. Workload dates move with the run, so record the observed figures rather than expecting
+these.
+
+1. **Read.** At 1440 light and dark, then below 1024 and at 390, capture the band. At 1024 Bottom line stacks over the
+   forecast; at 1280, 1366 and 1440 they sit side by side and all 14 days show without scrolling, each label on one
+   line. Wherever the forecast's column is narrower than 480px, as at 390, the forecast scrolls inside its own box
+   (`scrollWidth` 480 against the column's `clientWidth`) and a fade at the right edge marks more days until the end is
+   reached, while the page itself never scrolls sideways. At `large` and 390, `295 of 400`, the strip and the out list
+   fit the screen, and each count row keeps its `N more`.
+2. **Toggles.** At `typical`, `All N names` expands in place, and at `large` so does `All N groups` (`typical` has five
+   Groups, so all show): `aria-expanded` turns true, `aria-controls` resolves to the list, and the label reads
+   `Fewer names` or `Fewer groups`.
+3. **Floor.** As `perfWide` on `small`, open Settings › Features, set Strength floor to 70 and choose
+   `Save strength floor` (a blur alone does not save). Return to Home: the legend reads `70% floor`, the dashed line
+   drops, the flags and the amber hero clear, and the headline becomes the range with its lowest day. Reload and read
+   again, then set 80 back and save.
+4. **Pending and failure.** Use step 8 with `availability_entries` and `special_days`: held, each band keeps its
+   skeletons and `aria-busy`; released, the band settles with the numbers above. With `fail-hard`,
+   `Unable to load Dashboard` replaces the page and `Retry Dashboard` recovers it after `server-source restore`.
+
+## Readiness row
+
+Each column has a title, a big figure, a bar and a note, then a link to its owning page. Bar shares are green for good,
+amber for warning and red only for the worst. Columns share the width equally and close ranks when a section contributes
+none. From 640 to 1023 they wrap two to a row; below 640 they stack.
+
+- **Training** is Person-based currency: a Person with any expired or orange record is not current. The figure is green
+  at 90% or more, amber from 75% and red below. The bar splits current, expiring (orange only) and expired People. The
+  note names the lowest Group when two or more Groups have People and that Group is below 100%.
+- **Critical tasks** shows the summary's overall readiness as `N%` ready, with the 30-day change in points. The bar
+  splits the People with an applicable task into three disjoint shares: below the 70% threshold (red), at or above it
+  with a task lapsing soon (amber), and ready (green). The note gives the People below the threshold and the tasks
+  lapsing within the window.
+- **Evaluations** shows the overdue count, red above zero. The bar splits overdue, due within 30 days and current,
+  counted on the viewer day, so an evaluation due in 45 days is current. The note gives those due within 30 and within
+  60 days and the current count, which includes the 31 to 60 day ones.
+- **Arriving and leaving** shows the losses in the loss window, a tick per loss on a line the length of the window, and
+  the nearest three by name. With Onboarding access it adds the active packet count and links to Onboarding; otherwise
+  it links to Personnel.
+
+Worked examples from `$V seed dashboard` on A:
+
+- `dashboardView` has four columns. Training reads `25%` in red with 1 current, 1 expiring and 2 expired, and
+  `2 Soldiers expired and 1 expiring. Bravo is lowest at 0%.` Critical tasks reads `14%` ready with all four People
+  below the threshold (`4 of 4 Soldiers below the 70% threshold`). Evaluations reads `1` overdue with
+  `1 more due within 30 days and 1 within 60. 2 are current.` Arriving and leaving reads `1` with the Loss Person's ETS
+  by name and `1 Soldier in onboarding.`
+- `dashboardScoped` reads Training `50%` with `1 Soldier expired.`, Critical tasks `25%` with
+  `2 of 2 Soldiers below the 70% threshold`, and Evaluations `1` with `None due within 60 days. 1 is current.`
+- `dashboardNone` has only Arriving and leaving. Without Training, Critical Tasks or rating access the other three
+  columns are absent, not empty, and the page data carries no Critical Tasks summary.
+
+1. **Read.** At 1440 in light and dark, then below 1024 and at 390, capture the row as `dashboardView`.
+2. **Reflow.** Run `$V dashboard-access dashboardView no-critical-tasks` and arm
+   `$V server-source arm personnel_ict_completions fail-hard`, then reload. The row has three columns that fill the
+   width, the page settles without a failure, `server-source state` shows the arm unmatched and the page data has no
+   `ictlSummary`. Restore the hook and run `dashboard-access dashboardView restore`.
+3. **Pending and failure.** Hold `personnel_trainings` with step 8: each column keeps a skeleton shaped like it. With
+   `fail-hard` and a reload, Training and Critical tasks read the inline failure and Needs you drops its two Expired
+   rows for the incomplete note, while Strength, Evaluations and Arriving and leaving render. `server-source restore`,
+   then `Retry Dashboard` brings back the figures and the Expired rows with no alert.
+
+## Quick add
+
+Each active section contributes its entries in order: Status (Calendar availability, `calendar.manageAvailability`, only
+once a status type exists), Training record (`training.recordCompletions`, only when an actionable Person and Training
+type pair is not exempt) and Start onboarding (`onboarding.manageWorkflows`). An entry needs a loaded Person the viewer
+may act on. For Start onboarding that Person must have no active packet, unless the viewer may create Personnel and can
+add the arrival. If the dialog chunk fails to load, a toast appears and the next click tries again. Start onboarding is
+the one filled button; without it every entry is outlined. With no entry, the `Quick add` label is absent too. Status
+and Training record open a picker (`Add status`, `Add training record`) whose `Person` combobox lists only People the
+viewer may act on, by last name, then the shared `Set Personnel Status` dialog, or `Add Training Record`
+(`Edit Training Record` when the Person already has a record of that type). Status starts on the viewer day. A Person
+exempt from the chosen Training type keeps `Continue` off, with a note that exemptions change on the Training page.
+Start onboarding opens `Start Onboarding` directly. None of these reads anything at page load: Training record reads the
+Person's records on `Continue` and Start onboarding reads templates and ranks (`GET api/onboarding/start-options`) as it
+opens.
+
+On the plain fixture as `orgOwner`, Bottom line reads `2`, `of 3` with Baker out, Training reads `100%` current and
+Arriving and leaving reads `No one in onboarding.`
+
+1. **Visibility.** `orgOwner` sees all three. `dashboardView` sees no entry and no label. `calendarOperate` and
+   `calendarScoped` see only Status, `rosterManager` only Training record and `onboardingPersonnelScoped` only Start
+   onboarding. Personnel-none operators (`rosterScoped`, `onboardingScoped`) load no People, so they see nothing.
+   `calendarScoped`'s Person list and `onboardingPersonnelScoped`'s Member list name only `SPC Able, Synthetic`, and the
+   latter keeps `Add Person`.
+2. **Status.** By keyboard: `Status`, ArrowDown, type a name, Enter, Tab to `Continue`, Enter. Arm
+   `$V network arm-fail PAGE availability` and choose `Add Status`: the `Could not save status. Try again.` toast
+   appears, the dialog stays open and Bottom line is unchanged. Restore and save. Bottom line drops by one at once and
+   the dialog lists the entry under `Current Status`, as on Calendar. Reload and read again.
+3. **Training record.** Pick a Person and a type. Arm `$V network arm-hold PAGE personnel-trainings` and choose
+   `Continue`: the fields disable and `Continue` spins until `network release`. For the Person's current record, set an
+   old completion date so `STATUS` reads `Expired`. Arm `arm-fail` on the same family and choose `Save`:
+   `Training record was not saved` shows inline. Restore and save. The dialog closes, one `GET api/dashboard/summary`
+   refreshes the summary without another workspace bootstrap, Training drops to `67%` with `1 expired`. Reload and read
+   again.
+4. **Start onboarding.** Arm `arm-hold PAGE onboarding/start-options` and open it: a skeleton dialog reads
+   `Loading onboarding templates.` with only `Cancel`. Arm `arm-fail` on the same family and open it again:
+   `Could not open Start Onboarding` with `Try again`, which then loads the dialog. Choose a Member and note the
+   template's active steps and that Person's completed Training. Arm `arm-fail PAGE onboarding` and choose
+   `Start Onboarding`: `Onboarding not started` shows inline. Restore and start. Arriving and leaving counts the new
+   packet at once (`1 Soldier in onboarding.` on the plain fixture, `2 Soldiers in onboarding.` after `seed dashboard`).
+   One `GET api/dashboard/summary` refreshes Training currency for the updated population. The returned completion stays
+   visible while that read is pending and after a stale summary; a failed refresh keeps the last values. Reload and read
+   again.
+5. **Header.** Capture it at 1440 light and dark, at 900 and at 390. Below 1024 the group wraps under the title and
+   stays right-aligned, as every `PageHeader` aside does; at 390 the primary button wraps to its own line.
+6. **Same dialogs.** `AvailabilityModal`, `TrainingRecordModal` and `StartOnboardingModal` each exist once, and the
+   Dashboard loads them through their feature's `index.ts`. Calendar's empty day, a Training matrix cell and
+   Onboarding's `Start onboarding` still open them, and Training's keeps `Delete`.
+7. **Page-load cost.** Opening the Dashboard sends the same requests as before Quick add, cold (a new `actor` context)
+   and warm (reload). The reads above happen only when a dialog opens.
+
+## Actions
+
+A Needs you row offers one action when the viewer may take it; otherwise only its link remains. Overdue offers
+`Update status` (`ratingScheme.updateEntries`), Expired `Record class` (`training.recordCompletions`), Unfilled
+`Fill N days` (`calendar.manageAssignments`, N at most 7), Stalled `Check off` (`onboarding.manageWorkflows`) and
+Leaving `Award started` (`personnel.manageRecords` on that Person). `Check off` is a link to Onboarding with that packet
+open, because completing a step needs the Onboarding workspace. While an action opens or saves, its button reads
+`aria-disabled="true"` and ignores a second press. A failed save keeps the row and shows the message in it, as a
+`role="alert"` line or inside the open dialog or panel, with no toast. A saved row leaves the queue and focus moves to
+the action, or else the link, of the row now in its place, or to the empty state (the incomplete note when the summary
+failed) once the queue is empty. Closing a dialog or panel returns focus to its button. In the Fill panel, choosing a
+day opens the duty picker. While its code loads, that day shows a spinner and `aria-busy`. If it fails to load, the
+panel shows `The duty picker did not load, so this day cannot be swapped yet.` with `Try again`, keeping the chosen day.
+The harness cannot fail a script chunk (`emulate` refuses `Offline` under the network allowlist), so the component test
+covers that failure. None of these reads anything at page load.
+
+After `$V seed dashboard`, as `orgOwner` at 1440:
+
+1. **Visibility.** `orgOwner` sees all five. `dashboardView` sees none. `calendarOperate` sees only both `Fill 7 days`,
+   `rosterManager` `Record class` and `Award started`, `manager`, `personnelOperate` and `personnelScopedOperate` only
+   `Award started`, and `onboardingPersonnelScoped` `Check off` and `Award started`. `calendarLane` (Calendar operate,
+   Personnel `none`) still sees both `Fill 7 days`, and its Group Duty panel suggests Groups. `rosterScoped` and
+   `onboardingScoped` load no People, so their queue is empty.
+2. **Update status.** Focus `Update status` on `NCOER for SPC Able, Synthetic` and press Enter. The Evals entry editor
+   opens on that entry (one `GET api/rating-scheme?entry=ID`). Arm `$V network arm-fail PAGE rating-scheme`, set Status
+   to Completed and save: `Rating entry was not saved` shows in the editor and the row stays. Restore and save: one
+   `PUT api/rating-scheme`, the row leaves and focus moves on. `$V rows rating_scheme_entries orgA id ID` reads
+   `completed`; after reload the row stays gone and Evals shows the entry Completed.
+3. **Record class.** Press `Record class` on Baker's Expired row. `Record class` lists the expired People the viewer may
+   record, all checked, with today's completion date. Arm `arm-fail PAGE personnel-trainings/batch` and choose
+   `Record N`: `Class was not recorded` shows in the dialog, which stays open. Restore and record: one
+   `POST api/personnel-trainings/batch`, then one `GET api/dashboard/summary`, and the row leaves at once. A completion
+   date old enough that the new record is still expired keeps that Person on the row. After a current `Record class`,
+   correct the same Person to an expired date through **Quick add → Training record**: the Person returns to the Expired
+   row once the summary refresh lands. Read the new `personnel_trainings` row, reload, and confirm the Training matrix
+   shows that cell Current. After `$V seed dashboard-currency`, a `Dashboard Currency` row's dialog asks for an
+   `Expiration date` instead: recording it saves `expiration_date` as entered and `completion_date` null, including over
+   an existing record, and the Training record dialog shows that date under `EXPIRATION` with status Current.
+4. **Fill.** Press `Fill 7 days` on the Verification Staff Duty row. Only now one `POST api/duty-rosters/fill/preview`
+   with the type, today, the first shown open day as `from` and the seventh as `through` asks for the picks the duty
+   planner's `Fill from roster` makes for those days; no `duty-rosters/day` read is sent. With
+   `$V network arm-hold PAGE duty-rosters/fill/preview` armed, every card shows skeletons under `aria-busy="true"` and
+   `Assign all 0` stays disabled until `network release`. With `arm-fail` on the same family, `Cancel` and expand again:
+   `Roster counts could not be loaded.` shows with `Try again`, every card reads `Not suggested` and `Count unavailable`
+   and is disabled, the list is not busy, and `Assign all 0` stays disabled. `Try again` once restored sends one
+   preview. The panel names up to seven open days, each with the preview's pick and `count N` under the name,
+   `count N · back from …` for a pick returning from a status, and the planner's skip note
+   (`Skipped SPC … (N). On …, count holds.`) under a pick that passed someone over;
+   `Suggested: available that day, next up on the roster. Choose a day to swap.` sits below. The roster's rule decides,
+   so a small pool takes turns and nobody is left out for having a day already: right after `seed dashboard` the seven
+   days from tomorrow read Able `count 1`, DashboardLoss<tag> `count 2`, Unassigned `count 3`, then Able,
+   DashboardLoss<tag>, Unassigned and Able, each `count 3`. Open the duty planner's `Fill from roster` for Verification
+   Staff Duty with the same first and last day: it previews the same seven people with the same counts. A day the
+   preview leaves unfilled reads `Open` and `Nobody eligible is free`. Past seven, `Open duty planner for N more` links
+   to the planner. Swap a day with Enter on its card: the picker reads that day's roster with one
+   `GET api/duty-rosters/day?typeId=…&date=…&today=…`, lists the pool by count, and finds someone off the roster only by
+   a name search (`…, not on this roster`). Choosing a name saves that day at once as a hand assignment with one
+   `POST api/daily-assignments/batch` (`source` `manual`), and the write refreshes the open picker's day read once, as
+   in the planner. Its card stays in place reading `Assigned`, the chosen name and `Saved`, the other cards show
+   skeletons, and one more preview over the remaining open days re-plans the later days around the saved one. A failed
+   swap keeps the picker open and shows the message in the panel. `Assign all N` writes exactly the previewed picks with
+   one `POST api/duty-rosters/fill` (`source` `roster`), the panel closes and the row's count drops, with focus back on
+   `Fill` while days remain, or on the next row's action or link once the row has left. When the roster moved since the
+   preview, the fill is refused with 409: the row shows
+   `The roster changed since this preview. Review the new picks and fill again.`, nothing is saved and one more preview
+   shows the new picks. Arm `$V feedback arm PAGE` and `arm-fail PAGE duty-rosters/fill`, then choose `Assign all N`:
+   the panel shows the failure, focus is on `Assign all N` (also when the fill covered every open day, so the row left
+   and came back), `$V feedback state PAGE` has no entry and the rows are unchanged. Read
+   `$V rows daily_assignments orgA date DATE` for each day, reload, and find the same names on the Calendar lane.
+   `Cancel` closes the panel with nothing saved. A roster whose weekend mode is No duty details nobody on weekends or
+   the Organization's Special Days, so those are not unfilled: send an authenticated `PUT api/assignment-types/roster`
+   from the page that keeps Staff's pool rules and excusals and sets `weekendMode` to `none`, then reload. The Staff row
+   reads `9 Verification Staff Duty days unfilled` with no Saturday or Sunday in its days, `Fill 7 days` shows Fri 23
+   and Mon 26 through Mon 2, the preview's `through` is Mon 2, and `Open duty planner for 2 more` links to the planner;
+   restore `same` afterwards. As `calendarScoped` (Alpha), `Fill 7 days` on Staff sends no `duty-rosters` read and
+   suggests people in scope who are available that day in name order, never the same person twice, each reading
+   `Available`, under `Suggested: available that day, in name order. Choose a day to swap.`; a Group duty reads no
+   roster either.
+5. **Check off.** Focus `Check off` on the Stalled row and press Enter. Onboarding opens with the seeded packet's panel
+   open at its waiting step.
+6. **Award started.** Arm `arm-fail PAGE personnel/PERSON_ID/award-tracking` and press `Award started` on the Leaving
+   row: the row stays with the message under it. Restore and press again: one
+   `POST api/personnel/PERSON_ID/award-tracking`, the row leaves and focus moves on.
+   `$V rows personnel_extended_info orgA personnel_id PERSON_ID` has `award_tracking_acknowledged_at`. After reload the
+   row stays gone.
+7. **Denial.** As `dashboardView`, send the same four writes from the signed-in page (or
+   `$V artifact-http dashboardView orgA PERSON_ID POST award-tracking BODY_FILE` for the award) and require `403` for
+   each, with the rows unchanged.
+8. **Widths and keyboard.** Capture the open Fill panel at 1440 light and dark, below 1024 and at 390 light and dark:
+   the cards wrap, the page never scrolls sideways, and a scrolled row stays under the sticky header. Every step above
+   runs from the keyboard alone.
+9. **Summary failure.** Arm `$V server-source arm personnel_trainings fail-hard` and reload: Needs you says
+   `Needs you is incomplete.` under its rows and offers one `Retry Dashboard`. The other rows keep their actions, and
+   `Award started` on the Leaving row still saves and removes it. Acknowledge every remaining row and focus lands on the
+   incomplete note, not `Nothing needs you right now.` Restore and press `Retry Dashboard`.
+10. **Page-load cost.** Opening the Dashboard sends the same requests as before these actions. Each dialog, panel and
+    Training, Calendar or Rating Scheme module loads only when its action opens.
+
+## Features off or not set up
+
+Settings › Features (`settings/features`) stores the unit's switches in `organizations.disabled_features`. Availability
+and Calendar cannot be off. A feature that is off adds no Needs you row, readiness column, Quick add entry, On duty
+block or forecast lane, and its sidebar link is gone. The bootstrap, the page summary and
+`GET /org/ORG_ID/api/dashboard/summary` skip its reads, and each read also needs the viewer's lane: a member whose
+Onboarding lane is `none` gets no packets even though Personnel access would let the provider return them.
+
+A feature that is on but holds nothing is not set up: Onboarding with no template, Training with no training type,
+Critical Tasks with no active task (`ictlSummary.hasActiveTasks` false; a failed summary is unknown, not empty) and
+Evaluations with no rating scheme entry. Its section adds nothing for anyone, so Start onboarding goes and Arriving and
+leaving drops its onboarding sentence and links to Personnel. Owners and admins also see one dashed `Admins only` hint
+per gap under the readiness columns, reading `<Feature> is on, but <gap>, so it isn't shown here.` with a fix link,
+`Turn off <feature>` to `settings/features`, and `Dismiss the <Feature> hint`. Dismissal is kept in this browser under
+`t2t:dashboard-setup-hints:<orgId>:<userId>`, and focus moves to the next hint. With no column and no hint left, the
+Readiness band is omitted.
+
+The base fixture already has a gap: as `orgOwner` on A, Readiness shows Training, Critical tasks and Arriving and
+leaving, with the Evaluations hint (`Add an entry` opens `evals`). `seed dashboard` adds rating entries and templates,
+so it removes that hint. Toggle switches natively on the Features page from the bottom row up: each save shows a toast
+that covers the lowest switch at 1440 × 1000, and a click there lands on the toast. Read `$V rows organizations orgA`
+after each save, and restore every switch before cleanup.
+
+1. **Feature off and not set up.** On a fresh worker, run `$V seed rating-scheme`. As `orgOwner`, delete
+   `Verification Onboarding A` on `onboarding/templates` (`$V rows onboarding_templates orgA` reads `count` 0) and turn
+   Critical tasks off. Arm `$V server-source arm personnel_ict_completions fail-hard`, open Home and fetch
+   `api/dashboard/summary` from the page. ICTLs is gone from the sidebar. Quick add is `Status` and `Training record`,
+   both outlined. Readiness has Training, Evaluations and Arriving and leaving, filling the width, and the last reads
+   `No one leaves in the next 180 days.` and links to `Personnel`. One Onboarding hint reads
+   `Onboarding is on, but there are no templates yet, so it isn't shown here.` with `Create a template`. The refresh
+   returns `ictlSummary: null`, and `server-source state` shows `matches: 0`. Restore. Capture 1440 light and dark and
+   390 dark. The template deletion lasts until `verify:app restart`.
+2. **Members.** As `dashboardView` on the same state, the columns match the owner's and there is no hint
+   (`[data-setup-hint]` count 0).
+3. **Dismissal.** As the owner, choose `Dismiss the Onboarding hint`, reload, and require the hint to stay gone and the
+   localStorage key above to hold `["onboarding"]`. Another member, or the same member in B, still sees their own hints.
+   Dismissing the last hint by keyboard moves focus to the Readiness heading (`Where the unit stands`), or to Needs you
+   when no Readiness column remains.
+4. **Everything off.** Turn off Losses and awards, Onboarding, Evaluations, Critical tasks and Training, arm
+   `server-source arm personnel_trainings fail-hard` and open Home. The sidebar keeps Home, Calendar and Personnel.
+   Quick add is `Status`. Strength, Needs you with only Unfilled rows, and On duty render, Readiness is absent, and the
+   arm is unmatched. The page refresh returns every summary field null or empty. Capture 1440 and 390, then turn each
+   switch back on.
+5. **Lane gates.** After `$V seed dashboard`, `viewer` (Personnel view, every other lane `none`) reads Home without a
+   Stalled row, `1 Soldier in onboarding.` or an onboarding link. Its page data has `activeOnboardings: []`,
+   `hasAnyOnboardingTemplate: false`, and empty `ratingSchemeEntries` and `trainingTypes`, and the refresh returns
+   `onboardingPersonnelIds: []`. `dashboardView` on the same seed still shows the Stalled packet
+   (`Dashboard Paperwork · waiting 8 days · 2 of 3`).

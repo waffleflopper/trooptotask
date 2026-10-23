@@ -234,34 +234,41 @@ action and keep its page ID. The date format in every name is the browser's en-G
     `duty-rosters?today=<YYYY-MM-DD>&month=2026-10` start together, and moving a month sends that month's range read and
     roster read again together. The heading reads `Roster · count today`. With no October details yet, the Staff table
     `Verification Staff Duty roster` lists `SPC Able` and `SPC Unassigned` with count 0 and the footer
-    `SPC Baker is excused.`; Retiring lists Baker muted as `A 0` (accessible text `0, A: Verification Training`) while
-    the training entry covers today. Compare the counts with `GET /org/<orgA>/api/duty-rosters?today=…&month=2026-10` in
-    the signed-in page. Click the type's code in the `Duty roster` toggle group; pressing the active code again keeps it
-    selected, and switching type adds no request. Assign Unassigned to the Staff slot on today through the planner: one
-    `daily-assignments` POST, then one `duty-rosters` read, after which Unassigned reads `Today` (accessible
-    `, count 1`). Clear it and require 0 again. For loading, arm `$V network arm-hold $PAGE duty-rosters` and reload:
-    the panel shows `Loading roster counts` with skeleton rows while every `Assign` cell is already usable; release. For
-    failure, arm `$V network arm-fail $PAGE duty-rosters` and reload: the panel reads
-    `Roster counts could not be loaded.` with `Retry roster counts`, the grid still saves; restore and press Retry to
-    recover the counts. The default fixture has 10 or fewer rows, so the panel shows no `Show all` button. For the large
-    roster, run `$V seed bulk-501`, reload and require 10 rows with `Show all <N>`; press it and require the rest with
-    the button now `Show fewer`; switching type folds it again. Then `clean-seeds` and reload.
+    `SPC Baker is excused. Open the DA 6 to see every number.`, whose link opens the Staff DA 6 at `?month=2026-10`
+    (`2026-11` after `Next month`); Retiring lists Baker muted as `A 0` (accessible text `0, A: Verification Training`)
+    while the training entry covers today. Compare the counts with
+    `GET /org/<orgA>/api/duty-rosters?today=…&month=2026-10` in the signed-in page. Click the type's code in the
+    `Duty roster` toggle group; pressing the active code again keeps it selected, and switching type adds no request.
+    Assign Unassigned to the Staff slot on today through the planner: one `daily-assignments` POST, then one
+    `duty-rosters` read, after which Unassigned reads `Today` (accessible `, count 1`). Clear it and require 0 again.
+    For loading, arm `$V network arm-hold $PAGE duty-rosters` and reload: the panel shows `Loading roster counts` with
+    skeleton rows while every `Assign` cell is already usable; release. For failure, arm
+    `$V network arm-fail $PAGE duty-rosters` and reload: the panel reads `Roster counts could not be loaded.` with
+    `Retry roster counts`, the grid still saves; restore and press Retry to recover the counts. The default fixture has
+    10 or fewer rows, so the panel shows no `Show all` button. For the large roster, run `$V seed bulk-501`, reload and
+    require 10 rows with `Show all <N>`; press it and require the rest with the button now `Show fewer`; switching type
+    folds it again. Then `clean-seeds` and reload.
 
 12. **Fill from roster.** As `calendarOperate` on October 2026 at 1440x900 light, open
     `Verification Staff Duty column actions`. The popover is named `Fill from roster, Verification Staff Duty`, with
     `First day` on tomorrow and `Last day` on October 31, the open-day count under them, and a preview of the picks
     (`Day`, `Next up`, `Count`): starting from no details, Able then Unassigned alternating, the first pick at count 1
     and the rest at 2 and up, five rows with `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change
-    `First day` and require a fresh preview. Before committing, send an authenticated POST from the signed-in page that
-    saves Unassigned on the second day of the range; then click `Fill`: the server answers `409`, the popover stays open
-    with `The roster changed since this preview. Review the new picks and fill again.` and a new preview that leaves
-    that day out. Click `Fill` again: the popover closes, the grid shows every pick, and
-    `$V rows daily_assignments orgA` shows one row per pick with `source` `roster` and the manual day unchanged as
-    `manual`. On Retiring, where Able sits in the Staff pool too, a pick on a day Able holds Staff duty reads
-    `Skipped SPC Able (<n>). On Verification Staff Duty, count runs.` Assign Able to Retiring on a day Able holds Staff
-    duty: both cells read `unavailable: … Duty (D)` and `Conflicts` lists them with
-    `is on Verification Retiring Duty (D).` Capture the Fill popover at 390x844 dark and read its bounds: at least 8px
-    inside each viewport edge. As `calendarScoped`, the column menu opens `Quick fill`, and an authenticated
+    `First day` and require a fresh preview. The popover ends with `Open the DA 6`, linking to this roster's DA 6 for
+    the shown month; a Group duty's menu has no such link. Before committing, send an authenticated POST from the
+    signed-in page that saves Unassigned on the second day of the range; then click `Fill`: the server answers `409`,
+    the popover stays open with `The roster changed since this preview. Review the new picks and fill again.`, one
+    `calendar-range?…&collections=assignments` read puts the saved day in the grid, and a new preview leaves that day
+    out. With `$V network arm-fail $PAGE calendar-range` armed before that `Fill`, the re-read fails instead: above the
+    grid `The roster changed, and this month's assignments could not be read again. Assigning waits until they load.`
+    shows with `Retry`, and every cell, column action and `Find replacement` is disabled. Restore and press `Retry`: one
+    range read, the banner leaves and the saved day shows. A refused replacement re-reads the same way. Click `Fill`
+    again: the popover closes, the grid shows every pick, and `$V rows daily_assignments orgA` shows one row per pick
+    with `source` `roster` and the manual day unchanged as `manual`. On Retiring, where Able sits in the Staff pool too,
+    a pick on a day Able holds Staff duty reads `Skipped SPC Able (<n>). On Verification Staff Duty, count runs.` Assign
+    Able to Retiring on a day Able holds Staff duty: both cells read `unavailable: … Duty (D)` and `Conflicts` lists
+    them with `is on Verification Retiring Duty (D).` Capture the Fill popover at 390x844 dark and read its bounds: at
+    least 8px inside each viewport edge. As `calendarScoped`, the column menu opens `Quick fill`, and an authenticated
     `POST /org/<orgA>/api/duty-rosters/fill/preview` or `/fill` returns `403` with nothing written. Clear the month's
     rows through `Clear month` before leaving.
 
@@ -282,7 +289,13 @@ action and keep its page ID. The date format in every name is the browser's en-G
     `$V network arm-hold $PAGE duty-rosters/replacement/preview` armed, reopening shows `Loading the roster` skeleton
     rows and a disabled `Assign`; release. With `$V network arm-fail $PAGE duty-rosters/replacement/preview`, the dialog
     reads the failure with `Retry preview`; restore and Retry. `Someone else` opens the duty picker
-    `Verification Staff Duty, Sun 25 Oct` with `Find person` focused. Reopen and hold the commit with
+    `Verification Staff Duty, Sun 25 Oct` with `Find person` focused, without Able or `Clear assignment`; Escape returns
+    to the dialog. For a pick off the roster, set Retiring's pool to MOS 68W (an authenticated
+    `PUT api/assignment-types/roster` as `orgOwner`, restoring `poolRules:null` afterwards), fill it and open
+    `Find replacement` on one of its conflicts (Able's 25 Oct Leave makes one): `Someone else`, search `Baker` and
+    choose `SPC Baker, Synthetic, not on this roster`. The dialog returns with the radio `SPC Baker, Not on this roster`
+    checked and the re-picks the server previewed for Baker (`selected` is Baker), and `Assign Baker` writes Baker on
+    that day as `manual` with the re-picked days `roster`. Reopen and hold the commit with
     `$V network arm-hold $PAGE duty-rosters/replacement`: `Assign Unassigned` reads busy, every grid cell is disabled
     and the title still names Able; release. The dialog closes, focus lands on
     `Verification Staff Duty, Sun 25 Oct: SPC Unassigned, Synthetic`, and `$V rows daily_assignments orgA` shows 25

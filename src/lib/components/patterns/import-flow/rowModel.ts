@@ -243,6 +243,9 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 	const consulted = new Map<QuestionKey, Answer | undefined>();
 	const questions = new Map<QuestionKey, RailQuestion>();
 	let skipped: { reason: string; question: QuestionKey } | null = null;
+	for (const [field, column] of Object.entries(lane.columns))
+		if (column.skipWhenBlank && field in row.raw && !row.raw[field].trim())
+			return { review: { row, outcome: 'skipped', reason: column.skipWhenBlank }, consulted, questions: [] };
 	for (const [field, column] of Object.entries(lane.columns)) {
 		const parsed = parseValue(column.kind, row.raw[field] ?? '', column.maxLength, row);
 		if (!parsed.ok) problems.push({ field, message: `${column.label}: ${parsed.message}` });

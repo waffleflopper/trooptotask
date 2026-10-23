@@ -65,6 +65,34 @@ describe('row review', () => {
 		expect(state.counts).toMatchObject({ new: 1, skipped: 1, fix: 0 });
 		expect(state.commitBlocker).toBeNull();
 	});
+	it('skips a row whose skip-when-blank column is empty before resolving its references', () => {
+		const base = personnelLane();
+		const lane = {
+			...base,
+			columns: { ...base.columns, mos: { ...base.columns.mos, skipWhenBlank: 'No MOS.' } }
+		};
+		const file: LoadedFile = {
+			name: 'names',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Last name', 'First name', 'Rank', 'MOS'],
+						['Smith', 'Alex', 'BOGUS', ''],
+						['Jones', 'Pat', 'SGT', '68W']
+					]
+				}
+			]
+		};
+		const rows = buildSourceRows(file, detectLayout(file, lane), lane);
+		const state = reviewRows(rows, lane, new Map(), new Set(), new ReviewMemo());
+
+		expect(state.rows[0]).toMatchObject({ outcome: 'skipped', reason: 'No MOS.' });
+		expect(state.counts).toMatchObject({ new: 1, skipped: 1, fix: 0 });
+		expect(state.questions).toEqual([]);
+	});
 	it('groups repeated unknowns, resolves each distinct key once, and applies skip to every affected row', () => {
 		const lookups: string[] = [];
 		const reviews: string[] = [];

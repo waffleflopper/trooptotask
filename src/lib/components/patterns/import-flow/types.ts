@@ -23,6 +23,8 @@ export interface ImportColumn<K extends ValueKind = ValueKind> {
 	hint?: string;
 
 	maxLength?: number;
+
+	skipWhenBlank?: string;
 }
 
 export type ImportColumns = Record<string, ImportColumn>;

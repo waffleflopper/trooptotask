@@ -38,6 +38,7 @@ export const trainingImportColumns = {
 	completed: {
 		label: 'Completed',
 		kind: 'text',
+		skipWhenBlank: 'No completion date.',
 		aliases: [
 			'completed',
 			'date',

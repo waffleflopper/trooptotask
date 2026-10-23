@@ -407,12 +407,14 @@ describe('TrainingPageView', () => {
 		await parsed.xlsx.load(
 			Buffer.from(await blobs[0].arrayBuffer()) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]
 		);
-		expect(parsed.getWorksheet('Training Matrix')!.getSheetValues()).toEqual([
-			undefined,
+		expect(parsed.getWorksheet('Training Matrix')!.getSheetValues().slice(2)).toEqual([
 			[undefined, 'Name', 'Rank', 'Group', 'Orientation (completion only)', 'CPR'],
 			[undefined, 'Smith, Jane', 'SGT', 'Alpha', 'not required', '2025-02-03']
 		]);
 		expect(filenames[0]).toMatch(/^training-matrix-\d{4}-\d{2}-\d{2}\.xlsx$/);
+		expect(parsed.getWorksheet('Training Matrix')!.getCell('A1').value).toContain(
+			`Exported ${filenames[0].slice('training-matrix-'.length, -'.xlsx'.length)}.`
+		);
 		expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
@@ -429,8 +431,7 @@ describe('TrainingPageView', () => {
 		await parsed.xlsx.load(
 			Buffer.from(await blob.arrayBuffer()) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]
 		);
-		expect(parsed.getWorksheet('Training Matrix')!.getSheetValues()).toEqual([
-			undefined,
+		expect(parsed.getWorksheet('Training Matrix')!.getSheetValues().slice(2)).toEqual([
 			[undefined, 'Name', 'Rank', 'Group', 'CPR'],
 			[undefined, 'Adams, John', 'SPC', 'Bravo', 'missing'],
 			[undefined, 'Smith, Jane', 'SGT', 'Alpha', 'missing']

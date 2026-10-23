@@ -66,6 +66,41 @@ async function storedCompletions(ctx: Context) {
 }
 
 describe('importIctCompletionsBatch', () => {
+	it('reports an older saved completion without optional fields as unchanged and preserves both dates', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('personnel', [person('person-a')]);
+		ctx.store.seed('ict_tasks', [task('task-a')]);
+		ctx.store.seed('personnel_ict_completions', [
+			completion('saved-january', 'person-a', 'task-a', '2026-01-01'),
+			completion('saved-march', 'person-a', 'task-a', '2026-03-01')
+		]);
+		const update = vi.spyOn(ctx.criticalTaskCompletions, 'update');
+
+		const reply = await importIctCompletionsBatch(ctx, {
+			records: [{ personnelId: 'person-a', ictTaskId: 'task-a', completedAt: '2026-01-01' }]
+		});
+
+		expect(reply.results).toEqual([{ kind: 'unchanged' }]);
+		expect(update).not.toHaveBeenCalled();
+		expect(await storedCompletions(ctx)).toEqual([
+			{
+				key: 'person-a|task-a|2026-01-01',
+				method: 'Lecture',
+				validatedBy: 'MSG Example',
+				notes: 'Saved note',
+				loggedBy: 'user-1'
+			},
+			{
+				key: 'person-a|task-a|2026-03-01',
+				method: 'Lecture',
+				validatedBy: 'MSG Example',
+				notes: 'Saved note',
+				loggedBy: 'user-1'
+			}
+		]);
+		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 0, updated: 0, failed: 0 } })]);
+	});
+
 	it.each(['people', 'tasks'])(
 		'imports 500 distinct %s through a URL-limited provider without duplicating same-date history',
 		async (dimension) => {

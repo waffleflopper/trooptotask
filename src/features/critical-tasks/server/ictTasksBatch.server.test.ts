@@ -3,6 +3,7 @@ import { RequestFailure } from '$lib/errors';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { writeUnconfirmed } from './criticalTaskWriteOutcome.server';
 import { importIctTasksBatch } from './ictTasksBatch.server';
+import { ictTaskImportRecordSchema } from '../contracts';
 
 function savedTask(id: string, taskCode: string, overrides: Record<string, unknown> = {}) {
 	return {
@@ -44,6 +45,28 @@ async function storedTasks(ctx: ReturnType<typeof contextWith>) {
 }
 
 describe('importIctTasksBatch', () => {
+	it.each([{ description: '' }, { category: '' }, { mos: [] }, { description: '   ', category: '   ', mos: [] }])(
+		'preserves saved fields when an import update contains blank values %j',
+		async (blanks) => {
+			const ctx = contextWith([savedTask('task-a', 'ICT-1')]);
+			const record = ictTaskImportRecordSchema.parse({ taskCode: 'ICT-1', title: 'Renamed', sortOrder: 0, ...blanks });
+
+			const reply = await importIctTasksBatch(ctx, { records: [record] });
+
+			expect(reply.results.map((result) => result.kind)).toEqual(['updated']);
+			expect(await ctx.store.findMany('ict_tasks', 'test-org')).toEqual([
+				expect.objectContaining({
+					id: 'task-a',
+					title: 'Renamed',
+					description: 'Saved description',
+					category: 'Saved category',
+					mos: ['68W'],
+					sort_order: 0
+				})
+			]);
+		}
+	);
+
 	it('adds new codes, updates matched codes with only the fields sent, and restores archived codes', async () => {
 		const ctx = contextWith([
 			savedTask('task-a', 'ICT-1'),

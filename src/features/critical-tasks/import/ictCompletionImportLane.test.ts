@@ -189,4 +189,18 @@ describe('critical task completions import lane', () => {
 			'saved-2'
 		]);
 	});
+
+	it('accepts a server-confirmed unchanged completion without changing saved records', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => Response.json({ results: [{ kind: 'unchanged' }] }))
+		);
+
+		const reply = await createIctCompletionImportLane(source()).commitChunk([
+			{ personnelId: 'p1', ictTaskId: 't1', completedAt: '2026-01-01' }
+		]);
+
+		expect(reply).toEqual({ kind: 'saved', results: [{ kind: 'unchanged' }] });
+		expect(personnelIctCompletionsStore.items).toEqual([saved]);
+	});
 });

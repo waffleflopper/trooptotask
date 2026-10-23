@@ -61,12 +61,15 @@ WHERE id::text LIKE 'e6200000-%';
 GRANT SELECT ON import_original_rows TO authenticated;
 
 CREATE FUNCTION pg_temp.import_entry(
-  person text, start_date text, end_date text, note text DEFAULT NULL, replaces jsonb DEFAULT '[]'
+  person text, start_date text, end_date text, note text DEFAULT NULL, replaces jsonb DEFAULT '[]',
+  overlap text DEFAULT NULL, alongside jsonb DEFAULT '[]'
 ) RETURNS jsonb LANGUAGE sql AS $$
   SELECT jsonb_build_object(
     'personnel_id','e6200000-0000-4000-8000-000000000' || person,
     'status_type_id','e6200000-0000-4000-8000-000000000401',
-    'start_date',start_date,'end_date',end_date,'note',note,'replaces',replaces)
+    'start_date',start_date,'end_date',end_date,'note',note,'replaces',replaces,
+    'overlap',coalesce(overlap,CASE WHEN replaces <> '[]'::jsonb THEN 'replace' ELSE 'none' END),
+    'alongside',alongside)
 $$;
 CREATE FUNCTION pg_temp.reviewed(entry text, start_date text DEFAULT '2030-01-05', end_date text DEFAULT '2030-01-12',
   note text DEFAULT NULL)
@@ -244,7 +247,9 @@ WHERE id IN ('e6200000-0000-4000-8000-000000000505','e6200000-0000-4000-8000-000
   'e6200000-0000-4000-8000-000000000507');
 SELECT is(public.import_availability_entries('e6200000-0000-4000-8000-000000000101',
   (SELECT jsonb_agg(pg_temp.import_entry('301','2030-08-03','2030-08-10','Note replacement',
-    jsonb_build_array(pg_temp.reviewed(suffix,'2030-08-05','2030-08-12',note))) ORDER BY suffix)
+    jsonb_build_array(pg_temp.reviewed(suffix,'2030-08-05','2030-08-12',note)),
+    'replace',jsonb_build_array(jsonb_build_object('status_type_id','e6200000-0000-4000-8000-000000000401',
+      'start_date','2030-08-05','end_date','2030-08-12'))) ORDER BY suffix)
   FROM (VALUES ('505','Reviewed note'),('506',NULL),('507','Reviewed note'),('508',NULL)) fixture(suffix,note))),
   '{"inserted":1,"deleted":1,"stale":[0,1,2]}'::jsonb,
   'a Group-scoped operator refuses edited, added and cleared notes but replaces an unchanged null note');
@@ -258,6 +263,45 @@ SELECT results_eq(
   'refused replacements retain the saved IDs and the latest notes');
 SELECT is((SELECT count(*)::integer FROM public.availability_entries WHERE note = 'Note replacement'),1,
   'only the unchanged-note replacement is saved');
+
+INSERT INTO public.availability_entries(id,organization_id,personnel_id,status_type_id,start_date,end_date,note)
+SELECT ('e6200000-0000-4000-8000-000000000' || suffix)::uuid,
+  'e6200000-0000-4000-8000-000000000101','e6200000-0000-4000-8000-000000000301',
+  'e6200000-0000-4000-8000-000000000401',start_date::date,end_date::date,'Saved after review'
+FROM (VALUES ('509','2030-10-01','2030-10-03'),('510','2030-11-01','2030-11-03'),
+  ('511','2030-11-02','2030-11-04'),('512','2030-12-01','2030-12-03')) fixture(suffix,start_date,end_date);
+SELECT is(public.import_availability_entries('e6200000-0000-4000-8000-000000000101',
+  jsonb_build_array(
+    pg_temp.import_entry('301','2030-10-02','2030-10-03','Unreviewed none','[]','none'),
+    pg_temp.import_entry('301','2030-11-01','2030-11-05','Unreviewed replace',
+      jsonb_build_array(pg_temp.reviewed('510','2030-11-01','2030-11-03','Saved after review')),'replace'),
+    pg_temp.import_entry('301','2030-12-01','2030-12-03','Duplicate keep','[]','keep'),
+    pg_temp.import_entry('301','2030-10-02','2030-10-04','Keep overlap','[]','keep'),
+    pg_temp.import_entry('301','2030-10-03','2030-10-05','Alongside overlap','[]','none',
+      jsonb_build_array(jsonb_build_object('status_type_id','e6200000-0000-4000-8000-000000000401',
+        'start_date','2030-10-01','end_date','2030-10-03'))))),
+  '{"inserted":2,"deleted":0,"stale":[0,1,2]}'::jsonb,
+  'a scoped operator refuses unreviewed none and replace overlaps and exact keep duplicates, but accepts keep and alongside');
+SELECT results_eq(
+  $$ SELECT note FROM public.availability_entries
+     WHERE note IN ('Unreviewed none','Unreviewed replace','Duplicate keep','Keep overlap','Alongside overlap') ORDER BY note $$,
+  $$ VALUES ('Alongside overlap'),('Keep overlap') $$,
+  'only reviewed overlaps are inserted');
+SELECT results_eq(
+  $$ SELECT id::text,note FROM public.availability_entries
+     WHERE id IN ('e6200000-0000-4000-8000-000000000509','e6200000-0000-4000-8000-000000000510',
+       'e6200000-0000-4000-8000-000000000511','e6200000-0000-4000-8000-000000000512') ORDER BY id $$,
+  $$ VALUES ('e6200000-0000-4000-8000-000000000509','Saved after review'),
+     ('e6200000-0000-4000-8000-000000000510','Saved after review'),
+     ('e6200000-0000-4000-8000-000000000511','Saved after review'),
+     ('e6200000-0000-4000-8000-000000000512','Saved after review') $$,
+  'stale imports retain all saved entries including the reviewed replacement');
+SELECT throws_ok($$ SELECT public.import_availability_entries('e6200000-0000-4000-8000-000000000101',
+  jsonb_build_array(pg_temp.import_entry('301','2031-01-01','2031-01-02') - 'overlap')) $$,
+  '22023','Invalid Calendar availability import','overlap is required');
+SELECT throws_ok($$ SELECT public.import_availability_entries('e6200000-0000-4000-8000-000000000101',
+  jsonb_build_array(pg_temp.import_entry('301','2031-01-01','2031-01-02',NULL,'[]','unknown'))) $$,
+  '22023','Invalid Calendar availability import','unknown overlap choices are rejected');
 RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

@@ -305,6 +305,14 @@ export const rosterFillInput = rosterFillPreviewInput.extend({
 		.min(1)
 		.max(366)
 });
+export const rosterReplacementPreviewInput = z
+	.object({ typeId: uuidSchema, today: dateOnlySchema, date: dateOnlySchema, assigneeId: uuidSchema.optional() })
+	.strict();
+export const rosterReplacementInput = rosterReplacementPreviewInput.extend({
+	assigneeId: uuidSchema,
+	replacing: uuidSchema,
+	repicks: z.array(z.object({ date: dateOnlySchema, was: uuidSchema, personId: uuidSchema }).strict()).max(366)
+});
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
 const statusTypeIds = z
 	.array(uuidSchema)

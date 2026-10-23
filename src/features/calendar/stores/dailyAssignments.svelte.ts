@@ -85,6 +85,7 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	 * the preview, so the caller can show the new picks.
 	 */
 	fillFromRoster: (fill: RosterFill) => Promise<'saved' | 'changed' | 'failed'>;
+	replaceFromRoster: (replacement: RosterReplacementWrite) => Promise<'saved' | 'changed' | 'failed'>;
 	getAssignmentsForDate: (date: string) => DailyAssignment[];
 	getAssignmentForDate: (date: string, assignmentTypeId: string) => DailyAssignment | undefined;
 	getAssignmentsForPersonnel: (personnelId: string) => DailyAssignment[];
@@ -100,6 +101,16 @@ export interface RosterFill {
 	from: string;
 	through: string;
 	picks: { date: string; personId: string }[];
+}
+
+/** A previewed Find replacement: the conflicted day's new assignee and the later roster days it re-picks. */
+export interface RosterReplacementWrite {
+	typeId: string;
+	today: string;
+	date: string;
+	assigneeId: string;
+	replacing: string;
+	repicks: { date: string; was: string; personId: string }[];
 }
 
 function inSlot(date: string, assignmentTypeId: string) {
@@ -617,6 +628,55 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			} catch (error) {
 				internals.log.resolve(mutationId);
 				toastStore.error(error instanceof Error ? error.message : 'The roster picks were not saved.');
+				return 'failed';
+			}
+		},
+
+		async replaceFromRoster(replacement: RosterReplacementWrite) {
+			const slots = [{ date: replacement.date, personId: replacement.assigneeId }, ...replacement.repicks];
+			const slotKeys = new Set(slots.map(({ date }) => assignmentSlotKey(date, replacement.typeId)));
+			const inReplacement = (assignment: DailyAssignment) =>
+				slotKeys.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId));
+			const removeMutationId = crypto.randomUUID();
+			const addMutationId = crypto.randomUUID();
+			internals.log.push({
+				type: 'remove-batch',
+				mutationId: removeMutationId,
+				targetIds: getAssignmentSnapshot()
+					.filter(inReplacement)
+					.map(({ id }) => id)
+			});
+			internals.log.push({
+				type: 'add-batch',
+				mutationId: addMutationId,
+				tempIds: slots.map(() => `temp-${crypto.randomUUID()}`),
+				data: slots.map(({ date, personId }) => ({ date, assignmentTypeId: replacement.typeId, assigneeId: personId }))
+			});
+			const settle = () => {
+				internals.log.resolve(removeMutationId);
+				internals.log.resolve(addMutationId);
+			};
+			try {
+				const res = await internals.withinOrganization(
+					fetch(`/org/${internals.orgId()}/api/duty-rosters/replacement`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(replacement)
+					})
+				);
+				if (res.status === 409) {
+					settle();
+					return 'changed';
+				}
+				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The replacement was not saved.'));
+				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+				internals.commit({ deletedWhere: inReplacement });
+				internals.commit({ saved });
+				settle();
+				return 'saved';
+			} catch (error) {
+				settle();
+				toastStore.error(error instanceof Error ? error.message : 'The replacement was not saved.');
 				return 'failed';
 			}
 		},

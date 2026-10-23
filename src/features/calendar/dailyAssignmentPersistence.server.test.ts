@@ -127,8 +127,8 @@ describe('Calendar assignment replacement provider', () => {
 		const port = portFor(operator, admin);
 
 		await expect(
-			port.fillRoster('org-a', [
-				{ date: '2026-09-23', assignmentTypeId: 'type-a', assigneeId: 'person-a', source: 'roster' }
+			port.writeRoster('org-a', [
+				{ date: '2026-09-23', assignmentTypeId: 'type-a', assigneeId: 'person-a', was: 'person-b', source: 'manual' }
 			])
 		).resolves.toEqual([
 			{
@@ -140,10 +140,12 @@ describe('Calendar assignment replacement provider', () => {
 				created_at: '2026-09-28T12:00:00Z'
 			}
 		]);
-		expect(admin.rpc).toHaveBeenCalledWith('fill_roster_assignment_slots', {
+		expect(admin.rpc).toHaveBeenCalledWith('write_roster_assignment_slots', {
 			p_actor: 'user-a',
 			p_organization_id: 'org-a',
-			p_slots: [{ date: '2026-09-23', assignment_type_id: 'type-a', assignee_id: 'person-a' }]
+			p_slots: [
+				{ date: '2026-09-23', assignment_type_id: 'type-a', assignee_id: 'person-a', was: 'person-b', source: 'manual' }
+			]
 		});
 		expect(operator.rpc).not.toHaveBeenCalled();
 	});

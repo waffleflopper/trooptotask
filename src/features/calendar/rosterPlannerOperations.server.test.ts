@@ -2,12 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
 import {
 	commitRosterFill,
+	commitRosterReplacement,
 	loadPlannerRosters,
 	loadRosterDay,
-	previewRosterFill
+	previewRosterFill,
+	previewRosterReplacement
 } from './rosterPlannerOperations.server';
 import { octoberDate, R4_PICKS, R4_STARTING } from './roster/rosterFixtures.test-support';
-import type { PlannerRoster, RosterDay } from './contracts';
+import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
+import type { PlannerRoster, RosterDay, RosterReplacement } from './contracts';
 
 const TYPE = '00000000-0000-4000-a000-000000000001';
 const TDY = '00000000-0000-4000-a000-000000000021';
@@ -16,7 +19,7 @@ const DETAIL = '00000000-0000-4000-a000-000000000023';
 const TODAY = '2026-10-16';
 
 type Context = ReturnType<typeof createWriteWithNotificationsPortsContext>;
-type AssignmentRow = { date: string; assignment_type_id: string; assignee_id: string; source?: string };
+type AssignmentRow = { id: string; date: string; assignment_type_id: string; assignee_id: string; source?: string };
 
 const NAMES = [...R4_STARTING.map(([, lastName]) => lastName), 'Moreno'];
 const idOf = (lastName: string) =>
@@ -429,5 +432,241 @@ describe('Fill from roster', () => {
 		seedR4(ctx);
 
 		await expect(previewRosterFill(ctx, fillInput({ from: '2026-10-15' }))).rejects.toMatchObject({ status: 400 });
+	});
+});
+
+/**
+ * R4 with Okafor hand-assigned on the 20th, inside his leave, Moss by hand on the 22nd, and the open days filled.
+ * The Organization keeps the built-in rank catalog, so ties go to the higher rank.
+ */
+async function seedConflict(ctx: Context) {
+	seedR4(ctx);
+	ctx.store.seed(
+		'organization_rank_catalog',
+		BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === 'army').map((entry, index) => ({
+			id: `rank-${index}`,
+			organization_id: ctx.auth.orgId,
+			code: entry.code,
+			label: entry.label,
+			service: entry.service,
+			category: entry.category,
+			pay_grade: entry.payGrade,
+			state: entry.state,
+			source: 'built-in',
+			sort_order: entry.sortOrder
+		}))
+	);
+	ctx.store.seed('daily_assignments', [
+		assignment(ctx.auth.orgId, '2026-10-20', 'okafor'),
+		assignment(ctx.auth.orgId, '2026-10-22', 'moss')
+	]);
+	const preview = await previewRosterFill(ctx, fillInput());
+	await commitRosterFill(ctx, {
+		...fillInput(),
+		picks: preview.picks.map(({ date, personId }) => ({ date, personId }))
+	});
+}
+
+const replacementInput = (overrides: Record<string, unknown> = {}) => ({
+	typeId: TYPE,
+	today: TODAY,
+	date: '2026-10-20',
+	...overrides
+});
+
+const commitInput = (preview: RosterReplacement) => ({
+	...replacementInput(),
+	assigneeId: preview.selected,
+	replacing: preview.replacing.personId,
+	repicks: preview.repicks.map(({ date, was, personId }) => ({ date, was, personId }))
+});
+
+const repickLines = (preview: RosterReplacement) =>
+	preview.repicks.map(({ date, was, personId }) => `${date.slice(8)} ${nameOf(was)} → ${nameOf(personId)}`);
+
+const storedLines = async (ctx: Context) =>
+	(await staffDuty(ctx))
+		.filter((row) => row.date > TODAY)
+		.map((row) => `${row.date.slice(8)} ${nameOf(row.assignee_id)} ${row.source ?? 'manual'}`);
+
+describe('Find replacement', () => {
+	it("preselects the rule's pick and lists who cannot pull and the planned days it re-picks", async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await seedConflict(ctx);
+
+		const preview = await previewRosterReplacement(ctx, replacementInput());
+
+		expect(preview.replacing).toEqual({ personId: idOf('okafor'), count: 12, effect: { code: 'A', reason: 'Leave' } });
+		expect(nameOf(preview.nextUp!)).toBe('nguyen');
+		expect(preview.selected).toBe(preview.nextUp);
+		expect(
+			preview.candidates.map(
+				({ personId, count, adjacent }) =>
+					`${nameOf(personId)} ${count}${adjacent.map(({ name, day }) => `, ${name} ${day}`).join('')}`
+			)
+		).toEqual([
+			'nguyen 12, Staff Duty after',
+			'hale 11',
+			'morales 10',
+			'liang 9',
+			'fuller 8',
+			'grant 7',
+			'patel 6',
+			'moss 5',
+			'alvarez 4',
+			'ortiz 3',
+			'kim 2',
+			'brooks 1, Staff Duty before'
+		]);
+		expect(
+			preview.cantPull.map(({ personId, count, code, reason }) => `${nameOf(personId)} ${code}${count} ${reason}`)
+		).toEqual(['okafor A12 Leave']);
+		expect(repickLines(preview)).toEqual(['21 nguyen → hale', '23 hale → morales', '24 morales → okafor']);
+		expect(preview.unfilled).toEqual([]);
+	});
+
+	it('re-picks for the candidate chosen instead', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await seedConflict(ctx);
+
+		const preview = await previewRosterReplacement(ctx, replacementInput({ assigneeId: idOf('hale') }));
+
+		expect(nameOf(preview.selected!)).toBe('hale');
+		expect(nameOf(preview.nextUp!)).toBe('nguyen');
+		expect(repickLines(preview)).toEqual(['23 hale → morales', '24 morales → okafor']);
+	});
+
+	it('writes the replacement and exactly the previewed re-picks, and never a hand-assigned day', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await seedConflict(ctx);
+		const preview = await previewRosterReplacement(ctx, replacementInput());
+
+		const { saved } = await commitRosterReplacement(ctx, commitInput(preview));
+
+		expect(saved.map((row) => `${row.date.slice(8)} ${nameOf(row.assigneeId)}`)).toEqual([
+			'20 nguyen',
+			'21 hale',
+			'23 morales',
+			'24 okafor'
+		]);
+		expect(await storedLines(ctx)).toEqual([
+			'17 ortiz roster',
+			'18 kim roster',
+			'19 brooks roster',
+			'20 nguyen roster',
+			'21 hale roster',
+			'22 moss manual',
+			'23 morales roster',
+			'24 okafor roster'
+		]);
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({
+				action: 'daily_assignment.roster_replaced',
+				details: { assignmentTypeId: TYPE, date: '2026-10-20', repicks: 3 }
+			})
+		);
+	});
+
+	it("writes someone other than the rule's pick as a hand assignment", async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await seedConflict(ctx);
+		const preview = await previewRosterReplacement(ctx, replacementInput({ assigneeId: idOf('hale') }));
+
+		await commitRosterReplacement(ctx, commitInput(preview));
+
+		expect(await storedLines(ctx)).toEqual([
+			'17 ortiz roster',
+			'18 kim roster',
+			'19 brooks roster',
+			'20 hale manual',
+			'21 nguyen roster',
+			'22 moss manual',
+			'23 morales roster',
+			'24 okafor roster'
+		]);
+	});
+
+	it('refuses a preview the roster has moved past and writes nothing', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await seedConflict(ctx);
+		const preview = await previewRosterReplacement(ctx, replacementInput());
+		ctx.store.seed('availability_entries', [availability(ctx.auth.orgId, 'hale', LEAVE, '2026-10-21', '2026-10-21')]);
+
+		await expect(commitRosterReplacement(ctx, commitInput(preview))).rejects.toMatchObject({ status: 409 });
+		expect(await storedLines(ctx)).toEqual([
+			'17 ortiz roster',
+			'18 kim roster',
+			'19 brooks roster',
+			'20 okafor manual',
+			'21 nguyen roster',
+			'22 moss manual',
+			'23 hale roster',
+			'24 morales roster'
+		]);
+	});
+
+	it('refuses a preview when another operator changed a re-picked day to someone the re-pick leaves anyway', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await seedConflict(ctx);
+		const preview = await previewRosterReplacement(ctx, replacementInput());
+		const [row] = (await staffDuty(ctx)).filter((stored) => stored.date === '2026-10-23');
+		await ctx.store.compareAndUpdateMany('daily_assignments', ctx.auth.orgId, [
+			{ id: row.id, expected: { assignee_id: idOf('hale') }, patch: { assignee_id: idOf('liang') } }
+		]);
+
+		await expect(commitRosterReplacement(ctx, commitInput(preview))).rejects.toMatchObject({ status: 409 });
+		expect(await storedLines(ctx)).toEqual([
+			'17 ortiz roster',
+			'18 kim roster',
+			'19 brooks roster',
+			'20 okafor manual',
+			'21 nguyen roster',
+			'22 moss manual',
+			'23 liang roster',
+			'24 morales roster'
+		]);
+	});
+
+	it('refuses a replacement that leaves a planned day with nobody to take it', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const pool = { rank: null, mos: ['68V'], role: [], groupIds: [] };
+		seedR4(ctx, { rules: { pool, weekendMode: 'same' }, medics: ['kim', 'patel'] });
+		ctx.store.seed('availability_entries', [
+			availability(ctx.auth.orgId, 'kim', LEAVE, '2026-10-17', '2026-10-18'),
+			availability(ctx.auth.orgId, 'patel', DETAIL, '2026-10-18', '2026-10-18')
+		]);
+		ctx.store.seed('daily_assignments', [
+			assignment(ctx.auth.orgId, '2026-10-17', 'kim'),
+			{ ...assignment(ctx.auth.orgId, '2026-10-18', 'patel'), source: 'roster' }
+		]);
+		const input = replacementInput({ date: '2026-10-17' });
+
+		const preview = await previewRosterReplacement(ctx, input);
+
+		expect(nameOf(preview.selected!)).toBe('patel');
+		expect(preview.unfilled).toEqual(['2026-10-18']);
+		await expect(commitRosterReplacement(ctx, { ...commitInput(preview), date: '2026-10-17' })).rejects.toMatchObject({
+			status: 409,
+			message: 'Nobody on the roster can take every re-picked day. Choose someone else.'
+		});
+		expect((await storedLines(ctx)).join(', ')).toBe('17 kim manual, 18 patel roster');
+	});
+
+	it('keeps Find replacement from a Group-scoped operator', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
+		});
+		seedR4(ctx);
+
+		await expect(previewRosterReplacement(ctx, replacementInput())).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('refuses a replacement beyond the planning horizon before reading the roster', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedR4(ctx);
+
+		await expect(previewRosterReplacement(ctx, replacementInput({ date: '9999-12-31' }))).rejects.toMatchObject({
+			status: 400
+		});
 	});
 });

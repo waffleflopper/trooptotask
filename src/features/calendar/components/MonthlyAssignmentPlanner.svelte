@@ -8,6 +8,7 @@
 		DailyAssignment,
 		RosterFillPick,
 		RosterFillPreview,
+		RosterReplacement,
 		SpecialDay,
 		StatusType
 	} from '$features/calendar/contracts';
@@ -35,6 +36,7 @@
 	import AssignmentPlannerColumnMenu from './AssignmentPlannerColumnMenu.svelte';
 	import DutyPicker from './DutyPicker.svelte';
 	import RosterCountPanel from './RosterCountPanel.svelte';
+	import RosterReplacementPopover from './RosterReplacementPopover.svelte';
 
 	interface GroupData {
 		group: string;
@@ -67,6 +69,9 @@
 				through: string,
 				picks: RosterFillPick[]
 			) => Promise<'saved' | 'changed' | 'failed'>;
+			/** Find replacement for a conflicted roster day. Without an assignee the preview takes the rule's pick. */
+			replacement: (typeId: string, date: string, assigneeId?: string) => Promise<RosterReplacement>;
+			replace: (typeId: string, preview: RosterReplacement) => Promise<'saved' | 'changed' | 'failed'>;
 			/** The picker's roster day, read when the picker opens it. */
 			day: (typeId: string, date: string) => RosterDayRead | undefined;
 			loadDay: (typeId: string, date: string) => void;
@@ -173,6 +178,8 @@
 
 	type PickerTarget = { typeId: string; dateKey: string; anchor: HTMLElement };
 	let pickerTarget = $state<PickerTarget | null>(null);
+	type ReplacementTarget = { typeId: string; dateKey: string; anchor: HTMLElement; returnTo: HTMLElement };
+	let replacementTarget = $state<ReplacementTarget | null>(null);
 	let clearTypeId = $state<string | null>(null);
 
 	// Changing the month or losing the read window ends whatever was open on the old slots.
@@ -180,6 +187,7 @@
 		void [monthRange.rangeStart, rangeStatus];
 		untrack(() => {
 			pickerTarget = null;
+			replacementTarget = null;
 			clearTypeId = null;
 		});
 	});
@@ -234,6 +242,43 @@
 	function openPicker(typeId: string, dateKey: string, anchor: HTMLElement) {
 		if (rangeStatus === 'ready' && !busy) pickerTarget = { typeId, dateKey, anchor };
 	}
+
+	const slotCell = (typeId: string, dateKey: string) =>
+		document.querySelector<HTMLElement>(`[data-duty-slot="${assignmentSlotKey(dateKey, typeId)}"]`);
+
+	// A roster day's conflict opens the replacement beside its cell. Any other conflict opens the duty picker.
+	function findReplacement(typeId: string, dateKey: string, button: HTMLElement) {
+		if (rangeStatus !== 'ready' || busy) return;
+		const cell = slotCell(typeId, dateKey);
+		if (!rosters || !rosterViews?.get(typeId)?.covered.has(dateKey) || !cell)
+			return openPicker(typeId, dateKey, button);
+		cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		replacementTarget = { typeId, dateKey, anchor: cell, returnTo: button };
+	}
+
+	const replacement = $derived.by(() => {
+		if (!replacementTarget || !rosters || rangeStatus !== 'ready') return null;
+		const { typeId, dateKey } = replacementTarget;
+		const type = columns.find((candidate) => candidate.id === typeId);
+		const current = assignmentsBySlot.get(assignmentSlotKey(dateKey, typeId));
+		if (!type) return null;
+		const { replacement: load, replace } = rosters;
+		return {
+			...replacementTarget,
+			type,
+			assignee: current ? personById.get(current.assigneeId) : undefined,
+			load: (assigneeId?: string) => load(typeId, dateKey, assigneeId),
+			commit: async (preview: RosterReplacement) => {
+				if (busy) return 'failed' as const;
+				busy = true;
+				try {
+					return await replace(typeId, preview);
+				} finally {
+					busy = false;
+				}
+			}
+		};
+	});
 
 	async function writeBatch(writes: AssignmentWrite[]): Promise<boolean> {
 		if (rangeStatus !== 'ready' || busy) return false;
@@ -412,7 +457,7 @@
 		</div>
 
 		<div class="grid grid-cols-[minmax(0,1fr)] gap-4">
-			<AssignmentConflictsPanel conflicts={table.conflicts} {busy} onFindReplacement={openPicker} />
+			<AssignmentConflictsPanel conflicts={table.conflicts} {busy} onFindReplacement={findReplacement} />
 			{#if rosters && countType}
 				<RosterCountPanel
 					types={rosterTypes}
@@ -442,6 +487,28 @@
 			onAssign={(assigneeId) => onSetAssignment(picker.dateKey, picker.type.id, assigneeId)}
 			onClear={picker.occupied ? () => onSetAssignment(picker.dateKey, picker.type.id, '') : undefined}
 			onClose={() => (pickerTarget = null)}
+		/>
+	{/key}
+{/if}
+
+{#if replacement}
+	{#key replacement.anchor}
+		<RosterReplacementPopover
+			typeName={replacement.type.name}
+			dateKey={replacement.dateKey}
+			anchor={replacement.anchor}
+			returnFocusTo={() =>
+				replacement.returnTo.isConnected ? replacement.returnTo : slotCell(replacement.type.id, replacement.dateKey)}
+			assignee={replacement.assignee}
+			{personById}
+			load={replacement.load}
+			commit={replacement.commit}
+			onSomeoneElse={() => {
+				const { type, dateKey, anchor } = replacement;
+				replacementTarget = null;
+				openPicker(type.id, dateKey, anchor);
+			}}
+			onClose={() => (replacementTarget = null)}
 		/>
 	{/key}
 {/if}

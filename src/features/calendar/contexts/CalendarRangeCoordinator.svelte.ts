@@ -139,6 +139,27 @@ export class CalendarRangeCoordinator {
 		}
 	}
 
+	/**
+	 * Reads the assignments of `needed` again, loaded or not, after a write the server refused because another
+	 * operator changed them. Coverage and the shown status stay as they are. Nothing is applied when the page has
+	 * left the range meanwhile; a failed read leaves the stores as they were.
+	 */
+	async rereadAssignments(orgId: string, needed: CalendarCoverage): Promise<void> {
+		if (!needed.assignments) return;
+		const requestSerial = this.#requestSerial;
+		const read = beginCalendarRangeRead();
+		try {
+			const reads = planCalendarRangeReads({}, { assignments: needed.assignments });
+			const rangeDataSets = await this.#readRanges(orgId, reads, requestSerial);
+			if (requestSerial !== this.#requestSerial) return;
+			for (const rangeData of rangeDataSets) this.#mergeRangeIntoStores(orgId, rangeData, read);
+		} catch {
+			// The stores keep the rows they hold; the next range read corrects them.
+		} finally {
+			read.close();
+		}
+	}
+
 	#include(read: CalendarCoverage): void {
 		const loaded = { ...untrack(() => this.loaded) };
 		for (const collection of CALENDAR_RANGE_COLLECTIONS) {

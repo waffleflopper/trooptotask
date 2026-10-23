@@ -36,9 +36,11 @@ export { parseMonth } from './utils/da6View';
 export { previewStatusEffect } from './statusEffectPreview.server';
 export {
 	commitRosterFill,
+	commitRosterReplacement,
 	loadPlannerRosters,
 	loadRosterDay,
-	previewRosterFill
+	previewRosterFill,
+	previewRosterReplacement
 } from './rosterPlannerOperations.server';
 export {
 	createSupabaseAssignmentTypeRetention,

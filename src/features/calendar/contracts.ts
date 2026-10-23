@@ -12,7 +12,7 @@ import type {
 	PoolRules,
 	RosterCode,
 	RosterEffect,
-	RosterSlotChange,
+	RosterSlotWrite,
 	StartingNumber,
 	TrackId,
 	WeekendMode
@@ -356,6 +356,46 @@ export const rosterFillPreviewSchema = z.object({
 	unfilled: z.array(z.string())
 }) satisfies z.ZodType<RosterFillPreview>;
 
+/** Find replacement on one roster day. Nothing is written. */
+export interface RosterReplacement {
+	date: string;
+	/** The assignee being replaced. `count` is their number that day, null for someone outside the pool. */
+	replacing: { personId: string; count: number | null; effect: { code: RosterCode; reason: string } | null };
+	/** The rule's pick, null when nobody in the pool is available. */
+	nextUp: string | null;
+	/** Available pool members, highest count first, with any duty they hold the day before or after. */
+	candidates: { personId: string; count: number; adjacent: { name: string; day: 'before' | 'after' }[] }[];
+	/** Higher counts the rule passed over, each with the code that keeps them off. */
+	cantPull: { personId: string; count: number; code: RosterCode; reason: string }[];
+	/** The candidate `repicks` and `unfilled` are for: the one asked for, or else the rule's pick. */
+	selected: string | null;
+	/** Later roster days whose pick changes when `selected` takes the day. Hand-assigned days never appear. */
+	repicks: { date: string; was: string; personId: string }[];
+	/** Later roster days nobody could take after the change. The replacement cannot be saved while any remain. */
+	unfilled: string[];
+}
+
+export const rosterReplacementSchema = z.object({
+	date: z.string(),
+	replacing: z.object({
+		personId: z.string(),
+		count: z.number().nullable(),
+		effect: z.object({ code: rosterCodeSchema, reason: z.string() }).nullable()
+	}),
+	nextUp: z.string().nullable(),
+	candidates: z.array(
+		z.object({
+			personId: z.string(),
+			count: z.number(),
+			adjacent: z.array(z.object({ name: z.string(), day: z.enum(['before', 'after']) }))
+		})
+	),
+	cantPull: z.array(z.object({ personId: z.string(), count: z.number(), code: rosterCodeSchema, reason: z.string() })),
+	selected: z.string().nullable(),
+	repicks: z.array(z.object({ date: z.string(), was: z.string(), personId: z.string() })),
+	unfilled: z.array(z.string())
+}) satisfies z.ZodType<RosterReplacement>;
+
 export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;
 
 export interface FederalHolidayDefault {
@@ -468,8 +508,11 @@ export interface CalendarAssignmentReader {
 /** Replaces the selected slots or complete days in one transaction; a failure keeps the existing assignments. */
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
-	/** Writes roster picks into open slots as the signed-in operator, all or none. An occupied slot fails with 409. */
-	fillRoster(orgId: string, slots: readonly RosterSlotChange[]): Promise<SavedAssignment[]>;
+	/**
+	 * Writes roster slots as the signed-in operator, all or none. A slot whose assignee is no longer `was` fails with
+	 * 409. Only slots whose source is roster become roster picks.
+	 */
+	writeRoster(orgId: string, slots: readonly RosterSlotWrite[]): Promise<SavedAssignment[]>;
 }
 
 export interface CalendarAvailabilityRemovalPort {

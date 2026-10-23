@@ -245,7 +245,7 @@ proof, separately from UI interaction.
    Import `Last name,First name,Group,Rank,MOS` with `Able,Synthetic,Alpha,SPC,25B` and
    `Able,Synthetic,Alpha,PFC,11B`. Both rows read Update without a person question, and their MOS changes belong to
    their respective saved IDs. Before saving, replace the file with `Last name,First name,Group,Rank` and the rows
-   `Able,Synthetic,Alpha,SGT` and `Able,Synthetic,Alpha,SSG`. Neither rank settles the tie, so two separate
+   `Able,Synthetic,Alpha,SGT` and `Able,Synthetic,Alpha,VFY-ACTIVE-A`. Neither rank settles the tie, so two separate
    `Which person?` questions each apply to one row. Answer the first with SPC Able and the second with PFC Able.
    Both rows read Update without an in-file duplicate error. Two rows with the same name, Group and unresolved rank
    share one question and still receive the in-file duplicate error if mapped to the same saved Person.

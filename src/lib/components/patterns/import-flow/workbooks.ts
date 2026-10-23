@@ -39,8 +39,9 @@ export async function buildNotImported(
 		const headerIndex = layout.sheets[index]?.headerRow;
 		const headers = headerIndex === null || headerIndex === undefined ? [] : (source.rows[headerIndex] ?? []);
 		const width = Math.max(headers.length, ...items.map((item) => item.row.cells.length));
+		const outputHeaders = Array.from({ length: width }, (_, column) => headers[column] ?? '');
+		const headerColumns = new Map(outputHeaders.map((header, column) => [headerKey(header), column]));
 		const sheet = workbook.addWorksheet(source.name.replace(/[\\/*?:[\]]/g, '_').slice(0, 31) || `Sheet ${index + 1}`);
-		sheet.addRow([...Array.from({ length: width }, (_, column) => headers[column] ?? ''), 'Reason']);
 		const pivotColumns = headers.flatMap((header, column) =>
 			layout.columns.get(headerKey(header))?.kind === 'pivot' ? [column] : []
 		);
@@ -52,11 +53,28 @@ export async function buildNotImported(
 			const splitter = target.kind === 'split' ? splitters[target.splitter] : undefined;
 			return splitter?.join ? [[column, splitter] as const] : [];
 		});
-		const physicalRows = new Map<number, { cells: string[]; reasons: Set<string> }>();
+		const physicalRows = new Map<number, { cells: string[]; reasons: Set<string>; occupied: Set<number> }[]>();
 		for (const item of items) {
-			let row = physicalRows.get(item.row.rowNumber);
-			if (!row) {
-				row = { cells: [...item.row.cells], reasons: new Set() };
+			const pivot = item.row.pivot;
+			const pivotHeader = pivot ? (item.row.raw[pivot.field] ?? item.row.pivotHeader) : item.row.pivotHeader;
+			let pivotColumn = item.row.pivotColumn;
+			if (
+				pivotColumn !== undefined &&
+				pivotHeader !== undefined &&
+				headerKey(pivotHeader) !== headerKey(headers[pivotColumn] ?? '')
+			) {
+				const key = headerKey(pivotHeader);
+				pivotColumn = headerColumns.get(key);
+				if (pivotColumn === undefined) {
+					pivotColumn = outputHeaders.length;
+					headerColumns.set(key, pivotColumn);
+					outputHeaders.push(pivotHeader);
+				}
+			}
+			const group = physicalRows.get(item.row.rowNumber);
+			let row = group?.[0];
+			if (!row || (pivotColumn !== undefined && row.occupied.has(pivotColumn))) {
+				row = { cells: [...item.row.cells], reasons: new Set(), occupied: new Set() };
 				for (const [column, field] of fieldColumns) {
 					const reviewed = item.row.raw[field];
 					if (reviewed !== undefined && reviewed !== (row.cells[column] ?? '').trim()) row.cells[column] = reviewed;
@@ -67,19 +85,19 @@ export async function buildNotImported(
 					if (edited) row.cells[column] = splitter.join?.(item.row.raw) ?? row.cells[column];
 				}
 				if (item.row.pivotColumn !== undefined) for (const column of pivotColumns) row.cells[column] = '';
-				physicalRows.set(item.row.rowNumber, row);
+				if (group) group.push(row);
+				else physicalRows.set(item.row.rowNumber, [row]);
 			}
-			if (item.row.pivotColumn !== undefined)
-				row.cells[item.row.pivotColumn] = item.row.pivot
-					? (item.row.raw[item.row.pivot.valueField] ?? '')
-					: (item.row.cells[item.row.pivotColumn] ?? '');
-			row.reasons.add(item.row.pivotHeader ? `${item.row.pivotHeader}: ${item.reason}` : item.reason);
+			if (pivotColumn !== undefined) {
+				row.cells[pivotColumn] = pivot ? (item.row.raw[pivot.valueField] ?? '') : (item.row.cells[pivotColumn] ?? '');
+				row.occupied.add(pivotColumn);
+			}
+			row.reasons.add(pivotHeader ? `${pivotHeader}: ${item.reason}` : item.reason);
 		}
-		for (const row of physicalRows.values())
-			sheet.addRow([
-				...Array.from({ length: width }, (_, column) => row.cells[column] ?? ''),
-				[...row.reasons].join('; ')
-			]);
+		sheet.addRow([...outputHeaders, 'Reason']);
+		for (const group of physicalRows.values())
+			for (const row of group)
+				sheet.addRow([...outputHeaders.map((_, column) => row.cells[column] ?? ''), [...row.reasons].join('; ')]);
 		formatCellsAsText(sheet);
 		styleHeaderRow(sheet);
 		sheet.views = [{ state: 'frozen', ySplit: 1 }];

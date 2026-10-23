@@ -4,7 +4,7 @@ import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { buildNotImported, buildTemplate } from './workbooks';
 import { buildReceipt, type CommitResult } from './commit';
 import { applyEdits, buildSourceRows, reviewRows, ReviewMemo, sourceRowId } from './rowModel';
-import { defineImportLane } from './types';
+import { defineImportLane, type RowId } from './types';
 import { personnelLane } from './importFlow.test-support';
 import { detectLayout, readImportFile, type LoadedFile } from './workbookSource';
 
@@ -138,7 +138,7 @@ describe('workbook export', () => {
 		const layout = detectLayout(file, lane);
 		const rows = applyEdits(
 			buildSourceRows(file, layout, lane),
-			new Map([
+			new Map<RowId, Record<string, string>>([
 				[sourceRowId(0, 1, 1), { training: 'CPR', completed: '2026-05-01' }],
 				[sourceRowId(0, 2, 1), { training: 'ACLS', completed: '2026-05-02' }],
 				[sourceRowId(0, 3, 2), { training: ' cpr ' }],

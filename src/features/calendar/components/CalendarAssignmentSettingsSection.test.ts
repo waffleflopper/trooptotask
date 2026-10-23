@@ -24,6 +24,10 @@ const { store, roster } = vi.hoisted(() => ({
 
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({ dailyAssignmentsStore: store }));
 vi.mock('$features/personnel', () => ({ rosterStore: roster, groupsStore: { items: [] } }));
+// The row reads its own status over the network; StartingNumbersRow.test.ts covers it.
+vi.mock('./StartingNumbersRow.svelte', async () => ({
+	default: (await import('$lib/test-stubs/VisibleStub.svelte')).default
+}));
 
 function type(id: string, name: string, overrides: Partial<AssignmentType> = {}): AssignmentType {
 	return {

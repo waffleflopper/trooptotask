@@ -286,6 +286,9 @@
 						{rankCatalog}
 						{today}
 						showProblems={triedSave}
+						startingNumbers={editing?.assignTo === 'personnel'
+							? { typeId: editing.id, shortName: editing.shortName, blocked: dirty }
+							: undefined}
 					/>
 				{/if}
 			</fieldset>

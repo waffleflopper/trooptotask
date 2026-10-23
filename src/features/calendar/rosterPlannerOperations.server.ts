@@ -35,7 +35,7 @@ import {
 } from './roster/rosterEngine';
 
 export interface RosterPlannerPorts extends RosterSettingsPorts {
-	calendarAssignmentReplacement: Pick<CalendarAssignmentReplacementPort, 'writeRoster'>;
+	calendarAssignmentReplacement: Pick<CalendarAssignmentReplacementPort, 'writeRoster' | 'setRosterStartingNumbers'>;
 }
 
 const action = CALENDAR_POLICY_ACTIONS.manageAssignments;

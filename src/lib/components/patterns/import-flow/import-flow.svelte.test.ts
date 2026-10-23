@@ -50,7 +50,7 @@ function importButton(): HTMLButtonElement {
 	return screen.getByRole('button', { name: /^Import \d/ });
 }
 
-function wideLane() {
+function wideLane(committed: string[] = []) {
 	const options = [
 		{ id: 'cpr', label: 'CPR', value: 'cpr' },
 		{ id: 'drv', label: 'Driving', value: 'drv' }
@@ -83,10 +83,10 @@ function wideLane() {
 			key: `${values.name}:${refs.training.value}`,
 			change: refs.training.value
 		}),
-		commitChunk: async (changes: readonly string[]): Promise<ChunkReply> => ({
-			kind: 'saved',
-			results: changes.map(() => ({ kind: 'added' }))
-		}),
+		commitChunk: async (changes: readonly string[]): Promise<ChunkReply> => {
+			committed.push(...changes);
+			return { kind: 'saved', results: changes.map(() => ({ kind: 'added' })) };
+		},
 		exit: { href: '/', label: 'Back' }
 	});
 }
@@ -300,47 +300,61 @@ describe('ImportFlow', () => {
 		expect(screen.getByDisplayValue('Sgt.')).toBeTruthy();
 	});
 
-	it('counts spreadsheet rows on Columns and maps an unknown wide column from its column choice', async () => {
-		render(WideFlow, { lane: wideLane(), title: 'Import', eyebrow: 'Test' });
+	it('imports an unknown wide column as the training the user maps it to', async () => {
+		const committed: string[] = [];
+		render(WideFlow, { lane: wideLane(committed), title: 'Import', eyebrow: 'Test' });
 		await upload(['Cole,2026-03-11,2026-04-01'], 'Name,CPR,DRIVERS TNG');
-		const unknown = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Import DRIVERS TNG as' });
 		expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'Import CPR as' }).value).toBe('pivot:cpr');
-		expect(unknown.value).toBe('pivot');
-		expect(screen.getByText(/read · 1 row$/)).toBeTruthy();
 
-		await fireEvent.change(unknown, { target: { value: 'pivot:drv' } });
-		await fireEvent.click(screen.getByRole('button', { name: /^Review 2 completions/ }));
-
+		await fireEvent.change(screen.getByRole('combobox', { name: 'Import DRIVERS TNG as' }), {
+			target: { value: 'pivot:drv' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /^Review/ }));
 		await waitFor(() => expect(importButton().disabled).toBe(false));
+		await fireEvent.click(importButton());
+
+		await waitFor(() => expect(committed.toSorted()).toEqual(['cpr', 'drv']));
 	});
 
-	it('offers only the way out when a question has nothing to pick', async () => {
+	it('leaves out the rows a question has nothing to pick for when the user takes the way out', async () => {
+		const title = 'These rows need access you do not have';
+		const skipLabel = 'Leave these rows out';
+		const base = personnelLane();
+		const committed: PersonnelChange[] = [];
 		const lane = {
-			...personnelLane(),
-			review: (): RowReview<PersonnelChange> => ({
-				outcome: 'fix',
-				problems: [{ field: '', message: 'You need access to save this.' }],
-				questions: [
-					{
-						key: questionKey({ lane: 'access' }),
-						title: 'These rows need access you do not have',
-						subject: 'Exempt',
-						skipLabel: 'Leave these rows out',
-						accepts: { kind: 'pick', options: [] }
-					}
-				]
-			})
+			...base,
+			review: (input: Parameters<typeof base.review>[0]): RowReview<PersonnelChange> =>
+				input.values.lastName === 'Smith'
+					? {
+							outcome: 'fix',
+							problems: [{ field: '', message: 'You need access to save this.' }],
+							questions: [
+								{
+									key: questionKey({ lane: 'access' }),
+									title,
+									subject: 'Exempt',
+									skipLabel,
+									accepts: { kind: 'pick', options: [] }
+								}
+							]
+						}
+					: base.review(input),
+			commitChunk: async (changes: readonly PersonnelChange[]): Promise<ChunkReply> => {
+				committed.push(...changes);
+				return { kind: 'saved', results: changes.map(() => ({ kind: 'added' })) };
+			}
 		};
 		render(Flow, { lane, title: 'Import', eyebrow: 'Test' });
-		await toReview(['Smith,Alex,SGT,']);
+		await toReview(['Smith,Alex,SGT,', 'Jones,Pat,SGT,']);
+		expect(importButton().disabled).toBe(true);
 
-		const card = screen.getByRole('region', { name: /need access/ });
+		const card = screen.getByRole('region', { name: title });
 		expect(within(card).queryByRole('radio')).toBeNull();
-		expect(
-			within(card)
-				.getAllByRole('button')
-				.map((button) => button.textContent?.trim())
-		).toEqual(['Leave these rows out']);
+		await fireEvent.click(within(card).getByRole('button', { name: skipLabel }));
+		await waitFor(() => expect(importButton().disabled).toBe(false));
+		await fireEvent.click(importButton());
+
+		await waitFor(() => expect(committed.map((change) => change.name)).toEqual(['Jones, Pat']));
 	});
 
 	it('tells the user why leaving is blocked while a commit is saving, and keeps saving', async () => {

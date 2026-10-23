@@ -34,6 +34,37 @@ describe('row review', () => {
 		]);
 		expect(state.commitBlocker).not.toBeNull();
 	});
+	it('shows a row the lane skips as Skipped with its reason and keeps it out of the commit', () => {
+		const base = personnelLane();
+		const lane = {
+			...base,
+			review: (input: Parameters<typeof base.review>[0]) =>
+				input.values.lastName === 'Smith'
+					? ({ outcome: 'skipped', reason: 'Nothing to import.' } as const)
+					: base.review(input)
+		};
+		const file: LoadedFile = {
+			name: 'names',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Last name', 'First name', 'Rank'],
+						['Smith', 'Alex', 'SGT'],
+						['Jones', 'Pat', 'SGT']
+					]
+				}
+			]
+		};
+		const rows = buildSourceRows(file, detectLayout(file, lane), lane);
+		const state = reviewRows(rows, lane, new Map(), new Set(), new ReviewMemo());
+
+		expect(state.rows[0]).toMatchObject({ outcome: 'skipped', reason: 'Nothing to import.' });
+		expect(state.counts).toMatchObject({ new: 1, skipped: 1, fix: 0 });
+		expect(state.commitBlocker).toBeNull();
+	});
 	it('groups repeated unknowns, resolves each distinct key once, and applies skip to every affected row', () => {
 		const lookups: string[] = [];
 		const reviews: string[] = [];

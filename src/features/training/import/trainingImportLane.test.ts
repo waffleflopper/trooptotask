@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { lastFirstSplitter, rosterPersonReference } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
 import { parseImportDate, type LaneQuestion } from '$lib/components/patterns/import-flow';
+import { buildSourceRows, ReviewMemo, reviewRows } from '$lib/components/patterns/import-flow/rowModel';
+import { detectLayout, type LoadedFile } from '$lib/components/patterns/import-flow/workbookSource';
 import type { PersonnelTraining, TrainingType } from '../training.types';
 import {
 	createTrainingImportLane,
@@ -95,7 +97,7 @@ function review(raw: Raw, { lane = createTrainingImportLane(source()), answers =
 			firstName: raw.firstName ?? '',
 			groupName: raw.groupName ?? null,
 			training: raw.training ?? '',
-			completed: raw.completed ?? '',
+			completed: raw.completed || null,
 			note: raw.note ?? null
 		},
 		refs: { person: one('person'), training: one('training') } as never,
@@ -216,6 +218,42 @@ describe('training import lane', () => {
 			diff: [{ label: 'Completed', before: '2026-01-14', after: '2026-09-30' }],
 			change: { op: 'update', personnelId: 'p2', trainingTypeId: 't-sharp', completionDate: '2026-09-30' }
 		});
+	});
+
+	it('skips a long-format row with no completion instead of blocking the import on a fix', () => {
+		const lane = createTrainingImportLane(source());
+		const file: LoadedFile = {
+			name: 'long.csv',
+			sheets: [
+				{
+					index: 0,
+					name: 'Completions',
+					hidden: false,
+					rows: [
+						['Last name', 'First name', 'Training', 'Completed'],
+						['Abernathy', 'Cole', 'SHARP', ''],
+						['Alvarez', 'Marisol', 'CPR/BLS', '2026-06-02']
+					]
+				}
+			]
+		};
+		const rows = buildSourceRows(file, detectLayout(file, lane), lane);
+		const state = reviewRows(rows, lane, new Map(), new Set(), new ReviewMemo());
+
+		expect(state.counts).toMatchObject({ skipped: 1, new: 1, fix: 0 });
+		expect(state.commitBlocker).toBeNull();
+	});
+
+	it('names the changed date from what the training type dates', () => {
+		const lane = createTrainingImportLane(
+			source({
+				trainingTypes: [type('t-lic', 'Driver License', { expirationDateOnly: true })],
+				trainings: [{ ...completion('p1', 't-lic', ''), completionDate: null, expirationDate: '2026-12-01' }]
+			})
+		);
+		expect(
+			review({ ...abernathy, training: 'Driver License', completed: '2027-12-01' }, { lane }).result
+		).toMatchObject({ outcome: 'update', diff: [{ label: 'Expires', before: '2026-12-01', after: '2027-12-01' }] });
 	});
 
 	it('keeps the saved note when the file leaves Notes blank on an update', () => {

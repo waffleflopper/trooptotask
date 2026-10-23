@@ -10,6 +10,7 @@
 	import {
 		cardContext,
 		cellText,
+		changeFor,
 		editableFields,
 		fieldMessage,
 		looseMessages,
@@ -46,7 +47,6 @@
 	const allColumns = $derived([...identityColumns, ...columns]);
 	const editable = $derived(editableFields(row, allColumns));
 	const identityEditors = $derived(identityColumns.filter((column) => editable.has(column.field)));
-	const diff = $derived(new Map(row.outcome === 'update' ? row.diff.map((item) => [item.label, item]) : []));
 	const messageId = $derived(`import-row-${source.id}-message`);
 	const where = $derived(`${source.sheetName} · row ${source.rowNumber}`);
 	const quiet = $derived(row.outcome === 'unchanged' || row.outcome === 'skipped');
@@ -171,7 +171,7 @@
 				</span>
 			</div>
 			{#each columns as column (column.field)}
-				{@const change = diff.get(column.label)}
+				{@const change = changeFor(row, column)}
 				<div class="min-w-0" role="cell">
 					{#if editable.has(column.field)}
 						{@render editor(column, messageId, 'border-destructive')}

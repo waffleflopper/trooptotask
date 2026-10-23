@@ -112,6 +112,7 @@ export interface CellProblem<F extends string = string> {
 
 export interface FieldDiff {
 	label: string;
+	field?: string;
 	before: string;
 	after: string;
 }
@@ -121,6 +122,7 @@ export type RowReview<Change> = (
 	| { outcome: 'update'; key: string; change: Change; diff: readonly FieldDiff[] }
 	| { outcome: 'unchanged'; key: string }
 	| { outcome: 'fix'; problems: readonly CellProblem[]; questions?: readonly LaneQuestion[] }
+	| { outcome: 'skipped'; reason: string }
 ) & {
 	shown?: Readonly<Record<string, string>>;
 };

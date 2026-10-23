@@ -1,6 +1,6 @@
 import type { BadgeVariant } from '$lib/components/ui/badge';
 import type { Outcome, ReviewedRow } from './rowModel';
-import type { ValueKind } from './types';
+import type { FieldDiff, ValueKind } from './types';
 import { parseImportDate } from './values';
 
 export interface ReviewColumn {
@@ -54,11 +54,15 @@ export function cellText(row: ReviewedRow<unknown>, column: ReviewColumn): strin
 	return column.kind === 'date' ? (parseImportDate(raw, row.row) ?? raw) : raw;
 }
 
+export function changeFor(row: ReviewedRow<unknown>, column: ReviewColumn): FieldDiff | undefined {
+	if (row.outcome !== 'update') return undefined;
+	return row.diff.find((item) => (item.field ? item.field === column.field : item.label === column.label));
+}
+
 export function cardContext(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): string {
 	const editable = editableFields(row, columns);
-	const changed = new Set(row.outcome === 'update' ? row.diff.map((item) => item.label) : []);
 	return columns
-		.filter((column) => !editable.has(column.field) && !changed.has(column.label))
+		.filter((column) => !editable.has(column.field) && !changeFor(row, column))
 		.map((column) => cellText(row, column))
 		.filter(Boolean)
 		.join(' · ');

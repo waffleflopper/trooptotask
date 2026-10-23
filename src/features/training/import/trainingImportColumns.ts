@@ -38,7 +38,6 @@ export const trainingImportColumns = {
 	completed: {
 		label: 'Completed',
 		kind: 'text',
-		required: true,
 		aliases: [
 			'completed',
 			'date',

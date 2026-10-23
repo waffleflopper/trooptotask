@@ -152,6 +152,7 @@ export function createTrainingImportLane(source: TrainingImportSource) {
 			const person = refs.person.value;
 			const type = refs.training.value;
 			const key = `${person.id}:${type.id}`;
+			if (!values.completed?.trim()) return { outcome: 'skipped', reason: 'No completion date.' };
 			const mark = readMark(values.completed, parseDate);
 			if (mark.kind === 'bad-date')
 				return { outcome: 'fix', problems: [{ field: 'completed', message: 'Enter a date like 2026-03-11.' }] };
@@ -226,7 +227,13 @@ export function createTrainingImportLane(source: TrainingImportSource) {
 				};
 			const savedDate = (type.expirationDateOnly ? saved.expirationDate : saved.completionDate) ?? '';
 			const diff: FieldDiff[] = [];
-			if (date !== savedDate) diff.push({ label: columns.completed.label, before: savedDate, after: date });
+			if (date !== savedDate)
+				diff.push({
+					label: type.expirationDateOnly ? 'Expires' : columns.completed.label,
+					field: 'completed',
+					before: savedDate,
+					after: date
+				});
 			if (note && note !== (saved.notes ?? ''))
 				diff.push({ label: columns.note.label, before: saved.notes ?? '', after: note });
 			if (!diff.length) return { outcome: 'unchanged', key, shown };

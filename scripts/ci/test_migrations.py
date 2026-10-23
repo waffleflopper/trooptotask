@@ -103,6 +103,21 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn('20261021000200_slice.sql', errors[0])
 
+    def test_feature_branch_without_main_merged_does_not_inherit_main_migrations(self):
+        self.git('checkout', '--quiet', '-b', 'feature')
+        self.add('20261022000100_feature.sql')
+        self.commit()
+        feature = self.git('rev-parse', 'HEAD')
+        self.git('checkout', '--quiet', '--detach', self.base)
+        self.add('20261021000100_main.sql')
+        self.commit()
+        self.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        self.git('checkout', '--quiet', '-b', 'copy', feature)
+        self.add('20261021000100_main.sql')
+        errors = migrations.check(self.root, feature)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('20261021000100_main.sql', errors[0])
+
     def test_cli_uses_event_base_and_allows_explicit_local_override(self):
         self.add('20261021000100_base_change.sql')
         self.commit()

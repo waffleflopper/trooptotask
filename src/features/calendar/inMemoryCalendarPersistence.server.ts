@@ -1,3 +1,4 @@
+import { effectiveRosterFormStart } from './roster/rosterFormStart';
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { fail } from '$lib/errors';
 import { CALENDAR_CHANGE_NOT_SAVED_MESSAGE, DEVICE_DATE_MESSAGE } from './calendarCatalogPersistence.server';
@@ -78,6 +79,38 @@ export function createInMemoryCalendarCatalogPersistence(
 	}
 	const openForm = (assignmentTypeId: string) =>
 		store.findOne<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: assignmentTypeId, ends_on: null });
+	async function readOpenRosterForm(assignmentTypeId: string) {
+		const form = await openForm(assignmentTypeId);
+		if (!form) return null;
+		const numbers = await store.findMany<{
+			personnel_id: string;
+			track: TrackId;
+			count: number;
+			origin: 'typed' | 'carried';
+		}>('roster_starting_numbers', orgId, { form_id: form.id });
+		const parsed = toOpenRosterForm({ ...form, roster_starting_numbers: numbers });
+		const [forms, assignments, groups] = await Promise.all([
+			store.findMany<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: assignmentTypeId }),
+			store.findMany<{ date: string; assignee_id: string }>('daily_assignments', orgId, {
+				assignment_type_id: assignmentTypeId
+			}),
+			store.findMany<{ id: string }>('groups', orgId)
+		]);
+		return {
+			...parsed,
+			startsOn: effectiveRosterFormStart({
+				startsOn: parsed.startsOn,
+				hasCarriedNumbers: parsed.startingNumbers.some(({ origin }) => origin === 'carried'),
+				hasClosedPredecessor: forms.some((candidate) => candidate.ends_on !== null),
+				firstAssignment:
+					assignments
+						.filter(({ assignee_id }) => !groups.some(({ id }) => id === assignee_id))
+						.map(({ date }) => date)
+						.sort()[0] ?? null
+			})
+		};
+	}
+
 	// Mirrors calendar_private.open_roster_form.
 	async function ensureOpenForm(row: AssignmentTypeRow) {
 		if (row.assign_to !== 'personnel' || (await openForm(row.id))) return;
@@ -273,17 +306,7 @@ export function createInMemoryCalendarCatalogPersistence(
 					await store.update('assignment_types', orgId, type.id, { show_on_calendar: false });
 			}
 		},
-		async findOpenRosterForm(assignmentTypeId) {
-			const form = await openForm(assignmentTypeId);
-			if (!form) return null;
-			const numbers = await store.findMany<{
-				personnel_id: string;
-				track: TrackId;
-				count: number;
-				origin: 'typed' | 'carried';
-			}>('roster_starting_numbers', orgId, { form_id: form.id });
-			return toOpenRosterForm({ ...form, roster_starting_numbers: numbers });
-		},
+		findOpenRosterForm: readOpenRosterForm,
 		async listClosedRosterForms(assignmentTypeId, month) {
 			return (
 				await store.findMany<RosterFormMemoryRow>('roster_forms', orgId, { assignment_type_id: assignmentTypeId })
@@ -295,10 +318,11 @@ export function createInMemoryCalendarCatalogPersistence(
 				.sort((a, b) => a.starts_on.localeCompare(b.starts_on))
 				.map((form) => toClosedFormMonth(form, month));
 		},
-		async listRosterExcusals(assignmentTypeId) {
+		async listRosterExcusals(assignmentTypeId, span) {
 			return (
 				await store.findMany<RosterExcusalMemoryRow>('roster_excusals', orgId, { assignment_type_id: assignmentTypeId })
 			)
+				.filter((row) => row.starts_on <= span.through && (row.ends_on === null || row.ends_on >= span.from))
 				.sort((a, b) => a.starts_on.localeCompare(b.starts_on) || compareIds(a.id, b.id))
 				.map((row) => ({ personId: row.personnel_id, reason: row.reason, from: row.starts_on, through: row.ends_on }));
 		},
@@ -335,14 +359,20 @@ export function createInMemoryCalendarCatalogPersistence(
 			await rosterType(input.assignmentTypeId);
 			const form = await openForm(input.assignmentTypeId);
 			if (form?.id !== input.formId) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
-			if (form.starts_on > input.today !== (input.record === null)) fail(400, 'Invalid Calendar configuration');
+			const effective = await readOpenRosterForm(input.assignmentTypeId);
+			if (!effective) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+			if (effective.startsOn > input.today !== (input.record === null)) fail(400, 'Invalid Calendar configuration');
 			const rules = { pool: input.poolRules, weekendMode: input.weekendMode };
 			let next = form.id;
 			if (input.record === null) {
 				await store.update('roster_forms', orgId, form.id, { rules });
 				await store.deleteWhere('roster_starting_numbers', orgId, { form_id: form.id });
 			} else {
-				await store.update('roster_forms', orgId, form.id, { ends_on: input.today, record: input.record });
+				await store.update('roster_forms', orgId, form.id, {
+					starts_on: effective.startsOn,
+					ends_on: input.today,
+					record: input.record
+				});
 				next = (
 					await store.insert<RosterFormMemoryRow>('roster_forms', orgId, {
 						assignment_type_id: input.assignmentTypeId,
@@ -375,12 +405,18 @@ export function createInMemoryCalendarCatalogPersistence(
 			await rosterType(input.assignmentTypeId);
 			const form = await openForm(input.assignmentTypeId);
 			if (form?.id !== input.formId) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
-			if (form.starts_on > input.today !== (input.record === null)) fail(400, 'Invalid Calendar configuration');
+			const effective = await readOpenRosterForm(input.assignmentTypeId);
+			if (!effective) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+			if (effective.startsOn > input.today !== (input.record === null)) fail(400, 'Invalid Calendar configuration');
 			if (input.record === null) {
 				await store.deleteWhere('roster_starting_numbers', orgId, { form_id: form.id });
 				await store.delete('roster_forms', orgId, form.id);
 			} else {
-				await store.update('roster_forms', orgId, form.id, { ends_on: input.today, record: input.record });
+				await store.update('roster_forms', orgId, form.id, {
+					starts_on: effective.startsOn,
+					ends_on: input.today,
+					record: input.record
+				});
 			}
 			await store.update('assignment_types', orgId, input.assignmentTypeId, { assign_to: 'group' });
 		}
@@ -519,6 +555,7 @@ export function createInMemoryCalendarAssignmentReader(
 			).map((row) => ({ assignmentTypeId: row.assignment_type_id, assigneeId: row.assignee_id }));
 		},
 		async listRosterDetailDays(assignmentTypeId, span) {
+			const groups = new Set((await store.findMany<{ id: string }>('groups', orgId)).map(({ id }) => id));
 			return (
 				await store.findMany<AssignmentRow>(
 					'daily_assignments',
@@ -532,6 +569,7 @@ export function createInMemoryCalendarAssignmentReader(
 					}
 				)
 			)
+				.filter(({ assignee_id }) => !groups.has(assignee_id))
 				.map(({ date, assignee_id, source }) => ({ date, assigneeId: assignee_id, source: source ?? 'manual' }))
 				.sort((a, b) => a.date.localeCompare(b.date));
 		},

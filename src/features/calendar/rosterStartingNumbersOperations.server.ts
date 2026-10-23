@@ -66,9 +66,12 @@ async function readSetup(
 ): Promise<Da6SetupForm> {
 	const day = later(form.startsOn, today);
 	const [people, specialDays, excusals, detailDays] = await Promise.all([
-		readRosterPeople(ctx),
+		readRosterPeople(ctx, { from: form.startsOn, through: addDays(day, COLUMN_SEARCH_DAYS) }),
 		ctx.calendarCatalogs.listSpecialDays({ rangeStart: form.startsOn, rangeEnd: addDays(day, COLUMN_SEARCH_DAYS) }),
-		ctx.calendarCatalogs.listRosterExcusals(type.id),
+		ctx.calendarCatalogs.listRosterExcusals(type.id, {
+			from: form.startsOn,
+			through: addDays(day, COLUMN_SEARCH_DAYS)
+		}),
 		ctx.calendarAssignments.listRosterDetailDays(type.id, { from: form.startsOn, through: today })
 	]);
 	const holidays = specialDays.map(({ date }) => date);

@@ -138,9 +138,9 @@ export async function loadRosterFacts(
 	const window = { from: form.startsOn, through: through < horizon ? through : horizon };
 	const span = { from: addDays(window.from, -1), through: addDays(window.through, 1) };
 	const [people, calendar, excusals, types, assignments, detailDays] = await Promise.all([
-		readRosterPeople(ctx),
+		readRosterPeople(ctx, span),
 		readRosterCalendar(ctx, span),
-		ctx.calendarCatalogs.listRosterExcusals(type.id),
+		ctx.calendarCatalogs.listRosterExcusals(type.id, window),
 		ctx.calendarCatalogs.listAssignmentTypes(),
 		ctx.calendarAssignments.listRange({ rangeStart: span.from, rangeEnd: span.through }),
 		ctx.calendarAssignments.listRosterDetailDays(type.id, span)

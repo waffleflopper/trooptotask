@@ -33,7 +33,11 @@ import {
 	createInMemoryGroupPersistence,
 	createInMemorySelfPinPersistence
 } from '$features/personnel/inMemoryPersonnelPersistence.server';
-import { loadOrganizationRankCatalog, toAttributeTimeline } from '$features/personnel/index.server';
+import {
+	loadOrganizationRankCatalog,
+	toAttributeTimeline,
+	boundAttributeTimelines
+} from '$features/personnel/index.server';
 import type { createRequestOrganizationExportContext } from './requestContexts.server';
 
 import type { FixtureRowStore, FixtureFindOptions, FixtureFindResult } from './test-support/inMemoryRows.types';
@@ -52,7 +56,7 @@ import type {
 	AssignmentSource
 } from '$features/calendar/contracts';
 import { fail } from '$lib/errors';
-import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED } from '$features/calendar/index.server';
+import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED, effectiveRosterFormStart } from '$features/calendar/index.server';
 import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTaskLibraryPersistence,
@@ -862,12 +866,14 @@ function createInMemoryCalendarAssignmentReplacementPort(
 		// Mirrors public.set_roster_starting_numbers, except that a No duty weekend assignment also locks.
 		async setRosterStartingNumbers(orgId, input) {
 			const typeId = input.assignmentTypeId;
-			const [form] = await rawStore.findMany<{ id: string; starts_on: string }>('roster_forms', orgId, {
-				assignment_type_id: typeId,
-				ends_on: null
-			});
+			const forms = await rawStore.findMany<{ id: string; starts_on: string; ends_on: string | null }>(
+				'roster_forms',
+				orgId,
+				{ assignment_type_id: typeId }
+			);
+			const form = forms.find((candidate) => candidate.ends_on === null);
 			if (form?.id !== input.formId) fail(409, ROSTER_CHANGED);
-			const numbers = await rawStore.findMany<{ origin: string }>('roster_starting_numbers', orgId, {
+			const numbers = await rawStore.findMany<{ origin: 'carried' | 'typed' }>('roster_starting_numbers', orgId, {
 				form_id: form.id
 			});
 			const days = await rawStore.findMany<{ date: string; assignee_id: string; source?: string }>(
@@ -875,9 +881,17 @@ function createInMemoryCalendarAssignmentReplacementPort(
 				orgId,
 				{ assignment_type_id: typeId }
 			);
+			const groups = new Set((await rawStore.findMany<{ id: string }>('groups', orgId)).map(({ id }) => id));
+			const personDays = days.filter(({ assignee_id }) => !groups.has(assignee_id));
+			const start = effectiveRosterFormStart({
+				startsOn: form.starts_on,
+				hasClosedPredecessor: forms.some((candidate) => candidate.ends_on !== null),
+				hasCarriedNumbers: numbers.some(({ origin }) => origin === 'carried'),
+				firstAssignment: personDays.map(({ date }) => date).sort()[0] ?? null
+			});
 			if (
 				numbers.some((number) => number.origin === 'carried') ||
-				days.some((day) => day.date >= form.starts_on && day.date <= input.today)
+				personDays.some((day) => day.date >= start && day.date <= input.today)
 			) {
 				fail(409, STARTING_NUMBERS_LOCKED);
 			}
@@ -1266,10 +1280,31 @@ function createInMemoryPersonnelCalendarRosterPort(rawStore: FixtureRowStore): P
 		async listActive(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
 		},
-		async listAttributeTimelines(actor) {
-			const history = await rawStore.findMany<Row>('personnel_attribute_history', actor.orgId);
-			return (await inMemoryPersonnelRows(rawStore, actor, 'all')).map((row) =>
-				toAttributeTimeline({ ...row, history: history.filter((entry) => entry.personnel_id === row.id) })
+		async listAttributeTimelines(actor, span) {
+			const [history, assignments, excusals, forms, numbers] = await Promise.all([
+				rawStore.findMany<Row>('personnel_attribute_history', actor.orgId),
+				rawStore.findMany<Row & { date: string; assignee_id: string }>('daily_assignments', actor.orgId),
+				rawStore.findMany<Row & { starts_on: string; ends_on: string | null; personnel_id: string }>(
+					'roster_excusals',
+					actor.orgId
+				),
+				rawStore.findMany<Row>('roster_forms', actor.orgId, { ends_on: null }),
+				rawStore.findMany<Row & { form_id: string; personnel_id: string }>('roster_starting_numbers', actor.orgId)
+			]);
+			const openForms = new Set(forms.map(({ id }) => id));
+			const referenced = new Set([
+				...assignments.filter((row) => row.date >= span.from && row.date <= span.through).map((row) => row.assignee_id),
+				...excusals
+					.filter((row) => row.starts_on <= span.through && (row.ends_on === null || row.ends_on >= span.from))
+					.map((row) => row.personnel_id),
+				...numbers.filter((row) => openForms.has(row.form_id)).map((row) => row.personnel_id)
+			]);
+			return boundAttributeTimelines(
+				(await inMemoryPersonnelRows(rawStore, actor, 'all')).map((row) =>
+					toAttributeTimeline({ ...row, history: history.filter((entry) => entry.personnel_id === row.id) })
+				),
+				span,
+				referenced
 			);
 		},
 		async listAssigneeIds(actor) {

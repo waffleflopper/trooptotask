@@ -16,10 +16,10 @@ export const addDays = (date: DateKey, days: number) => fromDayNumber(toDayNumbe
 type PeopleFacts = Pick<RosterFacts, 'people' | 'rankCatalog' | 'statusTypes'>;
 type CalendarFacts = Pick<RosterFacts, 'availability' | 'holidays'>;
 
-/** The Organization-wide reads that do not depend on dates. */
-export async function readRosterPeople(ctx: RosterFactsPorts): Promise<PeopleFacts> {
+/** Shared people and catalogs for the period being simulated. */
+export async function readRosterPeople(ctx: RosterFactsPorts, span: DateSpan): Promise<PeopleFacts> {
 	const [timelines, rankCatalog, statusTypes] = await Promise.all([
-		ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth),
+		ctx.personnelCalendarRoster.listAttributeTimelines(ctx.auth, span),
 		ctx.loadRankCatalog(),
 		ctx.calendarCatalogs.listStatusTypes()
 	]);
@@ -75,8 +75,6 @@ export async function loadRosters(
 	ctx: RosterFactsPorts,
 	input: { today: DateKey; window: DateSpan; typeIds?: readonly string[] }
 ): Promise<RosterFacts[]> {
-	// Started beside the roster lookups so an Organization with rosters waits for one round of reads, not two.
-	const people = readRosterPeople(ctx);
 	const types = await ctx.calendarCatalogs.listAssignmentTypes();
 	const names = personTypeNames(types);
 	const wanted = types.filter(
@@ -85,25 +83,19 @@ export async function loadRosters(
 	const rosters = (
 		await Promise.all(
 			wanted.map(async (type) => {
-				const [form, excusals] = await Promise.all([
-					ctx.calendarCatalogs.findOpenRosterForm(type.id),
-					ctx.calendarCatalogs.listRosterExcusals(type.id)
-				]);
-				return form ? [{ type, form, excusals }] : [];
+				const form = await ctx.calendarCatalogs.findOpenRosterForm(type.id);
+				return form ? [{ type, form }] : [];
 			})
 		)
 	).flat();
-	if (!rosters.length) {
-		people.catch(() => {});
-		return [];
-	}
+	if (!rosters.length) return [];
 
 	const before = addDays(input.window.from, -1);
 	const after = addDays(input.window.through, 1);
 	const startOf = new Map(rosters.map(({ type, form }) => [type.id, addDays(form.startsOn, -1)]));
 	const earliest = [before, ...startOf.values()].reduce((a, b) => (a < b ? a : b));
-	const [shared, calendar, days] = await Promise.all([
-		people,
+	const [shared, calendar, days, excusals] = await Promise.all([
+		readRosterPeople(ctx, { from: earliest, through: after }),
 		readRosterCalendar(ctx, { from: earliest, through: after }),
 		Promise.all(
 			[...names.keys()].map(async (typeId) => {
@@ -112,13 +104,18 @@ export async function loadRosters(
 				const rows = await ctx.calendarAssignments.listRosterDetailDays(typeId, { from, through: after });
 				return rows.map(({ date, assigneeId, source }) => ({ date, assignmentTypeId: typeId, assigneeId, source }));
 			})
+		),
+		Promise.all(
+			rosters.map(({ type, form }) =>
+				ctx.calendarCatalogs.listRosterExcusals(type.id, { from: form.startsOn, through: after })
+			)
 		)
 	]);
 	const assignments = days.flat();
-	return rosters.map(({ type, form, excusals }) =>
+	return rosters.map(({ type, form }, index) =>
 		rosterFacts(
 			{ ...shared, ...calendar, assignmentTypeNames: names },
-			{ today: input.today, window: input.window, type, form, excusals, assignments }
+			{ today: input.today, window: input.window, type, form, excusals: excusals[index], assignments }
 		)
 	);
 }

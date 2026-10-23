@@ -196,7 +196,7 @@ export interface PersonnelAttributeState {
 	groupId: string | null;
 }
 
-/** A Person's current name and rank, and their attributes from the day they joined. */
+/** A Person's current name and rank, with dated attributes for the requested period. */
 export interface PersonnelAttributeTimeline {
 	id: string;
 	rank: string;
@@ -208,8 +208,11 @@ export interface PersonnelAttributeTimeline {
 
 export interface PersonnelCalendarRosterPort {
 	listActive(actor: PersonnelRosterActor): Promise<Personnel[]>;
-	/** Everyone in the actor's scope, archived included. */
-	listAttributeTimelines(actor: PersonnelRosterActor): Promise<PersonnelAttributeTimeline[]>;
+	/** State at the period's start plus changes within it; keeps archived people referenced by assignments, remarks or open-form numbers. */
+	listAttributeTimelines(
+		actor: PersonnelRosterActor,
+		span: { from: string; through: string }
+	): Promise<PersonnelAttributeTimeline[]>;
 	listAssigneeIds(actor: PersonnelRosterActor): Promise<string[]>;
 	findGroupIds(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
 }

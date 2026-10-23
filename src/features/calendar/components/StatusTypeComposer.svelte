@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import type { StatusType } from '$features/calendar/contracts';
+	import { NEW_STATUS_TYPE_COLORS, type StatusType } from '$features/calendar/contracts';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import {
 		fitsOneDayLabel,
@@ -29,7 +29,7 @@
 
 	let { status, onClose, onDismiss }: Props = $props();
 
-	const WHITE_TEXT = '#ffffff';
+	const WHITE_TEXT = NEW_STATUS_TYPE_COLORS.textColor;
 	const DARK_TEXT = '#1c1b19';
 	const SWATCHES = [
 		{ color: '#48bb78', name: 'Green' },
@@ -41,7 +41,7 @@
 		{ color: '#319795', name: 'Teal' },
 		{ color: '#4a5568', name: 'Slate' }
 	] as const;
-	const DEFAULT_COLOR = '#4a5568';
+	const DEFAULT_COLOR = NEW_STATUS_TYPE_COLORS.color;
 
 	const initial = untrack(() => status);
 	const id = initial?.id ?? 'new';

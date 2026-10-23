@@ -421,6 +421,7 @@ export function reviewRows<C extends ImportColumns, Refs extends ImportReference
 			};
 		}
 	}
+	if (lane.inFileOverlap) holdInFileOverlaps(reviewed, lane.inFileOverlap, answers, questions);
 	const counts: Record<Outcome, number> = { fix: 0, new: 0, update: 0, unchanged: 0, skipped: 0 };
 	for (const row of reviewed) counts[row.outcome]++;
 	const changeCount = counts.new + counts.update;
@@ -435,4 +436,57 @@ export function reviewRows<C extends ImportColumns, Refs extends ImportReference
 				? null
 				: 'There are no changes to import.'
 	};
+}
+
+function holdInFileOverlaps<Change>(
+	reviewed: ReviewedRow<Change>[],
+	rule: NonNullable<ImportLane<ImportColumns, ImportReferences<ImportColumns>, Change>['inFileOverlap']>,
+	answers: ReadonlyMap<QuestionKey, Answer>,
+	questions: Map<QuestionKey, RailQuestion>
+): void {
+	const groups = new Map<string, { index: number; change: Change }[]>();
+	reviewed.forEach((item, index) => {
+		if (item.outcome !== 'new' && item.outcome !== 'update') return;
+		const key = rule.group(item.change);
+		const group = groups.get(key);
+		if (group) group.push({ index, change: item.change });
+		else groups.set(key, [{ index, change: item.change }]);
+	});
+	if (!groups.size) return;
+	const { question } = rule;
+	const answer = answers.get(question.key);
+	const keepBoth = acceptedAnswer(question, answer, reviewed[0].row) !== undefined;
+	let rowCount = 0;
+	for (const group of groups.values()) {
+		const kept: typeof group = [];
+		for (const item of group) {
+			const partner = group.find((other) => other !== item && rule.overlaps(item.change, other.change));
+			if (!partner) {
+				kept.push(item);
+				continue;
+			}
+			rowCount++;
+			const earlier = kept.find((other) => rule.overlaps(item.change, other.change));
+			if (keepBoth || (answer?.kind === 'skip' && !earlier)) {
+				kept.push(item);
+				continue;
+			}
+			const { row, resolved } = reviewed[item.index];
+			const other = reviewed[(earlier ?? partner).index].row;
+			const where = `row ${other.rowNumber} on ${other.sheetName}`;
+			reviewed[item.index] =
+				answer?.kind === 'skip'
+					? { row, resolved, outcome: 'skipped', reason: `Overlaps ${where}.`, question: question.key }
+					: {
+							row,
+							resolved,
+							outcome: 'fix',
+							problems: [
+								{ field: '', message: `Overlaps ${where}. Keep both in the fix rail, or skip one of these rows.` }
+							],
+							questions: [question.key]
+						};
+		}
+	}
+	if (rowCount) questions.set(question.key, railQuestionFor(question, rowCount, answer));
 }

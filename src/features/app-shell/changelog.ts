@@ -17,6 +17,8 @@ export const changelog: ChangelogEntry[] = [
 			'Fix a bad date or name right in its cell. Questions that repeat, like a rank written as Sgt. or a group name that does not match, are asked once in the fix rail and apply to every row. If you can manage groups, you can create a missing group right there.',
 			'When two people share a name, you choose which one the row means or add it as a new person.',
 			'After the import, a receipt shows what was added and updated. Rows that were not imported can be downloaded with a Reason column, fixed and imported again.',
+			'Calendar › Bulk Status › Import CSV uses the same import. Each row puts one person on a status from one date to another, with an optional note. A status that is not on your list, like TDY - NTC, is asked once for every row that uses it. If you can configure status types, you can create the missing one right there.',
+			'A status already on the calendar shows as Unchanged, so importing the same file again adds nothing. When rows overlap saved statuses, you choose once for the file: skip those rows, keep both, or replace the saved statuses. Review lists what each replace removes.',
 			'If something looks off or you have an idea for importing, use Feedback in the upper right to let me know.'
 		]
 	},

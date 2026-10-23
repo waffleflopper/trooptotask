@@ -7,7 +7,6 @@
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
-	import BulkStatusImport from './BulkStatusImport.svelte';
 	import type { CalendarOperationsPageAccess } from '../contracts';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -48,16 +47,15 @@
 	);
 	const canMutate = $derived(availabilityAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
-	type Tab = 'add' | 'remove' | 'import';
+	type Tab = 'add' | 'remove';
 	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'add', label: 'Add' },
-		{ value: 'remove', label: 'Remove' },
-		{ value: 'import', label: 'Import CSV' }
+		{ value: 'remove', label: 'Remove' }
 	];
 
 	const activeTab = $derived.by<Tab>(() => {
 		const param = page.url.searchParams.get('tab');
-		if (param === 'remove' || param === 'import') return param;
+		if (param === 'remove') return param;
 		return 'add';
 	});
 
@@ -79,7 +77,6 @@
 		}).scoped(org.scopeSet, { status: 'active' })
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
-	const allPersonnelFlat = $derived(rosterView.flatPersonnel);
 	// Add previews read through a coordinator of their own, seeded with what the Calendar workspace already loaded.
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	$effect.pre(() => {
@@ -184,12 +181,6 @@
 					personnelList={calendarPersonnel}
 					loadAvailabilityRange={loadAvailabilityEntriesForRange}
 					onRemove={handleBulkRemove}
-					onComplete={handleComplete}
-				/>
-			{:else if activeTab === 'import'}
-				<BulkStatusImport
-					personnel={allPersonnelFlat}
-					statusTypes={statusTypesStore.items}
 					onComplete={handleComplete}
 				/>
 			{/if}

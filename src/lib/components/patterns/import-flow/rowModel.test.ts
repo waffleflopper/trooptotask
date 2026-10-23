@@ -322,6 +322,7 @@ describe('row review', () => {
 		const lane = defineImportLane({
 			...base,
 			commitChunk: async () => ({ kind: 'unconfirmed' }),
+			inFileOverlap: undefined,
 			references: {
 				...base.references,
 				person: {

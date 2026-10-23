@@ -1,5 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ImportSession } from './importSession.svelte';
 import { personnelLane, type PersonnelChange } from './importFlow.test-support';
 import { questionKey, type ChunkReply, type CreateOptionResult } from './types';
@@ -15,6 +15,37 @@ function deferred<T>() {
 const csv = (rank = 'SGT') => new File([`Last name,First name,Rank\nSmith,Alex,${rank}`], 'personnel.csv');
 
 describe('import session', () => {
+	it('prepares a corrected row again and holds the import until that finishes', async () => {
+		const read = deferred<void>();
+		const prepared: unknown[][] = [];
+		const committed: PersonnelChange[] = [];
+		const lane = {
+			...personnelLane(),
+			async beforeReview(rows: readonly { rank?: string }[]) {
+				prepared.push(rows.map((row) => row.rank));
+				if (prepared.length > 1) await read.promise;
+			},
+			async commitChunk(changes: readonly PersonnelChange[]): Promise<ChunkReply> {
+				committed.push(...changes);
+				return { kind: 'saved', results: changes.map(() => ({ kind: 'added' as const })) };
+			}
+		};
+		const session = new ImportSession(() => lane);
+		await session.chooseFile([csv('SGT')]);
+		session.goTo('review');
+		await vi.waitFor(() => expect(session.phase.step).toBe('review'));
+
+		session.editCell(session.sourceRows[0].id, 'rank', 'CPL');
+		expect(prepared).toEqual([['SGT'], ['CPL']]);
+		await session.commit();
+		expect(committed).toEqual([]);
+
+		read.resolve();
+		await vi.waitFor(() => expect(session.commitBlocker).toBeNull());
+		await session.commit();
+		expect(committed.map((change) => change.rank)).toEqual(['CPL']);
+	});
+
 	it('keeps the first repeated header value and lets the user continue', async () => {
 		const lane = personnelLane();
 		const session = new ImportSession(() => lane);
@@ -70,6 +101,58 @@ describe('import session', () => {
 			receipt: { added: 1, updated: 0, failed: 0, unconfirmed: 0, notAttempted: 0 }
 		});
 		expect(session.dirty).toBe(false);
+	});
+	it('waits for the lane to prepare the parsed rows before opening Review', async () => {
+		const lane = personnelLane();
+		const loading = deferred<void>();
+		const prepared: unknown[] = [];
+		const session = new ImportSession(() => ({
+			...lane,
+			beforeReview: (rows: readonly unknown[]) => {
+				prepared.push(...rows);
+				return loading.promise;
+			}
+		}));
+		await session.chooseFile([new File(['Last name,First name,Rank,ETS\nSmith,Alex,SGT,15MAR28'], 'HQ.csv')]);
+		session.goTo('review');
+		expect(session.phase).toEqual({ step: 'columns', preparing: true });
+		expect(prepared).toEqual([{ lastName: 'Smith', firstName: 'Alex', rank: 'SGT', ets: '2028-03-15' }]);
+		loading.resolve();
+		await loading.promise;
+		await Promise.resolve();
+		expect(session.phase).toEqual({ step: 'review' });
+	});
+	it('keeps Columns open with the reason when preparing fails, and a retry opens Review', async () => {
+		const lane = personnelLane();
+		let attempts = 0;
+		const session = new ImportSession(() => ({
+			...lane,
+			beforeReview: async () => {
+				attempts++;
+				if (attempts === 1) throw new Error('Saved entries could not be loaded.');
+			}
+		}));
+		await session.chooseFile([csv()]);
+		session.goTo('review');
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(session.phase).toEqual({ step: 'columns', error: 'Saved entries could not be loaded.' });
+		session.goTo('review');
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(session.phase).toEqual({ step: 'review' });
+	});
+	it('drops a prepare that finishes after the user went back to File', async () => {
+		const lane = personnelLane();
+		const loading = deferred<void>();
+		const session = new ImportSession(() => ({ ...lane, beforeReview: () => loading.promise }));
+		await session.chooseFile([csv()]);
+		session.goTo('review');
+		session.goTo('file');
+		loading.resolve();
+		await loading.promise;
+		await Promise.resolve();
+		expect(session.phase.step).toBe('file');
 	});
 	it('blocks Review when no rows sit under the header', async () => {
 		const lane = personnelLane();

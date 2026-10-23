@@ -289,6 +289,7 @@ function createTestCalendarPersistence(
 				update: unavailableCalendarPersistence,
 				delete: unavailableCalendarPersistence,
 				createMany: unavailableCalendarPersistence,
+				insertReplacing: unavailableCalendarPersistence,
 				findPersonnelIds: unavailableCalendarPersistence,
 				deleteIds: unavailableCalendarPersistence
 			} satisfies CalendarAvailabilityPersistence),

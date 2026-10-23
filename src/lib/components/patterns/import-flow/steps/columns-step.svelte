@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as NativeSelect from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { cn } from '$lib/utils.js';
 	import { HEADER_SCAN_ROWS, headerKey, type ColumnTarget, type HeaderKey } from '../workbookSource';
 	import { plural, type FlowSession } from '../flowTypes';
@@ -15,6 +16,7 @@
 	const ROWS = { one: 'row', other: 'rows' };
 	const PREVIEW_DATA_ROWS = 8;
 
+	const phase = $derived(session.phase.step === 'columns' ? session.phase : null);
 	const file = $derived(session.file);
 	const layout = $derived(session.layout);
 	let chosenPreview = $state<number | null>(null);
@@ -252,6 +254,8 @@
 			<p class="min-w-0 flex-1 basis-64 text-sm text-muted-foreground" role="status">
 				{#if session.columnBlockers.length}
 					<span class="font-medium text-danger-foreground">{session.columnBlockers[0]}</span>
+				{:else if phase?.error}
+					<span class="font-medium text-danger-foreground">{phase.error}</span>
 				{:else}
 					{usage.used} of {usage.total} columns used
 					{#if usage.ignored.length}· {usage.ignored.join(', ')} not imported{/if}
@@ -263,9 +267,13 @@
 				{/if}
 			</p>
 			<Button variant="outline" onclick={onBack}>Back</Button>
-			<Button disabled={session.columnBlockers.length > 0} onclick={() => session.goTo('review')}>
+			<Button
+				disabled={session.columnBlockers.length > 0 || phase?.preparing}
+				aria-busy={phase?.preparing || undefined}
+				onclick={() => session.goTo('review')}
+			>
 				Review {plural(session.sourceRows.length, reviewNoun)}
-				<ArrowRightIcon data-icon="inline-end" />
+				{#if phase?.preparing}<Spinner data-icon="inline-end" />{:else}<ArrowRightIcon data-icon="inline-end" />{/if}
 			</Button>
 		</footer>
 	</div>

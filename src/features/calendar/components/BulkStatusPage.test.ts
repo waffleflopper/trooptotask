@@ -45,10 +45,6 @@ vi.mock('./BulkStatusRemove.svelte', async () => ({
 	default: (await import('../test-support/BulkStatusRemoveLoadRangeStub.svelte')).default
 }));
 
-vi.mock('./BulkStatusImport.svelte', async () => ({
-	default: (await import('$lib/test-stubs/VisibleStub.svelte')).default
-}));
-
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [] }
 }));
@@ -140,12 +136,12 @@ describe('BulkStatusPage', () => {
 	});
 
 	it('marks the section named by the URL tab as checked', () => {
-		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=import');
+		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=remove');
 
 		renderPage();
 
 		const sections = screen.getByRole('group', { name: 'Bulk status sections' });
-		expect(within(sections).getByRole('radio', { name: 'Import CSV' }).getAttribute('aria-checked')).toBe('true');
+		expect(within(sections).getByRole('radio', { name: 'Remove' }).getAttribute('aria-checked')).toBe('true');
 		expect(within(sections).getByRole('radio', { name: 'Add' }).getAttribute('aria-checked')).toBe('false');
 	});
 

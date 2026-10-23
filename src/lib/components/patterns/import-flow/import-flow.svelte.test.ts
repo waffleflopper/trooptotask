@@ -183,6 +183,62 @@ describe('ImportFlow', () => {
 		expect(screen.getByRole('rowheader', { name: /Jones, Pat/ })).toBeTruthy();
 	});
 
+	it('heads the row column with the lane column label when rows are not the identity', async () => {
+		const base = personnelLane();
+		render(Flow, {
+			lane: { ...base, identity: { ...base.identity!, columnLabel: 'Soldier' } },
+			title: 'Import',
+			eyebrow: 'Test'
+		});
+		await toReview(['Smith,Alex,SGT,']);
+
+		expect(screen.getByRole('columnheader', { name: 'Soldier' })).toBeTruthy();
+	});
+
+	it('shows the subject of a question the lane asks as written, not as a quoted file value', async () => {
+		const base = personnelLane();
+		const lane = {
+			...base,
+			review: (input: Parameters<typeof base.review>[0]): RowReview<PersonnelChange> =>
+				input.ask({
+					key: questionKey({ lane: 'overlap' }),
+					title: 'Rows overlap',
+					subject: 'Dates already saved',
+					accepts: { kind: 'pick', options: [{ id: 'keep', label: 'Keep both' }] }
+				})
+					? base.review(input)
+					: { outcome: 'fix', problems: [{ field: 'lastName', message: 'Overlaps.' }] }
+		};
+		render(Flow, { lane, title: 'Import', eyebrow: 'Test' });
+		await toReview(['Smith,Alex,SGT,']);
+
+		const question = screen.getByRole('region', { name: 'Rows overlap' });
+		expect(within(question).getByText('Dates already saved')).toBeTruthy();
+	});
+
+	it('lists an update detail that has no column of its own under the row', async () => {
+		const base = personnelLane();
+		const lane = {
+			...base,
+			review: (input: Parameters<typeof base.review>[0]): RowReview<PersonnelChange> => {
+				const reviewed = base.review(input);
+				return reviewed.outcome === 'new'
+					? {
+							...reviewed,
+							outcome: 'update',
+							diff: [{ label: 'Replaces', before: 'Leave 2026-11-05 to 2026-11-12', after: '' }]
+						}
+					: reviewed;
+			}
+		};
+		render(Flow, { lane, title: 'Import', eyebrow: 'Test' });
+		await toReview(['Smith,Alex,SGT,']);
+
+		const row = screen.getByRole('rowheader', { name: /Smith, Alex/ }).closest('[data-row-id]') as HTMLElement;
+		expect(within(row).getByText('Replaces')).toBeTruthy();
+		expect(within(row).getByText('Leave 2026-11-05 to 2026-11-12')).toBeTruthy();
+	});
+
 	it('shows the date that will be saved instead of the spreadsheet text', async () => {
 		render(Flow, { lane: personnelLane(), title: 'Import', eyebrow: 'Test' });
 		await toReview(['Smith,Alex,SGT,15MAR28']);

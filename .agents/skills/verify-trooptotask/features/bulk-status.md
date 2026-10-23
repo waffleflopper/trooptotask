@@ -1,7 +1,7 @@
 # Bulk status changes
 
-A Calendar operator applies a status to selected people, imports reviewed rows, or removes matching entries with clear
-partial results and whole-entry warnings.
+A Calendar operator applies a status to selected people, imports a spreadsheet of statuses, or removes matching entries
+with clear partial results and whole-entry warnings.
 
 ## Sub-features
 
@@ -10,8 +10,10 @@ partial results and whole-entry warnings.
   stays selectable and is counted. Save from the summary bar and reread only the saved rows. While a save is in flight
   the draft and the roster selection are locked, so a retry resubmits exactly what was sent. A range longer than 366
   days reads in bounded chunks and becomes ready once every chunk returns.
-- `bulk-import-review`: invalid dates, missing or ambiguous names are explained before saving; valid selected rows show
-  a completed result until Done.
+- `status-import`: upload a workbook with several tabs and a header below a title, map the columns, answer an unknown
+  status or a shared name once for many rows, fix an end date before its start inline, choose once whether rows that
+  overlap saved entries are skipped, kept beside them or replace them, commit and download the rows not imported. A
+  replay shows every saved row as Unchanged.
 - `bulk-remove`: review a partial overlap, back out without change, or confirm deletion of the whole saved entry; the
   success message reports how many entries the server actually deleted. Removal is sent in chunks of at most 500 IDs and
   stops at the first failed chunk; the completed entries leave the review, the result says
@@ -23,13 +25,15 @@ partial results and whole-entry warnings.
 
 ## How to get to it (user POV)
 
-From `Calendar`, choose `Bulk Status`. The page opens with the `Bulk status` heading (eyebrow `Calendar · Bulk status`).
-Beside the title, the `Bulk status sections` switch offers `Add`, `Remove` and `Import CSV` as radios, which keep the
-choice in the `tab` query, and `Back to calendar` leaves. On a narrow viewport both wrap onto their own line under the
-title. Add saves from its summary bar (`Add to N people`) with no confirmation step; Remove leads to
-`Review Matching Entries`, and Import to `Parse`/`Next`. The operator needs Calendar operate access and a scope that
-includes the selected people; the Import tab accepts pasted CSV. The seeded Able/Baker/Unassigned records belong to A,
-while Foreign belongs to B.
+From `Calendar`, the `Bulk Status` menu offers `Add Bulk`, `Remove Bulk` and `Import CSV`. Add and Remove open
+`/calendar/bulk` with the `Bulk status` heading (eyebrow `Calendar · Bulk status`). Beside the title, the
+`Bulk status sections` switch offers `Add` and `Remove` as radios, which keep the choice in the `tab` query
+(`?tab=import` falls back to Add), and `Back to calendar` leaves. On a narrow viewport both wrap onto their own line
+under the title. Add saves from its summary bar (`Add to N people`) with no confirmation step; Remove leads to
+`Review Matching Entries`. `Import CSV` opens `/calendar/import` (`Import statuses`, eyebrow `Calendar · Import`), which
+steps through File, Columns, Review and Done. The operator needs Calendar operate access and a scope that includes the
+selected people; creating a status type from the import also needs Calendar configure access. The seeded
+Able/Baker/Unassigned records belong to A, while Foreign belongs to B.
 
 ## Helper controls
 
@@ -63,24 +67,92 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    date and require the strip and hints to follow (`5 days` for October 16–20). An authenticated later batch aimed at
    `personForeign` must be denied, save no marked row, and leave the earlier rows intact. Remove only the entries you
    created when done; the March historical entry stays.
-2. **Invalid import:** In Import, paste `Last name,First name,Start date,End date,Status,Note` with one
-   `Missing,Synthetic` row and one Able row whose end precedes start. Give each row a different unique Note value and
-   confirm zero saved rows for each note before parsing. Click `Parse`; capture `Person not found`,
-   `End date must be on or after start date`, the selected count, and another readback showing zero rows for both
-   submitted notes. Run `$V seed duplicate-able`, reload `/calendar/bulk` with `navigate_page` and open Import, paste an
-   unranked Able row with its own unique Note column/value, and Parse; expect `Multiple people with this name` and
-   guidance to add Rank. Compare the ambiguous note's rows before and after: none may be saved. Then run
-   `$V clean-seeds`. A conflicting Rank for an otherwise unique name is a reviewable warning, not automatic rejection;
-   exercise it separately when that path is affected. For mixed valid/invalid previews, clear selection and use Select
-   all import rows. Require only valid rows checked, invalid checkboxes disabled, and their validation reasons still
-   readable. Compare exact provider rows before/after preview and cancel without saving when checking preview behavior
-   alone.
+2. **Status import: sheets, columns, review and commit.** Build a synthetic workbook with exceljs. A `Cover` sheet holds
+   prose. Sheets `Sep-Nov` and `Dec` each have a title row and an `UNCLASSIFIED // FOR TRAINING USE ONLY` banner above a
+   header on row 3: `Soldier, Status, Start, End, Approved by, Details`, with Soldier written `Last, First`. A hidden
+   `Lookups` sheet lists statuses. `Sep-Nov` holds Able, Baker and Unassigned on `TDY - NTC` from 14 November to 10
+   December 2026, written `2026-11-14`, `11/14/2026` and `14NOV26`; Able on `Verification Leave` 2026-09-15 to
+   2026-09-20 (the seeded Able Leave is 14 to 16 September); Baker on `Verification Training` 2026-10-28 to 2026-10-25;
+   and Unassigned on `Verification Leave` 2026-09-15 to 2026-09-15, which is already saved. `Dec` holds Baker on
+   `Verification Leave` 2026-12-20 to 2026-12-31. Copy it under `.verification/evidence/` and upload it as
+   `calendarConfigure` on `Drop a spreadsheet here`.
 
-3. **Valid import:** Paste one Able/`Verification Leave`/October 14 row with a unique note, Parse, and confirm
-   `1 of 1 rows selected`. Click `Next`; keep the completion screen open and capture `Import complete`,
-   `1 status entry imported successfully`, and the request `200` before choosing `Done`. Read back one entry for Able,
-   Leave, that date and note; after Done and reload it remains. Capture the completion screen and second read, then
-   remove only this created row.
+   Columns: `Read sheets` checks `Sep-Nov` (6 rows) and `Dec` (1 row); `Cover` reads
+   `No recognizable header in the first 15 rows` and `Lookups` reads `Hidden in Excel`, both unchecked; the summary
+   reads `2 sheets read · 7 rows`. Row 3 is marked `Header` with the two rows above it hatched, and Soldier maps to
+   `Last, First`, Status to Status, Start to From, End to To, and both `Approved by` and `Details` to `Don't import`.
+   Set `Import Details as` to `Note`; the footer reads `5 of 6 columns used · Approved by not imported`, and `Dec` shows
+   the same mapping.
+
+   Review (`Review 7 rows`) has a `Person` column and reads `All · 7`, `Needs a fix · 5`, `New · 1` and `Unchanged · 1`
+   with `1 row already matches. Nothing to save.` The rail asks `Unknown status` for `"TDY - NTC"` (3 rows) with the
+   status types and `Create "TDY - NTC"`, and `Rows overlap the calendar` (`Dates already on the calendar · 1 row`) with
+   `Keep both`, `Replace the calendar entries` and `Keep the calendar, skip these rows`. The overlap row's From and To
+   cells are described by `Overlaps 2026-09-14 → 2026-09-16 Verification Leave. Choose what happens in the fix rail.`
+   and Baker's To cell by `To is before From.` Choose `Create "TDY - NTC"`, then `Create status`: one `status_types` row
+   named `TDY - NTC` with color `#4a5568` and text `#ffffff`, the three rows turn New and focus moves to the overlap
+   question. Fill Baker's To with `2026-10-31` and press Enter; the row turns New. Choose
+   `Keep the calendar, skip these rows`; the row reads Skipped with `Change skip for Able, Synthetic in the fix rail`.
+
+   `Import 5 changes` (`5 added · 0 updated`) sends one `POST api/availability/import`. Done reads `5 changes saved.`
+   with Added 5, Unchanged 1 and Skipped 1, and lists `Sep-Nov · row 7` with `Skipped: Dates already on the calendar`.
+   Capture `Download these rows (.xlsx)` with `$V export`: one sheet `Sep-Nov` with the original six columns,
+   `Approved by` included, plus `Reason`. Read `availability_entries` back: one `TDY - NTC` entry from 2026-11-14 to
+   2026-12-10 for each of the three people with note `NTC rotation 27-02`, Baker's 2026-10-28 to 2026-10-31 and
+   2026-12-20 to 2026-12-31, and the seeded Able Leave unchanged.
+
+   Re-import the same file with the same mapping. `TDY - NTC` now matches without a question and five rows read
+   Unchanged. Fix Baker's To again (it reads Unchanged), then answer `Replace the calendar entries` and
+   `Apply to 1 row`: Able's row reads Update with `Replaces` over a struck-through
+   `2026-09-14 → 2026-09-16 Verification Leave`, and the bar reads `0 added · 1 updated`. At 900 and 390 the card shows
+   the incoming `Verification Leave · 2026-09-15 · 2026-09-20` line above `Replaces` and the struck-through entry, with
+   both of its dates in full at 390. Import: Done reads Updated 1 and Unchanged 6. The seeded 14 to 16 September entry
+   is gone and Able has one Leave entry from 2026-09-15 to 2026-09-20; Calendar › September 2026 shows the bar from 15
+   to 20 with nothing on the 14th. Import the same file a third time: after the same fix all seven rows read Unchanged,
+   `Import 0 changes` stays disabled and the rows match the previous read exactly.
+
+   Import `Rank, Last name, First name, Status, From, To, Note` with Baker on `Verification Leave` 2026-10-22 to
+   2026-10-22, inside Baker's seeded Training of 21 to 23 October. Answer `Keep both`: both entries are saved.
+
+   Two rows for one Person whose dates overlap each other, such as Able on `Verification Leave` 2027-04-01 to 2027-04-05
+   and `Verification Training` 2027-04-04 to 2027-04-08, both read Needs a fix with
+   `Overlaps row 3 on <sheet>. Keep both in the fix rail, or skip one of these rows.` (and row 2 on the other). The rail
+   asks `Rows overlap each other` (`One person, overlapping dates in this file · 2 rows`) with `Keep both` and
+   `Skip the later rows`; skipping either row clears the other. `Keep both` saves both entries, including when they fall
+   in different 500-row requests.
+
+   A corrected date reads the calendar it adds before Import. Upload Able on `Verification Training` 2027-06-01 to
+   2027-05-30 beside a saved Able Leave of 2027-06-10 to 2027-06-15 and reload first. Review reads `calendar-range`
+   2027-05-30 to 2027-06-01. Fill To with `2027-06-12` and press Enter: one more `calendar-range` request reads only
+   2027-06-02 to 2027-06-12, the row asks `Rows overlap the calendar` and Import stays disabled. Filling `2027-06-11`
+   reads nothing more.
+
+   A replace whose saved entry changes after Review is refused. Answer `Replace the calendar entries` for Baker on
+   `Verification Training` 2027-08-12 to 2027-08-20 over a saved Leave of 2027-08-10 to 2027-08-15, then change that
+   Leave's end date in a second signed-in tab (`PUT api/availability`) and Import: Done reads `0 changes saved.` with
+   Failed 1 and `An entry this row replaces changed since you reviewed it. Import the file again.`, the Leave keeps its
+   new end date and no Training row is saved. After `$V seed duplicate-able`, an unranked Able row asks `Which person?`
+   with only `SPC Able, Synthetic` and `PFC Able, Synthetic` and no Create; picking SPC saves to the fixture Able. Run
+   `$V clean-seeds` afterward.
+
+   As `calendarOperate`, `Import CSV` is in the Bulk Status menu, and an unknown status offers the status types with no
+   Create. As `calendarView` there is no `Bulk Status`, `/calendar/import` shows the 403 page and a direct
+   `POST api/availability/import` returns 403. The server rechecks scope and overlap per Person: a row whose Person left
+   the actor's scope or whose dates now overlap a newer saved entry comes back as not imported with its reason.
+
+3. **Import loading, failure, widths and size.** Start on Personnel, arm
+   `$V server-source arm availability_entries hold 1 120000` and follow an in-app link to `/calendar/import`: the header
+   and stepper stay and a `Loading import` skeleton holds the drop zone and the column list at their loaded size.
+   Release and restore; the File step arrives without a shift. With `server-source arm availability_entries fail-hard 1`
+   the page shows the Calendar layout's `Unable to load Calendar` with `Retry Calendar`, and Retry recovers. On Columns,
+   the same failure on `Review` keeps Columns with `The calendar for these dates could not be loaded. Try again.` and a
+   later Review reaches Review. Review reads saved entries over the file's dates in `calendar-range` requests of at most
+   366 days that skip years the file never mentions. At 900 the rail sits above the rows; at 390 Review shows cards and
+   `scrollWidth` equals `innerWidth`. Tab from `Find a status` reaches the rail's radios, its Skip, each problem cell
+   and row Skip in order, then `Back to columns`, each with a visible focus ring. For size, a 3,000-row workbook of
+   one-day rows from 2028 (every tenth row on an unknown status) reaches Review in about 0.3 s from the drop, and
+   answering the 300-row status question takes under 20 ms. Its commit sends six `api/availability/import` requests of
+   500 and a replay reads `Unchanged · 3000`.
 4. **Removal:** In Remove, select `Verification Training` and Baker, keeping the default today dates; choosing today
    again in a date picker clears that date. Observe the range request with
    `$V network arm-observe $PAGE calendar-range`: it records the GET and its status (`200`) but no IDs or counts
@@ -175,9 +247,9 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    hints and day strip; `Already on …` reads in the danger tone and `… overlaps` in the warning tone) and the sticky
    summary bar on the dark chrome surface in both themes, once with the seeded overlaps from step 1 and once after a
    save that makes a row show two entries (the hint wraps to two lines and stays inside the table). Capture the Remove
-   tab's review and the Import tab's default form. Repeat at 390x844 dark. At each capture read
-   `document.documentElement.scrollWidth` against `innerWidth`; the picker's own scroll region scrolls horizontally at
-   390 and the availability column and hints sit at its far end, so scroll `[data-slot="table-container"]` to read them.
+   tab's review. Repeat at 390x844 dark. At each capture read `document.documentElement.scrollWidth` against
+   `innerWidth`; the picker's own scroll region scrolls horizontally at 390 and the availability column and hints sit at
+   its far end, so scroll `[data-slot="table-container"]` to read them.
 8. **Validation and selection.** In Add, choose an `End date` before `Start date`. The date error must be announced
    (`role="alert"`, `End date must be on or after start date`) in Step 1 beside the dates whether or not a Person is
    selected, and the summary bar repeats it, `Preview` must ask for valid dates, the hints and strip must drop out, and
@@ -208,12 +280,18 @@ saving, and keep helper-created rows marked for `clean-seeds`.
 
 ## Gotchas
 
-- An import row whose start or end date is an impossible calendar day, such as `2026-02-30`, is flagged during review
-  and not sent; valid rows in the same paste still import. See [Invalid input](invalid-input.md).
-- Add/Remove/Import are distinct user paths. A direct authenticated batch request can check server effects but does not
-  demonstrate the tab's review and feedback.
-- An import preview error is not enough to prove no save; compare rows before and after using the attempted unique note.
-  Keep the completed import result visible for evidence before clicking Done.
+- An import cell with an impossible calendar day, such as `2026-02-30`, is an inline fix in Review and is never sent.
+  See [Invalid input](invalid-input.md).
+- Add, Remove and Import are distinct user paths. A direct authenticated batch or import request can check server
+  effects but does not demonstrate the review and feedback.
+- Import answers apply to one file. Re-importing asks the same overlap question. A replace whose saved entry changed
+  since Review comes back as not imported with
+  `An entry this row replaces changed since you reviewed it. Import the file again.`, and a row whose dates now overlap
+  a newer saved entry with `This row now overlaps the calendar. Import the file again to choose what happens.`
+- Review reads each date range once per page visit. A second Review of the same dates, or a correction inside them,
+  sends no `calendar-range` request; reload to read them fresh.
+- Replace deletes each overlapped saved entry whole, in the same transaction as the insert, and at most 500 replaced
+  entries go in one request; read rows back rather than trusting the Done counts.
 - The partial-chunk control must see two actual batch calls. Check `network state`; if the second call never occurred,
   record the path as unreachable or failed rather than crediting a generic error toast. The 501 temporary People can
   make the roster slow; clean only the helper-owned IDs after proof.

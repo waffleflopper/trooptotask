@@ -47,7 +47,7 @@ Use accessible shared controls, dialogs and menus. Preserve labels, keyboard and
 | Tables                     | `DataTable.DataTable` for records, `Table.*` for static content, `OperationalMatrix.*` for sticky-axis or heat-map grids.              |
 | Tabs                       | `PageShell.Tabs` for route navigation, `Tabs.*` for in-page views.                                                                     |
 | Page layout                | `PageShell.*`. `SectionNav` for an area with several pages. `TypeWorkspace.*` for list-detail type management.                         |
-| Reports and imports        | `ReportWorkspace.*` with `ReportChart` charts; `ImportFlow`.                                                                |
+| Reports and imports        | `ReportWorkspace.*` with `ReportChart` charts; `ImportFlow`.                                                                           |
 | Feedback                   | `toastStore` for transient results; `Empty.*`, `Skeleton`, `Spinner` and `Alert` variants for page states.                             |
 | Public pages               | `PublicShell` with `PublicPageHeader` and `PublicContentSection`. Public files use Tailwind on central tokens with no `<style>` block. |
 

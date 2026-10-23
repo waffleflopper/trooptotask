@@ -53,6 +53,15 @@ function plan(
 				shortLabel: null,
 				rosterEffect: 'A',
 				sortOrder: 0
+			},
+			{
+				id: 'appointment',
+				name: 'Appointment',
+				color: '#2563eb',
+				textColor: '#fff',
+				shortLabel: null,
+				rosterEffect: 'available',
+				sortOrder: 1
 			}
 		],
 		picks: new Map(overrides.picks ?? [])
@@ -75,6 +84,15 @@ describe('planDutyFill', () => {
 		expect(choices(plan({ entries: [leave('p-adams', '2026-10-26', '2026-10-27')] }))).toEqual([
 			['2026-10-27', 'p-baker', false],
 			['2026-10-28', 'p-adams', false],
+			['2026-10-29', 'p-cole', false]
+		]);
+	});
+
+	it('suggests a person whose status that day is Still available', () => {
+		const appointment = { ...leave('p-adams', '2026-10-27', '2026-10-27'), statusTypeId: 'appointment' };
+		expect(choices(plan({ entries: [appointment] }))).toEqual([
+			['2026-10-27', 'p-adams', false],
+			['2026-10-28', 'p-baker', false],
 			['2026-10-29', 'p-cole', false]
 		]);
 	});

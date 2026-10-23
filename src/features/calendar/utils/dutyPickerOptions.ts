@@ -17,7 +17,7 @@ export type DutyPickerOption =
 			readonly label: string;
 			readonly prefix: string;
 			readonly current: boolean;
-			/** Roster code and reason, such as "Leave (A)", or without roster counts every availability entry covering the date. */
+			/** Roster code and reason, such as "Leave (A)", or without roster counts every availability entry covering the date whose status is not Still available. */
 			readonly unavailable?: string;
 			/** The roster count going into the date. Absent without roster counts. */
 			readonly count?: number;
@@ -70,10 +70,16 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	}
 
 	const statusName = new Map(input.statusTypes.map((status) => [status.id, status.name]));
+	const stillAvailable = new Set(
+		input.statusTypes.filter((status) => status.rosterEffect === 'available').map((status) => status.id)
+	);
 	const covering = (personId: string) => {
 		const labels = input.availabilityByPerson
 			.get(personId)
-			?.filter((entry) => entry.startDate <= input.dateKey && entry.endDate >= input.dateKey)
+			?.filter(
+				(entry) =>
+					entry.startDate <= input.dateKey && entry.endDate >= input.dateKey && !stillAvailable.has(entry.statusTypeId)
+			)
 			.map((entry) => availabilityEntryLabel(entry, statusName));
 		return labels?.length ? labels.join('; ') : undefined;
 	};

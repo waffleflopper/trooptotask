@@ -84,19 +84,19 @@
 	</div>
 
 	<div
-		class="flex shrink-0 items-center gap-3 @max-3xl/data-table:order-last @max-3xl/data-table:w-full @max-3xl/data-table:pl-8"
+		class="flex shrink-0 items-center gap-3 @max-3xl/data-table:order-last @max-3xl/data-table:w-full @max-3xl/data-table:shrink @max-3xl/data-table:flex-wrap @max-3xl/data-table:pl-1.5"
 	>
-		<div class="flex h-5 w-60 shrink-0 items-center gap-2.5">
+		<div class="flex h-5 min-w-0 items-center gap-2.5 @3xl/data-table:w-60 @3xl/data-table:shrink-0">
 			{#if summary.kind === 'pending'}
-				<Skeleton class="h-1.5 w-30 shrink-0 rounded-[3px]" />
+				<Skeleton class="h-1.5 w-20 shrink-0 rounded-[3px] @3xl/data-table:w-30" />
 				<Skeleton class="h-3.5 w-24" />
 			{:else if presence}
-				<ProportionBar label="Strength today" {segments} />
+				<ProportionBar label="Strength today" {segments} class="w-20 @3xl/data-table:w-30" />
 				<span class="truncate text-[13px] leading-[18px]">{presence.present} of {presence.people} present</span>
 			{/if}
 		</div>
 		<div
-			class="flex h-5 w-44 shrink-0 items-center font-mono text-xs @3xl/data-table:w-[calc(min(22rem,35cqw)-2rem)]"
+			class="flex h-5 shrink-0 items-center font-mono text-xs whitespace-nowrap @3xl/data-table:w-[calc(min(22rem,35cqw)-2rem)]"
 		>
 			{#if unassigned && ctx.canManageGroups}
 				<button

@@ -7,6 +7,23 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-22-duty-rosters',
+		date: '2026-10-22',
+		title: 'Duty Rosters Are Back',
+		items: [
+			'Every duty you assign to a person now keeps a duty roster the way AR 220-45 and DA PAM 220-45 describe. Each person has a number: how many of that duty have been pulled since their last turn. The highest number goes next. Ties go to the higher rank, then alphabetically by last name.',
+			'In the Duty planner, Fill from roster fills the open days you choose. The preview shows who pulls each day and their number, who was skipped and why, and who is back from leave or TDY. Nothing is saved until you fill. One person instead still puts one person on many days.',
+			'The duty picker lists people by their number, highest first. Search still finds anyone, and marks people who are not on that roster so you can still assign them in a pinch.',
+			'Find replacement on a conflict offers the next person up, shows who cannot pull that day and why, and lists any later planned days the change re-picks. Days you assigned by hand stay put.',
+			'Each assignment type has a Duty roster section in Calendar settings. Choose who pulls the duty (everyone, or only people who match a rank range, MOS, role or group), excuse someone with a reason, and choose whether weekends and holidays share the count, keep a separate count, or have no duty. Changing who pulls it or how weekends count starts a new DA 6, and the old one is kept exactly as it was.',
+			'Each status type now says what it does on a duty roster: still available, away with the count held (A), on other duty with the count running (D), or misconduct with the count running (U). Before you change one, you see every number it moves.',
+			'The DA 6 page shows the form for each roster and month, with A, D and U codes, numbered remarks and a worked example of how a day was picked. Print DA 6 prints it on landscape pages.',
+			'Moving over from a paper DA 6? Copy your last numbers into the first column of the form. You can change them until the first duty on the roster is pulled; after that they are part of the record.',
+			'On the Dashboard, Fill duty days now suggests the same people as Fill from roster.',
+			'If something looks off or you have an idea for duty rosters, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-22-new-dashboard',
 		date: '2026-10-22',
 		title: 'A New Dashboard',

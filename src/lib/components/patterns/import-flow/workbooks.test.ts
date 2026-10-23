@@ -4,7 +4,7 @@ import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { buildNotImported, buildTemplate } from './workbooks';
 import { buildReceipt, type CommitResult } from './commit';
 import { applyEdits, buildSourceRows, reviewRows, ReviewMemo, sourceRowId } from './rowModel';
-import { defineImportLane } from './types';
+import { defineImportLane, type RowId } from './types';
 import { personnelLane } from './importFlow.test-support';
 import { detectLayout, readImportFile, type LoadedFile } from './workbookSource';
 
@@ -93,6 +93,100 @@ describe('workbook export', () => {
 			{ person: 'Smith', training: 'ACLS', result: '2026-03-11' },
 			{ person: 'Smith', training: 'NRP', result: '2026-03-12' }
 		]);
+	});
+	it('round-trips corrected pivot names and values without losing collisions', async () => {
+		const option = { id: 'CPR', label: 'CPR', value: 'CPR' };
+		const lane = defineImportLane({
+			id: 'training',
+			noun: { one: 'record', other: 'records' },
+			columns: {
+				person: { label: 'Person', kind: 'text', required: true, aliases: [] },
+				training: { label: 'Training', kind: 'text', required: true, aliases: [] },
+				completed: { label: 'Completed', kind: 'text', required: true, aliases: [] }
+			},
+			pivot: { field: 'training', valueField: 'completed', label: 'Training' },
+			references: {
+				training: {
+					label: 'training',
+					reads: ['training'],
+					options: [option],
+					whenMissing: 'ask',
+					key: (raw) => (raw.training ? { key: raw.training, display: raw.training } : null),
+					find: (key) => (key === 'CPR' ? { kind: 'one', option } : { kind: 'none' })
+				}
+			},
+			review: ({ values }) => ({ outcome: 'new', key: `${values.person}:${values.training}`, change: values }),
+			commitChunk: async () => ({ kind: 'unconfirmed' }),
+			exit: { href: '/', label: 'Back' }
+		});
+		const file: LoadedFile = {
+			name: 'wide.xlsx',
+			sheets: [
+				{
+					index: 0,
+					name: 'HQ',
+					hidden: false,
+					rows: [
+						['Person', 'CPRR', 'CPR', 'TCCC'],
+						['Smith', '2026-01-01', '2026-02-01', '2026-02-02'],
+						['Jones', '2026-03-01', '', ''],
+						['Lee', '', '2026-04-01', '2026-04-02'],
+						['Kim', '', '', '2026-06-01']
+					]
+				},
+				{
+					index: 1,
+					name: 'A Co',
+					hidden: false,
+					rows: [
+						['Person', 'CPRR', 'CPR', 'TCCC'],
+						['Park', '', '2026-07-01', '2026-07-02']
+					]
+				}
+			]
+		};
+		const layout = detectLayout(file, lane);
+		const rows = applyEdits(
+			buildSourceRows(file, layout, lane),
+			new Map<RowId, Record<string, string>>([
+				[sourceRowId(0, 1, 1), { training: 'CPR', completed: '2026-05-01' }],
+				[sourceRowId(0, 2, 1), { training: 'ACLS', completed: '2026-05-02' }],
+				[sourceRowId(0, 3, 2), { training: ' cpr ' }],
+				[sourceRowId(0, 3, 3), { training: ' acls ', completed: '2026-05-03' }],
+				[sourceRowId(0, 4, 3), { training: '', completed: '2026-06-02' }],
+				[sourceRowId(1, 1, 3), { training: 'person' }]
+			])
+		);
+		const receipt = buildReceipt(
+			[{ row: rows[3], reason: 'Skipped' }],
+			new Map<(typeof rows)[number]['id'], CommitResult>([
+				[rows[0].id, { kind: 'failed', reason: 'Denied' }],
+				[rows[1].id, { kind: 'failed', reason: 'Denied' }],
+				[rows[2].id, { kind: 'added' }],
+				[rows[4].id, { kind: 'failed', reason: 'Denied' }],
+				[rows[5].id, { kind: 'failed', reason: 'Denied' }],
+				[rows[6].id, { kind: 'failed', reason: 'Denied' }],
+				[rows[7].id, { kind: 'failed', reason: 'Denied' }],
+				[rows[8].id, { kind: 'failed', reason: 'Denied' }]
+			]),
+			new Map(rows.map((row) => [row.id, row])),
+			null
+		);
+		const exported = await buildNotImported(file, layout, receipt);
+		const retry = await readImportFile(new File([await writeWorkbookBuffer(exported)], 'retry.xlsx'));
+		if (retry.kind !== 'loaded') throw new Error('Retry rejected');
+		expect(buildSourceRows(retry.file, detectLayout(retry.file, lane), lane).map((row) => row.raw)).toEqual([
+			{ person: 'Smith', training: 'CPR', completed: '2026-05-01' },
+			{ person: 'Smith', training: 'CPR', completed: '2026-02-01' },
+			{ person: 'Jones', training: 'ACLS', completed: '2026-05-02' },
+			{ person: 'Lee', training: 'CPR', completed: '2026-04-01' },
+			{ person: 'Lee', training: 'ACLS', completed: '2026-05-03' },
+			{ person: 'Kim', training: 'TCCC', completed: '2026-06-02' },
+			{ person: 'Park', training: 'CPR', completed: '2026-07-01' },
+			{ person: 'Park', training: 'TCCC', completed: '2026-07-02' }
+		]);
+		expect(retry.file.sheets[0].rows[0]).toEqual(['Person', 'CPRR', 'CPR', 'TCCC', 'ACLS', 'Reason']);
+		expect(retry.file.sheets[0].rows[1]).toEqual(['Smith', '', '2026-05-01', '', '', 'CPR: Denied']);
 	});
 	it('writes template headers and examples as literal text, including formula prefixes', async () => {
 		const workbook = await readBack(

@@ -100,6 +100,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261023000700_roster_starting_numbers.sql",
     "20261023000800_roster_inaugural_start_and_bounded_history.sql",
     "20261023000900_roster_close_server_only.sql",
+    "20261023001000_calendar_availability_import_overlap_guard.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -186,6 +187,8 @@ STAGED_UPGRADE_SQL_TESTS = (
     "roster_close_server_only.sql",
     "roster_inaugural_start_and_bounded_history.sql",
     "password_attempt_reconciliation.sql",
+    "calendar_availability_import.sql",
+    "calendar_availability_import_concurrency.sql",
 )
 
 _receipt = None

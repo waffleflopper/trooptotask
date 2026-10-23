@@ -248,4 +248,25 @@ describe('personnel import lane', () => {
 		]);
 		expect(request).toHaveBeenCalledTimes(1);
 	});
+	it('matches people it just saved as the same person when the file is imported again before the roster reloads', async () => {
+		const source = lane({ personnel: [person('p1')] });
+		const session = new ImportSession(() => source);
+		const csv = 'Last name,First name,Rank,Group\nNguyen,Kim,PFC,1st Platoon\nGarcia,Luis,SSG,1st Platoon';
+		const saved = [person('p9', { lastName: 'Nguyen', firstName: 'Kim', rank: 'PFC' }), person('p1', { rank: 'SSG' })];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => Response.json({ created: [saved[0]], updated: [saved[1]], errors: [] }))
+		);
+
+		await session.chooseFile([new File([csv], 'roster.csv')]);
+		session.goTo('review');
+		expect(session.review.counts).toMatchObject({ new: 1, update: 1 });
+		await session.commit();
+		expect(session.phase.step).toBe('done');
+
+		session.goTo('file');
+		await session.chooseFile([new File([csv], 'roster.csv')]);
+		session.goTo('review');
+		expect(session.review.counts).toMatchObject({ new: 0, update: 0, unchanged: 2 });
+	});
 });

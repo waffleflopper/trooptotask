@@ -163,10 +163,15 @@ pre-populating extra completions.
    worker.
 
    For an adjacent same-date update, record the completion ID, import the same Person/task/date with revised Notes and
-   arm `$V fault arm ict-completions-update-lost-ack` on Review. A successful PATCH whose reply is lost makes the whole
-   batch unconfirmed: Done reads `0 changes saved.` with `Not confirmed 1` and `The last batch was not confirmed`.
+   arm `$V fault arm ict-completions-update-lost-ack` on Review. A successful PATCH whose reply is lost returns an
+   unconfirmed result for that row. Done reads `0 changes saved.` with `Not confirmed 1` and
+   `The last batch was not confirmed`.
    Reload to inspect the actual effect on the same provider ID before any new import. These controls are table- and
    method-scoped inside the owned provider, not restricted to one row or Organization; drive one mutation at a time.
+
+   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed.
+   Only confirmed records merge into the completion store. Done counts the unconfirmed rows separately, leaves
+   confirmed rows out of the not-imported workbook, and marks later chunks Not attempted without sending them.
 
    **Lost browser batch reply.** `$V network arm-drop PAGE personnel-ict-completions/batch [ORDINAL]` dispatches only
    the real exact same-origin A POST and rejects its reply once after recording its status. Use the registered

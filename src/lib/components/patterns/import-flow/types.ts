@@ -146,6 +146,7 @@ export type RowCommitResult =
 	| { kind: 'added' }
 	| { kind: 'updated' }
 	| { kind: 'unchanged' }
+	| { kind: 'unconfirmed'; reason?: string }
 	| { kind: 'failed'; reason: string };
 
 export type ChunkReply =

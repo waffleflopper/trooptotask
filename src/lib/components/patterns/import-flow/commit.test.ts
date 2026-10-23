@@ -77,6 +77,68 @@ describe('commit', () => {
 		expect(receipt.notImported[0]).toEqual({ row: rows[500], reason: UNCONFIRMED_REASON });
 		expect(receipt.stopped).toEqual({ kind: 'unconfirmed' });
 	});
+
+	it('keeps mixed row results and stops the next chunk when one row is unconfirmed', async () => {
+		const { rows, changes } = plan(501);
+		const attempted: number[] = [];
+		const progress: number[] = [];
+		const run = await runCommit(
+			changes,
+			async (chunk) => {
+				attempted.push(chunk[0]);
+				return {
+					kind: 'saved',
+					results: chunk.map((value) => {
+						if (value === 0) return { kind: 'updated' };
+						if (value === 1) return { kind: 'unconfirmed', reason: 'Check this person before retrying.' };
+						if (value === 2) return { kind: 'failed', reason: 'Not in your scope' };
+						return { kind: 'unchanged' };
+					})
+				};
+			},
+			(state) => progress.push(state.sent),
+			() => true
+		);
+
+		expect(run.results.get(rows[0].id)).toEqual({ kind: 'updated' });
+		expect(run.results.get(rows[1].id)).toEqual({ kind: 'unconfirmed', reason: 'Check this person before retrying.' });
+		expect(run.results.get(rows[2].id)).toEqual({ kind: 'failed', reason: 'Not in your scope' });
+		expect(run.results.get(rows[500].id)).toEqual({
+			kind: 'not-attempted',
+			reason: 'Not attempted because an earlier chunk stopped the import.'
+		});
+		expect(attempted).toEqual([0]);
+		expect(progress).toEqual([0, 500]);
+		expect(buildReceipt([], run.results, new Map(rows.map((row) => [row.id, row])), run.stopped)).toEqual({
+			added: 0,
+			updated: 1,
+			skipped: 0,
+			unchanged: 497,
+			failed: 1,
+			unconfirmed: 1,
+			notAttempted: 1,
+			notImported: [
+				{ row: rows[1], reason: 'Check this person before retrying.' },
+				{ row: rows[2], reason: 'Not in your scope' },
+				{ row: rows[500], reason: 'Not attempted because an earlier chunk stopped the import.' }
+			],
+			stopped: { kind: 'unconfirmed' }
+		});
+	});
+
+	it('uses the re-import warning when an unconfirmed row has no reason', () => {
+		const { rows } = plan(1);
+		const receipt = buildReceipt(
+			[],
+			new Map([[rows[0].id, { kind: 'unconfirmed' }]]),
+			new Map([[rows[0].id, rows[0]]]),
+			{ kind: 'unconfirmed' }
+		);
+
+		expect(receipt.unconfirmed).toBe(1);
+		expect(receipt.notAttempted).toBe(0);
+		expect(receipt.notImported).toEqual([{ row: rows[0], reason: 'Not confirmed, check before re-importing.' }]);
+	});
 	it('maps individual failures positionally and classifies refused and malformed replies honestly', async () => {
 		const { rows, changes } = plan(2);
 		const run = await runCommit(

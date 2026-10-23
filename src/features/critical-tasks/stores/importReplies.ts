@@ -10,7 +10,7 @@ export function adoptImportReply<T>(
 	const added: T[] = [];
 	const updated: T[] = [];
 	const results = reply.data.results.map((result): RowCommitResult => {
-		if (result.kind === 'failed') return { kind: 'failed', reason: result.message };
+		if (result.kind === 'failed' || result.kind === 'unconfirmed') return { kind: result.kind, reason: result.message };
 		if (result.kind === 'unchanged') return { kind: 'unchanged' };
 		(result.kind === 'added' ? added : updated).push(result.record);
 		return { kind: result.kind };

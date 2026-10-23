@@ -15,7 +15,7 @@ async function readBack(workbook: ExcelJS.Workbook): Promise<ExcelJS.Workbook> {
 }
 
 describe('workbook export', () => {
-	it('retries only skipped and failed pivot items while omitting saved and unchanged cells', async () => {
+	it('retries reviewed skipped and failed pivot values while omitting saved and unchanged cells', async () => {
 		const options = ['CPR', 'TCCC', 'PALS', 'ACLS', 'NRP'].map((value) => ({ id: value, label: value, value }));
 		const lane = defineImportLane({
 			id: 'training',
@@ -52,13 +52,19 @@ describe('workbook export', () => {
 					hidden: false,
 					rows: [
 						['Person', 'CPR', 'TCCC', 'PALS', 'ACLS', 'NRP'],
-						['Smith', '01MAY27', '02MAY27', '03MAY27', '04MAY27', '05MAY27']
+						['Smith', '01MAY27', '02MAY27', '03MAY27', '31FEB2026', '05MAY27']
 					]
 				}
 			]
 		};
 		const layout = detectLayout(file, lane);
-		const rows = buildSourceRows(file, layout, lane);
+		const rows = applyEdits(
+			buildSourceRows(file, layout, lane),
+			new Map([
+				[sourceRowId(0, 1, 4), { result: '2026-03-11' }],
+				[sourceRowId(0, 1, 5), { result: '2026-03-12' }]
+			])
+		);
 		const receipt = buildReceipt(
 			[{ row: rows[4], reason: 'Skipped' }],
 			new Map<(typeof rows)[number]['id'], CommitResult>([
@@ -77,15 +83,15 @@ describe('workbook export', () => {
 			'',
 			'',
 			'',
-			'04MAY27',
-			'05MAY27',
+			'2026-03-11',
+			'2026-03-12',
 			'ACLS: Denied; NRP: Skipped'
 		]);
 		const retry = await readImportFile(new File([await writeWorkbookBuffer(exported)], 'retry.xlsx'));
 		if (retry.kind !== 'loaded') throw new Error('Retry rejected');
 		expect(buildSourceRows(retry.file, detectLayout(retry.file, lane), lane).map((row) => row.raw)).toEqual([
-			{ person: 'Smith', training: 'ACLS', result: '04MAY27' },
-			{ person: 'Smith', training: 'NRP', result: '05MAY27' }
+			{ person: 'Smith', training: 'ACLS', result: '2026-03-11' },
+			{ person: 'Smith', training: 'NRP', result: '2026-03-12' }
 		]);
 	});
 	it('writes template headers and examples as literal text, including formula prefixes', async () => {

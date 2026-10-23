@@ -35,10 +35,13 @@ export type PersonnelImportRecordsInput = z.infer<typeof personnelImportRecordsI
 export type PersonnelImportRecordsRecord = PersonnelImportRecordsInput['records'][number];
 export type PersonnelImportRecordsChanges = Extract<PersonnelImportRecordsRecord, { op: 'update' }>['changes'];
 
-export interface PersonnelBatchMessage {
-	index: number;
-	message: string;
-}
+export const personnelBatchMessageSchema = z.object({
+	kind: z.enum(['failed', 'unconfirmed']),
+	index: z.number().int(),
+	message: z.string()
+});
+
+export type PersonnelBatchMessage = z.infer<typeof personnelBatchMessageSchema>;
 
 export interface PersonnelImportRecordsResult {
 	created: Personnel[];

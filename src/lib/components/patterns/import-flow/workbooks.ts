@@ -70,7 +70,9 @@ export async function buildNotImported(
 				physicalRows.set(item.row.rowNumber, row);
 			}
 			if (item.row.pivotColumn !== undefined)
-				row.cells[item.row.pivotColumn] = item.row.cells[item.row.pivotColumn] ?? '';
+				row.cells[item.row.pivotColumn] = item.row.pivot
+					? (item.row.raw[item.row.pivot.valueField] ?? '')
+					: (item.row.cells[item.row.pivotColumn] ?? '');
 			row.reasons.add(item.row.pivotHeader ? `${item.row.pivotHeader}: ${item.reason}` : item.reason);
 		}
 		for (const row of physicalRows.values())

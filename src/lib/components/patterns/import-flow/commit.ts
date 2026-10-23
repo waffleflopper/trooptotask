@@ -58,6 +58,7 @@ export async function runCommit<Change>(
 		if (reply.kind === 'saved' && reply.results.length !== chunk.length) reply = { kind: 'unconfirmed' };
 		if (reply.kind === 'saved') {
 			chunk.forEach((item, index) => results.set(item.rowId, reply.results[index]));
+			if (reply.results.some((result) => result.kind === 'unconfirmed')) stopped = { kind: 'unconfirmed' };
 		} else {
 			stopped = reply;
 			for (const item of chunk)
@@ -65,6 +66,8 @@ export async function runCommit<Change>(
 					item.rowId,
 					reply.kind === 'refused' ? { kind: 'failed', reason: reply.message } : { kind: 'not-confirmed' }
 				);
+		}
+		if (stopped) {
 			for (const item of changes.slice(offset + chunk.length))
 				results.set(item.rowId, {
 					kind: 'not-attempted',
@@ -102,11 +105,14 @@ export function buildReceipt(
 		else if (result.kind === 'unchanged') receipt.unchanged++;
 		else {
 			if (result.kind === 'failed') receipt.failed++;
-			else if (result.kind === 'not-confirmed') receipt.unconfirmed++;
+			else if (result.kind === 'not-confirmed' || result.kind === 'unconfirmed') receipt.unconfirmed++;
 			else receipt.notAttempted++;
 			const row = rowsById.get(id);
 			if (row)
-				notImported.set(id, { row, reason: result.kind === 'not-confirmed' ? UNCONFIRMED_REASON : result.reason });
+				notImported.set(id, {
+					row,
+					reason: result.kind === 'not-confirmed' ? UNCONFIRMED_REASON : (result.reason ?? UNCONFIRMED_REASON)
+				});
 		}
 	}
 	return { ...receipt, notImported: [...rowsById.keys()].flatMap((id) => notImported.get(id) ?? []) };

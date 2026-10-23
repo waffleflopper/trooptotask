@@ -243,7 +243,9 @@ percentage.
    Arm `$V network arm-fail PAGE personnel-trainings/batch` and choose Import. Done reads `0 changes saved.` with
    Unchanged 1, Skipped 1 and Not confirmed 2, `The last batch was not confirmed` and
    `Check the training tracker before importing these again.`; `rows personnel_trainings orgA` still holds only the
-   seeded completion. Restore, choose `Import another file` and give the same answers. With
+   seeded completion. Download the not-imported workbook before leaving Done. Alpha's Targeted cell must contain the
+   reviewed `TRAINING_WARNING_COMPLETED` date instead of the original impossible date. Re-import that download and
+   require the correction to survive. Restore, choose `Import another file` and give the same answers. With
    `network arm-hold PAGE personnel-trainings/batch` the bar reads `Saving 0 of 2 changes` with Import disabled; release
    it. Done reads `2 changes saved.` with Added 2, Unchanged 1 and Skipped 1, and lists `Unassigned, Synthetic` at
    `HQ · row 4` with `You skipped this row.` Capture `Download these rows (.xlsx)` with `$V export`: one `HQ` sheet with

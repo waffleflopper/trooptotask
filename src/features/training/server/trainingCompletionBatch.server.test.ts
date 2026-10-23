@@ -83,6 +83,51 @@ function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 }
 
 describe('importTrainingRecords', () => {
+	it('awaits the one bulk audit before resolving the request', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		let releaseAudit = () => {};
+		const heldAudit = new Promise<void>((resolve) => {
+			releaseAudit = resolve;
+		});
+		let auditStarted = () => {};
+		const started = new Promise<void>((resolve) => {
+			auditStarted = resolve;
+		});
+		const log = ctx.audit.log.bind(ctx.audit);
+		ctx.audit.log = async (event) => {
+			auditStarted();
+			await heldAudit;
+			await log(event);
+		};
+		const request = importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-03-11', status: 'completed' }
+			]
+		});
+		try {
+			await started;
+			await expect(
+				Promise.race([
+					request.then(() => 'resolved'),
+					new Promise<string>((resolve) => setImmediate(() => resolve('waiting for audit')))
+				])
+			).resolves.toBe('waiting for audit');
+		} finally {
+			releaseAudit();
+			await request;
+		}
+		expect((await request).inserted).toMatchObject([{ personnelId: PERSON_1, completionDate: '2026-03-11' }]);
+		expect(ctx.audit.events).toEqual([
+			{
+				action: 'training.bulk_imported',
+				resourceType: 'training_record',
+				details: { inserted: 1, updated: 0, exempted: 0 }
+			}
+		]);
+	});
+
 	it('inserts all valid records and logs audit event', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);

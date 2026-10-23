@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { IsoDate } from '$lib/components/patterns/import-flow';
+import { ImportSession, type IsoDate } from '$lib/components/patterns/import-flow';
 import type { Personnel } from '../personnel.types';
 import { BUILT_IN_RANK_CATALOG } from '../rankCatalog';
 import { lastFirstSplitter } from './personnelImportColumns';
@@ -156,7 +156,11 @@ describe('personnel import lane', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () =>
-				Response.json({ created: [{}], updated: [], errors: [{ index: 1, message: 'Not in your scope' }] })
+				Response.json({
+					created: [{}],
+					updated: [],
+					errors: [{ kind: 'failed', index: 1, message: 'Not in your scope' }]
+				})
 			)
 		);
 		const reply = await lane().commitChunk([
@@ -168,5 +172,80 @@ describe('personnel import lane', () => {
 			kind: 'saved',
 			results: [{ kind: 'added' }, { kind: 'failed', reason: 'Not in your scope' }, { kind: 'updated' }]
 		});
+	});
+
+	it('stops before row 501 and reports Not confirmed when the server cannot confirm a write', async () => {
+		const source = lane({ personnel: [] });
+		const session = new ImportSession(() => source);
+		const csv = [
+			'Last name,First name,Rank',
+			...Array.from({ length: 501 }, (_, index) => `Person${index},Synthetic,SGT`)
+		].join('\n');
+		await session.chooseFile([new File([csv], 'roster.csv')]);
+		session.goTo('review');
+		const request = vi.fn(async () =>
+			Response.json({
+				created: [],
+				updated: [],
+				errors: Array.from({ length: 500 }, (_, index) => ({
+					kind: 'unconfirmed',
+					index,
+					message: 'Review the roster before retrying.'
+				}))
+			})
+		);
+		vi.stubGlobal('fetch', request);
+		await session.commit();
+		expect(session.phase).toMatchObject({
+			step: 'done',
+			receipt: { added: 0, failed: 0, unconfirmed: 500, notAttempted: 1, stopped: { kind: 'unconfirmed' } }
+		});
+		expect(request).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps confirmed updates and known failures when a create in the same chunk is unconfirmed', async () => {
+		const source = lane({ personnel: [person('p1')] });
+		const session = new ImportSession(() => source);
+		const csv = [
+			'Last name,First name,Rank',
+			'Garcia,Luis,SSG',
+			...Array.from({ length: 500 }, (_, index) => `Person${index},Synthetic,SGT`)
+		].join('\n');
+		await session.chooseFile([new File([csv], 'mixed-roster.csv')]);
+		session.goTo('review');
+		const request = vi.fn(async () =>
+			Response.json({
+				created: [],
+				updated: [{}],
+				errors: [
+					{ kind: 'unconfirmed', index: 1, message: 'Check this person before retrying.' },
+					{ kind: 'failed', index: 2, message: 'Not in your scope' }
+				]
+			})
+		);
+		vi.stubGlobal('fetch', request);
+
+		await session.commit();
+
+		expect(session.phase).toMatchObject({
+			step: 'done',
+			receipt: {
+				added: 497,
+				updated: 1,
+				unchanged: 0,
+				skipped: 0,
+				failed: 1,
+				unconfirmed: 1,
+				notAttempted: 1,
+				stopped: { kind: 'unconfirmed' }
+			}
+		});
+		if (session.phase.step !== 'done') throw new Error('Import did not finish');
+		expect(session.phase.receipt.notImported.map(({ row, reason }) => [row.raw.lastName, reason])).toEqual([
+			['Person0', 'Check this person before retrying.'],
+			['Person1', 'Not in your scope'],
+			['Person499', 'Not attempted because an earlier chunk stopped the import.']
+		]);
+		expect(request).toHaveBeenCalledTimes(1);
 	});
 });

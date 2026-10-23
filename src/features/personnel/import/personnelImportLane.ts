@@ -10,7 +10,11 @@ import {
 import { postImportChunk } from '$lib/utils/importChunkRequest';
 import type { Group } from '../contracts';
 import type { Personnel } from '../personnel.types';
-import type { PersonnelImportRecordsChanges, PersonnelImportRecordsRecord } from '../personnelImportRecords.contracts';
+import {
+	personnelBatchMessageSchema,
+	type PersonnelImportRecordsChanges,
+	type PersonnelImportRecordsRecord
+} from '../personnelImportRecords.contracts';
 import type { RankCatalogEntry } from '../rankCatalog';
 import { lastFirstSplitter, personnelImportColumns as columns } from './personnelImportColumns';
 import { personNameKey } from './personMatching';
@@ -29,7 +33,7 @@ export interface PersonnelImportSource {
 const replySchema = z.object({
 	created: z.array(z.unknown()),
 	updated: z.array(z.unknown()),
-	errors: z.array(z.object({ index: z.number().int(), message: z.string() }))
+	errors: z.array(personnelBatchMessageSchema)
 });
 
 type UpdatableField = keyof PersonnelImportRecordsChanges;
@@ -49,12 +53,12 @@ async function commitChunk(orgId: string, records: readonly PersonnelImportRecor
 		{ fallbackMessage: 'These people could not be imported.', schema: replySchema }
 	);
 	if (reply.kind !== 'saved') return reply;
-	const failures = new Map(reply.data.errors.map((error) => [error.index, error.message]));
+	const failures = new Map(reply.data.errors.map((error) => [error.index, error]));
 	return {
 		kind: 'saved',
 		results: records.map((record, index): RowCommitResult => {
-			const reason = failures.get(index);
-			if (reason !== undefined) return { kind: 'failed', reason };
+			const failure = failures.get(index);
+			if (failure) return { kind: failure.kind, reason: failure.message };
 			return { kind: record.op === 'create' ? 'added' : 'updated' };
 		})
 	};

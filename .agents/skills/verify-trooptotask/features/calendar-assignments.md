@@ -120,10 +120,13 @@ action and keep its page ID. The date format in every name is the browser's en-G
    Staff row. Reload, confirm the title still reads September 2026 (the anchor cookie restores it; use the month picker
    if it does not), then confirm both visible selections and the same saved row IDs. Change the occupied Staff slot from
    Able to Unassigned through its cell's picker; after reload, require exactly one row for that date/type with that
-   Person's ID, record whether the row ID changed, and confirm the Group and four September 15 rows stayed intact. Clear
-   each slot with `Clear assignment` in its picker, then read back absence of just those two slots and retention of the
-   seeded IDs. Reload to confirm the clear persisted. Also open an empty Calendar date header, inspect the
-   `Daily Assignments` modal, set and clear one Person slot there, and check the same persisted row through the helper.
+   Person's ID and the original row ID and creation time. Change back, reload and require the same identity with
+   `daily_assignment.updated` audits for both edits. Re-select the saved assignee and require no save request or audit.
+   Repeat Alpha to Bravo to Alpha for the Group slot. Empty-slot creation emits only `daily_assignment.created`. Confirm
+   the unrelated four September 15 rows stayed intact. Clear each slot with `Clear assignment` in its picker, then read
+   back absence of just those two slots and retention of the seeded IDs. Reload to confirm the clear persisted. Also
+   open an empty Calendar date header, inspect the `Daily Assignments` modal, set and clear one Person slot there, and
+   check the same persisted row through the helper.
 3. Use `Next month`, `Previous month` and `Today` in the planner header and confirm the title and the selected month's
    rows follow navigation. On an empty month such as November 2026, assign one Person to a weekday through its picker,
    then open `Verification Staff Duty column actions`, which opens `Quick fill`, choose another Person in `Assignee`,
@@ -381,8 +384,9 @@ range/scope/report journeys.
   reads `Suggestions...`). Fill `Find person` (or `Find group`) and press native `Enter`, or `ArrowDown` first to reach
   the second option, and read the saved assignee ID. Click another cell while a picker is open and focus can move to the
   dialog itself; `fill` the combobox's uid to type.
-- Reassigning an occupied slot replaces its row. Save one Person first, then choose another in the same cell's picker
-  and require one row after reload while the unrelated Group and seeded rows remain intact.
+- Reassigning an occupied Person or Group slot updates its row in place. Require the same `id` and `created_at` after
+  changing the assignee and reloading, with an identity-specific `daily_assignment.updated` audit. Re-selecting the
+  current assignee sends no save request and writes no audit. Unrelated Group and seeded rows remain intact.
 - Reloading the planner opens the month in the `ttt-calendar-anchor-date` cookie, the last month either Calendar view
   showed. With no cookie, or 30 days after the last move, it opens the current month. Use `Today` or `Previous month`
   before rereading another month's slots. The store opens on the first of the cookie's month, so a day-31 anchor, which
@@ -394,9 +398,9 @@ range/scope/report journeys.
   `navigate_page` reload before reading counts.
 - The planner table does not show the archived type. Do not delete or rewrite the seeded September 15 rows during
   routine slot checks.
-- Migration `20260928000100` provides transactional slot replacement. Verify that the application calls it for single,
-  clear and batch writes; ordinary UI saves alone do not prove rollback or serialization. The SQL failure and
-  concurrent-writer suites establish those database properties in an isolated provider.
+- Migration `20261023001100` preserves surviving slot identities in the shared transactional replacement RPC. Verify
+  single, clear, day and batch writes; ordinary UI saves alone do not prove rollback or serialization. The SQL failure
+  and concurrent-writer suites establish those database properties in an isolated provider.
 - Empty-Group availability writes must return `403` with unchanged saved rows. Bulk Add must retain only failed People
   and the complete draft for an explicit retry; [Bulk status](bulk-status.md) owns that journey. After revoking a
   Calendar grant, require a settled `Access Restricted` page on entry from outside Calendar and on reload (a switch

@@ -39,7 +39,7 @@ export async function replaceDailyAssignmentDay(
 	await requireExistingAssignmentAccess(ctx, input.date);
 	const inserted = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [input.date], records);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.replaced`,
 		resourceType: AUDIT_RESOURCE,
 		details: { date: input.date, count: records.length }
@@ -58,19 +58,22 @@ export async function setDailyAssignmentSlot(
 	if (!record.assigneeId.trim()) fail(400, 'Assignee ID is required to set an assignment');
 
 	await requireCalendarAssignmentPolicy(ctx, [record]);
-	await requireExistingAssignmentAccess(ctx, record.date, record.assignmentTypeId);
+	const [existing] = await requireExistingAssignmentAccess(ctx, record.date, record.assignmentTypeId);
 	const [inserted] = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [], [record]);
 	if (!inserted) fail(500, 'Daily assignment replacement returned no row');
-	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.cleared`,
-		resourceType: AUDIT_RESOURCE,
-		details: { date: record.date, assignmentTypeId: record.assignmentTypeId }
-	});
-	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.created`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: inserted.id
-	});
+	if (existing?.assigneeId !== record.assigneeId) {
+		await ctx.audit.log({
+			action: `${AUDIT_RESOURCE}.${existing ? 'updated' : 'created'}`,
+			resourceType: AUDIT_RESOURCE,
+			resourceId: inserted.id,
+			details: {
+				date: record.date,
+				assignmentTypeId: record.assignmentTypeId,
+				previousAssigneeId: existing?.assigneeId ?? null,
+				assigneeId: record.assigneeId
+			}
+		});
+	}
 	return inserted;
 }
 
@@ -97,7 +100,7 @@ export async function clearDailyAssignmentSlot(
 		]
 	);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.cleared`,
 		resourceType: AUDIT_RESOURCE,
 		details: { date: input.date, assignmentTypeId: input.assignmentTypeId }
@@ -144,7 +147,7 @@ export async function replaceDailyAssignmentSlotsBatch(
 	}
 	const inserted = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [], records);
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.batch_replaced`,
 		resourceType: AUDIT_RESOURCE,
 		details: { totalSlots: records.length, inserted: inserted.length, cleared: clears.length }
@@ -173,13 +176,10 @@ async function getAssignmentTargets(
 	return targets;
 }
 
-async function requireExistingAssignmentAccess(
-	ctx: CalendarWritePorts,
-	date: string,
-	assignmentTypeId?: string
-): Promise<void> {
+async function requireExistingAssignmentAccess(ctx: CalendarWritePorts, date: string, assignmentTypeId?: string) {
 	const existingRows = await ctx.calendarAssignments.listDayReferences(date, assignmentTypeId);
 	await requireCalendarAssignmentRowsPolicy(ctx, existingRows);
+	return existingRows;
 }
 
 async function requireExistingAssignmentSlotPolicy(

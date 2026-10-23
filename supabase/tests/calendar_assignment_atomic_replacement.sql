@@ -69,6 +69,10 @@ SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
   '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":""}]'::jsonb
 ) $$, 'P0001', 'Assignment slot unavailable', 'hidden occupied Group slot cannot be cleared');
 SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":"b1100000-0000-4000-8000-000000000201"}]'::jsonb
+) $$, 'P0001', 'Assignment slot unavailable', 'hidden occupied Group slot cannot be reassigned');
+SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
   'b1100000-0000-4000-8000-000000000101',ARRAY['2030-03-01']::date[],'[]'::jsonb
 ) $$, 'P0001', 'Assignment slot unavailable', 'whole-day clear cannot partially remove visible rows');
 SELECT is((SELECT count(*)::integer FROM public.daily_assignments WHERE organization_id=
@@ -144,7 +148,6 @@ SELECT is((SELECT id FROM public.daily_assignments WHERE organization_id=
   AND assignment_type_id='b1100000-0000-4000-8000-000000000402'),
   'b1100000-0000-4000-8000-000000000502'::uuid,'unaffected Group row keeps its ID');
 
--- The trigger fires only after the RPC has deleted the old Staff row.
 CREATE FUNCTION pg_temp.fail_atomic_assignment_insert() RETURNS trigger
 LANGUAGE plpgsql AS $$ BEGIN
   IF NEW.date='2030-03-01' AND NEW.assignment_type_id='b1100000-0000-4000-8000-000000000401' THEN
@@ -158,13 +161,18 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','b1100000-0000-4000-8000-000000000001',true);
 SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
   'b1100000-0000-4000-8000-000000000101','{}'::date[],
-  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"}]'::jsonb
-) $$, '23514', 'synthetic insert failure', 'insert failure rolls back the prior delete');
+  '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"},
+    {"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":""}]'::jsonb
+) $$, '23514', 'synthetic insert failure', 'insert failure rolls back the companion slot clear');
 RESET ROLE;
 SELECT is((SELECT assignee_id FROM public.daily_assignments WHERE organization_id=
   'b1100000-0000-4000-8000-000000000101' AND date='2030-03-01'
   AND assignment_type_id='b1100000-0000-4000-8000-000000000401'),
   'b1100000-0000-4000-8000-000000000302','the successful replacement survives a later failed replacement');
+SELECT is((SELECT id FROM public.daily_assignments WHERE organization_id=
+  'b1100000-0000-4000-8000-000000000101' AND date='2030-03-01'
+  AND assignment_type_id='b1100000-0000-4000-8000-000000000402'),
+  'b1100000-0000-4000-8000-000000000502'::uuid,'failed upsert restores the companion cleared Group row');
 DROP TRIGGER fail_atomic_assignment_insert ON public.daily_assignments;
 
 SET LOCAL ROLE authenticated;
@@ -202,6 +210,67 @@ SELECT results_eq($$ SELECT date,assignment_type_id,assignee_id FROM public.dail
     ('2030-03-01'::date,'b1100000-0000-4000-8000-000000000401'::uuid,'b1100000-0000-4000-8000-000000000301'::text),
     ('2030-03-01'::date,'b1100000-0000-4000-8000-000000000402'::uuid,'b1100000-0000-4000-8000-000000000201'::text) $$,
   'the cleared day is empty and the other slot on the filled day is untouched');
+
+UPDATE public.organization_memberships SET access_scope_group_ids = ARRAY['b1100000-0000-4000-8000-000000000201','b1100000-0000-4000-8000-000000000202']::uuid[]
+WHERE organization_id = 'b1100000-0000-4000-8000-000000000101' AND user_id = 'b1100000-0000-4000-8000-000000000002';
+SELECT set_config('calendar.roster_write','on',true);
+INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,created_at,source) VALUES
+  ('b1100000-0000-4000-8000-000000000510','b1100000-0000-4000-8000-000000000101','b1100000-0000-4000-8000-000000000401','2030-03-10','b1100000-0000-4000-8000-000000000301','2029-01-02 03:04:05+00','roster'),
+  ('b1100000-0000-4000-8000-000000000511','b1100000-0000-4000-8000-000000000101','b1100000-0000-4000-8000-000000000402','2030-03-10','b1100000-0000-4000-8000-000000000201','2029-01-02 03:04:05+00','manual');
+SELECT set_config('calendar.roster_write','',true);
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','b1100000-0000-4000-8000-000000000002',true);
+SELECT results_eq($$ SELECT id,created_at,assignee_id,source FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"}]'::jsonb
+) $$,
+  $$ VALUES ('b1100000-0000-4000-8000-000000000510'::uuid,'2029-01-02 03:04:05+00'::timestamptz,'b1100000-0000-4000-8000-000000000301'::text,'roster'::text) $$,
+  'Person unchanged returns the saved row with its original identity and source');
+SELECT results_eq($$ SELECT id,created_at,assignee_id,source FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000302"}]'::jsonb
+) $$,
+  $$ VALUES ('b1100000-0000-4000-8000-000000000510'::uuid,'2029-01-02 03:04:05+00'::timestamptz,'b1100000-0000-4000-8000-000000000302'::text,'manual'::text) $$,
+  'Person Alpha to Bravo returns the saved row with its original identity and source');
+SELECT results_eq($$ SELECT id,created_at,assignee_id,source FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000301"}]'::jsonb
+) $$,
+  $$ VALUES ('b1100000-0000-4000-8000-000000000510'::uuid,'2029-01-02 03:04:05+00'::timestamptz,'b1100000-0000-4000-8000-000000000301'::text,'manual'::text) $$,
+  'Person Bravo to Alpha returns the saved row with its original identity and source');
+SELECT results_eq($$ SELECT id,created_at,assignee_id,source FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":"b1100000-0000-4000-8000-000000000201"}]'::jsonb
+) $$,
+  $$ VALUES ('b1100000-0000-4000-8000-000000000511'::uuid,'2029-01-02 03:04:05+00'::timestamptz,'b1100000-0000-4000-8000-000000000201'::text,'manual'::text) $$,
+  'Group unchanged returns the saved row with its original identity and source');
+SELECT results_eq($$ SELECT id,created_at,assignee_id,source FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":"b1100000-0000-4000-8000-000000000202"}]'::jsonb
+) $$,
+  $$ VALUES ('b1100000-0000-4000-8000-000000000511'::uuid,'2029-01-02 03:04:05+00'::timestamptz,'b1100000-0000-4000-8000-000000000202'::text,'manual'::text) $$,
+  'Group Alpha to Bravo returns the saved row with its original identity and source');
+SELECT results_eq($$ SELECT id,created_at,assignee_id,source FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000402","assignee_id":"b1100000-0000-4000-8000-000000000201"}]'::jsonb
+) $$,
+  $$ VALUES ('b1100000-0000-4000-8000-000000000511'::uuid,'2029-01-02 03:04:05+00'::timestamptz,'b1100000-0000-4000-8000-000000000201'::text,'manual'::text) $$,
+  'Group Bravo to Alpha returns the saved row with its original identity and source');
+SELECT results_eq($$ SELECT id,created_at,assignee_id FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101',ARRAY['2030-03-10']::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000302"}]'::jsonb
+) $$,
+  $$ VALUES ('b1100000-0000-4000-8000-000000000510'::uuid,'2029-01-02 03:04:05+00'::timestamptz,'b1100000-0000-4000-8000-000000000302'::text) $$,
+  'day replacement preserves the surviving slot identity');
+SELECT is((SELECT count(*)::integer FROM public.daily_assignments WHERE organization_id='b1100000-0000-4000-8000-000000000101'
+  AND date='2030-03-10'),1,'day replacement removes the omitted Group slot');
+SELECT is((SELECT count(*)::integer FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-10","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":""}]'::jsonb
+)),0,'explicit clear returns no saved row');
+SELECT is((SELECT count(*)::integer FROM public.daily_assignments WHERE organization_id='b1100000-0000-4000-8000-000000000101'
+  AND date='2030-03-10'),0,'explicit clear deletes the surviving slot');
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;

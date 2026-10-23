@@ -391,7 +391,7 @@ export function createInMemoryCalendarCatalogPersistence(
 					personnel_id: number.personId,
 					track: number.track,
 					count: number.count,
-					origin: number.origin
+					origin: 'carried'
 				}))
 			);
 			await store.update('assignment_types', orgId, input.assignmentTypeId, {

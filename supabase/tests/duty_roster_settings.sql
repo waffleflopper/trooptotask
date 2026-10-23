@@ -27,9 +27,15 @@ $$;
 CREATE FUNCTION pg_temp.excusals_sql(today date, excusals jsonb) RETURNS text LANGUAGE sql AS $$
   SELECT format('SELECT public.set_roster_excusals(%L, %L, %L, %L)', pg_temp.id(101), pg_temp.id(401), today, excusals);
 $$;
+CREATE FUNCTION pg_temp.close_as_service_role(
+  org_id uuid, type_id uuid, form_id uuid, today date, pool jsonb, weekend text, record jsonb, carry jsonb
+) RETURNS uuid LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  SELECT public.close_roster_form(auth.uid(), org_id, type_id, form_id, today, pool, weekend, record, carry);
+$$;
+ALTER FUNCTION pg_temp.close_as_service_role(uuid,uuid,uuid,date,jsonb,text,jsonb,jsonb) OWNER TO service_role;
 CREATE FUNCTION pg_temp.close_sql(form_id uuid, today date, pool jsonb, weekend text, record jsonb, carry jsonb)
 RETURNS text LANGUAGE sql AS $$
-  SELECT format('SELECT public.close_roster_form(%L, %L, %L, %L, %L, %L, %L, %L)',
+  SELECT format('SELECT pg_temp.close_as_service_role(%L, %L, %L, %L, %L, %L, %L, %L)',
     pg_temp.id(101), pg_temp.id(401), form_id, today, pool, weekend, record, carry);
 $$;
 CREATE FUNCTION pg_temp.excusals(type_id integer) RETURNS jsonb LANGUAGE sql AS $$
@@ -333,7 +339,7 @@ SELECT throws_ok(pg_temp.close_sql((SELECT value FROM saved WHERE label = 'first
 INSERT INTO saved VALUES ('next form', pg_temp.open_form(401));
 SELECT throws_ok(pg_temp.close_sql(pg_temp.open_form(401), pg_temp.today(), NULL, 'none', '{"rows": []}', '[]'),
   '22023', NULL, 'a form that has not started has no record to keep');
-SELECT is((SELECT public.close_roster_form(pg_temp.id(101), pg_temp.id(401), pg_temp.open_form(401), pg_temp.today(),
+SELECT is((SELECT pg_temp.close_as_service_role(pg_temp.id(101), pg_temp.id(401), pg_temp.open_form(401), pg_temp.today(),
   NULL, 'none', NULL, jsonb_build_array(
     jsonb_build_object('personnel_id', pg_temp.id(301), 'track', 'all', 'count', 2, 'origin', 'typed')))),
   (SELECT value FROM saved WHERE label = 'next form'), 'a second change the same day keeps the form that has not started');
@@ -341,7 +347,7 @@ SELECT is((SELECT jsonb_agg(jsonb_build_array(starts_on - pg_temp.today(), ends_
   FROM public.roster_forms WHERE assignment_type_id = pg_temp.id(401)),
   '[[-10, false, {"pool": null, "weekendMode": "same"}], [1, true, {"pool": null, "weekendMode": "none"}]]',
   'the closed form keeps its rules, the form that has not started takes the newest, and no form is added');
-SELECT is(pg_temp.starting_numbers(pg_temp.open_form(401)), '[[301, "all", 2, "typed"]]',
+SELECT is(pg_temp.starting_numbers(pg_temp.open_form(401)), '[[301, "all", 2, "carried"]]',
   'the newest starting numbers replace the earlier ones');
 SELECT is((SELECT jsonb_build_array(roster_pool_rules, roster_weekend_mode) FROM public.assignment_types WHERE id = pg_temp.id(401)),
   '[null, "none"]', 'the type takes the newest rules');
@@ -376,12 +382,12 @@ SELECT is((SELECT count(*)::integer FROM public.roster_forms WHERE assignment_ty
 -- A switch to Group closes the open form through close_roster_form.
 SELECT throws_ok(format($$UPDATE public.assignment_types SET assign_to = 'group' WHERE id = %L$$, pg_temp.id(405)),
   '55000', NULL, 'a type with an open form cannot become a Group assignment directly');
-SELECT throws_ok(format('SELECT public.close_roster_form(%L, %L, %L, %L, NULL, NULL, %L, %L)', pg_temp.id(101), pg_temp.id(403),
+SELECT throws_ok(format('SELECT pg_temp.close_as_service_role(%L, %L, %L, %L, NULL, NULL, %L, %L)', pg_temp.id(101), pg_temp.id(403),
   pg_temp.open_form(403), pg_temp.today(), '{"rows": []}', jsonb_build_array(
     jsonb_build_object('personnel_id', pg_temp.id(301), 'track', 'all', 'count', 1, 'origin', 'carried'))),
   '22023', NULL, 'ending a roster carries nothing');
 INSERT INTO saved VALUES ('ended form', pg_temp.open_form(403));
-SELECT is((SELECT public.close_roster_form(pg_temp.id(101), pg_temp.id(403), pg_temp.open_form(403), pg_temp.today(),
+SELECT is((SELECT pg_temp.close_as_service_role(pg_temp.id(101), pg_temp.id(403), pg_temp.open_form(403), pg_temp.today(),
   NULL, NULL, '{"rows": [{"name": "Able", "count": 3}]}', '[]')), NULL::uuid, 'a configurator ends a roster');
 SELECT is((SELECT jsonb_build_array(f.ends_on - pg_temp.today(), f.record, t.assign_to)
   FROM public.roster_forms f JOIN public.assignment_types t ON t.id = f.assignment_type_id
@@ -395,7 +401,7 @@ UPDATE public.assignment_types SET assign_to = 'personnel' WHERE id = pg_temp.id
 SELECT is((SELECT jsonb_agg(jsonb_build_array(starts_on - pg_temp.today(), ends_on - pg_temp.today()) ORDER BY starts_on)
   FROM public.roster_forms WHERE assignment_type_id = pg_temp.id(403)), '[[0, 0], [1, null]]',
   'a switch back to Person opens a fresh form the day after the closed one');
-SELECT is((SELECT public.close_roster_form(pg_temp.id(101), pg_temp.id(403), pg_temp.open_form(403), pg_temp.today(),
+SELECT is((SELECT pg_temp.close_as_service_role(pg_temp.id(101), pg_temp.id(403), pg_temp.open_form(403), pg_temp.today(),
   NULL, NULL, NULL, '[]')), NULL::uuid, 'a configurator ends a roster whose form has not started');
 SELECT is((SELECT jsonb_build_array(count(*), bool_and(ends_on IS NOT NULL)) FROM public.roster_forms
   WHERE assignment_type_id = pg_temp.id(403)), '[1, true]', 'a form that had not started is removed and the closed one stays');

@@ -98,6 +98,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261022000600_roster_assignment_writes.sql",
     "20261022000700_roster_starting_numbers.sql",
     "20261022000800_roster_inaugural_start_and_bounded_history.sql",
+    "20261022000900_roster_close_server_only.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -181,6 +182,7 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "roster_close_server_only.sql",
     "roster_inaugural_start_and_bounded_history.sql",
     "password_attempt_reconciliation.sql",
 )

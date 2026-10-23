@@ -50,10 +50,10 @@ SELECT throws_ok(format($$INSERT INTO public.status_types (organization_id, name
 SELECT set_config('trooptotask.roster_close', 'on', true);
 UPDATE public.roster_forms SET starts_on = '2026-01-05' WHERE assignment_type_id = pg_temp.id(401) AND ends_on IS NULL;
 SELECT set_config('trooptotask.roster_close', '', true);
-SELECT pg_temp.act(1);
-SELECT lives_ok(format($$SELECT public.close_roster_form(%L, %L, (SELECT id FROM public.roster_forms
+SET LOCAL ROLE service_role;
+SELECT lives_ok(format($$SELECT public.close_roster_form(%L, %L, %L, (SELECT id FROM public.roster_forms
   WHERE assignment_type_id = %L AND ends_on IS NULL), (now() AT TIME ZONE 'UTC')::date, NULL, 'none',
-  '{"rows": [{"name": "Kim", "count": 11}]}', '[]')$$, pg_temp.id(101), pg_temp.id(401), pg_temp.id(401)),
+  '{"rows": [{"name": "Kim", "count": 11}]}', '[]')$$, pg_temp.id(1), pg_temp.id(101), pg_temp.id(401), pg_temp.id(401)),
   'a configurator closes the open form');
 RESET ROLE;
 CREATE TEMP TABLE closed_form_before AS

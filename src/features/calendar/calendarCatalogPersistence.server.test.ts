@@ -645,3 +645,59 @@ describe('Calendar configuration commands', () => {
 		expect((await complete.port.resetFederalHolidays(repeated)).map(({ id }) => id)).toEqual(['h-1', 'h-3', 'h-2']);
 	});
 });
+
+describe('server-owned roster form close', () => {
+	it.each(['rules', 'group'] as const)('uses the service credential and bound actor for a %s close', async (kind) => {
+		const actorId = '00000000-0000-4000-a000-000000000001';
+		const nextId = '00000000-0000-4000-a000-000000000002';
+		const requests: Array<{ credential: string | null; body: unknown }> = [];
+		const ordinary = createClient('http://127.0.0.1:9', 'ordinary-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async () => {
+					throw new Error('A client cannot close a roster form');
+				}
+			}
+		});
+		const admin = createClient('http://127.0.0.1:9', 'service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					requests.push({ credential: request.headers.get('apikey'), body: await request.json() });
+					return Response.json(kind === 'rules' ? nextId : null);
+				}
+			}
+		});
+		const port = createSupabaseCalendarCatalogPersistence(ordinary, ORG, { admin: () => admin, actorId });
+		const input = { assignmentTypeId: 'type-a', formId: 'form-a', today: '2026-10-22', record: { segments: [] } };
+		if (kind === 'rules') {
+			expect(
+				await port.closeRosterForm({
+					...input,
+					poolRules: null,
+					weekendMode: 'separate',
+					carry: [{ personId: 'person-a', track: 'weekday', count: 7 }]
+				})
+			).toBe(nextId);
+		} else {
+			await port.endRosterForm(input);
+		}
+		expect(requests).toEqual([
+			{
+				credential: 'service-key',
+				body: {
+					p_actor: actorId,
+					p_organization_id: ORG,
+					p_assignment_type_id: 'type-a',
+					p_form_id: 'form-a',
+					p_today: '2026-10-22',
+					p_pool_rules: null,
+					p_weekend_mode: kind === 'rules' ? 'separate' : null,
+					p_record: { segments: [] },
+					p_carry: kind === 'rules' ? [{ personnel_id: 'person-a', track: 'weekday', count: 7 }] : []
+				}
+			}
+		]);
+	});
+});

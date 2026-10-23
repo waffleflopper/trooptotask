@@ -68,9 +68,13 @@ RESET ROLE;
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', pg_temp.id(2)::text, true);
-SELECT lives_ok(format('SELECT public.close_roster_form(%L,%L,%L,%L,NULL,%L,%L,%L)',
-  pg_temp.id(101), pg_temp.id(401), pg_temp.open_form(401), pg_temp.today(), 'separate', '{"segments":[]}', '[]'),
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT lives_ok(format('SELECT public.close_roster_form(%L,%L,%L,%L,%L,NULL,%L,%L,%L)',
+  pg_temp.id(2), pg_temp.id(101), pg_temp.id(401), pg_temp.open_form(401), pg_temp.today(), 'separate', '{"segments":[]}', '[]'),
   'the configurator closes the inaugural form after the backdated detail');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
 SELECT is((SELECT starts_on FROM public.roster_forms WHERE assignment_type_id = pg_temp.id(401) AND ends_on IS NOT NULL),
   pg_temp.today() - 1, 'the closed record retains its effective first day');
 SELECT is(public.roster_form_effective_start(f), pg_temp.today() + 1,

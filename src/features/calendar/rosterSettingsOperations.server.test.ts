@@ -127,6 +127,11 @@ describe('saveRosterSettings', () => {
 		const [closed, next] = await forms(ctx);
 		expect(closed).toMatchObject({ id: 'form-open', starts_on: '2026-10-15', ends_on: TODAY });
 		expect(closed.record).toEqual({ segments: expect.arrayContaining([expect.anything()]) });
+		expect(
+			(await ctx.store.findMany<NumberRow>('roster_starting_numbers', ctx.auth.orgId, { form_id: next.id })).map(
+				({ origin }) => origin
+			)
+		).toEqual(['carried', 'carried', 'carried', 'carried']);
 		expect(next).toMatchObject({
 			starts_on: '2026-10-18',
 			ends_on: null,

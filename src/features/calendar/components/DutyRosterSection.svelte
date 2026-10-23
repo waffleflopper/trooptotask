@@ -21,6 +21,7 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import StartingNumbersRow from './StartingNumbersRow.svelte';
 
 	interface Props {
 		draft: RosterDraft;
@@ -32,9 +33,11 @@
 		today: string;
 		/** Set once a save was tried, so an unfinished rule shows its error. */
 		showProblems: boolean;
+		/** A saved type's open DA 6. A new type has none until it is added. */
+		startingNumbers?: { typeId: string; shortName: string; blocked: boolean };
 	}
 
-	let { draft = $bindable(), roster, groups, rankCatalog, today, showProblems }: Props = $props();
+	let { draft = $bindable(), roster, groups, rankCatalog, today, showProblems, startingNumbers }: Props = $props();
 
 	// Segments share the width and wrap their label on a narrow sheet instead of overflowing it.
 	const SEGMENT = 'h-auto min-h-8 flex-1 shrink whitespace-normal py-1';
@@ -431,4 +434,8 @@
 		</ToggleGroup.Root>
 		<Field.Description>{WEEKEND_HELP[draft.weekendMode]}</Field.Description>
 	</Field.Root>
+
+	{#if startingNumbers}
+		<StartingNumbersRow {...startingNumbers} />
+	{/if}
 </section>

@@ -395,6 +395,38 @@ export const rosterReplacementSchema = z.object({
 	repicks: z.array(z.object({ date: z.string(), was: z.string(), personId: z.string() })),
 	unfilled: z.array(z.string())
 }) satisfies z.ZodType<RosterReplacement>;
+/**
+ * Where a roster's open DA 6 form stands for typed starting numbers. `editable` until a detail on the form is
+ * served, then `locked`. A form that carried its numbers from the last one is `carried` and never takes typed ones.
+ */
+export type StartingNumbersState = 'editable' | 'locked' | 'carried';
+
+/** The Starting numbers row in the assignment type sheet. Null for a type that keeps no open form. */
+export interface StartingNumbersStatus {
+	state: StartingNumbersState;
+	/** True when the form holds any starting number. */
+	numbered: boolean;
+}
+
+export const startingNumbersStatusSchema = z
+	.object({ state: z.enum(['editable', 'locked', 'carried']), numbered: z.boolean() })
+	.nullable() satisfies z.ZodType<StartingNumbersStatus | null>;
+
+/** One typed starting number. A person without one starts at the pool's lowest number. */
+export interface StartingNumberInput {
+	personId: string;
+	track: TrackId;
+	count: number;
+}
+
+/** The whole typed set for an open form, and the roster picks after `today` that it moves. */
+export interface RosterStartingNumbersWrite {
+	assignmentTypeId: string;
+	formId: string;
+	today: string;
+	numbers: readonly StartingNumberInput[];
+	repicks: readonly Pick<RosterSlotWrite, 'date' | 'assigneeId' | 'was'>[];
+}
 
 export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;
 
@@ -513,6 +545,11 @@ export interface CalendarAssignmentReplacementPort {
 	 * 409. Only slots whose source is roster become roster picks.
 	 */
 	writeRoster(orgId: string, slots: readonly RosterSlotWrite[]): Promise<SavedAssignment[]>;
+	/**
+	 * Replaces the open form's typed starting numbers and writes the re-picks as roster picks, all or none. Refused
+	 * with 409 once a detail on the form is served, on carried numbers, or when a re-picked slot changed.
+	 */
+	setRosterStartingNumbers(orgId: string, input: RosterStartingNumbersWrite): Promise<SavedAssignment[]>;
 }
 
 export interface CalendarAvailabilityRemovalPort {

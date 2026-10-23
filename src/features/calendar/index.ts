@@ -37,8 +37,8 @@ export { calendarStore } from './stores/calendar.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 export { CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
 export { calendarViewCoverage, rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
-export { da6Href } from './utils/da6View';
-export type { Da6View } from './utils/da6View';
+export { da6Href, da6SetupHref } from './utils/da6View';
+export type { Da6Setup, Da6View } from './utils/da6View';
 export { assignmentSlotKey, indexAssignmentsBySlot, openAssignmentDates } from './utils/calendarIndexes';
 export { calendarLaneTypes } from './utils/calendarLanes';
 export { indexDutyAvailability } from './utils/dutyReadModel';
@@ -58,5 +58,6 @@ export function loadDutyPicker() {
 export { CalendarStatusBadge } from './components/calendar-status-badge';
 export { default as PersonnelNextDays } from './components/PersonnelNextDays.svelte';
 export { default as PersonnelNextDaysSkeleton } from './components/PersonnelNextDaysSkeleton.svelte';
+export { default as Da6SetupPage } from './components/da6/Da6SetupPage.svelte';
 
 export type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';

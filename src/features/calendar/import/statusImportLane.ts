@@ -209,9 +209,9 @@ export function createStatusImportLane(source: StatusImportSource) {
 			const person = refs.person.value;
 			const status = refs.status.value;
 			const key = entryKey({ personnelId: person.id, statusTypeId: status.id, startDate, endDate });
-			const overlapping = (saved.get(person.id) ?? []).filter(
-				(entry) => entry.startDate <= endDate && entry.endDate >= startDate
-			);
+			const overlapping = (saved.get(person.id) ?? [])
+				.filter((entry) => entry.startDate <= endDate && entry.endDate >= startDate)
+				.sort((a, b) => a.startDate.localeCompare(b.startDate));
 			if (
 				overlapping.some(
 					(entry) => entry.statusTypeId === status.id && entry.startDate === startDate && entry.endDate === endDate

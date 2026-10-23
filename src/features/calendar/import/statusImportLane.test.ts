@@ -253,13 +253,13 @@ describe('calendar status import lane', () => {
 		});
 	});
 
-	it('lists each entry a replacement removes on its own line, dates first', async () => {
+	it('lists each entry a replacement removes on its own line, dates first and earliest first', async () => {
 		const session = await reviewed(
 			`${HEADER}\n"Diaz, Renata",TDY,2026-11-01,2026-11-30,`,
 			source({
 				entries: [
-					entry('diaz-leave'),
-					entry('diaz-appt', { statusTypeId: 'appt', startDate: '2026-11-20', endDate: '2026-11-20' })
+					entry('diaz-appt', { statusTypeId: 'appt', startDate: '2026-11-20', endDate: '2026-11-20' }),
+					entry('diaz-leave')
 				]
 			})
 		);

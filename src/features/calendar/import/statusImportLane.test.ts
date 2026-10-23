@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { lastFirstSplitter, rosterPersonReference } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
 import { ImportSession, questionKey } from '$lib/components/patterns/import-flow';
+import { buildNotImported } from '$lib/components/patterns/import-flow/workbooks';
 import type { AvailabilityEntry, StatusType } from '../contracts';
 import { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './statusImportLane';
 
@@ -390,13 +391,11 @@ describe('calendar status import lane', () => {
 
 	it('splits a chunk so no request replaces more than 500 entries', async () => {
 		const sizes: number[] = [];
-		let failSecond = false;
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (_url: string, init: RequestInit) => {
 				const { entries } = JSON.parse(String(init.body));
 				sizes.push(entries.length);
-				if (failSecond && sizes.length === 2) return new Response(null, { status: 503 });
 				return Response.json({ added: entries.length, removed: entries.length * 2, errors: [] });
 			})
 		);
@@ -422,11 +421,68 @@ describe('calendar status import lane', () => {
 			results: Array.from({ length: 251 }, () => ({ kind: 'updated' }))
 		});
 		expect(sizes).toEqual([250, 1]);
-
-		sizes.length = 0;
-		failSecond = true;
-		expect(await lane.commitChunk(rows)).toEqual({ kind: 'unconfirmed' });
 	});
+
+	it.each([
+		{ count: 251, replacements: 2, statusCode: 503, confirmed: 250, rejected: 1, notAttempted: 0 },
+		{ count: 501, replacements: 3, statusCode: 503, confirmed: 166, rejected: 166, notAttempted: 169 },
+		{ count: 501, replacements: 3, statusCode: 403, confirmed: 166, rejected: 166, notAttempted: 169 }
+	])(
+		'retains confirmed replacements for $count rows when the next request returns $statusCode',
+		async ({ count, replacements, statusCode, confirmed, rejected, notAttempted }) => {
+			const people = Array.from({ length: count }, (_, index) =>
+				person(`person-${index}`, { lastName: `Person${index}` })
+			);
+			const saved = people.flatMap((person) =>
+				Array.from({ length: replacements }, (_, index) =>
+					entry(`${person.id}-${index}`, {
+						personnelId: person.id,
+						startDate: `2026-11-0${5 + index}`,
+						endDate: `2026-11-0${5 + index}`
+					})
+				)
+			);
+			const session = await reviewed(
+				`${HEADER}\n${people.map((person) => `"${person.lastName}, Renata",TDY,2026-11-05,2026-11-12,`).join('\n')}`,
+				source({ personnel: people, entries: saved })
+			);
+			session.answer(OVERLAP, { kind: 'pick', optionId: 'replace' });
+			const attempted: string[][] = [];
+			vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+				const { entries } = JSON.parse(String(init.body));
+				attempted.push(entries.map((entry: { personnelId: string }) => entry.personnelId));
+				if (attempted.length === 2)
+					return Response.json({ message: 'Calendar access revoked' }, { status: statusCode });
+				return Response.json({ added: entries.length, removed: entries.length * replacements, errors: [] });
+			});
+
+			await session.commit();
+
+			expect(attempted.map((ids) => [ids.length, ids[0], ids.at(-1)])).toEqual([
+				[confirmed, 'person-0', `person-${confirmed - 1}`],
+				[rejected, `person-${confirmed}`, `person-${confirmed + rejected - 1}`]
+			]);
+			if (session.phase.step !== 'done' || !session.file || !session.layout) throw new Error('Import did not finish');
+			const { receipt } = session.phase;
+			expect(receipt).toMatchObject({
+				added: 0,
+				updated: confirmed,
+				failed: statusCode === 403 ? rejected : 0,
+				unconfirmed: statusCode === 503 ? rejected : 0,
+				notAttempted,
+				stopped: statusCode === 503 ? { kind: 'unconfirmed' } : { kind: 'refused', message: 'Calendar access revoked' }
+			});
+			expect(receipt.notImported.map(({ row }) => row.raw.lastName)).toEqual(
+				people.slice(confirmed).map((person) => person.lastName)
+			);
+			const workbook = await buildNotImported(session.file, session.layout, receipt, session.lane.splitters);
+			const retryNames: unknown[] = [];
+			workbook.worksheets[0].eachRow((row, index) => {
+				if (index > 1) retryNames.push(row.getCell(1).value);
+			});
+			expect(retryNames).toEqual(people.slice(confirmed).map((person) => `${person.lastName}, Renata`));
+		}
+	);
 
 	it('creates a missing status type from the rail only for someone who can configure them', async () => {
 		const created = status('ntc', 'TDY - NTC');

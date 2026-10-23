@@ -453,8 +453,14 @@ function holdRemovalsOfKeptRecords<Change>(reviewed: ReviewedRow<Change>[]): voi
 			const keeper = kept.get(key);
 			if (keeper === undefined) continue;
 			const { row } = reviewed[keeper];
-			hold(index, `Removes the record row ${row.rowNumber} on ${row.sheetName} keeps. Skip one of these rows.`);
-			hold(keeper, `Row ${item.row.rowNumber} on ${item.row.sheetName} removes this record. Skip one of these rows.`);
+			hold(
+				index,
+				`Would remove the saved record that row ${row.rowNumber} on ${row.sheetName} keeps. Skip one of these rows.`
+			);
+			hold(
+				keeper,
+				`Row ${item.row.rowNumber} on ${item.row.sheetName} would remove this saved record. Skip one of these rows.`
+			);
 		}
 	});
 	for (const [index, messages] of held) {

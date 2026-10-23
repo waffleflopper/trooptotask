@@ -294,9 +294,12 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    `Invalid Date` may appear and Review stays disabled. Using the keyboard, Tab to a `Select <Group> group` checkbox and
    press Space: every enabled Person in it becomes selected and the count updates (a Group whose people are all disabled
    has a disabled checkbox, and a disabled Person is never selected through it). Press Enter on `Collapse <Group> <N>`:
-   its rows hide while the selection count stays; press Enter again. Search `Able` and choose `Select available`, then
-   `Clear` empties the selection. In Remove choose `Select shown` instead. Record the focused element after each action
-   and a visible focus indicator.
+   its rows hide while the selection count stays; press Enter again. Select Baker, search `Able` and choose
+   `Select available`: only Able's Group shows, its `N of M` counts the shown rows, and the selected count still
+   includes the hidden Baker. Tab from the search reaches only shown controls. Clear the search by selecting its text
+   and pressing Backspace (a native `fill` with an empty value sends no input, so the filter stays): every Group returns
+   with its full count and Able and Baker are still checked. Then `Clear` empties the selection. In Remove choose
+   `Select shown` instead. Record the focused element after each action and a visible focus indicator.
 9. **Busy, loading, empty and denied.** Select Unassigned, choose `Verification Leave`, a later date and a unique note,
    arm `$V network arm-hold $PAGE availability/batch` and click `Add to 1 person`. While held capture the busy state:
    the save button reads `Applying...` and the status chips, both date pickers, `Note`, every roster and Group checkbox,
@@ -312,7 +315,14 @@ saving, and keep helper-created rows marked for `clean-seeds`.
     `performance.getEntriesByType('resource')` grouped by `__data.json`, `calendar-range` and other. Measure five
     reloads from navigation start to the first Roster row and the main-thread long tasks. Mark `performance.mark` just
     before native clicks on `Select available` (Add) and `Select shown` (Remove), and measure to the next settled frame
-    after the count changes. Run `clean-seeds` afterward.
+    after the count changes. Search keeps rows mounted and hides the ones that do not match: with the end date 30 days
+    after the start, type `Able` and clear it, and `tbody tr` stays 507 while `tbody tr:not([hidden])` reads 2,
+    then 507. Then select through search: choose a status and dates on which Able has no entry and Baker does not read
+    `Already on …`, select Baker, search `Able` and choose `Select available`, search the seed's `MapChunk<tag>00` and
+    check the `Select Alpha group` box (10 People), and clear the search. Expect `12 of 504 selected`, Alpha `11 of 502`
+    and Bravo `1 of 1`. Add a unique note, click `Add to 12 people` and require the success message, then read the 12
+    saved rows back with `rows`. Remove the 12 new entries through Remove, reaching them with search and `Select shown`,
+    and run `clean-seeds` afterward.
 
 ## Gotchas
 

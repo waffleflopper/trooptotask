@@ -54,9 +54,17 @@ export function cellText(row: ReviewedRow<unknown>, column: ReviewColumn): strin
 	return column.kind === 'date' ? (parseImportDate(raw, row.row) ?? raw) : raw;
 }
 
+const claims = (column: ReviewColumn, change: FieldDiff) =>
+	change.field ? change.field === column.field : change.label === column.label;
+
 export function changeFor(row: ReviewedRow<unknown>, column: ReviewColumn): FieldDiff | undefined {
 	if (row.outcome !== 'update') return undefined;
-	return row.diff.find((item) => (item.field ? item.field === column.field : item.label === column.label));
+	return row.diff.find((change) => claims(column, change));
+}
+
+export function looseDiff(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): readonly FieldDiff[] {
+	if (row.outcome !== 'update') return [];
+	return row.diff.filter((change) => !columns.some((column) => claims(column, change)));
 }
 
 export function cardContext(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): string {
@@ -68,8 +76,8 @@ export function cardContext(row: ReviewedRow<unknown>, columns: readonly ReviewC
 		.join(' · ');
 }
 
-export function tableRowHeight(row: ReviewedRow<unknown>): number {
-	return row.outcome === 'fix' ? TABLE_ROW + TABLE_MESSAGE : TABLE_ROW;
+export function tableRowHeight(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): number {
+	return row.outcome === 'fix' || looseDiff(row, columns).length ? TABLE_ROW + TABLE_MESSAGE : TABLE_ROW;
 }
 
 export function cardRowHeight(

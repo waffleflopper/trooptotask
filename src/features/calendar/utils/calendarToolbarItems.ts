@@ -105,7 +105,7 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): {
 				menuItems: [
 					{ kind: 'action', id: 'bulk-add', label: 'Add Bulk', href: `${calendarHref}/bulk?tab=add` },
 					{ kind: 'action', id: 'bulk-remove', label: 'Remove Bulk', href: `${calendarHref}/bulk?tab=remove` },
-					{ kind: 'action', id: 'bulk-import', label: 'Import CSV', href: `${calendarHref}/bulk?tab=import` }
+					{ kind: 'action', id: 'bulk-import', label: 'Import CSV', href: `${calendarHref}/import` }
 				]
 			}
 		: undefined;

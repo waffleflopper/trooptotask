@@ -76,4 +76,51 @@ describe('review card', () => {
 		const cell = screen.getByText('2027-12-01').closest('[role="cell"]');
 		expect(cell?.textContent).toContain('2026-12-01');
 	});
+
+	it('shows the incoming values of a replacement next to the entry it replaces', () => {
+		render(ReviewRow, {
+			row: {
+				row: {
+					...source,
+					sheetName: 'Statuses',
+					raw: { status: 'TDY', startDate: '2026-11-03', endDate: '2026-11-11' }
+				},
+				outcome: 'update',
+				key: 'diaz',
+				change: {},
+				diff: [{ label: 'Replaces', before: '2026-11-05 → 2026-11-12 Leave', after: '' }]
+			},
+			columns: [
+				{ field: 'status', label: 'Status', kind: 'text' },
+				{ field: 'startDate', label: 'From', kind: 'date' },
+				{ field: 'endDate', label: 'To', kind: 'date' }
+			],
+			identityColumns: [],
+			label: 'Diaz, Renata',
+			compact: true,
+			template: '',
+			onEdit: vi.fn(),
+			onSkip: vi.fn(),
+			onShowQuestion: vi.fn()
+		});
+
+		expect(screen.getByText('TDY · 2026-11-03 · 2026-11-11')).toBeTruthy();
+		expect(screen.getByText('2026-11-05 → 2026-11-12 Leave')).toBeTruthy();
+	});
+
+	it('gives every entry a replacement removes its own line', () => {
+		card({
+			row: source,
+			outcome: 'update',
+			key: 'diaz',
+			change: {},
+			diff: [
+				{ label: 'Replaces', before: '2026-11-05 → 2026-11-12 Leave', after: '' },
+				{ label: 'Replaces', before: '2026-11-20 → 2026-11-20 Appointment', after: '' }
+			]
+		});
+
+		expect(screen.getByText('2026-11-05 → 2026-11-12 Leave')).toBeTruthy();
+		expect(screen.getByText('2026-11-20 → 2026-11-20 Appointment')).toBeTruthy();
+	});
 });

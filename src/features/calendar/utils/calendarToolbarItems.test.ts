@@ -61,7 +61,7 @@ describe('buildCalendarToolbar', () => {
 		expect(primary?.menuItems?.map((item) => (item.kind === 'action' ? item.href : null))).toEqual([
 			'/org/1-11-bde/calendar/bulk?tab=add',
 			'/org/1-11-bde/calendar/bulk?tab=remove',
-			'/org/1-11-bde/calendar/bulk?tab=import'
+			'/org/1-11-bde/calendar/import'
 		]);
 	});
 

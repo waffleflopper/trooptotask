@@ -100,7 +100,6 @@ export interface LaneQuestion {
 	title: string;
 
 	skipLabel?: string;
-
 	subject: string;
 	accepts: { kind: 'pick'; options: readonly { id: string; label: string }[] } | { kind: 'fill'; valueKind: 'date' };
 }
@@ -121,7 +120,14 @@ export interface FieldDiff {
 
 export type RowReview<Change> = (
 	| { outcome: 'new'; key: string; change: Change }
-	| { outcome: 'update'; key: string; change: Change; diff: readonly FieldDiff[] }
+	| {
+			outcome: 'update';
+			key: string;
+			change: Change;
+			diff: readonly FieldDiff[];
+			/** Keys of saved records this change deletes, in the form an Unchanged row gives the same record. */
+			removes?: readonly string[];
+	  }
 	| { outcome: 'unchanged'; key: string }
 	| { outcome: 'fix'; problems: readonly CellProblem[]; questions?: readonly LaneQuestion[] }
 	| { outcome: 'skipped'; reason: string }
@@ -147,14 +153,27 @@ export interface ImportLane<C extends ImportColumns, Refs extends ImportReferenc
 	id: string;
 	noun: { one: string; other: string };
 	intro?: { title: string; body: string };
-	identity?: { fields: readonly (keyof C & string)[]; label(raw: Readonly<Record<string, string>>): string };
+	identity?: {
+		fields: readonly (keyof C & string)[];
+		label(raw: Readonly<Record<string, string>>): string;
+		columnLabel?: string;
+	};
 	savedIn?: string;
 	columns: C;
 	splitters?: readonly ColumnSplitter<C>[];
 	pivot?: PivotSpec<C>;
 	references: Refs;
 
+	beforeReview?(rows: readonly Partial<RowValues<C>>[]): Promise<void>;
+
 	review(input: ReviewInput<C, Refs>): RowReview<Change>;
+
+	/** Changes in one group that overlap hold both rows until the question is answered; skip drops the later row. */
+	inFileOverlap?: {
+		group(change: Change): string;
+		overlaps(a: Change, b: Change): boolean;
+		question: LaneQuestion;
+	};
 
 	commitChunk(changes: readonly Change[]): Promise<ChunkReply>;
 

@@ -1,5 +1,14 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type { Answer, ColumnSplitter, ImportColumns, ImportLane, ImportReferences, QuestionKey, RowId } from './types';
+import type {
+	Answer,
+	ColumnSplitter,
+	ImportColumns,
+	ImportLane,
+	ImportReferences,
+	QuestionKey,
+	RowId,
+	RowValues
+} from './types';
 import type { ColumnTarget, HeaderKey, Layout, LoadedFile } from './workbookSource';
 import {
 	ACCEPTED_EXTENSIONS,
@@ -21,10 +30,11 @@ import {
 import { buildReceipt, runCommit, type CommitProgress, type PlannedChange, type Receipt } from './commit';
 import { downloadNotImported, downloadTemplate } from './workbooks';
 import { emptyMap, emptySet, indexBy, withEntries, withEntry, withMember } from './collections';
+import { parseValue } from './values';
 
 export type Phase =
 	| { step: 'file'; error: string | null; reading: boolean }
-	| { step: 'columns' }
+	| { step: 'columns'; preparing?: boolean; error?: string }
 	| { step: 'review' }
 	| { step: 'committing'; progress: CommitProgress }
 	| { step: 'done'; receipt: Receipt };
@@ -32,6 +42,8 @@ export type ReviewFilter = Outcome | 'all';
 
 export class ImportSession<C extends ImportColumns, Refs extends ImportReferences<C>, Change> {
 	#generation = 0;
+	#navigation = 0;
+	#recheck = 0;
 	#memo = new ReviewMemo<Change>();
 	file = $state.raw<LoadedFile | null>(null);
 	layout = $state.raw<Layout | null>(null);
@@ -40,6 +52,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 	answers = $state.raw<ReadonlyMap<QuestionKey, Answer>>(emptyMap());
 	phase = $state.raw<Phase>({ step: 'file', error: null, reading: false });
 	filter = $state.raw<ReviewFilter>('all');
+	rechecking = $state.raw(false);
 	creating = new SvelteMap<QuestionKey, true>();
 
 	constructor(private readonly getLane: () => ImportLane<C, Refs, Change>) {}
@@ -67,7 +80,9 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 		if (!problems.length && !this.sourceRows.length) problems.push('No rows under the header row.');
 		return problems;
 	});
-	readonly commitBlocker: string | null = $derived(this.columnBlockers[0] ?? this.review.commitBlocker);
+	readonly commitBlocker: string | null = $derived(
+		this.columnBlockers[0] ?? (this.rechecking ? 'Checking the corrected rows.' : this.review.commitBlocker)
+	);
 	readonly dirty: boolean = $derived(this.file !== null && this.phase.step !== 'done');
 
 	async chooseFile(files: readonly File[]): Promise<void> {
@@ -95,6 +110,7 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 
 	startOver(): void {
 		this.#generation++;
+		this.#stopRecheck();
 		this.#memo.clear();
 		this.file = null;
 		this.layout = null;
@@ -150,6 +166,31 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 			this.edits,
 			targets.map((item) => [item.id, { ...this.edits.get(item.id), [field]: value }] as const)
 		);
+		if (this.phase.step === 'review' && this.lane.beforeReview) void this.#recheckEdited();
+	}
+
+	async #recheckEdited(): Promise<void> {
+		const recheck = ++this.#recheck;
+		const generation = this.#generation;
+		const isCurrent = () => recheck === this.#recheck && generation === this.#generation;
+		this.rechecking = true;
+		try {
+			const edited = applyEdits(this.sourceRows, this.edits).filter((row) => this.edits.has(row.id));
+			await this.lane.beforeReview?.(this.#parsedValues(edited));
+		} catch (error) {
+			if (isCurrent())
+				this.phase = {
+					step: 'columns',
+					error: error instanceof Error ? error.message : 'The rows could not be checked. Try again.'
+				};
+		} finally {
+			if (isCurrent()) this.rechecking = false;
+		}
+	}
+
+	#stopRecheck(): void {
+		this.#recheck++;
+		this.rechecking = false;
 	}
 	answer(key: QuestionKey, answer: Answer | null): void {
 		if (this.phase.step === 'committing' || this.phase.step === 'done') return;
@@ -183,6 +224,9 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 
 	goTo(step: 'file' | 'columns' | 'review'): void {
 		if (this.phase.step === 'committing') return;
+		if (step === 'review' && this.phase.step === 'columns' && this.phase.preparing) return;
+		this.#navigation++;
+		this.#stopRecheck();
 		if (this.phase.step === 'done') {
 			this.startOver();
 			return;
@@ -192,7 +236,46 @@ export class ImportSession<C extends ImportColumns, Refs extends ImportReference
 			return;
 		}
 		if (!this.file || !this.layout || (step === 'review' && this.columnBlockers.length)) return;
+		if (step === 'review' && this.lane.beforeReview) {
+			void this.#prepareReview();
+			return;
+		}
 		this.phase = { step };
+	}
+
+	async #prepareReview(): Promise<void> {
+		const generation = this.#generation;
+		const navigation = this.#navigation;
+		const isCurrent = () => generation === this.#generation && navigation === this.#navigation;
+		this.phase = { step: 'columns', preparing: true };
+		let layout: Layout | null = null;
+		try {
+			while (layout !== this.layout && isCurrent()) {
+				layout = this.layout;
+				await this.lane.beforeReview?.(this.#parsedValues(applyEdits(this.sourceRows, this.edits)));
+			}
+		} catch (error) {
+			if (isCurrent())
+				this.phase = {
+					step: 'columns',
+					error: error instanceof Error ? error.message : 'The rows could not be checked. Try again.'
+				};
+			return;
+		}
+		if (!isCurrent()) return;
+		this.phase = this.columnBlockers.length ? { step: 'columns' } : { step: 'review' };
+	}
+
+	#parsedValues(rows: readonly SourceRow[]): Partial<RowValues<C>>[] {
+		const columns = Object.entries(this.lane.columns);
+		return rows.map((row) => {
+			const values: Record<string, unknown> = {};
+			for (const [field, column] of columns) {
+				const parsed = parseValue(column.kind, row.raw[field] ?? '', column.maxLength, row);
+				if (parsed.ok && parsed.value !== null) values[field] = parsed.value;
+			}
+			return values as Partial<RowValues<C>>;
+		});
 	}
 
 	async commit(): Promise<void> {

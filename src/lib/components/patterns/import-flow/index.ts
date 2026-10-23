@@ -1,4 +1,5 @@
 export { default as ImportFlow } from './import-flow.svelte';
+export { ImportSession } from './importSession.svelte';
 export { defineImportLane, questionKey } from './types';
 export { parseImportDate } from './values';
 export type {

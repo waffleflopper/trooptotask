@@ -99,7 +99,11 @@
 	<header class="grid gap-0.5">
 		<h3 id="{id}-title" class="text-sm font-semibold">{question.title}</h3>
 		<p class="text-sm">
-			<span class="font-mono">"{question.subject}"</span>
+			{#if question.reference}
+				<span class="font-mono">"{question.subject}"</span>
+			{:else}
+				<span>{question.subject}</span>
+			{/if}
 			<span class="text-muted-foreground">· {rows}</span>
 		</p>
 	</header>

@@ -49,7 +49,9 @@
 	});
 	const columns = $derived(shownFields ? shownFields.split('\n').map(toColumn) : []);
 	const identityColumns = $derived([...identityFields].map(toColumn));
-	const identityHeader = $derived(session.lane.identity ? session.lane.noun.one : 'Row');
+	const identityHeader = $derived(
+		session.lane.identity ? (session.lane.identity.columnLabel ?? session.lane.noun.one) : 'Row'
+	);
 
 	const IDENTITY_REM = 9.5;
 	const SKIP_REM = 2;
@@ -167,7 +169,7 @@
 			<VirtualList
 				items={rows}
 				key={(row) => row.row.id}
-				height={(row) => (compact ? cardRowHeight(row, identityColumns, columns) : tableRowHeight(row))}
+				height={(row) => (compact ? cardRowHeight(row, identityColumns, columns) : tableRowHeight(row, columns))}
 				class="max-h-[calc(100dvh-18rem)] min-h-48 rounded-md border"
 				contentClass={compact ? 'pt-2' : undefined}
 				style={compact ? undefined : `--import-min-width: ${minWidth}`}

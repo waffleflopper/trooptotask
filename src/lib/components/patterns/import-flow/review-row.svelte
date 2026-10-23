@@ -13,6 +13,7 @@
 		changeFor,
 		editableFields,
 		fieldMessage,
+		looseDiff,
 		looseMessages,
 		OUTCOMES,
 		rowMessages,
@@ -51,6 +52,7 @@
 	const where = $derived(`${source.sheetName} · row ${source.rowNumber}`);
 	const quiet = $derived(row.outcome === 'unchanged' || row.outcome === 'skipped');
 	const context = $derived(cardContext(row, columns));
+	const unplacedDiff = $derived(looseDiff(row, columns));
 	const railQuestion = $derived(row.outcome === 'skipped' ? row.question : undefined);
 </script>
 
@@ -131,11 +133,13 @@
 				<p class="truncate text-xs text-danger-foreground">{message}</p>
 			{/each}
 		{:else if row.outcome === 'update'}
-			{#each row.diff as change (change.label)}
+			{#each row.diff as change, index (index)}
 				<p class="flex min-w-0 items-baseline gap-2 text-sm">
 					<span class="w-24 shrink-0 text-xs text-muted-foreground">{change.label}</span>
-					<span class="truncate font-medium">{change.after}</span>
-					<span class="truncate text-xs text-muted-foreground line-through">{change.before || 'was empty'}</span>
+					{#if change.after}<span class="truncate font-medium">{change.after}</span>{/if}
+					<span class="truncate text-xs text-muted-foreground line-through" title={change.before || undefined}
+						>{change.before || 'was empty'}</span
+					>
 				</p>
 			{/each}
 		{:else}
@@ -193,6 +197,18 @@
 			{@const messages = rowMessages(row).join(' ')}
 			<p id={messageId} class="-mt-1 truncate px-3 pb-2 text-xs text-danger-foreground" title={messages}>
 				{messages}
+			</p>
+		{:else if unplacedDiff.length}
+			<p class="-mt-1 flex min-w-0 gap-3 px-3 pb-2 text-xs">
+				{#each unplacedDiff as change, index (index)}
+					<span class="flex min-w-0 gap-1.5">
+						<span class="shrink-0 text-muted-foreground">{change.label}</span>
+						{#if change.after}<span class="truncate font-medium">{change.after}</span>{/if}
+						{#if change.before}
+							<span class="truncate text-muted-foreground line-through" title={change.before}>{change.before}</span>
+						{/if}
+					</span>
+				{/each}
 			</p>
 		{/if}
 	</div>

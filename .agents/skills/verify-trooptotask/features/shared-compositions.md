@@ -11,10 +11,10 @@ it.
 - `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard `grid` of `row` elements,
   a detail form with `Collapsible` disclosures (a trigger `button` with `aria-expanded`, not `details`/`summary`) and a
   color field, and per-row action toolbars.
-- `bulk-import`: Critical Tasks and Calendar imports render the shared workspace, preview table and validation summary.
-  Critical Tasks completion import adds the header, input panel and file input.
-- `import-flow`: Personnel and Training import pages render the shared File, Columns, Review and Done steps, fix rail,
-  review list and receipt.
+- `bulk-import`: Critical Tasks imports render the shared workspace, preview table and validation summary. Critical
+  Tasks completion import adds the header, input panel and file input.
+- `import-flow`: Personnel, Training and Calendar status import pages render the shared File, Columns, Review and Done
+  steps, fix rail, review list and receipt.
 - `readiness-band`: Training Reports and Critical Tasks Reports render ramp and semantic tiles, drop markers and a
   legend.
 - `report-chart`: Critical Tasks Reports render Bar, Line and ChartTable charts, Training Reports renders the Forecast

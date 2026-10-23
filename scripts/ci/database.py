@@ -95,8 +95,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261022000200_personnel_attribute_history.sql",
     "20261022000300_status_type_roster_effect.sql",
     "20261022000400_daily_assignment_source.sql",
-    "20261022000500_roster_starting_numbers.sql",
     "20261022000600_roster_assignment_writes.sql",
+    "20261022000700_roster_starting_numbers.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

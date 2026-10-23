@@ -110,6 +110,12 @@ SELECT throws_ok(pg_temp.save_sql(2, 401, pg_temp.open_form(401), pg_temp.today(
 SELECT throws_ok(pg_temp.save_sql(2, 401, pg_temp.open_form(401), pg_temp.today(), jsonb_build_array(pg_temp.number(302, 5)),
   jsonb_build_array(pg_temp.repick(3, 302, 303))),
   'P0001', 'Assignment slot unavailable', 'a re-pick of a hand-assigned day fails the whole save');
+SELECT throws_ok(pg_temp.save_sql(2, 401, pg_temp.open_form(401), pg_temp.today(), jsonb_build_array(pg_temp.number(302, 5)),
+  jsonb_build_array(pg_temp.repick(1, 302, 301), pg_temp.repick(2, 301, 303))),
+  'P0001', 'Assignment slot unavailable', 'a stale prior assignee refuses every re-pick and the starting numbers');
+SELECT throws_ok(pg_temp.save_sql(2, 401, pg_temp.open_form(401), pg_temp.today(), jsonb_build_array(pg_temp.number(302, 5)),
+  jsonb_build_array(pg_temp.repick(1, 302, 301), pg_temp.repick(2, 311, 302))),
+  '42501', 'Calendar assignment operation is not allowed', 'a re-pick outside the Organization rolls back the starting numbers and every assignment');
 SELECT throws_ok(pg_temp.save_sql(2, 402, pg_temp.open_form(402), pg_temp.today(), jsonb_build_array(pg_temp.number(302, 5)), '[]'),
   'RSL01', NULL, 'carried numbers cannot be edited');
 RESET ROLE;

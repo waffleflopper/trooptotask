@@ -905,8 +905,12 @@ function createInMemoryCalendarAssignmentReplacementPort(
 			return rawStore.replaceDailyAssignmentSlots(
 				orgId,
 				[],
-				input.repicks.map(({ date, assigneeId }) => ({ date, assignmentTypeId: typeId, assigneeId })),
-				'roster'
+				input.repicks.map(({ date, assigneeId }) => ({
+					date,
+					assignmentTypeId: typeId,
+					assigneeId,
+					source: 'roster'
+				}))
 			);
 		}
 	};

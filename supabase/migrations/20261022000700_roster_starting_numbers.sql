@@ -5,7 +5,7 @@
 -- transaction, so the roster never shows numbers its picks did not use.
 --
 -- The re-picks must stay roster picks, and only the server's roster path may
--- write those (20261022000400), so this runs like fill_roster_assignment_slots:
+-- write those (20261022000400), so this runs like write_roster_assignment_slots:
 -- as the service role on behalf of p_actor, re-checking the actor's authority.
 BEGIN;
 
@@ -32,7 +32,6 @@ DECLARE
   v_tracks text[];
   v_slots jsonb;
   v_day date;
-  v_written uuid[];
 BEGIN
   IF p_actor IS NULL OR p_organization_id IS NULL OR p_assignment_type_id IS NULL OR p_form_id IS NULL
     OR p_numbers IS NULL OR pg_catalog.jsonb_typeof(p_numbers) <> 'array'
@@ -157,18 +156,11 @@ BEGIN
   END IF;
 
   SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-    'date', r.date, 'assignment_type_id', p_assignment_type_id, 'assignee_id', r.assignee_id
+    'date', r.date, 'assignment_type_id', p_assignment_type_id, 'assignee_id', r.assignee_id,
+    'was', r.was, 'source', 'roster'
   )) INTO v_slots
-  FROM pg_catalog.jsonb_to_recordset(p_repicks) AS r(date date, assignee_id text);
-  SELECT pg_catalog.array_agg(row_value.id) INTO v_written
-  FROM public.replace_daily_assignment_slots(p_organization_id, '{}'::date[], v_slots) AS row_value;
-
-  PERFORM pg_catalog.set_config('calendar.roster_write', 'on', true);
-  RETURN QUERY
-    UPDATE public.daily_assignments SET source = 'roster'
-    WHERE id = ANY(v_written)
-    RETURNING *;
-  PERFORM pg_catalog.set_config('calendar.roster_write', '', true);
+  FROM pg_catalog.jsonb_to_recordset(p_repicks) AS r(date date, assignee_id text, was text);
+  RETURN QUERY SELECT * FROM public.write_roster_assignment_slots(p_actor, p_organization_id, v_slots);
 END;
 $$;
 

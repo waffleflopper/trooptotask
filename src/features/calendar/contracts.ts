@@ -425,7 +425,7 @@ export interface RosterStartingNumbersWrite {
 	formId: string;
 	today: string;
 	numbers: readonly StartingNumberInput[];
-	repicks: readonly { date: string; assigneeId: string; was: string }[];
+	repicks: readonly Pick<RosterSlotWrite, 'date' | 'assigneeId' | 'was'>[];
 }
 
 export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;

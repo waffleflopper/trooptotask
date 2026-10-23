@@ -10,7 +10,7 @@ import type { SavedAssignment, SavedAssignmentType, StartingNumbersStatus } from
 import { addDays, readRosterPeople, rosterFacts } from './rosterFacts.server';
 import type { RosterPlannerPorts } from './rosterPlannerOperations.server';
 import { loadRosterFacts, requireDeviceDate, type RosterSettingsPorts } from './rosterSettingsOperations.server';
-import { poolOn, simulateRoster, startingNumbersLocked, tracksOf } from './roster/rosterEngine';
+import { poolOn, simulateRoster, slotChanges, startingNumbersLocked, tracksOf } from './roster/rosterEngine';
 import { trackOf } from './roster/rosterCalendar';
 import type { DateKey, OpenForm, PersonRef, RosterPerson } from './roster/rosterTypes';
 import type { Da6Setup, Da6SetupForm } from './utils/da6View';
@@ -229,7 +229,7 @@ export async function saveStartingNumbers(
 		formId,
 		today,
 		numbers,
-		repicks: run.changes.map(({ date, personId, was }) => ({ date, assigneeId: personId, was: was ?? '' }))
+		repicks: slotChanges(run)
 	});
 	await ctx.audit.log({
 		action: 'assignment_type.roster_starting_numbers_set',

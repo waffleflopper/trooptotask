@@ -96,7 +96,9 @@ const brooksPacket: PersonnelOnboarding = {
 
 interface Loaded {
 	personnel: readonly Personnel[];
+	assignmentTypes?: DashboardInputs['assignmentTypes'];
 	assignments?: DashboardInputs['assignments'];
+	specialDays?: DashboardInputs['specialDays'];
 	ratingSchemeEntries?: RatingSchemeDueEntry[];
 	expiredByType?: ExpiredTrainingType[] | null;
 	activeOnboardings?: PersonnelOnboarding[];
@@ -114,8 +116,8 @@ function inputs(loaded: Loaded): DashboardInputs {
 		availability: [],
 		statusTypes: [],
 		groups: [],
-		specialDays: [],
-		assignmentTypes: [staffDuty],
+		specialDays: loaded.specialDays ?? [],
+		assignmentTypes: loaded.assignmentTypes ?? [staffDuty],
 		assignments: loaded.assignments ?? [],
 		page: {
 			orgId: 'org-1',
@@ -389,6 +391,28 @@ describe('unfilledDuty', () => {
 				}),
 				urgency: { date: '2026-10-27' }
 			}
+		]);
+	});
+
+	it('leaves out the weekends and Special Days of a roster with No duty on them', () => {
+		const open = ['2026-10-23', '2026-10-24', '2026-10-26'];
+		const loaded = {
+			personnel: [alvarez],
+			specialDays: [{ id: 'closure', date: '2026-10-26', name: 'Training holiday', type: 'org-closure' as const }],
+			assignments: FORECAST.filter((date) => !open.includes(date)).map((date) => ({
+				id: `slot-${date}`,
+				date,
+				assignmentTypeId: 'staff-duty',
+				assigneeId: 'p-alvarez'
+			}))
+		};
+
+		const noDuty = unfilledDuty(inputs({ ...loaded, assignmentTypes: [{ ...staffDuty, weekendMode: 'none' }] }));
+		const everyDay = unfilledDuty(inputs(loaded));
+
+		expect(noDuty.map((row) => [row.title, row.subtitle])).toEqual([['1 Staff Duty day unfilled', 'Fri 23 Oct']]);
+		expect(everyDay.map((row) => [row.title, row.subtitle])).toEqual([
+			['3 Staff Duty days unfilled', 'Fri 23, Sat 24, Mon 26 Oct']
 		]);
 	});
 });

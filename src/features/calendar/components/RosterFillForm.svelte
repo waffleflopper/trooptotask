@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import type { RosterFillPick, RosterFillPreview } from '$features/calendar/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
+	import { rosterSkipNote } from '$features/calendar/utils/plannerRosters';
 	import { parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
@@ -107,13 +108,10 @@
 	}
 
 	function skipNote(pick: RosterFillPick) {
-		return pick.passedOver
-			.map((skip) => {
-				const { prefix, name } = personName(skip.personId);
-				const holds = skip.code === 'A' ? 'count holds' : 'count runs';
-				return `Skipped ${prefix} ${name} (${skip.count}). On ${skip.reason}, ${holds}.`;
-			})
-			.join(' ');
+		return rosterSkipNote(pick, (id) => {
+			const { prefix, name } = personName(id);
+			return `${prefix} ${name}`;
+		});
 	}
 </script>
 

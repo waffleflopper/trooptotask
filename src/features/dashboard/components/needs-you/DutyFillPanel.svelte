@@ -1,17 +1,21 @@
 <script lang="ts">
-	import { SvelteMap } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import {
 		PlannerRosterRead,
+		assignmentSlotKey,
 		dailyAssignmentsStore,
+		dutyPickerOptions,
 		indexAssignmentsBySlot,
 		indexDutyAvailability,
 		isFreeForDuty,
 		loadDutyPicker,
-		openAssignmentDates,
 		planDutyFill,
-		type DutyFillSlot
+		previewRosterFill,
+		rosterSkipNote,
+		type DutyPickerOption
 	} from '$features/calendar';
+	import type { RosterFillPreview } from '$features/calendar/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -19,7 +23,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatWeekdayDay, parseDate } from '$lib/utils/dates';
 	import { openCalendarAt } from '../../calendarLink';
-	import { DUTY_FILL_DAYS, type NeedsYouPanelProps } from '../../sections/needsYou';
+	import { DUTY_FILL_DAYS, openDutyDates, type NeedsYouPanelProps } from '../../sections/needsYou';
 
 	let {
 		model,
@@ -31,19 +35,192 @@
 		assignmentTypeId
 	}: NeedsYouPanelProps & { assignmentTypeId: string } = $props();
 
+	const ROSTER_CHANGED = 'The roster changed since this preview. Review the new picks and fill again.';
+
 	const inputs = $derived(model.inputs);
 	const type = $derived(inputs.assignmentTypes.find((candidate) => candidate.id === assignmentTypeId) ?? null);
-	const openDates = $derived(
-		openAssignmentDates(indexAssignmentsBySlot(inputs.assignments), assignmentTypeId, inputs.forecastDays)
-	);
-	const dates = $derived(openDates.slice(0, DUTY_FILL_DAYS));
-	const rest = $derived(openDates.slice(DUTY_FILL_DAYS));
+	const openDates = $derived(type ? openDutyDates(inputs, type) : []);
 
-	// Roster counts span the whole Organization, so like the duty planner only an Organization-wide operator reads them.
-	const counted = $derived(
+	// Like the duty planner, only an Organization-wide operator fills from the roster, since it counts the whole
+	// Organization. Everyone else gets suggestions in name order.
+	const byRoster = $derived(
 		type?.assignTo === 'personnel' &&
 			access.can(POLICY_ACTION_CATALOG.calendar.manageAssignments, { kind: 'organization' })
 	);
+
+	// A day swapped on the roster path is saved at once, and keeps its card so the list does not shift under the operator.
+	const swapped = new SvelteSet<string>();
+	const listed = $derived([...new Set([...openDates, ...swapped])].sort());
+	const dates = $derived(listed.slice(0, DUTY_FILL_DAYS));
+	const rest = $derived(listed.slice(DUTY_FILL_DAYS));
+	const open = $derived(dates.filter((date) => !swapped.has(date)));
+	const from = $derived(open[0]);
+	const through = $derived(open.at(-1));
+	const stored = $derived(indexAssignmentsBySlot(inputs.assignments));
+
+	let plan = $state.raw<{ status: 'loading' } | { status: 'ready'; preview: RosterFillPreview } | { status: 'error' }>({
+		status: 'loading'
+	});
+	let previews = $state(0);
+	let swapsSaving = $state(0);
+	let swapFailure = $state<string | null>(null);
+
+	// One preview covers every shown open day. It runs again after any confirmed assignment write, so a swap re-plans
+	// the later days, and waits while a write is in flight so it never plans from a half-saved state.
+	$effect(() => {
+		if (!byRoster || !from || !through) return;
+		const request = { typeId: assignmentTypeId, today: inputs.today, from, through };
+		void [previews, dailyAssignmentsStore.writes];
+		if (saving) return;
+		plan = { status: 'loading' };
+		if (swapsSaving > 0) return;
+		let current = true;
+		previewRosterFill(inputs.page.orgId, request).then(
+			(preview) => {
+				if (current) plan = { status: 'ready', preview };
+			},
+			() => {
+				if (current) plan = { status: 'error' };
+			}
+		);
+		return () => {
+			current = false;
+		};
+	});
+
+	const rosterPicks = $derived(
+		new Map(plan.status === 'ready' ? plan.preview.picks.map((pick) => [pick.date, pick]) : [])
+	);
+	const personById = $derived(new Map(inputs.personnel.map((person) => [person.id, person])));
+	const availabilityByPerson = $derived(indexDutyAvailability(inputs.availability));
+
+	// The name-order path keeps the viewer's swaps local until Assign all, and never suggests anyone twice.
+	const picks = new SvelteMap<string, string>();
+	const nameOrder = $derived(
+		type && !byRoster
+			? planDutyFill({
+					type,
+					dates,
+					personnel: inputs.personnel,
+					groups: inputs.groups,
+					availabilityByPerson,
+					statusTypes: inputs.statusTypes,
+					picks
+				})
+			: []
+	);
+
+	type Card =
+		| { date: string; status: 'loading' | 'failed' }
+		| {
+				date: string;
+				status: 'ready';
+				heading: string;
+				assigneeId: string | null;
+				name: string;
+				note: string;
+				skipped: string;
+				selected: boolean;
+		  };
+
+	function personName(id: string): string {
+		const person = personById.get(id);
+		return person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Outside your roster';
+	}
+
+	function choiceName(choice: DutyPickerOption): string {
+		return choice.kind === 'personnel' && choice.prefix ? `${choice.prefix} ${choice.label}` : choice.label;
+	}
+
+	function rosterCard(date: string): Card {
+		const day = formatWeekdayDay(date);
+		const held = stored.get(assignmentSlotKey(date, assignmentTypeId));
+		if (swapped.has(date) && held) {
+			return {
+				date,
+				status: 'ready',
+				heading: 'Assigned',
+				assigneeId: held.assigneeId,
+				name: personName(held.assigneeId),
+				note: 'Saved',
+				skipped: '',
+				selected: true
+			};
+		}
+		if (plan.status !== 'ready') return { date, status: plan.status === 'error' ? 'failed' : 'loading' };
+		const pick = rosterPicks.get(date);
+		if (!pick) {
+			const note = plan.preview.unfilled.includes(date) ? 'Nobody eligible is free' : 'Not a detail day';
+			return {
+				date,
+				status: 'ready',
+				heading: day,
+				assigneeId: null,
+				name: 'Open',
+				note,
+				skipped: '',
+				selected: false
+			};
+		}
+		return {
+			date,
+			status: 'ready',
+			heading: day,
+			assigneeId: pick.personId,
+			name: personName(pick.personId),
+			note: pick.returningFrom ? `count ${pick.count} · back from ${pick.returningFrom}` : `count ${pick.count}`,
+			skipped: rosterSkipNote(pick, (id) => {
+				const person = personById.get(id);
+				return person ? `${person.rank} ${person.lastName}` : 'Outside your roster';
+			}),
+			selected: false
+		};
+	}
+
+	const cards = $derived<Card[]>(
+		byRoster
+			? dates.map(rosterCard)
+			: nameOrder.map((slot) => ({
+					date: slot.date,
+					status: 'ready',
+					heading: slot.picked ? 'Selected' : formatWeekdayDay(slot.date),
+					assigneeId: slot.choice?.id ?? null,
+					name: slot.choice ? choiceName(slot.choice) : 'Open',
+					note: !slot.choice
+						? slot.options.some(isFreeForDuty)
+							? 'Everyone free has a day'
+							: 'Nobody eligible is free'
+						: slot.choice.kind === 'group'
+							? 'Group'
+							: 'Available',
+					skipped: '',
+					selected: slot.picked
+				}))
+	);
+
+	// What Assign all writes: the preview's picks for the shown open days, or the name-order choices.
+	const rosterFill = $derived(
+		byRoster && plan.status === 'ready' && from && through
+			? {
+					typeId: assignmentTypeId,
+					today: inputs.today,
+					from,
+					through,
+					picks: plan.preview.picks.flatMap(({ date, personId }) => (open.includes(date) ? [{ date, personId }] : []))
+				}
+			: null
+	);
+	const nameOrderFill = $derived(
+		nameOrder.flatMap((slot) =>
+			slot.choice ? [{ date: slot.date, assignmentTypeId, assigneeId: slot.choice.id }] : []
+		)
+	);
+	const fillCount = $derived(byRoster ? (rosterFill?.picks.length ?? 0) : nameOrderFill.length);
+	const loading = $derived(byRoster && (plan.status === 'loading' || swapsSaving > 0));
+	const ready = $derived(!byRoster || (plan.status === 'ready' && swapsSaving === 0));
+	const canAssign = $derived(ready && fillCount > 0 && !saving);
+
+	// The swap picker reads its day's roster standing on open, as the Calendar lane picker does.
 	const rosterRead = new PlannerRosterRead();
 	const dayRequest = (date: string) => ({
 		orgId: inputs.page.orgId,
@@ -52,54 +229,31 @@
 		today: inputs.today
 	});
 
+	let swapping = $state<{ date: string; anchor: HTMLElement } | null>(null);
 	$effect(() => {
-		if (!counted) return;
-		for (const date of dates) rosterRead.loadDay(dayRequest(date));
+		if (byRoster && swapping) rosterRead.loadDay(dayRequest(swapping.date));
+	});
+	const swapRead = $derived(
+		byRoster && swapping ? (rosterRead.day(dayRequest(swapping.date)) ?? { status: 'loading' as const }) : null
+	);
+	const swapOptions = $derived.by(() => {
+		if (!swapping || !type) return [];
+		const date = swapping.date;
+		if (!byRoster) return nameOrder.find((slot) => slot.date === date)?.options ?? [];
+		const card = cards.find((candidate) => candidate.date === date);
+		return dutyPickerOptions({
+			type,
+			dateKey: date,
+			personnel: inputs.personnel,
+			groups: inputs.groups,
+			availabilityByPerson,
+			statusTypes: inputs.statusTypes,
+			roster: swapRead?.status === 'ready' ? (swapRead.day ?? undefined) : undefined,
+			unreadRoster: swapRead && swapRead.status !== 'ready' ? swapRead.status : undefined,
+			currentAssigneeId: card?.status === 'ready' ? (card.assigneeId ?? undefined) : undefined
+		});
 	});
 
-	const reads = $derived(
-		dates.map((date) => ({
-			date,
-			read: counted ? (rosterRead.day(dayRequest(date)) ?? { status: 'loading' as const }) : null
-		}))
-	);
-	const counts = $derived(
-		reads.some(({ read }) => read?.status === 'loading')
-			? 'loading'
-			: reads.some(({ read }) => read?.status === 'error')
-				? 'failed'
-				: 'ready'
-	);
-	const byRoster = $derived(counted && !reads.every(({ read }) => read?.status === 'ready' && read.day === null));
-
-	function retryCounts() {
-		for (const { date, read } of reads) if (read?.status === 'error') rosterRead.retryDay(dayRequest(date));
-	}
-
-	const picks = new SvelteMap<string, string>();
-	const slots = $derived<DutyFillSlot[]>(
-		type
-			? planDutyFill({
-					type,
-					days: reads.map(({ date, read }) => ({
-						date,
-						roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
-						unreadRoster: read && read.status !== 'ready' ? read.status : undefined
-					})),
-					personnel: inputs.personnel,
-					groups: inputs.groups,
-					availabilityByPerson: indexDutyAvailability(inputs.availability),
-					statusTypes: inputs.statusTypes,
-					picks
-				})
-			: []
-	);
-	const filled = $derived(slots.filter((slot) => slot.choice !== null));
-	const canAssign = $derived(counts === 'ready' && filled.length > 0 && !saving);
-
-	let swapping = $state<{ date: string; anchor: HTMLElement } | null>(null);
-	const swapSlot = $derived(swapping && slots.find((slot) => slot.date === swapping?.date));
-	const swapRead = $derived(swapping && reads.find(({ date }) => date === swapping?.date)?.read);
 	type DutyPickerComponent = Awaited<ReturnType<typeof loadDutyPicker>>['default'];
 	let picker = $state.raw<
 		{ status: 'loading' } | { status: 'failed' } | { status: 'ready'; DutyPicker: DutyPickerComponent } | null
@@ -116,30 +270,48 @@
 		}
 	}
 
-	function swap(slot: DutyFillSlot, anchor: HTMLElement) {
-		swapping = { date: slot.date, anchor };
+	function swap(date: string, anchor: HTMLElement) {
+		swapping = { date, anchor };
 		void loadPicker();
 	}
 
-	function choiceName(slot: DutyFillSlot): string {
-		const choice = slot.choice;
-		if (!choice) return 'Open';
-		return choice.kind === 'personnel' && choice.prefix ? `${choice.prefix} ${choice.label}` : choice.label;
-	}
-
-	function choiceNote(slot: DutyFillSlot, onRoster: boolean): string {
-		const choice = slot.choice;
-		if (!choice) return slot.options.some(isFreeForDuty) ? 'Everyone free has a day' : 'Nobody eligible is free';
-		if (choice.kind === 'group') return 'Group';
-		if (choice.offRoster) return 'Not on this roster';
-		if (choice.count !== undefined) return `count ${choice.count}`;
-		return onRoster ? 'Not a detail day' : 'Available';
+	async function assignSwap(date: string, assigneeId: string): Promise<boolean> {
+		if (!byRoster) {
+			picks.set(date, assigneeId);
+			return true;
+		}
+		const orgId = inputs.page.orgId;
+		swapFailure = null;
+		swapsSaving += 1;
+		swapped.add(date);
+		try {
+			await dailyAssignmentsStore.setAssignmentBatchOrThrow([{ date, assignmentTypeId, assigneeId }]);
+			return true;
+		} catch (error) {
+			if (inputs.page.orgId !== orgId) return false;
+			if (!stored.has(assignmentSlotKey(date, assignmentTypeId))) swapped.delete(date);
+			swapFailure = error instanceof Error && error.message ? error.message : 'The swap was not saved.';
+			return false;
+		} finally {
+			swapsSaving -= 1;
+		}
 	}
 
 	function assignAll() {
 		if (!canAssign) return;
-		const assignments = filled.map((slot) => ({ date: slot.date, assignmentTypeId, assigneeId: slot.choice!.id }));
-		void save(() => dailyAssignmentsStore.setAssignmentBatchOrThrow(assignments)).catch(() => {});
+		if (!byRoster) {
+			const assignments = nameOrderFill;
+			void save(() => dailyAssignmentsStore.setAssignmentBatchOrThrow(assignments)).catch(() => {});
+			return;
+		}
+		const fill = rosterFill;
+		if (!fill) return;
+		void save(async () => {
+			if ((await dailyAssignmentsStore.fillFromRosterOrThrow(fill)) === 'changed') {
+				previews += 1;
+				throw new Error(ROSTER_CHANGED);
+			}
+		}).catch(() => {});
 	}
 </script>
 
@@ -147,19 +319,17 @@
 	<ul
 		class="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-1.5"
 		aria-label="Days to fill"
-		aria-busy={counts === 'loading'}
+		aria-busy={loading}
 	>
-		{#each slots as slot, index (slot.date)}
-			{@const read = reads[index]?.read}
-			{@const status = read?.status ?? 'ready'}
-			{@const opening = picker?.status === 'loading' && swapping?.date === slot.date}
+		{#each cards as card (card.date)}
+			{@const opening = picker?.status === 'loading' && swapping?.date === card.date}
 			<li>
-				{#if status === 'loading'}
+				{#if card.status === 'loading'}
 					<div
 						class="grid h-full content-start gap-1 rounded-[4px] border border-border bg-background py-2.5 pr-2.5 pl-3"
 					>
 						<span class="font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase">
-							{formatWeekdayDay(slot.date)}
+							{formatWeekdayDay(card.date)}
 						</span>
 						<Skeleton class="h-5 w-24" />
 						<Skeleton class="h-3.5 w-16" />
@@ -169,19 +339,21 @@
 						type="button"
 						class={[
 							'grid h-full w-full content-start gap-1 rounded-[4px] border py-2.5 pr-2.5 pl-3 text-left focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50',
-							slot.picked ? 'border-foreground bg-muted' : 'border-border bg-background hover:bg-muted/60'
+							card.status === 'ready' && card.selected
+								? 'border-foreground bg-muted'
+								: 'border-border bg-background hover:bg-muted/60'
 						]}
-						disabled={saving || counts !== 'ready'}
+						disabled={saving || !ready}
 						aria-haspopup="dialog"
 						aria-busy={opening}
-						aria-label="{formatWeekdayDay(slot.date)}: {status === 'ready' ? choiceName(slot) : 'not suggested'}, swap"
-						onclick={(event) => swap(slot, event.currentTarget)}
+						aria-label="{formatWeekdayDay(card.date)}: {card.status === 'ready' ? card.name : 'not suggested'}, swap"
+						onclick={(event) => swap(card.date, event.currentTarget)}
 					>
 						<span class="flex items-center justify-between">
 							<span
 								class="font-mono text-[11px] leading-[14px] font-semibold tracking-[0.08em] text-muted-foreground uppercase"
 							>
-								{slot.picked ? 'Selected' : formatWeekdayDay(slot.date)}
+								{card.status === 'ready' ? card.heading : formatWeekdayDay(card.date)}
 							</span>
 							{#if opening}
 								<Spinner class="size-3 text-muted-foreground" aria-label="Opening the duty picker" />
@@ -190,24 +362,28 @@
 							{/if}
 						</span>
 						<span class="text-[15px] leading-5 font-semibold wrap-anywhere text-foreground">
-							{status === 'ready' ? choiceName(slot) : 'Not suggested'}
+							{card.status === 'ready' ? card.name : 'Not suggested'}
 						</span>
 						<span class="font-mono text-[11px] leading-[14px] text-muted-foreground">
-							{status === 'ready'
-								? choiceNote(slot, read?.status === 'ready' && read.day !== null)
-								: 'Count unavailable'}
+							{card.status === 'ready' ? card.note : 'Count unavailable'}
 						</span>
+						{#if card.status === 'ready' && card.skipped}
+							<span class="text-[11px] leading-[14px] text-muted-foreground italic">{card.skipped}</span>
+						{/if}
 					</button>
 				{/if}
 			</li>
 		{/each}
 	</ul>
 
-	{#if counts === 'failed'}
+	{#if byRoster && plan.status === 'error'}
 		<p role="alert" class="flex flex-wrap items-center gap-2 text-sm text-danger-foreground">
 			Roster counts could not be loaded.
-			<Button variant="link" class="h-auto px-0" onclick={retryCounts}>Try again</Button>
+			<Button variant="link" class="h-auto px-0" onclick={() => (previews += 1)}>Try again</Button>
 		</p>
+	{/if}
+	{#if swapFailure}
+		<p role="alert" class="text-sm text-danger-foreground">{swapFailure}</p>
 	{/if}
 	{#if failure}
 		<p role="alert" class="text-sm text-danger-foreground">{failure}</p>
@@ -241,21 +417,21 @@
 			<span class="flex items-center gap-3">
 				<Button variant="ghost" class="px-1.5 text-muted-foreground" onclick={close} disabled={saving}>Cancel</Button>
 				<Button data-needs-you-submit onclick={assignAll} aria-disabled={!canAssign} aria-busy={saving}>
-					{saving ? 'Assigning...' : `Assign all ${filled.length}`}
+					{saving ? 'Assigning...' : `Assign all ${fillCount}`}
 				</Button>
 			</span>
 		</div>
 	</div>
 </div>
 
-{#if swapping && swapSlot && type && picker?.status === 'ready'}
-	{@const date = swapSlot.date}
+{#if swapping && type && picker?.status === 'ready'}
+	{@const date = swapping.date}
 	<picker.DutyPicker
 		typeName={type.name}
 		assignTo={type.assignTo}
 		date={parseDate(date)}
 		anchor={swapping.anchor}
-		options={swapSlot.options}
+		options={swapOptions}
 		counts={swapRead
 			? {
 					status: swapRead.status,
@@ -263,10 +439,7 @@
 					onRetry: () => rosterRead.retryDay(dayRequest(date))
 				}
 			: undefined}
-		onAssign={async (assigneeId) => {
-			picks.set(date, assigneeId);
-			return true;
-		}}
+		onAssign={(assigneeId) => assignSwap(date, assigneeId)}
 		onClose={() => (swapping = null)}
 	/>
 {/if}

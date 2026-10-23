@@ -1,4 +1,4 @@
-import { calendarLaneTypes, indexAssignmentsBySlot, openAssignmentDates } from '$features/calendar';
+import { calendarLaneTypes } from '$features/calendar';
 import { clockLabel, summarizePacket } from '$features/onboarding/contracts';
 import { evaluateUpcomingLosses, type Personnel } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
@@ -7,6 +7,7 @@ import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import { openCalendarAt } from '../calendarLink';
 import { projectTrainingSteps } from '../read-model/dashboardIndexes';
 import type { DashboardInputs } from './dashboardInputs';
+import { openDutyDates } from './needsYou';
 import type { NeedsYouSource } from './dashboardSections';
 import {
 	awardStartedAction,
@@ -104,9 +105,8 @@ export const expiredTraining: NeedsYouSource = (inputs) => {
 };
 
 export const unfilledDuty: NeedsYouSource = (inputs) => {
-	const slots = indexAssignmentsBySlot(inputs.assignments);
 	return calendarLaneTypes(inputs.assignmentTypes).flatMap((type) => {
-		const openDates = openAssignmentDates(slots, type.id, inputs.forecastDays);
+		const openDates = openDutyDates(inputs, type);
 		if (openDates.length === 0) return [];
 		return [
 			{

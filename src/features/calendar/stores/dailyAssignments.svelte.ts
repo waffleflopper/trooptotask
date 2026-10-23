@@ -85,6 +85,8 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	 * the preview, so the caller can show the new picks.
 	 */
 	fillFromRoster: (fill: RosterFill) => Promise<'saved' | 'changed' | 'failed'>;
+	/** Like `fillFromRoster`, but rejects with the failure message instead of showing a toast. */
+	fillFromRosterOrThrow: (fill: RosterFill) => Promise<'saved' | 'changed'>;
 	replaceFromRoster: (replacement: RosterReplacementWrite) => Promise<'saved' | 'changed' | 'failed'>;
 	/** Like `setAssignmentBatch`, but rejects with the failure message instead of showing a toast. */
 	setAssignmentBatchOrThrow: (
@@ -322,6 +324,32 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		});
 		if (!res.ok) throw new Error(await readResponseErrorMessage(res, failure));
 		return res;
+	}
+
+	async function fillFromRosterOrThrow(fill: RosterFill): Promise<'saved' | 'changed'> {
+		const mutationId = crypto.randomUUID();
+		internals.log.push({
+			type: 'add-batch',
+			mutationId,
+			tempIds: fill.picks.map(() => `temp-${crypto.randomUUID()}`),
+			data: fill.picks.map(({ date, personId }) => ({ date, assignmentTypeId: fill.typeId, assigneeId: personId }))
+		});
+		try {
+			const res = await internals.withinOrganization(
+				fetch(`/org/${internals.orgId()}/api/duty-rosters/fill`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(fill)
+				})
+			);
+			if (res.status === 409) return 'changed';
+			if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The roster picks were not saved.'));
+			const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
+			internals.commit({ saved });
+			return 'saved';
+		} finally {
+			internals.log.resolve(mutationId);
+		}
 	}
 
 	async function setAssignmentBatchOrThrow(assignments: AssignmentBatchRecord[]): Promise<void> {
@@ -609,36 +637,15 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		},
 
 		async fillFromRoster(fill: RosterFill) {
-			const mutationId = crypto.randomUUID();
-			internals.log.push({
-				type: 'add-batch',
-				mutationId,
-				tempIds: fill.picks.map(() => `temp-${crypto.randomUUID()}`),
-				data: fill.picks.map(({ date, personId }) => ({ date, assignmentTypeId: fill.typeId, assigneeId: personId }))
-			});
 			try {
-				const res = await internals.withinOrganization(
-					fetch(`/org/${internals.orgId()}/api/duty-rosters/fill`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(fill)
-					})
-				);
-				if (res.status === 409) {
-					internals.log.resolve(mutationId);
-					return 'changed';
-				}
-				if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The roster picks were not saved.'));
-				const { saved } = await internals.withinOrganization(res.json() as Promise<{ saved: DailyAssignment[] }>);
-				internals.commit({ saved });
-				internals.log.resolve(mutationId);
-				return 'saved';
+				return await fillFromRosterOrThrow(fill);
 			} catch (error) {
-				internals.log.resolve(mutationId);
 				toastStore.error(error instanceof Error ? error.message : 'The roster picks were not saved.');
 				return 'failed';
 			}
 		},
+
+		fillFromRosterOrThrow,
 
 		async replaceFromRoster(replacement: RosterReplacementWrite) {
 			const slots = [{ date: replacement.date, personId: replacement.assigneeId }, ...replacement.repicks];

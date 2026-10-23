@@ -1,16 +1,11 @@
 import { dutyPickerOptions, type DutyPickerInput, type DutyPickerOption } from './dutyPickerOptions';
 
-/** One open day, with its roster read when the operator sees roster counts. */
-export interface DutyFillDay extends Pick<DutyPickerInput, 'roster' | 'unreadRoster'> {
-	date: string;
-}
-
 export interface DutyFillInput extends Omit<
 	DutyPickerInput,
 	'dateKey' | 'currentAssigneeId' | 'roster' | 'unreadRoster'
 > {
 	/** The open days to fill, in date order. */
-	days: readonly DutyFillDay[];
+	dates: readonly string[];
 	/** Assignees the viewer picked, by date; no suggestion repeats them. */
 	picks: ReadonlyMap<string, string>;
 }
@@ -24,20 +19,20 @@ export interface DutyFillSlot {
 	picked: boolean;
 }
 
-/** A Group, or a Person on the list available that day. People off the roster or without a count are search-only. */
+/** A Group, or a Person available that day. */
 export function isFreeForDuty(option: DutyPickerOption): boolean {
-	return option.kind === 'group' || (option.unavailable === undefined && !option.offRoster && !option.countUnavailable);
+	return option.kind === 'group' || option.unavailable === undefined;
 }
 
 /**
- * One slot per open day. A day keeps the viewer's pick; otherwise it suggests the duty picker's first option that is
- * free that day and not already picked or suggested in this fill, so a roster's next up comes first.
+ * One slot per open day, without roster counts. A day keeps the viewer's pick; otherwise it suggests the duty
+ * picker's first option, in name order, that is available that day and not already picked or suggested in this fill.
  */
 export function planDutyFill(input: DutyFillInput): DutyFillSlot[] {
-	const { days, picks, ...pickerInput } = input;
+	const { dates, picks, ...pickerInput } = input;
 	const taken = new Set(picks.values());
-	return days.map(({ date, roster, unreadRoster }) => {
-		const options = dutyPickerOptions({ ...pickerInput, dateKey: date, roster, unreadRoster });
+	return dates.map((date) => {
+		const options = dutyPickerOptions({ ...pickerInput, dateKey: date });
 		const pickedId = picks.get(date);
 		const choice =
 			pickedId === undefined

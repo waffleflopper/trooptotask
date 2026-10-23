@@ -43,8 +43,10 @@ export { assignmentSlotKey, indexAssignmentsBySlot, openAssignmentDates } from '
 export { calendarLaneTypes } from './utils/calendarLanes';
 export { indexDutyAvailability } from './utils/dutyReadModel';
 export { isFreeForDuty, planDutyFill, type DutyFillSlot } from './utils/dutyFill';
-export type { DutyPickerOption } from './utils/dutyPickerOptions';
-export { PlannerRosterRead } from './contexts/PlannerRosterRead.svelte';
+export { dutyPickerOptions, type DutyPickerOption } from './utils/dutyPickerOptions';
+export { PlannerRosterRead, previewRosterFill } from './contexts/PlannerRosterRead.svelte';
+export { rosterSkipNote } from './utils/plannerRosters';
+export { trackOf } from './roster/rosterCalendar';
 
 /** The duty picker popover, loaded when a slot first opens it. */
 export function loadDutyPicker() {

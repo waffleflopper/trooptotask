@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dailyAssignmentsStore, loadDutyPicker } from '$features/calendar';
-import type { AssignmentType, DailyAssignment, RosterDay } from '$features/calendar/contracts';
+import type { AssignmentType, DailyAssignment, RosterFillPreview } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PolicyResource } from '$lib/access/policyEvaluator';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
@@ -35,18 +35,13 @@ function person(id: string, lastName: string): Personnel {
 	return { id, rank: 'SPC', lastName, firstName: 'Ana', mos: '', clinicRole: '', groupId: null, groupName: '' };
 }
 
-const personnel = [
-	person('p-adams', 'Adams'),
-	person('p-baker', 'Baker'),
-	person('p-cole', 'Cole'),
-	person('p-dunn', 'Dunn'),
-	person('p-exempt', 'Able')
-];
+const personnel = [person('p-adams', 'Adams'), person('p-baker', 'Baker'), person('p-exempt', 'Able')];
 
 function duty(date: string, assigneeId: string): DailyAssignment {
 	return { id: `${assigneeId}-${date}`, date, assignmentTypeId: 'sd', assigneeId };
 }
 
+let type = staffDuty;
 const model = {
 	get inputs() {
 		return {
@@ -58,27 +53,42 @@ const model = {
 			statusTypes: [],
 			groups: [],
 			specialDays: [],
-			assignmentTypes: [staffDuty],
+			assignmentTypes: [type],
 			assignments: dailyAssignmentsStore.assignments,
 			page: { orgId: 'org-1' }
 		};
 	}
 } as unknown as DashboardScreenModel;
 
-/** Cole is next up, then Baker, then Adams; Dunn is outside the pool. Each day the counts climb by one. */
-function rosterOn(date: string): RosterDay {
-	const climb = toDayNumber(date) - toDayNumber('2026-10-27');
-	return {
-		track: 'weekday',
-		standing: [
-			{ personId: 'p-cole', count: 14 + climb, effect: null },
-			{ personId: 'p-baker', count: 9 + climb, effect: null },
-			{ personId: 'p-adams', count: 3 + climb, effect: null }
-		]
-	};
-}
+const pick = (
+	date: string,
+	personId: string,
+	count: number,
+	more: Partial<RosterFillPreview['picks'][number]> = {}
+) => ({
+	date,
+	personId,
+	count,
+	passedOver: [],
+	returningFrom: null,
+	...more
+});
 
-const rosterDayUrl = (date: string) => `/org/org-1/api/duty-rosters/day?typeId=sd&date=${date}&today=${TODAY}`;
+/** What the planner's Fill from roster previews for Tue 20 through Mon 26: Adams and Baker take turns. */
+const ROTATION: RosterFillPreview = {
+	picks: [
+		pick('2026-10-20', 'p-adams', 4),
+		pick('2026-10-21', 'p-baker', 4),
+		pick('2026-10-22', 'p-adams', 5),
+		pick('2026-10-23', 'p-baker', 5),
+		pick('2026-10-24', 'p-adams', 6, { passedOver: [{ personId: 'p-baker', count: 6, code: 'A', reason: 'Leave' }] }),
+		pick('2026-10-25', 'p-baker', 6, { returningFrom: 'Leave' }),
+		pick('2026-10-26', 'p-adams', 7)
+	],
+	unfilled: []
+};
+
+const PREVIEW_URL = '/org/org-1/api/duty-rosters/fill/preview';
 
 function respond(body: unknown, status = 200) {
 	return Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -86,19 +96,27 @@ function respond(body: unknown, status = 200) {
 
 const fetchMock = vi.fn();
 
-/** Answers every roster day read from `rosterOn` unless a test overrides it. */
-function answerRosterDays(answer: (date: string) => Promise<Response> = (date) => respond(rosterOn(date))) {
-	fetchMock.mockImplementation((url: string) => {
-		const date = new URL(url, 'http://test').searchParams.get('date');
-		if (url.startsWith('/org/org-1/api/duty-rosters/day') && date) return answer(date);
+type Days = { from: string; through: string };
+
+/** Answers each fill preview with the rotation's picks on its days unless a test overrides it; any other request fails the test. */
+function answerPreviews(
+	answer: (days: Days) => Promise<Response> = ({ from, through }) =>
+		respond({ picks: ROTATION.picks.filter(({ date }) => date >= from && date <= through), unfilled: [] })
+) {
+	fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+		if (url === PREVIEW_URL) return answer(JSON.parse(String(init?.body)));
 		throw new Error(`unexpected fetch ${url}`);
 	});
 }
 
+function previewBodies() {
+	return fetchMock.mock.calls.filter(([url]) => url === PREVIEW_URL).map(([, init]) => JSON.parse(init.body));
+}
+
 function open(openDates: readonly string[], organizationWide = true) {
 	dailyAssignmentsStore.load(
-		[staffDuty],
-		FORECAST.filter((date) => !openDates.includes(date)).map((date) => duty(date, 'p-cole')),
+		[type],
+		FORECAST.filter((date) => !openDates.includes(date)).map((date) => duty(date, 'p-baker')),
 		'org-1'
 	);
 	const close = vi.fn();
@@ -130,7 +148,18 @@ function slotNames(): string[] {
 		.map((slot) => slot.getAttribute('aria-label') ?? '');
 }
 
+const ROTATION_NAMES = [
+	'Tue 20: SPC Adams, Ana, swap',
+	'Wed 21: SPC Baker, Ana, swap',
+	'Thu 22: SPC Adams, Ana, swap',
+	'Fri 23: SPC Baker, Ana, swap',
+	'Sat 24: SPC Adams, Ana, swap',
+	'Sun 25: SPC Baker, Ana, swap',
+	'Mon 26: SPC Adams, Ana, swap'
+];
+
 beforeEach(() => {
+	type = staffDuty;
 	fetchMock.mockReset();
 	vi.stubGlobal('fetch', fetchMock);
 });
@@ -141,108 +170,182 @@ afterEach(() => {
 });
 
 describe('DutyFillPanel', () => {
-	it("shows skeletons while each open day's roster loads, then suggests the roster's next up per day, never twice", async () => {
-		const held: (() => void)[] = [];
-		answerRosterDays(
-			(date) => new Promise((resolve) => held.push(() => resolve(new Response(JSON.stringify(rosterOn(date))))))
-		);
-		open(['2026-10-27', '2026-10-28']);
+	it("suggests the planner's fill preview for the shown days from one request, rotating a two-person pool", async () => {
+		let release!: () => void;
+		answerPreviews(() => new Promise((resolve) => (release = () => resolve(new Response(JSON.stringify(ROTATION))))));
+		open(FORECAST.slice(1, 8));
 
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([rosterDayUrl('2026-10-27'), rosterDayUrl('2026-10-28')]);
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+		expect(previewBodies()).toEqual([{ typeId: 'sd', today: TODAY, from: '2026-10-20', through: '2026-10-26' }]);
 		expect(daysToFill().getAttribute('aria-busy')).toBe('true');
 		expect(slotNames()).toEqual([]);
 		expect(screen.getByRole('button', { name: 'Assign all 0' }).getAttribute('aria-disabled')).toBe('true');
 
-		held.forEach((release) => release());
+		release();
 
-		await waitFor(() => expect(slotNames()).toEqual(['Tue 27: SPC Cole, Ana, swap', 'Wed 28: SPC Baker, Ana, swap']));
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES));
 		expect(daysToFill().getAttribute('aria-busy')).toBe('false');
-		expect(screen.getByText('count 14')).toBeTruthy();
-		expect(screen.getByText('count 10')).toBeTruthy();
+		expect(
+			within(daysToFill())
+				.getAllByText(/^count /)
+				.map((note) => note.textContent?.trim())
+		).toEqual(['count 4', 'count 4', 'count 5', 'count 5', 'count 6', 'count 6 · back from Leave', 'count 7']);
+		expect(screen.getByText('Skipped SPC Baker (6). On Leave, count holds.')).toBeTruthy();
 		expect(screen.getByText(/next up on the roster/)).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Assign all 2' }).getAttribute('aria-disabled')).toBe('false');
+		expect(screen.getByRole('button', { name: 'Assign all 7' }).getAttribute('aria-disabled')).toBe('false');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
-	it('assigns every suggested day in one batch request and leaves the store holding them', async () => {
-		answerRosterDays();
-		open(['2026-10-27', '2026-10-28']);
-		await waitFor(() => expect(slotNames()).toHaveLength(2));
+	it('assigns the previewed picks through the roster fill and leaves the store holding them', async () => {
+		answerPreviews();
+		open(FORECAST.slice(1, 8));
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES));
 
-		fetchMock.mockReturnValueOnce(respond({ inserted: [duty('2026-10-27', 'p-cole'), duty('2026-10-28', 'p-baker')] }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Assign all 2' }));
+		fetchMock.mockReturnValueOnce(
+			respond({ saved: ROTATION.picks.map(({ date, personId }) => ({ ...duty(date, personId), source: 'roster' })) })
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Assign all 7' }));
 
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-		const [url, request] = fetchMock.mock.calls[2];
-		expect(url).toBe('/org/org-1/api/daily-assignments/batch');
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+		const [url, request] = fetchMock.mock.calls[1];
+		expect(url).toBe('/org/org-1/api/duty-rosters/fill');
 		expect(JSON.parse(request.body)).toEqual({
-			records: [
-				{ date: '2026-10-27', assignmentTypeId: 'sd', assigneeId: 'p-cole' },
-				{ date: '2026-10-28', assignmentTypeId: 'sd', assigneeId: 'p-baker' }
+			typeId: 'sd',
+			today: TODAY,
+			from: '2026-10-20',
+			through: '2026-10-26',
+			picks: [
+				{ date: '2026-10-20', personId: 'p-adams' },
+				{ date: '2026-10-21', personId: 'p-baker' },
+				{ date: '2026-10-22', personId: 'p-adams' },
+				{ date: '2026-10-23', personId: 'p-baker' },
+				{ date: '2026-10-24', personId: 'p-adams' },
+				{ date: '2026-10-25', personId: 'p-baker' },
+				{ date: '2026-10-26', personId: 'p-adams' }
 			]
 		});
 		await waitFor(() =>
 			expect(
 				dailyAssignmentsStore.assignments
-					.filter((assignment) => assignment.date >= '2026-10-27' && assignment.date <= '2026-10-28')
+					.filter((assignment) => assignment.date >= '2026-10-20' && assignment.date <= '2026-10-23')
 					.map((assignment) => assignment.assigneeId)
-			).toEqual(['p-cole', 'p-baker'])
+			).toEqual(['p-adams', 'p-baker', 'p-adams', 'p-baker'])
 		);
 	});
 
-	it('shows a failed roster read in the panel, suggests nobody, and reads again on Try again', async () => {
-		answerRosterDays(() => respond({ message: 'Roster unavailable' }, 503));
-		open(['2026-10-27']);
+	it('shows a failed preview in the panel, suggests nobody, and previews again on Try again', async () => {
+		answerPreviews(() => respond({ message: 'Roster unavailable' }, 503));
+		open(FORECAST.slice(1, 3));
 
 		expect((await screen.findByRole('alert')).textContent).toContain('Roster counts could not be loaded');
+		expect(daysToFill().getAttribute('aria-busy')).toBe('false');
 		expect(screen.getByRole('button', { name: 'Assign all 0' }).getAttribute('aria-disabled')).toBe('true');
-		expect(slotNames()).toEqual(['Tue 27: not suggested, swap']);
-		expect(screen.getByText('Count unavailable')).toBeTruthy();
+		expect(slotNames()).toEqual(['Tue 20: not suggested, swap', 'Wed 21: not suggested, swap']);
+		expect(screen.getAllByText('Count unavailable')).toHaveLength(2);
 
-		answerRosterDays();
+		answerPreviews();
 		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-		await waitFor(() => expect(slotNames()).toEqual(['Tue 27: SPC Cole, Ana, swap']));
+
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES.slice(0, 2)));
+		expect(previewBodies()).toHaveLength(2);
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
-	it('fills the first seven open days and sends the rest to the duty planner', async () => {
-		answerRosterDays();
-		open(FORECAST.slice(1, 10));
+	it("swaps a day from that day's roster standing, saves it by hand and previews the later days again", async () => {
+		const calendar = await vi.importActual<typeof import('$features/calendar')>('$features/calendar');
+		vi.mocked(loadDutyPicker).mockImplementationOnce(calendar.loadDutyPicker);
+		answerPreviews();
+		open(FORECAST.slice(1, 8));
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES));
 
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Assign all 3' })).toBeTruthy());
-		expect(fetchMock).toHaveBeenCalledTimes(7);
-		expect(slotNames().slice(0, 3)).toEqual([
-			'Tue 20: SPC Cole, Ana, swap',
-			'Wed 21: SPC Baker, Ana, swap',
-			'Thu 22: SPC Adams, Ana, swap'
+		fetchMock.mockImplementation((url: string) => {
+			if (url === `/org/org-1/api/duty-rosters/day?typeId=sd&date=2026-10-20&today=${TODAY}`)
+				return respond({
+					track: 'all',
+					standing: [
+						{ personId: 'p-adams', count: 4, effect: null },
+						{ personId: 'p-baker', count: 3, effect: null }
+					]
+				});
+			if (url === '/org/org-1/api/daily-assignments/batch')
+				return respond({ inserted: [duty('2026-10-20', 'p-baker')] });
+			if (url === PREVIEW_URL)
+				return respond({
+					picks: ['2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26'].map(
+						(date, index) => pick(date, index % 2 ? 'p-baker' : 'p-adams', 5)
+					),
+					unfilled: []
+				});
+			throw new Error(`unexpected fetch ${url}`);
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Tue 20: SPC Adams, Ana, swap' }));
+		await screen.findByRole('combobox', { name: 'Find person' });
+		await waitFor(() =>
+			expect(screen.getAllByRole('option').map((option) => option.getAttribute('aria-label'))).toEqual([
+				'SPC Adams, Ana, count 4, assigned',
+				'SPC Baker, Ana, count 3'
+			])
+		);
+
+		await fireEvent.click(screen.getByRole('option', { name: 'SPC Baker, Ana, count 3' }));
+
+		await waitFor(() =>
+			expect(slotNames()).toEqual([
+				'Tue 20: SPC Baker, Ana, swap',
+				'Wed 21: SPC Adams, Ana, swap',
+				'Thu 22: SPC Baker, Ana, swap',
+				'Fri 23: SPC Adams, Ana, swap',
+				'Sat 24: SPC Baker, Ana, swap',
+				'Sun 25: SPC Adams, Ana, swap',
+				'Mon 26: SPC Baker, Ana, swap'
+			])
+		);
+		const batch = fetchMock.mock.calls.find(([url]) => url === '/org/org-1/api/daily-assignments/batch');
+		expect(JSON.parse(batch?.[1].body)).toEqual({
+			records: [{ date: '2026-10-20', assignmentTypeId: 'sd', assigneeId: 'p-baker' }]
+		});
+		expect(previewBodies()).toEqual([
+			{ typeId: 'sd', today: TODAY, from: '2026-10-20', through: '2026-10-26' },
+			{ typeId: 'sd', today: TODAY, from: '2026-10-21', through: '2026-10-26' }
 		]);
+		expect(screen.getByText('Assigned')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Assign all 6' }).getAttribute('aria-disabled')).toBe('false');
+	});
+
+	it('leaves out the weekends of a No duty roster and sends the rest to the duty planner', async () => {
+		type = { ...staffDuty, weekendMode: 'none' };
+		answerPreviews(() =>
+			respond({
+				picks: [
+					pick('2026-10-20', 'p-adams', 4),
+					pick('2026-10-21', 'p-baker', 4),
+					pick('2026-10-22', 'p-adams', 5),
+					pick('2026-10-26', 'p-baker', 5),
+					pick('2026-10-27', 'p-adams', 6),
+					pick('2026-10-28', 'p-baker', 6)
+				],
+				unfilled: ['2026-10-23']
+			})
+		);
+		open(FORECAST.slice(1, 12));
+
+		await waitFor(() =>
+			expect(slotNames()).toEqual([
+				'Tue 20: SPC Adams, Ana, swap',
+				'Wed 21: SPC Baker, Ana, swap',
+				'Thu 22: SPC Adams, Ana, swap',
+				'Fri 23: Open, swap',
+				'Mon 26: SPC Baker, Ana, swap',
+				'Tue 27: SPC Adams, Ana, swap',
+				'Wed 28: SPC Baker, Ana, swap'
+			])
+		);
+		expect(previewBodies()).toEqual([{ typeId: 'sd', today: TODAY, from: '2026-10-20', through: '2026-10-28' }]);
+		expect(screen.getByText('Nobody eligible is free')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Assign all 6' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Open duty planner for 2 more' }).getAttribute('href')).toBe(
 			'/org/org-1/calendar/assignments'
 		);
-		expect(screen.getAllByText('Everyone free has a day')).toHaveLength(4);
-	});
-
-	it('finds someone off the roster only by name in the swap picker and keeps them as the pick', async () => {
-		const calendar = await vi.importActual<typeof import('$features/calendar')>('$features/calendar');
-		vi.mocked(loadDutyPicker).mockImplementationOnce(calendar.loadDutyPicker);
-		answerRosterDays();
-		open(['2026-10-27']);
-		await waitFor(() => expect(slotNames()).toHaveLength(1));
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Tue 27: SPC Cole, Ana, swap' }));
-		const search = await screen.findByRole('combobox', { name: 'Find person' });
-		expect(screen.getAllByRole('option').map((option) => option.getAttribute('aria-label'))).toEqual([
-			'SPC Cole, Ana, count 14, assigned',
-			'SPC Baker, Ana, count 9',
-			'SPC Adams, Ana, count 3'
-		]);
-
-		await fireEvent.input(search, { target: { value: 'dunn' } });
-		await fireEvent.click(await screen.findByRole('option', { name: 'SPC Dunn, Ana, not on this roster' }));
-
-		await waitFor(() => expect(slotNames()).toEqual(['Tue 27: SPC Dunn, Ana, swap']));
-		expect(screen.getByText('Not on this roster')).toBeTruthy();
-		expect(screen.getByText('Selected')).toBeTruthy();
 	});
 
 	it('for a Group-scoped operator reads no roster and suggests people available that day in name order', async () => {
@@ -255,13 +358,13 @@ describe('DutyFillPanel', () => {
 	});
 
 	it('shows the picker loading on the chosen day, and a failed load with Try again that keeps the day', async () => {
-		answerRosterDays();
-		open(['2026-10-27', '2026-10-28']);
+		answerPreviews();
+		open(FORECAST.slice(1, 3));
 		await waitFor(() => expect(slotNames()).toHaveLength(2));
 		let fail!: (error: Error) => void;
 		vi.mocked(loadDutyPicker).mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
 
-		const day = screen.getByRole('button', { name: 'Wed 28: SPC Baker, Ana, swap' });
+		const day = screen.getByRole('button', { name: 'Wed 21: SPC Baker, Ana, swap' });
 		await fireEvent.click(day);
 		expect(day.getAttribute('aria-busy')).toBe('true');
 		fail(new Error('chunk failed'));
@@ -271,13 +374,13 @@ describe('DutyFillPanel', () => {
 		vi.mocked(loadDutyPicker).mockResolvedValueOnce({ default: DutyPickerTestDouble } as never);
 		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
-		expect(await screen.findByRole('dialog', { name: 'Duty picker for 28' })).toBeTruthy();
+		expect(await screen.findByRole('dialog', { name: 'Duty picker for 21' })).toBeTruthy();
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
 	it('collapses on Cancel without saving', async () => {
-		answerRosterDays();
-		const { close } = open(['2026-10-27']);
+		answerPreviews();
+		const { close } = open(FORECAST.slice(1, 2));
 		await waitFor(() => expect(slotNames()).toHaveLength(1));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

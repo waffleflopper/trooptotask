@@ -107,4 +107,20 @@ describe('review card', () => {
 		expect(screen.getByText('TDY · 2026-11-03 · 2026-11-11')).toBeTruthy();
 		expect(screen.getByText('2026-11-05 → 2026-11-12 Leave')).toBeTruthy();
 	});
+
+	it('gives every entry a replacement removes its own line', () => {
+		card({
+			row: source,
+			outcome: 'update',
+			key: 'diaz',
+			change: {},
+			diff: [
+				{ label: 'Replaces', before: '2026-11-05 → 2026-11-12 Leave', after: '' },
+				{ label: 'Replaces', before: '2026-11-20 → 2026-11-20 Appointment', after: '' }
+			]
+		});
+
+		expect(screen.getByText('2026-11-05 → 2026-11-12 Leave')).toBeTruthy();
+		expect(screen.getByText('2026-11-20 → 2026-11-20 Appointment')).toBeTruthy();
+	});
 });

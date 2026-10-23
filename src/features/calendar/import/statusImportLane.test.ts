@@ -253,6 +253,26 @@ describe('calendar status import lane', () => {
 		});
 	});
 
+	it('lists each entry a replacement removes on its own line, dates first', async () => {
+		const session = await reviewed(
+			`${HEADER}\n"Diaz, Renata",TDY,2026-11-01,2026-11-30,`,
+			source({
+				entries: [
+					entry('diaz-leave'),
+					entry('diaz-appt', { statusTypeId: 'appt', startDate: '2026-11-20', endDate: '2026-11-20' })
+				]
+			})
+		);
+		session.answer(OVERLAP, { kind: 'pick', optionId: 'replace' });
+		expect(session.review.rows[0]).toMatchObject({
+			outcome: 'update',
+			diff: [
+				{ label: 'Replaces', before: '2026-11-05 → 2026-11-12 Leave', after: '' },
+				{ label: 'Replaces', before: '2026-11-20 → 2026-11-20 Appointment', after: '' }
+			]
+		});
+	});
+
 	it('loads saved entries across every date in the file before Review opens', async () => {
 		const reloadEntries = vi.fn(async () => {});
 		await reviewed(
@@ -299,6 +319,31 @@ describe('calendar status import lane', () => {
 		session.answer(IN_FILE, null);
 		session.setRowSkipped(session.sourceRows[0].id, true);
 		expect(outcomes()).toEqual(['skipped', 'new', 'new']);
+	});
+
+	it('holds a replacement of an entry another row keeps until the user skips one of the two rows', async () => {
+		const session = await reviewed(
+			`${HEADER}\n"Diaz, Renata",Leave,2026-11-05,2026-11-12,\n"Diaz, Renata",TDY,2026-11-10,2026-11-15,`,
+			source({ entries: [entry('diaz-leave')] })
+		);
+		const outcomes = () => session.review.rows.map((row) => row.outcome);
+		const [kept, replacing] = session.sourceRows.map((row) => row.id);
+
+		session.answer(OVERLAP, { kind: 'pick', optionId: 'keep' });
+		expect(outcomes()).toEqual(['unchanged', 'new']);
+
+		session.answer(OVERLAP, { kind: 'pick', optionId: 'replace' });
+		expect(outcomes()).toEqual(['fix', 'fix']);
+
+		session.setRowSkipped(replacing, true);
+		expect(outcomes()).toEqual(['unchanged', 'skipped']);
+
+		session.setRowSkipped(replacing, false);
+		session.setRowSkipped(kept, true);
+		expect(session.review.rows[1]).toMatchObject({
+			outcome: 'update',
+			change: { replaces: [{ id: 'diaz-leave' }] }
+		});
 	});
 
 	it('reads only the dates a correction adds, once', async () => {

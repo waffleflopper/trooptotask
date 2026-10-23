@@ -98,7 +98,7 @@ export async function buildTrainingMatrixWorkbook(input: TrainingMatrixWorkbookI
 			const { fill, font } = STATUS_STYLES[status];
 			const cell = sheet.getCell(rowIndex + 3, FIXED_COLUMN_COUNT + column + 1);
 			cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
-			cell.font = { color: { argb: font } };
+			cell.font = { name: 'Calibri', size: 11, color: { argb: font } };
 		})
 	);
 	return workbook;

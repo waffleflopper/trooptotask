@@ -415,6 +415,47 @@ describe('DutyFillPanel', () => {
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Assign all 2' })).toBeTruthy());
 	});
 
+	it('shows a failed re-read after the roster moved, and Try again re-reads the range before it plans again', async () => {
+		answerPreviews();
+		open(FORECAST.slice(1, 4));
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES.slice(0, 3)));
+		const calls: string[] = [];
+		let rangeOnline = false;
+		fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+			if (url === FILL_URL) return respond({ message: 'The roster changed' }, 409);
+			if (url.startsWith('/org/org-1/api/calendar-range?')) {
+				calls.push('reread');
+				if (!rangeOnline) return respond({ message: 'down' }, 500);
+				return respond({
+					rangeStart: '2026-10-20',
+					rangeEnd: '2026-10-22',
+					dailyAssignments: [duty('2026-10-22', 'p-adams')]
+				});
+			}
+			if (url === PREVIEW_URL) {
+				calls.push('preview');
+				const { from, through } = JSON.parse(String(init?.body));
+				return respond({ picks: ROTATION.picks.filter(({ date }) => date >= from && date <= through), unfilled: [] });
+			}
+			throw new Error(`unexpected fetch ${url}`);
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Assign all 3' }));
+
+		expect(await screen.findByText('Roster counts could not be loaded.')).toBeTruthy();
+		expect(calls.at(-1)).toBe('reread');
+		expect(screen.getByRole('button', { name: 'Assign all 0' }).getAttribute('aria-disabled')).toBe('true');
+
+		calls.length = 0;
+		rangeOnline = true;
+		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES.slice(0, 2)));
+		expect(calls).toEqual(['reread', 'preview']);
+		expect(screen.queryByText('Roster counts could not be loaded.')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Assign all 2' })).toBeTruthy();
+	});
+
 	describe('while a swap is saving', () => {
 		async function startSwap(openDates: readonly string[]) {
 			const calendar = await vi.importActual<typeof import('$features/calendar')>('$features/calendar');

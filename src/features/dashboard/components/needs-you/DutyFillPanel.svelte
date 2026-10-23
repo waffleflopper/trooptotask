@@ -67,6 +67,10 @@
 	let previews = $state(0);
 	let swapsSaving = $state(0);
 	let swapFailure = $state<string | null>(null);
+	// The range whose assignments could not be re-read after a refused fill. Planning from the old rows would list
+	// a day another operator filled as open, so no preview runs until a retry reads it.
+	let staleRange = $state<{ from: string; through: string } | null>(null);
+	let retrying = $state(false);
 	let gone = false;
 	onDestroy(() => {
 		gone = true;
@@ -82,6 +86,10 @@
 		const request = { typeId: assignmentTypeId, today: inputs.today, from, through };
 		void [previews, dailyAssignmentsStore.writes];
 		if (saving) return;
+		if (staleRange) {
+			plan = { status: 'error' };
+			return;
+		}
 		plan = { status: 'loading' };
 		if (swapsSaving > 0) return;
 		let current = true;
@@ -312,6 +320,12 @@
 		}
 	}
 
+	function readAssignments(orgId: string, range: { from: string; through: string }) {
+		return rangeCoordinator.rereadAssignments(orgId, {
+			assignments: { rangeStart: range.from, rangeEnd: range.through }
+		});
+	}
+
 	function assignAll() {
 		if (!canAssign) return;
 		if (!byRoster) {
@@ -324,13 +338,32 @@
 		const orgId = inputs.page.orgId;
 		void save(async () => {
 			if ((await dailyAssignmentsStore.fillFromRosterOrThrow(fill)) === 'changed') {
-				await rangeCoordinator.rereadAssignments(orgId, {
-					assignments: { rangeStart: fill.from, rangeEnd: fill.through }
-				});
-				previews += 1;
+				const range = { from: fill.from, through: fill.through };
+				const read = await readAssignments(orgId, range);
+				if (!gone && inputs.page.orgId === orgId) {
+					if (read === 'failed') staleRange = range;
+					else previews += 1;
+				}
 				throw new Error(ROSTER_CHANGED);
 			}
 		}).catch(() => {});
+	}
+
+	async function tryAgain() {
+		const range = staleRange;
+		if (!range) {
+			previews += 1;
+			return;
+		}
+		const orgId = inputs.page.orgId;
+		retrying = true;
+		try {
+			const read = await readAssignments(orgId, range);
+			if (gone || inputs.page.orgId !== orgId || staleRange !== range) return;
+			if (read === 'read') staleRange = null;
+		} finally {
+			retrying = false;
+		}
 	}
 </script>
 
@@ -398,7 +431,7 @@
 	{#if byRoster && plan.status === 'error'}
 		<p role="alert" class="flex flex-wrap items-center gap-2 text-sm text-danger-foreground">
 			Roster counts could not be loaded.
-			<Button variant="link" class="h-auto px-0" onclick={() => (previews += 1)}>Try again</Button>
+			<Button variant="link" class="h-auto px-0" disabled={retrying} onclick={tryAgain}>Try again</Button>
 		</p>
 	{/if}
 	{#if swapFailure}

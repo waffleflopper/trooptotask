@@ -102,12 +102,16 @@ export function needsYouKindInfo(kind: NeedsYouKind): NeedsYouKindInfo {
 /** A fill offers at most this many open days; the duty planner takes the rest. */
 export const DUTY_FILL_DAYS = 7;
 
-/** A duty's open forecast days. Under No duty a roster details nobody on weekends or Special Days, so those stay out. */
+/**
+ * A duty's open forecast days. Under No duty a person-assigned roster details nobody on weekends or Special Days,
+ * so those stay out. A Group duty ignores the setting, which it may keep from before it became a Group duty.
+ */
 export function openDutyDates(inputs: DashboardInputs, type: AssignmentType): string[] {
 	const holidays = new Set(inputs.specialDays.map((day) => toDayNumber(day.date)));
-	const dutyDays = inputs.forecastDays.filter(
-		(date) => trackOf(type.weekendMode, toDayNumber(date), holidays) !== null
-	);
+	const dutyDays =
+		type.assignTo === 'personnel'
+			? inputs.forecastDays.filter((date) => trackOf(type.weekendMode, toDayNumber(date), holidays) !== null)
+			: inputs.forecastDays;
 	return openAssignmentDates(indexAssignmentsBySlot(inputs.assignments), type.id, dutyDays);
 }
 

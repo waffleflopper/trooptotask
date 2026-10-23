@@ -415,6 +415,24 @@ describe('unfilledDuty', () => {
 			['3 Staff Duty days unfilled', 'Fri 23, Sat 24, Mon 26 Oct']
 		]);
 	});
+
+	it('keeps every unfilled day of a Group duty that still carries a No duty weekend setting', () => {
+		const groupDuty: AssignmentType = { ...staffDuty, assignTo: 'group', weekendMode: 'none' };
+		const rows = unfilledDuty(
+			inputs({
+				personnel: [alvarez],
+				specialDays: [{ id: 'closure', date: '2026-10-26', name: 'Training holiday', type: 'org-closure' as const }],
+				assignments: FORECAST.filter((date) => !['2026-10-23', '2026-10-24', '2026-10-26'].includes(date)).map(
+					(date) => ({ id: `slot-${date}`, date, assignmentTypeId: 'staff-duty', assigneeId: 'alpha' })
+				),
+				assignmentTypes: [groupDuty]
+			})
+		);
+
+		expect(rows.map((row) => [row.title, row.subtitle])).toEqual([
+			['3 Staff Duty days unfilled', 'Fri 23, Sat 24, Mon 26 Oct']
+		]);
+	});
 });
 
 describe('stalledOnboarding', () => {

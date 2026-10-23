@@ -53,6 +53,7 @@ const model = {
 
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }));
 const PREVIEW_URL = '/org/org-1/api/duty-rosters/fill/preview';
+const RANGE_URL = '/org/org-1/api/calendar-range?';
 const preview = (first: string, second: string) => ({
 	picks: [
 		{ date: OPEN[0], personId: first, count: 2, passedOver: [], returningFrom: null },
@@ -78,9 +79,11 @@ afterEach(() => {
 });
 
 function answerPreviews(answer: () => Promise<Response>) {
-	fetchMock.mockImplementation((url: string) =>
-		url === PREVIEW_URL ? answer() : Promise.reject(new Error(`unexpected ${url}`))
-	);
+	fetchMock.mockImplementation((url: string) => {
+		if (url === PREVIEW_URL) return answer();
+		if (url.startsWith(RANGE_URL)) return json({ rangeStart: OPEN[0], rangeEnd: OPEN[1], dailyAssignments: [] });
+		return Promise.reject(new Error(`unexpected ${url}`));
+	});
 }
 
 async function openFill() {
@@ -133,6 +136,7 @@ describe('NeedsYouQueue Fill focus', () => {
 		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
 			PREVIEW_URL,
 			'/org/org-1/api/duty-rosters/fill',
+			`${RANGE_URL}rangeStart=${OPEN[0]}&rangeEnd=${OPEN[1]}&collections=assignments`,
 			PREVIEW_URL
 		]);
 		expect(dailyAssignmentsStore.assignments.filter((assignment) => OPEN.includes(assignment.date))).toEqual([]);

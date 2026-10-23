@@ -44,6 +44,7 @@ export { calendarLaneTypes } from './utils/calendarLanes';
 export { indexDutyAvailability } from './utils/dutyReadModel';
 export { isFreeForDuty, planDutyFill, type DutyFillSlot } from './utils/dutyFill';
 export { dutyPickerOptions, type DutyPickerOption } from './utils/dutyPickerOptions';
+export { CalendarRangeCoordinator } from './contexts/CalendarRangeCoordinator.svelte';
 export { PlannerRosterRead, previewRosterFill } from './contexts/PlannerRosterRead.svelte';
 export { rosterSkipNote } from './utils/plannerRosters';
 export { trackOf } from './roster/rosterCalendar';

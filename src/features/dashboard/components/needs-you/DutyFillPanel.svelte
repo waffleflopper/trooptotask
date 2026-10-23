@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import {
+		CalendarRangeCoordinator,
 		PlannerRosterRead,
 		assignmentSlotKey,
 		dailyAssignmentsStore,
@@ -21,6 +23,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatWeekdayDay, parseDate } from '$lib/utils/dates';
 	import { openCalendarAt } from '../../calendarLink';
 	import { DUTY_FILL_DAYS, openDutyDates, type NeedsYouPanelProps } from '../../sections/needsYou';
@@ -64,6 +67,13 @@
 	let previews = $state(0);
 	let swapsSaving = $state(0);
 	let swapFailure = $state<string | null>(null);
+	let gone = false;
+	onDestroy(() => {
+		gone = true;
+	});
+
+	// A refused roster fill means another operator changed assignments, which this range must show before it plans again.
+	const rangeCoordinator = new CalendarRangeCoordinator();
 
 	// One preview covers every shown open day. It runs again after any confirmed assignment write, so a swap re-plans
 	// the later days, and waits while a write is in flight so it never plans from a half-saved state.
@@ -288,9 +298,14 @@
 			await dailyAssignmentsStore.setAssignmentBatchOrThrow([{ date, assignmentTypeId, assigneeId }]);
 			return true;
 		} catch (error) {
+			const message = error instanceof Error && error.message ? error.message : 'The swap was not saved.';
+			if (gone) {
+				toastStore.error(message);
+				return false;
+			}
 			if (inputs.page.orgId !== orgId) return false;
 			if (!stored.has(assignmentSlotKey(date, assignmentTypeId))) swapped.delete(date);
-			swapFailure = error instanceof Error && error.message ? error.message : 'The swap was not saved.';
+			swapFailure = message;
 			return false;
 		} finally {
 			swapsSaving -= 1;
@@ -306,8 +321,12 @@
 		}
 		const fill = rosterFill;
 		if (!fill) return;
+		const orgId = inputs.page.orgId;
 		void save(async () => {
 			if ((await dailyAssignmentsStore.fillFromRosterOrThrow(fill)) === 'changed') {
+				await rangeCoordinator.rereadAssignments(orgId, {
+					assignments: { rangeStart: fill.from, rangeEnd: fill.through }
+				});
 				previews += 1;
 				throw new Error(ROSTER_CHANGED);
 			}
@@ -409,13 +428,19 @@
 					variant="link"
 					class="px-1.5"
 					href="/org/{inputs.page.orgId}/calendar/assignments"
+					disabled={swapsSaving > 0}
 					onclick={() => openCalendarAt(rest[0])}
 				>
 					Open duty planner for {rest.length} more
 				</Button>
 			{/if}
 			<span class="flex items-center gap-3">
-				<Button variant="ghost" class="px-1.5 text-muted-foreground" onclick={close} disabled={saving}>Cancel</Button>
+				<Button
+					variant="ghost"
+					class="px-1.5 text-muted-foreground"
+					onclick={close}
+					disabled={saving || swapsSaving > 0}>Cancel</Button
+				>
 				<Button data-needs-you-submit onclick={assignAll} aria-disabled={!canAssign} aria-busy={saving}>
 					{saving ? 'Assigning...' : `Assign all ${fillCount}`}
 				</Button>

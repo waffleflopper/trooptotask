@@ -5,6 +5,7 @@ import { dailyAssignmentsStore, loadDutyPicker } from '$features/calendar';
 import type { AssignmentType, DailyAssignment, RosterFillPreview } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PolicyResource } from '$lib/access/policyEvaluator';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 import DutyFillPanel from './DutyFillPanel.svelte';
@@ -89,6 +90,8 @@ const ROTATION: RosterFillPreview = {
 };
 
 const PREVIEW_URL = '/org/org-1/api/duty-rosters/fill/preview';
+const FILL_URL = '/org/org-1/api/duty-rosters/fill';
+const BATCH_URL = '/org/org-1/api/daily-assignments/batch';
 
 function respond(body: unknown, status = 200) {
 	return Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -376,6 +379,107 @@ describe('DutyFillPanel', () => {
 
 		expect(await screen.findByRole('dialog', { name: 'Duty picker for 21' })).toBeTruthy();
 		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('reads the range again after the roster moved, so a day another operator filled leaves the list', async () => {
+		answerPreviews();
+		open(FORECAST.slice(1, 4));
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES.slice(0, 3)));
+		const rereads: string[] = [];
+		fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+			if (url === FILL_URL) return respond({ message: 'The roster changed' }, 409);
+			if (url.startsWith('/org/org-1/api/calendar-range?')) {
+				rereads.push(url);
+				return respond({
+					rangeStart: '2026-10-20',
+					rangeEnd: '2026-10-22',
+					dailyAssignments: [duty('2026-10-22', 'p-adams')]
+				});
+			}
+			if (url === PREVIEW_URL) {
+				const { from, through } = JSON.parse(String(init?.body));
+				return respond({ picks: ROTATION.picks.filter(({ date }) => date >= from && date <= through), unfilled: [] });
+			}
+			throw new Error(`unexpected fetch ${url}`);
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Assign all 3' }));
+
+		await waitFor(() => expect(slotNames()).toEqual(ROTATION_NAMES.slice(0, 2)));
+		expect(rereads).toEqual([
+			'/org/org-1/api/calendar-range?rangeStart=2026-10-20&rangeEnd=2026-10-22&collections=assignments'
+		]);
+		await waitFor(() =>
+			expect(previewBodies().at(-1)).toEqual({ typeId: 'sd', today: TODAY, from: '2026-10-20', through: '2026-10-21' })
+		);
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Assign all 2' })).toBeTruthy());
+	});
+
+	describe('while a swap is saving', () => {
+		async function startSwap(openDates: readonly string[]) {
+			const calendar = await vi.importActual<typeof import('$features/calendar')>('$features/calendar');
+			vi.mocked(loadDutyPicker).mockImplementationOnce(calendar.loadDutyPicker);
+			answerPreviews();
+			const panel = open(openDates);
+			await waitFor(() => expect(slotNames().length).toBeGreaterThan(0));
+			let settle!: (response: Response) => void;
+			fetchMock.mockImplementation((url: string) => {
+				if (url.startsWith('/org/org-1/api/duty-rosters/day?'))
+					return respond({
+						track: 'all',
+						standing: [
+							{ personId: 'p-adams', count: 4, effect: null },
+							{ personId: 'p-baker', count: 3, effect: null }
+						]
+					});
+				if (url === BATCH_URL) return new Promise<Response>((resolve) => (settle = resolve));
+				if (url === PREVIEW_URL) return respond(ROTATION);
+				throw new Error(`unexpected fetch ${url}`);
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Tue 20: SPC Adams, Ana, swap' }));
+			await screen.findByRole('combobox', { name: 'Find person' });
+			await fireEvent.click(await screen.findByRole('option', { name: 'SPC Baker, Ana, count 3' }));
+			await waitFor(() => expect(settle).toBeTypeOf('function'));
+			return { ...panel, settle: (response: Response) => settle(response) };
+		}
+
+		it('keeps Cancel and the duty planner link from leaving the panel, then lets go', async () => {
+			const { close, settle } = await startSwap(FORECAST.slice(1, 11));
+
+			const planner = screen.getByRole('link', { name: 'Open duty planner for 3 more' });
+			expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
+			expect(planner.getAttribute('aria-disabled')).toBe('true');
+			expect(planner.getAttribute('href')).toBeNull();
+
+			settle(new Response(JSON.stringify({ inserted: [duty('2026-10-20', 'p-baker')] })));
+
+			await waitFor(() =>
+				expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(false)
+			);
+			expect(screen.getByRole('link', { name: 'Open duty planner for 3 more' }).getAttribute('href')).toBe(
+				'/org/org-1/calendar/assignments'
+			);
+			expect(close).not.toHaveBeenCalled();
+		});
+
+		it('shows a failed swap in the panel', async () => {
+			const { settle } = await startSwap(FORECAST.slice(1, 4));
+
+			settle(new Response(JSON.stringify({ message: 'Swap refused' }), { status: 500 }));
+
+			expect((await screen.findByRole('alert')).textContent).toContain('Swap refused');
+		});
+
+		it('toasts a failed swap once the panel has gone', async () => {
+			const toast = vi.spyOn(toastStore, 'error').mockReturnValue(1);
+			const { settle } = await startSwap(FORECAST.slice(1, 4));
+
+			cleanup();
+			settle(new Response(JSON.stringify({ message: 'Swap refused' }), { status: 500 }));
+
+			await waitFor(() => expect(toast).toHaveBeenCalledWith('Swap refused'));
+			toast.mockRestore();
+		});
 	});
 
 	it('collapses on Cancel without saving', async () => {

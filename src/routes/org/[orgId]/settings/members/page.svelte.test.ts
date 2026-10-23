@@ -513,6 +513,7 @@ describe('removing a member', () => {
 
 		await waitFor(() => expect(heldSubmissions).toHaveLength(1));
 		expect(submitted[0].get('membershipId')).toBe('alpha');
+		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 		await fireEvent.pointerDown(trigger, { button: 0, pointerType: 'mouse' });
 		expect(screen.queryByRole('menu')).toBeNull();
 		expect(heldSubmissions).toHaveLength(1);

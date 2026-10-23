@@ -786,12 +786,12 @@ describe('SignInRosterModal', () => {
 
 		expect(morning.getAttribute('aria-expanded')).toBe('false');
 		expect(evening.getAttribute('aria-expanded')).toBe('true');
-		expect(screen.getAllByRole('button', { name: 'Re-print' })).toHaveLength(1);
+		await waitFor(() => expect(screen.getAllByRole('button', { name: 'Re-print' })).toHaveLength(1));
 
 		await fireEvent.click(evening);
 
 		expect(evening.getAttribute('aria-expanded')).toBe('false');
-		expect(screen.queryByRole('button', { name: 'Re-print' })).toBeNull();
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Re-print' })).toBeNull());
 	});
 
 	it('uploads a signed roster scan through the shadcn file input and shows selected-file progress', async () => {

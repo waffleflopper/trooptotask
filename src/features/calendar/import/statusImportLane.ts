@@ -137,6 +137,7 @@ export function createStatusImportLane(source: StatusImportSource) {
 	}
 	const describe = (entry: AvailabilityEntry) =>
 		`${entry.startDate} → ${entry.endDate} ${statusNames.get(entry.statusTypeId) ?? 'Status'}`;
+	const sentEntries: AvailabilityImportEntry[] = [];
 	const written = new Map<string, AvailabilityImportEntry[]>();
 
 	async function post(entries: readonly AvailabilityImportEntry[]): Promise<Exclude<ChunkReply, { kind: 'stopped' }>> {
@@ -146,11 +147,7 @@ export function createStatusImportLane(source: StatusImportSource) {
 				.map(({ statusTypeId, startDate, endDate }) => ({ statusTypeId, startDate, endDate }));
 			return alongside.length ? { ...entry, alongside } : entry;
 		});
-		for (const entry of entries) {
-			const person = written.get(entry.personnelId);
-			if (person) person.push(entry);
-			else written.set(entry.personnelId, [entry]);
-		}
+		sentEntries.push(...entries);
 		const reply = await postImportChunk(
 			`/org/${source.orgId}/api/availability/import`,
 			{ entries: sent },
@@ -158,6 +155,12 @@ export function createStatusImportLane(source: StatusImportSource) {
 		);
 		if (reply.kind !== 'saved') return reply;
 		const failures = new Map(reply.data.errors.map((error) => [error.index, error.message]));
+		entries.forEach((entry, index) => {
+			if (failures.has(index)) return;
+			const person = written.get(entry.personnelId);
+			if (person) person.push(entry);
+			else written.set(entry.personnelId, [entry]);
+		});
 		return {
 			kind: 'saved',
 			results: entries.map((entry, index): RowCommitResult => {
@@ -282,7 +285,7 @@ export function createStatusImportLane(source: StatusImportSource) {
 		},
 		commitChunk,
 		async afterCommit() {
-			const entries = [...written.values()].flat();
+			const entries = sentEntries.splice(0);
 			written.clear();
 			for (const range of calendarReadsCovering(entries)) await source.reloadEntries(range);
 		},

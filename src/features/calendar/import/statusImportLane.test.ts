@@ -432,14 +432,15 @@ describe('calendar status import lane', () => {
 		]);
 	});
 
-	it('tells the server which rows from earlier requests a row may overlap', async () => {
+	it('tells the server which saved rows from earlier requests a row may overlap', async () => {
 		const bodies: { entries: Record<string, unknown>[] }[] = [];
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (_url: string, init: RequestInit) => {
 				const body = JSON.parse(String(init.body));
 				bodies.push(body);
-				return Response.json({ added: body.entries.length, removed: 0, errors: [] });
+				const errors = bodies.length === 1 ? [{ index: 1, message: 'The calendar changed for this person.' }] : [];
+				return Response.json({ added: body.entries.length - errors.length, removed: 0, errors });
 			})
 		);
 		const lane = createStatusImportLane(source());
@@ -449,12 +450,13 @@ describe('calendar status import lane', () => {
 			{ ...base, personnelId: 'castillo', startDate: '2026-11-20', endDate: '2026-11-25' }
 		]);
 		await lane.commitChunk([
-			{ ...base, personnelId: 'diaz', statusTypeId: 'tdy', startDate: '2026-11-24', endDate: '2026-11-30' }
+			{ ...base, personnelId: 'diaz', statusTypeId: 'tdy', startDate: '2026-11-24', endDate: '2026-11-30' },
+			{ ...base, personnelId: 'castillo', statusTypeId: 'tdy', startDate: '2026-11-24', endDate: '2026-11-30' }
 		]);
 
 		expect(bodies.map((body) => body.entries.map((entry) => entry.alongside))).toEqual([
 			[undefined, undefined],
-			[[{ statusTypeId: 'leave', startDate: '2026-11-20', endDate: '2026-11-25' }]]
+			[[{ statusTypeId: 'leave', startDate: '2026-11-20', endDate: '2026-11-25' }], undefined]
 		]);
 	});
 
@@ -610,10 +612,16 @@ describe('calendar status import lane', () => {
 		});
 	});
 
-	it('reads back every date it wrote after the import', async () => {
+	it('reads back every date it sent after the import, including refused rows', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => Response.json({ added: 2, removed: 0, errors: [] }))
+			vi.fn(async () =>
+				Response.json({
+					added: 0,
+					removed: 0,
+					errors: [{ index: 0, message: 'The calendar changed for this person.' }]
+				})
+			)
 		);
 		const reloadEntries = vi.fn(async () => {});
 		const lane = createStatusImportLane(source({ reloadEntries }));

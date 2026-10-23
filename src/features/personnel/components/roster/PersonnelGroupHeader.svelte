@@ -96,7 +96,7 @@
 			{/if}
 		</div>
 		<div
-			class="flex h-5 w-44 shrink-0 items-center font-mono text-xs @3xl/data-table:w-[calc(min(22rem,35cqw)-1.5rem)]"
+			class="flex h-5 w-44 shrink-0 items-center font-mono text-xs @3xl/data-table:w-[calc(min(22rem,35cqw)-2rem)]"
 		>
 			{#if unassigned && ctx.canManageGroups}
 				<button

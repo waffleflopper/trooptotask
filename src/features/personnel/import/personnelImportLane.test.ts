@@ -252,10 +252,7 @@ describe('personnel import lane', () => {
 		const source = lane({ personnel: [person('p1')] });
 		const session = new ImportSession(() => source);
 		const csv = 'Last name,First name,Rank,Group\nNguyen,Kim,PFC,1st Platoon\nGarcia,Luis,SSG,1st Platoon';
-		const saved = [
-			person('p9', { lastName: 'Nguyen', firstName: 'Kim', rank: 'PFC' }),
-			person('p1', { rank: 'SSG' })
-		];
+		const saved = [person('p9', { lastName: 'Nguyen', firstName: 'Kim', rank: 'PFC' }), person('p1', { rank: 'SSG' })];
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => Response.json({ created: [saved[0]], updated: [saved[1]], errors: [] }))

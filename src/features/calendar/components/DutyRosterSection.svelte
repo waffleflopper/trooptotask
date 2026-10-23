@@ -28,7 +28,7 @@
 		/** Active people in the Organization. */
 		roster: readonly Personnel[];
 		groups: readonly Group[];
-		/** The rules editor waits for the catalog; excusals and weekends do not. */
+		/** Rules and weekends close a DA 6 form, which needs the catalog; excusals do not. */
 		rankCatalog: readonly RankCatalogEntry[] | 'loading' | 'failed';
 		today: string;
 		/** Set once a save was tried, so an unfinished rule shows its error. */
@@ -240,7 +240,8 @@
 			<Alert.Root variant="destructive">
 				<Alert.Title>Ranks unavailable</Alert.Title>
 				<Alert.Description
-					>Reload this page to change who pulls this duty. Excusals and weekends still save.</Alert.Description
+					>Ranks could not load, so roster rules, weekends and switching to Group can't change right now. Excusals still
+					save. Reload this page to try again.</Alert.Description
 				>
 			</Alert.Root>
 		{:else}
@@ -419,6 +420,7 @@
 			variant="outline"
 			aria-labelledby="duty-roster-weekends"
 			class="w-full"
+			disabled={rankCatalog === 'failed'}
 			bind:value={
 				() => draft.weekendMode,
 				(value) => {

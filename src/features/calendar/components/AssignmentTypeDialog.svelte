@@ -73,6 +73,8 @@
 		assignTo
 	});
 	const isRoster = $derived(assignTo === 'personnel');
+	// Ending a roster closes its DA 6 with a record the rank catalog computes.
+	const groupLocked = $derived(rankCatalog === 'failed' && editing?.assignTo === 'personnel');
 	// A rule change on a type that already keeps a DA 6 closes it, so it asks first.
 	const closesForm = $derived(
 		isRoster && editing?.assignTo === 'personnel' && rosterRulesChanged(editing, rosterDraft)
@@ -226,7 +228,7 @@
 							}
 						>
 							<ToggleGroup.Item value="personnel">Person</ToggleGroup.Item>
-							<ToggleGroup.Item value="group">Group</ToggleGroup.Item>
+							<ToggleGroup.Item value="group" disabled={groupLocked}>Group</ToggleGroup.Item>
 						</ToggleGroup.Root>
 					</div>
 					<Field.Description>

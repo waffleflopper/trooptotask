@@ -173,7 +173,11 @@
 			dateKey,
 			counted,
 			counts: counted
-				? { status: read?.status ?? 'loading', onRetry: () => rosterRead.retryDay(dayRequest(type.id, dateKey)) }
+				? {
+						status: read?.status ?? 'loading',
+						stale: read?.status === 'ready' && read.stale === true,
+						onRetry: () => rosterRead.retryDay(dayRequest(type.id, dateKey))
+					}
 				: undefined,
 			options: dutyPickerOptions({
 				type,
@@ -183,6 +187,7 @@
 				availabilityByPerson,
 				statusTypes: statusTypesStore.items,
 				roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
+				unreadRoster: counted && read?.status !== 'ready' ? (read?.status ?? 'loading') : undefined,
 				currentAssigneeId: current?.assigneeId
 			})
 		};

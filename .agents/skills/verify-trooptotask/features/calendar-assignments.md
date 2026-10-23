@@ -17,12 +17,18 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   exempt people are absent, and anyone else outside the pool appears only for a name search, marked
   `Not on this roster`. On a day the roster does not detail, such as a No duty weekend, the pool still comes first, in
   DA 6 order without counts, and everyone outside it stays search-only and marked. Each picker reads its own day when it
-  opens, reads `Loading roster counts…` meanwhile, and on failure reads `Roster counts could not be loaded.` with
-  `Retry` and never reads again on its own. A Group-scoped operator gets name order with no counts.
+  opens, reads `Loading roster counts…` over a skeleton with no options meanwhile, and on failure reads
+  `Roster counts could not be loaded.` with `Retry`, lists no one until a name search, then offers anyone not excused
+  marked `Count unavailable`, and never reads again on its own. A Group-scoped operator gets name order with no counts.
 - `planner-conflicts`: a person assigned on a day an availability entry with roster code A, D or U covers is flagged in
   the cell and listed in `Conflicts`, D and U included, and on a day the roster does not detail (a No duty weekend, or a
   day before the open form) any covering availability entry still flags a hand assignment; `Find replacement` opens the
-  same picker and a replacement clears the entry.
+  same picker and a replacement clears the entry, except on a roster detail day for an Organization-wide operator, where
+  it opens `planner-replacement`.
+- `planner-replacement`: `Find replacement` on a roster detail day opens a popover beside the conflicted cell (below it
+  on a narrow page) that previews the rule's pick, who can't pull that day and the later roster days the choice
+  re-picks; choosing another candidate previews again, and `Assign <name>` writes the day and its re-picks together. A
+  roster change since the preview is refused, explained and previewed again; hand-assigned days never change.
 - `planner-roster-counts`: for an Organization-wide operator, the `Roster · count today` panel under `Conflicts` shows
   one duty type's roster after the last detail on or before today, highest count first, with a skeleton while it loads,
   a load error with `Retry roster counts` when it fails (the grid stays usable either way), muted rows carrying the
@@ -163,12 +169,13 @@ action and keep its page ID. The date format in every name is the browser's en-G
    under the name; Baker can still be chosen. A pool member a roster code covers reads
    `count N, unavailable: <status> (<code>)` with the status under the name in red. Opening the picker sends one
    `duty-rosters/day?typeId=…&date=…` read, and closing and reopening the same slot sends none. While that read is held
-   (`$V network arm-hold $PAGE duty-rosters/day`) on a fresh slot, the picker reads `Loading roster counts…` above the
-   people in name order; release. With `$V network arm-fail $PAGE duty-rosters/day` armed, open another fresh slot: the
-   picker reads `Roster counts could not be loaded.` with `Retry`, and after five seconds open `list_network_requests`
-   still shows exactly one day read for it. Restore and press `Retry`: one more read and the counts. Then save an
-   availability entry for a pool member covering that day through the Calendar editor, or an assignment on an earlier
-   day through `Daily Assignments`, and reopen the slot: one new day read, and the moved count or code shows. While
+   (`$V network arm-hold $PAGE duty-rosters/day`) on a fresh slot, the picker reads `Loading roster counts…` above a
+   skeleton with no options; release. With `$V network arm-fail $PAGE duty-rosters/day` armed, open another fresh slot:
+   the picker reads `Roster counts could not be loaded.` with `Retry` and lists no one until a search, when `baker`
+   reads `Count unavailable` instead of `Not on this roster`; after five seconds open `list_network_requests` still
+   shows exactly one day read for it. Restore and press `Retry`: one more read and the counts. Then save an availability
+   entry for a pool member covering that day through the Calendar editor, or an assignment on an earlier day through
+   `Daily Assignments`, and reopen the slot: one new day read, and the moved count or code shows. While
    `$V network arm-fail $PAGE daily-assignments` is armed, choosing a Person leaves the picker open, the day empty and
    the failure toast visible; restore and press Enter again to save. Read back one A row for the date and
    `typePersonnel`; the day shows the chosen code. Clear it through `Daily Assignments`. Open Group's `+`: its search
@@ -242,9 +249,9 @@ action and keep its page ID. The date format in every name is the browser's en-G
 
 12. **Fill from roster.** As `calendarOperate` on October 2026 at 1440x900 light, open
     `Verification Staff Duty column actions`. The popover is named `Fill from roster, Verification Staff Duty`, with
-    `First day` on today and `Last day` on October 31, the open-day count under them, and a preview of the picks (`Day`,
-    `Next up`, `Count`): starting from no details, Able then Unassigned alternating, the first pick at count 1 and the
-    rest at 2 and up, five rows with `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change
+    `First day` on tomorrow and `Last day` on October 31, the open-day count under them, and a preview of the picks
+    (`Day`, `Next up`, `Count`): starting from no details, Able then Unassigned alternating, the first pick at count 1
+    and the rest at 2 and up, five rows with `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change
     `First day` and require a fresh preview. Before committing, send an authenticated POST from the signed-in page that
     saves Unassigned on the second day of the range; then click `Fill`: the server answers `409`, the popover stays open
     with `The roster changed since this preview. Review the new picks and fill again.` and a new preview that leaves
@@ -258,18 +265,57 @@ action and keep its page ID. The date format in every name is the browser's en-G
     `POST /org/<orgA>/api/duty-rosters/fill/preview` or `/fill` returns `403` with nothing written. Clear the month's
     rows through `Clear month` before leaving.
 
+13. **Find replacement.** As `calendarOperate` on October 2026 at 1440x900 light, fill Verification Staff Duty from 23
+    to 31 Oct with `Fill 9 days` (Able on odd days, Unassigned on even days), hand-assign Able on Fri 30 Oct through its
+    cell's picker, and add Verification Leave for Able on 25 Oct (an authenticated `POST /api/availability` is fine
+    setup). Reload. `Conflicts` lists `SPC Able, Synthetic is on Verification Leave (A).` Focus
+    `Find replacement for Verification Staff Duty, Sun 25 Oct` and press Enter. A dialog named
+    `Replace SPC Able, Verification Staff Duty, Sun 25 Oct` opens right of the 25 Oct cell without covering it, with
+    `Able is on Verification Leave, so their count holds at 1 and they keep their place in line.` and that nobody gets
+    an extra turn The `Next up on the Verification Staff Duty roster` radio group has one checked radio,
+    `SPC Unassigned, count 1, next up, Verification Staff Duty the day before · Verification Staff Duty the next day`,
+    which holds focus once the preview loads. `Can't pull 25 Oct` lists `SPC Able · Verification Leave, holds at 1` with
+    an `A` chip. `Also re-picks 5 planned days` lists 26 MON Unassigned → Able, 27 TUE Able → Unassigned, 28 WED
+    Unassigned → Able, 29 THU Able → Unassigned and 31 SAT Able → Unassigned, then
+    `Days you assigned by hand stay put.`; 30 Oct is absent. Tab cycles Someone else, Cancel, Assign Unassigned and the
+    radio without leaving the dialog; Escape closes it and focus returns to `Find replacement`. With
+    `$V network arm-hold $PAGE duty-rosters/replacement/preview` armed, reopening shows `Loading the roster` skeleton
+    rows and a disabled `Assign`; release. With `$V network arm-fail $PAGE duty-rosters/replacement/preview`, the dialog
+    reads the failure with `Retry preview`; restore and Retry. `Someone else` opens the duty picker
+    `Verification Staff Duty, Sun 25 Oct` with `Find person` focused. Reopen and hold the commit with
+    `$V network arm-hold $PAGE duty-rosters/replacement`: `Assign Unassigned` reads busy, every grid cell is disabled
+    and the title still names Able; release. The dialog closes, focus lands on
+    `Verification Staff Duty, Sun 25 Oct: SPC Unassigned, Synthetic`, and `$V rows daily_assignments orgA` shows 25
+    Unassigned `roster`, 26 Able, 27 Unassigned, 28 Able, 29 Unassigned and 31 Unassigned `roster`, 30 Able `manual`.
+    For drift, add Leave for Unassigned on 27 Oct, open its `Find replacement` (`Also re-picks 2 planned days`, 28 and
+    29), then send an authenticated `POST /api/daily-assignments` that hand-assigns Able on 29 Oct and press
+    `Assign Able`: the server answers `409`, the dialog stays open with
+    `The roster changed since this preview. Review the new picks and try again.` and `Also re-picks 1 planned day`.
+    Assign again: 27 Able `roster`, 28 Unassigned `roster`, 29 and 30 Able `manual`. As `calendarScoped`, an
+    authenticated `POST /duty-rosters/replacement/preview` or `/replacement` returns `403` with nothing written. For
+    candidates and widths, `$V seed workload large` and `actor perfWide calendar large`: clear November Staff Duty,
+    `Fill 30 days`, return to October and open `Find replacement for Staff Duty, Thu 22 Oct`. The list holds every
+    available pool member by count with `CPT Baker184` next up; ArrowDown to `CPT Carter185` shows `Loading re-picks`,
+    then `Also re-picks 22 planned days` starting `1 SUN CPT Carter185 → CPT Irwin191`, and `Assign Carter185` writes
+    them: November then reads Irwin191, Reyes356, Smith123, Vance282, Zimmer078 and Carter003 on 1 to 6 Nov. Open
+    `Find replacement for Staff Duty, Sat 31 Oct` at 900x800 (the dialog flips left of the cell) and 390x844 (below the
+    cell, at least 8 px inside each viewport edge); neither covers the cell.
+
 The assignment write endpoints are `/org/<orgA>/api/daily-assignments` with `POST {date,assignmentTypeId,assigneeId}` or
 `DELETE {date,assignmentTypeId}`, and `/batch` with `POST {records:[{date,assignmentTypeId,assigneeId}]}`. The roster
 endpoints are `GET /org/<orgA>/api/duty-rosters?today=YYYY-MM-DD&month=YYYY-MM` (counts today, the month's detail days
 and conflicts), `GET /day?typeId=…&date=YYYY-MM-DD&today=YYYY-MM-DD` (the standing going into a detail day,
 `{track:null,pool}` on any other day, `null` for a type with no open form), and
 `POST /fill/preview {typeId,today,from,through}` and `POST /fill` with the same fields plus `picks:[{date,personId}]`,
-which returns `409` when the roster changed. Saved rows carry `source` (`manual` or `roster`); the server sets it and no
-client request names it. Use the signed-in page's read-only `evaluate_script` only for response inspection or an
-authenticated request probe; actual planning actions use the visible controls. Read provider rows only through the owned
-helper. [Calendar navigation](calendar-navigation.md), [Calendar access](calendar-access.md),
-[Organization switching](organization-switching.md), and [Reports and history](reports-history.md) own the adjacent
-range/scope/report journeys.
+which returns `409` when the roster changed. `POST /replacement/preview {typeId,today,date,assigneeId?}` previews a
+replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `assigneeId`, `replacing`
+and `repicks:[{date,was,personId}]` (`was` is who held the day in the preview) and returns `409` when the plan differs,
+any `was` changed, or a day is left unfilled. Saved rows carry `source`
+(`manual` or `roster`); the server sets it and no client request names it. Use the signed-in page's read-only
+`evaluate_script` only for response inspection or an authenticated request probe; actual planning actions use the
+visible controls. Read provider rows only through the owned helper. [Calendar navigation](calendar-navigation.md),
+[Calendar access](calendar-access.md), [Organization switching](organization-switching.md), and
+[Reports and history](reports-history.md) own the adjacent range/scope/report journeys.
 
 ## Gotchas
 

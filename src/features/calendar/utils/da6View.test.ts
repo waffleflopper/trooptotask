@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { da6Segment, simulateRoster } from '../roster/rosterEngine';
-import { storedR4 } from '../roster/rosterFixtures.test-support';
+import { assigned, status, storedR4, R4_STARTING } from '../roster/rosterFixtures.test-support';
 import { defaultDay, remarkText, workedExample, type Da6Sheet } from './da6View';
 
 const r4 = da6Segment(simulateRoster(storedR4()), '2026-10')!;
@@ -30,6 +30,66 @@ describe('Show the work', () => {
 		)!;
 		expect(workedExample(handPicked, 1)).toBe(
 			'Assigned by hand to PFC Brooks at 9. By the rule it would have gone to SPC Patel. A hand-assigned day still counts, so Brooks starts over.'
+		);
+	});
+
+	it('says nobody starts over when a hand-assigned day went to someone outside the roster', () => {
+		const facts = storedR4();
+		const outside = da6Segment(
+			simulateRoster({
+				...facts,
+				assignments: facts.assignments.map((assignment) =>
+					assignment.date === '2026-10-05' ? assigned('2026-10-05', 'moreno') : assignment
+				)
+			}),
+			'2026-10'
+		)!;
+		expect(workedExample(outside, column('2026-10-05'))).toBe(
+			'Assigned by hand to 1SG Moreno, who is not on this roster. By the rule it would have gone to SGT Kim. ' +
+				'The detail still counts, so everyone available gets one more and nobody starts over.'
+		);
+	});
+
+	it('does not forecast a return from a hand assignment the rule did not make', () => {
+		const facts = storedR4();
+		const overridden = da6Segment(
+			simulateRoster({
+				...facts,
+				assignments: facts.assignments.map((assignment) =>
+					assignment.date === '2026-10-23' ? assigned('2026-10-23', 'okafor') : assignment
+				)
+			}),
+			'2026-10'
+		)!;
+		expect(
+			workedExample(
+				overridden,
+				overridden.columns.findIndex((candidate) => candidate.date === '2026-10-20')
+			)
+		).toBe('SGT Okafor and SPC Nguyen both sit at 12. Okafor is away (Leave), so Nguyen pulls it. Okafor holds at 12.');
+	});
+
+	it('explains an emergency hand assignment when nobody on the roster could pull the day', () => {
+		const facts = storedR4();
+		const nobody = da6Segment(
+			simulateRoster({
+				...facts,
+				availability: [
+					...facts.availability,
+					...R4_STARTING.map(([, lastName]) =>
+						status(lastName.toLowerCase(), lastName === 'Kim' ? 'detail' : 'leave', '2026-10-05', '2026-10-05')
+					)
+				]
+			}),
+			'2026-10'
+		)!;
+		const text = workedExample(
+			nobody,
+			nobody.columns.findIndex((candidate) => candidate.date === '2026-10-05')
+		);
+		expect(text).toBe(
+			'Nobody on the roster could pull this day. It went to SGT Kim by hand. ' +
+				'Everyone available gets one more, and Kim starts over.'
 		);
 	});
 

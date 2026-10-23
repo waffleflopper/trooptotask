@@ -4,8 +4,10 @@ import {
 	plannerRostersSchema,
 	rosterDayReplySchema,
 	rosterFillPreviewSchema,
+	rosterReplacementSchema,
 	type RosterDay,
-	type RosterFillPreview
+	type RosterFillPreview,
+	type RosterReplacement
 } from '$features/calendar/contracts';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -14,11 +16,14 @@ import { buildRequestError, withinOrganizationLifetime } from '$lib/stores/core'
 
 export type PlannerRosterStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-/** One roster day for the duty picker. A refetch after a write keeps the shown day until the new one arrives. */
+/**
+ * One roster day for the duty picker. A refetch after a write keeps the shown day until the new one arrives, and
+ * marks it stale if the refetch fails.
+ */
 export type RosterDayRead =
 	| { readonly status: 'loading' }
 	/** A null day is a type with no open roster form. */
-	| { readonly status: 'ready'; readonly day: RosterDay | null }
+	| { readonly status: 'ready'; readonly day: RosterDay | null; readonly stale?: true }
 	| { readonly status: 'error' };
 
 type MonthRequest = { readonly orgId: string; readonly month: string; readonly today: string };
@@ -163,7 +168,7 @@ export class PlannerRosterRead {
 		} catch {
 			if (!owns()) return;
 			const current = this.#days.get(key);
-			if (current?.status !== 'ready') this.#days.set(key, { status: 'error' });
+			this.#days.set(key, current?.status === 'ready' ? { ...current, stale: true } : { status: 'error' });
 		}
 	}
 }
@@ -188,4 +193,21 @@ export async function previewRosterFill(
 	);
 	if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'POST', resource));
 	return rosterFillPreviewSchema.parse(await withinOrganizationLifetime(res.json()));
+}
+
+/** Who could take a conflicted roster day, and the later roster days `assigneeId` taking it would re-pick. */
+export async function previewRosterReplacement(
+	orgId: string,
+	input: { typeId: string; today: string; date: string; assigneeId?: string }
+): Promise<RosterReplacement> {
+	const resource = `/org/${orgId}/api/duty-rosters/replacement/preview`;
+	const res = await withinOrganizationLifetime(
+		fetch(resource, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(input)
+		})
+	);
+	if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'POST', resource));
+	return rosterReplacementSchema.parse(await withinOrganizationLifetime(res.json()));
 }

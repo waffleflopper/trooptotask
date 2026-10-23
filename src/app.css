@@ -485,8 +485,23 @@
 		white-space: nowrap;
 	}
 
+	/* A 31-day month at the screen's 36 px would not fit the page. */
+	[data-print-report='da6'] thead tr > th:nth-child(n + 3) {
+		width: auto;
+	}
+
+	/* A long roster continues on the next sheet like a paper DA 6: the column header repeats, no row splits. */
+	[data-print-report='da6'] thead {
+		display: table-header-group;
+	}
+
+	[data-print-report='da6'] tr {
+		break-inside: avoid;
+	}
+
 	[data-print-report='da6'] footer {
 		padding: 4px 8px;
+		break-inside: avoid;
 	}
 
 	/* Cells stay positioned for their corner marks; only the sticky columns let go. */

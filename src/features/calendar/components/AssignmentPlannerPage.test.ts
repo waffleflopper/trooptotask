@@ -74,12 +74,15 @@ const personnel: Personnel[] = [
 	}
 ];
 
-/** Answers roster reads with `rosters` and sends every other request to `rest`. */
+/** Answers month roster reads with `rosters`, day reads with a type that has no open roster, and every other request with `rest`. */
 function routedFetch(
 	rest: (url: string, init?: RequestInit) => Promise<Response>,
 	rosters: () => Promise<Response> = async () => Response.json([])
 ) {
-	return vi.fn((url: string, init?: RequestInit) => (url.includes('/api/duty-rosters') ? rosters() : rest(url, init)));
+	return vi.fn((url: string, init?: RequestInit) => {
+		if (url.includes('/api/duty-rosters/day')) return Promise.resolve(Response.json(null));
+		return url.includes('/api/duty-rosters') ? rosters() : rest(url, init);
+	});
 }
 
 function renderPage(
@@ -369,6 +372,118 @@ describe('planner conflicts', () => {
 			vi.unstubAllGlobals();
 			availabilityStore.load([], 'org-1');
 		}
+	});
+});
+
+describe('planner roster replacement', () => {
+	const preview = {
+		date: '2026-10-20',
+		replacing: { personId: 'person-1', count: 12, effect: { code: 'A', reason: 'Leave' } },
+		nextUp: 'person-2',
+		candidates: [{ personId: 'person-2', count: 9, adjacent: [] }],
+		cantPull: [{ personId: 'person-1', count: 12, code: 'A', reason: 'Leave' }],
+		selected: 'person-2',
+		repicks: [{ date: '2026-10-23', was: 'person-2', personId: 'person-1' }],
+		unfilled: []
+	};
+	const dutyRoster = {
+		typeId: 'type-1',
+		people: ['person-1', 'person-2'],
+		effects: [{ code: 'A', reason: 'Leave' }],
+		current: [{ track: 'all', standing: [0, 12, 1, 1, 9, 0] }],
+		todayAssignee: null,
+		excused: [],
+		covered: ['2026-10-20'],
+		conflicts: [{ date: '2026-10-20', personId: 'person-1', code: 'A', reason: 'Leave' }]
+	};
+	const planned = (id: string, date: string, assigneeId: string) => ({
+		id,
+		date,
+		assignmentTypeId: 'type-1',
+		assigneeId
+	});
+
+	/** Routes the Organization's duty roster and calendar range reads; `replaceStatus` answers the replacement write. */
+	function replacementFetch(replaceStatus: number, rangeAssignments: () => ReturnType<typeof planned>[]) {
+		const writes: unknown[] = [];
+		const ranges = vi.fn();
+		const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+			if (url.endsWith('/replacement/preview')) return Response.json(preview);
+			if (url.endsWith('/api/duty-rosters/replacement')) {
+				writes.push(JSON.parse(String(init?.body)));
+				return Response.json({ message: 'The roster changed.' }, { status: replaceStatus });
+			}
+			if (url.includes('/api/duty-rosters/day')) return Response.json(null);
+			if (url.includes('/api/duty-rosters')) return Response.json([dutyRoster]);
+			if (url.includes('/api/calendar-range')) {
+				ranges(url);
+				return Response.json({
+					rangeStart: '2026-10-01',
+					rangeEnd: '2026-10-31',
+					dailyAssignments: rangeAssignments()
+				});
+			}
+			return new Promise<Response>(() => {});
+		});
+		return { fetcher, writes, ranges };
+	}
+
+	async function assignReplacement() {
+		const panel = screen.getByRole('region', { name: /Conflicts/ });
+		await fireEvent.click(
+			await within(panel).findByRole('button', { name: 'Find replacement for Charge of Quarters, Tue 20 Oct' })
+		);
+		const dialog = await screen.findByRole('dialog', { name: /^Replace/ });
+		await fireEvent.click(await within(dialog).findByRole('button', { name: 'Assign Taylor' }));
+		return dialog;
+	}
+
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 16) });
+		mockOrg = makeOrg();
+		calendarStore.goToMonth(2026, 9);
+		dailyAssignmentsStore.load(
+			assignmentTypes,
+			[planned('a-20', '2026-10-20', 'person-1'), planned('a-23', '2026-10-23', 'person-2')],
+			'org-1'
+		);
+	});
+	afterEach(() => {
+		cleanup();
+		vi.unstubAllGlobals();
+		vi.useRealTimers();
+	});
+
+	it('sends who held each re-picked day in the preview so the server can tell an edit made since', async () => {
+		const { fetcher, writes } = replacementFetch(409, () => []);
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+
+		await assignReplacement();
+
+		await waitFor(() => expect(writes).toHaveLength(1));
+		expect(writes[0]).toMatchObject({
+			assigneeId: 'person-2',
+			replacing: 'person-1',
+			repicks: [{ date: '2026-10-23', was: 'person-2', personId: 'person-1' }]
+		});
+	});
+
+	it("reads the month's assignments again when the roster moved, so the grid shows the other operator's edit", async () => {
+		const { fetcher, ranges } = replacementFetch(409, () => [
+			planned('a-20', '2026-10-20', 'person-1'),
+			planned('a-23', '2026-10-23', 'person-1')
+		]);
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+
+		const dialog = await assignReplacement();
+
+		expect(await within(dialog).findByRole('alert')).toBeTruthy();
+		await waitFor(() => expect(ranges).toHaveBeenCalledTimes(1));
+		expect(
+			await screen.findByRole('button', { name: 'Charge of Quarters, Fri 23 Oct: SGT Smith, Alex', hidden: true })
+		).toBeTruthy();
 	});
 });
 

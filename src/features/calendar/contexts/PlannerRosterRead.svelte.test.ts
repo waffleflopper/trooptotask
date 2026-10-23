@@ -111,4 +111,46 @@ describe('PlannerRosterRead', () => {
 		read.retryDay(other);
 		await vi.waitFor(() => expect(read.day(other)).toEqual({ status: 'ready', day: rosterDay }));
 	});
+
+	it('keeps the shown roster day but marks it stale when a refresh after a write fails, until Retry succeeds', async () => {
+		const read = mount();
+		read.loadDay(day);
+		await vi.waitFor(() => expect(read.day(day)).toEqual({ status: 'ready', day: rosterDay }));
+
+		failRosters = true;
+		await availabilityStore.add({
+			personnelId: 'p-kim',
+			statusTypeId: 'leave',
+			startDate: '2026-10-20',
+			endDate: '2026-10-20'
+		});
+		flushSync();
+		read.loadDay(day);
+		await vi.waitFor(() => expect(read.day(day)).toEqual({ status: 'ready', day: rosterDay, stale: true }));
+
+		failRosters = false;
+		read.retryDay(day);
+		await vi.waitFor(() => expect(read.day(day)).toEqual({ status: 'ready', day: rosterDay }));
+	});
+
+	it('keeps the shown month counts but marks them stale when a refresh after a write fails', async () => {
+		const read = mount();
+		read.load(month);
+		await vi.waitFor(() => expect(read.status).toBe('ready'));
+
+		failRosters = true;
+		await availabilityStore.add({
+			personnelId: 'p-kim',
+			statusTypeId: 'leave',
+			startDate: '2026-10-20',
+			endDate: '2026-10-20'
+		});
+		flushSync();
+		await vi.waitFor(() => expect(read.stale).toBe(true));
+		expect(read.status).toBe('ready');
+
+		failRosters = false;
+		read.retry();
+		await vi.waitFor(() => expect(read.stale).toBe(false));
+	});
 });

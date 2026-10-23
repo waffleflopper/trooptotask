@@ -426,6 +426,72 @@ describe('retained Organization export projection', () => {
 
 		const additionalSources = [
 			{
+				key: 'rosterForms',
+				table: 'roster_forms',
+				areaKey: 'calendar',
+				sheet: 'Raw - Roster Forms',
+				readableSheet: 'Roster Forms',
+				row: {
+					id: 'form-saved',
+					organization_id: 'org-1',
+					assignment_type_id: 'type-1',
+					starts_on: '2026-09-01',
+					ends_on: '2026-09-30',
+					rules: { weekendMode: 'separate', pool: null },
+					record: { counts: [{ personnel_id: 'person-1', count: 7 }] },
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'rosterStartingNumbers',
+				table: 'roster_starting_numbers',
+				areaKey: 'calendar',
+				sheet: 'Raw - Roster Starting Numbers',
+				readableSheet: 'Roster Starting Numbers',
+				row: {
+					organization_id: 'org-1',
+					form_id: 'form-saved',
+					personnel_id: 'person-1',
+					track: 'weekend',
+					count: 7,
+					origin: 'carried'
+				}
+			},
+			{
+				key: 'rosterExcusals',
+				table: 'roster_excusals',
+				areaKey: 'calendar',
+				sheet: 'Raw - Roster Excusals',
+				readableSheet: 'Roster Excusals',
+				row: {
+					id: 'excusal-saved',
+					organization_id: 'org-1',
+					assignment_type_id: 'type-1',
+					personnel_id: 'person-1',
+					reason: 'Temporary duty',
+					starts_on: '2026-09-01',
+					ends_on: null,
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'personnelAttributeHistory',
+				table: 'personnel_attribute_history',
+				areaKey: 'personnel',
+				sheet: 'Raw - Personnel Attribute Histo',
+				readableSheet: 'Personnel Attribute History',
+				row: {
+					organization_id: 'org-1',
+					personnel_id: 'person-1',
+					effective_on: '2026-09-01',
+					rank: 'SSG',
+					mos: '68V',
+					clinic_role: 'Therapist',
+					group_id: null,
+					archived: true
+				}
+			},
+			{
 				key: 'invitations',
 				table: 'organization_invitations',
 				sheet: 'Raw - Organization Invitations',
@@ -713,10 +779,17 @@ describe('retained Organization export projection', () => {
 		};
 		for (const { table, row } of additionalSources) {
 			const scopeColumn = ['data_exports', 'audit_logs'].includes(table) ? 'org_id' : 'organization_id';
-			providerRows[table] = [row, { ...row, id: 'foreign-' + row.id, [scopeColumn]: 'foreign-org' }];
+			providerRows[table] = [
+				row,
+				{ ...row, ...('id' in row ? { id: 'foreign-' + row.id } : {}), [scopeColumn]: 'foreign-org' }
+			];
 		}
 		for (const [table, rows] of Object.entries(providerRows)) {
-			if (table === 'organizations' || rows.some((row) => String(row.id).startsWith('foreign-'))) continue;
+			if (
+				table === 'organizations' ||
+				rows.some((row) => row.organization_id === 'foreign-org' || row.org_id === 'foreign-org')
+			)
+				continue;
 			const scopeColumn = ['data_exports', 'audit_logs', 'dashboard_configs'].includes(table)
 				? 'org_id'
 				: 'organization_id';
@@ -744,6 +817,13 @@ describe('retained Organization export projection', () => {
 						: 'organization_id';
 			const scope = url.searchParams.get(scopeColumn)?.replace(/^eq\./, '');
 			const rows = (providerRows[table] ?? []).filter((row) => row[scopeColumn] === scope);
+			const ordering =
+				url.searchParams
+					.get('order')
+					?.split(',')
+					.map((term) => term.split('.')[0]) ?? [];
+			if (rows.some((row) => ordering.some((column) => !(column in row))))
+				return Response.json({ message: 'Unknown ordering column' }, { status: 400 });
 			const selection = url.searchParams.get('select');
 			if (!selection || selection === '*') return Response.json(rows);
 			const columns = selection.split(',');
@@ -782,9 +862,12 @@ describe('retained Organization export projection', () => {
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');
-		for (const { key, row } of additionalSources) {
+		for (const { key, table, areaKey, row } of additionalSources) {
 			expect(json[key]).toEqual([row]);
 			expect(json.sections[key]).toEqual([row]);
+			expect(json.sectionInventory).toContainEqual(
+				expect.objectContaining({ key, table, rowCount: 1, ...(areaKey ? { areaKey } : {}) })
+			);
 		}
 
 		expect(json.dashboardConfigs).toEqual([dashboardConfig]);
@@ -846,15 +929,17 @@ describe('retained Organization export projection', () => {
 			expect(rows.filter((row) => String(row.id).startsWith('foreign-'))).toEqual([]);
 		}
 		const { workbook } = await buildOrganizationDataExportWorkbook({ payload: result });
-		for (const { sheet: name, row } of additionalSources) {
-			const sheet = workbook.getWorksheet(name)!;
-			expect(sheet, name).toBeDefined();
-			expect(sheet.rowCount, name).toBe(2);
-			for (const [key, value] of Object.entries(row)) {
-				const cell = sheet.getRow(2).getCell(key).value;
-				expect(cell, name + '.' + key).toEqual(
-					value !== null && typeof value === 'object' ? JSON.stringify(value) : value
-				);
+		for (const { sheet: rawName, readableSheet, row } of additionalSources) {
+			for (const name of readableSheet ? [rawName, readableSheet] : [rawName]) {
+				const sheet = workbook.getWorksheet(name)!;
+				expect(sheet, name).toBeDefined();
+				expect(sheet.rowCount, name).toBe(2);
+				for (const [key, value] of Object.entries(row)) {
+					const cell = sheet.getRow(2).getCell(key).value;
+					expect(cell, name + '.' + key).toEqual(
+						value !== null && typeof value === 'object' ? JSON.stringify(value) : value
+					);
+				}
 			}
 		}
 

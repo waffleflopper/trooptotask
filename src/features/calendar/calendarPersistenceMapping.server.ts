@@ -50,7 +50,7 @@ export type AssignmentTypeRow = SavedRow & {
 	show_on_calendar: boolean;
 	roster_pool_rules: PoolRules | null;
 	roster_weekend_mode: WeekendMode;
-	/** Nested through the roster_excusals relation. The mapping keeps the open ones. */
+	/** Nested through the roster_excusals relation, which the provider query limits to current excusals. */
 	roster_excusals?: RosterExcusalRow[] | null;
 	archived_at?: string | null;
 };
@@ -136,10 +136,7 @@ export function toAssignmentType(row: AssignmentTypeRow): SavedAssignmentType {
 		sortOrder: row.sort_order,
 		poolRules: row.roster_pool_rules,
 		weekendMode: row.roster_weekend_mode,
-		excusals: (row.roster_excusals ?? [])
-			.filter((excusal) => !excusal.ends_on)
-			.map(toRosterExcusal)
-			.sort((a, b) => a.personId.localeCompare(b.personId)),
+		excusals: (row.roster_excusals ?? []).map(toRosterExcusal).sort((a, b) => a.personId.localeCompare(b.personId)),
 		...(row.archived_at !== undefined ? { archivedAt: row.archived_at } : {}),
 		...savedMetadata(row)
 	};
@@ -307,6 +304,14 @@ export const rosterFillInput = rosterFillPreviewInput.extend({
 		.array(z.object({ date: dateOnlySchema, personId: uuidSchema }).strict())
 		.min(1)
 		.max(366)
+});
+export const rosterReplacementPreviewInput = z
+	.object({ typeId: uuidSchema, today: dateOnlySchema, date: dateOnlySchema, assigneeId: uuidSchema.optional() })
+	.strict();
+export const rosterReplacementInput = rosterReplacementPreviewInput.extend({
+	assigneeId: uuidSchema,
+	replacing: uuidSchema,
+	repicks: z.array(z.object({ date: dateOnlySchema, was: uuidSchema, personId: uuidSchema }).strict()).max(366)
 });
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
 const statusTypeIds = z

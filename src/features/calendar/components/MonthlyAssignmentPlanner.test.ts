@@ -6,7 +6,8 @@ import type {
 	AvailabilityEntry,
 	DailyAssignment,
 	RosterFillPick,
-	RosterFillPreview
+	RosterFillPreview,
+	RosterReplacement
 } from '$features/calendar/contracts';
 import type { RosterDayRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 import type { RosterEntry, RosterView } from '$features/calendar/utils/plannerRosters';
@@ -41,6 +42,7 @@ const person = (id: string, rank: string, lastName: string, firstName: string): 
 const kim = person('p-kim', 'SGT', 'Kim', 'Jae-won');
 const okafor = person('p-okafor', 'SGT', 'Okafor', 'Ife');
 const hale = person('p-hale', 'SSG', 'Hale', 'Corey');
+const reed = person('p-reed', 'PV2', 'Reed', 'Sam');
 
 function duty(date: string, assignmentTypeId: string, assigneeId: string): DailyAssignment {
 	return { id: `${date}-${assignmentTypeId}`, date, assignmentTypeId, assigneeId };
@@ -72,6 +74,10 @@ function renderPlanner(
 		onRetry: vi.fn(),
 		preview: vi.fn(async () => ({ picks: [], unfilled: [] })),
 		fill: vi.fn(async () => 'saved' as const),
+		replacement: vi.fn(async (): Promise<RosterReplacement> => {
+			throw new Error('No replacement preview');
+		}),
+		replace: vi.fn(async () => 'saved' as const),
 		day: vi.fn(() => undefined),
 		loadDay: vi.fn(),
 		retryDay: vi.fn(),
@@ -94,6 +100,15 @@ function renderPlanner(
 					shortLabel: null,
 					rosterEffect: 'A',
 					sortOrder: 0
+				},
+				{
+					id: 'appt',
+					name: 'Appointment',
+					color: '#a60',
+					textColor: '#fff',
+					shortLabel: null,
+					rosterEffect: 'available',
+					sortOrder: 1
 				}
 			],
 			specialDays: [],
@@ -367,6 +382,69 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 		).toBeTruthy();
 	});
 
+	describe('conflicts against a roster view', () => {
+		const savedLeave: AvailabilityEntry = {
+			id: 'leave-1',
+			personnelId: 'p-okafor',
+			statusTypeId: 'leave',
+			startDate: '2026-10-20',
+			endDate: '2026-10-23'
+		};
+		const okaforOn21 = /Staff Duty, Wed 21 Oct: SGT Okafor, Ife, unavailable: Leave 20–23 Oct/;
+		const coveringView = new Map([['type-sd', staffDutyRoster({ covered: new Set(['2026-10-21']) })]]);
+
+		it('leaves a fresh roster view to judge the days it details', () => {
+			renderPlanner({
+				assignments: [duty('2026-10-21', 'type-sd', 'p-okafor')],
+				availabilityEntries: [savedLeave],
+				rosters: { views: coveringView }
+			});
+
+			expect(screen.queryByRole('button', { name: okaforOn21 })).toBeNull();
+		});
+
+		it('does not flag a Still available status while the roster view is stale', () => {
+			renderPlanner({
+				assignments: [duty('2026-10-21', 'type-sd', 'p-okafor')],
+				availabilityEntries: [{ ...savedLeave, id: 'appt-1', statusTypeId: 'appt' }],
+				rosters: { views: coveringView, stale: true }
+			});
+
+			expect(screen.queryByRole('button', { name: /Staff Duty, Wed 21 Oct: SGT Okafor, Ife, unavailable/ })).toBeNull();
+		});
+
+		it('flags a Leave saved after a roster refresh failed instead of trusting the stale view', () => {
+			renderPlanner({
+				assignments: [duty('2026-10-21', 'type-sd', 'p-okafor')],
+				availabilityEntries: [savedLeave],
+				rosters: { views: coveringView, stale: true }
+			});
+
+			expect(screen.getByRole('button', { name: okaforOn21 })).toBeTruthy();
+			expect(within(screen.getByRole('region', { name: 'Conflicts' })).getByText(/SGT Okafor, Ife/)).toBeTruthy();
+		});
+
+		describe.each([
+			['stale', { views: coveringView, stale: true }],
+			['loading', { views: new Map(), status: 'loading' as const }]
+		])('with a %s roster view', (_state, rosters) => {
+			it('flags a person holding Staff Duty and CQ on one day with D naming the other duty', () => {
+				renderPlanner({
+					assignmentTypes: [staffDuty, { ...staffDuty, id: 'type-cq', name: 'CQ', shortName: 'CQ', excusals: [] }],
+					assignments: [duty('2026-10-21', 'type-sd', 'p-kim'), duty('2026-10-21', 'type-cq', 'p-kim')],
+					rosters
+				});
+
+				expect(
+					screen.getByRole('button', { name: /Staff Duty, Wed 21 Oct: SGT Kim, Jae-won, unavailable: CQ \(D\)/ })
+				).toBeTruthy();
+				expect(
+					screen.getByRole('button', { name: /CQ, Wed 21 Oct: SGT Kim, Jae-won, unavailable: Staff Duty \(D\)/ })
+				).toBeTruthy();
+			});
+		});
+	});
+
 	const detailDay: RosterDayRead = {
 		status: 'ready',
 		day: {
@@ -382,7 +460,7 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 	it('reads the roster day when the picker opens, lists the pool by count and finds someone off the roster by name', async () => {
 		const loadDay = vi.fn();
 		renderPlanner({
-			personnel: [kim, okafor, hale, moss],
+			personnel: [kim, okafor, hale, moss, reed],
 			rosters: { views: new Map([['type-sd', staffDutyRoster()]]), day: () => detailDay, loadDay }
 		});
 
@@ -396,10 +474,12 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 			'SGT Kim, Jae-won, count 9',
 			'SPC Moss, Ray, count 0'
 		]);
-		await fireEvent.input(screen.getByRole('combobox', { name: 'Find person' }), { target: { value: 'hale' } });
-		expect((await screen.findByRole('option', { name: /Hale, Corey/ })).getAttribute('aria-label')).toBe(
-			'SSG Hale, Corey, not on this roster'
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Find person' }), { target: { value: 'reed' } });
+		expect((await screen.findByRole('option', { name: /Reed, Sam/ })).getAttribute('aria-label')).toBe(
+			'PV2 Reed, Sam, not on this roster'
 		);
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Find person' }), { target: { value: 'hale' } });
+		expect(screen.queryByRole('option', { name: /Hale, Corey/ })).toBeNull();
 	});
 
 	it('shows the loading line while the roster day loads, and a load error whose Retry reads it again', async () => {
@@ -422,6 +502,89 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 
 		expect(retryDay).toHaveBeenCalledWith('type-sd', '2026-10-20');
 		expect(loadDay).toHaveBeenCalledTimes(1);
+	});
+
+	it('offers no one while a counted roster day loads, so nobody outside the pool is picked early', async () => {
+		renderPlanner({
+			personnel: [kim, okafor, hale, moss],
+			rosters: { views: new Map([['type-sd', staffDutyRoster()]]), day: () => ({ status: 'loading' }) }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Assign Staff Duty, Tue 20 Oct' }));
+		const dialog = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 20 Oct' });
+
+		expect(within(dialog).getByRole('status').textContent).toContain('Loading roster counts');
+		expect(within(dialog).queryAllByRole('option')).toEqual([]);
+		expect(within(dialog).queryByText('No one matches.')).toBeNull();
+	});
+
+	it('reaches anyone not excused by name search only, tagged Count unavailable, when the roster day failed', async () => {
+		const retryDay = vi.fn();
+		const onSetAssignment = vi.fn(async () => true);
+		renderPlanner({
+			personnel: [kim, okafor, hale, moss],
+			onSetAssignment,
+			rosters: { views: new Map([['type-sd', staffDutyRoster()]]), day: () => ({ status: 'error' }), retryDay }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Assign Staff Duty, Tue 20 Oct' }));
+		const dialog = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 20 Oct' });
+
+		expect(within(dialog).getByRole('alert').textContent).toContain('Roster counts could not be loaded.');
+		expect(within(dialog).queryAllByRole('option')).toEqual([]);
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }));
+		expect(retryDay).toHaveBeenCalledWith('type-sd', '2026-10-20');
+
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Find person' }), { target: { value: 'moss' } });
+		const found = await screen.findByRole('option', { name: /Moss, Ray/ });
+		expect(found.getAttribute('aria-label')).toBe('SPC Moss, Ray, count unavailable');
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Find person' }), { target: { value: 'hale' } });
+		expect(screen.queryByRole('option', { name: /Hale, Corey/ })).toBeNull();
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Find person' }), { target: { value: 'moss' } });
+		await fireEvent.click(await screen.findByRole('option', { name: /Moss, Ray/ }));
+		expect(onSetAssignment).toHaveBeenCalledWith('2026-10-20', 'type-sd', 'p-moss');
+	});
+
+	it('lists Groups for a Group duty while the roster reads are loading or failed', async () => {
+		const groupDuty: AssignmentType = {
+			...staffDuty,
+			id: 'type-grp',
+			name: 'Fatigue',
+			assignTo: 'group',
+			excusals: []
+		};
+		for (const status of ['loading', 'error'] as const) {
+			renderPlanner({
+				assignmentTypes: [groupDuty],
+				rosters: { day: () => ({ status }) }
+			});
+			await fireEvent.click(screen.getAllByRole('button', { name: /^Assign Fatigue/ })[0]);
+			const dialog = await screen.findByRole('dialog', { name: /^Fatigue,/ });
+
+			expect(
+				within(dialog)
+					.getAllByRole('option')
+					.map((option) => option.getAttribute('aria-label'))
+			).toEqual(['Alpha', 'Bravo']);
+			cleanup();
+		}
+	});
+
+	it('keeps the last roster day listed but offers Retry when a refresh of it failed', async () => {
+		const retryDay = vi.fn();
+		renderPlanner({
+			personnel: [kim, okafor, hale, moss],
+			rosters: {
+				views: new Map([['type-sd', staffDutyRoster()]]),
+				day: () => ({ ...detailDay, stale: true }),
+				retryDay
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Assign Staff Duty, Tue 20 Oct' }));
+		const dialog = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 20 Oct' });
+
+		expect(within(dialog).getByRole('alert').textContent).toContain('Roster counts could not be loaded.');
+		expect(within(dialog).getAllByRole('option')).toHaveLength(3);
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }));
+		expect(retryDay).toHaveBeenCalledWith('type-sd', '2026-10-20');
 	});
 
 	it('keeps people outside the pool to a name search on a day the roster does not detail', async () => {
@@ -528,6 +691,146 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 		expect(await within(dialog).findByRole('alert')).toBeTruthy();
 		expect(await within(dialog).findByText('Moss')).toBeTruthy();
 		expect(preview).toHaveBeenCalledTimes(2);
+	});
+
+	describe('Find replacement', () => {
+		const okaforOnLeave: DailyAssignment[] = [duty('2026-10-20', 'type-sd', 'p-okafor')];
+		const leaveConflict = staffDutyRoster({
+			conflicts: [{ date: '2026-10-20', personId: 'p-okafor', code: 'A', reason: 'Leave' }]
+		});
+
+		function plan(selected: string, overrides: Partial<RosterReplacement> = {}): RosterReplacement {
+			return {
+				date: '2026-10-20',
+				replacing: { personId: 'p-okafor', count: 12, effect: { code: 'A', reason: 'Leave' } },
+				nextUp: 'p-kim',
+				candidates: [
+					{ personId: 'p-kim', count: 9, adjacent: [{ name: 'CQ', day: 'after' }] },
+					{ personId: 'p-moss', count: 0, adjacent: [] }
+				],
+				cantPull: [{ personId: 'p-okafor', count: 12, code: 'A', reason: 'Leave' }],
+				selected,
+				repicks: selected === 'p-kim' ? [{ date: '2026-10-23', was: 'p-kim', personId: 'p-moss' }] : [],
+				unfilled: [],
+				...overrides
+			};
+		}
+
+		async function openReplacement() {
+			const panel = screen.getByRole('region', { name: 'Conflicts' });
+			await fireEvent.click(within(panel).getByRole('button', { name: 'Find replacement for Staff Duty, Tue 20 Oct' }));
+			return screen.findByRole('dialog', { name: 'Replace SGT Okafor, Staff Duty, Tue 20 Oct' });
+		}
+
+		it("preselects the rule's pick, previews the re-picks for another choice and assigns it with them", async () => {
+			const replacement = vi.fn(async (_typeId: string, _date: string, assigneeId?: string) =>
+				plan(assigneeId ?? 'p-kim')
+			);
+			const { promise, resolve } = Promise.withResolvers<'saved'>();
+			const replace = vi.fn(() => promise);
+			renderPlanner({
+				assignments: okaforOnLeave,
+				personnel: [kim, okafor, hale, moss],
+				rosters: { views: new Map([['type-sd', leaveConflict]]), replacement, replace }
+			});
+
+			const dialog = await openReplacement();
+			const next = await within(dialog).findByRole('radio', { name: 'SGT Kim, count 9, next up, CQ the next day' });
+			expect(next.getAttribute('aria-checked')).toBe('true');
+			await waitFor(() => expect(document.activeElement).toBe(next));
+			expect(within(dialog).getByText('SGT Okafor · Leave, holds at 12')).toBeTruthy();
+			expect(
+				within(within(dialog).getByRole('list', { name: 'Re-picked days' }).firstElementChild as HTMLElement).getByText(
+					'SPC Moss'
+				)
+			).toBeTruthy();
+			expect(replacement).toHaveBeenCalledWith('type-sd', '2026-10-20', undefined);
+
+			await fireEvent.click(within(dialog).getByRole('radio', { name: 'SPC Moss, count 0' }));
+			await waitFor(() => expect(replacement).toHaveBeenLastCalledWith('type-sd', '2026-10-20', 'p-moss'));
+			await waitFor(() => expect(within(dialog).queryByRole('list', { name: 'Re-picked days' })).toBeNull());
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Assign Moss' }));
+
+			expect(replace).toHaveBeenCalledWith('type-sd', plan('p-moss'));
+			expect(screen.getByRole('dialog')).toBe(dialog);
+			resolve('saved');
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+			expect(document.activeElement).toBe(
+				screen.getByRole('button', { name: 'Find replacement for Staff Duty, Tue 20 Oct' })
+			);
+		});
+
+		it('shows a failed preview with a retry, blocks a replacement that leaves a day unfilled, and hands off to the duty picker', async () => {
+			const replacement = vi
+				.fn<() => Promise<RosterReplacement>>()
+				.mockRejectedValueOnce(new Error('Server unavailable'))
+				.mockResolvedValue(plan('p-kim', { repicks: [], unfilled: ['2026-10-23'] }));
+			renderPlanner({
+				assignments: okaforOnLeave,
+				personnel: [kim, okafor, hale, moss],
+				rosters: { views: new Map([['type-sd', leaveConflict]]), replacement }
+			});
+
+			const dialog = await openReplacement();
+			expect(await within(dialog).findByText('Server unavailable')).toBeTruthy();
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Retry preview' }));
+
+			expect(await within(dialog).findByText(/Nobody on the roster can take 23 Oct/)).toBeTruthy();
+			expect((within(dialog).getByRole('button', { name: 'Assign Kim' }) as HTMLButtonElement).disabled).toBe(true);
+
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Someone else' }));
+			expect(await screen.findByRole('dialog', { name: 'Staff Duty, Tue 20 Oct' })).toBeTruthy();
+			expect(screen.queryByRole('dialog', { name: /^Replace/ })).toBeNull();
+		});
+
+		it('reads the preview again and stays open when the roster moved since it', async () => {
+			const replacement = vi
+				.fn<() => Promise<RosterReplacement>>()
+				.mockResolvedValueOnce(plan('p-kim'))
+				.mockResolvedValueOnce(plan('p-moss', { nextUp: 'p-moss' }));
+			renderPlanner({
+				assignments: okaforOnLeave,
+				personnel: [kim, okafor, hale, moss],
+				rosters: {
+					views: new Map([['type-sd', leaveConflict]]),
+					replacement,
+					replace: vi.fn(async () => 'changed' as const)
+				}
+			});
+
+			const dialog = await openReplacement();
+			await fireEvent.click(await within(dialog).findByRole('button', { name: 'Assign Kim' }));
+
+			expect(await within(dialog).findByRole('button', { name: 'Assign Moss' })).toBeTruthy();
+			expect(within(dialog).getByRole('alert')).toBeTruthy();
+			expect(replacement).toHaveBeenCalledTimes(2);
+		});
+
+		it('opens the duty picker for a conflict on a day the roster does not detail', async () => {
+			const replacement = vi.fn(async () => plan('p-kim'));
+			renderPlanner({
+				assignments: okaforOnLeave,
+				availabilityEntries: [
+					{
+						id: 'leave-1',
+						personnelId: 'p-okafor',
+						statusTypeId: 'leave',
+						startDate: '2026-10-20',
+						endDate: '2026-10-20'
+					}
+				],
+				rosters: { views: new Map([['type-sd', staffDutyRoster({ covered: new Set() })]]), replacement }
+			});
+
+			await fireEvent.click(
+				within(screen.getByRole('region', { name: 'Conflicts' })).getByRole('button', {
+					name: 'Find replacement for Staff Duty, Tue 20 Oct'
+				})
+			);
+
+			expect(await screen.findByRole('dialog', { name: 'Staff Duty, Tue 20 Oct' })).toBeTruthy();
+			expect(replacement).not.toHaveBeenCalled();
+		});
 	});
 
 	it('switches to Quick fill with One person instead', async () => {

@@ -315,8 +315,8 @@ export interface Da6Segment {
 }
 
 export interface ReplacementCandidate extends Standing {
-	/** Duty names this person holds the day before or after. */
-	readonly adjacent: readonly string[];
+	/** Duties this person holds the day before or after. */
+	readonly adjacent: readonly { readonly name: string; readonly day: 'before' | 'after' }[];
 }
 
 export interface ReplacementOptions {
@@ -334,4 +334,7 @@ export interface CountChange {
 	readonly to: Da6Cell;
 }
 
-export type RosterSlotChange = AssignmentSlot & { readonly source: 'roster' };
+/** One slot a roster write sets. `was` is the assignee the plan saw there, null for an open day. */
+export type RosterSlotWrite = AssignmentSlot & { readonly was: string | null; readonly source: AssignmentSource };
+
+export type RosterSlotChange = RosterSlotWrite & { readonly source: 'roster' };

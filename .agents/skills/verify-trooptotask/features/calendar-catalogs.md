@@ -20,8 +20,9 @@ their references through edits, while confirmed type deletion explains and remov
   weekend mode closes the open DA 6 form on the day Save is pressed, saves it, and opens the next form the day after,
   carrying everyone's count. An excusal change saves in place. Switching the type to Group closes its open form the same
   way, and switching back to Person opens a fresh one. Only Settings loads the rank catalog; while it loads or after it
-  fails, the rules editor alone waits or explains, and the rest of Calendar is unaffected. A saved Person type's sheet
-  ends with a `Starting numbers` row that says whether the open form's numbers can still be copied in from a paper DA 6
+  fails, the rules editor alone waits or explains, weekends stay locked until it loads, excusals keep saving, and the
+  rest of Calendar is unaffected.
+  A saved Person type's sheet ends with a `Starting numbers` row that says whether the open form's numbers can still be copied in from a paper DA 6
   and links to [DA 6 setup](calendar-da6.md).
 - `calendar-lanes`: choose which assignment types appear as lanes under the dates and in what order; every change is one
   ordered command that refuses a stale list.
@@ -381,8 +382,11 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
       `Person` and save: one new open form starts tomorrow.
     - **Rank catalog unavailable.** Run `$V server-source arm organization_rank_catalog fail-hard 1 120000` (the client
       retries a 503, so plain `fail` recovers), reload `/calendar/settings` and open the type's `Edit`.
-      `Who pulls this duty` shows a `role="alert"` reading `Ranks unavailable` in place of `Everyone` and the rules,
-      while `Excuse someone` and `Weekends & holidays` still work. `$V server-source state` shows the matched read.
+      `Who pulls this duty` shows a `role="alert"` reading `Ranks unavailable` in place of `Everyone` and the rules, and
+      saying roster rules, weekends and switching to Group can't change right now. The three `Weekends & holidays`
+      choices and the `Group` choice of `Assigned to` are disabled, while `Excuse someone` still works and saves in
+      place. Adding a new type through `Add Assignment Type` still offers `Group`. `$V server-source state` shows the
+      matched read.
       Choose `Cancel`, `$V server-source restore`, then arm it again and open the sidebar `Calendar`: the planner and
       its lanes load with no `role="alert"`, and `server-source state` shows no match, because only Settings reads the
       catalog. Restore the control.

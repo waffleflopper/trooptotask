@@ -221,8 +221,15 @@ export function workedExample(segment: Da6Segment, index: number): string {
 	const count = pickCell ? pickCell.count : null;
 	const at = count === null ? '' : ` at ${count}`;
 
+	if (row < 0) {
+		const byRule = rulePick ? ` By the rule it would have gone to ${fullName(rulePick)}.` : '';
+		return `Assigned by hand to ${fullName(pick)}, who is not on this roster.${byRule} The detail still counts, so everyone available gets one more and nobody starts over.`;
+	}
 	if (rulePick) {
 		return `Assigned by hand to ${fullName(pick)}${at}. By the rule it would have gone to ${fullName(rulePick)}. A hand-assigned day still counts, so ${pick.lastName} starts over.`;
+	}
+	if (passedOver.some((person) => person.personId === pick.personId)) {
+		return `Nobody on the roster could pull this day. It went to ${fullName(pick)} by hand. Everyone available gets one more, and ${pick.lastName} starts over.`;
 	}
 	if (passedOver.length) {
 		const sitting = passedOver.every((person) => person.count === count)
@@ -231,7 +238,8 @@ export function workedExample(segment: Da6Segment, index: number): string {
 		const after = passedOver.map((person) => {
 			if (person.code !== 'A') return `${person.lastName}'s count keeps running.`;
 			const next = segment.columns.findIndex(
-				(candidate, later) => later > index && candidate.pick.personId === person.personId
+				(candidate, later) =>
+					later > index && candidate.pick.personId === person.personId && candidate.rulePick === null
 			);
 			return next < 0
 				? `${person.lastName} holds at ${person.count}.`

@@ -1,15 +1,15 @@
--- Only the server's Fill from roster path marks an assignment as a roster pick.
+-- Only the server's roster write path marks an assignment as a roster pick.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
 SELECT col_default_is('public', 'daily_assignments', 'source', 'manual', 'a new assignment is a hand assignment');
 SELECT ok(NOT has_function_privilege('authenticated',
-  'public.fill_roster_assignment_slots(uuid,uuid,jsonb)', 'EXECUTE'), 'signed-in callers cannot run the roster fill');
+  'public.write_roster_assignment_slots(uuid,uuid,jsonb)', 'EXECUTE'), 'signed-in callers cannot run the roster fill');
 SELECT ok(NOT has_function_privilege('anon',
-  'public.fill_roster_assignment_slots(uuid,uuid,jsonb)', 'EXECUTE'), 'anonymous callers cannot run the roster fill');
+  'public.write_roster_assignment_slots(uuid,uuid,jsonb)', 'EXECUTE'), 'anonymous callers cannot run the roster fill');
 SELECT ok(has_function_privilege('service_role',
-  'public.fill_roster_assignment_slots(uuid,uuid,jsonb)', 'EXECUTE'), 'the server runs the roster fill');
+  'public.write_roster_assignment_slots(uuid,uuid,jsonb)', 'EXECUTE'), 'the server runs the roster fill');
 
 INSERT INTO auth.users(id,email) VALUES
   ('b1727000-0000-4000-8000-000000000001','source-owner@example.test'),
@@ -68,9 +68,9 @@ SELECT is((SELECT source FROM public.daily_assignments WHERE id = 'b1727000-0000
 SELECT lives_ok($$ INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id) VALUES
   ('b1727000-0000-4000-8000-000000000101','b1727000-0000-4000-8000-000000000401','2030-04-04','b1727000-0000-4000-8000-000000000301') $$,
   'an operator still inserts a hand assignment directly');
-SELECT throws_ok($$ SELECT * FROM public.fill_roster_assignment_slots(
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
   'b1727000-0000-4000-8000-000000000002','b1727000-0000-4000-8000-000000000101',
-  '[{"date":"2030-04-05","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301"}]'::jsonb
+  '[{"date":"2030-04-05","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":null,"source":"roster"}]'::jsonb
 ) $$, '42501', NULL, 'an operator cannot call the roster fill directly');
 
 SELECT set_config('request.jwt.claim.sub','b1727000-0000-4000-8000-000000000004',true);
@@ -80,30 +80,30 @@ SELECT throws_ok($$ INSERT INTO public.daily_assignments(organization_id,assignm
 RESET ROLE;
 
 SET LOCAL ROLE service_role;
-SELECT results_eq($$ SELECT date, assignee_id, source FROM public.fill_roster_assignment_slots(
+SELECT results_eq($$ SELECT date, assignee_id, source FROM public.write_roster_assignment_slots(
   'b1727000-0000-4000-8000-000000000002','b1727000-0000-4000-8000-000000000101',
-  '[{"date":"2030-04-07","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301"},
-    {"date":"2030-04-08","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302"}]'::jsonb
+  '[{"date":"2030-04-07","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":null,"source":"roster"},
+    {"date":"2030-04-08","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302","was":null,"source":"roster"}]'::jsonb
 ) ORDER BY date $$,
   $$ VALUES ('2030-04-07'::date, 'b1727000-0000-4000-8000-000000000301'::text, 'roster'::text),
             ('2030-04-08'::date, 'b1727000-0000-4000-8000-000000000302'::text, 'roster'::text) $$,
   'the roster fill writes open days as roster picks');
-SELECT throws_ok($$ SELECT * FROM public.fill_roster_assignment_slots(
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
   'b1727000-0000-4000-8000-000000000002','b1727000-0000-4000-8000-000000000101',
-  '[{"date":"2030-04-09","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301"},
-    {"date":"2030-04-01","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302"}]'::jsonb
+  '[{"date":"2030-04-09","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":null,"source":"roster"},
+    {"date":"2030-04-01","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302","was":null,"source":"roster"}]'::jsonb
 ) $$, 'P0001', 'Assignment slot unavailable', 'a day that filled since the preview fails the whole fill');
-SELECT throws_ok($$ SELECT * FROM public.fill_roster_assignment_slots(
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
   'b1727000-0000-4000-8000-000000000003','b1727000-0000-4000-8000-000000000101',
-  '[{"date":"2030-04-10","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302"}]'::jsonb
+  '[{"date":"2030-04-10","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302","was":null,"source":"roster"}]'::jsonb
 ) $$, '42501', NULL, 'the fill keeps the actor''s Group scope');
-SELECT throws_ok($$ SELECT * FROM public.fill_roster_assignment_slots(
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
   'b1727000-0000-4000-8000-000000000004','b1727000-0000-4000-8000-000000000101',
-  '[{"date":"2030-04-10","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301"}]'::jsonb
+  '[{"date":"2030-04-10","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":null,"source":"roster"}]'::jsonb
 ) $$, '42501', NULL, 'the fill keeps the actor''s Calendar capability');
-SELECT throws_ok($$ SELECT * FROM public.fill_roster_assignment_slots(
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
   'b1727000-0000-4000-8000-000000000005','b1727000-0000-4000-8000-000000000101',
-  '[{"date":"2030-04-10","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301"}]'::jsonb
+  '[{"date":"2030-04-10","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":null,"source":"roster"}]'::jsonb
 ) $$, '42501', NULL, 'the fill refuses an actor from another Organization');
 RESET ROLE;
 
@@ -139,9 +139,9 @@ SELECT is((SELECT source FROM public.daily_assignments
 RESET ROLE;
 
 SET LOCAL ROLE service_role;
-SELECT is((SELECT source FROM public.fill_roster_assignment_slots(
+SELECT is((SELECT source FROM public.write_roster_assignment_slots(
   'b1727000-0000-4000-8000-000000000002','b1727000-0000-4000-8000-000000000101',
-  '[{"date":"2030-04-11","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301"}]'::jsonb
+  '[{"date":"2030-04-11","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":null,"source":"roster"}]'::jsonb
 )), 'roster', 'the roster path still writes roster after hand edits');
 RESET ROLE;
 SELECT is((SELECT source FROM public.daily_assignments
@@ -152,6 +152,48 @@ UPDATE public.daily_assignments SET assignee_id = 'b1727000-0000-4000-8000-00000
 SELECT is((SELECT source FROM public.daily_assignments
   WHERE organization_id = 'b1727000-0000-4000-8000-000000000101' AND date = '2030-04-11'),
   'manual', 'a later write in the same transaction is a hand edit');
+
+-- Find replacement: a conflicted day and the later roster days it re-picks go in together or not at all.
+SELECT set_config('calendar.roster_write','on',true);
+INSERT INTO public.daily_assignments(organization_id,assignment_type_id,date,assignee_id,source) VALUES
+  ('b1727000-0000-4000-8000-000000000101','b1727000-0000-4000-8000-000000000401','2030-05-01','b1727000-0000-4000-8000-000000000301','manual'),
+  ('b1727000-0000-4000-8000-000000000101','b1727000-0000-4000-8000-000000000401','2030-05-02','b1727000-0000-4000-8000-000000000302','roster'),
+  ('b1727000-0000-4000-8000-000000000101','b1727000-0000-4000-8000-000000000401','2030-05-03','b1727000-0000-4000-8000-000000000301','roster'),
+  ('b1727000-0000-4000-8000-000000000101','b1727000-0000-4000-8000-000000000401','2030-05-04','b1727000-0000-4000-8000-000000000302','manual');
+SELECT set_config('calendar.roster_write','',true);
+
+SET LOCAL ROLE service_role;
+SELECT results_eq($$ SELECT date, assignee_id, source FROM public.write_roster_assignment_slots(
+  'b1727000-0000-4000-8000-000000000002','b1727000-0000-4000-8000-000000000101',
+  '[{"date":"2030-05-01","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302","was":"b1727000-0000-4000-8000-000000000301","source":"manual"},
+    {"date":"2030-05-02","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":"b1727000-0000-4000-8000-000000000302","source":"roster"}]'::jsonb
+) ORDER BY date $$,
+  $$ VALUES ('2030-05-01'::date, 'b1727000-0000-4000-8000-000000000302'::text, 'manual'::text),
+            ('2030-05-02'::date, 'b1727000-0000-4000-8000-000000000301'::text, 'roster'::text) $$,
+  'a replacement writes the conflicted day by hand and its re-pick as a roster pick');
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
+  'b1727000-0000-4000-8000-000000000002','b1727000-0000-4000-8000-000000000101',
+  '[{"date":"2030-05-03","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302","was":"b1727000-0000-4000-8000-000000000301","source":"roster"},
+    {"date":"2030-05-04","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":"b1727000-0000-4000-8000-000000000301","source":"roster"}]'::jsonb
+) $$, 'P0001', 'Assignment slot unavailable', 'a re-pick whose day changed since the preview fails the whole replacement');
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
+  'b1727000-0000-4000-8000-000000000003','b1727000-0000-4000-8000-000000000101',
+  '[{"date":"2030-05-03","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":"b1727000-0000-4000-8000-000000000301","source":"manual"},
+    {"date":"2030-05-04","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000301","was":"b1727000-0000-4000-8000-000000000302","source":"roster"}]'::jsonb
+) $$, 'P0001', 'Assignment slot unavailable', 'a re-pick outside the actor''s Group scope fails the whole replacement');
+SELECT throws_ok($$ SELECT * FROM public.write_roster_assignment_slots(
+  'b1727000-0000-4000-8000-000000000002','b1727000-0000-4000-8000-000000000101',
+  '[{"date":"2030-05-03","assignment_type_id":"b1727000-0000-4000-8000-000000000401","assignee_id":"b1727000-0000-4000-8000-000000000302","source":"roster"}]'::jsonb
+) $$, '22023', 'Invalid roster write', 'a slot must say who the preview saw there');
+RESET ROLE;
+
+SELECT results_eq($$ SELECT date, assignee_id, source FROM public.daily_assignments
+  WHERE organization_id = 'b1727000-0000-4000-8000-000000000101' AND date BETWEEN '2030-05-01' AND '2030-05-04' ORDER BY date $$,
+  $$ VALUES ('2030-05-01'::date, 'b1727000-0000-4000-8000-000000000302'::text, 'manual'::text),
+            ('2030-05-02'::date, 'b1727000-0000-4000-8000-000000000301'::text, 'roster'::text),
+            ('2030-05-03'::date, 'b1727000-0000-4000-8000-000000000301'::text, 'roster'::text),
+            ('2030-05-04'::date, 'b1727000-0000-4000-8000-000000000302'::text, 'manual'::text) $$,
+  'refused replacements left every day as it was');
 
 SELECT * FROM finish();
 ROLLBACK;

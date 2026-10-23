@@ -39,9 +39,25 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'audit_logs',
 	'organization_invitations',
 	'organization_rank_catalog',
-	'personnel'
+	'personnel',
+	'rpc/roster_signal_presence',
+	'rpc/roster_signal_training',
+	'rpc/roster_signal_critical_tasks',
+	'rpc/roster_signal_evaluations',
+	'rpc/roster_signal_follow_ups',
+	'rpc/roster_signal_counseling'
 ]);
 const ORGANIZATION_COLUMN = { organizations: 'id', audit_logs: 'org_id' };
+
+function rpcOrganizations(method, body) {
+	if (method !== 'POST' || typeof body !== 'string') return [];
+	try {
+		const organization = JSON.parse(body)?.p_organization_id;
+		return typeof organization === 'string' ? [`eq.${organization}`] : [];
+	} catch {
+		return [];
+	}
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export function createServerSourceController({ providerUrl, orgId, fetch: originalFetch }) {
@@ -123,12 +139,16 @@ export function createServerSourceController({ providerUrl, orgId, fetch: origin
 			return originalFetch(input, init);
 		}
 		const method = String(init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
-		const organizations = url.searchParams.getAll(ORGANIZATION_COLUMN[control.table] ?? 'organization_id');
+		const rpc = control.table.startsWith('rpc/');
+		const organizations = rpc
+			? rpcOrganizations(method, init?.body)
+			: url.searchParams.getAll(ORGANIZATION_COLUMN[control.table] ?? 'organization_id');
 		const selection = url.searchParams.getAll('select');
 		const narrow = NARROW_READS[control.table];
 		const matchesSelection = !narrow || (selection.length === 1 && narrow.includes(selection[0]));
 		// Counts are HEAD reads; the narrow reads stay GET only.
-		const readMethod = method === 'GET' || (method === 'HEAD' && !narrow);
+		// The roster signal reads are POSTed RPCs that name their Organization in the body.
+		const readMethod = rpc || method === 'GET' || (method === 'HEAD' && !narrow);
 		if (
 			!readMethod ||
 			url.origin !== origin ||

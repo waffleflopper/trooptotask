@@ -345,6 +345,29 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(request).not.toHaveBeenCalled();
 		});
 
+		it('saves a repeat selection of an assignee whose first save is still pending', async () => {
+			const saved = { id: 'saved-slot', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p1' };
+			dailyAssignmentsStore.load([{ ...guardType, id: 'type-1' }], [], 'org-1');
+			const replies: Array<(value: unknown) => void> = [];
+			const request = vi.fn(() => new Promise((resolve) => replies.push(resolve)));
+			vi.stubGlobal('fetch', request);
+			const response = (status: number, body: unknown) => ({
+				ok: status >= 200 && status < 300,
+				status,
+				json: () => Promise.resolve(body),
+				text: () => Promise.resolve(JSON.stringify(body))
+			});
+
+			const first = dailyAssignmentsStore.setAssignment('2026-03-20', 'type-1', 'p1');
+			const second = dailyAssignmentsStore.setAssignment('2026-03-20', 'type-1', 'p1');
+			expect(request).toHaveBeenCalledTimes(2);
+			replies[0](response(500, { message: 'Failed to set assignment' }));
+			replies[1](response(200, saved));
+
+			expect(await Promise.all([first, second])).toEqual([false, true]);
+			expect(dailyAssignmentsStore.assignments).toEqual([saved]);
+		});
+
 		it('should optimistically set and reconcile', async () => {
 			const serverAssignment = { id: 'sa1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p1' };
 			vi.stubGlobal('fetch', mockFetch(serverAssignment));

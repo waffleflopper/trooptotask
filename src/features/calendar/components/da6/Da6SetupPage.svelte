@@ -119,7 +119,9 @@
 		{#if !setup}
 			<Skeleton class="h-8 w-64 rounded-lg" aria-hidden="true" />
 		{:else if form && editable}
-			<Button variant="outline" size="sm" disabled={saving.pending} onclick={leave}>Skip, start everyone even</Button>
+			<Button variant="outline" size="sm" disabled={saving.pending} onclick={leave}>
+				{form.numbers.length ? 'Cancel' : 'Skip, start everyone even'}
+			</Button>
 			<Button size="sm" disabled={saving.pending} onclick={() => saving.run(() => save(form, setup.roster))}>
 				{#if saving.pending}<Spinner />{/if}
 				Save starting numbers

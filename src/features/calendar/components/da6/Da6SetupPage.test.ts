@@ -114,6 +114,16 @@ describe('DA 6 setup mode', () => {
 		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replaceState: true });
 	});
 
+	it('offers Cancel instead of Skip once starting numbers are saved, and leaves them as they are', async () => {
+		renderSetup({ numbers: [{ personId: 'kim', track: 'weekday', count: 11 }] });
+
+		expect(screen.queryByRole('button', { name: 'Skip, start everyone even' })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+		expect(saveMock).not.toHaveBeenCalled();
+		expect(gotoMock).toHaveBeenCalledWith('/org/c-co/calendar/rosters/cq', { replaceState: true });
+	});
+
 	it('shows the record, not the unsaved numbers, when a save is refused because duty was pulled', async () => {
 		saveMock.mockResolvedValue({ status: 'refused', message: 'Duty has been pulled on this DA 6.' });
 		const view = renderSetup();

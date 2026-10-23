@@ -14,18 +14,18 @@ show their saved record; the open form is worked out from today's facts. The pag
 - `da6-show-the-work`: the rule (DA PAM 220-45, para 6), the selected day worked out, and the tie-break. A column header
   selects its day; the default is today, else the last day before today, else the first.
 - `da6-form-boundary`: a month that spans a rule change shows the closed form, a boundary note and the new form.
-- `da6-print`: `Print DA 6` prints a month at readable size on landscape Letter, with every form of that month in
-  order and never another month; a roster too long for one sheet continues on the next like a paper DA 6, the Grade, Name
-  and day header row repeating at the top of each sheet and no person's row split. The header fields sit on the first
-  sheet, the legend and remarks after the last row, the closed form's note between forms, and weekend numbers are red;
-  Show the work and the controls are left off.
+- `da6-print`: `Print DA 6` prints a month at readable size on landscape Letter, with every form of that month in order
+  and never another month; a roster too long for one sheet continues on the next like a paper DA 6, the Grade, Name and
+  day header row repeating at the top of each sheet and no person's row split. The header fields sit on the first sheet,
+  the legend and remarks after the last row, the closed form's note between forms, and weekend numbers are red; Show the
+  work and the controls are left off.
 - `da6-states`: a loading skeleton, the page's own load error, the not-permitted state for a Group-scoped viewer, and a
   load error in place of a closed form whose saved record cannot be read.
 - `da6-setup`: `?setup=1` opens the open form in setup mode, where a configurator copies the last numbers from a paper
   DA 6 into the first column of each track. A blank box starts at the lowest typed number. `Save starting numbers` saves
-  them and re-picks the roster's planned days; hand-assigned days stay. `Skip, start everyone even` saves nothing. Once
-  a detail on the form is served, or the numbers were carried from the last form, the boxes become the read-only record
-  and the server refuses an edit.
+  them and re-picks the roster's planned days; hand-assigned days stay. `Skip, start everyone even` saves nothing; once
+  numbers are saved the button reads `Cancel` and keeps them. Once a detail on the form is served, or the numbers were
+  carried from the last form, the boxes become the read-only record and the server refuses an edit.
 
 ## How to get to it (user POV)
 
@@ -47,8 +47,8 @@ Brooks, PFC Ortiz, PV2 Diaz) and two person-assigned types matching MOS `92Y`, `
 `Charge of Quarters` (`CQ`). Their forms open on the UTC day the seed runs (call it d0). Staff Duty has an assignment
 every day d0–d20, Charge of Quarters on d1, d5, d9 and d14, both picked by the DA 6 rule, and Okafor has
 `Verification Leave` on d8–d9. The seed returns both type IDs, the people's IDs and the dated picks. `clean-seeds`
-removes it. `$V seed da6 YYYY-MM` (a month within 120 days) instead gives Staff Duty a detail on every day of that
-month and seeds no CQ or leave, for the widest grid: open the month's DA 6 and print it. A third argument,
+removes it. `$V seed da6 YYYY-MM` (a month within 120 days) instead gives Staff Duty a detail on every day of that month
+and seeds no CQ or leave, for the widest grid: open the month's DA 6 and print it. A third argument,
 `$V seed da6 YYYY-MM 60`, adds synthetic `Recruit01`... People (8 to 80 in all) for a roster that spans printed sheets.
 
 The DA 6 data read lists assignment types, so `$V server-source arm assignment_types hold|fail-hard 1` reaches it on a
@@ -158,5 +158,5 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
 - A full-page `take_screenshot` captures only the viewport, because the app scrolls inside its main region. Scroll the
   main region for the lower part.
 - `take_screenshot` with `filePath` writes the image; `tool ... --text --save` writes only the text reply.
-- Today, the highlighted column and the default month follow the viewer's day (`t2t_tz`). With the browser zone ahead
-  of UTC, d0 can be yesterday and the highlighted column is the day after d0.
+- Today, the highlighted column and the default month follow the viewer's day (`t2t_tz`). With the browser zone ahead of
+  UTC, d0 can be yesterday and the highlighted column is the day after d0.

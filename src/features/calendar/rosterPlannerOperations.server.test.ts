@@ -360,6 +360,21 @@ describe("a duty saved before the roster's DA 6", () => {
 			'fuller 1'
 		]);
 		expect((await todayLines(ctx)).slice(0, 2)).toEqual(['ortiz A12 TDY', 'kim 11']);
+		// An excusal that ended before the form started still keeps Grant out of that day.
+		ctx.store.seed('roster_excusals', [
+			{
+				id: 'excusal-grant',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: TYPE,
+				personnel_id: idOf('grant'),
+				reason: 'Schools',
+				starts_on: '2026-09-28',
+				ends_on: '2026-09-29'
+			}
+		]);
+		expect(dayLines((await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2026-09-29' }))!)[0]).toBe(
+			'patel 12'
+		);
 		// Before anyone in the Organization was added, no one is in the pool to count the day.
 		expect(await loadRosterDay(ctx, { typeId: TYPE, today: TODAY, date: '2025-12-31' })).toEqual({
 			track: null,

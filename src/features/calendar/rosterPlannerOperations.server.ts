@@ -168,11 +168,17 @@ export async function loadRosterDay(
  */
 async function beforeForm(ctx: RosterSettingsPorts, facts: RosterFacts, date: string): Promise<RosterDay> {
 	const formStartsOn = facts.form.startsOn;
+	// The facts hold excusals from the form's start, so one that ended before it is read again for this day.
+	const [hasClosedPredecessor, excusals] = await Promise.all([
+		ctx.calendarCatalogs.hasClosedRosterForm(facts.type.id),
+		ctx.calendarCatalogs.listRosterExcusals(facts.type.id, { from: date, through: date })
+	]);
 	const movable = formStartFollowsDuty({
 		hasCarriedNumbers: facts.form.startingNumbers.some(({ origin }) => origin === 'carried'),
-		hasClosedPredecessor: await ctx.calendarCatalogs.hasClosedRosterForm(facts.type.id)
+		hasClosedPredecessor
 	});
-	const day = movable && simulateRoster({ ...facts, form: { ...facts.form, startsOn: date } }).byDate.get(date);
+	const day =
+		movable && simulateRoster({ ...facts, excusals, form: { ...facts.form, startsOn: date } }).byDate.get(date);
 	return day && day.standing.length
 		? { track: day.track, standing: standingOf(day), formStartsOn }
 		: { track: null, formStartsOn, movesStart: movable };

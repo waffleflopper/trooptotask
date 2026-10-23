@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { lastFirstSplitter, rosterPersonReference } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
-import { ImportSession, questionKey } from '$lib/components/patterns/import-flow';
-import { buildNotImported } from '$lib/components/patterns/import-flow/workbooks';
+import { buildNotImported, ImportSession, questionKey } from '$lib/components/patterns/import-flow';
 import type { AvailabilityEntry, StatusType } from '../contracts';
 import { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './statusImportLane';
 

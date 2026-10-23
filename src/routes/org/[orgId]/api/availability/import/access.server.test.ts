@@ -12,9 +12,9 @@ import {
 	createRequestAvailabilityContext,
 	createRequestCalendarRangeContext
 } from '$lib/server/adapters/requestContexts.server';
-import { _getConfig } from '../../../routes/org/[orgId]/api/calendar-range/+server';
-import { importAvailabilityEntries } from '../availabilityImport.server';
-import { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './statusImportLane';
+import { _getConfig } from '../../calendar-range/+server';
+import { importAvailabilityEntries } from '$features/calendar/index.server';
+import { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from '$features/calendar';
 
 const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));

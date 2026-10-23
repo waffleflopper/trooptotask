@@ -69,10 +69,12 @@
 	async function exportExcel(): Promise<void> {
 		if (disposed || !ctx.canViewTraining || exportDisabled) return;
 		const orgId = ctx.orgId;
+		const exportDate = formatToday();
 		const input: TrainingMatrixWorkbookInput = $state.snapshot({
 			personnel: ctx.filteredPersonnel,
 			trainingTypes: trainingTypesStore.items,
-			trainings: personnelTrainingsStore.items
+			trainings: personnelTrainingsStore.items,
+			exportDate
 		});
 		function isSnapshotStillAuthorized(): boolean {
 			if (disposed || ctx.orgId !== orgId || !ctx.canViewTraining || !storesHydratedForOrg) return false;
@@ -83,7 +85,7 @@
 		try {
 			const blob = await workbookBlob(await buildTrainingMatrixWorkbook(input));
 			if (!isSnapshotStillAuthorized()) return;
-			downloadBlob(blob, `training-matrix-${formatToday()}.xlsx`);
+			downloadBlob(blob, `training-matrix-${exportDate}.xlsx`);
 		} catch {
 			if (isSnapshotStillAuthorized()) {
 				exportState = {

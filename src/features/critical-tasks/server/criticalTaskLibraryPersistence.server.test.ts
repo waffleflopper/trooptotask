@@ -596,7 +596,7 @@ describe('owned Critical Tasks library provider', () => {
 		);
 		expect(
 			reply.results.map((result) => {
-				if (result.kind === 'failed') return [result.kind, result.message];
+				if (result.kind === 'failed' || result.kind === 'unconfirmed') return [result.kind, result.message];
 				if (result.kind === 'unchanged') return [result.kind];
 				return [result.kind, result.record.id, result.record.title, result.record.archivedAt];
 			})
@@ -628,7 +628,7 @@ function importLost(library: ReturnType<typeof provider>['library'], records = l
 const addedCodes = (reply: Awaited<ReturnType<typeof importIctTasksBatch>>) =>
 	reply.results.map((result) => {
 		if (result.kind === 'failed') return result.message;
-		if (result.kind === 'unchanged') return result.kind;
+		if (result.kind === 'unchanged' || result.kind === 'unconfirmed') return result.kind;
 		return `${result.kind} ${result.record.taskCode}`;
 	});
 

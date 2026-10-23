@@ -778,7 +778,7 @@ describe('#1643 completion import recovery after a lost provider reply', () => {
 		expect(
 			reply.results.map((result) => {
 				if (result.kind === 'failed') return result.message;
-				if (result.kind === 'unchanged') return result.kind;
+				if (result.kind === 'unchanged' || result.kind === 'unconfirmed') return result.kind;
 				return result.record.notes;
 			})
 		).toEqual(['First', 'This completion appears more than once in this import.']);

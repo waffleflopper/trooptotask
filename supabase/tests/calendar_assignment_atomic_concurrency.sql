@@ -3,7 +3,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(11);
+SELECT plan(12);
 
 SELECT dblink_connect('atomic_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database());
@@ -54,12 +54,12 @@ SELECT dblink_exec('atomic_fixture', $fixture$
     ('b1110000-0000-4000-8000-000000000402',
      'b1110000-0000-4000-8000-000000000101','Reserve','RSV','personnel');
   INSERT INTO public.daily_assignments(
-    id,organization_id,assignment_type_id,date,assignee_id
+    id,organization_id,assignment_type_id,date,assignee_id,created_at
   ) VALUES
     ('b1110000-0000-4000-8000-000000000501',
      'b1110000-0000-4000-8000-000000000101',
      'b1110000-0000-4000-8000-000000000401',
-     '2030-04-01','b1110000-0000-4000-8000-000000000301');
+     '2030-04-01','b1110000-0000-4000-8000-000000000301','2029-01-02 03:04:05+00');
 $fixture$);
 SELECT dblink_exec('atomic_fixture', $function$
   CREATE FUNCTION public.t3_fail_atomic_assignment_insert() RETURNS trigger
@@ -149,13 +149,19 @@ SELECT is((SELECT assignee_id FROM dblink('atomic_fixture',$query$
 $query$) AS result(assignee_id text)),
   'b1110000-0000-4000-8000-000000000302',
   'failed contender cannot restore stale assignee over the committed winner');
-SELECT isnt((SELECT id FROM dblink('atomic_fixture',$query$
+SELECT is((SELECT id FROM dblink('atomic_fixture',$query$
   SELECT id FROM public.daily_assignments
   WHERE organization_id='b1110000-0000-4000-8000-000000000101'
     AND date='2030-04-01'
 $query$) AS result(id uuid)),
   'b1110000-0000-4000-8000-000000000501'::uuid,
-  'the surviving row is the committed winner, not the original row');
+  'the committed winner keeps the original slot ID');
+
+SELECT is((SELECT created_at FROM dblink('atomic_fixture',$query$
+  SELECT created_at FROM public.daily_assignments
+  WHERE id='b1110000-0000-4000-8000-000000000501'
+$query$) AS result(created_at timestamptz)), '2029-01-02 03:04:05+00'::timestamptz,
+  'the committed winner keeps the original creation time after the contender fails');
 
 -- With no prior rows and different type IDs, a row lock or unique conflict
 -- cannot explain the wait: the RPC's Organization/day advisory lock does.

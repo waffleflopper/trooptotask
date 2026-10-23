@@ -40,7 +40,8 @@ const savedSlots = [
 		organization_id: 'test-org',
 		date: '2026-03-15',
 		assignment_type_id: PERSON_TYPE,
-		assignee_id: P_ALPHA
+		assignee_id: P_ALPHA,
+		created_at: '2026-02-01T12:00:00.000Z'
 	},
 	{
 		id: 'edited-generated',
@@ -99,7 +100,8 @@ const retainedSlots = [
 		organization_id: 'test-org',
 		date: '2026-03-15',
 		assignmentTypeId: PERSON_TYPE,
-		assigneeId: P_ALPHA
+		assigneeId: P_ALPHA,
+		created_at: '2026-02-01T12:00:00.000Z'
 	},
 	{
 		id: 'edited-generated',
@@ -224,7 +226,8 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 			date: '2026-03-15',
 			assignment_type_id: PERSON_TYPE,
 			assignee_id: P_BRAVO,
-			id: expect.any(String)
+			id: 'linked',
+			created_at: '2026-02-01T12:00:00.000Z'
 		});
 		const result = await fetchCalendarRangeData(ctx, range);
 		expect(result.dailyAssignments).toHaveLength(4);
@@ -234,7 +237,8 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 				retainedSlots[1],
 				retainedSlots[3],
 				{
-					id: edited?.id,
+					id: 'linked',
+					created_at: '2026-02-01T12:00:00.000Z',
 					organization_id: 'test-org',
 					date: '2026-03-15',
 					assignmentTypeId: PERSON_TYPE,
@@ -242,14 +246,48 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 				}
 			])
 		);
-		expect(ctx.auditPort.events).toContainEqual(
+		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
-				action: 'daily_assignment.created',
+				action: 'daily_assignment.updated',
 				resourceType: 'daily_assignment',
-				resourceId: edited?.id
+				resourceId: 'linked'
 			})
-		);
+		]);
 		expect(await ctx.rawStore.findMany('daily_assignments', 'other-org')).toEqual([savedSlots[7]]);
+	});
+
+	it('keeps a Group slot identity through Bravo to Alpha to Bravo and returns the saved row on a no-op', async () => {
+		const ctx = fixture();
+		ctx.rawStore.seed('daily_assignments', [
+			{
+				id: 'group-slot',
+				organization_id: 'test-org',
+				date: '2026-03-15',
+				assignment_type_id: GROUP_TYPE,
+				assignee_id: G_BRAVO,
+				created_at: '2026-02-01T12:00:00.000Z'
+			}
+		]);
+		for (const assigneeId of [G_ALPHA, G_BRAVO, G_BRAVO]) {
+			const saved = await setDailyAssignmentSlot(ctx, {
+				date: '2026-03-15',
+				assignmentTypeId: GROUP_TYPE,
+				assigneeId
+			});
+			expect(saved).toEqual({
+				id: 'group-slot',
+				organization_id: 'test-org',
+				date: '2026-03-15',
+				assignmentTypeId: GROUP_TYPE,
+				assigneeId,
+				created_at: '2026-02-01T12:00:00.000Z'
+			});
+			expect((await fetchCalendarRangeData(ctx, range)).dailyAssignments).toEqual([saved]);
+		}
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({ action: 'daily_assignment.updated', resourceId: 'group-slot' }),
+			expect.objectContaining({ action: 'daily_assignment.updated', resourceId: 'group-slot' })
+		]);
 	});
 
 	it('preserves generated facts and emits no success audit when a saved edit fails', async () => {

@@ -335,6 +335,16 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 	});
 
 	describe('setAssignment', () => {
+		it('keeps the saved slot and sends no request when its assignee is selected again', async () => {
+			const saved = { id: 'saved-slot', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p1' };
+			dailyAssignmentsStore.load([{ ...guardType, id: 'type-1' }], [saved], 'org-1');
+			const request = mockFetch(saved);
+			vi.stubGlobal('fetch', request);
+			expect(await dailyAssignmentsStore.setAssignment('2026-03-20', 'type-1', 'p1')).toBe(true);
+			expect(dailyAssignmentsStore.assignments).toEqual([saved]);
+			expect(request).not.toHaveBeenCalled();
+		});
+
 		it('should optimistically set and reconcile', async () => {
 			const serverAssignment = { id: 'sa1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p1' };
 			vi.stubGlobal('fetch', mockFetch(serverAssignment));

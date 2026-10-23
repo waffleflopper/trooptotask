@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { afterNavigate, invalidate } from '$app/navigation';
+	import { page } from '$app/state';
 	import {
 		criticalTasksWorkspaceHydrator,
 		criticalTasksWorkspaceStatus,
@@ -21,6 +22,7 @@
 	let hydrationError = $state<Error | null>(null);
 	let workspacePending = $state(false);
 	let accessRestricted = $state(false);
+	const holdsWhilePending = $derived(page.route.id?.endsWith('/import') ?? false);
 	const orgId = $derived.by(() => {
 		if (typeof data.orgId === 'string') {
 			return data.orgId;
@@ -75,6 +77,6 @@
 	<WorkspaceLoadError subject="Critical Tasks" />
 {:else if accessRestricted}
 	<WorkspaceAccessRestricted subject="Critical Tasks" />
-{:else if !workspacePending}
+{:else if !workspacePending || holdsWhilePending}
 	{@render children()}
 {/if}

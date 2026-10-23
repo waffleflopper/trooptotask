@@ -22,6 +22,9 @@ declare global {
 		interface PageData {
 			viewer?: IdentityViewer | null;
 		}
+		interface PageState {
+			importStep?: 'columns' | 'review' | 'done';
+		}
 	}
 }
 

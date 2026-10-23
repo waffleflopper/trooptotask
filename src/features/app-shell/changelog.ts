@@ -7,6 +7,45 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-22-roster-import',
+		date: '2026-10-22',
+		title: 'Import a Roster From Any Spreadsheet',
+		items: [
+			'Personnel › Import has a new design. One file now adds new people and updates the ones already on your roster, so there is no separate backfill.',
+			'Drop in an .xlsx, .csv or .tsv file. The import reads every tab with the same columns and skips title and banner rows above the header. You can move the header row or turn a tab off. Choose what each column holds, mark a column Don’t import, or read one Name column as Last, First.',
+			'Review shows every row as New, Update, Unchanged or Needs a fix. Updates show the old value under the new one, and a blank cell never clears a saved value. One line counts the rows that already match.',
+			'Fix a bad date or name right in its cell. Questions that repeat, like a rank written as Sgt. or a group name that does not match, are asked once in the fix rail and apply to every row. If you can manage groups, you can create a missing group right there.',
+			'When two people share a name, you choose which one the row means or add it as a new person.',
+			'After the import, a receipt shows what was added and updated. Rows that were not imported can be downloaded with a Reason column, fixed and imported again.',
+			'Calendar › Bulk Status › Import CSV uses the same import. Each row puts one person on a status from one date to another, with an optional note. A status that is not on your list, like TDY - NTC, is asked once for every row that uses it. If you can configure status types, you can create the missing one right there.',
+			'A status already on the calendar shows as Unchanged, so importing the same file again adds nothing. When rows overlap saved statuses, you choose once for the file: skip those rows, keep both, or replace the saved statuses. Review lists what each replace removes.',
+			'If something looks off or you have an idea for importing, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
+		id: '2026-10-22-critical-tasks-import',
+		date: '2026-10-22',
+		title: 'Import Critical Tasks and Completions',
+		items: [
+			'Task Library › Import and Critical Tasks › Import Completions now open their own pages and work like the roster import. Drop in a file, check the columns, review every row, then import.',
+			'Tasks match on task code. A code already in the library shows as an Update with the old value under the new one, and an archived code is restored to the active library. Matching tasks show as Unchanged.',
+			'Completions match each person by name, and you choose who a row means when two people share one. Each task code is matched once for the whole file, and an unknown code is asked once in the fix rail. The import never creates tasks.',
+			'A completion already saved for that person, task and date shows as Unchanged or as an Update to its method, validator or notes. A blank cell never clears a saved value.'
+		]
+	},
+	{
+		id: '2026-10-22-training-import',
+		date: '2026-10-22',
+		title: 'Import Training From Your Tracker',
+		items: [
+			'Training › Import now opens its own page and works like the roster import. Drop in a file, check the columns, review every row, then import.',
+			'Use one row per completion, or the tracker you already keep with one column per training. Each column is matched to a training type by name, and you pick the type for any column the app does not recognize.',
+			'A date in a cell records a completion. For cells marked X or yes, the import asks once per training for the date instead of using today. Exempt or N/A marks the person exempt, and blank cells are left alone.',
+			'A completion already saved with the same date shows as Unchanged. A different date shows as an Update with the old date under the new one.',
+			'Anyone who can record training can now import it. Marking someone exempt still needs permission to manage training requirements.'
+		]
+	},
+	{
 		id: '2026-10-22-training-export-colors',
 		date: '2026-10-22',
 		title: 'Colors in the Training Export',

@@ -1,3 +1,4 @@
+import { createContext } from 'svelte';
 import { availabilityStore } from './stores/availability.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 import { specialDaysStore } from './stores/specialDays.svelte';
@@ -231,3 +232,5 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 }
 
 export const calendarWorkspaceHydrator = createCalendarWorkspaceHydrator();
+
+export const [getCalendarWorkspaceReady, setCalendarWorkspaceReady] = createContext<() => boolean>();

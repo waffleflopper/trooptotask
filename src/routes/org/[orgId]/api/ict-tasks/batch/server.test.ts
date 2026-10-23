@@ -3,32 +3,22 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { _postConfig } from './+server';
 
 describe('/api/ict-tasks/batch route config', () => {
-	it('uses policy-first authorization for ICT task import mutations', () => {
-		expect('permission' in _postConfig).toBe(false);
+	it('authorizes task imports as library configuration', () => {
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.criticalTasks.configureLibrary);
 		expect(_postConfig.mutation).toBe(true);
 	});
 
-	it('accepts structurally valid ICT task import payloads', () => {
-		const result = _postConfig.input.safeParse({
-			mode: 'create-only',
-			records: [{ rowNumber: 1, values: { taskCode: 'ICT-1', title: 'Operate radio' } }]
+	it('accepts typed task records and refuses malformed MOS codes, months and empty batches', () => {
+		const valid = _postConfig.input.safeParse({
+			records: [{ taskCode: 'ICT-1', title: 'Operate radio', mos: ['68W'], expirationMonths: 12 }]
 		});
-
-		expect(result.success).toBe(true);
-	});
-
-	it('defaults missing records to an empty array', () => {
-		const result = _postConfig.input.safeParse({ mode: 'upsert' });
-
-		expect(result.success).toBe(true);
-		if (!result.success) throw new Error('expected valid ICT task import payload');
-		expect(result.data.records).toEqual([]);
-	});
-
-	it('rejects unsupported import modes', () => {
-		const result = _postConfig.input.safeParse({ mode: 'replace', records: [] });
-
-		expect(result.success).toBe(false);
+		expect(valid.success).toBe(true);
+		for (const records of [
+			[{ taskCode: 'ICT-1', mos: ['68w!'] }],
+			[{ taskCode: 'ICT-1', expirationMonths: 0 }],
+			[{ taskCode: ' ' }],
+			[]
+		])
+			expect(_postConfig.input.safeParse({ records }).success).toBe(false);
 	});
 });

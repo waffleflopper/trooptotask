@@ -38,7 +38,6 @@ export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from '.
 export { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 export type { PersonnelCriticalTasksRosterPort } from './contracts';
 export { createSupabasePersonnelCalendarRosterPort } from './calendarRoster.server';
-export { createSupabasePersonnelCalendarScopeIds } from './calendarScopeIds.server';
 export type { PersonnelCalendarRosterPort } from './contracts';
 export { createSupabasePersonnelOnboardingRosterPort } from './onboardingRoster.server';
 export type { PersonnelOnboardingRosterPort } from './contracts';
@@ -66,13 +65,7 @@ export {
 } from './rankCatalogOperations.server';
 export { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdministration.server';
 export { getPersonnelOrganizationDefaults } from './organizationDefaults.server';
-export {
-	createActivePersonnelRankResolver,
-	createPersonnelCatalogRankResolver,
-	normalizeActivePersonnelRank
-} from './rankValidation.server';
-export { importPersonnelBatch } from './personnelBatch.server';
-export { mergePersonnelBatch } from './personnelDateBackfill.server';
+export { createActivePersonnelRankResolver, normalizeActivePersonnelRank } from './rankValidation.server';
 export { exportPersonnelWorkbook } from './personnelExport.server';
 export type { PersonnelExportOutput } from './personnelExport.server';
 export { createSupabasePersonnelRetentionSource, type PersonnelRetentionSource } from './personnelRetention.server';
@@ -157,3 +150,4 @@ export {
 } from './supabasePersonnelSheetPersistence.server';
 
 export { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
+export { importPersonnelRecords } from './personnelImportRecords.server';

@@ -9,6 +9,7 @@ type CalendarMemoryStore = Pick<
 >;
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type {
+	AvailabilityCreate,
 	CalendarAssignmentReader,
 	CalendarAvailabilityPersistence,
 	CalendarAvailabilityRemovalPort,
@@ -220,6 +221,22 @@ export function createInMemoryCalendarAvailabilityPersistence(
 ): CalendarAvailabilityPersistence {
 	const groups = scopeSet.kind === 'groups' ? [...new Set(scopeSet.groupIds.filter(Boolean))] : null;
 	let personnelIdsPromise: Promise<string[]> | undefined;
+	async function createMany(inputs: readonly AvailabilityCreate[]) {
+		if (inputs.length === 0) return [];
+		return (
+			await store.insertMany<AvailabilityRow>(
+				'availability_entries',
+				orgId,
+				inputs.map((input) => ({
+					personnel_id: input.personnelId,
+					status_type_id: input.statusTypeId,
+					start_date: input.startDate,
+					end_date: input.endDate,
+					note: input.note ?? null
+				}))
+			)
+		).map(toAvailability);
+	}
 	return {
 		...removal,
 		async listOverlapping(input) {
@@ -290,21 +307,41 @@ export function createInMemoryCalendarAvailabilityPersistence(
 		delete(id) {
 			return store.delete('availability_entries', orgId, id);
 		},
-		async createMany(inputs) {
-			if (inputs.length === 0) return [];
-			return (
-				await store.insertMany<AvailabilityRow>(
-					'availability_entries',
-					orgId,
-					inputs.map((input) => ({
-						personnel_id: input.personnelId,
-						status_type_id: input.statusTypeId,
-						start_date: input.startDate,
-						end_date: input.endDate,
-						note: input.note ?? null
-					}))
-				)
-			).map(toAvailability);
+		createMany,
+		async insertReplacing(entries) {
+			const ids = entries.flatMap((entry) => entry.replaces.map((replaced) => replaced.id));
+			const current = new Map(
+				(ids.length
+					? await store.findMany<AvailabilityRow>('availability_entries', orgId, undefined, { inFilters: { id: ids } })
+					: []
+				).map((row) => [row.id, row])
+			);
+			const stale: number[] = [];
+			const replaced = new Set<string>();
+			const writes: AvailabilityCreate[] = [];
+			entries.forEach(({ replaces, ...entry }, index) => {
+				const changed = replaces.some((reviewed) => {
+					const row = current.get(reviewed.id);
+					return (
+						row !== undefined &&
+						(row.personnel_id !== entry.personnelId ||
+							row.status_type_id !== reviewed.statusTypeId ||
+							row.start_date !== reviewed.startDate ||
+							row.end_date !== reviewed.endDate ||
+							(row.note ?? null) !== reviewed.note ||
+							row.start_date > entry.endDate ||
+							row.end_date < entry.startDate)
+					);
+				});
+				if (changed) {
+					stale.push(index);
+					return;
+				}
+				for (const reviewed of replaces) if (current.has(reviewed.id)) replaced.add(reviewed.id);
+				writes.push(entry);
+			});
+			const deleted = replaced.size ? await removal.deleteIds([...replaced]) : 0;
+			return { inserted: (await createMany(writes)).length, deleted, stale };
 		}
 	};
 }

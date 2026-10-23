@@ -2,6 +2,7 @@ import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
+import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 
 /** The most records or IDs one availability batch request accepts; the batch RPCs enforce it too. */
 export const AVAILABILITY_BATCH_LIMIT = 500;
@@ -33,6 +34,8 @@ export interface StatusType {
 	shortLabel: string | null;
 	sortOrder: number;
 }
+
+export const NEW_STATUS_TYPE_COLORS = { color: '#4a5568', textColor: '#ffffff' } as const;
 
 export interface AvailabilityEntry {
 	id: string;
@@ -165,6 +168,64 @@ export interface AvailabilityCreate {
 
 export type AvailabilityPatch = Partial<Omit<AvailabilityCreate, 'personnelId'>>;
 
+export const AVAILABILITY_NOTE_MAX_LENGTH = 200;
+
+const reviewedDates = { statusTypeId: uuidSchema, startDate: dateOnlySchema, endDate: dateOnlySchema };
+
+const availabilityImportFields = {
+	personnelId: uuidSchema,
+	statusTypeId: uuidSchema,
+	startDate: dateOnlySchema,
+	endDate: dateOnlySchema,
+	note: z.string().max(AVAILABILITY_NOTE_MAX_LENGTH).nullable(),
+	alongside: z.array(z.object(reviewedDates)).max(AVAILABILITY_BATCH_LIMIT).optional()
+};
+
+export const availabilityImportInputSchema = z.object({
+	entries: z
+		.array(
+			z
+				.discriminatedUnion('overlap', [
+					z.object({ ...availabilityImportFields, overlap: z.enum(['none', 'keep']) }),
+					z.object({
+						...availabilityImportFields,
+						overlap: z.literal('replace'),
+						replaces: z
+							.array(z.object({ id: uuidSchema, ...reviewedDates, note: availabilityImportFields.note }))
+							.min(1)
+							.max(AVAILABILITY_BATCH_LIMIT)
+					})
+				])
+				.refine((entry) => entry.endDate >= entry.startDate, {
+					message: 'End date must be on or after the start date',
+					path: ['endDate']
+				})
+		)
+		.min(1)
+		.max(AVAILABILITY_BATCH_LIMIT)
+		.refine(
+			(entries) =>
+				entries.reduce((total, entry) => total + (entry.overlap === 'replace' ? entry.replaces.length : 0), 0) <=
+				AVAILABILITY_BATCH_LIMIT,
+			{ message: `Replace at most ${AVAILABILITY_BATCH_LIMIT} saved entries per request` }
+		)
+});
+
+export type AvailabilityImportInput = z.infer<typeof availabilityImportInputSchema>;
+export type AvailabilityImportEntry = AvailabilityImportInput['entries'][number];
+export type ReviewedAvailabilityEntry = Required<
+	Pick<AvailabilityEntry, 'id' | 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
+>;
+export interface AvailabilityImportWrite extends AvailabilityCreate {
+	replaces: readonly ReviewedAvailabilityEntry[];
+}
+
+export interface AvailabilityImportResult {
+	added: number;
+	removed: number;
+	errors: Array<{ index: number; message: string }>;
+}
+
 export interface CalendarCatalogPersistence {
 	listStatusTypes(): Promise<SavedStatusType[]>;
 	listStatusTypeLabels(): Promise<Array<{ id: string; name: string }>>;
@@ -198,6 +259,10 @@ export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRem
 	update(id: string, patch: AvailabilityPatch): Promise<SavedAvailabilityEntry>;
 	delete(id: string): Promise<void>;
 	createMany(inputs: AvailabilityCreate[]): Promise<SavedAvailabilityEntry[]>;
+	/** Skips, by index, each entry whose replaced entries changed since review; writes the rest in one transaction. */
+	insertReplacing(
+		entries: readonly AvailabilityImportWrite[]
+	): Promise<{ inserted: number; deleted: number; stale: number[] }>;
 }
 
 export interface CalendarAssignmentReader {

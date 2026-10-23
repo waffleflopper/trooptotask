@@ -12,12 +12,10 @@
 	type PersonEditorPayload = { person: Personnel };
 	type TrainingRecordModalModule = typeof import('$features/training/components/TrainingRecordModal.svelte');
 	type PersonTrainingEditorModule = typeof import('$features/training/components/PersonTrainingEditor.svelte');
-	type BulkTrainingImporterModule = typeof import('$features/training/components/BulkTrainingImporter.svelte');
 	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
 
 	let trainingRecordModalModule: Promise<TrainingRecordModalModule> | undefined;
 	let personTrainingEditorModule: Promise<PersonTrainingEditorModule> | undefined;
-	let bulkTrainingImporterModule: Promise<BulkTrainingImporterModule> | undefined;
 	let signInRosterModalModule: Promise<SignInRosterModalModule> | undefined;
 
 	function loadTrainingRecordModal() {
@@ -28,11 +26,6 @@
 	function loadPersonTrainingEditor() {
 		personTrainingEditorModule ??= import('$features/training/components/PersonTrainingEditor.svelte');
 		return personTrainingEditorModule;
-	}
-
-	function loadBulkTrainingImporter() {
-		bulkTrainingImporterModule ??= import('$features/training/components/BulkTrainingImporter.svelte');
-		return bulkTrainingImporterModule;
 	}
 
 	function loadSignInRosterModal() {
@@ -72,18 +65,6 @@
 			rankCatalog={ctx.rankCatalog}
 			canEdit={ctx.canRecordTraining}
 			onClose={modals.closerFor('sign-in-rosters')}
-		/>
-	{/await}
-{/if}
-
-{#if modals.isOpen('bulk-import')}
-	{#await loadBulkTrainingImporter() then { default: BulkTrainingImporter }}
-		<BulkTrainingImporter
-			orgId={ctx.orgId}
-			personnel={ctx.personnel}
-			trainingTypes={trainingTypesStore.items}
-			onImportComplete={ctx.handleBulkImportComplete.bind(ctx)}
-			onClose={modals.closerFor('bulk-import')}
 		/>
 	{/await}
 {/if}

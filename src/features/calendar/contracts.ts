@@ -497,7 +497,8 @@ export type AvailabilityImportEntry = AvailabilityImportInput['entries'][number]
 export type ReviewedAvailabilityEntry = Required<
 	Pick<AvailabilityEntry, 'id' | 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
 >;
-export interface AvailabilityImportWrite extends AvailabilityCreate {
+export interface AvailabilityImportWrite
+	extends AvailabilityCreate, Pick<AvailabilityImportEntry, 'overlap' | 'alongside'> {
 	replaces: readonly ReviewedAvailabilityEntry[];
 }
 
@@ -568,7 +569,7 @@ export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRem
 	update(id: string, patch: AvailabilityPatch): Promise<SavedAvailabilityEntry>;
 	delete(id: string): Promise<void>;
 	createMany(inputs: AvailabilityCreate[]): Promise<SavedAvailabilityEntry[]>;
-	/** Skips, by index, each entry whose replaced entries changed since review; writes the rest in one transaction. */
+	/** Skips, by index, each entry whose overlaps changed since review; writes the rest in one transaction. */
 	insertReplacing(
 		entries: readonly AvailabilityImportWrite[]
 	): Promise<{ inserted: number; deleted: number; stale: number[] }>;

@@ -54,7 +54,7 @@ function fixture() {
 		end_date: '2026-11-12',
 		note: null
 	}));
-	const mutations: string[] = [];
+	const mutations: Array<{ path: string; key: string; body: unknown }> = [];
 	function client(key: string) {
 		return createClient('http://calendar-import-access.invalid', key, {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -63,8 +63,9 @@ function fixture() {
 					const request = new Request(input, init);
 					const url = new URL(request.url);
 					if (request.method !== 'GET') {
-						mutations.push(url.pathname);
-						const { p_entries } = await request.json();
+						const body = await request.json();
+						mutations.push({ path: url.pathname, key, body });
+						const { p_entries } = body;
 						return Response.json({ inserted: p_entries.length, deleted: 0, stale: [] });
 					}
 					let rows: Record<string, unknown>[];
@@ -159,29 +160,46 @@ describe('Calendar-only group-scoped status import', () => {
 		expect(session.review.rows.map((row) => row.outcome)).toEqual(['unchanged']);
 	});
 
-	it('refuses an unreviewed overlap and an exact duplicate before writing', async () => {
+	it('sends only people admitted by the Calendar roster and scope to the ordinary transaction', async () => {
 		const { request, mutations } = fixture();
 		const result = await importAvailabilityEntries(createRequestAvailabilityContext(request), {
-			entries: [
-				{
-					personnelId: PERSON,
-					statusTypeId: TDY,
-					startDate: '2026-11-08',
-					endDate: '2026-11-09',
-					note: null,
-					overlap: 'none'
-				},
-				{
-					personnelId: PERSON,
-					statusTypeId: LEAVE,
-					startDate: '2026-11-05',
-					endDate: '2026-11-12',
-					note: null,
-					overlap: 'none'
-				}
+			entries: [PERSON, 'outside', 'foreign'].map((personnelId) => ({
+				personnelId,
+				statusTypeId: TDY,
+				startDate: '2026-12-01',
+				endDate: '2026-12-03',
+				note: null,
+				overlap: 'none'
+			}))
+		});
+		expect(result).toEqual({
+			added: 1,
+			removed: 0,
+			errors: [
+				{ index: 1, message: 'This person is not on a roster you can change.' },
+				{ index: 2, message: 'This person is not on a roster you can change.' }
 			]
 		});
-		expect(result).toMatchObject({ added: 0, removed: 0, errors: [{ index: 0 }, { index: 1 }] });
-		expect(mutations).toEqual([]);
+		expect(mutations).toEqual([
+			{
+				path: '/rest/v1/rpc/import_availability_entries',
+				key: 'synthetic-calendar-ordinary',
+				body: {
+					p_organization_id: ORG,
+					p_entries: [
+						{
+							personnel_id: PERSON,
+							status_type_id: TDY,
+							start_date: '2026-12-01',
+							end_date: '2026-12-03',
+							note: null,
+							overlap: 'none',
+							alongside: [],
+							replaces: []
+						}
+					]
+				}
+			}
+		]);
 	});
 });

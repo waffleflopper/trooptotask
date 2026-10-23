@@ -145,10 +145,11 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    A replace whose saved entry changes after Review is refused. Answer `Replace the calendar entries` for Baker on
    `Verification Training` 2027-08-12 to 2027-08-20 over a saved Leave of 2027-08-10 to 2027-08-15, then change that
    Leave's end date in a second signed-in tab (`PUT api/availability`) and Import: Done reads `0 changes saved.` with
-   Failed 1 and `An entry this row replaces changed since you reviewed it. Import the file again.`, the Leave keeps its
-   new end date and no Training row is saved. Repeat with only the saved Leave's note changed after Review, including
-   adding a note to an empty note and clearing a note. Each import refuses the replacement and preserves the saved ID
-   and latest note. An unchanged empty note still permits replacement.
+   Failed 1 and
+   `This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.`, the
+   Leave keeps its new end date and no Training row is saved. Repeat with only the saved Leave's note changed after
+   Review, including adding a note to an empty note and clearing a note. Each import refuses the replacement and
+   preserves the saved ID and latest note. An unchanged empty note still permits replacement.
 
    For a Person with 501 saved entries inside the incoming row's dates, answer `Replace the calendar entries`. That row
    stays Needs a fix with `This row overlaps too many saved entries to replace in one import. Choose Keep both or Skip.`
@@ -319,10 +320,12 @@ saving, and keep helper-created rows marked for `clean-seeds`.
   See [Invalid input](invalid-input.md).
 - Add, Remove and Import are distinct user paths. A direct authenticated batch or import request can check server
   effects but does not demonstrate the review and feedback.
-- Import answers apply to one file. Re-importing asks the same overlap question. A replace whose saved entry changed
-  since Review comes back as not imported with
-  `An entry this row replaces changed since you reviewed it. Import the file again.`, and a row whose dates now overlap
-  a newer saved entry with `This row now overlaps the calendar. Import the file again to choose what happens.`
+- Import answers apply to one file. Re-importing asks the same overlap question. A changed replacement, an exact
+  duplicate saved after Review, or an unreviewed overlap under None or Replace comes back as not imported with
+  `This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.`
+  Competing imports for the same Person wait for the first transaction, then check its committed entries. Imports for
+  different People proceed independently. Keep both allows non-identical overlaps, and an in-file Alongside partner
+  already saved by an earlier chunk stays accepted.
 - Review reads each date range once per page visit. A second Review of the same dates, or a correction inside them,
   sends no `calendar-range` request; reload to read them fresh.
 - Replace deletes each overlapped saved entry whole, in the same transaction as the insert, and at most 500 replaced

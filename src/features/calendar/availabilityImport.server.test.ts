@@ -81,54 +81,52 @@ async function calendar(ctx: ReturnType<typeof context>) {
 }
 
 describe('importAvailabilityEntries', () => {
-	it.each(['none', 'replace', 'keep'] as const)(
-		'refuses an unreviewed overlap that arrives at write time under %s',
-		async (overlap) => {
-			const ctx = context();
-			const insertReplacing = ctx.calendarAvailability.insertReplacing;
-			ctx.calendarAvailability.insertReplacing = async (entries) => {
-				await ctx.store.insert('availability_entries', 'test-org', {
-					personnel_id: ALPHA,
-					status_type_id: LEAVE,
-					start_date: '2026-11-03',
-					end_date: '2026-11-06',
-					note: 'Saved after review'
-				});
-				return insertReplacing(entries);
-			};
-
-			const result = await importAvailabilityEntries(ctx, {
-				entries: [
-					row({
-						startDate: '2026-11-03',
-						endDate: '2026-11-06',
-						overlap,
-						replaces: [REVIEWED[SAVED_LEAVE]],
-						alongside: [REVIEWED[SAVED_LEAVE]]
-					})
-				]
+	it.each([
+		{ overlap: 'none', statusTypeId: TDY, savedRow: '10 21 2026-11-03..2026-11-06' },
+		{ overlap: 'replace', statusTypeId: TDY, savedRow: '10 21 2026-11-03..2026-11-06' },
+		{ overlap: 'keep', statusTypeId: LEAVE, savedRow: '10 20 2026-11-03..2026-11-06' }
+	] as const)('refuses a status saved after Review under $overlap', async ({ overlap, statusTypeId, savedRow }) => {
+		const ctx = context();
+		const insertReplacing = ctx.calendarAvailability.insertReplacing;
+		ctx.calendarAvailability.insertReplacing = async (entries) => {
+			await ctx.store.insert('availability_entries', 'test-org', {
+				personnel_id: ALPHA,
+				status_type_id: statusTypeId,
+				start_date: '2026-11-03',
+				end_date: '2026-11-06',
+				note: 'Saved after review'
 			});
+			return insertReplacing(entries);
+		};
 
-			expect(result).toEqual({
-				added: 0,
-				removed: 0,
-				errors: [
-					{
-						index: 0,
-						message:
-							'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
-					}
-				]
-			});
-			expect(await calendar(ctx)).toEqual([
-				'10 20 2026-11-03..2026-11-06',
-				'10 20 2026-11-05..2026-11-12',
-				'10 21 2026-11-10..2026-11-20',
-				'11 20 2026-11-05..2026-11-12'
-			]);
-			expect(ctx.audit.events).toEqual([]);
-		}
-	);
+		const result = await importAvailabilityEntries(ctx, {
+			entries: [
+				row({
+					startDate: '2026-11-03',
+					endDate: '2026-11-06',
+					overlap,
+					replaces: [REVIEWED[SAVED_LEAVE]],
+					alongside: [REVIEWED[SAVED_LEAVE]]
+				})
+			]
+		});
+
+		expect(result).toEqual({
+			added: 0,
+			removed: 0,
+			errors: [
+				{
+					index: 0,
+					message:
+						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+				}
+			]
+		});
+		expect(await calendar(ctx)).toEqual(
+			[savedRow, '10 20 2026-11-05..2026-11-12', '10 21 2026-11-10..2026-11-20', '11 20 2026-11-05..2026-11-12'].sort()
+		);
+		expect(ctx.audit.events).toEqual([]);
+	});
 	it.each([
 		{ reviewed: 'Saved', current: 'Edited' },
 		{ reviewed: null, current: 'Added' },
@@ -201,9 +199,21 @@ describe('importAvailabilityEntries', () => {
 			added: 1,
 			removed: 0,
 			errors: [
-				{ index: 0, message: 'This row now overlaps the calendar. Import the file again to choose what happens.' },
-				{ index: 1, message: 'Already on the calendar.' },
-				{ index: 2, message: 'This row now overlaps the calendar. Import the file again to choose what happens.' }
+				{
+					index: 0,
+					message:
+						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+				},
+				{
+					index: 1,
+					message:
+						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+				},
+				{
+					index: 2,
+					message:
+						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+				}
 			]
 		});
 		expect(await calendar(ctx)).toEqual([
@@ -324,7 +334,17 @@ describe('importAvailabilityEntries', () => {
 			entries: [row({ startDate: '2026-11-05', endDate: '2026-11-12' })]
 		});
 
-		expect(result).toEqual({ added: 0, removed: 0, errors: [{ index: 0, message: 'Already on the calendar.' }] });
+		expect(result).toEqual({
+			added: 0,
+			removed: 0,
+			errors: [
+				{
+					index: 0,
+					message:
+						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+				}
+			]
+		});
 		expect(ctx.audit.events).toEqual([]);
 	});
 

@@ -157,6 +157,12 @@ export function createSupabaseCalendarAvailabilityPersistence(
 					start_date: entry.startDate,
 					end_date: entry.endDate,
 					note: entry.note ?? null,
+					overlap: entry.overlap,
+					alongside: (entry.alongside ?? []).map((partner) => ({
+						status_type_id: partner.statusTypeId,
+						start_date: partner.startDate,
+						end_date: partner.endDate
+					})),
 					replaces: entry.replaces.map((replaced) => ({
 						id: replaced.id,
 						status_type_id: replaced.statusTypeId,

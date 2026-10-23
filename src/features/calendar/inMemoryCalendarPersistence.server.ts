@@ -528,17 +528,13 @@ export function createInMemoryCalendarAvailabilityPersistence(
 		},
 		createMany,
 		async insertReplacing(entries) {
-			const ids = entries.flatMap((entry) => entry.replaces.map((replaced) => replaced.id));
-			const current = new Map(
-				(ids.length
-					? await store.findMany<AvailabilityRow>('availability_entries', orgId, undefined, { inFilters: { id: ids } })
-					: []
-				).map((row) => [row.id, row])
-			);
+			const saved = await store.findMany<AvailabilityRow>('availability_entries', orgId);
+			const current = new Map(saved.map((row) => [row.id, row]));
 			const stale: number[] = [];
 			const replaced = new Set<string>();
 			const writes: AvailabilityCreate[] = [];
-			entries.forEach(({ replaces, ...entry }, index) => {
+			entries.forEach(({ replaces: reviewedEntries, overlap, alongside = [], ...entry }, index) => {
+				const replaces = overlap === 'replace' ? reviewedEntries : [];
 				const changed = replaces.some((reviewed) => {
 					const row = current.get(reviewed.id);
 					return (
@@ -552,7 +548,26 @@ export function createInMemoryCalendarAvailabilityPersistence(
 							row.end_date < entry.startDate)
 					);
 				});
-				if (changed) {
+				const overlapping = saved.filter(
+					(row) =>
+						row.personnel_id === entry.personnelId && row.start_date <= entry.endDate && row.end_date >= entry.startDate
+				);
+				const sameDates = (
+					row: AvailabilityRow,
+					partner: Pick<AvailabilityCreate, 'statusTypeId' | 'startDate' | 'endDate'>
+				) =>
+					row.status_type_id === partner.statusTypeId &&
+					row.start_date === partner.startDate &&
+					row.end_date === partner.endDate;
+				const duplicate = overlapping.some((row) => sameDates(row, entry));
+				const unreviewed =
+					overlap !== 'keep' &&
+					overlapping.some(
+						(row) =>
+							!replaces.some((reviewed) => reviewed.id === row.id) &&
+							!alongside.some((partner) => sameDates(row, partner))
+					);
+				if (changed || duplicate || unreviewed) {
 					stale.push(index);
 					return;
 				}

@@ -7,8 +7,8 @@ import {
 import { requirePersonnelCalendarRoster } from './calendarScope.server';
 import type { AvailabilityImportInput, AvailabilityImportResult } from './contracts';
 
-const OVERLAP_CHANGED = 'This row now overlaps the calendar. Import the file again to choose what happens.';
-const REPLACED_CHANGED = 'An entry this row replaces changed since you reviewed it. Import the file again.';
+const IMPORT_STALE =
+	'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.';
 
 export async function importAvailabilityEntries(
 	ctx: CalendarAvailabilityPorts,
@@ -31,31 +31,11 @@ export async function importAvailabilityEntries(
 		if (decision.allowed) allowed.add(id);
 	}
 
-	const dates = entries.flatMap((entry) => [entry.startDate, entry.endDate]).sort();
-	const saved = allowed.size
-		? await ctx.calendarAvailability.listOverlapping({
-				rangeStart: dates[0],
-				rangeEnd: dates.at(-1)!,
-				personnelIds: [...allowed]
-			})
-		: [];
-
 	const errors: AvailabilityImportResult['errors'] = [];
 	const accepted: { index: number; entry: AvailabilityImportInput['entries'][number] }[] = [];
 	entries.forEach((entry, index) => {
 		const refuse = (message: string) => errors.push({ index, message });
 		if (!allowed.has(entry.personnelId)) return refuse('This person is not on a roster you can change.');
-		const overlapping = saved.filter(
-			(other) =>
-				other.personnelId === entry.personnelId && other.startDate <= entry.endDate && other.endDate >= entry.startDate
-		);
-		if (overlapping.some((other) => sameDates(other, entry))) return refuse('Already on the calendar.');
-		const unreviewed = overlapping.filter(
-			(other) =>
-				!entry.alongside?.some((partner) => sameDates(partner, other)) &&
-				!(entry.overlap === 'replace' && entry.replaces.some((replaced) => replaced.id === other.id))
-		);
-		if (entry.overlap !== 'keep' && unreviewed.length) return refuse(OVERLAP_CHANGED);
 		accepted.push({ index, entry });
 	});
 
@@ -67,10 +47,12 @@ export async function importAvailabilityEntries(
 			startDate: entry.startDate,
 			endDate: entry.endDate,
 			note: entry.note,
+			overlap: entry.overlap,
+			alongside: entry.alongside,
 			replaces: entry.overlap === 'replace' ? entry.replaces : []
 		}))
 	);
-	for (const position of stale) errors.push({ index: accepted[position].index, message: REPLACED_CHANGED });
+	for (const position of stale) errors.push({ index: accepted[position].index, message: IMPORT_STALE });
 	errors.sort((a, b) => a.index - b.index);
 	if (inserted || deleted)
 		await ctx.audit.log({
@@ -79,11 +61,4 @@ export async function importAvailabilityEntries(
 			details: { added: inserted, removed: deleted }
 		});
 	return { added: inserted, removed: deleted, errors };
-}
-
-function sameDates(
-	a: { statusTypeId: string; startDate: string; endDate: string },
-	b: { statusTypeId: string; startDate: string; endDate: string }
-) {
-	return a.statusTypeId === b.statusTypeId && a.startDate === b.startDate && a.endDate === b.endDate;
 }

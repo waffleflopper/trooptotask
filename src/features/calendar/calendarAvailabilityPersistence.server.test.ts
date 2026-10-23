@@ -108,12 +108,21 @@ describe('Calendar ordinary availability persistence', () => {
 			statusTypeId: 'status-a',
 			startDate: '2026-11-03',
 			endDate: '2026-11-09',
+			overlap: 'replace' as const,
+			alongside: [{ statusTypeId: 'status-c', startDate: '2026-11-04', endDate: '2026-11-06' }],
 			replaces: [
 				{ id: 'entry-a', statusTypeId: 'status-a', startDate: '2026-11-01', endDate: '2026-11-04', note: 'Approved' },
 				{ id: 'entry-b', statusTypeId: 'status-b', startDate: '2026-11-08', endDate: '2026-11-12', note: null }
 			]
 		};
-		const free = { ...entry, startDate: '2026-12-01', endDate: '2026-12-01', replaces: [] };
+		const free = {
+			...entry,
+			startDate: '2026-12-01',
+			endDate: '2026-12-01',
+			overlap: 'none' as const,
+			alongside: undefined,
+			replaces: []
+		};
 
 		expect(await port.insertReplacing([entry, free])).toEqual({ inserted: 1, deleted: 2, stale: [1] });
 		expect(calls).toEqual([
@@ -126,6 +135,8 @@ describe('Calendar ordinary availability persistence', () => {
 						start_date: '2026-11-03',
 						end_date: '2026-11-09',
 						note: null,
+						overlap: 'replace',
+						alongside: [{ status_type_id: 'status-c', start_date: '2026-11-04', end_date: '2026-11-06' }],
 						replaces: [
 							{
 								id: 'entry-a',
@@ -149,6 +160,8 @@ describe('Calendar ordinary availability persistence', () => {
 						start_date: '2026-12-01',
 						end_date: '2026-12-01',
 						note: null,
+						overlap: 'none',
+						alongside: [],
 						replaces: []
 					}
 				]

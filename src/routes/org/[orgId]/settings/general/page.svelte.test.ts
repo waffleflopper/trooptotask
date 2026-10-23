@@ -340,6 +340,7 @@ describe('General settings web address', () => {
 		await fireEvent.click(reset);
 
 		expect(sent()).toHaveLength(1);
+		await vi.runAllTimersAsync();
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(save.getAttribute('aria-disabled')).toBe('true');
 		expect(reset.getAttribute('aria-disabled')).toBe('true');

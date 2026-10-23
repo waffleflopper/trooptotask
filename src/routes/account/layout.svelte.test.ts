@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
@@ -62,7 +62,7 @@ describe('account layout toolbar', () => {
 		expect(toolbar.queryByRole('button', { name: 'Back' })).toBeNull();
 		const menu = await openToolbarMore('Account controls');
 		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Back' }));
-		expect(back).toHaveBeenCalledOnce();
+		await waitFor(() => expect(back).toHaveBeenCalledOnce());
 	});
 
 	it('keeps the section tabs and the page content', () => {

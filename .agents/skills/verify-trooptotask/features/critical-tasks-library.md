@@ -7,10 +7,11 @@ without gaining library write access, and one Organization's tasks must not appe
 
 - `task-library`: create and edit a task's code, title, category, MOS applicability, expiration override and order; save
   and read it again after reload.
-- `task-import`: review valid and invalid CSV rows before a create-only or upsert import, then read back the accepted
-  rows and visible errors.
-- `import-lost-reply`: a committed create-only or upsert write whose provider reply is lost reports its actual saved
-  effects and preserves task identity.
+- `task-import`: import a multi-tab workbook on its own page: map columns, review New, Update, Restore and Unchanged
+  rows matched by task code, fix a value inline, skip a row, commit, download the rows not imported and read the import
+  back as Unchanged.
+- `import-lost-reply`: a committed import write whose provider reply is lost reports its actual saved effects and
+  preserves task identity.
 - `task-lifecycle`: archive and restore a task without deleting an existing completion reference; active and archived
   filters show the correct records.
 - `task-settings`: an Organization-scoped Critical Tasks configurator saves the default expiration and warning window
@@ -25,16 +26,17 @@ without gaining library write access, and one Organization's tasks must not appe
   scoped Personnel after their streamed workspaces load, and Reports shows them from its own page load; a configure
   member also receives archived definitions on every page inside the Critical Tasks workspace, and those pages show only
   active tasks.
-- `import-switch`: an A import whose batch response arrives after switching to B adds no A task to B's library and shows
-  no A feedback in B.
-- `screen-states`: the task list buttons, task form and Defaults errors, the import dialog, and loading, empty, denied,
+- `import-switch`: the Organization switcher waits while an import saves, and the saved rows land only in the
+  Organization that started it.
+- `screen-states`: the task list buttons, task form and Defaults errors, the import page, and loading, empty, denied,
   foreign, narrow, dark and URL states (step 9).
 
 ## How to get to it (user POV)
 
 Sign in to Organization A and choose `ICTLs` in the Organization navigation (its tooltip and breadcrumb read
 `Critical Tasks`), then `Task Library`. Use `New Task`, the selected task's `Edit`, `Archive Task` or `Restore Task`, or
-`Import CSV` (on the toolbar row, or in `More ICT task library controls` when the row is narrow).
+the `Import` link (on the toolbar row, or in `More ICT task library controls` when the row is narrow). Import opens its
+own page at `critical-tasks/library/import`, which steps through File, Columns, Review and Done.
 `Critical Tasks Defaults` is below the library and uses the same configure permission.
 
 ## Helper controls
@@ -134,38 +136,55 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
    attempt reloads the workspace once. Reload and require the same active task and completion. Archive only a uniquely
    created task after its proof; the UI has no delete, so restart this owned disposable worker to remove created rows
    before another journey needs a fresh seed.
-5. **Import:** From `Import CSV`, upload a small synthetic CSV with one unique valid task and one invalid row. Capture
-   the preview, selected valid row and invalid-row explanation before confirming. Expect the accepted task and the
-   preview's `1 errors` count with its row error (the result card excludes the unchecked invalid row, so it reads
-   `0 failed`); reload and use `$V rows ict_tasks orgA task_code CODE` for the accepted row and zero rows for the
-   rejected code. Repeat with `upsert` on the uniquely created code to prove the same ID updates. Use an owned worker
-   restart for cleanup of imported rows. For mixed valid/invalid previews, clear selection and use Select all import
-   rows. Require only valid rows checked, invalid checkboxes disabled, and their validation reasons still readable.
-   Compare exact provider rows before/after preview and cancel without saving when checking preview behavior alone.
+5. **Import:** Build a synthetic workbook with exceljs. Give tabs `Clinical` and `General` two banner rows above the
+   header `Task #, Task Title, Category, MOS, Months valid`. `Clinical` holds `VERIFY-ICT-NEW1`
+   (`Verification New Task`, Airway, 68W, 12), `verify-ict-alpha` (`Verification Alpha Critical Task (rev)`, Clinical,
+   68W, 24) and `VERIFY-ICT-BADMOS` (`Verification MOS Fix Task`, Clinical, `68W, Combat medic`, 6). `General` holds
+   `VERIFY-ICT-ARCHIVED` and `VERIFY-ICT-ALL` with their seeded titles, plus `VERIFY-ICT-NOTITLE` with no title. As
+   `ictConfigurator`, follow `Import` and drop the file. Columns reads `2 sheets read · 6 rows` with row 3 as the
+   header. `Months valid` starts at `Don't import`; set `Import Months valid as` to `Expires after (months)` and require
+   `5 of 5 columns used` and `Review 6 rows`.
 
-   **Committed import with a lost provider reply.** As `ictConfigurator`, upload a create-only CSV with header
-   `task_code,title` and two unique valid rows. Read both codes with `$V rows ict_tasks orgA task_code CODE` and require
-   zero rows before confirmation. Capture the two selected valid rows. Arm `$V fault arm ict-tasks-insert-lost-ack`,
-   then use the ordinary import button. The control forwards one exact owned-provider `POST /rest/v1/ict_tasks`,
-   consumes its successful reply and throws a synthetic transport error. Save `$V fault state` with the UI result, exact
-   counts and row errors. Expect `2 created`, `0 updated`, `0 restored`, `0 failed`, and both tasks visible after Done
-   without a reload. Require one provider row per code and a receipt with `providerStatus: 201`. If the UI reports
-   conflicts or zero created despite saved rows, record a failing baseline. Reload for a separate visible persistence
-   read. Restore `$V fault restore` before any other mutation.
+   Review shows `All · 6`, `Needs a fix · 2`, `New · 1`, `Update · 2` and `Unchanged · 1`. Alpha reads Update with the
+   new title over the struck-through old one and `24` over `12`. ARCHIVED reads Update with `Status: Archived → Active`
+   under its row (on a 390 card, as a `Status` line). BADMOS shows an editable MOS cell with
+   `COMBAT MEDIC is not an MOS code. Use 2 to 6 letters or digits.` and NOTITLE an empty Title cell with
+   `A new task needs a title.` `VERIFY-ICT-ALL` sits behind `1 row already matches. Nothing to save.` and `Show`.
+   `Import 3 changes` stays disabled while rows wait for a fix. Type `68W` into the BADMOS MOS cell and press Enter (it
+   becomes New), then skip NOTITLE: the footer reads `4 changes ready` and `2 added · 2 updated`. Import. Done reads
+   `4 changes saved.` with Added 2, Updated 2, Unchanged 1 and Skipped 1, and `1 row not imported` lists NOTITLE with
+   `You skipped this row.` Arm `$V export arm PAGE`, choose `Download these rows (.xlsx)` and save it with
+   `$V export save`: its `General` sheet keeps the original header plus `Reason`, and its one row reads
+   `You skipped this row.` `$V rows ict_tasks orgA` shows NEW1 (Airway, 68W, 12), BADMOS (`["68W"]`, 6), Alpha's new
+   title with 24 months on the same ID, and ARCHIVED with `archived_at` null on the same ID.
 
-   For the adjacent upsert case, reuse one uniquely imported code and record its ID and original title. Upload the same
-   code with a changed title, choose upsert, and arm `$V fault arm ict-tasks-update-lost-ack` immediately before
-   confirming. This loses one successful exact `PATCH /rest/v1/ict_tasks` reply. Expect `1 not confirmed`, `0 failed`
-   and no saved-success claim. Record actual provider status, UI error and reload behavior separately. Restore the fault
-   and reload to inspect the actual saved title and same provider ID before any new explicit retry. A disarmed ordinary
-   retry must update that same ID once. These controls match this worker's table and method, not a particular row or
-   Organization; drive one mutation at a time and disarm before archives or unrelated work. Archive uniquely created
-   tasks through the UI after proof, then dispose this owned worker to remove them.
+   Choose `Import another file` and drop the same workbook with the same mapping. Review reads `Unchanged · 4` behind
+   `4 rows already match. Nothing to save.`, BADMOS and NOTITLE still need a fix, and `Import 0 changes` stays disabled.
+   Restart the owned worker to clean up imported rows.
 
-   **Lost browser batch reply.** Use `$V network arm-drop PAGE ict-tasks/batch [ORDINAL]` before confirming selected
-   rows. This dispatches the real exact same-origin A POST, records its status, then rejects the browser reply once.
-   Expect affected rows not confirmed, no automatic resend, and explicit reload guidance. Read saved codes separately,
-   restore the hook and reload. Earlier confirmed chunks remain counted; later unsent chunks are not imported.
+   **Committed import with a lost provider reply.** As `ictConfigurator`, import a CSV with header `Task code,Title` and
+   two unique codes. Read both codes with `$V rows ict_tasks orgA task_code CODE` and require zero rows before
+   confirmation. Arm `$V fault arm ict-tasks-insert-lost-ack` on Review, then choose `Import 2 changes`. The control
+   forwards one exact owned-provider `POST /rest/v1/ict_tasks`, consumes its successful reply and throws a synthetic
+   transport error. Expect Done to read `2 changes saved.` with Added 2, one provider row per code, and
+   `providerStatus: 201` in `$V fault state`. Restore `$V fault restore` before any other mutation.
+
+   For the adjacent update, record one imported code's ID, import it again with a changed title and arm
+   `$V fault arm ict-tasks-update-lost-ack` on Review. This loses one successful exact `PATCH /rest/v1/ict_tasks` reply,
+   and the server returns an unconfirmed result for that row. Done reads `0 changes saved.` with `Not confirmed 1`,
+   `Check the task library before importing these again.` and `The last batch was not confirmed`; the row is listed as
+   the server's check-before-retrying reason. The provider row has the new title on the same ID. Restore the fault
+   before other work. These controls match this worker's table and method, not a particular row or Organization; drive
+   one mutation at a time.
+
+   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed.
+   Only confirmed records merge into the task library. Done counts the unconfirmed rows separately, leaves confirmed
+   rows out of the not-imported workbook, and marks later chunks Not attempted without sending them.
+
+   **Lost browser batch reply.** Use `$V network arm-drop PAGE ict-tasks/batch [ORDINAL]` before Import. This dispatches
+   the real exact same-origin A POST, records its status, then rejects the browser reply once. Done counts the affected
+   rows as Not confirmed with the same guidance and no automatic resend. Read saved codes separately and restore the
+   hook. Earlier confirmed chunks remain counted; later unsent chunks are not imported.
 
 6. **Settings:** As `ictConfigurator` in the task library, read `Critical Tasks Defaults`, save distinct valid
    expiration/warning values and reload to see them persist. Restore the original values through the same page and read
@@ -227,20 +246,23 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
        stay, and `$V rows organizations orgA` is unchanged. Restore the exact membership afterward
 
    - ID: L6
-     - Control or state: Task import workspace
-     - How to reach it: `Import CSV`, upload a CSV with one valid and one invalid row, then `Cancel`; open it again and
-       finish an import of only the valid row with `Done`, then archive the imported task
-     - Expected: The import is an inline workspace that replaces the library view, not a dialog. On open, focus moves to
-       its `Import ICT Tasks` heading. Choosing a file moves focus to the `Review Import` heading. `Cancel` and `Done`
-       return focus to `Import CSV`. Escape has no inline meaning. The invalid row's control is `aria-invalid="true"`
-       with an `aria-describedby` that resolves to its reason; only valid rows can be selected
+     - Control or state: Task import page
+     - How to reach it: `Import` on the library toolbar (or in More at 390), then the step 5 workbook through Review;
+       Tab from `Find a task`
+     - Expected: The link opens `critical-tasks/library/import` with `Import tasks` and the File, Columns, Review and
+       Done steps. Tab reaches each editable fix cell and then its row's Skip button in row order; each fix cell is
+       `aria-invalid="true"` with an `aria-describedby` that resolves to its message, and the app's 3px ring shows on
+       `:focus-visible`
 
    - ID: L7
      - Control or state: Loading
      - How to reach it: `server-source arm ict_tasks hold 1 120000` on Home, then choose `ICTLs` and `Task Library`
      - Expected: A labelled loading region (`role="status"`, `aria-live="polite"`, no `aria-busy` on the live region)
-       shows while the workspace is pending, not a blank page. `New Task` and `Import CSV` stay disabled with
-       `Critical Tasks are still loading.` until release. Release with `server-source restore`
+       shows while the workspace is pending, not a blank page. `New Task` and `Import` stay disabled with
+       `Critical Tasks are still loading.` until release. A full load of `critical-tasks/library/import` under the same
+       hold keeps its title and steps and shows the `Loading import` skeleton; after `server-source restore` it reaches
+       File. Under `server-source arm ict_tasks fail-hard 1` the import page shows `Unable to load Critical Tasks` with
+       `Retry Critical Tasks`, which reaches File after restore. Release with `server-source restore`
 
    - ID: L8
      - Control or state: Empty search and archived filter
@@ -252,7 +274,9 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
      - How to reach it: `ictViewer` and `rosterManager` open `/org/<orgA>/critical-tasks/library` directly; `ictForeign`
        opens the same A address
      - Expected: The viewer and Training-only member get a settled denial (403 page or `Access Restricted`), with no
-       library controls. The foreign member gets a 404 `Page not found` with no A data
+       library controls. The foreign member gets a 404 `Page not found` with no A data. `ictOperator` (completion
+       operate, no configure) gets the 403 page at `critical-tasks/library/import`, and a valid signed-in
+       `POST api/ict-tasks/batch` returns 403 with no new row
 
    - ID: L10
      - Control or state: Narrow and dark
@@ -266,16 +290,12 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
      - Expected: The address and storage carry no selection, search, MOS or status filter. After reload the library
        shows the Active list with an empty search and no MOS filter, and the first listed task is selected
 
-10. **Import across a switch.** As `$V actor ictSwitch critical-tasks/library`, arm `$V feedback arm $PAGE`, open
-    `Import CSV` and upload a CSV with header `task_code,title` and one unique valid task code. Arm
-    `$V network arm-hold $PAGE ict-tasks/batch`, import the checked row and require a held real `200` plus one A row
-    from `$V rows ict_tasks orgA task_code CODE`. Switch to B through the menu while it is held. B's Task Library is
-    denied to this view-only actor, so follow `ICTLs` by client navigation (not a reload) and release. B's Critical
-    Tasks list must show only `VERIFY-ICT-FOREIGN` and never the imported A code or title, with no A feedback; reload B
-    and confirm. Back in A after reload, the imported task appears; archive it through the visible control. Repeat with
-    `arm-hold-fail` and a second unique code: after release B shows no error and no new row exists in A or B. Imports
-    over 500 rows send later chunks only after the first returns in the same Organization; the store's deferred-response
-    tests own that ordering.
+10. **Import across a switch.** As `$V actor ictSwitch critical-tasks/library`, follow `Import`, drop a CSV with header
+    `Task code,Title` and one unique code, and open Review. Arm `$V network arm-hold $PAGE ict-tasks/batch` and choose
+    `Import 1 change`: the footer reads `Saving 0 of 1 change`. Choose Organization B in the switcher: the page stays on
+    A's import and shows `Your import is still saving. You can leave when it finishes.` Release the hold. Done reads
+    `1 change saved.`, `$V rows ict_tasks orgA task_code CODE` returns one row and orgB none. Imports over 500 rows send
+    later chunks only after the first returns in the same Organization; the import-flow commit tests own that ordering.
 
 For direct denial proof, use the signed-in page's `evaluate_script` only for authenticated `fetch` with a valid unique
 task payload, then compare exact provider rows using `$V rows`.

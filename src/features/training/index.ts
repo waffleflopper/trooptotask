@@ -52,3 +52,4 @@ export function loadRecordClassDialog() {
 export function loadTrainingRecordModal() {
 	return import('./components/TrainingRecordModal.svelte');
 }
+export { createTrainingImportLane, type TrainingImportColumns } from './import/trainingImportLane';

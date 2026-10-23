@@ -30,330 +30,60 @@ describe('ictTasksStore', () => {
 		ictTasksStore.load([structuredClone(existingTask), structuredClone(archivedTask)], 'org-1');
 	});
 
-	it('posts checked rows to the ICT batch import endpoint and merges inserted and updated tasks', async () => {
+	it('merges the tasks a chunk saved, including a restore, and leaves a failed row out', async () => {
+		const restored = { ...archivedTask, archivedAt: null, title: 'Restored task' };
+		const added = { ...existingTask, id: 'task-new', taskCode: '181-105-1002', title: 'New task' };
 		vi.stubGlobal(
 			'fetch',
 			vi.fn().mockResolvedValue({
 				ok: true,
 				status: 200,
 				json: async () => ({
-					inserted: [
-						{
-							id: 'task-new',
-							taskCode: '181-105-1002',
-							title: 'New task',
-							description: null,
-							mos: ['18D'],
-							expirationMonths: 24,
-							sortOrder: 8,
-							archivedAt: null,
-							createdAt: '2026-04-15T00:00:00Z'
-						}
-					],
-					updated: [
-						{
-							...existingTask,
-							title: 'Updated task',
-							mos: ['11B'],
-							expirationMonths: 18
-						}
-					],
-					restored: [
-						{
-							...archivedTask,
-							title: 'Restored task',
-							mos: ['18D'],
-							expirationMonths: 24,
-							sortOrder: 9,
-							archivedAt: null
-						}
-					],
-					errors: [{ rowNumber: 7, taskCode: 'bad', title: 'Bad row', message: 'Task code is required' }]
+					results: [
+						{ kind: 'added', record: added },
+						{ kind: 'updated', record: restored },
+						{ kind: 'failed', message: 'A new task needs a title.' }
+					]
 				})
 			})
 		);
 
-		const result = await ictTasksStore.importBatch({
-			mode: 'upsert',
-			records: [
-				{
-					rowNumber: 2,
-					values: {
-						taskCode: '181-105-1001',
-						title: 'Updated task',
-						mos: '11B',
-						expirationMonths: '18'
-					}
-				},
-				{
-					rowNumber: 3,
-					values: {
-						taskCode: '181-105-1002',
-						title: 'New task',
-						mos: '18D',
-						expirationMonths: '24',
-						sortOrder: '8'
-					}
-				}
-			]
-		});
+		const reply = await ictTasksStore.importChunk([
+			{ taskCode: '181-105-1002', title: 'New task' },
+			{ taskCode: '181-105-1003', title: 'Restored task' },
+			{ taskCode: '181-105-1004' }
+		]);
 
-		expect(globalThis.fetch).toHaveBeenCalledWith('/org/org-1/api/ict-tasks/batch', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				mode: 'upsert',
-				records: [
-					{
-						rowNumber: 2,
-						values: {
-							taskCode: '181-105-1001',
-							title: 'Updated task',
-							mos: '11B',
-							expirationMonths: '18'
-						}
-					},
-					{
-						rowNumber: 3,
-						values: {
-							taskCode: '181-105-1002',
-							title: 'New task',
-							mos: '18D',
-							expirationMonths: '24',
-							sortOrder: '8'
-						}
-					}
-				]
-			})
-		});
-
-		expect(result).toEqual({
-			inserted: [
-				expect.objectContaining({
-					id: 'task-new',
-					taskCode: '181-105-1002'
-				})
-			],
-			updated: [
-				expect.objectContaining({
-					id: 'task-existing',
-					title: 'Updated task'
-				})
-			],
-			restored: [
-				expect.objectContaining({
-					id: 'task-archived',
-					taskCode: '181-105-1003',
-					title: 'Restored task'
-				})
-			],
-			errors: [{ rowNumber: 7, taskCode: 'bad', title: 'Bad row', message: 'Task code is required' }],
-			unconfirmed: [],
-			notAttempted: []
-		});
-		expect(ictTasksStore.getById('task-existing')).toEqual(
-			expect.objectContaining({
-				title: 'Updated task',
-				mos: ['11B'],
-				expirationMonths: 18
-			})
-		);
-		expect(ictTasksStore.getById('task-new')).toEqual(
-			expect.objectContaining({
-				taskCode: '181-105-1002',
-				title: 'New task'
-			})
-		);
-		expect(ictTasksStore.getById('task-archived')).toEqual(
-			expect.objectContaining({
-				taskCode: '181-105-1003',
-				title: 'Restored task'
-			})
-		);
+		expect(reply.kind).toBe('saved');
+		expect(
+			ictTasksStore.items
+				.map((task) => [task.taskCode, task.title, task.archivedAt])
+				.sort((a, b) => a[0]!.localeCompare(b[0]!))
+		).toEqual([
+			['181-105-1001', 'Existing task', null],
+			['181-105-1002', 'New task', null],
+			['181-105-1003', 'Restored task', null]
+		]);
 	});
 
-	it('chunks large imports into 500-row batch requests', async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			status: 200,
-			json: async () => ({
-				inserted: [],
-				updated: [],
-				restored: [],
-				errors: []
-			})
-		});
-		vi.stubGlobal('fetch', fetchMock);
-
-		await ictTasksStore.importBatch({
-			mode: 'create-only',
-			records: Array.from({ length: 501 }, (_, index) => ({
-				rowNumber: index + 2,
-				values: {
-					taskCode: `181-105-${String(index).padStart(4, '0')}`,
-					title: `Task ${index}`
-				}
-			}))
-		});
-
-		expect(fetchMock).toHaveBeenCalledTimes(2);
-		expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).records).toHaveLength(500);
-		expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).records).toHaveLength(1);
-	});
-
-	const switchedImport = {
-		mode: 'create-only' as const,
-		records: Array.from({ length: 501 }, (_, index) => ({
-			rowNumber: index + 2,
-			values: { taskCode: `181-105-${String(index).padStart(4, '0')}`, title: `Task ${index}` }
-		}))
-	};
-	const foreignTask: IctTask = { ...existingTask, id: 'task-foreign', taskCode: 'B-1', title: 'Foreign task' };
-
-	for (const outcome of ['success', 'failure', 'rejection'] as const) {
-		it(`stops an import whose first chunk finishes with ${outcome} after switching Organizations`, async () => {
-			let release!: (response: unknown) => void;
-			const fetchMock = vi.fn((_url: string, _init?: RequestInit) => new Promise((resolve) => (release = resolve)));
-			vi.stubGlobal('fetch', fetchMock);
-
-			const pending = ictTasksStore.importBatch(switchedImport);
-			ictTasksStore.load([structuredClone(foreignTask)], 'org-2');
-			release(
-				outcome === 'success'
-					? {
-							ok: true,
-							status: 200,
-							json: async () => ({
-								inserted: [{ ...existingTask, id: 'task-imported-a', taskCode: '181-105-0000' }],
-								updated: [],
-								restored: [],
-								errors: []
-							})
-						}
-					: outcome === 'failure'
-						? { ok: false, status: 503, json: async () => ({ message: 'Synthetic request failure' }) }
-						: Promise.reject(new TypeError('Failed to fetch'))
-			);
-
-			expect(await settles(pending)).toBe(false);
-			expect(fetchMock).toHaveBeenCalledTimes(1);
-			expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/ict-tasks/batch');
-			expect(ictTasksStore.items).toEqual([foreignTask]);
-		});
-	}
-});
-
-const rowNumbers = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => from + index);
-
-describe('#1643 task import keeps confirmed chunks after a later chunk stops', () => {
-	beforeEach(() => {
-		vi.restoreAllMocks();
-		ictTasksStore.load([structuredClone(existingTask)], 'org-1');
-	});
-
-	const largeImport = {
-		mode: 'create-only' as const,
-		records: Array.from({ length: 1001 }, (_, index) => ({
-			rowNumber: index + 2,
-			values: { taskCode: `181-105-${String(index).padStart(4, '0')}`, title: `Task ${index}` }
-		}))
-	};
-	const firstChunkTask: IctTask = { ...existingTask, id: 'task-chunk-1', taskCode: '181-105-0000', title: 'Task 0' };
-
-	it.each([
-		['a lost browser reply', () => Promise.reject(new TypeError('Failed to fetch')), 'unknown'],
-		[
-			'an unavailable server',
-			() => Promise.resolve({ ok: false, status: 503, json: async () => ({ message: 'Service unavailable' }) }),
-			'unknown'
-		],
-		[
-			'a refused request',
-			() => Promise.resolve({ ok: false, status: 403, json: async () => ({ message: 'Import permission removed' }) }),
-			'refused'
-		]
-	] as const)(
-		'reports chunk one, the stopped chunk and the unattempted rows after %s',
-		async (_label, secondChunk, kind) => {
-			const fetchMock = vi
-				.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					status: 200,
-					json: async () => ({ inserted: [firstChunkTask], updated: [], restored: [], errors: [] })
-				})
-				.mockImplementationOnce(secondChunk);
-			vi.stubGlobal('fetch', fetchMock);
-
-			const result = await ictTasksStore.importBatch(largeImport);
-
-			expect(fetchMock).toHaveBeenCalledTimes(2);
-			expect(ictTasksStore.getById('task-chunk-1')).toMatchObject({ title: 'Task 0' });
-			expect({
-				inserted: result.inserted.map((task) => task.id),
-				failed: result.errors.map((error) => error.rowNumber),
-				unconfirmed: result.unconfirmed.map((entry) => entry.rowNumber),
-				notAttempted: result.notAttempted.map((entry) => entry.rowNumber)
-			}).toEqual({
-				inserted: ['task-chunk-1'],
-				failed: kind === 'refused' ? rowNumbers(502, 1001) : [],
-				unconfirmed: kind === 'unknown' ? rowNumbers(502, 1001) : [],
-				notAttempted: [1002]
-			});
-		}
-	);
-
-	it('treats a success body without result arrays as unconfirmed rather than counting it as saved', async () => {
+	it('never settles or adopts a chunk reply after the Organization changes', async () => {
+		const foreignTask: IctTask = { ...existingTask, id: 'task-foreign', taskCode: 'B-1', title: 'Foreign task' };
+		let release!: (response: unknown) => void;
 		vi.stubGlobal(
 			'fetch',
-			vi
-				.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					status: 200,
-					json: async () => ({ inserted: [firstChunkTask], updated: [], restored: [], errors: [] })
-				})
-				.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ inserted: 'none' }) })
+			vi.fn(() => new Promise((resolve) => (release = resolve)))
 		);
 
-		const result = await ictTasksStore.importBatch(largeImport);
+		const pending = ictTasksStore.importChunk([{ taskCode: 'A-1', title: 'Task' }]);
+		ictTasksStore.load([structuredClone(foreignTask)], 'org-2');
+		release({
+			ok: true,
+			status: 200,
+			json: async () => ({ results: [{ kind: 'added', record: { ...existingTask, id: 'task-a', taskCode: 'A-1' } }] })
+		});
 
-		expect({
-			inserted: result.inserted.map((task) => task.id),
-			unconfirmed: result.unconfirmed.map((entry) => entry.rowNumber),
-			notAttempted: result.notAttempted.map((entry) => entry.rowNumber)
-		}).toEqual({ inserted: ['task-chunk-1'], unconfirmed: rowNumbers(502, 1001), notAttempted: [1002] });
-		expect(result.unconfirmed[0]).toMatchObject({ taskCode: '181-105-0500', title: 'Task 500' });
-	});
-
-	it.each([
-		['a null inserted row', { inserted: [null], updated: [], restored: [], errors: [], unconfirmed: [] }],
-		['an inserted row without its title', { inserted: [{ id: 'task-bad' }], updated: [], restored: [], errors: [] }],
-		[
-			'a row issue without its message',
-			{ inserted: [], updated: [], restored: [], errors: [{ rowNumber: 502, taskCode: 'A', title: 'B' }] }
-		]
-	] as const)('treats a later chunk with %s as unconfirmed and keeps the earlier chunk', async (_label, body) => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				status: 200,
-				json: async () => ({ inserted: [firstChunkTask], updated: [], restored: [], errors: [] })
-			})
-			.mockResolvedValueOnce({ ok: true, status: 200, json: async () => body });
-		vi.stubGlobal('fetch', fetchMock);
-
-		const result = await ictTasksStore.importBatch(largeImport);
-
-		expect(fetchMock).toHaveBeenCalledTimes(2);
-		expect(ictTasksStore.items.map((task) => task.id).sort()).toEqual(['task-chunk-1', 'task-existing']);
-		expect({
-			inserted: result.inserted.map((task) => task.id),
-			failed: result.errors.length,
-			unconfirmed: result.unconfirmed.map((entry) => entry.rowNumber),
-			notAttempted: result.notAttempted.map((entry) => entry.rowNumber)
-		}).toEqual({ inserted: ['task-chunk-1'], failed: 0, unconfirmed: rowNumbers(502, 1001), notAttempted: [1002] });
+		expect(await settles(pending)).toBe(false);
+		expect(ictTasksStore.items).toEqual([foreignTask]);
 	});
 });
 

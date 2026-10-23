@@ -63,7 +63,6 @@ import {
 	createSupabasePersonnelArtifactWritePort,
 	createSupabasePersonnelAwardAcknowledgementPort,
 	createSupabasePersonnelCalendarRosterPort,
-	createSupabasePersonnelCalendarScopeIds,
 	createSupabasePersonnelCriticalTasksRosterPort,
 	createSupabasePersonnelOrganizationExportPort,
 	createSupabasePersonnelRatingSchemeRosterPort,
@@ -541,19 +540,16 @@ export function createRequestNotificationSelfContext(request: AdmittedOrganizati
 }
 
 export function createRequestAvailabilityContext(request: AdmittedOrganizationRequest) {
+	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
 	return {
 		auth: request.auth,
 		audit: request.audit,
 		calendarAvailability: createSupabaseCalendarAvailabilityPersistence(request.supabase, {
 			orgId: request.auth.orgId,
 			scopeSet: request.auth.scopeSet,
-			loadScopedPersonnelIds: createSupabasePersonnelCalendarScopeIds(
-				request.supabase,
-				request.auth.orgId,
-				request.auth.scopeSet
-			)
+			loadScopedPersonnelIds: () => personnelCalendarRoster.listAssigneeIds(request.auth)
 		}),
-		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
+		personnelCalendarRoster
 	};
 }
 

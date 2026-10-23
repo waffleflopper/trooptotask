@@ -227,7 +227,6 @@ describe('TrainingPageContext', () => {
 
 			expect(ctx.canViewTraining).toBe(true);
 			expect(ctx.canManageConfig).toBe(false);
-			expect(ctx.canBulkImport).toBe(true);
 		});
 	});
 

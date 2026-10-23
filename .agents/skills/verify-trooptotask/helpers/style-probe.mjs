@@ -35,7 +35,6 @@ export const styleProperties = [
 export const defaultStyleSelectors = [
 	'main',
 	'[data-slot^="type-management-workspace"]',
-	'[data-slot^="bulk-import-"]',
 	'[data-slot^="readiness-band"]',
 	'[data-slot="chart"]',
 	'[data-slot="chart"] svg *',

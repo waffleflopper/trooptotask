@@ -177,9 +177,6 @@
 				"src/lib/domain/currencyStatus.ts",
 				"src/lib/domain/readinessItem.test.ts",
 				"src/lib/domain/readinessItem.ts",
-				"src/lib/utils/columnMapping.ts",
-				"src/lib/utils/csvParser.test.ts",
-				"src/lib/utils/csvParser.ts",
 				"src/lib/utils/dates.test.ts",
 				"src/lib/utils/dates.ts",
 				"src/lib/utils/dayNumber.ts",
@@ -203,6 +200,7 @@
 				"src/lib/utils/logSanitize.test.ts",
 				"src/lib/utils/downloadBlob.ts",
 				"src/lib/utils/downloadBlob.test.ts",
+				"src/lib/utils/importChunkRequest.ts",
 				"src/lib/utils/viewerTimeZone.ts"
 			],
 			"packet": "08-M16"
@@ -446,6 +444,7 @@
 			"src/features/calendar/components/AssignmentPlannerPage.svelte",
 			"src/features/calendar/components/BulkStatusPage.svelte",
 			"src/features/calendar/components/da6/Da6Page.svelte",
+			"src/features/calendar/components/StatusImportPage.svelte",
 			"src/features/calendar/components/reports/CalendarReports.svelte",
 			"src/features/calendar/components/CalendarSettingsPage.svelte",
 			"src/features/calendar/calendarWorkspaceHydration.svelte.ts",

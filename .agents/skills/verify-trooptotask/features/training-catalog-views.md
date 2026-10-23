@@ -14,8 +14,8 @@ definitions.
 - `workspace-reuse`: moving between the matrix, Manage Types and Manage Views keeps the loaded workspace and sends no
   page-data request.
 - `access`: Training view/operate and Group-scoped actors can read their allowed matrix but cannot change the
-  Organization catalog, even when a Group-scoped actor has the Training configure capability; the latter retains its
-  Bulk Import action for authorized records. A foreign Organization's catalog is private.
+  Organization catalog, even when a Group-scoped actor has the Training configure capability; the latter keeps the
+  Import link for authorized records. A foreign Organization's catalog is private.
 
 ## How to get to it (user POV)
 

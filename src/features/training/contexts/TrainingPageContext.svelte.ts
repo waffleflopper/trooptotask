@@ -36,12 +36,6 @@ export type TrainingRemovalRequest = (
 	resourceUrl: string,
 	isCurrent: () => boolean
 ) => Promise<boolean>;
-type NavigationModule = typeof import('$app/navigation');
-let navigationModule: Promise<NavigationModule> | undefined;
-function loadNavigation() {
-	navigationModule ??= import('$app/navigation');
-	return navigationModule;
-}
 
 export interface TrainingPageData {
 	orgId: string;
@@ -85,13 +79,6 @@ export class TrainingPageContext {
 
 	get canManageConfig(): boolean {
 		return this.trainingConfigureAffordance.visible;
-	}
-
-	get canBulkImport(): boolean {
-		return this.#org.affordanceForFeatureAction(
-			POLICY_ACTION_CATALOG.training.configureRequirements,
-			TRAINING_POLICY_RESOURCE
-		).visible;
 	}
 
 	get canViewTraining(): boolean {
@@ -309,12 +296,6 @@ export class TrainingPageContext {
 			const fallback = exempt ? 'Failed to mark exempt. Try again.' : 'Failed to remove exemption. Try again.';
 			toastStore.error(rejectedRequestMessage(error, fallback));
 		}
-	}
-
-	async handleBulkImportComplete(): Promise<void> {
-		const { invalidate } = await loadNavigation();
-		await invalidate('app:training-data');
-		this.#modals.close('bulk-import');
 	}
 
 	private applyUserPreferences(preferences?: { training?: TrainingPagePreferences }): void {

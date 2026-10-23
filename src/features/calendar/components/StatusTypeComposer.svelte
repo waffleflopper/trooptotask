@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
-	import type { StatusEffectChange, StatusType } from '$features/calendar/contracts';
+	import { NEW_STATUS_TYPE_COLORS, type StatusEffectChange, type StatusType } from '$features/calendar/contracts';
 	import type { RosterEffect } from '$features/calendar/roster/rosterTypes';
 	import { ROSTER_EFFECT_OPTIONS, statusEffectChangeText } from '$features/calendar/utils/rosterEffects';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -36,7 +36,7 @@
 
 	let { status, onClose, onDismiss }: Props = $props();
 
-	const WHITE_TEXT = '#ffffff';
+	const WHITE_TEXT = NEW_STATUS_TYPE_COLORS.textColor;
 	const DARK_TEXT = '#1c1b19';
 	const SWATCHES = [
 		{ color: '#48bb78', name: 'Green' },
@@ -48,7 +48,7 @@
 		{ color: '#319795', name: 'Teal' },
 		{ color: '#4a5568', name: 'Slate' }
 	] as const;
-	const DEFAULT_COLOR = '#4a5568';
+	const DEFAULT_COLOR = NEW_STATUS_TYPE_COLORS.color;
 	const DEFAULT_EFFECT: RosterEffect = 'A';
 	const PREVIEW_FAILURE = "We couldn't check which duty roster numbers change.";
 

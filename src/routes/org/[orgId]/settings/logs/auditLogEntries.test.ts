@@ -35,6 +35,18 @@ describe('auditScope', () => {
 });
 
 describe('auditSentence', () => {
+	it('reports added, updated and failed import rows and retains legacy merge counts', () => {
+		expect(auditSentence('personnel.bulk_merged', { created: 40, updated: 0, errors: 2 })).toBe(
+			'Imported personnel (40 added, 0 updated, 2 failed)'
+		);
+		expect(auditSentence('personnel.bulk_merged', { created: 3, updated: 8, errors: 0 })).toBe(
+			'Imported personnel (3 added, 8 updated, 0 failed)'
+		);
+		expect(auditSentence('personnel.bulk_merged', { updated: 8, skipped: 2 })).toBe(
+			'Imported personnel (8 updated, 2 skipped)'
+		);
+	});
+
 	it('falls back to the event in words for an action it does not know', () => {
 		const sentence = auditSentence('widget.frobbed', null);
 

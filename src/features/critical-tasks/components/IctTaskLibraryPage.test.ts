@@ -10,6 +10,12 @@ import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/pe
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE } from '$features/critical-tasks/contracts';
 import { toastStore } from '$lib/stores/toast.svelte';
+const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: gotoMock
+}));
+
 import {
 	criticalTasksWorkspaceStatus,
 	resetCriticalTasksWorkspaceStatus
@@ -17,6 +23,7 @@ import {
 
 let accessFacts: ClientAccessFacts = { membershipRole: 'owner' };
 const org = createClientAccess(() => accessFacts);
+const importHref = '/org/unit/critical-tasks/library/import';
 
 const activeTask: IctTask = {
 	id: 'task-1',
@@ -86,7 +93,7 @@ describe('IctTaskLibraryPage', () => {
 			resetCriticalTasksWorkspaceStatus();
 			let settle!: (saved: boolean) => void;
 			vi.spyOn(ictTasksStore, 'updateOrThrow').mockReturnValue(new Promise((resolve) => (settle = resolve)));
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 			await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
 			await fireEvent.click(screen.getByRole('button', { name: /Archived task/ }));
 			expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(false);
@@ -99,9 +106,9 @@ describe('IctTaskLibraryPage', () => {
 		}
 	);
 
-	it('keeps New Task and Import CSV unavailable until the library has loaded', async () => {
+	it('keeps New Task and Import unavailable until the library has loaded', async () => {
 		personnelIctCompletionsStore.load(completions, 'org-other');
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		expect(screen.getByRole('status', { name: 'Loading ICT task library' })).toBeTruthy();
 		const newTask = screen.getByRole('button', { name: 'New Task' }) as HTMLButtonElement;
@@ -109,8 +116,13 @@ describe('IctTaskLibraryPage', () => {
 		await fireEvent.click(newTask);
 		expect(screen.queryByLabelText('Task code')).toBeNull();
 
+		const importLink = screen.getByRole('link', { name: 'Import' });
+		expect(importLink.getAttribute('aria-disabled')).toBe('true');
+		expect(importLink.hasAttribute('href')).toBe(false);
+
 		personnelIctCompletionsStore.load(completions, 'org-1');
 		await waitFor(() => expect(newTask.disabled).toBe(false));
+		expect(importLink.getAttribute('href')).toBe(importHref);
 	});
 
 	describe('when the toolbar folds', () => {
@@ -121,7 +133,7 @@ describe('IctTaskLibraryPage', () => {
 		async function renderFolded() {
 			const widths = stubToolbarWidths();
 			ictTasksStore.load([activeTask, infantryTask, archivedTask], 'org-1');
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 			await widths.foldAll();
 		}
 
@@ -159,31 +171,24 @@ describe('IctTaskLibraryPage', () => {
 			await waitFor(() => expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy());
 		});
 
-		it('opens the import workspace from More and returns focus to More when it closes', async () => {
+		it('opens the task import page when Import is chosen from More', async () => {
+			gotoMock.mockReset();
 			await renderFolded();
 
-			await openToolbarMore(toolbarName);
-			await fireEvent.click(screen.getByRole('menuitem', { name: 'Import CSV' }));
-			expect(await screen.findByRole('heading', { name: 'Import ICT Tasks' })).toBeTruthy();
+			const menu = await openToolbarMore(toolbarName);
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Import' }));
 
-			await fireEvent.click(
-				within(screen.getByRole('region', { name: 'ICT task import workspace' })).getByRole('button', {
-					name: 'Cancel'
-				})
-			);
-			await waitFor(() =>
-				expect(document.activeElement).toBe(screen.getByRole('button', { name: `More ${toolbarName}` }))
-			);
+			await waitFor(() => expect(gotoMock).toHaveBeenCalledWith(importHref));
 		});
 
-		it('disables Import CSV in More with the same loading state as the row', async () => {
+		it('disables Import in More with the same loading state as the row', async () => {
 			const widths = stubToolbarWidths();
 			personnelIctCompletionsStore.load(completions, 'org-other');
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 			await widths.foldAll();
 
 			await openToolbarMore(toolbarName);
-			expect(screen.getByRole('menuitem', { name: 'Import CSV' }).getAttribute('aria-disabled')).toBe('true');
+			expect(screen.getByRole('menuitem', { name: 'Import' }).getAttribute('aria-disabled')).toBe('true');
 			expect((screen.getByRole('button', { name: 'New Task' }) as HTMLButtonElement).disabled).toBe(true);
 		});
 	});
@@ -194,32 +199,32 @@ describe('IctTaskLibraryPage', () => {
 			capabilityMap: { ...createCapabilityMap('configure'), criticalTasks: 'view' }
 		};
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy();
 		expect(screen.queryByRole('list', { name: 'ICT task library' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Import CSV' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Import' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'New Task' })).toBeNull();
 	});
 
 	it('uses the Critical Tasks configure policy affordance instead of privileged role for library management', () => {
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
-		expect(screen.getByRole('button', { name: 'Import CSV' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe(importHref);
 		expect(screen.getByRole('button', { name: 'New Task' })).toBeTruthy();
 	});
 
 	it('discards an unsaved task draft when the Organization changes', async () => {
-		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: 'A-PRIVATE-TASK' } });
 		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'A task draft' } });
 
 		ictTasksStore.load([{ ...activeTask, id: 'task-b', taskCode: 'B-EXISTING' }], 'org-2');
 		personnelIctCompletionsStore.load([], 'org-2');
-		await view.rerender({ org, data: { orgId: 'org-2' } });
+		await view.rerender({ org, data: { orgId: 'org-2' }, importHref });
 
 		await waitFor(() => expect(screen.queryByRole('heading', { name: 'New ICT Task' })).toBeNull());
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
@@ -230,7 +235,7 @@ describe('IctTaskLibraryPage', () => {
 	it('filters active tasks by task search text', async () => {
 		ictTasksStore.load([activeTask, infantryTask, allMosTask, archivedTask], 'org-1');
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		const taskList = () => screen.getByRole('list', { name: 'ICT task library' });
 
@@ -266,7 +271,7 @@ describe('IctTaskLibraryPage', () => {
 
 	it('names each missing required field on Create Task and focuses the first', async () => {
 		const add = vi.spyOn(ictTasksStore, 'add');
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
@@ -296,7 +301,7 @@ describe('IctTaskLibraryPage', () => {
 		{ field: 'Sort order', value: '2.5', error: 'Enter a whole number, 0 or more' }
 	])('rejects $field $value on its field without saving', async ({ field, value, error }) => {
 		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({ ...activeTask, id: 'task-new' });
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
@@ -328,7 +333,7 @@ describe('IctTaskLibraryPage', () => {
 		{ field: 'Sort order', error: 'Enter a whole number, 0 or more' }
 	])('rejects $field text the browser cannot parse instead of reading it as blank', async ({ field, error }) => {
 		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({ ...activeTask, id: 'task-new' });
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
@@ -346,7 +351,7 @@ describe('IctTaskLibraryPage', () => {
 
 	it('keeps a duplicate task code on its field with the draft and focus', async () => {
 		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Task code already exists in this Organization'));
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		const taskCode = screen.getByLabelText('Task code') as HTMLInputElement;
@@ -365,7 +370,7 @@ describe('IctTaskLibraryPage', () => {
 
 	it('reports any other failed save as an alert and returns focus to Create Task', async () => {
 		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Network unavailable'));
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
@@ -377,20 +382,6 @@ describe('IctTaskLibraryPage', () => {
 		expect(alert.textContent).toContain('Network unavailable');
 		await waitFor(() => expect(document.activeElement).toBe(create));
 		expect(screen.getByLabelText('Task code').getAttribute('aria-invalid')).toBeNull();
-	});
-
-	it('moves focus into the task import and back to Import CSV when it closes', async () => {
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
-		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Import ICT Tasks' })));
-
-		await fireEvent.click(
-			within(screen.getByRole('region', { name: 'ICT task import workspace' })).getByRole('button', {
-				name: 'Cancel'
-			})
-		);
-		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Import CSV' })));
 	});
 
 	describe('reordering', () => {
@@ -481,7 +472,7 @@ describe('IctTaskLibraryPage', () => {
 			async ({ replies, saved, shown, feedback }) => {
 				const provider = libraryProvider(replies);
 				const error = vi.spyOn(toastStore, 'error');
-				render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+				render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 				await fireEvent.click(screen.getByRole('button', { name: 'Move 181-105-1001 down' }));
 
@@ -495,11 +486,11 @@ describe('IctTaskLibraryPage', () => {
 		it('completes the move for the original Organization when the scope changes before its reply', async () => {
 			const provider = libraryProvider(['held']);
 			const error = vi.spyOn(toastStore, 'error');
-			const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Move 181-105-1001 down' }));
 			await waitFor(() => expect(provider.requests).toHaveLength(1));
-			await view.rerender({ org, data: { orgId: 'org-2' } });
+			await view.rerender({ org, data: { orgId: 'org-2' }, importHref });
 			await act(async () => provider.release());
 			await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -511,7 +502,7 @@ describe('IctTaskLibraryPage', () => {
 		it('refuses a repeated move from a stale view instead of moving the tasks back', async () => {
 			const provider = libraryProvider(['lost']);
 			const error = vi.spyOn(toastStore, 'error');
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Move 181-105-1001 down' }));
 			await waitFor(() => expect(error).toHaveBeenCalledWith(CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE));
@@ -529,7 +520,7 @@ describe('IctTaskLibraryPage', () => {
 			);
 			const provider = libraryProvider(['lost']);
 			const error = vi.spyOn(toastStore, 'error');
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Move A down' }));
 			await waitFor(() => expect(error).toHaveBeenCalledWith(CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE));
@@ -543,7 +534,7 @@ describe('IctTaskLibraryPage', () => {
 
 		it('sends one move at a time', async () => {
 			const provider = libraryProvider(['held']);
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Move 181-105-1001 down' }));
 			await waitFor(() => expect(provider.requests).toHaveLength(1));
@@ -564,7 +555,7 @@ describe('IctTaskLibraryPage', () => {
 			ictTasksStore.load(crowded, 'org-1');
 			const provider = libraryProvider();
 			const error = vi.spyOn(toastStore, 'error');
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Move T0000 down' }));
 
@@ -594,7 +585,7 @@ describe('IctTaskLibraryPage', () => {
 			}
 		])('keeps focus on $focused after $pressed', async ({ pressed, focused, order }) => {
 			libraryProvider();
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 			const button = screen.getByRole('button', { name: pressed });
 			button.focus();
@@ -615,7 +606,7 @@ describe('IctTaskLibraryPage', () => {
 			sortOrder: 3
 		});
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
@@ -645,7 +636,7 @@ describe('IctTaskLibraryPage', () => {
 		{ open: 'New Task', select: false },
 		{ open: 'Edit', select: true }
 	])('moves focus to Task code on $open and back to $open on Cancel', async ({ open, select }) => {
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 		if (select) await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
 
 		await fireEvent.click(screen.getByRole('button', { name: open }));
@@ -658,7 +649,7 @@ describe('IctTaskLibraryPage', () => {
 	it('edits task metadata without touching completion history', async () => {
 		const update = vi.spyOn(ictTasksStore, 'updateOrThrow').mockResolvedValue(true);
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -686,7 +677,7 @@ describe('IctTaskLibraryPage', () => {
 		vi.stubGlobal('fetch', fetchMock);
 		const success = vi.spyOn(toastStore, 'success');
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -710,7 +701,7 @@ describe('IctTaskLibraryPage', () => {
 			)
 		);
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -724,7 +715,7 @@ describe('IctTaskLibraryPage', () => {
 	it('warns with tied personnel completion count before soft-archive', async () => {
 		const update = vi.spyOn(ictTasksStore, 'updateOrThrow').mockResolvedValue(true);
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive Task' }));
@@ -747,7 +738,7 @@ describe('IctTaskLibraryPage', () => {
 	it('shows archived tasks in a separate view and restores them back to active status', async () => {
 		const update = vi.spyOn(ictTasksStore, 'updateOrThrow').mockResolvedValue(true);
 
-		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
 		await fireEvent.click(screen.getByRole('button', { name: /Archived task/ }));
@@ -775,13 +766,13 @@ describe('IctTaskLibraryPage', () => {
 			reject = fail;
 		});
 		vi.spyOn(ictTasksStore, 'add').mockReturnValueOnce(pending);
-		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: 'OLD-A' } });
 		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Retired draft' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
-		await view.rerender({ org, data: { orgId: 'org-2' } });
-		await view.rerender({ org, data: { orgId: 'org-1' } });
+		await view.rerender({ org, data: { orgId: 'org-2' }, importHref });
+		await view.rerender({ org, data: { orgId: 'org-1' }, importHref });
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: 'NEW-A' } });
 		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Current draft' } });
@@ -809,7 +800,7 @@ describe('IctTaskLibraryPage', () => {
 				)
 			);
 			const error = vi.spyOn(toastStore, 'error');
-			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 
 			if (action === 'archive') {
 				await fireEvent.click(screen.getByRole('button', { name: 'Archive Task' }));
@@ -831,11 +822,11 @@ describe('IctTaskLibraryPage', () => {
 			release = resolve;
 		});
 		vi.spyOn(ictTasksStore, 'updateOrThrow').mockReturnValueOnce(pending);
-		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive Task' }));
 		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive Task' }));
-		await view.rerender({ org, data: { orgId: 'org-2' } });
-		await view.rerender({ org, data: { orgId: 'org-1' } });
+		await view.rerender({ org, data: { orgId: 'org-2' }, importHref });
+		await view.rerender({ org, data: { orgId: 'org-1' }, importHref });
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive Task' }));
 		await act(async () => {
 			release(true);
@@ -850,11 +841,11 @@ describe('IctTaskLibraryPage', () => {
 			release = resolve;
 		});
 		vi.spyOn(ictTasksStore, 'updateOrThrow').mockReturnValueOnce(pending);
-		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Restore Task' }));
-		await view.rerender({ org, data: { orgId: 'org-2' } });
-		await view.rerender({ org, data: { orgId: 'org-1' } });
+		await view.rerender({ org, data: { orgId: 'org-2' }, importHref });
+		await view.rerender({ org, data: { orgId: 'org-1' }, importHref });
 		await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
 		await act(async () => {
 			release(true);

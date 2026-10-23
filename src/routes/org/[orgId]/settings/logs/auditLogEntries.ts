@@ -276,9 +276,11 @@ const SENTENCES: Record<string, Sentence> = {
 	'personnel.bulk_created': (d) => `Added ${amount(d, 'count', 'person', 'people')}`,
 	'personnel.bulk_archived': (d) => `Archived ${amount(d, 'count', 'person', 'people')}`,
 	'personnel.bulk_merged': (d) =>
-		`Updated people from an import${counts(d, [
+		`Imported personnel${counts(d, [
+			['created', 'added'],
 			['updated', 'updated'],
-			['skipped', 'skipped']
+			['skipped', 'skipped'],
+			['errors', 'failed']
 		])}`,
 	'personnel.award_tracking_acknowledged': 'Acknowledged an award tracking flag',
 	'personnel.award_tracking_cleared': 'Cleared an award tracking flag',

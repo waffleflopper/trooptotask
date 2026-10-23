@@ -45,19 +45,6 @@ export async function createActivePersonnelRankResolver(ports: RankCatalogPorts)
 	};
 }
 
-export async function createPersonnelCatalogRankResolver(ports: RankCatalogPorts): Promise<PersonnelRankResolver> {
-	const catalog = await ports.loadRankCatalog();
-
-	return {
-		normalize(input) {
-			return resolveRankCode(sanitizeString(input, 80), catalog);
-		},
-		errorMessage(input) {
-			return unknownPersonnelRankMessage(sanitizeString(input, 80));
-		}
-	};
-}
-
 function unknownPersonnelRankMessage(rank: string): string {
 	return UNKNOWN_PERSONNEL_RANK_MESSAGE.replace('{rank}', rank);
 }

@@ -6,4 +6,8 @@
 	let { data } = $props();
 </script>
 
-<IctTaskLibraryPage {org} data={{ ...data, orgId: data.shell.org.id }} />
+<IctTaskLibraryPage
+	{org}
+	data={{ ...data, orgId: data.shell.org.id }}
+	importHref={`/org/${org.orgUrlSegment}/critical-tasks/library/import`}
+/>

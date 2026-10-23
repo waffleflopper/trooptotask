@@ -32,19 +32,33 @@ export async function buildNotImported(
 ): Promise<Workbook> {
 	const workbook = await createWorkbook();
 	workbook.properties.date1904 = file.date1904 === true;
+	const headersOf = (index: number) => {
+		const headerIndex = layout.sheets[index]?.headerRow;
+		return headerIndex === null || headerIndex === undefined ? [] : (file.sheets[index].rows[headerIndex] ?? []);
+	};
+	// Every retry sheet gets the same added columns so re-import still sees one header layout.
+	const addedHeaders = new Map<string, string>();
+	for (const item of receipt.notImported) {
+		const name = pivotName(item.row);
+		const headers = headersOf(file.sheets.findIndex((sheet) => sheet.index === item.row.sheetIndex));
+		if (name && !headers.some((header) => headerKey(header) === headerKey(name)))
+			addedHeaders.set(headerKey(name), addedHeaders.get(headerKey(name)) ?? name);
+	}
 	for (let index = 0; index < file.sheets.length; index++) {
 		const source = file.sheets[index];
 		const items = receipt.notImported.filter((item) => item.row.sheetIndex === source.index);
 		if (!items.length) continue;
-		const headerIndex = layout.sheets[index]?.headerRow;
-		const headers = headerIndex === null || headerIndex === undefined ? [] : (source.rows[headerIndex] ?? []);
+		const headers = headersOf(index);
 		const width = Math.max(headers.length, ...items.map((item) => item.row.cells.length));
-		const outputHeaders = Array.from({ length: width }, (_, column) => headers[column] ?? '');
-		const headerColumns = new Map(outputHeaders.map((header, column) => [headerKey(header), column]));
 		const sheet = workbook.addWorksheet(source.name.replace(/[\\/*?:[\]]/g, '_').slice(0, 31) || `Sheet ${index + 1}`);
 		const pivotColumns = headers.flatMap((header, column) =>
 			layout.columns.get(headerKey(header))?.kind === 'pivot' ? [column] : []
 		);
+		const outputHeaders = [
+			...Array.from({ length: width }, (_, column) => headers[column] ?? ''),
+			...(pivotColumns.length ? addedHeaders.values() : [])
+		];
+		const headerColumns = new Map(outputHeaders.map((header, column) => [headerKey(header), column]));
 		const targets = targetsForHeaders(headers, layout.columns);
 		const fieldColumns = targets.flatMap((target, column) =>
 			target.kind === 'field' ? [[column, target.field] as const] : []
@@ -56,21 +70,14 @@ export async function buildNotImported(
 		const physicalRows = new Map<number, { cells: string[]; reasons: Set<string>; occupied: Set<number> }[]>();
 		for (const item of items) {
 			const pivot = item.row.pivot;
-			const pivotHeader = (pivot && item.row.raw[pivot.field]?.trim()) || item.row.pivotHeader;
+			const pivotHeader = pivotName(item.row) ?? item.row.pivotHeader;
 			let pivotColumn = item.row.pivotColumn;
 			if (
 				pivotColumn !== undefined &&
 				pivotHeader !== undefined &&
 				headerKey(pivotHeader) !== headerKey(headers[pivotColumn] ?? '')
-			) {
-				const key = headerKey(pivotHeader);
-				pivotColumn = headerColumns.get(key);
-				if (pivotColumn === undefined) {
-					pivotColumn = outputHeaders.length;
-					headerColumns.set(key, pivotColumn);
-					outputHeaders.push(pivotHeader);
-				}
-			}
+			)
+				pivotColumn = headerColumns.get(headerKey(pivotHeader)) ?? pivotColumn;
 			const group = physicalRows.get(item.row.rowNumber);
 			let row = group?.find((candidate) => pivotColumn === undefined || !candidate.occupied.has(pivotColumn));
 			if (!row) {
@@ -103,6 +110,10 @@ export async function buildNotImported(
 		sheet.views = [{ state: 'frozen', ySplit: 1 }];
 	}
 	return workbook;
+}
+
+function pivotName(row: Receipt['notImported'][number]['row']): string | undefined {
+	return (row.pivot && row.raw[row.pivot.field]?.trim()) || undefined;
 }
 
 export async function downloadTemplate(

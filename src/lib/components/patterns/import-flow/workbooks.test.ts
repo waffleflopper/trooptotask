@@ -133,6 +133,15 @@ describe('workbook export', () => {
 						['Lee', '', '2026-04-01', '2026-04-02'],
 						['Kim', '', '', '2026-06-01']
 					]
+				},
+				{
+					index: 1,
+					name: 'A Co',
+					hidden: false,
+					rows: [
+						['Person', 'CPRR', 'CPR', 'TCCC'],
+						['Park', '', '2026-07-01', '']
+					]
 				}
 			]
 		};
@@ -155,7 +164,8 @@ describe('workbook export', () => {
 				[rows[2].id, { kind: 'added' }],
 				[rows[4].id, { kind: 'failed', reason: 'Denied' }],
 				[rows[5].id, { kind: 'failed', reason: 'Denied' }],
-				[rows[6].id, { kind: 'failed', reason: 'Denied' }]
+				[rows[6].id, { kind: 'failed', reason: 'Denied' }],
+				[rows[7].id, { kind: 'failed', reason: 'Denied' }]
 			]),
 			new Map(rows.map((row) => [row.id, row])),
 			null
@@ -169,7 +179,8 @@ describe('workbook export', () => {
 			{ person: 'Jones', training: 'ACLS', completed: '2026-05-02' },
 			{ person: 'Lee', training: 'CPR', completed: '2026-04-01' },
 			{ person: 'Lee', training: 'ACLS', completed: '2026-05-03' },
-			{ person: 'Kim', training: 'TCCC', completed: '2026-06-02' }
+			{ person: 'Kim', training: 'TCCC', completed: '2026-06-02' },
+			{ person: 'Park', training: 'CPR', completed: '2026-07-01' }
 		]);
 		expect(retry.file.sheets[0].rows[0]).toEqual(['Person', 'CPRR', 'CPR', 'TCCC', 'ACLS', 'Reason']);
 		expect(retry.file.sheets[0].rows[1]).toEqual(['Smith', '', '2026-05-01', '', '', 'CPR: Denied']);

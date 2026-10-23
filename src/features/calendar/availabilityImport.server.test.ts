@@ -3,6 +3,9 @@ import type { AvailabilityImportEntry } from './contracts';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import { importAvailabilityEntries } from './availabilityImport.server';
 
+const STALE =
+	'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.';
+
 const ALPHA = '00000000-0000-4000-8000-000000000010';
 const BRAVO = '00000000-0000-4000-8000-000000000011';
 const FOREIGN = '00000000-0000-4000-8000-000000000012';
@@ -117,8 +120,7 @@ describe('importAvailabilityEntries', () => {
 			errors: [
 				{
 					index: 0,
-					message:
-						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+					message: STALE
 				}
 			]
 		});
@@ -201,18 +203,15 @@ describe('importAvailabilityEntries', () => {
 			errors: [
 				{
 					index: 0,
-					message:
-						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+					message: STALE
 				},
 				{
 					index: 1,
-					message:
-						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+					message: STALE
 				},
 				{
 					index: 2,
-					message:
-						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+					message: STALE
 				}
 			]
 		});
@@ -340,8 +339,7 @@ describe('importAvailabilityEntries', () => {
 			errors: [
 				{
 					index: 0,
-					message:
-						'This row or an entry it overlaps changed since you reviewed it. Import the file again to choose what happens.'
+					message: STALE
 				}
 			]
 		});

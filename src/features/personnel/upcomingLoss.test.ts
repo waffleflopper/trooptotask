@@ -215,6 +215,12 @@ describe('evaluateUpcomingLosses', () => {
 		expect(entry.daysRemaining).toBe(45);
 	});
 
+	it('counts whole days across a daylight-saving change', () => {
+		const person = makePerson({ ets: '2026-11-09' });
+		const [entry] = evaluateUpcomingLosses([person], WINDOW, '2026-10-26');
+		expect(entry.daysRemaining).toBe(14);
+	});
+
 	it('only includes personnel with in-window dates even in a mixed list', () => {
 		const people = [
 			makePerson({ id: 'p1', ets: addDays(TODAY, 30) }),

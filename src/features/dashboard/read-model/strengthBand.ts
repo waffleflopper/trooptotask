@@ -1,4 +1,10 @@
-import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import {
+	compareOverlappingEntries,
+	sortedStatusTypes,
+	type AvailabilityEntry,
+	type SpecialDay,
+	type StatusType
+} from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { availabilityPercent, isBelowStrengthFloor } from '$features/organization/contracts';
 import { formatDayMonth } from '$lib/utils/dates';
@@ -135,19 +141,6 @@ export function buildStrengthBand(inputs: StrengthInputs): StrengthBand {
 		statusById,
 		groups: buildGroupStrength(inputs, statuses.get(inputs.today) ?? new Map())
 	};
-}
-
-/**
- * A person with overlapping entries on a day shows one status: the status type first in catalog
- * order, then the entry that started first, then the lower entry id.
- */
-export function compareOverlappingEntries(
-	a: AvailabilityEntry,
-	b: AvailabilityEntry,
-	statusRank: ReadonlyMap<string, number>
-): number {
-	const rank = (entry: AvailabilityEntry) => statusRank.get(entry.statusTypeId) ?? Number.MAX_SAFE_INTEGER;
-	return rank(a) - rank(b) || a.startDate.localeCompare(b.startDate) || a.id.localeCompare(b.id);
 }
 
 function indexDayStatuses(inputs: StrengthInputs): DayStatuses {
@@ -398,10 +391,6 @@ function buildGroupStrength(inputs: StrengthInputs, outToday: ReadonlyMap<string
 		.sort((a, b) => a.percent - b.percent || a.name.localeCompare(b.name));
 
 	return { rows, shown: rows.length <= GROUPS_SHOWN_LIMIT ? rows.length : GROUPS_FOLDED_TO };
-}
-
-function sortedStatusTypes(statusTypes: readonly StatusType[]): StatusType[] {
-	return [...statusTypes].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
 function countByStatus(entries: Iterable<AvailabilityEntry>): Map<string, number> {

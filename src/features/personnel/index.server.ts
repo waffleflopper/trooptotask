@@ -155,3 +155,10 @@ export {
 
 export { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
 export { importPersonnelRecords } from './personnelImportRecords.server';
+export {
+	createSupabaseRosterCounselingSignals,
+	createSupabaseRosterFollowUpSignals,
+	loadRosterSignals,
+	resolveSignalAccess,
+	type RosterSignalSources
+} from './rosterSignals.server';

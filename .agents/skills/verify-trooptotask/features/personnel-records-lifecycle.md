@@ -10,9 +10,11 @@ archives or restores a record while keeping its identity, permissions and retain
 - `record-import`: upload a roster workbook with several tabs and a header below a title, confirm the sheets and
   columns, fix a cell inline or answer a rail question once for many rows, skip rows, commit and download the rows not
   imported.
-- `record-backfill`: the same import matches active People by name, uses Group then rank to break a tie and asks
-  `Which person?` when it cannot. Only the same name, Group and rank share a question. It updates only the fields a row
-  fills and differs on, and shows a replay as Unchanged with nothing to save.
+- `record-backfill`: the same import matches active People by name, uses the Group to break a tie and asks
+  `Which person?` when it cannot. Namesakes in one Group always get a question, keyed by the row's rank and with the
+  namesake who holds that rank suggested, because a row may be promoting one of them. Only the same name, Group and rank
+  share a question. It updates only the fields a row fills and differs on, and shows a replay as Unchanged with nothing
+  to save.
 - `record-archive-restore`: single and bulk archive remove People from active views; restore retains their IDs and
   restores only artifacts archived by that parent event.
 - `record-approval`: an operate-only member requests archive approval without archiving the Person; an authorized
@@ -215,14 +217,14 @@ proof, separately from UI interaction.
    and `Unknown rank` for `"SSG"`. A problem cell is a textbox with `aria-invalid="true"` described by the row's message
    line, such as `ETS: Enter a valid date.` Each row's header names the Person (`Last, First`) above its outcome and
    `sheet · row`, and a date cell shows the date that will be saved, `2028-03-15` for `15MAR28`. Apply SGT once and all
-   three cells clear and show `SGT`, not `Sgt.`; a Group typed `alpha` shows `Alpha`. Create the Group: the name field takes focus, `Create group` saves one `groups` row (read it back)
-   and all six rows take it. The in-file duplicate then shows on both rows as
-   `Same record as row N on 1st PLT. Skip one of these rows.` Fill the bad ETS cell with `2027-02-28` and press Enter:
-   the row turns New and focus moves to the next problem cell. Escape reverts a draft and blur commits it. Skip the
-   second duplicate; the row offers Undo and keeps focus on it. Pick the Bravo duplicate. Choose `Skip 1 row` on the SSG
-   question: that row offers `Change skip for … in the fix rail` instead of Undo, which moves focus to the SSG question;
-   `Change` there and map SSG to SGT. `Import 10 changes` (`7 added · 3 updated`) stays disabled while any row waits for
-   a fix.
+   three cells clear and show `SGT`, not `Sgt.`; a Group typed `alpha` shows `Alpha`. Create the Group: the name field
+   takes focus, `Create group` saves one `groups` row (read it back) and all six rows take it. The in-file duplicate
+   then shows on both rows as `Same record as row N on 1st PLT. Skip one of these rows.` Fill the bad ETS cell with
+   `2027-02-28` and press Enter: the row turns New and focus moves to the next problem cell. Escape reverts a draft and
+   blur commits it. Skip the second duplicate; the row offers Undo and keeps focus on it. Pick the Bravo duplicate.
+   Choose `Skip 1 row` on the SSG question: that row offers `Change skip for … in the fix rail` instead of Undo, which
+   moves focus to the SSG question; `Change` there and map SSG to SGT. `Import 10 changes` (`7 added · 3 updated`) stays
+   disabled while any row waits for a fix.
 
    The commit sends one `POST api/personnel/import`, then `personnel/import/__data.json` with `0010`. Done reads
    `10 changes saved.` with Added 7, Updated 3 and Skipped 1 and no zero counts, and lists the skipped row as
@@ -241,14 +243,15 @@ proof, separately from UI interaction.
    that row is an editor described by `Rank is needed for a new person.`, and `PFC` with Enter turns the row New. As
    `personnelScopedOperate`, a file without a Group column shows a Group editor the same way.
 
-   Separately seed `duplicate-able`, which adds a PFC namesake beside the original SPC Able in Alpha, and reload.
-   Import `Last name,First name,Group,Rank,MOS` with `Able,Synthetic,Alpha,SPC,25B` and
-   `Able,Synthetic,Alpha,PFC,11B`. Both rows read Update without a person question, and their MOS changes belong to
-   their respective saved IDs. Before saving, replace the file with `Last name,First name,Group,Rank` and the rows
-   `Able,Synthetic,Alpha,SGT` and `Able,Synthetic,Alpha,VFY-ACTIVE-A`. Neither rank settles the tie, so two separate
-   `Which person?` questions each apply to one row. Answer the first with SPC Able and the second with PFC Able.
-   Both rows read Update without an in-file duplicate error. Two rows with the same name, Group and unresolved rank
-   share one question and still receive the in-file duplicate error if mapped to the same saved Person.
+   Separately seed `duplicate-able`, which adds a PFC namesake beside the original SPC Able in Alpha, and reload. Import
+   `Last name,First name,Group,Rank,MOS` with `Able,Synthetic,Alpha,SPC,25B` and `Able,Synthetic,Alpha,PFC,11B`. Each
+   row asks `Which person?` with the namesake of that rank suggested. Apply both suggestions; the rows read Update and
+   their MOS changes belong to their respective saved IDs. Before saving, replace the file with
+   `Last name,First name,Group,Rank` and the rows `Able,Synthetic,Alpha,SGT` and `Able,Synthetic,Alpha,VFY-ACTIVE-A`.
+   Neither rank settles the tie, so two separate `Which person?` questions each apply to one row. Answer the first with
+   SPC Able and the second with PFC Able. Both rows read Update without an in-file duplicate error. Two rows with the
+   same name, Group and unresolved rank share one question and still receive the in-file duplicate error if mapped to
+   the same saved Person.
 
    Arm `network arm-fail PAGE personnel/import` before a commit: Done reports `0 changes saved.`,
    `The last batch was not confirmed` and a `Not confirmed` count with `Check the roster before importing these again.`,
@@ -261,9 +264,9 @@ proof, separately from UI interaction.
    does not establish provider-response loss.
 
    A mixed first chunk keeps each confirmed save and known failure. With one confirmed update, one unconfirmed create,
-   one known failure and 497 confirmed creates, require Updated 1, Added 497, Failed 1, Not confirmed 1 and Not attempted 1.
-   No second request runs. The not-imported workbook contains only the unconfirmed, failed and unsent rows, with each
-   row's reason. The confirmed update stays out of that workbook.
+   one known failure and 497 confirmed creates, require Updated 1, Added 497, Failed 1, Not confirmed 1 and Not
+   attempted 1. No second request runs. The not-imported workbook contains only the unconfirmed, failed and unsent rows,
+   with each row's reason. The confirmed update stays out of that workbook.
 
    Repeat as `personnelOperate`: Import is reachable without Add Person or Manage Groups, and an unknown Group offers
    the existing Groups and `No group` with no Create. `personnelScopedOperate` sees only Alpha and no `No group`, so a

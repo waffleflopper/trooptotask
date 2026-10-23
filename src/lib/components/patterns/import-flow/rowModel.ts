@@ -294,7 +294,7 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 				kind: 'pick',
 				options: match.kind === 'many' ? match.candidates : withCreated(reference.options, memo.created.get(name)),
 				canCreate: match.kind !== 'many' && reference.create !== undefined,
-				suggested: match.kind === 'none' ? match.suggestion?.id : undefined
+				suggested: match.kind === 'one' ? undefined : match.suggestion?.id
 			},
 			answer
 		};

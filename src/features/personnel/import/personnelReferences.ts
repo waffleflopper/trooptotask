@@ -55,8 +55,11 @@ export function personMatchReference(
 			if (inGroup.length === 1) return { kind: 'one', option: personOption(inGroup[0]) };
 			const candidates = inGroup.length ? inGroup : people;
 			const inRank = rank ? candidates.filter((person) => compactRank(person.rank) === rank) : [];
-			if (inRank.length === 1) return { kind: 'one', option: personOption(inRank[0]) };
-			return { kind: 'many', candidates: [...candidates.map(personOption), newOption] };
+			return {
+				kind: 'many',
+				candidates: [...candidates.map(personOption), newOption],
+				...(inRank.length === 1 ? { suggestion: personOption(inRank[0]) } : {})
+			};
 		}
 	};
 }

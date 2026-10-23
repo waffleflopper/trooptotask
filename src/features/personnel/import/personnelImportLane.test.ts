@@ -97,7 +97,7 @@ describe('personnel import lane', () => {
 		expect(match(source, 'person', { lastName: 'Nguyen', firstName: 'Kim' })).toEqual({ kind: 'none' });
 	});
 
-	it('uses rank to review same-name people in the same group as separate updates', async () => {
+	it('asks which namesake each rank means, suggesting the person who holds that rank', async () => {
 		const source = lane({ personnel: [person('p1'), person('p2', { rank: 'SPC' })] });
 		const session = new ImportSession(() => source);
 		const csv = [
@@ -109,7 +109,14 @@ describe('personnel import lane', () => {
 		await session.chooseFile([new File([csv], 'namesakes.csv')]);
 		session.goTo('review');
 
-		expect(session.review.questions).toEqual([]);
+		expect(session.review.questions).toMatchObject([
+			{ reference: 'person', rowCount: 1, accepts: { suggested: 'p1' } },
+			{ reference: 'person', rowCount: 1, accepts: { suggested: 'p2' } }
+		]);
+		expect(session.review.rows).toMatchObject([{ outcome: 'fix' }, { outcome: 'fix' }]);
+		const [sergeant, specialist] = session.review.questions;
+		session.answer(sergeant.key, { kind: 'pick', optionId: 'p1' });
+		session.answer(specialist.key, { kind: 'pick', optionId: 'p2' });
 		expect(session.review.rows).toMatchObject([
 			{ outcome: 'update', key: 'p1', change: { personnelId: 'p1', changes: { mos: '25B' } } },
 			{ outcome: 'update', key: 'p2', change: { personnelId: 'p2', changes: { mos: '11B' } } }

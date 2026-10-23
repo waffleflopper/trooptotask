@@ -16,7 +16,7 @@ assert.equal(endpoint.hostname, '127.0.0.1');
 assert.equal(Number(endpoint.port), config.api.port);
 assert.ok(config.api.port >= 58000 && config.api.port < 65000);
 assert.match(config.project_id, /^t2t-ci-db-[a-zA-Z0-9_-]+$/);
-assert.deepEqual(config.db.seed, { enabled: false, sql_paths: [] });
+assert.deepEqual({ ...config.db.seed }, { enabled: false, sql_paths: [] });
 const rpcRequests = [];
 const options = {
 	auth: { persistSession: false, autoRefreshToken: false },

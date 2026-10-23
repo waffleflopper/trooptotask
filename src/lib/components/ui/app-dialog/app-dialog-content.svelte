@@ -33,7 +33,6 @@
 {#if presentation === 'sheet'}
 	<Sheet.Content
 		bind:ref
-		data-size={size}
 		aria-busy={dialog.busy || undefined}
 		showCloseButton={showCloseButton && !dialog.closeBlocked}
 		escapeKeydownBehavior={dialog.closeBlocked ? 'ignore' : 'close'}
@@ -51,7 +50,6 @@
 {:else}
 	<Dialog.Content
 		bind:ref
-		data-size={size}
 		aria-busy={dialog.busy || undefined}
 		size={primitiveSize}
 		showCloseButton={showCloseButton && !dialog.closeBlocked}

@@ -601,7 +601,10 @@ describe('importPersonnelRecords', () => {
 		expect(result).toMatchObject({
 			created: [{ firstName: 'New', lastName: 'Person' }],
 			updated: [{ id: 'person-b', mos: '68P' }],
-			errors: [{ index: 0 }, { index: 1 }]
+			errors: [
+				{ kind: 'unconfirmed', index: 0 },
+				{ kind: 'failed', index: 1 }
+			]
 		});
 		expect(JSON.stringify(result.errors)).not.toContain('Private provider');
 		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ mos: '68V' });
@@ -685,7 +688,7 @@ describe('importPersonnelRecords', () => {
 		expect(result).toMatchObject({
 			created: [],
 			updated: [{ id: 'person-a', mos: '68V' }],
-			errors: [{ index: 0, message: expect.stringMatching(/confirm/) }]
+			errors: [{ kind: 'unconfirmed', index: 0 }]
 		});
 		expect(JSON.stringify(result.errors)).not.toContain('Private provider');
 		await expect(ctx.store.findMany('personnel', 'test-org', { slug: 'person-new' })).resolves.toEqual([

@@ -65,6 +65,28 @@ describe('POST /api/personnel/import', () => {
 		await expect(ctx.personnel.findById('person-a')).resolves.toMatchObject({ mos: '68W' });
 	});
 
+	it('returns a structured unconfirmed error when a create commits but its reply is lost', async () => {
+		const ctx = context();
+		const insert = ctx.personnel.createMany;
+		ctx.personnel.createMany = async (rows) => {
+			await insert(rows);
+			throw new Error('Synthetic lost response');
+		};
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [{ op: 'create', rank: 'SGT', firstName: 'New', lastName: 'Person' }]
+			},
+			() => ctx
+		);
+		expect(result).toMatchObject({ created: [], updated: [], errors: [{ kind: 'unconfirmed', index: 0 }] });
+		await expect(ctx.personnel.findBySlug('person-new')).resolves.toMatchObject({
+			firstName: 'New',
+			lastName: 'Person'
+		});
+	});
+
 	it('rejects 501 records through the route boundary', async () => {
 		const ctx = context();
 		await expect(

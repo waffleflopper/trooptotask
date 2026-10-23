@@ -58,6 +58,8 @@
 		onSetAssignmentBatch: (assignments: AssignmentWrite[]) => Promise<boolean>;
 		/** Roster counts, for an operator who sees the whole Organization. Absent hides counts and Fill from roster. */
 		rosters?: {
+			/** The DA 6 page of a roster for a month. */
+			da6Href: (typeId: string, month: string) => string;
 			status: PlannerRosterStatus;
 			stale: boolean;
 			views: ReadonlyMap<string, RosterView>;
@@ -77,6 +79,8 @@
 			loadDay: (typeId: string, date: string) => void;
 			retryDay: (typeId: string, date: string) => void;
 		};
+		/** A refused roster write's re-read failed, so the month may show a day another operator filled as open. */
+		staleAssignments?: { retrying: boolean; onRetry: () => void };
 		/** True while a Quick fill, Fill from roster or Clear month write is in flight, so the page can hold navigation. */
 		busy?: boolean;
 	}
@@ -95,11 +99,16 @@
 		onSetAssignment,
 		onSetAssignmentBatch,
 		rosters,
+		staleAssignments,
 		busy = $bindable(false)
 	}: Props = $props();
 
+	// Nothing assigns while a write is in flight or the month may show a filled day as open.
+	const locked = $derived(busy || staleAssignments !== undefined);
+
 	const monthStart = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
 	const monthTitle = $derived(`${getMonthName(monthStart.getMonth())} ${monthStart.getFullYear()}`);
+	const monthKey = $derived(formatDate(monthStart).slice(0, 7));
 	const monthRange = $derived({
 		rangeStart: formatDate(monthStart),
 		rangeEnd: formatDate(endOfMonth(monthStart))
@@ -165,7 +174,7 @@
 			openDays: (from: string, through: string) => openDays(type, from, through),
 			preview: (from: string, through: string) => preview(type.id, from, through),
 			commit: async (from: string, through: string, picks: RosterFillPick[]) => {
-				if (rangeStatus !== 'ready' || busy) return 'failed' as const;
+				if (rangeStatus !== 'ready' || locked) return 'failed' as const;
 				busy = true;
 				try {
 					return await fill(type.id, from, through, picks);
@@ -176,9 +185,18 @@
 		};
 	}
 
-	type PickerTarget = { typeId: string; dateKey: string; anchor: HTMLElement };
+	/** Someone chosen through the duty picker for a replacement, with what the picker showed about them. */
+	type ReplacementPick = { personId: string; count?: number; note?: string };
+	type ReplacementTarget = {
+		typeId: string;
+		dateKey: string;
+		anchor: HTMLElement;
+		returnTo: HTMLElement;
+		picked?: ReplacementPick;
+	};
+	/** `replacing`: the picker was opened by Someone else, so a pick returns to that replacement instead of saving. */
+	type PickerTarget = { typeId: string; dateKey: string; anchor: HTMLElement; replacing?: ReplacementTarget };
 	let pickerTarget = $state<PickerTarget | null>(null);
-	type ReplacementTarget = { typeId: string; dateKey: string; anchor: HTMLElement; returnTo: HTMLElement };
 	let replacementTarget = $state<ReplacementTarget | null>(null);
 	let clearTypeId = $state<string | null>(null);
 
@@ -208,16 +226,28 @@
 		if (!pickerTarget || rangeStatus !== 'ready') return null;
 		const type = columns.find((candidate) => candidate.id === pickerTarget!.typeId);
 		if (!type) return null;
-		const { dateKey, anchor } = pickerTarget;
+		const { dateKey, anchor, replacing } = pickerTarget;
 		const current = assignmentsBySlot.get(assignmentSlotKey(dateKey, type.id));
 		const counted = rosters && type.assignTo === 'personnel' ? rosters : null;
 		const read = counted?.day(type.id, dateKey);
+		const options = dutyPickerOptions({
+			type,
+			dateKey,
+			personnel,
+			groups,
+			availabilityByPerson,
+			statusTypes,
+			roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
+			unreadRoster: counted && read?.status !== 'ready' ? (read?.status ?? 'loading') : undefined,
+			currentAssigneeId: replacing ? replacing.picked?.personId : current?.assigneeId
+		});
 		return {
 			type,
 			dateKey,
 			anchor,
+			replacing,
 			date: parseDate(dateKey),
-			occupied: current !== undefined,
+			occupied: current !== undefined && !replacing,
 			counts: counted
 				? {
 						status: read?.status ?? 'loading',
@@ -225,22 +255,36 @@
 						onRetry: () => counted.retryDay(type.id, dateKey)
 					}
 				: undefined,
-			options: dutyPickerOptions({
-				type,
-				dateKey,
-				personnel,
-				groups,
-				availabilityByPerson,
-				statusTypes,
-				roster: read?.status === 'ready' ? (read.day ?? undefined) : undefined,
-				unreadRoster: counted && read?.status !== 'ready' ? (read?.status ?? 'loading') : undefined,
-				currentAssigneeId: current?.assigneeId
-			})
+			// The person being replaced is not a replacement.
+			options: replacing ? options.filter((option) => option.id !== current?.assigneeId) : options
 		};
 	});
 
-	function openPicker(typeId: string, dateKey: string, anchor: HTMLElement) {
-		if (rangeStatus === 'ready' && !busy) pickerTarget = { typeId, dateKey, anchor };
+	function openPicker(typeId: string, dateKey: string, anchor: HTMLElement, replacing?: ReplacementTarget) {
+		if (rangeStatus === 'ready' && !locked) pickerTarget = { typeId, dateKey, anchor, replacing };
+	}
+
+	async function assignFromPicker(assigneeId: string): Promise<boolean> {
+		if (!picker) return false;
+		const { replacing, dateKey, type } = picker;
+		if (!replacing) return onSetAssignment(dateKey, type.id, assigneeId);
+		const option = picker.options.find((candidate) => candidate.id === assigneeId);
+		const note =
+			option?.kind !== 'personnel'
+				? undefined
+				: (option.unavailable ?? (option.offRoster ? 'Not on this roster' : undefined));
+		pickerTarget = null;
+		replacementTarget = {
+			...replacing,
+			picked: { personId: assigneeId, count: option?.kind === 'personnel' ? option.count : undefined, note }
+		};
+		return true;
+	}
+
+	// Closing a picker opened by Someone else goes back to the replacement as it was.
+	function closePicker() {
+		if (pickerTarget?.replacing) replacementTarget = pickerTarget.replacing;
+		pickerTarget = null;
 	}
 
 	const slotCell = (typeId: string, dateKey: string) =>
@@ -248,7 +292,7 @@
 
 	// A roster day's conflict opens the replacement beside its cell. Any other conflict opens the duty picker.
 	function findReplacement(typeId: string, dateKey: string, button: HTMLElement) {
-		if (rangeStatus !== 'ready' || busy) return;
+		if (rangeStatus !== 'ready' || locked) return;
 		const cell = slotCell(typeId, dateKey);
 		if (!rosters || !rosterViews?.get(typeId)?.covered.has(dateKey) || !cell)
 			return openPicker(typeId, dateKey, button);
@@ -269,19 +313,21 @@
 			assignee: current ? personById.get(current.assigneeId) : undefined,
 			load: (assigneeId?: string) => load(typeId, dateKey, assigneeId),
 			commit: async (preview: RosterReplacement) => {
-				if (busy) return 'failed' as const;
+				if (locked) return 'failed' as const;
 				busy = true;
 				try {
 					return await replace(typeId, preview);
 				} finally {
 					busy = false;
+					// A refused replacement whose re-read failed locks the month, and the banner says why.
+					if (staleAssignments) replacementTarget = null;
 				}
 			}
 		};
 	});
 
 	async function writeBatch(writes: AssignmentWrite[]): Promise<boolean> {
-		if (rangeStatus !== 'ready' || busy) return false;
+		if (rangeStatus !== 'ready' || locked) return false;
 		busy = true;
 		try {
 			return await onSetAssignmentBatch(writes);
@@ -338,6 +384,18 @@
 		<p>No duty types are set up yet. Add one in Calendar settings to plan its days.</p>
 	</section>
 {:else}
+	{#if staleAssignments}
+		<section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-5 py-4" role="alert">
+			<p>The roster changed, and this month's assignments could not be read again. Assigning waits until they load.</p>
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={staleAssignments.retrying}
+				aria-busy={staleAssignments.retrying}
+				onclick={staleAssignments.onRetry}>Retry</Button
+			>
+		</section>
+	{/if}
 	<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 		<div class="overflow-hidden rounded-lg border bg-card">
 			<Table.Root
@@ -363,7 +421,7 @@
 									<AssignmentPlannerColumnMenu
 										type={column.type}
 										choices={eligibleAssignees(column.type, personnel, groups)}
-										{busy}
+										busy={locked}
 										buildBatch={(assigneeId, days, onlyOpenDays) =>
 											buildQuickFillBatch({
 												anchor: monthStart,
@@ -376,6 +434,9 @@
 										onApply={writeBatch}
 										onClearMonth={() => (clearTypeId = column.type.id)}
 										rosterFill={rosterFillFor(column.type)}
+										da6Href={rosters && column.type.assignTo === 'personnel'
+											? rosters.da6Href(column.type.id, monthKey)
+											: undefined}
 									/>
 								</div>
 							</Table.Head>
@@ -421,7 +482,7 @@
 												: 'border-dashed text-primary',
 											cell.conflict && 'text-destructive-text hover:bg-destructive/15'
 										]}
-										disabled={busy}
+										disabled={locked}
 										data-duty-slot={assignmentSlotKey(cell.dateKey, cell.typeId)}
 										aria-label={cellLabel(column, row, cell)}
 										onclick={(event) => openPicker(cell.typeId, cell.dateKey, event.currentTarget)}
@@ -457,7 +518,7 @@
 		</div>
 
 		<div class="grid grid-cols-[minmax(0,1fr)] gap-4">
-			<AssignmentConflictsPanel conflicts={table.conflicts} {busy} onFindReplacement={findReplacement} />
+			<AssignmentConflictsPanel conflicts={table.conflicts} busy={locked} onFindReplacement={findReplacement} />
 			{#if rosters && countType}
 				<RosterCountPanel
 					types={rosterTypes}
@@ -466,6 +527,7 @@
 					stale={rosters.stale}
 					roster={rosters.views.get(countType.id)}
 					{personById}
+					da6Href={rosters.da6Href(countType.id, monthKey)}
 					onRetry={rosters.onRetry}
 				/>
 			{/if}
@@ -484,9 +546,9 @@
 				document.querySelector<HTMLElement>(`[data-duty-slot="${assignmentSlotKey(picker.dateKey, picker.type.id)}"]`)}
 			options={picker.options}
 			counts={picker.counts}
-			onAssign={(assigneeId) => onSetAssignment(picker.dateKey, picker.type.id, assigneeId)}
+			onAssign={assignFromPicker}
 			onClear={picker.occupied ? () => onSetAssignment(picker.dateKey, picker.type.id, '') : undefined}
-			onClose={() => (pickerTarget = null)}
+			onClose={closePicker}
 		/>
 	{/key}
 {/if}
@@ -500,13 +562,15 @@
 			returnFocusTo={() =>
 				replacement.returnTo.isConnected ? replacement.returnTo : slotCell(replacement.type.id, replacement.dateKey)}
 			assignee={replacement.assignee}
+			picked={replacement.picked}
 			{personById}
 			load={replacement.load}
 			commit={replacement.commit}
 			onSomeoneElse={() => {
 				const { type, dateKey, anchor } = replacement;
+				const target = replacementTarget;
 				replacementTarget = null;
-				openPicker(type.id, dateKey, anchor);
+				if (target) openPicker(type.id, dateKey, anchor, target);
 			}}
 			onClose={() => (replacementTarget = null)}
 		/>

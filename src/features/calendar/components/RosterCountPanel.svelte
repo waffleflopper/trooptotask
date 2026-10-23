@@ -16,10 +16,12 @@
 		stale: boolean;
 		roster: RosterView | undefined;
 		personById: ReadonlyMap<string, Personnel>;
+		/** The chosen roster's DA 6 for the shown month. */
+		da6Href: string;
 		onRetry: () => void;
 	}
 
-	let { types, typeId = $bindable(), status, stale, roster, personById, onRetry }: Props = $props();
+	let { types, typeId = $bindable(), status, stale, roster, personById, da6Href, onRetry }: Props = $props();
 
 	const COLLAPSED_ROWS = 10;
 	const TRACK_NAMES = { all: null, weekday: 'Weekdays', weekend: 'Weekends & holidays' } as const;
@@ -156,7 +158,8 @@
 			<Button variant="ghost" size="xs" class="ml-auto" onclick={onRetry}>Refresh</Button>
 		</div>
 	{/if}
-	{#if excusedNote && status === 'ready'}
-		<p class="border-t px-3.5 py-2.5 text-[13px] text-muted-foreground">{excusedNote}</p>
-	{/if}
+	<p class="border-t px-3.5 py-2.5 text-[13px] text-muted-foreground">
+		{#if excusedNote && status === 'ready'}{excusedNote}{/if}
+		<a href={da6Href} class="font-medium text-foreground underline underline-offset-2">Open the DA 6</a> to see every number.
+	</p>
 </section>

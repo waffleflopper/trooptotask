@@ -242,7 +242,9 @@ export async function commitRosterFill(
 
 /**
  * Find replacement on one roster day: the day's options, and for `assigneeId`, or else the rule's pick, the later
- * roster days the change re-picks. Re-picks reach at most a year out.
+ * roster days the change re-picks. `assigneeId` may be anyone the duty picker offers: an active person in the
+ * Organization who is not excused that day, on the roster or off it, available or not. Re-picks reach at most a
+ * year out.
  */
 async function planReplacement(
 	ctx: RosterSettingsPorts,
@@ -272,8 +274,18 @@ async function planReplacement(
 	if (detail?.kind !== 'stored') fail(409, 'That day changed since the planner loaded. Refresh and try again.');
 
 	const options = replacementOptions(base, date);
+	const asked = input.assigneeId;
+	const { members: pickable } = poolOn({
+		rules: null,
+		people: facts.people,
+		excusals: facts.excusals,
+		catalog: facts.rankCatalog,
+		on: date
+	});
 	const selected =
-		options.candidates.find((candidate) => candidate.personId === input.assigneeId)?.personId ?? options.nextUp;
+		asked !== undefined && asked !== detail.personId && pickable.some((person) => person.id === asked)
+			? asked
+			: options.nextUp;
 	const source = selected === options.nextUp ? ('roster' as const) : ('manual' as const);
 	const repick =
 		selected === null
@@ -317,7 +329,8 @@ export async function previewRosterReplacement(
 
 /**
  * Puts the chosen person on the conflicted day and writes the later roster days it re-picks, all or none. The day is
- * a roster pick when the chosen person is the rule's pick and a hand assignment otherwise. The plan is recomputed
+ * a roster pick when the chosen person is the rule's pick and a hand assignment otherwise, as for someone off the
+ * roster. The plan is recomputed
  * first, and a plan that no longer matches the preview, including who held each re-picked day, or that leaves a
  * later day with nobody, is refused.
  */

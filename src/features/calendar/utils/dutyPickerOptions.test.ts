@@ -52,6 +52,15 @@ function options(overrides: { entries?: AvailabilityEntry[] } & Partial<DutyPick
 				shortLabel: null,
 				rosterEffect: 'A',
 				sortOrder: 0
+			},
+			{
+				id: 'appointment',
+				name: 'Appointment',
+				color: '#2563eb',
+				textColor: '#fff',
+				shortLabel: null,
+				rosterEffect: 'available',
+				sortOrder: 1
 			}
 		],
 		currentAssigneeId: 'p-hale',
@@ -170,6 +179,45 @@ describe('dutyPickerOptions', () => {
 		expect(unavailable).toMatchObject({ unavailable: expect.stringContaining('27 Oct') });
 		expect(result.find((option) => option.id === 'p-hale')).toMatchObject({ unavailable: undefined });
 		expect(result.find((option) => option.id === 'p-reed')).toMatchObject({ unavailable: undefined });
+	});
+
+	it('offers a person whose only status that day is Still available, with or without a roster', () => {
+		const entries: AvailabilityEntry[] = [
+			{
+				id: 'a-reed',
+				personnelId: 'p-reed',
+				statusTypeId: 'appointment',
+				startDate: '2026-10-27',
+				endDate: '2026-10-27'
+			},
+			{
+				id: 'a-liang',
+				personnelId: 'p-liang',
+				statusTypeId: 'appointment',
+				startDate: '2026-10-27',
+				endDate: '2026-10-27'
+			},
+			leave('p-liang', '2026-10-27', '2026-10-27')
+		];
+		const unavailableOf = (result: ReturnType<typeof options>) =>
+			result.flatMap((option) =>
+				option.kind === 'personnel' && (option.id === 'p-reed' || option.id === 'p-liang')
+					? [[option.id, option.unavailable]]
+					: []
+			);
+
+		expect(unavailableOf(options({ entries }))).toEqual([
+			['p-liang', 'Leave 27 Oct'],
+			['p-reed', undefined]
+		]);
+		expect(unavailableOf(options({ entries, roster: { track: null, pool: ['p-reed', 'p-liang'] } }))).toEqual([
+			['p-reed', undefined],
+			['p-liang', 'Leave 27 Oct']
+		]);
+		expect(unavailableOf(options({ entries, roster: { track: null, pool: ['p-hale'] } }))).toEqual([
+			['p-liang', 'Leave 27 Oct'],
+			['p-reed', undefined]
+		]);
 	});
 
 	it('lists Groups by name for a Group duty with no exemptions, availability or history', () => {

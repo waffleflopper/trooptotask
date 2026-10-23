@@ -368,7 +368,7 @@ export interface RosterReplacement {
 	candidates: { personId: string; count: number; adjacent: { name: string; day: 'before' | 'after' }[] }[];
 	/** Higher counts the rule passed over, each with the code that keeps them off. */
 	cantPull: { personId: string; count: number; code: RosterCode; reason: string }[];
-	/** The candidate `repicks` and `unfilled` are for: the one asked for, or else the rule's pick. */
+	/** Who `repicks` and `unfilled` are for: the person asked for, candidate or not, or else the rule's pick. */
 	selected: string | null;
 	/** Later roster days whose pick changes when `selected` takes the day. Hand-assigned days never appear. */
 	repicks: { date: string; was: string; personId: string }[];

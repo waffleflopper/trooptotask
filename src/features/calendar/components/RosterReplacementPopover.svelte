@@ -20,6 +20,8 @@
 		returnFocusTo?: () => HTMLElement | null;
 		/** The person on the day when the popover opens. */
 		assignee: Personnel | undefined;
+		/** Someone chosen through Someone else, selected when the popover opens. `note` is what the picker showed. */
+		picked?: { personId: string; count?: number; note?: string };
 		personById: ReadonlyMap<string, Personnel>;
 		/** Without an assignee the server previews the rule's pick. */
 		load: (assigneeId?: string) => Promise<RosterReplacement>;
@@ -28,8 +30,19 @@
 		onClose: () => void;
 	}
 
-	let { typeName, dateKey, anchor, returnFocusTo, assignee, personById, load, commit, onSomeoneElse, onClose }: Props =
-		$props();
+	let {
+		typeName,
+		dateKey,
+		anchor,
+		returnFocusTo,
+		assignee,
+		picked,
+		personById,
+		load,
+		commit,
+		onSomeoneElse,
+		onClose
+	}: Props = $props();
 
 	const DEBOUNCE_MS = 150;
 	const DAY = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
@@ -44,7 +57,10 @@
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
 	let failure = $state('');
 	/** The operator's choice. Undefined takes the rule's pick. */
-	let chosen = $state<string | undefined>(undefined);
+	// svelte-ignore state_referenced_locally
+	let chosen = $state<string | undefined>(picked?.personId);
+	// svelte-ignore state_referenced_locally
+	let outsider = $state(picked);
 	let planToken = $state(0);
 	let notice = $state<string | null>(null);
 	let committing = $state(false);
@@ -65,8 +81,14 @@
 						const first = shown === null;
 						shown = result;
 						status = 'ready';
-						// The chosen person left the pool since the list loaded, so the preview fell back to the rule's pick.
-						if (request.assigneeId !== undefined && result.selected !== request.assigneeId) chosen = undefined;
+						// The chosen person can no longer take the day, so the preview fell back to the rule's pick.
+						if (request.assigneeId !== undefined && result.selected !== request.assigneeId) {
+							if (request.assigneeId === outsider?.personId) {
+								notice = `${person(outsider.personId).name} can't take this day anymore.`;
+								outsider = undefined;
+							}
+							chosen = undefined;
+						}
 						if (first) focusChoice();
 					},
 					(error) => {
@@ -85,6 +107,10 @@
 	});
 
 	const selected = $derived(chosen ?? shown?.selected ?? undefined);
+	// Someone else's pick is listed beside the candidates unless the roster already lists them.
+	const extra = $derived(
+		outsider && !shown?.candidates.some((candidate) => candidate.personId === outsider?.personId) ? outsider : null
+	);
 	const settled = $derived(status === 'ready' && shown !== null && shown.selected === selected);
 	const locked = $derived(committing);
 	const canAssign = $derived(settled && !locked && !!shown?.selected && shown.unfilled.length === 0);
@@ -261,7 +287,8 @@
 				<div id="replacement-next-up">{@render sectionTitle(`Next up on the ${typeName} roster`, 'Count')}</div>
 				{#if shown.candidates.length === 0}
 					<p class="text-sm text-muted-foreground">Nobody on the roster is free this day.</p>
-				{:else}
+				{/if}
+				{#if shown.candidates.length || extra}
 					<RadioGroup.Root
 						class="-mx-2 max-h-56 gap-0.5 overflow-y-auto"
 						aria-labelledby="replacement-next-up"
@@ -293,6 +320,35 @@
 								{/if}
 							</label>
 						{/each}
+						{#if extra}
+							{@const who = person(extra.personId)}
+							<label
+								class="grid cursor-pointer grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-md px-2 py-1.5 has-data-[state=checked]:bg-warning-muted"
+							>
+								<RadioGroup.Item
+									value={extra.personId}
+									aria-label={[
+										`${who.prefix} ${who.name}`.trim(),
+										extra.count === undefined ? '' : `count ${extra.count}`,
+										extra.note
+									]
+										.filter(Boolean)
+										.join(', ')}
+								/>
+								<span class="flex min-w-0 items-baseline gap-1.5">
+									{#if who.prefix}
+										<span class="font-mono text-[10px] text-muted-foreground uppercase">{who.prefix}</span>
+									{/if}
+									<span class="truncate font-medium">{who.name}</span>
+								</span>
+								<span class="font-mono text-[11px] font-semibold tabular-nums">{extra.count ?? ''}</span>
+								{#if extra.note}
+									<span class="col-start-2 col-end-4 truncate font-mono text-[10px] text-muted-foreground uppercase"
+										>{extra.note}</span
+									>
+								{/if}
+							</label>
+						{/if}
 					</RadioGroup.Root>
 				{/if}
 			</section>

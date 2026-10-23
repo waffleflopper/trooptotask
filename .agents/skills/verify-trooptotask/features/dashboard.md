@@ -507,7 +507,10 @@ After `$V seed dashboard`, as `orgOwner` at 1440:
    restore `same` afterwards. As `calendarScoped` (Alpha), `Fill 7 days` on Staff sends no `duty-rosters` read and
    suggests people in scope who are available that day in name order, never the same person twice, each reading
    `Available`, under `Suggested: available that day, in name order. Choose a day to swap.`; a Group duty reads no
-   roster either.
+   roster either. A status whose roster effect is Still available keeps nobody off: as `orgOwner`, create one with
+   `POST api/status-types` (`rosterEffect` `available`) and give Able that status today through `POST api/availability`.
+   The panel still suggests Able on today, and its swap picker lists them with no unavailable note. Delete the entry and
+   the type afterwards.
 5. **Check off.** Focus `Check off` on the Stalled row and press Enter. Onboarding opens with the seeded packet's panel
    open at its waiting step.
 6. **Award started.** Arm `arm-fail PAGE personnel/PERSON_ID/award-tracking` and press `Award started` on the Leaving

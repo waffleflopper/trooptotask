@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-23-operators-add-people',
+		date: '2026-10-23',
+		title: 'Operators Can Add People',
+		items: [
+			'Members who can operate Personnel can now add people in the groups they work with. Add Person on the Personnel page and in Start Onboarding both work for them, the same way Import already did.',
+			'Archiving, restoring and managing groups still need Personnel configure access.'
+		]
+	},
+	{
 		id: '2026-10-22-duty-rosters',
 		date: '2026-10-22',
 		title: 'Duty Rosters Are Back',

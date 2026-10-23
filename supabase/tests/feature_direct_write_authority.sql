@@ -172,6 +172,13 @@ SELECT throws_ok($$ INSERT INTO public.personnel (organization_id, group_id, ran
 	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'PV2', 'Archived', 'Import', 'feature-writes-archived-import', '2030-01-01T00:00:00Z') $$,
 	'42501', NULL, 'a Group operator cannot create an already archived Person');
 
+SELECT throws_ok($$ INSERT INTO public.personnel (organization_id, group_id, rank, first_name, last_name, slug)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000202', 'PV2', 'Denied', 'Bravo', 'feature-writes-denied-bravo') $$,
+	'42501', NULL, 'a Group operator cannot create a Person outside their Group');
+SELECT throws_ok($$ INSERT INTO public.personnel (organization_id, group_id, rank, first_name, last_name, slug)
+	VALUES ('f4000000-0000-4000-8000-000000000101', NULL, 'PV2', 'Denied', 'Unassigned', 'feature-writes-denied-unassigned') $$,
+	'42501', NULL, 'a Group operator cannot create an unassigned Person');
+
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
 WITH archived AS (
 	UPDATE public.personnel SET archived_at = '2030-06-01T00:00:00Z' WHERE id = 'f4000000-0000-4000-8000-000000000301' RETURNING id

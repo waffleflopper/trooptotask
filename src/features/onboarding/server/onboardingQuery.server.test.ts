@@ -322,7 +322,7 @@ describe('fetchOnboardingBootstrap', () => {
 
 	it.each([
 		{ capability: 'none' as const, scope: { kind: 'organization' as const } },
-		{ capability: 'operate' as const, scope: { kind: 'groups' as const, groupIds: ['alpha'] } },
+		{ capability: 'view' as const, scope: { kind: 'groups' as const, groupIds: ['alpha'] } },
 		{ capability: 'configure' as const, scope: { kind: 'groups' as const, groupIds: [] as string[] } }
 	])(
 		'keeps Onboarding available without rank access when Personnel creation is denied (%j)',

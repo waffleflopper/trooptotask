@@ -55,10 +55,10 @@ response ordering, not a real provider outage.
 Synthetic Organizations A/B include active PFC, SPC and SGT rank catalog entries for normal create/import validation.
 Personnel lifecycle actors are `personnelOperate`, `personnelScoped`, `personnelScopedOperate`, `personnelEmpty`, and
 `personnelSwitch`; they have other feature lanes absent. `personnelScoped` configures only Alpha;
-`personnelScopedOperate` operates only Alpha and can import without single-record creation. `personnelEmpty` configures
-an explicit empty Group scope, and `personnelSwitch` configures A but only views B. Use `manager` for Organization-wide
-Personnel configuration and `orgOwner` for visible Settings restore/permanent removal. `actor` accepts
-`settings/archives`; a configure-only Personnel member has no governance access to this page.
+`personnelScopedOperate` operates only Alpha and can create active People through Add Person and Import.
+`personnelEmpty` configures an explicit empty Group scope, and `personnelSwitch` configures A but only views B. Use
+`manager` for Organization-wide Personnel configuration and `orgOwner` for visible Settings restore/permanent removal.
+`actor` accepts `settings/archives`; a configure-only Personnel member has no governance access to this page.
 
 `seed personnel-lifecycle` returns one dedicated Alpha Person, two active same-rank/name People in Alpha/Bravo, an
 archived duplicate, and exact artifact/Training/Critical Task IDs. Its fixed older archive timestamp identifies
@@ -138,11 +138,11 @@ retiring seeded ranks.
 Use `manager` for Personnel configure, `personnelOperate` for Organization A operate, `personnelScoped` for Alpha
 configure, `personnelEmpty` for configure with an explicit empty Group set, and `personnelSwitch` for A configure/B
 view. `viewer` reads A; `orgOwner` provides the visible Archives, Approvals and Onboarding paths.
-`onboardingPersonnelScoped` configures both Personnel and Onboarding only in Alpha; other Onboarding-only actors retain
-Personnel none. Save each actor's page ID and returned browser context. Before every denied or failure probe preserve
-the target rows, including unrelated A/B sentinels; after the probe read the same IDs and compare explicit submitted
-fields. `$V rows personnel orgA id ID` and artifact-table `personnel_id ID` queries provide exact disposable-provider
-proof, separately from UI interaction.
+`onboardingPersonnelScoped` configures both Personnel and Onboarding only in Alpha. `onboardingPersonnelScopedOperate`
+operates both lanes only in Alpha; Onboarding-only actors retain Personnel none. Save each actor's page ID and returned
+browser context. Before every denied or failure probe preserve the target rows, including unrelated A/B sentinels; after
+the probe read the same IDs and compare explicit submitted fields. `$V rows personnel orgA id ID` and artifact-table
+`personnel_id ID` queries provide exact disposable-provider proof, separately from UI interaction.
 
 1. **Create, cancel and failed save:** As `manager`, choose Add Person. Enter a unique `MapCreated<tag>` last name,
    Synthetic first name, active SPC rank, 68W, Medic, Alpha, ETS `2027-05-01` and PCS / DEROS `2027-06-01`. Cancel once
@@ -171,17 +171,19 @@ proof, separately from UI interaction.
    `rankCatalog.activeA.code`; A's retired code and B's active-only code must be absent. Explicitly select the custom
    active A code and enter a unique `MapOnboard<tag>` Person with Alpha, 68W, Medic and known dates. Save, require the
    new Person to become selected in the outer Member control, capture its saved ID, and reload Personnel to confirm that
-   same ID, literal catalog code, Group and dates. If no ranks can be selected, record the concrete failure and
+   same ID, literal catalog code, Group and dates. Repeat the Add Person path as `onboardingPersonnelScopedOperate`:
+   only Alpha is offered, without Bravo or `No group`; the active Person persists after reload and is selected in Member
+   after Save. Cancel the draft without starting a packet. If no ranks can be selected, record the concrete failure and
    no-effect readback; do not bypass it with an API create or count the roster create as Onboarding proof. As
-   onboardingOperate, load Onboard and open Start Onboarding: existing A People must remain selectable while Add Person
-   is absent. Cancel without a packet write. Separately send a valid authenticated Personnel create through that actor's
-   ordinary session using A's active rank, Alpha and a unique `MapDeniedOnboard<tag>` name; require HTTP 403 and no
-   matching Person, comparing the preserved A/B rows. That request establishes denial separately from the visible
-   affordance. When a change touches packet attachment, start the newly created Person and reload its saved packet;
-   cancel it visibly afterward. Reuse the seeded template without deleting it. If an owned run truly lacks configured
-   steps, create one temporary template/checkbox step visibly, record this prerequisite change and delete only that
-   temporary template afterward. A rank-only bootstrap read failure must retain existing Onboarding data and Member
-   selection, show a clear reload message and disable only Add Person. Establish that provider-fault and rendered
+   `onboardingOperate` (Personnel none), load Onboard and open Start Onboarding: existing A People must remain
+   selectable while Add Person is absent. Cancel without a packet write. Separately send a valid authenticated Personnel
+   create through that actor's ordinary session using A's active rank, Alpha and a unique `MapDeniedOnboard<tag>` name;
+   require HTTP 403 and no matching Person, comparing the preserved A/B rows. That request establishes denial separately
+   from the visible affordance. When a change touches packet attachment, start the newly created Person and reload its
+   saved packet; cancel it visibly afterward. Reuse the seeded template without deleting it. If an owned run truly lacks
+   configured steps, create one temporary template/checkbox step visibly, record this prerequisite change and delete
+   only that temporary template afterward. A rank-only bootstrap read failure must retain existing Onboarding data and
+   Member selection, show a clear reload message and disable only Add Person. Establish that provider-fault and rendered
    interaction boundary with focused checks; the browser write-network control does not inject a server-side catalog
    read failure and earns no native outage credit. The [onboarding packets recipe](onboarding-packets.md) owns the
    broader packet/step/history lifecycle. Repeat the shared creation form as `onboardingPersonnelScoped`: Add Person
@@ -268,9 +270,9 @@ proof, separately from UI interaction.
    attempted 1. No second request runs. The not-imported workbook contains only the unconfirmed, failed and unsent rows,
    with each row's reason. The confirmed update stays out of that workbook.
 
-   Repeat as `personnelOperate`: Import is reachable without Add Person or Manage Groups, and an unknown Group offers
-   the existing Groups and `No group` with no Create. `personnelScopedOperate` sees only Alpha and no `No group`, so a
-   new Person needs Alpha.
+   Repeat as `personnelOperate`: Add Person and Import are reachable without Manage Groups. An unknown Group offers the
+   existing Groups and `No group` with no Create. `personnelScopedOperate` sees only Alpha and no `No group`, so a new
+   Person needs Alpha.
 
 5. **History, leaving, loading and widths.** Back from Review returns to Columns and then File with the file kept;
    Forward returns to Columns. With a file chosen, a link out asks `Leave this import?`: `Keep importing` stays and
@@ -345,32 +347,35 @@ proof, separately from UI interaction.
    heading; never `body`.
 8. **Denied capability, Group, empty and foreign scope:** Viewer has no create/edit/import/direct-archive/restore
    controls; attempt valid authenticated writes to establish 403 or concealed 404 with no effect. personnelOperate can
-   update and import but cannot create/direct-restore/permanently delete. personnelScoped can create/edit Alpha and
-   import Alpha; Bravo, unassigned and foreign Person writes and Group reassignment are denied, while mixed import may
-   save authorized rows and report rejected rows. Probe same-Organization POST/PUT with a foreign Group ID too: a
-   foreign Group must never become a saved reference. Foreign and nonexistent valid Group IDs must produce the same
-   concealed failure before any fields change; compare ID/slug/dates and success-audit absence. A valid
-   same-Organization reassignment and null/empty unassignment must retain the Person identity and dates after reload. An
-   update omitting Group preserves its reference; a historical foreign reference is retained for review rather than
-   silently repaired, and explicitly resubmitting it is rejected. Isolated populated-upgrade/provider proof must
-   preserve these historical rows and conceal their foreign Group labels; it does not authorize altering production
-   data. personnelEmpty sees no roster People and cannot create/update/import/archive/restore any Person; an empty set
-   never becomes Organization scope. The authenticated archive/restore RPCs must give restricted and empty-scope
-   configurers the same concealed not-found response for a hidden Person and a nonexistent valid ID, with every row
-   unchanged. `personnel_lifecycle_atomic.sql` owns that comparison; `personnel_lifecycle_concurrency.sql` separately
-   proves Group moves and authority loss during actual waits. Include valid single and bulk payloads for denied targets
-   and compare exact A/B rows. A 400 from invalid input does not prove authorization. Match responses that intentionally
-   report per-row missing/denied records to no unauthorized effects; they need not all be whole-request 403.
-   Detail/page-data requests must not disclose out-of-scope names/IDs. Isolated `feature_direct_write_authority.sql`
-   proof shows a direct operate write cannot archive, restore or permanently delete a Person, and permanent deletion
-   needs configure on an already archived Person. Keep API checks distinct from UI observations and isolated SQL/RLS
-   proof. For a Group-reference change, also use the manage-groups recipe to create a temporary Group and a temporary
-   Person assigned to it. Preserve the Person ID, slug and dates, delete the Group visibly, then reload Personnel/detail
-   and require the same Person with an empty Group and all other fields retained. Recheck independent Calendar,
-   Training, Critical Tasks, Onboarding and fresh Sign-In Roster labels with valid and unassigned People. Isolated
-   upgrade SQL covers active/archived unassignment and atomic rejection of a Group deletion referenced by historical
-   foreign Personnel; actual PostgREST reads cover old-client schema compatibility and concealment without rewriting
-   those rows. Keep those provider results distinct from fresh-database UI evidence.
+   create active People, update and import but cannot directly archive, restore or permanently delete.
+   `personnelScopedOperate` sees Add Person below 1024 px and at 390 px; its Group list contains only Alpha. Save an
+   Alpha/SPC Person, reload and compare the same ID, Group and rank. Authenticated create requests for Bravo and no
+   Group return 403 with no matching saved Person. `personnelScoped` can create/edit Alpha and import Alpha; Bravo,
+   unassigned and foreign Person writes and Group reassignment are denied, while mixed import may save authorized rows
+   and report rejected rows. Probe same-Organization POST/PUT with a foreign Group ID too: a foreign Group must never
+   become a saved reference. Foreign and nonexistent valid Group IDs must produce the same concealed failure before any
+   fields change; compare ID/slug/dates and success-audit absence. A valid same-Organization reassignment and null/empty
+   unassignment must retain the Person identity and dates after reload. An update omitting Group preserves its
+   reference; a historical foreign reference is retained for review rather than silently repaired, and explicitly
+   resubmitting it is rejected. Isolated populated-upgrade/provider proof must preserve these historical rows and
+   conceal their foreign Group labels; it does not authorize altering production data. personnelEmpty sees no roster
+   People and cannot create/update/import/archive/restore any Person; an empty set never becomes Organization scope. The
+   authenticated archive/restore RPCs must give restricted and empty-scope configurers the same concealed not-found
+   response for a hidden Person and a nonexistent valid ID, with every row unchanged. `personnel_lifecycle_atomic.sql`
+   owns that comparison; `personnel_lifecycle_concurrency.sql` separately proves Group moves and authority loss during
+   actual waits. Include valid single and bulk payloads for denied targets and compare exact A/B rows. A 400 from
+   invalid input does not prove authorization. Match responses that intentionally report per-row missing/denied records
+   to no unauthorized effects; they need not all be whole-request 403. Detail/page-data requests must not disclose
+   out-of-scope names/IDs. Isolated `feature_direct_write_authority.sql` proof shows a direct operate write cannot
+   archive, restore or permanently delete a Person, and permanent deletion needs configure on an already archived
+   Person. Keep API checks distinct from UI observations and isolated SQL/RLS proof. For a Group-reference change, also
+   use the manage-groups recipe to create a temporary Group and a temporary Person assigned to it. Preserve the Person
+   ID, slug and dates, delete the Group visibly, then reload Personnel/detail and require the same Person with an empty
+   Group and all other fields retained. Recheck independent Calendar, Training, Critical Tasks, Onboarding and fresh
+   Sign-In Roster labels with valid and unassigned People. Isolated upgrade SQL covers active/archived unassignment and
+   atomic rejection of a Group deletion referenced by historical foreign Personnel; actual PostgREST reads cover
+   old-client schema compatibility and concealment without rewriting those rows. Keep those provider results distinct
+   from fresh-database UI evidence.
 
 9. **Retained consumers and exports:** Before archive, after archive and after restore, reload Training as trainingView,
    Critical Tasks as ictViewer and Calendar as calendarView. The dedicated Person's saved ID is visible in active views

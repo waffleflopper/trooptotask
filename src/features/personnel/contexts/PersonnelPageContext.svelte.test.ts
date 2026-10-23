@@ -229,27 +229,30 @@ describe('PersonnelPageContext', () => {
 
 	it.each([
 		{ personnel: 'configure' as const, groupIds: ['alpha'], allowed: true },
-		{ personnel: 'operate' as const, groupIds: ['alpha'], allowed: false },
+		{ personnel: 'operate' as const, groupIds: ['alpha'], allowed: true },
 		{ personnel: 'configure' as const, groupIds: [] as string[], allowed: false }
-	])('offers creation only to configured nonempty Group scope (%j)', ({ personnel, groupIds, allowed }) => {
-		const ctx = new PersonnelPageContext(
-			makeData(),
-			makeModals(),
-			createClientAccess({
-				membershipRole: 'member',
-				capabilityMap: {
-					calendar: 'none',
-					personnel,
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				},
-				scopeSet: { kind: 'groups', groupIds }
-			})
-		);
-		expect(ctx.canAddPersonnel).toBe(allowed);
-	});
+	])(
+		'offers creation to Operators and Configurers with nonempty Group scope (%j)',
+		({ personnel, groupIds, allowed }) => {
+			const ctx = new PersonnelPageContext(
+				makeData(),
+				makeModals(),
+				createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: {
+						calendar: 'none',
+						personnel,
+						training: 'none',
+						criticalTasks: 'none',
+						onboarding: 'none',
+						ratingScheme: 'none'
+					},
+					scopeSet: { kind: 'groups', groupIds }
+				})
+			);
+			expect(ctx.canAddPersonnel).toBe(allowed);
+		}
+	);
 
 	it.each([
 		{ personnel: 'configure' as const, groupIds: ['alpha'], allowed: true },
@@ -274,7 +277,6 @@ describe('PersonnelPageContext', () => {
 			})
 		);
 		expect(ctx.canImportPersonnel).toBe(allowed);
-		if (personnel === 'operate') expect(ctx.canAddPersonnel).toBe(false);
 	});
 
 	it('uses refreshed Personnel grants and Group scope in the existing context', () => {

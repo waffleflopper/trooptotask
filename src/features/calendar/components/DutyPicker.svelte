@@ -20,11 +20,24 @@
 		onAssign: (assigneeId: string) => Promise<boolean>;
 		/** Offered only for a slot that already has someone. */
 		onClear?: () => Promise<boolean>;
+		/** Opened from a roster replacement's Someone else, so a pick re-picks the later roster days too. */
+		replacing?: boolean;
 		onClose: () => void;
 	}
 
-	let { typeName, assignTo, date, anchor, returnFocusTo, options, counts, onAssign, onClear, onClose }: Props =
-		$props();
+	let {
+		typeName,
+		assignTo,
+		date,
+		anchor,
+		returnFocusTo,
+		options,
+		counts,
+		onAssign,
+		onClear,
+		replacing = false,
+		onClose
+	}: Props = $props();
 
 	let search = $state('');
 	const searching = $derived(search.trim().length > 0);
@@ -96,12 +109,18 @@
 		class="w-80 max-w-(--bits-popover-content-available-width) gap-0 p-0"
 		role="dialog"
 		aria-label={`${typeName}, ${dateTitle}`}
+		aria-describedby={replacing ? 'duty-picker-replacing' : undefined}
 		onOpenAutoFocus={focusSearch}
 		onCloseAutoFocus={returnFocus}
 	>
 		<Popover.Header class="px-3 pt-3 pb-1">
 			<p class="font-mono text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">{typeName}</p>
 			<Popover.Title>{dateTitle}</Popover.Title>
+			{#if replacing}
+				<Popover.Description id="duty-picker-replacing" class="text-xs">
+					A pick here re-picks the later roster days too. To change only this day, click the name in the planner.
+				</Popover.Description>
+			{/if}
 		</Popover.Header>
 		<Command.Root class="rounded-lg!" label={findLabel} filter={dutySearchScore}>
 			<Command.Input placeholder={findLabel} bind:value={search} />

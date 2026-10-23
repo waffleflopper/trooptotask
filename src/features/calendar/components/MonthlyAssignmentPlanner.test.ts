@@ -353,7 +353,7 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Charge of Quarters column actions' }));
-		const menu = await screen.findByRole('dialog', { name: 'Fill from roster, Charge of Quarters' });
+		const menu = await screen.findByRole('dialog', { name: 'Quick fill, Charge of Quarters' });
 		expect(within(menu).getByRole('link', { name: 'Open the DA 6' }).getAttribute('href')).toBe(
 			'/org/acme/calendar/rosters/type-cq?month=2026-10'
 		);
@@ -379,10 +379,23 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 		expect(screen.getAllByRole('button', { name: /^Assign Staff Duty/ }).length).toBeGreaterThan(0);
 	});
 
+	it('opens Fill from roster from a Fill button on each person-assigned column, and offers none on a Group column', async () => {
+		const motorPool: AssignmentType = { ...staffDuty, id: 'type-mp', name: 'Motor Pool', assignTo: 'group' };
+		renderPlanner({
+			assignmentTypes: [staffDuty, motorPool],
+			rosters: { views: new Map([['type-sd', staffDutyRoster()]]) }
+		});
+
+		expect(screen.queryByRole('button', { name: 'Fill Motor Pool from roster' })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill Staff Duty from roster' }));
+		expect(await screen.findByRole('dialog', { name: 'Fill from roster, Staff Duty' })).toBeTruthy();
+	});
+
 	it('shows no counts, no DA 6 link and keeps Quick fill when the operator cannot see the whole Organization', async () => {
 		renderPlanner();
 
 		expect(screen.queryByRole('region', { name: 'Roster · count today' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Fill Staff Duty from roster' })).toBeNull();
 		const menu = await openColumnMenu();
 		expect(screen.queryByRole('button', { name: 'One person instead' })).toBeNull();
 		expect(within(menu).queryByRole('link', { name: 'Open the DA 6' })).toBeNull();
@@ -666,7 +679,7 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 			rosters: { views: new Map([['type-sd', staffDutyRoster()]]), preview, fill }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Staff Duty column actions' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill Staff Duty from roster' }));
 		const dialog = await screen.findByRole('dialog', { name: 'Fill from roster, Staff Duty' });
 
 		expect(preview).toHaveBeenCalledWith('type-sd', '2026-10-17', '2026-10-31');
@@ -710,7 +723,7 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Staff Duty column actions' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill Staff Duty from roster' }));
 		const dialog = await screen.findByRole('dialog', { name: 'Fill from roster, Staff Duty' });
 		await within(dialog).findByText('Kim');
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Fill 1 day' }));
@@ -825,8 +838,15 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 
 			const dialog = await openReplacement();
 			await within(dialog).findByRole('button', { name: 'Assign Kim' });
-			await fireEvent.click(within(dialog).getByRole('button', { name: 'Someone else' }));
+			const someoneElse = within(dialog).getByRole('button', { name: 'Someone else' });
+			expect(document.getElementById(someoneElse.getAttribute('aria-describedby')!)?.textContent).toMatch(
+				/re-picks the later roster days too/
+			);
+			await fireEvent.click(someoneElse);
 			const picker = await screen.findByRole('dialog', { name: 'Staff Duty, Tue 20 Oct' });
+			expect(document.getElementById(picker.getAttribute('aria-describedby')!)?.textContent).toMatch(
+				/re-picks the later roster days too/
+			);
 			expect(within(picker).queryByRole('option', { name: /Okafor/ })).toBeNull();
 			expect(within(picker).queryByRole('button', { name: 'Clear assignment' })).toBeNull();
 			await fireEvent.input(within(picker).getByRole('combobox', { name: 'Find person' }), {
@@ -961,11 +981,21 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 	it('switches to Quick fill with One person instead', async () => {
 		renderPlanner({ rosters: { views: new Map([['type-sd', staffDutyRoster()]]) } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Staff Duty column actions' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill Staff Duty from roster' }));
 		await screen.findByRole('dialog', { name: 'Fill from roster, Staff Duty' });
 		await fireEvent.click(screen.getByRole('button', { name: 'One person instead' }));
 
 		expect(screen.getByRole('dialog', { name: 'Quick fill, Staff Duty' })).toBeTruthy();
 		expect(screen.getByRole('combobox', { name: 'Assignee' })).toBeTruthy();
+	});
+
+	it('opens Quick fill from the column actions, with Fill from roster one link away', async () => {
+		renderPlanner({ rosters: { views: new Map([['type-sd', staffDutyRoster()]]) } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Staff Duty column actions' }));
+		expect(await screen.findByRole('combobox', { name: 'Assignee' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill from roster' }));
+
+		expect(screen.getByRole('dialog', { name: 'Fill from roster, Staff Duty' })).toBeTruthy();
 	});
 });

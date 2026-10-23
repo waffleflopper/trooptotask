@@ -10,6 +10,7 @@
 	type Props = Omit<DialogContentProps, 'children' | 'size'> & {
 		children?: Snippet;
 		showCloseButton?: boolean;
+		/** A sheet takes only `wide`, for a form whose side-by-side choices need the room. */
 		size?: 'default' | 'wide' | 'fullscreen';
 		/** A side sheet keeps the same dismissal and busy rules as the centered dialog. */
 		presentation?: 'dialog' | 'sheet';
@@ -32,12 +33,17 @@
 {#if presentation === 'sheet'}
 	<Sheet.Content
 		bind:ref
+		data-size={size}
 		aria-busy={dialog.busy || undefined}
 		showCloseButton={showCloseButton && !dialog.closeBlocked}
 		escapeKeydownBehavior={dialog.closeBlocked ? 'ignore' : 'close'}
 		interactOutsideBehavior={dialog.closeBlocked ? 'ignore' : 'close'}
 		restoreScrollDelay={0}
-		class={cn('w-full gap-0 sm:max-w-md [&>[data-slot=app-dialog-body]]:flex-1', className)}
+		class={cn(
+			'w-full gap-0 sm:max-w-md [&>[data-slot=app-dialog-body]]:flex-1',
+			size === 'wide' && 'data-[side=right]:w-full data-[side=right]:sm:max-w-140',
+			className
+		)}
 		{...restProps}
 	>
 		{@render children?.()}
@@ -45,6 +51,7 @@
 {:else}
 	<Dialog.Content
 		bind:ref
+		data-size={size}
 		aria-busy={dialog.busy || undefined}
 		size={primitiveSize}
 		showCloseButton={showCloseButton && !dialog.closeBlocked}

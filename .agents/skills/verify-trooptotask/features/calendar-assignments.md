@@ -36,11 +36,11 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   month's conflicts; it starts beside the month's range read and repeats after every assignment or availability write
   the page confirms, whether made in a cell, Fill from roster, `Daily Assignments` or an availability entry. Those
   writes also refetch the open picker's day. A Group-scoped operator sees no panel and sends no roster read.
-- `planner-fill`: for an Organization-wide operator a Person type's column actions open `Fill from roster`, which
-  previews the roster's picks for the open days from a chosen first day through a last day and writes them with
-  `Fill N days`; a roster change since the preview is refused, explained and previewed again. `One person instead` (and,
-  for a Group-scoped operator or a Group type, the menu itself) opens `Quick fill`, which fills Weekdays, Weekends or
-  All with `Only open days` on by default. Both clear the month after confirmation.
+- `planner-fill`: for an Organization-wide operator a Person type's column header has a `Fill` button (named
+  `Fill <type> from roster`) that opens `Fill from roster`, which previews the roster's picks for the open days from a
+  chosen first day through a last day and writes them with `Fill N days`; a roster change since the preview is refused,
+  explained and previewed again. `One person instead` and the column actions open `Quick fill`, which fills Weekdays,
+  Weekends or All with `Only open days` on by default. Both clear the month after confirmation.
 - `planner-range-retry`: a failed uncovered month load settles with Retry; a successful retry restores editable local
   assignments.
 - `assignment-authorization`: view-only, no-Calendar, Group-scoped and foreign-Organization actors cannot write outside
@@ -59,18 +59,19 @@ Sign in with Calendar operation access and choose `Calendar` → `Duty planner`,
 `Duty planner` under the eyebrow `Calendar · Planning`. Its header holds `Today`, `Previous month`, the month title
 button (it opens the month picker) and `Next month`, then `Back to calendar`. The table has one column per assignment
 type (Calendar lane types first, then planner-only types, archived types left out) and one row per date. A column header
-shows the type's chip, name, `N OF M DAYS` and a `<type> column actions` button. An empty cell is an `Assign` button
-named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named `<type>, <date>: <rank last, first>`, with
-`, unavailable: <status and dates>` when an availability entry covers the date. Either opens the duty picker for that
-slot. The `Conflicts` panel beside the table (below it on a narrow page) lists every flagged slot with
-`Find replacement`. Below `Conflicts`, an Organization-wide operator sees the `Roster · count today` panel: a
-`Duty roster` toggle group of type codes (each named by its type) and a table named `<type> roster` whose `Up next` rows
-show the rank and last name and a `Count` (a code such as `A 0` for someone a roster code covers today, `Today` for
-today's assignee), split into `Weekdays` and `Weekends & holidays` tables for a split roster, and a footer sentence such
-as `<rank> <last name> is excused.` for excused people. Click a Calendar date header, an assigned lane day or a row
-marker to see the `Daily Assignments` modal for that date. An open lane day's `+` opens the same duty picker. `Reports`
-shows assignment coverage and other Calendar projections. A Calendar reader may see saved assignments but cannot manage
-them.
+shows the type's chip and name with a `<type> column actions` button beside the name, and `N OF M DAYS` under the name.
+For an Organization-wide operator, a Person type also has a `Fill` button (named `Fill <type> from roster`) beside the
+count. An empty cell is an `Assign` button named `Assign <type>, <Tue 22 Sept>`; a filled one is a button named
+`<type>, <date>: <rank last, first>`, with `, unavailable: <status and dates>` when an availability entry covers the
+date. Either opens the duty picker for that slot. The `Conflicts` panel beside the table (below it on a narrow page)
+lists every flagged slot with `Find replacement`. Below `Conflicts`, an Organization-wide operator sees the
+`Roster · count today` panel: a `Duty roster` toggle group of type codes (each named by its type) and a table named
+`<type> roster` whose `Up next` rows show the rank and last name and a `Count` (a code such as `A 0` for someone a
+roster code covers today, `Today` for today's assignee), split into `Weekdays` and `Weekends & holidays` tables for a
+split roster, and a footer sentence such as `<rank> <last name> is excused.` for excused people. Click a Calendar date
+header, an assigned lane day or a row marker to see the `Daily Assignments` modal for that date. An open lane day's `+`
+opens the same duty picker. `Reports` shows assignment coverage and other Calendar projections. A Calendar reader may
+see saved assignments but cannot manage them.
 
 ## Helper controls
 
@@ -116,14 +117,12 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `Daily Assignments` modal, set and clear one Person slot there, and check the same persisted row through the helper.
 3. Use `Next month`, `Previous month` and `Today` in the planner header and confirm the title and the selected month's
    rows follow navigation. On an empty month such as November 2026, assign one Person to a weekday through its picker,
-   then open `Verification Staff Duty column actions`, which opens `Fill from roster` for this operator, click
-   `One person instead` to reach `Quick fill`, choose another Person in `Assignee`, leave `Days` on `Weekdays` and
-   `Only open days` checked, and read the button (`Fill 20 days` with one weekday taken) and the note
-   (`Keeps the 1 day already assigned.`). Click it and compare exact expected dates and assignee/type IDs with A rows;
-   the earlier slot must keep its Person. Reload and confirm. Open the menu again (it opens on `Fill from roster`
-   again), switch to `One person instead`, choose the first Person, uncheck `Only open days` (the note reads
-   `Replaces the 21 days already assigned.` and the button `Fill 21 days`) and click it; those rows now carry the new
-   assignee. Open the menu, click `Clear month`, read
+   then open `Verification Staff Duty column actions`, which opens `Quick fill`, choose another Person in `Assignee`,
+   leave `Days` on `Weekdays` and `Only open days` checked, and read the button (`Fill 20 days` with one weekday taken)
+   and the note (`Keeps the 1 day already assigned.`). Click it and compare exact expected dates and assignee/type IDs
+   with A rows; the earlier slot must keep its Person. Reload and confirm. Open the column actions again, choose the
+   first Person, uncheck `Only open days` (the note reads `Replaces the 21 days already assigned.` and the button
+   `Fill 21 days`) and click it; those rows now carry the new assignee. Open the menu, click `Clear month`, read
    `Clear every Verification Staff Duty assignment in November 2026?`, cancel once (rows unchanged), then confirm; only
    that type's month rows disappear. Baker, who is exempt from Staff, must be absent from `Assignee`. Restart this owned
    worker if a seeded month was altered.
@@ -189,17 +188,18 @@ action and keep its page ID. The date format in every name is the browser's en-G
    Do not scroll by script before a capture. Record the document title (`Duty planner - Troop to Task`), the
    `CALENDAR · PLANNING` eyebrow, the `Duty planner` heading, the header's `Today`, then the `Previous month`, month
    button and `Next month` group, then the `Back to calendar` link, the table's name `October 2026 duty assignments`,
-   each column header's chip, name, `N OF M DAYS` and `column actions` button, the Date column's day number, weekday and
-   `TODAY` label, page `scrollWidth` against `innerWidth`, and the table's own scroll region
-   (`October 2026 duty assignments`): its header stays sticky while the body scrolls, the current month opens scrolled
-   so today's row is in view at both combinations without scripted scrolling, and at 390 the `Conflicts` panel sits
-   below the table with `Roster · count today` under it. Open days offer a compact dashed `+ Assign` chip, not a
-   full-width button. Read the rows' computed treatment: weekend rows are tinted, past rows are at opacity 0.7, today's
-   row has its own fill. Then press `Previous month` to September 2026 and record the closure day (September 15): a tint
-   with its name inline beside the weekday, and the two conflict cells on it (a destructive left border and an
-   `ON <status dates>` line), with the `Conflicts` heading in the destructive tone beside its count. With the keyboard,
-   focus `Find replacement for Verification Staff Duty, Tue 15 Sept`, press Enter, move to `SPC Unassigned` with
-   ArrowDown and press Enter: the picker closes and focus lands on that slot's table cell button
+   each column header's chip, name, `N OF M DAYS`, `column actions` button and, on a Person type, the `Fill` button with
+   its whole label visible and nothing overlapping the name, the Date column's day number, weekday and `TODAY` label,
+   page `scrollWidth` against `innerWidth`, and the table's own scroll region (`October 2026 duty assignments`): its
+   header stays sticky while the body scrolls, the current month opens scrolled so today's row is in view at both
+   combinations without scripted scrolling, and at 390 the `Conflicts` panel sits below the table with
+   `Roster · count today` under it. Open days offer a compact dashed `+ Assign` chip, not a full-width button. Read the
+   rows' computed treatment: weekend rows are tinted, past rows are at opacity 0.7, today's row has its own fill. Then
+   press `Previous month` to September 2026 and record the closure day (September 15): a tint with its name inline
+   beside the weekday, and the two conflict cells on it (a destructive left border and an `ON <status dates>` line),
+   with the `Conflicts` heading in the destructive tone beside its count. With the keyboard, focus
+   `Find replacement for Verification Staff Duty, Tue 15 Sept`, press Enter, move to `SPC Unassigned` with ArrowDown and
+   press Enter: the picker closes and focus lands on that slot's table cell button
    (`Verification Staff Duty, Tue 15 Sept: SPC Unassigned…`), not on the removed `Find replacement` button. Restore Able
    through the same cell's picker and read back the seeded rows. For loading, arm
    `$V network arm-hold $PAGE calendar-range`, click `Next month` until an uncovered month requests a range, capture
@@ -211,12 +211,12 @@ action and keep its page ID. The date format in every name is the browser's en-G
    `Clear month`, closing it once with Escape and once with `Cancel`, recording focus and unchanged rows each time. As
    `calendarView` and `manager`, open the planner route at both combinations and record the denial with no cell or
    navigation. As `calendarScoped`, record no `Roster · count today` panel, no `duty-rosters` request in
-   `list_network_requests`, a column menu that opens `Quick fill` directly, and that a Person cell offers only Alpha
-   people, and that the Group options in a Group cell's picker, `Quick fill`, the month view's lane picker and the Group
-   select in `Daily Assignments` list only Alpha. For the large roster, run `$V seed bulk-501`, reload the planner five
-   times and record the first cell paint, long tasks, DOM element count and the `__data.json` and `calendar-range`
-   request counts, and that each newly opened picker slot adds one `duty-rosters/day` read and reopening a slot adds
-   none. Then run `clean-seeds`.
+   `list_network_requests`, no `Fill` button in any column header, a column menu that opens `Quick fill` directly, and
+   that a Person cell offers only Alpha people, and that the Group options in a Group cell's picker, `Quick fill`, the
+   month view's lane picker and the Group select in `Daily Assignments` list only Alpha. For the large roster, run
+   `$V seed bulk-501`, reload the planner five times and record the first cell paint, long tasks, DOM element count and
+   the `__data.json` and `calendar-range` request counts, and that each newly opened picker slot adds one
+   `duty-rosters/day` read and reopening a slot adds none. Then run `clean-seeds`.
 
 10. **Failed clear in the day dialog.** As `calendarOperate`, use an empty date to save one Person assignment through
     the Calendar date-header `Daily Assignments` dialog. Record its exact saved row, reopen the same date and arm
@@ -249,15 +249,18 @@ action and keep its page ID. The date format in every name is the browser's en-G
     require 10 rows with `Show all <N>`; press it and require the rest with the button now `Show fewer`; switching type
     folds it again. Then `clean-seeds` and reload.
 
-12. **Fill from roster.** As `calendarOperate` on October 2026 at 1440x900 light, open
-    `Verification Staff Duty column actions`. The popover is named `Fill from roster, Verification Staff Duty`, with
-    `First day` on tomorrow and `Last day` on October 31, the open-day count under them, and a preview of the picks
-    (`Day`, `Next up`, `Count`): starting from no details, Able then Unassigned alternating, the first pick at count 1
-    and the rest at 2 and up, five rows with `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change
-    `First day` and require a fresh preview. The popover ends with `Open the DA 6`, linking to this roster's DA 6 for
-    the shown month; a Group duty's menu has no such link. Before committing, send an authenticated POST from the
-    signed-in page that saves Unassigned on the second day of the range; then click `Fill`: the server answers `409`,
-    the popover stays open with `The roster changed since this preview. Review the new picks and fill again.`, one
+12. **Fill from roster.** As `calendarOperate` on October 2026 at 1440x900 light, click
+    `Fill Verification Staff Duty from roster`, the `Fill` button beside the column's day count; it reads `true` for
+    `aria-expanded` while open, and Escape returns focus to it. `Verification Staff Duty column actions` opens
+    `Quick fill` instead, whose `Fill from roster` link switches to the same popover. The popover is named
+    `Fill from roster, Verification Staff Duty`, with `First day` on tomorrow and `Last day` on October 31, the open-day
+    count under them, and a preview of the picks (`Day`, `Next up`, `Count`): starting from no details, Able then
+    Unassigned alternating, the first pick at count 1 and the rest at 2 and up, five rows with
+    `<n> more through 31 Oct`. The button reads `Fill <open days> days`. Change `First day` and require a fresh preview.
+    The popover ends with `Open the DA 6`, linking to this roster's DA 6 for the shown month; a Group duty's header has
+    no `Fill` button and its menu has no such link. Before committing, send an authenticated POST from the signed-in
+    page that saves Unassigned on the second day of the range; then click `Fill`: the server answers `409`, the popover
+    stays open with `The roster changed since this preview. Review the new picks and fill again.`, one
     `calendar-range?…&collections=assignments` read puts the saved day in the grid, and a new preview leaves that day
     out. With `$V network arm-fail $PAGE calendar-range` armed before that `Fill`, the re-read fails instead: above the
     grid `The roster changed, and this month's assignments could not be read again. Assigning waits until they load.`
@@ -267,10 +270,11 @@ action and keep its page ID. The date format in every name is the browser's en-G
     with `source` `roster` and the manual day unchanged as `manual`. On Retiring, where Able sits in the Staff pool too,
     a pick on a day Able holds Staff duty reads `Skipped SPC Able (<n>). On Verification Staff Duty, count runs.` Assign
     Able to Retiring on a day Able holds Staff duty: both cells read `unavailable: … Duty (D)` and `Conflicts` lists
-    them with `is on Verification Retiring Duty (D).` Capture the Fill popover at 390x844 dark and read its bounds: at
-    least 8px inside each viewport edge. As `calendarScoped`, the column menu opens `Quick fill`, and an authenticated
-    `POST /org/<orgA>/api/duty-rosters/fill/preview` or `/fill` returns `403` with nothing written. Clear the month's
-    rows through `Clear month` before leaving.
+    them with `is on Verification Retiring Duty (D).` Capture the column headers and the Fill popover at 900x800 and
+    390x844 dark: the `Fill` label stays visible, the type name and count truncate rather than overlap the buttons, and
+    the popover bounds read: at least 8px inside each viewport edge. As `calendarScoped`, the column menu opens
+    `Quick fill`, and an authenticated `POST /org/<orgA>/api/duty-rosters/fill/preview` or `/fill` returns `403` with
+    nothing written. Clear the month's rows through `Clear month` before leaving.
 
 13. **Find replacement.** As `calendarOperate` on October 2026 at 1440x900 light, fill Verification Staff Duty from 23
     to 31 Oct with `Fill 9 days` (Able on odd days, Unassigned on even days), hand-assign Able on Fri 30 Oct through its
@@ -284,15 +288,20 @@ action and keep its page ID. The date format in every name is the browser's en-G
     which holds focus once the preview loads. `Can't pull 25 Oct` lists `SPC Able · Verification Leave, holds at 1` with
     an `A` chip. `Also re-picks 5 planned days` lists 26 MON Unassigned → Able, 27 TUE Able → Unassigned, 28 WED
     Unassigned → Able, 29 THU Able → Unassigned and 31 SAT Able → Unassigned, then
-    `Days you assigned by hand stay put.`; 30 Oct is absent. Tab cycles Someone else, Cancel, Assign Unassigned and the
-    radio without leaving the dialog; Escape closes it and focus returns to `Find replacement`. With
-    `$V network arm-hold $PAGE duty-rosters/replacement/preview` armed, reopening shows `Loading the roster` skeleton
-    rows and a disabled `Assign`; release. With `$V network arm-fail $PAGE duty-rosters/replacement/preview`, the dialog
-    reads the failure with `Retry preview`; restore and Retry. `Someone else` opens the duty picker
-    `Verification Staff Duty, Sun 25 Oct` with `Find person` focused, without Able or `Clear assignment`; Escape returns
-    to the dialog. For a pick off the roster, set Retiring's pool to MOS 68W (an authenticated
-    `PUT api/assignment-types/roster` as `orgOwner`, restoring `poolRules:null` afterwards), fill it and open
-    `Find replacement` on one of its conflicts (Able's 25 Oct Leave makes one): `Someone else`, search `Baker` and
+    `Days you assigned by hand stay put.`; 30 Oct is absent. Under the footer buttons, a two-line note that is
+    `Someone else`'s accessible description reads
+    `Someone else re-picks the later roster days too. To change only this day, click the name in the planner.` Tab
+    cycles Someone else, Cancel, Assign Unassigned and the radio without leaving the dialog; Escape closes it and focus
+    returns to `Find replacement`. With `$V network arm-hold $PAGE duty-rosters/replacement/preview` armed, reopening
+    shows `Loading the roster` skeleton rows and a disabled `Assign`; release. With
+    `$V network arm-fail $PAGE duty-rosters/replacement/preview`, the dialog reads the failure with `Retry preview`;
+    restore and Retry. `Someone else` opens the duty picker `Verification Staff Duty, Sun 25 Oct` with `Find person`
+    focused, without Able or `Clear assignment`, and under its title the two-line description
+    `A pick here re-picks the later roster days too. To change only this day, click the name in the planner.`; Escape
+    returns to the dialog. Clicking the 25 Oct name in the grid, from the dialog or from that picker, opens the plain
+    picker for that day alone, with no description. For a pick off the roster, set Retiring's pool to MOS 68W (an
+    authenticated `PUT api/assignment-types/roster` as `orgOwner`, restoring `poolRules:null` afterwards), fill it and
+    open `Find replacement` on one of its conflicts (Able's 25 Oct Leave makes one): `Someone else`, search `Baker` and
     choose `SPC Baker, Synthetic, not on this roster`. The dialog returns with the radio `SPC Baker, Not on this roster`
     checked and the re-picks the server previewed for Baker (`selected` is Baker), and `Assign Baker` writes Baker on
     that day as `manual` with the re-picked days `roster`. Reopen and hold the commit with
@@ -326,12 +335,12 @@ and conflicts), `GET /day?typeId=…&date=YYYY-MM-DD&today=YYYY-MM-DD` (the stan
 which returns `409` when the roster changed. `POST /replacement/preview {typeId,today,date,assigneeId?}` previews a
 replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `assigneeId`, `replacing`
 and `repicks:[{date,was,personId}]` (`was` is who held the day in the preview) and returns `409` when the plan differs,
-any `was` changed, or a day is left unfilled. Saved rows carry `source`
-(`manual` or `roster`); the server sets it and no client request names it. Use the signed-in page's read-only
-`evaluate_script` only for response inspection or an authenticated request probe; actual planning actions use the
-visible controls. Read provider rows only through the owned helper. [Calendar navigation](calendar-navigation.md),
-[Calendar access](calendar-access.md), [Organization switching](organization-switching.md), and
-[Reports and history](reports-history.md) own the adjacent range/scope/report journeys.
+any `was` changed, or a day is left unfilled. Saved rows carry `source` (`manual` or `roster`); the server sets it and
+no client request names it. Use the signed-in page's read-only `evaluate_script` only for response inspection or an
+authenticated request probe; actual planning actions use the visible controls. Read provider rows only through the owned
+helper. [Calendar navigation](calendar-navigation.md), [Calendar access](calendar-access.md),
+[Organization switching](organization-switching.md), and [Reports and history](reports-history.md) own the adjacent
+range/scope/report journeys.
 
 ## Gotchas
 

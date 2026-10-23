@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import type { AssignmentWrite, QuickFillDays } from '$features/calendar/utils/assignmentPlanner';
 	import type { AssigneeChoice } from '$features/calendar/utils/dutyPickerOptions';
@@ -21,7 +22,7 @@
 		buildBatch: (assigneeId: string, days: QuickFillDays, onlyOpenDays: boolean) => AssignmentWrite[];
 		onApply: (batch: AssignmentWrite[]) => Promise<boolean>;
 		onClearMonth: () => void;
-		/** Present when this type fills from its roster; Quick fill then stays one link away. */
+		/** Present when this type fills from its roster. Its Fill button opens it; the column actions open Quick fill. */
 		rosterFill?: RosterFill;
 		/** The type's DA 6 for the shown month, for an operator who sees the whole Organization. */
 		da6Href?: string;
@@ -30,7 +31,8 @@
 	let { type, choices, busy, buildBatch, onApply, onClearMonth, rosterFill, da6Href }: Props = $props();
 
 	let open = $state(false);
-	let mode = $state<'roster' | 'person'>('roster');
+	let mode = $state<'roster' | 'person'>('person');
+	let opener = $state<HTMLElement | null>(null);
 	const fromRoster = $derived(rosterFill !== undefined && mode === 'roster');
 	let assigneeId = $state('');
 	let days = $state<QuickFillDays>('weekdays');
@@ -43,14 +45,24 @@
 	const subject = $derived(type.assignTo === 'group' ? 'group' : 'person');
 	const locked = $derived(busy || applying);
 
-	function changeOpen(next: boolean) {
-		open = next;
-		if (next) {
-			mode = 'roster';
+	function openAs(next: 'roster' | 'person', button: HTMLElement) {
+		if (open && mode === next) {
+			open = false;
+			return;
+		}
+		if (!open) {
 			assigneeId = '';
 			days = 'weekdays';
 			onlyOpenDays = true;
 		}
+		mode = next;
+		opener = button;
+		open = true;
+	}
+
+	function returnFocus(event: Event) {
+		event.preventDefault();
+		if (opener?.isConnected) opener.focus();
 	}
 
 	function chooseDays(value: string) {
@@ -68,26 +80,52 @@
 		}
 	}
 
+	function close() {
+		open = false;
+	}
+
 	function clearMonth() {
 		open = false;
 		onClearMonth();
 	}
 </script>
 
-<Popover.Root {open} onOpenChange={changeOpen}>
-	<Popover.Trigger>
-		{#snippet child({ props })}
-			<Button {...props} variant="ghost" size="icon-xs" aria-label={`${type.name} column actions`} disabled={busy}>
-				<EllipsisIcon aria-hidden="true" />
-			</Button>
-		{/snippet}
-	</Popover.Trigger>
+<Button
+	variant="ghost"
+	size="icon-xs"
+	class="justify-self-end"
+	aria-label={`${type.name} column actions`}
+	aria-haspopup="dialog"
+	aria-expanded={open && mode === 'person'}
+	disabled={busy}
+	onclick={(event) => openAs('person', event.currentTarget)}
+>
+	<EllipsisIcon aria-hidden="true" />
+</Button>
+{#if rosterFill}
+	<Button
+		variant="outline"
+		size="xs"
+		aria-label={`Fill ${type.name} from roster`}
+		aria-haspopup="dialog"
+		aria-expanded={open && mode === 'roster'}
+		disabled={busy}
+		onclick={(event) => openAs('roster', event.currentTarget)}
+	>
+		<WandSparklesIcon data-icon="inline-start" aria-hidden="true" />
+		Fill
+	</Button>
+{/if}
+
+<Popover.Root {open} onOpenChange={(next) => (open = next)}>
 	<Popover.Content
+		customAnchor={opener}
 		align="end"
 		collisionPadding={8}
 		role="dialog"
 		aria-label={`${fromRoster ? 'Fill from roster' : 'Quick fill'}, ${type.name}`}
 		class={['max-w-(--bits-popover-content-available-width) gap-3 p-3', fromRoster ? 'w-[23rem]' : 'w-80']}
+		onCloseAutoFocus={returnFocus}
 	>
 		<Popover.Header class="flex flex-row items-end justify-between gap-2">
 			<div class="grid gap-1">
@@ -107,13 +145,7 @@
 		</Popover.Header>
 
 		{#if rosterFill && fromRoster}
-			<RosterFillForm
-				{...rosterFill}
-				typeId={type.id}
-				{busy}
-				onClose={() => changeOpen(false)}
-				onClearMonth={clearMonth}
-			/>
+			<RosterFillForm {...rosterFill} typeId={type.id} {busy} onClose={close} onClearMonth={clearMonth} />
 		{:else}
 			<Field.Group>
 				<Field.Root>
@@ -163,7 +195,7 @@
 
 			<div class="flex items-center gap-2">
 				<Button variant="ghost-destructive" size="sm" disabled={locked} onclick={clearMonth}>Clear month</Button>
-				<Button variant="ghost" size="sm" class="ml-auto" onclick={() => changeOpen(false)}>Cancel</Button>
+				<Button variant="ghost" size="sm" class="ml-auto" onclick={close}>Cancel</Button>
 				<Button size="sm" disabled={locked || !assigneeId || batch.length === 0} onclick={apply}>
 					{applying ? 'Filling…' : fillLabel}
 				</Button>

@@ -429,6 +429,15 @@ describe('CalendarAssignmentSettingsSection', () => {
 		});
 	});
 
+	it('opens the type editor as the wide side sheet', async () => {
+		const view = renderSection();
+		view.component.openAddDialog();
+		const dialog = await screen.findByRole('dialog', { name: 'Add Assignment Type' });
+
+		expect(dialog.dataset.slot).toBe('sheet-content');
+		expect(dialog.dataset.size).toBe('wide');
+	});
+
 	it('leaves the Group choice open for a new type while the rank catalog failed', async () => {
 		const view = renderSection('', Promise.reject(new Error('rank catalog unavailable')));
 		view.component.openAddDialog();

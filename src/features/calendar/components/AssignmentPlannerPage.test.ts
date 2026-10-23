@@ -453,7 +453,7 @@ describe('planner roster replacement', () => {
 	}
 
 	async function fillFromRoster() {
-		await fireEvent.click(await screen.findByRole('button', { name: 'Charge of Quarters column actions' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Fill Charge of Quarters from roster' }));
 		const menu = await screen.findByRole('dialog', { name: 'Fill from roster, Charge of Quarters' });
 		await fireEvent.click(await within(menu).findByRole('button', { name: 'Fill 1 day' }));
 		return menu;

@@ -180,7 +180,7 @@
 </script>
 
 <AppDialog.Root open busy={saving.pending} closeBlocked={dirty} {onClose}>
-	<AppDialog.Content presentation="sheet">
+	<AppDialog.Content presentation="sheet" size="wide">
 		<AppDialog.Header class="border-b pb-4">
 			<AppDialog.Title>{editing ? 'Edit Assignment Type' : 'Add Assignment Type'}</AppDialog.Title>
 			<AppDialog.Description>

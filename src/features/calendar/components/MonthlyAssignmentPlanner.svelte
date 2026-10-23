@@ -408,16 +408,19 @@
 						<Table.Head scope="col" class="w-40 px-3 font-mono text-xs tracking-widest uppercase">Date</Table.Head>
 						{#each table.columns as column (column.type.id)}
 							<Table.Head scope="col" class="min-w-44 px-3 py-2">
-								<div class="flex items-center gap-2">
-									<AssignmentCodeChip code={column.type.shortName} color={column.type.color} size="row" />
-									<div class="grid min-w-0 flex-1">
-										<span class="truncate text-sm font-semibold">{column.type.name}</span>
-										<span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-											{column.filledDays} of {column.totalDays} days{column.type.assignTo === 'group'
-												? ' · group'
-												: ''}{column.type.showOnCalendar ? '' : ' · planner only'}
-										</span>
+								<!-- The column menu's buttons fill the last column, the actions beside the name and Fill beside the count. -->
+								<div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5">
+									<div class="row-span-2 flex">
+										<AssignmentCodeChip code={column.type.shortName} color={column.type.color} size="row" />
 									</div>
+									<span class="truncate text-sm font-semibold" title={column.type.name}>{column.type.name}</span>
+									<span
+										class="col-start-2 row-start-2 truncate font-mono text-[10px] tracking-wider text-muted-foreground uppercase"
+									>
+										{column.filledDays} of {column.totalDays} days{column.type.assignTo === 'group'
+											? ' · group'
+											: ''}{column.type.showOnCalendar ? '' : ' · planner only'}
+									</span>
 									<AssignmentPlannerColumnMenu
 										type={column.type}
 										choices={eligibleAssignees(column.type, personnel, groups)}
@@ -548,6 +551,7 @@
 			counts={picker.counts}
 			onAssign={assignFromPicker}
 			onClear={picker.occupied ? () => onSetAssignment(picker.dateKey, picker.type.id, '') : undefined}
+			replacing={picker.replacing !== undefined}
 			onClose={closePicker}
 		/>
 	{/key}

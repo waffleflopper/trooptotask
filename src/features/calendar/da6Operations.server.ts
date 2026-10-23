@@ -46,7 +46,10 @@ export async function loadDa6View(
 	const rosters = allTypes
 		.filter((type) => type.assignTo === 'personnel' && !type.archivedAt)
 		.map(({ id, name, shortName }) => ({ id, name, shortName }));
-	const roster = allTypes.find((type) => type.id === typeId && type.assignTo === 'personnel');
+	// A type switched to Group keeps its saved forms readable.
+	const roster = allTypes.find(
+		(type) => type.id === typeId && (type.assignTo === 'personnel' || closedForms.length > 0)
+	);
 	if (!roster) fail(404, 'That duty roster is not available.');
 
 	// A form that held no duty this month has no sheet. One whose record cannot be read keeps its place as an error.

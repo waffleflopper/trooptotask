@@ -203,6 +203,30 @@ describe('loadDa6View', () => {
 		});
 	});
 
+	it('still shows the saved forms of a roster whose type was switched to Group', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seed(ctx);
+		ctx.store.seed('roster_forms', [
+			{
+				id: 'shift-closed',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: SHIFT,
+				starts_on: '2026-09-20',
+				ends_on: '2026-10-10',
+				rules: { pool: null, weekendMode: 'same' },
+				record: { segments: [{ ...SAVED, formId: 'shift-closed' }] }
+			}
+		]);
+
+		const view = await loadDa6View(ctx, { typeId: SHIFT, month: '2026-10', today: TODAY });
+
+		expect(view.roster).toEqual({ id: SHIFT, name: 'Shift', shortName: 'SH' });
+		expect(view.sheets.map(({ formId, from, to }) => [formId, from, to])).toEqual([
+			['shift-closed', '2026-10-01', '2026-10-10']
+		]);
+		expect(view.sheets[0].segment).toEqual({ ...SAVED, formId: 'shift-closed' });
+	});
+
 	it('reads a month with the same queries however many people and duty days it holds', async () => {
 		const reads = async (people: number, days: string[]) => {
 			const ctx = createWriteWithNotificationsPortsContext();

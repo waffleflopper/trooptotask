@@ -420,13 +420,24 @@
 			</section>
 		{/if}
 
-		<footer class="flex flex-wrap items-center gap-2 px-4 py-3">
-			<Button variant="link" size="sm" class="mr-auto px-0" disabled={locked} onclick={someoneElse}>Someone else</Button
-			>
-			<Button variant="ghost" size="sm" disabled={locked} onclick={dismiss}>Cancel</Button>
-			<Button size="sm" disabled={!canAssign} aria-busy={committing} onclick={assign}>
-				{assignName ? `Assign ${assignName}` : 'Assign'}
-			</Button>
+		<footer class="grid gap-1.5 px-4 py-3">
+			<div class="flex flex-wrap items-center gap-2">
+				<Button
+					variant="link"
+					size="sm"
+					class="mr-auto px-0"
+					disabled={locked}
+					aria-describedby="replacement-someone-else"
+					onclick={someoneElse}>Someone else</Button
+				>
+				<Button variant="ghost" size="sm" disabled={locked} onclick={dismiss}>Cancel</Button>
+				<Button size="sm" disabled={!canAssign} aria-busy={committing} onclick={assign}>
+					{assignName ? `Assign ${assignName}` : 'Assign'}
+				</Button>
+			</div>
+			<p id="replacement-someone-else" class="text-xs text-muted-foreground">
+				Someone else re-picks the later roster days too. To change only this day, click the name in the planner.
+			</p>
 		</footer>
 	</Popover.Content>
 </Popover.Root>

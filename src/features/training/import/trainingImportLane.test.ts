@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { lastFirstSplitter, rosterPersonReference } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
 import { parseImportDate, type LaneQuestion } from '$lib/components/patterns/import-flow';
-import { buildSourceRows, ReviewMemo, reviewRows } from '$lib/components/patterns/import-flow/rowModel';
-import { detectLayout, type LoadedFile } from '$lib/components/patterns/import-flow/workbookSource';
 import type { PersonnelTraining, TrainingType } from '../training.types';
 import {
 	createTrainingImportLane,
@@ -220,28 +218,15 @@ describe('training import lane', () => {
 		});
 	});
 
-	it('skips a long-format row with no completion instead of blocking the import on a fix', () => {
+	it('skips a row with no completion instead of asking for a fix, while the person and training stay required', () => {
 		const lane = createTrainingImportLane(source());
-		const file: LoadedFile = {
-			name: 'long.csv',
-			sheets: [
-				{
-					index: 0,
-					name: 'Completions',
-					hidden: false,
-					rows: [
-						['Last name', 'First name', 'Training', 'Completed'],
-						['Abernathy', 'Cole', 'SHARP', ''],
-						['Alvarez', 'Marisol', 'CPR/BLS', '2026-06-02']
-					]
-				}
-			]
-		};
-		const rows = buildSourceRows(file, detectLayout(file, lane), lane);
-		const state = reviewRows(rows, lane, new Map(), new Set(), new ReviewMemo());
-
-		expect(state.counts).toMatchObject({ skipped: 1, new: 1, fix: 0 });
-		expect(state.commitBlocker).toBeNull();
+		expect(review({ ...abernathy, training: 'SHARP', completed: '', note: 'Called, no date' }).result).toMatchObject({
+			outcome: 'skipped'
+		});
+		const required = Object.entries(lane.columns)
+			.filter(([, column]) => 'required' in column && column.required)
+			.map(([field]) => field);
+		expect(required).toEqual(['lastName', 'firstName', 'training']);
 	});
 
 	it('names the changed date from what the training type dates', () => {

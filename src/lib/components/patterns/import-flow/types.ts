@@ -142,7 +142,11 @@ export interface ReviewInput<C extends ImportColumns, Refs> {
 	parseDate(raw: string): IsoDate | null;
 }
 
-export type RowCommitResult = { kind: 'added' } | { kind: 'updated' } | { kind: 'failed'; reason: string };
+export type RowCommitResult =
+	| { kind: 'added' }
+	| { kind: 'updated' }
+	| { kind: 'unchanged' }
+	| { kind: 'failed'; reason: string };
 
 export type ChunkReply =
 	| { kind: 'saved'; results: readonly RowCommitResult[] }

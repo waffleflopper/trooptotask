@@ -49,7 +49,7 @@ export function normalizeHeader(raw: string): string {
 		.replace(/^\uFEFF/, '')
 		.trim()
 		.toLowerCase()
-		.replace(/\s+/g, ' ');
+		.replace(/[\s_]+/g, ' ');
 }
 
 export function parseValue(kind: ValueKind, raw: string, maxLength?: number, system: DateSystem = {}): ParsedValue {

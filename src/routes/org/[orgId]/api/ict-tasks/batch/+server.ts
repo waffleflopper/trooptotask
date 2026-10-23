@@ -1,12 +1,17 @@
 import { createRequestCriticalTaskLibraryContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { importIctTasksBatch } from '$features/critical-tasks/index.server';
+import {
+	ICT_IMPORT_MAX_RECORDS,
+	ictTaskImportRecordSchema,
+	type IctImportReply,
+	type IctTask
+} from '$features/critical-tasks/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 
 const batchInput = z.object({
-	mode: z.enum(['create-only', 'upsert']),
-	records: z.array(z.object({ rowNumber: z.number(), values: z.record(z.string(), z.string()) })).default([])
+	records: z.array(ictTaskImportRecordSchema).min(1, 'records array is required').max(ICT_IMPORT_MAX_RECORDS)
 });
 
 export const _postConfig = {
@@ -14,14 +19,10 @@ export const _postConfig = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 	input: batchInput,
-	fn: (ctx, input) =>
-		importIctTasksBatch(ctx, {
-			mode: input.mode,
-			records: input.records
-		})
+	fn: (ctx, input) => importIctTasksBatch(ctx, input)
 } satisfies RouteConfig<
 	z.infer<typeof batchInput>,
-	unknown,
+	IctImportReply<IctTask>,
 	ReturnType<typeof createRequestCriticalTaskLibraryContext>
 >;
 

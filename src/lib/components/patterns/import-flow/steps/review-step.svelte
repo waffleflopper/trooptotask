@@ -9,7 +9,7 @@
 	import type { ReviewFilter } from '../importSession.svelte';
 	import type { QuestionKey } from '../types';
 	import type { ReviewedRow } from '../rowModel';
-	import { cardRowHeight, OUTCOMES, tableRowHeight, type ReviewColumn } from '../reviewLayout';
+	import { cardRowHeight, OUTCOMES, tableRowHeight, wrappedLines, type ReviewColumn } from '../reviewLayout';
 	import { plural, type FlowSession } from '../flowTypes';
 	import FixRail from '../fix-rail.svelte';
 	import ReviewRow from '../review-row.svelte';
@@ -17,6 +17,8 @@
 	let { session, onBack }: { session: FlowSession; onBack: () => void } = $props();
 
 	const COMPACT_BELOW = 640;
+	/** List and card borders, margin and padding, plus room for a scrollbar. */
+	const CARD_TEXT_INSET = 48;
 	const ROWS = { one: 'row', other: 'rows' };
 	const CHANGES = { one: 'change', other: 'changes' };
 
@@ -29,6 +31,13 @@
 	const review = $derived(session.review);
 	const counts = $derived(review.counts);
 	const compact = $derived(width > 0 && width < COMPACT_BELOW);
+	const measureMessage = $derived.by(() => {
+		const context = listArea ? document.createElement('canvas').getContext('2d') : null;
+		if (!listArea || !context) return (text: string) => text.length * 7;
+		context.font = `12px ${getComputedStyle(listArea).fontFamily}`;
+		return (text: string) => context.measureText(text).width;
+	});
+	const messageLines = (text: string) => wrappedLines(text, width - CARD_TEXT_INSET, measureMessage);
 	const committing = $derived(session.phase.step === 'committing' ? session.phase.progress : null);
 
 	const identityFields = $derived(new Set<string>(session.lane.identity?.fields ?? []));
@@ -169,7 +178,8 @@
 			<VirtualList
 				items={rows}
 				key={(row) => row.row.id}
-				height={(row) => (compact ? cardRowHeight(row, identityColumns, columns) : tableRowHeight(row, columns))}
+				height={(row) =>
+					compact ? cardRowHeight(row, identityColumns, columns, messageLines) : tableRowHeight(row, columns)}
 				class="max-h-[calc(100dvh-18rem)] min-h-48 rounded-md border"
 				contentClass={compact ? 'pt-2' : undefined}
 				style={compact ? undefined : `--import-min-width: ${minWidth}`}

@@ -23,6 +23,17 @@ export const changelog: ChangelogEntry[] = [
 		]
 	},
 	{
+		id: '2026-10-22-critical-tasks-import',
+		date: '2026-10-22',
+		title: 'Import Critical Tasks and Completions',
+		items: [
+			'Task Library › Import and Critical Tasks › Import Completions now open their own pages and work like the roster import. Drop in a file, check the columns, review every row, then import.',
+			'Tasks match on task code. A code already in the library shows as an Update with the old value under the new one, and an archived code is restored to the active library. Matching tasks show as Unchanged.',
+			'Completions match each person by name, and you choose who a row means when two people share one. Each task code is matched once for the whole file, and an unknown code is asked once in the fix rail. The import never creates tasks.',
+			'A completion already saved for that person, task and date shows as Unchanged or as an Update to its method, validator or notes. A blank cell never clears a saved value.'
+		]
+	},
+	{
 		id: '2026-10-22-training-import',
 		date: '2026-10-22',
 		title: 'Import Training From Your Tracker',

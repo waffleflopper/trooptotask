@@ -8,7 +8,6 @@ export const ICT_TASK_CODE_EXISTS_MESSAGE = 'Task code already exists in this Or
 export const ICT_COMPLETION_EXISTS_MESSAGE = 'This Person already has a completion recorded for this task on that date';
 export const CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE =
 	"We couldn't confirm that this was saved. Reload to check it before trying again.";
-export const CRITICAL_TASK_IMPORT_NOT_ATTEMPTED_MESSAGE = 'Not sent because an earlier part of the import stopped.';
 export const ICT_TASK_ORDER_CHANGED_MESSAGE =
 	'The task order changed before this move was saved. Reload to see the current order.';
 export const ICT_TASK_UNAVAILABLE_MESSAGE =
@@ -31,12 +30,15 @@ import type { IctReportDashboard, IctReportFilters, IctReportScope } from './uti
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import {
+	ICT_TASK_SORT_ORDER_MAX,
 	ICT_VALIDATION_METHODS,
 	type CriticalTasksSettings,
 	type IctTask,
 	type IctTaskOrderChange,
+	type IctValidationMethod,
 	type PersonnelIctCompletion
 } from './criticalTasks.types';
+import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 
 export type PersonnelIctCompletionWrite = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
 
@@ -80,50 +82,33 @@ export interface CriticalTaskCompletionPersistence {
 	delete(id: string): Promise<void>;
 }
 
-export interface IctCompletionImportMappedRow {
-	rowNumber: number;
-	values: Record<string, string>;
-}
-
-export interface IctCompletionBatchImportInput {
-	records: IctCompletionImportMappedRow[];
-}
-
-export interface IctCompletionBatchImportError {
-	rowNumber: number;
-	personnelName: string;
+export interface IctTaskImportRecord {
 	taskCode: string;
-	message: string;
+	title?: string;
+	description?: string;
+	category?: string;
+	mos?: string[];
+	expirationMonths?: number;
+	sortOrder?: number;
 }
 
-export interface IctCompletionBatchImportResult {
-	inserted: PersonnelIctCompletion[];
-	updated: PersonnelIctCompletion[];
-	errors: IctCompletionBatchImportError[];
-	unconfirmed: IctCompletionBatchImportError[];
+export interface IctCompletionImportRecord {
+	personnelId: string;
+	ictTaskId: string;
+	completedAt: string;
+	validationMethod?: IctValidationMethod;
+	validatedBy?: string;
+	notes?: string;
 }
 
-export interface IctCompletionImportResult extends IctCompletionBatchImportResult {
-	notAttempted: IctCompletionBatchImportError[];
-}
+export type IctImportRowResult<T> =
+	| { kind: 'added'; record: T }
+	| { kind: 'updated'; record: T }
+	| { kind: 'unchanged' }
+	| { kind: 'failed'; message: string };
 
-export interface IctTaskBatchImportError {
-	rowNumber: number;
-	taskCode: string;
-	title: string;
-	message: string;
-}
-
-export interface IctTaskBatchImportResult {
-	inserted: IctTask[];
-	updated: IctTask[];
-	restored: IctTask[];
-	errors: IctTaskBatchImportError[];
-	unconfirmed: IctTaskBatchImportError[];
-}
-
-export interface IctTaskImportResult extends IctTaskBatchImportResult {
-	notAttempted: IctTaskBatchImportError[];
+export interface IctImportReply<T> {
+	results: IctImportRowResult<T>[];
 }
 
 export const ictTaskSchema: z.ZodType<IctTask> = z.object({
@@ -151,35 +136,43 @@ export const personnelIctCompletionSchema: z.ZodType<PersonnelIctCompletion> = z
 	createdAt: z.string()
 });
 
-const ictTaskIssueSchema: z.ZodType<IctTaskBatchImportError> = z.object({
-	rowNumber: z.number(),
-	taskCode: z.string(),
-	title: z.string(),
-	message: z.string()
+export const ICT_IMPORT_MAX_RECORDS = 500;
+export const ICT_MOS_CODE = /^[A-Z0-9]{2,6}$/;
+
+export const ictTaskImportRecordSchema: z.ZodType<IctTaskImportRecord> = z.object({
+	taskCode: z.string().trim().min(1, 'Task code is required').max(64),
+	title: z.string().trim().min(1).max(200).optional(),
+	description: z.string().max(2000).optional(),
+	category: z.string().max(120).optional(),
+	mos: z.array(z.string().regex(ICT_MOS_CODE, 'MOS codes are 2 to 6 letters or digits')).optional(),
+	expirationMonths: z.number().int().positive().optional(),
+	sortOrder: z.number().int().min(0).max(ICT_TASK_SORT_ORDER_MAX).optional()
 });
 
-const ictCompletionIssueSchema: z.ZodType<IctCompletionBatchImportError> = z.object({
-	rowNumber: z.number(),
-	personnelName: z.string(),
-	taskCode: z.string(),
-	message: z.string()
+export const ictCompletionImportRecordSchema: z.ZodType<IctCompletionImportRecord> = z.object({
+	personnelId: uuidSchema,
+	ictTaskId: uuidSchema,
+	completedAt: dateOnlySchema,
+	validationMethod: z.enum(ICT_VALIDATION_METHODS).optional(),
+	validatedBy: z.string().max(200).optional(),
+	notes: z.string().max(2000).optional()
 });
 
-/** `unconfirmed` defaults to empty so a reply from a server that predates it still parses. */
-export const ictTaskBatchImportResultSchema: z.ZodType<IctTaskBatchImportResult> = z.object({
-	inserted: z.array(ictTaskSchema),
-	updated: z.array(ictTaskSchema),
-	restored: z.array(ictTaskSchema),
-	errors: z.array(ictTaskIssueSchema),
-	unconfirmed: z.array(ictTaskIssueSchema).default([])
-});
+function importReplySchema<T>(record: z.ZodType<T>): z.ZodType<IctImportReply<T>> {
+	return z.object({
+		results: z.array(
+			z.discriminatedUnion('kind', [
+				z.object({ kind: z.literal('added'), record }),
+				z.object({ kind: z.literal('updated'), record }),
+				z.object({ kind: z.literal('unchanged') }),
+				z.object({ kind: z.literal('failed'), message: z.string() })
+			])
+		)
+	});
+}
 
-export const ictCompletionBatchImportResultSchema: z.ZodType<IctCompletionBatchImportResult> = z.object({
-	inserted: z.array(personnelIctCompletionSchema),
-	updated: z.array(personnelIctCompletionSchema),
-	errors: z.array(ictCompletionIssueSchema),
-	unconfirmed: z.array(ictCompletionIssueSchema).default([])
-});
+export const ictTaskImportReplySchema = importReplySchema(ictTaskSchema);
+export const ictCompletionImportReplySchema = importReplySchema(personnelIctCompletionSchema);
 
 export interface CriticalTasksSettingsWritePort {
 	saveDefaults(

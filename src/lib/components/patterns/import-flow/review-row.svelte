@@ -110,10 +110,14 @@
 		data-row-id={source.id}
 		class="mx-0.5 grid h-[calc(100%-0.75rem)] content-start gap-2 rounded-md border bg-card px-3 py-2"
 	>
-		<header class="flex min-w-0 items-center gap-2">
+		<header class="grid grid-cols-[auto_minmax(0,max-content)_1fr_auto] items-center gap-2">
 			<Badge variant={outcome.badge}>{outcome.label}</Badge>
 			<span class={cn('min-w-0 truncate text-sm font-medium', quiet && 'text-muted-foreground')}>{label}</span>
-			<span class="ml-auto shrink-0 text-xs text-muted-foreground">{where}</span>
+			<span class="flex justify-end text-xs text-muted-foreground" title={where}>
+				<span class="w-0 flex-1 truncate text-right">{source.sheetName}</span><span class="whitespace-nowrap"
+					>&nbsp;· row {source.rowNumber}</span
+				>
+			</span>
 			{@render skipButton()}
 		</header>
 		{#if (row.outcome === 'fix' || row.outcome === 'update') && context}
@@ -124,13 +128,13 @@
 				<div class="grid gap-1">
 					<span class="text-xs text-muted-foreground">{column.label}</span>
 					{@render editor(column, `${messageId}-${column.field}`)}
-					<span id="{messageId}-{column.field}" class="truncate text-xs text-danger-foreground">
+					<span id="{messageId}-{column.field}" class="text-xs wrap-anywhere text-danger-foreground">
 						{fieldMessage(row, column.field)}
 					</span>
 				</div>
 			{/each}
 			{#each looseMessages(row, editable) as message (message)}
-				<p class="truncate text-xs text-danger-foreground">{message}</p>
+				<p class="text-xs wrap-anywhere text-danger-foreground">{message}</p>
 			{/each}
 		{:else if row.outcome === 'update'}
 			{#each row.diff as change, index (index)}
@@ -195,11 +199,11 @@
 		</div>
 		{#if row.outcome === 'fix'}
 			{@const messages = rowMessages(row).join(' ')}
-			<p id={messageId} class="-mt-1 truncate px-3 pb-2 text-xs text-danger-foreground" title={messages}>
+			<p id={messageId} class="truncate px-3 pb-1.5 text-xs text-danger-foreground" title={messages}>
 				{messages}
 			</p>
 		{:else if unplacedDiff.length}
-			<p class="-mt-1 flex min-w-0 gap-3 px-3 pb-2 text-xs">
+			<p class="flex min-w-0 gap-3 px-3 pb-1.5 text-xs">
 				{#each unplacedDiff as change, index (index)}
 					<span class="flex min-w-0 gap-1.5">
 						<span class="shrink-0 text-muted-foreground">{change.label}</span>

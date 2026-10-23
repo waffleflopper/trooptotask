@@ -1,25 +1,20 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
-	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
+	ICT_IMPORT_MAX_RECORDS,
 	ICT_TASK_UNAVAILABLE_MESSAGE,
 	type CriticalTaskLibraryPersistence,
+	type IctImportReply,
+	type IctImportRowResult,
 	type IctTask,
-	type IctTaskBatchImportError,
-	type IctTaskBatchImportResult
+	type IctTaskCreate,
+	type IctTaskImportRecord
 } from '../contracts';
 import { isUnconfirmedWrite } from './criticalTaskWriteOutcome.server';
-import {
-	reviewMappedIctTaskImportRows,
-	type IctTaskImportMappedRow,
-	type IctTaskImportMode
-} from '$features/critical-tasks/utils/ictTaskImport';
-import { error } from '@sveltejs/kit';
+import { normalizeIctTaskCode } from '../utils/ictTaskLibrary';
 import { fail, RequestFailure } from '$lib/errors';
 import { requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-
-const MAX_BATCH_SIZE = 500;
 
 interface IctTaskBatchContext {
 	auth: Pick<OrganizationAccessGrant, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'> &
@@ -31,118 +26,97 @@ interface IctTaskBatchContext {
 	>;
 }
 
-export interface IctTaskBatchImportInput {
-	mode: IctTaskImportMode;
-	records: IctTaskImportMappedRow[];
-}
-
-function nextSortOrder(tasks: IctTask[]): number {
-	if (tasks.length === 0) return 0;
-	return Math.max(...tasks.map((task) => task.sortOrder)) + 1;
-}
-
 function errorMessage(error: unknown): string {
+	if (isUnconfirmedWrite(error)) throw error;
 	if (error instanceof RequestFailure && error.status < 500) return error.message;
-	return 'Batch import failed';
+	return 'This task could not be saved.';
 }
 
 export async function importIctTasksBatch(
 	ctx: IctTaskBatchContext,
-	input: IctTaskBatchImportInput
-): Promise<IctTaskBatchImportResult> {
+	input: { records: IctTaskImportRecord[] }
+): Promise<IctImportReply<IctTask>> {
 	await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.configureLibrary, { kind: 'organization' });
+	if (input.records.length === 0) fail(400, 'records array is required');
+	if (input.records.length > ICT_IMPORT_MAX_RECORDS) fail(400, `Maximum ${ICT_IMPORT_MAX_RECORDS} records per batch`);
 
-	if (!Array.isArray(input.records) || input.records.length === 0) {
-		throw error(400, 'records array is required');
-	}
+	const existing = await ctx.criticalTaskLibrary.listImportCandidates();
+	const byCode = new Map(existing.map((task) => [normalizeIctTaskCode(task.taskCode), task]));
+	let nextSortOrder = existing.reduce((max, task) => Math.max(max, task.sortOrder + 1), 0);
+	const results: IctImportRowResult<IctTask>[] = [];
+	const creates: { index: number; task: IctTaskCreate }[] = [];
+	const updates: { index: number; id: string; patch: Omit<IctTaskImportRecord, 'taskCode'> }[] = [];
+	const seen = new Set<string>();
 
-	if (input.records.length > MAX_BATCH_SIZE) {
-		throw error(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
-	}
-
-	const existingTasks = await ctx.criticalTaskLibrary.listImportCandidates();
-	const review = reviewMappedIctTaskImportRows(input.records, {
-		existingTasks,
-		mode: input.mode,
-		nextSortOrder: nextSortOrder(existingTasks)
+	input.records.forEach(({ taskCode: rawCode, ...fields }, index) => {
+		const taskCode = normalizeIctTaskCode(rawCode);
+		if (seen.has(taskCode)) {
+			results[index] = { kind: 'failed', message: `Task code ${taskCode} appears more than once in this import.` };
+			return;
+		}
+		seen.add(taskCode);
+		const match = byCode.get(taskCode);
+		if (match) {
+			const { title, description, category, mos, ...values } = fields;
+			updates.push({
+				index,
+				id: match.id,
+				patch: {
+					...values,
+					...(title?.trim() ? { title } : {}),
+					...(description?.trim() ? { description } : {}),
+					...(category?.trim() ? { category } : {}),
+					...(mos?.length ? { mos } : {})
+				}
+			});
+			return;
+		}
+		if (!fields.title) {
+			results[index] = { kind: 'failed', message: 'A new task needs a title.' };
+			return;
+		}
+		creates.push({
+			index,
+			task: { ...fields, taskCode, title: fields.title, sortOrder: fields.sortOrder ?? nextSortOrder++ }
+		});
 	});
 
-	const inserted: IctTask[] = [];
-	const updated: IctTask[] = [];
-	const restored: IctTask[] = [];
-	const unconfirmed: IctTaskBatchImportError[] = [];
-	const errors: IctTaskBatchImportError[] = review.invalidRows.flatMap((row) =>
-		row.errors.map((message) => ({
-			rowNumber: row.rowNumber,
-			taskCode: (row.values.taskCode ?? '').trim(),
-			title: (row.values.title ?? '').trim(),
-			message
-		}))
-	);
-
-	function recordFailure(row: { rowNumber: number; task: { taskCode: string; title: string } }, error: unknown) {
-		const issue = { rowNumber: row.rowNumber, taskCode: row.task.taskCode, title: row.task.title };
-		if (isUnconfirmedWrite(error)) unconfirmed.push({ ...issue, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
-		else errors.push({ ...issue, message: errorMessage(error) });
-	}
-
-	const createRows = review.validRows.filter((row) => row.action === 'create');
-	if (createRows.length > 0) {
-		try {
-			inserted.push(...(await ctx.criticalTaskLibrary.createMany(createRows.map((row) => row.task))));
-		} catch (bulkError) {
-			if (isUnconfirmedWrite(bulkError)) {
-				for (const row of createRows) recordFailure(row, bulkError);
-			} else {
-				for (const row of createRows) {
+	let added = 0;
+	let updated = 0;
+	try {
+		if (creates.length) {
+			try {
+				const saved = await ctx.criticalTaskLibrary.createMany(creates.map((item) => item.task));
+				creates.forEach((item, position) => (results[item.index] = { kind: 'added', record: saved[position] }));
+				added += saved.length;
+			} catch (bulkError) {
+				if (isUnconfirmedWrite(bulkError)) throw bulkError;
+				for (const item of creates) {
 					try {
-						inserted.push(await ctx.criticalTaskLibrary.create(row.task));
+						results[item.index] = { kind: 'added', record: await ctx.criticalTaskLibrary.create(item.task) };
+						added++;
 					} catch (error) {
-						recordFailure(row, error);
+						results[item.index] = { kind: 'failed', message: errorMessage(error) };
 					}
 				}
 			}
 		}
+		for (const item of updates) {
+			try {
+				const task = await ctx.criticalTaskLibrary.update(item.id, { ...item.patch, archivedAt: null });
+				if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
+				results[item.index] = { kind: 'updated', record: task };
+				updated++;
+			} catch (error) {
+				results[item.index] = { kind: 'failed', message: errorMessage(error) };
+			}
+		}
+	} finally {
+		await ctx.audit.log({
+			action: 'ict_task.bulk_imported',
+			resourceType: 'ict_task',
+			details: { inserted: added, updated, failed: results.filter((result) => result?.kind === 'failed').length }
+		});
 	}
-
-	for (const row of review.validRows.filter((entry) => entry.action === 'update')) {
-		if (!row.taskId) {
-			errors.push({
-				rowNumber: row.rowNumber,
-				taskCode: row.task.taskCode,
-				title: row.task.title,
-				message: 'Task code could not be resolved for update'
-			});
-			continue;
-		}
-
-		try {
-			const task = await ctx.criticalTaskLibrary.update(row.taskId, row.task);
-			if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
-			if (row.restoresArchivedTask) restored.push(task);
-			else updated.push(task);
-		} catch (error) {
-			recordFailure(row, error);
-		}
-	}
-
-	ctx.audit.log({
-		action: 'ict_task.bulk_imported',
-		resourceType: 'ict_task',
-		details: {
-			inserted: inserted.length,
-			updated: updated.length,
-			restored: restored.length,
-			errors: errors.length,
-			unconfirmed: unconfirmed.length
-		}
-	});
-
-	return {
-		inserted,
-		updated,
-		restored,
-		errors,
-		unconfirmed
-	};
+	return { results };
 }

@@ -130,10 +130,11 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    `Would remove the saved record that row 2 on <sheet> keeps. Skip one of these rows.`, and Import counts only Baker.
    Baker's row lists `Replaces` twice, earliest first: `2027-11-03 → 2027-11-06 Verification Leave` and
    `2027-11-10 → 2027-11-10 Verification Training`. At 900 and 390 the cards read
-   `2027-11-01 · 2027-11-30 · Temporary Duty…` with both dates in full, one struck line per replaced entry, and card
-   heights of 108, 108 and 136 px with no overflow. Skipping Able's long-status row leaves the Leave Unchanged; Import
-   saves Baker's entry, removes Baker's two, and Able's Leave keeps its ID. Skipping the Leave row instead turns the other
-   row into an Update that replaces it.
+   `2027-11-01 · 2027-11-30 · Temporary Duty…` with both dates in full and one struck line per replaced entry. Each held
+   card shows its whole message: one line at 900 (card heights 108, 108 and 136 px) and two at 390 (124, 124 and 136
+   px), with no overflow. Skipping Able's long-status row leaves the Leave Unchanged; Import saves Baker's entry,
+   removes Baker's two, and Able's Leave keeps its ID. Skipping the Leave row instead turns the other row into an Update
+   that replaces it.
 
    A corrected date reads the calendar it adds before Import. Upload Able on `Verification Training` 2027-06-01 to
    2027-05-30 beside a saved Able Leave of 2027-06-10 to 2027-06-15 and reload first. Review reads `calendar-range`

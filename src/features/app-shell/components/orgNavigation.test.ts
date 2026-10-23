@@ -241,6 +241,11 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
 			{ label: 'CPT Hayes, Emma' }
 		]);
+		expect(getOrgBreadcrumbs('/org/org-1/critical-tasks/import', 'Test Org', nav, 'Ignored')).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Critical Tasks', href: '/org/org-1/critical-tasks' },
+			{ label: 'Import' }
+		]);
 	});
 
 	it('names Unit settings and the settings page outside primary navigation', () => {

@@ -12,6 +12,28 @@ function plan(count: number) {
 }
 
 describe('commit', () => {
+	it('counts server-confirmed unchanged rows with reviewed unchanged rows and leaves them out of the download', async () => {
+		const { rows, changes } = plan(3);
+		const run = await runCommit(
+			changes,
+			async () => ({ kind: 'saved', results: [{ kind: 'added' }, { kind: 'updated' }, { kind: 'unchanged' }] }),
+			() => {},
+			() => true
+		);
+
+		expect(buildReceipt([], run.results, new Map(rows.map((row) => [row.id, row])), run.stopped, 2)).toEqual({
+			added: 1,
+			updated: 1,
+			skipped: 0,
+			unchanged: 3,
+			failed: 0,
+			notAttempted: 0,
+			unconfirmed: 0,
+			notImported: [],
+			stopped: null
+		});
+	});
+
 	it('sends sequential 500-row chunks and stops 1,001 changes at the unconfirmed second chunk', async () => {
 		const { rows, changes } = plan(1001);
 		const saved: number[] = [];

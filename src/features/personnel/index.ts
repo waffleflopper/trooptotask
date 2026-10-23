@@ -21,6 +21,8 @@ export { default as PersonnelDataSheetPageView } from './components/PersonnelDat
 export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';
 export { default as PersonnelRecordHeader } from './components/PersonnelRecordHeader.svelte';
 export { createPersonnelImportLane } from './import/personnelImportLane';
+export { lastFirstSplitter } from './import/personnelImportColumns';
+export { rosterPersonReference } from './import/personMatching';
 export { default as PersonnelLogPageView } from './components/PersonnelLogPageView.svelte';
 export { default as PersonnelFilesPageView } from './components/PersonnelFilesPageView.svelte';
 export { default as PersonnelOpenFollowUps } from './components/PersonnelOpenFollowUps.svelte';

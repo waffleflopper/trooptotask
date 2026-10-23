@@ -49,7 +49,6 @@
 	});
 	const columns = $derived(shownFields ? shownFields.split('\n').map(toColumn) : []);
 	const identityColumns = $derived([...identityFields].map(toColumn));
-	const cardColumns = $derived([...identityColumns, ...columns]);
 	const identityHeader = $derived(session.lane.identity ? session.lane.noun.one : 'Row');
 
 	const IDENTITY_REM = 9.5;
@@ -168,7 +167,7 @@
 			<VirtualList
 				items={rows}
 				key={(row) => row.row.id}
-				height={(row) => (compact ? cardRowHeight(row, cardColumns) : tableRowHeight(row))}
+				height={(row) => (compact ? cardRowHeight(row, identityColumns, columns) : tableRowHeight(row))}
 				class="max-h-[calc(100dvh-18rem)] min-h-48 rounded-md border"
 				contentClass={compact ? 'pt-2' : undefined}
 				style={compact ? undefined : `--import-min-width: ${minWidth}`}
@@ -216,7 +215,7 @@
 			{/if}
 			{#if session.filter === 'all' && counts.unchanged > 0}
 				<p class="flex flex-wrap items-center gap-x-2 px-1 text-sm text-muted-foreground">
-					{plural(counts.unchanged, ROWS)} already match. Nothing to save.
+					{plural(counts.unchanged, ROWS)} already {counts.unchanged === 1 ? 'matches' : 'match'}. Nothing to save.
 					<Button variant="link" size="none" onclick={() => setFilter('unchanged')}>Show</Button>
 				</p>
 			{/if}
@@ -227,14 +226,14 @@
 		class="sticky bottom-0 z-20 -mx-1 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-chrome px-4 py-3 text-chrome-text"
 	>
 		{#if committing}
-			<div class="grid min-w-0 flex-1 gap-1.5" role="status">
+			<div class="grid min-w-0 flex-1 basis-48 gap-1.5" role="status">
 				<span class="text-sm font-medium">
 					Saving {committing.sent.toLocaleString()} of {plural(committing.total, CHANGES)}
 				</span>
 				<Progress value={committing.sent} max={Math.max(1, committing.total)} class="bg-chrome-surface" />
 			</div>
 		{:else}
-			<div class="grid min-w-0 flex-1 gap-0.5">
+			<div class="grid min-w-0 flex-1 basis-48 gap-0.5">
 				<span class="text-sm font-semibold">{plural(review.changeCount, CHANGES)} ready</span>
 				<span id="import-commit-detail" class="truncate text-xs text-chrome-text-muted">
 					{counts.new.toLocaleString()} added · {counts.update.toLocaleString()} updated{counts.fix

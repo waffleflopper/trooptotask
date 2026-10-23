@@ -168,12 +168,12 @@
 			}
 		];
 
-		if (ctx.canBulkImport) {
+		if (ctx.canRecordTraining) {
 			items.push({
 				kind: 'action',
-				id: 'bulk-import',
+				id: 'import',
 				label: 'Import',
-				onclick: () => modals.open('bulk-import'),
+				href: `/org/${orgUrlSegment}/training/import`,
 				icon: 'upload'
 			});
 		}

@@ -343,12 +343,14 @@ function reviewRow<C extends ImportColumns, Refs extends ImportReferences<C>, Ch
 			questions.set(question.key, railQuestionFor(question, 1, answer));
 			if (answer?.kind === 'skip') skipped = { reason: `Skipped: ${question.subject}`, question: question.key };
 		}
+		const { shown, ...outcome } = result;
+		Object.assign(resolved, shown);
 		if (skipped) review = { row, outcome: 'skipped', ...skipped };
-		else if (result.outcome === 'fix')
-			review = { row, outcome: 'fix', problems: result.problems, questions: [...questions.keys()] };
+		else if (outcome.outcome === 'fix')
+			review = { row, outcome: 'fix', problems: outcome.problems, questions: [...questions.keys()] };
 		else if ([...questions.values()].some((question) => !acceptedAnswer(question, question.answer, row)))
 			review = unresolved();
-		else review = { row, ...result };
+		else review = { row, ...outcome };
 	}
 	if (Object.keys(resolved).length) review = { ...review, resolved };
 	return { review, consulted, questions: [...questions.values()] };

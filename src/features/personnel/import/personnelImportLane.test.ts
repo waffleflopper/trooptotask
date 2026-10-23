@@ -78,8 +78,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('personnel import lane', () => {
 	it('splits a Last, First column and drops a middle initial', () => {
-		expect(lastFirstSplitter.split('Garcia, Luis A.')).toEqual({ lastName: 'Garcia', firstName: 'Luis' });
-		expect(lastFirstSplitter.split('Garcia')).toBeNull();
+		expect(lastFirstSplitter().split('Garcia, Luis A.')).toEqual({ lastName: 'Garcia', firstName: 'Luis' });
+		expect(lastFirstSplitter().split('Garcia')).toBeNull();
 	});
 
 	it('matches people by name alone, uses the group to break a tie and asks when it cannot', () => {

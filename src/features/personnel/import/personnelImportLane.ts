@@ -13,7 +13,8 @@ import type { Personnel } from '../personnel.types';
 import type { PersonnelImportRecordsChanges, PersonnelImportRecordsRecord } from '../personnelImportRecords.contracts';
 import type { RankCatalogEntry } from '../rankCatalog';
 import { lastFirstSplitter, personnelImportColumns as columns } from './personnelImportColumns';
-import { groupReference, NEW_PERSON, personMatchReference, personNameKey, rankReference } from './personnelReferences';
+import { personNameKey } from './personMatching';
+import { groupReference, NEW_PERSON, personMatchReference, rankReference } from './personnelReferences';
 
 export interface PersonnelImportSource {
 	orgId: string;
@@ -73,7 +74,7 @@ export function createPersonnelImportLane(source: PersonnelImportSource) {
 			label: (raw) => [raw.lastName, raw.firstName].filter(Boolean).join(', ')
 		},
 		columns,
-		splitters: [lastFirstSplitter],
+		splitters: [lastFirstSplitter<typeof columns>()],
 		references: {
 			person: personMatchReference(source.personnel),
 			rank: rankReference(source.rankCatalog),

@@ -1,6 +1,7 @@
 import type { BadgeVariant } from '$lib/components/ui/badge';
 import type { Outcome, ReviewedRow } from './rowModel';
 import type { ValueKind } from './types';
+import { parseImportDate } from './values';
 
 export interface ReviewColumn {
 	field: string;
@@ -19,8 +20,8 @@ export const OUTCOMES: Record<Outcome, { label: string; badge: BadgeVariant }> =
 const TABLE_ROW = 52;
 const TABLE_MESSAGE = 22;
 const CARD_HEADER = 52;
-const CARD_LINE = 24;
-const CARD_FIELD = 64;
+const CARD_LINE = 28;
+const CARD_FIELD = 76;
 const CARD_GAP = 12;
 
 export function rowMessages(row: ReviewedRow<unknown>): readonly string[] {
@@ -46,18 +47,40 @@ export function editableFields(row: ReviewedRow<unknown>, columns: readonly Revi
 	return new Set(row.problems.map((problem) => problem.field).filter((field) => shown.has(field)));
 }
 
+export function cellText(row: ReviewedRow<unknown>, column: ReviewColumn): string {
+	const raw = row.row.raw[column.field] ?? '';
+	const resolved = row.resolved?.[column.field];
+	if (resolved !== undefined) return resolved;
+	return column.kind === 'date' ? (parseImportDate(raw, row.row) ?? raw) : raw;
+}
+
+export function cardContext(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): string {
+	const editable = editableFields(row, columns);
+	const changed = new Set(row.outcome === 'update' ? row.diff.map((item) => item.label) : []);
+	return columns
+		.filter((column) => !editable.has(column.field) && !changed.has(column.label))
+		.map((column) => cellText(row, column))
+		.filter(Boolean)
+		.join(' · ');
+}
+
 export function tableRowHeight(row: ReviewedRow<unknown>): number {
 	return row.outcome === 'fix' ? TABLE_ROW + TABLE_MESSAGE : TABLE_ROW;
 }
 
-export function cardRowHeight(row: ReviewedRow<unknown>, columns: readonly ReviewColumn[]): number {
+export function cardRowHeight(
+	row: ReviewedRow<unknown>,
+	identityColumns: readonly ReviewColumn[],
+	columns: readonly ReviewColumn[]
+): number {
+	const context = (row.outcome === 'fix' || row.outcome === 'update') && cardContext(row, columns) ? CARD_LINE : 0;
 	const body = (() => {
 		if (row.outcome === 'fix') {
-			const fields = editableFields(row, columns);
+			const fields = editableFields(row, [...identityColumns, ...columns]);
 			return fields.size * CARD_FIELD + looseMessages(row, fields).length * CARD_LINE;
 		}
 		if (row.outcome === 'update') return row.diff.length * CARD_LINE;
 		return CARD_LINE;
 	})();
-	return CARD_HEADER + body + CARD_GAP;
+	return CARD_HEADER + context + body + CARD_GAP;
 }

@@ -468,23 +468,39 @@ After `$V seed dashboard`, as `orgOwner` at 1440:
    shows that cell Current. After `$V seed dashboard-currency`, a `Dashboard Currency` row's dialog asks for an
    `Expiration date` instead: recording it saves `expiration_date` as entered and `completion_date` null, including over
    an existing record, and the Training record dialog shows that date under `EXPIRATION` with status Current.
-4. **Fill.** Press `Fill 7 days` on a lane's Unfilled row. Only now one
-   `GET api/calendar-range?…&collections=assignments` reads the last 90 days. Record its time. With
-   `$V network arm-hold PAGE calendar-range` armed, the day cards show skeletons under `aria-busy="true"` and
-   `Assign all N` stays disabled until `network release`. With `arm-fail` on the same family, `Cancel` and expand again:
-   `Duty history did not load, so nobody is suggested yet.` shows with `Try again`, and each day card reads
-   `Not suggested` and `History not loaded` rather than a name. `Try again` reads again once restored. The panel names
-   up to seven open days with a suggested Person or Group each, never the same one twice, ordered by longest since last
-   duty; a day nobody can take reads `Everyone free has a day` or `Nobody eligible is free`. Past seven,
-   `Open duty planner for N more` links to the planner. Swap a day with Enter on its card, choose another name, and the
-   later days re-plan without repeats. Arm `$V feedback arm PAGE` and `arm-fail PAGE daily-assignments/batch`, then
-   choose `Assign all N`: the panel shows the failure, focus is on `Assign all N` (also when the batch covered every
-   open day, so the row left and came back; to reach that state fill the lane's other open days first, for example with
-   a `POST api/daily-assignments/batch` from the signed-in page), `$V feedback state PAGE` has no entry and the rows are
-   unchanged. Restore both and assign: exactly one `POST api/daily-assignments/batch`, the panel closes and the row's
-   count drops, with focus back on `Fill` while days remain, or on the next row's action or link once the row has left.
-   Read `$V rows daily_assignments orgA date DATE` for each day, reload, and find the same names on the Calendar lane.
-   `Cancel` closes the panel with nothing saved.
+4. **Fill.** Press `Fill 7 days` on the Verification Staff Duty row. Only now one
+   `GET api/duty-rosters/day?typeId=…&date=…&today=…` per shown day, seven in all, reads that day's roster, the same
+   read the Calendar lane picker sends. With `$V network arm-hold PAGE duty-rosters/day` armed, the held day's card
+   shows skeletons under `aria-busy="true"`, every other card and `Assign all N` stay disabled until `network release`.
+   With `arm-fail` on the same family, `Cancel` and expand again: `Roster counts could not be loaded.` shows with
+   `Try again`, the failed day's card reads `Not suggested` and `Count unavailable`, and `Assign all N` stays disabled.
+   `Try again` once restored sends one read, for that day only. The panel names up to seven open days, each suggesting
+   the roster's next up for that day, highest count first and ties in DA 6 order, never the same person twice, with
+   `count N` under the name and `Suggested: available that day, next up on the roster. Choose a day to swap.` below;
+   nobody outside the roster's pool is suggested. Right after `seed dashboard` every Staff pool member has count 1 going
+   into tomorrow (today's seeded Staff assignment does not move it), so tomorrow reads `SPC Able, Synthetic`, the next
+   day `SPC DashboardLoss<tag>, Synthetic` and the day after `SPC Unassigned, Synthetic`, each `count 1`, and the other
+   four `Open` with `Everyone free has a day`; a day nobody can take reads `Everyone free has a day` or
+   `Nobody eligible is free`. Past seven, `Open duty planner for N more` links to the planner. Swap a day with Enter on
+   its card, choose another name, and the later days re-plan without repeats. To reach someone off the roster, send an
+   authenticated `PUT api/assignment-types/roster` from the page that keeps Staff's weekend mode and Baker's
+   `First sergeant` excusal and sets `poolRules` to `groupIds: [groupA]`, then reload: Unassigned is no longer
+   suggested. Swap tomorrow's card, search `unassigned` and require `SPC Unassigned, Synthetic, not on this roster`;
+   choosing it marks the card `Selected` with `Not on this roster`, Able and DashboardLoss move to the next two days and
+   focus returns to the card. `Cancel`, expand again and `Assign all 2`: both save as `manual`, and the reopened panel
+   suggests Able with `count 2`, then DashboardLoss with `count 1`, the standings `duty-rosters/day` returns for those
+   days. The planner's `Fill from roster` previews the same two people for those days; its counts include its own
+   earlier picks, so DashboardLoss reads 2 there. Arm `$V feedback arm PAGE` and
+   `arm-fail PAGE daily-assignments/batch`, then choose `Assign all N`: the panel shows the failure, focus is on
+   `Assign all N` (also when the batch covered every open day, so the row left and came back; to reach that state fill
+   the lane's other open days first, for example with a `POST api/daily-assignments/batch` from the signed-in page),
+   `$V feedback state PAGE` has no entry and the rows are unchanged. Restore both and assign: exactly one
+   `POST api/daily-assignments/batch`, the panel closes and the row's count drops, with focus back on `Fill` while days
+   remain, or on the next row's action or link once the row has left. Read `$V rows daily_assignments orgA date DATE`
+   for each day, reload, and find the same names on the Calendar lane. `Cancel` closes the panel with nothing saved. As
+   `calendarScoped` (Alpha), `Fill 7 days` on Staff sends no `duty-rosters` read and suggests people in scope who are
+   available that day in name order, each reading `Available`, under
+   `Suggested: available that day, in name order. Choose a day to swap.`; a Group duty reads no roster either.
 5. **Check off.** Focus `Check off` on the Stalled row and press Enter. Onboarding opens with the seeded packet's panel
    open at its waiting step.
 6. **Award started.** Arm `arm-fail PAGE personnel/PERSON_ID/award-tracking` and press `Award started` on the Leaving

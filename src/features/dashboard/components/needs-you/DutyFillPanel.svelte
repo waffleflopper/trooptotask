@@ -189,7 +189,7 @@
 								<ChevronDownIcon class="size-3 text-muted-foreground" aria-hidden="true" />
 							{/if}
 						</span>
-						<span class="text-[15px] leading-5 font-semibold wrap-break-word text-foreground">
+						<span class="text-[15px] leading-5 font-semibold wrap-anywhere text-foreground">
 							{status === 'ready' ? choiceName(slot) : 'Not suggested'}
 						</span>
 						<span class="font-mono text-[11px] leading-[14px] text-muted-foreground">
@@ -205,7 +205,7 @@
 
 	{#if counts === 'failed'}
 		<p role="alert" class="flex flex-wrap items-center gap-2 text-sm text-danger-foreground">
-			Roster counts could not be loaded, so nobody is suggested yet.
+			Roster counts could not be loaded.
 			<Button variant="link" class="h-auto px-0" onclick={retryCounts}>Try again</Button>
 		</p>
 	{/if}

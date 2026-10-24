@@ -10,8 +10,9 @@ then checks that each change saved on its own.
 - `groups-edit`: rename inline; the viewer's pin follows the new name.
 - `groups-order`: reorder by drag and by Alt+Arrow; a stale order answers 409, adopts the saved catalog and reloads
   roster membership and pins.
-- `groups-order-everywhere`: after a reorder, Personnel, Calendar, Bulk status, Training, sign-in roster PDFs and the
-  Onboarding Group filter list Groups as pins, then the saved order, then Unassigned.
+- `groups-order-everywhere`: after a reorder, Personnel, Calendar, Bulk status, Training, Critical Tasks and sign-in
+  roster PDFs list Groups as pins, then the saved order, then Unassigned. Group filters, including Onboarding's, follow
+  the saved order without pins.
 - `groups-members`: Add people, Move to… and Remove from Group, each in one request.
 - `groups-remove`: delete a Group after choosing where its members go; an empty Group gets a plain confirmation.
 - `groups-today`: the Today column's skeleton, failure and hidden states.

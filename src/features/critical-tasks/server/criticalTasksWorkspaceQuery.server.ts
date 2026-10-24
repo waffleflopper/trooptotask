@@ -52,12 +52,15 @@ export async function fetchCriticalTasksBootstrap(
 		throw error;
 	});
 	const groups = loadCriticalTasksItems(orgId, 'groups', ctx.groups.listCatalog());
+	// Pins only reorder Groups, so a failed read shows the Organization's order instead of failing the workspace.
+	const pinNames = ctx.selfPins.listNames().catch((error) => {
+		console.error('[critical-tasks-workspace] Failed to load pinned groups', { orgId, error });
+		return [];
+	});
 	const pinnedGroups = loadCriticalTasksItems(
 		orgId,
 		'pinned groups',
-		Promise.all([ctx.selfPins.listNames(), groups]).then(([names, visibleGroups]) =>
-			visiblePinnedGroupNames(names, visibleGroups)
-		)
+		Promise.all([pinNames, groups]).then(([names, visibleGroups]) => visiblePinnedGroupNames(names, visibleGroups))
 	);
 	const ictTasks = loadCriticalTasksItems(
 		orgId,

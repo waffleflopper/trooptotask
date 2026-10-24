@@ -47,14 +47,14 @@ const MAX_FILL_DAYS = 366;
 const MAX_REPICK_DAYS = 366;
 
 /** The last day a roster is simulated to, as in `loadRosterFacts`; the engine builds a standing for every day up to it. */
-const planningHorizon = (today: string) => addDays(today, MAX_CALENDAR_RANGE_DAYS);
+export const planningHorizon = (today: string) => addDays(today, MAX_CALENDAR_RANGE_DAYS);
 
-function requireWithinHorizon(first: string, today: string) {
+export function requireWithinHorizon(first: string, today: string) {
 	if (first > planningHorizon(today)) fail(400, 'Duty rosters are planned at most a year ahead.');
 }
 
 /** A roster counts everyone in the Organization, so its counts and picks are for Organization-wide operators only. */
-function requireOrganizationWide(ctx: RosterSettingsPorts) {
+export function requireOrganizationWide(ctx: RosterSettingsPorts) {
 	if (!ctx.auth.isPrivileged && ctx.auth.scopeSet.kind !== 'organization') {
 		fail(403, 'Duty roster counts need Organization-wide Calendar access.');
 	}
@@ -121,6 +121,9 @@ function plannerRoster(monthRun: RosterRun, todayRun: RosterRun): PlannerRoster 
 		excused: facts.excusals
 			.filter((excusal) => excusal.from <= facts.today && (excusal.through === null || excusal.through >= facts.today))
 			.map((excusal) => excusal.personId),
+		swaps: facts.swaps.filter((swap) =>
+			swap.days.some((day) => day.date >= facts.window.from && day.date <= facts.window.through)
+		),
 		covered: monthRun.days.map((day) => day.date),
 		conflicts: detailConflicts(monthRun).flatMap((day) => {
 			const detail = day.detail;

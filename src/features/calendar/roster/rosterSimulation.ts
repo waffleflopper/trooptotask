@@ -78,6 +78,9 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 		const id = statusIds.get(entry.statusTypeId);
 		if (id !== undefined) mark(slotOf.get(entry.personnelId), dayOf(entry.startDate), dayOf(entry.endDate), id);
 	}
+	const heldByDay = new Map(
+		facts.swaps.flatMap((swap) => swap.days.map(({ date, heldBy }) => [dayOf(date), heldBy] as const))
+	);
 	const own = new Map<number, RosterAssignment>();
 	const otherIds = new Map<string, number>();
 	for (const assignment of facts.assignments) {
@@ -196,7 +199,10 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 		const storedId = stored?.assigneeId ?? null;
 		const assigneeId = picking ? (rulePick ?? storedId) : storedId;
 		const assigneeSlot = assigneeId === null ? undefined : slotOf.get(assigneeId);
-		const onRoster = assigneeSlot !== undefined && state[assigneeSlot] === ON;
+		const heldBy = picking ? null : (heldByDay.get(day) ?? null);
+		const countedId = heldBy ?? assigneeId;
+		const countedSlot = countedId === null ? undefined : slotOf.get(countedId);
+		const onRoster = countedSlot !== undefined && state[countedSlot] === ON;
 		const planned = picking && rulePick !== null && rulePick !== storedId;
 
 		if (inWindow || picking) {
@@ -228,6 +234,7 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 						kind: 'stored',
 						personId: stored.assigneeId,
 						source: stored.source,
+						heldBy,
 						served: day <= today,
 						onRoster,
 						effect: assigneeSlot === undefined ? AVAILABLE : effects[effectAt[base + assigneeSlot]]
@@ -243,7 +250,7 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 			const effect = effects[effectOf[slot]];
 			awayOnLastDetail[ti][slot] = effect.code === 'A' ? effect.reason : null;
 		}
-		if (onRoster) count[assigneeSlot!] = 0;
+		if (onRoster) count[countedSlot!] = 0;
 	}
 	if (end === today) captureCurrent();
 
@@ -257,6 +264,11 @@ export function simulateRoster(facts: RosterFacts, plan: PickPlan = { kind: 'sto
 
 	return {
 		facts,
+		effectOn: (personId, date) => {
+			const slot = slotOf.get(personId);
+			const day = dayOf(date);
+			return slot === undefined || day < start || day > end ? AVAILABLE : effects[effectAt[(day - start) * n + slot]];
+		},
 		days,
 		byDate: new Map(days.map((day) => [day.date, day])),
 		current,
@@ -277,8 +289,17 @@ function slotsWhere(state: Uint8Array, value: number): number[] {
 /** Replaces this type's assignment on `date`, keeping one assignment per type per day. */
 export function withAssignment(facts: RosterFacts, change: Omit<RosterAssignment, 'assignmentTypeId'>): RosterFacts {
 	const typeId = facts.type.id;
+	const sameAssignee = facts.assignments.some(
+		(assignment) =>
+			assignment.assignmentTypeId === typeId &&
+			assignment.date === change.date &&
+			assignment.assigneeId === change.assigneeId
+	);
 	return {
 		...facts,
+		swaps: sameAssignee
+			? facts.swaps
+			: facts.swaps.filter((swap) => !swap.days.some((day) => day.date === change.date)),
 		assignments: [
 			...facts.assignments.filter(
 				(assignment) => assignment.assignmentTypeId !== typeId || assignment.date !== change.date

@@ -22,6 +22,7 @@ import {
 	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
 import {
+	createSupabaseRosterSwapPersistence,
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
 	createSupabaseCalendarAvailabilityRemovalPort,
@@ -612,6 +613,7 @@ export function createRequestRosterSettingsContext(request: AdmittedOrganization
 export function createRequestRosterPlannerContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestRosterSettingsContext(request),
+		calendarRosterSwaps: createSupabaseRosterSwapPersistence(request.supabase, request.auth.orgId),
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase, {
 			admin: getAdminClient,
 			actorId: request.auth.userId

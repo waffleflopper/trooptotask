@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { da6Segment, simulateRoster } from '../roster/rosterEngine';
-import { assigned, status, storedR4, R4_STARTING } from '../roster/rosterFixtures.test-support';
+import { assigned, status, storedR4, swapExample, R4_STARTING } from '../roster/rosterFixtures.test-support';
 import { defaultDay, remarkText, workedExample, type Da6Sheet } from './da6View';
 
 const r4 = da6Segment(simulateRoster(storedR4()), '2026-10')!;
 const column = (date: string) => r4.columns.findIndex((candidate) => candidate.date === date);
 
 describe('Show the work', () => {
+	it('names who stands a swapped day and explains the original holder’s published number', () => {
+		const segment = da6Segment(simulateRoster(swapExample(true)), '2026-10')!;
+		expect(workedExample(segment, 0)).toBe(
+			'SPC Patel stands this day in a swap with SPC Kim, who stays counted for it. ' +
+				'SPC Kim has the highest number at 6, so Kim pulls it.'
+		);
+	});
+
 	it('names who was skipped on 20 Oct, why, and when they pull next', () => {
 		expect(workedExample(r4, column('2026-10-20'))).toBe(
 			'SGT Okafor and SPC Nguyen both sit at 12. Okafor is away (Leave), so Nguyen pulls it. ' +
@@ -67,6 +75,35 @@ describe('Show the work', () => {
 				overridden.columns.findIndex((candidate) => candidate.date === '2026-10-20')
 			)
 		).toBe('SGT Okafor and SPC Nguyen both sit at 12. Okafor is away (Leave), so Nguyen pulls it. Okafor holds at 12.');
+	});
+
+	it('forecasts the original holder’s return when someone else stands their next day in a swap', () => {
+		const facts = storedR4();
+		const segment = da6Segment(
+			simulateRoster({
+				...facts,
+				assignments: facts.assignments.map((assignment) => {
+					if (assignment.date === '2026-10-19') return assigned(assignment.date, 'okafor');
+					if (assignment.date === '2026-10-24') return assigned(assignment.date, 'brooks');
+					return assignment;
+				}),
+				swaps: [
+					{
+						id: 'return-swap',
+						days: [
+							{ date: '2026-10-19', heldBy: 'brooks' },
+							{ date: '2026-10-24', heldBy: 'okafor' }
+						]
+					}
+				]
+			}),
+			'2026-10'
+		)!;
+
+		expect(workedExample(segment, column('2026-10-20'))).toBe(
+			'SGT Okafor and SPC Nguyen both sit at 12. Okafor is away (Leave), so Nguyen pulls it. ' +
+				'Okafor holds at 12 and goes first after returning, on 24 Oct.'
+		);
 	});
 
 	it('explains an emergency hand assignment when nobody on the roster could pull the day', () => {

@@ -103,6 +103,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261023001000_calendar_availability_import_overlap_guard.sql",
     "20261023001100_preserve_daily_assignment_identity.sql",
     "20261023001200_roster_signal_reads.sql",
+    "20261023001200_roster_swaps.sql",
     "20261024000500_group_editor_commands.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
@@ -195,6 +196,8 @@ STAGED_UPGRADE_SQL_TESTS = (
     "password_attempt_reconciliation.sql",
     "calendar_availability_import.sql",
     "calendar_availability_import_concurrency.sql",
+    "roster_swaps.sql",
+    "roster_swaps_concurrency.sql",
 )
 
 _receipt = None

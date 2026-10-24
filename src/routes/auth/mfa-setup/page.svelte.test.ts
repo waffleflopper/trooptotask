@@ -147,3 +147,87 @@ it('discards the pending factor when setup is cancelled', async () => {
 		expect.objectContaining({ body: JSON.stringify({ factorId: 'factor-1' }) })
 	);
 });
+
+it('holds Cancel while the sixth digit turns MFA on, so only the verification reaches the server', async () => {
+	let finishVerify!: (response: Response) => void;
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValueOnce(ready())
+		.mockImplementationOnce(() => new Promise<Response>((resolve) => (finishVerify = resolve)));
+	vi.stubGlobal('fetch', fetchMock);
+	renderPage();
+	await waitFor(() => expect(codeField()).toBeEnabled());
+	await fireEvent.input(codeField(), { target: { value: '123456' } });
+	const cancel = screen.getByRole('button', { name: 'Cancel setup' });
+	await waitFor(() => expect(cancel).toBeDisabled());
+	expect(codeField()).toBeDisabled();
+	await fireEvent.click(cancel);
+	finishVerify(Response.json({ ok: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/auth/mfa/enroll', '/api/auth/mfa/enroll/verify']);
+});
+
+it('holds the code field and Verify while a cancellation runs', async () => {
+	let finishCancel!: (response: Response) => void;
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValueOnce(ready())
+		.mockImplementationOnce(() => new Promise<Response>((resolve) => (finishCancel = resolve)));
+	vi.stubGlobal('fetch', fetchMock);
+	renderPage();
+	await waitFor(() => expect(codeField()).toBeEnabled());
+	await fireEvent.click(screen.getByRole('button', { name: 'Cancel setup' }));
+	expect(codeField()).toBeDisabled();
+	expect(screen.getByRole('button', { name: 'Verify and turn on' })).toBeDisabled();
+	await fireEvent.input(codeField(), { target: { value: '123456' } });
+	finishCancel(Response.json({ ok: true }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/auth/mfa/enroll', '/api/auth/mfa/enroll/cancel']);
+});
+
+it.each([
+	['a provider outage', () => Promise.resolve(Response.json({ error: 'Cancellation unavailable' }, { status: 503 }))],
+	['a network failure', () => Promise.reject(new Error('Connection lost'))],
+	['an unacknowledged success', () => Promise.resolve(Response.json({}))]
+])('keeps setup on screen through %s and leaves once a retried cancel is confirmed', async (_, failedCancel) => {
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValueOnce(ready())
+		.mockImplementationOnce(failedCancel)
+		.mockResolvedValueOnce(Response.json({ ok: true }));
+	vi.stubGlobal('fetch', fetchMock);
+	renderPage();
+	await waitFor(() => expect(codeField()).toBeEnabled());
+	await fireEvent.input(codeField(), { target: { value: '12' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Cancel setup' }));
+	expect(await screen.findByRole('alert')).toBeVisible();
+	expect(goto).not.toHaveBeenCalled();
+	expect(screen.getByRole('img', { name: 'QR code for your authenticator app' })).toHaveAttribute(
+		'src',
+		'data:image/png;base64,AAAA'
+	);
+	expect(codeField()).toHaveValue('12');
+	await fireEvent.click(screen.getByRole('button', { name: 'Cancel setup' }));
+	await waitFor(() => expect(goto).toHaveBeenCalledWith(next, { invalidateAll: true }));
+	expect(fetchMock.mock.calls.slice(1).map(([url, init]) => [url, init.body])).toEqual([
+		['/api/auth/mfa/enroll/cancel', JSON.stringify({ factorId: 'factor-1' })],
+		['/api/auth/mfa/enroll/cancel', JSON.stringify({ factorId: 'factor-1' })]
+	]);
+});
+
+it('stays where the user went when a cancellation finishes after they leave the page', async () => {
+	let finishCancel!: (response: Response) => void;
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValueOnce(ready())
+		.mockImplementationOnce(() => new Promise<Response>((resolve) => (finishCancel = resolve)));
+	vi.stubGlobal('fetch', fetchMock);
+	const view = renderPage();
+	await waitFor(() => expect(codeField()).toBeEnabled());
+	await fireEvent.click(screen.getByRole('button', { name: 'Cancel setup' }));
+	expect(fetchMock).toHaveBeenLastCalledWith('/api/auth/mfa/enroll/cancel', expect.anything());
+	view.unmount();
+	finishCancel(Response.json({ ok: true }));
+	await vi.runAllTimersAsync();
+	expect(goto).not.toHaveBeenCalled();
+});

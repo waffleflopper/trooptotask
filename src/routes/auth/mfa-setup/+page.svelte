@@ -18,10 +18,10 @@
 		| { status: 'failed'; message: string };
 
 	let setup = $state<Setup>({ status: 'starting' });
+	let operation = $state<'idle' | 'verifying' | 'cancelling'>('idle');
 	let code = $state('');
 	let rejection = $state<{ code: string; message: string } | null>(null);
 	let formError = $state('');
-	let loading = $state(false);
 	let copied = $state(false);
 	let left = false;
 	let codeField = $state<ReturnType<typeof CodeField>>();
@@ -36,65 +36,61 @@
 		await goto(data.next, { invalidateAll: true });
 	}
 
+	// Resolves to null once the page is gone: unmounted, leaving, or following an admission redirect.
+	async function post<T>(url: string, body?: object) {
+		const response = await fetch(url, {
+			method: 'POST',
+			...(body && { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+		});
+		if (left) return null;
+		if (response.redirected) {
+			left = true;
+			await goto(response.url);
+			return null;
+		}
+		const payload = (await response.json().catch(() => null)) as T | null;
+		return left ? null : { ok: response.ok, status: response.status, payload };
+	}
+
 	async function start() {
 		setup = { status: 'starting' };
+		const failed = 'Unable to start MFA setup. Try again.';
 		try {
-			const response = await fetch('/api/auth/mfa/enroll', { method: 'POST' });
-			if (left) return;
-			if (response.redirected) {
-				left = true;
-				await goto(response.url);
-				return;
-			}
-			const payload = (await response.json()) as {
-				factorId?: string;
-				qrCode?: string;
-				secret?: string;
-				error?: string;
-			};
-			if (left) return;
-			if (response.status === 409) setup = { status: 'enabled' };
-			else if (!response.ok || !payload.factorId || !payload.qrCode || !payload.secret)
-				setup = { status: 'failed', message: payload.error ?? 'Unable to start MFA setup. Try again.' };
-			else setup = { status: 'ready', factorId: payload.factorId, qrCode: payload.qrCode, secret: payload.secret };
+			const result = await post<{ factorId?: string; qrCode?: string; secret?: string; error?: string }>(
+				'/api/auth/mfa/enroll'
+			);
+			if (!result) return;
+			const { factorId, qrCode, secret, error } = result.payload ?? {};
+			if (result.status === 409) setup = { status: 'enabled' };
+			else if (!result.ok || !factorId || !qrCode || !secret) setup = { status: 'failed', message: error ?? failed };
+			else setup = { status: 'ready', factorId, qrCode, secret };
 		} catch {
-			if (!left) setup = { status: 'failed', message: 'Unable to start MFA setup. Try again.' };
+			if (!left) setup = { status: 'failed', message: failed };
 		}
 	}
 
 	async function verify() {
-		if (loading || setup.status !== 'ready' || code.length !== 6) return;
+		if (operation !== 'idle' || setup.status !== 'ready' || code.length !== 6) return;
 		const submitted = code;
 		rejection = null;
 		formError = '';
-		loading = true;
+		operation = 'verifying';
 		try {
-			const response = await fetch('/api/auth/mfa/enroll/verify', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ factorId: setup.factorId, code: submitted })
+			const result = await post<MfaActionResponse>('/api/auth/mfa/enroll/verify', {
+				factorId: setup.factorId,
+				code: submitted
 			});
-			if (left) return;
-			if (response.redirected) {
-				left = true;
-				await goto(response.url);
-				return;
-			}
-			const payload = (await response.json()) as MfaActionResponse | null;
-			if (left) return;
-			if (!response.ok || payload?.ok !== true) {
-				const message = payload?.error ?? 'Unable to confirm MFA setup. Try again.';
-				// An expired session is also a 401, so only the rejection message belongs to the field.
-				if (message === MFA_CODE_REJECTED_MESSAGE) rejection = { code: submitted, message };
-				else formError = message;
-				return;
-			}
-			await leave();
+			if (!result) return;
+			if (result.ok && result.payload?.ok === true) return await leave();
+			const message = result.payload?.error ?? 'Unable to confirm MFA setup. Try again.';
+			// An expired session is also a 401, so only the rejection message belongs to the field.
+			if (message === MFA_CODE_REJECTED_MESSAGE) rejection = { code: submitted, message };
+			else formError = message;
 		} catch {
 			if (!left) formError = 'Unable to confirm MFA setup. Try again.';
 		} finally {
-			loading = false;
 			if (!left) {
+				operation = 'idle';
 				await tick();
 				if (rejection) codeField?.select();
 				else if (formError) codeField?.focus();
@@ -103,15 +99,20 @@
 	}
 
 	async function cancel() {
-		if (setup.status === 'ready') {
-			// Best effort: the next setup replaces an unverified factor anyway.
-			await fetch('/api/auth/mfa/enroll/cancel', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ factorId: setup.factorId })
-			}).catch(() => null);
+		if (operation !== 'idle') return;
+		if (setup.status !== 'ready') return leave();
+		formError = '';
+		operation = 'cancelling';
+		try {
+			const result = await post<MfaActionResponse>('/api/auth/mfa/enroll/cancel', { factorId: setup.factorId });
+			if (!result) return;
+			if (result.ok && result.payload?.ok === true) return await leave();
+			formError = result.payload?.error ?? 'Unable to cancel MFA setup. Try again.';
+		} catch {
+			if (!left) formError = 'Unable to cancel MFA setup. Try again.';
+		} finally {
+			if (!left) operation = 'idle';
 		}
-		await leave();
 	}
 
 	async function copyKey() {
@@ -150,7 +151,9 @@
 	panelDescription={enabled
 		? 'This account already asks for a code at sign-in.'
 		: 'Open your authenticator app, add an account, and point the camera here.'}
-	alternatives={enabled ? [] : [{ prompt: 'Not ready yet?', label: 'Cancel setup', onclick: cancel }]}
+	alternatives={enabled
+		? []
+		: [{ prompt: 'Not ready yet?', label: 'Cancel setup', onclick: cancel, disabled: operation !== 'idle' }]}
 >
 	{#if enabled}
 		<AuthButton type="button" onclick={leave}>Back to security</AuthButton>
@@ -204,14 +207,18 @@
 				id="mfa-setup-code"
 				label="6-digit code from the app"
 				error={codeError}
-				disabled={loading || setup.status !== 'ready'}
+				disabled={operation !== 'idle' || setup.status !== 'ready'}
 				autofocus={setup.status === 'ready'}
 				oncomplete={(value) => {
 					code = value;
 					void verify();
 				}}
 			/>
-			<AuthButton disabled={code.length !== 6 || setup.status !== 'ready'} {loading} loadingLabel="Verifying...">
+			<AuthButton
+				disabled={code.length !== 6 || setup.status !== 'ready' || operation === 'cancelling'}
+				loading={operation === 'verifying'}
+				loadingLabel="Verifying..."
+			>
 				Verify and turn on
 			</AuthButton>
 		</form>

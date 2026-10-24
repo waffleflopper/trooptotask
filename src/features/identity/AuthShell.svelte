@@ -8,7 +8,7 @@
 	export type AuthAlternative = { prompt: string; label: string } & (
 		| { href: string }
 		| { signOut: true }
-		| { onclick: () => void }
+		| { onclick: () => void; disabled?: boolean }
 	);
 </script>
 
@@ -119,7 +119,12 @@
 							{#if 'href' in alternative}
 								<a href={alternative.href} class={altLink}>{alternative.label}</a>
 							{:else if 'onclick' in alternative}
-								<button type="button" class={cn(altLink, 'cursor-pointer')} onclick={alternative.onclick}>
+								<button
+									type="button"
+									class={cn(altLink, 'cursor-pointer disabled:pointer-events-none disabled:opacity-50')}
+									disabled={alternative.disabled}
+									onclick={alternative.onclick}
+								>
 									{alternative.label}
 								</button>
 							{:else}

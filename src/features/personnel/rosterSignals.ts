@@ -338,7 +338,8 @@ export interface StatusCount {
 export interface RosterSignalSummary {
 	/** Distinct People counted. */
 	people: number;
-	presence: Known<{ present: number; byStatus: StatusCount[] }>;
+	/** `people` counts only those whose status today was read, so `present` of `people` never counts a withheld Person. */
+	presence: Known<{ people: number; present: number; byStatus: StatusCount[] }>;
 	attention: Known<{ people: number; worst: SignalTone | null }>;
 	chips: { chip: RosterChip; people: number }[];
 }
@@ -353,7 +354,7 @@ export function summarizeRosterSignals(input: {
 	statusTypes: readonly RosterStatusType[];
 }): RosterSignalSummary {
 	const rows = [...new Map(input.rows.map((row) => [row.personnelId, row])).values()];
-	let presenceKnown = false;
+	let presencePeople = 0;
 	let present = 0;
 	const away = new Map<string, number>();
 	let attentionKnown = false;
@@ -364,7 +365,7 @@ export function summarizeRosterSignals(input: {
 
 	for (const row of rows) {
 		if (row.today.kind === 'known') {
-			presenceKnown = true;
+			presencePeople++;
 			const today = row.today.value;
 			if (today.kind === 'present') present++;
 			else away.set(today.statusTypeId, (away.get(today.statusTypeId) ?? 0) + 1);
@@ -385,10 +386,11 @@ export function summarizeRosterSignals(input: {
 	return {
 		people: rows.length,
 		presence:
-			input.access.availability && presenceKnown
+			input.access.availability && presencePeople > 0
 				? {
 						kind: 'known',
 						value: {
+							people: presencePeople,
 							present,
 							byStatus: input.statusTypes.flatMap((type) => {
 								const count = away.get(type.id);

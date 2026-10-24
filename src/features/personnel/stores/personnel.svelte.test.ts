@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { groupCatalogHydration } from './groups.svelte';
 import { personnelRosterHydration, personnelStore, rosterStore } from './personnel.svelte';
 import type { Personnel } from '../personnel.types';
 
@@ -92,6 +93,27 @@ describe('personnelStore', () => {
 			expect(view.personnel.map((person) => person.id)).toEqual(['3']);
 			expect(view.personnelByGroup.map((group) => group.group)).toEqual(['Bravo']);
 		});
+	});
+
+	it("lists Groups in the Organization's Group order, not alphabetically, with Unassigned last", () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'g2', name: 'Bravo', sortOrder: 0 },
+				{ id: 'g1', name: 'Alpha', sortOrder: 1 }
+			],
+			'org-1'
+		);
+		personnelStore.load(
+			[...structuredClone(mockPersonnel), { ...mockPersonnel[0], id: '5', groupId: null, groupName: '' }],
+			'org-1'
+		);
+
+		expect(
+			rosterStore
+				.readModel()
+				.full()
+				.personnelByGroup.map((group) => group.group)
+		).toEqual(['Bravo', 'Alpha', 'Unassigned']);
 	});
 
 	it('replaces the public roster when hydration switches Organizations', () => {

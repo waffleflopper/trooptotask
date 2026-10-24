@@ -169,16 +169,36 @@ describe('buildPersonSignalCore', () => {
 		});
 	});
 
-	it('matches Expiring within 30 days at 30 but not 31, never a current item, and every due evaluation', () => {
+	it('matches Expiring within 30 days at 30 but not 31, and every due evaluation', () => {
 		expect(core('p', { training: [training('T', 'expiring', 30)] }).matches.expiring).toBeDefined();
 		expect(core('p', { training: [training('T', 'expiring', 31)] }).matches.expiring).toBeUndefined();
-		expect(core('p', { training: [training('T', 'current', 20)] }).matches.expiring).toBeUndefined();
 		expect(core('p', { evaluation: evaluation(45, 'due-60') }).matches.expiring).toBeDefined();
 		const lapsed = core('p', { training: [training('T', 'expired', -1)] });
 		expect([lapsed.matches.expired?.item, lapsed.matches.expiring]).toEqual([
 			{ kind: 'training', status: 'expired', title: 'T', days: -1 },
 			undefined
 		]);
+	});
+
+	it('matches Expiring within 30 days for an item its own shorter warning window still calls current', () => {
+		const shortWindow = core('p', { training: [training('SHARP', 'current', 20)] });
+		expect(rosterAttentionCell(ready(shortWindow), { kind: 'chip', chip: 'expiring' })).toEqual({
+			kind: 'item',
+			text: 'SHARP expires in 20d',
+			more: 0,
+			tone: 'amber'
+		});
+		expect(rosterAttentionCell(ready(shortWindow))).toEqual({ kind: 'clear' });
+		expect(core('p', { tasks: [task('Airway', 'current', 0)] }).matches.expiring).toBeDefined();
+		expect(core('p', { training: [training('T', 'current', 31)] }).matches.expiring).toBeUndefined();
+		expect(core('p', { training: [training('T', 'current', -1)] }).matches.expiring).toBeUndefined();
+		expect(core('p', { training: [training('T', 'current', null)] }).matches.expiring).toBeUndefined();
+
+		const both = core('p', { training: [training('Range', 'expiring', 25), training('SHARP', 'current', 20)] });
+		expect(both.matches.expiring).toEqual({
+			item: { kind: 'training', status: 'current', title: 'SHARP', days: 20 },
+			otherCount: 1
+		});
 	});
 
 	it('colors an overdue evaluation red and says it is overdue', () => {

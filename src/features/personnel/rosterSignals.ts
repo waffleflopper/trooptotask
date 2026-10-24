@@ -1,4 +1,5 @@
 import type { FeatureKey } from '$lib/access/featureSwitches';
+import type { ReadinessItemStatus } from '$lib/domain/readinessItem';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { coveredMonthsOf } from './counselingCoverage';
 import { dueLabel } from './logModel';
@@ -56,6 +57,7 @@ export type SignalItem =
 			title: string;
 			days: number | null;
 	  }
+	| { kind: 'training' | 'critical-task'; status: 'current'; title: string; days: number }
 	| { kind: 'evaluation'; status: 'due'; title: string; days: number | null }
 	| { kind: 'follow-ups'; status: 'overdue'; count: number };
 
@@ -154,7 +156,7 @@ function compactItem(item: AttentionItem): SignalItem | null {
 
 export function signalTone(item: SignalItem): SignalTone {
 	if (item.kind === 'evaluation') return item.days !== null && item.days < 0 ? 'red' : 'amber';
-	return item.status === 'expiring' ? 'amber' : 'red';
+	return item.status === 'expiring' || item.status === 'current' ? 'amber' : 'red';
 }
 
 function weight(item: SignalItem): number {
@@ -169,18 +171,45 @@ function chipMatch(items: readonly SignalItem[], matches: (item: SignalItem) => 
 }
 
 function isExpiredOrMissing(item: SignalItem): boolean {
-	return (item.kind === 'training' || item.kind === 'critical-task') && item.status !== 'expiring';
+	return (
+		(item.kind === 'training' || item.kind === 'critical-task') &&
+		(item.status === 'expired' || item.status === 'missing')
+	);
 }
+
+const withinExpiringChip = (days: number | null): days is number =>
+	days !== null && days >= 0 && days <= EXPIRING_CHIP_DAYS;
 
 function isExpiringSoon(item: SignalItem): boolean {
 	if (item.kind === 'evaluation') return true;
 	return (
 		(item.kind === 'training' || item.kind === 'critical-task') &&
 		item.status === 'expiring' &&
-		item.days !== null &&
-		item.days >= 0 &&
-		item.days <= EXPIRING_CHIP_DAYS
+		withinExpiringChip(item.days)
 	);
+}
+
+// The chip is a fixed 30-day lens, so it also takes items a shorter configured warning window still calls current.
+function currentWithinExpiringChip({
+	training,
+	criticalTasks
+}: Pick<AttentionInput, 'training' | 'criticalTasks'>): SignalItem[] {
+	const current = (
+		kind: 'training' | 'critical-task',
+		items: ReadonlyArray<{ name: string; status: ReadinessItemStatus; daysUntilExpiration: number | null }>
+	) =>
+		items.flatMap(({ name, status, daysUntilExpiration: days }) =>
+			status === 'current' && withinExpiringChip(days) ? [{ kind, status, title: name, days }] : []
+		);
+	return [
+		...(training.ok ? current('training', training.value.items) : []),
+		...(criticalTasks.ok ? current('critical-task', criticalTasks.value.items) : [])
+	];
+}
+
+function soonestFirst(a: SignalItem, b: SignalItem): number {
+	const days = (item: SignalItem) => (item.kind === 'follow-ups' ? null : item.days) ?? Number.POSITIVE_INFINITY;
+	return days(a) - days(b);
 }
 
 export function buildPersonSignalCore(input: {
@@ -226,7 +255,10 @@ export function buildPersonSignalCore(input: {
 	const matches: CoreMatches = {};
 	const expired = chipMatch(items, isExpiredOrMissing);
 	if (expired) matches.expired = expired;
-	const expiring = chipMatch(items, isExpiringSoon);
+	const expiring = chipMatch(
+		[...items.filter(isExpiringSoon), ...currentWithinExpiringChip(input)].sort(soonestFirst),
+		() => true
+	);
 	if (expiring) matches.expiring = expiring;
 	const followUps = chipMatch(items, (item) => item.kind === 'follow-ups');
 	if (followUps) matches['follow-ups'] = followUps;
@@ -415,7 +447,7 @@ function itemText(item: SignalItem): string {
 	switch (item.kind) {
 		case 'training':
 		case 'critical-task':
-			return `${item.title} ${item.status}`;
+			return item.status === 'current' ? `${item.title} expires in ${item.days}d` : `${item.title} ${item.status}`;
 		case 'evaluation':
 			return `${item.title} ${item.days !== null && item.days < 0 ? 'overdue' : 'due'}`;
 		case 'follow-ups':

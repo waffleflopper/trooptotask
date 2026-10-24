@@ -34,7 +34,7 @@
 	const errorId = $derived(`${id}-error`);
 	const hintId = $derived(`${id}-hint`);
 	const describedBy = $derived(error ? errorId : hint ? hintId : undefined);
-	const slotClass = $derived(size === 'compact' ? 'h-11 max-w-11 text-xl' : undefined);
+	const compact = $derived(size === 'compact');
 
 	// The HTML autofocus attribute only applies on a full page load, so a client-side navigation focuses here.
 	$effect(() => {
@@ -73,18 +73,19 @@
 		aria-invalid={error ? true : undefined}
 		aria-describedby={describedBy}
 		data-testid={dataTestId}
+		class={compact ? 'w-80! max-w-full gap-2' : undefined}
 	>
 		{#snippet children({ cells })}
 			<!-- The cells only draw the real input's value, so assistive tech reads the input alone. -->
 			<InputOTP.Group aria-hidden="true">
 				{#each cells.slice(0, 3) as cell, index (index)}
-					<InputOTP.Slot {cell} class={slotClass} />
+					<InputOTP.Slot {cell} class={compact ? 'h-11 text-xl' : undefined} />
 				{/each}
 			</InputOTP.Group>
-			<InputOTP.Separator />
+			<InputOTP.Separator class={compact ? 'mx-0' : undefined} />
 			<InputOTP.Group aria-hidden="true">
 				{#each cells.slice(3, 6) as cell, index (index)}
-					<InputOTP.Slot {cell} class={slotClass} />
+					<InputOTP.Slot {cell} class={compact ? 'h-11 text-xl' : undefined} />
 				{/each}
 			</InputOTP.Group>
 		{/snippet}

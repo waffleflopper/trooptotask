@@ -65,7 +65,8 @@ export async function readIdentityAdmission({
 			return { status: 'unavailable', code: 503, message: 'Unable to verify authentication status' };
 		}
 		mfaPending = isMfaStepUpRequired(data);
-		hasTwoFactor = data.nextLevel === 'aal2';
+		// nextLevel stays aal2 for a stepped-up session after its last factor is removed.
+		hasTwoFactor = !!user?.factors?.some((factor) => factor.status === 'verified');
 	}
 
 	const isMfaEndpoint = pathname === '/api/auth/mfa' || pathname.startsWith('/api/auth/mfa/');

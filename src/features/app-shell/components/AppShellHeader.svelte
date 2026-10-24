@@ -482,7 +482,7 @@
 								<DropdownMenu.Label class="grid gap-0.5">
 									<span class="truncate text-sm font-medium text-foreground">{signedInAs.name}</span>
 									{#if account.email && account.email !== signedInAs.name}
-										<span class="truncate font-normal">{account.email}</span>
+										<span class="truncate font-normal" title={account.email}>{account.email}</span>
 									{/if}
 									<span class="truncate font-normal">{MEMBERSHIP_ROLE_LABELS[userRole]} · {orgName}</span>
 								</DropdownMenu.Label>

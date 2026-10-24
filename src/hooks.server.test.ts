@@ -114,6 +114,7 @@ describe('server auth hook', () => {
 			sessionStartedAt?: string;
 			authMethod?: 'password' | 'otp';
 			organizationResult?: { data: { id: string; suspended_at: string | null } | null; error: unknown };
+			factors?: { id: string; status: 'verified' | 'unverified' }[];
 		} = {}
 	) {
 		const now = new Date();
@@ -127,7 +128,7 @@ describe('server auth hook', () => {
 			last_sign_in_at: options.lastSignInAt ?? now.toISOString(),
 			role: 'authenticated'
 		};
-		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id };
+		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id, factors: options.factors };
 		const session = {
 			access_token: passwordSessionToken(
 				'user-1',
@@ -1249,12 +1250,14 @@ describe('server auth hook', () => {
 	});
 
 	it.each([
-		{ nextLevel: 'aal1', hasTwoFactor: false },
-		{ nextLevel: 'aal2', hasTwoFactor: true }
-	])('records hasTwoFactor $hasTwoFactor for a session whose next level is $nextLevel', async (state) => {
-		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		{ level: 'aal1', factors: [], hasTwoFactor: false },
+		{ level: 'aal1', factors: [{ id: 'factor-1', status: 'unverified' as const }], hasTwoFactor: false },
+		{ level: 'aal2', factors: [{ id: 'factor-1', status: 'verified' as const }], hasTwoFactor: true },
+		{ level: 'aal2', factors: [], hasTwoFactor: false }
+	])('records hasTwoFactor $hasTwoFactor for an $level session with factors $factors', async (state) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null }, { factors: state.factors });
 		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
-			data: { currentLevel: state.nextLevel, nextLevel: state.nextLevel },
+			data: { currentLevel: state.level, nextLevel: state.level },
 			error: null
 		});
 		expect((await harness.handle(harness)).status).toBe(200);

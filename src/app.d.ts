@@ -17,7 +17,7 @@ declare global {
 			session: Session | null;
 			user: import('@supabase/supabase-js').User | null;
 			mfaPending: boolean;
-			/** Whether the account has a verified factor; null when this request read no assurance. */
+			/** Whether the account has a verified factor; null when this request read no session. */
 			hasTwoFactor: boolean | null;
 			authFlow: PendingAuthFlow;
 		}

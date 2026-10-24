@@ -151,15 +151,16 @@ no print-media option.
    the effective colors to sRGB, record the method and compare text contrast with
    [WCAG 2.2's minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html): normal text requires at
    least 4.5:1. Repeat for the import warning cell and affected light-mode status text. Preserve failures.
-8. In a signed-out owned context, inspect `/` and `/auth/login` and use each visible **Toggle theme** control. Also
-   inspect the authenticated Organization chooser `/dashboard?show=all`; it redirects signed-out callers to login. For
-   both themes and widths, capture the public/Identity frame and brand, the rendered `data-theme`, saved preference,
-   computed body background and reload persistence against the opposite system preference. Read the served HTML to
-   confirm the retained pre-paint theme script and baseline/final inline-palette difference. This readback does not
-   prove first paint. `performance_start_trace` writes only inside the checkout (for example
-   `.verification/evidence/...`); its trace includes `disabled-by-default-devtools.screenshot` frames usable for
-   early-frame readback. Frames before first paint show the browser canvas, so a trace is a readback, not a no-flash
-   pass; record missing capability rather than switching browsers.
+8. In a signed-out owned context, inspect `/` with its visible **Toggle theme** control and `/auth/login`, which has no
+   theme control and follows the saved preference. Also inspect the authenticated Organization chooser
+   `/dashboard?show=all`; it redirects signed-out callers to login. For both themes and widths, capture the
+   public/Identity frame and brand, the rendered `data-theme`, saved preference, computed body background and reload
+   persistence against the opposite system preference. Read the served HTML to confirm the retained pre-paint theme
+   script and baseline/final inline-palette difference. This readback does not prove first paint.
+   `performance_start_trace` writes only inside the checkout (for example `.verification/evidence/...`); its trace
+   includes `disabled-by-default-devtools.screenshot` frames usable for early-frame readback. Frames before first paint
+   show the browser canvas, so a trace is a readback, not a no-flash pass; record missing capability rather than
+   switching browsers.
 9. Use the ordinary three-Person briefing (no `seed training-print`) unless the Dense case is required. As the
    [Training report-print recipe](training-completions-reports.md#driving-it-with-verifyapp) specifies, select dark with
    the visible toggle, arm the print observer, choose native **Print brief**, retain pre-capture event counts, and save

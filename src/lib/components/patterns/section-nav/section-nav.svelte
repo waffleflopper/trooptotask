@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import type { Component } from 'svelte';
 	import type { PathnameWithSearchOrHash } from '$app/types';
 
 	export type SectionNavCount = {
@@ -21,11 +22,19 @@
 		label: string;
 		items: SectionNavItem[];
 	};
+
+	/** A form POST beside the sections, such as Sign out. */
+	export type SectionNavAction = {
+		label: string;
+		icon?: Component<{ class?: string; 'aria-hidden'?: 'true' }>;
+		action: PathnameWithSearchOrHash;
+	};
 </script>
 
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import type { RouteTabBadge, RouteTabItem } from '$lib/components/patterns/page-shell/index.js';
@@ -36,10 +45,15 @@
 		groups: SectionNavGroup[];
 		/** Sits apart below a rule in the destructive color, for a section such as Danger zone. */
 		apart?: SectionNavItem;
+		/** Sits below a rule after the sections. When the nav collapses it becomes a row under the tabs. */
+		actions?: SectionNavAction[];
+		/** Where the side column becomes tabs; `lg` when the page beside it needs the width. */
+		collapseBelow?: 'md' | 'lg';
 		class?: string;
 	};
 
-	let { label, groups, apart, class: className }: Props = $props();
+	let { label, groups, apart, actions = [], collapseBelow = 'md', class: className }: Props = $props();
+	const wide = $derived(collapseBelow === 'lg');
 
 	const id = $props.id();
 	const pill = 'h-4.5 min-w-4.5 rounded-full px-1.25 font-mono text-[11px] tabular-nums';
@@ -103,10 +117,28 @@
 	</a>
 {/snippet}
 
+{#snippet actionControl(item: SectionNavAction, compact: boolean)}
+	{@const linkClass =
+		'flex w-full items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-left text-sm leading-[18px] text-secondary-foreground transition-colors outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50'}
+	<form method="POST" action={resolve(item.action as '/')} class={compact ? 'contents' : undefined}>
+		{#if compact}
+			<Button type="submit" variant="ghost" size="sm">
+				{item.label}
+				{#if item.icon}<item.icon aria-hidden="true" />{/if}
+			</Button>
+		{:else}
+			<button type="submit" class={linkClass}>
+				<span class="min-w-0 flex-1 truncate">{item.label}</span>
+				{#if item.icon}<item.icon class="size-3.5" aria-hidden="true" />{/if}
+			</button>
+		{/if}
+	</form>
+{/snippet}
+
 <nav
 	data-slot="section-nav"
 	aria-label={label}
-	class={cn('hidden w-45 shrink-0 flex-col gap-5 self-start pt-1 md:flex', className)}
+	class={cn('hidden w-45 shrink-0 flex-col gap-5 self-start pt-1', wide ? 'lg:flex' : 'md:flex', className)}
 >
 	{#each groups as group, index (group.label)}
 		<div role="group" aria-labelledby="{id}-{index}" class="flex flex-col gap-0.5">
@@ -126,5 +158,22 @@
 			{@render link(apart, true)}
 		</div>
 	{/if}
+	{#if actions.length}
+		<div class="flex flex-col gap-0.5 border-t border-border pt-3.5">
+			{#each actions as item (item.label)}
+				{@render actionControl(item, false)}
+			{/each}
+		</div>
+	{/if}
 </nav>
-<PageShell.Tabs items={tabs} {label} class={cn('md:hidden', className)} />
+<PageShell.Tabs items={tabs} {label} class={cn(wide ? 'lg:hidden' : 'md:hidden', className)} />
+{#if actions.length}
+	<div
+		data-slot="section-nav-actions"
+		class={cn('-mt-2 flex flex-wrap gap-1', wide ? 'lg:hidden' : 'md:hidden', className)}
+	>
+		{#each actions as item (item.label)}
+			{@render actionControl(item, true)}
+		{/each}
+	</div>
+{/if}

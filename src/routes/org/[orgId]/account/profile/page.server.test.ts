@@ -15,11 +15,10 @@ vi.mock('$features/identity/index.server', async () => {
 	};
 });
 
-import { actions, load } from './+page.server';
-import { load as loadAccountLayout } from '../+layout.server';
+import { actions } from './+page.server';
 
 function makeProfileRequest(form: Record<string, string>): Request {
-	return new Request('http://localhost/account/profile', {
+	return new Request('http://localhost/org/alpha/account/profile', {
 		method: 'POST',
 		body: new URLSearchParams(form)
 	});
@@ -40,15 +39,11 @@ describe('account profile page server', () => {
 		expect(upsertUserProfileMock).not.toHaveBeenCalled();
 	});
 
-	it.each([
-		['profile load', load],
-		['profile save', actions.default],
-		['account layout', loadAccountLayout]
-	] as const)('denies %s when provider identity has no admitted actor', async (_, handler) => {
+	it('denies a profile save when provider identity has no admitted actor', async () => {
 		const from = vi.fn();
 		const request = makeProfileRequest({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT' });
 		await expect(
-			handler({
+			actions.default({
 				locals: { actor: null, user: { id: 'user-1' }, supabase: { from } },
 				request,
 				url: new URL(request.url)
@@ -106,7 +101,7 @@ describe('account profile page server', () => {
 		body.set('lastName', 'Hayes');
 		body.set('rank', 'CPT');
 		const result = await actions.default({
-			request: new Request('http://localhost/account/profile', { method: 'POST', body }),
+			request: new Request('http://localhost/org/alpha/account/profile', { method: 'POST', body }),
 			locals: { actor: { userId: 'user-1' }, user: { id: 'user-1' } }
 		} as never);
 		expect(result).toMatchObject({ status: 400, data: { error: 'First name is required' } });

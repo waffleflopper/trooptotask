@@ -10,11 +10,13 @@
 	let {
 		state: completionState,
 		oncomplete,
-		onrestart
+		onrestart,
+		autofocus = true
 	}: {
 		state: Exclude<PasswordCompletionState, null>;
 		oncomplete: () => void | Promise<void>;
 		onrestart?: () => void | Promise<void>;
+		autofocus?: boolean;
 	} = $props();
 	let currentState = $derived(completionState);
 	let loading = $state(false);
@@ -22,7 +24,7 @@
 	let requiresMfa = $state(false);
 	let form = $state<HTMLFormElement>();
 	onMount(() => {
-		form?.querySelector('button')?.focus();
+		if (autofocus) form?.querySelector('button')?.focus();
 	});
 	async function submit(event: Event) {
 		event.preventDefault();

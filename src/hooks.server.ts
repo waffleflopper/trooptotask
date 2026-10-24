@@ -69,6 +69,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	event.locals.actor = null;
 	event.locals.mfaPending = false;
+	event.locals.hasTwoFactor = null;
 	event.locals.authFlow = null;
 	event.locals.organizationAdmissions = new Map();
 	event.locals.session = null;
@@ -107,6 +108,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	event.locals.actor = admission.actor;
 	event.locals.mfaPending = admission.mfaPending;
+	event.locals.hasTwoFactor = admission.hasTwoFactor;
 	event.locals.authFlow = admission.authFlow;
 
 	// Layouts do not protect endpoints/actions. Keep page GETs available for the

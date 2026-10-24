@@ -10,10 +10,21 @@ export async function enrollIdentityMfa({
 	supabase,
 	actor
 }: MfaManagementContext): Promise<
-	{ status: 'ready'; factorId: string; qrCode: string } | { status: 'denied' | 'unavailable' | 'unauthorized' }
+	| { status: 'ready'; factorId: string; qrCode: string; secret: string }
+	| { status: 'enabled' | 'denied' | 'unavailable' | 'unauthorized' }
 > {
 	if (!actor?.userId) return { status: 'unauthorized' };
 	try {
+		const { data: factors, error: lookupError } = await supabase.auth.mfa.listFactors();
+		if (lookupError || !factors) return { status: 'unavailable' };
+		const totpFactors = factors.all.filter((factor) => factor.factor_type === 'totp');
+		if (totpFactors.some((factor) => factor.status === 'verified')) return { status: 'enabled' };
+		// A setup page that was left or reloaded leaves its unverified factor behind; starting again replaces it.
+		for (const abandoned of totpFactors) {
+			const { error } = await supabase.auth.mfa.unenroll({ factorId: abandoned.id });
+			if (error) return { status: 'unavailable' };
+		}
+
 		const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
 		if (error) {
 			return { status: 'denied' };
@@ -24,11 +35,13 @@ export async function enrollIdentityMfa({
 			typeof data.id !== 'string' ||
 			!data.id.trim() ||
 			typeof data.totp?.qr_code !== 'string' ||
-			!data.totp.qr_code.trim()
+			!data.totp.qr_code.trim() ||
+			typeof data.totp.secret !== 'string' ||
+			!data.totp.secret.trim()
 		) {
 			return { status: 'unavailable' };
 		}
-		return { status: 'ready', factorId: data.id, qrCode: data.totp.qr_code };
+		return { status: 'ready', factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret };
 	} catch {
 		return { status: 'unavailable' };
 	}

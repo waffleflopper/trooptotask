@@ -8,6 +8,7 @@
 		PASSWORD_MISMATCH_MESSAGE,
 		validatePassword
 	} from '$features/identity';
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthField from '$features/identity/AuthField.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
@@ -17,7 +18,6 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import type { MfaStatus } from '$features/identity/contracts';
@@ -201,8 +201,17 @@
 
 <AuthShell
 	eyebrow="Credential Recovery"
-	title="Set a new password and move on."
-	description="Once the recovery link is verified, this screen should be the last stop before you're back inside the platform."
+	headline={['New password.', 'Back in.']}
+	lede="Once the recovery link checks out, this is the last stop before you're back inside."
+	steps={{
+		label: 'How a reset works',
+		items: [
+			{ title: 'Ask for a link', detail: 'Use the email on your account.' },
+			{ title: 'Open the email', detail: 'Check spam if it is slow.' },
+			{ title: 'Choose a password', detail: 'Then sign in as usual.' }
+		]
+	}}
+	alternatives={[{ prompt: 'Need to exit?', label: 'Sign out', signOut: true }]}
 	panelEyebrow="Password reset"
 	panelTitle={success
 		? 'Password updated'
@@ -226,14 +235,6 @@
 					: sessionReady
 						? 'Enter the new password you want to use for future sign-ins.'
 						: "We're confirming the recovery session before allowing a password change."}
-	supportLabel="Reset session"
-	supportTitle="Use the link, then set the password."
-	supportDescription="You can only change the password here after the reset link has been verified."
-	supportPoints={[
-		'Choose the new password you want to use going forward.',
-		'If the link is no longer valid, request a new reset email.',
-		'Use your new password the next time you sign in.'
-	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if success}
@@ -245,12 +246,12 @@
 			<AuthNotice tone="error" title="Reset link unavailable" centered>
 				<p>This reset link uses an older format or has expired. Request a fresh reset email.</p>
 			</AuthNotice>
-			<Button href={resolve('/auth/forgot-password')}>Request a new reset link</Button>
+			<AuthButton href={resolve('/auth/forgot-password')}>Request a new reset link</AuthButton>
 		{:else if statusError}
 			<AuthNotice tone="error" message="We could not verify your account security settings. Please try again." />
-			<Button type="button" onclick={loadMfaStatus} disabled={checkingStatus} class="w-full">
-				{#if checkingStatus}<Spinner />Checking security...{:else}Retry security check{/if}
-			</Button>
+			<AuthButton type="button" onclick={loadMfaStatus} loading={checkingStatus} loadingLabel="Checking security...">
+				Retry security check
+			</AuthButton>
 		{:else if !sessionReady}
 			<div class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
 				<Spinner class="text-primary" />
@@ -268,6 +269,7 @@
 			/>
 		{:else if requiresMfa}
 			<PasswordMfaChallenge
+				hint=""
 				onverified={async () => {
 					requiresMfa = false;
 					error = '';
@@ -287,7 +289,6 @@
 					type={showPassword ? 'text' : 'password'}
 					bind:value={password}
 					required
-					placeholder="At least 12 characters"
 					hint="Use 12 to 72 characters with uppercase, lowercase, and a number."
 				>
 					{#snippet action()}
@@ -319,7 +320,6 @@
 					type={showConfirmPassword ? 'text' : 'password'}
 					bind:value={confirmPassword}
 					required
-					placeholder="Re-enter your password"
 					error={confirmError}
 					hint={passwordsMatch ? 'Passwords match.' : undefined}
 				>
@@ -331,34 +331,8 @@
 					{/snippet}
 				</AuthField>
 
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={!canSubmit} class="w-full">
-						{#if loading}
-							<Spinner />
-							Updating Password...
-						{:else}
-							Update Password
-						{/if}
-					</Button>
-				</div>
+				<AuthButton disabled={!canSubmit} {loading} loadingLabel="Updating Password...">Update Password</AuthButton>
 			</form>
 		{/if}
-
-		<div
-			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
-		>
-			<span class="h-px flex-1 bg-border"></span>
-			<span class="whitespace-nowrap">Need to exit?</span>
-			<span class="h-px flex-1 bg-border"></span>
-		</div>
-
-		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-			<div>
-				Stop this recovery session and
-				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>.
-				</form>
-			</div>
-		</div>
 	</div>
 </AuthShell>

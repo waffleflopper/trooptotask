@@ -22,8 +22,10 @@
 		disabled?: boolean;
 		rows?: number;
 		inputClass?: string;
+		optional?: boolean;
 		children?: Snippet;
 		action?: Snippet;
+		labelAction?: Snippet;
 		oninput?: (event: Event) => void;
 		autocomplete?: HTMLInputAttributes['autocomplete'];
 		inputmode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
@@ -45,8 +47,10 @@
 		disabled = false,
 		rows = 3,
 		inputClass,
+		optional = false,
 		children,
 		action,
+		labelAction,
 		oninput,
 		autocomplete,
 		inputmode,
@@ -57,14 +61,24 @@
 	const errorId = $derived(`${id}-error`);
 	const hintId = $derived(`${id}-hint`);
 	const describedBy = $derived(error ? errorId : hint ? hintId : undefined);
-	const controlClass = $derived(cn(action && 'pr-9', inputClass));
+	const controlClass = $derived(
+		cn(
+			'bg-card px-3.5 font-body text-base md:text-base',
+			inputElement === 'input' && 'h-11',
+			action && 'pr-11',
+			inputClass
+		)
+	);
+	const labelClass = 'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-foreground uppercase';
 </script>
 
-<Field.Root data-invalid={error ? 'true' : undefined}>
-	<Field.Label for={id} class="text-sm font-medium">
-		{label}
-		{#if required}<span class="text-destructive" aria-hidden="true">*</span>{/if}
-	</Field.Label>
+<Field.Root data-invalid={error ? 'true' : undefined} class="relative gap-2">
+	<div class="flex items-baseline justify-between gap-4">
+		<Field.Label for={id} class={labelClass}>{label}</Field.Label>
+		{#if optional}
+			<span class={cn(labelClass, 'text-muted-foreground')}>Optional</span>
+		{/if}
+	</div>
 
 	{#if children}
 		<div class="relative">
@@ -109,9 +123,17 @@
 		</div>
 	{/if}
 
+	{#if labelAction}
+		<!-- After the control in the DOM so Tab moves from the label straight into the field. -->
+		<div class="absolute -top-0.5 right-0 w-fit!">{@render labelAction()}</div>
+	{/if}
+
 	{#if error}
 		<Field.Error id={errorId}>{error}</Field.Error>
 	{:else if hint}
-		<Field.Description id={hintId}>{hint}</Field.Description>
+		<Field.Description id={hintId} class="flex gap-2 text-[13px] leading-[19px]">
+			<span class="mt-[7px] size-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true"></span>
+			{hint}
+		</Field.Description>
 	{/if}
 </Field.Root>

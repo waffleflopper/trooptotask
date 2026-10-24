@@ -14,7 +14,8 @@ with a confirmed action.
 - `owner-transition`: an eligible member becomes owner; the former owner becomes admin.
 - `denied-and-retry`: a stale or unauthorized actor cannot change another Organization or transfer ownership; failed
   writes leave saved access intact.
-- `member-exit`: a member can leave through the account menu; an owner cannot leave while still owning the Organization.
+- `member-exit`: a member can leave from Account → Profile (Leave unit); an owner cannot leave while still owning the
+  Organization.
 
 ## How to get to it (user POV)
 
@@ -91,9 +92,9 @@ ordinary access checks because it intentionally changes the seeded owner.
 6. In a fresh owned worker, confirm the owner has no `Leave Organization` menu action. Submit the current signed-in
    Dashboard leave form directly with the owner's membership ID and `YES`; record the HTTP status and require 400 with
    the ownership explanation and the owner row unchanged. This is an authenticated action check, separate from visible
-   UI interaction. For a positive exit, use an expendable accepted member: Account menu → `Leave Organization` → type
-   `YES` → submit, then confirm the redirect and absence of that membership after reload. Restart the worker after this
-   seeded deletion.
+   UI interaction. For a positive exit, use an expendable accepted member: the sidebar name card → Account →
+   `Leave unit` (absent for an owner) → type `YES` in the Leave Organization dialog → submit, then confirm the redirect
+   and absence of that membership after reload. Restart the worker after this seeded deletion.
 
 ## Gotchas
 

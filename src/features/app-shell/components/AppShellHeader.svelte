@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { OrganizationSwitcherOrg } from '$features/app-shell/contracts';
+	import type { SignedInAccount } from '$features/identity/contracts';
+	import { accountLabel, mfaSetupHref } from '$features/identity';
 	import type { Notification } from '$features/notifications/contracts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -7,29 +9,26 @@
 	import { page } from '$app/stores';
 	import { onDestroy, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import BadgeCheck from '@lucide/svelte/icons/badge-check';
 	import Bell from '@lucide/svelte/icons/bell';
 	import Building2 from '@lucide/svelte/icons/building-2';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import CircleUser from '@lucide/svelte/icons/circle-user';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Megaphone from '@lucide/svelte/icons/megaphone';
 	import MessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import Moon from '@lucide/svelte/icons/moon';
 	import Settings from '@lucide/svelte/icons/settings';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Sun from '@lucide/svelte/icons/sun';
-	import UserCircle from '@lucide/svelte/icons/user-circle';
-	import type { CapabilityMap } from '$lib/access/memberAccessShape';
+	import { MEMBERSHIP_ROLE_LABELS, type CapabilityMap, type MembershipRole } from '$lib/access/memberAccessShape';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import AppShellNavigation from './AppShellNavigation.svelte';
 	import { getOrgBreadcrumbs, getOrgNavigation } from './orgNavigation';
-	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -40,9 +39,10 @@
 		userId: string;
 		orgUrlSegment?: string;
 		orgName: string;
-		userRole: string;
+		userRole: MembershipRole;
 		membershipId?: string | null;
 		capabilityMap: CapabilityMap;
+		account: SignedInAccount;
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
@@ -59,6 +59,7 @@
 		userRole,
 		membershipId = null,
 		capabilityMap,
+		account,
 		onToggleTheme,
 		isDarkTheme,
 		onFeedback,
@@ -90,8 +91,6 @@
 	let notificationGeneration = 0;
 	let notificationCountRequest = 0;
 	let notificationCountLoading = $state(false);
-	let showLeaveOrganizationDialog = $state(false);
-	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $state(0);
 	const notificationScope = $derived(`${userId}/${orgId}/${orgUrlSegment}/${membershipId ?? ''}`);
 	const pathname = $derived($page.url.pathname);
@@ -102,6 +101,9 @@
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const settingsPath = $derived(`/org/${orgUrlSegment}/settings`);
 	const inSettings = (path: string) => path === settingsPath || path.startsWith(`${settingsPath}/`);
+	const accountPath = $derived(`/org/${orgUrlSegment}/account`);
+	const inAccount = $derived(pathname.startsWith(`${accountPath}/`));
+	const signedInAs = $derived(accountLabel(account));
 	// Between settings pages the crumb names the target right away, as the settings nav does.
 	const crumbPath = $derived.by(() => {
 		const target = navigating.to?.url.pathname;
@@ -123,13 +125,7 @@
 		orgSwitcherLoaded ? orgSwitcherOrgs.map((org) => (org.id === orgId ? activeOrg : org)) : [activeOrg]
 	);
 	const isMultiOrg = $derived(orgSwitcherLoaded && orgSwitcherOrgs.length > 1);
-	const normalizedUserRole = $derived(userRole.toLowerCase());
-	const canLeaveOrganization = $derived(normalizedUserRole !== 'owner');
-	const canAccessOrganizationSettings = $derived(normalizedUserRole === 'owner' || normalizedUserRole === 'admin');
-	const canSubmitLeaveOrganization = $derived(
-		canLeaveOrganization && Boolean(membershipId) && leaveOrganizationConfirmText === 'YES'
-	);
-	const accountInitials = $derived('ME');
+	const canAccessOrganizationSettings = $derived(userRole === 'owner' || userRole === 'admin');
 
 	function getInitials(value: string) {
 		const words = value
@@ -142,19 +138,9 @@
 			.join('');
 	}
 
-	function openLeaveOrganizationDialog() {
-		leaveOrganizationConfirmText = '';
-		showLeaveOrganizationDialog = true;
-	}
-
 	function submitLogout(event: MouseEvent) {
 		event.preventDefault();
 		(event.currentTarget as HTMLElement).closest('form')?.requestSubmit();
-	}
-
-	function closeLeaveOrganizationDialog() {
-		leaveOrganizationConfirmText = '';
-		showLeaveOrganizationDialog = false;
 	}
 
 	function switchOrg(targetOrgId: string, targetOrgUrlSegment: string = targetOrgId) {
@@ -314,7 +300,6 @@
 		orgSwitcherLoading = false;
 		orgSwitcherLoadFailed = false;
 		orgSwitcherOpen = false;
-		closeLeaveOrganizationDialog();
 		return () => {
 			++orgSwitcherGeneration;
 		};
@@ -471,43 +456,61 @@
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger>
 								{#snippet child({ props })}
-									<Sidebar.MenuButton {...props} size="lg" tooltipContent="Account menu" aria-label="Account menu">
+									<Sidebar.MenuButton
+										{...props}
+										size="lg"
+										isActive={inAccount}
+										tooltipContent={signedInAs.name}
+										aria-label={`${signedInAs.name}, account menu`}
+									>
 										<span
-											class="flex aspect-square size-8 items-center justify-center rounded-md border bg-muted text-sm font-medium"
+											class="hidden aspect-square size-8 items-center justify-center rounded-md border bg-muted text-xs font-medium group-data-[collapsible=icon]:flex"
+											aria-hidden="true"
 										>
-											{accountInitials}
+											{signedInAs.initials}
 										</span>
-										<span class="grid flex-1 text-left text-sm leading-tight">
-											<span class="truncate font-medium">Account</span>
-											<span class="truncate text-xs">Signed in</span>
+										<span class="grid flex-1 gap-0.5 text-left leading-tight">
+											<span class="truncate text-sm font-medium">{signedInAs.name}</span>
+											<span class="truncate font-mono text-[11px] tracking-[0.04em] text-muted-foreground"
+												>Your account</span
+											>
 										</span>
 									</Sidebar.MenuButton>
 								{/snippet}
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Content class="w-64" side={drawerMenuSide} align="end">
-								<DropdownMenu.Label>
-									<div class="flex min-w-0 items-center gap-2">
-										<span
-											class="flex aspect-square size-9 shrink-0 items-center justify-center rounded-md border bg-muted text-sm font-medium"
-										>
-											{accountInitials}
-										</span>
-										<span class="grid min-w-0 gap-1">
-											<span class="truncate text-sm font-medium leading-none text-foreground">Account</span>
-											<span class="truncate text-xs leading-none text-muted-foreground">Signed in</span>
-										</span>
-									</div>
+								<DropdownMenu.Label class="grid gap-0.5">
+									<span class="truncate text-sm font-medium text-foreground" title={signedInAs.name}
+										>{signedInAs.name}</span
+									>
+									{#if account.email && account.email !== signedInAs.name}
+										<span class="truncate font-normal" title={account.email}>{account.email}</span>
+									{/if}
+									<span class="truncate font-normal">{MEMBERSHIP_ROLE_LABELS[userRole]} · {orgName}</span>
 								</DropdownMenu.Label>
 								<DropdownMenu.Separator />
 								<DropdownMenu.Group>
 									<DropdownMenu.Item>
-										<BadgeCheck />
-										Role: {userRole}
+										{#snippet child({ props })}
+											<a {...props} href={resolve(`/org/${orgUrlSegment}/account/profile`)}>
+												<CircleUser />
+												Account
+											</a>
+										{/snippet}
 									</DropdownMenu.Item>
-									<DropdownMenu.Item onclick={() => goto(resolve('/account/profile'))}>
-										<UserCircle />
-										Account
-									</DropdownMenu.Item>
+									{#if account.hasTwoFactor === false}
+										<DropdownMenu.Item class="items-start">
+											{#snippet child({ props })}
+												<a {...props} href={mfaSetupHref(orgUrlSegment)}>
+													<ShieldCheck class="mt-0.5" />
+													<span class="grid gap-0.5">
+														Turn on two-factor
+														<span class="text-xs text-muted-foreground">A code from your phone at sign-in</span>
+													</span>
+												</a>
+											{/snippet}
+										</DropdownMenu.Item>
+									{/if}
 								</DropdownMenu.Group>
 								{#if onWhatsNew || onFeedback}
 									<DropdownMenu.Separator />
@@ -515,29 +518,22 @@
 										{#if onWhatsNew}
 											<DropdownMenu.Item onclick={onWhatsNew}>
 												<Megaphone />
-												What's New
+												What's new
 											</DropdownMenu.Item>
 										{/if}
 										{#if onFeedback}
 											<DropdownMenu.Item onclick={onFeedback}>
 												<MessageSquareText />
-												Send Feedback
+												Send feedback
 											</DropdownMenu.Item>
 										{/if}
 									</DropdownMenu.Group>
 								{/if}
 								<DropdownMenu.Separator />
-								{#if canLeaveOrganization}
-									<DropdownMenu.Item variant="destructive" onclick={openLeaveOrganizationDialog}>
-										<Building2 />
-										Leave Organization
-									</DropdownMenu.Item>
-									<DropdownMenu.Separator />
-								{/if}
 								<form method="POST" action={resolve('/auth/logout')}>
 									<DropdownMenu.Item variant="destructive" onclick={submitLogout}>
 										<LogOut />
-										Sign Out
+										Sign out
 									</DropdownMenu.Item>
 								</form>
 							</DropdownMenu.Content>
@@ -669,64 +665,4 @@
 			</main>
 		</Sidebar.Inset>
 	</Sidebar.Provider>
-
-	{#if canLeaveOrganization}
-		<AppDialog.Root bind:open={showLeaveOrganizationDialog} onClose={closeLeaveOrganizationDialog}>
-			<AppDialog.Content>
-				<AppDialog.Header>
-					<AppDialog.Title>Leave Organization</AppDialog.Title>
-					<AppDialog.Description>
-						Are you sure you wish to leave {orgName}? You will lose access to this organization's workspace unless you
-						are invited again.
-					</AppDialog.Description>
-				</AppDialog.Header>
-
-				<AppDialog.Body>
-					<form
-						id="leave-organization-form"
-						method="POST"
-						action={resolve(`/org/${orgUrlSegment}?/leaveOrganization`)}
-						class="grid gap-3"
-						onsubmit={(event) => {
-							if (!canSubmitLeaveOrganization) event.preventDefault();
-						}}
-					>
-						<input type="hidden" name="membershipId" value={membershipId ?? ''} />
-						<div class="grid gap-2">
-							<Label for="leave-organization-confirm">Type YES to confirm</Label>
-							<Input
-								id="leave-organization-confirm"
-								name="confirmLeaveOrganization"
-								type="text"
-								bind:value={leaveOrganizationConfirmText}
-								autocomplete="off"
-								placeholder="YES"
-								aria-describedby="leave-organization-help"
-							/>
-							<p id="leave-organization-help" class="text-sm text-muted-foreground">
-								This confirms you understand the action applies to {orgName}.
-							</p>
-						</div>
-						{#if !membershipId}
-							<p class="text-sm text-destructive">
-								We could not identify your organization membership. Refresh the page and try again.
-							</p>
-						{/if}
-					</form>
-				</AppDialog.Body>
-
-				<AppDialog.Footer>
-					<Button type="button" variant="outline" onclick={closeLeaveOrganizationDialog}>Cancel</Button>
-					<Button
-						type="submit"
-						form="leave-organization-form"
-						variant="destructive"
-						disabled={!canSubmitLeaveOrganization}
-					>
-						Leave Organization
-					</Button>
-				</AppDialog.Footer>
-			</AppDialog.Content>
-		</AppDialog.Root>
-	{/if}
 </Tooltip.Provider>

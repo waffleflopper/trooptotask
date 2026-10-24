@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapProviderPasswordError, passwordRequirements, validatePassword } from './passwordPolicy';
+import { mapProviderPasswordError, passwordRequirements, validatePassword, passwordChecklist } from './passwordPolicy';
 
 describe('password policy', () => {
 	it('accepts the 72-character boundary and rejects a longer password', () => {
@@ -33,5 +33,30 @@ describe('password policy', () => {
 		for (const error of [null, undefined, { message: 'Database is temporarily unavailable' }]) {
 			expect(mapProviderPasswordError(error)).toBeNull();
 		}
+	});
+});
+
+describe('passwordChecklist', () => {
+	const met = (password: string, confirmation = password) =>
+		Object.fromEntries(passwordChecklist(password, confirmation).map((item) => [item.key, item.met]));
+
+	it('meets every rule only for a 12 to 72 character mixed-case password with a number that both fields match', () => {
+		expect(met('Abcdefghijk1')).toEqual({ length: true, case: true, digit: true, match: true });
+		expect(met(`A1${'b'.repeat(70)}`)).toEqual({ length: true, case: true, digit: true, match: true });
+	});
+
+	it('fails the length rule at 11 characters and at 73, and names the upper bound once it is crossed', () => {
+		expect(met('Abcdefghij1').length).toBe(false);
+		const tooLong = `A1${'b'.repeat(71)}`;
+		expect(met(tooLong).length).toBe(false);
+		expect(passwordChecklist(tooLong, tooLong)[0].label).toBe('72 characters or fewer');
+	});
+
+	it('needs both cases, a digit and an identical confirmation', () => {
+		expect(met('abcdefghijk1').case).toBe(false);
+		expect(met('ABCDEFGHIJK1').case).toBe(false);
+		expect(met('Abcdefghijkl').digit).toBe(false);
+		expect(met('Abcdefghijk1', 'Abcdefghijk2').match).toBe(false);
+		expect(met('', '').match).toBe(false);
 	});
 });

@@ -8,6 +8,7 @@
 		PASSWORD_MISMATCH_MESSAGE,
 		validatePassword
 	} from '$features/identity';
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthField from '$features/identity/AuthField.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
@@ -17,7 +18,6 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, onDestroy, tick } from 'svelte';
 
@@ -222,8 +222,17 @@
 
 <AuthShell
 	eyebrow="Organization Invite"
-	title="Activate the account behind your invite."
-	description="Open this page from your invite email, set a password, and your account will be ready to use."
+	headline={["You're invited.", 'Report in.']}
+	lede="Set a password from your invite email and your account is ready to use."
+	steps={{
+		label: 'Invite activation',
+		items: [
+			{ title: 'Open the invite', detail: 'It lasts 24 hours.' },
+			{ title: 'Set a password', detail: 'For every future sign-in.' },
+			{ title: 'Start working', detail: 'Your Organization is waiting.' }
+		]
+	}}
+	alternatives={[{ prompt: 'Need to exit?', label: 'Sign out', signOut: true }]}
 	panelEyebrow="Invite acceptance"
 	panelTitle={noPendingInvite
 		? 'No activation pending'
@@ -249,18 +258,10 @@
 					: sessionReady
 						? 'Choose a password that satisfies the current invite policy.'
 						: "We're validating the invite token before exposing the activation form."}
-	supportLabel="Joining an organization"
-	supportTitle="Finish the invite."
-	supportDescription="This page is for invited users who are setting their password for the first time."
-	supportPoints={[
-		'The invite link must still be valid and only lasts 24 hours.',
-		'Set the password you want to use for future sign-ins.',
-		'After this step, sign in with your email and password as usual.'
-	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if noPendingInvite}
-			<Button href={resolve('/dashboard')}>Continue to dashboard</Button>
+			<AuthButton href={resolve('/dashboard')}>Continue to dashboard</AuthButton>
 		{:else if success}
 			<AuthNotice tone="success" title="Account activated" centered>
 				<p>Your password has been set successfully.</p>
@@ -271,7 +272,7 @@
 					</p>
 				{:else}<p>Redirecting you to the dashboard now.</p>{/if}
 			</AuthNotice>
-			<Button href={resolve('/dashboard')}>Continue to dashboard</Button>
+			<AuthButton href={resolve('/dashboard')}>Continue to dashboard</AuthButton>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Invite unavailable" centered>
 				<p>This invite link uses an older format or has expired. Request a fresh invite.</p>
@@ -310,11 +311,19 @@
 				}}
 			/>
 		{:else if passwordSet}
-			{#if setupRequired}<Button href={resolve('/auth/renew-invite')}>Request an Account Setup Link</Button>{/if}
+			{#if setupRequired}
+				<AuthButton href={resolve('/auth/renew-invite')}>Request an Account Setup Link</AuthButton>
+			{/if}
 			{#if error}<AuthNotice tone="error" message={error} />{/if}
-			<Button id="finish-activation" type="button" onclick={retryFinalization} disabled={loading}>
-				{#if loading}<Spinner />Finishing activation...{:else}Finish activation{/if}
-			</Button>
+			<AuthButton
+				id="finish-activation"
+				type="button"
+				onclick={retryFinalization}
+				{loading}
+				loadingLabel="Finishing activation..."
+			>
+				Finish activation
+			</AuthButton>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />
@@ -328,7 +337,6 @@
 					type={showPassword ? 'text' : 'password'}
 					bind:value={password}
 					required
-					placeholder="At least 12 characters"
 					hint="Use 12 to 72 characters with uppercase, lowercase, and a number."
 				>
 					{#snippet action()}
@@ -361,7 +369,6 @@
 					type={showConfirmPassword ? 'text' : 'password'}
 					bind:value={confirmPassword}
 					required
-					placeholder="Re-enter your password"
 					error={confirmError}
 					hint={passwordsMatch ? 'Passwords match.' : undefined}
 				>
@@ -373,34 +380,8 @@
 					{/snippet}
 				</AuthField>
 
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={!canSubmit} class="w-full">
-						{#if loading}
-							<Spinner />
-							Setting Password...
-						{:else}
-							Set Password
-						{/if}
-					</Button>
-				</div>
+				<AuthButton disabled={!canSubmit} {loading} loadingLabel="Setting Password...">Set Password</AuthButton>
 			</form>
 		{/if}
-
-		<div
-			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
-		>
-			<span class="h-px flex-1 bg-border"></span>
-			<span class="whitespace-nowrap">Need to exit?</span>
-			<span class="h-px flex-1 bg-border"></span>
-		</div>
-
-		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-			<div>
-				Leave this invite flow and
-				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>.
-				</form>
-			</div>
-		</div>
 	</div>
 </AuthShell>

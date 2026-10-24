@@ -12,7 +12,9 @@ export interface AppShellContext extends ClientAccess {
 	autoShowWhatsNew(): void;
 }
 
-export function createAppShellContext(getShell: () => ReadyAppShell, autoShowWhatsNew: () => void): AppShellContext {
+type AppShellActions = Pick<AppShellContext, 'autoShowWhatsNew'>;
+
+export function createAppShellContext(getShell: () => ReadyAppShell, actions: AppShellActions): AppShellContext {
 	const access = createClientAccess(() => ({
 		membershipRole: getShell().member.role,
 		capabilityMap: getShell().member.capabilityMap,
@@ -53,7 +55,7 @@ export function createAppShellContext(getShell: () => ReadyAppShell, autoShowWha
 		affordanceForGovernanceAction: access.affordanceForGovernanceAction,
 		hasCapability: access.hasCapability,
 		isResourceInScope: access.isResourceInScope,
-		autoShowWhatsNew
+		...actions
 	};
 }
 

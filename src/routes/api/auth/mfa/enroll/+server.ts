@@ -6,7 +6,9 @@ export const POST: RequestHandler = async ({ locals }) => {
 	const result = await enrollIdentityMfa(locals);
 	switch (result.status) {
 		case 'ready':
-			return json({ factorId: result.factorId, qrCode: result.qrCode });
+			return json({ factorId: result.factorId, qrCode: result.qrCode, secret: result.secret });
+		case 'enabled':
+			return json({ error: 'MFA is already on for this account.' }, { status: 409 });
 		case 'unauthorized':
 			return json({ error: 'Please sign in before managing MFA.' }, { status: 401 });
 		case 'denied':

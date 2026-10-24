@@ -47,8 +47,8 @@ Choose `Settings` in Organization navigation. The `Unit settings` nav groups the
 [Personnel form recipe](personnel-form-states.md); step 5 covers its page. `Create Organization` and the Organization
 list are on `/dashboard` (the account's home outside an Organization). An account with no Organization reaches the list
 at `/dashboard?show=all`; plain `/dashboard` sends it to `/org/new`. Announcements appear as a banner above an
-Organization's pages; `Send feedback` is in the Organization header at desktop widths, and at 390 it is `Account menu` >
-`Send Feedback`.
+Organization's pages; `Send feedback` is in the Organization header at desktop widths, and at any width it is in the
+account menu (sidebar name card → `Send feedback`).
 
 ## Driving it with verify:app
 
@@ -265,7 +265,7 @@ them.
 
     | Control (source)         | Accessible name and state                                                            | Expected                                                                                                                                                                                                                                                                                                                  |
     | ------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-    | Dialog (`FeedbackModal`) | `dialog` `Send Feedback`; `Category` combobox, `Message` textbox, `Cancel`, `Submit` | Focus moves inside; labels resolve; `Submit` disabled while the message is blank or whitespace; Escape and `Cancel` close and return focus to `Send feedback`                                                                                                                                                             |
+    | Dialog (`FeedbackModal`) | `dialog` `Send Feedback`; `Category` combobox, `Message` textbox, `Cancel`, `Submit` | Focus moves inside; labels resolve; `Submit` disabled while the message is blank or whitespace; Escape and `Cancel` close and return focus to `Send feedback`, or to the sidebar name card when it opened from the account menu                                                                                           |
     | Busy                     | `network arm-hold $PAGE feedback`, a unique message, `Submit`                        | `Submitting...` with a spinner; the dialog is `aria-busy`, `Category` and `Message` report `disabled`, `Submit` is `aria-disabled="true"` and keeps focus (a second click and Enter send no request), and Escape/outside click are blocked with focus inside. Release creates one row (read `$V communications orgAdmin`) |
     | Failed submit            | `network arm-fail $PAGE feedback`, Bug Report and a unique message, `Submit`         | The dialog stays open with the category and message; a destructive `Alert` in the dialog shows the error, focus moves to `Message` and no error toast shows; `Submit` re-enables; no row. Restore and Cancel                                                                                                              |
 

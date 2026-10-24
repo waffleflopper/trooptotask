@@ -10,9 +10,12 @@ import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const overview = await readIdentitySecurity(locals);
+	const [overview, passwordCompletion] = await Promise.all([
+		readIdentitySecurity(locals),
+		passwordCompletionState(locals)
+	]);
 	if (!overview) redirect(303, '/auth/login');
-	return { passwordCompletion: await passwordCompletionState(locals), ...overview };
+	return { passwordCompletion, ...overview };
 };
 
 export const actions: Actions = {

@@ -16,7 +16,8 @@ export const changelog: ChangelogEntry[] = [
 			'By Group puts your pinned Groups first, then the order you set. Each Group header shows how many are present and how many need attention. Manage groups now opens one editor to add, rename, reorder and delete Groups and to move people between them.',
 			'Check the box on several people, or press X on their rows, to act on all of them at once: a follow-up for each, the same note, a move to another Group, an export or an archive. A Group’s menu adds a note for everyone in it.',
 			'Show only chips filter the roster to expired or missing training, items expiring within 30 days, overdue follow-ups, people not present, ETS or PCS within 90 days, and counseling due. The counts by the title filter too: choose present, or a status like Leave, to see just those people. The address keeps the filter, so a link you share opens the same filtered roster.',
-			'On a wide screen, clicking a row or pressing Space opens a preview beside the roster with the person’s next 7 days, what needs attention, open follow-ups and the latest note. Add a note or follow-up or quick edit from it, press J and K to move through the people the roster shows, so a filter keeps you on the people it matches, and Esc or Space to close it. The name still opens the full record.'
+			'On a wide screen, clicking a row or pressing Space opens a preview beside the roster with the person’s next 7 days, what needs attention, open follow-ups and the latest note. Add a note or follow-up or quick edit from it, press J and K to move through the people the roster shows, so a filter keeps you on the people it matches, and Esc or Space to close it. The name still opens the full record.',
+			'There’s a new Account settings page, and an account menu at the bottom left of the sidebar.'
 		]
 	},
 	{

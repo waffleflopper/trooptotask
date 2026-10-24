@@ -70,7 +70,8 @@ function fixture() {
 		audit_logs: [],
 		platform_announcements: [],
 		announcement_dismissals: [],
-		user_org_preferences: []
+		user_org_preferences: [],
+		user_profiles: [{ user_id: USER, first_name: 'Emma', last_name: 'Hayes', rank: 'SGT' }]
 	};
 	const state = { failedTable: '', membershipReads: 0, organizationReads: 0 };
 	// Real SDK, synthetic transport; filters apply to independent rows, with no simulated RLS.
@@ -417,7 +418,11 @@ describe('Organization shell admission with real provider mapping', () => {
 		const result = await f.load();
 		expect(requireReadyAppShell(result)).toMatchObject({
 			org: { id: ORG, name: 'Alpha', urlSegment: 'alpha' },
-			user: { id: USER },
+			user: {
+				id: USER,
+				email: 'member@example.test',
+				profile: { status: 'loaded', profile: { firstName: 'Emma', lastName: 'Hayes', rank: 'SGT' } }
+			},
 			member: {
 				membershipId: 'membership-a',
 				role: 'member',

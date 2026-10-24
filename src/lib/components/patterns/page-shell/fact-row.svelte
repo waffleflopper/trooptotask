@@ -29,10 +29,12 @@
 		description?: string;
 		/** Mutes the label, for something that is switched off. */
 		muted?: boolean;
+		/** Where the label and value sit side by side; `xl` for a row that shares the width with a section nav. */
+		stackBelow?: 'md' | 'xl';
 	};
 
 	type Props =
-		| (Shared & Value & NoLanes & { variant?: 'default'; description?: never; muted?: never })
+		| (Shared & Value & NoLanes & { variant?: 'default'; description?: never; muted?: never; stackBelow?: never })
 		| (Shared & Value & NoLanes & Display)
 		| (Shared &
 				NoValue &
@@ -52,6 +54,7 @@
 		holds,
 		control,
 		muted = false,
+		stackBelow = 'md',
 		details,
 		labelFor,
 		value,
@@ -96,7 +99,10 @@
 					holds ? 'md:grid-cols-[minmax(0,1fr)_11.25rem_auto]' : 'md:grid-cols-[minmax(0,1fr)_auto]'
 				)
 			: variant === 'display'
-				? 'gap-x-10 gap-y-3 md:grid-cols-[18.75rem_minmax(0,1fr)]'
+				? cn(
+						'gap-x-10 gap-y-3',
+						stackBelow === 'xl' ? 'xl:grid-cols-[18.75rem_minmax(0,1fr)]' : 'md:grid-cols-[18.75rem_minmax(0,1fr)]'
+					)
 				: 'gap-x-4 gap-y-1.5 py-2.5 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-start',
 		className
 	)}

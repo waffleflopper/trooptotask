@@ -1,46 +1,41 @@
 <script lang="ts">
-	import AuthField from '$features/identity/AuthField.svelte';
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
+	import CodeField from '$features/identity/CodeField.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { sanitizeAuthNextPath, type MfaActionResponse } from '$features/identity/contracts';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
 	import { tick } from 'svelte';
 
+	let { data } = $props();
+
 	let code = $state('');
-	let codeError = $state('');
+	let rejection = $state<{ code: string; message: string } | null>(null);
 	let formError = $state('');
 	let loading = $state(false);
+	let codeField = $state<ReturnType<typeof CodeField>>();
+
+	// A rejected code stays flagged until the user changes it.
+	const codeError = $derived(rejection?.code === code ? rejection.message : '');
 
 	function getNextPath(): string | null {
 		const next = new URL(window.location.href).searchParams.get('next');
 		return sanitizeAuthNextPath(next);
 	}
 
-	function handleCodeInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		code = input.value.replace(/\D/g, '').slice(0, 6);
-	}
+	async function verify() {
+		if (loading || code.length !== 6) return;
 
-	async function handleVerify(e: Event) {
-		e.preventDefault();
-		if (loading) return;
-
-		if (!code || code.length !== 6) {
-			codeError = 'Please enter a 6-digit code';
-			return;
-		}
-
-		codeError = '';
+		const submitted = code;
+		rejection = null;
 		formError = '';
 		loading = true;
 		try {
 			const response = await fetch('/api/auth/mfa/verify', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code })
+				body: JSON.stringify({ code: submitted })
 			});
 			if (response.redirected) {
 				await goto(response.url);
@@ -50,7 +45,7 @@
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
 				const message = payload?.error ?? 'Verification failed';
-				if (response.status === 401) codeError = message;
+				if (response.status === 401) rejection = { code: submitted, message };
 				else formError = message;
 				return;
 			}
@@ -61,7 +56,8 @@
 		} finally {
 			loading = false;
 			await tick();
-			if (codeError || formError) document.getElementById('mfa-code')?.focus();
+			if (rejection) codeField?.select();
+			else if (formError) codeField?.focus();
 		}
 	}
 </script>
@@ -72,67 +68,46 @@
 
 <AuthShell
 	eyebrow="Second Factor"
-	title="Verify the login before the session opens."
-	description="Enter the current code from your authenticator app to finish signing in."
-	panelEyebrow="Two-factor authentication"
-	panelTitle="Verify your code"
-	supportLabel="Authenticator code"
-	supportTitle="Use the current 6-digit code."
-	supportDescription="Open your authenticator app and enter the latest code for this account."
-	supportPoints={[
-		'Codes refresh automatically after a short time.',
-		'Only a verified authenticator factor can be used here.',
-		'If you no longer have access to your authenticator, contact your unit admin to have the requirement removed.'
-	]}
+	headline={['One more', 'check.']}
+	lede="Your password was right. Now prove the phone is yours, and the session opens."
+	steps={{
+		label: "If it doesn't work",
+		items: [
+			{ title: 'Code rejected', detail: 'Wait for the next one.', state: codeError ? 'flagged' : undefined },
+			{ title: 'Lost your phone', detail: 'Ask your unit admin for help.' },
+			{ title: 'Wrong account', detail: 'Sign out and start over.' }
+		]
+	}}
+	panelEyebrow={data.email ? `Two-factor · ${data.email}` : 'Two-factor authentication'}
+	panelTitle="Enter your code"
+	panelDescription="Use the current code from your authenticator app."
+	alternatives={[{ prompt: 'Not you?', label: 'Sign out', signOut: true }]}
 >
-	<div class="flex flex-col gap-5">
-		{#if formError}
-			<AuthNotice tone="error" message={formError} />
-		{/if}
+	{#if formError}
+		<AuthNotice tone="error" message={formError} />
+	{/if}
 
-		<form onsubmit={handleVerify} class="flex flex-col gap-5">
-			<AuthField
-				label="Verification Code"
-				id="mfa-code"
-				disabled={loading}
-				error={codeError}
-				hint="Enter the current code from your authenticator app."
-				value={code}
-				oninput={handleCodeInput}
-				placeholder="000000"
-				maxlength={6}
-				autocomplete="one-time-code"
-				inputmode="numeric"
-				inputClass="px-[calc(0.625rem+0.35em)] text-center font-mono text-2xl tracking-[0.35em]"
-			/>
+	<form
+		onsubmit={(event) => {
+			event.preventDefault();
+			void verify();
+		}}
+		class="flex flex-col gap-8"
+	>
+		<CodeField
+			bind:this={codeField}
+			bind:value={code}
+			id="mfa-code"
+			label="Verification Code"
+			error={codeError}
+			disabled={loading}
+			autofocus
+			oncomplete={(value) => {
+				code = value;
+				void verify();
+			}}
+		/>
 
-			<div class="flex flex-col gap-3">
-				<Button type="submit" disabled={loading || code.length !== 6} class="w-full">
-					{#if loading}
-						<Spinner />
-						Verifying...
-					{:else}
-						Verify
-					{/if}
-				</Button>
-			</div>
-		</form>
-
-		<div
-			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
-		>
-			<span class="h-px flex-1 bg-border"></span>
-			<span class="whitespace-nowrap">Wrong account?</span>
-			<span class="h-px flex-1 bg-border"></span>
-		</div>
-
-		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-			<div>
-				Leave this verification step and
-				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>.
-				</form>
-			</div>
-		</div>
-	</div>
+		<AuthButton disabled={code.length !== 6} {loading} loadingLabel="Verifying...">Verify</AuthButton>
+	</form>
 </AuthShell>

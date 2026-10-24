@@ -59,7 +59,7 @@ export const INVALID_EMAIL_MESSAGE = 'Enter a valid email address';
 export const SAME_EMAIL_MESSAGE = 'Enter a different email address';
 export const EMAIL_CHANGE_PASSWORD_REQUIRED_MESSAGE = 'Enter your current password to change your email';
 export const INCORRECT_CURRENT_PASSWORD_MESSAGE = 'Current password is incorrect';
-export const MFA_ENROLLMENT_CODE_REJECTED_MESSAGE = 'Invalid enrollment code. Try again.';
+export const MFA_CODE_REJECTED_MESSAGE = "That code didn't match. Try the next one.";
 export const MFA_DISABLE_CODE_REJECTED_MESSAGE = 'Invalid authenticator code. Try again.';
 
 export type MfaActionResponse = { ok: true; error?: never } | { ok?: never; error: string };
@@ -69,6 +69,17 @@ export interface UserProfile {
 	firstName: string;
 	lastName: string;
 	rank: string;
+}
+
+export type AccountProfileRead =
+	| { status: 'loaded'; profile: Omit<UserProfile, 'userId'> | null }
+	| { status: 'unavailable' };
+
+export interface SignedInAccount {
+	email: string | null;
+	/** Null when unknown, which never counts as off. */
+	hasTwoFactor: boolean | null;
+	profile: AccountProfileRead;
 }
 
 export interface CurrentUserEmailConfirmation {

@@ -341,7 +341,8 @@ scoped actors retain their baseline grants.
       selection kept): the bar reads `3 selected · 1 hidden by filter` and `Archive…` asks `Archive 3 personnel? …` with
       `This includes 1 person your filter hides.` Search `Able` as well and the bar reads
       `3 selected · 2 hidden by search and filter` with `This includes 2 people your search and filter hide.`; clear
-      both and the hidden count leaves the bar.
+      both and the hidden count leaves the bar. At 390 the filter case reads `3 selected` over `1 hidden` (344 wide, 52
+      tall, `by filter` kept for assistive technology) with `scrollWidth` 390.
     - Follow-up for each: with all three selected, `Follow-up for each` opens `Add to log for 3 people` above the bar,
       headed `3 PEOPLE` on `Follow-up`, with no `ALREADY OPEN` line. Title `Turn in CIF hand receipt`, choose
       `Fri 30 Oct` and press Control+Enter: one `POST .../api/personnel/follow-ups/batch` (200) and one

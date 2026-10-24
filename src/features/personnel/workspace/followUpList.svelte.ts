@@ -70,10 +70,10 @@ export class FollowUpList {
 		}
 	}
 
-	/** Completes or reopens at once and restores the row with an inline error if the write fails. */
-	async toggle(id: string): Promise<void> {
+	/** Completes or reopens at once and restores the row with an inline error if the write fails. True once it saved. */
+	async toggle(id: string): Promise<boolean> {
 		const before = this.#find(id);
-		if (!before || this.isBusy(id)) return;
+		if (!before || this.isBusy(id)) return false;
 		const completing = before.status !== 'completed';
 		this.draft.upsert({
 			...before,
@@ -88,10 +88,11 @@ export class FollowUpList {
 		);
 		if (!saved) {
 			this.draft.upsert(before);
-			return;
+			return false;
 		}
 		this.draft.upsert(saved);
 		void refreshPersonnelDetailCounts();
+		return true;
 	}
 
 	async save(id: string, edit: FollowUpEdit): Promise<boolean> {

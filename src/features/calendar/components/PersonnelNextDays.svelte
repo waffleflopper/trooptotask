@@ -10,7 +10,8 @@
 
 <div class="flex min-w-0 flex-col gap-3">
 	<div class="overflow-x-auto">
-		<div class="min-w-[34rem]">
+		<!-- About 2.4rem a day keeps the day numbers readable at any span. -->
+		<div style:min-width="{(34 / 14) * days.columns.length}rem">
 			<AvailabilityStrip size="regular" columns={days.columns} layout={days.layout} />
 		</div>
 	</div>

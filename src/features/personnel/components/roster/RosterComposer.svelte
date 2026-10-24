@@ -30,6 +30,8 @@
 	}
 
 	let { heading, today, alreadyOpen, onsave, onclose }: Props = $props();
+	// The roster popover and the peek panel's dock can both be open.
+	const uid = $props.id();
 
 	let kind = $state<ComposerKind>('follow-up');
 	let title = $state('');
@@ -160,9 +162,9 @@
 		<div class="grid gap-2.5 px-4 py-3.5">
 			{#if kind === 'follow-up'}
 				<Field.Root data-invalid={issue ? true : undefined}>
-					<Field.Label for="roster-composer-title" class="sr-only">Follow-up title</Field.Label>
+					<Field.Label for="{uid}-title" class="sr-only">Follow-up title</Field.Label>
 					<Input
-						id="roster-composer-title"
+						id="{uid}-title"
 						bind:ref={titleField}
 						bind:value={title}
 						placeholder="What needs to happen?"
@@ -173,17 +175,17 @@
 					{#if issue}<Field.Error>{issue}</Field.Error>{/if}
 				</Field.Root>
 				<Field.Root>
-					<Field.Label for="roster-composer-details" class="sr-only">Details</Field.Label>
+					<Field.Label for="{uid}-details" class="sr-only">Details</Field.Label>
 					<Textarea
-						id="roster-composer-details"
+						id="{uid}-details"
 						bind:value={details}
 						placeholder="Details (optional)"
 						rows={2}
 						maxlength={2000}
 					/>
 				</Field.Root>
-				<div class="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="roster-composer-due">
-					<span id="roster-composer-due" class="w-9 shrink-0 text-sm text-muted-foreground">Due</span>
+				<div class="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="{uid}-due">
+					<span id="{uid}-due" class="w-9 shrink-0 text-sm text-muted-foreground">Due</span>
 					{#each presets as preset (preset.key)}
 						{@const active = activePreset === preset.key}
 						<Button
@@ -227,9 +229,9 @@
 				{/if}
 			{:else}
 				<Field.Root data-invalid={issue ? true : undefined}>
-					<Field.Label for="roster-composer-note" class="sr-only">Note</Field.Label>
+					<Field.Label for="{uid}-note" class="sr-only">Note</Field.Label>
 					<Textarea
-						id="roster-composer-note"
+						id="{uid}-note"
 						bind:ref={noteField}
 						bind:value={noteText}
 						placeholder="What did you observe?"

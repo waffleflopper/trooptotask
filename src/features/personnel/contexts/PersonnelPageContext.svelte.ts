@@ -14,6 +14,7 @@ import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 import { projectRosterLosses, type RosterLoss, type SignalRow, type SummaryState } from '../rosterSignals';
+import { RosterPeek } from '../rosterPeek.svelte';
 import { RosterSignals } from '../rosterSignals.svelte';
 
 export interface PersonnelPageData {
@@ -53,6 +54,8 @@ export class PersonnelPageContext {
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
 	readonly signals: RosterSignals;
+	/** The peek panel's per-Person reads, dropped with this context when the workspace loads again. */
+	readonly peek: RosterPeek;
 
 	constructor(
 		data: PersonnelPageData,
@@ -60,12 +63,14 @@ export class PersonnelPageContext {
 		org: PersonnelPageAccess,
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
-		signals: RosterSignals = new RosterSignals()
+		signals: RosterSignals = new RosterSignals(),
+		peek: RosterPeek = new RosterPeek(data.orgId)
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
 		this.signals = signals;
+		this.peek = peek;
 
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {

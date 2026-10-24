@@ -34,6 +34,7 @@
 	const dot = $derived(rosterStatusDot(signal, ctx.signals.statusTypes));
 	const attention = $derived(rosterAttentionCell(signal));
 	const loss = $derived(ctx.upcomingLossMap.get(person.id));
+	const peeked = $derived(controls.peekedId === person.id);
 
 	function activate(): void {
 		if (controls.selecting) controls.toggleSelected(person.id);
@@ -42,6 +43,7 @@
 
 	function handleClick(event: MouseEvent): void {
 		if (DataTable.eventStartedInInteractiveDescendant(event)) return;
+		if (!controls.selecting && canOpen && controls.peek(person)) return;
 		activate();
 	}
 
@@ -49,9 +51,15 @@
 		if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey) return;
 		const row = event.currentTarget as HTMLElement;
 		const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+		if (controls.peekKey(event)) {
+			event.preventDefault();
+			return;
+		}
 		if (key === 'ArrowDown' || key === 'ArrowUp') focusAdjacentRow(row, key === 'ArrowDown' ? 1 : -1);
 		else if (key === 'Enter' || (key === ' ' && controls.selecting)) activate();
-		else if (key === 'n' && canNote && !controls.selecting) controls.note(person);
+		else if (key === ' ') {
+			if (!canOpen || !controls.peek(person)) return;
+		} else if (key === 'n' && canNote && !controls.selecting) controls.note(person);
 		else if (key === 'e' && canQuickEdit && !controls.selecting) controls.quickEdit(person);
 		else return;
 		event.preventDefault();
@@ -81,7 +89,9 @@
 	data-roster-row={person.id}
 	data-state={selected ? 'selected' : undefined}
 	data-note-open={noteOpen || undefined}
-	class="group/row cursor-pointer data-[note-open]:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+	data-peeked={peeked || undefined}
+	aria-current={peeked || undefined}
+	class="group/row cursor-pointer data-[note-open]:bg-muted/50 data-[peeked]:bg-muted/50 data-[peeked]:[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-accent)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 	tabindex={tabbable ? 0 : -1}
 	aria-label={controls.selecting ? `Select ${person.rank} ${person.lastName}` : canOpen ? `Open ${name}` : name}
 	onclick={handleClick}
@@ -186,7 +196,8 @@
 				{@render attentionText()}
 			{:else if column.key === 'actions'}
 				<span class="flex items-center justify-end gap-1">
-					{#if !controls.selecting}
+					<!-- The open peek panel carries Note and Quick edit, so the narrowed column shows only the chevron. -->
+					{#if !controls.selecting && controls.peekedId === null}
 						<!-- Hover reveals them; a touch screen has no hover, so they stay shown there. -->
 						<span
 							class={[

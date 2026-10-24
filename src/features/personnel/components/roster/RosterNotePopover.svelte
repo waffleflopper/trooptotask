@@ -3,12 +3,12 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
-	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../../personnel.types';
 	import { alreadyOpenOf, type ComposerEntry } from '../../rosterComposer';
 	import { saveRosterEntry } from '../../workspace/rosterEntrySave';
 	import RosterComposer from './RosterComposer.svelte';
+	import { rosterEntrySaved } from './rosterEntrySaved';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -41,19 +41,14 @@
 	}
 
 	async function save(entry: ComposerEntry): Promise<void> {
+		// The props read through to page state that is cleared on close.
 		const orgId = ctx.orgId;
-		// The toast outlives this popover, and the props read through to page state that is cleared on close.
-		const logHref = `${recordHref}/log`;
-		await saveRosterEntry(fetch, { orgId, personId: person.id }, entry);
+		const target = person;
+		const href = recordHref;
+		await saveRosterEntry(fetch, { orgId, personId: target.id }, entry);
 		// The write landed; a different Organization has nothing to refresh or announce.
 		if (ctx.orgId !== orgId) return;
-		if (entry.kind === 'follow-up') void ctx.signals.refresh([person.id]);
-		const subject = `${person.rank} ${person.lastName}`;
-		toastStore.success(
-			entry.kind === 'follow-up' ? `Follow-up added for ${subject}` : `Note added for ${subject}`,
-			6000,
-			ctx.canOpenPersonnelDetail(person) ? { label: 'Open log', onClick: () => void goto(logHref) } : undefined
-		);
+		rosterEntrySaved(ctx, target, entry, href);
 		if (alive) close();
 	}
 

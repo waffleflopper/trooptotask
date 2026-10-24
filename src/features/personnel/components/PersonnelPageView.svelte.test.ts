@@ -38,6 +38,8 @@ vi.mock('svelte-sonner', () => ({
 
 import PersonnelPageView from './PersonnelPageView.svelte';
 import { RosterSignals } from '../rosterSignals.svelte';
+import { RosterPeek } from '../rosterPeek.svelte';
+import type { RosterPeekRead, RosterPeekSection } from '../rosterPeek';
 
 const personnel: Personnel[] = [
 	{
@@ -170,6 +172,7 @@ function makeCtx(
 		orgName: 'C Co',
 		orgUrlSegment: 'org-1',
 		signals,
+		peek: new RosterPeek('org-1', { readSection: () => new Promise<never>(() => {}) }),
 		canViewAvailability: false,
 		signalRow: (person: Personnel) => signals.row(person.id),
 		summarizeSignals: (people: Personnel[]) =>
@@ -630,6 +633,185 @@ describe('PersonnelPageView', () => {
 
 		await fireEvent.keyDown(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0], { key: 'e' });
 		expect(handleEdit).toHaveBeenCalledTimes(1);
+	});
+
+	describe('peek panel', () => {
+		const realMatchMedia = window.matchMedia;
+
+		/** Answers the panel's width query as if the window were `width` wide. */
+		function viewport(width: number) {
+			vi.stubGlobal('matchMedia', (query: string) => {
+				const minWidth = Number(/min-width:\s*(\d+)px/.exec(query)?.[1]);
+				if (!minWidth) return realMatchMedia.call(window, query);
+				return {
+					matches: width >= minWidth,
+					media: query,
+					addEventListener: () => {},
+					removeEventListener: () => {}
+				} as unknown as MediaQueryList;
+			});
+		}
+
+		function peekCtx() {
+			personnelStore.load(
+				[personnel[0], { ...makePerson(2), lastName: 'Young', clinicRole: 'Driver', slug: 'young-test' }],
+				'org-1'
+			);
+			const reads: { personnelId: string; section: RosterPeekSection; reply: PromiseWithResolvers<RosterPeekRead> }[] =
+				[];
+			const peek = new RosterPeek('org-1', {
+				browseDelayMs: 0,
+				readSection: (_orgId, personnelId, section) => {
+					const reply = Promise.withResolvers<RosterPeekRead>();
+					reads.push({ personnelId, section, reply });
+					return reply.promise;
+				}
+			});
+			const answer = async (personnelId: string, section: RosterPeekSection, read: RosterPeekRead | Error) => {
+				const call = reads.findLast((entry) => entry.personnelId === personnelId && entry.section === section);
+				if (read instanceof Error) call?.reply.reject(read);
+				else call?.reply.resolve(read);
+				await waitFor(() => {});
+			};
+			const ctx = {
+				...makeCtx(),
+				peek,
+				canViewAvailability: true,
+				canManagePersonnelRecord: () => true,
+				canReadPersonnelDetails: true,
+				canOpenPersonnelDetail: () => true,
+				personnelRecordAffordance: () => allowedAffordance()
+			} as unknown as PersonnelPageContext;
+			return { ctx, reads, answer };
+		}
+
+		const panel = () => screen.getByRole('complementary', { name: 'Preview of SGT Jane Smith' });
+
+		it('opens beside the roster from a row click, with the row facts at once and each section as it settles', async () => {
+			viewport(1440);
+			const { ctx, reads, answer } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			expect(reads).toEqual([]);
+			expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+
+			expect(gotoMock).not.toHaveBeenCalled();
+			const preview = within(panel());
+			expect(preview.getByRole('heading', { name: 'SGT Jane Smith' })).toBeTruthy();
+			expect(preview.getByText('Alpha · Medic')).toBeTruthy();
+			expect(preview.getByText('1 of 2 · J/K')).toBeTruthy();
+			expect(preview.getByLabelText('Latest note loading')).toBeTruthy();
+			expect(reads.map((read) => read.section)).toEqual(['identity', 'next7', 'attention', 'followUps', 'note']);
+			expect(screen.queryByRole('columnheader', { name: 'Duty Role' })).toBeNull();
+			expect(screen.queryByRole('columnheader', { name: 'Group' })).toBeNull();
+			expect(screen.queryByRole('list', { name: "Today's headcount" })).toBeNull();
+
+			await answer('person-1', 'identity', { state: 'ready', value: { phone: '(910) 555-0148' } });
+			await answer('person-1', 'note', {
+				state: 'ready',
+				value: { id: 'n1', text: 'Wants BLC in January', author: 'SFC Whitaker', createdAt: '2026-09-30T15:00:00Z' }
+			} as RosterPeekRead);
+			await answer('person-1', 'attention', new Error('statement timeout'));
+
+			expect(preview.getByText('(910) 555-0148')).toBeTruthy();
+			expect(preview.getByText('“Wants BLC in January”')).toBeTruthy();
+			expect(preview.getByText('SFC Whitaker · 30 Sep')).toBeTruthy();
+			expect(preview.getByText("Couldn't load readiness.")).toBeTruthy();
+			expect(preview.getByLabelText('Open follow-ups loading')).toBeTruthy();
+
+			await fireEvent.click(preview.getByRole('button', { name: 'Retry' }));
+			expect(reads.slice(5).map((read) => read.section)).toEqual(['attention']);
+		});
+
+		it('leaves out a section the viewer may not see', async () => {
+			viewport(1440);
+			const { ctx, answer } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+
+			await answer('person-1', 'followUps', { state: 'hidden' });
+
+			expect(within(panel()).queryByRole('region', { name: 'Open follow-ups' })).toBeNull();
+			expect(within(panel()).getByRole('region', { name: 'Latest note' })).toBeTruthy();
+		});
+
+		it('opens from Space, steps with J and K while the roster keeps focus, and returns focus to the row on Esc', async () => {
+			viewport(1440);
+			const { ctx } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			const smith = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
+			smith.focus();
+
+			await fireEvent.keyDown(smith, { key: ' ' });
+			expect(panel()).toBeTruthy();
+			expect(smith.getAttribute('aria-current')).toBe('true');
+
+			await fireEvent.keyDown(smith, { key: 'j' });
+			const young = screen.getByRole('row', { name: 'Open SGT Young, Test' });
+			const youngPanel = await screen.findByRole('complementary', { name: 'Preview of SGT Test Young' });
+			await waitFor(() => expect(document.activeElement).toBe(young));
+			expect(within(youngPanel).getByText('2 of 2 · J/K')).toBeTruthy();
+
+			await fireEvent.keyDown(young, { key: 'Tab' });
+			expect(document.activeElement).toBe(within(youngPanel).getByRole('button', { name: 'Previous person' }));
+			await fireEvent.keyDown(document.activeElement!, { key: 'k' });
+			expect(await screen.findByRole('complementary', { name: 'Preview of SGT Jane Smith' })).toBeTruthy();
+
+			await fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+			await waitFor(() => expect(document.activeElement).toBe(smith));
+			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		it("checks off a follow-up in place, then refreshes that Person's row", async () => {
+			viewport(1440);
+			const { ctx, answer } = peekCtx();
+			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue();
+			const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: 'completed' }), { status: 200 }));
+			vi.stubGlobal('fetch', fetchMock);
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			await answer('person-1', 'followUps', {
+				state: 'ready',
+				value: [
+					{
+						id: 'f1',
+						title: 'Turn in TA-50 shortage list',
+						notes: '',
+						status: 'open',
+						dueDate: '2026-10-02',
+						createdAt: '2026-09-28T10:00:00Z',
+						createdBy: 'SFC Whitaker',
+						completedAt: null,
+						completedBy: null
+					}
+				]
+			} as RosterPeekRead);
+			const preview = within(panel());
+			expect(preview.getByText('Overdue 4 days')).toBeTruthy();
+
+			await fireEvent.click(preview.getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' }));
+
+			await waitFor(() => expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1']));
+			expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+				'/org/org-1/api/personnel/person-1/follow-ups/f1',
+				expect.objectContaining({ method: 'PATCH' })
+			);
+			expect(preview.getByRole('checkbox', { name: 'Reopen Turn in TA-50 shortage list' })).toBeTruthy();
+		});
+
+		it('opens the record from a row click on a narrow screen', async () => {
+			viewport(1024);
+			const { ctx, reads } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+
+			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel/smith-jane');
+			expect(screen.queryByRole('complementary')).toBeNull();
+			expect(reads).toEqual([]);
+		});
 	});
 
 	describe('roster signals', () => {

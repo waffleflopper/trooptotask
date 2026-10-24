@@ -43,7 +43,7 @@
 
 	const batch = $derived(buildBatch(assigneeId, days, onlyOpenDays));
 	const replaced = $derived(buildBatch(assigneeId, days, false).length - buildBatch(assigneeId, days, true).length);
-	const swapsEnded = $derived(endsSwaps?.(batch) ?? 0);
+	const swapsEnded = $derived(assigneeId ? (endsSwaps?.(batch) ?? 0) : 0);
 	const fillLabel = $derived(`Fill ${batch.length} ${batch.length === 1 ? 'day' : 'days'}`);
 	const subject = $derived(type.assignTo === 'group' ? 'group' : 'person');
 	const locked = $derived(busy || applying);

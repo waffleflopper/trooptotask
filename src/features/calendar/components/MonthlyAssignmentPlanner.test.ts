@@ -1226,9 +1226,12 @@ describe('MonthlyAssignmentPlanner duty swaps', () => {
 		expect(screen.getByRole('alertdialog').textContent).not.toMatch(/swap/);
 	});
 
-	it('warns that Quick fill ends a swap only when it would move the swapped day to someone else', async () => {
+	it('warns that Quick fill ends a swap only once a person is chosen and it would move the swapped day to them', async () => {
 		renderSwaps({ views: new Map([['type-sd', rosterView({ swaps: [swapped] })]]) });
 		await openColumnMenu();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Only open days' }));
+		expect(screen.queryByText(/Ends 1 duty swap/)).toBeNull();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Only open days' }));
 		const select = screen.getByRole('combobox', { name: 'Assignee' }) as HTMLSelectElement;
 		const kimOption = within(select).getByRole('option', { name: /Kim/ }) as HTMLOptionElement;
 		await fireEvent.change(select, { target: { value: kimOption.value } });

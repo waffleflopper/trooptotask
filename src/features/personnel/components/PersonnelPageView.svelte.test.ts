@@ -382,6 +382,99 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
 	});
 
+	describe('By Group view', () => {
+		function loadTwoGroups(secondGroupName = 'Bravo'): void {
+			personnelStore.load(
+				[
+					...personnel,
+					{
+						id: 'person-2',
+						rank: 'SPC',
+						lastName: 'Garcia',
+						firstName: 'Luis',
+						mos: '11B',
+						clinicRole: 'Rifleman',
+						groupId: 'group-2',
+						groupName: secondGroupName,
+						archivedAt: null,
+						ets: null,
+						deros: null
+					},
+					{
+						id: 'person-3',
+						rank: 'PFC',
+						lastName: 'Adams',
+						firstName: 'Casey',
+						mos: '25U',
+						clinicRole: '',
+						groupId: null,
+						groupName: '',
+						archivedAt: null,
+						ets: null,
+						deros: null
+					}
+				],
+				'org-1'
+			);
+		}
+
+		const headerOrder = () =>
+			screen.getAllByRole('button', { name: /^(Collapse|Expand) / }).map((button) => button.getAttribute('aria-label'));
+
+		it('lists Groups in the Organization order with Unassigned last and drops the Group column', () => {
+			loadTwoGroups();
+			const ctx = {
+				...makeCtx(),
+				viewMode: 'by-group',
+				groupOrder: ['Bravo', 'Alpha']
+			} as unknown as PersonnelPageContext;
+
+			render(PersonnelPageView, { props: { ctx } });
+
+			expect(headerOrder()).toEqual(['Collapse Bravo', 'Collapse Alpha', 'Collapse Unassigned']);
+			expect(screen.getAllByRole('columnheader').map((header) => header.textContent?.trim())).not.toContain('Group');
+		});
+
+		it('keeps the controls of a Group named Unassigned apart from the People with no Group', () => {
+			loadTwoGroups('Unassigned');
+			const ctx = {
+				...makeCtx(),
+				viewMode: 'by-group',
+				canManageGroups: true,
+				groupOrder: ['Alpha', 'Unassigned']
+			} as unknown as PersonnelPageContext;
+
+			render(PersonnelPageView, { props: { ctx } });
+
+			expect(headerOrder()).toEqual(['Collapse Alpha', 'Collapse Unassigned', 'Collapse Unassigned']);
+			expect(screen.getAllByRole('button', { name: 'Pin Unassigned' })).toHaveLength(1);
+			expect(screen.getAllByRole('button', { name: 'Group actions for Unassigned' })).toHaveLength(1);
+			expect(screen.getAllByRole('button', { name: 'Assign a Group' })).toHaveLength(1);
+		});
+
+		it("moves the viewer's pinned Group above the Organization order", () => {
+			loadTwoGroups();
+			pinnedGroupsHydration.load(['Alpha'], 'org-1');
+			const ctx = {
+				...makeCtx(),
+				viewMode: 'by-group',
+				groupOrder: ['Bravo', 'Alpha']
+			} as unknown as PersonnelPageContext;
+
+			render(PersonnelPageView, { props: { ctx } });
+
+			expect(headerOrder()).toEqual(['Collapse Alpha', 'Collapse Bravo', 'Collapse Unassigned']);
+		});
+
+		it('keeps the Group column in the A-Z view', () => {
+			const ctx = makeCtx();
+
+			render(PersonnelPageView, { props: { ctx } });
+
+			expect(screen.getAllByRole('columnheader').map((header) => header.textContent?.trim())).toContain('Group');
+		});
+	});
+
 	describe('when the toolbar folds', () => {
 		const toolbarName = 'Personnel controls';
 

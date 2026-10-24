@@ -242,6 +242,7 @@ describe('summarizeRosterSignals presence', () => {
 		expect(summary.presence).toEqual({
 			kind: 'known',
 			value: {
+				people: 4,
 				present: 2,
 				byStatus: [
 					{ type: TDY, count: 1 },
@@ -249,6 +250,19 @@ describe('summarizeRosterSignals presence', () => {
 				]
 			}
 		});
+	});
+});
+
+describe('summarizeRosterSignals presence with withheld statuses', () => {
+	it('counts only People whose status was read, so present never exceeds the counted People', () => {
+		const summary = summarizeRosterSignals({
+			rows: [core('a'), core('b', { today: { kind: 'withheld' } })].map(row),
+			access: ALL,
+			lossesEnabled: false,
+			statusTypes: [LEAVE]
+		});
+		expect(summary.people).toBe(2);
+		expect(summary.presence).toEqual({ kind: 'known', value: { people: 1, present: 1, byStatus: [] } });
 	});
 });
 

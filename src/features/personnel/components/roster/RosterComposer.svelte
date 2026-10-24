@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import * as SegmentedFilter from '$lib/components/patterns/segmented-filter';
 	import { Button } from '$lib/components/ui/button';
 	import { DatePicker } from '$lib/components/ui/date-picker';
@@ -24,14 +24,16 @@
 		/** The viewer's day; due presets count from it. */
 		today: string;
 		alreadyOpen: AlreadyOpen;
+		/** The entry type it opens on. */
+		initialKind?: ComposerKind;
 		/** Writes the entry. A rejection keeps the composer open and shows its message. */
 		onsave: (entry: ComposerEntry) => Promise<void>;
 		onclose: () => void;
 	}
 
-	let { heading, today, alreadyOpen, onsave, onclose }: Props = $props();
+	let { heading, today, alreadyOpen, initialKind = 'follow-up', onsave, onclose }: Props = $props();
 
-	let kind = $state<ComposerKind>('follow-up');
+	let kind = $state<ComposerKind>(untrack(() => initialKind));
 	let title = $state('');
 	let details = $state('');
 	let due = $state('');

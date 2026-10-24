@@ -14,11 +14,9 @@ export interface PersonnelToolbarInput {
 	onManageGroups: (() => void) | null;
 	/** Null hides Import. */
 	importHref: string | null;
-	/** Null hides archive mode, which the toolbar keeps under More. */
-	archive: { onToggle: () => void; busy: boolean } | null;
 }
 
-/** The roster toolbar's items in rank order: the view toggle, then Manage Groups, Import and archive mode. */
+/** The roster toolbar's items in rank order: the view toggle, then Manage Groups and Import. */
 export function personnelToolbarItems(input: PersonnelToolbarInput): ToolbarItem[] {
 	const items: ToolbarItem[] = [
 		{
@@ -37,17 +35,6 @@ export function personnelToolbarItems(input: PersonnelToolbarInput): ToolbarItem
 	}
 	if (input.importHref) {
 		items.push({ kind: 'action', id: 'import', label: 'Import', icon: 'download', href: input.importHref });
-	}
-	if (input.archive) {
-		items.push({
-			kind: 'action',
-			id: 'archive',
-			label: 'Archive',
-			icon: 'archive',
-			menuOnly: true,
-			onclick: input.archive.onToggle,
-			disabled: input.archive.busy
-		});
 	}
 	return items;
 }

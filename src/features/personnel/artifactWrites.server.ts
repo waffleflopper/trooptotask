@@ -419,6 +419,47 @@ export function createSupabasePersonnelArtifactWritePort(
 			};
 			return writer;
 		},
+		async createFollowUps(actor, personnelIds, entry) {
+			if (personnelIds.length === 0) return [];
+			const { data, error } = await getAdminClient()
+				.from('personnel_follow_ups')
+				.insert(
+					personnelIds.map((personnelId) => ({
+						title: entry.title,
+						notes: entry.notes,
+						due_date: entry.dueDate,
+						status: 'open',
+						created_by: entry.createdBy,
+						created_at: entry.createdAt,
+						updated_at: entry.createdAt,
+						organization_id: actor.orgId,
+						personnel_id: personnelId
+					}))
+				)
+				.select('personnel_id')
+				.returns<{ personnel_id: string }[]>();
+			if (error) throw new Error(error.message);
+			return (data ?? []).map((row) => row.personnel_id);
+		},
+		async createLeaderNotes(actor, personnelIds, entry) {
+			if (personnelIds.length === 0) return [];
+			const { data, error } = await getAdminClient()
+				.from('leader_notes')
+				.insert(
+					personnelIds.map((personnelId) => ({
+						author: entry.author,
+						text: entry.text,
+						created_at: entry.createdAt,
+						updated_at: entry.createdAt,
+						organization_id: actor.orgId,
+						personnel_id: personnelId
+					}))
+				)
+				.select('personnel_id')
+				.returns<{ personnel_id: string }[]>();
+			if (error) throw new Error(error.message);
+			return (data ?? []).map((row) => row.personnel_id);
+		},
 		async findCounselingPersonId(actor, recordId) {
 			const { data, error } = await getAdminClient()
 				.from('counseling_records')

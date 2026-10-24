@@ -24,7 +24,6 @@ vi.mock('$features/app-shell', () => ({
 import Layout from './+layout.svelte';
 import Page from './+page.svelte';
 import RouteHarness from '$features/personnel/test-support/PersonnelRouteTestHarness.svelte';
-import { openToolbarMore } from '$lib/test-support/toolbarWidths';
 
 const alpha = person('alpha', 'Alpha');
 const bravo = person('bravo', 'Bravo');
@@ -97,14 +96,14 @@ function hydrate(orgId: string, rows: Personnel[]) {
 }
 
 async function select(labels: string[]) {
-	const menu = await openToolbarMore('Personnel controls');
-	await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Archive' }));
-	await screen.findByRole('toolbar', { name: 'Bulk archive controls' });
-	for (const name of labels) await fireEvent.click(screen.getByRole('checkbox', { name }));
+	for (const name of labels) await fireEvent.click(await screen.findByRole('checkbox', { name }));
 }
 
+const archiveButton = () =>
+	within(screen.getByRole('toolbar', { name: 'Selected people' })).getByRole('button', { name: 'Archive…' });
+
 async function submit() {
-	await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
+	await fireEvent.click(archiveButton());
 	const dialog = await screen.findByRole('alertdialog');
 	await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
 }
@@ -163,24 +162,23 @@ describe('Personnel route archive retry lifetime', () => {
 			await select(['Select SGT Alpha, Test', 'Select SGT Bravo, Test']);
 			await submit();
 			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
-			const retained = screen.getByRole('checkbox', { name: 'Select SGT Alpha, Test' });
-			expect(retained.getAttribute('aria-checked')).toBe('true');
-			expect(retained).toHaveProperty('disabled', true);
+			expect(screen.getByRole('checkbox', { name: 'Select SGT Alpha, Test' }).getAttribute('aria-checked')).toBe(
+				'true'
+			);
 			expect(screen.getByRole('checkbox', { name: 'Select SGT Bravo, Test' }).getAttribute('aria-checked')).toBe(
 				'false'
 			);
 			expect(send).toHaveBeenCalledOnce();
 
-			hydrate('a', [bravo]);
-			nextWorkspace.resolve(workspace('a', [bravo]));
+			hydrate('a', [alpha, bravo]);
+			nextWorkspace.resolve(workspace('a', [alpha, bravo]));
 			await settle(nextWorkspace.promise);
-			expect(screen.queryByText('Alpha, Test')).toBeNull();
-			expect(screen.getByText('Bravo, Test')).toBeTruthy();
-			expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', true);
-			refreshCompleted.resolve();
-			await waitFor(() =>
-				expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
+			expect(screen.getByRole('checkbox', { name: 'Select SGT Alpha, Test' }).getAttribute('aria-checked')).toBe(
+				'true'
 			);
+			expect(archiveButton()).toHaveProperty('disabled', true);
+			refreshCompleted.resolve();
+			await waitFor(() => expect(archiveButton()).toHaveProperty('disabled', false));
 			expect(send).toHaveBeenCalledOnce();
 			await submit();
 			await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
@@ -188,42 +186,6 @@ describe('Personnel route archive retry lifetime', () => {
 			expect(personnelStore.getById('bravo')).toBeTruthy();
 		}
 	);
-
-	it('keeps an absent failed target explicitly retryable when refreshed active rows are empty', async () => {
-		hydrate('a', [alpha, bravo]);
-		const nextWorkspace = deferred<PersonnelWorkspaceResult>();
-		const refreshCompleted = deferred<void>();
-		const send = vi
-			.fn()
-			.mockResolvedValueOnce(
-				Response.json({
-					archivedIds: ['bravo'],
-					approvalRequestedIds: [],
-					errors: [{ id: 'alpha', message: 'source write failed' }]
-				})
-			)
-			.mockResolvedValueOnce(Response.json({ archivedIds: ['alpha'], approvalRequestedIds: [], errors: [] }));
-		vi.stubGlobal('fetch', send);
-		const view = render(Page, { data: routeData('a', workspace('a', [alpha, bravo])) });
-		navigation.invalidate.mockImplementationOnce(async () => {
-			await view.rerender({ data: routeData('a', nextWorkspace.promise) });
-			await refreshCompleted.promise;
-		});
-		await select(['Select SGT Alpha, Test', 'Select SGT Bravo, Test']);
-		await submit();
-		await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
-		hydrate('a', []);
-		nextWorkspace.resolve(workspace('a', []));
-		await settle(nextWorkspace.promise);
-		refreshCompleted.resolve();
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
-		);
-		expect(screen.getByText(/^1 selected/)).toBeTruthy();
-		await submit();
-		await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
-		expect(submittedIds(send)).toEqual([['alpha', 'bravo'], ['alpha']]);
-	});
 
 	it.each(['success', 'failure'] as const)(
 		'disposes A’s held %s result while B retains its own pending selection',
@@ -289,9 +251,7 @@ describe('Personnel route archive retry lifetime', () => {
 		await submit();
 		// The invalidation returns with a new pending stream; a later rejection is
 		// handled by the real Layout/Page, outside the bulk caller's awaited refresh.
-		await waitFor(() =>
-			expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
-		);
+		await waitFor(() => expect(archiveButton()).toHaveProperty('disabled', false));
 		expect(navigation.invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data');
 		expect(feedback.info).toHaveBeenCalledOnce();
 		refreshWorkspace.reject(new Error('readback connection failed'));

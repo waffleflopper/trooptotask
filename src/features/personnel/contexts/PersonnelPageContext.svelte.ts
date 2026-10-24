@@ -179,6 +179,13 @@ export class PersonnelPageContext {
 		return this.personnelArchiveAffordance(person).allowed;
 	}
 
+	canExportPersonnelRecord(person: Personnel): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.exportRecords,
+			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
+		).allowed;
+	}
+
 	get filteredPersonnel(): Personnel[] {
 		return this.rosterView.flatPersonnel;
 	}

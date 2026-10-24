@@ -10,6 +10,7 @@ import {
 	type PersonRosterSignals,
 	type SummaryState
 } from '../../rosterSignals';
+import type { CheckState } from './rosterSelection.svelte';
 import PersonnelGroupHeader from './PersonnelGroupHeader.svelte';
 
 afterEach(cleanup);
@@ -47,11 +48,20 @@ function ready(overrides: {
 
 function mount(
 	summary: SummaryState,
-	options: { canManageGroups?: boolean; unassigned?: boolean; collapsed?: boolean; pinned?: boolean } = {}
+	options: {
+		canManageGroups?: boolean;
+		unassigned?: boolean;
+		collapsed?: boolean;
+		pinned?: boolean;
+		selection?: CheckState | null;
+		canNote?: boolean;
+	} = {}
 ) {
 	const openGroupEditor = vi.fn();
 	const onTogglePin = vi.fn();
 	const toggle = vi.fn();
+	const select = vi.fn();
+	const onNoteToEveryone = vi.fn();
 	const ctx = {
 		summarizeSignals: () => summary,
 		canManageGroups: options.canManageGroups ?? true,
@@ -73,10 +83,12 @@ function mount(
 			ctx,
 			pinned: options.pinned ?? false,
 			unassigned,
-			onTogglePin
+			onTogglePin,
+			selection: options.selection ? { state: options.selection, set: select } : null,
+			onNoteToEveryone: options.canNote ? onNoteToEveryone : null
 		}
 	});
-	return { openGroupEditor, onTogglePin, toggle };
+	return { openGroupEditor, onTogglePin, toggle, select, onNoteToEveryone };
 }
 
 describe('PersonnelGroupHeader', () => {
@@ -139,7 +151,9 @@ describe('PersonnelGroupHeader', () => {
 				ctx: { summarizeSignals: () => ({ kind: 'pending' }) } as unknown as PersonnelPageContext,
 				pinned: false,
 				unassigned: false,
-				onTogglePin: vi.fn()
+				onTogglePin: vi.fn(),
+				selection: null,
+				onNoteToEveryone: null
 			}
 		});
 		expect(screen.queryByText(/present/)).toBeNull();
@@ -218,5 +232,34 @@ describe('PersonnelGroupHeader', () => {
 
 		expect(screen.queryByRole('button', { name: 'Assign a Group' })).toBeNull();
 		expect(screen.getByText('2 need attention')).toBeTruthy();
+	});
+
+	it('selects and clears the Group’s shown People from its checkbox, showing a partial selection', async () => {
+		const { select } = mount(ready({}), { selection: 'some' });
+		const checkbox = screen.getByRole('checkbox', { name: 'Select everyone in Alpha' });
+
+		expect(checkbox.getAttribute('aria-checked')).toBe('mixed');
+		await fireEvent.click(checkbox);
+
+		expect(select.mock.calls).toEqual([[true]]);
+	});
+
+	it('shows no Group checkbox to a viewer with no bulk action', () => {
+		mount(ready({}), { selection: null });
+
+		expect(screen.queryByRole('checkbox')).toBeNull();
+	});
+
+	it('opens one note for everyone in the Group from its menu, and hides it without permission', async () => {
+		const { onNoteToEveryone } = mount(ready({}), { canNote: true });
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Group actions for Alpha' }), { key: 'Enter' });
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Note to everyone in the Group' }));
+		expect(onNoteToEveryone).toHaveBeenCalledTimes(1);
+		cleanup();
+
+		mount(ready({}), { canNote: false });
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Group actions for Alpha' }), { key: 'Enter' });
+		await screen.findByRole('menuitem', { name: 'Pin' });
+		expect(screen.queryByRole('menuitem', { name: 'Note to everyone in the Group' })).toBeNull();
 	});
 });

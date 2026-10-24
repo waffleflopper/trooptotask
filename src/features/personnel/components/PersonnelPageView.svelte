@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate, goto, invalidate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
@@ -12,24 +12,23 @@
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import {
-		WorkspaceToolbar,
-		type ToolbarItem,
-		type WorkspaceToolbarProps
-	} from '$lib/components/patterns/workspace-toolbar';
+	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
 	import { compareRosterGroupNames } from '../rosterReadModel';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick } from 'svelte';
-	import { toastStore } from '$lib/stores/toast.svelte';
+	import type { ComposerKind } from '../rosterComposer';
+	import PersonnelBulkBar from './roster/PersonnelBulkBar.svelte';
 	import PersonnelGroupHeader from './roster/PersonnelGroupHeader.svelte';
 	import PersonnelRosterHeader from './roster/PersonnelRosterHeader.svelte';
 	import PersonnelRosterRow from './roster/PersonnelRosterRow.svelte';
+	import RosterBulkComposer from './roster/RosterBulkComposer.svelte';
 	import RosterNotePopover from './roster/RosterNotePopover.svelte';
 	import { personnelToolbarItems } from './roster/personnelToolbarItems';
 	import { RosterQuickEdit } from './roster/quickEdit.svelte';
 	import type { RosterRowControls } from './roster/rosterRow';
+	import { RosterSelection } from './roster/rosterSelection.svelte';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -37,10 +36,6 @@
 
 	let { ctx }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
-	let active = true;
-	onDestroy(() => {
-		active = false;
-	});
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
@@ -59,9 +54,22 @@
 	const visibleFilteredPersonnel = $derived(
 		ctx.filteredPersonnel.filter((person) => !locallyArchivedIds.has(person.id))
 	);
-	const canBulkArchivePersonnel = $derived(
-		visibleAllActivePersonnel.some((person) => ctx.canArchivePersonnelRecord(person))
+	// Every bulk action needs Manage records, Export or Archive on someone; without them there is nothing to select for.
+	const canSelect = $derived(
+		visibleAllActivePersonnel.some(
+			(p) => ctx.canManagePersonnelRecord(p) || ctx.canExportPersonnelRecord(p) || ctx.canArchivePersonnelRecord(p)
+		)
 	);
+	const selection = new RosterSelection();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
+	const selectedPeople = $derived(visibleAllActivePersonnel.filter((person) => selection.has(person.id)));
+	const hiddenSelected = $derived.by(() => {
+		const shown = new Set(visibleFilteredPersonnel.map((person) => person.id));
+		return selectedPeople.filter((person) => !shown.has(person.id)).length;
+	});
 
 	$effect(() => {
 		const ids = visibleAllActivePersonnel.map((person) => person.id);
@@ -110,8 +118,16 @@
 				hiddenBelow: 'md'
 			}
 		];
-		if (bulkArchiveMode) {
-			columns.unshift({ key: 'select', header: '', value: () => '', searchable: false, sortable: false });
+		if (canSelect) {
+			columns.unshift({
+				key: 'select',
+				header: '',
+				headerAriaLabel: 'Select',
+				value: () => '',
+				searchable: false,
+				sortable: false,
+				width: '36px'
+			});
 		}
 		return columns;
 	});
@@ -176,13 +192,17 @@
 	});
 
 	let rosterSearch = $state('');
-	let bulkArchiveMode = $state(false);
-	let bulkArchiveSubmitting = $state(false);
-	let showBulkArchiveConfirm = $state(false);
-	let selectedArchiveIds = new SvelteSet<string>();
 	let focusedRowId = $state<string | null>(null);
 	let notePerson = $state<Personnel | null>(null);
 	let noteComposer = $state<RosterNotePopover>();
+	let bulkCompose = $state<{
+		kind: ComposerKind;
+		personnelIds: string[];
+		skipped: number;
+		heading: string;
+		anchor: string;
+	} | null>(null);
+	let bulkComposer = $state<RosterBulkComposer>();
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
@@ -192,6 +212,7 @@
 			? activeTable.groups.flatMap((group) => (group.collapsed ? [] : group.rows))
 			: activeTable.rows
 	);
+	const shownIds = $derived(shownRows.map((person) => person.id));
 	const quickEdit = new RosterQuickEdit({
 		person: (id) => ctx.getPersonnelById(id),
 		groups: () => groupManagementStore.items,
@@ -208,14 +229,11 @@
 	$effect(() => quickEdit.closeIfGone());
 	$effect(() => () => quickEdit.dispose());
 	const rowControls: RosterRowControls = {
-		get selecting() {
-			return bulkArchiveMode;
+		get selectable() {
+			return canSelect;
 		},
-		get selectionBusy() {
-			return bulkArchiveSubmitting;
-		},
-		isSelected: (id) => selectedArchiveIds.has(id),
-		toggleSelected: toggleArchiveSelection,
+		isSelected: (id) => selection.has(id),
+		select: (id, selected, range) => selection.set(id, selected, range ? shownIds : undefined),
 		get tabRowId() {
 			return shownRows.some((person) => person.id === focusedRowId) ? focusedRowId : (shownRows[0]?.id ?? null);
 		},
@@ -231,17 +249,54 @@
 	const canNoteAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
-	// One composer at a time: a second Note asks the open one to close (and to discard typed text) first, then opens.
+	// One composer at a time: opening another asks the open one to close (and to discard typed text) first, then opens.
+	function replaceComposer(open: () => void): void {
+		const composer = notePerson ? noteComposer : bulkCompose ? bulkComposer : undefined;
+		if (composer) composer.requestClose(open);
+		else open();
+	}
+
 	function openNote(person: Personnel): void {
-		if (!notePerson || !noteComposer) {
-			notePerson = person;
-			return;
+		if (notePerson?.id === person.id) noteComposer?.requestClose();
+		else replaceComposer(() => (notePerson = person));
+	}
+
+	const peopleCount = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
+
+	function openBulkCompose(people: readonly Personnel[], kind: ComposerKind, heading: string, anchor: string): void {
+		const writable = people.filter((person) => ctx.canManagePersonnelRecord(person));
+		replaceComposer(
+			() =>
+				(bulkCompose = {
+					kind,
+					personnelIds: writable.map((person) => person.id),
+					skipped: people.length - writable.length,
+					heading: heading.replace('{count}', peopleCount(writable.length)),
+					anchor
+				})
+		);
+	}
+
+	function composeForSelection(kind: ComposerKind): void {
+		openBulkCompose(selectedPeople, kind, '{count}', '[data-roster-bulk-bar]');
+	}
+
+	function noteToGroup(key: string, label: string): void {
+		const members = visibleAllActivePersonnel.filter((person) => groupKey(person) === key);
+		openBulkCompose(members, 'note', `${label} · {count}`, `[data-roster-group="${CSS.escape(key)}"]`);
+	}
+
+	function handleRosterKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Escape' || event.defaultPrevented || selection.size === 0 || bulkCompose) return;
+		selection.clear();
+	}
+
+	function handleArchived(result: { archivedIds: string[]; approvalRequestedIds: string[] }): void {
+		for (const id of result.archivedIds) {
+			locallyArchivedIds.add(id);
+			personnelStore.removeLocal(id);
 		}
-		if (notePerson.id === person.id) {
-			noteComposer.requestClose();
-			return;
-		}
-		noteComposer.requestClose(() => (notePerson = person));
+		selection.remove([...result.archivedIds, ...result.approvalRequestedIds]);
 	}
 
 	async function closeNote(): Promise<void> {
@@ -252,9 +307,13 @@
 		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`)?.focus();
 	}
 
+	// A refresh hands over a new context for the same Organization; only a new Organization starts over.
+	const orgId = $derived(ctx.orgId);
 	$effect(() => {
-		void ctx.orgId;
+		void orgId;
 		notePerson = null;
+		bulkCompose = null;
+		selection.clear();
 	});
 
 	function recordHref(person: Personnel): string {
@@ -286,100 +345,12 @@
 		ctx.searchQuery = value;
 	}
 
-	function toggleArchiveMode(): void {
-		if (bulkArchiveSubmitting) return;
-		bulkArchiveMode = !bulkArchiveMode;
-		selectedArchiveIds.clear();
-	}
-
-	function cancelArchiveMode(): void {
-		if (bulkArchiveSubmitting) return;
-		bulkArchiveMode = false;
-		selectedArchiveIds.clear();
-		showBulkArchiveConfirm = false;
-	}
-
-	function toggleArchiveSelection(id: string): void {
-		if (bulkArchiveSubmitting) return;
-		const person = ctx.getPersonnelById(id);
-		if (!person || !ctx.canArchivePersonnelRecord(person)) return;
-
-		if (selectedArchiveIds.has(id)) {
-			selectedArchiveIds.delete(id);
-		} else {
-			selectedArchiveIds.add(id);
-		}
-	}
-
-	function selectVisibleArchiveRows(): void {
-		if (bulkArchiveSubmitting) return;
-		for (const person of activeTable.rows) {
-			if (ctx.canArchivePersonnelRecord(person)) selectedArchiveIds.add(person.id);
-		}
-	}
-
-	function clearArchiveSelection(): void {
-		if (bulkArchiveSubmitting) return;
-		selectedArchiveIds.clear();
-	}
-
-	async function confirmBulkArchive(): Promise<void> {
-		const orgId = ctx.orgId;
-		const ids = [...selectedArchiveIds];
-		if (ids.length === 0 || bulkArchiveSubmitting || !active) return;
-		const isCurrent = () => active && ctx.orgId === orgId;
-		bulkArchiveSubmitting = true;
-		try {
-			const { bulkArchivePersonnel } = await import('$features/personnel/utils/bulkArchivePersonnel');
-			if (!isCurrent()) return;
-			const result = await bulkArchivePersonnel(orgId, ids);
-			if (!isCurrent()) return;
-
-			for (const id of result.archivedIds) {
-				locallyArchivedIds.add(id);
-				personnelStore.removeLocal(id);
-				selectedArchiveIds.delete(id);
-			}
-			for (const id of result.approvalRequestedIds) selectedArchiveIds.delete(id);
-			showBulkArchiveConfirm = false;
-			bulkArchiveMode = selectedArchiveIds.size > 0;
-
-			if (result.archivedIds.length > 0) toastStore.success(`${result.archivedIds.length} personnel archived`);
-			if (result.approvalRequestedIds.length > 0) {
-				toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
-			}
-			if (result.errors.length > 0) {
-				toastStore.error(`${result.errors.length} personnel could not be archived. Retry the selected personnel.`);
-			}
-			if (result.archivedIds.length > 0 || result.approvalRequestedIds.length > 0) {
-				try {
-					await invalidate('app:personnel-data');
-				} catch {
-					if (isCurrent())
-						toastStore.warning(
-							'Archive results were saved, but the roster could not be refreshed. Refresh to check the latest roster.'
-						);
-				}
-			}
-		} catch {
-			if (isCurrent()) {
-				showBulkArchiveConfirm = false;
-				toastStore.error(
-					'Archive results could not be confirmed. Refresh to check the roster, then retry the selected personnel if needed.'
-				);
-			}
-		} finally {
-			if (isCurrent()) bulkArchiveSubmitting = false;
-		}
-	}
-
 	const toolbarItems = $derived(
 		personnelToolbarItems({
 			viewMode: ctx.viewMode,
 			onViewModeChange: (mode) => (ctx.viewMode = mode),
 			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupEditor(groupsStore.items[0]?.id ?? null) : null,
-			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null,
-			archive: canBulkArchivePersonnel ? { onToggle: toggleArchiveMode, busy: bulkArchiveSubmitting } : null
+			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null
 		})
 	);
 
@@ -395,40 +366,6 @@
 			? { kind: 'action', id: 'add-person', label: 'Add Person', onclick: () => ctx.handleAdd() }
 			: undefined
 	);
-
-	const bulkArchiveItems = $derived.by<ToolbarItem[]>(() => {
-		const items: ToolbarItem[] = [
-			{ kind: 'action', id: 'cancel', label: 'Cancel', onclick: cancelArchiveMode, disabled: bulkArchiveSubmitting }
-		];
-		if (visibleAllActivePersonnel.length > 0) {
-			if (!shouldGateGroupedRoster) {
-				items.push({
-					kind: 'action',
-					id: 'select-shown',
-					label: 'Select shown',
-					onclick: selectVisibleArchiveRows,
-					disabled: bulkArchiveSubmitting
-				});
-			}
-			items.push({
-				kind: 'action',
-				id: 'clear',
-				label: 'Clear',
-				onclick: clearArchiveSelection,
-				disabled: bulkArchiveSubmitting
-			});
-		}
-		return items;
-	});
-
-	const bulkArchivePrimary = $derived<WorkspaceToolbarProps['primary']>({
-		kind: 'action',
-		id: 'confirm-archive',
-		label: 'Confirm Archive',
-		destructive: true,
-		onclick: () => (showBulkArchiveConfirm = true),
-		disabled: selectedArchiveIds.size === 0 || bulkArchiveSubmitting
-	});
 </script>
 
 <svelte:head>
@@ -446,7 +383,11 @@
 			</p>
 		</div>
 	{:else}
-		<div class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="@container/roster flex min-h-0 flex-col gap-4 overflow-clip px-6 pt-4 pb-5 max-sm:p-3"
+			onkeydown={handleRosterKeydown}
+		>
 			<PersonnelRosterHeader
 				unitName={ctx.orgName}
 				activeCount={visibleAllActivePersonnel.length}
@@ -479,17 +420,6 @@
 						>
 					</Alert.Action>
 				</Alert.Root>
-			{/if}
-
-			{#if bulkArchiveMode}
-				<div class="grid gap-2">
-					<p class="text-sm text-muted-foreground" aria-live="polite">
-						{visibleAllActivePersonnel.length === 0
-							? `${selectedArchiveIds.size} selected for retry`
-							: `${selectedArchiveIds.size} of ${activeTable.totalRows} selected`}
-					</p>
-					<WorkspaceToolbar ariaLabel="Bulk archive controls" items={bulkArchiveItems} primary={bulkArchivePrimary} />
-				</div>
 			{/if}
 
 			{#if visibleAllActivePersonnel.length === 0}
@@ -551,17 +481,45 @@
 						emptyLevel={2}
 						maxHeight="100%"
 					>
+						{#snippet headerCell(column)}
+							{#if column.key === 'select'}
+								{@const state = selection.state(shownIds)}
+								<span class="inline-flex h-8 items-center">
+									<DataTable.SelectionCheckbox
+										checked={state === 'all'}
+										indeterminate={state === 'some'}
+										disabled={shownIds.length === 0}
+										ariaLabel="Select everyone shown"
+										onCheckedChange={(selected) => selection.setAll(shownIds, selected)}
+									/>
+								</span>
+							{:else if column.sortable !== false}
+								<DataTable.SortableHeader table={activeTable} {column} />
+							{:else}
+								<span aria-label={column.headerAriaLabel} class="inline-flex h-8 items-center">{column.header}</span>
+							{/if}
+						{/snippet}
 						{#snippet row(person, columns)}
 							<PersonnelRosterRow {person} {columns} {ctx} controls={rowControls} />
 						{/snippet}
 						{#snippet groupHeader(group)}
+							{@const people = peopleByGroup.get(group.key) ?? []}
+							{@const ids = people.map((person) => person.id)}
+							{@const unassigned = group.key === NO_GROUP}
+							{@const groupId = unassigned ? null : ctx.groupIdForName(group.key)}
 							<PersonnelGroupHeader
 								{group}
-								people={peopleByGroup.get(group.key) ?? []}
+								{people}
 								{ctx}
 								pinned={pinnedGroupsStore.list.includes(group.key)}
-								unassigned={group.key === NO_GROUP}
+								{unassigned}
 								onTogglePin={togglePin}
+								selection={canSelect
+									? { state: selection.state(ids), set: (selected) => selection.setAll(ids, selected) }
+									: null}
+								onNoteToEveryone={!unassigned && groupId && ctx.canManagePersonnelInGroup(groupId)
+									? () => noteToGroup(group.key, group.label)
+									: null}
 							/>
 						{/snippet}
 					</DataTable.DataTable>
@@ -569,10 +527,27 @@
 				<div class="flex items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
 					<span aria-live="polite">{activeTable.totalRows} of {visibleAllActivePersonnel.length} shown</span>
 					<span class="flex gap-4 max-md:hidden" aria-hidden="true">
+						{#if canSelect}<span>X select</span>{/if}
 						{#if canNoteAny}<span>N note</span>{/if}
 						{#if canQuickEditAny}<span>E quick edit</span>{/if}
 						{#if ctx.canReadPersonnelDetails}<span>↵ open record</span>{/if}
 					</span>
+				</div>
+			{/if}
+			{#if selectedPeople.length > 0}
+				<!-- In the flow, so the end of the roster leaves room for it; clip, not hidden, above keeps it sticky. -->
+				<div class="pointer-events-none sticky bottom-4 z-20 flex justify-center max-sm:bottom-3">
+					<div class="pointer-events-auto max-w-full">
+						<PersonnelBulkBar
+							{ctx}
+							people={selectedPeople}
+							hidden={hiddenSelected}
+							oncompose={composeForSelection}
+							onclear={() => selection.clear()}
+							onarchived={handleArchived}
+							isCurrent={(startedFor) => active && orgId === startedFor}
+						/>
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -591,18 +566,19 @@
 	{/key}
 {/if}
 
-{#if showBulkArchiveConfirm}
-	{#await import('$lib/components/ui/confirm-dialog') then { ConfirmDialog }}
-		<ConfirmDialog
-			title="Archive Personnel"
-			message="Archive {selectedArchiveIds.size} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval."
-			confirmLabel="Archive"
-			variant="default"
-			loading={bulkArchiveSubmitting}
-			onConfirm={confirmBulkArchive}
-			onCancel={() => (showBulkArchiveConfirm = false)}
+{#if bulkCompose}
+	{#key bulkCompose}
+		<RosterBulkComposer
+			bind:this={bulkComposer}
+			{ctx}
+			personnelIds={bulkCompose.personnelIds}
+			skipped={bulkCompose.skipped}
+			heading={bulkCompose.heading}
+			anchor={bulkCompose.anchor}
+			initialKind={bulkCompose.kind}
+			onclose={() => (bulkCompose = null)}
 		/>
-	{/await}
+	{/key}
 {/if}
 
 {#if quickEdit.prompt}

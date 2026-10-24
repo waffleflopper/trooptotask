@@ -17,17 +17,15 @@ const {
 	toastInfoMock,
 	toastErrorMock,
 	toastWarningMock
-} = vi.hoisted(
-	() => ({
-		gotoMock: vi.fn(),
-		beforeNavigateMock: vi.fn(),
-		invalidateMock: vi.fn(),
-		toastSuccessMock: vi.fn(),
-		toastInfoMock: vi.fn(),
-		toastErrorMock: vi.fn(),
-		toastWarningMock: vi.fn()
-	})
-);
+} = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	beforeNavigateMock: vi.fn(),
+	invalidateMock: vi.fn(),
+	toastSuccessMock: vi.fn(),
+	toastInfoMock: vi.fn(),
+	toastErrorMock: vi.fn(),
+	toastWarningMock: vi.fn()
+}));
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,

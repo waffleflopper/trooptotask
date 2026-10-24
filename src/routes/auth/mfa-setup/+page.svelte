@@ -22,7 +22,7 @@
 	let code = $state('');
 	let rejection = $state<{ code: string; message: string } | null>(null);
 	let formError = $state('');
-	let copied = $state(false);
+	let copyResult = $state<'copied' | 'failed' | null>(null);
 	let left = false;
 	let codeField = $state<ReturnType<typeof CodeField>>();
 
@@ -117,9 +117,13 @@
 
 	async function copyKey() {
 		if (setup.status !== 'ready') return;
-		await navigator.clipboard.writeText(setup.secret);
-		copied = true;
-		setTimeout(() => (copied = false), 2000);
+		try {
+			await navigator.clipboard.writeText(setup.secret);
+			copyResult = 'copied';
+			setTimeout(() => (copyResult = null), 2000);
+		} catch {
+			copyResult = 'failed';
+		}
 	}
 
 	onMount(() => {
@@ -185,8 +189,13 @@
 						class="mt-auto inline-flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground underline decoration-1 underline-offset-[3px]"
 					>
 						<CopyIcon class="size-4" aria-hidden="true" />
-						<span aria-live="polite">{copied ? 'Copied' : 'Copy key'}</span>
+						<span aria-live="polite">{copyResult === 'copied' ? 'Copied' : 'Copy key'}</span>
 					</button>
+					{#if copyResult === 'failed'}
+						<p class="text-sm leading-5 text-destructive-text" role="status">
+							Couldn't copy. Select the key and copy it.
+						</p>
+					{/if}
 				{:else}
 					<Skeleton class="h-[78px] w-full" />
 					<Skeleton class="mt-auto h-5 w-24" />

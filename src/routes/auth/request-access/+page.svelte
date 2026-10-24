@@ -16,18 +16,18 @@
 	let heardAbout = $state('');
 	let heardAboutDetails = $state('');
 	let loading = $state(false);
-	let submittedAt = $state<Date | null>(null);
+	let receipt = $state<{ name: string; email: string; at: Date } | null>(null);
 	let errorMsg = $state('');
 
-	const submittedDay = $derived(submittedAt ? formatDate(submittedAt) : '');
+	const submittedDay = $derived(receipt ? formatDate(receipt.at) : '');
 	const submittedTime = $derived(
-		submittedAt
-			? `${String(submittedAt.getHours()).padStart(2, '0')}${String(submittedAt.getMinutes()).padStart(2, '0')}`
+		receipt
+			? `${String(receipt.at.getHours()).padStart(2, '0')}${String(receipt.at.getMinutes()).padStart(2, '0')}`
 			: ''
 	);
 	const submittedFacts = $derived([
-		{ label: 'Name', value: `${firstName} ${lastName}`, class: 'text-[15px]' },
-		{ label: 'Email', value: email, class: 'text-[15px] font-semibold' },
+		{ label: 'Name', value: receipt?.name ?? '', class: 'text-[15px]' },
+		{ label: 'Email', value: receipt?.email ?? '', class: 'text-[15px] font-semibold' },
 		{ label: 'Submitted', value: `${formatDayMonthYear(submittedDay)} · ${submittedTime}`, class: 'font-mono text-sm' }
 	]);
 	const labelClass = 'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase';
@@ -47,19 +47,20 @@
 		}
 
 		loading = true;
+		const sent = {
+			email,
+			firstName,
+			lastName,
+			heardAbout,
+			heardAboutDetails: heardAboutDetails || undefined,
+			reason: reason || undefined
+		};
 
 		try {
 			const res = await fetch('/api/access-requests', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email,
-					firstName,
-					lastName,
-					heardAbout,
-					heardAboutDetails: heardAboutDetails || undefined,
-					reason: reason || undefined
-				})
+				body: JSON.stringify(sent)
 			});
 
 			if (!res.ok) {
@@ -68,7 +69,7 @@
 				return;
 			}
 
-			submittedAt = new Date();
+			receipt = { name: `${sent.firstName} ${sent.lastName}`, email: sent.email, at: new Date() };
 		} catch {
 			errorMsg = 'Something went wrong. Please try again.';
 		} finally {
@@ -81,7 +82,7 @@
 	<title>Request Access - Troop to Task</title>
 </svelte:head>
 
-{#if submittedAt}
+{#if receipt}
 	<AuthShell
 		eyebrow="Reviewed Access"
 		headline={['Request in.', 'Stand by.']}

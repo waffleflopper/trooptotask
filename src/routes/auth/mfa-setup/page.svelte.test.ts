@@ -51,6 +51,18 @@ it('copies the ungrouped setup key', async () => {
 	expect(await screen.findByRole('button', { name: 'Copied' })).toBeVisible();
 });
 
+it('tells the user to copy the key by hand when the browser refuses the clipboard', async () => {
+	vi.stubGlobal('navigator', {
+		...navigator,
+		clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) }
+	});
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ready()));
+	renderPage();
+	await fireEvent.click(await screen.findByRole('button', { name: 'Copy key' }));
+	expect(await screen.findByRole('status')).toHaveTextContent("Couldn't copy. Select the key and copy it.");
+	expect(screen.getByRole('button', { name: 'Copy key' })).toBeVisible();
+});
+
 it('turns MFA on from the sixth digit and returns to the continuation with fresh data', async () => {
 	const fetchMock = vi
 		.fn()

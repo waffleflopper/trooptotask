@@ -36,6 +36,7 @@
 		onleave?: () => void;
 	} = $props();
 
+	const ROWS = ACCOUNT_PAGES.profile.rows;
 	const ROLE_LABELS: Record<MembershipRole, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
 
 	const profile = $derived(account.profile.status === 'loaded' ? account.profile.profile : null);
@@ -81,12 +82,7 @@
 	/>
 
 	<PageShell.FactSection>
-		<PageShell.FactRow
-			variant="display"
-			stackBelow="xl"
-			label="Name and rank"
-			description="How your login is labeled. Changing it here doesn't rename you on any unit's roster."
-		>
+		<PageShell.FactRow variant="display" stackBelow="xl" label={ROWS.name.label} description={ROWS.name.description}>
 			{#if account.profile.status === 'unavailable'}
 				<Alert.Root variant="destructive">
 					<Alert.Title>Your name could not be loaded</Alert.Title>
@@ -193,12 +189,7 @@
 			{/if}
 		</PageShell.FactRow>
 
-		<PageShell.FactRow
-			variant="display"
-			stackBelow="xl"
-			label="Email"
-			description="You sign in with it, and password resets go there."
-		>
+		<PageShell.FactRow variant="display" stackBelow="xl" label={ROWS.email.label} description={ROWS.email.description}>
 			<div class="flex min-w-0 flex-col gap-x-6 gap-y-1 xl:flex-row xl:items-baseline xl:justify-between">
 				<p class="min-w-0 truncate text-[17px] font-semibold" title={account.email ?? undefined}>
 					{account.email ?? 'Not available'}
@@ -215,8 +206,8 @@
 		<PageShell.FactRow
 			variant="display"
 			stackBelow="xl"
-			label="Personnel records"
-			description="Each unit keeps its own record of you. Its admins set rank, section and dates there."
+			label={ROWS.records.label}
+			description={ROWS.records.description}
 		>
 			<p class="font-mono text-xs leading-5 text-muted-foreground">
 				{unit.name} · {ROLE_LABELS[unit.role]} · kept by unit admins

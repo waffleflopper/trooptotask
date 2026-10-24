@@ -1,15 +1,48 @@
 <script lang="ts" module>
+	// Each row's `placeholder` bars stand in for its value lane while the page loads, sized to the loaded lane.
 	export const ACCOUNT_PAGES = {
 		profile: {
 			label: 'Profile',
 			subtitle:
 				'Who you are on TroopToTask. These details belong to your login, not to a personnel record in any unit.',
-			rows: 3
+			rows: {
+				name: {
+					label: 'Name and rank',
+					description: "How your login is labeled. Changing it here doesn't rename you on any unit's roster.",
+					placeholder: ['h-8 w-64 max-w-full']
+				},
+				email: {
+					label: 'Email',
+					description: 'You sign in with it, and password resets go there.',
+					placeholder: ['h-6.5 w-72 max-w-full', '-mt-1.5 h-5 w-52']
+				},
+				records: {
+					label: 'Personnel records',
+					description: 'Each unit keeps its own record of you. Its admins set rank, section and dates there.',
+					placeholder: ['h-10 w-72 max-w-full sm:h-5', 'h-7 w-22']
+				}
+			}
 		},
 		security: {
 			label: 'Sign-in & security',
 			subtitle: 'What it takes to get into your account. Changes here ask for your password or an authenticator code.',
-			rows: 3
+			rows: {
+				email: {
+					label: 'Email',
+					description: 'Your sign-in name. The current one keeps working until the new one is confirmed.',
+					placeholder: ['h-7 w-72 max-w-full']
+				},
+				password: {
+					label: 'Password',
+					description: "You'll confirm the current one before setting a new one.",
+					placeholder: ['h-7 w-48', 'h-4 w-64 max-w-full']
+				},
+				twoFactor: {
+					label: 'Two-factor authentication',
+					description: "A code from your phone at every sign-in. A stolen password alone won't get anyone in.",
+					placeholder: ['h-8.5 w-56 max-w-full', 'h-4 w-64 max-w-full']
+				}
+			}
 		}
 	} as const;
 
@@ -90,17 +123,15 @@
 					variant="display"
 					subtitle={ACCOUNT_PAGES[slowKey].subtitle}
 				/>
-				<div class="border-t-2 border-foreground">
-					{#each { length: ACCOUNT_PAGES[slowKey].rows }, row (row)}
-						<div class="flex h-24 items-center gap-4 border-b last:border-b-0">
-							<div class="grid flex-1 gap-2">
-								<Skeleton class="h-5 w-40" />
-								<Skeleton class="h-3.5 w-80 max-w-full" />
-							</div>
-							<Skeleton class="h-8 w-20 shrink-0" />
-						</div>
+				<PageShell.FactSection>
+					{#each Object.values(ACCOUNT_PAGES[slowKey].rows) as row (row.label)}
+						<PageShell.FactRow variant="display" stackBelow="xl" label={row.label} description={row.description}>
+							{#each row.placeholder as bar, index (index)}
+								<Skeleton class={bar} />
+							{/each}
+						</PageShell.FactRow>
 					{/each}
-				</div>
+				</PageShell.FactSection>
 			</div>
 		{/if}
 		<!-- Hidden, not unmounted, so a page keeps its state if the navigation does not complete. -->

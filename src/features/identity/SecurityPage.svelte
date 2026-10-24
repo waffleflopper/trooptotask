@@ -58,6 +58,8 @@
 
 	type Row = 'email' | 'password' | 'turn-off';
 
+	const ROWS = ACCOUNT_PAGES.security.rows;
+
 	const EMAIL_FIELD_ERRORS = new Map<string, 'email' | 'password'>([
 		[INVALID_EMAIL_MESSAGE, 'email'],
 		[SAME_EMAIL_MESSAGE, 'email'],
@@ -353,8 +355,8 @@
 		<PageShell.FactRow
 			variant="display"
 			stackBelow="xl"
-			label="Email"
-			description="Your sign-in name. The current one keeps working until the new one is confirmed."
+			label={ROWS.email.label}
+			description={ROWS.email.description}
 			data-account-row="email"
 		>
 			<div class="flex min-w-0 items-center gap-4">
@@ -448,8 +450,8 @@
 		<PageShell.FactRow
 			variant="display"
 			stackBelow="xl"
-			label="Password"
-			description="You'll confirm the current one before setting a new one."
+			label={ROWS.password.label}
+			description={ROWS.password.description}
 			data-account-row="password"
 		>
 			{#if completion}
@@ -559,8 +561,8 @@
 		<PageShell.FactRow
 			variant="display"
 			stackBelow="xl"
-			label="Two-factor authentication"
-			description="A code from your phone at every sign-in. A stolen password alone won't get anyone in."
+			label={ROWS.twoFactor.label}
+			description={ROWS.twoFactor.description}
 			data-account-row="turn-off"
 		>
 			{#if mfaError}

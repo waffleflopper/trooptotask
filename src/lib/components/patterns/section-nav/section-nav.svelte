@@ -44,12 +44,15 @@
 		groups: SectionNavGroup[];
 		/** Sits apart below a rule in the destructive color, for a section such as Danger zone. */
 		apart?: SectionNavItem;
-		/** Sits below a rule after the sections. Below `md` it becomes a row under the tabs. */
+		/** Sits below a rule after the sections. When the nav collapses it becomes a row under the tabs. */
 		actions?: SectionNavAction[];
+		/** Where the side column becomes tabs; `lg` when the page beside it needs the width. */
+		collapseBelow?: 'md' | 'lg';
 		class?: string;
 	};
 
-	let { label, groups, apart, actions = [], class: className }: Props = $props();
+	let { label, groups, apart, actions = [], collapseBelow = 'md', class: className }: Props = $props();
+	const wide = $derived(collapseBelow === 'lg');
 
 	const id = $props.id();
 	const pill = 'h-4.5 min-w-4.5 rounded-full px-1.25 font-mono text-[11px] tabular-nums';
@@ -146,7 +149,7 @@
 <nav
 	data-slot="section-nav"
 	aria-label={label}
-	class={cn('hidden w-45 shrink-0 flex-col gap-5 self-start pt-1 md:flex', className)}
+	class={cn('hidden w-45 shrink-0 flex-col gap-5 self-start pt-1', wide ? 'lg:flex' : 'md:flex', className)}
 >
 	{#each groups as group, index (group.label)}
 		<div role="group" aria-labelledby="{id}-{index}" class="flex flex-col gap-0.5">
@@ -174,9 +177,12 @@
 		</div>
 	{/if}
 </nav>
-<PageShell.Tabs items={tabs} {label} class={cn('md:hidden', className)} />
+<PageShell.Tabs items={tabs} {label} class={cn(wide ? 'lg:hidden' : 'md:hidden', className)} />
 {#if actions.length}
-	<div data-slot="section-nav-actions" class={cn('-mt-2 flex flex-wrap gap-1 md:hidden', className)}>
+	<div
+		data-slot="section-nav-actions"
+		class={cn('-mt-2 flex flex-wrap gap-1', wide ? 'lg:hidden' : 'md:hidden', className)}
+	>
 		{#each actions as item (item.label)}
 			{@render actionControl(item, true)}
 		{/each}

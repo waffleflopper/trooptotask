@@ -9,13 +9,13 @@ import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import type { Personnel } from '../personnel.types';
 import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 import { settles } from '$lib/test-support/settles';
 import { RosterSignals } from '../rosterSignals.svelte';
 import type { PersonSignalCore, RosterSignalRead, SignalAccess } from '../rosterSignals';
-import { endOrganizationLifetime } from '$lib/stores/core';
 import * as groupMembership from '../utils/moveGroupMembers';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
@@ -616,5 +616,23 @@ describe('Needs attention after a Personnel edit', () => {
 		await fireEvent.click(screen.getByTestId('personnel-save'));
 		await waitFor(() => expect(readPeople).toHaveBeenCalledExactlyOnceWith('org-a', ['person-a']));
 		await waitFor(() => expect(ctx.signalRow(person)).toMatchObject({ kind: 'ready', value: { attention: clear } }));
+	});
+
+	it('rereads nothing when the Organization lifetime ended before the save reply', async () => {
+		const { ctx, modals, readPeople } = await openEditor();
+		let reply!: (response: Response) => void;
+		const fetchMock = vi.fn(() => new Promise<Response>((resolve) => (reply = resolve)));
+		vi.stubGlobal('fetch', fetchMock);
+
+		await fireEvent.input(screen.getByLabelText('MOS / Job Title'), { target: { value: '11B' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		endOrganizationLifetime();
+		reply(Response.json({ ...person, mos: '11B' }));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		expect(readPeople).not.toHaveBeenCalled();
+		expect(ctx.signalRow(person)).toMatchObject({ kind: 'ready', value: { attention: missingTraining } });
+		expect(modals.isOpen('personnel-modal')).toBe(true);
 	});
 });

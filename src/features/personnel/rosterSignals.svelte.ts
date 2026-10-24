@@ -85,8 +85,8 @@ export class RosterSignals {
 	readonly #readPeople: NonNullable<RosterSignalsOptions['readPeople']>;
 	readonly #invalidate: NonNullable<RosterSignalsOptions['invalidate']>;
 	readonly #browserDay: NonNullable<RosterSignalsOptions['browserDay']>;
-	/** The server day the browser day was last compared with, so a browser that keeps no zone cookie asks once. */
-	#dayChecked = '';
+	/** The shown day the lane was last asked to leave, so a browser that keeps no zone cookie asks once per day. */
+	#dayLeft = '';
 
 	constructor(options: RosterSignalsOptions = {}) {
 		this.#readPeople = options.readPeople ?? readPeopleFromEndpoint;
@@ -108,7 +108,7 @@ export class RosterSignals {
 				this.status = 'pending';
 			}
 			this.asOf = asOf;
-			this.#followBrowserDay(asOf);
+			this.#leaveDay(asOf);
 			const current = () => this.#lane === lane && this.#orgId === orgId;
 			withinOrganizationLifetime(lane, current).then(
 				(read) => this.#settle(read, generation),
@@ -124,13 +124,23 @@ export class RosterSignals {
 	 * A first visit has no time zone cookie, so the server reads its own UTC day. The lane reruns only when the
 	 * viewer's day is another one; the same day keeps the lane the first response carried.
 	 */
-	#followBrowserDay(asOf: string): void {
-		if (this.#dayChecked === asOf) return;
-		this.#dayChecked = asOf;
+	#leaveDay(asOf: string): string | null {
 		const browserDay = this.#browserDay();
-		if (browserDay === null || browserDay === asOf) return;
-		rememberViewerTimeZone();
-		void this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
+		if (browserDay === null || browserDay === asOf) return null;
+		if (this.#dayLeft !== asOf) {
+			this.#dayLeft = asOf;
+			rememberViewerTimeZone();
+			void this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
+		}
+		return browserDay;
+	}
+
+	/**
+	 * The viewer's day right now. A page held open past midnight shows yesterday's signals, so this moves the lane to
+	 * the new day the way a first visit does. Call it when something needs today's date, such as a due-date shortcut.
+	 */
+	viewerDay(): string {
+		return this.#leaveDay(this.asOf) ?? this.asOf;
 	}
 
 	#settle(read: RosterSignalRead, generation: number): void {

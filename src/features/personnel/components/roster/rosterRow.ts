@@ -12,6 +12,8 @@ export interface RosterRowControls {
 	focused(personnelId: string): void;
 	recordHref(person: Personnel): string;
 	openRecord(person: Personnel): void;
+	/** The Person whose note composer is open, so their row can draw Note as pressed. */
+	readonly noteOpenFor: string | null;
 	note(person: Personnel): void;
 	/** The roster's one quick editor. */
 	readonly edit: RosterQuickEdit;

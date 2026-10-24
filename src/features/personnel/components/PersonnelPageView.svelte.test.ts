@@ -169,7 +169,7 @@ function makeCtx(upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()): 
 
 	const signals = new RosterSignals({ readPeople: vi.fn(), browserDay: () => '2026-10-23' });
 	const ctx = {
-		data: { orgId: 'org-1' },
+		data: { orgId: 'org-1', asOf: '2026-10-06' },
 		orgId: 'org-1',
 		orgName: 'C Co',
 		orgUrlSegment: 'org-1',
@@ -302,7 +302,7 @@ describe('PersonnelPageView', () => {
 		// One sits beside the name, which stays shown where the actions cell hides.
 		const quickEdits = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
 		expect(quickEdits.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
-		expect(screen.queryByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeNull();
+		expect(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
 		await fireEvent.click(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
 		expect(gotoMock).not.toHaveBeenCalled();
@@ -678,15 +678,56 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }));
-		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0]);
+		expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
 		const narrowEdit = screen
 			.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' })
 			.find((button) => button.closest('td')?.textContent?.includes('Smith, Jane'));
 		await fireEvent.click(narrowEdit!);
 		expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
-		expect(gotoMock).toHaveBeenCalledTimes(2);
+		expect(gotoMock).toHaveBeenCalledTimes(1);
+	});
+
+	describe('a second Note while a composer holds typed text', () => {
+		async function typeInSmithComposer() {
+			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young', slug: 'young-test' }], 'org-1');
+			const ctx = {
+				...openableCtx(),
+				canManagePersonnelRecord: () => true
+			} as unknown as PersonnelPageContext;
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0]);
+			await fireEvent.input(await screen.findByRole('textbox', { name: 'Follow-up title' }), {
+				target: { value: 'Call about leave' }
+			});
+			await fireEvent.click(screen.getAllByRole('button', { name: /^Note for .*Young/ })[0]);
+			await screen.findByText('Discard what you typed?');
+		}
+
+		it('opens the requested composer once the typed text is discarded', async () => {
+			await typeInSmithComposer();
+			await fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+
+			const dialog = await screen.findByRole('dialog', { name: /Add to log for SGT .*Young/ });
+			expect(dialog).toBeTruthy();
+			expect(screen.queryByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeNull();
+			expect((screen.getByRole('textbox', { name: 'Follow-up title' }) as HTMLInputElement).value).toBe('');
+		});
+
+		it('keeps the first composer and its text, and drops the request, on Keep editing', async () => {
+			await typeInSmithComposer();
+			await fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+
+			expect((screen.getByRole('textbox', { name: 'Follow-up title' }) as HTMLInputElement).value).toBe(
+				'Call about leave'
+			);
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+			await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		});
 	});
 
 	it('moves row focus with the arrow keys and runs N, E and Enter on the focused row only', async () => {
@@ -704,14 +745,17 @@ describe('PersonnelPageView', () => {
 		await fireEvent.keyDown(young, { key: 'e' });
 		expect(screen.queryByRole('form')).toBeNull();
 		await fireEvent.keyDown(young, { key: 'ArrowUp' });
+		await fireEvent.keyDown(smith, { key: 'n' });
+		expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+		expect(gotoMock).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		await fireEvent.keyDown(smith, { key: 'e' });
 		expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
-		await fireEvent.keyDown(smith, { key: 'n' });
-		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
 		await fireEvent.keyDown(smith, { key: 'Enter' });
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
-		await fireEvent.keyDown(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }), { key: 'e' });
+		await fireEvent.keyDown(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0], { key: 'e' });
 		expect(screen.getAllByRole('form')).toHaveLength(1);
 	});
 
@@ -995,15 +1039,14 @@ describe('PersonnelPageView', () => {
 				expect((screen.getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
 			});
 
-			it('holds Note and opens it after Save and leave wrote the draft', async () => {
-				const update = savesAs({});
+			it('opens the Note composer in place without leaving the roster or losing the draft', async () => {
 				const nav = await dirtySmith();
-				await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Young, Test' }));
+				await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Young, Test' })[0]);
 
+				expect(await screen.findByRole('dialog', { name: /Add to log for SGT .*Young/ })).toBeTruthy();
 				expect(nav.visited).toEqual([]);
-				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Save and leave' }));
-				await waitFor(() => expect(nav.visited).toEqual(['/org/org-1/personnel/young-test/log?add=follow-up']));
-				expect(update).toHaveBeenCalledTimes(1);
+				expect(screen.queryByRole('alertdialog')).toBeNull();
+				expect((screen.getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
 			});
 
 			it('holds browser Back and stays on the roster with the draft after Cancel', async () => {

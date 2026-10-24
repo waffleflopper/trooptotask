@@ -31,6 +31,29 @@ afterEach(() => {
 });
 
 describe('personnel leader notes', () => {
+	it('does not report a leader note as created until its audit event is recorded', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		let recordAudit!: () => void;
+		const audited = new Promise<void>((resolve) => (recordAudit = resolve));
+		const log = vi.fn(() => audited);
+
+		let settled = false;
+		const created = createPersonnelLeaderNote(
+			{ ...testLeaderNoteContext(ctx), audit: { log } },
+			{ personnelId: 'person-1', text: 'Strong week.' }
+		).then(() => (settled = true));
+		await vi.waitFor(() => expect(log).toHaveBeenCalledOnce());
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(settled).toBe(false);
+
+		recordAudit();
+		await created;
+		expect(log).toHaveBeenCalledWith(
+			expect.objectContaining({ action: 'personnel.leader_note.created', resourceId: 'person-1' })
+		);
+	});
+
 	it('creates and lists leader notes in reverse chronological order', async () => {
 		const ctx = createTestContext({
 			auth: {

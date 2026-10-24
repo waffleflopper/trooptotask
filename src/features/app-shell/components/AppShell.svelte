@@ -9,7 +9,7 @@
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
-	import { latestChangelogId } from '../latestChangelog.js';
+	import { latestChangelogId } from '../latestChangelog';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
 	import type { ReadyAppShell } from '../contracts';
 
@@ -35,7 +35,7 @@
 	$effect(() => endOrganizationLifetime);
 
 	function autoShowWhatsNew() {
-		if (!browser || hasAutoShownWhatsNew || !latestChangelogId) return;
+		if (!browser || hasAutoShownWhatsNew) return;
 		const storage = getBrowserLocalStorage();
 		if (!storage) return;
 		try {
@@ -56,7 +56,7 @@
 	}
 	function closeWhatsNew() {
 		showWhatsNew = false;
-		if (!browser || !latestChangelogId) return;
+		if (!browser) return;
 		try {
 			getBrowserLocalStorage()?.setItem(`changelog-last-seen-${shell.user.id}`, latestChangelogId);
 		} catch {

@@ -1,4 +1,4 @@
-import { latestChangelogId } from './latestChangelog.js';
+import type { latestChangelogId } from './latestChangelog';
 
 export type ChangelogEntry = {
 	id: string;
@@ -7,9 +7,9 @@ export type ChangelogEntry = {
 	items: string[];
 };
 
-export const changelog: ChangelogEntry[] = [
+export const changelog: [ChangelogEntry & { id: typeof latestChangelogId }, ...ChangelogEntry[]] = [
 	{
-		id: latestChangelogId,
+		id: '2026-10-24-personnel-roster',
 		date: '2026-10-24',
 		title: 'See Who Needs You From the Personnel Roster',
 		items: [

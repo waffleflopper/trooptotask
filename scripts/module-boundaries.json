@@ -453,7 +453,14 @@
 		"critical-tasks": [
 			"src/features/critical-tasks/contracts.ts",
 			"src/features/critical-tasks/index.ts",
-			"src/features/critical-tasks/index.server.ts"
+			"src/features/critical-tasks/index.server.ts",
+			"src/features/critical-tasks/components/IctCompletionModal.svelte",
+			"src/features/critical-tasks/components/IctMatrix.svelte",
+			"src/features/critical-tasks/components/IctTaskLibraryPage.svelte",
+			"src/features/critical-tasks/components/IctReportsView.svelte",
+			"src/features/critical-tasks/components/IctPersonnelDetailPage.svelte",
+			"src/features/critical-tasks/components/PersonnelCriticalTaskReadinessTable.svelte",
+			"src/features/critical-tasks/components/PersonnelCriticalTaskDrawer.svelte"
 		],
 		"dashboard": [
 			"src/features/dashboard/contracts.ts",
@@ -535,9 +542,7 @@
 			"src/features/identity/PasswordCompletion.svelte",
 			"src/features/identity/PasswordMfaChallenge.svelte",
 			"src/features/identity/ProfilePage.svelte",
-			"src/features/identity/SecurityPage.svelte",
-			"src/features/identity/accountLabel.ts",
-			"src/features/identity/mfaSetupHref.ts"
+			"src/features/identity/SecurityPage.svelte"
 		],
 		"notifications": [
 			"src/features/notifications/contracts.ts",

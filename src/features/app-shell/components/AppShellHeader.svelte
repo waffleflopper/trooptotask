@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { OrganizationSwitcherOrg } from '$features/app-shell/contracts';
 	import type { SignedInAccount } from '$features/identity/contracts';
-	import { accountLabel } from '$features/identity/accountLabel';
-	import { mfaSetupHref } from '$features/identity/mfaSetupHref';
+	import { accountLabel, mfaSetupHref } from '$features/identity';
 	import type { Notification } from '$features/notifications/contracts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';

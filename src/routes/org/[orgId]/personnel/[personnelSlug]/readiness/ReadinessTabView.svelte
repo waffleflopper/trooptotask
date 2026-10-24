@@ -4,7 +4,8 @@
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { PersonnelCriticalTaskReadiness } from '$features/critical-tasks/contracts';
-	import { PersonnelCriticalTaskDrawer, PersonnelCriticalTaskReadinessTable } from '$features/critical-tasks';
+	import PersonnelCriticalTaskReadinessTable from '$features/critical-tasks/components/PersonnelCriticalTaskReadinessTable.svelte';
+	import PersonnelCriticalTaskDrawer from '$features/critical-tasks/components/PersonnelCriticalTaskDrawer.svelte';
 	import type { PersonnelOnboardingSummary } from '$features/onboarding/contracts';
 	import { PersonnelOnboardingLine } from '$features/onboarding';
 	import type { Personnel, PersonnelLossReadiness } from '$features/personnel/contracts';

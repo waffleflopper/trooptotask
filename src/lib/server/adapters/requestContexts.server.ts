@@ -123,7 +123,11 @@ import {
 	requireActiveOrganization,
 	type ActiveOrganization
 } from '$features/organization/index.server';
-import type { LeaderNoteContext, PersonnelArtifactsContext } from '$features/personnel/index.server';
+import type {
+	LeaderNoteContext,
+	PersonnelArtifactsContext,
+	PersonnelLogBatchContext
+} from '$features/personnel/index.server';
 
 import { readOrganizationMembershipForRequest } from '$features/organization/index.server';
 import { getOrLoadRequestMembership } from '$lib/access/index.server';
@@ -360,6 +364,15 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog({ auth: request.auth, audit: request.audit, rankCatalog: rankCatalog })
+	};
+}
+
+export function createRequestPersonnelLogBatchContext(request: AdmittedOrganizationRequest): PersonnelLogBatchContext {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient)
 	};
 }
 

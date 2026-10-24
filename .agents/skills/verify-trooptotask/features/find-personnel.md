@@ -25,13 +25,17 @@ person's record.
   link saves or discards before it navigates.
 - `roster-note`: the row's `Note` button and N key open a popover composer that adds a follow-up or a leader note
   without leaving the roster.
+- `roster-bulk`: row, header and Group checkboxes select many People, and a floating `Selected people` bar adds a
+  follow-up or note for each, moves them to a Group, exports them or archives them at once.
 
 ## How to get to it (user POV)
 
 Sign in, choose `Personnel` in the organization navigation, and use `Search by name, rank, MOS, role, or group`. The
 `Group` and `A-Z` buttons are above the roster. Choose a person's row, or focus it and press Enter, to open the record.
 Each row's `Note` and `Quick edit` icon buttons show on hover or focus (always on a touch screen); N and E are their
-keys. Below the md viewport (768 px) the actions column hides and `Quick edit` shows at the right of the name.
+keys. Below the md viewport (768 px) the actions column hides and `Quick edit` shows at the right of the name. A
+checkbox starts each row, the header row and each Group header; checking any opens the `Selected people` bar at the
+bottom of the roster, and Esc clears the selection.
 
 ## Driving it with verify:app
 
@@ -87,17 +91,18 @@ scoped actors retain their baseline grants.
    or the access result the actor actually gets, with Add Person absent. Add Person appears in that state only for an
    actor who can add; record per actor. No match: type a name nobody has and require `No personnel match your search.`;
    clear with focused `Control+A`/`Backspace`. Restricted: sign in as `ictViewer` (Personnel none) and require
-   `Access Restricted` with the permission message and no roster. Disabled: in `Archive` mode with a selected row,
-   `Confirm Archive`, `Select shown` and `Clear` disable while an archive is held through
-   `arm-hold PAGE personnel/archive-batch`. Loading: Personnel loads in the Organization layout before the page renders,
-   and no control holds that load, so record UNAVAILABLE with the attempted route unless a skeleton is observed on
-   navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL unchanged (only a filter
-   writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`. Capture 1280 light and 390
-   dark, including the `Personnel controls` toolbar at 390: one row with the search field, `More Personnel controls` and
-   `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`, `Archive`, `Manage Groups` and
-   the `A-Z`/`Group` view fold into More in that order (at about 1008, 956, 860 and 450px), so at 390 choose them from
-   More. In `Archive` mode the `Bulk archive controls` toolbar keeps `Select shown`, `Cancel` and `Confirm Archive` on
-   the row at 390 and moves `Clear` into `More Bulk archive controls` (it folds at about 404px).
+   `Access Restricted` with the permission message and no roster. Disabled: select a row, choose `Archive…` and confirm
+   while `arm-hold-fail PAGE personnel/archive-batch` holds the batch: the dialog's `Cancel` and `Archive` and every
+   `Selected people` action but `Clear selection` disable until release. Loading: Personnel loads in the Organization
+   layout before the page renders, and no control holds that load, so record UNAVAILABLE with the attempted route unless
+   a skeleton is observed on navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL
+   unchanged (only a filter writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`.
+   Capture 1280 light and 390 dark, including the `Personnel controls` toolbar at 390: one row with the search field,
+   `More Personnel controls` and `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`,
+   `Manage Groups` and the `A-Z`/`Group` view fold into More in that order (at about 910 and 862px; below 768 the
+   sidebar collapses and they return, then fold again at about 656 and 584, with Import back between about 632 and 638
+   where the page gutter narrows, and the view folds at about 451px), so at 390 choose them from More. Archiving many
+   People is the `Selected people` bar's `Archive…` (step 19).
 10. **Opening a record for operators.** A row opens its record, shows the chevron and `Note for <name>`, and is named
     `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
     As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row
@@ -121,8 +126,8 @@ scoped actors retain their baseline grants.
     and the `Today's headcount` strip reads `2 present` and `1 Verification Training`. Able's dot is `Present today` and
     its Needs attention reads `Verification Required Training expired · 2 more` in red; Baker's dot is
     `Verification Training today` and reads `Verification All-MOS Critical Task missing · 2 more`; Unassigned reads
-    `Verification All-MOS Critical Task missing · 3 more`. The footer reads `3 of 3 shown` with `N note`, `E quick edit`
-    and `↵ open record`. Turn off `Critical tasks` and `Training` in Settings › Features
+    `Verification All-MOS Critical Task missing · 3 more`. The footer reads `3 of 3 shown` with `X select`, `N note`,
+    `E quick edit` and `↵ open record`. Turn off `Critical tasks` and `Training` in Settings › Features
     (`organizations.disabled_features` reads `training, criticalTasks`) and reload: Able reads `—`, Baker
     `1 follow-up overdue` in red and Unassigned `NCOER due` in amber. Turn both back on afterward. Quick edit (E) on
     Able, set ETS 41 days out and save: one `PUT` and the name carries the `ETS · 41d` badge (PCS uses the outline
@@ -133,11 +138,11 @@ scoped actors retain their baseline grants.
     a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
     the `Add to log for <name>` composer (step 18); E opens that row's Quick edit form (step 14). The icon buttons are
     hidden until the row is hovered or holds focus; the verification browser reports `hover: none`, so it always shows
-    them, as a touch screen does. Single-row archive is the toolbar's `Archive` mode with one row selected, or the
-    record's `More Personnel record` menu. Column hiding follows the table's own width, not the viewport: below 48rem
-    Rank, MOS, Duty Role and Group hide and the rank moves before the name; below 36rem Needs attention folds onto a
-    second line under the name; the actions column hides below the md viewport and `Note` and `Quick edit` then sit
-    beside the name. At 1440, 900 and 390 the page has no horizontal scroll.
+    them, as a touch screen does. Single archive is the bulk bar's `Archive…` with one row selected, or the record's
+    `More Personnel record` menu. Column hiding follows the table's own width, not the viewport: below 48rem Rank, MOS,
+    Duty Role and Group hide and the rank moves before the name; below 36rem Needs attention folds onto a second line
+    under the name; the actions column hides below the md viewport and `Note` and `Quick edit` then sit beside the name.
+    At 1440, 900 and 390 the page has no horizontal scroll.
 13. **Signals lane loading, failure and reads.** Use `orgOwner` in the fixture's `orgA`; these controls do not match a
     performance-workload Organization. `$V server-source arm rpc/roster_signals hold 1 90000`, then reload. For a native
     `navigate_page` reload, use `timeout: 1000` and continue after its expected navigation timeout while the document
@@ -311,6 +316,71 @@ scoped actors retain their baseline grants.
       every row, and `personnelOperate` too: its save toast reads `Follow-up added for SPC Able` with no `Open log`
       because that actor cannot open the record.
 
+19. **Select many and act once.** As `manager` in `Group` view at 1440, the header row starts with
+    `Select everyone shown`, each Group header with `Select everyone in <Group>` (Unassigned too) and each row with
+    `Select <name>`, all at x 289. `viewer` and `scoped` hold no bulk action and see no checkboxes. Click
+    `Select everyone shown`: every checkbox checks, selected rows carry `data-state="selected"`, and the
+    `Selected people` toolbar reads `3 selected` with `Follow-up for each` (accent), `Add note`, `Move to Group`,
+    `Export`, `Archive…` and `Clear selection` (title `Clear selection (Esc)`). Unchecking one row turns the header and
+    that Group's checkbox `mixed`. Keyboard: x toggles the focused row's selection (the footer hint reads `X select`;
+    Space does the same for now). Focus Able's row and press x (`1 selected`), ArrowDown and x (`2 selected`), x again
+    (`1 selected`), then Space (`2 selected`) and Esc: the bar leaves and focus stays on the row. Shift-click: native
+    `click` has no modifiers, so on `perfWide` with the `small` workload click `Select SPC Baker002, Blake` natively,
+    then dispatch a `click` with `shiftKey: true` on `Select SSG Foster006, Finley`: the five rows from Baker002 to
+    Foster006 in shown order are selected.
+    - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
+      1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
+      covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as icons with their
+      names kept for assistive technology; the bar is 343 wide and `scrollWidth` equals the viewport. At 390 dark the
+      bar keeps its chrome border and reads clearly.
+    - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
+      `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
+      At 390 the hidden count sits on its own line under the selected count (`75 selected` over `74 hidden`, a 351-wide
+      bar 52 tall) and every action, through `Clear selection`, stays inside the bar with `scrollWidth` 390.
+    - Filter: as `orgOwner`, select all three, then click the `2 present` entry in the headcount strip (`?show=present`,
+      selection kept): the bar reads `3 selected · 1 hidden by filter` and `Archive…` asks `Archive 3 personnel? …` with
+      `This includes 1 person your filter hides.` Search `Able` as well and the bar reads
+      `3 selected · 2 hidden by search and filter` with `This includes 2 people your search and filter hide.`; clear
+      both and the hidden count leaves the bar.
+    - Follow-up for each: with all three selected, `Follow-up for each` opens `Add to log for 3 people` above the bar,
+      headed `3 PEOPLE` on `Follow-up`, with no `ALREADY OPEN` line. Title `Turn in CIF hand receipt`, choose
+      `Fri 30 Oct` and press Control+Enter: one `POST .../api/personnel/follow-ups/batch` (200) and one
+      `POST .../api/personnel/roster-signals`, then the toast `Follow-up added for 3 people`.
+      `$V rows personnel_follow_ups orgA title "Turn in CIF hand receipt"` returns three rows due `2026-10-30`, each
+      `created_by` the manager, and `rows audit_logs orgA` holds one `personnel.follow_up.created` row by that user.
+    - Add note: select Able and Baker and choose `Add note`; the composer opens on `Note`, titled
+      `Add to log for 2 people`. With `$V network arm-fail PAGE personnel/leader-notes/batch`, `Add note` keeps the
+      typed text and shows `Unable to save leader note.`, and `rows leader_notes orgA` has no such note. With `arm-hold`
+      the button reads `Saving…`; `release` gives `Note added for 2 people`, two rows authored by the manager, and the
+      selection stays. A note sends no `roster-signals` request.
+    - Move to Group: the menu `Move N people to` lists `Alpha`, `Bravo` and `Unassigned`. Moving
+      `SPC Unassigned, Synthetic` to `Alpha` sends one `POST .../group-membership` and one `roster-signals` POST, toasts
+      `Moved 1 person to Alpha`, and `rows personnel orgA` shows Alpha's group ID on that Person.
+    - Export: `$V export arm PAGE`, select all three and choose `Export`. No request is sent; the file is
+      `personnel-<Organization URL segment>-<viewer day>.xlsx` (Organization A has no slug, so its ID:
+      `personnel-<orgA>-2026-10-23.xlsx`). `$V workbook FILE Personnel` reads headers `Rank`, `Last name`, `First name`,
+      `MOS`, `Duty role`, `Group`, `ETS`, `PCS/DEROS`, `Today`, `Needs attention` and one row per Person; `manager` has
+      no Calendar grant, so `Today` is blank, and `Needs attention` reads `None`.
+    - Archive…: select `SPC Unassigned, Synthetic`, choose `Archive…`: the dialog reads `Archive 1 personnel? …`, and
+      `Archive` sends one `archive-batch` POST naming that ID, toasts `1 personnel archived`, sets `archived_at`, and
+      the row and the bar leave. As `personnelOperate` the bar has no `Export`; `Archive…` on Able creates one pending
+      `deletion_requests` row, Able stays on the roster and leaves the selection. With
+      `$V network arm-hold-fail PAGE personnel/archive-batch` the dialog's `Cancel` and `Archive` and every bar action
+      but `Clear selection` disable; `release` closes the dialog with the error toast
+      `Archive results could not be confirmed. …`, the Person's `archived_at` stays null and the selection stays.
+    - Group note: `Group actions for Alpha` → `Note to everyone in the Group` opens `Add to log for Alpha · 1 person` on
+      `Note` above the Alpha header. Saving sends one `leader-notes/batch` POST and toasts `Note added for 1 person`.
+      `viewer`'s menu holds only `Pin`; Unassigned has no menu.
+    - Access: `personnelScoped` sees only Alpha's checkboxes, every action, and `Alpha` as the only move target. From
+      its page, a `fetch` POST to `/org/<orgA>/api/personnel/follow-ups/batch` naming `personA` and `personB` returns
+      200 with `{"writtenIds":[personA],"unavailableIds":[personB]}` and writes one row; `viewer`'s POST to
+      `leader-notes/batch` returns 403 and writes none.
+    - Signals: with `$V server-source arm rpc/roster_signals hold 1 90000`, reload and select everyone: selection works
+      while 12 skeletons show, and after `release` the row tops (316, 410) and the bar top (504) are unchanged. With
+      `fail-hard` the notice `Today's status and Needs attention could not be loaded.` shows and the bar keeps every
+      action.
+    - `network` accepts the exact `personnel/follow-ups/batch` and `personnel/leader-notes/batch` families.
+
 ## Gotchas
 
 - `Note for <name>` and `Quick edit <name>` repeat on each row; name them with the Person, not by position.
@@ -325,6 +395,7 @@ scoped actors retain their baseline grants.
 - The Quick edit Group and Rank lists are comboboxes: `take_snapshot` shows the listbox without its options, so read
   them from a screenshot or pick by typing then Enter.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.
+- Native `click` sends no modifier keys, so a Shift range needs a dispatched `click` with `shiftKey: true` (step 19).
 - For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md); above 250 People
   the By Group view pauses rendering.
 - A group header's controls repeat per group; name them by their `aria-label` (`Pin Alpha`, `Collapse Alpha`,

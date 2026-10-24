@@ -455,3 +455,66 @@ describe('Person-bound file retirement transport', () => {
 		expect(run.completed).toEqual([]);
 	});
 });
+
+describe('Batch log writes for admitted People', () => {
+	function batchClient() {
+		const inserted: Array<{ table: string; rows: Record<string, unknown>[] }> = [];
+		const admin = {
+			from: (table: string) => ({
+				insert: (rows: Record<string, unknown>[]) => {
+					inserted.push({ table, rows });
+					return {
+						select: () => ({
+							returns: async () => ({ data: rows.map((row) => ({ personnel_id: row.personnel_id })), error: null })
+						})
+					};
+				}
+			})
+		} as unknown as SupabaseClient;
+		return { inserted, admin };
+	}
+
+	it('writes every follow-up and note in one insert bound to the actor’s Organization', async () => {
+		const { inserted, admin } = batchClient();
+		const port = createSupabasePersonnelArtifactWritePort({} as SupabaseClient, () => admin);
+		const actor = member('operate');
+
+		await expect(
+			port.createFollowUps(actor, ['person-1', 'person-2'], {
+				title: 'Weapons card',
+				notes: '',
+				dueDate: '2026-10-30',
+				createdBy: actor.userId,
+				createdAt: '2026-10-23T12:00:00.000Z'
+			})
+		).resolves.toEqual(['person-1', 'person-2']);
+		await expect(
+			port.createLeaderNotes(actor, ['person-2'], {
+				author: actor.userId,
+				text: 'Great range day',
+				createdAt: '2026-10-23T12:00:00.000Z'
+			})
+		).resolves.toEqual(['person-2']);
+		await expect(
+			port.createLeaderNotes(actor, [], { author: actor.userId, text: 'x', createdAt: '2026-10-23T12:00:00.000Z' })
+		).resolves.toEqual([]);
+
+		expect(
+			inserted.map(({ table, rows }) => [table, rows.map((row) => [row.organization_id, row.personnel_id])])
+		).toEqual([
+			[
+				'personnel_follow_ups',
+				[
+					['a1300000-0000-4000-8000-000000000001', 'person-1'],
+					['a1300000-0000-4000-8000-000000000001', 'person-2']
+				]
+			],
+			['leader_notes', [['a1300000-0000-4000-8000-000000000001', 'person-2']]]
+		]);
+		expect(inserted[0].rows[0]).toMatchObject({
+			status: 'open',
+			due_date: '2026-10-30',
+			created_by: 'a1300000-0000-4000-8000-000000000002'
+		});
+	});
+});

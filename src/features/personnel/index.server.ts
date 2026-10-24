@@ -147,6 +147,12 @@ export {
 	deletePersonnelFollowUp
 } from './personnelFollowUps.server';
 export { listPersonnelArchivedArtifacts } from './personnelArchivedArtifacts.server';
+export {
+	createPersonnelFollowUpBatch,
+	createPersonnelLeaderNoteBatch,
+	type PersonnelLogBatchContext,
+	type PersonnelLogBatchResult
+} from './personnelLogBatch.server';
 
 export { createPersonnelSupportReader } from './supportReadProvider.server';
 

@@ -157,18 +157,17 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    without `aria-busy`. Arm `$V network arm-hold PAGE personnel` and choose Add Personnel. While `network state` shows
    the held POST, press Escape, click outside and read Cancel: all close paths stay blocked, the dialog stays open and
    busy, and focus stays on the dialog rather than `body`. Release: the dialog closes, focus returns to Add Person and
-   the new Person is listed; restore the control. Choose `More Personnel controls` → Archive, select the new Person and
-   choose Confirm Archive: the alert dialog ignores an outside click and Escape closes it as Cancel, with focus returned
-   to Confirm Archive and the Person still active. Reopen it, arm `$V network arm-hold PAGE personnel/archive-batch` and
-   choose Archive: while held, Escape is blocked, Cancel is disabled and focus stays on the `alertdialog` with
-   `aria-busy="true"`. Release and restore the control: the Person leaves the roster and
-   `$V rows personnel orgA last_name <name>` reads `archived_at`. Restore it through Settings → Archives → Restore, or
-   `verify:app restart`, before relying on the fixture again. In Manage Groups, type a draft: the close button
-   disappears and Escape is blocked, with no `aria-busy`. Arm `$V network arm-hold PAGE groups`, replace the draft with
-   a unique name and press Add: while held the dialog is busy and focused. Release, restore, and remove the new Group
-   through its Remove control. As `ictOperator`, choose Import Completions (on the row, or inside
-   `More Critical Tasks controls` when folded; the dialog opens after the menu closes) and upload a CSV that repeats
-   Able's seeded Alpha completion (same Person, task, date and method). Arm
+   the new Person is listed; restore the control. Check the new Person's row and choose the bulk bar's `Archive…`: the
+   alert dialog ignores an outside click and Escape closes it as Cancel, with focus returned to `Archive…` and the
+   Person still active. Reopen it, arm `$V network arm-hold PAGE personnel/archive-batch` and choose Archive: while
+   held, Escape is blocked, Cancel is disabled and focus stays on the `alertdialog` with `aria-busy="true"`. Release and
+   restore the control: the Person leaves the roster and `$V rows personnel orgA last_name <name>` reads `archived_at`.
+   Restore it through Settings → Archives → Restore, or `verify:app restart`, before relying on the fixture again. In
+   Manage Groups, type a draft: the close button disappears and Escape is blocked, with no `aria-busy`. Arm
+   `$V network arm-hold PAGE groups`, replace the draft with a unique name and press Add: while held the dialog is busy
+   and focused. Release, restore, and remove the new Group through its Remove control. As `ictOperator`, choose Import
+   Completions (on the row, or inside `More Critical Tasks controls` when folded; the dialog opens after the menu
+   closes) and upload a CSV that repeats Able's seeded Alpha completion (same Person, task, date and method). Arm
    `$V network arm-hold PAGE personnel-ict-completions/batch` and press Import Checked Rows: while held the dialog is
    busy and focused and Escape is blocked. Release: the result reports 1 updated with the same completion ID and values.
    A dialog that is not busy must also keep focus when its focused control disables: as `onboardingOperate` on

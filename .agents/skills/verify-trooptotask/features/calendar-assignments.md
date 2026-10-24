@@ -38,6 +38,17 @@ type and assignee across Calendar, the Duty planner and report reads; a clear re
   on a narrow page) that previews the rule's pick, who can't pull that day and the later roster days the choice
   re-picks; choosing another candidate previews again, and `Assign <name>` writes the day and its re-picks together. A
   roster change since the preview is refused, explained and previewed again; hand-assigned days never change.
+- `planner-swap`: for an Organization-wide operator, a filled day of a person type with a roster, today or later and not
+  already swapped, offers `Swap with…` in its picker. It opens a popover beside the cell (below it on a narrow page)
+  that lists the roster's other filled detail days held by someone else, from a skeleton or a load error with `Retry` in
+  a list region of fixed height. Choosing a day previews both days, each with who stands it now and who held it, any A,
+  D or U warning on the new placements and `Numbers on the DA 6 stay as published.`; nothing saves until `Swap days`.
+  Both cells then show the new people and an exchange mark, `Roster · count today` and every DA 6 number stay as
+  published, and the DA 6 remarks gain `<who> and <who> exchanged <day> and <day>. Numbers as published.` A swapped
+  day's picker names the other day, offers `Undo swap` while both days are today or later, and warns that saving another
+  person or clearing it ends the swap. `Clear month`, `Quick fill` with `Only open days` off and `Find replacement` warn
+  the same way. A roster change since the preview is refused and previewed again. A Group-scoped operator sees no
+  `Swap with…` and sends no swap read.
 - `planner-roster-counts`: for an Organization-wide operator, the `Roster · count today` panel under `Conflicts` shows
   one duty type's roster after the last detail on or before today, highest count first, with a skeleton while it loads,
   a load error with `Retry roster counts` when it fails (the grid stays usable either way), muted rows carrying the
@@ -356,6 +367,38 @@ action and keep its page ID. The date format in every name is the browser's en-G
     title. While `$V network arm-hold $PAGE duty-rosters/day` holds the read, the picker shows `Loading roster counts…`
     and no description; release.
 
+15. **Swap duty days.** On a fresh `$V seed da6` as `calendarConfigure` (an Organization-wide operator) at 1440x900
+    light, open `Duty planner` on d0's month. Pick Staff Duty days X and Y, both after today and held by different
+    people, and read `Roster · count today` for `SD` and the Staff Duty DA 6 grid, remarks (`None.`) and all counts.
+    Open X's picker: `Swap with…` sits above `Clear assignment`. With `$V network arm-hold $PAGE duty-rosters/swap`
+    armed, choose it. A dialog named `Swap Staff Duty, <X>` opens right of X's cell without covering it, and the
+    `Swap with` region shows five skeleton rows (`Loading days to swap with`) with `Swap days` disabled and
+    `Choose a day to see both days after the swap.` below. Release: the list arrives in the same region (its height does
+    not change, nor the dialog's) with every other filled detail day held by someone else, each a radio named
+    `<day>, <rank> <last name>` plus any warning. Restore, then `$V network arm-fail $PAGE duty-rosters/swap` and
+    reopen: the region reads the server message with `Retry` and the grid stays usable; restore and press `Retry` and
+    the list arrives. Choose Y. `After the swap` lists X `<holder of X> → <holder of Y>` and Y the reverse, with
+    `Numbers on the DA 6 stay as published.`; add Verification Leave for the holder of Y on X first (an authenticated
+    `POST /api/availability` is fine setup, then reload) and the preview adds `<name> · Verification Leave (A) on <X>`
+    with an `A` chip, and the option row carries it too. Press `Swap days`: the dialog closes, focus lands on X's cell,
+    both cells show the new people and an exchange mark titled `swapped with <Y>, held by <name>`, the cell names end
+    `swapped with <Y>, held by <name>`, and `$V rows daily_assignments orgA` shows the two rows keeping their IDs with
+    the people exchanged. `Roster · count today` and every cell of the DA 6 equal the earlier reading; the remarks read
+    `(1) <rank> <last> and <rank> <last> exchanged <X> and <Y>. Numbers as published.` (`<d> Mon` style, for example
+    `12 and 19 Oct`), in the open form. Open X's picker: it names the other day, offers `Undo swap` and no `Swap with…`,
+    and says `Saving another person or clearing this day ends the swap.` Choose `Undo swap`: both people are back, the
+    marks and the remark are gone and the counts are unchanged. Swap again, then in X's picker choose a third person:
+    the warning is in the picker before the choice; after it the mark on both days and the remark are gone, X holds the
+    third person, Y keeps its swapped holder, and the DA 6 counts follow the holders. Open `Clear month` on a swapped
+    roster: the confirmation adds `This ends 1 duty swap`. A past day (today or earlier) shows no `Swap with…`; a past
+    swap shows no `Undo swap`. For the 409, open X's `Swap with…` and choose Y, then in a second page send an
+    authenticated `POST /api/daily-assignments` that assigns a third person to Y and press `Swap days`: the server
+    answers `409`, the dialog stays open with `The roster changed since this preview. Review the days and try again.`,
+    the list reloads without Y, and one `calendar-range?…&collections=assignments` read puts the saved day in the grid.
+    At 900x800 and 390x844 dark the dialog opens below the cell and stays at least 8 px inside each viewport edge with
+    `document.documentElement.scrollWidth` equal to `innerWidth`. As `calendarScoped` no cell offers `Swap with…`, no
+    swap request is sent, and an authenticated `GET /org/<orgA>/api/duty-rosters/swap` returns `403`.
+
 The Dashboard's Unfilled `Fill N days` action saves its days through the same `/batch` request; the saved names must
 appear in this Calendar lane and the planner after reload ([Dashboard actions](dashboard.md#actions)).
 
@@ -366,13 +409,16 @@ and conflicts), `GET /day?typeId=…&date=YYYY-MM-DD&today=YYYY-MM-DD` (the stan
 `{track:null,pool}` on any other day, `null` for a type with no open form; before the open form, `formStartsOn` with the
 standing as if the form began that day when saving would count, else `{track:null,formStartsOn,movesStart}`), and
 `POST /fill/preview {typeId,today,from,through}` and `POST /fill` with the same fields plus `picks:[{date,personId}]`,
-which returns `409` when the roster changed. `POST /replacement/preview {typeId,today,date,assigneeId?}` previews a
-replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `assigneeId`, `replacing`
-and `repicks:[{date,was,personId}]` (`was` is who held the day in the preview) and returns `409` when the plan differs,
-any `was` changed, or a day is left unfilled. Saved rows carry `source` (`manual` or `roster`); the server sets it and
-no client request names it. Use the signed-in page's read-only `evaluate_script` only for response inspection or an
-authenticated request probe; actual planning actions use the visible controls. Read provider rows only through the owned
-helper. [Calendar navigation](calendar-navigation.md), [Calendar access](calendar-access.md),
+which returns `409` when the roster changed. `GET /swap?typeId=…&today=…&date=…` lists the days the date can trade with
+and any A, D or U warning on the two new placements; `POST /swap {today,days:[{assignmentTypeId,date,was}×2]}` exchanges
+the two days and returns `409` when either holder changed, and `DELETE /swap {today,swapId}` undoes it. Any later write
+that reassigns or clears a swapped day ends the swap. `POST /replacement/preview {typeId,today,date,assigneeId?}`
+previews a replacement for the chosen person or, without one, the rule's pick; `POST /replacement` adds `assigneeId`,
+`replacing` and `repicks:[{date,was,personId}]` (`was` is who held the day in the preview) and returns `409` when the
+plan differs, any `was` changed, or a day is left unfilled. Saved rows carry `source` (`manual` or `roster`); the server
+sets it and no client request names it. Use the signed-in page's read-only `evaluate_script` only for response
+inspection or an authenticated request probe; actual planning actions use the visible controls. Read provider rows only
+through the owned helper. [Calendar navigation](calendar-navigation.md), [Calendar access](calendar-access.md),
 [Organization switching](organization-switching.md), and [Reports and history](reports-history.md) own the adjacent
 range/scope/report journeys.
 

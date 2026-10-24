@@ -70,7 +70,7 @@
 		<Button
 			type="button"
 			variant="ghost"
-			class="h-8 min-w-0 gap-1.5 px-1.5"
+			class="h-8 min-w-0 gap-1.5 px-1.5 aria-expanded:bg-transparent"
 			onclick={group.toggle}
 			aria-expanded={!group.collapsed}
 			aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}

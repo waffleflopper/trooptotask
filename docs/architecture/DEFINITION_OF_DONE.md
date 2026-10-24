@@ -39,7 +39,7 @@ Format only touched Markdown with `npm exec prettier -- --ignore-path /dev/null 
 
 ### Recording evidence
 
-Record what you verified in the PR body: the candidate revision, the checks and their results, and what you drove and saw. Visible UI changes carry screenshots. Raw captures stay in ignored scratch space and are not kept after the PR. Use synthetic values, and never publish credentials or token-bearing URLs. Preserve guards, scan paths, assertions and budgets: no bypasses, allowlists, skipped tests, inflated thresholds or reduced scan coverage.
+Record what you verified in the PR body: the candidate revision, the checks and their results, and what you drove and saw. Visible UI changes carry screenshots. Raw captures stay in ignored local scratch space and are never committed or uploaded. Use synthetic values, and never publish credentials or token-bearing URLs. Preserve guards, scan paths, assertions and budgets: no bypasses, allowlists, skipped tests, inflated thresholds or reduced scan coverage.
 
 #### Reviewable diff
 

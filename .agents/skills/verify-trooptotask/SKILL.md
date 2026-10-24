@@ -107,7 +107,7 @@ attempted paths **source-mapped**, **live-verified**, **failed** or **unreachabl
 missing prerequisite for unreachable paths. Old receipts and happy paths do not verify difficult cases.
 
 After final doctor and owned cleanup, put the results and screenshots of visible changes in the PR body. Raw captures
-stay in ignored scratch and are not kept. Adopt revised driving instructions outside active runs.
+stay in ignored local scratch and are never committed or uploaded. Adopt revised driving instructions outside active runs.
 
 ## Cleanup
 

@@ -100,6 +100,55 @@ describe('RosterSignals', () => {
 		expect(today(signals, 'a')).toEqual({ kind: 'known', value: { kind: 'present' } });
 	});
 
+	it.each(['before', 'after'])('lets a newer lane replace an older refresh that settles %s it', async (order) => {
+		const { signals, replies } = setup();
+		signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+		await settle();
+
+		const refreshed = signals.refresh(['a']);
+		const lane = Promise.withResolvers<RosterSignalRead>();
+		signals.observe('org-1', AS_OF, lane.promise);
+
+		if (order === 'before') {
+			replies[0].resolve(read([core('a', 'leave')]));
+			await refreshed;
+		}
+		lane.resolve(read([core('a', 'present')]));
+		await settle();
+		if (order === 'after') {
+			replies[0].resolve(read([core('a', 'leave')]));
+			await refreshed;
+		}
+
+		expect(today(signals, 'a')).toEqual({ kind: 'known', value: { kind: 'present' } });
+	});
+
+	it.each(['before', 'after'])(
+		'keeps a refresh issued after a lane starts when it settles %s the lane',
+		async (order) => {
+			const { signals, replies } = setup();
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			await settle();
+
+			const lane = Promise.withResolvers<RosterSignalRead>();
+			signals.observe('org-1', AS_OF, lane.promise);
+			const refreshed = signals.refresh(['a']);
+
+			if (order === 'before') {
+				replies[0].resolve(read([core('a', 'leave')]));
+				await refreshed;
+			}
+			lane.resolve(read([core('a', 'present')]));
+			await settle();
+			if (order === 'after') {
+				replies[0].resolve(read([core('a', 'leave')]));
+				await refreshed;
+			}
+
+			expect(today(signals, 'a')).toEqual({ kind: 'known', value: { kind: 'away', statusTypeId: 'leave' } });
+		}
+	);
+
 	it('keeps independent refreshes for two People and drops an older reply for the same Person', async () => {
 		const { signals, replies } = setup();
 		signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present'), core('b', 'present')])));
@@ -189,9 +238,54 @@ describe('RosterSignals', () => {
 	});
 
 	describe('ensure', () => {
+		it('reads a Person added while the lane was pending exactly once when the lane omits them', async () => {
+			const { signals, readPeople, replies } = setup();
+			const lane = Promise.withResolvers<RosterSignalRead>();
+			signals.observe('org-1', AS_OF, lane.promise);
+			signals.ensure(['a']);
+			signals.ensure(['a', 'b']);
+			expect(readPeople).not.toHaveBeenCalled();
+
+			lane.resolve(read([core('a', 'present')]));
+			await settle();
+			signals.ensure(['a', 'b']);
+			signals.ensure(['a', 'b']);
+			expect(readPeople).toHaveBeenCalledExactlyOnceWith('org-1', ['b']);
+			expect(signals.row('b')).toEqual({ kind: 'pending' });
+
+			replies[0].resolve(read([core('b', 'leave')]));
+			await settle();
+			signals.ensure(['a', 'b']);
+			expect(readPeople).toHaveBeenCalledExactlyOnceWith('org-1', ['b']);
+			expect(today(signals, 'b')).toEqual({ kind: 'known', value: { kind: 'away', statusTypeId: 'leave' } });
+		});
+
+		it('reuses a pending Person refresh when the lane settles without that Person', async () => {
+			const { signals, readPeople, replies } = setup();
+			const lane = Promise.withResolvers<RosterSignalRead>();
+			signals.observe('org-1', AS_OF, lane.promise);
+			const refreshed = signals.refresh(['b']);
+			lane.resolve(read([core('a', 'present')]));
+			await settle();
+
+			signals.ensure(['a', 'b']);
+			signals.ensure(['a', 'b']);
+			expect(readPeople).toHaveBeenCalledExactlyOnceWith('org-1', ['b']);
+			expect(signals.row('b')).toEqual({ kind: 'pending' });
+			replies[0].resolve(read([core('b', 'leave')]));
+			await refreshed;
+			expect(today(signals, 'b')).toEqual({ kind: 'known', value: { kind: 'away', statusTypeId: 'leave' } });
+		});
+
 		async function settled(access = ACCESS) {
 			const context = setup();
-			context.signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')], AS_OF, access)));
+			context.signals.observe(
+				'org-1',
+				AS_OF,
+				Promise.resolve(
+					read([core('a', 'present'), { ...core('b', 'present'), today: { kind: 'withheld' } }], AS_OF, access)
+				)
+			);
 			await settle();
 			context.signals.ensure(['a', 'b']);
 			return context;

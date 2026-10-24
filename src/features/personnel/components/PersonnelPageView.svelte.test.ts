@@ -91,6 +91,7 @@ function submittedIds(fetchMock: ReturnType<typeof vi.fn>): string[][] {
 async function startArchiveMode() {
 	const menu = await openToolbarMore('Personnel controls');
 	await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Archive' }));
+	await screen.findByRole('toolbar', { name: 'Bulk archive controls' });
 }
 
 async function selectBulkPersonnel(labels: string[]) {

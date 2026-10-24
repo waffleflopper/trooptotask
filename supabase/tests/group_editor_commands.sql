@@ -21,7 +21,7 @@ CREATE FUNCTION pg_temp.order_sql(group_ids integer[], expected_ids integer[]) R
     pg_temp.ids(expected_ids));
 $$;
 CREATE FUNCTION pg_temp.group_names() RETURNS text[] LANGUAGE sql AS $$
-  SELECT coalesce(array_agg(name ORDER BY sort_order, id), '{}') FROM public.groups WHERE organization_id = pg_temp.id(101);
+  SELECT coalesce(array_agg(name ORDER BY sort_order, name, id), '{}') FROM public.groups WHERE organization_id = pg_temp.id(101);
 $$;
 CREATE FUNCTION pg_temp.pins() RETURNS text[] LANGUAGE sql AS $$
   SELECT coalesce(array_agg(right(user_id::text, 1) || ':' || group_name ORDER BY user_id, group_name), '{}')
@@ -102,6 +102,14 @@ SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp
 SELECT pg_temp.act(1);
 SELECT throws_ok($$SELECT personnel_private.carry_group_pins('c5000000-0000-4000-8000-000000000101', 'HQ', NULL)$$,
   '22023', NULL, 'pins move only when the catalog already shows the change');
+SELECT lives_ok($$SELECT personnel_private.carry_group_pins('c5000000-0000-4000-8000-000000000101', 'Nonexistent', 'HQ')$$,
+  'a manager directly carrying a nonexistent old pin is a no-op');
+SELECT pg_temp.act(4);
+SELECT is(pg_temp.pins(), ARRAY['4:HQ', '4:Weapons'],
+  'a direct call leaves another viewer''s existing Group pin unchanged');
+SELECT pg_temp.act(1);
+SELECT throws_ok($$SELECT personnel_private.carry_group_pins('c5000000-0000-4000-8000-000000000101', '2nd Platoon', 'HQ')$$,
+  '22023', NULL, 'a manager cannot carry pins away from a Group that still exists');
 WITH moved AS (
   UPDATE public.user_pinned_groups SET group_name = 'Mine' WHERE organization_id = pg_temp.id(101) RETURNING 1
 ) SELECT is(count(*)::integer, 1, 'row security alone lets a manager move only their own pins') FROM moved;
@@ -111,6 +119,9 @@ SELECT is(pg_temp.group_names(), ARRAY['HQ', '1st Platoon', '2nd Platoon', 'Empt
 
 -- Order
 SELECT pg_temp.act(1);
+UPDATE public.groups SET sort_order = 0 WHERE organization_id = pg_temp.id(101);
+SELECT lives_ok(pg_temp.order_sql(ARRAY[201, 202, 203, 204], ARRAY[202, 203, 204, 201]),
+  'equal display positions compare by Group name before id');
 SELECT lives_ok(pg_temp.order_sql(ARRAY[203, 201, 202, 204], ARRAY[201, 202, 203, 204]),
   'an Organization-wide configurer reorders Groups');
 SELECT lives_ok(pg_temp.order_sql(ARRAY[203, 201, 202, 204], ARRAY[201, 202, 203, 204]),
@@ -126,6 +137,8 @@ SELECT is(pg_temp.group_names(), ARRAY['2nd Platoon', 'HQ', '1st Platoon', 'Empt
 
 -- Rename
 SELECT pg_temp.act(1);
+INSERT INTO public.user_pinned_groups (user_id, organization_id, group_name, sort_order)
+VALUES (pg_temp.id(1), pg_temp.id(101), 'Weapons', 1);
 SELECT is((SELECT name FROM public.rename_group(pg_temp.id(101), pg_temp.id(203), '  Weapons ')), 'Weapons',
   'a rename trims and returns the saved name');
 SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp.id(101), pg_temp.id(201), '1st Platoon'),
@@ -135,8 +148,8 @@ SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp
 SELECT throws_ok(format('SELECT * FROM public.rename_group(%L, %L, %L)', pg_temp.id(101), pg_temp.id(211), 'Mine'),
   'P0002', NULL, 'another Organization''s Group cannot be renamed');
 RESET ROLE;
-SELECT is(pg_temp.pins(), ARRAY['1:Weapons', '3:Weapons', '4:HQ'],
-  'every viewer''s pin followed the rename, and the leftover pin with the new name is gone');
+SELECT is(pg_temp.pins(), ARRAY['1:Weapons', '3:Weapons', '4:HQ', '4:Weapons'],
+  'old pins follow the rename without duplicates, and unrelated viewers keep their pins');
 
 -- Delete with reassignment
 SELECT pg_temp.act(1);

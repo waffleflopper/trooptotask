@@ -8,7 +8,8 @@ then checks that each change saved on its own.
 - `groups-open`: open the Group editor from Personnel at 1440, as a full-height sheet below 1024 and at 390.
 - `groups-add`: create a uniquely named Group with Enter; a duplicate or failed add keeps the draft beside its error.
 - `groups-edit`: rename inline; the viewer's pin follows the new name.
-- `groups-order`: reorder by drag and by Alt+Arrow; a stale order answers 409 and the list adopts the saved order.
+- `groups-order`: reorder by drag and by Alt+Arrow; a stale order answers 409, adopts the saved catalog and reloads
+  roster membership and pins.
 - `groups-members`: Add people, Move to… and Remove from Group, each in one request.
 - `groups-remove`: delete a Group after choosing where its members go; an empty Group gets a plain confirmation.
 - `groups-today`: the Today column's skeleton, failure and hidden states.
@@ -31,17 +32,22 @@ checkboxes. The footer holds `Delete <name>…`, `Changes save as you go` and `D
 `Done` only closes. A Group-scoped configurer and a viewer have no `Manage Groups` button or menu item.
 
 Seeded Organization A has Alpha (SPC Able, Medic) and Bravo (SPC Baker, NCO), both at `sort_order` 0, plus SPC
-Unassigned (NCO) without a Group. Equal sort orders list by Group ID, so a fresh fixture may show Bravo first.
+Unassigned (NCO) without a Group. Groups sort by `sort_order`, then name, then ID. A fresh fixture lists Alpha before
+Bravo, and deleting Alpha defaults to Bravo.
 
 ## Helper controls
 
 `network arm-fail|arm-hold|arm-observe PAGE groups|pinned-groups` targets only that exact Organization A endpoint on the
 owned app origin. `groups` covers add (POST), rename (PUT) and delete (DELETE). It does not match the nested
 `groups/order` or `personnel/group-membership` routes; drive their failures with a second writer, as below.
-`arm-hold-fail` additionally supports pinned Groups for a delayed undispatched 503.
-`$V server-source arm rpc/roster_signal_presence hold|fail-hard 1 [MS]` drives the Today column. Restore every control
-and each member's original ordered pin names; `rows groups|personnel|user_pinned_groups orgA ...` provides separate
-privileged readback.
+`arm-hold-fail` additionally supports pinned Groups for a delayed undispatched 503. For the membership lifetime case,
+use native `evaluate_script` to install the existing [network control](../helpers/network-control.mjs) on `window`, with
+`mode: "hold"`, `ordinal: 1`, `sameOrigin: true`, `requestMethod: "POST"`, and the exact owned
+`/org/<orgA>/api/personnel/group-membership` suffix. Its state, release and restore use the same `$V network` commands.
+This holds the real response after persistence and does not change app state.
+`$V server-source arm rpc/roster_signals hold|fail-hard 1 [MS]` drives the Today column. Restore every control and each
+member's original ordered pin names; `rows groups|personnel|user_pinned_groups orgA ...` provides separate privileged
+readback.
 
 ## Driving it with verify:app
 
@@ -66,9 +72,16 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
 4. **Order.** Focus `Weapons Squad Pinned 0` and press Alt+ArrowUp. The live region reads
    `Weapons Squad moved to position 2 of 3`, focus stays on that button, and `rows groups orgA` shows Alpha 0, Weapons
    Squad 1, Bravo 2. Drag `Reorder Alpha` onto `Bravo 1`. The list reads Weapons Squad, Bravo, Alpha and saves 0, 1, 2.
-   For a stale order, send an authenticated `PUT /org/<orgA>/api/groups/order` from the same page with another order and
-   the current IDs as `expectedGroupIds`, then press Alt+ArrowUp on a Group. The pane shows
-   `The Group order changed somewhere else. The list shows the saved order.`, and the list matches `rows groups`.
+   For stale recovery, keep the editor open and use a second manager tab to delete a temporary Group containing
+   Unassigned, moving its member to Bravo. Reorder in the first tab. Its PUT answers 409, followed by the saved catalog
+   GET and a Personnel data reload. The pane shows
+   `The Group order changed somewhere else. The list shows the saved order.` Select Bravo: Baker and Unassigned are
+   members. Close the editor and confirm both on the roster; reload and compare `rows personnel`. A successful reorder
+   makes no Personnel data reload. Separately start with a fresh fixture where Alpha and Bravo share `sort_order` 0. Add
+   a third temporary Group, Order Proof, pin Alpha and keep a stale editor tab. Rename Alpha to Zulu in the second tab.
+   Move Order Proof up in the stale tab: the 409 recovery shows Bravo before Zulu, Able in Zulu and the pin naming Zulu.
+   Restore the name and original pins, and delete the empty Order Proof. Moving only Bravo above Alpha would already
+   match the saved order after the rename and correctly return 200 as a replay.
 5. **Members.** Select Weapons Squad, open `Add people to Weapons Squad` and pick `SPC Unassigned, Synthetic NCO`. The
    picker lists Unassigned first, then each Group's People in display order. Its `group_id` becomes Weapons Squad
    through one `POST /org/<orgA>/api/personnel/group-membership`, and the roster behind the dialog updates in place. Add
@@ -85,19 +98,24 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
    For an empty Group the strip reads `No one is in this Group.` with `Cancel` (focused) and `Delete`; Cancel returns
    focus to `Delete <name>…`. With `arm-fail PAGE groups`, `Delete` shows
    `We couldn't confirm the Group change. Reload to see what saved.` in the strip, and the row remains.
-8. **Today.** Arm `server-source arm rpc/roster_signal_presence hold 1 60000`, reload and open the editor: Today shows a
+8. **Retired membership reply.** As `personnelSwitch`, establish A/B browser history. Hold the first real
+   `POST /org/<orgA>/api/personnel/group-membership` reply after it saves a move of Able to Bravo. Use native Back to B
+   and Forward to A, then move Able back to Alpha in the new visit. Release the old 200 reply. Able stays in Alpha in
+   the editor and roster, and `rows personnel` plus reload still show Alpha. A matching Organization ID alone does not
+   permit the old visit to apply its reply. Restore the response control.
+9. **Today.** Arm `server-source arm rpc/roster_signals hold 1 60000`, reload and open the editor: Today shows a
    skeleton until `server-source release`, then `Present`. With `fail-hard 1` Today stays blank, and the roster reads
    `Today's status and Needs attention could not be loaded.` Without Calendar view access (`calendar-grant` restored)
    the editor has no Today column.
-9. **Sheet and phone.** At 900x900 the dialog fills the viewport (900x900, no horizontal overflow) with the Groups list
-   above the selected Group's details. At 390x844 open it from `More Personnel controls`. The selection toolbar keeps
-   `Move to…` and `Remove from Group` on one line, the delete strip wraps its copy above the picker, and nothing
-   overflows.
-10. **Viewer.** Sign in as `viewer`. Personnel shows no `Manage Groups`. From that page send authenticated
+10. **Sheet and phone.** At 900x900 the dialog fills the viewport (900x900, no horizontal overflow) with the Groups list
+    above the selected Group's details. At 390x844 open it from `More Personnel controls`. The selection toolbar keeps
+    `Move to…` and `Remove from Group` on one line, the delete strip wraps its copy above the picker, and nothing
+    overflows.
+11. **Viewer.** Sign in as `viewer`. Personnel shows no `Manage Groups`. From that page send authenticated
     `GET /org/<orgA>/api/groups`, `PUT .../api/groups/order`, `PUT .../api/groups`, `DELETE .../api/groups` and
     `POST .../api/personnel/group-membership`, each with a well-formed body. Each answers 403; the same membership POST
     to Organization B answers 404. `rows groups orgA` and `rows personnel orgA` are unchanged.
-11. **Group-scoped configurer.** Sign in as `personnelScoped`, which configures only Alpha. Personnel shows only Alpha,
+12. **Group-scoped configurer.** Sign in as `personnelScoped`, which configures only Alpha. Personnel shows only Alpha,
     and `More Personnel controls` lists only `Archive`. The four Group requests answer 403. A membership POST moving
     Baker into Alpha answers 200 with `movedIds: []` and Baker in `unavailableIds`. Moving Able into Bravo or to
     Unassigned (`groupId: null`) answers 403. Rows are unchanged.
@@ -106,9 +124,11 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
 
 Pins belong to the signed-in member and Organization. They store Group names in order. A rename or delete in the Group
 editor carries or drops every member's pin for that Group in the same transaction; another member's open page shows it
-on its next read. Preserve the complete original `user_pinned_groups` rows for A/B, including IDs, user IDs, names and
-sort order, before starting. Locate `Pin Alpha`, `Pin Bravo`, or the corresponding `Unpin` control in Personnel, or
-`Pin to top` in the editor. The UI has only Pin/Unpin; ordered replacement is API-only.
+on its next read. The pin helper changes only viewers who hold the old-name pin after that name leaves the catalog. A
+direct call with a nonexistent old name and an existing new name changes nothing, as the ordinary-role SQL contract
+proves. Preserve the complete original `user_pinned_groups` rows for A/B, including IDs, user IDs, names and sort order,
+before starting. Locate `Pin Alpha`, `Pin Bravo`, or the corresponding `Unpin` control in Personnel, or `Pin to top` in
+the editor. The UI has only Pin/Unpin; ordered replacement is API-only.
 
 1. Sign in as `manager`, choose a visible Group whose original pin state is recorded, and arm
    `$V network arm-observe PAGE pinned-groups`. Click its named Pin or Unpin control. Capture the immediate pressed

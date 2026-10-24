@@ -32,12 +32,16 @@ BEGIN
     RAISE EXCEPTION 'Pins follow the Group catalog' USING ERRCODE = '22023';
   END IF;
 
-  -- Until this rename no Group had the new name, so a pin already naming it is
-  -- left over from a deleted Group and must not come back as pinned.
-  DELETE FROM public.user_pinned_groups
-  WHERE organization_id = p_organization_id
-    AND group_name = coalesce(p_to_name, p_from_name);
-  IF p_to_name IS NOT NULL THEN
+  IF p_to_name IS NULL THEN
+    DELETE FROM public.user_pinned_groups
+    WHERE organization_id = p_organization_id AND group_name = p_from_name;
+  ELSE
+    -- Only viewers whose old pin follows this rename need a conflicting target pin removed.
+    DELETE FROM public.user_pinned_groups AS target
+    USING public.user_pinned_groups AS source
+    WHERE target.organization_id = p_organization_id AND target.group_name = p_to_name
+      AND source.organization_id = p_organization_id AND source.group_name = p_from_name
+      AND source.user_id = target.user_id;
     UPDATE public.user_pinned_groups SET group_name = p_to_name
     WHERE organization_id = p_organization_id AND group_name = p_from_name;
   END IF;
@@ -101,7 +105,7 @@ BEGIN
   FOR NO KEY UPDATE;
   PERFORM personnel_private.require_group_manager(p_organization_id);
 
-  SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}') INTO v_saved
+  SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, name, id), '{}') INTO v_saved
   FROM public.groups
   WHERE organization_id = p_organization_id;
   -- A replay after a lost reply converges before the precondition can report a false conflict.
@@ -125,7 +129,7 @@ BEGIN
   WHERE g.organization_id = p_organization_id AND g.id = o.id AND g.sort_order <> o.ordinal - 1;
 
   -- Row security silently hides rows from a write whose author lost authority.
-  IF (SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, id), '{}')
+  IF (SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, name, id), '{}')
       FROM public.groups WHERE organization_id = p_organization_id)
      IS DISTINCT FROM p_group_ids
   THEN

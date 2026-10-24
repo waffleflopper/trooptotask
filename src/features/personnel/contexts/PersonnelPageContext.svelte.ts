@@ -270,9 +270,9 @@ export class PersonnelPageContext {
 		this.#modals.open('personnel-modal', { person });
 	}
 
-	/** `select` is a Group id, or `'unassigned'` for the People without one. */
-	openGroupManager(select?: string): void {
-		this.#modals.open('group-manager', { select: select ?? null });
+	/** Null selects People without a Group. */
+	openGroupEditor(groupId: string | null): void {
+		this.#modals.open('group-manager', { select: groupId });
 	}
 
 	toggleGroup(group: string): void {

@@ -15,6 +15,8 @@ import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel'
 import { settles } from '$lib/test-support/settles';
 import { RosterSignals } from '../rosterSignals.svelte';
 import type { PersonSignalCore, RosterSignalRead, SignalAccess } from '../rosterSignals';
+import { endOrganizationLifetime } from '$lib/stores/core';
+import * as groupMembership from '../utils/moveGroupMembers';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
@@ -120,6 +122,92 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 });
 
 describe('Group editor changes reach the roster in place', () => {
+	it('ignores a membership reply from a retired visit after returning to the same Organization', async () => {
+		const person: Personnel = {
+			id: 'person-a',
+			rank: 'SPC',
+			firstName: 'Synthetic',
+			lastName: 'Person',
+			mos: '68W',
+			clinicRole: 'Medic',
+			groupId: 'group-a',
+			groupName: 'Alpha',
+			archivedAt: null
+		};
+		const groups = [
+			{ id: 'group-a', name: 'Alpha', sortOrder: 0 },
+			{ id: 'group-b', name: 'Bravo', sortOrder: 1 }
+		];
+		groupCatalogHydration.load(groups, 'org-a');
+		personnelStore.load([person], 'org-a');
+		const reply = Promise.withResolvers<Response>();
+		const dispatched = Promise.withResolvers<void>();
+		let membershipReply: Promise<groupMembership.GroupMembershipChange> | undefined;
+		const move = groupMembership.moveGroupMembers;
+		vi.spyOn(groupMembership, 'moveGroupMembers').mockImplementation((...args) => {
+			membershipReply = move(...args);
+			return membershipReply;
+		});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => {
+				dispatched.resolve();
+				return reply.promise;
+			})
+		);
+		const oldModals = new ModalRegistry();
+		oldModals.open('group-manager');
+		const oldVisit = render(PersonnelModals, {
+			props: { ctx: groupEditorContext(oldModals), modals: oldModals, requestArchiveApproval }
+		});
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Person, Synthetic' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove from Group' }));
+		await dispatched.promise;
+
+		oldVisit.unmount();
+		endOrganizationLifetime();
+		personnelStore.load([], 'org-b');
+		groupCatalogHydration.load(groups, 'org-a');
+		personnelStore.load([{ ...person, groupId: 'group-b', groupName: 'Bravo' }], 'org-a');
+		const currentModals = new ModalRegistry();
+		currentModals.open('group-manager', { select: 'group-b' });
+		render(PersonnelModals, {
+			props: { ctx: groupEditorContext(currentModals), modals: currentModals, requestArchiveApproval }
+		});
+		reply.resolve(Response.json({ groupId: null, movedIds: ['person-a'], unavailableIds: [] }));
+		await membershipReply;
+		await tick();
+
+		expect(personnelStore.getById('person-a')).toMatchObject({ groupId: 'group-b', groupName: 'Bravo' });
+		expect(screen.getByRole('list', { name: 'Members of Bravo' }).textContent).toContain('Person, Synthetic');
+	});
+
+	it('opens Unassigned through the context entry point with null', () => {
+		groupCatalogHydration.load([{ id: 'group-a', name: 'Alpha', sortOrder: 0 }], 'org-a');
+		personnelStore.load(
+			[
+				{
+					id: 'person-unassigned',
+					rank: 'SPC',
+					firstName: 'Synthetic',
+					lastName: 'Unassigned',
+					mos: '',
+					clinicRole: '',
+					groupId: null,
+					groupName: '',
+					archivedAt: null
+				}
+			],
+			'org-a'
+		);
+		const modals = new ModalRegistry();
+		const ctx = groupEditorContext(modals);
+		ctx.openGroupEditor(null);
+		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
+		expect(screen.getByRole('list', { name: 'Members of Unassigned' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Rename Alpha' })).toBeNull();
+	});
+
 	it("carries the viewer's pin through a rename and moves a removed member to Unassigned on the roster", async () => {
 		const person = {
 			id: 'person-a',

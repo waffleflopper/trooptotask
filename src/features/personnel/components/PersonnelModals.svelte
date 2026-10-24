@@ -5,12 +5,12 @@
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import { followPinnedGroupCatalogChange, pinnedGroupsStore } from '$features/personnel/stores/pinnedGroups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
-	import GroupEditor from './GroupEditor.svelte';
+	import GroupEditor, { UNASSIGNED } from './GroupEditor.svelte';
 	import { rosterStatusDot } from '../rosterSignals';
 	import { moveGroupMembers } from '../utils/moveGroupMembers';
 	import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { rejectedRequestMessage } from '$lib/stores/core';
+	import { rejectedRequestMessage, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { invalidate } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import { changesSignalApplicability } from '../rosterSignals';
@@ -67,8 +67,9 @@
 
 	async function moveMembers(personnelIds: string[], groupId: string | null) {
 		const orgId = ctx.orgId;
-		const result = await moveGroupMembers(orgId, personnelIds, groupId);
-		if (personnelStore.orgId === orgId) {
+		const inLifetime = stillInOrganizationLifetime();
+		const result = await withinOrganizationLifetime(moveGroupMembers(orgId, personnelIds, groupId), inLifetime);
+		if (inLifetime() && personnelStore.orgId === orgId) {
 			const moved = new Set(result.movedIds);
 			setLocalGroup((person) => moved.has(person.id) && person.groupId !== groupId, groupId);
 		}
@@ -122,7 +123,7 @@
 		people={ctx.allActivePersonnel}
 		pinnedNames={pinnedGroupsStore.list}
 		loading={groupManagementStore.loading}
-		initialSelection={groupEditorPayload?.select ?? null}
+		initialSelection={groupEditorPayload ? (groupEditorPayload.select ?? UNASSIGNED) : null}
 		todayStatus={ctx.canViewAvailability
 			? (person) => rosterStatusDot(ctx.signalRow(person), ctx.signals.statusTypes)
 			: undefined}

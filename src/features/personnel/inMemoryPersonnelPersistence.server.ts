@@ -225,6 +225,7 @@ export function createInMemoryGroupPersistence(
 			inFilters: ids ? { id: ids } : undefined,
 			orderBy: [
 				{ column: 'sort_order', ascending: true },
+				{ column: 'name', ascending: true },
 				{ column: 'id', ascending: true }
 			]
 		});
@@ -254,9 +255,12 @@ export function createInMemoryGroupPersistence(
 			if (group.name === name) return map(group);
 			if (await store.findOne('groups', orgId, { name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
 			const row = map(await store.update('groups', orgId, id, { name }));
-			await store.deleteWhere('user_pinned_groups', orgId, { group_name: name });
-			for (const pin of await store.findMany<{ id: string }>('user_pinned_groups', orgId, { group_name: group.name }))
+			for (const pin of await store.findMany<{ id: string; user_id: string }>('user_pinned_groups', orgId, {
+				group_name: group.name
+			})) {
+				await store.deleteWhere('user_pinned_groups', orgId, { user_id: pin.user_id, group_name: name });
 				await store.update('user_pinned_groups', orgId, pin.id, { group_name: name });
+			}
 			return row;
 		},
 		async setOrder(ids, expectedIds) {

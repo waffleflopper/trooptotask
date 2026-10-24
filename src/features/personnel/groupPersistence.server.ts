@@ -43,6 +43,7 @@ export function createSupabaseGroupPersistence(
 			if (ids) query = query.in('id', [...new Set(ids)]);
 			const { data, error } = await query
 				.order('sort_order', { ascending: true })
+				.order('name', { ascending: true })
 				.order('id', { ascending: true })
 				.range(from, to)
 				.returns<Record<string, unknown>[]>();

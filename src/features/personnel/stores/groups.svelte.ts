@@ -18,6 +18,7 @@ import {
 	GROUP_ORDER_CHANGED_MESSAGE,
 	type Group
 } from '$features/personnel/contracts';
+import { invalidate } from '$app/navigation';
 
 export type GroupOrderChange = { status: 'saved' | 'stale' } | { status: 'failed'; message: string };
 
@@ -108,6 +109,10 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 					const failure = await withinOrganizationLifetime(buildRequestError(res, 'PUT', 'groups/order'));
 					await adoptSaved(owner.orgId, owns);
 					if (!owns()) return { status: 'stale' };
+					if (res.status === 409) {
+						await withinOrganizationLifetime(invalidate('app:personnel-data'), owns);
+						if (!owns()) return { status: 'stale' };
+					}
 					const message =
 						res.status === 409
 							? GROUP_ORDER_CHANGED_MESSAGE
@@ -185,7 +190,7 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 }
 
 export const groupManagementStore = defineStore<Group, GroupExtensions>(
-	{ table: 'groups', orderBy: [{ field: 'sortOrder' }, { field: 'id' }] },
+	{ table: 'groups', orderBy: [{ field: 'sortOrder' }, { field: 'name' }, { field: 'id' }] },
 	enhance
 );
 

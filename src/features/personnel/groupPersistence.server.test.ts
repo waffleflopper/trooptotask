@@ -4,6 +4,18 @@ import { personnelProvider } from './test-support/personnelProvider';
 import { createSupabaseGroupPersistence } from './groupPersistence.server';
 const ORGANIZATION = { kind: 'organization' } as const;
 describe('ordinary Group persistence', () => {
+	it('reads the catalog by display position, name and id', async () => {
+		const { client } = personnelProvider({
+			groups: [
+				{ id: 'a', name: 'Zulu', sort_order: 0, organization_id: 'org-a' },
+				{ id: 'c', name: 'Alpha', sort_order: 0, organization_id: 'org-a' },
+				{ id: 'b', name: 'Alpha', sort_order: 0, organization_id: 'org-a' },
+				{ id: 'd', name: 'Earlier', sort_order: -1, organization_id: 'org-a' }
+			]
+		});
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		expect((await port.listCatalog()).map((group) => group.id)).toEqual(['d', 'b', 'c', 'a']);
+	});
 	it('pages tied catalogs completely while limiting references to the captured Organization', async () => {
 		const ids = Array.from({ length: 1001 }, (_, i) => `group-${String(i).padStart(4, '0')}`);
 		const { client, state } = personnelProvider({

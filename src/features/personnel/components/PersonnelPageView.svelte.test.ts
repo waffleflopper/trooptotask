@@ -212,7 +212,7 @@ function makeCtx(
 		upcomingLossMap,
 		handleEdit,
 		handleAdd: vi.fn(),
-		openGroupManager: vi.fn()
+		openGroupEditor: vi.fn()
 	};
 
 	return ctx as unknown as PersonnelPageContext;
@@ -416,7 +416,7 @@ describe('PersonnelPageView', () => {
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 			menu = await openToolbarMore(toolbarName);
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Manage Groups' }));
-			await waitFor(() => expect(ctx.openGroupManager).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(ctx.openGroupEditor).toHaveBeenCalledTimes(1));
 
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 			menu = await openToolbarMore(toolbarName);

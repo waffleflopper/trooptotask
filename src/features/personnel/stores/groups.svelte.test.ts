@@ -5,6 +5,9 @@ import {
 	groupsStore as groupCatalog
 } from './groups.svelte';
 import type { Group } from '$features/personnel/contracts';
+import { invalidate } from '$app/navigation';
+
+vi.mock('$app/navigation', () => ({ invalidate: vi.fn(async () => {}) }));
 
 const mockGroups: Group[] = [
 	{ id: '1', name: 'Alpha', sortOrder: 0 },
@@ -14,6 +17,7 @@ const mockGroups: Group[] = [
 describe('groupsStore', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		vi.mocked(invalidate).mockClear();
 		groupsStore.load(structuredClone(mockGroups), 'org-1');
 	});
 
@@ -27,6 +31,18 @@ describe('groupsStore', () => {
 				'org-2'
 			);
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['first', 'later']);
+		});
+		it('breaks equal display positions by name, then id', () => {
+			groupCatalogHydration.load(
+				[
+					{ id: 'a', name: 'Zulu', sortOrder: 0 },
+					{ id: 'c', name: 'Alpha', sortOrder: 0 },
+					{ id: 'b', name: 'Alpha', sortOrder: 0 },
+					{ id: 'd', name: 'Earlier', sortOrder: -1 }
+				],
+				'org-1'
+			);
+			expect(groupCatalog.items.map((group) => group.id)).toEqual(['d', 'b', 'c', 'a']);
 		});
 		it('clears the public catalog when a new Organization is hydrated', () => {
 			groupCatalogHydration.load([{ id: 'new-org', name: 'New', sortOrder: 0 }], 'org-2');
@@ -76,6 +92,7 @@ describe('groupsStore', () => {
 			expect(groupsStore.pendingOrder).toBeNull();
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['2', '1']);
 			expect(orderBodies(fetchMock)).toEqual([{ groupIds: ['2', '1'], expectedGroupIds: ['1', '2'] }]);
+			expect(invalidate).not.toHaveBeenCalled();
 		});
 
 		it('folds moves made during a save into one follow-up save of the latest order', async () => {
@@ -117,6 +134,7 @@ describe('groupsStore', () => {
 				message: 'The Group order changed somewhere else. The list shows the saved order.'
 			});
 			expect(groupCatalog.items.map((group) => group.name)).toEqual(['Bravo', 'Alpha', 'Charlie']);
+			expect(invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data');
 		});
 
 		it('says an order it could not confirm is unconfirmed and keeps the last saved order', async () => {

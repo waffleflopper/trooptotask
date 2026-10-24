@@ -1,4 +1,4 @@
-import { createGroup, deleteGroup, renameGroup } from '$features/personnel/index.server';
+import { createGroup, deleteGroup, readGroupEditorCatalog, renameGroup } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestGroupContext } from '$lib/server/adapters/requestContexts.server';
@@ -11,6 +11,13 @@ const groupManagement = {
 };
 
 type GroupRoute<Output> = RouteConfig<Record<string, unknown>, Output, ReturnType<typeof createRequestGroupContext>>;
+
+export const _getConfig: RouteConfig<void, unknown, ReturnType<typeof createRequestGroupContext>> = {
+	...groupManagement,
+	mutation: false,
+	fn: readGroupEditorCatalog
+};
+export const GET = handle(_getConfig);
 
 export const _postConfig: GroupRoute<unknown> = { ...groupManagement, fn: createGroup };
 export const POST = handle(_postConfig);

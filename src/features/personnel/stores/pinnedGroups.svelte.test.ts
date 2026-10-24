@@ -247,4 +247,15 @@ describe('pinned Group state', () => {
 		expect(await second).toBe(true);
 		expect(store.list).toEqual(['Alpha', 'Bravo', 'Charlie']);
 	});
+
+	it('mirrors a saved rename and delete in place, dropping a leftover pin that names the new Group', () => {
+		store.load(['HQ', '2nd Platoon', 'Weapons'], 'org-1');
+
+		store.followCatalogChange('2nd Platoon', 'Weapons');
+		expect(store.list).toEqual(['HQ', 'Weapons']);
+		store.followCatalogChange('HQ', null);
+		expect(store.list).toEqual(['Weapons']);
+		store.followCatalogChange('Mortars', 'Scouts');
+		expect(store.list).toEqual(['Weapons']);
+	});
 });

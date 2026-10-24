@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _deleteConfig, _postConfig, _putConfig } from './+server';
+import { _deleteConfig, _getConfig, _postConfig, _putConfig } from './+server';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const otherGroupId = '33333333-3333-4333-8333-333333333333';
@@ -79,7 +79,9 @@ describe('/api/groups', () => {
 		await expect(
 			handleUseCaseRequest(_deleteConfig, ctx, { id: groupId, moveMembersTo: otherGroupId }, () => ctx)
 		).resolves.toEqual({ movedCount: 2 });
-		expect(await ctx.store.findMany('groups', orgId)).toMatchObject([{ id: otherGroupId, name: 'Bravo' }]);
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).resolves.toEqual([
+			{ id: otherGroupId, name: 'Bravo', sortOrder: 1 }
+		]);
 		expect(await ctx.store.findMany('personnel', orgId)).toMatchObject([
 			{ id: memberId, group_id: otherGroupId },
 			{ id: archivedId, group_id: otherGroupId }
@@ -170,6 +172,7 @@ describe('/api/groups', () => {
 		});
 		ctx.store.seed('groups', [{ id: groupId, organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }]);
 		for (const run of [
+			() => handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx),
 			() => handleUseCaseRequest(_postConfig, ctx, { name: 'Scoped Created' }, () => ctx),
 			() => handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'Scoped Renamed' }, () => ctx),
 			() => handleUseCaseRequest(_deleteConfig, ctx, { id: groupId }, () => ctx)

@@ -33,6 +33,7 @@ export { createSupabasePersonnelNamesReader } from './personnelNames.server';
 export { findGroupNamesByIds, listGroupCatalog, visiblePinnedGroupNames } from './groupCatalog.server';
 export {
 	createGroup,
+	readGroupEditorCatalog,
 	renameGroup,
 	setGroupOrder,
 	deleteGroup,

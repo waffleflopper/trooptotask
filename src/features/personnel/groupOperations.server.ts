@@ -10,7 +10,7 @@ import { GROUP_UNAVAILABLE_MESSAGE, type GroupPersistence, type PersonnelRecordP
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	groups: Pick<GroupPersistence, 'create' | 'rename' | 'setOrder' | 'deleteWithReassignment'>;
+	groups: Pick<GroupPersistence, 'listCatalog' | 'create' | 'rename' | 'setOrder' | 'deleteWithReassignment'>;
 }
 const groupName = z
 	.string()
@@ -33,6 +33,12 @@ function validatedInput<T>(schema: z.ZodType<T>, input: unknown): T {
 
 async function requireGroupManager(ctx: GroupWriteContext, id?: string): Promise<void> {
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.manageGroups, { kind: 'organization' }, 'group', id);
+}
+
+/** The saved catalog in display order, for the Group editor to show after a change it could not confirm. */
+export async function readGroupEditorCatalog(ctx: GroupWriteContext) {
+	await requireGroupManager(ctx);
+	return ctx.groups.listCatalog();
 }
 
 export async function createGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {

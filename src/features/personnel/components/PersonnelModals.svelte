@@ -3,8 +3,11 @@
 	import { GROUP_NAME_EXISTS_MESSAGE, GROUP_UNAVAILABLE_MESSAGE } from '$features/personnel/contracts';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
+	import { followPinnedGroupCatalogChange, pinnedGroupsStore } from '$features/personnel/stores/pinnedGroups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
-	import GroupManager from './GroupManager.svelte';
+	import GroupEditor from './GroupEditor.svelte';
+	import { rosterStatusDot } from '../rosterSignals';
+	import { moveGroupMembers } from '../utils/moveGroupMembers';
 	import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
@@ -23,6 +26,53 @@
 	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
 
 	const editingPerson = $derived(personnelPayload?.person ?? null);
+	const groupEditorPayload = $derived(modals.payload<{ select: string | null }>('group-manager'));
+
+	// An order still saving shows where its Groups will be.
+	const editorGroups = $derived.by(() => {
+		const pending = groupManagementStore.pendingOrder;
+		if (!pending) return groupManagementStore.items;
+		const position = new Map(pending.map((id, index) => [id, index]));
+		return groupManagementStore.items.toSorted(
+			(a, b) => (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity)
+		);
+	});
+
+	function setLocalGroup(predicate: (person: Personnel) => boolean, groupId: string | null) {
+		const groupName = groupId ? (groupManagementStore.getById(groupId)?.name ?? '') : '';
+		personnelStore.updateLocalWhere(predicate, (person) => ({ ...person, groupId, groupName }));
+	}
+
+	async function renameGroup(id: string, name: string) {
+		const previous = groupManagementStore.getById(id)?.name;
+		const renamed = await groupManagementStore.rename(id, name).catch((failure: unknown) => {
+			if (failure instanceof Error && failure.message === GROUP_NAME_EXISTS_MESSAGE) throw failure;
+			throw new Error(rejectedRequestMessage(failure, 'Unable to rename Group. Try again.'));
+		});
+		if (!renamed) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
+		const saved = groupManagementStore.getById(id)?.name ?? name.trim();
+		setLocalGroup((person) => person.groupId === id, id);
+		if (previous) followPinnedGroupCatalogChange(previous, saved);
+	}
+
+	async function deleteGroup(id: string, moveMembersTo: string | null) {
+		const orgId = groupManagementStore.orgId;
+		const name = groupManagementStore.getById(id)?.name;
+		await groupManagementStore.deleteWithReassignment(id, moveMembersTo);
+		if (groupManagementStore.orgId !== orgId) return;
+		setLocalGroup((person) => person.groupId === id, moveMembersTo);
+		if (name) followPinnedGroupCatalogChange(name, null);
+	}
+
+	async function moveMembers(personnelIds: string[], groupId: string | null) {
+		const orgId = ctx.orgId;
+		const result = await moveGroupMembers(orgId, personnelIds, groupId);
+		if (personnelStore.orgId === orgId) {
+			const moved = new Set(result.movedIds);
+			setLocalGroup((person) => moved.has(person.id) && person.groupId !== groupId, groupId);
+		}
+		return result;
+	}
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
@@ -63,29 +113,23 @@
 {/if}
 
 {#if modals.isOpen('group-manager')}
-	<GroupManager
-		groups={groupManagementStore.items}
+	<GroupEditor
+		groups={editorGroups}
+		people={ctx.allActivePersonnel}
+		pinnedNames={pinnedGroupsStore.list}
+		loading={groupManagementStore.loading}
+		initialSelection={groupEditorPayload?.select ?? null}
+		todayStatus={(person) => rosterStatusDot(ctx.signalRow(person), ctx.signals.statusTypes)}
+		canMovePerson={(person) => ctx.canManagePersonnelRecord(person)}
+		canMoveTo={(groupId) => ctx.canManagePersonnelInGroup(groupId)}
 		onAdd={async (name) => {
 			if (!(await groupManagementStore.add(name))) throw new Error(GROUP_NAME_EXISTS_MESSAGE);
 		}}
-		onRemove={async (id) => {
-			if (!(await groupManagementStore.remove(id))) throw new Error('Unable to remove Group. Try again.');
-			personnelStore.updateLocalWhere(
-				(p) => p.groupId === id,
-				(p) => ({ ...p, groupId: null, groupName: '' })
-			);
-		}}
-		onRename={async (id, name) => {
-			const renamed = await groupManagementStore.rename(id, name).catch((failure: unknown) => {
-				if (failure instanceof Error && failure.message === GROUP_NAME_EXISTS_MESSAGE) throw failure;
-				throw new Error(rejectedRequestMessage(failure, 'Unable to rename Group. Try again.'));
-			});
-			if (!renamed) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
-			personnelStore.updateLocalWhere(
-				(p) => p.groupId === id,
-				(p) => ({ ...p, groupName: name })
-			);
-		}}
+		onRename={renameGroup}
+		onReorder={(ids) => groupManagementStore.setOrder(ids)}
+		onTogglePin={(name) => pinnedGroupsStore.toggle(name)}
+		onDelete={deleteGroup}
+		onMove={moveMembers}
 		onClose={modals.closerFor('group-manager')}
 	/>
 {/if}

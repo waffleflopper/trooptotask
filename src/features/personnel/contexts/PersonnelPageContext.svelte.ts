@@ -143,6 +143,14 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
+	/** Whether the viewer may move People into this Group; null is Unassigned. */
+	canManagePersonnelInGroup(groupId: string | null): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			groupId ? { kind: 'group', groupId } : { kind: 'organization' }
+		).allowed;
+	}
+
 	/** The detail page requires sensitive-record reading unscoped, so an actor without it can open no record. */
 	get canReadPersonnelDetails(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.readSensitiveRecords, {
@@ -262,8 +270,9 @@ export class PersonnelPageContext {
 		this.#modals.open('personnel-modal', { person });
 	}
 
-	openGroupManager(): void {
-		this.#modals.open('group-manager');
+	/** `select` is a Group id, or `'unassigned'` for the People without one. */
+	openGroupManager(select?: string): void {
+		this.#modals.open('group-manager', { select: select ?? null });
 	}
 
 	toggleGroup(group: string): void {

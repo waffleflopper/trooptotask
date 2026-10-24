@@ -212,6 +212,48 @@ describe('RosterSignals', () => {
 		});
 	});
 
+	describe('viewerDay', () => {
+		it('stays on the shown day without asking the server while the browser is on it', async () => {
+			const { signals, invalidate } = setup(AS_OF);
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			await settle();
+
+			expect(signals.viewerDay()).toBe(AS_OF);
+			expect(invalidate).not.toHaveBeenCalled();
+		});
+
+		it('returns the browser day and moves the lane once when the page was left open past midnight', async () => {
+			const jar = { cookie: '' };
+			vi.stubGlobal('document', jar);
+			vi.stubGlobal('location', { protocol: 'http:' });
+			let browserDay: string | null = AS_OF;
+			const invalidate = vi.fn(async (_dependency: string) => {});
+			const signals = new RosterSignals({ readPeople: vi.fn(), invalidate, browserDay: () => browserDay });
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			await settle();
+
+			browserDay = '2026-10-24';
+			expect(signals.viewerDay()).toBe('2026-10-24');
+			expect(signals.viewerDay()).toBe('2026-10-24');
+			expect(invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-signals');
+			expect(jar.cookie).toContain(`${VIEWER_TIME_ZONE_COOKIE}=`);
+
+			signals.observe('org-1', '2026-10-24', Promise.resolve(read([core('a', 'present')], '2026-10-24')));
+			expect(signals.viewerDay()).toBe('2026-10-24');
+			expect(invalidate).toHaveBeenCalledTimes(1);
+			vi.unstubAllGlobals();
+		});
+
+		it('keeps the shown day when the browser names no time zone', async () => {
+			const { signals, invalidate } = setup(null);
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			await settle();
+
+			expect(signals.viewerDay()).toBe(AS_OF);
+			expect(invalidate).not.toHaveBeenCalled();
+		});
+	});
+
 	it('keeps the shown cells when a refresh fails', async () => {
 		const { signals, replies } = setup();
 		signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));

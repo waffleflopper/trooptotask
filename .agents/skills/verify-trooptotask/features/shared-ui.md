@@ -19,10 +19,10 @@ values, accessible descriptions and focus restoration must survive changes to th
 
 ## How to get to it (user POV)
 
-In Personnel, use a named row's `Quick edit` button; its dialog holds `Archive` and the ETS and PCS / DEROS date
-pickers. Import opens the file preview with validation hints. Toggle Sidebar collapses desktop navigation; its icon
-links and the header theme button expose tooltip labels. An admitted platform administrator uses the same sidebar on
-Admin screens.
+In Personnel, use a named row's `Quick edit` button for the inline form with the ETS and PCS / DEROS date pickers, and
+`Add Person` for the Add Personnel dialog. Import opens the file preview with validation hints. Toggle Sidebar collapses
+desktop navigation; its icon links and the header theme button expose tooltip labels. An admitted platform administrator
+uses the same sidebar on Admin screens.
 
 ## Helper controls
 
@@ -90,16 +90,16 @@ Sign in normally as `manager` and retain its page/Organization IDs. Preserve the
    A problem cell is a textbox with `aria-invalid="true"` and an `aria-describedby` that resolves to its row's visible
    message line in the grid, or to the message under the field on a 390 px card. Hover and keyboard focus show no
    tooltip; the message is always visible. Choose `Leave import` from a link out and require unchanged original rows.
-4. **Dialog and date picker.** Open Able's Edit button and require Edit Personnel plus usable focus inside the dialog.
-   Use Tab and Shift+Tab at its boundaries to check focus containment. Open ETS, move to the previous month and back,
-   and select a literal named date from the grid. Record the selected-date announcement and the draft value through
-   read-only DOM inspection. Keyboard date movement/activation must retain usable grid focus until selection closes the
-   popover. Cancel with Escape and require the original Edit button focused, no remaining modal and unchanged stored
-   ETS/DEROS. Reopen to confirm the canceled draft is absent.
-5. **Confirmation.** Open Able's Archive button. Require an alertdialog naming Able with the retained-history
-   explanation and Cancel/Archive actions. Choose Cancel, require focus restored to the same Archive button and verify
-   Able remains active with unchanged dates. This cancel probe supplies no archive-mutation or server-authorization
-   proof.
+4. **Dialog and date picker.** As `manager` choose the toolbar's `Add Person` and require Add Personnel plus usable
+   focus inside the dialog. Use Tab and Shift+Tab at its boundaries to check focus containment. Open ETS, move to the
+   previous month and back, and select a literal named date from the grid. Record the selected-date announcement and the
+   draft value through read-only DOM inspection. Keyboard date movement/activation must retain usable grid focus until
+   selection closes the popover. Cancel with Escape and require `Add Person` focused, no remaining modal and no new
+   roster row. Reopen to confirm the canceled draft is absent.
+5. **Confirmation.** On Able's record choose `More Personnel record` → `Archive`. Require an alertdialog naming Able
+   with the retained-history explanation and Cancel/Archive actions. Choose Cancel, require focus restored to the same
+   menu button and verify Able remains active with unchanged dates. This cancel probe supplies no archive-mutation or
+   server-authorization proof.
 6. **Platform navigation.** Use `$V actor platformReviewer admin/users` through normal sign-in. Inspect actual admitted
    Users content, collapse Toggle Sidebar and repeat the Users link's tooltip semantics/dismissal. On mobile, select the
    current Users link and require the drawer to close. Reopen and follow Dashboard; require the new screen and a closed
@@ -127,13 +127,13 @@ no print-media option.
 3. For each app-selected theme, repeat representative captures at about 1280 by 800 and 390 by 844. At narrow width
    inspect the mobile drawer and content overflow. Use the wide control before resizing if a theme control is
    unavailable at narrow width. The same source, fixtures and role/scope must drive baseline and final captures.
-4. As `manager`, open a Personnel row's `Quick edit` dialog and retain its original Last Name. Replace that field with
-   one space and press Save: the native required check permits nonempty whitespace, while the app rejects the trimmed
-   name before writing. Read the real `#lastName[aria-invalid="true"]` and its resolving `aria-describedby` error,
-   **Enter a last name.** Capture unfocused and Tab-focused states, then Cancel and verify the original row is
-   unchanged. Keep the invalid Personnel import preview capture separately: its labelled `Row <n> <column>`
-   error/warning inputs use explicit status classes and do not prove the primitive Input's own invalid variant. Record
-   labels, error associations, focus and cancellation; do not import invalid rows.
+4. As `manager`, open a Personnel row's `Quick edit` form and retain its original Last Name. Replace the labelled
+   `Last name` field with one space and press Save: the app rejects the trimmed name before writing. Read the real field
+   (`#quick-edit-lastName-<personnelId>[aria-invalid="true"]`) and its resolving `aria-describedby` error, **Enter a
+   last name.** Capture unfocused and Tab-focused states, then Cancel and verify the original row is unchanged. Keep the
+   invalid Personnel import preview capture separately: its labelled `Row <n> <column>` error/warning inputs use
+   explicit status classes and do not prove the primitive Input's own invalid variant. Record labels, error
+   associations, focus and cancellation; do not import invalid rows.
 5. Capture a real success toast through the [Feedback journey](notifications-feedback.md#driving-it-with-verifyapp),
    with the app theme opposite the emulated system preference. Preserve the action and transient rendered toast before
    dismissal. An in-app SvelteKit navigation keeps the feedback observer; save `feedback state`, then run

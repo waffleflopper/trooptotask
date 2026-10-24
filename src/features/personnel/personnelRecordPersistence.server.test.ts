@@ -165,4 +165,25 @@ describe('ordinary Personnel records', () => {
 		expect(state.rows.personnel).toHaveLength(1);
 		expect(state.requests.filter((op) => op.method === 'POST')).toHaveLength(3);
 	});
+	it('moves only active People in the Organization to a Group in one write', async () => {
+		const { client, state } = personnelProvider({
+			personnel: [
+				SAVED,
+				{ ...SAVED, id: 'archived', slug: 'archived', archived_at: '2026-01-01T00:00:00Z' },
+				{ ...SAVED, id: 'foreign', organization_id: 'org-b' }
+			]
+		});
+		const port = createSupabasePersonnelRecordPersistence(client, 'org-a', { kind: 'organization' });
+		const before = state.requests.length;
+		expect(await port.moveToGroup([], 'bravo')).toEqual([]);
+		expect(state.requests).toHaveLength(before);
+
+		expect(await port.moveToGroup(['person-a', 'archived', 'foreign', 'person-a'], null)).toEqual(['person-a']);
+		expect(state.requests.filter((op) => op.method === 'PATCH')).toHaveLength(1);
+		expect(state.rows.personnel.map((row) => [row.id, row.group_id])).toEqual([
+			['person-a', null],
+			['archived', 'alpha'],
+			['foreign', 'alpha']
+		]);
+	});
 });

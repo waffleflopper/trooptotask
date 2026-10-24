@@ -440,20 +440,12 @@ describe('PersonnelPageContext', () => {
 			expect(modals.payload<{ person: Personnel | null }>('personnel-modal')?.person).toBeNull();
 		});
 
-		it('handleEdit opens personnel-modal with the person payload', () => {
-			const person = makePerson();
-			const modals = makeModals();
-			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg(), [person]);
-			ctx.handleEdit(person);
-			expect(modals.isOpen('personnel-modal')).toBe(true);
-			expect(modals.payload<{ person: Personnel }>('personnel-modal')?.person).toBe(person);
-		});
-
-		it('openGroupManager opens group-manager modal', () => {
+		it.each(['group-a', null])('opens the editor with selection %s', (groupId) => {
 			const modals = makeModals();
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
-			ctx.openGroupManager();
+			ctx.openGroupEditor(groupId);
 			expect(modals.isOpen('group-manager')).toBe(true);
+			expect(modals.payload('group-manager')).toEqual({ select: groupId });
 		});
 	});
 

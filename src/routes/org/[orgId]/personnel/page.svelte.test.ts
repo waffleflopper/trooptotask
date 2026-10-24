@@ -10,7 +10,7 @@ import {
 } from '$features/personnel';
 import type { Personnel, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
-const navigation = vi.hoisted(() => ({ goto: vi.fn(), invalidate: vi.fn() }));
+const navigation = vi.hoisted(() => ({ goto: vi.fn(), invalidate: vi.fn(), beforeNavigate: vi.fn() }));
 const feedback = vi.hoisted(() => ({ success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('svelte-sonner', () => ({ toast: { ...feedback, dismiss: vi.fn() } }));

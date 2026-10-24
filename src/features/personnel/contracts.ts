@@ -69,6 +69,8 @@ export type {
 export const PERSONNEL_LAST_NAME_REQUIRED_MESSAGE = 'Last name is required';
 export const GROUP_NAME_EXISTS_MESSAGE = 'A Group with that name already exists.';
 export const GROUP_UNAVAILABLE_MESSAGE = 'That Group is no longer available.';
+export const GROUP_ORDER_CHANGED_MESSAGE = 'The Group order changed somewhere else. The list shows the saved order.';
+export const GROUP_CHANGE_UNCONFIRMED_MESSAGE = "We couldn't confirm the Group change. Reload to see what saved.";
 export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
 
 export interface Group {
@@ -138,6 +140,8 @@ export interface PersonnelRecordPersistence {
 		options?: { onlyActive: true }
 	): Promise<Personnel | null>;
 	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
+	/** One statement moving these active People to the Group (null is Unassigned); resolves the ids it moved. */
+	moveToGroup(ids: readonly string[], groupId: string | null): Promise<string[]>;
 	delete(id: string): Promise<void>;
 }
 
@@ -146,9 +150,15 @@ export interface GroupPersistence {
 	findReference(id: string): Promise<{ id: string } | null>;
 	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number }): Promise<Group>;
-	/** Resolves null when the Group is no longer in the Organization. */
-	update(id: string, patch: { name?: string; sortOrder?: number }): Promise<Group | null>;
-	delete(id: string): Promise<void>;
+	/** Renames the Group and carries every viewer's pin to the new name. Fails 404 when the Group is gone. */
+	rename(id: string, name: string): Promise<Group>;
+	/** Compare-and-replace of the whole display order; fails 409 when the saved order is no longer `expectedIds`. */
+	setOrder(ids: readonly string[], expectedIds: readonly string[]): Promise<void>;
+	/**
+	 * Moves every member to `targetId` (null is Unassigned), deletes the Group and its pins in one transaction,
+	 * and resolves how many People moved. Fails 404 when either Group is gone.
+	 */
+	deleteWithReassignment(id: string, targetId: string | null): Promise<number>;
 }
 
 export interface PinnedGroupResult {

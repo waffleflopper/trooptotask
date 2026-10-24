@@ -79,7 +79,7 @@ export async function createPersonnelFollowUp(
 		updatedAt: now
 	});
 
-	ctx.audit.log({
+	await ctx.audit.log({
 		action: 'personnel.follow_up.created',
 		resourceType: 'personnel',
 		resourceId: input.personnelId

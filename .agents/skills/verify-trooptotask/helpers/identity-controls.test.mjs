@@ -11,8 +11,8 @@ import {
 	readAccessRequests,
 	redactAuthTokens,
 	setupAccountUrl,
-	syntheticEmail,
-	textboxUid
+	namedUid,
+	syntheticEmail
 } from './identity-controls.mjs';
 
 const security = [
@@ -21,12 +21,14 @@ const security = [
 	'uid=1_10 textbox "New password"'
 ].join('\n');
 
-test('textboxUid selects one labelled field or an explicit occurrence', () => {
-	assert.equal(textboxUid(security, 'New password'), '1_10');
-	assert.equal(textboxUid(security, 'Current password', 2), '1_9');
-	assert.throws(() => textboxUid(security, 'Current password'), /found 2/);
-	assert.throws(() => textboxUid(security, 'Current password', 3), /found 2/);
-	assert.throws(() => textboxUid(security, 'Verification Code'), /found 0/);
+test('namedUid selects one named control or an explicit occurrence, whatever its rendered case', () => {
+	assert.equal(namedUid(security, 'textbox', 'New password'), '1_10');
+	assert.equal(namedUid(security, 'textbox', 'Current password', 2), '1_9');
+	assert.equal(namedUid('uid=5_15 textbox "VERIFICATION CODE" focusable', 'textbox', 'Verification Code'), '5_15');
+	assert.throws(() => namedUid(security, 'textbox', 'Current password'), /found 2/);
+	assert.throws(() => namedUid(security, 'textbox', 'Current password', 3), /found 2/);
+	assert.throws(() => namedUid(security, 'textbox', 'Verification Code'), /found 0/);
+	assert.throws(() => namedUid(security, 'button', 'New password'), /found 0/);
 });
 
 test('authConfirmUrl builds the app confirmation link for each supported flow', () => {

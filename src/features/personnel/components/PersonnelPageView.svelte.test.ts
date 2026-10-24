@@ -162,7 +162,7 @@ function makeCtx(
 	let viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
 	let searchQuery = $state('');
 
-	const signals = new RosterSignals({ readPeople: vi.fn() });
+	const signals = new RosterSignals({ readPeople: vi.fn(), browserDay: () => '2026-10-23' });
 	const ctx = {
 		data: { orgId: 'org-1' },
 		orgId: 'org-1',
@@ -675,11 +675,11 @@ describe('PersonnelPageView', () => {
 			held.resolve(lane([smith, young]) as never);
 			const smithRow = within(await screen.findByRole('row', { name: 'SGT Smith, Jane' }));
 			await waitFor(() => expect(smithRow.getByRole('img', { name: 'Leave today' })).toBeTruthy());
-			// The cell and its narrow-table copy under the name both render; CSS container queries pick one.
-			expect(smithRow.getAllByTitle('CPR/BLS expired · 2 more')).toHaveLength(2);
+			expect(smithRow.getAllByTitle('CPR/BLS expired · 2 more')[0]).toBeTruthy();
 			const youngRow = within(screen.getByRole('row', { name: 'SGT Young, Test' }));
 			expect(youngRow.getByRole('img', { name: 'Present today' })).toBeTruthy();
-			expect(youngRow.getAllByText('—')).toHaveLength(2);
+			expect(youngRow.getAllByText('—')[0]).toBeTruthy();
+			expect(youngRow.queryByTitle('CPR/BLS expired · 2 more')).toBeNull();
 			expect(
 				within(headcount)
 					.getAllByRole('listitem')

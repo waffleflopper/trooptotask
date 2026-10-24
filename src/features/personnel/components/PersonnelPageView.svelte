@@ -25,6 +25,7 @@
 	import PersonnelGroupHeader from './roster/PersonnelGroupHeader.svelte';
 	import PersonnelRosterHeader from './roster/PersonnelRosterHeader.svelte';
 	import PersonnelRosterRow from './roster/PersonnelRosterRow.svelte';
+	import RosterNotePopover from './roster/RosterNotePopover.svelte';
 	import { personnelToolbarItems } from './roster/personnelToolbarItems';
 	import type { RosterRowControls } from './roster/rosterRow';
 
@@ -146,6 +147,8 @@
 	let showBulkArchiveConfirm = $state(false);
 	let selectedArchiveIds = new SvelteSet<string>();
 	let focusedRowId = $state<string | null>(null);
+	let notePerson = $state<Personnel | null>(null);
+	let noteComposer = $state<RosterNotePopover>();
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
@@ -170,11 +173,40 @@
 		focused: (id) => (focusedRowId = id),
 		recordHref,
 		openRecord: (person) => void goto(recordHref(person)),
-		note: (person) => void goto(`${recordHref(person)}/log?add=follow-up`),
+		get noteOpenFor() {
+			return notePerson?.id ?? null;
+		},
+		note: openNote,
 		quickEdit: (person) => ctx.handleEdit(person)
 	};
-	const canNoteAny = $derived(shownRows.some((p) => ctx.canOpenPersonnelDetail(p)));
+	const canNoteAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
+
+	// One composer at a time: a second Note asks the open one to close (and to discard typed text) first, then opens.
+	function openNote(person: Personnel): void {
+		if (!notePerson || !noteComposer) {
+			notePerson = person;
+			return;
+		}
+		if (notePerson.id === person.id) {
+			noteComposer.requestClose();
+			return;
+		}
+		noteComposer.requestClose(() => (notePerson = person));
+	}
+
+	async function closeNote(): Promise<void> {
+		const id = notePerson?.id;
+		notePerson = null;
+		await tick();
+		if (!id || (document.activeElement && document.activeElement !== document.body)) return;
+		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`)?.focus();
+	}
+
+	$effect(() => {
+		void ctx.orgId;
+		notePerson = null;
+	});
 
 	function recordHref(person: Personnel): string {
 		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
@@ -490,6 +522,18 @@
 		</div>
 	{/if}
 </div>
+
+{#if notePerson}
+	{#key notePerson.id}
+		<RosterNotePopover
+			bind:this={noteComposer}
+			{ctx}
+			person={notePerson}
+			recordHref={recordHref(notePerson)}
+			onclose={closeNote}
+		/>
+	{/key}
+{/if}
 
 {#if showBulkArchiveConfirm}
 	{#await import('$lib/components/ui/confirm-dialog') then { ConfirmDialog }}

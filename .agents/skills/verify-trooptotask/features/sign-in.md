@@ -7,7 +7,8 @@ form and the reviewed access/help paths without an account.
 
 - `sign-in-gate`: the public `Sign In` link opens the email/password form.
 - `member-sign-in`: a synthetic member reaches their organization through the normal form.
-- `account-entry`: the signed-in person's name at the foot of the sidebar opens Account, whose nav holds Sign out.
+- `account-entry`: the signed-in person's name at the foot of the sidebar opens the account menu with Account and Sign
+  out.
 - `sign-out`: leaving the session returns to the public site.
 - `account-profile`: Account opens Profile inside the Organization frame; its rank list and saved rank persist
   independently of any Organization rank catalog.
@@ -17,8 +18,8 @@ form and the reviewed access/help paths without an account.
 ## How to get to it (user POV)
 
 Choose `Sign In` from the public header or footer, or follow an authenticated-page redirect to `/auth/login`. After
-signing in, choose your name at the foot of the app sidebar (`Your account`) and then `Sign out` in the account nav. The
-sign-in form also links to password reset, setup-link renewal, and access request.
+signing in, choose your name at the foot of the app sidebar (`Your account`) and then `Sign out` in the account menu.
+The sign-in form also links to password reset, setup-link renewal, and access request.
 
 ## Driving it with verify:app
 
@@ -32,20 +33,20 @@ Keep public and signed-in pages in separate contexts.
 2. Run `$V actor --form manager personnel` (with `V` from the [feature map](README.md)). This fills and submits the
    visible form with the private synthetic account. Record its returned page ID and organization ID, then take a
    snapshot. Expect an `/org/<orgId>/personnel` page, `Verification Organization A`, and a `Personnel` navigation link.
-3. In that page's latest snapshot, choose the sidebar link whose name ends in `Your account` and call `tool click` with
-   its UID. Expect `/org/<orgId>/account/profile` with the Account nav: Profile, Sign-in & security, What's new, Send
-   feedback and Sign out.
-4. Click the fresh `Sign out` button UID. Snapshot again: the URL is `/`, the public `Sign In` link returns, and the
-   organization navigation is absent. A fresh login is needed for later feature files.
+3. In that page's latest snapshot, click the sidebar button whose name ends in `account menu`. Expect a `menu` with the
+   menuitems Account, What's new, Send feedback and Sign out. Choose Account: expect `/org/<orgId>/account/profile` with
+   the Account nav (Profile, Sign-in & security) and a Sign out button.
+4. Open the account menu again and click the fresh `Sign out` menuitem UID. Snapshot again: the URL is `/`, the public
+   `Sign In` link returns, and the organization navigation is absent. A fresh login is needed for later feature files.
 5. In a separate public tab, submit an incorrect synthetic password once. Capture the form before and after: it remains
    usable and says `Email or password is incorrect`; there is no Organization page. Avoid repeated attempts that consume
    the sign-in rate limit. If the login request fails at the transport boundary, capture the visible retry state and use
    the form again after recovery.
 
 6. **Account profile rank.** Sign in again with `npm run --silent verify:app -- login viewer --worker "$WORKER"`, open
-   Organization A and choose the sidebar name card. Expect `/org/<orgId>/account/profile` with the `Profile` heading and
-   the breadcrumb `Account › Profile`; the Organization frame stays. Choose Edit (or Add with no saved name) and
-   snapshot the `Rank` select: after `Rank` it offers exactly these 28 options in this order:
+   Organization A, choose the sidebar name card and then Account. Expect `/org/<orgId>/account/profile` with the
+   `Profile` heading and the breadcrumb `Account › Profile`; the Organization frame stays. Choose Edit (or Add with no
+   saved name) and snapshot the `Rank` select: after `Rank` it offers exactly these 28 options in this order:
    `PV1, PV2, PFC, SPC, CPL, SGT, SSG, SFC, MSG, 1SG, SGM, CSM, WO1, CW2, CW3, CW4, CW5, 2LT, 1LT, CPT, MAJ, LTC, COL, BG, MG, LTG, GEN, CIV`.
    Retired codes such as `SP4` and other services' codes are absent. Record the current first name, last name and rank.
    Choose a different rank (for example `SFC`), fill names if empty, select `Save` and capture `Profile updated.`; the

@@ -81,7 +81,7 @@ describe('loadAppShellFirstPaint', () => {
 					read('first-paint', {
 						announcements: [],
 						preferences: getDefaultUserOrgPreferences(),
-						account: { email: null, profile: { status: 'loaded' as const, profile: null } }
+						account: { email: null, hasTwoFactor: false, profile: { status: 'loaded' as const, profile: null } }
 					})
 			}
 		});
@@ -103,6 +103,7 @@ describe('loadAppShellFirstPaint', () => {
 					preferences: getDefaultUserOrgPreferences(),
 					account: {
 						email: 'dana@example.test',
+						hasTwoFactor: false,
 						profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
 					}
 				}
@@ -116,6 +117,7 @@ describe('loadAppShellFirstPaint', () => {
 				user: {
 					id: 'user-1',
 					email: 'dana@example.test',
+					hasTwoFactor: false,
 					profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
 				},
 				member: expect.objectContaining({

@@ -60,14 +60,10 @@
 	let {
 		baseHref,
 		activePath,
-		onwhatsnew,
-		onfeedback,
 		children
 	}: {
 		baseHref: `/org/${string}/account`;
 		activePath: string;
-		onwhatsnew: () => void;
-		onfeedback: () => void;
 		children: Snippet;
 	} = $props();
 
@@ -89,11 +85,7 @@
 			}))
 		}
 	]);
-	const actions = $derived<SectionNavAction[]>([
-		{ label: "What's new", onclick: onwhatsnew },
-		{ label: 'Send feedback', onclick: onfeedback },
-		{ label: 'Sign out', icon: LogOut, action: '/auth/logout' }
-	]);
+	const actions: SectionNavAction[] = [{ label: 'Sign out', icon: LogOut, action: '/auth/logout' }];
 	// A navigation that settles within the delay keeps the current page, so fast switches do not flash a skeleton.
 	let slowKey = $state<AccountPageKey | null>(null);
 	$effect(() => {

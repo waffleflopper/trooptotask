@@ -24,8 +24,9 @@ suspension screen.
   submission stores one pending Access Request.
 - `account-security`: a signed-in member requests an email change and sees it pending, is rejected for an incorrect
   current password with the draft kept, changes their password, and sets up a TOTP authenticator on the full-page MFA
-  setup (`/auth/mfa-setup`) then removes it. Its inline authenticator challenge for a session lacking the second factor
-  has no normal-use route (step 8).
+  setup (`/auth/mfa-setup`) then removes it. Without a verified factor the account menu offers Turn on two-factor, which
+  follows each change without a reload. Its inline authenticator challenge for a session lacking the second factor has
+  no normal-use route (step 8).
 - `suspended`: a suspended account reaches only Account Suspended, with Sign out.
 - `logout-page`: a GET of `/auth/logout` returns to `/`. Its page renders only after a sign-out POST. Signing out in a
   second tab that has no remaining session shows `Signed out on this browser.` with a Sign in link (step 10). The failed
@@ -38,9 +39,9 @@ suspension screen.
 ## How to get to it (user POV)
 
 From Sign In, follow Forgot password, Request access or Request a fresh setup link. Recovery and invite emails open
-`/auth/confirm`, which waits for an explicit Continue button. A signed-in member opens Account from their name at the
-foot of the Organization sidebar (`/org/ORG/account/profile`), then Sign-in & security for email, password and
-two-factor authentication. Old `/account`, `/account/profile` and `/account/security` addresses redirect to the same
+`/auth/confirm`, which waits for an explicit Continue button. A signed-in member chooses their name at the foot of the
+Organization sidebar and Account in its menu (`/org/ORG/account/profile`), then Sign-in & security for email, password
+and two-factor authentication. Old `/account`, `/account/profile` and `/account/security` addresses redirect to the same
 section of the member's first Organization, keeping the query string. Turn on in the two-factor row opens MFA setup at
 `/auth/mfa-setup`, which returns to Sign-in & security. An account with a verified authenticator sees Two-Factor
 Authentication after the password step.
@@ -201,8 +202,8 @@ The private-credential controls fill visible fields without printing values:
    submitted name and reason. Submitting the same address again shows the app's retained duplicate behavior; record it
    and the row count.
 7. **Account security email and password.** `$V actor --form identitySecurity dashboard`, open Organization A, choose
-   the sidebar's name card (`Your account`) and then Sign-in & security. Only one row opens at a time: Change opens it
-   in place and Cancel restores the row with focus on its Change button.
+   the sidebar's name card (`Your account`), Account in its menu, and then Sign-in & security. Only one row opens at a
+   time: Change opens it in place and Cancel restores the row with focus on its Change button.
    - Email. Choose Change email, fill New email with a unique `security-RUN@example.test` and Current password with a
      wrong value by native `fill`. Send confirmation must tie `Current password is incorrect` to Current password, keep
      the typed address and move focus there. Fill it with
@@ -277,6 +278,13 @@ The private-credential controls fill visible fields without printing values:
    `identityMfa` (seeded factor) works for the turn-off path without setup. Removal shares the account's 10 codes per 15
    minutes with the sign-in challenge: after 10 wrong codes the 11th shows
    `Too many authenticator codes. Please wait before trying again.` and a reload still shows On.
+   - Account menu prompt. With two-factor off, the account menu (sidebar name card) lists Turn on two-factor after
+     Account, with a shield and `A code from your phone at sign-in`, linking to the same encoded setup URL. Follow it,
+     hide the QR code and key, and finish setup with `mfa-code`: Sign-in & security reads `On · Authenticator app`, and
+     the menu opened again lists only Account, What's new, Send feedback and Sign out. Turn off from the row, then open
+     the menu again: Turn on two-factor is back. Neither change reloads the page;
+     `performance.getEntriesByType('navigation')[0].name` keeps the first document's URL.
+     `$V actor identityMfa dashboard` (seeded factor) never sees the item.
    - Protected change challenge. The inline `Verify your authenticator code before changing your email.` challenge is
      unreachable through normal use. The admission gate sends any session with a verified factor and only password
      assurance to `/auth/mfa-verify` before an action runs. Enabling MFA in another session revokes the other sessions
@@ -290,10 +298,9 @@ The private-credential controls fill visible fields without printing values:
     - Local-only sign-out. Run `$V actor --form identityRecovery dashboard` (any identity actor works) and keep its
       Organization page open in this tab (A). Open a second tab in the same cookie jar with native `new_page` using the
       actor's `browserContext` value as `isolatedContext`, load the same Organization page and leave it unreloaded (B).
-      In A open Account from the sidebar name card and choose Sign out in the account nav; require `/`. In B, still
-      rendered as signed in, do the same (at 390 wide, Toggle Sidebar first to reach the name card; Sign out is in the
-      action row under the account tabs) and require `/auth/logout`, status 200 for the POST, the title
-      `Signed out on this browser.`, the notice
+      In A choose Sign out in the account menu (sidebar name card); require `/`. In B, still rendered as signed in, do
+      the same at 390 wide (Toggle Sidebar first to reach the name card) and require `/auth/logout`, status 200 for the
+      POST, the title `Signed out on this browser.`, the notice
       `There is no active session on this browser. Sign-out on other devices has not been confirmed. Sign in again to retry signing out everywhere.`
       and a `Sign in` link to `/auth/login`, with no Try again form. Focus stays on the document body on arrival. Tab
       reaches `← TroopToTask.com`, Sign in, Privacy, Terms and Security, each with a visible 3px focus ring. Enter on
@@ -308,9 +315,9 @@ The private-credential controls fill visible fields without printing values:
 11. **Failure, busy and keyboard states.**
     - One profile save at a time. On Profile choose Edit, change First name and run
       `$V network arm-hold PAGE account-page/profile/save`. Choose Save, press Enter, and submit the form again from
-      `evaluate_script` (`form:has(#firstName)`, not the account nav's Sign out form). Rank, First name, Last name,
-      Cancel and Save (`Saving...`, `aria-busy`) are disabled, and `network state` lists one POST. `network release`
-      closes the editor with `Profile updated.`, focus on Edit and the new name in the sidebar card. `network restore`.
+      `evaluate_script` (`form:has(#firstName)`, not a Sign out form). Rank, First name, Last name, Cancel and Save
+      (`Saving...`, `aria-busy`) are disabled, and `network state` lists one POST. `network release` closes the editor
+      with `Profile updated.`, focus on Edit and the new name in the sidebar card. `network restore`.
     - Failed save keeps the draft. On Profile choose Edit, change Last name and Rank, fill First name with spaces only
       (the native `required` check admits it) and save. Require `Profile not saved` with `First name is required`, the
       other drafts kept, and unchanged values after reload. Step 7's incorrect-password submits cover Sign-in &
@@ -380,9 +387,9 @@ The private-credential controls fill visible fields without printing values:
     with a visible focus ring, Enter submits, and record whether each error is announced and associated with its field.
     Record any state captured in only one combination as such; 1280x800 light and 390x844 dark per screen is the
     required split. Also capture Profile and Sign-in & security at 1023 wide: the account nav becomes Profile and
-    Sign-in & security tabs with a What's new, Send feedback and Sign out row under them, and every row stacks its label
-    over its value. From 1024 the nav returns beside the rows, which stay stacked until 1280, where label and value sit
-    side by side. No width scrolls horizontally.
+    Sign-in & security tabs with a Sign out row under them, and every row stacks its label over its value. From 1024 the
+    nav returns beside the rows, which stay stacked until 1280, where label and value sit side by side. No width scrolls
+    horizontally.
 
 Record provider-visible effects (Access Request rows, factor status through the Security page, suspension) separately
 from visible UI. Owned worker cleanup discards the changed identity accounts.

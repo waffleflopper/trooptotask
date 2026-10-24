@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { afterEach, describe, expect, it } from 'vitest';
 import { SectionNav, type SectionNavCount } from './index.js';
 
 function hrefs(scope: HTMLElement): (string | null)[] {
@@ -101,25 +101,19 @@ describe('patterns/section-nav SectionNav', () => {
 		expect(await within(tabs).findByRole('link', { name: 'Approvals count unavailable' })).toBeTruthy();
 	});
 
-	it('runs an in-place action and posts a form action, at every width', async () => {
-		const openWhatsNew = vi.fn();
+	it('posts a form action at every width', async () => {
 		render(SectionNav, {
 			props: {
 				label: 'Account',
 				groups: [{ label: 'Account', items: [{ label: 'Profile', href: '/org/alpha/account/profile' }] }],
-				actions: [
-					{ label: "What's new", onclick: openWhatsNew },
-					{ label: 'Sign out', action: '/auth/logout' }
-				]
+				actions: [{ label: 'Sign out', action: '/auth/logout' }]
 			}
 		});
 
-		for (const button of screen.getAllByRole('button', { name: "What's new" })) {
-			openWhatsNew.mockClear();
-			await fireEvent.click(button);
-			expect(openWhatsNew).toHaveBeenCalledOnce();
-		}
-		for (const signOut of screen.getAllByRole('button', { name: 'Sign out' })) {
+		const placements = ['section-nav', 'section-nav-actions'].map((slot) =>
+			within(document.querySelector<HTMLElement>(`[data-slot="${slot}"]`)!).getByRole('button', { name: 'Sign out' })
+		);
+		for (const signOut of placements) {
 			expect(signOut.getAttribute('type')).toBe('submit');
 			expect(signOut.closest('form')?.getAttribute('method')).toBe('POST');
 			expect(signOut.closest('form')?.getAttribute('action')).toBe('/auth/logout');

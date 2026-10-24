@@ -74,7 +74,12 @@ function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') 
 			name: orgId === 'org-a' ? 'Alpha' : 'Bravo',
 			disabledFeatures: []
 		},
-		user: { id: userId, email: `${userId}@example.test`, profile: { status: 'loaded', profile: null } },
+		user: {
+			id: userId,
+			email: `${userId}@example.test`,
+			hasTwoFactor: true,
+			profile: { status: 'loaded', profile: null }
+		},
 		member: {
 			membershipId: `membership-${userId}-${orgId}`,
 			role: 'member',
@@ -96,7 +101,8 @@ function grouping() {
 	return screen.getByRole('status', { name: 'Training grouping' }).textContent;
 }
 async function openWhatsNew(root: HTMLElement = document.body) {
-	await fireEvent.click(within(root).getByRole('button', { name: 'Open updates' }));
+	await fireEvent.click(within(root).getByRole('button', { name: /account menu/ }));
+	await fireEvent.click(await screen.findByRole('menuitem', { name: "What's new" }));
 }
 
 beforeEach(() => {

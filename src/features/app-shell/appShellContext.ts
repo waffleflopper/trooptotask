@@ -10,11 +10,9 @@ export interface AppShellContext extends ClientAccess {
 	readonly orgName: string;
 	readonly userId: string;
 	autoShowWhatsNew(): void;
-	openWhatsNew(): void;
-	openFeedback(): void;
 }
 
-type AppShellActions = Pick<AppShellContext, 'autoShowWhatsNew' | 'openWhatsNew' | 'openFeedback'>;
+type AppShellActions = Pick<AppShellContext, 'autoShowWhatsNew'>;
 
 export function createAppShellContext(getShell: () => ReadyAppShell, actions: AppShellActions): AppShellContext {
 	const access = createClientAccess(() => ({

@@ -242,6 +242,7 @@ it('composes platform content, account-wide preferences and the profile in paral
 		orgId: 'org-a',
 		userId: 'account-a',
 		email: 'dana@example.test',
+		hasTwoFactor: true,
 		userSupabase: client,
 		supabase: client
 	}).getFirstPaintChrome();
@@ -250,12 +251,14 @@ it('composes platform content, account-wide preferences and the profile in paral
 	expect((await first).announcements).toEqual([{ id: 'visible', title: 'Current', message: 'Content', type: 'info' }]);
 	expect((await first).account).toEqual({
 		email: 'dana@example.test',
+		hasTwoFactor: true,
 		profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
 	});
 	const second = createSupabaseAppShellFirstPaintChromePort({
 		orgId: 'org-b',
 		userId: 'account-a',
 		email: null,
+		hasTwoFactor: null,
 		userSupabase: client,
 		supabase: client
 	});
@@ -275,7 +278,7 @@ it('composes platform content, account-wide preferences and the profile in paral
 		expect((await second.getFirstPaintChrome()).announcements.map(({ id }) => id)).toEqual(['visible']);
 		profileFailed = true;
 		const withoutProfile = await second.getFirstPaintChrome();
-		expect(withoutProfile.account).toEqual({ email: null, profile: { status: 'unavailable' } });
+		expect(withoutProfile.account).toEqual({ email: null, hasTwoFactor: null, profile: { status: 'unavailable' } });
 		expect(withoutProfile.announcements.map(({ id }) => id)).toEqual(['visible']);
 	} finally {
 		log.mockRestore();

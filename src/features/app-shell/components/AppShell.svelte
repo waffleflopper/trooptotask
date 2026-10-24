@@ -30,7 +30,7 @@
 	let feedbackPageUrl = $state('');
 	let showWhatsNew = $state(false);
 	let hasAutoShownWhatsNew = false;
-	setAppShellContext(createAppShellContext(() => shell, { autoShowWhatsNew, openWhatsNew, openFeedback }));
+	setAppShellContext(createAppShellContext(() => shell, { autoShowWhatsNew }));
 	// The Organization layout keys this shell by user, Organization and session; its teardown ends that lifetime.
 	$effect(() => endOrganizationLifetime);
 
@@ -118,6 +118,7 @@
 	{onToggleTheme}
 	{isDarkTheme}
 	onFeedback={openFeedback}
+	onWhatsNew={openWhatsNew}
 >
 	{#snippet banner()}
 		<BannerStack>

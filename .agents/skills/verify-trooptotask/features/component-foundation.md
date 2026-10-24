@@ -35,12 +35,12 @@ must come from its central component and hold in light and dark themes at narrow
 ## How to get to it (user POV)
 
 As a Personnel manager, Edit a roster row for the Personnel form, its Rank and Group comboboxes and its ETS date
-popover; use Manage Groups for Group creation; use the sidebar Switch organization menu, Toggle theme and Send feedback.
-An Organization owner opens Settings, Members, the invite strip's Role select and a row's Manage sheet with its Role
-radio group. A Critical Tasks operator records a completion and opens Reports; on the matrix toolbar those controls and
-Import Completions fold into `More Critical Tasks controls` as the page narrows. A Training manager opens Training
-Reports for the toolbar filters. A platform reviewer opens Admin Feedback for the New, Reviewed and Resolved tabs.
-Personnel Details shows the record tabs (`Personnel detail sections`).
+popover; use Manage Groups for Group creation; use the sidebar Switch organization menu and account menu (the name
+card), Toggle theme and Send feedback. An Organization owner opens Settings, Members, the invite strip's Role select and
+a row's Manage sheet with its Role radio group. A Critical Tasks operator records a completion and opens Reports; on the
+matrix toolbar those controls and Import Completions fold into `More Critical Tasks controls` as the page narrows. A
+Training manager opens Training Reports for the toolbar filters. A platform reviewer opens Admin Feedback for the New,
+Reviewed and Resolved tabs. Personnel Details shows the record tabs (`Personnel detail sections`).
 
 ## Driving it with verify:app
 
@@ -211,8 +211,10 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
 6. **Dropdown menu keyboard (`manager`).** Focus Switch organization and press Enter. Focus moves into the menu.
    ArrowDown and ArrowUp move between items and wrap or stop consistently, Home and End reach the first and last items,
    and typing an item's first letter moves to it. Escape closes the menu and returns focus to Switch organization.
-   Record each focused item name. At narrow width Switch organization is inside the sidebar drawer (Toggle Sidebar); the
-   header Notifications menu has no items for this fixture.
+   Record each focused item name. Repeat on the sidebar name card (`<name>, account menu`): Enter or Space opens it with
+   focus on Account, the arrows wrap, typing `S` reaches Send feedback, and Escape returns focus to the card. At narrow
+   width Switch organization and the name card are inside the sidebar drawer (Toggle Sidebar), where the account menu
+   opens upward; the header Notifications menu has no items for this fixture.
 7. **Tabs (`platformReviewer`, `manager`).** On `admin/feedback`, Tab into the New/Reviewed/Resolved tabs. Require
    exactly one tab with `tabindex` 0, ArrowRight/ArrowLeft to move focus and selection, Home/End to reach the ends, and
    each tab's `aria-controls` to resolve to a tabpanel. A following Tab leaves the tab list for the active tabpanel,

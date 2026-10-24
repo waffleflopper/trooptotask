@@ -50,6 +50,7 @@ describe('isPublicRoute', () => {
 			status: 'allowed',
 			actor: null,
 			mfaPending: false,
+			hasTwoFactor: null,
 			authFlow: null
 		});
 		await expect(admitAnonymous(path + '/other')).resolves.toEqual({

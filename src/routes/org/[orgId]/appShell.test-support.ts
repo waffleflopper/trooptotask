@@ -43,7 +43,11 @@ export function createReadyAppShellRouteData(
 			},
 			user: {
 				id: overrides.userId ?? 'user-1',
-				...(overrides.account ?? { email: 'user-1@example.test', profile: { status: 'loaded', profile: null } })
+				...(overrides.account ?? {
+					email: 'user-1@example.test',
+					hasTwoFactor: true,
+					profile: { status: 'loaded', profile: null }
+				})
 			},
 			member,
 			state: { orgSuspended: false },

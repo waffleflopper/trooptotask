@@ -8,10 +8,4 @@
 	const shell = getAppShellContext();
 </script>
 
-<AccountShell
-	baseHref={`/org/${shell.orgUrlSegment}/account`}
-	activePath={page.url.pathname}
-	onwhatsnew={shell.openWhatsNew}
-	onfeedback={shell.openFeedback}
-	{children}
-/>
+<AccountShell baseHref={`/org/${shell.orgUrlSegment}/account`} activePath={page.url.pathname} {children} />

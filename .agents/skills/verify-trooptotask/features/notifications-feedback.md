@@ -24,8 +24,8 @@ announcements without affecting another User Account.
 
 Sign in, open an Organization, and use the bell in the header. Select a notification to mark it read and follow its
 link, or choose `Mark all read`. There is no notification delete control; deletion is a JSON endpoint only. Use
-`Send feedback` in the Organization header, or in the account nav (sidebar name card) at 390, to open its modal, choose
-a category, enter a message and Submit. An active announcement appears above the workspace with
+`Send feedback` in the Organization header, or in the account menu (sidebar name card) at any width, to open its modal,
+choose a category, enter a message and Submit. An active announcement appears above the workspace with
 `Dismiss announcement: <title>`. Switch Organizations through the header switcher.
 
 ## Helper controls

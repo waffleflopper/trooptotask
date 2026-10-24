@@ -1,4 +1,9 @@
 export type MembershipRole = 'owner' | 'admin' | 'member';
+export const MEMBERSHIP_ROLE_LABELS: Record<MembershipRole, string> = {
+	owner: 'Owner',
+	admin: 'Admin',
+	member: 'Member'
+};
 export type MemberPreset = 'viewer' | 'operator' | 'editor' | 'custom';
 export type StoredMemberPreset = Exclude<MemberPreset, 'custom'>;
 export type CapabilityLevel = 'none' | 'view' | 'operate' | 'configure';

@@ -114,6 +114,7 @@ describe('server auth hook', () => {
 			sessionStartedAt?: string;
 			authMethod?: 'password' | 'otp';
 			organizationResult?: { data: { id: string; suspended_at: string | null } | null; error: unknown };
+			factors?: { id: string; status: 'verified' | 'unverified' }[];
 		} = {}
 	) {
 		const now = new Date();
@@ -127,7 +128,7 @@ describe('server auth hook', () => {
 			last_sign_in_at: options.lastSignInAt ?? now.toISOString(),
 			role: 'authenticated'
 		};
-		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id };
+		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id, factors: options.factors };
 		const session = {
 			access_token: passwordSessionToken(
 				'user-1',
@@ -875,6 +876,7 @@ describe('server auth hook', () => {
 		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
 		expect(event.locals.user).toBeNull();
 		expect(event.locals.session).toBeNull();
+		expect(event.locals.hasTwoFactor).toBeNull();
 		expect(harness.getSession).not.toHaveBeenCalled();
 		expect(harness.resolve).toHaveBeenCalled();
 	});
@@ -1245,6 +1247,21 @@ describe('server auth hook', () => {
 		expect((await harness.handle({ event: pending, resolve: harness.resolve })).status).toBe(200);
 		expect(pending.locals.actor).toBeNull();
 		expect(pending.locals.mfaPending).toBe(true);
+	});
+
+	it.each([
+		{ level: 'aal1', factors: [], hasTwoFactor: false },
+		{ level: 'aal1', factors: [{ id: 'factor-1', status: 'unverified' as const }], hasTwoFactor: false },
+		{ level: 'aal2', factors: [{ id: 'factor-1', status: 'verified' as const }], hasTwoFactor: true },
+		{ level: 'aal2', factors: [], hasTwoFactor: false }
+	])('records hasTwoFactor $hasTwoFactor for an $level session with factors $factors', async (state) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null }, { factors: state.factors });
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+			data: { currentLevel: state.level, nextLevel: state.level },
+			error: null
+		});
+		expect((await harness.handle(harness)).status).toBe(200);
+		expect(harness.event.locals.hasTwoFactor).toBe(state.hasTwoFactor);
 	});
 
 	it.each(['aal1', 'aal2'])('admits completed %s assurance to a protected handler', async (level) => {

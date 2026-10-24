@@ -69,6 +69,7 @@ export function createSupabaseAppShellFirstPaintChromePort(config: {
 	orgId: string;
 	userId: string;
 	email: string | null;
+	hasTwoFactor: boolean | null;
 	userSupabase: SupabaseClient;
 	supabase: SupabaseClient;
 }): AppShellFirstPaintChromePort {
@@ -84,7 +85,11 @@ export function createSupabaseAppShellFirstPaintChromePort(config: {
 				loadFirstPaintProfile(config)
 			]);
 
-			return { announcements, preferences, account: { email: config.email, profile } };
+			return {
+				announcements,
+				preferences,
+				account: { email: config.email, hasTwoFactor: config.hasTwoFactor, profile }
+			};
 		}
 	};
 }

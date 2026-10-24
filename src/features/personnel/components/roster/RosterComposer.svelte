@@ -71,7 +71,8 @@
 			then?.();
 			return true;
 		}
-		afterDiscard = then;
+		// The outside press that asks to close lands after the click it belongs to; it must not drop that click's destination.
+		if (then) afterDiscard = then;
 		confirmingDiscard = true;
 		void tick().then(() => keepEditingButton?.focus());
 		return false;

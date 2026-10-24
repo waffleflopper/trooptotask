@@ -238,6 +238,19 @@ describe('RosterNotePopover', () => {
 		expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel/young-test?tab=log#top');
 	});
 
+	it('still goes on after Discard when the outside press that follows the click asks to close again', async () => {
+		const { ctx } = makeCtx();
+		mount(ctx);
+
+		const title = await screen.findByRole('textbox', { name: 'Follow-up title' });
+		await fireEvent.input(title, { target: { value: 'Call about leave' } });
+		attemptNavigation('/org/org-1/personnel/young-test');
+		await fireEvent.keyDown(title, { key: 'Escape' });
+		await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+
+		expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel/young-test');
+	});
+
 	it('drops the held navigation when told to keep editing', async () => {
 		const { ctx } = makeCtx();
 		const { onclose } = mount(ctx);

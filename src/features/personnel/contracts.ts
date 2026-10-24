@@ -336,6 +336,18 @@ export interface PersonnelArtifactWritePort {
 	/** The caller admits the requester against the returned Person before revealing anything about it. */
 	findCounselingPersonId(actor: PersonnelRosterActor, recordId: string): Promise<string | null>;
 	forPerson(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelArtifactWriter>;
+	/** One insert of the same follow-up for People the caller already admitted. Returns the People written. */
+	createFollowUps(
+		actor: PersonnelRosterActor,
+		personnelIds: string[],
+		entry: { title: string; notes: string; dueDate: string | null; createdBy: string; createdAt: string }
+	): Promise<string[]>;
+	/** One insert of the same note for People the caller already admitted. Returns the People written. */
+	createLeaderNotes(
+		actor: PersonnelRosterActor,
+		personnelIds: string[],
+		entry: { author: string; text: string; createdAt: string }
+	): Promise<string[]>;
 }
 
 /**

@@ -1066,6 +1066,37 @@ function createInMemoryPersonnelArtifactWritePort(
 		return 'complete';
 	}
 	return {
+		async createFollowUps(actor, personnelIds, entry) {
+			const rows = await rawStore.insertMany<{ personnel_id: string }>(
+				'personnel_follow_ups',
+				actor.orgId,
+				personnelIds.map((personnelId) => ({
+					personnel_id: personnelId,
+					title: entry.title,
+					notes: entry.notes,
+					due_date: entry.dueDate,
+					status: 'open',
+					created_by: entry.createdBy,
+					created_at: entry.createdAt,
+					updated_at: entry.createdAt
+				}))
+			);
+			return rows.map((row) => row.personnel_id);
+		},
+		async createLeaderNotes(actor, personnelIds, entry) {
+			const rows = await rawStore.insertMany<{ personnel_id: string }>(
+				'leader_notes',
+				actor.orgId,
+				personnelIds.map((personnelId) => ({
+					personnel_id: personnelId,
+					author: entry.author,
+					text: entry.text,
+					created_at: entry.createdAt,
+					updated_at: entry.createdAt
+				}))
+			);
+			return rows.map((row) => row.personnel_id);
+		},
 		async findCounselingPersonId(actor, recordId) {
 			const row = await rawStore.findOne<{ personnel_id: string }>('counseling_records', actor.orgId, { id: recordId });
 			return row?.personnel_id ?? null;

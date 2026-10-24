@@ -357,8 +357,10 @@
 			description="Your sign-in name. The current one keeps working until the new one is confirmed."
 			data-account-row="email"
 		>
-			<div class="flex items-center gap-4">
-				<p class="min-w-0 flex-1 text-[17px] font-semibold wrap-anywhere">{security.currentEmail}</p>
+			<div class="flex min-w-0 items-center gap-4">
+				<p class="min-w-0 flex-1 truncate text-[17px] font-semibold" title={security.currentEmail}>
+					{security.currentEmail}
+				</p>
 				{#if openRow !== 'email'}
 					<Button
 						bind:ref={rowTriggers.email}

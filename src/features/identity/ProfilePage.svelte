@@ -199,8 +199,10 @@
 			label="Email"
 			description="You sign in with it, and password resets go there."
 		>
-			<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-				<p class="min-w-0 text-[17px] font-semibold wrap-anywhere">{account.email ?? 'Not available'}</p>
+			<div class="flex min-w-0 flex-col gap-x-6 gap-y-1 xl:flex-row xl:items-baseline xl:justify-between">
+				<p class="min-w-0 truncate text-[17px] font-semibold" title={account.email ?? undefined}>
+					{account.email ?? 'Not available'}
+				</p>
 				<a
 					href={resolve(securityHref)}
 					class="inline-flex w-fit shrink-0 items-center gap-1 text-sm text-accent-text underline-offset-4 hover:underline"

@@ -3,6 +3,7 @@ BEGIN;
 -- Table policies call Personnel's authorization helpers per scanned row. This read instead evaluates
 -- the same visible cohort once per lane, including Personnel, before joining each source's facts.
 -- Catalogs and Organization settings have separate guards because an empty cohort alone cannot protect them.
+-- IS TRUE keeps cohort membership hashed; the SQL function's generic plan otherwise rescans it per Person.
 
 CREATE FUNCTION public.roster_signals(
   p_organization_id uuid, p_as_of date, p_since date, p_sources text[], p_personnel_ids uuid[] DEFAULT NULL
@@ -13,39 +14,49 @@ AS $$
   WITH active AS MATERIALIZED (
     SELECT p.id, p.rank, p.mos, p.clinic_role
     FROM public.personnel p
-    JOIN member_access_private.viewable_personnel('personnel') v
-      ON v.organization_id = p_organization_id AND v.personnel_id = p.id
     WHERE p.organization_id = p_organization_id AND p.archived_at IS NULL
+      AND (p.id IN (
+        SELECT v.personnel_id FROM member_access_private.viewable_personnel('personnel') v
+        WHERE v.organization_id = p_organization_id
+      )) IS TRUE
       AND (SELECT public.is_org_member(p_organization_id))
       AND (p_personnel_ids IS NULL OR p.id = ANY (p_personnel_ids))
   ),
   presence_cohort AS (
     SELECT a.id
     FROM active a
-    JOIN member_access_private.viewable_personnel('calendar') v
-      ON v.organization_id = p_organization_id AND v.personnel_id = a.id
     WHERE 'availability' = ANY (p_sources)
+      AND (a.id IN (
+        SELECT v.personnel_id FROM member_access_private.viewable_personnel('calendar') v
+        WHERE v.organization_id = p_organization_id
+      )) IS TRUE
   ),
   training_cohort AS (
     SELECT a.id, a.rank, a.mos, a.clinic_role
     FROM active a
-    JOIN member_access_private.viewable_personnel('training') v
-      ON v.organization_id = p_organization_id AND v.personnel_id = a.id
     WHERE 'training' = ANY (p_sources)
+      AND (a.id IN (
+        SELECT v.personnel_id FROM member_access_private.viewable_personnel('training') v
+        WHERE v.organization_id = p_organization_id
+      )) IS TRUE
   ),
   task_cohort AS (
     SELECT a.id, a.mos
     FROM active a
-    JOIN member_access_private.viewable_personnel('criticalTasks') v
-      ON v.organization_id = p_organization_id AND v.personnel_id = a.id
     WHERE 'criticalTasks' = ANY (p_sources)
+      AND (a.id IN (
+        SELECT v.personnel_id FROM member_access_private.viewable_personnel('criticalTasks') v
+        WHERE v.organization_id = p_organization_id
+      )) IS TRUE
   ),
   evaluation_cohort AS (
     SELECT a.id
     FROM active a
-    JOIN member_access_private.viewable_personnel('ratingScheme') v
-      ON v.organization_id = p_organization_id AND v.personnel_id = a.id
     WHERE 'evaluations' = ANY (p_sources)
+      AND (a.id IN (
+        SELECT v.personnel_id FROM member_access_private.viewable_personnel('ratingScheme') v
+        WHERE v.organization_id = p_organization_id
+      )) IS TRUE
   ),
   record_cohort AS (
     SELECT a.id

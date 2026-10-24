@@ -100,7 +100,7 @@ means the workspace reloaded.
 - [Personnel artifacts](personnel-artifacts.md): counseling, documents, follow-ups and notes.
 - [Personnel Overview](personnel-overview.md): the Overview tab's streamed sections.
 - [Personnel Readiness tab](personnel-readiness.md): training and critical-task tables and the drawer.
-- [Manage groups](manage-groups.md): Group lifecycle and denial.
+- [Manage groups](manage-groups.md): Group editor, order, batch membership, delete with reassignment, pins and denial.
 - [Rank catalog](rank-settings.md): rank packs, custom ranks and retirement.
 - [Invalid, stale and conflicting input](invalid-input.md): malformed, missing and conflicting input.
 - [Personnel, Groups and settings forms](personnel-form-states.md): form failure and screen states.

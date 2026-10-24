@@ -168,10 +168,13 @@ scoped actors retain their baseline grants.
     `7 of 10 present`, bar `Strength today: 7 present, 2 Appointment, 1 School` and `10 need attention`; Bravo reads
     `8 of 10 present` and `10 need attention`. `Collapse Alpha` keeps the bar and the attention count and shows
     `Expand Alpha` (`aria-expanded="false"`). Enter and Space on the focused collapse button flip it and focus stays on
-    it. The `⋯` menu holds `Rename`, `Add people` and `Pin` (`Unpin` once pinned); `Rename` and `Add people` open the
-    `Manage Groups` dialog and `Pin` pins, and after a reload the Group is still first and its menu reads `Unpin`.
-    `Assign a Group` opens the same dialog. Permissions: `viewer` sees no `Assign a Group` link and its menu holds only
-    `Pin`; `manager` without the Calendar grant shows no bar and no `N of M present`, only the attention lane. Loading:
+    it. The `⋯` menu holds `Rename`, `Add people` and `Pin` (`Unpin` once pinned); `Rename` and `Add people` open
+    `Manage Groups` with that Group's pane selected (Bravo's menu opens the `Bravo` region) and `Pin` pins, and after a
+    reload the Group is still first and its menu reads `Unpin`. `Assign a Group` opens it on the `Unassigned` region.
+    Unpin every Group, then with the dialog open `Reorder Bravo` then ArrowUp moves Bravo above Alpha in the roster
+    behind it at once (rows `Bravo`, `Alpha`, `Unassigned`), and a reload keeps that order; ArrowDown on `Reorder Bravo`
+    restores it. Permissions: `viewer` sees no `Assign a Group` link and its menu holds only `Pin`; `manager` without
+    the Calendar grant shows no bar and no `N of M present`, only the attention lane. Loading:
     `$V server-source arm rpc/roster_signals hold 1 90000` (this control reads Organization A), reload: the headers show
     the name and count with skeletons in the bar and attention lanes (3, 3 and 2 skeletons), and after
     `server-source release` the header tops (267, 361, 455) and heights (49) are unchanged. `fail-hard` instead: the

@@ -35,6 +35,36 @@ describe('patterns/reorder-list', () => {
 		expect(screen.getByRole('status').textContent).toBe('Orientation moved to position 2 of 3');
 	});
 
+	it('moves a row with Alt+Arrow from a focused control in it and keeps that control focused', async () => {
+		const onmoved = vi.fn();
+		render(ReorderListTest, { props: { onmoved } });
+		screen.getByRole('button', { name: 'Training' }).focus();
+
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Training' }), { key: 'ArrowUp', altKey: true });
+		await tick();
+
+		expect(names()).toEqual(['Orientation', 'Training', 'Paperwork']);
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Training' }));
+		expect(screen.getByRole('status').textContent).toBe('Training moved to position 2 of 3');
+
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Training' }), { key: 'ArrowUp' });
+		await fireEvent.keyDown(screen.getByRole('textbox', { name: 'Training note' }), { key: 'ArrowUp', altKey: true });
+		expect(onmoved).toHaveBeenCalledTimes(1);
+	});
+
+	it('moves a row once when Alt+Arrow is pressed on its grip', async () => {
+		const onmoved = vi.fn();
+		render(ReorderListTest, { props: { onmoved } });
+
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder Orientation' }), {
+			key: 'ArrowDown',
+			altKey: true
+		});
+
+		expect(onmoved).toHaveBeenCalledTimes(1);
+		expect(names()).toEqual(['Paperwork', 'Orientation', 'Training']);
+	});
+
 	it('says so at the ends instead of moving', async () => {
 		const onmoved = vi.fn();
 		render(ReorderListTest, { props: { onmoved } });

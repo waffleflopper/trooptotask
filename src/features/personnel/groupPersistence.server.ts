@@ -2,12 +2,29 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fail } from '$lib/errors';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { GROUP_NAME_EXISTS_MESSAGE, type Group, type GroupPersistence } from './contracts';
+import {
+	GROUP_CHANGE_UNCONFIRMED_MESSAGE,
+	GROUP_NAME_EXISTS_MESSAGE,
+	GROUP_ORDER_CHANGED_MESSAGE,
+	GROUP_UNAVAILABLE_MESSAGE,
+	type Group,
+	type GroupPersistence
+} from './contracts';
 import { visibleGroupIds } from './groupCatalog.server';
 function throwGroupWriteError(error: { code?: string; message: string }): never {
 	if (error.code === '23505' && error.message.includes('"groups_clinic_id_name_key"')) {
 		fail(409, GROUP_NAME_EXISTS_MESSAGE);
 	}
+	throw new Error(error.message);
+}
+// postgrest-js reports a failed fetch as an error with an empty code instead of rejecting.
+function throwGroupCommandError(error: { code?: string; message: string }): never {
+	if (error.code === '42501') fail(403, 'You do not have permission to manage Groups');
+	if (error.code === 'P0002') fail(404, GROUP_UNAVAILABLE_MESSAGE);
+	if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Group change');
+	if (['GRP01', '40P01', '40001', '55P03'].includes(error.code ?? '')) fail(409, GROUP_ORDER_CHANGED_MESSAGE);
+	if (error.code === '23505') fail(409, GROUP_NAME_EXISTS_MESSAGE);
+	if (!error.code) fail(503, GROUP_CHANGE_UNCONFIRMED_MESSAGE, { publicMessage: true });
 	throw new Error(error.message);
 }
 function toGroup(row: Record<string, unknown>): Group {
@@ -26,6 +43,7 @@ export function createSupabaseGroupPersistence(
 			if (ids) query = query.in('id', [...new Set(ids)]);
 			const { data, error } = await query
 				.order('sort_order', { ascending: true })
+				.order('name', { ascending: true })
 				.order('id', { ascending: true })
 				.range(from, to)
 				.returns<Record<string, unknown>[]>();
@@ -58,20 +76,34 @@ export function createSupabaseGroupPersistence(
 			if (error) throwGroupWriteError(error);
 			return toGroup(data);
 		},
-		async update(id, patch) {
-			const { data, error } = await client
-				.from('groups')
-				.update({ name: patch.name, sort_order: patch.sortOrder })
-				.eq('organization_id', orgId)
-				.eq('id', id)
-				.select('*')
-				.maybeSingle<Record<string, unknown>>();
-			if (error) throwGroupWriteError(error);
-			return data ? toGroup(data) : null;
+		async rename(id, name) {
+			const { data, error } = await client.rpc('rename_group', {
+				p_organization_id: orgId,
+				p_group_id: id,
+				p_name: name
+			});
+			if (error) throwGroupCommandError(error);
+			const [row] = (data ?? []) as Record<string, unknown>[];
+			if (!row) fail(404, GROUP_UNAVAILABLE_MESSAGE);
+			return toGroup(row);
 		},
-		async delete(id) {
-			const { error } = await client.from('groups').delete().eq('organization_id', orgId).eq('id', id);
-			if (error) throw new Error(error.message);
+		async setOrder(ids, expectedIds) {
+			const { error } = await client.rpc('set_group_order', {
+				p_organization_id: orgId,
+				p_group_ids: ids,
+				p_expected_group_ids: expectedIds
+			});
+			if (error) throwGroupCommandError(error);
+		},
+		async deleteWithReassignment(id, targetId) {
+			const { data, error } = await client.rpc('delete_group_with_reassignment', {
+				p_organization_id: orgId,
+				p_group_id: id,
+				p_target_group_id: targetId
+			});
+			if (error) throwGroupCommandError(error);
+			if (!Number.isInteger(data)) throw new Error('Group delete returned an unexpected result');
+			return data as number;
 		}
 	};
 }

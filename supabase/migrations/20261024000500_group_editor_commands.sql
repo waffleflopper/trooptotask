@@ -2,53 +2,39 @@
 -- Each command takes the same per-Organization lock, so a reorder, rename and
 -- delete never interleave. Pins are stored by Group name per viewer, and RLS
 -- lets a viewer touch only their own, so the one privileged step is the pin
--- rewrite in personnel_private.
+-- rewrite triggered by a Group rename or delete.
 BEGIN;
 
 CREATE SCHEMA personnel_private;
 REVOKE ALL ON SCHEMA personnel_private FROM PUBLIC, anon, service_role;
 GRANT USAGE ON SCHEMA personnel_private TO authenticated;
 
--- Moves every viewer's pins from a Group name to its new name, or removes them
--- when p_to_name is NULL. It refuses unless the catalog already shows the
--- change, so it can only bring pins in line with the Groups.
-CREATE FUNCTION personnel_private.carry_group_pins(
-  p_organization_id uuid, p_from_name text, p_to_name text
-) RETURNS void
+CREATE FUNCTION personnel_private.sync_group_pins() RETURNS trigger
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  IF auth.uid() IS NULL OR p_organization_id IS NULL
-    OR public.can_manage_groups(p_organization_id) IS NOT TRUE
-  THEN
-    RAISE EXCEPTION 'Group management is not allowed' USING ERRCODE = '42501';
-  END IF;
-  IF p_from_name IS NULL
-    OR EXISTS (SELECT 1 FROM public.groups WHERE organization_id = p_organization_id AND name = p_from_name)
-    OR (p_to_name IS NOT NULL AND NOT EXISTS (
-      SELECT 1 FROM public.groups WHERE organization_id = p_organization_id AND name = p_to_name))
-  THEN
-    RAISE EXCEPTION 'Pins follow the Group catalog' USING ERRCODE = '22023';
-  END IF;
-
-  IF p_to_name IS NULL THEN
+  IF TG_OP = 'DELETE' THEN
     DELETE FROM public.user_pinned_groups
-    WHERE organization_id = p_organization_id AND group_name = p_from_name;
-  ELSE
+    WHERE organization_id = OLD.organization_id AND group_name = OLD.name;
+  ELSIF OLD.name IS DISTINCT FROM NEW.name THEN
     -- Only viewers whose old pin follows this rename need a conflicting target pin removed.
     DELETE FROM public.user_pinned_groups AS target
     USING public.user_pinned_groups AS source
-    WHERE target.organization_id = p_organization_id AND target.group_name = p_to_name
-      AND source.organization_id = p_organization_id AND source.group_name = p_from_name
+    WHERE target.organization_id = OLD.organization_id AND target.group_name = NEW.name
+      AND source.organization_id = OLD.organization_id AND source.group_name = OLD.name
       AND source.user_id = target.user_id;
-    UPDATE public.user_pinned_groups SET group_name = p_to_name
-    WHERE organization_id = p_organization_id AND group_name = p_from_name;
+    UPDATE public.user_pinned_groups SET group_name = NEW.name
+    WHERE organization_id = OLD.organization_id AND group_name = OLD.name;
   END IF;
+  RETURN NULL;
 END;
 $$;
-REVOKE ALL ON FUNCTION personnel_private.carry_group_pins(uuid, text, text) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION personnel_private.carry_group_pins(uuid, text, text) TO authenticated;
+REVOKE ALL ON FUNCTION personnel_private.sync_group_pins() FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER sync_group_pins
+  AFTER UPDATE OF name OR DELETE ON public.groups
+  FOR EACH ROW EXECUTE FUNCTION personnel_private.sync_group_pins();
 
 CREATE FUNCTION personnel_private.require_group_manager(p_organization_id uuid) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY INVOKER
@@ -169,7 +155,6 @@ BEGIN
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Group management is not allowed' USING ERRCODE = '42501';
     END IF;
-    PERFORM personnel_private.carry_group_pins(p_organization_id, v_old, v_name);
   END IF;
 
   RETURN QUERY
@@ -190,7 +175,6 @@ LANGUAGE plpgsql VOLATILE SECURITY INVOKER
 SET search_path = ''
 AS $$
 DECLARE
-  v_name text;
   v_moved integer;
 BEGIN
   PERFORM personnel_private.require_group_manager(p_organization_id);
@@ -199,7 +183,7 @@ BEGIN
   END IF;
   PERFORM personnel_private.lock_group_catalog(p_organization_id);
   PERFORM personnel_private.require_group_manager(p_organization_id);
-  SELECT g.name INTO v_name FROM public.groups AS g
+  PERFORM 1 FROM public.groups AS g
   WHERE g.organization_id = p_organization_id AND g.id = p_group_id
   FOR UPDATE;
   IF NOT FOUND THEN
@@ -222,7 +206,6 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Group management is not allowed' USING ERRCODE = '42501';
   END IF;
-  PERFORM personnel_private.carry_group_pins(p_organization_id, v_name, NULL);
   RETURN v_moved;
 END;
 $$;

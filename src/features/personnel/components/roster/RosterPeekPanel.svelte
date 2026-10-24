@@ -35,10 +35,11 @@
 		onstep: (step: 1 | -1) => void;
 		onclose: () => void;
 		onquickedit: (person: Personnel) => void;
+		oncompose: (open: () => void) => void;
 		nextDays?: Snippet<[calendar: unknown]>;
 	}
 
-	let { ctx, person, recordHref, position, onstep, onclose, onquickedit, nextDays }: Props = $props();
+	let { ctx, person, recordHref, position, onstep, onclose, onquickedit, oncompose, nextDays }: Props = $props();
 
 	const ATTENTION_SHOWN = 3;
 	const FOLLOW_UPS_SHOWN = 5;
@@ -138,6 +139,14 @@
 		event.preventDefault();
 		event.stopPropagation();
 		composer.requestClose();
+	}
+
+	function compose(): void {
+		const id = person.id;
+		oncompose(() => {
+			composeDay = ctx.signals.viewerDay();
+			composingFor = id;
+		});
 	}
 
 	async function closeComposer(): Promise<void> {
@@ -429,10 +438,7 @@
 					type="button"
 					data-peek-compose
 					class="flex h-9 min-w-0 flex-1 items-center rounded-[4px] border bg-background px-3 text-left text-sm text-muted-foreground hover:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-					onclick={() => {
-						composeDay = ctx.signals.viewerDay();
-						composingFor = person.id;
-					}}
+					onclick={compose}
 				>
 					<span class="truncate">Add a note or follow-up for {shortName}…</span>
 				</button>

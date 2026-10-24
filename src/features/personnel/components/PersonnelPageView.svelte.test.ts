@@ -1416,6 +1416,46 @@ describe('PersonnelPageView', () => {
 			expect(invalidate).not.toHaveBeenCalled();
 		});
 
+		describe("a row or bulk composer while the preview's composer holds typed text", () => {
+			async function typeInPreviewComposer() {
+				viewport(1440);
+				const { ctx } = peekCtx();
+				render(PersonnelPageView, { props: { ctx } });
+				await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+				await fireEvent.click(within(panel()).getByRole('button', { name: /Add a note or follow-up/ }));
+				await fireEvent.input(await within(panel()).findByRole('textbox', { name: 'Follow-up title' }), {
+					target: { value: 'Call about leave' }
+				});
+			}
+
+			it('asks before N on a row opens its composer, and opens it after Discard', async () => {
+				await typeInPreviewComposer();
+				const young = screen.getByRole('row', { name: 'Open SGT Young, Test' });
+				young.focus();
+				await fireEvent.keyDown(young, { key: 'n' });
+
+				await within(panel()).findByText('Discard what you typed?');
+				expect(screen.queryByRole('dialog')).toBeNull();
+				await fireEvent.click(within(panel()).getByRole('button', { name: 'Discard' }));
+
+				await screen.findByRole('dialog', { name: 'Add to log for SGT Test Young' });
+				expect(within(panel()).queryByRole('textbox', { name: 'Follow-up title' })).toBeNull();
+			});
+
+			it('asks before the bulk composer opens, and opens it after Discard', async () => {
+				await typeInPreviewComposer();
+				await fireEvent.click(screen.getByRole('checkbox', { name: 'Select everyone shown' }));
+				await fireEvent.click(bulkBar().getByRole('button', { name: 'Follow-up for each' }));
+
+				await within(panel()).findByText('Discard what you typed?');
+				expect(screen.queryByRole('dialog')).toBeNull();
+				await fireEvent.click(within(panel()).getByRole('button', { name: 'Discard' }));
+
+				await screen.findByRole('dialog', { name: 'Add to log for 2 people' });
+				expect(within(panel()).queryByRole('textbox', { name: 'Follow-up title' })).toBeNull();
+			});
+		});
+
 		it('announces nothing for a note saved after the user leaves the Organization', async () => {
 			viewport(1440);
 			const { ctx, reads } = peekCtx();

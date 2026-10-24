@@ -346,6 +346,7 @@
 	function replaceComposer(open: () => void): void {
 		const composer = notePerson ? noteComposer : bulkCompose ? bulkComposer : undefined;
 		if (composer) composer.requestClose(open);
+		else if (peekPanel) peekPanel.release(open);
 		else open();
 	}
 
@@ -754,6 +755,7 @@
 				onstep={(step) => stepPeek(step, false)}
 				onclose={closePeek}
 				onquickedit={(person) => quickEdit.open(person)}
+				oncompose={replaceComposer}
 				{nextDays}
 			/>
 		{/if}

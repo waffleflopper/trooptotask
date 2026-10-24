@@ -1,22 +1,18 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto, invalidateAll } from '$app/navigation';
 import SecurityPage from './SecurityPage.svelte';
 import type { AccountSecurityOverview } from './contracts';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
+controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), invalidateAll: vi.fn() }));
 
-// bits-ui PinInput leaves input syncs scheduled after a change; run them while the document still exists.
-beforeEach(() => {
-	vi.useFakeTimers({ shouldAdvanceTime: true });
-});
 afterEach(() => {
 	cleanup();
-	vi.runOnlyPendingTimers();
-	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });

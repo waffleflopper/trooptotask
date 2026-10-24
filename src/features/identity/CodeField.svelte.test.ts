@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
-import { afterAll, afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import CodeField from './CodeField.svelte';
 import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
@@ -8,8 +8,6 @@ import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 controlCodeFieldTimers();
 
 afterEach(cleanup);
-// bits-ui PinInput schedules uncancelled input syncs up to 50 ms after a change; let them run before happy-dom tears down.
-afterAll(() => new Promise((resolve) => setTimeout(resolve, 60)));
 
 it('takes focus on mount when asked, so a code can be typed without a click', async () => {
 	render(CodeField, { props: { id: 'mfa-code', label: 'Verification code', autofocus: true } });

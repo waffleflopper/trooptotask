@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto, invalidateAll } from '$app/navigation';
 import SecurityPage from './SecurityPage.svelte';
@@ -9,13 +9,17 @@ import type { AccountSecurityOverview } from './contracts';
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), invalidateAll: vi.fn() }));
 
+// bits-ui PinInput leaves input syncs scheduled after a change; run them while the document still exists.
+beforeEach(() => {
+	vi.useFakeTimers({ shouldAdvanceTime: true });
+});
 afterEach(() => {
 	cleanup();
+	vi.runOnlyPendingTimers();
+	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });
-// bits-ui PinInput schedules uncancelled input syncs up to 50 ms after a change; let them run before happy-dom tears down.
-afterAll(() => new Promise((resolve) => setTimeout(resolve, 60)));
 
 const SETUP_HREF = '/auth/mfa-setup?next=%2Forg%2Falpha%2Faccount%2Fsecurity';
 

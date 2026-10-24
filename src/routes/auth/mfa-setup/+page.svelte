@@ -27,6 +27,7 @@
 	let codeField = $state<ReturnType<typeof CodeField>>();
 
 	const codeError = $derived(rejection?.code === code ? rejection.message : '');
+	const enabled = $derived(setup.status === 'enabled');
 	const groupedSecret = $derived(setup.status === 'ready' ? (setup.secret.match(/.{1,4}/g) ?? []).join(' ') : '');
 	const labelClass = 'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase';
 
@@ -140,20 +141,18 @@
 		label: 'Setup · 3 steps',
 		items: [
 			{ title: 'Get an app', detail: 'Any authenticator app.', state: 'done' },
-			{ title: 'Scan the code', detail: 'Or type the setup key.', state: 'current' },
-			{ title: 'Confirm a code', detail: 'Proves the app is linked.', state: 'upcoming' }
+			{ title: 'Scan the code', detail: 'Or type the setup key.', state: enabled ? 'done' : 'current' },
+			{ title: 'Confirm a code', detail: 'Proves the app is linked.', state: enabled ? 'done' : 'upcoming' }
 		]
 	}}
 	panelEyebrow="Two-factor authentication"
-	panelTitle={setup.status === 'enabled' ? 'MFA is on' : 'Scan the code'}
-	panelDescription={setup.status === 'enabled'
+	panelTitle={enabled ? 'MFA is on' : 'Scan the code'}
+	panelDescription={enabled
 		? 'This account already asks for a code at sign-in.'
 		: 'Open your authenticator app, add an account, and point the camera here.'}
-	alternatives={setup.status === 'enabled'
-		? []
-		: [{ prompt: 'Not ready yet?', label: 'Cancel setup', onclick: cancel }]}
+	alternatives={enabled ? [] : [{ prompt: 'Not ready yet?', label: 'Cancel setup', onclick: cancel }]}
 >
-	{#if setup.status === 'enabled'}
+	{#if enabled}
 		<AuthButton type="button" onclick={leave}>Back to security</AuthButton>
 	{:else if setup.status === 'failed'}
 		<AuthNotice tone="error" message={setup.message} />
@@ -163,7 +162,7 @@
 			<AuthNotice tone="error" message={formError} />
 		{/if}
 
-		<div class="flex flex-wrap items-start gap-6">
+		<div class="flex flex-wrap gap-6">
 			<div class="size-44 shrink-0 overflow-hidden rounded-lg border border-border bg-white p-2">
 				{#if setup.status === 'ready'}
 					<img src={setup.qrCode} alt="QR code for your authenticator app" class="size-full" />
@@ -171,7 +170,7 @@
 					<Skeleton class="size-full" />
 				{/if}
 			</div>
-			<div class="flex min-h-44 w-[190px] flex-col gap-2">
+			<div class="flex w-[190px] flex-col gap-2">
 				<p class="{labelClass} text-muted-foreground">Can't scan? Type this key</p>
 				{#if setup.status === 'ready'}
 					<p class="font-mono text-[17px] leading-[26px] font-medium tracking-[0.06em] break-all" data-setup-key>
@@ -206,6 +205,7 @@
 				label="6-digit code from the app"
 				error={codeError}
 				disabled={loading || setup.status !== 'ready'}
+				autofocus={setup.status === 'ready'}
 				oncomplete={(value) => {
 					code = value;
 					void verify();

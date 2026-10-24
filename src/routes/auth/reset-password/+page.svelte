@@ -269,6 +269,7 @@
 			/>
 		{:else if requiresMfa}
 			<PasswordMfaChallenge
+				hint=""
 				onverified={async () => {
 					requiresMfa = false;
 					error = '';

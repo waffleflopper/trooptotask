@@ -38,6 +38,7 @@ it('holds the code field until the authenticator secret arrives, then shows the 
 	);
 	expect(screen.getByText('ABCD EFGH JKLM')).toBeVisible();
 	expect(codeField()).toBeEnabled();
+	await waitFor(() => expect(codeField()).toHaveFocus());
 });
 
 it('copies the ungrouped setup key', async () => {

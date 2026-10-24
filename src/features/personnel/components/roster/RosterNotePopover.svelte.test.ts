@@ -5,9 +5,17 @@ import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.s
 import type { Personnel } from '../../personnel.types';
 import type { Known, OpenFollowUpSignal, SignalRow } from '../../rosterSignals';
 
-const { gotoMock, toastSuccessMock } = vi.hoisted(() => ({ gotoMock: vi.fn(), toastSuccessMock: vi.fn() }));
+const { gotoMock, toastSuccessMock, navigationGuard } = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	toastSuccessMock: vi.fn(),
+	navigationGuard: { current: undefined as ((navigation: unknown) => void) | undefined }
+}));
 
-vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: vi.fn() }));
+vi.mock('$app/navigation', () => ({
+	goto: gotoMock,
+	invalidate: vi.fn(),
+	beforeNavigate: (guard: (navigation: unknown) => void) => (navigationGuard.current = guard)
+}));
 vi.mock('svelte-sonner', () => ({
 	toast: { success: toastSuccessMock, info: vi.fn(), error: vi.fn(), warning: vi.fn(), dismiss: vi.fn() }
 }));
@@ -203,6 +211,100 @@ describe('RosterNotePopover', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
 		expect(onclose).toHaveBeenCalledOnce();
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	function attemptNavigation(to: string, type: 'link' | 'popstate' = 'link', delta = -1) {
+		const cancel = vi.fn();
+		navigationGuard.current?.({ cancel, willUnload: false, type, delta, to: { url: new URL(to, 'http://localhost') } });
+		return cancel;
+	}
+
+	it('holds a navigation while text is typed, keeps the text, and goes on after Discard', async () => {
+		const { ctx } = makeCtx();
+		const { onclose } = mount(ctx);
+
+		const title = await screen.findByRole('textbox', { name: 'Follow-up title' });
+		await fireEvent.input(title, { target: { value: 'Call about leave' } });
+		const cancel = attemptNavigation('/org/org-1/personnel/young-test?tab=log#top');
+
+		expect(cancel).toHaveBeenCalledOnce();
+		await screen.findByText('Discard what you typed?');
+		expect((title as HTMLInputElement).value).toBe('Call about leave');
+		expect(gotoMock).not.toHaveBeenCalled();
+		expect(onclose).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+		expect(onclose).toHaveBeenCalledOnce();
+		expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel/young-test?tab=log#top');
+	});
+
+	it('drops the held navigation when told to keep editing', async () => {
+		const { ctx } = makeCtx();
+		const { onclose } = mount(ctx);
+
+		await fireEvent.input(await screen.findByRole('textbox', { name: 'Follow-up title' }), {
+			target: { value: 'Call about leave' }
+		});
+		attemptNavigation('/org/org-1/personnel/young-test');
+		await fireEvent.click(await screen.findByRole('button', { name: 'Keep editing' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+
+		expect(onclose).toHaveBeenCalledOnce();
+		expect(gotoMock).not.toHaveBeenCalled();
+	});
+
+	it('steps history back after Discard when Back was pressed', async () => {
+		const goSpy = vi.spyOn(history, 'go').mockImplementation(() => {});
+		const { ctx } = makeCtx();
+		mount(ctx);
+
+		await fireEvent.input(await screen.findByRole('textbox', { name: 'Follow-up title' }), {
+			target: { value: 'Call about leave' }
+		});
+		expect(attemptNavigation('/org/org-1/personnel', 'popstate', -1)).toHaveBeenCalledOnce();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+
+		expect(goSpy).toHaveBeenCalledExactlyOnceWith(-1);
+		expect(gotoMock).not.toHaveBeenCalled();
+		goSpy.mockRestore();
+	});
+
+	it('lets a navigation through when nothing was typed', async () => {
+		const { ctx } = makeCtx();
+		mount(ctx);
+
+		await screen.findByRole('textbox', { name: 'Follow-up title' });
+		expect(attemptNavigation('/org/org-1/personnel/young-test')).not.toHaveBeenCalled();
+	});
+
+	it('locks every draft control while the save is pending and unlocks them when it fails', async () => {
+		let reply!: (response: Response) => void;
+		fetchMock.mockReturnValue(new Promise<Response>((resolve) => (reply = resolve)));
+		const { ctx } = makeCtx();
+		const { onclose } = mount(ctx);
+
+		const title = await screen.findByRole('textbox', { name: 'Follow-up title' });
+		await fireEvent.input(title, { target: { value: 'Call about leave' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add follow-up' }));
+
+		const locked = () => [
+			screen.getByRole('radio', { name: 'Note' }),
+			title,
+			screen.getByRole('textbox', { name: 'Details' }),
+			screen.getByRole('button', { name: 'Tomorrow' }),
+			screen.getByRole('button', { name: 'Choose a due date' })
+		];
+		// happy-dom does not propagate a disabled fieldset to its controls, a browser does.
+		const lockedByFieldset = () => locked().map((control) => control.closest('fieldset')?.disabled);
+		await waitFor(() => expect(lockedByFieldset()).toEqual(Array(5).fill(true)));
+		expect(onclose).not.toHaveBeenCalled();
+
+		reply(new Response(JSON.stringify({ message: 'Not allowed for this Group' }), { status: 403 }));
+		await screen.findByText('Not allowed for this Group');
+		expect(lockedByFieldset()).toEqual(Array(5).fill(false));
+		expect((title as HTMLInputElement).value).toBe('Call about leave');
+		await waitFor(() => expect(document.activeElement).toBe(title));
 	});
 
 	it('shows the first open follow-up and how many more, a skeleton while pending, and nothing when withheld or none', async () => {

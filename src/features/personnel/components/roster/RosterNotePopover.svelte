@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
@@ -21,6 +22,7 @@
 	let open = $state(true);
 	let composer = $state<RosterComposer>();
 	let alive = true;
+	let leaving = false;
 	onDestroy(() => {
 		alive = false;
 	});
@@ -54,6 +56,20 @@
 		);
 		if (alive) close();
 	}
+
+	// A row click, a name link or Back would unmount this and lose the draft: hold the navigation until Discard.
+	beforeNavigate((navigation) => {
+		if (leaving || !composer?.hasDraft()) return;
+		navigation.cancel();
+		if (navigation.willUnload || !navigation.to) return;
+		const { url } = navigation.to;
+		const delta = navigation.type === 'popstate' ? navigation.delta : undefined;
+		composer.requestClose(() => {
+			leaving = true;
+			if (delta) history.go(delta);
+			else void goto(resolve((url.pathname + url.search + url.hash) as '/'));
+		});
+	});
 
 	function keepOpenUnlessClean(event: Event): void {
 		event.preventDefault();

@@ -43,6 +43,7 @@
 	let titleField = $state<HTMLInputElement | null>(null);
 	let noteField = $state<HTMLTextAreaElement | null>(null);
 	let keepEditingButton = $state<HTMLButtonElement | null>(null);
+	let afterDiscard: (() => void) | undefined;
 
 	const presets = $derived(dueDatePresets(today));
 	const activePreset = $derived(selectedPreset(presets, due || null));
@@ -54,13 +55,23 @@
 		void tick().then(() => (kind === 'follow-up' ? titleField : noteField)?.focus());
 	});
 
-	/** Closes now when nothing was typed, else asks first. False while it waits on the answer or on a save. */
-	export function requestClose(): boolean {
+	/** Typed text that leaving would lose. A save in flight keeps it, so it does not count. */
+	export function hasDraft(): boolean {
+		return anyText && !saving;
+	}
+
+	/**
+	 * Closes now when nothing was typed, else asks first. False while it waits on the answer or on a save.
+	 * `then` runs only after the user confirms the discard.
+	 */
+	export function requestClose(then?: () => void): boolean {
 		if (saving) return false;
 		if (!anyText) {
 			onclose();
+			then?.();
 			return true;
 		}
+		afterDiscard = then;
 		confirmingDiscard = true;
 		void tick().then(() => keepEditingButton?.focus());
 		return false;
@@ -68,7 +79,15 @@
 
 	function keepEditing(): void {
 		confirmingDiscard = false;
+		afterDiscard = undefined;
 		void tick().then(() => (kind === 'follow-up' ? titleField : noteField)?.focus());
+	}
+
+	function discard(): void {
+		const then = afterDiscard;
+		afterDiscard = undefined;
+		onclose();
+		then?.();
 	}
 
 	function chooseDue(date: string): void {
@@ -96,6 +115,11 @@
 		} finally {
 			saving = false;
 		}
+		if (failure) {
+			// The fields were disabled for the save, which drops focus.
+			await tick();
+			(kind === 'follow-up' ? titleField : noteField)?.focus();
+		}
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
@@ -116,6 +140,7 @@
 	}}
 	onkeydown={handleKeydown}
 >
+	<fieldset class="contents" disabled={saving}>
 	<header class="flex items-center justify-between gap-3 border-b px-4 pt-3.5 pb-3">
 		<div class="grid min-w-0 gap-0.5">
 			<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase">Add to log</span>
@@ -218,6 +243,7 @@
 			<Field.Error>{failure}</Field.Error>
 		{/if}
 	</div>
+	</fieldset>
 
 	<footer class="flex items-center justify-between gap-3 rounded-b-lg border-t bg-muted px-4 pt-2.5 pb-3">
 		{#if confirmingDiscard}
@@ -226,12 +252,12 @@
 				<Button type="button" size="sm" variant="outline" bind:ref={keepEditingButton} onclick={keepEditing}
 					>Keep editing</Button
 				>
-				<Button type="button" size="sm" variant="destructive" onclick={onclose}>Discard</Button>
+				<Button type="button" size="sm" variant="destructive" onclick={discard}>Discard</Button>
 			</span>
 		{:else}
 			<span class="font-mono text-[11px] text-muted-foreground max-sm:hidden">⌘↵ save · Esc close</span>
 			<span class="flex gap-1.5 max-sm:ml-auto">
-				<Button type="button" size="sm" variant="outline" disabled={saving} onclick={requestClose}>Cancel</Button>
+				<Button type="button" size="sm" variant="outline" disabled={saving} onclick={() => requestClose()}>Cancel</Button>
 				<Button type="submit" size="sm" disabled={saving || !typed}>
 					{saving ? 'Saving…' : kind === 'follow-up' ? 'Add follow-up' : 'Add note'}
 				</Button>

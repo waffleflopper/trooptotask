@@ -22,7 +22,8 @@ const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMoc
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
-	invalidate: invalidateMock
+	invalidate: invalidateMock,
+	beforeNavigate: vi.fn()
 }));
 
 vi.mock('svelte-sonner', () => ({
@@ -584,10 +585,13 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }));
-		expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		const [actionsCellNote, identityCellNote] = screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' });
+		for (const noteButton of [actionsCellNote, identityCellNote]) {
+			await fireEvent.click(noteButton);
+			expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		}
 
 		const [actionsCellEdit, identityCellEdit] = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
 		await fireEvent.click(actionsCellEdit);
@@ -623,7 +627,7 @@ describe('PersonnelPageView', () => {
 		await fireEvent.keyDown(smith, { key: 'Enter' });
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
-		await fireEvent.keyDown(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }), { key: 'e' });
+		await fireEvent.keyDown(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0], { key: 'e' });
 		expect(handleEdit).toHaveBeenCalledTimes(1);
 	});
 

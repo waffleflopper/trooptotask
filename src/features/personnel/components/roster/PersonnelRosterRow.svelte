@@ -146,19 +146,37 @@
 								{lossBadgeLabel(loss)}
 							</Badge>
 						{/if}
-						<!-- The actions column hides below md; Quick edit is the one action an operate-only member has. -->
-						{#if canQuickEdit && !controls.selecting}
-							<Button
-								type="button"
-								variant="outline"
-								size="icon-sm"
-								class="ml-auto shrink-0 md:hidden"
-								tabindex={tabbable ? 0 : -1}
-								aria-label="Quick edit {name}"
-								onclick={() => controls.quickEdit(person)}
-							>
-								<PencilIcon aria-hidden="true" />
-							</Button>
+						<!-- The actions column hides below md; Note and Quick edit stay reachable beside the name. -->
+						{#if (canNote || canQuickEdit) && !controls.selecting}
+							<span class="ml-auto flex shrink-0 gap-1 md:hidden">
+								{#if canNote}
+									<Button
+										type="button"
+										variant={noteOpen ? 'default' : 'outline'}
+										size="icon-sm"
+										tabindex={tabbable ? 0 : -1}
+										aria-label="Note for {name}"
+										aria-haspopup="dialog"
+										aria-expanded={noteOpen}
+										data-roster-note
+										onclick={() => controls.note(person)}
+									>
+										<MessageSquarePlusIcon aria-hidden="true" />
+									</Button>
+								{/if}
+								{#if canQuickEdit}
+									<Button
+										type="button"
+										variant="outline"
+										size="icon-sm"
+										tabindex={tabbable ? 0 : -1}
+										aria-label="Quick edit {name}"
+										onclick={() => controls.quickEdit(person)}
+									>
+										<PencilIcon aria-hidden="true" />
+									</Button>
+								{/if}
+							</span>
 						{/if}
 					</span>
 					<!-- Below 36rem Needs attention folds under the name; the line keeps its height while loading. -->

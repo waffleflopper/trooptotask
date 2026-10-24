@@ -15,10 +15,20 @@ import type { Personnel } from '../../personnel.types';
 import type { PeekChangeFields } from '../../rosterPeek';
 import { changesSignalApplicability } from '../../rosterSignals';
 
+type PersonnelPatch = Partial<Omit<Personnel, 'id'>>;
+
+function changedFieldsOf(session: QuickEditSession, groups: readonly Group[]): PersonnelPatch {
+	const payload = personnelPayloadOf(session.draft, groups);
+	const keys = session.changes.flatMap(({ field }) =>
+		field === 'groupId' ? (['groupId', 'groupName'] as const) : [field]
+	);
+	return Object.fromEntries(keys.map((key) => [key, payload[key]]));
+}
+
 export interface QuickEditDeps {
 	person(id: string): Personnel | undefined;
 	groups(): readonly Group[];
-	save(id: string, data: Omit<Personnel, 'id'>): Promise<boolean>;
+	save(id: string, data: PersonnelPatch): Promise<boolean>;
 	refreshSignals(ids: string[]): void;
 	peekChanged(id: string, before: Personnel, after: PeekChangeFields): void;
 	dataSheetHref(person: Personnel): string;
@@ -171,12 +181,12 @@ export class RosterQuickEdit {
 		if (!session.dirty || Object.keys(session.errors).length > 0) return false;
 
 		const stillHere = stillInOrganizationLifetime();
-		const payload = personnelPayloadOf(session.draft, this.#deps.groups());
+		const patch = changedFieldsOf(session, this.#deps.groups());
 		const before = this.#deps.person(session.personnelId);
 		session.saving = true;
 		session.error = '';
 		try {
-			if (!(await this.#deps.save(session.personnelId, payload))) throw new Error('Failed to update personnel');
+			if (!(await this.#deps.save(session.personnelId, patch))) throw new Error('Failed to update personnel');
 		} catch (error) {
 			if (stillHere() && this.session === session) session.error = personnelSaveErrorMessage(error, true);
 			if (this.session === session) session.saving = false;
@@ -185,8 +195,9 @@ export class RosterQuickEdit {
 		if (!stillHere()) return false;
 		if (!this.#disposed) {
 			if (before) {
-				this.#deps.peekChanged(session.personnelId, before, payload);
-				if (changesSignalApplicability(before, payload)) this.#deps.refreshSignals([session.personnelId]);
+				const after = { ...before, ...patch };
+				this.#deps.peekChanged(session.personnelId, before, after);
+				if (changesSignalApplicability(before, after)) this.#deps.refreshSignals([session.personnelId]);
 			}
 			if (this.session === session) this.#close(session);
 		}

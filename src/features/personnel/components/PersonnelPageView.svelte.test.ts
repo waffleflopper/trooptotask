@@ -848,17 +848,7 @@ describe('PersonnelPageView', () => {
 			await fireEvent.submit(form);
 
 			await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
-			expect(update).toHaveBeenCalledExactlyOnceWith('person-1', {
-				rank: 'SGT',
-				lastName: 'Smith',
-				firstName: 'Jane',
-				mos: '68C',
-				clinicRole: 'Senior Medic',
-				ets: null,
-				deros: null,
-				groupId: 'group-1',
-				groupName: 'Alpha'
-			});
+			expect(update).toHaveBeenCalledExactlyOnceWith('person-1', { mos: '68C', clinicRole: 'Senior Medic' });
 			await waitFor(() => {
 				const row = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
 				expect(within(row).getByText('68C')).toBeTruthy();

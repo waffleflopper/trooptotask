@@ -57,8 +57,7 @@
 						size="chip"
 						class={['shrink-0', people === 0 && !active && 'text-muted-foreground']}
 						disabled={people === 0 && !active}
-						pressed={active}
-						onPressedChange={() => onToggle(chip)}
+						bind:pressed={() => active, () => onToggle(chip)}
 					>
 						{#if CHIP_DOTS[chip]}
 							<span class="size-1.75 shrink-0 rounded-full {CHIP_DOTS[chip]}" aria-hidden="true"></span>

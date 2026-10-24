@@ -245,24 +245,26 @@ scoped actors retain their baseline grants.
     people's Group headers remain, each counting only its matches; switch to `A-Z`, type `Baker` under `?show=losses`
     and require `No personnel match this filter.` with `0 of 3 match`. The headcount entries are filters too:
     `1 Verification Training` sets `?show=status:<statusTypeId>` and shows Baker, `2 present` sets `?show=present` and
-    shows Able and Unassigned, and the pressed entry is drawn dark with an × (click it to clear). Open
-    `?show=status:<statusLeave>` (`Verification Leave`, which nobody has today): the strip keeps `0 Verification Leave`
-    pressed with its ×, the roster reads `No personnel match this filter.` with `0 of 3 match`, and clicking the entry
-    removes `?show=` from the address; `scrollWidth` equals the viewport at 1440, 900 and 390. Open `?show=expired`
-    directly and reload: the filter is restored; `?show=everyone` is dropped from the address with the roster whole.
-    Hold the lane (`$V server-source arm rpc/roster_signals hold 1 90000`, reload with `?show=expired`): one chip
-    placeholder per chip the actor can see (six for `orgOwner`) under `Show only` and the whole roster, with the chip
-    row and the first row at identical offsets once released (viewport tops 222 and 362 at 1440, 244 and 384 at 390).
-    With Losses & Awards off (`POST` `/api/organization/settings` with
-    `{"featureSwitch":{"feature":"lossesAndAwards","on":false}}`), `manager` holds two placeholders that become two
-    chips at the same offsets (222 and 362 at 1440 and 900, 206 and 346 at 390). `viewer` and `personnelOperate` can
-    read no signal source, so their lane makes no `roster_signals` call and cannot be held; with Losses & Awards off
-    they get no `Show only` row at any moment of a load, and Able's row stays at 316 px at 1440 and 900 and 300 px at
-    390 from its first frame (install a per-frame sampler with `navigate_page`'s `initScript`). Turn Losses & Awards
-    back on afterward. Arm `fail-hard` instead: no chip row, the whole roster, and the notice
-    `Today's status and Needs attention could not be loaded.` followed by `Filter unavailable.` with `Reload`; the
-    address keeps `?show=expired`, and `Reload` after `server-source restore` brings the filter back. Turn off
-    `Critical tasks` and `Training` in Settings › Features (or `POST` `/api/organization/settings` with
+    shows Able and Unassigned, and the pressed entry is drawn dark with an × (click it to clear). With a typed Duty role
+    open in Quick edit, click `Expired or missing` or an entry: `Save changes first?` asks, and `Cancel` leaves the chip
+    and the entry unpressed (`aria-pressed="false"`), the address without `?show=` and all three people listed;
+    `Discard and leave` sets `?show=expired` with the chip pressed. Open `?show=status:<statusLeave>`
+    (`Verification Leave`, which nobody has today): the strip keeps `0 Verification Leave` pressed with its ×, the
+    roster reads `No personnel match this filter.` with `0 of 3 match`, and clicking the entry removes `?show=` from the
+    address; `scrollWidth` equals the viewport at 1440, 900 and 390. Open `?show=expired` directly and reload: the
+    filter is restored; `?show=everyone` is dropped from the address with the roster whole. Hold the lane
+    (`$V server-source arm rpc/roster_signals hold 1 90000`, reload with `?show=expired`): one chip placeholder per chip
+    the actor can see (six for `orgOwner`) under `Show only` and the whole roster, with the chip row and the first row
+    at identical offsets once released (viewport tops 222 and 362 at 1440, 244 and 384 at 390). With Losses & Awards off
+    (`POST` `/api/organization/settings` with `{"featureSwitch":{"feature":"lossesAndAwards","on":false}}`), `manager`
+    holds two placeholders that become two chips at the same offsets (222 and 362 at 1440 and 900, 206 and 346 at 390).
+    `viewer` and `personnelOperate` can read no signal source, so their lane makes no `roster_signals` call and cannot
+    be held; with Losses & Awards off they get no `Show only` row at any moment of a load, and Able's row stays at 316
+    px at 1440 and 900 and 300 px at 390 from its first frame (install a per-frame sampler with `navigate_page`'s
+    `initScript`). Turn Losses & Awards back on afterward. Arm `fail-hard` instead: no chip row, the whole roster, and
+    the notice `Today's status and Needs attention could not be loaded.` followed by `Filter unavailable.` with
+    `Reload`; the address keeps `?show=expired`, and `Reload` after `server-source restore` brings the filter back. Turn
+    off `Critical tasks` and `Training` in Settings › Features (or `POST` `/api/organization/settings` with
     `{"featureSwitch":{"feature":"training","on":false}}`, then `criticalTasks`): `Expired or missing` disappears,
     `?show=expired` shows the whole roster with `Filter unavailable.` and `Clear filter`, and the button removes the
     parameter. Turn both back on afterward. At 390 px the chip row scrolls sideways inside itself and the page's

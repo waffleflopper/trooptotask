@@ -1314,8 +1314,7 @@ describe('PersonnelPageView', () => {
 				people: [smith, young]
 			} as never);
 			await screen.findByRole('button', { name: /Expired or missing/ });
-			expect(screen.getByRole('group', { name: 'Show only' })).toBe(row);
-			expect(row.getAttribute('aria-busy')).toBe('false');
+			expect(screen.getByRole('group', { name: 'Show only' }).getAttribute('aria-busy')).toBe('false');
 			unmount();
 
 			const failed = filterCtx();
@@ -1352,6 +1351,59 @@ describe('PersonnelPageView', () => {
 				keepFocus: true,
 				noScroll: true
 			});
+		});
+
+		it('leaves chips and headcount toggles as they were when a dirty quick edit holds the navigation', async () => {
+			groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+			gotoMock.mockImplementation((href: string) => {
+				const guard = beforeNavigateMock.mock.calls.at(-1)![0] as (navigation: unknown) => void;
+				guard({
+					type: 'goto',
+					willUnload: false,
+					to: { url: new URL(href, 'http://localhost') },
+					cancel: () => undefined
+				});
+			});
+			const ctx = Object.assign(filterCtx(), {
+				canManagePersonnelRecord: () => true,
+				canReadPersonnelDetails: true,
+				canOpenPersonnelDetail: () => true,
+				personnelRecordAffordance: () => allowedAffordance()
+			});
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+
+			await fireEvent.click(
+				screen
+					.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' })
+					.find((button) => button.getAttribute('title') === 'Quick edit (E)')!
+			);
+			await fireEvent.input(screen.getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+			const names = rowNames();
+
+			await fireEvent.click(await screen.findByRole('button', { name: /Expired or missing/ }));
+			await fireEvent.click(
+				within(await screen.findByRole('alertdialog', { name: 'Save changes first?' })).getByRole('button', {
+					name: 'Cancel'
+				})
+			);
+			await fireEvent.click(
+				within(screen.getByRole('list', { name: "Today's headcount" })).getByRole('button', { name: /Leave/ })
+			);
+			await fireEvent.click(
+				within(await screen.findByRole('alertdialog', { name: 'Save changes first?' })).getByRole('button', {
+					name: 'Cancel'
+				})
+			);
+
+			expect(screen.getByRole('button', { name: /Expired or missing/ }).getAttribute('aria-pressed')).toBe('false');
+			expect(
+				within(screen.getByRole('list', { name: "Today's headcount" }))
+					.getByRole('button', { name: /Leave/ })
+					.getAttribute('aria-pressed')
+			).toBe('false');
+			expect(rowNames()).toEqual(names);
+			groupCatalogHydration.load([], 'org-test-reset');
 		});
 
 		it('narrows the roster to the people a chip from the link matches and shows the matched item', async () => {

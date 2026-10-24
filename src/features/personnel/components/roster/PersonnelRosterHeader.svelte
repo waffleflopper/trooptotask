@@ -49,8 +49,7 @@
 			size="chip"
 			class="text-sm"
 			disabled={count === 0 && !active}
-			pressed={active}
-			onPressedChange={() => onToggleFilter(target)}
+			bind:pressed={() => active, () => onToggleFilter(target)}
 		>
 			{@render dot()}
 			<span class="font-semibold tabular-nums">{count}</span>

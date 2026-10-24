@@ -172,7 +172,7 @@ describe('createSupabaseOrgAccessPort', () => {
 	});
 });
 
-it('composes platform content and account-wide preferences in parallel across Organizations and recovers its failure fallback', async () => {
+it('composes platform content, account-wide preferences and the profile in parallel across Organizations and recovers each failure fallback', async () => {
 	const { createClient } = await import('@supabase/supabase-js');
 	const { createSupabaseAppShellFirstPaintChromePort } = await import('./appShellProvider.server');
 	let release!: () => void;
@@ -188,6 +188,7 @@ it('composes platform content and account-wide preferences in parallel across Or
 	});
 	let failed = false;
 	let preferencesFailed = false;
+	let profileFailed = false;
 	const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false },
 		global: {
@@ -224,6 +225,15 @@ it('composes platform content and account-wide preferences in parallel across Or
 								organization_id: url.searchParams.get('organization_id')?.slice(3),
 								preferences: { training: { selectedGroupId: 'group-alpha' } }
 							});
+				if (url.pathname.endsWith('/user_profiles'))
+					return profileFailed
+						? Response.json({ message: 'Profile read unavailable' }, { status: 500 })
+						: Response.json({
+								user_id: url.searchParams.get('user_id')?.slice(3),
+								first_name: 'Dana',
+								last_name: 'Whitaker',
+								rank: 'SFC'
+							});
 				throw new Error('Unexpected shell provider read');
 			}
 		}
@@ -231,15 +241,21 @@ it('composes platform content and account-wide preferences in parallel across Or
 	const first = createSupabaseAppShellFirstPaintChromePort({
 		orgId: 'org-a',
 		userId: 'account-a',
+		email: 'dana@example.test',
 		userSupabase: client,
 		supabase: client
 	}).getFirstPaintChrome();
 	await Promise.all([startedContent, startedDismissals]);
 	release();
 	expect((await first).announcements).toEqual([{ id: 'visible', title: 'Current', message: 'Content', type: 'info' }]);
+	expect((await first).account).toEqual({
+		email: 'dana@example.test',
+		profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
+	});
 	const second = createSupabaseAppShellFirstPaintChromePort({
 		orgId: 'org-b',
 		userId: 'account-a',
+		email: null,
 		userSupabase: client,
 		supabase: client
 	});
@@ -257,6 +273,10 @@ it('composes platform content and account-wide preferences in parallel across Or
 		expect(withoutAnnouncements.preferences.training.selectedGroupId).toBe('group-alpha');
 		failed = false;
 		expect((await second.getFirstPaintChrome()).announcements.map(({ id }) => id)).toEqual(['visible']);
+		profileFailed = true;
+		const withoutProfile = await second.getFirstPaintChrome();
+		expect(withoutProfile.account).toEqual({ email: null, profile: { status: 'unavailable' } });
+		expect(withoutProfile.announcements.map(({ id }) => id)).toEqual(['visible']);
 	} finally {
 		log.mockRestore();
 	}

@@ -14,6 +14,8 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 import { settles } from '$lib/test-support/settles';
+import { RosterPeek } from '../rosterPeek.svelte';
+import type { RosterPeekSection } from '../rosterPeek';
 import { RosterSignals } from '../rosterSignals.svelte';
 import type { PersonSignalCore, RosterSignalRead, SignalAccess } from '../rosterSignals';
 import * as groupMembership from '../utils/moveGroupMembers';
@@ -29,7 +31,7 @@ afterEach(async () => {
 	vi.restoreAllMocks();
 });
 
-function groupEditorContext(modals: ModalRegistry) {
+function groupEditorContext(modals: ModalRegistry, peek?: RosterPeek) {
 	return new PersonnelPageContext(
 		{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [] },
 		modals,
@@ -38,7 +40,11 @@ function groupEditorContext(modals: ModalRegistry) {
 			capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
 			scopeSet: { kind: 'organization' }
 		}),
-		personnelStore
+		personnelStore,
+		[],
+		undefined,
+		null,
+		peek
 	);
 }
 
@@ -250,6 +256,75 @@ describe('Group editor changes reach the roster in place', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove from Group' }));
 		await waitFor(() => expect(personnelStore.getById('person-a')).toMatchObject({ groupId: null, groupName: '' }));
 		expect(requests).toEqual(['PUT /org/org-a/api/groups', 'POST /org/org-a/api/personnel/group-membership']);
+	});
+
+	describe('for a Person whose preview is open', () => {
+		const member = {
+			id: 'person-a',
+			slug: 'synthetic-person',
+			rank: 'SPC',
+			groupId: 'group-a',
+			groupName: 'Alpha',
+			firstName: 'Synthetic',
+			lastName: 'Person',
+			mos: '68W',
+			clinicRole: 'Medic',
+			ets: null,
+			deros: null,
+			archivedAt: null
+		} as Personnel;
+
+		function openPreview() {
+			groupCatalogHydration.load(
+				[
+					{ id: 'group-a', name: 'Alpha', sortOrder: 0 },
+					{ id: 'group-b', name: 'Bravo', sortOrder: 1 }
+				],
+				'org-a'
+			);
+			personnelStore.load([member], 'org-a');
+			const reads: RosterPeekSection[] = [];
+			const peek = new RosterPeek('org-a', {
+				readSection: async (_orgId, _personnelId, section) => {
+					reads.push(section);
+					return { state: 'hidden' };
+				}
+			});
+			peek.show('person-a');
+			const modals = new ModalRegistry();
+			modals.open('group-manager', { select: 'group-a' });
+			render(PersonnelModals, { props: { ctx: groupEditorContext(modals, peek), modals, requestArchiveApproval } });
+			return reads;
+		}
+
+		it("rereads the Person's Calendar and Needs attention when the editor moves them out of their Group", async () => {
+			const reads = openPreview();
+			await waitFor(() => expect(reads).toHaveLength(5));
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () => Response.json({ groupId: null, movedIds: ['person-a'], unavailableIds: [] }))
+			);
+
+			await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Person, Synthetic' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Remove from Group' }));
+
+			await waitFor(() => expect(reads.slice(5).toSorted()).toEqual(['attention', 'next7']));
+		});
+
+		it("rereads the Person's Calendar and Needs attention when deleting their Group moves them to another", async () => {
+			const reads = openPreview();
+			await waitFor(() => expect(reads).toHaveLength(5));
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () => Response.json({ movedCount: 1 }))
+			);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Delete Alpha…' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Delete and move 1' }));
+
+			await waitFor(() => expect(personnelStore.getById('person-a')?.groupId).toBe('group-b'));
+			expect(reads.slice(5).toSorted()).toEqual(['attention', 'next7']);
+		});
 	});
 });
 

@@ -170,6 +170,38 @@ describe('RosterPeek', () => {
 		expect(reads().slice(10)).toEqual(['okafor:followUps']);
 	});
 
+	describe('when a write changes the shown Person', () => {
+		const shown = async () => {
+			const context = setup();
+			context.peek.show(OKAFOR);
+			for (const section of ['identity', 'next7', 'attention', 'followUps', 'note'] as const)
+				await context.answer('okafor', section, { state: 'hidden' });
+			return context;
+		};
+
+		it.each([
+			['ETS', { ets: null }, { ets: '2026-12-01' }, ['okafor:attention']],
+			['PCS/DEROS', { deros: '2026-12-01' }, { deros: null }, ['okafor:attention']],
+			['MOS', { mos: '68W' }, { mos: '68C' }, ['okafor:attention']],
+			['Group', { groupId: 'g-1' }, { groupId: null }, ['okafor:next7', 'okafor:attention']],
+			['name', {}, {}, []]
+		])('rereads what a %s change leaves out of date and nothing else', async (_field, before, after, expected) => {
+			const { peek, reads } = await shown();
+
+			peek.changed(OKAFOR, before, after);
+
+			expect(reads().slice(5)).toEqual(expected);
+		});
+
+		it('treats a missing date and a cleared date as the same', async () => {
+			const { peek, reads } = await shown();
+
+			peek.changed(OKAFOR, { ets: undefined, deros: undefined }, { ets: null, deros: null });
+
+			expect(reads()).toHaveLength(5);
+		});
+	});
+
 	it('stops reading when closed', () => {
 		vi.useFakeTimers();
 		const { peek, calls, reads } = setup();

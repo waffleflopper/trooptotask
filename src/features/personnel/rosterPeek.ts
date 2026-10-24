@@ -1,3 +1,4 @@
+import type { Personnel } from './personnel.types';
 import type { PersonnelFollowUp } from './personnelArtifact.types';
 import type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 import type { PersonnelAttention } from './personnelReadiness.types';
@@ -24,4 +25,25 @@ export type RosterPeekRead<S extends RosterPeekSection = RosterPeekSection> =
 
 export function isRosterPeekSection(value: unknown): value is RosterPeekSection {
 	return typeof value === 'string' && (ROSTER_PEEK_SECTIONS as readonly string[]).includes(value);
+}
+
+export type PeekChangeFields = Partial<Pick<Personnel, 'rank' | 'mos' | 'clinicRole' | 'groupId' | 'ets' | 'deros'>>;
+
+const differs = (before: string | null | undefined, after: string | null | undefined) =>
+	(before ?? null) !== (after ?? null);
+
+/**
+ * The sections a change to a Person leaves out of date. Group decides the Calendar assignments shown and the
+ * requirements that apply; rank, MOS and duty role decide requirements; ETS and PCS/DEROS are loss items in Needs
+ * attention. Fields absent from both sides count as unchanged.
+ */
+export function peekSectionsAffectedBy(before: PeekChangeFields, after: PeekChangeFields): RosterPeekSection[] {
+	if (differs(before.groupId, after.groupId)) return ['next7', 'attention'];
+	const attention =
+		differs(before.rank, after.rank) ||
+		differs(before.mos, after.mos) ||
+		differs(before.clinicRole, after.clinicRole) ||
+		differs(before.ets, after.ets) ||
+		differs(before.deros, after.deros);
+	return attention ? ['attention'] : [];
 }

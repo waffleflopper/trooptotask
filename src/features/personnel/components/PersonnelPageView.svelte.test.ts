@@ -1470,7 +1470,39 @@ describe('PersonnelPageView', () => {
 			expect(within(panel()).getByText('68C')).toBeTruthy();
 		});
 
-		it("rereads the shown Person's follow-ups after a follow-up for each, and Needs attention after a Group move", async () => {
+		it('rereads Needs attention once when only a loss date is saved, and nothing for a name', async () => {
+			viewport(1440);
+			const { ctx, reads } = peekCtx();
+			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue();
+			vi.spyOn(personnelStore, 'updateOrThrow').mockImplementation(async (id, data) => {
+				personnelStore.updateLocalWhere(
+					(item) => item.id === id,
+					(item) => ({ ...item, ...data })
+				);
+				return true;
+			});
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+
+			await fireEvent.click(within(panel()).getByRole('button', { name: 'Quick edit SGT Jane Smith' }));
+			let form = screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' });
+			await fireEvent.click(within(form).getByLabelText('ETS'));
+			await fireEvent.click((await screen.findAllByRole('button', { name: /^\w+day, \w+ 15, / }))[0]);
+			await fireEvent.submit(form);
+			await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+			expect(reads.slice(5).map((read) => `${read.personnelId}:${read.section}`)).toEqual(['person-1:attention']);
+
+			await fireEvent.click(within(panel()).getByRole('button', { name: 'Quick edit SGT Jane Smith' }));
+			form = screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' });
+			await fireEvent.input(within(form).getByLabelText('First name'), { target: { value: 'Janet' } });
+			await fireEvent.submit(form);
+			await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+
+			expect(reads).toHaveLength(6);
+			expect(refresh).not.toHaveBeenCalled();
+		});
+
+		it("rereads the shown Person's follow-ups after a follow-up for each, and Calendar and Needs attention after a Group move", async () => {
 			viewport(1440);
 			const { ctx, reads } = peekCtx();
 			Object.assign(ctx, { canManagePersonnelInGroup: () => true });
@@ -1496,7 +1528,10 @@ describe('PersonnelPageView', () => {
 			await fireEvent.keyDown(bulkBar().getByRole('button', { name: 'Move to Group' }), { key: 'Enter' });
 			await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Bravo' }));
 			await waitFor(() => expect(toastSuccessMock.mock.lastCall?.[0]).toBe('Moved 1 person to Bravo'));
-			expect(reads.slice(6).map((read) => `${read.personnelId}:${read.section}`)).toEqual(['person-1:attention']);
+			expect(reads.slice(6).map((read) => `${read.personnelId}:${read.section}`)).toEqual([
+				'person-1:next7',
+				'person-1:attention'
+			]);
 		});
 
 		it('closes when the shown Person is archived', async () => {

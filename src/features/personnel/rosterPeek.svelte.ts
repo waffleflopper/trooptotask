@@ -1,5 +1,12 @@
 import { SvelteMap } from 'svelte/reactivity';
-import { ROSTER_PEEK_SECTIONS, type RosterPeekRead, type RosterPeekSection, type RosterPeekValues } from './rosterPeek';
+import {
+	ROSTER_PEEK_SECTIONS,
+	peekSectionsAffectedBy,
+	type PeekChangeFields,
+	type RosterPeekRead,
+	type RosterPeekSection,
+	type RosterPeekValues
+} from './rosterPeek';
 
 export type PeekSectionState<S extends RosterPeekSection> =
 	| { state: 'loading' }
@@ -120,6 +127,12 @@ export class RosterPeek {
 				else entry.stale.add(section);
 			}
 		}
+	}
+
+	/** A write changed a Person from `before` to `after`; the sections that change leaves out of date are not reused. */
+	changed(personnelId: string, before: PeekChangeFields, after: PeekChangeFields): void {
+		const sections = peekSectionsAffectedBy(before, after);
+		if (sections.length) this.invalidate([personnelId], sections);
 	}
 
 	#load(personnelId: string): void {

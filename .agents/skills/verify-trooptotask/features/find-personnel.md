@@ -421,12 +421,16 @@ scoped actors retain their baseline grants.
       `Quick edit SPC Baker, Synthetic` under Baker's row with focus on `Rank`. Set `MOS` to `11C` and `Save`: one
       `PUT .../api/personnel`, one `peek?section=attention` and one `POST .../roster-signals`; the panel's MOS chip
       reads `11C` and `rows personnel orgA` shows `11C`. Esc, then Space on the row, shows `11C` again with no reads.
-      Restore `11B`.
+      Restore `11B`. Quick edit again and pick ETS `Dec 4, 2026`: one `PUT` and one `peek?section=attention`, no
+      `roster-signals` and no other `peek` request; the panel reads `Needs attention · 3` with `ETS 4 Dec 2026` and
+      `Upcoming · in 41 days`, and the row carries `ETS · 41d`. A name-only save sends no `peek` request.
     - Bulk writes: with Baker shown and selected, `Follow-up for each` (`Add to log for 1 person`) saved with
       Control+Enter sends one `follow-ups/batch`, one `peek?section=followUps` and one `roster-signals` POST, and the
       panel reads `Open follow-ups · 1` with the new title and `No due date`. `Move to Group` → `Alpha` sends one
-      `group-membership`, one `peek?section=attention` and one `roster-signals` POST, and the eyebrow reads
-      `ALPHA · NCO`; move Baker back to `Bravo`. Archiving the shown Person closes the panel.
+      `group-membership`, one `peek?section=next7`, one `peek?section=attention` and one `roster-signals` POST, and the
+      eyebrow reads `ALPHA · NCO`; move Baker back to `Bravo`. A Group change from Quick edit or from `Manage groups` (a
+      member moved, or a Group deleted with its members reassigned) rereads the same two sections for each Person moved.
+      Archiving the shown Person closes the panel.
     - Loading: `$V server-source arm leader_notes hold 1 90000`, reload and open Baker: only `Latest note` shows its
       three-line skeleton (`Latest note loading`) while the other sections fill, and the section's top does not move
       when `release` lets the note through. Stage a `Verification Leave` entry for Baker (`POST .../api/availability`,

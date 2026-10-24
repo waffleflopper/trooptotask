@@ -35,6 +35,7 @@ function setup(overrides: Partial<QuickEditDeps> = {}) {
 			return true;
 		}),
 		refreshSignals: vi.fn<QuickEditDeps['refreshSignals']>(),
+		peekChanged: vi.fn<QuickEditDeps['peekChanged']>(),
 		dataSheetHref: (person: Personnel) => `/personnel/${person.slug}/data-sheet`,
 		navigate: vi.fn<QuickEditDeps['navigate']>(),
 		closed: vi.fn<QuickEditDeps['closed']>(),
@@ -141,6 +142,11 @@ describe('save', () => {
 			groupName: '1st Platoon'
 		});
 		expect(deps.refreshSignals).toHaveBeenCalledExactlyOnceWith(['p-1']);
+		expect(deps.peekChanged).toHaveBeenCalledExactlyOnceWith(
+			'p-1',
+			okafor,
+			expect.objectContaining({ groupId: 'g-1' })
+		);
 		expect(deps.closed).toHaveBeenCalledWith('p-1');
 		expect(edit.editingId).toBeNull();
 	});

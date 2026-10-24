@@ -58,6 +58,7 @@
 		const orgId = ctx.orgId;
 		// The selection stays editable while the request runs, so the result is read against what was submitted.
 		const submitted = writable.map((person) => ({ id: person.id, groupId: person.groupId }));
+		const previousGroup = new Map(submitted.map((person) => [person.id, person.groupId]));
 		const selectedCount = people.length;
 		const inLifetime = stillInOrganizationLifetime();
 		const isCurrent = () => inLifetime() && rosterIsCurrent(orgId);
@@ -76,10 +77,8 @@
 				submitted.filter((person) => moved.has(person.id) && person.groupId !== target.id).map((person) => person.id)
 			);
 			// A Group decides which requirements apply, so the People who changed Group get their signals reread.
-			if (changed.size) {
-				ctx.peek.invalidate([...changed], ['attention']);
-				void ctx.signals.refresh([...changed]);
-			}
+			for (const id of changed) ctx.peek.changed(id, { groupId: previousGroup.get(id) }, { groupId: target.id });
+			if (changed.size) void ctx.signals.refresh([...changed]);
 			personnelStore.updateLocalWhere(
 				(person) => changed.has(person.id),
 				(person) => ({ ...person, groupId: target.id, groupName: target.id ? target.name : '' })

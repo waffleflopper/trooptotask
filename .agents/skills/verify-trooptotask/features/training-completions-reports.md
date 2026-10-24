@@ -599,6 +599,9 @@ and offline recovery tests separate from native UI, actual PDF and independent v
 - Activating the selected Horizon or Rows by button again, by pointer or Space, must leave it pressed (a Rows per page
   radio stays checked) and avoid another request. Choosing a different option still changes the briefing or detail and
   its URL where applicable.
+- The matrix mounts only the rows near its scroll position, so a snapshot lists only those People. Scroll the
+  `Training matrix viewport` to the Person, take a fresh snapshot, then click a cell in the middle of the viewport. A
+  cell at the top edge sits under the sticky column headers, and a click there sorts by that column instead.
 - Endpoint probes need valid fixture IDs and bodies. PUT uses the saved record ID; DELETE uses `{id}`; batch uses
   `{records:[{personnelId,trainingTypeId,completionDate,status:'completed'}]}`. A validation error does not prove scope
   denial.

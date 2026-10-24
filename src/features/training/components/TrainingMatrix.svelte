@@ -65,15 +65,17 @@
 		resolveColumn: (key) => {
 			const type = trainingTypes.find((t) => t.id === key);
 			if (!type) return undefined;
+			const status = (p: Personnel) => getCellMetadata(p, type).statusInfo.status;
+			let sortOrder: Map<string, number> | undefined;
+			const rank = (p: Personnel) => {
+				sortOrder ??= new Map(personnel.map((person) => [person.id, TRAINING_STATUS_SORT_ORDER[status(person)]]));
+				return sortOrder.get(p.id) ?? 0;
+			};
 			return {
 				key: type.id,
 				header: type.name,
-				value: (p: Personnel) => getCellMetadata(p, type).statusInfo.status,
-				compare: (a: Personnel, b: Personnel) => {
-					const aStatus = getCellMetadata(a, type).statusInfo.status;
-					const bStatus = getCellMetadata(b, type).statusInfo.status;
-					return TRAINING_STATUS_SORT_ORDER[aStatus] - TRAINING_STATUS_SORT_ORDER[bStatus];
-				}
+				value: status,
+				compare: (a: Personnel, b: Personnel) => rank(a) - rank(b)
 			};
 		}
 	});
@@ -100,29 +102,8 @@
 		return map;
 	});
 
-	const cellMetadataLookup = $derived.by(() => {
-		const map = new SvelteMap<string, TrainingCellMetadata>();
-		for (const person of personnel) {
-			for (const type of trainingTypes) {
-				const key = createTrainingKey(person.id, type.id);
-				const training = trainingLookup.get(key);
-				const statusInfo = getTrainingStatus(training, type, person);
-				map.set(key, {
-					training,
-					statusInfo,
-					displayText: getCellDisplayText(statusInfo, training, type.expirationDateOnly)
-				});
-			}
-		}
-		return map;
-	});
-
 	function getCellMetadata(person: Personnel, type: TrainingType): TrainingCellMetadata {
-		const key = createTrainingKey(person.id, type.id);
-		const metadata = cellMetadataLookup.get(key);
-		if (metadata) return metadata;
-
-		const training = trainingLookup.get(key);
+		const training = trainingLookup.get(createTrainingKey(person.id, type.id));
 		const statusInfo = getTrainingStatus(training, type, person);
 		return {
 			training,
@@ -154,19 +135,46 @@
 		};
 	}
 
+	// Rendered heights: the h-10 cell plus its collapsed 1px border, and the h-7 group row. Spacers must match them.
+	const ROW_HEIGHT = 41;
+	const GROUP_HEIGHT = 28;
+	const FALLBACK_VIEWPORT_HEIGHT = 640;
+	const OVERSCAN_PX = ROW_HEIGHT * 8;
+	const HEADER_ROW_COUNT = 1;
+
+	function rowItem(person: Personnel): OperationalMatrix.VirtualMatrixItem<MatrixRow> {
+		return { kind: 'row', key: person.id, row: toMatrixRow(person), height: ROW_HEIGHT };
+	}
+
+	let scrollTop = $state(0);
+	let measuredViewportHeight = $state(0);
 	const matrixRows = $derived<MatrixRow[]>(table.rows.map(toMatrixRow));
-	const groupedMatrixRows = $derived.by(() => {
-		if (table.groups.length === 0) return [];
-		return table.groups.map((group) => ({
-			group: {
-				id: group.key,
-				label: group.label,
-				rowIds: group.rows.map((person) => person.id),
-				collapsed: group.collapsed
-			},
-			rows: group.rows.map(toMatrixRow)
-		}));
-	});
+	const virtualItems = $derived<OperationalMatrix.VirtualMatrixItem<MatrixRow>[]>(
+		table.groups.length === 0
+			? table.rows.map(rowItem)
+			: table.groups.flatMap((group) => [
+					{
+						kind: 'group' as const,
+						key: `group:${group.key}`,
+						group: {
+							id: group.key,
+							label: group.label,
+							rowIds: group.rows.map((person) => person.id),
+							collapsed: group.collapsed
+						},
+						height: GROUP_HEIGHT
+					},
+					...(group.collapsed ? [] : group.rows.map(rowItem))
+				])
+	);
+	const virtualWindow = $derived(
+		OperationalMatrix.buildVirtualMatrixWindow(virtualItems, {
+			scrollTop,
+			viewportHeight: measuredViewportHeight || FALLBACK_VIEWPORT_HEIGHT,
+			overscanPx: OVERSCAN_PX
+		})
+	);
+	const totalColumns = $derived(matrixColumns.length + 1);
 
 	const legendItems: Array<{ status: TrainingStatus; label: string }> = [
 		{ status: 'current', label: 'Current' },
@@ -179,8 +187,8 @@
 	];
 </script>
 
-{#snippet matrixRow(row: MatrixRow)}
-	<OperationalMatrix.Row {row} class="bg-card hover:bg-muted/20">
+{#snippet matrixRow(row: MatrixRow, virtualIndex: number)}
+	<OperationalMatrix.Row {row} virtualIndex={virtualIndex + HEADER_ROW_COUNT} class="bg-card hover:bg-muted/20">
 		<OperationalMatrix.RowHeader
 			{row}
 			sticky
@@ -238,13 +246,17 @@
 	<OperationalMatrix.Viewport
 		ariaLabel="Training matrix viewport"
 		class="h-full min-h-0 rounded-lg border border-border bg-card"
+		virtualized
+		onViewportHeightChange={(height) => (measuredViewportHeight = height)}
+		onscroll={(event) => (scrollTop = event.currentTarget.scrollTop)}
 	>
 		<OperationalMatrix.Table
 			ariaLabel="Training status matrix"
+			aria-rowcount={virtualItems.length + HEADER_ROW_COUNT}
 			class="min-w-max table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted/70 [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[10px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-cell]]:h-10 [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset"
 		>
 			<OperationalMatrix.Header>
-				<OperationalMatrix.HeaderRow>
+				<OperationalMatrix.HeaderRow aria-rowindex={1}>
 					<OperationalMatrix.CornerCell
 						sticky
 						class="sticky left-0 top-0 z-30 w-32 min-w-32 bg-muted px-2 py-1.5 sm:w-48 sm:min-w-48 sm:px-3"
@@ -278,27 +290,31 @@
 			</OperationalMatrix.Header>
 
 			<OperationalMatrix.Body>
-				{#if groupedMatrixRows.length > 0}
-					{#each groupedMatrixRows as groupBlock (groupBlock.group.id)}
+				{#if virtualWindow.topSpacerHeight > 0}
+					<tr aria-hidden="true" data-matrix-spacer="top">
+						<td colspan={totalColumns} style:height={`${virtualWindow.topSpacerHeight}px`}></td>
+					</tr>
+				{/if}
+				{#each virtualWindow.visibleItems as item (item.key)}
+					{#if item.kind === 'group'}
 						<OperationalMatrix.RowGroup
-							group={groupBlock.group}
-							columnSpan={matrixColumns.length + 1}
-							onclick={() => table.toggleGroup(groupBlock.group.id)}
+							group={item.group}
+							columnSpan={totalColumns}
+							virtualIndex={item.virtualIndex + HEADER_ROW_COUNT}
+							onclick={() => table.toggleGroup(item.group.id)}
 							class="h-7 cursor-pointer bg-muted/40 text-[10px] font-semibold uppercase leading-none tracking-[0.18em] text-muted-foreground [&_th]:px-2 [&_th]:py-0.5 [&_th]:text-left"
 						>
-							{groupBlock.group.collapsed ? '▶' : '▼'}
-							{groupBlock.group.label} ({groupBlock.group.rowIds.length})
+							{item.group.collapsed ? '▶' : '▼'}
+							{item.group.label} ({item.group.rowIds.length})
 						</OperationalMatrix.RowGroup>
-						{#if !groupBlock.group.collapsed}
-							{#each groupBlock.rows as row (row.id)}
-								{@render matrixRow(row)}
-							{/each}
-						{/if}
-					{/each}
-				{:else}
-					{#each matrixRows as row (row.id)}
-						{@render matrixRow(row)}
-					{/each}
+					{:else}
+						{@render matrixRow(item.row, item.virtualIndex)}
+					{/if}
+				{/each}
+				{#if virtualWindow.bottomSpacerHeight > 0}
+					<tr aria-hidden="true" data-matrix-spacer="bottom">
+						<td colspan={totalColumns} style:height={`${virtualWindow.bottomSpacerHeight}px`}></td>
+					</tr>
 				{/if}
 			</OperationalMatrix.Body>
 		</OperationalMatrix.Table>

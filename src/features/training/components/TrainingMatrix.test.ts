@@ -51,6 +51,37 @@ afterEach(() => {
 	cleanup();
 });
 
+const ROW_HEIGHT = 41;
+const HEADER_HEIGHT = 56;
+const VIEWPORT_HEIGHT = 640;
+
+function roster(count: number, groupSize = count): Personnel[] {
+	return Array.from({ length: count }, (_, index) => ({
+		...person,
+		id: `person-${index}`,
+		lastName: `P${String(index).padStart(3, '0')}`,
+		firstName: 'Test',
+		groupName: `G${String(Math.floor(index / groupSize)).padStart(2, '0')}`
+	}));
+}
+
+function mountedNames(): string[] {
+	return screen
+		.getAllByRole('rowheader')
+		.map((header) => header.textContent?.trim() ?? '')
+		.filter((text) => text.startsWith('SGT '))
+		.map((text) => text.replace(/^SGT /, ''));
+}
+
+function viewport(): HTMLElement {
+	return screen.getByRole('region', { name: 'Training matrix viewport' });
+}
+
+async function scrollTo(top: number) {
+	viewport().scrollTop = top;
+	await fireEvent.scroll(viewport());
+}
+
 describe('TrainingMatrix', () => {
 	it('updates a cell when persisted trainings hydrate after initial render', async () => {
 		const view = render(TrainingMatrix, {
@@ -109,5 +140,63 @@ describe('TrainingMatrix', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /Smith, Jane/ }));
 
 		expect(onPersonClick).toHaveBeenCalledWith(person);
+	});
+
+	it('mounts only the rows around the scroll position of a large roster', async () => {
+		render(TrainingMatrix, {
+			props: { personnel: roster(400), trainingTypes: [trainingType], trainings: [persistedTraining] }
+		});
+
+		expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('401');
+		expect(mountedNames()).toContain('P000, Test');
+		expect(mountedNames()).not.toContain('P200, Test');
+
+		await scrollTo(200 * ROW_HEIGHT);
+
+		const names = mountedNames();
+		expect(names.length).toBeLessThan(60);
+		expect(names).toContain('P200, Test');
+		expect(names).toContain('P214, Test');
+		expect(names).not.toContain('P000, Test');
+		expect(names).not.toContain('P399, Test');
+		const p200 = screen.getByRole('rowheader', { name: /P200, Test/ }).closest('tr');
+		expect(p200?.getAttribute('aria-rowindex')).toBe('202');
+	});
+
+	it('moves keyboard focus row by row past the first window', async () => {
+		render(TrainingMatrix, {
+			props: { personnel: roster(400), trainingTypes: [trainingType], trainings: [], onCellClick: vi.fn() }
+		});
+		const table = screen.getByRole('table');
+		screen.getByRole('button', { name: 'P000 CPR: Not Done' }).focus();
+
+		for (let index = 1; index <= 40; index++) {
+			const buttons = [...table.querySelectorAll('button')];
+			buttons[buttons.indexOf(document.activeElement as HTMLButtonElement) + 1].focus();
+			await scrollTo(Math.max(0, (index + 1) * ROW_HEIGHT + HEADER_HEIGHT - VIEWPORT_HEIGHT));
+		}
+
+		expect(document.activeElement?.getAttribute('aria-label')).toBe('P040 CPR: Not Done');
+		expect(mountedNames()).not.toContain('P000, Test');
+	});
+
+	it('windows grouped rows and skips a collapsed group', async () => {
+		render(TrainingMatrix, {
+			props: {
+				personnel: roster(400, 25),
+				trainingTypes: [trainingType],
+				trainings: [],
+				groupBy: { key: (p) => p.groupName ?? '' }
+			}
+		});
+
+		expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('417');
+		expect(mountedNames()[0]).toBe('P000, Test');
+
+		await fireEvent.click(screen.getByRole('rowheader', { name: /G00 \(25\)/ }));
+
+		expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('392');
+		expect(mountedNames()[0]).toBe('P025, Test');
+		expect(mountedNames()).not.toContain('P000, Test');
 	});
 });

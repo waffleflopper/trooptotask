@@ -81,7 +81,7 @@ function known<T>(read: RosterSourceRead<T> | null | undefined, id: string): Kno
 	return read?.has(id) ? { kind: 'known', value: read.get(id) as T } : { kind: 'withheld' };
 }
 
-/** One statement per readable source, in parallel, for the whole visible roster or the listed People. */
+/** Read permitted sources together for the whole visible roster or the listed People. */
 export async function loadRosterSignals(
 	ctx: { access: SignalAccess; sources: RosterSignalSources },
 	query: RosterSourceQuery
@@ -122,10 +122,7 @@ export async function loadRosterSignals(
 
 type SignalSlice = Partial<Record<SignalSource, unknown>>;
 
-/**
- * The lane's database read: one `roster_signals` statement for every source the viewer may read. Each source reads
- * Personnel through its policy, about 100 ms at 400 People, so a statement per source would repeat that scan.
- */
+/** Share one authorized database statement across this request's source readers. */
 export function createSupabaseRosterSignalSlices(
 	client: SupabaseClient,
 	orgId: string,

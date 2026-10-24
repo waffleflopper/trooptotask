@@ -197,7 +197,10 @@ scoped actors retain their baseline grants.
     people's Group headers remain, each counting only its matches; switch to `A-Z`, type `Baker` under `?show=losses`
     and require `No personnel match this filter.` with `0 of 3 match`. The headcount entries are filters too:
     `1 Verification Training` sets `?show=status:<statusTypeId>` and shows Baker, `2 present` sets `?show=present` and
-    shows Able and Unassigned, and the pressed entry is drawn dark with an × (click it to clear). Open `?show=expired`
+    shows Able and Unassigned, and the pressed entry is drawn dark with an × (click it to clear). Open
+    `?show=status:<statusLeave>` (`Verification Leave`, which nobody has today): the strip keeps `0 Verification Leave`
+    pressed with its ×, the roster reads `No personnel match this filter.` with `0 of 3 match`, and clicking the entry
+    removes `?show=` from the address; `scrollWidth` equals the viewport at 1440, 900 and 390. Open `?show=expired`
     directly and reload: the filter is restored; `?show=everyone` is dropped from the address with the roster whole.
     Hold the lane (`$V server-source arm rpc/roster_signals hold 1 90000`, reload with `?show=expired`): one chip
     placeholder per chip the actor can see (six for `orgOwner`) under `Show only` and the whole roster, with the chip

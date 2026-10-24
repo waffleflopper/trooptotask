@@ -53,7 +53,7 @@ Document open Files, and Training completion opens Readiness. The roster's `Note
 open a popover composer that posts a follow-up or a leader note to the same collection endpoints from any member who may
 manage that Person's records, whether or not they can read the Log (see `find-personnel` step 16); the saved row then
 reads like any other in Log. The roster's `Selected people` bar writes the same follow-up or note for every selected
-Person in one batch request (`find-personnel` step 17). Files opens on a Counselings section whose `Last counseled`
+Person in one batch request (`find-personnel` step 18). Files opens on a Counselings section whose `Last counseled`
 heading comes from the server (the newest counseling dated on or before the viewer's day, whatever the page), with a
 12-month coverage bar and a Documents table, with a drop zone and Storage meter in the right rail. Dropping or choosing
 a file there opens an `Add a file` dialog where the member picks Counseling (PDF only) or Document. `?add=counseling`

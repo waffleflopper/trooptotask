@@ -11,6 +11,7 @@
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../../personnel.types';
 	import { lossBadgeLabel, rosterAttentionCell, rosterStatusDot } from '../../rosterSignals';
+	import PersonnelRosterEditRow from './PersonnelRosterEditRow.svelte';
 	import { focusAdjacentRow, type RosterRowControls } from './rosterRow';
 
 	interface Props {
@@ -34,6 +35,7 @@
 	const dot = $derived(rosterStatusDot(signal, ctx.signals.statusTypes));
 	const attention = $derived(rosterAttentionCell(signal));
 	const loss = $derived(ctx.upcomingLossMap.get(person.id));
+	const session = $derived(controls.edit.session?.personnelId === person.id ? controls.edit.session : null);
 
 	function handleClick(event: MouseEvent): void {
 		if (DataTable.eventStartedInInteractiveDescendant(event)) return;
@@ -50,7 +52,7 @@
 		} else if ((key === ' ' || key === 'x') && controls.selectable)
 			controls.select(person.id, !selected, event.shiftKey);
 		else if (key === 'n' && canNote) controls.note(person);
-		else if (key === 'e' && canQuickEdit) controls.quickEdit(person);
+		else if (key === 'e' && canQuickEdit) controls.edit.open(person);
 		else return;
 		event.preventDefault();
 	}
@@ -79,17 +81,21 @@
 	data-roster-row={person.id}
 	data-state={selected ? 'selected' : undefined}
 	data-note-open={noteOpen || undefined}
-	class="group/row cursor-pointer data-[note-open]:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+	class={[
+		'group/row cursor-pointer data-[note-open]:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
+		session && 'border-b-0 bg-accent/10 hover:bg-accent/10'
+	]}
 	tabindex={tabbable ? 0 : -1}
 	aria-label={canOpen ? `Open ${name}` : name}
 	onclick={handleClick}
 	onkeydown={handleKeydown}
 	onfocusin={() => controls.focused(person.id)}
 >
-	{#each columns as column (column.key)}
+	{#each columns as column, index (column.key)}
 		<Table.Cell
 			class={[
 				DataTable.columnCellClass(column),
+				session && index === 0 && 'shadow-[inset_3px_0_0_0_var(--color-accent)]',
 				column.key === 'name' && '@max-xl/data-table:w-full @max-xl/data-table:max-w-0'
 			]}
 			style={column.width ? `width: ${column.width}` : undefined}
@@ -170,11 +176,12 @@
 								{#if canQuickEdit}
 									<Button
 										type="button"
-										variant="outline"
+										variant={session ? 'default' : 'outline'}
 										size="icon-sm"
 										tabindex={tabbable ? 0 : -1}
+										aria-pressed={session ? true : false}
 										aria-label="Quick edit {name}"
-										onclick={() => controls.quickEdit(person)}
+										onclick={() => controls.edit.toggle(person)}
 									>
 										<PencilIcon aria-hidden="true" />
 									</Button>
@@ -194,7 +201,7 @@
 						<span
 							class={[
 								'flex gap-1 group-focus-within/row:visible group-hover/row:visible [@media(hover:none)]:visible',
-								noteOpen ? 'visible' : 'invisible'
+								noteOpen || session ? 'visible' : 'invisible'
 							]}
 						>
 							{#if canNote}
@@ -216,12 +223,13 @@
 							{#if canQuickEdit}
 								<Button
 									type="button"
-									variant="outline"
+									variant={session ? 'default' : 'outline'}
 									size="icon-sm"
 									tabindex={tabbable ? 0 : -1}
+									aria-pressed={session ? true : false}
 									aria-label="Quick edit {name}"
 									title="Quick edit (E)"
-									onclick={() => controls.quickEdit(person)}
+									onclick={() => controls.edit.toggle(person)}
 								>
 									<PencilIcon aria-hidden="true" />
 								</Button>
@@ -241,3 +249,7 @@
 		</Table.Cell>
 	{/each}
 </Table.Row>
+
+{#if session}
+	<PersonnelRosterEditRow {person} columnCount={columns.length} {ctx} edit={controls.edit} {session} />
+{/if}

@@ -281,10 +281,6 @@ export class PersonnelPageContext {
 		this.#modals.open('personnel-modal', { person: null });
 	}
 
-	handleEdit(person: Personnel): void {
-		this.#modals.open('personnel-modal', { person });
-	}
-
 	/** Null selects People without a Group. */
 	openGroupEditor(groupId: string | null): void {
 		this.#modals.open('group-manager', { select: groupId });

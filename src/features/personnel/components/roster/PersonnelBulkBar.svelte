@@ -91,17 +91,21 @@
 	}
 
 	async function exportSelected(): Promise<void> {
+		const orgId = ctx.orgId;
+		const inLifetime = stillInOrganizationLifetime();
+		const isCurrent = () => inLifetime() && rosterIsCurrent(orgId);
 		const rows = rosterExportRows(exportable, (person) => ctx.signalRow(person), ctx.signals.statusTypes);
 		const filename = rosterExportFilename(ctx.orgUrlSegment, ctx.data.asOf);
+		const skipped = people.length - exportable.length;
+		const exportedCount = exportable.length;
 		busy = true;
 		try {
 			await downloadRosterExport(filename, rows);
-			const skipped = people.length - exportable.length;
-			if (skipped > 0) toastStore.info(`Exported ${count(exportable.length)}${skippedNote(skipped)}`);
+			if (isCurrent() && skipped > 0) toastStore.info(`Exported ${count(exportedCount)}${skippedNote(skipped)}`);
 		} catch {
-			toastStore.error('The export could not be created. Try again.');
+			if (isCurrent()) toastStore.error('The export could not be created. Try again.');
 		} finally {
-			busy = false;
+			if (isCurrent()) busy = false;
 		}
 	}
 

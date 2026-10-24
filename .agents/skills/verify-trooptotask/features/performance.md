@@ -174,7 +174,7 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `personnel-detail-direct`     | Personnel detail URL          | load, read         | wide, leader     | The record tabs (`header`), then `Needs attention` with nothing loading                   |
 | `personnel-detail-tab`        | Personnel detail tabs         | interaction, read  | wide, leader     | The `Log` tab, unhovered, to that tab current with nothing loading                        |
 | `personnel-detail-tab-hover`  | Personnel detail tabs         | interaction, read  | wide, leader     | The same click after a hover has preloaded the tab                                        |
-| `personnel-edit`              | Personnel Quick edit dialog   | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
+| `personnel-edit`              | Personnel Quick edit form     | interaction, write | both             | `Save` to the row showing the new MOS with the form closed                                |
 | `personnel-detail-edit`       | Personnel detail              | interaction, write | wide, leader     | `Save changes` to the Data sheet tab with the refreshed header MOS badge                  |
 | `personnel-import`            | Personnel import              | interaction, write | both             | `Import N changes` to `N changes saved.` with every row added                             |
 | `dashboard`                   | Dashboard                     | load, read         | both             | Band skeletons below a header (`pending`), then settled bands and panels with no skeleton |
@@ -384,8 +384,9 @@ each seed to see it grow.
   anchor, so its `calendar-today` reset clicks `Today` and records the cookie it leaves.
 - The Duty planner's slot shows the picked Person before the write returns, and its picker closes only after it does.
   `assignment-save` waits for both, so its useful render is the confirmed save.
-- The roster dialog's save updates the open roster in place with only `PUT /api/personnel`, and the detail page's Data
-  sheet save patches the roster store from the response and reruns only the header and Data sheet loads:
+- The roster's Quick edit save updates the open roster in place with `PUT /api/personnel`, plus one
+  `POST /api/personnel/roster-signals` when rank, MOS, duty role or Group changed, and the detail page's Data sheet save
+  patches the roster store from the response and reruns only the header and Data sheet loads:
   `<slug>/data-sheet/__data.json` with `x-sveltekit-invalidated=00011` and no `/api/app-shell-chrome` request. Roster
   and bulk archive rerun only the Personnel layout (`0010`), and an import commit reruns it under the import page.
   Measure each; they are different costs. The

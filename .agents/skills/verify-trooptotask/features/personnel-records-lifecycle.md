@@ -38,9 +38,10 @@ archives or restores a record while keeping its identity, permissions and retain
 
 Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row (it opens the record) or its
 `Quick edit`, or `Import`. The import page steps through File, Columns, Review and Done; browser Back steps back through
-them. Archive from the named row's `Quick edit` dialog, its detail page's `More Personnel record` menu, or the roster's
-`Archive` selection mode. An Organization owner/admin restores records through Settings → `Archives`; archive requests
-appear under Settings → `Approvals`. The reverse creation path is Onboard → `Start Onboarding` → `Add Person`.
+them. Archive from the detail page's `More Personnel record` menu or the roster's bulk bar (check a row, then choose
+`Archive…`); a row's `Quick edit` has no Archive. An Organization owner/admin restores records through Settings →
+`Archives`; archive requests appear under Settings → `Approvals`. The reverse creation path is Onboard →
+`Start Onboarding` → `Add Person`.
 
 ## Helper controls
 
@@ -288,10 +289,10 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    column. Below 1024 px the rail stacks above the rows in focus order, and at 390 the rows become cards. No width
    scrolls the page sideways.
 6. **Single archive, exact cascade and visible restore:** Preserve parent and all nine artifact rows. As manager,
-   archive the dedicated parent from its row's `Quick edit` dialog `Archive` and confirm Archive Personnel. A
-   pre-request `personnel` failure must leave parent/artifacts unchanged with useful feedback; restore and retry.
-   Capture absence from active Personnel after reload and the saved parent timestamp T. Active note/counseling/document
-   and followOpen must now have archived_at exactly T; followOpen becomes archived.
+   archive the dedicated parent from its detail page's `More Personnel record` → `Archive` and confirm Archive
+   Personnel. A pre-request `personnel` failure must leave parent/artifacts unchanged with useful feedback; restore and
+   retry. Capture absence from active Personnel after reload and the saved parent timestamp T. Active
+   note/counseling/document and followOpen must now have archived_at exactly T; followOpen becomes archived.
    noteArchived/counselingArchived/documentArchived/followArchived keep the literal August timestamp; followCompleted
    remains completed with its original completed_at and null archived_at. IDs, Person references and unrelated rows stay
    unchanged. As orgOwner, open Settings → Archives, locate this parent and Restore. Require absence from Archives and
@@ -300,51 +301,51 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    repeated restore of an active Person may reject with 400 and must change no row. Separately replay the authorized
    single archive request before restore: it must not replace the original event timestamp or strand the earlier cascade
    on restore. A changed timestamp or stranded artifact is a failure. This API replay is not another UI archive journey.
-7. **Other archive entry points, bulk and approval:** On separate temporary People, exercise Edit → Archive and detail →
-   `More Personnel record` → Archive, confirming saved absence after reload. For bulk, restore the dedicated parent
-   first and select it plus duplicateAlpha via the roster bulk bar's `Archive…`. Require both IDs archived, one shared
-   parent-event timestamp and the same nine-artifact expectations; restore each through Archives. Include a
-   denied/missing candidate separately and capture the actual per-row result and every changed/unchanged row; do not
-   assume a partially successful batch is atomic. An authorized replay acknowledges already-archived People and
-   completes only their still-active artifacts under each saved parent timestamp; independently archived siblings retain
-   their own timestamps. Replay the same IDs through the ordinary authenticated batch endpoint and compare every
-   parent/artifact field. An operate-only requester must not repair an archived Person’s artifacts or create another
-   approval request. Separately reject a later-parent or late-artifact write in the actual database transaction. Require
-   zero changes from that command, then explicitly retry. Existing archived parents retain their saved event; newly
-   archived People use the new request’s timestamp. Seed a separate historical partial state at the SQL boundary and
-   require replay to finish only its remaining eligible artifacts. Healthy direct bulk uses one scoped candidate read
-   and one command for admitted IDs; set-based children use each parent’s saved event, including mixed historical
-   timestamps. These controlled faults are SQL proof, not native partial-provider failure. Restore must commit
-   event-owned children and the parent clear together; controlled child and final-parent-clear failures must roll back,
-   and explicit retry must preserve independently archived/completed history. A pre-request UI failure proves its own
-   no-effect/draft/retry behavior and cannot establish these partial-persistence cases. As personnelOperate, archive a
-   separate temporary Person. A 202 requiresApproval response must leave the Person active, then create one pending
-   archival request. Repeat submission and require no duplicate pending request. Fail `deletion-requests` before
-   submission to prove useful error, no pending row and unchanged Person, then restore/retry. As orgOwner, Approvals →
-   the exact request → Approve; require approved request and that same Person archived after reload. A rejected approval
-   transaction must preserve the pending request, Person and every artifact; an unknown acknowledgement must not be
-   described as rollback. The [Deletion Requests recipe](deletion-requests.md) owns broader request review; this recipe
-   checks its Personnel effect. Repeat request failure/retry and pending-request replay from Edit → Archive, using a
-   distinct temporary Person. An operate-only actor cannot normally enter the sensitive detail page: capture that denial
-   separately; do not relax permissions to manufacture a detail approval journey. Preserve the detail caller’s
-   approval-result handling with focused lower-level checks if its seam changes. In Edit, enter an unsaved Duty Role
-   first: a failed direct archive or approval submission must keep that editable draft and useful feedback; it must not
-   claim success or close the editor. Restore the hook and retry; a successful archive or accepted/pending approval may
-   close the editor, without saving that unrelated draft. Capture the actual 202 followed by approval 503/200/409 and
-   exact Person/request readbacks separately. For detail, use a configure actor for direct archive failure/retry; reopen
-   the confirmation after failure if it closes and verify the unchanged active Person before retry. A permission change
-   while detail is already open needs separate controlled proof and is not established by the ordinary operate actor’s
-   denied navigation. No unsaved detail draft is implied by its archive confirmation. **Permanent removal:** As
-   orgOwner, Settings → Archives → the helper-seeded archivedDuplicate → Delete. A wrong confirmation name must keep
-   `Delete permanently` disabled; Cancel changes no row. Reopen, type its exact displayed name, arm
-   `personnel/permanent` failure and submit: useful error, unchanged archived Person and artifacts, and no success
-   claim. Restore and retry visibly; require HTTP 200, removal from Archives and exact saved-ID absence after reload.
-   Preserve all other A/B People and the independent history sentinels. Metadata-only documents establish no
-   Storage-byte deletion. Keep the command’s delete → success audit → awaited notification → response ordering and
-   notification-failure effects under focused lower-level proof; a pre-request browser 503 cannot establish provider or
-   notification failure. Use only helper-created temporary People for this destructive journey. After a successful
-   `Delete permanently`, focus moves to the next row's first action, else the previous row's, else the `Archived people`
-   heading; never `body`.
+7. **Other archive entry points, bulk and approval:** On separate temporary People, exercise the roster bulk bar's
+   `Archive…` with one row selected and detail → `More Personnel record` → Archive, confirming saved absence after
+   reload. For bulk, restore the dedicated parent first and select it plus duplicateAlpha through the roster bulk bar's
+   `Archive…`. Require both IDs archived, one shared parent-event timestamp and the same nine-artifact expectations;
+   restore each through Archives. Include a denied/missing candidate separately and capture the actual per-row result
+   and every changed/unchanged row; do not assume a partially successful batch is atomic. An authorized replay
+   acknowledges already-archived People and completes only their still-active artifacts under each saved parent
+   timestamp; independently archived siblings retain their own timestamps. Replay the same IDs through the ordinary
+   authenticated batch endpoint and compare every parent/artifact field. An operate-only requester must not repair an
+   archived Person’s artifacts or create another approval request. Separately reject a later-parent or late-artifact
+   write in the actual database transaction. Require zero changes from that command, then explicitly retry. Existing
+   archived parents retain their saved event; newly archived People use the new request’s timestamp. Seed a separate
+   historical partial state at the SQL boundary and require replay to finish only its remaining eligible artifacts.
+   Healthy direct bulk uses one scoped candidate read and one command for admitted IDs; set-based children use each
+   parent’s saved event, including mixed historical timestamps. These controlled faults are SQL proof, not native
+   partial-provider failure. Restore must commit event-owned children and the parent clear together; controlled child
+   and final-parent-clear failures must roll back, and explicit retry must preserve independently archived/completed
+   history. A pre-request UI failure proves its own no-effect/draft/retry behavior and cannot establish these
+   partial-persistence cases. As personnelOperate, archive a separate temporary Person. A 202 requiresApproval response
+   must leave the Person active, then create one pending archival request. Repeat submission and require no duplicate
+   pending request. Fail `deletion-requests` before submission to prove useful error, no pending row and unchanged
+   Person, then restore/retry. As orgOwner, Approvals → the exact request → Approve; require approved request and that
+   same Person archived after reload. A rejected approval transaction must preserve the pending request, Person and
+   every artifact; an unknown acknowledgement must not be described as rollback. The
+   [Deletion Requests recipe](deletion-requests.md) owns broader request review; this recipe checks its Personnel
+   effect. Repeat request failure/retry and pending-request replay from the roster bulk bar's `Archive…` with one row
+   selected, using a distinct temporary Person. An operate-only actor cannot normally enter the sensitive detail page:
+   capture that denial separately; do not relax permissions to manufacture a detail approval journey. Preserve the
+   detail caller’s approval-result handling with focused lower-level checks if its seam changes. In the bulk bar a
+   failed archive or approval submission keeps the Person selected with an error toast and must not claim success;
+   restore the hook and retry, and a successful archive or accepted/pending approval drops that Person from the
+   selection. Capture the actual 202 followed by approval 503/200/409 and exact Person/request readbacks separately. For
+   detail, use a configure actor for direct archive failure/retry; reopen the confirmation after failure if it closes
+   and verify the unchanged active Person before retry. A permission change while detail is already open needs separate
+   controlled proof and is not established by the ordinary operate actor’s denied navigation. No unsaved detail draft is
+   implied by its archive confirmation. **Permanent removal:** As orgOwner, Settings → Archives → the helper-seeded
+   archivedDuplicate → Delete. A wrong confirmation name must keep `Delete permanently` disabled; Cancel changes no row.
+   Reopen, type its exact displayed name, arm `personnel/permanent` failure and submit: useful error, unchanged archived
+   Person and artifacts, and no success claim. Restore and retry visibly; require HTTP 200, removal from Archives and
+   exact saved-ID absence after reload. Preserve all other A/B People and the independent history sentinels.
+   Metadata-only documents establish no Storage-byte deletion. Keep the command’s delete → success audit → awaited
+   notification → response ordering and notification-failure effects under focused lower-level proof; a pre-request
+   browser 503 cannot establish provider or notification failure. Use only helper-created temporary People for this
+   destructive journey. After a successful `Delete permanently`, focus moves to the next row's first action, else the
+   previous row's, else the `Archived people` heading; never `body`.
 8. **Denied capability, Group, empty and foreign scope:** Viewer has no create/edit/import/direct-archive/restore
    controls; attempt valid authenticated writes to establish 403 or concealed 404 with no effect. personnelOperate can
    create active People, update and import but cannot directly archive, restore or permanently delete.

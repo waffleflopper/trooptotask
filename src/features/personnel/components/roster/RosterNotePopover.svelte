@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
@@ -29,11 +29,16 @@
 	});
 
 	const name = $derived(`${person.rank} ${person.firstName} ${person.lastName}`);
-	const alreadyOpen = $derived(alreadyOpenOf(ctx.signalRow(person), ctx.data.asOf));
+	// A roster left open overnight still shows yesterday: the due shortcuts count from the viewer's day when this opens.
+	const today = untrack(() => ctx.signals.viewerDay());
+	const alreadyOpen = $derived(alreadyOpenOf(ctx.signalRow(person), today));
 
-	/** Closes now, or asks to discard typed text. Resolves false while it is waiting on the answer or a save. */
-	export function requestClose(): boolean {
-		return composer?.requestClose() ?? true;
+	/**
+	 * Closes now, or asks to discard typed text. Returns false while it is waiting on the answer or a save.
+	 * `then` runs after the close, and only if the user confirms a discard.
+	 */
+	export function requestClose(then?: () => void): boolean {
+		return composer?.requestClose(then) ?? true;
 	}
 
 	function close(): void {
@@ -93,13 +98,6 @@
 		onEscapeKeydown={keepOpenUnlessClean}
 		onInteractOutside={keepOpenUnlessClean}
 	>
-		<RosterComposer
-			bind:this={composer}
-			heading={name}
-			today={ctx.data.asOf}
-			{alreadyOpen}
-			onsave={save}
-			onclose={close}
-		/>
+		<RosterComposer bind:this={composer} heading={name} {today} {alreadyOpen} onsave={save} onclose={close} />
 	</Popover.Content>
 </Popover.Root>

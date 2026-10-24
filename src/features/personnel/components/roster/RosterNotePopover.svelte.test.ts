@@ -54,12 +54,12 @@ function readyRow(openFollowUps: Known<OpenFollowUpSignal>): SignalRow {
 
 const NONE_OPEN = readyRow({ kind: 'known', value: { count: 0, first: null } });
 
-function makeCtx(row: SignalRow = NONE_OPEN, canOpen = true) {
+function makeCtx(row: SignalRow = NONE_OPEN, canOpen = true, viewerDay = '2026-10-06') {
 	const refresh = vi.fn().mockResolvedValue(undefined);
 	const ctx = {
 		orgId: 'org-1',
 		data: { orgId: 'org-1', asOf: '2026-10-06' },
-		signals: { refresh },
+		signals: { refresh, viewerDay: () => viewerDay },
 		signalRow: () => row,
 		canOpenPersonnelDetail: () => canOpen
 	};
@@ -116,6 +116,20 @@ describe('RosterNotePopover', () => {
 		await rerender({ recordHref: 'undefined' });
 		options.action.onClick();
 		expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel/okafor-daniel/log');
+	});
+
+	it('counts the due shortcuts from the viewer’s day when the page still shows yesterday', async () => {
+		const { ctx } = makeCtx(NONE_OPEN, true, '2026-10-07');
+		const { onclose } = mount(ctx);
+
+		await fireEvent.input(await screen.findByRole('textbox', { name: 'Follow-up title' }), {
+			target: { value: 'Call about leave' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add follow-up' }));
+
+		await waitFor(() => expect(onclose).toHaveBeenCalledOnce());
+		expect(postedBody(fetchMock)).toEqual({ title: 'Call about leave', notes: '', dueDate: '2026-10-08' });
 	});
 
 	it('saves a note without a date and without refreshing signals', async () => {

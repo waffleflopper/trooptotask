@@ -181,14 +181,17 @@
 	const canNoteAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
-	// One composer at a time: a second Note asks the open one to close (and to discard typed text) first.
+	// One composer at a time: a second Note asks the open one to close (and to discard typed text) first, then opens.
 	function openNote(person: Personnel): void {
-		if (notePerson) {
-			const sameRow = notePerson.id === person.id;
-			const closed = noteComposer?.requestClose() ?? true;
-			if (sameRow || !closed) return;
+		if (!notePerson || !noteComposer) {
+			notePerson = person;
+			return;
 		}
-		notePerson = person;
+		if (notePerson.id === person.id) {
+			noteComposer.requestClose();
+			return;
+		}
+		noteComposer.requestClose(() => (notePerson = person));
 	}
 
 	async function closeNote(): Promise<void> {

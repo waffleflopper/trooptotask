@@ -187,7 +187,7 @@ scoped actors retain their baseline grants.
     `Bravo` afterwards. The snapshot reads the count as `1 person` and an empty attention lane as `None need attention`
     (visually hidden text, no `aria-label` on the spans).
 
-15. **Note composer.** As `orgOwner` (or `manager`), click `Note for SPC Baker, Synthetic`, or focus Baker's row and
+16. **Note composer.** As `orgOwner` (or `manager`), click `Note for SPC Baker, Synthetic`, or focus Baker's row and
     press N. A popover opens under the row (it flips above when the row is near the bottom of the window), headed
     `ADD TO LOG` and `SPC SYNTHETIC BAKER`, with `Follow-up` selected, `Follow-up title` focused and the row tinted. On
     the fixture's viewer day, Fri 23 Oct, the due chips read `Tomorrow`, `Fri 30 Oct` (next week's Friday, because today
@@ -209,7 +209,13 @@ scoped actors retain their baseline grants.
     - Leaving with text typed: with a title typed, click another row, a name link or press Back. The URL stays on
       Personnel, the typed title stays and the footer reads `Discard what you typed?`. `Keep editing` returns focus to
       `Follow-up title` and drops the destination. `Discard` closes the composer and then opens the row or record (Back
-      steps history back). With nothing typed the same click or Back goes straight through.
+      steps history back). With nothing typed the same click or Back goes straight through. Clicking another row's
+      `Note` button with a title typed asks the same question; `Discard` then opens that person's composer (empty,
+      `Follow-up title` focused), and `Keep editing` leaves the first composer and its text open.
+    - Viewer's day: the due chips count from the browser's day, not the page's loaded day. With the browser zone ahead
+      of the server (`launch --browser-timezone Pacific/Kiritimati`, UTC+14), `Tomorrow` is the day after the browser's
+      day, one day past the server's. A roster left open past midnight moves to the new day when the composer opens and
+      reloads only the signals lane.
     - Saving: hold the follow-up `POST` (wrap `window.fetch` in the page and release it by hand) and choose
       `Add follow-up`. The `Note`/`Follow-up` toggle, both fields, every due chip, `Choose a due date` and `Cancel` are
       all disabled, and the button reads `Saving…`. Releasing a failure re-enables them, keeps the typed title and

@@ -695,6 +695,45 @@ describe('PersonnelPageView', () => {
 		expect(gotoMock).toHaveBeenCalledTimes(1);
 	});
 
+	describe('a second Note while a composer holds typed text', () => {
+		async function typeInSmithComposer() {
+			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young', slug: 'young-test' }], 'org-1');
+			const ctx = {
+				...openableCtx(),
+				canManagePersonnelRecord: () => true
+			} as unknown as PersonnelPageContext;
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0]);
+			await fireEvent.input(await screen.findByRole('textbox', { name: 'Follow-up title' }), {
+				target: { value: 'Call about leave' }
+			});
+			await fireEvent.click(screen.getAllByRole('button', { name: /^Note for .*Young/ })[0]);
+			await screen.findByText('Discard what you typed?');
+		}
+
+		it('opens the requested composer once the typed text is discarded', async () => {
+			await typeInSmithComposer();
+			await fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+
+			const dialog = await screen.findByRole('dialog', { name: /Add to log for SGT .*Young/ });
+			expect(dialog).toBeTruthy();
+			expect(screen.queryByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeNull();
+			expect((screen.getByRole('textbox', { name: 'Follow-up title' }) as HTMLInputElement).value).toBe('');
+		});
+
+		it('keeps the first composer and its text, and drops the request, on Keep editing', async () => {
+			await typeInSmithComposer();
+			await fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+
+			expect((screen.getByRole('textbox', { name: 'Follow-up title' }) as HTMLInputElement).value).toBe(
+				'Call about leave'
+			);
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+			await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		});
+	});
+
 	it('moves row focus with the arrow keys and runs N, E and Enter on the focused row only', async () => {
 		personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young', slug: 'young-test' }], 'org-1');
 		const handleEdit = vi.fn();

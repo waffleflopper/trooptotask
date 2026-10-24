@@ -2,26 +2,34 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { pinnedGroupsHydration } from '$features/personnel';
+import { groupCatalogHydration, pinnedGroupsHydration } from '$features/personnel';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
-const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
-	() => ({
-		gotoMock: vi.fn(),
-		invalidateMock: vi.fn(),
-		toastSuccessMock: vi.fn(),
-		toastInfoMock: vi.fn(),
-		toastErrorMock: vi.fn(),
-		toastWarningMock: vi.fn()
-	})
-);
+const {
+	gotoMock,
+	beforeNavigateMock,
+	invalidateMock,
+	toastSuccessMock,
+	toastInfoMock,
+	toastErrorMock,
+	toastWarningMock
+} = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	beforeNavigateMock: vi.fn(),
+	invalidateMock: vi.fn(),
+	toastSuccessMock: vi.fn(),
+	toastInfoMock: vi.fn(),
+	toastErrorMock: vi.fn(),
+	toastWarningMock: vi.fn()
+}));
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
+	beforeNavigate: beforeNavigateMock,
 	invalidate: invalidateMock
 }));
 
@@ -138,10 +146,7 @@ function makeUpcomingLossRecord(overrides: Partial<UpcomingLossRecord> = {}): Up
 	};
 }
 
-function makeCtx(
-	handleEdit = vi.fn(),
-	upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()
-): PersonnelPageContext {
+function makeCtx(upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()): PersonnelPageContext {
 	const filterPersonnel = (items: Personnel[], query: string): Personnel[] => {
 		const normalized = query.trim().toLowerCase();
 		if (!normalized) return items;
@@ -211,7 +216,6 @@ function makeCtx(
 		},
 		getPersonnelById: (id: string) => personnelStore.getById(id),
 		upcomingLossMap,
-		handleEdit,
 		handleAdd: vi.fn(),
 		openGroupManager: vi.fn()
 	};
@@ -249,6 +253,7 @@ describe('PersonnelPageView', () => {
 		pinnedGroupsHydration.load([], 'org-1');
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
+		beforeNavigateMock.mockReset();
 		invalidateMock.mockReset();
 		toastSuccessMock.mockReset();
 		toastInfoMock.mockReset();
@@ -294,9 +299,8 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
-		// One in the actions cell and one beside the name, which stays shown where the actions cell hides.
+		// One sits beside the name, which stays shown where the actions cell hides.
 		const quickEdits = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
-		expect(quickEdits.length).toBe(2);
 		expect(quickEdits.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
 		expect(screen.queryByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeNull();
 		expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
@@ -619,7 +623,7 @@ describe('PersonnelPageView', () => {
 		it('shows a loss indicator chip for personnel in the upcoming-loss map', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
 			const ctx = {
-				...makeCtx(vi.fn(), lossMap),
+				...makeCtx(lossMap),
 				canManagePersonnelRecord: () => true,
 				personnelRecordAffordance: () => allowedAffordance()
 			} as unknown as PersonnelPageContext;
@@ -633,32 +637,31 @@ describe('PersonnelPageView', () => {
 	});
 
 	it('updates the row actions when permissions change after render', async () => {
-		const handleEdit = vi.fn();
 		const editableCtx = {
-			...makeCtx(handleEdit),
+			...makeCtx(),
 			canManagePersonnelRecord: () => true,
 			personnelRecordAffordance: () => allowedAffordance()
 		} as unknown as PersonnelPageContext;
 		const viewOnlyCtx = {
-			...makeCtx(handleEdit),
+			...makeCtx(),
 			canManagePersonnelRecord: () => false,
 			personnelRecordAffordance: () => deniedAffordance()
 		} as unknown as PersonnelPageContext;
 		const view = render(PersonnelPageView, { props: { ctx: editableCtx } });
 
-		expect(screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' }).length).toBe(2);
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' })[0]);
+		expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
 
 		await view.rerender({ ctx: viewOnlyCtx });
 
 		expect(screen.queryByRole('button', { name: 'Quick edit SGT Smith, Jane' })).toBeNull();
 		await fireEvent.click(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
-		expect(handleEdit).not.toHaveBeenCalled();
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
-	function openableCtx(handleEdit = vi.fn()): PersonnelPageContext {
+	function openableCtx(): PersonnelPageContext {
 		return {
-			...makeCtx(handleEdit),
+			...makeCtx(),
 			canManagePersonnelRecord: (person: Personnel) => person.id === 'person-1',
 			canReadPersonnelDetails: true,
 			canOpenPersonnelDetail: () => true,
@@ -666,9 +669,8 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 	}
 
-	it('opens the record from the row and the name link, a note from Note and the edit dialog from Quick edit', async () => {
-		const handleEdit = vi.fn();
-		render(PersonnelPageView, { props: { ctx: openableCtx(handleEdit) } });
+	it('opens the record from the row and the name link, a note from Note and the editor in place from Quick edit', async () => {
+		render(PersonnelPageView, { props: { ctx: openableCtx() } });
 
 		expect(screen.getByRole('link', { name: /Smith, Jane/ }).getAttribute('href')).toBe(
 			'/org/org-1/personnel/smith-jane'
@@ -679,18 +681,17 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }));
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
 
-		const [actionsCellEdit, identityCellEdit] = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
-		await fireEvent.click(actionsCellEdit);
-		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
-		await fireEvent.click(identityCellEdit);
-		expect(handleEdit).toHaveBeenCalledTimes(2);
+		const narrowEdit = screen
+			.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' })
+			.find((button) => button.closest('td')?.textContent?.includes('Smith, Jane'));
+		await fireEvent.click(narrowEdit!);
+		expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
 		expect(gotoMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('moves row focus with the arrow keys and runs N, E and Enter on the focused row only', async () => {
 		personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young', slug: 'young-test' }], 'org-1');
-		const handleEdit = vi.fn();
-		render(PersonnelPageView, { props: { ctx: openableCtx(handleEdit) } });
+		render(PersonnelPageView, { props: { ctx: openableCtx() } });
 		const smith = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
 		const young = screen.getByRole('row', { name: 'Open SGT Young, Test' });
 		expect([smith.tabIndex, young.tabIndex]).toEqual([0, -1]);
@@ -701,17 +702,383 @@ describe('PersonnelPageView', () => {
 		expect([smith.tabIndex, young.tabIndex]).toEqual([-1, 0]);
 
 		await fireEvent.keyDown(young, { key: 'e' });
-		expect(handleEdit).not.toHaveBeenCalled();
+		expect(screen.queryByRole('form')).toBeNull();
 		await fireEvent.keyDown(young, { key: 'ArrowUp' });
 		await fireEvent.keyDown(smith, { key: 'e' });
-		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
+		expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
 		await fireEvent.keyDown(smith, { key: 'n' });
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
 		await fireEvent.keyDown(smith, { key: 'Enter' });
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
 		await fireEvent.keyDown(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }), { key: 'e' });
-		expect(handleEdit).toHaveBeenCalledTimes(1);
+		expect(screen.getAllByRole('form')).toHaveLength(1);
+	});
+
+	describe('quick edit', () => {
+		const young: Personnel = { ...makePerson(2), lastName: 'Young', slug: 'young-test' };
+
+		beforeEach(() => groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1'));
+		afterEach(() => {
+			vi.restoreAllMocks();
+			groupCatalogHydration.load([], 'org-test-reset');
+		});
+
+		function editCtx(overrides: Record<string, unknown> = {}, people = [personnel[0], young]): PersonnelPageContext {
+			personnelStore.load(people, 'org-1');
+			// Defined on the context itself: spreading it would freeze its roster getters at their first read.
+			const base = makeCtx();
+			return Object.defineProperties(
+				base,
+				Object.getOwnPropertyDescriptors(
+					Object.defineProperties(
+						{
+							canManagePersonnelRecord: () => true,
+							canReadPersonnelDetails: true,
+							canOpenPersonnelDetail: () => true,
+							personnelRecordAffordance: () => allowedAffordance()
+						},
+						Object.getOwnPropertyDescriptors(overrides)
+					)
+				)
+			);
+		}
+
+		function savesAs(change: Partial<Personnel>) {
+			return vi.spyOn(personnelStore, 'updateOrThrow').mockImplementation(async (id, data) => {
+				personnelStore.updateLocalWhere(
+					(item) => item.id === id,
+					(item) => ({ ...item, ...data, ...change })
+				);
+				return true;
+			});
+		}
+
+		function actionsEdit(name = 'SGT Smith, Jane') {
+			return screen
+				.getAllByRole('button', { name: `Quick edit ${name}` })
+				.find((button) => button.getAttribute('title') === 'Quick edit (E)')!;
+		}
+
+		async function openEditor(name = 'SGT Smith, Jane') {
+			await fireEvent.click(actionsEdit(name));
+			return screen.getByRole('form', { name: `Quick edit ${name}` });
+		}
+
+		function rowNames() {
+			return screen
+				.getAllByRole('row')
+				.map((row) => row.getAttribute('aria-label'))
+				.filter((label) => label?.startsWith('Open '));
+		}
+
+		it('opens the row in place with its saved values, Save held back until something changes', async () => {
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+
+			expect((within(form).getByLabelText('Last name') as HTMLInputElement).value).toBe('Smith');
+			expect((within(form).getByLabelText('First name') as HTMLInputElement).value).toBe('Jane');
+			expect((within(form).getByLabelText('MOS') as HTMLInputElement).value).toBe('68W');
+			expect((within(form).getByLabelText('Duty role') as HTMLInputElement).value).toBe('Medic');
+			expect(within(form).getByRole('button', { name: 'Rank' }).textContent).toContain('SGT');
+			expect(within(form).getByText('No changes')).toBeTruthy();
+			expect((within(form).getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+			expect(actionsEdit().getAttribute('aria-pressed')).toBe('true');
+			expect(screen.getByRole('row', { name: 'Open SGT Young, Test' })).toBeTruthy();
+		});
+
+		it('repeats each change as old and new before saving, and Enter saves it in place', async () => {
+			const update = savesAs({});
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			const role = within(form).getByLabelText('Duty role');
+			await fireEvent.input(role, { target: { value: 'Senior Medic' } });
+			await fireEvent.input(within(form).getByLabelText('MOS'), { target: { value: '68C' } });
+
+			expect(within(form).getByText('2 changes')).toBeTruthy();
+			expect(within(form).getByText('MOS 68W → 68C · Duty role Medic → Senior Medic')).toBeTruthy();
+
+			await fireEvent.submit(form);
+
+			await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+			expect(update).toHaveBeenCalledExactlyOnceWith('person-1', {
+				rank: 'SGT',
+				lastName: 'Smith',
+				firstName: 'Jane',
+				mos: '68C',
+				clinicRole: 'Senior Medic',
+				ets: null,
+				deros: null,
+				groupId: 'group-1',
+				groupName: 'Alpha'
+			});
+			await waitFor(() => {
+				const row = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
+				expect(within(row).getByText('68C')).toBeTruthy();
+				expect(within(row).getByText('Senior Medic')).toBeTruthy();
+			});
+			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		it('points the Name link at the new slug after a rename', async () => {
+			savesAs({ slug: 'smith-janet' });
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			await fireEvent.input(within(form).getByLabelText('First name'), { target: { value: 'Janet' } });
+			await fireEvent.submit(form);
+
+			await waitFor(() =>
+				expect(screen.getByRole('link', { name: /Smith, Janet/ }).getAttribute('href')).toBe(
+					'/org/org-1/personnel/smith-janet'
+				)
+			);
+		});
+
+		it('cancels with Escape without writing, leaving the saved values', async () => {
+			const update = savesAs({});
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			const role = within(form).getByLabelText('Duty role');
+			await fireEvent.input(role, { target: { value: 'Senior Medic' } });
+			await fireEvent.keyDown(role, { key: 'Escape' });
+
+			expect(screen.queryByRole('form')).toBeNull();
+			expect(update).not.toHaveBeenCalled();
+			expect(within(screen.getByRole('row', { name: 'Open SGT Smith, Jane' })).getByText('Medic')).toBeTruthy();
+		});
+
+		it('shows a failed save inline and keeps the row open with what was typed', async () => {
+			vi.spyOn(personnelStore, 'updateOrThrow').mockRejectedValue(new Error('You cannot move people into that Group.'));
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			await fireEvent.input(within(form).getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+			await fireEvent.submit(form);
+
+			expect((await within(form).findByRole('alert')).textContent).toContain('You cannot move people into that Group.');
+			expect((within(form).getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
+			expect((within(form).getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false);
+		});
+
+		it('names the blank required field after a save attempt and sends nothing', async () => {
+			const update = savesAs({});
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			const last = within(form).getByLabelText('Last name');
+			await fireEvent.input(last, { target: { value: '' } });
+			await fireEvent.submit(form);
+
+			expect(await within(form).findByText('Enter a last name.')).toBeTruthy();
+			expect(last.getAttribute('aria-invalid')).toBe('true');
+			expect(update).not.toHaveBeenCalled();
+		});
+
+		it('asks before another row’s editor replaces unsaved changes', async () => {
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			await fireEvent.input(within(form).getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+
+			await fireEvent.click(actionsEdit('SGT Young, Test'));
+			const dialog = await screen.findByRole('alertdialog', { name: 'Discard changes?' });
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+			expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
+			expect((within(form).getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
+
+			await fireEvent.keyDown(screen.getByRole('row', { name: 'Open SGT Young, Test' }), { key: 'e' });
+			await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard' }));
+			await waitFor(() => expect(screen.getByRole('form', { name: 'Quick edit SGT Young, Test' })).toBeTruthy());
+			expect(screen.getAllByRole('form')).toHaveLength(1);
+		});
+
+		it('opens the Data sheet at once when nothing changed and after Discard and open when something did', async () => {
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			let form = await openEditor();
+			await fireEvent.click(within(form).getByRole('button', { name: 'Full data sheet' }));
+			expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/data-sheet');
+
+			await fireEvent.input(within(form).getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+			await fireEvent.click(within(form).getByRole('button', { name: 'Full data sheet' }));
+			const dialog = await screen.findByRole('alertdialog', { name: 'Save changes first?' });
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+			expect(gotoMock).toHaveBeenCalledTimes(1);
+
+			form = screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' });
+			await fireEvent.click(within(form).getByRole('button', { name: 'Full data sheet' }));
+			await fireEvent.click(
+				within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard and open' })
+			);
+			await waitFor(() => expect(gotoMock).toHaveBeenCalledTimes(2));
+			expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/data-sheet');
+		});
+
+		it('saves first when asked to Save and open', async () => {
+			const update = savesAs({});
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			await fireEvent.input(within(form).getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+			await fireEvent.click(within(form).getByRole('button', { name: 'Full data sheet' }));
+			await fireEvent.click(
+				within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Save and open' })
+			);
+
+			await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel/smith-jane/data-sheet'));
+			expect(update).toHaveBeenCalledTimes(1);
+		});
+
+		it('does not follow Save and open to the Data sheet after the roster is left', async () => {
+			const write = deferred<boolean>();
+			vi.spyOn(personnelStore, 'updateOrThrow').mockReturnValue(write.promise);
+			render(PersonnelPageView, { props: { ctx: editCtx() } });
+			const form = await openEditor();
+			await fireEvent.input(within(form).getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+			await fireEvent.click(within(form).getByRole('button', { name: 'Full data sheet' }));
+			await fireEvent.click(
+				within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Save and open' })
+			);
+			cleanup();
+			write.resolve(true);
+			await Promise.resolve();
+			await Promise.resolve();
+
+			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		describe('leaving the roster with unsaved changes', () => {
+			/** Runs a destination through the page's registered guard the way SvelteKit does before it commits. */
+			function router() {
+				const visited: string[] = [];
+				const go = (href: string, type: 'goto' | 'link' | 'popstate' = 'goto') => {
+					let cancelled = false;
+					const guard = beforeNavigateMock.mock.calls.at(-1)![0] as (navigation: unknown) => void;
+					guard({
+						type,
+						willUnload: false,
+						to: { url: new URL(href, 'http://localhost') },
+						cancel: () => (cancelled = true)
+					});
+					if (!cancelled) visited.push(href);
+				};
+				gotoMock.mockImplementation((href: string) => go(href));
+				return { visited, go };
+			}
+
+			async function dirtySmith() {
+				const nav = router();
+				render(PersonnelPageView, { props: { ctx: editCtx() } });
+				const form = await openEditor();
+				await fireEvent.input(within(form).getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+				return nav;
+			}
+
+			async function askedBeforeLeaving() {
+				return within(await screen.findByRole('alertdialog', { name: 'Save changes first?' }));
+			}
+
+			it('holds a click on another row until the draft is saved or discarded', async () => {
+				const nav = await dirtySmith();
+				await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Young, Test' }));
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Discard and leave' }));
+				expect(nav.visited).toEqual(['/org/org-1/personnel/young-test']);
+				expect(screen.queryByRole('form')).toBeNull();
+			});
+
+			it('holds the Name link', async () => {
+				const nav = await dirtySmith();
+				const link = screen.getByRole('link', { name: /Young, Test/ });
+				await fireEvent.click(link);
+				nav.go(link.getAttribute('href')!, 'link');
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Cancel' }));
+				expect(nav.visited).toEqual([]);
+				expect((screen.getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
+			});
+
+			it('holds Note and opens it after Save and leave wrote the draft', async () => {
+				const update = savesAs({});
+				const nav = await dirtySmith();
+				await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Young, Test' }));
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Save and leave' }));
+				await waitFor(() => expect(nav.visited).toEqual(['/org/org-1/personnel/young-test/log?add=follow-up']));
+				expect(update).toHaveBeenCalledTimes(1);
+			});
+
+			it('holds browser Back and stays on the roster with the draft after Cancel', async () => {
+				const nav = await dirtySmith();
+				nav.go('/org/org-1/dashboard', 'popstate');
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Cancel' }));
+				expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
+				expect((screen.getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
+			});
+
+			it('lets a click through when nothing is unsaved', async () => {
+				const nav = router();
+				render(PersonnelPageView, { props: { ctx: editCtx() } });
+				await openEditor();
+				await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Young, Test' }));
+
+				expect(nav.visited).toEqual(['/org/org-1/personnel/young-test']);
+				expect(screen.queryByRole('alertdialog')).toBeNull();
+			});
+		});
+
+		describe('row order', () => {
+			const able: Personnel = { ...makePerson(1), lastName: 'Able', slug: 'able-test' };
+			const baker: Personnel = { ...makePerson(2), lastName: 'Baker', slug: 'baker-test' };
+
+			function sortedByNameCtx(): PersonnelPageContext {
+				return editCtx(
+					{
+						get alphabeticalPersonnel() {
+							return personnelStore.items
+								.filter((person) => !person.archivedAt)
+								.sort((a, b) => a.lastName.localeCompare(b.lastName));
+						}
+					},
+					[able, baker]
+				);
+			}
+
+			async function renameAbleToZulu() {
+				const form = await openEditor('SGT Able, Test');
+				await fireEvent.input(within(form).getByLabelText('Last name'), { target: { value: 'Zulu' } });
+				await fireEvent.submit(form);
+				await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+			}
+
+			it('keeps a row in place when a save leaves the sorted column unchanged', async () => {
+				savesAs({});
+				render(PersonnelPageView, { props: { ctx: sortedByNameCtx() } });
+				await fireEvent.click(screen.getByRole('button', { name: 'Sort by MOS' }));
+				expect(rowNames()).toEqual(['Open SGT Able, Test', 'Open SGT Baker, Test']);
+
+				await renameAbleToZulu();
+
+				await waitFor(() => expect(rowNames()).toEqual(['Open SGT Zulu, Test', 'Open SGT Baker, Test']));
+			});
+
+			it('moves the row when the save changes the sorted column', async () => {
+				savesAs({});
+				render(PersonnelPageView, { props: { ctx: sortedByNameCtx() } });
+				expect(rowNames()).toEqual(['Open SGT Able, Test', 'Open SGT Baker, Test']);
+
+				await renameAbleToZulu();
+
+				await waitFor(() => expect(rowNames()).toEqual(['Open SGT Baker, Test', 'Open SGT Zulu, Test']));
+			});
+		});
+
+		it('leaves the Data sheet link out for a viewer who cannot open the record', async () => {
+			render(PersonnelPageView, { props: { ctx: editCtx({ canOpenPersonnelDetail: () => false }) } });
+			const form = await openEditor('SGT Smith, Jane');
+
+			expect(within(form).queryByRole('button', { name: 'Full data sheet' })).toBeNull();
+		});
 	});
 
 	describe('roster signals', () => {

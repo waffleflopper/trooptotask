@@ -20,6 +20,9 @@ person's record.
   state.
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
   keyboard and actions, and the signals lane's loading and failure states.
+- `roster-quick-edit`: a row's pencil or E opens that Person's fields in place under the row; one row edits at a time, a
+  change summary shows `old → new`, Enter saves, Esc cancels, leaving unsaved changes asks first, and the Data sheet
+  link saves or discards before it navigates.
 
 ## How to get to it (user POV)
 
@@ -99,10 +102,11 @@ scoped actors retain their baseline grants.
     is named `<name>` and shows `Quick edit <name>` alone, and clicking the row or pressing Enter does not navigate (the
     URL stays on Personnel and no `<slug>/__data.json` request is sent). At 390 `personnelOperate` still reaches it: the
     snapshot lists one `Quick edit SPC Able, Synthetic` button per row, 28x28 at the right of the name, and the page's
-    `scrollWidth` is 390. Choose it, set `MOS / Job Title` to `11B` and `Save Changes`: one `PUT` on `/api/personnel`
-    returns 200, `personnel.mos` reads `11B`, focus returns to the row's `Quick edit` button and the dialog closes.
-    `personnelOperate`, `personnelScopedOperate` and `perfScoped` loading the detail URL directly still get the 403
-    page. `manager`, `orgOwner`, `personnelScoped` (configure) and `perfScopedLeader` open each row they may edit.
+    `scrollWidth` is 390. Choose it: the `Quick edit SPC Able, Synthetic` form opens under the row without
+    `Full data sheet`. Set `MOS` to `11B` and choose `Save`: one `PUT` on `/api/personnel` returns 200, `personnel.mos`
+    reads `11B`, the form closes and focus returns to the row. `personnelOperate`, `personnelScopedOperate` and
+    `perfScoped` loading the detail URL directly still get the 403 page. `manager`, `orgOwner`, `personnelScoped`
+    (configure) and `perfScopedLeader` open each row they may edit.
 11. **Today's status and Needs attention.** As `orgOwner`, stage one case per source through the app's endpoints in the
     signed-in page (`evaluate_script` with `fetch`): `POST /org/<org>/api/personnel-trainings` for Able with the
     fixture's `trainingRequired` type, completed `2024-10-23` and expiring `2025-10-23`;
@@ -123,13 +127,13 @@ scoped actors retain their baseline grants.
     `1 present` and only Able's row, named `SPC Able, Synthetic`, with `1 of 1 shown`.
 12. **Row keyboard and actions.** Tab into the table: the first row takes focus with an inset ring and only that row is
     a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
-    `/personnel/<slug>/log?add=follow-up` with the note field focused, and Back returns to the roster; E opens
-    `Edit Personnel` for that row. The icon buttons are hidden until the row is hovered or holds focus; the verification
-    browser reports `hover: none`, so it always shows them, as a touch screen does. Single archive is Quick edit's
-    `Archive` button. Column hiding follows the table's own width, not the viewport: below 48rem Rank, MOS, Duty Role
-    and Group hide and the rank moves before the name; below 36rem Needs attention folds onto a second line under the
-    name; the actions column hides below the md viewport and `Quick edit` then sits beside the name. At 1440, 900 and
-    390 the page has no horizontal scroll.
+    `/personnel/<slug>/log?add=follow-up` with the note field focused, and Back returns to the roster; E opens that
+    row's Quick edit form (step 14). The icon buttons are hidden until the row is hovered or holds focus; the
+    verification browser reports `hover: none`, so it always shows them, as a touch screen does. Single-row archive is
+    the toolbar's `Archive` mode with one row selected, or the record's `More Personnel record` menu. Column hiding
+    follows the table's own width, not the viewport: below 48rem Rank, MOS, Duty Role and Group hide and the rank moves
+    before the name; below 36rem Needs attention folds onto a second line under the name; the actions column hides below
+    the md viewport and `Quick edit` then sits beside the name. At 1440, 900 and 390 the page has no horizontal scroll.
 13. **Signals lane loading, failure and reads.** Use `orgOwner` in the fixture's `orgA`; these controls do not match a
     performance-workload Organization. `$V server-source arm rpc/roster_signals hold 1 90000`, then reload. For a native
     `navigate_page` reload, use `timeout: 1000` and continue after its expected navigation timeout while the document
@@ -147,13 +151,51 @@ scoped actors retain their baseline grants.
     `roster_signals` call). To exercise the viewer-day rerun, launch with `--browser-timezone Pacific/Pago_Pago`, whose
     date always differs from `Pacific/Kiritimati`. Set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and
     reload: the app corrects the zone and reruns only the signals lane.
-14. **Edits that change what applies.** As `orgOwner` on a fresh launch, before step 11's staging, Able's cell reads
-    `Verification All-MOS Critical Task missing · 1 more`. Quick edit, set `MOS / Job Title` to `11B` and save: one
-    `PUT` on `/api/personnel`, then one `POST /api/personnel/roster-signals`, and no `__data.json` request. The cell now
-    reads `Verification All-MOS Critical Task missing`, because the `68W` `Verification Alpha Critical Task` stopped
-    applying. Set it back to `68W` and `· 1 more` returns. Rank, MOS, duty role and Group edits reread that Person's
-    cells; name, ETS and PCS edits send no `roster-signals` request.
-15. **By Group headers.** As `manager` with `$V calendar-grant manager view` (restore afterwards), reload Personnel in
+14. **Quick edit.** As `manager` at 1440 in `Group` view, click `Quick edit SPC Able, Synthetic`, or focus the row and
+    press E. The row takes a tinted band and an accent rule on its left edge, the pencil is pressed, and a
+    `Quick edit SPC Able, Synthetic` form opens under it with Rank focused and Rank, Last name, First name, MOS, Duty
+    role, Group, ETS and PCS / DEROS holding Able's saved values, `No changes` and `Save` disabled. Type `68C` in MOS:
+    the summary reads `1 CHANGE` and `MOS 68W → 68C`. Arm `$V network arm-hold-fail PAGE personnel` and click `Save`:
+    every field disables and the button reads `Saving...`; `$V network release PAGE` and the form stays open with every
+    value, `Failed to update personnel` in an alert and `Save` enabled; `$V network restore PAGE`. Arm
+    `$V network arm-observe PAGE personnel`, focus MOS and press Enter: one `PUT` `200`, the form closes, focus returns
+    to Able's row and it reads `68C` without a reload; `$V rows personnel orgA last_name Able` reads `mos` `68C`. Press
+    E, then Escape: the form closes and focus returns to the row. Escape and `Cancel` close without asking, even with
+    typed changes. Press E on Able, change Duty role to `Senior Medic` and click Baker's `Quick edit`: the
+    `Discard changes?` dialog names `SPC Able, Synthetic`; `Cancel` keeps Able's form and typed value, `Discard` opens
+    Baker's form with Rank focused. With a typed Duty role in Baker's form click `Full data sheet`:
+    `Save changes first?` offers `Cancel`, `Discard and open` and `Save and open`; `Save and open` sends one `PUT`
+    `200`, `$V rows` reads the new `clinic_role`, and the page moves to `/personnel/verify-baker/data-sheet`. With a
+    typed Duty role in an open form, a click on another row, that row's Name link, its `Note` button or browser Back
+    stays on the roster and asks `Save changes first?` with `Cancel`, `Discard and leave` and `Save and leave`: `Cancel`
+    keeps the form and typed value, `Discard and leave` closes the form and goes where the click was heading, and
+    `Save and leave` sends one `PUT` `200` first. Reload and tab close use the browser's own prompt. Rename Baker's Last
+    name to `Barker` and Save: the summary reads `Last name Baker → Barker`, the row stays under Bravo, its Name link
+    now points at `/personnel/barker-synthetic` and `$V rows personnel orgA last_name Barker` reads that `slug`. Pick
+    ETS `Dec 4, 2026` from the date picker (Next twice from October): the summary reads `ETS None → Dec 4, 2026`; after
+    Save the row carries an `ETS · 42d` badge and `list_network_requests` shows the `PUT` and no `roster-signals`
+    request. Change Group to Alpha (type `Alp` in the list and press Enter: the form stays open, a list's Enter does not
+    save), Save: the row moves under Alpha and one `POST .../api/personnel/roster-signals` `200` follows the `PUT`; a
+    Duty role or MOS change also rereads signals. Replace Last name with one space and click `Save`:
+    `Enter a last name.` renders in a `role="alert"` message, the input is `invalid` with it as its description, no
+    `PUT` is sent and focus stays on `Save`. As `viewer` the roster shows no `Quick edit` and E does nothing. As
+    `personnelOperate` (no record reading) the form opens without `Full data sheet`. At 900 the fields wrap into rows
+    and the page has no horizontal scroll. At 390 click the `Quick edit` button beside the name (the actions column has
+    folded away): the fields stack in one column inside the table's own scroll area, `Save` and `Cancel` sit at its
+    bottom, and `document.documentElement.scrollWidth` equals the 390 viewport. In `A-Z` view choose `Sort by MOS` with
+    Able and Baker both on `11B` (the order reads Able, Baker, Unassigned) and rename Able to `Zulu`: the row keeps its
+    place, so the order reads Zulu, Baker, Unassigned. Arm `$V network arm-hold PAGE personnel`, open Zulu's
+    `Full data sheet` with a typed Duty role, choose `Save and open` and press browser Back to the Dashboard before
+    `$V network release PAGE`: the write lands (`$V rows` reads the new `clinic_role`) and the page stays on the
+    Dashboard. A rename, Group change or `restart` leaves the fixture changed; `verify:app restart` before relying on
+    the original slugs.
+15. **Edits that change what applies.** As `orgOwner` on a fresh launch, before step 11's staging, Able's cell reads
+    `Verification All-MOS Critical Task missing · 1 more`. Open Quick edit, set `MOS` to `11B` and save: one `PUT` on
+    `/api/personnel`, then one `POST /api/personnel/roster-signals`, and no `__data.json` request. The cell now reads
+    `Verification All-MOS Critical Task missing`, because the `68W` `Verification Alpha Critical Task` stopped applying.
+    Set it back to `68W` and `· 1 more` returns. Rank, MOS, duty role and Group edits reread that Person's cells; name,
+    ETS and PCS edits send no `roster-signals` request.
+16. **By Group headers.** As `manager` with `$V calendar-grant manager view` (restore afterwards), reload Personnel in
     `Group` view at 1440. The table's column headers read `Rank`, `Name`, `MOS`, `Duty Role`, `Needs attention` (no
     `Group`; `A-Z` still shows it). Headers run `Alpha`, `Bravo`, `Unassigned`: both Groups share `sort_order` 0, so
     they fall back to name. `Pin Bravo` puts Bravo first. A Group with a lower `sort_order` would precede both, which
@@ -196,6 +238,8 @@ scoped actors retain their baseline grants.
   not test the Calendar-backed read.
 - Search results can change the visible rows without changing the URL; capture the search value and rows in the same
   snapshot.
+- The Quick edit Group and Rank lists are comboboxes: `take_snapshot` shows the listbox without its options, so read
+  them from a screenshot or pick by typing then Enter.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.
 - For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md); above 250 People
   the By Group view pauses rendering.

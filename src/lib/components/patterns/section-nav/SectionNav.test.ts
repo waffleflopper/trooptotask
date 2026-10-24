@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SectionNav, type SectionNavCount } from './index.js';
 
 function hrefs(scope: HTMLElement): (string | null)[] {
@@ -99,5 +99,29 @@ describe('patterns/section-nav SectionNav', () => {
 		expect(await within(tabs).findByRole('link', { name: 'Members 1 pending invitation' })).toBeTruthy();
 		expect(await within(side).findByRole('link', { name: 'Approvals count unavailable' })).toBeTruthy();
 		expect(await within(tabs).findByRole('link', { name: 'Approvals count unavailable' })).toBeTruthy();
+	});
+
+	it('runs an in-place action and posts a form action, at every width', async () => {
+		const openWhatsNew = vi.fn();
+		render(SectionNav, {
+			props: {
+				label: 'Account',
+				groups: [{ label: 'Account', items: [{ label: 'Profile', href: '/org/alpha/account/profile' }] }],
+				actions: [
+					{ label: "What's new", onclick: openWhatsNew },
+					{ label: 'Sign out', action: '/auth/logout' }
+				]
+			}
+		});
+
+		const whatsNew = screen.getAllByRole('button', { name: "What's new" });
+		expect(whatsNew).toHaveLength(2);
+		for (const button of whatsNew) await fireEvent.click(button);
+		expect(openWhatsNew).toHaveBeenCalledTimes(2);
+		for (const signOut of screen.getAllByRole('button', { name: 'Sign out' })) {
+			expect(signOut.getAttribute('type')).toBe('submit');
+			expect(signOut.closest('form')?.getAttribute('method')).toBe('POST');
+			expect(signOut.closest('form')?.getAttribute('action')).toBe('/auth/logout');
+		}
 	});
 });

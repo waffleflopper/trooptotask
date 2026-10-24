@@ -80,6 +80,9 @@
 	let failures = $state<Partial<Record<Control, string>>>({});
 	let notice = $state<string | null>(null);
 	let confirmingDelete = $state(false);
+	let deleteTrigger = $state<HTMLElement | null>(null);
+	let deletePicker = $state<HTMLSelectElement | null>(null);
+	let deleteCancel = $state<HTMLElement | null>(null);
 	let moveTarget = $state(UNASSIGNED);
 	let addPeopleValue = $state('');
 	let ordering = $state(0);
@@ -256,11 +259,20 @@
 		checked = on ? movableMembers.map((person) => person.id) : [];
 	}
 
-	function startDelete() {
+	async function startDelete() {
 		const index = groups.findIndex((group) => group.id === selectedGroup?.id);
 		moveTarget = groups[index + 1]?.id ?? UNASSIGNED;
 		clearFailure('delete');
 		confirmingDelete = true;
+		await tick();
+		(deletePicker ?? deleteCancel)?.focus();
+	}
+
+	async function cancelDelete() {
+		confirmingDelete = false;
+		clearFailure('delete');
+		await tick();
+		deleteTrigger?.focus();
 	}
 
 	async function confirmDelete() {
@@ -668,7 +680,7 @@
 				aria-label="Delete {selectedGroup.name}"
 				class="flex flex-wrap items-center gap-4 border-t-2 border-destructive bg-destructive/5 px-6 py-4"
 			>
-				<div class="grid min-w-0 flex-1 gap-0.5">
+				<div class="grid min-w-[min(100%,18rem)] flex-1 gap-0.5">
 					<p class="text-[15px] leading-5 font-semibold text-foreground">Delete {selectedGroup.name}?</p>
 					<p class="text-[13px] leading-[18px] text-muted-foreground">
 						{#if members.length > 0}
@@ -684,7 +696,12 @@
 				{#if members.length > 0}
 					<label class="flex items-center gap-2 text-sm text-foreground">
 						Move members to
-						<NativeSelect.Root bind:value={moveTarget} class="w-[10.625rem]" disabled={pending === 'delete'}>
+						<NativeSelect.Root
+							bind:ref={deletePicker}
+							bind:value={moveTarget}
+							class="w-[10.625rem]"
+							disabled={pending === 'delete'}
+						>
 							{#each groups.filter((group) => group.id !== selectedGroup.id) as group (group.id)}
 								<NativeSelect.Option value={group.id}>{group.name}</NativeSelect.Option>
 							{/each}
@@ -694,13 +711,11 @@
 				{/if}
 				<div class="flex gap-2">
 					<Button
+						bind:ref={deleteCancel}
 						type="button"
 						variant="outline"
 						disabled={pending === 'delete'}
-						onclick={() => {
-							confirmingDelete = false;
-							clearFailure('delete');
-						}}
+						onclick={cancelDelete}
 					>
 						Cancel
 					</Button>
@@ -712,7 +727,13 @@
 		{:else}
 			<AppDialog.Footer class="items-center border-t border-border bg-muted px-6 py-3.5 sm:justify-between">
 				{#if selectedGroup}
-					<Button type="button" variant="ghost-destructive" onclick={startDelete} disabled={pending !== null}>
+					<Button
+						bind:ref={deleteTrigger}
+						type="button"
+						variant="ghost-destructive"
+						onclick={startDelete}
+						disabled={pending !== null}
+					>
 						<Trash2Icon aria-hidden="true" />
 						Delete {selectedGroup.name}…
 					</Button>

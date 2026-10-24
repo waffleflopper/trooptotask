@@ -234,9 +234,9 @@ describe('GroupEditor', () => {
 		expect(strip.textContent?.replace(/\s+/g, ' ')).toContain(
 			'Delete 2nd Platoon? 2 members need a new Group. Their records, notes and history are not affected.'
 		);
-		expect((within(strip).getByRole('combobox', { name: 'Move members to' }) as HTMLSelectElement).value).toBe(
-			'g-empty'
-		);
+		const picker = within(strip).getByRole('combobox', { name: 'Move members to' }) as HTMLSelectElement;
+		expect(picker.value).toBe('g-empty');
+		await waitFor(() => expect(document.activeElement).toBe(picker));
 		await fireEvent.click(within(strip).getByRole('button', { name: 'Delete and move 2' }));
 
 		expect(await within(strip).findByText('That Group is no longer available.')).toBeTruthy();
@@ -248,14 +248,19 @@ describe('GroupEditor', () => {
 		await waitFor(() => expect(onDelete).toHaveBeenLastCalledWith('g-2', null));
 	});
 
-	it('deletes an empty Group with a plain confirmation', async () => {
+	it('deletes an empty Group with a plain confirmation and returns focus on Cancel', async () => {
 		const { onDelete } = renderEditor({ initialSelection: 'g-empty' });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Empty…' }));
 		const strip = screen.getByRole('group', { name: 'Delete Empty' });
 
 		expect(within(strip).queryByRole('combobox')).toBeNull();
-		await fireEvent.click(within(strip).getByRole('button', { name: 'Delete' }));
+		await waitFor(() => expect(document.activeElement).toBe(within(strip).getByRole('button', { name: 'Cancel' })));
+		await fireEvent.click(within(strip).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Delete Empty…' })));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Empty…' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 		await waitFor(() => expect(onDelete).toHaveBeenCalledWith('g-empty', null));
 	});
 });

@@ -195,8 +195,11 @@
 					if (sameRow()) {
 						emailResult = result.data as EmailActionData;
 						emailCurrentPassword = '';
+						await update({ reset: false });
+					} else {
+						// Applying the action would move focus out of the row the user is now in; only the loader needs refreshing.
+						await invalidateAll();
 					}
-					await update({ reset: false });
 				} else if (sameRow()) {
 					emailResult = {
 						emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'

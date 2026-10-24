@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import { invalidateAll } from '$app/navigation';
 import SecurityPage from './SecurityPage.svelte';
 import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
@@ -218,7 +219,7 @@ it('keeps an accepted email change when another row opens before the answer', as
 		data: { emailSuccess: 'Follow both inbox confirmations.', pendingEmail: 'new@example.test' }
 	});
 	expect(await screen.findByText(/Pending: new@example\.test\./)).toBeTruthy();
-	expect(transport.update).toHaveBeenCalledWith({ reset: false });
+	expect(invalidateAll).toHaveBeenCalledOnce();
 	expect(screen.queryByText('Email request not confirmed')).toBeNull();
 	expect(passwordRowField).toHaveFocus();
 });

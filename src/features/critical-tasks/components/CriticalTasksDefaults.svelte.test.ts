@@ -5,9 +5,12 @@ import { invalidate } from '$app/navigation';
 import CriticalTasksDefaults from './CriticalTasksDefaults.svelte';
 
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn().mockResolvedValue(undefined) }));
+const pageState = vi.hoisted(() => ({ params: { orgId: 'org-a' } }));
+vi.mock('$app/state', () => ({ page: pageState }));
 
 afterEach(() => {
 	cleanup();
+	pageState.params.orgId = 'org-a';
 	vi.clearAllMocks();
 	vi.unstubAllGlobals();
 });
@@ -133,6 +136,20 @@ describe('Critical Tasks defaults', () => {
 
 		reply(Response.json({}));
 		await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:critical-tasks-data'));
+	});
+
+	it('leaves another Organization unrefreshed when the save succeeds after the user switched to it', async () => {
+		let reply!: (response: Response) => void;
+		vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise<Response>((resolve) => (reply = resolve))));
+		const view = render(CriticalTasksDefaults, { orgId: 'org-a', settings, open: true });
+		await fireEvent.input(screen.getByLabelText('Default expiration'), { target: { value: '24' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		view.unmount();
+		pageState.params.orgId = 'org-b';
+
+		reply(Response.json({}));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(invalidate).not.toHaveBeenCalled();
 	});
 
 	it('discards the draft on Cancel and reopens on the saved values', async () => {

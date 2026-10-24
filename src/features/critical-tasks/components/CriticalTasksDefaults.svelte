@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { invalidate } from '$app/navigation';
+	import { page } from '$app/state';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -81,6 +82,7 @@
 	async function save() {
 		if (saveDisabledReason || saving) return;
 		const requestOrgId = orgId;
+		const requestOrgSegment = page.params.orgId;
 		const submitted = { defaultExpirationMonths, expiringSoonWarningDays };
 		saveError = '';
 		saving = true;
@@ -106,9 +108,9 @@
 			close();
 			toastStore.success('Critical Tasks defaults saved');
 		}
-		// Even after leaving the dialog, so the workspace never keeps the old thresholds.
+		// Even after leaving the dialog, so this Organization's workspace never keeps the old thresholds.
 		// Last, because the workspace layout unmounts this page while the refresh loads.
-		await invalidate('app:critical-tasks-data');
+		if (page.params.orgId === requestOrgSegment) await invalidate('app:critical-tasks-data');
 	}
 </script>
 

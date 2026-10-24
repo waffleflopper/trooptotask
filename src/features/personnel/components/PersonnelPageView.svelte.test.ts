@@ -174,6 +174,7 @@ function makeCtx(
 		orgUrlSegment: 'org-1',
 		signals,
 		lossesEnabled: true,
+		expectedChipCount: 4,
 		canViewAvailability: false,
 		signalRow: (person: Personnel) => signals.row(person.id),
 		summarizeSignals: (people: Personnel[]) =>
@@ -796,7 +797,9 @@ describe('PersonnelPageView', () => {
 			const held = filterCtx();
 			held.signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
 			const { unmount } = render(PersonnelPageView, { props: { ctx: held } });
-			expect(screen.getByRole('group', { name: 'Show only' }).getAttribute('aria-busy')).toBe('true');
+			const placeholders = screen.getByRole('group', { name: 'Show only' });
+			expect(placeholders.getAttribute('aria-busy')).toBe('true');
+			expect(placeholders.children).toHaveLength(4);
 			expect(screen.queryByRole('button', { name: /Expired/ })).toBeNull();
 			unmount();
 
@@ -804,6 +807,22 @@ describe('PersonnelPageView', () => {
 			failed.signals.observe('org-1', '2026-10-23', Promise.reject(new Error('statement timeout')));
 			render(PersonnelPageView, { props: { ctx: failed } });
 			await screen.findByRole('button', { name: 'Reload' });
+			expect(screen.queryByRole('group', { name: 'Show only' })).toBeNull();
+		});
+
+		it('reserves no chip row for a viewer who can never see a chip, before or after the lane settles', async () => {
+			const noChips = { ...ACCESS, availability: false, training: false };
+			const held = Object.assign(filterCtx(), { expectedChipCount: 0, lossesEnabled: false });
+			held.signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
+			const { unmount } = render(PersonnelPageView, { props: { ctx: held } });
+			expect(screen.getByRole('row', { name: 'SGT Smith, Jane' })).toBeTruthy();
+			expect(screen.queryByRole('group', { name: 'Show only' })).toBeNull();
+			unmount();
+
+			const settled = Object.assign(filterCtx(), { expectedChipCount: 0, lossesEnabled: false });
+			settle(settled, noChips);
+			render(PersonnelPageView, { props: { ctx: settled } });
+			await screen.findByRole('row', { name: 'SGT Smith, Jane' });
 			expect(screen.queryByRole('group', { name: 'Show only' })).toBeNull();
 		});
 

@@ -1,5 +1,6 @@
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { describe, it, expect } from 'vitest';
 import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -112,6 +113,21 @@ describe('PersonnelPageContext', () => {
 
 			expect(configurer({ kind: 'organization' }).canManageGroups).toBe(true);
 			expect(configurer({ kind: 'groups', groupIds: ['g1'] }).canManageGroups).toBe(false);
+		});
+
+		it('predicts the chips a viewer can see from their permissions and the unit switches', () => {
+			const expected = (level: Parameters<typeof createCapabilityMap>[0], disabledFeatures: FeatureKey[] = []) =>
+				new PersonnelPageContext(
+					makeData({ disabledFeatures }),
+					makeModals(),
+					createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap(level) })
+				).expectedChipCount;
+
+			expect(expected('configure')).toBe(6);
+			expect(expected('configure', ['lossesAndAwards'])).toBe(5);
+			expect(expected('configure', ['training', 'criticalTasks', 'evaluations'])).toBe(4);
+			expect(expected('none')).toBe(1);
+			expect(expected('none', ['lossesAndAwards'])).toBe(0);
 		});
 
 		it('keeps add/import/group affordances separate from existing-record edits', () => {

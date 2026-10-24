@@ -7,11 +7,13 @@
 
 	interface Props {
 		summary: SummaryState;
+		/** Chips this viewer can expect, so a row that will never fill is not reserved while the lane loads. */
+		expectedCount: number;
 		filter: RosterFilter | null;
 		onToggle: (chip: RosterChip) => void;
 	}
 
-	let { summary, filter, onToggle }: Props = $props();
+	let { summary, expectedCount, filter, onToggle }: Props = $props();
 
 	const CHIP_LABELS: Record<RosterChip, string> = {
 		expired: 'Expired or missing',
@@ -30,7 +32,7 @@
 
 	const chips = $derived(summary.kind === 'ready' ? summary.value.chips : []);
 	const activeChip = $derived(chipOf(filter));
-	const visible = $derived(summary.kind === 'pending' || chips.length > 0);
+	const visible = $derived(summary.kind === 'pending' ? expectedCount > 0 : chips.length > 0);
 </script>
 
 {#if visible}
@@ -44,7 +46,7 @@
 			aria-busy={summary.kind === 'pending'}
 		>
 			{#if summary.kind === 'pending'}
-				{#each [0, 1, 2, 3] as placeholder (placeholder)}
+				{#each { length: expectedCount } as _, placeholder (placeholder)}
 					<Skeleton class="h-7.5 w-32 shrink-0 rounded-full" />
 				{/each}
 			{:else}

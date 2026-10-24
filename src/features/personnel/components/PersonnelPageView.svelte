@@ -425,6 +425,7 @@
 
 			<PersonnelFilterChips
 				summary={signalSummary}
+				expectedCount={ctx.expectedChipCount}
 				filter={rosterFilter}
 				onToggle={(chip) => toggleFilter({ kind: 'chip', chip })}
 			/>

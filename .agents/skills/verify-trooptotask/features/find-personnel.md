@@ -105,12 +105,13 @@ scoped actors retain their baseline grants.
     signed-in page (`evaluate_script` with `fetch`): `POST /org/<org>/api/personnel-trainings` for Able with the
     fixture's `trainingRequired` type, completed `2024-10-23` and expiring `2025-10-23`;
     `POST /org/<org>/api/personnel/<personB>/follow-ups` titled `Verify roster overdue follow-up` and due three days
-    ago; `POST /org/<org>/api/rating-scheme` rating `personUnassigned` with an active `NCOER` for `2025-11-06` to
-    `2026-11-05`. Each returns 200 with an `id`; a `verify:app restart` discards them. Reload Personnel at 1440: the
-    header reads `Verification Organization A · Active roster`, `Personnel`, `3`, and the `Today's headcount` strip
-    reads `2 present` and `1 Verification Training`. Able's dot is `Present today` and its Needs attention reads
-    `Verification Required Training expired · 2 more` in red; Baker's dot is `Verification Training today` and reads
-    `Verification All-MOS Critical Task missing · 2 more`; Unassigned reads
+    ago; `POST /org/<org>/api/rating-scheme` rating `personUnassigned` with an active `NCOER` ending on `$V fixture`'s
+    `dates.trainingWarningExpires` (15 days out) and starting the day after `dates.trainingWarningCompleted` (a year
+    earlier), so the evaluation is due on any run date. Each returns 200 with an `id`; a `verify:app restart` discards
+    them. Reload Personnel at 1440: the header reads `Verification Organization A · Active roster`, `Personnel`, `3`,
+    and the `Today's headcount` strip reads `2 present` and `1 Verification Training`. Able's dot is `Present today` and
+    its Needs attention reads `Verification Required Training expired · 2 more` in red; Baker's dot is
+    `Verification Training today` and reads `Verification All-MOS Critical Task missing · 2 more`; Unassigned reads
     `Verification All-MOS Critical Task missing · 3 more`. The footer reads `3 of 3 shown` with `N note`, `E quick edit`
     and `↵ open record`. Turn off `Critical tasks` and `Training` in Settings › Features
     (`organizations.disabled_features` reads `training, criticalTasks`) and reload: Able reads `—`, Baker
@@ -151,23 +152,30 @@ scoped actors retain their baseline grants.
     reads `Verification All-MOS Critical Task missing`, because the `68W` `Verification Alpha Critical Task` stopped
     applying. Set it back to `68W` and `· 1 more` returns. Rank, MOS, duty role and Group edits reread that Person's
     cells; name, ETS and PCS edits send no `roster-signals` request.
-15. **Attention filters.** As `orgOwner` after step 11's staging, Quick edit Able and set ETS 41 days out (or `PUT`
-    `/api/personnel` with `{"id": personA, "ets": "2026-12-03"}`), then reload. Under the toolbar, `Show only` is
-    followed by six buttons: `Expired or missing 3`, `Expiring ≤ 30d 1`, `Overdue follow-ups 1`, `Not present 1`,
-    `ETS/PCS ≤ 90d 1` and `Counseling due 3` (counts cover the whole roster and ignore the search box). Click
-    `Expiring ≤ 30d`: it turns dark with an ×, `aria-pressed="true"`, focus stays on it, the address becomes
-    `?show=expiring`, `history.length` does not change, the roster shows only Unassigned with `NCOER due`, and the
-    footer reads `1 of 3 match`. Click it again (or its ×) and the address loses `?show=`. `Overdue follow-ups` shows
-    only Baker with `1 follow-up overdue`; `Not present` shows only Baker; `Counseling due` shows all three with
-    `Counseling due` in amber; `ETS/PCS ≤ 90d` shows only Able. In `Group` view only the matching people's Group headers
-    remain, each counting only its matches; switch to `A-Z`, type `Baker` under `?show=losses` and require
-    `No personnel match this filter.` with `0 of 3 match`. The headcount entries are filters too:
+15. **Attention filters.** As `orgOwner` after step 11's staging, Quick edit Able and set ETS 41 days after
+    `$V fixture`'s `dates.ui` (or `PUT` `/api/personnel` with `{"id": personA, "ets": "<that date>"}`), then reload.
+    Under the toolbar, `Show only` is followed by six buttons: `Expired or missing 3`, `Expiring ≤ 30d 1`,
+    `Overdue follow-ups 1`, `Not present 1`, `ETS/PCS ≤ 90d 1` and `Counseling due 3` (counts cover the whole roster and
+    ignore the search box). Click `Expiring ≤ 30d`: it turns dark with an ×, `aria-pressed="true"`, focus stays on it,
+    the address becomes `?show=expiring`, `history.length` does not change, the roster shows only Unassigned with
+    `NCOER due`, and the footer reads `1 of 3 match`. Click it again (or its ×) and the address loses `?show=`.
+    `Overdue follow-ups` shows only Baker with `1 follow-up overdue`; `Not present` shows only Baker; `Counseling due`
+    shows all three with `Counseling due` in amber; `ETS/PCS ≤ 90d` shows only Able. In `Group` view only the matching
+    people's Group headers remain, each counting only its matches; switch to `A-Z`, type `Baker` under `?show=losses`
+    and require `No personnel match this filter.` with `0 of 3 match`. The headcount entries are filters too:
     `1 Verification Training` sets `?show=status:<statusTypeId>` and shows Baker, `2 present` sets `?show=present` and
     shows Able and Unassigned, and the pressed entry is drawn dark with an × (click it to clear). Open `?show=expired`
     directly and reload: the filter is restored; `?show=everyone` is dropped from the address with the roster whole.
-    Hold the lane (`$V server-source arm rpc/roster_signals hold 1 90000`, reload with `?show=expired`): four chip
-    placeholders under `Show only` and the whole roster, with the chip row, header and table at identical offsets at
-    1440, 900 and 390 px once released. Arm `fail-hard` instead: no chip row, the whole roster, and the notice
+    Hold the lane (`$V server-source arm rpc/roster_signals hold 1 90000`, reload with `?show=expired`): one chip
+    placeholder per chip the actor can see (six for `orgOwner`) under `Show only` and the whole roster, with the chip
+    row and the first row at identical offsets once released (viewport tops 222 and 362 at 1440, 244 and 384 at 390).
+    With Losses & Awards off (`POST` `/api/organization/settings` with
+    `{"featureSwitch":{"feature":"lossesAndAwards","on":false}}`), `manager` holds two placeholders that become two
+    chips at the same offsets (222 and 362 at 1440 and 900, 206 and 346 at 390). `viewer` and `personnelOperate` can
+    read no signal source, so their lane makes no `roster_signals` call and cannot be held; with Losses & Awards off
+    they get no `Show only` row at any moment of a load, and Able's row stays at 316 px at 1440 and 900 and 300 px at
+    390 from its first frame (install a per-frame sampler with `navigate_page`'s `initScript`). Turn Losses & Awards
+    back on afterward. Arm `fail-hard` instead: no chip row, the whole roster, and the notice
     `Today's status and Needs attention could not be loaded.` followed by `Filter unavailable.` with `Reload`; the
     address keeps `?show=expired`, and `Reload` after `server-source restore` brings the filter back. Turn off
     `Critical tasks` and `Training` in Settings › Features (or `POST` `/api/organization/settings` with

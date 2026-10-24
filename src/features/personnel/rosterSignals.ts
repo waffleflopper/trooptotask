@@ -1,3 +1,5 @@
+import type { FeatureKey } from '$lib/access/featureSwitches';
+import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { coveredMonthsOf } from './counselingCoverage';
 import { dueLabel } from './logModel';
 import { buildPersonnelAttention } from './personnelAttention';
@@ -8,6 +10,35 @@ import { evaluateUpcomingLosses, type UpcomingLossRecord } from './upcomingLoss'
 /** The sources the roster signals lane reads. A source the unit turned off or the viewer cannot read is withheld. */
 export type SignalSource = 'availability' | 'training' | 'criticalTasks' | 'evaluations' | 'followUps' | 'counseling';
 export type SignalAccess = Readonly<Record<SignalSource, boolean>>;
+
+/** Each source's feature switch and read permission. A source that is off or denied is never read. */
+export const SIGNAL_SOURCES = {
+	availability: { feature: null, action: POLICY_ACTION_CATALOG.calendar.viewAvailability },
+	training: { feature: 'training', action: POLICY_ACTION_CATALOG.training.viewRecords },
+	criticalTasks: { feature: 'criticalTasks', action: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness },
+	evaluations: { feature: 'evaluations', action: POLICY_ACTION_CATALOG.ratingScheme.viewEntries },
+	followUps: { feature: null, action: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords },
+	counseling: { feature: null, action: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords }
+} as const satisfies Record<SignalSource, { feature: FeatureKey | null; action: FeatureLanePolicyAction }>;
+
+/** The sources a viewer reads: the server resolves it authoritatively, the page predicts it before the lane settles. */
+export function signalAccessBy(
+	canRead: (action: FeatureLanePolicyAction) => boolean,
+	disabledFeatures: readonly FeatureKey[]
+): SignalAccess {
+	const allowed = (source: SignalSource) => {
+		const { feature, action } = SIGNAL_SOURCES[source];
+		return !(feature && disabledFeatures.includes(feature)) && canRead(action);
+	};
+	return {
+		availability: allowed('availability'),
+		training: allowed('training'),
+		criticalTasks: allowed('criticalTasks'),
+		evaluations: allowed('evaluations'),
+		followUps: allowed('followUps'),
+		counseling: allowed('counseling')
+	};
+}
 
 /** A withheld fact was not read, so it is never shown as clear or present. */
 export type Known<T> = { kind: 'known'; value: T } | { kind: 'withheld' };

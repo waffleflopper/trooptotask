@@ -30,7 +30,7 @@
 	let feedbackPageUrl = $state('');
 	let showWhatsNew = $state(false);
 	let hasAutoShownWhatsNew = false;
-	setAppShellContext(createAppShellContext(() => shell, autoShowWhatsNew));
+	setAppShellContext(createAppShellContext(() => shell, { autoShowWhatsNew, openWhatsNew, openFeedback }));
 	// The Organization layout keys this shell by user, Organization and session; its teardown ends that lifetime.
 	$effect(() => endOrganizationLifetime);
 
@@ -46,6 +46,13 @@
 		} catch {
 			/* Storage is optional. Manual opening remains available. */
 		}
+	}
+	function openWhatsNew() {
+		showWhatsNew = true;
+	}
+	function openFeedback() {
+		feedbackPageUrl = $page.url.pathname;
+		showFeedback = true;
 	}
 	function closeWhatsNew() {
 		showWhatsNew = false;
@@ -107,13 +114,10 @@
 	userRole={shell.member.role}
 	membershipId={shell.member.membershipId}
 	capabilityMap={shell.member.capabilityMap}
+	account={shell.user}
 	{onToggleTheme}
 	{isDarkTheme}
-	onFeedback={() => {
-		feedbackPageUrl = $page.url.pathname;
-		showFeedback = true;
-	}}
-	onWhatsNew={() => (showWhatsNew = true)}
+	onFeedback={openFeedback}
 >
 	{#snippet banner()}
 		<BannerStack>

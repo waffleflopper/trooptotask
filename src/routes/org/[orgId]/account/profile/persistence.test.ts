@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { actions, load } from './+page.server';
+import { loadUserProfile } from '$features/identity/index.server';
+import { actions } from './+page.server';
 it('keeps profile-save failure retryable until the bound saved row is acknowledged', async () => {
 	let acknowledge = false;
 	const saved: unknown[] = [];
@@ -15,7 +16,7 @@ it('keeps profile-save failure retryable until the bound saved row is acknowledg
 	});
 	const event = {
 		locals: { actor: { userId: 'actor' }, user: { id: 'actor' }, supabase },
-		request: new Request('http://app.invalid/account/profile', {
+		request: new Request('http://app.invalid/org/alpha/account/profile', {
 			method: 'POST',
 			body: new URLSearchParams({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT', userId: 'forged-subject' })
 		})
@@ -24,13 +25,16 @@ it('keeps profile-save failure retryable until the bound saved row is acknowledg
 	try {
 		expect(await actions.default(event as never)).toMatchObject({ status: 500, data: { error: expect.any(String) } });
 		acknowledge = true;
-		event.request = new Request('http://app.invalid/account/profile', {
+		event.request = new Request('http://app.invalid/org/alpha/account/profile', {
 			method: 'POST',
 			body: new URLSearchParams({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT', userId: 'forged-subject' })
 		});
 		expect(await actions.default(event as never)).toMatchObject({ success: expect.any(String) });
-		expect(await load(event as never)).toMatchObject({
-			profile: { userId: 'actor', firstName: 'Jane', lastName: 'Smith', rank: 'SGT' }
+		expect(await loadUserProfile(event.locals, 'actor')).toEqual({
+			userId: 'actor',
+			firstName: 'Jane',
+			lastName: 'Smith',
+			rank: 'SGT'
 		});
 		expect(saved).toEqual([
 			{ user_id: 'actor', first_name: 'Jane', last_name: 'Smith', rank: 'SGT' },

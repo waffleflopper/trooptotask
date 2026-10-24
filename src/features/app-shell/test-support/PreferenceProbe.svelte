@@ -16,3 +16,4 @@
 <button onclick={() => preferences.patch({ training: { matrixViewMode: 'alphabetical' } })}>Choose alphabetical</button>
 <output aria-label="Training grouping">{preferences.value.training.matrixViewMode}</output>
 <button onclick={() => shell.autoShowWhatsNew()}>Check updates</button>
+<button onclick={() => shell.openWhatsNew()}>Open updates</button>

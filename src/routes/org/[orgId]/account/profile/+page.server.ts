@@ -1,16 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { BUILT_IN_ARMY_RANK_OPTIONS } from '$features/personnel/contracts';
-import { loadUserProfile, parseUserProfileForm, upsertUserProfile } from '$features/identity/index.server';
+import { parseUserProfileForm, upsertUserProfile } from '$features/identity/index.server';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.actor) redirect(303, '/auth/login');
-
-	return {
-		profile: await loadUserProfile(locals, locals.actor.userId),
-		ranks: BUILT_IN_ARMY_RANK_OPTIONS
-	};
-};
+// The profile itself arrives with the shell's first paint, so this page adds no read.
+export const load: PageServerLoad = () => ({ ranks: BUILT_IN_ARMY_RANK_OPTIONS });
 
 export const actions: Actions = {
 	default: async ({ request, locals }) => {

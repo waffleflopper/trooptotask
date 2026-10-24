@@ -92,7 +92,7 @@ ordinary access checks because it intentionally changes the seeded owner.
 6. In a fresh owned worker, confirm the owner has no `Leave Organization` menu action. Submit the current signed-in
    Dashboard leave form directly with the owner's membership ID and `YES`; record the HTTP status and require 400 with
    the ownership explanation and the owner row unchanged. This is an authenticated action check, separate from visible
-   UI interaction. For a positive exit, use an expendable accepted member: the sidebar name card → Profile →
+   UI interaction. For a positive exit, use an expendable accepted member: the sidebar name card → Account →
    `Leave unit` (absent for an owner) → type `YES` in the Leave Organization dialog → submit, then confirm the redirect
    and absence of that membership after reload. Restart the worker after this seeded deletion.
 

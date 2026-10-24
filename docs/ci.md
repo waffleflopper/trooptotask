@@ -4,7 +4,7 @@ CI runs on GitHub-hosted `ubuntu-24.04` runners until Depot CI minutes reset; se
 
 ## What runs
 
-[The workflow](../.github/workflows/ci.yml) runs on PRs that target `main` or a `feat/**` integration branch and carry the `run-ci` label, and on manual dispatch. Merging to `main` starts no run. New PR updates cancel superseded runs. CI never deploys or touches a remote database.
+[The workflow](../.github/workflows/ci.yml) runs on PRs that target `main` or a `feat/**` or `perf/**` integration branch and carry the `run-ci` label, and on manual dispatch. Merging to `main` starts no run. New PR updates cancel superseded runs. CI never deploys or touches a remote database.
 
 Without the label every job reports skipped. Add `run-ci` once hosted review of the current head has no actionable findings. The run clears the label automatically, so later pushes wait for another deliberate re-add after review is clean. Dependabot and fork PRs get a read-only token, so their label stays and CI runs on each push. Adding any other label skips every job and cannot cancel a running check.
 

@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-23-critical-tasks-defaults',
+		date: '2026-10-23',
+		title: 'Critical Tasks Defaults Moved to the Toolbar',
+		items: [
+			'The default expiration and expiring-soon window for Critical Tasks no longer sit below the Task Library. Choose Defaults on the Task Library toolbar to change them. On a narrow screen, Defaults is under More.',
+			'Who can change them has not changed: anyone who can manage the Critical Tasks library.'
+		]
+	},
+	{
 		id: '2026-10-23-duty-swaps',
 		date: '2026-10-23',
 		title: 'Swap Duty Days on a Roster',

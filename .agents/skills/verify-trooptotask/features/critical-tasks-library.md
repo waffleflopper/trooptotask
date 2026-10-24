@@ -37,7 +37,8 @@ Sign in to Organization A and choose `ICTLs` in the Organization navigation (its
 `Critical Tasks`), then `Task Library`. Use `New Task`, the selected task's `Edit`, `Archive Task` or `Restore Task`, or
 the `Import` link (on the toolbar row, or in `More ICT task library controls` when the row is narrow). Import opens its
 own page at `critical-tasks/library/import`, which steps through File, Columns, Review and Done.
-`Critical Tasks Defaults` is below the library and uses the same configure permission.
+`Defaults` on the same toolbar (or in More when narrow) opens the `Critical Tasks Defaults` dialog and uses the same
+configure permission.
 
 ## Helper controls
 
@@ -186,12 +187,16 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
    rows as Not confirmed with the same guidance and no automatic resend. Read saved codes separately and restore the
    hook. Earlier confirmed chunks remain counted; later unsent chunks are not imported.
 
-6. **Settings:** As `ictConfigurator` in the task library, read `Critical Tasks Defaults`, save distinct valid
-   expiration/warning values and reload to see them persist. Restore the original values through the same page and read
-   them again. Confirm the matrix reflects the saved thresholds after a fresh load. As `ictConfigurator`, attempt the
-   mixed `Settings` → `Policies` page and direct Organization settings POST: both must remain denied. As `ictViewer` and
-   `ictScoped`, send a valid signed-in POST to the dedicated Critical Tasks settings endpoint and require denial plus
-   unchanged defaults. A `400` payload error is not permission proof.
+6. **Settings:** As `ictConfigurator` in the task library, choose `Defaults`, save distinct valid expiration/warning
+   values, and reopen after reload to see them persist. The dialog closes and `Critical Tasks defaults saved` shows as
+   soon as the server confirms; the library then reloads its workspace, so focus starts on the page. With an edited
+   value, Escape and an outside click keep the dialog open; Cancel closes it, returns focus to `Defaults` (or to More
+   when it folded) and reopens on the saved values. While `New Task` or `Edit` holds a task form, `Defaults` is
+   disabled, because a defaults save reloads the workspace and would drop that draft. Restore the original values
+   through the same page and read them again. Confirm the matrix reflects the saved thresholds after a fresh load. As
+   `ictConfigurator`, attempt the mixed `Settings` → `Policies` page and direct Organization settings POST: both must
+   remain denied. As `ictViewer` and `ictScoped`, send a valid signed-in POST to the dedicated Critical Tasks settings
+   endpoint and require denial plus unchanged defaults. A `400` payload error is not permission proof.
 7. **Dedicated and foreign access:** As `ictViewer`, open Critical Tasks readiness and attempt its library link and
    direct library route; expect no configure controls. Send a valid signed-in `POST /org/<orgA>/api/ict-tasks` from this
    page and require `403` or `404` plus `$V rows ict_tasks orgA task_code UNIQUE` returning zero. Repeat with
@@ -233,7 +238,7 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
 
    - ID: L4
      - Control or state: Defaults labels and range
-     - How to reach it: `Critical Tasks Defaults`: read both inputs, then type `0` into Default expiration
+     - How to reach it: `Defaults` on the toolbar: read both inputs, then type `0` into Default expiration
      - Expected: `Default expiration` and `Expiring-soon window` resolve as labels and their help text resolves through
        `aria-describedby`. The range message is associated with the invalid field (`aria-invalid="true"`). Save is
        disabled with that reason
@@ -241,9 +246,10 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
    - ID: L5
      - Control or state: Defaults failed save
      - How to reach it: As `orgOwner` in Members, change `ictConfigurator` to Critical Tasks view while its library page
-       is open, then change a default and Save
-     - Expected: `Failed to save Critical Tasks defaults` renders as an `Alert` (`role="alert"`), the entered values
-       stay, and `$V rows organizations orgA` is unchanged. Restore the exact membership afterward
+       is open, then open `Defaults`, change a default and Save
+     - Expected: The server's permission refusal renders as an `Alert` (`role="alert"`) inside the open dialog with
+       `Your entered defaults are kept. Try Save again.`, the entered values stay, focus returns to Save, and
+       `$V rows organizations orgA` is unchanged. Restore the exact membership afterward
 
    - ID: L6
      - Control or state: Task import page
@@ -258,7 +264,7 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
      - Control or state: Loading
      - How to reach it: `server-source arm ict_tasks hold 1 120000` on Home, then choose `ICTLs` and `Task Library`
      - Expected: A labelled loading region (`role="status"`, `aria-live="polite"`, no `aria-busy` on the live region)
-       shows while the workspace is pending, not a blank page. `New Task` and `Import` stay disabled with
+       shows while the workspace is pending, not a blank page. `New Task`, `Import` and `Defaults` stay disabled with
        `Critical Tasks are still loading.` until release. A full load of `critical-tasks/library/import` under the same
        hold keeps its title and steps and shows the `Loading import` skeleton; after `server-source restore` it reaches
        File. Under `server-source arm ict_tasks fail-hard 1` the import page shows `Unable to load Critical Tasks` with
@@ -274,13 +280,13 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
      - How to reach it: `ictViewer` and `rosterManager` open `/org/<orgA>/critical-tasks/library` directly; `ictForeign`
        opens the same A address
      - Expected: The viewer and Training-only member get a settled denial (403 page or `Access Restricted`), with no
-       library controls. The foreign member gets a 404 `Page not found` with no A data. `ictOperator` (completion
-       operate, no configure) gets the 403 page at `critical-tasks/library/import`, and a valid signed-in
-       `POST api/ict-tasks/batch` returns 403 with no new row
+       library controls, including `Defaults`. The foreign member gets a 404 `Page not found` with no A data.
+       `ictOperator` (completion operate, no configure) gets the 403 page at `critical-tasks/library/import`, and a
+       valid signed-in `POST api/ict-tasks/batch` returns 403 with no new row
 
    - ID: L10
      - Control or state: Narrow and dark
-     - How to reach it: 390x844 dark: list, selected task details, the edit form, Defaults
+     - How to reach it: 390x844 dark: list, selected task details, the edit form, the Defaults dialog from More
      - Expected: No horizontal document overflow (`scrollWidth` equals `clientWidth`); controls stack inside the 358
        column; text and borders are visible in dark
 
@@ -309,7 +315,7 @@ task payload, then compare exact provider rows using `$V rows`.
   grant an Organization catalog write.
 - Task archive hides a definition from active workflows and keeps its ID and completion history. Do not delete seeded
   completion rows to make an archive check pass.
-- Organization policies remain guarded by owner/admin authority; Critical Tasks defaults use the dedicated library form
-  and endpoint.
+- Organization policies remain guarded by owner/admin authority; Critical Tasks defaults use the dedicated library
+  dialog and endpoint.
 - The UI provides archive and restore but no task deletion. Restart the owned disposable worker to discard uniquely
   created proof rows; `clean-seeds` cannot remove UI-created tasks.

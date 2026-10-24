@@ -26,12 +26,9 @@ For app verification, use the repository's `npm run verify:app` environment, nat
 
 Open the relevant sections when the task needs them; links are a reading map, not a mandatory reading sequence.
 
-The shared pstack plugin supplies general engineering methods. When using Poteto Mode in this repository, apply [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md) alongside its chosen playbook. Follow the [skill integration rules](docs/agents/operating-rules.md#shared-skills-and-project-workflows); project contracts and local verification/PR skills govern TroopToTask work.
+General engineering methods come from the skill pack Robert invokes, such as p3-mode. This file and the docs it links govern TroopToTask work. Robert's own "ship it" runs the global `ship-it` skill, which carries a change through review, CI and merge.
 
-- Engineering investigation, feature work, bug fixes, refactoring, design or review: [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md).
 - Driving the real app, browser debugging or maintaining flow knowledge: [verify-trooptotask](.agents/skills/verify-trooptotask/SKILL.md). Use `npm run verify:app -- --help`; update affected feature recipes alongside behavior changes.
-- PR feedback, current-candidate CI and authorized handoff: the repository's [finish-pr](.agents/skills/finish-pr/SKILL.md). Robert's "ship it" runs the global `ship-it` skill under finish-pr's gates.
-
 - Adding, rewriting, pruning or reviewing tests: [Testing strategy](docs/architecture/TESTING.md).
 - Svelte/SvelteKit implementation or framework questions: [Svelte guidance](docs/agents/svelte.md).
 - Components, route UI, shared styling or app shell: [UI system](docs/agents/ui-system.md).

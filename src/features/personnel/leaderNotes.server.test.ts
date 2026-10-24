@@ -32,9 +32,7 @@ afterEach(() => {
 
 describe('personnel leader notes', () => {
 	it('does not report a leader note as created until its audit event is recorded', async () => {
-		const ctx = createTestContext({
-			auth: { capabilityMap: { personnel: 'configure' }, userId: LEADER_USER_ID, scopeSet: { kind: 'organization' } }
-		});
+		const ctx = createTestContext();
 		seedPersonnel(ctx);
 		let recordAudit!: () => void;
 		const audited = new Promise<void>((resolve) => (recordAudit = resolve));

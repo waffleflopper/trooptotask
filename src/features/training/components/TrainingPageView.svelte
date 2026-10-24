@@ -36,7 +36,7 @@
 		disposed = true;
 	});
 
-	const UNASSIGNED = 'Unassigned';
+	const NO_GROUP = '\u0000';
 	const compareGroups = $derived(
 		compareRosterGroupNames({
 			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
@@ -285,8 +285,9 @@
 						onCellClick={ctx.canRecordTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 						onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 						groupBy={{
-							key: (p) => p.groupName || UNASSIGNED,
-							compare: (a, b) => compareGroups(a === UNASSIGNED ? '' : a, b === UNASSIGNED ? '' : b)
+							key: (p) => p.groupName || NO_GROUP,
+							label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
+							compare: (a, b) => compareGroups(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
 						}}
 					/>
 				{/if}

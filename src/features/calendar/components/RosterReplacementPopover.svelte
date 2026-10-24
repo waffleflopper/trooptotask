@@ -26,6 +26,8 @@
 		/** Without an assignee the server previews the rule's pick. */
 		load: (assigneeId?: string) => Promise<RosterReplacement>;
 		commit: (preview: RosterReplacement) => Promise<'saved' | 'changed' | 'failed'>;
+		/** How many duty swaps assigning this preview ends. */
+		endsSwaps?: (preview: RosterReplacement) => number;
 		onSomeoneElse: () => void;
 		onClose: () => void;
 	}
@@ -40,6 +42,7 @@
 		personById,
 		load,
 		commit,
+		endsSwaps,
 		onSomeoneElse,
 		onClose
 	}: Props = $props();
@@ -126,6 +129,7 @@
 	const replaced = $derived(
 		shown ? person(shown.replacing.personId) : opened ? { prefix: opened.rank, name: opened.lastName } : person('')
 	);
+	const swapsEnded = $derived(shown && settled ? (endsSwaps?.(shown) ?? 0) : 0);
 	const assignName = $derived(selected ? person(selected).name : '');
 
 	const explanation = $derived.by(() => {
@@ -413,6 +417,12 @@
 					{#if shown.unfilled.length}
 						<p class="text-[13px] text-destructive-text" role="alert">
 							Nobody on the roster can take {shown.unfilled.map(dayLabel).join(', ')} after this change. Choose someone else.
+						</p>
+					{/if}
+					{#if swapsEnded > 0}
+						<p class="text-[13px] font-medium text-warning-foreground">
+							Ends {swapsEnded} duty {swapsEnded === 1 ? 'swap' : 'swaps'}. Both days of each then count for whoever
+							holds them.
 						</p>
 					{/if}
 					<p class="text-xs text-muted-foreground">Days you assigned by hand stay put.</p>

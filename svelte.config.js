@@ -5,7 +5,7 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({ regions: ['pdx1'] }),
 		alias: {
 			$features: './src/features',
 			'$features/*': './src/features/*'

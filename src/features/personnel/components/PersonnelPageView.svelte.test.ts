@@ -382,7 +382,7 @@ describe('PersonnelPageView', () => {
 	});
 
 	describe('By Group view', () => {
-		function loadTwoGroups(): void {
+		function loadTwoGroups(secondGroupName = 'Bravo'): void {
 			personnelStore.load(
 				[
 					...personnel,
@@ -394,7 +394,7 @@ describe('PersonnelPageView', () => {
 						mos: '11B',
 						clinicRole: 'Rifleman',
 						groupId: 'group-2',
-						groupName: 'Bravo',
+						groupName: secondGroupName,
 						archivedAt: null,
 						ets: null,
 						deros: null
@@ -432,6 +432,23 @@ describe('PersonnelPageView', () => {
 
 			expect(headerOrder()).toEqual(['Collapse Bravo', 'Collapse Alpha', 'Collapse Unassigned']);
 			expect(screen.getAllByRole('columnheader').map((header) => header.textContent?.trim())).not.toContain('Group');
+		});
+
+		it('keeps the controls of a Group named Unassigned apart from the People with no Group', () => {
+			loadTwoGroups('Unassigned');
+			const ctx = {
+				...makeCtx(),
+				viewMode: 'by-group',
+				canManageGroups: true,
+				groupOrder: ['Alpha', 'Unassigned']
+			} as unknown as PersonnelPageContext;
+
+			render(PersonnelPageView, { props: { ctx } });
+
+			expect(headerOrder()).toEqual(['Collapse Alpha', 'Collapse Unassigned', 'Collapse Unassigned']);
+			expect(screen.getAllByRole('button', { name: 'Pin Unassigned' })).toHaveLength(1);
+			expect(screen.getAllByRole('button', { name: 'Group actions for Unassigned' })).toHaveLength(1);
+			expect(screen.getAllByRole('button', { name: 'Assign a Group' })).toHaveLength(1);
 		});
 
 		it("moves the viewer's pinned Group above the Organization order", () => {

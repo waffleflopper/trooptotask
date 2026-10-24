@@ -91,7 +91,7 @@ describe('PersonnelGroupHeader', () => {
 	it('says nobody needs attention rather than showing an empty lane', () => {
 		mount(ready({ attention: { people: 0, worst: null } }));
 
-		expect(screen.getByLabelText('None need attention')).toBeTruthy();
+		expect(screen.getByText('None need attention')).toBeTruthy();
 	});
 
 	it('keeps the bar and the attention count on a collapsed Group', () => {
@@ -165,6 +165,12 @@ describe('PersonnelGroupHeader', () => {
 
 		expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull();
 		expect(screen.queryByRole('menuitem', { name: 'Add people' })).toBeNull();
+	});
+
+	it('names the member count for assistive technology', () => {
+		mount(ready({}));
+
+		expect(screen.getByText('4 people')).toBeTruthy();
 	});
 
 	it('offers Unassigned an Assign a Group link instead of a count, with no pin or menu', async () => {

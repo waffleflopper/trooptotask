@@ -78,9 +78,10 @@
 			<ChevronDownIcon class={['size-3 shrink-0', group.collapsed && '-rotate-90']} aria-hidden="true" />
 			<span class="truncate font-heading text-xl leading-6 font-bold uppercase">{group.label}</span>
 		</Button>
-		<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums" aria-label="{group.count} people"
-			>{group.count}</span
-		>
+		<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+			<span aria-hidden="true">{group.count}</span>
+			<span class="sr-only">{group.count} {group.count === 1 ? 'person' : 'people'}</span>
+		</span>
 	</div>
 
 	<div
@@ -108,7 +109,9 @@
 				<Skeleton class="h-3 w-24" />
 			{:else if attention}
 				{#if attention.people === 0}
-					<span class="text-muted-foreground" aria-label="None need attention">—</span>
+					<span class="text-muted-foreground"
+						><span aria-hidden="true">—</span><span class="sr-only">None need attention</span></span
+					>
 				{:else}
 					<span class={attention.worst === 'red' ? 'text-danger-foreground' : 'text-warning-foreground'}
 						>{attention.people} {attention.people === 1 ? 'needs' : 'need'} attention</span

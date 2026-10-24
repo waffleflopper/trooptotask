@@ -40,8 +40,9 @@
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const UNASSIGNED = 'Unassigned';
-	const groupKey = (person: Personnel): string => person.groupName || UNASSIGNED;
+	// A NUL cannot appear in a saved Group name, so a Group named "Unassigned" never collides with the no-Group bucket.
+	const NO_GROUP = '\u0000';
+	const groupKey = (person: Personnel): string => person.groupName || NO_GROUP;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	let locallyArchivedIds = new SvelteSet<string>();
@@ -132,7 +133,8 @@
 		initialSortDirection: 'asc',
 		groupBy: {
 			key: groupKey,
-			compare: (a, b) => groupComparator(a === UNASSIGNED ? '' : a, b === UNASSIGNED ? '' : b)
+			label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
+			compare: (a, b) => groupComparator(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
 		}
 	});
 	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
@@ -469,7 +471,7 @@
 								people={peopleByGroup.get(group.key) ?? []}
 								{ctx}
 								pinned={pinnedGroupsStore.list.includes(group.key)}
-								unassigned={group.key === UNASSIGNED}
+								unassigned={group.key === NO_GROUP}
 								onTogglePin={togglePin}
 							/>
 						{/snippet}

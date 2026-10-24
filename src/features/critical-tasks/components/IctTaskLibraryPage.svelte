@@ -169,7 +169,11 @@
 				icon: 'sliders',
 				onclick: () => (defaultsOpen = true),
 				disabled: loading || !settings || creating || editing,
-				disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
+				disabledReason: loading
+					? 'Critical Tasks are still loading.'
+					: creating || editing
+						? 'Save or cancel the task first.'
+						: undefined
 			});
 		}
 

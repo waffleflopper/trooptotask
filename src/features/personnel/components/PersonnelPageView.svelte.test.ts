@@ -1298,14 +1298,24 @@ describe('PersonnelPageView', () => {
 			expect(chips.getByRole('button', { name: /Expired/ }).textContent).toContain('1');
 		});
 
-		it('keeps the chip row to placeholders until the lane settles and hides it when the lane fails', async () => {
+		it('holds the chip row in place until the lane settles and hides it when the lane fails', async () => {
 			const held = filterCtx();
-			held.signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
+			const lane = Promise.withResolvers<never>();
+			held.signals.observe('org-1', '2026-10-23', lane.promise);
 			const { unmount } = render(PersonnelPageView, { props: { ctx: held } });
-			const placeholders = screen.getByRole('group', { name: 'Show only' });
-			expect(placeholders.getAttribute('aria-busy')).toBe('true');
-			expect(placeholders.children).toHaveLength(4);
+			const row = screen.getByRole('group', { name: 'Show only' });
+			expect(row.getAttribute('aria-busy')).toBe('true');
 			expect(screen.queryByRole('button', { name: /Expired/ })).toBeNull();
+
+			lane.resolve({
+				asOf: '2026-10-23',
+				access: ACCESS,
+				statusTypes: [LEAVE],
+				people: [smith, young]
+			} as never);
+			await screen.findByRole('button', { name: /Expired or missing/ });
+			expect(screen.getByRole('group', { name: 'Show only' })).toBe(row);
+			expect(row.getAttribute('aria-busy')).toBe('false');
 			unmount();
 
 			const failed = filterCtx();

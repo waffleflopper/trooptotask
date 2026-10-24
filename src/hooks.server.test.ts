@@ -64,6 +64,8 @@ interface TestServerClientOptions {
 	};
 }
 
+const firstEnrollmentFactors = { data: { all: [], totp: [] }, error: null };
+
 describe('server auth hook', () => {
 	it('sets restrictive response security headers without exposing provider origins', async () => {
 		const { handle, createEvent, resolve } = await createAuthenticatedHookHarness({ data: false, error: null });
@@ -203,7 +205,7 @@ describe('server auth hook', () => {
 		const mfa = {
 			getAuthenticatorAssuranceLevel,
 			enroll: vi.fn().mockResolvedValue({
-				data: { id: 'pending-factor', type: 'totp', totp: { qr_code: 'synthetic-qr' } },
+				data: { id: 'pending-factor', type: 'totp', totp: { qr_code: 'synthetic-qr', secret: 'synthetic-key' } },
 				error: null
 			}),
 			listFactors: vi.fn().mockResolvedValue({
@@ -747,13 +749,14 @@ describe('server auth hook', () => {
 				data: { currentLevel: 'aal2', nextLevel: 'aal2' },
 				error: null
 			});
+			if (route.path.endsWith('/enroll')) harness.mfa.listFactors.mockResolvedValueOnce(firstEnrollmentFactors);
 			const response = await harness.handle({ event: harness.createEvent(route.path), resolve: dispatch(route) });
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual(
 				route.path.endsWith('/status')
 					? { currentLevel: 'aal2', nextLevel: 'aal2' }
 					: route.path.endsWith('/enroll')
-						? { factorId: 'pending-factor', qrCode: 'synthetic-qr' }
+						? { factorId: 'pending-factor', qrCode: 'synthetic-qr', secret: 'synthetic-key' }
 						: { ok: true }
 			);
 		});
@@ -761,9 +764,14 @@ describe('server auth hook', () => {
 		it('allows an active AAL1 account to begin its first MFA enrollment', async () => {
 			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
 			const route = factorManagementRoutes[0];
+			harness.mfa.listFactors.mockResolvedValueOnce(firstEnrollmentFactors);
 			const response = await harness.handle({ event: harness.createEvent(route.path), resolve: dispatch(route) });
 			expect(response.status).toBe(200);
-			expect(await response.json()).toEqual({ factorId: 'pending-factor', qrCode: 'synthetic-qr' });
+			expect(await response.json()).toEqual({
+				factorId: 'pending-factor',
+				qrCode: 'synthetic-qr',
+				secret: 'synthetic-key'
+			});
 			expect(harness.mfa.enroll).toHaveBeenCalledWith({ factorType: 'totp' });
 		});
 
@@ -1223,6 +1231,22 @@ describe('server auth hook', () => {
 		}
 	);
 
+	it('admits a completed session to MFA setup and leaves a pending one without an actor', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		const completed = harness.createEvent('/auth/mfa-setup');
+		expect((await harness.handle({ event: completed, resolve: harness.resolve })).status).toBe(200);
+		expect(completed.locals.actor).toEqual({ userId: 'user-1' });
+
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+			data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+			error: null
+		});
+		const pending = harness.createEvent('/auth/mfa-setup');
+		expect((await harness.handle({ event: pending, resolve: harness.resolve })).status).toBe(200);
+		expect(pending.locals.actor).toBeNull();
+		expect(pending.locals.mfaPending).toBe(true);
+	});
+
 	it.each(['aal1', 'aal2'])('admits completed %s assurance to a protected handler', async (level) => {
 		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
 		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
@@ -1425,7 +1449,7 @@ describe('server auth hook', () => {
 		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
 	});
 
-	it.each(['/org/organization-a/api/personnel', '/api/announcements/dismiss'])(
+	it.each(['/org/organization-a/api/personnel', '/api/announcements/dismiss', '/auth/mfa-setup'])(
 		'blocks a suspended user before the protected mutation at %s',
 		async (path) => {
 			const harness = await createAuthenticatedHookHarness({ data: true, error: null });

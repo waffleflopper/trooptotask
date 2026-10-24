@@ -25,8 +25,10 @@ setup-link renewal, and access request.
 Keep public and signed-in pages in separate contexts.
 
 1. Open the owned origin from `doctor` in a fresh browser context with `tool new_page`; use a fresh snapshot to choose
-   the public `Sign In` link. The form has `Email Address`, `Password`, `Show password`, and `Sign In`; the primary
-   button has `data-testid="login-submit"`.
+   the public `Sign In` link. The form has `Email Address`, `Password` with `Show password` and `Forgot password?` on
+   its label row, and `Sign In`; the primary button has `data-testid="login-submit"`. Under the rule,
+   `Setup link expired?` offers `Request a fresh one` (`/auth/renew-invite`) and `Unit not on TroopToTask?` offers
+   `Request access`.
 2. Run `$V actor --form manager personnel` (with `V` from the [feature map](README.md)). This fills and submits the
    visible form with the private synthetic account. Record its returned page ID and organization ID, then take a
    snapshot. Expect an `/org/<orgId>/personnel` page, `Verification Organization A`, and a `Personnel` navigation link.
@@ -51,8 +53,9 @@ Keep public and signed-in pages in separate contexts.
    record the saved values instead, and owned worker cleanup discards them. The select offers no invalid value; the
    profile server tests cover invalid-rank rejection.
 
-7. **Auth Shell appearance, keyboard and logout entry.** Capture Sign In at 1280x800 light and dark and 390x844 light
-   and dark, toggling theme with the public Toggle theme. From the Email Address field, Tab reaches Password, Show
+7. **Auth Shell appearance, keyboard and logout entry.** Capture Sign In at 1280x800 light and dark, 1023x900 light, and
+   390x844 light and dark. Auth Shell pages have no theme control: run `evaluate_script`
+   `localStorage.setItem('theme', 'dark')` and reload. From the Email Address field, Tab reaches Password, Show
    password, Forgot password and Sign In in visible order with a focus ring; Show password switches the field to text
    and renames itself Hide password; Enter in Password submits. A submit with both fields empty shows the required-field
    state without a request. After a member signs in, opening `/auth/login` redirects to the dashboard. A GET of
@@ -65,6 +68,8 @@ Keep public and signed-in pages in separate contexts.
 - `actor --form` and `login` create an isolated browser context; a public tab in another context does not share its
   session.
 - The password stays in private worker state and must not be copied into proof files.
+- Auth Shell labels and buttons are styled upper case, and Chromium's accessible names follow the rendered case
+  (`textbox "EMAIL ADDRESS"`, `button "SIGN IN"`). Match names case-insensitively; the helpers do.
 - Access request and password recovery involve separate delivery and review paths; following their links does not prove
   completion.
 - A provider outage can return `503` at logout; record that outcome and the recovery link instead of calling it a

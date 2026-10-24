@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-24-sign-in-redesign',
+		date: '2026-10-24',
+		title: 'New Sign-In Pages and Two-Factor Setup',
+		items: [
+			'Sign in, Request access, password reset and the Account Setup pages have a new look. Every link and step works the same way.',
+			'Entering a two-factor code is faster. The cursor starts in the first box, pasting the whole code works, and the code submits as soon as the sixth digit is in. A rejected code is cleared as you type the next one.',
+			"Turning on two-factor now has its own page. If your phone can't scan the QR code, type the setup key shown beside it, or copy it with one click.",
+			'If something looks off, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-23-critical-tasks-defaults',
 		date: '2026-10-23',
 		title: 'Critical Tasks Defaults Moved to the Toolbar',

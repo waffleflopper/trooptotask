@@ -1,12 +1,11 @@
 <script lang="ts">
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthField from '$features/identity/AuthField.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
 	import { tick } from 'svelte';
 
 	let { data, form } = $props();
@@ -24,21 +23,26 @@
 
 <AuthShell
 	eyebrow="Setup Link Recovery"
-	title="Need a fresh setup link?"
-	description="If your original setup email expired, we can send a new one for any approved request that still has not been completed."
+	headline={['Link expired?', 'Get a fresh one.']}
+	lede="Approved but never finished setup? We'll send a new Account Setup Link to the same address."
+	steps={{
+		label: 'How it works',
+		items: [
+			{ title: 'Enter your email', detail: 'The one on your access request.' },
+			{ title: 'Open the newest email', detail: 'Older unused links stop working.' },
+			{ title: 'Finish setup', detail: 'The link works for 14 days.' }
+		]
+	}}
+	alternatives={[
+		{ prompt: 'Already set up?', label: 'Sign in', href: resolve('/auth/login') },
+		{ prompt: 'Forgot your password?', label: 'Reset your password', href: resolve('/auth/forgot-password') },
+		{ prompt: 'Never requested access?', label: 'Request access', href: resolve('/auth/request-access') }
+	]}
 	panelEyebrow="Setup link"
 	panelTitle={form?.success ? 'Check your email' : 'Request a fresh setup link'}
 	panelDescription={form?.success
 		? 'If your request is still eligible, a new setup email is on the way.'
 		: 'Enter the same email address you used on your access request.'}
-	supportLabel="Before you send it"
-	supportTitle="This only works for approved requests."
-	supportDescription="For security, we only resend setup emails for approved access requests that have not already been finished."
-	supportPoints={[
-		'Use the same email address that received the original approval.',
-		'Fresh setup links expire after 14 days, so use the newest email.',
-		'If your account is already set up, use reset password instead.'
-	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if form?.success}
@@ -69,7 +73,7 @@
 						(confirmation ?? document.getElementById('email'))?.focus();
 					};
 				}}
-				class="flex flex-col gap-5"
+				class="flex flex-col gap-8"
 			>
 				<AuthField
 					label="Email Address"
@@ -79,40 +83,11 @@
 					value={emailValue}
 					error={emailError}
 					required
-					placeholder="you@example.com"
+					autocomplete="email"
 				/>
 
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={loading} class="w-full">
-						{#if loading}
-							<Spinner />
-							Sending Fresh Setup Link...
-						{:else}
-							Email Me a Fresh Setup Link
-						{/if}
-					</Button>
-				</div>
+				<AuthButton {loading} loadingLabel="Sending Fresh Setup Link...">Email Me a Fresh Setup Link</AuthButton>
 			</form>
 		{/if}
-
-		<div
-			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
-		>
-			<span class="h-px flex-1 bg-border"></span>
-			<span class="whitespace-nowrap">Need a different route?</span>
-			<span class="h-px flex-1 bg-border"></span>
-		</div>
-
-		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-			<p>
-				Already set up? <a href={resolve('/auth/login')}>Sign in</a>.
-			</p>
-			<p>
-				Account active but password forgotten? <a href={resolve('/auth/forgot-password')}>Reset your password</a>.
-			</p>
-			<p>
-				Still waiting on approval? <a href={resolve('/auth/request-access')}>Request access</a>.
-			</p>
-		</div>
 	</div>
 </AuthShell>

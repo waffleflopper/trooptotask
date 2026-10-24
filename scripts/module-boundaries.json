@@ -507,10 +507,12 @@
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",
 			"src/features/identity/contracts.ts",
+			"src/features/identity/AuthButton.svelte",
 			"src/features/identity/AuthField.svelte",
 			"src/features/identity/AuthNotice.svelte",
 			"src/features/identity/AuthPasswordToggle.svelte",
-			"src/features/identity/AuthShell.svelte"
+			"src/features/identity/AuthShell.svelte",
+			"src/features/identity/CodeField.svelte"
 		],
 		"notifications": [
 			"src/features/notifications/contracts.ts",

@@ -3,8 +3,10 @@ import { PROVIDER_FAULTS } from '../../../../scripts/verification/outbound-contr
 
 const confirmDestinations = { recovery: '/auth/reset-password', invite: '/auth/accept-invite' };
 
-export function textboxUid(snapshot, label, occurrence) {
-	const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
+// Auth labels are styled upper case, and Chromium's accessible names follow the rendered case.
+export function namedUid(snapshot, role, name, occurrence) {
+	const wanted = `${role} ${JSON.stringify(name)}`.toLowerCase();
+	const matches = snapshot.split('\n').filter((line) => line.toLowerCase().includes(wanted));
 	const index = occurrence === undefined ? 0 : Number(occurrence) - 1;
 	if (
 		(occurrence === undefined && matches.length !== 1) ||
@@ -13,10 +15,10 @@ export function textboxUid(snapshot, label, occurrence) {
 		!matches[index]
 	)
 		throw new Error(
-			`Expected ${occurrence ? `occurrence ${occurrence} of` : 'one'} ${label} field, found ${matches.length}.`
+			`Expected ${occurrence ? `occurrence ${occurrence} of` : 'one'} ${role} named ${name}, found ${matches.length}.`
 		);
 	const uid = matches[index].match(/uid=([^\s]+)/)?.[1];
-	if (!uid) throw new Error(`The ${label} field has no snapshot UID.`);
+	if (!uid) throw new Error(`The ${name} ${role} has no snapshot UID.`);
 	return uid;
 }
 

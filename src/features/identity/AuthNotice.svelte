@@ -21,6 +21,9 @@
 
 	const variant = $derived(tone === 'error' ? 'destructive' : tone);
 	const role = $derived(tone === 'error' ? 'alert' : 'status');
+	const Icon = $derived(
+		{ error: AlertCircleIcon, success: CheckCircleIcon, warning: TriangleAlertIcon, info: InfoIcon }[tone]
+	);
 </script>
 
 <Alert.Root
@@ -30,17 +33,12 @@
 	tabindex={-1}
 	class={centered ? 'justify-items-center text-center outline-none' : 'outline-none'}
 >
-	<span class="mt-0.5 inline-flex size-4 items-center justify-center" aria-hidden="true">
-		{#if tone === 'error'}
-			<AlertCircleIcon />
-		{:else if tone === 'success'}
-			<CheckCircleIcon />
-		{:else if tone === 'warning'}
-			<TriangleAlertIcon />
-		{:else}
-			<InfoIcon />
-		{/if}
-	</span>
+	<!-- Alert sets the icon beside the text only when the svg is its direct child; a centered notice stacks it. -->
+	{#if centered}
+		<span class="mt-0.5 inline-flex size-4 items-center justify-center"><Icon aria-hidden="true" /></span>
+	{:else}
+		<Icon aria-hidden="true" />
+	{/if}
 
 	{#if title}
 		<Alert.Title>{title}</Alert.Title>

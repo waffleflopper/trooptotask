@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { MfaActionResponse } from '$features/identity/contracts';
+import { MFA_CODE_REJECTED_MESSAGE, type MfaActionResponse } from '$features/identity/contracts';
 import { MFA_CODE_RATE_LIMIT_MESSAGE, verifyIdentityMfa } from '$features/identity/index.server';
 
 function reply(body: MfaActionResponse, status: number, headers?: HeadersInit) {
@@ -21,7 +21,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		case 'factors-unavailable':
 			return reply({ error: 'Unable to verify MFA factors. Try again.' }, 503);
 		case 'denied':
-			return reply({ error: 'Invalid authentication code. Try again.' }, 401);
+			return reply({ error: MFA_CODE_REJECTED_MESSAGE }, 401);
 		case 'unconfirmed':
 			return reply({ error: 'Unable to verify the MFA code. Try again.' }, 503);
 		case 'unavailable':

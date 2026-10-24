@@ -7,6 +7,9 @@ import Security from '../account/security/+page.svelte';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
 import type { PageData } from '../account/security/$types';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+
+controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
@@ -67,7 +70,6 @@ it.each(['security', 'recovery', 'invite'] as const)(
 		expect(finalized).toBe(false);
 		expect(updates).toHaveLength(1);
 		await fireEvent.input(code, { target: { value: '123456' } });
-		await fireEvent.submit(code.closest('form')!);
 		expect(await screen.findByText('Code expired')).toBeVisible();
 		expect(code).toHaveValue('123456');
 		await waitFor(() => expect(code).toHaveFocus());

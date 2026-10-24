@@ -5,6 +5,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import Page from './+page.svelte';
 import type { PageData } from './$types';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+
+controlCodeFieldTimers();
 
 const transport = vi.hoisted(() => ({ send: vi.fn(), update: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -147,7 +150,6 @@ it('retains the email draft through inline MFA and requires explicit retry', asy
 	const code = await screen.findByLabelText('Authenticator Code');
 	expect(h.password).toBeDisabled();
 	await fireEvent.input(code, { target: { value: '123456' } });
-	await fireEvent.submit(code.closest('form')!);
 	await waitFor(() => expect(h.password).toHaveFocus());
 	expect(h.email).toHaveValue('new@example.test');
 	expect(h.password).toHaveValue(' OldPassword12 ');

@@ -6,6 +6,8 @@ import type { ActionResult } from '@sveltejs/kit';
 import ProfilePage from './ProfilePage.svelte';
 import type { SignedInAccount } from './contracts';
 
+type Account = Pick<SignedInAccount, 'email' | 'profile'>;
+
 type Finish = (input: { result: ActionResult; update: (options?: { reset?: boolean }) => Promise<void> }) => unknown;
 
 const transport = vi.hoisted(() => ({
@@ -36,14 +38,12 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-const SAVED: SignedInAccount = {
+const SAVED: Account = {
 	email: 'emma@example.test',
 	profile: { status: 'loaded', profile: { firstName: 'Emma', lastName: 'Hayes', rank: 'SGT' } }
 };
 
-function renderPage(
-	options: { account?: SignedInAccount; role?: 'owner' | 'admin' | 'member'; onleave?: () => void } = {}
-) {
+function renderPage(options: { account?: Account; role?: 'owner' | 'admin' | 'member'; onleave?: () => void } = {}) {
 	return render(ProfilePage, {
 		props: {
 			account: options.account ?? SAVED,

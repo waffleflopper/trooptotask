@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-23-duty-swaps',
+		date: '2026-10-23',
+		title: 'Swap Duty Days on a Roster',
+		items: [
+			'Two people traded duty days? In the Duty planner, open a filled day, choose Swap with… and pick the day they traded for. The preview shows both days with the person who will stand each and any leave or other-duty warning, and nothing is saved until you press Swap days.',
+			'A swap keeps the numbers as published. Each person is still counted for the day they were detailed, so every number on the DA 6 and in the next rotation is the same as before. Only who stands the duty changes, and the DA 6 gets a numbered remark naming the two days.',
+			'Swapped days carry a small exchange mark in the planner that says who held the day. Undo swap on either day puts both people back, until one of the days has passed.',
+			'Reassigning or clearing either swapped day ends the swap, and both days then count for whoever holds them. The duty picker, Clear month, Quick fill and Find replacement warn you before they do.',
+			'If something looks off or you have an idea for duty swaps, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-23-operators-add-people',
 		date: '2026-10-23',
 		title: 'Operators Can Add People',

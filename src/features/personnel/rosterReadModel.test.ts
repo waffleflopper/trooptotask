@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRosterReadModel, rosterGroupFilterValue } from './rosterReadModel';
+import { compareRosterGroupNames, createRosterReadModel, rosterGroupFilterValue } from './rosterReadModel';
 import type { Personnel } from './personnel.types';
 
 function makePerson(overrides: Partial<Personnel>): Personnel {
@@ -136,5 +136,36 @@ describe('createRosterReadModel', () => {
 		expect(roster.full({ search: 'medic' }).personnel.map((person) => person.id)).toEqual(['bravo-1']);
 		expect(roster.full({ search: 'alpha' }).personnel.map((person) => person.id)).toEqual(['alpha-1']);
 		expect(roster.full({ search: 'Casey Adams' }).personnel.map((person) => person.id)).toEqual(['unassigned-1']);
+	});
+
+	it("orders Groups by the viewer's pins, then the Organization's Group order, then Unassigned", () => {
+		const named = (id: string, name: string) => makePerson({ id, groupId: `group-${id}`, groupName: name });
+		const roster = createRosterReadModel({
+			personnel: [
+				named('1', 'Alpha'),
+				named('2', 'Bravo'),
+				named('3', 'Charlie'),
+				named('4', 'Delta'),
+				named('5', 'Echo'),
+				makePerson({ id: '6' })
+			],
+			pinnedGroups: ['Delta', 'Bravo'],
+			groupOrder: ['Charlie', 'Bravo', 'Alpha', 'Delta']
+		});
+
+		expect(roster.full().personnelByGroup.map((group) => group.group)).toEqual([
+			'Delta',
+			'Bravo',
+			'Charlie',
+			'Alpha',
+			'Echo',
+			'Unassigned'
+		]);
+	});
+
+	it('orders by name when the Organization has set no Group order', () => {
+		const order = ['Charlie', 'Alpha', '', 'Bravo'].sort(compareRosterGroupNames({}));
+
+		expect(order).toEqual(['Alpha', 'Bravo', 'Charlie', '']);
 	});
 });

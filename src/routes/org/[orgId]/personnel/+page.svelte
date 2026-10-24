@@ -3,6 +3,7 @@
 		PersonnelPageView,
 		rosterStore,
 		pinnedGroupsStore,
+		groupsStore,
 		loadPersonnelModals,
 		PersonnelPageContext,
 		PersonnelRosterSkeleton,
@@ -82,7 +83,8 @@
 			org,
 			rosterStore,
 			pinnedGroupsStore,
-			signals
+			signals,
+			groupsStore
 		);
 	}
 </script>

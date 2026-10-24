@@ -569,4 +569,48 @@ describe('PersonnelPageContext', () => {
 			expect(record?.awardTrackingAcknowledged).toBe(true);
 		});
 	});
+
+	describe('Group order', () => {
+		const groups = [
+			{ id: 'g-c', name: 'Charlie', sortOrder: 0 },
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 1 },
+			{ id: 'g-d', name: 'Delta', sortOrder: 0 }
+		];
+
+		it('follows sort_order, then name, and orders the By Group view by it ahead of Unassigned', () => {
+			const people = [
+				makePerson({ id: 'u', groupName: '' }),
+				...groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }))
+			];
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], undefined, {
+				orgId: 'org1',
+				items: groups
+			});
+
+			expect(ctx.groupOrder).toEqual(['Charlie', 'Delta', 'Alpha', 'Bravo']);
+			expect(ctx.personnelByGroup.map((group) => group.group)).toEqual([
+				'Charlie',
+				'Delta',
+				'Alpha',
+				'Bravo',
+				'Unassigned'
+			]);
+		});
+
+		it("puts the viewer's pins first and ignores a catalog loaded for another Organization", () => {
+			const people = groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }));
+			const pinned = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, ['Bravo'], undefined, {
+				orgId: 'org1',
+				items: groups
+			});
+			const foreign = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], undefined, {
+				orgId: 'org2',
+				items: groups
+			});
+
+			expect(pinned.personnelByGroup.map((group) => group.group)).toEqual(['Bravo', 'Charlie', 'Delta', 'Alpha']);
+			expect(foreign.groupOrder).toEqual([]);
+		});
+	});
 });

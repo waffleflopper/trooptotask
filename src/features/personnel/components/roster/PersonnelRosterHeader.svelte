@@ -5,7 +5,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import { sameRosterFilter } from '../../rosterFilter';
-	import type { RosterFilter, SummaryState } from '../../rosterSignals';
+	import type { RosterFilter, RosterStatusType, StatusCount, SummaryState } from '../../rosterSignals';
 
 	interface Props {
 		unitName: string;
@@ -15,14 +15,25 @@
 		canViewAvailability: boolean;
 		/** The active roster filter; a headcount entry that carries it is drawn pressed. */
 		filter: RosterFilter | null;
+		/** The Organization's status types, so an active filter on a status nobody has today keeps its entry. */
+		statusTypes: readonly RosterStatusType[];
 		onToggleFilter: (filter: RosterFilter) => void;
 	}
 
-	let { unitName, activeCount, summary, canViewAvailability, filter, onToggleFilter }: Props = $props();
+	let { unitName, activeCount, summary, canViewAvailability, filter, statusTypes, onToggleFilter }: Props = $props();
 
 	const presence = $derived(
 		summary.kind === 'ready' && summary.value.presence.kind === 'known' ? summary.value.presence.value : null
 	);
+	// The summary counts only statuses somebody has today, but a filter on one nobody has must stay clearable.
+	const statusEntries = $derived.by<StatusCount[]>(() => {
+		const counted = presence?.byStatus ?? [];
+		if (filter?.kind !== 'status') return counted;
+		const { statusTypeId } = filter;
+		if (counted.some(({ type }) => type.id === statusTypeId)) return counted;
+		const type = statusTypes.find((candidate) => candidate.id === statusTypeId);
+		return type ? [...counted, { type, count: 0 }] : counted;
+	});
 	const showStrip = $derived(canViewAvailability && (summary.kind === 'pending' || presence !== null));
 </script>
 
@@ -59,7 +70,7 @@
 	<ul class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" aria-label="Today's headcount">
 		{#if presence}
 			{@render entry({ kind: 'present' }, presence.present, 'present', presentDot)}
-			{#each presence.byStatus as { type, count } (type.id)}
+			{#each statusEntries as { type, count } (type.id)}
 				{#snippet statusDot()}
 					<span class="size-2 shrink-0 rounded-full" style:background-color={type.color} aria-hidden="true"></span>
 				{/snippet}

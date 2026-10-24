@@ -71,6 +71,15 @@ export interface UserProfile {
 	rank: string;
 }
 
+export type AccountProfileRead =
+	| { status: 'loaded'; profile: Omit<UserProfile, 'userId'> | null }
+	| { status: 'unavailable' };
+
+export interface SignedInAccount {
+	email: string | null;
+	profile: AccountProfileRead;
+}
+
 export interface CurrentUserEmailConfirmation {
 	status: 'confirmed' | 'unconfirmed' | 'unavailable';
 	email: string | null;

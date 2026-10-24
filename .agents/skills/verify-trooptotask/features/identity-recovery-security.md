@@ -1,7 +1,7 @@
 # Identity recovery, MFA and account security
 
 A member completes a second-factor challenge, recovers a forgotten password, activates an invited account, changes their
-password and authenticator from Account Security, and a visitor requests access. A suspended account sees only the
+password and authenticator from Sign-in & security, and a visitor requests access. A suspended account sees only the
 suspension screen.
 
 ## Sub-features
@@ -38,9 +38,12 @@ suspension screen.
 ## How to get to it (user POV)
 
 From Sign In, follow Forgot password, Request access or Request a fresh setup link. Recovery and invite emails open
-`/auth/confirm`, which waits for an explicit Continue button. A signed-in member opens Account menu → Account, then
-Security for password and Two-Factor Authentication. Enable MFA on Security opens MFA setup at `/auth/mfa-setup`. An
-account with a verified authenticator sees Two-Factor Authentication after the password step.
+`/auth/confirm`, which waits for an explicit Continue button. A signed-in member opens Account from their name at the
+foot of the Organization sidebar (`/org/ORG/account/profile`), then Sign-in & security for email, password and
+two-factor authentication. Old `/account`, `/account/profile` and `/account/security` addresses redirect to the same
+section of the member's first Organization, keeping the query string. Turn on in the two-factor row opens MFA setup at
+`/auth/mfa-setup`, which returns to Sign-in & security. An account with a verified authenticator sees Two-Factor
+Authentication after the password step.
 
 ## Helper controls
 
@@ -75,9 +78,10 @@ with a `password` field, before commit), `password-reconcile` (the `password_cha
 `session-age IDENTITY_ROLE HOURS` (1–48) moves only that synthetic account's provider session starts back so the real
 24-hour check runs, and read-only `session-count IDENTITY_ROLE` reports how many provider sessions it holds.
 `admission-probe ROLE OTHER_ROLE` signs ROLE in through the provider privately, sends the owned app its genuine session
-cookie as a control plus malformed, bad-signature, subject-swapped and `alg: none` variants on Account Security and
-`/api/auth/mfa/status`, prints statuses and the forged tokens with the genuine signature withheld, and revokes only that
-probe session; `node --test .agents/skills/verify-trooptotask/helpers/admission-probe.test.mjs` covers it.
+cookie as a control plus malformed, bad-signature, subject-swapped and `alg: none` variants on legacy
+`/account/security` and `/api/auth/mfa/status`, prints statuses and the forged tokens with the genuine signature
+withheld, and revokes only that probe session;
+`node --test .agents/skills/verify-trooptotask/helpers/admission-probe.test.mjs` covers it.
 
 `access-request EMAIL` also returns `reviewed_by`, the invitation bridge rows with each linked invitation's `status`,
 `approval_basis` and `setup_grant_live`, which reports whether the derived invitation or platform grant can still mint
@@ -134,8 +138,8 @@ The private-credential controls fill visible fields without printing values:
      `Too many authenticator codes. Please wait before trying again.` and stay on the challenge; a response with status
      429 and `Retry-After` appears in `list_network_requests`. Then `mfa-code` with the current code is refused with the
      same message. The limit is stored in the provider, so it also blocks this actor's next sign-in until the window
-     passes: run it last for `identityMfa`, or restart the worker. Disable MFA on Account Security shares the same
-     per-account budget.
+     passes: run it last for `identityMfa`, or restart the worker. Turning two-factor off on Sign-in & security shares
+     the same per-account budget.
 2. **Forgot password request.** In a public context open Sign In → Forgot password. Submit `not-an-email`: the native
    email check blocks it, so the server's `Enter a valid email address` is not reachable from this form. Submit
    `identityRecovery`'s address (`identityEmails` in `$V fixture`) and then an unknown `nobody-RUN@example.test`: each
@@ -196,22 +200,33 @@ The private-credential controls fill visible fields without printing values:
    (current) and Setup link arrives. `$V access-request access-RUN@example.test` must return one `pending` row with the
    submitted name and reason. Submitting the same address again shows the app's retained duplicate behavior; record it
    and the row count.
-7. **Account security email and password.** `$V actor --form identitySecurity dashboard`, then Account menu → Account →
-   Security.
-   - Email. Fill New email address with a unique `security-RUN@example.test` and Current password (occurrence 1) with a
-     wrong value by native `fill`. Send Confirmation must show `Email request not confirmed` with
-     `Current password is incorrect`, keep the typed address and move focus to Current password. Fill Current password
-     with `$V password PAGE identitySecurity current "Current password" 1` and send again. Require `Confirmation sent`
-     and a `Pending email` row with the new address, while Current email is unchanged. Reload and require the same
-     pending row. The confirmation link is not followed, so sign-ins keep the fixture address.
-   - Password. Fill Current password (occurrence 2) with a wrong value, then New password and Confirm new password with
-     `next`. Update Password must show `Password update not confirmed` with the app's incorrect-password message, keep
-     the new-password drafts and focus the first field. Replace Current password with
-     `$V password PAGE identitySecurity current "Current password" 2`. Fill a wrong-length New password by native `fill`
-     and capture the requirement list. Fill New password and Confirm new password with `next` again, submit and require
-     `Your password is updated and other sessions have been signed out.` Run `password-commit`, then
-     `actor --form identitySecurity dashboard` in a new context and open Security. Require the Current password, New
-     password and Confirm new password fields with Update Password, and no
+7. **Account security email and password.** `$V actor --form identitySecurity dashboard`, open Organization A, choose
+   the sidebar's name card (`Your account`) and then Sign-in & security. Only one row opens at a time: Change opens it
+   in place and Cancel restores the row with focus on its Change button.
+   - Email. Choose Change email, fill New email with a unique `security-RUN@example.test` and Current password with a
+     wrong value by native `fill`. Send confirmation must tie `Current password is incorrect` to Current password, keep
+     the typed address and move focus there. Fill it with
+     `$V password PAGE identitySecurity current "CURRENT PASSWORD" 1` and send again. The row closes with focus on
+     Change and an amber
+     `Pending: security-RUN@example.test. Follow the links sent to both inboxes to finish the switch.` note under the
+     unchanged current address. Reload and require the same note. The confirmation link is not followed, so sign-ins
+     keep the fixture address.
+   - Email answered after a row switch. Change email again with a fresh `security-RUN-race@example.test` and the current
+     password, run `$V network arm-hold PAGE account-page/security/updateEmail`, choose Send confirmation, then Change
+     password while `network state` shows one held POST. Focus is in the password row's Current password.
+     `network release`, then `network restore`: the amber `Pending: security-RUN-race@example.test. …` note replaces the
+     earlier one, no `Email request not confirmed` alert appears, the password row stays open and focus stays in its
+     Current password.
+   - Password. Choose Change password; focus lands on Current password. The checklist under the fields reads
+     `12+ characters`, `Upper and lower`, `A number` and `Both match`, each marked Met or Needed as you type, and Update
+     password stays disabled until all four pass and Current password is filled. Fill a short New password by native
+     `fill` and capture the checklist. Fill Current password with a wrong value, then New password and Confirm new with
+     `$V password PAGE identitySecurity next "NEW PASSWORD" 1` and `... "CONFIRM NEW" 1`. Update password must tie the
+     app's incorrect-password message to Current password, keep the new-password drafts and focus it. Replace it with
+     `$V password PAGE identitySecurity current "CURRENT PASSWORD" 1`, submit and require
+     `Your password is updated and other sessions have been signed out.` with focus on Change password again. Run
+     `password-commit`, then `actor --form identitySecurity dashboard` in a new context and open Sign-in & security.
+     Change password must open the three fields with Update password, and no
      `This attempt expired or belongs to another session` notice: a completed change from an earlier session is history,
      not a blocker. The completing session itself still shows the completed state with Change password again.
    - Interrupted updates. Each uses a fresh `next` password and `password-commit` only after a visible success; the
@@ -229,32 +244,39 @@ The private-credential controls fill visible fields without printing values:
      each call. Run `session-age identitySecurity 23`: a reload stays signed in. Then run
      `session-age identitySecurity 2` (25 hours in total, not another 25): the next request lands on Sign In and
      `$V session-count identitySecurity` reports 0. This proves the hook's 24-hour exit, not elapsed wall-clock time.
-8. **Account security MFA.** On Security, Enable MFA opens `/auth/mfa-setup` (`Scan the code`). The QR image and the
-   typed setup key both encode the TOTP secret: never keep a screenshot that shows either. Hide them first with
-   `evaluate_script` (`style.visibility = 'hidden'` on `img[alt^=QR]` and `[data-setup-key]`), and redact the image's
-   `data:` URL and the key from any saved snapshot before packaging. Arm `$V network arm-hold PAGE auth/mfa/enroll` on
-   Security, then choose Enable MFA: skeletons hold the QR code and key while the code field stays disabled.
-   `network release PAGE` shows them without moving the code field, and focus lands in `6-digit code from the app`. A
-   fresh attempt with `network arm-fail PAGE auth/mfa/enroll` shows `Unable to start MFA setup. Try again.`, and Try
-   again starts a new enrollment. Type a wrong code: the sixth digit submits and shows the rejected-code state from
-   step 1. Leave the page and choose Enable MFA again: a different setup key appears, because starting again replaces
-   the abandoned unverified factor. Cancel setup leaves only once the server confirms it. With
-   `network arm-fail PAGE auth/mfa/enroll/cancel`, Cancel setup shows `Unable to cancel MFA setup. Try again.` and keeps
-   the QR code and key. After `network restore PAGE`, Cancel setup again returns to Security with MFA Disabled, and
-   `mfa-code` into any Security textbox then fails with `No readable TOTP factor exists`. While a cancel is held
-   (`arm-hold PAGE auth/mfa/enroll/cancel`), the code field, Verify and turn on, and Cancel setup are disabled; follow
-   `← TroopToTask.com` before `network release PAGE` and the page stays on `/` after the response. Open setup again,
-   keep a second `$V actor identitySecurity dashboard` context open, arm `network arm-hold PAGE auth/mfa/enroll/verify`,
-   and run `$V mfa-code PAGE identitySecurity "6-digit code from the app"`: it submits on the sixth digit. While the
-   response is held, Cancel setup and the code field are disabled and `list_network_requests` shows no cancel request.
-   `network release PAGE` returns to Security and shows Enabled. `$V session-count identitySecurity` drops from 2 to 1,
-   and the other context's next navigation lands on Sign In. Opening `/auth/mfa-setup` again shows `MFA is on` with Back
-   to security, its three steps done. Sign in again with `actor --form identitySecurity dashboard` in a new context: the
-   challenge appears, and `mfa-code ... "Verification Code"` admits the session. Back on Security, choose Disable MFA,
-   fill Authenticator code with `mfa-code`, Confirm and Disable, and require Disabled. Removal shares the account's 10
-   codes per 15 minutes with the sign-in challenge: after 10 wrong codes the 11th shows
-   `Too many authenticator codes. Please wait before trying again.` and a reload still shows Enabled. Cancel and Keep
-   MFA Enabled paths must leave the status unchanged.
+8. **Account security MFA.** With two-factor off, the row reads `Off` with a black Turn on link to
+   `/auth/mfa-setup?next=/org/ORG/account/security` (URL-encoded); setup happens on that full page (`Scan the code`),
+   never inline. The QR image and the typed setup key both encode the TOTP secret: never keep a screenshot that shows
+   either. Hide them first with `evaluate_script` (`style.visibility = 'hidden'` on `img[alt^=QR]` and
+   `[data-setup-key]`), and redact the image's `data:` URL and the key from any saved snapshot before packaging. Arm
+   `$V network arm-hold PAGE auth/mfa/enroll` on Sign-in & security, then choose Turn on: skeletons hold the QR code and
+   key while the code field stays disabled. `network release PAGE` shows them without moving the code field, and focus
+   lands in `6-digit code from the app`. A fresh attempt with `network arm-fail PAGE auth/mfa/enroll` shows
+   `Unable to start MFA setup. Try again.`, and Try again starts a new enrollment. Type a wrong code: the sixth digit
+   submits and shows the rejected-code state from step 1. Leave the page and choose Turn on again: a different setup key
+   appears, because starting again replaces the abandoned unverified factor. Cancel setup leaves only once the server
+   confirms it. With `network arm-fail PAGE auth/mfa/enroll/cancel`, Cancel setup shows
+   `Unable to cancel MFA setup. Try again.` and keeps the QR code and key. After `network restore PAGE`, Cancel setup
+   again returns to Sign-in & security with the row reading `Off`, and `mfa-code` into any textbox there then fails with
+   `No readable TOTP factor exists`. While a cancel is held (`arm-hold PAGE auth/mfa/enroll/cancel`), the code field,
+   Verify and turn on, and Cancel setup are disabled; follow `← TroopToTask.com` before `network release PAGE` and the
+   page stays on `/` after the response. Open setup again, keep a second `$V actor identitySecurity dashboard` context
+   open, arm `network arm-hold PAGE auth/mfa/enroll/verify`, and run
+   `$V mfa-code PAGE identitySecurity "6-digit code from the app"`: it submits on the sixth digit. While the response is
+   held, Cancel setup and the code field are disabled and `list_network_requests` shows no cancel request.
+   `network release PAGE` returns to `/org/ORG/account/security` with the row reading `On · Authenticator app`.
+   `$V session-count identitySecurity` drops from 2 to 1, and the other context's next navigation lands on Sign In.
+   Opening `/auth/mfa-setup` again shows `MFA is on` with Back to security, its three steps done. After setup, sign in
+   again with `actor --form identitySecurity dashboard` in a new context: the challenge appears, and
+   `mfa-code ... "Verification Code"` admits the session. With two-factor on, the row reads `On · Authenticator app`
+   with a red Turn off. Turn off opens a red in-row panel with focus in the six-digit AUTHENTICATOR CODE field; Keep it
+   on comes first, and Turn off two-factor stays disabled until six digits are in. Type a wrong code with native
+   `type_text`: `Invalid authenticator code. Try again.` is tied to the field, the digits stay and focus returns to
+   them. Keep it on restores the row with focus on Turn off. Reopen, fill the code with
+   `$V mfa-code PAGE ROLE "AUTHENTICATOR CODE"` and confirm: require `Off`, `Two-factor is off.` and focus on Turn on.
+   `identityMfa` (seeded factor) works for the turn-off path without setup. Removal shares the account's 10 codes per 15
+   minutes with the sign-in challenge: after 10 wrong codes the 11th shows
+   `Too many authenticator codes. Please wait before trying again.` and a reload still shows On.
    - Protected change challenge. The inline `Verify your authenticator code before changing your email.` challenge is
      unreachable through normal use. The admission gate sends any session with a verified factor and only password
      assurance to `/auth/mfa-verify` before an action runs. Enabling MFA in another session revokes the other sessions
@@ -268,8 +290,9 @@ The private-credential controls fill visible fields without printing values:
     - Local-only sign-out. Run `$V actor --form identityRecovery dashboard` (any identity actor works) and keep its
       Organization page open in this tab (A). Open a second tab in the same cookie jar with native `new_page` using the
       actor's `browserContext` value as `isolatedContext`, load the same Organization page and leave it unreloaded (B).
-      In A choose Account menu → Sign Out and require `/`. In B, still rendered as signed in, choose Account menu → Sign
-      Out (at 390 wide, Toggle Sidebar first) and require `/auth/logout`, status 200 for the POST, the title
+      In A open Account from the sidebar name card and choose Sign out in the account nav; require `/`. In B, still
+      rendered as signed in, do the same (at 390 wide, Toggle Sidebar first to reach the name card; Sign out is in the
+      action row under the account tabs) and require `/auth/logout`, status 200 for the POST, the title
       `Signed out on this browser.`, the notice
       `There is no active session on this browser. Sign-out on other devices has not been confirmed. Sign in again to retry signing out everywhere.`
       and a `Sign in` link to `/auth/login`, with no Try again form. Focus stays on the document body on arrival. Tab
@@ -283,28 +306,47 @@ The private-credential controls fill visible fields without printing values:
       for the first and the invalid-link sign-in error after Continue for the second. Signed out, open
       `/auth/reset-password` and `/auth/accept-invite` and capture `Reset link unavailable` and `Invite unavailable`.
 11. **Failure, busy and keyboard states.**
-    - Failed save keeps the draft. On Profile, change Last name and Rank, fill First name with spaces only (the native
-      `required` check admits it) and save. Require `Profile not saved` with `First name is required`, the other drafts
-      kept, and unchanged values after reload. Step 7's incorrect-password submits cover Account Security. A transport
-      or provider failure is unreachable: the owned browser's origin allowlist makes native `emulate` refuse network
-      conditions (`Network throttling is not supported when network blocking … is configured`), and no `network` or
-      `server-source` family targets Profile, `?/updateEmail` or `/api/auth/update-password`.
+    - One profile save at a time. On Profile choose Edit, change First name and run
+      `$V network arm-hold PAGE account-page/profile/save`. Choose Save, press Enter, and submit the form again from
+      `evaluate_script` (`form:has(#firstName)`, not the account nav's Sign out form). Rank, First name, Last name,
+      Cancel and Save (`Saving...`, `aria-busy`) are disabled, and `network state` lists one POST. `network release`
+      closes the editor with `Profile updated.`, focus on Edit and the new name in the sidebar card. `network restore`.
+    - Failed save keeps the draft. On Profile choose Edit, change Last name and Rank, fill First name with spaces only
+      (the native `required` check admits it) and save. Require `Profile not saved` with `First name is required`, the
+      other drafts kept, and unchanged values after reload. Step 7's incorrect-password submits cover Sign-in &
+      security. A transport or provider failure is unreachable: the owned browser's origin allowlist makes native
+      `emulate` refuse network conditions (`Network throttling is not supported when network blocking … is configured`),
+      and no `network` or `server-source` family fails `/api/auth/update-password`; `account-page/profile/save` and
+      `account-page/security/updateEmail` hold the other two.
     - Busy state. Run `$V busy arm PAGE` before one submit in each form family: Sign In, Forgot Password, Confirm
-      Continue, Set Up Account, and Profile or Account Security. Press the submit, then save `$V busy state PAGE` and
+      Continue, Set Up Account, and Profile or Sign-in & security. Press the submit, then save `$V busy state PAGE` and
       `$V busy restore PAGE`. The observer records every distinct submit label, `disabled` and `aria-busy` state, so a
       busy label shorter than a screenshot still appears. A full-page navigation discards it; record that as unobserved.
-    - MFA status failure. Account Security reads factors through the provider auth API, which no `server-source` (tables
-      only) or `network` (same-origin) control reaches. Record `MFA status unavailable` and Retry MFA status as
+    - Account loading. On Profile run `$V network arm-hold PAGE account-page/security` and choose Sign-in & security
+      (the reverse uses `account-page/profile`). At once the target link is current, a polite status reads
+      `Loading Sign-in & security...` and the content has `aria-busy="true"`. After 150 ms the target's eyebrow, title
+      and rows show their real labels and descriptions over placeholder bars. `network release`, then `network restore`.
+      Every row's top and height match the loaded page at 1440, 1023 and 390; with `identityMfa` (two-factor on) the
+      rows measure 117/117/116 px at 1440 on both pages, Profile 141/159/166 and Sign-in & security 137/163/168 at 1023,
+      and Profile 161/159/206 and Sign-in & security 157/163/188 at 390, and each skeleton matches to the pixel. With
+      two-factor off the Two-factor row loads 28 px shorter below 1280, since the skeleton cannot know the state. A
+      short unit name that fits on one line at 390 makes Personnel records 20 px shorter.
+    - Sidebar name failure. The sidebar's first-paint name read is server-side, which no `server-source` or `network`
+      control reaches. Unit tests cover the email fallback and Profile's `Your name could not be loaded` with Retry. A
+      long email fallback ends in an ellipsis inside the card.
+    - MFA status failure. Sign-in & security reads factors through the provider auth API, which no `server-source`
+      (tables only) or `network` (same-origin) control reaches. Record `MFA status unavailable` and Retry MFA status as
       unreachable.
-    - Profile Rank. With no saved rank, Rank is not invalid at load. Save with Rank empty: `Select a rank.` appears as
-      its field error, Rank becomes invalid and no request is sent; choosing a rank clears it.
+    - Profile Rank. With no saved rank, choose Add: Rank is not invalid when the editor opens and its first option reads
+      `Rank`, with the hint `From the Army rank list`. Fill both names and save with Rank empty: `Select a rank.`
+      appears as its field error, Rank becomes invalid and no request is sent; choosing a rank clears it.
     - Keyboard. Plain links (Terms of Use, Privacy Policy, inline auth links) show the app's 3px focus ring, not the
       browser outline. Tab through Confirm (`← TroopToTask.com`, `Continue to …`), Renew Invite (`← TroopToTask.com`,
-      Email Address, Email Me a Fresh Setup Link, Sign in, Reset your password, Request access) and Profile (First name,
-      Last name, Rank, Save Profile). Each stop needs a visible focus ring, and Enter or Space on the focused submit
-      must act; Renew Invite's own limit is 5 per hour. For logout, Tab to the Account menu, move to Sign Out with the
-      arrow keys and press Enter; require the public page. The `/auth/logout` page's own tab order is part of step 10's
-      local-only check.
+      Email Address, Email Me a Fresh Setup Link, Sign in, Reset your password, Request access) and Profile after Edit
+      (Rank, First name, Last name, Cancel, Save). Each stop needs a visible focus ring, and Enter or Space on the
+      focused submit must act; Renew Invite's own limit is 5 per hour. For logout, Tab to the account nav's Sign out and
+      press Enter; require the public page. The `/auth/logout` page's own tab order is part of step 10's local-only
+      check.
 12. **Web boundary.** Run signed-in as any actor (for example `manager`).
     - Headers. `curl -sI ORIGIN/auth/login` must show the Content-Security-Policy with
       `connect-src 'self' https://vitals.vercel-insights.com` and no provider or loopback origin, plus
@@ -321,21 +363,26 @@ The private-credential controls fill visible fields without printing values:
       `document.documentElement.outerHTML`. Neither may contain `access_token` or `refresh_token`, and `document.cookie`
       lists no auth cookie: the session stays in HttpOnly cookies. Save only field names and booleans, never values.
     - Unverified identity. Run `$V admission-probe notificationMember notificationOther`. The genuine session cookie
-      must be admitted (200 on both paths) and every malformed or forged variant must get 303 to `/auth/login`; save its
-      JSON, which withholds the genuine signature.
+      must be admitted (303 from legacy `/account/security` to `/org/ORG/account/security`, and 200 on
+      `/api/auth/mfa/status`) and every malformed or forged variant must get 303 to `/auth/login`; save its JSON, which
+      withholds the genuine signature.
     - Encoded paths. From a signed-in page, POST the sign-in form to `/%61uth/login?/login` with a nonexistent
       `@example.test` address. It shares the `/auth/*` budget with `/auth/login`: once the window's ten POSTs are spent,
       it returns 429 like the plain path. Run this last, because it spends the shared `/auth/*` budget that this
       recipe's form sign-ins also use.
 13. **Appearance.** For the MFA challenge, Forgot Password, Reset Password, Accept Invite, Request Access, Account
-    Setup, Suspended and Account Security screens, capture 1280x800 light and 390x844 dark, plus 1280x800 dark and
-    390x844 light for one Auth Shell page. Auth Shell pages have no theme control: set the theme with `evaluate_script`
-    `localStorage.setItem('theme', 'dark')` and reload, which clears in-page states such as a rejected code, so capture
-    light first. Below 1024 px the shell stacks the chrome band, the form, then its steps or legal links; capture one
-    Auth Shell page at 1023x900 too. Account pages take the theme chosen in the app frame. An emulated system color
-    scheme does not change the app theme. Tab through each form: every field is reachable in order with a visible focus
-    ring, Enter submits, and record whether each error is announced and associated with its field. Record any state
-    captured in only one combination as such; 1280x800 light and 390x844 dark per screen is the required split.
+    Setup, Suspended, Profile and Sign-in & security screens, capture 1280x800 light and 390x844 dark, plus 1280x800
+    dark and 390x844 light for one Auth Shell page. Auth Shell pages have no theme control: set the theme with
+    `evaluate_script` `localStorage.setItem('theme', 'dark')` and reload, which clears in-page states such as a rejected
+    code, so capture light first. Below 1024 px the shell stacks the chrome band, the form, then its steps or legal
+    links; capture one Auth Shell page at 1023x900 too. Account pages take the theme chosen in the app frame. An
+    emulated system color scheme does not change the app theme. Tab through each form: every field is reachable in order
+    with a visible focus ring, Enter submits, and record whether each error is announced and associated with its field.
+    Record any state captured in only one combination as such; 1280x800 light and 390x844 dark per screen is the
+    required split. Also capture Profile and Sign-in & security at 1023 wide: the account nav becomes Profile and
+    Sign-in & security tabs with a What's new, Send feedback and Sign out row under them, and every row stacks its label
+    over its value. From 1024 the nav returns beside the rows, which stay stacked until 1280, where label and value sit
+    side by side. No width scrolls horizontally.
 
 Record provider-visible effects (Access Request rows, factor status through the Security page, suspension) separately
 from visible UI. Owned worker cleanup discards the changed identity accounts.

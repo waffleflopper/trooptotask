@@ -12,3 +12,4 @@ export { saveOrganizationSettings } from './saveOrganizationSettings';
 
 export { default as SettingsShell } from './SettingsShell.svelte';
 export { default as SettingsPageHeader } from './SettingsPageHeader.svelte';
+export { default as LeaveOrganizationDialog } from './LeaveOrganizationDialog.svelte';

@@ -51,6 +51,7 @@ describe('AppShell admitted request composition', () => {
 						return Response.json(rows.filter((row) => row.user_id === userId && row.organization_id === orgId));
 					}
 					if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
+					if (url.pathname.endsWith('/user_profiles')) return Response.json([]);
 					if (url.pathname.endsWith('/platform_announcements') || url.pathname.endsWith('/announcement_dismissals'))
 						return Response.json([]);
 					throw new Error(`Unexpected first-paint read: ${url.pathname}`);

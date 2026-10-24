@@ -74,7 +74,7 @@ function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') 
 			name: orgId === 'org-a' ? 'Alpha' : 'Bravo',
 			disabledFeatures: []
 		},
-		user: { id: userId },
+		user: { id: userId, email: `${userId}@example.test`, profile: { status: 'loaded', profile: null } },
 		member: {
 			membershipId: `membership-${userId}-${orgId}`,
 			role: 'member',
@@ -95,9 +95,8 @@ function statusCheckbox() {
 function grouping() {
 	return screen.getByRole('status', { name: 'Training grouping' }).textContent;
 }
-async function accountAction(name: string, root: HTMLElement = document.body) {
-	await fireEvent.click(within(root).getByRole('button', { name: 'Account menu' }));
-	await fireEvent.click(await screen.findByRole('menuitem', { name }));
+async function openWhatsNew(root: HTMLElement = document.body) {
+	await fireEvent.click(within(root).getByRole('button', { name: 'Open updates' }));
 }
 
 beforeEach(() => {
@@ -221,20 +220,9 @@ describe('organization layout scope lifetime', () => {
 		expect(invalidate).not.toHaveBeenCalled();
 	});
 
-	it('resets leave confirmation and What’s New visibility when its account/session owner is replaced', async () => {
-		const view = render(Layout, { data: workspace(), children });
-		await accountAction('Leave Organization');
-		await fireEvent.input(await screen.findByRole('textbox', { name: 'Type YES to confirm' }), {
-			target: { value: 'YES' }
-		});
-		expect((screen.getByRole('button', { name: 'Leave Organization' }) as HTMLButtonElement).disabled).toBe(false);
-		await view.rerender({ data: workspace('user-b') });
-		expect(screen.queryByRole('dialog', { name: 'Leave Organization' })).toBeNull();
-		await accountAction('Leave Organization');
-		expect(((await screen.findByRole('textbox', { name: 'Type YES to confirm' })) as HTMLInputElement).value).toBe('');
-		expect((screen.getByRole('button', { name: 'Leave Organization' }) as HTMLButtonElement).disabled).toBe(true);
-		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-		await accountAction("What's New");
+	it('closes What’s New when its session owner is replaced', async () => {
+		const view = render(Layout, { data: workspace(), children: preferenceChildren });
+		await openWhatsNew();
 		await screen.findByRole('dialog', { name: "What's New" });
 		await view.rerender({ data: workspace('user-b', 'org-a', 'session-2') });
 		expect(screen.queryByRole('dialog', { name: "What's New" })).toBeNull();
@@ -303,13 +291,13 @@ describe('organization layout scope lifetime', () => {
 		await fireEvent.click(firstStatus);
 		expect(firstStatus.checked).toBe(true);
 		expect(secondStatus.checked).toBe(false);
-		await accountAction("What's New", first.container);
+		await openWhatsNew(first.container);
 		await screen.findByRole('dialog', { name: "What's New" });
 		// A single owner's action must not also open a dialog in the other tree.
 		expect(screen.getByRole('dialog', { name: "What's New", hidden: true })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
 		expect(screen.queryByRole('dialog', { name: "What's New" })).toBeNull();
-		await accountAction("What's New", second.container);
+		await openWhatsNew(second.container);
 		await screen.findByRole('dialog', { name: "What's New" });
 		first.unmount();
 		expect(screen.getByRole('dialog', { name: "What's New" })).toBeTruthy();
@@ -327,13 +315,13 @@ describe('organization layout scope lifetime', () => {
 		const first = render(Layout, { data: workspace(), children: preferenceChildren });
 		await fireEvent.click(screen.getByRole('button', { name: 'Check updates' }));
 		expect(screen.queryByRole('dialog', { name: "What's New" })).toBeNull();
-		await accountAction("What's New");
+		await openWhatsNew();
 		await screen.findByRole('dialog', { name: "What's New" });
 		await fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
 		expect(screen.queryByRole('dialog', { name: "What's New" })).toBeNull();
 		getItem.mockRestore();
 		setItem.mockRestore();
-		await accountAction("What's New");
+		await openWhatsNew();
 		await screen.findByRole('dialog', { name: "What's New" });
 		await fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
 		const accountASeen = localStorage.getItem('changelog-last-seen-user-a');

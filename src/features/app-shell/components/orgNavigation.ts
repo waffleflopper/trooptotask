@@ -53,12 +53,19 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	}
 };
 
-const SUPPORT_ROUTE_BREADCRUMBS: Record<string, { label: string; children: Record<string, string> }> = {
-	settings: {
-		label: 'Unit settings',
-		children: Object.fromEntries(Object.entries(SETTINGS_PAGES).map(([key, page]) => [key, page.label]))
-	}
-};
+// Account belongs to the person, not the unit, so its trail leaves the unit name out.
+const SUPPORT_ROUTE_BREADCRUMBS: Record<string, { label: string; children: Record<string, string>; personal?: true }> =
+	{
+		settings: {
+			label: 'Unit settings',
+			children: Object.fromEntries(Object.entries(SETTINGS_PAGES).map(([key, page]) => [key, page.label]))
+		},
+		account: {
+			label: 'Account',
+			children: { profile: 'Profile', security: 'Sign-in & security' },
+			personal: true
+		}
+	};
 
 export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavItem[] {
 	const canView = (lane: DurableFeatureLane) => {
@@ -204,10 +211,11 @@ function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): 
 		return null;
 	}
 
+	const lead = route.personal ? [] : [orgCrumb];
 	const childLabel = childSegment && route.children[childSegment];
 	if (!childLabel) {
-		return [orgCrumb, { label: route.label }];
+		return [...lead, { label: route.label }];
 	}
 
-	return [orgCrumb, { label: route.label, href: `${orgBasePath}/${primarySegment}` }, { label: childLabel }];
+	return [...lead, { label: route.label, href: `${orgBasePath}/${primarySegment}` }, { label: childLabel }];
 }

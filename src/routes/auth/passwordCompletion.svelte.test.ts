@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { page } from '$app/stores';
-import Security from '../account/security/+page.svelte';
+import { SecurityPage } from '$features/identity';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
-import type { PageData } from '../account/security/$types';
+import type { PasswordCompletionState } from '$features/identity/contracts';
 import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
 controlCodeFieldTimers();
@@ -19,24 +19,25 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });
+
+function renderSecurity(passwordCompletion: PasswordCompletionState = null) {
+	const mounted = render(SecurityPage, {
+		props: {
+			security: { hasMFA: true, currentEmail: 'synthetic@example.test', pendingEmail: null },
+			passwordCompletion,
+			form: null,
+			mfaSetupHref: '/auth/mfa-setup'
+		}
+	});
+	const open = screen.queryByRole('button', { name: 'Change password' });
+	if (open) void fireEvent.click(open);
+	return mounted;
+}
 describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed completion', (flow) => {
 	function mount(state: 'started' | 'pending' | 'complete' | 'failed' | 'expired' | null = null) {
 		const data = { hasSession: true, passwordCompletion: state };
 		(page as unknown as { set: (x: unknown) => void }).set({ data, state: {} });
-		if (flow === 'security')
-			return render(Security, {
-				props: {
-					data: {
-						...data,
-						hasMFA: true,
-						currentEmail: 'synthetic@example.test',
-						pendingEmail: null,
-						viewer: null,
-						accountPathname: '/account/security'
-					} as PageData,
-					form: null
-				}
-			});
+		if (flow === 'security') return renderSecurity(state);
 		return flow === 'recovery' ? render(Recovery) : render(Invite);
 	}
 	it('resumes after reload, handles MFA and a transport failure, and never resubmits the password', async () => {

@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc }) }));
-import { load as security } from '../account/security/+page.server';
+import { load as security } from '../org/[orgId]/account/security/+page.server';
 import { load as recovery } from './reset-password/+page.server';
 import { load as invite } from './accept-invite/+page.server';
 it.each([

@@ -1,6 +1,6 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureKey } from '$lib/access/featureSwitches';
-import type { UserOrgPreferences } from '$features/identity/contracts';
+import type { SignedInAccount, UserOrgPreferences } from '$features/identity/contracts';
 
 import type { Announcement } from '$features/notifications/contracts';
 
@@ -19,9 +19,7 @@ export interface ReadyAppShell {
 		name: string;
 		disabledFeatures: FeatureKey[];
 	};
-	user: {
-		id: string;
-	};
+	user: { id: string } & SignedInAccount;
 	member: {
 		membershipId: string | null;
 		role: 'owner' | 'admin' | 'member';
@@ -56,6 +54,7 @@ export interface AppShellRouteData {
 export interface AppShellFirstPaintChrome {
 	announcements: Announcement[];
 	preferences: UserOrgPreferences;
+	account: SignedInAccount;
 }
 
 export type DeferredChromePart = 'notification-count' | 'organization-switcher';
@@ -110,7 +109,8 @@ export function createReadyAppShell(config: {
 			disabledFeatures: orgState.disabledFeatures
 		},
 		user: {
-			id: membership.userId
+			id: membership.userId,
+			...firstPaintChrome.account
 		},
 		member: {
 			membershipId: membership.membershipId,

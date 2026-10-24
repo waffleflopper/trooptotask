@@ -78,7 +78,11 @@ describe('loadAppShellFirstPaint', () => {
 			},
 			chrome: {
 				getFirstPaintChrome: () =>
-					read('first-paint', { announcements: [], preferences: getDefaultUserOrgPreferences() })
+					read('first-paint', {
+						announcements: [],
+						preferences: getDefaultUserOrgPreferences(),
+						account: { email: null, profile: { status: 'loaded' as const, profile: null } }
+					})
 			}
 		});
 		try {
@@ -96,7 +100,11 @@ describe('loadAppShellFirstPaint', () => {
 			chrome: createInMemoryAppShellFirstPaintChromePort({
 				chrome: {
 					announcements: [{ id: 'a1', title: 'Heads up', message: 'Read this', type: 'info' }],
-					preferences: getDefaultUserOrgPreferences()
+					preferences: getDefaultUserOrgPreferences(),
+					account: {
+						email: 'dana@example.test',
+						profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
+					}
 				}
 			})
 		});
@@ -105,7 +113,11 @@ describe('loadAppShellFirstPaint', () => {
 			shell: expect.objectContaining({
 				kind: 'ready',
 				org: { id: 'org-1', name: 'Test Unit', urlSegment: 'test-unit', disabledFeatures: [] },
-				user: { id: 'user-1' },
+				user: {
+					id: 'user-1',
+					email: 'dana@example.test',
+					profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
+				},
 				member: expect.objectContaining({
 					membershipId: 'membership-1',
 					role: 'member',

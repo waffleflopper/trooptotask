@@ -261,4 +261,17 @@ describe('getOrgBreadcrumbs', () => {
 			{ label: 'Unit settings' }
 		]);
 	});
+
+	it('names the account section without the unit, since the account is personal', () => {
+		const nav = getOrgNavigation('org-1', baseCapabilities);
+
+		expect(getOrgBreadcrumbs('/org/org-1/account/security', 'Test Org', nav)).toEqual([
+			{ label: 'Account', href: '/org/org-1/account' },
+			{ label: 'Sign-in & security' }
+		]);
+		expect(getOrgBreadcrumbs('/org/org-1/account/profile', 'Test Org', nav)).toEqual([
+			{ label: 'Account', href: '/org/org-1/account' },
+			{ label: 'Profile' }
+		]);
+	});
 });

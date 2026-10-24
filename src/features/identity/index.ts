@@ -9,3 +9,7 @@ export { PASSWORD_MISMATCH_MESSAGE, passwordRequirements, validatePassword } fro
 
 export { default as AccountPreferencesProvider } from './AccountPreferencesProvider.svelte';
 export { getAccountPreferencesContext } from './accountPreferencesContext';
+export { accountLabel } from './accountLabel';
+export { default as AccountShell } from './AccountShell.svelte';
+export { default as ProfilePage } from './ProfilePage.svelte';
+export { default as SecurityPage, type EmailActionData } from './SecurityPage.svelte';

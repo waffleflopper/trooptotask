@@ -1,12 +1,12 @@
 <script lang="ts">
+	import PersonnelPageView from '$features/personnel/components/PersonnelPageView.svelte';
+	import PersonnelRosterSkeleton from '$features/personnel/components/roster/PersonnelRosterSkeleton.svelte';
 	import {
-		PersonnelPageView,
 		rosterStore,
 		pinnedGroupsStore,
 		groupsStore,
 		loadPersonnelModals,
 		PersonnelPageContext,
-		PersonnelRosterSkeleton,
 		RosterSignals,
 		type PersonnelPageData
 	} from '$features/personnel';

@@ -1,3 +1,5 @@
+import { latestChangelogId } from './latestChangelog.js';
+
 export type ChangelogEntry = {
 	id: string;
 	date: string;
@@ -7,7 +9,7 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
-		id: '2026-10-24-personnel-roster',
+		id: latestChangelogId,
 		date: '2026-10-24',
 		title: 'See Who Needs You From the Personnel Roster',
 		items: [

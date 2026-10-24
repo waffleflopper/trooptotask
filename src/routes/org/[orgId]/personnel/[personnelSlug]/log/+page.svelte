@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
-	import { PersonnelLogPageView } from '$features/personnel';
+	import PersonnelLogPageView from '$features/personnel/components/PersonnelLogPageView.svelte';
 	import type { PersonnelDetailHeader, PersonnelLogPageData } from '$features/personnel/contracts';
 
 	interface PersonnelLogData extends PersonnelLogPageData {

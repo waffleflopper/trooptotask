@@ -8,10 +8,11 @@ const HIDDEN_BELOW = {
 } as const;
 
 /** A column's alignment and narrow-width hiding, for its header and every body cell, including a `row` snippet's. */
-export function columnCellClass(column: Pick<ColumnDef<never>, 'align' | 'hiddenBelow'>): string {
+export function columnCellClass(column: Pick<ColumnDef<never>, 'align' | 'hiddenBelow' | 'hidden'>): string {
 	return cn(
 		column.align === 'center' && 'text-center',
 		column.align === 'right' && 'text-right',
-		column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow]
+		column.hiddenBelow && HIDDEN_BELOW[column.hiddenBelow],
+		column.hidden && 'hidden!'
 	);
 }

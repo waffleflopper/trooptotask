@@ -1199,8 +1199,6 @@ describe('PersonnelPageView', () => {
 			expect(preview.getByText('1 of 2 · J/K')).toBeTruthy();
 			expect(preview.getByLabelText('Latest note loading')).toBeTruthy();
 			expect(reads.map((read) => read.section)).toEqual(['identity', 'next7', 'attention', 'followUps', 'note']);
-			expect(screen.queryByRole('columnheader', { name: 'Duty Role' })).toBeNull();
-			expect(screen.queryByRole('columnheader', { name: 'Group' })).toBeNull();
 			expect(screen.queryByRole('list', { name: "Today's headcount" })).toBeNull();
 
 			await answer('person-1', 'identity', { state: 'ready', value: { phone: '(910) 555-0148' } });
@@ -1218,6 +1216,27 @@ describe('PersonnelPageView', () => {
 
 			await fireEvent.click(preview.getByRole('button', { name: 'Retry' }));
 			expect(reads.slice(5).map((read) => read.section)).toEqual(['attention']);
+		});
+
+		it('keeps the roster in its Duty Role order while the peek is open and after it closes', async () => {
+			viewport(1440);
+			const { ctx } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			const order = () =>
+				screen
+					.getAllByRole('row')
+					.map((row) => row.getAttribute('aria-label'))
+					.filter((label) => label?.startsWith('Open '));
+			await fireEvent.click(within(screen.getByRole('columnheader', { name: 'Duty Role' })).getByRole('button'));
+			expect(order()).toEqual(['Open SGT Young, Test', 'Open SGT Smith, Jane']);
+
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			expect(panel()).toBeTruthy();
+			expect(order()).toEqual(['Open SGT Young, Test', 'Open SGT Smith, Jane']);
+
+			await fireEvent.keyDown(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }), { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+			expect(order()).toEqual(['Open SGT Young, Test', 'Open SGT Smith, Jane']);
 		});
 
 		it('leaves out a section the viewer may not see', async () => {

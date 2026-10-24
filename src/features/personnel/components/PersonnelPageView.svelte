@@ -164,12 +164,8 @@
 				compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
 			},
 			{ key: 'mos', header: 'MOS', value: (p) => p.mos, width: '72px', hiddenBelow: '@3xl' },
-			...(peekOpen
-				? []
-				: ([
-						{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole, hiddenBelow: '@3xl' },
-						{ key: 'group', header: 'Group', value: (p) => p.groupName, hiddenBelow: '@3xl' }
-					] satisfies ColumnDef<Personnel>[])),
+			{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole, hiddenBelow: '@3xl', hidden: peekOpen },
+			{ key: 'group', header: 'Group', value: (p) => p.groupName, hiddenBelow: '@3xl', hidden: peekOpen },
 			{
 				key: 'attention',
 				header: 'Needs attention',

@@ -399,9 +399,9 @@ scoped actors retain their baseline grants.
     `Missing · Not recorded` and a `Readiness` link; `Open follow-ups · 2` shows `Overdue 4 days` in red and the other's
     weekday date; `Latest note` quotes the note. The page fetched exactly five requests,
     `peek?section=identity|next7|attention|followUps|note`, and no `__data.json`. While it is open the `Duty Role` and
-    `Group` columns and the `Today's headcount` strip are gone, Baker's row has the accent left rule, and the row's Note
-    and Quick edit buttons are hidden. The footer hints read `Space preview`, `X select`, `N note`, `E quick edit` and
-    `↵ open record`; below 1280 `Space preview` is gone.
+    `Group` columns are hidden (a roster sorted by either keeps its order and page) and the `Today's headcount` strip is
+    gone, Baker's row has the accent left rule, and the row's Note and Quick edit buttons are hidden. The footer hints
+    read `Space preview`, `X select`, `N note`, `E quick edit` and `↵ open record`; below 1280 `Space preview` is gone.
     - Keyboard: Baker's row keeps focus. J moves focus to `Open SPC Unassigned, Synthetic` and the panel to
       `3 of 3 · J/K` with five reads for Unassigned; K back to Baker reads nothing (cached). Two J presses within 40 ms
       from Able read only the Person browsing stops on (five reads, none for the Person skipped). Tab from the row

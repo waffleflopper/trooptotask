@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { Group } from '../../contracts';
 import type { Personnel } from '../../personnel.types';
@@ -25,10 +26,8 @@ const okafor: Personnel = {
 const patel: Personnel = { ...okafor, id: 'p-2', slug: 'patel-nikhil', lastName: 'Patel', firstName: 'Nikhil' };
 
 function setup(overrides: Partial<QuickEditDeps> = {}) {
-	let org = 'org-1';
 	let roster = [okafor, patel];
 	const deps = {
-		orgId: () => org,
 		person: (id: string) => roster.find((person) => person.id === id),
 		groups: () => groups,
 		save: vi.fn<QuickEditDeps['save']>(async (id, data) => {
@@ -44,7 +43,6 @@ function setup(overrides: Partial<QuickEditDeps> = {}) {
 	return {
 		deps,
 		edit: new RosterQuickEdit(deps),
-		switchOrg: (next: string) => (org = next),
 		removeFromRoster: (id: string) => (roster = roster.filter((person) => person.id !== id))
 	};
 }
@@ -176,15 +174,15 @@ describe('save', () => {
 		expect(edit.editingId).toBeNull();
 	});
 
-	it('does nothing after the write when the Organization changed meanwhile', async () => {
+	it('does nothing after the write when the Organization lifetime ended meanwhile', async () => {
 		let release!: () => void;
-		const { edit, deps, switchOrg } = setup({
+		const { edit, deps } = setup({
 			save: vi.fn(() => new Promise<boolean>((resolve) => (release = () => resolve(true))))
 		});
 		edit.open(okafor);
 		edit.session!.draft.rank = 'SSG';
 		const saving = edit.save();
-		switchOrg('org-2');
+		endOrganizationLifetime();
 		release();
 
 		expect(await saving).toBe(false);

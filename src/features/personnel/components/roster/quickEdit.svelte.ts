@@ -1,3 +1,4 @@
+import { stillInOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { Group } from '../../contracts';
 import {
@@ -14,7 +15,6 @@ import type { Personnel } from '../../personnel.types';
 import { changesSignalApplicability } from '../../rosterSignals';
 
 export interface QuickEditDeps {
-	orgId(): string;
 	person(id: string): Personnel | undefined;
 	groups(): readonly Group[];
 	/** Writes through the Personnel store; resolves false when the write did not land. */
@@ -148,8 +148,7 @@ export class RosterQuickEdit {
 		session.attempted = true;
 		if (!session.dirty || Object.keys(session.errors).length > 0) return false;
 
-		const orgId = this.#deps.orgId();
-		const stillHere = () => this.#deps.orgId() === orgId;
+		const stillHere = stillInOrganizationLifetime();
 		const payload = personnelPayloadOf(session.draft, this.#deps.groups());
 		const before = this.#deps.person(session.personnelId);
 		session.saving = true;

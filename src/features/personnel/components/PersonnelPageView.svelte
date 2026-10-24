@@ -182,7 +182,6 @@
 			: activeTable.rows
 	);
 	const quickEdit = new RosterQuickEdit({
-		orgId: () => ctx.orgId,
 		person: (id) => ctx.getPersonnelById(id),
 		groups: () => groupManagementStore.items,
 		save: (id, data) => {

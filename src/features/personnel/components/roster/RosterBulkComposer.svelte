@@ -3,6 +3,7 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
+	import { withinOrganizationLifetime } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { ComposerEntry, ComposerKind } from '../../rosterComposer';
@@ -44,16 +45,19 @@
 	const people = (count: number) => `${count} ${count === 1 ? 'person' : 'people'}`;
 
 	async function save(entry: ComposerEntry): Promise<void> {
-		const orgId = ctx.orgId;
-		const result = await saveRosterEntryBatch(fetch, orgId, personnelIds, entry);
-		if (ctx.orgId !== orgId) return;
+		// The write may finish in its Organization, but a result from a left Organization or a closed composer
+		// must neither refresh signals nor announce itself, so the wait never settles then.
+		const result = await withinOrganizationLifetime(
+			saveRosterEntryBatch(fetch, ctx.orgId, personnelIds, entry),
+			() => alive
+		);
 		if (entry.kind === 'follow-up' && result.writtenIds.length) void ctx.signals.refresh(result.writtenIds);
 		const left = skipped + result.unavailableIds.length;
 		const written = `${entry.kind === 'follow-up' ? 'Follow-up' : 'Note'} added for ${people(result.writtenIds.length)}`;
 		const message = left ? `${written} · ${people(left)} skipped` : written;
 		if (result.writtenIds.length) toastStore.success(message, 6000);
 		else toastStore.warning(`Nothing was added · ${people(left)} skipped`);
-		if (alive) close();
+		close();
 	}
 
 	beforeNavigate((navigation) => {

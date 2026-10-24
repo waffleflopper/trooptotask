@@ -7,6 +7,7 @@ import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/access/clientAccess';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
@@ -930,6 +931,49 @@ describe('PersonnelPageView', () => {
 			});
 			expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
 			expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1', 'person-2']);
+		});
+
+		it('rereads the signals of everyone it moved even if the selection changed while the move ran', async () => {
+			const reply = deferred<Response>();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValue(reply.promise));
+			const ctx = bulkCtx();
+			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+			render(PersonnelPageView, { props: { ctx } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Young, Test']);
+
+			await fireEvent.keyDown(bulkBar().getByRole('button', { name: 'Move to Group' }), { key: 'Enter' });
+			await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Bravo' }));
+			await fireEvent.click(checkbox('Select SGT Young, Test'));
+			expect(bulkBar().getByText('1 selected')).toBeTruthy();
+			reply.resolve(Response.json({ movedIds: ['person-1', 'person-2'], unavailableIds: [] }));
+
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+			expect(toastSuccessMock.mock.calls[0][0]).toBe('Moved 2 people to Bravo');
+			expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1', 'person-2']);
+			expect(personnelStore.getById('person-2')?.groupName).toBe('Bravo');
+		});
+
+		it('says nothing and rereads nothing when a note finishes after the Organization was left', async () => {
+			const reply = deferred<Response>();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValue(reply.promise));
+			const ctx = bulkCtx();
+			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+			render(PersonnelPageView, { props: { ctx } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+
+			await fireEvent.click(bulkBar().getByRole('button', { name: 'Follow-up for each' }));
+			const dialog = await screen.findByRole('dialog', { name: 'Add to log for 1 person' });
+			await fireEvent.input(within(dialog).getByPlaceholderText('What needs to happen?'), {
+				target: { value: 'Turn in CIF hand receipt' }
+			});
+			await fireEvent.click(within(dialog).getByRole('button', { name: 'Add follow-up' }));
+			endOrganizationLifetime();
+			reply.resolve(Response.json({ writtenIds: ['person-1'], unavailableIds: [] }, { status: 201 }));
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(toastSuccessMock).not.toHaveBeenCalled();
+			expect(toastWarningMock).not.toHaveBeenCalled();
+			expect(refresh).not.toHaveBeenCalled();
 		});
 	});
 

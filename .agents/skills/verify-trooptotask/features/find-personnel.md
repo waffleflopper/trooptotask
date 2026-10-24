@@ -241,6 +241,8 @@ scoped actors retain their baseline grants.
       bar keeps its chrome border and reads clearly.
     - Search: with five selected, search `Baker`: the bar reads `5 selected · 4 hidden by search`, and `Archive…` asks
       `Archive 5 personnel? …` with `This includes 4 people your search hides.` Actions apply to every selected Person.
+      At 390 the hidden count sits on its own line under the selected count (`75 selected` over `74 hidden`, a 351-wide
+      bar 52 tall) and every action, through `Clear selection`, stays inside the bar with `scrollWidth` 390.
     - Follow-up for each: with all three selected, `Follow-up for each` opens `Add to log for 3 people` above the bar,
       headed `3 PEOPLE` on `Follow-up`, with no `ALREADY OPEN` line. Title `Turn in CIF hand receipt`, choose
       `Fri 30 Oct` and press Control+Enter: one `POST .../api/personnel/follow-ups/batch` (200) and one

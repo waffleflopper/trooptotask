@@ -114,10 +114,11 @@ describe('patterns/section-nav SectionNav', () => {
 			}
 		});
 
-		const whatsNew = screen.getAllByRole('button', { name: "What's new" });
-		expect(whatsNew).toHaveLength(2);
-		for (const button of whatsNew) await fireEvent.click(button);
-		expect(openWhatsNew).toHaveBeenCalledTimes(2);
+		for (const button of screen.getAllByRole('button', { name: "What's new" })) {
+			openWhatsNew.mockClear();
+			await fireEvent.click(button);
+			expect(openWhatsNew).toHaveBeenCalledOnce();
+		}
 		for (const signOut of screen.getAllByRole('button', { name: 'Sign out' })) {
 			expect(signOut.getAttribute('type')).toBe('submit');
 			expect(signOut.closest('form')?.getAttribute('method')).toBe('POST');

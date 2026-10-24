@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
+import type { PersonnelOpenFollowUps } from '$features/personnel/contracts';
 import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -194,20 +195,26 @@ describe('/api/personnel/[id]/peek', () => {
 
 	it("lists the Person's open follow-ups and latest note", async () => {
 		const ctx = testContext();
-		const followUp = (id: string, personnelId: string, status: string) => ({
+		const followUp = (id: string, personnelId: string, status: string, dueDate: string | null = null) => ({
 			id,
 			organization_id: 'org-1',
 			personnel_id: personnelId,
 			title: id,
 			notes: '',
+			due_date: dueDate,
 			status,
 			created_at: '2026-10-01T10:00:00Z',
 			updated_at: '2026-10-01T10:00:00Z'
 		});
 		ctx.store.seed('personnel_follow_ups', [
-			followUp('turn-in-ta-50', OKAFOR, 'open'),
-			followUp('done', OKAFOR, 'completed'),
-			followUp('banks-open', BANKS, 'open')
+			followUp('undated', OKAFOR, 'open'),
+			followUp('turn-in-ta-50', OKAFOR, 'open', '2026-10-09'),
+			followUp('done', OKAFOR, 'completed', '2026-10-02'),
+			followUp('cpr-recert', OKAFOR, 'open', '2026-10-05'),
+			followUp('blc-packet', OKAFOR, 'open', '2026-10-20'),
+			followUp('ncoer-draft', OKAFOR, 'open', '2026-10-12'),
+			followUp('pt-test', OKAFOR, 'open', '2026-10-15'),
+			followUp('banks-open', BANKS, 'open', '2026-10-01')
 		]);
 		ctx.store.seed('leader_notes', [
 			{
@@ -229,9 +236,12 @@ describe('/api/personnel/[id]/peek', () => {
 		const followUps = await read(ctx, 'followUps');
 		const note = await read(ctx, 'note');
 
-		expect(followUps.state === 'ready' && (followUps.value as { id: string }[]).map((row) => row.id)).toEqual([
-			'turn-in-ta-50'
-		]);
+		expect(
+			followUps.state === 'ready' && {
+				ids: (followUps.value as PersonnelOpenFollowUps).followUps.map((row) => row.id),
+				total: (followUps.value as PersonnelOpenFollowUps).total
+			}
+		).toEqual({ ids: ['cpr-recert', 'turn-in-ta-50', 'ncoer-draft', 'pt-test', 'blc-packet'], total: 6 });
 		expect(note).toMatchObject({ state: 'ready', value: { id: 'newer', text: 'Wants BLC' } });
 	});
 

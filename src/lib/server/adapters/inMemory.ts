@@ -1939,6 +1939,17 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 					]
 				}
 			),
+		async listOpenFollowUps(personnelId, limit) {
+			const rows = await store.findMany<FollowUpRow>('personnel_follow_ups', orgId, {
+				personnel_id: personnelId,
+				status: 'open'
+			});
+			const byDue = (a: FollowUpRow, b: FollowUpRow) =>
+				(a.due_date ?? '\uffff').localeCompare(b.due_date ?? '\uffff') ||
+				a.created_at.localeCompare(b.created_at) ||
+				a.id.localeCompare(b.id);
+			return { rows: rows.toSorted(byDue).slice(0, limit), total: rows.length };
+		},
 		findDocument: (personnelId, id) => store.findOne('personnel_documents', orgId, { id, personnel_id: personnelId }),
 		async countActiveLeaderNotes(personnelId) {
 			const rows = await store.findMany(

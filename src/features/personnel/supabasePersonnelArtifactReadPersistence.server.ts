@@ -157,6 +157,29 @@ export function createSupabasePersonnelArtifactReadPersistence(
 				if (page.length < to - offset + 1 || (limit !== undefined && rows.length >= limit)) return rows;
 			}
 		},
+		async listOpenFollowUps(personnelId, limit) {
+			const [page, total] = await Promise.all([
+				client
+					.from('personnel_follow_ups')
+					.select(FOLLOWUPROW_SELECT)
+					.eq('organization_id', orgId)
+					.eq('personnel_id', personnelId)
+					.eq('status', 'open')
+					.order('due_date', { ascending: true, nullsFirst: false })
+					.order('created_at', { ascending: true })
+					.order('id', { ascending: true })
+					.limit(limit),
+				client
+					.from('personnel_follow_ups')
+					.select('id', { count: 'exact', head: true })
+					.eq('organization_id', orgId)
+					.eq('personnel_id', personnelId)
+					.eq('status', 'open')
+			]);
+			if (page.error) throw new Error(page.error.message);
+			if (total.error) throw new Error(total.error.message);
+			return { rows: (page.data ?? []).map(followUpRow), total: total.count ?? 0 };
+		},
 		async findDocument(personnelId, documentId) {
 			const { data, error } = await client
 				.from('personnel_documents')

@@ -71,6 +71,11 @@ export interface PersonnelFollowUp {
 	archivedBy?: string | null;
 }
 
+export interface PersonnelOpenFollowUps {
+	followUps: PersonnelFollowUp[];
+	total: number;
+}
+
 /** Lifecycle writes return only what a manager without sensitive reads may know. */
 export interface PersonnelArtifactArchiveState {
 	id: string;

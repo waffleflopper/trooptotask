@@ -43,7 +43,6 @@
 	let { ctx, person, position, onstep, onclose, onquickedit, oncompose, nextDays }: Props = $props();
 
 	const ATTENTION_SHOWN = 3;
-	const FOLLOW_UPS_SHOWN = 5;
 
 	let root = $state<HTMLElement | null>(null);
 	let composingFor = $state<string | null>(null);
@@ -81,20 +80,23 @@
 		const section = sections.followUps;
 		if (section.state !== 'ready') return null;
 		const personnelId = person.id;
-		const list = new FollowUpList(section.value, {
+		const { followUps: rows, total } = section.value;
+		const list = new FollowUpList(rows, {
 			orgId: ctx.orgId,
 			personnelId,
 			fetch: (input, init) => fetch(input, init)
 		});
-		const order = groupFollowUps(section.value, ctx.data.asOf).open.map((row) => row.id);
-		return { list, personnelId, order };
+		const order = groupFollowUps(rows, ctx.data.asOf).open.map((row) => row.id);
+		return { list, personnelId, order, total };
 	});
 	const followUpRows = $derived.by(() => {
 		if (!followUps) return [];
 		const rows = followUps.list.rows;
 		return followUps.order.flatMap((id) => rows.find((row) => row.id === id) ?? []);
 	});
-	const openFollowUpCount = $derived(followUpRows.filter((row) => row.status === 'open').length);
+	const openFollowUpCount = $derived(
+		followUps ? followUps.total - followUpRows.filter((row) => row.status !== 'open').length : 0
+	);
 
 	export function focusFirst(): void {
 		root?.querySelector<HTMLElement>('button:not(:disabled), a[href]')?.focus();
@@ -348,7 +350,7 @@
 					</div>
 					{#if followUps}
 						{@const list = followUps.list}
-						{#each followUpRows.slice(0, FOLLOW_UPS_SHOWN) as row (row.id)}
+						{#each followUpRows as row (row.id)}
 							{@const completed = row.status === 'completed'}
 							{@const due = dueLabel(row.dueDate, ctx.data.asOf)}
 							{@const error = list.rowErrors[row.id]}
@@ -378,9 +380,9 @@
 						{:else}
 							<p class="text-sm text-muted-foreground">No open follow-ups.</p>
 						{/each}
-						{#if followUpRows.length > FOLLOW_UPS_SHOWN}
+						{#if followUps.total > followUpRows.length}
 							<p class="pt-1 text-[13px] leading-4 text-muted-foreground">
-								+{followUpRows.length - FOLLOW_UPS_SHOWN} more in the log
+								+{followUps.total - followUpRows.length} more in the log
 							</p>
 						{/if}
 					{:else if sections.followUps.state === 'failed'}

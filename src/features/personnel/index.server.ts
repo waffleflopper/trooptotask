@@ -140,6 +140,7 @@ export {
 export type { PersonnelDocumentInput, PersonnelDocumentDownloadInput } from './personnelDocuments.server';
 export {
 	listPersonnelFollowUps,
+	listOpenPersonnelFollowUps,
 	createPersonnelFollowUp,
 	setPersonnelFollowUpStatus,
 	updatePersonnelFollowUp,

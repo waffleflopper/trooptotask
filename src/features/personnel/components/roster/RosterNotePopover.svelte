@@ -4,12 +4,12 @@
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
 	import { withinOrganizationLifetime } from '$lib/stores/core';
-	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../../personnel.types';
 	import { alreadyOpenOf, type ComposerEntry } from '../../rosterComposer';
 	import { saveRosterEntry } from '../../workspace/rosterEntrySave';
 	import RosterComposer from './RosterComposer.svelte';
+	import { rosterEntrySaved } from './rosterEntrySaved';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -47,17 +47,12 @@
 	}
 
 	async function save(entry: ComposerEntry): Promise<void> {
-		// The toast outlives this popover, and the props read through to page state that is cleared on close.
-		const logHref = `${recordHref}/log`;
+		// The props read through to page state that is cleared on close.
+		const target = person;
+		const href = recordHref;
 		// The write may land after the user left the Organization; the lifetime then never settles, so nothing follows.
-		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: person.id }, entry));
-		if (entry.kind === 'follow-up') void ctx.signals.refresh([person.id]);
-		const subject = `${person.rank} ${person.lastName}`;
-		toastStore.success(
-			entry.kind === 'follow-up' ? `Follow-up added for ${subject}` : `Note added for ${subject}`,
-			6000,
-			ctx.canOpenPersonnelDetail(person) ? { label: 'Open log', onClick: () => void goto(logHref) } : undefined
-		);
+		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry));
+		rosterEntrySaved(ctx, target, entry, href);
 		if (alive) close();
 	}
 

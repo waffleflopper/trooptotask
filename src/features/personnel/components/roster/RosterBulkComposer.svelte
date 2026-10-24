@@ -53,6 +53,7 @@
 			saveRosterEntryBatch(fetch, ctx.orgId, personnelIds, entry),
 			() => alive
 		);
+		ctx.peek.invalidate(result.writtenIds, [entry.kind === 'follow-up' ? 'followUps' : 'note']);
 		if (entry.kind === 'follow-up' && result.writtenIds.length) void ctx.signals.refresh(result.writtenIds);
 		const left = skipped + result.unavailableIds.length;
 		const written = `${entry.kind === 'follow-up' ? 'Follow-up' : 'Note'} added for ${people(result.writtenIds.length)}`;

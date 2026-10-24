@@ -56,14 +56,16 @@ const NONE_OPEN = readyRow({ kind: 'known', value: { count: 0, first: null } });
 
 function makeCtx(row: SignalRow = NONE_OPEN, canOpen = true, viewerDay = '2026-10-06') {
 	const refresh = vi.fn().mockResolvedValue(undefined);
+	const invalidate = vi.fn();
 	const ctx = {
 		orgId: 'org-1',
 		data: { orgId: 'org-1', asOf: '2026-10-06' },
 		signals: { refresh, viewerDay: () => viewerDay },
+		peek: { invalidate },
 		signalRow: () => row,
 		canOpenPersonnelDetail: () => canOpen
 	};
-	return { ctx: ctx as unknown as PersonnelPageContext, refresh, raw: ctx };
+	return { ctx: ctx as unknown as PersonnelPageContext, refresh, invalidate, raw: ctx };
 }
 
 function mount(ctx: PersonnelPageContext) {
@@ -93,7 +95,7 @@ describe('RosterNotePopover', () => {
 	});
 
 	it('saves a follow-up with the Friday preset, refreshes that Person’s signals and offers the Log in the toast', async () => {
-		const { ctx, refresh } = makeCtx();
+		const { ctx, refresh, invalidate } = makeCtx();
 		const { onclose, rerender } = mount(ctx);
 
 		const title = await screen.findByRole('textbox', { name: 'Follow-up title' });
@@ -109,6 +111,7 @@ describe('RosterNotePopover', () => {
 		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/personnel/person-1/follow-ups');
 		expect(postedBody(fetchMock)).toEqual({ title: 'Get CPR/BLS recert', notes: '', dueDate: '2026-10-09' });
 		expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1']);
+		expect(invalidate).toHaveBeenCalledExactlyOnceWith(['person-1'], ['followUps']);
 		expect(toastSuccessMock).toHaveBeenCalledOnce();
 		const [message, options] = toastSuccessMock.mock.calls[0];
 		expect(message).toBe('Follow-up added for SGT Okafor');
@@ -133,7 +136,7 @@ describe('RosterNotePopover', () => {
 	});
 
 	it('saves a note without a date and without refreshing signals', async () => {
-		const { ctx, refresh } = makeCtx();
+		const { ctx, refresh, invalidate } = makeCtx();
 		const { onclose } = mount(ctx);
 
 		await fireEvent.click(await screen.findByRole('radio', { name: 'Note' }));
@@ -145,6 +148,7 @@ describe('RosterNotePopover', () => {
 		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/personnel/person-1/leader-notes');
 		expect(postedBody(fetchMock)).toEqual({ text: 'Strong week.' });
 		expect(refresh).not.toHaveBeenCalled();
+		expect(invalidate).toHaveBeenCalledExactlyOnceWith(['person-1'], ['note']);
 	});
 
 	it('saves with Ctrl+Enter from the details field', async () => {

@@ -36,19 +36,27 @@
 	const attention = $derived(rosterAttentionCell(signal, controls.filter));
 	const loss = $derived(ctx.upcomingLossMap.get(person.id));
 	const session = $derived(controls.edit.session?.personnelId === person.id ? controls.edit.session : null);
+	const peeked = $derived(controls.peekedId === person.id);
 
 	function handleClick(event: MouseEvent): void {
 		if (DataTable.eventStartedInInteractiveDescendant(event)) return;
-		if (canOpen) controls.openRecord(person);
+		if (canOpen && !controls.peek(person)) controls.openRecord(person);
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey) return;
 		const row = event.currentTarget as HTMLElement;
 		const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+		if (controls.peekKey(event)) {
+			event.preventDefault();
+			return;
+		}
 		if (key === 'ArrowDown' || key === 'ArrowUp') focusAdjacentRow(row, key === 'ArrowDown' ? 1 : -1);
 		else if (key === 'Enter') {
 			if (canOpen) controls.openRecord(person);
+		} else if (key === ' ' && controls.peekFits) {
+			if (peeked) controls.closePeek();
+			else if (!canOpen || !controls.peek(person)) return;
 		} else if ((key === ' ' || key === 'x') && controls.selectable)
 			controls.select(person.id, !selected, event.shiftKey);
 		else if (key === 'n' && canNote) controls.note(person);
@@ -81,8 +89,10 @@
 	data-roster-row={person.id}
 	data-state={selected ? 'selected' : undefined}
 	data-note-open={noteOpen || undefined}
+	data-peeked={peeked || undefined}
+	aria-current={peeked || undefined}
 	class={[
-		'group/row cursor-pointer data-[note-open]:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
+		'group/row cursor-pointer data-[note-open]:bg-muted/50 data-[peeked]:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
 		session && 'border-b-0 bg-accent/10 hover:bg-accent/10'
 	]}
 	tabindex={tabbable ? 0 : -1}
@@ -95,7 +105,7 @@
 		<Table.Cell
 			class={[
 				DataTable.columnCellClass(column),
-				session && index === 0 && 'shadow-[inset_3px_0_0_0_var(--color-accent)]',
+				(session || peeked) && index === 0 && 'shadow-[inset_3px_0_0_0_var(--color-accent)]',
 				column.key === 'name' && '@max-xl/data-table:w-full @max-xl/data-table:max-w-0'
 			]}
 			style={column.width ? `width: ${column.width}` : undefined}
@@ -196,7 +206,8 @@
 				{@render attentionText()}
 			{:else if column.key === 'actions'}
 				<span class="flex items-center justify-end gap-1">
-					{#if canNote || canQuickEdit}
+					<!-- The open peek panel carries Note and Quick edit, so the narrowed column shows only the chevron. -->
+					{#if (canNote || canQuickEdit) && controls.peekedId === null}
 						<!-- Hover reveals them; a touch screen has no hover, so they stay shown there. -->
 						<span
 							class={[

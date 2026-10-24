@@ -25,8 +25,8 @@
 	} from '../rosterFilter';
 	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
 	import { compareRosterGroupNames } from '../rosterReadModel';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { onDestroy, tick } from 'svelte';
+	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
+	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
 	import PersonnelBulkBar from './roster/PersonnelBulkBar.svelte';
 	import PersonnelFilterChips from './roster/PersonnelFilterChips.svelte';
@@ -35,6 +35,7 @@
 	import PersonnelRosterRow from './roster/PersonnelRosterRow.svelte';
 	import RosterBulkComposer from './roster/RosterBulkComposer.svelte';
 	import RosterNotePopover from './roster/RosterNotePopover.svelte';
+	import RosterPeekPanel from './roster/RosterPeekPanel.svelte';
 	import { personnelToolbarItems } from './roster/personnelToolbarItems';
 	import { RosterQuickEdit } from './roster/quickEdit.svelte';
 	import type { RosterRowControls } from './roster/rosterRow';
@@ -42,12 +43,16 @@
 
 	interface Props {
 		ctx: PersonnelPageContext;
+		/** The peek panel's 7-day Calendar strip, drawn by the route because Calendar builds on Personnel. */
+		nextDays?: Snippet<[calendar: unknown]>;
 	}
 
-	let { ctx }: Props = $props();
+	let { ctx, nextDays }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const ROSTER_PAGE_SIZE = 75;
+	// Below this the roster beside a 470 px panel is too narrow, so a row click opens the record instead.
+	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
 	// A NUL cannot appear in a saved Group name, so a Group named "Unassigned" never collides with the no-Group bucket.
 	const NO_GROUP = '\u0000';
@@ -159,8 +164,8 @@
 				compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
 			},
 			{ key: 'mos', header: 'MOS', value: (p) => p.mos, width: '72px', hiddenBelow: '@3xl' },
-			{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole, hiddenBelow: '@3xl' },
-			{ key: 'group', header: 'Group', value: (p) => p.groupName, hiddenBelow: '@3xl' },
+			{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole, hiddenBelow: '@3xl', hidden: peekOpen },
+			{ key: 'group', header: 'Group', value: (p) => p.groupName, hiddenBelow: '@3xl', hidden: peekOpen },
 			{
 				key: 'attention',
 				header: 'Needs attention',
@@ -178,7 +183,7 @@
 				value: () => '',
 				searchable: false,
 				sortable: false,
-				width: '112px',
+				width: peekOpen ? '40px' : '112px',
 				hiddenBelow: 'md'
 			}
 		];
@@ -267,6 +272,13 @@
 		anchor: string;
 	} | null>(null);
 	let bulkComposer = $state<RosterBulkComposer>();
+	let peekedId = $state<string | null>(null);
+	let peekBrowsing = $state(false);
+	let peekPanel = $state<RosterPeekPanel>();
+	const peekedPerson = $derived(
+		peekedId && !locallyArchivedIds.has(peekedId) ? (ctx.getPersonnelById(peekedId) ?? null) : null
+	);
+	const peekOpen = $derived(peekFits.current && canViewRoster && peekedPerson !== null);
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
@@ -277,6 +289,12 @@
 			: activeTable.rows
 	);
 	const shownIds = $derived(shownRows.map((person) => person.id));
+	// J/K walks every A-Z page, turning the page as it goes; the grouped view skips collapsed Groups.
+	const peekSequence = $derived(ctx.viewMode === 'alphabetical' ? azTable.allRows : shownRows);
+	const peekPosition = $derived({
+		index: peekSequence.findIndex((person) => person.id === peekedId),
+		total: peekSequence.length
+	});
 	const quickEdit = new RosterQuickEdit({
 		person: (id) => ctx.getPersonnelById(id),
 		groups: () => groupManagementStore.items,
@@ -285,6 +303,7 @@
 			return personnelStore.updateOrThrow(id, data);
 		},
 		refreshSignals: (ids) => void ctx.signals.refresh(ids),
+		peekChanged: (id, before, after) => ctx.peek.changed(id, before, after),
 		dataSheetHref: (person) => `${recordHref(person)}/data-sheet`,
 		navigate: (href) => void goto(href),
 		closed: (id) => void restoreRowFocus(id)
@@ -311,7 +330,28 @@
 			return notePerson?.id ?? null;
 		},
 		note: openNote,
-		edit: quickEdit
+		edit: quickEdit,
+		get peekedId() {
+			return peekOpen ? peekedId : null;
+		},
+		get peekFits() {
+			return peekFits.current;
+		},
+		peek(person) {
+			if (!peekFits.current || !ctx.canOpenPersonnelDetail(person)) return false;
+			showPeek(person, false);
+			return true;
+		},
+		closePeek,
+		peekKey(event) {
+			if (!peekOpen) return false;
+			const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+			if (key === 'j' || key === 'k') stepPeek(key === 'j' ? 1 : -1, true);
+			else if (key === 'Escape') closePeek();
+			else if (key === 'Tab' && !event.shiftKey) peekPanel?.focusFirst();
+			else return false;
+			return true;
+		}
 	};
 	const canNoteAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
@@ -381,7 +421,86 @@
 		notePerson = null;
 		bulkCompose = null;
 		selection.clear();
+		peekedId = null;
 	});
+
+	$effect(() => {
+		const peek = ctx.peek;
+		const id = peekOpen ? peekedId : null;
+		const browsing = peekBrowsing;
+		untrack(() => (id ? peek.show(id, { browsing }) : peek.close()));
+	});
+
+	$effect(() => {
+		const peek = ctx.peek;
+		return () => peek.close();
+	});
+
+	// A filter that hides the peeked Person closes the peek; focus moves only if it went down with the panel.
+	$effect(() => {
+		if (!peekOpen || !peekedPerson || shownByFilter(peekedPerson)) return;
+		untrack(() => {
+			const close = () => {
+				peekedId = null;
+				const next = rowControls.tabRowId;
+				if (next) void restoreRowFocus(next);
+			};
+			if (peekPanel) peekPanel.release(close);
+			else close();
+		});
+	});
+
+	async function focusRow(id: string): Promise<void> {
+		await tick();
+		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`)?.focus();
+	}
+
+	/** A search, page or collapsed Group may have taken the peeked row away; focus then goes to the first shown row, or the search field. */
+	async function focusAfterClose(id: string): Promise<void> {
+		await tick();
+		const row = document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`);
+		(
+			row ??
+			document.querySelector<HTMLElement>('[data-roster-row]') ??
+			document.querySelector<HTMLElement>('[data-slot="workspace-toolbar"] input[type="search"]')
+		)?.focus();
+	}
+
+	/** A typed draft in the panel's composer asks to be discarded before the panel shows someone else or closes. */
+	function showPeek(person: Personnel, browsing: boolean, then?: () => void): void {
+		const show = () => {
+			peekedId = person.id;
+			peekBrowsing = browsing;
+			then?.();
+		};
+		if (peekPanel && peekedId !== person.id) peekPanel.release(show);
+		else show();
+	}
+
+	function stepPeek(step: 1 | -1, moveFocus: boolean): void {
+		const sequence = peekSequence;
+		const from = sequence.findIndex((person) => person.id === peekedId);
+		for (let index = from + step; index >= 0 && index < sequence.length; index += step) {
+			const next = sequence[index];
+			if (!ctx.canOpenPersonnelDetail(next)) continue;
+			showPeek(next, true, () => {
+				if (ctx.viewMode === 'alphabetical') azTable.setPage(Math.floor(index / ROSTER_PAGE_SIZE) + 1);
+				if (moveFocus) void focusRow(next.id);
+			});
+			return;
+		}
+	}
+
+	function closePeek(): void {
+		const id = peekedId;
+		if (!id) return;
+		const close = () => {
+			peekedId = null;
+			void focusAfterClose(id);
+		};
+		if (peekPanel) peekPanel.release(close);
+		else close();
+	}
 
 	function recordHref(person: Personnel): string {
 		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
@@ -439,10 +558,10 @@
 	<title>Personnel - Troop to Task</title>
 </svelte:head>
 
-<div class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+<div class="flex h-full min-h-0 overflow-hidden bg-background">
 	{#if !canViewRoster}
 		<div
-			class="m-6 flex min-h-80 flex-col items-center justify-center rounded-lg border bg-card p-8 text-center text-muted-foreground"
+			class="m-6 flex min-h-80 flex-1 flex-col items-center justify-center rounded-lg border bg-card p-8 text-center text-muted-foreground"
 		>
 			<h2 class="mb-2 text-2xl font-semibold tracking-tight text-foreground">Access Restricted</h2>
 			<p class="m-0 max-w-prose leading-relaxed">
@@ -450,16 +569,17 @@
 			</p>
 		</div>
 	{:else}
+		<!-- Content height, capped at the page, so the footer follows a short roster; the peek panel beside it is full height. -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="@container/roster flex min-h-0 flex-col gap-4 overflow-clip px-6 pt-4 pb-5 max-sm:p-3"
+			class="@container/roster flex max-h-full min-h-0 min-w-0 flex-1 flex-col gap-4 self-start overflow-clip px-6 pt-4 pb-5 max-sm:p-3"
 			onkeydown={handleRosterKeydown}
 		>
 			<PersonnelRosterHeader
 				unitName={ctx.orgName}
 				activeCount={visibleAllActivePersonnel.length}
 				summary={signalSummary}
-				canViewAvailability={ctx.canViewAvailability}
+				canViewAvailability={ctx.canViewAvailability && !peekOpen}
 				filter={rosterFilter}
 				statusTypes={ctx.signals.statusTypes}
 				onToggleFilter={toggleFilter}
@@ -618,7 +738,8 @@
 						>{activeTable.totalRows} of {visibleAllActivePersonnel.length}
 						{rosterFilter ? 'match' : 'shown'}</span
 					>
-					<span class="flex gap-4 max-md:hidden" aria-hidden="true">
+					<span class="flex gap-4 whitespace-nowrap max-md:hidden @max-xl/roster:hidden" aria-hidden="true">
+						{#if ctx.canReadPersonnelDetails && peekFits.current}<span>Space preview</span>{/if}
 						{#if canSelect}<span>X select</span>{/if}
 						{#if canNoteAny}<span>N note</span>{/if}
 						{#if canQuickEditAny}<span>E quick edit</span>{/if}
@@ -643,6 +764,19 @@
 				</div>
 			{/if}
 		</div>
+		{#if peekOpen && peekedPerson}
+			<RosterPeekPanel
+				bind:this={peekPanel}
+				{ctx}
+				person={peekedPerson}
+				recordHref={recordHref(peekedPerson)}
+				position={peekPosition}
+				onstep={(step) => stepPeek(step, false)}
+				onclose={closePeek}
+				onquickedit={(person) => quickEdit.open(person)}
+				{nextDays}
+			/>
+		{/if}
 	{/if}
 </div>
 

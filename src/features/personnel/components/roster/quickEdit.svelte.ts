@@ -12,6 +12,7 @@ import {
 	type PersonnelDraftErrors
 } from '../../personnelDraft';
 import type { Personnel } from '../../personnel.types';
+import type { PeekChangeFields } from '../../rosterPeek';
 import { changesSignalApplicability } from '../../rosterSignals';
 
 export interface QuickEditDeps {
@@ -21,6 +22,8 @@ export interface QuickEditDeps {
 	save(id: string, data: Omit<Personnel, 'id'>): Promise<boolean>;
 	/** Rereads the roster signals of People whose rank, MOS, duty role or Group changed. */
 	refreshSignals(ids: string[]): void;
+	/** A saved edit changed the Person from `before` to `after`. */
+	peekChanged(id: string, before: Personnel, after: PeekChangeFields): void;
 	dataSheetHref(person: Personnel): string;
 	navigate(href: string): void;
 	/** The editor closed; put focus back on the Person's row. */
@@ -199,7 +202,10 @@ export class RosterQuickEdit {
 		}
 		if (!stillHere()) return false;
 		if (!this.#disposed) {
-			if (before && changesSignalApplicability(before, payload)) this.#deps.refreshSignals([session.personnelId]);
+			if (before) {
+				this.#deps.peekChanged(session.personnelId, before, payload);
+				if (changesSignalApplicability(before, payload)) this.#deps.refreshSignals([session.personnelId]);
+			}
 			if (this.session === session) this.#close(session);
 		}
 		toastStore.success('Personnel updated');

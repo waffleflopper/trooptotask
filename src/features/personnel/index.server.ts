@@ -99,6 +99,7 @@ export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
 
 export {
 	loadPersonnelDetailHeader,
+	loadPersonnelPeekPerson,
 	authorizePersonnelLane,
 	loadAvailabilityToday,
 	loadPersonnelDetailTabCounts

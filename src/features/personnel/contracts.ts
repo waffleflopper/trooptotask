@@ -65,6 +65,9 @@ export type {
 	TodayStatus
 } from './rosterSignals';
 
+export { ROSTER_PEEK_DAYS, ROSTER_PEEK_SECTIONS, isRosterPeekSection } from './rosterPeek';
+export type { RosterPeekRead, RosterPeekSection, RosterPeekValues } from './rosterPeek';
+
 // Failures the Personnel forms attach to one field. Servers emit and forms match these exact strings.
 export const PERSONNEL_LAST_NAME_REQUIRED_MESSAGE = 'Last name is required';
 export const GROUP_NAME_EXISTS_MESSAGE = 'A Group with that name already exists.';

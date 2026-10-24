@@ -41,6 +41,9 @@
 
 	function setLocalGroup(predicate: (person: Personnel) => boolean, groupId: string | null) {
 		const groupName = groupId ? (groupManagementStore.getById(groupId)?.name ?? '') : '';
+		for (const person of personnelStore.items) {
+			if (predicate(person)) ctx.peek.changed(person.id, { groupId: person.groupId }, { groupId });
+		}
 		personnelStore.updateLocalWhere(predicate, (person) => ({ ...person, groupId, groupName }));
 	}
 
@@ -82,7 +85,9 @@
 			const before = editingPerson;
 			const updated = await personnelStore.updateOrThrow(before.id, personData);
 			if (!updated) throw new Error('Failed to update personnel');
-			if (inOrganization() && changesSignalApplicability(before, personData)) void ctx.signals.refresh([before.id]);
+			if (!inOrganization()) return;
+			ctx.peek.changed(before.id, before, personData);
+			if (changesSignalApplicability(before, personData)) void ctx.signals.refresh([before.id]);
 		} else {
 			const created = await personnelStore.add(personData);
 			if (!created) throw new Error('Failed to add personnel');

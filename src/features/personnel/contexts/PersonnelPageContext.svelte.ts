@@ -22,6 +22,7 @@ import {
 	type SignalRow,
 	type SummaryState
 } from '../rosterSignals';
+import { RosterPeek } from '../rosterPeek.svelte';
 import { RosterSignals } from '../rosterSignals.svelte';
 
 export interface PersonnelPageData {
@@ -67,6 +68,8 @@ export class PersonnelPageContext {
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
 	readonly #groupsStore: GroupsAccessor;
 	readonly signals: RosterSignals;
+	/** The peek panel's per-Person reads, dropped with this context when the workspace loads again. */
+	readonly peek: RosterPeek;
 
 	constructor(
 		data: PersonnelPageData,
@@ -75,13 +78,15 @@ export class PersonnelPageContext {
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
 		signals: RosterSignals = new RosterSignals(),
-		groupsStore: GroupsAccessor | null = null
+		groupsStore: GroupsAccessor | null = null,
+		peek: RosterPeek = new RosterPeek(data.orgId)
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
 		this.signals = signals;
 		this.#groupsStore = groupsStore ?? { orgId: data.orgId, items: [] };
+		this.peek = peek;
 
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {

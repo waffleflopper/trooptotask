@@ -10,6 +10,8 @@
 		RosterSignals,
 		type PersonnelPageData
 	} from '$features/personnel';
+	import { PersonnelNextDays, PersonnelNextDaysSkeleton, type PersonnelCalendarWindow } from '$features/calendar';
+	import { ROSTER_PEEK_DAYS } from '$features/personnel/contracts';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
@@ -76,6 +78,9 @@
 		};
 	}
 
+	/** The 470 px dock wraps a long availability note onto a second line; the strip and its skeleton both hold two. */
+	const PEEK_LEGEND_LINES = 2;
+
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {
 		return new PersonnelPageContext(
 			createPageData(workspaceData),
@@ -89,12 +94,20 @@
 	}
 </script>
 
+{#snippet peekNextDays(calendar: unknown)}
+	{#if calendar}
+		<PersonnelNextDays calendar={calendar as PersonnelCalendarWindow} legendLines={PEEK_LEGEND_LINES} />
+	{:else}
+		<PersonnelNextDaysSkeleton days={ROSTER_PEEK_DAYS} legendLines={PEEK_LEGEND_LINES} />
+	{/if}
+{/snippet}
+
 {#key data.shell.org.id}
 	{#if loadError && loadError.orgId === data.shell.org.id && !workspace}
 		<!-- The Personnel layout observes this same source and shows WorkspaceLoadError. -->
 	{:else if workspace}
 		{@const ctx = createContext(workspace.data)}
-		<PersonnelPageView {ctx} />
+		<PersonnelPageView {ctx} nextDays={peekNextDays} />
 		{#await loadPersonnelModals() then { default: PersonnelModals }}
 			<PersonnelModals {ctx} {modals} {requestArchiveApproval} />
 		{/await}

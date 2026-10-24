@@ -81,11 +81,14 @@ const quickEditField = ({ row }, role, name) => ({
 // The roster stays paused for a large wide actor, so its row journeys first narrow the roster
 // to one Person with the search term, as that user would.
 const findPerson = ({ searchTerm }) => [{ fill: search, value: searchTerm }, { wait: [searchTerm] }];
-const openDetail = (terms) => [
-	...findPerson(terms),
-	{ click: { role: 'row', name: terms.edit.row } },
-	{ wait: ['Add to record'] }
-];
+// From 1280 px a row click opens the peek, so the record opens through the Person's name link.
+const recordLink = ({ row }) => ({
+	role: 'link',
+	name: row.replace(/^Open \S+ /, ''),
+	partial: true,
+	within: { role: 'row', name: row }
+});
+const openDetail = (terms) => [...findPerson(terms), { click: recordLink(terms.edit) }, { wait: ['Add to record'] }];
 const detailTabs = 'nav[aria-label="Personnel detail sections"]';
 const streamsPending = ['[aria-label$=" loading"]', skeleton];
 const detailHeaderShown = { presentSelector: [detailTabs] };
@@ -305,7 +308,7 @@ export const journeys = {
 		path: (terms) => org(terms, '/personnel'),
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
 		prepare: findPerson,
-		trigger: ({ edit }) => ({ click: { role: 'row', name: edit.row } }),
+		trigger: ({ edit }) => ({ click: recordLink(edit) }),
 		milestones: () => [
 			{ name: 'header', ...detailHeaderShown },
 			{ name: 'useful', ...detailSettled }

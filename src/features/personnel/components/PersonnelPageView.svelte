@@ -292,7 +292,7 @@
 		refreshSignals: (ids) => void ctx.signals.refresh(ids),
 		peekChanged: (id, before, after) => ctx.peek.changed(id, before, after),
 		dataSheetHref: (person) => `${recordHref(person)}/data-sheet`,
-		navigate: (href) => void goto(href),
+		navigate: (href, delta) => (delta ? history.go(delta) : void goto(href)),
 		closed: (id) => void restoreRowFocus(id)
 	});
 	beforeNavigate((navigation) => quickEdit.guardNavigation(navigation));

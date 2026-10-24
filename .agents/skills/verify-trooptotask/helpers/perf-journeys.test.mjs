@@ -82,6 +82,18 @@ test('each detail edit sample waits for the header to show the MOS it saved', ()
 	assert.deepEqual([0, 1, 5].map(shown), [['42A'], ['68W'], ['68W']]);
 });
 
+test('the detail journeys open the record through the name link, since a wide row click opens the peek', () => {
+	const terms = { searchTerm: 'Able', edit: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' } };
+	const link = {
+		role: 'link',
+		name: 'Able, Alex',
+		partial: true,
+		within: { role: 'row', name: 'Open SPC Able, Alex' }
+	};
+	assert.deepEqual(journeys['personnel-detail'].trigger(terms), { click: link });
+	assert.deepEqual(journeys['personnel-detail-edit'].prepare(terms, 0)[2], { click: link });
+});
+
 test('the Dashboard navigation waits for the Dashboard, then the roster, for both actors', () => {
 	const navigation = journeyFor('dashboard-navigation', 'perfScoped', 'interaction');
 	assert.equal(navigation, journeys['dashboard-navigation']);

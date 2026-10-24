@@ -325,6 +325,9 @@ describe('leaving the roster', () => {
 	function leaving(href = 'http://localhost/personnel/patel-nikhil', willUnload = false) {
 		return { to: { url: new URL(href) }, willUnload, cancel: vi.fn() };
 	}
+	function goingBack() {
+		return { ...leaving('http://localhost/personnel'), type: 'popstate', delta: -1 };
+	}
 
 	it('lets a navigation through when nothing is unsaved', () => {
 		const { edit } = setup();
@@ -402,6 +405,16 @@ describe('leaving the roster', () => {
 
 		expect(deps.save).toHaveBeenCalledTimes(1);
 		expect(deps.navigate).toHaveBeenCalledExactlyOnceWith('/personnel/patel-nikhil');
+	});
+
+	it.each(['discard', 'save'] as const)('resumes the history step on browser Back after %s', async (choice) => {
+		const { edit, deps } = setup();
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		edit.guardNavigation(goingBack());
+		await edit.decideLeave(choice);
+
+		expect(deps.navigate).toHaveBeenCalledExactlyOnceWith('/personnel', -1);
 	});
 
 	it('stays put when the save fails', async () => {

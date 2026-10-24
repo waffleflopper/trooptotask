@@ -32,7 +32,7 @@ export interface QuickEditDeps {
 	refreshSignals(ids: string[]): void;
 	peekChanged(id: string, before: Personnel, after: PeekChangeFields): void;
 	dataSheetHref(person: Personnel): string;
-	navigate(href: string): void;
+	navigate(href: string, delta?: number): void;
 	closed(personnelId: string): void;
 }
 
@@ -62,10 +62,12 @@ export class QuickEditSession {
 export type QuickEditPrompt =
 	| { kind: 'discard'; next: Personnel | null }
 	| { kind: 'data-sheet' }
-	| { kind: 'leave'; href: string };
+	| { kind: 'leave'; href: string; delta?: number };
 
 export interface LeavingNavigation {
 	readonly to: { readonly url: URL } | null;
+	readonly type?: string;
+	readonly delta?: number;
 	readonly willUnload: boolean;
 	cancel(): void;
 }
@@ -138,7 +140,8 @@ export class RosterQuickEdit {
 		navigation.cancel();
 		if (navigation.willUnload || !navigation.to) return;
 		const { pathname, search, hash } = navigation.to.url;
-		this.prompt = { kind: 'leave', href: pathname + search + hash };
+		const delta = navigation.type === 'popstate' ? navigation.delta : undefined;
+		this.prompt = { kind: 'leave', href: pathname + search + hash, ...(delta && { delta }) };
 	}
 
 	async decideLeave(choice: 'save' | 'discard' | 'cancel'): Promise<void> {
@@ -155,7 +158,9 @@ export class RosterQuickEdit {
 		}
 		this.prompt = null;
 		if (choice === 'discard') this.#close(current, { restoreFocus: false });
-		if (!this.#disposed) this.#deps.navigate(prompt.href);
+		if (this.#disposed) return;
+		if (prompt.delta) this.#deps.navigate(prompt.href, prompt.delta);
+		else this.#deps.navigate(prompt.href);
 	}
 
 	async decideDataSheet(choice: 'save' | 'discard' | 'cancel'): Promise<void> {

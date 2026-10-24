@@ -126,7 +126,9 @@
 						><span aria-hidden="true">—</span><span class="sr-only">None need attention</span></span
 					>
 				{:else}
-					<span class={attention.worst === 'red' ? 'text-danger-foreground' : 'text-warning-foreground'}
+					<span
+						data-tone={attention.worst === 'red' ? 'danger' : 'warning'}
+						class={attention.worst === 'red' ? 'text-danger-foreground' : 'text-warning-foreground'}
 						>{attention.people} {attention.people === 1 ? 'needs' : 'need'} attention</span
 					>
 				{/if}

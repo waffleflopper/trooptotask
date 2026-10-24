@@ -97,7 +97,7 @@ describe('PersonnelGroupHeader', () => {
 
 		expect(screen.getByText('3 of 4 present')).toBeTruthy();
 		expect(screen.getByRole('img', { name: 'Strength today: 3 present, 1 Leave' })).toBeTruthy();
-		expect(screen.getByText('2 need attention').className).toContain('text-danger-foreground');
+		expect(screen.getByText('2 need attention').getAttribute('data-tone')).toBe('danger');
 	});
 
 	it('counts only People whose status is known, so a withheld member neither inflates the total nor the bar', () => {
@@ -126,7 +126,7 @@ describe('PersonnelGroupHeader', () => {
 	it('colors one person needing attention by their worst item', () => {
 		mount(ready({ attention: { people: 1, worst: 'amber' } }));
 
-		expect(screen.getByText('1 needs attention').className).toContain('text-warning-foreground');
+		expect(screen.getByText('1 needs attention').getAttribute('data-tone')).toBe('warning');
 	});
 
 	it('says nobody needs attention rather than showing an empty lane', () => {

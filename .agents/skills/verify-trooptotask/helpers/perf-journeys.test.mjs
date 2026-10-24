@@ -60,6 +60,19 @@ test('write samples alternate so an even sample count ends on the seeded value',
 	assert.deepEqual(save.prepare({ assignment }, 5)[1], { type: 'Baker' });
 });
 
+test('the roster edit fills MOS in the Quick edit form, saves it and waits for the form to close', () => {
+	const terms = { searchTerm: 'Able', edit: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' } };
+	const edit = journeys['personnel-edit'];
+	const form = { role: 'form', name: 'Quick edit SPC Able, Alex' };
+	const prepare = edit.prepare(terms, 0);
+	assert.deepEqual(prepare.at(-2), { wait: ['No changes'] });
+	assert.deepEqual(prepare.at(-1), { fill: { role: 'textbox', name: 'MOS', within: form }, value: '42A' });
+	assert.deepEqual(edit.trigger(terms), { click: { role: 'button', name: 'Save', within: form } });
+	const [useful] = edit.milestones(terms, 0);
+	assert.deepEqual(useful.inside, { '[aria-label="Open SPC Able, Alex"]': ['42A'] });
+	assert.deepEqual(useful.absentSelector, ['[data-roster-editor]']);
+});
+
 test('each detail edit sample waits for the header to show the MOS it saved', () => {
 	const terms = { searchTerm: 'Able', edit: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' } };
 	const detailEdit = journeys['personnel-detail-edit'];

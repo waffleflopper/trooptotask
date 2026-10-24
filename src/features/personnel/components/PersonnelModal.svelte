@@ -2,8 +2,17 @@
 	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import type { Group } from '$features/personnel/contracts';
+	import {
+		defaultNewPersonnelRank,
+		groupOptionsFor,
+		personnelDraftChanges,
+		personnelDraftOf,
+		personnelPayloadOf,
+		personnelSaveErrorMessage,
+		rankOptionsFor,
+		validatePersonnelDraft
+	} from '$features/personnel/personnelDraft';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { rejectedRequestMessage, StoreRequestError } from '$lib/stores/core';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -38,78 +47,28 @@
 		disposed = true;
 	});
 
-	const COMMON_NEW_PERSONNEL_RANK = 'SPC';
-
-	function normalizeRankCode(value: string): string {
-		return value.trim().toUpperCase();
-	}
-
-	const activeRankOptions = $derived(
-		rankCatalog.filter((entry) => entry.state === 'active').map((entry) => ({ value: entry.code, label: entry.code }))
-	);
-	const rankOptions = $derived.by(() => {
-		if (
-			!personnel?.rank ||
-			activeRankOptions.some((option) => normalizeRankCode(option.value) === normalizeRankCode(personnel.rank))
-		) {
-			return activeRankOptions;
-		}
-
-		return [{ value: personnel.rank, label: personnel.rank }, ...activeRankOptions];
-	});
-
-	function defaultNewPersonnelRank(options: Array<{ value: string; label: string }>): string {
-		return options.find((option) => normalizeRankCode(option.value) === COMMON_NEW_PERSONNEL_RANK)?.value ?? '';
-	}
-
-	let rank = $state(untrack(() => personnel?.rank ?? defaultNewPersonnelRank(activeRankOptions)));
-	let firstName = $state(untrack(() => personnel?.firstName ?? ''));
-	let lastName = $state(untrack(() => personnel?.lastName ?? ''));
-	let mos = $state(untrack(() => personnel?.mos ?? ''));
-	let clinicRole = $state(untrack(() => personnel?.clinicRole ?? ''));
-	let ets = $state(untrack(() => personnel?.ets ?? ''));
-	let deros = $state(untrack(() => personnel?.deros ?? ''));
-	let groupId = $state(untrack(() => personnel?.groupId ?? ''));
-	let submitAttempted = $state(false);
-	const openingValues = untrack(() => ({ rank, firstName, lastName, mos, clinicRole, ets, deros, groupId }));
-	const dirty = $derived(
-		rank !== openingValues.rank ||
-			firstName !== openingValues.firstName ||
-			lastName !== openingValues.lastName ||
-			mos !== openingValues.mos ||
-			clinicRole !== openingValues.clinicRole ||
-			ets !== openingValues.ets ||
-			deros !== openingValues.deros ||
-			groupId !== openingValues.groupId
-	);
+	const activeRankOptions = $derived(rankOptionsFor(rankCatalog));
+	const rankOptions = $derived(rankOptionsFor(rankCatalog, personnel?.rank));
 
 	const isEditing = $derived(!!personnel);
-	const rankMissing = $derived(rank.trim() === '');
-	const firstNameMissing = $derived(firstName.trim() === '');
-	const lastNameMissing = $derived(lastName.trim() === '');
-	const groupMissing = $derived(!isEditing && !allowUnassigned && !groups.some((group) => group.id === groupId));
-	const isValid = $derived(!rankMissing && !firstNameMissing && !lastNameMissing && !groupMissing);
-	const groupError = $derived(submitAttempted && groupMissing ? 'Select a permitted Group.' : undefined);
-	const rankError = $derived(submitAttempted && rankMissing ? 'Select a rank.' : undefined);
-	const firstNameError = $derived(submitAttempted && firstNameMissing ? 'Enter a first name.' : undefined);
-	const lastNameError = $derived(submitAttempted && lastNameMissing ? 'Enter a last name.' : undefined);
+	const allowGroupClear = $derived(isEditing || allowUnassigned);
+	let draft = $state(untrack(() => personnelDraftOf(personnel, defaultNewPersonnelRank(activeRankOptions))));
+	const openingDraft = untrack(() => ({ ...draft }));
+	let submitAttempted = $state(false);
+	const dirty = $derived(personnelDraftChanges(openingDraft, draft, groups).length > 0);
 
-	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
+	const errors = $derived(validatePersonnelDraft(draft, { isEditing, allowUnassigned, groups }));
+	const isValid = $derived(Object.keys(errors).length === 0);
+	const groupError = $derived(submitAttempted ? errors.groupId : undefined);
+	const rankError = $derived(submitAttempted ? errors.rank : undefined);
+	const firstNameError = $derived(submitAttempted ? errors.firstName : undefined);
+	const lastNameError = $derived(submitAttempted ? errors.lastName : undefined);
+
 	let isSaving = $state(false);
 	let isArchiving = $state(false);
 	const busy = $derived(isSaving || isArchiving);
 
-	const groupOptions = $derived([
-		...(isEditing || allowUnassigned ? [{ value: '', label: 'No Group Assigned' }] : []),
-		...groups.map((g) => ({ value: g.id, label: g.name }))
-	]);
-
-	function getErrorMessage(error: unknown): string {
-		const fallback = isEditing ? 'Failed to update personnel' : 'Failed to add personnel';
-		if (error instanceof StoreRequestError) return rejectedRequestMessage(error, fallback);
-		if (error instanceof Error && error.message.trim()) return error.message;
-		return fallback;
-	}
+	const groupOptions = $derived(groupOptionsFor(groups, allowGroupClear));
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -119,22 +78,12 @@
 		isSaving = true;
 
 		try {
-			await onSubmit({
-				rank,
-				firstName: firstName.trim(),
-				lastName: lastName.trim(),
-				mos: mos.trim(),
-				clinicRole: clinicRole.trim(),
-				ets: ets.trim() || null,
-				deros: deros.trim() || null,
-				groupId: groupId || null,
-				groupName: selectedGroupName
-			});
+			await onSubmit(personnelPayloadOf(draft, groups));
 			if (disposed) return;
 			toastStore.success(isEditing ? 'Personnel updated' : 'Personnel added');
 			onClose();
 		} catch (error) {
-			if (!disposed) toastStore.error(getErrorMessage(error));
+			if (!disposed) toastStore.error(personnelSaveErrorMessage(error, isEditing));
 		} finally {
 			if (!disposed) isSaving = false;
 		}
@@ -171,7 +120,7 @@
 				<fieldset class="contents" disabled={busy}>
 					<Field.Root data-invalid={rankError ? true : undefined}>
 						<Field.Label for="rank">Rank</Field.Label>
-						<Combobox.Root items={rankOptions} bind:value={rank} label="Rank" autoHighlight>
+						<Combobox.Root items={rankOptions} bind:value={draft.rank} label="Rank" autoHighlight>
 							<Combobox.Trigger id="rank" placeholder="Select rank..." aria-label="Rank" />
 							<Combobox.Content>
 								<Combobox.Search placeholder="Select rank..." />
@@ -185,12 +134,12 @@
 					<div class="grid gap-4 sm:grid-cols-2">
 						<Field.Root data-invalid={lastNameError ? true : undefined}>
 							<Field.Label for="lastName">Last Name</Field.Label>
-							<Input id="lastName" placeholder="Smith" required bind:value={lastName} />
+							<Input id="lastName" placeholder="Smith" required bind:value={draft.lastName} />
 							{#if lastNameError}<Field.Error>{lastNameError}</Field.Error>{/if}
 						</Field.Root>
 						<Field.Root data-invalid={firstNameError ? true : undefined}>
 							<Field.Label for="firstName">First Name</Field.Label>
-							<Input id="firstName" placeholder="John" required bind:value={firstName} />
+							<Input id="firstName" placeholder="John" required bind:value={draft.firstName} />
 							{#if firstNameError}<Field.Error>{firstNameError}</Field.Error>{/if}
 						</Field.Root>
 					</div>
@@ -198,32 +147,32 @@
 					<div class="grid gap-4 sm:grid-cols-2">
 						<Field.Root>
 							<Field.Label for="mos">MOS / Job Title</Field.Label>
-							<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
+							<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={draft.mos} />
 						</Field.Root>
 						<Field.Root>
 							<Field.Label for="clinicRole">Duty Role</Field.Label>
-							<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
+							<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={draft.clinicRole} />
 						</Field.Root>
 					</div>
 
 					<div class="grid gap-4 sm:grid-cols-2">
 						<Field.Root>
 							<Field.Label for="ets">ETS</Field.Label>
-							<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
+							<DatePicker id="ets" bind:value={draft.ets} placeholder="Select ETS" />
 						</Field.Root>
 						<Field.Root>
 							<Field.Label for="deros">PCS / DEROS</Field.Label>
-							<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
+							<DatePicker id="deros" bind:value={draft.deros} placeholder="Select PCS / DEROS" />
 						</Field.Root>
 					</div>
 
 					<Field.Root data-invalid={groupError ? true : undefined}>
 						<Field.Label for="group">Group</Field.Label>
-						<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
+						<Combobox.Root items={groupOptions} bind:value={draft.groupId} label="Group" autoHighlight>
 							<Combobox.Trigger
 								id="group"
-								clearable={isEditing || allowUnassigned}
-								placeholder={isEditing || allowUnassigned ? 'No Group Assigned' : 'Select Group...'}
+								clearable={allowGroupClear}
+								placeholder={allowGroupClear ? 'No Group Assigned' : 'Select Group...'}
 								aria-label="Group"
 							/>
 							<Combobox.Content>

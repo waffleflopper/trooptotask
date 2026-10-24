@@ -72,6 +72,12 @@ const openBriefingCell = { click: { role: 'button', name: 'Total, Workload Train
 const calendarReportReady = () => [{ name: 'ready', present: ['Run status-day report'], absentSelector: [skeleton] }];
 const runStatusDays = { click: { role: 'button', name: 'Run status-day report' } };
 
+const quickEditField = ({ row }, role, name) => ({
+	role,
+	name,
+	within: { role: 'form', name: `Quick edit ${row.replace(/^Open /, '')}` }
+});
+
 // The roster stays paused for a large wide actor, so its row journeys first narrow the roster
 // to one Person with the search term, as that user would.
 const findPerson = ({ searchTerm }) => [{ fill: search, value: searchTerm }, { wait: [searchTerm] }];
@@ -335,20 +341,20 @@ export const journeys = {
 					within: { role: 'row', name: terms.edit.row }
 				}
 			},
-			{ wait: ['Edit Personnel'] },
-			{ fill: { role: 'textbox', name: 'MOS / Job Title' }, value: edited(terms.edit, sample) }
+			{ wait: ['No changes'] },
+			{ fill: quickEditField(terms.edit, 'textbox', 'MOS'), value: edited(terms.edit, sample) }
 		],
-		trigger: () => ({ click: { role: 'button', name: 'Save Changes' } }),
+		trigger: ({ edit }) => ({ click: quickEditField(edit, 'button', 'Save') }),
 		milestones: ({ edit }, sample) => [
 			{
 				name: 'useful',
 				inside: { [`[aria-label="${edit.row}"]`]: [edited(edit, sample)] },
-				absentSelector: ['[role="dialog"]']
+				absentSelector: ['[data-roster-editor]']
 			}
 		]
 	},
 	// The detail page's Data sheet save writes the Person and the sheet in one request, then lands on the
-	// Data sheet tab with only the header and that tab's loads refreshed, unlike the roster dialog, which
+	// Data sheet tab with only the header and that tab's loads refreshed, unlike the roster's Quick edit, which
 	// updates the open roster in place.
 	'personnel-detail-edit': {
 		area: 'personnel',

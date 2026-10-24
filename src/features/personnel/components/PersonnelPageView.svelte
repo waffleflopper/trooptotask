@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { goto, invalidate } from '$app/navigation';
+	import { beforeNavigate, goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
 	import { groupsStore } from '../stores/groups.svelte';
 	import UsersIcon from '@lucide/svelte/icons/users';
@@ -27,6 +28,7 @@
 	import PersonnelRosterRow from './roster/PersonnelRosterRow.svelte';
 	import RosterNotePopover from './roster/RosterNotePopover.svelte';
 	import { personnelToolbarItems } from './roster/personnelToolbarItems';
+	import { RosterQuickEdit } from './roster/quickEdit.svelte';
 	import type { RosterRowControls } from './roster/rosterRow';
 
 	interface Props {
@@ -118,7 +120,7 @@
 	const groupedColumns = $derived(personnelColumns.filter((column) => column.key !== 'group'));
 
 	const azTable = useDataTable<Personnel>({
-		data: () => visibleAlphabeticalPersonnel,
+		data: () => holdOrder(visibleAlphabeticalPersonnel, 'az'),
 		columns: () => personnelColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
@@ -129,7 +131,7 @@
 		compareRosterGroupNames({ pinnedGroups: pinnedGroupsStore.list, groupOrder: ctx.groupOrder })
 	);
 	const groupedTable = useDataTable<Personnel>({
-		data: () => visibleFilteredPersonnel,
+		data: () => holdOrder(visibleFilteredPersonnel, 'grouped'),
 		columns: () => groupedColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
@@ -140,6 +142,38 @@
 		}
 	});
 	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
+
+	// A quick-edit save keeps the rows' order going in, so a row whose active sort value did not change stays put.
+	let heldOrders = $state.raw<Record<'az' | 'grouped', Map<string, number>> | null>(null);
+
+	function holdOrder(rows: Personnel[], table: 'az' | 'grouped'): Personnel[] {
+		const order = heldOrders?.[table];
+		if (!order) return rows;
+		const place = (person: Personnel) => order.get(person.id) ?? Number.MAX_SAFE_INTEGER;
+		return [...rows].sort((a, b) => place(a) - place(b));
+	}
+
+	function holdCurrentOrder() {
+		const places = (rows: Personnel[]) => new Map(rows.map((person, index) => [person.id, index]));
+		heldOrders = {
+			az: places(holdOrder(visibleAlphabeticalPersonnel, 'az')),
+			grouped: places(holdOrder(visibleFilteredPersonnel, 'grouped'))
+		};
+	}
+
+	// Sorting, searching or switching the view is the user choosing the order, so the held one lapses.
+	$effect(() => {
+		void [
+			azTable.sortKey,
+			azTable.sortDirection,
+			azTable.search,
+			groupedTable.sortKey,
+			groupedTable.sortDirection,
+			groupedTable.search,
+			ctx.viewMode
+		];
+		heldOrders = null;
+	});
 
 	let rosterSearch = $state('');
 	let bulkArchiveMode = $state(false);
@@ -158,6 +192,21 @@
 			? activeTable.groups.flatMap((group) => (group.collapsed ? [] : group.rows))
 			: activeTable.rows
 	);
+	const quickEdit = new RosterQuickEdit({
+		person: (id) => ctx.getPersonnelById(id),
+		groups: () => groupManagementStore.items,
+		save: (id, data) => {
+			holdCurrentOrder();
+			return personnelStore.updateOrThrow(id, data);
+		},
+		refreshSignals: (ids) => void ctx.signals.refresh(ids),
+		dataSheetHref: (person) => `${recordHref(person)}/data-sheet`,
+		navigate: (href) => void goto(href),
+		closed: (id) => void restoreRowFocus(id)
+	});
+	beforeNavigate((navigation) => quickEdit.guardNavigation(navigation));
+	$effect(() => quickEdit.closeIfGone());
+	$effect(() => () => quickEdit.dispose());
 	const rowControls: RosterRowControls = {
 		get selecting() {
 			return bulkArchiveMode;
@@ -177,7 +226,7 @@
 			return notePerson?.id ?? null;
 		},
 		note: openNote,
-		quickEdit: (person) => ctx.handleEdit(person)
+		edit: quickEdit
 	};
 	const canNoteAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
@@ -210,6 +259,13 @@
 
 	function recordHref(person: Personnel): string {
 		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
+	}
+
+	// The closed editor takes its focus with it; put it back on the row unless focus moved elsewhere.
+	async function restoreRowFocus(personnelId: string) {
+		await tick();
+		if (document.activeElement && document.activeElement !== document.body) return;
+		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(personnelId)}"]`)?.focus();
 	}
 
 	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
@@ -546,5 +602,11 @@
 			onConfirm={confirmBulkArchive}
 			onCancel={() => (showBulkArchiveConfirm = false)}
 		/>
+	{/await}
+{/if}
+
+{#if quickEdit.prompt}
+	{#await import('./roster/PersonnelQuickEditPrompt.svelte') then { default: QuickEditPrompt }}
+		<QuickEditPrompt edit={quickEdit} />
 	{/await}
 {/if}

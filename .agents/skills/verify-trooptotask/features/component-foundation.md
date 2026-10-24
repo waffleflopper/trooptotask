@@ -34,13 +34,13 @@ must come from its central component and hold in light and dark themes at narrow
 
 ## How to get to it (user POV)
 
-As a Personnel manager, Edit a roster row for the Personnel form, its Rank and Group comboboxes and its ETS date
-popover; use Manage Groups for Group creation; use the header Account menu, Toggle theme and Send feedback. An
-Organization owner opens Settings, Members, the invite strip's Role select and a row's Manage sheet with its Role radio
-group. A Critical Tasks operator records a completion and opens Reports; on the matrix toolbar those controls and Import
-Completions fold into `More Critical Tasks controls` as the page narrows. A Training manager opens Training Reports for
-the toolbar filters. A platform reviewer opens Admin Feedback for the New, Reviewed and Resolved tabs. Personnel Details
-shows the record tabs (`Personnel detail sections`).
+As a Personnel manager, Quick edit a roster row for its Rank and Group comboboxes and its ETS date popover, and use Add
+Person for the Personnel dialog; use Manage Groups for Group creation; use the header Account menu, Toggle theme and
+Send feedback. An Organization owner opens Settings, Members, the invite strip's Role select and a row's Manage sheet
+with its Role radio group. A Critical Tasks operator records a completion and opens Reports; on the matrix toolbar those
+controls and Import Completions fold into `More Critical Tasks controls` as the page narrows. A Training manager opens
+Training Reports for the toolbar filters. A platform reviewer opens Admin Feedback for the New, Reviewed and Resolved
+tabs. Personnel Details shows the record tabs (`Personnel detail sections`).
 
 ## Driving it with verify:app
 
@@ -125,62 +125,66 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
 
 ### Steps
 
-1. **Field association (`manager`, Personnel).** Open Able's Edit. Read the Rank, Last Name and ETS controls: each needs
-   a resolving label. Replace Last Name with one space and press Save Changes. Require `aria-invalid="true"` on Last
-   Name only, an `aria-describedby` that resolves to the visible **Enter a last name.** text, and focus remaining in the
-   dialog. Cancel and require unchanged rows. Then open Manage Groups, type Alpha into New group name and press Add. The
-   duplicate is rejected; require the error text to be associated with the New group name input through
-   `aria-describedby` and `aria-invalid="true"`, not only shown in an alert. Clear the input and choose Done; require
-   unchanged Group rows. As `ictOperator`, choose Record Completion on Critical Tasks. Critical Task's **Select a person
-   to narrow tasks by MOS.** and Validated By's **Optional rank and name of the validator** must resolve through each
-   control's `aria-describedby`. Press Save with every field empty: each control with a visible **… is required** error
-   needs `aria-invalid="true"` and an `aria-describedby` that resolves to that error. Cancel without saving. In a
-   Members row's Manage sheet, the `Role` and `Preset` radio groups' visible help text must also resolve through each
-   group's `aria-describedby`. As `orgOwner` on `settings/policies`, read the server HTML before hydration with a
-   read-only `evaluate_script` that fetches `location.href` and parses the text with `DOMParser`: Training readiness
-   goal's `aria-describedby` must resolve to its visible help text there.
-2. **Combobox and Select dismissal (`manager`, `orgOwner`).** In Able's Edit, focus Rank and press Enter. Press Escape:
-   the listbox closes, the dialog stays open, focus returns to Rank and the value is unchanged. Reopen Group with a
-   click and click the dialog heading: the listbox closes, the dialog stays open and Group keeps its value. Cancel. As
-   `orgOwner` on `settings/members`, focus the invite strip's `Role` select and press Enter, then Escape: the listbox
-   closes, focus returns to `Role` and the value is unchanged. Reopen it and use ArrowDown to move between options
-   without committing. The open listbox is named `Role`, never the selected value. Close it and require no invitation
-   row.
+1. **Field association (`manager`, Personnel).** Open Able's Quick edit. Read the Rank, Last name and ETS controls: each
+   needs a resolving label. Replace Last name with one space and choose Save. Require `aria-invalid="true"` on Last name
+   only, an `aria-describedby` that resolves to the visible **Enter a last name.** text in a `role="alert"` message, and
+   focus remaining on Save. Cancel and require unchanged rows. Then open Manage Groups, type Alpha into New group name
+   and press Add. The duplicate is rejected; require the error text to be associated with the New group name input
+   through `aria-describedby` and `aria-invalid="true"`, not only shown in an alert. Clear the input and choose Done;
+   require unchanged Group rows. As `ictOperator`, choose Record Completion on Critical Tasks. Critical Task's **Select
+   a person to narrow tasks by MOS.** and Validated By's **Optional rank and name of the validator** must resolve
+   through each control's `aria-describedby`. Press Save with every field empty: each control with a visible **… is
+   required** error needs `aria-invalid="true"` and an `aria-describedby` that resolves to that error. Cancel without
+   saving. In a Members row's Manage sheet, the `Role` and `Preset` radio groups' visible help text must also resolve
+   through each group's `aria-describedby`. As `orgOwner` on `settings/policies`, read the server HTML before hydration
+   with a read-only `evaluate_script` that fetches `location.href` and parses the text with `DOMParser`: Training
+   readiness goal's `aria-describedby` must resolve to its visible help text there.
+2. **Combobox and Select dismissal (`manager`, `orgOwner`).** In Able's Quick edit, focus Rank and press Enter. Press
+   Escape: the listbox closes, the form stays open, focus returns to Rank and the value is unchanged. Reopen Group with
+   a click and click the Personnel page heading: the listbox closes, the form stays open and Group keeps its value.
+   Cancel. As `orgOwner` on `settings/members`, focus the invite strip's `Role` select and press Enter, then Escape: the
+   listbox closes, focus returns to `Role` and the value is unchanged. Reopen it and use ArrowDown to move between
+   options without committing. The open listbox is named `Role`, never the selected value. Close it and require no
+   invitation row.
 3. **Multiple selection (`trainingConfigure`, Training Reports).** Open a WorkspaceToolbar multi-select filter. Require
    each option to expose its checked state and accessible name, ArrowDown/ArrowUp to reach every option, Space to toggle
    one, and the trigger's accessible name to report the selected count. Press Escape and require focus on the trigger.
    Clear the filter. Combobox chip Backspace removal needs a production `Combobox.Root multiple` consumer; when the
    source census finds none, record UNAVAILABLE with the census and keep the component test as the only proof.
-4. **Dialog dismissal and busy close (`manager`, Personnel).** Open Able's Edit and click outside the dialog: it closes
-   without saving and focus returns to Able's Edit. Reopen and use the close button: same result. Reopen, arm
-   `$V network arm-hold PAGE personnel` and press Save Changes without edits. While `network state` shows the held
-   request, press Escape, click outside and read the close button and Cancel. All close paths stay blocked, the dialog
-   stays open and busy, and focus stays inside the dialog rather than falling to `body`. Release, require the dialog to
-   close with the unchanged row, then restore the control. Open Able's Archive: the alert dialog ignores an outside
-   click and Escape closes it as Cancel, with focus returned to Archive and Able still active. Reopen it, arm
-   `$V network arm-hold PAGE personnel` and press Archive: while held, Escape is blocked and focus stays on the
-   `alertdialog` with `aria-busy="true"`. Release, restore the control, and restore Able as `orgOwner` through Settings
-   → Archives → Restore before relying on the fixture again. In Manage Groups, type a draft: the close button disappears
-   and Escape is blocked, with no `aria-busy`. Arm `$V network arm-hold PAGE groups`, replace the draft with a unique
-   name and press Add: while held the dialog is busy and focused. Release, restore, and remove the new Group through its
-   Remove control. As `ictOperator`, choose Import Completions (on the row, or inside `More Critical Tasks controls`
-   when folded; the dialog opens after the menu closes) and upload a CSV that repeats Able's seeded Alpha completion
-   (same Person, task, date and method). Arm `$V network arm-hold PAGE personnel-ict-completions/batch` and press Import
-   Checked Rows: while held the dialog is busy and focused and Escape is blocked. Release: the result reports 1 updated
-   with the same completion ID and values. A dialog that is not busy must also keep focus when its focused control
-   disables: as `onboardingOperate` on `onboarding`, open Start Onboarding, choose Able, arm
-   `$V network arm-hold PAGE onboarding` and press Start Onboarding. While held, Start is disabled, focus is on the
-   dialog rather than `body`, there is no `aria-busy`, and Escape closes the dialog. Release, then cancel Able's new
-   packet through its visible Cancel Onboarding confirmation; repeat the held start and close it with Cancel instead. As
-   `calendarConfigure` on `calendar/settings`, open Holidays & closures → New closure and add a unique one-day closure
-   in a future month. Open its `More actions for <name>, <date>` → Edit, change Name, arm
-   `$V network arm-hold PAGE special-days` and press Save Changes, then press Enter again. While held, the dialog is
-   busy with focus on it, its fields, Cancel and Save Changes are disabled, Escape is blocked and `network state` shows
-   one PUT. Release: the dialog closes and the new name is listed. Arm `$V network arm-fail PAGE special-days` and edit
-   the name again: the failure toast shows, `aria-busy` clears and the dialog stays open with its draft and enabled
-   fields; restore and Cancel the draft. Arm `$V network arm-hold PAGE special-days`, choose the closure's Remove and
-   press Remove: while held the alert dialog is busy, Cancel is disabled and Escape is blocked; release and require the
-   closure gone. The inline closure composer's held save is in [Special days](special-days.md).
+4. **Dialog dismissal and busy close (`manager`, Personnel).** Open Add Person and click outside the dialog: it closes
+   without saving and focus returns to Add Person. Reopen and use the close button: same result. Reopen and type a
+   unique Last Name and First Name: the close button disappears and Escape and an outside click leave the dialog open,
+   without `aria-busy`. Arm `$V network arm-hold PAGE personnel` and choose Add Personnel. While `network state` shows
+   the held POST, press Escape, click outside and read Cancel: all close paths stay blocked, the dialog stays open and
+   busy, and focus stays on the dialog rather than `body`. Release: the dialog closes, focus returns to Add Person and
+   the new Person is listed; restore the control. Choose `More Personnel controls` → Archive, select the new Person and
+   choose Confirm Archive: the alert dialog ignores an outside click and Escape closes it as Cancel, with focus returned
+   to Confirm Archive and the Person still active. Reopen it, arm `$V network arm-hold PAGE personnel/archive-batch` and
+   choose Archive: while held, Escape is blocked, Cancel is disabled and focus stays on the `alertdialog` with
+   `aria-busy="true"`. Release and restore the control: the Person leaves the roster and
+   `$V rows personnel orgA last_name <name>` reads `archived_at`. Restore it through Settings → Archives → Restore, or
+   `verify:app restart`, before relying on the fixture again. In Manage Groups, type a draft: the close button
+   disappears and Escape is blocked, with no `aria-busy`. Arm `$V network arm-hold PAGE groups`, replace the draft with
+   a unique name and press Add: while held the dialog is busy and focused. Release, restore, and remove the new Group
+   through its Remove control. As `ictOperator`, choose Import Completions (on the row, or inside
+   `More Critical Tasks controls` when folded; the dialog opens after the menu closes) and upload a CSV that repeats
+   Able's seeded Alpha completion (same Person, task, date and method). Arm
+   `$V network arm-hold PAGE personnel-ict-completions/batch` and press Import Checked Rows: while held the dialog is
+   busy and focused and Escape is blocked. Release: the result reports 1 updated with the same completion ID and values.
+   A dialog that is not busy must also keep focus when its focused control disables: as `onboardingOperate` on
+   `onboarding`, open Start Onboarding, choose Able, arm `$V network arm-hold PAGE onboarding` and press Start
+   Onboarding. While held, Start is disabled, focus is on the dialog rather than `body`, there is no `aria-busy`, and
+   Escape closes the dialog. Release, then cancel Able's new packet through its visible Cancel Onboarding confirmation;
+   repeat the held start and close it with Cancel instead. As `calendarConfigure` on `calendar/settings`, open Holidays
+   & closures → New closure and add a unique one-day closure in a future month. Open its
+   `More actions for <name>, <date>` → Edit, change Name, arm `$V network arm-hold PAGE special-days` and press Save
+   Changes, then press Enter again. While held, the dialog is busy with focus on it, its fields, Cancel and Save Changes
+   are disabled, Escape is blocked and `network state` shows one PUT. Release: the dialog closes and the new name is
+   listed. Arm `$V network arm-fail PAGE special-days` and edit the name again: the failure toast shows, `aria-busy`
+   clears and the dialog stays open with its draft and enabled fields; restore and Cancel the draft. Arm
+   `$V network arm-hold PAGE special-days`, choose the closure's Remove and press Remove: while held the alert dialog is
+   busy, Cancel is disabled and Escape is blocked; release and require the closure gone. The inline closure composer's
+   held save is in [Special days](special-days.md).
 
    **Pending saves in other consumers.** For each consumer below, arm `$V network arm-hold PAGE FAMILY`, make the named
    change and submit, then submit again with Enter or a click where the control allows it. While held, require one
@@ -192,9 +196,9 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    the record through Delete. Repeat with `arm-fail`: the failure toast shows and the draft stays editable; Cancel it.
    Choose Mark All Completed Today and Mark All (`personnel-trainings/batch`): the confirmation stays open and busy
    until release; afterwards remove each new Baker record. In Calendar settings → Holidays & closures → New closure, the
-   two date pickers are named First day and Last day. Also hold Send feedback (`feedback`), Able's Edit (`personnel`), a
-   Training matrix cell's record dialog (`personnel-trainings`, where Delete and the exemption toggle are also
-   disabled), Record Completion as `ictOperator` (`personnel-ict-completions`), Set Personnel Status as
+   two date pickers are named First day and Last day. Also hold Send feedback (`feedback`), a new Person in Add Person
+   (`personnel`), a Training matrix cell's record dialog (`personnel-trainings`, where Delete and the exemption toggle
+   are also disabled), Record Completion as `ictOperator` (`personnel-ict-completions`), Set Personnel Status as
    `calendarOperate` (`availability`), an Evals entry as `ratingOperate` (`rating-scheme`), Able's Data sheet
    (`personnel/ABLE_ID/data-sheet`, at 1280 width each visible field is named by its label), a new Sign-In Roster as
    `rosterManager` (`sign-in-rosters`), a signed scan's Remove (`sign-in-rosters/ROSTER_ID/upload`, Close disabled too),
@@ -205,9 +209,9 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
 
 5. **Sheet and popover dismissal (`orgOwner`, `manager`).** On `settings/members`, open a row's `Manage`. Press Escape:
    the sheet closes and focus returns to the opening button. Reopen and click the overlay outside the sheet: same
-   result. As `manager`, open Able's Edit, open ETS and press Escape: only the popover closes and focus returns to ETS.
-   Reopen ETS and click the dialog heading: only the popover closes. Cancel. The shell recipe owns the mobile sidebar
-   sheet.
+   result. As `manager`, open Able's Quick edit, open ETS and press Escape: only the popover closes, the form stays open
+   and focus returns to ETS. Reopen ETS and click the Personnel page heading: only the popover closes. Cancel. The shell
+   recipe owns the mobile sidebar sheet.
 6. **Dropdown menu keyboard (`manager`).** Focus Account menu and press Enter. Focus moves into the menu. ArrowDown and
    ArrowUp move between items and wrap or stop consistently, Home and End reach the first and last items, and typing an
    item's first letter moves to it. Escape closes the menu and returns focus to Account menu. Record each focused item
@@ -220,12 +224,13 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    `Personnel detail sections` (Overview, Readiness, Log, Files, Data sheet, Archived): these are route links, so
    require link semantics with `aria-current="page"` on the current tab rather than a tab role without a tab list. Open
    Readiness and require `aria-current` to move to it.
-8. **Toasts (`manager`).** Open Able's Edit and Save Changes without edits. Read the toaster region: a labelled polite
-   live region containing **Personnel updated**. Toasts last about four seconds, so stack them by keyboard: with focus
-   on Able's Edit, press Enter, Tab to Last Name and press Enter to submit, then repeat. Read both toasts, then arm
-   `$V network arm-fail PAGE personnel` and save again for an error toast; restore. Require all toasts readable, the
-   error announced, and a keyboard-reachable dismiss control that removes one toast. Read the toaster's theme with each
-   app theme.
+8. **Toasts (`manager`).** Open Able's Quick edit, set MOS to `68C` and press Enter in the field. Read the toaster
+   region: a labelled polite live region containing **Personnel updated**. Toasts last about four seconds, so hover the
+   toast to hold it, then repeat from the focused row (E, MOS `68W`, Enter). Read both toasts: they stack, each with its
+   own `Close toast`. Press Alt+T, Tab to a `Close toast` and press Enter: that toast is removed. Then open Add Person,
+   type a Last Name and First Name, arm `$V network arm-fail PAGE personnel` and choose Add Personnel for an error toast
+   reading **Failed to add personnel**; the dialog stays open with its draft. Restore and Cancel. Require all toasts
+   readable and the error announced. Read the toaster's theme with each app theme.
 9. **Loading status (`ictOperator`, `manager`).** On Critical Tasks Reports, arm
    `$V network arm-hold PAGE critical-tasks/reports/summary` and choose a Group in Filter by group. While held, require
    `aria-busy="true"` on the refreshing sections, a loading `role="status"` region with no `aria-busy`, and any spinner
@@ -238,16 +243,17 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
     Previous, not `body`. Press Enter back to Page 1: when Previous disables, focus must land on Next. Search for a name
     that matches nobody and require **No personnel match your search.**; clear it by typing and deleting a character,
     since `fill` with an empty value does not refilter. Hover Toggle theme and require its `aria-describedby` to resolve
-    to a `role=tooltip`; press Escape and require the tooltip and the `aria-describedby` gone. In Able's Edit, Tab from
-    ETS's month navigation into the grid, move with the arrow keys and press Enter: the draft date updates, the popover
-    closes and focus returns to ETS; Cancel. On `calendar/reports` the date range's Start and End pickers are named by
-    their labels; select a Start date by keyboard and apply a year preset. On Critical Tasks Reports,
-    `$V network arm-fail PAGE critical-tasks/reports/summary` and choose a Group: an assertive `role=alert` reports the
-    failure. Restore and return to All Groups. A DataTable row detail (Settings, Ranks; Calendar Reports, Availability
-    by day) wraps its text, never runs under a neighbouring column and stays inside the visible table at 390: scroll the
-    table's `[data-slot=table-container]` to its end and read the `[data-slot=data-table-detail]` rect against the
-    container's (its left edge stays at the container's plus 8px). Every DataTable root has
-    `container-type: inline-size`, and a table without a row detail keeps its width and horizontal scroll.
+    to a `role=tooltip`; press Escape and require the tooltip and the `aria-describedby` gone. In Able's Quick edit, Tab
+    from ETS's month navigation (Previous, Next, the month and year selects) into the grid, move with the arrow keys and
+    press Enter: the summary reads `ETS None → <date>`, the popover closes and focus returns to ETS; Cancel. On
+    `calendar/reports` the date range's Start and End pickers are named by their labels; select a Start date by keyboard
+    and apply a year preset. On Critical Tasks Reports, `$V network arm-fail PAGE critical-tasks/reports/summary` and
+    choose a Group: an assertive `role=alert` reports the failure. Restore and return to All Groups. A DataTable row
+    detail (Settings, Ranks; Calendar Reports, Availability by day) wraps its text, never runs under a neighbouring
+    column and stays inside the visible table at 390: scroll the table's `[data-slot=table-container]` to its end and
+    read the `[data-slot=data-table-detail]` rect against the container's (its left edge stays at the container's plus
+    8px). Every DataTable root has `container-type: inline-size`, and a table without a row detail keeps its width and
+    horizontal scroll.
 11. **Theme and viewport.** Run at least one consumer per family (steps 1 through 10) in the light and dark app themes
     at about 1280 by 800 and 390 by 844, using the [shared UI theme pass](shared-ui.md#theme-and-viewport) to select the
     theme and size the page. At narrow width require each popup, sheet and toast within the viewport and its controls
@@ -265,11 +271,11 @@ component tests do not prove native focus. `src/lib/components/ui/form-controls.
 `spinner/spinner.test.ts`, `tooltip/tooltip.test.ts`, `overlay-dismissal.test.ts`,
 `patterns/workspace-toolbar/WorkspaceToolbar.test.ts` and `patterns/report-workspace/DateRangeField.test.ts` are the
 lower-level proof. Happy-dom does not move focus on a mouse press, so only this recipe proves that pressing a dialog's
-backdrop keeps focus in the dialog. Each Personnel save completes a real unchanged write; compare the other fields and
-ignore `updated_at`. `form-controls.test.ts` renders Field descriptions and errors without caller IDs, so it proves the
-Field family's own association. Manage Groups also blocks closing while its input holds text, so clear the draft before
-Done. Its duplicate-name check runs before any request, so a duplicate never reaches a `groups` network control.
-Feedback writes a real row; use a unique message and read it back with `$V communications manager`. Critical Tasks
-Reports' Filter by group options may be absent from the snapshot; open the filter and choose a Group with ArrowDown and
-Enter. With the `bulk-501` cohort the grouped roster pauses, so `login manager` and `actor` can time out waiting for the
-page; the page still opens, so continue from `list_pages`.
+backdrop keeps focus in the dialog. Each Personnel save completes a real write; restore Able's MOS to `68W`, compare the
+other fields and ignore `updated_at`. `form-controls.test.ts` renders Field descriptions and errors without caller IDs,
+so it proves the Field family's own association. Manage Groups also blocks closing while its input holds text, so clear
+the draft before Done. Its duplicate-name check runs before any request, so a duplicate never reaches a `groups` network
+control. Feedback writes a real row; use a unique message and read it back with `$V communications manager`. Critical
+Tasks Reports' Filter by group options may be absent from the snapshot; open the filter and choose a Group with
+ArrowDown and Enter. With the `bulk-501` cohort the grouped roster pauses, so `login manager` and `actor` can time out
+waiting for the page; the page still opens, so continue from `list_pages`.

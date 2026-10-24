@@ -173,6 +173,35 @@ interface GroupRosterOptions {
 	fallbackGroupName?: string;
 }
 
+/**
+ * The display order of Groups: the viewer's pins in pin order, then the Organization's Group order, then the rest
+ * by name. The empty name is Unassigned and sorts last.
+ */
+export function compareRosterGroupNames(
+	options: Pick<GroupRosterOptions, 'pinnedGroups' | 'groupOrder'>
+): (a: string, b: string) => number {
+	const pinnedGroups = options.pinnedGroups ?? [];
+	const groupOrder = options.groupOrder ?? [];
+	return (a, b) => {
+		if (a === '' || b === '') return a === b ? 0 : a === '' ? 1 : -1;
+
+		const aPin = pinnedGroups.indexOf(a);
+		const bPin = pinnedGroups.indexOf(b);
+		if (aPin !== -1 || bPin !== -1) {
+			if (aPin === -1) return 1;
+			if (bPin === -1) return -1;
+			return aPin - bPin;
+		}
+
+		const aIdx = groupOrder.indexOf(a);
+		const bIdx = groupOrder.indexOf(b);
+		if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
+		if (aIdx === -1) return 1;
+		if (bIdx === -1) return -1;
+		return aIdx - bIdx;
+	};
+}
+
 function groupRosterPersonnel(personnel: Personnel[], options: GroupRosterOptions = {}): PersonnelGroup[] {
 	const groupMap = new Map<string, Personnel[]>();
 
@@ -188,32 +217,7 @@ function groupRosterPersonnel(personnel: Personnel[], options: GroupRosterOption
 		people.sort(comparePersonnelByRankThenName);
 	}
 
-	const sortedGroups = [...groupMap.keys()].sort((a, b) => {
-		if (a === '' && b !== '') return 1;
-		if (a !== '' && b === '') return -1;
-
-		if (options.groupOrder) {
-			const aIdx = options.groupOrder.indexOf(a);
-			const bIdx = options.groupOrder.indexOf(b);
-			if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
-			if (aIdx === -1) return 1;
-			if (bIdx === -1) return -1;
-			return aIdx - bIdx;
-		}
-
-		const pinnedGroups = options.pinnedGroups ?? [];
-		const pinnedSet = new Set(pinnedGroups);
-		const aPinned = pinnedSet.has(a);
-		const bPinned = pinnedSet.has(b);
-
-		if (aPinned && bPinned) {
-			return pinnedGroups.indexOf(a) - pinnedGroups.indexOf(b);
-		}
-		if (aPinned && !bPinned) return -1;
-		if (!aPinned && bPinned) return 1;
-
-		return a.localeCompare(b);
-	});
+	const sortedGroups = [...groupMap.keys()].sort(compareRosterGroupNames(options));
 
 	const fallback = options.fallbackGroupName ?? 'Unassigned';
 	const onlyUngrouped = sortedGroups.length === 1 && sortedGroups[0] === '';

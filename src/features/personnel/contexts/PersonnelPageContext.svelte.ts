@@ -1,7 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import { personnelScopeResource } from '../personnelScopeResource';
-import type { RankCatalogEntry } from '$features/personnel/contracts';
+import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
 	type PersonnelGroup,
@@ -42,6 +42,11 @@ export interface PinnedGroupsAccessor {
 	readonly list: string[];
 }
 
+export interface GroupsAccessor {
+	readonly orgId: string | null;
+	readonly items: readonly Group[];
+}
+
 export class PersonnelPageContext {
 	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	searchQuery = $state('');
@@ -52,6 +57,7 @@ export class PersonnelPageContext {
 	readonly #org: PersonnelPageAccess;
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
+	readonly #groupsStore: GroupsAccessor;
 	readonly signals: RosterSignals;
 
 	constructor(
@@ -60,12 +66,14 @@ export class PersonnelPageContext {
 		org: PersonnelPageAccess,
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
-		signals: RosterSignals = new RosterSignals()
+		signals: RosterSignals = new RosterSignals(),
+		groupsStore: GroupsAccessor | null = null
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
 		this.signals = signals;
+		this.#groupsStore = groupsStore ?? { orgId: data.orgId, items: [] };
 
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {
@@ -275,6 +283,24 @@ export class PersonnelPageContext {
 		this.#modals.open('group-manager', { select: groupId });
 	}
 
+	/** Opens Manage groups for a Group, or for the people with none when `groupId` is null. */
+	openGroupEditor(groupId: string | null): void {
+		void groupId;
+		this.openGroupManager();
+	}
+
+	/** Group names in the Organization's display order: `sort_order`, then name (legacy Groups all share 0), then id. */
+	get groupOrder(): string[] {
+		if (this.#groupsStore.orgId !== this.orgId) return [];
+		return [...this.#groupsStore.items]
+			.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+			.map((group) => group.name);
+	}
+
+	groupIdForName(name: string): string | null {
+		return this.#groupsStore.items.find((group) => group.name === name)?.id ?? null;
+	}
+
 	toggleGroup(group: string): void {
 		if (this.collapsedGroups.has(group)) {
 			this.collapsedGroups.delete(group);
@@ -287,6 +313,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
+			groupOrder: this.groupOrder,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active' });
 	}
@@ -295,6 +322,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
+			groupOrder: this.groupOrder,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active', search: this.searchQuery });
 	}

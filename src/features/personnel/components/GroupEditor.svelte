@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '../personnel.types';
 	import type { RosterStatusDot } from '../rosterSignals';
@@ -64,7 +64,7 @@
 		onClose
 	}: Props = $props();
 
-	let selectedId = $state<string>(initialSelection ?? groups[0]?.id ?? UNASSIGNED);
+	let selectedId = $state<string>(untrack(() => initialSelection ?? groups[0]?.id ?? UNASSIGNED));
 	let newGroupName = $state('');
 	let renameDraft = $state<string | null>(null);
 	let checked = $state<string[]>([]);

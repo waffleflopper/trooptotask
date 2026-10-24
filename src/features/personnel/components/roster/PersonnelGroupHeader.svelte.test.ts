@@ -32,7 +32,7 @@ function ready(overrides: {
 					: {
 							kind: 'known',
 							value: {
-								people: presence.present + (presence.away ?? 0),
+								statusRead: presence.present + (presence.away ?? 0),
 								present: presence.present,
 								byStatus: presence.away ? [{ type: leave, count: presence.away }] : []
 							}

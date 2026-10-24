@@ -242,7 +242,7 @@ describe('summarizeRosterSignals presence', () => {
 		expect(summary.presence).toEqual({
 			kind: 'known',
 			value: {
-				people: 4,
+				statusRead: 4,
 				present: 2,
 				byStatus: [
 					{ type: TDY, count: 1 },
@@ -262,7 +262,7 @@ describe('summarizeRosterSignals presence with withheld statuses', () => {
 			statusTypes: [LEAVE]
 		});
 		expect(summary.people).toBe(2);
-		expect(summary.presence).toEqual({ kind: 'known', value: { people: 1, present: 1, byStatus: [] } });
+		expect(summary.presence).toEqual({ kind: 'known', value: { statusRead: 1, present: 1, byStatus: [] } });
 	});
 });
 

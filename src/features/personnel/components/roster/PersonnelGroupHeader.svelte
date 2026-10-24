@@ -106,7 +106,7 @@
 				<Skeleton class="h-3.5 w-24" />
 			{:else if presence}
 				<ProportionBar label="Strength today" {segments} class="w-20 @3xl/data-table:w-30" />
-				<span class="truncate text-[13px] leading-[18px]">{presence.present} of {presence.people} present</span>
+				<span class="truncate text-[13px] leading-[18px]">{presence.present} of {presence.statusRead} present</span>
 			{/if}
 		</div>
 		<div

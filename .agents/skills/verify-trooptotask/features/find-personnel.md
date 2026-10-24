@@ -166,14 +166,20 @@ scoped actors retain their baseline grants.
     `Manage Groups` dialog and `Pin` pins, and after a reload the Group is still first and its menu reads `Unpin`.
     `Assign a Group` opens the same dialog. Permissions: `viewer` sees no `Assign a Group` link and its menu holds only
     `Pin`; `manager` without the Calendar grant shows no bar and no `N of M present`, only the attention lane. Loading:
-    `$V server-source arm rpc/roster_signals hold 1 90000` (this control reads Organization A), reload: the
-    headers show the name and count with skeletons in the bar and attention lanes (3, 3 and 2 skeletons), and after
+    `$V server-source arm rpc/roster_signals hold 1 90000` (this control reads Organization A), reload: the headers show
+    the name and count with skeletons in the bar and attention lanes (3, 3 and 2 skeletons), and after
     `server-source release` the header tops (267, 361, 455) and heights (49) are unchanged. `fail-hard` instead: the
     headers show only name and count, no bar, and the one notice
     `Today's status and Needs attention could not be loaded.` shows. Narrow: at 900 and 390 every header is 73px and two
     lines (pin, name, count and `⋯` first; bar, `N of M present` and the attention lane second) and `scrollWidth` equals
     the viewport. The header wraps when the table is under 48rem wide, so 1024 also wraps. At 390 dark the bar, text and
-    link stay readable and the `⋯` stays tappable.
+    link stay readable and the `⋯` stays tappable. Name collision: in `Manage Groups` rename Bravo to `Unassigned` and
+    reload. Headers run `Alpha`, `Unassigned` (the saved Group, with `Pin Unassigned` and
+    `Group actions for Unassigned`), then the People with no Group under a second `Unassigned` that has only the
+    `Assign a Group` link and sorts last. `Pin Unassigned` moves the saved Group above Alpha, labels the button
+    `Unpin Unassigned` and keeps focus on it; the no-Group header stays last with no pin and no menu. Rename it back to
+    `Bravo` afterwards. The snapshot reads the count as `1 person` and an empty attention lane as `None need attention`
+    (visually hidden text, no `aria-label` on the spans).
 
 ## Gotchas
 

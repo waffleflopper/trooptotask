@@ -9,20 +9,24 @@ import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
-const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
-	() => ({
+const { gotoMock, invalidateMock, pageMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } =
+	vi.hoisted(() => ({
 		gotoMock: vi.fn(),
 		invalidateMock: vi.fn(),
+		pageMock: { url: new URL('http://localhost/org/org-1/personnel') },
 		toastSuccessMock: vi.fn(),
 		toastInfoMock: vi.fn(),
 		toastErrorMock: vi.fn(),
 		toastWarningMock: vi.fn()
-	})
-);
+	}));
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidate: invalidateMock
+}));
+
+vi.mock('$app/state', () => ({
+	page: pageMock
 }));
 
 vi.mock('svelte-sonner', () => ({
@@ -169,6 +173,7 @@ function makeCtx(
 		orgName: 'C Co',
 		orgUrlSegment: 'org-1',
 		signals,
+		lossesEnabled: true,
 		canViewAvailability: false,
 		signalRow: (person: Personnel) => signals.row(person.id),
 		summarizeSignals: (people: Personnel[]) =>
@@ -250,6 +255,7 @@ describe('PersonnelPageView', () => {
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
 		invalidateMock.mockReset();
+		pageMock.url = new URL('http://localhost/org/org-1/personnel');
 		toastSuccessMock.mockReset();
 		toastInfoMock.mockReset();
 		toastErrorMock.mockReset();
@@ -705,6 +711,206 @@ describe('PersonnelPageView', () => {
 			expect(screen.getByRole('row', { name: 'SGT Smith, Jane' })).toBeTruthy();
 			await fireEvent.click(reload);
 			expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-signals');
+		});
+	});
+
+	describe('attention filters', () => {
+		const LEAVE = { id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', sortOrder: 0 };
+		const ACCESS = {
+			availability: true,
+			training: true,
+			criticalTasks: false,
+			evaluations: false,
+			followUps: false,
+			counseling: false
+		};
+		const smith = {
+			personnelId: 'person-1',
+			today: { kind: 'known', value: { kind: 'away', statusTypeId: 'leave' } },
+			attention: {
+				kind: 'known',
+				value: {
+					kind: 'attention',
+					first: { kind: 'training', status: 'expiring', title: 'SHARP', days: 12 },
+					otherCount: 1,
+					worst: 'red'
+				}
+			},
+			matches: {
+				expired: { item: { kind: 'training', status: 'expired', title: 'CPR/BLS', days: -3 }, otherCount: 0 }
+			},
+			openFollowUps: { kind: 'withheld' }
+		};
+		const young = {
+			personnelId: 'person-2',
+			today: { kind: 'known', value: { kind: 'present' } },
+			attention: { kind: 'known', value: { kind: 'clear' } },
+			matches: {},
+			openFollowUps: { kind: 'withheld' }
+		};
+
+		function filterCtx() {
+			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young' }], 'org-1');
+			return Object.assign(makeCtx(), { canViewAvailability: true }) as unknown as PersonnelPageContext;
+		}
+
+		function settle(ctx: PersonnelPageContext, access = ACCESS) {
+			ctx.signals.observe(
+				'org-1',
+				'2026-10-23',
+				Promise.resolve({ asOf: '2026-10-23', access, statusTypes: [LEAVE], people: [smith, young] }) as never
+			);
+		}
+
+		function showing(value: string) {
+			pageMock.url = new URL(`http://localhost/org/org-1/personnel?show=${value}`);
+		}
+
+		const rowNames = () =>
+			screen
+				.getAllByRole('row')
+				.map((row) => row.getAttribute('aria-label'))
+				.filter((name) => name?.startsWith('SGT'));
+
+		it('counts each chip over the whole roster and mutes a chip with nothing behind it', async () => {
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+
+			await screen.findByRole('button', { name: /Expired or missing/ });
+			const chips = within(screen.getByRole('group', { name: 'Show only' }));
+			expect(chips.getAllByRole('button').map((chip) => chip.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+				'Expired or missing 1',
+				'Expiring ≤ 30d 0',
+				'Not present 1',
+				'ETS/PCS ≤ 90d 0'
+			]);
+			expect((chips.getByRole('button', { name: /Expiring/ }) as HTMLButtonElement).disabled).toBe(true);
+			expect((chips.getByRole('button', { name: /Expired/ }) as HTMLButtonElement).disabled).toBe(false);
+
+			await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'Young' } });
+			expect(chips.getByRole('button', { name: /Expired/ }).textContent).toContain('1');
+		});
+
+		it('keeps the chip row to placeholders until the lane settles and hides it when the lane fails', async () => {
+			const held = filterCtx();
+			held.signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
+			const { unmount } = render(PersonnelPageView, { props: { ctx: held } });
+			expect(screen.getByRole('group', { name: 'Show only' }).getAttribute('aria-busy')).toBe('true');
+			expect(screen.queryByRole('button', { name: /Expired/ })).toBeNull();
+			unmount();
+
+			const failed = filterCtx();
+			failed.signals.observe('org-1', '2026-10-23', Promise.reject(new Error('statement timeout')));
+			render(PersonnelPageView, { props: { ctx: failed } });
+			await screen.findByRole('button', { name: 'Reload' });
+			expect(screen.queryByRole('group', { name: 'Show only' })).toBeNull();
+		});
+
+		it('writes the chosen chip to the URL without adding history or moving focus', async () => {
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+
+			await fireEvent.click(await screen.findByRole('button', { name: /Expired or missing/ }));
+			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel?show=expired', {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			});
+		});
+
+		it('narrows the roster to the people a chip from the link matches and shows the matched item', async () => {
+			showing('expired');
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+
+			await waitFor(() => expect(rowNames()).toEqual(['SGT Smith, Jane']));
+			const smithRow = within(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
+			expect(smithRow.getAllByTitle('CPR/BLS expired').length).toBeGreaterThan(0);
+			expect(smithRow.queryByTitle(/SHARP/)).toBeNull();
+			expect(screen.getByText('1 of 2 match')).toBeTruthy();
+			expect(screen.getByRole('button', { name: /Expired or missing/ }).getAttribute('aria-pressed')).toBe('true');
+		});
+
+		it('clears the filter from the active chip and narrows again with search', async () => {
+			showing('not-present');
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+			await waitFor(() => expect(rowNames()).toEqual(['SGT Smith, Jane']));
+
+			await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'Young' } });
+			expect(await screen.findByText('No personnel match this filter.')).toBeTruthy();
+			expect(screen.getByText('0 of 2 match')).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('button', { name: /Not present/ }));
+			expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel', {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			});
+		});
+
+		it('filters by the headcount entries, a status type or Present', async () => {
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+			const headcount = within(screen.getByRole('list', { name: "Today's headcount" }));
+
+			await fireEvent.click(await headcount.findByRole('button', { name: /Leave/ }));
+			expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel?show=status%3Aleave', expect.anything());
+			await fireEvent.click(headcount.getByRole('button', { name: /present/ }));
+			expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel?show=present', expect.anything());
+		});
+
+		it('shows who is present for a shared Present link', async () => {
+			showing('present');
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+			await waitFor(() => expect(rowNames()).toEqual(['SGT Young, Test']));
+			expect(screen.getByText('1 of 2 match')).toBeTruthy();
+		});
+
+		it('drops a value nobody recognises from the address and keeps the roster whole', async () => {
+			showing('everyone');
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+
+			await waitFor(() =>
+				expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel', {
+					replaceState: true,
+					keepFocus: true,
+					noScroll: true
+				})
+			);
+			expect(rowNames()).toEqual(['SGT Smith, Jane', 'SGT Young, Test']);
+		});
+
+		it('ignores a filter whose source the viewer cannot read and offers to clear it', async () => {
+			showing('follow-ups');
+			const ctx = filterCtx();
+			settle(ctx);
+			render(PersonnelPageView, { props: { ctx } });
+
+			await screen.findByText('Filter unavailable.');
+			expect(rowNames()).toEqual(['SGT Smith, Jane', 'SGT Young, Test']);
+			await fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }));
+			expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel', expect.anything());
+		});
+
+		it('shows the whole roster with a note when the lane fails under a filtered link', async () => {
+			showing('expired');
+			const ctx = filterCtx();
+			ctx.signals.observe('org-1', '2026-10-23', Promise.reject(new Error('statement timeout')));
+			render(PersonnelPageView, { props: { ctx } });
+
+			await screen.findByText(/Filter unavailable\./);
+			expect(rowNames()).toEqual(['SGT Smith, Jane', 'SGT Young, Test']);
+			expect(gotoMock).not.toHaveBeenCalled();
 		});
 	});
 

@@ -14,8 +14,8 @@ person's record.
 - `roster-organization`: an Organization-scoped reader sees Alpha, Bravo, and unassigned people, but no foreign Person.
 - `roster-group-headers`: in `Group` view each group header has a pin toggle and a collapse toggle, operable by pointer
   and keyboard; a pin persists for the member and a collapse lasts for the page visit.
-- `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its absence of URL
-  state.
+- `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its URL state (only
+  `?show=`).
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
   keyboard and actions, and the signals lane's loading and failure states.
 
@@ -84,13 +84,13 @@ scoped actors retain their baseline grants.
    `Confirm Archive`, `Select shown` and `Clear` disable while an archive is held through
    `arm-hold PAGE personnel/archive-batch`. Loading: Personnel loads in the Organization layout before the page renders,
    and no control holds that load, so record UNAVAILABLE with the attempted route unless a skeleton is observed on
-   navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL unchanged, and that
-   choosing a row opens `/org/<org>/personnel/<slug>`. Capture 1280 light and 390 dark, including the
-   `Personnel controls` toolbar at 390: one row with the search field, `More Personnel controls` and `Add Person`, and
-   no horizontal scroll (`scrollWidth` equals the viewport). `Import`, `Archive`, `Manage Groups` and the `A-Z`/`Group`
-   view fold into More in that order (at about 1008, 956, 860 and 450px), so at 390 choose them from More. In `Archive`
-   mode the `Bulk archive controls` toolbar keeps `Select shown`, `Cancel` and `Confirm Archive` on the row at 390 and
-   moves `Clear` into `More Bulk archive controls` (it folds at about 404px).
+   navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL unchanged (only a filter
+   writes `?show=`, step 15), and that choosing a row opens `/org/<org>/personnel/<slug>`. Capture 1280 light and 390
+   dark, including the `Personnel controls` toolbar at 390: one row with the search field, `More Personnel controls` and
+   `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`, `Archive`, `Manage Groups` and
+   the `A-Z`/`Group` view fold into More in that order (at about 1008, 956, 860 and 450px), so at 390 choose them from
+   More. In `Archive` mode the `Bulk archive controls` toolbar keeps `Select shown`, `Cancel` and `Confirm Archive` on
+   the row at 390 and moves `Clear` into `More Bulk archive controls` (it folds at about 404px).
 10. **Opening a record for operators.** A row opens its record, shows the chevron and `Note for <name>`, and is named
     `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
     As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row
@@ -151,6 +151,30 @@ scoped actors retain their baseline grants.
     reads `Verification All-MOS Critical Task missing`, because the `68W` `Verification Alpha Critical Task` stopped
     applying. Set it back to `68W` and `· 1 more` returns. Rank, MOS, duty role and Group edits reread that Person's
     cells; name, ETS and PCS edits send no `roster-signals` request.
+15. **Attention filters.** As `orgOwner` after step 11's staging, Quick edit Able and set ETS 41 days out (or `PUT`
+    `/api/personnel` with `{"id": personA, "ets": "2026-12-03"}`), then reload. Under the toolbar, `Show only` is
+    followed by six buttons: `Expired or missing 3`, `Expiring ≤ 30d 1`, `Overdue follow-ups 1`, `Not present 1`,
+    `ETS/PCS ≤ 90d 1` and `Counseling due 3` (counts cover the whole roster and ignore the search box). Click
+    `Expiring ≤ 30d`: it turns dark with an ×, `aria-pressed="true"`, focus stays on it, the address becomes
+    `?show=expiring`, `history.length` does not change, the roster shows only Unassigned with `NCOER due`, and the
+    footer reads `1 of 3 match`. Click it again (or its ×) and the address loses `?show=`. `Overdue follow-ups` shows
+    only Baker with `1 follow-up overdue`; `Not present` shows only Baker; `Counseling due` shows all three with
+    `Counseling due` in amber; `ETS/PCS ≤ 90d` shows only Able. In `Group` view only the matching people's Group headers
+    remain, each counting only its matches; switch to `A-Z`, type `Baker` under `?show=losses` and require
+    `No personnel match this filter.` with `0 of 3 match`. The headcount entries are filters too:
+    `1 Verification Training` sets `?show=status:<statusTypeId>` and shows Baker, `2 present` sets `?show=present` and
+    shows Able and Unassigned, and the pressed entry is drawn dark with an × (click it to clear). Open `?show=expired`
+    directly and reload: the filter is restored; `?show=everyone` is dropped from the address with the roster whole.
+    Hold the lane (`$V server-source arm rpc/roster_signals hold 1 90000`, reload with `?show=expired`): four chip
+    placeholders under `Show only` and the whole roster, with the chip row, header and table at identical offsets at
+    1440, 900 and 390 px once released. Arm `fail-hard` instead: no chip row, the whole roster, and the notice
+    `Today's status and Needs attention could not be loaded.` followed by `Filter unavailable.` with `Reload`; the
+    address keeps `?show=expired`, and `Reload` after `server-source restore` brings the filter back. Turn off
+    `Critical tasks` and `Training` in Settings › Features (or `POST` `/api/organization/settings` with
+    `{"featureSwitch":{"feature":"training","on":false}}`, then `criticalTasks`): `Expired or missing` disappears,
+    `?show=expired` shows the whole roster with `Filter unavailable.` and `Clear filter`, and the button removes the
+    parameter. Turn both back on afterward. At 390 px the chip row scrolls sideways inside itself and the page's
+    `scrollWidth` stays 390.
 
 ## Gotchas
 
@@ -162,7 +186,7 @@ scoped actors retain their baseline grants.
   for the integrated readiness check, then restore `none`. A missing availability summary under the default grant does
   not test the Calendar-backed read.
 - Search results can change the visible rows without changing the URL; capture the search value and rows in the same
-  snapshot.
+  snapshot. A chip toggle does change the URL (`?show=`) but replaces the history entry.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.
 - For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md); above 250 People
   the By Group view pauses rendering.

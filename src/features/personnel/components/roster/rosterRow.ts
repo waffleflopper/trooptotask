@@ -1,4 +1,5 @@
 import type { Personnel } from '../../personnel.types';
+import type { RosterFilter } from '../../rosterSignals';
 
 /** What a roster row asks of the roster around it: selection, roving focus and the row's actions. */
 export interface RosterRowControls {
@@ -6,6 +7,8 @@ export interface RosterRowControls {
 	readonly selectionBusy: boolean;
 	isSelected(personnelId: string): boolean;
 	toggleSelected(personnelId: string): void;
+	/** The active roster filter, whose matched item the Needs attention cell shows. */
+	readonly filter: RosterFilter | null;
 	/** The one row in the tab order. */
 	readonly tabRowId: string | null;
 	focused(personnelId: string): void;

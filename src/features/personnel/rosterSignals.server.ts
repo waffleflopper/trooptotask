@@ -13,6 +13,7 @@ import {
 	type Known,
 	type OpenFollowUp,
 	type RosterSignalRead,
+	type RosterSignalSlices,
 	type RosterSourceQuery,
 	type RosterSourceRead,
 	type RosterStatusType,
@@ -119,15 +120,39 @@ export async function loadRosterSignals(
 	};
 }
 
-/** Open follow-ups, soonest due first, for each visible active Person a Personnel configurer may read. */
-export function createSupabaseRosterFollowUpSignals(client: SupabaseClient, orgId: string) {
-	return async ({ personnelIds }: RosterSourceQuery): Promise<RosterSourceRead<OpenFollowUp[]>> => {
-		const { data, error } = await client.rpc('roster_signal_follow_ups', {
+type SignalSlice = Partial<Record<SignalSource, unknown>>;
+
+/**
+ * The lane's database read: one `roster_signals` statement for every source the viewer may read. Each source reads
+ * Personnel through its policy, about 100 ms at 400 People, so a statement per source would repeat that scan.
+ */
+export function createSupabaseRosterSignalSlices(
+	client: SupabaseClient,
+	orgId: string,
+	access: SignalAccess
+): RosterSignalSlices {
+	let current: { query: RosterSourceQuery; read: Promise<SignalSlice> } | undefined;
+	const read = async ({ asOf, personnelIds }: RosterSourceQuery) => {
+		const { data, error } = await client.rpc('roster_signals', {
 			p_organization_id: orgId,
+			p_as_of: asOf,
+			p_since: coverageWindowStart(asOf),
+			p_sources: (Object.keys(SIGNAL_SOURCES) as SignalSource[]).filter((source) => access[source]),
 			p_personnel_ids: personnelIds
 		});
 		if (error) throw new Error(error.message);
-		const read = data as {
+		return data as SignalSlice;
+	};
+	return async (source, query) => {
+		if (current?.query !== query) current = { query, read: read(query) };
+		return (await current.read)[source];
+	};
+}
+
+/** Open follow-ups, soonest due first, for each visible active Person a Personnel configurer may read. */
+export function createSupabaseRosterFollowUpSignals(slices: RosterSignalSlices) {
+	return async (query: RosterSourceQuery): Promise<RosterSourceRead<OpenFollowUp[]>> => {
+		const read = (await slices('followUps', query)) as {
 			cohort: string[];
 			open: [id: string, personnelId: string, title: string, dueDate: string | null][];
 		};
@@ -138,16 +163,12 @@ export function createSupabaseRosterFollowUpSignals(client: SupabaseClient, orgI
 }
 
 /** The latest held counseling inside the coverage window, for each visible active Person a configurer may read. */
-export function createSupabaseRosterCounselingSignals(client: SupabaseClient, orgId: string) {
-	return async ({ asOf, personnelIds }: RosterSourceQuery): Promise<RosterSourceRead<string[]>> => {
-		const { data, error } = await client.rpc('roster_signal_counseling', {
-			p_organization_id: orgId,
-			p_since: coverageWindowStart(asOf),
-			p_as_of: asOf,
-			p_personnel_ids: personnelIds
-		});
-		if (error) throw new Error(error.message);
-		const read = data as { cohort: string[]; latest: [personnelId: string, conductedOn: string][] };
+export function createSupabaseRosterCounselingSignals(slices: RosterSignalSlices) {
+	return async (query: RosterSourceQuery): Promise<RosterSourceRead<string[]>> => {
+		const read = (await slices('counseling', query)) as {
+			cohort: string[];
+			latest: [personnelId: string, conductedOn: string][];
+		};
 		const byPerson = new Map<string, string[]>(read.cohort.map((id) => [id, []]));
 		for (const [personnelId, conductedOn] of read.latest) byPerson.set(personnelId, [conductedOn]);
 		return byPerson;

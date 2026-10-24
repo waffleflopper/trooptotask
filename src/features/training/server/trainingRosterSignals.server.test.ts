@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseTrainingRosterSignals } from './trainingRosterSignals.server';
 
 const TYPE = {
@@ -22,29 +21,18 @@ const TYPE = {
 
 describe('createSupabaseTrainingRosterSignals', () => {
 	it('builds each cohort member required training from one read', async () => {
-		const rpc = vi.fn(async () => ({
-			data: {
-				cohort: [
-					['a', 'SGT', '68W', ''],
-					['b', 'SPC', '68W', ''],
-					['c', 'SPC', '11B', '']
-				],
-				types: [TYPE],
-				completions: [['a', 'cpr', '2024-10-01', '2026-10-01']]
-			},
-			error: null
+		const slices = vi.fn(async () => ({
+			cohort: [
+				['a', 'SGT', '68W', ''],
+				['b', 'SPC', '68W', ''],
+				['c', 'SPC', '11B', '']
+			],
+			types: [TYPE],
+			completions: [['a', 'cpr', '2024-10-01', '2026-10-01']]
 		}));
-		const read = await createSupabaseTrainingRosterSignals(
-			{ rpc } as unknown as SupabaseClient,
-			'org-1'
-		)({
-			asOf: '2026-10-23',
-			personnelIds: ['a', 'b', 'c']
-		});
-		expect(rpc).toHaveBeenCalledWith('roster_signal_training', {
-			p_organization_id: 'org-1',
-			p_personnel_ids: ['a', 'b', 'c']
-		});
+		const query = { asOf: '2026-10-23', personnelIds: ['a', 'b', 'c'] };
+		const read = await createSupabaseTrainingRosterSignals(slices)(query);
+		expect(slices).toHaveBeenCalledWith('training', query);
 		expect(
 			[...read].map(([id, readiness]) => [
 				id,

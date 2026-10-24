@@ -102,7 +102,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261023000900_roster_close_server_only.sql",
     "20261023001000_calendar_availability_import_overlap_guard.sql",
     "20261023001100_preserve_daily_assignment_identity.sql",
-    "20261023001200_roster_signal_reads.sql",
+    "20261023001300_roster_signal_reads.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

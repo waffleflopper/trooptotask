@@ -86,6 +86,9 @@ export interface RosterSourceQuery {
 	personnelIds: readonly string[] | null;
 }
 
+/** One source's slice of the lane's single database read; sources the viewer may not read are never asked for. */
+export type RosterSignalSlices = (source: SignalSource, query: RosterSourceQuery) => Promise<unknown>;
+
 /** One source's facts for each active Person the viewer may read there. A Person missing from the map is withheld. */
 export type RosterSourceRead<T> = ReadonlyMap<string, T>;
 

@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe('Personnel page load', () => {
-	it('streams the signals lane for the viewer day and reruns on a day or signals refresh only', async () => {
+	it('streams the signals lane for the viewer day and reruns on a signals refresh only', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-10-24T02:00:00Z'));
 		const loadSignals = vi.fn(async () => SIGNALS);
@@ -39,7 +39,7 @@ describe('Personnel page load', () => {
 		expect(data.asOf).toBe('2026-10-23');
 		await expect(data.rosterSignals).resolves.toBe(SIGNALS);
 		expect(loadSignals).toHaveBeenCalledWith(expect.objectContaining({ params: { orgId: 'org-1' } }), '2026-10-23');
-		expect(depends.mock.calls.flat()).toEqual(['app:org-core', 'app:viewer-day', 'app:personnel-signals']);
+		expect(depends.mock.calls.flat()).toEqual(['app:org-core', 'app:personnel-signals']);
 		expect(parent).not.toHaveBeenCalled();
 	});
 

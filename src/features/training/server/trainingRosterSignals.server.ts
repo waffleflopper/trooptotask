@@ -1,5 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RosterSourceQuery, RosterSourceRead } from '$features/personnel/contracts';
+import type { RosterSignalSlices, RosterSourceQuery, RosterSourceRead } from '$features/personnel/contracts';
 import {
 	buildPersonnelTrainingReadiness,
 	type PersonnelTrainingReadiness,
@@ -53,24 +52,23 @@ function toRequirementFacts(row: TypeRow): TrainingRequirementFacts {
 }
 
 /** Each visible active Person's required training, read for the whole roster in one statement. */
-export function createSupabaseTrainingRosterSignals(client: SupabaseClient, orgId: string) {
-	return async ({
-		asOf,
-		personnelIds
-	}: RosterSourceQuery): Promise<RosterSourceRead<PersonnelTrainingReadiness<TrainingCompletionFacts>>> => {
-		const { data, error } = await client.rpc('roster_signal_training', {
-			p_organization_id: orgId,
-			p_personnel_ids: personnelIds
-		});
-		if (error) throw new Error(error.message);
-		const read = data as { cohort: CohortTuple[]; types: TypeRow[]; completions: CompletionTuple[] };
+export function createSupabaseTrainingRosterSignals(slices: RosterSignalSlices) {
+	return async (
+		query: RosterSourceQuery
+	): Promise<RosterSourceRead<PersonnelTrainingReadiness<TrainingCompletionFacts>>> => {
+		const read = (await slices('training', query)) as {
+			cohort: CohortTuple[];
+			types: TypeRow[];
+			completions: CompletionTuple[];
+		};
+		const { asOf } = query;
 		const types = read.types.map(toRequirementFacts);
 		const completions = new Map<string, TrainingCompletionFacts[]>();
 		for (const [personnelId, trainingTypeId, completionDate, expirationDate] of read.completions) {
-			completions.set(personnelId, [
-				...(completions.get(personnelId) ?? []),
-				{ trainingTypeId, completionDate, expirationDate }
-			]);
+			const facts = { trainingTypeId, completionDate, expirationDate };
+			const own = completions.get(personnelId);
+			if (own) own.push(facts);
+			else completions.set(personnelId, [facts]);
 		}
 		return new Map(
 			read.cohort.map(([id, rank, mos, clinicRole]) => [

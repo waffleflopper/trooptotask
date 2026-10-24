@@ -166,7 +166,7 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `calendar-month-group-filter` | Calendar in Month             | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the only group band               |
 | `calendar-group-filter`       | Calendar in 3-Month           | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the first row                     |
 | `assignment-save`             | Duty planner                  | interaction, write | both             | Enter on the picked assignee to the slot showing that Person and the picker closed        |
-| `personnel-list`              | Personnel                     | load, read         | both             | Sentinel row or paused-roster notice, no skeleton                                         |
+| `personnel-list`              | Personnel                     | load, read         | both             | Sentinel row or paused-roster notice (`rows`), then no skeleton (`useful`)                |
 | `personnel-search`            | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
 | `personnel-filter`            | Personnel                     | interaction, read  | both             | Search fill `68W` to exactly the matching row count                                       |
 | `personnel-large-table`       | Personnel A-Z                 | interaction, read  | both             | `Sort by Name` to the descending table                                                    |

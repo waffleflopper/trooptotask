@@ -158,6 +158,7 @@ export { importPersonnelRecords } from './personnelImportRecords.server';
 export {
 	createSupabaseRosterCounselingSignals,
 	createSupabaseRosterFollowUpSignals,
+	createSupabaseRosterSignalSlices,
 	loadRosterSignals,
 	resolveSignalAccess,
 	type RosterSignalSources

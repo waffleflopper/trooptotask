@@ -40,12 +40,7 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'organization_invitations',
 	'organization_rank_catalog',
 	'personnel',
-	'rpc/roster_signal_presence',
-	'rpc/roster_signal_training',
-	'rpc/roster_signal_critical_tasks',
-	'rpc/roster_signal_evaluations',
-	'rpc/roster_signal_follow_ups',
-	'rpc/roster_signal_counseling'
+	'rpc/roster_signals'
 ]);
 const ORGANIZATION_COLUMN = { organizations: 'id', audit_logs: 'org_id' };
 

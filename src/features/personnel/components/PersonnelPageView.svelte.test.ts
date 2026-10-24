@@ -293,7 +293,10 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
+		// One in the actions cell and one beside the name, which stays shown where the actions cell hides.
+		const quickEdits = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
+		expect(quickEdits.length).toBe(2);
+		expect(quickEdits.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
 		expect(screen.queryByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeNull();
 		expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
 		await fireEvent.click(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
@@ -625,7 +628,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 		const view = render(PersonnelPageView, { props: { ctx: editableCtx } });
 
-		expect(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' }).length).toBe(2);
 
 		await view.rerender({ ctx: viewOnlyCtx });
 
@@ -658,8 +661,11 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }));
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Quick edit SGT Smith, Jane' }));
+		const [actionsCellEdit, identityCellEdit] = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
+		await fireEvent.click(actionsCellEdit);
 		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
+		await fireEvent.click(identityCellEdit);
+		expect(handleEdit).toHaveBeenCalledTimes(2);
 		expect(gotoMock).toHaveBeenCalledTimes(2);
 	});
 

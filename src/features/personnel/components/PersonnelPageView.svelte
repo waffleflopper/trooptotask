@@ -627,7 +627,7 @@
 				</div>
 				<div class="flex items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
 					<span aria-live="polite">{activeTable.totalRows} of {visibleAllActivePersonnel.length} shown</span>
-					<span class="flex gap-4 max-md:hidden" aria-hidden="true">
+					<span class="flex gap-4 whitespace-nowrap max-md:hidden @max-xl/roster:hidden" aria-hidden="true">
 						{#if ctx.canReadPersonnelDetails && peekFits.current}<span>Space preview</span>{/if}
 						{#if canSelect}<span>X select</span>{/if}
 						{#if canNoteAny}<span>N note</span>{/if}

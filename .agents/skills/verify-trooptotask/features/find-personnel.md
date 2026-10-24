@@ -28,7 +28,8 @@ person's record.
 - `roster-bulk`: row, header and Group checkboxes select many People, and a floating `Selected people` bar adds a
   follow-up or note for each, moves them to a Group, exports them or archives them at once.
 - `roster-peek`: at 1280 px and wider a row click or Space opens a preview beside the roster that reads each section on
-  its own, browses with J and K, and closes with Esc.
+  its own, browses with J and K, closes with Esc or Space, and rereads only the sections a quick edit or bulk write
+  changed.
 
 ## How to get to it (user POV)
 
@@ -136,8 +137,9 @@ scoped actors retain their baseline grants.
     no dots, and its cells still read Baker's `1 follow-up overdue`. Group-scoped `dashboardScoped` reads `1`,
     `1 present` and only Able's row, named `SPC Able, Synthetic`, with `1 of 1 shown`.
 12. **Row keyboard and actions.** Tab into the table: the first row takes focus with an inset ring and only that row is
-    a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
-    the `Add to log for <name>` composer (step 17); E opens that row's Quick edit form (step 14). The icon buttons are
+    a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; at 1280
+    px and wider Space opens the preview (step 19), and below it Space selects like x (step 18); N opens the
+    `Add to log for <name>` composer (step 17); E opens that row's Quick edit form (step 14). The icon buttons are
     hidden until the row is hovered or holds focus; the verification browser reports `hover: none`, so it always shows
     them, as a touch screen does. Single archive is the bulk bar's `Archive…` with one row selected, or the record's
     `More Personnel record` menu. Column hiding follows the table's own width, not the viewport: below 48rem Rank, MOS,
@@ -287,12 +289,13 @@ scoped actors retain their baseline grants.
     `Select everyone shown`: every checkbox checks, selected rows carry `data-state="selected"`, and the
     `Selected people` toolbar reads `3 selected` with `Follow-up for each` (accent), `Add note`, `Move to Group`,
     `Export`, `Archive…` and `Clear selection` (title `Clear selection (Esc)`). Unchecking one row turns the header and
-    that Group's checkbox `mixed`. Keyboard: x toggles the focused row's selection (the footer hint reads `X select`;
-    Space does the same for now). Focus Able's row and press x (`1 selected`), ArrowDown and x (`2 selected`), x again
-    (`1 selected`), then Space (`2 selected`) and Esc: the bar leaves and focus stays on the row. Shift-click: native
-    `click` has no modifiers, so on `perfWide` with the `small` workload click `Select SPC Baker002, Blake` natively,
-    then dispatch a `click` with `shiftKey: true` on `Select SSG Foster006, Finley`: the five rows from Baker002 to
-    Foster006 in shown order are selected.
+    that Group's checkbox `mixed`. Keyboard: x toggles the focused row's selection (the footer hint reads `X select`);
+    below 1280 px Space does the same, and at 1280 and wider Space opens the preview (step 19). Focus Able's row and
+    press x (`1 selected`), ArrowDown and x (`2 selected`), x again (`1 selected`) and Esc: the bar leaves and focus
+    stays on the row. At 900 Space on Baker's row reads `1 selected` and again clears it. Shift-click: native `click`
+    has no modifiers, so on `perfWide` with the `small` workload click `Select SPC Baker002, Blake` natively, then
+    dispatch a `click` with `shiftKey: true` on `Select SSG Foster006, Finley`: the five rows from Baker002 to Foster006
+    in shown order are selected.
     - Placement: the bar is in the roster's flow and sticky 20px above the window's bottom. On the 20-person workload at
       1440x900 the table scrolls in its own box and the bar (714 wide, top 828) sits under the `20 of 20 shown` footer,
       covering no row. When the roster's own width is under 48rem (900 and 390) the actions show as icons with their
@@ -354,20 +357,33 @@ scoped actors retain their baseline grants.
     weekday date; `Latest note` quotes the note. The page fetched exactly five requests,
     `peek?section=identity|next7|attention|followUps|note`, and no `__data.json`. While it is open the `Duty Role` and
     `Group` columns and the `Today's headcount` strip are gone, Baker's row has the accent left rule, and the row's Note
-    and Quick edit buttons are hidden.
+    and Quick edit buttons are hidden. The footer hints read `Space preview`, `X select`, `N note`, `E quick edit` and
+    `↵ open record`; below 1280 `Space preview` is gone.
     - Keyboard: Baker's row keeps focus. J moves focus to `Open SPC Unassigned, Synthetic` and the panel to
       `3 of 3 · J/K` with five reads for Unassigned; K back to Baker reads nothing (cached). Two J presses within 40 ms
       from Able read only the Person browsing stops on (five reads, none for the Person skipped). Tab from the row
       focuses `Previous person`; K there steps the panel while focus stays on that button; Esc closes the panel and
-      returns focus to the Person's row. Space on a focused row opens it again.
+      returns focus to the Person's row. Space on Baker's row opens it again and Space once more closes it. x selects
+      without touching the panel (`1 selected`), and with a selection Space or a row click still opens the panel (only
+      the checkbox selects). Esc then closes the panel first, and a second Esc clears the selection.
     - Follow-up: tick `Complete Turn in TA-50 shortage list`. One `PATCH .../follow-ups/<id>` and one
       `POST .../roster-signals`; the row reads `Done`, the heading `Open follow-ups · 1`, `rows personnel_follow_ups`
       shows `completed`, and Baker's attention cell drops to `· 1 more`. J then K rereads only `peek?section=followUps`.
     - Docked composer: choose `Add a note or follow-up for SPC Baker…`; the step 17 composer opens docked at the bottom
       of the panel with `Follow-up title` focused. Type a title and press Enter: one `POST .../follow-ups`, one
       `peek?section=followUps` and one `POST .../roster-signals`; the new follow-up shows with `No due date`, focus
-      returns to the docked input and the toast reads `Follow-up added for SPC Baker` with `Open log`. The pencil beside
-      it is `Quick edit SPC Synthetic Baker`.
+      returns to the docked input and the toast reads `Follow-up added for SPC Baker` with `Open log`. A note there
+      sends one `POST .../leader-notes` and one `peek?section=note`, and `Latest note` quotes it.
+    - Quick edit: the dock's pencil `Quick edit SPC Synthetic Baker` opens the step 14 form
+      `Quick edit SPC Baker, Synthetic` under Baker's row with focus on `Rank`. Set `MOS` to `11C` and `Save`: one
+      `PUT .../api/personnel`, one `peek?section=attention` and one `POST .../roster-signals`; the panel's MOS chip
+      reads `11C` and `rows personnel orgA` shows `11C`. Esc, then Space on the row, shows `11C` again with no reads.
+      Restore `11B`.
+    - Bulk writes: with Baker shown and selected, `Follow-up for each` (`Add to log for 1 person`) saved with
+      Control+Enter sends one `follow-ups/batch`, one `peek?section=followUps` and one `roster-signals` POST, and the
+      panel reads `Open follow-ups · 1` with the new title and `No due date`. `Move to Group` → `Alpha` sends one
+      `group-membership`, one `peek?section=attention` and one `roster-signals` POST, and the eyebrow reads
+      `ALPHA · NCO`; move Baker back to `Bravo`. Archiving the shown Person closes the panel.
     - Loading: `$V server-source arm leader_notes hold 1 90000`, reload and open Baker: only `Latest note` shows its
       three-line skeleton (`Latest note loading`) while the other sections fill, and the section's top does not move
       when `release` lets the note through. Stage a `Verification Leave` entry for Baker (`POST .../api/availability`,
@@ -387,9 +403,9 @@ scoped actors retain their baseline grants.
       with `{"state":"hidden"}`, and `Needs attention · 0` reads `Nothing needs attention.` with no `Couldn't check`
       line for the Training, Critical Tasks, Evaluation or Onboarding lanes it may not read. Actors who cannot open the
       record (step 10) get no panel.
-    - Widths: at 1280x800 the panel docks beside a 506 px roster, Needs attention folds under the name and the toolbar
-      folds Import and Manage Groups into More. At 900 and 390 a row click opens `personnel/verify-baker` and no panel
-      renders; `scrollWidth` equals the viewport.
+    - Widths: at 1280x800 the 470 px panel docks beside a 506 px roster, Needs attention folds under the name, the
+      toolbar folds Import and Manage Groups into More and the footer shows only `3 of 3 shown`. At 900 and 390 a row
+      click opens `personnel/verify-baker` and no panel renders; `scrollWidth` equals the viewport.
 
 ## Gotchas
 

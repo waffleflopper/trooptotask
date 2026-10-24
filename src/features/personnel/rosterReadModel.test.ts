@@ -51,7 +51,7 @@ describe('createRosterReadModel', () => {
 	];
 
 	it('makes full and Scope Set views explicit', () => {
-		const roster = createRosterReadModel({ personnel, fallbackGroupName: 'Test Unit' });
+		const roster = createRosterReadModel({ personnel, groups: [], pinnedGroups: [], fallbackGroupName: 'Test Unit' });
 
 		expect(roster.full().personnel.map((person) => person.id)).toEqual(['alpha-1', 'bravo-1', 'unassigned-1']);
 		expect(roster.scoped({ kind: 'groups', groupIds: ['group-b'] }).personnel.map((person) => person.id)).toEqual([
@@ -65,7 +65,7 @@ describe('createRosterReadModel', () => {
 	});
 
 	it('keeps ungrouped Personnel Records out of whole-Group Scope Sets', () => {
-		const roster = createRosterReadModel({ personnel, fallbackGroupName: 'Test Unit' });
+		const roster = createRosterReadModel({ personnel, groups: [], pinnedGroups: [], fallbackGroupName: 'Test Unit' });
 
 		expect(
 			roster.scoped({ kind: 'groups', groupIds: ['group-a', 'group-b'] }).personnel.map((person) => person.id)
@@ -84,7 +84,9 @@ describe('createRosterReadModel', () => {
 					archivedAt: '2026-01-01'
 				}),
 				makePerson({ id: 'archived-unassigned', archivedAt: '2026-01-01' })
-			]
+			],
+			groups: [],
+			pinnedGroups: []
 		});
 
 		expect(
@@ -101,6 +103,7 @@ describe('createRosterReadModel', () => {
 	it('builds grouped roster options from the scoped roster before group and search filters', () => {
 		const roster = createRosterReadModel({
 			personnel,
+			groups: [],
 			pinnedGroups: ['Bravo'],
 			fallbackGroupName: 'Test Unit'
 		});
@@ -121,7 +124,9 @@ describe('createRosterReadModel', () => {
 
 	it('makes active, archived, and all Personnel Record views explicit', () => {
 		const roster = createRosterReadModel({
-			personnel: [...personnel, makePerson({ id: 'archived-1', archivedAt: '2026-01-01' })]
+			personnel: [...personnel, makePerson({ id: 'archived-1', archivedAt: '2026-01-01' })],
+			groups: [],
+			pinnedGroups: []
 		});
 
 		expect(roster.full().personnel.map((person) => person.id)).toContain('archived-1');
@@ -131,7 +136,7 @@ describe('createRosterReadModel', () => {
 	});
 
 	it('searches rank, MOS, Duty Role, Group, and names consistently', () => {
-		const roster = createRosterReadModel({ personnel, fallbackGroupName: 'Test Unit' });
+		const roster = createRosterReadModel({ personnel, groups: [], pinnedGroups: [], fallbackGroupName: 'Test Unit' });
 
 		expect(roster.full({ search: 'medic' }).personnel.map((person) => person.id)).toEqual(['bravo-1']);
 		expect(roster.full({ search: 'alpha' }).personnel.map((person) => person.id)).toEqual(['alpha-1']);
@@ -150,7 +155,12 @@ describe('createRosterReadModel', () => {
 				makePerson({ id: '6' })
 			],
 			pinnedGroups: ['Delta', 'Bravo'],
-			groupOrder: ['Charlie', 'Bravo', 'Alpha', 'Delta']
+			groups: [
+				{ id: 'group-1', name: 'Alpha', sortOrder: 2 },
+				{ id: 'group-2', name: 'Bravo', sortOrder: 1 },
+				{ id: 'group-3', name: 'Charlie', sortOrder: 0 },
+				{ id: 'group-4', name: 'Delta', sortOrder: 3 }
+			]
 		});
 
 		expect(roster.full().personnelByGroup.map((group) => group.group)).toEqual([
@@ -163,8 +173,23 @@ describe('createRosterReadModel', () => {
 		]);
 	});
 
-	it('orders by name when the Organization has set no Group order', () => {
-		const order = ['Charlie', 'Alpha', '', 'Bravo'].sort(compareRosterGroupNames({}));
+	it('breaks equal sortOrder by name, then id', () => {
+		const order = ['Zulu', 'Alpha', 'Alpha 2'].sort(
+			compareRosterGroupNames({
+				groups: [
+					{ id: 'c', name: 'Zulu', sortOrder: 0 },
+					{ id: 'b', name: 'Alpha 2', sortOrder: 0 },
+					{ id: 'a', name: 'Alpha', sortOrder: 0 }
+				],
+				pinnedGroups: []
+			})
+		);
+
+		expect(order).toEqual(['Alpha', 'Alpha 2', 'Zulu']);
+	});
+
+	it('orders by name when the Organization has no Groups catalog', () => {
+		const order = ['Charlie', 'Alpha', '', 'Bravo'].sort(compareRosterGroupNames({ groups: [], pinnedGroups: [] }));
 
 		expect(order).toEqual(['Alpha', 'Bravo', 'Charlie', '']);
 	});

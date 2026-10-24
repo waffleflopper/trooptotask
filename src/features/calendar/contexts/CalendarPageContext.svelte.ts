@@ -178,6 +178,7 @@ export class CalendarPageContext {
 	readonly #calendarRoster = $derived(
 		createRosterReadModel({
 			personnel: this.calendarPersonnel,
+			groups: groupsStore.items,
 			pinnedGroups: pinnedGroupsStore.list,
 			fallbackGroupName: this.#data.orgName ?? ''
 		})

@@ -55,18 +55,14 @@ export class DashboardScreenModel {
 	readonly forecastDays: readonly string[];
 	private readonly sources: DashboardStoreSources;
 
-	private rosterView = $derived.by<RosterReadModelView>(() => {
-		const groupOrder = [...this.sources.groups.items]
-			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
-			.map((group) => group.name);
-
-		return createRosterReadModel({
+	private rosterView = $derived.by<RosterReadModelView>(() =>
+		createRosterReadModel({
 			personnel: this.sources.personnel.items,
+			groups: this.sources.groups.items,
 			pinnedGroups: this.sources.pinnedGroups.list,
-			groupOrder,
 			fallbackGroupName: this.data.orgName
-		}).full({ status: 'active' });
-	});
+		}).full({ status: 'active' })
+	);
 
 	/** The loaded data as plain values, for the Dashboard sections. */
 	inputs = $derived.by<DashboardInputs>(() => ({

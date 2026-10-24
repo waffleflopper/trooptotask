@@ -1,11 +1,13 @@
 /** Personnel owns one Organization-local roster backing for reads, hydration, and writes. */
 import { PERSONNEL_RANK_ORDER } from '../personnelRank';
+import { groupsStore } from './groups.svelte';
+import { pinnedGroupsStore } from './pinnedGroups.svelte';
 import { createRosterReadModel, type CreateRosterReadModelInput, type RosterReadModel } from '../rosterReadModel';
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import type { Personnel } from '../personnel.types';
 
-export type RosterReadModelStoreOptions = Omit<CreateRosterReadModelInput, 'personnel'>;
+export type RosterReadModelStoreOptions = Pick<CreateRosterReadModelInput, 'fallbackGroupName'>;
 
 export interface RosterStoreExtensions extends Record<string, unknown> {
 	addBatchResults: (inserted: Personnel[]) => void;
@@ -42,8 +44,11 @@ function enhance(base: Store<Personnel>): RosterStoreExtensions {
 		},
 
 		readModel(options = {}) {
+			const inOrganization = (storeOrgId: string) => storeOrgId === base.orgId;
 			return createRosterReadModel({
 				personnel: base.rawItems,
+				groups: inOrganization(groupsStore.orgId) ? groupsStore.items : [],
+				pinnedGroups: inOrganization(pinnedGroupsStore.orgId) ? pinnedGroupsStore.list : [],
 				...options
 			});
 		}

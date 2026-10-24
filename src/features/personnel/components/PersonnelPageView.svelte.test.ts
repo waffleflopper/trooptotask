@@ -300,6 +300,7 @@ describe('PersonnelPageView', () => {
 		cleanup();
 		personnelStore.load([], 'org-test-reset');
 		pinnedGroupsHydration.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		vi.unstubAllGlobals();
 	});
 
@@ -420,6 +421,13 @@ describe('PersonnelPageView', () => {
 	});
 
 	describe('By Group view', () => {
+		function loadCatalogOrder(names: string[]): void {
+			groupCatalogHydration.load(
+				names.map((name, sortOrder) => ({ id: `catalog-${name}`, name, sortOrder })),
+				'org-1'
+			);
+		}
+
 		function loadTwoGroups(secondGroupName = 'Bravo'): void {
 			personnelStore.load(
 				[
@@ -460,11 +468,8 @@ describe('PersonnelPageView', () => {
 
 		it('lists Groups in the Organization order with Unassigned last and drops the Group column', () => {
 			loadTwoGroups();
-			const ctx = {
-				...makeCtx(),
-				viewMode: 'by-group',
-				groupOrder: ['Bravo', 'Alpha']
-			} as unknown as PersonnelPageContext;
+			loadCatalogOrder(['Bravo', 'Alpha']);
+			const ctx = { ...makeCtx(), viewMode: 'by-group' } as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, { props: { ctx } });
 
@@ -474,11 +479,11 @@ describe('PersonnelPageView', () => {
 
 		it('keeps the controls of a Group named Unassigned apart from the People with no Group', () => {
 			loadTwoGroups('Unassigned');
+			loadCatalogOrder(['Alpha', 'Unassigned']);
 			const ctx = {
 				...makeCtx(),
 				viewMode: 'by-group',
-				canManageGroups: true,
-				groupOrder: ['Alpha', 'Unassigned']
+				canManageGroups: true
 			} as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, { props: { ctx } });
@@ -491,12 +496,9 @@ describe('PersonnelPageView', () => {
 
 		it("moves the viewer's pinned Group above the Organization order", () => {
 			loadTwoGroups();
+			loadCatalogOrder(['Bravo', 'Alpha']);
 			pinnedGroupsHydration.load(['Alpha'], 'org-1');
-			const ctx = {
-				...makeCtx(),
-				viewMode: 'by-group',
-				groupOrder: ['Bravo', 'Alpha']
-			} as unknown as PersonnelPageContext;
+			const ctx = { ...makeCtx(), viewMode: 'by-group' } as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, { props: { ctx } });
 

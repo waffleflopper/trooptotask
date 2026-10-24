@@ -52,6 +52,7 @@ export interface BuildCriticalTasksMatrixOptions {
 	tasks: IctTask[];
 	completions: PersonnelIctCompletion[];
 	groups?: Group[];
+	pinnedGroups?: readonly string[];
 	settings?: CriticalTasksSettingsInput | null;
 	selectedGroupId?: string;
 	selectedGroupFilter?: string;
@@ -130,6 +131,7 @@ export function buildCriticalTasksMatrix({
 	tasks,
 	completions,
 	groups = [],
+	pinnedGroups = [],
 	settings = null,
 	selectedGroupId = '',
 	selectedGroupFilter = '',
@@ -140,12 +142,10 @@ export function buildCriticalTasksMatrix({
 	const activeTasks = getActiveIctTasksForLibrary(tasks);
 	// The matrix shows the latest saved capture; asOf only evaluates its status.
 	const latestCompletions = buildLatestIctCompletionLookup(completions);
-	const groupOrder = [...groups]
-		.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
-		.map((g) => g.name);
 	const sortedGroups = createRosterReadModel({
 		personnel,
-		groupOrder,
+		groups,
+		pinnedGroups,
 		fallbackGroupName: orgName
 	}).full({
 		status: 'active',

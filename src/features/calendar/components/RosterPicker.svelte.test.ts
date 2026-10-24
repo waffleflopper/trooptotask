@@ -134,6 +134,30 @@ describe('RosterPicker', () => {
 			expect(within(header!).getByRole('button', { name: `Sort by ${name}` })).toBeTruthy();
 		}
 	});
+
+	it('keeps Groups in the order given while a column sort reorders the people', async () => {
+		render(RosterPicker, {
+			props: {
+				personnelByGroup: [
+					{
+						group: 'Bravo',
+						personnel: [personnel({ id: 'p3', lastName: 'Zulu', groupId: 'group-2', groupName: 'Bravo' })]
+					},
+					{ group: 'Alpha', personnel: [personnel({ id: 'p1', lastName: 'Able' })] },
+					{ group: 'Unassigned', personnel: [personnel({ id: 'p4', lastName: 'Young', groupId: null, groupName: '' })] }
+				],
+				selection: makeSelection()
+			}
+		});
+		const groupOrder = () =>
+			screen
+				.getAllByRole('button', { name: /^(Collapse|Expand) / })
+				.map((button) => button.textContent?.trim().replace(/\s+/g, ' '));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Name' }));
+
+		expect(groupOrder().map((label) => label?.split(' ')[1])).toEqual(['Bravo', 'Alpha', 'Unassigned']);
+	});
 });
 
 describe('RosterPicker with availability', () => {

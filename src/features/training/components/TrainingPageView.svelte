@@ -22,6 +22,7 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
+	import { compareRosterGroupNames } from '$features/personnel/contracts';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { rosterStore } from '$features/personnel';
@@ -34,6 +35,14 @@
 	onDestroy(() => {
 		disposed = true;
 	});
+
+	const UNASSIGNED = 'Unassigned';
+	const compareGroups = $derived(
+		compareRosterGroupNames({
+			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
+			pinnedGroups: pinnedGroupsStore.list
+		})
+	);
 
 	const storesHydratedForOrg = $derived(
 		rosterStore.orgId === ctx.orgId &&
@@ -276,13 +285,8 @@
 						onCellClick={ctx.canRecordTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 						onPersonClick={ctx.canRecordTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 						groupBy={{
-							key: (p) => p.groupName || 'Unassigned',
-							compare: (a, b) => {
-								const aPin = pinnedGroupsStore.list.includes(a) ? 0 : 1;
-								const bPin = pinnedGroupsStore.list.includes(b) ? 0 : 1;
-								if (aPin !== bPin) return aPin - bPin;
-								return a.localeCompare(b);
-							}
+							key: (p) => p.groupName || UNASSIGNED,
+							compare: (a, b) => compareGroups(a === UNASSIGNED ? '' : a, b === UNASSIGNED ? '' : b)
 						}}
 					/>
 				{/if}

@@ -70,12 +70,16 @@
 		return availability ? rosterAvailabilityRow(availability, person.id).blocked : false;
 	}
 
+	const groupPosition = $derived(new Map(personnelByGroup.map((group, index) => [group.group, index])));
+
 	const table = useDataTable<Personnel>({
 		data: () => allPersonnel,
 		columns: () => tableColumns,
 		disabledRow: isBlocked,
 		groupBy: {
-			key: (p) => p.groupName || 'Unassigned'
+			key: (p) => p.groupName || 'Unassigned',
+			compare: (a, b) =>
+				(groupPosition.get(a) ?? personnelByGroup.length) - (groupPosition.get(b) ?? personnelByGroup.length)
 		}
 	});
 

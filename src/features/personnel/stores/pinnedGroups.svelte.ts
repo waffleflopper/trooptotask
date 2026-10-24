@@ -190,6 +190,9 @@ export const pinnedGroupsStore = {
 	get list() {
 		return pinnedGroupManagementStore.list;
 	},
+	get orgId() {
+		return pinnedGroupManagementStore.orgId;
+	},
 	toggle(group: string) {
 		return pinnedGroupManagementStore.toggle(group);
 	}

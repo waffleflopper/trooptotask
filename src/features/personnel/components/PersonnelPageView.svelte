@@ -203,7 +203,10 @@
 	});
 
 	const groupComparator = $derived(
-		compareRosterGroupNames({ pinnedGroups: pinnedGroupsStore.list, groupOrder: ctx.groupOrder })
+		compareRosterGroupNames({
+			groups: groupsStore.orgId === ctx.orgId ? groupsStore.items : [],
+			pinnedGroups: pinnedGroupsStore.list
+		})
 	);
 	const groupedTable = useDataTable<Personnel>({
 		data: () => holdOrder(visibleFilteredPersonnel, 'grouped'),

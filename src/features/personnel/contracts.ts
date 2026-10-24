@@ -409,14 +409,18 @@ export interface PersonnelCriticalTasksRosterPort {
 }
 
 export {
+	compareRosterGroupNames,
 	createRosterReadModel,
 	formatRosterPersonDisplayName,
 	matchesRosterSearch,
+	organizationGroupNames,
 	rosterGroupFilterValue
 } from './rosterReadModel';
 export type {
 	CreateRosterReadModelInput,
 	PersonnelGroup,
+	RosterGroupCatalogEntry,
+	RosterGroupOrder,
 	RosterGroupFilterOption,
 	RosterReadModel,
 	RosterReadModelView,

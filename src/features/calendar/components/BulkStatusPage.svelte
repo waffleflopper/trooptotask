@@ -10,7 +10,7 @@
 	import type { CalendarOperationsPageAccess } from '../contracts';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
-	import { pinnedGroupsStore } from '$features/personnel';
+	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
@@ -72,6 +72,7 @@
 	const rosterView = $derived(
 		createRosterReadModel({
 			personnel: calendarPersonnel,
+			groups: groupsStore.items,
 			pinnedGroups: pinnedGroupsStore.list,
 			fallbackGroupName: data.orgName ?? ''
 		}).scoped(org.scopeSet, { status: 'active' })

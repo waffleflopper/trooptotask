@@ -4,6 +4,7 @@ import { personnelScopeResource } from '../personnelScopeResource';
 import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
+	organizationGroupNames,
 	type PersonnelGroup,
 	type RosterReadModelView
 } from '$features/personnel/rosterReadModel';
@@ -300,11 +301,12 @@ export class PersonnelPageContext {
 		this.#modals.open('group-manager', { select: groupId });
 	}
 
+	private get catalogGroups(): readonly Group[] {
+		return this.#groupsStore.orgId === this.orgId ? this.#groupsStore.items : [];
+	}
+
 	get groupOrder(): string[] {
-		if (this.#groupsStore.orgId !== this.orgId) return [];
-		return [...this.#groupsStore.items]
-			.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-			.map((group) => group.name);
+		return organizationGroupNames(this.catalogGroups);
 	}
 
 	groupIdForName(name: string): string | null {
@@ -323,7 +325,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
-			groupOrder: this.groupOrder,
+			groups: this.catalogGroups,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active' });
 	}
@@ -332,7 +334,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
-			groupOrder: this.groupOrder,
+			groups: this.catalogGroups,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active', search: this.searchQuery });
 	}

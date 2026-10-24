@@ -250,6 +250,30 @@ describe('TrainingPageView', () => {
 		);
 	});
 
+	it("groups the matrix in the Organization's Group order with Unassigned last when nothing is pinned", () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'group-1', name: 'Alpha', sortOrder: 1 },
+				{ id: 'group-2', name: 'Bravo', sortOrder: 0 }
+			],
+			'org-1'
+		);
+		pinnedGroupsHydration.load([], 'org-1');
+		const unassigned = { ...personnel[0], id: 'person-3', groupId: null, groupName: '' } as Personnel;
+
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('by-group', { filteredPersonnel: [...personnel, unassigned] }) as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		const headers = [...screen.getByTestId('training-matrix').querySelectorAll('[data-row-group-id]')].map((row) =>
+			row.getAttribute('data-row-group-id')
+		);
+		expect(headers).toEqual(['Bravo', 'Alpha', 'Unassigned']);
+	});
+
 	it('links manage views to the training views workspace', () => {
 		render(TrainingPageView, {
 			props: {

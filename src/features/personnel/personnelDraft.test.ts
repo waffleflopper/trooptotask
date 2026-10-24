@@ -48,7 +48,7 @@ describe('personnelDraftChanges', () => {
 });
 
 describe('validatePersonnelDraft', () => {
-	const rules = { isEditing: true, allowUnassigned: true, groups };
+	const rules = { allowUnassigned: true, groups };
 
 	it('requires a rank and both names, ignoring surrounding spaces', () => {
 		const draft = { ...personnelDraftOf(okafor), rank: '', lastName: '   ', firstName: '' };
@@ -60,16 +60,14 @@ describe('validatePersonnelDraft', () => {
 		});
 	});
 
-	it('asks for a permitted Group only when adding for an actor with no unassigned scope', () => {
+	it('asks for a permitted Group only for an actor with no unassigned scope', () => {
 		const draft = { ...personnelDraftOf(null, 'SPC'), lastName: 'Nolan', firstName: 'Avery' };
 
-		expect(validatePersonnelDraft(draft, { ...rules, isEditing: false, allowUnassigned: false })).toEqual({
+		expect(validatePersonnelDraft(draft, { ...rules, allowUnassigned: false })).toEqual({
 			groupId: 'Select a permitted Group.'
 		});
-		expect(
-			validatePersonnelDraft({ ...draft, groupId: 'g-1' }, { ...rules, isEditing: false, allowUnassigned: false })
-		).toEqual({});
-		expect(validatePersonnelDraft(personnelDraftOf(okafor), { ...rules, allowUnassigned: false })).toEqual({});
+		expect(validatePersonnelDraft({ ...draft, groupId: 'g-1' }, { ...rules, allowUnassigned: false })).toEqual({});
+		expect(validatePersonnelDraft(draft, rules)).toEqual({});
 	});
 });
 

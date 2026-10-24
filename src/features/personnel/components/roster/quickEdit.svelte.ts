@@ -52,9 +52,7 @@ export class QuickEditSession {
 		this.opening = personnelDraftOf(person);
 		this.draft = $state(personnelDraftOf(person));
 		this.changes = $derived(personnelDraftChanges(this.opening, this.draft, groups()));
-		this.errors = $derived(
-			validatePersonnelDraft(this.draft, { isEditing: true, allowUnassigned: true, groups: groups() })
-		);
+		this.errors = $derived(validatePersonnelDraft(this.draft, { allowUnassigned: true, groups: groups() }));
 		this.dirty = $derived(this.changes.length > 0);
 	}
 }
@@ -193,7 +191,8 @@ export class RosterQuickEdit {
 		try {
 			if (!(await this.#deps.save(session.personnelId, patch))) throw new Error('Failed to update personnel');
 		} catch (error) {
-			if (stillHere() && this.session === session) session.error = personnelSaveErrorMessage(error, true);
+			if (stillHere() && this.session === session)
+				session.error = personnelSaveErrorMessage(error, 'Failed to update personnel');
 			if (this.session === session) session.saving = false;
 			return false;
 		}

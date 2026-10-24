@@ -86,20 +86,19 @@ export function groupOptionsFor(groups: readonly Group[], allowUnassigned: boole
 export type PersonnelDraftErrors = Partial<Record<'rank' | 'lastName' | 'firstName' | 'groupId', string>>;
 
 export interface PersonnelDraftRules {
-	isEditing: boolean;
 	allowUnassigned: boolean;
 	groups: readonly Group[];
 }
 
 export function validatePersonnelDraft(
 	draft: PersonnelDraft,
-	{ isEditing, allowUnassigned, groups }: PersonnelDraftRules
+	{ allowUnassigned, groups }: PersonnelDraftRules
 ): PersonnelDraftErrors {
 	const errors: PersonnelDraftErrors = {};
 	if (draft.rank.trim() === '') errors.rank = 'Select a rank.';
 	if (draft.lastName.trim() === '') errors.lastName = 'Enter a last name.';
 	if (draft.firstName.trim() === '') errors.firstName = 'Enter a first name.';
-	if (!isEditing && !allowUnassigned && !groups.some((group) => group.id === draft.groupId)) {
+	if (!allowUnassigned && !groups.some((group) => group.id === draft.groupId)) {
 		errors.groupId = 'Select a permitted Group.';
 	}
 	return errors;
@@ -162,8 +161,7 @@ export function personnelDraftChanges(
 	}));
 }
 
-export function personnelSaveErrorMessage(error: unknown, isEditing: boolean): string {
-	const fallback = isEditing ? 'Failed to update personnel' : 'Failed to add personnel';
+export function personnelSaveErrorMessage(error: unknown, fallback: string): string {
 	if (error instanceof StoreRequestError) return rejectedRequestMessage(error, fallback);
 	if (error instanceof Error && error.message.trim()) return error.message;
 	return fallback;

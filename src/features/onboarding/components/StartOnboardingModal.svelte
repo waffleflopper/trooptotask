@@ -213,7 +213,6 @@
 
 {#if showAddPersonModal}
 	<PersonnelModal
-		personnel={null}
 		{groups}
 		{rankCatalog}
 		{allowUnassigned}

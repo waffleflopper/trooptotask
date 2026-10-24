@@ -28,8 +28,8 @@ person's record.
 - `roster-bulk`: row, header and Group checkboxes select many People, and a floating `Selected people` bar adds a
   follow-up or note for each, moves them to a Group, exports them or archives them at once.
 - `roster-peek`: at 1280 px and wider a row click or Space opens a preview beside the roster that reads each section on
-  its own, browses with J and K, closes with Esc or Space, and rereads only the sections a quick edit or bulk write
-  changed.
+  its own, browses with J and K over the rows search, filter and view show, closes with Esc or Space or when a filter
+  hides the shown Person, and rereads only the sections a quick edit or bulk write changed.
 
 ## How to get to it (user POV)
 
@@ -446,6 +446,18 @@ scoped actors retain their baseline grants.
       with `{"state":"hidden"}`, and `Needs attention · 0` reads `Nothing needs attention.` with no `Couldn't check`
       line for the Training, Critical Tasks, Evaluation or Onboarding lanes it may not read. Actors who cannot open the
       record (step 10) get no panel.
+    - Filters: on a fresh launch open `?show=present` (`2 of 3 match`) and click Able's `68W`: the panel reads
+      `1 of 2 · J/K`, the `Today's headcount` strip is gone and the `Show only` chips stay. J moves to Unassigned with
+      `2 of 2 · J/K`, and a second J stays there (Baker is not shown). K back to Able, then click `Not present 1`: the
+      address becomes `?show=not-present`, the panel closes because Able no longer shows, and focus stays on the chip.
+      Open Baker (`1 of 1 · J/K`), then click the pressed `Not present` to clear it: the panel stays on Baker with
+      `2 of 3 · J/K` and the footer reads `3 of 3 shown`. Under `?show=expired` all three match: Able reads
+      `1 of 3 · J/K` and three J presses stop on Unassigned at `3 of 3 · J/K`. Stage an overdue follow-up each for Able
+      and Baker (`POST .../follow-ups` with `dueDate` four days before the viewer day), open `?show=follow-ups`
+      (`2 of 3 match`), open Baker (`2 of 2 · J/K`) and tick `Complete <title>`: once Baker's signals reread, the panel
+      closes, the footer reads `1 of 3 match` and focus moves to Able's row. At 1280x800 under `?show=expired` the panel
+      docks at x 810, the `Show only` row stays beside it (435 px wide, scrolling its 914 px of chips inside itself) and
+      `scrollWidth` is 1280.
     - Widths: at 1280x800 the 470 px panel docks beside a 506 px roster, Needs attention folds under the name, the
       toolbar folds Import and Manage Groups into More and the footer shows only `3 of 3 shown`. At 900 and 390 a row
       click opens `personnel/verify-baker` and no panel renders; `scrollWidth` equals the viewport.

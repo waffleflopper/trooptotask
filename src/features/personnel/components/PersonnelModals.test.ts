@@ -420,7 +420,7 @@ describe('Needs attention after a Personnel edit', () => {
 		groupCatalogHydration.load([], 'org-a');
 		personnelStore.load([person], 'org-a');
 		const readPeople = vi.fn(async (_orgId: string, _ids: string[]) => read([core(clear)]));
-		const signals = new RosterSignals({ readPeople, invalidate: async () => {} });
+		const signals = new RosterSignals({ readPeople, invalidate: async () => {}, browserDay: () => AS_OF });
 		signals.observe('org-a', AS_OF, Promise.resolve(read([core(missingTraining)])));
 		await settles(Promise.resolve());
 		await new Promise((resolve) => setTimeout(resolve, 0));

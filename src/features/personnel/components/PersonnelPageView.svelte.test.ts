@@ -162,7 +162,7 @@ function makeCtx(
 	let viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
 	let searchQuery = $state('');
 
-	const signals = new RosterSignals({ readPeople: vi.fn() });
+	const signals = new RosterSignals({ readPeople: vi.fn(), browserDay: () => '2026-10-23' });
 	const ctx = {
 		data: { orgId: 'org-1' },
 		orgId: 'org-1',

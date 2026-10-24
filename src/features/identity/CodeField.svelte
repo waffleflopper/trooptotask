@@ -60,7 +60,9 @@
 </script>
 
 <Field.Root data-invalid={error ? 'true' : undefined} class="gap-2">
-	<Field.Label for={id} class="font-mono text-[0.6875rem] font-medium tracking-[0.08em] uppercase">{label}</Field.Label>
+	<Field.Label for={id} class="font-mono text-[0.6875rem] font-medium tracking-[0.08em] text-foreground uppercase"
+		>{label}</Field.Label
+	>
 	<InputOTP.Root
 		bind:value
 		bind:inputRef
@@ -73,13 +75,14 @@
 		data-testid={dataTestId}
 	>
 		{#snippet children({ cells })}
-			<InputOTP.Group>
+			<!-- The cells only draw the real input's value, so assistive tech reads the input alone. -->
+			<InputOTP.Group aria-hidden="true">
 				{#each cells.slice(0, 3) as cell, index (index)}
 					<InputOTP.Slot {cell} class={slotClass} />
 				{/each}
 			</InputOTP.Group>
 			<InputOTP.Separator />
-			<InputOTP.Group>
+			<InputOTP.Group aria-hidden="true">
 				{#each cells.slice(3, 6) as cell, index (index)}
 					<InputOTP.Slot {cell} class={slotClass} />
 				{/each}

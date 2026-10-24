@@ -80,7 +80,7 @@
 		<div class="mt-10 flex flex-col gap-4 lg:my-auto lg:gap-6 lg:py-12">
 			<p class="font-mono text-[13px] leading-4 tracking-[0.14em] text-accent uppercase">{eyebrow}</p>
 			<p
-				class="font-heading text-[44px] leading-[42px] font-bold tracking-[-0.005em] uppercase lg:text-[52px] lg:leading-[50px] xl:text-[64px] xl:leading-[60px] min-[1400px]:text-[72px] min-[1400px]:leading-[68px]"
+				class="font-heading text-[44px] leading-[42px] font-bold tracking-[-0.005em] uppercase lg:text-[52px] lg:leading-[50px] xl:text-[64px] xl:leading-[60px] min-[87.5rem]:text-[72px] min-[87.5rem]:leading-[68px]"
 			>
 				<span class="block">{headline[0]}</span>
 				<span class="block text-accent">{headline[1]}</span>

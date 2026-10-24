@@ -69,7 +69,7 @@
 			inputClass
 		)
 	);
-	const labelClass = 'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase';
+	const labelClass = 'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-foreground uppercase';
 </script>
 
 <Field.Root data-invalid={error ? 'true' : undefined} class="relative gap-2">
@@ -125,7 +125,7 @@
 
 	{#if labelAction}
 		<!-- After the control in the DOM so Tab moves from the label straight into the field. -->
-		<div class="absolute -top-0.5 right-0 w-auto">{@render labelAction()}</div>
+		<div class="absolute -top-0.5 right-0 w-fit!">{@render labelAction()}</div>
 	{/if}
 
 	{#if error}

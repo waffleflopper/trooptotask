@@ -111,7 +111,7 @@
 		</dl>
 
 		<div
-			class="flex flex-col gap-1.5 rounded-md border border-accent/30 border-l-[3px] border-l-accent bg-warning-muted px-4 py-3.5"
+			class="flex flex-col gap-1.5 rounded-md border border-accent/25 border-l-[3px] border-l-accent bg-accent/5 px-4 py-3.5"
 		>
 			<p class="{labelClass} text-accent-text">The link works for 14 days</p>
 			<p class="text-sm leading-5 text-foreground">
@@ -165,9 +165,9 @@
 				/>
 
 				<Field.Root class="gap-2">
-					<Field.Label for="heardAbout" class={labelClass}>How did you hear about TroopToTask?</Field.Label>
+					<Field.Label for="heardAbout" class={labelClass}>How did you hear about us?</Field.Label>
 					<Select.Root type="single" bind:value={heardAbout}>
-						<Select.Trigger id="heardAbout" class="h-11 w-full bg-card px-3.5 font-body text-base">
+						<Select.Trigger id="heardAbout" class="w-full data-[size=default]:h-11 bg-card px-3.5 font-body text-base">
 							{heardAboutLabel}
 						</Select.Trigger>
 						<Select.Content>

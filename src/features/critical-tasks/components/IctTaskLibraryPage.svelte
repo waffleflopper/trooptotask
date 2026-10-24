@@ -71,6 +71,7 @@
 	let saveButton = $state<HTMLButtonElement | null>(null);
 	let pageRoot = $state<HTMLElement | null>(null);
 	let confirmArchive = $state<IctTask | null>(null);
+	let defaultsOpen = $state(false);
 	let taskStatusFilter = $state<'active' | 'archived'>('active');
 	let taskSearch = $state('');
 	let selectedMos = $state('');
@@ -161,6 +162,15 @@
 				disabled: loading || creating || editing,
 				disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
 			});
+			items.push({
+				kind: 'action',
+				id: 'defaults',
+				label: 'Defaults',
+				icon: 'sliders',
+				onclick: () => (defaultsOpen = true),
+				disabled: loading || !settings,
+				disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
+			});
 		}
 
 		return items;
@@ -195,6 +205,11 @@
 		);
 	}
 
+	async function returnFocusToDefaults() {
+		await tick();
+		toolbarControlOrMore('defaults')?.focus();
+	}
+
 	$effect(() => {
 		if (selectedMos && !mosFilterOptions.some((option) => option.value === selectedMos)) {
 			selectedMos = '';
@@ -215,6 +230,7 @@
 		saving = false;
 		reordering = false;
 		confirmArchive = null;
+		defaultsOpen = false;
 		taskStatusFilter = 'active';
 		taskSearch = '';
 		selectedMos = '';
@@ -787,10 +803,11 @@
 				</section>
 			</div>
 		{/if}
-		{#if !loading && canManage && settings}
-			<CriticalTasksDefaults {orgId} {settings} />
-		{/if}
 	</div>
+{/if}
+
+{#if canManage && settings}
+	<CriticalTasksDefaults {orgId} {settings} bind:open={defaultsOpen} onClose={returnFocusToDefaults} />
 {/if}
 
 {#if confirmArchive}

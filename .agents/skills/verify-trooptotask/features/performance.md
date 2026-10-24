@@ -164,15 +164,15 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `calendar-month-group-filter` | Calendar in Month             | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the only group band               |
 | `calendar-group-filter`       | Calendar in 3-Month           | interaction, read  | perfWide         | Enter on `Bravo` in the group filter to Bravo's band as the first row                     |
 | `assignment-save`             | Duty planner                  | interaction, write | both             | Enter on the picked assignee to the slot showing that Person and the picker closed        |
-| `personnel-list`              | Personnel                     | load, read         | both             | Sentinel row or paused-roster notice, no skeleton                                         |
+| `personnel-list`              | Personnel                     | load, read         | both             | Sentinel row or paused-roster notice (`rows`), then no skeleton (`useful`)                |
 | `personnel-search`            | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
 | `personnel-filter`            | Personnel                     | interaction, read  | both             | Search fill `68W` to exactly the matching row count                                       |
 | `personnel-large-table`       | Personnel A-Z                 | interaction, read  | both             | `Sort by Name` to the descending table                                                    |
-| `personnel-detail`            | Personnel to detail           | interaction, read  | wide, leader     | `Details` to the record tabs (`header`), then `Needs attention` with nothing loading      |
+| `personnel-detail`            | Personnel to detail           | interaction, read  | wide, leader     | The name link to the record tabs (`header`), then `Needs attention` with nothing loading  |
 | `personnel-detail-direct`     | Personnel detail URL          | load, read         | wide, leader     | The record tabs (`header`), then `Needs attention` with nothing loading                   |
 | `personnel-detail-tab`        | Personnel detail tabs         | interaction, read  | wide, leader     | The `Log` tab, unhovered, to that tab current with nothing loading                        |
 | `personnel-detail-tab-hover`  | Personnel detail tabs         | interaction, read  | wide, leader     | The same click after a hover has preloaded the tab                                        |
-| `personnel-edit`              | Personnel roster dialog       | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
+| `personnel-edit`              | Personnel Quick edit form     | interaction, write | both             | `Save` to the row showing the new MOS with the form closed                                |
 | `personnel-detail-edit`       | Personnel detail              | interaction, write | wide, leader     | `Save changes` to the Data sheet tab with the refreshed header MOS badge                  |
 | `personnel-import`            | Personnel import              | interaction, write | both             | `Import N changes` to `N changes saved.` with every row added                             |
 | `dashboard`                   | Dashboard                     | load, read         | both             | Band skeletons below a header (`pending`), then settled bands and panels with no skeleton |
@@ -382,16 +382,17 @@ each seed to see it grow.
   anchor, so its `calendar-today` reset clicks `Today` and records the cookie it leaves.
 - The Duty planner's slot shows the picked Person before the write returns, and its picker closes only after it does.
   `assignment-save` waits for both, so its useful render is the confirmed save.
-- The roster dialog's save updates the open roster in place with only `PUT /api/personnel`, and the detail page's Data
-  sheet save patches the roster store from the response and reruns only the header and Data sheet loads:
+- The roster's Quick edit save updates the open roster in place with `PUT /api/personnel`, plus one
+  `POST /api/personnel/roster-signals` when rank, MOS, duty role or Group changed, and the detail page's Data sheet save
+  patches the roster store from the response and reruns only the header and Data sheet loads:
   `<slug>/data-sheet/__data.json` with `x-sveltekit-invalidated=00011` and no `/api/app-shell-chrome` request. Roster
   and bulk archive rerun only the Personnel layout (`0010`), and an import commit reruns it under the import page.
   Measure each; they are different costs. The
   [Personnel recipe](personnel-records-lifecycle.md#detail-data-sheet-and-loss-baseline) maps every mutation's bits.
 - A Group-scoped actor must give every new Person a permitted Group, so the import file only names the scoped Group.
-- The roster shows `Details` only to an actor who may read sensitive Personnel records unscoped, so the scoped operator
-  `perfScoped` sees `Edit` and no `Details` (its direct detail URL is the 403 page); `perfScopedLeader` measures the
-  Group-scoped detail.
+- A roster row opens its record only for an actor who may read sensitive Personnel records unscoped, so the scoped
+  operator `perfScoped` sees `Quick edit` and a row that does not open (its direct detail URL is the 403 page);
+  `perfScopedLeader` measures the Group-scoped detail.
 - A summary written before `perf summarize` excluded `superseded/` lists superseded runs as current. Regenerate an older
   archive's summaries before citing them.
 - The owned supervisor and its browser can die between two samples while the app and provider keep running. Start

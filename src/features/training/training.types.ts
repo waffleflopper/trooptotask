@@ -19,6 +19,8 @@ export interface TrainingType {
 	isOptional: boolean;
 }
 
+export type TrainingRequirementFacts = Omit<TrainingType, 'description' | 'color' | 'sortOrder'>;
+
 export interface PersonnelTraining {
 	id: string;
 	personnelId: string;

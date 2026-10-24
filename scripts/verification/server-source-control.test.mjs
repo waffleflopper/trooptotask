@@ -511,3 +511,28 @@ test('Calendar type catalog hold receipts only the exact A read; the lane comman
 	assert.equal(await catalogResponse.text(), 'saved type catalog');
 	control.command('restore');
 });
+
+test('the roster signals RPC control fails only the A POST that names that RPC', async () => {
+	const dispatched = [];
+	const control = controller(async (...args) => {
+		dispatched.push(args);
+		return new Response('real');
+	});
+	const rpc = `${providerUrl}/rest/v1/rpc/roster_signals`;
+	const body = (organization) => JSON.stringify({ p_organization_id: organization, p_as_of: '2026-10-23' });
+	control.command('arm', { table: 'rpc/roster_signals', mode: 'fail-hard' });
+	const ordinary = [
+		[rpc, { method: 'POST', body: body(orgB) }],
+		[rpc.replace('roster_signals', 'roster_swaps'), { method: 'POST', body: body(orgA) }],
+		[rpc, { method: 'GET' }],
+		[rpc, { method: 'POST', body: 'not json' }],
+		[`${providerUrl}/rest/v1/availability_entries?organization_id=eq.${orgA}`]
+	];
+	for (const input of ordinary) assert.equal(await (await control.fetch(...input)).text(), 'real');
+	assert.equal(control.command('state').control.matches, 0);
+	const response = await control.fetch(rpc, { method: 'POST', body: body(orgA) });
+	assert.equal(response.status, 500);
+	assert.equal(dispatched.length, ordinary.length);
+	assert.equal(await (await control.fetch(rpc, { method: 'POST', body: body(orgA) })).text(), 'real');
+	control.command('restore');
+});

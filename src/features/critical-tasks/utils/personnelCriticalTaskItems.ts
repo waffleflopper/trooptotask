@@ -1,11 +1,20 @@
-import type { Personnel } from '$features/personnel/contracts';
+import type { PersonnelRequirementPerson } from '$features/personnel/contracts';
 import { compareReadinessItems, type ReadinessItemStatus } from '$lib/domain/readinessItem';
 import type { CriticalTasksSettings, IctStatus, IctTask, PersonnelIctCompletion } from '../criticalTasks.types';
 import { compareIctCompletionRecency } from './ictReadinessSnapshot';
 import { getIctStatus, resolveIctExpirationMonths } from './ictStatus';
 import { isIctTaskApplicableToMos } from './ictTaskLibrary';
 
-export interface PersonnelCriticalTaskItem {
+export type IctCompletionFacts = Pick<
+	PersonnelIctCompletion,
+	'ictTaskId' | 'completedAt' | 'createdAt' | 'validatedBy'
+>;
+
+export type IctTaskFacts = Pick<IctTask, 'id' | 'taskCode' | 'title' | 'mos' | 'expirationMonths'> & {
+	archivedAt?: string | null;
+};
+
+export interface PersonnelCriticalTaskItem<C extends IctCompletionFacts = PersonnelIctCompletion> {
 	taskId: string;
 	taskCode: string;
 	name: string;
@@ -13,16 +22,16 @@ export interface PersonnelCriticalTaskItem {
 	expirationDate: string | null;
 	daysUntilExpiration: number | null;
 	cycleMonths: number;
-	latest: PersonnelIctCompletion | null;
+	latest: C | null;
 	/** Every recorded validation for the task, newest first; the first is `latest`. */
-	history: PersonnelIctCompletion[];
+	history: C[];
 }
 
-export interface PersonnelCriticalTaskReadiness {
+export interface PersonnelCriticalTaskReadiness<C extends IctCompletionFacts = PersonnelIctCompletion> {
 	personnelId: string;
 	mos: string;
 	/** Applicable tasks, ranked expired, missing, expiring, then current by soonest expiry. */
-	items: PersonnelCriticalTaskItem[];
+	items: PersonnelCriticalTaskItem<C>[];
 	expiringSoonWarningDays: number;
 }
 
@@ -33,22 +42,22 @@ const ITEM_STATUS = {
 	current: 'current'
 } as const satisfies Record<IctStatus, ReadinessItemStatus>;
 
-export function buildPersonnelCriticalTaskReadiness(input: {
-	person: Personnel;
-	tasks: IctTask[];
-	completions: PersonnelIctCompletion[];
+export function buildPersonnelCriticalTaskReadiness<C extends IctCompletionFacts = PersonnelIctCompletion>(input: {
+	person: Pick<PersonnelRequirementPerson, 'id' | 'mos'>;
+	tasks: readonly IctTaskFacts[];
+	completions: readonly C[];
 	settings: CriticalTasksSettings;
 	asOf: string;
-}): PersonnelCriticalTaskReadiness {
+}): PersonnelCriticalTaskReadiness<C> {
 	const { person, settings, asOf } = input;
-	const historyByTask = new Map<string, PersonnelIctCompletion[]>();
+	const historyByTask = new Map<string, C[]>();
 	for (const completion of input.completions.toSorted((a, b) => compareIctCompletionRecency(b, a))) {
 		historyByTask.set(completion.ictTaskId, [...(historyByTask.get(completion.ictTaskId) ?? []), completion]);
 	}
 
 	const items = input.tasks
 		.filter((task) => !task.archivedAt && isIctTaskApplicableToMos(task, person.mos))
-		.map((task): PersonnelCriticalTaskItem => {
+		.map((task): PersonnelCriticalTaskItem<C> => {
 			const history = historyByTask.get(task.id) ?? [];
 			const latest = history[0] ?? null;
 			const info = getIctStatus(latest?.completedAt ?? null, task, settings, asOf);

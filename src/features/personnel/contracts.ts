@@ -37,18 +37,43 @@ export interface PersonnelPageAccess {
 import type { FileCleanup, OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
 import { isDateOnly } from '$lib/utils/dates';
-import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
+import { DATE_ONLY_MESSAGE, uuidSchema } from '$lib/utils/inputSchemas';
 import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { LossCandidate } from './upcomingLoss';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
+import { ROSTER_SIGNAL_BATCH_LIMIT } from './rosterSignals';
 
-export type { Personnel, PersonnelLookup } from './personnel.types';
+export type { Personnel, PersonnelLookup, PersonnelRequirementPerson } from './personnel.types';
+export { PERSONNEL_SIGNALS_DEPENDENCY, ROSTER_SIGNAL_BATCH_LIMIT } from './rosterSignals';
+export type {
+	Known,
+	OpenFollowUp,
+	OpenFollowUpSignal,
+	PersonSignalCore,
+	RosterChip,
+	RosterFilter,
+	RosterSignalRead,
+	RosterSignalSlices,
+	RosterSignalSummary,
+	RosterSourceQuery,
+	RosterSourceRead,
+	RosterStatusType,
+	SignalAccess,
+	SignalRow,
+	SummaryState,
+	TodayStatus
+} from './rosterSignals';
+
+export { ROSTER_PEEK_DAYS, ROSTER_PEEK_SECTIONS, isRosterPeekSection } from './rosterPeek';
+export type { RosterPeekRead, RosterPeekSection, RosterPeekValues } from './rosterPeek';
 
 // Failures the Personnel forms attach to one field. Servers emit and forms match these exact strings.
 export const PERSONNEL_LAST_NAME_REQUIRED_MESSAGE = 'Last name is required';
 export const GROUP_NAME_EXISTS_MESSAGE = 'A Group with that name already exists.';
 export const GROUP_UNAVAILABLE_MESSAGE = 'That Group is no longer available.';
+export const GROUP_ORDER_CHANGED_MESSAGE = 'The Group order changed somewhere else. The list shows the saved order.';
+export const GROUP_CHANGE_UNCONFIRMED_MESSAGE = "We couldn't confirm the Group change. Reload to see what saved.";
 export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
 
 export interface Group {
@@ -118,6 +143,8 @@ export interface PersonnelRecordPersistence {
 		options?: { onlyActive: true }
 	): Promise<Personnel | null>;
 	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
+	/** One statement moving these active People to the Group (null is Unassigned); resolves the ids it moved. */
+	moveToGroup(ids: readonly string[], groupId: string | null): Promise<string[]>;
 	delete(id: string): Promise<void>;
 }
 
@@ -126,9 +153,15 @@ export interface GroupPersistence {
 	findReference(id: string): Promise<{ id: string } | null>;
 	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number }): Promise<Group>;
-	/** Resolves null when the Group is no longer in the Organization. */
-	update(id: string, patch: { name?: string; sortOrder?: number }): Promise<Group | null>;
-	delete(id: string): Promise<void>;
+	/** Renames the Group and carries every viewer's pin to the new name. Fails 404 when the Group is gone. */
+	rename(id: string, name: string): Promise<Group>;
+	/** Compare-and-replace of the whole display order; fails 409 when the saved order is no longer `expectedIds`. */
+	setOrder(ids: readonly string[], expectedIds: readonly string[]): Promise<void>;
+	/**
+	 * Moves every member to `targetId` (null is Unassigned), deletes the Group and its pins in one transaction,
+	 * and resolves how many People moved. Fails 404 when either Group is gone.
+	 */
+	deleteWithReassignment(id: string, targetId: string | null): Promise<number>;
 }
 
 export interface PinnedGroupResult {
@@ -306,6 +339,18 @@ export interface PersonnelArtifactWritePort {
 	/** The caller admits the requester against the returned Person before revealing anything about it. */
 	findCounselingPersonId(actor: PersonnelRosterActor, recordId: string): Promise<string | null>;
 	forPerson(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelArtifactWriter>;
+	/** One insert of the same follow-up for People the caller already admitted. Returns the People written. */
+	createFollowUps(
+		actor: PersonnelRosterActor,
+		personnelIds: string[],
+		entry: { title: string; notes: string; dueDate: string | null; createdBy: string; createdAt: string }
+	): Promise<string[]>;
+	/** One insert of the same note for People the caller already admitted. Returns the People written. */
+	createLeaderNotes(
+		actor: PersonnelRosterActor,
+		personnelIds: string[],
+		entry: { author: string; text: string; createdAt: string }
+	): Promise<string[]>;
 }
 
 /**
@@ -565,3 +610,8 @@ export type {
 	FollowUpRow,
 	LeaderNoteRow
 } from './personnelArtifactPersistence';
+
+export const rosterSignalsRequestSchema = z.object({
+	personnelIds: z.array(uuidSchema).min(1).max(ROSTER_SIGNAL_BATCH_LIMIT)
+});
+export type RosterSignalsRequest = z.infer<typeof rosterSignalsRequestSchema>;

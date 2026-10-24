@@ -3,16 +3,19 @@
 		PersonnelPageView,
 		rosterStore,
 		pinnedGroupsStore,
+		groupsStore,
 		loadPersonnelModals,
 		PersonnelPageContext,
+		PersonnelRosterSkeleton,
+		RosterSignals,
 		type PersonnelPageData
 	} from '$features/personnel';
+	import { PersonnelNextDays, PersonnelNextDaysSkeleton, type PersonnelCalendarWindow } from '$features/calendar';
+	import { ROSTER_PEEK_DAYS } from '$features/personnel/contracts';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import type { PersonnelWorkspaceData, PersonnelWorkspaceResult } from '$features/personnel/contracts';
-
-	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
 	let { data } = $props();
 
@@ -53,10 +56,16 @@
 
 	const org = getAppShellContext();
 	const modals = new ModalRegistry();
+	const signals = new RosterSignals();
+
+	$effect(() => {
+		signals.observe(data.shell.org.id, data.asOf, data.rosterSignals);
+	});
 
 	function createPageData(workspaceData: PersonnelWorkspaceData): PersonnelPageData {
 		return {
 			orgId: data.shell.org.id,
+			asOf: data.asOf,
 			orgName: data.shell.org.name,
 			pinnedGroups: workspaceData.pinnedGroups,
 			rankCatalog: workspaceData.rankCatalog,
@@ -67,24 +76,39 @@
 		};
 	}
 
+	const PEEK_LEGEND_LINES = 2;
+
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {
-		return new PersonnelPageContext(createPageData(workspaceData), modals, org, rosterStore, pinnedGroupsStore);
+		return new PersonnelPageContext(
+			createPageData(workspaceData),
+			modals,
+			org,
+			rosterStore,
+			pinnedGroupsStore,
+			signals,
+			groupsStore
+		);
 	}
 </script>
+
+{#snippet peekNextDays(calendar: unknown)}
+	{#if calendar}
+		<PersonnelNextDays calendar={calendar as PersonnelCalendarWindow} legendLines={PEEK_LEGEND_LINES} />
+	{:else}
+		<PersonnelNextDaysSkeleton days={ROSTER_PEEK_DAYS} legendLines={PEEK_LEGEND_LINES} />
+	{/if}
+{/snippet}
 
 {#key data.shell.org.id}
 	{#if loadError && loadError.orgId === data.shell.org.id && !workspace}
 		<!-- The Personnel layout observes this same source and shows WorkspaceLoadError. -->
 	{:else if workspace}
 		{@const ctx = createContext(workspace.data)}
-		<PersonnelPageView {ctx} {requestArchiveApproval} />
+		<PersonnelPageView {ctx} nextDays={peekNextDays} />
 		{#await loadPersonnelModals() then { default: PersonnelModals }}
-			<PersonnelModals {ctx} {modals} {requestArchiveApproval} />
+			<PersonnelModals {ctx} {modals} />
 		{/await}
 	{:else}
-		<div class="px-6 py-8">
-			<div class="h-8 w-48 animate-pulse rounded bg-muted"></div>
-			<div class="mt-6 h-80 animate-pulse rounded border bg-muted/40"></div>
-		</div>
+		<PersonnelRosterSkeleton />
 	{/if}
 {/key}

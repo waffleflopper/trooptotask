@@ -24,10 +24,14 @@ links to the place a leader fixes it.
   day: relative day, date, title and who held it, or the uploader when no conductor was recorded; a counseling dated
   later is left out, and the Files heading `Last counseled N days ago` names the same one) and `Latest note`.
 - `sections`: each section streams on its own with a shaped skeleton and its own error state.
+- `roster-peek`: the roster's peek panel reads the same sources, one section per request, through
+  `api/personnel/<id>/peek` and draws the strip as `Next 7 days`; drive it from [Find personnel](find-personnel.md)
+  step 20.
 
 ## How to get to it (user POV)
 
-Choose `Personnel`, then a Person's `Details`. The Overview is the first tab under the record header.
+Choose `Personnel`, then a Person's name link (at 1280 px and wider a row click opens the preview instead). The Overview
+is the first tab under the record header.
 
 ## Driving it with verify:app
 
@@ -64,5 +68,7 @@ Baker (`verify-baker`, Bravo) holds `Verification Training` across today and two
 - The strip reads the viewer's day from the `t2t_tz` cookie, so a browser zone ahead of UTC can start it a day after the
   server's date.
 - `server-source` controls only owned Organization A; restore each control before the next case.
+- A `server-source` hold or fail on `availability_entries`, `leader_notes` or `personnel_follow_ups` also reaches the
+  roster's peek panel, which reads them on open.
 - The record scrolls inside the app shell's `main`, not the window, so a `fullPage` screenshot shows one viewport. Call
   `scrollIntoView()` on the section (`section[aria-label="Open follow-ups"]`) before a capture of the lower sections.

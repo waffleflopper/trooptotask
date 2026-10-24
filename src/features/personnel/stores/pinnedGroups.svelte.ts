@@ -40,6 +40,11 @@ export class PinnedGroupsStore {
 		this.#orgId = orgId;
 	}
 
+	followCatalogChange(from: string, to: string | null) {
+		if (!this.#pinnedGroups.includes(from)) return;
+		this.#pinnedGroups = this.#pinnedGroups.flatMap((name) => (name === to ? [] : name === from ? (to ?? []) : [name]));
+	}
+
 	isPinned(group: string): boolean {
 		return this.#pinnedGroups.includes(group);
 	}
@@ -189,6 +194,10 @@ export const pinnedGroupsStore = {
 		return pinnedGroupManagementStore.toggle(group);
 	}
 };
+
+export function followPinnedGroupCatalogChange(from: string, to: string | null) {
+	pinnedGroupManagementStore.followCatalogChange(from, to);
+}
 
 /** Workspace bootstraps supply the ordered pin snapshot without another request. */
 export const pinnedGroupsHydration = {

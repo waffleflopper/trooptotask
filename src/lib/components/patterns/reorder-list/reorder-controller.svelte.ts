@@ -35,7 +35,8 @@ export class ReorderController {
 		return this.#entries().find((entry) => entry.id === id)?.label ?? '';
 	}
 
-	async move(id: string, toIndex: number): Promise<void> {
+	/** `focus` is the element to keep focused after the move; the row's grip by default. */
+	async move(id: string, toIndex: number, focus?: HTMLElement): Promise<void> {
 		const entries = this.#entries();
 		const from = entries.findIndex((entry) => entry.id === id);
 		if (from < 0) return;
@@ -49,9 +50,8 @@ export class ReorderController {
 		const move = ++this.#moves;
 		const moving = this.#onmove(id, to);
 		await tick();
-		this.#root()
-			?.querySelector<HTMLElement>(`:scope > [data-reorder-id="${CSS.escape(id)}"] [data-reorder-grip]`)
-			?.focus();
+		const row = this.#root()?.querySelector<HTMLElement>(`:scope > [data-reorder-id="${CSS.escape(id)}"]`);
+		(focus && row?.contains(focus) ? focus : row?.querySelector<HTMLElement>('[data-reorder-grip]'))?.focus();
 		await moving;
 		if (move !== this.#moves) return;
 		// A consumer that could not keep the move shows its saved order; say where the row really is.
@@ -69,6 +69,17 @@ export class ReorderController {
 		event.preventDefault();
 		const from = this.#entries().findIndex((entry) => entry.id === id);
 		void this.move(id, from + (event.key === 'ArrowUp' ? -1 : 1));
+	}
+
+	/** Alt+ArrowUp/Down moves the row from any focused control inside it, except a text field. */
+	itemKeydown(id: string, event: KeyboardEvent): void {
+		if (!event.altKey || event.defaultPrevented || this.dragId) return;
+		if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+		const target = event.target as HTMLElement;
+		if (target.isContentEditable || target.closest('input, textarea, select')) return;
+		event.preventDefault();
+		const from = this.#entries().findIndex((entry) => entry.id === id);
+		void this.move(id, from + (event.key === 'ArrowUp' ? -1 : 1), target);
 	}
 
 	pointerdown(id: string, event: PointerEvent): void {

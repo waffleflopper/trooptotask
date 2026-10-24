@@ -13,6 +13,8 @@ export interface Personnel {
 	archivedAt?: string | null;
 }
 
+export type PersonnelRequirementPerson = Pick<Personnel, 'id' | 'rank' | 'mos' | 'clinicRole'>;
+
 export interface PersonnelLookup {
 	id: string;
 	rank: string;

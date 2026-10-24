@@ -1,4 +1,4 @@
-import type { PersonnelArchivedArtifact, PersonnelFollowUp } from './contracts';
+import type { PersonnelArchivedArtifact, PersonnelFollowUp } from './personnelArtifact.types';
 
 const DAY_MS = 86_400_000;
 

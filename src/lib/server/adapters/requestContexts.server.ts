@@ -17,6 +17,7 @@ import {
 import {
 	createSupabaseTrainingExportReader,
 	createSupabaseTrainingCatalogPersistence,
+	createSupabaseTrainingRosterSignals,
 	createSupabaseTrainingCompletionPersistence,
 	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
@@ -28,12 +29,14 @@ import {
 	createSupabaseCalendarCatalogPersistence,
 	createSupabaseCalendarAvailabilityPersistence,
 	createSupabaseCalendarAssignmentReader,
+	createSupabaseRosterPresenceSignals,
 	createSupabaseStatusTypeNamesReader
 } from '$features/calendar/index.server';
 import {
 	createSupabaseCriticalTasksExportReader,
 	createSupabaseCriticalTasksReadModelAdapter,
 	createSupabaseCriticalTaskLibraryPersistence,
+	createSupabaseCriticalTaskRosterSignals,
 	createSupabaseCriticalTaskCompletionPersistence
 } from '$features/critical-tasks/index.server';
 import { listFeedbackExportRows } from '$features/feedback/index.server';
@@ -56,6 +59,11 @@ import {
 	createSupabasePersonnelNamesReader,
 	createSupabasePersonnelRosterReader,
 	createSupabasePersonnelRecordPersistence,
+	createSupabaseRosterCounselingSignals,
+	createSupabaseRosterFollowUpSignals,
+	createSupabaseRosterSignalSlices,
+	resolveSignalAccess,
+	type RosterSignalSources,
 	createSupabasePersonnelArtifactReadPersistence,
 	createSupabasePersonnelSheetPersistence,
 	createSupabasePersonnelWorkbookHistoryReader,
@@ -76,7 +84,8 @@ import {
 import {
 	createSupabaseRatingSchemeExportReader,
 	createSupabaseRatingSchemeDuePort,
-	createSupabaseRatingSchemePersistence
+	createSupabaseRatingSchemePersistence,
+	createSupabaseRatingSchemeRosterSignals
 } from '$features/rating-scheme/index.server';
 import {
 	createSupabaseSignInRosterPersistence,
@@ -114,7 +123,11 @@ import {
 	requireActiveOrganization,
 	type ActiveOrganization
 } from '$features/organization/index.server';
-import type { LeaderNoteContext, PersonnelArtifactsContext } from '$features/personnel/index.server';
+import type {
+	LeaderNoteContext,
+	PersonnelArtifactsContext,
+	PersonnelLogBatchContext
+} from '$features/personnel/index.server';
 
 import { readOrganizationMembershipForRequest } from '$features/organization/index.server';
 import { getOrLoadRequestMembership } from '$lib/access/index.server';
@@ -354,6 +367,15 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 	};
 }
 
+export function createRequestPersonnelLogBatchContext(request: AdmittedOrganizationRequest): PersonnelLogBatchContext {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient)
+	};
+}
+
 export function createRequestRankCatalogContext(request: AdmittedOrganizationRequest) {
 	return {
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
@@ -479,6 +501,21 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		disabledFeatures: request.disabledFeatures
 	};
+}
+
+export function createRequestRosterSignalsContext(request: AdmittedOrganizationRequest) {
+	const { supabase, auth } = request;
+	const access = resolveSignalAccess(auth, request.disabledFeatures);
+	const slices = createSupabaseRosterSignalSlices(supabase, auth.orgId, access);
+	const sources: RosterSignalSources = {
+		availability: createSupabaseRosterPresenceSignals(slices),
+		training: createSupabaseTrainingRosterSignals(slices),
+		criticalTasks: createSupabaseCriticalTaskRosterSignals(slices),
+		evaluations: createSupabaseRatingSchemeRosterSignals(slices),
+		followUps: createSupabaseRosterFollowUpSignals(slices),
+		counseling: createSupabaseRosterCounselingSignals(slices)
+	};
+	return { access, sources };
 }
 
 export function createRequestPersonnelArchivedArtifactsContext(request: AdmittedOrganizationRequest) {

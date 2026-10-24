@@ -17,3 +17,4 @@ export {
 } from './server/ratingSchemeEntryOperations.server';
 
 export { createRatingSchemeSupportReader } from './server/supportReadProvider.server';
+export { createSupabaseRatingSchemeRosterSignals } from './server/ratingSchemeRosterSignals.server';

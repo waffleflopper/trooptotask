@@ -7,27 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
-		id: '2026-10-24-account-redesign',
+		id: '2026-10-24-personnel-roster',
 		date: '2026-10-24',
-		title: 'Your Account, Inside Your Unit',
+		title: 'See Who Needs You From the Personnel Roster',
 		items: [
-			"Your rank and name now sit at the foot of the sidebar. Choose them to open your account menu: Account, What's new, Send feedback and Sign out.",
-			'Account opens inside your unit, with the sidebar still there, so you never lose your place. Old Account links still work.',
-			'Sign-in & security changes your email, password or two-factor right where you are. A checklist under the new password shows each rule as you meet it, and Update password waits until every rule passes.',
-			"If two-factor isn't on yet, the account menu offers Turn on two-factor, which takes you straight to setup. It goes away once two-factor is on.",
-			'Your role in the unit shows at the top of the account menu. Leave unit is under Personnel records on your Profile.',
-			'If something looks off, use Feedback in the upper right to let me know.'
-		]
-	},
-	{
-		id: '2026-10-24-sign-in-redesign',
-		date: '2026-10-24',
-		title: 'New Sign-In Pages and Two-Factor Setup',
-		items: [
-			'Sign in, Request access, password reset and the Account Setup pages have a new look. Every link and step works the same way.',
-			'Entering a two-factor code is faster. The cursor starts in the first box, pasting the whole code works, and the code submits as soon as the sixth digit is in. A rejected code is cleared as you type the next one.',
-			"Turning on two-factor now has its own page. If your phone can't scan the QR code, type the setup key shown beside it, or copy it with one click.",
-			'If something looks off, use Feedback in the upper right to let me know.'
+			'Each row on Personnel now shows today’s status as a colored dot and the person’s most urgent Needs attention item, like CPR/BLS expired or 1 follow-up overdue. The strip by the title counts who is present and who is away today.',
+			'Log a quick note or follow-up without leaving the roster: press N or the note button on a row. Press E or the pencil to fix rank, name, MOS, duty role, Group or loss dates in place.',
+			'By Group puts your pinned Groups first, then the order you set. Each Group header shows how many are present and how many need attention. Manage groups now opens one editor to add, rename, reorder and delete Groups and to move people between them.',
+			'Check the box on several people, or press X on their rows, to act on all of them at once: a follow-up for each, the same note, a move to another Group, an export or an archive. A Group’s menu adds a note for everyone in it.',
+			'Show only chips filter the roster to expired or missing training, items expiring within 30 days, overdue follow-ups, people not present, ETS or PCS within 90 days, and counseling due. The counts by the title filter too: choose present, or a status like Leave, to see just those people. The address keeps the filter, so a link you share opens the same filtered roster.',
+			'On a wide screen, clicking a row or pressing Space opens a preview beside the roster with the person’s next 7 days, what needs attention, open follow-ups and the latest note. Add a note or follow-up or quick edit from it, press J and K to move through the people the roster shows, so a filter keeps you on the people it matches, and Esc or Space to close it. The name still opens the full record.',
+			'There’s a new Account settings page, and an account menu at the bottom left of the sidebar.'
 		]
 	},
 	{

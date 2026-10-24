@@ -47,6 +47,25 @@ export async function loadPersonnelDetailHeader(
 	return { person, basd: sheet?.basd ?? null, dateOfRank: sheet?.date_of_rank ?? null };
 }
 
+export async function loadPersonnelPeekPerson(
+	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit' | 'scope'> & {
+		organizationPersonnel: Pick<PersonnelRecordPersistence, 'findById'>;
+	},
+	personnelId: string
+): Promise<Personnel> {
+	const person = await ctx.organizationPersonnel.findById(personnelId);
+	if (!person || person.archivedAt) fail(404, 'Personnel record not found');
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		policyResourceForGroup(person.groupId),
+		'personnel',
+		person.id
+	);
+	await ctx.scope.requireGroupAccess(person.id);
+	return person;
+}
+
 /**
  * The page resolves the Person and its Group access once through the header; each lane still
  * requires its own feature action against that Person before it reads.

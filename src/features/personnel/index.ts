@@ -5,6 +5,7 @@ export { pinnedGroupsStore, pinnedGroupsHydration } from './stores/pinnedGroups.
 
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';
 export type { PersonnelPageData } from './contexts/PersonnelPageContext.svelte';
+export { RosterSignals } from './rosterSignals.svelte';
 
 export { default as PersonnelModal } from './components/PersonnelModal.svelte';
 export type { RequestPersonnelArchiveApproval } from './utils/archivePersonnel';
@@ -16,6 +17,7 @@ export function loadPersonnelModals() {
 }
 
 export { default as PersonnelPageView } from './components/PersonnelPageView.svelte';
+export { default as PersonnelRosterSkeleton } from './components/roster/PersonnelRosterSkeleton.svelte';
 export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';
 export { default as PersonnelDataSheetPageView } from './components/PersonnelDataSheetPageView.svelte';
 export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';

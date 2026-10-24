@@ -1,5 +1,6 @@
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { describe, it, expect } from 'vitest';
 import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -25,6 +26,7 @@ function makePerson(overrides: Partial<Personnel> = {}): Personnel {
 function makeData(overrides: Record<string, unknown> = {}) {
 	return {
 		orgId: 'org1',
+		asOf: '2026-04-14',
 		orgName: 'Test Org',
 		pinnedGroups: [] as string[],
 		personnel: [] as Personnel[],
@@ -111,6 +113,21 @@ describe('PersonnelPageContext', () => {
 
 			expect(configurer({ kind: 'organization' }).canManageGroups).toBe(true);
 			expect(configurer({ kind: 'groups', groupIds: ['g1'] }).canManageGroups).toBe(false);
+		});
+
+		it('predicts the chips a viewer can see from their permissions and the unit switches', () => {
+			const expected = (level: Parameters<typeof createCapabilityMap>[0], disabledFeatures: FeatureKey[] = []) =>
+				new PersonnelPageContext(
+					makeData({ disabledFeatures }),
+					makeModals(),
+					createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap(level) })
+				).expectedChipCount;
+
+			expect(expected('configure')).toBe(6);
+			expect(expected('configure', ['lossesAndAwards'])).toBe(5);
+			expect(expected('configure', ['training', 'criticalTasks', 'evaluations'])).toBe(4);
+			expect(expected('none')).toBe(1);
+			expect(expected('none', ['lossesAndAwards'])).toBe(0);
 		});
 
 		it('keeps add/import/group affordances separate from existing-record edits', () => {
@@ -415,28 +432,19 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('modal handlers', () => {
-		it('handleAdd opens personnel-modal with null person payload', () => {
+		it('handleAdd opens personnel-modal', () => {
 			const modals = makeModals();
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
 			ctx.handleAdd();
 			expect(modals.isOpen('personnel-modal')).toBe(true);
-			expect(modals.payload<{ person: Personnel | null }>('personnel-modal')?.person).toBeNull();
 		});
 
-		it('handleEdit opens personnel-modal with the person payload', () => {
-			const person = makePerson();
-			const modals = makeModals();
-			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg(), [person]);
-			ctx.handleEdit(person);
-			expect(modals.isOpen('personnel-modal')).toBe(true);
-			expect(modals.payload<{ person: Personnel }>('personnel-modal')?.person).toBe(person);
-		});
-
-		it('openGroupManager opens group-manager modal', () => {
+		it.each(['group-a', null])('opens the editor with selection %s', (groupId) => {
 			const modals = makeModals();
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
-			ctx.openGroupManager();
+			ctx.openGroupEditor(groupId);
 			expect(modals.isOpen('group-manager')).toBe(true);
+			expect(modals.payload('group-manager')).toEqual({ select: groupId });
 		});
 	});
 
@@ -457,21 +465,18 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('upcomingLossMap', () => {
-		const TODAY = '2026-04-14';
-		// 48 days from TODAY — well within 180-day default window
 		const IN_WINDOW = '2026-06-01';
-		// 382 days from TODAY — beyond any reasonable default window
 		const OUT_OF_WINDOW = '2027-05-01';
 
 		it('returns an empty map when no personnel have tracked dates', () => {
 			const people = [makePerson({ id: 'p1', ets: null, deros: null })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 		});
 
 		it('includes a person whose ETS is within the warning window', () => {
 			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('ETS');
@@ -479,7 +484,7 @@ describe('PersonnelPageContext', () => {
 
 		it('includes a person whose DEROS is within the warning window', () => {
 			const people = [makePerson({ id: 'p1', deros: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('PCS / DEROS');
@@ -488,74 +493,46 @@ describe('PersonnelPageContext', () => {
 		it('shows no loss flags when the unit turns Losses and awards off', () => {
 			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
 			const data = makeData({ disabledFeatures: ['lossesAndAwards'] });
-			const ctx = new PersonnelPageContext(data, makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(data, makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 			expect(ctx.lossWarningsUnavailable).toBe(false);
 		});
 
 		it('excludes a person whose ETS falls outside the warning window', () => {
 			const people = [makePerson({ id: 'p1', ets: OUT_OF_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(false);
 		});
 
 		it('returns an empty map when personnel array is empty', () => {
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), []);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 		});
 
 		it('respects a custom lossWarningWindowDays from page data', () => {
 			// ETS 17 days from today — inside 180d default but outside 10d custom window
 			const people = [makePerson({ id: 'p1', ets: '2026-05-01' })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: 10 }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: 10 }), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(false);
 		});
 
 		it('includes a person when lossWarningWindowDays is wide enough to cover their ETS', () => {
 			// ETS 17 days from today — inside a 30-day custom window
 			const people = [makePerson({ id: 'p1', ets: '2026-05-01' })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: 30 }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: 30 }), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(true);
 		});
 
 		it('shows no loss flags and reports warnings unavailable when the window could not be read', () => {
 			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: null }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: null }), makeModals(), makeOrg(), people);
 			expect([...ctx.upcomingLossMap.keys()]).toEqual([]);
 			expect(ctx.lossWarningsUnavailable).toBe(true);
 		});
 
 		it('flags an ETS 60 days out but not 61 under a stored 60-day window', () => {
 			const people = [makePerson({ id: 'day-60', ets: '2026-06-13' }), makePerson({ id: 'day-61', ets: '2026-06-14' })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: 60 }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: 60 }), makeModals(), makeOrg(), people);
 			expect([...ctx.upcomingLossMap.keys()]).toEqual(['day-60']);
 			expect(ctx.lossWarningsUnavailable).toBe(false);
 		});
@@ -563,7 +540,7 @@ describe('PersonnelPageContext', () => {
 		it('uses 180 days as default window when lossWarningWindowDays is not in page data', () => {
 			// ETS 120 days from today — inside 180-day default
 			const people = [makePerson({ id: 'p1', ets: '2026-08-12' })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(true);
 		});
 
@@ -573,14 +550,56 @@ describe('PersonnelPageContext', () => {
 				makeData({ awardTrackingAcknowledgedPersonnelIds: ['p1'] }),
 				makeModals(),
 				makeOrg(),
-				people,
-				[],
-				TODAY
+				people
 			);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.awardDueSoon).toBe(false);
 			expect(record?.awardTrackingAcknowledged).toBe(true);
+		});
+	});
+
+	describe('Group order', () => {
+		const groups = [
+			{ id: 'g-c', name: 'Charlie', sortOrder: 0 },
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 1 },
+			{ id: 'g-d', name: 'Delta', sortOrder: 0 }
+		];
+
+		it('follows sort_order, then name, and orders the By Group view by it ahead of Unassigned', () => {
+			const people = [
+				makePerson({ id: 'u', groupName: '' }),
+				...groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }))
+			];
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], undefined, {
+				orgId: 'org1',
+				items: groups
+			});
+
+			expect(ctx.groupOrder).toEqual(['Charlie', 'Delta', 'Alpha', 'Bravo']);
+			expect(ctx.personnelByGroup.map((group) => group.group)).toEqual([
+				'Charlie',
+				'Delta',
+				'Alpha',
+				'Bravo',
+				'Unassigned'
+			]);
+		});
+
+		it("puts the viewer's pins first and ignores a catalog loaded for another Organization", () => {
+			const people = groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }));
+			const pinned = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, ['Bravo'], undefined, {
+				orgId: 'org1',
+				items: groups
+			});
+			const foreign = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], undefined, {
+				orgId: 'org2',
+				items: groups
+			});
+
+			expect(pinned.personnelByGroup.map((group) => group.group)).toEqual(['Bravo', 'Charlie', 'Delta', 'Alpha']);
+			expect(foreign.groupOrder).toEqual([]);
 		});
 	});
 });

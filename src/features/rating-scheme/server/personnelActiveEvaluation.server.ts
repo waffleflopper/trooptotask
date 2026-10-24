@@ -1,12 +1,38 @@
 import type { Personnel } from '$features/personnel/contracts';
 import { parseDate } from '$lib/utils/dates';
 import type { RatingSchemePersistence } from '../contracts';
-import type { PersonnelActiveEvaluation } from '../rating-scheme.types';
+import type { PersonnelActiveEvaluation, RatingSchemeEntry } from '../rating-scheme.types';
 import { evaluationPhase } from '../utils/evaluationPhase';
 import { getDaysUntilDue, getRatingDueStatus, getReportTypeLabel } from '../utils/ratingScheme';
 
 type Evaluator = 'rater' | 'seniorRater' | 'intermediateRater' | 'reviewer';
 const EVALUATORS: readonly Evaluator[] = ['rater', 'seniorRater', 'intermediateRater', 'reviewer'];
+
+export type ActiveEvaluationEntry = Pick<
+	RatingSchemeEntry,
+	'id' | 'evalType' | 'reportType' | 'ratingPeriodStart' | 'ratingPeriodEnd' | 'status' | 'workflowStatus'
+>;
+
+export type ActiveEvaluationProjection = Omit<
+	PersonnelActiveEvaluation,
+	'rater' | 'seniorRater' | 'intermediateRater' | 'reviewer'
+>;
+
+export function projectActiveEvaluation(entry: ActiveEvaluationEntry, asOf: string): ActiveEvaluationProjection {
+	const today = parseDate(asOf);
+	return {
+		entryId: entry.id,
+		evalType: entry.evalType,
+		reportType: entry.reportType,
+		reportTypeLabel: entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : null,
+		periodStart: entry.ratingPeriodStart,
+		periodEnd: entry.ratingPeriodEnd,
+		daysUntilThru: getDaysUntilDue(entry.ratingPeriodEnd, today),
+		dueStatus: getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today),
+		workflowStatus: entry.workflowStatus,
+		phase: evaluationPhase(entry.workflowStatus)
+	};
+}
 
 /** Rating Scheme owns the active entry; delivery supplies the Person after Rating Scheme view admission and a readable-name lookup. */
 export async function loadPersonnelActiveEvaluation(input: {
@@ -25,19 +51,8 @@ export async function loadPersonnelActiveEvaluation(input: {
 		const personId = entry[`${role}PersonId`];
 		return (personId && names.get(personId)) || entry[`${role}Name`]?.trim() || (personId ? 'Unknown' : null);
 	};
-	const today = parseDate(input.asOf);
-
 	return {
-		entryId: entry.id,
-		evalType: entry.evalType,
-		reportType: entry.reportType,
-		reportTypeLabel: entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : null,
-		periodStart: entry.ratingPeriodStart,
-		periodEnd: entry.ratingPeriodEnd,
-		daysUntilThru: getDaysUntilDue(entry.ratingPeriodEnd, today),
-		dueStatus: getRatingDueStatus(entry.ratingPeriodEnd, entry.status, today),
-		workflowStatus: entry.workflowStatus,
-		phase: evaluationPhase(entry.workflowStatus),
+		...projectActiveEvaluation(entry, input.asOf),
 		rater: nameFor('rater'),
 		seniorRater: nameFor('seniorRater'),
 		intermediateRater: nameFor('intermediateRater'),

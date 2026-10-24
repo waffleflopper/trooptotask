@@ -57,7 +57,7 @@ export interface AttentionInput {
 		daysUntilThru: number;
 		dueStatus: 'current' | 'due-60' | 'due-30' | 'overdue' | 'completed';
 		phase: { label: string };
-		rater: string | null;
+		rater?: string | null;
 	} | null>;
 	loss: ReadinessSourceResult<PersonnelLossReadiness>;
 	onboarding: ReadinessSourceResult<{ state: 'none' | 'in-progress' | 'complete' }>;

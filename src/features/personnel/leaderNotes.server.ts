@@ -135,7 +135,11 @@ export async function createPersonnelLeaderNote(
 		text: input.text,
 		createdAt: new Date().toISOString()
 	});
-	ctx.audit.log({ action: 'personnel.leader_note.created', resourceType: 'personnel', resourceId: input.personnelId });
+	await ctx.audit.log({
+		action: 'personnel.leader_note.created',
+		resourceType: 'personnel',
+		resourceId: input.personnelId
+	});
 	return mapWrittenRow(ctx, row);
 }
 

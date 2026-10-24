@@ -16,6 +16,7 @@ import type { PersonnelTrainingReadiness } from '$features/training/contracts';
 import { loadPersonnelTrainingReadiness } from '$features/training/index.server';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { RequestFailure } from '$lib/errors';
 import { isHttpError, type Cookies } from '@sveltejs/kit';
 import { loadWithContext } from './httpAdapter';
 import { createRequestPersonnelReadinessContext } from './requestContexts.server';
@@ -34,18 +35,24 @@ export interface PersonnelReadinessStreams {
 
 type ReadinessContext = ReturnType<typeof createRequestPersonnelReadinessContext>;
 
-function settle<T>(source: Promise<T> | null): Promise<ReadinessSourceResult<T>> {
+function settle<T>(source: Promise<T> | null, omitDenied: boolean): Promise<ReadinessSourceResult<T>> {
 	if (!source) return Promise.resolve({ ok: false, off: true });
 	return source.then(
 		(value) => ({ ok: true, value }),
-		() => ({ ok: false })
+		(error: unknown) =>
+			omitDenied && error instanceof RequestFailure && error.status === 403 ? { ok: false, off: true } : { ok: false }
 	);
+}
+
+export interface PersonnelReadinessOptions {
+	omitDenied?: boolean;
 }
 
 export function createPersonnelReadinessStreams(
 	ctx: ReadinessContext,
 	person: Personnel,
-	asOf: string
+	asOf: string,
+	{ omitDenied = false }: PersonnelReadinessOptions = {}
 ): PersonnelReadinessStreams {
 	const on = (feature: FeatureKey) => !ctx.disabledFeatures.includes(feature);
 	const lane = (action: Parameters<typeof authorizePersonnelLane>[2], resourceType: string) => () =>
@@ -89,11 +96,11 @@ export function createPersonnelReadinessStreams(
 			})
 		: null;
 	const attention = Promise.all([
-		settle(training),
-		settle(criticalTasks),
-		settle(evaluation),
-		settle(loss),
-		settle(onboarding)
+		settle(training, omitDenied),
+		settle(criticalTasks, omitDenied),
+		settle(evaluation, omitDenied),
+		settle(loss, omitDenied),
+		settle(onboarding, omitDenied)
 	]).then(([training, criticalTasks, evaluation, loss, onboarding]) =>
 		buildPersonnelAttention({ training, criticalTasks, evaluation, loss, onboarding })
 	);

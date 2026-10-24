@@ -1,7 +1,7 @@
-import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import { personnelScopeResource } from '../personnelScopeResource';
-import type { RankCatalogEntry } from '$features/personnel/contracts';
+import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
 	type PersonnelGroup,
@@ -10,12 +10,24 @@ import {
 import type { PersonnelAffordance, PersonnelPageAccess } from '../contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
+import {
+	chipAvailable,
+	projectRosterLosses,
+	ROSTER_CHIPS,
+	signalAccessBy,
+	type RosterLoss,
+	type SignalRow,
+	type SummaryState
+} from '../rosterSignals';
+import { RosterPeek } from '../rosterPeek.svelte';
+import { RosterSignals } from '../rosterSignals.svelte';
 
 export interface PersonnelPageData {
 	orgId: string;
+	asOf: string;
 	orgName: string;
 	pinnedGroups: string[];
 	rankCatalog?: RankCatalogEntry[];
@@ -38,6 +50,11 @@ export interface PinnedGroupsAccessor {
 	readonly list: string[];
 }
 
+export interface GroupsAccessor {
+	readonly orgId: string | null;
+	readonly items: readonly Group[];
+}
+
 export class PersonnelPageContext {
 	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	searchQuery = $state('');
@@ -48,8 +65,9 @@ export class PersonnelPageContext {
 	readonly #org: PersonnelPageAccess;
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
-	/** Injectable so tests can pin the date without real-time dependencies. */
-	readonly #today: string;
+	readonly #groupsStore: GroupsAccessor;
+	readonly signals: RosterSignals;
+	readonly peek: RosterPeek;
 
 	constructor(
 		data: PersonnelPageData,
@@ -57,16 +75,16 @@ export class PersonnelPageContext {
 		org: PersonnelPageAccess,
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
-		today?: string
+		signals: RosterSignals = new RosterSignals(),
+		groupsStore: GroupsAccessor | null = null,
+		peek: RosterPeek = new RosterPeek(data.orgId)
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
-
-		const now = new SvelteDate();
-		this.#today =
-			today ??
-			`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+		this.signals = signals;
+		this.#groupsStore = groupsStore ?? { orgId: data.orgId, items: [] };
+		this.peek = peek;
 
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {
@@ -87,6 +105,12 @@ export class PersonnelPageContext {
 
 	get canViewRoster(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.viewRoster, {
+			kind: 'unscoped'
+		}).allowed;
+	}
+
+	get canViewAvailability(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.viewAvailability, {
 			kind: 'unscoped'
 		}).allowed;
 	}
@@ -138,6 +162,13 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
+	canManagePersonnelInGroup(groupId: string | null): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			groupId ? { kind: 'group', groupId } : { kind: 'organization' }
+		).allowed;
+	}
+
 	/** The detail page requires sensitive-record reading unscoped, so an actor without it can open no record. */
 	get canReadPersonnelDetails(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.readSensitiveRecords, {
@@ -156,6 +187,13 @@ export class PersonnelPageContext {
 
 	canArchivePersonnelRecord(person: Personnel): boolean {
 		return this.personnelArchiveAffordance(person).allowed;
+	}
+
+	canExportPersonnelRecord(person: Personnel): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.exportRecords,
+			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
+		).allowed;
 	}
 
 	get filteredPersonnel(): Personnel[] {
@@ -185,21 +223,44 @@ export class PersonnelPageContext {
 		return this.alphabeticalPersonnel.length;
 	}
 
-	/** Reuses the same shared evaluation path as the dashboard widget so the roster and dashboard always agree on who is "approaching loss." */
-	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
-		const map = new SvelteMap<string, UpcomingLossRecord>();
-		const warningWindowDays = this.#data.lossWarningWindowDays;
-		if (warningWindowDays === null || this.#data.disabledFeatures?.includes('lossesAndAwards')) return map;
-		const losses = evaluateUpcomingLosses(
-			this.allActivePersonnel,
-			warningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
-			this.#today,
-			{ awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? [] }
+	get lossesEnabled(): boolean {
+		return !this.#data.disabledFeatures?.includes('lossesAndAwards');
+	}
+
+	get expectedChipCount(): number {
+		const access = signalAccessBy(
+			(action) => this.#org.affordanceForFeatureAction(action, { kind: 'unscoped' }).allowed,
+			this.#data.disabledFeatures ?? []
 		);
-		for (const record of losses) {
-			map.set(record.personId, record);
-		}
-		return map;
+		return ROSTER_CHIPS.filter((chip) => chipAvailable(chip, access, this.lossesEnabled)).length;
+	}
+
+	readonly rosterLosses: ReadonlyMap<string, RosterLoss> = $derived.by(() => {
+		const warningWindowDays = this.#data.lossWarningWindowDays;
+		return projectRosterLosses({
+			people: this.allActivePersonnel,
+			asOf: this.#data.asOf,
+			lossWarningWindowDays: warningWindowDays === undefined ? DEFAULT_LOSS_WARNING_WINDOW_DAYS : warningWindowDays,
+			lossesEnabled: this.lossesEnabled,
+			awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? []
+		});
+	});
+
+	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
+		const entries = [...this.rosterLosses].flatMap(([id, loss]) => (loss.badge ? [[id, loss.badge] as const] : []));
+		return new Map(entries);
+	});
+
+	signalRow(person: Pick<Personnel, 'id'>): SignalRow {
+		return this.signals.row(person.id, this.rosterLosses.get(person.id) ?? null);
+	}
+
+	summarizeSignals(people: readonly Pick<Personnel, 'id'>[]): SummaryState {
+		return this.signals.summarize(
+			people.map((person) => person.id),
+			this.rosterLosses,
+			this.lossesEnabled
+		);
 	}
 
 	/** The loss warning window could not be read, so the roster shows no loss flags. */
@@ -232,15 +293,22 @@ export class PersonnelPageContext {
 	}
 
 	handleAdd(): void {
-		this.#modals.open('personnel-modal', { person: null });
+		this.#modals.open('personnel-modal');
 	}
 
-	handleEdit(person: Personnel): void {
-		this.#modals.open('personnel-modal', { person });
+	openGroupEditor(groupId: string | null): void {
+		this.#modals.open('group-manager', { select: groupId });
 	}
 
-	openGroupManager(): void {
-		this.#modals.open('group-manager');
+	get groupOrder(): string[] {
+		if (this.#groupsStore.orgId !== this.orgId) return [];
+		return [...this.#groupsStore.items]
+			.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+			.map((group) => group.name);
+	}
+
+	groupIdForName(name: string): string | null {
+		return this.#groupsStore.items.find((group) => group.name === name)?.id ?? null;
 	}
 
 	toggleGroup(group: string): void {
@@ -255,6 +323,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
+			groupOrder: this.groupOrder,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active' });
 	}
@@ -263,6 +332,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
+			groupOrder: this.groupOrder,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active', search: this.searchQuery });
 	}

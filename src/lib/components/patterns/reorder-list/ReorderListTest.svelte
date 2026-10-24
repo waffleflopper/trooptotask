@@ -23,7 +23,8 @@
 	{#each order as name (name)}
 		<ReorderItem id={name}>
 			<ReorderGrip />
-			<span>{name}</span>
+			<button type="button">{name}</button>
+			<input aria-label="{name} note" />
 			{#if nested && name === 'Orientation'}
 				<ReorderList entries={subEntries} onmove={() => {}} aria-label="Sub steps">
 					{#each subEntries as sub (sub.id)}

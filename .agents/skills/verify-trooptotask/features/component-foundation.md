@@ -128,8 +128,8 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
 1. **Field association (`manager`, Personnel).** Open Able's Edit. Read the Rank, Last Name and ETS controls: each needs
    a resolving label. Replace Last Name with one space and press Save Changes. Require `aria-invalid="true"` on Last
    Name only, an `aria-describedby` that resolves to the visible **Enter a last name.** text, and focus remaining in the
-   dialog. Cancel and require unchanged rows. Then open Manage Groups, type Alpha into Organization groups and press
-   Add. The duplicate is rejected; require the error text to be associated with the Organization groups input through
+   dialog. Cancel and require unchanged rows. Then open Manage Groups, type Alpha into New group name and press Add. The
+   duplicate is rejected; require the error text to be associated with the New group name input through
    `aria-describedby` and `aria-invalid="true"`, not only shown in an alert. Clear the input and choose Done; require
    unchanged Group rows. As `ictOperator`, choose Record Completion on Critical Tasks. Critical Task's **Select a person
    to narrow tasks by MOS.** and Validated By's **Optional rank and name of the validator** must resolve through each

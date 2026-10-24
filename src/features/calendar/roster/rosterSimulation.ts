@@ -289,9 +289,17 @@ function slotsWhere(state: Uint8Array, value: number): number[] {
 /** Replaces this type's assignment on `date`, keeping one assignment per type per day. */
 export function withAssignment(facts: RosterFacts, change: Omit<RosterAssignment, 'assignmentTypeId'>): RosterFacts {
 	const typeId = facts.type.id;
+	const sameAssignee = facts.assignments.some(
+		(assignment) =>
+			assignment.assignmentTypeId === typeId &&
+			assignment.date === change.date &&
+			assignment.assigneeId === change.assigneeId
+	);
 	return {
 		...facts,
-		swaps: facts.swaps.filter((swap) => !swap.days.some((day) => day.date === change.date)),
+		swaps: sameAssignee
+			? facts.swaps
+			: facts.swaps.filter((swap) => !swap.days.some((day) => day.date === change.date)),
 		assignments: [
 			...facts.assignments.filter(
 				(assignment) => assignment.assignmentTypeId !== typeId || assignment.date !== change.date

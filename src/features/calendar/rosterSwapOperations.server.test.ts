@@ -305,6 +305,10 @@ describe('duty swap operations', () => {
 		const [closed] = await ctx.calendarCatalogs.listClosedRosterForms(TYPE, '2026-10');
 		expect(closed.readable).toBe(true);
 		if (!closed.readable) throw new Error('The closed form must be readable.');
+		expect(closed.segment?.columns.map(({ pick, heldBy }) => [pick.personId, heldBy?.personId ?? null])).toEqual([
+			[PATEL, KIM],
+			[KIM, PATEL]
+		]);
 		expect(closed.segment?.remarks).toEqual([
 			{
 				kind: 'swapped',

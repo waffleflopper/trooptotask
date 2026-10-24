@@ -293,6 +293,8 @@ export interface Da6Column {
 	readonly track: TrackId;
 	readonly when: 'served' | 'planned';
 	readonly pick: PersonRef;
+	/** The original holder counted for a swapped day, otherwise null. */
+	readonly heldBy: PersonRef | null;
 	readonly source: AssignmentSource;
 	/** For "Show the work". Empty when the rule's pick led the standing. */
 	readonly passedOver: readonly Da6PassedOver[];

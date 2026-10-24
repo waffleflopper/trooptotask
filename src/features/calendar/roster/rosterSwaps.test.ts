@@ -51,6 +51,27 @@ describe('published duty swaps', () => {
 		expect(closeForm(swapExample(true), '2026-10-20').segments[0].remarks).toEqual(segment.remarks);
 	});
 
+	it.each([
+		['2026-10-12', 'patel'],
+		['2026-10-19', 'kim']
+	])('keeps the exchange and published counts when %s stays assigned to %s', (date, assigneeId) => {
+		const facts = withAssignment(swapExample(true), { date, assigneeId, source: 'manual' });
+		expect(facts.swaps).toEqual([
+			{
+				id: 'swap-1',
+				days: [
+					{ date: '2026-10-12', heldBy: 'kim' },
+					{ date: '2026-10-19', heldBy: 'patel' }
+				]
+			}
+		]);
+		expect(gridLines(da6Segment(simulateRoster(facts), '2026-10')!)).toEqual([
+			'SPC Kim *6 1',
+			'SPC Moss 1 2',
+			'SPC Patel 4 *5'
+		]);
+	});
+
 	it('ends the entire exchange on reassignment and then charges the current holders', () => {
 		const facts = withAssignment(swapExample(true), { date: '2026-10-12', assigneeId: 'moss', source: 'manual' });
 		expect(facts.swaps).toEqual([]);

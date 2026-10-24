@@ -163,6 +163,7 @@ function segment(run: RosterRun, month: MonthKey, formState: Da6Segment['formSta
 			track: day.track,
 			when: whenOf(day),
 			pick: ref(detail.personId),
+			heldBy: detail.kind === 'stored' && detail.heldBy !== null ? ref(detail.heldBy) : null,
 			source: detail.kind === 'stored' ? detail.source : 'roster',
 			passedOver: passedOver(day).flatMap(({ personId, count, effect }): Da6PassedOver[] =>
 				effect.code === 'available' ? [] : [{ ...ref(personId), count, code: effect.code, reason: effect.reason }]

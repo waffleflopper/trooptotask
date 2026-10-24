@@ -199,6 +199,7 @@ const da6SegmentSchema = z
 				track: trackSchema,
 				when: whenSchema,
 				pick: personRefSchema,
+				heldBy: personRefSchema.nullable().default(null),
 				source: z.enum(['manual', 'roster']),
 				passedOver: z.array(personRefSchema.extend({ count: z.number(), code: codeSchema, reason: z.string() })),
 				rulePick: personRefSchema.nullable()

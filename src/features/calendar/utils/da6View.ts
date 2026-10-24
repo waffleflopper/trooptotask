@@ -219,8 +219,17 @@ function because(person: Da6PassedOver): string {
 
 /** The plain-language pick for one column, as the Show the work strip reads it. */
 export function workedExample(segment: Da6Segment, index: number): string {
+	const { pick, heldBy } = segment.columns[index];
+	const swap = heldBy
+		? `${fullName(pick)} stands this day in a swap with ${fullName(heldBy)}, who stays counted for it. `
+		: '';
+	return swap + pickExplanation(segment, index);
+}
+
+function pickExplanation(segment: Da6Segment, index: number): string {
 	const column: Da6Column = segment.columns[index];
-	const { pick, passedOver, rulePick } = column;
+	const { passedOver, rulePick } = column;
+	const pick = column.heldBy ?? column.pick;
 	const row = segment.rows.findIndex((person) => person.personId === pick.personId);
 	const pickCell = segment.cells[row]?.[index];
 	const count = pickCell ? pickCell.count : null;
@@ -244,7 +253,9 @@ export function workedExample(segment: Da6Segment, index: number): string {
 			if (person.code !== 'A') return `${person.lastName}'s count keeps running.`;
 			const next = segment.columns.findIndex(
 				(candidate, later) =>
-					later > index && candidate.pick.personId === person.personId && candidate.rulePick === null
+					later > index &&
+					(candidate.heldBy ?? candidate.pick).personId === person.personId &&
+					candidate.rulePick === null
 			);
 			return next < 0
 				? `${person.lastName} holds at ${person.count}.`

@@ -1,5 +1,10 @@
 import type { Personnel, PersonnelRequirementPerson } from '$features/personnel/contracts';
-import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
+import type {
+	TrainingType,
+	TrainingRequirementFacts,
+	PersonnelTraining,
+	TrainingStatus
+} from '$features/training/training.types';
 import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 import { addMonthsClamped, formatDate, parseDate } from '$lib/utils/dates';
 import { currencyStatus } from '$lib/domain/currencyStatus';
@@ -39,7 +44,7 @@ function present(status: TrainingStatus, label: string, daysUntilExpiration: num
  */
 export function getTrainingStatus(
 	training: Pick<PersonnelTraining, 'completionDate' | 'expirationDate'> | undefined,
-	type: TrainingType,
+	type: TrainingRequirementFacts,
 	person: PersonnelRequirementPerson,
 	asOf?: string | Date
 ): TrainingStatusInfo {

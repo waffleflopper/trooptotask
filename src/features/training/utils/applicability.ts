@@ -1,7 +1,7 @@
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingRequirementFacts } from '$features/training/training.types';
 import type { PersonnelRequirementPerson } from '$features/personnel/contracts';
 
-export function isTrainingApplicable(type: TrainingType, person: PersonnelRequirementPerson): boolean {
+export function isTrainingApplicable(type: TrainingRequirementFacts, person: PersonnelRequirementPerson): boolean {
 	if (type.isOptional) return false;
 
 	const rank = person.rank.trim();

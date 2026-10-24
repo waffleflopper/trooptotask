@@ -3,6 +3,7 @@ import type { Personnel } from './personnel.types';
 import type { AttentionInput } from './personnelReadiness.types';
 import {
 	buildPersonSignalCore,
+	changesSignalApplicability,
 	NO_SIGNAL_ACCESS,
 	projectRosterLosses,
 	rosterAttentionCell,
@@ -306,5 +307,26 @@ describe('projectRosterLosses', () => {
 			awardTrackingAcknowledgedPersonnelIds: []
 		});
 		expect(losses.size).toBe(0);
+	});
+});
+
+describe('changesSignalApplicability', () => {
+	const before = { rank: 'SPC', mos: '68W', clinicRole: 'Medic', groupId: 'alpha' as string | null };
+
+	it.each([
+		['rank', { rank: 'SGT' }],
+		['MOS', { mos: '11B' }],
+		['duty role', { clinicRole: 'Lead' }],
+		['Group', { groupId: 'bravo' }],
+		['leaving every Group', { groupId: null }]
+	])('is true when the %s changes', (_field, change) => {
+		expect(changesSignalApplicability(before, { ...before, ...change })).toBe(true);
+	});
+
+	it('is false when nothing that decides applicability changed, including a Group left empty either way', () => {
+		expect(changesSignalApplicability(before, { ...before })).toBe(false);
+		expect(changesSignalApplicability({ ...before, groupId: null }, { ...before, groupId: undefined as never })).toBe(
+			false
+		);
 	});
 });

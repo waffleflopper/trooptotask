@@ -1,17 +1,17 @@
--- The roster signal reads return, as the signed-in caller, exactly the active People and facts that caller may see.
+-- The roster signals read returns, as the signed-in caller, exactly the active People and facts that caller may see.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
 SELECT ok(NOT EXISTS (
   SELECT 1 FROM pg_proc p, LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
-  WHERE p.proname LIKE 'roster\_signal\_%' AND p.pronamespace = 'public'::regnamespace
+  WHERE p.proname = 'roster_signals' AND p.pronamespace = 'public'::regnamespace
     AND acl.privilege_type = 'EXECUTE' AND (acl.grantee = 0 OR acl.grantee = 'anon'::regrole)
-), 'roster signal reads have no PUBLIC or anon execute grant');
+), 'the roster signals read has no PUBLIC or anon execute grant');
 SELECT ok(NOT EXISTS (
   SELECT 1 FROM pg_proc p
-  WHERE p.proname LIKE 'roster\_signal\_%' AND p.pronamespace = 'public'::regnamespace AND p.prosecdef
-), 'roster signal reads run as the caller');
+  WHERE p.proname = 'roster_signals' AND p.pronamespace = 'public'::regnamespace AND p.prosecdef
+), 'the roster signals read runs as the caller');
 
 INSERT INTO auth.users (id, email)
 SELECT ('c9000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid, 'roster-signal-' || n || '@example.test'
@@ -96,90 +96,113 @@ CREATE FUNCTION pg_temp.ids(p jsonb) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
   FROM jsonb_array_elements(p) v
 $$;
 
+-- One source of the single statement, as the dispatcher asks for it.
+CREATE FUNCTION pg_temp.sig(p_source text, p_ids uuid[] DEFAULT NULL) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT public.roster_signals('c9000000-0000-4000-8000-000000000101', '2026-10-23', '2025-11-01', ARRAY[p_source], p_ids) -> p_source
+$$;
+
 SET LOCAL ROLE authenticated;
 
 -- Organization-wide reader.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000001', true);
-SELECT is(pg_temp.ids(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'cohort'),
+SELECT is(pg_temp.ids(pg_temp.sig('availability') -> 'cohort'),
   ARRAY['c9000000-0000-4000-8000-000000000301', 'c9000000-0000-4000-8000-000000000303', 'c9000000-0000-4000-8000-000000000304'],
   'presence cohort is every active Person, not the archived one');
-SELECT is(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'entries',
+SELECT is(pg_temp.sig('availability') -> 'entries',
   '[["c9000000-0000-4000-8000-000000000501", "c9000000-0000-4000-8000-000000000301", "c9000000-0000-4000-8000-000000000401", "2026-10-20"],
     ["c9000000-0000-4000-8000-000000000504", "c9000000-0000-4000-8000-000000000303", "c9000000-0000-4000-8000-000000000402", "2026-10-23"]]'::jsonb,
   'presence entries are those covering the day, for active People only');
-SELECT is(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'statusTypes',
+SELECT is(pg_temp.sig('availability') -> 'statusTypes',
   '[{"id": "c9000000-0000-4000-8000-000000000402", "name": "TDY", "color": "#2563eb", "textColor": "#ffffff", "sortOrder": 0},
     {"id": "c9000000-0000-4000-8000-000000000401", "name": "Leave", "color": "#16a34a", "textColor": "#ffffff", "sortOrder": 1}]'::jsonb,
   'status types come in catalog order, this Organization only');
-SELECT is(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23',
+SELECT is(pg_temp.sig('availability',
     ARRAY['c9000000-0000-4000-8000-000000000303']::uuid[]) -> 'cohort',
   '["c9000000-0000-4000-8000-000000000303"]'::jsonb, 'a Person list narrows the cohort');
 
-SELECT is(public.roster_signal_training('c9000000-0000-4000-8000-000000000101') -> 'completions',
+SELECT is(public.roster_signals('c9000000-0000-4000-8000-000000000101', '2026-10-23', '2025-11-01',
+    ARRAY['availability', 'followUps']) ->> 'training', NULL, 'a source the caller did not name is not computed');
+SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_each(public.roster_signals(
+    'c9000000-0000-4000-8000-000000000101', '2026-10-23', '2025-11-01', ARRAY['availability', 'followUps'])) AS e(k, v)
+    WHERE jsonb_typeof(v) = 'object'),
+  ARRAY['availability', 'followUps'], 'the named sources come back together from one statement');
+
+SELECT is(pg_temp.sig('training') -> 'completions',
   '[["c9000000-0000-4000-8000-000000000301", "c9000000-0000-4000-8000-000000000601", "2024-10-01", "2026-10-01"],
     ["c9000000-0000-4000-8000-000000000303", "c9000000-0000-4000-8000-000000000601", "2026-01-10", "2028-01-10"]]'::jsonb,
   'training completions cover the visible active People');
-SELECT is((public.roster_signal_training('c9000000-0000-4000-8000-000000000101') -> 'cohort') -> 0,
+SELECT is((pg_temp.sig('training') -> 'cohort') -> 0,
   '["c9000000-0000-4000-8000-000000000301", "SGT", "68W", "Medic"]'::jsonb, 'training cohort carries rank, MOS and role');
-SELECT is(public.roster_signal_training('c9000000-0000-4000-8000-000000000101') #>> '{types,0,name}', 'CPR/BLS',
+SELECT is(pg_temp.sig('training') #>> '{types,0,name}', 'CPR/BLS',
   'training types come with the read');
 
-SELECT is(public.roster_signal_critical_tasks('c9000000-0000-4000-8000-000000000101') -> 'completions',
+SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(
+    pg_temp.sig('training') -> 'types' -> 0) k),
+  ARRAY['applies_to_mos', 'applies_to_ranks', 'applies_to_roles', 'can_be_exempted', 'excluded_mos', 'excluded_ranks',
+    'excluded_roles', 'exempt_personnel_ids', 'expiration_date_only', 'expiration_months', 'id', 'is_optional', 'name',
+    'warning_days_orange', 'warning_days_yellow'],
+  'training types carry only the columns readiness reads');
+
+SELECT is(pg_temp.sig('criticalTasks') -> 'completions',
   '[["c9000000-0000-4000-8000-000000000301", "c9000000-0000-4000-8000-000000000701", "2026-07-01", "2026-07-02T08:00:00+00:00", "SFC Later"]]'::jsonb,
   'critical tasks give the newest validation per active task, by date before record time');
-SELECT is(jsonb_array_length(public.roster_signal_critical_tasks('c9000000-0000-4000-8000-000000000101') -> 'tasks'), 1,
+SELECT is(jsonb_array_length(pg_temp.sig('criticalTasks') -> 'tasks'), 1,
   'retired tasks are left out');
+SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(
+    pg_temp.sig('criticalTasks') -> 'tasks' -> 0) k),
+  ARRAY['expiration_months', 'id', 'mos', 'task_code', 'title'],
+  'critical tasks carry only the columns readiness reads');
 
-SELECT is(public.roster_signal_evaluations('c9000000-0000-4000-8000-000000000101') -> 'entries',
+SELECT is(pg_temp.sig('evaluations') -> 'entries',
   '[["c9000000-0000-4000-8000-000000000301", "c9000000-0000-4000-8000-000000000802", "NCOER", null, "2025-12-01", "2026-12-01", "active", "drafting"],
     ["c9000000-0000-4000-8000-000000000303", "c9000000-0000-4000-8000-000000000804", "NCOER", null, "2025-12-01", "2026-12-01", "active", null]]'::jsonb,
   'the active evaluation is the latest-ending entry not completed');
 
-SELECT is(public.roster_signal_follow_ups('c9000000-0000-4000-8000-000000000101') -> 'open',
+SELECT is(pg_temp.sig('followUps') -> 'open',
   '[["c9000000-0000-4000-8000-000000000902", "c9000000-0000-4000-8000-000000000301", "Call home", "2026-10-20"],
     ["c9000000-0000-4000-8000-000000000904", "c9000000-0000-4000-8000-000000000303", "Two follow-up", "2026-10-25"],
     ["c9000000-0000-4000-8000-000000000901", "c9000000-0000-4000-8000-000000000301", "Undated", null]]'::jsonb,
   'open follow-ups come soonest due first, undated last');
 
-SELECT is(public.roster_signal_counseling('c9000000-0000-4000-8000-000000000101', '2025-11-01', '2026-10-23') -> 'latest',
+SELECT is(pg_temp.sig('counseling') -> 'latest',
   '[["c9000000-0000-4000-8000-000000000301", "2026-03-10"]]'::jsonb,
   'counseling gives the latest held, unarchived record inside the window');
 
 -- Group-scoped reader sees Alpha One only.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000002', true);
-SELECT is(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'cohort',
+SELECT is(pg_temp.sig('availability') -> 'cohort',
   '["c9000000-0000-4000-8000-000000000301"]'::jsonb, 'Group reader: presence cohort is its Group');
-SELECT is(jsonb_array_length(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'entries'), 1,
+SELECT is(jsonb_array_length(pg_temp.sig('availability') -> 'entries'), 1,
   'Group reader: presence entries are its Group''s');
-SELECT is(pg_temp.ids(public.roster_signal_training('c9000000-0000-4000-8000-000000000101') -> 'completions'),
+SELECT is(pg_temp.ids(pg_temp.sig('training') -> 'completions'),
   ARRAY['c9000000-0000-4000-8000-000000000301'], 'Group reader: training is its Group''s');
-SELECT is(pg_temp.ids(public.roster_signal_evaluations('c9000000-0000-4000-8000-000000000101') -> 'entries'),
+SELECT is(pg_temp.ids(pg_temp.sig('evaluations') -> 'entries'),
   ARRAY['c9000000-0000-4000-8000-000000000301'], 'Group reader: evaluations are its Group''s');
-SELECT is(pg_temp.ids(public.roster_signal_follow_ups('c9000000-0000-4000-8000-000000000101') -> 'cohort'),
+SELECT is(pg_temp.ids(pg_temp.sig('followUps') -> 'cohort'),
   ARRAY['c9000000-0000-4000-8000-000000000301'], 'Group reader: follow-up cohort is its Group');
-SELECT is(jsonb_array_length(public.roster_signal_follow_ups('c9000000-0000-4000-8000-000000000101') -> 'open'), 2,
+SELECT is(jsonb_array_length(pg_temp.sig('followUps') -> 'open'), 2,
   'Group reader: open follow-ups are its Group''s');
 
 -- Lanes off and Personnel view without configure read nothing, and say so with an empty cohort.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000003', true);
-SELECT is(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'cohort', '[]'::jsonb,
+SELECT is(pg_temp.sig('availability') -> 'cohort', '[]'::jsonb,
   'no Calendar view: empty presence cohort');
-SELECT is(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'entries', '[]'::jsonb,
+SELECT is(pg_temp.sig('availability') -> 'entries', '[]'::jsonb,
   'no Calendar view: no entries');
-SELECT is(public.roster_signal_training('c9000000-0000-4000-8000-000000000101') -> 'completions', '[]'::jsonb,
+SELECT is(pg_temp.sig('training') -> 'completions', '[]'::jsonb,
   'no Training view: no completions');
-SELECT is(public.roster_signal_follow_ups('c9000000-0000-4000-8000-000000000101'),
+SELECT is(pg_temp.sig('followUps'),
   '{"cohort": [], "open": []}'::jsonb, 'Personnel view without configure: no follow-ups');
-SELECT is(public.roster_signal_counseling('c9000000-0000-4000-8000-000000000101', '2025-11-01', '2026-10-23'),
+SELECT is(pg_temp.sig('counseling'),
   '{"cohort": [], "latest": []}'::jsonb, 'Personnel view without configure: no counseling');
 
 -- Another Organization's owner reads nothing here.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000004', true);
-SELECT is(public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') -> 'cohort', '[]'::jsonb,
+SELECT is(pg_temp.sig('availability') -> 'cohort', '[]'::jsonb,
   'foreign owner: empty presence cohort');
-SELECT is(public.roster_signal_follow_ups('c9000000-0000-4000-8000-000000000101') -> 'cohort', '[]'::jsonb,
+SELECT is(pg_temp.sig('followUps') -> 'cohort', '[]'::jsonb,
   'foreign owner: empty follow-up cohort');
-SELECT is(public.roster_signal_evaluations('c9000000-0000-4000-8000-000000000101') -> 'cohort', '[]'::jsonb,
+SELECT is(pg_temp.sig('evaluations') -> 'cohort', '[]'::jsonb,
   'foreign owner: empty evaluation cohort');
 
 -- A turned-off feature reads nothing even if called.
@@ -187,13 +210,13 @@ RESET ROLE;
 UPDATE public.organizations SET disabled_features = ARRAY['training'] WHERE id = 'c9000000-0000-4000-8000-000000000101';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000001', true);
-SELECT is(public.roster_signal_training('c9000000-0000-4000-8000-000000000101') -> 'cohort', '[]'::jsonb,
+SELECT is(pg_temp.sig('training') -> 'cohort', '[]'::jsonb,
   'Training off: empty training cohort');
 
 RESET ROLE;
 SET LOCAL ROLE anon;
-SELECT throws_ok($$ SELECT public.roster_signal_presence('c9000000-0000-4000-8000-000000000101', '2026-10-23') $$,
-  '42501', NULL, 'anonymous callers cannot run a roster signal read');
+SELECT throws_ok($$ SELECT public.roster_signals('c9000000-0000-4000-8000-000000000101', '2026-10-23', '2025-11-01', ARRAY['availability']) $$,
+  '42501', NULL, 'anonymous callers cannot run the roster signals read');
 RESET ROLE;
 
 SELECT * FROM finish();

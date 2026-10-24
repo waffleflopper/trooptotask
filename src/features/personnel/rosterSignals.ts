@@ -86,6 +86,9 @@ export interface RosterSourceQuery {
 	personnelIds: readonly string[] | null;
 }
 
+/** One source's slice of the lane's single database read; sources the viewer may not read are never asked for. */
+export type RosterSignalSlices = (source: SignalSource, query: RosterSourceQuery) => Promise<unknown>;
+
 /** One source's facts for each active Person the viewer may read there. A Person missing from the map is withheld. */
 export type RosterSourceRead<T> = ReadonlyMap<string, T>;
 
@@ -102,6 +105,22 @@ export const NO_SIGNAL_ACCESS: SignalAccess = {
 export const PERSONNEL_SIGNALS_DEPENDENCY = 'app:personnel-signals';
 /** The most People one signals refresh reads; past it the model reloads the lane. */
 export const ROSTER_SIGNAL_BATCH_LIMIT = 500;
+
+type ApplicabilityFields = Pick<Personnel, 'rank' | 'mos' | 'clinicRole' | 'groupId'>;
+
+/**
+ * Rank, MOS, duty role and Group decide which requirements apply to a Person and which sources the viewer reads for
+ * them. ETS, PCS and the rest of a record do not, so a save that changes only those leaves the shown signals correct.
+ */
+export function changesSignalApplicability(before: ApplicabilityFields, after: ApplicabilityFields): boolean {
+	return (
+		before.rank !== after.rank ||
+		before.mos !== after.mos ||
+		before.clinicRole !== after.clinicRole ||
+		(before.groupId ?? null) !== (after.groupId ?? null)
+	);
+}
+
 export const EXPIRING_CHIP_DAYS = 30;
 export const LOSS_CHIP_DAYS = 90;
 

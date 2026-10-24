@@ -5,7 +5,6 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestRosterSignalsContext } from '$lib/server/adapters/requestContexts.server';
 import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
 import { viewerToday } from '$lib/server/viewerDay.server';
-import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import type { PageServerLoad, PageServerLoadEvent } from './$types';
 
 type RosterSignalsRequest = Pick<PageServerLoadEvent, 'locals' | 'cookies' | 'params'>;
@@ -23,10 +22,14 @@ function loadSignals({ locals, cookies, params }: RosterSignalsRequest, asOf: st
 	});
 }
 
-/** The signals lane streams beside the layout's roster read, so a day or signals refresh rereads no roster. */
+/**
+ * The signals lane streams beside the layout's roster read, so a day or signals refresh rereads no roster. It does not
+ * declare the viewer-day dependency: a first visit's recorded time zone would rerun the lane even on the same day, so
+ * the page asks for a rerun itself when the viewer's day differs.
+ */
 export function _createPersonnelPageLoad(deps: PersonnelPageLoadDeps = {}): PageServerLoad {
 	return async (event) => {
-		event.depends('app:org-core', VIEWER_DAY_DEPENDENCY, PERSONNEL_SIGNALS_DEPENDENCY);
+		event.depends('app:org-core', PERSONNEL_SIGNALS_DEPENDENCY);
 		const asOf = viewerToday(event.cookies);
 		return { asOf, rosterSignals: keepStreamedRejectionObserved((deps.loadSignals ?? loadSignals)(event, asOf)) };
 	};

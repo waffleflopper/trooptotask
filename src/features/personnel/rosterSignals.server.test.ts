@@ -7,6 +7,7 @@ import { NO_SIGNAL_ACCESS, rosterAttentionCell, type RosterSourceRead, type Sign
 import {
 	createSupabaseRosterCounselingSignals,
 	createSupabaseRosterFollowUpSignals,
+	createSupabaseRosterSignalSlices,
 	loadRosterSignals,
 	resolveSignalAccess,
 	type RosterSignalSources
@@ -249,16 +250,44 @@ function rpcClient(data: unknown, error: { message: string } | null = null) {
 }
 
 describe('Personnel signal readers', () => {
+	it('reads every readable source in one statement shared by all of them', async () => {
+		const { client, rpc } = rpcClient({ training: { cohort: [] }, followUps: { cohort: [], open: [] } });
+		const access = { ...NO_SIGNAL_ACCESS, training: true, followUps: true };
+		const slices = createSupabaseRosterSignalSlices(client, 'org-1', access);
+		const query = { asOf: AS_OF, personnelIds: ['a', 'b'] };
+		expect(await Promise.all([slices('training', query), slices('followUps', query)])).toEqual([
+			{ cohort: [] },
+			{ cohort: [], open: [] }
+		]);
+		expect(rpc).toHaveBeenCalledTimes(1);
+		expect(rpc).toHaveBeenCalledWith('roster_signals', {
+			p_organization_id: 'org-1',
+			p_as_of: AS_OF,
+			p_since: '2025-11-01',
+			p_sources: ['training', 'followUps'],
+			p_personnel_ids: ['a', 'b']
+		});
+	});
+
+	it('reads again for a new query', async () => {
+		const { client, rpc } = rpcClient({ training: null });
+		const slices = createSupabaseRosterSignalSlices(client, 'org-1', { ...NO_SIGNAL_ACCESS, training: true });
+		await slices('training', { asOf: AS_OF, personnelIds: null });
+		await slices('training', { asOf: AS_OF, personnelIds: null });
+		expect(rpc).toHaveBeenCalledTimes(2);
+	});
+
 	it('groups open follow-ups by Person and gives every cohort member a list', async () => {
-		const { client, rpc } = rpcClient({
+		const slices = vi.fn(async () => ({
 			cohort: ['a', 'b'],
 			open: [
 				['f2', 'a', 'Call home', '2026-10-20'],
 				['f1', 'a', 'Undated', null]
 			]
-		});
-		const read = await createSupabaseRosterFollowUpSignals(client, 'org-1')({ asOf: AS_OF, personnelIds: null });
-		expect(rpc).toHaveBeenCalledWith('roster_signal_follow_ups', { p_organization_id: 'org-1', p_personnel_ids: null });
+		}));
+		const query = { asOf: AS_OF, personnelIds: null };
+		const read = await createSupabaseRosterFollowUpSignals(slices)(query);
+		expect(slices).toHaveBeenCalledWith('followUps', query);
 		expect([...read]).toEqual([
 			[
 				'a',
@@ -271,28 +300,22 @@ describe('Personnel signal readers', () => {
 		]);
 	});
 
-	it('reads counseling from the first day of the twelve-month window', async () => {
-		const { client, rpc } = rpcClient({ cohort: ['a', 'b'], latest: [['a', '2026-03-10']] });
-		const read = await createSupabaseRosterCounselingSignals(
-			client,
-			'org-1'
-		)({ asOf: AS_OF, personnelIds: ['a', 'b'] });
-		expect(rpc).toHaveBeenCalledWith('roster_signal_counseling', {
-			p_organization_id: 'org-1',
-			p_since: '2025-11-01',
-			p_as_of: AS_OF,
-			p_personnel_ids: ['a', 'b']
-		});
+	it('gives every cohort member the latest counseling inside the window', async () => {
+		const slices = vi.fn(async () => ({ cohort: ['a', 'b'], latest: [['a', '2026-03-10']] }));
+		const query = { asOf: AS_OF, personnelIds: ['a', 'b'] };
+		const read = await createSupabaseRosterCounselingSignals(slices)(query);
+		expect(slices).toHaveBeenCalledWith('counseling', query);
 		expect([...read]).toEqual([
 			['a', ['2026-03-10']],
 			['b', []]
 		]);
 	});
 
-	it('fails when the statement fails', async () => {
+	it('fails every source when the statement fails', async () => {
 		const { client } = rpcClient(null, { message: 'statement timeout' });
-		await expect(
-			createSupabaseRosterFollowUpSignals(client, 'org-1')({ asOf: AS_OF, personnelIds: null })
-		).rejects.toThrow('statement timeout');
+		const slices = createSupabaseRosterSignalSlices(client, 'org-1', { ...NO_SIGNAL_ACCESS, followUps: true });
+		await expect(createSupabaseRosterFollowUpSignals(slices)({ asOf: AS_OF, personnelIds: null })).rejects.toThrow(
+			'statement timeout'
+		);
 	});
 });

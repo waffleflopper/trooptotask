@@ -54,6 +54,7 @@ export type {
 	RosterChip,
 	RosterFilter,
 	RosterSignalRead,
+	RosterSignalSlices,
 	RosterSignalSummary,
 	RosterSourceQuery,
 	RosterSourceRead,

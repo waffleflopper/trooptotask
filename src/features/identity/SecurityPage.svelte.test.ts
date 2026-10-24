@@ -178,6 +178,29 @@ describe('password row', () => {
 		expect(screen.getByLabelText('New email')).toBeInTheDocument();
 	});
 
+	it('leaves focus in the row the user opened when a password change lands', async () => {
+		let answer!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						answer = resolve;
+					})
+			)
+		);
+		renderPage(false);
+		const h = await fillPasswordRow();
+		await fireEvent.click(h.submit);
+		await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+		const newEmail = screen.getByLabelText('New email');
+		await waitFor(() => expect(newEmail).toHaveFocus());
+
+		answer(Response.json({ ok: true }));
+		expect(await screen.findByText(/Your password is updated/)).toBeTruthy();
+		expect(newEmail).toHaveFocus();
+	});
+
 	it('marks the confirmation field invalid while the new passwords differ', async () => {
 		renderPage(false);
 		const h = await fillPasswordRow();

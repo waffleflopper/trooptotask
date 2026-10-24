@@ -115,9 +115,36 @@ it.each(['failure', 'error', 'invalid-success'])(
 		expect(screen.getByText('old@example.test')).toBeTruthy();
 		expect(screen.getByText(/Pending: new@example\.test\./)).toBeTruthy();
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Change email' })).toHaveFocus());
-		expect(transport.update).toHaveBeenCalledWith({ reset: false });
+		expect(transport.update).not.toHaveBeenCalled();
+		expect(invalidateAll).toHaveBeenCalledOnce();
 	}
 );
+it('keeps focus in a row opened while an accepted email change refreshes the page', async () => {
+	let refreshed!: () => void;
+	vi.mocked(invalidateAll).mockImplementationOnce(
+		() =>
+			new Promise<void>((resolve) => {
+				refreshed = resolve;
+			})
+	);
+	transport.send.mockResolvedValueOnce({
+		type: 'success',
+		status: 200,
+		data: { emailSuccess: 'Follow both inbox confirmations.', pendingEmail: 'new@example.test' }
+	});
+	const h = await fixture();
+	await fireEvent.submit(h.form);
+	await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
+
+	await fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
+	const passwordRowField = screen.getByLabelText('Current password');
+	await waitFor(() => expect(passwordRowField).toHaveFocus());
+	refreshed();
+
+	expect(await screen.findByText(/Pending: new@example\.test\./)).toBeTruthy();
+	expect(passwordRowField).toHaveFocus();
+	expect(transport.update).not.toHaveBeenCalled();
+});
 it('shows a global throttle as an email action error without losing the draft', async () => {
 	transport.send.mockResolvedValueOnce({
 		type: 'failure',

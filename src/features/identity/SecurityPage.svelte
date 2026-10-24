@@ -85,6 +85,12 @@
 	);
 
 	let completion = $state<PasswordCompletionState>(untrack(() => passwordCompletion));
+	let completionFocus = $state(true);
+
+	function settleCompletion(state: PasswordCompletionState, rowStillOpen: boolean) {
+		completionFocus = rowStillOpen;
+		completion = state;
+	}
 	let passwordMfaRequired = $state(false);
 	let passwordLoading = $state(false);
 	let passwordError = $state('');
@@ -195,11 +201,9 @@
 					if (sameRow()) {
 						emailResult = result.data as EmailActionData;
 						emailCurrentPassword = '';
-						await update({ reset: false });
-					} else {
-						// Applying the action would move focus out of the row the user is now in; only the loader needs refreshing.
-						await invalidateAll();
 					}
+					// Applying the action resets focus, which would land outside a row the user opened meanwhile.
+					await invalidateAll();
 				} else if (sameRow()) {
 					emailResult = {
 						emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'
@@ -250,12 +254,12 @@
 			}
 			const payload = (await response.json()) as { ok?: boolean; error?: unknown; code?: string } | null;
 			if (payload?.code === 'password_reconciliation_required') {
-				completion = reconciledPasswordState(payload);
+				settleCompletion(reconciledPasswordState(payload), sameRow());
 				currentPassword = newPassword = confirmPassword = '';
 				return;
 			}
 			if (hasPendingPasswordCompletion(response, payload)) {
-				completion = 'pending';
+				settleCompletion('pending', sameRow());
 				currentPassword = newPassword = confirmPassword = '';
 				return;
 			}
@@ -265,7 +269,7 @@
 			}
 			if (!response.ok || payload?.ok !== true || payload.error !== undefined) {
 				if (response.status >= 500 || response.ok) {
-					completion = 'started';
+					settleCompletion('started', sameRow());
 					currentPassword = newPassword = confirmPassword = '';
 				}
 				if (!sameRow()) return;
@@ -277,10 +281,10 @@
 				else passwordError = message;
 				return;
 			}
-			completion = 'complete';
+			settleCompletion('complete', sameRow());
 			currentPassword = newPassword = confirmPassword = '';
 		} catch {
-			completion = 'started';
+			settleCompletion('started', sameRow());
 			currentPassword = newPassword = confirmPassword = '';
 			if (sameRow()) passwordError = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
@@ -460,6 +464,7 @@
 			{#if completion}
 				<PasswordCompletion
 					state={completion}
+					autofocus={completionFocus}
 					oncomplete={() => {
 						completion = 'complete';
 					}}

@@ -9,8 +9,8 @@ choices persist for their own user and Organization without resetting a newer se
   UI and toasts follow that selected theme.
 - `first-paint`: authorized navigation and the current screen are usable before optional notification-count and
   Organization-switcher replies settle.
-- `optional-chrome`: a failed optional read leaves the screen, Account menu and permitted navigation usable; explicit
-  switcher close/reopen retries without a request loop; a fresh load recovers other optional reads.
+- `optional-chrome`: a failed optional read leaves the screen, the sidebar's account name card and permitted navigation
+  usable; explicit switcher close/reopen retries without a request loop; a fresh load recovers other optional reads.
 - `training-preferences`: Group, saved View and matrix mode filter loaded data immediately; preference-only saves cause
   no Training workspace request or loading reset.
 - `pending-preferences`: edits within the debounce window and while an earlier save is held preserve the latest
@@ -39,7 +39,7 @@ choices persist for their own user and Organization without resetting a newer se
 Sign in normally and choose Training or Calendar in the app navigation. Training has Group, saved View and matrix-view
 controls. Calendar's `Display` menu contains Show Status Text and Show Personnel Roles, and Show Onboarding when
 onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the
-sidebar's Switch organization and Account menus for scope/session changes.
+sidebar's Switch organization menu and the account name card at its foot (Account → Sign out) for scope/session changes.
 
 ## Helper controls
 
@@ -83,12 +83,12 @@ distinct from ordinary UI or authorization proof.
    permits Organization/session lifetime checks. It must leave persistence unchanged.
 4. With a real A PATCH held, switch to B through the visible switcher. Record B's route, filters and exact A/B rows
    before release. Release A, then require B state and feedback to remain scoped to B. Return to A and reload to inspect
-   the actual A saved choices. Repeat pending failure with `arm-hold-fail` and sign out via Account → Sign Out; require
-   the public landing page without app navigation or stale save feedback. This ordinary POST/logout performs
-   full-document navigation and destroys the control; a false `release` afterward does not establish a delivered
-   late-session response. Retain that same-document lifetime case as lower-level or unavailable proof. A fresh login as
-   another synthetic user must start from that user's rows. Use one browser context for actual sign-out, and label
-   separate-context user reads accurately.
+   the actual A saved choices. Repeat pending failure with `arm-hold-fail` and sign out via the sidebar name card → Sign
+   out in the account nav; require the public landing page without app navigation or stale save feedback. This ordinary
+   POST/logout performs full-document navigation and destroys the control; a false `release` afterward does not
+   establish a delivered late-session response. Retain that same-document lifetime case as lower-level or unavailable
+   proof. A fresh login as another synthetic user must start from that user's rows. Use one browser context for actual
+   sign-out, and label separate-context user reads accurately.
 5. Use `dashboardSwitch`, which has both Training and Calendar lanes in A/B. Establish nondefault Training choices
    visibly before following Calendar. Record original Display values and those Training sentinel preferences. Toggle a
    Display preference with `user-preferences` observation, inspect saved rows and reload. Training fields must be
@@ -96,7 +96,7 @@ distinct from ordinary UI or authorization proof.
    Calendar values through the UI and verify readback. `calendarSwitch` can separately exercise Calendar but has no
    Training lane/sentinel.
 6. `$V network arm-hold PAGE shell-notification-count` installs before reload. Require the recorded GET/real status to
-   be held while the Training screen, permitted navigation and Account menu remain usable. Release and capture
+   be held while the Training screen, permitted navigation and the account name card remain usable. Release and capture
    settlement. Repeat `arm-fail` for notification count and `shell-organization-switcher`. Opening Notifications after a
    failed count retries it and shows `Loading notifications...` until it settles, never a stale message. The one-shot
    `arm-fail` fails only the first request, so that retry recovers and shows the true state; the failure text
@@ -145,12 +145,15 @@ distinct from ordinary UI or authorization proof.
 
 13. **App frame, error boundaries and restricted workspaces.** As `manager` on Personnel, capture the frame at 1280x800
     light and dark and 390x844 light and dark: header breadcrumb (`Current section`), Toggle Sidebar, Toggle theme,
-    Notifications, Switch organization and Account menu, plus the sidebar navigation and Skip to main content (first Tab
-    stop at both widths, before an announcement banner, visible above the sidebar, which moves focus to main). Follow a
-    breadcrumb link and require the parent page. Open Account menu → What's New: the dialog has its title, keeps focus
-    inside, and Got it closes it with focus returned to Account menu. Open Account menu → Send Feedback, Tab through
-    Category and Message, and Cancel with focus returned. At 390x844 these menus live in the drawer; record where focus
-    returns after the drawer closes. Then open `/no-such-page` signed in (root `+error`: `404`, the not-found message
+    Notifications, Switch organization and the account name card (rank and name, or the email, over `Your account`;
+    initials with the name as a tooltip when the sidebar is collapsed), plus the sidebar navigation and Skip to main
+    content (first Tab stop at both widths, before an announcement banner, visible above the sidebar, which moves focus
+    to main). Follow a breadcrumb link and require the parent page. Choose the name card: it opens
+    `/org/ORG/account/profile` inside the frame with the card marked current and the breadcrumb `Account › Profile`. In
+    the account nav, What's new opens the dialog with its title, keeps focus inside, and Got it closes it with focus
+    returned to What's new. Send feedback opens its dialog; Tab through Category and Message, and Cancel with focus
+    returned. At 390x844 the account nav becomes tabs with a What's new, Send feedback and Sign out row under them;
+    repeat both dialogs from that row. Then open `/no-such-page` signed in (root `+error`: `404`, the not-found message
     and Go Home; signed out it redirects to sign-in). An unmatched path under an Organization also renders the root
     `+error`, because SvelteKit uses the root boundary when no route matches. The Organization `+error` needs an error
     thrown by a matched Organization route: as `manager`, who has no Onboarding lane, open `/org/ORG_A/onboarding` for
@@ -158,25 +161,23 @@ distinct from ordinary UI or authorization proof.
     button. For `WorkspaceAccessRestricted`, use `$V actor ictViewer personnel` (no Personnel lane): `Access Restricted`
     with its explanation, the sidebar without Personnel, and the frame still usable. Capture each error and restricted
     screen at 1280x800 light and 390x844 dark.
-14. **Toast stacking over the mobile drawer.** At 390x844 as `manager`, open Toggle Sidebar, then Account menu → Send
-    Feedback inside the drawer, submit a unique General Feedback message and capture immediately with
-    `$V feedback arm PAGE` armed. The success toast must render above every open layer and stay readable and
-    dismissible. Record the drawer state after submit, the toast's bounding box, and with read-only `evaluate_script`
-    the computed `z-index`/`position` of `[data-sonner-toaster]`, the drawer sheet and its overlay, `document.body`'s
-    `pointer-events`, and `document.elementFromPoint` at the toast's center. Click Close toast natively within about two
-    seconds and read the toast's `data-removed`; press Alt+T and read `document.activeElement`. Compare with the same
-    toast at 1280 width from the header Send feedback button, where no drawer is open. Read back the stored row with
-    `$V communications manager`.
-15. **Overlay layering.** As `manager`, load Personnel at 1280x800 and resize to 390x844 without reloading. Open Toggle
-    Sidebar, then Account menu → Leave Organization. The dialog must be the top, interactive layer even though its
-    portal mounted before the drawer's. Use read-only `evaluate_script` to record the `<body>` child-node order and
-    computed `z-index` of the sheet overlay, the drawer and the dialog, and `elementFromPoint` at Cancel's centre. A
-    native Cancel click must close the dialog, return focus to the drawer's Account menu and leave the drawer open.
-    Repeat for the drawer's What's New and Send Feedback. Then run `$V seed communications` and reload. The announcement
-    banner must draw below the open drawer at 390 and below a dialog's overlay at 1280, including What's New's top edge
-    and Close. It must stay above the desktop sidebar at 1280 with the `below-banner` offset, and its Dismiss must be
-    reachable when no modal is open. While a modal is open, `body` has `pointer-events: none`, so the banner is never a
-    hit target. Judge its paint order from the screenshot. Run `clean-seeds` afterwards.
+14. **Toast stacking on a phone.** At 390x844 as `manager`, open Toggle Sidebar, choose the name card (the drawer closes
+    on navigation), then Send feedback in the account action row, submit a unique General Feedback message and capture
+    immediately with `$V feedback arm PAGE` armed. The success toast must render above every open layer and stay
+    readable and dismissible. Record the toast's bounding box, and with read-only `evaluate_script` the computed
+    `z-index`/`position` of `[data-sonner-toaster]`, `document.body`'s `pointer-events`, and `document.elementFromPoint`
+    at the toast's center. Click Close toast natively within about two seconds and read the toast's `data-removed`;
+    press Alt+T and read `document.activeElement`. Compare with the same toast at 1280 width from the header Send
+    feedback button, where no drawer is open. Read back the stored row with `$V communications manager`.
+15. **Overlay layering.** No dialog opens from inside the drawer: Leave unit, What's new and Send feedback open from the
+    account pages. As a non-owner (`viewer`), load Account → Profile at 1280x800 and resize to 390x844 without
+    reloading. Choose Leave unit: the Leave Organization dialog must be the top, interactive layer. Record
+    `elementFromPoint` at Cancel's centre with read-only `evaluate_script`; a native Cancel click must close it and
+    return focus to Leave unit. Then run `$V seed communications` and reload. The announcement banner must draw below
+    the open drawer at 390 and below a dialog's overlay at 1280, including What's New's top edge and Close. It must stay
+    above the desktop sidebar at 1280 with the `below-banner` offset, and its Dismiss must be reachable when no modal is
+    open. While a modal is open, `body` has `pointer-events: none`, so the banner is never a hit target. Judge its paint
+    order from the screenshot. Run `clean-seeds` afterwards.
 
 Direct SQL proof uses the canonical `python3 scripts/ci/database.py` runner under the repository's Node version, which
 owns fresh disposable projects and disables seeds. Its `account_preferences_rls.sql` contract exercises ordinary
@@ -200,8 +201,9 @@ AppShell writes that same key and value when a real user closes the dialog. Ther
 dialog. Provider-session actors, seeded login contexts and `actor --form` use it.
 
 Run `$V actor --show-whats-new manager home` to leave that key absent. Take a fresh snapshot and verify the What's New
-dialog appears, close it through its visible control, then reload and verify it stays dismissed. Use the Account menu to
-reopen it manually. Compare the saved key only in the owned synthetic browser.
+dialog appears, close it through its visible control, then reload and verify it stays dismissed. Use What's new in the
+account nav (sidebar name card → Account) to reopen it manually. Compare the saved key only in the owned synthetic
+browser.
 
 ## Gotchas
 

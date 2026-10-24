@@ -47,8 +47,8 @@ Choose `Settings` in Organization navigation. The `Unit settings` nav groups the
 [Personnel form recipe](personnel-form-states.md); step 5 covers its page. `Create Organization` and the Organization
 list are on `/dashboard` (the account's home outside an Organization). An account with no Organization reaches the list
 at `/dashboard?show=all`; plain `/dashboard` sends it to `/org/new`. Announcements appear as a banner above an
-Organization's pages; `Send feedback` is in the Organization header at desktop widths, and at 390 it is `Account menu` >
-`Send Feedback`.
+Organization's pages; `Send feedback` is in the Organization header at desktop widths, and at 390 it is in the account
+pages' action row (sidebar name card → `Send feedback`).
 
 ## Driving it with verify:app
 

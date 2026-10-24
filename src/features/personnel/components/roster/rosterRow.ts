@@ -1,4 +1,5 @@
 import type { Personnel } from '../../personnel.types';
+import type { RosterQuickEdit } from './quickEdit.svelte';
 
 /** What a roster row asks of the roster around it: selection, roving focus and the row's actions. */
 export interface RosterRowControls {
@@ -12,7 +13,8 @@ export interface RosterRowControls {
 	recordHref(person: Personnel): string;
 	openRecord(person: Personnel): void;
 	note(person: Personnel): void;
-	quickEdit(person: Personnel): void;
+	/** The roster's one quick editor. */
+	readonly edit: RosterQuickEdit;
 }
 
 /** Moves focus to the next or previous roster row in document order, across Group sections. */

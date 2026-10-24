@@ -258,10 +258,6 @@ export class PersonnelPageContext {
 		this.#modals.open('personnel-modal', { person: null });
 	}
 
-	handleEdit(person: Personnel): void {
-		this.#modals.open('personnel-modal', { person });
-	}
-
 	openGroupManager(): void {
 		this.#modals.open('group-manager');
 	}

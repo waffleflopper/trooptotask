@@ -2,6 +2,7 @@
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import * as Alert from '$lib/components/ui/alert';
@@ -24,6 +25,7 @@
 	import PersonnelRosterHeader from './roster/PersonnelRosterHeader.svelte';
 	import PersonnelRosterRow from './roster/PersonnelRosterRow.svelte';
 	import { personnelToolbarItems } from './roster/personnelToolbarItems';
+	import { RosterQuickEdit } from './roster/quickEdit.svelte';
 	import type { RosterRowControls } from './roster/rosterRow';
 
 	interface Props {
@@ -147,6 +149,17 @@
 			? activeTable.groups.flatMap((group) => (group.collapsed ? [] : group.rows))
 			: activeTable.rows
 	);
+	const quickEdit = new RosterQuickEdit({
+		orgId: () => ctx.orgId,
+		person: (id) => ctx.getPersonnelById(id),
+		groups: () => groupManagementStore.items,
+		save: (id, data) => personnelStore.updateOrThrow(id, data),
+		refreshSignals: (ids) => void ctx.signals.refresh(ids),
+		dataSheetHref: (person) => `${recordHref(person)}/data-sheet`,
+		navigate: (href) => void goto(href),
+		closed: (id) => void restoreRowFocus(id)
+	});
+	$effect(() => quickEdit.closeIfGone());
 	const rowControls: RosterRowControls = {
 		get selecting() {
 			return bulkArchiveMode;
@@ -163,13 +176,20 @@
 		recordHref,
 		openRecord: (person) => void goto(recordHref(person)),
 		note: (person) => void goto(`${recordHref(person)}/log?add=follow-up`),
-		quickEdit: (person) => ctx.handleEdit(person)
+		edit: quickEdit
 	};
 	const canNoteAny = $derived(shownRows.some((p) => ctx.canOpenPersonnelDetail(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
 	function recordHref(person: Personnel): string {
 		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
+	}
+
+	// The closed editor takes its focus with it; put it back on the row unless focus moved elsewhere.
+	async function restoreRowFocus(personnelId: string) {
+		await tick();
+		if (document.activeElement && document.activeElement !== document.body) return;
+		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(personnelId)}"]`)?.focus();
 	}
 
 	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
@@ -491,5 +511,11 @@
 			onConfirm={confirmBulkArchive}
 			onCancel={() => (showBulkArchiveConfirm = false)}
 		/>
+	{/await}
+{/if}
+
+{#if quickEdit.prompt}
+	{#await import('./roster/PersonnelQuickEditPrompt.svelte') then { default: QuickEditPrompt }}
+		<QuickEditPrompt edit={quickEdit} />
 	{/await}
 {/if}

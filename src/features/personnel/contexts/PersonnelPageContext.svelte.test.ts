@@ -424,15 +424,6 @@ describe('PersonnelPageContext', () => {
 			expect(modals.payload<{ person: Personnel | null }>('personnel-modal')?.person).toBeNull();
 		});
 
-		it('handleEdit opens personnel-modal with the person payload', () => {
-			const person = makePerson();
-			const modals = makeModals();
-			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg(), [person]);
-			ctx.handleEdit(person);
-			expect(modals.isOpen('personnel-modal')).toBe(true);
-			expect(modals.payload<{ person: Personnel }>('personnel-modal')?.person).toBe(person);
-		});
-
 		it('openGroupManager opens group-manager modal', () => {
 			const modals = makeModals();
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());

@@ -26,6 +26,22 @@ describe('ConfirmDialog', () => {
 		});
 	});
 
+	it('offers a third choice that runs on its own and leaves the other two alone', async () => {
+		render(ConfirmDialogTest, { alternate: true });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Other action' }));
+
+		expect(screen.getByTestId('alternate-count').textContent).toBe('1');
+		expect(screen.getByTestId('confirm-count').textContent).toBe('0');
+		expect(screen.getByTestId('cancel-count').textContent).toBe('0');
+	});
+
+	it('shows no third choice unless one is labelled', () => {
+		render(ConfirmDialogTest);
+
+		expect(screen.queryByRole('button', { name: 'Other action' })).toBeNull();
+	});
+
 	it('shows async confirm loading state and blocks cancel while busy', async () => {
 		render(ConfirmDialogTest, { asyncConfirm: true });
 

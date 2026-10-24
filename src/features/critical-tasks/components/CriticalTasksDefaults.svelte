@@ -99,13 +99,15 @@
 			saveButton?.focus();
 			return;
 		}
-		if (!isCurrent(requestOrgId)) return;
-		savedExpirationMonths = submitted.defaultExpirationMonths;
-		savedWarningDays = submitted.expiringSoonWarningDays;
-		saving = false;
-		close();
-		toastStore.success('Critical Tasks defaults saved');
-		// Last: the workspace layout unmounts this page while the refresh loads.
+		if (isCurrent(requestOrgId)) {
+			savedExpirationMonths = submitted.defaultExpirationMonths;
+			savedWarningDays = submitted.expiringSoonWarningDays;
+			saving = false;
+			close();
+			toastStore.success('Critical Tasks defaults saved');
+		}
+		// Even after leaving the dialog, so the workspace never keeps the old thresholds.
+		// Last, because the workspace layout unmounts this page while the refresh loads.
 		await invalidate('app:critical-tasks-data');
 	}
 </script>

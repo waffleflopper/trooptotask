@@ -228,6 +228,8 @@ describe('IctTaskLibraryPage', () => {
 		expect((within(dialog).getByLabelText('Default expiration') as HTMLInputElement).value).toBe('12');
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Defaults' })));
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		expect((screen.getByRole('button', { name: 'Defaults' }) as HTMLButtonElement).disabled).toBe(true);
 		view.unmount();
 
 		accessFacts = {

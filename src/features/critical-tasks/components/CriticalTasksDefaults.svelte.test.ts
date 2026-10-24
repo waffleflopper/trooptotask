@@ -123,6 +123,18 @@ describe('Critical Tasks defaults', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
+	it('still refreshes Critical Tasks data when the dialog unmounts before the save succeeds', async () => {
+		let reply!: (response: Response) => void;
+		vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise<Response>((resolve) => (reply = resolve))));
+		const view = render(CriticalTasksDefaults, { orgId: 'org-a', settings, open: true });
+		await fireEvent.input(screen.getByLabelText('Default expiration'), { target: { value: '24' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		view.unmount();
+
+		reply(Response.json({}));
+		await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:critical-tasks-data'));
+	});
+
 	it('discards the draft on Cancel and reopens on the saved values', async () => {
 		const view = render(CriticalTasksDefaults, { orgId: 'org-a', settings, open: true });
 		await fireEvent.input(screen.getByLabelText('Default expiration'), { target: { value: '99' } });

@@ -168,7 +168,7 @@
 				label: 'Defaults',
 				icon: 'sliders',
 				onclick: () => (defaultsOpen = true),
-				disabled: loading || !settings,
+				disabled: loading || !settings || creating || editing,
 				disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
 			});
 		}

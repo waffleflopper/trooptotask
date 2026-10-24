@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardWorkspaceData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
-import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 
 const {
 	buildLayoutRequestMock,
@@ -372,7 +371,8 @@ describe('dashboard page server load', () => {
 
 	it('keeps the Dashboard available without fetching Training data when Training access is none', async () => {
 		const shellData = createReadyAppShellRouteData({ orgId: ORG_ID, role: 'member', criticalTasksCapability: 'view' });
-		const shell = requireReadyAppShell(shellData);
+		const { shell } = shellData;
+		if (shell.kind !== 'ready') throw new Error('Expected a ready shell');
 		shell.member.capabilityMap.training = 'none';
 		shell.member.scopeSet = { kind: 'groups', groupIds: ['alpha'] };
 		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('training', 'none'));

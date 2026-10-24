@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-24-account-redesign',
+		date: '2026-10-24',
+		title: 'Your Account, Inside Your Unit',
+		items: [
+			'Your rank and name now sit at the foot of the sidebar. Choose them to open Account.',
+			'Account opens inside your unit, with the sidebar still there, so you never lose your place. Old Account links still work.',
+			'Sign-in & security changes your email, password or two-factor right where you are. A checklist under the new password shows each rule as you meet it, and Update password waits until every rule passes.',
+			"What's new, Send feedback and Sign out moved from the old Account menu into Account. Your role and Leave unit are under Personnel records on your Profile.",
+			'If something looks off, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-24-sign-in-redesign',
 		date: '2026-10-24',
 		title: 'New Sign-In Pages and Two-Factor Setup',

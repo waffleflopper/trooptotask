@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
@@ -15,11 +16,20 @@
 	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
+	import {
+		parseRosterFilter,
+		ROSTER_FILTER_PARAM,
+		rosterFilterAnswerable,
+		sameRosterFilter,
+		serializeRosterFilter
+	} from '../rosterFilter';
+	import { matchesRosterFilter, type RosterFilter } from '../rosterSignals';
 	import { compareRosterGroupNames } from '../rosterReadModel';
 	import { MediaQuery, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import type { ComposerKind } from '../rosterComposer';
 	import PersonnelBulkBar from './roster/PersonnelBulkBar.svelte';
+	import PersonnelFilterChips from './roster/PersonnelFilterChips.svelte';
 	import PersonnelGroupHeader from './roster/PersonnelGroupHeader.svelte';
 	import PersonnelRosterHeader from './roster/PersonnelRosterHeader.svelte';
 	import PersonnelRosterRow from './roster/PersonnelRosterRow.svelte';
@@ -53,12 +63,55 @@
 	const visibleAllActivePersonnel = $derived(
 		ctx.allActivePersonnel.filter((person) => !locallyArchivedIds.has(person.id))
 	);
+	const signalSummary = $derived(ctx.summarizeSignals(visibleAllActivePersonnel));
+
+	// The URL is the filter's one source, so it survives reload and a shared link. Until the lane settles the roster
+	// shows unfiltered; a filter its lane cannot answer is ignored with a note instead of emptying the roster.
+	const requestedFilter = $derived(parseRosterFilter(page.url.searchParams.get(ROSTER_FILTER_PARAM)));
+	const rosterFilter = $derived<RosterFilter | null>(
+		requestedFilter &&
+			ctx.signals.status === 'ready' &&
+			rosterFilterAnswerable(requestedFilter, {
+				access: ctx.signals.access,
+				lossesEnabled: ctx.lossesEnabled,
+				statusTypes: ctx.signals.statusTypes
+			})
+			? requestedFilter
+			: null
+	);
+	const filterUnavailable = $derived(
+		requestedFilter !== null && (ctx.signals.status === 'failed' || (ctx.signals.status === 'ready' && !rosterFilter))
+	);
+	function shownByFilter(person: Personnel): boolean {
+		if (!rosterFilter) return true;
+		const row = ctx.signalRow(person);
+		// A Person whose signals are being reread stays put until the answer arrives.
+		return row.kind !== 'ready' || matchesRosterFilter(row.value, rosterFilter);
+	}
 	const visibleAlphabeticalPersonnel = $derived(
-		ctx.alphabeticalPersonnel.filter((person) => !locallyArchivedIds.has(person.id))
+		ctx.alphabeticalPersonnel.filter((person) => !locallyArchivedIds.has(person.id) && shownByFilter(person))
 	);
 	const visibleFilteredPersonnel = $derived(
-		ctx.filteredPersonnel.filter((person) => !locallyArchivedIds.has(person.id))
+		ctx.filteredPersonnel.filter((person) => !locallyArchivedIds.has(person.id) && shownByFilter(person))
 	);
+
+	// A chip toggle is not a history entry, and it must not steal focus or scroll the page.
+	function showFilter(next: RosterFilter | null): void {
+		const url = new URL(page.url);
+		if (next) url.searchParams.set(ROSTER_FILTER_PARAM, serializeRosterFilter(next));
+		else url.searchParams.delete(ROSTER_FILTER_PARAM);
+		const target = `${url.pathname}${url.search}` as `/org/${string}/personnel`;
+		void goto(resolve(target), { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	function toggleFilter(next: RosterFilter): void {
+		showFilter(sameRosterFilter(requestedFilter, next) ? null : next);
+	}
+
+	$effect(() => {
+		const raw = page.url.searchParams.get(ROSTER_FILTER_PARAM);
+		if (raw !== null && parseRosterFilter(raw) === null) showFilter(null);
+	});
 	// Every bulk action needs Manage records, Export or Archive on someone; without them there is nothing to select for.
 	const canSelect = $derived(
 		visibleAllActivePersonnel.some(
@@ -72,8 +125,19 @@
 	});
 	const selectedPeople = $derived(visibleAllActivePersonnel.filter((person) => selection.has(person.id)));
 	const hiddenSelected = $derived.by(() => {
-		const shown = new Set(visibleFilteredPersonnel.map((person) => person.id));
-		return selectedPeople.filter((person) => !shown.has(person.id)).length;
+		const searched = new Set(ctx.filteredPersonnel.map((person) => person.id));
+		let count = 0;
+		let bySearch = false;
+		let byFilter = false;
+		for (const person of selectedPeople) {
+			const hiddenBySearch = !searched.has(person.id);
+			const hiddenByFilter = !shownByFilter(person);
+			if (!hiddenBySearch && !hiddenByFilter) continue;
+			count++;
+			bySearch ||= hiddenBySearch;
+			byFilter ||= hiddenByFilter;
+		}
+		return { count, by: bySearch && byFilter ? 'search and filter' : byFilter ? 'filter' : 'search' } as const;
 	});
 
 	$effect(() => {
@@ -259,6 +323,9 @@
 		},
 		isSelected: (id) => selection.has(id),
 		select: (id, selected, range) => selection.set(id, selected, range ? shownIds : undefined),
+		get filter() {
+			return rosterFilter;
+		},
 		get tabRowId() {
 			return shownRows.some((person) => person.id === focusedRowId) ? focusedRowId : (shownRows[0]?.id ?? null);
 		},
@@ -492,8 +559,11 @@
 			<PersonnelRosterHeader
 				unitName={ctx.orgName}
 				activeCount={visibleAllActivePersonnel.length}
-				summary={ctx.summarizeSignals(visibleAllActivePersonnel)}
+				summary={signalSummary}
 				canViewAvailability={ctx.canViewAvailability && !peekOpen}
+				filter={rosterFilter}
+				statusTypes={ctx.signals.statusTypes}
+				onToggleFilter={toggleFilter}
 			/>
 
 			<WorkspaceToolbar
@@ -503,11 +573,30 @@
 				primary={toolbarPrimary}
 			/>
 
+			<PersonnelFilterChips
+				summary={signalSummary}
+				expectedCount={ctx.expectedChipCount}
+				filter={rosterFilter}
+				onToggle={(chip) => toggleFilter({ kind: 'chip', chip })}
+			/>
+
 			{#if ctx.signals.status === 'failed'}
 				<Alert.Root role="status">
-					<Alert.Description>Today's status and Needs attention could not be loaded.</Alert.Description>
+					<Alert.Description>
+						Today's status and Needs attention could not be loaded.
+						{#if filterUnavailable}<span class="block">Filter unavailable.</span>{/if}
+					</Alert.Description>
 					<Alert.Action>
 						<Button type="button" variant="outline" size="xs" onclick={() => ctx.signals.reload()}>Reload</Button>
+					</Alert.Action>
+				</Alert.Root>
+			{/if}
+
+			{#if filterUnavailable && ctx.signals.status === 'ready'}
+				<Alert.Root role="status">
+					<Alert.Description>Filter unavailable.</Alert.Description>
+					<Alert.Action>
+						<Button type="button" variant="outline" size="xs" onclick={() => showFilter(null)}>Clear filter</Button>
 					</Alert.Action>
 				</Alert.Root>
 			{/if}
@@ -578,7 +667,7 @@
 						table={activeTable}
 						columns={ctx.viewMode === 'by-group' ? groupedColumns : personnelColumns}
 						ariaLabel="Personnel roster"
-						emptyMessage="No personnel match your search."
+						emptyMessage={rosterFilter ? 'No personnel match this filter.' : 'No personnel match your search.'}
 						emptyLevel={2}
 						maxHeight="100%"
 					>
@@ -626,7 +715,10 @@
 					</DataTable.DataTable>
 				</div>
 				<div class="flex items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
-					<span aria-live="polite">{activeTable.totalRows} of {visibleAllActivePersonnel.length} shown</span>
+					<span aria-live="polite"
+						>{activeTable.totalRows} of {visibleAllActivePersonnel.length}
+						{rosterFilter ? 'match' : 'shown'}</span
+					>
 					<span class="flex gap-4 whitespace-nowrap max-md:hidden @max-xl/roster:hidden" aria-hidden="true">
 						{#if ctx.canReadPersonnelDetails && peekFits.current}<span>Space preview</span>{/if}
 						{#if canSelect}<span>X select</span>{/if}

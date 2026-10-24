@@ -1,4 +1,5 @@
 import type { Personnel } from '../../personnel.types';
+import type { RosterFilter } from '../../rosterSignals';
 import type { RosterQuickEdit } from './quickEdit.svelte';
 
 /** What a roster row asks of the roster around it: selection, roving focus and the row's actions. */
@@ -8,6 +9,8 @@ export interface RosterRowControls {
 	isSelected(personnelId: string): boolean;
 	/** `range` extends from the last row set, as Shift-click does. */
 	select(personnelId: string, selected: boolean, range: boolean): void;
+	/** The active roster filter, whose matched item the Needs attention cell shows. */
+	readonly filter: RosterFilter | null;
 	/** The one row in the tab order. */
 	readonly tabRowId: string | null;
 	focused(personnelId: string): void;

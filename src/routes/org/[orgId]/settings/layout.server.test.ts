@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
+import {
+	createReadyAppShellRouteData,
+	createSuspendedAppShellRouteData,
+	createOrganizationLoadEventData
+} from '../appShell.test-support';
 import type { SettingsNavCounts } from '$features/organization/contracts';
 import { PENDING_APPROVALS_DEPENDENCY } from './settingsDependencies';
 
@@ -34,18 +38,17 @@ describe('settings layout server load', () => {
 	it('redirects the settings index before loading the shell', async () => {
 		await expect(
 			load({
-				params: { orgId: 'org-1' },
-				locals: {},
 				cookies: {},
 				route: { id: '/org/[orgId]/settings' },
 				untrack: (fn: () => unknown) => fn(),
 				depends: () => undefined,
-				parent: async () =>
+				...createOrganizationLoadEventData(
 					createReadyAppShellRouteData({
 						orgId: 'org-1',
 						orgName: 'Test Org',
 						orgUrlSegment: 'test-org'
 					})
+				)
 			} as never)
 		).rejects.toMatchObject({ status: 303, location: '/org/test-org/settings/general' });
 
@@ -68,18 +71,17 @@ describe('settings layout server load', () => {
 	])('redirects a suspended Organization to its existing root: $name', async ({ routeId, orgUrlSegment, location }) => {
 		await expect(
 			load({
-				params: { orgId: '11111111-1111-4111-8111-111111111111' },
-				locals: {},
 				cookies: {},
 				route: { id: routeId },
 				untrack: (fn: () => unknown) => fn(),
 				depends: () => undefined,
-				parent: async () =>
+				...createOrganizationLoadEventData(
 					createSuspendedAppShellRouteData({
 						orgId: '11111111-1111-4111-8111-111111111111',
 						orgName: 'Test Org',
 						orgUrlSegment
 					})
+				)
 			} as never)
 		).rejects.toMatchObject({ status: 303, location });
 
@@ -115,18 +117,17 @@ describe('settings layout server load', () => {
 		);
 
 		const result = await load({
-			params: { orgId: 'org-1' },
-			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/general' },
 			untrack: (fn: () => unknown) => fn(),
 			depends: () => undefined,
-			parent: async () =>
+			...createOrganizationLoadEventData(
 				createReadyAppShellRouteData({
 					orgId: 'org-1',
 					orgName: 'Test Org',
 					orgUrlSegment: 'test-org'
 				})
+			)
 		} as never);
 
 		expect(result).toMatchObject({
@@ -186,18 +187,17 @@ describe('settings layout server load', () => {
 		);
 
 		const result = await load({
-			params: { orgId: 'org-1' },
-			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/general' },
 			untrack: (fn: () => unknown) => fn(),
 			depends: () => undefined,
-			parent: async () =>
+			...createOrganizationLoadEventData(
 				createReadyAppShellRouteData({
 					orgId: 'org-1',
 					orgName: 'Test Org',
 					orgUrlSegment: 'test-org'
 				})
+			)
 		} as never);
 
 		const counts = (result as { settingsNavCounts: SettingsNavCounts }).settingsNavCounts;
@@ -236,18 +236,17 @@ describe('settings layout server load', () => {
 		);
 
 		const result = await load({
-			params: { orgId: 'org-1' },
-			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/general' },
 			untrack: (fn: () => unknown) => fn(),
 			depends: () => undefined,
-			parent: async () =>
+			...createOrganizationLoadEventData(
 				createReadyAppShellRouteData({
 					orgId: 'org-1',
 					orgName: 'Test Org',
 					orgUrlSegment: 'test-org'
 				})
+			)
 		} as never);
 
 		expect(result).toMatchObject({ settingsShell: { currentMember: { role: 'owner', isOwner: true } } });
@@ -286,13 +285,11 @@ describe('settings layout server load', () => {
 
 		await expect(
 			load({
-				params: { orgId: 'org-1' },
-				locals: {},
 				cookies: {},
 				route: { id: '/org/[orgId]/settings/general' },
 				untrack: (fn: () => unknown) => fn(),
 				depends: () => undefined,
-				parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' })
+				...createOrganizationLoadEventData(createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' }))
 			} as never)
 		).rejects.toMatchObject({
 			status: 403,
@@ -305,13 +302,11 @@ describe('settings layout server load', () => {
 		const depends = vi.fn();
 
 		await load({
-			params: { orgId: 'org-1' },
-			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/approvals' },
 			untrack: (fn: () => unknown) => fn(),
 			depends,
-			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' })
+			...createOrganizationLoadEventData(createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' }))
 		} as never);
 
 		expect(depends).toHaveBeenCalledWith(PENDING_APPROVALS_DEPENDENCY);

@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardWorkspaceData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 
 const {
 	buildLayoutRequestMock,
+	streamDashboardWorkspaceMock,
 	buildRouteRequestMock,
 	createRequestDashboardSummaryContextMock,
 	createRequestNotificationContextMock,
@@ -22,6 +23,7 @@ const {
 
 	return {
 		buildLayoutRequestMock: vi.fn(),
+		streamDashboardWorkspaceMock: vi.fn(),
 		buildRouteRequestMock: vi.fn(),
 		createRequestDashboardSummaryContextMock: vi.fn(),
 		createRequestNotificationContextMock: vi.fn(),
@@ -90,6 +92,8 @@ vi.mock('$features/training/index.server', () => ({
 vi.mock('$features/critical-tasks/index.server', () => ({
 	fetchCriticalTasksDashboardSummary: fetchCriticalTasksDashboardSummaryMock
 }));
+
+vi.mock('./dashboardWorkspace.server', () => ({ streamDashboardWorkspaceBootstrap: streamDashboardWorkspaceMock }));
 
 import { actions, load } from './+page.server';
 import { RequestFailure } from '$lib/errors';
@@ -186,27 +190,20 @@ describe('dashboard page server load', () => {
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
 	});
 
-	it('rejects suspended parent admission before creating a request or streaming dashboard reads', async () => {
-		const result = await load({
-			params: { orgId: ORG_ID },
-			locals: {},
-			cookies: easternViewer,
-			depends: vi.fn(),
-			parent: async () => requireReadyAppShell(createSuspendedAppShellRouteData({ orgId: ORG_ID }))
-		} as never).then(
-			(data) => ({ data }),
-			(error: unknown) => ({ error })
-		);
-
-		// Drain a wrongly streamed denial so the regression reports the incorrect
-		// response boundary without leaving an unhandled rejection in the test run.
-		if ('data' in result) await result.data.summary.catch(() => undefined);
-
-		expect(result).toMatchObject({ error: { status: 403, body: { message: 'Organization is suspended' } } });
-		expect(buildLayoutRequestMock).not.toHaveBeenCalled();
-		expect(createRequestDashboardSummaryContextMock).not.toHaveBeenCalled();
-		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
-		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
+	it('rejects suspended request admission before streaming dashboard reads', async () => {
+		buildLayoutRequestMock.mockRejectedValueOnce({ status: 403, body: { message: 'Organization is suspended' } });
+		await expect(
+			load({
+				params: { orgId: ORG_ID },
+				locals: {},
+				cookies: easternViewer,
+				depends: vi.fn(),
+				parent: () => {
+					throw new Error('Must not run ancestors');
+				}
+			} as never)
+		).rejects.toMatchObject({ status: 403, body: { message: 'Organization is suspended' } });
+		expect(streamDashboardWorkspaceMock).not.toHaveBeenCalled();
 	});
 
 	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {
@@ -217,7 +214,7 @@ describe('dashboard page server load', () => {
 			resolveWorkspace = resolve;
 		});
 		const depends = vi.fn();
-		const parent = vi.fn().mockResolvedValue({
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({
 			...createReadyAppShellRouteData({ orgId: ORG_ID, criticalTasksCapability: 'view' }),
 			dashboard: {
 				data: workspaceBootstrap
@@ -229,7 +226,9 @@ describe('dashboard page server load', () => {
 			locals: {},
 			cookies: easternViewer,
 			depends,
-			parent
+			parent: () => {
+				throw new Error('Must not run ancestors');
+			}
 		} as never);
 
 		expect(depends).toHaveBeenCalledWith('app:org-core');
@@ -326,7 +325,7 @@ describe('dashboard page server load', () => {
 			resolveWorkspace = resolve;
 		});
 		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('criticalTasks', 'none'));
-		const parent = vi.fn().mockResolvedValue({
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({
 			...createReadyAppShellRouteData({ orgId: ORG_ID, criticalTasksCapability: 'none' }),
 			dashboard: {
 				data: workspaceBootstrap
@@ -338,7 +337,9 @@ describe('dashboard page server load', () => {
 			locals: {},
 			cookies: easternViewer,
 			depends: vi.fn(),
-			parent
+			parent: () => {
+				throw new Error('Must not run ancestors');
+			}
 		} as never);
 
 		resolveWorkspace?.({
@@ -376,7 +377,7 @@ describe('dashboard page server load', () => {
 		shell.member.scopeSet = { kind: 'groups', groupIds: ['alpha'] };
 		createRequestDashboardSummaryContextMock.mockReturnValue(withLane('training', 'none'));
 		fetchDashboardTrainingSummaryMock.mockRejectedValue(new Error('You do not have permission to use training data'));
-		const parent = vi.fn().mockResolvedValue({
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({
 			...shellData,
 			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [] } }) }
 		});
@@ -386,7 +387,9 @@ describe('dashboard page server load', () => {
 			locals: {},
 			cookies: easternViewer,
 			depends: vi.fn(),
-			parent
+			parent: () => {
+				throw new Error('Must not run ancestors');
+			}
 		} as never);
 
 		await expect(result.summary).resolves.toEqual({
@@ -405,7 +408,7 @@ describe('dashboard page server load', () => {
 			onboardingTrainingCompletions: new Set(['p-cy-type-cpr'])
 		});
 		const packet = { id: 'packet-1', personnelId: 'p-cy' };
-		const parent = vi.fn().mockResolvedValue({
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({
 			...createReadyAppShellRouteData({ orgId: ORG_ID }),
 			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [packet] } }) }
 		});
@@ -415,7 +418,9 @@ describe('dashboard page server load', () => {
 			locals: {},
 			cookies: easternViewer,
 			depends: vi.fn(),
-			parent
+			parent: () => {
+				throw new Error('Must not run ancestors');
+			}
 		} as never);
 
 		await expect(result.summary).resolves.toMatchObject({ onboardingPersonnelIds: [] });
@@ -428,7 +433,7 @@ describe('dashboard page server load', () => {
 	it('skips the Critical Tasks read an Organization switched off, though the viewer keeps the lane', async () => {
 		createRequestDashboardSummaryContextMock.mockReturnValue({ ...mockCtx, disabledFeatures: ['criticalTasks'] });
 		fetchCriticalTasksDashboardSummaryMock.mockRejectedValue(new Error('Critical Tasks read attempted'));
-		const parent = vi.fn().mockResolvedValue({
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({
 			...createReadyAppShellRouteData({ orgId: ORG_ID }),
 			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [] } }) }
 		});
@@ -438,7 +443,9 @@ describe('dashboard page server load', () => {
 			locals: {},
 			cookies: easternViewer,
 			depends: vi.fn(),
-			parent
+			parent: () => {
+				throw new Error('Must not run ancestors');
+			}
 		} as never);
 
 		await expect(result.summary).resolves.toMatchObject({ ictlSummary: null });
@@ -447,7 +454,7 @@ describe('dashboard page server load', () => {
 
 	it('preserves Training failures when the member is allowed to view Training', async () => {
 		fetchDashboardTrainingSummaryMock.mockRejectedValue(new Error('Training storage unavailable'));
-		const parent = vi.fn().mockResolvedValue({
+		streamDashboardWorkspaceMock.mockResolvedValueOnce({
 			...createReadyAppShellRouteData({ orgId: ORG_ID }),
 			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [] } }) }
 		});
@@ -456,7 +463,9 @@ describe('dashboard page server load', () => {
 			locals: {},
 			cookies: easternViewer,
 			depends: vi.fn(),
-			parent
+			parent: () => {
+				throw new Error('Must not run ancestors');
+			}
 		} as never);
 		await expect(result.summary).rejects.toThrow('Training storage unavailable');
 	});

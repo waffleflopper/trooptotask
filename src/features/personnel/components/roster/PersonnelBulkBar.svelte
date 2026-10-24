@@ -20,18 +20,11 @@
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		/** Everyone selected who is still on the active roster, shown or not. */
 		people: readonly Personnel[];
-		/** How many of `people` the search or the roster filter hides, and which of them does. */
 		hidden: { count: number; by: 'search' | 'filter' | 'search and filter' };
 		oncompose: (kind: ComposerKind) => void;
 		onclear: () => void;
-		/** People who left the active roster or went for approval, to drop from the selection. */
 		onarchived: (result: { archivedIds: string[]; approvalRequestedIds: string[] }) => void;
-		/**
-		 * Whether the roster that started work for `orgId` is still showing it. The bar unmounts as soon as its
-		 * selection empties, so it cannot answer this itself.
-		 */
 		isCurrent: (orgId: string) => boolean;
 	}
 
@@ -56,7 +49,6 @@
 
 	async function moveTo(target: { id: string | null; name: string }): Promise<void> {
 		const orgId = ctx.orgId;
-		// The selection stays editable while the request runs, so the result is read against what was submitted.
 		const submitted = writable.map((person) => ({ id: person.id, groupId: person.groupId }));
 		const previousGroup = new Map(submitted.map((person) => [person.id, person.groupId]));
 		const selectedCount = people.length;
@@ -76,7 +68,6 @@
 			const changed = new Set(
 				submitted.filter((person) => moved.has(person.id) && person.groupId !== target.id).map((person) => person.id)
 			);
-			// A Group decides which requirements apply, so the People who changed Group get their signals reread.
 			for (const id of changed) ctx.peek.changed(id, { groupId: previousGroup.get(id) }, { groupId: target.id });
 			if (changed.size) void ctx.signals.refresh([...changed]);
 			personnelStore.updateLocalWhere(

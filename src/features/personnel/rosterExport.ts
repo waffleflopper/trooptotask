@@ -15,7 +15,6 @@ export const ROSTER_EXPORT_COLUMNS: WorkbookColumn[] = [
 	{ header: 'Needs attention', key: 'attention', width: 36 }
 ];
 
-/** One row per Person as the roster shows them. Today and Needs attention stay blank until the signals load. */
 export function rosterExportRows(
 	people: readonly Personnel[],
 	signalRow: (person: Personnel) => SignalRow,

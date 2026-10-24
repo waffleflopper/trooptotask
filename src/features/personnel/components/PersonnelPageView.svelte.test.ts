@@ -36,7 +36,6 @@ vi.mock('$app/navigation', () => ({
 	invalidate: invalidateMock
 }));
 
-// Reactive, so a test can change the filter in the URL after the roster has rendered.
 const pageMock = $state({ url: new URL('http://localhost/org/org-1/personnel') });
 
 vi.mock('$app/state', () => ({
@@ -127,7 +126,6 @@ async function submitBulkSelection() {
 	await confirmArchiveDialog();
 }
 
-/** A viewer who may run every bulk action on everyone. */
 function bulkCtx(overrides: Record<string, unknown> = {}): PersonnelPageContext {
 	return Object.assign(makeCtx(), {
 		canManagePersonnelRecord: () => true,
@@ -336,7 +334,6 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
-		// One sits beside the name, which stays shown where the actions cell hides.
 		const quickEdits = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
 		expect(quickEdits.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
 		expect(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' }).length).toBeGreaterThan(0);
@@ -777,7 +774,6 @@ describe('PersonnelPageView', () => {
 
 		function editCtx(overrides: Record<string, unknown> = {}, people = [personnel[0], young]): PersonnelPageContext {
 			personnelStore.load(people, 'org-1');
-			// Defined on the context itself: spreading it would freeze its roster getters at their first read.
 			const base = makeCtx();
 			return Object.defineProperties(
 				base,
@@ -852,17 +848,7 @@ describe('PersonnelPageView', () => {
 			await fireEvent.submit(form);
 
 			await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
-			expect(update).toHaveBeenCalledExactlyOnceWith('person-1', {
-				rank: 'SGT',
-				lastName: 'Smith',
-				firstName: 'Jane',
-				mos: '68C',
-				clinicRole: 'Senior Medic',
-				ets: null,
-				deros: null,
-				groupId: 'group-1',
-				groupName: 'Alpha'
-			});
+			expect(update).toHaveBeenCalledExactlyOnceWith('person-1', { mos: '68C', clinicRole: 'Senior Medic' });
 			await waitFor(() => {
 				const row = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
 				expect(within(row).getByText('68C')).toBeTruthy();
@@ -994,7 +980,6 @@ describe('PersonnelPageView', () => {
 		});
 
 		describe('leaving the roster with unsaved changes', () => {
-			/** Runs a destination through the page's registered guard the way SvelteKit does before it commits. */
 			function router() {
 				const visited: string[] = [];
 				const go = (href: string, type: 'goto' | 'link' | 'popstate' = 'goto') => {
@@ -1134,7 +1119,6 @@ describe('PersonnelPageView', () => {
 	describe('peek panel', () => {
 		const realMatchMedia = window.matchMedia;
 
-		/** Answers the panel's width query as if the window were `width` wide. */
 		function viewport(width: number) {
 			vi.stubGlobal('matchMedia', (query: string) => {
 				const minWidth = Number(/min-width:\s*(\d+)px/.exec(query)?.[1]);
@@ -1430,6 +1414,46 @@ describe('PersonnelPageView', () => {
 
 			expect(refresh).not.toHaveBeenCalled();
 			expect(invalidate).not.toHaveBeenCalled();
+		});
+
+		describe("a row or bulk composer while the preview's composer holds typed text", () => {
+			async function typeInPreviewComposer() {
+				viewport(1440);
+				const { ctx } = peekCtx();
+				render(PersonnelPageView, { props: { ctx } });
+				await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+				await fireEvent.click(within(panel()).getByRole('button', { name: /Add a note or follow-up/ }));
+				await fireEvent.input(await within(panel()).findByRole('textbox', { name: 'Follow-up title' }), {
+					target: { value: 'Call about leave' }
+				});
+			}
+
+			it('asks before N on a row opens its composer, and opens it after Discard', async () => {
+				await typeInPreviewComposer();
+				const young = screen.getByRole('row', { name: 'Open SGT Young, Test' });
+				young.focus();
+				await fireEvent.keyDown(young, { key: 'n' });
+
+				await within(panel()).findByText('Discard what you typed?');
+				expect(screen.queryByRole('dialog')).toBeNull();
+				await fireEvent.click(within(panel()).getByRole('button', { name: 'Discard' }));
+
+				await screen.findByRole('dialog', { name: 'Add to log for SGT Test Young' });
+				expect(within(panel()).queryByRole('textbox', { name: 'Follow-up title' })).toBeNull();
+			});
+
+			it('asks before the bulk composer opens, and opens it after Discard', async () => {
+				await typeInPreviewComposer();
+				await fireEvent.click(screen.getByRole('checkbox', { name: 'Select everyone shown' }));
+				await fireEvent.click(bulkBar().getByRole('button', { name: 'Follow-up for each' }));
+
+				await within(panel()).findByText('Discard what you typed?');
+				expect(screen.queryByRole('dialog')).toBeNull();
+				await fireEvent.click(within(panel()).getByRole('button', { name: 'Discard' }));
+
+				await screen.findByRole('dialog', { name: 'Add to log for 2 people' });
+				expect(within(panel()).queryByRole('textbox', { name: 'Follow-up title' })).toBeNull();
+			});
 		});
 
 		it('announces nothing for a note saved after the user leaves the Organization', async () => {

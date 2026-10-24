@@ -29,14 +29,9 @@
 	});
 
 	const name = $derived(`${person.rank} ${person.firstName} ${person.lastName}`);
-	// A roster left open overnight still shows yesterday: the due shortcuts count from the viewer's day when this opens.
 	const today = untrack(() => ctx.signals.viewerDay());
 	const alreadyOpen = $derived(alreadyOpenOf(ctx.signalRow(person), today));
 
-	/**
-	 * Closes now, or asks to discard typed text. Returns false while it is waiting on the answer or a save.
-	 * `then` runs after the close, and only if the user confirms a discard.
-	 */
 	export function requestClose(then?: () => void): boolean {
 		return composer?.requestClose(then) ?? true;
 	}
@@ -47,16 +42,13 @@
 	}
 
 	async function save(entry: ComposerEntry): Promise<void> {
-		// The props read through to page state that is cleared on close.
 		const target = person;
 		const href = recordHref;
-		// The write may land after the user left the Organization; the lifetime then never settles, so nothing follows.
 		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry));
 		rosterEntrySaved(ctx, target, entry, href);
 		if (alive) close();
 	}
 
-	// A row click, a name link or Back would unmount this and lose the draft: hold the navigation until Discard.
 	beforeNavigate((navigation) => {
 		if (leaving || !composer?.hasDraft()) return;
 		navigation.cancel();
@@ -72,7 +64,6 @@
 
 	function keepOpenUnlessClean(event: Event): void {
 		event.preventDefault();
-		// The Note button that opened this is a toggle: it closes through its own click.
 		if ((event.target as Element | null)?.closest?.('[data-roster-note][aria-expanded="true"]')) return;
 		composer?.requestClose();
 	}

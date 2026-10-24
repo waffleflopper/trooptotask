@@ -142,7 +142,6 @@ export function createServerSourceController({ providerUrl, orgId, fetch: origin
 		const narrow = NARROW_READS[control.table];
 		const matchesSelection = !narrow || (selection.length === 1 && narrow.includes(selection[0]));
 		// Counts are HEAD reads; the narrow reads stay GET only.
-		// The roster signal reads are POSTed RPCs that name their Organization in the body.
 		const readMethod = rpc || method === 'GET' || (method === 'HEAD' && !narrow);
 		if (
 			!readMethod ||

@@ -16,7 +16,6 @@ export type TrainingApplicability =
 	| { kind: 'role'; role: string }
 	| { kind: 'rank'; rank: string };
 
-/** The completion fields readiness reads; the roster lane fetches only these. */
 export type TrainingCompletionFacts = Pick<PersonnelTraining, 'trainingTypeId' | 'completionDate' | 'expirationDate'>;
 
 export interface PersonnelTrainingItem<C extends TrainingCompletionFacts = PersonnelTraining> {

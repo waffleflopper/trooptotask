@@ -128,9 +128,7 @@ Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses new
    run tables. Redirect its console output outside `$RUN`; an empty output file inside it fails the parse.
 8. Close out in this order. Run `$V clean-seeds` and save its readback, which must show 0 remaining rows and accounts
    for every workload. Save a final `npm run verify:app -- doctor`. Run owned cleanup with
-   `npm run verify:app -- cleanup` and confirm the run directory survived. Then package the run as one archive by the
-   [artifact packaging](../../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts) rule,
-   re-extract it into empty scratch space and verify the inventory. The coordinator uploads it.
+   `npm run verify:app -- cleanup` and confirm the run directory survived. Report the summary's numbers in the PR body.
 
 ### Workload shape
 

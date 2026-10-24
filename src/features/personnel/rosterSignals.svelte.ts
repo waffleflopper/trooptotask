@@ -23,10 +23,8 @@ import {
 export type RosterSignalsStatus = 'pending' | 'ready' | 'failed';
 
 export interface RosterSignalsOptions {
-	/** Reads the listed People's signals for the viewer's day. */
 	readPeople?: (orgId: string, personnelIds: string[]) => Promise<RosterSignalRead>;
 	invalidate?: (dependency: string) => Promise<void>;
-	/** The viewer's calendar day in the browser's time zone, or null when the browser names no valid zone. */
 	browserDay?: () => string | null;
 }
 
@@ -56,14 +54,8 @@ const withheld = (personnelId: string): PersonSignalCore => ({
 	openFollowUps: { kind: 'withheld' }
 });
 
-/**
- * Today's status and attention for the roster. The page hands it each streamed lane; mutations call `refresh` for the
- * People they changed. A full lane never overwrites a Person refreshed after that lane was requested, and a reply for
- * another Organization or day is dropped. Create one per page and keep it across Organization changes.
- */
 export class RosterSignals {
 	status = $state<RosterSignalsStatus>('pending');
-	/** The viewer's day the shown signals were computed for. */
 	asOf = $state('');
 	access = $state.raw<SignalAccess>(NO_SIGNAL_ACCESS);
 	statusTypes = $state.raw<RosterStatusType[]>([]);
@@ -71,21 +63,17 @@ export class RosterSignals {
 	#orgId = '';
 	#lane: Promise<RosterSignalRead> | null = null;
 	#cores = new SvelteMap<string, PersonSignalCore>();
-	/** People with a refresh in flight and no core yet, shown as pending. */
 	#reading = new SvelteSet<string>();
-	/** Counts lanes received; a refresh records the count current when it was issued. */
 	#generation = 0;
 	#settledGeneration = 0;
 	#refreshedAt = new Map<string, number>();
 	#serial = 0;
 	#latestRefresh = new Map<string, number>();
-	/** The People the settled lane actually returned. */
 	#covered = new Set<string>();
 	#asked = new Set<string>();
 	readonly #readPeople: NonNullable<RosterSignalsOptions['readPeople']>;
 	readonly #invalidate: NonNullable<RosterSignalsOptions['invalidate']>;
 	readonly #browserDay: NonNullable<RosterSignalsOptions['browserDay']>;
-	/** The shown day the lane was last asked to leave, so a browser that keeps no zone cookie asks once per day. */
 	#dayLeft = '';
 
 	constructor(options: RosterSignalsOptions = {}) {
@@ -94,7 +82,6 @@ export class RosterSignals {
 		this.#browserDay = options.browserDay ?? readBrowserDay;
 	}
 
-	/** Takes the page's streamed lane. The same promise is observed once. */
 	observe(orgId: string, asOf: string, lane: Promise<RosterSignalRead>): void {
 		untrack(() => {
 			if (lane === this.#lane && orgId === this.#orgId) return;
@@ -120,10 +107,6 @@ export class RosterSignals {
 		});
 	}
 
-	/**
-	 * A first visit has no time zone cookie, so the server reads its own UTC day. The lane reruns only when the
-	 * viewer's day is another one; the same day keeps the lane the first response carried.
-	 */
 	#leaveDay(asOf: string): string | null {
 		const browserDay = this.#browserDay();
 		if (browserDay === null || browserDay === asOf) return null;
@@ -135,10 +118,6 @@ export class RosterSignals {
 		return browserDay;
 	}
 
-	/**
-	 * The viewer's day right now. A page held open past midnight shows yesterday's signals, so this moves the lane to
-	 * the new day the way a first visit does. Call it when something needs today's date, such as a due-date shortcut.
-	 */
 	viewerDay(): string {
 		return this.#leaveDay(this.asOf) ?? this.asOf;
 	}
@@ -165,7 +144,6 @@ export class RosterSignals {
 		return Object.values(this.access).some(Boolean);
 	}
 
-	/** One Person's signals completed with their roster losses. */
 	row(personnelId: string, loss: RosterLoss | null = null): SignalRow {
 		if (this.status === 'failed') return { kind: 'failed' };
 		const core = this.#cores.get(personnelId);
@@ -173,7 +151,6 @@ export class RosterSignals {
 		return { kind: 'ready', value: { ...(core ?? withheld(personnelId)), loss } };
 	}
 
-	/** Counts for the strip, chips or a Group header, over the People the roster shows. */
 	summarize(
 		personnelIds: readonly string[],
 		losses: ReadonlyMap<string, RosterLoss>,
@@ -195,7 +172,6 @@ export class RosterSignals {
 		return row.kind === 'ready' && matchesRosterFilter(row.value, filter);
 	}
 
-	/** Rereads the listed People after a change to them. Never throws; a failed read keeps what is shown. */
 	async refresh(personnelIds: readonly string[]): Promise<void> {
 		const ids = [...new Set(personnelIds)];
 		if (ids.length === 0 || this.status === 'failed') return;
@@ -213,7 +189,6 @@ export class RosterSignals {
 		try {
 			const read = await withinOrganizationLifetime(this.#readPeople(orgId, ids), () => ids.some(owns));
 			if (this.asOf !== asOf || this.#settledGeneration > generation) return;
-			// The viewer's day turned while the page was open: the whole lane moves to the new day, not one row.
 			if (read.asOf !== asOf) return await this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
 			const cores = new Map(read.people.map((core) => [core.personnelId, core]));
 			for (const id of ids) {
@@ -223,16 +198,12 @@ export class RosterSignals {
 				else this.#cores.delete(id);
 			}
 		} catch {
-			// The cells keep their last values; the next lane brings them current.
+			return;
 		} finally {
 			for (const id of ids) if (owns(id)) this.#reading.delete(id);
 		}
 	}
 
-	/**
-	 * Reads People absent from the lane's cohort (Add person, a restore, a Group move into scope) in one
-	 * batch. Each Person is asked once per lane.
-	 */
 	ensure(rosterIds: readonly string[]): void {
 		untrack(() => {
 			if (this.status !== 'ready' || !this.readsAnySource) return;
@@ -246,7 +217,6 @@ export class RosterSignals {
 		});
 	}
 
-	/** Reruns only the signals lane; the roster is not read again. */
 	reload(): Promise<void> {
 		return this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
 	}

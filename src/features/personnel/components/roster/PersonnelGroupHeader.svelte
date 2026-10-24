@@ -14,15 +14,12 @@
 
 	interface Props {
 		group: GroupHeaderContext;
-		/** The People under this header, so the counts match the rows the header would show. */
 		people: readonly Personnel[];
 		ctx: PersonnelPageContext;
 		pinned: boolean;
 		unassigned: boolean;
 		onTogglePin: (groupKey: string) => void;
-		/** How much of the Group's shown People is selected; null hides the checkbox. */
 		selection: { state: CheckState; set: (selected: boolean) => void } | null;
-		/** Null hides "Note to everyone in the Group". */
 		onNoteToEveryone: (() => void) | null;
 	}
 
@@ -109,7 +106,7 @@
 				<Skeleton class="h-3.5 w-24" />
 			{:else if presence}
 				<ProportionBar label="Strength today" {segments} class="w-20 @3xl/data-table:w-30" />
-				<span class="truncate text-[13px] leading-[18px]">{presence.present} of {presence.people} present</span>
+				<span class="truncate text-[13px] leading-[18px]">{presence.present} of {presence.statusRead} present</span>
 			{/if}
 		</div>
 		<div

@@ -23,7 +23,7 @@ npm run build
 
 `npm run gate` runs format checking, lint, governance, Svelte and type checks and tests, stopping at the first failure. It omits formatting writes and the build.
 
-[CI](../ci.md) runs the complete read-only sequence for a candidate. A passing CI run for the exact commit is the same evidence as a local run, so do not repeat the full sequence locally just to push. Robert keeps `main` unprotected on purpose and reviews CI before merging; missing branch protection is not a failure.
+[CI](../ci.md) runs the complete read-only sequence for a candidate. A passing CI run for the exact commit is the same evidence as a local run, so do not repeat the full sequence locally just to push.
 
 Database changes also need the [isolated database checks](#isolated-database-checks). Changed user journeys also need [flow evidence](#computer-use-flow-evidence).
 
@@ -39,14 +39,7 @@ Format only touched Markdown with `npm exec prettier -- --ignore-path /dev/null 
 
 ### Recording evidence
 
-Use synthetic values and unreachable provider endpoints for offline builds. Record the candidate revision, commands, exit results, tool versions and material warnings in the task's work record; the PR body is enough for ordinary work. Never publish credentials or token-bearing URLs. Preserve guards, scan paths, assertions and budgets: no bypasses, allowlists, skipped tests, inflated thresholds or reduced scan coverage.
-
-#### Packaging durable artifacts
-
-Collect raw snapshots, logs, readbacks, screenshots and downloads in ignored scratch space; browser runs use `.verification/evidence/verify-trooptotask/<run-name>/`. Before publication:
-
-- Sanitize the captures and record redactions without changing the observed outcome. Package each run in one `<task>-<run>.tar.gz` and upload it to the repository's `evidence` prerelease (`gh release upload evidence ARCHIVE`; create it once with `gh release create evidence --prerelease --title Evidence --notes 'Verification run archives'`). Never commit archives, capture trees or screenshots.
-- Include an inventory inside the archive with each payload file's relative name and SHA-256. Put the asset URL, archive SHA-256 and extraction instructions in the work record. Re-extract into fresh scratch space and verify every hash before acceptance.
+Record what you verified in the PR body: the candidate revision, the checks and their results, and what you drove and saw. Visible UI changes carry screenshots. Raw captures stay in ignored local scratch space and are never committed or uploaded. Use synthetic values, and never publish credentials or token-bearing URLs. Preserve guards, scan paths, assertions and budgets: no bypasses, allowlists, skipped tests, inflated thresholds or reduced scan coverage.
 
 #### Reviewable diff
 
@@ -58,7 +51,7 @@ Follow the [testing strategy](TESTING.md) when adding, rewriting, pruning or rev
 
 ### Computer-use flow evidence
 
-For changed user journeys, drive the affected flows with [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md) and its [feature map](../../.agents/skills/verify-trooptotask/features/README.md) against a production-mode local app with synthetic data. Derive expected results from the requirement, not from what the app does. Keep baseline and final observations distinct. Record candidate, role and scope, steps, expected and observed results, and sanitized artifacts. Include denied and error states, keyboard and focus behavior, and persistence after reload where relevant.
+For changed user journeys, drive the affected flows with [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md) and its [feature map](../../.agents/skills/verify-trooptotask/features/README.md) against a production-mode local app with synthetic data. Derive expected results from the requirement, not from what the app does. Keep baseline and final observations distinct. Record role and scope, steps, and expected and observed results. Include denied and error states, keyboard and focus behavior, and persistence after reload where relevant.
 
 Direct API and SQL checks prove their own boundaries; they do not replace visible interaction. If a path is unreachable, record the attempt and the blocker. Documentation-only changes need no invented journeys.
 
@@ -114,4 +107,5 @@ Request and payload rules at large, where a regression is visible in review with
 - No new provider-boundary leak and no new cross-feature permission borrowing.
 - Update [Architecture](ARCHITECTURE.md) when the default architectural path changes, [Authorization and provider boundaries](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) when authorization or provider ownership changes, and [CONTEXT.md](../../CONTEXT.md#language) when canonical terms change.
 - Add an ADR only for a still-current, surprising and hard-to-reverse decision; see the [ADR index](ADR_INDEX.md).
+- A user-visible feature or workflow change adds a What's New entry to `src/features/app-shell/changelog.ts` in the same PR.
 - Call out any remote migration, hosted configuration or deployment follow-up.

@@ -7,7 +7,6 @@ export interface GroupMembershipChange {
 	unavailableIds: string[];
 }
 
-/** One batch write. Rejects with a message to show beside the control that asked. */
 export async function moveGroupMembers(
 	orgId: string,
 	personnelIds: string[],

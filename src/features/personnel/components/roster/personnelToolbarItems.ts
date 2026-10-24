@@ -10,13 +10,10 @@ const ROSTER_VIEW_OPTIONS = [
 export interface PersonnelToolbarInput {
 	viewMode: RosterViewMode;
 	onViewModeChange: (mode: RosterViewMode) => void;
-	/** Null hides Manage Groups. */
 	onManageGroups: (() => void) | null;
-	/** Null hides Import. */
 	importHref: string | null;
 }
 
-/** The roster toolbar's items in rank order: the view toggle, then Manage Groups and Import. */
 export function personnelToolbarItems(input: PersonnelToolbarInput): ToolbarItem[] {
 	const items: ToolbarItem[] = [
 		{

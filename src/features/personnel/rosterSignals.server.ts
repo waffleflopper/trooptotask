@@ -61,7 +61,6 @@ function known<T>(read: RosterSourceRead<T> | null | undefined, id: string): Kno
 	return read?.has(id) ? { kind: 'known', value: read.get(id) as T } : { kind: 'withheld' };
 }
 
-/** Read permitted sources together for the whole visible roster or the listed People. */
 export async function loadRosterSignals(
 	ctx: { access: SignalAccess; sources: RosterSignalSources },
 	query: RosterSourceQuery
@@ -102,7 +101,6 @@ export async function loadRosterSignals(
 
 type SignalSlice = Partial<Record<SignalSource, unknown>>;
 
-/** Share one authorized database statement across this request's source readers. */
 export function createSupabaseRosterSignalSlices(
 	client: SupabaseClient,
 	orgId: string,
@@ -126,7 +124,6 @@ export function createSupabaseRosterSignalSlices(
 	};
 }
 
-/** Open follow-ups, soonest due first, for each visible active Person a Personnel configurer may read. */
 export function createSupabaseRosterFollowUpSignals(slices: RosterSignalSlices) {
 	return async (query: RosterSourceQuery): Promise<RosterSourceRead<OpenFollowUp[]>> => {
 		const read = (await slices('followUps', query)) as {
@@ -139,7 +136,6 @@ export function createSupabaseRosterFollowUpSignals(slices: RosterSignalSlices) 
 	};
 }
 
-/** The latest held counseling inside the coverage window, for each visible active Person a configurer may read. */
 export function createSupabaseRosterCounselingSignals(slices: RosterSignalSlices) {
 	return async (query: RosterSourceQuery): Promise<RosterSourceRead<string[]>> => {
 		const read = (await slices('counseling', query)) as {

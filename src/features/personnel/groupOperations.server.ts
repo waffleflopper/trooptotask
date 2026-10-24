@@ -35,7 +35,6 @@ async function requireGroupManager(ctx: GroupWriteContext, id?: string): Promise
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.manageGroups, { kind: 'organization' }, 'group', id);
 }
 
-/** The saved catalog in display order, for the Group editor to show after a change it could not confirm. */
 export async function readGroupEditorCatalog(ctx: GroupWriteContext) {
 	await requireGroupManager(ctx);
 	return ctx.groups.listCatalog();
@@ -69,7 +68,6 @@ export async function setGroupOrder(ctx: GroupWriteContext, input: Record<string
 	});
 }
 
-/** Deletes the Group after moving its members to `moveMembersTo` (null is Unassigned), all or nothing. */
 export async function deleteGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
 	const { id, moveMembersTo } = validatedInput(deleteInput, input);
 	if (moveMembersTo === id) throw error(400, 'Choose another Group for the members');
@@ -100,17 +98,12 @@ const membershipInput = z.object({
 	groupId: uuidSchema.nullable()
 });
 
-/** `movedIds` are now in the Group, including any already there; `unavailableIds` were not found or are archived. */
 export interface GroupMembershipResult {
 	groupId: string | null;
 	movedIds: string[];
 	unavailableIds: string[];
 }
 
-/**
- * Moves People into a Group (null is Unassigned) in one statement. The actor needs Manage records over the target
- * and over every moving Person's current Group, all checked before anything is written.
- */
 export async function moveGroupMembers(
 	ctx: GroupMembershipContext,
 	input: Record<string, unknown>

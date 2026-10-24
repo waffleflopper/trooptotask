@@ -7,7 +7,6 @@
 
 	interface Props {
 		summary: SummaryState;
-		/** Chips this viewer can expect, so a row that will never fill is not reserved while the lane loads. */
 		expectedCount: number;
 		filter: RosterFilter | null;
 		onToggle: (chip: RosterChip) => void;

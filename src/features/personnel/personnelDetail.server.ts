@@ -47,7 +47,6 @@ export async function loadPersonnelDetailHeader(
 	return { person, basd: sheet?.basd ?? null, dateOfRank: sheet?.date_of_rank ?? null };
 }
 
-/** The roster peek admits, by id, the same active People the detail header admits by slug. */
 export async function loadPersonnelPeekPerson(
 	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit' | 'scope'> & {
 		organizationPersonnel: Pick<PersonnelRecordPersistence, 'findById'>;

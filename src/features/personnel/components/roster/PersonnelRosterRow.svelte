@@ -111,7 +111,6 @@
 			style={column.width ? `width: ${column.width}` : undefined}
 		>
 			{#if column.key === 'select'}
-				<!-- Capture runs before the checkbox's own click, so a Shift-click reaches the change as a range. -->
 				<span class="inline-flex" onclickcapture={(event) => (rangeClick = event.shiftKey)}>
 					<DataTable.SelectionCheckbox
 						checked={selected}
@@ -165,7 +164,6 @@
 								{lossBadgeLabel(loss)}
 							</Badge>
 						{/if}
-						<!-- The actions column hides below md; Note and Quick edit stay reachable beside the name. -->
 						{#if canNote || canQuickEdit}
 							<span class="ml-auto flex shrink-0 gap-1 md:hidden">
 								{#if canNote}
@@ -199,16 +197,13 @@
 							</span>
 						{/if}
 					</span>
-					<!-- Below 36rem Needs attention folds under the name; the line keeps its height while loading. -->
 					<span class="flex h-4 min-w-0 items-center @xl/data-table:hidden">{@render attentionText()}</span>
 				</span>
 			{:else if column.key === 'attention'}
 				{@render attentionText()}
 			{:else if column.key === 'actions'}
 				<span class="flex items-center justify-end gap-1">
-					<!-- The open peek panel carries Note and Quick edit, so the narrowed column shows only the chevron. -->
 					{#if (canNote || canQuickEdit) && controls.peekedId === null}
-						<!-- Hover reveals them; a touch screen has no hover, so they stay shown there. -->
 						<span
 							class={[
 								'flex gap-1 group-focus-within/row:visible group-hover/row:visible [@media(hover:none)]:visible',

@@ -7,12 +7,10 @@ import {
 	type SignalAccess
 } from './rosterSignals';
 
-/** The roster URL parameter that carries the active filter, so a filtered roster can be shared and survives reload. */
 export const ROSTER_FILTER_PARAM = 'show';
 
 const STATUS_PREFIX = 'status:';
 
-/** The filter a `?show=` value names, or null for a missing, empty or unknown value. */
 export function parseRosterFilter(value: string | null): RosterFilter | null {
 	if (!value) return null;
 	if (value === 'present') return { kind: 'present' };
@@ -40,15 +38,10 @@ export function sameRosterFilter(a: RosterFilter | null, b: RosterFilter | null)
 	return serializeRosterFilter(a) === serializeRosterFilter(b);
 }
 
-/** The chip a filter lights, or null when a headcount entry carries it. */
 export function chipOf(filter: RosterFilter | null): RosterChip | null {
 	return filter?.kind === 'chip' ? filter.chip : null;
 }
 
-/**
- * Whether the settled lane can answer a filter: its source is read for the viewer and, for a status, the Organization
- * still has that type. A filter the lane cannot answer shows the roster unfiltered rather than an empty one.
- */
 export function rosterFilterAnswerable(
 	filter: RosterFilter,
 	lane: { access: SignalAccess; lossesEnabled: boolean; statusTypes: readonly RosterStatusType[] }

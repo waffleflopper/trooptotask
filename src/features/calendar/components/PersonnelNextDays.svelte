@@ -5,11 +5,12 @@
 
 	interface Props {
 		calendar: PersonnelCalendarWindow;
-		/** Draws the legend as exactly this many truncated lines, so a skeleton can reserve the settled height. */
 		legendLines?: number;
 	}
 
 	let { calendar, legendLines }: Props = $props();
+
+	const MIN_DAY_WIDTH_REM = 34 / 14;
 
 	const days = $derived(buildPersonnelNextDays(calendar));
 	const legend = $derived.by(() => {
@@ -23,8 +24,7 @@
 
 <div class="flex min-w-0 flex-col gap-3">
 	<div class="overflow-x-auto">
-		<!-- About 2.4rem a day keeps the day numbers readable at any span. -->
-		<div style:min-width="{(34 / 14) * days.columns.length}rem">
+		<div style:min-width="{MIN_DAY_WIDTH_REM * days.columns.length}rem">
 			<AvailabilityStrip size="regular" columns={days.columns} layout={days.layout} />
 		</div>
 	</div>

@@ -2,8 +2,8 @@
 
 A visitor reads the product, About, Security, Privacy and Terms pages without an account, switches the theme, and
 reaches Sign In and Request Access. A signed-in member sees the same pages with `Dashboard` in place of the access
-links. The pages are static prose: they make no commercial claim (pricing, plans, subscription, billing, trial, seats,
-checkout) and no Duty Roster claim.
+links. The pages are static prose. Every product claim matches what the app does today, and no page states a price,
+plan, subscription, trial or quota until Robert approves one.
 
 ## Sub-features
 
@@ -18,7 +18,7 @@ checkout) and no Duty Roster claim.
 - `footer-links`: seven links that resolve.
 - `contact-cards`: `mailto:` links on Security, Privacy and Terms.
 - `signed-in-state`: `Dashboard` in the header and `Go to Dashboard` as the call to action on `/` and the inner pages.
-- `public-claims`: no commercial or Duty Roster wording on any public page.
+- `public-claims`: no public page claims a feature, price, plan or quota the product does not have.
 - `public-appearance`: Home, About, Security, Privacy and Terms at 1280x800 and 390x844, light and dark, no horizontal
   overflow, no console error.
 
@@ -108,8 +108,9 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
 10. **Claims scan.** For each of the five pages, run `evaluate_script` with `() => document.body.innerText` and save the
     text to `<page>-text.txt` in the run directory. Search it case-insensitively for
     `pricing|price|plans|subscri|billing|trial|free tier|seat|checkout|invoice|per month|duty roster|duty assign|rotation|tier`
-    and `\$\d`. Expect no match that makes a commercial or Duty Roster claim. A match is read in context and
-    dispositioned; "the plan" as everyday English is not a claim, "duty assignments" listed as a product feature is.
+    and `\$\d`. Read each match in context. Expect no price, plan, subscription, trial or quota claim, and no feature
+    claim the app does not deliver. "The plan" as everyday English is not a claim, and the shipped duty roster is a real
+    feature.
 
 11. **Appearance matrix.** For each width (1280x800, 390x844) and theme (light, dark) and each page (home, about,
     security, privacy, terms): `resize_page`, set the theme with `Toggle theme`, `navigate_page`, reveal the page, then

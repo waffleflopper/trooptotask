@@ -13,7 +13,6 @@ type EntryTuple = [
 	workflowStatus: RatingSchemeEntry['workflowStatus']
 ];
 
-/** Each visible active Person's active evaluation, or null when none is open, in one statement. */
 export function createSupabaseRatingSchemeRosterSignals(slices: RosterSignalSlices) {
 	return async (query: RosterSourceQuery): Promise<RosterSourceRead<ActiveEvaluationProjection | null>> => {
 		const { cohort, entries } = (await slices('evaluations', query)) as { cohort: string[]; entries: EntryTuple[] };

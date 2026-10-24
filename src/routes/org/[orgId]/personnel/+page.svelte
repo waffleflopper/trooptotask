@@ -17,8 +17,6 @@
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import type { PersonnelWorkspaceData, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
-	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
-
 	let { data } = $props();
 
 	let resolvedSnapshot = $state<{ orgId: string; workspace: PersonnelWorkspaceResult } | null>(null);
@@ -78,7 +76,6 @@
 		};
 	}
 
-	/** The 470 px dock wraps a long availability note onto a second line; the strip and its skeleton both hold two. */
 	const PEEK_LEGEND_LINES = 2;
 
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {
@@ -109,7 +106,7 @@
 		{@const ctx = createContext(workspace.data)}
 		<PersonnelPageView {ctx} nextDays={peekNextDays} />
 		{#await loadPersonnelModals() then { default: PersonnelModals }}
-			<PersonnelModals {ctx} {modals} {requestArchiveApproval} />
+			<PersonnelModals {ctx} {modals} />
 		{/await}
 	{:else}
 		<PersonnelRosterSkeleton />

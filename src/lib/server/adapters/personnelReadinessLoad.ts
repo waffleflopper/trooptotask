@@ -45,7 +45,6 @@ function settle<T>(source: Promise<T> | null, omitDenied: boolean): Promise<Read
 }
 
 export interface PersonnelReadinessOptions {
-	/** A source the viewer may not read is left out like a switched-off one, not reported as unchecked. */
 	omitDenied?: boolean;
 }
 

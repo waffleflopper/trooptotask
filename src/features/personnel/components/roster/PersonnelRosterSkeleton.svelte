@@ -4,7 +4,6 @@
 	const ROWS = 10;
 </script>
 
-<!-- Holds the roster's shape while the workspace streams, so the page does not jump when it paints. -->
 <div class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3" aria-busy="true">
 	<span class="sr-only" role="status">Loading personnel</span>
 	<div class="grid gap-2" aria-hidden="true">

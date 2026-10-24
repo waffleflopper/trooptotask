@@ -173,10 +173,6 @@ interface GroupRosterOptions {
 	fallbackGroupName?: string;
 }
 
-/**
- * The display order of Groups: the viewer's pins in pin order, then the Organization's Group order, then the rest
- * by name. The empty name is Unassigned and sorts last.
- */
 export function compareRosterGroupNames(
 	options: Pick<GroupRosterOptions, 'pinnedGroups' | 'groupOrder'>
 ): (a: string, b: string) => number {

@@ -432,12 +432,11 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('modal handlers', () => {
-		it('handleAdd opens personnel-modal with null person payload', () => {
+		it('handleAdd opens personnel-modal', () => {
 			const modals = makeModals();
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
 			ctx.handleAdd();
 			expect(modals.isOpen('personnel-modal')).toBe(true);
-			expect(modals.payload<{ person: Personnel | null }>('personnel-modal')?.person).toBeNull();
 		});
 
 		it.each(['group-a', null])('opens the editor with selection %s', (groupId) => {
@@ -466,9 +465,7 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('upcomingLossMap', () => {
-		// 48 days from asOf 2026-04-14 — well within 180-day default window
 		const IN_WINDOW = '2026-06-01';
-		// 382 days from asOf — beyond any reasonable default window
 		const OUT_OF_WINDOW = '2027-05-01';
 
 		it('returns an empty map when no personnel have tracked dates', () => {

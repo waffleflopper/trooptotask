@@ -5,13 +5,11 @@ import { compareIctCompletionRecency } from './ictReadinessSnapshot';
 import { getIctStatus, resolveIctExpirationMonths } from './ictStatus';
 import { isIctTaskApplicableToMos } from './ictTaskLibrary';
 
-/** The completion fields readiness reads; the roster lane fetches only these. */
 export type IctCompletionFacts = Pick<
 	PersonnelIctCompletion,
 	'ictTaskId' | 'completedAt' | 'createdAt' | 'validatedBy'
 >;
 
-/** What readiness reads of a task; the roster lane reads only these, and only active tasks. */
 export type IctTaskFacts = Pick<IctTask, 'id' | 'taskCode' | 'title' | 'mos' | 'expirationMonths'> & {
 	archivedAt?: string | null;
 };

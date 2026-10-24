@@ -22,11 +22,6 @@ function loadSignals({ locals, cookies, params }: RosterSignalsRequest, asOf: st
 	});
 }
 
-/**
- * The signals lane streams beside the layout's roster read, so a day or signals refresh rereads no roster. It does not
- * declare the viewer-day dependency: a first visit's recorded time zone would rerun the lane even on the same day, so
- * the page asks for a rerun itself when the viewer's day differs.
- */
 export function _createPersonnelPageLoad(deps: PersonnelPageLoadDeps = {}): PageServerLoad {
 	return async (event) => {
 		event.depends('app:org-core', PERSONNEL_SIGNALS_DEPENDENCY);

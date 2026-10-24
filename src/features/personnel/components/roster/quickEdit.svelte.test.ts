@@ -44,7 +44,11 @@ function setup(overrides: Partial<QuickEditDeps> = {}) {
 	return {
 		deps,
 		edit: new RosterQuickEdit(deps),
-		removeFromRoster: (id: string) => (roster = roster.filter((person) => person.id !== id))
+		removeFromRoster: (id: string) => (roster = roster.filter((person) => person.id !== id)),
+		moveToGroup: (id: string, group: Group) =>
+			(roster = roster.map((person) =>
+				person.id === id ? { ...person, groupId: group.id, groupName: group.name } : person
+			))
 	};
 }
 
@@ -132,12 +136,6 @@ describe('save', () => {
 
 		expect(deps.save).toHaveBeenCalledExactlyOnceWith('p-1', {
 			rank: 'SSG',
-			lastName: 'Okafor',
-			firstName: 'Daniel',
-			mos: '68W',
-			clinicRole: 'Treatment NCO',
-			ets: null,
-			deros: null,
 			groupId: 'g-1',
 			groupName: '1st Platoon'
 		});
@@ -149,6 +147,23 @@ describe('save', () => {
 		);
 		expect(deps.closed).toHaveBeenCalledWith('p-1');
 		expect(edit.editingId).toBeNull();
+	});
+
+	it('keeps a Group move made elsewhere while the editor was open', async () => {
+		const { edit, deps, moveToGroup } = setup();
+		edit.open(okafor);
+		moveToGroup('p-1', groups[0]);
+		edit.session!.draft.mos = '68C';
+
+		expect(await edit.save()).toBe(true);
+
+		expect(deps.save).toHaveBeenCalledExactlyOnceWith('p-1', { mos: '68C' });
+		expect(deps.person('p-1')).toMatchObject({ mos: '68C', groupId: 'g-1', groupName: '1st Platoon' });
+		expect(deps.peekChanged).toHaveBeenCalledExactlyOnceWith(
+			'p-1',
+			expect.objectContaining({ groupId: 'g-1', mos: '68W' }),
+			expect.objectContaining({ groupId: 'g-1', mos: '68C' })
+		);
 	});
 
 	it('leaves signals alone when only dates or names changed', async () => {

@@ -40,7 +40,6 @@ export class PinnedGroupsStore {
 		this.#orgId = orgId;
 	}
 
-	/** Mirrors a saved rename or delete, which already moved or removed every viewer's pin on the server. */
 	followCatalogChange(from: string, to: string | null) {
 		if (!this.#pinnedGroups.includes(from)) return;
 		this.#pinnedGroups = this.#pinnedGroups.flatMap((name) => (name === to ? [] : name === from ? (to ?? []) : [name]));
@@ -196,7 +195,6 @@ export const pinnedGroupsStore = {
 	}
 };
 
-/** The Group editor mirrors a saved rename (`to` is the new name) or delete (`to` is null). */
 export function followPinnedGroupCatalogChange(from: string, to: string | null) {
 	pinnedGroupManagementStore.followCatalogChange(from, to);
 }

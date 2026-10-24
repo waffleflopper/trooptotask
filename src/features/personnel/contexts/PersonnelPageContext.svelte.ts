@@ -27,7 +27,6 @@ import { RosterSignals } from '../rosterSignals.svelte';
 
 export interface PersonnelPageData {
 	orgId: string;
-	/** The viewer's day from the server, so day counts match the Dashboard. */
 	asOf: string;
 	orgName: string;
 	pinnedGroups: string[];
@@ -68,7 +67,6 @@ export class PersonnelPageContext {
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
 	readonly #groupsStore: GroupsAccessor;
 	readonly signals: RosterSignals;
-	/** The peek panel's per-Person reads, dropped with this context when the workspace loads again. */
 	readonly peek: RosterPeek;
 
 	constructor(
@@ -164,7 +162,6 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
-	/** Whether the viewer may move People into this Group; null is Unassigned. */
 	canManagePersonnelInGroup(groupId: string | null): boolean {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.personnel.manageRecords,
@@ -230,7 +227,6 @@ export class PersonnelPageContext {
 		return !this.#data.disabledFeatures?.includes('lossesAndAwards');
 	}
 
-	/** How many chips this viewer can expect, known before the lane settles from their permissions and the unit's switches. */
 	get expectedChipCount(): number {
 		const access = signalAccessBy(
 			(action) => this.#org.affordanceForFeatureAction(action, { kind: 'unscoped' }).allowed,
@@ -239,7 +235,6 @@ export class PersonnelPageContext {
 		return ROSTER_CHIPS.filter((chip) => chipAvailable(chip, access, this.lossesEnabled)).length;
 	}
 
-	/** Badge and chip losses from the roster's own dates, through the same evaluation the Dashboard uses. */
 	readonly rosterLosses: ReadonlyMap<string, RosterLoss> = $derived.by(() => {
 		const warningWindowDays = this.#data.lossWarningWindowDays;
 		return projectRosterLosses({
@@ -251,7 +246,6 @@ export class PersonnelPageContext {
 		});
 	});
 
-	/** People with an ETS or PCS inside the unit's loss window. */
 	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
 		const entries = [...this.rosterLosses].flatMap(([id, loss]) => (loss.badge ? [[id, loss.badge] as const] : []));
 		return new Map(entries);
@@ -261,7 +255,6 @@ export class PersonnelPageContext {
 		return this.signals.row(person.id, this.rosterLosses.get(person.id) ?? null);
 	}
 
-	/** Strip, chip or Group header counts over the given People, who are always roster People. */
 	summarizeSignals(people: readonly Pick<Personnel, 'id'>[]): SummaryState {
 		return this.signals.summarize(
 			people.map((person) => person.id),
@@ -300,15 +293,13 @@ export class PersonnelPageContext {
 	}
 
 	handleAdd(): void {
-		this.#modals.open('personnel-modal', { person: null });
+		this.#modals.open('personnel-modal');
 	}
 
-	/** Null selects People without a Group. */
 	openGroupEditor(groupId: string | null): void {
 		this.#modals.open('group-manager', { select: groupId });
 	}
 
-	/** Group names in the Organization's display order: `sort_order`, then name (legacy Groups all share 0), then id. */
 	get groupOrder(): string[] {
 		if (this.#groupsStore.orgId !== this.orgId) return [];
 		return [...this.#groupsStore.items]

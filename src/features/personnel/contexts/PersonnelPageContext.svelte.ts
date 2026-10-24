@@ -13,7 +13,15 @@ import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
-import { projectRosterLosses, type RosterLoss, type SignalRow, type SummaryState } from '../rosterSignals';
+import {
+	chipAvailable,
+	projectRosterLosses,
+	ROSTER_CHIPS,
+	signalAccessBy,
+	type RosterLoss,
+	type SignalRow,
+	type SummaryState
+} from '../rosterSignals';
 import { RosterSignals } from '../rosterSignals.svelte';
 
 export interface PersonnelPageData {
@@ -215,6 +223,15 @@ export class PersonnelPageContext {
 
 	get lossesEnabled(): boolean {
 		return !this.#data.disabledFeatures?.includes('lossesAndAwards');
+	}
+
+	/** How many chips this viewer can expect, known before the lane settles from their permissions and the unit's switches. */
+	get expectedChipCount(): number {
+		const access = signalAccessBy(
+			(action) => this.#org.affordanceForFeatureAction(action, { kind: 'unscoped' }).allowed,
+			this.#data.disabledFeatures ?? []
+		);
+		return ROSTER_CHIPS.filter((chip) => chipAvailable(chip, access, this.lossesEnabled)).length;
 	}
 
 	/** Badge and chip losses from the roster's own dates, through the same evaluation the Dashboard uses. */

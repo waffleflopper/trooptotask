@@ -22,8 +22,8 @@
 		ctx: PersonnelPageContext;
 		/** Everyone selected who is still on the active roster, shown or not. */
 		people: readonly Personnel[];
-		/** How many of `people` the search hides. */
-		hidden: number;
+		/** How many of `people` the search or the roster filter hides, and which of them does. */
+		hidden: { count: number; by: 'search' | 'filter' | 'search and filter' };
 		oncompose: (kind: ComposerKind) => void;
 		onclear: () => void;
 		/** People who left the active roster or went for approval, to drop from the selection. */
@@ -157,7 +157,8 @@
 	const archiveMessage = $derived(
 		[
 			`Archive ${archivable.length} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval.`,
-			hidden > 0 && `This includes ${count(hidden)} your search hides.`,
+			hidden.count > 0 &&
+				`This includes ${count(hidden.count)} your ${hidden.by} ${hidden.by === 'search and filter' ? 'hide' : 'hides'}.`,
 			people.length > archivable.length &&
 				`${count(people.length - archivable.length)} you cannot archive will be skipped.`
 		]
@@ -174,13 +175,13 @@
 >
 	<span class="pr-1.5 text-[15px] leading-[18px] font-semibold whitespace-nowrap" aria-live="polite">
 		{people.length} selected
-		{#if hidden > 0}
+		{#if hidden.count > 0}
 			<span
 				class="font-normal text-chrome-text-muted @max-3xl/roster:block @max-3xl/roster:text-[13px] @max-3xl/roster:leading-4"
 			>
 				<span class="@max-3xl/roster:hidden" aria-hidden="true">·</span>
-				{hidden} hidden
-				<span class="@max-3xl/roster:sr-only">by search</span>
+				{hidden.count} hidden
+				<span class="@max-3xl/roster:sr-only">by {hidden.by}</span>
 			</span>
 		{/if}
 	</span>

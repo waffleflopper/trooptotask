@@ -33,7 +33,7 @@
 	const tabbable = $derived(controls.tabRowId === person.id);
 	const signal = $derived(ctx.signalRow(person));
 	const dot = $derived(rosterStatusDot(signal, ctx.signals.statusTypes));
-	const attention = $derived(rosterAttentionCell(signal));
+	const attention = $derived(rosterAttentionCell(signal, controls.filter));
 	const loss = $derived(ctx.upcomingLossMap.get(person.id));
 	const session = $derived(controls.edit.session?.personnelId === person.id ? controls.edit.session : null);
 

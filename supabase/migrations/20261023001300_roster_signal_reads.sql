@@ -70,13 +70,14 @@ AS $$
     WHERE 'criticalTasks' = ANY (p_sources) AND t.organization_id = p_organization_id AND t.archived_at IS NULL
       AND (SELECT public.member_access_has_capability(p_organization_id, 'criticalTasks', 'view'))
   ),
+  -- A completion dated after the viewer's day does not count yet, as the record's Overview skips it.
   latest_completions AS (
     SELECT DISTINCT ON (pc.personnel_id, pc.ict_task_id)
       pc.personnel_id, pc.ict_task_id, pc.completed_at, pc.created_at, pc.validated_by
     FROM public.personnel_ict_completions pc
     JOIN task_cohort c ON c.id = pc.personnel_id
     JOIN tasks t ON t.id = pc.ict_task_id
-    WHERE pc.organization_id = p_organization_id
+    WHERE pc.organization_id = p_organization_id AND pc.completed_at <= p_as_of
     ORDER BY pc.personnel_id, pc.ict_task_id, pc.completed_at DESC, pc.created_at DESC
   ),
   -- The active evaluation is the latest-ending entry not yet completed, as the record's Evals tab shows it.

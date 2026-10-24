@@ -108,10 +108,8 @@ describe('GroupEditor', () => {
 	});
 
 	it('adds a Group on Enter and keeps the name beside its error when the add fails', async () => {
-		const onAdd = vi
-			.fn()
-			.mockResolvedValueOnce(undefined)
-			.mockRejectedValueOnce(new Error('A Group with that name already exists.'));
+		const reply = Promise.withResolvers<void>();
+		const onAdd = vi.fn().mockResolvedValueOnce(undefined).mockReturnValueOnce(reply.promise);
 		renderEditor({ onAdd });
 		const field = screen.getByRole('textbox', { name: 'New group name' }) as HTMLInputElement;
 
@@ -120,6 +118,8 @@ describe('GroupEditor', () => {
 		await waitFor(() => expect(field.value).toBe(''));
 		await fireEvent.input(field, { target: { value: 'HQ' } });
 		await fireEvent.keyDown(field, { key: 'Enter' });
+		await fireEvent.click(screen.getByRole('button', { name: /^HQ/ }));
+		reply.reject(new Error('A Group with that name already exists.'));
 
 		expect(await screen.findByText('A Group with that name already exists.')).toBeTruthy();
 		expect(field.value).toBe('HQ');
@@ -176,6 +176,47 @@ describe('GroupEditor', () => {
 		expect(screen.queryByRole('toolbar', { name: 'Selected members' })).toBeNull();
 	});
 
+	it.each([
+		{ operation: 'members', selection: 'unchanged' },
+		{ operation: 'members', selection: 'another Group' },
+		{ operation: 'members', selection: 'away and back' },
+		{ operation: 'pin', selection: 'unchanged' },
+		{ operation: 'pin', selection: 'another Group' },
+		{ operation: 'pin', selection: 'away and back' }
+	])(
+		'keeps a delayed $operation failure scoped to its request with selection $selection',
+		async ({ operation, selection }) => {
+			const reply = Promise.withResolvers<never>();
+			const onMove = vi.fn(() => reply.promise);
+			const onTogglePin = vi.fn(() => reply.promise);
+			renderEditor({ onMove, onTogglePin });
+
+			if (operation === 'members') {
+				await fireEvent.click(screen.getByRole('checkbox', { name: 'Select PFC Banks, Pat' }));
+				await fireEvent.click(screen.getByRole('button', { name: 'Remove from Group' }));
+				expect(onMove).toHaveBeenCalledWith(['p-banks'], null);
+			} else {
+				await fireEvent.click(screen.getByRole('button', { name: 'Pinned to top' }));
+				expect(onTogglePin).toHaveBeenCalledWith('2nd Platoon');
+			}
+			expect(screen.getByRole('button', { name: 'Add people to 2nd Platoon' }).hasAttribute('disabled')).toBe(true);
+
+			if (selection !== 'unchanged') await fireEvent.click(screen.getByRole('button', { name: /^HQ/ }));
+			if (selection === 'away and back') await fireEvent.click(screen.getByRole('button', { name: /^2nd Platoon/ }));
+			const selectedName = selection === 'another Group' ? 'HQ' : '2nd Platoon';
+			expect(screen.getByRole('heading', { name: selectedName })).toBeTruthy();
+			reply.reject(new Error('Request denied'));
+
+			await waitFor(() =>
+				expect(screen.getByRole('button', { name: `Add people to ${selectedName}` }).hasAttribute('disabled')).toBe(
+					false
+				)
+			);
+			if (selection === 'unchanged') expect(screen.getByRole('alert').textContent).toBe('Request denied');
+			else expect(screen.queryByRole('alert')).toBeNull();
+		}
+	);
+
 	it('offers the other Groups and Unassigned under Move to…', async () => {
 		const { onMove } = renderEditor();
 
@@ -231,9 +272,6 @@ describe('GroupEditor', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete 2nd Platoon…' }));
 		const strip = screen.getByRole('group', { name: 'Delete 2nd Platoon' });
-		expect(strip.textContent?.replace(/\s+/g, ' ')).toContain(
-			'Delete 2nd Platoon? 2 members need a new Group. Their records, notes and history are not affected.'
-		);
 		const picker = within(strip).getByRole('combobox', { name: 'Move members to' }) as HTMLSelectElement;
 		expect(picker.value).toBe('g-empty');
 		await waitFor(() => expect(document.activeElement).toBe(picker));

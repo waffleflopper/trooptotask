@@ -42,7 +42,7 @@ export class PinnedGroupsStore {
 
 	/** Mirrors a saved rename or delete, which already moved or removed every viewer's pin on the server. */
 	followCatalogChange(from: string, to: string | null) {
-		if (!this.#pinnedGroups.includes(from) && (to === null || !this.#pinnedGroups.includes(to))) return;
+		if (!this.#pinnedGroups.includes(from)) return;
 		this.#pinnedGroups = this.#pinnedGroups.flatMap((name) => (name === to ? [] : name === from ? (to ?? []) : [name]));
 	}
 

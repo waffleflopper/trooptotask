@@ -77,6 +77,7 @@
 	let renameDraft = $state<string | null>(null);
 	let checked = $state<string[]>([]);
 	let pending = $state<Control | null>(null);
+	let requestVersion = 0;
 	let failures = $state<Partial<Record<Control, string>>>({});
 	let notice = $state<string | null>(null);
 	let confirmingDelete = $state(false);
@@ -151,6 +152,8 @@
 	/** Runs one change at a time; the error stays beside `control` until that control is used again. */
 	async function run(control: Control, change: () => Promise<void>): Promise<boolean> {
 		if (pending) return false;
+		const groupId = selectionKey;
+		const request = ++requestVersion;
 		pending = control;
 		failures = { ...failures, [control]: undefined };
 		notice = null;
@@ -158,7 +161,9 @@
 			await change();
 			return true;
 		} catch (cause) {
-			failures = { ...failures, [control]: messageOf(cause) };
+			if (control === 'add' || (request === requestVersion && selectionKey === groupId)) {
+				failures = { ...failures, [control]: messageOf(cause) };
+			}
 			return false;
 		} finally {
 			pending = null;
@@ -171,6 +176,7 @@
 
 	async function select(id: string) {
 		if (id === selectedId) return;
+		requestVersion++;
 		selectedId = id;
 		checked = [];
 		renameDraft = null;

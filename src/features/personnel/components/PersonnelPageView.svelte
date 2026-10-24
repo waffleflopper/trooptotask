@@ -200,30 +200,32 @@
 	const canNoteAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
-	// One composer at a time: a second Note asks the open one to close (and to discard typed text) first.
+	// One composer at a time: opening another asks the open one to close (and to discard typed text) first, then opens.
+	function replaceComposer(open: () => void): void {
+		const composer = notePerson ? noteComposer : bulkCompose ? bulkComposer : undefined;
+		if (composer) composer.requestClose(open);
+		else open();
+	}
+
 	function openNote(person: Personnel): void {
-		if (notePerson) {
-			const sameRow = notePerson.id === person.id;
-			const closed = noteComposer?.requestClose() ?? true;
-			if (sameRow || !closed) return;
-		}
-		if (bulkCompose && !(bulkComposer?.requestClose() ?? true)) return;
-		notePerson = person;
+		if (notePerson?.id === person.id) noteComposer?.requestClose();
+		else replaceComposer(() => (notePerson = person));
 	}
 
 	const peopleCount = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 
 	function openBulkCompose(people: readonly Personnel[], kind: ComposerKind, heading: string, anchor: string): void {
-		if (notePerson && !(noteComposer?.requestClose() ?? true)) return;
-		if (bulkCompose && !(bulkComposer?.requestClose() ?? true)) return;
 		const writable = people.filter((person) => ctx.canManagePersonnelRecord(person));
-		bulkCompose = {
-			kind,
-			personnelIds: writable.map((person) => person.id),
-			skipped: people.length - writable.length,
-			heading: heading.replace('{count}', peopleCount(writable.length)),
-			anchor
-		};
+		replaceComposer(
+			() =>
+				(bulkCompose = {
+					kind,
+					personnelIds: writable.map((person) => person.id),
+					skipped: people.length - writable.length,
+					heading: heading.replace('{count}', peopleCount(writable.length)),
+					anchor
+				})
+		);
 	}
 
 	function composeForSelection(kind: ComposerKind): void {
@@ -508,14 +510,16 @@
 {/if}
 
 {#if bulkCompose}
-	<RosterBulkComposer
-		bind:this={bulkComposer}
-		{ctx}
-		personnelIds={bulkCompose.personnelIds}
-		skipped={bulkCompose.skipped}
-		heading={bulkCompose.heading}
-		anchor={bulkCompose.anchor}
-		initialKind={bulkCompose.kind}
-		onclose={() => (bulkCompose = null)}
-	/>
+	{#key bulkCompose}
+		<RosterBulkComposer
+			bind:this={bulkComposer}
+			{ctx}
+			personnelIds={bulkCompose.personnelIds}
+			skipped={bulkCompose.skipped}
+			heading={bulkCompose.heading}
+			anchor={bulkCompose.anchor}
+			initialKind={bulkCompose.kind}
+			onclose={() => (bulkCompose = null)}
+		/>
+	{/key}
 {/if}

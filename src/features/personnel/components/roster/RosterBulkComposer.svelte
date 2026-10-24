@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
@@ -33,8 +33,9 @@
 		alive = false;
 	});
 
-	export function requestClose(): boolean {
-		return composer?.requestClose() ?? true;
+	/** Closes now, or asks to discard typed text; `then` runs after the close, and only if the user confirms. */
+	export function requestClose(then?: () => void): boolean {
+		return composer?.requestClose(then) ?? true;
 	}
 
 	function close(): void {
@@ -42,6 +43,7 @@
 		onclose();
 	}
 
+	const today = untrack(() => ctx.signals.viewerDay());
 	const people = (count: number) => `${count} ${count === 1 ? 'person' : 'people'}`;
 
 	async function save(entry: ComposerEntry): Promise<void> {
@@ -97,7 +99,7 @@
 		<RosterComposer
 			bind:this={composer}
 			{heading}
-			today={ctx.data.asOf}
+			{today}
 			alreadyOpen={{ kind: 'none' }}
 			{initialKind}
 			onsave={save}

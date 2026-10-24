@@ -78,11 +78,11 @@
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
-			const orgId = ctx.orgId;
+			const inOrganization = stillInOrganizationLifetime();
 			const before = editingPerson;
 			const updated = await personnelStore.updateOrThrow(before.id, personData);
 			if (!updated) throw new Error('Failed to update personnel');
-			if (ctx.orgId === orgId && changesSignalApplicability(before, personData)) void ctx.signals.refresh([before.id]);
+			if (inOrganization() && changesSignalApplicability(before, personData)) void ctx.signals.refresh([before.id]);
 		} else {
 			const created = await personnelStore.add(personData);
 			if (!created) throw new Error('Failed to add personnel');

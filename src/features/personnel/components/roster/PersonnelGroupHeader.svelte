@@ -30,9 +30,7 @@
 
 	const summary = $derived(ctx.summarizeSignals(people));
 	const presence = $derived(
-		summary.kind === 'ready' && summary.value.presence.kind === 'known'
-			? { ...summary.value.presence.value, people: summary.value.people }
-			: null
+		summary.kind === 'ready' && summary.value.presence.kind === 'known' ? summary.value.presence.value : null
 	);
 	const attention = $derived(
 		summary.kind === 'ready' && summary.value.attention.kind === 'known' ? summary.value.attention.value : null

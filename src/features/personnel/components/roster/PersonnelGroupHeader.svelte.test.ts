@@ -4,7 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GroupHeaderContext } from '$lib/components/ui/data-table';
 import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 import type { Personnel } from '../../personnel.types';
-import type { SummaryState } from '../../rosterSignals';
+import {
+	NO_SIGNAL_ACCESS,
+	summarizeRosterSignals,
+	type PersonRosterSignals,
+	type SummaryState
+} from '../../rosterSignals';
 import type { CheckState } from './rosterSelection.svelte';
 import PersonnelGroupHeader from './PersonnelGroupHeader.svelte';
 
@@ -27,6 +32,7 @@ function ready(overrides: {
 					: {
 							kind: 'known',
 							value: {
+								people: presence.present + (presence.away ?? 0),
 								present: presence.present,
 								byStatus: presence.away ? [{ type: leave, count: presence.away }] : []
 							}
@@ -92,6 +98,29 @@ describe('PersonnelGroupHeader', () => {
 		expect(screen.getByText('3 of 4 present')).toBeTruthy();
 		expect(screen.getByRole('img', { name: 'Strength today: 3 present, 1 Leave' })).toBeTruthy();
 		expect(screen.getByText('2 need attention').className).toContain('text-danger-foreground');
+	});
+
+	it('counts only People whose status is known, so a withheld member neither inflates the total nor the bar', () => {
+		const row = (personnelId: string, today: PersonRosterSignals['today']): PersonRosterSignals => ({
+			personnelId,
+			today,
+			attention: { kind: 'withheld' },
+			matches: {},
+			openFollowUps: { kind: 'withheld' },
+			loss: null
+		});
+		mount({
+			kind: 'ready',
+			value: summarizeRosterSignals({
+				rows: [row('a', { kind: 'known', value: { kind: 'present' } }), row('b', { kind: 'withheld' })],
+				access: { ...NO_SIGNAL_ACCESS, availability: true },
+				lossesEnabled: false,
+				statusTypes: [leave]
+			})
+		});
+
+		expect(screen.getByText('1 of 1 present')).toBeTruthy();
+		expect(screen.getByRole('img', { name: 'Strength today: 1 present' })).toBeTruthy();
 	});
 
 	it('colors one person needing attention by their worst item', () => {

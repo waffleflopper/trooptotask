@@ -118,11 +118,14 @@ async function settle(promise: Promise<unknown>) {
 }
 
 beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date(2026, 9, 23, 12));
 	personnelWorkspaceHydrator.reset();
 	navigation.invalidate.mockResolvedValue(undefined);
 });
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	hydrate('reset', []);
 	vi.unstubAllGlobals();
 	vi.resetAllMocks();

@@ -137,19 +137,23 @@ scoped actors retain their baseline grants.
     not the viewport: below 48rem Rank, MOS, Duty Role and Group hide and the rank moves before the name; below 36rem
     Needs attention folds onto a second line under the name; the actions column hides below the md viewport and `Note`
     and `Quick edit` then sit beside the name. At 1440, 900 and 390 the page has no horizontal scroll.
-13. **Signals lane loading, failure and reads.** `$V server-source arm rpc/roster_signals hold 1 90000`, then reload:
-    the roster rows paint at once while each status dot, attention cell and the strip show skeletons, and every row's
-    top offset is unchanged when `$V server-source release` lets the lane through. Arm `fail-hard` instead: the roster
-    stays usable with blank cells, no strip, and one notice `Today's status and Needs attention could not be loaded.`
-    with `Reload`. `server-source restore`, choose `Reload`, and the cells return without a roster read:
-    `$V perf statements reset` before and `perf statements read` after show one `roster_signals` call and no
-    `FROM "public"."personnel"` statement, and the browser's one request is `__data.json?x-sveltekit-invalidated=0001`.
-    A page load issues one roster read and one `roster_signals` call that names only the sources the viewer may read:
-    with Training and Critical tasks off the call's `p_sources` omit `training` and `criticalTasks`, and
-    `dashboardScoped` (no follow-up or counseling access) omits `followUps` and `counseling`. A first visit whose
-    browser day matches the server's keeps the lane the first response carried (one `roster_signals` call). To exercise
-    the viewer-day rerun, set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the
-    zone and reruns only the signals lane.
+13. **Signals lane loading, failure and reads.** Use `orgOwner` in the fixture's `orgA`; these controls do not match a
+    performance-workload Organization. `$V server-source arm rpc/roster_signals hold 1 90000`, then reload. For a native
+    `navigate_page` reload, use `timeout: 1000` and continue after its expected navigation timeout while the document
+    streams. Confirm `server-source state` reports `matches: 1` and `phase: held` before capturing the loading state. At
+    1440, 900 and 390, all three active People remain visible while each status dot, attention cell and the strip show
+    skeletons. `$V server-source release` preserves row positions and shows `2 present` and `1 Verification Training` in
+    the strip. Arm `fail-hard` instead: the roster stays usable with blank cells, no strip, and one notice
+    `Today's status and Needs attention could not be loaded.` with `Reload`. `server-source restore`, choose `Reload`,
+    and the cells return without a roster read: `$V perf statements reset` before and `perf statements read` after show
+    one `roster_signals` call and no `FROM "public"."personnel"` statement, and the browser's one request is
+    `__data.json?x-sveltekit-invalidated=0001`. A page load issues one roster read and one `roster_signals` call that
+    names only the sources the viewer may read: with Training and Critical tasks off the call's `p_sources` omit
+    `training` and `criticalTasks`, and `dashboardScoped` (no follow-up or counseling access) omits `followUps` and
+    `counseling`. A first visit whose browser day matches the server's keeps the lane the first response carried (one
+    `roster_signals` call). To exercise the viewer-day rerun, launch with `--browser-timezone Pacific/Pago_Pago`, whose
+    date always differs from `Pacific/Kiritimati`. Set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and
+    reload: the app corrects the zone and reruns only the signals lane.
 14. **Edits that change what applies.** As `orgOwner` on a fresh launch, before step 11's staging, Able's cell reads
     `Verification All-MOS Critical Task missing · 1 more`. Quick edit, set `MOS / Job Title` to `11B` and save: one
     `PUT` on `/api/personnel`, then one `POST /api/personnel/roster-signals`, and no `__data.json` request. The cell now
@@ -169,10 +173,13 @@ scoped actors retain their baseline grants.
     `7 of 10 present`, bar `Strength today: 7 present, 2 Appointment, 1 School` and `10 need attention`; Bravo reads
     `8 of 10 present` and `10 need attention`. `Collapse Alpha` keeps the bar and the attention count and shows
     `Expand Alpha` (`aria-expanded="false"`). Enter and Space on the focused collapse button flip it and focus stays on
-    it. The `⋯` menu holds `Rename`, `Add people` and `Pin` (`Unpin` once pinned); `Rename` and `Add people` open the
-    `Manage Groups` dialog and `Pin` pins, and after a reload the Group is still first and its menu reads `Unpin`.
-    `Assign a Group` opens the same dialog. Permissions: `viewer` sees no `Assign a Group` link and its menu holds only
-    `Pin`; `manager` without the Calendar grant shows no bar and no `N of M present`, only the attention lane. Loading:
+    it. The `⋯` menu holds `Rename`, `Add people` and `Pin` (`Unpin` once pinned); `Rename` and `Add people` open
+    `Manage Groups` with that Group's pane selected (Bravo's menu opens the `Bravo` region) and `Pin` pins, and after a
+    reload the Group is still first and its menu reads `Unpin`. `Assign a Group` opens it on the `Unassigned` region.
+    Unpin every Group, then with the dialog open `Reorder Bravo` then ArrowUp moves Bravo above Alpha in the roster
+    behind it at once (rows `Bravo`, `Alpha`, `Unassigned`), and a reload keeps that order; ArrowDown on `Reorder Bravo`
+    restores it. Permissions: `viewer` sees no `Assign a Group` link and its menu holds only `Pin`; `manager` without
+    the Calendar grant shows no bar and no `N of M present`, only the attention lane. Loading:
     `$V server-source arm rpc/roster_signals hold 1 90000` (this control reads Organization A), reload: the headers show
     the name and count with skeletons in the bar and attention lanes (3, 3 and 2 skeletons), and after
     `server-source release` the header tops (267, 361, 455) and heights (49) are unchanged. `fail-hard` instead: the
@@ -210,7 +217,13 @@ scoped actors retain their baseline grants.
     - Leaving with text typed: with a title typed, click another row, a name link or press Back. The URL stays on
       Personnel, the typed title stays and the footer reads `Discard what you typed?`. `Keep editing` returns focus to
       `Follow-up title` and drops the destination. `Discard` closes the composer and then opens the row or record (Back
-      steps history back). With nothing typed the same click or Back goes straight through.
+      steps history back). With nothing typed the same click or Back goes straight through. Clicking another row's
+      `Note` button with a title typed asks the same question; `Discard` then opens that person's composer (empty,
+      `Follow-up title` focused), and `Keep editing` leaves the first composer and its text open.
+    - Viewer's day: the due chips count from the browser's day, not the page's loaded day. With the browser zone ahead
+      of the server (`launch --browser-timezone Pacific/Kiritimati`, UTC+14), `Tomorrow` is the day after the browser's
+      day, one day past the server's. A roster left open past midnight moves to the new day when the composer opens and
+      reloads only the signals lane.
     - Saving: hold the follow-up `POST` (wrap `window.fetch` in the page and release it by hand) and choose
       `Add follow-up`. The `Note`/`Follow-up` toggle, both fields, every due chip, `Choose a due date` and `Cancel` are
       all disabled, and the button reads `Saving…`. Releasing a failure re-enables them, keeps the typed title and

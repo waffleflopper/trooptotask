@@ -75,11 +75,12 @@ export class RosterSignals {
 	#reading = new SvelteSet<string>();
 	/** Counts lanes received; a refresh records the count current when it was issued. */
 	#generation = 0;
+	#settledGeneration = 0;
 	#refreshedAt = new Map<string, number>();
 	#serial = 0;
 	#latestRefresh = new Map<string, number>();
-	/** The roster the settled lane already covered, taken at the first `ensure` after it settled. */
-	#covered: Set<string> | null = null;
+	/** The People the settled lane actually returned. */
+	#covered = new Set<string>();
 	#asked = new Set<string>();
 	readonly #readPeople: NonNullable<RosterSignalsOptions['readPeople']>;
 	readonly #invalidate: NonNullable<RosterSignalsOptions['invalidate']>;
@@ -133,12 +134,13 @@ export class RosterSignals {
 	}
 
 	#settle(read: RosterSignalRead, generation: number): void {
+		this.#settledGeneration = generation;
 		const refreshedSince = (id: string) => (this.#refreshedAt.get(id) ?? -1) >= generation;
 		for (const id of [...this.#cores.keys()]) if (!refreshedSince(id)) this.#cores.delete(id);
 		for (const core of read.people) if (!refreshedSince(core.personnelId)) this.#cores.set(core.personnelId, core);
 		this.access = read.access;
 		this.statusTypes = read.statusTypes;
-		this.#covered = null;
+		this.#covered = new Set(read.people.map((core) => core.personnelId));
 		this.#asked.clear();
 		this.status = 'ready';
 	}
@@ -190,16 +192,17 @@ export class RosterSignals {
 		if (ids.length > ROSTER_SIGNAL_BATCH_LIMIT) return this.reload();
 		const orgId = this.#orgId;
 		const asOf = this.asOf;
+		const generation = this.#generation;
 		const serial = ++this.#serial;
 		for (const id of ids) {
 			this.#latestRefresh.set(id, serial);
-			this.#refreshedAt.set(id, this.#generation);
+			this.#refreshedAt.set(id, generation);
 			this.#reading.add(id);
 		}
 		const owns = (id: string) => this.#orgId === orgId && this.#latestRefresh.get(id) === serial;
 		try {
 			const read = await withinOrganizationLifetime(this.#readPeople(orgId, ids), () => ids.some(owns));
-			if (this.asOf !== asOf) return;
+			if (this.asOf !== asOf || this.#settledGeneration > generation) return;
 			// The viewer's day turned while the page was open: the whole lane moves to the new day, not one row.
 			if (read.asOf !== asOf) return await this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
 			const cores = new Map(read.people.map((core) => [core.personnelId, core]));
@@ -217,18 +220,15 @@ export class RosterSignals {
 	}
 
 	/**
-	 * Reads People the roster gained after the lane settled (Add person, a restore, a Group move into scope) in one
+	 * Reads People absent from the lane's cohort (Add person, a restore, a Group move into scope) in one
 	 * batch. Each Person is asked once per lane.
 	 */
 	ensure(rosterIds: readonly string[]): void {
 		untrack(() => {
 			if (this.status !== 'ready' || !this.readsAnySource) return;
-			if (!this.#covered) {
-				this.#covered = new Set(rosterIds);
-				return;
-			}
-			const covered = this.#covered;
-			const missing = rosterIds.filter((id) => !covered.has(id) && !this.#cores.has(id) && !this.#asked.has(id));
+			const missing = rosterIds.filter(
+				(id) => !this.#covered.has(id) && !this.#cores.has(id) && !this.#reading.has(id) && !this.#asked.has(id)
+			);
 			if (missing.length === 0) return;
 			for (const id of missing) this.#asked.add(id);
 			if (missing.length > ROSTER_SIGNAL_BATCH_LIMIT) void this.reload();

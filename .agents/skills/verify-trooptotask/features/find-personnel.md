@@ -132,19 +132,23 @@ scoped actors retain their baseline grants.
     follows the table's own width, not the viewport: below 48rem Rank, MOS, Duty Role and Group hide and the rank moves
     before the name; below 36rem Needs attention folds onto a second line under the name; the actions column hides below
     the md viewport and `Quick edit` then sits beside the name. At 1440, 900 and 390 the page has no horizontal scroll.
-13. **Signals lane loading, failure and reads.** `$V server-source arm rpc/roster_signals hold 1 90000`, then reload:
-    the roster rows paint at once while each status dot, attention cell and the strip show skeletons, and every row's
-    top offset is unchanged when `$V server-source release` lets the lane through. Arm `fail-hard` instead: the roster
-    stays usable with blank cells, no strip, and one notice `Today's status and Needs attention could not be loaded.`
-    with `Reload`. `server-source restore`, choose `Reload`, and the cells return without a roster read:
-    `$V perf statements reset` before and `perf statements read` after show one `roster_signals` call and no
-    `FROM "public"."personnel"` statement, and the browser's one request is `__data.json?x-sveltekit-invalidated=0001`.
-    A page load issues one roster read and one `roster_signals` call that names only the sources the viewer may read:
-    with Training and Critical tasks off the call's `p_sources` omit `training` and `criticalTasks`, and
-    `dashboardScoped` (no follow-up or counseling access) omits `followUps` and `counseling`. A first visit whose
-    browser day matches the server's keeps the lane the first response carried (one `roster_signals` call). To exercise
-    the viewer-day rerun, set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the
-    zone and reruns only the signals lane.
+13. **Signals lane loading, failure and reads.** Use `orgOwner` in the fixture's `orgA`; these controls do not match a
+    performance-workload Organization. `$V server-source arm rpc/roster_signals hold 1 90000`, then reload. For a native
+    `navigate_page` reload, use `timeout: 1000` and continue after its expected navigation timeout while the document
+    streams. Confirm `server-source state` reports `matches: 1` and `phase: held` before capturing the loading state. At
+    1440, 900 and 390, all three active People remain visible while each status dot, attention cell and the strip show
+    skeletons. `$V server-source release` preserves row positions and shows `2 present` and `1 Verification Training` in
+    the strip. Arm `fail-hard` instead: the roster stays usable with blank cells, no strip, and one notice
+    `Today's status and Needs attention could not be loaded.` with `Reload`. `server-source restore`, choose `Reload`,
+    and the cells return without a roster read: `$V perf statements reset` before and `perf statements read` after show
+    one `roster_signals` call and no `FROM "public"."personnel"` statement, and the browser's one request is
+    `__data.json?x-sveltekit-invalidated=0001`. A page load issues one roster read and one `roster_signals` call that
+    names only the sources the viewer may read: with Training and Critical tasks off the call's `p_sources` omit
+    `training` and `criticalTasks`, and `dashboardScoped` (no follow-up or counseling access) omits `followUps` and
+    `counseling`. A first visit whose browser day matches the server's keeps the lane the first response carried (one
+    `roster_signals` call). To exercise the viewer-day rerun, launch with `--browser-timezone Pacific/Pago_Pago`, whose
+    date always differs from `Pacific/Kiritimati`. Set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and
+    reload: the app corrects the zone and reruns only the signals lane.
 14. **Quick edit.** As `manager` at 1440 in `Group` view, click `Quick edit SPC Able, Synthetic`, or focus the row and
     press E. The row takes a tinted band and an accent rule on its left edge, the pencil is pressed, and a
     `Quick edit SPC Able, Synthetic` form opens under it with Rank focused and Rank, Last name, First name, MOS, Duty

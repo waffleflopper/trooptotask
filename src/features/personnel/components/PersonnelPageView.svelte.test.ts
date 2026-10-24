@@ -840,7 +840,8 @@ describe('PersonnelPageView', () => {
 				target: { value: 'Young' }
 			});
 
-			expect(bulkBar().getByText('1 hidden by search')).toBeTruthy();
+			const bar = screen.getByRole('toolbar', { name: 'Selected people' });
+			expect(bar.textContent?.replace(/\s+/g, ' ')).toContain('2 selected · 1 hidden by search');
 			await fireEvent.click(archiveButton());
 			const dialog = await screen.findByRole('alertdialog');
 			expect(dialog.textContent).toContain('Archive 2 personnel?');
@@ -902,12 +903,14 @@ describe('PersonnelPageView', () => {
 			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		});
 
-		it('moves the selected People to the chosen Group in one request', async () => {
+		it('moves the selected People to the chosen Group in one request and rereads their signals', async () => {
 			const fetchMock = vi
 				.fn()
 				.mockResolvedValue(Response.json({ movedIds: ['person-1', 'person-2'], unavailableIds: [] }));
 			vi.stubGlobal('fetch', fetchMock);
-			render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+			const ctx = bulkCtx();
+			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue(undefined);
+			render(PersonnelPageView, { props: { ctx } });
 			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Young, Test']);
 
 			await fireEvent.keyDown(bulkBar().getByRole('button', { name: 'Move to Group' }), { key: 'Enter' });
@@ -926,6 +929,7 @@ describe('PersonnelPageView', () => {
 				groupId: 'group-2'
 			});
 			expect(personnelStore.getById('person-1')?.groupName).toBe('Bravo');
+			expect(refresh).toHaveBeenCalledExactlyOnceWith(['person-1', 'person-2']);
 		});
 	});
 

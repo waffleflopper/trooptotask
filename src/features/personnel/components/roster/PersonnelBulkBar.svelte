@@ -63,6 +63,9 @@
 		try {
 			const result = await withinOrganizationLifetime(moveGroupMembers(orgId, ids, target.id), isCurrent);
 			const moved = new Set(result.movedIds);
+			// A Group decides which requirements apply, so the People who changed Group get their signals reread.
+			const changed = writable.filter((person) => moved.has(person.id) && person.groupId !== target.id);
+			if (changed.length) void ctx.signals.refresh(changed.map((person) => person.id));
 			personnelStore.updateLocalWhere(
 				(person) => moved.has(person.id) && person.groupId !== target.id,
 				(person) => ({ ...person, groupId: target.id, groupName: target.id ? target.name : '' })
@@ -152,14 +155,15 @@
 	role="toolbar"
 	aria-label="Selected people"
 	data-roster-bulk-bar
-	class="flex h-13 max-w-full items-center gap-1.5 rounded-md bg-chrome pr-2 pl-4.5 text-chrome-text shadow-xl @max-3xl/roster:gap-0.5 @max-3xl/roster:pl-3"
+	class="flex h-13 max-w-full items-center gap-1.5 rounded-md border border-chrome-border bg-chrome pr-2 pl-4.5 text-chrome-text shadow-xl @max-3xl/roster:gap-0.5 @max-3xl/roster:pl-3"
 >
 	<span class="pr-1.5 text-[15px] leading-[18px] font-semibold whitespace-nowrap" aria-live="polite">
-		{people.length} selected{#if hidden > 0}<span class="font-normal text-chrome-text-muted"
-				><span class="@max-3xl/roster:sr-only"> · </span><span class="@max-3xl/roster:sr-only"
-					>{hidden} hidden by search</span
-				><span class="@3xl/roster:hidden" aria-hidden="true"> · {hidden} hidden</span></span
-			>{/if}
+		{people.length} selected
+		{#if hidden > 0}
+			<span class="font-normal text-chrome-text-muted">
+				{`· ${hidden} hidden`}<span class="@max-3xl/roster:sr-only">{' by search'}</span>
+			</span>
+		{/if}
 	</span>
 	<span class="h-5.5 w-px shrink-0 bg-chrome-border" aria-hidden="true"></span>
 	{#if writable.length > 0}

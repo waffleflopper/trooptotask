@@ -302,7 +302,7 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    on restore. A changed timestamp or stranded artifact is a failure. This API replay is not another UI archive journey.
 7. **Other archive entry points, bulk and approval:** On separate temporary People, exercise Edit → Archive and detail →
    `More Personnel record` → Archive, confirming saved absence after reload. For bulk, restore the dedicated parent
-   first and select it plus duplicateAlpha through the roster Archive mode. Require both IDs archived, one shared
+   first and select it plus duplicateAlpha via the roster bulk bar's `Archive…`. Require both IDs archived, one shared
    parent-event timestamp and the same nine-artifact expectations; restore each through Archives. Include a
    denied/missing candidate separately and capture the actual per-row result and every changed/unchanged row; do not
    assume a partially successful batch is atomic. An authorized replay acknowledges already-archived People and

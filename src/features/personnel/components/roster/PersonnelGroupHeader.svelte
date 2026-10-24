@@ -61,7 +61,7 @@
 >
 	<div class="flex min-w-0 flex-1 items-center gap-1">
 		{#if selection}
-			<span class="inline-flex w-6 shrink-0 justify-center">
+			<span class="-ml-1 inline-flex w-6 shrink-0">
 				<SelectionCheckbox
 					checked={selection.state === 'all'}
 					indeterminate={selection.state === 'some'}

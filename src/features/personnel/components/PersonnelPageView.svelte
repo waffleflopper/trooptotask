@@ -327,11 +327,7 @@
 	{:else}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class={[
-				'@container/roster relative flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3',
-				// Room for the bulk bar, so it never covers the last row or the footer.
-				selectedPeople.length > 0 && 'pb-21! max-sm:pb-19!'
-			]}
+			class="@container/roster flex min-h-0 flex-col gap-4 overflow-clip px-6 pt-4 pb-5 max-sm:p-3"
 			onkeydown={handleRosterKeydown}
 		>
 			<PersonnelRosterHeader
@@ -480,7 +476,8 @@
 				</div>
 			{/if}
 			{#if selectedPeople.length > 0}
-				<div class="pointer-events-none absolute inset-x-3 bottom-4 z-20 flex justify-center max-sm:bottom-3">
+				<!-- In the flow, so the end of the roster leaves room for it; clip, not hidden, above keeps it sticky. -->
+				<div class="pointer-events-none sticky bottom-4 z-20 flex justify-center max-sm:bottom-3">
 					<div class="pointer-events-auto max-w-full">
 						<PersonnelBulkBar
 							{ctx}

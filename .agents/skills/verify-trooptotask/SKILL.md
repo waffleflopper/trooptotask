@@ -106,9 +106,8 @@ hidden/disabled controls do not prove server authorization. Preserve downloaded 
 attempted paths **source-mapped**, **live-verified**, **failed** or **unreachable**, naming the attempted route and
 missing prerequisite for unreachable paths. Old receipts and happy paths do not verify difficult cases.
 
-After final doctor and owned cleanup, publish through
-[artifact packaging](../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts). Keep raw captures in
-ignored scratch with tested revision/digest. Publish archives or adopt revised driving instructions outside active runs.
+After final doctor and owned cleanup, put the results and screenshots of visible changes in the PR body. Raw captures
+stay in ignored local scratch and are never committed or uploaded. Adopt revised driving instructions outside active runs.
 
 ## Cleanup
 

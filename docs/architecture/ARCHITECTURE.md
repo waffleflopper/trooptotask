@@ -2,12 +2,12 @@
 
 TroopToTask v1 is one SvelteKit application backed by Supabase. **Organization** is the tenancy and workspace boundary; **Group** subdivides its roster and scopes restricted access. [Authorization and provider boundaries](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) owns the security contract.
 
-## Stabilization decisions
+## Standing decisions
 
-- Billing and the retired Duty Roster (templates, runs and the `duty_*` tables) are removed end to end. Do not add plan, tier, quota or commercial gates, billing scaffolding, roster templates or runs, or a roster entity separate from the assignment type. Calendar availability, special days, types and persisted daily assignments, Personnel Duty Role (`clinicRole`) and Sign-in Rosters remain.
-- A duty roster is a set of settings on a person-assigned assignment type, owned by Calendar ([#1723](https://github.com/waffleflopper/trooptotask/issues/1723)). Counts are derived from assignments and statuses by `src/features/calendar/roster`, which owns the count engine, never stored for an open DA 6 form. Starting numbers typed from a paper DA 6 change only through the server's roster write path, and only until the first detail on the form is served.
-- A persisted daily assignment keeps one slot per Organization, assignment type and date, with a Person or Group assignee. Manual edits, exports and audit behavior stay.
-- Retention windows, export lifecycle and audit, file size limits and batch bounds are safety limits, not entitlements.
+- AI features will be gated by a subscription, likely credit based. Plans, credits and quotas are not designed yet. Any other feature is gated only when Robert explicitly asks for that gate. Never assume one.
+- Retention windows, export lifecycle and audit, file size limits and batch bounds are safety limits, not entitlements. Do not turn them into plan limits.
+- A duty roster is a set of settings on a person-assigned assignment type, owned by Calendar, never a separate entity ([#1723](https://github.com/waffleflopper/trooptotask/issues/1723)). Counts are derived from assignments and statuses by `src/features/calendar/roster`, which owns the count engine, never stored for an open DA 6 form. Starting numbers typed from a paper DA 6 change only through the server's roster write path, and only until the first detail on the form is served.
+- A persisted daily assignment keeps one slot per Organization, assignment type and date, with a Person or Group assignee.
 - There is no repository browser-test suite and no runtime test bypass. Real user journeys are verified with [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md).
 - A migration or cutover is finished only when every consumer moves and the replaced code, wrappers, aliases and configuration are deleted. Compatibility facades and partial migrations are not completion.
 

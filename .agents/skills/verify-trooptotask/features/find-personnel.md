@@ -142,9 +142,9 @@ scoped actors retain their baseline grants.
     names only the sources the viewer may read: with Training and Critical tasks off the call's `p_sources` omit
     `training` and `criticalTasks`, and `dashboardScoped` (no follow-up or counseling access) omits `followUps` and
     `counseling`. A first visit whose browser day matches the server's keeps the lane the first response carried (one
-    `roster_signals` call). To exercise the viewer-day rerun, set
-    `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the zone and reruns only the
-    signals lane.
+    `roster_signals` call). To exercise the viewer-day rerun, launch with `--browser-timezone Pacific/Pago_Pago`, whose
+    date always differs from `Pacific/Kiritimati`. Set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and
+    reload: the app corrects the zone and reruns only the signals lane.
 14. **Edits that change what applies.** As `orgOwner` on a fresh launch, before step 11's staging, Able's cell reads
     `Verification All-MOS Critical Task missing · 1 more`. Quick edit, set `MOS / Job Title` to `11B` and save: one
     `PUT` on `/api/personnel`, then one `POST /api/personnel/roster-signals`, and no `__data.json` request. The cell now

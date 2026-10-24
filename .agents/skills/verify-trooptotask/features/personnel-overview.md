@@ -30,7 +30,8 @@ links to the place a leader fixes it.
 
 ## How to get to it (user POV)
 
-Choose `Personnel`, then a Person's row. The Overview is the first tab under the record header.
+Choose `Personnel`, then a Person's name link (at 1280 px and wider a row click opens the preview instead). The Overview
+is the first tab under the record header.
 
 ## Driving it with verify:app
 

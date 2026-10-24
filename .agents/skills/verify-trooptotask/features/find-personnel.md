@@ -53,8 +53,9 @@ scoped actors retain their baseline grants.
    return. A native `fill` with an empty string can clear the displayed input without dispatching the search update.
 3. Click the `A-Z` button UID and snapshot the alphabetical presentation. Click `Group` and confirm the `Alpha`,
    `Bravo`, and `Unassigned` headings return.
-4. Choose the `Open SPC Able, Synthetic` row. Confirm the browser moved to that person's detail route and shows the same
-   name. Return through the `Personnel` navigation link. For the Calendar-backed readiness check, run
+4. Click the `Able, Synthetic` name link in the `Open SPC Able, Synthetic` row (at 1280 px and wider a row click opens
+   the preview instead, step 20). Confirm the browser moved to that person's detail route and shows the same name.
+   Return through the `Personnel` navigation link. For the Calendar-backed readiness check, run
    `$V calendar-grant manager view` on this owned worker, reload Personnel, and open Baker's record. Its Overview
    `Next 14 days` legend must show `Verification Training` through the fixture's `dates.uiAfter`; capture the visible
    summary and the saved Baker availability row ID from `$V fixture`/`$V rows`. Run `$V calendar-grant manager restore`
@@ -71,8 +72,8 @@ scoped actors retain their baseline grants.
    buttons (`Sort by Rank`, `Sort by Name`, ...) and the initial Name order. Click `Sort by Name` and require the
    reversed order and changed sort indicator, click it again to restore ascending, then sort by MOS (every fixture
    Person shares one rank, so Rank cannot show a reorder). Filter with the searchbox (`Baker`) and require only Baker's
-   row, then clear with focused `Control+A`/`Backspace`. Choose Baker's row and require Baker's record route; return
-   through `Personnel`.
+   row, then clear with focused `Control+A`/`Backspace`. Click Baker's name link and require Baker's record route;
+   return through `Personnel`.
 8. **Group header pin and collapse.** As `manager` in `Group` view, read each header's two buttons: `Pin Alpha`
    (`aria-pressed="false"`, `data-state="off"`, title `Pin group to top`) and `Collapse Alpha` (`aria-expanded="true"`).
    The pin is the canonical `Toggle` (`data-slot="toggle"`, default size, 36x32 measured: `h-8 min-w-8 px-2.5`).

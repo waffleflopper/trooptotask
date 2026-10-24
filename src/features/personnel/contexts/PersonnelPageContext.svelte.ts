@@ -283,12 +283,6 @@ export class PersonnelPageContext {
 		this.#modals.open('group-manager', { select: groupId });
 	}
 
-	/** Opens Manage groups for a Group, or for the people with none when `groupId` is null. */
-	openGroupEditor(groupId: string | null): void {
-		void groupId;
-		this.openGroupManager();
-	}
-
 	/** Group names in the Organization's display order: `sort_order`, then name (legacy Groups all share 0), then id. */
 	get groupOrder(): string[] {
 		if (this.#groupsStore.orgId !== this.orgId) return [];

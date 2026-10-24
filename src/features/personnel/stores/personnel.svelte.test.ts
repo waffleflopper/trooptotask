@@ -1,4 +1,6 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { flushSync } from 'svelte';
 import { groupCatalogHydration } from './groups.svelte';
 import { pinnedGroupsHydration } from './pinnedGroups.svelte';
 import { personnelRosterHydration, personnelStore, rosterStore } from './personnel.svelte';
@@ -135,6 +137,33 @@ describe('personnelStore', () => {
 				.full()
 				.personnelByGroup.map((group) => group.group)
 		).toEqual(['Alpha', 'Bravo']);
+	});
+
+	it('re-orders a live roster view when the pins arrive after the roster and catalog', () => {
+		pinnedGroupsHydration.load([], 'org-0');
+		groupCatalogHydration.load(
+			[
+				{ id: 'g1', name: 'Alpha', sortOrder: 0 },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1 }
+			],
+			'org-1'
+		);
+		let order: string[] = [];
+		const stop = $effect.root(() => {
+			$effect(() => {
+				order = rosterStore
+					.readModel()
+					.full()
+					.personnelByGroup.map((group) => group.group);
+			});
+		});
+		flushSync();
+
+		pinnedGroupsHydration.load(['Bravo'], 'org-1');
+		flushSync();
+		stop();
+
+		expect(order).toEqual(['Bravo', 'Alpha']);
 	});
 
 	it('ignores Groups and pins loaded for another Organization', () => {

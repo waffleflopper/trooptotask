@@ -11,7 +11,7 @@ const PIN_FAILURE_MESSAGE = 'Failed to update pinned Groups. Try again.';
 
 export class PinnedGroupsStore {
 	#pinnedGroups = $state.raw<string[]>([]);
-	#orgId = '';
+	#orgId = $state('');
 	#pendingMutations = 0;
 	#organizationVersion = 0;
 	#loadedLifetime = organizationLifetime();

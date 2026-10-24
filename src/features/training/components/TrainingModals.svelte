@@ -63,7 +63,7 @@
 			orgId={ctx.orgId}
 			personnel={ctx.personnel}
 			groups={ctx.groups}
-			pinnedGroups={pinnedGroupsStore.list}
+			pinnedGroups={pinnedGroupsStore.orgId === ctx.orgId ? pinnedGroupsStore.list : []}
 			rankCatalog={ctx.rankCatalog}
 			canEdit={ctx.canRecordTraining}
 			onClose={modals.closerFor('sign-in-rosters')}

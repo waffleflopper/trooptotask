@@ -77,6 +77,8 @@ export type AccountProfileRead =
 
 export interface SignedInAccount {
 	email: string | null;
+	/** Null when unknown, which never counts as off. */
+	hasTwoFactor: boolean | null;
 	profile: AccountProfileRead;
 }
 

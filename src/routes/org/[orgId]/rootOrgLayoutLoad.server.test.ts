@@ -64,7 +64,7 @@ describe('createRootOrgLayoutLoad', () => {
 				getFirstPaintChrome: async () => ({
 					announcements: [],
 					preferences: getDefaultUserOrgPreferences(),
-					account: { email: null, profile: { status: 'loaded' as const, profile: null } }
+					account: { email: null, hasTwoFactor: false, profile: { status: 'loaded' as const, profile: null } }
 				})
 			})
 		});
@@ -127,7 +127,7 @@ describe('createRootOrgLayoutLoad', () => {
 					getFirstPaintChrome: vi.fn().mockResolvedValue({
 						announcements: [],
 						preferences: getDefaultUserOrgPreferences(),
-						account: { email: null, profile: { status: 'loaded' as const, profile: null } }
+						account: { email: null, hasTwoFactor: false, profile: { status: 'loaded' as const, profile: null } }
 					})
 				}) as AppShellFirstPaintChromePort
 		);

@@ -327,6 +327,8 @@
 			mfaSuccess = 'Two-factor is off.';
 			disableCode = '';
 			if (openRow === 'turn-off') openRow = null;
+			// The account menu's two-factor prompt reads the shell's load data.
+			void invalidateAll();
 		} catch (cause: unknown) {
 			if (sameRow()) mfaError = cause instanceof Error ? cause.message : 'Failed to disable MFA';
 		} finally {

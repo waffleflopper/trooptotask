@@ -1,6 +1,6 @@
 import type { SignedInAccount } from './contracts';
 
-export function accountLabel(account: SignedInAccount): { name: string; initials: string } {
+export function accountLabel(account: Pick<SignedInAccount, 'email' | 'profile'>): { name: string; initials: string } {
 	const profile = account.profile.status === 'loaded' ? account.profile.profile : null;
 	const firstName = profile?.firstName.trim() ?? '';
 	const lastName = profile?.lastName.trim() ?? '';

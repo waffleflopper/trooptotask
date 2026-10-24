@@ -875,6 +875,7 @@ describe('server auth hook', () => {
 		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
 		expect(event.locals.user).toBeNull();
 		expect(event.locals.session).toBeNull();
+		expect(event.locals.hasTwoFactor).toBeNull();
 		expect(harness.getSession).not.toHaveBeenCalled();
 		expect(harness.resolve).toHaveBeenCalled();
 	});
@@ -1245,6 +1246,19 @@ describe('server auth hook', () => {
 		expect((await harness.handle({ event: pending, resolve: harness.resolve })).status).toBe(200);
 		expect(pending.locals.actor).toBeNull();
 		expect(pending.locals.mfaPending).toBe(true);
+	});
+
+	it.each([
+		{ nextLevel: 'aal1', hasTwoFactor: false },
+		{ nextLevel: 'aal2', hasTwoFactor: true }
+	])('records hasTwoFactor $hasTwoFactor for a session whose next level is $nextLevel', async (state) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({
+			data: { currentLevel: state.nextLevel, nextLevel: state.nextLevel },
+			error: null
+		});
+		expect((await harness.handle(harness)).status).toBe(200);
+		expect(harness.event.locals.hasTwoFactor).toBe(state.hasTwoFactor);
 	});
 
 	it.each(['aal1', 'aal2'])('admits completed %s assurance to a protected handler', async (level) => {

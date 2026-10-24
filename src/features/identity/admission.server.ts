@@ -13,7 +13,13 @@ import {
 } from './mfaGate.server';
 
 type AdmissionResult =
-	| { status: 'allowed'; actor: AdmittedActor | null; mfaPending: boolean; authFlow: PendingAuthFlow }
+	| {
+			status: 'allowed';
+			actor: AdmittedActor | null;
+			mfaPending: boolean;
+			hasTwoFactor: boolean | null;
+			authFlow: PendingAuthFlow;
+	  }
 	| { status: 'redirect'; code: 302 | 303; location: string }
 	| { status: 'unavailable'; code: 500 | 503; message: string };
 
@@ -38,6 +44,7 @@ export async function readIdentityAdmission({
 	const marker = session && user ? readAuthSessionMarker(cookies, session, user) : null;
 	const authFlow = marker === 'complete' ? null : marker;
 	let mfaPending = false;
+	let hasTwoFactor: boolean | null = null;
 	if (hasFlowCookie && !marker) {
 		if (session || method !== 'POST' || pathname !== '/auth/logout') {
 			cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
@@ -58,6 +65,7 @@ export async function readIdentityAdmission({
 			return { status: 'unavailable', code: 503, message: 'Unable to verify authentication status' };
 		}
 		mfaPending = isMfaStepUpRequired(data);
+		hasTwoFactor = data.nextLevel === 'aal2';
 	}
 
 	const isMfaEndpoint = pathname === '/api/auth/mfa' || pathname.startsWith('/api/auth/mfa/');
@@ -82,5 +90,5 @@ export async function readIdentityAdmission({
 		if (session && !mfaPending && !authFlow && (marker === 'complete' || isPasswordAuthenticatedSession(session, user)))
 			actor = { userId: user.id };
 	}
-	return { status: 'allowed', actor, mfaPending, authFlow };
+	return { status: 'allowed', actor, mfaPending, hasTwoFactor, authFlow };
 }

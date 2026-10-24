@@ -504,8 +504,11 @@ scoped actors retain their baseline grants.
   them from a screenshot or pick by typing then Enter.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.
 - Native `click` sends no modifier keys, so a Shift range needs a dispatched `click` with `shiftKey: true` (step 19).
-- For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md); above 250 People
-  the By Group view pauses rendering.
+- For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md). Above 250 People
+  the By Group view renders at most 250 rows. With an empty search it shows `Grouped roster paused` and `Use A-Z View`.
+  A search matching more than 250 shows the first 250 in group order, a footer `Showing 250 of N matches` and
+  `Use A-Z View`. On the `large` workload as `perfWide`, `s` matches 346 and `sp` 117. The toolbar search keeps focus
+  and its text as the count crosses 250 either way. A cut Group's header still counts all its matches.
 - A group header's controls repeat per group; name them by their `aria-label` (`Pin Alpha`, `Collapse Alpha`,
   `Group actions for Alpha`) rather than by position. The pin is a `Toggle` and the collapse a `Button`; record their
   focus ring and accessible names exactly as rendered.

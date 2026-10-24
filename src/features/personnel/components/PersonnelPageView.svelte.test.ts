@@ -503,6 +503,62 @@ describe('PersonnelPageView', () => {
 			expect(headerOrder()).toEqual(['Collapse Alpha', 'Collapse Bravo', 'Collapse Unassigned']);
 		});
 
+		describe('with more People than it renders at once', () => {
+			const searchName = 'Search by name, rank, MOS, role, or group';
+			const row = (index: number) => screen.queryByRole('row', { name: `SGT ${makePerson(index).lastName}, Test` });
+
+			function renderLargeGroupedRoster(): void {
+				personnelStore.load(
+					Array.from({ length: 300 }, (_, index) => makePerson(index + 1)),
+					'org-1'
+				);
+				const ctx = makeCtx();
+				ctx.viewMode = 'by-group';
+				render(PersonnelPageView, { props: { ctx } });
+			}
+
+			it('shows the first 250 matches of a broad search and the rest once the search narrows', async () => {
+				renderLargeGroupedRoster();
+				const search = screen.getByRole('searchbox', { name: searchName });
+
+				await fireEvent.input(search, { target: { value: 'Soldier' } });
+				expect([row(1), row(250), row(251), row(300)].map(Boolean)).toEqual([true, true, false, false]);
+				expect(screen.getByText('300 people')).toBeTruthy();
+
+				await fireEvent.input(search, { target: { value: 'Soldier29' } });
+				expect([row(250), row(291), row(299)].map(Boolean)).toEqual([false, true, true]);
+			});
+
+			it('keeps focus in the search field the paused roster offers while typing brings rows in and out', async () => {
+				renderLargeGroupedRoster();
+
+				const fields = () => screen.getAllByRole('searchbox', { name: searchName });
+				for (let index = 0; index < fields().length; index++) {
+					const search = fields()[index];
+					search.focus();
+					for (const [value, rowsShown] of [
+						['S', true],
+						['Soldier00', true],
+						['Soldier', true],
+						['', false]
+					] as const) {
+						await fireEvent.input(search, { target: { value } });
+						expect([document.activeElement === search, row(1) !== null]).toEqual([true, rowsShown]);
+					}
+				}
+			});
+
+			it('switches to the paged A-Z view from a broad search', async () => {
+				renderLargeGroupedRoster();
+				await fireEvent.input(screen.getByRole('searchbox', { name: searchName }), { target: { value: 'Soldier' } });
+
+				await fireEvent.click(screen.getByRole('button', { name: 'Use A-Z View' }));
+
+				expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
+				expect(row(1)).not.toBeNull();
+			});
+		});
+
 		it('keeps the Group column in the A-Z view', () => {
 			const ctx = makeCtx();
 

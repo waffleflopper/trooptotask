@@ -79,7 +79,7 @@ function mount(
 	render(PersonnelGroupHeader, {
 		props: {
 			group,
-			people: [] as Personnel[],
+			people: Array.from({ length: 4 }, (_, index) => ({ id: `person-${index}` }) as Personnel),
 			ctx,
 			pinned: options.pinned ?? false,
 			unassigned,

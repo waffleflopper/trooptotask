@@ -11,10 +11,11 @@ export const changelog: ChangelogEntry[] = [
 		date: '2026-10-24',
 		title: 'Your Account, Inside Your Unit',
 		items: [
-			'Your rank and name now sit at the foot of the sidebar. Choose them to open Account.',
+			"Your rank and name now sit at the foot of the sidebar. Choose them to open your account menu: Account, What's new, Send feedback and Sign out.",
 			'Account opens inside your unit, with the sidebar still there, so you never lose your place. Old Account links still work.',
 			'Sign-in & security changes your email, password or two-factor right where you are. A checklist under the new password shows each rule as you meet it, and Update password waits until every rule passes.',
-			"What's new, Send feedback and Sign out moved from the old Account menu into Account. Your role and Leave unit are under Personnel records on your Profile.",
+			"If two-factor isn't on yet, the account menu offers Turn on two-factor, which takes you straight to setup. It goes away once two-factor is on.",
+			'Your role in the unit shows at the top of the account menu. Leave unit is under Personnel records on your Profile.',
 			'If something looks off, use Feedback in the upper right to let me know.'
 		]
 	},

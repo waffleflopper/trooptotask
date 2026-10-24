@@ -14,6 +14,8 @@
 		placeholder?: string;
 		disabled?: boolean;
 		class?: ClassValue;
+		/** Shows only the calendar icon, for a picker beside date shortcuts. The chosen date is shown by the caller. */
+		iconOnly?: boolean;
 		'aria-label'?: string;
 		onValueChange?: (value: string) => void;
 	}
@@ -24,6 +26,7 @@
 		placeholder = 'Select date',
 		disabled = false,
 		class: className,
+		iconOnly = false,
 		'aria-label': ariaLabel,
 		onValueChange
 	}: Props = $props();
@@ -61,15 +64,21 @@
 <Popover.Root bind:open>
 	<Popover.Trigger {id} {disabled} aria-label={ariaLabel} {...fieldAria}>
 		{#snippet child({ props })}
-			<Button
-				{...props}
-				variant="outline"
-				class={cn('w-full justify-start text-left font-normal', !calendarValue && 'text-muted-foreground', className)}
-				{disabled}
-			>
-				<CalendarIcon />
-				<span class="truncate">{displayValue}</span>
-			</Button>
+			{#if iconOnly}
+				<Button {...props} variant="outline" size="icon-sm" class={className} {disabled}>
+					<CalendarIcon />
+				</Button>
+			{:else}
+				<Button
+					{...props}
+					variant="outline"
+					class={cn('w-full justify-start text-left font-normal', !calendarValue && 'text-muted-foreground', className)}
+					{disabled}
+				>
+					<CalendarIcon />
+					<span class="truncate">{displayValue}</span>
+				</Button>
+			{/if}
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="w-auto overflow-hidden p-0" align="start">

@@ -24,6 +24,8 @@
 
 	const name = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const canOpen = $derived(ctx.canOpenPersonnelDetail(person));
+	const canNote = $derived(ctx.canManagePersonnelRecord(person));
+	const noteOpen = $derived(controls.noteOpenFor === person.id);
 	const canQuickEdit = $derived(ctx.canManagePersonnelRecord(person));
 	const canArchive = $derived(ctx.canArchivePersonnelRecord(person));
 	const selected = $derived(controls.selecting && canArchive && controls.isSelected(person.id));
@@ -49,7 +51,7 @@
 		const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
 		if (key === 'ArrowDown' || key === 'ArrowUp') focusAdjacentRow(row, key === 'ArrowDown' ? 1 : -1);
 		else if (key === 'Enter' || (key === ' ' && controls.selecting)) activate();
-		else if (key === 'n' && canOpen && !controls.selecting) controls.note(person);
+		else if (key === 'n' && canNote && !controls.selecting) controls.note(person);
 		else if (key === 'e' && canQuickEdit && !controls.selecting) controls.quickEdit(person);
 		else return;
 		event.preventDefault();
@@ -78,7 +80,8 @@
 <Table.Row
 	data-roster-row={person.id}
 	data-state={selected ? 'selected' : undefined}
-	class="group/row cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+	data-note-open={noteOpen || undefined}
+	class="group/row cursor-pointer data-[note-open]:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 	tabindex={tabbable ? 0 : -1}
 	aria-label={controls.selecting ? `Select ${person.rank} ${person.lastName}` : canOpen ? `Open ${name}` : name}
 	onclick={handleClick}
@@ -143,19 +146,37 @@
 								{lossBadgeLabel(loss)}
 							</Badge>
 						{/if}
-						<!-- The actions column hides below md; Quick edit is the one action an operate-only member has. -->
-						{#if canQuickEdit && !controls.selecting}
-							<Button
-								type="button"
-								variant="outline"
-								size="icon-sm"
-								class="ml-auto shrink-0 md:hidden"
-								tabindex={tabbable ? 0 : -1}
-								aria-label="Quick edit {name}"
-								onclick={() => controls.quickEdit(person)}
-							>
-								<PencilIcon aria-hidden="true" />
-							</Button>
+						<!-- The actions column hides below md; Note and Quick edit stay reachable beside the name. -->
+						{#if (canNote || canQuickEdit) && !controls.selecting}
+							<span class="ml-auto flex shrink-0 gap-1 md:hidden">
+								{#if canNote}
+									<Button
+										type="button"
+										variant={noteOpen ? 'default' : 'outline'}
+										size="icon-sm"
+										tabindex={tabbable ? 0 : -1}
+										aria-label="Note for {name}"
+										aria-haspopup="dialog"
+										aria-expanded={noteOpen}
+										data-roster-note
+										onclick={() => controls.note(person)}
+									>
+										<MessageSquarePlusIcon aria-hidden="true" />
+									</Button>
+								{/if}
+								{#if canQuickEdit}
+									<Button
+										type="button"
+										variant="outline"
+										size="icon-sm"
+										tabindex={tabbable ? 0 : -1}
+										aria-label="Quick edit {name}"
+										onclick={() => controls.quickEdit(person)}
+									>
+										<PencilIcon aria-hidden="true" />
+									</Button>
+								{/if}
+							</span>
 						{/if}
 					</span>
 					<!-- Below 36rem Needs attention folds under the name; the line keeps its height while loading. -->
@@ -168,15 +189,21 @@
 					{#if !controls.selecting}
 						<!-- Hover reveals them; a touch screen has no hover, so they stay shown there. -->
 						<span
-							class="invisible flex gap-1 group-focus-within/row:visible group-hover/row:visible [@media(hover:none)]:visible"
+							class={[
+								'flex gap-1 group-focus-within/row:visible group-hover/row:visible [@media(hover:none)]:visible',
+								noteOpen ? 'visible' : 'invisible'
+							]}
 						>
-							{#if canOpen}
+							{#if canNote}
 								<Button
 									type="button"
-									variant="outline"
+									variant={noteOpen ? 'default' : 'outline'}
 									size="icon-sm"
 									tabindex={tabbable ? 0 : -1}
 									aria-label="Note for {name}"
+									aria-haspopup="dialog"
+									aria-expanded={noteOpen}
+									data-roster-note
 									title="Note (N)"
 									onclick={() => controls.note(person)}
 								>

@@ -43,6 +43,10 @@ onboarding Personnel exist; when the row folds, `Display` moves into `More Calen
 sidebar's Switch organization menu and the account name card at its foot, which opens the account menu (Account, What's
 new, Send feedback, Sign out), for scope/session changes.
 
+For owners and admins, the sidebar's **Unit settings** link and the Organization switcher's **Unit settings** item open
+`settings/general` directly. Capture the network list before and after sidebar entry; it sends one `__data.json`
+request. Typing `/org/<segment>/settings` directly still redirects to `/settings/general`.
+
 ## Helper controls
 
 Shell and preference verification uses the [shell/preference recipe](shell-preferences.md). `preferences ROLE orgA|orgB`

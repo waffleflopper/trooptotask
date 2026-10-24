@@ -230,6 +230,7 @@ function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, op
 			options?.trainingCompletionsFactory?.(store, orgId) ??
 			({
 				listCompletions: unavailable,
+				listReadinessCompletions: unavailable,
 				findResource: unavailable,
 				findPair: unavailable,
 				listPairReferences: unavailable,

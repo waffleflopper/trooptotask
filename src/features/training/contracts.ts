@@ -2,6 +2,7 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
 	PersonnelTraining,
+	TrainingCompletionFacts,
 	TrainingCompletionHistoryEntry,
 	TrainingType,
 	TrainingView,
@@ -31,6 +32,7 @@ export type {
 	TrainingType,
 	TrainingView,
 	PersonnelTraining,
+	TrainingCompletionFacts,
 	TrainingCompletionHistoryEntry,
 	TrainingStatus
 } from './training.types';
@@ -352,8 +354,14 @@ export type TrainingCompletionEntryResource = Pick<
 export type TrainingCompletionCorrection = Pick<PersonnelTraining, 'completionDate' | 'expirationDate' | 'notes'>;
 export type CorrectedTrainingCompletion = SavedTrainingCompletion | TrainingCompletionHistoryEntry;
 
+export interface TrainingCompletionReadScope {
+	personnelIds: readonly string[];
+	trainingTypeIds?: readonly string[];
+}
+
 export interface TrainingCompletionPersistence {
-	listCompletions(): Promise<SavedTrainingCompletion[]>;
+	listCompletions(): Promise<PersonnelTraining[]>;
+	listReadinessCompletions(scope: TrainingCompletionReadScope): Promise<TrainingCompletionFacts[]>;
 	findResource(id: string): Promise<TrainingCompletionResource | null>;
 	findPair(
 		personnelId: string,

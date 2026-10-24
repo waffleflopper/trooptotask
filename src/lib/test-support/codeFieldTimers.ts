@@ -1,6 +1,12 @@
-import { afterAll } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 
 // bits-ui's PinInput resyncs its input on 0, 10 and 50 ms timers that outlive unmount and throw once happy-dom closes.
-export function drainCodeFieldTimers() {
-	afterAll(() => new Promise((resolve) => setTimeout(resolve, 60)));
+export function controlCodeFieldTimers() {
+	beforeEach(() => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+	});
+	afterEach(() => {
+		vi.runOnlyPendingTimers();
+		vi.useRealTimers();
+	});
 }

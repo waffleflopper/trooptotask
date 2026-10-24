@@ -8,9 +8,9 @@ import Security from '../account/security/+page.svelte';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
 import type { PageData } from '../account/security/$types';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
@@ -18,7 +18,6 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
-	vi.useRealTimers();
 });
 describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed completion', (flow) => {
 	function mount(state: 'started' | 'pending' | 'complete' | 'failed' | 'expired' | null = null) {
@@ -96,7 +95,6 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		expect(await screen.findByRole('alert')).toBeVisible();
 		expect(document.body.textContent).not.toContain('private transport');
 		await waitFor(() => expect(retry).toHaveFocus());
-		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		await fireEvent.submit(retry.closest('form')!);
 		if (flow === 'security') expect(await screen.findByRole('button', { name: 'Change password again' })).toBeEnabled();
 		if (flow === 'recovery') expect(await screen.findByRole('heading', { name: 'Password updated' })).toBeVisible();

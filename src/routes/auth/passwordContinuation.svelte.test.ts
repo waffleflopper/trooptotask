@@ -7,9 +7,9 @@ import Security from '../account/security/+page.svelte';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
 import type { PageData } from '../account/security/$types';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));

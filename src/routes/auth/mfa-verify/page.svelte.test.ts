@@ -4,9 +4,9 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto } from '$app/navigation';
 import Page from './+page.svelte';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 
 const renderPage = (email: string | null = null) => render(Page, { props: { data: { email } } as never });
 

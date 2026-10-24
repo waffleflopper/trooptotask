@@ -5,9 +5,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { goto, invalidateAll } from '$app/navigation';
 import Page from './+page.svelte';
 import type { PageData } from './$types';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), invalidateAll: vi.fn() }));

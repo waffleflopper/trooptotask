@@ -3,9 +3,9 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import PasswordMfaChallenge from './PasswordMfaChallenge.svelte';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 afterEach(() => {
 	cleanup();

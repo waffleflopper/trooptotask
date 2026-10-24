@@ -7,9 +7,9 @@ import { page } from '$app/stores';
 import { goto } from '$app/navigation';
 import { tick } from 'svelte';
 import Page from './+page.svelte';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
@@ -23,12 +23,10 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
-	vi.useRealTimers();
 });
 
 it('takes a completed recovery reload to the dashboard without navigating after the page is left', async () => {
 	recoveryPage.set({ data: { hasSession: true, passwordCompletion: 'complete' }, state: {} });
-	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 	const first = render(Page);
 	await tick();
 	expect(screen.getByRole('heading', { name: 'Password updated' })).toBeVisible();

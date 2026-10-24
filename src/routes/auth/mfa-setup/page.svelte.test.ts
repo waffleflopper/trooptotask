@@ -4,10 +4,10 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto } from '$app/navigation';
 import { MFA_CODE_REJECTED_MESSAGE } from '$features/identity/contracts';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 import Page from './+page.svelte';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined) }));
 afterEach(() => {

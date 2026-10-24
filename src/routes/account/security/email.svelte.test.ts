@@ -5,9 +5,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import Page from './+page.svelte';
 import type { PageData } from './$types';
-import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
 
-drainCodeFieldTimers();
+controlCodeFieldTimers();
 
 const transport = vi.hoisted(() => ({ send: vi.fn(), update: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));

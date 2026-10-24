@@ -96,10 +96,10 @@ scoped actors retain their baseline grants.
 10. **Opening a record for operators.** A row opens its record, shows the chevron and `Note for <name>`, and is named
     `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
     As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row
-    is named `<name>` and shows `Quick edit <name>` alone, and clicking the row or pressing Enter does not navigate (the
-    URL stays on Personnel and no `<slug>/__data.json` request is sent). `personnelOperate`, `personnelScopedOperate`
-    and `perfScoped` loading the detail URL directly still get the 403 page. `manager`, `orgOwner`, `personnelScoped`
-    (configure) and `perfScopedLeader` open each row they may edit.
+    is named `<name>` and shows `Note for <name>` and `Quick edit <name>` only, and clicking the row or pressing Enter
+    does not navigate (the URL stays on Personnel and no `<slug>/__data.json` request is sent). `personnelOperate`,
+    `personnelScopedOperate` and `perfScoped` loading the detail URL directly still get the 403 page. `manager`,
+    `orgOwner`, `personnelScoped` (configure) and `perfScopedLeader` open each row they may edit.
 11. **Today's status and Needs attention.** As `orgOwner`, stage one case per source through the app's endpoints in the
     signed-in page (`evaluate_script` with `fetch`): `POST /org/<org>/api/personnel-trainings` for Able with the
     fixture's `trainingRequired` type, completed `2024-10-23` and expiring `2025-10-23`;
@@ -161,7 +161,8 @@ scoped actors retain their baseline grants.
     - Widths: at 900 the popover is 420 wide and stays inside the window; at 390 the actions column is hidden, so only N
       opens it, it spans the window with an 8px margin, and the page has no horizontal scroll.
     - Access: `viewer`, `scoped` and `dashboardScoped` have no `Note` button and N opens nothing; `manager` has one on
-      every row.
+      every row, and `personnelOperate` too: its save toast reads `Follow-up added for SPC Able` with no `Open log`
+      because that actor cannot open the record.
 
 ## Gotchas
 

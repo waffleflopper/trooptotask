@@ -50,9 +50,7 @@
 		toastStore.success(
 			entry.kind === 'follow-up' ? `Follow-up added for ${subject}` : `Note added for ${subject}`,
 			6000,
-			ctx.canOpenPersonnelDetail(person)
-				? { label: 'Open log', onClick: () => void goto(logHref) }
-				: undefined
+			ctx.canOpenPersonnelDetail(person) ? { label: 'Open log', onClick: () => void goto(logHref) } : undefined
 		);
 		if (alive) close();
 	}

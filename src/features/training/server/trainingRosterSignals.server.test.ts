@@ -5,7 +5,6 @@ import { createSupabaseTrainingRosterSignals } from './trainingRosterSignals.ser
 const TYPE = {
 	id: 'cpr',
 	name: 'CPR/BLS',
-	description: null,
 	expiration_months: 24,
 	warning_days_yellow: 60,
 	warning_days_orange: 30,
@@ -15,14 +14,10 @@ const TYPE = {
 	excluded_roles: [],
 	excluded_mos: [],
 	excluded_ranks: [],
-	color: '#000000',
-	sort_order: 0,
 	expiration_date_only: false,
 	can_be_exempted: false,
 	exempt_personnel_ids: [],
-	is_optional: false,
-	organization_id: 'org-1',
-	created_at: '2026-01-01T00:00:00+00:00'
+	is_optional: false
 };
 
 describe('createSupabaseTrainingRosterSignals', () => {

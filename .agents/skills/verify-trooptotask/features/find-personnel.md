@@ -24,7 +24,7 @@ person's record.
 Sign in, choose `Personnel` in the organization navigation, and use `Search by name, rank, MOS, role, or group`. The
 `Group` and `A-Z` buttons are above the roster. Choose a person's row, or focus it and press Enter, to open the record.
 Each row's `Note` and `Quick edit` icon buttons show on hover or focus (always on a touch screen); N and E are their
-keys.
+keys. Below the md viewport (768 px) the actions column hides and `Quick edit` shows at the right of the name.
 
 ## Driving it with verify:app
 
@@ -95,9 +95,12 @@ scoped actors retain their baseline grants.
     `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
     As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row
     is named `<name>` and shows `Quick edit <name>` alone, and clicking the row or pressing Enter does not navigate (the
-    URL stays on Personnel and no `<slug>/__data.json` request is sent). `personnelOperate`, `personnelScopedOperate`
-    and `perfScoped` loading the detail URL directly still get the 403 page. `manager`, `orgOwner`, `personnelScoped`
-    (configure) and `perfScopedLeader` open each row they may edit.
+    URL stays on Personnel and no `<slug>/__data.json` request is sent). At 390 `personnelOperate` still reaches it: the
+    snapshot lists one `Quick edit SPC Able, Synthetic` button per row, 28x28 at the right of the name, and the page's
+    `scrollWidth` is 390. Choose it, set `MOS / Job Title` to `11B` and `Save Changes`: one `PUT` on `/api/personnel`
+    returns 200, `personnel.mos` reads `11B`, focus returns to the row's `Quick edit` button and the dialog closes.
+    `personnelOperate`, `personnelScopedOperate` and `perfScoped` loading the detail URL directly still get the 403
+    page. `manager`, `orgOwner`, `personnelScoped` (configure) and `perfScopedLeader` open each row they may edit.
 11. **Today's status and Needs attention.** As `orgOwner`, stage one case per source through the app's endpoints in the
     signed-in page (`evaluate_script` with `fetch`): `POST /org/<org>/api/personnel-trainings` for Able with the
     fixture's `trainingRequired` type, completed `2024-10-23` and expiring `2025-10-23`;
@@ -113,9 +116,14 @@ scoped actors retain their baseline grants.
     (`organizations.disabled_features` reads `training, criticalTasks`) and reload: Able reads `—`, Baker
     `1 follow-up overdue` in red and Unassigned `NCOER due` in amber. Turn both back on afterward. Quick edit (E) on
     Able, set ETS 41 days out and save: one `PUT` and the name carries the `ETS · 41d` badge (PCS uses the outline
-    badge). `manager` (no Calendar grant) gets no strip and no dots, and its cells still read Baker's
-    `1 follow-up overdue`. Group-scoped `dashboardScoped` reads `1`, `1 present` and only Able's row, named
-    `SPC Able, Synthetic`, with `1 of 1 shown`.
+    badge). Changing an applicability field refreshes only that Person's cells: with Able on `11B` the cell reads
+    `Verification All-MOS Critical Task missing`; Quick edit, set `MOS / Job Title` to `68W` and save, and the same cell
+    reads `... missing · 1 more` (the `68W` `Verification Alpha Critical Task` now applies) after one `PUT` and one
+    `POST /api/personnel/roster-signals` and no `__data.json` request. Setting it back to `11B` removes the `· 1 more`.
+    Rank, MOS, duty role and Group edits refresh the Person; ETS, PCS and name edits send no `roster-signals` request.
+    `manager` (no Calendar grant) gets no strip and no dots, and its cells still read Baker's `1 follow-up overdue`.
+    Group-scoped `dashboardScoped` reads `1`, `1 present` and only Able's row, named `SPC Able, Synthetic`, with
+    `1 of 1 shown`.
 12. **Row keyboard and actions.** Tab into the table: the first row takes focus with an inset ring and only that row is
     a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
     `/personnel/<slug>/log?add=follow-up` with the note field focused, and Back returns to the roster; E opens
@@ -123,7 +131,8 @@ scoped actors retain their baseline grants.
     browser reports `hover: none`, so it always shows them, as a touch screen does. Single archive is Quick edit's
     `Archive` button. Column hiding follows the table's own width, not the viewport: below 48rem Rank, MOS, Duty Role
     and Group hide and the rank moves before the name; below 36rem Needs attention folds onto a second line under the
-    name; the actions column hides below the md viewport. At 1440, 900 and 390 the page has no horizontal scroll.
+    name; the actions column hides below the md viewport and `Quick edit` then sits beside the name. At 1440, 900 and
+    390 the page has no horizontal scroll.
 13. **Signals lane loading, failure and reads.** `$V server-source arm rpc/roster_signal_presence hold 1 90000`, then
     reload: the roster rows paint at once while each status dot, attention cell and the strip show skeletons, and every
     row's top offset is unchanged when `$V server-source release` lets the lane through. Arm `fail-hard` instead: the

@@ -3,8 +3,8 @@ import { compareReadinessItems, type ReadinessItemStatus } from '$lib/domain/rea
 import type {
 	PersonnelTraining,
 	TrainingCompletionHistoryEntry,
-	TrainingStatus,
-	TrainingType
+	TrainingRequirementFacts,
+	TrainingStatus
 } from '../training.types';
 import { isTrainingApplicable } from './applicability';
 import { getTrainingStatus } from './trainingStatus';
@@ -50,7 +50,7 @@ const ITEM_STATUS: Partial<Record<TrainingStatus, ReadinessItemStatus>> = {
 	current: 'current'
 };
 
-function applicabilityFor(type: TrainingType, person: PersonnelRequirementPerson): TrainingApplicability {
+function applicabilityFor(type: TrainingRequirementFacts, person: PersonnelRequirementPerson): TrainingApplicability {
 	if (type.appliesToMos.includes(person.mos)) return { kind: 'mos', mos: person.mos };
 	if (type.appliesToRoles.includes(person.clinicRole)) return { kind: 'role', role: person.clinicRole };
 	const rank = person.rank.trim();
@@ -62,13 +62,13 @@ function historyKey(row: TrainingCompletionHistoryEntry): string {
 	return `${row.completionDate ?? row.expirationDate ?? ''}|${row.supersededAt}`;
 }
 
-function isExempt(type: TrainingType, person: PersonnelRequirementPerson): boolean {
+function isExempt(type: TrainingRequirementFacts, person: PersonnelRequirementPerson): boolean {
 	return type.canBeExempted && type.exemptPersonnelIds.includes(person.id);
 }
 
 export function buildPersonnelTrainingReadiness<C extends TrainingCompletionFacts = PersonnelTraining>(input: {
 	person: PersonnelRequirementPerson;
-	types: readonly TrainingType[];
+	types: readonly TrainingRequirementFacts[];
 	completions: readonly C[];
 	history: readonly TrainingCompletionHistoryEntry[];
 	asOf: string;

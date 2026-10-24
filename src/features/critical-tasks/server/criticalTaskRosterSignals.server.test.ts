@@ -6,13 +6,8 @@ const TASK = {
 	id: 'airway',
 	task_code: 'A-001',
 	title: 'Airway',
-	description: null,
-	category: null,
 	mos: ['68W'],
-	expiration_months: 12,
-	sort_order: 0,
-	archived_at: null,
-	created_at: '2026-01-01T00:00:00+00:00'
+	expiration_months: 12
 };
 
 describe('createSupabaseCriticalTaskRosterSignals', () => {

@@ -124,11 +124,22 @@ SELECT is((public.roster_signal_training('c9000000-0000-4000-8000-000000000101')
 SELECT is(public.roster_signal_training('c9000000-0000-4000-8000-000000000101') #>> '{types,0,name}', 'CPR/BLS',
   'training types come with the read');
 
+SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(
+    public.roster_signal_training('c9000000-0000-4000-8000-000000000101') -> 'types' -> 0) k),
+  ARRAY['applies_to_mos', 'applies_to_ranks', 'applies_to_roles', 'can_be_exempted', 'excluded_mos', 'excluded_ranks',
+    'excluded_roles', 'exempt_personnel_ids', 'expiration_date_only', 'expiration_months', 'id', 'is_optional', 'name',
+    'warning_days_orange', 'warning_days_yellow'],
+  'training types carry only the columns readiness reads');
+
 SELECT is(public.roster_signal_critical_tasks('c9000000-0000-4000-8000-000000000101') -> 'completions',
   '[["c9000000-0000-4000-8000-000000000301", "c9000000-0000-4000-8000-000000000701", "2026-07-01", "2026-07-02T08:00:00+00:00", "SFC Later"]]'::jsonb,
   'critical tasks give the newest validation per active task, by date before record time');
 SELECT is(jsonb_array_length(public.roster_signal_critical_tasks('c9000000-0000-4000-8000-000000000101') -> 'tasks'), 1,
   'retired tasks are left out');
+SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(
+    public.roster_signal_critical_tasks('c9000000-0000-4000-8000-000000000101') -> 'tasks' -> 0) k),
+  ARRAY['expiration_months', 'id', 'mos', 'task_code', 'title'],
+  'critical tasks carry only the columns readiness reads');
 
 SELECT is(public.roster_signal_evaluations('c9000000-0000-4000-8000-000000000101') -> 'entries',
   '[["c9000000-0000-4000-8000-000000000301", "c9000000-0000-4000-8000-000000000802", "NCOER", null, "2025-12-01", "2026-12-01", "active", "drafting"],

@@ -55,7 +55,14 @@ AS $$
       SELECT jsonb_agg(jsonb_build_array(c.id, c.rank, c.mos, c.clinic_role) ORDER BY c.id) FROM cohort c
     ), '[]'::jsonb),
     'types', COALESCE((
-      SELECT jsonb_agg(to_jsonb(t) ORDER BY t.sort_order, t.id)
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', t.id, 'name', t.name, 'expiration_months', t.expiration_months,
+        'warning_days_yellow', t.warning_days_yellow, 'warning_days_orange', t.warning_days_orange,
+        'applies_to_roles', t.applies_to_roles, 'applies_to_mos', t.applies_to_mos, 'applies_to_ranks', t.applies_to_ranks,
+        'excluded_roles', t.excluded_roles, 'excluded_mos', t.excluded_mos, 'excluded_ranks', t.excluded_ranks,
+        'expiration_date_only', t.expiration_date_only, 'can_be_exempted', t.can_be_exempted,
+        'exempt_personnel_ids', t.exempt_personnel_ids, 'is_optional', t.is_optional
+      ) ORDER BY t.sort_order, t.id)
       FROM public.training_types t
       WHERE t.organization_id = p_organization_id
     ), '[]'::jsonb),
@@ -84,8 +91,7 @@ AS $$
       AND (p_personnel_ids IS NULL OR p.id = ANY (p_personnel_ids))
   ),
   tasks AS (
-    SELECT t.id, t.task_code, t.title, t.description, t.category, t.mos, t.expiration_months, t.sort_order,
-      t.archived_at, t.created_at
+    SELECT t.id, t.task_code, t.title, t.mos, t.expiration_months, t.sort_order
     FROM public.ict_tasks t
     WHERE t.organization_id = p_organization_id AND t.archived_at IS NULL
   ),
@@ -100,7 +106,12 @@ AS $$
   )
   SELECT jsonb_build_object(
     'cohort', COALESCE((SELECT jsonb_agg(jsonb_build_array(c.id, c.mos) ORDER BY c.id) FROM cohort c), '[]'::jsonb),
-    'tasks', COALESCE((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.sort_order, t.task_code) FROM tasks t), '[]'::jsonb),
+    'tasks', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', t.id, 'task_code', t.task_code, 'title', t.title, 'mos', t.mos, 'expiration_months', t.expiration_months
+      ) ORDER BY t.sort_order, t.task_code)
+      FROM tasks t
+    ), '[]'::jsonb),
     'settings', (
       SELECT jsonb_build_object(
         'defaultExpirationMonths', o.critical_tasks_default_expiration_months,

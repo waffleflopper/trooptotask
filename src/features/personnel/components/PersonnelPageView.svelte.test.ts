@@ -22,7 +22,8 @@ const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMoc
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
-	invalidate: invalidateMock
+	invalidate: invalidateMock,
+	beforeNavigate: vi.fn()
 }));
 
 vi.mock('svelte-sonner', () => ({
@@ -164,7 +165,7 @@ function makeCtx(
 
 	const signals = new RosterSignals({ readPeople: vi.fn(), browserDay: () => '2026-10-23' });
 	const ctx = {
-		data: { orgId: 'org-1' },
+		data: { orgId: 'org-1', asOf: '2026-10-06' },
 		orgId: 'org-1',
 		orgName: 'C Co',
 		orgUrlSegment: 'org-1',
@@ -298,7 +299,9 @@ describe('PersonnelPageView', () => {
 		const quickEdits = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
 		expect(quickEdits.length).toBe(2);
 		expect(quickEdits.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
-		expect(screen.queryByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeNull();
+		const notes = screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' });
+		expect(notes.length).toBe(2);
+		expect(notes.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
 		expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
 		await fireEvent.click(screen.getByRole('row', { name: 'SGT Smith, Jane' }));
 		expect(gotoMock).not.toHaveBeenCalled();
@@ -583,15 +586,20 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }));
-		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
+		const [actionsCellNote, identityCellNote] = screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' });
+		for (const noteButton of [actionsCellNote, identityCellNote]) {
+			await fireEvent.click(noteButton);
+			expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		}
 
 		const [actionsCellEdit, identityCellEdit] = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
 		await fireEvent.click(actionsCellEdit);
 		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
 		await fireEvent.click(identityCellEdit);
 		expect(handleEdit).toHaveBeenCalledTimes(2);
-		expect(gotoMock).toHaveBeenCalledTimes(2);
+		expect(gotoMock).toHaveBeenCalledTimes(1);
 	});
 
 	it('moves row focus with the arrow keys and runs N, E and Enter on the focused row only', async () => {
@@ -613,11 +621,14 @@ describe('PersonnelPageView', () => {
 		await fireEvent.keyDown(smith, { key: 'e' });
 		expect(handleEdit).toHaveBeenCalledExactlyOnceWith(personnel[0]);
 		await fireEvent.keyDown(smith, { key: 'n' });
-		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane/log?add=follow-up');
+		expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+		expect(gotoMock).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		await fireEvent.keyDown(smith, { key: 'Enter' });
 		expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/personnel/smith-jane');
 
-		await fireEvent.keyDown(screen.getByRole('button', { name: 'Note for SGT Smith, Jane' }), { key: 'e' });
+		await fireEvent.keyDown(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0], { key: 'e' });
 		expect(handleEdit).toHaveBeenCalledTimes(1);
 	});
 

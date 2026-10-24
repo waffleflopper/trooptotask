@@ -181,6 +181,11 @@ export function remarkText(remark: Da6Remark, sheetFrom: DateKey): string {
 			return `${who} left the roster ${formatDayMonth(remark.on)}, ${LEFT_CAUSE[remark.cause]}. The row stays for this month.`;
 		case 'joined':
 			return `${who} joined the roster ${formatDayMonth(remark.on)}, ${JOINED_CAUSE[remark.cause]}, and starts at the foot of the form.`;
+		case 'swapped': {
+			const first =
+				remark.on.slice(0, 7) === remark.other.slice(0, 7) ? String(dayOfMonth(remark.on)) : formatDayMonth(remark.on);
+			return `${who} and ${fullName(remark.with)} exchanged ${first} and ${formatDayMonth(remark.other)}. Numbers as published.`;
+		}
 		case 'outside':
 			return `${who} pulled duty ${formatDayMonth(remark.date)} from outside the roster. It still counts as a detail day for everyone here.`;
 	}

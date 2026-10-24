@@ -89,6 +89,18 @@ export type RosterAssignment = AssignmentSlot & {
 	readonly source: AssignmentSource;
 };
 
+export interface SwapDay {
+	readonly date: DateKey;
+	/** Held the day when the swap was entered, and stays counted for it. */
+	readonly heldBy: string;
+}
+
+/** Two days of one roster traded between their holders. Earlier day first. */
+export interface RosterSwap {
+	readonly id: string;
+	readonly days: readonly [SwapDay, SwapDay];
+}
+
 export interface StartingNumber {
 	readonly personId: string;
 	readonly track: TrackId;
@@ -133,6 +145,7 @@ export interface RosterCheckpoint {
 /**
  * Everything one roster's open form needs. Completeness contract:
  * - This type's `assignments`, A-effect `availability`, and `holidays` cover `form.startsOn` through `window.through`.
+ * - `swaps` includes each swap with either day from `form.startsOn` through `window.through`.
  * - Other types' `assignments` and D or U `availability` cover `window` plus one day each side.
  * - Availability and other-roster effects cover everyone in `people`, including assignees outside the pool.
  * Counts are exact under this contract because D and U never move a count.
@@ -147,6 +160,7 @@ export interface RosterFacts {
 	/** Every person in the Organization, archived included. */
 	readonly people: readonly RosterPerson[];
 	readonly excusals: readonly Excusal[];
+	readonly swaps: readonly RosterSwap[];
 	/** The Organization's catalog. Ties and rank ranges read only this. */
 	readonly rankCatalog: readonly RankCatalogEntry[];
 	readonly statusTypes: readonly RosterStatusType[];
@@ -191,8 +205,10 @@ export type DayDetail =
 			readonly kind: 'stored';
 			readonly personId: string;
 			readonly source: AssignmentSource;
+			/** The original holder counted for a swapped day, otherwise null. */
+			readonly heldBy: string | null;
 			readonly served: boolean;
-			/** false for an emergency detail by someone outside the pool. Nobody resets. */
+			/** Whether the counted person is on the roster and resets. */
 			readonly onRoster: boolean;
 			/** Resolved for the actual assignee, including someone outside the pool. */
 			readonly effect: Effect;
@@ -231,6 +247,8 @@ export type PoolChange =
 
 export interface RosterRun {
 	readonly facts: RosterFacts;
+	/** Includes people outside the pool. Uses the same effect precedence as standing. */
+	readonly effectOn: (personId: string, date: DateKey) => Effect;
 	/** Detail dates inside the window, ascending. Each date belongs to at most one track. */
 	readonly days: readonly RosterDay[];
 	readonly byDate: ReadonlyMap<DateKey, RosterDay>;
@@ -296,6 +314,13 @@ export type Da6Remark =
 			readonly who: PersonRef;
 			readonly on: DateKey;
 			readonly cause: 'joined' | 'matched' | 'reactivated';
+	  }
+	| {
+			readonly kind: 'swapped';
+			readonly who: PersonRef;
+			readonly on: DateKey;
+			readonly with: PersonRef;
+			readonly other: DateKey;
 	  }
 	| { readonly kind: 'outside'; readonly who: PersonRef; readonly date: DateKey };
 

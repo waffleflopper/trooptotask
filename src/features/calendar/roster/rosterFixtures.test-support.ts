@@ -69,6 +69,7 @@ export function rosterFacts(
 		type: { id: STAFF_DUTY, name: 'Staff Duty' },
 		people: [],
 		excusals: [],
+		swaps: [],
 		rankCatalog: BUILT_IN_RANK_CATALOG,
 		statusTypes: [
 			{ id: 'tdy', name: 'TDY', rosterEffect: 'A' },
@@ -179,4 +180,29 @@ export function gridLines(segment: Da6Segment): string[] {
 			})
 		].join(' ')
 	);
+}
+
+/** Kim and Patel's published exchange, with Moss next in the rotation. */
+export function swapExample(swapped = false): RosterFacts {
+	return rosterFacts({
+		today: '2026-10-20',
+		window: { from: '2026-10-12', through: '2026-10-23' },
+		form: { startsOn: '2026-10-12', startingNumbers: [typed('kim', 5), typed('patel', 3), typed('moss', 0)] },
+		people: [person('SPC', 'Kim'), person('SPC', 'Patel'), person('SPC', 'Moss')],
+		assignments: [
+			assigned('2026-10-12', swapped ? 'patel' : 'kim', swapped ? 'manual' : 'roster'),
+			assigned('2026-10-19', swapped ? 'kim' : 'patel', swapped ? 'manual' : 'roster')
+		],
+		swaps: swapped
+			? [
+					{
+						id: 'swap-1',
+						days: [
+							{ date: '2026-10-12', heldBy: 'kim' },
+							{ date: '2026-10-19', heldBy: 'patel' }
+						]
+					}
+				]
+			: []
+	});
 }

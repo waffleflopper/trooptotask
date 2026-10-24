@@ -18,6 +18,7 @@ import type {
 	OpenForm,
 	PoolRules,
 	RosterEffect,
+	RosterSwap,
 	TrackId,
 	WeekendMode
 } from './roster/rosterTypes';
@@ -28,6 +29,25 @@ import {
 	rosterEffectSchema,
 	weekendModeSchema
 } from './contracts';
+
+export const rosterSwapRowSchema = z.object({
+	id: z.string(),
+	assignment_type_id: z.string(),
+	first_date: z.string(),
+	first_held_by: z.string(),
+	second_date: z.string(),
+	second_held_by: z.string()
+});
+export type RosterSwapRow = z.infer<typeof rosterSwapRowSchema>;
+export function toRosterSwap(row: RosterSwapRow): RosterSwap {
+	return {
+		id: row.id,
+		days: [
+			{ date: row.first_date, heldBy: row.first_held_by },
+			{ date: row.second_date, heldBy: row.second_held_by }
+		]
+	};
+}
 
 type SavedRow = { organization_id?: string; created_at?: string };
 
@@ -217,6 +237,13 @@ const da6SegmentSchema = z
 					who: personRefSchema,
 					on: z.string(),
 					cause: z.enum(['joined', 'matched', 'reactivated'])
+				}),
+				z.object({
+					kind: z.literal('swapped'),
+					who: personRefSchema,
+					on: z.string(),
+					with: personRefSchema,
+					other: z.string()
 				}),
 				z.object({ kind: z.literal('outside'), who: personRefSchema, date: z.string() })
 			])

@@ -34,6 +34,10 @@ function assigneeOf(day: RosterDay): string | null {
 	return day.detail?.personId ?? null;
 }
 
+function countedPerson(day: RosterDay): string | null {
+	return day.detail?.kind === 'stored' ? (day.detail.heldBy ?? day.detail.personId) : assigneeOf(day);
+}
+
 /** R3b from the base run: the rule's pick, available candidates with next-door duty hints, and who cannot pull. */
 export function replacementOptions(run: RosterRun, date: DateKey): ReplacementOptions {
 	const day = run.byDate.get(date);
@@ -163,7 +167,7 @@ function segment(run: RosterRun, month: MonthKey, formState: Da6Segment['formSta
 			passedOver: passedOver(day).flatMap(({ personId, count, effect }): Da6PassedOver[] =>
 				effect.code === 'available' ? [] : [{ ...ref(personId), count, code: effect.code, reason: effect.reason }]
 			),
-			rulePick: day.rulePick !== null && day.rulePick !== detail.personId ? ref(day.rulePick) : null
+			rulePick: day.rulePick !== null && day.rulePick !== countedPerson(day) ? ref(day.rulePick) : null
 		};
 	});
 
@@ -191,7 +195,7 @@ function segment(run: RosterRun, month: MonthKey, formState: Da6Segment['formSta
 
 function cellOf(day: RosterDay | undefined, entry: Standing | undefined): Da6Cell {
 	if (!day?.detail || !entry) return null;
-	if (assigneeOf(day) === entry.personId) return { kind: 'detail', count: entry.count, when: whenOf(day) };
+	if (countedPerson(day) === entry.personId) return { kind: 'detail', count: entry.count, when: whenOf(day) };
 	const { effect } = entry;
 	if (effect.code === 'available') return { kind: 'count', count: entry.count };
 	if (effect.code === 'A') return { kind: 'away', count: entry.count, reason: effect.reason };
@@ -225,6 +229,14 @@ function remarks(
 	const from = [`${month}-01`, form.startsOn].sort()[1];
 	const through = [`${month}-31`, window.through].sort()[0];
 	const dated: { date: DateKey; remark: Da6Remark }[] = [];
+	for (const swap of run.facts.swaps) {
+		if (!swap.days.some((day) => day.date >= from && day.date <= through)) continue;
+		const [first, second] = swap.days;
+		dated.push({
+			date: first.date,
+			remark: { kind: 'swapped', who: ref(first.heldBy), on: first.date, with: ref(second.heldBy), other: second.date }
+		});
+	}
 	for (const excusal of run.facts.excusals) {
 		if (excusal.from > through || (excusal.through !== null && excusal.through < from)) continue;
 		dated.push({
@@ -250,7 +262,10 @@ function remarks(
 	}
 	for (const day of days) {
 		if (day.detail?.kind === 'stored' && !day.detail.onRoster) {
-			dated.push({ date: day.date, remark: { kind: 'outside', who: ref(day.detail.personId), date: day.date } });
+			dated.push({
+				date: day.date,
+				remark: { kind: 'outside', who: ref(day.detail.heldBy ?? day.detail.personId), date: day.date }
+			});
 		}
 	}
 	return dated.sort((a, b) => a.date.localeCompare(b.date)).map(({ remark }) => remark);

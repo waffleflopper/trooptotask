@@ -394,6 +394,7 @@ describe('planner roster replacement', () => {
 		todayAssignee: null,
 		excused: [],
 		covered: ['2026-10-20'],
+		swaps: [],
 		conflicts: [{ date: '2026-10-20', personId: 'person-1', code: 'A', reason: 'Leave' }]
 	};
 	const planned = (id: string, date: string, assigneeId: string) => ({

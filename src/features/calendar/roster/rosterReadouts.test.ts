@@ -42,6 +42,7 @@ describe('count today', () => {
 			kind: 'stored',
 			personId: 'alvarez',
 			source: 'manual',
+			heldBy: null,
 			served: true,
 			onRoster: true,
 			effect: { code: 'available' }

@@ -4,6 +4,11 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto } from '$app/navigation';
 import Page from './+page.svelte';
+import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+
+drainCodeFieldTimers();
+
+const renderPage = (email: string | null = null) => render(Page, { props: { data: { email } } as never });
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined) }));
 afterEach(() => {
@@ -26,9 +31,8 @@ it('retains a safe continuation after a failed verification and uses it after re
 			.mockResolvedValueOnce(Response.json({ error: 'Invalid code' }, { status: 401 }))
 			.mockResolvedValueOnce(Response.json({ ok: true }))
 	);
-	render(Page);
+	renderPage();
 	await fireEvent.input(screen.getByLabelText('Verification Code'), { target: { value: '123456' } });
-	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 	expect(await screen.findByRole('alert')).toBeTruthy();
 	expect(goto).not.toHaveBeenCalled();
 	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
@@ -40,9 +44,8 @@ it.each(['https://external.invalid/phish', '/a/..//external.invalid'])(
 	async (next) => {
 		window.history.replaceState({}, '', `/auth/mfa-verify?next=${encodeURIComponent(next)}`);
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })));
-		render(Page);
+		renderPage();
 		await fireEvent.input(screen.getByLabelText('Verification Code'), { target: { value: '123456' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard'));
 	}
 );
@@ -51,9 +54,8 @@ it('returns to login when the session expires before MFA verification', async ()
 	const response = new Response('<html>Sign in</html>');
 	Object.defineProperties(response, { redirected: { value: true }, url: { value: 'http://localhost/auth/login' } });
 	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
-	render(Page);
+	renderPage();
 	await fireEvent.input(screen.getByLabelText('Verification Code'), { target: { value: '123456' } });
-	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 	await waitFor(() => expect(goto).toHaveBeenCalledWith('http://localhost/auth/login'));
 	expect(goto).not.toHaveBeenCalledWith('/dashboard');
 });
@@ -76,15 +78,13 @@ it.each(['invalid code', 'provider unavailable', 'network failure', 'invalid suc
 				})
 		);
 		vi.stubGlobal('fetch', fetchMock);
-		render(Page);
+		renderPage();
 		const code = await screen.findByLabelText('Verification Code');
 		await fireEvent.input(code, { target: { value: '123456' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 		expect(await screen.findByRole('alert')).toBeTruthy();
 		expect(goto).not.toHaveBeenCalled();
 		expect(code).toHaveValue('123456');
 		await fireEvent.input(code, { target: { value: '654321' } });
-		await fireEvent.submit(code.closest('form')!);
 		expect(code).toBeDisabled();
 		expect(screen.getByRole('button', { name: /Verifying/ })).toBeDisabled();
 		await fireEvent.submit(code.closest('form')!);
@@ -96,7 +96,7 @@ it.each(['invalid code', 'provider unavailable', 'network failure', 'invalid suc
 );
 
 it('lets the user submit sign-out to the existing POST action', async () => {
-	const { container } = render(Page);
+	const { container } = renderPage();
 	const submissions: { method: string; pathname: string }[] = [];
 	container.addEventListener('submit', (event) => {
 		event.preventDefault();
@@ -104,25 +104,39 @@ it('lets the user submit sign-out to the existing POST action', async () => {
 		submissions.push({ method: form.method.toLowerCase(), pathname: new URL(form.action).pathname });
 	});
 
-	await fireEvent.click(screen.getByRole('button', { name: 'sign out' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
 
 	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
 });
 
-it('ties a rejected code to the Verification Code field', async () => {
-	vi.stubGlobal(
-		'fetch',
-		vi.fn().mockResolvedValue(Response.json({ error: 'Invalid authentication code. Try again.' }, { status: 401 }))
-	);
-	render(Page);
-	const code = screen.getByLabelText('Verification Code');
+it('submits a pasted or typed code on its sixth digit and ties a rejection to the field', async () => {
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValue(Response.json({ error: "That code didn't match. Try the next one." }, { status: 401 }));
+	vi.stubGlobal('fetch', fetchMock);
+	renderPage();
+	const code = screen.getByLabelText('Verification Code') as HTMLInputElement;
 	await fireEvent.input(code, { target: { value: '123456' } });
-	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
 	await waitFor(() => expect(code).toBeInvalid());
-	expect(code).toHaveAccessibleDescription('Invalid authentication code. Try again.');
+	expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ code: '123456' });
+	expect(code).toHaveAccessibleDescription("That code didn't match. Try the next one.");
 	expect(screen.getAllByRole('alert')).toHaveLength(1);
 	expect(code).toHaveValue('123456');
+	expect([code.selectionStart, code.selectionEnd]).toEqual([0, 6]);
+
+	await fireEvent.input(code, { target: { value: '1' } });
+	expect(code).toBeValid();
+});
+
+it('takes focus on load so the code can be typed at once', () => {
+	renderPage();
+	expect(screen.getByLabelText('Verification Code')).toHaveFocus();
+});
+
+it('names the signed-in account above the code', () => {
+	renderPage('dana.whitaker@example.test');
+	expect(screen.getByText('Two-factor · dana.whitaker@example.test')).toBeInTheDocument();
 });
 
 it('keeps a provider outage as a form alert that does not mark the code invalid', async () => {
@@ -130,14 +144,13 @@ it('keeps a provider outage as a form alert that does not mark the code invalid'
 		'fetch',
 		vi.fn().mockResolvedValue(Response.json({ error: 'Unable to verify MFA. Try again.' }, { status: 503 }))
 	);
-	render(Page);
+	renderPage();
 	const code = screen.getByLabelText('Verification Code');
 	await fireEvent.input(code, { target: { value: '123456' } });
-	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
 	expect(await screen.findByRole('alert')).toHaveTextContent('Unable to verify MFA. Try again.');
 	expect(code).toBeValid();
-	expect(code).toHaveAccessibleDescription('Enter the current code from your authenticator app.');
+	expect(code).not.toHaveAccessibleDescription();
 });
 
 it.each([
@@ -145,10 +158,10 @@ it.each([
 	['a provider failure', 503]
 ])('returns focus to the code field after %s', async (_name, status) => {
 	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error: 'Verification failed' }, { status })));
-	render(Page);
+	renderPage();
 	const code = screen.getByLabelText('Verification Code');
+	(code as HTMLElement).blur();
 	await fireEvent.input(code, { target: { value: '123456' } });
-	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
 	await waitFor(() => expect(code).toHaveFocus());
 	expect(code).not.toBeDisabled();

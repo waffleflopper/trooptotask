@@ -8,6 +8,9 @@ import Security from '../account/security/+page.svelte';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
 import type { PageData } from '../account/security/$types';
+import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+
+drainCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
@@ -85,7 +88,6 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		await fireEvent.submit(resume.closest('form')!);
 		const code = await screen.findByLabelText('Authenticator Code');
 		await fireEvent.input(code, { target: { value: '123456' } });
-		await fireEvent.submit(code.closest('form')!);
 		expect(await screen.findByText('Code rejected')).toBeVisible();
 		await fireEvent.submit(code.closest('form')!);
 		const retry = await screen.findByRole('button', { name: 'Finish password update' });
@@ -127,7 +129,7 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
 		mount('expired');
-		expect(await screen.findByRole('button', { name: 'Sign out' })).toBeEnabled();
+		for (const signOut of await screen.findAllByRole('button', { name: 'Sign out' })) expect(signOut).toBeEnabled();
 		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
 		expect(fetchMock).not.toHaveBeenCalled();
 	});

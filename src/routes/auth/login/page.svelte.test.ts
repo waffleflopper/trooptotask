@@ -18,9 +18,9 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-it('keeps the shared wordmark as a home link on account access', () => {
+it('links back to the public site from account access', () => {
 	render(Page, { data: { viewer: null, reauth: false, nextPath: null }, form: null });
-	expect(screen.getByRole('link', { name: /Troop To Task Unit Readiness Platform/i })).toHaveAttribute('href', '/');
+	expect(screen.getByRole('link', { name: 'TroopToTask.com' })).toHaveAttribute('href', '/');
 });
 
 it('submits the supplied continuation unchanged before and after a rejected login', async () => {

@@ -1,154 +1,176 @@
+<script module lang="ts">
+	export type AuthStep = {
+		title: string;
+		detail: string;
+		state?: 'done' | 'current' | 'upcoming' | 'flagged';
+	};
+
+	export type AuthAlternative = { prompt: string; label: string } & (
+		| { href: string }
+		| { signOut: true }
+		| { onclick: () => void }
+	);
+</script>
+
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
-	import MoonIcon from '@lucide/svelte/icons/moon';
-	import SunIcon from '@lucide/svelte/icons/sun';
-	import { BrandWordmark } from '$lib/components/patterns/brand-wordmark';
-	import { Button } from '$lib/components/ui/button';
-	import { themeStore } from '$lib/stores/theme.svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import { cn } from '$lib/utils';
 
 	interface Props {
-		eyebrow?: string;
-		title: string;
-		description?: string;
-		panelEyebrow?: string;
-		panelTitle?: string;
+		eyebrow: string;
+		headline: [string, string];
+		lede: string;
+		steps?: { label: string; items: AuthStep[] };
+		panelEyebrow: string;
+		panelTitle: string;
 		panelDescription?: string;
-		imageSrc?: string;
-		imageAlt?: string;
-		supportLabel?: string;
-		supportTitle?: string;
-		supportDescription?: string;
-		supportPoints?: string[];
+		alternatives?: AuthAlternative[];
 		children: Snippet;
-		aside?: Snippet;
 	}
 
-	const defaultSupportPoints: string[] = [];
-
 	let {
-		eyebrow = 'Account Access',
-		title,
-		description,
+		eyebrow,
+		headline,
+		lede,
+		steps,
 		panelEyebrow,
 		panelTitle,
 		panelDescription,
-		imageSrc,
-		imageAlt = '',
-		supportLabel = 'Account Help',
-		supportTitle = 'Use the path that fits your account.',
-		supportDescription = 'Sign in, recover access, or complete an invite from the links on this page.',
-		supportPoints = defaultSupportPoints,
-		children,
-		aside
+		alternatives = [],
+		children
 	}: Props = $props();
 
-	const resolvedPanelTitle = $derived(panelTitle ?? title);
-	const resolvedImageSrc = $derived(imageSrc ?? null);
-	const hasImage = $derived(!!resolvedImageSrc);
+	const stepTone = {
+		default: { numeral: 'text-accent', title: 'text-chrome-text', detail: 'text-chrome-text-muted' },
+		done: { numeral: 'text-success', title: 'text-chrome-text-muted', detail: 'text-chrome-text-muted' },
+		current: { numeral: 'text-accent', title: 'text-chrome-text', detail: 'text-accent' },
+		upcoming: { numeral: 'text-chrome-text-muted', title: 'text-chrome-text-muted', detail: 'text-chrome-text-muted' },
+		flagged: { numeral: 'text-accent', title: 'text-accent', detail: 'text-chrome-text' }
+	} as const;
+
+	const footerLinks = [
+		{ label: 'Privacy', href: resolve('/privacy') },
+		{ label: 'Terms', href: resolve('/terms') },
+		{ label: 'Security', href: resolve('/security') }
+	];
+
+	const chromeLabel = 'font-mono text-[11px] leading-[14px] tracking-[0.12em] text-chrome-text-muted uppercase';
+	const altLink =
+		'font-body text-sm leading-5 text-foreground underline decoration-1 underline-offset-[3px] hover:decoration-2';
 </script>
 
-<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-muted/25 font-body text-foreground">
-	<div class="mx-auto flex min-h-screen max-w-[1120px] flex-col px-4 py-5 sm:px-6 lg:px-8">
-		<header class="flex items-center justify-between gap-4">
+<div
+	class="min-h-dvh bg-background font-body text-foreground lg:grid lg:grid-cols-[minmax(0,min(600px,42vw))_minmax(0,1fr)] lg:grid-rows-[1fr_auto]"
+>
+	<header
+		class="flex flex-col bg-chrome px-6 pt-6 pb-10 text-chrome-text sm:px-10 lg:col-start-1 lg:row-start-1 lg:border-r lg:border-chrome-border lg:px-12 lg:pt-10 lg:pb-10 xl:px-16"
+	>
+		<div class="flex items-center justify-between gap-4">
+			<p class="font-heading text-xl leading-7 font-bold tracking-[0.02em] uppercase">TroopToTask</p>
 			<a
 				href={resolve('/')}
-				class="inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+				class="font-mono text-xs leading-4 tracking-[0.12em] text-chrome-text-muted uppercase hover:text-chrome-text"
 			>
-				<BrandWordmark />
+				<span aria-hidden="true">←</span> TroopToTask.com
 			</a>
+		</div>
 
-			<div class="flex items-center gap-2">
-				<Button href={resolve('/')} variant="outline" size="sm">Back to site</Button>
-				<Button
-					variant="outline"
-					size="icon-sm"
-					type="button"
-					onclick={() => themeStore.toggle()}
-					aria-label="Toggle theme"
-				>
-					{#if themeStore.isDark}
-						<SunIcon aria-hidden="true" />
-					{:else}
-						<MoonIcon aria-hidden="true" />
-					{/if}
-				</Button>
-			</div>
-		</header>
-
-		<main class="flex flex-1 items-center justify-center py-8 md:py-12">
-			<section
-				class={cn(
-					'grid w-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-[0_16px_48px_-36px_oklch(0.147_0.004_49.25/0.55),0_1px_2px_oklch(0.147_0.004_49.25/0.08)]',
-					hasImage ? 'max-w-[960px] md:grid-cols-[minmax(0,0.92fr)_minmax(0,1fr)]' : 'max-w-[480px]'
-				)}
-				aria-labelledby="auth-panel-title"
+		<div class="mt-10 flex flex-col gap-4 lg:my-auto lg:gap-6 lg:py-12">
+			<p class="font-mono text-[13px] leading-4 tracking-[0.14em] text-accent uppercase">{eyebrow}</p>
+			<p
+				class="font-heading text-[44px] leading-[42px] font-bold tracking-[-0.005em] uppercase lg:text-[52px] lg:leading-[50px] xl:text-[64px] xl:leading-[60px] min-[1400px]:text-[72px] min-[1400px]:leading-[68px]"
 			>
-				<div class="flex flex-col px-6 py-7 sm:px-8 sm:py-9">
-					{#if panelEyebrow ?? eyebrow}
-						<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-							{panelEyebrow ?? eyebrow}
-						</p>
-					{/if}
+				<span class="block">{headline[0]}</span>
+				<span class="block text-accent">{headline[1]}</span>
+			</p>
+			<p class="max-w-[420px] text-base leading-6 font-light text-chrome-text-muted lg:text-lg lg:leading-7">{lede}</p>
+		</div>
+	</header>
 
-					<h1
-						id="auth-panel-title"
-						class="mt-4 text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-3xl"
-					>
-						{resolvedPanelTitle}
-					</h1>
-
-					{#if panelDescription ?? description}
-						<p class="mt-2 text-sm leading-6 text-muted-foreground">{panelDescription ?? description}</p>
-					{/if}
-
-					<div class="mt-6 flex flex-col gap-5">
-						{@render children()}
-					</div>
-
-					{#if !hasImage && supportPoints.length > 0}
-						<div class="mt-6 rounded-lg border bg-muted/35 p-4">
-							<p class="text-sm font-medium text-foreground">{supportTitle}</p>
-							<ul class="mt-3 grid gap-2">
-								{#each supportPoints as point, index (`${point}:${index}`)}
-									<li class="grid grid-cols-[auto_1fr] items-start gap-2 text-sm leading-5 text-muted-foreground">
-										<span class="mt-2 size-1.5 rounded-full bg-primary" aria-hidden="true"></span>
-										<span>{point}</span>
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-
-					{#if aside}
-						<div class="mt-5">
-							{@render aside()}
-						</div>
-					{/if}
-				</div>
-
-				{#if resolvedImageSrc}
-					<div class="relative hidden min-h-[520px] overflow-hidden border-l border-border/80 bg-muted md:block">
-						<img src={resolvedImageSrc} alt={imageAlt} class="absolute inset-0 size-full object-cover" />
-						<div class="absolute inset-0 bg-gradient-to-t from-background/55 via-transparent to-transparent"></div>
-						<div
-							class="absolute right-5 bottom-5 left-5 rounded-lg border border-border/80 bg-background/88 p-4 shadow-[0_10px_30px_-24px_oklch(0.147_0.004_49.25/0.45),0_1px_2px_oklch(0.147_0.004_49.25/0.08)] backdrop-blur-sm"
-						>
-							<p class="font-mono text-[0.625rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-								{supportLabel}
-							</p>
-							<p class="mt-1 text-sm font-medium text-foreground">{supportTitle}</p>
-							<p class="mt-1 text-xs leading-5 text-muted-foreground">{supportDescription}</p>
-						</div>
-					</div>
+	<main
+		class="flex justify-center px-6 py-10 sm:px-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:items-center lg:px-12 lg:py-12 xl:px-20"
+		aria-labelledby="auth-panel-title"
+	>
+		<div class="flex w-full max-w-[400px] flex-col gap-8">
+			<div class="flex flex-col gap-2.5 border-b-2 border-foreground pb-5">
+				<p class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+					{panelEyebrow}
+				</p>
+				<h1
+					id="auth-panel-title"
+					class="font-heading text-[40px] leading-[40px] font-extrabold text-balance uppercase sm:text-[44px] sm:leading-[44px]"
+				>
+					{panelTitle}
+				</h1>
+				{#if panelDescription}
+					<p class="text-[15px] leading-[22px] text-muted-foreground">{panelDescription}</p>
 				{/if}
-			</section>
-		</main>
+			</div>
 
-		<footer class="pb-6 text-center text-sm leading-6 text-muted-foreground">
-			By continuing, you agree to our <a href={resolve('/terms')}>Terms of Use</a> and
-			<a href={resolve('/privacy')}>Privacy Policy</a>.
-		</footer>
-	</div>
+			{@render children()}
+
+			{#if alternatives.length > 0}
+				<div class="flex flex-col gap-2.5 border-t border-border pt-5">
+					{#each alternatives as alternative (alternative.label)}
+						<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm leading-5">
+							<span class="text-muted-foreground">{alternative.prompt}</span>
+							{#if 'href' in alternative}
+								<a href={alternative.href} class={altLink}>{alternative.label}</a>
+							{:else if 'onclick' in alternative}
+								<button type="button" class={cn(altLink, 'cursor-pointer')} onclick={alternative.onclick}>
+									{alternative.label}
+								</button>
+							{:else}
+								<form method="POST" action={resolve('/auth/logout')}>
+									<button type="submit" class={cn(altLink, 'cursor-pointer')}>{alternative.label}</button>
+								</form>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</main>
+
+	<footer
+		class="border-t border-chrome-border bg-chrome px-6 pt-8 pb-10 text-chrome-text sm:px-10 lg:col-start-1 lg:row-start-2 lg:border-t-0 lg:border-r lg:px-12 lg:pt-0 lg:pb-12 xl:px-16"
+	>
+		{#if steps}
+			<section aria-labelledby="auth-steps-label">
+				<h2 id="auth-steps-label" class={cn(chromeLabel, 'border-b border-chrome-border pb-3')}>{steps.label}</h2>
+				<ol>
+					{#each steps.items as step, index (step.title)}
+						{@const tone = stepTone[step.state ?? 'default']}
+						<li
+							class="flex items-baseline gap-4 border-b border-chrome-border py-3.5"
+							aria-current={step.state === 'current' ? 'step' : undefined}
+						>
+							<span class={cn('w-7 shrink-0 font-mono text-xs leading-4', tone.numeral)}>
+								{#if step.state === 'done'}
+									<CheckIcon class="inline size-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
+									<span class="sr-only">Done:</span>
+								{:else}
+									{String(index + 1).padStart(2, '0')}
+								{/if}
+							</span>
+							<span class="flex min-w-0 grow flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-4">
+								<span class={cn('shrink-0 text-[15px] leading-5 sm:w-[196px] lg:w-[150px] xl:w-[196px]', tone.title)}>
+									{step.title}
+								</span>
+								<span class={cn('text-sm leading-5', tone.detail)}>{step.detail}</span>
+							</span>
+						</li>
+					{/each}
+				</ol>
+			</section>
+		{:else}
+			<nav aria-label="Legal" class="flex gap-6 border-t border-chrome-border pt-4">
+				{#each footerLinks as link (link.href)}
+					<a href={link.href} class={cn(chromeLabel, 'hover:text-chrome-text')}>{link.label}</a>
+				{/each}
+			</nav>
+		{/if}
+	</footer>
 </div>

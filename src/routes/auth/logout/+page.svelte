@@ -1,8 +1,8 @@
 <script lang="ts">
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
@@ -12,7 +12,13 @@
 	<title>Sign Out - Troop to Task</title>
 </svelte:head>
 
-<AuthShell title={form?.localOnly ? 'Signed out on this browser.' : 'Try signing out again.'}>
+<AuthShell
+	eyebrow="Sign Out"
+	headline={['Stand down.', 'Sign out.']}
+	lede="Signing out ends your session on every device, not just this one."
+	panelEyebrow="Session"
+	panelTitle={form?.localOnly ? 'Signed out on this browser.' : 'Try signing out again.'}
+>
 	{#if form?.error}
 		<AuthNotice tone="error" message={form.error} />
 	{/if}
@@ -20,10 +26,10 @@
 		<AuthNotice
 			message="There is no active session on this browser. Sign-out on other devices has not been confirmed. Sign in again to retry signing out everywhere."
 		/>
-		<Button href={resolve('/auth/login')} class="w-full">Sign in</Button>
+		<AuthButton href={resolve('/auth/login')}>Sign in</AuthButton>
 	{:else}
 		<form method="POST" action={resolve('/auth/logout')}>
-			<Button type="submit" class="w-full">Try again</Button>
+			<AuthButton>Try again</AuthButton>
 		</form>
 	{/if}
 </AuthShell>

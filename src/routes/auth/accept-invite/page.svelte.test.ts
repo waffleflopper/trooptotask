@@ -5,6 +5,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { writable } from 'svelte/store';
 import { goto } from '$app/navigation';
 import Page from './+page.svelte';
+import { drainCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+
+drainCodeFieldTimers();
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
 beforeEach(async () => {
@@ -69,7 +72,6 @@ it('retains completed password state through denied finalization, MFA error and 
 	expect(screen.queryByLabelText(/^Password/)).toBeNull();
 	expect(mutations).toBe(1);
 	await fireEvent.input(code, { target: { value: '123456' } });
-	await fireEvent.submit(code.closest('form')!);
 	expect(await screen.findByText('Invalid code')).toBeVisible();
 	expect(code).toHaveValue('123456');
 	await fireEvent.submit(code.closest('form')!);
@@ -230,7 +232,7 @@ it('lets the user submit sign-out to the existing POST action', async () => {
 		submissions.push({ method: form.method.toLowerCase(), pathname: new URL(form.action).pathname });
 	});
 
-	await fireEvent.click(screen.getByRole('button', { name: 'sign out' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
 
 	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
 });

@@ -1,6 +1,8 @@
 <script lang="ts">
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 	import * as Field from '$lib/components/ui/field';
 	import * as InputOTP from '$lib/components/ui/input-otp';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		id: string;
@@ -39,8 +41,21 @@
 		if (autofocus && inputRef) inputRef.focus();
 	});
 
+	// bits-ui's onComplete reruns whenever any spread prop changes, which resubmits a rejected code after every retry.
+	let previousValue = untrack(() => value);
+	$effect(() => {
+		const current = value;
+		if (current.length === 6 && current !== previousValue) untrack(() => oncomplete?.(current));
+		previousValue = current;
+	});
+
 	export function focus() {
 		inputRef?.focus();
+	}
+
+	export function select() {
+		inputRef?.focus();
+		inputRef?.select();
 	}
 </script>
 
@@ -56,7 +71,6 @@
 		aria-invalid={error ? true : undefined}
 		aria-describedby={describedBy}
 		data-testid={dataTestId}
-		onComplete={(code: string) => oncomplete?.(code)}
 	>
 		{#snippet children({ cells })}
 			<InputOTP.Group>
@@ -73,7 +87,10 @@
 		{/snippet}
 	</InputOTP.Root>
 	{#if error}
-		<Field.Error id={errorId}>{error}</Field.Error>
+		<Field.Error id={errorId} class="flex items-center gap-2">
+			<CircleAlertIcon class="size-4 shrink-0 text-destructive" aria-hidden="true" />
+			{error}
+		</Field.Error>
 	{:else if hint}
 		<Field.Description id={hintId}>{hint}</Field.Description>
 	{/if}

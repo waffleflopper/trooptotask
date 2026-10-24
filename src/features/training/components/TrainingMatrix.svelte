@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
@@ -135,19 +136,41 @@
 		};
 	}
 
-	// Rendered heights: the h-10 cell plus its collapsed 1px border, and the h-7 group row. Spacers must match them.
-	const ROW_HEIGHT = 41;
-	const GROUP_HEIGHT = 28;
+	// Spacers must match the rendered heights: the h-10 cell plus its collapsed 1px border, and the h-7 group row.
+	// Both are rem, so they follow the reader's default font size.
+	const ROW_HEIGHT_REM = 2.5;
+	const ROW_BORDER_PX = 1;
+	const GROUP_HEIGHT_REM = 1.75;
 	const FALLBACK_VIEWPORT_HEIGHT = 640;
-	const OVERSCAN_PX = ROW_HEIGHT * 8;
+	const OVERSCAN_ROWS = 8;
 	const HEADER_ROW_COUNT = 1;
 
+	let remPx = $state(16);
+	const rowHeight = $derived(ROW_HEIGHT_REM * remPx + ROW_BORDER_PX);
+	const groupHeight = $derived(GROUP_HEIGHT_REM * remPx);
+
+	onMount(() => {
+		remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+	});
+
 	function rowItem(person: Personnel): OperationalMatrix.VirtualMatrixItem<MatrixRow> {
-		return { kind: 'row', key: person.id, row: toMatrixRow(person), height: ROW_HEIGHT };
+		return { kind: 'row', key: person.id, row: toMatrixRow(person), height: rowHeight };
 	}
 
 	let scrollTop = $state(0);
 	let measuredViewportHeight = $state(0);
+	let focusedRowId = $state<string | null>(null);
+
+	function trackFocus(event: FocusEvent) {
+		const row = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-matrix-row]') : null;
+		focusedRowId = row?.dataset.rowId ?? null;
+	}
+
+	function releaseFocus(event: FocusEvent & { currentTarget: HTMLElement }) {
+		const next = event.relatedTarget;
+		if (!(next instanceof Node) || !event.currentTarget.contains(next)) focusedRowId = null;
+	}
+
 	const matrixRows = $derived<MatrixRow[]>(table.rows.map(toMatrixRow));
 	const virtualItems = $derived<OperationalMatrix.VirtualMatrixItem<MatrixRow>[]>(
 		table.groups.length === 0
@@ -162,7 +185,7 @@
 							rowIds: group.rows.map((person) => person.id),
 							collapsed: group.collapsed
 						},
-						height: GROUP_HEIGHT
+						height: groupHeight
 					},
 					...(group.collapsed ? [] : group.rows.map(rowItem))
 				])
@@ -171,7 +194,8 @@
 		OperationalMatrix.buildVirtualMatrixWindow(virtualItems, {
 			scrollTop,
 			viewportHeight: measuredViewportHeight || FALLBACK_VIEWPORT_HEIGHT,
-			overscanPx: OVERSCAN_PX
+			overscanPx: rowHeight * OVERSCAN_ROWS,
+			pinnedKey: focusedRowId
 		})
 	);
 	const totalColumns = $derived(matrixColumns.length + 1);
@@ -249,6 +273,8 @@
 		virtualized
 		onViewportHeightChange={(height) => (measuredViewportHeight = height)}
 		onscroll={(event) => (scrollTop = event.currentTarget.scrollTop)}
+		onfocusin={trackFocus}
+		onfocusout={releaseFocus}
 	>
 		<OperationalMatrix.Table
 			ariaLabel="Training status matrix"
@@ -296,6 +322,11 @@
 					</tr>
 				{/if}
 				{#each virtualWindow.visibleItems as item (item.key)}
+					{#if item.gapBefore > 0}
+						<tr aria-hidden="true" data-matrix-spacer="gap">
+							<td colspan={totalColumns} style:height={`${item.gapBefore}px`}></td>
+						</tr>
+					{/if}
 					{#if item.kind === 'group'}
 						<OperationalMatrix.RowGroup
 							group={item.group}

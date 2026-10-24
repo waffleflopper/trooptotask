@@ -601,7 +601,8 @@ and offline recovery tests separate from native UI, actual PDF and independent v
   its URL where applicable.
 - The matrix mounts only the rows near its scroll position, so a snapshot lists only those People. Scroll the
   `Training matrix viewport` to the Person, take a fresh snapshot, then click a cell in the middle of the viewport. A
-  cell at the top edge sits under the sticky column headers, and a click there sorts by that column instead.
+  cell at the top edge sits under the sticky column headers, and a click there sorts by that column instead. The row
+  holding keyboard focus stays mounted while scrolled away, so a snapshot may also list that Person.
 - Endpoint probes need valid fixture IDs and bodies. PUT uses the saved record ID; DELETE uses `{id}`; batch uses
   `{records:[{personnelId,trainingTypeId,completionDate,status:'completed'}]}`. A validation error does not prove scope
   denial.

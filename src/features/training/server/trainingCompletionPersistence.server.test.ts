@@ -58,7 +58,7 @@ describe('Training completion bulk reads', () => {
 		});
 	});
 
-	it('keeps all requested people and types across partitions and pages without duplicate records or editor data', async () => {
+	it('keeps all requested people and types across one-page partitions without duplicate records or editor data', async () => {
 		const people = Array.from({ length: 52 }, (_, index) => `person-${String(index).padStart(2, '0')}`);
 		const types = Array.from({ length: 52 }, (_, index) => `type-${String(index).padStart(2, '0')}`);
 		const expected = people.flatMap((personnelId) =>
@@ -77,12 +77,14 @@ describe('Training completion bulk reads', () => {
 		]);
 		state.unstablePages = true;
 
-		expect(
-			await completions.listReadinessCompletions({
-				personnelIds: [...people, people[0]],
-				trainingTypeIds: [...types, types[0]]
-			})
-		).toEqual(expected);
+		const facts = await completions.listReadinessCompletions({
+			personnelIds: [...people, people[0]],
+			trainingTypeIds: [...types, types[0]]
+		});
+
+		expect(facts).toHaveLength(expected.length);
+		expect(facts).toEqual(expect.arrayContaining(expected));
+		expect(state.requests.map(({ offset }) => offset)).toEqual([0, 0, 0, 0, 0, 0]);
 	});
 
 	it('retains archived onboarding people and types outside the current catalog when no type filter is requested', async () => {

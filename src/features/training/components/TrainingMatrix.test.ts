@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import TrainingMatrix from './TrainingMatrix.svelte';
 import type { Personnel } from '$features/personnel/contracts';
@@ -163,21 +164,55 @@ describe('TrainingMatrix', () => {
 		expect(p200?.getAttribute('aria-rowindex')).toBe('202');
 	});
 
-	it('moves keyboard focus row by row past the first window', async () => {
-		render(TrainingMatrix, {
-			props: { personnel: roster(400), trainingTypes: [trainingType], trainings: [], onCellClick: vi.fn() }
-		});
-		const table = screen.getByRole('table');
-		screen.getByRole('button', { name: 'P000 CPR: Not Done' }).focus();
+	it('tabs cell by cell past the first window and opens the focused cell with Enter', async () => {
+		const user = userEvent.setup();
+		const onCellClick = vi.fn();
+		const people = roster(400);
+		render(TrainingMatrix, { props: { personnel: people, trainingTypes: [trainingType], trainings: [], onCellClick } });
+		// The browser scrolls a focused cell into view; happy-dom does not.
+		const followFocus = async () => {
+			const row = document.activeElement?.closest('tr');
+			const index = Number(row?.getAttribute('aria-rowindex')) - 1;
+			await scrollTo(Math.max(0, index * ROW_HEIGHT + HEADER_HEIGHT - VIEWPORT_HEIGHT));
+		};
 
+		await user.tab();
+		await user.tab();
+		await user.tab();
+		expect(document.activeElement?.getAttribute('aria-label')).toBe('P000 CPR: Not Done');
 		for (let index = 1; index <= 40; index++) {
-			const buttons = [...table.querySelectorAll('button')];
-			buttons[buttons.indexOf(document.activeElement as HTMLButtonElement) + 1].focus();
-			await scrollTo(Math.max(0, (index + 1) * ROW_HEIGHT + HEADER_HEIGHT - VIEWPORT_HEIGHT));
+			await user.tab();
+			await followFocus();
 		}
+		await user.keyboard('{Enter}');
 
 		expect(document.activeElement?.getAttribute('aria-label')).toBe('P040 CPR: Not Done');
 		expect(mountedNames()).not.toContain('P000, Test');
+		expect(onCellClick).toHaveBeenCalledWith(people[40], trainingType, undefined);
+	});
+
+	it('keeps the focused cell mounted and focused while scrolled far away and back', async () => {
+		const user = userEvent.setup();
+		render(TrainingMatrix, {
+			props: { personnel: roster(400), trainingTypes: [trainingType], trainings: [], onCellClick: vi.fn() }
+		});
+		await user.tab();
+		await user.tab();
+		await user.tab();
+		const focused = document.activeElement;
+		expect(focused?.getAttribute('aria-label')).toBe('P000 CPR: Not Done');
+
+		await scrollTo(300 * ROW_HEIGHT);
+
+		expect(document.activeElement).toBe(focused);
+		expect(focused?.closest('tr')?.getAttribute('aria-rowindex')).toBe('2');
+		expect(mountedNames()).toEqual(expect.arrayContaining(['P000, Test', 'P300, Test']));
+		expect(mountedNames()).not.toContain('P100, Test');
+
+		await scrollTo(0);
+
+		expect(document.activeElement).toBe(focused);
+		expect(screen.getAllByRole('button', { name: 'P000 CPR: Not Done' })).toEqual([focused]);
 	});
 
 	it('windows grouped rows and skips a collapsed group', async () => {

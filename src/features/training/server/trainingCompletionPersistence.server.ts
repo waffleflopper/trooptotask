@@ -22,6 +22,8 @@ import {
 	type TrainingCompletionHistoryRow
 } from './trainingPersistenceMapping.server';
 
+const IDS_PER_FILTER = 50;
+
 export function createSupabaseTrainingCompletionPersistence(
 	client: SupabaseClient,
 	orgId: string
@@ -35,12 +37,20 @@ export function createSupabaseTrainingCompletionPersistence(
 			const people = [...new Set(scope.personnelIds)];
 			const types = scope.trainingTypeIds === undefined ? undefined : [...new Set(scope.trainingTypeIds)];
 			if (types?.length === 0) return [];
-			for (let personIndex = 0; personIndex < people.length; personIndex += 50) {
-				const personnelIds = people.slice(personIndex, personIndex + 50);
+			// A Person has at most one row per type, so this many People fit one page. An unfiltered read assumes a
+			// full type chunk; a larger catalog still pages by count.
+			const typesPerPartition = Math.min(types?.length ?? IDS_PER_FILTER, IDS_PER_FILTER);
+			const peoplePerPartition = Math.min(IDS_PER_FILTER, Math.floor(SUPABASE_PAGE_SIZE / typesPerPartition));
+			for (let personIndex = 0; personIndex < people.length; personIndex += peoplePerPartition) {
+				const personnelIds = people.slice(personIndex, personIndex + peoplePerPartition);
 				if (!types) partitions.push({ personnelIds, from: 0 });
 				else {
-					for (let typeIndex = 0; typeIndex < types.length; typeIndex += 50) {
-						partitions.push({ personnelIds, trainingTypeIds: types.slice(typeIndex, typeIndex + 50), from: 0 });
+					for (let typeIndex = 0; typeIndex < types.length; typeIndex += IDS_PER_FILTER) {
+						partitions.push({
+							personnelIds,
+							trainingTypeIds: types.slice(typeIndex, typeIndex + IDS_PER_FILTER),
+							from: 0
+						});
 					}
 				}
 			}
@@ -80,12 +90,14 @@ export function createSupabaseTrainingCompletionPersistence(
 			}
 		}
 		const pages = [...firstPages, ...(await readPages(remaining))];
-		return pages.flatMap((page) => page.data ?? []).sort((a, b) => a.id.localeCompare(b.id));
+		return pages.flatMap((page) => page.data ?? []);
 	}
 
 	return {
 		async listCompletions() {
-			return (await readCompletions(TRAINING_WORKSPACE_COMPLETION_FIELDS)).map(toWorkspaceTrainingCompletion);
+			return (await readCompletions(TRAINING_WORKSPACE_COMPLETION_FIELDS))
+				.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+				.map(toWorkspaceTrainingCompletion);
 		},
 		async listReadinessCompletions(scope) {
 			return (await readCompletions(TRAINING_READINESS_COMPLETION_FIELDS, scope)).map(toTrainingCompletionFacts);

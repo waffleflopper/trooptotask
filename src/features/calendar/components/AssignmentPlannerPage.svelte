@@ -4,7 +4,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
-	import { PlannerRosterRead, previewRosterFill, previewRosterReplacement } from '../contexts/PlannerRosterRead.svelte';
+	import {
+		PlannerRosterRead,
+		previewRosterFill,
+		previewRosterReplacement,
+		previewRosterSwap
+	} from '../contexts/PlannerRosterRead.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { calendarViewCoverage, type CalendarCoverage } from '../utils/calendarRange';
 	import { da6Href } from '../utils/da6View';
@@ -139,6 +144,15 @@
 		return result;
 	}
 
+	async function swapRosterDays(
+		typeId: string,
+		days: readonly [{ date: string; was: string }, { date: string; was: string }]
+	) {
+		const outcome = await dailyAssignmentsStore.swapRosterDays({ typeId, today: formatDate(new Date()), days });
+		if (outcome.status === 'changed') await rereadAfterRefusal();
+		return outcome;
+	}
+
 	const dayRequest = (typeId: string, date: string) => ({
 		orgId: data.orgId,
 		typeId,
@@ -167,6 +181,10 @@
 					replacement: (typeId: string, date: string, assigneeId?: string) =>
 						previewRosterReplacement(data.orgId, { typeId, today: formatDate(new Date()), date, assigneeId }),
 					replace: replaceFromRoster,
+					swapOptions: (typeId: string, date: string) =>
+						previewRosterSwap(data.orgId, { typeId, today: formatDate(new Date()), date }),
+					swap: swapRosterDays,
+					undoSwap: (swapId: string) => dailyAssignmentsStore.undoRosterSwap(swapId, formatDate(new Date())),
 					day: (typeId: string, date: string) => rosterRead.day(dayRequest(typeId, date)),
 					loadDay: (typeId: string, date: string) => rosterRead.loadDay(dayRequest(typeId, date)),
 					retryDay: (typeId: string, date: string) => rosterRead.retryDay(dayRequest(typeId, date))

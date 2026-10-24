@@ -28,6 +28,7 @@ const SAVED: Da6Segment = {
 			track: 'all',
 			when: 'served',
 			pick: ref(PIKE, 'SGT', 'Pike'),
+			heldBy: null,
 			source: 'manual',
 			passedOver: [{ ...ref(KIM, 'SPC', 'Kim'), count: 4, code: 'A', reason: 'Leave' }],
 			rulePick: null
@@ -125,6 +126,18 @@ function seed(
 }
 
 describe('loadDa6View', () => {
+	it('reads a closed record saved before columns recorded the original swap holder', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seed(ctx, {
+			record: { segments: [{ ...SAVED, columns: [{ ...SAVED.columns[0], heldBy: undefined }] }] }
+		});
+
+		const view = await loadDa6View(ctx, { typeId: SD, month: '2026-10', today: TODAY });
+
+		expect(view.sheets[0].segment?.columns[0].heldBy).toBe(null);
+		expect(gridLines(view.sheets[0].segment!)).toEqual(['SGT Pike *7', 'SPC Kim A']);
+	});
+
 	it('shows a month that spans a rule change as the saved closed form, then the open form from its first day', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		seed(ctx);

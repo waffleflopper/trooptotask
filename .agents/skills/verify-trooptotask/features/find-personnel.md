@@ -116,14 +116,9 @@ scoped actors retain their baseline grants.
     (`organizations.disabled_features` reads `training, criticalTasks`) and reload: Able reads `—`, Baker
     `1 follow-up overdue` in red and Unassigned `NCOER due` in amber. Turn both back on afterward. Quick edit (E) on
     Able, set ETS 41 days out and save: one `PUT` and the name carries the `ETS · 41d` badge (PCS uses the outline
-    badge). Changing an applicability field refreshes only that Person's cells: with Able on `11B` the cell reads
-    `Verification All-MOS Critical Task missing`; Quick edit, set `MOS / Job Title` to `68W` and save, and the same cell
-    reads `... missing · 1 more` (the `68W` `Verification Alpha Critical Task` now applies) after one `PUT` and one
-    `POST /api/personnel/roster-signals` and no `__data.json` request. Setting it back to `11B` removes the `· 1 more`.
-    Rank, MOS, duty role and Group edits refresh the Person; ETS, PCS and name edits send no `roster-signals` request.
-    `manager` (no Calendar grant) gets no strip and no dots, and its cells still read Baker's `1 follow-up overdue`.
-    Group-scoped `dashboardScoped` reads `1`, `1 present` and only Able's row, named `SPC Able, Synthetic`, with
-    `1 of 1 shown`.
+    badge). That save sends one `PUT` and no `roster-signals` request. `manager` (no Calendar grant) gets no strip and
+    no dots, and its cells still read Baker's `1 follow-up overdue`. Group-scoped `dashboardScoped` reads `1`,
+    `1 present` and only Able's row, named `SPC Able, Synthetic`, with `1 of 1 shown`.
 12. **Row keyboard and actions.** Tab into the table: the first row takes focus with an inset ring and only that row is
     a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
     `/personnel/<slug>/log?add=follow-up` with the note field focused, and Back returns to the roster; E opens
@@ -145,6 +140,12 @@ scoped actors retain their baseline grants.
     counseling access) issues no `roster_signal_follow_ups` or `roster_signal_counseling` call. To exercise the
     viewer-day rerun, set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the zone
     and reruns only the signals lane.
+14. **Edits that change what applies.** As `orgOwner` on a fresh launch, before step 11's staging, Able's cell reads
+    `Verification All-MOS Critical Task missing · 1 more`. Quick edit, set `MOS / Job Title` to `11B` and save: one
+    `PUT` on `/api/personnel`, then one `POST /api/personnel/roster-signals`, and no `__data.json` request. The cell now
+    reads `Verification All-MOS Critical Task missing`, because the `68W` `Verification Alpha Critical Task` stopped
+    applying. Set it back to `68W` and `· 1 more` returns. Rank, MOS, duty role and Group edits reread that Person's
+    cells; name, ETS and PCS edits send no `roster-signals` request.
 
 ## Gotchas
 

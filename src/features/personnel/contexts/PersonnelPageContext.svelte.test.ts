@@ -424,20 +424,12 @@ describe('PersonnelPageContext', () => {
 			expect(modals.payload<{ person: Personnel | null }>('personnel-modal')?.person).toBeNull();
 		});
 
-		it('handleEdit opens personnel-modal with the person payload', () => {
-			const person = makePerson();
-			const modals = makeModals();
-			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg(), [person]);
-			ctx.handleEdit(person);
-			expect(modals.isOpen('personnel-modal')).toBe(true);
-			expect(modals.payload<{ person: Personnel }>('personnel-modal')?.person).toBe(person);
-		});
-
-		it('openGroupManager opens group-manager modal', () => {
+		it.each(['group-a', null])('opens the editor with selection %s', (groupId) => {
 			const modals = makeModals();
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
-			ctx.openGroupManager();
+			ctx.openGroupEditor(groupId);
 			expect(modals.isOpen('group-manager')).toBe(true);
+			expect(modals.payload('group-manager')).toEqual({ select: groupId });
 		});
 	});
 
@@ -551,6 +543,50 @@ describe('PersonnelPageContext', () => {
 			expect(record).toBeDefined();
 			expect(record?.awardDueSoon).toBe(false);
 			expect(record?.awardTrackingAcknowledged).toBe(true);
+		});
+	});
+
+	describe('Group order', () => {
+		const groups = [
+			{ id: 'g-c', name: 'Charlie', sortOrder: 0 },
+			{ id: 'g-b', name: 'Bravo', sortOrder: 1 },
+			{ id: 'g-a', name: 'Alpha', sortOrder: 1 },
+			{ id: 'g-d', name: 'Delta', sortOrder: 0 }
+		];
+
+		it('follows sort_order, then name, and orders the By Group view by it ahead of Unassigned', () => {
+			const people = [
+				makePerson({ id: 'u', groupName: '' }),
+				...groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }))
+			];
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], undefined, {
+				orgId: 'org1',
+				items: groups
+			});
+
+			expect(ctx.groupOrder).toEqual(['Charlie', 'Delta', 'Alpha', 'Bravo']);
+			expect(ctx.personnelByGroup.map((group) => group.group)).toEqual([
+				'Charlie',
+				'Delta',
+				'Alpha',
+				'Bravo',
+				'Unassigned'
+			]);
+		});
+
+		it("puts the viewer's pins first and ignores a catalog loaded for another Organization", () => {
+			const people = groups.map((group) => makePerson({ id: group.id, groupId: group.id, groupName: group.name }));
+			const pinned = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, ['Bravo'], undefined, {
+				orgId: 'org1',
+				items: groups
+			});
+			const foreign = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], undefined, {
+				orgId: 'org2',
+				items: groups
+			});
+
+			expect(pinned.personnelByGroup.map((group) => group.group)).toEqual(['Bravo', 'Charlie', 'Delta', 'Alpha']);
+			expect(foreign.groupOrder).toEqual([]);
 		});
 	});
 });

@@ -23,6 +23,8 @@
 	data-reorder-id={id}
 	data-dragging={controller.dragId === id || undefined}
 	data-drop={dropEdge}
+	aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+	onkeydown={(event) => controller.itemKeydown(id, event)}
 	class={cn(
 		'relative data-[dragging]:opacity-60',
 		'data-[drop=before]:before:absolute data-[drop=before]:before:inset-x-0 data-[drop=before]:before:top-0 data-[drop=before]:before:h-0.5 data-[drop=before]:before:bg-primary',

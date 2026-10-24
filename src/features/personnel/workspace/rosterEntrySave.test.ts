@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { saveRosterEntry } from './rosterEntrySave';
+import { saveRosterEntry, saveRosterEntryBatch } from './rosterEntrySave';
 
 const target = { orgId: 'org-1', personId: 'person-9' };
 
@@ -71,5 +71,64 @@ describe('saveRosterEntry', () => {
 		await expect(
 			saveRosterEntry(offline, target, { kind: 'follow-up', title: 'x', notes: '', dueDate: null })
 		).rejects.toThrow('Unable to add follow-up.');
+	});
+});
+
+describe('saveRosterEntryBatch', () => {
+	const ids = ['person-1', 'person-2', 'person-3'];
+
+	it('posts one follow-up for every Person and returns who got it and who was skipped', async () => {
+		const fetchFn = fetchReturning(
+			Response.json({ writtenIds: ['person-1', 'person-3'], unavailableIds: ['person-2'] }, { status: 201 })
+		);
+
+		const result = await saveRosterEntryBatch(fetchFn, 'org-1', ids, {
+			kind: 'follow-up',
+			title: 'Turn in CIF hand receipt',
+			notes: '',
+			dueDate: '2026-10-30'
+		});
+
+		const [url, init] = fetchFn.mock.calls[0];
+		expect(url).toBe('/org/org-1/api/personnel/follow-ups/batch');
+		expect(JSON.parse(init?.body as string)).toEqual({
+			personnelIds: ids,
+			title: 'Turn in CIF hand receipt',
+			notes: '',
+			dueDate: '2026-10-30'
+		});
+		expect(result).toEqual({ writtenIds: ['person-1', 'person-3'], unavailableIds: ['person-2'] });
+	});
+
+	it('posts one note for every Person to the leader-notes batch', async () => {
+		const fetchFn = fetchReturning(Response.json({ writtenIds: ids, unavailableIds: [] }, { status: 201 }));
+
+		await saveRosterEntryBatch(fetchFn, 'org-1', ids, { kind: 'note', text: 'Range Thursday' });
+
+		const [url, init] = fetchFn.mock.calls[0];
+		expect(url).toBe('/org/org-1/api/personnel/leader-notes/batch');
+		expect(JSON.parse(init?.body as string)).toEqual({ personnelIds: ids, text: 'Range Thursday' });
+	});
+
+	it('rejects with the server’s reason, or the plain fallback for a fault', async () => {
+		const refused = fetchReturning(
+			new Response(JSON.stringify({ message: 'Leader note is required' }), { status: 400 })
+		);
+		await expect(saveRosterEntryBatch(refused, 'org-1', ids, { kind: 'note', text: ' ' })).rejects.toThrow(
+			'Leader note is required'
+		);
+
+		const offline = fetchReturning(new TypeError('Failed to fetch'));
+		await expect(
+			saveRosterEntryBatch(offline, 'org-1', ids, { kind: 'follow-up', title: 'x', notes: '', dueDate: null })
+		).rejects.toThrow('Unable to add follow-up.');
+	});
+
+	it('says the entries may have been saved when the answer names People it was not asked about', async () => {
+		const fetchFn = fetchReturning(Response.json({ writtenIds: ['someone-else'], unavailableIds: [] }));
+
+		await expect(saveRosterEntryBatch(fetchFn, 'org-1', ids, { kind: 'note', text: 'Hi' })).rejects.toThrow(
+			'The entries may have been saved. Check a Log before trying again.'
+		);
 	});
 });

@@ -9,6 +9,9 @@
 		message: string;
 		confirmLabel?: string;
 		cancelLabel?: string;
+		/** A third choice between Cancel and Confirm, such as "Discard and open". It does not close on its own. */
+		alternateLabel?: string;
+		onAlternate?: () => void | Promise<void>;
 		variant?: 'destructive' | 'default' | 'secondary';
 		disabled?: boolean;
 		loading?: boolean;
@@ -22,6 +25,8 @@
 		message,
 		confirmLabel = 'Confirm',
 		cancelLabel = 'Cancel',
+		alternateLabel,
+		onAlternate,
 		variant = 'destructive',
 		disabled = false,
 		loading = false,
@@ -34,11 +39,11 @@
 	const busy = $derived(confirming || loading);
 	const confirmDisabled = $derived(disabled || busy);
 
-	async function handleConfirm() {
+	async function run(action: () => void | Promise<void>) {
 		if (confirmDisabled) return;
 		confirming = true;
 		try {
-			await onConfirm();
+			await action();
 		} finally {
 			confirming = false;
 		}
@@ -60,7 +65,10 @@
 		{/if}
 		<AlertDialog.Footer>
 			<Button variant="outline" onclick={onCancel} disabled={busy}>{cancelLabel}</Button>
-			<Button {variant} onclick={handleConfirm} disabled={confirmDisabled}>
+			{#if alternateLabel && onAlternate}
+				<Button variant="outline" onclick={() => run(onAlternate)} disabled={confirmDisabled}>{alternateLabel}</Button>
+			{/if}
+			<Button {variant} onclick={() => run(onConfirm)} disabled={confirmDisabled}>
 				{#if busy}<Spinner />{/if}
 				{confirmLabel}
 			</Button>

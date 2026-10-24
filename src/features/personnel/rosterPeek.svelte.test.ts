@@ -1,15 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Personnel } from './personnel.types';
 import type { RosterPeekRead, RosterPeekSection } from './rosterPeek';
 import { RosterPeek } from './rosterPeek.svelte';
 
-function person(id: string, rank = 'SGT'): Personnel {
-	return { id, rank, lastName: id, firstName: 'Test', mos: '68W', clinicRole: '', groupId: null, groupName: '' };
-}
-
-const OKAFOR = person('okafor');
-const BANKS = person('banks');
-const CHEN = person('chen');
+const OKAFOR = 'okafor';
+const BANKS = 'banks';
+const CHEN = 'chen';
 
 interface Call {
 	personnelId: string;
@@ -173,19 +168,6 @@ describe('RosterPeek', () => {
 		peek.show(OKAFOR);
 
 		expect(reads().slice(10)).toEqual(['okafor:followUps']);
-	});
-
-	it('reads the shown Person again when their record changes, as after a quick edit', async () => {
-		const { peek, answer, reads } = setup();
-		peek.show(OKAFOR);
-		for (const section of ['identity', 'next7', 'attention', 'followUps', 'note'] as const)
-			await answer('okafor', section, { state: 'hidden' });
-
-		peek.show(OKAFOR);
-		expect(reads()).toHaveLength(5);
-		peek.show(person('okafor', 'SSG'));
-
-		expect(reads()).toHaveLength(10);
 	});
 
 	it('stops reading when closed', () => {

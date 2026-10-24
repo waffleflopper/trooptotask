@@ -1,5 +1,4 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type { Personnel } from './personnel.types';
 import { ROSTER_PEEK_SECTIONS, type RosterPeekRead, type RosterPeekSection, type RosterPeekValues } from './rosterPeek';
 
 export type PeekSectionState<S extends RosterPeekSection> =
@@ -48,31 +47,12 @@ function isPartialRead(section: RosterPeekSection, value: unknown): boolean {
 	return section === 'attention' && (value as RosterPeekValues['attention']).failed.length > 0;
 }
 
-/** The record fields a section can depend on; a change to any of them means the cached sections are stale. */
-function recordKey(person: Personnel): string {
-	return [
-		person.rank,
-		person.lastName,
-		person.firstName,
-		person.mos,
-		person.clinicRole,
-		person.groupId,
-		person.ets,
-		person.deros
-	].join('\u0000');
-}
-
 class PeekEntry {
 	sections = $state<PeekSections>({ ...LOADING });
-	recordKey: string;
 	/** Sections a write changed since they were read; the next show reads them again. */
 	readonly stale = new Set<RosterPeekSection>();
 	/** The latest read per section, so an older reply never overwrites a newer one. */
 	readonly serial: Partial<Record<RosterPeekSection, number>> = {};
-
-	constructor(recordKey: string) {
-		this.recordKey = recordKey;
-	}
 }
 
 /**
@@ -100,16 +80,12 @@ export class RosterPeek {
 		return this.#entries.get(personnelId)?.sections ?? LOADING;
 	}
 
-	show(person: Personnel, { browsing = false }: { browsing?: boolean } = {}): void {
-		if (person.id === this.#shown) {
-			const entry = this.#entries.get(person.id);
-			if (entry && entry.recordKey !== recordKey(person)) this.invalidate([person.id]);
-			return;
-		}
+	show(personnelId: string, { browsing = false }: { browsing?: boolean } = {}): void {
+		if (personnelId === this.#shown) return;
 		this.close();
-		this.#shown = person.id;
-		if (browsing) this.#timer = setTimeout(() => this.#load(person), this.#browseDelayMs);
-		else this.#load(person);
+		this.#shown = personnelId;
+		if (browsing) this.#timer = setTimeout(() => this.#load(personnelId), this.#browseDelayMs);
+		else this.#load(personnelId);
 	}
 
 	close(): void {
@@ -127,12 +103,12 @@ export class RosterPeek {
 	}
 
 	/**
-	 * A write changed these People. Their cached sections are not reused; a shown Person's sections read again in place
+	 * A write changed these sections for these People. Their cached copies are not reused; a shown Person's sections read again in place
 	 * unless `refetchShown` is false, as when the panel already shows the change itself.
 	 */
 	invalidate(
 		personnelIds: readonly string[],
-		sections: readonly RosterPeekSection[] = ROSTER_PEEK_SECTIONS,
+		sections: readonly RosterPeekSection[],
 		{ refetchShown = true }: { refetchShown?: boolean } = {}
 	): void {
 		for (const id of personnelIds) {
@@ -146,24 +122,21 @@ export class RosterPeek {
 		}
 	}
 
-	#load(person: Personnel): void {
+	#load(personnelId: string): void {
 		this.#timer = null;
 		const controller = new AbortController();
 		this.#controller = controller;
-		let entry = this.#entries.get(person.id);
+		let entry = this.#entries.get(personnelId);
 		if (!entry) {
-			entry = new PeekEntry(recordKey(person));
-			this.#entries.set(person.id, entry);
-		} else if (entry.recordKey !== recordKey(person)) {
-			entry.recordKey = recordKey(person);
-			for (const section of ROSTER_PEEK_SECTIONS) entry.stale.add(section);
+			entry = new PeekEntry();
+			this.#entries.set(personnelId, entry);
 		}
 		for (const section of ROSTER_PEEK_SECTIONS) {
 			const current = entry.sections[section];
 			const settled =
 				current.state === 'hidden' || (current.state === 'ready' && !isPartialRead(section, current.value));
 			if (settled && !entry.stale.has(section)) continue;
-			this.#fetch(person.id, entry, section, controller);
+			this.#fetch(personnelId, entry, section, controller);
 		}
 	}
 

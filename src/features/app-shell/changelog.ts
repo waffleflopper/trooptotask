@@ -7,16 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
-		id: '2026-10-23-personnel-roster',
-		date: '2026-10-23',
+		id: '2026-10-24-personnel-roster',
+		date: '2026-10-24',
 		title: 'See Who Needs You From the Personnel Roster',
 		items: [
 			'Each row on Personnel now shows today’s status as a colored dot and the person’s most urgent Needs attention item, like CPR/BLS expired or 1 follow-up overdue. The strip by the title counts who is present and who is away today.',
 			'Log a quick note or follow-up without leaving the roster: press N or the note button on a row. Press E or the pencil to fix rank, name, MOS, duty role, Group or loss dates in place.',
 			'By Group puts your pinned Groups first, then the order you set. Each Group header shows how many are present and how many need attention. Manage groups now opens one editor to add, rename, reorder and delete Groups and to move people between them.',
-			'Check the box on several people to act on all of them at once: a follow-up for each, the same note, a move to another Group, an export or an archive.',
+			'Check the box on several people, or press X on their rows, to act on all of them at once: a follow-up for each, the same note, a move to another Group, an export or an archive. A Group’s menu adds a note for everyone in it.',
 			'Show only chips filter the roster to expired or missing training, items expiring soon, overdue follow-ups, people not present, upcoming ETS or PCS, and counseling due.',
-			'On a wide screen, clicking a row opens a preview beside the roster with the person’s next 7 days, what needs attention, open follow-ups and the latest note. Press J and K to move through the list, and Esc to close it. The name still opens the full record.'
+			'On a wide screen, clicking a row or pressing Space opens a preview beside the roster with the person’s next 7 days, what needs attention, open follow-ups and the latest note. Add a note or follow-up or quick edit from it, press J and K to move through the list, and Esc or Space to close it. The name still opens the full record.'
 		]
 	},
 	{

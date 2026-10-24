@@ -5,23 +5,19 @@ import {
 	groupsStore as groupCatalog
 } from './groups.svelte';
 import type { Group } from '$features/personnel/contracts';
+import { invalidate } from '$app/navigation';
+
+vi.mock('$app/navigation', () => ({ invalidate: vi.fn(async () => {}) }));
 
 const mockGroups: Group[] = [
 	{ id: '1', name: 'Alpha', sortOrder: 0 },
 	{ id: '2', name: 'Bravo', sortOrder: 1 }
 ];
 
-function mockFetch(response: unknown, status = 200) {
-	return vi.fn().mockResolvedValue({
-		ok: status >= 200 && status < 300,
-		status,
-		json: () => Promise.resolve(response)
-	});
-}
-
 describe('groupsStore', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		vi.mocked(invalidate).mockClear();
 		groupsStore.load(structuredClone(mockGroups), 'org-1');
 	});
 
@@ -36,18 +32,119 @@ describe('groupsStore', () => {
 			);
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['first', 'later']);
 		});
+		it('breaks equal display positions by name, then id', () => {
+			groupCatalogHydration.load(
+				[
+					{ id: 'a', name: 'Zulu', sortOrder: 0 },
+					{ id: 'c', name: 'Alpha', sortOrder: 0 },
+					{ id: 'b', name: 'Alpha', sortOrder: 0 },
+					{ id: 'd', name: 'Earlier', sortOrder: -1 }
+				],
+				'org-1'
+			);
+			expect(groupCatalog.items.map((group) => group.id)).toEqual(['d', 'b', 'c', 'a']);
+		});
 		it('clears the public catalog when a new Organization is hydrated', () => {
 			groupCatalogHydration.load([{ id: 'new-org', name: 'New', sortOrder: 0 }], 'org-2');
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['new-org']);
 		});
 	});
 
-	describe('remove', () => {
-		it('removes a saved Group from the public catalog', async () => {
-			vi.stubGlobal('fetch', mockFetch({}));
-			const result = await groupsStore.remove('1');
-			expect(result).toBe(true);
+	describe('deleteWithReassignment', () => {
+		it('deletes the Group in one request naming where its members go and reports how many moved', async () => {
+			const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => Response.json({ movedCount: 22 }));
+			vi.stubGlobal('fetch', fetchMock);
+
+			await expect(groupsStore.deleteWithReassignment('1', '2')).resolves.toBe(22);
+			expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method, init?.body])).toEqual([
+				['/org/org-1/api/groups', 'DELETE', JSON.stringify({ id: '1', moveMembersTo: '2' })]
+			]);
 			expect(groupCatalog.items.map((group) => group.id)).toEqual(['2']);
+		});
+
+		it('keeps the Group and rejects with the server reason when the delete is refused', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () => Response.json({ message: 'That Group is no longer available.' }, { status: 404 }))
+			);
+
+			await expect(groupsStore.deleteWithReassignment('1', null)).rejects.toThrow('That Group is no longer available.');
+			expect(groupCatalog.items.map((group) => group.id)).toEqual(['1', '2']);
+		});
+	});
+
+	describe('setOrder', () => {
+		const orderBodies = (fetchMock: ReturnType<typeof vi.fn>) =>
+			fetchMock.mock.calls
+				.filter(([url]) => String(url).endsWith('/api/groups/order'))
+				.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+
+		it('shows the order while it saves, then keeps it as the saved order', async () => {
+			const reply = Promise.withResolvers<Response>();
+			const fetchMock = vi.fn(() => reply.promise);
+			vi.stubGlobal('fetch', fetchMock);
+
+			const saving = groupsStore.setOrder(['2', '1']);
+			expect(groupsStore.pendingOrder).toEqual(['2', '1']);
+			reply.resolve(Response.json({ success: true }));
+
+			await expect(saving).resolves.toEqual({ status: 'saved' });
+			expect(groupsStore.pendingOrder).toBeNull();
+			expect(groupCatalog.items.map((group) => group.id)).toEqual(['2', '1']);
+			expect(orderBodies(fetchMock)).toEqual([{ groupIds: ['2', '1'], expectedGroupIds: ['1', '2'] }]);
+			expect(invalidate).not.toHaveBeenCalled();
+		});
+
+		it('folds moves made during a save into one follow-up save of the latest order', async () => {
+			groupCatalogHydration.load([...structuredClone(mockGroups), { id: '3', name: 'Charlie', sortOrder: 2 }], 'org-1');
+			const first = Promise.withResolvers<Response>();
+			const fetchMock = vi
+				.fn()
+				.mockReturnValueOnce(first.promise)
+				.mockResolvedValue(Response.json({ success: true }));
+			vi.stubGlobal('fetch', fetchMock);
+
+			const saving = groupsStore.setOrder(['2', '1', '3']);
+			void groupsStore.setOrder(['3', '2', '1']);
+			void groupsStore.setOrder(['3', '1', '2']);
+			first.resolve(Response.json({ success: true }));
+
+			await expect(saving).resolves.toEqual({ status: 'saved' });
+			expect(orderBodies(fetchMock)).toEqual([
+				{ groupIds: ['2', '1', '3'], expectedGroupIds: ['1', '2', '3'] },
+				{ groupIds: ['3', '1', '2'], expectedGroupIds: ['2', '1', '3'] }
+			]);
+			expect(groupCatalog.items.map((group) => group.id)).toEqual(['3', '1', '2']);
+		});
+
+		it('shows the saved order and says why after another session changed it', async () => {
+			const fetchMock = vi.fn(async (url: string) =>
+				url.endsWith('/order')
+					? Response.json({ message: 'The Group order changed somewhere else.' }, { status: 409 })
+					: Response.json([
+							{ id: '2', name: 'Bravo', sortOrder: 0 },
+							{ id: '1', name: 'Alpha', sortOrder: 1 },
+							{ id: '3', name: 'Charlie', sortOrder: 2 }
+						])
+			);
+			vi.stubGlobal('fetch', fetchMock);
+
+			await expect(groupsStore.setOrder(['2', '1'])).resolves.toEqual({
+				status: 'failed',
+				message: 'The Group order changed somewhere else. The list shows the saved order.'
+			});
+			expect(groupCatalog.items.map((group) => group.name)).toEqual(['Bravo', 'Alpha', 'Charlie']);
+			expect(invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data');
+		});
+
+		it('says an order it could not confirm is unconfirmed and keeps the last saved order', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+
+			await expect(groupsStore.setOrder(['2', '1'])).resolves.toEqual({
+				status: 'failed',
+				message: "We couldn't confirm the Group change. Reload to see what saved."
+			});
+			expect(groupCatalog.items.map((group) => group.id)).toEqual(['1', '2']);
 		});
 	});
 

@@ -1,7 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
 import { personnelScopeResource } from '../personnelScopeResource';
-import type { RankCatalogEntry } from '$features/personnel/contracts';
+import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
 	type PersonnelGroup,
@@ -43,6 +43,11 @@ export interface PinnedGroupsAccessor {
 	readonly list: string[];
 }
 
+export interface GroupsAccessor {
+	readonly orgId: string | null;
+	readonly items: readonly Group[];
+}
+
 export class PersonnelPageContext {
 	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	searchQuery = $state('');
@@ -53,6 +58,7 @@ export class PersonnelPageContext {
 	readonly #org: PersonnelPageAccess;
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
+	readonly #groupsStore: GroupsAccessor;
 	readonly signals: RosterSignals;
 	/** The peek panel's per-Person reads, dropped with this context when the workspace loads again. */
 	readonly peek: RosterPeek;
@@ -64,12 +70,14 @@ export class PersonnelPageContext {
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
 		signals: RosterSignals = new RosterSignals(),
+		groupsStore: GroupsAccessor | null = null,
 		peek: RosterPeek = new RosterPeek(data.orgId)
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
 		this.signals = signals;
+		this.#groupsStore = groupsStore ?? { orgId: data.orgId, items: [] };
 		this.peek = peek;
 
 		this.#personnelStore = Array.isArray(personnelStore)
@@ -148,6 +156,14 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
+	/** Whether the viewer may move People into this Group; null is Unassigned. */
+	canManagePersonnelInGroup(groupId: string | null): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			groupId ? { kind: 'group', groupId } : { kind: 'organization' }
+		).allowed;
+	}
+
 	/** The detail page requires sensitive-record reading unscoped, so an actor without it can open no record. */
 	get canReadPersonnelDetails(): boolean {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.readSensitiveRecords, {
@@ -166,6 +182,13 @@ export class PersonnelPageContext {
 
 	canArchivePersonnelRecord(person: Personnel): boolean {
 		return this.personnelArchiveAffordance(person).allowed;
+	}
+
+	canExportPersonnelRecord(person: Personnel): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.exportRecords,
+			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
+		).allowed;
 	}
 
 	get filteredPersonnel(): Personnel[] {
@@ -263,12 +286,21 @@ export class PersonnelPageContext {
 		this.#modals.open('personnel-modal', { person: null });
 	}
 
-	handleEdit(person: Personnel): void {
-		this.#modals.open('personnel-modal', { person });
+	/** Null selects People without a Group. */
+	openGroupEditor(groupId: string | null): void {
+		this.#modals.open('group-manager', { select: groupId });
 	}
 
-	openGroupManager(): void {
-		this.#modals.open('group-manager');
+	/** Group names in the Organization's display order: `sort_order`, then name (legacy Groups all share 0), then id. */
+	get groupOrder(): string[] {
+		if (this.#groupsStore.orgId !== this.orgId) return [];
+		return [...this.#groupsStore.items]
+			.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+			.map((group) => group.name);
+	}
+
+	groupIdForName(name: string): string | null {
+		return this.#groupsStore.items.find((group) => group.name === name)?.id ?? null;
 	}
 
 	toggleGroup(group: string): void {
@@ -283,6 +315,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
+			groupOrder: this.groupOrder,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active' });
 	}
@@ -291,6 +324,7 @@ export class PersonnelPageContext {
 		return createRosterReadModel({
 			personnel: this.#personnelStore.items,
 			pinnedGroups: this.#pinnedGroupsStore.list,
+			groupOrder: this.groupOrder,
 			fallbackGroupName: this.#data.orgName
 		}).full({ status: 'active', search: this.searchQuery });
 	}

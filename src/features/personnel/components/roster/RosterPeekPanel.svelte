@@ -12,7 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { stillInOrganizationLifetime } from '$lib/stores/core';
+	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { cn } from '$lib/utils';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { PersonnelFollowUp } from '../../contracts';
@@ -48,6 +48,8 @@
 	let root = $state<HTMLElement | null>(null);
 	/** The Person the docked composer is open for, so it closes when the panel moves on. */
 	let composingFor = $state<string | null>(null);
+	// A panel left open overnight still shows yesterday: the due shortcuts count from the viewer's day when it opens.
+	let composeDay = $state('');
 	let composer = $state<RosterComposer>();
 	let alive = true;
 	let leaving = false;
@@ -61,7 +63,7 @@
 	const sections = $derived(ctx.peek.sections(person.id));
 	const dot = $derived(rosterStatusDot(ctx.signalRow(person), ctx.signals.statusTypes));
 	const orgPath = $derived(`/org/${ctx.orgUrlSegment}`);
-	const alreadyOpen = $derived(alreadyOpenOf(ctx.signalRow(person), ctx.data.asOf));
+	const alreadyOpen = $derived(alreadyOpenOf(ctx.signalRow(person), composeDay));
 	const composing = $derived(composingFor === person.id);
 
 	const attention = $derived.by(() => {
@@ -119,11 +121,10 @@
 	}
 
 	async function save(entry: ComposerEntry): Promise<void> {
-		const inOrganization = stillInOrganizationLifetime();
 		const target = person;
 		const href = recordHref;
-		await saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry);
-		if (!inOrganization()) return;
+		// The write may land after the user left the Organization; the lifetime then never settles, so nothing follows.
+		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry));
 		rosterEntrySaved(ctx, target, entry, href);
 		if (alive && composingFor === target.id) void closeComposer();
 	}
@@ -428,7 +429,7 @@
 				<RosterComposer
 					bind:this={composer}
 					heading={name}
-					today={ctx.data.asOf}
+					today={composeDay}
 					{alreadyOpen}
 					onsave={save}
 					onclose={closeComposer}
@@ -440,7 +441,10 @@
 					type="button"
 					data-peek-compose
 					class="flex h-9 min-w-0 flex-1 items-center rounded-[4px] border bg-background px-3 text-left text-sm text-muted-foreground hover:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-					onclick={() => (composingFor = person.id)}
+					onclick={() => {
+						composeDay = ctx.signals.viewerDay();
+						composingFor = person.id;
+					}}
 				>
 					<span class="truncate">Add a note or follow-up for {shortName}…</span>
 				</button>

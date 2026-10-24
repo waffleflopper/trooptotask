@@ -2640,6 +2640,14 @@ async function main() {
 				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
 					family
 				)?.[1] ?? null;
+			// Org Account pages: [path under /org/ORG/account/, action search, failure field]; no search holds the load.
+			const accountPage =
+				{
+					'account-page/profile': ['profile/__data.json', null, null],
+					'account-page/security': ['security/__data.json', null, null],
+					'account-page/profile/save': ['profile', '', 'error'],
+					'account-page/security/updateEmail': ['security', '?/updateEmail', 'emailError']
+				}[family] ?? null;
 			if (
 				![
 					'audit-page',
@@ -2714,6 +2722,7 @@ async function main() {
 				!Object.hasOwn(formActions, family) &&
 				!accountForm &&
 				!settingsPage &&
+				!accountPage &&
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
@@ -2734,6 +2743,7 @@ async function main() {
 			if (
 				formAction ||
 				settingsPage ||
+				accountPage ||
 				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
 				shellPart
 			) {
@@ -2768,6 +2778,7 @@ async function main() {
 			}
 			if (platformForm) suffix = platformForm.suffix;
 			if (accountForm) suffix = accountForm[0];
+			if (accountPage) suffix = `/org/${organizationSegment}/account/${accountPage[0]}`;
 			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
@@ -2853,10 +2864,12 @@ async function main() {
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??
+				accountPage?.[1] ??
 				(family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null);
 			const failureField =
 				platformForm?.failureField ??
 				accountForm?.[2] ??
+				accountPage?.[2] ??
 				(family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
 			const requestTarget = platformForm?.requestTarget ?? null;
 			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';

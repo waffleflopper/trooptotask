@@ -211,6 +211,12 @@ The private-credential controls fill visible fields without printing values:
      `Pending: security-RUN@example.test. Follow the links sent to both inboxes to finish the switch.` note under the
      unchanged current address. Reload and require the same note. The confirmation link is not followed, so sign-ins
      keep the fixture address.
+   - Email answered after a row switch. Change email again with a fresh `security-RUN-race@example.test` and the current
+     password, run `$V network arm-hold PAGE account-page/security/updateEmail`, choose Send confirmation, then Change
+     password while `network state` shows one held POST. Focus is in the password row's Current password.
+     `network release`, then `network restore`: the amber `Pending: security-RUN-race@example.test. …` note replaces the
+     earlier one, no `Email request not confirmed` alert appears, the password row stays open and focus stays in its
+     Current password.
    - Password. Choose Change password; focus lands on Current password. The checklist under the fields reads
      `12+ characters`, `Upper and lower`, `A number` and `Both match`, each marked Met or Needed as you type, and Update
      password stays disabled until all four pass and Current password is filled. Fill a short New password by native
@@ -300,20 +306,34 @@ The private-credential controls fill visible fields without printing values:
       for the first and the invalid-link sign-in error after Continue for the second. Signed out, open
       `/auth/reset-password` and `/auth/accept-invite` and capture `Reset link unavailable` and `Invite unavailable`.
 11. **Failure, busy and keyboard states.**
+    - One profile save at a time. On Profile choose Edit, change First name and run
+      `$V network arm-hold PAGE account-page/profile/save`. Choose Save, press Enter, and submit the form again from
+      `evaluate_script` (`form:has(#firstName)`, not the account nav's Sign out form). Rank, First name, Last name,
+      Cancel and Save (`Saving...`, `aria-busy`) are disabled, and `network state` lists one POST. `network release`
+      closes the editor with `Profile updated.`, focus on Edit and the new name in the sidebar card. `network restore`.
     - Failed save keeps the draft. On Profile choose Edit, change Last name and Rank, fill First name with spaces only
       (the native `required` check admits it) and save. Require `Profile not saved` with `First name is required`, the
       other drafts kept, and unchanged values after reload. Step 7's incorrect-password submits cover Sign-in &
       security. A transport or provider failure is unreachable: the owned browser's origin allowlist makes native
       `emulate` refuse network conditions (`Network throttling is not supported when network blocking … is configured`),
-      and no `network` or `server-source` family targets Profile, `?/updateEmail` or `/api/auth/update-password`.
+      and no `network` or `server-source` family fails `/api/auth/update-password`; `account-page/profile/save` and
+      `account-page/security/updateEmail` hold the other two.
     - Busy state. Run `$V busy arm PAGE` before one submit in each form family: Sign In, Forgot Password, Confirm
       Continue, Set Up Account, and Profile or Sign-in & security. Press the submit, then save `$V busy state PAGE` and
       `$V busy restore PAGE`. The observer records every distinct submit label, `disabled` and `aria-busy` state, so a
       busy label shorter than a screenshot still appears. A full-page navigation discards it; record that as unobserved.
-    - Account loading and name failure. The account pages' 150 ms slow-navigation skeleton and the sidebar's first-paint
-      name read are unreachable live: navigations between account pages finish in under 100 ms and the profile read is
-      server-side, which no `server-source` or `network` control reaches. Unit tests cover the email fallback and
-      Profile's `Your name could not be loaded` with Retry.
+    - Account loading. On Profile run `$V network arm-hold PAGE account-page/security` and choose Sign-in & security
+      (the reverse uses `account-page/profile`). At once the target link is current, a polite status reads
+      `Loading Sign-in & security...` and the content has `aria-busy="true"`. After 150 ms the target's eyebrow, title
+      and rows show their real labels and descriptions over placeholder bars. `network release`, then `network restore`.
+      Every row's top and height match the loaded page at 1440, 1023 and 390; with `identityMfa` (two-factor on) the
+      rows measure 117/117/116 px at 1440 on both pages, Profile 141/159/166 and Sign-in & security 137/163/168 at 1023,
+      and Profile 161/159/206 and Sign-in & security 157/163/188 at 390, and each skeleton matches to the pixel. With
+      two-factor off the Two-factor row loads 28 px shorter below 1280, since the skeleton cannot know the state. A
+      short unit name that fits on one line at 390 makes Personnel records 20 px shorter.
+    - Sidebar name failure. The sidebar's first-paint name read is server-side, which no `server-source` or `network`
+      control reaches. Unit tests cover the email fallback and Profile's `Your name could not be loaded` with Retry. A
+      long email fallback ends in an ellipsis inside the card.
     - MFA status failure. Sign-in & security reads factors through the provider auth API, which no `server-source`
       (tables only) or `network` (same-origin) control reaches. Record `MFA status unavailable` and Retry MFA status as
       unreachable.

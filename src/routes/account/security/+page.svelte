@@ -12,7 +12,6 @@
 		INCORRECT_CURRENT_PASSWORD_MESSAGE,
 		INVALID_EMAIL_MESSAGE,
 		MFA_DISABLE_CODE_REJECTED_MESSAGE,
-		MFA_ENROLLMENT_CODE_REJECTED_MESSAGE,
 		SAME_EMAIL_MESSAGE,
 		type MfaActionResponse,
 		type PasswordCompletionState
@@ -21,6 +20,7 @@
 	import { onMount, tick, untrack } from 'svelte';
 	let passwordMfaRequired = $state(false);
 	import { goto, invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { ActionData, PageData } from './$types';
@@ -52,15 +52,9 @@
 		}
 	}
 
-	let enrolling = $state(false);
-	let qrCode = $state('');
-	let factorId = $state('');
-	let verifyCode = $state('');
 	let mfaError = $state('');
-	let verifyCodeError = $state('');
 	let disableCodeError = $state('');
 	let mfaSuccess = $state('');
-	let loading = $state(false);
 	let disabling = $state(false);
 	let confirmingDisable = $state(false);
 	let disableCode = $state('');
@@ -146,110 +140,7 @@
 	const passwordReady = $derived(currentPassword.length > 0 && requirements.valid && passwordsMatch);
 
 	function clearMfaErrors() {
-		mfaError = verifyCodeError = disableCodeError = '';
-	}
-
-	async function startEnroll() {
-		if (loading) return;
-		clearMfaErrors();
-		mfaSuccess = '';
-		enrolling = true;
-		loading = true;
-		try {
-			const response = await fetch('/api/auth/mfa/enroll', { method: 'POST' });
-			if (response.redirected) {
-				await goto(response.url);
-				return;
-			}
-			const payload = (await response.json()) as { factorId?: string; qrCode?: string; error?: string };
-
-			if (!response.ok || !payload.factorId || !payload.qrCode) {
-				mfaError = payload.error ?? 'Failed to start MFA enrollment';
-				enrolling = false;
-				return;
-			}
-
-			factorId = payload.factorId;
-			qrCode = payload.qrCode;
-		} catch (e: unknown) {
-			mfaError = e instanceof Error ? e.message : 'Failed to start MFA enrollment';
-			enrolling = false;
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function verifyEnrollment() {
-		if (loading) return;
-		clearMfaErrors();
-		if (!/^\d{6}$/.test(verifyCode)) {
-			verifyCodeError = 'Please enter a 6-digit code';
-			return;
-		}
-
-		loading = true;
-		try {
-			const response = await fetch('/api/auth/mfa/enroll/verify', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ factorId, code: verifyCode })
-			});
-			if (response.redirected) {
-				await goto(response.url);
-				return;
-			}
-
-			const payload = (await response.json()) as MfaActionResponse | null;
-			if (!response.ok || payload?.ok !== true) {
-				const message = payload?.error ?? 'Verification failed';
-				if (message === MFA_ENROLLMENT_CODE_REJECTED_MESSAGE) verifyCodeError = message;
-				else mfaError = message;
-				return;
-			}
-
-			mfaSuccess = 'MFA has been enabled successfully.';
-			mfaEnabled = true;
-			enrolling = false;
-			factorId = '';
-			qrCode = '';
-			verifyCode = '';
-		} catch (e: unknown) {
-			mfaError = e instanceof Error ? e.message : 'Verification failed';
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function cancelEnroll() {
-		if (loading) return;
-		clearMfaErrors();
-		loading = true;
-		try {
-			if (factorId) {
-				const response = await fetch('/api/auth/mfa/enroll/cancel', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ factorId })
-				});
-				if (response.redirected) {
-					await goto(response.url);
-					return;
-				}
-				const payload = (await response.json()) as MfaActionResponse | null;
-				if (!response.ok || payload?.ok !== true) {
-					mfaError = payload?.error ?? 'Failed to cancel MFA enrollment';
-					return;
-				}
-			}
-			enrolling = false;
-			qrCode = '';
-			factorId = '';
-			verifyCode = '';
-		} catch (e: unknown) {
-			mfaError = e instanceof Error ? e.message : 'Failed to cancel MFA enrollment';
-		} finally {
-			loading = false;
-		}
+		mfaError = disableCodeError = '';
 	}
 
 	async function disableMFA() {
@@ -358,11 +249,6 @@
 			if ((passwordError || currentPasswordError) && !passwordMfaRequired && form.isConnected)
 				form.querySelector<HTMLInputElement>('input')?.focus();
 		}
-	}
-
-	function handleCodeInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		verifyCode = input.value.replace(/\D/g, '').slice(0, 6);
 	}
 
 	function handleDisableCodeInput(e: Event) {
@@ -636,62 +522,15 @@
 					</Button>
 				{/if}
 
-				{#if mfaEnabled === false && !enrolling}
-					<Button type="button" onclick={startEnroll} disabled={loading}>
-						{#if loading}<Spinner />{/if}
-						Enable MFA
-					</Button>
+				{#if mfaEnabled === false}
+					<Button href={resolve('/auth/mfa-setup')}>Enable MFA</Button>
 				{/if}
 
-				{#if mfaEnabled && !enrolling && !confirmingDisable}
+				{#if mfaEnabled && !confirmingDisable}
 					<Button type="button" variant="destructive" onclick={startDisableMFA} disabled={disabling}>Disable MFA</Button
 					>
 				{/if}
 			</div>
-
-			{#if enrolling && qrCode}
-				<div class="grid gap-4 rounded-md border p-4">
-					<div class="grid gap-2">
-						<h3 class="text-base font-medium">Scan the QR code</h3>
-						<p class="text-sm text-muted-foreground">
-							Use Google Authenticator, Authy, 1Password, or another compatible app, then enter the 6-digit code.
-						</p>
-					</div>
-					<img src={qrCode} alt="MFA QR Code" class="size-48 rounded-md border bg-background p-3" />
-					<form
-						class="grid gap-4"
-						onsubmit={(e) => {
-							e.preventDefault();
-							void verifyEnrollment();
-						}}
-					>
-						<Field.Root data-invalid={verifyCodeError ? true : undefined}>
-							<Field.Label for="verify-code">Verification code</Field.Label>
-							<Field.Control>
-								<Input
-									id="verify-code"
-									disabled={loading}
-									type="text"
-									value={verifyCode}
-									oninput={handleCodeInput}
-									placeholder="000000"
-									maxlength={6}
-									autocomplete="one-time-code"
-									inputmode="numeric"
-								/>
-							</Field.Control>
-							{#if verifyCodeError}<Field.Error>{verifyCodeError}</Field.Error>{/if}
-						</Field.Root>
-						<div class="flex flex-wrap justify-end gap-2">
-							<Button type="button" variant="outline" onclick={cancelEnroll} disabled={loading}>Cancel</Button>
-							<Button type="submit" disabled={loading || verifyCode.length !== 6}>
-								{#if loading}<Spinner />{/if}
-								Verify and Enable
-							</Button>
-						</div>
-					</form>
-				</div>
-			{/if}
 
 			{#if mfaEnabled && confirmingDisable}
 				<form

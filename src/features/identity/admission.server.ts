@@ -69,9 +69,9 @@ export async function readIdentityAdmission({
 	}
 
 	const isMfaCompletion = ['/api/auth/mfa/status', '/api/auth/mfa/verify'].includes(pathname);
+	const managesFactors = (isMfaEndpoint && !isMfaCompletion) || pathname === '/auth/mfa-setup';
 	const skipSuspensionCheck =
-		(!isMfaEndpoint || isMfaCompletion) &&
-		['/auth', '/api/auth', '/suspended'].some((prefix) => pathname.startsWith(prefix));
+		!managesFactors && ['/auth', '/api/auth', '/suspended'].some((prefix) => pathname.startsWith(prefix));
 	let actor: AdmittedActor | null = null;
 	if (user && !skipSuspensionCheck) {
 		const suspended = await readAccountSuspension({ supabase }, user.id);

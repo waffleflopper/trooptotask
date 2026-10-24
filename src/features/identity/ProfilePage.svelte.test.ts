@@ -8,7 +8,11 @@ import type { SignedInAccount } from './contracts';
 
 type Finish = (input: { result: ActionResult; update: (options?: { reset?: boolean }) => Promise<void> }) => unknown;
 
-const transport = vi.hoisted(() => ({ result: null as ActionResult | null, update: vi.fn(async () => {}) }));
+const transport = vi.hoisted(() => ({
+	result: null as ActionResult | Promise<ActionResult> | null,
+	sent: 0,
+	update: vi.fn(async () => {})
+}));
 
 vi.mock('$app/forms', () => ({
 	enhance: (form: HTMLFormElement, submit?: (input: { formData: FormData; cancel: () => void }) => Finish | void) => {
@@ -16,8 +20,9 @@ vi.mock('$app/forms', () => ({
 			event.preventDefault();
 			let cancelled = false;
 			const finish = submit?.({ formData: new FormData(form), cancel: () => (cancelled = true) });
-			if (!cancelled && finish && transport.result)
-				await finish({ result: transport.result, update: transport.update });
+			if (cancelled || !finish || !transport.result) return;
+			transport.sent += 1;
+			await finish({ result: await transport.result, update: transport.update });
 		};
 		form.addEventListener('submit', onSubmit);
 		return { destroy: () => form.removeEventListener('submit', onSubmit) };
@@ -27,6 +32,7 @@ vi.mock('$app/forms', () => ({
 afterEach(() => {
 	cleanup();
 	transport.result = null;
+	transport.sent = 0;
 	vi.clearAllMocks();
 });
 
@@ -89,6 +95,27 @@ describe('account profile page', () => {
 		await waitFor(() => expect(transport.update).toHaveBeenCalledWith({ reset: false }));
 		expect(screen.getByLabelText('First name')).toHaveValue('Emily');
 		expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+	});
+
+	it('sends one save at a time and holds the draft read-only until it answers', async () => {
+		let answer!: (result: ActionResult) => void;
+		transport.result = new Promise((resolve) => (answer = resolve));
+		renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit name and rank' }));
+		const firstName = screen.getByLabelText('First name');
+		await fireEvent.input(firstName, { target: { value: 'Emily' } });
+
+		await fireEvent.submit(firstName.closest('form')!);
+		await fireEvent.submit(firstName.closest('form')!);
+		expect(transport.sent).toBe(1);
+		expect(firstName).toBeDisabled();
+		expect(screen.getByLabelText('Rank')).toBeDisabled();
+		expect(screen.getByRole('button', { name: /Saving/ })).toBeDisabled();
+
+		answer({ type: 'failure', status: 503, data: { error: 'Unable to save your profile.' } });
+		await waitFor(() => expect(firstName).toBeEnabled());
+		expect(firstName).toHaveValue('Emily');
+		await waitFor(() => expect(screen.getByLabelText('Rank')).toHaveFocus());
 	});
 
 	it('closes the editor after a successful save and returns focus to Edit', async () => {

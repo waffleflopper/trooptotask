@@ -8,6 +8,7 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
+	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { accountLabel } from './accountLabel';
 	import { ACCOUNT_PAGES } from './AccountShell.svelte';
@@ -98,6 +99,7 @@
 					method="POST"
 					class="grid gap-3"
 					use:enhance={({ formData, cancel }) => {
+						if (saving) return cancel();
 						if (String(formData.get('rank') ?? '') === '') {
 							rankError = 'Select a rank.';
 							void focusAfterRender(() => rankSelect);
@@ -106,63 +108,71 @@
 						rankError = undefined;
 						saving = true;
 						return async ({ result, update }) => {
-							// The shell reload carries the saved name to the sidebar; a failure keeps the draft.
-							await update({ reset: false });
-							saving = false;
+							try {
+								// The shell reload carries the saved name to the sidebar; a failure keeps the draft.
+								await update({ reset: false });
+							} finally {
+								saving = false;
+							}
 							if (result.type === 'success') {
 								editing = false;
 								void focusAfterRender(() => editButton);
+							} else {
+								void focusAfterRender(() => rankSelect);
 							}
 						};
 					}}
 				>
-					<div class="flex flex-wrap items-start gap-3">
-						<Field.Root class="w-26 gap-1.5" data-invalid={rankError ? true : undefined}>
-							<Field.Label for="rank" class={ACCOUNT_FIELD_LABEL}>Rank</Field.Label>
-							<div class="font-mono font-medium">
-								<NativeSelect.Root
-									bind:ref={rankSelect}
-									bind:value={rank}
-									id="rank"
-									name="rank"
-									aria-required="true"
-									aria-invalid={rankError ? true : undefined}
-									aria-describedby={rankError ? 'rank-error' : 'rank-hint'}
-									onchange={() => (rankError = undefined)}
-								>
-									<NativeSelect.Option value="">Rank</NativeSelect.Option>
-									{#each ranks as option (option)}
-										<NativeSelect.Option value={option}>{option}</NativeSelect.Option>
-									{/each}
-								</NativeSelect.Root>
-							</div>
-						</Field.Root>
-						<Field.Root class="min-w-36 flex-1 gap-1.5">
-							<Field.Label for="firstName" class={ACCOUNT_FIELD_LABEL}>First name</Field.Label>
-							<Input id="firstName" name="firstName" required maxlength={80} bind:value={firstName} />
-						</Field.Root>
-						<Field.Root class="min-w-36 flex-1 gap-1.5">
-							<Field.Label for="lastName" class={ACCOUNT_FIELD_LABEL}>Last name</Field.Label>
-							<Input id="lastName" name="lastName" required maxlength={80} bind:value={lastName} />
-						</Field.Root>
-					</div>
-					{#if rankError}
-						<p id="rank-error" role="alert" class="text-xs text-destructive">{rankError}</p>
-					{:else}
-						<p id="rank-hint" class="font-mono text-xs text-muted-foreground">From the Army rank list</p>
-					{/if}
-					{#if form?.error}
-						<Alert.Root variant="destructive">
-							<Alert.Title>Profile not saved</Alert.Title>
-							<Alert.Description>{form.error}</Alert.Description>
-						</Alert.Root>
-					{/if}
-					<div class="flex flex-wrap justify-end gap-2">
-						<Button type="button" variant="outline" onclick={closeEditor} disabled={saving}>Cancel</Button>
-						<Button type="submit" aria-disabled={saving ? 'true' : undefined} aria-busy={saving || undefined}>
-							{saving ? 'Saving...' : 'Save'}
-						</Button>
-					</div>
+					<fieldset class="contents" disabled={saving}>
+						<div class="flex flex-wrap items-start gap-3">
+							<Field.Root class="w-26 gap-1.5" data-invalid={rankError ? true : undefined}>
+								<Field.Label for="rank" class={ACCOUNT_FIELD_LABEL}>Rank</Field.Label>
+								<div class="font-mono font-medium">
+									<NativeSelect.Root
+										bind:ref={rankSelect}
+										bind:value={rank}
+										id="rank"
+										name="rank"
+										aria-required="true"
+										aria-invalid={rankError ? true : undefined}
+										aria-describedby={rankError ? 'rank-error' : 'rank-hint'}
+										onchange={() => (rankError = undefined)}
+									>
+										<NativeSelect.Option value="">Rank</NativeSelect.Option>
+										{#each ranks as option (option)}
+											<NativeSelect.Option value={option}>{option}</NativeSelect.Option>
+										{/each}
+									</NativeSelect.Root>
+								</div>
+							</Field.Root>
+							<Field.Root class="min-w-36 flex-1 gap-1.5">
+								<Field.Label for="firstName" class={ACCOUNT_FIELD_LABEL}>First name</Field.Label>
+								<Input id="firstName" name="firstName" required maxlength={80} bind:value={firstName} />
+							</Field.Root>
+							<Field.Root class="min-w-36 flex-1 gap-1.5">
+								<Field.Label for="lastName" class={ACCOUNT_FIELD_LABEL}>Last name</Field.Label>
+								<Input id="lastName" name="lastName" required maxlength={80} bind:value={lastName} />
+							</Field.Root>
+						</div>
+						{#if rankError}
+							<p id="rank-error" role="alert" class="text-xs text-destructive">{rankError}</p>
+						{:else}
+							<p id="rank-hint" class="font-mono text-xs text-muted-foreground">From the Army rank list</p>
+						{/if}
+						{#if form?.error}
+							<Alert.Root variant="destructive">
+								<Alert.Title>Profile not saved</Alert.Title>
+								<Alert.Description>{form.error}</Alert.Description>
+							</Alert.Root>
+						{/if}
+						<div class="flex flex-wrap justify-end gap-2">
+							<Button type="button" variant="outline" onclick={closeEditor}>Cancel</Button>
+							<Button type="submit" aria-busy={saving || undefined}>
+								{#if saving}<Spinner />{/if}
+								{saving ? 'Saving...' : 'Save'}
+							</Button>
+						</div>
+					</fieldset>
 				</form>
 			{:else}
 				<div class="flex items-center gap-4">

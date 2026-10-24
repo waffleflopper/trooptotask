@@ -5,9 +5,11 @@ import {
 	rosterDayReplySchema,
 	rosterFillPreviewSchema,
 	rosterReplacementSchema,
+	rosterSwapOptionsSchema,
 	type RosterDay,
 	type RosterFillPreview,
-	type RosterReplacement
+	type RosterReplacement,
+	type RosterSwapOptions
 } from '$features/calendar/contracts';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -210,4 +212,15 @@ export async function previewRosterReplacement(
 	);
 	if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'POST', resource));
 	return rosterReplacementSchema.parse(await withinOrganizationLifetime(res.json()));
+}
+
+/** The other days of a roster `date` could trade with, and the A, D or U each new placement would carry. */
+export async function previewRosterSwap(
+	orgId: string,
+	input: { typeId: string; today: string; date: string }
+): Promise<RosterSwapOptions> {
+	const resource = `/org/${orgId}/api/duty-rosters/swap?typeId=${input.typeId}&today=${input.today}&date=${input.date}`;
+	const res = await withinOrganizationLifetime(fetch(resource));
+	if (!res.ok) throw await withinOrganizationLifetime(buildRequestError(res, 'GET', resource));
+	return rosterSwapOptionsSchema.parse(await withinOrganizationLifetime(res.json()));
 }

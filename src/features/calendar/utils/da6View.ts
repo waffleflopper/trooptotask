@@ -181,6 +181,11 @@ export function remarkText(remark: Da6Remark, sheetFrom: DateKey): string {
 			return `${who} left the roster ${formatDayMonth(remark.on)}, ${LEFT_CAUSE[remark.cause]}. The row stays for this month.`;
 		case 'joined':
 			return `${who} joined the roster ${formatDayMonth(remark.on)}, ${JOINED_CAUSE[remark.cause]}, and starts at the foot of the form.`;
+		case 'swapped': {
+			const first =
+				remark.on.slice(0, 7) === remark.other.slice(0, 7) ? String(dayOfMonth(remark.on)) : formatDayMonth(remark.on);
+			return `${who} and ${fullName(remark.with)} exchanged ${first} and ${formatDayMonth(remark.other)}. Numbers as published.`;
+		}
 		case 'outside':
 			return `${who} pulled duty ${formatDayMonth(remark.date)} from outside the roster. It still counts as a detail day for everyone here.`;
 	}
@@ -214,8 +219,17 @@ function because(person: Da6PassedOver): string {
 
 /** The plain-language pick for one column, as the Show the work strip reads it. */
 export function workedExample(segment: Da6Segment, index: number): string {
+	const { pick, heldBy } = segment.columns[index];
+	const swap = heldBy
+		? `${fullName(pick)} stands this day in a swap with ${fullName(heldBy)}, who stays counted for it. `
+		: '';
+	return swap + pickExplanation(segment, index);
+}
+
+function pickExplanation(segment: Da6Segment, index: number): string {
 	const column: Da6Column = segment.columns[index];
-	const { pick, passedOver, rulePick } = column;
+	const { passedOver, rulePick } = column;
+	const pick = column.heldBy ?? column.pick;
 	const row = segment.rows.findIndex((person) => person.personId === pick.personId);
 	const pickCell = segment.cells[row]?.[index];
 	const count = pickCell ? pickCell.count : null;
@@ -239,7 +253,9 @@ export function workedExample(segment: Da6Segment, index: number): string {
 			if (person.code !== 'A') return `${person.lastName}'s count keeps running.`;
 			const next = segment.columns.findIndex(
 				(candidate, later) =>
-					later > index && candidate.pick.personId === person.personId && candidate.rulePick === null
+					later > index &&
+					(candidate.heldBy ?? candidate.pick).personId === person.personId &&
+					candidate.rulePick === null
 			);
 			return next < 0
 				? `${person.lastName} holds at ${person.count}.`

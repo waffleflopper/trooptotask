@@ -394,6 +394,7 @@ describe('planner roster replacement', () => {
 		todayAssignee: null,
 		excused: [],
 		covered: ['2026-10-20'],
+		swaps: [],
 		conflicts: [{ date: '2026-10-20', personId: 'person-1', code: 'A', reason: 'Leave' }]
 	};
 	const planned = (id: string, date: string, assigneeId: string) => ({
@@ -571,6 +572,171 @@ describe('planner roster replacement', () => {
 		await waitFor(() => expect(screen.queryByText(/could not be read again/)).toBeNull());
 		expect(ranges).toHaveBeenCalledTimes(2);
 		expect(openSlot().disabled).toBe(false);
+	});
+});
+
+describe('planner duty swaps', () => {
+	const planned = (id: string, date: string, assigneeId: string) => ({
+		id,
+		date,
+		assignmentTypeId: 'type-1',
+		assigneeId
+	});
+	const dutyRoster = (swaps: unknown[]) => ({
+		typeId: 'type-1',
+		people: [],
+		effects: [],
+		current: null,
+		todayAssignee: null,
+		excused: [],
+		covered: ['2026-10-20', '2026-10-23'],
+		swaps,
+		conflicts: []
+	});
+	const swapRecord = {
+		id: 'swap-1',
+		days: [
+			{ date: '2026-10-20', heldBy: 'person-1' },
+			{ date: '2026-10-23', heldBy: 'person-2' }
+		]
+	};
+	const exchanged = [planned('a-20', '2026-10-20', 'person-2'), planned('a-23', '2026-10-23', 'person-1')];
+	const restored = [planned('a-20', '2026-10-20', 'person-1'), planned('a-23', '2026-10-23', 'person-2')];
+
+	/** Answers the roster month read with whatever swaps `state.swaps` holds, and the swap endpoints with `reply`. */
+	function swapFetch(state: { swaps: unknown[] }, reply: (method: string) => Response) {
+		const requests: { method: string; url: string; body?: unknown }[] = [];
+		const monthReads = vi.fn();
+		const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+			if (url.includes('/api/duty-rosters/swap')) {
+				const method = init?.method ?? 'GET';
+				requests.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+				if (method === 'GET') {
+					return Response.json({
+						date: '2026-10-20',
+						personId: 'person-1',
+						days: [{ date: '2026-10-23', personId: 'person-2', warnings: [] }]
+					});
+				}
+				return reply(method);
+			}
+			if (url.includes('/api/duty-rosters/day')) return Response.json(null);
+			if (url.includes('/api/duty-rosters')) {
+				monthReads();
+				return Response.json([dutyRoster(state.swaps)]);
+			}
+			return new Promise<Response>(() => {});
+		});
+		return { fetcher, requests, monthReads };
+	}
+
+	const cell = (date: string, holder: string) =>
+		screen.findByRole('button', { name: new RegExp(`^Charge of Quarters, ${date}: ${holder}`), hidden: true });
+
+	async function swapTuesdayWithFriday() {
+		await fireEvent.click(await cell('Tue 20 Oct', 'SGT Smith, Alex'));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Swap with…' }));
+		const dialog = await screen.findByRole('dialog', { name: /^Swap Charge of Quarters/ });
+		await fireEvent.click(await within(dialog).findByRole('radio', { name: /^Fri 23 Oct/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+		return dialog;
+	}
+
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 16) });
+		mockOrg = makeOrg();
+		calendarStore.goToMonth(2026, 9);
+		dailyAssignmentsStore.load(assignmentTypes, restored, 'org-1');
+	});
+	afterEach(() => {
+		cleanup();
+		vi.unstubAllGlobals();
+		vi.useRealTimers();
+	});
+
+	it('swaps two days through the store, shows the new holders and reads the roster again', async () => {
+		const state = { swaps: [] as unknown[] };
+		const { fetcher, requests, monthReads } = swapFetch(state, () => {
+			state.swaps = [swapRecord];
+			return Response.json({ saved: exchanged, assignmentTypeId: 'type-1', swap: swapRecord });
+		});
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+		await waitFor(() => expect(monthReads).toHaveBeenCalledTimes(1));
+
+		await swapTuesdayWithFriday();
+
+		expect(await cell('Tue 20 Oct', 'CPT Taylor, Jamie')).toBeTruthy();
+		expect(await cell('Fri 23 Oct', 'SGT Smith, Alex')).toBeTruthy();
+		expect(requests.filter((request) => request.method === 'POST').map((request) => request.body)).toEqual([
+			{
+				today: '2026-10-16',
+				days: [
+					{ assignmentTypeId: 'type-1', date: '2026-10-20', was: 'person-1' },
+					{ assignmentTypeId: 'type-1', date: '2026-10-23', was: 'person-2' }
+				]
+			}
+		]);
+		await waitFor(() => expect(monthReads).toHaveBeenCalledTimes(2));
+		expect(
+			await screen.findByRole('button', { name: /^Charge of Quarters, Tue 20 Oct:.*swapped with 23 Oct/, hidden: true })
+		).toBeTruthy();
+		expect(screen.queryByRole('dialog', { name: /^Swap Charge of Quarters/ })).toBeNull();
+	});
+
+	it("reads the month's assignments again when another operator changed the roster, and keeps the swap open", async () => {
+		const { fetcher } = swapFetch({ swaps: [] }, () =>
+			Response.json({ message: 'The roster changed.' }, { status: 409 })
+		);
+		vi.stubGlobal('fetch', async (url: string, init?: RequestInit) =>
+			url.includes('/api/calendar-range')
+				? Response.json({
+						rangeStart: '2026-10-01',
+						rangeEnd: '2026-10-31',
+						dailyAssignments: [planned('a-20', '2026-10-20', 'person-1'), planned('a-23', '2026-10-23', 'person-1')]
+					})
+				: fetcher(url, init)
+		);
+		renderPage();
+
+		const dialog = await swapTuesdayWithFriday();
+
+		expect(await within(dialog).findByText(/roster changed since this preview/)).toBeTruthy();
+		expect(await cell('Fri 23 Oct', 'SGT Smith, Alex')).toBeTruthy();
+		expect(screen.getByRole('dialog', { name: /^Swap Charge of Quarters/ })).toBe(dialog);
+	});
+
+	it('undoes a swap from the picker and shows the original holders', async () => {
+		dailyAssignmentsStore.load(assignmentTypes, exchanged, 'org-1');
+		const state = { swaps: [swapRecord] as unknown[] };
+		const { fetcher, requests } = swapFetch(state, () => {
+			state.swaps = [];
+			return Response.json({ saved: restored, assignmentTypeId: 'type-1', swap: swapRecord });
+		});
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+
+		await fireEvent.click(await cell('Tue 20 Oct', 'CPT Taylor, Jamie, swapped with 23 Oct'));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Undo swap' }));
+
+		expect(await cell('Tue 20 Oct', 'SGT Smith, Alex')).toBeTruthy();
+		expect(requests.find((request) => request.method === 'DELETE')?.body).toEqual({
+			today: '2026-10-16',
+			swapId: 'swap-1'
+		});
+	});
+
+	it('offers no swap and sends no swap read to an operator limited to a Group', async () => {
+		mockOrg = makeOrg({ scopeSet: { kind: 'groups', groupIds: ['group-1'] } });
+		const { fetcher, requests } = swapFetch({ swaps: [] }, () => new Response('', { status: 500 }));
+		vi.stubGlobal('fetch', fetcher);
+		renderPage();
+
+		await fireEvent.click(await cell('Tue 20 Oct', 'SGT Smith, Alex'));
+		await screen.findByRole('dialog', { name: 'Charge of Quarters, Tue 20 Oct' });
+
+		expect(screen.queryByRole('button', { name: 'Swap with…' })).toBeNull();
+		expect(requests).toEqual([]);
 	});
 });
 

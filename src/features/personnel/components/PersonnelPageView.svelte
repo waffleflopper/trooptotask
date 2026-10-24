@@ -111,7 +111,7 @@
 	});
 
 	const azTable = useDataTable<Personnel>({
-		data: () => visibleAlphabeticalPersonnel,
+		data: () => holdOrder(visibleAlphabeticalPersonnel, 'az'),
 		columns: () => personnelColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
@@ -119,7 +119,7 @@
 	});
 
 	const groupedTable = useDataTable<Personnel>({
-		data: () => visibleFilteredPersonnel,
+		data: () => holdOrder(visibleFilteredPersonnel, 'grouped'),
 		columns: () => personnelColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
@@ -132,6 +132,38 @@
 				return a.localeCompare(b);
 			}
 		}
+	});
+
+	// A quick-edit save keeps the rows' order going in, so a row whose active sort value did not change stays put.
+	let heldOrders = $state.raw<Record<'az' | 'grouped', Map<string, number>> | null>(null);
+
+	function holdOrder(rows: Personnel[], table: 'az' | 'grouped'): Personnel[] {
+		const order = heldOrders?.[table];
+		if (!order) return rows;
+		const place = (person: Personnel) => order.get(person.id) ?? Number.MAX_SAFE_INTEGER;
+		return [...rows].sort((a, b) => place(a) - place(b));
+	}
+
+	function holdCurrentOrder() {
+		const places = (rows: Personnel[]) => new Map(rows.map((person, index) => [person.id, index]));
+		heldOrders = {
+			az: places(holdOrder(visibleAlphabeticalPersonnel, 'az')),
+			grouped: places(holdOrder(visibleFilteredPersonnel, 'grouped'))
+		};
+	}
+
+	// Sorting, searching or switching the view is the user choosing the order, so the held one lapses.
+	$effect(() => {
+		void [
+			azTable.sortKey,
+			azTable.sortDirection,
+			azTable.search,
+			groupedTable.sortKey,
+			groupedTable.sortDirection,
+			groupedTable.search,
+			ctx.viewMode
+		];
+		heldOrders = null;
 	});
 
 	let rosterSearch = $state('');
@@ -153,13 +185,17 @@
 		orgId: () => ctx.orgId,
 		person: (id) => ctx.getPersonnelById(id),
 		groups: () => groupManagementStore.items,
-		save: (id, data) => personnelStore.updateOrThrow(id, data),
+		save: (id, data) => {
+			holdCurrentOrder();
+			return personnelStore.updateOrThrow(id, data);
+		},
 		refreshSignals: (ids) => void ctx.signals.refresh(ids),
 		dataSheetHref: (person) => `${recordHref(person)}/data-sheet`,
 		navigate: (href) => void goto(href),
 		closed: (id) => void restoreRowFocus(id)
 	});
 	$effect(() => quickEdit.closeIfGone());
+	$effect(() => () => quickEdit.dispose());
 	const rowControls: RosterRowControls = {
 		get selecting() {
 			return bulkArchiveMode;

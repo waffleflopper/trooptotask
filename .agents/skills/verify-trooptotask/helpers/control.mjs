@@ -2692,6 +2692,7 @@ async function main() {
 					'duty-rosters/fill/preview',
 					'duty-rosters/replacement',
 					'duty-rosters/replacement/preview',
+					'duty-rosters/swap',
 					'status-types',
 					'assignment-types',
 					'assignment-types/lanes',
@@ -2790,6 +2791,7 @@ async function main() {
 					'daily-assignments/batch',
 					'duty-rosters/fill',
 					'duty-rosters/replacement',
+					'duty-rosters/swap',
 					'status-types',
 					'ict-tasks/batch',
 					'ict-tasks/order'
@@ -2806,6 +2808,7 @@ async function main() {
 					'daily-assignments/batch',
 					'duty-rosters/fill',
 					'duty-rosters/replacement',
+					'duty-rosters/swap',
 					'special-days'
 				].includes(family)
 			)

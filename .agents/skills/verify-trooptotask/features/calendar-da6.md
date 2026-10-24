@@ -19,6 +19,9 @@ show their saved record; the open form is worked out from today's facts. The pag
   day header row repeating at the top of each sheet and no person's row split. The header fields sit on the first sheet,
   the legend and remarks after the last row, the closed form's note between forms, and weekend numbers are red; Show the
   work and the controls are left off.
+- `da6-swap`: a duty swap leaves every count and the grid as published and adds a numbered remark to the open form,
+  `<rank> <last> and <rank> <last> exchanged <day> and <day>. Numbers as published.`; the closed form keeps the same
+  remark. Ending the swap removes the remark and the counts follow whoever holds each day.
 - `da6-states`: a loading skeleton, the page's own load error, the not-permitted state for a Group-scoped viewer, and a
   load error in place of a closed form whose saved record cannot be read.
 - `da6-setup`: `?setup=1` opens the open form in setup mode, where a configurator copies the last numbers from a paper
@@ -149,6 +152,14 @@ Preconditions: doctor passes; `$V seed da6` returns `staffDuty` and `chargeOfQua
      last weekday box moves to the first person's weekend box. Saving writes `weekday` and `weekend` rows.
    - **Layout.** Capture setup at 1440x900, 900x800 and 390x844: `document.documentElement.scrollWidth` equals
      `innerWidth`, and at 390 px Grade and Name stay sticky while the grid scrolls.
+
+10. **Swap remark.** On a fresh `$V seed da6`, read the Staff Duty grid and remarks (`None.`) for d0's month, then in
+    the Duty planner swap two future Staff Duty days held by different people
+    ([Manual assignments](calendar-assignments.md) step 15) and reload the DA 6. Every cell of the grid reads as before
+    the swap and the legend and today's column are unchanged. Remarks read
+    `(1) <rank> <last> and <rank> <last> exchanged <day> and <day>. Numbers as published.` with the first holder named
+    first. Choose `Undo swap` in the planner and reload: the remarks read `None.` again. Swap, then reassign one swapped
+    day: the remark is gone and the cells follow the holders.
 
 ## Gotchas
 

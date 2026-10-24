@@ -11,6 +11,8 @@ import {
 	toClosedFormMonth,
 	toOpenRosterForm,
 	type ClosedRosterFormRow,
+	toRosterSwap,
+	type RosterSwapRow,
 	type RosterExcusalRow,
 	type RosterFormRow,
 	SPECIAL_DAY_FIELDS,
@@ -379,6 +381,24 @@ export function createSupabaseCalendarCatalogPersistence(
 				.returns<ClosedRosterFormRow[]>();
 			if (error) throw new Error(error.message);
 			return data.map((row) => toClosedFormMonth(row, month));
+		},
+		async listRosterSwaps(assignmentTypeId, span) {
+			const result = await selectAllSupabaseRows<RosterSwapRow>(async (from, to) => {
+				return await client
+					.from('roster_swaps')
+					.select('id, assignment_type_id, first_date, first_held_by, second_date, second_held_by')
+					.eq('organization_id', orgId)
+					.eq('assignment_type_id', assignmentTypeId)
+					.or(
+						`and(first_date.gte.${span.from},first_date.lte.${span.through}),and(second_date.gte.${span.from},second_date.lte.${span.through})`
+					)
+					.order('first_date', { ascending: true })
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<RosterSwapRow[]>();
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return (result.data ?? []).map(toRosterSwap);
 		},
 		async listRosterExcusals(assignmentTypeId, span) {
 			const result = await selectAllSupabaseRows<RosterExcusalRow & { id: string }>(async (from, to) => {

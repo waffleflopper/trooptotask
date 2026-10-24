@@ -1,7 +1,6 @@
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { Group } from '../../contracts';
 import {
-	SIGNAL_DRAFT_FIELDS,
 	personnelDraftChanges,
 	personnelDraftOf,
 	personnelPayloadOf,
@@ -12,6 +11,7 @@ import {
 	type PersonnelDraftErrors
 } from '../../personnelDraft';
 import type { Personnel } from '../../personnel.types';
+import { changesSignalApplicability } from '../../rosterSignals';
 
 export interface QuickEditDeps {
 	orgId(): string;
@@ -64,6 +64,7 @@ export class RosterQuickEdit {
 	session = $state.raw<QuickEditSession | null>(null);
 	prompt = $state.raw<QuickEditPrompt | null>(null);
 	readonly #deps: QuickEditDeps;
+	#disposed = false;
 
 	constructor(deps: QuickEditDeps) {
 		this.#deps = deps;
@@ -96,6 +97,13 @@ export class RosterQuickEdit {
 		this.#close(current);
 	}
 
+	/** The roster is gone: an in-flight save may still land, but nothing after it touches the page or navigates. */
+	dispose(): void {
+		this.#disposed = true;
+		this.session = null;
+		this.prompt = null;
+	}
+
 	/** Drops the editor when its Person has left the roster. */
 	closeIfGone(): void {
 		const current = this.session;
@@ -119,9 +127,9 @@ export class RosterQuickEdit {
 	}
 
 	async decideDataSheet(choice: 'save' | 'discard' | 'cancel'): Promise<void> {
+		if (this.prompt?.kind !== 'data-sheet') return;
 		const current = this.session;
-		if (this.prompt?.kind !== 'data-sheet' || !current) return;
-		if (choice === 'cancel') {
+		if (!current || choice === 'cancel') {
 			this.prompt = null;
 			return;
 		}
@@ -130,7 +138,7 @@ export class RosterQuickEdit {
 			return;
 		}
 		this.prompt = null;
-		this.#goToDataSheet(current.personnelId);
+		if (!this.#disposed) this.#goToDataSheet(current.personnelId);
 	}
 
 	/** Saves the open editor. Resolves true once the write landed; a failure keeps the editor open with its values. */
@@ -143,7 +151,7 @@ export class RosterQuickEdit {
 		const orgId = this.#deps.orgId();
 		const stillHere = () => this.#deps.orgId() === orgId;
 		const payload = personnelPayloadOf(session.draft, this.#deps.groups());
-		const changedFields = session.changes.map((change) => change.field);
+		const before = this.#deps.person(session.personnelId);
 		session.saving = true;
 		session.error = '';
 		try {
@@ -154,10 +162,10 @@ export class RosterQuickEdit {
 			return false;
 		}
 		if (!stillHere()) return false;
-		if (SIGNAL_DRAFT_FIELDS.some((field) => changedFields.includes(field))) {
-			this.#deps.refreshSignals([session.personnelId]);
+		if (!this.#disposed) {
+			if (before && changesSignalApplicability(before, payload)) this.#deps.refreshSignals([session.personnelId]);
+			if (this.session === session) this.#close(session);
 		}
-		if (this.session === session) this.#close(session);
 		toastStore.success('Personnel updated');
 		return true;
 	}

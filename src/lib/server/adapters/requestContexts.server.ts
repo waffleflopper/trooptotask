@@ -22,6 +22,7 @@ import {
 	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
 import {
+	createSupabaseRosterSwapPersistence,
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
 	createSupabaseCalendarAvailabilityRemovalPort,
@@ -60,6 +61,7 @@ import {
 	createSupabasePersonnelRecordPersistence,
 	createSupabaseRosterCounselingSignals,
 	createSupabaseRosterFollowUpSignals,
+	createSupabaseRosterSignalSlices,
 	resolveSignalAccess,
 	type RosterSignalSources,
 	createSupabasePersonnelArtifactReadPersistence,
@@ -491,15 +493,17 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 /** The roster signals lane: which sources the viewer may read, and one reader per source. */
 export function createRequestRosterSignalsContext(request: AdmittedOrganizationRequest) {
 	const { supabase, auth } = request;
+	const access = resolveSignalAccess(auth, request.disabledFeatures);
+	const slices = createSupabaseRosterSignalSlices(supabase, auth.orgId, access);
 	const sources: RosterSignalSources = {
-		availability: createSupabaseRosterPresenceSignals(supabase, auth.orgId),
-		training: createSupabaseTrainingRosterSignals(supabase, auth.orgId),
-		criticalTasks: createSupabaseCriticalTaskRosterSignals(supabase, auth.orgId),
-		evaluations: createSupabaseRatingSchemeRosterSignals(supabase, auth.orgId),
-		followUps: createSupabaseRosterFollowUpSignals(supabase, auth.orgId),
-		counseling: createSupabaseRosterCounselingSignals(supabase, auth.orgId)
+		availability: createSupabaseRosterPresenceSignals(slices),
+		training: createSupabaseTrainingRosterSignals(slices),
+		criticalTasks: createSupabaseCriticalTaskRosterSignals(slices),
+		evaluations: createSupabaseRatingSchemeRosterSignals(slices),
+		followUps: createSupabaseRosterFollowUpSignals(slices),
+		counseling: createSupabaseRosterCounselingSignals(slices)
 	};
-	return { access: resolveSignalAccess(auth, request.disabledFeatures), sources };
+	return { access, sources };
 }
 
 export function createRequestPersonnelArchivedArtifactsContext(request: AdmittedOrganizationRequest) {
@@ -612,6 +616,7 @@ export function createRequestRosterSettingsContext(request: AdmittedOrganization
 export function createRequestRosterPlannerContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestRosterSettingsContext(request),
+		calendarRosterSwaps: createSupabaseRosterSwapPersistence(request.supabase, request.auth.orgId),
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase, {
 			admin: getAdminClient,
 			actorId: request.auth.userId

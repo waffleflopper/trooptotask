@@ -19,6 +19,9 @@ export interface TrainingType {
 	isOptional: boolean;
 }
 
+/** What readiness reads of a Training type; the roster lane reads only these. */
+export type TrainingRequirementFacts = Omit<TrainingType, 'description' | 'color' | 'sortOrder'>;
+
 export interface PersonnelTraining {
 	id: string;
 	personnelId: string;

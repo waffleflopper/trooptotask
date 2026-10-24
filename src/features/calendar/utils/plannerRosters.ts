@@ -1,5 +1,5 @@
 import type { PlannerRoster, RosterFillPick } from '$features/calendar/contracts';
-import type { RosterCode, TrackId } from '$features/calendar/roster/rosterTypes';
+import type { RosterCode, RosterSwap, TrackId } from '$features/calendar/roster/rosterTypes';
 
 export interface RosterEntry {
 	readonly personId: string;
@@ -30,6 +30,8 @@ export interface RosterView {
 	/** The month's detail days. On these days `conflicts` replaces the availability check. */
 	readonly covered: ReadonlySet<string>;
 	readonly conflicts: readonly RosterConflict[];
+	/** Exchanges with either day in the shown month. */
+	readonly swaps: readonly RosterSwap[];
 }
 
 /** Expands the server's indexed triples into one standing per track. */
@@ -56,8 +58,44 @@ function decodeRoster(roster: PlannerRoster): RosterView {
 		todayAssignee: roster.todayAssignee,
 		excused: roster.excused,
 		covered: new Set(roster.covered),
-		conflicts: roster.conflicts
+		conflicts: roster.conflicts,
+		swaps: roster.swaps
 	};
+}
+
+/** One day of a swap: who held it when the swap was entered, and the other day it was traded for. */
+export interface SwappedDay {
+	readonly swap: RosterSwap;
+	readonly heldBy: string;
+	readonly otherDate: string;
+	readonly otherHeldBy: string;
+}
+
+/** The swapped days of a roster by date. Either day of a swap may fall outside the month shown. */
+export function indexSwappedDays(swaps: readonly RosterSwap[]): ReadonlyMap<string, SwappedDay> {
+	return new Map(
+		swaps.flatMap((swap) => {
+			const [first, second] = swap.days;
+			return [
+				[first.date, { swap, heldBy: first.heldBy, otherDate: second.date, otherHeldBy: second.heldBy }],
+				[second.date, { swap, heldBy: second.heldBy, otherDate: first.date, otherHeldBy: first.heldBy }]
+			] as const;
+		})
+	);
+}
+
+/**
+ * How many swaps writing `writes` ends. A write ends a swap when it moves either of its days to someone other than
+ * the person holding the day now; saving the same person again keeps it.
+ */
+export function swapsEndedBy(
+	swaps: readonly RosterSwap[],
+	writes: readonly { date: string; assigneeId: string }[],
+	holderOn: (date: string) => string | undefined
+): number {
+	const written = new Map(writes.map((write) => [write.date, write.assigneeId]));
+	return swaps.filter((swap) => swap.days.some(({ date }) => written.has(date) && written.get(date) !== holderOn(date)))
+		.length;
 }
 
 /** Reads as "Leave (A)": the reason, then the code. */

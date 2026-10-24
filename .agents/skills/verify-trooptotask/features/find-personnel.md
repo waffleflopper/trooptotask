@@ -27,7 +27,7 @@ person's record.
 Sign in, choose `Personnel` in the organization navigation, and use `Search by name, rank, MOS, role, or group`. The
 `Group` and `A-Z` buttons are above the roster. Choose a person's row, or focus it and press Enter, to open the record.
 Each row's `Note` and `Quick edit` icon buttons show on hover or focus (always on a touch screen); N and E are their
-keys.
+keys. Below the md viewport (768 px) the actions column hides and `Quick edit` shows at the right of the name.
 
 ## Driving it with verify:app
 
@@ -98,8 +98,12 @@ scoped actors retain their baseline grants.
     `Open <name>` only to an actor who holds Personnel sensitive-record reading unscoped and record access to that row.
     As `personnelOperate`, `personnelScopedOperate` (Operator in Alpha) or `perfScoped` on its large workload each row
     is named `<name>` and shows `Quick edit <name>` alone, and clicking the row or pressing Enter does not navigate (the
-    URL stays on Personnel and no `<slug>/__data.json` request is sent). `personnelOperate`, `personnelScopedOperate`
-    and `perfScoped` loading the detail URL directly still get the 403 page. `manager`, `orgOwner`, `personnelScoped`
+    URL stays on Personnel and no `<slug>/__data.json` request is sent). At 390 `personnelOperate` still reaches it: the
+    snapshot lists one `Quick edit SPC Able, Synthetic` button per row, 28x28 at the right of the name, and the page's
+    `scrollWidth` is 390. Choose it: the `Quick edit SPC Able, Synthetic` form opens under the row without
+    `Full data sheet`. Set `MOS` to `11B` and choose `Save`: one `PUT` on `/api/personnel` returns 200, `personnel.mos`
+    reads `11B`, the form closes and focus returns to the row. `personnelOperate`, `personnelScopedOperate` and
+    `perfScoped` loading the detail URL directly still get the 403 page. `manager`, `orgOwner`, `personnelScoped`
     (configure) and `perfScopedLeader` open each row they may edit.
 11. **Today's status and Needs attention.** As `orgOwner`, stage one case per source through the app's endpoints in the
     signed-in page (`evaluate_script` with `fetch`): `POST /org/<org>/api/personnel-trainings` for Able with the
@@ -116,9 +120,9 @@ scoped actors retain their baseline grants.
     (`organizations.disabled_features` reads `training, criticalTasks`) and reload: Able reads `—`, Baker
     `1 follow-up overdue` in red and Unassigned `NCOER due` in amber. Turn both back on afterward. Quick edit (E) on
     Able, set ETS 41 days out and save: one `PUT` and the name carries the `ETS · 41d` badge (PCS uses the outline
-    badge). `manager` (no Calendar grant) gets no strip and no dots, and its cells still read Baker's
-    `1 follow-up overdue`. Group-scoped `dashboardScoped` reads `1`, `1 present` and only Able's row, named
-    `SPC Able, Synthetic`, with `1 of 1 shown`.
+    badge). That save sends one `PUT` and no `roster-signals` request. `manager` (no Calendar grant) gets no strip and
+    no dots, and its cells still read Baker's `1 follow-up overdue`. Group-scoped `dashboardScoped` reads `1`,
+    `1 present` and only Able's row, named `SPC Able, Synthetic`, with `1 of 1 shown`.
 12. **Row keyboard and actions.** Tab into the table: the first row takes focus with an inset ring and only that row is
     a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
     `/personnel/<slug>/log?add=follow-up` with the note field focused, and Back returns to the roster; E opens that
@@ -127,19 +131,20 @@ scoped actors retain their baseline grants.
     the toolbar's `Archive` mode with one row selected, or the record's `More Personnel record` menu. Column hiding
     follows the table's own width, not the viewport: below 48rem Rank, MOS, Duty Role and Group hide and the rank moves
     before the name; below 36rem Needs attention folds onto a second line under the name; the actions column hides below
-    the md viewport. At 1440, 900 and 390 the page has no horizontal scroll.
-13. **Signals lane loading, failure and reads.** `$V server-source arm rpc/roster_signal_presence hold 1 90000`, then
-    reload: the roster rows paint at once while each status dot, attention cell and the strip show skeletons, and every
-    row's top offset is unchanged when `$V server-source release` lets the lane through. Arm `fail-hard` instead: the
-    roster stays usable with blank cells, no strip, and one notice
-    `Today's status and Needs attention could not be loaded.` with `Reload`. `server-source restore`, choose `Reload`,
-    and the cells return without a roster read: `$V perf statements reset` before and `perf statements read` after show
-    the six `roster_signal_*` calls and no `FROM "public"."personnel"` statement, and the browser's one request is
-    `__data.json?x-sveltekit-invalidated=0001`. A page load issues one roster read; with Training and Critical tasks off
-    it issues no `roster_signal_training` or `roster_signal_critical_tasks` call, and `dashboardScoped` (no follow-up or
-    counseling access) issues no `roster_signal_follow_ups` or `roster_signal_counseling` call. To exercise the
-    viewer-day rerun, set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the zone
-    and reruns only the signals lane.
+    the md viewport and `Quick edit` then sits beside the name. At 1440, 900 and 390 the page has no horizontal scroll.
+13. **Signals lane loading, failure and reads.** `$V server-source arm rpc/roster_signals hold 1 90000`, then reload:
+    the roster rows paint at once while each status dot, attention cell and the strip show skeletons, and every row's
+    top offset is unchanged when `$V server-source release` lets the lane through. Arm `fail-hard` instead: the roster
+    stays usable with blank cells, no strip, and one notice `Today's status and Needs attention could not be loaded.`
+    with `Reload`. `server-source restore`, choose `Reload`, and the cells return without a roster read:
+    `$V perf statements reset` before and `perf statements read` after show one `roster_signals` call and no
+    `FROM "public"."personnel"` statement, and the browser's one request is `__data.json?x-sveltekit-invalidated=0001`.
+    A page load issues one roster read and one `roster_signals` call that names only the sources the viewer may read:
+    with Training and Critical tasks off the call's `p_sources` omit `training` and `criticalTasks`, and
+    `dashboardScoped` (no follow-up or counseling access) omits `followUps` and `counseling`. A first visit whose
+    browser day matches the server's keeps the lane the first response carried (one `roster_signals` call). To exercise
+    the viewer-day rerun, set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the
+    zone and reruns only the signals lane.
 14. **Quick edit.** As `manager` at 1440 in `Group` view, click `Quick edit SPC Able, Synthetic`, or focus the row and
     press E. The row takes a tinted band and an accent rule on its left edge, the pencil is pressed, and a
     `Quick edit SPC Able, Synthetic` form opens under it with Rank focused and Rank, Last name, First name, MOS, Duty
@@ -165,10 +170,16 @@ scoped actors retain their baseline grants.
     `Save`: `Enter a last name.` renders in a `role="alert"` message, the input is `invalid` with it as its description,
     no `PUT` is sent and focus stays on `Save`. As `viewer` the roster shows no `Quick edit` and E does nothing. As
     `personnelOperate` (no record reading) the form opens without `Full data sheet`. At 900 the fields wrap into rows
-    and the page has no horizontal scroll. At 390 the roster shows no `Quick edit` button (it folds away with the
-    actions column), so focus the row and press E: the fields stack in one column inside the table's own scroll area,
-    `Save` and `Cancel` sit at its bottom, and `document.documentElement.scrollWidth` equals the 390 viewport. A rename,
-    Group change or `restart` leaves the fixture changed; `verify:app restart` before relying on the original slugs.
+    and the page has no horizontal scroll. At 390 click the `Quick edit` button beside the name (the actions column has
+    folded away): the fields stack in one column inside the table's own scroll area, `Save` and `Cancel` sit at its
+    bottom, and `document.documentElement.scrollWidth` equals the 390 viewport. A rename, Group change or `restart`
+    leaves the fixture changed; `verify:app restart` before relying on the original slugs.
+15. **Edits that change what applies.** As `orgOwner` on a fresh launch, before step 11's staging, Able's cell reads
+    `Verification All-MOS Critical Task missing · 1 more`. Open Quick edit, set `MOS` to `11B` and save: one `PUT` on
+    `/api/personnel`, then one `POST /api/personnel/roster-signals`, and no `__data.json` request. The cell now reads
+    `Verification All-MOS Critical Task missing`, because the `68W` `Verification Alpha Critical Task` stopped applying.
+    Set it back to `68W` and `· 1 more` returns. Rank, MOS, duty role and Group edits reread that Person's cells; name,
+    ETS and PCS edits send no `roster-signals` request.
 
 ## Gotchas
 

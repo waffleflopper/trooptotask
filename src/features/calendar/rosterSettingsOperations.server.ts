@@ -137,13 +137,14 @@ export async function loadRosterFacts(
 	const horizon = addDays(today, MAX_CALENDAR_RANGE_DAYS);
 	const window = { from: form.startsOn, through: through < horizon ? through : horizon };
 	const span = { from: addDays(window.from, -1), through: addDays(window.through, 1) };
-	const [people, calendar, excusals, types, assignments, detailDays] = await Promise.all([
+	const [people, calendar, excusals, types, assignments, detailDays, swaps] = await Promise.all([
 		readRosterPeople(ctx, span),
 		readRosterCalendar(ctx, span),
 		ctx.calendarCatalogs.listRosterExcusals(type.id, window),
 		ctx.calendarCatalogs.listAssignmentTypes(),
 		ctx.calendarAssignments.listRange({ rangeStart: span.from, rangeEnd: span.through }),
-		ctx.calendarAssignments.listRosterDetailDays(type.id, span)
+		ctx.calendarAssignments.listRosterDetailDays(type.id, span),
+		ctx.calendarCatalogs.listRosterSwaps(type.id, window)
 	]);
 	const personTypes = new Map(types.filter((t) => t.assignTo === 'personnel').map((t) => [t.id, t.name]));
 	return rosterFacts(
@@ -154,6 +155,7 @@ export async function loadRosterFacts(
 			type,
 			form,
 			excusals,
+			swaps,
 			assignments: [
 				...assignments
 					.filter(({ assignmentTypeId }) => assignmentTypeId !== type.id && personTypes.has(assignmentTypeId))

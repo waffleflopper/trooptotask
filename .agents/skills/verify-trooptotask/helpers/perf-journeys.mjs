@@ -39,7 +39,9 @@ const platformOnly = {
 
 // Above 250 People the By Group roster renders a pause notice instead of rows, so for a
 // large Organization-wide actor that notice is the useful roster.
-const roster = ({ sentinel }) => ({ anyPresent: [sentinel, 'personnel are loaded'], absentSelector: [skeleton] });
+const rosterShown = ({ sentinel }) => ({ anyPresent: [sentinel, 'personnel are loaded'] });
+// Settled also waits out the signals lane's skeletons (Today's status and Needs attention).
+const roster = (terms) => ({ ...rosterShown(terms), absentSelector: [skeleton] });
 const search = { role: 'searchbox', name: 'Search by name, rank, MOS, role, or group' };
 const personRows = '[aria-label^="Open "]';
 // The 3-Month view's virtual rows hold Group bands and People; only a Person row names its Person.
@@ -69,6 +71,12 @@ const affected = '#training-affected-soldiers';
 const openBriefingCell = { click: { role: 'button', name: 'Total, Workload Training 01:', partial: true } };
 const calendarReportReady = () => [{ name: 'ready', present: ['Run status-day report'], absentSelector: [skeleton] }];
 const runStatusDays = { click: { role: 'button', name: 'Run status-day report' } };
+
+const quickEditField = ({ row }, role, name) => ({
+	role,
+	name,
+	within: { role: 'form', name: `Quick edit ${row.replace(/^Open /, '')}` }
+});
 
 // The roster stays paused for a large wide actor, so its row journeys first narrow the roster
 // to one Person with the search term, as that user would.
@@ -252,7 +260,10 @@ export const journeys = {
 		effect: 'read',
 		actors: both,
 		path: (terms) => org(terms, '/personnel'),
-		milestones: (terms) => [{ name: 'useful', ...roster(terms) }]
+		milestones: (terms) => [
+			{ name: 'rows', ...rosterShown(terms) },
+			{ name: 'useful', ...roster(terms) }
+		]
 	},
 	'personnel-search': {
 		area: 'personnel',
@@ -330,20 +341,20 @@ export const journeys = {
 					within: { role: 'row', name: terms.edit.row }
 				}
 			},
-			{ wait: ['Edit Personnel'] },
-			{ fill: { role: 'textbox', name: 'MOS / Job Title' }, value: edited(terms.edit, sample) }
+			{ wait: ['No changes'] },
+			{ fill: quickEditField(terms.edit, 'textbox', 'MOS'), value: edited(terms.edit, sample) }
 		],
-		trigger: () => ({ click: { role: 'button', name: 'Save Changes' } }),
+		trigger: ({ edit }) => ({ click: quickEditField(edit, 'button', 'Save') }),
 		milestones: ({ edit }, sample) => [
 			{
 				name: 'useful',
 				inside: { [`[aria-label="${edit.row}"]`]: [edited(edit, sample)] },
-				absentSelector: ['[role="dialog"]']
+				absentSelector: ['[data-roster-editor]']
 			}
 		]
 	},
 	// The detail page's Data sheet save writes the Person and the sheet in one request, then lands on the
-	// Data sheet tab with only the header and that tab's loads refreshed, unlike the roster dialog, which
+	// Data sheet tab with only the header and that tab's loads refreshed, unlike the roster's Quick edit, which
 	// updates the open roster in place.
 	'personnel-detail-edit': {
 		area: 'personnel',

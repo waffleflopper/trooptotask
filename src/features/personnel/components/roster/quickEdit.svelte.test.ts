@@ -256,6 +256,39 @@ describe('Full data sheet', () => {
 		expect(deps.navigate).toHaveBeenCalledExactlyOnceWith('/personnel/okafor-daniel/data-sheet');
 	});
 
+	it('does not navigate when the roster is destroyed while Save and open is pending', async () => {
+		let release!: () => void;
+		const { edit, deps } = setup({
+			save: vi.fn(() => new Promise<boolean>((resolve) => (release = () => resolve(true))))
+		});
+		edit.open(okafor);
+		edit.session!.draft.firstName = 'Dan';
+		edit.openDataSheet();
+		const deciding = edit.decideDataSheet('save');
+		edit.dispose();
+		release();
+		await deciding;
+
+		expect(deps.save).toHaveBeenCalledTimes(1);
+		expect(deps.navigate).not.toHaveBeenCalled();
+		expect(deps.refreshSignals).not.toHaveBeenCalled();
+		expect(deps.closed).not.toHaveBeenCalled();
+		expect(edit.prompt).toBeNull();
+	});
+
+	it('clears the prompt when its Person leaves the roster before it is answered', async () => {
+		const { edit, deps, removeFromRoster } = setup();
+		edit.open(okafor);
+		edit.session!.draft.firstName = 'Dan';
+		edit.openDataSheet();
+		removeFromRoster('p-1');
+		edit.closeIfGone();
+		await edit.decideDataSheet('cancel');
+
+		expect(edit.prompt).toBeNull();
+		expect(deps.navigate).not.toHaveBeenCalled();
+	});
+
 	it('stays on the failed save instead of opening the sheet', async () => {
 		const { edit, deps } = setup({ save: vi.fn().mockRejectedValue(new Error('Denied')) });
 		edit.open(okafor);

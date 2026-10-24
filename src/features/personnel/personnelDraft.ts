@@ -174,11 +174,3 @@ export function personnelSaveErrorMessage(error: unknown, isEditing: boolean): s
 	if (error instanceof Error && error.message.trim()) return error.message;
 	return fallback;
 }
-
-/** Fields whose change alters a Person's Needs attention, so the roster's signals reread them. */
-export const SIGNAL_DRAFT_FIELDS = [
-	'rank',
-	'mos',
-	'clinicRole',
-	'groupId'
-] as const satisfies readonly PersonnelDraftField[];

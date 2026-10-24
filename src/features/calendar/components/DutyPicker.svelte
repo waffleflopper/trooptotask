@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import {
 		dutySearchScore,
@@ -33,6 +34,10 @@
 		onAssign: (assigneeId: string) => Promise<boolean>;
 		/** Offered only for a slot that already has someone. */
 		onClear?: () => Promise<boolean>;
+		/** Offered on a filled roster day that can trade with another day. Picking it hands the day to the swap popover. */
+		onSwap?: () => void;
+		/** The day is half of a swap. `onUndo` is absent once either day has passed. */
+		swapped?: { note: string; onUndo?: () => Promise<boolean> };
 		/** Opened from a roster replacement's Someone else, so a pick re-picks the later roster days too. */
 		replacing?: boolean;
 		onClose: () => void;
@@ -48,6 +53,8 @@
 		counts,
 		onAssign,
 		onClear,
+		onSwap,
+		swapped,
 		replacing = false,
 		onClose
 	}: Props = $props();
@@ -76,11 +83,14 @@
 	const dateTitle = $derived(shortDate(date));
 	const before = $derived(counts?.status === 'ready' ? counts.before : undefined);
 	const describedBy = $derived(
-		[replacing && 'duty-picker-replacing', before && 'duty-picker-before'].filter(Boolean).join(' ') || undefined
+		[replacing && 'duty-picker-replacing', swapped && 'duty-picker-swapped', before && 'duty-picker-before']
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	let pending = $state(false);
 	let dismissed = false;
+	let handingOff = false;
 
 	async function run(action: () => Promise<boolean>) {
 		if (pending) return;
@@ -97,6 +107,13 @@
 		onClose();
 	}
 
+	function swapWith() {
+		if (pending || !onSwap) return;
+		dismissed = true;
+		handingOff = true;
+		onSwap();
+	}
+
 	let content = $state<HTMLElement | null>(null);
 
 	function focusSearch(event: Event) {
@@ -106,6 +123,7 @@
 
 	function returnFocus(event: Event) {
 		event.preventDefault();
+		if (handingOff) return;
 		const target = returnFocusTo?.() ?? anchor;
 		if (target.isConnected) target.focus();
 	}
@@ -143,6 +161,15 @@
 				<Popover.Description id="duty-picker-replacing" class="text-xs">
 					A pick here re-picks the later roster days too. To change only this day, click the name in the planner.
 				</Popover.Description>
+			{/if}
+			{#if swapped}
+				<p id="duty-picker-swapped" class="text-xs text-muted-foreground">
+					{swapped.note}
+					<strong class="font-semibold text-foreground"
+						>Saving another person or clearing this day ends the swap.</strong
+					>
+					Both days then count for whoever holds them.
+				</p>
 			{/if}
 		</Popover.Header>
 		<Command.Root class="min-h-0 rounded-lg!" label={findLabel} filter={dutySearchScore}>
@@ -222,17 +249,32 @@
 				</Command.List>
 			{/if}
 		</Command.Root>
-		{#if onClear}
-			<div class="border-t p-1">
-				<Button
-					variant="ghost"
-					size="sm"
-					class="w-full justify-start text-destructive-text"
-					disabled={pending}
-					onclick={() => run(onClear)}
-				>
-					Clear assignment
-				</Button>
+		{#if onClear || onSwap || swapped?.onUndo}
+			<div class="grid border-t p-1">
+				{#if onSwap}
+					<Button variant="ghost" size="sm" class="w-full justify-start" disabled={pending} onclick={swapWith}>
+						<ArrowLeftRightIcon data-icon="inline-start" aria-hidden="true" />
+						Swap with…
+					</Button>
+				{/if}
+				{#if swapped?.onUndo}
+					{@const undo = swapped.onUndo}
+					<Button variant="ghost" size="sm" class="w-full justify-start" disabled={pending} onclick={() => run(undo)}>
+						<ArrowLeftRightIcon data-icon="inline-start" aria-hidden="true" />
+						Undo swap
+					</Button>
+				{/if}
+				{#if onClear}
+					<Button
+						variant="ghost"
+						size="sm"
+						class="w-full justify-start text-destructive-text"
+						disabled={pending}
+						onclick={() => run(onClear)}
+					>
+						Clear assignment
+					</Button>
+				{/if}
 			</div>
 		{/if}
 	</Popover.Content>

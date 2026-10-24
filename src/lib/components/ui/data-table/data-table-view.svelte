@@ -46,8 +46,8 @@
 		rowDetailVisible?: (row: T) => boolean;
 		/**
 		 * Hidden rows stay mounted, so a filter that changes as the user types does not remount them. Applies to
-		 * default-rendered rows on an unpaginated, ungrouped table: a `row` snippet renders its own row, pages count hidden rows
-		 * and group headers stay shown.
+		 * default-rendered rows on an unpaginated table: a `row` snippet renders its own row and pages count hidden rows. A
+		 * group counts only its shown rows and hides its header when it has none.
 		 */
 		rowHidden?: (row: T) => boolean;
 		pageLabels?: PageLabels;
@@ -191,8 +191,10 @@
 		{:else if table.groups.length > 0}
 			<Table.Body>
 				{#each table.groups as group (group.key)}
+					{@const shownCount = rowHidden ? group.rows.filter((row) => !rowHidden(row)).length : group.rows.length}
 					<Table.Row
 						data-slot="data-table-group-row"
+						hidden={shownCount === 0}
 						class="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 						tabindex={0}
 						aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
@@ -206,7 +208,7 @@
 									{@render groupHeader({
 										key: group.key,
 										label: group.label,
-										count: group.rows.length,
+										count: shownCount,
 										collapsed: group.collapsed,
 										toggle: () => table.toggleGroup(group.key)
 									})}
@@ -218,7 +220,7 @@
 									onclick={() => table.toggleGroup(group.key)}
 								>
 									<span>{group.label}</span>
-									<span>{group.rows.length}</span>
+									<span>{shownCount}</span>
 								</button>
 							{/if}
 						</Table.Cell>
@@ -290,7 +292,7 @@
 		{/if}
 	</Table.Root>
 
-	{#if !loading && table.groups.length === 0 && (table.rows.length === 0 || allRowsHidden)}
+	{#if !loading && (table.rows.length === 0 || allRowsHidden)}
 		<DataTableEmpty message={emptyMessage} level={emptyLevel} />
 	{/if}
 

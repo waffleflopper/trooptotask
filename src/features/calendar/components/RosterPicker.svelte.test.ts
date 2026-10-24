@@ -235,6 +235,40 @@ describe('RosterPicker with availability', () => {
 		expect(selected(selection)).toEqual(['able']);
 	});
 
+	it('keeps selection, group counts and blocked people through narrowing and clearing the search', async () => {
+		const selection = renderPicker();
+		const search = within(screen.getByRole('toolbar', { name: 'Roster picker controls' })).getByRole('searchbox');
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Baker, Bo' }));
+
+		await fireEvent.input(search, { target: { value: 'dale' } });
+		expect(screen.queryByRole('checkbox', { name: 'Select Alpha group' })).toBeNull();
+		expect(screen.queryByRole('checkbox', { name: 'Select SGT Baker, Bo' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Collapse Bravo 1' })).toBeTruthy();
+		expect(screen.getByText('1 of 1 selected')).toBeTruthy();
+
+		await fireEvent.input(search, { target: { value: 'a' } });
+		expect(screen.getByRole('button', { name: 'Collapse Alpha 2' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Alpha group' }));
+		expect(selected(selection), 'the group toggle selects only its shown, enabled people').toEqual(['able', 'baker']);
+
+		await fireEvent.input(search, { target: { value: '' } });
+		expect(screen.getByRole('checkbox', { name: 'Select SGT Baker, Bo' }).getAttribute('aria-checked')).toBe('true');
+		expect((screen.getByRole('checkbox', { name: 'Select SGT Cole, Cy' }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('checkbox', { name: 'Select Alpha group' }).getAttribute('aria-checked')).toBe('mixed');
+		expect(screen.getByRole('button', { name: 'Collapse Alpha 4' })).toBeTruthy();
+		expect(screen.getByText('2 of 5 selected')).toBeTruthy();
+	});
+
+	it('shows the empty state when the search matches nobody', async () => {
+		renderPicker();
+		const search = within(screen.getByRole('toolbar', { name: 'Roster picker controls' })).getByRole('searchbox');
+
+		await fireEvent.input(search, { target: { value: 'nobody' } });
+
+		expect(screen.getByText('No personnel available')).toBeTruthy();
+		expect(screen.queryByRole('checkbox', { name: /group$/ })).toBeNull();
+	});
+
 	it('shows a selected person as unchecked while they are blocked and checked again when they are not', () => {
 		const people = roster.flatMap((group) => group.personnel);
 		const selection = useDataTableSelection<Personnel>({ rows: () => people, rowKey: (person) => person.id });

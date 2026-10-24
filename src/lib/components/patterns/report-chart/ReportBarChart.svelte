@@ -89,11 +89,11 @@
 		rule={false}
 		legend={false}
 		labels={false}
-		tooltip={false}
+		tooltipContext={false}
 		padding={{ top: 16, right: 20, bottom: 42, left: 46 }}
 		props={{
 			svg: {
-				label: ariaLabel
+				'aria-label': ariaLabel
 			},
 			xAxis: {
 				tickLength: 0,

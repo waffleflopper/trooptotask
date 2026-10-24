@@ -30,6 +30,8 @@ import {
 	type AssignmentRow,
 	type AssignmentTypeRow,
 	type AvailabilityRow,
+	toRosterSwap,
+	type RosterSwapRow,
 	type RosterExcusalRow,
 	type SpecialDayRow,
 	type StatusTypeRow
@@ -323,6 +325,12 @@ export function createInMemoryCalendarCatalogPersistence(
 				)
 				.sort((a, b) => a.starts_on.localeCompare(b.starts_on))
 				.map((form) => toClosedFormMonth(form, month));
+		},
+		async listRosterSwaps(assignmentTypeId, span) {
+			return (await store.findMany<RosterSwapRow>('roster_swaps', orgId, { assignment_type_id: assignmentTypeId }))
+				.filter((row) => [row.first_date, row.second_date].some((date) => date >= span.from && date <= span.through))
+				.sort((a, b) => a.first_date.localeCompare(b.first_date) || compareIds(a.id, b.id))
+				.map(toRosterSwap);
 		},
 		async listRosterExcusals(assignmentTypeId, span) {
 			return (

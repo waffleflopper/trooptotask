@@ -3,10 +3,13 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
-import Security from '../account/security/+page.svelte';
+import { SecurityPage } from '$features/identity';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
-import type { PageData } from '../account/security/$types';
+import type { PasswordCompletionState } from '$features/identity/contracts';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+
+controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
@@ -15,6 +18,20 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });
+
+function renderSecurity(passwordCompletion: PasswordCompletionState = null) {
+	const mounted = render(SecurityPage, {
+		props: {
+			security: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null },
+			passwordCompletion,
+			form: null,
+			mfaSetupHref: '/auth/mfa-setup'
+		}
+	});
+	const open = screen.queryByRole('button', { name: 'Change password' });
+	if (open) void fireEvent.click(open);
+	return mounted;
+}
 it.each(['security', 'recovery', 'invite'] as const)(
 	'%s retains passwords across mutation-time MFA denial, code failure and retry',
 	async (flow) => {
@@ -46,13 +63,7 @@ it.each(['security', 'recovery', 'invite'] as const)(
 				throw new Error(`Unexpected request ${url}`);
 			})
 		);
-		if (flow === 'security')
-			render(Security, {
-				props: {
-					data: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData,
-					form: null
-				}
-			});
+		if (flow === 'security') renderSecurity();
 		else if (flow === 'recovery') render(Recovery);
 		else render(Invite);
 		const password = await screen.findByLabelText(flow === 'invite' ? /^Password/ : /^New [Pp]assword/);
@@ -67,7 +78,6 @@ it.each(['security', 'recovery', 'invite'] as const)(
 		expect(finalized).toBe(false);
 		expect(updates).toHaveLength(1);
 		await fireEvent.input(code, { target: { value: '123456' } });
-		await fireEvent.submit(code.closest('form')!);
 		expect(await screen.findByText('Code expired')).toBeVisible();
 		expect(code).toHaveValue('123456');
 		await waitFor(() => expect(code).toHaveFocus());

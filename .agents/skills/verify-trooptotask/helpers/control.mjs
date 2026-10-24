@@ -71,7 +71,7 @@ import {
 	redactAuthTokens,
 	setupAccountUrl,
 	syntheticEmail,
-	textboxUid
+	namedUid
 } from './identity-controls.mjs';
 import {
 	prepareUploadOverlap,
@@ -618,25 +618,15 @@ async function main() {
 		)
 			throw new Error('Use the existing owned reauthentication handoff; no navigation or session is injected.');
 		const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
-		const uid = (label) => {
-			const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
-			if (matches.length !== 1) throw new Error('Normal confirmation fields are unavailable.');
-			return matches[0].match(/uid=([^\s]+)/)?.[1];
-		};
 		await tool(state, 'fill_form', {
 			pageId,
 			elements: [
-				{ uid: uid('Email Address'), value: fixture.actors[role].email },
-				{ uid: uid('Password'), value: fixture.actors[role].password }
+				{ uid: namedUid(snapshot, 'textbox', 'Email Address'), value: fixture.actors[role].email },
+				{ uid: namedUid(snapshot, 'textbox', 'Password'), value: fixture.actors[role].password }
 			]
 		});
 		const ready = text(await tool(state, 'take_snapshot', { pageId }));
-		const button = ready
-			.split('\n')
-			.find((line) => line.includes('button "Sign In"'))
-			?.match(/uid=([^\s]+)/)?.[1];
-		if (!button) throw new Error('Normal confirmation submit is unavailable.');
-		await tool(state, 'click', { pageId, uid: button });
+		await tool(state, 'click', { pageId, uid: namedUid(ready, 'button', 'Sign In') });
 		await tool(state, 'wait_for', { pageId, text: ['Destructive Actions'], timeout: 20000 });
 		note({
 			pageId,
@@ -656,7 +646,7 @@ async function main() {
 		return pageId;
 	};
 	const fillPrivate = async (pageId, label, occurrence, value) => {
-		const uid = textboxUid(text(await tool(state, 'take_snapshot', { pageId })), label, occurrence);
+		const uid = namedUid(text(await tool(state, 'take_snapshot', { pageId })), 'textbox', label, occurrence);
 		await tool(state, 'fill', { pageId, uid, value });
 	};
 	const pendingPasswords = path.join(session, 'identity-pending-passwords.json');
@@ -1014,7 +1004,7 @@ async function main() {
 		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
 		if (workload) readyText = [workload.name, 'Access restricted', 'Access Restricted'];
-		readyText = [...readyText, 'Account Suspended', 'Verify your code'];
+		readyText = [...readyText, 'Account Suspended', 'ENTER YOUR CODE', 'Enter your code'];
 		const browserContext = `map-${role}-${randomUUID()}`;
 		let pageId;
 		if (form) {
@@ -1029,25 +1019,15 @@ async function main() {
 			if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
 			await evaluate(state, pageId, whatsNewPreferenceScript(fixture.actors[role].id, showWhatsNew));
 			const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
-			const uid = (label) => {
-				const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
-				if (matches.length !== 1) throw new Error(`Expected one ${label} field, found ${matches.length}.`);
-				return matches[0].match(/uid=([^\s]+)/)?.[1];
-			};
 			await tool(state, 'fill_form', {
 				pageId,
 				elements: [
-					{ uid: uid('Email Address'), value: fixture.actors[role].email },
-					{ uid: uid('Password'), value: fixture.actors[role].password }
+					{ uid: namedUid(snapshot, 'textbox', 'Email Address'), value: fixture.actors[role].email },
+					{ uid: namedUid(snapshot, 'textbox', 'Password'), value: fixture.actors[role].password }
 				]
 			});
 			const ready = text(await tool(state, 'take_snapshot', { pageId }));
-			const button = ready
-				.split('\n')
-				.find((line) => line.includes('button "Sign In"'))
-				?.match(/uid=([^\s]+)/)?.[1];
-			if (!button) throw new Error('Sign In button was not found.');
-			await tool(state, 'click', { pageId, uid: button });
+			await tool(state, 'click', { pageId, uid: namedUid(ready, 'button', 'Sign In') });
 		} else {
 			const signedIn = await run(state, {
 				command: 'session-page',
@@ -2660,6 +2640,14 @@ async function main() {
 				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
 					family
 				)?.[1] ?? null;
+			// Org Account pages: [path under /org/ORG/account/, action search, failure field]; no search holds the load.
+			const accountPage =
+				{
+					'account-page/profile': ['profile/__data.json', null, null],
+					'account-page/security': ['security/__data.json', null, null],
+					'account-page/profile/save': ['profile', '', 'error'],
+					'account-page/security/updateEmail': ['security', '?/updateEmail', 'emailError']
+				}[family] ?? null;
 			if (
 				![
 					'audit-page',
@@ -2675,6 +2663,10 @@ async function main() {
 					'rating-scheme',
 					'feedback',
 					'announcements/dismiss',
+					'access-requests',
+					'auth/mfa/enroll',
+					'auth/mfa/enroll/verify',
+					'auth/mfa/enroll/cancel',
 					'personnel',
 					'groups',
 					'pinned-groups',
@@ -2730,6 +2722,7 @@ async function main() {
 				!Object.hasOwn(formActions, family) &&
 				!accountForm &&
 				!settingsPage &&
+				!accountPage &&
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
@@ -2750,6 +2743,7 @@ async function main() {
 			if (
 				formAction ||
 				settingsPage ||
+				accountPage ||
 				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
 				shellPart
 			) {
@@ -2765,7 +2759,14 @@ async function main() {
 						? `/org/${organizationSegment}/settings/${settingsPage ?? 'logs'}/__data.json`
 						: formAction
 							? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
-							: ['feedback', 'announcements/dismiss'].includes(family)
+							: [
+										'feedback',
+										'announcements/dismiss',
+										'access-requests',
+										'auth/mfa/enroll',
+										'auth/mfa/enroll/verify',
+										'auth/mfa/enroll/cancel'
+								  ].includes(family)
 								? `/api/${family}`
 								: `/org/${organizationSegment}/api/${family}`;
 			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
@@ -2777,6 +2778,7 @@ async function main() {
 			}
 			if (platformForm) suffix = platformForm.suffix;
 			if (accountForm) suffix = accountForm[0];
+			if (accountPage) suffix = `/org/${organizationSegment}/account/${accountPage[0]}`;
 			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
@@ -2822,7 +2824,7 @@ async function main() {
 				throw new Error('A page server-load error is supported only for platform page-data reads.');
 			if (
 				action === 'arm-reject' &&
-				!['deletion-requests/review', 'personnel/archive-batch'].includes(family) &&
+				!['deletion-requests/review', 'personnel/archive-batch', 'access-requests'].includes(family) &&
 				!platformForm?.failureField
 			)
 				throw new Error('Synthetic transport rejection requires a documented mutation family.');
@@ -2862,10 +2864,12 @@ async function main() {
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??
+				accountPage?.[1] ??
 				(family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null);
 			const failureField =
 				platformForm?.failureField ??
 				accountForm?.[2] ??
+				accountPage?.[2] ??
 				(family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
 			const requestTarget = platformForm?.requestTarget ?? null;
 			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';

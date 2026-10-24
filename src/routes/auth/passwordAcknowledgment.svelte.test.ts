@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { goto } from '$app/navigation';
-import Security from '../account/security/+page.svelte';
+import { SecurityPage } from '$features/identity';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
-import type { PageData } from '../account/security/$types';
+import type { PasswordCompletionState } from '$features/identity/contracts';
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
@@ -17,15 +17,23 @@ afterEach(() => {
 	vi.clearAllMocks();
 	vi.useRealTimers();
 });
+
+function renderSecurity(passwordCompletion: PasswordCompletionState = null) {
+	const mounted = render(SecurityPage, {
+		props: {
+			security: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null },
+			passwordCompletion,
+			form: null,
+			mfaSetupHref: '/auth/mfa-setup'
+		}
+	});
+	const open = screen.queryByRole('button', { name: 'Change password' });
+	if (open) void fireEvent.click(open);
+	return mounted;
+}
 describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowledgment', (flow) => {
 	async function form() {
-		if (flow === 'security')
-			render(Security, {
-				props: {
-					data: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData,
-					form: null
-				}
-			});
+		if (flow === 'security') renderSecurity();
 		else if (flow === 'recovery') render(Recovery);
 		else render(Invite);
 		const password = await screen.findByLabelText(flow === 'invite' ? /^Password/ : /^New [Pp]assword/);

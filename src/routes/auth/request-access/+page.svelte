@@ -1,13 +1,13 @@
 <script lang="ts">
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthField from '$features/identity/AuthField.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { resolve } from '$app/paths';
 	import { ACCESS_REQUEST_HEARD_ABOUT_OPTIONS } from '$features/identity/index';
-	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { formatDate, formatDayMonth, formatDayMonthYear } from '$lib/utils/dates';
 
 	let email = $state('');
 	let firstName = $state('');
@@ -16,8 +16,21 @@
 	let heardAbout = $state('');
 	let heardAboutDetails = $state('');
 	let loading = $state(false);
-	let submitted = $state(false);
+	let receipt = $state<{ name: string; email: string; at: Date } | null>(null);
 	let errorMsg = $state('');
+
+	const submittedDay = $derived(receipt ? formatDate(receipt.at) : '');
+	const submittedTime = $derived(
+		receipt
+			? `${String(receipt.at.getHours()).padStart(2, '0')}${String(receipt.at.getMinutes()).padStart(2, '0')}`
+			: ''
+	);
+	const submittedFacts = $derived([
+		{ label: 'Name', value: receipt?.name ?? '', class: 'text-[15px]' },
+		{ label: 'Email', value: receipt?.email ?? '', class: 'text-[15px] font-semibold' },
+		{ label: 'Submitted', value: `${formatDayMonthYear(submittedDay)} · ${submittedTime}`, class: 'font-mono text-sm' }
+	]);
+	const labelClass = 'font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] uppercase';
 
 	const heardAboutLabel = $derived(
 		ACCESS_REQUEST_HEARD_ABOUT_OPTIONS.find((option) => option.value === heardAbout)?.label ?? 'Select a source'
@@ -34,19 +47,20 @@
 		}
 
 		loading = true;
+		const sent = {
+			email,
+			firstName,
+			lastName,
+			heardAbout,
+			heardAboutDetails: heardAboutDetails || undefined,
+			reason: reason || undefined
+		};
 
 		try {
 			const res = await fetch('/api/access-requests', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email,
-					firstName,
-					lastName,
-					heardAbout,
-					heardAboutDetails: heardAboutDetails || undefined,
-					reason: reason || undefined
-				})
+				body: JSON.stringify(sent)
 			});
 
 			if (!res.ok) {
@@ -55,7 +69,7 @@
 				return;
 			}
 
-			submitted = true;
+			receipt = { name: `${sent.firstName} ${sent.lastName}`, email: sent.email, at: new Date() };
 		} catch {
 			errorMsg = 'Something went wrong. Please try again.';
 		} finally {
@@ -68,62 +82,77 @@
 	<title>Request Access - Troop to Task</title>
 </svelte:head>
 
-<AuthShell
-	eyebrow="Reviewed Access"
-	title="Request access to TroopToTask."
-	description="Submit your information and we'll review your request. Approved users receive an Account Setup Link by email."
-	panelEyebrow="Access request"
-	panelTitle={submitted ? 'Request submitted' : 'Request access'}
-	panelDescription={submitted ? 'Your request is in the queue.' : 'Tell us who you are and how to reach you.'}
-	imageSrc="/auth/auth-request-access-packet.png"
-	imageAlt="A military access packet with folders, a clipboard, and field desk materials."
-	supportLabel="What this is for"
-	supportTitle="Reviewed access only."
-	supportDescription="If you are already approved, request a fresh setup link. If you already have an account, sign in."
-	supportPoints={[
-		'Approved users receive a setup link after review.',
-		'That setup link expires after 14 days for security.',
-		'Some @army.mil and @health.mil addresses can filter these emails before they reach your inbox.',
-		'If your setup link expired or was replaced, request a fresh setup link.'
-	]}
->
-	<div class="flex flex-col gap-5">
-		{#if submitted}
-			<AuthNotice tone="success" title="We've got your request" centered>
-				<p>We'll review your request and email <strong>{email}</strong> if access is approved.</p>
-				<p>For security, that Account Setup Link will work for 14 days once it is sent.</p>
-			</AuthNotice>
+{#if receipt}
+	<AuthShell
+		eyebrow="Reviewed Access"
+		headline={['Request in.', 'Stand by.']}
+		lede="Nothing else to do here. Watch your inbox for the Account Setup Link."
+		steps={{
+			label: 'Where your request is',
+			items: [
+				{ title: 'Submitted', detail: `Received ${formatDayMonth(submittedDay)}, ${submittedTime}.`, state: 'done' },
+				{ title: 'Under review', detail: 'In the queue now.', state: 'current' },
+				{ title: 'Setup link arrives', detail: 'By email. Works for 14 days.', state: 'upcoming' }
+			]
+		}}
+		panelEyebrow="Access request · Received"
+		panelTitle="Request submitted"
+		panelDescription="If it's approved, we'll email the address below."
+		alternatives={[
+			{ prompt: 'Link expired or replaced?', label: 'Request a fresh setup link', href: resolve('/auth/renew-invite') }
+		]}
+	>
+		<dl role="status" class="flex flex-col">
+			{#each submittedFacts as fact (fact.label)}
+				<div class="flex items-baseline gap-4 border-b border-border py-3">
+					<dt class="w-28 shrink-0 {labelClass} text-muted-foreground">{fact.label}</dt>
+					<dd class="min-w-0 break-words {fact.class}">{fact.value}</dd>
+				</div>
+			{/each}
+		</dl>
 
-			<div class="flex flex-col gap-3">
-				<Button href="/auth/login" class="w-full">Back to sign in</Button>
-			</div>
-		{:else}
-			{#if errorMsg}
-				<AuthNotice tone="error" message={errorMsg} />
-			{/if}
-			<AuthNotice tone="warning" title="Important">
-				<p>If your request is approved, the setup link in your email will be valid for 14 days.</p>
-				<p>If it expires or is replaced, request a fresh setup link and use the newest email.</p>
-			</AuthNotice>
+		<div
+			class="flex flex-col gap-1.5 rounded-md border border-accent/25 border-l-[3px] border-l-accent bg-accent/5 px-4 py-3.5"
+		>
+			<p class="{labelClass} text-accent-text">The link works for 14 days</p>
+			<p class="text-sm leading-5 text-foreground">
+				Use it once it arrives. If it expires or a newer one replaces it, request a fresh link and open the newest
+				email.
+			</p>
+		</div>
 
-			<form onsubmit={handleSubmit} class="flex flex-col gap-5">
-				<div class="grid gap-4 sm:grid-cols-2">
-					<AuthField
-						label="First Name"
-						id="firstName"
-						bind:value={firstName}
-						required
-						autocomplete="given-name"
-						placeholder="First name"
-					/>
-					<AuthField
-						label="Last Name"
-						id="lastName"
-						bind:value={lastName}
-						required
-						autocomplete="family-name"
-						placeholder="Last name"
-					/>
+		<AuthButton href={resolve('/auth/login')}>Back to sign in</AuthButton>
+	</AuthShell>
+{:else}
+	<AuthShell
+		eyebrow="Reviewed Access"
+		headline={['New here?', 'Fall in.']}
+		lede="A person reviews every request. Approved users get an Account Setup Link by email."
+		steps={{
+			label: 'What happens next',
+			items: [
+				{ title: 'You submit', detail: 'Name, email, how you heard.' },
+				{ title: 'We review', detail: 'A person checks every request.' },
+				{ title: 'Setup link arrives', detail: 'By email. Works for 14 days.' }
+			]
+		}}
+		panelEyebrow="Access request"
+		panelTitle="Request access"
+		panelDescription="For people whose unit isn't on TroopToTask yet."
+		alternatives={[
+			{ prompt: 'Already approved?', label: 'Request a fresh setup link', href: resolve('/auth/renew-invite') },
+			{ prompt: 'Already have an account?', label: 'Sign in', href: resolve('/auth/login') }
+		]}
+	>
+		{#if errorMsg}
+			<AuthNotice tone="error" message={errorMsg} />
+		{/if}
+
+		<form onsubmit={handleSubmit} class="flex flex-col gap-8">
+			<div class="flex flex-col gap-5">
+				<div class="grid gap-5 sm:grid-cols-2 sm:gap-3">
+					<AuthField label="First Name" id="firstName" bind:value={firstName} required autocomplete="given-name" />
+					<AuthField label="Last Name" id="lastName" bind:value={lastName} required autocomplete="family-name" />
 				</div>
 
 				<AuthField
@@ -132,15 +161,16 @@
 					type="email"
 					bind:value={email}
 					required
-					placeholder="you@example.com"
+					autocomplete="email"
+					hint="Some @army.mil and @health.mil inboxes filter our emails. A personal address is fine."
 				/>
 
-				<Field.Root>
-					<Field.Label for="heardAbout" class="text-sm font-medium">
-						How did you hear about TroopToTask?<span class="text-destructive" aria-hidden="true">*</span>
-					</Field.Label>
+				<Field.Root class="gap-2">
+					<Field.Label for="heardAbout" class={labelClass}>How did you hear about us?</Field.Label>
 					<Select.Root type="single" bind:value={heardAbout}>
-						<Select.Trigger id="heardAbout" class="w-full">{heardAboutLabel}</Select.Trigger>
+						<Select.Trigger id="heardAbout" class="w-full data-[size=default]:h-11 bg-card px-3.5 font-body text-base">
+							{heardAboutLabel}
+						</Select.Trigger>
 						<Select.Content>
 							{#each ACCESS_REQUEST_HEARD_ABOUT_OPTIONS as option (option.value)}
 								<Select.Item value={option.value} label={option.label} />
@@ -155,50 +185,23 @@
 						id="heardAboutDetails"
 						inputElement="textarea"
 						bind:value={heardAboutDetails}
-						rows={3}
-						placeholder="A short note helps us understand where requests are coming from"
-						hint="Optional."
+						rows={2}
+						optional
 					/>
 				{/if}
 
 				<AuthField
-					label="Unit or Reason"
+					label="Unit and Role"
 					id="reason"
 					inputElement="textarea"
 					bind:value={reason}
-					rows={4}
-					placeholder="Tell us your unit, role, or why you want access"
-					hint="Optional."
+					rows={2}
+					optional
+					placeholder="e.g. 1SG, B Co, 2-87 IN. Taking over readiness tracking."
 				/>
-
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={loading || !heardAbout} class="w-full">
-						{#if loading}
-							<Spinner />
-							Submitting...
-						{:else}
-							Submit Request
-						{/if}
-					</Button>
-				</div>
-			</form>
-
-			<div
-				class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
-			>
-				<span class="h-px flex-1 bg-border"></span>
-				<span class="whitespace-nowrap">Other paths</span>
-				<span class="h-px flex-1 bg-border"></span>
 			</div>
 
-			<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-				<p>
-					Already approved? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.
-				</p>
-				<p>
-					Already active? <a href={resolve('/auth/login')}>Sign in</a>.
-				</p>
-			</div>
-		{/if}
-	</div>
-</AuthShell>
+			<AuthButton disabled={!heardAbout} {loading} loadingLabel="Submitting...">Submit Request</AuthButton>
+		</form>
+	</AuthShell>
+{/if}

@@ -51,6 +51,7 @@ describe('AppShell admitted request composition', () => {
 						return Response.json(rows.filter((row) => row.user_id === userId && row.organization_id === orgId));
 					}
 					if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
+					if (url.pathname.endsWith('/user_profiles')) return Response.json([]);
 					if (url.pathname.endsWith('/platform_announcements') || url.pathname.endsWith('/announcement_dismissals'))
 						return Response.json([]);
 					throw new Error(`Unexpected first-paint read: ${url.pathname}`);
@@ -96,4 +97,32 @@ describe('AppShell admitted request composition', () => {
 			});
 		}
 	});
+
+	it.each([true, false, null])(
+		'carries the admitted two-factor fact (%s) into the signed-in account',
+		async (hasTwoFactor) => {
+			const client = createClient('http://shell-request.invalid', 'synthetic-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: {
+					fetch: async (input) => {
+						const url = new URL(String(input));
+						if (url.pathname.endsWith('/organizations'))
+							return Response.json([{ id: ORG_A, name: 'Alpha', url_slug: null, suspended_at: null }]);
+						if (url.pathname.endsWith('/organization_memberships'))
+							return Response.json([{ id: 'member-a', user_id: 'account-a', organization_id: ORG_A, role: 'owner' }]);
+						if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
+						return Response.json([]);
+					}
+				}
+			});
+			const locals = { actor: { userId: 'account-a' }, supabase: client, hasTwoFactor } as unknown as App.Locals;
+
+			const { shell } = await createAppShellRequest(
+				{ locals, cookies: {} as Cookies, orgSegment: ORG_A },
+				{ getAdmittedRequestClient: () => ({ supabase: client, userId: 'account-a' }) }
+			).loadFirstPaint();
+
+			expect(shell).toMatchObject({ kind: 'ready', user: { id: 'account-a', hasTwoFactor } });
+		}
+	);
 });

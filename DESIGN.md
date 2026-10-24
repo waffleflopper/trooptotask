@@ -18,6 +18,7 @@ colors:
   chrome: 'oklch(14.7% 0.004 49.25)'
   chrome-text: 'oklch(95.2% 0.006 95)'
   chrome-text-muted: 'oklch(72% 0.01 73.639)'
+  chrome-accent: 'oklch(76.9% 0.188 70.08)'
   chrome-border: 'oklch(25.5% 0.006 56.043)'
   chrome-surface: 'oklch(18% 0.004 49.25)'
   chrome-surface-muted: 'oklch(28% 0.005 49.25)'
@@ -158,6 +159,7 @@ The palette is restrained and warm: paper, ink, stone, amber signal, and functio
 - **Chrome** (`oklch(14.7% 0.004 49.25)`): Authenticated shell background and permanent dark chrome.
 - **Chrome Text** (`oklch(95.2% 0.006 95)`): Chrome foreground.
 - **Chrome Text Muted** (`oklch(72% 0.01 73.639)`): Chrome secondary text.
+- **Chrome Accent** (`oklch(76.9% 0.188 70.08)`): Amber on chrome and on the charcoal primary button, in both themes.
 - **Chrome Border** (`oklch(25.5% 0.006 56.043)`): Chrome dividers.
 - **Chrome Surface** (`oklch(18% 0.004 49.25)`) and **Chrome Surface Muted** (`oklch(28% 0.005 49.25)`): Shell panels, hover states, overlays, and muted chrome surfaces.
 

@@ -89,6 +89,8 @@ export function createAppShellRequest(
 			chrome: createFirstPaintChromePortFn({
 				orgId: org.id,
 				userId: actor.userId,
+				email: config.locals.user?.email ?? null,
+				hasTwoFactor: config.locals.hasTwoFactor,
 				userSupabase: config.locals.supabase,
 				supabase
 			})

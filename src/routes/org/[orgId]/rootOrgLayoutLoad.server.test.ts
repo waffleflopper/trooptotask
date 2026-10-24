@@ -61,7 +61,11 @@ describe('createRootOrgLayoutLoad', () => {
 		const load = createRootOrgLayoutLoad({
 			getAdmittedRequestClient: () => ({ supabase, userId: 'user-1' }),
 			createFirstPaintChromePort: () => ({
-				getFirstPaintChrome: async () => ({ announcements: [], preferences: getDefaultUserOrgPreferences() })
+				getFirstPaintChrome: async () => ({
+					announcements: [],
+					preferences: getDefaultUserOrgPreferences(),
+					account: { email: null, hasTwoFactor: false, profile: { status: 'loaded' as const, profile: null } }
+				})
 			})
 		});
 		const result = await load({
@@ -122,7 +126,8 @@ describe('createRootOrgLayoutLoad', () => {
 				({
 					getFirstPaintChrome: vi.fn().mockResolvedValue({
 						announcements: [],
-						preferences: getDefaultUserOrgPreferences()
+						preferences: getDefaultUserOrgPreferences(),
+						account: { email: null, hasTwoFactor: false, profile: { status: 'loaded' as const, profile: null } }
 					})
 				}) as AppShellFirstPaintChromePort
 		);

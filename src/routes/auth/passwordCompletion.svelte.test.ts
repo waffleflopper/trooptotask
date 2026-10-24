@@ -4,10 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { page } from '$app/stores';
-import Security from '../account/security/+page.svelte';
+import { SecurityPage } from '$features/identity';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
-import type { PageData } from '../account/security/$types';
+import type { PasswordCompletionState } from '$features/identity/contracts';
+import { controlCodeFieldTimers } from '$lib/test-support/codeFieldTimers';
+
+controlCodeFieldTimers();
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
@@ -15,26 +18,26 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
-	vi.useRealTimers();
 });
+
+function renderSecurity(passwordCompletion: PasswordCompletionState = null) {
+	const mounted = render(SecurityPage, {
+		props: {
+			security: { hasMFA: true, currentEmail: 'synthetic@example.test', pendingEmail: null },
+			passwordCompletion,
+			form: null,
+			mfaSetupHref: '/auth/mfa-setup'
+		}
+	});
+	const open = screen.queryByRole('button', { name: 'Change password' });
+	if (open) void fireEvent.click(open);
+	return mounted;
+}
 describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed completion', (flow) => {
 	function mount(state: 'started' | 'pending' | 'complete' | 'failed' | 'expired' | null = null) {
 		const data = { hasSession: true, passwordCompletion: state };
 		(page as unknown as { set: (x: unknown) => void }).set({ data, state: {} });
-		if (flow === 'security')
-			return render(Security, {
-				props: {
-					data: {
-						...data,
-						hasMFA: true,
-						currentEmail: 'synthetic@example.test',
-						pendingEmail: null,
-						viewer: null,
-						accountPathname: '/account/security'
-					} as PageData,
-					form: null
-				}
-			});
+		if (flow === 'security') return renderSecurity(state);
 		return flow === 'recovery' ? render(Recovery) : render(Invite);
 	}
 	it('resumes after reload, handles MFA and a transport failure, and never resubmits the password', async () => {
@@ -85,7 +88,6 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		await fireEvent.submit(resume.closest('form')!);
 		const code = await screen.findByLabelText('Authenticator Code');
 		await fireEvent.input(code, { target: { value: '123456' } });
-		await fireEvent.submit(code.closest('form')!);
 		expect(await screen.findByText('Code rejected')).toBeVisible();
 		await fireEvent.submit(code.closest('form')!);
 		const retry = await screen.findByRole('button', { name: 'Finish password update' });
@@ -94,7 +96,6 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		expect(await screen.findByRole('alert')).toBeVisible();
 		expect(document.body.textContent).not.toContain('private transport');
 		await waitFor(() => expect(retry).toHaveFocus());
-		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		await fireEvent.submit(retry.closest('form')!);
 		if (flow === 'security') expect(await screen.findByRole('button', { name: 'Change password again' })).toBeEnabled();
 		if (flow === 'recovery') expect(await screen.findByRole('heading', { name: 'Password updated' })).toBeVisible();
@@ -127,7 +128,7 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
 		mount('expired');
-		expect(await screen.findByRole('button', { name: 'Sign out' })).toBeEnabled();
+		for (const signOut of await screen.findAllByRole('button', { name: 'Sign out' })) expect(signOut).toBeEnabled();
 		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
 		expect(fetchMock).not.toHaveBeenCalled();
 	});

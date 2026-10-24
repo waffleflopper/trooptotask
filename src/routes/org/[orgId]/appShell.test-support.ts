@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { AppShellRouteData, ReadyAppShell } from '$features/app-shell/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
+import type { SignedInAccount } from '$features/identity/contracts';
 
 export function createReadyAppShellRouteData(
 	overrides: {
@@ -9,6 +10,7 @@ export function createReadyAppShellRouteData(
 		orgUrlSegment?: string;
 		orgName?: string;
 		userId?: string;
+		account?: SignedInAccount;
 		role?: ReadyAppShell['member']['role'];
 		criticalTasksCapability?: ReadyAppShell['member']['capabilityMap']['criticalTasks'];
 	} = {}
@@ -39,7 +41,14 @@ export function createReadyAppShellRouteData(
 				name: overrides.orgName ?? 'Test Org',
 				disabledFeatures: []
 			},
-			user: { id: overrides.userId ?? 'user-1' },
+			user: {
+				id: overrides.userId ?? 'user-1',
+				...(overrides.account ?? {
+					email: 'user-1@example.test',
+					hasTwoFactor: true,
+					profile: { status: 'loaded', profile: null }
+				})
+			},
 			member,
 			state: { orgSuspended: false },
 			preferences: {

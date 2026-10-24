@@ -1,9 +1,9 @@
 <script lang="ts">
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import { enhance } from '$app/forms';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 
@@ -46,20 +46,26 @@
 
 <AuthShell
 	eyebrow="Email Confirmation"
-	title="Review the email link before continuing."
-	description="This extra step keeps the verification request on your terms instead of letting a mail scanner or link prefetcher consume it first."
+	headline={['One click.', 'Confirmed.']}
+	lede="The link stays passive until you press the button, so a mail scanner can't use it up first."
+	steps={{
+		label: 'Where this link goes',
+		items: [
+			{ title: 'Account links', detail: 'Confirm your email, then set up.' },
+			{ title: 'Invite links', detail: 'Continue to your first password.' },
+			{ title: 'Reset links', detail: 'Continue to a new password.' }
+		]
+	}}
+	alternatives={validConfirmation
+		? []
+		: [
+				{ prompt: 'Waiting on approval?', label: 'Request access', href: resolve('/auth/request-access') },
+				{ prompt: 'Forgot your password?', label: 'Reset your password', href: resolve('/auth/forgot-password') },
+				{ prompt: 'Invite expired?', label: 'Renew your invite', href: resolve('/auth/renew-invite') }
+			]}
 	panelEyebrow="Auth confirmation"
 	panelTitle={confirmationTitle}
 	panelDescription={confirmationDescription}
-	supportLabel="Why there is a button"
-	supportTitle="Open the page, then confirm."
-	supportDescription="The link stays passive until you press the button on this page."
-	supportPoints={[
-		'Signup links confirm control of your email before organization setup.',
-		'Invite links continue to the first-time password setup flow.',
-		'Password reset links continue to the password change flow.',
-		'If the link has expired, request a fresh email and try again.'
-	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if validConfirmation}
@@ -95,16 +101,7 @@
 				<input type="hidden" name="type" value={validConfirmation.type} />
 				<input type="hidden" name="next" value={validConfirmation.next} />
 
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={loading} class="w-full">
-						{#if loading}
-							<Spinner />
-							Confirming...
-						{:else}
-							{submitLabel}
-						{/if}
-					</Button>
-				</div>
+				<AuthButton {loading} loadingLabel="Confirming...">{submitLabel}</AuthButton>
 			</form>
 		{:else}
 			<AuthNotice tone="error" title="Link unavailable" centered>
@@ -112,12 +109,7 @@
 				<p>Request access, renew your invite, or request a fresh password reset email.</p>
 			</AuthNotice>
 
-			<div class="flex flex-col gap-3">
-				<Button href="/auth/login" class="w-full">Back to Sign In</Button>
-				<Button href="/auth/request-access" variant="outline" class="w-full">Request Access</Button>
-				<Button href="/auth/forgot-password" variant="outline" class="w-full">Reset Password</Button>
-				<Button href="/auth/renew-invite" variant="outline" class="w-full">Renew Invite</Button>
-			</div>
+			<AuthButton href={resolve('/auth/login')}>Back to Sign In</AuthButton>
 		{/if}
 	</div>
 </AuthShell>

@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { PASSWORD_MISMATCH_MESSAGE, passwordRequirements } from '$features/identity';
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthField from '$features/identity/AuthField.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
@@ -47,8 +48,36 @@
 
 <AuthShell
 	eyebrow="Reviewed Access"
-	title="Set up your TroopToTask account."
-	description="Use the setup link from your approval email to choose your password and activate your User Account."
+	headline={["You're approved.", 'Set it up.']}
+	lede="Choose your own password and your User Account is ready. Unit membership comes next, inside TroopToTask."
+	steps={{
+		label: 'Account setup',
+		items: [
+			{ title: 'Request approved', detail: 'A person reviewed it.', state: 'done' },
+			{
+				title: 'Choose a password',
+				detail: 'TroopToTask never emails one.',
+				state: setupFinished ? 'done' : 'current'
+			},
+			{ title: 'Sign in', detail: 'Then join your unit.', state: setupFinished ? 'current' : 'upcoming' }
+		]
+	}}
+	alternatives={[
+		{ prompt: 'Already set up?', label: 'Sign in', href: resolve('/auth/login') },
+		...(setupFinished
+			? [{ prompt: 'Need a different password?', label: 'Reset your password', href: resolve('/auth/forgot-password') }]
+			: []),
+		...(!supportRequired && showPasswordForm
+			? [
+					{
+						prompt: 'Need a new setup email?',
+						label: 'Request a fresh setup link',
+						href: resolve('/auth/renew-invite')
+					}
+				]
+			: []),
+		{ prompt: 'Still waiting on approval?', label: 'Request access', href: resolve('/auth/request-access') }
+	]}
 	panelEyebrow="Account setup"
 	panelTitle={supportRequired
 		? 'Setup needs support'
@@ -68,23 +97,6 @@
 				: showPasswordForm && 'email' in data
 					? `This setup link is approved for ${data.email}.`
 					: 'Request a fresh setup link if your approval is still eligible.'}
-	supportLabel="Account setup"
-	supportTitle="One link, one account."
-	supportDescription="Account Setup Links activate only your User Account. Organization membership is handled separately inside TroopToTask."
-	supportPoints={supportRequired
-		? ['A fresh setup link cannot finish while this attempt needs platform support.']
-		: statusCheckAvailable
-			? [
-					'Check setup status before trying another password.',
-					'A fresh link alone cannot resolve an unfinished setup attempt.'
-				]
-			: setupFinished
-				? ['Sign in with the password you chose earlier.', 'Reset your password if you no longer know it.']
-				: [
-						'Choose your own password; TroopToTask never emails temporary passwords.',
-						'Use the newest setup email if you requested more than one link.',
-						'An expired link can be renewed, but a new link does not resolve an unfinished setup attempt.'
-					]}
 >
 	<div class="flex flex-col gap-5">
 		{#if supportRequired}
@@ -93,6 +105,7 @@
 					{form?.error ??
 						('message' in data ? data.message : 'Contact platform support to resolve this setup attempt.')}
 				</p>
+				<p>A fresh setup link cannot finish while this attempt needs platform support.</p>
 			</AuthNotice>
 		{:else if statusCheckAvailable}
 			{#if form?.error}<AuthNotice tone="error" message={form.error} />{/if}
@@ -112,9 +125,7 @@
 					};
 				}}
 			>
-				<Button type="submit" disabled={loading} class="w-full">
-					{#if loading}<Spinner />Checking setup...{:else}Check setup status{/if}
-				</Button>
+				<AuthButton {loading} loadingLabel="Checking setup...">Check setup status</AuthButton>
 			</form>
 		{:else if setupFinished}
 			<AuthNotice
@@ -161,7 +172,6 @@
 					type={showPassword ? 'text' : 'password'}
 					bind:value={password}
 					required
-					placeholder="At least 12 characters"
 					hint="Use 12 to 72 characters with uppercase, lowercase, and a number."
 				>
 					{#snippet action()}
@@ -194,7 +204,6 @@
 					type={showConfirmPassword ? 'text' : 'password'}
 					bind:value={confirmPassword}
 					required
-					placeholder="Repeat your password"
 					error={confirmError}
 				>
 					{#snippet action()}
@@ -205,14 +214,7 @@
 					{/snippet}
 				</AuthField>
 
-				<Button type="submit" disabled={!canSubmit} class="w-full">
-					{#if loading}
-						<Spinner />
-						Setting Up Account...
-					{:else}
-						Set Up Account
-					{/if}
-				</Button>
+				<AuthButton disabled={!canSubmit} {loading} loadingLabel="Setting Up Account...">Set Up Account</AuthButton>
 			</form>
 			{#if recoveryState === 'valid'}
 				<div class="flex flex-col gap-2 border-t border-border pt-4">
@@ -230,31 +232,12 @@
 							};
 						}}
 					>
-						<Button type="submit" variant="outline" disabled={loading || checkingStatus} class="w-full">
+						<Button type="submit" variant="outline" disabled={loading || checkingStatus} class="h-11 w-full">
 							{#if checkingStatus}<Spinner />Checking setup...{:else}Check setup status{/if}
 						</Button>
 					</form>
 				</div>
 			{/if}
 		{/if}
-
-		<div
-			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
-		>
-			<span class="h-px flex-1 bg-border"></span>
-			<span class="whitespace-nowrap">Need help?</span>
-			<span class="h-px flex-1 bg-border"></span>
-		</div>
-
-		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-			<p>Already set up? <a href={resolve('/auth/login')}>Sign in</a>.</p>
-			{#if setupFinished}
-				<p>Need a different password? <a href={resolve('/auth/forgot-password')}>Reset your password</a>.</p>
-			{/if}
-			{#if !supportRequired && showPasswordForm}
-				<p>Need a new setup email? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
-			{/if}
-			<p>Still waiting on approval? <a href={resolve('/auth/request-access')}>Request access</a>.</p>
-		</div>
 	</div>
 </AuthShell>

@@ -22,6 +22,25 @@ export function passwordRequirements(password: string) {
 	};
 }
 
+export type PasswordChecklistItem = { key: 'length' | 'case' | 'digit' | 'match'; label: string; met: boolean };
+
+/** The live checklist for a new password and its confirmation; every item met means the pair is ready to submit. */
+export function passwordChecklist(password: string, confirmation: string): PasswordChecklistItem[] {
+	const requirements = passwordRequirements(password);
+	return [
+		{
+			key: 'length',
+			label: requirements.maxLength
+				? `${PASSWORD_MIN_LENGTH}+ characters`
+				: `${PASSWORD_MAX_LENGTH} characters or fewer`,
+			met: requirements.minLength && requirements.maxLength
+		},
+		{ key: 'case', label: 'Upper and lower', met: requirements.uppercase && requirements.lowercase },
+		{ key: 'digit', label: 'A number', met: requirements.digit },
+		{ key: 'match', label: 'Both match', met: password.length > 0 && password === confirmation }
+	];
+}
+
 /** Returns null for an accepted password, or the current user-facing error. */
 export function validatePassword(password: string): string | null {
 	const requirements = passwordRequirements(password);

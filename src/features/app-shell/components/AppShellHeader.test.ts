@@ -112,6 +112,11 @@ function renderHeader(overrides: Partial<ComponentProps<typeof AppShellHeader>> 
 			userRole: 'admin',
 			membershipId: 'membership-1',
 			capabilityMap: baseCapabilityMap,
+			account: {
+				email: 'dana@example.test',
+				hasTwoFactor: true,
+				profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
+			},
 			onToggleTheme: vi.fn(),
 			isDarkTheme: false,
 			...overrides
@@ -565,102 +570,95 @@ describe('AppShellHeader', () => {
 		expect(screen.queryByRole('button', { name: 'Send feedback' })).toBeNull();
 	});
 
-	it('does not render a standalone help route item in the account menu', async () => {
-		renderHeader();
+	it('opens the account menu from the signed-in name', async () => {
+		const onWhatsNew = vi.fn();
+		const onFeedback = vi.fn();
+		renderHeader({ userRole: 'member', onWhatsNew, onFeedback });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'SFC Dana Whitaker, account menu' }));
 
-		expect(screen.queryByRole('menuitem', { name: 'Help' })).toBeNull();
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByText('dana@example.test')).toBeTruthy();
+		expect(within(menu).getByText('Member · Test Org')).toBeTruthy();
+		expect(
+			within(menu)
+				.getAllByRole('menuitem')
+				.map((item) => item.textContent?.trim())
+		).toEqual(['Account', "What's new", 'Send feedback', 'Sign out']);
+		expect(within(menu).getByRole('menuitem', { name: 'Account' }).getAttribute('href')).toBe(
+			'/org/org-1/account/profile'
+		);
+
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: "What's new" }));
+		expect(onWhatsNew).toHaveBeenCalledOnce();
+		await fireEvent.click(screen.getByRole('button', { name: /account menu/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Send feedback' }));
+		expect(onFeedback).toHaveBeenCalledOnce();
 	});
 
-	it('keeps account access available in the shadcn sidebar footer', () => {
+	it('signs out by posting the logout form', async () => {
+		const submitted: HTMLFormElement[] = [];
+		vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(function (this: HTMLFormElement) {
+			submitted.push(this);
+		});
 		renderHeader();
 
-		expect(screen.getByRole('button', { name: /Account menu/i })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: /account menu/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
+
+		expect(submitted.map((form) => [form.getAttribute('method'), form.getAttribute('action')])).toEqual([
+			['POST', '/auth/logout']
+		]);
 	});
 
-	it('puts Unit settings directly above the account item for admins', () => {
+	it.each([
+		{ hasTwoFactor: false, offered: true },
+		{ hasTwoFactor: true, offered: false },
+		{ hasTwoFactor: null, offered: false }
+	])('offers two-factor setup only to an account known to have no factor ($hasTwoFactor)', async (state) => {
+		renderHeader({
+			account: { email: 'dana@example.test', hasTwoFactor: state.hasTwoFactor, profile: { status: 'unavailable' } }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'dana@example.test, account menu' }));
+
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByRole('menuitem', { name: 'Account' })).toBeTruthy();
+		expect(
+			within(menu)
+				.queryByRole('menuitem', { name: /Turn on two-factor/ })
+				?.getAttribute('href') ?? null
+		).toBe(state.offered ? '/auth/mfa-setup?next=%2Forg%2Forg-1%2Faccount%2Fsecurity' : null);
+	});
+
+	it('opens the account menu from the keyboard and returns focus to the name on Escape', async () => {
+		renderHeader();
+		const card = screen.getByRole('button', { name: /account menu/ });
+		card.focus();
+
+		await fireEvent.keyDown(card, { key: 'Enter' });
+		const menu = await screen.findByRole('menu');
+		await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+		await fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+		expect(document.activeElement).toBe(card);
+	});
+
+	it('puts Unit settings directly above the account menu for admins', () => {
 		renderHeader({ userRole: 'admin' });
 
 		const settingsLink = screen.getByRole('link', { name: 'Unit settings' });
-		const accountButton = screen.getByRole('button', { name: /Account menu/i });
+		const accountMenu = screen.getByRole('button', { name: /account menu/ });
 
 		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings');
-		expect(settingsLink.compareDocumentPosition(accountButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(settingsLink.compareDocumentPosition(accountMenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
 	it('does not expose Unit settings in the sidebar footer for members', () => {
 		renderHeader({ userRole: 'member' });
 
 		expect(screen.queryByRole('link', { name: 'Unit settings' })).toBeNull();
-	});
-
-	it('opens the User Account profile from the account menu', async () => {
-		renderHeader();
-
-		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
-		await fireEvent.click(screen.getByRole('menuitem', { name: 'Account' }));
-
-		expect(goto).toHaveBeenCalledWith('/account/profile');
-	});
-
-	it('shows a leave organization action for non-owner members', async () => {
-		renderHeader({ userRole: 'member' });
-
-		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
-
-		expect(screen.getByRole('menuitem', { name: 'Leave Organization' })).toBeTruthy();
-	});
-
-	it('requires typed confirmation before a non-owner member can leave an organization', async () => {
-		renderHeader({ userRole: 'member' });
-
-		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
-		await fireEvent.click(screen.getByRole('menuitem', { name: 'Leave Organization' }));
-
-		expect(await screen.findByRole('dialog', { name: 'Leave Organization' })).toBeTruthy();
-		expect(screen.getByText(/Are you sure you wish to leave Test Org/)).toBeTruthy();
-		const confirmButton = screen.getByRole('button', { name: 'Leave Organization' });
-		expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
-		expect(screen.getByRole('textbox', { name: 'Type YES to confirm' })).toBeTruthy();
-		expect(screen.getByDisplayValue('membership-1').getAttribute('name')).toBe('membershipId');
-		expect(screen.getByDisplayValue('membership-1').closest('form')?.getAttribute('action')).toBe(
-			'/org/org-1?/leaveOrganization'
-		);
-
-		await fireEvent.input(screen.getByRole('textbox', { name: 'Type YES to confirm' }), {
-			target: { value: 'YES' }
-		});
-
-		expect((confirmButton as HTMLButtonElement).disabled).toBe(false);
-	});
-
-	it('shows leave organization for non-owner members even when membership payload is missing', async () => {
-		renderHeader({ userRole: 'member', membershipId: null });
-
-		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
-		await fireEvent.click(screen.getByRole('menuitem', { name: 'Leave Organization' }));
-
-		expect(
-			screen.getByText('We could not identify your organization membership. Refresh the page and try again.')
-		).toBeTruthy();
-		expect((screen.getByRole('button', { name: 'Leave Organization' }) as HTMLButtonElement).disabled).toBe(true);
-	});
-
-	it('shows a leave organization action for admins', async () => {
-		renderHeader({ userRole: 'admin' });
-
-		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
-
-		expect(screen.getByRole('menuitem', { name: 'Leave Organization' })).toBeTruthy();
-	});
-
-	it('does not show leave organization for owners', async () => {
-		renderHeader({ userRole: 'owner' });
-
-		await fireEvent.click(screen.getByRole('button', { name: /Account menu/i }));
-
-		expect(screen.queryByRole('menuitem', { name: 'Leave Organization' })).toBeNull();
 	});
 
 	it('keeps organization settings in the org switcher menu for admins', async () => {

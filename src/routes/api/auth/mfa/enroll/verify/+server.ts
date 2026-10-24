@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { MFA_ENROLLMENT_CODE_REJECTED_MESSAGE } from '$features/identity/contracts';
+import { MFA_CODE_REJECTED_MESSAGE } from '$features/identity/contracts';
 import { verifyIdentityMfaEnrollment } from '$features/identity/index.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		case 'no-factor':
 			return json({ error: 'No pending MFA enrollment found.' }, { status: 400 });
 		case 'denied':
-			return json({ error: MFA_ENROLLMENT_CODE_REJECTED_MESSAGE }, { status: 401 });
+			return json({ error: MFA_CODE_REJECTED_MESSAGE }, { status: 401 });
 		case 'unavailable':
 			return json({ error: 'Unable to confirm MFA enrollment. Try again.' }, { status: 503 });
 		case 'unauthorized':

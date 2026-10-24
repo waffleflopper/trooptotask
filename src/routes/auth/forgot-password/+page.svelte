@@ -1,11 +1,11 @@
 <script lang="ts">
+	import AuthButton from '$features/identity/AuthButton.svelte';
 	import AuthField from '$features/identity/AuthField.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 
 	let { form } = $props();
@@ -21,21 +21,22 @@
 
 <AuthShell
 	eyebrow="Credential Recovery"
-	title="Recover access without hunting through settings."
-	description="Password reset should be one short detour, not a second workflow to learn."
+	headline={['Locked out?', 'Reset it.']}
+	lede="One short detour. Enter your email and the reset link does the rest."
+	steps={{
+		label: 'How a reset works',
+		items: [
+			{ title: 'Ask for a link', detail: 'Use the email on your account.' },
+			{ title: 'Open the email', detail: 'Check spam if it is slow.' },
+			{ title: 'Choose a password', detail: 'Then sign in as usual.' }
+		]
+	}}
+	alternatives={[{ prompt: 'Remembered it?', label: 'Back to sign in', href: resolve('/auth/login') }]}
 	panelEyebrow="Recovery"
 	panelTitle={form?.success ? 'Check your email' : 'Reset your password'}
 	panelDescription={form?.success
 		? 'If the account exists, a reset link is on the way.'
 		: "Enter the email address tied to your account and we'll send a reset link."}
-	supportLabel="What happens next"
-	supportTitle="Check your email."
-	supportDescription="If the account exists, you'll receive a password reset link at that address."
-	supportPoints={[
-		'Open the reset link from your email to choose a new password.',
-		'After resetting, return here and sign in normally.',
-		'If nothing arrives, check your spam folder or ask your unit admin which email is on record.'
-	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if form?.success}
@@ -49,10 +50,6 @@
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
 
-			<p class="m-0 text-sm leading-relaxed text-muted-foreground">
-				If the account exists, you will receive a reset link at that address.
-			</p>
-
 			<form
 				method="POST"
 				use:enhance={() => {
@@ -64,7 +61,7 @@
 						(confirmation ?? document.getElementById('email'))?.focus();
 					};
 				}}
-				class="flex flex-col gap-5"
+				class="flex flex-col gap-8"
 			>
 				<AuthField
 					label="Email Address"
@@ -74,34 +71,11 @@
 					value={form?.email ?? ''}
 					error={emailError}
 					required
-					placeholder="you@example.com"
+					autocomplete="email"
 				/>
 
-				<div class="flex flex-col gap-3">
-					<Button type="submit" disabled={loading} class="w-full">
-						{#if loading}
-							<Spinner />
-							Sending Reset Link...
-						{:else}
-							Send Reset Link
-						{/if}
-					</Button>
-				</div>
+				<AuthButton {loading} loadingLabel="Sending Reset Link...">Send Reset Link</AuthButton>
 			</form>
 		{/if}
-
-		<div
-			class="flex items-center gap-4 font-mono text-[0.6875rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase"
-		>
-			<span class="h-px flex-1 bg-border"></span>
-			<span class="whitespace-nowrap">Remembered it?</span>
-			<span class="h-px flex-1 bg-border"></span>
-		</div>
-
-		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-			<p>
-				Back to <a href="/auth/login">sign in</a>.
-			</p>
-		</div>
 	</div>
 </AuthShell>

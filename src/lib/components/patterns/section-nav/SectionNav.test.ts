@@ -100,4 +100,23 @@ describe('patterns/section-nav SectionNav', () => {
 		expect(await within(side).findByRole('link', { name: 'Approvals count unavailable' })).toBeTruthy();
 		expect(await within(tabs).findByRole('link', { name: 'Approvals count unavailable' })).toBeTruthy();
 	});
+
+	it('posts a form action at every width', async () => {
+		render(SectionNav, {
+			props: {
+				label: 'Account',
+				groups: [{ label: 'Account', items: [{ label: 'Profile', href: '/org/alpha/account/profile' }] }],
+				actions: [{ label: 'Sign out', action: '/auth/logout' }]
+			}
+		});
+
+		const placements = ['section-nav', 'section-nav-actions'].map((slot) =>
+			within(document.querySelector<HTMLElement>(`[data-slot="${slot}"]`)!).getByRole('button', { name: 'Sign out' })
+		);
+		for (const signOut of placements) {
+			expect(signOut.getAttribute('type')).toBe('submit');
+			expect(signOut.closest('form')?.getAttribute('method')).toBe('POST');
+			expect(signOut.closest('form')?.getAttribute('action')).toBe('/auth/logout');
+		}
+	});
 });

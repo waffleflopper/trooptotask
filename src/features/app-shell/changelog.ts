@@ -7,6 +7,30 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-24-account-redesign',
+		date: '2026-10-24',
+		title: 'Your Account, Inside Your Unit',
+		items: [
+			"Your rank and name now sit at the foot of the sidebar. Choose them to open your account menu: Account, What's new, Send feedback and Sign out.",
+			'Account opens inside your unit, with the sidebar still there, so you never lose your place. Old Account links still work.',
+			'Sign-in & security changes your email, password or two-factor right where you are. A checklist under the new password shows each rule as you meet it, and Update password waits until every rule passes.',
+			"If two-factor isn't on yet, the account menu offers Turn on two-factor, which takes you straight to setup. It goes away once two-factor is on.",
+			'Your role in the unit shows at the top of the account menu. Leave unit is under Personnel records on your Profile.',
+			'If something looks off, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
+		id: '2026-10-24-sign-in-redesign',
+		date: '2026-10-24',
+		title: 'New Sign-In Pages and Two-Factor Setup',
+		items: [
+			'Sign in, Request access, password reset and the Account Setup pages have a new look. Every link and step works the same way.',
+			'Entering a two-factor code is faster. The cursor starts in the first box, pasting the whole code works, and the code submits as soon as the sixth digit is in. A rejected code is cleared as you type the next one.',
+			"Turning on two-factor now has its own page. If your phone can't scan the QR code, type the setup key shown beside it, or copy it with one click.",
+			'If something looks off, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-23-critical-tasks-defaults',
 		date: '2026-10-23',
 		title: 'Critical Tasks Defaults Moved to the Toolbar',

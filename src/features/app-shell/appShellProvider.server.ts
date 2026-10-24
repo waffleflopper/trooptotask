@@ -8,7 +8,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess, type OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
-import { loadUserOrgPreferences } from '$features/identity/index.server';
+import type { AccountProfileRead } from '$features/identity/contracts';
+import { loadUserOrgPreferences, loadUserProfile } from '$features/identity/index.server';
 import type {
 	AppShellDeferredChromePort,
 	AppShellFirstPaintChrome,
@@ -67,21 +68,28 @@ export function createSupabaseOrgAccessPort(config: {
 export function createSupabaseAppShellFirstPaintChromePort(config: {
 	orgId: string;
 	userId: string;
+	email: string | null;
+	hasTwoFactor: boolean | null;
 	userSupabase: SupabaseClient;
 	supabase: SupabaseClient;
 }): AppShellFirstPaintChromePort {
 	return {
 		async getFirstPaintChrome(): Promise<AppShellFirstPaintChrome> {
-			const [announcements, preferences] = await Promise.all([
+			const [announcements, preferences, profile] = await Promise.all([
 				loadActiveAnnouncements({
 					userId: config.userId,
 					userSupabase: config.userSupabase,
 					supabase: config.supabase
 				}),
-				loadFirstPaintPreferences(config)
+				loadFirstPaintPreferences(config),
+				loadFirstPaintProfile(config)
 			]);
 
-			return { announcements, preferences };
+			return {
+				announcements,
+				preferences,
+				account: { email: config.email, hasTwoFactor: config.hasTwoFactor, profile }
+			};
 		}
 	};
 }
@@ -129,6 +137,22 @@ async function loadFirstPaintPreferences(config: { orgId: string; userId: string
 	} catch (cause) {
 		console.error('[app-shell] Failed to load user preferences:', sanitizeErrorForLog(cause));
 		return getDefaultUserOrgPreferences();
+	}
+}
+
+async function loadFirstPaintProfile(config: {
+	userId: string;
+	userSupabase: SupabaseClient;
+}): Promise<AccountProfileRead> {
+	try {
+		const profile = await loadUserProfile({ supabase: config.userSupabase }, config.userId);
+		return {
+			status: 'loaded',
+			profile: profile && { rank: profile.rank, firstName: profile.firstName, lastName: profile.lastName }
+		};
+	} catch (cause) {
+		console.error('[app-shell] Failed to load user profile:', sanitizeErrorForLog(cause));
+		return { status: 'unavailable' };
 	}
 }
 

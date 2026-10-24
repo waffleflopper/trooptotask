@@ -1,0 +1,38 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createSupabaseCriticalTaskRosterSignals } from './criticalTaskRosterSignals.server';
+
+const TASK = {
+	id: 'airway',
+	task_code: 'A-001',
+	title: 'Airway',
+	mos: ['68W'],
+	expiration_months: 12
+};
+
+describe('createSupabaseCriticalTaskRosterSignals', () => {
+	it('builds each cohort member applicable tasks from the newest validation and the unit settings', async () => {
+		const slices = vi.fn(async () => ({
+			cohort: [
+				['a', '68W'],
+				['b', '68W'],
+				['c', '11B']
+			],
+			tasks: [TASK],
+			settings: { defaultExpirationMonths: 12, expiringSoonWarningDays: 30 },
+			completions: [['a', 'airway', '2025-10-25', '2025-10-25T08:00:00+00:00', 'SFC Lead']]
+		}));
+		const query = { asOf: '2026-10-23', personnelIds: null };
+		const read = await createSupabaseCriticalTaskRosterSignals(slices)(query);
+		expect(slices).toHaveBeenCalledWith('criticalTasks', query);
+		expect(
+			[...read].map(([id, readiness]) => [
+				id,
+				readiness.items.map((item) => [item.name, item.status, item.daysUntilExpiration])
+			])
+		).toEqual([
+			['a', [['Airway', 'expiring', 2]]],
+			['b', [['Airway', 'missing', null]]],
+			['c', []]
+		]);
+	});
+});

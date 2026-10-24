@@ -40,3 +40,4 @@ export { createSupabaseTrainingExportReader } from './server/trainingExportRead.
 
 export { createTrainingSupportReader } from './server/supportReadProvider.server';
 export { loadPersonnelTrainingReadiness } from './server/personnelTrainingItems.server';
+export { createSupabaseTrainingRosterSignals } from './server/trainingRosterSignals.server';

@@ -17,6 +17,7 @@ import {
 import {
 	createSupabaseTrainingExportReader,
 	createSupabaseTrainingCatalogPersistence,
+	createSupabaseTrainingRosterSignals,
 	createSupabaseTrainingCompletionPersistence,
 	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
@@ -28,12 +29,14 @@ import {
 	createSupabaseCalendarCatalogPersistence,
 	createSupabaseCalendarAvailabilityPersistence,
 	createSupabaseCalendarAssignmentReader,
+	createSupabaseRosterPresenceSignals,
 	createSupabaseStatusTypeNamesReader
 } from '$features/calendar/index.server';
 import {
 	createSupabaseCriticalTasksExportReader,
 	createSupabaseCriticalTasksReadModelAdapter,
 	createSupabaseCriticalTaskLibraryPersistence,
+	createSupabaseCriticalTaskRosterSignals,
 	createSupabaseCriticalTaskCompletionPersistence
 } from '$features/critical-tasks/index.server';
 import { listFeedbackExportRows } from '$features/feedback/index.server';
@@ -56,6 +59,11 @@ import {
 	createSupabasePersonnelNamesReader,
 	createSupabasePersonnelRosterReader,
 	createSupabasePersonnelRecordPersistence,
+	createSupabaseRosterCounselingSignals,
+	createSupabaseRosterFollowUpSignals,
+	createSupabaseRosterSignalSlices,
+	resolveSignalAccess,
+	type RosterSignalSources,
 	createSupabasePersonnelArtifactReadPersistence,
 	createSupabasePersonnelSheetPersistence,
 	createSupabasePersonnelWorkbookHistoryReader,
@@ -76,7 +84,8 @@ import {
 import {
 	createSupabaseRatingSchemeExportReader,
 	createSupabaseRatingSchemeDuePort,
-	createSupabaseRatingSchemePersistence
+	createSupabaseRatingSchemePersistence,
+	createSupabaseRatingSchemeRosterSignals
 } from '$features/rating-scheme/index.server';
 import {
 	createSupabaseSignInRosterPersistence,
@@ -479,6 +488,22 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		disabledFeatures: request.disabledFeatures
 	};
+}
+
+/** The roster signals lane: which sources the viewer may read, and one reader per source. */
+export function createRequestRosterSignalsContext(request: AdmittedOrganizationRequest) {
+	const { supabase, auth } = request;
+	const access = resolveSignalAccess(auth, request.disabledFeatures);
+	const slices = createSupabaseRosterSignalSlices(supabase, auth.orgId, access);
+	const sources: RosterSignalSources = {
+		availability: createSupabaseRosterPresenceSignals(slices),
+		training: createSupabaseTrainingRosterSignals(slices),
+		criticalTasks: createSupabaseCriticalTaskRosterSignals(slices),
+		evaluations: createSupabaseRatingSchemeRosterSignals(slices),
+		followUps: createSupabaseRosterFollowUpSignals(slices),
+		counseling: createSupabaseRosterCounselingSignals(slices)
+	};
+	return { access, sources };
 }
 
 export function createRequestPersonnelArchivedArtifactsContext(request: AdmittedOrganizationRequest) {

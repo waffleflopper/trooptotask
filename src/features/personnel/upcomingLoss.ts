@@ -6,6 +6,7 @@
  * Dashboard, personnel, and calendar surfaces should all consume this instead of
  * duplicating date-threshold arithmetic.
  */
+import { toDayNumber } from '$lib/utils/dayNumber';
 import type { Personnel } from './personnel.types';
 
 export type LossTriggerType = 'ETS' | 'PCS / DEROS';
@@ -33,9 +34,7 @@ export interface UpcomingLossRecord {
 
 /** Negative when `to` is in the past relative to `from`. */
 function calendarDaysBetween(from: string, to: string): number {
-	const fromMs = new Date(from + 'T00:00:00').getTime();
-	const toMs = new Date(to + 'T00:00:00').getTime();
-	return Math.round((toMs - fromMs) / (1000 * 60 * 60 * 24));
+	return toDayNumber(to) - toDayNumber(from);
 }
 
 export function isInLossWindow(date: string | null | undefined, today: string, warningWindowDays: number): boolean {

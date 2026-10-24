@@ -98,6 +98,7 @@ export { withCalendarTiming } from './calendarTiming.server';
 export { createSupabaseCalendarExportReader } from './calendarExportRead.server';
 
 export { effectiveRosterFormStart } from './roster/rosterFormStart';
+export { createSupabaseRosterPresenceSignals } from './rosterPresenceSignals.server';
 
 export { previewRosterSwap, commitRosterSwap, undoRosterSwap } from './rosterSwapOperations.server';
 export { createSupabaseRosterSwapPersistence } from './rosterSwapPersistence.server';

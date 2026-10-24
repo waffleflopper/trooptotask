@@ -24,6 +24,7 @@ vi.mock('$features/app-shell', () => ({
 import Layout from './+layout.svelte';
 import Page from './+page.svelte';
 import RouteHarness from '$features/personnel/test-support/PersonnelRouteTestHarness.svelte';
+import { openToolbarMore } from '$lib/test-support/toolbarWidths';
 
 const alpha = person('alpha', 'Alpha');
 const bravo = person('bravo', 'Bravo');
@@ -80,7 +81,12 @@ function workspace(orgId: string, rows: Personnel[]): PersonnelWorkspaceResult {
 }
 
 function routeData(orgId: string, data: PersonnelWorkspaceResult | Promise<PersonnelWorkspaceResult>) {
-	return { shell: { org: { id: orgId, name: `Unit ${orgId}` } }, personnel: { data } };
+	return {
+		shell: { org: { id: orgId, name: `Unit ${orgId}` } },
+		personnel: { data },
+		asOf: '2026-10-23',
+		rosterSignals: new Promise(() => {})
+	};
 }
 
 // The Organization layout owns workspace hydration; this public boundary supplies
@@ -91,7 +97,9 @@ function hydrate(orgId: string, rows: Personnel[]) {
 }
 
 async function select(labels: string[]) {
-	await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+	const menu = await openToolbarMore('Personnel controls');
+	await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Archive' }));
+	await screen.findByRole('toolbar', { name: 'Bulk archive controls' });
 	for (const name of labels) await fireEvent.click(screen.getByRole('checkbox', { name }));
 }
 
@@ -111,11 +119,14 @@ async function settle(promise: Promise<unknown>) {
 }
 
 beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date(2026, 9, 23, 12));
 	personnelWorkspaceHydrator.reset();
 	navigation.invalidate.mockResolvedValue(undefined);
 });
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	hydrate('reset', []);
 	vi.unstubAllGlobals();
 	vi.resetAllMocks();

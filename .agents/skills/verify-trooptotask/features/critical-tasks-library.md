@@ -71,12 +71,12 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
    A's active Alpha and All-MOS task codes, Alpha and Bravo Personnel, and no archived or foreign task code. Open the
    visible `Reports` link and require the readiness summary to show the same active task codes. As `ictScoped`, expect
    only Alpha Personnel in the matrix; as `ictForeign`, expect only Organization B's Person and task. As `orgOwner`,
-   open Personnel, choose Able's `Details`, open its Readiness tab, and expect the Critical tasks table to read
-   `1 of 2 ready` (50%). A Personnel `manager` without Critical Tasks access must not see that readiness value on the
-   same tab. Open Able's matrix row and expect the individual record to retain the Alpha completion's date, expiration
-   and Demonstration method, while the All-MOS task is not recorded. Capture the loaded matrix, individual record,
-   report and Personnel Readiness tab, then revisit the library to confirm Active and Archived still separate after
-   reload. This journey does not replace completion-write checks.
+   open Personnel, choose Able's row, open its Readiness tab, and expect the Critical tasks table to read `1 of 2 ready`
+   (50%). A Personnel `manager` without Critical Tasks access must not see that readiness value on the same tab. Open
+   Able's matrix row and expect the individual record to retain the Alpha completion's date, expiration and
+   Demonstration method, while the All-MOS task is not recorded. Capture the loaded matrix, individual record, report
+   and Personnel Readiness tab, then revisit the library to confirm Active and Archived still separate after reload.
+   This journey does not replace completion-write checks.
 3. **Create and edit:** Use `New Task` to enter a unique code and title, category, comma-separated MOS values,
    expiration and sort order, then `Create Task`. Expect the new code and normalized values in the selected details.
    Reload; find the same ID with `$V rows ict_tasks orgA task_code CODE`. Edit its title and expiration, save, reload,
@@ -178,9 +178,9 @@ Critical Tasks access. Use `orgOwner` to confirm unrelated Organization policies
    before other work. These controls match this worker's table and method, not a particular row or Organization; drive
    one mutation at a time.
 
-   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed.
-   Only confirmed records merge into the task library. Done counts the unconfirmed rows separately, leaves confirmed
-   rows out of the not-imported workbook, and marks later chunks Not attempted without sending them.
+   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed. Only
+   confirmed records merge into the task library. Done counts the unconfirmed rows separately, leaves confirmed rows out
+   of the not-imported workbook, and marks later chunks Not attempted without sending them.
 
    **Lost browser batch reply.** Use `$V network arm-drop PAGE ict-tasks/batch [ORDINAL]` before Import. This dispatches
    the real exact same-origin A POST, records its status, then rejects the browser reply once. Done counts the affected

@@ -25,6 +25,7 @@ function makePerson(overrides: Partial<Personnel> = {}): Personnel {
 function makeData(overrides: Record<string, unknown> = {}) {
 	return {
 		orgId: 'org1',
+		asOf: '2026-04-14',
 		orgName: 'Test Org',
 		pinnedGroups: [] as string[],
 		personnel: [] as Personnel[],
@@ -457,21 +458,20 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('upcomingLossMap', () => {
-		const TODAY = '2026-04-14';
-		// 48 days from TODAY — well within 180-day default window
+		// 48 days from asOf 2026-04-14 — well within 180-day default window
 		const IN_WINDOW = '2026-06-01';
-		// 382 days from TODAY — beyond any reasonable default window
+		// 382 days from asOf — beyond any reasonable default window
 		const OUT_OF_WINDOW = '2027-05-01';
 
 		it('returns an empty map when no personnel have tracked dates', () => {
 			const people = [makePerson({ id: 'p1', ets: null, deros: null })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 		});
 
 		it('includes a person whose ETS is within the warning window', () => {
 			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('ETS');
@@ -479,7 +479,7 @@ describe('PersonnelPageContext', () => {
 
 		it('includes a person whose DEROS is within the warning window', () => {
 			const people = [makePerson({ id: 'p1', deros: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('PCS / DEROS');
@@ -488,74 +488,46 @@ describe('PersonnelPageContext', () => {
 		it('shows no loss flags when the unit turns Losses and awards off', () => {
 			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
 			const data = makeData({ disabledFeatures: ['lossesAndAwards'] });
-			const ctx = new PersonnelPageContext(data, makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(data, makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 			expect(ctx.lossWarningsUnavailable).toBe(false);
 		});
 
 		it('excludes a person whose ETS falls outside the warning window', () => {
 			const people = [makePerson({ id: 'p1', ets: OUT_OF_WINDOW })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(false);
 		});
 
 		it('returns an empty map when personnel array is empty', () => {
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), [], [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), []);
 			expect(ctx.upcomingLossMap.size).toBe(0);
 		});
 
 		it('respects a custom lossWarningWindowDays from page data', () => {
 			// ETS 17 days from today — inside 180d default but outside 10d custom window
 			const people = [makePerson({ id: 'p1', ets: '2026-05-01' })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: 10 }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: 10 }), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(false);
 		});
 
 		it('includes a person when lossWarningWindowDays is wide enough to cover their ETS', () => {
 			// ETS 17 days from today — inside a 30-day custom window
 			const people = [makePerson({ id: 'p1', ets: '2026-05-01' })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: 30 }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: 30 }), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(true);
 		});
 
 		it('shows no loss flags and reports warnings unavailable when the window could not be read', () => {
 			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: null }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: null }), makeModals(), makeOrg(), people);
 			expect([...ctx.upcomingLossMap.keys()]).toEqual([]);
 			expect(ctx.lossWarningsUnavailable).toBe(true);
 		});
 
 		it('flags an ETS 60 days out but not 61 under a stored 60-day window', () => {
 			const people = [makePerson({ id: 'day-60', ets: '2026-06-13' }), makePerson({ id: 'day-61', ets: '2026-06-14' })];
-			const ctx = new PersonnelPageContext(
-				makeData({ lossWarningWindowDays: 60 }),
-				makeModals(),
-				makeOrg(),
-				people,
-				[],
-				TODAY
-			);
+			const ctx = new PersonnelPageContext(makeData({ lossWarningWindowDays: 60 }), makeModals(), makeOrg(), people);
 			expect([...ctx.upcomingLossMap.keys()]).toEqual(['day-60']);
 			expect(ctx.lossWarningsUnavailable).toBe(false);
 		});
@@ -563,7 +535,7 @@ describe('PersonnelPageContext', () => {
 		it('uses 180 days as default window when lossWarningWindowDays is not in page data', () => {
 			// ETS 120 days from today — inside 180-day default
 			const people = [makePerson({ id: 'p1', ets: '2026-08-12' })];
-			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], TODAY);
+			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(true);
 		});
 
@@ -573,9 +545,7 @@ describe('PersonnelPageContext', () => {
 				makeData({ awardTrackingAcknowledgedPersonnelIds: ['p1'] }),
 				makeModals(),
 				makeOrg(),
-				people,
-				[],
-				TODAY
+				people
 			);
 			const record = ctx.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();

@@ -13,6 +13,8 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 import { settles } from '$lib/test-support/settles';
+import { RosterSignals } from '../rosterSignals.svelte';
+import type { PersonSignalCore, RosterSignalRead, SignalAccess } from '../rosterSignals';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
@@ -109,6 +111,7 @@ describe('scoped Personnel creation', () => {
 		const ctx = new PersonnelPageContext(
 			{
 				orgId: 'org-a',
+				asOf: '2026-10-23',
 				orgName: 'A',
 				pinnedGroups: [],
 				rankCatalog: [
@@ -231,7 +234,7 @@ describe('retired Personnel save feedback', () => {
 		const success = vi.spyOn(toastStore, 'success').mockReturnValue('synthetic-success');
 		const modalsA = new ModalRegistry();
 		const ctxA = new PersonnelPageContext(
-			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog },
+			{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [], rankCatalog },
 			modalsA,
 			access('configure'),
 			personnelStore
@@ -249,7 +252,7 @@ describe('retired Personnel save feedback', () => {
 		personnelStore.load([personB], 'org-b');
 		const modalsB = new ModalRegistry();
 		const ctxB = new PersonnelPageContext(
-			{ orgId: 'org-b', orgName: 'B', pinnedGroups: [], rankCatalog },
+			{ orgId: 'org-b', asOf: '2026-10-23', orgName: 'B', pinnedGroups: [], rankCatalog },
 			modalsB,
 			access('view'),
 			personnelStore
@@ -310,7 +313,7 @@ describe('rejected Personnel and Group save feedback', () => {
 		const error = vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
 		const modals = new ModalRegistry();
 		const ctx = new PersonnelPageContext(
-			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog },
+			{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [], rankCatalog },
 			modals,
 			createClientAccess({
 				membershipRole: 'member',
@@ -362,5 +365,100 @@ describe('rejected Personnel and Group save feedback', () => {
 		expect(screen.getByDisplayValue(name)).toBeTruthy();
 		expect(groupsStore.items).toEqual(groups);
 		expect(requests).toEqual(status ? [name] : []);
+	});
+});
+
+describe('Needs attention after a Personnel edit', () => {
+	const AS_OF = '2026-10-23';
+	const ACCESS: SignalAccess = {
+		availability: false,
+		training: true,
+		criticalTasks: false,
+		evaluations: false,
+		followUps: false,
+		counseling: false
+	};
+	const person: Personnel = {
+		id: 'person-a',
+		slug: 'synthetic-alpha',
+		rank: 'SPC',
+		firstName: 'Synthetic',
+		lastName: 'Alpha',
+		mos: '68W',
+		clinicRole: 'Medic',
+		ets: null,
+		deros: null,
+		groupId: null,
+		groupName: '',
+		archivedAt: null
+	};
+	const core = (attention: PersonSignalCore['attention']): PersonSignalCore => ({
+		personnelId: 'person-a',
+		today: { kind: 'withheld' },
+		attention,
+		matches: {},
+		openFollowUps: { kind: 'withheld' }
+	});
+	const missingTraining: PersonSignalCore['attention'] = {
+		kind: 'known',
+		value: {
+			kind: 'attention',
+			first: { kind: 'training', status: 'missing', title: 'Combat Lifesaver', days: null },
+			otherCount: 0,
+			worst: 'amber'
+		}
+	};
+	const clear: PersonSignalCore['attention'] = { kind: 'known', value: { kind: 'clear' } };
+	const read = (people: PersonSignalCore[]): RosterSignalRead => ({
+		asOf: AS_OF,
+		access: ACCESS,
+		statusTypes: [],
+		people
+	});
+
+	async function openEditor() {
+		groupCatalogHydration.load([], 'org-a');
+		personnelStore.load([person], 'org-a');
+		const readPeople = vi.fn(async (_orgId: string, _ids: string[]) => read([core(clear)]));
+		const signals = new RosterSignals({ readPeople, invalidate: async () => {}, browserDay: () => AS_OF });
+		signals.observe('org-a', AS_OF, Promise.resolve(read([core(missingTraining)])));
+		await settles(Promise.resolve());
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const modals = new ModalRegistry();
+		const ctx = new PersonnelPageContext(
+			{ orgId: 'org-a', asOf: AS_OF, orgName: 'A', pinnedGroups: [], rankCatalog: [] },
+			modals,
+			createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
+				scopeSet: { kind: 'organization' }
+			}),
+			personnelStore,
+			[],
+			signals
+		);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url, init) => Response.json({ ...person, ...JSON.parse(init.body) }))
+		);
+		modals.open('personnel-modal', { person });
+		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
+		return { ctx, modals, readPeople };
+	}
+
+	it('rereads that Person when the saved MOS changes what applies, and only then', async () => {
+		const { ctx, modals, readPeople } = await openEditor();
+		expect(ctx.signalRow(person)).toMatchObject({ kind: 'ready', value: { attention: missingTraining } });
+
+		await fireEvent.input(screen.getByLabelText('First Name'), { target: { value: 'Renamed' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		await waitFor(() => expect(modals.isOpen('personnel-modal')).toBe(false));
+		expect(readPeople).not.toHaveBeenCalled();
+
+		modals.open('personnel-modal', { person: personnelStore.getById('person-a')! });
+		await fireEvent.input(await screen.findByLabelText('MOS / Job Title'), { target: { value: '11B' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		await waitFor(() => expect(readPeople).toHaveBeenCalledExactlyOnceWith('org-a', ['person-a']));
+		await waitFor(() => expect(ctx.signalRow(person)).toMatchObject({ kind: 'ready', value: { attention: clear } }));
 	});
 });

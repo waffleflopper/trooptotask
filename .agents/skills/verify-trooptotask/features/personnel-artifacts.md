@@ -33,7 +33,7 @@ retained history through archive, restore, export and scheduled retention.
 
 ## How to get to it (user POV)
 
-Choose Personnel, find a Soldier and select Details. The record header names the Person and holds Edit,
+Choose Personnel, find a Soldier and choose the Soldier's row. The record header names the Person and holds Edit,
 `More Personnel record` (Export records, Archive) and `Add to record`; the tabs below it are Overview, Readiness, Log,
 Files, Data sheet and Archived. Overview provides Follow-up, Counseling PDF, Document and Leader note forms and
 recent-item previews. Use Show all, or Log (follow-ups and notes) and Files (counselings and documents), for their

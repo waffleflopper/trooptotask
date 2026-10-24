@@ -81,7 +81,10 @@ export function ictCompletionKey(personnelId: string, ictTaskId: string): string
 	return `${personnelId}:${ictTaskId}`;
 }
 
-export function compareIctCompletionRecency(a: PersonnelIctCompletion, b: PersonnelIctCompletion): number {
+export function compareIctCompletionRecency(
+	a: Pick<PersonnelIctCompletion, 'completedAt' | 'createdAt'>,
+	b: Pick<PersonnelIctCompletion, 'completedAt' | 'createdAt'>
+): number {
 	const completedAtDiff = a.completedAt.localeCompare(b.completedAt);
 	if (completedAtDiff !== 0) {
 		return completedAtDiff;

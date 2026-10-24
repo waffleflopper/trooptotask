@@ -19,9 +19,10 @@ values, accessible descriptions and focus restoration must survive changes to th
 
 ## How to get to it (user POV)
 
-In Personnel, use a named row's Edit or Archive button. Edit contains ETS and PCS / DEROS date pickers. Import opens the
-file preview with validation hints. Toggle Sidebar collapses desktop navigation; its icon links and the header theme
-button expose tooltip labels. An admitted platform administrator uses the same sidebar on Admin screens.
+In Personnel, use a named row's `Quick edit` button; its dialog holds `Archive` and the ETS and PCS / DEROS date
+pickers. Import opens the file preview with validation hints. Toggle Sidebar collapses desktop navigation; its icon
+links and the header theme button expose tooltip labels. An admitted platform administrator uses the same sidebar on
+Admin screens.
 
 ## Helper controls
 
@@ -126,13 +127,13 @@ no print-media option.
 3. For each app-selected theme, repeat representative captures at about 1280 by 800 and 390 by 844. At narrow width
    inspect the mobile drawer and content overflow. Use the wide control before resizing if a theme control is
    unavailable at narrow width. The same source, fixtures and role/scope must drive baseline and final captures.
-4. As `manager`, open a Personnel row's Edit dialog and retain its original Last Name. Replace that field with one space
-   and press Save: the native required check permits nonempty whitespace, while the app rejects the trimmed name before
-   writing. Read the real `#lastName[aria-invalid="true"]` and its resolving `aria-describedby` error, **Enter a last
-   name.** Capture unfocused and Tab-focused states, then Cancel and verify the original row is unchanged. Keep the
-   invalid Personnel import preview capture separately: its labelled `Row <n> <column>` error/warning inputs use
-   explicit status classes and do not prove the primitive Input's own invalid variant. Record labels, error
-   associations, focus and cancellation; do not import invalid rows.
+4. As `manager`, open a Personnel row's `Quick edit` dialog and retain its original Last Name. Replace that field with
+   one space and press Save: the native required check permits nonempty whitespace, while the app rejects the trimmed
+   name before writing. Read the real `#lastName[aria-invalid="true"]` and its resolving `aria-describedby` error,
+   **Enter a last name.** Capture unfocused and Tab-focused states, then Cancel and verify the original row is
+   unchanged. Keep the invalid Personnel import preview capture separately: its labelled `Row <n> <column>`
+   error/warning inputs use explicit status classes and do not prove the primitive Input's own invalid variant. Record
+   labels, error associations, focus and cancellation; do not import invalid rows.
 5. Capture a real success toast through the [Feedback journey](notifications-feedback.md#driving-it-with-verifyapp),
    with the app theme opposite the emulated system preference. Preserve the action and transient rendered toast before
    dismissal. An in-app SvelteKit navigation keeps the feedback observer; save `feedback state`, then run

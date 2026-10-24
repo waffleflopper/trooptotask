@@ -37,13 +37,33 @@ export interface PersonnelPageAccess {
 import type { FileCleanup, OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
 import { isDateOnly } from '$lib/utils/dates';
-import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
+import { DATE_ONLY_MESSAGE, uuidSchema } from '$lib/utils/inputSchemas';
 import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { LossCandidate } from './upcomingLoss';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
+import { ROSTER_SIGNAL_BATCH_LIMIT } from './rosterSignals';
 
-export type { Personnel, PersonnelLookup } from './personnel.types';
+export type { Personnel, PersonnelLookup, PersonnelRequirementPerson } from './personnel.types';
+export { PERSONNEL_SIGNALS_DEPENDENCY, ROSTER_SIGNAL_BATCH_LIMIT } from './rosterSignals';
+export type {
+	Known,
+	OpenFollowUp,
+	OpenFollowUpSignal,
+	PersonSignalCore,
+	RosterChip,
+	RosterFilter,
+	RosterSignalRead,
+	RosterSignalSlices,
+	RosterSignalSummary,
+	RosterSourceQuery,
+	RosterSourceRead,
+	RosterStatusType,
+	SignalAccess,
+	SignalRow,
+	SummaryState,
+	TodayStatus
+} from './rosterSignals';
 
 // Failures the Personnel forms attach to one field. Servers emit and forms match these exact strings.
 export const PERSONNEL_LAST_NAME_REQUIRED_MESSAGE = 'Last name is required';
@@ -565,3 +585,8 @@ export type {
 	FollowUpRow,
 	LeaderNoteRow
 } from './personnelArtifactPersistence';
+
+export const rosterSignalsRequestSchema = z.object({
+	personnelIds: z.array(uuidSchema).min(1).max(ROSTER_SIGNAL_BATCH_LIMIT)
+});
+export type RosterSignalsRequest = z.infer<typeof rosterSignalsRequestSchema>;

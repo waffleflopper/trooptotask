@@ -36,11 +36,11 @@ archives or restores a record while keeping its identity, permissions and retain
 
 ## How to get to it (user POV)
 
-Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row's `Edit` or `Details`, or `Import`. The
-import page steps through File, Columns, Review and Done; browser Back steps back through them. Archive from the named
-roster row, its Edit dialog, its detail page's `More Personnel record` menu, or the roster's `Archive` selection mode.
-An Organization owner/admin restores records through Settings → `Archives`; archive requests appear under Settings →
-`Approvals`. The reverse creation path is Onboard → `Start Onboarding` → `Add Person`.
+Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row (it opens the record) or its
+`Quick edit`, or `Import`. The import page steps through File, Columns, Review and Done; browser Back steps back through
+them. Archive from the named row's `Quick edit` dialog, its detail page's `More Personnel record` menu, or the roster's
+`Archive` selection mode. An Organization owner/admin restores records through Settings → `Archives`; archive requests
+appear under Settings → `Approvals`. The reverse creation path is Onboard → `Start Onboarding` → `Add Person`.
 
 ## Helper controls
 
@@ -288,18 +288,18 @@ the probe read the same IDs and compare explicit submitted fields. `$V rows pers
    column. Below 1024 px the rail stacks above the rows in focus order, and at 390 the rows become cards. No width
    scrolls the page sideways.
 6. **Single archive, exact cascade and visible restore:** Preserve parent and all nine artifact rows. As manager,
-   archive the dedicated parent from its named roster icon and confirm Archive Personnel. A pre-request `personnel`
-   failure must leave parent/artifacts unchanged with useful feedback; restore and retry. Capture absence from active
-   Personnel after reload and the saved parent timestamp T. Active note/counseling/document and followOpen must now have
-   archived_at exactly T; followOpen becomes archived. noteArchived/counselingArchived/documentArchived/followArchived
-   keep the literal August timestamp; followCompleted remains completed with its original completed_at and null
-   archived_at. IDs, Person references and unrelated rows stay unchanged. As orgOwner, open Settings → Archives, locate
-   this parent and Restore. Require absence from Archives and return to the active roster after reload, original
-   ID/slug/rank/Group/dates, null parent/archive-owned artifact timestamps and open followOpen. Independently archived
-   rows stay archived; followCompleted stays completed. A repeated restore of an active Person may reject with 400 and
-   must change no row. Separately replay the authorized single archive request before restore: it must not replace the
-   original event timestamp or strand the earlier cascade on restore. A changed timestamp or stranded artifact is a
-   failure. This API replay is not another UI archive journey.
+   archive the dedicated parent from its row's `Quick edit` dialog `Archive` and confirm Archive Personnel. A
+   pre-request `personnel` failure must leave parent/artifacts unchanged with useful feedback; restore and retry.
+   Capture absence from active Personnel after reload and the saved parent timestamp T. Active note/counseling/document
+   and followOpen must now have archived_at exactly T; followOpen becomes archived.
+   noteArchived/counselingArchived/documentArchived/followArchived keep the literal August timestamp; followCompleted
+   remains completed with its original completed_at and null archived_at. IDs, Person references and unrelated rows stay
+   unchanged. As orgOwner, open Settings → Archives, locate this parent and Restore. Require absence from Archives and
+   return to the active roster after reload, original ID/slug/rank/Group/dates, null parent/archive-owned artifact
+   timestamps and open followOpen. Independently archived rows stay archived; followCompleted stays completed. A
+   repeated restore of an active Person may reject with 400 and must change no row. Separately replay the authorized
+   single archive request before restore: it must not replace the original event timestamp or strand the earlier cascade
+   on restore. A changed timestamp or stranded artifact is a failure. This API replay is not another UI archive journey.
 7. **Other archive entry points, bulk and approval:** On separate temporary People, exercise Edit → Archive and detail →
    `More Personnel record` → Archive, confirming saved absence after reload. For bulk, restore the dedicated parent
    first and select it plus duplicateAlpha through the roster Archive mode. Require both IDs archived, one shared

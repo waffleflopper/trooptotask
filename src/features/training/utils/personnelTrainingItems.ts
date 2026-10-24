@@ -1,10 +1,10 @@
-import type { Personnel } from '$features/personnel/contracts';
+import type { PersonnelRequirementPerson } from '$features/personnel/contracts';
 import { compareReadinessItems, type ReadinessItemStatus } from '$lib/domain/readinessItem';
 import type {
 	PersonnelTraining,
 	TrainingCompletionHistoryEntry,
-	TrainingStatus,
-	TrainingType
+	TrainingRequirementFacts,
+	TrainingStatus
 } from '../training.types';
 import { isTrainingApplicable } from './applicability';
 import { getTrainingStatus } from './trainingStatus';
@@ -16,7 +16,10 @@ export type TrainingApplicability =
 	| { kind: 'role'; role: string }
 	| { kind: 'rank'; rank: string };
 
-export interface PersonnelTrainingItem {
+/** The completion fields readiness reads; the roster lane fetches only these. */
+export type TrainingCompletionFacts = Pick<PersonnelTraining, 'trainingTypeId' | 'completionDate' | 'expirationDate'>;
+
+export interface PersonnelTrainingItem<C extends TrainingCompletionFacts = PersonnelTraining> {
 	typeId: string;
 	name: string;
 	status: ReadinessItemStatus;
@@ -25,16 +28,16 @@ export interface PersonnelTrainingItem {
 	expirationDateOnly: boolean;
 	canBeExempted: boolean;
 	applicability: TrainingApplicability;
-	completion: PersonnelTraining | null;
+	completion: C | null;
 	/** Superseded completions, most recent completion first. */
 	history: TrainingCompletionHistoryEntry[];
 }
 
-export interface PersonnelTrainingReadiness {
+export interface PersonnelTrainingReadiness<C extends TrainingCompletionFacts = PersonnelTraining> {
 	personnelId: string;
 	mos: string;
 	/** Required items, ranked expired, missing, expiring, then current by soonest expiry. */
-	items: PersonnelTrainingItem[];
+	items: PersonnelTrainingItem<C>[];
 	notRequiredCount: number;
 	exemptCount: number;
 }
@@ -47,7 +50,7 @@ const ITEM_STATUS: Partial<Record<TrainingStatus, ReadinessItemStatus>> = {
 	current: 'current'
 };
 
-function applicabilityFor(type: TrainingType, person: Personnel): TrainingApplicability {
+function applicabilityFor(type: TrainingRequirementFacts, person: PersonnelRequirementPerson): TrainingApplicability {
 	if (type.appliesToMos.includes(person.mos)) return { kind: 'mos', mos: person.mos };
 	if (type.appliesToRoles.includes(person.clinicRole)) return { kind: 'role', role: person.clinicRole };
 	const rank = person.rank.trim();
@@ -59,17 +62,17 @@ function historyKey(row: TrainingCompletionHistoryEntry): string {
 	return `${row.completionDate ?? row.expirationDate ?? ''}|${row.supersededAt}`;
 }
 
-function isExempt(type: TrainingType, person: Personnel): boolean {
+function isExempt(type: TrainingRequirementFacts, person: PersonnelRequirementPerson): boolean {
 	return type.canBeExempted && type.exemptPersonnelIds.includes(person.id);
 }
 
-export function buildPersonnelTrainingReadiness(input: {
-	person: Personnel;
-	types: TrainingType[];
-	completions: PersonnelTraining[];
-	history: TrainingCompletionHistoryEntry[];
+export function buildPersonnelTrainingReadiness<C extends TrainingCompletionFacts = PersonnelTraining>(input: {
+	person: PersonnelRequirementPerson;
+	types: readonly TrainingRequirementFacts[];
+	completions: readonly C[];
+	history: readonly TrainingCompletionHistoryEntry[];
 	asOf: string;
-}): PersonnelTrainingReadiness {
+}): PersonnelTrainingReadiness<C> {
 	const { person, types, asOf } = input;
 	const completionByType = new Map(input.completions.map((row) => [row.trainingTypeId, row]));
 	const historyByType = new Map<string, TrainingCompletionHistoryEntry[]>();
@@ -78,7 +81,7 @@ export function buildPersonnelTrainingReadiness(input: {
 	}
 	let notRequiredCount = 0;
 	let exemptCount = 0;
-	const items: PersonnelTrainingItem[] = [];
+	const items: PersonnelTrainingItem<C>[] = [];
 
 	for (const type of types) {
 		if (isExempt(type, person)) {

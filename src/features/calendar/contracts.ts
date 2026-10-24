@@ -693,3 +693,5 @@ export interface CalendarAvailabilityRemovalPort {
 
 export type { CalendarSupportReader } from './supportReadTypes';
 export type { AssignmentSource } from './roster/rosterTypes';
+
+export { compareOverlappingEntries, shownEntryByPerson, sortedStatusTypes } from './dayStatuses';

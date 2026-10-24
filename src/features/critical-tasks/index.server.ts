@@ -28,3 +28,4 @@ export {
 } from './server/criticalTasksReportsQuery.server';
 
 export { createSupabaseCriticalTasksExportReader } from './server/criticalTasksExportRead.server';
+export { createSupabaseCriticalTaskRosterSignals } from './server/criticalTaskRosterSignals.server';

@@ -3,15 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import PinIcon from '@lucide/svelte/icons/pin';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import * as Alert from '$lib/components/ui/alert';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import * as Empty from '$lib/components/ui/empty/index.js';
-	import { Toggle } from '$lib/components/ui/toggle';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import {
@@ -21,17 +17,20 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
-	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick } from 'svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import PersonnelGroupHeader from './roster/PersonnelGroupHeader.svelte';
+	import PersonnelRosterHeader from './roster/PersonnelRosterHeader.svelte';
+	import PersonnelRosterRow from './roster/PersonnelRosterRow.svelte';
+	import { personnelToolbarItems } from './roster/personnelToolbarItems';
+	import type { RosterRowControls } from './roster/rosterRow';
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		requestArchiveApproval: RequestPersonnelArchiveApproval;
 	}
 
-	let { ctx, requestArchiveApproval }: Props = $props();
+	let { ctx }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 	let active = true;
 	onDestroy(() => {
@@ -40,15 +39,8 @@
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const rosterViewOptions = [
-		{ value: 'alphabetical', label: 'A-Z' },
-		{ value: 'by-group', label: 'Group' }
-	];
 	const canViewRoster = $derived(ctx.canViewRoster);
-	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
-	const canImportPersonnel = $derived(ctx.canImportPersonnel);
-	const canManageGroups = $derived(ctx.canManageGroups);
 	let locallyArchivedIds = new SvelteSet<string>();
 	const visibleAllActivePersonnel = $derived(
 		ctx.allActivePersonnel.filter((person) => !locallyArchivedIds.has(person.id))
@@ -63,34 +55,56 @@
 		visibleAllActivePersonnel.some((person) => ctx.canArchivePersonnelRecord(person))
 	);
 
+	$effect(() => {
+		const ids = visibleAllActivePersonnel.map((person) => person.id);
+		if (ctx.signals.status === 'ready') ctx.signals.ensure(ids);
+	});
+
 	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
 		const columns: ColumnDef<Personnel>[] = [
-			{ key: 'rank', header: 'Rank', value: (p) => p.rank },
+			{
+				key: 'status',
+				header: '',
+				headerAriaLabel: 'Status today',
+				value: () => '',
+				searchable: false,
+				sortable: false,
+				width: '28px'
+			},
+			{ key: 'rank', header: 'Rank', value: (p) => p.rank, width: '64px', hiddenBelow: '@3xl' },
 			{
 				key: 'name',
 				header: 'Name',
 				value: (p) => `${p.lastName}, ${p.firstName}`,
 				compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
 			},
-			{ key: 'mos', header: 'MOS', value: (p) => p.mos },
-			{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole },
-			{ key: 'group', header: 'Group', value: (p) => p.groupName }
+			{ key: 'mos', header: 'MOS', value: (p) => p.mos, width: '72px', hiddenBelow: '@3xl' },
+			{ key: 'role', header: 'Duty Role', value: (p) => p.clinicRole, hiddenBelow: '@3xl' },
+			{ key: 'group', header: 'Group', value: (p) => p.groupName, hiddenBelow: '@3xl' },
+			{
+				key: 'attention',
+				header: 'Needs attention',
+				value: () => '',
+				searchable: false,
+				sortable: false,
+				// Fixed, so the columns hold still when the lane's text replaces the skeleton.
+				width: 'min(22rem, 35cqw)',
+				hiddenBelow: '@xl'
+			},
+			{
+				key: 'actions',
+				header: '',
+				headerAriaLabel: 'Actions',
+				value: () => '',
+				searchable: false,
+				sortable: false,
+				width: '112px',
+				hiddenBelow: 'md'
+			}
 		];
-
 		if (bulkArchiveMode) {
 			columns.unshift({ key: 'select', header: '', value: () => '', searchable: false, sortable: false });
 		}
-
-		if (canViewRoster) {
-			columns.push({
-				key: 'actions',
-				header: 'Actions',
-				value: () => '',
-				searchable: false,
-				sortable: false
-			});
-		}
-
 		return columns;
 	});
 
@@ -119,23 +133,44 @@
 	});
 
 	let rosterSearch = $state('');
-	let archiveTarget = $state<Personnel | null>(null);
-	let archiveSubmitting = $state(false);
 	let bulkArchiveMode = $state(false);
 	let bulkArchiveSubmitting = $state(false);
 	let showBulkArchiveConfirm = $state(false);
 	let selectedArchiveIds = new SvelteSet<string>();
+	let focusedRowId = $state<string | null>(null);
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
+	const activeTable = $derived(ctx.viewMode === 'alphabetical' ? azTable : groupedTable);
+	const shownRows = $derived(
+		activeTable.groups.length > 0
+			? activeTable.groups.flatMap((group) => (group.collapsed ? [] : group.rows))
+			: activeTable.rows
+	);
+	const rowControls: RosterRowControls = {
+		get selecting() {
+			return bulkArchiveMode;
+		},
+		get selectionBusy() {
+			return bulkArchiveSubmitting;
+		},
+		isSelected: (id) => selectedArchiveIds.has(id),
+		toggleSelected: toggleArchiveSelection,
+		get tabRowId() {
+			return shownRows.some((person) => person.id === focusedRowId) ? focusedRowId : (shownRows[0]?.id ?? null);
+		},
+		focused: (id) => (focusedRowId = id),
+		recordHref,
+		openRecord: (person) => void goto(recordHref(person)),
+		note: (person) => void goto(`${recordHref(person)}/log?add=follow-up`),
+		quickEdit: (person) => ctx.handleEdit(person)
+	};
+	const canNoteAny = $derived(shownRows.some((p) => ctx.canOpenPersonnelDetail(p)));
+	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
-	const handleRowClick = $derived.by(() => (person: Personnel) => {
-		if (bulkArchiveMode) {
-			toggleArchiveSelection(person.id);
-			return;
-		}
-		if (ctx.canOpenPersonnelDetail(person)) openPersonnelDetail(person);
-	});
+	function recordHref(person: Personnel): string {
+		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
+	}
 
 	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
 	async function togglePin(groupKey: string) {
@@ -150,22 +185,9 @@
 		await restoreFocus();
 	}
 
-	function openPersonnelDetail(person: Personnel): void {
-		void goto(resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`));
-	}
-
 	function setRosterSearch(value: string): void {
 		rosterSearch = value;
 		ctx.searchQuery = value;
-	}
-
-	function getPersonnelRowActionLabel(person: Personnel): string {
-		return `Open ${person.rank} ${person.lastName}, ${person.firstName}`;
-	}
-
-	function promptArchive(event: MouseEvent, person: Personnel): void {
-		event.stopPropagation();
-		archiveTarget = person;
 	}
 
 	function toggleArchiveMode(): void {
@@ -203,22 +225,6 @@
 	function clearArchiveSelection(): void {
 		if (bulkArchiveSubmitting) return;
 		selectedArchiveIds.clear();
-	}
-
-	async function confirmArchive(): Promise<void> {
-		if (!archiveTarget || archiveSubmitting) return;
-		archiveSubmitting = true;
-		try {
-			const { archivePersonnel } = await import('$features/personnel/utils/archivePersonnel');
-			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget, requestArchiveApproval });
-			if (result === 'archived') {
-				locallyArchivedIds.add(archiveTarget.id);
-				await invalidate('app:personnel-data');
-			}
-			archiveTarget = null;
-		} finally {
-			archiveSubmitting = false;
-		}
 	}
 
 	async function confirmBulkArchive(): Promise<void> {
@@ -271,48 +277,15 @@
 		}
 	}
 
-	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
-		const items: ToolbarItem[] = [
-			{
-				kind: 'view',
-				id: 'roster-view',
-				label: 'Roster sort mode',
-				options: rosterViewOptions,
-				value: ctx.viewMode,
-				onValueChange: (value) => {
-					if (value === 'alphabetical' || value === 'by-group') ctx.viewMode = value;
-				}
-			}
-		];
-		if (canManageGroups) {
-			items.push({
-				kind: 'action',
-				id: 'manage-groups',
-				label: 'Manage Groups',
-				onclick: () => ctx.openGroupManager()
-			});
-		}
-		if (canBulkArchivePersonnel) {
-			items.push({
-				kind: 'action',
-				id: 'archive',
-				label: 'Archive',
-				icon: 'archive',
-				onclick: toggleArchiveMode,
-				disabled: bulkArchiveSubmitting
-			});
-		}
-		if (canImportPersonnel) {
-			items.push({
-				kind: 'action',
-				id: 'import',
-				label: 'Import',
-				icon: 'download',
-				href: `/org/${orgUrlSegment}/personnel/import`
-			});
-		}
-		return items;
-	});
+	const toolbarItems = $derived(
+		personnelToolbarItems({
+			viewMode: ctx.viewMode,
+			onViewModeChange: (mode) => (ctx.viewMode = mode),
+			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupManager() : null,
+			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null,
+			archive: canBulkArchivePersonnel ? { onToggle: toggleArchiveMode, busy: bulkArchiveSubmitting } : null
+		})
+	);
 
 	const toolbarSearch = $derived({
 		label: 'Search by name, rank, MOS, role, or group',
@@ -360,8 +333,6 @@
 		onclick: () => (showBulkArchiveConfirm = true),
 		disabled: selectedArchiveIds.size === 0 || bulkArchiveSubmitting
 	});
-
-	const activeTable = $derived(ctx.viewMode === 'alphabetical' ? azTable : groupedTable);
 </script>
 
 <svelte:head>
@@ -380,12 +351,28 @@
 		</div>
 	{:else}
 		<div class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
+			<PersonnelRosterHeader
+				unitName={ctx.orgName}
+				activeCount={visibleAllActivePersonnel.length}
+				summary={ctx.summarizeSignals(visibleAllActivePersonnel)}
+				canViewAvailability={ctx.canViewAvailability}
+			/>
+
 			<WorkspaceToolbar
 				ariaLabel="Personnel controls"
 				items={toolbarItems}
 				search={toolbarSearch}
 				primary={toolbarPrimary}
 			/>
+
+			{#if ctx.signals.status === 'failed'}
+				<Alert.Root role="status">
+					<Alert.Description>Today's status and Needs attention could not be loaded.</Alert.Description>
+					<Alert.Action>
+						<Button type="button" variant="outline" size="xs" onclick={() => ctx.signals.reload()}>Reload</Button>
+					</Alert.Action>
+				</Alert.Root>
+			{/if}
 
 			{#if ctx.lossWarningsUnavailable}
 				<Alert.Root role="status">
@@ -463,108 +450,35 @@
 					<DataTable.DataTable
 						table={activeTable}
 						columns={personnelColumns}
-						onRowClick={bulkArchiveMode || ctx.canReadPersonnelDetails ? handleRowClick : undefined}
-						rowActionLabel={bulkArchiveMode
-							? (person) => `Select ${person.rank} ${person.lastName}`
-							: getPersonnelRowActionLabel}
 						ariaLabel="Personnel roster"
 						emptyMessage="No personnel match your search."
 						emptyLevel={2}
 						maxHeight="100%"
 					>
-						{#snippet cell(row, col)}
-							{@const lossRecord = upcomingLossMap.get(row.id)}
-							{#if col.key === 'select'}
-								{@const canArchive = ctx.canArchivePersonnelRecord(row)}
-								<DataTable.SelectionCheckbox
-									checked={canArchive && selectedArchiveIds.has(row.id)}
-									disabled={!canArchive || bulkArchiveSubmitting}
-									ariaLabel={canArchive
-										? `Select ${row.rank} ${row.lastName}, ${row.firstName}`
-										: `${row.rank} ${row.lastName}, ${row.firstName} cannot be archived`}
-									onCheckedChange={canArchive ? () => toggleArchiveSelection(row.id) : undefined}
-								/>
-							{:else if col.key === 'name'}
-								{row.lastName}, {row.firstName}
-								{#if lossRecord}
-									<Badge
-										variant={lossRecord.triggerType === 'ETS' ? 'secondary' : 'outline'}
-										data-testid="loss-indicator-{row.id}"
-										title="{lossRecord.triggerType} in {lossRecord.daysRemaining} day{lossRecord.daysRemaining === 1
-											? ''
-											: 's'}"
-									>
-										{lossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}
-									</Badge>
-								{/if}
-							{:else if col.key === 'actions'}
-								<div class="flex items-center justify-end gap-2">
-									{#if !bulkArchiveMode && ctx.canManagePersonnelRecord(row)}
-										<Button type="button" variant="outline" size="sm" onclick={() => ctx.handleEdit(row)}>Edit</Button>
-									{/if}
-									{#if !bulkArchiveMode && ctx.canOpenPersonnelDetail(row)}
-										<Button type="button" variant="secondary" size="sm" onclick={() => openPersonnelDetail(row)}
-											>Details</Button
-										>
-									{/if}
-									{#if !bulkArchiveMode && ctx.canArchivePersonnelRecord(row)}
-										<Button
-											type="button"
-											variant="destructive"
-											size="icon-sm"
-											title="Archive {row.rank} {row.lastName}, {row.firstName}"
-											aria-label="Archive {row.rank} {row.lastName}, {row.firstName}"
-											onclick={(event) => promptArchive(event, row)}
-										>
-											<ArchiveIcon aria-hidden="true" />
-										</Button>
-									{/if}
-								</div>
-							{:else}
-								{String(col.value(row) ?? '')}
-							{/if}
+						{#snippet row(person, columns)}
+							<PersonnelRosterRow {person} {columns} {ctx} controls={rowControls} />
 						{/snippet}
 						{#snippet groupHeader(group)}
-							<Toggle
-								pressed={pinnedGroupsStore.list.includes(group.key)}
-								data-pin-group={group.key}
-								onPressedChange={() => togglePin(group.key)}
-								title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
-								aria-label={pinnedGroupsStore.list.includes(group.key) ? `Unpin ${group.label}` : `Pin ${group.label}`}
-							>
-								<PinIcon aria-hidden="true" />
-							</Toggle>
-							<Button
-								type="button"
-								variant="ghost"
-								onclick={group.toggle}
-								aria-expanded={!group.collapsed}
-								aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
-							>
-								{group.label}
-								<Badge variant="outline">{group.count}</Badge>
-							</Button>
+							<PersonnelGroupHeader
+								{group}
+								pinned={pinnedGroupsStore.list.includes(group.key)}
+								onTogglePin={togglePin}
+							/>
 						{/snippet}
 					</DataTable.DataTable>
+				</div>
+				<div class="flex items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
+					<span aria-live="polite">{activeTable.totalRows} of {visibleAllActivePersonnel.length} shown</span>
+					<span class="flex gap-4 max-md:hidden" aria-hidden="true">
+						{#if canNoteAny}<span>N note</span>{/if}
+						{#if canQuickEditAny}<span>E quick edit</span>{/if}
+						{#if ctx.canReadPersonnelDetails}<span>↵ open record</span>{/if}
+					</span>
 				</div>
 			{/if}
 		</div>
 	{/if}
 </div>
-
-{#if archiveTarget}
-	{#await import('$lib/components/ui/confirm-dialog') then { ConfirmDialog }}
-		<ConfirmDialog
-			title="Archive Personnel"
-			message="Archive {archiveTarget.rank} {archiveTarget.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
-			confirmLabel="Archive"
-			variant="default"
-			loading={archiveSubmitting}
-			onConfirm={confirmArchive}
-			onCancel={() => (archiveTarget = null)}
-		/>
-	{/await}
-{/if}
 
 {#if showBulkArchiveConfirm}
 	{#await import('$lib/components/ui/confirm-dialog') then { ConfirmDialog }}

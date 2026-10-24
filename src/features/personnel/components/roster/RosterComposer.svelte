@@ -142,108 +142,108 @@
 	onkeydown={handleKeydown}
 >
 	<fieldset class="contents" disabled={saving}>
-	<header class="flex items-center justify-between gap-3 border-b px-4 pt-3.5 pb-3">
-		<div class="grid min-w-0 gap-0.5">
-			<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase">Add to log</span>
-			<span class="truncate font-heading text-xl leading-6 font-bold uppercase">{heading}</span>
-		</div>
-		<SegmentedFilter.Root
-			label="Entry type"
-			bind:value={kind}
-			options={[
-				{ value: 'note', label: 'Note' },
-				{ value: 'follow-up', label: 'Follow-up' }
-			]}
-		/>
-	</header>
-
-	<div class="grid gap-2.5 px-4 py-3.5">
-		{#if kind === 'follow-up'}
-			<Field.Root data-invalid={issue ? true : undefined}>
-				<Field.Label for="roster-composer-title" class="sr-only">Follow-up title</Field.Label>
-				<Input
-					id="roster-composer-title"
-					bind:ref={titleField}
-					bind:value={title}
-					placeholder="What needs to happen?"
-					maxlength={200}
-					autocomplete="off"
-					oninput={() => (issue = '')}
-				/>
-				{#if issue}<Field.Error>{issue}</Field.Error>{/if}
-			</Field.Root>
-			<Field.Root>
-				<Field.Label for="roster-composer-details" class="sr-only">Details</Field.Label>
-				<Textarea
-					id="roster-composer-details"
-					bind:value={details}
-					placeholder="Details (optional)"
-					rows={2}
-					maxlength={2000}
-				/>
-			</Field.Root>
-			<div class="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="roster-composer-due">
-				<span id="roster-composer-due" class="w-9 shrink-0 text-sm text-muted-foreground">Due</span>
-				{#each presets as preset (preset.key)}
-					{@const active = activePreset === preset.key}
-					<Button
-						type="button"
-						size="sm"
-						variant={active ? 'default' : 'outline'}
-						class="font-mono text-xs"
-						aria-pressed={active}
-						title={formatWeekdayDayMonth(preset.date)}
-						onclick={() => chooseDue(preset.date)}
-					>
-						{dueChipLabel(preset)}
-					</Button>
-				{/each}
-				{#if due && !activePreset}
-					<Button
-						type="button"
-						size="sm"
-						class="font-mono text-xs"
-						aria-pressed="true"
-						title="Clear the due date"
-						onclick={() => (due = '')}
-					>
-						{formatWeekdayDayMonth(due)}
-					</Button>
-				{/if}
-				<DatePicker iconOnly aria-label="Choose a due date" bind:value={due} />
+		<header class="flex items-center justify-between gap-3 border-b px-4 pt-3.5 pb-3">
+			<div class="grid min-w-0 gap-0.5">
+				<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase">Add to log</span>
+				<span class="truncate font-heading text-xl leading-6 font-bold uppercase">{heading}</span>
 			</div>
-			{#if alreadyOpen.kind !== 'none'}
-				<div class="flex items-baseline gap-x-1.5 pt-1 text-[13px] leading-[18px]">
-					<span class="shrink-0 font-mono text-[11px] tracking-[0.06em] uppercase">Already open</span>
-					{#if alreadyOpen.kind === 'pending'}
-						<Skeleton class="h-3 w-40 self-center" />
-					{:else}
-						<span class="min-w-0 text-muted-foreground">{alreadyOpen.title} · {alreadyOpen.due}</span>
-						{#if alreadyOpen.overdue}<span class="shrink-0 text-danger-foreground">· overdue</span>{/if}
-						{#if alreadyOpen.more > 0}<span class="shrink-0 text-muted-foreground">· +{alreadyOpen.more} more</span
-							>{/if}
+			<SegmentedFilter.Root
+				label="Entry type"
+				bind:value={kind}
+				options={[
+					{ value: 'note', label: 'Note' },
+					{ value: 'follow-up', label: 'Follow-up' }
+				]}
+			/>
+		</header>
+
+		<div class="grid gap-2.5 px-4 py-3.5">
+			{#if kind === 'follow-up'}
+				<Field.Root data-invalid={issue ? true : undefined}>
+					<Field.Label for="roster-composer-title" class="sr-only">Follow-up title</Field.Label>
+					<Input
+						id="roster-composer-title"
+						bind:ref={titleField}
+						bind:value={title}
+						placeholder="What needs to happen?"
+						maxlength={200}
+						autocomplete="off"
+						oninput={() => (issue = '')}
+					/>
+					{#if issue}<Field.Error>{issue}</Field.Error>{/if}
+				</Field.Root>
+				<Field.Root>
+					<Field.Label for="roster-composer-details" class="sr-only">Details</Field.Label>
+					<Textarea
+						id="roster-composer-details"
+						bind:value={details}
+						placeholder="Details (optional)"
+						rows={2}
+						maxlength={2000}
+					/>
+				</Field.Root>
+				<div class="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="roster-composer-due">
+					<span id="roster-composer-due" class="w-9 shrink-0 text-sm text-muted-foreground">Due</span>
+					{#each presets as preset (preset.key)}
+						{@const active = activePreset === preset.key}
+						<Button
+							type="button"
+							size="sm"
+							variant={active ? 'default' : 'outline'}
+							class="font-mono text-xs"
+							aria-pressed={active}
+							title={formatWeekdayDayMonth(preset.date)}
+							onclick={() => chooseDue(preset.date)}
+						>
+							{dueChipLabel(preset)}
+						</Button>
+					{/each}
+					{#if due && !activePreset}
+						<Button
+							type="button"
+							size="sm"
+							class="font-mono text-xs"
+							aria-pressed="true"
+							title="Clear the due date"
+							onclick={() => (due = '')}
+						>
+							{formatWeekdayDayMonth(due)}
+						</Button>
 					{/if}
+					<DatePicker iconOnly aria-label="Choose a due date" bind:value={due} />
 				</div>
+				{#if alreadyOpen.kind !== 'none'}
+					<div class="flex items-baseline gap-x-1.5 pt-1 text-[13px] leading-[18px]">
+						<span class="shrink-0 font-mono text-[11px] tracking-[0.06em] uppercase">Already open</span>
+						{#if alreadyOpen.kind === 'pending'}
+							<Skeleton class="h-3 w-40 self-center" />
+						{:else}
+							<span class="min-w-0 text-muted-foreground">{alreadyOpen.title} · {alreadyOpen.due}</span>
+							{#if alreadyOpen.overdue}<span class="shrink-0 text-danger-foreground">· overdue</span>{/if}
+							{#if alreadyOpen.more > 0}<span class="shrink-0 text-muted-foreground">· +{alreadyOpen.more} more</span
+								>{/if}
+						{/if}
+					</div>
+				{/if}
+			{:else}
+				<Field.Root data-invalid={issue ? true : undefined}>
+					<Field.Label for="roster-composer-note" class="sr-only">Note</Field.Label>
+					<Textarea
+						id="roster-composer-note"
+						bind:ref={noteField}
+						bind:value={noteText}
+						placeholder="What did you observe?"
+						rows={4}
+						maxlength={4000}
+						oninput={() => (issue = '')}
+					/>
+					{#if issue}<Field.Error>{issue}</Field.Error>{/if}
+				</Field.Root>
 			{/if}
-		{:else}
-			<Field.Root data-invalid={issue ? true : undefined}>
-				<Field.Label for="roster-composer-note" class="sr-only">Note</Field.Label>
-				<Textarea
-					id="roster-composer-note"
-					bind:ref={noteField}
-					bind:value={noteText}
-					placeholder="What did you observe?"
-					rows={4}
-					maxlength={4000}
-					oninput={() => (issue = '')}
-				/>
-				{#if issue}<Field.Error>{issue}</Field.Error>{/if}
-			</Field.Root>
-		{/if}
-		{#if failure}
-			<Field.Error>{failure}</Field.Error>
-		{/if}
-	</div>
+			{#if failure}
+				<Field.Error>{failure}</Field.Error>
+			{/if}
+		</div>
 	</fieldset>
 
 	<footer class="flex items-center justify-between gap-3 rounded-b-lg border-t bg-muted px-4 pt-2.5 pb-3">
@@ -258,7 +258,9 @@
 		{:else}
 			<span class="font-mono text-[11px] text-muted-foreground max-sm:hidden">⌘↵ save · Esc close</span>
 			<span class="flex gap-1.5 max-sm:ml-auto">
-				<Button type="button" size="sm" variant="outline" disabled={saving} onclick={() => requestClose()}>Cancel</Button>
+				<Button type="button" size="sm" variant="outline" disabled={saving} onclick={() => requestClose()}
+					>Cancel</Button
+				>
 				<Button type="submit" size="sm" disabled={saving || !typed}>
 					{saving ? 'Saving…' : kind === 'follow-up' ? 'Add follow-up' : 'Add note'}
 				</Button>

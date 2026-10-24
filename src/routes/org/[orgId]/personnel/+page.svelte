@@ -91,9 +91,9 @@
 	}
 </script>
 
-{#snippet peekNextDays(calendar: unknown)}
+{#snippet peekNextDays(calendar: PersonnelCalendarWindow | null)}
 	{#if calendar}
-		<PersonnelNextDays calendar={calendar as PersonnelCalendarWindow} legendLines={PEEK_LEGEND_LINES} />
+		<PersonnelNextDays {calendar} legendLines={PEEK_LEGEND_LINES} />
 	{:else}
 		<PersonnelNextDaysSkeleton days={ROSTER_PEEK_DAYS} legendLines={PEEK_LEGEND_LINES} />
 	{/if}

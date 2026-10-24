@@ -9,7 +9,8 @@
 		/** The row cannot be selected because its data is invalid; `describedBy` names the reason. */
 		invalid?: boolean;
 		describedBy?: string;
-		onCheckedChange?: (checked: boolean) => void;
+		/** `shiftKey` is true when a Shift-click made the change, so a table can select the range. */
+		onCheckedChange?: (checked: boolean, change: { shiftKey: boolean }) => void;
 	};
 
 	let {
@@ -21,6 +22,7 @@
 		describedBy,
 		onCheckedChange
 	}: Props = $props();
+	let shiftClick = false;
 </script>
 
 <Checkbox
@@ -30,5 +32,9 @@
 	aria-label={ariaLabel}
 	aria-invalid={invalid || undefined}
 	aria-describedby={describedBy}
-	onCheckedChange={(value) => onCheckedChange?.(!!value)}
+	onclick={(event: MouseEvent) => (shiftClick = event.shiftKey)}
+	onCheckedChange={(value) => {
+		onCheckedChange?.(!!value, { shiftKey: shiftClick });
+		shiftClick = false;
+	}}
 />

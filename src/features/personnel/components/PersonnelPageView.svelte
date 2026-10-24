@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="NextDays">
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -44,7 +44,7 @@
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		nextDays?: Snippet<[calendar: unknown]>;
+		nextDays?: Snippet<[calendar: NextDays | null]>;
 	}
 
 	let { ctx, nextDays }: Props = $props();
@@ -53,8 +53,7 @@
 	const ROSTER_PAGE_SIZE = 75;
 	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const NO_GROUP = '\u0000';
-	const groupKey = (person: Personnel): string => person.groupName || NO_GROUP;
+	const groupKey = (person: Personnel): string => person.groupName;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	let locallyArchivedIds = new SvelteSet<string>();
@@ -216,8 +215,8 @@
 		initialSortDirection: 'asc',
 		groupBy: {
 			key: groupKey,
-			label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
-			compare: (a, b) => groupComparator(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
+			label: (key) => key || 'Unassigned',
+			compare: (a, b) => groupComparator(a, b)
 		}
 	});
 	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
@@ -266,7 +265,7 @@
 	let bulkComposer = $state<RosterBulkComposer>();
 	let peekedId = $state<string | null>(null);
 	let peekBrowsing = $state(false);
-	let peekPanel = $state<RosterPeekPanel>();
+	let peekPanel = $state<RosterPeekPanel<NextDays>>();
 	const peekedPerson = $derived(
 		peekedId && !locallyArchivedIds.has(peekedId) ? (ctx.getPersonnelById(peekedId) ?? null) : null
 	);
@@ -348,6 +347,7 @@
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
 	function replaceComposer(open: () => void): void {
+		ctx.signals.noticeDay();
 		const composer = notePerson ? noteComposer : bulkCompose ? bulkComposer : undefined;
 		if (composer) composer.requestClose(open);
 		else if (peekPanel) peekPanel.release(open);
@@ -699,7 +699,7 @@
 						{#snippet groupHeader(group)}
 							{@const people = peopleByGroup.get(group.key) ?? []}
 							{@const ids = people.map((person) => person.id)}
-							{@const unassigned = group.key === NO_GROUP}
+							{@const unassigned = group.key === ''}
 							{@const groupId = unassigned ? null : ctx.groupIdForName(group.key)}
 							<PersonnelGroupHeader
 								{group}

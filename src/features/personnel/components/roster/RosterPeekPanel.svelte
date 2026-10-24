@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="NextDays">
 	import { onDestroy, tick, type Snippet } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -36,7 +36,8 @@
 		onclose: () => void;
 		onquickedit: (person: Personnel) => void;
 		oncompose: (open: () => void) => void;
-		nextDays?: Snippet<[calendar: unknown]>;
+		/** Calendar renders the 7-day section; the peek carries its read without naming Calendar's type. */
+		nextDays?: Snippet<[calendar: NextDays | null]>;
 	}
 
 	let { ctx, person, position, onstep, onclose, onquickedit, oncompose, nextDays }: Props = $props();
@@ -297,7 +298,7 @@
 				<section class="flex flex-col gap-2.5" aria-label="Next 7 days">
 					{@render heading('Next 7 days')}
 					{#if sections.next7.state === 'ready'}
-						{@render nextDays(sections.next7.value)}
+						{@render nextDays(sections.next7.value as NextDays)}
 					{:else if sections.next7.state === 'failed'}
 						{@render failed('the Calendar', 'next7')}
 					{:else}

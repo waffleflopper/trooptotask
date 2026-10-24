@@ -201,6 +201,37 @@ describe('password row', () => {
 		expect(newEmail).toHaveFocus();
 	});
 
+	it('keeps an email draft typed while Change password again is still answering', async () => {
+		let answer!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						answer = resolve;
+					})
+			)
+		);
+		render(SecurityPage, {
+			props: {
+				security: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null },
+				passwordCompletion: 'complete',
+				form: null,
+				mfaSetupHref: SETUP_HREF
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Change password again' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+		const newEmail = screen.getByLabelText('New email');
+		await fireEvent.input(newEmail, { target: { value: 'draft@example.test' } });
+		await waitFor(() => expect(newEmail).toHaveFocus());
+
+		answer(Response.json({ ok: true }));
+		expect(await screen.findByRole('button', { name: 'Change password' })).toBeVisible();
+		expect(newEmail).toHaveValue('draft@example.test');
+		expect(newEmail).toHaveFocus();
+	});
+
 	it('marks the confirmation field invalid while the new passwords differ', async () => {
 		renderPage(false);
 		const h = await fillPasswordRow();

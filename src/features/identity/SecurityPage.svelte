@@ -470,7 +470,8 @@
 					}}
 					onrestart={() => {
 						completion = null;
-						openRowFor('password');
+						// The restart answers after a request; a row the user opened meanwhile keeps its draft.
+						if (openRow === null) openRowFor('password');
 					}}
 				/>
 			{:else if openRow !== 'password'}

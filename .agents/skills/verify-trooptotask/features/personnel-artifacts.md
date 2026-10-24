@@ -51,7 +51,7 @@ records appears only with Personnel export. `Add to record` items only navigate:
 `/log?add=follow-up` and `/log?add=note`, which focus the quick-add title input and the note composer; Counseling and
 Document open Files, and Training completion opens Readiness. The roster's `Note` button and N key do not navigate: they
 open a popover composer that posts a follow-up or a leader note to the same collection endpoints from any member who may
-manage that Person's records, whether or not they can read the Log (see `find-personnel` step 14); the saved row then
+manage that Person's records, whether or not they can read the Log (see `find-personnel` step 15); the saved row then
 reads like any other in Log. Files opens on a Counselings section whose `Last counseled` heading comes from the server
 (the newest counseling dated on or before the viewer's day, whatever the page), with a 12-month coverage bar and a
 Documents table, with a drop zone and Storage meter in the right rail. Dropping or choosing a file there opens an

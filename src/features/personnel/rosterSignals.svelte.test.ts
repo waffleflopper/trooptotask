@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PersonSignalCore, RosterSignalRead, SignalAccess } from './rosterSignals';
+import { VIEWER_TIME_ZONE_COOKIE } from '$lib/utils/viewerTimeZone';
 import { RosterSignals } from './rosterSignals.svelte';
 
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn() }));
@@ -32,7 +33,7 @@ function read(people: PersonSignalCore[], asOf = AS_OF, access = ACCESS): Roster
 	return { asOf, access, statusTypes: [LEAVE], people };
 }
 
-function setup() {
+function setup(browserDay: string | null = AS_OF) {
 	const replies: PromiseWithResolvers<RosterSignalRead>[] = [];
 	const readPeople = vi.fn((_orgId: string, _ids: string[]) => {
 		const reply = Promise.withResolvers<RosterSignalRead>();
@@ -40,7 +41,7 @@ function setup() {
 		return reply.promise;
 	});
 	const invalidate = vi.fn(async (_dependency: string) => {});
-	const signals = new RosterSignals({ readPeople, invalidate });
+	const signals = new RosterSignals({ readPeople, invalidate, browserDay: () => browserDay });
 	return { signals, readPeople, invalidate, replies };
 }
 
@@ -126,8 +127,40 @@ describe('RosterSignals', () => {
 		replies[0].resolve(read([core('a', 'leave')], '2026-10-24'));
 		await refreshed;
 
-		expect(invalidate).toHaveBeenCalledExactlyOnceWith('app:viewer-day');
+		expect(invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-signals');
 		expect(today(signals, 'a')).toEqual({ kind: 'known', value: { kind: 'present' } });
+	});
+
+	describe('first visit', () => {
+		it('keeps the lane the server streamed when the browser is on the same day', async () => {
+			const { signals, invalidate } = setup(AS_OF);
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			await settle();
+
+			expect(invalidate).not.toHaveBeenCalled();
+		});
+
+		it('records the time zone and asks the server for the browser day once when the lane carries another day', async () => {
+			const jar = { cookie: '' };
+			vi.stubGlobal('document', jar);
+			vi.stubGlobal('location', { protocol: 'http:' });
+			const { signals, invalidate } = setup('2026-10-24');
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			await settle();
+
+			expect(jar.cookie).toContain(`${VIEWER_TIME_ZONE_COOKIE}=`);
+			expect(invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-signals');
+			vi.unstubAllGlobals();
+		});
+
+		it('leaves the lane alone when the browser names no time zone', async () => {
+			const { signals, invalidate } = setup(null);
+			signals.observe('org-1', AS_OF, Promise.resolve(read([core('a', 'present')])));
+			await settle();
+
+			expect(invalidate).not.toHaveBeenCalled();
+		});
 	});
 
 	it('keeps the shown cells when a refresh fails', async () => {

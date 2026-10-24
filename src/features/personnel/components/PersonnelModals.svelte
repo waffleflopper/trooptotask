@@ -10,6 +10,7 @@
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { invalidate } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+	import { changesSignalApplicability } from '../rosterSignals';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 	interface Props {
@@ -26,8 +27,11 @@
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
-			const updated = await personnelStore.updateOrThrow(editingPerson.id, personData);
+			const orgId = ctx.orgId;
+			const before = editingPerson;
+			const updated = await personnelStore.updateOrThrow(before.id, personData);
 			if (!updated) throw new Error('Failed to update personnel');
+			if (ctx.orgId === orgId && changesSignalApplicability(before, personData)) void ctx.signals.refresh([before.id]);
 		} else {
 			const created = await personnelStore.add(personData);
 			if (!created) throw new Error('Failed to add personnel');

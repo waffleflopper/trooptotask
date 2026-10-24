@@ -1,7 +1,8 @@
 import { untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { invalidate } from '$app/navigation';
-import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
+import { isTimeZone, localDateIn } from '$lib/utils/dates';
+import { rememberViewerTimeZone } from '$lib/utils/viewerTimeZone';
 import { withinOrganizationLifetime } from '$lib/stores/core';
 import {
 	NO_SIGNAL_ACCESS,
@@ -25,6 +26,13 @@ export interface RosterSignalsOptions {
 	/** Reads the listed People's signals for the viewer's day. */
 	readPeople?: (orgId: string, personnelIds: string[]) => Promise<RosterSignalRead>;
 	invalidate?: (dependency: string) => Promise<void>;
+	/** The viewer's calendar day in the browser's time zone, or null when the browser names no valid zone. */
+	browserDay?: () => string | null;
+}
+
+function readBrowserDay(): string | null {
+	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	return isTimeZone(timeZone) ? localDateIn(timeZone, new Date()) : null;
 }
 
 async function readPeopleFromEndpoint(orgId: string, personnelIds: string[]): Promise<RosterSignalRead> {
@@ -75,10 +83,14 @@ export class RosterSignals {
 	#asked = new Set<string>();
 	readonly #readPeople: NonNullable<RosterSignalsOptions['readPeople']>;
 	readonly #invalidate: NonNullable<RosterSignalsOptions['invalidate']>;
+	readonly #browserDay: NonNullable<RosterSignalsOptions['browserDay']>;
+	/** The server day the browser day was last compared with, so a browser that keeps no zone cookie asks once. */
+	#dayChecked = '';
 
 	constructor(options: RosterSignalsOptions = {}) {
 		this.#readPeople = options.readPeople ?? readPeopleFromEndpoint;
 		this.#invalidate = options.invalidate ?? invalidate;
+		this.#browserDay = options.browserDay ?? readBrowserDay;
 	}
 
 	/** Takes the page's streamed lane. The same promise is observed once. */
@@ -95,6 +107,7 @@ export class RosterSignals {
 				this.status = 'pending';
 			}
 			this.asOf = asOf;
+			this.#followBrowserDay(asOf);
 			const current = () => this.#lane === lane && this.#orgId === orgId;
 			withinOrganizationLifetime(lane, current).then(
 				(read) => this.#settle(read, generation),
@@ -104,6 +117,19 @@ export class RosterSignals {
 				}
 			);
 		});
+	}
+
+	/**
+	 * A first visit has no time zone cookie, so the server reads its own UTC day. The lane reruns only when the
+	 * viewer's day is another one; the same day keeps the lane the first response carried.
+	 */
+	#followBrowserDay(asOf: string): void {
+		if (this.#dayChecked === asOf) return;
+		this.#dayChecked = asOf;
+		const browserDay = this.#browserDay();
+		if (browserDay === null || browserDay === asOf) return;
+		rememberViewerTimeZone();
+		void this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
 	}
 
 	#settle(read: RosterSignalRead, generation: number): void {
@@ -175,7 +201,7 @@ export class RosterSignals {
 			const read = await withinOrganizationLifetime(this.#readPeople(orgId, ids), () => ids.some(owns));
 			if (this.asOf !== asOf) return;
 			// The viewer's day turned while the page was open: the whole lane moves to the new day, not one row.
-			if (read.asOf !== asOf) return await this.#invalidate(VIEWER_DAY_DEPENDENCY);
+			if (read.asOf !== asOf) return await this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
 			const cores = new Map(read.people.map((core) => [core.personnelId, core]));
 			for (const id of ids) {
 				if (!owns(id)) continue;

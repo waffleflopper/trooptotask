@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseTrainingRosterSignals } from './trainingRosterSignals.server';
 
 const TYPE = {
 	id: 'cpr',
 	name: 'CPR/BLS',
-	description: null,
 	expiration_months: 24,
 	warning_days_yellow: 60,
 	warning_days_orange: 30,
@@ -15,41 +13,26 @@ const TYPE = {
 	excluded_roles: [],
 	excluded_mos: [],
 	excluded_ranks: [],
-	color: '#000000',
-	sort_order: 0,
 	expiration_date_only: false,
 	can_be_exempted: false,
 	exempt_personnel_ids: [],
-	is_optional: false,
-	organization_id: 'org-1',
-	created_at: '2026-01-01T00:00:00+00:00'
+	is_optional: false
 };
 
 describe('createSupabaseTrainingRosterSignals', () => {
 	it('builds each cohort member required training from one read', async () => {
-		const rpc = vi.fn(async () => ({
-			data: {
-				cohort: [
-					['a', 'SGT', '68W', ''],
-					['b', 'SPC', '68W', ''],
-					['c', 'SPC', '11B', '']
-				],
-				types: [TYPE],
-				completions: [['a', 'cpr', '2024-10-01', '2026-10-01']]
-			},
-			error: null
+		const slices = vi.fn(async () => ({
+			cohort: [
+				['a', 'SGT', '68W', ''],
+				['b', 'SPC', '68W', ''],
+				['c', 'SPC', '11B', '']
+			],
+			types: [TYPE],
+			completions: [['a', 'cpr', '2024-10-01', '2026-10-01']]
 		}));
-		const read = await createSupabaseTrainingRosterSignals(
-			{ rpc } as unknown as SupabaseClient,
-			'org-1'
-		)({
-			asOf: '2026-10-23',
-			personnelIds: ['a', 'b', 'c']
-		});
-		expect(rpc).toHaveBeenCalledWith('roster_signal_training', {
-			p_organization_id: 'org-1',
-			p_personnel_ids: ['a', 'b', 'c']
-		});
+		const query = { asOf: '2026-10-23', personnelIds: ['a', 'b', 'c'] };
+		const read = await createSupabaseTrainingRosterSignals(slices)(query);
+		expect(slices).toHaveBeenCalledWith('training', query);
 		expect(
 			[...read].map(([id, readiness]) => [
 				id,

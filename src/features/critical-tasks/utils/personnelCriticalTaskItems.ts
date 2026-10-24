@@ -11,6 +11,11 @@ export type IctCompletionFacts = Pick<
 	'ictTaskId' | 'completedAt' | 'createdAt' | 'validatedBy'
 >;
 
+/** What readiness reads of a task; the roster lane reads only these, and only active tasks. */
+export type IctTaskFacts = Pick<IctTask, 'id' | 'taskCode' | 'title' | 'mos' | 'expirationMonths'> & {
+	archivedAt?: string | null;
+};
+
 export interface PersonnelCriticalTaskItem<C extends IctCompletionFacts = PersonnelIctCompletion> {
 	taskId: string;
 	taskCode: string;
@@ -41,7 +46,7 @@ const ITEM_STATUS = {
 
 export function buildPersonnelCriticalTaskReadiness<C extends IctCompletionFacts = PersonnelIctCompletion>(input: {
 	person: Pick<PersonnelRequirementPerson, 'id' | 'mos'>;
-	tasks: readonly IctTask[];
+	tasks: readonly IctTaskFacts[];
 	completions: readonly C[];
 	settings: CriticalTasksSettings;
 	asOf: string;

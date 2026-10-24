@@ -1,15 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import {
-	evaluatePolicyDecision,
-	POLICY_ACTION_CATALOG,
-	type FeatureLanePolicyAction
-} from '$lib/access/policyEvaluator';
+import { evaluatePolicyDecision } from '$lib/access/policyEvaluator';
 import { coverageWindowStart } from './counselingCoverage';
 import type { AttentionInput, ReadinessSourceResult } from './personnelReadiness.types';
 import {
 	buildPersonSignalCore,
+	signalAccessBy,
+	SIGNAL_SOURCES,
 	type Known,
 	type OpenFollowUp,
 	type RosterSignalRead,
@@ -21,16 +19,6 @@ import {
 	type SignalSource,
 	type TodayStatus
 } from './rosterSignals';
-
-/** Each source's feature switch and read permission. A source that is off or denied is never read. */
-export const SIGNAL_SOURCES = {
-	availability: { feature: null, action: POLICY_ACTION_CATALOG.calendar.viewAvailability },
-	training: { feature: 'training', action: POLICY_ACTION_CATALOG.training.viewRecords },
-	criticalTasks: { feature: 'criticalTasks', action: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness },
-	evaluations: { feature: 'evaluations', action: POLICY_ACTION_CATALOG.ratingScheme.viewEntries },
-	followUps: { feature: null, action: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords },
-	counseling: { feature: null, action: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords }
-} as const satisfies Record<SignalSource, { feature: FeatureKey | null; action: FeatureLanePolicyAction }>;
 
 type Facts<K extends 'training' | 'criticalTasks' | 'evaluation'> = Extract<AttentionInput[K], { ok: true }>['value'];
 
@@ -49,26 +37,18 @@ export function resolveSignalAccess(
 	auth: Pick<OrganizationAccessGrant, 'role' | 'userId' | 'capabilityMap' | 'scopeSet'>,
 	disabledFeatures: readonly FeatureKey[]
 ): SignalAccess {
-	const allowed = (source: SignalSource) => {
-		const { feature, action } = SIGNAL_SOURCES[source];
-		if (feature && disabledFeatures.includes(feature)) return false;
-		return evaluatePolicyDecision({
-			decisionKind: 'server-authoritative',
-			actor: { membershipRole: auth.role, userId: auth.userId },
-			action,
-			capabilityMap: auth.capabilityMap,
-			scopeSet: auth.scopeSet,
-			resource: { kind: 'unscoped' }
-		}).allowed;
-	};
-	return {
-		availability: allowed('availability'),
-		training: allowed('training'),
-		criticalTasks: allowed('criticalTasks'),
-		evaluations: allowed('evaluations'),
-		followUps: allowed('followUps'),
-		counseling: allowed('counseling')
-	};
+	return signalAccessBy(
+		(action) =>
+			evaluatePolicyDecision({
+				decisionKind: 'server-authoritative',
+				actor: { membershipRole: auth.role, userId: auth.userId },
+				action,
+				capabilityMap: auth.capabilityMap,
+				scopeSet: auth.scopeSet,
+				resource: { kind: 'unscoped' }
+			}).allowed,
+		disabledFeatures
+	);
 }
 
 const WITHHELD = { ok: false, off: true } as const;

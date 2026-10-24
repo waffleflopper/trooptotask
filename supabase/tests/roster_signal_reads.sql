@@ -76,7 +76,9 @@ INSERT INTO public.personnel_ict_completions
   (organization_id, personnel_id, ict_task_id, completed_at, validation_method, validated_by, created_at) VALUES
 ('c9000000-0000-4000-8000-000000000101', 'c9000000-0000-4000-8000-000000000301', 'c9000000-0000-4000-8000-000000000701', '2026-07-01', 'Practical Exercise', 'SFC Later', '2026-07-02 08:00+00'),
 ('c9000000-0000-4000-8000-000000000101', 'c9000000-0000-4000-8000-000000000301', 'c9000000-0000-4000-8000-000000000701', '2026-06-01', 'Practical Exercise', 'SFC Older', '2026-07-03 08:00+00'),
-('c9000000-0000-4000-8000-000000000101', 'c9000000-0000-4000-8000-000000000301', 'c9000000-0000-4000-8000-000000000702', '2026-06-01', 'Practical Exercise', NULL, '2026-06-01 08:00+00');
+('c9000000-0000-4000-8000-000000000101', 'c9000000-0000-4000-8000-000000000301', 'c9000000-0000-4000-8000-000000000702', '2026-06-01', 'Practical Exercise', NULL, '2026-06-01 08:00+00'),
+('c9000000-0000-4000-8000-000000000101', 'c9000000-0000-4000-8000-000000000301', 'c9000000-0000-4000-8000-000000000701', '2026-10-24', 'Practical Exercise', 'SFC Future', '2026-07-04 08:00+00'),
+('c9000000-0000-4000-8000-000000000101', 'c9000000-0000-4000-8000-000000000303', 'c9000000-0000-4000-8000-000000000701', '2026-10-24', 'Practical Exercise', 'SFC Future', '2026-07-04 08:00+00');
 
 INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rating_period_start, rating_period_end, status, workflow_status) VALUES
 ('c9000000-0000-4000-8000-000000000801', 'c9000000-0000-4000-8000-000000000101', 'c9000000-0000-4000-8000-000000000301', 'NCOER', '2026-01-01', '2027-01-01', 'completed', 'completed'),
@@ -166,7 +168,7 @@ BEGIN
     FROM public.personnel_ict_completions c
     JOIN public.personnel p ON p.id = c.personnel_id
     JOIN public.ict_tasks t ON t.id = c.ict_task_id
-    WHERE c.organization_id = org AND p.archived_at IS NULL AND t.archived_at IS NULL
+    WHERE c.organization_id = org AND p.archived_at IS NULL AND t.archived_at IS NULL AND c.completed_at <= '2026-10-23'
     ORDER BY c.personnel_id, c.ict_task_id, c.completed_at DESC, c.created_at DESC
   ) c;
   RETURN NEXT is(actual #> '{criticalTasks,completions}', expected, p_label || ': Critical Tasks matches the invoker read');
@@ -254,7 +256,7 @@ SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(
 
 SELECT is(pg_temp.sig('criticalTasks') -> 'completions',
   '[["c9000000-0000-4000-8000-000000000301", "c9000000-0000-4000-8000-000000000701", "2026-07-01", "2026-07-02T08:00:00+00:00", "SFC Later"]]'::jsonb,
-  'critical tasks give the newest validation per active task, by date before record time');
+  'critical tasks give the newest validation per active task, by date before record time, never one dated after the day');
 SELECT is(jsonb_array_length(pg_temp.sig('criticalTasks') -> 'tasks'), 1,
   'retired tasks are left out');
 SELECT is((SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(

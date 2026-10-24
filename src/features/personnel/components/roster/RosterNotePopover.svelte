@@ -3,6 +3,7 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover';
+	import { withinOrganizationLifetime } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../../personnel.types';
@@ -41,12 +42,10 @@
 	}
 
 	async function save(entry: ComposerEntry): Promise<void> {
-		const orgId = ctx.orgId;
 		// The toast outlives this popover, and the props read through to page state that is cleared on close.
 		const logHref = `${recordHref}/log`;
-		await saveRosterEntry(fetch, { orgId, personId: person.id }, entry);
-		// The write landed; a different Organization has nothing to refresh or announce.
-		if (ctx.orgId !== orgId) return;
+		// The write may land after the user left the Organization; the lifetime then never settles, so nothing follows.
+		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: person.id }, entry));
 		if (entry.kind === 'follow-up') void ctx.signals.refresh([person.id]);
 		const subject = `${person.rank} ${person.lastName}`;
 		toastStore.success(

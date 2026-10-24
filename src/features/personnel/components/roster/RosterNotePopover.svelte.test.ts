@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 import type { Personnel } from '../../personnel.types';
 import type { Known, OpenFollowUpSignal, SignalRow } from '../../rosterSignals';
@@ -163,23 +164,24 @@ describe('RosterNotePopover', () => {
 		expect(toastSuccessMock).not.toHaveBeenCalled();
 	});
 
-	it('announces nothing and refreshes nothing when the Organization changed before the reply', async () => {
+	it('announces nothing, refreshes nothing and stays put when the Organization lifetime ended before the reply', async () => {
 		let reply!: (response: Response) => void;
 		fetchMock.mockReturnValue(new Promise<Response>((resolve) => (reply = resolve)));
-		const { ctx, refresh, raw } = makeCtx();
-		mount(ctx);
+		const { ctx, refresh } = makeCtx();
+		const { onclose } = mount(ctx);
 
 		await fireEvent.input(await screen.findByRole('textbox', { name: 'Follow-up title' }), {
 			target: { value: 'Call about leave' }
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Add follow-up' }));
-		raw.orgId = 'org-2';
+		endOrganizationLifetime();
 		reply(new Response('{}', { status: 201 }));
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		expect(refresh).not.toHaveBeenCalled();
 		expect(toastSuccessMock).not.toHaveBeenCalled();
+		expect(onclose).not.toHaveBeenCalled();
 	});
 
 	it('closes at once on Escape when nothing was typed', async () => {

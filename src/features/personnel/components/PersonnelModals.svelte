@@ -119,7 +119,9 @@
 		pinnedNames={pinnedGroupsStore.list}
 		loading={groupManagementStore.loading}
 		initialSelection={groupEditorPayload?.select ?? null}
-		todayStatus={(person) => rosterStatusDot(ctx.signalRow(person), ctx.signals.statusTypes)}
+		todayStatus={ctx.canViewAvailability
+			? (person) => rosterStatusDot(ctx.signalRow(person), ctx.signals.statusTypes)
+			: undefined}
 		canMovePerson={(person) => ctx.canManagePersonnelRecord(person)}
 		canMoveTo={(groupId) => ctx.canManagePersonnelInGroup(groupId)}
 		onAdd={async (name) => {

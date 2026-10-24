@@ -38,7 +38,8 @@
 		loading?: boolean;
 		/** A Group id or `UNASSIGNED`; the first Group otherwise. */
 		initialSelection?: string | null;
-		todayStatus: (person: Personnel) => RosterStatusDot;
+		/** Absent when the viewer cannot see availability, which hides the Today column. */
+		todayStatus?: (person: Personnel) => RosterStatusDot;
 		/** Whether the viewer may change this person's Group. */
 		canMovePerson: (person: Personnel) => boolean;
 		/** Whether the viewer may move People into this Group (null is Unassigned). */
@@ -99,6 +100,11 @@
 	const selectionKey = $derived(selectedGroup ? selectedGroup.id : UNASSIGNED);
 	const selectedName = $derived(selectedGroup?.name ?? 'Unassigned');
 	const members = $derived(membersByGroup.get(selectionKey) ?? []);
+	const memberColumns = $derived(
+		todayStatus
+			? 'grid-cols-[1.75rem_3.25rem_minmax(0,1fr)_6.875rem] sm:grid-cols-[1.75rem_3.25rem_minmax(0,1fr)_12.5rem_6.875rem]'
+			: 'grid-cols-[1.75rem_3.25rem_minmax(0,1fr)] sm:grid-cols-[1.75rem_3.25rem_minmax(0,1fr)_12.5rem]'
+	);
 	const movableMembers = $derived(members.filter(canMovePerson));
 	const checkedMembers = $derived(members.filter((person) => checked.includes(person.id)));
 	const targetGroupId = $derived(selectedGroup?.id ?? null);
@@ -575,7 +581,10 @@
 
 				<div class="overflow-hidden rounded-md border border-border bg-background">
 					<div
-						class="grid h-8 grid-cols-[1.75rem_3.25rem_minmax(0,1fr)_6.875rem] items-center border-b border-border bg-muted px-3 font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase sm:grid-cols-[1.75rem_3.25rem_minmax(0,1fr)_12.5rem_6.875rem]"
+						class={cn(
+							'grid h-8 items-center border-b border-border bg-muted px-3 font-mono text-[11px] leading-[14px] tracking-[0.08em] text-muted-foreground uppercase',
+							memberColumns
+						)}
 					>
 						<span>
 							{#if movableMembers.length > 0}
@@ -590,7 +599,7 @@
 						<span>Rank</span>
 						<span>Members · {members.length}</span>
 						<span class="max-sm:hidden">Duty role</span>
-						<span>Today</span>
+						{#if todayStatus}<span>Today</span>{/if}
 					</div>
 					{#if loading}
 						<div class="grid gap-3 px-3 py-3" aria-busy="true" aria-label="Loading members">
@@ -606,10 +615,11 @@
 						<ul aria-label="Members of {selectedName}">
 							{#each members as person (person.id)}
 								{@const isChecked = checked.includes(person.id)}
-								{@const dot = todayStatus(person)}
+								{@const dot = todayStatus?.(person)}
 								<li
 									class={cn(
-										'grid min-h-[42px] grid-cols-[1.75rem_3.25rem_minmax(0,1fr)_6.875rem] items-center border-b border-border px-3 last:border-b-0 sm:grid-cols-[1.75rem_3.25rem_minmax(0,1fr)_12.5rem_6.875rem]',
+										'grid min-h-[42px] items-center border-b border-border px-3 last:border-b-0',
+										memberColumns,
 										isChecked && 'bg-muted'
 									)}
 								>
@@ -627,21 +637,23 @@
 										>{person.lastName}, {person.firstName}</span
 									>
 									<span class="truncate text-sm text-muted-foreground max-sm:hidden">{person.clinicRole}</span>
-									<span class="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
-										{#if dot.kind === 'skeleton'}
-											<Skeleton class="h-3 w-16" />
-										{:else if dot.kind === 'present'}
-											<span aria-hidden="true" class="size-[7px] shrink-0 rounded-full bg-success"></span>
-											<span class="truncate">Present</span>
-										{:else if dot.kind === 'away'}
-											<span
-												aria-hidden="true"
-												class="size-[7px] shrink-0 rounded-full"
-												style:background-color={dot.type.color}
-											></span>
-											<span class="truncate">{dot.type.name}</span>
-										{/if}
-									</span>
+									{#if dot}
+										<span class="flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
+											{#if dot.kind === 'skeleton'}
+												<Skeleton class="h-3 w-16" />
+											{:else if dot.kind === 'present'}
+												<span aria-hidden="true" class="size-[7px] shrink-0 rounded-full bg-success"></span>
+												<span class="truncate">Present</span>
+											{:else if dot.kind === 'away'}
+												<span
+													aria-hidden="true"
+													class="size-[7px] shrink-0 rounded-full"
+													style:background-color={dot.type.color}
+												></span>
+												<span class="truncate">{dot.type.name}</span>
+											{/if}
+										</span>
+									{/if}
 								</li>
 							{/each}
 						</ul>

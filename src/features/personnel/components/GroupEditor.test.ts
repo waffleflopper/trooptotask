@@ -203,6 +203,13 @@ describe('GroupEditor', () => {
 		expect(screen.queryByRole('button', { name: 'Remove from Group' })).toBeNull();
 	});
 
+	it('leaves out the Today column for a viewer who cannot see availability', () => {
+		renderEditor({ todayStatus: undefined });
+
+		expect(screen.queryByText('Today')).toBeNull();
+		expect(memberRows('2nd Platoon')).toEqual(['SSG Alvarez, Pat Squad leader', 'PFC Banks, Pat']);
+	});
+
 	it('lists Unassigned people first under Add people and moves the one picked into the Group', async () => {
 		const { onMove } = renderEditor();
 

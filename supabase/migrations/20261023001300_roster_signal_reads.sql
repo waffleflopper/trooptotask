@@ -1,21 +1,22 @@
 BEGIN;
 
--- The Personnel roster's signals lane: one statement for every readable source and the whole visible roster.
--- It runs as the caller, so table policies still apply. Reading Personnel through its policy costs about as
--- much as the roster read itself, so the active People are read once and every source filters that set.
--- Each source returns the cohort it could read, so the roster tells a Person with no facts apart from one the
--- viewer cannot see. A source the caller did not name is not computed and comes back null.
+-- Table policies call Personnel's authorization helpers per scanned row. This read instead evaluates
+-- the same visible cohort once per lane, including Personnel, before joining each source's facts.
+-- Catalogs and Organization settings have separate guards because an empty cohort alone cannot protect them.
 
 CREATE FUNCTION public.roster_signals(
   p_organization_id uuid, p_as_of date, p_since date, p_sources text[], p_personnel_ids uuid[] DEFAULT NULL
 ) RETURNS jsonb
-LANGUAGE sql STABLE SECURITY INVOKER
+LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = ''
 AS $$
   WITH active AS MATERIALIZED (
     SELECT p.id, p.rank, p.mos, p.clinic_role
     FROM public.personnel p
+    JOIN member_access_private.viewable_personnel('personnel') v
+      ON v.organization_id = p_organization_id AND v.personnel_id = p.id
     WHERE p.organization_id = p_organization_id AND p.archived_at IS NULL
+      AND (SELECT public.is_org_member(p_organization_id))
       AND (p_personnel_ids IS NULL OR p.id = ANY (p_personnel_ids))
   ),
   presence_cohort AS (
@@ -50,12 +51,13 @@ AS $$
     SELECT a.id
     FROM active a
     WHERE ('followUps' = ANY (p_sources) OR 'counseling' = ANY (p_sources))
-      AND public.member_access_has_capability(p_organization_id, 'personnel', 'configure')
+      AND (SELECT public.member_access_has_capability(p_organization_id, 'personnel', 'configure'))
   ),
   tasks AS (
     SELECT t.id, t.task_code, t.title, t.mos, t.expiration_months, t.sort_order
     FROM public.ict_tasks t
     WHERE 'criticalTasks' = ANY (p_sources) AND t.organization_id = p_organization_id AND t.archived_at IS NULL
+      AND (SELECT public.member_access_has_capability(p_organization_id, 'criticalTasks', 'view'))
   ),
   latest_completions AS (
     SELECT DISTINCT ON (pc.personnel_id, pc.ict_task_id)
@@ -85,6 +87,7 @@ AS $$
         ) ORDER BY s.sort_order, s.name)
         FROM public.status_types s
         WHERE s.organization_id = p_organization_id
+          AND (SELECT public.member_access_has_capability(p_organization_id, 'calendar', 'view'))
       ), '[]'::jsonb),
       'entries', COALESCE((
         SELECT jsonb_agg(jsonb_build_array(e.id, e.personnel_id, e.status_type_id, e.start_date)
@@ -109,6 +112,7 @@ AS $$
         ) ORDER BY t.sort_order, t.id)
         FROM public.training_types t
         WHERE t.organization_id = p_organization_id
+          AND (SELECT public.member_access_has_capability(p_organization_id, 'training', 'view'))
       ), '[]'::jsonb),
       'completions', COALESCE((
         SELECT jsonb_agg(jsonb_build_array(pt.personnel_id, pt.training_type_id, pt.completion_date, pt.expiration_date)
@@ -132,7 +136,10 @@ AS $$
           'expiringSoonWarningDays', o.critical_tasks_expiring_soon_warning_days
         )
         FROM public.organizations o
-        WHERE o.id = p_organization_id
+        WHERE o.id = p_organization_id AND EXISTS (
+          SELECT 1 FROM public.organization_memberships m
+          WHERE m.organization_id = p_organization_id AND m.user_id = (SELECT auth.uid())
+        )
       ),
       'completions', COALESCE((
         SELECT jsonb_agg(jsonb_build_array(l.personnel_id, l.ict_task_id, l.completed_at, l.created_at, l.validated_by)
@@ -178,7 +185,8 @@ AS $$
   );
 $$;
 
-REVOKE ALL ON FUNCTION public.roster_signals(uuid, date, date, text[], uuid[]) FROM PUBLIC, anon;
+ALTER FUNCTION public.roster_signals(uuid, date, date, text[], uuid[]) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.roster_signals(uuid, date, date, text[], uuid[]) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.roster_signals(uuid, date, date, text[], uuid[]) TO authenticated;
 
 COMMIT;

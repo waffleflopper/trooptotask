@@ -15,7 +15,7 @@
 <AuthShell
 	eyebrow="Sign Out"
 	headline={['Stand down.', 'Sign out.']}
-	lede="Signing out ends your session on every device, not just this one."
+	lede="Signing out should end your session on every device. This page shows what could not be confirmed."
 	panelEyebrow="Session"
 	panelTitle={form?.localOnly ? 'Signed out on this browser.' : 'Try signing out again.'}
 >

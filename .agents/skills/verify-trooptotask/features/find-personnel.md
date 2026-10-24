@@ -190,7 +190,11 @@ scoped actors retain their baseline grants.
     Save the row carries an `ETS · 42d` badge and `list_network_requests` shows the `PUT` and no `roster-signals`
     request. Change Group to Alpha (type `Alp` in the list and press Enter: the form stays open, a list's Enter does not
     save), Save: the row moves under Alpha and one `POST .../api/personnel/roster-signals` `200` follows the `PUT`; a
-    Duty role or MOS change also rereads signals. Replace Last name with one space and click `Save`:
+    Duty role or MOS change also rereads signals. As `orgOwner`, open Quick edit on Able, then check Able's box and
+    choose `Move to Group` › `Bravo` in the `Selected people` bar: the toast reads `Moved 1 person to Bravo` and the
+    form stays open. Type `68C` in MOS (the summary reads `1 CHANGE` and `MOS 68W → 68C`) and Save: one `PUT` `200`,
+    Able stays under Bravo and `$V rows personnel orgA last_name Able` reads `mos` `68C` with Bravo's `group_id`,
+    because the save sends only the changed field. Replace Last name with one space and click `Save`:
     `Enter a last name.` renders in a `role="alert"` message, the input is `invalid` with it as its description, no
     `PUT` is sent and focus stays on `Save`. As `viewer` the roster shows no `Quick edit` and E does nothing. As
     `personnelOperate` (no record reading) the form opens without `Full data sheet`. At 900 the fields wrap into rows
@@ -278,7 +282,15 @@ scoped actors retain their baseline grants.
     `{"featureSwitch":{"feature":"training","on":false}}`, then `criticalTasks`): `Expired or missing` disappears,
     `?show=expired` shows the whole roster with `Filter unavailable.` and `Clear filter`, and the button removes the
     parameter. Turn both back on afterward. At 390 px the chip row scrolls sideways inside itself and the page's
-    `scrollWidth` stays 390.
+    `scrollWidth` stays 390. The chip is a fixed 30-day lens, whatever a type's own warning window: on a fresh launch
+    (before step 11's staging) the row reads `Expiring ≤ 30d 0`, disabled. Stage `POST` `/api/training-types` with
+    `{"name":"Verification Short Window","expirationMonths":12,"warningDaysYellow":14,"warningDaysOrange":7}` and `POST`
+    `/api/personnel-trainings` for Able with that type, completed a year before and expiring 20 days after
+    `$V fixture`'s `dates.ui` (both 200), then reload: `Expiring ≤ 30d 1`. Click it: only Able shows, reading
+    `Verification Short Window expires in 20d` in amber, with `1 of 3 match`; with the chip cleared Able's cell still
+    reads `Verification All-MOS Critical Task missing`, because the item is current under its own 14-day window. The
+    type applies to everyone, so Baker and Unassigned gain a missing item; `verify:app restart` before relying on other
+    step counts.
 
 18. **Note composer.** As `orgOwner` (or `manager`), click `Note for SPC Baker, Synthetic`, or focus Baker's row and
     press N. A popover opens under the row (it flips above when the row is near the bottom of the window), headed
@@ -294,11 +306,14 @@ scoped actors retain their baseline grants.
     `<title> · due <date>` for the soonest open follow-up, with `· overdue` in red when it is past and `· +N more` when
     others are open; it is absent for a Person with none. Esc with nothing typed closes at once; with text it shows
     `Discard what you typed?` with `Keep editing` (focus returns to the field) and `Discard`.
-    - Loading and failure: `$V server-source arm rpc/roster_signal_follow_ups hold 1 90000` and reload: the composer
-      shows a skeleton beside `ALREADY OPEN`; `release` and `restore` afterward. With `fail-hard` armed the line is
-      absent and the rest works. `$V network arm-fail PAGE personnel/<id>/follow-ups`, then save: the popover stays open
-      with the typed title and `Unable to add follow-up.` under it, and `rows` shows no matching row; after `restore`
-      the same Add saves one row and closes.
+    - Loading and failure: `$V server-source arm rpc/roster_signals hold 1 90000`, reload and open Baker's composer: one
+      skeleton shows beside `ALREADY OPEN`, and after `server-source release` the line resolves (absent when Baker has
+      no open follow-up); `server-source restore` afterward. Follow-ups have no read of their own, so `fail-hard` fails
+      the whole signals lane: the roster shows `Today's status and Needs attention could not be loaded.` with `Reload`,
+      the composer opens with no `ALREADY OPEN` line and no skeleton, and a typed follow-up still saves
+      (`rows personnel_follow_ups` gains the row). `$V network arm-fail PAGE personnel/<id>/follow-ups`, then save: the
+      popover stays open with the typed title and `Unable to add follow-up.` under it, and `rows` shows no matching row;
+      after `restore` the same Add saves one row and closes.
     - Leaving with text typed: with a title typed, click another row, a name link or press Back. The URL stays on
       Personnel, the typed title stays and the footer reads `Discard what you typed?`. `Keep editing` returns focus to
       `Follow-up title` and drops the destination. `Discard` closes the composer and then opens the row or record (Back
@@ -419,7 +434,12 @@ scoped actors retain their baseline grants.
       of the panel with `Follow-up title` focused. Type a title and press Enter: one `POST .../follow-ups`, one
       `peek?section=followUps` and one `POST .../roster-signals`; the new follow-up shows with `No due date`, focus
       returns to the docked input and the toast reads `Follow-up added for SPC Baker` with `Open log`. A note there
-      sends one `POST .../leader-notes` and one `peek?section=note`, and `Latest note` quotes it.
+      sends one `POST .../leader-notes` and one `peek?section=note`, and `Latest note` quotes it. One composer at a time
+      includes the dock: with a title typed in it, focus Unassigned's row and press N, or check `Select everyone shown`
+      and choose `Follow-up for each`. The dock asks `Discard what you typed?` with focus on `Keep editing` and nothing
+      else opens; `Discard` empties the dock back to its input and opens `Add to log for SPC Synthetic Unassigned` (or
+      `Add to log for 3 people`) with `Follow-up title` focused. The other way round, a typed bulk composer asks the
+      same question when the dock's input is clicked, and `Discard` opens the docked composer.
     - Quick edit: the dock's pencil `Quick edit SPC Synthetic Baker` opens the step 14 form
       `Quick edit SPC Baker, Synthetic` under Baker's row with focus on `Rank`. Set `MOS` to `11C` and `Save`: one
       `PUT .../api/personnel`, one `peek?section=attention` and one `POST .../roster-signals`; the panel's MOS chip

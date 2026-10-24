@@ -27,22 +27,17 @@
 	const canNote = $derived(ctx.canManagePersonnelRecord(person));
 	const noteOpen = $derived(controls.noteOpenFor === person.id);
 	const canQuickEdit = $derived(ctx.canManagePersonnelRecord(person));
-	const canArchive = $derived(ctx.canArchivePersonnelRecord(person));
-	const selected = $derived(controls.selecting && canArchive && controls.isSelected(person.id));
+	const selected = $derived(controls.selectable && controls.isSelected(person.id));
+	let rangeClick = false;
 	const tabbable = $derived(controls.tabRowId === person.id);
 	const signal = $derived(ctx.signalRow(person));
 	const dot = $derived(rosterStatusDot(signal, ctx.signals.statusTypes));
 	const attention = $derived(rosterAttentionCell(signal));
 	const loss = $derived(ctx.upcomingLossMap.get(person.id));
 
-	function activate(): void {
-		if (controls.selecting) controls.toggleSelected(person.id);
-		else if (canOpen) controls.openRecord(person);
-	}
-
 	function handleClick(event: MouseEvent): void {
 		if (DataTable.eventStartedInInteractiveDescendant(event)) return;
-		activate();
+		if (canOpen) controls.openRecord(person);
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
@@ -50,9 +45,12 @@
 		const row = event.currentTarget as HTMLElement;
 		const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
 		if (key === 'ArrowDown' || key === 'ArrowUp') focusAdjacentRow(row, key === 'ArrowDown' ? 1 : -1);
-		else if (key === 'Enter' || (key === ' ' && controls.selecting)) activate();
-		else if (key === 'n' && canNote && !controls.selecting) controls.note(person);
-		else if (key === 'e' && canQuickEdit && !controls.selecting) controls.quickEdit(person);
+		else if (key === 'Enter') {
+			if (canOpen) controls.openRecord(person);
+		} else if ((key === ' ' || key === 'x') && controls.selectable)
+			controls.select(person.id, !selected, event.shiftKey);
+		else if (key === 'n' && canNote) controls.note(person);
+		else if (key === 'e' && canQuickEdit) controls.quickEdit(person);
 		else return;
 		event.preventDefault();
 	}
@@ -83,7 +81,7 @@
 	data-note-open={noteOpen || undefined}
 	class="group/row cursor-pointer data-[note-open]:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 	tabindex={tabbable ? 0 : -1}
-	aria-label={controls.selecting ? `Select ${person.rank} ${person.lastName}` : canOpen ? `Open ${name}` : name}
+	aria-label={canOpen ? `Open ${name}` : name}
 	onclick={handleClick}
 	onkeydown={handleKeydown}
 	onfocusin={() => controls.focused(person.id)}
@@ -97,12 +95,17 @@
 			style={column.width ? `width: ${column.width}` : undefined}
 		>
 			{#if column.key === 'select'}
-				<DataTable.SelectionCheckbox
-					checked={selected}
-					disabled={!canArchive || controls.selectionBusy}
-					ariaLabel={canArchive ? `Select ${name}` : `${name} cannot be archived`}
-					onCheckedChange={canArchive ? () => controls.toggleSelected(person.id) : undefined}
-				/>
+				<!-- Capture runs before the checkbox's own click, so a Shift-click reaches the change as a range. -->
+				<span class="inline-flex" onclickcapture={(event) => (rangeClick = event.shiftKey)}>
+					<DataTable.SelectionCheckbox
+						checked={selected}
+						ariaLabel="Select {name}"
+						onCheckedChange={(checked) => {
+							controls.select(person.id, checked, rangeClick);
+							rangeClick = false;
+						}}
+					/>
+				</span>
 			{:else if column.key === 'status'}
 				{#if dot.kind === 'skeleton'}
 					<Skeleton class="size-2 rounded-full" />
@@ -147,7 +150,7 @@
 							</Badge>
 						{/if}
 						<!-- The actions column hides below md; Note and Quick edit stay reachable beside the name. -->
-						{#if (canNote || canQuickEdit) && !controls.selecting}
+						{#if canNote || canQuickEdit}
 							<span class="ml-auto flex shrink-0 gap-1 md:hidden">
 								{#if canNote}
 									<Button
@@ -186,7 +189,7 @@
 				{@render attentionText()}
 			{:else if column.key === 'actions'}
 				<span class="flex items-center justify-end gap-1">
-					{#if !controls.selecting}
+					{#if canNote || canQuickEdit}
 						<!-- Hover reveals them; a touch screen has no hover, so they stay shown there. -->
 						<span
 							class={[

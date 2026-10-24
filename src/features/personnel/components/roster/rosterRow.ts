@@ -2,10 +2,11 @@ import type { Personnel } from '../../personnel.types';
 
 /** What a roster row asks of the roster around it: selection, roving focus and the row's actions. */
 export interface RosterRowControls {
-	readonly selecting: boolean;
-	readonly selectionBusy: boolean;
+	/** Whether rows carry a selection checkbox. */
+	readonly selectable: boolean;
 	isSelected(personnelId: string): boolean;
-	toggleSelected(personnelId: string): void;
+	/** `range` extends from the last row set, as Shift-click does. */
+	select(personnelId: string, selected: boolean, range: boolean): void;
 	/** The one row in the tab order. */
 	readonly tabRowId: string | null;
 	focused(personnelId: string): void;

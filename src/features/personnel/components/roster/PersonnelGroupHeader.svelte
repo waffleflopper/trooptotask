@@ -7,9 +7,10 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Toggle } from '$lib/components/ui/toggle';
-	import type { GroupHeaderContext } from '$lib/components/ui/data-table';
+	import { SelectionCheckbox, type GroupHeaderContext } from '$lib/components/ui/data-table';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../../personnel.types';
+	import type { CheckState } from './rosterSelection.svelte';
 
 	interface Props {
 		group: GroupHeaderContext;
@@ -19,9 +20,13 @@
 		pinned: boolean;
 		unassigned: boolean;
 		onTogglePin: (groupKey: string) => void;
+		/** How much of the Group's shown People is selected; null hides the checkbox. */
+		selection: { state: CheckState; set: (selected: boolean) => void } | null;
+		/** Null hides "Note to everyone in the Group". */
+		onNoteToEveryone: (() => void) | null;
 	}
 
-	let { group, people, ctx, pinned, unassigned, onTogglePin }: Props = $props();
+	let { group, people, ctx, pinned, unassigned, onTogglePin, selection, onNoteToEveryone }: Props = $props();
 
 	const summary = $derived(ctx.summarizeSignals(people));
 	const presence = $derived(
@@ -50,8 +55,21 @@
 	);
 </script>
 
-<div class="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 @3xl/data-table:flex-nowrap">
+<div
+	class="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 @3xl/data-table:flex-nowrap"
+	data-roster-group={group.key}
+>
 	<div class="flex min-w-0 flex-1 items-center gap-1">
+		{#if selection}
+			<span class="inline-flex w-6 shrink-0 justify-center">
+				<SelectionCheckbox
+					checked={selection.state === 'all'}
+					indeterminate={selection.state === 'some'}
+					ariaLabel="Select everyone in {group.label}"
+					onCheckedChange={selection.set}
+				/>
+			</span>
+		{/if}
 		{#if unassigned}
 			<span class="w-8 shrink-0" aria-hidden="true"></span>
 		{:else}
@@ -142,6 +160,9 @@
 					{#if canEditGroup}
 						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Rename</DropdownMenu.Item>
 						<DropdownMenu.Item onSelect={() => ctx.openGroupEditor(groupId)}>Add people</DropdownMenu.Item>
+					{/if}
+					{#if onNoteToEveryone}
+						<DropdownMenu.Item onSelect={onNoteToEveryone}>Note to everyone in the Group</DropdownMenu.Item>
 					{/if}
 					<DropdownMenu.Item onSelect={() => onTogglePin(group.key)}>
 						{pinned ? 'Unpin' : 'Pin'}

@@ -121,8 +121,8 @@ scoped actors retain their baseline grants.
     reads `2 present` and `1 Verification Training`. Able's dot is `Present today` and its Needs attention reads
     `Verification Required Training expired · 2 more` in red; Baker's dot is `Verification Training today` and reads
     `Verification All-MOS Critical Task missing · 2 more`; Unassigned reads
-    `Verification All-MOS Critical Task missing · 3 more`. The footer reads `3 of 3 shown` with `N note`, `E quick edit`
-    and `↵ open record`. Turn off `Critical tasks` and `Training` in Settings › Features
+    `Verification All-MOS Critical Task missing · 3 more`. The footer reads `3 of 3 shown` with `X select`, `N note`,
+    `E quick edit` and `↵ open record`. Turn off `Critical tasks` and `Training` in Settings › Features
     (`organizations.disabled_features` reads `training, criticalTasks`) and reload: Able reads `—`, Baker
     `1 follow-up overdue` in red and Unassigned `NCOER due` in amber. Turn both back on afterward. Quick edit (E) on
     Able, set ETS 41 days out and save: one `PUT` and the name carries the `ETS · 41d` badge (PCS uses the outline
@@ -242,8 +242,9 @@ scoped actors retain their baseline grants.
     `Select everyone shown`: every checkbox checks, selected rows carry `data-state="selected"`, and the
     `Selected people` toolbar reads `3 selected` with `Follow-up for each` (accent), `Add note`, `Move to Group`,
     `Export`, `Archive…` and `Clear selection` (title `Clear selection (Esc)`). Unchecking one row turns the header and
-    that Group's checkbox `mixed`. Keyboard: focus Able's row and press Space (`1 selected`), ArrowDown and x
-    (`2 selected`), x again (`1 selected`), then Esc: the bar leaves and focus stays on the row. Shift-click: native
+    that Group's checkbox `mixed`. Keyboard: x toggles the focused row's selection (the footer hint reads `X select`;
+    Space does the same for now). Focus Able's row and press x (`1 selected`), ArrowDown and x (`2 selected`), x again
+    (`1 selected`), then Space (`2 selected`) and Esc: the bar leaves and focus stays on the row. Shift-click: native
     `click` has no modifiers, so on `perfWide` with the `small` workload click `Select SPC Baker002, Blake` natively,
     then dispatch a `click` with `shiftKey: true` on `Select SSG Foster006, Finley`: the five rows from Baker002 to
     Foster006 in shown order are selected.

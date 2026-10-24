@@ -932,6 +932,22 @@ describe('PersonnelPageView', () => {
 			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		});
 
+		it('opens a row Note only after the bulk composer’s typed text is discarded', async () => {
+			render(PersonnelPageView, { props: { ctx: bulkCtx() } });
+			await fireEvent.click(checkbox('Select everyone shown'));
+			await fireEvent.click(bulkBar().getByRole('button', { name: 'Follow-up for each' }));
+			const bulk = await screen.findByRole('dialog', { name: 'Add to log for 3 people' });
+			await fireEvent.input(within(bulk).getByPlaceholderText('What needs to happen?'), {
+				target: { value: 'Turn in CIF hand receipt' }
+			});
+
+			await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0]);
+			await fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+
+			await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' });
+			expect(screen.queryByRole('dialog', { name: 'Add to log for 3 people' })).toBeNull();
+		});
+
 		it('moves the selected People to the chosen Group in one request and rereads their signals', async () => {
 			const fetchMock = vi
 				.fn()

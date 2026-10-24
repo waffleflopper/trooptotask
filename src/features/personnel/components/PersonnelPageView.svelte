@@ -471,6 +471,7 @@
 				<div class="flex items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
 					<span aria-live="polite">{activeTable.totalRows} of {visibleAllActivePersonnel.length} shown</span>
 					<span class="flex gap-4 max-md:hidden" aria-hidden="true">
+						{#if canSelect}<span>X select</span>{/if}
 						{#if canNoteAny}<span>N note</span>{/if}
 						{#if canQuickEditAny}<span>E quick edit</span>{/if}
 						{#if ctx.canReadPersonnelDetails}<span>↵ open record</span>{/if}

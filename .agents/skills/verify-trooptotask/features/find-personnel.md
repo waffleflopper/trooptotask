@@ -92,7 +92,7 @@ scoped actors retain their baseline grants.
    `arm-hold PAGE personnel/archive-batch`. Loading: Personnel loads in the Organization layout before the page renders,
    and no control holds that load, so record UNAVAILABLE with the attempted route unless a skeleton is observed on
    navigation. URL: record that search text, view mode, sort, pins and collapse leave the URL unchanged (only a filter
-   writes `?show=`, step 16), and that choosing a row opens `/org/<org>/personnel/<slug>`. Capture 1280 light and 390
+   writes `?show=`, step 17), and that choosing a row opens `/org/<org>/personnel/<slug>`. Capture 1280 light and 390
    dark, including the `Personnel controls` toolbar at 390: one row with the search field, `More Personnel controls` and
    `Add Person`, and no horizontal scroll (`scrollWidth` equals the viewport). `Import`, `Archive`, `Manage Groups` and
    the `A-Z`/`Group` view fold into More in that order (at about 1008, 956, 860 and 450px), so at 390 choose them from
@@ -131,7 +131,7 @@ scoped actors retain their baseline grants.
     `1 present` and only Able's row, named `SPC Able, Synthetic`, with `1 of 1 shown`.
 12. **Row keyboard and actions.** Tab into the table: the first row takes focus with an inset ring and only that row is
     a tab stop. ArrowDown and ArrowUp move focus between rows, skipping Group headers. Enter opens the record; N opens
-    the `Add to log for <name>` composer (step 17); E opens that row's Quick edit form (step 14). The icon buttons are
+    the `Add to log for <name>` composer (step 18); E opens that row's Quick edit form (step 14). The icon buttons are
     hidden until the row is hovered or holds focus; the verification browser reports `hover: none`, so it always shows
     them, as a touch screen does. Single-row archive is the toolbar's `Archive` mode with one row selected, or the
     record's `More Personnel record` menu. Column hiding follows the table's own width, not the viewport: below 48rem
@@ -233,7 +233,7 @@ scoped actors retain their baseline grants.
     `Unpin Unassigned` and keeps focus on it; the no-Group header stays last with no pin and no menu. Rename it back to
     `Bravo` afterwards. The snapshot reads the count as `1 person` and an empty attention lane as `None need attention`
     (visually hidden text, no `aria-label` on the spans).
-16. **Attention filters.** As `orgOwner` after step 11's staging, Quick edit Able and set ETS 41 days after
+17. **Attention filters.** As `orgOwner` after step 11's staging, Quick edit Able and set ETS 41 days after
     `$V fixture`'s `dates.ui` (or `PUT` `/api/personnel` with `{"id": personA, "ets": "<that date>"}`), then reload.
     Under the toolbar, `Show only` is followed by six buttons: `Expired or missing 3`, `Expiring ≤ 30d 1`,
     `Overdue follow-ups 1`, `Not present 1`, `ETS/PCS ≤ 90d 1` and `Counseling due 3` (counts cover the whole roster and
@@ -268,7 +268,7 @@ scoped actors retain their baseline grants.
     parameter. Turn both back on afterward. At 390 px the chip row scrolls sideways inside itself and the page's
     `scrollWidth` stays 390.
 
-17. **Note composer.** As `orgOwner` (or `manager`), click `Note for SPC Baker, Synthetic`, or focus Baker's row and
+18. **Note composer.** As `orgOwner` (or `manager`), click `Note for SPC Baker, Synthetic`, or focus Baker's row and
     press N. A popover opens under the row (it flips above when the row is near the bottom of the window), headed
     `ADD TO LOG` and `SPC SYNTHETIC BAKER`, with `Follow-up` selected, `Follow-up title` focused and the row tinted. On
     the fixture's viewer day, Fri 23 Oct, the due chips read `Tomorrow`, `Fri 30 Oct` (next week's Friday, because today

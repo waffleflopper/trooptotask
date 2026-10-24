@@ -20,6 +20,8 @@ person's record.
   keyboard and actions, and the signals lane's loading and failure states.
 - `roster-note`: the row's `Note` button and N key open a popover composer that adds a follow-up or a leader note
   without leaving the roster.
+- `roster-peek`: at 1280 px and wider a row click or Space opens a preview beside the roster that reads each section on
+  its own, browses with J and K, and closes with Esc.
 
 ## How to get to it (user POV)
 
@@ -184,6 +186,46 @@ scoped actors retain their baseline grants.
     - Access: `viewer`, `scoped` and `dashboardScoped` have no `Note` button and N opens nothing; `manager` has one on
       every row, and `personnelOperate` too: its save toast reads `Follow-up added for SPC Able` with no `Open log`
       because that actor cannot open the record.
+
+16. **Peek panel.** As `orgOwner` at 1440x900, stage Baker's two follow-ups through
+    `POST /org/<org>/api/personnel/<personB>/follow-ups` (`Turn in TA-50 shortage list` due four days before the viewer
+    day, `Confirm leave address and POC` due six days after it) and one leader note through `.../leader-notes`. Reload
+    Personnel and clear the page's resource timings (`performance.clearResourceTimings()`). Click a cell of Baker's row
+    outside the name link (the `11B` text): the URL stays on Personnel and a complementary region
+    `Preview of SPC Synthetic Baker` docks on the right. Its top bar reads `2 of 3 · J/K` in `Group` view with
+    `Previous person`, `Next person`, `Open record` (the record URL) and `Close preview`. Identity reads `BRAVO · NCO`,
+    `SPC SYNTHETIC BAKER`, `11B`, the amber `Verification Training today` pill and `(910) 555-0148`. `Next 7 days` draws
+    today plus six days with the training bar and its legend; `Needs attention · 2` lists the two missing items with
+    `Missing · Not recorded` and a `Readiness` link; `Open follow-ups · 2` shows `Overdue 4 days` in red and the other's
+    weekday date; `Latest note` quotes the note. The page fetched exactly five requests,
+    `peek?section=identity|next7|attention|followUps|note`, and no `__data.json`. While it is open the `Duty Role` and
+    `Group` columns and the `Today's headcount` strip are gone, Baker's row has the accent left rule, and the row's Note
+    and Quick edit buttons are hidden.
+    - Keyboard: Baker's row keeps focus. J moves focus to `Open SPC Unassigned, Synthetic` and the panel to
+      `3 of 3 · J/K` with five reads for Unassigned; K back to Baker reads nothing (cached). Two J presses within 40 ms
+      from Able read only the Person browsing stops on (five reads, none for the Person skipped). Tab from the row
+      focuses `Previous person`; K there steps the panel while focus stays on that button; Esc closes the panel and
+      returns focus to the Person's row. Space on a focused row opens it again.
+    - Follow-up: tick `Complete Turn in TA-50 shortage list`. One `PATCH .../follow-ups/<id>` and one
+      `POST .../roster-signals`; the row reads `Done`, the heading `Open follow-ups · 1`, `rows personnel_follow_ups`
+      shows `completed`, and Baker's attention cell drops to `· 1 more`. J then K rereads only `peek?section=followUps`.
+    - Docked composer: choose `Add a note or follow-up for SPC Baker…`; the step 15 composer opens docked at the bottom
+      of the panel with `Follow-up title` focused. Type a title and press Enter: one `POST .../follow-ups`, one
+      `peek?section=followUps` and one `POST .../roster-signals`; the new follow-up shows with `No due date`, focus
+      returns to the docked input and the toast reads `Follow-up added for SPC Baker` with `Open log`. The pencil beside
+      it is `Quick edit SPC Synthetic Baker`.
+    - Loading: `$V server-source arm leader_notes hold 1 90000`, reload and open Baker: only `Latest note` shows its
+      three-line skeleton (`Latest note loading`) while the other sections fill, and the section's top does not move
+      when `release` lets the note through. `availability_entries` held shows the seven-column strip skeleton; a legend
+      that wraps to two lines moves the sections below it down by one line (20 px) when it arrives. Restore.
+    - Failure: `$V server-source arm leader_notes fail-hard 1`, reload and open Baker: `Latest note` reads
+      `Couldn't load notes.` with `Retry` and the rest loads. `restore`, then `Retry` sends one `peek?section=note` and
+      the note shows.
+    - Access: `manager` (no Calendar grant) gets the panel without `Next 7 days`; its `peek?section=next7` returns 200
+      with `{"state":"hidden"}`. Actors who cannot open the record (step 10) get no panel.
+    - Widths: at 1280x800 the panel docks beside a 506 px roster, Needs attention folds under the name and the toolbar
+      folds Import and Manage Groups into More. At 900 and 390 a row click opens `personnel/verify-baker` and no panel
+      renders; `scrollWidth` equals the viewport.
 
 ## Gotchas
 

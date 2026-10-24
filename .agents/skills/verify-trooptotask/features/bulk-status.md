@@ -157,9 +157,8 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    entries, Replace remains an Update and replaces all 500 in one request. A single row's replacement is never divided
    across requests.
 
-   After `$V seed duplicate-able`, an unranked Able row asks `Which person?`
-   with only `SPC Able, Synthetic` and `PFC Able, Synthetic` and no Create; picking SPC saves to the fixture Able. Run
-   `$V clean-seeds` afterward.
+   After `$V seed duplicate-able`, an unranked Able row asks `Which person?` with only `SPC Able, Synthetic` and
+   `PFC Able, Synthetic` and no Create; picking SPC saves to the fixture Able. Run `$V clean-seeds` afterward.
 
    As `calendarOperate`, `Import CSV` is in the Bulk Status menu, and an unknown status offers the status types with no
    Create. As `calendarView` there is no `Bulk Status`, `/calendar/import` shows the 403 page and a direct
@@ -185,9 +184,9 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    500 and a replay reads `Unchanged · 3000`.
 
    Replacement-heavy chunks split into requests of at most 500 replaced entries. With 251 rows each replacing two
-   entries, let the first request confirm 250 updates and fail the second with 503. Done must retain Updated 250 and
-   Not confirmed 1; the retry workbook contains only the last row. A 403 instead counts that last row as Failed with
-   its refusal reason. After either failure, unsent rows in the current chunk and later chunks count as Not attempted.
+   entries, let the first request confirm 250 updates and fail the second with 503. Done must retain Updated 250 and Not
+   confirmed 1; the retry workbook contains only the last row. A 403 instead counts that last row as Failed with its
+   refusal reason. After either failure, unsent rows in the current chunk and later chunks count as Not attempted.
 
 4. **Removal:** In Remove, select `Verification Training` and Baker, keeping the default today dates; choosing today
    again in a date picker clears that date. Observe the range request with
@@ -279,13 +278,14 @@ saving, and keep helper-created rows marked for `clean-seeds`.
    theme** for light (it cycles, so read `document.documentElement.dataset.theme`). In Add capture the header (title
    with the section switch and `Back to calendar` beside it), Step 1 (`Status` chips, the `Dates` label over both
    pickers, day count, `Note`, `Preview`), Step 2 (`Who`, the selected count, the `Roster picker controls` toolbar with
-   its search, `Clear` and `Select available`, each Group header with its `N of M` count, and the Person rows with their
-   hints and day strip; `Already on …` reads in the danger tone and `… overlaps` in the warning tone) and the sticky
-   summary bar on the dark chrome surface in both themes, once with the seeded overlaps from step 1 and once after a
-   save that makes a row show two entries (the hint wraps to two lines and stays inside the table). Capture the Remove
-   tab's review. Repeat at 390x844 dark. At each capture read `document.documentElement.scrollWidth` against
-   `innerWidth`; the picker's own scroll region scrolls horizontally at 390 and the availability column and hints sit at
-   its far end, so scroll `[data-slot="table-container"]` to read them.
+   its search, `Clear` and `Select available`, each Group header with its `N of M` count in the Organization's Group
+   order (a column sort reorders People, never Groups), and the Person rows with their hints and day strip;
+   `Already on …` reads in the danger tone and `… overlaps` in the warning tone) and the sticky summary bar on the dark
+   chrome surface in both themes, once with the seeded overlaps from step 1 and once after a save that makes a row show
+   two entries (the hint wraps to two lines and stays inside the table). Capture the Remove tab's review. Repeat at
+   390x844 dark. At each capture read `document.documentElement.scrollWidth` against `innerWidth`; the picker's own
+   scroll region scrolls horizontally at 390 and the availability column and hints sit at its far end, so scroll
+   `[data-slot="table-container"]` to read them.
 8. **Validation and selection.** In Add, choose an `End date` before `Start date`. The date error must be announced
    (`role="alert"`, `End date must be on or after start date`) in Step 1 beside the dates whether or not a Person is
    selected, and the summary bar repeats it, `Preview` must ask for valid dates, the hints and strip must drop out, and

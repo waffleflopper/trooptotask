@@ -47,6 +47,7 @@ function createStores() {
 	return {
 		personnelStore: createLoadable<Personnel>(),
 		groupsStore: createLoadable<Group>(),
+		pinnedGroupsStore: createLoadable<string>(),
 		ictTasksStore: createLoadable<IctTask>(),
 		personnelIctCompletionsStore: createLoadable<PersonnelIctCompletion>()
 	} satisfies CriticalTasksHydrationStores;
@@ -69,6 +70,7 @@ describe('Critical Tasks workspace hydration adapter', () => {
 			orgId: 'org-1',
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [personnel] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [group] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pins:1', items: ['Alpha'] },
 			ictTasks: { mode: 'replace', snapshotKey: 'tasks:1', items: [ictTask] },
 			personnelIctCompletions: {
 				mode: 'replace',
@@ -82,6 +84,8 @@ describe('Critical Tasks workspace hydration adapter', () => {
 
 		expect(stores.personnelStore.items).toEqual([personnel]);
 		expect(stores.groupsStore.items).toEqual([group]);
+		expect(stores.pinnedGroupsStore.items).toEqual(['Alpha']);
+		expect(stores.pinnedGroupsStore.orgId).toBe('org-1');
 		expect(stores.ictTasksStore.items).toEqual([ictTask]);
 		expect(stores.personnelIctCompletionsStore.loading).toBe(true);
 

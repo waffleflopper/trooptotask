@@ -1,8 +1,24 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from './criticalTasksPersistence.test-support.server';
 import { fetchCriticalTasksBootstrap } from './criticalTasksWorkspaceQuery.server';
 
 describe('criticalTasksWorkspaceQuery', () => {
+	it('loads the workspace with no pins when the pinned Groups read fails', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('groups', [{ id: 'group-alpha', organization_id: 'test-org', name: 'Alpha', sort_order: 0 }]);
+		const requestFindMany = ctx.store.findMany.bind(ctx.store);
+		ctx.store.findMany = ((table, orgId, filters, options) =>
+			table === 'user_pinned_groups'
+				? Promise.reject(new Error('Pinned Groups read failed'))
+				: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		const bootstrap = await fetchCriticalTasksBootstrap(ctx);
+
+		await expect(bootstrap.groups).resolves.toEqual([{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }]);
+		await expect(bootstrap.pinnedGroups).resolves.toEqual([]);
+	});
+
 	it('returns settings immediately while leaving workspace lists promise-backed', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -35,6 +51,10 @@ describe('criticalTasksWorkspaceQuery', () => {
 			},
 			{ id: 'group-bravo', organization_id: 'test-org', name: 'Bravo', sort_order: 1 },
 			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -1 }
+		]);
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'pin-bravo', organization_id: 'test-org', user_id: 'test-user', group_name: 'Bravo', sort_order: 0 },
+			{ id: 'pin-alpha', organization_id: 'test-org', user_id: 'test-user', group_name: 'Alpha', sort_order: 1 }
 		]);
 		ctx.store.seed('personnel', [
 			{
@@ -106,6 +126,7 @@ describe('criticalTasksWorkspaceQuery', () => {
 		});
 		expect(bootstrap.personnel).toBeInstanceOf(Promise);
 		expect(bootstrap.groups).toBeInstanceOf(Promise);
+		expect(bootstrap.pinnedGroups).toBeInstanceOf(Promise);
 		expect(bootstrap.ictTasks).toBeInstanceOf(Promise);
 		expect(bootstrap.personnelIctCompletions).toBeInstanceOf(Promise);
 		await expect(bootstrap.personnel).resolves.toEqual([
@@ -117,6 +138,7 @@ describe('criticalTasksWorkspaceQuery', () => {
 			})
 		]);
 		await expect(bootstrap.groups).resolves.toEqual([{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }]);
+		await expect(bootstrap.pinnedGroups).resolves.toEqual(['Alpha']);
 		await expect(bootstrap.ictTasks).resolves.toEqual([
 			expect.objectContaining({
 				id: 'task-1',

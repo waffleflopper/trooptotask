@@ -38,6 +38,7 @@
 		tasks: IctTask[];
 		completions: PersonnelIctCompletion[];
 		groups?: Group[];
+		pinnedGroups?: readonly string[];
 		settings?: CriticalTasksSettingsInput | null;
 		selectedGroupId?: string;
 		selectedGroupFilter?: string;
@@ -59,6 +60,7 @@
 		tasks,
 		completions,
 		groups = [],
+		pinnedGroups = [],
 		settings = null,
 		selectedGroupId = '',
 		selectedGroupFilter = '',
@@ -76,6 +78,7 @@
 			tasks,
 			completions,
 			groups,
+			pinnedGroups,
 			settings,
 			selectedGroupId,
 			selectedGroupFilter,

@@ -1,4 +1,8 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { flushSync } from 'svelte';
+import { groupCatalogHydration } from './groups.svelte';
+import { pinnedGroupsHydration } from './pinnedGroups.svelte';
 import { personnelRosterHydration, personnelStore, rosterStore } from './personnel.svelte';
 import type { Personnel } from '../personnel.types';
 
@@ -39,6 +43,8 @@ describe('personnelStore', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		personnelStore.load(structuredClone(mockPersonnel), 'org-1');
+		groupCatalogHydration.load([], 'org-1');
+		pinnedGroupsHydration.load([], 'org-1');
 	});
 
 	describe('getById', () => {
@@ -84,7 +90,7 @@ describe('personnelStore', () => {
 
 	describe('readModel', () => {
 		it('exposes the explicit Roster Read Model over store items', () => {
-			const view = personnelStore.readModel({ pinnedGroups: ['Bravo'] }).scoped({
+			const view = personnelStore.readModel().scoped({
 				kind: 'groups',
 				groupIds: ['g2']
 			});
@@ -92,6 +98,84 @@ describe('personnelStore', () => {
 			expect(view.personnel.map((person) => person.id)).toEqual(['3']);
 			expect(view.personnelByGroup.map((group) => group.group)).toEqual(['Bravo']);
 		});
+	});
+
+	it("lists Groups in the Organization's Group order, not alphabetically, with Unassigned last", () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'g2', name: 'Bravo', sortOrder: 0 },
+				{ id: 'g1', name: 'Alpha', sortOrder: 1 }
+			],
+			'org-1'
+		);
+		personnelStore.load(
+			[...structuredClone(mockPersonnel), { ...mockPersonnel[0], id: '5', groupId: null, groupName: '' }],
+			'org-1'
+		);
+
+		expect(
+			rosterStore
+				.readModel()
+				.full()
+				.personnelByGroup.map((group) => group.group)
+		).toEqual(['Bravo', 'Alpha', 'Unassigned']);
+	});
+
+	it("lists the viewer's pinned Group first", () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'g2', name: 'Bravo', sortOrder: 0 },
+				{ id: 'g1', name: 'Alpha', sortOrder: 1 }
+			],
+			'org-1'
+		);
+		pinnedGroupsHydration.load(['Alpha'], 'org-1');
+
+		expect(
+			rosterStore
+				.readModel()
+				.full()
+				.personnelByGroup.map((group) => group.group)
+		).toEqual(['Alpha', 'Bravo']);
+	});
+
+	it('re-orders a live roster view when the pins arrive after the roster and catalog', () => {
+		pinnedGroupsHydration.load([], 'org-0');
+		groupCatalogHydration.load(
+			[
+				{ id: 'g1', name: 'Alpha', sortOrder: 0 },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1 }
+			],
+			'org-1'
+		);
+		let order: string[] = [];
+		const stop = $effect.root(() => {
+			$effect(() => {
+				order = rosterStore
+					.readModel()
+					.full()
+					.personnelByGroup.map((group) => group.group);
+			});
+		});
+		flushSync();
+
+		pinnedGroupsHydration.load(['Bravo'], 'org-1');
+		flushSync();
+		stop();
+
+		expect(order).toEqual(['Bravo', 'Alpha']);
+	});
+
+	it('ignores Groups and pins loaded for another Organization', () => {
+		groupCatalogHydration.load([{ id: 'g2', name: 'Bravo', sortOrder: 0 }], 'org-2');
+		pinnedGroupsHydration.load(['Bravo'], 'org-2');
+
+		expect(
+			rosterStore
+				.readModel()
+				.full()
+				.personnelByGroup.map((group) => group.group)
+		).toEqual(['Alpha', 'Bravo']);
 	});
 
 	it('replaces the public roster when hydration switches Organizations', () => {

@@ -188,6 +188,7 @@ export function createRequestCriticalTasksReadContext(
 ): Parameters<typeof fetchCriticalTasksBootstrap>[0] & Parameters<typeof fetchCriticalTasksReportsPageModel>[0] {
 	return {
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		auth: request.auth,
 		rankCatalog: createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),

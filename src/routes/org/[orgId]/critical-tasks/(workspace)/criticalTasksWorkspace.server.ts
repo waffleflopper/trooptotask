@@ -41,6 +41,7 @@ function createCriticalTasksWorkspaceHydration(
 		orgId,
 		personnel: createCriticalTasksHydrationTarget(data.personnel),
 		groups: createCriticalTasksHydrationTarget(data.groups),
+		pinnedGroups: createCriticalTasksHydrationTarget(data.pinnedGroups),
 		ictTasks: createCriticalTasksHydrationTarget(data.ictTasks),
 		personnelIctCompletions: createCriticalTasksHydrationTarget(data.personnelIctCompletions)
 	};

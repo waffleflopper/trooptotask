@@ -191,6 +191,7 @@ export interface CriticalTasksWorkspaceData {
 	settings: CriticalTasksSettings;
 	personnel: CriticalTasksWorkspaceItems<Personnel>;
 	groups: CriticalTasksWorkspaceItems<Group>;
+	pinnedGroups: CriticalTasksWorkspaceItems<string>;
 	ictTasks: CriticalTasksWorkspaceItems<IctTask>;
 	personnelIctCompletions: CriticalTasksWorkspaceItems<PersonnelIctCompletion>;
 }
@@ -208,6 +209,7 @@ export interface CriticalTasksWorkspaceHydration {
 	orgId: string;
 	personnel: CriticalTasksWorkspaceHydrationTarget<Personnel>;
 	groups: CriticalTasksWorkspaceHydrationTarget<Group>;
+	pinnedGroups: CriticalTasksWorkspaceHydrationTarget<string>;
 	ictTasks: CriticalTasksWorkspaceHydrationTarget<IctTask>;
 	personnelIctCompletions: CriticalTasksWorkspaceHydrationTarget<PersonnelIctCompletion>;
 }

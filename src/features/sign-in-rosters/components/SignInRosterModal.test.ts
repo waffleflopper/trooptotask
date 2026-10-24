@@ -48,7 +48,7 @@ const personnel: Personnel[] = [
 	}
 ];
 
-const groups = [{ id: 'group-1', name: 'Alpha' }];
+const groups = [{ id: 'group-1', name: 'Alpha', sortOrder: 0 }];
 const SAVED_SCAN = 'org-1/sign-in-rosters/roster-1/signed-roster.pdf';
 
 function makeRoster(overrides: Partial<SignInRoster> = {}): SignInRoster {
@@ -87,7 +87,7 @@ function jsonResponse(data: unknown, ok = true, status = ok ? 200 : 500): Respon
 function renderModal(
 	overrides: {
 		personnel?: Personnel[];
-		groups?: { id: string; name: string }[];
+		groups?: { id: string; name: string; sortOrder: number }[];
 		rankCatalog?: RankCatalogEntry[];
 		canEdit?: boolean;
 	} = {}
@@ -97,6 +97,7 @@ function renderModal(
 			orgId: 'org-1',
 			personnel: overrides.personnel ?? personnel,
 			groups: overrides.groups ?? groups,
+			pinnedGroups: [],
 			rankCatalog: overrides.rankCatalog,
 			canEdit: overrides.canEdit ?? true,
 			onClose: vi.fn()
@@ -173,6 +174,46 @@ describe('SignInRosterModal', () => {
 		);
 		expect(body.personnelSnapshot).toHaveLength(1);
 		expect(body.filterConfig).toEqual(expect.objectContaining({ groups: [], ranks: expect.arrayContaining(['SGT']) }));
+	});
+
+	it("prints separate Group sections in the viewer's pins, then the Organization's Group order, with Unassigned last", async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+				(init?.method ?? 'GET') === 'POST' ? jsonResponse({ id: 'roster-2' }) : jsonResponse({ rosters: [], total: 0 })
+			)
+		);
+		mockAutoTable.mockClear();
+		render(SignInRosterModal, {
+			props: {
+				orgId: 'org-1',
+				personnel: [
+					personnelRow({ id: 'a', lastName: 'Able', groupName: 'Alpha' }),
+					personnelRow({ id: 'b', lastName: 'Baker', groupName: 'Bravo' }),
+					personnelRow({ id: 'c', lastName: 'Cole', groupName: 'Charlie' }),
+					personnelRow({ id: 'd', lastName: 'Dunn', groupId: null, groupName: '' })
+				],
+				groups: [
+					{ id: 'group-1', name: 'Alpha', sortOrder: 1 },
+					{ id: 'group-2', name: 'Bravo', sortOrder: 2 },
+					{ id: 'group-3', name: 'Charlie', sortOrder: 0 }
+				],
+				pinnedGroups: ['Bravo'],
+				canEdit: true,
+				onClose: vi.fn()
+			}
+		});
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		await fireEvent.input(screen.getByLabelText(/Title/i), { target: { value: 'Formation' } });
+		await fireEvent.click(screen.getByLabelText('Separate by group'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+		await waitFor(() => expect(mockAutoTable).toHaveBeenCalled());
+		const body = mockAutoTable.mock.calls[0][1].body as Array<Array<{ content: string; colSpan?: number }>>;
+		const sections = body.filter((row) => row[0].colSpan === 4).map((row) => row[0].content);
+		expect(sections).toEqual(['Bravo', 'Charlie', 'Alpha', 'Unassigned']);
 	});
 
 	it('locks the new roster draft while its save is held', async () => {
@@ -357,7 +398,7 @@ describe('SignInRosterModal', () => {
 
 		renderModal({
 			personnel: filteredPersonnel,
-			groups: [...groups, { id: 'group-2', name: 'Bravo' }]
+			groups: [...groups, { id: 'group-2', name: 'Bravo', sortOrder: 1 }]
 		});
 
 		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
@@ -462,6 +503,7 @@ describe('SignInRosterModal', () => {
 				personnelRow({ id: 'navy-e5', rank: 'PO2', lastName: 'Baker' })
 			],
 			groups,
+			pinnedGroups: [],
 			rankCatalog: [
 				rankCatalogEntry({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy' }),
 				rankCatalogEntry({ code: 'SGT', label: 'Sergeant', service: 'army' })

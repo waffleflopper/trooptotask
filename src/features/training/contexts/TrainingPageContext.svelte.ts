@@ -157,10 +157,6 @@ export class TrainingPageContext {
 		});
 	}
 
-	get groupOrder(): string[] {
-		return groupsStore.orgId === this.orgId ? groupsStore.items.map((g) => g.name) : [];
-	}
-
 	get personnelByGroup(): PersonnelGroup[] {
 		return this.trainingRosterView({ groupFilter: this.selectedGroupId || undefined }).personnelByGroup;
 	}
@@ -377,16 +373,14 @@ export class TrainingPageContext {
 		if (rosterStore.orgId !== this.orgId) {
 			return createRosterReadModel({
 				personnel: [],
-				groupOrder: this.groupOrder,
+				groups: [],
+				pinnedGroups: [],
 				fallbackGroupName: this.orgName
 			}).scoped(this.#org.scopeSet, { status: 'active', ...options });
 		}
 
 		return rosterStore
-			.readModel({
-				groupOrder: this.groupOrder,
-				fallbackGroupName: this.orgName
-			})
+			.readModel({ fallbackGroupName: this.orgName })
 			.scoped(this.#org.scopeSet, { status: 'active', ...options });
 	}
 }

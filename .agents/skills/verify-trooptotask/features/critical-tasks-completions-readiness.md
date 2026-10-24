@@ -90,7 +90,10 @@ pre-populating extra completions.
    the retained Alpha completion ID/date/method via `$V rows personnel_ict_completions orgA id ID`. Reports must show
    20%; the owner's Personnel Readiness tab must agree for Able, its Critical tasks `<ready> of <total> ready` equal to
    50%. A Personnel-only manager must not receive that readiness value. Capture visible reads and separate provider
-   evidence.
+   evidence. The `Group` view lists the viewer's pinned Groups, then the Organization's Group order, then Unassigned: on
+   the fresh fixture Alpha, Bravo, Unassigned. Pin Bravo for `ictOperator` with an authenticated
+   `POST /org/<orgA>/api/pinned-groups` `{"groupName":"Bravo"}` from the page and reload: Bravo, Alpha, Unassigned. A
+   `DELETE` with the same body unpins it.
 2. **Record, failed save and retry:** On Able's individual page log All-MOS using `dates.ictWarningCompleted`,
    Demonstration, a unique synthetic validator and note. Arm one `personnel-ict-completions` failure before Save. Expect
    the modal/draft to remain, an error, no saved-success feedback and zero marker rows. Restore the network control and
@@ -165,13 +168,13 @@ pre-populating extra completions.
    For an adjacent same-date update, record the completion ID, import the same Person/task/date with revised Notes and
    arm `$V fault arm ict-completions-update-lost-ack` on Review. A successful PATCH whose reply is lost returns an
    unconfirmed result for that row. Done reads `0 changes saved.` with `Not confirmed 1` and
-   `The last batch was not confirmed`.
-   Reload to inspect the actual effect on the same provider ID before any new import. These controls are table- and
-   method-scoped inside the owned provider, not restricted to one row or Organization; drive one mutation at a time.
+   `The last batch was not confirmed`. Reload to inspect the actual effect on the same provider ID before any new
+   import. These controls are table- and method-scoped inside the owned provider, not restricted to one row or
+   Organization; drive one mutation at a time.
 
-   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed.
-   Only confirmed records merge into the completion store. Done counts the unconfirmed rows separately, leaves
-   confirmed rows out of the not-imported workbook, and marks later chunks Not attempted without sending them.
+   In a mixed batch, confirmed saves and known failures keep their own results when another row is unconfirmed. Only
+   confirmed records merge into the completion store. Done counts the unconfirmed rows separately, leaves confirmed rows
+   out of the not-imported workbook, and marks later chunks Not attempted without sending them.
 
    **Lost browser batch reply.** `$V network arm-drop PAGE personnel-ict-completions/batch [ORDINAL]` dispatches only
    the real exact same-origin A POST and rejects its reply once after recording its status. Use the registered

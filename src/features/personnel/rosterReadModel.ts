@@ -16,10 +16,19 @@ export interface RosterGroupFilterOption {
 export type RosterScopeSelection = { scope: 'full' } | { scope: 'scope-set'; scopeSet: ScopeSet };
 export type RosterStatus = 'active' | 'archived' | 'all';
 
-export interface CreateRosterReadModelInput {
+export interface RosterGroupCatalogEntry {
+	id: string;
+	name: string;
+	sortOrder: number;
+}
+
+export interface RosterGroupOrder {
+	groups: readonly RosterGroupCatalogEntry[];
+	pinnedGroups: readonly string[];
+}
+
+export interface CreateRosterReadModelInput extends RosterGroupOrder {
 	personnel: Personnel[];
-	pinnedGroups?: string[];
-	groupOrder?: string[];
 	fallbackGroupName?: string;
 }
 
@@ -51,11 +60,7 @@ export function createRosterReadModel(input: CreateRosterReadModelInput): Roster
 	function view(scope: RosterScopeSelection, options: RosterViewOptions = {}): RosterReadModelView {
 		const scopedPersonnel = applyScope(input.personnel, scope);
 		const selectedPersonnel = applyRosterOptions(scopedPersonnel, options);
-		const baseGroups = groupRosterPersonnel(selectedPersonnel, {
-			pinnedGroups: input.pinnedGroups,
-			groupOrder: input.groupOrder,
-			fallbackGroupName: input.fallbackGroupName
-		});
+		const baseGroups = groupRosterPersonnel(selectedPersonnel, input);
 		const filteredGroups = applyGroupFilter(baseGroups, options.groupFilter);
 		const searchedGroups = applyRosterSearch(filteredGroups, options.search);
 		const flatPersonnel = searchedGroups.flatMap((group) => group.personnel);
@@ -167,17 +172,16 @@ function normalizeRosterSearchTerm(value: string | null | undefined): string {
 	return value?.trim().toLowerCase() ?? '';
 }
 
-interface GroupRosterOptions {
-	pinnedGroups?: string[];
-	groupOrder?: string[];
-	fallbackGroupName?: string;
+/** The Organization's Group order: `sortOrder`, then name, then id. */
+export function organizationGroupNames(groups: readonly RosterGroupCatalogEntry[]): string[] {
+	return [...groups]
+		.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+		.map((group) => group.name);
 }
 
-export function compareRosterGroupNames(
-	options: Pick<GroupRosterOptions, 'pinnedGroups' | 'groupOrder'>
-): (a: string, b: string) => number {
-	const pinnedGroups = options.pinnedGroups ?? [];
-	const groupOrder = options.groupOrder ?? [];
+/** Pinned Groups first in pin order, then the Organization's Group order, then names outside the catalog, then ungrouped. */
+export function compareRosterGroupNames({ groups, pinnedGroups }: RosterGroupOrder): (a: string, b: string) => number {
+	const groupOrder = organizationGroupNames(groups);
 	return (a, b) => {
 		if (a === '' || b === '') return a === b ? 0 : a === '' ? 1 : -1;
 
@@ -198,7 +202,10 @@ export function compareRosterGroupNames(
 	};
 }
 
-function groupRosterPersonnel(personnel: Personnel[], options: GroupRosterOptions = {}): PersonnelGroup[] {
+function groupRosterPersonnel(
+	personnel: Personnel[],
+	options: RosterGroupOrder & { fallbackGroupName?: string }
+): PersonnelGroup[] {
 	const groupMap = new Map<string, Personnel[]>();
 
 	for (const person of personnel) {

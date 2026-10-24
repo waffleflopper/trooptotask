@@ -10,6 +10,9 @@ then checks that each change saved on its own.
 - `groups-edit`: rename inline; the viewer's pin follows the new name.
 - `groups-order`: reorder by drag and by Alt+Arrow; a stale order answers 409, adopts the saved catalog and reloads
   roster membership and pins.
+- `groups-order-everywhere`: after a reorder, Personnel, Calendar, Bulk status, Training, Critical Tasks and sign-in
+  roster PDFs list Groups as pins, then the saved order, then Unassigned. Group filters, including Onboarding's, follow
+  the saved order without pins.
 - `groups-members`: Add people, Move to… and Remove from Group, each in one request.
 - `groups-remove`: delete a Group after choosing where its members go; an empty Group gets a plain confirmation.
 - `groups-today`: the Today column's skeleton, failure and hidden states.
@@ -119,6 +122,30 @@ unique new Group names, and return Able, Baker and Unassigned to their seeded Gr
     and `More Personnel controls` lists only `Archive`. The four Group requests answer 403. A membership POST moving
     Baker into Alpha answers 200 with `movedIds: []` and Baker in `unavailableIds`. Moving Able into Bravo or to
     Unassigned (`groupId: null`) answers 403. Rows are unchanged.
+
+## Group order everywhere
+
+Every page that groups People uses one rule: the viewer's pinned Groups in pin order, then the Organization's
+`sort_order` (ties by name, then ID), then Unassigned. Start from a fresh fixture (Alpha and Bravo both 0, so Alpha
+first).
+
+1. As `manager` with `calendar-grant manager view`, open `Manage Groups`, select `Bravo 1` and press Alt+ArrowUp. The
+   live region reads `Bravo moved to position 1 of 2` and `rows groups orgA` shows Bravo 0, Alpha 1. Choose `Done`: the
+   roster rows read `Collapse Bravo`, `Collapse Alpha`, `Collapse Unassigned`.
+2. Click the sidebar `Calendar` link, with no reload. The group bands read `BRAVO`, `ALPHA`, `UNASSIGNED` at 1440x900,
+   900x900 and 390x844.
+3. As `calendarOperate`, open `/calendar/bulk`. The Add roster picker's Group headers read Bravo, Alpha, Unassigned and
+   keep that order after `Sort by Name` in either direction.
+4. As `trainingConfigure` on Training, the `Group` view's matrix headers read `BRAVO (1)`, `ALPHA (1)`, `UNASSIGNED (1)`
+   at 1440x900, 900x900 and 390x844. In `Sign-In Rosters`, `New Roster` lists the Group filters Bravo, Alpha. An
+   `Alphabetical` roster with `Separate by group` prints its sections Bravo (Baker), Alpha (Able), Unassigned; read it
+   with `pdftotext -layout`, then delete the roster.
+5. As `onboardingOperate`, the Onboarding `Group` filter lists `All groups`, Bravo, Alpha. The `Start onboarding` member
+   picker is a flat list sorted by last name (Able, Baker, Unassigned) and does not follow Group order.
+6. As `manager`, pin Alpha on its Calendar band. Calendar reads `ALPHA`, `BRAVO`, `UNASSIGNED`, and so does Personnel
+   after sidebar navigation. Unpin it.
+7. Restore. Move Alpha back up in the Group editor. It saves Alpha 0, Bravo 1, which shows the fixture's order. A
+   `verify:app restart` brings back the seeded 0 and 0.
 
 ## Personal Group pins
 

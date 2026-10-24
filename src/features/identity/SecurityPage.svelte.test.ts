@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { goto, invalidateAll } from '$app/navigation';
 import SecurityPage from './SecurityPage.svelte';
@@ -14,6 +14,8 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });
+// bits-ui PinInput schedules uncancelled input syncs up to 50 ms after a change; let them run before happy-dom tears down.
+afterAll(() => new Promise((resolve) => setTimeout(resolve, 60)));
 
 const SETUP_HREF = '/auth/mfa-setup?next=%2Forg%2Falpha%2Faccount%2Fsecurity';
 
@@ -227,6 +229,7 @@ describe('two-factor row', () => {
 			}
 			expect(screen.getByText('On')).toBeTruthy();
 			expect(code).toHaveValue('123456');
+			await waitFor(() => expect(code).toHaveFocus());
 			await fireEvent.input(code, { target: { value: '654321' } });
 			await fireEvent.submit(code.closest('form')!);
 			expect(keep).toBeDisabled();
@@ -237,7 +240,9 @@ describe('two-factor row', () => {
 			finishDisable(Response.json({ ok: true }));
 			await screen.findByText('Off');
 			expect(screen.queryByLabelText('Authenticator code')).toBeNull();
-			expect(screen.getByRole('link', { name: 'Turn on' })).toHaveAttribute('href', SETUP_HREF);
+			const turnOn = screen.getByRole('link', { name: 'Turn on' });
+			expect(turnOn).toHaveAttribute('href', SETUP_HREF);
+			await waitFor(() => expect(turnOn).toHaveFocus());
 		}
 	);
 

@@ -67,6 +67,8 @@
 
 	// A failed no-script submit reopens the email row with what the server sent back.
 	let openRow = $state<Row | null>(untrack(() => (form?.emailError ? 'email' : null)));
+	let disableCodeField = $state<ReturnType<typeof CodeField>>();
+	let turnOnLink = $state<HTMLElement | null>(null);
 	const rowTriggers: Record<Row, HTMLButtonElement | null> = $state({ email: null, password: null, 'turn-off': null });
 
 	let emailLoading = $state(false);
@@ -301,6 +303,10 @@
 			mfaError = cause instanceof Error ? cause.message : 'Failed to disable MFA';
 		} finally {
 			disabling = false;
+			// The code field was disabled while the request ran, so focus returns once it is enabled again.
+			await tick();
+			if (mfaEnabled) disableCodeField?.focus();
+			else turnOnLink?.focus();
 		}
 	}
 </script>
@@ -326,6 +332,7 @@
 	<PageShell.FactSection>
 		<PageShell.FactRow
 			variant="display"
+			stackBelow="xl"
 			label="Email"
 			description="Your sign-in name. The current one keeps working until the new one is confirmed."
 			data-account-row="email"
@@ -418,6 +425,7 @@
 
 		<PageShell.FactRow
 			variant="display"
+			stackBelow="xl"
 			label="Password"
 			description="You'll confirm the current one before setting a new one."
 			data-account-row="password"
@@ -505,11 +513,7 @@
 							{#if confirmError}<Field.Error>{confirmError}</Field.Error>{/if}
 						</Field.Root>
 					</div>
-					<ul
-						id="new-password-checklist"
-						aria-label="Password requirements"
-						class="flex flex-wrap gap-x-4.5 gap-y-1.5 font-mono text-xs"
-					>
+					<ul id="new-password-checklist" class="flex flex-wrap gap-x-4.5 gap-y-1.5 font-mono text-xs">
 						{#each checklist as item (item.key)}
 							<li
 								class="flex items-center gap-1.5 {item.met ? 'text-foreground' : 'text-muted-foreground'}"
@@ -532,7 +536,8 @@
 
 		<PageShell.FactRow
 			variant="display"
-			label="Two-factor"
+			stackBelow="xl"
+			label="Two-factor authentication"
 			description="A code from your phone at every sign-in. A stolen password alone won't get anyone in."
 			data-account-row="turn-off"
 		>
@@ -573,7 +578,7 @@
 							Turn off
 						</Button>
 					{:else if !mfaEnabled}
-						<Button href={mfaSetupHref} size="sm">Turn on</Button>
+						<Button bind:ref={turnOnLink} href={mfaSetupHref} size="sm">Turn on</Button>
 					{/if}
 				</div>
 				{#if mfaSuccess}
@@ -595,6 +600,7 @@
 							</p>
 						</div>
 						<CodeField
+							bind:this={disableCodeField}
 							id="disable-code"
 							label="Authenticator code"
 							size="compact"

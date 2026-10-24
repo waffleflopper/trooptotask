@@ -113,6 +113,24 @@ describe('account profile page', () => {
 		expect(screen.queryByRole('button', { name: 'Leave unit' })).toBeNull();
 	});
 
+	it('offers a retry when the name could not be read, instead of an empty editor', async () => {
+		const onretry = vi.fn();
+		render(ProfilePage, {
+			props: {
+				account: { email: 'emma@example.test', profile: { status: 'unavailable' } },
+				ranks: ['SGT'],
+				form: null,
+				securityHref: '/org/alpha/account/security',
+				unit: { name: 'Alpha Company', role: 'member' },
+				onretry
+			}
+		});
+		expect(screen.getByText('Your name could not be loaded')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /name and rank/ })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+		expect(onretry).toHaveBeenCalledOnce();
+	});
+
 	it('links the email row to Sign-in & security', () => {
 		renderPage();
 		expect(screen.getByRole('link', { name: /Change in Sign-in & security/ })).toHaveAttribute(

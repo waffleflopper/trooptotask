@@ -78,8 +78,8 @@
 	<title>{activeKey ? `${ACCOUNT_PAGES[activeKey].label} - ` : ''}Account - Troop to Task</title>
 </svelte:head>
 
-<PageShell.Root width="wide" bodyClass="md:grid-cols-[auto_minmax(0,1fr)] md:gap-12">
-	<SectionNav label="Account" {groups} {actions} />
+<PageShell.Root width="wide" bodyClass="lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-12">
+	<SectionNav label="Account" {groups} {actions} collapseBelow="lg" />
 	<div class="grid w-full max-w-[51.25rem] min-w-0 content-start gap-7" aria-busy={loadingKey ? 'true' : undefined}>
 		<p role="status" class="sr-only">{loadingKey ? `Loading ${ACCOUNT_PAGES[loadingKey].label}...` : ''}</p>
 		{#if slowKey}

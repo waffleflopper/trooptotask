@@ -82,6 +82,7 @@
 	<PageShell.FactSection>
 		<PageShell.FactRow
 			variant="display"
+			stackBelow="xl"
 			label="Name and rank"
 			description="How your login is labeled. Changing it here doesn't rename you on any unit's roster."
 		>
@@ -182,18 +183,26 @@
 			{/if}
 		</PageShell.FactRow>
 
-		<PageShell.FactRow variant="display" label="Email" description="You sign in with it, and password resets go there.">
-			<p class="text-[17px] font-semibold wrap-anywhere">{account.email ?? 'Not available'}</p>
-			<a
-				href={resolve(securityHref)}
-				class="inline-flex w-fit items-center gap-1 text-sm text-accent-text underline-offset-4 hover:underline"
-			>
-				Change in Sign-in &amp; security <ArrowRight class="size-3.5" aria-hidden="true" />
-			</a>
+		<PageShell.FactRow
+			variant="display"
+			stackBelow="xl"
+			label="Email"
+			description="You sign in with it, and password resets go there."
+		>
+			<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+				<p class="min-w-0 text-[17px] font-semibold wrap-anywhere">{account.email ?? 'Not available'}</p>
+				<a
+					href={resolve(securityHref)}
+					class="inline-flex w-fit shrink-0 items-center gap-1 text-sm text-accent-text underline-offset-4 hover:underline"
+				>
+					Change in Sign-in &amp; security <ArrowRight class="size-3.5" aria-hidden="true" />
+				</a>
+			</div>
 		</PageShell.FactRow>
 
 		<PageShell.FactRow
 			variant="display"
+			stackBelow="xl"
 			label="Personnel records"
 			description="Each unit keeps its own record of you. Its admins set rank, section and dates there."
 		>

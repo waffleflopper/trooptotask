@@ -455,6 +455,17 @@
 		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`)?.focus();
 	}
 
+	/** A search, page or collapsed Group may have taken the peeked row away; focus then goes to the first shown row, or the search field. */
+	async function focusAfterClose(id: string): Promise<void> {
+		await tick();
+		const row = document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`);
+		(
+			row ??
+			document.querySelector<HTMLElement>('[data-roster-row]') ??
+			document.querySelector<HTMLElement>('[data-slot="workspace-toolbar"] input[type="search"]')
+		)?.focus();
+	}
+
 	/** A typed draft in the panel's composer asks to be discarded before the panel shows someone else or closes. */
 	function showPeek(person: Personnel, browsing: boolean, then?: () => void): void {
 		const show = () => {
@@ -485,7 +496,7 @@
 		if (!id) return;
 		const close = () => {
 			peekedId = null;
-			void focusRow(id);
+			void focusAfterClose(id);
 		};
 		if (peekPanel) peekPanel.release(close);
 		else close();

@@ -1169,15 +1169,14 @@ describe('PersonnelPageView', () => {
 				else call?.reply.resolve(read);
 				await waitFor(() => {});
 			};
-			const ctx = {
-				...makeCtx(),
+			const ctx = Object.assign(makeCtx(), {
 				peek,
 				canViewAvailability: true,
 				canManagePersonnelRecord: () => true,
 				canReadPersonnelDetails: true,
 				canOpenPersonnelDetail: () => true,
 				personnelRecordAffordance: () => allowedAffordance()
-			} as unknown as PersonnelPageContext;
+			}) as unknown as PersonnelPageContext;
 			return { ctx, reads, answer };
 		}
 
@@ -1237,6 +1236,22 @@ describe('PersonnelPageView', () => {
 			await fireEvent.keyDown(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }), { key: 'Escape' });
 			await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
 			expect(order()).toEqual(['Open SGT Young, Test', 'Open SGT Smith, Jane']);
+		});
+
+		it('moves focus to the first shown row when Esc closes a peek whose row a search removed', async () => {
+			viewport(1440);
+			const { ctx } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'Young' } });
+			await waitFor(() => expect(screen.queryByRole('row', { name: 'Open SGT Smith, Jane' })).toBeNull());
+
+			await fireEvent.keyDown(within(panel()).getByRole('button', { name: 'Close preview' }), { key: 'Escape' });
+
+			await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+			await waitFor(() =>
+				expect(document.activeElement).toBe(screen.getByRole('row', { name: 'Open SGT Young, Test' }))
+			);
 		});
 
 		it('leaves out a section the viewer may not see', async () => {

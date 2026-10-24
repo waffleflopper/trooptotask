@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-24-notification-links',
+		date: '2026-10-24',
+		title: 'Open Notification Links While Read Status Saves',
+		items: [
+			'Opening a notification follows its link while its read status saves. If the save fails, a message tells you to reopen the bell and retry.'
+		]
+	},
+	{
 		id: '2026-10-24-personnel-roster',
 		date: '2026-10-24',
 		title: 'See Who Needs You From the Personnel Roster',

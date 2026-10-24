@@ -50,7 +50,7 @@ export async function createPlatformAccessRequestOperations(event: RequestEvent)
 					type: 'member_invite_blocked',
 					title: 'Invitation Blocked',
 					message: `"${input.email}" can no longer use the organization invitation because platform access was ${input.reason}.`,
-					link: `/org/${input.organizationId}/settings`
+					link: `/org/${input.organizationId}/settings/general`
 				})
 		}
 	});

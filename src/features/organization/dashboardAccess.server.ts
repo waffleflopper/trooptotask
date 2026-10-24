@@ -273,7 +273,7 @@ async function notifyAdminsOfAcceptedInvitation(
 			type: 'member_joined',
 			title: 'New Member Joined',
 			message: `"${input.email}" has joined the organization.`,
-			link: `/org/${input.organizationId}/settings`
+			link: `/org/${input.organizationId}/settings/general`
 		});
 	} catch (error) {
 		console.error('[dashboard-org-access]', {
@@ -294,7 +294,7 @@ async function notifyAdminsOfDeclinedInvitation(
 			type: 'member_invite_declined',
 			title: 'Invitation Declined',
 			message: `"${input.email}" declined their organization invitation.`,
-			link: `/org/${input.organizationId}/settings`
+			link: `/org/${input.organizationId}/settings/general`
 		});
 	} catch (error) {
 		console.error('[dashboard-org-access]', {
@@ -315,7 +315,7 @@ async function notifyAdminsOfExpiredInvitation(
 			type: 'member_invite_expired',
 			title: 'Invitation Expired',
 			message: `"${input.email}" tried to use an expired organization invitation.`,
-			link: `/org/${input.organizationId}/settings`
+			link: `/org/${input.organizationId}/settings/general`
 		});
 	} catch (error) {
 		console.error('[dashboard-org-access]', {

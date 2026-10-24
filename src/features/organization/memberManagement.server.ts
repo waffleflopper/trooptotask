@@ -346,7 +346,7 @@ export async function inviteOrganizationMember(
 		type: 'member_invited',
 		title: 'Member Invited',
 		message: `"${input.actorEmail ?? ''}" invited "${email}" to the organization.`,
-		link: `/org/${ports.auth.orgId}/settings`
+		link: `/org/${ports.auth.orgId}/settings/general`
 	});
 
 	return {
@@ -790,7 +790,7 @@ export async function removeOrganizationMember(
 			type: 'member_removed',
 			title: 'Member Removed',
 			message: `"${input.actorEmail ?? ''}" removed "${membership.email ?? ''}" from the organization.`,
-			link: `/org/${ports.auth.orgId}/settings`
+			link: `/org/${ports.auth.orgId}/settings/general`
 		});
 	}
 
@@ -835,7 +835,7 @@ export async function leaveOrganization(
 		type: 'member_left',
 		title: 'Member Left Organization',
 		message: `"${input.actorEmail ?? ''}" left "${orgName}".`,
-		link: `/org/${ports.auth.orgId}/settings`
+		link: `/org/${ports.auth.orgId}/settings/general`
 	});
 
 	return { success: true };
@@ -1065,7 +1065,7 @@ async function notifyAdminsOfRevokedInvitation(
 			message: input.email
 				? `"${input.email}" can no longer use the revoked organization invitation.`
 				: 'An organization invitation was revoked.',
-			link: `/org/${ports.auth.orgId}/settings`
+			link: `/org/${ports.auth.orgId}/settings/general`
 		});
 	} catch (error) {
 		console.error('[org-settings-member-management]', {
@@ -1086,7 +1086,7 @@ async function notifyAdminsOfExpiredInvitation(
 			type: 'member_invite_expired',
 			title: 'Invitation Expired',
 			message: `"${input.email ?? 'An invitee'}" can no longer use the expired organization invitation.`,
-			link: `/org/${ports.auth.orgId}/settings`
+			link: `/org/${ports.auth.orgId}/settings/general`
 		});
 	} catch (error) {
 		console.error('[org-settings-member-management]', {

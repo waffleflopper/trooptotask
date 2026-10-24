@@ -32,7 +32,7 @@ async function openPasswordRow() {
 		current: screen.getByLabelText('Current password'),
 		next: screen.getByLabelText('New password'),
 		confirm: screen.getByLabelText('Confirm new'),
-		submit: screen.getByRole('button', { name: 'Update password' })
+		submit: screen.getByRole('button', { name: /Update password/ })
 	};
 }
 
@@ -48,7 +48,7 @@ async function openTurnOff() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Turn off' }));
 	return {
 		code: screen.getByLabelText('Authenticator code'),
-		confirm: screen.getByRole('button', { name: 'Turn off two-factor' }),
+		confirm: screen.getByRole('button', { name: /Turn off two-factor/ }),
 		keep: screen.getByRole('button', { name: 'Keep it on' })
 	};
 }
@@ -132,6 +132,50 @@ describe('password row', () => {
 		expect(h.current).toBeValid();
 		expect(h.current).toHaveValue('OldPassword12');
 		await waitFor(() => expect(h.current).toHaveFocus());
+	});
+
+	it('drops a late password error instead of showing it in a reopened row', async () => {
+		let answer!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						answer = resolve;
+					})
+			)
+		);
+		renderPage(false);
+		const h = await fillPasswordRow();
+		await fireEvent.click(h.submit);
+		await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+		const reopened = await openPasswordRow();
+
+		answer(Response.json({ error: 'Current password is incorrect' }, { status: 401 }));
+		await waitFor(() => expect(reopened.current).toBeEnabled());
+		expect(reopened.current).toBeValid();
+		expect(screen.queryByText('Current password is incorrect')).toBeNull();
+	});
+
+	it('shows a password change that lands after another row opened', async () => {
+		let answer!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						answer = resolve;
+					})
+			)
+		);
+		renderPage(false);
+		const h = await fillPasswordRow();
+		await fireEvent.click(h.submit);
+		await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+
+		answer(Response.json({ ok: true }));
+		expect(await screen.findByText(/Your password is updated/)).toBeTruthy();
+		expect(screen.getByLabelText('New email')).toBeInTheDocument();
 	});
 
 	it('marks the confirmation field invalid while the new passwords differ', async () => {
@@ -245,6 +289,55 @@ describe('two-factor row', () => {
 			await waitFor(() => expect(turnOn).toHaveFocus());
 		}
 	);
+
+	it('turns two-factor off without taking focus from a row opened while it ran', async () => {
+		let answer!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						answer = resolve;
+					})
+			)
+		);
+		renderPage(true);
+		const { code, confirm } = await openTurnOff();
+		await fireEvent.input(code, { target: { value: '123456' } });
+		await fireEvent.click(confirm);
+		await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+		const email = screen.getByLabelText('New email');
+		await waitFor(() => expect(email).toHaveFocus());
+
+		answer(Response.json({ ok: true }));
+		expect(await screen.findByText('Two-factor is off.')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Turn on' })).toBeTruthy();
+		expect(email).toHaveFocus();
+	});
+
+	it('drops a late two-factor error instead of showing it in a reopened panel', async () => {
+		let answer!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						answer = resolve;
+					})
+			)
+		);
+		renderPage(true);
+		const first = await openTurnOff();
+		await fireEvent.input(first.code, { target: { value: '123456' } });
+		await fireEvent.click(first.confirm);
+		await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+		const reopened = await openTurnOff();
+
+		answer(Response.json({ error: 'Invalid authenticator code. Try again.' }, { status: 401 }));
+		await waitFor(() => expect(reopened.keep).toBeEnabled());
+		expect(reopened.code).toBeValid();
+		expect(screen.queryByText('Invalid authenticator code. Try again.')).toBeNull();
+	});
 
 	it('follows an admission redirect instead of accepting the disable response', async () => {
 		const response = new Response('<html>Account suspended</html>');

@@ -198,3 +198,46 @@ it('clears a field error when the next request is sent and keeps a provider outa
 	expect(h.password).toBeValid();
 	expect(h.email).toBeValid();
 });
+it('keeps an accepted email change when another row opens before the answer', async () => {
+	let finish!: (result: ActionResult) => void;
+	transport.send.mockImplementationOnce(
+		() =>
+			new Promise<ActionResult>((resolve) => {
+				finish = resolve;
+			})
+	);
+	const h = await fixture();
+	await fireEvent.submit(h.form);
+	await fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
+	const passwordRowField = screen.getByLabelText('Current password');
+	await waitFor(() => expect(passwordRowField).toHaveFocus());
+
+	finish({
+		type: 'success',
+		status: 200,
+		data: { emailSuccess: 'Follow both inbox confirmations.', pendingEmail: 'new@example.test' }
+	});
+	expect(await screen.findByText(/Pending: new@example\.test\./)).toBeTruthy();
+	expect(transport.update).toHaveBeenCalledWith({ reset: false });
+	expect(screen.queryByText('Email request not confirmed')).toBeNull();
+	expect(passwordRowField).toHaveFocus();
+});
+it('drops a late email failure instead of showing it in a reopened row', async () => {
+	let finish!: (result: ActionResult) => void;
+	transport.send.mockImplementationOnce(
+		() =>
+			new Promise<ActionResult>((resolve) => {
+				finish = resolve;
+			})
+	);
+	const h = await fixture();
+	await fireEvent.submit(h.form);
+	await fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+
+	finish({ type: 'failure', status: 401, data: { emailError: 'Current password is incorrect' } });
+	const reopened = document.getElementById('email-current-password')!;
+	await waitFor(() => expect(reopened).toBeEnabled());
+	expect(reopened).not.toHaveAttribute('aria-invalid');
+	expect(screen.queryByText('Current password is incorrect')).toBeNull();
+});

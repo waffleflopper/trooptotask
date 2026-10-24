@@ -103,7 +103,12 @@
 	let mfaError = $state('');
 	let mfaSuccess = $state('');
 
+	// Opening or closing a row starts a new version. A request's row-local writes apply only to the version that sent
+	// it; account-wide outcomes (a pending email, a changed password, two-factor off) apply regardless.
+	let rowVersion = 0;
+
 	function resetDrafts() {
+		rowVersion += 1;
 		emailDraft = '';
 		emailCurrentPassword = '';
 		emailResult = null;
@@ -152,15 +157,19 @@
 			cancel();
 			return;
 		}
+		const version = rowVersion;
+		const requestedEmail = emailDraft.trim().toLowerCase();
 		emailLoading = true;
 		emailResult = null;
 		return async ({ result, update }) => {
+			const sameRow = () => version === rowVersion;
 			let accepted = false;
 			try {
 				if (result.type === 'redirect') {
 					await update();
 					return;
 				}
+				if (!sameRow() && result.type !== 'success') return;
 				if (result.type === 'failure') {
 					const failure = result.data as EmailActionData & { error?: unknown };
 					emailResult =
@@ -177,35 +186,39 @@
 					result.type === 'success' &&
 					typeof result.data?.emailSuccess === 'string' &&
 					typeof result.data?.pendingEmail === 'string' &&
-					result.data.pendingEmail === emailDraft.trim().toLowerCase()
+					result.data.pendingEmail === requestedEmail
 				) {
 					accepted = true;
-					emailResult = result.data as EmailActionData;
 					confirmedPendingEmail = result.data.pendingEmail;
-					emailCurrentPassword = '';
+					if (sameRow()) {
+						emailResult = result.data as EmailActionData;
+						emailCurrentPassword = '';
+					}
 					await update({ reset: false });
-				} else {
+				} else if (sameRow()) {
 					emailResult = {
 						emailError: 'Unable to confirm the email request. Check your inboxes or reload before retrying.'
 					};
 				}
 			} catch {
-				emailResult = {
-					emailError: 'Unable to refresh the email status. Check your inboxes or reload before retrying.'
-				};
+				if (sameRow())
+					emailResult = {
+						emailError: 'Unable to refresh the email status. Check your inboxes or reload before retrying.'
+					};
 			} finally {
 				emailLoading = false;
-				if (accepted && openRow === 'email') {
-					emailDraft = '';
-					openRow = null;
-				}
-				await tick();
-				if (accepted) rowTriggers.email?.focus();
-				else if (emailResult?.emailError && !emailMfaRequired && formElement.isConnected)
-					formElement
-						.querySelector<HTMLInputElement>(emailErrorField === 'email' ? '#email' : '#email-current-password')
-						?.focus();
 			}
+			if (!sameRow()) return;
+			if (accepted) {
+				emailDraft = '';
+				openRow = null;
+			}
+			await tick();
+			if (accepted) rowTriggers.email?.focus();
+			else if (emailResult?.emailError && !emailMfaRequired && formElement.isConnected)
+				formElement
+					.querySelector<HTMLInputElement>(emailErrorField === 'email' ? '#email' : '#email-current-password')
+					?.focus();
 		};
 	};
 
@@ -217,6 +230,8 @@
 			return;
 		}
 
+		const version = rowVersion;
+		const sameRow = () => version === rowVersion;
 		passwordLoading = true;
 		try {
 			const response = await fetch('/api/auth/update-password', {
@@ -240,7 +255,7 @@
 				return;
 			}
 			if (response.status === 403 && payload?.code === 'mfa_required') {
-				passwordMfaRequired = true;
+				if (sameRow()) passwordMfaRequired = true;
 				return;
 			}
 			if (!response.ok || payload?.ok !== true || payload.error !== undefined) {
@@ -248,6 +263,7 @@
 					completion = 'started';
 					currentPassword = newPassword = confirmPassword = '';
 				}
+				if (!sameRow()) return;
 				const message =
 					typeof payload?.error === 'string'
 						? payload.error
@@ -261,7 +277,7 @@
 		} catch {
 			completion = 'started';
 			currentPassword = newPassword = confirmPassword = '';
-			passwordError = 'Unable to confirm the password update. Your password may have changed.';
+			if (sameRow()) passwordError = 'Unable to confirm the password update. Your password may have changed.';
 		} finally {
 			passwordLoading = false;
 			await tick();
@@ -277,6 +293,8 @@
 			disableCodeError = 'Please enter the 6-digit code from your authenticator app.';
 			return;
 		}
+		const version = rowVersion;
+		const sameRow = () => version === rowVersion;
 		disabling = true;
 		try {
 			const response = await fetch('/api/auth/mfa/disable', {
@@ -290,6 +308,7 @@
 			}
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
+				if (!sameRow()) return;
 				const message = payload?.error ?? 'Failed to disable MFA';
 				if (message === MFA_DISABLE_CODE_REJECTED_MESSAGE) disableCodeError = message;
 				else mfaError = message;
@@ -300,14 +319,15 @@
 			disableCode = '';
 			if (openRow === 'turn-off') openRow = null;
 		} catch (cause: unknown) {
-			mfaError = cause instanceof Error ? cause.message : 'Failed to disable MFA';
+			if (sameRow()) mfaError = cause instanceof Error ? cause.message : 'Failed to disable MFA';
 		} finally {
 			disabling = false;
-			// The code field was disabled while the request ran, so focus returns once it is enabled again.
-			await tick();
-			if (mfaEnabled) disableCodeField?.focus();
-			else turnOnLink?.focus();
 		}
+		if (!sameRow()) return;
+		// The code field was disabled while the request ran, so focus returns once it is enabled again.
+		await tick();
+		if (mfaEnabled) disableCodeField?.focus();
+		else turnOnLink?.focus();
 	}
 </script>
 

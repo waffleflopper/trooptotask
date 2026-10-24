@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidate } from '$app/navigation';
+	import { beforeNavigate, goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
@@ -200,6 +200,7 @@
 		navigate: (href) => void goto(href),
 		closed: (id) => void restoreRowFocus(id)
 	});
+	beforeNavigate((navigation) => quickEdit.guardNavigation(navigation));
 	$effect(() => quickEdit.closeIfGone());
 	$effect(() => () => quickEdit.dispose());
 	const rowControls: RosterRowControls = {

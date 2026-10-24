@@ -165,16 +165,20 @@ scoped actors retain their baseline grants.
     `Discard changes?` dialog names `SPC Able, Synthetic`; `Cancel` keeps Able's form and typed value, `Discard` opens
     Baker's form with Rank focused. With a typed Duty role in Baker's form click `Full data sheet`:
     `Save changes first?` offers `Cancel`, `Discard and open` and `Save and open`; `Save and open` sends one `PUT`
-    `200`, `$V rows` reads the new `clinic_role`, and the page moves to `/personnel/verify-baker/data-sheet`. Rename
-    Baker's Last name to `Barker` and Save: the summary reads `Last name Baker → Barker`, the row stays under Bravo, its
-    Name link now points at `/personnel/barker-synthetic` and `$V rows personnel orgA last_name Barker` reads that
-    `slug`. Pick ETS `Dec 4, 2026` from the date picker (Next twice from October): the summary reads
-    `ETS None → Dec 4, 2026`; after Save the row carries an `ETS · 42d` badge and `list_network_requests` shows the
-    `PUT` and no `roster-signals` request. Change Group to Alpha (type `Alp` in the list and press Enter: the form stays
-    open, a list's Enter does not save), Save: the row moves under Alpha and one `POST .../api/personnel/roster-signals`
-    `200` follows the `PUT`; a Duty role or MOS change also rereads signals. Replace Last name with one space and click
-    `Save`: `Enter a last name.` renders in a `role="alert"` message, the input is `invalid` with it as its description,
-    no `PUT` is sent and focus stays on `Save`. As `viewer` the roster shows no `Quick edit` and E does nothing. As
+    `200`, `$V rows` reads the new `clinic_role`, and the page moves to `/personnel/verify-baker/data-sheet`. With a
+    typed Duty role in an open form, a click on another row, that row's Name link, its `Note` button or browser Back
+    stays on the roster and asks `Save changes first?` with `Cancel`, `Discard and leave` and `Save and leave`: `Cancel`
+    keeps the form and typed value, `Discard and leave` closes the form and goes where the click was heading, and
+    `Save and leave` sends one `PUT` `200` first. Reload and tab close use the browser's own prompt. Rename Baker's Last
+    name to `Barker` and Save: the summary reads `Last name Baker → Barker`, the row stays under Bravo, its Name link
+    now points at `/personnel/barker-synthetic` and `$V rows personnel orgA last_name Barker` reads that `slug`. Pick
+    ETS `Dec 4, 2026` from the date picker (Next twice from October): the summary reads `ETS None → Dec 4, 2026`; after
+    Save the row carries an `ETS · 42d` badge and `list_network_requests` shows the `PUT` and no `roster-signals`
+    request. Change Group to Alpha (type `Alp` in the list and press Enter: the form stays open, a list's Enter does not
+    save), Save: the row moves under Alpha and one `POST .../api/personnel/roster-signals` `200` follows the `PUT`; a
+    Duty role or MOS change also rereads signals. Replace Last name with one space and click `Save`:
+    `Enter a last name.` renders in a `role="alert"` message, the input is `invalid` with it as its description, no
+    `PUT` is sent and focus stays on `Save`. As `viewer` the roster shows no `Quick edit` and E does nothing. As
     `personnelOperate` (no record reading) the form opens without `Full data sheet`. At 900 the fields wrap into rows
     and the page has no horizontal scroll. At 390 click the `Quick edit` button beside the name (the actions column has
     folded away): the fields stack in one column inside the table's own scroll area, `Save` and `Cancel` sit at its

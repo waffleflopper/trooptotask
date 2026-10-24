@@ -57,7 +57,16 @@ export type QuickEditPrompt =
 	/** Unsaved changes would be lost by opening `next`'s editor, or by closing the editor when `next` is null. */
 	| { kind: 'discard'; next: Personnel | null }
 	/** Unsaved changes would not travel to the Data sheet. */
-	| { kind: 'data-sheet' };
+	| { kind: 'data-sheet' }
+	/** Unsaved changes would be lost by leaving the roster for `href`. */
+	| { kind: 'leave'; href: string };
+
+/** The part of SvelteKit's `beforeNavigate` argument the editor reads. */
+export interface LeavingNavigation {
+	readonly to: { readonly url: URL } | null;
+	readonly willUnload: boolean;
+	cancel(): void;
+}
 
 /** The roster's one open quick editor: at most one row edits at a time, and leaving unsaved changes asks first. */
 export class RosterQuickEdit {
@@ -126,6 +135,33 @@ export class RosterQuickEdit {
 		else this.#goToDataSheet(current.personnelId);
 	}
 
+	/** Holds a navigation away from the roster while the editor has unsaved changes, and asks what to do with them. */
+	guardNavigation(navigation: LeavingNavigation): void {
+		const current = this.session;
+		if (this.#disposed || !current?.dirty || current.saving) return;
+		navigation.cancel();
+		if (navigation.willUnload || !navigation.to) return;
+		const { pathname, search, hash } = navigation.to.url;
+		this.prompt = { kind: 'leave', href: pathname + search + hash };
+	}
+
+	async decideLeave(choice: 'save' | 'discard' | 'cancel'): Promise<void> {
+		const prompt = this.prompt;
+		if (prompt?.kind !== 'leave') return;
+		const current = this.session;
+		if (!current || choice === 'cancel') {
+			this.prompt = null;
+			return;
+		}
+		if (choice === 'save' && !(await this.save())) {
+			if (this.session === current) this.prompt = null;
+			return;
+		}
+		this.prompt = null;
+		if (choice === 'discard') this.#close(current, { restoreFocus: false });
+		if (!this.#disposed) this.#deps.navigate(prompt.href);
+	}
+
 	async decideDataSheet(choice: 'save' | 'discard' | 'cancel'): Promise<void> {
 		if (this.prompt?.kind !== 'data-sheet') return;
 		const current = this.session;
@@ -138,6 +174,7 @@ export class RosterQuickEdit {
 			return;
 		}
 		this.prompt = null;
+		if (choice === 'discard') this.#close(current, { restoreFocus: false });
 		if (!this.#disposed) this.#goToDataSheet(current.personnelId);
 	}
 

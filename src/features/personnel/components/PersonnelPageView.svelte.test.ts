@@ -9,9 +9,18 @@ import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
-const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
+const {
+	gotoMock,
+	beforeNavigateMock,
+	invalidateMock,
+	toastSuccessMock,
+	toastInfoMock,
+	toastErrorMock,
+	toastWarningMock
+} = vi.hoisted(
 	() => ({
 		gotoMock: vi.fn(),
+		beforeNavigateMock: vi.fn(),
 		invalidateMock: vi.fn(),
 		toastSuccessMock: vi.fn(),
 		toastInfoMock: vi.fn(),
@@ -22,6 +31,7 @@ const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMoc
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
+	beforeNavigate: beforeNavigateMock,
 	invalidate: invalidateMock
 }));
 
@@ -245,6 +255,7 @@ describe('PersonnelPageView', () => {
 		pinnedGroupsHydration.load([], 'org-1');
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
+		beforeNavigateMock.mockReset();
 		invalidateMock.mockReset();
 		toastSuccessMock.mockReset();
 		toastInfoMock.mockReset();
@@ -290,9 +301,8 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
-		// One in the actions cell and one beside the name, which stays shown where the actions cell hides.
+		// One sits beside the name, which stays shown where the actions cell hides.
 		const quickEdits = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
-		expect(quickEdits.length).toBe(2);
 		expect(quickEdits.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
 		expect(screen.queryByRole('button', { name: 'Note for SGT Smith, Jane' })).toBeNull();
 		expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
@@ -641,7 +651,8 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 		const view = render(PersonnelPageView, { props: { ctx: editableCtx } });
 
-		expect(screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' }).length).toBe(2);
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' })[0]);
+		expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
 
 		await view.rerender({ ctx: viewOnlyCtx });
 
@@ -931,6 +942,91 @@ describe('PersonnelPageView', () => {
 			await Promise.resolve();
 
 			expect(gotoMock).not.toHaveBeenCalled();
+		});
+
+		describe('leaving the roster with unsaved changes', () => {
+			/** Runs a destination through the page's registered guard the way SvelteKit does before it commits. */
+			function router() {
+				const visited: string[] = [];
+				const go = (href: string, type: 'goto' | 'link' | 'popstate' = 'goto') => {
+					let cancelled = false;
+					const guard = beforeNavigateMock.mock.calls.at(-1)![0] as (navigation: unknown) => void;
+					guard({
+						type,
+						willUnload: false,
+						to: { url: new URL(href, 'http://localhost') },
+						cancel: () => (cancelled = true)
+					});
+					if (!cancelled) visited.push(href);
+				};
+				gotoMock.mockImplementation((href: string) => go(href));
+				return { visited, go };
+			}
+
+			async function dirtySmith() {
+				const nav = router();
+				render(PersonnelPageView, { props: { ctx: editCtx() } });
+				const form = await openEditor();
+				await fireEvent.input(within(form).getByLabelText('Duty role'), { target: { value: 'Senior Medic' } });
+				return nav;
+			}
+
+			async function askedBeforeLeaving() {
+				return within(await screen.findByRole('alertdialog', { name: 'Save changes first?' }));
+			}
+
+			it('holds a click on another row until the draft is saved or discarded', async () => {
+				const nav = await dirtySmith();
+				await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Young, Test' }));
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Discard and leave' }));
+				expect(nav.visited).toEqual(['/org/org-1/personnel/young-test']);
+				expect(screen.queryByRole('form')).toBeNull();
+			});
+
+			it('holds the Name link', async () => {
+				const nav = await dirtySmith();
+				const link = screen.getByRole('link', { name: /Young, Test/ });
+				await fireEvent.click(link);
+				nav.go(link.getAttribute('href')!, 'link');
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Cancel' }));
+				expect(nav.visited).toEqual([]);
+				expect((screen.getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
+			});
+
+			it('holds Note and opens it after Save and leave wrote the draft', async () => {
+				const update = savesAs({});
+				const nav = await dirtySmith();
+				await fireEvent.click(screen.getByRole('button', { name: 'Note for SGT Young, Test' }));
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Save and leave' }));
+				await waitFor(() => expect(nav.visited).toEqual(['/org/org-1/personnel/young-test/log?add=follow-up']));
+				expect(update).toHaveBeenCalledTimes(1);
+			});
+
+			it('holds browser Back and stays on the roster with the draft after Cancel', async () => {
+				const nav = await dirtySmith();
+				nav.go('/org/org-1/dashboard', 'popstate');
+
+				expect(nav.visited).toEqual([]);
+				await fireEvent.click((await askedBeforeLeaving()).getByRole('button', { name: 'Cancel' }));
+				expect(screen.getByRole('form', { name: 'Quick edit SGT Smith, Jane' })).toBeTruthy();
+				expect((screen.getByLabelText('Duty role') as HTMLInputElement).value).toBe('Senior Medic');
+			});
+
+			it('lets a click through when nothing is unsaved', async () => {
+				const nav = router();
+				render(PersonnelPageView, { props: { ctx: editCtx() } });
+				await openEditor();
+				await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Young, Test' }));
+
+				expect(nav.visited).toEqual(['/org/org-1/personnel/young-test']);
+				expect(screen.queryByRole('alertdialog')).toBeNull();
+			});
 		});
 
 		describe('row order', () => {

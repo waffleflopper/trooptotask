@@ -299,3 +299,99 @@ describe('Full data sheet', () => {
 		expect(edit.session!.error).toBe('Denied');
 	});
 });
+
+describe('leaving the roster', () => {
+	function leaving(href = 'http://localhost/personnel/patel-nikhil', willUnload = false) {
+		return { to: { url: new URL(href) }, willUnload, cancel: vi.fn() };
+	}
+
+	it('lets a navigation through when nothing is unsaved', () => {
+		const { edit } = setup();
+		edit.open(okafor);
+		const navigation = leaving();
+		edit.guardNavigation(navigation);
+
+		expect(navigation.cancel).not.toHaveBeenCalled();
+		expect(edit.prompt).toBeNull();
+	});
+
+	it('cancels a navigation with unsaved changes and asks where it was going', () => {
+		const { edit } = setup();
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		const navigation = leaving();
+		edit.guardNavigation(navigation);
+
+		expect(navigation.cancel).toHaveBeenCalledTimes(1);
+		expect(edit.prompt).toEqual({ kind: 'leave', href: '/personnel/patel-nikhil' });
+	});
+
+	it('cancels a page unload for the browser to confirm, without a prompt of its own', () => {
+		const { edit } = setup();
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		const navigation = leaving('http://example.com/', true);
+		edit.guardNavigation(navigation);
+
+		expect(navigation.cancel).toHaveBeenCalledTimes(1);
+		expect(edit.prompt).toBeNull();
+	});
+
+	it('does not hold a navigation while the save is in flight', () => {
+		const { edit } = setup({ save: vi.fn(() => new Promise<boolean>(() => {})) });
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		void edit.save();
+		const navigation = leaving();
+		edit.guardNavigation(navigation);
+
+		expect(navigation.cancel).not.toHaveBeenCalled();
+	});
+
+	it('stays on the roster with the draft after Cancel', async () => {
+		const { edit, deps } = setup();
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		edit.guardNavigation(leaving());
+		await edit.decideLeave('cancel');
+
+		expect(edit.prompt).toBeNull();
+		expect(edit.session!.draft.mos).toBe('68C');
+		expect(deps.navigate).not.toHaveBeenCalled();
+	});
+
+	it('closes the editor without writing on Discard, then goes where it was going', async () => {
+		const { edit, deps } = setup();
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		edit.guardNavigation(leaving());
+		await edit.decideLeave('discard');
+
+		expect(deps.save).not.toHaveBeenCalled();
+		expect(edit.session).toBeNull();
+		expect(deps.navigate).toHaveBeenCalledExactlyOnceWith('/personnel/patel-nikhil');
+	});
+
+	it('writes the draft on Save, then goes where it was going', async () => {
+		const { edit, deps } = setup();
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		edit.guardNavigation(leaving());
+		await edit.decideLeave('save');
+
+		expect(deps.save).toHaveBeenCalledTimes(1);
+		expect(deps.navigate).toHaveBeenCalledExactlyOnceWith('/personnel/patel-nikhil');
+	});
+
+	it('stays put when the save fails', async () => {
+		const { edit, deps } = setup({ save: vi.fn(async () => false) });
+		edit.open(okafor);
+		edit.session!.draft.mos = '68C';
+		edit.guardNavigation(leaving());
+		await edit.decideLeave('save');
+
+		expect(edit.prompt).toBeNull();
+		expect(edit.session!.error).not.toBe('');
+		expect(deps.navigate).not.toHaveBeenCalled();
+	});
+});

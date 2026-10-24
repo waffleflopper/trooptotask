@@ -35,4 +35,15 @@
 		onAlternate={() => edit.decideDataSheet('discard')}
 		onCancel={() => edit.decideDataSheet('cancel')}
 	/>
+{:else if prompt?.kind === 'leave'}
+	<ConfirmDialog
+		title="Save changes first?"
+		message="You changed {who}. Save these changes before leaving, or discard them."
+		confirmLabel="Save and leave"
+		alternateLabel="Discard and leave"
+		variant="default"
+		onConfirm={() => edit.decideLeave('save')}
+		onAlternate={() => edit.decideLeave('discard')}
+		onCancel={() => edit.decideLeave('cancel')}
+	/>
 {/if}

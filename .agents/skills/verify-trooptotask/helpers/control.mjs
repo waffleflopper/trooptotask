@@ -2657,6 +2657,8 @@ async function main() {
 					'announcements/dismiss',
 					'access-requests',
 					'auth/mfa/enroll',
+					'auth/mfa/enroll/verify',
+					'auth/mfa/enroll/cancel',
 					'personnel',
 					'groups',
 					'pinned-groups',
@@ -2747,7 +2749,14 @@ async function main() {
 						? `/org/${organizationSegment}/settings/${settingsPage ?? 'logs'}/__data.json`
 						: formAction
 							? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
-							: ['feedback', 'announcements/dismiss', 'access-requests', 'auth/mfa/enroll'].includes(family)
+							: [
+										'feedback',
+										'announcements/dismiss',
+										'access-requests',
+										'auth/mfa/enroll',
+										'auth/mfa/enroll/verify',
+										'auth/mfa/enroll/cancel'
+								  ].includes(family)
 								? `/api/${family}`
 								: `/org/${organizationSegment}/api/${family}`;
 			if (family === 'admin-suspend') suffix = '/admin/api/suspend';

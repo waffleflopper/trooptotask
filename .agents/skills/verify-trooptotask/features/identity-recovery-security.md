@@ -57,7 +57,8 @@ from the provider admin API and prints a token-redacted snapshot; it proves link
 `seed account-setup` stores one synthetic Access Request and setup link per page state, keeping raw tokens in private
 worker state. `setup-link PAGE CLASS` navigates the owned page to that class's `/auth/setup-account` link and prints a
 token-redacted snapshot. `fixture` lists the identity actors' addresses under `identityEmails`. The `network` control's
-`auth/mfa/enroll` family holds or fails MFA setup's enroll request, and its `access-requests` family fails Request
+`auth/mfa/enroll` family holds or fails MFA setup's enroll request, `auth/mfa/enroll/verify` and
+`auth/mfa/enroll/cancel` hold or fail its verify and cancel requests, and its `access-requests` family fails Request
 Access's submission at the server (`arm-fail`) or the transport (`arm-reject`).
 
 The disposable provider also runs its local Mailpit capture, so the provider's own email-change mail succeeds without
@@ -237,16 +238,21 @@ The private-credential controls fill visible fields without printing values:
    fresh attempt with `network arm-fail PAGE auth/mfa/enroll` shows `Unable to start MFA setup. Try again.`, and Try
    again starts a new enrollment. Type a wrong code: the sixth digit submits and shows the rejected-code state from
    step 1. Leave the page and choose Enable MFA again: a different setup key appears, because starting again replaces
-   the abandoned unverified factor. Cancel setup returns to Security with MFA Disabled, and `mfa-code` into any Security
-   textbox then fails with `No readable TOTP factor exists`. Open setup again, keep a second
-   `$V actor identitySecurity dashboard` context open, and run
-   `$V mfa-code PAGE identitySecurity "6-digit code from the app"`: it submits on the sixth digit, returns to Security
-   and shows Enabled. `$V session-count identitySecurity` drops from 2 to 1, and the other context's next navigation
-   lands on Sign In. Opening `/auth/mfa-setup` again shows `MFA is on` with Back to security, its three steps done. Sign
-   in again with `actor --form identitySecurity dashboard` in a new context: the challenge appears, and
-   `mfa-code ... "Verification Code"` admits the session. Back on Security, choose Disable MFA, fill Authenticator code
-   with `mfa-code`, Confirm and Disable, and require Disabled. Removal shares the account's 10 codes per 15 minutes with
-   the sign-in challenge: after 10 wrong codes the 11th shows
+   the abandoned unverified factor. Cancel setup leaves only once the server confirms it. With
+   `network arm-fail PAGE auth/mfa/enroll/cancel`, Cancel setup shows `Unable to cancel MFA setup. Try again.` and keeps
+   the QR code and key. After `network restore PAGE`, Cancel setup again returns to Security with MFA Disabled, and
+   `mfa-code` into any Security textbox then fails with `No readable TOTP factor exists`. While a cancel is held
+   (`arm-hold PAGE auth/mfa/enroll/cancel`), the code field, Verify and turn on, and Cancel setup are disabled; follow
+   `← TroopToTask.com` before `network release PAGE` and the page stays on `/` after the response. Open setup again,
+   keep a second `$V actor identitySecurity dashboard` context open, arm `network arm-hold PAGE auth/mfa/enroll/verify`,
+   and run `$V mfa-code PAGE identitySecurity "6-digit code from the app"`: it submits on the sixth digit. While the
+   response is held, Cancel setup and the code field are disabled and `list_network_requests` shows no cancel request.
+   `network release PAGE` returns to Security and shows Enabled. `$V session-count identitySecurity` drops from 2 to 1,
+   and the other context's next navigation lands on Sign In. Opening `/auth/mfa-setup` again shows `MFA is on` with Back
+   to security, its three steps done. Sign in again with `actor --form identitySecurity dashboard` in a new context: the
+   challenge appears, and `mfa-code ... "Verification Code"` admits the session. Back on Security, choose Disable MFA,
+   fill Authenticator code with `mfa-code`, Confirm and Disable, and require Disabled. Removal shares the account's 10
+   codes per 15 minutes with the sign-in challenge: after 10 wrong codes the 11th shows
    `Too many authenticator codes. Please wait before trying again.` and a reload still shows Enabled. Cancel and Keep
    MFA Enabled paths must leave the status unchanged.
    - Protected change challenge. The inline `Verify your authenticator code before changing your email.` challenge is

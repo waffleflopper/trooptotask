@@ -172,8 +172,13 @@ scoped actors retain their baseline grants.
     `personnelOperate` (no record reading) the form opens without `Full data sheet`. At 900 the fields wrap into rows
     and the page has no horizontal scroll. At 390 click the `Quick edit` button beside the name (the actions column has
     folded away): the fields stack in one column inside the table's own scroll area, `Save` and `Cancel` sit at its
-    bottom, and `document.documentElement.scrollWidth` equals the 390 viewport. A rename, Group change or `restart`
-    leaves the fixture changed; `verify:app restart` before relying on the original slugs.
+    bottom, and `document.documentElement.scrollWidth` equals the 390 viewport. In `A-Z` view choose `Sort by MOS` with
+    Able and Baker both on `11B` (the order reads Able, Baker, Unassigned) and rename Able to `Zulu`: the row keeps its
+    place, so the order reads Zulu, Baker, Unassigned. Arm `$V network arm-hold PAGE personnel`, open Zulu's
+    `Full data sheet` with a typed Duty role, choose `Save and open` and press browser Back to the Dashboard before
+    `$V network release PAGE`: the write lands (`$V rows` reads the new `clinic_role`) and the page stays on the
+    Dashboard. A rename, Group change or `restart` leaves the fixture changed; `verify:app restart` before relying on
+    the original slugs.
 15. **Edits that change what applies.** As `orgOwner` on a fresh launch, before step 11's staging, Able's cell reads
     `Verification All-MOS Critical Task missing · 1 more`. Open Quick edit, set `MOS` to `11B` and save: one `PUT` on
     `/api/personnel`, then one `POST /api/personnel/roster-signals`, and no `__data.json` request. The cell now reads

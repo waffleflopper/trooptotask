@@ -76,22 +76,32 @@
 		disabledRow: isBlocked,
 		groupBy: {
 			key: (p) => p.groupName || 'Unassigned'
-		},
-		filterFn: (p, query) => {
-			const q = query.toLowerCase();
-			return (
-				p.lastName.toLowerCase().includes(q) ||
-				p.firstName.toLowerCase().includes(q) ||
-				p.rank.toLowerCase().includes(q) ||
-				p.mos.toLowerCase().includes(q) ||
-				p.clinicRole.toLowerCase().includes(q)
-			);
 		}
 	});
 
+	// The picker filters by hiding rows rather than through the table's search, so clearing a search on a large
+	// roster does not remount every row and its availability strip.
+	let search = $state('');
+
+	function matches(p: Personnel, query: string): boolean {
+		const q = query.toLowerCase();
+		return (
+			p.lastName.toLowerCase().includes(q) ||
+			p.firstName.toLowerCase().includes(q) ||
+			p.rank.toLowerCase().includes(q) ||
+			p.mos.toLowerCase().includes(q) ||
+			p.clinicRole.toLowerCase().includes(q)
+		);
+	}
+
+	const shownIds = $derived(search ? new Set(allPersonnel.filter((p) => matches(p, search)).map((p) => p.id)) : null);
+
+	function isShown(person: Personnel): boolean {
+		return !shownIds || shownIds.has(person.id);
+	}
+
 	function visiblePersonnel(): Personnel[] {
-		const grouped = table.groups.flatMap((g) => g.rows);
-		return grouped.length > 0 ? grouped : table.rows;
+		return allPersonnel.filter(isShown);
 	}
 
 	function setSelected(person: Personnel, selected?: boolean) {
@@ -126,10 +136,11 @@
 	const groupStates = $derived(
 		new Map(
 			table.groups.map((group) => {
-				const enabled = group.rows.filter((p) => !isBlocked(p));
+				const shown = group.rows.filter(isShown);
+				const enabled = shown.filter((p) => !isBlocked(p));
 				const selected = enabled.filter((p) => selection.isSelected(p, 0)).length;
 				const state: 'none' | 'some' | 'all' = selected === 0 ? 'none' : selected === enabled.length ? 'all' : 'some';
-				return [group.key, { state, enabled, selected, total: group.rows.length }] as const;
+				return [group.key, { state, enabled, selected, total: shown.length }] as const;
 			})
 		)
 	);
@@ -155,15 +166,15 @@
 <Card.Root>
 	<Card.Header>
 		<BulkStepHeading eyebrow="Step 2" {tone} title="Who" />
-		<p class="text-sm text-muted-foreground">{selectedCount} of {table.totalRows} selected</p>
+		<p class="text-sm text-muted-foreground">{selectedCount} of {shownIds?.size ?? allPersonnel.length} selected</p>
 		<WorkspaceToolbar
 			ariaLabel="Roster picker controls"
 			items={toolbarItems}
 			search={{
 				label: 'Search by name, rank, MOS, or role...',
 				placeholder: 'Search by name, rank, MOS, or role...',
-				value: table.search,
-				onValueChange: (value) => table.setSearch(value)
+				value: search,
+				onValueChange: (value) => (search = value)
 			}}
 		/>
 	</Card.Header>
@@ -174,6 +185,7 @@
 		compact
 		emptyMessage="No personnel available"
 		onRowClick={(person) => setSelected(person)}
+		rowHidden={(person) => !isShown(person)}
 		headerCell={availability ? availabilityHeader : undefined}
 	>
 		{#snippet groupHeader(ctx)}

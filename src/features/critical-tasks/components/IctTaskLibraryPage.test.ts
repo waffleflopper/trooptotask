@@ -216,6 +216,30 @@ describe('IctTaskLibraryPage', () => {
 		expect(screen.getByRole('button', { name: 'New Task' })).toBeTruthy();
 	});
 
+	it('opens the Critical Tasks defaults dialog from the toolbar for managers only', async () => {
+		const data = {
+			orgId: 'org-1',
+			criticalTasks: { data: { settings: { defaultExpirationMonths: 12, expiringSoonWarningDays: 60 } } }
+		};
+		const view = render(IctTaskLibraryPage, { props: { org, data, importHref } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Defaults' }));
+		const dialog = await screen.findByRole('dialog', { name: 'Critical Tasks Defaults' });
+		expect((within(dialog).getByLabelText('Default expiration') as HTMLInputElement).value).toBe('12');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Defaults' })));
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		expect((screen.getByRole('button', { name: 'Defaults' }) as HTMLButtonElement).disabled).toBe(true);
+		view.unmount();
+
+		accessFacts = {
+			membershipRole: 'owner',
+			capabilityMap: { ...createCapabilityMap('configure'), criticalTasks: 'view' }
+		};
+		render(IctTaskLibraryPage, { props: { org, data, importHref } });
+		expect(screen.queryByRole('button', { name: 'Defaults' })).toBeNull();
+	});
+
 	it('discards an unsaved task draft when the Organization changes', async () => {
 		const view = render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' }, importHref } });
 		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));

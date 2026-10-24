@@ -78,11 +78,11 @@
 		rule={false}
 		legend={false}
 		points={false}
-		tooltip={false}
+		tooltipContext={false}
 		padding={{ top: 16, right: 20, bottom: 42, left: 48 }}
 		props={{
 			svg: {
-				label: ariaLabel
+				'aria-label': ariaLabel
 			},
 			spline: {
 				fill: 'none'

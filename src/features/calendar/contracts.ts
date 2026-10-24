@@ -15,6 +15,7 @@ import type {
 	RosterCode,
 	RosterEffect,
 	RosterSlotWrite,
+	RosterSwap,
 	StartingNumber,
 	TrackId,
 	WeekendMode
@@ -285,8 +286,57 @@ export interface PlannerRoster {
 	excused: string[];
 	/** The month's days the roster details. On these days its conflicts replace the availability check. */
 	covered: string[];
+	/** Exchanges with either day in the shown month. */
+	swaps: readonly RosterSwap[];
 	/** Days in the month whose assignee has A, D or U, including assignees outside the pool. */
 	conflicts: { date: string; personId: string; code: RosterCode; reason: string }[];
+}
+
+export const rosterSwapSchema = z.object({
+	id: z.string(),
+	days: z.tuple([
+		z.object({ date: z.string(), heldBy: z.string() }),
+		z.object({ date: z.string(), heldBy: z.string() })
+	])
+}) satisfies z.ZodType<RosterSwap>;
+
+export interface RosterSwapOptions {
+	date: string;
+	personId: string;
+	days: {
+		date: string;
+		personId: string;
+		warnings: { personId: string; date: string; code: RosterCode; reason: string }[];
+	}[];
+}
+
+export const rosterSwapOptionsSchema = z.object({
+	date: z.string(),
+	personId: z.string(),
+	days: z.array(
+		z.object({
+			date: z.string(),
+			personId: z.string(),
+			warnings: z.array(
+				z.object({ personId: z.string(), date: z.string(), code: rosterCodeSchema, reason: z.string() })
+			)
+		})
+	)
+}) satisfies z.ZodType<RosterSwapOptions>;
+
+export interface RosterSwapResult {
+	saved: SavedAssignment[];
+	swap: RosterSwap;
+	assignmentTypeId: string;
+}
+
+export interface CalendarRosterSwapPersistence {
+	swap(input: {
+		assignmentTypeId: string;
+		today: string;
+		days: readonly [{ date: string; was: string }, { date: string; was: string }];
+	}): Promise<RosterSwapResult>;
+	undo(input: { today: string; swapId: string }): Promise<RosterSwapResult>;
 }
 
 export const plannerRostersSchema = z.array(
@@ -298,6 +348,7 @@ export const plannerRostersSchema = z.array(
 		todayAssignee: z.string().nullable(),
 		excused: z.array(z.string()),
 		covered: z.array(z.string()),
+		swaps: z.array(rosterSwapSchema),
 		conflicts: z.array(z.object({ date: z.string(), personId: z.string(), code: rosterCodeSchema, reason: z.string() }))
 	})
 ) satisfies z.ZodType<PlannerRoster[]>;
@@ -546,6 +597,8 @@ export interface CalendarCatalogPersistence {
 	listClosedRosterForms(assignmentTypeId: string, month: MonthKey): Promise<ClosedFormMonth[]>;
 	/** Excusals overlapping the simulated period, including reinstated ones. */
 	listRosterExcusals(assignmentTypeId: string, span: DateSpan): Promise<Excusal[]>;
+	/** Swaps with either day inside the simulated span. */
+	listRosterSwaps(assignmentTypeId: string, span: DateSpan): Promise<RosterSwap[]>;
 	/** Makes `excusals` the open set from `today` on, ending the others yesterday. */
 	setRosterExcusals(assignmentTypeId: string, today: string, excusals: readonly RosterExcusalInput[]): Promise<void>;
 	/**

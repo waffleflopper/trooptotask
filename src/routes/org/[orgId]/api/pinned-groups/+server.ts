@@ -8,7 +8,7 @@ const groupName = z.string('Choose a Group').min(1, 'Choose a Group');
 
 const postInput = z.discriminatedUnion('action', [
 	z.object({ action: z.literal('replace'), groups: z.array(groupName, 'Pinned Groups must be a list of Group names') }),
-	z.object({ action: z.undefined(), groupName, sortOrder: z.number().int().nonnegative().optional() })
+	z.object({ action: z.undefined().optional(), groupName, sortOrder: z.number().int().nonnegative().optional() })
 ]);
 
 export const _postConfig: RouteConfig<

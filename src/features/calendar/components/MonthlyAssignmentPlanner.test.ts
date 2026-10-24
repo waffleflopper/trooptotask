@@ -7,8 +7,10 @@ import type {
 	DailyAssignment,
 	RosterFillPick,
 	RosterFillPreview,
-	RosterReplacement
+	RosterReplacement,
+	RosterSwapOptions
 } from '$features/calendar/contracts';
+import type { RosterSwapOutcome } from '$features/calendar/stores/dailyAssignments.svelte';
 import type { RosterDayRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
 import type { RosterEntry, RosterView } from '$features/calendar/utils/plannerRosters';
 import type { Personnel } from '$features/personnel/contracts';
@@ -80,6 +82,11 @@ function renderPlanner(
 			throw new Error('No replacement preview');
 		}),
 		replace: vi.fn(async () => 'saved' as const),
+		swapOptions: vi.fn(async (): Promise<RosterSwapOptions> => {
+			throw new Error('No swap options');
+		}),
+		swap: vi.fn(async (): Promise<RosterSwapOutcome> => ({ status: 'saved' })),
+		undoSwap: vi.fn(async () => true),
 		day: vi.fn(() => undefined),
 		loadDay: vi.fn(),
 		retryDay: vi.fn(),
@@ -311,6 +318,7 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 			excused: ['p-hale'],
 			covered: new Set(['2026-10-20']),
 			conflicts: [],
+			swaps: [],
 			...overrides
 		};
 	}
@@ -997,5 +1005,270 @@ describe('MonthlyAssignmentPlanner roster counts', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Fill from roster' }));
 
 		expect(screen.getByRole('dialog', { name: 'Fill from roster, Staff Duty' })).toBeTruthy();
+	});
+});
+
+describe('MonthlyAssignmentPlanner duty swaps', () => {
+	// Kim holds Tue 20 Oct and Okafor Tue 27 Oct, the two days a swap trades. Both lie after the faked today.
+	const planned = [duty('2026-10-20', 'type-sd', 'p-kim'), duty('2026-10-27', 'type-sd', 'p-okafor')];
+	const swapped = {
+		id: 'swap-1',
+		days: [
+			{ date: '2026-10-20', heldBy: 'p-okafor' },
+			{ date: '2026-10-27', heldBy: 'p-kim' }
+		]
+	} as const;
+
+	function rosterView(overrides: Partial<RosterView> = {}): RosterView {
+		return {
+			typeId: 'type-sd',
+			current: null,
+			todayAssignee: null,
+			excused: [],
+			covered: new Set(['2026-10-20', '2026-10-27']),
+			conflicts: [],
+			swaps: [],
+			...overrides
+		};
+	}
+
+	const options = (warnings: RosterSwapOptions['days'][number]['warnings'] = []): RosterSwapOptions => ({
+		date: '2026-10-20',
+		personId: 'p-kim',
+		days: [{ date: '2026-10-27', personId: 'p-okafor', warnings }]
+	});
+
+	function renderSwaps(
+		rosters: NonNullable<Parameters<typeof renderPlanner>[0]>['rosters'],
+		assignments: DailyAssignment[] = planned
+	) {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 16) });
+		return renderPlanner({ assignments, personnel: [kim, okafor, hale], rosters });
+	}
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	async function openPicker(name: string) {
+		await fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Staff Duty, ${name}:`) }));
+		return screen.findByRole('dialog', { name: `Staff Duty, ${name}` });
+	}
+
+	async function openSwap() {
+		const picker = await openPicker('Tue 20 Oct');
+		await fireEvent.click(within(picker).getByRole('button', { name: 'Swap with…' }));
+		return screen.findByRole('dialog', { name: 'Swap Staff Duty, Tue 20 Oct' });
+	}
+
+	it('holds a skeleton where the days will appear, then previews both days with their warnings and posts the swap', async () => {
+		const read = Promise.withResolvers<RosterSwapOptions>();
+		const swapOptions = vi.fn(() => read.promise);
+		const swap = vi.fn(async (): Promise<RosterSwapOutcome> => ({ status: 'saved' }));
+		renderSwaps({ views: new Map([['type-sd', rosterView()]]), swapOptions, swap });
+
+		const dialog = await openSwap();
+		expect(within(dialog).getByRole('status', { name: 'Loading days to swap with' })).toBeTruthy();
+		expect((within(dialog).getByRole('button', { name: 'Swap days' }) as HTMLButtonElement).disabled).toBe(true);
+		expect(swapOptions).toHaveBeenCalledWith('type-sd', '2026-10-20');
+
+		read.resolve(options([{ personId: 'p-okafor', date: '2026-10-20', code: 'A', reason: 'Leave' }]));
+		const choice = await within(dialog).findByRole('radio', { name: /^Tue 27 Oct, SGT Okafor/ });
+		expect(within(dialog).queryByRole('status', { name: 'Loading days to swap with' })).toBeNull();
+		await fireEvent.click(choice);
+
+		const after = within(dialog).getByRole('list', { name: 'Swapped days' });
+		expect(
+			within(after)
+				.getAllByRole('listitem')
+				.map((row) => row.textContent!.replace(/\s+/g, ' ').trim())
+		).toEqual(['Tue 20 Oct SGT Kim SGT Okafor', 'Tue 27 Oct SGT Okafor SGT Kim']);
+		expect(within(dialog).getAllByText(/Okafor · Leave \(A\) on Tue 20 Oct/).length).toBeGreaterThan(0);
+		expect(swap).not.toHaveBeenCalled();
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+		expect(swap).toHaveBeenCalledWith('type-sd', [
+			{ date: '2026-10-20', was: 'p-kim' },
+			{ date: '2026-10-27', was: 'p-okafor' }
+		]);
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Swap Staff Duty/ })).toBeNull());
+	});
+
+	it('shows the load error with Retry in the list region and recovers without closing', async () => {
+		const swapOptions = vi
+			.fn<() => Promise<RosterSwapOptions>>()
+			.mockRejectedValueOnce(new Error('Server unavailable'))
+			.mockResolvedValue(options());
+		renderSwaps({ views: new Map([['type-sd', rosterView()]]), swapOptions });
+
+		const dialog = await openSwap();
+		expect(await within(dialog).findByText('Server unavailable')).toBeTruthy();
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }));
+
+		expect(await within(dialog).findByRole('radio', { name: /^Tue 27 Oct/ })).toBeTruthy();
+		expect(swapOptions).toHaveBeenCalledTimes(2);
+	});
+
+	it('reloads the days and stays open when the roster changed, and shows the server reason for any other refusal', async () => {
+		const swapOptions = vi.fn(async () => options());
+		const swap = vi
+			.fn<() => Promise<RosterSwapOutcome>>()
+			.mockResolvedValueOnce({ status: 'changed' })
+			.mockResolvedValueOnce({ status: 'refused', message: 'Swap only today or later days.' });
+		renderSwaps({ views: new Map([['type-sd', rosterView()]]), swapOptions, swap });
+
+		const dialog = await openSwap();
+		await fireEvent.click(await within(dialog).findByRole('radio', { name: /^Tue 27 Oct/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+
+		await waitFor(() => expect(swapOptions).toHaveBeenCalledTimes(2));
+		expect(
+			(await within(dialog).findAllByRole('alert')).some((alert) => /roster changed/.test(alert.textContent!))
+		).toBe(true);
+		expect(screen.getByRole('dialog', { name: 'Swap Staff Duty, Tue 20 Oct' })).toBe(dialog);
+
+		await fireEvent.click(await within(dialog).findByRole('radio', { name: /^Tue 27 Oct/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+		expect(await within(dialog).findByText('Swap only today or later days.')).toBeTruthy();
+		expect(screen.getByRole('dialog', { name: 'Swap Staff Duty, Tue 20 Oct' })).toBe(dialog);
+	});
+
+	it('swaps from the new holder after a refusal shows the day changed hands', async () => {
+		const swapOptions = vi
+			.fn<() => Promise<RosterSwapOptions>>()
+			.mockResolvedValueOnce(options())
+			.mockResolvedValue({ ...options(), personId: 'p-hale' });
+		const swap = vi
+			.fn<() => Promise<RosterSwapOutcome>>()
+			.mockResolvedValueOnce({ status: 'changed' })
+			.mockResolvedValueOnce({ status: 'saved' });
+		renderSwaps({ views: new Map([['type-sd', rosterView()]]), swapOptions, swap });
+
+		const dialog = await openSwap();
+		await fireEvent.click(await within(dialog).findByRole('radio', { name: /^Tue 27 Oct/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+
+		await waitFor(() => expect(swapOptions).toHaveBeenCalledTimes(2));
+		expect(await within(dialog).findByText(/Swap SSG\s+Hale/)).toBeTruthy();
+		expect((within(dialog).getByRole('radio', { name: /^Tue 27 Oct/ }) as HTMLButtonElement).dataset.state).toBe(
+			'unchecked'
+		);
+		await fireEvent.click(within(dialog).getByRole('radio', { name: /^Tue 27 Oct/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+		expect(swap).toHaveBeenLastCalledWith('type-sd', [
+			{ date: '2026-10-20', was: 'p-hale' },
+			{ date: '2026-10-27', was: 'p-okafor' }
+		]);
+	});
+
+	it('offers no swap to an operator without roster counts, or on a day that has passed', async () => {
+		renderPlanner({ assignments: planned, personnel: [kim, okafor, hale] });
+		const picker = await openPicker('Tue 20 Oct');
+		expect(within(picker).queryByRole('button', { name: 'Swap with…' })).toBeNull();
+		cleanup();
+
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 21) });
+		renderPlanner({
+			assignments: planned,
+			personnel: [kim, okafor, hale],
+			rosters: { views: new Map([['type-sd', rosterView()]]) }
+		});
+		const past = await openPicker('Tue 20 Oct');
+		expect(within(past).queryByRole('button', { name: 'Swap with…' })).toBeNull();
+	});
+
+	it('marks a swapped day with who held it, names the swap in its picker, and undoes it while both days are ahead', async () => {
+		const undoSwap = vi.fn(async () => true);
+		renderSwaps({ views: new Map([['type-sd', rosterView({ swaps: [swapped] })]]), undoSwap });
+
+		expect(
+			screen.getByRole('button', { name: /^Staff Duty, Tue 20 Oct:.*swapped with 27 Oct, held by SGT Okafor/ })
+		).toBeTruthy();
+		const picker = await openPicker('Tue 20 Oct');
+		expect(within(picker).queryByRole('button', { name: 'Swap with…' })).toBeNull();
+		expect(document.getElementById('duty-picker-swapped')!.textContent!.replace(/\s+/g, ' ')).toMatch(
+			/27 Oct.*Okafor held this day.*Kim stands it.*Saving another person or clearing this day ends the swap/
+		);
+
+		await fireEvent.click(within(picker).getByRole('button', { name: 'Undo swap' }));
+		expect(undoSwap).toHaveBeenCalledWith('swap-1');
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('leaves a swap whose day has passed without Undo', async () => {
+		const past = {
+			id: 'swap-old',
+			days: [
+				{ date: '2026-10-10', heldBy: 'p-okafor' },
+				{ date: '2026-10-20', heldBy: 'p-kim' }
+			]
+		} as const;
+		renderSwaps({ views: new Map([['type-sd', rosterView({ swaps: [past] })]]) }, [
+			duty('2026-10-10', 'type-sd', 'p-kim'),
+			duty('2026-10-20', 'type-sd', 'p-okafor')
+		]);
+
+		const picker = await openPicker('Tue 20 Oct');
+		expect(within(picker).queryByRole('button', { name: 'Undo swap' })).toBeNull();
+		expect(document.getElementById('duty-picker-swapped')).toBeTruthy();
+	});
+
+	it('names how many swaps Clear month ends, and none when the month holds no swap', async () => {
+		renderSwaps({ views: new Map([['type-sd', rosterView({ swaps: [swapped] })]]) });
+		await openColumnMenu();
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear month' }));
+		expect(screen.getByRole('alertdialog').textContent).toMatch(/ends 1 duty swap/);
+		cleanup();
+
+		renderSwaps({ views: new Map([['type-sd', rosterView()]]) });
+		await openColumnMenu();
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear month' }));
+		expect(screen.getByRole('alertdialog').textContent).not.toMatch(/swap/);
+	});
+
+	it('warns that Quick fill ends a swap only once a person is chosen and it would move the swapped day to them', async () => {
+		renderSwaps({ views: new Map([['type-sd', rosterView({ swaps: [swapped] })]]) });
+		await openColumnMenu();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Only open days' }));
+		expect(screen.queryByText(/Ends 1 duty swap/)).toBeNull();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Only open days' }));
+		const select = screen.getByRole('combobox', { name: 'Assignee' }) as HTMLSelectElement;
+		const kimOption = within(select).getByRole('option', { name: /Kim/ }) as HTMLOptionElement;
+		await fireEvent.change(select, { target: { value: kimOption.value } });
+
+		expect(screen.queryByText(/Ends 1 duty swap/)).toBeNull();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Only open days' }));
+		expect(screen.getByText(/Ends 1 duty swap/)).toBeTruthy();
+	});
+
+	it('says in Find replacement that assigning on a swapped day ends the swap', async () => {
+		const replacement = async (): Promise<RosterReplacement> => ({
+			date: '2026-10-20',
+			replacing: { personId: 'p-kim', count: 12, effect: { code: 'A', reason: 'Leave' } },
+			nextUp: 'p-hale',
+			candidates: [{ personId: 'p-hale', count: 9, adjacent: [] }],
+			cantPull: [],
+			selected: 'p-hale',
+			repicks: [],
+			unfilled: []
+		});
+		renderSwaps({
+			views: new Map([
+				[
+					'type-sd',
+					rosterView({
+						swaps: [swapped],
+						conflicts: [{ date: '2026-10-20', personId: 'p-kim', code: 'A', reason: 'Leave' }]
+					})
+				]
+			]),
+			replacement
+		});
+
+		const panel = screen.getByRole('region', { name: 'Conflicts' });
+		await fireEvent.click(within(panel).getByRole('button', { name: 'Find replacement for Staff Duty, Tue 20 Oct' }));
+		const dialog = await screen.findByRole('dialog', { name: /^Replace/ });
+
+		expect(await within(dialog).findByText(/Ends 1 duty swap/)).toBeTruthy();
 	});
 });

@@ -1967,6 +1967,55 @@ describe('PersonnelPageView', () => {
 			expect(barText()).toContain('2 selected Follow-up');
 			expect(barText()).not.toContain('hidden');
 		});
+
+		it('counts and steps the peek over the rows a filter shows, and closes it when a filter hides the Person', async () => {
+			vi.stubGlobal('matchMedia', (query: string) => ({
+				matches: true,
+				media: query,
+				addEventListener: () => {},
+				removeEventListener: () => {}
+			}));
+			personnelStore.load(
+				[personnel[0], { ...makePerson(2), lastName: 'Young' }, { ...makePerson(3), lastName: 'Adams' }],
+				'org-1'
+			);
+			const ctx = Object.assign(makeCtx(), {
+				canViewAvailability: true,
+				canReadPersonnelDetails: true,
+				canOpenPersonnelDetail: () => true,
+				personnelRecordAffordance: () => allowedAffordance()
+			}) as unknown as PersonnelPageContext;
+			const adams = { ...smith, personnelId: 'person-3' };
+			ctx.signals.observe(
+				'org-1',
+				'2026-10-23',
+				Promise.resolve({
+					asOf: '2026-10-23',
+					access: ACCESS,
+					statusTypes: [LEAVE],
+					people: [smith, young, adams]
+				}) as never
+			);
+			showing('expired');
+			render(PersonnelPageView, { props: { ctx } });
+			const smithRow = await screen.findByRole('row', { name: 'Open SGT Smith, Jane' });
+			const preview = (name: string) => screen.findByRole('complementary', { name: `Preview of ${name}` });
+
+			await fireEvent.click(smithRow);
+			expect(within(await preview('SGT Jane Smith')).getByText('2 of 2 · J/K')).toBeTruthy();
+			expect(screen.queryByRole('list', { name: "Today's headcount" })).toBeNull();
+			expect(screen.getByRole('button', { name: /Expired or missing/ })).toBeTruthy();
+			await fireEvent.keyDown(smithRow, { key: 'k' });
+			expect(within(await preview('SGT Test Adams')).getByText('1 of 2 · J/K')).toBeTruthy();
+
+			pageMock.url = new URL('http://localhost/org/org-1/personnel');
+			await vi.waitFor(() => expect(screen.getByText('1 of 3 · J/K')).toBeTruthy());
+
+			showing('present');
+			await vi.waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+			expect(screen.getByRole('row', { name: 'Open SGT Young, Test' })).toBeTruthy();
+			expect(screen.queryByRole('row', { name: 'Open SGT Adams, Test' })).toBeNull();
+		});
 	});
 
 	describe('bulk selection', () => {

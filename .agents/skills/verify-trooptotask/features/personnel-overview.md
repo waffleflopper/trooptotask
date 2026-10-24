@@ -26,7 +26,7 @@ links to the place a leader fixes it.
 - `sections`: each section streams on its own with a shaped skeleton and its own error state.
 - `roster-peek`: the roster's peek panel reads the same sources, one section per request, through
   `api/personnel/<id>/peek` and draws the strip as `Next 7 days`; drive it from [Find personnel](find-personnel.md)
-  step 16.
+  step 20.
 
 ## How to get to it (user POV)
 

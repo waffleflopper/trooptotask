@@ -442,6 +442,20 @@
 		return () => peek.close();
 	});
 
+	// A filter that hides the peeked Person closes the peek; focus moves only if it went down with the panel.
+	$effect(() => {
+		if (!peekOpen || !peekedPerson || shownByFilter(peekedPerson)) return;
+		untrack(() => {
+			const close = () => {
+				peekedId = null;
+				const next = rowControls.tabRowId;
+				if (next) void restoreRowFocus(next);
+			};
+			if (peekPanel) peekPanel.release(close);
+			else close();
+		});
+	});
+
 	async function focusRow(id: string): Promise<void> {
 		await tick();
 		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`)?.focus();

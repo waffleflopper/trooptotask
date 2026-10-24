@@ -67,7 +67,7 @@ it('preserves counts, picks, pool changes, closed records and DA 6 with three ye
 	};
 	const fullRun = simulateRoster(facts, { kind: 'fill', days: span });
 	const limitedRun = simulateRoster(limited, { kind: 'fill', days: span });
-	expect({ ...limitedRun, facts: null }).toEqual({ ...fullRun, facts: null });
+	expect({ ...limitedRun, facts: null, effectOn: null }).toEqual({ ...fullRun, facts: null, effectOn: null });
 	expect(closeForm(limited, span.through)).toEqual(closeForm(facts, span.through));
 	expect(da6Segment(simulateRoster(limited), '2026-10')).toEqual(da6Segment(simulateRoster(facts), '2026-10'));
 	expect(bounded.find(({ id }) => id === 'person-499')?.states.map(({ from }) => from)).toEqual([

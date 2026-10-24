@@ -222,6 +222,40 @@ describe('shadcn DataTable foundation', () => {
 		expect(screen.getByRole('heading', { level: 3, name: 'No personnel found.' })).toBeTruthy();
 	});
 
+	test('counts only shown rows in a group and hides a group whose rows are all hidden', async () => {
+		const groupBy = { key: (row: TestRow) => row.group, label: (key: string) => `Group ${key}` };
+		const view = render(Table, {
+			props: {
+				data: testData,
+				columns,
+				groupBy,
+				emptyMessage: 'No personnel found.',
+				rowHidden: (row: TestRow) => row.name === 'Alice'
+			}
+		});
+		expect(screen.getByRole('button', { name: 'Group A 1' })).toBeTruthy();
+		expect(screen.queryByRole('cell', { name: 'Alice' })).toBeNull();
+
+		await view.rerender({
+			data: testData,
+			columns,
+			groupBy,
+			emptyMessage: 'No personnel found.',
+			rowHidden: (row: TestRow) => row.group === 'A'
+		});
+		expect(screen.queryByRole('button', { name: /^Group A/ })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Group B 1' })).toBeTruthy();
+
+		await view.rerender({
+			data: testData,
+			columns,
+			groupBy,
+			emptyMessage: 'No personnel found.',
+			rowHidden: () => true
+		});
+		expect(screen.getByRole('heading', { level: 3, name: 'No personnel found.' })).toBeTruthy();
+	});
+
 	test('supports grouped rows and collapse behavior', async () => {
 		render(Table, {
 			props: {

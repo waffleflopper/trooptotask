@@ -57,6 +57,7 @@ export function rosterFacts(
 		type: Pick<SavedAssignmentType, 'id' | 'name'>;
 		form: OpenForm;
 		excusals: readonly Excusal[];
+		swaps: RosterFacts['swaps'];
 		assignments: readonly RosterAssignment[];
 	}
 ): RosterFacts {
@@ -94,7 +95,7 @@ export async function loadRosters(
 	const after = addDays(input.window.through, 1);
 	const startOf = new Map(rosters.map(({ type, form }) => [type.id, addDays(form.startsOn, -1)]));
 	const earliest = [before, ...startOf.values()].reduce((a, b) => (a < b ? a : b));
-	const [shared, calendar, days, excusals] = await Promise.all([
+	const [shared, calendar, days, excusals, swaps] = await Promise.all([
 		readRosterPeople(ctx, { from: earliest, through: after }),
 		readRosterCalendar(ctx, { from: earliest, through: after }),
 		Promise.all(
@@ -109,13 +110,26 @@ export async function loadRosters(
 			rosters.map(({ type, form }) =>
 				ctx.calendarCatalogs.listRosterExcusals(type.id, { from: form.startsOn, through: after })
 			)
+		),
+		Promise.all(
+			rosters.map(({ type, form }) =>
+				ctx.calendarCatalogs.listRosterSwaps(type.id, { from: form.startsOn, through: input.window.through })
+			)
 		)
 	]);
 	const assignments = days.flat();
 	return rosters.map(({ type, form }, index) =>
 		rosterFacts(
 			{ ...shared, ...calendar, assignmentTypeNames: names },
-			{ today: input.today, window: input.window, type, form, excusals: excusals[index], assignments }
+			{
+				today: input.today,
+				window: input.window,
+				type,
+				form,
+				excusals: excusals[index],
+				swaps: swaps[index],
+				assignments
+			}
 		)
 	);
 }

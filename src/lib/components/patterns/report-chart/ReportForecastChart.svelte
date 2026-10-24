@@ -218,81 +218,80 @@
 			{yDomain}
 			yRange={({ height }: { height: number }) => [lineFloor(height), LINE_TOP]}
 			{padding}
-			let:width
-			let:height
-			let:xScale
-			let:yScale
 		>
-			{@const bandBox = band ? bandGeometry(band, xScale) : null}
-			{@const firstX = xScale(utcMidnightMs(first.date))}
-			{@const lastX = xScale(utcMidnightMs(last.date))}
-			{@const firstY = yScale(first.percent)}
-			{@const lastY = yScale(last.percent)}
-			{@const ruleYs = [...yTicks, goal.value].map((value) => yScale(value))}
-			<Svg>
-				{#if bandBox}
-					<Rect x={bandBox.x} y={0} width={bandBox.width} {height} class="fill-warning/10" />
-				{/if}
-				<Axis
-					placement="left"
-					ticks={yTicks}
-					format={(value: number) => `${value}%`}
-					grid={{ class: 'stroke-border/70' }}
-					tickLength={0}
-					tickLabelProps={{ class: 'fill-muted-foreground text-[11px] font-mono', dx: -6 }}
-				/>
-				<line x1={0} x2={width} y1={height} y2={height} class="stroke-foreground" />
-				{#each axisLabels(xScale) as tick (tick.date)}
+			{#snippet children({ context })}
+				{@const { width, height, xScale, yScale } = context}
+				{@const bandBox = band ? bandGeometry(band, xScale) : null}
+				{@const firstX = xScale(utcMidnightMs(first.date))}
+				{@const lastX = xScale(utcMidnightMs(last.date))}
+				{@const firstY = yScale(first.percent)}
+				{@const lastY = yScale(last.percent)}
+				{@const ruleYs = [...yTicks, goal.value].map((value) => yScale(value))}
+				<Svg>
+					{#if bandBox}
+						<Rect x={bandBox.x} y={0} width={bandBox.width} {height} class="fill-warning/10" />
+					{/if}
+					<Axis
+						placement="left"
+						ticks={yTicks}
+						format={(value: number) => `${value}%`}
+						grid={{ class: 'stroke-border/70' }}
+						tickLength={0}
+						tickLabelProps={{ class: 'fill-muted-foreground text-[11px] font-mono', dx: -6 }}
+					/>
+					<line x1={0} x2={width} y1={height} y2={height} class="stroke-foreground" />
+					{#each axisLabels(xScale) as tick (tick.date)}
+						<Text
+							value={tick.label}
+							x={tick.x}
+							y={height + 6}
+							textAnchor={tick.anchor}
+							verticalAnchor="start"
+							class="fill-muted-foreground text-[11px] font-mono"
+						/>
+					{/each}
+					<Rule y={goal.value} class="stroke-success" dashArray="4 4" />
 					<Text
-						value={tick.label}
-						x={tick.x}
-						y={height + 6}
-						textAnchor={tick.anchor}
-						verticalAnchor="start"
+						value={goal.label}
+						x={width + GOAL_LABEL_OFFSET}
+						y={yScale(goal.value)}
+						verticalAnchor="middle"
 						class="fill-muted-foreground text-[11px] font-mono"
 					/>
-				{/each}
-				<Rule y={goal.value} class="stroke-success" stroke-dasharray="4 4" />
-				<Text
-					value={goal.label}
-					x={width + GOAL_LABEL_OFFSET}
-					y={yScale(goal.value)}
-					verticalAnchor="middle"
-					class="fill-muted-foreground text-[11px] font-mono"
-				/>
-				<Area class="fill-foreground/5" />
-				<Spline class="stroke-foreground" fill="none" strokeWidth={2} />
-				{#each bars as bar (bar.end)}
-					<Rect {...barGeometry(bar, xScale, height)} class={bar.emphasized ? 'fill-warning' : 'fill-warning/40'} />
-				{/each}
-				{#each barLabels(xScale, height) as label (label.key)}
+					<Area class="fill-foreground/5" />
+					<Spline class="stroke-foreground" fill="none" strokeWidth={2} />
+					{#each bars as bar (bar.end)}
+						<Rect {...barGeometry(bar, xScale, height)} class={bar.emphasized ? 'fill-warning' : 'fill-warning/40'} />
+					{/each}
+					{#each barLabels(xScale, height) as label (label.key)}
+						<Text
+							value={label.value}
+							x={label.x}
+							y={label.y}
+							textAnchor="middle"
+							class="fill-foreground text-[11px] font-mono font-semibold"
+						/>
+					{/each}
+					<!-- The forecast never rises, so the line stays below the start point and above the end point. -->
+					<Circle cx={firstX} cy={firstY} r={4} class="fill-foreground" />
 					<Text
-						value={label.value}
-						x={label.x}
-						y={label.y}
-						textAnchor="middle"
-						class="fill-foreground text-[11px] font-mono font-semibold"
+						value={`${first.percent}%`}
+						x={firstX + 6}
+						y={firstY - valueLabelOffset(firstY, -1, ruleYs, LABEL_GAP)}
+						class="fill-foreground text-xs font-mono font-semibold"
 					/>
-				{/each}
-				<!-- The forecast never rises, so the line stays below the start point and above the end point. -->
-				<Circle cx={firstX} cy={firstY} r={4} class="fill-foreground" />
-				<Text
-					value={`${first.percent}%`}
-					x={firstX + 6}
-					y={firstY - valueLabelOffset(firstY, -1, ruleYs, LABEL_GAP)}
-					class="fill-foreground text-xs font-mono font-semibold"
-				/>
-				<g class={endTone}>
-					<Circle cx={lastX} cy={lastY} r={END_DOT_RADIUS} class="fill-current" />
-					<Text
-						value={`${last.percent}%`}
-						x={lastX}
-						y={lastY + valueLabelOffset(lastY, 1, ruleYs, END_DOT_RADIUS + LABEL_GAP) + VALUE_CAP_PX}
-						textAnchor="end"
-						class="fill-current text-xs font-mono font-semibold"
-					/>
-				</g>
-			</Svg>
+					<g class={endTone}>
+						<Circle cx={lastX} cy={lastY} r={END_DOT_RADIUS} class="fill-current" />
+						<Text
+							value={`${last.percent}%`}
+							x={lastX}
+							y={lastY + valueLabelOffset(lastY, 1, ruleYs, END_DOT_RADIUS + LABEL_GAP) + VALUE_CAP_PX}
+							textAnchor="end"
+							class="fill-current text-xs font-mono font-semibold"
+						/>
+					</g>
+				</Svg>
+			{/snippet}
 		</Chart>
 	</ChartUi.Container>
 

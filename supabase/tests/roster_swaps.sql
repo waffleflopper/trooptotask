@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT no_plan();
+SELECT plan(43);
 INSERT INTO auth.users(id,email) VALUES ('b1858000-0000-4000-8000-000000000001','swap-owner@example.test'),('b1858000-0000-4000-8000-000000000002','swap-operator@example.test'),('b1858000-0000-4000-8000-000000000003','swap-group@example.test'),('b1858000-0000-4000-8000-000000000004','swap-viewer@example.test');
 INSERT INTO public.organizations(id,name,created_by) VALUES ('b1858000-0000-4000-8000-000000000101','Duty swaps','b1858000-0000-4000-8000-000000000001');
 INSERT INTO public.groups(id,organization_id,name) VALUES ('b1858000-0000-4000-8000-000000000201','b1858000-0000-4000-8000-000000000101','Alpha');
@@ -16,8 +16,9 @@ INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to
 SELECT set_config('calendar.roster_write','on',true);
 INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id,source) VALUES
 ('b1858000-0000-4000-8000-000000000501','b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date,'b1858000-0000-4000-8000-000000000301','roster'),
-('b1858000-0000-4000-8000-000000000502','b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date+7,'b1858000-0000-4000-8000-000000000302','roster'),
-('b1858000-0000-4000-8000-000000000503','b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date+2,'b1858000-0000-4000-8000-000000000301','roster');
+('b1858000-0000-4000-8000-000000000502','b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date+7,'b1858000-0000-4000-8000-000000000302','manual'),
+('b1858000-0000-4000-8000-000000000503','b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date+2,'b1858000-0000-4000-8000-000000000301','roster'),
+('b1858000-0000-4000-8000-000000000504','b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date+14,'b1858000-0000-4000-8000-000000000302','roster');
 SELECT set_config('calendar.roster_write','',true);
 CREATE FUNCTION pg_temp.exchange(a date DEFAULT current_date, b date DEFAULT current_date+7, wa text DEFAULT 'b1858000-0000-4000-8000-000000000301', wb text DEFAULT 'b1858000-0000-4000-8000-000000000302', t uuid DEFAULT 'b1858000-0000-4000-8000-000000000401') RETURNS jsonb LANGUAGE sql AS $$
  SELECT public.swap_roster_days('b1858000-0000-4000-8000-000000000101',t,a,wa,b,wb,current_date);
@@ -30,8 +31,8 @@ SELECT set_config('request.jwt.claim.sub','b1858000-0000-4000-8000-000000000002'
 SELECT lives_ok($$SELECT pg_temp.exchange()$$,'an ordinary Organization-wide Calendar operator swaps the days');
 SELECT results_eq($$SELECT id,assignee_id,source FROM public.daily_assignments WHERE organization_id='b1858000-0000-4000-8000-000000000101' AND date IN (current_date,current_date+7) ORDER BY date$$,
  $$VALUES ('b1858000-0000-4000-8000-000000000501'::uuid,'b1858000-0000-4000-8000-000000000302'::text,'manual'::text),('b1858000-0000-4000-8000-000000000502'::uuid,'b1858000-0000-4000-8000-000000000301'::text,'manual'::text)$$,'the exchange keeps row identities and stamps both days manual');
-SELECT results_eq($$SELECT first_held_by,second_held_by,created_by,created_at=now() FROM public.roster_swaps WHERE organization_id='b1858000-0000-4000-8000-000000000101'$$,
- $$VALUES ('b1858000-0000-4000-8000-000000000301'::text,'b1858000-0000-4000-8000-000000000302'::text,'b1858000-0000-4000-8000-000000000002'::uuid,true)$$,'the function attributes the original holders and entry to the ordinary operator');
+SELECT results_eq($$SELECT first_held_by,first_source,second_held_by,second_source,created_by,created_at=now() FROM public.roster_swaps WHERE organization_id='b1858000-0000-4000-8000-000000000101'$$,
+ $$VALUES ('b1858000-0000-4000-8000-000000000301'::text,'roster'::text,'b1858000-0000-4000-8000-000000000302'::text,'manual'::text,'b1858000-0000-4000-8000-000000000002'::uuid,true)$$,'the function saves the original holders and sources and attributes the entry to the ordinary operator');
 SELECT throws_ok($$INSERT INTO public.roster_swaps(organization_id,assignment_type_id,first_date,first_held_by,second_date,second_held_by,created_by) VALUES ('b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date+1,'b1858000-0000-4000-8000-000000000302',current_date+2,'b1858000-0000-4000-8000-000000000301','b1858000-0000-4000-8000-000000000001')$$,'42501',NULL,'clients cannot insert holders or attribution');
 SELECT throws_ok($$UPDATE public.roster_swaps SET first_held_by='forged',created_by='b1858000-0000-4000-8000-000000000001' WHERE organization_id='b1858000-0000-4000-8000-000000000101'$$,'42501',NULL,'clients cannot change holders or attribution');
 SELECT throws_ok($$DELETE FROM public.roster_swaps WHERE organization_id='b1858000-0000-4000-8000-000000000101'$$,'42501',NULL,'clients cannot delete a swap directly');
@@ -39,7 +40,7 @@ SELECT throws_ok($$SELECT pg_temp.exchange(current_date,current_date+7,'b1858000
 SELECT throws_ok($$SELECT pg_temp.exchange(current_date,current_date+7,'b1858000-0000-4000-8000-000000000302','b1858000-0000-4000-8000-000000000301')$$,'RSW07',NULL,'an already swapped day is refused');
 SELECT throws_ok($$SELECT pg_temp.undo_swap(current_date+1)$$,'RSW02',NULL,'undo after either day has passed is refused');
 SELECT lives_ok($$SELECT pg_temp.undo_swap()$$,'undo restores the original days');
-SELECT results_eq($$SELECT assignee_id FROM public.daily_assignments WHERE organization_id='b1858000-0000-4000-8000-000000000101' AND date IN (current_date,current_date+7) ORDER BY date$$,$$VALUES ('b1858000-0000-4000-8000-000000000301'::text),('b1858000-0000-4000-8000-000000000302'::text)$$,'undo restores both holders');
+SELECT results_eq($$SELECT assignee_id,source FROM public.daily_assignments WHERE organization_id='b1858000-0000-4000-8000-000000000101' AND date IN (current_date,current_date+7) ORDER BY date$$,$$VALUES ('b1858000-0000-4000-8000-000000000301'::text,'roster'::text),('b1858000-0000-4000-8000-000000000302'::text,'manual'::text)$$,'undo restores both holders and their original roster and manual sources');
 SELECT is((SELECT count(*)::integer FROM public.roster_swaps WHERE organization_id='b1858000-0000-4000-8000-000000000101'),0,'undo removes the swap');
 SELECT throws_ok($$SELECT public.undo_roster_swap('b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000999',current_date)$$,'RSW01',NULL,'undo of a missing swap reports a changed roster');
 SELECT throws_ok($$SELECT pg_temp.exchange(current_date-1,current_date+7)$$,'RSW02',NULL,'past days are refused');
@@ -51,6 +52,13 @@ SELECT throws_ok($$SELECT pg_temp.exchange(current_date,current_date+7,'b1858000
 SELECT is((SELECT count(*)::integer FROM public.roster_swaps WHERE organization_id='b1858000-0000-4000-8000-000000000101'),0,'refused exchanges write no swap');
 SELECT is((SELECT assignee_id FROM public.daily_assignments WHERE id='b1858000-0000-4000-8000-000000000501'),'b1858000-0000-4000-8000-000000000301','refused exchanges leave the calendar unchanged');
 SELECT throws_ok($$SELECT public.swap_roster_days('b1858000-0000-4000-8000-000000000101','b1858000-0000-4000-8000-000000000401',current_date,'b1858000-0000-4000-8000-000000000301',current_date+7,'b1858000-0000-4000-8000-000000000302',current_date-3)$$,'RSD01',NULL,'an incorrect device date is refused');
+SELECT lives_ok($$SELECT pg_temp.exchange(current_date+7,current_date,'b1858000-0000-4000-8000-000000000302','b1858000-0000-4000-8000-000000000301')$$,'the operator can start a swap from the later manual day');
+SELECT lives_ok($$SELECT pg_temp.undo_swap()$$,'the operator can undo a swap started from the later day');
+SELECT results_eq($$SELECT assignee_id,source FROM public.daily_assignments WHERE organization_id='b1858000-0000-4000-8000-000000000101' AND date IN (current_date,current_date+7) ORDER BY date$$,$$VALUES ('b1858000-0000-4000-8000-000000000301'::text,'roster'::text),('b1858000-0000-4000-8000-000000000302'::text,'manual'::text)$$,'undo preserves the original holders and sources when swap inputs are reversed');
+UPDATE public.daily_assignments SET assignee_id='b1858000-0000-4000-8000-000000000301' WHERE id='b1858000-0000-4000-8000-000000000501';
+SELECT lives_ok($$SELECT pg_temp.exchange(current_date,current_date+14)$$,'the operator can swap an earlier manual day with a later roster day');
+SELECT lives_ok($$SELECT pg_temp.undo_swap()$$,'the operator can undo a swap with the roster day second');
+SELECT results_eq($$SELECT assignee_id,source FROM public.daily_assignments WHERE organization_id='b1858000-0000-4000-8000-000000000101' AND date IN (current_date,current_date+14) ORDER BY date$$,$$VALUES ('b1858000-0000-4000-8000-000000000301'::text,'manual'::text),('b1858000-0000-4000-8000-000000000302'::text,'roster'::text)$$,'undo restores a manual first day and a roster second day');
 SELECT pg_temp.exchange();
 SELECT set_config('request.jwt.claim.sub','b1858000-0000-4000-8000-000000000003',true);
 SELECT is((SELECT count(*)::integer FROM public.roster_swaps WHERE organization_id='b1858000-0000-4000-8000-000000000101'),0,'Group-scoped operators cannot read duty swaps');

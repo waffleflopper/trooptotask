@@ -9,8 +9,10 @@ CREATE TABLE public.roster_swaps (
   assignment_type_id uuid NOT NULL,
   first_date date NOT NULL,
   first_held_by text NOT NULL,
+  first_source text NOT NULL CHECK (first_source IN ('manual', 'roster')),
   second_date date NOT NULL,
   second_held_by text NOT NULL,
+  second_source text NOT NULL CHECK (second_source IN ('manual', 'roster')),
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT roster_swaps_type_fkey FOREIGN KEY (organization_id, assignment_type_id)
@@ -118,12 +120,14 @@ BEGIN
   PERFORM pg_catalog.set_config('calendar.roster_write', '', true);
   UPDATE public.daily_assignments SET assignee_id = second_row.assignee_id WHERE id = first_row.id;
   UPDATE public.daily_assignments SET assignee_id = first_row.assignee_id WHERE id = second_row.id;
-  INSERT INTO public.roster_swaps(organization_id, assignment_type_id, first_date, first_held_by,
-    second_date, second_held_by, created_by)
+  INSERT INTO public.roster_swaps(organization_id, assignment_type_id, first_date, first_held_by, first_source,
+    second_date, second_held_by, second_source, created_by)
   VALUES (p_organization_id, p_assignment_type_id, LEAST(p_first_date, p_second_date),
     CASE WHEN p_first_date < p_second_date THEN first_row.assignee_id ELSE second_row.assignee_id END,
+    CASE WHEN p_first_date < p_second_date THEN first_row.source ELSE second_row.source END,
     GREATEST(p_first_date, p_second_date),
-    CASE WHEN p_first_date < p_second_date THEN second_row.assignee_id ELSE first_row.assignee_id END, auth.uid())
+    CASE WHEN p_first_date < p_second_date THEN second_row.assignee_id ELSE first_row.assignee_id END,
+    CASE WHEN p_first_date < p_second_date THEN second_row.source ELSE first_row.source END, auth.uid())
   RETURNING * INTO swap_row;
   PERFORM calendar_private.require_roster_swap_access(p_organization_id, p_today);
   RETURN jsonb_build_object('swap', to_jsonb(swap_row), 'saved', (
@@ -160,11 +164,17 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'The roster changed since this preview' USING ERRCODE = 'RSW01';
   END IF;
-  PERFORM pg_catalog.set_config('calendar.roster_write', '', true);
-  UPDATE public.daily_assignments a SET assignee_id = CASE WHEN a.date = swap_row.first_date
-    THEN swap_row.first_held_by ELSE swap_row.second_held_by END
+  PERFORM pg_catalog.set_config('calendar.roster_write',
+    CASE WHEN swap_row.first_source = 'roster' THEN 'on' ELSE '' END, true);
+  UPDATE public.daily_assignments a SET assignee_id = swap_row.first_held_by, source = swap_row.first_source
   WHERE a.organization_id = p_organization_id AND a.assignment_type_id = swap_row.assignment_type_id
-    AND a.date IN (swap_row.first_date, swap_row.second_date);
+    AND a.date = swap_row.first_date;
+  PERFORM pg_catalog.set_config('calendar.roster_write',
+    CASE WHEN swap_row.second_source = 'roster' THEN 'on' ELSE '' END, true);
+  UPDATE public.daily_assignments a SET assignee_id = swap_row.second_held_by, source = swap_row.second_source
+  WHERE a.organization_id = p_organization_id AND a.assignment_type_id = swap_row.assignment_type_id
+    AND a.date = swap_row.second_date;
+  PERFORM pg_catalog.set_config('calendar.roster_write', '', true);
   PERFORM calendar_private.require_roster_swap_access(p_organization_id, p_today);
   RETURN jsonb_build_object('swap', to_jsonb(swap_row), 'saved', (
     SELECT jsonb_agg(to_jsonb(a) ORDER BY a.date) FROM public.daily_assignments a

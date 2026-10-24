@@ -432,12 +432,11 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('modal handlers', () => {
-		it('handleAdd opens personnel-modal with null person payload', () => {
+		it('handleAdd opens personnel-modal', () => {
 			const modals = makeModals();
 			const ctx = new PersonnelPageContext(makeData(), modals, makeOrg());
 			ctx.handleAdd();
 			expect(modals.isOpen('personnel-modal')).toBe(true);
-			expect(modals.payload<{ person: Personnel | null }>('personnel-modal')?.person).toBeNull();
 		});
 
 		it.each(['group-a', null])('opens the editor with selection %s', (groupId) => {

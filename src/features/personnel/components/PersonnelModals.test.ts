@@ -12,15 +12,9 @@ import { toastStore } from '$lib/stores/toast.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
-import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
-import { settles } from '$lib/test-support/settles';
 import { RosterPeek } from '../rosterPeek.svelte';
 import type { RosterPeekSection } from '../rosterPeek';
-import { RosterSignals } from '../rosterSignals.svelte';
-import type { PersonSignalCore, RosterSignalRead, SignalAccess } from '../rosterSignals';
 import * as groupMembership from '../utils/moveGroupMembers';
-
-const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }));
 
@@ -84,7 +78,7 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 			);
 			const modals = new ModalRegistry();
 			modals.open('group-manager');
-			render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals, requestArchiveApproval } });
+			render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
 			let submit: () => Promise<unknown>;
 			if (operation === 'add') {
 				await fireEvent.input(screen.getByLabelText('New group name'), { target: { value: 'New Group' } });
@@ -164,7 +158,7 @@ describe('Group editor changes reach the roster in place', () => {
 		const oldModals = new ModalRegistry();
 		oldModals.open('group-manager');
 		const oldVisit = render(PersonnelModals, {
-			props: { ctx: groupEditorContext(oldModals), modals: oldModals, requestArchiveApproval }
+			props: { ctx: groupEditorContext(oldModals), modals: oldModals }
 		});
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Person, Synthetic' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove from Group' }));
@@ -178,7 +172,7 @@ describe('Group editor changes reach the roster in place', () => {
 		const currentModals = new ModalRegistry();
 		currentModals.open('group-manager', { select: 'group-b' });
 		render(PersonnelModals, {
-			props: { ctx: groupEditorContext(currentModals), modals: currentModals, requestArchiveApproval }
+			props: { ctx: groupEditorContext(currentModals), modals: currentModals }
 		});
 		reply.resolve(Response.json({ groupId: null, movedIds: ['person-a'], unavailableIds: [] }));
 		await membershipReply;
@@ -209,7 +203,7 @@ describe('Group editor changes reach the roster in place', () => {
 		const modals = new ModalRegistry();
 		const ctx = groupEditorContext(modals);
 		ctx.openGroupEditor(null);
-		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
+		render(PersonnelModals, { props: { ctx, modals } });
 		expect(screen.getByRole('list', { name: 'Members of Unassigned' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Rename Alpha' })).toBeNull();
 	});
@@ -244,7 +238,7 @@ describe('Group editor changes reach the roster in place', () => {
 		);
 		const modals = new ModalRegistry();
 		modals.open('group-manager');
-		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals, requestArchiveApproval } });
+		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha' }));
 		await fireEvent.input(screen.getByDisplayValue('Alpha'), { target: { value: 'Weapons' } });
@@ -293,7 +287,7 @@ describe('Group editor changes reach the roster in place', () => {
 			peek.show('person-a');
 			const modals = new ModalRegistry();
 			modals.open('group-manager', { select: 'group-a' });
-			render(PersonnelModals, { props: { ctx: groupEditorContext(modals, peek), modals, requestArchiveApproval } });
+			render(PersonnelModals, { props: { ctx: groupEditorContext(modals, peek), modals } });
 			return reads;
 		}
 
@@ -377,8 +371,8 @@ describe('scoped Personnel creation', () => {
 			})
 		);
 		vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
-		modals.open('personnel-modal', { person: null });
-		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
+		modals.open('personnel-modal');
+		render(PersonnelModals, { props: { ctx, modals } });
 		await fireEvent.input(screen.getByLabelText('Last Name'), { target: { value: 'Scoped' } });
 		await fireEvent.input(screen.getByLabelText('First Name'), { target: { value: 'Synthetic' } });
 		await fireEvent.click(screen.getByTestId('personnel-save'));
@@ -408,163 +402,7 @@ describe('scoped Personnel creation', () => {
 	});
 });
 
-describe('retired Personnel save feedback', () => {
-	it.each([200, 503])('keeps the destination quiet when a retired save returns HTTP %s', async (status) => {
-		const personA: Personnel = {
-			id: 'person-a',
-			slug: 'synthetic-alpha',
-			rank: 'SPC',
-			firstName: 'Synthetic',
-			lastName: 'Alpha',
-			mos: '68V',
-			clinicRole: 'Medic',
-			ets: null,
-			deros: null,
-			groupId: null,
-			groupName: '',
-			archivedAt: null
-		};
-		const personB: Personnel = { ...personA, id: 'person-b', slug: 'synthetic-bravo', lastName: 'Bravo' };
-		const expectedB = structuredClone([personB]);
-		const access = (level: 'configure' | 'view') =>
-			createClientAccess({
-				membershipRole: 'member',
-				capabilityMap: { ...createCapabilityMap('none'), personnel: level },
-				scopeSet: { kind: 'organization' }
-			});
-		const rankCatalog = [
-			{
-				code: 'SPC',
-				label: 'Specialist',
-				service: 'army' as const,
-				category: 'enlisted' as const,
-				payGrade: 'E-4' as const,
-				state: 'active' as const,
-				sortOrder: 0
-			}
-		];
-		groupCatalogHydration.load([], 'org-a');
-		personnelStore.load([personA], 'org-a');
-		let releaseResponse!: (response: Response) => void;
-		const response = new Promise<Response>((resolve) => {
-			releaseResponse = resolve;
-		});
-		let submitted: unknown;
-		vi.stubGlobal('fetch', (url: string, init: RequestInit) => {
-			if (url !== '/org/org-a/api/personnel' || init.method !== 'PUT') throw new Error('Unexpected request');
-			submitted = JSON.parse(init.body as string);
-			return response;
-		});
-		let updateSettled: Promise<boolean> | undefined;
-		const update = personnelStore.updateOrThrow;
-		vi.spyOn(personnelStore, 'updateOrThrow').mockImplementation((id, data) => {
-			updateSettled = update(id, data);
-			return updateSettled;
-		});
-		const error = vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
-		const success = vi.spyOn(toastStore, 'success').mockReturnValue('synthetic-success');
-		const modalsA = new ModalRegistry();
-		const ctxA = new PersonnelPageContext(
-			{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [], rankCatalog },
-			modalsA,
-			access('configure'),
-			personnelStore
-		);
-		modalsA.open('personnel-modal', { person: personA });
-		const ownerA = render(PersonnelModals, { props: { ctx: ctxA, modals: modalsA, requestArchiveApproval } });
-		await fireEvent.input(screen.getByLabelText('Duty Role'), { target: { value: 'Held Save First' } });
-		await fireEvent.click(screen.getByTestId('personnel-save'));
-		expect(submitted).toEqual(expect.objectContaining({ id: 'person-a', clinicRole: 'Held Save First' }));
-		expect(screen.getByRole('button', { name: 'Saving...' })).toBeTruthy();
-		if (!updateSettled) throw new Error('Personnel save did not dispatch');
-
-		ownerA.unmount();
-		groupCatalogHydration.load([], 'org-b');
-		personnelStore.load([personB], 'org-b');
-		const modalsB = new ModalRegistry();
-		const ctxB = new PersonnelPageContext(
-			{ orgId: 'org-b', asOf: '2026-10-23', orgName: 'B', pinnedGroups: [], rankCatalog },
-			modalsB,
-			access('view'),
-			personnelStore
-		);
-		render(PersonnelModals, { props: { ctx: ctxB, modals: modalsB, requestArchiveApproval } });
-		expect(personnelStore.items).toEqual(expectedB);
-		releaseResponse(
-			status === 200
-				? Response.json({ ...personA, clinicRole: 'Held Save First' })
-				: Response.json({ message: 'Unavailable' }, { status })
-		);
-		expect(await settles(updateSettled)).toBe(false);
-		await tick();
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(personnelStore.orgId).toBe('org-b');
-		expect(personnelStore.items).toEqual(expectedB);
-		expect(error).not.toHaveBeenCalled();
-		expect(success).not.toHaveBeenCalled();
-		expect(modalsB.isOpen('personnel-modal')).toBe(false);
-	});
-});
-
-describe('rejected Personnel and Group save feedback', () => {
-	const rankCatalog = [
-		{
-			code: 'SPC',
-			label: 'Specialist',
-			service: 'army' as const,
-			category: 'enlisted' as const,
-			payGrade: 'E-4' as const,
-			state: 'active' as const,
-			sortOrder: 0
-		}
-	];
-	const person: Personnel = {
-		id: 'person-a',
-		slug: 'synthetic-alpha',
-		rank: 'SPC',
-		firstName: 'Synthetic',
-		lastName: 'Alpha',
-		mos: '68V',
-		clinicRole: 'Medic',
-		ets: null,
-		deros: null,
-		groupId: null,
-		groupName: '',
-		archivedAt: null
-	};
-
-	it.each([
-		[404, 'This person is no longer available.', 'This person is no longer available.'],
-		[500, 'Internal server error', 'Failed to update personnel']
-	])('keeps a Personnel edit open and shows the reason for a %i', async (status, serverMessage, shown) => {
-		groupCatalogHydration.load([], 'org-a');
-		personnelStore.load([person], 'org-a');
-		vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status }));
-		const error = vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
-		const modals = new ModalRegistry();
-		const ctx = new PersonnelPageContext(
-			{ orgId: 'org-a', asOf: '2026-10-23', orgName: 'A', pinnedGroups: [], rankCatalog },
-			modals,
-			createClientAccess({
-				membershipRole: 'member',
-				capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
-				scopeSet: { kind: 'organization' }
-			}),
-			personnelStore
-		);
-		modals.open('personnel-modal', { person });
-		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
-
-		await fireEvent.input(screen.getByLabelText('Duty Role'), { target: { value: 'Platoon Medic' } });
-		await fireEvent.click(screen.getByTestId('personnel-save'));
-
-		await waitFor(() => expect(error).toHaveBeenCalledWith(shown));
-		expect(modals.isOpen('personnel-modal')).toBe(true);
-		expect((screen.getByLabelText('Duty Role') as HTMLInputElement).value).toBe('Platoon Medic');
-		expect(personnelStore.items).toEqual([person]);
-	});
-
+describe('rejected Group rename feedback', () => {
 	it.each([
 		['a name another Group already has', 'bravo', null, 'A Group with that name already exists.'],
 		['a server conflict', 'Charlie', 409, 'A Group with that name already exists.'],
@@ -586,7 +424,7 @@ describe('rejected Personnel and Group save feedback', () => {
 		});
 		const modals = new ModalRegistry();
 		modals.open('group-manager');
-		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals, requestArchiveApproval } });
+		render(PersonnelModals, { props: { ctx: groupEditorContext(modals), modals } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Rename Alpha' }));
 		await fireEvent.input(screen.getByDisplayValue('Alpha'), { target: { value: name } });
@@ -596,118 +434,5 @@ describe('rejected Personnel and Group save feedback', () => {
 		expect(screen.getByDisplayValue(name)).toBeTruthy();
 		expect(groupsStore.items).toEqual(groups);
 		expect(requests).toEqual(status ? [name] : []);
-	});
-});
-
-describe('Needs attention after a Personnel edit', () => {
-	const AS_OF = '2026-10-23';
-	const ACCESS: SignalAccess = {
-		availability: false,
-		training: true,
-		criticalTasks: false,
-		evaluations: false,
-		followUps: false,
-		counseling: false
-	};
-	const person: Personnel = {
-		id: 'person-a',
-		slug: 'synthetic-alpha',
-		rank: 'SPC',
-		firstName: 'Synthetic',
-		lastName: 'Alpha',
-		mos: '68W',
-		clinicRole: 'Medic',
-		ets: null,
-		deros: null,
-		groupId: null,
-		groupName: '',
-		archivedAt: null
-	};
-	const core = (attention: PersonSignalCore['attention']): PersonSignalCore => ({
-		personnelId: 'person-a',
-		today: { kind: 'withheld' },
-		attention,
-		matches: {},
-		openFollowUps: { kind: 'withheld' }
-	});
-	const missingTraining: PersonSignalCore['attention'] = {
-		kind: 'known',
-		value: {
-			kind: 'attention',
-			first: { kind: 'training', status: 'missing', title: 'Combat Lifesaver', days: null },
-			otherCount: 0,
-			worst: 'amber'
-		}
-	};
-	const clear: PersonSignalCore['attention'] = { kind: 'known', value: { kind: 'clear' } };
-	const read = (people: PersonSignalCore[]): RosterSignalRead => ({
-		asOf: AS_OF,
-		access: ACCESS,
-		statusTypes: [],
-		people
-	});
-
-	async function openEditor() {
-		groupCatalogHydration.load([], 'org-a');
-		personnelStore.load([person], 'org-a');
-		const readPeople = vi.fn(async (_orgId: string, _ids: string[]) => read([core(clear)]));
-		const signals = new RosterSignals({ readPeople, invalidate: async () => {}, browserDay: () => AS_OF });
-		signals.observe('org-a', AS_OF, Promise.resolve(read([core(missingTraining)])));
-		await settles(Promise.resolve());
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		const modals = new ModalRegistry();
-		const ctx = new PersonnelPageContext(
-			{ orgId: 'org-a', asOf: AS_OF, orgName: 'A', pinnedGroups: [], rankCatalog: [] },
-			modals,
-			createClientAccess({
-				membershipRole: 'member',
-				capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
-				scopeSet: { kind: 'organization' }
-			}),
-			personnelStore,
-			[],
-			signals
-		);
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async (_url, init) => Response.json({ ...person, ...JSON.parse(init.body) }))
-		);
-		modals.open('personnel-modal', { person });
-		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
-		return { ctx, modals, readPeople };
-	}
-
-	it('rereads that Person when the saved MOS changes what applies, and only then', async () => {
-		const { ctx, modals, readPeople } = await openEditor();
-		expect(ctx.signalRow(person)).toMatchObject({ kind: 'ready', value: { attention: missingTraining } });
-
-		await fireEvent.input(screen.getByLabelText('First Name'), { target: { value: 'Renamed' } });
-		await fireEvent.click(screen.getByTestId('personnel-save'));
-		await waitFor(() => expect(modals.isOpen('personnel-modal')).toBe(false));
-		expect(readPeople).not.toHaveBeenCalled();
-
-		modals.open('personnel-modal', { person: personnelStore.getById('person-a')! });
-		await fireEvent.input(await screen.findByLabelText('MOS / Job Title'), { target: { value: '11B' } });
-		await fireEvent.click(screen.getByTestId('personnel-save'));
-		await waitFor(() => expect(readPeople).toHaveBeenCalledExactlyOnceWith('org-a', ['person-a']));
-		await waitFor(() => expect(ctx.signalRow(person)).toMatchObject({ kind: 'ready', value: { attention: clear } }));
-	});
-
-	it('rereads nothing when the Organization lifetime ended before the save reply', async () => {
-		const { ctx, modals, readPeople } = await openEditor();
-		let reply!: (response: Response) => void;
-		const fetchMock = vi.fn(() => new Promise<Response>((resolve) => (reply = resolve)));
-		vi.stubGlobal('fetch', fetchMock);
-
-		await fireEvent.input(screen.getByLabelText('MOS / Job Title'), { target: { value: '11B' } });
-		await fireEvent.click(screen.getByTestId('personnel-save'));
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-		endOrganizationLifetime();
-		reply(Response.json({ ...person, mos: '11B' }));
-		await new Promise((resolve) => setTimeout(resolve, 20));
-
-		expect(readPeople).not.toHaveBeenCalled();
-		expect(ctx.signalRow(person)).toMatchObject({ kind: 'ready', value: { attention: missingTraining } });
-		expect(modals.isOpen('personnel-modal')).toBe(true);
 	});
 });

@@ -293,7 +293,7 @@ export class PersonnelPageContext {
 	}
 
 	handleAdd(): void {
-		this.#modals.open('personnel-modal', { person: null });
+		this.#modals.open('personnel-modal');
 	}
 
 	openGroupEditor(groupId: string | null): void {

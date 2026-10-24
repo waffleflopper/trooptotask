@@ -46,5 +46,5 @@
 			{@render children()}
 		{/if}
 	</span>
-	<ArrowRightIcon class="size-[18px] text-accent dark:text-current" strokeWidth={2} aria-hidden="true" />
+	<ArrowRightIcon class="size-[18px] text-chrome-accent dark:text-current" strokeWidth={2} aria-hidden="true" />
 </Button>

@@ -43,11 +43,11 @@
 	}: Props = $props();
 
 	const stepTone = {
-		default: { numeral: 'text-accent', title: 'text-chrome-text', detail: 'text-chrome-text-muted' },
+		default: { numeral: 'text-chrome-accent', title: 'text-chrome-text', detail: 'text-chrome-text-muted' },
 		done: { numeral: 'text-success', title: 'text-chrome-text-muted', detail: 'text-chrome-text-muted' },
-		current: { numeral: 'text-accent', title: 'text-chrome-text', detail: 'text-accent' },
+		current: { numeral: 'text-chrome-accent', title: 'text-chrome-text', detail: 'text-chrome-accent' },
 		upcoming: { numeral: 'text-chrome-text-muted', title: 'text-chrome-text-muted', detail: 'text-chrome-text-muted' },
-		flagged: { numeral: 'text-accent', title: 'text-accent', detail: 'text-chrome-text' }
+		flagged: { numeral: 'text-chrome-accent', title: 'text-chrome-accent', detail: 'text-chrome-text' }
 	} as const;
 
 	const footerLinks = [
@@ -78,12 +78,12 @@
 		</div>
 
 		<div class="mt-10 flex flex-col gap-4 lg:my-auto lg:gap-6 lg:py-12">
-			<p class="font-mono text-[13px] leading-4 tracking-[0.14em] text-accent uppercase">{eyebrow}</p>
+			<p class="font-mono text-[13px] leading-4 tracking-[0.14em] text-chrome-accent uppercase">{eyebrow}</p>
 			<p
 				class="font-heading text-[44px] leading-[42px] font-bold tracking-[-0.005em] uppercase lg:text-[52px] lg:leading-[50px] xl:text-[64px] xl:leading-[60px] min-[87.5rem]:text-[72px] min-[87.5rem]:leading-[68px]"
 			>
 				<span class="block">{headline[0]}</span>
-				<span class="block text-accent">{headline[1]}</span>
+				<span class="block text-chrome-accent">{headline[1]}</span>
 			</p>
 			<p class="max-w-[420px] text-base leading-6 font-light text-chrome-text-muted lg:text-lg lg:leading-7">{lede}</p>
 		</div>

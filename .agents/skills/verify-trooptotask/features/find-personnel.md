@@ -406,9 +406,11 @@ scoped actors retain their baseline grants.
       `3 of 3 · J/K` with five reads for Unassigned; K back to Baker reads nothing (cached). Two J presses within 40 ms
       from Able read only the Person browsing stops on (five reads, none for the Person skipped). Tab from the row
       focuses `Previous person`; K there steps the panel while focus stays on that button; Esc closes the panel and
-      returns focus to the Person's row. Space on Baker's row opens it again and Space once more closes it. x selects
-      without touching the panel (`1 selected`), and with a selection Space or a row click still opens the panel (only
-      the checkbox selects). Esc then closes the panel first, and a second Esc clears the selection.
+      returns focus to the Person's row; with the row searched away (open Baker, search `Unassigned`, Esc) focus lands
+      on the first shown row, `Open SPC Unassigned, Synthetic`, or on the search field when no row is shown. Space on
+      Baker's row opens it again and Space once more closes it. x selects without touching the panel (`1 selected`), and
+      with a selection Space or a row click still opens the panel (only the checkbox selects). Esc then closes the panel
+      first, and a second Esc clears the selection.
     - Follow-up: tick `Complete Turn in TA-50 shortage list`. One `PATCH .../follow-ups/<id>` and one
       `POST .../roster-signals`; the row reads `Done`, the heading `Open follow-ups · 1`, `rows personnel_follow_ups`
       shows `completed`, and Baker's attention cell drops to `· 1 more`. J then K rereads only `peek?section=followUps`.

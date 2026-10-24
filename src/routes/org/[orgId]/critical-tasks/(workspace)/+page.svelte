@@ -341,7 +341,7 @@
 							tasks={ictTasksStore.items}
 							completions={personnelIctCompletionsStore.items}
 							groups={groupsStore.items}
-							pinnedGroups={pinnedGroupsStore.list}
+							pinnedGroups={pinnedGroupsStore.orgId === orgId ? pinnedGroupsStore.list : []}
 							settings={criticalTasksSettings}
 							canEdit={canRecordCompletion}
 							onSelectCell={handleMatrixCellSelection}

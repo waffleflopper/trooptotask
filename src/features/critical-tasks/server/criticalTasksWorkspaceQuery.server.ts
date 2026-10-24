@@ -7,14 +7,17 @@ import type {
 import type {
 	GroupPersistence,
 	PersonnelRosterActor,
-	PersonnelCriticalTasksRosterPort
+	PersonnelCriticalTasksRosterPort,
+	SelfPinPersistence
 } from '$features/personnel/contracts';
+import { visiblePinnedGroupNames } from '$features/personnel/index.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
 
 interface CriticalTasksWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
 	organizationSettings: Pick<OrganizationSettingsReader, 'findCriticalTasksDefaults'>;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
+	selfPins: Pick<SelfPinPersistence, 'listNames'>;
 	personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
@@ -49,6 +52,13 @@ export async function fetchCriticalTasksBootstrap(
 		throw error;
 	});
 	const groups = loadCriticalTasksItems(orgId, 'groups', ctx.groups.listCatalog());
+	const pinnedGroups = loadCriticalTasksItems(
+		orgId,
+		'pinned groups',
+		Promise.all([ctx.selfPins.listNames(), groups]).then(([names, visibleGroups]) =>
+			visiblePinnedGroupNames(names, visibleGroups)
+		)
+	);
 	const ictTasks = loadCriticalTasksItems(
 		orgId,
 		'ICT tasks',
@@ -73,6 +83,7 @@ export async function fetchCriticalTasksBootstrap(
 		settings,
 		personnel,
 		groups,
+		pinnedGroups,
 		ictTasks,
 		personnelIctCompletions
 	};

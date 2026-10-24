@@ -36,6 +36,10 @@ describe('criticalTasksWorkspaceQuery', () => {
 			{ id: 'group-bravo', organization_id: 'test-org', name: 'Bravo', sort_order: 1 },
 			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -1 }
 		]);
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'pin-bravo', organization_id: 'test-org', user_id: 'test-user', group_name: 'Bravo', sort_order: 0 },
+			{ id: 'pin-alpha', organization_id: 'test-org', user_id: 'test-user', group_name: 'Alpha', sort_order: 1 }
+		]);
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-1',
@@ -106,6 +110,7 @@ describe('criticalTasksWorkspaceQuery', () => {
 		});
 		expect(bootstrap.personnel).toBeInstanceOf(Promise);
 		expect(bootstrap.groups).toBeInstanceOf(Promise);
+		expect(bootstrap.pinnedGroups).toBeInstanceOf(Promise);
 		expect(bootstrap.ictTasks).toBeInstanceOf(Promise);
 		expect(bootstrap.personnelIctCompletions).toBeInstanceOf(Promise);
 		await expect(bootstrap.personnel).resolves.toEqual([
@@ -117,6 +122,7 @@ describe('criticalTasksWorkspaceQuery', () => {
 			})
 		]);
 		await expect(bootstrap.groups).resolves.toEqual([{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }]);
+		await expect(bootstrap.pinnedGroups).resolves.toEqual(['Alpha']);
 		await expect(bootstrap.ictTasks).resolves.toEqual([
 			expect.objectContaining({
 				id: 'task-1',

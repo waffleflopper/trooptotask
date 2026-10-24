@@ -28,11 +28,3 @@ All dates are relative to `CURRENT_DATE` when the seed runs. Fake ICTL codes and
 The seed only inserts new demo data. It does not rename the Organization, move existing people, update existing configuration, alter permissions, disable triggers or change the schema. General Demo training/ICTL requirements also apply to the two existing people, so their readiness screens will show missing Demo records unless they already have applicable completions. The seed deliberately leaves those people untouched.
 
 The script refuses a missing Organization, missing active rank catalog entries, ambiguous standard Group names, or a repeated/conflicting demo import. A database error rolls back the entire batch. A second successful import is intentionally prohibited rather than duplicating people or overwriting evaluator edits.
-
-## Local proof
-
-The candidate was run against a newly allocated disposable Supabase project, never the existing development stacks. The local fixture replicated the supplied live shape: two pre-existing people in Alpha/Bravo and the three standard Groups, plus a separate Organization and scoped users for isolation checks. The verification compared every pre-existing row across 66 tables before/after import and tested a repeated import and missing target for unchanged state.
-
-The executable import and read-only acceptance checks are the same files linked above. No remote database was inspected or modified.
-
-The original demo UI change hid Duty Rosters from primary navigation and the Calendar Planning menu and announced a temporary outage in What's New. At that time, direct URLs and stored records remained. Stabilization phase 05 D01 removed the Duty Roster routes, generation, history and feature exports; those direct URLs are retired. Phase 06's merged local schema cutover retires duty-only tables while preserving persisted Calendar assignments and their types. This demo import performs no schema cleanup. Hosted schema confirmation is an open [owner obligation](../../docs/stabilization/RELEASE.md#migrations).

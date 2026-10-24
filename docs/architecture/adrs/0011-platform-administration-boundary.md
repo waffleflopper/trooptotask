@@ -19,4 +19,5 @@ Platform support spans Organizations, so no Organization's membership model can 
 - Do not mirror platform state onto Organization tables. A read-time port cannot drift.
 - Each new Organization-scoped service-role port is its own reviewed exception, not a general license.
 - A required source read that fails is an error. Do not render it as an empty or zero result.
-- Activation health reports Organization-level aggregates from existing records. It captures no personal behavior streams, raw IP addresses, analytics identifiers or secrets. New analytics persistence needs an approved privacy, schema and retention plan first.
+- Activation health reports Organization-level aggregates from existing records. It captures no personal behavior streams, raw IP addresses, analytics identifiers or secrets.
+- New usage or analytics records, such as AI usage metering, and logs sent to an outside tool need a privacy, schema and retention plan that Robert approves first. The plan names what is recorded and at what level (Organization or person), who can read it, how long it is kept, and how it is deleted. Secrets, tokens and sensitive Personnel content never leave the app.

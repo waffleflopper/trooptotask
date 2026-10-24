@@ -1,6 +1,6 @@
 # Continuous integration
 
-CI runs on GitHub-hosted `ubuntu-24.04` runners until Depot CI minutes reset; see [Switching back to Depot](#switching-back-to-depot). `main` is intentionally unprotected; missing branch protection is not a failure.
+CI runs on GitHub-hosted `ubuntu-24.04` runners until Depot CI minutes reset; see [Switching back to Depot](#switching-back-to-depot). `main` has branch protection only while the repository is public; treat either state as normal.
 
 ## What runs
 

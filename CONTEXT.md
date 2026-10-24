@@ -163,15 +163,15 @@ _Avoid_: Calendar color
 
 **Assignment Type**:
 An Organization-defined kind of Calendar assignment, used to identify a Daily Assignment Slot.
-_Avoid_: Duty Role, Duty Roster Template
+_Avoid_: Duty Role
 
 **Daily Assignment Slot**:
 One Calendar assignment position identified by date and Assignment Type within an Organization. Repeating that pair does not create a second slot.
-_Avoid_: Duplicate assignment row, Duty Roster Run
+_Avoid_: Duplicate assignment row
 
 **Duty roster**:
 The settings on a person-assigned Assignment Type that pick who pulls it in turn: its Pool, its weekend rule and its excusals. The DA 6 form shows it.
-_Avoid_: bare Roster, which is the Personnel roster; Duty Roster Template
+_Avoid_: bare Roster, which is the Personnel roster
 
 **Pool**:
 The people a Duty roster picks from on a day: everyone its rules match, less the excused.
@@ -187,7 +187,7 @@ _Avoid_: Score, points, stored count
 
 **DA 6 form**:
 One period of a Duty roster's record, shown as a DA Form 6. A rule change closes the open form and saves it as a record; the next form carries everyone's count over.
-_Avoid_: Duty Roster Run, sheet as the stored record
+_Avoid_: sheet as the stored record
 
 **Starting number**:
 A person's count going into a DA 6 form's first day on a Track, carried from the last form or typed from a paper DA 6. Typed numbers change only until the first detail on the form is served; then they are part of the record.

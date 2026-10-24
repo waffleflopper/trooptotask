@@ -3,7 +3,7 @@
 ## Decision
 
 - Supabase Auth stays the authentication provider. TroopToTask does not use Supabase invite emails for account setup. It issues its own **Account Setup Links**.
-- Public `/auth/sign-up` redirects to `/auth/request-access`. Platform entry is a reviewed **Access Request**.
+- Public `/auth/sign-up` redirects to `/auth/request-access`. During the closed beta, platform entry is a reviewed **Access Request**. When registration opens, manual review ends and Account Setup Links stay.
 - Approving an **Access Request** issues a setup link. It does not create a Supabase **User Account**.
 - The database stores only the SHA-256 hash of a setup token. The raw token appears only in the emailed URL and cannot be recovered.
 - An **Access Request** has at most one pending setup link: unclaimed, unused, unfailed and unrevoked. Issuing a new link revokes older unclaimed links. A claimed link can coexist with a fresh one.

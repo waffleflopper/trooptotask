@@ -370,7 +370,7 @@
 
 	const swapping = $derived.by(() => {
 		if (!swapTarget || !rosters || rangeStatus !== 'ready') return null;
-		const { typeId, dateKey, holderId } = swapTarget;
+		const { typeId, dateKey } = swapTarget;
 		const type = columns.find((candidate) => candidate.id === typeId);
 		if (!type || !assignmentsBySlot.has(assignmentSlotKey(dateKey, typeId))) return null;
 		const { swapOptions, swap } = rosters;
@@ -378,12 +378,12 @@
 			...swapTarget,
 			type,
 			load: () => swapOptions(typeId, dateKey),
-			commit: async (other: { date: string; personId: string }): Promise<RosterSwapOutcome> => {
+			commit: async (holder: string, other: { date: string; personId: string }): Promise<RosterSwapOutcome> => {
 				if (locked) return { status: 'refused', message: 'Another change is still saving. Try again in a moment.' };
 				busy = true;
 				try {
 					return await swap(typeId, [
-						{ date: dateKey, was: holderId },
+						{ date: dateKey, was: holder },
 						{ date: other.date, was: other.personId }
 					]);
 				} finally {

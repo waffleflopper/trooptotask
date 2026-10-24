@@ -390,12 +390,15 @@ action and keep its page ID. The date format in every name is the browser's en-G
     marks and the remark are gone and the counts are unchanged. Swap again, then in X's picker choose a third person:
     the warning is in the picker before the choice; after it the mark on both days and the remark are gone, X holds the
     third person, Y keeps its swapped holder, and the DA 6 counts follow the holders. Open `Clear month` on a swapped
-    roster: the confirmation adds `This ends 1 duty swap`. A past day (today or earlier) shows no `Swap with…`; a past
-    swap shows no `Undo swap`. For the 409, open X's `Swap with…` and choose Y, then in a second page send an
-    authenticated `POST /api/daily-assignments` that assigns a third person to Y and press `Swap days`: the server
-    answers `409`, the dialog stays open with `The roster changed since this preview. Review the days and try again.`,
-    the list reloads without Y, and one `calendar-range?…&collections=assignments` read puts the saved day in the grid.
-    At 900x800 and 390x844 dark the dialog opens below the cell and stays at least 8 px inside each viewport edge with
+    roster: the confirmation adds `This ends 1 duty swap`. A day before today shows no `Swap with…`; a past swap shows
+    no `Undo swap`. For the 409, open X's `Swap with…` and choose Y, then in a second page send an authenticated
+    `POST /api/daily-assignments` that assigns a third person to Y and press `Swap days`: the server answers `409`, the
+    dialog stays open with `The roster changed since this preview. Review the days and try again.`, the list reloads
+    without Y, and one `calendar-range?…&collections=assignments` read puts the saved day in the grid. If the second
+    page instead assigns a third person to X, the reloaded dialog names that person in its title and preview and clears
+    the chosen day; choosing Y again and pressing `Swap days` saves. At 900x800 and 390x844 dark the dialog sits beside
+    the cell on whichever side has room (left of it at 900, above it at 390), never over it, and choosing a day whose
+    preview carries two warnings does not move or resize it; it stays at least 8 px inside each viewport edge with
     `document.documentElement.scrollWidth` equal to `innerWidth`. As `calendarScoped` no cell offers `Swap with…`, no
     swap request is sent, and an authenticated `GET /org/<orgA>/api/duty-rosters/swap` returns `403`.
 

@@ -24,8 +24,8 @@
 		holderId: string;
 		personById: ReadonlyMap<string, Personnel>;
 		load: () => Promise<RosterSwapOptions>;
-		/** Trades `dateKey` with `other`'s day. */
-		commit: (other: { date: string; personId: string }) => Promise<RosterSwapOutcome>;
+		/** Trades `dateKey`, held by `holderId`, with `other`'s day. */
+		commit: (holderId: string, other: { date: string; personId: string }) => Promise<RosterSwapOutcome>;
 		onClose: () => void;
 	}
 
@@ -48,6 +48,7 @@
 	let serial = 0;
 	let dismissed = false;
 	let content = $state<HTMLElement | null>(null);
+	let readHolder: string | null = null;
 
 	$effect(() => {
 		void loadToken;
@@ -57,9 +58,11 @@
 		untrack(() => load()).then(
 			(result) => {
 				if (mine !== serial) return;
+				const holderChanged = readHolder !== null && readHolder !== result.personId;
+				readHolder = result.personId;
 				options = result;
 				status = 'ready';
-				if (!result.days.some((day) => day.date === chosenDate)) chosenDate = undefined;
+				if (holderChanged || !result.days.some((day) => day.date === chosenDate)) chosenDate = undefined;
 			},
 			(error) => {
 				if (mine !== serial) return;
@@ -77,7 +80,9 @@
 		return found ? { prefix: found.rank, name: found.lastName } : { prefix: '', name: 'Outside your roster' };
 	}
 
-	const holder = $derived(person(holderId));
+	// The latest read names who holds the day now, which a 409 re-read can change.
+	const holderNow = $derived(options?.personId ?? holderId);
+	const holder = $derived(person(holderNow));
 	const chosen = $derived(options?.days.find((day) => day.date === chosenDate));
 	const canSwap = $derived(status === 'ready' && chosen !== undefined && !committing);
 
@@ -109,7 +114,7 @@
 		const mine = serial;
 		committing = true;
 		try {
-			const outcome = await commit({ date: chosen.date, personId: chosen.personId });
+			const outcome = await commit(holderNow, { date: chosen.date, personId: chosen.personId });
 			if (dismissed) return;
 			if (outcome.status === 'saved') onClose();
 			else if (mine === serial) {
@@ -223,7 +228,7 @@
 			</div>
 		</section>
 
-		<section class="grid min-h-36 content-start gap-1.5 border-b px-4 py-3" aria-live="polite">
+		<section class="grid h-44 content-start gap-1.5 overflow-y-auto border-b px-4 py-3" aria-live="polite">
 			{#if notice}
 				<p class="text-[13px] text-destructive-text" role="alert">{notice}</p>
 			{/if}
@@ -233,7 +238,7 @@
 					class="grid grid-cols-[4.5rem_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5"
 					aria-label="Swapped days"
 				>
-					{#each [{ date: dateKey, was: holderId, now: chosen.personId }, { date: chosen.date, was: chosen.personId, now: holderId }] as row (row.date)}
+					{#each [{ date: dateKey, was: holderNow, now: chosen.personId }, { date: chosen.date, was: chosen.personId, now: holderNow }] as row (row.date)}
 						{@const was = person(row.was)}
 						{@const now = person(row.now)}
 						<li class="col-span-4 grid grid-cols-subgrid items-center text-[13px]">

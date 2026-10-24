@@ -1133,6 +1133,34 @@ describe('MonthlyAssignmentPlanner duty swaps', () => {
 		expect(screen.getByRole('dialog', { name: 'Swap Staff Duty, Tue 20 Oct' })).toBe(dialog);
 	});
 
+	it('swaps from the new holder after a refusal shows the day changed hands', async () => {
+		const swapOptions = vi
+			.fn<() => Promise<RosterSwapOptions>>()
+			.mockResolvedValueOnce(options())
+			.mockResolvedValue({ ...options(), personId: 'p-hale' });
+		const swap = vi
+			.fn<() => Promise<RosterSwapOutcome>>()
+			.mockResolvedValueOnce({ status: 'changed' })
+			.mockResolvedValueOnce({ status: 'saved' });
+		renderSwaps({ views: new Map([['type-sd', rosterView()]]), swapOptions, swap });
+
+		const dialog = await openSwap();
+		await fireEvent.click(await within(dialog).findByRole('radio', { name: /^Tue 27 Oct/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+
+		await waitFor(() => expect(swapOptions).toHaveBeenCalledTimes(2));
+		expect(await within(dialog).findByText(/Swap SSG\s+Hale/)).toBeTruthy();
+		expect((within(dialog).getByRole('radio', { name: /^Tue 27 Oct/ }) as HTMLButtonElement).dataset.state).toBe(
+			'unchecked'
+		);
+		await fireEvent.click(within(dialog).getByRole('radio', { name: /^Tue 27 Oct/ }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Swap days' }));
+		expect(swap).toHaveBeenLastCalledWith('type-sd', [
+			{ date: '2026-10-20', was: 'p-hale' },
+			{ date: '2026-10-27', was: 'p-okafor' }
+		]);
+	});
+
 	it('offers no swap to an operator without roster counts, or on a day that has passed', async () => {
 		renderPlanner({ assignments: planned, personnel: [kim, okafor, hale] });
 		const picker = await openPicker('Tue 20 Oct');

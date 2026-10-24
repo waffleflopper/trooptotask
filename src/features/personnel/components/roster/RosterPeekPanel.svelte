@@ -19,6 +19,7 @@
 	import { dueLabel, formatTimestampDayMonth, groupFollowUps } from '../../logModel';
 	import { attentionRows, uncheckedSources } from '../../personnelAttentionView';
 	import type { Personnel } from '../../personnel.types';
+	import { personnelRecordHref } from '../../personnelRecordHref';
 	import type { RosterPeekSection } from '../../rosterPeek';
 	import { alreadyOpenOf, type ComposerEntry } from '../../rosterComposer';
 	import { rosterStatusDot } from '../../rosterSignals';
@@ -30,7 +31,6 @@
 	interface Props {
 		ctx: PersonnelPageContext;
 		person: Personnel;
-		recordHref: string;
 		position: { index: number; total: number };
 		onstep: (step: 1 | -1) => void;
 		onclose: () => void;
@@ -39,7 +39,7 @@
 		nextDays?: Snippet<[calendar: unknown]>;
 	}
 
-	let { ctx, person, recordHref, position, onstep, onclose, onquickedit, oncompose, nextDays }: Props = $props();
+	let { ctx, person, position, onstep, onclose, onquickedit, oncompose, nextDays }: Props = $props();
 
 	const ATTENTION_SHOWN = 3;
 	const FOLLOW_UPS_SHOWN = 5;
@@ -60,6 +60,7 @@
 	const sections = $derived(ctx.peek.sections(person.id));
 	const dot = $derived(rosterStatusDot(ctx.signalRow(person), ctx.signals.statusTypes));
 	const orgPath = $derived(`/org/${ctx.orgUrlSegment}`);
+	const recordHref = $derived(personnelRecordHref(ctx.orgUrlSegment, person));
 	const alreadyOpen = $derived(alreadyOpenOf(ctx.signalRow(person), composeDay));
 	const composing = $derived(composingFor === person.id);
 
@@ -115,9 +116,8 @@
 
 	async function save(entry: ComposerEntry): Promise<void> {
 		const target = person;
-		const href = recordHref;
 		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry));
-		rosterEntrySaved(ctx, target, entry, href);
+		rosterEntrySaved(ctx, target, entry);
 		if (alive && composingFor === target.id) void closeComposer();
 	}
 
@@ -186,11 +186,17 @@
 {/snippet}
 
 {#snippet readinessLink()}
-	<a href="{recordHref}/readiness" class="text-[13px] leading-4 underline underline-offset-2">Readiness</a>
+	<a
+		href={personnelRecordHref(ctx.orgUrlSegment, person, 'readiness')}
+		class="text-[13px] leading-4 underline underline-offset-2">Readiness</a
+	>
 {/snippet}
 
 {#snippet logLink()}
-	<a href="{recordHref}/log" class="text-[13px] leading-4 underline underline-offset-2">Open log</a>
+	<a
+		href={personnelRecordHref(ctx.orgUrlSegment, person, 'log')}
+		class="text-[13px] leading-4 underline underline-offset-2">Open log</a
+	>
 {/snippet}
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

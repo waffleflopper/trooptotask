@@ -16,6 +16,7 @@
 	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
+	import { personnelRecordHref } from '../personnelRecordHref';
 	import {
 		parseRosterFilter,
 		ROSTER_FILTER_PARAM,
@@ -294,7 +295,7 @@
 		},
 		refreshSignals: (ids) => void ctx.signals.refresh(ids),
 		peekChanged: (id, before, after) => ctx.peek.changed(id, before, after),
-		dataSheetHref: (person) => `${recordHref(person)}/data-sheet`,
+		dataSheetHref: (person) => personnelRecordHref(orgUrlSegment, person, 'data-sheet'),
 		navigate: (href, delta) => (delta ? history.go(delta) : void goto(href)),
 		closed: (id) => void restoreRowFocus(id)
 	});
@@ -489,7 +490,7 @@
 	}
 
 	function recordHref(person: Personnel): string {
-		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
+		return personnelRecordHref(orgUrlSegment, person);
 	}
 
 	async function restoreRowFocus(personnelId: string) {
@@ -753,7 +754,6 @@
 				bind:this={peekPanel}
 				{ctx}
 				person={peekedPerson}
-				recordHref={recordHref(peekedPerson)}
 				position={peekPosition}
 				onstep={(step) => stepPeek(step, false)}
 				onclose={closePeek}
@@ -767,13 +767,7 @@
 
 {#if notePerson}
 	{#key notePerson.id}
-		<RosterNotePopover
-			bind:this={noteComposer}
-			{ctx}
-			person={notePerson}
-			recordHref={recordHref(notePerson)}
-			onclose={closeNote}
-		/>
+		<RosterNotePopover bind:this={noteComposer} {ctx} person={notePerson} onclose={closeNote} />
 	{/key}
 {/if}
 

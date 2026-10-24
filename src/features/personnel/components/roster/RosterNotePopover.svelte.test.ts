@@ -59,6 +59,7 @@ function makeCtx(row: SignalRow = NONE_OPEN, canOpen = true, viewerDay = '2026-1
 	const invalidate = vi.fn();
 	const ctx = {
 		orgId: 'org-1',
+		orgUrlSegment: 'org-1',
 		data: { orgId: 'org-1', asOf: '2026-10-06' },
 		signals: { refresh, viewerDay: () => viewerDay },
 		peek: { invalidate },
@@ -71,7 +72,7 @@ function makeCtx(row: SignalRow = NONE_OPEN, canOpen = true, viewerDay = '2026-1
 function mount(ctx: PersonnelPageContext) {
 	const onclose = vi.fn();
 	const { rerender } = render(RosterNotePopover, {
-		props: { ctx, person, recordHref: '/org/org-1/personnel/okafor-daniel', onclose }
+		props: { ctx, person, onclose }
 	});
 	return { onclose, rerender };
 }
@@ -115,7 +116,7 @@ describe('RosterNotePopover', () => {
 		expect(toastSuccessMock).toHaveBeenCalledOnce();
 		const [message, options] = toastSuccessMock.mock.calls[0];
 		expect(message).toBe('Follow-up added for SGT Okafor');
-		await rerender({ recordHref: 'undefined' });
+		await rerender({ person: { ...person, id: 'person-2', slug: 'nolan-avery' } });
 		options.action.onClick();
 		expect(gotoMock).toHaveBeenCalledExactlyOnceWith('/org/org-1/personnel/okafor-daniel/log');
 	});

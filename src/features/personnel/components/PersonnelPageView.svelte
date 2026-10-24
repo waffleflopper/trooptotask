@@ -18,6 +18,7 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
+	import { compareRosterGroupNames } from '../rosterReadModel';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { onDestroy, tick } from 'svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -41,6 +42,9 @@
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
+	// A NUL cannot appear in a saved Group name, so a Group named "Unassigned" never collides with the no-Group bucket.
+	const NO_GROUP = '\u0000';
+	const groupKey = (person: Personnel): string => person.groupName || NO_GROUP;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	let locallyArchivedIds = new SvelteSet<string>();
@@ -110,6 +114,9 @@
 		return columns;
 	});
 
+	// The Group header already names the Group, so By Group view drops the column.
+	const groupedColumns = $derived(personnelColumns.filter((column) => column.key !== 'group'));
+
 	const azTable = useDataTable<Personnel>({
 		data: () => holdOrder(visibleAlphabeticalPersonnel, 'az'),
 		columns: () => personnelColumns,
@@ -118,21 +125,21 @@
 		pageSize: ROSTER_PAGE_SIZE
 	});
 
+	const groupComparator = $derived(
+		compareRosterGroupNames({ pinnedGroups: pinnedGroupsStore.list, groupOrder: ctx.groupOrder })
+	);
 	const groupedTable = useDataTable<Personnel>({
 		data: () => holdOrder(visibleFilteredPersonnel, 'grouped'),
-		columns: () => personnelColumns,
+		columns: () => groupedColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
 		groupBy: {
-			key: (p) => p.groupName || 'Unassigned',
-			compare: (a, b) => {
-				const aPin = pinnedGroupsStore.list.includes(a) ? 0 : 1;
-				const bPin = pinnedGroupsStore.list.includes(b) ? 0 : 1;
-				if (aPin !== bPin) return aPin - bPin;
-				return a.localeCompare(b);
-			}
+			key: groupKey,
+			label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
+			compare: (a, b) => groupComparator(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
 		}
 	});
+	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
 
 	// A quick-edit save keeps the rows' order going in, so a row whose active sort value did not change stays put.
 	let heldOrders = $state.raw<Record<'az' | 'grouped', Map<string, number>> | null>(null);
@@ -504,7 +511,7 @@
 				>
 					<DataTable.DataTable
 						table={activeTable}
-						columns={personnelColumns}
+						columns={ctx.viewMode === 'by-group' ? groupedColumns : personnelColumns}
 						ariaLabel="Personnel roster"
 						emptyMessage="No personnel match your search."
 						emptyLevel={2}
@@ -516,7 +523,10 @@
 						{#snippet groupHeader(group)}
 							<PersonnelGroupHeader
 								{group}
+								people={peopleByGroup.get(group.key) ?? []}
+								{ctx}
 								pinned={pinnedGroupsStore.list.includes(group.key)}
+								unassigned={group.key === NO_GROUP}
 								onTogglePin={togglePin}
 							/>
 						{/snippet}

@@ -128,13 +128,13 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
 1. **Field association (`manager`, Personnel).** Open Able's Quick edit. Read the Rank, Last name and ETS controls: each
    needs a resolving label. Replace Last name with one space and choose Save. Require `aria-invalid="true"` on Last name
    only, an `aria-describedby` that resolves to the visible **Enter a last name.** text in a `role="alert"` message, and
-   focus remaining on Save. Cancel and require unchanged rows. Then open Manage Groups, type Alpha into Organization
-   groups and press Add. The duplicate is rejected; require the error text to be associated with the Organization groups
-   input through `aria-describedby` and `aria-invalid="true"`, not only shown in an alert. Clear the input and choose
-   Done; require unchanged Group rows. As `ictOperator`, choose Record Completion on Critical Tasks. Critical Task's
-   **Select a person to narrow tasks by MOS.** and Validated By's **Optional rank and name of the validator** must
-   resolve through each control's `aria-describedby`. Press Save with every field empty: each control with a visible **…
-   is required** error needs `aria-invalid="true"` and an `aria-describedby` that resolves to that error. Cancel without
+   focus remaining on Save. Cancel and require unchanged rows. Then open Manage Groups, type Alpha into New group name
+   and press Add. The duplicate is rejected; require the error text to be associated with the New group name input
+   through `aria-describedby` and `aria-invalid="true"`, not only shown in an alert. Clear the input and choose Done;
+   require unchanged Group rows. As `ictOperator`, choose Record Completion on Critical Tasks. Critical Task's **Select
+   a person to narrow tasks by MOS.** and Validated By's **Optional rank and name of the validator** must resolve
+   through each control's `aria-describedby`. Press Save with every field empty: each control with a visible **… is
+   required** error needs `aria-invalid="true"` and an `aria-describedby` that resolves to that error. Cancel without
    saving. In a Members row's Manage sheet, the `Role` and `Preset` radio groups' visible help text must also resolve
    through each group's `aria-describedby`. As `orgOwner` on `settings/policies`, read the server HTML before hydration
    with a read-only `evaluate_script` that fetches `location.href` and parses the text with `DOMParser`: Training

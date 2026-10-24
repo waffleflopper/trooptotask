@@ -4,6 +4,7 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
+	import { groupsStore } from '../stores/groups.svelte';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -344,7 +345,7 @@
 		personnelToolbarItems({
 			viewMode: ctx.viewMode,
 			onViewModeChange: (mode) => (ctx.viewMode = mode),
-			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupManager() : null,
+			onManageGroups: ctx.canManageGroups ? () => ctx.openGroupEditor(groupsStore.items[0]?.id ?? null) : null,
 			importHref: ctx.canImportPersonnel ? `/org/${orgUrlSegment}/personnel/import` : null,
 			archive: canBulkArchivePersonnel ? { onToggle: toggleArchiveMode, busy: bulkArchiveSubmitting } : null
 		})

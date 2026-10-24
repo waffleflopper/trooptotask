@@ -12,8 +12,10 @@ person's record.
   Overview `Next 14 days`.
 - `roster-scope`: a group-scoped member sees only their assigned people and Groups.
 - `roster-organization`: an Organization-scoped reader sees Alpha, Bravo, and unassigned people, but no foreign Person.
-- `roster-group-headers`: in `Group` view each group header has a pin toggle and a collapse toggle, operable by pointer
-  and keyboard; a pin persists for the member and a collapse lasts for the page visit.
+- `roster-group-headers`: in `Group` view each header has a pin toggle, a collapse toggle, the Group name and count, a
+  strength bar with `N of M present`, an attention count and a `⋯` menu, all operable by pointer and keyboard; a pin
+  persists for the member and a collapse lasts for the page visit. Groups run pinned first, then the Organization's
+  Group order, then Unassigned. The Group column is absent in this view.
 - `roster-states`: the roster's empty, no-match, restricted, disabled and narrow-screen states and its absence of URL
   state.
 - `roster-signals`: the header's headcount strip, each row's status dot and Needs attention, ETS/PCS day badges, the row
@@ -67,13 +69,13 @@ scoped actors retain their baseline grants.
    moves above Alpha's, and `network state` records one request with status 200 and the saved row names Bravo. Reload:
    Bravo stays first and still pressed. Click `Unpin Bravo`: original order and `aria-pressed="false"` return, and the
    saved rows match the preserved readback. Click `Collapse Alpha`: `aria-expanded="false"`, the label `Expand Alpha`,
-   Alpha's rows leave the table and its count badge remains. Click `Expand Alpha` and require the rows back. Reload with
-   Alpha collapsed and record that every group is expanded again (collapse is page state, not saved). Keyboard: Tab to
-   `Pin Alpha` then `Collapse Alpha` with a visible focus ring, operate each with Enter and with Space, and require
-   focus to stay on the same toggle after it flips. Enter, Space and a mouse click on a pin or an Unpin all keep focus
-   on that group's pin (`data-pin-group`) after the group moves, checked once while a held `arm-hold` save keeps the
-   reorder on screen and again after release; a sampler that logs `document.activeElement` never reads `body`. Switch to
-   `A-Z` and back: pin order is retained. Pin failure recovery stays in the
+   Alpha's rows leave the table and its count, strength bar and attention count remain. Click `Expand Alpha` and require
+   the rows back. Reload with Alpha collapsed and record that every group is expanded again (collapse is page state, not
+   saved). Keyboard: Tab to `Pin Alpha` then `Collapse Alpha` with a visible focus ring, operate each with Enter and
+   with Space, and require focus to stay on the same toggle after it flips. Enter, Space and a mouse click on a pin or
+   an Unpin all keep focus on that group's pin (`data-pin-group`) after the group moves, checked once while a held
+   `arm-hold` save keeps the reorder on screen and again after release; a sampler that logs `document.activeElement`
+   never reads `body`. Switch to `A-Z` and back: pin order is retained. Pin failure recovery stays in the
    [Manage groups recipe](manage-groups.md#personal-group-pins). Do the same at 390 dark and require the headers
    readable and tappable, with no page-level horizontal scroll.
 9. **Roster states and URL.** Empty: as `personnelEmpty` open Personnel and capture `No personnel on the active roster`
@@ -136,6 +138,31 @@ scoped actors retain their baseline grants.
     counseling access) issues no `roster_signal_follow_ups` or `roster_signal_counseling` call. To exercise the
     viewer-day rerun, set `document.cookie = 't2t_tz=Pacific/Kiritimati; Path=/'` and reload: the app corrects the zone
     and reruns only the signals lane.
+14. **By Group headers.** As `manager` with `$V calendar-grant manager view` (restore afterwards), reload Personnel in
+    `Group` view at 1440. The table's column headers read `Rank`, `Name`, `MOS`, `Duty Role`, `Needs attention` (no
+    `Group`; `A-Z` still shows it). Headers run `Alpha`, `Bravo`, `Unassigned`: both Groups share `sort_order` 0, so
+    they fall back to name. `Pin Bravo` puts Bravo first. A Group with a lower `sort_order` would precede both, which
+    only the unit tests cover. Each header is one 49px line at 1440 with the pin, the chevron and name, the count, the
+    bar, `N of M present`, the attention lane and the `⋯` menu (`Group actions for <Group>`). After staging Baker's
+    overdue follow-up (step 11's POST, due `2026-10-20`): Alpha reads `1 of 1 present` with bar
+    `Strength today: 1 present` and `—`; Bravo reads `0 of 1 present`, bar `Strength today: 1 Verification Training` and
+    `1 needs attention` in red (`text-danger-foreground`); Unassigned reads `1 of 1 present` and the `Assign a Group`
+    link where the count would be, and has no pin and no menu. On `perfWide` with the `small` workload Alpha reads
+    `7 of 10 present`, bar `Strength today: 7 present, 2 Appointment, 1 School` and `10 need attention`; Bravo reads
+    `8 of 10 present` and `10 need attention`. `Collapse Alpha` keeps the bar and the attention count and shows
+    `Expand Alpha` (`aria-expanded="false"`). Enter and Space on the focused collapse button flip it and focus stays on
+    it. The `⋯` menu holds `Rename`, `Add people` and `Pin` (`Unpin` once pinned); `Rename` and `Add people` open the
+    `Manage Groups` dialog and `Pin` pins, and after a reload the Group is still first and its menu reads `Unpin`.
+    `Assign a Group` opens the same dialog. Permissions: `viewer` sees no `Assign a Group` link and its menu holds only
+    `Pin`; `manager` without the Calendar grant shows no bar and no `N of M present`, only the attention lane. Loading:
+    `$V server-source arm rpc/roster_signal_presence hold 1 90000` (this control reads Organization A), reload: the
+    headers show the name and count with skeletons in the bar and attention lanes (3, 3 and 2 skeletons), and after
+    `server-source release` the header tops (267, 361, 455) and heights (49) are unchanged. `fail-hard` instead: the
+    headers show only name and count, no bar, and the one notice
+    `Today's status and Needs attention could not be loaded.` shows. Narrow: at 900 and 390 every header is 73px and two
+    lines (pin, name, count and `⋯` first; bar, `N of M present` and the attention lane second) and `scrollWidth` equals
+    the viewport. The header wraps when the table is under 48rem wide, so 1024 also wraps. At 390 dark the bar, text and
+    link stay readable and the `⋯` stays tappable.
 
 ## Gotchas
 
@@ -151,6 +178,6 @@ scoped actors retain their baseline grants.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.
 - For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md); above 250 People
   the By Group view pauses rendering.
-- A group header's two controls repeat per group; name them by their `aria-label` (`Pin Alpha`, `Collapse Alpha`) rather
-  than by position. The pin is a `Toggle` and the collapse a `Button`; record their focus ring and accessible names
-  exactly as rendered.
+- A group header's controls repeat per group; name them by their `aria-label` (`Pin Alpha`, `Collapse Alpha`,
+  `Group actions for Alpha`) rather than by position. The pin is a `Toggle` and the collapse a `Button`; record their
+  focus ring and accessible names exactly as rendered.

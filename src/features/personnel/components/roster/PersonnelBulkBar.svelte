@@ -161,7 +161,7 @@
 		{people.length} selected
 		{#if hidden > 0}
 			<span class="font-normal text-chrome-text-muted">
-				{`· ${hidden} hidden`}<span class="@max-3xl/roster:sr-only">{' by search'}</span>
+				· {hidden} hidden <span class="@max-3xl/roster:sr-only">by search</span>
 			</span>
 		{/if}
 	</span>

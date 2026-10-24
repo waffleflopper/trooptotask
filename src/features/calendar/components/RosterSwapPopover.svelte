@@ -223,7 +223,7 @@
 			</div>
 		</section>
 
-		<section class="grid min-h-28 content-start gap-1.5 border-b px-4 py-3" aria-live="polite">
+		<section class="grid min-h-36 content-start gap-1.5 border-b px-4 py-3" aria-live="polite">
 			{#if notice}
 				<p class="text-[13px] text-destructive-text" role="alert">{notice}</p>
 			{/if}

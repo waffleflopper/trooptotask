@@ -51,7 +51,6 @@ function toRequirementFacts(row: TypeRow): TrainingRequirementFacts {
 	};
 }
 
-/** Each visible active Person's required training, read for the whole roster in one statement. */
 export function createSupabaseTrainingRosterSignals(slices: RosterSignalSlices) {
 	return async (
 		query: RosterSourceQuery

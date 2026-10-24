@@ -5,7 +5,6 @@
 
 	interface Props {
 		calendar: PersonnelCalendarWindow;
-		/** Draws the legend as exactly this many truncated lines, so a skeleton can reserve the settled height. */
 		legendLines?: number;
 	}
 
@@ -23,7 +22,6 @@
 
 <div class="flex min-w-0 flex-col gap-3">
 	<div class="overflow-x-auto">
-		<!-- About 2.4rem a day keeps the day numbers readable at any span. -->
 		<div style:min-width="{(34 / 14) * days.columns.length}rem">
 			<AvailabilityStrip size="regular" columns={days.columns} layout={days.layout} />
 		</div>

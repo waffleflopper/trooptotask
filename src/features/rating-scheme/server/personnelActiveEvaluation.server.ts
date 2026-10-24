@@ -18,7 +18,6 @@ export type ActiveEvaluationProjection = Omit<
 	'rater' | 'seniorRater' | 'intermediateRater' | 'reviewer'
 >;
 
-/** The active entry as of the viewer's day, without evaluator names. */
 export function projectActiveEvaluation(entry: ActiveEvaluationEntry, asOf: string): ActiveEvaluationProjection {
 	const today = parseDate(asOf);
 	return {

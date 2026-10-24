@@ -29,12 +29,10 @@ type OrderFlight = {
 };
 
 interface GroupExtensions extends Record<string, unknown> {
-	/** The order being saved, or null when no order save is in flight. */
 	readonly pendingOrder: readonly string[] | null;
 	add: (name: string) => Promise<Group | null>;
 	rename: (id: string, newName: string) => Promise<boolean>;
 	setOrder: (ids: readonly string[]) => Promise<GroupOrderChange>;
-	/** Resolves to how many People moved to `moveMembersTo` (null is Unassigned); rejects with a message to show. */
 	deleteWithReassignment: (id: string, moveMembersTo: string | null) => Promise<number>;
 }
 
@@ -63,7 +61,6 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 		await currentFlight()?.done;
 	}
 
-	// After a change it could not confirm, the list shows the saved catalog unless something else reloaded it.
 	async function adoptSaved(orgId: string, owns: () => boolean): Promise<void> {
 		const loadVersion = base.loadVersion;
 		try {
@@ -72,7 +69,7 @@ function enhance(base: Store<Group>, internals: StoreInternals<Group>): GroupExt
 			const saved: unknown = await withinOrganizationLifetime(res.json());
 			if (isGroupList(saved) && owns() && base.loadVersion === loadVersion) base.load(saved, orgId);
 		} catch {
-			// The list keeps what it showed; the message already says to reload.
+			return;
 		}
 	}
 

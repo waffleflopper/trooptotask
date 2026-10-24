@@ -4,7 +4,6 @@ import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.s
 import type { Personnel } from '../../personnel.types';
 import type { ComposerEntry } from '../../rosterComposer';
 
-/** A quick note or follow-up landed: refresh what it changed on the roster and say so. */
 export function rosterEntrySaved(
 	ctx: PersonnelPageContext,
 	person: Personnel,

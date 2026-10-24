@@ -36,7 +36,6 @@ vi.mock('$app/navigation', () => ({
 	invalidate: invalidateMock
 }));
 
-// Reactive, so a test can change the filter in the URL after the roster has rendered.
 const pageMock = $state({ url: new URL('http://localhost/org/org-1/personnel') });
 
 vi.mock('$app/state', () => ({
@@ -127,7 +126,6 @@ async function submitBulkSelection() {
 	await confirmArchiveDialog();
 }
 
-/** A viewer who may run every bulk action on everyone. */
 function bulkCtx(overrides: Record<string, unknown> = {}): PersonnelPageContext {
 	return Object.assign(makeCtx(), {
 		canManagePersonnelRecord: () => true,
@@ -336,7 +334,6 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Manage Groups' })).toBeNull();
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
-		// One sits beside the name, which stays shown where the actions cell hides.
 		const quickEdits = screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' });
 		expect(quickEdits.some((button) => button.closest('td')?.textContent?.includes('Smith, Jane'))).toBe(true);
 		expect(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' }).length).toBeGreaterThan(0);
@@ -777,7 +774,6 @@ describe('PersonnelPageView', () => {
 
 		function editCtx(overrides: Record<string, unknown> = {}, people = [personnel[0], young]): PersonnelPageContext {
 			personnelStore.load(people, 'org-1');
-			// Defined on the context itself: spreading it would freeze its roster getters at their first read.
 			const base = makeCtx();
 			return Object.defineProperties(
 				base,
@@ -994,7 +990,6 @@ describe('PersonnelPageView', () => {
 		});
 
 		describe('leaving the roster with unsaved changes', () => {
-			/** Runs a destination through the page's registered guard the way SvelteKit does before it commits. */
 			function router() {
 				const visited: string[] = [];
 				const go = (href: string, type: 'goto' | 'link' | 'popstate' = 'goto') => {
@@ -1134,7 +1129,6 @@ describe('PersonnelPageView', () => {
 	describe('peek panel', () => {
 		const realMatchMedia = window.matchMedia;
 
-		/** Answers the panel's width query as if the window were `width` wide. */
 		function viewport(width: number) {
 			vi.stubGlobal('matchMedia', (query: string) => {
 				const minWidth = Number(/min-width:\s*(\d+)px/.exec(query)?.[1]);

@@ -7,11 +7,9 @@ import type { Personnel } from './personnel.types';
 import type { AttentionInput, AttentionItem } from './personnelReadiness.types';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from './upcomingLoss';
 
-/** The sources the roster signals lane reads. A source the unit turned off or the viewer cannot read is withheld. */
 export type SignalSource = 'availability' | 'training' | 'criticalTasks' | 'evaluations' | 'followUps' | 'counseling';
 export type SignalAccess = Readonly<Record<SignalSource, boolean>>;
 
-/** Each source's feature switch and read permission. A source that is off or denied is never read. */
 export const SIGNAL_SOURCES = {
 	availability: { feature: null, action: POLICY_ACTION_CATALOG.calendar.viewAvailability },
 	training: { feature: 'training', action: POLICY_ACTION_CATALOG.training.viewRecords },
@@ -21,7 +19,6 @@ export const SIGNAL_SOURCES = {
 	counseling: { feature: null, action: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords }
 } as const satisfies Record<SignalSource, { feature: FeatureKey | null; action: FeatureLanePolicyAction }>;
 
-/** The sources a viewer reads: the server resolves it authoritatively, the page predicts it before the lane settles. */
 export function signalAccessBy(
 	canRead: (action: FeatureLanePolicyAction) => boolean,
 	disabledFeatures: readonly FeatureKey[]
@@ -40,7 +37,6 @@ export function signalAccessBy(
 	};
 }
 
-/** A withheld fact was not read, so it is never shown as clear or present. */
 export type Known<T> = { kind: 'known'; value: T } | { kind: 'withheld' };
 
 export interface RosterStatusType {
@@ -53,7 +49,6 @@ export interface RosterStatusType {
 
 export type TodayStatus = { kind: 'present' } | { kind: 'away'; statusTypeId: string };
 
-/** The roster's compact form of a ranked attention item. Detail prose stays on the record. */
 export type SignalItem =
 	| {
 			kind: 'training' | 'critical-task';
@@ -70,7 +65,6 @@ export type AttentionSummary =
 	| { kind: 'clear' }
 	| { kind: 'attention'; first: SignalItem; otherCount: number; worst: SignalTone };
 
-/** The first-ranked item that matches a chip, and how many other issues match it. */
 export interface ChipMatch {
 	item: SignalItem;
 	otherCount: number;
@@ -89,7 +83,6 @@ export interface OpenFollowUp {
 	dueDate: string | null;
 }
 
-/** The person's most urgent open follow-up and how many are open, so a leader does not log a duplicate. */
 export interface OpenFollowUpSignal {
 	count: number;
 	first: OpenFollowUp | null;
@@ -103,7 +96,6 @@ export interface PersonSignalCore {
 	openFollowUps: Known<OpenFollowUpSignal>;
 }
 
-/** One read of the lane: the day it was computed for, what the viewer could read, and one core per visible Person. */
 export interface RosterSignalRead {
 	asOf: string;
 	access: SignalAccess;
@@ -111,16 +103,13 @@ export interface RosterSignalRead {
 	people: PersonSignalCore[];
 }
 
-/** What the lane asks a source: the viewer's day, and the People to read, or null for the whole roster. */
 export interface RosterSourceQuery {
 	asOf: string;
 	personnelIds: readonly string[] | null;
 }
 
-/** One source's slice of the lane's single database read; sources the viewer may not read are never asked for. */
 export type RosterSignalSlices = (source: SignalSource, query: RosterSourceQuery) => Promise<unknown>;
 
-/** One source's facts for each active Person the viewer may read there. A Person missing from the map is withheld. */
 export type RosterSourceRead<T> = ReadonlyMap<string, T>;
 
 export const NO_SIGNAL_ACCESS: SignalAccess = {
@@ -132,17 +121,11 @@ export const NO_SIGNAL_ACCESS: SignalAccess = {
 	counseling: false
 };
 
-/** Invalidating this reruns only the signals lane, never the roster read. */
 export const PERSONNEL_SIGNALS_DEPENDENCY = 'app:personnel-signals';
-/** The most People one signals refresh reads; past it the model reloads the lane. */
 export const ROSTER_SIGNAL_BATCH_LIMIT = 500;
 
 type ApplicabilityFields = Pick<Personnel, 'rank' | 'mos' | 'clinicRole' | 'groupId'>;
 
-/**
- * Rank, MOS, duty role and Group decide which requirements apply to a Person and which sources the viewer reads for
- * them. ETS, PCS and the rest of a record do not, so a save that changes only those leaves the shown signals correct.
- */
 export function changesSignalApplicability(before: ApplicabilityFields, after: ApplicabilityFields): boolean {
 	return (
 		before.rank !== after.rank ||
@@ -200,10 +183,6 @@ function isExpiringSoon(item: SignalItem): boolean {
 	);
 }
 
-/**
- * One Person's signals from the feature builders' results. Overdue follow-ups rank after every readiness item, and
- * a withheld source contributes nothing rather than reading as clear.
- */
 export function buildPersonSignalCore(input: {
 	personnelId: string;
 	asOf: string;
@@ -268,17 +247,13 @@ export function buildPersonSignalCore(input: {
 }
 
 export interface RosterLoss {
-	/** Inside the unit's loss window: the roster badge. */
 	badge: UpcomingLossRecord | null;
-	/** Inside the fixed chip window, whatever the unit's window. */
 	chip: UpcomingLossRecord | null;
 }
 
-/** Losses come from the roster's own ETS and PCS dates, so they paint with the roster and follow its edits. */
 export function projectRosterLosses(input: {
 	people: readonly Personnel[];
 	asOf: string;
-	/** Null when the unit's window could not be read: no badge, but the fixed chip window still applies. */
 	lossWarningWindowDays: number | null;
 	lossesEnabled: boolean;
 	awardTrackingAcknowledgedPersonnelIds: readonly string[];
@@ -298,7 +273,6 @@ export function projectRosterLosses(input: {
 	return losses;
 }
 
-/** `ETS · 41d` or `PCS · 12d`. */
 export function lossBadgeLabel(record: UpcomingLossRecord): string {
 	return `${record.triggerType === 'ETS' ? 'ETS' : 'PCS'} · ${record.daysRemaining}d`;
 }
@@ -318,7 +292,6 @@ export type RosterFilter =
 	| { kind: 'present' }
 	| { kind: 'status'; statusTypeId: string };
 
-/** A Person's signals on the page: the server core completed with the roster's losses. */
 export interface PersonRosterSignals extends PersonSignalCore {
 	loss: RosterLoss | null;
 }
@@ -367,9 +340,7 @@ export interface StatusCount {
 }
 
 export interface RosterSignalSummary {
-	/** Distinct People counted. */
 	people: number;
-	/** `people` counts only those whose status today was read, so `present` of `people` never counts a withheld Person. */
 	presence: Known<{ people: number; present: number; byStatus: StatusCount[] }>;
 	attention: Known<{ people: number; worst: SignalTone | null }>;
 	chips: { chip: RosterChip; people: number }[];
@@ -377,7 +348,6 @@ export interface RosterSignalSummary {
 
 export type SummaryState = { kind: 'pending' } | { kind: 'failed' } | { kind: 'ready'; value: RosterSignalSummary };
 
-/** One pass over distinct People. The strip, the chips and a Group header all count through this. */
 export function summarizeRosterSignals(input: {
 	rows: readonly PersonRosterSignals[];
 	access: SignalAccess;
@@ -439,7 +409,6 @@ export type RosterAttentionCell =
 	| { kind: 'skeleton' }
 	| { kind: 'blank' }
 	| { kind: 'clear' }
-	/** `more` counts the person's other items, shown apart so a truncated item never hides it. */
 	| { kind: 'item'; text: string; more: number; tone: SignalTone };
 
 function itemText(item: SignalItem): string {
@@ -458,7 +427,6 @@ function matchCell(match: ChipMatch): RosterAttentionCell {
 	return { kind: 'item', text: itemText(match.item), more: match.otherCount, tone: signalTone(match.item) };
 }
 
-/** The Needs attention cell: the most urgent item, or the item that matched an active chip. */
 export function rosterAttentionCell(row: SignalRow, filter: RosterFilter | null = null): RosterAttentionCell {
 	if (row.kind === 'pending') return { kind: 'skeleton' };
 	if (row.kind === 'failed') return { kind: 'blank' };

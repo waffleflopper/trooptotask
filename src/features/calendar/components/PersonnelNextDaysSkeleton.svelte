@@ -4,7 +4,6 @@
 	let { days = 14, legendLines }: { days?: number; legendLines?: number } = $props();
 </script>
 
-<!-- Mirrors the regular strip's line heights and gaps, then the legend's lines. -->
 <div class="flex min-w-0 flex-col gap-3" aria-hidden="true">
 	<div class="flex flex-col gap-1.5">
 		<div class="grid gap-x-[3px]" style:grid-template-columns="repeat({days}, minmax(0, 1fr))">

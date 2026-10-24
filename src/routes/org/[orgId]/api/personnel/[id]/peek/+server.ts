@@ -39,7 +39,6 @@ export function _createPeekContext(request: AdmittedOrganizationRequest) {
 type PeekContext = ReturnType<typeof _createPeekContext>;
 type PeekInput = { personnelId: string; section: RosterPeekSection; asOf: string };
 
-/** The record Overview's reads, each for one section. */
 const SECTION_READS: {
 	[S in RosterPeekSection]: (ctx: PeekContext, person: Personnel, asOf: string) => Promise<RosterPeekValues[S]>;
 } = {

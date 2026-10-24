@@ -12,12 +12,10 @@ export const PERSONNEL_LOG_BATCH_LIMIT = 500;
 export interface PersonnelLogBatchContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	/** Scoped to the actor's Groups, so People outside them read as missing. */
 	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates'>;
 	personnelArtifactWrites: Pick<PersonnelArtifactWritePort, 'createFollowUps' | 'createLeaderNotes'>;
 }
 
-/** `writtenIds` got the entry; `unavailableIds` are missing, archived or outside the actor's Manage records. */
 export interface PersonnelLogBatchResult {
 	writtenIds: string[];
 	unavailableIds: string[];
@@ -46,7 +44,6 @@ function parse<T>(schema: z.ZodType<T>, input: unknown): T {
 	return result.data;
 }
 
-/** The requested People the actor may write, deciding Manage records once per Group. */
 async function writablePeople(ctx: PersonnelLogBatchContext, ids: string[]): Promise<string[]> {
 	const active = (await ctx.personnel.listArchiveCandidates(ids)).filter((person) => !person.archivedAt);
 	const allowed = new Map<string | null, boolean>();
@@ -83,7 +80,6 @@ async function writeBatch(
 	};
 }
 
-/** The same follow-up on each Person's record, so each is tracked and closed on its own. */
 export async function createPersonnelFollowUpBatch(
 	ctx: PersonnelLogBatchContext,
 	input: unknown

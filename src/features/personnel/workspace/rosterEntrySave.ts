@@ -2,7 +2,6 @@ import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
 import type { ComposerEntry } from '../rosterComposer';
 import { followUpDraftSpec, leaderNoteDraftSpec } from './personnelArtifactDraftSpecs';
 
-/** Writes one follow-up or note on a Person's record. A failure rejects with a message the composer can show. */
 export async function saveRosterEntry(
 	fetchFn: typeof fetch,
 	target: { orgId: string; personId: string },
@@ -28,7 +27,6 @@ export interface RosterEntryBatchResult {
 
 const BATCH_UNCONFIRMED = 'The entries may have been saved. Check a Log before trying again.';
 
-/** Writes the same follow-up or note on each Person in one request. People the actor cannot write come back unavailable. */
 export async function saveRosterEntryBatch(
 	fetchFn: typeof fetch,
 	orgId: string,

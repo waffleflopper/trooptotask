@@ -29,7 +29,6 @@
 	const editingPerson = $derived(personnelPayload?.person ?? null);
 	const groupEditorPayload = $derived(modals.payload<{ select: string | null }>('group-manager'));
 
-	// An order still saving shows where its Groups will be.
 	const editorGroups = $derived.by(() => {
 		const pending = groupManagementStore.pendingOrder;
 		if (!pending) return groupManagementStore.items;

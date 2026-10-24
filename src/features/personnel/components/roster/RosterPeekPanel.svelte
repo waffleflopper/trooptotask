@@ -31,12 +31,10 @@
 		ctx: PersonnelPageContext;
 		person: Personnel;
 		recordHref: string;
-		/** The Person's place among the shown rows; `index` is -1 when a search hides them. */
 		position: { index: number; total: number };
 		onstep: (step: 1 | -1) => void;
 		onclose: () => void;
 		onquickedit: (person: Personnel) => void;
-		/** Draws the 7-day Calendar strip, or its skeleton for `null`. The Calendar feature lives above Personnel. */
 		nextDays?: Snippet<[calendar: unknown]>;
 	}
 
@@ -46,9 +44,7 @@
 	const FOLLOW_UPS_SHOWN = 5;
 
 	let root = $state<HTMLElement | null>(null);
-	/** The Person the docked composer is open for, so it closes when the panel moves on. */
 	let composingFor = $state<string | null>(null);
-	// A panel left open overnight still shows yesterday: the due shortcuts count from the viewer's day when it opens.
 	let composeDay = $state('');
 	let composer = $state<RosterComposer>();
 	let alive = true;
@@ -78,7 +74,6 @@
 		};
 	});
 
-	// One list per read, so a row checked here stays struck through with its box ticked instead of vanishing.
 	const followUps = $derived.by(() => {
 		const section = sections.followUps;
 		if (section.state !== 'ready') return null;
@@ -98,12 +93,10 @@
 	});
 	const openFollowUpCount = $derived(followUpRows.filter((row) => row.status === 'open').length);
 
-	/** Moves focus into the panel, as Tab from the roster row does. */
 	export function focusFirst(): void {
 		root?.querySelector<HTMLElement>('button:not(:disabled), a[href]')?.focus();
 	}
 
-	/** Runs `then` once the docked composer holds no typed text, asking to discard it first. */
 	export function release(then: () => void): void {
 		if (!composing || !composer) then();
 		else composer.requestClose(then);
@@ -114,7 +107,6 @@
 		const { list, personnelId } = followUps;
 		const inOrganization = stillInOrganizationLifetime();
 		if (!(await list.toggle(row.id)) || !inOrganization()) return;
-		// Only the list that completed the write already shows it; one built since, after browsing away and back, rereads.
 		const showsChange = alive && followUps?.list === list;
 		ctx.peek.invalidate([personnelId], ['followUps'], { refetchShown: !showsChange });
 		void ctx.signals.refresh([personnelId]);
@@ -123,7 +115,6 @@
 	async function save(entry: ComposerEntry): Promise<void> {
 		const target = person;
 		const href = recordHref;
-		// The write may land after the user left the Organization; the lifetime then never settles, so nothing follows.
 		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry));
 		rosterEntrySaved(ctx, target, entry, href);
 		if (alive && composingFor === target.id) void closeComposer();
@@ -155,7 +146,6 @@
 		root?.querySelector<HTMLElement>('[data-peek-compose]')?.focus();
 	}
 
-	// A link out of the panel would unmount the composer and lose the draft: hold it until Discard.
 	beforeNavigate((navigation) => {
 		if (leaving || !composing || !composer?.hasDraft()) return;
 		navigation.cancel();
@@ -194,7 +184,6 @@
 	<a href="{recordHref}/log" class="text-[13px] leading-4 underline underline-offset-2">Open log</a>
 {/snippet}
 
-<!-- J, K and Esc reach the panel from any control in it, not only from a focused row. -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <aside
 	bind:this={root}
@@ -203,7 +192,6 @@
 	onkeydown={handleKeydown}
 >
 	<div class="flex h-12 shrink-0 items-center justify-between gap-3 border-b pr-3 pl-5">
-		<!-- Prev and Next stay focusable at either end, so J and K pressed on them never drop focus to the page. -->
 		<div class="flex items-center gap-1">
 			<Button
 				type="button"

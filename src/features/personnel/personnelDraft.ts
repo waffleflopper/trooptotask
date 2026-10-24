@@ -3,7 +3,6 @@ import { formatDisplayDate } from '$lib/utils/dates';
 import type { Group, RankCatalogEntry } from './contracts';
 import type { Personnel } from './personnel.types';
 
-/** The basic-info fields of a Person as the Add, Edit and Quick edit forms hold them: strings only, '' for none. */
 export interface PersonnelDraft {
 	rank: string;
 	lastName: string;
@@ -22,7 +21,6 @@ export interface PersonnelDraftOption {
 	label: string;
 }
 
-/** The order the change summary lists a Person's edits in. */
 export const PERSONNEL_DRAFT_FIELDS = [
 	'rank',
 	'lastName',
@@ -71,7 +69,6 @@ export function rankOptionsFor(rankCatalog: readonly RankCatalogEntry[], current
 	if (!currentRank || active.some((option) => normalizeRankCode(option.value) === normalizeRankCode(currentRank))) {
 		return active;
 	}
-	// A Person keeps a rank the catalog has since retired until someone changes it.
 	return [{ value: currentRank, label: currentRank }, ...active];
 }
 
@@ -94,7 +91,6 @@ export interface PersonnelDraftRules {
 	groups: readonly Group[];
 }
 
-/** What is wrong with the draft, keyed by field. Empty when it can be saved. */
 export function validatePersonnelDraft(
 	draft: PersonnelDraft,
 	{ isEditing, allowUnassigned, groups }: PersonnelDraftRules
@@ -122,7 +118,6 @@ export function normalizePersonnelDraft(draft: PersonnelDraft): PersonnelDraft {
 	};
 }
 
-/** The record the PUT or POST carries. `groupName` rides along so the roster can show the Group before the response. */
 export function personnelPayloadOf(draft: PersonnelDraft, groups: readonly Group[]): Omit<Personnel, 'id'> {
 	const clean = normalizePersonnelDraft(draft);
 	return {
@@ -152,7 +147,6 @@ function shown(field: PersonnelDraftField, value: string, groups: readonly Group
 	return value;
 }
 
-/** Each field whose saved value differs from the opening one, as the `old → new` pairs the change summary repeats. */
 export function personnelDraftChanges(
 	opening: PersonnelDraft,
 	draft: PersonnelDraft,

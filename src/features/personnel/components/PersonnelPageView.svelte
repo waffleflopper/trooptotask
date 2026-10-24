@@ -43,7 +43,6 @@
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		/** The peek panel's 7-day Calendar strip, drawn by the route because Calendar builds on Personnel. */
 		nextDays?: Snippet<[calendar: unknown]>;
 	}
 
@@ -51,10 +50,8 @@
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const ROSTER_PAGE_SIZE = 75;
-	// Below this the roster beside a 470 px panel is too narrow, so a row click opens the record instead.
 	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	// A NUL cannot appear in a saved Group name, so a Group named "Unassigned" never collides with the no-Group bucket.
 	const NO_GROUP = '\u0000';
 	const groupKey = (person: Personnel): string => person.groupName || NO_GROUP;
 	const canViewRoster = $derived(ctx.canViewRoster);
@@ -65,8 +62,6 @@
 	);
 	const signalSummary = $derived(ctx.summarizeSignals(visibleAllActivePersonnel));
 
-	// The URL is the filter's one source, so it survives reload and a shared link. Until the lane settles the roster
-	// shows unfiltered; a filter its lane cannot answer is ignored with a note instead of emptying the roster.
 	const requestedFilter = $derived(parseRosterFilter(page.url.searchParams.get(ROSTER_FILTER_PARAM)));
 	const rosterFilter = $derived<RosterFilter | null>(
 		requestedFilter &&
@@ -85,7 +80,6 @@
 	function shownByFilter(person: Personnel): boolean {
 		if (!rosterFilter) return true;
 		const row = ctx.signalRow(person);
-		// A Person whose signals are being reread stays put until the answer arrives.
 		return row.kind !== 'ready' || matchesRosterFilter(row.value, rosterFilter);
 	}
 	const visibleAlphabeticalPersonnel = $derived(
@@ -95,7 +89,6 @@
 		ctx.filteredPersonnel.filter((person) => !locallyArchivedIds.has(person.id) && shownByFilter(person))
 	);
 
-	// A chip toggle is not a history entry, and it must not steal focus or scroll the page.
 	function showFilter(next: RosterFilter | null): void {
 		const url = new URL(page.url);
 		if (next) url.searchParams.set(ROSTER_FILTER_PARAM, serializeRosterFilter(next));
@@ -112,7 +105,6 @@
 		const raw = page.url.searchParams.get(ROSTER_FILTER_PARAM);
 		if (raw !== null && parseRosterFilter(raw) === null) showFilter(null);
 	});
-	// Every bulk action needs Manage records, Export or Archive on someone; without them there is nothing to select for.
 	const canSelect = $derived(
 		visibleAllActivePersonnel.some(
 			(p) => ctx.canManagePersonnelRecord(p) || ctx.canExportPersonnelRecord(p) || ctx.canArchivePersonnelRecord(p)
@@ -172,7 +164,6 @@
 				value: () => '',
 				searchable: false,
 				sortable: false,
-				// Fixed, so the columns hold still when the lane's text replaces the skeleton.
 				width: 'min(22rem, 35cqw)',
 				hiddenBelow: '@xl'
 			},
@@ -201,7 +192,6 @@
 		return columns;
 	});
 
-	// The Group header already names the Group, so By Group view drops the column.
 	const groupedColumns = $derived(personnelColumns.filter((column) => column.key !== 'group'));
 
 	const azTable = useDataTable<Personnel>({
@@ -228,7 +218,6 @@
 	});
 	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
 
-	// A quick-edit save keeps the rows' order going in, so a row whose active sort value did not change stays put.
 	let heldOrders = $state.raw<Record<'az' | 'grouped', Map<string, number>> | null>(null);
 
 	function holdOrder(rows: Personnel[], table: 'az' | 'grouped'): Personnel[] {
@@ -246,7 +235,6 @@
 		};
 	}
 
-	// Sorting, searching or switching the view is the user choosing the order, so the held one lapses.
 	$effect(() => {
 		void [
 			azTable.sortKey,
@@ -289,7 +277,6 @@
 			: activeTable.rows
 	);
 	const shownIds = $derived(shownRows.map((person) => person.id));
-	// J/K walks every A-Z page, turning the page as it goes; the grouped view skips collapsed Groups.
 	const peekSequence = $derived(ctx.viewMode === 'alphabetical' ? azTable.allRows : shownRows);
 	const peekPosition = $derived({
 		index: peekSequence.findIndex((person) => person.id === peekedId),
@@ -356,7 +343,6 @@
 	const canNoteAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
-	// One composer at a time: opening another asks the open one to close (and to discard typed text) first, then opens.
 	function replaceComposer(open: () => void): void {
 		const composer = notePerson ? noteComposer : bulkCompose ? bulkComposer : undefined;
 		if (composer) composer.requestClose(open);
@@ -414,7 +400,6 @@
 		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`)?.focus();
 	}
 
-	// A refresh hands over a new context for the same Organization; only a new Organization starts over.
 	const orgId = $derived(ctx.orgId);
 	$effect(() => {
 		void orgId;
@@ -436,7 +421,6 @@
 		return () => peek.close();
 	});
 
-	// A filter that hides the peeked Person closes the peek; focus moves only if it went down with the panel.
 	$effect(() => {
 		if (!peekOpen || !peekedPerson || shownByFilter(peekedPerson)) return;
 		untrack(() => {
@@ -455,7 +439,6 @@
 		document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`)?.focus();
 	}
 
-	/** A search, page or collapsed Group may have taken the peeked row away; focus then goes to the first shown row, or the search field. */
 	async function focusAfterClose(id: string): Promise<void> {
 		await tick();
 		const row = document.querySelector<HTMLElement>(`[data-roster-row="${CSS.escape(id)}"]`);
@@ -466,7 +449,6 @@
 		)?.focus();
 	}
 
-	/** A typed draft in the panel's composer asks to be discarded before the panel shows someone else or closes. */
 	function showPeek(person: Personnel, browsing: boolean, then?: () => void): void {
 		const show = () => {
 			peekedId = person.id;
@@ -506,7 +488,6 @@
 		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
 	}
 
-	// The closed editor takes its focus with it; put it back on the row unless focus moved elsewhere.
 	async function restoreRowFocus(personnelId: string) {
 		await tick();
 		if (document.activeElement && document.activeElement !== document.body) return;
@@ -569,7 +550,6 @@
 			</p>
 		</div>
 	{:else}
-		<!-- Content height, capped at the page, so the footer follows a short roster; the peek panel beside it is full height. -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="@container/roster flex max-h-full min-h-0 min-w-0 flex-1 flex-col gap-4 self-start overflow-clip px-6 pt-4 pb-5 max-sm:p-3"
@@ -748,7 +728,7 @@
 				</div>
 			{/if}
 			{#if selectedPeople.length > 0}
-				<!-- In the flow, so the end of the roster leaves room for it; clip, not hidden, above keeps it sticky. -->
+				<!-- overflow-clip, not hidden: hidden makes a scroll container and breaks sticky. -->
 				<div class="pointer-events-none sticky bottom-4 z-20 flex justify-center max-sm:bottom-3">
 					<div class="pointer-events-auto max-w-full">
 						<PersonnelBulkBar

@@ -18,7 +18,6 @@ BEGIN
     DELETE FROM public.user_pinned_groups
     WHERE organization_id = OLD.organization_id AND group_name = OLD.name;
   ELSIF OLD.name IS DISTINCT FROM NEW.name THEN
-    -- Only viewers whose old pin follows this rename need a conflicting target pin removed.
     DELETE FROM public.user_pinned_groups AS target
     USING public.user_pinned_groups AS source
     WHERE target.organization_id = OLD.organization_id AND target.group_name = NEW.name
@@ -94,13 +93,9 @@ BEGIN
   SELECT coalesce(pg_catalog.array_agg(id ORDER BY sort_order, name, id), '{}') INTO v_saved
   FROM public.groups
   WHERE organization_id = p_organization_id;
-  -- A replay after a lost reply converges before the precondition can report a false conflict.
   IF v_saved = p_group_ids THEN
     RETURN;
   END IF;
-  -- GRP01, not 40001: PostgREST silently retries a serialization failure, so a
-  -- stale command would loop. A Group created or deleted since the client read
-  -- also lands here, so a stale order never drops a new Group.
   IF v_saved IS DISTINCT FROM p_expected_group_ids THEN
     RAISE EXCEPTION 'Group order changed' USING ERRCODE = 'GRP01';
   END IF;

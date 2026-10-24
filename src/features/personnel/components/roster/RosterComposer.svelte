@@ -19,20 +19,15 @@
 	import { followUpDraftSpec, leaderNoteDraftSpec } from '../../workspace/personnelArtifactDraftSpecs';
 
 	interface Props {
-		/** Who the entry is for: a name now, a count when the bulk bar passes many people. */
 		heading: string;
-		/** The viewer's day; due presets count from it. */
 		today: string;
 		alreadyOpen: AlreadyOpen;
-		/** The entry type it opens on. */
 		initialKind?: ComposerKind;
-		/** Writes the entry. A rejection keeps the composer open and shows its message. */
 		onsave: (entry: ComposerEntry) => Promise<void>;
 		onclose: () => void;
 	}
 
 	let { heading, today, alreadyOpen, initialKind = 'follow-up', onsave, onclose }: Props = $props();
-	// The roster popover and the peek panel's dock can both be open.
 	const uid = $props.id();
 
 	let kind = $state<ComposerKind>(untrack(() => initialKind));
@@ -59,15 +54,10 @@
 		void tick().then(() => (kind === 'follow-up' ? titleField : noteField)?.focus());
 	});
 
-	/** Typed text that leaving would lose. A save in flight keeps it, so it does not count. */
 	export function hasDraft(): boolean {
 		return anyText && !saving;
 	}
 
-	/**
-	 * Closes now when nothing was typed, else asks first. False while it waits on the answer or on a save.
-	 * `then` runs only after the user confirms the discard.
-	 */
 	export function requestClose(then?: () => void): boolean {
 		if (saving) return false;
 		if (!anyText) {
@@ -75,7 +65,6 @@
 			then?.();
 			return true;
 		}
-		// The outside press that asks to close lands after the click it belongs to; it must not drop that click's destination.
 		if (then) afterDiscard = then;
 		confirmingDiscard = true;
 		void tick().then(() => keepEditingButton?.focus());
@@ -121,7 +110,6 @@
 			saving = false;
 		}
 		if (failure) {
-			// The fields were disabled for the save, which drops focus.
 			await tick();
 			(kind === 'follow-up' ? titleField : noteField)?.focus();
 		}
@@ -134,7 +122,6 @@
 	}
 </script>
 
-<!-- A form, so Enter in the title saves; Cmd/Ctrl+Enter saves from any field. -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <form
 	class="flex flex-col"

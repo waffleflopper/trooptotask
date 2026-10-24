@@ -3,7 +3,6 @@ import type { SignalRow } from './rosterSignals';
 
 export type ComposerKind = 'follow-up' | 'note';
 
-/** What a save asks the host to write: one follow-up or one note. */
 export type ComposerEntry =
 	| { kind: 'follow-up'; title: string; notes: string; dueDate: string | null }
 	| { kind: 'note'; text: string };
@@ -27,10 +26,6 @@ export function addDays(dateOnly: string, days: number): string {
 	return new Date(utcDay(dateOnly).getTime() + days * DAY_MS).toISOString().slice(0, 10);
 }
 
-/**
- * Tomorrow, the coming Friday (a week out when today is Friday) and a week from today, counted from the viewer's day.
- * On a Thursday Tomorrow and Friday are the same date.
- */
 export function dueDatePresets(today: string): DuePreset[] {
 	const daysToFriday = (FRIDAY - utcDay(today).getUTCDay() + 7) % 7 || 7;
 	return [
@@ -40,7 +35,6 @@ export function dueDatePresets(today: string): DuePreset[] {
 	];
 }
 
-/** The preset a due date selects. A date two presets share selects the first. */
 export function selectedPreset(presets: readonly DuePreset[], dueDate: string | null): DuePresetKey | null {
 	return presets.find((preset) => preset.date === dueDate)?.key ?? null;
 }
@@ -56,7 +50,6 @@ export function dueChipLabel(preset: DuePreset): string {
 	}
 }
 
-/** The person's most urgent open follow-up, so a leader does not log a duplicate. */
 export type AlreadyOpen =
 	| { kind: 'pending' }
 	| { kind: 'none' }

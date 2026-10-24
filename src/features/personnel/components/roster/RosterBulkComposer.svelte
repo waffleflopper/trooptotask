@@ -12,12 +12,9 @@
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		/** The People the entry is written for; the viewer may write each of them. */
 		personnelIds: string[];
-		/** Selected People left out because the viewer cannot write them. */
 		skipped: number;
 		heading: string;
-		/** A selector for the element the popover hangs from. */
 		anchor: string;
 		initialKind: ComposerKind;
 		onclose: () => void;
@@ -33,7 +30,6 @@
 		alive = false;
 	});
 
-	/** Closes now, or asks to discard typed text; `then` runs after the close, and only if the user confirms. */
 	export function requestClose(then?: () => void): boolean {
 		return composer?.requestClose(then) ?? true;
 	}
@@ -47,8 +43,6 @@
 	const people = (count: number) => `${count} ${count === 1 ? 'person' : 'people'}`;
 
 	async function save(entry: ComposerEntry): Promise<void> {
-		// The write may finish in its Organization, but a result from a left Organization or a closed composer
-		// must neither refresh signals nor announce itself, so the wait never settles then.
 		const result = await withinOrganizationLifetime(
 			saveRosterEntryBatch(fetch, ctx.orgId, personnelIds, entry),
 			() => alive

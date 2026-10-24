@@ -1,4 +1,3 @@
--- The roster signals read returns, as the signed-in caller, exactly the active People and facts that caller may see.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
@@ -23,8 +22,6 @@ INSERT INTO public.organizations (id, name, created_by) VALUES
 INSERT INTO public.groups (id, organization_id, name) VALUES
 ('c9000000-0000-4000-8000-000000000201', 'c9000000-0000-4000-8000-000000000101', 'Alpha One'),
 ('c9000000-0000-4000-8000-000000000202', 'c9000000-0000-4000-8000-000000000101', 'Alpha Two');
--- 1 Organization-wide reader of every lane and configurer of Personnel; 2 the same scoped to Alpha One;
--- 3 Organization-wide with every other lane off and Personnel view only; 4 owner of Bravo only.
 INSERT INTO public.organization_memberships (
   organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids
 ) VALUES
@@ -104,7 +101,6 @@ CREATE FUNCTION pg_temp.ids(p jsonb) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
   FROM jsonb_array_elements(p) v
 $$;
 
--- One source of the single statement, as the dispatcher asks for it.
 CREATE FUNCTION pg_temp.sig(p_source text, p_ids uuid[] DEFAULT NULL) RETURNS jsonb LANGUAGE sql AS $$
   SELECT public.roster_signals('c9000000-0000-4000-8000-000000000101', '2026-10-23', '2025-11-01', ARRAY[p_source], p_ids) -> p_source
 $$;
@@ -213,7 +209,6 @@ $$;
 
 SET LOCAL ROLE authenticated;
 
--- Organization-wide reader.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000001', true);
 SELECT * FROM pg_temp.assert_rls_parity('Organization-wide');
 SELECT is(pg_temp.ids(pg_temp.sig('availability') -> 'cohort'),
@@ -279,7 +274,6 @@ SELECT is(pg_temp.sig('counseling') -> 'latest',
   '[["c9000000-0000-4000-8000-000000000301", "2026-03-10"]]'::jsonb,
   'counseling gives the latest held, unarchived record inside the window');
 
--- Group-scoped reader sees Alpha One only.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000002', true);
 SELECT * FROM pg_temp.assert_rls_parity('Group-scoped');
 SELECT is(pg_temp.sig('availability') -> 'cohort',
@@ -295,7 +289,6 @@ SELECT is(pg_temp.ids(pg_temp.sig('followUps') -> 'cohort'),
 SELECT is(jsonb_array_length(pg_temp.sig('followUps') -> 'open'), 2,
   'Group reader: open follow-ups are its Group''s');
 
--- Lanes off and Personnel view without configure read nothing, and say so with an empty cohort.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000003', true);
 SELECT * FROM pg_temp.assert_rls_parity('Lanes off');
 SELECT is(pg_temp.sig('availability') -> 'cohort', '[]'::jsonb,
@@ -309,7 +302,6 @@ SELECT is(pg_temp.sig('followUps'),
 SELECT is(pg_temp.sig('counseling'),
   '{"cohort": [], "latest": []}'::jsonb, 'Personnel view without configure: no counseling');
 
--- A signed-in non-member reads no source, catalog or Organization settings.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000005', true);
 SELECT * FROM pg_temp.assert_rls_parity('Non-member');
 SELECT is(public.roster_signals('c9000000-0000-4000-8000-000000000101', '2026-10-23', '2025-11-01',
@@ -321,7 +313,6 @@ SELECT is(public.roster_signals('c9000000-0000-4000-8000-000000000101', '2026-10
     "counseling":{"cohort":[],"latest":[]}}'::jsonb,
   'a signed-in non-member gets no facts, catalogs or settings');
 
--- Another Organization's owner reads nothing here.
 SELECT set_config('request.jwt.claim.sub', 'c9000000-0000-4000-8000-000000000004', true);
 SELECT * FROM pg_temp.assert_rls_parity('Other Organization owner');
 SELECT is(pg_temp.sig('availability') -> 'cohort', '[]'::jsonb,
@@ -338,7 +329,6 @@ SELECT is(pg_temp.sig('training') -> 'cohort', '[]'::jsonb,
 SELECT is(pg_temp.sig('training') #>> '{types,0,name}', 'CPR/BLS',
   'Training catalog access does not require Personnel view');
 
--- A turned-off feature reads nothing even if called.
 RESET ROLE;
 UPDATE public.organizations SET disabled_features = ARRAY['training', 'criticalTasks', 'evaluations'] WHERE id = 'c9000000-0000-4000-8000-000000000101';
 SET LOCAL ROLE authenticated;
@@ -360,7 +350,6 @@ INSERT INTO public.user_suspensions (user_id, suspended_by)
 VALUES ('c9000000-0000-4000-8000-000000000001', 'c9000000-0000-4000-8000-000000000004');
 SET LOCAL ROLE authenticated;
 SELECT * FROM pg_temp.assert_rls_parity('User suspended');
-
 
 RESET ROLE;
 SET LOCAL ROLE anon;

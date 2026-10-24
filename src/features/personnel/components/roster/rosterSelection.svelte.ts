@@ -2,10 +2,6 @@ import { SvelteSet } from 'svelte/reactivity';
 
 export type CheckState = 'none' | 'some' | 'all';
 
-/**
- * The People picked for a bulk action, by id. Ids outlive search, filters, paging and collapsed Groups, so a
- * selection can include people the roster is not showing.
- */
 export class RosterSelection {
 	readonly #ids = new SvelteSet<string>();
 	#anchor: string | null = null;
@@ -18,10 +14,6 @@ export class RosterSelection {
 		return this.#ids.size;
 	}
 
-	/**
-	 * Sets one person. With `rangeOrder`, also sets everyone between the last person set and this one, in that
-	 * order, the way Shift-click works in a list.
-	 */
 	set(id: string, selected: boolean, rangeOrder?: readonly string[]): void {
 		const from = this.#anchor && rangeOrder ? rangeOrder.indexOf(this.#anchor) : -1;
 		const to = rangeOrder?.indexOf(id) ?? -1;
@@ -35,7 +27,6 @@ export class RosterSelection {
 		this.set(id, !this.#ids.has(id));
 	}
 
-	/** How much of `ids` is selected, for a header checkbox over them. */
 	state(ids: readonly string[]): CheckState {
 		const selected = ids.filter((id) => this.#ids.has(id)).length;
 		if (selected === 0) return 'none';

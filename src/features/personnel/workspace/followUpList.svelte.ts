@@ -70,7 +70,6 @@ export class FollowUpList {
 		}
 	}
 
-	/** Completes or reopens at once and restores the row with an inline error if the write fails. True once it saved. */
 	async toggle(id: string): Promise<boolean> {
 		const before = this.#find(id);
 		if (!before || this.isBusy(id)) return false;

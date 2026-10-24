@@ -11,11 +11,8 @@
 		unitName: string;
 		activeCount: number;
 		summary: SummaryState;
-		/** False for a viewer who cannot read availability: no strip, not even placeholders. */
 		canViewAvailability: boolean;
-		/** The active roster filter; a headcount entry that carries it is drawn pressed. */
 		filter: RosterFilter | null;
-		/** The Organization's status types, so an active filter on a status nobody has today keeps its entry. */
 		statusTypes: readonly RosterStatusType[];
 		onToggleFilter: (filter: RosterFilter) => void;
 	}
@@ -25,7 +22,6 @@
 	const presence = $derived(
 		summary.kind === 'ready' && summary.value.presence.kind === 'known' ? summary.value.presence.value : null
 	);
-	// The summary counts only statuses somebody has today, but a filter on one nobody has must stay clearable.
 	const statusEntries = $derived.by<StatusCount[]>(() => {
 		const counted = presence?.byStatus ?? [];
 		if (filter?.kind !== 'status') return counted;

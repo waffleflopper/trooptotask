@@ -32,10 +32,8 @@
 	onMount(() => document.getElementById(id('rank'))?.focus());
 </script>
 
-<!-- The accent rule is an inset shadow so the cell content does not shift when the editor opens. -->
 <Table.Row data-roster-editor={session.personnelId} class="bg-accent/10 hover:bg-accent/10">
 	<Table.Cell colspan={columnCount} class="p-0 whitespace-normal shadow-[inset_3px_0_0_0_var(--color-accent)]">
-		<!-- Pinned to the visible width, as the table's own row detail is, so a scrolled narrow table keeps the form on screen. -->
 		<div class="sticky left-2 w-[calc(100cqw-1rem)] min-w-0 px-4 pt-2 pb-4 md:pl-11">
 			<InlineEditRow.Root
 				editing

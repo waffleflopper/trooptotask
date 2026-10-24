@@ -1,5 +1,4 @@
 <script lang="ts" module>
-	/** Selects the people without a Group. */
 	export const UNASSIGNED = 'unassigned';
 </script>
 
@@ -30,19 +29,13 @@
 	type Control = 'add' | 'order' | 'rename' | 'pin' | 'add-people' | 'members' | 'delete';
 
 	interface Props {
-		/** In display order. */
 		groups: Group[];
-		/** The roster's active People. */
 		people: Personnel[];
 		pinnedNames: readonly string[];
 		loading?: boolean;
-		/** A Group id or `UNASSIGNED`; the first Group otherwise. */
 		initialSelection?: string | null;
-		/** Absent when the viewer cannot see availability, which hides the Today column. */
 		todayStatus?: (person: Personnel) => RosterStatusDot;
-		/** Whether the viewer may change this person's Group. */
 		canMovePerson: (person: Personnel) => boolean;
-		/** Whether the viewer may move People into this Group (null is Unassigned). */
 		canMoveTo: (groupId: string | null) => boolean;
 		onAdd: (name: string) => Promise<void>;
 		onRename: (id: string, name: string) => Promise<void>;
@@ -71,7 +64,6 @@
 		onClose
 	}: Props = $props();
 
-	// svelte-ignore state_referenced_locally
 	let selectedId = $state<string>(initialSelection ?? groups[0]?.id ?? UNASSIGNED);
 	let newGroupName = $state('');
 	let renameDraft = $state<string | null>(null);
@@ -149,7 +141,6 @@
 		return cause instanceof Error && cause.message ? cause.message : 'That change did not save. Try again.';
 	}
 
-	/** Runs one change at a time; the error stays beside `control` until that control is used again. */
 	async function run(control: Control, change: () => Promise<void>): Promise<boolean> {
 		if (pending) return false;
 		const groupId = selectionKey;

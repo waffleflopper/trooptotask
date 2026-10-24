@@ -14,15 +14,12 @@
 
 	interface Props {
 		group: GroupHeaderContext;
-		/** The People under this header, so the counts match the rows the header would show. */
 		people: readonly Personnel[];
 		ctx: PersonnelPageContext;
 		pinned: boolean;
 		unassigned: boolean;
 		onTogglePin: (groupKey: string) => void;
-		/** How much of the Group's shown People is selected; null hides the checkbox. */
 		selection: { state: CheckState; set: (selected: boolean) => void } | null;
-		/** Null hides "Note to everyone in the Group". */
 		onNoteToEveryone: (() => void) | null;
 	}
 

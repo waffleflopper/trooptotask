@@ -10,17 +10,12 @@ interface RankedStatusType {
 	sortOrder: number;
 }
 
-/** Status types in catalog order: sort order, then name. */
 export function sortedStatusTypes<T extends Pick<RankedStatusType, 'name' | 'sortOrder'>>(
 	statusTypes: readonly T[]
 ): T[] {
 	return [...statusTypes].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
-/**
- * A person with overlapping entries on a day shows one status: the status type first in catalog
- * order, then the entry that started first, then the lower entry id.
- */
 export function compareOverlappingEntries(
 	a: Omit<RankedEntry, 'personnelId'>,
 	b: Omit<RankedEntry, 'personnelId'>,
@@ -31,7 +26,6 @@ export function compareOverlappingEntries(
 	return rank(a) - rank(b) || a.startDate.localeCompare(b.startDate) || a.id.localeCompare(b.id);
 }
 
-/** The entry each person shows for one day, from entries that all cover that day. */
 export function shownEntryByPerson<E extends RankedEntry>(
 	entries: readonly E[],
 	statusTypes: readonly RankedStatusType[]

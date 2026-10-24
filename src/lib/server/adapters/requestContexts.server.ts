@@ -503,7 +503,6 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 	};
 }
 
-/** The roster signals lane: which sources the viewer may read, and one reader per source. */
 export function createRequestRosterSignalsContext(request: AdmittedOrganizationRequest) {
 	const { supabase, auth } = request;
 	const access = resolveSignalAccess(auth, request.disabledFeatures);

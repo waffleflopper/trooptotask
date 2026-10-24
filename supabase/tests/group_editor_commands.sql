@@ -1,5 +1,3 @@
--- The Group editor commands, run as ordinary signed-in members: display order, rename that keeps every viewer's
--- pins, and delete that moves members and drops pins in one transaction.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
@@ -48,8 +46,6 @@ INSERT INTO public.groups (id, organization_id, name, sort_order) VALUES
 (pg_temp.id(204), pg_temp.id(101), 'Empty', 3),
 (pg_temp.id(211), pg_temp.id(102), 'Bravo HQ', 0),
 (pg_temp.id(212), pg_temp.id(102), '2nd Platoon', 1);
--- 1 Organization-wide Personnel configurer; 2 the same scoped to 2nd Platoon; 3 Organization-wide operator;
--- 4 Organization-wide viewer whose pins must follow; 5 owner of Bravo only.
 INSERT INTO public.organization_memberships (
   organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids
 ) VALUES
@@ -64,7 +60,6 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
 (pg_temp.id(303), pg_temp.id(101), pg_temp.id(203), 'SPC', 'C', 'Archived', 'ge-archived', '68W', '', '2026-01-01'),
 (pg_temp.id(304), pg_temp.id(101), pg_temp.id(202), 'SPC', 'D', 'Chen', 'ge-chen', '68W', '', NULL),
 (pg_temp.id(305), pg_temp.id(101), pg_temp.id(201), 'SSG', 'E', 'Okafor', 'ge-okafor', '68W', '', NULL);
--- Viewer 4's "Weapons" pin is left over from a Group deleted before deletes removed pins.
 INSERT INTO public.user_pinned_groups (user_id, organization_id, group_name, sort_order) VALUES
 (pg_temp.id(1), pg_temp.id(101), '2nd Platoon', 0),
 (pg_temp.id(3), pg_temp.id(101), '2nd Platoon', 0),
@@ -85,7 +80,6 @@ SELECT ok(NOT has_function_privilege('anon', 'personnel_private.sync_group_pins(
   AND NOT has_function_privilege('service_role', 'personnel_private.sync_group_pins()', 'EXECUTE'),
   'API roles cannot execute the privileged pin trigger');
 
--- Members who may not manage Groups change nothing.
 SELECT pg_temp.act(2);
 SELECT throws_ok(pg_temp.order_sql(ARRAY[204, 203, 202, 201], ARRAY[201, 202, 203, 204]), '42501', NULL,
   'a Group-scoped configurer cannot reorder Groups');
@@ -132,7 +126,6 @@ WITH moved AS (
 UPDATE public.user_pinned_groups SET group_name = '2nd Platoon' WHERE group_name = 'Mine';
 SELECT is(pg_temp.group_names(), ARRAY['HQ', '1st Platoon', '2nd Platoon', 'Empty'], 'refused commands kept the order');
 
--- Order
 SELECT pg_temp.act(1);
 UPDATE public.groups SET sort_order = 0 WHERE organization_id = pg_temp.id(101);
 SELECT lives_ok(pg_temp.order_sql(ARRAY[201, 202, 203, 204], ARRAY[202, 203, 204, 201]),
@@ -151,7 +144,6 @@ SELECT is(pg_temp.group_names(), ARRAY['2nd Platoon', 'HQ', '1st Platoon', 'Empt
 SELECT pg_temp.act(4);
 SELECT is(pg_temp.pins(), ARRAY['4:HQ', '4:Weapons'], 'reordering leaves existing and leftover pins unchanged');
 
--- Rename
 SELECT pg_temp.act(1);
 INSERT INTO public.user_pinned_groups (user_id, organization_id, group_name, sort_order)
 VALUES (pg_temp.id(1), pg_temp.id(101), 'Weapons', 1);
@@ -171,7 +163,6 @@ SELECT is(pg_temp.pins(), ARRAY['4:HQ', '4:Weapons'], 'a viewer without an old p
 SELECT pg_temp.act(5);
 SELECT is(pg_temp.pins(102), ARRAY['5:2nd Platoon', '5:Weapons'], 'rename leaves another Organization''s pins unchanged');
 
--- Delete with reassignment
 SELECT pg_temp.act(1);
 SELECT throws_ok(format('SELECT public.delete_group_with_reassignment(%L, %L, %L)', pg_temp.id(101), pg_temp.id(203),
   pg_temp.id(211)), 'P0002', NULL, 'a target in another Organization is refused');

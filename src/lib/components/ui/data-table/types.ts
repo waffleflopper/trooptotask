@@ -24,7 +24,6 @@ export interface ColumnDef<T> {
 	 * beside other columns or on a phone.
 	 */
 	hiddenBelow?: 'md' | '@3xl' | '@xl';
-	/** Hides the column at every width but keeps it in the table, so an active sort on it still orders the rows. */
 	hidden?: boolean;
 }
 

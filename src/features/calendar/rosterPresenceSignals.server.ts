@@ -14,7 +14,6 @@ export interface RosterPresenceRead {
 	today: RosterSourceRead<TodayStatus>;
 }
 
-/** Who is present on the viewer's day and who shows which status, for the whole roster in one statement. */
 export function createSupabaseRosterPresenceSignals(slices: RosterSignalSlices) {
 	return async (query: RosterSourceQuery): Promise<RosterPresenceRead> => {
 		const read = (await slices('availability', query)) as {

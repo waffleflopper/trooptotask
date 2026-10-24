@@ -466,9 +466,7 @@ describe('PersonnelPageContext', () => {
 	});
 
 	describe('upcomingLossMap', () => {
-		// 48 days from asOf 2026-04-14 — well within 180-day default window
 		const IN_WINDOW = '2026-06-01';
-		// 382 days from asOf — beyond any reasonable default window
 		const OUT_OF_WINDOW = '2027-05-01';
 
 		it('returns an empty map when no personnel have tracked dates', () => {

@@ -78,7 +78,6 @@
 		};
 	}
 
-	/** The 470 px dock wraps a long availability note onto a second line; the strip and its skeleton both hold two. */
 	const PEEK_LEGEND_LINES = 2;
 
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {

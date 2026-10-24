@@ -12,6 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { cn } from '$lib/utils';
 	import type { PersonnelPageContext } from '../../contexts/PersonnelPageContext.svelte';
 	import type { PersonnelFollowUp } from '../../contracts';
@@ -109,20 +110,20 @@
 	async function toggleFollowUp(row: PersonnelFollowUp): Promise<void> {
 		if (!followUps) return;
 		const { list, personnelId } = followUps;
-		const orgId = ctx.orgId;
-		const peek = ctx.peek;
-		if (!(await list.toggle(row.id)) || ctx.orgId !== orgId) return;
-		// This list already shows the change; the cache rereads on the next open.
-		peek.invalidate([personnelId], ['followUps'], { refetchShown: false });
+		const inOrganization = stillInOrganizationLifetime();
+		if (!(await list.toggle(row.id)) || !inOrganization()) return;
+		// Only the list that completed the write already shows it; one built since, after browsing away and back, rereads.
+		const showsChange = alive && followUps?.list === list;
+		ctx.peek.invalidate([personnelId], ['followUps'], { refetchShown: !showsChange });
 		void ctx.signals.refresh([personnelId]);
 	}
 
 	async function save(entry: ComposerEntry): Promise<void> {
-		const orgId = ctx.orgId;
+		const inOrganization = stillInOrganizationLifetime();
 		const target = person;
 		const href = recordHref;
-		await saveRosterEntry(fetch, { orgId, personId: target.id }, entry);
-		if (ctx.orgId !== orgId) return;
+		await saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry);
+		if (!inOrganization()) return;
 		rosterEntrySaved(ctx, target, entry, href);
 		if (alive && composingFor === target.id) void closeComposer();
 	}
@@ -315,9 +316,14 @@
 						{:else if attention.unchecked.length === 0}
 							<p class="text-sm text-muted-foreground">Nothing needs attention.</p>
 						{/if}
-						{#each attention.unchecked as source (source)}
-							<p class="text-sm text-muted-foreground">Couldn't check {source}.</p>
-						{/each}
+						{#if attention.unchecked.length > 0}
+							<div class="flex items-center justify-between gap-3 rounded-[4px] border border-dashed px-3 py-2">
+								<p class="text-sm text-muted-foreground">Couldn't check {attention.unchecked.join(', ')}.</p>
+								<Button type="button" variant="outline" size="xs" onclick={() => ctx.peek.retry(person.id, 'attention')}
+									>Retry</Button
+								>
+							</div>
+						{/if}
 					{:else if sections.attention.state === 'failed'}
 						{@render failed('readiness', 'attention')}
 					{:else}

@@ -41,7 +41,9 @@ function testContext(auth: Parameters<typeof createTestAuthContext>[0] = {}) {
 
 type TestContext = ReturnType<typeof testContext>;
 
-function peekContext(ctx: TestContext): ReturnType<typeof _createPeekContext> {
+type ReadinessOverrides = Partial<ReturnType<typeof _createPeekContext>['readiness']>;
+
+function peekContext(ctx: TestContext, readiness: ReadinessOverrides = {}): ReturnType<typeof _createPeekContext> {
 	return {
 		detail: {
 			auth: ctx.auth,
@@ -74,13 +76,20 @@ function peekContext(ctx: TestContext): ReturnType<typeof _createPeekContext> {
 			detail: { auth: ctx.auth, audit: ctx.audit },
 			findPersonNames: async () => new Map(),
 			loadLossWarningWindowDays: async () => 90,
-			disabledFeatures: LANE_FEATURES
+			disabledFeatures: LANE_FEATURES,
+			...readiness
 		}
 	} as unknown as ReturnType<typeof _createPeekContext>;
 }
 
-function read(ctx: TestContext, section: string, personnelId = OKAFOR, asOf = '2026-10-23') {
-	return handleUseCaseRequest(_getConfig, ctx, { personnelId, section, asOf }, () => peekContext(ctx));
+function read(
+	ctx: TestContext,
+	section: string,
+	personnelId = OKAFOR,
+	asOf = '2026-10-23',
+	readiness: ReadinessOverrides = {}
+) {
+	return handleUseCaseRequest(_getConfig, ctx, { personnelId, section, asOf }, () => peekContext(ctx, readiness));
 }
 
 function event(section: string | null, id = OKAFOR) {
@@ -146,6 +155,41 @@ describe('/api/personnel/[id]/peek', () => {
 		expect(result).toMatchObject({ state: 'ready', value: { failed: [] } });
 		const items = result.state === 'ready' ? (result.value as { items: { kind: string; title: string }[] }).items : [];
 		expect(items.map((item) => [item.kind, item.title])).toEqual([['loss', 'ETS 3 Dec 2026']]);
+	});
+
+	it('leaves out readiness lanes the viewer is denied and still reports a lane whose source fails', async () => {
+		const ctx = testContext({
+			capabilityMap: { ...leaderAuth.capabilityMap, training: 'none', criticalTasks: 'none', ratingScheme: 'none' }
+		});
+		const unreadable = new Proxy(
+			{},
+			{
+				get: () => async () => {
+					throw new Error('provider down');
+				}
+			}
+		);
+		const lanesOn = {
+			disabledFeatures: [] as FeatureKey[],
+			trainingCatalog: unreadable,
+			trainingCompletions: unreadable,
+			organizationSettings: unreadable,
+			criticalTaskLibrary: unreadable,
+			criticalTaskCompletions: unreadable,
+			ratingScheme: unreadable,
+			onboardingWorkflow: unreadable
+		} as unknown as ReadinessOverrides;
+
+		const result = await read(ctx, 'attention', OKAFOR, '2026-10-23', lanesOn);
+
+		expect(result).toMatchObject({ state: 'ready', value: { failed: ['onboarding'] } });
+		expect(result.state === 'ready' && (result.value as { checked: unknown }).checked).toMatchObject({
+			training: { state: 'off' },
+			criticalTasks: { state: 'off' },
+			evaluation: { state: 'off' },
+			loss: { state: 'checked' },
+			onboarding: { state: 'failed' }
+		});
 	});
 
 	it("lists the Person's open follow-ups and latest note", async () => {

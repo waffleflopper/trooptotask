@@ -52,7 +52,8 @@ const SECTION_READS: {
 			rangeStart: asOf,
 			rangeEnd: fromDayNumber(toDayNumber(asOf) + ROSTER_PEEK_DAYS - 1)
 		}),
-	attention: (ctx, person, asOf) => createPersonnelReadinessStreams(ctx.readiness, person, asOf).attention,
+	attention: (ctx, person, asOf) =>
+		createPersonnelReadinessStreams(ctx.readiness, person, asOf, { omitDenied: true }).attention,
 	followUps: (ctx, person) =>
 		listPersonnelFollowUps(ctx.overview.artifacts, person.id).then((rows) =>
 			rows.filter((row) => row.status === 'open')

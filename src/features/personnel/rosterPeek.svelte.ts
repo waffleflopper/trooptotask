@@ -43,6 +43,11 @@ async function readSectionFromEndpoint(
 	return (await response.json()) as RosterPeekRead;
 }
 
+/** Readiness that could not check every source is not a settled result: the next show reads it again. */
+function isPartialRead(section: RosterPeekSection, value: unknown): boolean {
+	return section === 'attention' && (value as RosterPeekValues['attention']).failed.length > 0;
+}
+
 /** The record fields a section can depend on; a change to any of them means the cached sections are stale. */
 function recordKey(person: Personnel): string {
 	return [
@@ -154,8 +159,10 @@ export class RosterPeek {
 			for (const section of ROSTER_PEEK_SECTIONS) entry.stale.add(section);
 		}
 		for (const section of ROSTER_PEEK_SECTIONS) {
-			const { state } = entry.sections[section];
-			if ((state === 'ready' || state === 'hidden') && !entry.stale.has(section)) continue;
+			const current = entry.sections[section];
+			const settled =
+				current.state === 'hidden' || (current.state === 'ready' && !isPartialRead(section, current.value));
+			if (settled && !entry.stale.has(section)) continue;
 			this.#fetch(person.id, entry, section, controller);
 		}
 	}

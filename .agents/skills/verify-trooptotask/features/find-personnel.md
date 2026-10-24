@@ -216,13 +216,23 @@ scoped actors retain their baseline grants.
       it is `Quick edit SPC Synthetic Baker`.
     - Loading: `$V server-source arm leader_notes hold 1 90000`, reload and open Baker: only `Latest note` shows its
       three-line skeleton (`Latest note loading`) while the other sections fill, and the section's top does not move
-      when `release` lets the note through. `availability_entries` held shows the seven-column strip skeleton; a legend
-      that wraps to two lines moves the sections below it down by one line (20 px) when it arrives. Restore.
+      when `release` lets the note through. Stage a `Verification Leave` entry for Baker (`POST .../api/availability`,
+      d+3 to d+5, with a note that runs past one line). With `$V server-source arm availability_entries hold 1 120000`
+      armed after the page loads, open Baker: the seven-column strip skeleton shows two legend skeleton lines. At 1280
+      and at 1440 the tops of `Next 7 days`, `Needs attention`, `Open follow-ups` and `Latest note` read 255, 444, 570
+      and 680 while held and the same after `release`. The legend then reads two truncated lines,
+      `Verification Training` and `Verification Leave` each with the start of their note. Restore.
     - Failure: `$V server-source arm leader_notes fail-hard 1`, reload and open Baker: `Latest note` reads
       `Couldn't load notes.` with `Retry` and the rest loads. `restore`, then `Retry` sends one `peek?section=note` and
       the note shows.
+    - Readiness that cannot be fully checked: `$V server-source arm ict_tasks fail-hard 1`, reload and open Baker:
+      `Needs attention · 1` lists `Verification Required Training` and a dashed `Couldn't check critical tasks.` row
+      with `Retry`. `restore`, then `Retry` sends one `peek?section=attention` and the section reads
+      `Needs attention · 2`.
     - Access: `manager` (no Calendar grant) gets the panel without `Next 7 days`; its `peek?section=next7` returns 200
-      with `{"state":"hidden"}`. Actors who cannot open the record (step 10) get no panel.
+      with `{"state":"hidden"}`, and `Needs attention · 0` reads `Nothing needs attention.` with no `Couldn't check`
+      line for the Training, Critical Tasks, Evaluation or Onboarding lanes it may not read. Actors who cannot open the
+      record (step 10) get no panel.
     - Widths: at 1280x800 the panel docks beside a 506 px roster, Needs attention folds under the name and the toolbar
       folds Import and Manage Groups into More. At 900 and 390 a row click opens `personnel/verify-baker` and no panel
       renders; `scrollWidth` equals the viewport.

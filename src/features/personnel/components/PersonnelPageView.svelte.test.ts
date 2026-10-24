@@ -7,6 +7,7 @@ import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/access/clientAccess';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
@@ -799,6 +800,133 @@ describe('PersonnelPageView', () => {
 				expect.objectContaining({ method: 'PATCH' })
 			);
 			expect(preview.getByRole('checkbox', { name: 'Reopen Turn in TA-50 shortage list' })).toBeTruthy();
+		});
+
+		const openFollowUp = {
+			id: 'f1',
+			title: 'Turn in TA-50 shortage list',
+			notes: '',
+			status: 'open',
+			dueDate: '2026-10-02',
+			createdAt: '2026-09-28T10:00:00Z',
+			createdBy: 'SFC Whitaker',
+			completedAt: null,
+			completedBy: null
+		};
+
+		it('offers Retry for a readiness source that could not be checked, rereading only readiness', async () => {
+			viewport(1440);
+			const { ctx, reads, answer } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+
+			await answer('person-1', 'attention', {
+				state: 'ready',
+				value: {
+					items: [
+						{
+							kind: 'loss',
+							id: 'ets',
+							title: 'ETS 3 Dec 2026',
+							detail: 'Separation',
+							status: 'upcoming',
+							dueDate: '2026-12-03',
+							daysUntilDue: 58,
+							target: { tab: 'data-sheet' }
+						}
+					],
+					failed: ['training', 'criticalTasks'],
+					checked: {},
+					readinessBadge: { count: 0, complete: false }
+				}
+			} as unknown as RosterPeekRead);
+
+			const preview = within(panel());
+			expect(preview.getByText('ETS 3 Dec 2026')).toBeTruthy();
+			expect(preview.getByText("Couldn't check training, critical tasks.")).toBeTruthy();
+
+			await fireEvent.click(preview.getByRole('button', { name: 'Retry' }));
+			expect(reads.slice(5).map((read) => read.section)).toEqual(['attention']);
+		});
+
+		it('shows the saved follow-up when the Person is browsed away from and back to before the write finishes', async () => {
+			viewport(1440);
+			const { ctx, reads, answer } = peekCtx();
+			const patch = Promise.withResolvers<Response>();
+			vi.spyOn(ctx.signals, 'refresh').mockResolvedValue();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => patch.promise)
+			);
+			render(PersonnelPageView, { props: { ctx } });
+			const smith = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
+			await fireEvent.click(smith);
+			await answer('person-1', 'followUps', { state: 'ready', value: [openFollowUp] } as RosterPeekRead);
+			await fireEvent.click(within(panel()).getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' }));
+
+			await fireEvent.keyDown(smith, { key: 'j' });
+			await screen.findByRole('complementary', { name: 'Preview of SGT Test Young' });
+			await fireEvent.keyDown(document.activeElement!, { key: 'k' });
+			await screen.findByRole('complementary', { name: 'Preview of SGT Jane Smith' });
+			expect(within(panel()).getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' })).toBeTruthy();
+			await waitFor(() => expect(reads.filter((read) => read.personnelId === 'person-1')).toHaveLength(9));
+
+			patch.resolve(new Response(JSON.stringify({ status: 'completed' }), { status: 200 }));
+
+			await waitFor(() => expect(reads.filter((read) => read.personnelId === 'person-1')).toHaveLength(10));
+			expect(reads.at(-1)).toMatchObject({ personnelId: 'person-1', section: 'followUps' });
+			await answer('person-1', 'followUps', { state: 'ready', value: [] } as RosterPeekRead);
+			expect(within(panel()).getByText('No open follow-ups.')).toBeTruthy();
+		});
+
+		it('does nothing after the user leaves the Organization while a follow-up is saving', async () => {
+			viewport(1440);
+			const { ctx, answer } = peekCtx();
+			const patch = Promise.withResolvers<Response>();
+			const refresh = vi.spyOn(ctx.signals, 'refresh').mockResolvedValue();
+			const invalidate = vi.spyOn(ctx.peek, 'invalidate');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => patch.promise)
+			);
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			await answer('person-1', 'followUps', { state: 'ready', value: [openFollowUp] } as RosterPeekRead);
+			await fireEvent.click(within(panel()).getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' }));
+
+			endOrganizationLifetime();
+			patch.resolve(new Response(JSON.stringify({ status: 'completed' }), { status: 200 }));
+			await waitFor(() => {});
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(refresh).not.toHaveBeenCalled();
+			expect(invalidate).not.toHaveBeenCalled();
+		});
+
+		it('announces nothing for a note saved after the user leaves the Organization', async () => {
+			viewport(1440);
+			const { ctx, reads } = peekCtx();
+			const post = Promise.withResolvers<Response>();
+			const invalidate = vi.spyOn(ctx.peek, 'invalidate');
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => post.promise)
+			);
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			await fireEvent.click(within(panel()).getByRole('button', { name: /Add a note or follow-up/ }));
+			await fireEvent.click(await screen.findByRole('radio', { name: 'Note' }));
+			await fireEvent.input(screen.getByRole('textbox', { name: 'Note' }), { target: { value: 'Strong week.' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Add note' }));
+			toastSuccessMock.mockClear();
+
+			endOrganizationLifetime();
+			post.resolve(new Response('{}', { status: 200 }));
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(toastSuccessMock).not.toHaveBeenCalled();
+			expect(invalidate).not.toHaveBeenCalled();
+			expect(reads.every((read) => read.personnelId === 'person-1')).toBe(true);
 		});
 
 		it('opens the record from a row click on a narrow screen', async () => {

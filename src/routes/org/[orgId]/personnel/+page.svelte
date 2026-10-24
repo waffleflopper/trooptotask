@@ -77,6 +77,9 @@
 		};
 	}
 
+	/** The 470 px dock wraps a long availability note onto a second line; the strip and its skeleton both hold two. */
+	const PEEK_LEGEND_LINES = 2;
+
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {
 		return new PersonnelPageContext(
 			createPageData(workspaceData),
@@ -91,9 +94,9 @@
 
 {#snippet peekNextDays(calendar: unknown)}
 	{#if calendar}
-		<PersonnelNextDays calendar={calendar as PersonnelCalendarWindow} />
+		<PersonnelNextDays calendar={calendar as PersonnelCalendarWindow} legendLines={PEEK_LEGEND_LINES} />
 	{:else}
-		<PersonnelNextDaysSkeleton days={ROSTER_PEEK_DAYS} />
+		<PersonnelNextDaysSkeleton days={ROSTER_PEEK_DAYS} legendLines={PEEK_LEGEND_LINES} />
 	{/if}
 {/snippet}
 

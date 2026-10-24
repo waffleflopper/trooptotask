@@ -124,6 +124,30 @@ describe('RosterPeek', () => {
 		expect(peek.sections('okafor').note).toMatchObject({ state: 'ready', value: { text: 'Wants BLC' } });
 	});
 
+	it('reads readiness again on the next open while a source could not be checked, and keeps it once complete', async () => {
+		const { peek, answer, reads } = setup();
+		const attention = (failed: string[]): RosterPeekRead => ({
+			state: 'ready',
+			value: { items: [], failed, checked: {}, readinessBadge: { count: 0, complete: failed.length === 0 } } as never
+		});
+		peek.show(OKAFOR);
+		for (const section of ['identity', 'next7', 'followUps', 'note'] as const)
+			await answer('okafor', section, { state: 'hidden' });
+		await answer('okafor', 'attention', attention(['training']));
+
+		peek.show(BANKS);
+		peek.show(OKAFOR);
+		expect(reads().filter((read) => read.startsWith('okafor'))).toEqual([
+			...['identity', 'next7', 'attention', 'followUps', 'note'].map((section) => `okafor:${section}`),
+			'okafor:attention'
+		]);
+
+		await answer('okafor', 'attention', attention([]));
+		peek.show(BANKS);
+		peek.show(OKAFOR);
+		expect(reads().filter((read) => read.startsWith('okafor'))).toHaveLength(6);
+	});
+
 	it('reads a changed section again in place for the shown Person, keeping the old value until the new one lands', async () => {
 		const { peek, answer, reads } = setup();
 		peek.show(OKAFOR);

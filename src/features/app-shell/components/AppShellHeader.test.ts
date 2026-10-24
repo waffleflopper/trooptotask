@@ -114,6 +114,7 @@ function renderHeader(overrides: Partial<ComponentProps<typeof AppShellHeader>> 
 			capabilityMap: baseCapabilityMap,
 			account: {
 				email: 'dana@example.test',
+				hasTwoFactor: true,
 				profile: { status: 'loaded', profile: { rank: 'SFC', firstName: 'Dana', lastName: 'Whitaker' } }
 			},
 			onToggleTheme: vi.fn(),
@@ -569,37 +570,89 @@ describe('AppShellHeader', () => {
 		expect(screen.queryByRole('button', { name: 'Send feedback' })).toBeNull();
 	});
 
-	it('names the signed-in person in the sidebar footer and links to their account', () => {
-		renderHeader();
+	it('opens the account menu from the signed-in name', async () => {
+		const onWhatsNew = vi.fn();
+		const onFeedback = vi.fn();
+		renderHeader({ userRole: 'member', onWhatsNew, onFeedback });
 
-		const account = screen.getByRole('link', { name: /SFC Dana Whitaker/ });
-		expect(account.getAttribute('href')).toBe('/org/org-1/account/profile');
-		expect(account.getAttribute('aria-current')).toBeNull();
-	});
+		await fireEvent.click(screen.getByRole('button', { name: 'SFC Dana Whitaker, account menu' }));
 
-	it('falls back to the account email before a profile name exists', () => {
-		renderHeader({ account: { email: 'dana@example.test', profile: { status: 'unavailable' } } });
-
-		expect(screen.getByRole('link', { name: /dana@example\.test/ }).getAttribute('href')).toBe(
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByText('dana@example.test')).toBeTruthy();
+		expect(within(menu).getByText('Member · Test Org')).toBeTruthy();
+		expect(
+			within(menu)
+				.getAllByRole('menuitem')
+				.map((item) => item.textContent?.trim())
+		).toEqual(['Account', "What's new", 'Send feedback', 'Sign out']);
+		expect(within(menu).getByRole('menuitem', { name: 'Account' }).getAttribute('href')).toBe(
 			'/org/org-1/account/profile'
 		);
+
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: "What's new" }));
+		expect(onWhatsNew).toHaveBeenCalledOnce();
+		await fireEvent.click(screen.getByRole('button', { name: /account menu/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Send feedback' }));
+		expect(onFeedback).toHaveBeenCalledOnce();
 	});
 
-	it('marks the account card current on account pages', () => {
-		pageStore.setPath('/org/org-1/account/security');
+	it('signs out by posting the logout form', async () => {
+		const submitted: HTMLFormElement[] = [];
+		vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(function (this: HTMLFormElement) {
+			submitted.push(this);
+		});
 		renderHeader();
 
-		expect(screen.getByRole('link', { name: /SFC Dana Whitaker/ }).getAttribute('aria-current')).toBe('page');
+		await fireEvent.click(screen.getByRole('button', { name: /account menu/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
+
+		expect(submitted.map((form) => [form.getAttribute('method'), form.getAttribute('action')])).toEqual([
+			['POST', '/auth/logout']
+		]);
 	});
 
-	it('puts Unit settings directly above the account item for admins', () => {
+	it.each([
+		{ hasTwoFactor: false, offered: true },
+		{ hasTwoFactor: true, offered: false },
+		{ hasTwoFactor: null, offered: false }
+	])('offers two-factor setup only to an account known to have no factor ($hasTwoFactor)', async (state) => {
+		renderHeader({
+			account: { email: 'dana@example.test', hasTwoFactor: state.hasTwoFactor, profile: { status: 'unavailable' } }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'dana@example.test, account menu' }));
+
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByRole('menuitem', { name: 'Account' })).toBeTruthy();
+		expect(
+			within(menu)
+				.queryByRole('menuitem', { name: /Turn on two-factor/ })
+				?.getAttribute('href') ?? null
+		).toBe(state.offered ? '/auth/mfa-setup?next=%2Forg%2Forg-1%2Faccount%2Fsecurity' : null);
+	});
+
+	it('opens the account menu from the keyboard and returns focus to the name on Escape', async () => {
+		renderHeader();
+		const card = screen.getByRole('button', { name: /account menu/ });
+		card.focus();
+
+		await fireEvent.keyDown(card, { key: 'Enter' });
+		const menu = await screen.findByRole('menu');
+		await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+		await fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+		expect(document.activeElement).toBe(card);
+	});
+
+	it('puts Unit settings directly above the account menu for admins', () => {
 		renderHeader({ userRole: 'admin' });
 
 		const settingsLink = screen.getByRole('link', { name: 'Unit settings' });
-		const accountLink = screen.getByRole('link', { name: /SFC Dana Whitaker/ });
+		const accountMenu = screen.getByRole('button', { name: /account menu/ });
 
 		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings');
-		expect(settingsLink.compareDocumentPosition(accountLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(settingsLink.compareDocumentPosition(accountMenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
 	it('does not expose Unit settings in the sidebar footer for members', () => {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { OrganizationSwitcherOrg } from '$features/app-shell/contracts';
 	import type { SignedInAccount } from '$features/identity/contracts';
-	import { accountLabel } from '$features/identity';
+	import { accountLabel, mfaSetupHref } from '$features/identity';
 	import type { Notification } from '$features/notifications/contracts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -13,10 +13,15 @@
 	import Building2 from '@lucide/svelte/icons/building-2';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import CircleUser from '@lucide/svelte/icons/circle-user';
+	import LogOut from '@lucide/svelte/icons/log-out';
+	import Megaphone from '@lucide/svelte/icons/megaphone';
+	import MessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import Moon from '@lucide/svelte/icons/moon';
 	import Settings from '@lucide/svelte/icons/settings';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Sun from '@lucide/svelte/icons/sun';
-	import type { CapabilityMap } from '$lib/access/memberAccessShape';
+	import { MEMBERSHIP_ROLE_LABELS, type CapabilityMap, type MembershipRole } from '$lib/access/memberAccessShape';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import AppShellNavigation from './AppShellNavigation.svelte';
@@ -34,13 +39,14 @@
 		userId: string;
 		orgUrlSegment?: string;
 		orgName: string;
-		userRole: string;
+		userRole: MembershipRole;
 		membershipId?: string | null;
 		capabilityMap: CapabilityMap;
 		account: SignedInAccount;
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
+		onWhatsNew?: () => void;
 		banner?: Snippet;
 		children?: Snippet;
 	}
@@ -57,6 +63,7 @@
 		onToggleTheme,
 		isDarkTheme,
 		onFeedback,
+		onWhatsNew,
 		banner,
 		children
 	}: Props = $props();
@@ -118,8 +125,7 @@
 		orgSwitcherLoaded ? orgSwitcherOrgs.map((org) => (org.id === orgId ? activeOrg : org)) : [activeOrg]
 	);
 	const isMultiOrg = $derived(orgSwitcherLoaded && orgSwitcherOrgs.length > 1);
-	const normalizedUserRole = $derived(userRole.toLowerCase());
-	const canAccessOrganizationSettings = $derived(normalizedUserRole === 'owner' || normalizedUserRole === 'admin');
+	const canAccessOrganizationSettings = $derived(userRole === 'owner' || userRole === 'admin');
 
 	function getInitials(value: string) {
 		const words = value
@@ -130,6 +136,11 @@
 			.slice(0, 2)
 			.map((word) => word[0]?.toUpperCase() ?? '')
 			.join('');
+	}
+
+	function submitLogout(event: MouseEvent) {
+		event.preventDefault();
+		(event.currentTarget as HTMLElement).closest('form')?.requestSubmit();
 	}
 
 	function switchOrg(targetOrgId: string, targetOrgUrlSegment: string = targetOrgId) {
@@ -442,28 +453,89 @@
 						</Sidebar.MenuItem>
 					{/if}
 					<Sidebar.MenuItem>
-						<Sidebar.MenuButton size="lg" isActive={inAccount} tooltipContent={signedInAs.name}>
-							{#snippet child({ props })}
-								<a
-									{...props}
-									href={resolve(`/org/${orgUrlSegment}/account/profile`)}
-									aria-current={inAccount ? 'page' : undefined}
-								>
-									<span
-										class="hidden aspect-square size-8 items-center justify-center rounded-md border bg-muted text-xs font-medium group-data-[collapsible=icon]:flex"
-										aria-hidden="true"
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
+								{#snippet child({ props })}
+									<Sidebar.MenuButton
+										{...props}
+										size="lg"
+										isActive={inAccount}
+										tooltipContent={signedInAs.name}
+										aria-label={`${signedInAs.name}, account menu`}
 									>
-										{signedInAs.initials}
-									</span>
-									<span class="grid flex-1 gap-0.5 text-left leading-tight">
-										<span class="truncate text-sm font-medium">{signedInAs.name}</span>
-										<span class="truncate font-mono text-[11px] tracking-[0.04em] text-muted-foreground"
-											>Your account</span
+										<span
+											class="hidden aspect-square size-8 items-center justify-center rounded-md border bg-muted text-xs font-medium group-data-[collapsible=icon]:flex"
+											aria-hidden="true"
 										>
-									</span>
-								</a>
-							{/snippet}
-						</Sidebar.MenuButton>
+											{signedInAs.initials}
+										</span>
+										<span class="grid flex-1 gap-0.5 text-left leading-tight">
+											<span class="truncate text-sm font-medium">{signedInAs.name}</span>
+											<span class="truncate font-mono text-[11px] tracking-[0.04em] text-muted-foreground"
+												>Your account</span
+											>
+										</span>
+									</Sidebar.MenuButton>
+								{/snippet}
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content class="w-64" side={drawerMenuSide} align="end">
+								<DropdownMenu.Label class="grid gap-0.5">
+									<span class="truncate text-sm font-medium text-foreground">{signedInAs.name}</span>
+									{#if account.email && account.email !== signedInAs.name}
+										<span class="truncate font-normal">{account.email}</span>
+									{/if}
+									<span class="truncate font-normal">{MEMBERSHIP_ROLE_LABELS[userRole]} · {orgName}</span>
+								</DropdownMenu.Label>
+								<DropdownMenu.Separator />
+								<DropdownMenu.Group>
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											<a {...props} href={resolve(`/org/${orgUrlSegment}/account/profile`)}>
+												<CircleUser />
+												Account
+											</a>
+										{/snippet}
+									</DropdownMenu.Item>
+									{#if account.hasTwoFactor === false}
+										<DropdownMenu.Item class="items-start">
+											{#snippet child({ props })}
+												<a {...props} href={mfaSetupHref(orgUrlSegment)}>
+													<ShieldCheck class="mt-0.5" />
+													<span class="grid gap-0.5">
+														Turn on two-factor
+														<span class="text-xs text-muted-foreground">A code from your phone at sign-in</span>
+													</span>
+												</a>
+											{/snippet}
+										</DropdownMenu.Item>
+									{/if}
+								</DropdownMenu.Group>
+								{#if onWhatsNew || onFeedback}
+									<DropdownMenu.Separator />
+									<DropdownMenu.Group>
+										{#if onWhatsNew}
+											<DropdownMenu.Item onclick={onWhatsNew}>
+												<Megaphone />
+												What's new
+											</DropdownMenu.Item>
+										{/if}
+										{#if onFeedback}
+											<DropdownMenu.Item onclick={onFeedback}>
+												<MessageSquareText />
+												Send feedback
+											</DropdownMenu.Item>
+										{/if}
+									</DropdownMenu.Group>
+								{/if}
+								<DropdownMenu.Separator />
+								<form method="POST" action={resolve('/auth/logout')}>
+									<DropdownMenu.Item variant="destructive" onclick={submitLogout}>
+										<LogOut />
+										Sign out
+									</DropdownMenu.Item>
+								</form>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
 					</Sidebar.MenuItem>
 				</Sidebar.Menu>
 			</Sidebar.Footer>

@@ -23,11 +23,12 @@
 		items: SectionNavItem[];
 	};
 
-	/** A command beside the sections, such as Sign out. `action` posts a form; `onclick` runs in place. */
+	/** A form POST beside the sections, such as Sign out. */
 	export type SectionNavAction = {
 		label: string;
 		icon?: Component<{ class?: string; 'aria-hidden'?: 'true' }>;
-	} & ({ onclick: () => void; action?: never } | { action: PathnameWithSearchOrHash; onclick?: never });
+		action: PathnameWithSearchOrHash;
+	};
 </script>
 
 <script lang="ts">
@@ -119,31 +120,19 @@
 {#snippet actionControl(item: SectionNavAction, compact: boolean)}
 	{@const linkClass =
 		'flex w-full items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-left text-sm leading-[18px] text-secondary-foreground transition-colors outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50'}
-	{#if item.action}
-		<form method="POST" action={resolve(item.action as '/')} class={compact ? 'contents' : undefined}>
-			{#if compact}
-				<Button type="submit" variant="ghost" size="sm">
-					{item.label}
-					{#if item.icon}<item.icon aria-hidden="true" />{/if}
-				</Button>
-			{:else}
-				<button type="submit" class={linkClass}>
-					<span class="min-w-0 flex-1 truncate">{item.label}</span>
-					{#if item.icon}<item.icon class="size-3.5" aria-hidden="true" />{/if}
-				</button>
-			{/if}
-		</form>
-	{:else if compact}
-		<Button type="button" variant="ghost" size="sm" onclick={item.onclick}>
-			{item.label}
-			{#if item.icon}<item.icon aria-hidden="true" />{/if}
-		</Button>
-	{:else}
-		<button type="button" class={linkClass} onclick={item.onclick}>
-			<span class="min-w-0 flex-1 truncate">{item.label}</span>
-			{#if item.icon}<item.icon class="size-3.5" aria-hidden="true" />{/if}
-		</button>
-	{/if}
+	<form method="POST" action={resolve(item.action as '/')} class={compact ? 'contents' : undefined}>
+		{#if compact}
+			<Button type="submit" variant="ghost" size="sm">
+				{item.label}
+				{#if item.icon}<item.icon aria-hidden="true" />{/if}
+			</Button>
+		{:else}
+			<button type="submit" class={linkClass}>
+				<span class="min-w-0 flex-1 truncate">{item.label}</span>
+				{#if item.icon}<item.icon class="size-3.5" aria-hidden="true" />{/if}
+			</button>
+		{/if}
+	</form>
 {/snippet}
 
 <nav

@@ -14,8 +14,7 @@
 	import { ACCOUNT_PAGES } from './AccountShell.svelte';
 	import { ACCOUNT_FIELD_LABEL } from './accountFields';
 	import type { SignedInAccount } from './contracts';
-
-	type MembershipRole = 'owner' | 'admin' | 'member';
+	import { MEMBERSHIP_ROLE_LABELS, type MembershipRole } from '$lib/access/memberAccessShape';
 
 	let {
 		account,
@@ -26,7 +25,7 @@
 		onretry,
 		onleave
 	}: {
-		account: SignedInAccount;
+		account: Pick<SignedInAccount, 'email' | 'profile'>;
 		ranks: readonly string[];
 		form: { error?: string; success?: string } | null;
 		securityHref: `/org/${string}/account/security`;
@@ -37,7 +36,6 @@
 	} = $props();
 
 	const ROWS = ACCOUNT_PAGES.profile.rows;
-	const ROLE_LABELS: Record<MembershipRole, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
 
 	const profile = $derived(account.profile.status === 'loaded' ? account.profile.profile : null);
 	const hasName = $derived(Boolean(profile?.firstName || profile?.lastName));
@@ -210,7 +208,7 @@
 			description={ROWS.records.description}
 		>
 			<p class="font-mono text-xs leading-5 text-muted-foreground">
-				{unit.name} · {ROLE_LABELS[unit.role]} · kept by unit admins
+				{unit.name} · {MEMBERSHIP_ROLE_LABELS[unit.role]} · kept by unit admins
 			</p>
 			{#if onleave}
 				<Button type="button" variant="ghost-destructive" size="sm" class="w-fit" onclick={onleave}>Leave unit</Button>

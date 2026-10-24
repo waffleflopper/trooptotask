@@ -2,8 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import Da6Page from './Da6Page.svelte';
-import { da6Segment, simulateRoster } from '../../roster/rosterEngine';
-import { storedR4 } from '../../roster/rosterFixtures.test-support';
+import { closeForm, da6Segment, simulateRoster } from '../../roster/rosterEngine';
+import { storedR4, swapExample } from '../../roster/rosterFixtures.test-support';
 import type { Da6View } from '../../utils/da6View';
 
 const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
@@ -107,5 +107,25 @@ describe('DA 6 for the R4 fixture', () => {
 		expect(screen.getByRole('status').textContent).toContain('Loading the DA 6');
 		expect(screen.queryByRole('table')).toBeNull();
 		expect((screen.getByRole('button', { name: /Print DA 6/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+});
+
+describe('DA 6 with a duty swap', () => {
+	const view = (sheets: Da6View['sheets']): Da6View => ({ ...r4, roster: STAFF_DUTY, sheets });
+	const remark = 'SPC Kim and SPC Patel exchanged 12 and 19 Oct. Numbers as published.';
+
+	it('numbers the swap among the remarks of an open form', () => {
+		const open = da6Segment(simulateRoster(swapExample(true)), '2026-10')!;
+		renderR4(view([{ formId: 'open', from: '2026-10-12', to: null, segment: open }]));
+
+		const remarks = screen.getAllByRole('listitem').filter((item) => item.textContent?.includes('exchanged'));
+		expect(remarks.map((item) => item.textContent)).toEqual([`(1) ${remark}`]);
+	});
+
+	it('keeps the swap in the remarks of a closed form', () => {
+		const closed = closeForm(swapExample(true), '2026-10-20').segments[0];
+		renderR4(view([{ formId: 'closed', from: '2026-10-12', to: '2026-10-20', segment: closed }]));
+
+		expect(screen.getByText(`(1) ${remark}`)).toBeTruthy();
 	});
 });

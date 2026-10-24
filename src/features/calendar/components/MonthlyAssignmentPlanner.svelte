@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type {
@@ -9,11 +10,18 @@
 		RosterFillPick,
 		RosterFillPreview,
 		RosterReplacement,
+		RosterSwapOptions,
 		SpecialDay,
 		StatusType
 	} from '$features/calendar/contracts';
 	import type { PlannerRosterStatus, RosterDayRead } from '$features/calendar/contexts/PlannerRosterRead.svelte';
-	import type { RosterView } from '$features/calendar/utils/plannerRosters';
+	import type { RosterSwapOutcome } from '$features/calendar/stores/dailyAssignments.svelte';
+	import {
+		indexSwappedDays,
+		swapsEndedBy,
+		type RosterView,
+		type SwappedDay
+	} from '$features/calendar/utils/plannerRosters';
 	import type { Group, Personnel } from '$features/personnel/contracts';
 	import {
 		buildPlannerTable,
@@ -37,6 +45,7 @@
 	import DutyPicker from './DutyPicker.svelte';
 	import RosterCountPanel from './RosterCountPanel.svelte';
 	import RosterReplacementPopover from './RosterReplacementPopover.svelte';
+	import RosterSwapPopover from './RosterSwapPopover.svelte';
 
 	interface GroupData {
 		group: string;
@@ -74,6 +83,14 @@
 			/** Find replacement for a conflicted roster day. Without an assignee the preview takes the rule's pick. */
 			replacement: (typeId: string, date: string, assigneeId?: string) => Promise<RosterReplacement>;
 			replace: (typeId: string, preview: RosterReplacement) => Promise<'saved' | 'changed' | 'failed'>;
+			/** The days `date` could trade with on a roster, read when Swap with… opens. */
+			swapOptions: (typeId: string, date: string) => Promise<RosterSwapOptions>;
+			/** Trades two days of a roster between their holders. `was` is who holds each now. */
+			swap: (
+				typeId: string,
+				days: readonly [{ date: string; was: string }, { date: string; was: string }]
+			) => Promise<RosterSwapOutcome>;
+			undoSwap: (swapId: string) => Promise<boolean>;
 			/** The picker's roster day, read when the picker opens it. */
 			day: (typeId: string, date: string) => RosterDayRead | undefined;
 			loadDay: (typeId: string, date: string) => void;
@@ -146,6 +163,17 @@
 		})
 	);
 
+	const swappedDays = $derived(
+		new Map([...(rosterViews ?? [])].map(([typeId, view]) => [typeId, indexSwappedDays(view.swaps)]))
+	);
+	// Saving the person a day already has keeps its swap, so only a write that moves a swapped day ends one.
+	const swapsEndedByWrites = (typeId: string, writes: readonly { date: string; assigneeId: string }[]) =>
+		swapsEndedBy(
+			rosterViews?.get(typeId)?.swaps ?? [],
+			writes,
+			(date) => assignmentsBySlot.get(assignmentSlotKey(date, typeId))?.assigneeId
+		);
+
 	const rosterTypes = $derived(columns.filter((type) => type.assignTo === 'personnel'));
 	let countTypeId = $state<string | null>(null);
 	const countType = $derived(rosterTypes.find((type) => type.id === countTypeId) ?? rosterTypes[0]);
@@ -198,6 +226,7 @@
 	type PickerTarget = { typeId: string; dateKey: string; anchor: HTMLElement; replacing?: ReplacementTarget };
 	let pickerTarget = $state<PickerTarget | null>(null);
 	let replacementTarget = $state<ReplacementTarget | null>(null);
+	let swapTarget = $state<{ typeId: string; dateKey: string; anchor: HTMLElement; holderId: string } | null>(null);
 	let clearTypeId = $state<string | null>(null);
 
 	// Changing the month or losing the read window ends whatever was open on the old slots.
@@ -206,6 +235,7 @@
 		untrack(() => {
 			pickerTarget = null;
 			replacementTarget = null;
+			swapTarget = null;
 			clearTypeId = null;
 		});
 	});
@@ -230,6 +260,7 @@
 		const current = assignmentsBySlot.get(assignmentSlotKey(dateKey, type.id));
 		const counted = rosters && type.assignTo === 'personnel' ? rosters : null;
 		const read = counted?.day(type.id, dateKey);
+		const swapDay = counted ? swappedDays.get(type.id)?.get(dateKey) : undefined;
 		const options = dutyPickerOptions({
 			type,
 			dateKey,
@@ -248,6 +279,22 @@
 			replacing,
 			date: parseDate(dateKey),
 			occupied: current !== undefined && !replacing,
+			// A swap is entered from a filled detail day that is not yet in one, and undone while both days are ahead.
+			canSwap:
+				current !== undefined &&
+				!replacing &&
+				!swapDay &&
+				dateKey >= todayKey &&
+				rosterViews?.get(type.id)?.covered.has(dateKey) === true,
+			swapped:
+				swapDay && counted
+					? {
+							note: swapNote(swapDay),
+							onUndo: swapDay.swap.days.every((day) => day.date >= todayKey)
+								? () => counted.undoSwap(swapDay.swap.id)
+								: undefined
+						}
+					: undefined,
 			counts: counted
 				? {
 						status: read?.status ?? 'loading',
@@ -260,6 +307,16 @@
 			options: replacing ? options.filter((option) => option.id !== current?.assigneeId) : options
 		};
 	});
+
+	const whoLabel = (personId: string) => {
+		const found = personById.get(personId);
+		return found ? `${found.rank} ${found.lastName}` : 'Someone outside your roster';
+	};
+	const swapDate = (dateKey: string) =>
+		parseDate(dateKey).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+	const swapNote = (day: SwappedDay) =>
+		`Swapped with ${swapDate(day.otherDate)}: ${whoLabel(day.heldBy)} held this day, ${whoLabel(day.otherHeldBy)} stands it.`;
+	const swapMark = (day: SwappedDay) => `swapped with ${swapDate(day.otherDate)}, held by ${whoLabel(day.heldBy)}`;
 
 	function openPicker(typeId: string, dateKey: string, anchor: HTMLElement, replacing?: ReplacementTarget) {
 		if (rangeStatus === 'ready' && !locked) pickerTarget = { typeId, dateKey, anchor, replacing };
@@ -301,6 +358,43 @@
 		replacementTarget = { typeId, dateKey, anchor: cell, returnTo: button };
 	}
 
+	function swapWith() {
+		const target = pickerTarget;
+		const current = target && assignmentsBySlot.get(assignmentSlotKey(target.dateKey, target.typeId));
+		if (!target || !current) return;
+		const cell = slotCell(target.typeId, target.dateKey) ?? target.anchor;
+		cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		pickerTarget = null;
+		swapTarget = { typeId: target.typeId, dateKey: target.dateKey, anchor: cell, holderId: current.assigneeId };
+	}
+
+	const swapping = $derived.by(() => {
+		if (!swapTarget || !rosters || rangeStatus !== 'ready') return null;
+		const { typeId, dateKey, holderId } = swapTarget;
+		const type = columns.find((candidate) => candidate.id === typeId);
+		if (!type || !assignmentsBySlot.has(assignmentSlotKey(dateKey, typeId))) return null;
+		const { swapOptions, swap } = rosters;
+		return {
+			...swapTarget,
+			type,
+			load: () => swapOptions(typeId, dateKey),
+			commit: async (other: { date: string; personId: string }): Promise<RosterSwapOutcome> => {
+				if (locked) return { status: 'refused', message: 'Another change is still saving. Try again in a moment.' };
+				busy = true;
+				try {
+					return await swap(typeId, [
+						{ date: dateKey, was: holderId },
+						{ date: other.date, was: other.personId }
+					]);
+				} finally {
+					busy = false;
+					// A refused swap whose re-read failed locks the month, and the banner says why.
+					if (staleAssignments) swapTarget = null;
+				}
+			}
+		};
+	});
+
 	const replacement = $derived.by(() => {
 		if (!replacementTarget || !rosters || rangeStatus !== 'ready') return null;
 		const { typeId, dateKey } = replacementTarget;
@@ -313,6 +407,13 @@
 			type,
 			assignee: current ? personById.get(current.assigneeId) : undefined,
 			load: (assigneeId?: string) => load(typeId, dateKey, assigneeId),
+			endsSwaps: (preview: RosterReplacement) =>
+				preview.selected
+					? swapsEndedByWrites(typeId, [
+							{ date: preview.date, assigneeId: preview.selected },
+							...preview.repicks.map((repick) => ({ date: repick.date, assigneeId: repick.personId }))
+						])
+					: 0,
 			commit: async (preview: RosterReplacement) => {
 				if (locked) return 'failed' as const;
 				busy = true;
@@ -337,19 +438,20 @@
 		}
 	}
 
+	const clearWrites = (typeId: string) =>
+		buildQuickFillBatch({
+			anchor: monthStart,
+			typeId,
+			assigneeId: '',
+			days: 'all',
+			onlyOpenDays: false,
+			assignmentsBySlot
+		});
+
 	async function clearMonth() {
 		const type = columns.find((candidate) => candidate.id === clearTypeId);
 		if (!type) return;
-		const cleared = await writeBatch(
-			buildQuickFillBatch({
-				anchor: monthStart,
-				typeId: type.id,
-				assigneeId: '',
-				days: 'all',
-				onlyOpenDays: false,
-				assignmentsBySlot
-			})
-		);
+		const cleared = await writeBatch(clearWrites(type.id));
 		if (cleared) clearTypeId = null;
 	}
 
@@ -362,7 +464,8 @@
 	function cellLabel(column: PlannerColumn, row: PlannerRow, cell: PlannerCell): string {
 		const where = `${column.type.name}, ${row.dateLabel}`;
 		if (!cell.assignee) return `Assign ${where}`;
-		return `${where}: ${cell.assignee.fullName}${cell.conflict ? `, unavailable: ${cell.conflict.reason}` : ''}`;
+		const swapped = swappedDays.get(cell.typeId)?.get(cell.dateKey);
+		return `${where}: ${cell.assignee.fullName}${cell.conflict ? `, unavailable: ${cell.conflict.reason}` : ''}${swapped ? `, ${swapMark(swapped)}` : ''}`;
 	}
 </script>
 
@@ -437,6 +540,7 @@
 											})}
 										onApply={writeBatch}
 										onClearMonth={() => (clearTypeId = column.type.id)}
+										endsSwaps={(batch) => swapsEndedByWrites(column.type.id, batch)}
 										rosterFill={rosterFillFor(column.type)}
 										da6Href={rosters && column.type.assignTo === 'personnel'
 											? rosters.da6Href(column.type.id, monthKey)
@@ -511,6 +615,12 @@
 													<span class="truncate font-mono text-[10px] uppercase">On {cell.conflict.reason}</span>
 												{/if}
 											</span>
+											{@const swapped = swappedDays.get(cell.typeId)?.get(cell.dateKey)}
+											{#if swapped}
+												<span class="ml-auto shrink-0 text-muted-foreground" title={swapMark(swapped)}>
+													<ArrowLeftRightIcon class="size-3.5" aria-hidden="true" />
+												</span>
+											{/if}
 										{/if}
 									</Button>
 								</Table.Cell>
@@ -552,6 +662,8 @@
 			counts={picker.counts}
 			onAssign={assignFromPicker}
 			onClear={picker.occupied ? () => onSetAssignment(picker.dateKey, picker.type.id, '') : undefined}
+			onSwap={picker.canSwap ? swapWith : undefined}
+			swapped={picker.swapped}
 			replacing={picker.replacing !== undefined}
 			onClose={closePicker}
 		/>
@@ -570,6 +682,7 @@
 			picked={replacement.picked}
 			{personById}
 			load={replacement.load}
+			endsSwaps={replacement.endsSwaps}
 			commit={replacement.commit}
 			onSomeoneElse={() => {
 				const { type, dateKey, anchor } = replacement;
@@ -582,11 +695,30 @@
 	{/key}
 {/if}
 
+{#if swapping}
+	{#key swapping.anchor}
+		<RosterSwapPopover
+			typeName={swapping.type.name}
+			dateKey={swapping.dateKey}
+			anchor={swapping.anchor}
+			returnFocusTo={() => slotCell(swapping.type.id, swapping.dateKey)}
+			holderId={swapping.holderId}
+			{personById}
+			load={swapping.load}
+			commit={swapping.commit}
+			onClose={() => (swapTarget = null)}
+		/>
+	{/key}
+{/if}
+
 {#if clearTypeId && rangeStatus === 'ready'}
 	{@const clearType = columns.find((type) => type.id === clearTypeId)}
+	{@const endedSwaps = clearType ? swapsEndedByWrites(clearType.id, clearWrites(clearType.id)) : 0}
 	<ConfirmDialog
 		title="Clear month"
-		message="Clear every {clearType?.name ?? 'duty'} assignment in {monthTitle}?"
+		message="Clear every {clearType?.name ?? 'duty'} assignment in {monthTitle}?{endedSwaps
+			? ` This ends ${endedSwaps} duty ${endedSwaps === 1 ? 'swap' : 'swaps'}, and both days of each then count for whoever holds them.`
+			: ''}"
 		confirmLabel="Clear month"
 		variant="default"
 		onConfirm={clearMonth}

@@ -16,6 +16,7 @@ import {
 	type AssignmentType,
 	type DailyAssignment,
 	type RosterSettingsInput,
+	type RosterSwapResult,
 	type StartingNumberInput
 } from '$features/calendar/contracts';
 import { assignmentSlotKey, duplicateAssignmentSlot } from '$features/calendar/utils/calendarIndexes';
@@ -89,6 +90,10 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	/** Like `fillFromRoster`, but rejects with the failure message instead of showing a toast. */
 	fillFromRosterOrThrow: (fill: RosterFill) => Promise<'saved' | 'changed'>;
 	replaceFromRoster: (replacement: RosterReplacementWrite) => Promise<'saved' | 'changed' | 'failed'>;
+	/** `changed`: the roster moved since the preview. `refused` carries the server's reason, such as a past day. */
+	swapRosterDays: (swap: RosterSwapWrite) => Promise<RosterSwapOutcome>;
+	/** Puts both people back on their original days. Shows a toast and resolves false when it was not undone. */
+	undoRosterSwap: (swapId: string, today: string) => Promise<boolean>;
 	/** Like `setAssignmentBatch`, but rejects with the failure message instead of showing a toast. */
 	setAssignmentBatchOrThrow: (
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
@@ -130,6 +135,14 @@ export interface RosterReplacementWrite {
 	replacing: string;
 	repicks: { date: string; was: string; personId: string }[];
 }
+
+export interface RosterSwapWrite {
+	typeId: string;
+	today: string;
+	days: readonly [{ date: string; was: string }, { date: string; was: string }];
+}
+
+export type RosterSwapOutcome = { status: 'saved' } | { status: 'changed' } | { status: 'refused'; message: string };
 
 function inSlot(date: string, assignmentTypeId: string) {
 	return (assignment: DailyAssignment) => assignment.date === date && assignment.assignmentTypeId === assignmentTypeId;
@@ -362,6 +375,26 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		} finally {
 			internals.log.resolve(mutationId);
 		}
+	}
+
+	// The two saved days keep their row identities, so they replace the shown rows of the same slots.
+	async function sendSwap(method: 'POST' | 'DELETE', body: unknown): Promise<'saved' | 'changed'> {
+		const res = await internals.withinOrganization(
+			fetch(`/org/${internals.orgId()}/api/duty-rosters/swap`, {
+				method,
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			})
+		);
+		if (res.status === 409 && method === 'POST') return 'changed';
+		if (!res.ok) throw new Error(await readResponseErrorMessage(res, 'The swap was not saved.'));
+		const { saved } = await internals.withinOrganization(res.json() as Promise<RosterSwapResult>);
+		const slots = new Set(saved.map((assignment) => assignmentSlotKey(assignment.date, assignment.assignmentTypeId)));
+		internals.commit({
+			deletedWhere: (assignment) => slots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+		});
+		internals.commit({ saved });
+		return 'saved';
 	}
 
 	async function setAssignmentBatchOrThrow(assignments: AssignmentBatchRecord[]): Promise<void> {
@@ -706,6 +739,28 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				settle();
 				toastStore.error(error instanceof Error ? error.message : 'The replacement was not saved.');
 				return 'failed';
+			}
+		},
+
+		async swapRosterDays(swap: RosterSwapWrite): Promise<RosterSwapOutcome> {
+			try {
+				const result = await sendSwap('POST', {
+					today: swap.today,
+					days: swap.days.map((day) => ({ assignmentTypeId: swap.typeId, ...day }))
+				});
+				return result === 'changed' ? { status: 'changed' } : { status: 'saved' };
+			} catch (error) {
+				return { status: 'refused', message: error instanceof Error ? error.message : 'The swap was not saved.' };
+			}
+		},
+
+		async undoRosterSwap(swapId: string, today: string): Promise<boolean> {
+			try {
+				await sendSwap('DELETE', { today, swapId });
+				return true;
+			} catch (error) {
+				toastStore.error(error instanceof Error ? error.message : 'The swap was not undone.');
+				return false;
 			}
 		},
 

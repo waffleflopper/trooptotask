@@ -22,13 +22,15 @@
 		buildBatch: (assigneeId: string, days: QuickFillDays, onlyOpenDays: boolean) => AssignmentWrite[];
 		onApply: (batch: AssignmentWrite[]) => Promise<boolean>;
 		onClearMonth: () => void;
+		/** How many duty swaps `batch` would end, for an operator who sees the type's swaps. */
+		endsSwaps?: (batch: AssignmentWrite[]) => number;
 		/** Present when this type fills from its roster. Its Fill button opens it; the column actions open Quick fill. */
 		rosterFill?: RosterFill;
 		/** The type's DA 6 for the shown month, for an operator who sees the whole Organization. */
 		da6Href?: string;
 	}
 
-	let { type, choices, busy, buildBatch, onApply, onClearMonth, rosterFill, da6Href }: Props = $props();
+	let { type, choices, busy, buildBatch, onApply, onClearMonth, endsSwaps, rosterFill, da6Href }: Props = $props();
 
 	let open = $state(false);
 	let mode = $state<'roster' | 'person'>('person');
@@ -41,6 +43,7 @@
 
 	const batch = $derived(buildBatch(assigneeId, days, onlyOpenDays));
 	const replaced = $derived(buildBatch(assigneeId, days, false).length - buildBatch(assigneeId, days, true).length);
+	const swapsEnded = $derived(endsSwaps?.(batch) ?? 0);
 	const fillLabel = $derived(`Fill ${batch.length} ${batch.length === 1 ? 'day' : 'days'}`);
 	const subject = $derived(type.assignTo === 'group' ? 'group' : 'person');
 	const locked = $derived(busy || applying);
@@ -187,6 +190,12 @@
 								Keeps the {replaced} {replaced === 1 ? 'day' : 'days'} already assigned.
 							{:else}
 								Replaces the {replaced} {replaced === 1 ? 'day' : 'days'} already assigned.
+							{/if}
+							{#if swapsEnded > 0}
+								<span class="block font-medium text-warning-foreground">
+									Ends {swapsEnded} duty {swapsEnded === 1 ? 'swap' : 'swaps'}. Both days of each then count for whoever
+									holds them.
+								</span>
 							{/if}
 						</Field.Description>
 					</Field.Content>

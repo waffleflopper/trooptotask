@@ -60,7 +60,8 @@ export async function createPlatformAccessRequestOperations(event: RequestEvent)
 			administration.approve({ accessRequestId, actorUserId: actor.userId, publicOrigin: event.url.origin }),
 		resendSetup: (accessRequestId: string) =>
 			administration.resendSetup({ accessRequestId, actorUserId: actor.userId, publicOrigin: event.url.origin }),
-		reject: (accessRequestId: string) => administration.reject({ accessRequestId, actorUserId: actor.userId }),
+		reject: (accessRequestId: string, reason?: string | null) =>
+			administration.reject({ accessRequestId, actorUserId: actor.userId, reason }),
 		rescind: (accessRequestId: string) => administration.rescind({ accessRequestId, actorUserId: actor.userId })
 	};
 }

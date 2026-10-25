@@ -52,6 +52,7 @@ const SAFE_STRING_KEYS = new Set([
 	'replacement_override_state',
 	'expiresat',
 	'expires_at',
+	'rejectionreason',
 	'hasreason',
 	'has_reason',
 	'overrideid',

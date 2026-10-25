@@ -32,4 +32,4 @@ UNION ALL SELECT 'personnel',id::text,
   FROM public.personnel r WHERE id::text LIKE 'c6425000-%';
 CREATE TABLE upgrade_fixture.directory_before_rows AS SELECT * FROM upgrade_fixture.directory_current_rows;
 CREATE TABLE upgrade_fixture.directory_baseline AS
-SELECT NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261025080100') migration_absent;
+SELECT NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261025100100') migration_absent;

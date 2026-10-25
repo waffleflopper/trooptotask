@@ -4,11 +4,20 @@
 	interface Props {
 		class?: string;
 		hideSubtitleOnMobile?: boolean;
-		/** `on-chrome` lifts the subtitle to the muted chrome tone for a wordmark sitting on the dark app chrome. */
-		variant?: 'default' | 'on-chrome';
+		/**
+		 * `on-chrome` lifts the subtitle to the muted chrome tone for a wordmark sitting on the dark app chrome.
+		 * `platform` marks the operator's admin on the chrome with an accent "Platform" subtitle.
+		 */
+		variant?: 'default' | 'on-chrome' | 'platform';
 	}
 
 	let { class: className, hideSubtitleOnMobile = false, variant = 'default' }: Props = $props();
+
+	const subtitleTone = {
+		default: 'text-muted-foreground',
+		'on-chrome': 'text-chrome-text-muted',
+		platform: 'text-chrome-accent'
+	} as const;
 </script>
 
 <div class={className}>
@@ -18,10 +27,10 @@
 	<div
 		class={cn(
 			'mt-1 font-mono text-[10px] font-medium tracking-[0.14em] uppercase',
-			variant === 'on-chrome' ? 'text-chrome-text-muted' : 'text-muted-foreground',
+			subtitleTone[variant],
 			hideSubtitleOnMobile && 'max-sm:hidden'
 		)}
 	>
-		Unit Readiness Platform
+		{variant === 'platform' ? 'Platform' : 'Unit Readiness Platform'}
 	</div>
 </div>

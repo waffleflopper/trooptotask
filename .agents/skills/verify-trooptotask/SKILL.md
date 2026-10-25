@@ -59,9 +59,9 @@ from the disposable provider using private synthetic credentials, set the app's 
 open an ordinarily admitted destination. They print no password and bypass app `/auth/` routes. Verified-authenticator
 accounts still stop at `/auth/mfa-verify` with destination `next`, as after the form, except the platform operator
 `platformReviewer`, whose provider session is completed at aal2 (`--aal1` keeps it at the code page; `--stale-mfa`
-back-dates the verification past the 10 minutes a suspension accepts). `actor --form ROLE DESTINATION`
-instead submits the visible sign-in form for form, `auth.login_success` audit or `/auth/` limiter proof. Use returned
-page IDs, not tab order; with multiple pages, `tool select_page` before interacting or clicks can silently do nothing.
+back-dates the verification past the 10 minutes a suspension accepts). `actor --form ROLE DESTINATION` instead submits
+the visible sign-in form for form, `auth.login_success` audit or `/auth/` limiter proof. Use returned page IDs, not tab
+order; with multiple pages, `tool select_page` before interacting or clicks can silently do nothing.
 
 ```bash
 npm run --silent verify:app -- login manager
@@ -109,7 +109,8 @@ attempted paths **source-mapped**, **live-verified**, **failed** or **unreachabl
 missing prerequisite for unreachable paths. Old receipts and happy paths do not verify difficult cases.
 
 After final doctor and owned cleanup, put the results and screenshots of visible changes in the PR body. Raw captures
-stay in ignored local scratch and are never committed or uploaded. Adopt revised driving instructions outside active runs.
+stay in ignored local scratch and are never committed or uploaded. Adopt revised driving instructions outside active
+runs.
 
 ## Cleanup
 
@@ -218,7 +219,7 @@ Recipes own feature actors, targets, commands and proof limits:
   [member entry](features/organization-member-access.md), [invitations/mail](features/organization-invitations.md),
   [creation](features/organization-creation.md), [exports](features/organization-exports.md).
 - [Audit/maintenance](features/audit-capture-projections.md), [deletion requests/review](features/deletion-requests.md).
-- Platform: [administration](features/platform-administration.md),
+- Platform: [Inbox](features/platform-inbox.md), [administration](features/platform-administration.md),
   [support content](features/platform-support-content.md).
 - [Identity/MFA/passwords/links/sessions](features/identity-recovery-security.md).
 - [Toolbar sweep](features/shared-ui.md), [style probe/diff](features/shared-compositions.md),

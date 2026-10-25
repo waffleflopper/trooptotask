@@ -4,9 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Announcements from './announcements/+page.svelte';
-import Feedback from './feedback/+page.svelte';
 import type { PageData as AnnouncementData } from './announcements/$types';
-import type { PageData as FeedbackData } from './feedback/$types';
 
 const { forms, invalidateAll, navigation, gotoMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -37,14 +35,8 @@ const notice: AnnouncementData['announcements'][number] = {
 };
 function adminData(
 	actorId: string
-): Pick<AnnouncementData, 'viewer' | 'adminUserId' | 'visibleNavGroups' | 'adminEmail' | 'accessiblePages'> {
-	return {
-		viewer: null,
-		adminUserId: actorId,
-		visibleNavGroups: [],
-		adminEmail: 'admin@example.test',
-		accessiblePages: ['dashboard', 'announcements', 'feedback', 'audit']
-	};
+): Pick<AnnouncementData, 'viewer' | 'adminUserId' | 'adminEmail' | 'inboxOpenCount'> {
+	return { viewer: null, adminUserId: actorId, adminEmail: 'admin@example.test', inboxOpenCount: Promise.resolve(0) };
 }
 function announcementData(actorId = 'admin-a'): AnnouncementData {
 	return {
@@ -54,27 +46,6 @@ function announcementData(actorId = 'admin-a'): AnnouncementData {
 			{ ...notice, id: '22222222-2222-4222-8222-222222222222', title: 'Peer notice', is_active: false }
 		]
 	};
-}
-const feedbackA: FeedbackData['newItems'][number] = {
-	id: 'feedback-a',
-	user_email: 'first@example.test',
-	category: 'bug',
-	message: 'First feedback',
-	created_at: '2026-10-01T12:00:00Z',
-	organization_name: 'Alpha',
-	page_url: '/org/alpha',
-	status: 'new',
-	admin_notes: null
-};
-const feedbackB = {
-	...feedbackA,
-	id: 'feedback-b',
-	user_email: 'peer@example.test',
-	message: 'Peer feedback',
-	admin_notes: 'Saved peer note'
-};
-function feedbackData(actorId = 'admin-a'): FeedbackData {
-	return { ...adminData(actorId), newItems: [feedbackA, feedbackB], reviewedItems: [], resolvedItems: [] };
 }
 const failed: ActionResult = { type: 'failure', status: 400, data: { error: 'Current request failed' } };
 const succeeded: ActionResult = { type: 'success', status: 200, data: { success: true } };
@@ -96,7 +67,7 @@ afterEach(() => {
 
 function formKey(form: HTMLFormElement) {
 	const fields = new FormData(form);
-	return `${form.getAttribute('action')}:${fields.get('id') ?? fields.get('feedbackId') ?? ''}`;
+	return `${form.getAttribute('action')}:${fields.get('id') ?? ''}`;
 }
 
 async function submit(button: HTMLElement) {
@@ -136,9 +107,6 @@ async function openAnnouncement() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Create Announcement' }));
 	await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Unsent title' } });
 	await fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'Unsent message' } });
-}
-async function openFeedback(message = 'First feedback') {
-	await fireEvent.click(screen.getByRole('button', { name: new RegExp(message) }));
 }
 
 describe('announcement form ownership', () => {
@@ -352,152 +320,5 @@ describe('announcement form ownership', () => {
 		expect(screen.getByRole('button', { name: 'Deactivate Active notice' })).toHaveProperty('disabled', false);
 		await old.finish(failed);
 		expect(screen.queryByText('Current request failed')).toBeNull();
-	});
-});
-
-describe('Feedback editor ownership', () => {
-	it.each(uncertainResults)(
-		'preserves a draft but blocks saves after an unconfirmed $type until readback',
-		async (result) => {
-			render(Feedback, { props: { data: feedbackData(), form: null } });
-			await openFeedback();
-			await fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'reviewed' } });
-			await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Unconfirmed note' } });
-			await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(result);
-			expect(screen.getByLabelText('Status')).toHaveProperty('value', 'reviewed');
-			expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Unconfirmed note');
-			expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', true);
-			expect(screen.queryByText(/Private (transport|provider) detail/)).toBeNull();
-			expect((await submit(screen.getByRole('button', { name: 'Save Notes' }))).cancel).toHaveBeenCalledOnce();
-			expect(invalidateAll).not.toHaveBeenCalled();
-			await fireEvent.click(screen.getByRole('button', { name: 'Reload Feedback' }));
-			await waitFor(() => expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false));
-			expect(invalidateAll).toHaveBeenCalledOnce();
-		}
-	);
-
-	it('retires the editor through the visible tab interaction while retaining its pending write', async () => {
-		render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		const old = await submit(screen.getByRole('button', { name: 'Save Notes' }));
-		await fireEvent.click(screen.getByRole('tab', { name: 'Reviewed' }));
-		expect(screen.queryByLabelText('Admin Notes')).toBeNull();
-		await fireEvent.click(screen.getByRole('tab', { name: /New 2/ }));
-		await openFeedback();
-		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Fresh after tabs' } });
-		expect((await submit(screen.getByRole('button', { name: /Save Notes/ }))).cancel).toHaveBeenCalledOnce();
-		await old.finish(failed);
-		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Fresh after tabs');
-		expect(screen.queryByText('Current request failed')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
-	});
-	it('keeps the saved Status and Notes in the open editor after a save', async () => {
-		render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		await fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'reviewed' } });
-		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Saved review' } });
-		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(succeeded);
-		expect(screen.getByLabelText('Status')).toHaveProperty('value', 'reviewed');
-		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Saved review');
-		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save Notes' })));
-	});
-
-	it('retains the selected status and unsaved notes on a current failure', async () => {
-		render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		await fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'reviewed' } });
-		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Unsent review' } });
-		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(failed);
-		expect(screen.getByLabelText('Status')).toHaveProperty('value', 'reviewed');
-		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Unsent review');
-		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
-	});
-
-	it.each([failed, succeeded])('keeps peer drafts and releases only its own lock after $type', async (result) => {
-		const view = render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		const old = await submit(screen.getByRole('button', { name: 'Save Notes' }));
-		await openFeedback('Peer feedback');
-		await fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'resolved' } });
-		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Fresh peer draft' } });
-		expect((await submit(screen.getByRole('button', { name: 'Save Notes' }))).cancel).toHaveBeenCalledOnce();
-		invalidateAll.mockImplementation(async () => {
-			await view.rerender({
-				data: {
-					...feedbackData(),
-					newItems: [feedbackB],
-					reviewedItems: [{ ...feedbackA, status: 'reviewed', admin_notes: 'Saved first note' }]
-				},
-				form: null
-			});
-		});
-		await old.finish(result);
-		expect(screen.getByLabelText('Status')).toHaveProperty('value', 'resolved');
-		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Fresh peer draft');
-		expect(screen.queryByText('Current request failed')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
-		expect(invalidateAll).toHaveBeenCalledTimes(result.type === 'success' ? 1 : 0);
-	});
-
-	it('does not apply the old error after switching away and reopening the same record', async () => {
-		render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		const old = await submit(screen.getByRole('button', { name: 'Save Notes' }));
-		await openFeedback('Peer feedback');
-		await openFeedback();
-		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Reopened unsent note' } });
-		await old.finish(failed);
-		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Reopened unsent note');
-		expect(screen.queryByText('Current request failed')).toBeNull();
-	});
-
-	it('keeps saves blocked through readback failure until a read-only reload succeeds', async () => {
-		invalidateAll.mockRejectedValueOnce(new Error('Unavailable'));
-		render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(succeeded);
-		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', true);
-		expect(screen.getByText('Saved, but feedback could not be refreshed. Reload it before another save.')).toBeTruthy();
-		expect((await submit(screen.getByRole('button', { name: 'Save Notes' }))).cancel).toHaveBeenCalledOnce();
-		const reload = screen.getByRole('button', { name: 'Reload Feedback' });
-		reload.focus();
-		await fireEvent.click(reload);
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false));
-		expect(invalidateAll).toHaveBeenCalledTimes(2);
-		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: /First feedback/ })));
-	});
-
-	it('ignores a read failure after the page lifetime has retired', async () => {
-		let reject!: (error: Error) => void;
-		invalidateAll.mockImplementation(
-			() =>
-				new Promise<void>((_, fail) => {
-					reject = fail;
-				})
-		);
-		render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		const old = await submit(screen.getByRole('button', { name: 'Save Notes' }));
-		const completion = old.finish(succeeded);
-		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
-		await act(() => navigation[0]());
-		await openFeedback('Peer feedback');
-		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Fresh after navigation' } });
-		reject(new Error('Old read failed'));
-		await completion;
-		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Fresh after navigation');
-		expect(screen.queryByRole('button', { name: 'Reload Feedback' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
-	});
-
-	it('retires and clears owned state for an actor change', async () => {
-		const view = render(Feedback, { props: { data: feedbackData(), form: null } });
-		await openFeedback();
-		const old = await submit(screen.getByRole('button', { name: 'Save Notes' }));
-		await view.rerender({ data: feedbackData('admin-b'), form: null });
-		await openFeedback();
-		await old.finish(succeeded);
-		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
-		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 });

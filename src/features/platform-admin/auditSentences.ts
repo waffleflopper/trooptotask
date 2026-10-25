@@ -154,7 +154,8 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	announcement_create: entry(null, 'info', (s) => `${s.actor} created the announcement ${s.target}`),
 	announcement_activate: entry(null, 'info', (s) => `${s.actor} turned on the announcement ${s.target}`),
 	announcement_deactivate: entry(null, 'info', (s) => `${s.actor} turned off the announcement ${s.target}`),
-	announcement_delete: entry(null, 'warning', (s) => `${s.actor} deleted the announcement ${s.target}`)
+	announcement_delete: entry(null, 'warning', (s) => `${s.actor} deleted the announcement ${s.target}`),
+	'feedback.closed_without_reply': entry(null, 'info', (s) => `${s.actor} closed ${s.target} without replying`)
 };
 
 /** An action with no entry yet still belongs to Activity when it starts with one of these. It shows under All, by its name. */
@@ -177,6 +178,7 @@ const RESOURCE_NOUNS: Record<string, string> = {
 	user: 'User',
 	organization: 'Organization',
 	access_request: 'Access request',
+	feedback: 'Feedback',
 	platform_announcement: 'Announcement'
 };
 

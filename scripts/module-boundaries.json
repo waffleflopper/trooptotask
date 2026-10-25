@@ -558,6 +558,13 @@
 		"platform-admin": [
 			"src/features/platform-admin/contracts.ts",
 			"src/features/platform-admin/index.server.ts",
+			"src/features/platform-admin/inboxTypes.ts",
+			"src/features/platform-admin/sections.ts",
+			"src/features/platform-admin/components/inbox/InboxDetailPane.svelte",
+			"src/features/platform-admin/components/inbox/InboxQueue.svelte",
+			"src/features/platform-admin/components/inbox/inboxKinds.ts",
+			"src/features/platform-admin/components/inbox/settle.svelte.ts",
+			"src/features/platform-admin/components/AdminPageHeader.svelte",
 			"src/features/platform-admin/activityQuery.ts",
 			"src/features/platform-admin/components/ActivityView.svelte",
 			"src/features/platform-admin/components/AdminPager.svelte",

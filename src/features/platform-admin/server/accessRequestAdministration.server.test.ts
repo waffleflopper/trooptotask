@@ -890,7 +890,30 @@ describe('Platform Access Request Administration', () => {
 		expect(deps.audit).toHaveBeenCalledWith(
 			expect.objectContaining({
 				action: 'access_request.rejected',
-				details: { blockedInvitationCount: 1 }
+				details: { blockedInvitationCount: 1, rejectionReason: null }
+			})
+		);
+	});
+
+	it("records the operator's trimmed rejection reason in the audit, not the store command", async () => {
+		const { admin, deps } = makeDeps({
+			store: makeStore({
+				rejectPendingAccessRequestAndBlockLinkedInvitations: vi
+					.fn()
+					.mockResolvedValue({ status: 'rejected', blockedInvitations: [] })
+			})
+		});
+
+		await admin.reject({ accessRequestId: 'request-1', actorUserId: 'admin-1', reason: '  Not a unit account  ' });
+
+		expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).toHaveBeenCalledWith({
+			accessRequestId: 'request-1',
+			actorUserId: 'admin-1'
+		});
+		expect(deps.audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'access_request.rejected',
+				details: { blockedInvitationCount: 0, rejectionReason: 'Not a unit account' }
 			})
 		);
 	});

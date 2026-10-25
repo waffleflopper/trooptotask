@@ -2,23 +2,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { Window as HappyDOMWindow } from 'happy-dom';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 
 const navigation = vi.hoisted(() => ({
 	before: [] as Array<(navigation: { type: string; to: { url: URL } | null }) => void>,
-	after: [] as Array<() => void>
+	after: [] as Array<() => void>,
+	pathname: '/admin/users'
 }));
 
-vi.mock('$app/stores', async () => {
-	const { readable } = await import('svelte/store');
-
-	return {
-		page: readable({
-			url: new URL('http://localhost/admin/users')
-		})
-	};
-});
+vi.mock('$app/stores', () => ({
+	page: {
+		subscribe: (run: (value: { url: URL }) => void) => {
+			run({ url: new URL(`http://localhost${navigation.pathname}`) });
+			return () => {};
+		}
+	}
+}));
 
 vi.mock('$app/navigation', () => ({
 	beforeNavigate: (callback: (navigation: { type: string; to: { url: URL } | null }) => void) =>
@@ -31,12 +31,12 @@ vi.mock('$features/platform-admin/components/AdminSearch.svelte', () => ({
 }));
 
 import Layout from './+layout.svelte';
-import type { LayoutData } from './$types';
 
 afterEach(() => {
 	cleanup();
 	navigation.before.length = 0;
 	navigation.after.length = 0;
+	navigation.pathname = '/admin/users';
 	document.body.innerHTML = '';
 	(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 1024, height: 768 });
 });
@@ -69,100 +69,117 @@ const children = createRawSnippet(() => ({
 	render: () => '<section>Admin child</section>'
 }));
 
-const supportGroups: LayoutData['visibleNavGroups'] = [
-	{ label: null, items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }] },
-	{
-		label: 'SUPPORT',
-		items: [
-			{ label: 'Users', href: '/admin/users', page: 'users' },
-			{ label: 'Organizations', href: '/admin/organizations', page: 'organizations' }
-		]
-	}
-] as LayoutData['visibleNavGroups'];
-
-function renderLayout(
-	accessiblePages: LayoutData['accessiblePages'],
-	visibleNavGroups: LayoutData['visibleNavGroups'] = [
-		{ label: null, items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }] }
-	] as LayoutData['visibleNavGroups']
-) {
+function renderLayout(inboxOpenCount: Promise<number | null> = Promise.resolve(0)) {
 	return render(Layout, {
 		props: {
 			children,
-			data: {
-				viewer: null,
-				adminUserId: 'admin-1',
-				adminEmail: 'admin@example.test',
-				accessiblePages,
-				visibleNavGroups
-			}
+			data: { viewer: null, adminUserId: 'admin-1', adminEmail: 'admin@example.test', inboxOpenCount }
 		}
 	});
 }
 
-const supportNav = [
-	{ label: null, items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }] },
-	{ label: 'Support', items: [{ label: 'Users', href: '/admin/users', page: 'users' }] }
-] as LayoutData['visibleNavGroups'];
-
 describe('admin layout', () => {
 	it('renders one main landmark around page content, apart from the admin header', () => {
-		renderLayout(['dashboard']);
+		renderLayout();
 
 		expect(screen.getAllByRole('main')).toHaveLength(1);
 		expect(screen.getByRole('main').textContent).toBe('Admin child');
 	});
 
-	it('hides global admin search when the admin cannot access users or organizations', () => {
-		renderLayout(['dashboard']);
-
-		expect(screen.queryByTestId('visible-stub')).toBeNull();
-	});
-
-	it('shows global admin search when the admin can access support search targets', () => {
-		renderLayout(['dashboard', 'users', 'organizations']);
+	it('shows global admin search', () => {
+		renderLayout();
 
 		expect(screen.getAllByTestId('visible-stub')).toHaveLength(1);
 	});
 
-	it('names the admin navigation and marks only the current page link', () => {
-		renderLayout(['dashboard', 'users', 'organizations'], supportGroups);
+	it('lists the five sections in order and marks only the current one', () => {
+		renderLayout();
 
 		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
-		const support = within(nav).getByRole('list', { name: 'SUPPORT' });
-		expect(within(support).getByRole('link', { name: 'Users' }).getAttribute('aria-current')).toBe('page');
-		expect(within(support).getByRole('link', { name: 'Organizations' }).hasAttribute('aria-current')).toBe(false);
-		expect(within(nav).getByRole('link', { name: 'Dashboard' }).hasAttribute('aria-current')).toBe(false);
+		const links = within(nav).getAllByRole('link');
+		expect(links.map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
+			['Inbox', '/admin'],
+			['Organizations', '/admin/organizations'],
+			['People', '/admin/people'],
+			['Activity', '/admin/activity'],
+			['Announcements', '/admin/announcements']
+		]);
+		const current = links.filter((link) => link.getAttribute('aria-current') === 'page');
+		expect(current.map((link) => link.textContent?.trim())).toEqual(['People']);
 	});
 
-	it('shows the admin identity as static text rather than controls without an action', () => {
-		renderLayout(['dashboard']);
+	it('marks Inbox current on the Inbox home', () => {
+		navigation.pathname = '/admin';
+		renderLayout();
 
-		expect(screen.getByText('Control Room').closest('button, a, [tabindex]')).toBeNull();
+		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
+		expect(within(nav).getByRole('link', { name: 'Inbox' }).getAttribute('aria-current')).toBe('page');
+		expect(within(nav).getByRole('link', { name: 'People' }).hasAttribute('aria-current')).toBe(false);
+	});
+
+	it('shows the operator as static text with a way back to the app', () => {
+		renderLayout();
+
+		expect(screen.getByText('Operator · MFA on').closest('button, a, [tabindex]')).toBeNull();
 		expect(screen.getByText('admin@example.test').closest('button, a, [tabindex]')).toBeNull();
-		expect(screen.queryByRole('button', { name: /Platform Admin|admin@example.test/ })).toBeNull();
+		expect(screen.getByRole('link', { name: /Back to the app/ }).getAttribute('href')).toBe('/dashboard');
 	});
 
-	it('returns focus to Toggle Sidebar after a link choice in the phone sidebar', async () => {
+	it('counts open Inbox items on the Inbox link once the count arrives', async () => {
+		renderLayout(Promise.resolve(7));
+
+		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
+		expect(await within(nav).findByRole('link', { name: 'Inbox 7 open' })).toBeTruthy();
+	});
+
+	it.each([0, null])('leaves the Inbox link bare when the count is %s', async (count) => {
+		const pending = Promise.resolve(count);
+		renderLayout(pending);
+		await pending;
+		await tick();
+
+		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
+		expect(within(nav).getByRole('link', { name: 'Inbox' })).toBeTruthy();
+	});
+
+	it('returns focus to Menu after a link choice in the phone menu', async () => {
 		(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 390, height: 844 });
-		renderLayout(['dashboard', 'users'], supportNav);
+		renderLayout();
 		const stopRouting = routeLinkClicks();
-		const trigger = screen.getAllByRole('button', { name: 'Toggle Sidebar' })[0];
+		const trigger = screen.getByRole('button', { name: 'Menu' });
 		trigger.focus();
 		await fireEvent.click(trigger);
-		const link = within(screen.getByRole('dialog')).getByRole('link', { name: 'Users' });
+		expect(trigger.getAttribute('aria-expanded')).toBe('true');
+		const menu = document.getElementById('admin-menu') as HTMLElement;
+		const link = within(menu).getByRole('link', { name: 'People' });
 		link.focus();
 		await fireEvent.click(link);
 		await stopRouting();
 
-		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(document.activeElement?.getAttribute('data-sidebar')).toBe('trigger');
+		expect(document.getElementById('admin-menu')).toBeNull();
+		expect(document.activeElement).toBe(trigger);
+	});
+
+	it('closes the phone menu on Escape and returns focus to Menu', async () => {
+		(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 390, height: 844 });
+		renderLayout();
+		const trigger = screen.getByRole('button', { name: 'Menu' });
+		await fireEvent.click(trigger);
+		within(document.getElementById('admin-menu') as HTMLElement)
+			.getByRole('link', { name: 'People' })
+			.focus();
+		await fireEvent.keyDown(window, { key: 'Escape' });
+
+		expect(document.getElementById('admin-menu')).toBeNull();
+		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+		expect(document.activeElement).toBe(trigger);
 	});
 
 	it('leaves the page focus reset alone after a desktop link choice', async () => {
-		renderLayout(['dashboard', 'users'], supportNav);
+		renderLayout();
 		const stopRouting = routeLinkClicks();
-		const link = screen.getByRole('link', { name: 'Users' });
+		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
+		const link = within(nav).getByRole('link', { name: 'People' });
 		link.focus();
 		await fireEvent.click(link);
 		await stopRouting();

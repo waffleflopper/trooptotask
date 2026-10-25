@@ -395,4 +395,20 @@ describe('auditLog', () => {
 			}
 		});
 	});
+
+	it('keeps an Access Request rejection reason while still redacting other freeform reasons', async () => {
+		await auditLog(
+			{
+				action: 'access_request.rejected',
+				resourceType: 'access_request',
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				details: { rejectionReason: 'Not a unit account', reason: 'Private note' }
+			},
+			{ userId: 'admin-1', ip: '127.0.0.1' }
+		);
+
+		expect(insert.mock.calls[0]?.[0]).toMatchObject({
+			details: { rejectionReason: 'Not a unit account', reason: '[redacted]', redacted_fields: ['reason'] }
+		});
+	});
 });

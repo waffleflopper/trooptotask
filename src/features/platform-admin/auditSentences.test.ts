@@ -35,6 +35,21 @@ describe('describeAuditEvent', () => {
 		]);
 	});
 
+	it('reads a Feedback item closed from the Inbox as a sentence shown under All', () => {
+		const described = describeAuditEvent(
+			event({
+				action: 'feedback.closed_without_reply',
+				severity: 'info',
+				resourceType: 'feedback',
+				details: { actorEmail: 'robert@example.test' }
+			})
+		);
+
+		expect(described.sentence).toBe('robert@example.test closed Feedback 9d8e7f60 without replying');
+		expect(described.category).toBeNull();
+		expect(activityScope(null).actions).toContain('feedback.closed_without_reply');
+	});
+
 	it('falls back to short IDs for an event written before labels were stored', () => {
 		const described = describeAuditEvent(event());
 

@@ -159,6 +159,7 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	suspend_user: entry('accounts', 'critical', (s) => `${s.actor} suspended ${s.target}`, reasonNote),
 	unsuspend_user: entry('accounts', 'warning', (s) => `${s.actor} unsuspended ${s.target}`, reasonNote),
 	'admin.user.password_reset': entry('accounts', 'warning', (s) => `${s.actor} sent a password reset to ${s.target}`),
+	'admin.user.resend_invite': entry('accounts', 'info', (s) => `${s.actor} resent the invite to ${s.target}`),
 	suspend_org: {
 		...entry('organizations', 'critical', (s) => `${s.actor} suspended ${s.target}`, reasonNote),
 		organizationSentence: 'A platform operator suspended the Organization'

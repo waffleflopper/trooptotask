@@ -72,6 +72,20 @@ describe('describeAuditEvent', () => {
 		expect(activityScope(null).actions).toContain(action);
 	});
 
+	it('still reads an invite resent by the retired admin command and files it under Accounts', () => {
+		const described = describeAuditEvent(
+			event({
+				action: 'admin.user.resend_invite',
+				severity: 'info',
+				details: { actorEmail: 'robert@example.test', targetName: 'pat@example.test' }
+			})
+		);
+
+		expect(described.sentence).toBe('robert@example.test resent the invite to pat@example.test');
+		expect(described.category).toBe('accounts');
+		expect(activityScope('accounts').actions).toContain('admin.user.resend_invite');
+	});
+
 	it('falls back to short IDs for an event written before labels were stored', () => {
 		const described = describeAuditEvent(event());
 

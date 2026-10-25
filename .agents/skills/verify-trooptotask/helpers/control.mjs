@@ -1131,7 +1131,14 @@ async function main() {
 		const seededAnnouncements = seedIds.length
 			? checked(await client.from('platform_announcements').select(select).in('id', seedIds))
 			: [];
-		note({ announcements, seededAnnouncements });
+		const whatsNew = checked(
+			await client
+				.from('whats_new_entries')
+				.select('id,title,paragraphs,published_on,published_seq,updated_by,updated_at')
+				.eq('updated_by', fixture.actors.platformReviewer.id)
+				.order('updated_at')
+		);
+		note({ announcements, seededAnnouncements, whatsNew });
 		return;
 	}
 	if (command === 'rows') {

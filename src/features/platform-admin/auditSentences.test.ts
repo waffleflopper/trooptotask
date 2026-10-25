@@ -240,3 +240,27 @@ it.each([
 	expect(result.sentence).toContain('Pat Rivera');
 	expect(result.category).toBe('access');
 });
+
+it.each([
+	'feedback.replied',
+	'feedback.replied_and_closed',
+	'feedback.staff_note_saved',
+	'feedback.github_issue_created'
+])('attributes %s to its stored operator and feedback target', (action) => {
+	const result = describeAuditEvent({
+		id: 'event',
+		timestamp: '2026-10-25T00:00:00Z',
+		action,
+		severity: 'info',
+		userId: 'operator-id',
+		orgId: null,
+		orgName: null,
+		resourceType: 'feedback',
+		resourceId: 'feedback-id',
+		ipAddress: null,
+		details: { actorEmail: 'operator@example.test', targetName: 'Calendar feedback' }
+	});
+	expect(result.sentence).toContain('operator@example.test');
+	expect(result.sentence).toContain('Calendar feedback');
+	expect(activityScope(null).actions).toContain(action);
+});

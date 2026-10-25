@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { Dialog as DialogPrimitive } from 'bits-ui';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { setAppDialogState, type AppDialogTone } from './app-dialog-context';
+	import { setAppDialogState, type AppDialogTone, type AppDialogVoice } from './app-dialog-context';
 
 	type Props = DialogPrimitive.RootProps & {
 		/** Work is in flight: the dialog announces aria-busy and blocks dismissal. */
@@ -12,6 +12,7 @@
 		onClose?: () => void;
 		/** `destructive` marks a dialog that confirms an irreversible action. */
 		tone?: AppDialogTone;
+		voice?: AppDialogVoice;
 		children?: Snippet;
 	};
 
@@ -21,6 +22,7 @@
 		closeBlocked = false,
 		onClose,
 		tone = 'default',
+		voice = 'default',
 		onOpenChange,
 		children,
 		...restProps
@@ -35,6 +37,9 @@
 		},
 		get tone() {
 			return tone;
+		},
+		get voice() {
+			return voice;
 		}
 	});
 

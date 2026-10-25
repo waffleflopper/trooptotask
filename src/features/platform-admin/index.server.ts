@@ -18,3 +18,4 @@ export { createPlatformPeopleOperations } from './server/peopleOperations.server
 export { createPlatformSetupEmailOperations } from './server/setupEmailOperations.server';
 
 export { mapResendSetupResult, mapRescindSetupResult } from './server/setupEmailActionResults.server';
+export { admitPlatformAdministrator } from './server/admission.server';

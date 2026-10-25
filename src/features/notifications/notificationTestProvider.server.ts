@@ -37,6 +37,13 @@ export function notificationTestProvider(rows: Notification[] = [], actingUserId
 				}
 				const matches = (row: Notification) => {
 					if (actingUserId && row.user_id !== actingUserId) return false;
+					const alternatives = url.searchParams.get('or');
+					if (
+						alternatives &&
+						row.organization_id !== null &&
+						!alternatives.includes(`organization_id.eq.${row.organization_id},`)
+					)
+						return false;
 					for (const column of ['organization_id', 'user_id', 'id', 'read'] as const) {
 						const value = url.searchParams.get(column);
 						if (value && value !== `eq.${String(row[column])}`) return false;

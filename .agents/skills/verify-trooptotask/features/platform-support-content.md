@@ -13,7 +13,8 @@ is refused.
 - `whats-new-publishing`: draft, reorder paragraphs, save, publish and delete a What's New entry; drafts stay invisible,
   the newest three published entries fill the member dialog, and every published entry is on the all-updates page.
 - `feedback-review`: retain submitter/context/message while closing Feedback from the Inbox without a reply, reload and
-  recover from failure ([Platform Inbox](platform-inbox.md) owns the journey).
+  recover from failure ([Platform Inbox](platform-inbox.md) owns the journey); replies, staff notes and GitHub issues
+  belong to the [Feedback recipe](platform-feedback.md).
 - `navigation`: the five-section sidebar and retained search/navigation without widening disclosure.
 - `failure-and-lifetime`: definite rejected writes preserve the unsaved choice and permit an explicit retry; unconfirmed
   5xx/transport results block writes until authoritative readback; late results cannot affect another page or record.
@@ -152,8 +153,9 @@ create/toggle/delete/close requests preserve rows, separately from native contro
 - Global announcements and account dismissals differ from Organization-scoped private communications. An Organization
   role grants no platform privilege.
 - Announcement audit events and real Feedback submission establish their own producer effects.
-- Banners have create, toggle and delete controls, with no editing form. Feedback has no delete or reply control. What's
-  New entries edit in place and only drafts delete. Do not invent a journey for any of them.
+- Banners have create, toggle and delete controls, with no editing form. Feedback has no delete control; replies
+  and issues are in the [Feedback recipe](platform-feedback.md). What's New entries edit in place and only drafts delete.
+  Do not invent a delete journey for published entries.
 - A published What's New entry cannot be removed from the Admin, and member views are limited to the newest three plus
   the all-updates page, so give each verification entry a unique title and keep the count of published test entries low.
 - Synthetic 503s exercise browser response handling. Provider list errors must remain distinct from a genuine empty

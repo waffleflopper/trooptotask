@@ -45,7 +45,25 @@ const accessRequest = (status: 'pending' | 'approved'): InboxDetail => ({
 	similarOrganizations: []
 });
 
-type Pending = { item: string; respond: (body: InboxDetailResponse | 'fail') => void };
+const staffDetail = (id: string) => ({
+	id,
+	category: 'bug',
+	message: 'First report',
+	pageUrl: null,
+	status: 'new',
+	createdAt: '2026-10-30T08:00:00Z',
+	replies: [],
+	userId: 'reporter',
+	userEmail: 'member@example.test',
+	organizationId: null,
+	organizationName: null,
+	pageSection: null,
+	staffNotes: [],
+	issue: null,
+	issuePrefill: { title: 'First report', description: 'First report', labels: ['bug'], includeOrganization: false }
+});
+
+type Pending = { item: string; respond: (body: unknown) => void };
 let pending: Pending[];
 
 beforeEach(() => {
@@ -122,6 +140,10 @@ describe('Inbox detail pane', () => {
 		render(InboxDetailPane, { props: { item: A, onQueueStale } });
 		await answer(`feedback:${A.id}`, { status: 'ok', detail: feedback(A.id, 'First report') });
 		await screen.findByRole('heading', { name: 'First report' });
+		await act(() =>
+			pending.findLast((request) => request.item === '')!.respond({ status: 'ok', detail: staffDetail(A.id) })
+		);
+		await screen.findByRole('button', { name: 'Close without replying' });
 
 		const settle = (await forms.submits.at(-1)!({ cancel: () => {} } as never)) as (opts: unknown) => Promise<void>;
 		await act(() => settle({ result: { type: 'failure', status: 400, data: { error: 'Already closed elsewhere.' } } }));

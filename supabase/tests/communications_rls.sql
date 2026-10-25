@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(53);
+SELECT plan(54);
 
 -- Global content and account dismissals do not require Organization membership.
 -- Active/expiry filtering and admitted identity are application responsibilities;
@@ -248,7 +248,7 @@ SELECT results_eq(
 );
 
 WITH changed AS (
-	UPDATE public.beta_feedback SET status = 'resolved', admin_notes = 'Blocked review'
+	UPDATE public.beta_feedback SET status = 'resolved'
 	WHERE id = '50000000-0000-4000-8000-000000136801' RETURNING id
 )
 SELECT is((SELECT count(*)::integer FROM changed), 0, 'submitter cannot review or change its own feedback');
@@ -277,13 +277,13 @@ SELECT results_eq(
 	'operator reads feedback across accounts and Organizations'
 );
 
-WITH changed AS (
-	UPDATE public.beta_feedback SET status = 'reviewed', admin_notes = 'Support triage'
-	WHERE id = '50000000-0000-4000-8000-000000136802' RETURNING status, admin_notes
-)
-SELECT ok(
-	(SELECT status = 'reviewed' AND admin_notes = 'Support triage' FROM changed),
-	'operator can persist review status and notes'
+SELECT lives_ok(
+ $$ SELECT public.reply_to_feedback('50000000-0000-4000-8000-000000136802', 'Support acknowledgement', false) $$,
+ 'operator can review feedback through its attributed reply command'
+);
+SELECT lives_ok(
+ $$ SELECT public.save_feedback_staff_note('50000000-0000-4000-8000-000000136802', 'Support triage') $$,
+ 'operator can save a staff-only note through its attributed command'
 );
 
 -- Banner writes belong to the server command, which binds attribution and awaits the audit row.
@@ -345,19 +345,19 @@ SELECT throws_ok(
 
 RESET ROLE;
 SELECT results_eq(
-	$$ SELECT id FROM public.notifications ORDER BY id $$,
-	$$ VALUES ('60000000-0000-4000-8000-000000136802'::uuid), ('60000000-0000-4000-8000-000000136804'::uuid), ('60000000-0000-4000-8000-000000136805'::uuid) $$,
-	'own deletions persist while denied peer and anonymous deletes preserve their saved notifications'
+	$$ SELECT coalesce(link, id::text) FROM public.notifications ORDER BY 1 $$,
+	$$ VALUES ('/feedback/50000000-0000-4000-8000-000000136802'::text), ('60000000-0000-4000-8000-000000136802'::text), ('60000000-0000-4000-8000-000000136804'::text), ('60000000-0000-4000-8000-000000136805'::text) $$,
+	'own deletions persist while denied peer and anonymous deletes preserve saved and reply notifications'
 );
 
 SELECT results_eq(
-	$$ SELECT status, admin_notes FROM public.beta_feedback WHERE id = '50000000-0000-4000-8000-000000136801' $$,
+	$$ SELECT f.status, n.body FROM public.beta_feedback f LEFT JOIN public.feedback_staff_notes n ON n.feedback_id=f.id WHERE f.id = '50000000-0000-4000-8000-000000136801' $$,
 	$$ VALUES ('new'::text, NULL::text) $$,
 	'denied submitter review and deletion preserve the saved feedback'
 );
 
 SELECT results_eq(
-	$$ SELECT status, admin_notes FROM public.beta_feedback WHERE id = '50000000-0000-4000-8000-000000136802' $$,
+	$$ SELECT f.status, n.body FROM public.beta_feedback f LEFT JOIN public.feedback_staff_notes n ON n.feedback_id=f.id WHERE f.id = '50000000-0000-4000-8000-000000136802' $$,
 	$$ VALUES ('reviewed'::text, 'Support triage'::text) $$,
 	'denied inactive reviewer leaves the support review intact'
 );

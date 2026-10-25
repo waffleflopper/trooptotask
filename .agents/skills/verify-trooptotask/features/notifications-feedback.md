@@ -121,13 +121,15 @@ endpoints).
    `settings/exports`, download JSON and Excel through visible controls using `export arm/save`, inspect their
    Notifications/Beta Feedback sections/sheets and metadata, and compare saved values/counts with provider readback.
    Only request-user-visible rows in the admitted Organization belong in these downloads; an owner does not gain another
-   account's inbox or feedback. Keep outside-page/pagination proof separately in owner SDK/SQL tests. Exercise a real
+   account's inbox or feedback. A reply to Feedback arrives as the notification `A reply to your feedback` linking
+   `/feedback/ID` ([Feedback recipe](platform-feedback.md) owns it); exports carry no replies or staff notes. Keep
+   outside-page/pagination proof separately in owner SDK/SQL tests. Exercise a real
    Training type create/delete through the configuring actor and compare the generated notification audience; a denied
    configure attempt must retain the saved type and create no notification in route tests.
 
 After `clean-seeds`, read back the known seeded notification IDs' absence. Global announcement cleanup deletes only
 recorded helper IDs and their dependent dismissals. Feedback has no member-facing delete control and stays in the
-disposable provider until owned worker cleanup.
+disposable provider until owned worker cleanup; its replies and staff notes go with the row.
 
 8. **Ask the inviter.** The platform operator's `Ask the inviter to check the address` on a bounced setup email (see
    [Platform Inbox](platform-inbox.md), step 9) writes one `setup_email_address_check` notification per current member

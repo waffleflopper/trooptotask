@@ -266,6 +266,9 @@ describe('request-bound communications exports', () => {
 									row.user_id === USER_ID &&
 									(!url.searchParams.has('organization_id') ||
 										url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+									(!url.searchParams.has('or') ||
+										row.organization_id === null ||
+										url.searchParams.get('or')?.includes(`organization_id.eq.${row.organization_id},`)) &&
 									(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
 							)
 						);
@@ -276,7 +279,7 @@ describe('request-bound communications exports', () => {
 			const ctx = createRequestOrganizationExportContext(await buildRequest(kind, locals));
 
 			await expect(listNotificationExportRows(ctx.notificationSelf)).resolves.toEqual([own]);
-			await expect(ctx.feedbackExport.listRows(ctx.auth.orgId)).resolves.toEqual([own]);
+			await expect(ctx.feedbackExport.listRows(ctx.auth.orgId)).resolves.toEqual([{ ...own, admin_notes: null }]);
 			expect(getAdminClient).not.toHaveBeenCalled();
 		}
 	);

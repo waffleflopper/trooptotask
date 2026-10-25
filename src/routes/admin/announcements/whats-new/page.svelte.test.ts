@@ -179,6 +179,15 @@ describe('admin What’s New', () => {
 		expect(screen.getByLabelText('Paragraph 2')).toHaveProperty('value', '');
 	});
 
+	it('keeps the fields filled after a successful save of a published entry', async () => {
+		await renderPage('?entry=live-1');
+		const request = await submit(await screen.findByRole('button', { name: 'Save Changes' }));
+		await request.finish({ type: 'success', status: 200, data: { id: 'live-1' } });
+		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Live entry');
+		expect(screen.getByLabelText('Paragraph 1')).toHaveProperty('value', 'First');
+		expect(screen.getByLabelText('Paragraph 2')).toHaveProperty('value', 'Second');
+	});
+
 	it('keeps typed text through a failed save and shows the reason', async () => {
 		await renderPage('?entry=draft-1');
 		await fireEvent.input(await screen.findByLabelText('Title'), { target: { value: 'Typed title' } });

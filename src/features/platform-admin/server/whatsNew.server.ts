@@ -116,6 +116,8 @@ export function createPlatformWhatsNew(deps: WhatsNewDependencies): PlatformWhat
 
 			const existing = await deps.store.getEntry(input.id);
 			if (!existing) return { status: 'not_found' };
+			if (existing.publishedOn !== null && paragraphs.length === 0)
+				return { status: 'invalid', error: 'A published entry needs a paragraph' };
 			const publishing = existing.publishedOn === null && publishOn !== undefined;
 			const updated = await deps.store.updateEntry({
 				id: input.id,

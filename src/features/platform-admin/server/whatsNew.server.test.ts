@@ -150,6 +150,16 @@ describe("platform What's New", () => {
 		expect(audits.map((event) => event.action)).toEqual(['whats_new_update']);
 	});
 
+	it('refuses to empty a published entry', async () => {
+		const { operations, rows, audit } = setup([entry('live', '2026-10-01')]);
+		expect(await operations.save({ id: 'live', title: 'Edited', paragraphs: ['  '] })).toEqual({
+			status: 'invalid',
+			error: 'A published entry needs a paragraph'
+		});
+		expect(rows[0]).toMatchObject({ title: 'live', paragraphs: ['Body'] });
+		expect(audit).not.toHaveBeenCalled();
+	});
+
 	it('writes nothing and audits nothing for an invalid entry', async () => {
 		const { operations, rows, audit } = setup();
 		expect(await operations.save({ id: null, title: '', paragraphs: [] })).toEqual({

@@ -171,7 +171,8 @@
 							else loadedKey = null;
 						}
 					},
-					focus: () => [submitter, reloadButton, titleInput]
+					focus: () => [submitter, reloadButton, titleInput],
+					reset: false
 				});
 			};
 		};

@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onDestroy } from 'svelte';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
 	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { createInboxActions } from '$features/platform-admin/components/inbox/inboxActions.svelte';
@@ -67,12 +68,7 @@
 						>00 min ago</span
 					>{/if}
 			{:else if label === 'MFA'}
-				<Badge
-					variant={data.mfaEnabled ? 'success' : 'secondary'}
-					class="font-mono text-[11px] tracking-[0.08em] uppercase"
-				>
-					{data.mfaEnabled ? 'On' : 'Off'}
-				</Badge>
+				<Badge variant={data.mfaEnabled ? 'success' : 'secondary'} mono>{data.mfaEnabled ? 'On' : 'Off'}</Badge>
 			{:else if label === 'Signed up'}
 				{formatDate(data.person.createdAt)}
 			{:else}
@@ -130,13 +126,8 @@
 
 <svelte:window onpageshow={(event) => event.persisted && actions.steppingUp && actions.resumeAfterStepUp()} />
 
-<div class="grid gap-6 px-4 pt-5 pb-10 sm:px-10 sm:pt-9">
-	<div class="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
-		<div class="min-w-0 flex-1 basis-[34rem]">
-			<AdminPageHeader eyebrow={`Person · ${suspended ? 'Suspended' : 'Active'}`} {title} {description} />
-		</div>
-		{@render commands()}
-	</div>
+<AdminPage>
+	<AdminPageHeader eyebrow={`Person · ${suspended ? 'Suspended' : 'Active'}`} {title} {description} {commands} />
 
 	{#if actions.confirmation || actions.notice || actions.error || actions.steppingUp}
 		<div class="grid gap-3">
@@ -194,14 +185,14 @@
 										{#if membership.organization}
 											<a
 												href={resolve(`/admin/organizations/${membership.organization.id}` as '/admin/organizations')}
-												class="min-w-0 truncate text-base font-semibold underline-offset-4 hover:underline"
+												class="min-w-0 truncate text-base font-semibold text-foreground underline-offset-4 hover:underline"
 											>
 												{membership.organization.name}
 											</a>
 										{:else}
 											<span class="text-muted-foreground">Organization unavailable</span>
 										{/if}
-										<Badge variant={adminBadgeVariant(membership.role)}>{formatAdminLabel(membership.role)}</Badge>
+										<Badge variant={adminBadgeVariant(membership.role)} mono>{formatAdminLabel(membership.role)}</Badge>
 									</li>
 								{/each}
 							</ul>
@@ -297,7 +288,7 @@
 			</dl>
 		</aside>
 	</div>
-</div>
+</AdminPage>
 
 {#if data.canSuspend && suspending}
 	<SuspendModal

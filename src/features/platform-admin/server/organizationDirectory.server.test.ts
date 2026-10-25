@@ -7,17 +7,18 @@ import {
 
 describe('normalizePlatformOrganizationListQuery', () => {
 	it.each([
-		[{}, { page: 1, q: '', filter: 'all' }],
+		[{}, { pages: 1, q: '', filter: 'all' }],
 		[
-			{ page: '3', q: '  Able ', filter: 'Quiet' },
-			{ page: 3, q: 'Able', filter: 'quiet' }
+			{ pages: '3', q: '  Able ', filter: 'Quiet' },
+			{ pages: 3, q: 'Able', filter: 'quiet' }
 		],
 		[
-			{ page: '0', filter: 'nope' },
-			{ page: 1, q: '', filter: 'all' }
+			{ pages: '0', filter: 'nope' },
+			{ pages: 1, q: '', filter: 'all' }
 		],
-		[{ page: '2.5' }, { page: 1, q: '', filter: 'all' }],
-		[{ q: 'x'.repeat(300) }, { page: 1, q: 'x'.repeat(100), filter: 'all' }]
+		[{ pages: '2.5' }, { pages: 1, q: '', filter: 'all' }],
+		[{ pages: '9999' }, { pages: 20, q: '', filter: 'all' }],
+		[{ q: 'x'.repeat(300) }, { pages: 1, q: 'x'.repeat(100), filter: 'all' }]
 	])('reads %j as %j', (input, expected) => {
 		expect(normalizePlatformOrganizationListQuery(input)).toEqual(expected);
 	});
@@ -33,7 +34,6 @@ describe('Organization directory provider', () => {
 		const { directory } = directoryWith([
 			{
 				total_count: '0',
-				page: 1,
 				all_count: '0',
 				active_week_count: '0',
 				quiet_count: '0',
@@ -49,13 +49,10 @@ describe('Organization directory provider', () => {
 				owner_email: null
 			}
 		]);
-		await expect(directory.listOrganizations({ page: 1, q: 'zzz', filter: 'all' })).resolves.toEqual({
+		await expect(directory.listOrganizations({ pages: 1, q: 'zzz', filter: 'all' })).resolves.toEqual({
 			counts: { all: 0, activeWeek: 0, quiet: 0, suspended: 0 },
 			organizations: [],
-			page: 1,
-			pageSize: 25,
-			totalCount: 0,
-			totalPages: 1
+			totalCount: 0
 		});
 	});
 
@@ -63,7 +60,6 @@ describe('Organization directory provider', () => {
 		const { directory } = directoryWith([
 			{
 				total_count: 1,
-				page: 1,
 				all_count: '38',
 				active_week_count: 31,
 				quiet_count: 4,
@@ -79,19 +75,47 @@ describe('Organization directory provider', () => {
 				owner_email: 'owner@example.test'
 			}
 		]);
-		const page = await directory.listOrganizations({ page: 1, q: '', filter: 'quiet' });
+		const page = await directory.listOrganizations({ pages: 1, q: '', filter: 'quiet' });
 		expect(page.counts).toEqual({ all: 38, activeWeek: 31, quiet: 4, suspended: 1 });
 		expect(page.totalCount).toBe(1);
 	});
 
+	it('asks for every row from the top, one page more for each page shown', async () => {
+		const { directory, rpc } = directoryWith([
+			{
+				total_count: 60,
+				all_count: 60,
+				active_week_count: 0,
+				quiet_count: 0,
+				suspended_count: 0,
+				organization_id: null,
+				name: null,
+				created_at: null,
+				status: null,
+				last_active_at: null,
+				member_count: null,
+				personnel_count: null,
+				owner_count: null,
+				owner_email: null
+			}
+		]);
+		await directory.listOrganizations({ pages: 3, q: 'Able', filter: 'quiet' });
+		expect(rpc).toHaveBeenCalledWith('platform_list_organizations', {
+			p_search: 'Able',
+			p_filter: 'quiet',
+			p_page: 1,
+			p_page_size: 75
+		});
+	});
+
 	it('throws the database error instead of returning an empty list', async () => {
 		const { directory } = directoryWith(null, new Error('permission denied'));
-		await expect(directory.listOrganizations({ page: 1, q: '', filter: 'all' })).rejects.toThrow('permission denied');
+		await expect(directory.listOrganizations({ pages: 1, q: '', filter: 'all' })).rejects.toThrow('permission denied');
 	});
 
 	it('rejects a malformed row instead of showing guessed facts', async () => {
-		const { directory } = directoryWith([{ total_count: 1, page: 1, status: 'bogus' }]);
-		await expect(directory.listOrganizations({ page: 1, q: '', filter: 'all' })).rejects.toThrow();
+		const { directory } = directoryWith([{ total_count: 1, status: 'bogus' }]);
+		await expect(directory.listOrganizations({ pages: 1, q: '', filter: 'all' })).rejects.toThrow();
 	});
 
 	it('returns null for an Organization that does not exist', async () => {

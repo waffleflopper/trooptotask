@@ -263,7 +263,7 @@
 	<li class="grid gap-1.5 border-b py-3" data-testid="banner-row">
 		<div class="flex items-start justify-between gap-3">
 			<h3 class="min-w-0 text-sm font-semibold wrap-anywhere">{announcement.title}</h3>
-			<Badge variant={state === 'live' ? 'success' : 'outline'} class="font-mono text-[11px] tracking-wide uppercase">
+			<Badge variant={state === 'live' ? 'success' : 'outline'} mono>
 				{state === 'live' ? 'Live' : state === 'ended' ? 'Ended' : 'Off'}
 			</Badge>
 		</div>

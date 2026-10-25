@@ -7,11 +7,12 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as SegmentedFilter from '$lib/components/patterns/segmented-filter';
 	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import ActivityRangeMenu from './ActivityRangeMenu.svelte';
+	import AdminPage from './AdminPage.svelte';
+	import AdminPageHeader from './AdminPageHeader.svelte';
 	import AdminPager from './AdminPager.svelte';
 	import { createAdminUrlSearch } from './adminUrlSearch.svelte';
 	import {
@@ -121,12 +122,11 @@
 	});
 </script>
 
-<PageShell.Root width="wide">
-	<PageShell.Header
+<AdminPage>
+	<AdminPageHeader
 		eyebrow="Platform · Audit log"
 		title="Activity"
-		variant="display"
-		subtitle={`Everything that happened across the platform, newest first. Times are in ${timeZone.replace(/_/g, ' ')}.`}
+		description={`Everything that happened across the platform, newest first. Times are in ${timeZone.replace(/_/g, ' ')}.`}
 	/>
 
 	<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
@@ -226,10 +226,7 @@
 									{timeLabel.format(new Date(event.timestamp))}
 								</time>
 								{#if described.category}
-									<Badge
-										variant="secondary"
-										class="order-2 rounded-sm font-mono text-[11px] tracking-[0.08em] uppercase sm:order-3"
-									>
+									<Badge variant="secondary" mono class="order-2 rounded-sm sm:order-3">
 										{CATEGORY_LABEL[described.category]}
 									</Badge>
 								{/if}
@@ -277,4 +274,4 @@
 		{/if}
 	</section>
 	<AdminPager page={pagerPage} totalPages={pagerPages} {pageHref} />
-</PageShell.Root>
+</AdminPage>

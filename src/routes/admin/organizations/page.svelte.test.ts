@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentProps } from 'svelte';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 
 const { goto, invalidateAll } = vi.hoisted(() => ({
 	goto: vi.fn(async () => {}),
@@ -10,7 +10,6 @@ const { goto, invalidateAll } = vi.hoisted(() => ({
 }));
 vi.mock('$app/navigation', () => ({ goto, invalidateAll }));
 
-import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import Page from './+page.svelte';
 
 type PageProps = ComponentProps<typeof Page>;
@@ -45,10 +44,7 @@ function directoryPage(overrides: Partial<DirectoryPage> = {}): Directory {
 		page: {
 			counts: { all: 38, activeWeek: 31, quiet: 4, suspended: 1 },
 			organizations,
-			page: 1,
-			pageSize: 25,
 			totalCount: organizations.length,
-			totalPages: 1,
 			...overrides
 		}
 	};
@@ -59,7 +55,7 @@ function pageData(
 	query: Partial<PageProps['data']['query']> = {}
 ): PageProps['data'] {
 	return {
-		query: { page: 1, q: '', filter: 'all', ...query },
+		query: { pages: 1, q: '', filter: 'all', ...query },
 		directory: Promise.resolve(directory)
 	} as PageProps['data'];
 }
@@ -104,7 +100,7 @@ describe('admin organizations page', () => {
 		const baker = within(rows[1]);
 		expect(baker.getByText('Never used')).toBeTruthy();
 		expect(baker.getByText('Multiple owners')).toBeTruthy();
-		expect(baker.getByText('Quiet >30 days')).toBeTruthy();
+		expect(baker.getByText('Quiet')).toBeTruthy();
 	});
 
 	it('shows a skeleton while the page loads and then the rows', async () => {
@@ -136,22 +132,19 @@ describe('admin organizations page', () => {
 	});
 
 	it('shows the search and filter held in the URL', async () => {
-		const widths = stubToolbarWidths();
 		renderPage(directoryPage(), { q: 'Able & Baker', filter: 'suspended' });
-		await widths.layOut(1000);
-		const toolbar = within(screen.getByRole('toolbar', { name: 'Organizations controls' }));
-		expect(toolbar.getByRole('searchbox', { name: 'Search' })).toHaveValue('Able & Baker');
-		expect(toolbar.getByRole('button', { name: /^Suspended/, pressed: true })).toBeTruthy();
+		expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveValue('Able & Baker');
+		expect(screen.getByRole('radio', { name: /^Suspended/ })).toBeChecked();
 		await screen.findByRole('link', { name: 'Able Company' });
 	});
 
 	it('applies a filter from the first page and keeps the search', async () => {
-		const widths = stubToolbarWidths();
-		renderPage(directoryPage(), { q: 'Able', page: 3 });
-		await widths.layOut(1000);
-		await fireEvent.click(screen.getByRole('button', { name: /^Quiet 30\+ days/ }));
-		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?q=Able&filter=quiet', { keepFocus: true });
-		await screen.findByRole('link', { name: 'Able Company' });
+		renderPage(directoryPage(), { q: 'Able', pages: 3 });
+		await fireEvent.click(await screen.findByRole('radio', { name: /^Quiet 30\+ days/ }));
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?q=Able&filter=quiet', {
+			keepFocus: true,
+			noScroll: true
+		});
 	});
 
 	it('applies the search once typing pauses and keeps the filter', async () => {
@@ -165,7 +158,9 @@ describe('admin organizations page', () => {
 			await vi.advanceTimersByTimeAsync(300);
 			expect(goto).toHaveBeenCalledOnce();
 			expect(goto).toHaveBeenLastCalledWith('/admin/organizations?q=Able+%26+Baker&filter=active-week', {
-				keepFocus: true
+				keepFocus: true,
+				noScroll: true,
+				replaceState: true
 			});
 			expect(document.activeElement).toBe(search);
 		} finally {
@@ -174,47 +169,49 @@ describe('admin organizations page', () => {
 	});
 
 	it('shows how many Organizations each filter lists once they are counted', async () => {
-		const widths = stubToolbarWidths();
 		let finish!: (directory: Directory) => void;
 		renderPage(
 			new Promise<Directory>((resolve) => {
 				finish = resolve;
 			})
 		);
-		await widths.layOut(1000);
-		expect(screen.getByRole('button', { name: 'Quiet 30+ days' })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: /^Quiet 30\+ days/ })).toBeTruthy();
 		await act(() => finish(directoryPage()));
-		const toolbar = within(screen.getByRole('toolbar', { name: 'Organizations controls' }));
-		expect(await toolbar.findByRole('button', { name: 'All 38' })).toBeTruthy();
-		expect(toolbar.getByRole('button', { name: 'Active this week 31' })).toBeTruthy();
-		expect(toolbar.getByRole('button', { name: 'Quiet 30+ days 4' })).toBeTruthy();
-		expect(toolbar.getByRole('button', { name: 'Suspended 1' })).toBeTruthy();
+		expect(await screen.findByRole('radio', { name: 'All · 38' })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: 'Active this week · 31' })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: 'Quiet 30+ days · 4' })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: 'Suspended · 1' })).toBeTruthy();
 	});
 
-	it('keeps the pager, and the keyboard focus on it, while the next page loads', async () => {
-		const view = renderPage(directoryPage({ page: 1, pageSize: 25, totalCount: 60, totalPages: 3 }));
-		const next = await screen.findByRole('button', { name: 'Next' });
-		next.focus();
-		await view.rerender({ data: pageData(new Promise<Directory>(() => {}), { page: 2 }) });
-		expect(screen.getByText('Loading organizations')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Next' })).toBe(next);
-		expect(next).toHaveFocus();
-		expect(screen.getByText('Page 2 of 3')).toBeTruthy();
-		expect(next).toBeEnabled();
+	it('leaves the chips uncounted when the list fails to load', async () => {
+		renderPage({ status: 'failed' });
+		await screen.findByText('Organizations could not be loaded.');
+		expect(screen.getByRole('radio', { name: 'All' })).toBeTruthy();
 	});
 
-	it('pages with buttons that keep the search and filter and report the range', async () => {
-		renderPage(directoryPage({ organizations: [row()], page: 2, pageSize: 25, totalCount: 60, totalPages: 3 }), {
-			page: 2,
+	it('loads one more page of rows, keeping the search and filter, and keeps the rows while it loads', async () => {
+		const view = renderPage(directoryPage({ organizations: [row()], totalCount: 60 }), {
 			q: 'Able',
 			filter: 'suspended'
 		});
-		expect(await screen.findByText('Showing 26-26 of 60')).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-		expect(goto).toHaveBeenCalledWith('/admin/organizations?page=3&q=Able&filter=suspended', { keepFocus: true });
-		await fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
-		await waitFor(() =>
-			expect(goto).toHaveBeenLastCalledWith('/admin/organizations?q=Able&filter=suspended', { keepFocus: true })
-		);
+		expect(await screen.findByText('Showing 1 of 60')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?pages=2&q=Able&filter=suspended', {
+			keepFocus: true,
+			noScroll: true,
+			replaceState: true
+		});
+		await view.rerender({
+			data: pageData(new Promise<Directory>(() => {}), { pages: 2, q: 'Able', filter: 'suspended' })
+		});
+		expect(screen.getByRole('link', { name: 'Able Company' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Load more/ })).toBeDisabled();
+		expect(screen.queryByText('Loading organizations')).toBeNull();
+	});
+
+	it('offers no Load more once every Organization is shown', async () => {
+		renderPage(directoryPage({ organizations: [row(), row({ id: 'org-2', name: 'Baker Clinic' })] }));
+		expect(await screen.findByText('Showing 2 of 2')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
 	});
 });

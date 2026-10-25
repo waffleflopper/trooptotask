@@ -572,6 +572,7 @@
 			"src/features/platform-admin/components/people/clientClock.svelte.ts",
 			"src/features/platform-admin/peopleFormat.ts",
 			"src/features/platform-admin/setupTimeline.ts",
+			"src/features/platform-admin/components/AdminPage.svelte",
 			"src/features/platform-admin/components/AdminPageHeader.svelte",
 			"src/features/platform-admin/activityQuery.ts",
 			"src/features/platform-admin/auditSentences.ts",

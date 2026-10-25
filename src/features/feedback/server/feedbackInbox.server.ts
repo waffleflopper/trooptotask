@@ -2,11 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FeedbackCategory } from '../contracts';
 
 const INBOX_COLUMNS =
-	'id, user_email, category, message, page_url, page_section, organization_name, status, created_at, updated_at';
+	'id, user_id, user_email, category, message, page_url, page_section, organization_name, status, created_at, updated_at';
 
 export interface FeedbackInboxRow {
 	id: string;
+	user_id: string;
 	user_email: string;
+	/** The submitter's profile name, absent when they never set one or it could not be read. */
+	submitter_name: string | null;
 	category: FeedbackCategory;
 	message: string;
 	page_url: string | null;
@@ -32,10 +35,34 @@ export interface FeedbackInboxReader {
 
 /** Bounded Inbox reads and the close command; constructed after Platform admission. */
 export function createSupabaseFeedbackInboxReader(client: SupabaseClient): FeedbackInboxReader {
-	function page(result: { data: unknown; error: unknown; count: number | null }): FeedbackInboxPage {
+	type StoredRow = Omit<FeedbackInboxRow, 'submitter_name'>;
+
+	/** One read names every submitter on the page. A failed read leaves names off; it never hides the feedback. */
+	async function withSubmitterNames(rows: StoredRow[]): Promise<FeedbackInboxRow[]> {
+		const ids = [...new Set(rows.map((row) => row.user_id))];
+		const names = new Map<string, string>();
+		if (ids.length > 0) {
+			const { data, error } = await client
+				.from('user_profiles')
+				.select('user_id, first_name, last_name')
+				.in('user_id', ids);
+			if (error) console.error('[feedback-inbox] submitter names unavailable', error);
+			for (const profile of (data ?? []) as {
+				user_id: string;
+				first_name: string | null;
+				last_name: string | null;
+			}[]) {
+				const name = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+				if (name) names.set(profile.user_id, name);
+			}
+		}
+		return rows.map((row) => ({ ...row, submitter_name: names.get(row.user_id) ?? null }));
+	}
+
+	async function page(result: { data: unknown; error: unknown; count: number | null }): Promise<FeedbackInboxPage> {
 		if (result.error || !Array.isArray(result.data) || typeof result.count !== 'number')
 			throw new Error('Unable to read feedback');
-		return { rows: result.data as FeedbackInboxRow[], count: result.count };
+		return { rows: await withSubmitterNames(result.data as StoredRow[]), count: result.count };
 	}
 
 	return {
@@ -67,9 +94,9 @@ export function createSupabaseFeedbackInboxReader(client: SupabaseClient): Feedb
 				.from('beta_feedback')
 				.select(INBOX_COLUMNS)
 				.eq('id', id)
-				.maybeSingle<FeedbackInboxRow>();
+				.maybeSingle<StoredRow>();
 			if (error) throw new Error('Unable to read feedback');
-			return data;
+			return data ? (await withSubmitterNames([data]))[0] : null;
 		},
 		async close(id) {
 			const { data, error } = await client

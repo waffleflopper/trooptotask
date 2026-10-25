@@ -17,6 +17,12 @@
 		typeof $page.data?.breadcrumbLabel === 'string' ? ($page.data.breadcrumbLabel as string) : undefined
 	);
 
+	// Dialogs, menus and toasts mount on the document body, outside this layout's serif.
+	$effect(() => {
+		document.body.classList.add('font-body');
+		return () => document.body.classList.remove('font-body');
+	});
+
 	let openCount = $state<number | null>(null);
 	$effect(() => {
 		const pending = data.inboxOpenCount;

@@ -4,7 +4,7 @@ import { createPlatformOrganizationOperations } from '$features/platform-admin/i
 export const load: PageServerLoad = async (event) => {
 	const operations = await createPlatformOrganizationOperations(event);
 	const input = {
-		page: event.url.searchParams.get('page'),
+		pages: event.url.searchParams.get('pages'),
 		q: event.url.searchParams.get('q'),
 		filter: event.url.searchParams.get('filter')
 	};

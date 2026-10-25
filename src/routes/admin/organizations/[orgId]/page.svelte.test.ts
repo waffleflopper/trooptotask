@@ -70,7 +70,7 @@ async function confirmSuspension(reason = 'Abuse report 42') {
 async function startTransfer() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Transfer ownership' }));
 	const dialog = within(screen.getByRole('dialog'));
-	await fireEvent.change(dialog.getByLabelText('New Owner'), { target: { value: 'member-1' } });
+	await fireEvent.change(dialog.getByLabelText('New owner'), { target: { value: 'member-1' } });
 	await fireEvent.input(dialog.getByLabelText('Type Alpha Company to confirm'), { target: { value: 'Alpha Company' } });
 	await fireEvent.click(dialog.getByRole('button', { name: 'Transfer ownership' }));
 }
@@ -84,7 +84,7 @@ describe('admin organization detail', () => {
 		renderDetail(true);
 		expect(screen.getByRole('button', { name: 'Unsuspend organization' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Suspend organization' })).toBeNull();
-		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Suspended');
+		expect(screen.getByText(/^Organization · Suspended/)).toBeTruthy();
 	});
 	it('offers Suspend for an active Organization and names the owner under the title', () => {
 		renderDetail();
@@ -94,7 +94,7 @@ describe('admin organization detail', () => {
 	});
 	it('summarises the Organization under At a glance', () => {
 		renderDetail();
-		const glance = within(screen.getByRole('region', { name: 'At a glance' }));
+		const glance = within(screen.getByRole('complementary', { name: 'At a glance' }));
 		expect(glance.getByText('owner@example.test')).toBeTruthy();
 		expect(glance.getByText('Never used')).toBeTruthy();
 		expect(glance.getByText('org-1')).toBeTruthy();
@@ -201,14 +201,14 @@ describe('admin organization detail', () => {
 	it('opens ownership transfer with eligible members and requires name confirmation', async () => {
 		renderDetail();
 		expect(screen.getByRole('link', { name: 'member@example.test' }).getAttribute('href')).toBe(
-			'/admin/users/member-1'
+			'/admin/people/member-1'
 		);
 		await fireEvent.click(screen.getByRole('button', { name: 'Transfer ownership' }));
 		const dialog = within(screen.getByRole('dialog'));
 		expect(dialog.queryByRole('option', { name: /owner@example.test/ })).toBeNull();
 		const confirm = dialog.getByRole('button', { name: 'Transfer ownership' });
 		expect(confirm).toBeDisabled();
-		await fireEvent.change(dialog.getByRole('combobox', { name: 'New Owner' }), { target: { value: 'member-1' } });
+		await fireEvent.change(dialog.getByRole('combobox', { name: 'New owner' }), { target: { value: 'member-1' } });
 		expect(confirm).toBeDisabled();
 		await fireEvent.input(dialog.getByRole('textbox', { name: /Type Alpha Company/ }), {
 			target: { value: 'Alpha Company' }

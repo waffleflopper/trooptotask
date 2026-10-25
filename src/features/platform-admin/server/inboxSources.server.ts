@@ -58,7 +58,9 @@ function feedbackItem(row: FeedbackInboxRow): InboxItemOf<'feedback'> {
 		kind: 'feedback',
 		id: row.id,
 		title: feedbackTitle(row.message),
-		summary: [row.user_email, row.organization_name, row.page_section].filter(Boolean).join(' · '),
+		summary: [row.submitter_name ?? row.user_email, row.organization_name, row.page_section]
+			.filter(Boolean)
+			.join(' · '),
 		receivedAt: row.created_at,
 		closedAt: row.status === 'resolved' ? row.updated_at : null,
 		category: row.category

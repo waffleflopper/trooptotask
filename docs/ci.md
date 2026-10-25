@@ -28,7 +28,7 @@ After fresh replay, Database contracts applies `scripts/demo-clinic/seed.sql` in
 
 ## Vercel
 
-Functions are pinned to `pdx1` because the production database is in us-west (Oregon).
+`regions` in `vercel.json` pins functions to `pdx1` because the production database is in us-west (Oregon). The adapter's own `regions` option is not used: with Fluid compute the deployment kept the project default, `iad1`.
 
 Vercel deploys only `main` (`git.deploymentEnabled` in [vercel.json](../vercel.json)); PR branches get no automatic preview. Create a preview only when Robert asks for one. From a checkout where `vercel whoami` succeeds, this deploys the pushed head of the current branch:
 

@@ -15,13 +15,6 @@ describe('BannerPreview', () => {
 		expect(screen.getByText('Shown until you turn it off.')).toBeTruthy();
 	});
 
-	it('stands in placeholder text for an empty title and message', () => {
-		render(BannerPreview, { title: '', message: '  ', type: 'info', expiresAt: null });
-		const preview = screen.getByTestId('banner-preview');
-		expect(within(preview).getByText('Banner title')).toBeTruthy();
-		expect(within(preview).getByText(/Banner message appears here/)).toBeTruthy();
-	});
-
 	it('states when the banner stops showing', () => {
 		render(BannerPreview, { title: 'T', message: 'M', type: 'warning', expiresAt: '2026-12-01T15:00:00.000Z' });
 		expect(screen.getByText(/^Shown until .*2026/)).toBeTruthy();

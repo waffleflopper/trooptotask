@@ -106,7 +106,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261023001300_roster_signal_reads.sql",
     "20261024000500_group_editor_commands.sql",
     "20261025000100_platform_operator_safety.sql",
-    "20261025050100_platform_organization_directory.sql",
+    "20261025080100_platform_organization_directory.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

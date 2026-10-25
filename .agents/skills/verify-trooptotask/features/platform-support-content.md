@@ -27,7 +27,7 @@ its live preview and choose Publish to all users. Turn off or Turn on changes a 
 and Ended list the banners. Delete asks for confirmation in an in-app dialog naming the banner. Each banner reads how
 many accounts dismissed it. Both tabs use the full panel width: the composer sits beside Live now and Ended, and the
 entries list beside the editor. On What's New, New entry or a list row opens the editor (`?entry=` in the address); Save
-draft keeps it hidden, Publish shows it to members and a draft offers Delete draft. Members open What's new from the
+draft keeps it hidden, Publish shows it to members, and any entry can be deleted. Members open What's new from the
 account menu, which shows the newest three published entries and a See all updates link to
 `/org/<organization>/whats-new`. Open a Feedback item in the Inbox and choose Close without replying. The global search
 opens the already owned User and Organization support pages.
@@ -129,11 +129,13 @@ create/toggle/delete/close requests preserve rows, separately from native contro
    because the last-seen key still holds the newest published id. Edit a published entry and Save changes: its publish
    date and place in the list do not change. While a held save is in flight, the title and paragraph fields are
    read-only, the paragraph controls are disabled and the button shows its spinner; they unlock once the saved entry is
-   listed, and a new entry opens in the editor only then. A published entry offers no Delete draft; a draft deletes
-   after the confirmation dialog names it. Press Back while that dialog is open on another entry's address: the dialog
-   closes and nothing is deleted. Take a keyboard pass through the list, the editor and the paragraph controls. Delete
-   every UI-created draft and note that published test entries remain in provider data, so use unique titles. The 5xx
-   and transport failure modes behave as on Banners: `arm-fail-400` keeps the typed text and shows the reason, an
+   listed, and a new entry opens in the editor only then. A draft offers Delete draft and a published entry offers
+   Delete entry; either deletes after the confirmation dialog names it, and a published entry shown in the member dialog
+   says people stop seeing it right away. Deleting a published entry removes it from the member dialog and the
+   all-updates page and records `whats_new_delete`. Press Back while that dialog is open on another entry's address: the
+   dialog closes and nothing is deleted. Take a keyboard pass through the list, the editor and the paragraph controls.
+   Delete every UI-created draft and note that published test entries remain in provider data, so use unique titles. The
+   5xx and transport failure modes behave as on Banners: `arm-fail-400` keeps the typed text and shows the reason, an
    unconfirmed save blocks writes until Reload entries, and a held reply that arrives after leaving the page changes
    nothing. After an unconfirmed save of typed text, arm `arm-fail-regions` on `admin-whats-new-read` and choose Reload
    entries: the entries list shows its load error while the editor keeps the typed title and paragraphs, and they are
@@ -153,9 +155,9 @@ create/toggle/delete/close requests preserve rows, separately from native contro
 - Global announcements and account dismissals differ from Organization-scoped private communications. An Organization
   role grants no platform privilege.
 - Announcement audit events and real Feedback submission establish their own producer effects.
-- Banners have create, toggle and delete controls, with no editing form. Feedback has no delete control; replies
-  and issues are in the [Feedback recipe](platform-feedback.md). What's New entries edit in place and only drafts delete.
-  Do not invent a delete journey for published entries.
+- Banners have create, toggle and delete controls, with no editing form. Feedback has no delete control; replies and
+  issues are in the [Feedback recipe](platform-feedback.md). What's New entries edit in place and only drafts delete. Do
+  not invent a delete journey for published entries.
 - A published What's New entry cannot be removed from the Admin, and member views are limited to the newest three plus
   the all-updates page, so give each verification entry a unique title and keep the count of published test entries low.
 - Synthetic 503s exercise browser response handling. Provider list errors must remain distinct from a genuine empty

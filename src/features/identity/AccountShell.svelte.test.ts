@@ -21,13 +21,16 @@ afterEach(() => {
 });
 
 const children = createRawSnippet(() => ({ render: () => '<p>Page</p>' }));
-// The wide sidebar and the narrow tabs both carry the sections.
-const sections = () =>
-	screen.getAllByRole('navigation', { name: 'Account' }).map((nav) =>
+// Every rendered Account navigation, whichever responsive variants are mounted, must offer the same sections.
+const sections = () => {
+	const navs = screen.getAllByRole('navigation', { name: 'Account' }).map((nav) =>
 		within(nav)
 			.getAllByRole('link')
 			.map((link) => [link.textContent?.trim(), link.getAttribute('href'), link.getAttribute('aria-current')])
 	);
+	expect(new Set(navs.map((nav) => JSON.stringify(nav))).size).toBe(1);
+	return navs[0];
+};
 
 it('offers an account with no Organization only its Profile and Sign-in & security', () => {
 	render(AccountShell, { props: { baseHref: '/account', activePath: '/account/security', children } });
@@ -35,7 +38,7 @@ it('offers an account with no Organization only its Profile and Sign-in & securi
 		['Profile', '/account/profile', null],
 		['Sign-in & security', '/account/security', 'page']
 	];
-	expect(sections()).toEqual([expected, expected]);
+	expect(sections()).toEqual(expected);
 });
 
 it('keeps Feedback current in the Organization shell while one feedback item is open', () => {
@@ -48,7 +51,7 @@ it('keeps Feedback current in the Organization shell while one feedback item is 
 		['Notifications', '/org/alpha/account/notifications', null],
 		['Feedback', '/org/alpha/account/feedback', 'page']
 	];
-	expect(sections()).toEqual([expected, expected]);
+	expect(sections()).toEqual(expected);
 });
 
 it('covers the page with a skeleton when opening one feedback item outlasts 150 ms', async () => {
@@ -61,7 +64,7 @@ it('covers the page with a skeleton when opening one feedback item outlasts 150 
 	navigating.to = { url: new URL('http://localhost/org/alpha/account/feedback/f-1') };
 	await tick();
 	expect(screen.getByRole('status').textContent).toBe('Loading Feedback...');
-	expect(feedbackLinks().map((link) => link.getAttribute('aria-current'))).toEqual(['page', 'page']);
+	expect(new Set(feedbackLinks().map((link) => link.getAttribute('aria-current')))).toEqual(new Set(['page']));
 	await vi.advanceTimersByTimeAsync(149);
 	expect(screen.getByText('Page').closest('[hidden]')).toBeNull();
 

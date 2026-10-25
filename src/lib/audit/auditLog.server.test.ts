@@ -111,6 +111,27 @@ describe('auditLog', () => {
 		});
 	});
 
+	it('keeps the operator-written suspension reason readable while other reasons stay redacted', async () => {
+		await auditLog(
+			{
+				action: 'suspend_org',
+				resourceType: 'organization',
+				resourceId: 'org-123',
+				details: { suspension_reason: 'Abuse report 42', reason: 'Abuse report 42' },
+				severity: 'critical'
+			},
+			{ userId: 'operator-1', userEmail: null, ip: '127.0.0.1', userAgent: 'Vitest' }
+		);
+
+		expect(insert.mock.calls[0]?.[0]).toMatchObject({
+			details: {
+				suspension_reason: 'Abuse report 42',
+				reason: '[redacted]',
+				redacted_fields: ['reason']
+			}
+		});
+	});
+
 	it('reduces personnel names to rank and last name while keeping safe identifiers', async () => {
 		await auditLog(
 			{

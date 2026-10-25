@@ -172,7 +172,7 @@ describe('Platform suspension policy', () => {
 				action: `${action}_${type}`,
 				resourceType: type === 'user' ? 'user' : 'organization',
 				resourceId: targetId,
-				details: { reason: 'Policy review' },
+				details: { suspension_reason: 'Policy review' },
 				severity: 'critical'
 			}
 		]);
@@ -206,7 +206,7 @@ describe('Platform suspension policy', () => {
 			action: 'unsuspend_org',
 			resourceType: 'organization',
 			resourceId: ORG,
-			details: { reason: undefined },
+			details: { suspension_reason: undefined },
 			severity: 'critical'
 		});
 	});

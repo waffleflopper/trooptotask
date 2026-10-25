@@ -107,7 +107,7 @@ export function createPlatformSupportAdministration(
 				action: `${command.action}_${command.type}`,
 				resourceType: command.type === 'user' ? 'user' : 'organization',
 				resourceId: command.targetId,
-				details: { reason: command.reason },
+				details: { suspension_reason: command.reason },
 				severity: 'critical'
 			});
 			return { status: 'updated', success: true };

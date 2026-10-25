@@ -72,7 +72,7 @@
 		items={toolbarItems}
 		search={{
 			label: 'Search',
-			placeholder: 'Search by Organization name or owner email...',
+			placeholder: 'Search name or owner email',
 			value: search.value,
 			onValueChange: search.setValue
 		}}

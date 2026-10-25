@@ -28,8 +28,9 @@
 		account: Pick<SignedInAccount, 'email' | 'profile'>;
 		ranks: readonly string[];
 		form: { error?: string; success?: string } | null;
-		securityHref: `/org/${string}/account/security`;
-		unit: { name: string; role: MembershipRole };
+		securityHref: `/org/${string}/account/security` | '/account/security';
+		/** Absent for an account that belongs to no unit yet. */
+		unit?: { name: string; role: MembershipRole };
 		onretry: () => void;
 		/** Absent for an owner, who must transfer the unit before leaving it. */
 		onleave?: () => void;
@@ -208,7 +209,7 @@
 			description={ROWS.records.description}
 		>
 			<p class="font-mono text-xs leading-5 text-muted-foreground">
-				{unit.name} · {MEMBERSHIP_ROLE_LABELS[unit.role]} · kept by unit admins
+				{unit ? `${unit.name} · ${MEMBERSHIP_ROLE_LABELS[unit.role]} · kept by unit admins` : 'Not in a unit yet'}
 			</p>
 			{#if onleave}
 				<Button type="button" variant="ghost-destructive" size="sm" class="w-fit" onclick={onleave}>Leave unit</Button>

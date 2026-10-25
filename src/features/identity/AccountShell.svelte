@@ -1,5 +1,6 @@
 <script lang="ts" module>
-	// Each row's `placeholder` bars stand in for its value lane while the page loads, sized to the loaded lane.
+	// Each row's `placeholder` bars stand in for its value lane while the page loads, sized to the loaded lane. A list
+	// page's `list` skeleton repeats one item's bars `count` times under an optional toolbar line.
 	export const ACCOUNT_PAGES = {
 		profile: {
 			label: 'Profile',
@@ -43,6 +44,18 @@
 					placeholder: ['h-8.5 w-56 max-w-full', 'h-4 w-64 max-w-full']
 				}
 			}
+		},
+		notifications: {
+			label: 'Notifications',
+			subtitle: 'What your units and TroopToTask sent you. Read ones clear out after 30 days.',
+			organizationOnly: true,
+			list: { toolbar: true, count: 4, placeholder: ['h-5 w-56 max-w-full', 'h-5 w-80 max-w-full', 'h-4 w-24'] }
+		},
+		feedback: {
+			label: 'Feedback',
+			subtitle: 'What you sent us and what we said back. Reply on an open item to add detail.',
+			organizationOnly: true,
+			list: { toolbar: false, count: 3, placeholder: ['h-4 w-44', 'h-6 w-80 max-w-full', 'h-5 w-20'] }
 		}
 	} as const;
 
@@ -62,17 +75,25 @@
 		activePath,
 		children
 	}: {
-		baseHref: `/org/${string}/account`;
+		/** `/account` is the standalone shell for an account with no Organization, which has no Organization pages. */
+		baseHref: `/org/${string}/account` | '/account';
 		activePath: string;
 		children: Snippet;
 	} = $props();
 
-	const keys = Object.keys(ACCOUNT_PAGES) as AccountPageKey[];
+	const keys = $derived(
+		(Object.keys(ACCOUNT_PAGES) as AccountPageKey[]).filter(
+			(key) => baseHref !== '/account' || !('organizationOnly' in ACCOUNT_PAGES[key])
+		)
+	);
 	const keyOf = (path: string | undefined) => keys.find((key) => path === `${baseHref}/${key}`);
-	const activeKey = $derived(keyOf(activePath));
+	// A page below a section, such as one feedback item, keeps its section marked in the nav.
+	const sectionOf = (path: string) => keyOf(path) ?? keys.find((key) => path.startsWith(`${baseHref}/${key}/`));
+	const pageKey = $derived(keyOf(activePath));
+	const activeKey = $derived(sectionOf(activePath));
 	const loadingKey = $derived.by(() => {
 		const target = keyOf(navigating.to?.url.pathname);
-		return target && target !== activeKey ? target : undefined;
+		return target && target !== pageKey ? target : undefined;
 	});
 	const shownKey = $derived(loadingKey ?? activeKey);
 	const groups = $derived([
@@ -100,7 +121,9 @@
 </script>
 
 <svelte:head>
-	<title>{activeKey ? `${ACCOUNT_PAGES[activeKey].label} - ` : ''}Account - Troop to Task</title>
+	{#if pageKey || !activeKey}
+		<title>{pageKey ? `${ACCOUNT_PAGES[pageKey].label} - ` : ''}Account - Troop to Task</title>
+	{/if}
 </svelte:head>
 
 <PageShell.Root width="wide" bodyClass="lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-12">
@@ -108,22 +131,38 @@
 	<div class="grid w-full max-w-[51.25rem] min-w-0 content-start gap-7" aria-busy={loadingKey ? 'true' : undefined}>
 		<p role="status" class="sr-only">{loadingKey ? `Loading ${ACCOUNT_PAGES[loadingKey].label}...` : ''}</p>
 		{#if slowKey}
+			{@const page = ACCOUNT_PAGES[slowKey]}
 			<div class="grid gap-7" aria-hidden="true" data-account-skeleton={slowKey}>
-				<PageShell.Header
-					eyebrow="Account · Only you"
-					title={ACCOUNT_PAGES[slowKey].label}
-					variant="display"
-					subtitle={ACCOUNT_PAGES[slowKey].subtitle}
-				/>
-				<PageShell.FactSection>
-					{#each Object.values(ACCOUNT_PAGES[slowKey].rows) as row (row.label)}
-						<PageShell.FactRow variant="display" stackBelow="xl" label={row.label} description={row.description}>
-							{#each row.placeholder as bar, index (index)}
-								<Skeleton class={bar} />
+				<PageShell.Header eyebrow="Account · Only you" title={page.label} variant="display" subtitle={page.subtitle} />
+				{#if 'rows' in page}
+					<PageShell.FactSection>
+						{#each Object.values(page.rows) as row (row.label)}
+							<PageShell.FactRow variant="display" stackBelow="xl" label={row.label} description={row.description}>
+								{#each row.placeholder as bar, index (index)}
+									<Skeleton class={bar} />
+								{/each}
+							</PageShell.FactRow>
+						{/each}
+					</PageShell.FactSection>
+				{:else}
+					<div class="grid gap-4">
+						{#if page.list.toolbar}
+							<div class="flex min-h-8 items-center justify-between gap-3">
+								<Skeleton class="h-4 w-28" />
+								<Skeleton class="h-8 w-32" />
+							</div>
+						{/if}
+						<ul class="border-t-2 border-foreground">
+							{#each { length: page.list.count }, index (index)}
+								<li class="grid gap-2 border-b border-border py-4">
+									{#each page.list.placeholder as bar, barIndex (barIndex)}
+										<Skeleton class={bar} />
+									{/each}
+								</li>
 							{/each}
-						</PageShell.FactRow>
-					{/each}
-				</PageShell.FactSection>
+						</ul>
+					</div>
+				{/if}
 			</div>
 		{/if}
 		<!-- Hidden, not unmounted, so a page keeps its state if the navigation does not complete. -->

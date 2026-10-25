@@ -74,8 +74,9 @@ Organization audit references. It omits setup tokens and delivery payloads.
 3. **Reviewed access.** Approve and reject journeys, their setup mail, blocked linked invitation and audit rows are
    owned by [Platform Inbox](platform-inbox.md). Setup mail is delivered to the private sink by default; arm
    `$V mail fail setup` before Approve to observe the delivery-failed state. Approval must not masquerade as completed
-   account setup or accepted Organization membership. The completed request has no actions in the Inbox. Rescind and
-   Resend setup have no admin UI and no helper request family; their server commands are covered by unit tests only.
+   account setup or accepted Organization membership. The seeded completed request has no review time, so it appears in
+   neither Open nor Done. Rescind and Resend setup have no admin UI and no helper request family; their server commands
+   are covered by unit tests only.
 4. **Non-operator write denial.** From normally signed-in `platformSupport` and ordinary pages,
    `$V platform-request PAGE suspend organization '{"type":"org","action":"suspend"}'`, or the ownership request below,
    submit bounded ordinary HTTP and capture 403 plus unchanged `$V platform-state`. A visible button or missing button

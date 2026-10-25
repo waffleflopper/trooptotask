@@ -995,7 +995,8 @@ async function main() {
 																				'Access restricted',
 																				'Access Restricted'
 																			];
-		if (destination === 'admin') readyText = ['Inbox', 'Forbidden', 'Access denied', '403'];
+		if (destination === 'admin' || destination === 'admin/feedback')
+			readyText = ['Inbox', 'Forbidden', 'Access denied', '403'];
 		if (destination === 'admin/announcements') readyText = ['Announcements', 'Forbidden', 'Access denied', '403'];
 		if (
 			destination.startsWith('admin/') &&

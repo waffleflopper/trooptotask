@@ -3,11 +3,12 @@
 	import type { SignedInAccount } from '$features/identity/contracts';
 	import { accountLabel, mfaSetupHref } from '$features/identity';
 	import type { Notification } from '$features/notifications/contracts';
+	import { notificationHref } from '$features/notifications';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { navigating } from '$app/state';
 	import { page } from '$app/stores';
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import Bell from '@lucide/svelte/icons/bell';
 	import Building2 from '@lucide/svelte/icons/building-2';
@@ -21,6 +22,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Sun from '@lucide/svelte/icons/sun';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { MEMBERSHIP_ROLE_LABELS, type CapabilityMap, type MembershipRole } from '$lib/access/memberAccessShape';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -262,7 +264,7 @@
 		notificationsOpen = false;
 
 		if (isCurrentNotificationRequest(scope, generation) && notification.link) {
-			void goto(resolve(notification.link as `/org/${string}`));
+			void goto(resolve(notificationHref(notification.link, segment)));
 		}
 
 		if (!notification.read) {
@@ -289,6 +291,56 @@
 				if (isCurrentNotificationRequest(scope, generation)) notificationsWriting = false;
 			}
 		}
+	}
+
+	async function deleteNotification(notification: Notification, event: Event) {
+		if (notificationsWriting) return;
+		const scope = notificationScope;
+		const generation = notificationGeneration;
+		const segment = orgUrlSegment;
+		const menu = (event.currentTarget as HTMLElement).closest('[data-slot="dropdown-menu-content"]');
+		notificationsWriting = true;
+		try {
+			const response = await fetch(`/org/${segment}/api/notifications`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: notification.id })
+			});
+			if (!response.ok) throw new Error('Could not delete notification');
+			if (!isCurrentNotificationRequest(scope, generation)) return;
+			const index = notifications.findIndex((item) => item.id === notification.id);
+			notifications = notifications.filter((item) => item.id !== notification.id);
+			if (!notification.read) {
+				const countWasLoading = notificationCountLoading;
+				++notificationCountRequest;
+				localUnreadCount = Math.max(0, localUnreadCount - 1);
+				if (countWasLoading) void loadUnreadNotificationCount(segment, scope, generation);
+			}
+			notificationsWriting = false;
+			// The removed row held focus; keep it in the menu on the row that took its place.
+			await tick();
+			const rows = menu?.querySelectorAll<HTMLElement>('[data-notification-open]');
+			const next = rows?.[Math.min(index, rows.length - 1)] ?? menu?.querySelector<HTMLElement>('[data-view-all]');
+			next?.focus();
+		} catch {
+			if (isCurrentNotificationRequest(scope, generation))
+				toastStore.error('Could not delete the notification. Try again.');
+		} finally {
+			if (isCurrentNotificationRequest(scope, generation)) notificationsWriting = false;
+		}
+	}
+
+	/** Drops what the bell holds so its badge and list match changes made elsewhere, such as the Notifications page. */
+	export function refreshNotifications() {
+		const scope = notificationScope;
+		const generation = ++notificationGeneration;
+		notifications = [];
+		notificationsLoaded = false;
+		notificationsLoading = false;
+		notificationsWriting = false;
+		notificationsLoadFailed = false;
+		void loadUnreadNotificationCount(orgUrlSegment, scope, generation);
+		if (notificationsOpen) void loadNotifications();
 	}
 
 	$effect(() => {
@@ -626,17 +678,40 @@
 								</DropdownMenu.Item>
 							{:else}
 								{#each notifications as notification (notification.id)}
-									<DropdownMenu.Item onclick={() => openNotification(notification)} disabled={notificationsWriting}>
-										<span class="grid min-w-0 gap-1">
-											<span class="truncate font-medium">{notification.title}</span>
-											{#if notification.message}
-												<span class="line-clamp-2 text-xs text-muted-foreground">{notification.message}</span>
-											{/if}
-											<span class="text-xs text-muted-foreground">{formatRelativeDate(notification.created_at)}</span>
-										</span>
-									</DropdownMenu.Item>
+									<div class="flex items-start gap-0.5">
+										<DropdownMenu.Item
+											class="min-w-0 flex-1"
+											data-notification-open
+											onclick={() => openNotification(notification)}
+											disabled={notificationsWriting}
+										>
+											<span class="grid min-w-0 gap-1">
+												<span class="truncate font-medium">{notification.title}</span>
+												{#if notification.message}
+													<span class="line-clamp-2 text-xs text-muted-foreground">{notification.message}</span>
+												{/if}
+												<span class="text-xs text-muted-foreground">{formatRelativeDate(notification.created_at)}</span>
+											</span>
+										</DropdownMenu.Item>
+										<DropdownMenu.Item
+											variant="destructive"
+											class="shrink-0 p-2"
+											closeOnSelect={false}
+											aria-label={`Delete notification: ${notification.title}`}
+											onclick={(event) => deleteNotification(notification, event)}
+											disabled={notificationsWriting}
+										>
+											<Trash2 aria-hidden="true" />
+										</DropdownMenu.Item>
+									</div>
 								{/each}
 							{/if}
+							<DropdownMenu.Separator />
+							<DropdownMenu.Item data-view-all>
+								{#snippet child({ props })}
+									<a {...props} href={resolve(`/org/${orgUrlSegment}/account/notifications`)}>View all</a>
+								{/snippet}
+							</DropdownMenu.Item>
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 					<Tooltip.Root>

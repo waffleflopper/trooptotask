@@ -30,7 +30,13 @@
 	let showWhatsNew = $state(false);
 	let hasAutoShownWhatsNew = false;
 	const newestWhatsNewId = $derived(shell.whatsNew[0]?.id);
-	setAppShellContext(createAppShellContext(() => shell, { autoShowWhatsNew }));
+	let header = $state<AppShellHeader>();
+	setAppShellContext(
+		createAppShellContext(() => shell, {
+			autoShowWhatsNew,
+			refreshNotifications: () => header?.refreshNotifications()
+		})
+	);
 	// The Organization layout keys this shell by user, Organization and session; its teardown ends that lifetime.
 	$effect(() => endOrganizationLifetime);
 
@@ -107,6 +113,7 @@
 </script>
 
 <AppShellHeader
+	bind:this={header}
 	orgId={shell.org.id}
 	orgUrlSegment={shell.org.urlSegment}
 	orgName={shell.org.name}

@@ -24,14 +24,15 @@ activity. Every other account is refused.
 ## How to get to it (user POV)
 
 Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback, Audit Log and Announcements in its
-sidebar. Announcements has two tabs, Banners and What's New. On Banners, select Create Banner in the Banner controls
-toolbar, complete its fields beside the live preview and Save. Deactivate or Activate changes its member visibility.
-Delete asks for confirmation in an in-app dialog naming the banner. Each banner reads how many accounts dismissed it. On
-What's New, New Entry or a list row opens the editor (`?entry=` in the address); Save Draft keeps it hidden, Publish
-shows it to members and a draft offers Delete Draft. Members open What's new from the account menu, which shows the
-newest three published entries and a See all updates link to `/org/<organization>/whats-new`. Expand a Feedback card to
-change Status or Admin Notes, then choose Save Notes. Audit Log provides Action and Severity controls, Previous/Next
-pages and View details. The global search opens the already owned User and Organization support pages.
+sidebar. Announcements has two tabs, Banners and What's New. On Banners, complete the New banner composer (Title,
+Message, Type, Ends) above its live preview and choose Publish to all users. Turn off or Turn on changes a banner's
+member visibility, and Live now and Ended list the banners. Delete asks for confirmation in an in-app dialog naming the
+banner. Each banner reads how many accounts dismissed it. On What's New, New Entry or a list row opens the editor
+(`?entry=` in the address); Save Draft keeps it hidden, Publish shows it to members and a draft offers Delete Draft.
+Members open What's new from the account menu, which shows the newest three published entries and a See all updates link
+to `/org/<organization>/whats-new`. Expand a Feedback card to change Status or Admin Notes, then choose Save Notes.
+Audit Log provides Action and Severity controls, Previous/Next pages and View details. The global search opens the
+already owned User and Organization support pages.
 
 ## Helper controls
 
@@ -100,21 +101,21 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    page-data response. A forbidden page returns no privileged payload. Repeat User/Organization detail readbacks under
    the existing administration recipe. Anonymous attempts require authentication.
 2. **Banners and member composition.** Capture the seed readback and admin statuses. Cancel a filled create form and
-   verify no row. While typing, the preview beside the form follows Title, Message, Type and Expires At, and shows no
-   Dismiss action that works. Create a unique message through native fields, inspect its exact saved
-   actor/type/text/expiration, reload and read it as an ordinary member banner. Exercise all three Types, one future
-   expiry and one expired record. Capture Deactivate/Activate and reload/member visibility. Dismiss a live message as
-   one account, reload and inspect peer/account-switch independence under communications, then read the banner's
-   dismissal count on the admin page: it counts that account, and a banner nobody dismissed reads Not dismissed yet.
-   Cancel Delete and prove retention; confirm Delete and prove row/banner absence. Restore seeded active flags and
-   delete UI-created announcements through the visible controls before cleanup.
+   verify no row. While typing, the preview beside the form follows Title, Message, Type and Ends, and shows no Dismiss
+   action that works. Create a unique message through native fields, inspect its exact saved actor/type/text/expiration,
+   reload and read it as an ordinary member banner. Exercise all three Types, one future expiry and one expired record.
+   Capture Turn off/Turn on and reload/member visibility. Dismiss a live message as one account, reload and inspect
+   peer/account-switch independence under communications, then read the banner's dismissal count on the admin page: it
+   counts that account, and a banner nobody dismissed reads not dismissed yet. Cancel Delete and prove retention;
+   confirm Delete and prove row/banner absence. Restore seeded active flags and delete UI-created announcements through
+   the visible controls before cleanup.
 3. **Announcement failure and lifetime.** Arm create failure, submit a unique draft, then capture the failure, editable
-   retained fields, blocked Save and no stored row. Use Reload Banners to read the current state without a POST, then
-   explicitly retry and require one row. Repeat toggle/delete failure against a recorded witness, requiring unchanged
-   provider state, readback before retry and exactly one retried write. Hold a real or failed create reply,
-   cancel/reopen its editor or use a visible sidebar link, then return to Banners and fill a fresh unsent draft before
-   release. Compare the current page before and after releasing the old reply. Old completions must not change another
-   page's pending state, error or current draft, including after returning to the original route. A successful
+   retained fields, a blocked Publish to all users and no stored row. Use Reload Banners to read the current state
+   without a POST, then explicitly retry and require one row. Repeat toggle/delete failure against a recorded witness,
+   requiring unchanged provider state, readback before retry and exactly one retried write. Hold a real or failed create
+   reply, cancel/reopen its editor or use a visible sidebar link, then return to Banners and fill a fresh unsent draft
+   before release. Compare the current page before and after releasing the old reply. Old completions must not change
+   another page's pending state, error or current draft, including after returning to the original route. A successful
    old-editor write still refreshes saved content on the current page. Other mutations remain disabled while a write or
    its readback is pending. Capture any failure as a defect rather than adopting it as intended behavior. The Banners
    list and its dismissal counts load as separate regions: each shows a skeleton while pending, then its own content or
@@ -126,7 +127,7 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    the list or the address with both paragraphs in the saved order, and `$V platform-content` lists the saved entry
    under `whatsNew` with `published_on` empty and `updated_by` set to the operator. As `orgMember`, open the account
    menu's What's new and the all-updates page: the draft is absent in both. Choose Publish; the row becomes Published
-   with today's date and a Shown to users mark, and it is the first entry in the member dialog and on the all-updates
+   with today's date and a Shown in app mark, and it is the first entry in the member dialog and on the all-updates
    page. Publish three more unique entries: only the newest three fill the dialog, the older ones remain on the
    all-updates page. Open the dialog after clearing nothing: no entry reads as unseen after the move to stored entries,
    because the last-seen key still holds the newest published id. Edit a published entry and Save Changes: its publish

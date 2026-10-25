@@ -22,7 +22,6 @@
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { followStreamedRead } from '../streamedRead.svelte';
 	import type { ActionData, PageData } from './$types';
 
@@ -274,8 +273,8 @@
 						<a
 							href={`/admin/announcements/whats-new?entry=${encodeURIComponent(entry.id)}`}
 							class={cn(
-								'grid gap-1 border-l-2 border-transparent px-3 py-3 text-left no-underline hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-								entry.id === selection && 'border-l-primary bg-accent'
+								'grid gap-1 border-l-2 border-transparent px-3 py-3 text-left no-underline hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								entry.id === selection && 'border-l-primary bg-muted'
 							)}
 							aria-current={entry.id === selection ? 'true' : undefined}
 							onclick={(event) => {
@@ -294,8 +293,7 @@
 							</span>
 							<span class="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
 								{#if entry.publishedOn}
-									{formatDisplayDate(entry.publishedOn)}{#if entry.shownToUsers}
-										· <span>Shown in app</span>{/if}
+									{formatDisplayDate(entry.publishedOn)}{entry.shownToUsers ? ' · Shown in app' : ''}
 								{:else}
 									Not published
 								{/if}

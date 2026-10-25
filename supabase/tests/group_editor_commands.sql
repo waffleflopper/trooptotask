@@ -2,8 +2,10 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
-CREATE FUNCTION pg_temp.id(actor text) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
-  SELECT id::uuid FROM (VALUES
+CREATE FUNCTION pg_temp.id(actor text) RETURNS uuid LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE found uuid;
+BEGIN
+  SELECT id::uuid INTO STRICT found FROM (VALUES
     ('org_wide_configurer', 'c5000000-0000-4000-8000-000000000001'),
     ('group_scoped_configurer', 'c5000000-0000-4000-8000-000000000002'),
     ('org_wide_operator', 'c5000000-0000-4000-8000-000000000003'),
@@ -23,7 +25,8 @@ CREATE FUNCTION pg_temp.id(actor text) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
     ('chen', 'c5000000-0000-4000-8000-000000000304'),
     ('okafor', 'c5000000-0000-4000-8000-000000000305')
   ) AS fixtures(name, id) WHERE name = actor;
-$$;
+  RETURN found;
+END; $$;
 CREATE FUNCTION pg_temp.act(actor text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
   PERFORM set_config('role', 'authenticated', true);

@@ -2,8 +2,10 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
-CREATE FUNCTION pg_temp.id(actor text) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
-  SELECT id::uuid FROM (VALUES
+CREATE FUNCTION pg_temp.id(actor text) RETURNS uuid LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE found uuid;
+BEGIN
+  SELECT id::uuid INTO STRICT found FROM (VALUES
     ('org_wide_leader', 'c9000000-0000-4000-8000-000000000001'),
     ('group_scoped_leader', 'c9000000-0000-4000-8000-000000000002'),
     ('personnel_viewer', 'c9000000-0000-4000-8000-000000000003'),
@@ -42,7 +44,8 @@ CREATE FUNCTION pg_temp.id(actor text) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
     ('completed_follow_up', 'c9000000-0000-4000-8000-000000000903'),
     ('alpha_two_follow_up', 'c9000000-0000-4000-8000-000000000904')
   ) AS fixtures(name, id) WHERE name = actor;
-$$;
+  RETURN found;
+END; $$;
 
 SELECT ok(NOT EXISTS (
   SELECT 1 FROM pg_proc p, LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl

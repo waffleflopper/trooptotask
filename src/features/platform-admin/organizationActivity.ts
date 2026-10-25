@@ -38,7 +38,8 @@ const MEMBER_ACTIONS: Record<string, string> = {
 const PLATFORM_ACTIONS: Record<string, string> = {
 	suspend_org: 'A platform operator suspended the Organization',
 	unsuspend_org: 'A platform operator lifted the Organization suspension',
-	'admin.org.gift_tier': 'A platform operator changed the Organization plan'
+	'admin.org.gift_tier': 'A platform operator changed the Organization plan',
+	'admin.org.transfer_ownership': 'A platform operator transferred ownership of the Organization'
 };
 
 export function describeAuditEvent(

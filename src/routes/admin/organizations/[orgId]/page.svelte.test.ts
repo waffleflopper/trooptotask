@@ -90,7 +90,7 @@ describe('admin organization detail', () => {
 		renderDetail();
 		expect(screen.getByRole('button', { name: 'Suspend organization' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Unsuspend organization' })).toBeNull();
-		expect(screen.getByText('Owned by owner@example.test.')).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1 }).closest('header')?.textContent).toContain('owner@example.test');
 	});
 	it('summarises the Organization under At a glance', () => {
 		renderDetail();

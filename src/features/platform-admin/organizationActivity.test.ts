@@ -25,7 +25,7 @@ describe('describeAuditEvent', () => {
 	});
 
 	it('writes platform actions as the platform, whoever the operator was', () => {
-		for (const action of ['suspend_org', 'unsuspend_org', 'admin.org.gift_tier']) {
+		for (const action of ['suspend_org', 'unsuspend_org', 'admin.org.gift_tier', 'admin.org.transfer_ownership']) {
 			expect(describeFor(action, 'user-1')).not.toContain('ann@example.test');
 			expect(describeFor(action, 'user-1')).toBe(describeFor(action, null));
 		}

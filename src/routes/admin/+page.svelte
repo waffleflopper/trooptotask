@@ -16,7 +16,6 @@
 		type InboxSourceResult,
 		type InboxTab
 	} from '$features/platform-admin/inboxTypes';
-	import * as Alert from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
 
@@ -32,8 +31,12 @@
 	const queue = settleRead(() => ({ source: data.sources, group: data.tab, promise: gather(data.sources) }));
 	const stats = settleRead(() => ({ source: data.stats, group: 'stats', promise: data.stats }));
 
+	// The tab a click asked for, until its load arrives, so the panel shows its skeleton at once instead of staying empty.
+	let requestedTab = $state<InboxTab | null>(null);
+	const tab = $derived(requestedTab ?? data.tab);
+
 	// A different tab never shows the other tab's rows; a refresh of the same tab keeps its rows on screen.
-	const results = $derived(queue.settled?.group === data.tab ? queue.settled.value : null);
+	const results = $derived(queue.settled?.group === tab ? queue.settled.value : null);
 	const refreshing = $derived(queue.settled?.source !== data.sources);
 
 	const filter = $derived(parseInboxFilter(page.url.searchParams.get('kind')));
@@ -44,13 +47,20 @@
 
 	function show(state: { tab: InboxTab; filter: InboxFilter; item: InboxItemRef | null }, replaceState: boolean) {
 		const target = inboxHref(state) as '/admin';
-		void goto(resolve(target), { replaceState, noScroll: true, keepFocus: true });
+		return goto(resolve(target), { replaceState, noScroll: true, keepFocus: true });
+	}
+
+	function showTab(next: InboxTab) {
+		requestedTab = next;
+		void show({ tab: next, filter, item: null }, true).finally(() => {
+			if (requestedTab === next) requestedTab = null;
+		});
 	}
 
 	function selectItem(item: InboxItemRef) {
 		const replaceState = selected !== null;
 		pushedItem = !replaceState;
-		show({ tab: data.tab, filter, item }, replaceState);
+		void show({ tab, filter, item }, replaceState);
 	}
 
 	function closeItem() {
@@ -58,7 +68,7 @@
 			pushedItem = false;
 			history.back();
 		} else {
-			show({ tab: data.tab, filter, item: null }, true);
+			void show({ tab, filter, item: null }, true);
 		}
 	}
 
@@ -93,14 +103,14 @@
 	<TypeWorkspace.Root aria-label="Inbox" class="overflow-hidden p-0">
 		<TypeWorkspace.Layout>
 			<InboxQueue
-				tab={data.tab}
+				{tab}
 				{filter}
 				{selected}
 				{results}
 				{refreshing}
 				hidden={selected !== null}
-				onTab={(tab) => show({ tab, filter, item: null }, true)}
-				onFilter={(next) => show({ tab: data.tab, filter: next, item: selected }, true)}
+				onTab={showTab}
+				onFilter={(next) => void show({ tab, filter: next, item: selected }, true)}
 				onSelect={selectItem}
 				onRetry={refreshQueue}
 			/>
@@ -111,9 +121,9 @@
 						<InboxDetailPane item={selected} onQueueStale={refreshQueue} />
 					</div>
 				{:else}
-					<Alert.Root>
-						<Alert.Description>Select an item to review it.</Alert.Description>
-					</Alert.Root>
+					<p class="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+						Select an item to review it.
+					</p>
 				{/if}
 			</TypeWorkspace.Detail>
 		</TypeWorkspace.Layout>

@@ -68,6 +68,7 @@ const rowTitles = () =>
 		.map((row) => row.getAttribute('aria-labelledby') && row.querySelector('[id$="-title"]')?.textContent);
 
 beforeEach(() => {
+	goto.mockResolvedValue(undefined);
 	location.url = new URL('http://localhost/admin');
 	vi.stubGlobal(
 		'fetch',
@@ -186,6 +187,18 @@ describe('Inbox page', () => {
 		await fireEvent.click(screen.getByRole('tab', { name: 'Done' }));
 
 		expect(goto).toHaveBeenCalledWith('/admin?tab=done', expect.objectContaining({ replaceState: true }));
+	});
+
+	it('shows the Done skeleton at once while its read is still on the way, never the Open rows', async () => {
+		goto.mockReturnValue(new Promise(() => {}));
+		render(Page, { props: { data: pageData() as never } });
+		await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(0));
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Done' }));
+
+		expect(screen.getByRole('status', { name: 'Loading Inbox' })).toBeTruthy();
+		expect(screen.queryAllByRole('row')).toEqual([]);
+		expect(screen.getByRole('tab', { name: 'Done' }).getAttribute('aria-selected')).toBe('true');
 	});
 
 	it('shows an empty Done tab as empty rather than loading', async () => {

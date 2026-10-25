@@ -10,6 +10,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { formatDisplayDate, formatRelativeDate } from '$lib/utils/dates';
+	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
 	import { createAdminUrlSearch } from '$features/platform-admin/components/adminUrlSearch.svelte';
 	import { adminBadgeVariant } from '$features/platform-admin/components/adminTheme';
@@ -100,11 +101,10 @@
 </svelte:head>
 
 {#snippet header(eyebrow: string)}
-	<PageShell.Header
-		variant="display"
+	<AdminPageHeader
 		{eyebrow}
 		title="Organizations"
-		subtitle="Every unit on the platform, most recently active first."
+		description="Every unit on the platform, most recently active first."
 	/>
 {/snippet}
 

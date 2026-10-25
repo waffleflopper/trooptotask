@@ -141,7 +141,7 @@
 					>
 						{#each view.options as option (option.value)}
 							<DropdownMenu.RadioItem value={option.value} disabled={view.disabled} title={view.disabledReason}>
-								{option.ariaLabel ?? option.label}
+								{option.ariaLabel ?? option.label}{typeof option.count === 'number' ? ` ${option.count}` : ''}
 							</DropdownMenu.RadioItem>
 						{/each}
 					</DropdownMenu.RadioGroup>

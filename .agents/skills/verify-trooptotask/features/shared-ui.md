@@ -100,7 +100,7 @@ Sign in normally as `manager` and retain its page/Organization IDs. Preserve the
    with the retained-history explanation and Cancel/Archive actions. Choose Cancel, require focus restored to the same
    menu button and verify Able remains active with unchanged dates. This cancel probe supplies no archive-mutation or
    server-authorization proof.
-6. **Platform navigation.** Use `$V actor platformReviewer admin/users` through normal sign-in. Inspect actual admitted
+6. **Platform navigation.** Use `$V actor platformReviewer admin/people` through normal sign-in. Inspect actual admitted
    Users content, collapse Toggle Sidebar and repeat the Users link's tooltip semantics/dismissal. On mobile, select the
    current Users link and require the drawer to close. Reopen and follow Dashboard; require the new screen and a closed
    drawer. Reopen, focus a navigation link and press Escape; require closure and focus restored to Toggle Sidebar.

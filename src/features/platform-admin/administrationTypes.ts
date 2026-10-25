@@ -37,6 +37,7 @@ export type PlatformSuspensionCommandParseResult =
 
 export type PlatformSuspensionResult =
 	| { status: 'updated'; success: true }
+	| { status: 'already_suspended' }
 	| { status: 'invalid_input'; message: string };
 
 /** Delivery supplies admitted actor identity and source-owned capabilities. */

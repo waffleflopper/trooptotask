@@ -43,6 +43,12 @@ describe('patterns/page-shell FactRow', () => {
 		expect(screen.getByText('Groups under 80% turn amber.')).toBeTruthy();
 	});
 
+	it('pairs a compact row label with its value', () => {
+		render(FactRow, { props: { variant: 'compact', label: 'Members', value: '12' } });
+
+		expect(screen.getByText('Members').closest('[data-slot="fact-row"]')?.textContent).toContain('12');
+	});
+
 	it('renders details when the row has no holds or control', () => {
 		render(FactRow, {
 			props: { variant: 'display', label: 'Strength floor', details: html('<p>Groups under 80% turn amber.</p>') }

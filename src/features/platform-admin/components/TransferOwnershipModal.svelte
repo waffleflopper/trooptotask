@@ -137,7 +137,7 @@
 <AppDialog.Root open busy={saving || reloading} closeBlocked={saved || !!uncertain} {onClose}>
 	<AppDialog.Content>
 		<AppDialog.Header>
-			<AppDialog.Title>Transfer Ownership</AppDialog.Title>
+			<AppDialog.Title>Transfer ownership</AppDialog.Title>
 		</AppDialog.Header>
 		<AppDialog.Body class="flex flex-col gap-4">
 			<Alert.Root variant="warning">
@@ -208,7 +208,7 @@
 					aria-busy={saving || undefined}
 				>
 					{#if saving}<Spinner />{/if}
-					{saving ? 'Transferring...' : 'Transfer Ownership'}
+					{saving ? 'Transferring...' : 'Transfer ownership'}
 				</Button>
 			{/if}
 		</AppDialog.Footer>

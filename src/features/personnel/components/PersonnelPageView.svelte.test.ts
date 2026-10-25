@@ -1277,19 +1277,22 @@ describe('PersonnelPageView', () => {
 			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
 			await answer('person-1', 'followUps', {
 				state: 'ready',
-				value: [
-					{
-						id: 'f1',
-						title: 'Turn in TA-50 shortage list',
-						notes: '',
-						status: 'open',
-						dueDate: '2026-10-02',
-						createdAt: '2026-09-28T10:00:00Z',
-						createdBy: 'SFC Whitaker',
-						completedAt: null,
-						completedBy: null
-					}
-				]
+				value: {
+					followUps: [
+						{
+							id: 'f1',
+							title: 'Turn in TA-50 shortage list',
+							notes: '',
+							status: 'open',
+							dueDate: '2026-10-02',
+							createdAt: '2026-09-28T10:00:00Z',
+							createdBy: 'SFC Whitaker',
+							completedAt: null,
+							completedBy: null
+						}
+					],
+					total: 1
+				}
 			} as RosterPeekRead);
 			const preview = within(panel());
 			expect(preview.getByText('Overdue 4 days')).toBeTruthy();
@@ -1315,6 +1318,45 @@ describe('PersonnelPageView', () => {
 			completedAt: null,
 			completedBy: null
 		};
+
+		it("links the record, its readiness and its log by the Person's slug", async () => {
+			viewport(1440);
+			const { ctx, answer } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			await answer('person-1', 'followUps', { state: 'ready', value: { followUps: [], total: 0 } } as RosterPeekRead);
+
+			const preview = within(panel());
+			expect(
+				['Open record', 'Readiness', 'Open log'].map((name) =>
+					preview.getByRole('link', { name: new RegExp(name) }).getAttribute('href')
+				)
+			).toEqual([
+				'/org/org-1/personnel/smith-jane',
+				'/org/org-1/personnel/smith-jane/readiness',
+				'/org/org-1/personnel/smith-jane/log'
+			]);
+		});
+
+		it('counts the open follow-ups past the shown ones toward the log', async () => {
+			viewport(1440);
+			const { ctx, answer } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			const shown = ['f1', 'f2', 'f3', 'f4', 'f5'].map((id, index) => ({
+				...openFollowUp,
+				id,
+				title: `Follow-up ${index + 1}`
+			}));
+			await answer('person-1', 'followUps', {
+				state: 'ready',
+				value: { followUps: shown, total: 7 }
+			} as RosterPeekRead);
+
+			const preview = within(panel());
+			expect(preview.getByRole('heading', { name: /^Open follow-ups\s·\s7$/ })).toBeTruthy();
+			expect(preview.getByText('+2 more in the log')).toBeTruthy();
+		});
 
 		it('offers Retry for a readiness source that could not be checked, rereading only readiness', async () => {
 			viewport(1440);
@@ -1363,7 +1405,10 @@ describe('PersonnelPageView', () => {
 			render(PersonnelPageView, { props: { ctx } });
 			const smith = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
 			await fireEvent.click(smith);
-			await answer('person-1', 'followUps', { state: 'ready', value: [openFollowUp] } as RosterPeekRead);
+			await answer('person-1', 'followUps', {
+				state: 'ready',
+				value: { followUps: [openFollowUp], total: 1 }
+			} as RosterPeekRead);
 			await fireEvent.click(within(panel()).getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' }));
 
 			await fireEvent.keyDown(smith, { key: 'j' });
@@ -1377,7 +1422,7 @@ describe('PersonnelPageView', () => {
 
 			await waitFor(() => expect(reads.filter((read) => read.personnelId === 'person-1')).toHaveLength(10));
 			expect(reads.at(-1)).toMatchObject({ personnelId: 'person-1', section: 'followUps' });
-			await answer('person-1', 'followUps', { state: 'ready', value: [] } as RosterPeekRead);
+			await answer('person-1', 'followUps', { state: 'ready', value: { followUps: [], total: 0 } } as RosterPeekRead);
 			expect(within(panel()).getByText('No open follow-ups.')).toBeTruthy();
 		});
 
@@ -1393,7 +1438,10 @@ describe('PersonnelPageView', () => {
 			);
 			render(PersonnelPageView, { props: { ctx } });
 			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
-			await answer('person-1', 'followUps', { state: 'ready', value: [openFollowUp] } as RosterPeekRead);
+			await answer('person-1', 'followUps', {
+				state: 'ready',
+				value: { followUps: [openFollowUp], total: 1 }
+			} as RosterPeekRead);
 			await fireEvent.click(within(panel()).getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' }));
 
 			endOrganizationLifetime();
@@ -1679,6 +1727,23 @@ describe('PersonnelPageView', () => {
 					.getAllByRole('listitem')
 					.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())
 			).toEqual(['1 present', '1 Leave']);
+		});
+
+		it('moves the lane to the new day when a composer opens on a page left open past midnight', async () => {
+			let browserDay = '2026-10-23';
+			const signals = new RosterSignals({ readPeople: vi.fn(), browserDay: () => browserDay });
+			personnelStore.load([personnel[0]], 'org-1');
+			const ctx = makeCtx({ signals, canManagePersonnelRecord: () => true });
+			signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
+			render(PersonnelPageView, { props: { ctx } });
+			expect(invalidateMock).not.toHaveBeenCalled();
+
+			browserDay = '2026-10-24';
+			expect(invalidateMock).not.toHaveBeenCalled();
+			await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0]);
+
+			expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+			expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-signals');
 		});
 
 		it('hides the headcount from a viewer who cannot read availability', () => {

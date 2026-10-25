@@ -43,7 +43,14 @@ const waiting: IdentityPerson = {
 };
 
 function data(people: Promise<PersonRegion<IdentityPeoplePage>>, overrides: Record<string, unknown> = {}) {
-	return { people, filter: 'all', search: '', page: 1, ...overrides } as never;
+	return {
+		people,
+		filter: 'all',
+		search: '',
+		sort: { key: 'added', direction: 'desc' },
+		page: 1,
+		...overrides
+	} as never;
 }
 const ok = (page: IdentityPeoplePage): Promise<PersonRegion<IdentityPeoplePage>> =>
 	Promise.resolve({ status: 'ok', data: page });
@@ -80,9 +87,10 @@ describe('People list', () => {
 	it('names the state of each person without relying on colour', async () => {
 		render(PeoplePage, { data: data(ok(result([active, waiting]))) });
 
-		const rows = await screen.findAllByRole('listitem');
-		expect(within(rows[0]).getByText('Active')).toBeTruthy();
-		expect(within(rows[1]).getByText('Not set up')).toBeTruthy();
+		await screen.findByRole('link', { name: 'Dana Reyes' });
+		const [, first, second] = screen.getAllByRole('row');
+		expect(within(first).getByText('Active')).toBeTruthy();
+		expect(within(second).getByText('Not set up')).toBeTruthy();
 	});
 
 	it('keeps the search and filter and offers a retry when the list cannot be loaded', async () => {
@@ -109,6 +117,20 @@ describe('People list', () => {
 
 		await waitFor(() => expect(goto).toHaveBeenCalled());
 		expect(String(goto.mock.calls[0][0])).toBe('/admin/people?filter=notSetUp');
+	});
+
+	it('sorts by the header the operator presses, flipping the column already sorted', async () => {
+		render(PeoplePage, { data: data(ok(result([active])), { page: 3, search: 'dana' }) });
+
+		const added = await screen.findByRole('columnheader', { name: /Added/ });
+		expect(added.getAttribute('aria-sort')).toBe('descending');
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Person' }));
+		await fireEvent.click(within(added).getByRole('button'));
+
+		expect(goto.mock.calls.map(([url]) => String(url))).toEqual([
+			'/admin/people?search=dana&sort=person&dir=asc',
+			'/admin/people?search=dana&sort=added&dir=asc'
+		]);
 	});
 
 	it('offers a way back from an empty search', async () => {

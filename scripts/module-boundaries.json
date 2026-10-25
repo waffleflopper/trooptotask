@@ -581,8 +581,6 @@
 			"src/features/platform-admin/components/AdminPager.svelte",
 			"src/features/platform-admin/components/AdminSearch.svelte",
 			"src/features/platform-admin/components/OrganizationActivitySkeleton.svelte",
-			"src/features/platform-admin/components/OrganizationListFrame.svelte",
-			"src/features/platform-admin/components/OrganizationListSkeleton.svelte",
 			"src/features/platform-admin/components/SuspendModal.svelte",
 			"src/features/platform-admin/components/TransferOwnershipModal.svelte",
 			"src/features/platform-admin/components/adminTheme.ts",

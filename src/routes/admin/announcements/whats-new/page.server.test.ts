@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
 
 const { whatsNewMock } = vi.hoisted(() => ({
-	whatsNewMock: { list: vi.fn(), save: vi.fn(), deleteDraft: vi.fn() }
+	whatsNewMock: { list: vi.fn(), save: vi.fn(), deleteEntry: vi.fn() }
 }));
 
 vi.mock('$features/platform-admin/index.server', async (importOriginal) => ({
@@ -89,15 +89,14 @@ describe('admin What’s New route', () => {
 
 	it.each([
 		[{ status: 'deleted' }, { success: true, deleted: true }],
-		[{ status: 'published' }, { status: 409, data: { error: 'Published entries cannot be deleted' } }],
 		[{ status: 'not_found' }, { status: 404, data: { error: 'Entry not found' } }]
 	])('maps the delete result %j', async (deleted, expected) => {
-		whatsNewMock.deleteDraft.mockResolvedValueOnce(deleted);
+		whatsNewMock.deleteEntry.mockResolvedValueOnce(deleted);
 		expect(await actions.delete(event({ id: 'entry-1' }))).toEqual(expected);
 	});
 
 	it('rejects a malformed id on delete', async () => {
 		expect(await actions.delete(event({ id: '' }))).toEqual({ status: 400, data: { error: 'Invalid entry ID' } });
-		expect(whatsNewMock.deleteDraft).not.toHaveBeenCalled();
+		expect(whatsNewMock.deleteEntry).not.toHaveBeenCalled();
 	});
 });

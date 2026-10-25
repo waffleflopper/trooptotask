@@ -36,6 +36,8 @@ export interface PlatformOrganizationListInput {
 	pages?: number | string | null;
 	q?: string | null;
 	filter?: string | null;
+	sort?: string | null;
+	dir?: string | null;
 }
 
 export interface PlatformOrganizationListQuery {
@@ -43,6 +45,7 @@ export interface PlatformOrganizationListQuery {
 	pages: number;
 	q: string;
 	filter: PlatformOrganizationFilter;
+	sort: PlatformOrganizationSort;
 }
 
 export interface PlatformOrganizationRow {

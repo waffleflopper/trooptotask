@@ -71,11 +71,13 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('Organizations list load', () => {
 	it('asks the database for every row up to the requested page with a cleaned search and filter', async () => {
-		await load(event('/admin/organizations?pages=3&q=%20Able%20&filter=quiet'));
+		await load(event('/admin/organizations?pages=3&q=%20Able%20&filter=quiet&sort=personnel&dir=asc'));
 		expect(rpc).toHaveBeenCalledTimes(1);
 		expect(rpc).toHaveBeenCalledWith('platform_list_organizations', {
 			p_search: 'Able',
 			p_filter: 'quiet',
+			p_sort: 'personnel',
+			p_dir: 'asc',
 			p_page: 1,
 			p_page_size: 75
 		});
@@ -93,7 +95,7 @@ describe('Organizations list load', () => {
 
 	it('streams the page of Organizations with every list fact in one database call', async () => {
 		const result = await loaded();
-		expect(result.query).toEqual({ pages: 1, q: '', filter: 'all' });
+		expect(result.query).toEqual({ pages: 1, q: '', filter: 'all', sort: { key: 'lastActive', direction: 'desc' } });
 		await expect(result.directory).resolves.toEqual({
 			status: 'ready',
 			page: {

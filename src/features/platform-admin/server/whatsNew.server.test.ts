@@ -45,8 +45,8 @@ function memoryStore(initial: WhatsNewEntry[] = []) {
 			});
 			return true;
 		},
-		deleteDraft: async (id) => {
-			const index = rows.findIndex((row) => row.id === id && row.publishedOn === null);
+		deleteEntry: async (id) => {
+			const index = rows.findIndex((row) => row.id === id);
 			if (index >= 0) rows.splice(index, 1);
 		}
 	};
@@ -187,17 +187,23 @@ describe("platform What's New", () => {
 	it('reports an entry that no longer exists', async () => {
 		const { operations, audit } = setup();
 		expect(await operations.save({ id: 'gone', title: 'x', paragraphs: ['x'] })).toEqual({ status: 'not_found' });
-		expect(await operations.deleteDraft('gone')).toEqual({ status: 'not_found' });
+		expect(await operations.deleteEntry('gone')).toEqual({ status: 'not_found' });
 		expect(audit).not.toHaveBeenCalled();
 	});
 
-	it('deletes a draft but refuses a published entry', async () => {
-		const { operations, rows, audits } = setup([entry('draft', null), entry('live', '2026-10-01')]);
-		expect(await operations.deleteDraft('live')).toEqual({ status: 'published' });
-		expect(rows.map((row) => row.id)).toEqual(['draft', 'live']);
-		expect(await operations.deleteDraft('draft')).toEqual({ status: 'deleted' });
-		expect(rows.map((row) => row.id)).toEqual(['live']);
-		expect(audits.map((event) => event.action)).toEqual(['whats_new_delete']);
+	it('deletes drafts and published entries and audits their publication state', async () => {
+		const { operations, rows, audits } = setup([
+			entry('draft', null),
+			entry('live', '2026-10-01'),
+			entry('kept', '2026-09-01')
+		]);
+		expect(await operations.deleteEntry('live')).toEqual({ status: 'deleted' });
+		expect(await operations.deleteEntry('draft')).toEqual({ status: 'deleted' });
+		expect(rows.map((row) => row.id)).toEqual(['kept']);
+		expect(audits).toMatchObject([
+			{ action: 'whats_new_delete', details: { entryId: 'live', title: 'live', published: true } },
+			{ action: 'whats_new_delete', details: { entryId: 'draft', title: 'draft', published: false } }
+		]);
 	});
 
 	it('does not report success when the audit fails', async () => {

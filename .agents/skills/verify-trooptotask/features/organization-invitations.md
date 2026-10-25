@@ -129,10 +129,9 @@ withdraws nothing.
   back its replacement, and renew-invite still delivers a working link.
 - (f) Invite a completed account from another Organization and revoke it. `setup_completed_at`, `setup_user_id`,
   memberships and the account's sign-in stay unchanged.
-- (g) As `platformReviewer`, open `admin/access-requests` on an approved incomplete invitation request. It shows
-  `Auto-approved via invite from <Organization>` and a `Rescind` action beside the setup resend. Recipe steps live in
-  [Platform administration](platform-administration.md); after the rescind the earlier setup link shows the withdrawn
-  message and the linked pending invitation is `blocked`.
+- (g) As `platformReviewer`, open `admin` (the Inbox). An approved incomplete invitation request does not appear in the
+  Inbox or Done: invitation auto-approvals were never in the queue, and the admin UI no longer offers Rescind. Check the
+  request row and its linked invitation with `$V platform-state` instead.
 - (h) `$V mail fail setup 1`, then invite a new email. The owner sees
   `Invitation created and email delivery was queued.`, the funnel shows `Setup email didn't reach them`, the invitation
   stays pending with `setup_grant_live` true and renew-invite delivers a working link.

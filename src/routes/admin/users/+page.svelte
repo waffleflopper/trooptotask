@@ -79,7 +79,12 @@
 			value: search.value,
 			onValueChange: search.setValue
 		}}
-		primary={{ kind: 'action', id: 'access-requests', label: 'Open Access Requests', href: '/admin/access-requests' }}
+		primary={{
+			kind: 'action',
+			id: 'access-requests',
+			label: 'Open Access Requests',
+			href: '/admin?kind=accessRequest'
+		}}
 	/>
 
 	<Card.Root>

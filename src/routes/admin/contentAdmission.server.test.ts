@@ -7,10 +7,9 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 
 import { load as layoutLoad } from './+layout.server';
 import { actions as announcementActions, load as announcementLoad } from './announcements/+page.server';
-import { actions as feedbackActions, load as feedbackLoad } from './feedback/+page.server';
-import { load as auditLoad } from './audit/+page.server';
+import { actions as inboxActions, load as inboxLoad } from './+page.server';
 
-type ContentPage = 'announcements' | 'feedback' | 'audit';
+type ContentPage = 'announcements' | 'inbox';
 interface ActorCase {
 	name: string;
 	operator: boolean;
@@ -23,7 +22,6 @@ interface ActorCase {
 const ACTOR_ID = '10000000-0000-4000-8000-000000000001';
 const ANNOUNCEMENT_ID = '20000000-0000-4000-8000-000000000001';
 const FEEDBACK_ID = '30000000-0000-4000-8000-000000000001';
-const AUDIT_ID = '40000000-0000-4000-8000-000000000001';
 const aal2 = { currentLevel: 'aal2', nextLevel: 'aal2' } as const;
 const actors: ActorCase[] = [
 	{
@@ -75,13 +73,15 @@ const loads: Record<ContentPage, (request: RequestEvent) => Promise<unknown>> = 
 		};
 		return { announcements: ((await banners) as { announcements: unknown[] }).announcements };
 	},
-	feedback: async (request) => feedbackLoad(request as Parameters<typeof feedbackLoad>[0]),
-	audit: async (request) => auditLoad(request as Parameters<typeof auditLoad>[0])
+	inbox: async (request) => {
+		const data = await inboxLoad(request as Parameters<typeof inboxLoad>[0]);
+		if (!data) expect.unreachable('Expected Inbox data');
+		return { tab: data.tab, feedback: await data.sources.feedback };
+	}
 };
 const permittedWitnesses: Record<ContentPage, readonly [string, string | number]> = {
 	announcements: ['announcements.0.id', ANNOUNCEMENT_ID],
-	feedback: ['newItems.0.id', FEEDBACK_ID],
-	audit: ['logs.0.id', AUDIT_ID]
+	inbox: ['feedback.items.0.id', FEEDBACK_ID]
 };
 
 function request(actor: ActorCase, path: string, form?: Record<string, string>): RequestEvent {
@@ -97,8 +97,9 @@ function request(actor: ActorCase, path: string, form?: Record<string, string>):
 		},
 		url,
 		request: new Request(url, form ? { method: 'POST', body: new URLSearchParams(form) } : undefined),
-		getClientAddress: () => '127.0.0.1'
-	} as RequestEvent;
+		getClientAddress: () => '127.0.0.1',
+		depends: () => {}
+	} as unknown as RequestEvent;
 }
 
 function provider(actor: ActorCase) {
@@ -123,8 +124,9 @@ function provider(actor: ActorCase) {
 			created_at: '2026-06-01T10:00:00Z',
 			organization_name: 'Synthetic Organization',
 			page_url: '/org/synthetic',
+			page_section: null,
 			status: 'new',
-			admin_notes: 'Original notes'
+			updated_at: '2026-06-01T10:00:00Z'
 		}
 	];
 	const contentReads: string[] = [];
@@ -153,23 +155,10 @@ function provider(actor: ActorCase) {
 		}
 		if (resource === 'beta_feedback') {
 			if (method === 'PATCH') Object.assign(feedback[0], JSON.parse(String(init?.body)));
-			return method === 'PATCH' ? rowResponse({ id: FEEDBACK_ID }) : Response.json(feedback);
+			if (method === 'PATCH') return rowResponse({ id: FEEDBACK_ID });
+			return Response.json(feedback, { headers: { 'content-range': `0-0/${feedback.length}` } });
 		}
-		if (resource === 'audit_logs')
-			return Response.json([
-				{
-					id: AUDIT_ID,
-					user_id: ACTOR_ID,
-					org_id: null,
-					action: 'announcement_create',
-					resource_type: 'platform_announcement',
-					resource_id: ANNOUNCEMENT_ID,
-					ip_address: '127.0.0.1',
-					details: { title: 'Synthetic notice' },
-					severity: 'info',
-					timestamp: '2026-06-01T10:00:00Z'
-				}
-			]);
+		if (resource === 'audit_logs') return new Response(null, { status: 201 });
 		throw new Error(`Unexpected synthetic provider request: ${method} ${resource}`);
 	};
 	getAdminClient.mockReturnValue(
@@ -215,9 +204,6 @@ describe('platform content route admission', () => {
 			const data = await result;
 			if (!data) expect.unreachable('Expected admitted admin layout data');
 			expect(data).toMatchObject({ adminUserId: ACTOR_ID });
-			expect(data.accessiblePages).toEqual(
-				expect.arrayContaining(['dashboard', 'users', 'organizations', 'access-requests', ...pages])
-			);
 		} else {
 			await expect(result).rejects.toEqual(denied(actor));
 		}
@@ -246,25 +232,22 @@ describe('platform content route admission', () => {
 					.catch((error: unknown) => error);
 				expect(result).toEqual(denied(actor));
 			}
-			const result = await Promise.resolve()
-				.then(() =>
-					feedbackActions.update(
-						request(actor, '/admin/feedback?/update', {
-							feedbackId: FEEDBACK_ID,
-							status: 'resolved',
-							adminNotes: 'Denied change'
-						}) as Parameters<typeof feedbackActions.update>[0]
+			for (const action of ['close', 'approve', 'reject'] as const) {
+				const handler = inboxActions[action];
+				const result = await Promise.resolve()
+					.then(() =>
+						handler(request(actor, `/admin?/${action}`, { id: FEEDBACK_ID }) as Parameters<typeof handler>[0])
 					)
-				)
-				.catch((error: unknown) => error);
-			expect(result).toEqual(denied(actor));
+					.catch((error: unknown) => error);
+				expect(result, action).toEqual(denied(actor));
+			}
 			expect(state.contentReads).toEqual([]);
 			expect(state.writes).toEqual([]);
 			expect({ announcements: state.announcements, feedback: state.feedback }).toEqual(original);
 		}
 	);
 
-	it('admits an operator at aal2 to announcement changes and Feedback review through the same handlers', async () => {
+	it('admits an operator at aal2 to announcement changes and closing Feedback through the same handlers', async () => {
 		const operator = actors[0];
 		const state = provider(operator);
 		for (const [isActive, stored] of [
@@ -285,14 +268,11 @@ describe('platform content route admission', () => {
 		}
 
 		await expect(
-			feedbackActions.update(
-				request(operator, '/admin/feedback?/update', {
-					feedbackId: FEEDBACK_ID,
-					status: 'reviewed',
-					adminNotes: ''
-				}) as Parameters<typeof feedbackActions.update>[0]
+			inboxActions.close(
+				request(operator, '/admin?/close', { id: FEEDBACK_ID }) as Parameters<typeof inboxActions.close>[0]
 			)
-		).resolves.toEqual({ success: true });
-		expect(state.feedback[0]).toMatchObject({ id: FEEDBACK_ID, status: 'reviewed', admin_notes: '' });
+		).resolves.toEqual({ success: true, action: 'close' });
+		expect(state.feedback[0]).toMatchObject({ id: FEEDBACK_ID, status: 'resolved' });
+		expect(state.writes).toContain('audit_logs');
 	});
 });

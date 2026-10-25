@@ -48,4 +48,17 @@ describe('SegmentedFilter', () => {
 		expect(checked()).toBe('All');
 		expect(screen.getAllByRole('radio').every((radio) => (radio as HTMLButtonElement).disabled)).toBe(true);
 	});
+
+	it('holds a loading count without announcing it, then shows the number', async () => {
+		const view = render(SegmentedFilter, {
+			options: [{ value: 'all', label: 'All', count: null }],
+			value: 'all',
+			label: 'State'
+		});
+		expect(screen.getByRole('radio', { name: 'All' })).toBeTruthy();
+
+		await view.rerender({ options: [{ value: 'all', label: 'All', count: 7 }], value: 'all', label: 'State' });
+
+		expect(screen.getByRole('radio', { name: 'All · 7' })).toBeTruthy();
+	});
 });

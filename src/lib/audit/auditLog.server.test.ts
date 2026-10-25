@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const insert = vi.fn();
-const from = vi.fn(() => ({ insert }));
+const maybeSingle = vi.fn();
+const getUserById = vi.fn();
+const from = vi.fn((table: string) =>
+	table === 'audit_logs' ? { insert } : { select: () => ({ eq: () => ({ maybeSingle }) }) }
+);
 
 vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: vi.fn(() => ({ from }))
+	getAdminClient: vi.fn(() => ({ from, auth: { admin: { getUserById } } }))
 }));
 
 import { auditLog } from './auditLog.server';
@@ -16,6 +20,9 @@ describe('auditLog', () => {
 		insert.mockReset();
 		from.mockClear();
 		insert.mockResolvedValue({ error: null });
+		maybeSingle.mockReset();
+		maybeSingle.mockResolvedValue({ data: null });
+		getUserById.mockReset();
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -108,6 +115,128 @@ describe('auditLog', () => {
 				reason: '[redacted]',
 				redacted_fields: ['reason']
 			}
+		});
+	});
+
+	describe('platform events', () => {
+		const operator = { userId: 'operator-1', userEmail: 'Robert@Example.test', ip: '127.0.0.1', userAgent: 'Vitest' };
+
+		it('keep the actor email, the written target name and the typed reason as written', async () => {
+			await auditLog(
+				{
+					action: 'suspend_user',
+					resourceType: 'user',
+					resourceId: 'user-9',
+					details: { targetName: 'pat@example.test', reason: 'Shared a password', email: 'pat@example.test' },
+					severity: 'critical'
+				},
+				operator,
+				{ required: true }
+			);
+
+			expect(insert.mock.calls[0]?.[0].details).toEqual({
+				actorEmail: 'robert@example.test',
+				targetName: 'pat@example.test',
+				reason: 'Shared a password',
+				email: 'p***@example.test'
+			});
+		});
+
+		it('keep an Organization-scoped event redacted: no actor email, no typed reason', async () => {
+			await auditLog(
+				{
+					action: 'suspend_org',
+					resourceType: 'organization',
+					resourceId: 'org-1',
+					orgId: 'org-1',
+					details: { targetName: 'Alpha Company', reason: 'Unpaid invoice' }
+				},
+				operator,
+				{ required: true }
+			);
+
+			expect(insert.mock.calls[0]?.[0].details).toEqual({
+				targetName: 'Alpha Company',
+				reason: '[redacted]',
+				redacted_fields: ['reason']
+			});
+		});
+
+		it('name a revoked setup link by the access request it belonged to', async () => {
+			maybeSingle.mockResolvedValue({ data: { name: 'Pat Doe', email: 'pat@example.test' } });
+
+			await auditLog(
+				{
+					action: 'account_setup.link_revoked',
+					resourceType: 'account_setup_link',
+					resourceId: 'link-1',
+					details: { accessRequestId: 'request-1' }
+				},
+				operator,
+				{ required: true }
+			);
+
+			expect(from).toHaveBeenCalledWith('access_requests');
+			expect(insert.mock.calls[0]?.[0].details).toMatchObject({ targetName: 'Pat Doe' });
+		});
+
+		it('read the target name from its record when the command did not supply one', async () => {
+			maybeSingle.mockResolvedValue({ data: { name: 'Alpha Company' } });
+
+			await auditLog(
+				{ action: 'suspend_org', resourceType: 'organization', resourceId: 'org-1', orgId: 'org-1' },
+				operator,
+				{ required: true }
+			);
+
+			expect(from).toHaveBeenCalledWith('organizations');
+			expect(insert.mock.calls[0]?.[0].details).toEqual({ targetName: 'Alpha Company' });
+		});
+
+		it('name a user target by the saved profile, falling back to the email', async () => {
+			getUserById.mockResolvedValue({ data: { user: { email: 'pat@example.test', user_metadata: {} } } });
+			maybeSingle.mockResolvedValueOnce({ data: { first_name: 'Pat', last_name: 'Lee', rank: 'SGT' } });
+			await auditLog({ action: 'suspend_user', resourceType: 'user', resourceId: 'user-9' }, operator, {
+				required: true
+			});
+			expect(from).toHaveBeenCalledWith('user_profiles');
+			expect(insert.mock.calls[0]?.[0].details).toMatchObject({ targetName: 'SGT Pat Lee' });
+
+			insert.mockClear();
+			await auditLog({ action: 'suspend_user', resourceType: 'user', resourceId: 'user-9' }, operator, {
+				required: true
+			});
+			expect(insert.mock.calls[0]?.[0].details).toMatchObject({ targetName: 'pat@example.test' });
+		});
+
+		it('still write when the target record cannot be read', async () => {
+			maybeSingle.mockRejectedValue(new Error('provider down'));
+
+			await expect(
+				auditLog({ action: 'suspend_org', resourceType: 'organization', resourceId: 'org-1' }, operator, {
+					required: true
+				})
+			).resolves.toBeUndefined();
+			expect(insert.mock.calls[0]?.[0].details).toEqual({ actorEmail: 'robert@example.test' });
+		});
+
+		it('are the only events that keep an email and a reason; other events stay masked and redacted', async () => {
+			await auditLog(
+				{
+					action: 'member.invite',
+					resourceType: 'organization',
+					resourceId: 'org-1',
+					details: { email: 'pat@example.test', reason: 'Because' }
+				},
+				operator
+			);
+
+			expect(insert.mock.calls[0]?.[0].details).toEqual({
+				email: 'p***@example.test',
+				reason: '[redacted]',
+				redacted_fields: ['reason']
+			});
+			expect(maybeSingle).not.toHaveBeenCalled();
 		});
 	});
 
@@ -264,6 +393,22 @@ describe('auditLog', () => {
 				reason: '[redacted]',
 				redacted_fields: ['reason']
 			}
+		});
+	});
+
+	it('keeps an Access Request rejection reason while still redacting other freeform reasons', async () => {
+		await auditLog(
+			{
+				action: 'access_request.rejected',
+				resourceType: 'access_request',
+				resourceId: '11111111-1111-4111-8111-111111111111',
+				details: { rejectionReason: 'Not a unit account', reason: 'Private note' }
+			},
+			{ userId: 'admin-1', ip: '127.0.0.1' }
+		);
+
+		expect(insert.mock.calls[0]?.[0]).toMatchObject({
+			details: { rejectionReason: 'Not a unit account', reason: '[redacted]', redacted_fields: ['reason'] }
 		});
 	});
 });

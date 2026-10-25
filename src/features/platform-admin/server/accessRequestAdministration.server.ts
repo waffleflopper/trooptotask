@@ -669,7 +669,10 @@ export function createPlatformAccessRequestAdministration(
 				const authorization = await authorizeWithdrawal(deps, { ...input, action: 'reject' });
 				if (!authorization.ok) return authorization.result;
 
-				const rejectResult = await deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations(input);
+				const rejectResult = await deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations({
+					accessRequestId: input.accessRequestId,
+					actorUserId: input.actorUserId
+				});
 
 				if (rejectResult.status === 'not_found') return { status: 'already_reviewed' };
 				if (rejectResult.status === 'failed') return { status: 'failed' };
@@ -679,7 +682,8 @@ export function createPlatformAccessRequestAdministration(
 					resourceType: 'access_request',
 					resourceId: input.accessRequestId,
 					details: {
-						blockedInvitationCount: rejectResult.blockedInvitations.length
+						blockedInvitationCount: rejectResult.blockedInvitations.length,
+						rejectionReason: input.reason?.trim() || null
 					}
 				});
 

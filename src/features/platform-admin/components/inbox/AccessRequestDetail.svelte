@@ -71,6 +71,11 @@
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
+	{#if actions.notice}
+		<Alert.Root variant="destructive" role="status">
+			<Alert.Description>{actions.notice}</Alert.Description>
+		</Alert.Root>
+	{/if}
 	{#if actions.error && !rejecting}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{actions.error}</Alert.Description>

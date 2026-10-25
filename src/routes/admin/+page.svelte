@@ -16,6 +16,7 @@
 		type InboxSourceResult,
 		type InboxTab
 	} from '$features/platform-admin/inboxTypes';
+	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
 
@@ -98,6 +99,9 @@
 				</div>
 			{/each}
 		</dl>
+		{#if stats.settled?.value.status === 'error'}
+			<Button class="w-fit" variant="outline" size="sm" onclick={refreshQueue}>Retry figures</Button>
+		{/if}
 	</div>
 
 	<TypeWorkspace.Root aria-label="Inbox" class="overflow-hidden p-0">

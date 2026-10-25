@@ -157,6 +157,9 @@ describe('Inbox page', () => {
 		await waitFor(() => expect(rowTitles()).toHaveLength(2));
 		expect(screen.queryByText('0')).toBeNull();
 		expect(screen.queryByText('4')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry figures' }));
+		expect(invalidate).toHaveBeenCalledWith('admin:inbox');
 	});
 
 	it('opens an item by pushing history, so Back closes it', async () => {
@@ -212,6 +215,7 @@ describe('Inbox page', () => {
 		});
 
 		await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading Inbox' })).toBeNull());
+		expect(screen.getByRole('tabpanel', { name: 'Done' }).textContent?.trim()).not.toBe('');
 		expect(screen.queryAllByRole('row')).toEqual([]);
 		expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 	});

@@ -44,4 +44,4 @@ export type WhatsNewSaveResult =
 	| { status: 'invalid'; error: string }
 	| { status: 'not_found' };
 
-export type WhatsNewDeleteResult = { status: 'deleted' } | { status: 'not_found' } | { status: 'published' };
+export type WhatsNewDeleteResult = { status: 'deleted' } | { status: 'not_found' };

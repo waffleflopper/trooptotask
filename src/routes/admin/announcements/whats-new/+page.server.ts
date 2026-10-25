@@ -50,9 +50,8 @@ export const actions: Actions = {
 		const id = String(formData.get('id') ?? '');
 		if (!ENTRY_ID.test(id)) return fail(400, { error: 'Invalid entry ID' });
 		try {
-			const result = await operations.deleteDraft(id);
+			const result = await operations.deleteEntry(id);
 			if (result.status === 'not_found') return fail(404, { error: 'Entry not found' });
-			if (result.status === 'published') return fail(409, { error: 'Published entries cannot be deleted' });
 			return { success: true, deleted: true };
 		} catch (cause) {
 			console.error("Failed to delete What's New entry", cause);

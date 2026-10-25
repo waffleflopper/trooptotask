@@ -30,7 +30,7 @@ export interface WhatsNewStore {
 		publishedOn?: string;
 		updatedBy: string;
 	}): Promise<boolean>;
-	deleteDraft(id: string): Promise<void>;
+	deleteEntry(id: string): Promise<void>;
 }
 
 export interface WhatsNewDependencies {
@@ -43,7 +43,7 @@ export interface WhatsNewDependencies {
 export interface PlatformWhatsNew {
 	list(): Promise<WhatsNewListEntry[]>;
 	save(input: WhatsNewSaveInput): Promise<WhatsNewSaveResult>;
-	deleteDraft(id: string): Promise<WhatsNewDeleteResult>;
+	deleteEntry(id: string): Promise<WhatsNewDeleteResult>;
 }
 
 const DAY_MS = 86_400_000;
@@ -143,14 +143,15 @@ export function createPlatformWhatsNew(deps: WhatsNewDependencies): PlatformWhat
 			return { status: 'saved', id: input.id, published: publishing || existing.publishedOn !== null };
 		},
 
-		async deleteDraft(id) {
+		async deleteEntry(id) {
 			const existing = await deps.store.getEntry(id);
 			if (!existing) return { status: 'not_found' };
-			if (existing.publishedOn !== null) return { status: 'published' };
-			await deps.store.deleteDraft(id);
+			await deps.store.deleteEntry(id);
+			const target = auditTarget(id, existing.title);
 			await deps.audit({
 				action: 'whats_new_delete',
-				...auditTarget(id, existing.title),
+				...target,
+				details: { ...target.details, published: existing.publishedOn !== null },
 				severity: 'warning'
 			});
 			return { status: 'deleted' };

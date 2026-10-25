@@ -79,7 +79,7 @@
 	let currentActor = untrack(() => data.adminUserId);
 	let reloadButton = $state<HTMLButtonElement | null>(null);
 	let titleInput = $state<HTMLInputElement | null>(null);
-	let deleteTarget = $state<{ id: string; title: string; published: boolean; shown: boolean } | null>(null);
+	let deleteTarget = $state<{ id: string; title: string; published: boolean } | null>(null);
 	let deleteForm = $state<HTMLFormElement | null>(null);
 	let confirmedDelete = false;
 	// A write or reload stays pending until the read it triggered has replied, so the next write only starts from a
@@ -172,8 +172,7 @@
 						deleteTarget = {
 							id: editorEntry.id,
 							title: editorEntry.title,
-							published: editorEntry.publishedOn !== null,
-							shown: selectedEntry?.shownToUsers ?? false
+							published: editorEntry.publishedOn !== null
 						};
 					return;
 				}
@@ -546,7 +545,7 @@
 {#if deleteTarget}
 	<ConfirmDialog
 		title={deleteTarget.published ? 'Delete entry' : 'Delete draft'}
-		message={deleteTarget.shown
+		message={deleteTarget.published
 			? `Delete "${deleteTarget.title}"? People stop seeing it in What's New right away. This cannot be undone.`
 			: `Delete "${deleteTarget.title}"? This cannot be undone.`}
 		confirmLabel="Delete"

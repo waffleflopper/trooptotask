@@ -331,7 +331,16 @@ export interface IdentityPlatformAccessRequestStore {
 	}): Promise<RescindAccessRequestAndBlockInvitationsResult>;
 }
 
-export type { PersonState, IdentityPerson, IdentityPeoplePage, PeopleFilter, PeopleQuery } from './peopleTypes';
+export type {
+	PersonState,
+	IdentityPerson,
+	IdentityPeoplePage,
+	PeopleFilter,
+	PeopleQuery,
+	PeopleSort,
+	PeopleSortKey
+} from './peopleTypes';
+export { PEOPLE_SORT_KEYS } from './peopleTypes';
 
 export type { SetupEmailInboxRow } from './setupEmailTypes';
 

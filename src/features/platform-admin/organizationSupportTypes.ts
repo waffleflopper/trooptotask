@@ -13,6 +13,21 @@ export const PLATFORM_ORGANIZATION_STATUS_LABELS: Record<PlatformOrganizationSta
 	suspended: 'Suspended'
 };
 
+export const PLATFORM_ORGANIZATION_SORT_KEYS = [
+	'name',
+	'owner',
+	'members',
+	'personnel',
+	'lastActive',
+	'created',
+	'status'
+] as const;
+export type PlatformOrganizationSortKey = (typeof PLATFORM_ORGANIZATION_SORT_KEYS)[number];
+export interface PlatformOrganizationSort {
+	key: PlatformOrganizationSortKey;
+	direction: 'asc' | 'desc';
+}
+
 export const PLATFORM_ORGANIZATIONS_PAGE_SIZE = 25;
 /** Load more stops here, so one request never reads more than this many pages of rows. */
 export const PLATFORM_ORGANIZATIONS_MAX_PAGES = 20;

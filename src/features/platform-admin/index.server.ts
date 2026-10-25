@@ -1,4 +1,5 @@
 export { listActiveAnnouncementContent } from './server/announcementContent.server';
+export { listPublishedWhatsNew } from './server/whatsNewContent.server';
 export { createPlatformOrganizationMembershipCommands } from './server/organizationMembership.server';
 export { createPlatformOrganizationOperations } from './server/organizationOperations.server';
 export { createPlatformAccountOperations } from './server/accountOperations.server';
@@ -6,10 +7,15 @@ export { createPlatformAccessRequestOperations } from './server/accessRequestOpe
 export { createPlatformSearchOperations, createPlatformSuspensionOperations } from './server/supportOperations.server';
 
 export { loadPlatformAdminNavigation } from './server/navigation.server';
-export { createPlatformDashboardOperations } from './server/dashboardOperations.server';
 export { createPlatformAnnouncementOperations } from './server/announcementOperations.server';
+export { createPlatformWhatsNewOperations, readPublishedWhatsNew } from './server/whatsNewOperations.server';
 export { validatePlatformAnnouncement } from './server/announcements.server';
-export {
-	createPlatformFeedbackOperations,
-	createPlatformAuditOperations
-} from './server/contentReviewOperations.server';
+export { createPlatformInboxOperations } from './server/inboxOperations.server';
+export { mapApproveResult, mapRejectResult } from './server/accessRequestActionResults.server';
+export { createPlatformActivityOperations } from './server/activityOperations.server';
+
+export { createPlatformPeopleOperations } from './server/peopleOperations.server';
+export { createPlatformSetupEmailOperations } from './server/setupEmailOperations.server';
+
+export { mapResendSetupResult, mapRescindSetupResult } from './server/setupEmailActionResults.server';
+export { admitPlatformAdministrator } from './server/admission.server';

@@ -8,11 +8,7 @@ export type {
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { OrganizationPlatformMembershipPort } from './platformMembershipTypes';
 
-export type {
-	OrganizationSupportMember,
-	OrganizationPromotionResult,
-	OrganizationTransferResult
-} from './platformMembershipTypes';
+export type { OrganizationSupportMember, OrganizationTransferResult } from './platformMembershipTypes';
 export type OrganizationSupportMemberReader = Pick<OrganizationPlatformMembershipPort, 'listMembers'>;
 
 /** Complete only after the provider call and attachment or byte cleanup are acknowledged. */
@@ -74,12 +70,9 @@ export { buildSettingsShell, SETTINGS_PAGES } from './settingsShell';
 export type { SettingsNavCounts, SettingsShell, SettingsShellOrganizationSource } from './settingsShell';
 export type {
 	OrganizationSupportOrganization,
-	OrganizationSupportPageQuery,
-	OrganizationSupportPage,
 	OrganizationSupportUserMembership,
-	OrganizationSupportOwnerMembership,
-	OrganizationSupportOwnerMembershipMetric,
 	OrganizationSupportReader,
+	CurrentOrganizationSuspension,
 	OrganizationSupportSuspensionCommands
 } from './supportReadTypes';
 export type {

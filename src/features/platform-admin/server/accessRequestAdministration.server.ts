@@ -69,7 +69,7 @@ export interface PlatformAccessRequestAdministrationDependencies {
 		adminUserId: string;
 		accessRequestId: string;
 	}) => Promise<PlatformAccessRequestRateLimitDecision>;
-	audit: (event: PlatformAccessRequestAdministrationAuditEvent) => void;
+	audit: (event: PlatformAccessRequestAdministrationAuditEvent) => Promise<void>;
 	notifyGovernors: PlatformAccessRequestGovernorNotifier;
 	now?: () => Date;
 }
@@ -337,8 +337,13 @@ function mapSetupLinkFailureToStatus(reason: AccountSetupLinkNotCreatedReason): 
 }
 
 function mapSetupLinkDeliveryToStatus(
-	issued: Extract<AccountSetupLinkIssuanceResult, { status: 'sent' | 'delivery_failed' }>
+	issued: Extract<
+		AccountSetupLinkIssuanceResult,
+		{ status: 'sent' | 'delivery_failed' | 'email_sent_audit_failed' | 'email_sent_recording_failed' }
+	>
 ): PlatformAccessRequestAdminSendResult {
+	if (issued.status === 'email_sent_audit_failed' || issued.status === 'email_sent_recording_failed')
+		return { status: issued.status, setupDeliveryStatus: 'sent' };
 	return issued.status === 'sent'
 		? { status: 'sent', setupDeliveryStatus: 'sent' }
 		: { status: 'delivery_failed', setupDeliveryStatus: 'failed' };
@@ -400,7 +405,7 @@ async function authorizeSetupSend(
 		return { ok: true, sensitiveAction: details };
 	}
 
-	deps.audit({
+	await deps.audit({
 		action:
 			input.action === 'approval'
 				? 'access_request.account_setup_approval_authorization_denied'
@@ -442,7 +447,7 @@ async function checkSetupSendRateLimit(
 	});
 	const details = platformAccessRequestRateLimitAuditDetails(decision);
 	if (decision.limited) {
-		deps.audit({
+		await deps.audit({
 			action:
 				input.action === 'approval'
 					? 'access_request.account_setup_approval_rate_limited'
@@ -522,7 +527,7 @@ async function authorizeWithdrawal(
 		return { ok: true };
 	}
 
-	deps.audit({
+	await deps.audit({
 		action:
 			input.action === 'reject'
 				? 'access_request.rejection_authorization_denied'
@@ -593,7 +598,7 @@ export function createPlatformAccessRequestAdministration(
 				});
 				if (approved !== 'approved') return { status: 'already_reviewed' };
 
-				deps.audit({
+				await deps.audit({
 					action: 'access_request.approved',
 					resourceType: 'access_request',
 					resourceId: input.accessRequestId,
@@ -669,17 +674,21 @@ export function createPlatformAccessRequestAdministration(
 				const authorization = await authorizeWithdrawal(deps, { ...input, action: 'reject' });
 				if (!authorization.ok) return authorization.result;
 
-				const rejectResult = await deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations(input);
+				const rejectResult = await deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations({
+					accessRequestId: input.accessRequestId,
+					actorUserId: input.actorUserId
+				});
 
 				if (rejectResult.status === 'not_found') return { status: 'already_reviewed' };
 				if (rejectResult.status === 'failed') return { status: 'failed' };
 
-				deps.audit({
+				await deps.audit({
 					action: 'access_request.rejected',
 					resourceType: 'access_request',
 					resourceId: input.accessRequestId,
 					details: {
-						blockedInvitationCount: rejectResult.blockedInvitations.length
+						blockedInvitationCount: rejectResult.blockedInvitations.length,
+						rejectionReason: input.reason?.trim() || null
 					}
 				});
 
@@ -709,7 +718,7 @@ export function createPlatformAccessRequestAdministration(
 				if (rescindResult.status === 'claim-held') return { status: 'claim_held' };
 				if (rescindResult.status === 'failed') return { status: 'failed' };
 
-				deps.audit({
+				await deps.audit({
 					action: 'access_request.rescinded',
 					resourceType: 'access_request',
 					resourceId: input.accessRequestId,

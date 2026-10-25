@@ -1,5 +1,5 @@
-import { error, fail } from '@sveltejs/kit';
-import type { PageServerLoad, Actions } from './$types';
+import { fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
 import {
 	createPlatformAnnouncementOperations,
 	validatePlatformAnnouncement
@@ -8,23 +8,22 @@ import { validateUUID } from '$lib/server/validation';
 
 export const load: PageServerLoad = async (event) => {
 	const operations = await createPlatformAnnouncementOperations(event);
-	try {
-		const announcements = await operations.list();
-		return {
-			announcements: announcements.map((announcement) => ({
-				id: announcement.id,
-				title: announcement.title,
-				message: announcement.message,
-				type: announcement.type,
-				is_active: announcement.isActive,
-				created_at: announcement.createdAt,
-				expires_at: announcement.expiresAt
-			}))
-		};
-	} catch (cause) {
-		console.error('Failed to load announcements', cause);
-		error(500, 'Internal server error');
-	}
+	return {
+		banners: operations.list().then(
+			(announcements) => ({ status: 'loaded' as const, announcements }),
+			(cause) => {
+				console.error('Failed to load announcements', cause);
+				return { status: 'failed' as const };
+			}
+		),
+		dismissals: operations.dismissalCounts().then(
+			(counts) => ({ status: 'loaded' as const, counts }),
+			(cause) => {
+				console.error('Failed to load announcement dismissal counts', cause);
+				return { status: 'failed' as const };
+			}
+		)
+	};
 };
 
 export const actions: Actions = {

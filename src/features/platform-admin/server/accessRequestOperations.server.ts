@@ -21,7 +21,7 @@ import {
 
 /** Review commands bind the verified reviewer, request assurance, audit attribution and public origin. */
 export async function createPlatformAccessRequestOperations(event: RequestEvent) {
-	const { actor, adminClient, requestInfo } = await admitPlatformAdministrator(event, ['super_admin', 'support']);
+	const { actor, adminClient, requestInfo } = await admitPlatformAdministrator(event);
 	const requests = createIdentityPlatformAccessRequestStore(adminClient);
 	const invitations = createOrganizationPlatformInvitationReader(adminClient);
 	const accounts = createIdentityPlatformSupportReader(adminClient);
@@ -43,7 +43,7 @@ export async function createPlatformAccessRequestOperations(event: RequestEvent)
 		}),
 		checkSetupRateLimit: (input) =>
 			checkPlatformAccessRequestSetupRateLimit({ ...input, adminUserId: actor.userId, store: rateLimitStore }),
-		audit: (entry) => auditLog(entry, requestInfo),
+		audit: (entry) => auditLog(entry, requestInfo, { required: true }),
 		notifyGovernors: {
 			notifyInvitationBlocked: (input) =>
 				notifications.notifyAdmins(input.organizationId, actor.userId, {
@@ -60,7 +60,8 @@ export async function createPlatformAccessRequestOperations(event: RequestEvent)
 			administration.approve({ accessRequestId, actorUserId: actor.userId, publicOrigin: event.url.origin }),
 		resendSetup: (accessRequestId: string) =>
 			administration.resendSetup({ accessRequestId, actorUserId: actor.userId, publicOrigin: event.url.origin }),
-		reject: (accessRequestId: string) => administration.reject({ accessRequestId, actorUserId: actor.userId }),
+		reject: (accessRequestId: string, reason?: string | null) =>
+			administration.reject({ accessRequestId, actorUserId: actor.userId, reason }),
 		rescind: (accessRequestId: string) => administration.rescind({ accessRequestId, actorUserId: actor.userId })
 	};
 }

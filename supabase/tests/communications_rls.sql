@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(53);
+SELECT plan(54);
 
 -- Global content and account dismissals do not require Organization membership.
 -- Active/expiry filtering and admitted identity are application responsibilities;
@@ -26,11 +26,9 @@ FROM (VALUES
 	('10000000-0000-4000-8000-000000136807', 'communications-alpha-peer@example.test')
 ) AS fixture(id, email);
 
-INSERT INTO public.platform_admins (user_id, role, is_active)
-VALUES
-	('10000000-0000-4000-8000-000000136803', 'super_admin', true),
-	('10000000-0000-4000-8000-000000136804', 'support', true),
-	('10000000-0000-4000-8000-000000136806', 'support', false);
+INSERT INTO public.platform_operators(user_id) VALUES
+ ('10000000-0000-4000-8000-000000136803'),
+ ('10000000-0000-4000-8000-000000136804');
 
 INSERT INTO public.organizations (id, name, created_by, url_slug)
 VALUES
@@ -89,17 +87,17 @@ SELECT throws_ok(
 	'42501', NULL, 'ordinary account cannot create announcement content'
 );
 
-WITH changed AS (
-	UPDATE public.platform_announcements SET title = 'Blocked change'
-	WHERE id = '40000000-0000-4000-8000-000000136801' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM changed), 0, 'ordinary account cannot update content');
+SELECT throws_ok(
+	$$ UPDATE public.platform_announcements SET title = 'Blocked change'
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'ordinary account cannot update content'
+);
 
-WITH removed AS (
-	DELETE FROM public.platform_announcements
-	WHERE id = '40000000-0000-4000-8000-000000136801' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM removed), 0, 'ordinary account cannot delete content');
+SELECT throws_ok(
+	$$ DELETE FROM public.platform_announcements
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'ordinary account cannot delete content'
+);
 
 SELECT lives_ok(
 	$$ INSERT INTO public.announcement_dismissals (announcement_id, user_id)
@@ -250,7 +248,7 @@ SELECT results_eq(
 );
 
 WITH changed AS (
-	UPDATE public.beta_feedback SET status = 'resolved', admin_notes = 'Blocked review'
+	UPDATE public.beta_feedback SET status = 'resolved'
 	WHERE id = '50000000-0000-4000-8000-000000136801' RETURNING id
 )
 SELECT is((SELECT count(*)::integer FROM changed), 0, 'submitter cannot review or change its own feedback');
@@ -271,55 +269,55 @@ SELECT lives_ok(
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136804', true);
+SELECT set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 
 SELECT results_eq(
 	$$ SELECT id FROM public.beta_feedback ORDER BY id $$,
 	$$ VALUES ('50000000-0000-4000-8000-000000136801'::uuid), ('50000000-0000-4000-8000-000000136802'::uuid), ('50000000-0000-4000-8000-000000136803'::uuid), ('50000000-0000-4000-8000-000000136804'::uuid), ('50000000-0000-4000-8000-000000136805'::uuid), ('50000000-0000-4000-8000-000000136806'::uuid) $$,
-	'active support reviewer reads feedback across accounts and Organizations'
+	'operator reads feedback across accounts and Organizations'
 );
 
-WITH changed AS (
-	UPDATE public.beta_feedback SET status = 'reviewed', admin_notes = 'Support triage'
-	WHERE id = '50000000-0000-4000-8000-000000136802' RETURNING status, admin_notes
-)
-SELECT ok(
-	(SELECT status = 'reviewed' AND admin_notes = 'Support triage' FROM changed),
-	'active support reviewer can persist review status and notes'
-);
-
--- Provider content writes allow active Platform admins. HTTP announcement
--- administration is separately restricted to super_admin; do not conflate them.
 SELECT lives_ok(
-	$$ INSERT INTO public.platform_announcements (id, title, message, created_by)
-	VALUES ('40000000-0000-4000-8000-000000136804', 'Support-created content', 'Provider permission', '10000000-0000-4000-8000-000000136804') $$,
-	'current content provider permits active support admin insertion'
+ $$ SELECT public.reply_to_feedback('50000000-0000-4000-8000-000000136802', 'Support acknowledgement', false) $$,
+ 'operator can review feedback through its attributed reply command'
+);
+SELECT lives_ok(
+ $$ SELECT public.save_feedback_staff_note('50000000-0000-4000-8000-000000136802', 'Support triage') $$,
+ 'operator can save a staff-only note through its attributed command'
 );
 
-WITH changed AS (
-	UPDATE public.platform_announcements SET is_active = false
-	WHERE id = '40000000-0000-4000-8000-000000136804' RETURNING is_active
-)
-SELECT is((SELECT is_active FROM changed), false, 'active Platform admin can update content');
+-- Banner writes belong to the server command, which binds attribution and awaits the audit row.
+SELECT throws_ok(
+	$$ INSERT INTO public.platform_announcements (id, title, message, created_by)
+	VALUES ('40000000-0000-4000-8000-000000136804', 'Support-created content', 'Direct write', '10000000-0000-4000-8000-000000136804') $$,
+	'42501', NULL, 'operator clients cannot insert content directly'
+);
 
-WITH removed AS (
-	DELETE FROM public.platform_announcements
-	WHERE id = '40000000-0000-4000-8000-000000136804' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM removed), 1, 'active Platform admin can delete content');
+SELECT throws_ok(
+	$$ UPDATE public.platform_announcements SET is_active = false
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'operator clients cannot update content directly'
+);
+
+SELECT throws_ok(
+	$$ DELETE FROM public.platform_announcements
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'operator clients cannot delete content directly'
+);
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136806', true);
-SELECT is((SELECT count(*)::integer FROM public.beta_feedback), 0, 'inactive Platform admin cannot read others feedback');
+SELECT is((SELECT count(*)::integer FROM public.beta_feedback), 0, 'non-operator cannot read others feedback');
 
 WITH changed AS (
 	UPDATE public.beta_feedback SET status = 'resolved'
 	WHERE id = '50000000-0000-4000-8000-000000136802' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM changed), 0, 'inactive Platform admin cannot review feedback');
+SELECT is((SELECT count(*)::integer FROM changed), 0, 'non-operator cannot review feedback');
 
 SELECT throws_ok(
 	$$ INSERT INTO public.platform_announcements (title, message, created_by)
 	VALUES ('Inactive admin content', 'Blocked', '10000000-0000-4000-8000-000000136806') $$,
-	'42501', NULL, 'inactive Platform admin cannot create content'
+	'42501', NULL, 'non-operator cannot create content'
 );
 
 SET LOCAL ROLE anon;
@@ -347,19 +345,19 @@ SELECT throws_ok(
 
 RESET ROLE;
 SELECT results_eq(
-	$$ SELECT id FROM public.notifications ORDER BY id $$,
-	$$ VALUES ('60000000-0000-4000-8000-000000136802'::uuid), ('60000000-0000-4000-8000-000000136804'::uuid), ('60000000-0000-4000-8000-000000136805'::uuid) $$,
-	'own deletions persist while denied peer and anonymous deletes preserve their saved notifications'
+	$$ SELECT coalesce(link, id::text) FROM public.notifications ORDER BY 1 $$,
+	$$ VALUES ('/feedback/50000000-0000-4000-8000-000000136802'::text), ('60000000-0000-4000-8000-000000136802'::text), ('60000000-0000-4000-8000-000000136804'::text), ('60000000-0000-4000-8000-000000136805'::text) $$,
+	'own deletions persist while denied peer and anonymous deletes preserve saved and reply notifications'
 );
 
 SELECT results_eq(
-	$$ SELECT status, admin_notes FROM public.beta_feedback WHERE id = '50000000-0000-4000-8000-000000136801' $$,
+	$$ SELECT f.status, n.body FROM public.beta_feedback f LEFT JOIN public.feedback_staff_notes n ON n.feedback_id=f.id WHERE f.id = '50000000-0000-4000-8000-000000136801' $$,
 	$$ VALUES ('new'::text, NULL::text) $$,
 	'denied submitter review and deletion preserve the saved feedback'
 );
 
 SELECT results_eq(
-	$$ SELECT status, admin_notes FROM public.beta_feedback WHERE id = '50000000-0000-4000-8000-000000136802' $$,
+	$$ SELECT f.status, n.body FROM public.beta_feedback f LEFT JOIN public.feedback_staff_notes n ON n.feedback_id=f.id WHERE f.id = '50000000-0000-4000-8000-000000136802' $$,
 	$$ VALUES ('reviewed'::text, 'Support triage'::text) $$,
 	'denied inactive reviewer leaves the support review intact'
 );
@@ -369,11 +367,10 @@ VALUES
 	('40000000-0000-4000-8000-000000136802', '10000000-0000-4000-8000-000000136801'),
 	('40000000-0000-4000-8000-000000136802', '10000000-0000-4000-8000-000000136802');
 
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136804', true);
+SET LOCAL ROLE service_role;
 SELECT lives_ok(
 	$$ DELETE FROM public.platform_announcements WHERE id = '40000000-0000-4000-8000-000000136801' $$,
-	'authorized content deletion succeeds with account dismissals present'
+	'server content deletion succeeds with account dismissals present'
 );
 
 RESET ROLE;

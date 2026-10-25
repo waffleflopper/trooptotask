@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -23,14 +25,20 @@
 	let saving = $state(false);
 	let errorMsg = $state('');
 	let saved = $state(false);
+	let alreadySuspended = $state(false);
 	let uncertain = $state<{ targetId: string; isSuspended: boolean } | null>(null);
 	let reloading = $state(false);
+	let steppingUp = $state(false);
+	let destroyed = false;
+	onDestroy(() => (destroyed = true));
 
 	const action = $derived(isSuspended ? 'unsuspend' : 'suspend');
+	const reasonRequired = $derived(type === 'org' && !isSuspended);
+	const missingReason = $derived(reasonRequired && reason.trim() === '');
 	const title = $derived(isSuspended ? `Unsuspend ${targetName}` : `Suspend ${targetName}`);
 
 	async function handleAction() {
-		if (saving || saved || uncertain || reloading) return;
+		if (saving || saved || uncertain || reloading || steppingUp || missingReason) return;
 		const mutationTargetId = targetId;
 		const suspendedAfterSave = action === 'suspend';
 		const complete = onComplete;
@@ -43,7 +51,11 @@
 				body: JSON.stringify({ type, targetId, action, reason: reason.trim() || undefined })
 			});
 			const body = await res.json().catch(() => null);
-			if (targetId !== mutationTargetId) return;
+			if (destroyed || targetId !== mutationTargetId) return;
+			if (res.status === 403 && redirectToSensitiveActionStepUp(body)) {
+				steppingUp = true;
+				return;
+			}
 			if (!res.ok || body?.success !== true) {
 				errorMsg =
 					typeof body?.message === 'string'
@@ -55,6 +67,10 @@
 				return;
 			}
 			saved = true;
+			if (body.alreadySuspended === true) {
+				alreadySuspended = true;
+				return;
+			}
 			try {
 				await complete(mutationTargetId, suspendedAfterSave);
 			} catch {
@@ -65,8 +81,15 @@
 			uncertain = { targetId: mutationTargetId, isSuspended: suspendedAfterSave };
 			errorMsg = 'The change could not be confirmed. Reload this page before trying again.';
 		} finally {
-			saving = false;
+			if (!steppingUp) saving = false;
 		}
+	}
+
+	function resumeAfterStepUpAbandoned(event: PageTransitionEvent) {
+		if (!event.persisted || !steppingUp) return;
+		steppingUp = false;
+		saving = false;
+		errorMsg = 'Multi-factor verification was not completed. Try again when you are ready.';
 	}
 
 	async function reloadDetails() {
@@ -93,6 +116,8 @@
 	}
 </script>
 
+<svelte:window onpageshow={resumeAfterStepUpAbandoned} />
+
 <AppDialog.Root open busy={saving || reloading} closeBlocked={saved || !!uncertain} {onClose}>
 	<AppDialog.Content>
 		<AppDialog.Header>
@@ -115,17 +140,36 @@
 			</Card.Root>
 
 			<Field.Root>
-				<Field.Label for="reason">Reason (optional)</Field.Label>
+				<Field.Label for="reason">{reasonRequired ? 'Reason' : 'Reason (optional)'}</Field.Label>
 				<Field.Control>
 					<Textarea
 						id="reason"
 						rows={3}
 						bind:value={reason}
 						placeholder="Internal note about why this action was taken..."
-						disabled={saving || saved || !!uncertain || reloading}
+						required={reasonRequired}
+						maxlength={500}
+						disabled={saving || saved || !!uncertain || reloading || steppingUp}
 					></Textarea>
 				</Field.Control>
 			</Field.Root>
+
+			{#if steppingUp}
+				<Alert.Root role="status">
+					<Alert.Description>
+						This action needs a fresh multi-factor check. Taking you to verify, then back to this page. Nothing has been
+						changed yet.
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			{#if alreadySuspended}
+				<Alert.Root role="status">
+					<Alert.Description>
+						Another operator already suspended this organization. Their reason and time are kept; nothing was changed.
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
 
 			{#if errorMsg}
 				<Alert.Root variant="destructive">
@@ -151,11 +195,12 @@
 				<Button
 					variant={isSuspended ? 'default' : 'destructive'}
 					onclick={handleAction}
+					disabled={missingReason}
 					aria-disabled={saving ? 'true' : undefined}
 					aria-busy={saving || undefined}
 				>
 					{#if saving}<Spinner />{/if}
-					{saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
+					{steppingUp ? 'Verifying...' : saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
 				</Button>
 			{/if}
 		</AppDialog.Footer>

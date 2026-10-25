@@ -3,7 +3,6 @@ import { validateUUID } from '$lib/server/validation';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	OrganizationPlatformMembershipPort,
-	OrganizationPromotionResult,
 	OrganizationTransferResult,
 	OrganizationSupportMember
 } from './platformMembershipTypes';
@@ -59,25 +58,6 @@ export function createSupabaseOrganizationPlatformMembershipPort(
 			} catch {
 				throw new Error('Organization members could not be loaded');
 			}
-		},
-		async promoteMember(input): Promise<OrganizationPromotionResult> {
-			const result = await command('platform_promote_org_member', {
-				p_actor_user_id: input.actorUserId,
-				p_organization_id: input.orgId,
-				p_target_user_id: input.targetUserId
-			});
-			if (result.status === 'updated') {
-				return sameUuid(result.org_id, input.orgId) && sameUuid(result.target_user_id, input.targetUserId)
-					? { status: 'updated', orgId: input.orgId, targetUserId: input.targetUserId }
-					: failure;
-			}
-			if (
-				typeof result.status === 'string' &&
-				(commonStatuses.has(result.status) || ['already_admin', 'forbidden', 'provider_error'].includes(result.status))
-			) {
-				return { status: result.status } as OrganizationPromotionResult;
-			}
-			return failure;
 		},
 		async transferOwnership(input): Promise<OrganizationTransferResult> {
 			const result = await command('platform_transfer_org_ownership', {

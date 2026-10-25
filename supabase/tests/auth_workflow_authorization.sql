@@ -97,13 +97,7 @@ VALUES
 		ARRAY[]::uuid[]
 	);
 
-INSERT INTO public.platform_admins (id, user_id, role, is_active)
-VALUES (
-	'40000000-0000-4000-8000-000000001034',
-	'10000000-0000-4000-8000-000000001034',
-	'support',
-	true
-);
+INSERT INTO public.platform_operators(user_id) VALUES ('10000000-0000-4000-8000-000000001034');
 
 INSERT INTO public.access_requests (id, email, name, status, approval_basis)
 VALUES
@@ -301,6 +295,7 @@ SELECT throws_ok(
 RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000001034', true);
+SELECT set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 SELECT set_config('request.jwt.claim.email', 'authz-platform-1034@example.test', true);
 SELECT is(
 	(

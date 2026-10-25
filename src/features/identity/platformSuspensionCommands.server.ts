@@ -14,7 +14,7 @@ function acknowledgeUser(response: { data: unknown; error: unknown }, userId: st
 		throw new Error('User suspension change could not be confirmed');
 }
 
-/** Identity persists the exact account effect; Platform owns super-admin policy and audit. */
+/** Identity persists the exact account effect; Platform owns operator admission and audit. */
 export function createIdentityPlatformSuspensionCommands(client: SupabaseClient): IdentityPlatformSuspensionCommands {
 	return {
 		async suspendUser(input) {

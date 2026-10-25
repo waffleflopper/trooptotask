@@ -43,7 +43,7 @@ An invitation to join a specific Organization with defined member access, separa
 _Avoid_: Access Request, Account Setup Link
 
 **Platform Administration**:
-Administration of TroopToTask-wide concerns such as accounts, Organizations, reviewed access, announcements, audit visibility, and suspension. Its authority is separate from Organization membership roles.
+Administration of TroopToTask-wide concerns such as accounts, Organizations, reviewed access, announcements, audit visibility, and suspension. One platform operator holds this authority through `platform_operators`, separate from Organization membership. Admin pages and endpoints require MFA at `aal2`. Suspension changes require an MFA verification within ten minutes, and the operator cannot suspend their own account. Platform commands await their audit writes before reporting success.
 _Avoid_: Organization admin
 
 ### Member authority and scope

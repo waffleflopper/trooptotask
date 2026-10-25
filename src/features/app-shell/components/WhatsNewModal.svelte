@@ -1,14 +1,17 @@
 <script lang="ts">
-	import { changelog } from '../changelog';
+	import type { PublishedWhatsNewEntry } from '$features/platform-admin/contracts';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { cn } from '$lib/utils';
 
-	let { onClose }: { onClose: () => void } = $props();
+	let {
+		entries,
+		allEntriesHref,
+		onClose
+	}: { entries: PublishedWhatsNewEntry[]; allEntriesHref: string; onClose: () => void } = $props();
 
-	const latest = changelog[0];
-	const older = changelog.slice(1, 10);
+	const latest = $derived(entries[0]);
+	const older = $derived(entries.slice(1));
 </script>
 
 <AppDialog.Root {onClose}>
@@ -26,7 +29,7 @@
 					<span
 						class="bg-muted text-muted-foreground border-border hidden shrink-0 rounded-full border px-3 py-1 font-mono text-[0.6875rem] font-medium tracking-[0.08em] whitespace-nowrap uppercase sm:inline-flex"
 					>
-						{formatDisplayDate(latest.date)}
+						{formatDisplayDate(latest.publishedOn)}
 					</span>
 				{/if}
 			</div>
@@ -49,18 +52,17 @@
 							</h3>
 						</div>
 						<span class="text-muted-foreground mt-0.5 font-mono text-[0.75rem] whitespace-nowrap sm:hidden">
-							{formatDisplayDate(latest.date)}
+							{formatDisplayDate(latest.publishedOn)}
 						</span>
 					</div>
-					<ul class="m-0 flex list-none flex-col gap-2.5 p-0">
-						{#each latest.items as item, index (`${latest.id}:${index}`)}
-							<li class="grid grid-cols-[0.625rem_1fr] gap-3 text-sm leading-6">
-								<span class="bg-primary mt-2.5 h-1.5 w-1.5 rounded-full" aria-hidden="true"></span>
-								<span class="text-foreground/85">{item}</span>
-							</li>
+					<div class="flex flex-col gap-2.5">
+						{#each latest.paragraphs as paragraph, index (`${latest.id}:${index}`)}
+							<p class="text-foreground/85 m-0 text-sm leading-6">{paragraph}</p>
 						{/each}
-					</ul>
+					</div>
 				</section>
+			{:else}
+				<p class="text-muted-foreground m-0 py-6 text-center text-sm">Nothing new to show yet.</p>
 			{/if}
 
 			{#if older.length > 0}
@@ -83,17 +85,14 @@
 									{entry.title}
 								</h4>
 								<span class="text-muted-foreground font-mono text-xs whitespace-nowrap"
-									>{formatDisplayDate(entry.date)}</span
+									>{formatDisplayDate(entry.publishedOn)}</span
 								>
 							</div>
-							<ul class="m-0 flex list-none flex-col gap-1 p-0">
-								{#each entry.items as item, index (`${entry.id}:${index}`)}
-									<li class={cn('grid grid-cols-[0.5rem_1fr] gap-2 text-xs leading-5', index > 1 && 'hidden sm:grid')}>
-										<span class="bg-muted-foreground/50 mt-2 h-1 w-1 rounded-full" aria-hidden="true"></span>
-										<span class="text-muted-foreground">{item}</span>
-									</li>
+							<div class="flex flex-col gap-1.5">
+								{#each entry.paragraphs as paragraph, index (`${entry.id}:${index}`)}
+									<p class="text-muted-foreground m-0 text-xs leading-5">{paragraph}</p>
 								{/each}
-							</ul>
+							</div>
 						</article>
 					{/each}
 				</section>
@@ -101,6 +100,7 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer class="border-border bg-popover border-t px-6 py-4">
+			<Button variant="ghost" href={allEntriesHref} onclick={onClose}>See all updates</Button>
 			<Button onclick={onClose}>Got it</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>

@@ -1,3 +1,4 @@
+import { readAccountDirectory } from './platformPeople.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
@@ -8,17 +9,13 @@ import type {
 } from './contracts';
 
 interface RawAuthUser {
+	factors?: Array<{ status: string }>;
 	id: string;
 	email?: string | null;
 	created_at: string;
 	last_sign_in_at?: string | null;
 	email_confirmed_at?: string | null;
 	confirmed_at?: string | null;
-}
-
-interface AuthUsersPage {
-	users?: RawAuthUser[];
-	nextPage?: number | null;
 }
 
 interface SuspensionRow {
@@ -50,6 +47,7 @@ function mapAccount(user: RawAuthUser): IdentitySupportAccount {
 		throw new Error('User identity could not be verified');
 	return {
 		id: user.id,
+		mfaEnabled: (user.factors ?? []).some((factor) => factor.status === 'verified'),
 		email: user.email ?? null,
 		createdAt: user.created_at,
 		lastSignInAt: user.last_sign_in_at ?? null,
@@ -77,25 +75,7 @@ function mapSuspension(row: SuspensionRow, userId: string): IdentitySupportSuspe
 /** Account source facts only. Platform composition supplies current support authority. */
 export function createIdentityPlatformSupportReader(client: SupabaseClient): IdentityPlatformSupportReader {
 	const reader: IdentityPlatformSupportReader = {
-		async listAuthUsers() {
-			const users: IdentitySupportAccount[] = [];
-			let page = 1;
-			try {
-				while (true) {
-					const { data, error } = await client.auth.admin.listUsers({ page, perPage: 1000 });
-					if (error || !data || !Array.isArray(data.users)) throw new Error('Account read unavailable');
-					const pageData = data as AuthUsersPage;
-					users.push(...data.users.map(mapAccount));
-					const nextPage = pageData.nextPage;
-					if (typeof nextPage !== 'number' || !Number.isFinite(nextPage) || nextPage < 1) break;
-					// auth-js can truncate a page 10+ Link value to its first digit.
-					page = nextPage > page ? nextPage : page + 1;
-				}
-				return { status: 'ok', users };
-			} catch {
-				return { status: 'auth_error', message: 'Unable to load platform accounts' };
-			}
-		},
+		listPeople: (input) => readAccountDirectory(client, input),
 
 		async getAuthUser(userId) {
 			try {
@@ -124,30 +104,6 @@ export function createIdentityPlatformSupportReader(client: SupabaseClient): Ide
 					throw new Error('Unable to search platform accounts');
 				return { id: row.id, email: row.email };
 			});
-		},
-
-		async listSuspendedUserIds(userIds) {
-			const ids = [...new Set(userIds)];
-			const suspendedIds: string[] = [];
-			for (let offset = 0; offset < ids.length; offset += 200) {
-				const batch = ids.slice(offset, offset + 200);
-				const requestedIds = new Set(batch.map((id) => id.toLowerCase()));
-				const { data, error } = await selectAllSupabaseRows<{ user_id: string }>(async (from, to) => {
-					const result = await client
-						.from('user_suspensions')
-						.select('user_id')
-						.in('user_id', batch)
-						.order('user_id')
-						.range(from, to);
-					if (!result.error && !Array.isArray(result.data)) throw new Error('Unable to read user suspensions');
-					return result;
-				});
-				if (error || !Array.isArray(data)) throw new Error('Unable to read user suspensions');
-				if (data.some((row) => typeof row.user_id !== 'string' || !requestedIds.has(row.user_id.toLowerCase())))
-					throw new Error('User suspension identities could not be verified');
-				suspendedIds.push(...data.map((row) => row.user_id));
-			}
-			return suspendedIds;
 		},
 
 		async getSuspensionForUser(userId) {

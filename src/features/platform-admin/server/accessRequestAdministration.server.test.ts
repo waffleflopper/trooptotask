@@ -890,7 +890,30 @@ describe('Platform Access Request Administration', () => {
 		expect(deps.audit).toHaveBeenCalledWith(
 			expect.objectContaining({
 				action: 'access_request.rejected',
-				details: { blockedInvitationCount: 1 }
+				details: { blockedInvitationCount: 1, rejectionReason: null }
+			})
+		);
+	});
+
+	it("records the operator's trimmed rejection reason in the audit, not the store command", async () => {
+		const { admin, deps } = makeDeps({
+			store: makeStore({
+				rejectPendingAccessRequestAndBlockLinkedInvitations: vi
+					.fn()
+					.mockResolvedValue({ status: 'rejected', blockedInvitations: [] })
+			})
+		});
+
+		await admin.reject({ accessRequestId: 'request-1', actorUserId: 'admin-1', reason: '  Not a unit account  ' });
+
+		expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).toHaveBeenCalledWith({
+			accessRequestId: 'request-1',
+			actorUserId: 'admin-1'
+		});
+		expect(deps.audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'access_request.rejected',
+				details: { blockedInvitationCount: 0, rejectionReason: 'Not a unit account' }
 			})
 		);
 	});
@@ -966,4 +989,30 @@ describe('Platform Access Request Administration', () => {
 			})
 		);
 	});
+});
+
+it.each(['approve', 'reject', 'rescind'] as const)(
+	'fails access request %s when its audit rejects',
+	async (operation) => {
+		const { admin } = makeDeps({
+			audit: async () => {
+				throw new Error('Audit unavailable');
+			}
+		});
+		await expect(
+			admin[operation]({ accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost' })
+		).resolves.toEqual({ status: 'failed' });
+	}
+);
+
+it('reports that the setup email already went out when its required audit fails', async () => {
+	const { admin, deps } = makeDeps({
+		audit: async () => {
+			throw new Error('Audit unavailable');
+		}
+	});
+	await expect(
+		admin.resendSetup({ accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost' })
+	).resolves.toEqual({ status: 'email_sent_audit_failed', setupDeliveryStatus: 'sent' });
+	expect(deps.setupDelivery.send).toHaveBeenCalled();
 });

@@ -5,9 +5,11 @@ SELECT no_plan();
 SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations
   WHERE version='20261012000100'),1,'the invitation grant migration is recorded');
 SELECT results_eq(
-  $$ SELECT id,to_jsonb(r) - 'approval_basis' FROM public.access_requests r WHERE id::text LIKE 'f3000000-%' ORDER BY id $$,
+  $$ SELECT id,to_jsonb(r) - 'approval_basis' - 'rescinded_at' FROM public.access_requests r WHERE id::text LIKE 'f3000000-%' ORDER BY id $$,
   $$ SELECT row_id,row_data FROM upgrade_fixture.approval_basis_before_rows ORDER BY row_id $$,
   'upgrade preserves every historical Access Request value apart from the added basis');
+SELECT is((SELECT count(*)::integer FROM public.access_requests WHERE id::text LIKE 'f3000000-%' AND rescinded_at IS NULL),
+  7,'upgrade invents no rescission for historical approvals, pending requests or rejections');
 SELECT results_eq(
   $$ SELECT name,approval_basis FROM public.access_requests WHERE id::text LIKE 'f3000000-%' ORDER BY id $$,
   $$ VALUES ('Audited approval'::text,'platform_review'::text),

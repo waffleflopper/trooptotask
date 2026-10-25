@@ -11,6 +11,7 @@ interface InMemoryPlatformAnnouncementsOptions {
 	idFactory?: () => string;
 	now?: () => Date;
 	createError?: Error;
+	dismissalCounts?: Record<string, number>;
 }
 
 function cloneAnnouncement(announcement: PlatformAnnouncement): PlatformAnnouncement {
@@ -32,6 +33,10 @@ export function createInMemoryPlatformAnnouncementsStore(
 			return Array.from(announcements.values())
 				.map(cloneAnnouncement)
 				.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+		},
+
+		async dismissalCounts() {
+			return { ...options.dismissalCounts };
 		},
 
 		async createAnnouncement(input: PlatformAnnouncementStoreCreateInput) {

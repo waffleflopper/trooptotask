@@ -9,7 +9,7 @@ export interface NotificationPayload {
 export interface Notification {
 	id: string;
 	user_id: string;
-	organization_id: string;
+	organization_id: string | null;
 	type: string;
 	title: string;
 	message: string;
@@ -19,7 +19,7 @@ export interface Notification {
 }
 
 export interface NotificationDeliveryPort {
-	notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void>;
+	notifyUser(orgId: string | null, userId: string, notification: NotificationPayload): Promise<void>;
 	notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void>;
 }
 

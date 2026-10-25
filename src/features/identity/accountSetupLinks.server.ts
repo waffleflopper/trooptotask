@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { createHash, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
@@ -404,7 +405,7 @@ function buildAccountSetupEmail(input: SendAccountSetupLinkEmailInput): {
 export async function sendAccountSetupLinkEmail(
 	input: SendAccountSetupLinkEmailInput,
 	fetchImpl: ResendFetch = fetch
-): Promise<void> {
+): Promise<string | null> {
 	const apiKey = env.RESEND_API_KEY;
 	const from = env.RESEND_FROM_EMAIL;
 
@@ -431,6 +432,12 @@ export async function sendAccountSetupLinkEmail(
 	if (!response.ok) {
 		const body = await response.text().catch(() => '');
 		throw new Error(`Account setup email delivery failed with status ${response.status}${body ? `: ${body}` : ''}`);
+	}
+	try {
+		const parsed = z.object({ id: z.string().min(1) }).safeParse(JSON.parse(await response.text()));
+		return parsed.success ? parsed.data.id : null;
+	} catch {
+		return null;
 	}
 }
 

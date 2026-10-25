@@ -12,6 +12,7 @@ const PUBLIC_ROUTE_PREFIXES = [
 ];
 
 const PUBLIC_EXACT_ROUTES = new Set([
+	'/api/webhooks/resend',
 	'/api/cleanup-old-data',
 	'/api/cleanup-archived-records',
 	'/api/cleanup-expired-onboardings',

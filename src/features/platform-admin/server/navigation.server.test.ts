@@ -1,22 +1,59 @@
-import { describe, expect, it } from 'vitest';
-import { getAccessiblePlatformPages } from './navigation.server';
+import { createClient } from '@supabase/supabase-js';
+import type { ServerLoadEvent } from '@sveltejs/kit';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const pages = ['dashboard', 'users', 'organizations', 'access-requests', 'feedback', 'audit', 'announcements'];
+const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 
-describe('Platform page navigation', () => {
-	it('offers every retained page to super-admins', () => {
-		expect(getAccessiblePlatformPages('super_admin')).toEqual(pages);
+import { loadPlatformAdminNavigation } from './navigation.server';
+
+const actorId = '11111111-1111-4111-8111-111111111111';
+
+function event(user: { id: string; email: string } | null) {
+	return {
+		locals: {
+			actor: { userId: actorId },
+			user,
+			supabase: {
+				auth: {
+					mfa: {
+						getAuthenticatorAssuranceLevel: async () => ({
+							data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+							error: null
+						})
+					}
+				}
+			}
+		},
+		url: new URL('/admin', 'http://localhost'),
+		depends: () => {},
+		request: new Request('http://localhost/admin'),
+		getClientAddress: () => '127.0.0.1'
+	} as unknown as ServerLoadEvent;
+}
+
+describe('Platform operator navigation', () => {
+	beforeEach(() => {
+		getAdminClient.mockReturnValue(
+			createClient('http://localhost:9', 'synthetic-service-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: { fetch: async () => Response.json({ user_id: actorId }) }
+			})
+		);
 	});
-	it('offers support review pages without system management', () => {
-		expect(getAccessiblePlatformPages('support')).toEqual([
-			'dashboard',
-			'users',
-			'organizations',
-			'access-requests',
-			'feedback'
-		]);
+
+	it('admits an operator and shows their email', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const navigation = await loadPlatformAdminNavigation(event({ id: actorId, email: 'operator@example.test' }));
+
+		expect(navigation).toMatchObject({ adminUserId: actorId, adminEmail: 'operator@example.test' });
+		await navigation.inboxOpenCount;
 	});
-	it('offers only the Dashboard to billing administrators', () => {
-		expect(getAccessiblePlatformPages('billing')).toEqual(['dashboard']);
+
+	it('does not show an email that belongs to a different user', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const navigation = await loadPlatformAdminNavigation(event({ id: 'someone-else', email: 'other@example.test' }));
+		expect(navigation.adminEmail).toBeUndefined();
+		await navigation.inboxOpenCount;
 	});
 });

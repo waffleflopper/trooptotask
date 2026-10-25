@@ -13,7 +13,7 @@ const REQUEST = '33333333-3333-4333-8333-333333333333';
 const SERVICE_KEY = 'synthetic-service-role';
 
 type ProviderOptions = {
-	role?: string | null;
+	operator?: boolean;
 	authorityUnavailable?: boolean;
 	aal?: 'aal1' | 'aal2';
 	assuranceUnavailable?: boolean;
@@ -39,18 +39,20 @@ function fixture(options: ProviderOptions = {}) {
 		const request = new Request(input, init);
 		const url = new URL(request.url);
 		expect(request.headers.get('authorization')).toBe(`Bearer ${SERVICE_KEY}`);
-		if (url.pathname === '/rest/v1/platform_admins') {
+		if (url.pathname === '/rest/v1/platform_operators') {
 			expect(request.method).toBe('GET');
 			expect(url.searchParams.get('user_id')).toBe(`eq.${ACTOR}`);
-			expect(url.searchParams.get('is_active')).toBe('eq.true');
 			if (options.authorityUnavailable) return Response.json({ message: 'private authority failure' }, { status: 500 });
-			const role = options.role === undefined ? 'super_admin' : options.role;
-			return Response.json(role ? { role } : null);
+			return Response.json(options.operator === false ? null : { user_id: ACTOR });
 		}
 		if (url.pathname === '/rest/v1/rpc/reject_access_request_and_block_linked_invitations') {
 			expect(request.method).toBe('POST');
 			rejectCalls.push(await request.json());
 			return Response.json([{ reject_status: 'rejected' }]);
+		}
+		if (url.pathname === '/rest/v1/access_requests') {
+			expect(request.method).toBe('GET');
+			return Response.json({ name: 'Pat Applicant', email: 'pat@example.test' });
 		}
 		if (url.pathname === '/rest/v1/audit_logs') {
 			expect(request.method).toBe('POST');
@@ -81,12 +83,22 @@ function fixture(options: ProviderOptions = {}) {
 			global: { fetch, headers: authorization ? { Authorization: authorization } : {} }
 		});
 	getAdminClient.mockReturnValue(client(SERVICE_KEY, privilegedFetch));
+	const supabase = client('synthetic-session-key', sessionFetch, `Bearer ${token}`);
+	const verifyToken = supabase.auth.mfa.getAuthenticatorAssuranceLevel.bind(supabase.auth.mfa);
+	// Admission reads the request's own MFA status; the authorizer verifies the bound token.
+	supabase.auth.mfa.getAuthenticatorAssuranceLevel = ((jwt?: string) =>
+		jwt
+			? verifyToken(jwt)
+			: Promise.resolve({
+					data: { currentLevel: 'aal2', nextLevel: 'aal2', currentAuthenticationMethods: [] },
+					error: null
+				})) as typeof supabase.auth.mfa.getAuthenticatorAssuranceLevel;
 	const url = new URL('https://app.example.test/admin/access-requests?/reject');
 	const event = {
 		locals: {
 			actor: { userId: ACTOR },
-			user: { id: FORGED, email: 'forged@example.test', role: 'super_admin' },
-			supabase: client('synthetic-session-key', sessionFetch, `Bearer ${token}`),
+			user: { id: FORGED, email: 'forged@example.test' },
+			supabase,
 			session: { access_token: token, expires_at: now + 3600, user: { id: options.sessionActor ?? ACTOR } }
 		},
 		url,
@@ -103,22 +115,20 @@ function fixture(options: ProviderOptions = {}) {
 describe('admitted Access Request operation composition', () => {
 	beforeEach(() => vi.clearAllMocks());
 
-	it('requires a hook-verified actor even when the raw user claims to be an administrator', async () => {
+	it('requires a hook-verified actor even when the raw user is present', async () => {
 		const facts = fixture();
 		facts.event.locals.actor = null;
-		await expect(createPlatformAccessRequestOperations(facts.event)).rejects.toMatchObject({ status: 303 });
+		await expect(createPlatformAccessRequestOperations(facts.event)).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 		expect(facts.privilegedFetch).not.toHaveBeenCalled();
 		expect(facts.sessionFetch).not.toHaveBeenCalled();
 	});
 
 	it.each([
-		{ options: { role: 'billing' }, status: 403 },
-		{ options: { role: null }, status: 403 },
-		{ options: { role: 'unrecognized' }, status: 503 },
+		{ options: { operator: false }, status: 403 },
 		{ options: { authorityUnavailable: true }, status: 503 }
 	])(
-		'denies unverified or unavailable current role $options without privileged commands',
+		'denies a non-operator or unavailable operator check $options without privileged commands',
 		async ({ options, status }) => {
 			const facts = fixture(options);
 			await expect(createPlatformAccessRequestOperations(facts.event)).rejects.toMatchObject({ status });
@@ -158,24 +168,21 @@ describe('admitted Access Request operation composition', () => {
 		}
 	);
 
-	it.each(['super_admin', 'support'])(
-		'binds allowed %s rejection and its audit to the hook actor despite forged user/form identities',
-		async (role) => {
-			const facts = fixture({ role });
-			const operations = await createPlatformAccessRequestOperations(facts.event);
-			await expect(operations.reject(REQUEST)).resolves.toEqual({ status: 'rejected' });
-			expect(facts.rejectCalls).toEqual([{ p_access_request_id: REQUEST, p_reviewer_id: ACTOR }]);
-			expect(facts.sessionFetch).toHaveBeenCalled();
-			await vi.waitFor(() => expect(facts.auditRows).toHaveLength(1));
-			expect(facts.auditRows[0]).toMatchObject({
-				user_id: ACTOR,
-				action: 'access_request.rejected',
-				resource_type: 'access_request',
-				resource_id: REQUEST,
-				ip_address: '127.0.0.1',
-				user_agent: 'synthetic-review-client',
-				details: { blockedInvitationCount: 0 }
-			});
-		}
-	);
+	it('binds allowed rejection and its audit to the hook actor despite forged user/form identities', async () => {
+		const facts = fixture();
+		const operations = await createPlatformAccessRequestOperations(facts.event);
+		await expect(operations.reject(REQUEST)).resolves.toEqual({ status: 'rejected' });
+		expect(facts.rejectCalls).toEqual([{ p_access_request_id: REQUEST, p_reviewer_id: ACTOR }]);
+		expect(facts.sessionFetch).toHaveBeenCalled();
+		await vi.waitFor(() => expect(facts.auditRows).toHaveLength(1));
+		expect(facts.auditRows[0]).toMatchObject({
+			user_id: ACTOR,
+			action: 'access_request.rejected',
+			resource_type: 'access_request',
+			resource_id: REQUEST,
+			ip_address: '127.0.0.1',
+			user_agent: 'synthetic-review-client',
+			details: { blockedInvitationCount: 0, targetName: 'Pat Applicant' }
+		});
+	});
 });

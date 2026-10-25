@@ -22,16 +22,6 @@ export function createIdentityPlatformAccountEmailPort(client: SupabaseClient): 
 				expectedUserId: input.userId
 			});
 			return result === 'sent' ? { ok: true } : { ok: false, message: 'Failed to send password reset email' };
-		},
-		async sendInviteEmail(input) {
-			const result = await sendAuthEmail({
-				supabase: client,
-				type: 'invite',
-				email: input.email,
-				redirectTo: input.redirectTo,
-				expectedUserId: input.userId
-			});
-			return result === 'sent' ? { ok: true } : { ok: false, message: 'Failed to send invite email' };
 		}
 	};
 }

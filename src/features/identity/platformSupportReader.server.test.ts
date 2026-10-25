@@ -34,6 +34,7 @@ describe('Identity platform account facts', () => {
 			status: 'ok',
 			user: {
 				id: USER,
+				mfaEnabled: false,
 				email: 'soldier@example.test',
 				createdAt: '2026-06-01',
 				lastSignInAt: '2026-06-08',
@@ -65,46 +66,29 @@ describe('Identity platform account facts', () => {
 		await expect(reader.getAuthUser(USER)).resolves.toEqual({ status: 'not_found' });
 	});
 
-	it('follows provider continuation even when a page is short and keeps page ten monotonic', async () => {
-		const pages: number[] = [];
-		const listUsers = vi.fn(async ({ page }: { page: number }) => {
-			pages.push(page);
-			return {
-				data: {
-					users: [{ id: `user-${page}`, email: null, created_at: '2026-06-01' }],
-					nextPage: page < 10 ? page + 1 : page === 10 ? 1 : null
-				},
-				error: null
-			};
+	it('pages People in one SQL read without downloading Auth accounts', async () => {
+		const reader = createIdentityPlatformSupportReader(
+			client(async (input, init) => {
+				const request = new Request(input, init);
+				expect(new URL(request.url).pathname).toBe('/rest/v1/rpc/platform_account_directory');
+				expect(await request.json()).toEqual({ p_search: 'Dana', p_filter: 'notSetUp', p_page: 3, p_limit: 20 });
+				return Response.json({ people: [], totalCount: 0, page: 1, limit: 20 });
+			})
+		);
+		await expect(reader.listPeople({ search: 'Dana', filter: 'notSetUp', page: 3, limit: 20 })).resolves.toEqual({
+			people: [],
+			totalCount: 0,
+			page: 1,
+			limit: 20
 		});
-		const reader = createIdentityPlatformSupportReader({ auth: { admin: { listUsers } } } as never);
-		const result = await reader.listAuthUsers();
-		expect(pages).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-		expect(result.status === 'ok' && result.users.map((user) => user.id)).toEqual([
-			'user-1',
-			'user-2',
-			'user-3',
-			'user-4',
-			'user-5',
-			'user-6',
-			'user-7',
-			'user-8',
-			'user-9',
-			'user-10',
-			'user-11'
-		]);
 	});
-
-	it('rejects a later account-page failure rather than returning the first page as a complete directory', async () => {
-		const listUsers = vi
-			.fn()
-			.mockResolvedValueOnce({ data: { users: [{ id: USER, created_at: '2026-06-01' }], nextPage: 2 }, error: null })
-			.mockResolvedValueOnce({ data: { users: [] }, error: { message: 'private-provider-detail' } });
-		const reader = createIdentityPlatformSupportReader({ auth: { admin: { listUsers } } } as never);
-		await expect(reader.listAuthUsers()).resolves.toEqual({
-			status: 'auth_error',
-			message: 'Unable to load platform accounts'
-		});
+	it('rejects a failed directory read rather than showing an empty directory', async () => {
+		const reader = createIdentityPlatformSupportReader(
+			client(async () => Response.json({ message: 'unavailable' }, { status: 500 }))
+		);
+		await expect(reader.listPeople({ search: '', filter: 'all', page: 1, limit: 20 })).rejects.toThrow(
+			'Unable to load People'
+		);
 	});
 
 	it('keeps account email search source-owned and excludes provider-only fields', async () => {
@@ -197,22 +181,12 @@ describe('Identity platform account facts', () => {
 });
 
 describe('Identity platform suspension facts and effects', () => {
-	it('reads the complete requested account suspension set and does not trust a foreign detail row', async () => {
-		const ids = Array.from({ length: 1001 }, (_, index) => `user-${index}`);
-		const rows = ids.map((user_id) => ({ user_id }));
+	it('rejects a suspension detail row belonging to another account', async () => {
 		const reader = createIdentityPlatformSupportReader(
-			client(async (input) => {
-				const url = new URL(input.toString());
-				expect(url.pathname).toBe('/rest/v1/user_suspensions');
-				if (url.searchParams.has('user_id') && url.searchParams.get('user_id')?.startsWith('eq.'))
-					return Response.json({ user_id: OTHER, suspended_at: '2026-06-01', suspended_by: ADMIN, reason: null });
-				const requestedIds = new Set(url.searchParams.get('user_id')?.slice(4, -1).split(','));
-				const scopedRows = rows.filter((row) => requestedIds.has(row.user_id));
-				const offset = Number(url.searchParams.get('offset') ?? 0);
-				return Response.json(scopedRows.slice(offset, offset + Number(url.searchParams.get('limit'))));
-			})
+			client(async () =>
+				Response.json({ user_id: OTHER, suspended_at: '2026-06-01', suspended_by: ADMIN, reason: null })
+			)
 		);
-		await expect(reader.listSuspendedUserIds(ids)).resolves.toEqual(ids);
 		await expect(reader.getSuspensionForUser(USER)).rejects.toThrow('could not be verified');
 	});
 
@@ -242,21 +216,11 @@ describe('Identity platform suspension facts and effects', () => {
 		await expect(makeReader(null).getSuspensionForUser(USER)).resolves.toBeNull();
 	});
 
-	it.each(['list', 'detail'] as const)(
-		'propagates %s suspension failures instead of verified unsuspended state',
-		async (kind) => {
-			const reader = createIdentityPlatformSupportReader(
-				client(async () => Response.json({ message: 'private-provider-detail' }, { status: 500 }))
-			);
-			await expect(
-				kind === 'list' ? reader.listSuspendedUserIds([USER]) : reader.getSuspensionForUser(USER)
-			).rejects.toThrow();
-		}
-	);
-
-	it('does not treat a missing list representation as proof that no requested accounts are suspended', async () => {
-		const reader = createIdentityPlatformSupportReader(client(async () => Response.json(null)));
-		await expect(reader.listSuspendedUserIds([USER])).rejects.toThrow('Unable to read');
+	it('propagates suspension detail failures instead of verified unsuspended state', async () => {
+		const reader = createIdentityPlatformSupportReader(
+			client(async () => Response.json({ message: 'private-provider-detail' }, { status: 500 }))
+		);
+		await expect(reader.getSuspensionForUser(USER)).rejects.toThrow();
 	});
 
 	for (const action of ['suspend', 'unsuspend'] as const) {

@@ -10,7 +10,7 @@
 - The scope set is either the whole Organization or a list of Groups, shared by every scoped lane.
 - The policy evaluator is pure TypeScript. It returns a structured decision with a stable reason code. Supabase reads live in an adapter that builds its inputs.
 - The server is authoritative. Client-side decisions are UX hints only.
-- Platform roles (`super_admin`, `support`, `billing`) are a separate system and never grant Organization access. The `billing` platform role is a retained identity value and implies no billing feature.
+- Platform Administration belongs to one operator, identified by a row in `platform_operators`. It has no roles or management UI and never grants Organization membership. Operator admission requires MFA at `aal2`.
 
 ## Why
 

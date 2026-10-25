@@ -1,8 +1,7 @@
-import { isRangePastResults } from '$lib/server/supabasePagination.server';
 import { assertAuditQuerySuccess } from './providerError.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createPlatformAudit, type PlatformAuditRecord, type PlatformAuditStore } from './platformAudit.server';
-import type { PlatformAudit, PlatformAuditDashboardActivity } from './platformContracts';
+import type { PlatformActivityEvent, PlatformAudit, PlatformAuditDashboardActivity } from './platformContracts';
 
 type SupabaseResponse<T> = {
 	data: T | null;
@@ -23,15 +22,44 @@ type SupabaseAuditLogRow = {
 	timestamp: string;
 };
 
-type SupabaseActionRow = {
+type SupabaseActivityRow = {
+	id: string;
+	timestamp: string;
+	user_id: string | null;
+	org_id: string | null;
+	org_name: string | null;
+	actor_email: string | null;
+	actor_name: string | null;
 	action: string;
+	resource_type: string | null;
+	resource_id: string | null;
+	ip_address: string | null;
+	details: Record<string, unknown> | null;
+	severity: string;
+	total_count: number;
+	page_offset: number;
 };
 
-const DISTINCT_ACTION_LOOKBACK_LIMIT = 1000;
 const AUDIT_LOG_DASHBOARD_COLUMNS = 'id, action, user_id, timestamp';
-const AUDIT_LOG_LIST_COLUMNS =
-	'id, user_id, org_id, action, resource_type, resource_id, ip_address, details, severity, timestamp';
 const AUDIT_LOG_RECENT_COLUMNS = 'id, user_id, org_id, action, resource_type, resource_id, severity, timestamp';
+
+function mapActivityRow(row: SupabaseActivityRow): PlatformActivityEvent {
+	return {
+		id: row.id,
+		timestamp: row.timestamp,
+		action: row.action,
+		severity: row.severity,
+		userId: row.user_id,
+		orgId: row.org_id,
+		orgName: row.org_name,
+		actorEmail: row.actor_email?.toLowerCase() ?? null,
+		actorName: row.actor_name,
+		resourceType: row.resource_type,
+		resourceId: row.resource_id,
+		ipAddress: row.ip_address,
+		details: row.details
+	};
+}
 
 function mapAuditLog(row: SupabaseAuditLogRow): PlatformAuditRecord {
 	return {
@@ -65,40 +93,23 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 			}));
 		},
 
-		async listLogs(input) {
-			const matching = (columns: string, options: { count: 'exact'; head?: boolean }) => {
-				let query = supabase.from('audit_logs').select(columns, options);
-				if (input.action) query = query.eq('action', input.action);
-				if (input.severity) query = query.eq('severity', input.severity);
-				if (input.orgId) query = query.eq('org_id', input.orgId);
-				return query;
-			};
-
-			const response = (await matching(AUDIT_LOG_LIST_COLUMNS, { count: 'exact' })
-				.order('timestamp', { ascending: false })
-				.order('id', { ascending: true })
-				.range(input.offset, input.offset + input.limit - 1)) as SupabaseResponse<SupabaseAuditLogRow[]>;
-			if (isRangePastResults(response.error)) {
-				const total = (await matching('id', { count: 'exact', head: true })) as SupabaseResponse<null>;
-				assertAuditQuerySuccess('table audit_logs count', total);
-				return { logs: [], totalCount: total.count ?? 0 };
-			}
-			assertAuditQuerySuccess('table audit_logs list', response);
-
+		async listActivity(input) {
+			const response = (await supabase.rpc('list_platform_activity', {
+				p_actions: input.actions,
+				p_prefixes: input.prefixes,
+				p_search: input.search || null,
+				p_from: input.from?.toISOString() ?? null,
+				p_to: input.to?.toISOString() ?? null,
+				p_limit: input.limit,
+				p_offset: input.offset
+			})) as SupabaseResponse<SupabaseActivityRow[]>;
+			assertAuditQuerySuccess('function list_platform_activity', response);
+			const rows = response.data ?? [];
 			return {
-				logs: ((response.data ?? []) as SupabaseAuditLogRow[]).map(mapAuditLog),
-				totalCount: response.count ?? 0
+				events: rows.map(mapActivityRow),
+				totalCount: rows[0]?.total_count ?? 0,
+				offset: rows[0]?.page_offset ?? 0
 			};
-		},
-
-		async listDistinctActions() {
-			const response = (await supabase
-				.from('audit_logs')
-				.select('action')
-				.order('timestamp', { ascending: false })
-				.limit(DISTINCT_ACTION_LOOKBACK_LIMIT)) as SupabaseResponse<SupabaseActionRow[]>;
-			assertAuditQuerySuccess('table audit_logs distinct actions', response);
-			return [...new Set((response.data ?? []).map((row) => row.action))].sort();
 		},
 
 		async listRecentByOrganization(input) {
@@ -115,7 +126,7 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 		async listRecentByUser(input) {
 			const response = (await supabase
 				.from('audit_logs')
-				.select(AUDIT_LOG_RECENT_COLUMNS)
+				.select(`${AUDIT_LOG_RECENT_COLUMNS}, details, ip_address`)
 				.eq('user_id', input.userId)
 				.order('timestamp', { ascending: false })
 				.limit(input.limit)) as SupabaseResponse<SupabaseAuditLogRow[]>;

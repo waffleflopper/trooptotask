@@ -104,7 +104,7 @@ Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses new
    last seed's preparation covers every workload. The returned `actors`, `sentinels` and `searchTerms` are what the
    observer waits for.
 2. Sign in once per actor: `$V actor perfWide personnel large`, `$V actor perfScoped personnel large`,
-   `$V actor perfScopedLeader personnel large` and, for `admin-users`, `$V actor platformReviewer admin/users`. Each
+   `$V actor perfScopedLeader personnel large` and, for `admin-people`, `$V actor platformReviewer admin/people`. Each
    perf actor is a member of every seeded workload, so the same page drives all three. Keep the returned page IDs. The
    control records which actor each page was signed in as; a warm `perf load` or a `perf interaction` rejects a page
    whose actor differs from the ACTOR argument, so a scoped label cannot record a wide page. Cold samples create their
@@ -179,7 +179,7 @@ from 22 December. About 17 of them fall inside the ±90-day window.
 | `training-report`             | Training Reports              | load, read         | both             | Briefing not busy with the actor's soldier count                                          |
 | `critical-tasks-report`       | Critical Tasks Reports        | load, read         | both             | Metrics with the actor's population, nothing busy                                         |
 | `members-list`                | Settings Members              | load, read         | perfWide         | Member count shown                                                                        |
-| `admin-users`                 | Platform Users                | load, read         | platformReviewer | Directory size and first page of users                                                    |
+| `admin-people`                | Platform People               | load, read         | platformReviewer | First page of People                                                                      |
 | `workbook-export`             | Training Reports              | interaction, read  | both             | `Export Excel` to the workbook download                                                   |
 | `organization-export`         | Settings Exports              | interaction, write | perfWide         | `Export JSON` to the download and its success text                                        |
 | `sidebar-navigation`          | Calendar to Personnel         | interaction, read  | both             | Sidebar `Personnel` link to the roster                                                    |
@@ -227,7 +227,7 @@ accept any span. The longest preset that holds workload data is the current cale
 server rows; only the two by-day modes expand per day in the browser.
 
 `members-list` and `organization-export` need Organization settings, which the Group-scoped operator cannot open (403).
-`admin-users` is the platform user directory, the largest list the product shows: it spans every Organization, so its
+`admin-people` is the platform user directory, the largest list the product shows: it spans every Organization, so its
 size is the whole owned Auth directory at the time of the sample. Seed the workloads one at a time and measure it after
 each seed to see it grow.
 

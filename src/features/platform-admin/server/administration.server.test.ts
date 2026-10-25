@@ -17,11 +17,25 @@ function sources(): PlatformSupportAdministrationDependencies {
 		personnel: { countActivePersonnelByOrganization: vi.fn(async () => new Map([[ORG, 42]])) },
 		userSuspensionCommands: { suspendUser: vi.fn(async () => {}), unsuspendUser: vi.fn(async () => {}) },
 		organizationSuspensionCommands: {
-			suspendOrganization: vi.fn(async () => {}),
+			suspendOrganization: vi.fn(async () => 'suspended' as const),
 			unsuspendOrganization: vi.fn(async () => {})
 		},
 		actorUserId: 'admitted-admin',
-		audit: { log: vi.fn() },
+		sensitiveActionAuthorizer: {
+			authorize: async ({ action, actorUserId, target }) => ({
+				action,
+				actorUserId,
+				target,
+				allowed: true,
+				reason: 'allowed.mfaAssurance',
+				currentAssuranceLevel: 'aal2',
+				nextAssuranceLevel: 'aal2',
+				sessionAgeMs: 0,
+				recentSessionWindowMs: 600000,
+				requiresStepUp: false
+			})
+		},
+		audit: { log: vi.fn(async () => {}) },
 		now: () => NOW
 	};
 }
@@ -138,14 +152,17 @@ describe('Platform suspension policy', () => {
 		const targetId = type === 'user' ? USER : ORG;
 		const changes: string[] = [];
 		const events: AuditEvent[] = [];
-		const acknowledged = vi.fn(async () => {
+		const acknowledged = vi.fn(async (..._input: unknown[]) => {
 			changes.push(`${action}:${targetId}`);
+			return 'suspended' as const;
 		});
-		if (type === 'user') deps.userSuspensionCommands[operation as 'suspendUser' | 'unsuspendUser'] = acknowledged;
+		if (type === 'user')
+			deps.userSuspensionCommands[operation as 'suspendUser' | 'unsuspendUser'] = acknowledged as never;
 		else
-			deps.organizationSuspensionCommands[operation as 'suspendOrganization' | 'unsuspendOrganization'] = acknowledged;
+			deps.organizationSuspensionCommands[operation as 'suspendOrganization' | 'unsuspendOrganization'] =
+				acknowledged as never;
 		deps.audit = {
-			log(event) {
+			async log(event) {
 				expect(changes).toEqual([`${action}:${targetId}`]);
 				events.push(event);
 			}
@@ -158,7 +175,7 @@ describe('Platform suspension policy', () => {
 				action: `${action}_${type}`,
 				resourceType: type === 'user' ? 'user' : 'organization',
 				resourceId: targetId,
-				details: { reason: 'Policy review' },
+				details: type === 'user' ? { reason: 'Policy review' } : {},
 				severity: 'critical'
 			}
 		]);
@@ -169,11 +186,32 @@ describe('Platform suspension policy', () => {
 				reason: 'Policy review'
 			});
 		else if (operation === 'suspendOrganization')
-			expect(acknowledged).toHaveBeenCalledWith({ organizationId: ORG, suspendedAt: NOW });
+			expect(acknowledged).toHaveBeenCalledWith({
+				organizationId: ORG,
+				suspendedBy: 'admitted-admin',
+				reason: 'Policy review',
+				suspendedAt: NOW
+			});
+		else if (operation === 'unsuspendOrganization')
+			expect(acknowledged).toHaveBeenCalledWith({ organizationId: ORG, unsuspendedBy: 'admitted-admin' });
 		else expect(acknowledged).toHaveBeenCalledWith(targetId);
 	});
 
-	it('retains the absent reason in the existing audit shape', async () => {
+	it('reports a repeat Organization suspension as already suspended without a second audit event', async () => {
+		const deps = sources();
+		deps.organizationSuspensionCommands.suspendOrganization = vi.fn(async () => 'already_suspended' as const);
+		await expect(
+			createPlatformSupportAdministration(deps).updateSuspension({
+				type: 'org',
+				targetId: ORG,
+				action: 'suspend',
+				reason: 'Second request'
+			})
+		).resolves.toEqual({ status: 'already_suspended' });
+		expect(deps.audit.log).not.toHaveBeenCalled();
+	});
+
+	it('keeps the reason out of an Organization audit event', async () => {
 		const deps = sources();
 		await createPlatformSupportAdministration(deps).updateSuspension({
 			type: 'org',
@@ -185,7 +223,7 @@ describe('Platform suspension policy', () => {
 			action: 'unsuspend_org',
 			resourceType: 'organization',
 			resourceId: ORG,
-			details: { reason: undefined },
+			details: {},
 			severity: 'critical'
 		});
 	});
@@ -193,9 +231,14 @@ describe('Platform suspension policy', () => {
 	it('does not emit a success audit before an asynchronous source acknowledgement', async () => {
 		const deps = sources();
 		let acknowledge!: () => void;
+		let sourceStarted!: () => void;
+		const started = new Promise<void>((resolve) => {
+			sourceStarted = resolve;
+		});
 		deps.userSuspensionCommands.suspendUser = () =>
 			new Promise<void>((resolve) => {
 				acknowledge = resolve;
+				sourceStarted();
 			});
 		const pending = createPlatformSupportAdministration(deps).updateSuspension({
 			type: 'user',
@@ -203,6 +246,7 @@ describe('Platform suspension policy', () => {
 			action: 'suspend'
 		});
 		expect(deps.audit.log).not.toHaveBeenCalled();
+		await started;
 		acknowledge();
 		await expect(pending).resolves.toEqual({ status: 'updated', success: true });
 		expect(deps.audit.log).toHaveBeenCalledTimes(1);
@@ -222,7 +266,8 @@ describe('Platform suspension policy', () => {
 				createPlatformSupportAdministration(deps).updateSuspension({
 					type,
 					action,
-					targetId: type === 'user' ? USER : ORG
+					targetId: type === 'user' ? USER : ORG,
+					reason: 'Synthetic reason'
 				})
 			).rejects.toThrow('could not be confirmed');
 			expect(deps.audit.log).not.toHaveBeenCalled();
@@ -238,7 +283,9 @@ describe('Platform suspension policy', () => {
 		{ type: 'user', targetId: 'not-a-uuid', action: 'suspend' },
 		{ type: 'org', targetId: [ORG], action: 'suspend' },
 		{ type: 'user', targetId: USER, action: 'unknown' },
-		...[null, 12, {}, []].map((reason) => ({ type: 'user', targetId: USER, action: 'suspend', reason }))
+		...[null, 12, {}, []].map((reason) => ({ type: 'user', targetId: USER, action: 'suspend', reason })),
+		...[undefined, '', '   '].map((reason) => ({ type: 'org', targetId: ORG, action: 'suspend', reason })),
+		{ type: 'org', targetId: ORG, action: 'suspend', reason: 'x'.repeat(501) }
 	])('rejects invalid input with a portable result before any effect or audit: %j', async (input) => {
 		const deps = sources();
 		await expect(createPlatformSupportAdministration(deps).updateSuspension(input)).resolves.toMatchObject({
@@ -250,4 +297,14 @@ describe('Platform suspension policy', () => {
 		expect(deps.organizationSuspensionCommands.unsuspendOrganization).not.toHaveBeenCalled();
 		expect(deps.audit.log).not.toHaveBeenCalled();
 	});
+});
+
+it('fails the suspension command when its audit rejects', async () => {
+	const deps = sources();
+	deps.audit.log = async () => {
+		throw new Error('Audit unavailable');
+	};
+	await expect(
+		createPlatformSupportAdministration(deps).updateSuspension({ type: 'user', targetId: USER, action: 'suspend' })
+	).rejects.toThrow('Audit unavailable');
 });

@@ -6,43 +6,39 @@
 	import type { PageData } from './$types';
 	import SuspendModal from '$features/platform-admin/components/SuspendModal.svelte';
 	import TransferOwnershipModal from '$features/platform-admin/components/TransferOwnershipModal.svelte';
+	import OrganizationActivitySkeleton from '$features/platform-admin/components/OrganizationActivitySkeleton.svelte';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
+	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
+	import { describeAuditEvent } from '$features/platform-admin/auditSentences';
+	import { PLATFORM_ORGANIZATION_STATUS_LABELS } from '$features/platform-admin/organizationSupportTypes';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
-	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
-	import * as Card from '$lib/components/ui/card';
-	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
-	import {
-		WorkspaceToolbar,
-		type ToolbarItem,
-		type WorkspaceToolbarProps
-	} from '$lib/components/patterns/workspace-toolbar';
-	import * as Table from '$lib/components/ui/table';
+	import { formatDisplayDate, formatDisplayDateTime, formatRelativeDate } from '$lib/utils/dates';
 
 	let { data }: { data: PageData } = $props();
+
+	const org = $derived(data.organization);
+	const isSuspended = $derived(org.suspendedAt !== null);
+	const owners = $derived(org.members.filter((member) => member.role === 'owner'));
+	const ownerLabel = $derived(
+		owners.length === 0 ? 'No owner' : owners.length > 1 ? 'Multiple owners' : (owners[0].email ?? '(unknown)')
+	);
+	const memberEmails = $derived(new Map(org.members.map((member) => [member.userId, member.email])));
+	const transferMembers = $derived(
+		org.members.map((member) => ({ userId: member.userId, email: member.email ?? '(unknown)', role: member.role }))
+	);
 
 	let showSuspendModal = $state(false);
 	let showTransferModal = $state(false);
 	let navigationLifetime = $state(0);
-	const canAdminister = $derived(data.adminRole === 'super_admin');
-	const toolbarItems = $derived<ToolbarItem[]>(
-		canAdminister
-			? [
-					{
-						kind: 'action',
-						id: 'suspend',
-						label: data.org.isSuspended ? 'Unsuspend' : 'Suspend',
-						destructive: !data.org.isSuspended,
-						menuOnly: true,
-						onclick: () => (showSuspendModal = true)
-					}
-				]
-			: []
-	);
-	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>(
-		canAdminister
-			? { kind: 'action', id: 'transfer', label: 'Transfer Ownership', onclick: () => (showTransferModal = true) }
-			: undefined
+	const MEMBER_PREVIEW = 10;
+	let expandedMembersFor = $state<string | null>(null);
+	const showAllMembers = $derived(expandedMembersFor === org.id);
+	const visibleMembers = $derived(showAllMembers ? org.members : org.members.slice(0, MEMBER_PREVIEW));
+	const ownerSentence = $derived(
+		owners.length === 1 ? `Owned by ${ownerLabel}.` : owners.length === 0 ? 'No owner.' : 'Multiple owners.'
 	);
 
 	beforeNavigate(() => {
@@ -55,184 +51,231 @@
 	});
 
 	async function refreshOrganization(orgId: string, lifetime: number) {
-		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
+		if (orgId !== org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
 		await invalidateAll();
-		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
+		if (orgId !== org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
 	}
 
 	async function reloadSuspension(lifetime: number, orgId: string): Promise<boolean> {
 		await refreshOrganization(orgId, lifetime);
-		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
-		if (typeof data.org.isSuspended !== 'boolean') throw new Error('Organization state could not be refreshed');
-		return data.org.isSuspended;
+		return isSuspended;
 	}
 
-	async function handleSuspendComplete(lifetime: number, targetId: string, isSuspended: boolean) {
-		if (targetId !== data.org.id || lifetime !== navigationLifetime) return;
-		if ((await reloadSuspension(lifetime, targetId)) !== isSuspended)
+	async function handleSuspendComplete(lifetime: number, targetId: string, suspended: boolean) {
+		if (targetId !== org.id || lifetime !== navigationLifetime) return;
+		if ((await reloadSuspension(lifetime, targetId)) !== suspended)
 			throw new Error('Organization state could not be refreshed');
-		if (targetId !== data.org.id || lifetime !== navigationLifetime) return;
+		if (targetId !== org.id || lifetime !== navigationLifetime) return;
 		showSuspendModal = false;
 	}
 
 	async function reloadOwnership(lifetime: number, orgId: string, targetUserId: string) {
 		await refreshOrganization(orgId, lifetime);
-		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
-		const owners = data.members.filter((member) => member.role === 'owner');
 		if (owners.length !== 1) throw new Error('Ownership could not be refreshed');
 		return {
 			ownerUserId: owners[0].userId,
-			targetIsEligible: data.members.some(
+			targetIsEligible: org.members.some(
 				(member) => member.userId === targetUserId && (member.role === 'member' || member.role === 'admin')
 			)
 		};
 	}
 
 	async function handleTransferComplete(lifetime: number, orgId: string, targetUserId: string) {
-		if (orgId !== data.org.id || lifetime !== navigationLifetime) return;
+		if (orgId !== org.id || lifetime !== navigationLifetime) return;
 		const current = await reloadOwnership(lifetime, orgId, targetUserId);
-		if (orgId !== data.org.id || lifetime !== navigationLifetime) return;
+		if (orgId !== org.id || lifetime !== navigationLifetime) return;
 		if (current.ownerUserId !== targetUserId) throw new Error('Ownership could not be refreshed');
 		showTransferModal = false;
 	}
 </script>
 
 <svelte:head>
-	<title>{data.org.name} - Organizations - Admin - Troop to Task</title>
+	<title>{org.name} - Organizations - Admin - Troop to Task</title>
 </svelte:head>
 
-<PageShell.Root width="wide">
-	<PageShell.Header
-		title={data.org.name}
-		subtitle={`Created ${formatDisplayDate(data.org.createdAt)} - ${data.members.length} member${
-			data.members.length === 1 ? '' : 's'
-		} - ${data.personnelCount} personnel`}
-	>
-		{#snippet back()}
-			<Button href="/admin/organizations" variant="ghost" size="sm">Back to Organizations</Button>
-		{/snippet}
-		{#snippet meta()}
-			<Badge variant="secondary">Organization Record</Badge>
-			<Badge variant={adminBadgeVariant(data.org.isSuspended ? 'suspended' : 'active')}>
-				{data.org.isSuspended ? 'Suspended' : 'Active'}
-			</Badge>
-		{/snippet}
-	</PageShell.Header>
+{#snippet commands()}
+	<div class="flex flex-wrap items-center gap-2 sm:justify-end">
+		<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer ownership</Button>
+		<Button variant={isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
+			{isSuspended ? 'Unsuspend organization' : 'Suspend organization'}
+		</Button>
+	</div>
+{/snippet}
 
-	{#if canAdminister}
-		<WorkspaceToolbar ariaLabel="Organization controls" items={toolbarItems} primary={toolbarPrimary} />
+<AdminPage>
+	<AdminPageHeader
+		eyebrow={`Organization · ${PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} · Created ${formatDisplayDate(org.createdAt)}`}
+		title={org.name}
+		description={ownerSentence}
+		{commands}
+	/>
+
+	{#if isSuspended}
+		<Alert.Root variant="destructive">
+			<Alert.Title>This Organization is suspended.</Alert.Title>
+			<Alert.Description>
+				<span class="block wrap-anywhere">
+					{org.suspension?.reason ?? 'No reason recorded'}
+				</span>
+				<span class="mt-1 block text-xs">
+					Suspended {formatDisplayDateTime(org.suspension?.suspendedAt ?? org.suspendedAt)}{org.suspension
+						?.suspendedByEmail
+						? ` by ${org.suspension.suspendedByEmail}`
+						: ''}
+				</span>
+			</Alert.Description>
+		</Alert.Root>
 	{/if}
 
-	<div class="grid gap-4 lg:grid-cols-2">
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Organization</Card.Title>
-				<Card.Description>Organization details and suspension status.</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<dl class="grid gap-3">
-					<div class="flex items-center justify-between gap-3">
-						<dt class="text-xs font-medium text-muted-foreground">Personnel Count</dt>
-						<dd>{data.personnelCount}</dd>
-					</div>
-					<div class="flex items-center justify-between gap-3 border-t pt-3">
-						<dt class="text-xs font-medium text-muted-foreground">Created</dt>
-						<dd>{formatDisplayDate(data.org.createdAt)}</dd>
-					</div>
-					{#if data.org.isSuspended}
-						<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
-							<dt class="text-xs font-medium text-muted-foreground">Suspended At</dt>
-							<dd class="text-destructive">{formatDisplayDateTime(data.org.suspendedAt)}</dd>
-						</div>
-					{/if}
-				</dl>
-			</Card.Content>
-		</Card.Root>
+	<div class="grid items-start gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_21rem]">
+		<aside aria-labelledby="org-glance" class="rounded-xl border border-border bg-card p-5 xl:order-2">
+			<h2 id="org-glance" class="mb-2 font-heading text-xl leading-none font-bold">At a glance</h2>
+			<dl>
+				<PageShell.FactRow variant="compact" label="Owner" value={ownerLabel} />
+				<PageShell.FactRow variant="compact" label="Members" value={String(org.members.length)} />
+				<PageShell.FactRow variant="compact" label="Personnel" value={String(org.personnelCount)} />
+				<PageShell.FactRow
+					variant="compact"
+					label="Last active"
+					value={org.lastActiveAt ? formatRelativeDate(org.lastActiveAt) : 'Never used'}
+				/>
+				<PageShell.FactRow variant="compact" label="Created" value={formatDisplayDate(org.createdAt)} />
+				<PageShell.FactRow variant="compact" label="Status" value={PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} />
+				<PageShell.FactRow variant="compact" label="ID" value={org.id} mono />
+			</dl>
+		</aside>
 
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Members</Card.Title>
-				<Card.Description>Current membership roster for this organization.</Card.Description>
-			</Card.Header>
-			<Card.Content class="grid gap-3">
-				{#each data.members as member (member.userId)}
-					<div class="flex items-center justify-between gap-3 border-t pt-3 first:border-t-0 first:pt-0">
-						<a
-							href={resolve(`/admin/users/${member.userId}` as `/admin/users/${string}`)}
-							class="break-words text-sm font-medium underline-offset-4 hover:underline"
+		<div class="grid min-w-0 gap-9 lg:order-1">
+			<section class="grid gap-3" aria-labelledby="org-members">
+				<div class="flex items-baseline justify-between gap-3">
+					<h2 id="org-members" class="font-heading text-xl leading-none font-bold">Members · {org.members.length}</h2>
+					{#if org.members.length > MEMBER_PREVIEW}
+						<Button
+							variant="ghost"
+							size="sm"
+							class="font-mono text-xs tracking-[0.08em] uppercase"
+							aria-expanded={showAllMembers}
+							onclick={() => (expandedMembersFor = showAllMembers ? null : org.id)}
 						>
-							{member.email}
-						</a>
-						<Badge variant={adminBadgeVariant(member.role)}>{formatAdminLabel(member.role)}</Badge>
-					</div>
+							{showAllMembers ? 'Show fewer' : `Show all ${org.members.length}`}
+						</Button>
+					{/if}
+				</div>
+				{#if org.members.length === 0}
+					<p class="border-t border-foreground py-3 text-sm text-muted-foreground">No members.</p>
 				{:else}
-					<Empty.Root>No members found.</Empty.Root>
-				{/each}
-			</Card.Content>
-		</Card.Root>
-	</div>
+					<div
+						class="hidden gap-x-4 border-t border-b border-foreground px-3 py-2 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase sm:grid sm:grid-cols-[minmax(0,1fr)_6rem_10rem]"
+						aria-hidden="true"
+					>
+						<span>Name</span><span>Role</span><span>Last seen</span>
+					</div>
+					<ul class="max-sm:border-t max-sm:border-foreground">
+						{#each visibleMembers as member (member.userId)}
+							<li
+								class="grid gap-x-4 gap-y-1 border-b border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_10rem] sm:items-center"
+							>
+								<a
+									href={resolve(`/admin/people/${member.userId}` as `/admin/people/${string}`)}
+									class="font-semibold wrap-anywhere text-foreground underline-offset-4 hover:underline"
+									>{member.email ?? '(unknown)'}</a
+								>
+								<span><Badge variant={adminBadgeVariant(member.role)} mono>{formatAdminLabel(member.role)}</Badge></span
+								>
+								<span class="text-sm text-muted-foreground">
+									{member.lastSignInAt ? `Signed in ${formatRelativeDate(member.lastSignInAt)}` : 'Never signed in'}
+								</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
 
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Recent Audit Events</Card.Title>
-			<Card.Description>Latest platform activity recorded against this organization.</Card.Description>
-		</Card.Header>
-		<Card.Content class="overflow-x-auto">
-			<Table.Root>
-				<Table.Header>
-					<Table.Row>
-						<Table.Head>Timestamp</Table.Head>
-						<Table.Head>Action</Table.Head>
-						<Table.Head>Resource</Table.Head>
-						<Table.Head>Severity</Table.Head>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each data.auditEvents as evt (evt.id)}
-						<Table.Row>
-							<Table.Cell class="font-mono text-xs text-muted-foreground"
-								>{formatDisplayDateTime(evt.timestamp)}</Table.Cell
+			<section class="grid gap-3" aria-labelledby="org-invitations">
+				<h2 id="org-invitations" class="font-heading text-xl leading-none font-bold">Pending invitations</h2>
+				{#if org.invitations.length === 0}
+					<p class="border-t border-foreground py-3 text-sm text-muted-foreground">No pending invitations.</p>
+				{:else}
+					<ul class="border-t border-foreground">
+						{#each org.invitations as invitation (invitation.id)}
+							<li
+								class="grid gap-x-4 gap-y-1 border-b border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_14rem] sm:items-center"
 							>
-							<Table.Cell><span class="font-mono text-xs">{evt.action}</span></Table.Cell>
-							<Table.Cell>
-								{evt.resourceType ?? ''}{#if evt.resourceId}
-									<span class="text-muted-foreground"> - {evt.resourceId.slice(0, 8)}...</span>
-								{/if}
-							</Table.Cell>
-							<Table.Cell
-								><Badge variant={adminBadgeVariant(evt.severity)}>{formatAdminLabel(evt.severity)}</Badge></Table.Cell
-							>
-						</Table.Row>
+								<span class="font-semibold wrap-anywhere">{invitation.email}</span>
+								<span
+									><Badge variant={adminBadgeVariant(invitation.role)} mono>{formatAdminLabel(invitation.role)}</Badge
+									></span
+								>
+								<span class="text-sm text-muted-foreground">
+									Invited {formatDisplayDate(invitation.invitedAt)}{invitation.expiresAt
+										? `, expires ${formatDisplayDate(invitation.expiresAt)}`
+										: ''}
+								</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
+			<section class="grid gap-3" aria-labelledby="org-activity">
+				<h2 id="org-activity" class="font-heading text-xl leading-none font-bold">Recent activity</h2>
+				{#await data.activity}
+					<OrganizationActivitySkeleton />
+				{:then result}
+					{#if result.status === 'failed'}
+						<Alert.Root variant="destructive">
+							<Alert.Title>Recent activity could not be loaded.</Alert.Title>
+							<Alert.Description>
+								<span>The rest of this page is current. Try again, and reload the page if it keeps failing.</span>
+								<span class="mt-2 block">
+									<Button variant="outline" size="sm" onclick={() => invalidateAll()}>Try again</Button>
+								</span>
+							</Alert.Description>
+						</Alert.Root>
+					{:else if result.events.length === 0}
+						<p class="border-t border-foreground py-3 text-sm text-muted-foreground">
+							No activity recorded for this Organization.
+						</p>
 					{:else}
-						<Table.Row>
-							<Table.Cell colspan={4}>
-								<Empty.Root class="border-0">No audit events recorded for this organization.</Empty.Root>
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
-		</Card.Content>
-	</Card.Root>
-</PageShell.Root>
+						<ul class="border-t border-foreground">
+							{#each result.events as event (event.id)}
+								<li
+									class="grid gap-x-4 gap-y-1 border-b border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center"
+								>
+									<span class="wrap-anywhere">{describeAuditEvent(event, memberEmails)}</span>
+									<time
+										class="font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase sm:text-right"
+										datetime={event.timestamp}
+									>
+										{formatDisplayDateTime(event.timestamp)}
+									</time>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				{/await}
+			</section>
+		</div>
+	</div>
+</AdminPage>
 
-{#if canAdminister && showSuspendModal}
+{#if showSuspendModal}
 	<SuspendModal
 		type="org"
-		targetId={data.org.id}
-		targetName={data.org.name}
-		isSuspended={data.org.isSuspended}
+		targetId={org.id}
+		targetName={org.name}
+		{isSuspended}
 		onClose={() => (showSuspendModal = false)}
 		onComplete={handleSuspendComplete.bind(null, navigationLifetime)}
 		onReload={reloadSuspension.bind(null, navigationLifetime)}
 	/>
 {/if}
 
-{#if canAdminister && showTransferModal}
+{#if showTransferModal}
 	<TransferOwnershipModal
-		orgId={data.org.id}
-		orgName={data.org.name}
-		members={data.members}
+		orgId={org.id}
+		orgName={org.name}
+		members={transferMembers}
 		onClose={() => (showTransferModal = false)}
 		onComplete={handleTransferComplete.bind(null, navigationLifetime)}
 		onReload={reloadOwnership.bind(null, navigationLifetime)}

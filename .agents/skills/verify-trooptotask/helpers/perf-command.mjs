@@ -24,7 +24,7 @@ export const perfHelp = `Performance measurement on seeded workloads (recipe: fe
 
 $V seed workload small|typical|large       Seed one synthetic Organization, then perf prepare; clean-seeds removes it
 $V actor perfWide|perfScoped|perfScopedLeader DESTINATION WORKLOAD   Sign in to that workload's Organization
-$V actor platformReviewer admin/users      Sign in the platform super-admin for admin-users
+$V actor platformReviewer admin/people     Sign in the platform operator for admin-people
 $V perf workloads                          Print the workload table, profiles and protocol
 $V perf load PAGE WORKLOAD JOURNEY ACTOR --out RUN [--mode cold|warm] [--profile NAME] [--warmup N] [--reps N]
                                            Repeated page loads to the first useful render, then to app-origin

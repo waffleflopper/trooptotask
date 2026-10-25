@@ -40,9 +40,9 @@ function actionResponse(
 	return Response.json({ type, status, data: stringify(data) }, { status: httpStatus });
 }
 async function confirm() {
-	await fireEvent.change(screen.getByLabelText('New Owner'), { target: { value: 'member-alpha' } });
+	await fireEvent.change(screen.getByLabelText('New owner'), { target: { value: 'member-alpha' } });
 	await fireEvent.input(screen.getByLabelText('Type Alpha Clinic to confirm'), { target: { value: 'Alpha Clinic' } });
-	await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Transfer ownership' }));
 }
 
 it.each([400, 403, 404, 409])(
@@ -59,10 +59,10 @@ it.each([400, 403, 404, 409])(
 		render(TransferOwnershipModal, callbacks);
 		await confirm();
 		expect(await screen.findByText('Organization name does not match')).toBeTruthy();
-		expect((screen.getByLabelText('New Owner') as HTMLSelectElement).value).toBe('member-alpha');
+		expect((screen.getByLabelText('New owner') as HTMLSelectElement).value).toBe('member-alpha');
 		expect((screen.getByLabelText('Type Alpha Clinic to confirm') as HTMLInputElement).value).toBe('Alpha Clinic');
 		expect(callbacks.onComplete).not.toHaveBeenCalled();
-		await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Transfer ownership' }));
 		await screen.findByRole('button', { name: 'Reload details' });
 		expect(callbacks.onComplete).toHaveBeenCalledWith('org-alpha', 'member-alpha');
 		expect(callbacks.onReload).not.toHaveBeenCalled();
@@ -91,22 +91,22 @@ it.each([
 	render(TransferOwnershipModal, callbacks);
 	await confirm();
 	await screen.findByRole('button', { name: 'Reload details' });
-	expect(screen.queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
+	expect(screen.queryByRole('button', { name: 'Transfer ownership' })).toBeNull();
 	expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
 	expect(callbacks.onReload).not.toHaveBeenCalled();
 	expect(fetch).toHaveBeenCalledTimes(1);
 	await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
 	await screen.findByText(/Details could not be refreshed/);
-	expect(screen.queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
+	expect(screen.queryByRole('button', { name: 'Transfer ownership' })).toBeNull();
 	expect(fetch).toHaveBeenCalledTimes(1);
 	await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
 	await screen.findByText(/Details refreshed/);
 	expect(callbacks.onReload).toHaveBeenLastCalledWith('org-alpha', 'member-alpha');
-	expect((screen.getByLabelText('New Owner') as HTMLSelectElement).value).toBe('member-alpha');
+	expect((screen.getByLabelText('New owner') as HTMLSelectElement).value).toBe('member-alpha');
 	expect((screen.getByLabelText('Type Alpha Clinic to confirm') as HTMLInputElement).value).toBe('Alpha Clinic');
 	expect(callbacks.onComplete).not.toHaveBeenCalled();
 	expect(fetch).toHaveBeenCalledTimes(1);
-	await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Transfer ownership' }));
 	await waitFor(() => expect(callbacks.onComplete).toHaveBeenCalledWith('org-alpha', 'member-alpha'));
 	expect(fetch).toHaveBeenCalledTimes(2);
 });
@@ -138,8 +138,8 @@ it.each([
 	await screen.findByRole('button', { name: 'Reload details' });
 	await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
 	await screen.findByRole('button', { name: 'Close and review' });
-	expect(screen.queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
-	expect((screen.getByLabelText('New Owner') as HTMLSelectElement).disabled).toBe(true);
+	expect(screen.queryByRole('button', { name: 'Transfer ownership' })).toBeNull();
+	expect((screen.getByLabelText('New owner') as HTMLSelectElement).disabled).toBe(true);
 	expect(fetch).toHaveBeenCalledTimes(1);
 	expect(callbacks.onComplete).not.toHaveBeenCalled();
 });
@@ -164,7 +164,7 @@ it('reports an acknowledged transfer separately from a failed refresh and preven
 	await confirm();
 	expect(await screen.findByText(/Transferred, but the details could not be refreshed/)).toBeTruthy();
 	expect(screen.getByRole('button', { name: 'Reload details' })).toBeTruthy();
-	expect(screen.queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
+	expect(screen.queryByRole('button', { name: 'Transfer ownership' })).toBeNull();
 	expect(fetch).toHaveBeenCalledTimes(1);
 });
 
@@ -172,20 +172,20 @@ it('requires the exact organization name rather than silently accepting extra wh
 	const fetch = vi.fn();
 	vi.stubGlobal('fetch', fetch);
 	render(TransferOwnershipModal, props());
-	await fireEvent.change(screen.getByLabelText('New Owner'), { target: { value: 'member-alpha' } });
+	await fireEvent.change(screen.getByLabelText('New owner'), { target: { value: 'member-alpha' } });
 	await fireEvent.input(screen.getByLabelText('Type Alpha Clinic to confirm'), { target: { value: ' Alpha Clinic ' } });
-	expect((screen.getByRole('button', { name: 'Transfer Ownership' }) as HTMLButtonElement).disabled).toBe(true);
+	expect((screen.getByRole('button', { name: 'Transfer ownership' }) as HTMLButtonElement).disabled).toBe(true);
 	expect(fetch).not.toHaveBeenCalled();
 });
 
-it('keeps the pressed Transfer Ownership focusable and busy while held, and sends nothing on another press', async () => {
+it('keeps the pressed Transfer ownership focusable and busy while held, and sends nothing on another press', async () => {
 	let reply!: (response: Response) => void;
 	const fetch = vi.fn(() => new Promise<Response>((resolve) => (reply = resolve)));
 	vi.stubGlobal('fetch', fetch);
 	render(TransferOwnershipModal, props());
-	await fireEvent.change(screen.getByLabelText('New Owner'), { target: { value: 'member-alpha' } });
+	await fireEvent.change(screen.getByLabelText('New owner'), { target: { value: 'member-alpha' } });
 	await fireEvent.input(screen.getByLabelText('Type Alpha Clinic to confirm'), { target: { value: 'Alpha Clinic' } });
-	const transfer = screen.getByRole('button', { name: 'Transfer Ownership' });
+	const transfer = screen.getByRole('button', { name: 'Transfer ownership' });
 	transfer.focus();
 	await fireEvent.click(transfer);
 	expect(screen.getByRole('button', { name: /Transferring/ })).toBe(transfer);

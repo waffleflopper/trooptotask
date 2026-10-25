@@ -1,137 +1,99 @@
-import type { PlatformAudit, PlatformAuditOrganizationActivity } from '$lib/audit/contracts';
-import type {
-	OrganizationSupportMember,
-	OrganizationSupportMemberReader,
-	OrganizationSupportOrganization,
-	OrganizationSupportPage,
-	OrganizationSupportReader,
-	OrganizationSupportOwnerMembership,
-	OrganizationSupportOwnerMembershipMetric
-} from '$features/organization/contracts';
-import type { PersonnelSupportReader } from '$features/personnel/contracts';
+import type { PlatformAuditOrganizationActivity } from '$lib/audit/contracts';
+import type { MembershipRole } from '$lib/access/memberAccessShape';
 
-export type PlatformSupportAdminRole = 'super_admin' | 'support' | 'billing';
+export const PLATFORM_ORGANIZATION_FILTERS = ['all', 'active-week', 'quiet', 'suspended'] as const;
+export type PlatformOrganizationFilter = (typeof PLATFORM_ORGANIZATION_FILTERS)[number];
 
-export type PlatformOwnerMembershipRow = OrganizationSupportOwnerMembership;
-export type PlatformOwnerMembershipMetric = OrganizationSupportOwnerMembershipMetric;
+/** Quiet is no audit event for 30 days; the database owns the rule so the list and the page agree. */
+export type PlatformOrganizationStatus = 'active' | 'quiet' | 'suspended';
 
-export type PlatformOwnerMembershipStatus =
-	| { kind: 'single'; membership: PlatformOwnerMembershipRow }
-	| { kind: 'none' }
-	| { kind: 'multiple'; count: number };
+export const PLATFORM_ORGANIZATION_STATUS_LABELS: Record<PlatformOrganizationStatus, string> = {
+	active: 'Active',
+	quiet: 'Quiet',
+	suspended: 'Suspended'
+};
 
-export interface PlatformOrganizationMetrics {
-	memberCounts: Map<string, number>;
-	activePersonnelCounts: Map<string, number>;
-	ownerMemberships: Map<string, PlatformOwnerMembershipStatus>;
-}
+export const PLATFORM_ORGANIZATIONS_PAGE_SIZE = 25;
+/** Load more stops here, so one request never reads more than this many pages of rows. */
+export const PLATFORM_ORGANIZATIONS_MAX_PAGES = 20;
 
-export type PlatformMetricsStore = Pick<
-	OrganizationSupportReader,
-	'countMembershipsByOrganization' | 'listOwnerMembershipMetricsByOrganization'
-> &
-	PersonnelSupportReader;
-
-export interface PlatformMetrics {
-	countMembershipsByOrganization(organizationIds: string[]): Promise<Map<string, number>>;
-	countActivePersonnelByOrganization(organizationIds: string[]): Promise<Map<string, number>>;
-	countActivePersonnelForOrganization(organizationId: string): Promise<number>;
-	getOwnerMembershipsByOrganization(organizationIds: string[]): Promise<Map<string, PlatformOwnerMembershipStatus>>;
-	getOrganizationMetrics(organizationIds: string[]): Promise<PlatformOrganizationMetrics>;
-}
-
-export interface PlatformMetricsDependencies {
-	store: PlatformMetricsStore;
-}
-
-export interface PlatformOrganizationLedgerInput {
-	page?: number | string | null;
-	pageSize?: number | string | null;
+export interface PlatformOrganizationListInput {
+	pages?: number | string | null;
 	q?: string | null;
-	status?: string | null;
+	filter?: string | null;
 }
 
-export interface PlatformOrganizationLedgerQuery {
-	page: number;
-	pageSize: number;
+export interface PlatformOrganizationListQuery {
+	/** How many pages of rows are shown. Load more asks for one more, so the list always starts at the top. */
+	pages: number;
 	q: string;
-	status: string;
-	from: number;
-	to: number;
+	filter: PlatformOrganizationFilter;
 }
 
-export interface PlatformOrganizationLedgerPageMetadata {
-	page: number;
-	pageSize: number;
-	totalCount: number;
-	totalPages: number;
-	q: string;
-	status: string;
-}
-
-export type PlatformOrganizationLedgerBaseRow = OrganizationSupportOrganization;
-export type PlatformOrganizationLedgerPage = OrganizationSupportPage;
-export type PlatformOrganizationLedgerStore = Pick<OrganizationSupportReader, 'listOrganizationsPage'>;
-
-export interface PlatformOrganizationLedgerOrganizationRow extends PlatformOrganizationLedgerBaseRow {
-	memberCount: number;
-	personnelCount: number;
-	ownerEmail: string;
-	isSuspended: boolean;
-}
-
-export interface PlatformOrganizationLedgerListResult {
-	organizations: PlatformOrganizationLedgerOrganizationRow[];
-	pagination: PlatformOrganizationLedgerPageMetadata;
-}
-
-export interface PlatformOrganizationLedgerDependencies {
-	store: PlatformOrganizationLedgerStore;
-	metrics: Pick<PlatformMetrics, 'getOrganizationMetrics'>;
-}
-
-export interface PlatformOrganizationLedger {
-	listOrganizations(input?: PlatformOrganizationLedgerInput): Promise<PlatformOrganizationLedgerListResult>;
-}
-
-export type PlatformOrganizationDetailOrganizationRow = OrganizationSupportOrganization;
-export type PlatformOrganizationDetailStore = Pick<OrganizationSupportReader, 'getOrganizationById'>;
-
-export interface PlatformOrganizationDetailMember {
-	userId: string;
-	email: string;
-	role: OrganizationSupportMember['role'];
-}
-
-export interface PlatformOrganizationDetailOrg {
+export interface PlatformOrganizationRow {
 	id: string;
 	name: string;
-	suspendedAt: string | null;
 	createdAt: string;
-	isSuspended: boolean;
-}
-
-export interface PlatformOrganizationDetailLoadData {
-	adminRole: PlatformSupportAdminRole;
-	org: PlatformOrganizationDetailOrg;
-	members: PlatformOrganizationDetailMember[];
+	status: PlatformOrganizationStatus;
+	lastActiveAt: string | null;
+	memberCount: number;
 	personnelCount: number;
-	auditEvents: PlatformAuditOrganizationActivity[];
+	ownerCount: number;
+	ownerEmail: string | null;
 }
 
-export type PlatformOrganizationDetailResult =
-	| { status: 'found'; detail: PlatformOrganizationDetailLoadData }
-	| { status: 'not_found' }
-	| { status: 'provider_error'; message: string };
+/** How many Organizations each filter would list under the current search. */
+export interface PlatformOrganizationFilterCounts {
+	all: number;
+	activeWeek: number;
+	quiet: number;
+	suspended: number;
+}
+
+export interface PlatformOrganizationPage {
+	counts: PlatformOrganizationFilterCounts;
+	organizations: PlatformOrganizationRow[];
+	totalCount: number;
+}
+
+export interface PlatformOrganizationMember {
+	userId: string;
+	email: string | null;
+	role: MembershipRole;
+	lastSignInAt: string | null;
+}
+
+export interface PlatformOrganizationInvitation {
+	id: string;
+	email: string;
+	role: string;
+	invitedAt: string;
+	expiresAt: string | null;
+}
+
+export interface PlatformOrganizationSuspension {
+	reason: string;
+	suspendedAt: string;
+	suspendedByEmail: string | null;
+}
 
 export interface PlatformOrganizationDetail {
-	getOrganizationDetail(orgId: string): Promise<PlatformOrganizationDetailResult>;
+	id: string;
+	name: string;
+	createdAt: string;
+	status: PlatformOrganizationStatus;
+	lastActiveAt: string | null;
+	personnelCount: number;
+	suspendedAt: string | null;
+	/** Absent for an Organization suspended before reasons were recorded. */
+	suspension: PlatformOrganizationSuspension | null;
+	members: PlatformOrganizationMember[];
+	invitations: PlatformOrganizationInvitation[];
 }
 
-export interface PlatformOrganizationDetailDependencies {
-	store: PlatformOrganizationDetailStore;
-	adminRole: PlatformSupportAdminRole;
-	membershipReader: OrganizationSupportMemberReader;
-	metrics: Pick<PlatformMetrics, 'countActivePersonnelForOrganization'>;
-	audit: Pick<PlatformAudit, 'listRecentByOrganization'>;
+export interface PlatformOrganizationDirectory {
+	listOrganizations(query: PlatformOrganizationListQuery): Promise<PlatformOrganizationPage>;
+	getOrganization(organizationId: string): Promise<PlatformOrganizationDetail | null>;
 }
+
+export type PlatformOrganizationActivityEvent = PlatformAuditOrganizationActivity;

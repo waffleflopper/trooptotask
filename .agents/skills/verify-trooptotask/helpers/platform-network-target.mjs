@@ -6,19 +6,24 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 		'admin-announcements/create': ['/admin/announcements', 'create'],
 		'admin-announcements/toggle': ['/admin/announcements', 'toggle'],
 		'admin-announcements/delete': ['/admin/announcements', 'delete'],
-		'admin-feedback/update': ['/admin/feedback', 'update']
+		'admin-whats-new/save': ['/admin/announcements/whats-new', 'save'],
+		'admin-whats-new/delete': ['/admin/announcements/whats-new', 'delete'],
+		'admin-inbox/close': ['/admin', 'close'],
+		'admin-inbox/resendSetup': ['/admin', 'resendSetup'],
+		'admin-inbox/rescindAccess': ['/admin', 'rescindAccess'],
+		'admin-inbox/askInviter': ['/admin', 'askInviter']
 	};
 	if (Object.hasOwn(contentActions, family)) {
 		const [suffix, action] = contentActions[family];
 		return { suffix, search: `?/${action}`, failureField: 'error', requestTarget: null, sameOrigin: true };
 	}
 	const contentReads = {
-		'admin-audit-read': '/admin/audit/__data.json',
-		'admin-dashboard-read': '/admin/__data.json',
-		'admin-users-read': '/admin/users/__data.json',
+		'admin-inbox-read': '/admin/__data.json',
+		'admin-inbox-item-read': '/admin/api/inbox/item',
+		'admin-people-read': '/admin/people/__data.json',
 		'admin-organizations-read': '/admin/organizations/__data.json',
-		'admin-feedback-read': '/admin/feedback/__data.json',
-		'admin-announcements-read': '/admin/announcements/__data.json'
+		'admin-announcements-read': '/admin/announcements/__data.json',
+		'admin-whats-new-read': '/admin/announcements/whats-new/__data.json'
 	};
 	if (Object.hasOwn(contentReads, family))
 		return {
@@ -28,14 +33,16 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 			requestTarget: null,
 			sameOrigin: true
 		};
-	if (family === 'admin-access-read') {
-		if (!seed) throw new Error('Seed platform-admin first.');
+	const feedback =
+		/^admin-feedback-(read|command)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(family);
+	if (feedback) {
 		return {
-			suffix: '/admin/access-requests/__data.json',
+			suffix: `/admin/api/feedback/${feedback[2].toLowerCase()}`,
 			search: null,
 			failureField: null,
 			requestTarget: null,
-			sameOrigin: true
+			sameOrigin: true,
+			requestMethod: feedback[1] === 'read' ? 'GET' : 'POST'
 		};
 	}
 	const detail = /^admin-(user|organization)-detail-read$/.exec(family);
@@ -44,30 +51,39 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 		const id = detail[1] === 'user' ? fixture.actors.orgInvitee?.id : seed.organization?.id;
 		if (!uuid.test(id ?? '')) throw new Error('Use a recorded platform target.');
 		return {
-			suffix: `/admin/${detail[1]}s/${id}/__data.json`,
+			suffix: `/admin/${detail[1] === 'user' ? 'people' : 'organizations'}/${id}/__data.json`,
 			search: null,
 			failureField: null,
 			requestTarget: null,
 			sameOrigin: true
 		};
 	}
-	const account = /^admin-account\/(orgCreator|orgInvitee|orgMember|pendingUser)\/(resetPassword|resendInvite)$/.exec(
+	const request = /^admin-(request-read|request)\/(approve|reject|completed)(?:\/(resendSetup|rescindAccess))?$/.exec(
 		family
 	);
-	const access = /^admin-access\/(approve|reject|completed)\/(approve|reject|resend)$/.exec(family);
+	if (request && (request[1] === 'request-read') === (request[3] === undefined)) {
+		if (!seed) throw new Error('Seed platform-admin first.');
+		const id = seed.requests[request[2]]?.id;
+		if (!uuid.test(id ?? '')) throw new Error('Use a recorded platform target.');
+		return {
+			suffix: `/admin/people/not-set-up/${id}${request[3] ? '' : '/__data.json'}`,
+			search: request[3] ? `?/${request[3]}` : null,
+			failureField: request[3] ? 'error' : null,
+			requestTarget: null,
+			sameOrigin: true
+		};
+	}
+	const account = /^admin-account\/(orgCreator|orgInvitee|orgMember)\/resetPassword$/.exec(family);
+	const access = /^admin-access\/(approve|reject|completed)\/(approve|reject)$/.exec(family);
 	if (!account && !access) return null;
 	if (!seed) throw new Error('Seed platform-admin first.');
-	const id = account
-		? account[1] === 'pendingUser'
-			? seed.pendingUser?.id
-			: fixture.actors[account[1]]?.id
-		: seed.requests[access[1]]?.id;
+	const id = account ? fixture.actors[account[1]]?.id : seed.requests[access[1]]?.id;
 	if (!uuid.test(id ?? '')) throw new Error('Use a recorded platform target.');
 	return {
-		suffix: account ? `/admin/users/${id}` : '/admin/access-requests',
-		search: `?/${account ? account[2] : access[2]}`,
+		suffix: account ? `/admin/people/${id}` : '/admin',
+		search: `?/${account ? 'resetPassword' : access[2]}`,
 		failureField: 'error',
 		sameOrigin: true,
-		requestTarget: access ? { field: 'requestId', value: id } : null
+		requestTarget: access ? { field: 'id', value: id } : null
 	};
 }

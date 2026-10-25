@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import SuspendModal from './SuspendModal.svelte';
@@ -155,4 +156,113 @@ it('keeps the pressed Suspend focusable and busy while the change is held, and s
 	reply(Response.json({ message: 'Change denied' }, { status: 409 }));
 	expect(await screen.findByText('Change denied')).toBeTruthy();
 	expect(suspend.getAttribute('aria-busy')).toBeNull();
+});
+
+function stubLocation() {
+	const location = {
+		origin: 'https://app.example.test',
+		pathname: '/admin/people/user-alpha',
+		search: '?tab=1',
+		href: ''
+	};
+	vi.stubGlobal('location', location);
+	return location;
+}
+
+it.each([
+	['/auth/mfa-verify', 'https://app.example.test/auth/mfa-verify?next=%2Fadmin%2Fpeople%2Fuser-alpha%3Ftab%3D1'],
+	['/auth/mfa-setup', 'https://app.example.test/auth/mfa-setup?next=%2Fadmin%2Fpeople%2Fuser-alpha%3Ftab%3D1']
+])('sends the operator to %s and back when the server asks for step-up', async (stepUpPath, destination) => {
+	const location = stubLocation();
+	const fetch = vi
+		.fn()
+		.mockResolvedValue(Response.json({ message: 'Verify again', requiresStepUp: true, stepUpPath }, { status: 403 }));
+	vi.stubGlobal('fetch', fetch);
+	const callbacks = props();
+	render(SuspendModal, callbacks);
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	await waitFor(() => expect(location.href).toBe(destination));
+	expect(screen.getByText(/Nothing has been changed yet/)).toBeTruthy();
+	expect(screen.getByRole('button', { name: /Verifying/ }).getAttribute('aria-busy')).toBe('true');
+	expect(screen.queryByText('Verify again')).toBeNull();
+	expect(callbacks.onComplete).not.toHaveBeenCalled();
+	await fireEvent.click(screen.getByRole('button', { name: /Verifying/ }));
+	expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('sends an unsuspend through the same step-up', async () => {
+	const location = stubLocation();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue(Response.json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }, { status: 403 }))
+	);
+	render(SuspendModal, { ...props(), isSuspended: true });
+	await fireEvent.click(screen.getByRole('button', { name: 'Unsuspend' }));
+	await waitFor(() => expect(location.href).toContain('/auth/mfa-verify?next='));
+});
+
+it('offers another try when the browser returns from an abandoned step-up', async () => {
+	stubLocation();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue(Response.json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }, { status: 403 }))
+	);
+	render(SuspendModal, props());
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	await screen.findByRole('button', { name: /Verifying/ });
+	window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }));
+	expect(await screen.findByText(/Multi-factor verification was not completed/)).toBeTruthy();
+	expect(screen.getByRole('button', { name: 'Suspend' }).getAttribute('aria-busy')).toBeNull();
+});
+
+it('does not redirect the current page when the modal closed before the step-up reply arrived', async () => {
+	const location = stubLocation();
+	let reply!: (response: Response) => void;
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(() => new Promise<Response>((resolve) => (reply = resolve)))
+	);
+	const view = render(SuspendModal, props());
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	view.unmount();
+	reply(Response.json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }, { status: 403 }));
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(location.href).toBe('');
+});
+
+it('requires a reason to suspend an Organization and sends it with the request', async () => {
+	const fetch = vi.fn().mockResolvedValue(Response.json({ success: true }));
+	vi.stubGlobal('fetch', fetch);
+	render(SuspendModal, { ...props(), type: 'org', targetId: 'org-alpha', targetName: 'Alpha Company' });
+	const suspend = screen.getByRole('button', { name: 'Suspend' });
+	expect(suspend).toBeDisabled();
+	await fireEvent.input(screen.getByLabelText('Reason'), { target: { value: '   ' } });
+	expect(suspend).toBeDisabled();
+	await fireEvent.input(screen.getByLabelText('Reason'), { target: { value: ' Abuse report 42 ' } });
+	expect(suspend).toBeEnabled();
+	await fireEvent.click(suspend);
+	await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+	expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+		type: 'org',
+		targetId: 'org-alpha',
+		action: 'suspend',
+		reason: 'Abuse report 42'
+	});
+});
+
+it('lifts an Organization suspension without asking for a reason', async () => {
+	render(SuspendModal, { ...props(), type: 'org', isSuspended: true });
+	expect(screen.getByLabelText('Reason (optional)')).toBeTruthy();
+	expect(screen.getByRole('button', { name: 'Unsuspend' })).toBeEnabled();
+});
+
+it('says an Organization was already suspended and keeps the dialog on the reload step', async () => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true, alreadySuspended: true })));
+	const callbacks = { ...props(), type: 'org' as const, targetId: 'org-alpha', targetName: 'Alpha Company' };
+	render(SuspendModal, callbacks);
+	await fireEvent.input(screen.getByLabelText('Reason'), { target: { value: 'Second operator' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	expect(await screen.findByText(/already suspended this organization/)).toBeTruthy();
+	expect(screen.getByRole('button', { name: 'Reload details' })).toBeTruthy();
+	expect(callbacks.onComplete).not.toHaveBeenCalled();
 });

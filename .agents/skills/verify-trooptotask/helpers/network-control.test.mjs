@@ -415,7 +415,7 @@ test('availability removal observation records the JSON IDs and preserves the re
 });
 
 test('a page server-load error dispatches the real read and fails only the page node of the selected request', async () => {
-	const suffix = '/admin/users/__data.json';
+	const suffix = '/admin/people/__data.json';
 	const nodes = [
 		{ type: 'data', data: [{}] },
 		{ type: 'data', data: [{ nav: 1 }] },
@@ -444,6 +444,47 @@ test('a page server-load error dispatches the real read and fails only the page 
 	const retried = JSON.parse((await (await page.fetch(`${suffix}?x-sveltekit-invalidated=001`)).text()).split('\n')[0]);
 	assert.deepEqual(retried.nodes, nodes);
 	assert.equal(reads, 2);
+});
+
+const regionSuffix = '/admin/announcements/__data.json';
+const regionBody =
+	[
+		JSON.stringify({ type: 'data', nodes: [{ type: 'data', data: [{ banners: 1 }, ['Promise', 2], 1] }] }),
+		JSON.stringify({ type: 'chunk', id: 1, data: [{ status: 1 }, 'loaded'] })
+	].join('\n') + '\n';
+function regionPage() {
+	return {
+		location: { href: 'http://localhost/admin/announcements' },
+		fetch: async () => new Response(regionBody, { headers: { 'Content-Type': 'application/json' } })
+	};
+}
+
+test('region failure keeps the page node and rejects each deferred region of only the selected read', async () => {
+	const page = regionPage();
+	installNetworkControl(page, { mode: 'fail-regions', ordinal: 1, suffix: regionSuffix, sameOrigin: true });
+	const failed = (await (await page.fetch(regionSuffix)).text()).split('\n').filter(Boolean);
+	assert.equal(failed[0], regionBody.split('\n')[0]);
+	assert.deepEqual(JSON.parse(failed[1]), {
+		type: 'chunk',
+		id: 1,
+		error: [{ message: 1 }, 'Synthetic region failure']
+	});
+	assert.equal(page.__mapNetwork.calls[0].failure, 'region');
+	assert.equal(await (await page.fetch(regionSuffix)).text(), regionBody);
+});
+
+test('region hold sends the page node at once and the deferred regions only on release', async () => {
+	const page = regionPage();
+	installNetworkControl(page, { mode: 'hold-regions', ordinal: 1, suffix: regionSuffix, sameOrigin: true });
+	const response = await page.fetch(regionSuffix);
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	assert.equal(decoder.decode((await reader.read()).value), regionBody.split('\n')[0] + '\n');
+	assert.equal(page.__mapNetwork.calls[0].dispatch, 'held');
+	page.__mapNetwork.release();
+	assert.equal(decoder.decode((await reader.read()).value), regionBody.split('\n')[1] + '\n');
+	assert.equal((await reader.read()).done, true);
+	assert.equal(page.__mapNetwork.calls[0].dispatch, 'released');
 });
 
 test('a rejected platform form result carries the chosen 4xx status in the SvelteKit envelope', async () => {

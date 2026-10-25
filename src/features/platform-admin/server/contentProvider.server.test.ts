@@ -15,7 +15,7 @@ function announcements(provider: ReturnType<typeof client>) {
 	return createPlatformAnnouncements({
 		store: createSupabasePlatformAnnouncementsStore(provider),
 		actorUserId: 'admin',
-		audit: () => {}
+		audit: async () => {}
 	});
 }
 

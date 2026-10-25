@@ -4,7 +4,7 @@ import { journeyFor, journeys, monthLabels } from './perf-journeys.mjs';
 
 test('an unknown or wrong-kind journey is refused with the journeys of that kind', () => {
 	const loads =
-		'Use a load journey: calendar-initial, personnel-list, personnel-detail-direct, dashboard, training-report, critical-tasks-report, members-list, admin-users.';
+		'Use a load journey: calendar-initial, personnel-list, personnel-detail-direct, dashboard, training-report, critical-tasks-report, members-list, admin-people.';
 	assert.throws(() => journeyFor('calendar-month', 'perfWide', 'load'), { message: loads });
 	assert.throws(() => journeyFor('personnel-search', 'perfWide', 'load'), { message: loads });
 });
@@ -18,13 +18,13 @@ test('an actor a journey does not reach is refused with the reason', () => {
 		message:
 			'personnel-detail is not applicable to perfScoped: The detail page needs the personnel configure capability (personnel.readSensitiveRecords); perfScoped is an operator (403).'
 	});
-	assert.throws(() => journeyFor('admin-users', 'perfWide', 'load'), {
-		message: 'admin-users is not applicable to perfWide: Platform administration needs a platform role.'
+	assert.throws(() => journeyFor('admin-people', 'perfWide', 'load'), {
+		message: 'admin-people is not applicable to perfWide: Platform administration needs the operator.'
 	});
 	assert.throws(() => journeyFor('personnel-list', 'platformReviewer', 'load'), {
 		message: 'personnel-list is not measured as platformReviewer.'
 	});
-	assert.equal(journeyFor('admin-users', 'platformReviewer', 'load'), journeys['admin-users']);
+	assert.equal(journeyFor('admin-people', 'platformReviewer', 'load'), journeys['admin-people']);
 	assert.equal(journeyFor('personnel-detail', 'perfScopedLeader', 'interaction'), journeys['personnel-detail']);
 	assert.throws(() => journeyFor('personnel-list', 'perfScopedLeader', 'load'), {
 		message: 'personnel-list is not measured as perfScopedLeader.'

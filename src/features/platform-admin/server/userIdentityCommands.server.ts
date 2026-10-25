@@ -13,9 +13,9 @@ export interface PlatformUserIdentityCommandAuditEvent {
 
 export interface PlatformUserIdentityCommandDependencies {
 	store: IdentityPlatformAccountEmailPort;
-	checkRateLimit: (userId: string, type: 'recovery' | 'invite') => Promise<boolean>;
-	audit: { log(event: PlatformUserIdentityCommandAuditEvent): void };
-	confirmationUrl: (inboundOrigin: string, type: 'recovery' | 'invite') => string;
+	checkRateLimit: (userId: string, type: 'recovery') => Promise<boolean>;
+	audit: { log(event: PlatformUserIdentityCommandAuditEvent): Promise<void> };
+	confirmationUrl: (inboundOrigin: string, type: 'recovery') => string;
 }
 
 export function createPlatformUserIdentityCommands(
@@ -38,49 +38,25 @@ export function createPlatformUserIdentityCommands(
 			});
 			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to send password reset' };
 
-			deps.audit.log({
-				action: 'admin.user.password_reset',
-				resourceType: 'user',
-				resourceId: input.userId,
-				details: { targetEmail: userEmail.email },
-				severity: 'warning'
-			});
-
+			try {
+				await deps.audit.log({
+					action: 'admin.user.password_reset',
+					resourceType: 'user',
+					resourceId: input.userId,
+					details: { targetEmail: userEmail.email },
+					severity: 'warning'
+				});
+			} catch {
+				return {
+					status: 'email_sent_audit_failed',
+					email: userEmail.email,
+					message: 'The email was sent, but the required audit could not be recorded. Reload before sending again.'
+				};
+			}
 			return {
 				status: 'sent',
 				email: userEmail.email,
 				message: 'Password reset email sent'
-			};
-		},
-
-		async resendInvite(input) {
-			if (await deps.checkRateLimit(input.userId, 'invite'))
-				return { status: 'rate_limited', message: 'Too many invite emails. Please try again later.' };
-			const userEmail = await deps.store.getUserEmailById(input.userId);
-			if (userEmail.status === 'not_found') return { status: 'not_found' };
-			if (userEmail.status === 'provider_error') {
-				return { status: 'provider_error', message: 'Failed to resend invite' };
-			}
-
-			const sendResult = await deps.store.sendInviteEmail({
-				userId: input.userId,
-				email: userEmail.email,
-				redirectTo: deps.confirmationUrl(input.inboundOrigin, 'invite')
-			});
-			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to resend invite' };
-
-			deps.audit.log({
-				action: 'admin.user.resend_invite',
-				resourceType: 'user',
-				resourceId: input.userId,
-				details: { targetEmail: userEmail.email },
-				severity: 'info'
-			});
-
-			return {
-				status: 'sent',
-				email: userEmail.email,
-				message: 'Invite email resent'
 			};
 		}
 	};

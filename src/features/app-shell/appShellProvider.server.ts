@@ -3,7 +3,8 @@ import {
 	createSupabaseNotificationStore,
 	createSupabaseAccountAnnouncementDismissals
 } from '$features/notifications/index.server';
-import { listActiveAnnouncementContent } from '$features/platform-admin/index.server';
+import { WHATS_NEW_VISIBLE_COUNT } from '$features/platform-admin/contracts';
+import { listActiveAnnouncementContent, listPublishedWhatsNew } from '$features/platform-admin/index.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess, type OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import type { FeatureKey } from '$lib/access/featureSwitches';
@@ -75,18 +76,20 @@ export function createSupabaseAppShellFirstPaintChromePort(config: {
 }): AppShellFirstPaintChromePort {
 	return {
 		async getFirstPaintChrome(): Promise<AppShellFirstPaintChrome> {
-			const [announcements, preferences, profile] = await Promise.all([
+			const [announcements, whatsNew, preferences, profile] = await Promise.all([
 				loadActiveAnnouncements({
 					userId: config.userId,
 					userSupabase: config.userSupabase,
 					supabase: config.supabase
 				}),
+				loadFirstPaintWhatsNew(config),
 				loadFirstPaintPreferences(config),
 				loadFirstPaintProfile(config)
 			]);
 
 			return {
 				announcements,
+				whatsNew,
 				preferences,
 				account: { email: config.email, hasTwoFactor: config.hasTwoFactor, profile }
 			};
@@ -127,6 +130,15 @@ async function loadActiveAnnouncements(config: {
 		return announcements.filter(({ id }) => !dismissed.has(id));
 	} catch (cause) {
 		console.error('[app-shell] Failed to load first-paint announcements:', cause);
+		return [];
+	}
+}
+
+async function loadFirstPaintWhatsNew(config: { userSupabase: SupabaseClient }) {
+	try {
+		return await listPublishedWhatsNew(config.userSupabase, WHATS_NEW_VISIBLE_COUNT);
+	} catch (cause) {
+		console.error('[app-shell] Failed to load What’s New entries:', sanitizeErrorForLog(cause));
 		return [];
 	}
 }

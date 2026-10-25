@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { FeedbackMirror } from './feedbackPorts.server';
 import { createFeedbackSubmission } from './feedbackSubmission.server';
 import { createInMemoryFeedbackStore } from './inMemoryFeedback.server';
 
@@ -10,10 +9,8 @@ const OTHER_ORG_ID = '33333333-3333-4333-8333-333333333333';
 afterEach(() => vi.restoreAllMocks());
 
 function makeSubmissionFeedback({
-	mirror,
 	insertError
 }: {
-	mirror?: FeedbackMirror;
 	insertError?: Error;
 } = {}) {
 	const store = createInMemoryFeedbackStore({
@@ -29,8 +26,7 @@ function makeSubmissionFeedback({
 	});
 	const feedback = createFeedbackSubmission({
 		resolveOrganizationContext: (input) => store.resolveOrganizationContext(input),
-		store,
-		mirror
+		store
 	});
 
 	return { feedback, store };
@@ -59,9 +55,7 @@ describe('Feedback submission', () => {
 				category: 'general',
 				message: 'This workflow needs a little polish.',
 				pageUrl: '/feedback',
-				pageSection: 'Dashboard',
-				githubIssueNumber: null,
-				githubIssueUrl: null
+				pageSection: 'Dashboard'
 			})
 		]);
 	});
@@ -168,74 +162,7 @@ describe('Feedback submission', () => {
 		expect(store.submittedFeedback).toEqual([]);
 	});
 
-	it('returns the GitHub mirror URL and stores the mirrored issue fields', async () => {
-		const mirror = {
-			mirror: vi.fn().mockResolvedValue({
-				issueNumber: 42,
-				issueUrl: 'https://github.com/waffleflopper/trooptotask/issues/42'
-			})
-		};
-		const { feedback, store } = makeSubmissionFeedback({ mirror });
-
-		await expect(
-			feedback.submit({
-				userId: USER_ID,
-				userEmail: 'member@example.com',
-				category: 'bug',
-				message: 'Dashboard cards flicker.',
-				organizationId: ORG_ID,
-				pageUrl: `/org/${ORG_ID}`
-			})
-		).resolves.toEqual({
-			status: 'submitted',
-			githubIssue: 'https://github.com/waffleflopper/trooptotask/issues/42'
-		});
-
-		expect(mirror.mirror).toHaveBeenCalledWith(
-			expect.objectContaining({
-				category: 'bug',
-				message: 'Dashboard cards flicker.',
-				pageUrl: `/org/${ORG_ID}`,
-				pageSection: 'Dashboard',
-				organizationName: 'Alpha Company',
-				userEmail: 'member@example.com'
-			})
-		);
-		expect(store.submittedFeedback).toEqual([
-			expect.objectContaining({
-				githubIssueNumber: 42,
-				githubIssueUrl: 'https://github.com/waffleflopper/trooptotask/issues/42'
-			})
-		]);
-	});
-
-	it('still succeeds when database persistence fails after the mirror succeeds', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const mirror = {
-			mirror: vi.fn().mockResolvedValue({
-				issueNumber: 43,
-				issueUrl: 'https://github.com/waffleflopper/trooptotask/issues/43'
-			})
-		};
-		const { feedback } = makeSubmissionFeedback({ mirror, insertError: new Error('insert failed') });
-
-		await expect(
-			feedback.submit({
-				userId: USER_ID,
-				userEmail: 'member@example.com',
-				category: 'general',
-				message: 'Keep the GitHub mirror result.',
-				pageUrl: '/feedback'
-			})
-		).resolves.toEqual({
-			status: 'submitted',
-			githubIssue: 'https://github.com/waffleflopper/trooptotask/issues/43'
-		});
-		expect(consoleError).toHaveBeenCalledWith('Failed to insert feedback:', expect.any(Error));
-		consoleError.mockRestore();
-	});
-
-	it('returns a submission failure when database persistence fails without a mirror result', async () => {
+	it('returns a submission failure when database persistence fails', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const { feedback } = makeSubmissionFeedback({ insertError: new Error('insert failed') });
 
@@ -256,19 +183,17 @@ describe('Feedback submission', () => {
 		{ category: 'general', message: ' \n ', expected: 'Message is required' },
 		{ category: 'unsupported', message: 'Please help', expected: 'Invalid category' }
 	])(
-		'rejects invalid feedback before organization lookup, mirroring or persistence: $expected',
+		'rejects invalid feedback before organization lookup or persistence: $expected',
 		async ({ category, message, expected }) => {
 			const store = createInMemoryFeedbackStore();
 			const resolveOrganizationContext = vi.fn();
-			const mirror = { mirror: vi.fn() };
-			const feedback = createFeedbackSubmission({ store, resolveOrganizationContext, mirror });
+			const feedback = createFeedbackSubmission({ store, resolveOrganizationContext });
 
 			await expect(feedback.submit({ userId: USER_ID, organizationId: ORG_ID, category, message })).resolves.toEqual({
 				status: 'validation_error',
 				message: expected
 			});
 			expect(resolveOrganizationContext).not.toHaveBeenCalled();
-			expect(mirror.mirror).not.toHaveBeenCalled();
 			expect(store.submittedFeedback).toEqual([]);
 		}
 	);
@@ -305,61 +230,30 @@ describe('Feedback submission', () => {
 		});
 	});
 
-	it('reports unavailable Organization context before any external mirror or insert', async () => {
+	it('reports unavailable Organization context before persistence', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const store = createInMemoryFeedbackStore({ resolveOrganizationError: new Error('lookup unavailable') });
-		const mirror = { mirror: vi.fn() };
 		const feedback = createFeedbackSubmission({
 			store,
-			resolveOrganizationContext: (input) => store.resolveOrganizationContext(input),
-			mirror
+			resolveOrganizationContext: (input) => store.resolveOrganizationContext(input)
 		});
 
 		await expect(feedback.submit({ userId: USER_ID, message: 'Please help', organizationId: ORG_ID })).resolves.toEqual(
 			{ status: 'submission_failed', message: 'Failed to submit feedback' }
 		);
 		expect(store.submittedFeedback).toEqual([]);
-		expect(mirror.mirror).not.toHaveBeenCalled();
 	});
 
-	it('keeps database submission available when the external mirror throws', async () => {
-		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const { feedback, store } = makeSubmissionFeedback({
-			mirror: {
-				async mirror() {
-					throw new Error('mirror unavailable');
-				}
-			}
-		});
-
+	it('stores feedback without making any GitHub request', async () => {
+		const fetcher = vi.spyOn(globalThis, 'fetch');
+		const { feedback, store } = makeSubmissionFeedback();
 		await expect(feedback.submit({ userId: USER_ID, message: 'Keep this feedback' })).resolves.toEqual({
 			status: 'submitted',
 			githubIssue: null
 		});
-		expect(store.submittedFeedback).toEqual([
-			expect.objectContaining({ message: 'Keep this feedback', githubIssueNumber: null, githubIssueUrl: null })
-		]);
-		expect(logged).toHaveBeenCalledWith(expect.any(String), expect.any(Error));
-	});
-
-	it('finishes the mirror before inserting its identifiers into the saved feedback', async () => {
-		let finishMirror!: (result: { issueNumber: number; issueUrl: string }) => void;
-		const mirrorResult = new Promise<{ issueNumber: number; issueUrl: string }>((resolve) => {
-			finishMirror = resolve;
-		});
-		const { feedback, store } = makeSubmissionFeedback({ mirror: { mirror: () => mirrorResult } });
-
-		const pending = feedback.submit({ userId: USER_ID, message: 'Preserve the mirror ordering' });
-		expect(store.submittedFeedback).toEqual([]);
-		finishMirror({ issueNumber: 44, issueUrl: 'https://github.com/example/repository/issues/44' });
-
-		await expect(pending).resolves.toEqual({
-			status: 'submitted',
-			githubIssue: 'https://github.com/example/repository/issues/44'
-		});
 		expect(store.submittedFeedback[0]).toMatchObject({
-			githubIssueNumber: 44,
-			githubIssueUrl: 'https://github.com/example/repository/issues/44'
+			message: 'Keep this feedback'
 		});
+		expect(fetcher).not.toHaveBeenCalled();
 	});
 });

@@ -11,15 +11,15 @@ CREATE TEMP TABLE current_rows AS
 SELECT 'auth.users'::text AS table_name, id AS row_id, to_jsonb(row_value) AS row_data
   FROM auth.users AS row_value WHERE id = 'b4000000-0000-4000-8000-000000000001'
 UNION ALL
-SELECT 'public.platform_admins', id, to_jsonb(row_value)
-  FROM public.platform_admins AS row_value WHERE id = 'b4000000-0000-4000-8000-000000000011'
+SELECT 'public.platform_operators', user_id, to_jsonb(row_value)
+  FROM public.platform_operators AS row_value WHERE user_id = 'b4000000-0000-4000-8000-000000000001'
 UNION ALL
-SELECT 'public.access_requests', id, to_jsonb(row_value) - 'approval_basis'
+SELECT 'public.access_requests', id, to_jsonb(row_value) - 'approval_basis' - 'rescinded_at'
   FROM public.access_requests AS row_value
   WHERE id IN ('b4000000-0000-4000-8000-000000000101', 'b4000000-0000-4000-8000-000000000102',
                'b4000000-0000-4000-8000-000000000103')
 UNION ALL
-SELECT 'public.account_setup_links', id, to_jsonb(row_value)
+SELECT 'public.account_setup_links', id, to_jsonb(row_value) - 'resend_email_id' - 'bounced_at' - 'bounce_reason'
   FROM public.account_setup_links AS row_value
   WHERE id IN ('b4000000-0000-4000-8000-000000000201', 'b4000000-0000-4000-8000-000000000202',
                'b4000000-0000-4000-8000-000000000203');
@@ -72,13 +72,21 @@ SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff(
   '22023', NULL, 'elapsed time cannot release a historical held claim');
 RESET ROLE;
 SELECT results_eq(
-  $$ SELECT id, to_jsonb(row_value) FROM public.account_setup_links AS row_value
+  $$ SELECT id, to_jsonb(row_value) - 'resend_email_id' - 'bounced_at' - 'bounce_reason' FROM public.account_setup_links AS row_value
      WHERE id IN ('b4000000-0000-4000-8000-000000000201',
                   'b4000000-0000-4000-8000-000000000202',
                   'b4000000-0000-4000-8000-000000000203') ORDER BY id $$,
   $$ SELECT row_id, row_data FROM upgrade_fixture.before_rows
      WHERE table_name = 'public.account_setup_links' ORDER BY row_id $$,
   'denied claim and release leave historical setup links unchanged');
+
+SELECT is((SELECT count(*)::integer FROM public.account_setup_links WHERE id IN (
+  'b4000000-0000-4000-8000-000000000201','b4000000-0000-4000-8000-000000000202','b4000000-0000-4000-8000-000000000203')
+  AND resend_email_id IS NULL AND bounced_at IS NULL AND bounce_reason IS NULL),3,
+  'upgrade and denied commands invent no delivery or bounce facts on historical links');
+SELECT is((SELECT count(*)::integer FROM public.access_requests WHERE id IN (
+  'b4000000-0000-4000-8000-000000000101','b4000000-0000-4000-8000-000000000102','b4000000-0000-4000-8000-000000000103')
+  AND rescinded_at IS NULL),3,'upgrade invents no rescission time on approved requests');
 
 SET LOCAL ROLE service_role;
 SELECT ok(public.release_account_setup_claim_for_staff(

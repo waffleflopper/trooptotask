@@ -11,13 +11,17 @@
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLDivElement> & { children?: Snippet } = $props();
 
-	const destructive = getAppDialogState().tone === 'destructive';
+	const { tone, voice } = getAppDialogState();
 </script>
 
 <div
 	bind:this={ref}
 	data-slot="app-dialog-body"
-	class={cn('min-h-0 overflow-y-auto px-4 py-4 text-sm', destructive && 'px-7 py-5', className)}
+	class={cn(
+		'min-h-0 overflow-y-auto px-4 py-4 text-sm',
+		(tone === 'destructive' || voice === 'editorial') && 'px-7 py-5',
+		className
+	)}
 	{...restProps}
 >
 	{@render children?.()}

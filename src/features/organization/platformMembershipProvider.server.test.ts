@@ -64,21 +64,9 @@ describe('Organization platform membership provider boundary', () => {
 		const provider = port(async () =>
 			Response.json({ code, message: 'private provider detail', details: 'secret' }, { status: 403 })
 		);
-		expect(await provider.promoteMember({ actorUserId, orgId, targetUserId })).toEqual({
+		expect(await provider.transferOwnership({ actorUserId, orgId, targetUserId, confirmName: 'A' })).toEqual({
 			status: code === '42501' ? 'forbidden' : 'provider_error'
 		});
-	});
-	it('requires an exact promotion acknowledgement and targets only its bound member', async () => {
-		const provider = port(async (request) => {
-			expect(new URL(request.url).pathname).toBe('/rest/v1/rpc/platform_promote_org_member');
-			expect(await request.json()).toEqual({
-				p_actor_user_id: actorUserId,
-				p_organization_id: orgId,
-				p_target_user_id: targetUserId
-			});
-			return Response.json({ status: 'updated', org_id: orgId, target_user_id: fromUserId });
-		});
-		expect(await provider.promoteMember({ actorUserId, orgId, targetUserId })).toEqual({ status: 'provider_error' });
 	});
 	it('returns every member past the provider row cap, with stable ordering and Organization scope', async () => {
 		const rows = Array.from({ length: 1001 }, (_, i) => ({

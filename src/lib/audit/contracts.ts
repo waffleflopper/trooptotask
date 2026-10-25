@@ -2,11 +2,11 @@ export type AuditSeverity = 'info' | 'warning' | 'critical';
 export type {
 	PlatformAudit,
 	PlatformAuditSeverity,
-	PlatformAuditLogEntry,
+	PlatformActivityEvent,
 	PlatformAuditOrganizationActivity,
 	PlatformAuditUserActivity,
-	PlatformAuditListInput,
-	PlatformAuditListResult,
+	PlatformActivityInput,
+	PlatformActivityResult,
 	PlatformAuditDashboardActivity
 } from './platformContracts';
 

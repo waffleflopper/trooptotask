@@ -124,6 +124,11 @@ describe('getOrgNavigation', () => {
 });
 
 describe('getOrgBreadcrumbs', () => {
+	it("labels the What's new page without the unit, since the page is personal", () => {
+		const nav = getOrgNavigation('org-1', { ...baseCapabilities, calendar: 'view' });
+		expect(getOrgBreadcrumbs('/org/org-1/whats-new', 'Test Org', nav)).toEqual([{ label: "What's new" }]);
+	});
+
 	it('includes Calendar subroute labels after the organization and primary section', () => {
 		const nav = getOrgNavigation('org-1', {
 			...baseCapabilities,

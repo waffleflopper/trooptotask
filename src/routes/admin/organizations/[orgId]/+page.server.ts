@@ -12,11 +12,20 @@ export const load: PageServerLoad = async (event) => {
 	const orgId = event.params.orgId as string;
 	if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
-	const result = await operations.getOrganizationDetail(orgId);
-	if (result.status === 'not_found') throw error(404, 'Organization not found');
-	if (result.status === 'provider_error') throw error(500, 'Failed to load organization detail');
+	const organization = await operations.getOrganization(orgId).catch((cause: unknown) => {
+		console.error('Failed to load Organization', cause);
+		throw error(500, 'Failed to load organization detail');
+	});
+	if (organization === null) throw error(404, 'Organization not found');
 
-	return result.detail;
+	const activity = operations.listRecentActivity(orgId).then(
+		(events) => ({ status: 'ready' as const, events }),
+		(cause: unknown) => {
+			console.error('Failed to load Organization activity', cause);
+			return { status: 'failed' as const };
+		}
+	);
+	return { organization, activity };
 };
 
 function commandFailure(cause: unknown, message: string) {
@@ -32,37 +41,6 @@ function commandFailure(cause: unknown, message: string) {
 }
 
 export const actions: Actions = {
-	makeAdmin: async (event) => {
-		const commands = await createPlatformOrganizationMembershipCommands(event);
-		const orgId = event.params.orgId;
-		if (!validateUUID(orgId)) return fail(400, { error: { message: 'Invalid organization ID' } });
-		const formData = await event.request.formData();
-		const targetUserId = formData.get('targetUserId')?.toString() ?? '';
-		if (!validateUUID(targetUserId)) return fail(400, { error: { message: 'Invalid target user ID' } });
-		try {
-			const result = await commands.makeAdmin({ orgId, targetUserId });
-			switch (result.status) {
-				case 'updated':
-					return { success: true };
-				case 'forbidden':
-					return fail(403, { error: { message: 'Super-admin access is required' } });
-				case 'organization_not_found':
-					return fail(404, { error: { message: 'Organization not found' } });
-				case 'target_not_member':
-					return fail(400, { error: { message: 'Target user is not a member of this organization' } });
-				case 'already_admin':
-					return fail(400, { error: { message: 'Target user is already an admin' } });
-				case 'already_owner':
-					return fail(400, { error: { message: 'Target user is already the owner' } });
-				case 'provider_error':
-					return fail(503, {
-						error: { message: 'Could not confirm the membership update. Reload this page before trying again.' }
-					});
-			}
-		} catch (cause) {
-			return commandFailure(cause, 'Could not confirm the membership update. Reload this page before trying again.');
-		}
-	},
 	transferOwnership: async (event) => {
 		const commands = await createPlatformOrganizationMembershipCommands(event);
 		const orgId = event.params.orgId;
@@ -77,7 +55,7 @@ export const actions: Actions = {
 				case 'updated':
 					return { success: true };
 				case 'forbidden':
-					return fail(403, { error: { message: 'Super-admin access is required' } });
+					return fail(403, { error: { message: 'Platform operator access is required' } });
 				case 'organization_not_found':
 					return fail(404, { error: { message: 'Organization not found' } });
 				case 'name_mismatch':

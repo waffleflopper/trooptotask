@@ -10,7 +10,7 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 			const { data, error } = await supabase
 				.from('notifications')
 				.select('id,user_id')
-				.eq('organization_id', orgId)
+				.or(`organization_id.eq.${orgId},organization_id.is.null`)
 				.eq('id', id)
 				.single();
 			if (error?.code === 'PGRST116') return null;
@@ -21,7 +21,7 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 			const { data, error } = await supabase
 				.from('notifications')
 				.select('*')
-				.eq('organization_id', orgId)
+				.or(`organization_id.eq.${orgId},organization_id.is.null`)
 				.eq('user_id', userId)
 				.order('created_at', { ascending: false })
 				.limit(20);
@@ -33,7 +33,7 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 				const { data, error } = await supabase
 					.from('notifications')
 					.select('id')
-					.eq('organization_id', orgId)
+					.or(`organization_id.eq.${orgId},organization_id.is.null`)
 					.eq('user_id', userId)
 					.eq('read', false)
 					.order('id', { ascending: true })
@@ -47,21 +47,25 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 			const { error } = await supabase
 				.from('notifications')
 				.update({ read: true })
-				.eq('organization_id', orgId)
+				.or(`organization_id.eq.${orgId},organization_id.is.null`)
 				.eq('id', id)
 				.select('id')
 				.single();
 			if (error) throw new Error(error.message);
 		},
 		async deleteNotification(orgId, id) {
-			const { error } = await supabase.from('notifications').delete().eq('organization_id', orgId).eq('id', id);
+			const { error } = await supabase
+				.from('notifications')
+				.delete()
+				.or(`organization_id.eq.${orgId},organization_id.is.null`)
+				.eq('id', id);
 			if (error) throw new Error(error.message);
 		},
 		async deleteOwn(orgId, userId) {
 			const { error } = await supabase
 				.from('notifications')
 				.delete()
-				.eq('organization_id', orgId)
+				.or(`organization_id.eq.${orgId},organization_id.is.null`)
 				.eq('user_id', userId);
 			if (error) throw new Error(error.message);
 		},
@@ -69,7 +73,7 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 			const { count, error } = await supabase
 				.from('notifications')
 				.select('id', { count: 'exact', head: true })
-				.eq('organization_id', orgId)
+				.or(`organization_id.eq.${orgId},organization_id.is.null`)
 				.eq('user_id', userId)
 				.eq('read', false);
 			if (error) throw new Error(`Failed to load unread notification count: ${error.message}`);

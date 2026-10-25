@@ -45,11 +45,13 @@ import { seedDa6 } from './da6-fixtures.mjs';
 import {
 	seedPlatform,
 	seedOrganizationPages,
+	seedPlatformActivity,
 	readPlatform,
 	cleanPlatform,
 	recordPlatformUserAudit
 } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
+import { bounceSetupLink, expireSetupLink, readSetupEmail } from './setup-email-fixtures.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
@@ -433,6 +435,20 @@ async function main() {
 		note(await readPlatform({ client: await provider(), fixture, ownedState: await saved() }));
 		return;
 	}
+	if (command === 'setup-bounce' || command === 'setup-expire' || command === 'setup-state') {
+		const [targetKey, reason = 'Mailbox does not exist'] = args;
+		if (!targetKey || args.length > (command === 'setup-bounce' ? 2 : 1))
+			throw new Error(`Use ${command} REQUEST_KEY${command === 'setup-bounce' ? ' [REASON]' : ''}.`);
+		const seed = (await saved()).platform;
+		const client = await provider();
+		if (command === 'setup-state') note(await readSetupEmail({ client, seed, targetKey }));
+		else if (command === 'setup-expire') note(await expireSetupLink({ client, seed, targetKey }));
+		else {
+			const { webhookSecret } = await readJSON(path.join(session, 'server-source-control.json'));
+			note(await bounceSetupLink({ client, seed, targetKey, secret: webhookSecret, origin: doctor.origin, reason }));
+		}
+		return;
+	}
 	if (command === 'content-request') {
 		const [page, family, targetId, bodyText = '{}'] = args;
 		const pageId = Number(page);
@@ -454,7 +470,7 @@ async function main() {
 			);
 			if (!row || (!seedIds.includes(targetId) && row.created_by !== fixture.actors.platformReviewer.id))
 				throw new Error('Use a saved announcement owned by this verification worker.');
-		} else if (family === 'feedbackUpdate') {
+		} else if (family === 'feedbackClose') {
 			const row = checked(await client.from('beta_feedback').select('id,user_id').eq('id', targetId).maybeSingle());
 			if (!row || !Object.values(fixture.actors).some((actor) => actor.id === row.user_id))
 				throw new Error("Use Feedback submitted by this worker's synthetic account.");
@@ -476,8 +492,8 @@ async function main() {
 		const seed = (await saved()).platform;
 		if (!seed) throw new Error('Seed platform-admin first.');
 		const body = JSON.parse(bodyText);
-		const access = ['approve', 'reject', 'resend'].includes(family);
-		const membership = ['makeAdmin', 'transferOwnership'].includes(family);
+		const access = ['approve', 'reject'].includes(family);
+		const membership = family === 'transferOwnership';
 		const targetId = access
 			? seed.requests[targetKey]?.id
 			: membership
@@ -488,7 +504,8 @@ async function main() {
 					? targetKey === 'organization'
 						? seed.organization.id
 						: null
-					: ['orgCreator', 'orgInvitee', 'orgMember'].includes(targetKey)
+					: ['orgCreator', 'orgInvitee', 'orgMember'].includes(targetKey) ||
+						  (family === 'suspend' && targetKey === 'platformReviewer')
 						? fixture.actors[targetKey].id
 						: null;
 		if (!targetId) throw new Error('Unknown recorded platform target.');
@@ -637,9 +654,9 @@ async function main() {
 		});
 		return;
 	}
-	const identityPage = async (page, role) => {
+	const identityPage = async (page, role, roles = fixture.identityActors) => {
 		const pageId = Number(page);
-		if (!Number.isInteger(pageId) || pageId < 1 || !fixture.identityActors.includes(role))
+		if (!Number.isInteger(pageId) || pageId < 1 || !roles.includes(role))
 			throw new Error('Use an owned page ID and an identity fixture role.');
 		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
 			throw new Error('The page is not on the owned app origin.');
@@ -652,7 +669,7 @@ async function main() {
 	const pendingPasswords = path.join(session, 'identity-pending-passwords.json');
 	if (command === 'mfa-code') {
 		const [page, role, label, occurrence] = args;
-		const pageId = await identityPage(page, role);
+		const pageId = await identityPage(page, role, [...fixture.identityActors, ...fixture.operatorActors]);
 		if (!label) throw new Error('Use mfa-code PAGE ROLE LABEL [OCCURRENCE].');
 		const { factor, code } = await environment('totp-code', session, fixture.actors[role].id);
 		await fillPrivate(pageId, label, occurrence, code);
@@ -860,7 +877,7 @@ async function main() {
 		return;
 	}
 	if (command === 'actor') {
-		const { form, showWhatsNew, args: actorArgs } = actorArguments(args);
+		const { form, showWhatsNew, aal1, staleMfa, args: actorArgs } = actorArguments(args);
 		const [role, destination = 'calendar', workloadName] = actorArgs;
 		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
 		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped', 'perfScopedLeader'].includes(role)))
@@ -899,8 +916,10 @@ async function main() {
 				'admin',
 				'admin/announcements',
 				'admin/feedback',
+				'admin/activity',
 				'admin/audit',
 				'admin/users',
+				'admin/people',
 				'admin/organizations',
 				'admin/access-requests'
 			].includes(destination) ||
@@ -932,9 +951,9 @@ async function main() {
 							? `/org/${orgSegment}`
 							: `/org/${orgSegment}/${destination}`;
 		let readyText =
-			destination === 'admin/audit'
+			destination === 'admin/audit' || destination === 'admin/activity'
 				? [
-						'Audit Log',
+						'Activity',
 						'Access denied',
 						'Forbidden',
 						'Not authorized',
@@ -943,64 +962,63 @@ async function main() {
 					]
 				: destination === 'settings/logs'
 					? ['Audit Log', "You don't have permission to view this page"]
-					: destination === 'admin/feedback'
-						? ['Sort incoming bug reports', 'Access denied', 'Forbidden']
-						: destination.startsWith('onboarding')
-							? [
-									'STEPS',
-									'No templates yet.',
-									'In processing',
-									'No active onboardings',
-									'Set up onboarding',
-									'Onboarding not configured',
-									'Onboarding History',
-									'Access restricted',
-									"You don't have permission to view this page"
-								]
-							: destination === 'home'
-								? ['Verification Organization A', 'Verification Organization B']
-								: destination === 'critical-tasks/library'
-									? [
-											'ICT task library controls',
-											'Access Restricted',
-											'Access restricted',
-											"You don't have permission to view this page"
-										]
-									: destination === 'critical-tasks'
-										? ['Critical Tasks', 'Access restricted']
-										: destination === 'settings/archives'
-											? ['Archived people', "You don't have permission to view this page"]
-											: destination === 'settings/approvals'
-												? ['Pending requests', "You don't have permission to view this page"]
-												: destination === 'settings/policies'
-													? ['Archive Retention', "You don't have permission to view this page"]
-													: destination === 'settings/general'
-														? ['Unit name', "You don't have permission to view this page"]
-														: destination === 'settings/members'
-															? ['Send invite', "You don't have permission to view this page"]
-															: destination === 'settings/exports'
-																? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
-																: destination === 'settings/danger'
-																	? ['Destructive Actions', "You don't have permission to view this page"]
-																	: destination === 'dashboard'
-																		? ['Pending Invitations', 'Organizations']
-																		: destination === 'org/new'
-																			? ['Create your first Organization', 'Confirm your email first']
-																			: [
-																					'Calendar',
-																					'Evaluation controls',
-																					'Training',
-																					'Able, Synthetic',
-																					'Foreign, Synthetic',
-																					'No personnel on the active roster',
-																					'Access restricted',
-																					'Access Restricted'
-																				];
-		if (destination === 'admin') readyText = ['Admin Dashboard', 'Total Users', 'Forbidden', 'Access denied', '403'];
+					: destination.startsWith('onboarding')
+						? [
+								'STEPS',
+								'No templates yet.',
+								'In processing',
+								'No active onboardings',
+								'Set up onboarding',
+								'Onboarding not configured',
+								'Onboarding History',
+								'Access restricted',
+								"You don't have permission to view this page"
+							]
+						: destination === 'home'
+							? ['Verification Organization A', 'Verification Organization B']
+							: destination === 'critical-tasks/library'
+								? [
+										'ICT task library controls',
+										'Access Restricted',
+										'Access restricted',
+										"You don't have permission to view this page"
+									]
+								: destination === 'critical-tasks'
+									? ['Critical Tasks', 'Access restricted']
+									: destination === 'settings/archives'
+										? ['Archived people', "You don't have permission to view this page"]
+										: destination === 'settings/approvals'
+											? ['Pending requests', "You don't have permission to view this page"]
+											: destination === 'settings/policies'
+												? ['Archive Retention', "You don't have permission to view this page"]
+												: destination === 'settings/general'
+													? ['Unit name', "You don't have permission to view this page"]
+													: destination === 'settings/members'
+														? ['Send invite', "You don't have permission to view this page"]
+														: destination === 'settings/exports'
+															? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
+															: destination === 'settings/danger'
+																? ['Destructive Actions', "You don't have permission to view this page"]
+																: destination === 'dashboard'
+																	? ['Pending Invitations', 'Organizations']
+																	: destination === 'org/new'
+																		? ['Create your first Organization', 'Confirm your email first']
+																		: [
+																				'Calendar',
+																				'Evaluation controls',
+																				'Training',
+																				'Able, Synthetic',
+																				'Foreign, Synthetic',
+																				'No personnel on the active roster',
+																				'Access restricted',
+																				'Access Restricted'
+																			];
+		if (destination === 'admin' || destination === 'admin/feedback')
+			readyText = ['Inbox', 'Forbidden', 'Access denied', '403'];
 		if (destination === 'admin/announcements') readyText = ['Announcements', 'Forbidden', 'Access denied', '403'];
 		if (
 			destination.startsWith('admin/') &&
-			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
+			!['admin/activity', 'admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
 		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
 		if (workload) readyText = [workload.name, 'Access restricted', 'Access Restricted'];
@@ -1017,7 +1035,19 @@ async function main() {
 					?.match(/^(\d+):/)?.[1]
 			);
 			if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
-			await evaluate(state, pageId, whatsNewPreferenceScript(fixture.actors[role].id, showWhatsNew));
+			const newest = checked(
+				await (await provider())
+					.from('whats_new_entries')
+					.select('id')
+					.not('published_seq', 'is', null)
+					.order('published_seq', { ascending: false })
+					.limit(1)
+			);
+			await evaluate(
+				state,
+				pageId,
+				whatsNewPreferenceScript(fixture.actors[role].id, newest[0]?.id ?? '', showWhatsNew)
+			);
 			const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
 			await tool(state, 'fill_form', {
 				pageId,
@@ -1035,7 +1065,8 @@ async function main() {
 				password: fixture.actors[role].password,
 				destination: destinationPath,
 				isolatedContext: browserContext,
-				showWhatsNew
+				showWhatsNew,
+				...(fixture.operatorActors.includes(role) && !aal1 ? { mfa: staleMfa ? 'stale' : 'fresh' } : {})
 			});
 			pageId = signedIn.pageId;
 			await tool(state, 'navigate_page', { pageId, type: 'url', url: `${doctor.origin}${signedIn.path}` });
@@ -1086,14 +1117,33 @@ async function main() {
 				client
 					.from('beta_feedback')
 					.select(
-						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status,admin_notes'
+						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status,updated_by'
 					)
 					.eq('user_id', userId)
 					.order('id')
 					.range(from, to)
 			)
 		);
-		note({ role, userId, dismissals, feedback });
+		const feedbackIds = feedback.map((row) => row.id);
+		const replies = feedbackIds.length
+			? checked(
+					await client
+						.from('feedback_replies')
+						.select('id,feedback_id,body,sent_by,sent_at')
+						.in('feedback_id', feedbackIds)
+						.order('sent_at')
+						.order('id')
+				)
+			: [];
+		const staffNotes = feedbackIds.length
+			? checked(
+					await client
+						.from('feedback_staff_notes')
+						.select('feedback_id,body,updated_by,updated_at')
+						.in('feedback_id', feedbackIds)
+				)
+			: [];
+		note({ role, userId, dismissals, feedback, replies, staffNotes });
 		return;
 	}
 	if (command === 'platform-content') {
@@ -1117,7 +1167,14 @@ async function main() {
 		const seededAnnouncements = seedIds.length
 			? checked(await client.from('platform_announcements').select(select).in('id', seedIds))
 			: [];
-		note({ announcements, seededAnnouncements });
+		const whatsNew = checked(
+			await client
+				.from('whats_new_entries')
+				.select('id,title,paragraphs,published_on,published_seq,updated_by,updated_at')
+				.eq('updated_by', fixture.actors.platformReviewer.id)
+				.order('updated_at')
+		);
+		note({ announcements, seededAnnouncements, whatsNew });
 		return;
 	}
 	if (command === 'rows') {
@@ -1800,6 +1857,7 @@ async function main() {
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',
+				'platform-activity',
 				'dashboard',
 				'dashboard-currency',
 				'dashboard-overflow',
@@ -1868,6 +1926,10 @@ async function main() {
 		}
 		if (kind === 'platform-admin') {
 			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'platform-activity') {
+			note(await seedPlatformActivity({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'organization-pages') {
@@ -2563,6 +2625,7 @@ async function main() {
 				let query = client.from(item.table).delete().in('id', ids);
 				if (
 					item.kind !== 'organization-pages' &&
+					item.kind !== 'platform-activity' &&
 					!(
 						(item.kind.startsWith('maintenance-retention') || item.kind === 'account-setup') &&
 						['access_requests', 'account_setup_links'].includes(item.table)
@@ -2604,7 +2667,9 @@ async function main() {
 				'arm-reject',
 				'arm-observe',
 				'arm-drop',
-				'arm-load-error'
+				'arm-load-error',
+				'arm-hold-regions',
+				'arm-fail-regions'
 			].includes(action)
 		) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
@@ -2636,6 +2701,8 @@ async function main() {
 				'dashboard/declineInvitation': ['/dashboard', '?/declineInvitation', 'error'],
 				'org/new': ['/org/new', '', 'error']
 			}[family];
+			// Org pages whose streamed regions load after the page: path under /org/ORG/.
+			const orgPage = { 'org-page/whats-new': 'whats-new/__data.json' }[family] ?? null;
 			const settingsPage =
 				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
 					family
@@ -2657,6 +2724,7 @@ async function main() {
 					'shell-organization-switcher',
 					'admin-suspend',
 					'admin-search',
+					'admin-activity',
 					'admin-transfer',
 					'notifications',
 					'organization/settings',
@@ -2725,6 +2793,7 @@ async function main() {
 				!accountForm &&
 				!settingsPage &&
 				!accountPage &&
+				!orgPage &&
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
@@ -2746,6 +2815,7 @@ async function main() {
 				formAction ||
 				settingsPage ||
 				accountPage ||
+				orgPage ||
 				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
 				shellPart
 			) {
@@ -2773,6 +2843,7 @@ async function main() {
 								: `/org/${organizationSegment}/api/${family}`;
 			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
 			if (family === 'admin-search') suffix = '/admin/api/search';
+			if (family === 'admin-activity') suffix = '/admin/api/activity';
 			if (family === 'admin-transfer') {
 				const seed = (await saved()).platform;
 				if (!seed) throw new Error('Seed platform-admin first.');
@@ -2781,6 +2852,7 @@ async function main() {
 			if (platformForm) suffix = platformForm.suffix;
 			if (accountForm) suffix = accountForm[0];
 			if (accountPage) suffix = `/org/${organizationSegment}/account/${accountPage[0]}`;
+			if (orgPage) suffix = `/org/${organizationSegment}/${orgPage}`;
 			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
@@ -2818,10 +2890,18 @@ async function main() {
 			)
 				throw new Error('A held dispatch is supported only for Calendar mutation families.');
 			if (
-				(/^admin-[a-z-]+-read$/.test(family) || shellPart) &&
-				!['arm-fail', 'arm-hold', 'arm-observe', ...(shellPart ? [] : ['arm-load-error'])].includes(action)
+				(/^admin-[a-z-]+-read$/.test(family) || shellPart || orgPage) &&
+				![
+					'arm-fail',
+					'arm-hold',
+					'arm-observe',
+					...(shellPart || orgPage ? [] : ['arm-load-error']),
+					...(shellPart ? [] : ['arm-hold-regions', 'arm-fail-regions'])
+				].includes(action)
 			)
 				throw new Error('Platform read controls support failure, hold and observation only.');
+			if (['arm-hold-regions', 'arm-fail-regions'].includes(action) && !/^admin-[a-z-]+-read$/.test(family) && !orgPage)
+				throw new Error('Region controls are supported only for streamed page-data reads.');
 			if (action === 'arm-load-error' && !/^admin-[a-z-]+-read$/.test(family))
 				throw new Error('A page server-load error is supported only for platform page-data reads.');
 			if (
@@ -2860,9 +2940,13 @@ async function main() {
 										? 'drop-response'
 										: action === 'arm-load-error'
 											? 'load-error'
-											: action === 'arm-hold-dispatch'
-												? 'hold-dispatch'
-												: 'observe';
+											: action === 'arm-hold-regions'
+												? 'hold-regions'
+												: action === 'arm-fail-regions'
+													? 'fail-regions'
+													: action === 'arm-hold-dispatch'
+														? 'hold-dispatch'
+														: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??
@@ -2882,7 +2966,8 @@ async function main() {
 				!!shellPart ||
 				(platformForm?.sameOrigin ?? false);
 			const requestMethod =
-				family === 'ict-tasks/order'
+				platformForm?.requestMethod ??
+				(family === 'ict-tasks/order'
 					? 'POST'
 					: action === 'arm-drop' && family === 'availability'
 						? 'ANY'
@@ -2892,7 +2977,7 @@ async function main() {
 								? 'PATCH'
 								: shellPart
 									? 'GET'
-									: null;
+									: null);
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {
@@ -3201,7 +3286,11 @@ async function main() {
 				ownedState: await saved(),
 				save,
 				provider,
-				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
+				credentials: (role) => ({
+					email: fixture.actors[role].email,
+					password: fixture.actors[role].password,
+					...(fixture.operatorActors.includes(role) ? { mfa: 'fresh' } : {})
+				}),
 				sessionPage: (input) => run(state, { command: 'session-page', ...input }),
 				database: perfDatabase,
 				host: hostMonitor([repository, path.dirname(session)], {

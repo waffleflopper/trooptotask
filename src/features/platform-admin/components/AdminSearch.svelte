@@ -4,6 +4,8 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	let query = $state('');
+	let input = $state<HTMLInputElement | null>(null);
+	let shortcut = $state('⌘K');
 	let results = $state<{
 		users: Array<{ id: string; email: string; orgCount: number }>;
 		organizations: Array<{ id: string; name: string; personnelCount: number }>;
@@ -68,12 +70,24 @@
 		}, 160);
 	}
 
+	$effect(() => {
+		if (!/Mac|iPhone|iPad/.test(navigator.userAgent)) shortcut = 'Ctrl K';
+	});
+
+	function focusOnShortcut(event: KeyboardEvent) {
+		if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+		event.preventDefault();
+		input?.focus();
+	}
+
 	onDestroy(() => {
 		clearTimeout(debounceTimer);
 		clearTimeout(blurTimer);
 		requestController?.abort();
 	});
 </script>
+
+<svelte:window onkeydown={focusOnShortcut} />
 
 <div class="relative w-full max-w-lg">
 	<Command.Root
@@ -84,7 +98,9 @@
 		<Command.Input
 			id="platform-admin-search"
 			aria-expanded={isOpen}
-			placeholder="Search users or organizations..."
+			aria-keyshortcuts="Meta+K Control+K"
+			placeholder="Find a person or organization"
+			bind:ref={input}
 			bind:value={query}
 			oninput={handleInput}
 			onfocus={() => {
@@ -100,7 +116,14 @@
 					isOpen = false;
 				}
 			}}
-		/>
+		>
+			{#snippet end()}
+				<kbd
+					class="min-w-[8ch] rounded-sm border border-border px-1 text-center font-mono text-[11px] leading-4"
+					aria-hidden="true">{shortcut}</kbd
+				>
+			{/snippet}
+		</Command.Input>
 		<p role="status" class="sr-only">{statusMessage}</p>
 
 		{#if isOpen}
@@ -119,7 +142,7 @@
 							{#if results.users.length > 0}
 								<Command.Group heading="Users">
 									{#each results.users as user (user.id)}
-										<Command.LinkItem value="user:{user.id}" href="/admin/users/{user.id}">
+										<Command.LinkItem value="user:{user.id}" href="/admin/people/{user.id}">
 											<span class="grid min-w-0 flex-1">
 												<span class="truncate font-medium">{user.email}</span>
 												<span class="truncate text-xs text-muted-foreground">

@@ -101,7 +101,8 @@ describe('environment validation', () => {
 				ACCOUNT_SETUP_SESSION_SECRET: 'setup-session-secret',
 				APP_PUBLIC_ORIGIN: 'https://app.trooptotask.org',
 				RESEND_API_KEY: 'synthetic-email-key',
-				RESEND_FROM_EMAIL: 'noreply@example.test'
+				RESEND_FROM_EMAIL: 'noreply@example.test',
+				RESEND_WEBHOOK_SECRET: 'whsec_synthetic'
 			}
 		});
 

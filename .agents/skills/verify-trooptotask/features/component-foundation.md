@@ -39,8 +39,8 @@ Person for the Personnel dialog; use Manage Groups for Group creation; use the s
 account menu (the name card), Toggle theme and Send feedback. An Organization owner opens Settings, Members, the invite
 strip's Role select and a row's Manage sheet with its Role radio group. A Critical Tasks operator records a completion
 and opens Reports; on the matrix toolbar those controls and Import Completions fold into `More Critical Tasks controls`
-as the page narrows. A Training manager opens Training Reports for the toolbar filters. A platform reviewer opens Admin
-Feedback for the New, Reviewed and Resolved tabs. Personnel Details shows the record tabs (`Personnel detail sections`).
+as the page narrows. A Training manager opens Training Reports for the toolbar filters. A platform reviewer opens the
+Admin Inbox for the Open and Done tabs. Personnel Details shows the record tabs (`Personnel detail sections`).
 
 ## Driving it with verify:app
 
@@ -218,13 +218,13 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
    focus on Account, the arrows wrap, typing `S` reaches Send feedback, and Escape returns focus to the card. At narrow
    width Switch organization and the name card are inside the sidebar drawer (Toggle Sidebar), where the account menu
    opens upward; the header Notifications menu has no items for this fixture.
-7. **Tabs (`platformReviewer`, `manager`).** On `admin/feedback`, Tab into the New/Reviewed/Resolved tabs. Require
-   exactly one tab with `tabindex` 0, ArrowRight/ArrowLeft to move focus and selection, Home/End to reach the ends, and
-   each tab's `aria-controls` to resolve to a tabpanel. A following Tab leaves the tab list for the active tabpanel,
-   which shows an inset focus outline on all four sides. As `manager`, open Able's Details and read
-   `Personnel detail sections` (Overview, Readiness, Log, Files, Data sheet, Archived): these are route links, so
-   require link semantics with `aria-current="page"` on the current tab rather than a tab role without a tab list. Open
-   Readiness and require `aria-current` to move to it.
+7. **Tabs (`platformReviewer`, `manager`).** On `admin`, Tab into the Open/Done tabs. Require exactly one tab with
+   `tabindex` 0, ArrowRight/ArrowLeft to move focus and selection, Home/End to reach the ends, and each tab's
+   `aria-controls` to resolve to a tabpanel. A following Tab leaves the tab list for the active tabpanel, which shows an
+   inset focus outline on all four sides. As `manager`, open Able's Details and read `Personnel detail sections`
+   (Overview, Readiness, Log, Files, Data sheet, Archived): these are route links, so require link semantics with
+   `aria-current="page"` on the current tab rather than a tab role without a tab list. Open Readiness and require
+   `aria-current` to move to it.
 8. **Toasts (`manager`).** Open Able's Quick edit, set MOS to `68C` and press Enter in the field. Read the toaster
    region: a labelled polite live region containing **Personnel updated**. Toasts last about four seconds, so hover the
    toast to hold it, then repeat from the focused row (E, MOS `68W`, Enter). Read both toasts: they stack, each with its

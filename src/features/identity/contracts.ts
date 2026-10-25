@@ -1,3 +1,4 @@
+import type { PeopleQuery, IdentityPeoplePage } from './peopleTypes';
 // Identity facts admitted by the server hook, never supplied by request input.
 export interface AdmittedActor {
 	readonly userId: string;
@@ -93,6 +94,7 @@ export interface AccountSecurityOverview {
 	pendingEmail: string | null;
 }
 
+export const PLATFORM_SUSPENSION_ACTION = 'platform.suspension.update';
 export const PLATFORM_ACCESS_REQUEST_APPROVE_ACTION = 'platform.accessRequest.approve';
 export const PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION = 'platform.accessRequest.resendSetup';
 export const PLATFORM_ACCESS_REQUEST_REJECT_ACTION = 'platform.accessRequest.reject';
@@ -104,6 +106,7 @@ export const ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION = 'organization.me
 export const ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION = 'organization.member.removeHighPrivilege';
 
 export type SensitiveAction =
+	| typeof PLATFORM_SUSPENSION_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_APPROVE_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_REJECT_ACTION
@@ -177,16 +180,13 @@ export type AccessRequestSetupState =
 
 /** Account facts available to already-admitted platform support operations. */
 export interface IdentitySupportAccount {
+	mfaEnabled?: boolean;
 	id: string;
 	email: string | null;
 	createdAt: string;
 	lastSignInAt: string | null;
 	emailConfirmedAt: string | null;
 }
-
-export type IdentitySupportAccountListResult =
-	| { status: 'ok'; users: IdentitySupportAccount[] }
-	| { status: 'auth_error'; message: string };
 
 export type IdentitySupportAccountResult =
 	| { status: 'ok'; user: IdentitySupportAccount }
@@ -207,13 +207,12 @@ export interface IdentitySupportUserLabel {
 }
 
 export interface IdentityPlatformSupportReader {
-	listAuthUsers(): Promise<IdentitySupportAccountListResult>;
+	listPeople(input: PeopleQuery): Promise<IdentityPeoplePage>;
 	getAuthUser(userId: string): Promise<IdentitySupportAccountResult>;
 	searchUsersByEmail(input: {
 		query: string;
 		maxResults: number;
 	}): Promise<Array<{ id: string; email: string | null }>>;
-	listSuspendedUserIds(userIds: string[]): Promise<string[]>;
 	getSuspensionForUser(userId: string): Promise<IdentitySupportSuspension | null>;
 	/** Optional display enrichment; unavailable labels do not confer authority. */
 	loadUserLabels(userIds: string[]): Promise<Map<string, IdentitySupportUserLabel>>;
@@ -231,11 +230,6 @@ export interface IdentityPlatformAccountEmailPort {
 		{ status: 'found'; email: string } | { status: 'not_found' } | { status: 'provider_error'; message: string }
 	>;
 	sendPasswordResetEmail(input: {
-		userId: string;
-		email: string;
-		redirectTo: string;
-	}): Promise<{ ok: true } | { ok: false; message: string }>;
-	sendInviteEmail(input: {
 		userId: string;
 		email: string;
 		redirectTo: string;
@@ -337,8 +331,8 @@ export interface IdentityPlatformAccessRequestStore {
 	}): Promise<RescindAccessRequestAndBlockInvitationsResult>;
 }
 
-export type {
-	IdentityPlatformAccountStatistics,
-	IdentityPlatformSignupPoint,
-	IdentityPlatformDashboardReader
-} from './platformDashboardTypes';
+export type { PersonState, IdentityPerson, IdentityPeoplePage, PeopleFilter, PeopleQuery } from './peopleTypes';
+
+export type { SetupEmailInboxRow } from './setupEmailTypes';
+
+export type { SetupEmailTimeline, PersonAccessHistory, PersonAccessRequest } from './peopleTypes';

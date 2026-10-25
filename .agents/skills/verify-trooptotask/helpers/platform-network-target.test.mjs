@@ -13,24 +13,24 @@ const seed = { requests: { approve: { id: selected }, reject: { id: other } } };
 test('content transport rejection consumes only its selected action and permits an explicit retry', async () => {
 	let dispatched = 0;
 	const page = {
-		location: { href: 'http://owned.test/admin/feedback' },
+		location: { href: 'http://owned.test/admin' },
 		fetch: async () => {
 			dispatched++;
 			return Response.json({ untouched: true });
 		}
 	};
 	installNetworkControl(page, {
-		...platformFormNetworkTarget('admin-feedback/update', fixture, null),
+		...platformFormNetworkTarget('admin-inbox/close', fixture, null),
 		mode: 'reject',
 		ordinal: 1
 	});
-	await page.fetch('http://other.test/admin/feedback?/update', { method: 'POST' });
-	await page.fetch('/admin/feedback?/update');
-	await page.fetch('/admin/feedback?/other', { method: 'POST' });
+	await page.fetch('http://other.test/admin?/close', { method: 'POST' });
+	await page.fetch('/admin?/close');
+	await page.fetch('/admin?/other', { method: 'POST' });
 	assert.equal(dispatched, 3);
-	await assert.rejects(page.fetch('/admin/feedback?/update', { method: 'POST' }), TypeError);
+	await assert.rejects(page.fetch('/admin?/close', { method: 'POST' }), TypeError);
 	assert.equal(dispatched, 3);
-	assert.equal((await page.fetch('/admin/feedback?/update', { method: 'POST' })).status, 200);
+	assert.equal((await page.fetch('/admin?/close', { method: 'POST' })).status, 200);
 	assert.equal(dispatched, 4);
 });
 
@@ -38,7 +38,9 @@ for (const [family, route, action] of [
 	['admin-announcements/create', '/admin/announcements', 'create'],
 	['admin-announcements/toggle', '/admin/announcements', 'toggle'],
 	['admin-announcements/delete', '/admin/announcements', 'delete'],
-	['admin-feedback/update', '/admin/feedback', 'update']
+	['admin-whats-new/save', '/admin/announcements/whats-new', 'save'],
+	['admin-whats-new/delete', '/admin/announcements/whats-new', 'delete'],
+	['admin-inbox/close', '/admin', 'close']
 ]) {
 	test(`${family} fails only the selected same-origin form action and permits retry`, async () => {
 		const dispatched = [];
@@ -70,12 +72,12 @@ for (const [family, route, action] of [
 }
 
 for (const [family, route] of [
-	['admin-audit-read', '/admin/audit/__data.json'],
-	['admin-dashboard-read', '/admin/__data.json'],
-	['admin-users-read', '/admin/users/__data.json'],
+	['admin-inbox-read', '/admin/__data.json'],
+	['admin-inbox-item-read', '/admin/api/inbox/item'],
+	['admin-people-read', '/admin/people/__data.json'],
 	['admin-organizations-read', '/admin/organizations/__data.json'],
-	['admin-feedback-read', '/admin/feedback/__data.json'],
-	['admin-announcements-read', '/admin/announcements/__data.json']
+	['admin-announcements-read', '/admin/announcements/__data.json'],
+	['admin-whats-new-read', '/admin/announcements/whats-new/__data.json']
 ]) {
 	test(`${family} leaves foreign origins, other admin pages and form writes untouched`, async () => {
 		let dispatched = 0;
@@ -92,8 +94,8 @@ for (const [family, route] of [
 			ordinal: 1
 		});
 		await page.fetch(`http://other.test${route}`);
-		await page.fetch('/admin/feedback?/update', { method: 'POST' });
-		await page.fetch('/admin/access-requests/__data.json');
+		await page.fetch('/admin?/close', { method: 'POST' });
+		await page.fetch('/admin/activity/__data.json');
 		assert.equal(dispatched, 3);
 		assert.equal(page.__mapNetwork.calls.length, 0);
 		assert.equal((await page.fetch(`${route}?page=2`)).status, 503);
@@ -103,7 +105,7 @@ for (const [family, route] of [
 
 test('account control resolves only a named fixture and exact support action', () => {
 	assert.deepEqual(platformFormNetworkTarget('admin-account/orgInvitee/resetPassword', fixture, seed), {
-		suffix: `/admin/users/${invitee}`,
+		suffix: `/admin/people/${invitee}`,
 		search: '?/resetPassword',
 		failureField: 'error',
 		sameOrigin: true,
@@ -111,33 +113,33 @@ test('account control resolves only a named fixture and exact support action', (
 	});
 	assert.equal(platformFormNetworkTarget(`admin-account/${invitee}/resetPassword`, fixture, seed), null);
 	assert.equal(platformFormNetworkTarget('admin-account/orgInvitee/suspend', fixture, seed), null);
-	assert.throws(() => platformFormNetworkTarget('admin-account/orgMember/resendInvite', fixture, seed));
+	assert.equal(platformFormNetworkTarget('admin-account/orgMember/resendInvite', fixture, seed), null);
 	assert.throws(() => platformFormNetworkTarget('admin-account/orgInvitee/resetPassword', fixture, null));
 });
 
-test('account control resolves the seeded pending account by its recorded ID', () => {
-	const pending = '30000000-0000-4000-8000-000000000001';
-	assert.deepEqual(
-		platformFormNetworkTarget('admin-account/pendingUser/resendInvite', fixture, {
-			...seed,
-			pendingUser: { id: pending }
-		}),
-		{
-			suffix: `/admin/users/${pending}`,
-			search: '?/resendInvite',
-			failureField: 'error',
-			sameOrigin: true,
-			requestTarget: null
-		}
+test('request controls resolve only a recorded request and its setup-email actions', () => {
+	const id = seed.requests.approve.id;
+	assert.deepEqual(platformFormNetworkTarget('admin-request/approve/rescindAccess', fixture, seed), {
+		suffix: `/admin/people/not-set-up/${id}`,
+		search: '?/rescindAccess',
+		failureField: 'error',
+		requestTarget: null,
+		sameOrigin: true
+	});
+	assert.equal(
+		platformFormNetworkTarget('admin-request-read/approve', fixture, seed).suffix,
+		`/admin/people/not-set-up/${id}/__data.json`
 	);
-	assert.throws(() => platformFormNetworkTarget('admin-account/pendingUser/resetPassword', fixture, seed));
+	assert.equal(platformFormNetworkTarget('admin-request/approve/approve', fixture, seed), null);
+	assert.equal(platformFormNetworkTarget('admin-request-read/approve/resendSetup', fixture, seed), null);
+	assert.throws(() => platformFormNetworkTarget('admin-request/approve/resendSetup', fixture, null));
 });
 
 for (const bodyKind of ['form', 'urlencoded', 'request']) {
 	test(`Access Request held failure targets only the saved request (${bodyKind})`, async () => {
 		let dispatched = 0;
 		const page = {
-			location: { href: 'http://owned.test/admin/access-requests' },
+			location: { href: 'http://owned.test/admin' },
 			fetch: async () => {
 				dispatched++;
 				return Response.json({ untouched: true });
@@ -150,23 +152,21 @@ for (const bodyKind of ['form', 'urlencoded', 'request']) {
 		});
 		const form = (id) => {
 			const value = new FormData();
-			value.set('requestId', id);
+			value.set('id', id);
 			return value;
 		};
-		await page.fetch('http://other.test/admin/access-requests?/approve', { method: 'POST', body: form(selected) });
-		await page.fetch('/admin/access-requests?/approve', { method: 'GET' });
-		await page.fetch('/admin/access-requests?/reject', { method: 'POST', body: form(selected) });
-		await page.fetch('/admin/access-requests?/approve', { method: 'POST', body: form(other) });
+		await page.fetch('http://other.test/admin?/approve', { method: 'POST', body: form(selected) });
+		await page.fetch('/admin?/approve', { method: 'GET' });
+		await page.fetch('/admin?/reject', { method: 'POST', body: form(selected) });
+		await page.fetch('/admin?/approve', { method: 'POST', body: form(other) });
 		assert.equal(dispatched, 4);
 		assert.equal(page.__mapNetwork.calls.length, 0);
 		const pending =
 			bodyKind === 'request'
-				? page.fetch(
-						new Request('http://owned.test/admin/access-requests?/approve', { method: 'POST', body: form(selected) })
-					)
-				: page.fetch('/admin/access-requests?/approve', {
+				? page.fetch(new Request('http://owned.test/admin?/approve', { method: 'POST', body: form(selected) }))
+				: page.fetch('/admin?/approve', {
 						method: 'POST',
-						body: bodyKind === 'form' ? form(selected) : new URLSearchParams({ requestId: selected }).toString()
+						body: bodyKind === 'form' ? form(selected) : new URLSearchParams({ id: selected }).toString()
 					});
 		let settled = false;
 		pending.then(() => {
@@ -182,7 +182,7 @@ for (const bodyKind of ['form', 'urlencoded', 'request']) {
 		const envelope = await response.json();
 		assert.equal(envelope.type, 'failure');
 		assert.deepEqual(parse(envelope.data), { error: 'Synthetic request failure' });
-		await page.fetch('/admin/access-requests?/approve', { method: 'POST', body: form(selected) });
+		await page.fetch('/admin?/approve', { method: 'POST', body: form(selected) });
 		assert.equal(dispatched, 5);
 	});
 }
@@ -190,7 +190,7 @@ for (const bodyKind of ['form', 'urlencoded', 'request']) {
 test('account failure control leaves other origins, Users, methods and actions untouched', async () => {
 	let dispatched = 0;
 	const page = {
-		location: { href: 'http://owned.test/admin/users' },
+		location: { href: 'http://owned.test/admin/people' },
 		fetch: async () => {
 			dispatched++;
 			return Response.json({ untouched: true });
@@ -201,49 +201,23 @@ test('account failure control leaves other origins, Users, methods and actions u
 		mode: 'fail',
 		ordinal: 1
 	});
-	await page.fetch(`http://other.test/admin/users/${invitee}?/resetPassword`, { method: 'POST' });
-	await page.fetch(`/admin/users/${other}?/resetPassword`, { method: 'POST' });
-	await page.fetch(`/admin/users/${invitee}?/resendInvite`, { method: 'POST' });
-	await page.fetch(`/admin/users/${invitee}?/resetPassword`);
+	await page.fetch(`http://other.test/admin/people/${invitee}?/resetPassword`, { method: 'POST' });
+	await page.fetch(`/admin/people/${other}?/resetPassword`, { method: 'POST' });
+	await page.fetch(`/admin/people/${invitee}?/other`, { method: 'POST' });
+	await page.fetch(`/admin/people/${invitee}?/resetPassword`);
 	assert.equal(dispatched, 4);
 	assert.equal(page.__mapNetwork.calls.length, 0);
-	const response = await page.fetch(`/admin/users/${invitee}?/resetPassword`, { method: 'POST' });
+	const response = await page.fetch(`/admin/people/${invitee}?/resetPassword`, { method: 'POST' });
 	assert.equal(response.status, 503);
 	assert.equal(page.__mapNetwork.calls.length, 1);
 	assert.equal(dispatched, 4);
-});
-
-test('review read failure is same-origin and leaves form posts and other routes untouched', async () => {
-	let dispatched = 0;
-	const page = {
-		location: { href: 'http://owned.test/admin/access-requests' },
-		fetch: async () => {
-			dispatched++;
-			return Response.json({ untouched: true });
-		}
-	};
-	installNetworkControl(page, {
-		...platformFormNetworkTarget('admin-access-read', fixture, seed),
-		mode: 'fail',
-		ordinal: 1
-	});
-	await page.fetch('http://other.test/admin/access-requests/__data.json');
-	await page.fetch('/admin/access-requests?/approve', { method: 'POST' });
-	await page.fetch('/admin/users/__data.json');
-	assert.equal(dispatched, 3);
-	assert.equal(page.__mapNetwork.calls.length, 0);
-	const response = await page.fetch('/admin/access-requests/__data.json?x-sveltekit-invalidated=111');
-	assert.equal(response.status, 503);
-	assert.equal(page.__mapNetwork.calls.length, 1);
-	assert.equal(dispatched, 3);
-	assert.throws(() => platformFormNetworkTarget('admin-access-read', fixture, null));
 });
 
 test('detail page reads bind only the recorded User or Organization', async () => {
 	const organization = '30000000-0000-4000-8000-000000000001';
 	const detailSeed = { ...seed, organization: { id: organization } };
 	for (const [family, route, sibling] of [
-		['admin-user-detail-read', `/admin/users/${invitee}`, `/admin/users/${selected}`],
+		['admin-user-detail-read', `/admin/people/${invitee}`, `/admin/people/${selected}`],
 		['admin-organization-detail-read', `/admin/organizations/${organization}`, `/admin/organizations/${other}`]
 	]) {
 		let dispatched = 0;
@@ -267,4 +241,30 @@ test('detail page reads bind only the recorded User or Organization', async () =
 		assert.equal(dispatched, 3);
 		assert.throws(() => platformFormNetworkTarget(family, fixture, null));
 	}
+});
+
+test('admin-feedback families bind one exact feedback endpoint and method, and fail only that request', async () => {
+	const id = '50000000-0000-4000-8000-000000186911';
+	const read = platformFormNetworkTarget(`admin-feedback-read/${id}`, fixture, null);
+	const command = platformFormNetworkTarget(`admin-feedback-command/${id}`, fixture, null);
+	assert.equal(read.suffix, `/admin/api/feedback/${id}`);
+	assert.equal(read.requestMethod, 'GET');
+	assert.equal(command.requestMethod, 'POST');
+	assert.equal(platformFormNetworkTarget('admin-feedback-read/not-a-feedback-id', fixture, null), null);
+
+	const dispatched = [];
+	const page = {
+		location: { href: 'http://owned.test/admin' },
+		fetch: async (url, init) => {
+			dispatched.push(`${init?.method ?? 'GET'} ${url}`);
+			return Response.json({ untouched: true });
+		}
+	};
+	installNetworkControl(page, { ...command, mode: 'fail', ordinal: 1 });
+	await page.fetch(read.suffix);
+	assert.equal(dispatched.length, 1);
+	const failed = await page.fetch(command.suffix, { method: 'POST' });
+	assert.equal(failed.status, 503);
+	assert.equal(dispatched.length, 1);
+	assert.equal((await page.fetch(command.suffix, { method: 'POST' })).status, 200);
 });

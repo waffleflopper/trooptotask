@@ -1,103 +1,169 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { isHttpError } from '@sveltejs/kit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './+server';
 
-const actorId = '11111111-1111-4111-8111-111111111111';
+const actorId = 'aaaaaaaa-1111-4111-8111-111111111111';
 const targetId = '22222222-2222-4222-8222-222222222222';
+const now = new Date('2026-06-01T12:00:00Z');
 const state = vi.hoisted(() => ({
-	role: 'super_admin' as string | null,
+	operator: true,
 	client: undefined as SupabaseClient | undefined,
 	writes: 0,
 	ack: true,
-	audit: vi.fn()
+	suspendOutcome: undefined as string | undefined,
+	audit: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {})
 }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => state.client }));
 vi.mock('$lib/audit/index.server', () => ({
-	createSupabasePlatformAudit: () => ({ listRecentActivity: vi.fn() }),
 	auditLog: (...args: unknown[]) => state.audit(...args),
 	getRequestInfo: () => ({ userId: actorId, ip: '127.0.0.1', userAgent: 'Synthetic route test' })
 }));
-function event(body: unknown): Parameters<typeof POST>[0] {
+function event(
+	body: unknown,
+	verificationAgeMs: number | null = 0,
+	currentLevel = 'aal2',
+	nextLevel = 'aal2'
+): Parameters<typeof POST>[0] {
+	const url = new URL('http://127.0.0.1:9/admin/api/suspend');
 	return {
-		locals: { actor: { userId: actorId }, supabase: state.client, session: null },
-		url: new URL('http://127.0.0.1:9/admin/api/suspend'),
-		request: new Request('http://127.0.0.1:9/admin/api/suspend', {
+		locals: {
+			actor: { userId: actorId },
+			user: { id: actorId },
+			session: {
+				access_token: 'verified-request-token',
+				expires_at: now.getTime() / 1000 + 3600,
+				user: { id: actorId }
+			},
+			supabase: {
+				auth: {
+					mfa: {
+						getAuthenticatorAssuranceLevel: async () => ({
+							data: {
+								currentLevel,
+								nextLevel,
+								currentAuthenticationMethods: [
+									{ method: 'password', timestamp: now.getTime() / 1000 },
+									...(verificationAgeMs === null
+										? []
+										: [{ method: 'totp', timestamp: (now.getTime() - verificationAgeMs) / 1000 }])
+								]
+							},
+							error: null
+						})
+					}
+				},
+				rpc: async () => ({ data: false, error: null })
+			}
+		},
+		url,
+		request: new Request(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body)
-		})
+		}),
+		getClientAddress: () => '127.0.0.1'
 	} as unknown as Parameters<typeof POST>[0];
 }
 beforeEach(() => {
-	state.role = 'super_admin';
+	vi.useFakeTimers();
+	vi.setSystemTime(now);
+	state.operator = true;
 	state.writes = 0;
 	state.ack = true;
-	state.audit.mockClear();
+	state.suspendOutcome = undefined;
+	state.audit.mockReset().mockResolvedValue();
 	state.client = createClient('http://127.0.0.1:9', 'synthetic-service', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
 			fetch: async (input, init) => {
 				const url = new URL(String(input));
-				if (url.pathname === '/rest/v1/platform_admins') {
-					expect(url.searchParams.get('user_id')).toBe(`eq.${actorId}`);
-					expect(url.searchParams.get('is_active')).toBe('eq.true');
-					return Response.json(state.role ? { role: state.role } : null);
+				if (url.pathname === '/rest/v1/platform_operators')
+					return Response.json(state.operator ? { user_id: actorId } : null);
+				if (url.pathname.includes('/rpc/platform_') && url.pathname.endsWith('_organization')) {
+					state.writes++;
+					if (url.pathname.endsWith('/platform_suspend_organization'))
+						return Response.json(state.suspendOutcome ?? (state.ack ? 'suspended' : 'not_found'));
+					return Response.json(state.ack);
 				}
-				expect(url.pathname).toBe('/rest/v1/user_suspensions');
-				expect(init?.method).toBe('POST');
-				state.writes++;
-				return Response.json(state.ack ? [{ user_id: targetId }] : []);
+				if (url.pathname.endsWith('/user_suspensions')) {
+					state.writes++;
+					return Response.json(state.ack ? [{ user_id: targetId }] : []);
+				}
+				throw new Error(`Unexpected provider ${url.pathname} ${init?.method}`);
 			}
 		}
 	});
 });
-describe('suspension HTTP delivery', () => {
-	it.each([
-		null,
-		{ type: 'user', targetId, action: 'suspend', reason: 42 },
-		{ type: 'user', targetId: [targetId], action: 'suspend' }
-	])('adapts decoded command validation to a real HTTP 400 before provider effects: %j', async (body) => {
-		const failure = await Promise.resolve(POST(event(body))).catch((cause: unknown) => cause);
-		expect(isHttpError(failure, 400)).toBe(true);
+import { afterEach } from 'vitest';
+afterEach(() => vi.useRealTimers());
+describe('suspension HTTP safety', () => {
+	it('refuses a signed-in non-operator before writes', async () => {
+		state.operator = false;
+		await expect(POST(event({ type: 'user', targetId, action: 'suspend' }))).rejects.toMatchObject({ status: 403 });
+		expect(state.writes).toBe(0);
+	});
+	it.each(['aal1', 'aal2'])('denies an aal1 API request with the required MFA handoff for %s', async (next) => {
+		await expect(POST(event({ type: 'user', targetId, action: 'suspend' }, 0, 'aal1', next))).rejects.toMatchObject({
+			status: 403,
+			body: { requiresStepUp: true, stepUpPath: next === 'aal2' ? '/auth/mfa-verify' : '/auth/mfa-setup' }
+		});
+		expect(state.writes).toBe(0);
+	});
+	it.each(['user', 'org'] as const)('requires recent MFA for both suspension changes on %s', async (type) => {
+		for (const action of ['suspend', 'unsuspend']) {
+			for (const age of [null, 601000, -1000]) {
+				const response = await POST(event({ type, targetId, action, reason: 'Synthetic reason' }, age));
+				expect(response.status).toBe(403);
+				expect(await response.json()).toMatchObject({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' });
+			}
+		}
+		expect(state.writes).toBe(0);
+	});
+	it.each(['user', 'org'] as const)('allows suspend and unsuspend with MFA within ten minutes on %s', async (type) => {
+		for (const action of ['suspend', 'unsuspend']) {
+			const response = await POST(event({ type, targetId, action, reason: 'Synthetic reason' }, 600000));
+			expect(response.status).toBe(200);
+			expect(await response.json()).toEqual({ success: true, alreadySuspended: false });
+		}
+		expect(state.writes).toBe(2);
+	});
+	it('tells the operator an Organization was already suspended and writes no audit', async () => {
+		state.suspendOutcome = 'already_suspended';
+		const response = await POST(event({ type: 'org', targetId, action: 'suspend', reason: 'Second request' }));
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ success: true, alreadySuspended: true });
+		expect(state.audit).not.toHaveBeenCalled();
+	});
+	it('rejects self-suspension even with recent MFA and an uppercase identifier', async () => {
+		const response = await POST(event({ type: 'user', targetId: actorId.toUpperCase(), action: 'suspend' }));
+		expect(response.status).toBe(403);
 		expect(state.writes).toBe(0);
 		expect(state.audit).not.toHaveBeenCalled();
 	});
-	it('admits a valid acknowledged write and returns JSON success', async () => {
-		const response = await POST(event({ type: 'user', targetId, action: 'suspend', reason: 'Synthetic reason' }));
-		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ success: true });
-		expect(state.writes).toBe(1);
-		expect(state.audit).toHaveBeenCalledTimes(1);
-	});
-	it.each(['support', 'billing', null])(
-		'denies current role %s without any provider write or successful audit',
-		async (role) => {
-			state.role = role;
-			const failure = await Promise.resolve(POST(event({ type: 'user', targetId, action: 'suspend' }))).catch(
-				(cause: unknown) => cause
-			);
-			expect(isHttpError(failure, 403)).toBe(true);
+	it.each([null, { type: 'user', targetId, action: 'suspend', reason: 42 }])(
+		'rejects invalid input before provider effects',
+		async (body) => {
+			await expect(POST(event(body))).rejects.toMatchObject({ status: 400 });
 			expect(state.writes).toBe(0);
-			expect(state.audit).not.toHaveBeenCalled();
 		}
 	);
-	it('does not report success or audit an unacknowledged write', async () => {
-		state.ack = false;
-		await expect(POST(event({ type: 'user', targetId, action: 'suspend' }))).rejects.toMatchObject({
-			status: 500,
-			body: { message: 'Could not confirm the suspension change. Reload details before trying again.' }
-		});
-		expect(state.writes).toBe(1);
-		expect(state.audit).not.toHaveBeenCalled();
-	});
-	it('uses the verified actor for successful audit despite a forged raw identity', async () => {
+	it('attributes the audit to the admitted operator despite a forged raw identity', async () => {
 		const request = event({ type: 'user', targetId, action: 'suspend' });
 		request.locals.user = { id: targetId, email: 'forged@example.test' } as typeof request.locals.user;
 		await POST(request);
 		expect(state.audit).toHaveBeenCalledWith(
 			expect.anything(),
-			expect.objectContaining({ userId: actorId, userEmail: null })
+			expect.objectContaining({ userId: actorId, userEmail: null }),
+			{ required: true }
 		);
+	});
+	it('reports failure when the audit write rejects', async () => {
+		state.audit.mockRejectedValueOnce(new Error('Audit unavailable'));
+		await expect(POST(event({ type: 'user', targetId, action: 'suspend' }))).rejects.toMatchObject({ status: 500 });
+	});
+	it('reports an unacknowledged suspension write as a failure', async () => {
+		state.ack = false;
+		await expect(POST(event({ type: 'user', targetId, action: 'suspend' }))).rejects.toMatchObject({ status: 500 });
+		expect(state.audit).not.toHaveBeenCalled();
 	});
 });

@@ -11,7 +11,7 @@ SELECT dblink_connect('contender','hostaddr=' || host(inet_server_addr()) || ' p
 SELECT dblink_exec('winner', $$ SET statement_timeout = '10s' $$);
 SELECT dblink_exec('contender', $$ SET statement_timeout = '10s' $$);
 SELECT dblink_exec('winner',$fixture$ INSERT INTO auth.users(id,email) VALUES ('a4000000-0000-4000-8000-000000000001','race-owner@example.test'),('a4000000-0000-4000-8000-000000000002','race-invitee@example.test');
-INSERT INTO public.platform_admins(id,user_id,role,is_active) VALUES ('a4000000-0000-4000-8000-000000000501','a4000000-0000-4000-8000-000000000001','support',true);
+INSERT INTO public.platform_operators(user_id) VALUES ('a4000000-0000-4000-8000-000000000001');
 INSERT INTO public.organizations(id,name,created_by) VALUES ('a4000000-0000-4000-8000-000000000101','Concurrent Invitation','a4000000-0000-4000-8000-000000000001');
 INSERT INTO public.access_requests(id,email,name,status, approval_basis) VALUES
 ('a4000000-0000-4000-8000-000000000201','race-invitee@example.test','Concurrent Setup','approved', 'platform_review'),

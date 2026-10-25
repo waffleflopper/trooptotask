@@ -15,7 +15,7 @@ CREATE VIEW upgrade_fixture.platform_membership_current_rows AS
 SELECT 'auth.users'::text table_name,id::text row_id,to_jsonb(r) row_data FROM auth.users r WHERE id::text LIKE 'd2120000-%'
 UNION ALL SELECT 'organizations',id::text,to_jsonb(r) - 'training_readiness_goal_percent' - 'disabled_features' - 'strength_floor_percent' FROM public.organizations r WHERE id::text LIKE 'd2120000-%'
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE id::text LIKE 'd2120000-%'
-UNION ALL SELECT 'platform_admins',user_id::text,to_jsonb(r) FROM public.platform_admins r WHERE user_id::text LIKE 'd2120000-%';
+UNION ALL SELECT 'platform_operators',user_id::text,to_jsonb(r) - 'id' - 'role' - 'is_active' FROM public.platform_admins r WHERE user_id::text LIKE 'd2120000-%';
 CREATE TABLE upgrade_fixture.platform_membership_before_rows AS SELECT * FROM upgrade_fixture.platform_membership_current_rows;
 CREATE TABLE upgrade_fixture.platform_membership_baseline AS SELECT
   NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261003000200') migration_absent,

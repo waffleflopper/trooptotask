@@ -1,4 +1,5 @@
-import type { AuditPort } from '$lib/audit/contracts';
+import type { AuditEvent } from '$lib/audit/contracts';
+import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { IdentityPlatformSupportReader, IdentityPlatformSuspensionCommands } from '$features/identity/contracts';
 import type {
 	OrganizationSupportReader,
@@ -36,6 +37,7 @@ export type PlatformSuspensionCommandParseResult =
 
 export type PlatformSuspensionResult =
 	| { status: 'updated'; success: true }
+	| { status: 'already_suspended' }
 	| { status: 'invalid_input'; message: string };
 
 /** Delivery supplies admitted actor identity and source-owned capabilities. */
@@ -46,7 +48,8 @@ export interface PlatformSupportAdministrationDependencies {
 	userSuspensionCommands: IdentityPlatformSuspensionCommands;
 	organizationSuspensionCommands: OrganizationSupportSuspensionCommands;
 	actorUserId: string;
-	audit: AuditPort;
+	audit: { log(event: AuditEvent): Promise<void> };
+	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	now?: () => Date;
 }
 

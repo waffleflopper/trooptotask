@@ -1,112 +1,97 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { TriangleAlert } from '@lucide/svelte';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
-	import * as Card from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as PageShell from '$lib/components/patterns/page-shell';
-	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
-	import * as Table from '$lib/components/ui/table';
-	import { formatDisplayDate } from '$lib/utils/dates';
-	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
+	import * as SegmentedFilter from '$lib/components/patterns/segmented-filter';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { formatDisplayDate, formatRelativeDate } from '$lib/utils/dates';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
+	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import { createAdminUrlSearch } from '$features/platform-admin/components/adminUrlSearch.svelte';
-	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
-	import type { PageData } from './$types';
+	import { adminBadgeVariant } from '$features/platform-admin/components/adminTheme';
+	import { settleRead } from '$features/platform-admin/components/inbox/settle.svelte';
+	import OrganizationListFrame, { rowClass } from '$features/platform-admin/components/OrganizationListFrame.svelte';
+	import OrganizationListSkeleton from '$features/platform-admin/components/OrganizationListSkeleton.svelte';
+	import {
+		PLATFORM_ORGANIZATION_STATUS_LABELS,
+		PLATFORM_ORGANIZATIONS_MAX_PAGES,
+		type PlatformOrganizationFilter,
+		type PlatformOrganizationFilterCounts,
+		type PlatformOrganizationRow
+	} from '$features/platform-admin/organizationSupportTypes';
 
 	let { data } = $props();
 
-	const organizationsRouteRoot = resolve('/admin/organizations');
-	const statusFilter = $derived(data.pagination.status ?? 'all');
-	type ActivationOrganization = NonNullable<PageData['activationHealth']>['organizations'][number];
-	const activationHealth = $derived(
-		data.activationHealth ?? {
-			generatedAt: '',
-			overallState: 'diagnostics_unavailable',
-			candidateLimit: 100,
-			counts: {
-				candidateOrganizations: 0,
-				activatedOrganizations: 0,
-				meaningfulRosters: 0,
-				acceptedLeaders: 0,
-				setupStarted: 0,
-				inProgressOrganizations: 0
-			},
-			organizations: [],
-			diagnosticsError: true
-		}
-	);
+	const FILTERS: { value: PlatformOrganizationFilter; label: string; count: keyof PlatformOrganizationFilterCounts }[] =
+		[
+			{ value: 'all', label: 'All', count: 'all' },
+			{ value: 'active-week', label: 'Active this week', count: 'activeWeek' },
+			{ value: 'quiet', label: 'Quiet 30+ days', count: 'quiet' },
+			{ value: 'suspended', label: 'Suspended', count: 'suspended' }
+		];
 
-	const showingStart = $derived(
-		data.organizations.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
-	);
-	const showingEnd = $derived(
-		data.organizations.length === 0
-			? 0
-			: Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.totalCount)
-	);
+	// The last settled read stays on screen while the next one loads. The chips keep their counts through a filter
+	// change and the rows keep their place through Load more; only a new search or filter swaps in the skeleton.
+	const region = settleRead(() => {
+		const { q, filter, pages } = data.query;
+		return {
+			source: data.directory,
+			group: q,
+			promise: data.directory.then((result) => ({ result, filter, pages }))
+		};
+	});
+	const settled = $derived(region.settled?.group === data.query.q ? region.settled.value : null);
+	const view = $derived(settled && settled.filter === data.query.filter ? settled : null);
+	const page = $derived(view?.result.status === 'ready' ? view.result.page : null);
+	const counts = $derived(settled?.result.status === 'ready' ? settled.result.page.counts : null);
+	const loadingMore = $derived(region.settled?.source !== data.directory);
 
-	function pageHref(pageNumber: number): string {
+	function listHref(next: { pages?: number; q: string; filter: string }): string {
 		const params = new SvelteURLSearchParams();
-		params.set('page', pageNumber.toString());
-		params.set('pageSize', data.pagination.pageSize.toString());
-		if (data.pagination.q) params.set('q', data.pagination.q);
-		if (statusFilter !== 'all') params.set('status', statusFilter);
-		return `${organizationsRouteRoot}?${params.toString()}`;
-	}
-
-	function applyFilters(next: { q: string; pageSize: string; status: string }) {
-		const params = new SvelteURLSearchParams();
-		params.set('page', '1');
-		params.set('pageSize', next.pageSize);
+		if (next.pages && next.pages > 1) params.set('pages', String(next.pages));
 		if (next.q) params.set('q', next.q);
-		if (next.status !== 'all') params.set('status', next.status);
-		goto(resolve(`/admin/organizations?${params.toString()}`), { keepFocus: true });
+		if (next.filter !== 'all') params.set('filter', next.filter);
+		const query = params.toString();
+		return `${resolve('/admin/organizations')}${query ? `?${query}` : ''}`;
 	}
 
 	const search = createAdminUrlSearch(
-		() => data.pagination.q,
-		(q) => applyFilters({ q, pageSize: String(data.pagination.pageSize), status: statusFilter })
+		() => data.query.q,
+		(q) => goto(listHref({ q, filter: data.query.filter }), { keepFocus: true, noScroll: true, replaceState: true })
 	);
 
-	const toolbarItems = $derived<ToolbarItem[]>([
-		{
-			kind: 'select',
-			id: 'status',
-			label: 'Status',
-			options: [
-				{ value: 'all', label: 'All statuses' },
-				{ value: 'active', label: 'Active' },
-				{ value: 'suspended', label: 'Suspended' }
-			],
-			value: statusFilter,
-			defaultValue: 'all',
-			onValueChange: (status) => applyFilters({ q: search.value, pageSize: String(data.pagination.pageSize), status })
-		},
-		{
-			kind: 'select',
-			id: 'rows',
-			label: 'Rows',
-			options: [
-				{ value: '25', label: '25' },
-				{ value: '50', label: '50' },
-				{ value: '100', label: '100' }
-			],
-			value: String(data.pagination.pageSize),
-			defaultValue: '25',
-			onValueChange: (pageSize) => applyFilters({ q: search.value, pageSize, status: statusFilter })
-		}
-	]);
+	const filterOptions = $derived(
+		FILTERS.map(({ value, label, count }) => ({
+			value,
+			label,
+			count: settled?.result.status === 'failed' ? undefined : (counts?.[count] ?? null)
+		}))
+	);
 
-	function nextActivationStep(item: ActivationOrganization): string {
-		return item.nextSteps[0] ?? 'Activation milestones are complete.';
+	const eyebrow = $derived(
+		page && data.query.q === '' && data.query.filter === 'all'
+			? `Platform · ${page.totalCount} ${page.totalCount === 1 ? 'Organization' : 'Organizations'}`
+			: 'Platform'
+	);
+	const canLoadMore = $derived(
+		page !== null && page.organizations.length < page.totalCount && data.query.pages < PLATFORM_ORGANIZATIONS_MAX_PAGES
+	);
+
+	function loadMore() {
+		const { q, filter, pages } = data.query;
+		void goto(listHref({ pages: pages + 1, q, filter }), { keepFocus: true, noScroll: true, replaceState: true });
 	}
 
-	function setupSummary(item: ActivationOrganization): string {
-		const activation = item.supportBundle.activation;
-		return `${activation.onboardingTemplateSteps} onboarding / ${activation.trainingTypes} training / ${activation.ratingSchemeEntries} evals`;
+	function ownerLabel(org: PlatformOrganizationRow): string {
+		if (org.ownerCount === 0) return 'No owner';
+		if (org.ownerCount > 1) return 'Multiple owners';
+		return org.ownerEmail ?? 'Owner email unavailable';
 	}
 </script>
 
@@ -114,200 +99,111 @@
 	<title>Organizations - Admin - Troop to Task</title>
 </svelte:head>
 
-<PageShell.Root width="wide">
-	<PageShell.Header
+<AdminPage>
+	<AdminPageHeader
+		{eyebrow}
 		title="Organizations"
-		subtitle="Review organization health, ownership, and suspension status from the central platform index."
+		description="Every unit on the platform, most recently active first."
 	/>
 
-	<PageShell.FactGrid layout="three">
-		<PageShell.Metric
-			label="Matching Organizations"
-			value={data.pagination.totalCount}
-			detail="Organizations matching the current search."
+	<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+		<div class="w-full min-w-0 sm:w-80">
+			<WorkspaceToolbar
+				ariaLabel="Organizations controls"
+				bare
+				items={[]}
+				search={{
+					label: 'Search',
+					placeholder: 'Search name or owner email',
+					value: search.value,
+					onValueChange: search.setValue
+				}}
+			/>
+		</div>
+		<SegmentedFilter.Root
+			label="Filter Organizations"
+			options={filterOptions}
+			bind:value={
+				() => data.query.filter,
+				(filter) => void goto(listHref({ q: search.value, filter }), { keepFocus: true, noScroll: true })
+			}
 		/>
-		<PageShell.Metric
-			label="Current Page"
-			value={data.organizations.length}
-			detail={`Page ${data.pagination.page} of ${data.pagination.totalPages}.`}
-		/>
-		<PageShell.Metric
-			label="Activation in Progress"
-			value={activationHealth.diagnosticsError ? 'Unavailable' : activationHealth.counts.inProgressOrganizations}
-			detail={activationHealth.diagnosticsError
-				? 'Activation health diagnostics could not be fully loaded.'
-				: `Organizations with incomplete activation milestones. Counts cover up to ${activationHealth.candidateLimit} newest Organizations.`}
-		/>
-	</PageShell.FactGrid>
+		<p
+			class="inline-flex items-center gap-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase max-lg:hidden lg:ml-auto"
+		>
+			Sorted by last active <ArrowDown class="size-3" aria-hidden="true" />
+		</p>
+	</div>
 
-	{#if activationHealth.diagnosticsError}
-		<Alert.Root variant="warning">
-			<TriangleAlert />
-			<Alert.Title>Activation health diagnostics could not be fully loaded.</Alert.Title>
+	{#if view === null}
+		<OrganizationListSkeleton />
+	{:else if view.result.status === 'failed'}
+		<Alert.Root variant="destructive">
+			<Alert.Title>Organizations could not be loaded.</Alert.Title>
 			<Alert.Description>
-				Roster, member, and setup counts may be incomplete until the health scan succeeds.
+				<span>Nothing was changed. Try again, and reload the page if it keeps failing.</span>
+				<span class="mt-2 block">
+					<Button variant="outline" size="sm" onclick={() => invalidateAll()}>Try again</Button>
+				</span>
 			</Alert.Description>
 		</Alert.Root>
-	{/if}
-
-	<Card.Root>
-		<Card.Header class="gap-2 lg:flex-row lg:items-start lg:justify-between">
-			<div>
-				<Card.Title>Acquisition and Activation Health</Card.Title>
-				<Card.Description>
-					{#if activationHealth.diagnosticsError}
-						Activation health data is unavailable until diagnostics load successfully.
-					{:else}
-						{formatAdminLabel(activationHealth.overallState)} · {activationHealth.counts.candidateOrganizations}
-						Organizations · {activationHealth.counts.activatedOrganizations} activated. Counts cover up to
-						{activationHealth.candidateLimit} newest Organizations.
-					{/if}
-				</Card.Description>
-			</div>
-			<div class="flex flex-wrap gap-2">
-				<Badge variant={adminBadgeVariant(activationHealth.overallState)}>
-					{formatAdminLabel(activationHealth.overallState)}
-				</Badge>
-				{#if !activationHealth.diagnosticsError}
-					<Badge variant="secondary">{activationHealth.counts.meaningfulRosters} meaningful rosters</Badge>
-				{/if}
-			</div>
-		</Card.Header>
-		<Card.Content>
-			{#if activationHealth.diagnosticsError}
-				<p class="text-sm text-muted-foreground">
-					Activation health diagnostics are unavailable. Retry after the health scan succeeds.
-				</p>
-			{:else if activationHealth.organizations.length > 0}
-				<div class="overflow-x-auto">
-					<Table.Root>
-						<Table.Header>
-							<Table.Row>
-								<Table.Head>Organization</Table.Head>
-								<Table.Head>Health</Table.Head>
-								<Table.Head>Roster</Table.Head>
-								<Table.Head>Members</Table.Head>
-								<Table.Head>Setup</Table.Head>
-								<Table.Head>Next Action</Table.Head>
-							</Table.Row>
-						</Table.Header>
-						<Table.Body>
-							{#each activationHealth.organizations as item (item.id)}
-								<Table.Row>
-									<Table.Cell>
-										<div class="grid min-w-48 gap-1">
-											<a
-												href={resolve(
-													`/admin/organizations/${item.organization.id}` as `/admin/organizations/${string}`
-												)}
-												class="font-medium">{item.organization.name ?? item.organization.id}</a
-											>
-											<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-												{item.organization.id.slice(0, 8)}...
-											</code>
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<div class="grid gap-1">
-											<Badge variant={adminBadgeVariant(item.state)}>{formatAdminLabel(item.state)}</Badge>
-											<span class="text-xs text-muted-foreground">{item.score}% milestone coverage</span>
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										{item.supportBundle.activation.activePersonnel} / {item.supportBundle.activation
-											.meaningfulRosterThreshold}
-									</Table.Cell>
-									<Table.Cell>{item.supportBundle.activation.members}</Table.Cell>
-									<Table.Cell>{setupSummary(item)}</Table.Cell>
-									<Table.Cell class="max-w-80 text-sm text-muted-foreground">{nextActivationStep(item)}</Table.Cell>
-								</Table.Row>
-							{/each}
-						</Table.Body>
-					</Table.Root>
-				</div>
-				{#if activationHealth.organizations.length < activationHealth.counts.candidateOrganizations}
-					<p class="mt-3 text-xs text-muted-foreground">
-						Showing top {activationHealth.organizations.length} of {activationHealth.counts.candidateOrganizations}
-						candidates.
-					</p>
-				{/if}
-			{:else}
-				<p class="text-sm text-muted-foreground">No Organizations found for activation health.</p>
-			{/if}
-		</Card.Content>
-	</Card.Root>
-
-	<WorkspaceToolbar
-		ariaLabel="Organizations controls"
-		items={toolbarItems}
-		search={{
-			label: 'Search',
-			placeholder: 'Search by organization name...',
-			value: search.value,
-			onValueChange: search.setValue
-		}}
-	/>
-
-	<Card.Root class="overflow-hidden">
-		<div class="overflow-x-auto">
-			<Table.Root>
-				<Table.Header>
-					<Table.Row>
-						<Table.Head>Name</Table.Head>
-						<Table.Head>Members</Table.Head>
-						<Table.Head>Personnel</Table.Head>
-						<Table.Head>Owner</Table.Head>
-						<Table.Head>Status</Table.Head>
-						<Table.Head>Created</Table.Head>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each data.organizations as org (org.id)}
-						<Table.Row>
-							<Table.Cell>
-								<div class="grid min-w-48 gap-1">
-									<a
-										href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
-										class="font-medium">{org.name}</a
-									>
-									<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-										{org.id.slice(0, 8)}...
-									</code>
-								</div>
-							</Table.Cell>
-							<Table.Cell>{org.memberCount}</Table.Cell>
-							<Table.Cell>{org.personnelCount}</Table.Cell>
-							<Table.Cell class="min-w-48 max-w-60 break-all whitespace-normal text-muted-foreground"
-								>{org.ownerEmail || '-'}</Table.Cell
-							>
-							<Table.Cell>
-								<Badge variant={adminBadgeVariant(org.isSuspended ? 'suspended' : 'active')}>
-									{org.isSuspended ? 'Suspended' : 'Active'}
+	{:else if view.result.page.organizations.length === 0}
+		<Empty.Root class="rounded-lg border">
+			<Empty.Header>
+				<Empty.Title>No matching Organizations.</Empty.Title>
+			</Empty.Header>
+		</Empty.Root>
+	{:else}
+		<OrganizationListFrame>
+			{#each view.result.page.organizations as org (org.id)}
+				<li class="{rowClass} relative hover:bg-muted/50">
+					<div class="grid min-w-0 lg:contents">
+						<a
+							href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
+							class="min-w-0 font-semibold wrap-anywhere text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+							>{org.name}</a
+						>
+						<p class="min-w-0 text-sm wrap-anywhere text-muted-foreground">{ownerLabel(org)}</p>
+					</div>
+					<dl class="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5 lg:contents">
+						<div>
+							<dt class="text-xs text-muted-foreground lg:sr-only">Members</dt>
+							<dd class="tabular-nums">{org.memberCount}</dd>
+						</div>
+						<div>
+							<dt class="text-xs text-muted-foreground lg:sr-only">Personnel</dt>
+							<dd class="tabular-nums">{org.personnelCount}</dd>
+						</div>
+						<div>
+							<dt class="text-xs text-muted-foreground lg:sr-only">Last active</dt>
+							<dd>{org.lastActiveAt ? formatRelativeDate(org.lastActiveAt) : 'Never used'}</dd>
+						</div>
+						<div>
+							<dt class="text-xs text-muted-foreground lg:sr-only">Created</dt>
+							<dd>{formatDisplayDate(org.createdAt)}</dd>
+						</div>
+						<div>
+							<dt class="text-xs text-muted-foreground lg:sr-only">Status</dt>
+							<dd>
+								<Badge variant={adminBadgeVariant(org.status)} mono>
+									{PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]}
 								</Badge>
-							</Table.Cell>
-							<Table.Cell>{formatDisplayDate(org.created_at)}</Table.Cell>
-						</Table.Row>
-					{:else}
-						<Table.Row>
-							<Table.Cell colspan={6}>
-								<Empty.Root>
-									<Empty.Header>
-										<Empty.Title>No matching organizations.</Empty.Title>
-									</Empty.Header>
-								</Empty.Root>
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
-		</div>
-		<Card.Footer class="text-sm text-muted-foreground">{data.organizations.length} shown</Card.Footer>
-	</Card.Root>
-
-	{#if data.pagination.totalCount > 0}
-		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-			<p>Showing {showingStart}-{showingEnd} of {data.pagination.totalCount}</p>
-			<AdminPager page={data.pagination.page} totalPages={data.pagination.totalPages} {pageHref} />
+							</dd>
+						</div>
+					</dl>
+				</li>
+			{/each}
+		</OrganizationListFrame>
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<p class="font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase">
+				Showing {view.result.page.organizations.length} of {view.result.page.totalCount}
+			</p>
+			{#if canLoadMore}
+				<Button variant="outline" size="sm" disabled={loadingMore} onclick={loadMore}>
+					{#if loadingMore}<Spinner />{/if}
+					Load more
+				</Button>
+			{/if}
 		</div>
 	{/if}
-</PageShell.Root>
+</AdminPage>

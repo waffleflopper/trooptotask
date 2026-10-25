@@ -77,11 +77,13 @@ beforeEach(() => {
 				const url = new URL(String(input));
 				if (url.pathname === '/rest/v1/platform_operators')
 					return Response.json(state.operator ? { user_id: actorId } : null);
-				if (url.pathname.endsWith('/organizations') || url.pathname.endsWith('/user_suspensions')) {
+				if (url.pathname.includes('/rpc/platform_') && url.pathname.endsWith('_organization')) {
 					state.writes++;
-					return Response.json(
-						state.ack ? [url.pathname.endsWith('/organizations') ? { id: targetId } : { user_id: targetId }] : []
-					);
+					return Response.json(state.ack);
+				}
+				if (url.pathname.endsWith('/user_suspensions')) {
+					state.writes++;
+					return Response.json(state.ack ? [{ user_id: targetId }] : []);
 				}
 				throw new Error(`Unexpected provider ${url.pathname} ${init?.method}`);
 			}
@@ -106,7 +108,7 @@ describe('suspension HTTP safety', () => {
 	it.each(['user', 'org'] as const)('requires recent MFA for both suspension changes on %s', async (type) => {
 		for (const action of ['suspend', 'unsuspend']) {
 			for (const age of [null, 601000, -1000]) {
-				const response = await POST(event({ type, targetId, action }, age));
+				const response = await POST(event({ type, targetId, action, reason: 'Synthetic reason' }, age));
 				expect(response.status).toBe(403);
 				expect(await response.json()).toMatchObject({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' });
 			}
@@ -115,7 +117,7 @@ describe('suspension HTTP safety', () => {
 	});
 	it.each(['user', 'org'] as const)('allows suspend and unsuspend with MFA within ten minutes on %s', async (type) => {
 		for (const action of ['suspend', 'unsuspend']) {
-			const response = await POST(event({ type, targetId, action }, 600000));
+			const response = await POST(event({ type, targetId, action, reason: 'Synthetic reason' }, 600000));
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({ success: true });
 		}

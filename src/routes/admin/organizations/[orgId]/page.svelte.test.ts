@@ -21,23 +21,36 @@ afterEach(() => {
 	vi.resetAllMocks();
 });
 
-function makePageData(isSuspended = false, overrides: Partial<PageData> = {}): PageData {
+type Organization = PageData['organization'];
+type Activity = Awaited<PageData['activity']>;
+
+function makeOrganization(isSuspended = false, overrides: Partial<Organization> = {}): Organization {
 	return {
-		org: {
-			id: 'org-1',
-			name: 'Alpha Company',
-			suspendedAt: isSuspended ? '2026-05-01T00:00:00Z' : null,
-			createdAt: '2026-04-01T00:00:00Z',
-			isSuspended
-		},
+		id: 'org-1',
+		name: 'Alpha Company',
+		createdAt: '2026-04-01T00:00:00Z',
+		suspendedAt: isSuspended ? '2026-05-01T00:00:00Z' : null,
+		status: isSuspended ? 'suspended' : 'active',
+		lastActiveAt: null,
 		personnelCount: 12,
-		auditEvents: [],
+		suspension: isSuspended
+			? { reason: 'Abuse report 42', suspendedAt: '2026-05-01T00:00:00Z', suspendedByEmail: 'operator@example.test' }
+			: null,
 		members: [
-			{ userId: 'owner-1', email: 'owner@example.test', role: 'owner' },
-			{ userId: 'member-1', email: 'member@example.test', role: 'member' }
+			{ userId: 'owner-1', email: 'owner@example.test', role: 'owner', lastSignInAt: null },
+			{ userId: 'member-1', email: 'member@example.test', role: 'member', lastSignInAt: '2026-04-02T00:00:00Z' }
 		],
+		invitations: [],
 		...overrides
-	} as PageData;
+	};
+}
+
+function makePageData(
+	isSuspended = false,
+	overrides: Partial<Organization> = {},
+	activity: Promise<Activity> = Promise.resolve({ status: 'ready', events: [] })
+): PageData {
+	return { organization: makeOrganization(isSuspended, overrides), activity } as PageData;
 }
 
 function renderDetail(isSuspended = false) {
@@ -48,6 +61,12 @@ async function chooseSuspension(action: 'Suspend' | 'Unsuspend') {
 	await openToolbarMore('Organization controls');
 	await fireEvent.click(screen.getByRole('menuitem', { name: action }));
 	return screen.findByRole('dialog');
+}
+
+async function confirmSuspension(reason = 'Abuse report 42') {
+	const dialog = within(screen.getByRole('dialog'));
+	await fireEvent.input(dialog.getByLabelText('Reason'), { target: { value: reason } });
+	await fireEvent.click(dialog.getByRole('button', { name: 'Suspend' }));
 }
 
 async function startTransfer() {
@@ -68,6 +87,86 @@ describe('admin organization detail', () => {
 		const menu = within(await openToolbarMore('Organization controls'));
 		expect(menu.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual(['Unsuspend']);
 		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Suspended');
+	});
+	it('shows why, when and by whom a suspended Organization was suspended', () => {
+		renderDetail(true);
+		const alert = within(screen.getByRole('alert'));
+		expect(alert.getByText('Abuse report 42')).toBeTruthy();
+		expect(alert.getByText(/by operator@example\.test/)).toBeTruthy();
+	});
+	it('says no reason was recorded for an Organization suspended before reasons were kept', () => {
+		render(Page, { props: { data: makePageData(true, { suspension: null }) } });
+		expect(within(screen.getByRole('alert')).getByText('No reason recorded')).toBeTruthy();
+	});
+	it('shows no suspension notice for an active Organization', () => {
+		renderDetail();
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+	it('lists members with their role and last sign-in, and pending invitations', () => {
+		render(Page, {
+			props: {
+				data: makePageData(false, {
+					invitations: [
+						{
+							id: 'invite-1',
+							email: 'invited@example.test',
+							role: 'member',
+							invitedAt: '2026-04-03T00:00:00Z',
+							expiresAt: null
+						}
+					]
+				})
+			}
+		});
+		const members = within(screen.getByRole('region', { name: 'Members' }));
+		expect(members.getAllByRole('listitem')).toHaveLength(2);
+		expect(members.getByText('Never signed in')).toBeTruthy();
+		expect(members.getByText(/^Signed in /)).toBeTruthy();
+		expect(
+			within(screen.getByRole('region', { name: 'Pending invitations' })).getByText('invited@example.test')
+		).toBeTruthy();
+	});
+	it('shows a skeleton while activity loads and then the events as sentences', async () => {
+		let finish!: (activity: Activity) => void;
+		render(Page, {
+			props: {
+				data: makePageData(
+					false,
+					{},
+					new Promise<Activity>((resolve) => {
+						finish = resolve;
+					})
+				)
+			}
+		});
+		expect(screen.getByText('Loading recent activity')).toBeTruthy();
+		await act(() => {
+			finish({
+				status: 'ready',
+				events: [
+					{
+						id: 'event-1',
+						action: 'personnel.archived',
+						userId: 'owner-1',
+						timestamp: '2026-04-05T00:00:00Z',
+						severity: 'info',
+						resourceType: 'personnel',
+						resourceId: null
+					}
+				]
+			});
+		});
+		expect(await screen.findByText('owner@example.test archived a Personnel Record')).toBeTruthy();
+		expect(screen.queryByText('Loading recent activity')).toBeNull();
+	});
+	it('keeps the rest of the page and offers a retry when activity fails to load', async () => {
+		render(Page, {
+			props: { data: makePageData(false, {}, Promise.resolve({ status: 'failed' as const })) }
+		});
+		await screen.findByText('Recent activity could not be loaded.');
+		expect(screen.getByRole('heading', { level: 1, name: 'Alpha Company' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 	it('opens ownership transfer with eligible members and requires name confirmation', async () => {
 		renderDetail();
@@ -93,7 +192,8 @@ describe('admin organization detail', () => {
 		renderDetail(suspended);
 		const action = suspended ? 'Unsuspend' : 'Suspend';
 		const dialog = within(await chooseSuspension(action));
-		expect(dialog.getByRole('button', { name: action })).toBeEnabled();
+		if (suspended) expect(dialog.getByRole('button', { name: action })).toBeEnabled();
+		else expect(dialog.getByRole('button', { name: action })).toBeDisabled();
 		await fireEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
@@ -105,7 +205,7 @@ describe('admin organization detail', () => {
 			await view.rerender({ data: makePageData(true) });
 		});
 		await chooseSuspension('Suspend');
-		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Suspend' }));
+		await confirmSuspension();
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		await openToolbarMore('Organization controls');
 		expect(screen.getByRole('menuitem', { name: 'Unsuspend' })).toBeTruthy();
@@ -120,7 +220,7 @@ describe('admin organization detail', () => {
 			await view.rerender({ data: makePageData() });
 		});
 		await chooseSuspension('Suspend');
-		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Suspend' }));
+		await confirmSuspension();
 		await screen.findByRole('button', { name: 'Reload details' });
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
 		await screen.findByText(/Details refreshed/);
@@ -136,12 +236,12 @@ describe('admin organization detail', () => {
 			vi.stubGlobal('fetch', fetch);
 			const view = renderDetail();
 			invalidateAll.mockImplementation(async () => {
-				const members = makePageData().members.map((member) => ({
+				const members = makeOrganization().members.map((member) => ({
 					...member,
 					role: member.userId === ownerUserId ? ('owner' as const) : ('member' as const)
 				}));
 				if (ownerUserId === 'third-owner')
-					members.push({ userId: ownerUserId, email: 'third@example.test', role: 'owner' });
+					members.push({ userId: ownerUserId, email: 'third@example.test', role: 'owner', lastSignInAt: null });
 				await view.rerender({ data: makePageData(false, { members }) });
 			});
 			await startTransfer();
@@ -191,7 +291,7 @@ describe('admin organization detail', () => {
 			if (command === 'transfer') await startTransfer();
 			else {
 				await chooseSuspension('Suspend');
-				await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Suspend' }));
+				await confirmSuspension();
 			}
 			view.unmount();
 			const response = command === 'transfer' ? transferSuccess() : Response.json({ success: true });
@@ -219,7 +319,7 @@ describe('admin organization detail', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
 		beforeNavigate.mock.calls[0][0]();
 		await view.rerender({
-			data: makePageData(false, { org: { ...makePageData().org, id: 'org-2', name: 'Bravo Company' } })
+			data: makePageData(false, { id: 'org-2', name: 'Bravo Company' })
 		});
 		await act(() => {
 			finish();

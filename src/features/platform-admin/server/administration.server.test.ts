@@ -183,7 +183,14 @@ describe('Platform suspension policy', () => {
 				reason: 'Policy review'
 			});
 		else if (operation === 'suspendOrganization')
-			expect(acknowledged).toHaveBeenCalledWith({ organizationId: ORG, suspendedAt: NOW });
+			expect(acknowledged).toHaveBeenCalledWith({
+				organizationId: ORG,
+				suspendedBy: 'admitted-admin',
+				reason: 'Policy review',
+				suspendedAt: NOW
+			});
+		else if (operation === 'unsuspendOrganization')
+			expect(acknowledged).toHaveBeenCalledWith({ organizationId: ORG, unsuspendedBy: 'admitted-admin' });
 		else expect(acknowledged).toHaveBeenCalledWith(targetId);
 	});
 
@@ -242,7 +249,8 @@ describe('Platform suspension policy', () => {
 				createPlatformSupportAdministration(deps).updateSuspension({
 					type,
 					action,
-					targetId: type === 'user' ? USER : ORG
+					targetId: type === 'user' ? USER : ORG,
+					reason: 'Synthetic reason'
 				})
 			).rejects.toThrow('could not be confirmed');
 			expect(deps.audit.log).not.toHaveBeenCalled();
@@ -258,7 +266,9 @@ describe('Platform suspension policy', () => {
 		{ type: 'user', targetId: 'not-a-uuid', action: 'suspend' },
 		{ type: 'org', targetId: [ORG], action: 'suspend' },
 		{ type: 'user', targetId: USER, action: 'unknown' },
-		...[null, 12, {}, []].map((reason) => ({ type: 'user', targetId: USER, action: 'suspend', reason }))
+		...[null, 12, {}, []].map((reason) => ({ type: 'user', targetId: USER, action: 'suspend', reason })),
+		...[undefined, '', '   '].map((reason) => ({ type: 'org', targetId: ORG, action: 'suspend', reason })),
+		{ type: 'org', targetId: ORG, action: 'suspend', reason: 'x'.repeat(501) }
 	])('rejects invalid input with a portable result before any effect or audit: %j', async (input) => {
 		const deps = sources();
 		await expect(createPlatformSupportAdministration(deps).updateSuspension(input)).resolves.toMatchObject({

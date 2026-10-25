@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import SuspendModal from './SuspendModal.svelte';
@@ -227,4 +228,30 @@ it('does not redirect the current page when the modal closed before the step-up 
 	reply(Response.json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }, { status: 403 }));
 	await new Promise((resolve) => setTimeout(resolve, 0));
 	expect(location.href).toBe('');
+});
+
+it('requires a reason to suspend an Organization and sends it with the request', async () => {
+	const fetch = vi.fn().mockResolvedValue(Response.json({ success: true }));
+	vi.stubGlobal('fetch', fetch);
+	render(SuspendModal, { ...props(), type: 'org', targetId: 'org-alpha', targetName: 'Alpha Company' });
+	const suspend = screen.getByRole('button', { name: 'Suspend' });
+	expect(suspend).toBeDisabled();
+	await fireEvent.input(screen.getByLabelText('Reason'), { target: { value: '   ' } });
+	expect(suspend).toBeDisabled();
+	await fireEvent.input(screen.getByLabelText('Reason'), { target: { value: ' Abuse report 42 ' } });
+	expect(suspend).toBeEnabled();
+	await fireEvent.click(suspend);
+	await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+	expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+		type: 'org',
+		targetId: 'org-alpha',
+		action: 'suspend',
+		reason: 'Abuse report 42'
+	});
+});
+
+it('lifts an Organization suspension without asking for a reason', async () => {
+	render(SuspendModal, { ...props(), type: 'org', isSuspended: true });
+	expect(screen.getByLabelText('Reason (optional)')).toBeTruthy();
+	expect(screen.getByRole('button', { name: 'Unsuspend' })).toBeEnabled();
 });

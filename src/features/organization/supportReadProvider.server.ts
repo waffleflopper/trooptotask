@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isRangePastResults, selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	OrganizationSupportOrganization,
-	OrganizationSupportOwnerMembershipMetric,
 	OrganizationSupportReader,
 	OrganizationSupportSuspensionCommands
 } from './supportReadTypes';
@@ -52,56 +51,37 @@ function organization(value: unknown): OrganizationSupportOrganization {
 	};
 }
 
-function readCount(value: unknown): number {
-	if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value)))
-		throw new Error('Organization count was unavailable');
-	const count = Number(value);
-	if (!Number.isSafeInteger(count) || count < 0) throw new Error('Organization count was unavailable');
-	return count;
-}
-
 function requestedId(value: unknown, requested: Map<string, string>): string {
 	const target = requested.get(id(value).toLowerCase());
 	if (!target) throw new Error('Organization support scope could not be verified');
 	return target;
 }
 
-function exactCount(response: Response<unknown>): number {
-	success(response);
-	return readCount(response.count ?? null);
+function acknowledgeSuspension(response: Response<unknown>): void {
+	if (success(response) !== true) throw new Error('Suspension change could not be confirmed');
 }
 
-function acknowledgeSuspension(response: Response<unknown>, organizationId: string): void {
-	const rows = success(response);
-	if (
-		!Array.isArray(rows) ||
-		rows.length !== 1 ||
-		!rows[0] ||
-		typeof rows[0] !== 'object' ||
-		typeof rows[0].id !== 'string' ||
-		rows[0].id.toLowerCase() !== organizationId.toLowerCase()
-	)
-		throw new Error('Suspension change could not be confirmed');
-}
-
+/** One SQL command keeps the suspension and its operator note together and checks the actor is an operator. */
 export function createOrganizationSupportSuspensionCommands(
 	client: SupabaseClient
 ): OrganizationSupportSuspensionCommands {
 	return {
-		async suspendOrganization({ organizationId, suspendedAt }) {
+		async suspendOrganization({ organizationId, suspendedBy, reason, suspendedAt }) {
 			acknowledgeSuspension(
-				await client
-					.from('organizations')
-					.update({ suspended_at: suspendedAt.toISOString() })
-					.eq('id', organizationId)
-					.select('id'),
-				organizationId
+				await client.rpc('platform_suspend_organization', {
+					p_actor_user_id: suspendedBy,
+					p_organization_id: organizationId,
+					p_reason: reason,
+					p_suspended_at: suspendedAt.toISOString()
+				})
 			);
 		},
-		async unsuspendOrganization(organizationId) {
+		async unsuspendOrganization({ organizationId, unsuspendedBy }) {
 			acknowledgeSuspension(
-				await client.from('organizations').update({ suspended_at: null }).eq('id', organizationId).select('id'),
-				organizationId
+				await client.rpc('platform_unsuspend_organization', {
+					p_actor_user_id: unsuspendedBy,
+					p_organization_id: organizationId
+				})
 			);
 		}
 	};
@@ -110,24 +90,6 @@ export function createOrganizationSupportSuspensionCommands(
 /** Bound only after platform support admission at the server delivery edge. */
 export function createOrganizationSupportReader(client: SupabaseClient): OrganizationSupportReader {
 	return {
-		async listOrganizationsPage(query) {
-			const matching = (columns: string, options: { count: 'exact'; head?: boolean }) => {
-				let builder = client.from('organizations').select(columns, options);
-				if (query.q) builder = builder.ilike('name', `%${query.q}%`);
-				if (query.status === 'active') builder = builder.is('suspended_at', null);
-				else if (query.status === 'suspended') builder = builder.not('suspended_at', 'is', null);
-				return builder;
-			};
-			const response = (await matching(ORGANIZATION_COLUMNS, { count: 'exact' })
-				.order('created_at', { ascending: false })
-				.order('id', { ascending: false })
-				.range(query.from, query.to)) as Response<OrganizationSupportOrganization[]>;
-			if (isRangePastResults(response.error)) {
-				const total = (await matching('id', { count: 'exact', head: true })) as Response<null>;
-				return { organizations: [], totalCount: exactCount(total) };
-			}
-			return { organizations: requiredRows(response).map(organization), totalCount: exactCount(response) };
-		},
 		async getOrganizationById(organizationId) {
 			const result = success(
 				await client
@@ -210,76 +172,6 @@ export function createOrganizationSupportReader(client: SupabaseClient): Organiz
 				}
 			);
 			return requiredRows(response).map((row) => ({ userId, ...row }));
-		},
-
-		async countMembershipsByOrganization(organizationIds) {
-			const ids = [...new Set(organizationIds.filter(Boolean))];
-			if (ids.length === 0) return new Map();
-			const response = await client.rpc('count_memberships_by_organization', { p_org_ids: ids });
-			const requested = new Map(ids.map((value) => [value.toLowerCase(), value]));
-			const counts = new Map<string, number>();
-			for (const value of requiredRows(response)) {
-				const row = record(value);
-				const organizationId = requestedId(row.organization_id, requested);
-				if (counts.has(organizationId)) throw new Error('Organization membership count was ambiguous');
-				counts.set(organizationId, readCount(row.membership_count));
-			}
-			return counts;
-		},
-
-		async countLeaderMembershipsByOrganization(organizationIds) {
-			const ids = [...new Set(organizationIds.filter(Boolean))];
-			if (ids.length === 0) return new Map();
-			const requested = new Map(ids.map((value) => [value.toLowerCase(), value]));
-			const response = await selectAllSupabaseRows<{ organization_id: string }>(async (from, to) => {
-				const result = await client
-					.from('organization_memberships')
-					.select('id, organization_id')
-					.in('organization_id', ids)
-					.in('role', ['owner', 'admin'])
-					.order('organization_id', { ascending: true })
-					.order('id', { ascending: true })
-					.range(from, to);
-				const data = requiredRows(result).map((value) => {
-					const row = record(value);
-					id(row.id);
-					return { organization_id: requestedId(row.organization_id, requested) };
-				});
-				return { ...result, data };
-			});
-			const counts = new Map<string, number>();
-			for (const row of requiredRows(response))
-				counts.set(row.organization_id, (counts.get(row.organization_id) ?? 0) + 1);
-			return counts;
-		},
-
-		async listOwnerMembershipMetricsByOrganization(organizationIds) {
-			const ids = [...new Set(organizationIds.filter(Boolean))];
-			if (ids.length === 0) return [];
-			const response = await client.rpc('list_platform_owner_membership_metrics', { p_org_ids: ids });
-			const requested = new Map(ids.map((value) => [value.toLowerCase(), value]));
-			const seen = new Set<string>();
-			return requiredRows(response).map((value): OrganizationSupportOwnerMembershipMetric => {
-				const row = record(value);
-				const organizationId = requestedId(row.organization_id, requested);
-				if (seen.has(organizationId)) throw new Error('Organization owner count was ambiguous');
-				seen.add(organizationId);
-				const ownerCount = readCount(row.owner_count);
-				if (ownerCount === 1 && (typeof row.owner_user_id !== 'string' || !row.owner_user_id))
-					throw new Error('Owner membership could not be identified');
-				const ownerEmail = nullableString(row.owner_email);
-				if (ownerCount !== 1 && (row.owner_user_id !== null || ownerEmail !== null))
-					throw new Error('Organization owner facts were inconsistent');
-				return {
-					organizationId,
-					ownerCount,
-					singleOwner: ownerCount === 1 ? { organizationId, userId: id(row.owner_user_id), email: ownerEmail } : null
-				};
-			});
-		},
-
-		async countOrganizations() {
-			return exactCount(await client.from('organizations').select('*', { count: 'exact', head: true }));
 		}
 	};
 }

@@ -1,82 +1,63 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
-	import * as Card from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
-	import * as Table from '$lib/components/ui/table';
-	import { formatDisplayDate } from '$lib/utils/dates';
+	import { formatDisplayDate, formatRelativeDate } from '$lib/utils/dates';
 	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
 	import { createAdminUrlSearch } from '$features/platform-admin/components/adminUrlSearch.svelte';
 	import { adminBadgeVariant } from '$features/platform-admin/components/adminTheme';
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import OrganizationListFrame, { rowClass } from '$features/platform-admin/components/OrganizationListFrame.svelte';
+	import OrganizationListSkeleton from '$features/platform-admin/components/OrganizationListSkeleton.svelte';
+	import {
+		PLATFORM_ORGANIZATION_STATUS_LABELS,
+		type PlatformOrganizationRow
+	} from '$features/platform-admin/organizationSupportTypes';
 
 	let { data } = $props();
 
-	const organizationsRouteRoot = resolve('/admin/organizations');
-	const statusFilter = $derived(data.pagination.status ?? 'all');
-	const showingStart = $derived(
-		data.organizations.length === 0 ? 0 : (data.pagination.page - 1) * data.pagination.pageSize + 1
-	);
-	const showingEnd = $derived(
-		data.organizations.length === 0
-			? 0
-			: Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.totalCount)
-	);
+	const FILTER_OPTIONS = [
+		{ value: 'all', label: 'All' },
+		{ value: 'active-week', label: 'Active this week' },
+		{ value: 'quiet', label: 'Quiet 30+ days' },
+		{ value: 'suspended', label: 'Suspended' }
+	];
 
-	function pageHref(pageNumber: number): string {
+	function listHref(next: { page?: number; q: string; filter: string }): string {
 		const params = new SvelteURLSearchParams();
-		params.set('page', pageNumber.toString());
-		params.set('pageSize', data.pagination.pageSize.toString());
-		if (data.pagination.q) params.set('q', data.pagination.q);
-		if (statusFilter !== 'all') params.set('status', statusFilter);
-		return `${organizationsRouteRoot}?${params.toString()}`;
-	}
-
-	function applyFilters(next: { q: string; pageSize: string; status: string }) {
-		const params = new SvelteURLSearchParams();
-		params.set('page', '1');
-		params.set('pageSize', next.pageSize);
+		if (next.page && next.page > 1) params.set('page', String(next.page));
 		if (next.q) params.set('q', next.q);
-		if (next.status !== 'all') params.set('status', next.status);
-		goto(resolve(`/admin/organizations?${params.toString()}`), { keepFocus: true });
+		if (next.filter !== 'all') params.set('filter', next.filter);
+		const query = params.toString();
+		return `${resolve('/admin/organizations')}${query ? `?${query}` : ''}`;
 	}
 
 	const search = createAdminUrlSearch(
-		() => data.pagination.q,
-		(q) => applyFilters({ q, pageSize: String(data.pagination.pageSize), status: statusFilter })
+		() => data.query.q,
+		(q) => goto(listHref({ q, filter: data.query.filter }), { keepFocus: true })
 	);
 
 	const toolbarItems = $derived<ToolbarItem[]>([
 		{
-			kind: 'select',
-			id: 'status',
-			label: 'Status',
-			options: [
-				{ value: 'all', label: 'All statuses' },
-				{ value: 'active', label: 'Active' },
-				{ value: 'suspended', label: 'Suspended' }
-			],
-			value: statusFilter,
-			defaultValue: 'all',
-			onValueChange: (status) => applyFilters({ q: search.value, pageSize: String(data.pagination.pageSize), status })
-		},
-		{
-			kind: 'select',
-			id: 'rows',
-			label: 'Rows',
-			options: [
-				{ value: '25', label: '25' },
-				{ value: '50', label: '50' },
-				{ value: '100', label: '100' }
-			],
-			value: String(data.pagination.pageSize),
-			defaultValue: '25',
-			onValueChange: (pageSize) => applyFilters({ q: search.value, pageSize, status: statusFilter })
+			kind: 'view',
+			id: 'filter',
+			label: 'Show',
+			options: FILTER_OPTIONS,
+			value: data.query.filter,
+			onValueChange: (filter) => goto(listHref({ q: search.value, filter }), { keepFocus: true })
 		}
 	]);
+
+	function ownerLabel(org: PlatformOrganizationRow): string {
+		if (org.ownerCount === 0) return 'No owner';
+		if (org.ownerCount > 1) return 'Multiple owners';
+		return org.ownerEmail ?? 'Owner email unavailable';
+	}
 </script>
 
 <svelte:head>
@@ -84,82 +65,90 @@
 </svelte:head>
 
 <PageShell.Root width="wide">
-	<PageShell.Header
-		title="Organizations"
-		subtitle="Review organization health, ownership, and suspension status from the central platform index."
-	/>
+	<PageShell.Header title="Organizations" subtitle="Every unit on the platform, most recently active first." />
 
 	<WorkspaceToolbar
 		ariaLabel="Organizations controls"
 		items={toolbarItems}
 		search={{
 			label: 'Search',
-			placeholder: 'Search by organization name...',
+			placeholder: 'Search by Organization name or owner email...',
 			value: search.value,
 			onValueChange: search.setValue
 		}}
 	/>
 
-	<Card.Root class="overflow-hidden">
-		<div class="overflow-x-auto">
-			<Table.Root>
-				<Table.Header>
-					<Table.Row>
-						<Table.Head>Name</Table.Head>
-						<Table.Head>Members</Table.Head>
-						<Table.Head>Personnel</Table.Head>
-						<Table.Head>Owner</Table.Head>
-						<Table.Head>Status</Table.Head>
-						<Table.Head>Created</Table.Head>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each data.organizations as org (org.id)}
-						<Table.Row>
-							<Table.Cell>
-								<div class="grid min-w-48 gap-1">
-									<a
-										href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
-										class="font-medium">{org.name}</a
-									>
-									<code class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-										{org.id.slice(0, 8)}...
-									</code>
-								</div>
-							</Table.Cell>
-							<Table.Cell>{org.memberCount}</Table.Cell>
-							<Table.Cell>{org.personnelCount}</Table.Cell>
-							<Table.Cell class="min-w-48 max-w-60 break-all whitespace-normal text-muted-foreground"
-								>{org.ownerEmail || '-'}</Table.Cell
+	{#await data.directory}
+		<OrganizationListSkeleton />
+	{:then result}
+		{#if result.status === 'failed'}
+			<Alert.Root variant="destructive">
+				<Alert.Title>Organizations could not be loaded.</Alert.Title>
+				<Alert.Description>
+					<span>Nothing was changed. Try again, and reload the page if it keeps failing.</span>
+					<span class="mt-2 block">
+						<Button variant="outline" size="sm" onclick={() => invalidateAll()}>Try again</Button>
+					</span>
+				</Alert.Description>
+			</Alert.Root>
+		{:else if result.page.organizations.length === 0}
+			<Empty.Root class="rounded-lg border">
+				<Empty.Header>
+					<Empty.Title>No matching Organizations.</Empty.Title>
+				</Empty.Header>
+			</Empty.Root>
+		{:else}
+			{@const page = result.page}
+			<OrganizationListFrame>
+				{#each page.organizations as org (org.id)}
+					<li class={rowClass}>
+						<div class="min-w-0">
+							<a
+								href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
+								class="font-medium wrap-anywhere underline-offset-4 hover:underline">{org.name}</a
 							>
-							<Table.Cell>
-								<Badge variant={adminBadgeVariant(org.isSuspended ? 'suspended' : 'active')}>
-									{org.isSuspended ? 'Suspended' : 'Active'}
-								</Badge>
-							</Table.Cell>
-							<Table.Cell>{formatDisplayDate(org.created_at)}</Table.Cell>
-						</Table.Row>
-					{:else}
-						<Table.Row>
-							<Table.Cell colspan={6}>
-								<Empty.Root>
-									<Empty.Header>
-										<Empty.Title>No matching organizations.</Empty.Title>
-									</Empty.Header>
-								</Empty.Root>
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
-		</div>
-		<Card.Footer class="text-sm text-muted-foreground">{data.organizations.length} shown</Card.Footer>
-	</Card.Root>
-
-	{#if data.pagination.totalCount > 0}
-		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-			<p>Showing {showingStart}-{showingEnd} of {data.pagination.totalCount}</p>
-			<AdminPager page={data.pagination.page} totalPages={data.pagination.totalPages} {pageHref} />
-		</div>
-	{/if}
+							<p class="text-sm wrap-anywhere text-muted-foreground">{ownerLabel(org)}</p>
+						</div>
+						<dl class="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5 lg:contents">
+							<div>
+								<dt class="text-xs text-muted-foreground lg:sr-only">Members</dt>
+								<dd class="tabular-nums">{org.memberCount}</dd>
+							</div>
+							<div>
+								<dt class="text-xs text-muted-foreground lg:sr-only">Personnel</dt>
+								<dd class="tabular-nums">{org.personnelCount}</dd>
+							</div>
+							<div>
+								<dt class="text-xs text-muted-foreground lg:sr-only">Last active</dt>
+								<dd>{org.lastActiveAt ? formatRelativeDate(org.lastActiveAt) : 'Never used'}</dd>
+							</div>
+							<div>
+								<dt class="text-xs text-muted-foreground lg:sr-only">Created</dt>
+								<dd>{formatDisplayDate(org.createdAt)}</dd>
+							</div>
+							<div>
+								<dt class="text-xs text-muted-foreground lg:sr-only">Status</dt>
+								<dd>
+									<Badge variant={adminBadgeVariant(org.status)}
+										>{PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]}</Badge
+									>
+								</dd>
+							</div>
+						</dl>
+					</li>
+				{/each}
+			</OrganizationListFrame>
+			<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+				<p>
+					Showing {(page.page - 1) * page.pageSize + 1}-{(page.page - 1) * page.pageSize + page.organizations.length} of
+					{page.totalCount}
+				</p>
+				<AdminPager
+					page={page.page}
+					totalPages={page.totalPages}
+					pageHref={(next) => listHref({ page: next, q: data.query.q, filter: data.query.filter })}
+				/>
+			</div>
+		{/if}
+	{/await}
 </PageShell.Root>

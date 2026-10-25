@@ -9,6 +9,7 @@ import type {
 } from '../administrationTypes';
 
 const SEARCH_MAX_RESULTS = 5;
+export const SUSPENSION_REASON_MAX_LENGTH = 500;
 
 export function parsePlatformSuspensionCommand(input: unknown): PlatformSuspensionCommandParseResult {
 	if (!input || typeof input !== 'object' || Array.isArray(input))
@@ -21,14 +22,17 @@ export function parsePlatformSuspensionCommand(input: unknown): PlatformSuspensi
 		return { status: 'invalid_input', message: 'Invalid action' };
 	if (command.reason !== undefined && typeof command.reason !== 'string')
 		return { status: 'invalid_input', message: 'Invalid reason' };
+	const reason = command.reason?.trim() || undefined;
+	if (reason && reason.length > SUSPENSION_REASON_MAX_LENGTH)
+		return {
+			status: 'invalid_input',
+			message: `The reason must be ${SUSPENSION_REASON_MAX_LENGTH} characters or fewer`
+		};
+	if (command.type === 'org' && command.action === 'suspend' && !reason)
+		return { status: 'invalid_input', message: 'A reason is required to suspend an organization' };
 	return {
 		status: 'valid',
-		command: {
-			type: command.type,
-			targetId: command.targetId.toLowerCase(),
-			action: command.action,
-			reason: command.reason?.trim() || undefined
-		}
+		command: { type: command.type, targetId: command.targetId.toLowerCase(), action: command.action, reason }
 	};
 }
 
@@ -89,9 +93,16 @@ export function createPlatformSupportAdministration(
 			} else if (command.action === 'suspend') {
 				await deps.organizationSuspensionCommands.suspendOrganization({
 					organizationId: command.targetId,
+					suspendedBy: deps.actorUserId,
+					reason: command.reason as string,
 					suspendedAt: deps.now?.() ?? new Date()
 				});
-			} else await deps.organizationSuspensionCommands.unsuspendOrganization(command.targetId);
+			} else {
+				await deps.organizationSuspensionCommands.unsuspendOrganization({
+					organizationId: command.targetId,
+					unsuspendedBy: deps.actorUserId
+				});
+			}
 			await deps.audit.log({
 				action: `${command.action}_${command.type}`,
 				resourceType: command.type === 'user' ? 'user' : 'organization',

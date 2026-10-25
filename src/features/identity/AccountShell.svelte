@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	// Each row's `placeholder` bars stand in for its value lane while the page loads, sized to the loaded lane. A list
-	// page's `list` skeleton repeats one item's bars `count` times under an optional toolbar line.
+	// page's `list` skeleton repeats one item's bars `count` times under an optional toolbar line. A `thread` section's
+	// nested pages, such as one feedback item, load behind the conversation skeleton.
 	export const ACCOUNT_PAGES = {
 		profile: {
 			label: 'Profile',
@@ -55,6 +56,7 @@
 			label: 'Feedback',
 			subtitle: 'What you sent us and what we said back. Reply on an open item to add detail.',
 			organizationOnly: true,
+			thread: true,
 			list: { toolbar: false, count: 3, placeholder: ['h-4 w-44', 'h-6 w-80 max-w-full', 'h-5 w-20'] }
 		}
 	} as const;
@@ -91,11 +93,15 @@
 	const sectionOf = (path: string) => keyOf(path) ?? keys.find((key) => path.startsWith(`${baseHref}/${key}/`));
 	const pageKey = $derived(keyOf(activePath));
 	const activeKey = $derived(sectionOf(activePath));
-	const loadingKey = $derived.by(() => {
-		const target = keyOf(navigating.to?.url.pathname);
-		return target && target !== pageKey ? target : undefined;
+	const loading = $derived.by(() => {
+		const path = navigating.to?.url.pathname;
+		if (!path || path === activePath) return undefined;
+		const key = keyOf(path);
+		if (key) return { key, thread: false };
+		const section = sectionOf(path);
+		return section && 'thread' in ACCOUNT_PAGES[section] ? { key: section, thread: true } : undefined;
 	});
-	const shownKey = $derived(loadingKey ?? activeKey);
+	const shownKey = $derived(loading?.key ?? activeKey);
 	const groups = $derived([
 		{
 			label: 'Account',
@@ -108,14 +114,14 @@
 	]);
 	const actions: SectionNavAction[] = [{ label: 'Sign out', icon: LogOut, action: '/auth/logout' }];
 	// A navigation that settles within the delay keeps the current page, so fast switches do not flash a skeleton.
-	let slowKey = $state<AccountPageKey | null>(null);
+	let slow = $state<typeof loading>();
 	$effect(() => {
-		const key = loadingKey;
-		if (!key) return;
-		const timer = setTimeout(() => (slowKey = key), 150);
+		const target = loading;
+		if (!target) return;
+		const timer = setTimeout(() => (slow = target), 150);
 		return () => {
 			clearTimeout(timer);
-			slowKey = null;
+			slow = undefined;
 		};
 	});
 </script>
@@ -128,11 +134,28 @@
 
 <PageShell.Root width="wide" bodyClass="lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-12">
 	<SectionNav label="Account" {groups} {actions} collapseBelow="lg" />
-	<div class="grid w-full max-w-[51.25rem] min-w-0 content-start gap-7" aria-busy={loadingKey ? 'true' : undefined}>
-		<p role="status" class="sr-only">{loadingKey ? `Loading ${ACCOUNT_PAGES[loadingKey].label}...` : ''}</p>
-		{#if slowKey}
-			{@const page = ACCOUNT_PAGES[slowKey]}
-			<div class="grid gap-7" aria-hidden="true" data-account-skeleton={slowKey}>
+	<div class="grid w-full max-w-[51.25rem] min-w-0 content-start gap-7" aria-busy={loading ? 'true' : undefined}>
+		<p role="status" class="sr-only">{loading ? `Loading ${ACCOUNT_PAGES[loading.key].label}...` : ''}</p>
+		{#if slow?.thread}
+			<div class="grid gap-7" aria-hidden="true" data-account-skeleton="{slow.key}-thread">
+				<Skeleton class="h-4 w-28" />
+				<div class="grid gap-2">
+					<Skeleton class="h-4 w-40" />
+					<Skeleton class="h-9 w-72 max-w-full sm:h-12" />
+					<Skeleton class="h-5 w-56" />
+				</div>
+				<div class="grid gap-2.5 border-t-2 border-foreground pt-5">
+					<Skeleton class="h-5 w-full" />
+					<Skeleton class="h-5 w-3/4" />
+				</div>
+				<div class="grid gap-3 border-t border-border pt-5">
+					<Skeleton class="h-4 w-28" />
+					<Skeleton class="h-5 w-80 max-w-full" />
+				</div>
+			</div>
+		{:else if slow}
+			{@const page = ACCOUNT_PAGES[slow.key]}
+			<div class="grid gap-7" aria-hidden="true" data-account-skeleton={slow.key}>
 				<PageShell.Header eyebrow="Account · Only you" title={page.label} variant="display" subtitle={page.subtitle} />
 				{#if 'rows' in page}
 					<PageShell.FactSection>
@@ -166,6 +189,6 @@
 			</div>
 		{/if}
 		<!-- Hidden, not unmounted, so a page keeps its state if the navigation does not complete. -->
-		<div class="contents" hidden={slowKey !== null}>{@render children()}</div>
+		<div class="contents" hidden={slow !== undefined}>{@render children()}</div>
 	</div>
 </PageShell.Root>

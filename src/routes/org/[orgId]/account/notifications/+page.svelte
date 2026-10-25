@@ -59,8 +59,9 @@
 	}
 
 	function open(notification: Notification) {
+		if (pending) return;
 		if (notification.link) void goto(resolve(notificationHref(notification.link, shell.orgUrlSegment)));
-		if (notification.read || pending) return;
+		if (notification.read) return;
 		void run(
 			{ id: notification.id },
 			() => send('PUT', { id: notification.id }, 'Could not mark the notification read.'),
@@ -99,7 +100,6 @@
 		if (active && notifications.length === 0) confirmingDeleteAll = false;
 	}
 
-	const busyId = $derived(typeof pending === 'object' && pending ? pending.id : null);
 	const toolbarItems = $derived<ToolbarItem[]>([
 		{
 			kind: 'action',
@@ -166,7 +166,7 @@
 							<button
 								type="button"
 								class="grid min-w-0 flex-1 gap-2 rounded-sm text-left outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 disabled:no-underline"
-								disabled={busyId === notification.id}
+								disabled={pending !== null}
 								onclick={() => open(notification)}
 							>
 								{@render body(notification)}

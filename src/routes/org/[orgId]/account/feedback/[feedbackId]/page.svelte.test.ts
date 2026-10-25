@@ -52,8 +52,10 @@ describe('reporter reply composer', () => {
 		['resolved', false]
 	])('a %s item offers a reply: %s', (status, offered) => {
 		renderPage(status);
+		expect(screen.getByText('Leave that crosses into November will not save')).toBeTruthy();
 		expect(screen.queryByRole('textbox', { name: 'Reply' }) !== null).toBe(offered);
 		expect(screen.queryByRole('button', { name: 'Send reply' }) !== null).toBe(offered);
+		expect(screen.queryByText(/This feedback is closed/) !== null).toBe(!offered);
 	});
 
 	it('keeps the draft and shows a failed send beside the field', async () => {

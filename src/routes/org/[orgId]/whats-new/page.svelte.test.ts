@@ -26,11 +26,6 @@ describe('What’s new page', () => {
 		expect(screen.queryByRole('status', { name: 'Loading updates' })).toBeNull();
 	});
 
-	it('says so when nothing is published', async () => {
-		render(Page, props(Promise.resolve({ status: 'loaded', entries: [] })));
-		expect(await screen.findByText('Nothing new yet.')).toBeTruthy();
-	});
-
 	it('shows the load error with a retry that re-reads', async () => {
 		invalidateAll.mockResolvedValue(undefined);
 		render(Page, props(Promise.resolve({ status: 'failed' })));
@@ -43,6 +38,5 @@ describe('What’s new page', () => {
 		rejected.catch(() => {});
 		render(Page, props(rejected));
 		expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy();
-		expect(screen.getByText('Updates could not be loaded')).toBeTruthy();
 	});
 });

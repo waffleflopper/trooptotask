@@ -1,3 +1,4 @@
+import { readAccountDirectory } from './platformPeople.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
@@ -8,17 +9,13 @@ import type {
 } from './contracts';
 
 interface RawAuthUser {
+	factors?: Array<{ status: string }>;
 	id: string;
 	email?: string | null;
 	created_at: string;
 	last_sign_in_at?: string | null;
 	email_confirmed_at?: string | null;
 	confirmed_at?: string | null;
-}
-
-interface AuthUsersPage {
-	users?: RawAuthUser[];
-	nextPage?: number | null;
 }
 
 interface SuspensionRow {
@@ -50,6 +47,7 @@ function mapAccount(user: RawAuthUser): IdentitySupportAccount {
 		throw new Error('User identity could not be verified');
 	return {
 		id: user.id,
+		mfaEnabled: (user.factors ?? []).some((factor) => factor.status === 'verified'),
 		email: user.email ?? null,
 		createdAt: user.created_at,
 		lastSignInAt: user.last_sign_in_at ?? null,
@@ -77,25 +75,7 @@ function mapSuspension(row: SuspensionRow, userId: string): IdentitySupportSuspe
 /** Account source facts only. Platform composition supplies current support authority. */
 export function createIdentityPlatformSupportReader(client: SupabaseClient): IdentityPlatformSupportReader {
 	const reader: IdentityPlatformSupportReader = {
-		async listAuthUsers() {
-			const users: IdentitySupportAccount[] = [];
-			let page = 1;
-			try {
-				while (true) {
-					const { data, error } = await client.auth.admin.listUsers({ page, perPage: 1000 });
-					if (error || !data || !Array.isArray(data.users)) throw new Error('Account read unavailable');
-					const pageData = data as AuthUsersPage;
-					users.push(...data.users.map(mapAccount));
-					const nextPage = pageData.nextPage;
-					if (typeof nextPage !== 'number' || !Number.isFinite(nextPage) || nextPage < 1) break;
-					// auth-js can truncate a page 10+ Link value to its first digit.
-					page = nextPage > page ? nextPage : page + 1;
-				}
-				return { status: 'ok', users };
-			} catch {
-				return { status: 'auth_error', message: 'Unable to load platform accounts' };
-			}
-		},
+		listPeople: (input) => readAccountDirectory(client, input),
 
 		async getAuthUser(userId) {
 			try {

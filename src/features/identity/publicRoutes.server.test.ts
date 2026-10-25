@@ -41,6 +41,7 @@ describe('isPublicRoute', () => {
 	});
 
 	it.each([
+		'/api/webhooks/resend',
 		'/api/cleanup-old-data',
 		'/api/cleanup-archived-records',
 		'/api/cleanup-expired-onboardings',

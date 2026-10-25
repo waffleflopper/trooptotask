@@ -126,46 +126,11 @@ describe('user detail request admission and retained projections', () => {
 	});
 	afterEach(() => vi.restoreAllMocks());
 
-	it('loads identity, memberships, suspension and activity for an operator', async () => {
-		await expect(load(event())).resolves.toEqual({
-			user: {
-				id: userId,
-				email: 'soldier@example.test',
-				createdAt,
-				lastSignInAt: null,
-				emailConfirmedAt: createdAt,
-				emailConfirmationStatus: 'confirmed'
-			},
-			organizations: [
-				{ id: 'org-a', name: 'Able Clinic', role: 'owner', personnelCount: 3 },
-				{ id: 'org-b', name: 'Bravo Clinic', role: 'member', personnelCount: 1 }
-			],
-			suspension: { suspendedAt: createdAt, suspendedBy: 'admin-1', reason: 'Support review' },
-			isSuspended: true,
-			isSelf: false,
-			canSuspend: true,
-			suspendDisabledReason: null,
-			recentActivity: [
-				{
-					id: 'audit-1',
-					action: 'view_personnel',
-					resourceType: 'personnel',
-					resourceId: 'person-1',
-					orgId: 'org-a',
-					timestamp: createdAt,
-					severity: 'info'
-				}
-			]
-		});
-	});
-
-	it("marks the operator's own account as not suspendable", async () => {
-		actorUserId = userId;
-		await expect(load(event())).resolves.toMatchObject({
-			isSelf: true,
-			canSuspend: false,
-			suspendDisabledReason: 'You cannot suspend your own account.'
-		});
+	it('redirects an admitted operator to the matching People page', async () => {
+		await expect(load(event())).rejects.toMatchObject({ status: 308, location: `/admin/people/${userId}` });
+		expect(
+			fetchProvider.mock.calls.every(([input]) => new URL(String(input)).pathname === '/rest/v1/platform_operators')
+		).toBe(true);
 	});
 
 	it.each([
@@ -209,18 +174,5 @@ describe('user detail request admission and retained projections', () => {
 		expect(
 			fetchProvider.mock.calls.every(([input]) => new URL(String(input)).pathname === '/rest/v1/platform_operators')
 		).toBe(true);
-	});
-
-	it('reports a sanitized identity-provider failure', async () => {
-		const standardProvider = fetchProvider.getMockImplementation()!;
-		fetchProvider.mockImplementation(async (input, init) =>
-			new URL(String(input)).pathname.startsWith('/auth/v1/')
-				? Response.json({ message: 'private provider failure' }, { status: 500 })
-				: standardProvider(input, init)
-		);
-		await expect(load(event())).rejects.toMatchObject({
-			status: 500,
-			body: { message: 'Failed to load user identity' }
-		});
 	});
 });

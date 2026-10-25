@@ -10,3 +10,11 @@ describe('retired admin routes', () => {
 		await expect(Promise.resolve().then(() => handler({} as never))).rejects.toMatchObject({ status: 308, location });
 	});
 });
+
+it('sends the old Reviewed request tab to Not set up People', async () => {
+	await expect(
+		Promise.resolve().then(() =>
+			accessRequests({ url: new URL('https://app.example.test/admin/access-requests?tab=reviewed') } as never)
+		)
+	).rejects.toMatchObject({ status: 308, location: '/admin/people?filter=notSetUp' });
+});

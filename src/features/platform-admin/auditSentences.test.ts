@@ -204,3 +204,17 @@ describe('activityScope', () => {
 		expect(scope.prefixes).toEqual(expect.arrayContaining(['admin.', 'access_request.', 'announcement_']));
 	});
 });
+
+it.each([
+	'access_request.account_setup_link_recording_failed',
+	'access_request.account_setup_link_sent',
+	'access_request.account_setup_link_resent',
+	'access_request.inviter_address_check_requested'
+])('attributes %s to the operator and the person named when it was written', (action) => {
+	const result = describeAuditEvent(
+		event({ action, details: { actorEmail: 'operator@example.test', targetName: 'Pat Rivera' } })
+	);
+	expect(result.sentence).toContain('operator@example.test');
+	expect(result.sentence).toContain('Pat Rivera');
+	expect(result.category).toBe('access');
+});

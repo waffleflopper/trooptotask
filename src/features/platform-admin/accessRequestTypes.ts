@@ -94,6 +94,7 @@ export interface PlatformAccessRequestAdminRejectCommand extends PlatformAccessR
 }
 
 export type PlatformAccessRequestAdminSendResult =
+	| { status: 'email_sent_audit_failed' | 'email_sent_recording_failed'; setupDeliveryStatus: 'sent' }
 	| { status: 'sent'; setupDeliveryStatus: 'sent' }
 	| { status: 'delivery_failed'; setupDeliveryStatus: 'failed' }
 	| { status: 'not_found' | 'already_reviewed' | 'not_approved' | 'setup_completed' | 'concurrent_create' }

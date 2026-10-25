@@ -186,3 +186,15 @@ describe('PlatformUserIdentityCommands', () => {
 		expect(audit).not.toHaveBeenCalled();
 	});
 });
+
+it('keeps an already-sent reset distinct from a provider failure when required audit fails', async () => {
+	const { commands, audit, store } = makeCommands();
+	audit.mockRejectedValue(new Error('Audit unavailable'));
+	await expect(
+		commands.sendPasswordReset({ userId: USER_ID, inboundOrigin: 'http://localhost' })
+	).resolves.toMatchObject({
+		status: 'email_sent_audit_failed',
+		email: 'soldier@example.mil'
+	});
+	expect(store.sendPasswordResetEmail).toHaveBeenCalled();
+});

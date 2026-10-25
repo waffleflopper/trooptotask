@@ -65,6 +65,26 @@ const mfaRequired = () => 'Recent MFA was required';
 
 /** Sentence text lives here and nowhere else. A new platform action is one more entry. */
 const REGISTRY: Record<string, RegistryEntry> = {
+	'access_request.account_setup_link_recording_failed': entry(
+		'access',
+		'warning',
+		(s) => `${s.actor} sent a setup email to ${s.target}, but its delivery record could not be saved`
+	),
+	'access_request.account_setup_link_sent': entry(
+		'access',
+		'info',
+		(s) => `${s.actor} sent a setup link to ${s.target}`
+	),
+	'access_request.account_setup_link_resent': entry(
+		'access',
+		'info',
+		(s) => `${s.actor} resent the setup link to ${s.target}`
+	),
+	'access_request.inviter_address_check_requested': entry(
+		'access',
+		'info',
+		(s) => `${s.actor} asked the inviter to check the address for ${s.target}`
+	),
 	'access_request.approved': entry('access', 'info', (s) => `${s.actor} approved the access request from ${s.target}`),
 	'access_request.rejected': entry(
 		'access',

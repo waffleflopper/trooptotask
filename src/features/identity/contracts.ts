@@ -1,3 +1,4 @@
+import type { PeopleQuery, IdentityPeoplePage } from './peopleTypes';
 // Identity facts admitted by the server hook, never supplied by request input.
 export interface AdmittedActor {
 	readonly userId: string;
@@ -179,16 +180,13 @@ export type AccessRequestSetupState =
 
 /** Account facts available to already-admitted platform support operations. */
 export interface IdentitySupportAccount {
+	mfaEnabled?: boolean;
 	id: string;
 	email: string | null;
 	createdAt: string;
 	lastSignInAt: string | null;
 	emailConfirmedAt: string | null;
 }
-
-export type IdentitySupportAccountListResult =
-	| { status: 'ok'; users: IdentitySupportAccount[] }
-	| { status: 'auth_error'; message: string };
 
 export type IdentitySupportAccountResult =
 	| { status: 'ok'; user: IdentitySupportAccount }
@@ -209,7 +207,7 @@ export interface IdentitySupportUserLabel {
 }
 
 export interface IdentityPlatformSupportReader {
-	listAuthUsers(): Promise<IdentitySupportAccountListResult>;
+	listPeople(input: PeopleQuery): Promise<IdentityPeoplePage>;
 	getAuthUser(userId: string): Promise<IdentitySupportAccountResult>;
 	searchUsersByEmail(input: {
 		query: string;
@@ -338,3 +336,9 @@ export interface IdentityPlatformAccessRequestStore {
 		actorUserId: string;
 	}): Promise<RescindAccessRequestAndBlockInvitationsResult>;
 }
+
+export type { PersonState, IdentityPerson, IdentityPeoplePage, PeopleFilter, PeopleQuery } from './peopleTypes';
+
+export type { SetupEmailInboxRow } from './setupEmailTypes';
+
+export type { SetupEmailTimeline } from './peopleTypes';

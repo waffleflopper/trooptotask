@@ -114,7 +114,7 @@ export function createAccessRequestSetupDeliveryService(
 		}
 
 		return {
-			status: issued.status === 'sent' ? 'fresh-setup-sent' : 'fresh-setup-delivery-failed'
+			status: issued.status === 'delivery_failed' ? 'fresh-setup-delivery-failed' : 'fresh-setup-sent'
 		};
 	}
 

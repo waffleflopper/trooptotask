@@ -178,6 +178,9 @@ describe('PlatformAudit', () => {
 		await expect(audit.listRecentByUser({ userId: 'user-2', limit: 1 })).resolves.toEqual([
 			{
 				id: 'user-new',
+				userId: 'user-2',
+				details: { invitation: 'resent' },
+				ipAddress: null,
 				action: 'admin.user.resend_invite',
 				resourceType: 'user',
 				resourceId: 'user-2',

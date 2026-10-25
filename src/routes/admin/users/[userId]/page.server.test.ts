@@ -32,38 +32,9 @@ describe('User detail HTTP delivery', () => {
 		accountOperations.getUserDetail.mockResolvedValue({ status: 'found', detail });
 	});
 
-	it('returns the safe detail including activity and that another User may be suspended', async () => {
-		const request = event();
-		await expect(load(request as never)).resolves.toEqual({
-			...detail,
-			isSelf: false,
-			canSuspend: true,
-			suspendDisabledReason: null
-		});
-		expect(createOperations).toHaveBeenCalledWith(request);
-		expect(accountOperations.getUserDetail).toHaveBeenCalledWith(USER_ID);
-	});
-
-	it("disables Suspend with a reason on the operator's own account", async () => {
-		const own = detail.user.id;
-		createOperations.mockResolvedValue({ ...accountOperations, adminUserId: own.toUpperCase() });
-		await expect(load(event(own) as never)).resolves.toMatchObject({
-			isSelf: true,
-			canSuspend: false,
-			suspendDisabledReason: 'You cannot suspend your own account.'
-		});
-	});
-
-	it.each([
-		{ result: { status: 'not_found' }, status: 404, message: 'User not found' },
-		{
-			result: { status: 'auth_error', message: 'private provider detail' },
-			status: 500,
-			message: 'Failed to load user identity'
-		}
-	])('maps $result.status to a safe detail response', async ({ result, status, message }) => {
-		accountOperations.getUserDetail.mockResolvedValueOnce(result);
-		await expect(load(event() as never)).rejects.toMatchObject({ status, body: { message } });
+	it('redirects account URLs to People with the account identity retained', async () => {
+		await expect(load(event() as never)).rejects.toMatchObject({ status: 308, location: `/admin/people/${USER_ID}` });
+		expect(accountOperations.getUserDetail).not.toHaveBeenCalled();
 	});
 
 	it('rejects malformed IDs before reading detail or issuing email commands', async () => {

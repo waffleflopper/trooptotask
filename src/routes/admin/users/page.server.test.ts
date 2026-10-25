@@ -23,4 +23,9 @@ describe('User directory HTTP delivery', () => {
 		expect(urlRead).not.toHaveBeenCalled();
 		expect(listUsers).not.toHaveBeenCalled();
 	});
+	it('redirects the old directory and preserves search and paging', async () => {
+		await expect(
+			load({ url: new URL('https://app.example.test/admin/users?search=Dana&page=2') } as never)
+		).rejects.toMatchObject({ status: 308, location: '/admin/people?search=Dana&page=2' });
+	});
 });

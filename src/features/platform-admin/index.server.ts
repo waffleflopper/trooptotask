@@ -11,3 +11,8 @@ export { validatePlatformAnnouncement } from './server/announcements.server';
 export { createPlatformInboxOperations } from './server/inboxOperations.server';
 export { mapApproveResult, mapRejectResult } from './server/accessRequestActionResults.server';
 export { createPlatformActivityOperations } from './server/activityOperations.server';
+
+export { createPlatformPeopleOperations } from './server/peopleOperations.server';
+export { createPlatformSetupEmailOperations } from './server/setupEmailOperations.server';
+
+export { mapResendSetupResult, mapRescindSetupResult } from './server/setupEmailActionResults.server';

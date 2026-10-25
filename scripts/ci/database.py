@@ -107,6 +107,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261024000500_group_editor_commands.sql",
     "20261025000100_platform_operator_safety.sql",
     "20261025090100_inbox_access_request_server_writes.sql",
+    "20261025130100_setup_email_bounces_and_account_directory.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -192,6 +193,7 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "setup_email_people.sql",
     "platform_operator_authorization.sql",
     "access_request_server_writes.sql",
     "calendar_assignment_atomic_replacement.sql",
@@ -681,7 +683,7 @@ def validate_seeds(repository, workdir, execute, psql):
     print('SQL seeds rolled back and generated performance seed columns resolved.', flush=True)
 
 
-def validate(repository, *, staged_upgrade=False):
+def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sql_tests=None):
     global _spawning, _deferred_signal
     execute = partial(run, environment=_receipt.environment() if _receipt else local_docker_environment(repository))
     source = tomllib.loads((repository / "supabase/config.toml").read_text())
@@ -764,6 +766,14 @@ def validate(repository, *, staged_upgrade=False):
                 workdir, environment=_provider_environment(repository, workdir, execute))
             print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding, Organization Storage and account preference scope upgrades passed.", flush=True)
             return
+        if setup_people_explain:
+            execute([*psql[:2], "-i", *psql[2:]], workdir,
+                    input_text=(repository / "scripts/ci/setup_people_explain.sql").read_text())
+        if sql_tests:
+            for name in sql_tests:
+                execute(["supabase", "test", "db", f"supabase/tests/{name}"], workdir)
+            print("Fresh replay and selected SQL contracts passed.", flush=True)
+            return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True
         for migration_test in (
@@ -830,6 +840,8 @@ def cleanup_standalone(execute, workdir, project_id, runner, started, runner_sta
 def main():
     global _receipt, _interrupt_signal
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--setup-people-explain', action='store_true')
+    parser.add_argument('--sql-test', action='append', help='Rerun a named supabase/tests contract after a focused repair')
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--receipt', type=Path)
     modes.add_argument('--cleanup', type=Path)
@@ -856,7 +868,11 @@ def main():
         if args.receipt:
             environment = local_docker_environment(repository)
             _receipt = JobReceipt(args.receipt, create=True, endpoint=environment['DOCKER_HOST'])
-        validate(repository)
+        if args.sql_test:
+            for name in args.sql_test:
+                if Path(name).name != name or not name.endswith('.sql') or not (repository / 'supabase/tests' / name).is_file():
+                    raise ValueError('SQL test must name an existing file under supabase/tests')
+        validate(repository, setup_people_explain=args.setup_people_explain, sql_tests=args.sql_test)
         validate(repository, staged_upgrade=True)
     except (subprocess.CalledProcessError, OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
         print(f"Database validation failed: {error}", flush=True)

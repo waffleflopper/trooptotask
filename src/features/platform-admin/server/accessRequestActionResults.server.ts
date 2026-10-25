@@ -6,6 +6,18 @@ const RELOAD_ADVICE = 'Reload this item to see where it stands before trying aga
 
 export function mapApproveResult(result: PlatformAccessRequestAdminSendResult) {
 	switch (result.status) {
+		case 'email_sent_recording_failed':
+			return fail(500, {
+				status: result.status,
+				emailSent: true,
+				error: 'The setup email was sent, but its delivery record could not be saved. Reload before sending again.'
+			});
+		case 'email_sent_audit_failed':
+			return fail(500, {
+				status: result.status,
+				emailSent: true,
+				error: 'The setup email was sent, but the required audit could not be recorded. Reload before sending again.'
+			});
 		case 'sent':
 		case 'delivery_failed':
 			return { success: true, action: 'approve', setupDeliveryStatus: result.setupDeliveryStatus };

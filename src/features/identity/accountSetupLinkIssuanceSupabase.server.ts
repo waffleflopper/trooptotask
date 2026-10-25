@@ -22,8 +22,34 @@ export function createSupabaseAccountSetupLinkIssuancePorts(client: SupabaseClie
 	return {
 		setupLinks: createAccountSetupLinkService(createSupabaseAccountSetupLinkStore(client)),
 		setupDelivery: {
-			send: (input) =>
-				sendAccountSetupOutboxDelivery(createSupabaseAuthEmailOutboxStore(client), sendAccountSetupLinkEmail, input)
+			send: async (input) => {
+				const delivery = await sendAccountSetupOutboxDelivery(
+					createSupabaseAuthEmailOutboxStore(client),
+					sendAccountSetupLinkEmail,
+					input
+				);
+				if (delivery.status !== 'sent') return delivery;
+				if (!delivery.emailId)
+					return {
+						status: 'sent_recording_failed',
+						outbox: delivery.outbox,
+						error: 'The setup email was sent, but the provider did not return a valid delivery ID'
+					};
+				try {
+					const { error } = await client
+						.from('account_setup_links')
+						.update({ resend_email_id: delivery.emailId })
+						.eq('id', input.setupLinkId);
+					if (error) throw error;
+				} catch {
+					return {
+						status: 'sent_recording_failed',
+						outbox: delivery.outbox,
+						error: 'The setup email was sent, but its delivery ID could not be recorded'
+					};
+				}
+				return delivery;
+			}
 		}
 	};
 }

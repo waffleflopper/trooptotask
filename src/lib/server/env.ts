@@ -62,7 +62,8 @@ export function validateEnvironmentConfig(input: EnvironmentConfigInput): Enviro
 
 		// Optional — only needed for email invitations
 		{ name: 'RESEND_API_KEY', value: input.env.RESEND_API_KEY, required: false },
-		{ name: 'RESEND_FROM_EMAIL', value: input.env.RESEND_FROM_EMAIL, required: false }
+		{ name: 'RESEND_FROM_EMAIL', value: input.env.RESEND_FROM_EMAIL, required: false },
+		{ name: 'RESEND_WEBHOOK_SECRET', value: input.env.RESEND_WEBHOOK_SECRET, required: false }
 	];
 
 	const errors = vars.filter((v) => v.required && !isPresent(v.value)).map((v) => `${v.name} is required`);
@@ -105,6 +106,7 @@ function currentEnv(): Record<string, string | undefined> {
 		SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
 		RESEND_API_KEY: env.RESEND_API_KEY,
 		RESEND_FROM_EMAIL: env.RESEND_FROM_EMAIL,
+		RESEND_WEBHOOK_SECRET: env.RESEND_WEBHOOK_SECRET,
 		ACCOUNT_SETUP_SESSION_SECRET: env.ACCOUNT_SETUP_SESSION_SECRET,
 		APP_PUBLIC_ORIGIN: env.APP_PUBLIC_ORIGIN ?? process.env.APP_PUBLIC_ORIGIN,
 		PUBLIC_APP_ORIGIN: env.PUBLIC_APP_ORIGIN ?? process.env.PUBLIC_APP_ORIGIN,

@@ -11,3 +11,5 @@ export type {
 	PlatformAnnouncementType,
 	PlatformAnnouncementValidation
 } from './announcementTypes';
+
+export type { PlatformUserDirectoryList } from './userDirectoryTypes';

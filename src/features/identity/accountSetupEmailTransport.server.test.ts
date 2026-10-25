@@ -27,8 +27,8 @@ describe('Account Setup email transport', () => {
 	});
 
 	it('delivers to the configured provider with the intended sender and recipient', async () => {
-		const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 202 }));
-		await send(fetchImpl);
+		const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ id: 'resend-synthetic' }));
+		await expect(send(fetchImpl)).resolves.toBe('resend-synthetic');
 		expect(fetchImpl).toHaveBeenCalledExactlyOnceWith(
 			'https://api.resend.com/emails',
 			expect.objectContaining({
@@ -68,4 +68,14 @@ describe('Account Setup email transport', () => {
 		await expect(send(fetchImpl)).rejects.toThrow('connection refused');
 		expect(fetch).not.toHaveBeenCalled();
 	});
+});
+
+it('keeps provider acceptance distinct from a missing delivery ID', async () => {
+	vi.stubEnv('RESEND_API_KEY', 'synthetic-provider-key');
+	vi.stubEnv('RESEND_FROM_EMAIL', 'sender@example.test');
+	try {
+		await expect(send(async () => new Response('invalid-json', { status: 200 }))).resolves.toBeNull();
+	} finally {
+		vi.unstubAllEnvs();
+	}
 });

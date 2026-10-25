@@ -38,14 +38,21 @@ export function createPlatformUserIdentityCommands(
 			});
 			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to send password reset' };
 
-			await deps.audit.log({
-				action: 'admin.user.password_reset',
-				resourceType: 'user',
-				resourceId: input.userId,
-				details: { targetEmail: userEmail.email },
-				severity: 'warning'
-			});
-
+			try {
+				await deps.audit.log({
+					action: 'admin.user.password_reset',
+					resourceType: 'user',
+					resourceId: input.userId,
+					details: { targetEmail: userEmail.email },
+					severity: 'warning'
+				});
+			} catch {
+				return {
+					status: 'email_sent_audit_failed',
+					email: userEmail.email,
+					message: 'The email was sent, but the required audit could not be recorded. Reload before sending again.'
+				};
+			}
 			return {
 				status: 'sent',
 				email: userEmail.email,
@@ -69,14 +76,21 @@ export function createPlatformUserIdentityCommands(
 			});
 			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to resend invite' };
 
-			await deps.audit.log({
-				action: 'admin.user.resend_invite',
-				resourceType: 'user',
-				resourceId: input.userId,
-				details: { targetEmail: userEmail.email },
-				severity: 'info'
-			});
-
+			try {
+				await deps.audit.log({
+					action: 'admin.user.resend_invite',
+					resourceType: 'user',
+					resourceId: input.userId,
+					details: { targetEmail: userEmail.email },
+					severity: 'info'
+				});
+			} catch {
+				return {
+					status: 'email_sent_audit_failed',
+					email: userEmail.email,
+					message: 'The email was sent, but the required audit could not be recorded. Reload before sending again.'
+				};
+			}
 			return {
 				status: 'sent',
 				email: userEmail.email,

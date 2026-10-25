@@ -276,3 +276,28 @@ describe('access request setup delivery', () => {
 		}
 	});
 });
+
+it.each(['audit', 'delivery-record'] as const)(
+	'acknowledges a sent public renewal when its %s write fails afterward',
+	async (failure) => {
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
+		const sendSetupEmail = vi.fn().mockResolvedValue(undefined);
+		if (failure === 'delivery-record')
+			store.markSetupEmailDeliverySent = async () => {
+				throw new Error('Database unavailable');
+			};
+		const service = createAccessRequestSetupDeliveryFixture(store, sendSetupEmail, {
+			now: nowFn,
+			audit:
+				failure === 'audit'
+					? async () => {
+							throw new Error('Audit unavailable');
+						}
+					: async () => {}
+		});
+		await expect(service.submitAccessRequest(makeSubmission({ origin: 'http://localhost' }))).resolves.toEqual({
+			status: 'fresh-setup-sent'
+		});
+		expect(sendSetupEmail).toHaveBeenCalled();
+	}
+);

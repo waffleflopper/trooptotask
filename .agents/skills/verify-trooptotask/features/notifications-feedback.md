@@ -36,9 +36,9 @@ enters the Organization Dashboard through normal sign-in. `seed communications` 
 peer/foreign/switch sentinels and active/inactive/expired global announcements. It records exact IDs before insertion;
 `clean-seeds` removes only those IDs in their recorded Organization or the helper-owned global announcement IDs.
 `fixture` reports public notification account IDs. `communications ROLE` reads only that synthetic account's feedback
-and dismissals of helper-owned announcements. `platformReviewer` and `platformSupport` are isolated no-Organization
-accounts with super-admin/support roles; `actor ROLE admin/feedback` uses the normal sign-in form for their existing
-allowed Feedback review paths. Communications readback also retains Admin Notes. See the
+and dismissals of helper-owned announcements. `platformReviewer` is the isolated no-Organization platform operator and `platformSupport` an isolated
+no-Organization account with no operator row; `actor platformReviewer admin/feedback` signs the operator in at aal2 for
+the Feedback review path. Communications readback also retains Admin Notes. See the
 [communications recipe](notifications-feedback.md).
 
 `network` also supports `notifications` at the exact A endpoint and global `feedback` and `announcements/dismiss`
@@ -112,11 +112,9 @@ endpoints).
    hidden banner with no dismissal fails. Retry successfully and read back one dismissal. Repeated endpoint dismissal
    must be idempotent for that account.
 7. **Support review and Organization export.** Use `$V actor platformReviewer admin/feedback` to enter the existing
-   Feedback page with an isolated super-admin account. Find a uniquely submitted message, expand it, save Reviewed
+   Feedback page with the isolated operator account. Find a uniquely submitted message, expand it, save Reviewed
    status and a unique Admin Notes value, then reload and inspect the Reviewed tab and exact communications readback.
-   Resolve the same item and verify its saved identity/message remain. `platformSupport` also has existing Feedback
-   read/update admission: repeat a support review and verify status/notes after reload. An ordinary member cannot enter
-   the admin page. Do not confuse Feedback admission with the narrower Platform announcement management policy. For
+   Resolve the same item and verify its saved identity/message remain. `platformSupport` and an ordinary member cannot enter the admin page. Do not confuse Feedback admission with the narrower Platform announcement management policy. For
    Organization exports, submit distinct feedback as `orgOwner`, read its exact fields and capture A/B notification
    sentinels. Enter `settings/exports`, download JSON and Excel through visible controls using `export arm/save`,
    inspect their Notifications/Beta Feedback sections/sheets and metadata, and compare saved values/counts with provider

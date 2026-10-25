@@ -477,7 +477,7 @@ async function main() {
 		if (!seed) throw new Error('Seed platform-admin first.');
 		const body = JSON.parse(bodyText);
 		const access = ['approve', 'reject', 'resend'].includes(family);
-		const membership = ['makeAdmin', 'transferOwnership'].includes(family);
+		const membership = family === 'transferOwnership';
 		const targetId = access
 			? seed.requests[targetKey]?.id
 			: membership
@@ -488,7 +488,8 @@ async function main() {
 					? targetKey === 'organization'
 						? seed.organization.id
 						: null
-					: ['orgCreator', 'orgInvitee', 'orgMember'].includes(targetKey)
+					: ['orgCreator', 'orgInvitee', 'orgMember'].includes(targetKey) ||
+						  (family === 'suspend' && targetKey === 'platformReviewer')
 						? fixture.actors[targetKey].id
 						: null;
 		if (!targetId) throw new Error('Unknown recorded platform target.');
@@ -637,9 +638,9 @@ async function main() {
 		});
 		return;
 	}
-	const identityPage = async (page, role) => {
+	const identityPage = async (page, role, roles = fixture.identityActors) => {
 		const pageId = Number(page);
-		if (!Number.isInteger(pageId) || pageId < 1 || !fixture.identityActors.includes(role))
+		if (!Number.isInteger(pageId) || pageId < 1 || !roles.includes(role))
 			throw new Error('Use an owned page ID and an identity fixture role.');
 		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
 			throw new Error('The page is not on the owned app origin.');
@@ -652,7 +653,7 @@ async function main() {
 	const pendingPasswords = path.join(session, 'identity-pending-passwords.json');
 	if (command === 'mfa-code') {
 		const [page, role, label, occurrence] = args;
-		const pageId = await identityPage(page, role);
+		const pageId = await identityPage(page, role, [...fixture.identityActors, ...fixture.operatorActors]);
 		if (!label) throw new Error('Use mfa-code PAGE ROLE LABEL [OCCURRENCE].');
 		const { factor, code } = await environment('totp-code', session, fixture.actors[role].id);
 		await fillPrivate(pageId, label, occurrence, code);
@@ -860,7 +861,7 @@ async function main() {
 		return;
 	}
 	if (command === 'actor') {
-		const { form, showWhatsNew, args: actorArgs } = actorArguments(args);
+		const { form, showWhatsNew, aal1, staleMfa, args: actorArgs } = actorArguments(args);
 		const [role, destination = 'calendar', workloadName] = actorArgs;
 		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
 		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped', 'perfScopedLeader'].includes(role)))
@@ -1035,7 +1036,8 @@ async function main() {
 				password: fixture.actors[role].password,
 				destination: destinationPath,
 				isolatedContext: browserContext,
-				showWhatsNew
+				showWhatsNew,
+				...(fixture.operatorActors.includes(role) && !aal1 ? { mfa: staleMfa ? 'stale' : 'fresh' } : {})
 			});
 			pageId = signedIn.pageId;
 			await tool(state, 'navigate_page', { pageId, type: 'url', url: `${doctor.origin}${signedIn.path}` });
@@ -3201,7 +3203,11 @@ async function main() {
 				ownedState: await saved(),
 				save,
 				provider,
-				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
+				credentials: (role) => ({
+					email: fixture.actors[role].email,
+					password: fixture.actors[role].password,
+					...(fixture.operatorActors.includes(role) ? { mfa: 'fresh' } : {})
+				}),
 				sessionPage: (input) => run(state, { command: 'session-page', ...input }),
 				database: perfDatabase,
 				host: hostMonitor([repository, path.dirname(session)], {

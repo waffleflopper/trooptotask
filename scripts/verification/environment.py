@@ -236,6 +236,19 @@ class OwnedDatabase:
         """).strip()
         return int(output or 0)
 
+    def age_mfa(self, user_id, minutes):
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            WITH aged AS (
+              UPDATE auth.mfa_amr_claims c SET updated_at = c.updated_at - make_interval(mins => {minutes})
+              FROM auth.sessions s JOIN auth.users u ON u.id = s.user_id
+              WHERE c.session_id = s.id AND c.authentication_method = 'totp'
+                AND u.id = '{user_id}'::uuid AND u.email LIKE '%@example.test'
+              RETURNING c.id)
+            SELECT count(*) FROM aged;
+        """).strip()
+        return int(output or 0)
+
     def age_sessions(self, user_id, hours):
         output = self._execute(f"""
             SET statement_timeout = '10s';
@@ -445,6 +458,17 @@ def session_age(session, user_id, hours):
     if aged < 1:
         raise Blocked("This synthetic account has no provider session to age.")
     return {"status": "PASS", "sessions": aged, "hours": int(hours)}
+
+
+def mfa_age(session, user_id, minutes):
+    # Back-dates the provider's own MFA verification so the app's real 10-minute check runs.
+    user_id = canonical_uuid(user_id)
+    if not re.fullmatch(r"[1-9]|[1-5][0-9]|60", str(minutes)):
+        raise Blocked("Use mfa-age with 1 to 60 minutes.")
+    aged = OwnedDatabase(session).age_mfa(user_id, int(minutes))
+    if aged < 1:
+        raise Blocked("This synthetic account has no MFA verification to age.")
+    return {"status": "PASS", "verifications": aged, "minutes": int(minutes)}
 
 
 def session_count(session, user_id):
@@ -794,6 +818,10 @@ def main():
     age.add_argument("session")
     age.add_argument("user_id")
     age.add_argument("hours")
+    mfa = subcommands.add_parser("mfa-age", help="Move one synthetic account's MFA verification back 1-60 minutes")
+    mfa.add_argument("session")
+    mfa.add_argument("user_id")
+    mfa.add_argument("minutes")
     statements = subcommands.add_parser("perf-statements", help="Reset or read pg_stat_statements on the owned database")
     statements.add_argument("session")
     statements.add_argument("action", choices=("reset", "read"))
@@ -813,6 +841,8 @@ def main():
             result = session_count(session, args.user_id)
         elif args.command == "session-age":
             result = session_age(session, args.user_id, args.hours)
+        elif args.command == "mfa-age":
+            result = mfa_age(session, args.user_id, args.minutes)
         elif args.command == "perf-statements":
             result = perf_statements(session, args.action)
         elif args.command == "perf-prepare":

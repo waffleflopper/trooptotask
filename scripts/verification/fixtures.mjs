@@ -262,6 +262,8 @@ export async function seed(session) {
 	};
 	// Dedicated Organization A members whose credentials, factor or suspension identity journeys may change.
 	const identityActors = ['identityMfa', 'identityRecovery', 'identitySecurity', 'identitySuspended'];
+	// The one platform operator, enrolled with a verified authenticator. The other platform actors hold no operator row.
+	const operatorActors = ['platformReviewer'];
 	const dashboardActors = {
 		dashboardView: { level: 'view', scope: 'organization' },
 		dashboardScoped: { level: 'view', scope: 'groups', groups: [ids.groupA] },
@@ -311,14 +313,7 @@ export async function seed(session) {
 		existingAccount: actors.orgInvitee.email,
 		newAccount: `org-new-invitee-${randomUUID()}@example.test`
 	};
-	checked(
-		await service.from('platform_admins').insert([
-			{ user_id: actors.platformReviewer.id, role: 'super_admin', is_active: true },
-			{ user_id: actors.platformSupport.id, role: 'support', is_active: true },
-			{ user_id: actors.platformBilling.id, role: 'billing', is_active: true },
-			{ user_id: actors.platformInactive.id, role: 'super_admin', is_active: false }
-		])
-	);
+	checked(await service.from('platform_operators').insert({ user_id: actors.platformReviewer.id }));
 	checked(
 		await service.from('organizations').insert([
 			{ id: ids.orgA, name: 'Verification Organization A', created_by: actors.orgOwner.id },
@@ -1237,6 +1232,7 @@ export async function seed(session) {
 		})
 	);
 	await enrollVerifiedTotp(session, actors.identityMfa);
+	await enrollVerifiedTotp(session, actors.platformReviewer);
 	const fixture = {
 		ids,
 		rankCatalog,
@@ -1251,7 +1247,8 @@ export async function seed(session) {
 		organizationActors,
 		notificationActors,
 		deletionActors,
-		identityActors
+		identityActors,
+		operatorActors
 	};
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;

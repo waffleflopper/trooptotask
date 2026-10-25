@@ -156,3 +156,60 @@ it('keeps the pressed Suspend focusable and busy while the change is held, and s
 	expect(await screen.findByText('Change denied')).toBeTruthy();
 	expect(suspend.getAttribute('aria-busy')).toBeNull();
 });
+
+function stubLocation() {
+	const location = {
+		origin: 'https://app.example.test',
+		pathname: '/admin/users/user-alpha',
+		search: '?tab=1',
+		href: ''
+	};
+	vi.stubGlobal('location', location);
+	return location;
+}
+
+it.each([
+	['/auth/mfa-verify', 'https://app.example.test/auth/mfa-verify?next=%2Fadmin%2Fusers%2Fuser-alpha%3Ftab%3D1'],
+	['/auth/mfa-setup', 'https://app.example.test/auth/mfa-setup?next=%2Fadmin%2Fusers%2Fuser-alpha%3Ftab%3D1']
+])('sends the operator to %s and back when the server asks for step-up', async (stepUpPath, destination) => {
+	const location = stubLocation();
+	const fetch = vi
+		.fn()
+		.mockResolvedValue(Response.json({ message: 'Verify again', requiresStepUp: true, stepUpPath }, { status: 403 }));
+	vi.stubGlobal('fetch', fetch);
+	const callbacks = props();
+	render(SuspendModal, callbacks);
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	await waitFor(() => expect(location.href).toBe(destination));
+	expect(screen.getByText(/Nothing has been changed yet/)).toBeTruthy();
+	expect(screen.getByRole('button', { name: /Verifying/ }).getAttribute('aria-busy')).toBe('true');
+	expect(screen.queryByText('Verify again')).toBeNull();
+	expect(callbacks.onComplete).not.toHaveBeenCalled();
+	await fireEvent.click(screen.getByRole('button', { name: /Verifying/ }));
+	expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('sends an unsuspend through the same step-up', async () => {
+	const location = stubLocation();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue(Response.json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }, { status: 403 }))
+	);
+	render(SuspendModal, { ...props(), isSuspended: true });
+	await fireEvent.click(screen.getByRole('button', { name: 'Unsuspend' }));
+	await waitFor(() => expect(location.href).toContain('/auth/mfa-verify?next='));
+});
+
+it('offers another try when the browser returns from an abandoned step-up', async () => {
+	stubLocation();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue(Response.json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }, { status: 403 }))
+	);
+	render(SuspendModal, props());
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	await screen.findByRole('button', { name: /Verifying/ });
+	window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }));
+	expect(await screen.findByText(/Multi-factor verification was not completed/)).toBeTruthy();
+	expect(screen.getByRole('button', { name: 'Suspend' }).getAttribute('aria-busy')).toBeNull();
+});

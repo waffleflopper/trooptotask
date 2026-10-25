@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
-import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { openToolbarMore } from '$lib/test-support/toolbarWidths';
 
 const { invalidateAll, beforeNavigate } = vi.hoisted(() => ({ invalidateAll: vi.fn(), beforeNavigate: vi.fn() }));
 vi.mock('$app/navigation', () => ({ invalidateAll, beforeNavigate }));
@@ -99,6 +99,25 @@ async function submitAccountEmail(name: string) {
 }
 
 describe('admin user detail page', () => {
+	it('shows Suspend disabled with its reason on your own account', async () => {
+		render(Page, {
+			props: {
+				data: makePageData({
+					isSelf: true,
+					canSuspend: false,
+					suspendDisabledReason: 'You cannot suspend your own account.'
+				})
+			}
+		});
+		await act();
+		const suspend = screen.getByRole('button', { name: 'Suspend User' });
+		expect(suspend.hasAttribute('disabled')).toBe(true);
+		expect(suspend.getAttribute('title')).toBe('You cannot suspend your own account.');
+		const reasonId = suspend.getAttribute('aria-describedby')!;
+		expect(document.getElementById(reasonId)?.textContent).toBe('You cannot suspend your own account.');
+		expect(screen.getAllByText('You cannot suspend your own account.').length).toBeGreaterThan(0);
+	});
+
 	it.each(['Send Password Reset', 'Resend Invite'])(
 		'ignores a delayed %s result after leaving and reopening the account',
 		async (name) => {

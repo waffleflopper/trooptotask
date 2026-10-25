@@ -219,6 +219,37 @@ describe('admin What’s New', () => {
 		expect(invalidateAll).toHaveBeenCalledOnce();
 	});
 
+	it('leaves the deleted entry’s address once the delete succeeds, even after its editor is gone', async () => {
+		await renderPage('?entry=draft-1');
+		await submit(await screen.findByRole('button', { name: 'Delete Draft' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		const deleteForm = screen.getByRole('button', { name: 'Delete Draft' }).closest('form')!;
+		const detached = document.createElement('form');
+		const input = {
+			formElement: detached,
+			formData: new FormData(deleteForm),
+			action: new URL(deleteForm.action),
+			controller: new AbortController(),
+			submitter: null,
+			cancel: vi.fn()
+		};
+		let callback: Awaited<ReturnType<SubmitFunction>>;
+		await act(async () => {
+			callback = await forms.get('?/delete')!(input);
+		});
+		expect(input.cancel).not.toHaveBeenCalled();
+		await act(async () => {
+			await callback!({
+				...input,
+				...frameworkOutcome(
+					{ type: 'success', status: 200, data: { deleted: true } },
+					{ form: deleteForm, applyForm: async () => {}, invalidate: () => invalidateAll() }
+				)
+			});
+		});
+		expect(gotoMock).toHaveBeenCalledWith('/admin/announcements/whats-new', expect.anything());
+	});
+
 	it('asks before deleting a draft and ignores a reply that arrives after leaving the page', async () => {
 		await renderPage('?entry=draft-1');
 		const request = await submit(await screen.findByRole('button', { name: 'Delete Draft' }));

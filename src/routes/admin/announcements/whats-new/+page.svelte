@@ -164,7 +164,7 @@
 						} else if (result.type === 'failure') {
 							if (isCurrentEditor())
 								actionError = typeof result.data?.error === 'string' ? result.data.error : 'Entry could not be saved.';
-						} else if (result.type === 'success' && isCurrentEditor()) {
+						} else if (result.type === 'success' && isCurrent() && page.url.searchParams.get('entry') === startedOn) {
 							const saved = result.data as { id?: string; deleted?: boolean } | undefined;
 							if (saved?.deleted) void select(null);
 							else if (saved?.id && saved.id !== startedOn) void select(saved.id);

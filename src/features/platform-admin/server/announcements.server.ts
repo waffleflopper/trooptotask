@@ -92,12 +92,14 @@ export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependenc
 		},
 
 		async delete(id) {
+			const existing = (await deps.store.listAnnouncements()).find((announcement) => announcement.id === id);
 			await deps.store.deleteAnnouncement(id);
 
 			await deps.audit({
 				action: 'announcement_delete',
 				resourceType: 'platform_announcement',
 				resourceId: id,
+				details: existing ? { title: existing.title } : undefined,
 				severity: 'warning'
 			});
 

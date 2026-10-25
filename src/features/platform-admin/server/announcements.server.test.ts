@@ -142,6 +142,7 @@ describe('PlatformAnnouncements', () => {
 			action: 'announcement_delete',
 			resourceType: 'platform_announcement',
 			resourceId: SECOND_ID,
+			details: { title: 'Maintenance' },
 			severity: 'warning'
 		});
 		await expect(announcements.list()).resolves.not.toEqual(

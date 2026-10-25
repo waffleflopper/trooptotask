@@ -140,6 +140,44 @@ describe('auditLog', () => {
 			});
 		});
 
+		it('keep an Organization-scoped event redacted: no actor email, no typed reason', async () => {
+			await auditLog(
+				{
+					action: 'suspend_org',
+					resourceType: 'organization',
+					resourceId: 'org-1',
+					orgId: 'org-1',
+					details: { targetName: 'Alpha Company', reason: 'Unpaid invoice' }
+				},
+				operator,
+				{ required: true }
+			);
+
+			expect(insert.mock.calls[0]?.[0].details).toEqual({
+				targetName: 'Alpha Company',
+				reason: '[redacted]',
+				redacted_fields: ['reason']
+			});
+		});
+
+		it('name a revoked setup link by the access request it belonged to', async () => {
+			maybeSingle.mockResolvedValue({ data: { name: 'Pat Doe', email: 'pat@example.test' } });
+
+			await auditLog(
+				{
+					action: 'account_setup.link_revoked',
+					resourceType: 'account_setup_link',
+					resourceId: 'link-1',
+					details: { accessRequestId: 'request-1' }
+				},
+				operator,
+				{ required: true }
+			);
+
+			expect(from).toHaveBeenCalledWith('access_requests');
+			expect(insert.mock.calls[0]?.[0].details).toMatchObject({ targetName: 'Pat Doe' });
+		});
+
 		it('read the target name from its record when the command did not supply one', async () => {
 			maybeSingle.mockResolvedValue({ data: { name: 'Alpha Company' } });
 
@@ -150,10 +188,7 @@ describe('auditLog', () => {
 			);
 
 			expect(from).toHaveBeenCalledWith('organizations');
-			expect(insert.mock.calls[0]?.[0].details).toEqual({
-				actorEmail: 'robert@example.test',
-				targetName: 'Alpha Company'
-			});
+			expect(insert.mock.calls[0]?.[0].details).toEqual({ targetName: 'Alpha Company' });
 		});
 
 		it('still write when the target record cannot be read', async () => {

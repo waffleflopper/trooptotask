@@ -99,7 +99,8 @@ Organization audit references. It omits setup tokens and delivery payloads.
    `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension. Enter the code with
    `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its event in Activity: open
    `$V actor platformReviewer admin/activity`, and the newest row reads
-   `<operator email> suspended <Organization name>` with the reason under `Details`. For every
+   `<operator email> suspended <Organization name>`. An Organization's owners can read their own audit rows, so the typed
+   reason is not stored for Organization events and `Details` lists no `Reason`; the operator email is looked up when read. For every
    later case below use `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the temporary Organization's Suspend dialog from
    `More Organization controls`. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one exact POST
    before provider dispatch. Submit visibly: keep the dialog/reason, show failure, and leave rows unchanged. A

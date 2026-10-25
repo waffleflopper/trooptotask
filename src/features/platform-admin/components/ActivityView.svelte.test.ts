@@ -179,6 +179,7 @@ describe('ActivityView', () => {
 		await Promise.resolve();
 
 		expect(screen.queryByText('Unable to load Activity')).toBeNull();
+		expect(screen.getByText('robert@example.test suspended Alpha Company')).toBeTruthy();
 	});
 
 	it('puts the category, the debounced search and a date preset in the address', async () => {

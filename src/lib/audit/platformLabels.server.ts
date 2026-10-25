@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { AuditEvent } from './contracts';
 
 const NAME_MAX_LENGTH = 200;
 
@@ -11,9 +12,9 @@ const clip = (value: unknown): string | null =>
  */
 export async function resolvePlatformTargetName(
 	admin: SupabaseClient,
-	resourceType: string,
-	resourceId: string | undefined
+	event: Pick<AuditEvent, 'resourceType' | 'resourceId' | 'details'>
 ): Promise<string | null> {
+	const { resourceType, resourceId } = event;
 	if (!resourceId) return null;
 	try {
 		switch (resourceType) {
@@ -32,6 +33,12 @@ export async function resolvePlatformTargetName(
 			case 'platform_announcement': {
 				const { data } = await admin.from('platform_announcements').select('title').eq('id', resourceId).maybeSingle();
 				return clip(data?.title);
+			}
+			case 'account_setup_link': {
+				const requestId = event.details?.accessRequestId;
+				if (typeof requestId !== 'string') return null;
+				const { data } = await admin.from('access_requests').select('name, email').eq('id', requestId).maybeSingle();
+				return clip(data?.name) ?? clip(data?.email);
 			}
 			default:
 				return null;

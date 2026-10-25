@@ -3,7 +3,7 @@ import { getAdminClient } from '$lib/server/supabase';
 import type { AuditEvent } from './contracts';
 import { resolvePlatformTargetName } from './platformLabels.server';
 
-const PLATFORM_PASSTHROUGH_MAX_LENGTH = 500;
+const TARGET_NAME_MAX_LENGTH = 200;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -181,28 +181,30 @@ function sanitizeDetails(
 }
 
 /**
- * Platform events keep the actor's email and the target's name beside the IDs, and an operator's typed reason as written,
- * so Activity reads as sentences. Other callers keep the redaction above.
+ * Platform events keep the target's name beside the IDs so Activity reads as sentences. Events with no Organization
+ * also keep the actor's email and the operator's typed reason as written. An Organization's owners can read their own
+ * rows, so Organization-scoped events keep the redaction above and Activity looks the actor up when it reads.
+ * Other callers keep the redaction as well.
  */
 async function platformDetails(
 	admin: ReturnType<typeof getAdminClient>,
 	event: AuditEvent,
 	requestInfo: { userId?: string | null; userEmail?: string | null }
 ): Promise<Record<string, unknown> | undefined> {
-	const { targetName, reason, ...rest } = event.details ?? {};
+	const { targetName, ...rest } = event.details ?? {};
 	const written = (value: unknown) =>
-		typeof value === 'string' && value.trim() !== ''
-			? value.trim().slice(0, PLATFORM_PASSTHROUGH_MAX_LENGTH)
-			: undefined;
-	const labels = {
-		actorEmail: requestInfo.userEmail ? requestInfo.userEmail.trim().toLowerCase() : undefined,
-		targetName:
-			written(targetName) ??
-			(await resolvePlatformTargetName(admin, event.resourceType, event.resourceId)) ??
-			undefined,
-		reason: written(reason)
+		typeof value === 'string' && value.trim() !== '' ? value.trim().slice(0, TARGET_NAME_MAX_LENGTH) : undefined;
+	const labels: Record<string, string | undefined> = {
+		targetName: written(targetName) ?? (await resolvePlatformTargetName(admin, event)) ?? undefined
 	};
-	const sanitized = sanitizeDetails({ ...event, details: rest }, requestInfo);
+	let redacted = rest;
+	if (!event.orgId) {
+		const { reason, ...others } = rest;
+		redacted = others;
+		labels.actorEmail = requestInfo.userEmail?.trim().toLowerCase() || undefined;
+		labels.reason = typeof reason === 'string' ? reason.trim() || undefined : undefined;
+	}
+	const sanitized = sanitizeDetails({ ...event, details: redacted }, requestInfo);
 	const merged = {
 		...sanitized,
 		...Object.fromEntries(Object.entries(labels).filter(([, value]) => value !== undefined))

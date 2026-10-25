@@ -125,7 +125,7 @@ export async function seedPlatformActivity({ client, fixture, tag, ownedState, s
 			org_id: fixture.ids.orgA,
 			resource_type: 'organization',
 			resource_id: fixture.ids.orgA,
-			details: labels(`Activity verification ${tag}`, { reason: `Synthetic hold ${tag}` })
+			details: { targetName: `Activity verification ${tag}` }
 		}),
 		event(1, 'access_request.approved', 'info', {
 			resource_type: 'access_request',
@@ -152,10 +152,11 @@ export async function seedPlatformActivity({ client, fixture, tag, ownedState, s
 			org_id: fixture.ids.orgA,
 			resource_type: 'organization',
 			resource_id: fixture.ids.orgA,
-			details: labels(`Activity verification ${tag}`, {
+			details: {
+				targetName: `Activity verification ${tag}`,
 				fromUserId: fixture.actors.orgCreator.id,
 				toUserId: fixture.actors.orgMember.id
-			})
+			}
 		}),
 		event(9, 'auth.login_failure', 'warning', { resource_type: 'user', resource_id: operator.id }),
 		event(30, 'admin.brand.new', 'info', { resource_type: 'user', resource_id: operator.id }),

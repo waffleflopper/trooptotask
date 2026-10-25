@@ -9,7 +9,8 @@ The platform operator publishes global messages, reviews member Feedback. Every 
 - `announcement-lifecycle`: create Info, Warning and Maintenance messages, optional expiration, cancellation,
   activate/deactivate, confirmed deletion, and persisted member banners and account-wide dismissals.
 - `feedback-review`: retain submitter/context/message while closing Feedback from the Inbox without a reply, reload and
-  recover from failure ([Platform Inbox](platform-inbox.md) owns the journey).
+  recover from failure ([Platform Inbox](platform-inbox.md) owns the journey); replies, staff notes and GitHub issues
+  belong to the [Feedback recipe](platform-feedback.md).
 - `navigation`: the five-section sidebar and retained search/navigation without widening disclosure.
 - `failure-and-lifetime`: definite rejected writes preserve the unsaved choice and permit an explicit retry; unconfirmed
   5xx/transport results block writes until authoritative readback; late results cannot affect another page or record.
@@ -109,8 +110,8 @@ create/toggle/delete/close requests preserve rows, separately from native contro
 - Global announcements and account dismissals differ from Organization-scoped private communications. An Organization
   role grants no platform privilege.
 - Announcement audit events and real Feedback submission establish their own producer effects.
-- Announcements have create, toggle and delete controls, with no editing form. Feedback has no delete or reply control.
-  Do not invent a journey for either.
+- Announcements have create, toggle and delete controls, with no editing form. Feedback has no delete control; replies
+  and issues are in the [Feedback recipe](platform-feedback.md). Do not invent a delete journey for either.
 - Synthetic 503s exercise browser response handling. Provider list errors must remain distinct from a genuine empty
   list. Prove first/later-page failures and tied-date completeness at the real SDK/provider boundary; browser faults
   alone cannot establish those contracts.

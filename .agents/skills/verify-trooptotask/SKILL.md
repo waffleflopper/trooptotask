@@ -219,7 +219,8 @@ Recipes own feature actors, targets, commands and proof limits:
   [member entry](features/organization-member-access.md), [invitations/mail](features/organization-invitations.md),
   [creation](features/organization-creation.md), [exports](features/organization-exports.md).
 - [Audit/maintenance](features/audit-capture-projections.md), [deletion requests/review](features/deletion-requests.md).
-- Platform: [Inbox](features/platform-inbox.md), [administration](features/platform-administration.md),
+- Platform: [Inbox](features/platform-inbox.md), [Feedback](features/platform-feedback.md),
+  [administration](features/platform-administration.md),
   [support content](features/platform-support-content.md).
 - [Identity/MFA/passwords/links/sessions](features/identity-recovery-security.md).
 - [Toolbar sweep](features/shared-ui.md), [style probe/diff](features/shared-compositions.md),

@@ -44,9 +44,8 @@ function bannerData(actorId = 'admin-a', announcements: PlatformAnnouncement[] =
 	return {
 		viewer: null,
 		adminUserId: actorId,
-		visibleNavGroups: [],
 		adminEmail: 'admin@example.test',
-		accessiblePages: ['dashboard', 'announcements', 'feedback', 'audit'],
+		inboxOpenCount: Promise.resolve(0),
 		banners: Promise.resolve({ status: 'loaded' as const, announcements }),
 		dismissals: Promise.resolve({ status: 'loaded' as const, counts: { [notice.id]: 2 } })
 	};

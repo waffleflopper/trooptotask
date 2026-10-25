@@ -68,9 +68,8 @@ function data(entries: WhatsNewListEntry[] | Entries = [draft, live, old], actor
 	return {
 		viewer: null,
 		adminUserId: actor,
-		visibleNavGroups: [],
 		adminEmail: 'admin@example.test',
-		accessiblePages: ['announcements'],
+		inboxOpenCount: Promise.resolve(0),
 		entries: Array.isArray(entries) ? Promise.resolve({ status: 'loaded' as const, entries }) : entries
 	};
 }

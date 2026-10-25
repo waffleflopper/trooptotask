@@ -84,7 +84,7 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 				const { data, error } = await supabase
 					.from('notifications')
 					.select('*')
-					.or(`organization_id.eq.${orgId},organization_id.is.null`)
+					.eq('organization_id', orgId)
 					.eq('user_id', userId)
 					.order('id', { ascending: true })
 					.range(from, to);

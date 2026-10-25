@@ -24,7 +24,9 @@ export function buildFeedbackIssuePrefill(
 	includeOrganization = false
 ): FeedbackIssuePrefill {
 	const description = [input.message, '', `Category: ${input.category}`];
-	if (input.pageSection) description.push(`Section: ${input.pageSection}`);
+	// A record page saves its slug in the section (personnel/smith-jane); only the area is safe to publish.
+	const section = input.pageSection?.split('/')[0];
+	if (section) description.push(`Section: ${section}`);
 	if (includeOrganization && input.organizationName) description.push(`Organization: ${input.organizationName}`);
 	return {
 		title: `[${CATEGORY_TITLES[input.category]}] ${input.message.split('\n')[0].slice(0, 80)}`,

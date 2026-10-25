@@ -52,6 +52,7 @@ describe('notification request provider', () => {
 		const store = createSupabaseNotificationStore(provider.client);
 		expect((await store.listOwn('org-a', 'own-user')).map(({ id }) => id)).toEqual(['reply', 'org-note']);
 		expect(await store.countOwnUnread('org-a', 'own-user')).toBe(2);
+		expect((await store.listOwnExportRows('org-a', 'own-user')).map(({ id }) => id)).toEqual(['org-note']);
 		await store.markRead('org-a', 'reply');
 		expect(await store.countOwnUnread('org-a', 'own-user')).toBe(1);
 		await store.deleteNotification('org-a', 'reply');

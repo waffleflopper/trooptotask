@@ -26,6 +26,12 @@ describe('Feedback GitHub issues', () => {
 		expect(included.description).not.toContain('Private Person');
 	});
 
+	it('publishes the area of a record page without the record it names', () => {
+		const prefill = buildFeedbackIssuePrefill({ ...source, pageSection: 'personnel/smith-jane/files' });
+		expect(prefill.description).toContain('Section: personnel');
+		expect(prefill.description).not.toContain('smith-jane');
+	});
+
 	it('creates the deliberate issue and returns the validated issue link', async () => {
 		let sent: unknown;
 		const client = createGitHubFeedbackClient({

@@ -139,7 +139,7 @@ admin/organizations`), open `Organizations`, search the unique temporary Organiz
    audit entry for the suspension carries the same reason in its details. Then sign in as the Organization's owner and
    require the suspension notice, not the reason. Unsuspend visibly and require the alert gone and the
    `organization_suspensions` row removed. Repeat once from `$V actor --stale-mfa platformReviewer admin/organizations`
-   to prove the step-up: nothing changes until `mfa-code`, and the typed reason is not lost on return.
+   to prove the step-up: nothing changes until `mfa-code`; the dialog closes after the step-up, so type the reason again.
 
 `platform-request PAGE FAMILY TARGET_KEY JSON` supports `approve|reject|resend` with keys `approve|reject|completed`;
 `transferOwnership` with target `organization` and a seeded member UUID (`targetUserId`, plus `confirmName`);

@@ -135,8 +135,12 @@
 		</Alert.Root>
 	{/if}
 
-	<PageShell.FactGrid layout="three">
-		<PageShell.Metric label="Owner" value={ownerLabel} class="[&_strong]:text-base [&_strong]:wrap-anywhere" />
+	<PageShell.FactGrid layout="three" class="grid-cols-2">
+		<PageShell.Metric
+			label="Owner"
+			value={ownerLabel}
+			class="col-span-2 md:col-span-1 [&_strong]:text-base [&_strong]:wrap-anywhere"
+		/>
 		<PageShell.Metric label="Members" value={org.members.length} />
 		<PageShell.Metric label="Personnel" value={org.personnelCount} />
 		<PageShell.Metric

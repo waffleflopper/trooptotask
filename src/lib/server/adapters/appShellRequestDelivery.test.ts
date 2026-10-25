@@ -52,7 +52,11 @@ describe('AppShell admitted request composition', () => {
 					}
 					if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
 					if (url.pathname.endsWith('/user_profiles')) return Response.json([]);
-					if (url.pathname.endsWith('/platform_announcements') || url.pathname.endsWith('/announcement_dismissals'))
+					if (
+						url.pathname.endsWith('/platform_announcements') ||
+						url.pathname.endsWith('/announcement_dismissals') ||
+						url.pathname.endsWith('/whats_new_entries')
+					)
 						return Response.json([]);
 					throw new Error(`Unexpected first-paint read: ${url.pathname}`);
 				}

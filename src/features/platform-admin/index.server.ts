@@ -1,4 +1,5 @@
 export { listActiveAnnouncementContent } from './server/announcementContent.server';
+export { listPublishedWhatsNew } from './server/whatsNewContent.server';
 export { createPlatformOrganizationMembershipCommands } from './server/organizationMembership.server';
 export { createPlatformOrganizationOperations } from './server/organizationOperations.server';
 export { createPlatformAccountOperations } from './server/accountOperations.server';
@@ -7,6 +8,7 @@ export { createPlatformSearchOperations, createPlatformSuspensionOperations } fr
 
 export { loadPlatformAdminNavigation } from './server/navigation.server';
 export { createPlatformAnnouncementOperations } from './server/announcementOperations.server';
+export { createPlatformWhatsNewOperations, readPublishedWhatsNew } from './server/whatsNewOperations.server';
 export { validatePlatformAnnouncement } from './server/announcements.server';
 export { createPlatformInboxOperations } from './server/inboxOperations.server';
 export { mapApproveResult, mapRejectResult } from './server/accessRequestActionResults.server';

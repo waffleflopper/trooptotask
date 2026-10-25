@@ -63,6 +63,7 @@ describe('createRootOrgLayoutLoad', () => {
 			createFirstPaintChromePort: () => ({
 				getFirstPaintChrome: async () => ({
 					announcements: [],
+					whatsNew: [],
 					preferences: getDefaultUserOrgPreferences(),
 					account: { email: null, hasTwoFactor: false, profile: { status: 'loaded' as const, profile: null } }
 				})

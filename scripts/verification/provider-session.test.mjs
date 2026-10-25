@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { runInNewContext } from 'node:vm';
-import { changelog } from '../../src/features/app-shell/changelog.ts';
 import { actorArguments, entryPath, sessionCookie, sessionPage } from './provider-session.mjs';
 
 const origin = 'http://127.0.0.1:4100';
@@ -65,7 +64,12 @@ function scenario({ grantStatus = 200, routes = {} } = {}) {
 	const resources = { disconnected: false };
 	const storage = new Map();
 	let pageUrl;
+	const reads = [];
 	const fetch = async (url, init) => {
+		if (url.includes('/rest/v1/whats_new_entries')) {
+			reads.push({ url, bearer: init.headers.Authorization });
+			return Response.json([{ id: 'newest-entry' }]);
+		}
 		requests.push({ url, apikey: init.headers.apikey, body: JSON.parse(init.body) });
 		return Response.json(grantStatus === 200 ? (routes[url] ?? grant) : { error: 'invalid_grant' }, {
 			status: grantStatus
@@ -111,7 +115,7 @@ function scenario({ grantStatus = 200, routes = {} } = {}) {
 				environment
 			}
 		);
-	return { run, requests, opened, cookies, resources, storage, environmentCalls };
+	return { run, requests, reads, opened, cookies, resources, storage, environmentCalls };
 }
 
 const input = {
@@ -160,9 +164,15 @@ test('a destination outside the app is refused before any sign-in', async () => 
 });
 
 test('owned sessions persist the app dismissal preference before navigation, with an opt-out', async () => {
-	const { run, storage } = scenario();
+	const { run, storage, reads } = scenario();
 	await run(input);
-	assert.equal(storage.get('changelog-last-seen-user-1'), changelog[0].id);
+	assert.equal(storage.get('changelog-last-seen-user-1'), 'newest-entry');
+	assert.deepEqual(reads, [
+		{
+			url: 'http://127.0.0.1:56321/rest/v1/whats_new_entries?select=id&published_seq=not.is.null&order=published_seq.desc&limit=1',
+			bearer: 'Bearer header.payload.signature'
+		}
+	]);
 	await run({ ...input, showWhatsNew: true });
 	assert.equal(storage.has('changelog-last-seen-user-1'), false);
 	assert.deepEqual(actorArguments(['--show-whats-new', '--form', 'manager', 'home']), {

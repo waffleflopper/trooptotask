@@ -24,6 +24,8 @@ export interface PlatformAnnouncementSetActiveUpdate {
 
 export interface PlatformAnnouncementsStore {
 	listAnnouncements(): Promise<PlatformAnnouncement[]>;
+	/** Accounts that dismissed each banner, keyed by banner ID. A banner nobody dismissed is absent. */
+	dismissalCounts(): Promise<Record<string, number>>;
 	createAnnouncement(input: PlatformAnnouncementStoreCreateInput): Promise<PlatformAnnouncement>;
 	setAnnouncementActive(input: PlatformAnnouncementSetActiveInput): Promise<PlatformAnnouncementSetActiveUpdate | null>;
 	deleteAnnouncement(id: string): Promise<void>;
@@ -37,6 +39,7 @@ export interface PlatformAnnouncementsDependencies {
 
 export interface PlatformAnnouncements {
 	list(): Promise<PlatformAnnouncement[]>;
+	dismissalCounts(): Promise<Record<string, number>>;
 	create(input: PlatformAnnouncementCreateInput): Promise<PlatformAnnouncement>;
 	setActive(id: string, isActive: boolean): Promise<PlatformAnnouncementSetActiveResult>;
 	delete(id: string): Promise<{ success: true }>;
@@ -45,6 +48,7 @@ export interface PlatformAnnouncements {
 export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependencies): PlatformAnnouncements {
 	return {
 		list: () => deps.store.listAnnouncements(),
+		dismissalCounts: () => deps.store.dismissalCounts(),
 
 		async create(input) {
 			const announcement = await deps.store.createAnnouncement({
@@ -88,12 +92,14 @@ export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependenc
 		},
 
 		async delete(id) {
+			const existing = (await deps.store.listAnnouncements()).find((announcement) => announcement.id === id);
 			await deps.store.deleteAnnouncement(id);
 
 			await deps.audit({
 				action: 'announcement_delete',
 				resourceType: 'platform_announcement',
 				resourceId: id,
+				details: existing ? { title: existing.title } : undefined,
 				severity: 'warning'
 			});
 

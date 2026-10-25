@@ -87,17 +87,17 @@ SELECT throws_ok(
 	'42501', NULL, 'ordinary account cannot create announcement content'
 );
 
-WITH changed AS (
-	UPDATE public.platform_announcements SET title = 'Blocked change'
-	WHERE id = '40000000-0000-4000-8000-000000136801' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM changed), 0, 'ordinary account cannot update content');
+SELECT throws_ok(
+	$$ UPDATE public.platform_announcements SET title = 'Blocked change'
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'ordinary account cannot update content'
+);
 
-WITH removed AS (
-	DELETE FROM public.platform_announcements
-	WHERE id = '40000000-0000-4000-8000-000000136801' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM removed), 0, 'ordinary account cannot delete content');
+SELECT throws_ok(
+	$$ DELETE FROM public.platform_announcements
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'ordinary account cannot delete content'
+);
 
 SELECT lives_ok(
 	$$ INSERT INTO public.announcement_dismissals (announcement_id, user_id)
@@ -286,24 +286,24 @@ SELECT ok(
 	'operator can persist review status and notes'
 );
 
--- Operator membership authorizes the platform content writer.
-SELECT lives_ok(
+-- Banner writes belong to the server command, which binds attribution and awaits the audit row.
+SELECT throws_ok(
 	$$ INSERT INTO public.platform_announcements (id, title, message, created_by)
-	VALUES ('40000000-0000-4000-8000-000000136804', 'Support-created content', 'Provider permission', '10000000-0000-4000-8000-000000136804') $$,
-	'current content provider permits operator insertion'
+	VALUES ('40000000-0000-4000-8000-000000136804', 'Support-created content', 'Direct write', '10000000-0000-4000-8000-000000136804') $$,
+	'42501', NULL, 'operator clients cannot insert content directly'
 );
 
-WITH changed AS (
-	UPDATE public.platform_announcements SET is_active = false
-	WHERE id = '40000000-0000-4000-8000-000000136804' RETURNING is_active
-)
-SELECT is((SELECT is_active FROM changed), false, 'operator can update content');
+SELECT throws_ok(
+	$$ UPDATE public.platform_announcements SET is_active = false
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'operator clients cannot update content directly'
+);
 
-WITH removed AS (
-	DELETE FROM public.platform_announcements
-	WHERE id = '40000000-0000-4000-8000-000000136804' RETURNING id
-)
-SELECT is((SELECT count(*)::integer FROM removed), 1, 'operator can delete content');
+SELECT throws_ok(
+	$$ DELETE FROM public.platform_announcements
+	WHERE id = '40000000-0000-4000-8000-000000136801' $$,
+	'42501', NULL, 'operator clients cannot delete content directly'
+);
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136806', true);
 SELECT is((SELECT count(*)::integer FROM public.beta_feedback), 0, 'non-operator cannot read others feedback');
@@ -367,12 +367,10 @@ VALUES
 	('40000000-0000-4000-8000-000000136802', '10000000-0000-4000-8000-000000136801'),
 	('40000000-0000-4000-8000-000000136802', '10000000-0000-4000-8000-000000136802');
 
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136804', true);
-SELECT set_config('request.jwt.claims', '{"aal":"aal2"}', true);
+SET LOCAL ROLE service_role;
 SELECT lives_ok(
 	$$ DELETE FROM public.platform_announcements WHERE id = '40000000-0000-4000-8000-000000136801' $$,
-	'authorized content deletion succeeds with account dismissals present'
+	'server content deletion succeeds with account dismissals present'
 );
 
 RESET ROLE;

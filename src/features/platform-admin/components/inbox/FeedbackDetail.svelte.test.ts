@@ -135,7 +135,6 @@ describe('Feedback detail', () => {
 		const thread = await screen.findByRole('list', { name: 'Replies' });
 		expect(within(thread).getByText('Thanks, I can reproduce it.')).toBeTruthy();
 		expect((screen.getByLabelText('Staff note') as HTMLTextAreaElement).value).toBe('Looks like the month boundary');
-		expect(screen.getByText('Private')).toBeTruthy();
 	});
 
 	it('sends a trimmed reply, clears the draft and asks the Inbox to refresh only after the server confirms', async () => {

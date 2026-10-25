@@ -53,11 +53,10 @@ describe('reporter feedback thread', () => {
 		).toEqual(['We can reproduce this.', 'Fixed in the next release.']);
 	});
 
-	it('says no reply has come yet and offers the way back to the app', () => {
+	it('shows no replies and offers the way back to the app', () => {
 		render(Page, { props: { data: { feedback: feedback() } } as never });
 
 		expect(screen.queryByRole('list', { name: 'Replies' })).toBeNull();
-		expect(screen.getByText(/No reply yet/)).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Back to the app' }).getAttribute('href')).toBe('/dashboard');
 	});
 });

@@ -8,7 +8,6 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 import { loadPlatformAdminNavigation } from './navigation.server';
 
 const actorId = '11111111-1111-4111-8111-111111111111';
-const pages = ['dashboard', 'users', 'organizations', 'access-requests', 'feedback', 'audit', 'announcements'];
 
 function event(user: { id: string; email: string } | null) {
 	return {
@@ -42,11 +41,10 @@ describe('Platform operator navigation', () => {
 		);
 	});
 
-	it('offers every page to an admitted operator and shows their email', async () => {
+	it('admits an operator and shows their email', async () => {
 		await expect(loadPlatformAdminNavigation(event({ id: actorId, email: 'operator@example.test' }))).resolves.toEqual({
 			adminUserId: actorId,
-			adminEmail: 'operator@example.test',
-			accessiblePages: pages
+			adminEmail: 'operator@example.test'
 		});
 	});
 

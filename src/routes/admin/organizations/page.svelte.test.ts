@@ -21,13 +21,6 @@ function organizationsData(data: Partial<PageProps['data']>): PageProps['data'] 
 		viewer: null,
 		adminUserId: 'admin-1',
 		adminEmail: 'admin@example.test',
-		accessiblePages: ['dashboard', 'users', 'organizations'],
-		visibleNavGroups: [
-			{
-				label: null,
-				items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }]
-			}
-		],
 		organizations: [],
 		pagination: {
 			page: 1,

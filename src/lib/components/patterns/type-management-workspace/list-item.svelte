@@ -10,6 +10,8 @@
 		title: string;
 		description?: string | null;
 		onselect?: () => void;
+		/** Supporting facts under the description, such as a badge or a time. Selecting the row still works from here. */
+		meta?: Snippet;
 		actions?: Snippet;
 	}
 
@@ -22,6 +24,7 @@
 		title,
 		description,
 		onselect,
+		meta,
 		actions,
 		...restProps
 	}: Props = $props();
@@ -76,6 +79,9 @@
 			<span id="{id}-title" class="truncate text-sm font-semibold text-foreground">{title}</span>
 			{#if description}
 				<span id="{id}-description" class="truncate text-xs text-muted-foreground">{description}</span>
+			{/if}
+			{#if meta}
+				<span class="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{@render meta()}</span>
 			{/if}
 		</span>
 	</div>

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
-import { load } from './+page.server';
+import { load } from './+layout.server';
 
 const actorId = '11111111-1111-4111-8111-111111111111';
 let operator: boolean;
@@ -79,11 +79,8 @@ describe('operator page admission', () => {
 		request.locals.mfaPending = true;
 		await expect(load(request)).rejects.toMatchObject({ status: 303, location: '/auth/mfa-verify?next=%2Fadmin' });
 	});
-	it('admits an operator at aal2 to every existing section', async () => {
-		await expect(load(event())).resolves.toMatchObject({
-			adminUserId: actorId,
-			accessiblePages: ['dashboard', 'users', 'organizations', 'access-requests', 'feedback', 'audit', 'announcements']
-		});
+	it('admits an operator at aal2 to the admin shell', async () => {
+		await expect(load(event())).resolves.toMatchObject({ adminUserId: actorId });
 	});
 	it('fails closed when operator membership is unavailable', async () => {
 		unavailable = true;

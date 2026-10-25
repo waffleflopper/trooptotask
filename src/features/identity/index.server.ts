@@ -113,5 +113,11 @@ export { createIdentityPlatformSupportReader } from './platformSupportReader.ser
 export { createIdentityPlatformSuspensionCommands } from './platformSuspensionCommands.server';
 export { createIdentityPlatformAccountEmailPort } from './platformAccountEmail.server';
 export { createIdentityPlatformAccessRequestStore } from './platformAccessRequests.server';
+export {
+	createIdentityAccessRequestInboxReader,
+	type AccessRequestInboxPage,
+	type AccessRequestInboxRow,
+	type IdentityAccessRequestInboxReader
+} from './platformAccessRequestInbox.server';
 
 export { createSupabaseIdentityExportReader } from './organizationExportRead.server';

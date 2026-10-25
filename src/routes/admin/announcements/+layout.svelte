@@ -19,7 +19,7 @@
 	]);
 </script>
 
-<PageShell.Root width="content" density="compact">
+<PageShell.Root density="compact">
 	<PageShell.Header
 		eyebrow="Platform · Communication"
 		title="Announcements"

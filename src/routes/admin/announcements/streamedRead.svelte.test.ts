@@ -73,4 +73,25 @@ describe('followStreamedRead', () => {
 		expect(view.read.current).toEqual({ status: 'loaded', value: 'fresh', refreshing: false });
 		view.cleanup();
 	});
+
+	it('names the promise whose reply it applied, and not one that was replaced', async () => {
+		const first = deferred<string>();
+		const view = follow(first.promise);
+		expect(view.read.settled).toBeNull();
+		const second = deferred<string>();
+		view.replace(second.promise);
+		first.resolve('stale');
+		await settle();
+		expect(view.read.settled).toBeNull();
+		second.resolve('fresh');
+		await settle();
+		expect(view.read.settled).toBe(second.promise);
+		const third = deferred<string>();
+		view.replace(third.promise);
+		third.reject(new Error('boom'));
+		await settle();
+		expect(view.read.current).toEqual({ status: 'failed' });
+		expect(view.read.settled).toBe(third.promise);
+		view.cleanup();
+	});
 });

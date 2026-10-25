@@ -27,8 +27,9 @@ Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback, Au
 sidebar. Announcements has two tabs, Banners and What's New. On Banners, complete the New banner composer (Title,
 Message, Type, Ends) above its live preview and choose Publish to all users. Turn off or Turn on changes a banner's
 member visibility, and Live now and Ended list the banners. Delete asks for confirmation in an in-app dialog naming the
-banner. Each banner reads how many accounts dismissed it. On What's New, New Entry or a list row opens the editor
-(`?entry=` in the address); Save Draft keeps it hidden, Publish shows it to members and a draft offers Delete Draft.
+banner. Each banner reads how many accounts dismissed it. Both tabs use the full panel width: the composer sits beside
+Live now and Ended, and the entries list beside the editor. On What's New, New entry or a list row opens the editor
+(`?entry=` in the address); Save draft keeps it hidden, Publish shows it to members and a draft offers Delete draft.
 Members open What's new from the account menu, which shows the newest three published entries and a See all updates link
 to `/org/<organization>/whats-new`. Expand a Feedback card to change Status or Admin Notes, then choose Save Notes.
 Audit Log provides Action and Severity controls, Previous/Next pages and View details. The global search opens the
@@ -110,32 +111,36 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    confirm Delete and prove row/banner absence. Restore seeded active flags and delete UI-created announcements through
    the visible controls before cleanup.
 3. **Announcement failure and lifetime.** Arm create failure, submit a unique draft, then capture the failure, editable
-   retained fields, a blocked Publish to all users and no stored row. Use Reload Banners to read the current state
+   retained fields, a blocked Publish to all users and no stored row. Use Reload banners to read the current state
    without a POST, then explicitly retry and require one row. Repeat toggle/delete failure against a recorded witness,
    requiring unchanged provider state, readback before retry and exactly one retried write. Hold a real or failed create
-   reply, cancel/reopen its editor or use a visible sidebar link, then return to Banners and fill a fresh unsent draft
-   before release. Compare the current page before and after releasing the old reply. Old completions must not change
-   another page's pending state, error or current draft, including after returning to the original route. A successful
-   old-editor write still refreshes saved content on the current page. Other mutations remain disabled while a write or
-   its readback is pending. Capture any failure as a defect rather than adopting it as intended behavior. The Banners
-   list and its dismissal counts load as separate regions: each shows a skeleton while pending, then its own content or
-   its own load error, and a count that cannot load never hides the banners. Arm `arm-hold-regions` on
-   `admin-announcements-read`, open Banners from another tab and capture the skeletons before `release`; arm
-   `arm-fail-regions` and capture the load error with Retry, then `restore` and Retry to read the list.
-4. **Publish a What's New entry.** Open the What's New tab as the operator. Choose New Entry, type a unique title and
-   two paragraphs, move the second above the first, remove none, and Save Draft. The entry lists as Draft, reopens from
+   reply: the composer fields turn read-only and Cancel is disabled until the write and its read finish. Use a visible
+   sidebar link, then return to Banners and fill a fresh unsent draft before release. Compare the current page before
+   and after releasing the old reply. Old completions must not change another page's pending state, error or current
+   draft, including after returning to the original route. Other mutations remain disabled until the fresh list has
+   loaded, and after a successful create the composer clears only then. When the list read after a write fails, writes
+   stay blocked and the warning offers Reload banners. Capture any failure as a defect rather than adopting it as
+   intended behavior. The Banners list and its dismissal counts load as separate regions: each shows a skeleton while
+   pending, then its own content or its own load error, and a count that cannot load never hides the banners. Arm
+   `arm-hold-regions` on `admin-announcements-read`, open Banners from another tab and capture the skeletons before
+   `release`; arm `arm-fail-regions` and capture the load error with Retry, then `restore` and Retry to read the list.
+4. **Publish a What's New entry.** Open the What's New tab as the operator. Choose New entry, type a unique title and
+   two paragraphs, move the second above the first, remove none, and Save draft. The entry lists as Draft, reopens from
    the list or the address with both paragraphs in the saved order, and `$V platform-content` lists the saved entry
    under `whatsNew` with `published_on` empty and `updated_by` set to the operator. As `orgMember`, open the account
    menu's What's new and the all-updates page: the draft is absent in both. Choose Publish; the row becomes Published
    with today's date and a Shown in app mark, and it is the first entry in the member dialog and on the all-updates
    page. Publish three more unique entries: only the newest three fill the dialog, the older ones remain on the
    all-updates page. Open the dialog after clearing nothing: no entry reads as unseen after the move to stored entries,
-   because the last-seen key still holds the newest published id. Edit a published entry and Save Changes: its publish
-   date and place in the list do not change. A published entry offers no Delete Draft; a draft deletes after the
-   confirmation dialog names it. Take a keyboard pass through the list, the editor and the paragraph controls. Delete
+   because the last-seen key still holds the newest published id. Edit a published entry and Save changes: its publish
+   date and place in the list do not change. While a held save is in flight, the title and paragraph fields are
+   read-only, the paragraph controls are disabled and the button shows its spinner; they unlock once the saved entry is
+   listed, and a new entry opens in the editor only then. A published entry offers no Delete draft; a draft deletes
+   after the confirmation dialog names it. Press Back while that dialog is open on another entry's address: the dialog
+   closes and nothing is deleted. Take a keyboard pass through the list, the editor and the paragraph controls. Delete
    every UI-created draft and note that published test entries remain in provider data, so use unique titles. The 5xx
    and transport failure modes behave as on Banners: `arm-fail-400` keeps the typed text and shows the reason, an
-   unconfirmed save blocks writes until Reload Entries, and a held reply that arrives after leaving the page changes
+   unconfirmed save blocks writes until Reload entries, and a held reply that arrives after leaving the page changes
    nothing.
 5. **Feedback review and persistence.** Submit a unique Bug Report through the ordinary member modal. The operator
    expands it and saves Reviewed plus Notes. Reload, select Reviewed, inspect exact saved context/message/Notes and

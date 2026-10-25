@@ -56,6 +56,11 @@ async function renderBanners(data = bannerData()) {
 	await screen.findByRole('button', { name: 'Turn off Active notice' });
 	return view;
 }
+async function land(view: Awaited<ReturnType<typeof renderBanners>>, data = bannerData()) {
+	await act(async () => {
+		await view.rerender({ data, form: null });
+	});
+}
 const failed: ActionResult = { type: 'failure', status: 400, data: { error: 'Current request failed' } };
 const succeeded: ActionResult = { type: 'success', status: 200, data: { success: true } };
 const uncertainResults: ActionResult[] = [
@@ -121,7 +126,7 @@ describe('banner form ownership', () => {
 	it.each(uncertainResults)(
 		'requires readback after an unconfirmed $type before permitting another mutation',
 		async (result) => {
-			await renderBanners();
+			const view = await renderBanners();
 			await openBanner();
 			await (await submit(screen.getByRole('button', { name: 'Publish to all users' }))).finish(result);
 			expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Unsent title');
@@ -131,7 +136,9 @@ describe('banner form ownership', () => {
 				(await submit(screen.getByRole('button', { name: 'Turn off Active notice' }))).cancel
 			).toHaveBeenCalledOnce();
 			expect(invalidateAll).not.toHaveBeenCalled();
-			await fireEvent.click(screen.getByRole('button', { name: 'Reload Banners' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Reload banners' }));
+			expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', true);
+			await land(view);
 			await waitFor(() =>
 				expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', false)
 			);
@@ -181,13 +188,25 @@ describe('banner form ownership', () => {
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Title')));
 	});
 
-	it('clears the composer after a successful publish and focuses the new banner’s control', async () => {
-		await renderBanners();
+	it('locks the composer from submit until the fresh read lands, then clears it', async () => {
+		const view = await renderBanners();
 		await openBanner();
-		await (await submit(screen.getByRole('button', { name: 'Publish to all users' }))).finish(succeeded);
-		expect(screen.getByLabelText('Title')).toHaveProperty('value', '');
-		expect(screen.getByLabelText('Message')).toHaveProperty('value', '');
+		const title = screen.getByLabelText('Title') as HTMLInputElement;
+		const message = screen.getByLabelText('Message') as HTMLTextAreaElement;
+		const request = await submit(screen.getByRole('button', { name: 'Publish to all users' }));
+		expect(title.readOnly).toBe(true);
+		expect(message.readOnly).toBe(true);
+		expect(screen.getByRole('button', { name: 'Cancel' })).toHaveProperty('disabled', true);
+		await request.finish(succeeded);
 		expect(invalidateAll).toHaveBeenCalledOnce();
+		expect(title.readOnly).toBe(true);
+		expect(title.value).toBe('Unsent title');
+
+		await land(view, bannerData('admin-a', [{ ...notice, id: 'new-banner', title: 'Unsent title' }, notice, peer]));
+		await waitFor(() => expect(title.readOnly).toBe(false));
+		expect(title.value).toBe('');
+		expect(message.value).toBe('');
+		expect(screen.getByRole('button', { name: 'Delete Unsent title' })).toBeTruthy();
 	});
 
 	it('follows the Type control into the hidden field and the preview', async () => {
@@ -248,7 +267,7 @@ describe('banner form ownership', () => {
 	});
 
 	it('keeps the pressed toggle focusable and busy while its save is held, and ignores another press', async () => {
-		await renderBanners();
+		const view = await renderBanners();
 		const toggle = screen.getByRole('button', { name: 'Turn off Active notice' });
 		toggle.focus();
 		const request = await submit(toggle);
@@ -258,12 +277,14 @@ describe('banner form ownership', () => {
 		expect(document.activeElement).toBe(toggle);
 		expect((await submit(toggle)).cancel).toHaveBeenCalledOnce();
 		await request.finish(succeeded);
-		expect(toggle.getAttribute('aria-busy')).toBeNull();
+		expect(toggle.getAttribute('aria-busy')).toBe('true');
 		expect(invalidateAll).toHaveBeenCalledOnce();
+		await land(view);
+		expect(toggle.getAttribute('aria-busy')).toBeNull();
 	});
 
 	it('retains the current create draft after failure and clears it only after its own successful retry', async () => {
-		await renderBanners();
+		const view = await renderBanners();
 		await openBanner();
 		await (await submit(screen.getByRole('button', { name: 'Publish to all users' }))).finish(failed);
 		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Unsent title');
@@ -271,25 +292,10 @@ describe('banner form ownership', () => {
 		expect(screen.getByText('Current request failed')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', false);
 		await (await submit(screen.getByRole('button', { name: 'Publish to all users' }))).finish(succeeded);
-		expect(screen.getByLabelText('Title')).toHaveProperty('value', '');
+		await land(view);
+		await waitFor(() => expect(screen.getByLabelText('Title')).toHaveProperty('value', ''));
 		expect(invalidateAll).toHaveBeenCalledOnce();
 	});
-
-	it.each([failed, succeeded])(
-		'keeps a reopened unsent draft when the retired editor completes with $type',
-		async (result) => {
-			await renderBanners();
-			await openBanner();
-			const request = await submit(screen.getByRole('button', { name: 'Publish to all users' }));
-			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-			await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Fresh unsent title' } });
-			await request.finish(result);
-			expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Fresh unsent title');
-			expect(screen.queryByText('Current request failed')).toBeNull();
-			expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', false);
-			expect(invalidateAll).toHaveBeenCalledTimes(result.type === 'success' ? 1 : 0);
-		}
-	);
 
 	it('holds the whole-page write lock until authoritative readback finishes', async () => {
 		let release!: () => void;
@@ -299,7 +305,7 @@ describe('banner form ownership', () => {
 					release = resolve;
 				})
 		);
-		await renderBanners();
+		const view = await renderBanners();
 		const request = await submit(screen.getByRole('button', { name: 'Turn off Active notice' }));
 		expect((await submit(screen.getByRole('button', { name: 'Turn on Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		const completion = request.finish(succeeded);
@@ -308,12 +314,14 @@ describe('banner form ownership', () => {
 		expect((await submit(screen.getByRole('button', { name: 'Delete Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		release();
 		await completion;
+		expect(screen.getByRole('button', { name: 'Turn on Peer notice' }).getAttribute('aria-disabled')).toBe('true');
+		await land(view);
 		expect(screen.getByRole('button', { name: 'Turn on Peer notice' }).getAttribute('aria-disabled')).toBeNull();
 	});
 
 	it('blocks repeat mutations after read failure and recovers using a read-only reload', async () => {
 		invalidateAll.mockRejectedValueOnce(new Error('Private provider failure'));
-		await renderBanners();
+		const view = await renderBanners();
 		await (await submit(screen.getByRole('button', { name: 'Turn off Active notice' }))).finish(succeeded);
 		expect(screen.getByRole('button', { name: 'Turn on Peer notice' })).toHaveProperty('disabled', true);
 		expect(screen.queryByText('Private provider failure')).toBeNull();
@@ -323,14 +331,35 @@ describe('banner form ownership', () => {
 		expect(
 			(await submit(screen.getByRole('button', { name: 'Turn off Active notice' }))).cancel
 		).toHaveBeenCalledOnce();
-		const reload = screen.getByRole('button', { name: 'Reload Banners' });
+		const reload = screen.getByRole('button', { name: 'Reload banners' });
 		reload.focus();
 		await fireEvent.click(reload);
+		await land(view);
 		await waitFor(() =>
 			expect(screen.getByRole('button', { name: 'Turn off Active notice' })).toHaveProperty('disabled', false)
 		);
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Title')));
+	});
+
+	it('keeps writes blocked when the read after a save fails, until a reload lands', async () => {
+		const view = await renderBanners();
+		await (await submit(screen.getByRole('button', { name: 'Turn off Active notice' }))).finish(succeeded);
+		await land(view, { ...bannerData(), banners: Promise.resolve({ status: 'failed' as const }) } as PageData);
+		expect(await screen.findByText(/Saved, but banners could not be refreshed/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', true);
+
+		let release!: (value: Awaited<PageData['banners']>) => void;
+		const held = new Promise<Awaited<PageData['banners']>>((resolve) => {
+			release = resolve;
+		});
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Reload banners' })[0]);
+		await land(view, { ...bannerData(), banners: held } as PageData);
+		expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', true);
+		await act(async () => release({ status: 'loaded', announcements: [notice, peer] }));
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Publish to all users' })).toHaveProperty('disabled', false)
+		);
 	});
 
 	it.each([failed, succeeded])('ignores a previous page reply after leaving and returning ($type)', async (result) => {

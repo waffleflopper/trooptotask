@@ -6,19 +6,21 @@ import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import type { WhatsNewListEntry } from '$features/platform-admin/contracts';
 import type { PageData } from './$types';
 
-const { forms, invalidateAll, gotoMock, navigation, pageState } = vi.hoisted(() => ({
+const { forms, invalidateAll, gotoMock, navigation } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
 	forms: new Map<string, SubmitFunction>(),
 	invalidateAll: vi.fn(),
-	navigation: [] as Array<(event: { to: { url: URL } | null; from: { url: URL } | null }) => void>,
-	pageState: { url: new URL('http://localhost/admin/announcements/whats-new') }
+	navigation: [] as Array<(event: { to: { url: URL } | null; from: { url: URL } | null }) => void>
 }));
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidateAll,
 	beforeNavigate: (callback: (typeof navigation)[number]) => navigation.push(callback)
 }));
-vi.mock('$app/state', () => ({ page: pageState }));
+vi.mock('$app/state', async () => {
+	const { SvelteURL } = await import('svelte/reactivity');
+	return { page: { url: new SvelteURL('http://localhost/admin/announcements/whats-new') } };
+});
 vi.mock('$app/forms', () => ({
 	enhance: (form: HTMLFormElement, submit: SubmitFunction) => {
 		forms.set(form.getAttribute('action') ?? '', submit);
@@ -26,6 +28,7 @@ vi.mock('$app/forms', () => ({
 	}
 }));
 
+import { page as pageState } from '$app/state';
 import WhatsNew from './+page.svelte';
 
 const draft: WhatsNewListEntry = {
@@ -53,18 +56,26 @@ const old: WhatsNewListEntry = {
 	shownToUsers: false
 };
 
-function data(entries: WhatsNewListEntry[] = [draft, live, old], actor = 'admin-a'): PageData {
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((res) => {
+		resolve = res;
+	});
+	return { promise, resolve };
+}
+type Entries = PageData['entries'];
+function data(entries: WhatsNewListEntry[] | Entries = [draft, live, old], actor = 'admin-a'): PageData {
 	return {
 		viewer: null,
 		adminUserId: actor,
 		visibleNavGroups: [],
 		adminEmail: 'admin@example.test',
 		accessiblePages: ['announcements'],
-		entries: Promise.resolve({ status: 'loaded' as const, entries })
+		entries: Array.isArray(entries) ? Promise.resolve({ status: 'loaded' as const, entries }) : entries
 	};
 }
 function open(search = '') {
-	pageState.url = new URL(`http://localhost/admin/announcements/whats-new${search}`);
+	pageState.url.search = search;
 }
 async function renderPage(search = '', pageData = data()) {
 	open(search);
@@ -114,13 +125,15 @@ afterEach(() => {
 describe('admin What’s New', () => {
 	it('lists drafts and published entries and marks the ones users see', async () => {
 		await renderPage();
-		const list = screen.getByRole('region', { name: 'Entries' });
-		const items = within(list).getAllByRole('listitem');
-		expect(items).toHaveLength(3);
-		expect(within(items[0]).getByText('Draft')).toBeTruthy();
-		expect(within(items[1]).getByText('Published')).toBeTruthy();
-		expect(within(items[1]).getByText(/Shown in app/)).toBeTruthy();
-		expect(within(items[2]).queryByText(/Shown in app/)).toBeNull();
+		const draftRow = screen.getByRole('link', { name: /Draft entry/ });
+		expect(within(draftRow).getByText('Draft')).toBeTruthy();
+		expect(within(draftRow).queryByText(/Shown in app/)).toBeNull();
+		const liveRow = screen.getByRole('link', { name: /Live entry/ });
+		expect(within(liveRow).getByText('Published')).toBeTruthy();
+		expect(within(liveRow).getByText(/Shown in app/)).toBeTruthy();
+		const oldRow = screen.getByRole('link', { name: /Old entry/ });
+		expect(within(oldRow).getByText('Published')).toBeTruthy();
+		expect(within(oldRow).queryByText(/Shown in app/)).toBeNull();
 	});
 
 	it('shows a skeleton while the entries load', () => {
@@ -147,15 +160,15 @@ describe('admin What’s New', () => {
 		expect(screen.getByLabelText('Paragraph 2')).toHaveProperty('value', 'Second');
 	});
 
-	it('offers Publish and Delete Draft for a draft but neither for a published entry', async () => {
+	it('offers Publish and Delete draft for a draft but neither for a published entry', async () => {
 		const view = await renderPage('?entry=draft-1');
 		expect(await screen.findByRole('button', { name: 'Publish' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Delete Draft' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Delete draft' })).toBeTruthy();
 		view.unmount();
 		await renderPage('?entry=live-1');
-		expect(await screen.findByRole('button', { name: 'Save Changes' })).toBeTruthy();
+		expect(await screen.findByRole('button', { name: 'Save changes' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Delete Draft' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Delete draft' })).toBeNull();
 	});
 
 	it('sends the operator’s calendar date only when publishing', async () => {
@@ -164,7 +177,7 @@ describe('admin What’s New', () => {
 		const published = await submit(publish);
 		expect(published.input.formData.get('publishOn')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		await published.finish({ type: 'failure', status: 400, data: { error: 'Add a paragraph before publishing' } });
-		const saved = await submit(screen.getByRole('button', { name: 'Save Draft' }));
+		const saved = await submit(screen.getByRole('button', { name: 'Save draft' }));
 		expect(saved.input.formData.has('publishOn')).toBe(false);
 	});
 
@@ -175,24 +188,84 @@ describe('admin What’s New', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove paragraph 1' }));
 		expect(screen.queryByLabelText('Paragraph 2')).toBeNull();
 		expect(screen.getByLabelText('Paragraph 1')).toHaveProperty('value', 'First');
-		await fireEvent.click(screen.getByRole('button', { name: 'Add Paragraph' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add paragraph' }));
 		expect(screen.getByLabelText('Paragraph 2')).toHaveProperty('value', '');
 	});
 
-	it('keeps the fields filled after a successful save of a published entry', async () => {
-		await renderPage('?entry=live-1');
-		const request = await submit(await screen.findByRole('button', { name: 'Save Changes' }));
+	it('locks the editor from submit until the fresh read lands, then shows the saved version', async () => {
+		const view = await renderPage('?entry=live-1');
+		const request = await submit(await screen.findByRole('button', { name: 'Save changes' }));
+		const title = screen.getByLabelText('Title') as HTMLInputElement;
+		expect(title.readOnly).toBe(true);
+		expect(screen.getByRole('button', { name: 'Move paragraph 2 up' })).toHaveProperty('disabled', true);
 		await request.finish({ type: 'success', status: 200, data: { id: 'live-1' } });
-		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Live entry');
-		expect(screen.getByLabelText('Paragraph 1')).toHaveProperty('value', 'First');
-		expect(screen.getByLabelText('Paragraph 2')).toHaveProperty('value', 'Second');
+		expect(title.readOnly).toBe(true);
+		expect(screen.getByRole('button', { name: /Save changes/ }).getAttribute('aria-busy')).toBe('true');
+
+		const readback = deferred<Awaited<Entries>>();
+		await act(async () => {
+			await view.rerender({ data: data(readback.promise), form: null });
+		});
+		expect(title.readOnly).toBe(true);
+		await act(async () => {
+			readback.resolve({
+				status: 'loaded',
+				entries: [draft, { ...live, title: 'Live entry, as saved', paragraphs: ['Trimmed'] }, old]
+			});
+		});
+		await waitFor(() => expect(title.readOnly).toBe(false));
+		expect(title.value).toBe('Live entry, as saved');
+		expect(screen.getByLabelText('Paragraph 1')).toHaveProperty('value', 'Trimmed');
+		expect(screen.getByRole('button', { name: /Save changes/ }).getAttribute('aria-busy')).toBeNull();
+	});
+
+	it('opens a new entry only after the read that includes it has landed', async () => {
+		const view = await renderPage('?entry=new');
+		await fireEvent.input(await screen.findByLabelText('Title'), { target: { value: 'Brand new' } });
+		const request = await submit(screen.getByRole('button', { name: 'Save draft' }));
+		await request.finish({ type: 'success', status: 200, data: { id: 'created-1' } });
+		expect(gotoMock).not.toHaveBeenCalled();
+
+		await act(async () => {
+			await view.rerender({
+				data: data([{ ...draft, id: 'created-1', title: 'Brand new' }, draft, live, old]),
+				form: null
+			});
+		});
+		await waitFor(() =>
+			expect(gotoMock).toHaveBeenCalledWith('/admin/announcements/whats-new?entry=created-1', expect.anything())
+		);
+	});
+
+	it('keeps writes blocked when the read after a save fails, until a reload lands', async () => {
+		const view = await renderPage('?entry=live-1');
+		await (
+			await submit(await screen.findByRole('button', { name: 'Save changes' }))
+		).finish({ type: 'success', status: 200, data: { id: 'live-1' } });
+		await act(async () => {
+			await view.rerender({ data: data(Promise.resolve({ status: 'failed' as const })), form: null });
+		});
+		expect(await screen.findByText(/Saved, but entries could not be refreshed/)).toBeTruthy();
+		const reloadButton = screen.getByRole('button', { name: 'Reload entries' });
+
+		await fireEvent.click(reloadButton);
+		const readback = deferred<Awaited<Entries>>();
+		await act(async () => {
+			await view.rerender({ data: data(readback.promise), form: null });
+		});
+		expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+		await act(async () => {
+			readback.resolve({ status: 'loaded', entries: [draft, live, old] });
+		});
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toHaveProperty('disabled', false));
+		expect(screen.queryByRole('button', { name: 'Reload entries' })).toBeNull();
 	});
 
 	it('keeps typed text through a failed save and shows the reason', async () => {
 		await renderPage('?entry=draft-1');
 		await fireEvent.input(await screen.findByLabelText('Title'), { target: { value: 'Typed title' } });
 		await (
-			await submit(screen.getByRole('button', { name: 'Save Draft' }))
+			await submit(screen.getByRole('button', { name: 'Save draft' }))
 		).finish({
 			type: 'failure',
 			status: 400,
@@ -203,27 +276,31 @@ describe('admin What’s New', () => {
 	});
 
 	it('requires a read-only reload after a save whose result is unknown', async () => {
-		await renderPage('?entry=draft-1');
+		const view = await renderPage('?entry=draft-1');
 		await (
-			await submit(await screen.findByRole('button', { name: 'Save Draft' }))
+			await submit(await screen.findByRole('button', { name: 'Save draft' }))
 		).finish({
 			type: 'error',
 			status: 500,
 			error: new Error('Private transport detail')
 		});
 		expect(screen.queryByText(/Private transport detail/)).toBeNull();
-		expect(screen.getByRole('button', { name: 'Save Draft' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true);
 		invalidateAll.mockClear();
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload Entries' }));
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Save Draft' })).toHaveProperty('disabled', false));
+		await fireEvent.click(screen.getByRole('button', { name: 'Reload entries' }));
+		expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', true);
+		await act(async () => {
+			await view.rerender({ data: data(), form: null });
+		});
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', false));
 		expect(invalidateAll).toHaveBeenCalledOnce();
 	});
 
 	it('leaves the deleted entry’s address once the delete succeeds, even after its editor is gone', async () => {
 		await renderPage('?entry=draft-1');
-		await submit(await screen.findByRole('button', { name: 'Delete Draft' }));
+		await submit(await screen.findByRole('button', { name: 'Delete draft' }));
 		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
-		const deleteForm = screen.getByRole('button', { name: 'Delete Draft' }).closest('form')!;
+		const deleteForm = screen.getByRole('button', { name: 'Delete draft' }).closest('form')!;
 		const detached = document.createElement('form');
 		const input = {
 			formElement: detached,
@@ -250,12 +327,23 @@ describe('admin What’s New', () => {
 		expect(gotoMock).toHaveBeenCalledWith('/admin/announcements/whats-new', expect.anything());
 	});
 
+	it('closes the delete confirmation when Back lands on another entry', async () => {
+		await renderPage('?entry=draft-1');
+		await submit(await screen.findByRole('button', { name: 'Delete draft' }));
+		expect(screen.getByRole('alertdialog').textContent).toContain('Delete "Draft entry"?');
+		await act(async () => {
+			pageState.url.search = '?entry=live-1';
+		});
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		expect(await screen.findByLabelText('Title')).toHaveProperty('value', 'Live entry');
+	});
+
 	it('asks before deleting a draft and ignores a reply that arrives after leaving the page', async () => {
 		await renderPage('?entry=draft-1');
-		const request = await submit(await screen.findByRole('button', { name: 'Delete Draft' }));
+		const request = await submit(await screen.findByRole('button', { name: 'Delete draft' }));
 		expect(request.input.cancel).toHaveBeenCalledOnce();
 		expect(screen.getByRole('alertdialog').textContent).toContain('Delete "Draft entry"?');
-		const old = await submit(screen.getByRole('button', { name: 'Save Draft' }));
+		const old = await submit(screen.getByRole('button', { name: 'Save draft' }));
 		await act(() =>
 			navigation[0]({ to: { url: new URL('http://localhost/admin/audit') }, from: { url: pageState.url } })
 		);

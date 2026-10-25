@@ -54,6 +54,7 @@
 	let actionError = $state<string | null | undefined>(undefined);
 	const displayedError = $derived(actionError === undefined ? form?.error : actionError);
 	const writesDisabled = $derived(pending !== null || needsReload);
+	const composerLocked = $derived(pending?.kind === 'create');
 	let pageLifetime = 0;
 	let editorLifetime = 0;
 	let requestId = 0;
@@ -62,6 +63,19 @@
 	let reloadButton = $state<HTMLButtonElement | null>(null);
 	let deleteRequest = $state<{ title: string; form: HTMLFormElement; submitter: HTMLElement | null } | null>(null);
 	let confirmedDeleteForm: HTMLFormElement | null = null;
+	// A write or reload stays pending until the read it triggered has replied, so the next write only starts from a
+	// list that includes this one.
+	let awaitingRead = $state<{ stale: Promise<unknown>; done: (ok: boolean) => void } | null>(null);
+
+	$effect(() => {
+		const wait = awaitingRead;
+		if (!wait) return;
+		const current = banners.current;
+		if (current.status === 'pending' || (current.status === 'loaded' && current.refreshing)) return;
+		if (banners.settled === wait.stale) return;
+		awaitingRead = null;
+		untrack(() => wait.done(current.status === 'loaded' && current.value.status === 'loaded'));
+	});
 
 	function retirePage() {
 		pageLifetime += 1;
@@ -70,6 +84,7 @@
 		needsReload = false;
 		actionError = null;
 		deleteRequest = null;
+		awaitingRead = null;
 	}
 	beforeNavigate(retirePage);
 	onDestroy(retirePage);
@@ -114,18 +129,24 @@
 		const actorId = data.adminUserId;
 		const token = ++requestId;
 		const isCurrent = () => pageLifetime === lifetime && data.adminUserId === actorId && requestId === token;
+		const stale = data.banners;
 		pending = { kind: 'reload' };
 		actionError = null;
+		const finish = async (ok: boolean) => {
+			if (!isCurrent()) return;
+			pending = null;
+			if (ok) needsReload = false;
+			else if (needsReload) actionError = 'Banners could not be refreshed. Reload them before another save.';
+			await tick();
+			if (isCurrent()) restoreFocus([reloadButton, titleInput]);
+		};
 		try {
 			await invalidateAll();
-			if (isCurrent()) needsReload = false;
 		} catch {
-			if (isCurrent()) actionError = 'Banners could not be refreshed. Reload them before another save.';
+			await finish(false);
+			return;
 		}
-		if (!isCurrent()) return;
-		pending = null;
-		await tick();
-		if (isCurrent()) restoreFocus([reloadButton, titleInput]);
+		if (isCurrent()) awaitingRead = { stale, done: finish };
 	}
 
 	const submitBanner =
@@ -144,6 +165,7 @@
 			const lifetime = pageLifetime;
 			const actorId = data.adminUserId;
 			const editor = editorLifetime;
+			const stale = data.banners;
 			const token = ++requestId;
 			const isCurrent = () => pageLifetime === lifetime && data.adminUserId === actorId && requestId === token;
 			const isCurrentEditor = () => isCurrent() && editorLifetime === editor && formElement.isConnected;
@@ -156,8 +178,23 @@
 				await settleAction(outcome, {
 					isCurrent,
 					settled: (error) => {
-						pending = null;
 						if (operation.kind === 'delete') deleteRequest = null;
+						if (result.type === 'success' && !error) {
+							awaitingRead = {
+								stale,
+								done: (ok) => {
+									if (!isCurrent()) return;
+									pending = null;
+									if (operation.kind === 'create' && isCurrentEditor()) resetDraft();
+									if (!ok) {
+										needsReload = true;
+										actionError = 'Saved, but banners could not be refreshed. Reload them before another save.';
+									}
+								}
+							};
+							return;
+						}
+						pending = null;
 						if (unconfirmed || error) needsReload = true;
 						if (unconfirmed) {
 							if (isCurrentEditor())
@@ -167,8 +204,6 @@
 						} else if (result.type === 'failure') {
 							if (isCurrentEditor())
 								actionError = typeof result.data?.error === 'string' ? result.data.error : 'Banner could not be saved.';
-						} else if (operation.kind === 'create' && isCurrentEditor()) {
-							resetDraft();
 						}
 					},
 					focus: () => [submitter, reloadButton, titleInput],
@@ -219,7 +254,7 @@
 			aria-busy={pending?.kind === 'reload' || undefined}
 		>
 			{#if pending?.kind === 'reload'}<Spinner />{/if}
-			Reload Banners
+			Reload banners
 		</Button>
 	</Alert.Root>
 {/if}
@@ -307,6 +342,7 @@
 						name="title"
 						type="text"
 						maxlength={200}
+						readonly={composerLocked}
 						placeholder="Banner title"
 						required
 					/>
@@ -319,6 +355,7 @@
 						name="message"
 						rows={3}
 						maxlength={1000}
+						readonly={composerLocked}
 						placeholder="Banner message"
 						required
 					></Textarea>
@@ -329,6 +366,7 @@
 						<ToggleGroup.Root
 							type="single"
 							aria-labelledby="banner-type-label"
+							disabled={composerLocked}
 							bind:value={
 								() => draftType,
 								(value) => {
@@ -344,7 +382,7 @@
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="expiresAtLocal">Ends</Field.Label>
-						<Input id="expiresAtLocal" type="datetime-local" bind:value={draftExpiry} />
+						<Input id="expiresAtLocal" type="datetime-local" bind:value={draftExpiry} readonly={composerLocked} />
 						<input type="hidden" name="expiresAt" value={draftExpiresAt ?? ''} />
 						<Field.Description>Leave empty to show until you turn it off.</Field.Description>
 					</Field.Root>
@@ -356,7 +394,7 @@
 					<BannerPreview title={draftTitle} message={draftMessage} type={draftType} expiresAt={draftExpiresAt} />
 				</div>
 				<div class="flex flex-wrap justify-end gap-2">
-					<Button type="button" variant="ghost" onclick={cancelDraft}>Cancel</Button>
+					<Button type="button" variant="ghost" disabled={composerLocked} onclick={cancelDraft}>Cancel</Button>
 					<Button
 						type="submit"
 						disabled={needsReload}

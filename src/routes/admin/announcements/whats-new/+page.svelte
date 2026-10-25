@@ -45,16 +45,19 @@
 	let paragraphs = $state<string[]>(['']);
 	let loadedKey = $state<string | null>(null);
 
-	// The editor takes the entry's text when the selection changes or its entry first arrives, and never again, so a
-	// refresh after a save or a slow read cannot overwrite what the operator is typing.
+	function loadEditor() {
+		title = selectedEntry?.title ?? '';
+		paragraphs = selectedEntry && selectedEntry.paragraphs.length > 0 ? [...selectedEntry.paragraphs] : [''];
+	}
+
+	// The editor takes the entry's text when the selection changes or its entry first arrives. After that only a
+	// confirmed write reloads it, and the fields are read-only from submit until the fresh read lands, so no
+	// keystroke can be overwritten.
 	$effect(() => {
 		const key = selection === 'new' ? 'new' : selectedEntry ? selectedEntry.id : null;
 		if (key === untrack(() => loadedKey)) return;
 		loadedKey = key;
-		untrack(() => {
-			title = selectedEntry?.title ?? '';
-			paragraphs = selectedEntry && selectedEntry.paragraphs.length > 0 ? [...selectedEntry.paragraphs] : [''];
-		});
+		untrack(loadEditor);
 	});
 
 	type PendingOperation = { kind: 'save' | 'publish' | 'delete' } | { kind: 'reload' };
@@ -63,21 +66,40 @@
 	let actionError = $state<string | null | undefined>(undefined);
 	const displayedError = $derived(actionError === undefined ? form?.error : actionError);
 	const writesDisabled = $derived(pending !== null || needsReload);
+	const fieldsLocked = $derived(pending !== null);
 	let pageLifetime = 0;
 	let requestId = 0;
 	let currentActor = untrack(() => data.adminUserId);
 	let reloadButton = $state<HTMLButtonElement | null>(null);
 	let titleInput = $state<HTMLInputElement | null>(null);
-	let confirmDeleteOpen = $state(false);
+	let deleteTarget = $state<{ id: string; title: string } | null>(null);
 	let deleteForm = $state<HTMLFormElement | null>(null);
 	let confirmedDelete = false;
+	// A write or reload stays pending until the read it triggered has replied, so the next write only starts from a
+	// list that includes this one.
+	let awaitingRead = $state<{ stale: Promise<unknown>; done: (ok: boolean) => void } | null>(null);
+
+	$effect(() => {
+		const wait = awaitingRead;
+		if (!wait) return;
+		const current = read.current;
+		if (current.status === 'pending' || (current.status === 'loaded' && current.refreshing)) return;
+		if (read.settled === wait.stale) return;
+		awaitingRead = null;
+		untrack(() => wait.done(current.status === 'loaded' && current.value.status === 'loaded'));
+	});
+
+	$effect(() => {
+		if (deleteTarget && deleteTarget.id !== selection) deleteTarget = null;
+	});
 
 	function retirePage() {
 		pageLifetime += 1;
 		pending = null;
 		needsReload = false;
 		actionError = null;
-		confirmDeleteOpen = false;
+		deleteTarget = null;
+		awaitingRead = null;
 	}
 	beforeNavigate(({ to, from }) => {
 		if (to?.url.pathname !== from?.url.pathname) retirePage();
@@ -101,18 +123,24 @@
 		const lifetime = pageLifetime;
 		const token = ++requestId;
 		const isCurrent = () => pageLifetime === lifetime && requestId === token;
+		const stale = data.entries;
 		pending = { kind: 'reload' };
 		actionError = null;
+		const finish = async (ok: boolean) => {
+			if (!isCurrent()) return;
+			pending = null;
+			if (ok) needsReload = false;
+			else if (needsReload) actionError = 'Entries could not be refreshed. Reload them before another save.';
+			await tick();
+			if (isCurrent()) restoreFocus([reloadButton, titleInput]);
+		};
 		try {
 			await invalidateAll();
-			if (isCurrent()) needsReload = false;
 		} catch {
-			if (isCurrent()) actionError = 'Entries could not be refreshed. Reload them before another save.';
+			await finish(false);
+			return;
 		}
-		if (!isCurrent()) return;
-		pending = null;
-		await tick();
-		if (isCurrent()) restoreFocus([reloadButton, titleInput]);
+		if (isCurrent()) awaitingRead = { stale, done: finish };
 	}
 
 	function localToday() {
@@ -129,16 +157,21 @@
 				cancel();
 				return;
 			}
-			if (kind === 'delete' && !confirmedDelete) {
-				cancel();
-				confirmDeleteOpen = true;
-				return;
+			if (kind === 'delete') {
+				const target = deleteTarget;
+				if (!confirmedDelete || !target) {
+					cancel();
+					if (selectedEntry) deleteTarget = { id: selectedEntry.id, title: selectedEntry.title };
+					return;
+				}
+				formData.set('id', target.id);
 			}
 			confirmedDelete = false;
 			const publishing = kind === 'save' && submitter?.getAttribute('value') === 'publish';
 			if (publishing) formData.set('publishOn', localToday());
 			const lifetime = pageLifetime;
 			const startedOn = selection;
+			const stale = data.entries;
 			const token = ++requestId;
 			const isCurrent = () => pageLifetime === lifetime && requestId === token;
 			const isCurrentEditor = () =>
@@ -152,8 +185,27 @@
 				await settleAction(outcome, {
 					isCurrent,
 					settled: (error) => {
+						deleteTarget = null;
+						if (result.type === 'success' && !error) {
+							const saved = result.data as { id?: string; deleted?: boolean } | undefined;
+							if (saved?.deleted && page.url.searchParams.get('entry') === startedOn) void select(null);
+							awaitingRead = {
+								stale,
+								done: (ok) => {
+									if (!isCurrent()) return;
+									pending = null;
+									const stillThere = page.url.searchParams.get('entry') === startedOn;
+									if (stillThere && saved?.id && saved.id !== startedOn) void select(saved.id);
+									else if (stillThere && ok && !saved?.deleted) loadEditor();
+									if (!ok) {
+										needsReload = true;
+										actionError = 'Saved, but entries could not be refreshed. Reload them before another save.';
+									}
+								}
+							};
+							return;
+						}
 						pending = null;
-						confirmDeleteOpen = false;
 						if (unconfirmed || error) needsReload = true;
 						if (unconfirmed) {
 							if (isCurrentEditor())
@@ -163,11 +215,6 @@
 						} else if (result.type === 'failure') {
 							if (isCurrentEditor())
 								actionError = typeof result.data?.error === 'string' ? result.data.error : 'Entry could not be saved.';
-						} else if (result.type === 'success' && isCurrent() && page.url.searchParams.get('entry') === startedOn) {
-							const saved = result.data as { id?: string; deleted?: boolean } | undefined;
-							if (saved?.deleted) void select(null);
-							else if (saved?.id && saved.id !== startedOn) void select(saved.id);
-							else loadedKey = null;
 						}
 					},
 					focus: () => [submitter, reloadButton, titleInput],
@@ -177,21 +224,22 @@
 		};
 
 	function confirmDelete() {
-		if (!deleteForm) return;
+		if (!deleteForm || !deleteTarget) return;
 		confirmedDelete = true;
 		deleteForm.requestSubmit();
 	}
 
 	function addParagraph() {
-		if (paragraphs.length < WHATS_NEW_LIMITS.paragraphCount) paragraphs.push('');
+		if (!fieldsLocked && paragraphs.length < WHATS_NEW_LIMITS.paragraphCount) paragraphs.push('');
 	}
 	function removeParagraph(index: number) {
+		if (fieldsLocked) return;
 		paragraphs.splice(index, 1);
 		if (paragraphs.length === 0) paragraphs.push('');
 	}
 	function moveParagraph(index: number, by: -1 | 1) {
 		const target = index + by;
-		if (target < 0 || target >= paragraphs.length) return;
+		if (fieldsLocked || target < 0 || target >= paragraphs.length) return;
 		[paragraphs[index], paragraphs[target]] = [paragraphs[target], paragraphs[index]];
 	}
 </script>
@@ -217,12 +265,12 @@
 			aria-busy={pending?.kind === 'reload' || undefined}
 		>
 			{#if pending?.kind === 'reload'}<Spinner />{/if}
-			Reload Entries
+			Reload entries
 		</Button>
 	</Alert.Root>
 {/if}
 
-<div class="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
+<div class="grid gap-4 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)] lg:items-start lg:gap-8">
 	<section
 		class={cn('grid gap-3', editing && 'max-lg:hidden')}
 		aria-label="Entries"
@@ -232,7 +280,7 @@
 			<h2 class="font-heading text-[22px] leading-[26px] font-bold">Entries</h2>
 			<Button type="button" onclick={() => select('new')} aria-disabled={writesDisabled ? 'true' : undefined}>
 				<PlusIcon aria-hidden="true" />
-				New Entry
+				New entry
 			</Button>
 		</div>
 		{#if listPending}
@@ -344,6 +392,7 @@
 									name="title"
 									type="text"
 									maxlength={WHATS_NEW_LIMITS.titleLength}
+									readonly={fieldsLocked}
 									required
 								/>
 							</Field.Root>
@@ -366,6 +415,7 @@
 										name="paragraph"
 										rows={3}
 										maxlength={WHATS_NEW_LIMITS.paragraphLength}
+										readonly={fieldsLocked}
 										aria-label={`Paragraph ${index + 1}`}
 									></Textarea>
 									<div class="flex flex-col items-end gap-1">
@@ -373,6 +423,7 @@
 											type="button"
 											variant="ghost"
 											size="xs"
+											disabled={fieldsLocked}
 											onclick={() => removeParagraph(index)}
 											aria-label={`Remove paragraph ${index + 1}`}
 										>
@@ -383,7 +434,7 @@
 												type="button"
 												variant="ghost"
 												size="icon-xs"
-												disabled={index === 0}
+												disabled={fieldsLocked || index === 0}
 												onclick={() => moveParagraph(index, -1)}
 												aria-label={`Move paragraph ${index + 1} up`}
 											>
@@ -393,7 +444,7 @@
 												type="button"
 												variant="ghost"
 												size="icon-xs"
-												disabled={index === paragraphs.length - 1}
+												disabled={fieldsLocked || index === paragraphs.length - 1}
 												onclick={() => moveParagraph(index, 1)}
 												aria-label={`Move paragraph ${index + 1} down`}
 											>
@@ -407,11 +458,11 @@
 								type="button"
 								variant="outline"
 								class="w-fit"
-								disabled={paragraphs.length >= WHATS_NEW_LIMITS.paragraphCount}
+								disabled={fieldsLocked || paragraphs.length >= WHATS_NEW_LIMITS.paragraphCount}
 								onclick={addParagraph}
 							>
 								<PlusIcon aria-hidden="true" />
-								Add Paragraph
+								Add paragraph
 							</Button>
 						</div>
 					</form>
@@ -429,7 +480,7 @@
 								aria-busy={pending?.kind === 'delete' || undefined}
 							>
 								{#if pending?.kind === 'delete'}<Spinner />{/if}
-								Delete Draft
+								Delete draft
 							</Button>
 						</form>
 					{/if}
@@ -443,7 +494,7 @@
 						aria-busy={pending?.kind === 'save' || undefined}
 					>
 						{#if pending?.kind === 'save'}<Spinner />{/if}
-						{isPublished ? 'Save Changes' : 'Save Draft'}
+						{isPublished ? 'Save changes' : 'Save draft'}
 					</Button>
 					{#if !isPublished}
 						<Button
@@ -479,13 +530,13 @@
 	</section>
 </div>
 
-{#if confirmDeleteOpen && selectedEntry}
+{#if deleteTarget}
 	<ConfirmDialog
 		title="Delete draft"
-		message={`Delete "${selectedEntry.title}"? This cannot be undone.`}
+		message={`Delete "${deleteTarget.title}"? This cannot be undone.`}
 		confirmLabel="Delete"
 		loading={pending?.kind === 'delete'}
 		onConfirm={confirmDelete}
-		onCancel={() => (confirmDeleteOpen = false)}
+		onCancel={() => (deleteTarget = null)}
 	/>
 {/if}

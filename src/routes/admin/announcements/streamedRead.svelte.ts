@@ -7,10 +7,15 @@ export type StreamedRead<T> =
 
 /**
  * Follows a streamed read. A refresh keeps the last loaded value on screen, so a save does not flash a skeleton,
- * and a reply for a promise that has since been replaced is ignored.
+ * and a reply for a promise that has since been replaced is ignored. `settled` is the promise whose reply
+ * `current` last applied, so a caller can tell a reply to a read it started from one to an older read.
  */
-export function followStreamedRead<T>(getPromise: () => Promise<T>): { readonly current: StreamedRead<T> } {
+export function followStreamedRead<T>(getPromise: () => Promise<T>): {
+	readonly current: StreamedRead<T>;
+	readonly settled: Promise<T> | null;
+} {
 	let current = $state<StreamedRead<T>>({ status: 'pending' });
+	let settled = $state.raw<Promise<T> | null>(null);
 	$effect(() => {
 		const promise = getPromise();
 		let latest = true;
@@ -19,10 +24,14 @@ export function followStreamedRead<T>(getPromise: () => Promise<T>): { readonly 
 		});
 		promise.then(
 			(value) => {
-				if (latest) current = { status: 'loaded', value, refreshing: false };
+				if (!latest) return;
+				current = { status: 'loaded', value, refreshing: false };
+				settled = promise;
 			},
 			() => {
-				if (latest) current = { status: 'failed' };
+				if (!latest) return;
+				current = { status: 'failed' };
+				settled = promise;
 			}
 		);
 		return () => {
@@ -32,6 +41,9 @@ export function followStreamedRead<T>(getPromise: () => Promise<T>): { readonly 
 	return {
 		get current() {
 			return current;
+		},
+		get settled() {
+			return settled;
 		}
 	};
 }

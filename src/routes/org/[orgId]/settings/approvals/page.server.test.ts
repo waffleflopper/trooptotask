@@ -1,18 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSuspendedAppShellRouteData } from '../../appShell.test-support';
+import { createSuspendedAppShellRouteData, createOrganizationLoadEventData } from '../../appShell.test-support';
 import { load } from './+page.server';
 
 describe('approvals settings page load', () => {
 	it('registers the pending approvals read for review refreshes', async () => {
 		const depends = vi.fn();
 
-		await load({
-			locals: {},
+		const result = await load({
 			cookies: {},
 			depends,
-			parent: async () => createSuspendedAppShellRouteData()
+			...createOrganizationLoadEventData(createSuspendedAppShellRouteData())
 		} as never);
 
-		expect(depends.mock.calls).toEqual([['app:settings-pending-approvals']]);
+		expect(result).toEqual({});
+		expect(depends).toHaveBeenCalledWith('app:settings-pending-approvals');
+		expect(depends).toHaveBeenCalledWith('app:org-core');
 	});
 });

@@ -253,7 +253,7 @@ describe('getOrgBreadcrumbs', () => {
 
 		expect(getOrgBreadcrumbs('/org/org-1/settings/danger', 'Test Org', nav)).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Unit settings', href: '/org/org-1/settings' },
+			{ label: 'Unit settings', href: '/org/org-1/settings/general' },
 			{ label: 'Danger zone' }
 		]);
 		expect(getOrgBreadcrumbs('/org/org-1/settings', 'Test Org', nav)).toEqual([

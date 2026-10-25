@@ -92,7 +92,7 @@ function createDashboardWorkspaceHydration(
 	};
 }
 
-export async function streamDashboardWorkspaceBootstrap(
+async function createDashboardWorkspaceBootstrap(
 	context: DashboardWorkspaceRequestContext
 ): Promise<DashboardWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
@@ -116,4 +116,22 @@ export async function streamDashboardWorkspaceBootstrap(
 	return {
 		dashboard: deferred
 	};
+}
+
+const requestWorkspaces = new WeakMap<App.Locals, Map<string, Promise<DashboardWorkspaceRouteData>>>();
+
+export function streamDashboardWorkspaceBootstrap(
+	context: DashboardWorkspaceRequestContext
+): Promise<DashboardWorkspaceRouteData> {
+	let workspaces = requestWorkspaces.get(context.locals);
+	if (!workspaces) {
+		workspaces = new Map();
+		requestWorkspaces.set(context.locals, workspaces);
+	}
+	let workspace = workspaces.get(context.orgId);
+	if (!workspace) {
+		workspace = createDashboardWorkspaceBootstrap(context);
+		workspaces.set(context.orgId, workspace);
+	}
+	return workspace;
 }

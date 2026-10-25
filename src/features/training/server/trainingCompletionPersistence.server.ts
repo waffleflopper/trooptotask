@@ -1,8 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { TrainingCompletionPersistence } from '../contracts';
+import { SUPABASE_PAGE_SIZE, selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
+import type { TrainingCompletionPersistence, TrainingCompletionReadScope } from '../contracts';
 import {
 	TRAINING_COMPLETION_FIELDS,
+	TRAINING_WORKSPACE_COMPLETION_FIELDS,
+	TRAINING_READINESS_COMPLETION_FIELDS,
+	toTrainingCompletionFacts,
+	toWorkspaceTrainingCompletion,
+	type TrainingCompletionReadRow,
 	TRAINING_COMPLETION_ENTRY_FIELDS,
 	TRAINING_COMPLETION_HISTORY_FIELDS,
 	TRAINING_COMPLETION_TABLES,
@@ -17,24 +22,85 @@ import {
 	type TrainingCompletionHistoryRow
 } from './trainingPersistenceMapping.server';
 
+const IDS_PER_FILTER = 50;
+
 export function createSupabaseTrainingCompletionPersistence(
 	client: SupabaseClient,
 	orgId: string
 ): TrainingCompletionPersistence {
+	type Page = { personnelIds?: readonly string[]; trainingTypeIds?: readonly string[]; from: number };
+
+	async function readCompletions(fields: string, scope?: TrainingCompletionReadScope) {
+		const partitions: Page[] = [];
+		if (!scope) partitions.push({ from: 0 });
+		else {
+			const people = [...new Set(scope.personnelIds)];
+			const types = scope.trainingTypeIds === undefined ? undefined : [...new Set(scope.trainingTypeIds)];
+			if (types?.length === 0) return [];
+			// A Person has at most one row per type, so this many People fit one page. An unfiltered read assumes a
+			// full type chunk; a larger catalog still pages by count.
+			const typesPerPartition = Math.min(types?.length ?? IDS_PER_FILTER, IDS_PER_FILTER);
+			const peoplePerPartition = Math.min(IDS_PER_FILTER, Math.floor(SUPABASE_PAGE_SIZE / typesPerPartition));
+			for (let personIndex = 0; personIndex < people.length; personIndex += peoplePerPartition) {
+				const personnelIds = people.slice(personIndex, personIndex + peoplePerPartition);
+				if (!types) partitions.push({ personnelIds, from: 0 });
+				else {
+					for (let typeIndex = 0; typeIndex < types.length; typeIndex += IDS_PER_FILTER) {
+						partitions.push({
+							personnelIds,
+							trainingTypeIds: types.slice(typeIndex, typeIndex + IDS_PER_FILTER),
+							from: 0
+						});
+					}
+				}
+			}
+		}
+
+		async function readPages(pages: Page[]) {
+			const results = [];
+			for (let index = 0; index < pages.length; index += 4) {
+				const batch = await Promise.all(
+					pages.slice(index, index + 4).map(async (page) => {
+						let query = client
+							.from('personnel_trainings')
+							.select(fields, page.from === 0 ? { count: 'exact' } : {})
+							.eq('organization_id', orgId);
+						if (page.personnelIds) query = query.in('personnel_id', [...page.personnelIds]);
+						if (page.trainingTypeIds) query = query.in('training_type_id', [...page.trainingTypeIds]);
+						return query
+							.order('id', { ascending: true })
+							.range(page.from, page.from + SUPABASE_PAGE_SIZE - 1)
+							.returns<TrainingCompletionReadRow[]>();
+					})
+				);
+				for (const result of batch) {
+					if (result.error) throw new Error(result.error.message);
+					results.push(result);
+				}
+			}
+			return results;
+		}
+
+		const firstPages = await readPages(partitions);
+		const remaining: Page[] = [];
+		for (const [index, first] of firstPages.entries()) {
+			if (first.count === null) throw new Error('Training completion count unavailable');
+			for (let from = SUPABASE_PAGE_SIZE; from < first.count; from += SUPABASE_PAGE_SIZE) {
+				remaining.push({ ...partitions[index], from });
+			}
+		}
+		const pages = [...firstPages, ...(await readPages(remaining))];
+		return pages.flatMap((page) => page.data ?? []);
+	}
+
 	return {
 		async listCompletions() {
-			const result = await selectAllSupabaseRows<TrainingCompletionRow>(async (from, to) => {
-				const { data, error } = await client
-					.from('personnel_trainings')
-					.select(TRAINING_COMPLETION_FIELDS)
-					.eq('organization_id', orgId)
-					.order('id', { ascending: true })
-					.range(from, to)
-					.returns<TrainingCompletionRow[]>();
-				return { data, error };
-			});
-			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map(toTrainingCompletion);
+			return (await readCompletions(TRAINING_WORKSPACE_COMPLETION_FIELDS))
+				.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+				.map(toWorkspaceTrainingCompletion);
+		},
+		async listReadinessCompletions(scope) {
+			return (await readCompletions(TRAINING_READINESS_COMPLETION_FIELDS, scope)).map(toTrainingCompletionFacts);
 		},
 		async findResource(id) {
 			const { data, error } = await client

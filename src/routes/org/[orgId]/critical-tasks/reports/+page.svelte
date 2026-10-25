@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { IctReportsView } from '$features/critical-tasks';
+	import IctReportsView from '$features/critical-tasks/components/IctReportsView.svelte';
 
 	let { data } = $props();
 	const org = getAppShellContext();

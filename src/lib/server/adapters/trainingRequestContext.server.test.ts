@@ -50,7 +50,7 @@ describe('Training request authority', () => {
 		request.auth.orgId = 'org-b';
 		expect(await catalog.trainingCatalog.listTypeLabels()).toEqual([{ id: 'a', name: 'A' }]);
 		expect(await roster.trainingCompletions.listCompletions()).toEqual([
-			{ id: 'r-a', organization_id: 'org-a', personnelId: 'p-a', trainingTypeId: 'a' }
+			{ id: 'r-a', personnelId: 'p-a', trainingTypeId: 'a', notes: null, certificateUrl: null }
 		]);
 		expect(await reports.trainingCatalog.listTypes()).toEqual([{ id: 'a', name: 'A', organization_id: 'org-a' }]);
 		expect(getAdminClient).not.toHaveBeenCalled();

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { createReadyAppShellRouteData } from '../../appShell.test-support';
+import { createReadyAppShellRouteData, createOrganizationLoadEventData } from '../../appShell.test-support';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
 const {
@@ -90,7 +90,6 @@ function actionEvent(
 			body
 		}),
 		locals,
-		params: { orgId: 'org-1' },
 		cookies: {},
 		getClientAddress: () => '127.0.0.1'
 	} as never;
@@ -125,15 +124,16 @@ describe('danger settings page server', () => {
 
 		await expect(
 			load({
-				locals: {},
+				depends: () => undefined,
 				cookies: {},
-				parent: async () =>
+				...createOrganizationLoadEventData(
 					createReadyAppShellRouteData({
 						orgId: 'org-1',
 						orgName: 'Test Org',
 						orgUrlSegment: 'test-org',
 						role: 'admin'
 					})
+				)
 			} as never)
 		).rejects.toMatchObject({
 			status: 303,
@@ -183,15 +183,16 @@ describe('danger settings page server', () => {
 		);
 
 		const result = (await load({
-			locals: {},
+			depends: () => undefined,
 			cookies: {},
-			parent: async () =>
+			...createOrganizationLoadEventData(
 				createReadyAppShellRouteData({
 					orgId: 'org-1',
 					orgName: 'Test Org',
 					orgUrlSegment: 'test-org',
 					role: 'owner'
 				})
+			)
 		} as never)) as { dangerSettings: { destructionCounts: Promise<unknown> } };
 
 		expect(result).toMatchObject({

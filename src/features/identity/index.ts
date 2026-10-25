@@ -1,16 +1,9 @@
-export { default as PasswordMfaChallenge } from './PasswordMfaChallenge.svelte';
-
 export { redirectToSensitiveActionStepUp } from './sensitiveActionStepUp';
 
 export { hasPendingPasswordCompletion, reconciledPasswordState } from './passwordCompletion';
 export { ACCESS_REQUEST_HEARD_ABOUT_OPTIONS } from './contracts';
-export { default as PasswordCompletion } from './PasswordCompletion.svelte';
 export { PASSWORD_MISMATCH_MESSAGE, passwordRequirements, validatePassword } from './passwordPolicy';
 
-export { default as AccountPreferencesProvider } from './AccountPreferencesProvider.svelte';
 export { getAccountPreferencesContext } from './accountPreferencesContext';
 export { accountLabel } from './accountLabel';
 export { mfaSetupHref } from './mfaSetupHref';
-export { default as AccountShell } from './AccountShell.svelte';
-export { default as ProfilePage } from './ProfilePage.svelte';
-export { default as SecurityPage, type EmailActionData } from './SecurityPage.svelte';

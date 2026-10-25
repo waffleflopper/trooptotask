@@ -92,8 +92,8 @@
 			<span class="truncate font-heading text-xl leading-6 font-bold uppercase">{group.label}</span>
 		</Button>
 		<span class="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-			<span aria-hidden="true">{group.count}</span>
-			<span class="sr-only">{group.count} {group.count === 1 ? 'person' : 'people'}</span>
+			<span aria-hidden="true">{people.length}</span>
+			<span class="sr-only">{people.length} {people.length === 1 ? 'person' : 'people'}</span>
 		</span>
 	</div>
 

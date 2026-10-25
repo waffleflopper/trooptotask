@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
-	import { AccountShell } from '$features/identity';
+	import AccountShell from '$features/identity/AccountShell.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();

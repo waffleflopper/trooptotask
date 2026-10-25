@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { PersonnelFilesPageView } from '$features/personnel';
+	import PersonnelFilesPageView from '$features/personnel/components/PersonnelFilesPageView.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 	let { data } = $props();

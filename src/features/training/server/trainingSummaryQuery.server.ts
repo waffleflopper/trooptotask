@@ -2,7 +2,7 @@
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	TrainingType,
-	PersonnelTraining,
+	TrainingCompletionFacts,
 	ExpiredTrainingType,
 	TrainingIssue,
 	TrainingSummary,
@@ -11,7 +11,7 @@ import type {
 	DashboardTrainingSummaryInput
 } from '../contracts';
 import { getTrainingStats, getDelinquentTrainings } from '../utils/trainingStatus';
-import { listTrainingCompletions } from './trainingCompletionRead.server';
+import { listTrainingReadinessCompletions } from './trainingCompletionRead.server';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 
 export async function fetchDashboardTrainingSummary(
@@ -19,7 +19,13 @@ export async function fetchDashboardTrainingSummary(
 	input: DashboardTrainingSummaryInput
 ): Promise<DashboardTrainingSummary> {
 	const { onboardingPersonnelIds, personnel, trainingTypes, options = {}, asOf } = input;
-	const trainings = await listTrainingCompletions(ctx);
+	const summaryPeople = options.groupId ? personnel.filter((person) => person.groupId === options.groupId) : personnel;
+	const summaryTypeIdsWithoutOnboarding =
+		onboardingPersonnelIds.length === 0 ? trainingTypes.map((type) => type.id) : undefined;
+	const trainings = await listTrainingReadinessCompletions(ctx, {
+		personnelIds: [...summaryPeople.map((person) => person.id), ...onboardingPersonnelIds],
+		trainingTypeIds: summaryTypeIdsWithoutOnboarding
+	});
 
 	return {
 		trainingSummary: buildTrainingSummary(trainings, personnel, trainingTypes, asOf, options),
@@ -28,7 +34,7 @@ export async function fetchDashboardTrainingSummary(
 }
 
 function buildTrainingSummary(
-	trainings: PersonnelTraining[],
+	trainings: TrainingCompletionFacts[],
 	personnel: Personnel[],
 	trainingTypes: TrainingType[],
 	asOf: string,
@@ -95,7 +101,7 @@ function buildTrainingSummary(
 	};
 }
 
-function buildOnboardingTrainingCompletions(trainings: PersonnelTraining[], personnelIds: string[]): Set<string> {
+function buildOnboardingTrainingCompletions(trainings: TrainingCompletionFacts[], personnelIds: string[]): Set<string> {
 	if (personnelIds.length === 0) return new Set();
 
 	const requestedIds = new Set(personnelIds);

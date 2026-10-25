@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
-	import { PersonnelRecordHeader, provideDataSheetEditSession } from '$features/personnel';
+	import PersonnelRecordHeader from '$features/personnel/components/PersonnelRecordHeader.svelte';
+	import { provideDataSheetEditSession } from '$features/personnel';
 	import type { PersonnelDetailHeader, PersonnelDetailLayoutStreams } from '$features/personnel/contracts';
 	import { requestPersonnelArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 

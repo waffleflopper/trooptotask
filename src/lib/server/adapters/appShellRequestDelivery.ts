@@ -36,7 +36,10 @@ export function createAppShellRequest(
 
 	async function resolveOrgRoute() {
 		const { supabase } = getAdmittedRequestClientFn(config.locals);
-		const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
+		const org = await resolveOrganizationRouteIdentity(
+			{ supabase, organizationRouteReads: (config.locals.organizationRouteReads ??= new Map()) },
+			config.orgSegment
+		);
 
 		if (!org) {
 			throw error(404, 'Organization not found');

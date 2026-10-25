@@ -147,7 +147,9 @@ function summarySupabase() {
 				if (blockedTables.has(table)) throw new Error(`Summary refresh read ${table}`);
 				const rows = SUMMARY_TABLES[table];
 				if (!rows) throw new Error(`Summary refresh read unrelated table ${table}`);
-				return Response.json(rows);
+				return Response.json(rows, {
+					headers: { 'Content-Range': rows.length ? `0-${rows.length - 1}/${rows.length}` : '*/0' }
+				});
 			}
 		}
 	});

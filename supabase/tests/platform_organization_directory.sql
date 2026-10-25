@@ -45,11 +45,16 @@ INSERT INTO public.audit_logs(org_id, user_id, action, resource_type, severity, 
  ('e8690000-0000-4000-8000-000000000102', 'e8690000-0000-4000-8000-000000000004', 'personnel.create', 'personnel', 'info', now() - interval '60 days'),
  ('e8690000-0000-4000-8000-000000000104', 'e8690000-0000-4000-8000-000000000006', 'personnel.create', 'personnel', 'info', now() - interval '5 days');
 
-SELECT is(public.platform_suspend_organization('e8690000-0000-4000-8000-000000000001', 'e8690000-0000-4000-8000-000000000104', 'Synthetic abuse report', now() - interval '1 day'), true, 'an operator suspension reports the Organization was found');
+SELECT is(public.platform_suspend_organization('e8690000-0000-4000-8000-000000000001', 'e8690000-0000-4000-8000-000000000104', 'Synthetic abuse report', now() - interval '1 day'), 'suspended', 'an operator suspension reports the Organization was suspended');
 SELECT is((SELECT reason FROM public.organization_suspensions WHERE organization_id = 'e8690000-0000-4000-8000-000000000104'), 'Synthetic abuse report', 'the suspension reason is saved with the suspension');
 SELECT is((SELECT suspended_by FROM public.organization_suspensions WHERE organization_id = 'e8690000-0000-4000-8000-000000000104'), 'e8690000-0000-4000-8000-000000000001'::uuid, 'the suspension is attributed to the operator the server named');
 SELECT is((SELECT suspended_at IS NOT NULL FROM public.organizations WHERE id = 'e8690000-0000-4000-8000-000000000104'), true, 'the Organization is suspended');
-SELECT is(public.platform_suspend_organization('e8690000-0000-4000-8000-000000000001', 'e8690000-0000-4000-8000-000000000999', 'Nobody', now()), false, 'suspending a missing Organization reports it was not found');
+SELECT is((SELECT suspended_at FROM public.organizations WHERE id = 'e8690000-0000-4000-8000-000000000104'), (SELECT suspended_at FROM public.organization_suspensions WHERE organization_id = 'e8690000-0000-4000-8000-000000000104'), 'the suspension note carries the time the Organization was suspended');
+CREATE TEMP TABLE original_suspension AS SELECT reason, suspended_by, suspended_at FROM public.organization_suspensions WHERE organization_id = 'e8690000-0000-4000-8000-000000000104';
+SELECT is(public.platform_suspend_organization('e8690000-0000-4000-8000-000000000001', 'e8690000-0000-4000-8000-000000000104', 'Second request', now()), 'already_suspended', 'a repeat suspension reports the Organization was already suspended');
+SELECT results_eq($$SELECT reason, suspended_by, suspended_at FROM public.organization_suspensions WHERE organization_id = 'e8690000-0000-4000-8000-000000000104'$$, $$SELECT reason, suspended_by, suspended_at FROM original_suspension$$, 'a repeat suspension keeps the original time, reason and operator');
+SELECT is((SELECT suspended_at FROM public.organizations WHERE id = 'e8690000-0000-4000-8000-000000000104'), (SELECT suspended_at FROM original_suspension), 'a repeat suspension keeps the original suspension time on the Organization');
+SELECT is(public.platform_suspend_organization('e8690000-0000-4000-8000-000000000001', 'e8690000-0000-4000-8000-000000000999', 'Nobody', now()), 'not_found', 'suspending a missing Organization reports it was not found');
 SELECT throws_ok($$SELECT public.platform_suspend_organization('e8690000-0000-4000-8000-000000000002', 'e8690000-0000-4000-8000-000000000101', 'Forged', now())$$, '42501', NULL, 'a non-operator actor cannot suspend');
 SELECT throws_ok($$SELECT public.platform_suspend_organization('e8690000-0000-4000-8000-000000000007', 'e8690000-0000-4000-8000-000000000101', 'Suspended operator', now())$$, '42501', NULL, 'a suspended operator cannot suspend');
 SELECT throws_ok($$SELECT public.platform_suspend_organization('e8690000-0000-4000-8000-000000000001', 'e8690000-0000-4000-8000-000000000101', '   ', now())$$, '23514', NULL, 'a blank reason is rejected');
@@ -110,6 +115,7 @@ SELECT throws_ok($$INSERT INTO public.organization_suspensions(organization_id, 
 SELECT set_config('request.jwt.claim.sub', 'e8690000-0000-4000-8000-000000000001', true);
 SELECT throws_ok($$SELECT * FROM public.platform_list_organizations('', 'all', 1, 25)$$, '42501', NULL, 'an operator session cannot call the list directly, only the server can');
 SELECT throws_ok($$SELECT public.platform_suspend_organization('e8690000-0000-4000-8000-000000000001', 'e8690000-0000-4000-8000-000000000101', 'Direct', now())$$, '42501', NULL, 'an operator session cannot suspend directly, bypassing MFA and audit');
+SELECT throws_ok($$UPDATE public.organization_suspensions SET reason = 'Rewritten'$$, '42501', NULL, 'an operator session cannot rewrite a suspension note directly');
 SELECT throws_ok($$DELETE FROM public.organization_suspensions$$, '42501', NULL, 'an operator session cannot clear a suspension directly');
 RESET ROLE;
 SET LOCAL ROLE anon;

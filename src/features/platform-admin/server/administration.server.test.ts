@@ -17,7 +17,7 @@ function sources(): PlatformSupportAdministrationDependencies {
 		personnel: { countActivePersonnelByOrganization: vi.fn(async () => new Map([[ORG, 42]])) },
 		userSuspensionCommands: { suspendUser: vi.fn(async () => {}), unsuspendUser: vi.fn(async () => {}) },
 		organizationSuspensionCommands: {
-			suspendOrganization: vi.fn(async () => {}),
+			suspendOrganization: vi.fn(async () => 'suspended' as const),
 			unsuspendOrganization: vi.fn(async () => {})
 		},
 		actorUserId: 'admitted-admin',
@@ -152,12 +152,15 @@ describe('Platform suspension policy', () => {
 		const targetId = type === 'user' ? USER : ORG;
 		const changes: string[] = [];
 		const events: AuditEvent[] = [];
-		const acknowledged = vi.fn(async () => {
+		const acknowledged = vi.fn(async (..._input: unknown[]) => {
 			changes.push(`${action}:${targetId}`);
+			return 'suspended' as const;
 		});
-		if (type === 'user') deps.userSuspensionCommands[operation as 'suspendUser' | 'unsuspendUser'] = acknowledged;
+		if (type === 'user')
+			deps.userSuspensionCommands[operation as 'suspendUser' | 'unsuspendUser'] = acknowledged as never;
 		else
-			deps.organizationSuspensionCommands[operation as 'suspendOrganization' | 'unsuspendOrganization'] = acknowledged;
+			deps.organizationSuspensionCommands[operation as 'suspendOrganization' | 'unsuspendOrganization'] =
+				acknowledged as never;
 		deps.audit = {
 			async log(event) {
 				expect(changes).toEqual([`${action}:${targetId}`]);
@@ -192,6 +195,20 @@ describe('Platform suspension policy', () => {
 		else if (operation === 'unsuspendOrganization')
 			expect(acknowledged).toHaveBeenCalledWith({ organizationId: ORG, unsuspendedBy: 'admitted-admin' });
 		else expect(acknowledged).toHaveBeenCalledWith(targetId);
+	});
+
+	it('reports a repeat Organization suspension as already suspended without a second audit event', async () => {
+		const deps = sources();
+		deps.organizationSuspensionCommands.suspendOrganization = vi.fn(async () => 'already_suspended' as const);
+		await expect(
+			createPlatformSupportAdministration(deps).updateSuspension({
+				type: 'org',
+				targetId: ORG,
+				action: 'suspend',
+				reason: 'Second request'
+			})
+		).resolves.toEqual({ status: 'already_suspended' });
+		expect(deps.audit.log).not.toHaveBeenCalled();
 	});
 
 	it('keeps the reason out of an Organization audit event', async () => {

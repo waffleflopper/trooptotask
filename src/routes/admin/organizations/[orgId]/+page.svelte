@@ -33,7 +33,6 @@
 	let showTransferModal = $state(false);
 	let navigationLifetime = $state(0);
 	const MEMBER_PREVIEW = 10;
-	const glanceRow = 'grid-cols-[6rem_minmax(0,1fr)] sm:grid-cols-[6rem_minmax(0,1fr)]';
 	let expandedMembersFor = $state<string | null>(null);
 	const showAllMembers = $derived(expandedMembersFor === org.id);
 	const visibleMembers = $derived(showAllMembers ? org.members : org.members.slice(0, MEMBER_PREVIEW));
@@ -109,9 +108,9 @@
 			<Badge variant={adminBadgeVariant(org.status)}>{PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]}</Badge>
 		{/snippet}
 		{#snippet aside()}
-			<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer Ownership</Button>
+			<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer ownership</Button>
 			<Button variant={isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
-				{isSuspended ? 'Unsuspend Organization' : 'Suspend Organization'}
+				{isSuspended ? 'Unsuspend organization' : 'Suspend organization'}
 			</Button>
 		{/snippet}
 	</PageShell.Header>
@@ -137,17 +136,17 @@
 		<section class="grid gap-2 rounded-lg border bg-card p-4 lg:order-2" aria-labelledby="org-glance">
 			<h2 id="org-glance" class="font-heading text-xl font-bold">At a glance</h2>
 			<dl>
-				<PageShell.FactRow class={glanceRow} label="Owner" value={ownerLabel} />
-				<PageShell.FactRow class={glanceRow} label="Members" value={String(org.members.length)} />
-				<PageShell.FactRow class={glanceRow} label="Personnel" value={String(org.personnelCount)} />
+				<PageShell.FactRow variant="compact" label="Owner" value={ownerLabel} />
+				<PageShell.FactRow variant="compact" label="Members" value={String(org.members.length)} />
+				<PageShell.FactRow variant="compact" label="Personnel" value={String(org.personnelCount)} />
 				<PageShell.FactRow
-					class={glanceRow}
+					variant="compact"
 					label="Last active"
 					value={org.lastActiveAt ? formatRelativeDate(org.lastActiveAt) : 'Never used'}
 				/>
-				<PageShell.FactRow class={glanceRow} label="Created" value={formatDisplayDate(org.createdAt)} />
-				<PageShell.FactRow class={glanceRow} label="Status" value={PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} />
-				<PageShell.FactRow class={glanceRow} label="ID" value={org.id} mono />
+				<PageShell.FactRow variant="compact" label="Created" value={formatDisplayDate(org.createdAt)} />
+				<PageShell.FactRow variant="compact" label="Status" value={PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} />
+				<PageShell.FactRow variant="compact" label="ID" value={org.id} mono />
 			</dl>
 		</section>
 

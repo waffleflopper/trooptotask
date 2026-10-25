@@ -86,13 +86,15 @@ describe('Organization support suspension commands', () => {
 
 	it('suspends through one command that carries the reason, the actor and the time', async () => {
 		const calls: Array<{ name: string; body: Record<string, unknown> }> = [];
-		const commands = createOrganizationSupportSuspensionCommands(rpcClient(true, calls));
-		await commands.suspendOrganization({
-			organizationId: 'able',
-			suspendedBy: 'operator',
-			reason: 'Abuse report',
-			suspendedAt: new Date('2026-10-03T12:00:00Z')
-		});
+		const commands = createOrganizationSupportSuspensionCommands(rpcClient('suspended', calls));
+		await expect(
+			commands.suspendOrganization({
+				organizationId: 'able',
+				suspendedBy: 'operator',
+				reason: 'Abuse report',
+				suspendedAt: new Date('2026-10-03T12:00:00Z')
+			})
+		).resolves.toBe('suspended');
 		expect(calls).toEqual([
 			{
 				name: 'platform_suspend_organization',
@@ -106,6 +108,18 @@ describe('Organization support suspension commands', () => {
 		]);
 	});
 
+	it('reports a repeat suspension as already suspended', async () => {
+		const commands = createOrganizationSupportSuspensionCommands(rpcClient('already_suspended'));
+		await expect(
+			commands.suspendOrganization({
+				organizationId: 'able',
+				suspendedBy: 'operator',
+				reason: 'Second request',
+				suspendedAt: new Date()
+			})
+		).resolves.toBe('already_suspended');
+	});
+
 	it('unsuspends through one command that names the actor', async () => {
 		const calls: Array<{ name: string; body: Record<string, unknown> }> = [];
 		const commands = createOrganizationSupportSuspensionCommands(rpcClient(true, calls));
@@ -115,20 +129,23 @@ describe('Organization support suspension commands', () => {
 		]);
 	});
 
-	it.each([false, null, 1, [{ id: 'able' }]])('does not acknowledge a missing target: %j', async (response) => {
-		const commands = createOrganizationSupportSuspensionCommands(rpcClient(response));
-		await expect(
-			commands.suspendOrganization({
-				organizationId: 'able',
-				suspendedBy: 'operator',
-				reason: 'Reason',
-				suspendedAt: new Date()
-			})
-		).rejects.toThrow('Suspension change could not be confirmed');
-		await expect(commands.unsuspendOrganization({ organizationId: 'able', unsuspendedBy: 'operator' })).rejects.toThrow(
-			'Suspension change could not be confirmed'
-		);
-	});
+	it.each([false, 'not_found', null, 1, [{ id: 'able' }]])(
+		'does not acknowledge a missing target: %j',
+		async (response) => {
+			const commands = createOrganizationSupportSuspensionCommands(rpcClient(response));
+			await expect(
+				commands.suspendOrganization({
+					organizationId: 'able',
+					suspendedBy: 'operator',
+					reason: 'Reason',
+					suspendedAt: new Date()
+				})
+			).rejects.toThrow('Suspension change could not be confirmed');
+			await expect(
+				commands.unsuspendOrganization({ organizationId: 'able', unsuspendedBy: 'operator' })
+			).rejects.toThrow('Suspension change could not be confirmed');
+		}
+	);
 
 	it('propagates a rejected write without claiming acknowledgement', async () => {
 		const commands = createOrganizationSupportSuspensionCommands(

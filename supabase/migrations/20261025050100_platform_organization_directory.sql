@@ -12,28 +12,29 @@ ALTER TABLE public.organization_suspensions ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.organization_suspensions FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.organization_suspensions TO service_role;
 
--- Suspension state and its reason change together, and only for a current operator.
+-- Suspension state and its reason change together, and only for a current operator. A repeat request on an
+-- Organization that is already suspended changes nothing, so the saved time, reason and operator stay one
+-- operator's account; the caller is told 'already_suspended'.
 CREATE FUNCTION public.platform_suspend_organization(
 	p_actor_user_id uuid, p_organization_id uuid, p_reason text, p_suspended_at timestamptz
-) RETURNS boolean
+) RETURNS text
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
+	v_previous timestamptz;
 	v_suspended_at timestamptz;
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM public.platform_operators WHERE user_id = p_actor_user_id)
 		OR EXISTS (SELECT 1 FROM public.user_suspensions WHERE user_id = p_actor_user_id) THEN
 		RAISE EXCEPTION 'Current platform operator access is required' USING ERRCODE = '42501';
 	END IF;
-	UPDATE public.organizations
-	SET suspended_at = coalesce(suspended_at, p_suspended_at)
-	WHERE id = p_organization_id
-	RETURNING suspended_at INTO v_suspended_at;
-	IF NOT FOUND THEN RETURN false; END IF;
+	SELECT o.suspended_at INTO v_previous FROM public.organizations o WHERE o.id = p_organization_id FOR UPDATE;
+	IF NOT FOUND THEN RETURN 'not_found'; END IF;
+	v_suspended_at := coalesce(v_previous, p_suspended_at);
+	UPDATE public.organizations SET suspended_at = v_suspended_at WHERE id = p_organization_id;
 	INSERT INTO public.organization_suspensions (organization_id, reason, suspended_by, suspended_at)
 	VALUES (p_organization_id, p_reason, p_actor_user_id, v_suspended_at)
-	ON CONFLICT (organization_id) DO UPDATE
-	SET reason = EXCLUDED.reason, suspended_by = EXCLUDED.suspended_by, suspended_at = EXCLUDED.suspended_at;
-	RETURN true;
+	ON CONFLICT (organization_id) DO NOTHING;
+	RETURN CASE WHEN v_previous IS NULL THEN 'suspended' ELSE 'already_suspended' END;
 END;
 $$;
 
@@ -67,12 +68,17 @@ $$;
 
 -- One page of Organizations with every list fact. Filtering, ordering and paging run over the cheap
 -- columns, and the counts and owner are read for the page's rows only. The page is clamped here, so a
--- stale page number still returns the last page, and an empty result still returns its total.
+-- stale page number still returns the last page, and an empty result still returns its total. The four
+-- filter counts come from the same pass over the search matches, so the filter chips cost no second query.
 CREATE FUNCTION public.platform_list_organizations(
 	p_search text, p_filter text, p_page integer, p_page_size integer
 ) RETURNS TABLE (
 	total_count bigint,
 	page integer,
+	all_count bigint,
+	active_week_count bigint,
+	quiet_count bigint,
+	suspended_count bigint,
 	organization_id uuid,
 	name text,
 	created_at timestamptz,
@@ -91,7 +97,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
 	),
 	matched AS (
 		SELECT o.id, o.name, o.created_at, o.suspended_at, activity.last_active_at,
-			public.platform_organization_status(o.suspended_at, activity.last_active_at, o.created_at) AS status
+			public.platform_organization_status(o.suspended_at, activity.last_active_at, o.created_at) AS status,
+			coalesce(o.suspended_at IS NULL AND activity.last_active_at >= pg_catalog.now() - interval '7 days', false) AS active_week
 		FROM public.organizations o
 		CROSS JOIN search
 		CROSS JOIN LATERAL (
@@ -114,12 +121,18 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
 			pg_catalog.count(*) OVER () AS total
 		FROM matched
 		WHERE CASE p_filter
-			WHEN 'active-week' THEN matched.status <> 'suspended'
-				AND matched.last_active_at >= pg_catalog.now() - interval '7 days'
+			WHEN 'active-week' THEN matched.active_week
 			WHEN 'quiet' THEN matched.status = 'quiet'
 			WHEN 'suspended' THEN matched.status = 'suspended'
 			ELSE true
 		END
+	),
+	counts AS (
+		SELECT pg_catalog.count(*) AS all_count,
+			pg_catalog.count(*) FILTER (WHERE active_week) AS active_week_count,
+			pg_catalog.count(*) FILTER (WHERE status = 'quiet') AS quiet_count,
+			pg_catalog.count(*) FILTER (WHERE status = 'suspended') AS suspended_count
+		FROM matched
 	),
 	bounds AS (
 		SELECT greatest(1, least(greatest(1, p_page),
@@ -128,9 +141,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
 		)) AS page,
 		coalesce((SELECT pg_catalog.max(total) FROM filtered), 0)::bigint AS total
 	)
-	SELECT bounds.total, bounds.page, f.id, f.name, f.created_at, f.status, f.last_active_at,
+	SELECT bounds.total, bounds.page, counts.all_count, counts.active_week_count, counts.quiet_count,
+		counts.suspended_count, f.id, f.name, f.created_at, f.status, f.last_active_at,
 		facts.member_count, facts.personnel_count, facts.owner_count, facts.owner_email
 	FROM bounds
+	CROSS JOIN counts
 	LEFT JOIN filtered f
 		ON f.position > (bounds.page - 1) * p_page_size AND f.position <= bounds.page * p_page_size
 	LEFT JOIN LATERAL (

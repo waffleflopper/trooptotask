@@ -33,8 +33,11 @@
 		stackBelow?: 'md' | 'xl';
 	};
 
+	/** `compact` keeps a narrow label beside its value at every width, for a facts card in a side rail. */
 	type Props =
-		| (Shared & Value & NoLanes & { variant?: 'default'; description?: never; muted?: never; stackBelow?: never })
+		| (Shared &
+				Value &
+				NoLanes & { variant?: 'default' | 'compact'; description?: never; muted?: never; stackBelow?: never })
 		| (Shared & Value & NoLanes & Display)
 		| (Shared &
 				NoValue &
@@ -103,7 +106,9 @@
 						'gap-x-10 gap-y-3',
 						stackBelow === 'xl' ? 'xl:grid-cols-[18.75rem_minmax(0,1fr)]' : 'md:grid-cols-[18.75rem_minmax(0,1fr)]'
 					)
-				: 'gap-x-4 gap-y-1.5 py-2.5 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-start',
+				: variant === 'compact'
+					? 'grid-cols-[6rem_minmax(0,1fr)] items-start gap-x-4 gap-y-1.5 py-2.5'
+					: 'gap-x-4 gap-y-1.5 py-2.5 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-start',
 		className
 	)}
 	{...restProps}

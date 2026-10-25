@@ -5,6 +5,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
@@ -16,17 +17,47 @@
 	import OrganizationListSkeleton from '$features/platform-admin/components/OrganizationListSkeleton.svelte';
 	import {
 		PLATFORM_ORGANIZATION_STATUS_LABELS,
+		type PlatformOrganizationFilter,
+		type PlatformOrganizationFilterCounts,
+		type PlatformOrganizationPage,
 		type PlatformOrganizationRow
 	} from '$features/platform-admin/organizationSupportTypes';
 
 	let { data } = $props();
 
-	const FILTER_OPTIONS = [
-		{ value: 'all', label: 'All' },
-		{ value: 'active-week', label: 'Active this week' },
-		{ value: 'quiet', label: 'Quiet 30+ days' },
-		{ value: 'suspended', label: 'Suspended' }
-	];
+	const FILTERS: { value: PlatformOrganizationFilter; label: string; count: keyof PlatformOrganizationFilterCounts }[] =
+		[
+			{ value: 'all', label: 'All', count: 'all' },
+			{ value: 'active-week', label: 'Active this week', count: 'activeWeek' },
+			{ value: 'quiet', label: 'Quiet 30+ days', count: 'quiet' },
+			{ value: 'suspended', label: 'Suspended', count: 'suspended' }
+		];
+
+	// The last settled page stays on screen beside a pending one, so the filter counts and the pager hold
+	// still while the next page's rows load. The pager is the focus target of a keyboard operator mid-paging.
+	let settled = $state.raw<{
+		promise: typeof data.directory;
+		q: string;
+		filter: string;
+		page: PlatformOrganizationPage;
+	} | null>(null);
+
+	$effect(() => {
+		const promise = data.directory;
+		const { q, filter } = data.query;
+		void promise.then((result) => {
+			if (promise !== data.directory) return;
+			settled = result.status === 'ready' ? { promise, q, filter, page: result.page } : null;
+		});
+	});
+
+	const sameSearch = $derived(settled !== null && settled.q === data.query.q);
+	const counts = $derived(sameSearch ? (settled?.page.counts ?? null) : null);
+	const pager = $derived(
+		settled !== null && sameSearch && settled.filter === data.query.filter && settled.page.organizations.length > 0
+			? settled
+			: null
+	);
 
 	function listHref(next: { page?: number; q: string; filter: string }): string {
 		const params = new SvelteURLSearchParams();
@@ -47,7 +78,11 @@
 			kind: 'view',
 			id: 'filter',
 			label: 'Show',
-			options: FILTER_OPTIONS,
+			options: FILTERS.map(({ value, label, count }) => ({
+				value,
+				label,
+				count: counts?.[count] ?? ('pending' as const)
+			})),
 			value: data.query.filter,
 			onValueChange: (filter) => goto(listHref({ q: search.value, filter }), { keepFocus: true })
 		}
@@ -116,14 +151,14 @@
 				</Empty.Header>
 			</Empty.Root>
 		{:else}
-			{@const page = result.page}
 			<OrganizationListFrame>
-				{#each page.organizations as org (org.id)}
-					<li class={rowClass}>
+				{#each result.page.organizations as org (org.id)}
+					<li class="{rowClass} relative hover:bg-muted/50">
 						<div class="grid min-w-0 lg:contents">
 							<a
 								href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
-								class="min-w-0 font-medium wrap-anywhere underline-offset-4 hover:underline">{org.name}</a
+								class="min-w-0 font-semibold wrap-anywhere text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+								>{org.name}</a
 							>
 							<p class="min-w-0 text-sm wrap-anywhere text-muted-foreground">{ownerLabel(org)}</p>
 						</div>
@@ -156,17 +191,25 @@
 					</li>
 				{/each}
 			</OrganizationListFrame>
-			<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+		{/if}
+	{/await}
+
+	{#if pager}
+		{@const page = pager.page}
+		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+			{#if pager.promise === data.directory}
 				<p class="font-mono text-xs tracking-[0.08em] uppercase">
 					Showing {(page.page - 1) * page.pageSize + 1}-{(page.page - 1) * page.pageSize + page.organizations.length} of
 					{page.totalCount}
 				</p>
-				<AdminPager
-					page={page.page}
-					totalPages={page.totalPages}
-					pageHref={(next) => listHref({ page: next, q: data.query.q, filter: data.query.filter })}
-				/>
-			</div>
-		{/if}
-	{/await}
+			{:else}
+				<Skeleton class="h-4 w-36" />
+			{/if}
+			<AdminPager
+				page={pager.promise === data.directory ? page.page : data.query.page}
+				totalPages={page.totalPages}
+				pageHref={(next) => listHref({ page: next, q: data.query.q, filter: data.query.filter })}
+			/>
+		</div>
+	{/if}
 </PageShell.Root>

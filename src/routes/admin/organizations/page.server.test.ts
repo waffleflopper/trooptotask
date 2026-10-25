@@ -33,6 +33,10 @@ function directoryRow(overrides: Record<string, unknown> = {}) {
 	return {
 		total_count: 1,
 		page: 1,
+		all_count: 38,
+		active_week_count: 31,
+		quiet_count: 4,
+		suspended_count: 1,
 		organization_id: orgId,
 		name: 'Able Clinic',
 		created_at: '2026-06-01T00:00:00.000Z',
@@ -93,6 +97,7 @@ describe('Organizations list load', () => {
 		await expect(result.directory).resolves.toEqual({
 			status: 'ready',
 			page: {
+				counts: { all: 38, activeWeek: 31, quiet: 4, suspended: 1 },
 				organizations: [
 					{
 						id: orgId,

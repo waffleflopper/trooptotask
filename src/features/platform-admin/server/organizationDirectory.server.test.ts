@@ -34,6 +34,10 @@ describe('Organization directory provider', () => {
 			{
 				total_count: '0',
 				page: 1,
+				all_count: '0',
+				active_week_count: '0',
+				quiet_count: '0',
+				suspended_count: '0',
 				organization_id: null,
 				name: null,
 				created_at: null,
@@ -46,12 +50,38 @@ describe('Organization directory provider', () => {
 			}
 		]);
 		await expect(directory.listOrganizations({ page: 1, q: 'zzz', filter: 'all' })).resolves.toEqual({
+			counts: { all: 0, activeWeek: 0, quiet: 0, suspended: 0 },
 			organizations: [],
 			page: 1,
 			pageSize: 25,
 			totalCount: 0,
 			totalPages: 1
 		});
+	});
+
+	it('reads the four filter counts from the first page row', async () => {
+		const { directory } = directoryWith([
+			{
+				total_count: 1,
+				page: 1,
+				all_count: '38',
+				active_week_count: 31,
+				quiet_count: 4,
+				suspended_count: 1,
+				organization_id: 'org-1',
+				name: 'Able Company',
+				created_at: '2026-06-01T00:00:00Z',
+				status: 'active',
+				last_active_at: null,
+				member_count: 1,
+				personnel_count: 2,
+				owner_count: 1,
+				owner_email: 'owner@example.test'
+			}
+		]);
+		const page = await directory.listOrganizations({ page: 1, q: '', filter: 'quiet' });
+		expect(page.counts).toEqual({ all: 38, activeWeek: 31, quiet: 4, suspended: 1 });
+		expect(page.totalCount).toBe(1);
 	});
 
 	it('throws the database error instead of returning an empty list', async () => {

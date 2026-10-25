@@ -91,12 +91,13 @@ export function createPlatformSupportAdministration(
 					});
 				else await deps.userSuspensionCommands.unsuspendUser(command.targetId);
 			} else if (command.action === 'suspend') {
-				await deps.organizationSuspensionCommands.suspendOrganization({
+				const outcome = await deps.organizationSuspensionCommands.suspendOrganization({
 					organizationId: command.targetId,
 					suspendedBy: deps.actorUserId,
 					reason: command.reason as string,
 					suspendedAt: deps.now?.() ?? new Date()
 				});
+				if (outcome === 'already_suspended') return { status: 'already_suspended' };
 			} else {
 				await deps.organizationSuspensionCommands.unsuspendOrganization({
 					organizationId: command.targetId,

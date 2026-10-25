@@ -57,7 +57,7 @@ function renderDetail(isSuspended = false) {
 }
 
 async function chooseSuspension(action: 'Suspend' | 'Unsuspend') {
-	await fireEvent.click(screen.getByRole('button', { name: `${action} Organization` }));
+	await fireEvent.click(screen.getByRole('button', { name: `${action} organization` }));
 	return screen.findByRole('dialog');
 }
 
@@ -68,11 +68,11 @@ async function confirmSuspension(reason = 'Abuse report 42') {
 }
 
 async function startTransfer() {
-	await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Transfer ownership' }));
 	const dialog = within(screen.getByRole('dialog'));
 	await fireEvent.change(dialog.getByLabelText('New Owner'), { target: { value: 'member-1' } });
 	await fireEvent.input(dialog.getByLabelText('Type Alpha Company to confirm'), { target: { value: 'Alpha Company' } });
-	await fireEvent.click(dialog.getByRole('button', { name: 'Transfer Ownership' }));
+	await fireEvent.click(dialog.getByRole('button', { name: 'Transfer ownership' }));
 }
 
 function transferSuccess() {
@@ -82,14 +82,14 @@ function transferSuccess() {
 describe('admin organization detail', () => {
 	it('offers Unsuspend for a suspended Organization and shows the status in the header', () => {
 		renderDetail(true);
-		expect(screen.getByRole('button', { name: 'Unsuspend Organization' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Suspend Organization' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Unsuspend organization' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Suspend organization' })).toBeNull();
 		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Suspended');
 	});
 	it('offers Suspend for an active Organization and names the owner under the title', () => {
 		renderDetail();
-		expect(screen.getByRole('button', { name: 'Suspend Organization' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Unsuspend Organization' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Suspend organization' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Unsuspend organization' })).toBeNull();
 		expect(screen.getByText('Owned by owner@example.test.')).toBeTruthy();
 	});
 	it('summarises the Organization under At a glance', () => {
@@ -202,10 +202,10 @@ describe('admin organization detail', () => {
 		expect(screen.getByRole('link', { name: 'member@example.test' }).getAttribute('href')).toBe(
 			'/admin/users/member-1'
 		);
-		await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Transfer ownership' }));
 		const dialog = within(screen.getByRole('dialog'));
 		expect(dialog.queryByRole('option', { name: /owner@example.test/ })).toBeNull();
-		const confirm = dialog.getByRole('button', { name: 'Transfer Ownership' });
+		const confirm = dialog.getByRole('button', { name: 'Transfer ownership' });
 		expect(confirm).toBeDisabled();
 		await fireEvent.change(dialog.getByRole('combobox', { name: 'New Owner' }), { target: { value: 'member-1' } });
 		expect(confirm).toBeDisabled();
@@ -236,7 +236,7 @@ describe('admin organization detail', () => {
 		await chooseSuspension('Suspend');
 		await confirmSuspension();
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		expect(screen.getByRole('button', { name: 'Unsuspend Organization' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Unsuspend organization' })).toBeTruthy();
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 
@@ -279,10 +279,10 @@ describe('admin organization detail', () => {
 				await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 			} else if (ownerUserId === 'owner-1') {
 				await screen.findByText(/Details refreshed/);
-				expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Transfer Ownership' })).toBeEnabled();
+				expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Transfer ownership' })).toBeEnabled();
 			} else {
 				await screen.findByRole('button', { name: 'Close and review' });
-				expect(within(screen.getByRole('dialog')).queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
+				expect(within(screen.getByRole('dialog')).queryByRole('button', { name: 'Transfer ownership' })).toBeNull();
 			}
 			expect(invalidateAll).toHaveBeenCalledTimes(1);
 			expect(fetch).toHaveBeenCalledTimes(1);
@@ -299,7 +299,7 @@ describe('admin organization detail', () => {
 		await screen.findByRole('button', { name: 'Reload details' });
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
 		await screen.findByText(/Details could not be refreshed/);
-		expect(within(screen.getByRole('dialog')).queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
+		expect(within(screen.getByRole('dialog')).queryByRole('button', { name: 'Transfer ownership' })).toBeNull();
 	});
 
 	it.each(['suspension', 'transfer'] as const)(
@@ -353,7 +353,7 @@ describe('admin organization detail', () => {
 			finish();
 		});
 		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Transfer Ownership' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Transfer ownership' })).toBeTruthy();
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 });

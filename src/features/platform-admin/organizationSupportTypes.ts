@@ -37,7 +37,16 @@ export interface PlatformOrganizationRow {
 	ownerEmail: string | null;
 }
 
+/** How many Organizations each filter would list under the current search. */
+export interface PlatformOrganizationFilterCounts {
+	all: number;
+	activeWeek: number;
+	quiet: number;
+	suspended: number;
+}
+
 export interface PlatformOrganizationPage {
+	counts: PlatformOrganizationFilterCounts;
 	organizations: PlatformOrganizationRow[];
 	page: number;
 	pageSize: number;

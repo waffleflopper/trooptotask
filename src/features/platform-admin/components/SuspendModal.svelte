@@ -25,6 +25,7 @@
 	let saving = $state(false);
 	let errorMsg = $state('');
 	let saved = $state(false);
+	let alreadySuspended = $state(false);
 	let uncertain = $state<{ targetId: string; isSuspended: boolean } | null>(null);
 	let reloading = $state(false);
 	let steppingUp = $state(false);
@@ -66,6 +67,10 @@
 				return;
 			}
 			saved = true;
+			if (body.alreadySuspended === true) {
+				alreadySuspended = true;
+				return;
+			}
 			try {
 				await complete(mutationTargetId, suspendedAfterSave);
 			} catch {
@@ -154,6 +159,14 @@
 					<Alert.Description>
 						This action needs a fresh multi-factor check. Taking you to verify, then back to this page. Nothing has been
 						changed yet.
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			{#if alreadySuspended}
+				<Alert.Root role="status">
+					<Alert.Description>
+						Another operator already suspended this organization. Their reason and time are kept; nothing was changed.
 					</Alert.Description>
 				</Alert.Root>
 			{/if}

@@ -67,7 +67,7 @@ export function createOrganizationSupportSuspensionCommands(
 ): OrganizationSupportSuspensionCommands {
 	return {
 		async suspendOrganization({ organizationId, suspendedBy, reason, suspendedAt }) {
-			acknowledgeSuspension(
+			const outcome = success(
 				await client.rpc('platform_suspend_organization', {
 					p_actor_user_id: suspendedBy,
 					p_organization_id: organizationId,
@@ -75,6 +75,9 @@ export function createOrganizationSupportSuspensionCommands(
 					p_suspended_at: suspendedAt.toISOString()
 				})
 			);
+			if (outcome !== 'suspended' && outcome !== 'already_suspended')
+				throw new Error('Suspension change could not be confirmed');
+			return outcome;
 		},
 		async unsuspendOrganization({ organizationId, unsuspendedBy }) {
 			acknowledgeSuspension(

@@ -29,6 +29,6 @@ export interface OrganizationSupportSuspensionCommands {
 		suspendedBy: string;
 		reason: string;
 		suspendedAt: Date;
-	}): Promise<void>;
+	}): Promise<'suspended' | 'already_suspended'>;
 	unsuspendOrganization(input: { organizationId: string; unsuspendedBy: string }): Promise<void>;
 }

@@ -42,7 +42,15 @@ function directoryPage(overrides: Partial<DirectoryPage> = {}): Directory {
 	const organizations = overrides.organizations ?? [row()];
 	return {
 		status: 'ready',
-		page: { organizations, page: 1, pageSize: 25, totalCount: organizations.length, totalPages: 1, ...overrides }
+		page: {
+			counts: { all: 38, activeWeek: 31, quiet: 4, suspended: 1 },
+			organizations,
+			page: 1,
+			pageSize: 25,
+			totalCount: organizations.length,
+			totalPages: 1,
+			...overrides
+		}
 	};
 }
 
@@ -133,7 +141,7 @@ describe('admin organizations page', () => {
 		await widths.layOut(1000);
 		const toolbar = within(screen.getByRole('toolbar', { name: 'Organizations controls' }));
 		expect(toolbar.getByRole('searchbox', { name: 'Search' })).toHaveValue('Able & Baker');
-		expect(toolbar.getByRole('button', { name: 'Suspended', pressed: true })).toBeTruthy();
+		expect(toolbar.getByRole('button', { name: /^Suspended/, pressed: true })).toBeTruthy();
 		await screen.findByRole('link', { name: 'Able Company' });
 	});
 
@@ -141,7 +149,7 @@ describe('admin organizations page', () => {
 		const widths = stubToolbarWidths();
 		renderPage(directoryPage(), { q: 'Able', page: 3 });
 		await widths.layOut(1000);
-		await fireEvent.click(screen.getByRole('button', { name: 'Quiet 30+ days' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Quiet 30\+ days/ }));
 		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?q=Able&filter=quiet', { keepFocus: true });
 		await screen.findByRole('link', { name: 'Able Company' });
 	});
@@ -163,6 +171,36 @@ describe('admin organizations page', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('shows how many Organizations each filter lists once they are counted', async () => {
+		const widths = stubToolbarWidths();
+		let finish!: (directory: Directory) => void;
+		renderPage(
+			new Promise<Directory>((resolve) => {
+				finish = resolve;
+			})
+		);
+		await widths.layOut(1000);
+		expect(screen.getByRole('button', { name: 'Quiet 30+ days' })).toBeTruthy();
+		await act(() => finish(directoryPage()));
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Organizations controls' }));
+		expect(await toolbar.findByRole('button', { name: 'All 38' })).toBeTruthy();
+		expect(toolbar.getByRole('button', { name: 'Active this week 31' })).toBeTruthy();
+		expect(toolbar.getByRole('button', { name: 'Quiet 30+ days 4' })).toBeTruthy();
+		expect(toolbar.getByRole('button', { name: 'Suspended 1' })).toBeTruthy();
+	});
+
+	it('keeps the pager, and the keyboard focus on it, while the next page loads', async () => {
+		const view = renderPage(directoryPage({ page: 1, pageSize: 25, totalCount: 60, totalPages: 3 }));
+		const next = await screen.findByRole('button', { name: 'Next' });
+		next.focus();
+		await view.rerender({ data: pageData(new Promise<Directory>(() => {}), { page: 2 }) });
+		expect(screen.getByText('Loading organizations')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Next' })).toBe(next);
+		expect(next).toHaveFocus();
+		expect(screen.getByText('Page 2 of 3')).toBeTruthy();
+		expect(next).toBeEnabled();
 	});
 
 	it('pages with buttons that keep the search and filter and report the range', async () => {

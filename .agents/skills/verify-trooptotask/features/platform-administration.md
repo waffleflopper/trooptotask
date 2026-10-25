@@ -20,7 +20,7 @@ roles; the admin is entered only at MFA level aal2.
 
 Sign in as the platform operator, enter the authenticator code and open Admin. Choose Users, Organizations or Access
 Requests in the sidebar. Search the directory and follow a record link to inspect its detail. The operator uses
-Suspend/Unsuspend (in `More User controls` for a User, and `Suspend Organization` on an Organization page) and Transfer Ownership. A suspension asks
+Suspend/Unsuspend (in `More User controls` for a User, and `Suspend organization` on an Organization page) and Transfer ownership. A suspension asks
 for the authenticator code again when the last one is older than 10 minutes, then returns to the same page. On the
 operator's own account Suspend is disabled and says why.
 
@@ -91,12 +91,12 @@ Organization audit references. It omits setup tokens and delivery payloads.
    submit bounded ordinary HTTP and capture 403 plus unchanged `$V platform-state`. A visible button or missing button
    is not server proof. As the operator, `$V platform-request PAGE suspend platformReviewer '{"type":"user","action":"suspend"}'`
    must be refused with no `user_suspensions` row for the operator, whatever the page shows.
-5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press `Suspend Organization`
+5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press `Suspend organization`
    once on the temporary Organization: the dialog says `Nothing has been changed yet.`, the browser lands on
    `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension. Enter the code with
    `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its audit row in Activity. For every
    later case below use `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the temporary Organization's Suspend dialog from
-   `Suspend Organization` in the page header. `Suspend` stays disabled until a reason is typed. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one exact POST
+   `Suspend organization` in the page header. `Suspend` stays disabled until a reason is typed. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one exact POST
    before provider dispatch. Submit visibly: keep the dialog/reason, show failure, and leave rows unchanged. A
    503/transport/unreadable outcome requires Reload details before another write; preserve the draft through that read,
    and explicitly confirm again only after verified no-effect/current authority. Record real success, refreshed detail
@@ -129,16 +129,18 @@ Organization audit references. It omits setup tokens and delivery payloads.
 
 7. **Suspend an Organization.** As `platformReviewer` (a fresh aal2 session from `$V actor platformReviewer
 admin/organizations`), open `Organizations`, search the unique temporary Organization name and press its link. Capture
-   the status badge `Active`, the `At a glance` card, the member rows and `Recent activity`. Press `Suspend Organization`
+   the status badge `Active`, the `At a glance` card, the member rows and `Recent activity`. Press `Suspend organization`
    in the header: the dialog's `Reason` is required and `Suspend` is disabled while it is empty or only spaces. Type a
    unique reason and `Suspend`. Require the dialog to close, the destructive `This Organization is suspended.` alert to
    show exactly that reason with the date and `operator` email, the badge and `Status` to read `Suspended`, and
-   the header button to read `Unsuspend Organization`. Reload and read the same alert. `$V platform-state` shows
+   the header button to read `Unsuspend organization`. Reload and read the same alert. `$V platform-state` shows
    `suspended_at` set, and `rows` on `organization_suspensions` shows the reason and `platformReviewer` as
    `suspended_by`. Open `Organizations`: the row reads `Suspended` and `Suspended` in `Show` lists it. The Platform
    audit entry for the suspension must not carry the reason in its details. Then sign in as the Organization's owner and
    require the suspension notice, not the reason. Unsuspend visibly and require the alert gone and the
-   `organization_suspensions` row removed. Repeat once from `$V actor --stale-mfa platformReviewer admin/organizations`
+   `organization_suspensions` row removed. Before the first suspension, open the same Organization in a second tab; once the first tab has
+   suspended it, submit `Suspend` with a different reason in the second tab: the dialog reads `Another operator already suspended this
+   organization`, offers only `Reload details`, and the reloaded alert still shows the first reason, time and operator. Repeat once from `$V actor --stale-mfa platformReviewer admin/organizations`
    to prove the step-up: nothing changes until `mfa-code`; the dialog closes after the step-up, so type the reason again.
 
 `platform-request PAGE FAMILY TARGET_KEY JSON` supports `approve|reject|resend` with keys `approve|reject|completed`;

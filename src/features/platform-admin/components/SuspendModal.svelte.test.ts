@@ -255,3 +255,14 @@ it('lifts an Organization suspension without asking for a reason', async () => {
 	expect(screen.getByLabelText('Reason (optional)')).toBeTruthy();
 	expect(screen.getByRole('button', { name: 'Unsuspend' })).toBeEnabled();
 });
+
+it('says an Organization was already suspended and keeps the dialog on the reload step', async () => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true, alreadySuspended: true })));
+	const callbacks = { ...props(), type: 'org' as const, targetId: 'org-alpha', targetName: 'Alpha Company' };
+	render(SuspendModal, callbacks);
+	await fireEvent.input(screen.getByLabelText('Reason'), { target: { value: 'Second operator' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	expect(await screen.findByText(/already suspended this organization/)).toBeTruthy();
+	expect(screen.getByRole('button', { name: 'Reload details' })).toBeTruthy();
+	expect(callbacks.onComplete).not.toHaveBeenCalled();
+});

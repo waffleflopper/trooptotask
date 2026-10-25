@@ -32,6 +32,10 @@ const count = z.coerce.number().int().nonnegative();
 const listRow = z.object({
 	total_count: count,
 	page: z.number().int().positive(),
+	all_count: count,
+	active_week_count: count,
+	quiet_count: count,
+	suspended_count: count,
 	organization_id: z.string().nullable(),
 	name: z.string().nullable(),
 	created_at: z.string().nullable(),
@@ -87,6 +91,12 @@ export function createSupabasePlatformOrganizationDirectory(client: SupabaseClie
 			const rows = z.array(listRow).min(1).parse(data);
 			const { total_count: totalCount, page } = rows[0];
 			return {
+				counts: {
+					all: rows[0].all_count,
+					activeWeek: rows[0].active_week_count,
+					quiet: rows[0].quiet_count,
+					suspended: rows[0].suspended_count
+				},
 				organizations: rows.flatMap((row) =>
 					row.organization_id === null
 						? []

@@ -217,5 +217,12 @@ function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): 
 		return [...lead, { label: route.label }];
 	}
 
-	return [...lead, { label: route.label, href: `${orgBasePath}/${primarySegment}` }, { label: childLabel }];
+	return [
+		...lead,
+		{
+			label: route.label,
+			href: `${orgBasePath}/${primarySegment === 'settings' ? 'settings/general' : primarySegment}`
+		},
+		{ label: childLabel }
+	];
 }

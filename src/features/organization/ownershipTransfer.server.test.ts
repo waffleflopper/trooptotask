@@ -320,7 +320,7 @@ describe('transferOrganizationOwnership', () => {
 					type: 'ownership_transferred',
 					title: 'Ownership Transferred',
 					message: 'You are now the owner of "Alpha Company".',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);
@@ -461,7 +461,7 @@ describe('transferOrganizationOwnership', () => {
 					type: 'ownership_transferred',
 					title: 'Ownership Transferred',
 					message: 'You are now the owner of "the organization".',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);

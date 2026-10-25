@@ -615,7 +615,7 @@ describe('inviteOrganizationMember', () => {
 					type: 'member_invited',
 					title: 'Member Invited',
 					message: '"actor@example.com" invited "new.user@example.com" to the organization.',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);
@@ -2092,7 +2092,7 @@ describe('revokeOrganizationInvitation', () => {
 					type: 'member_invite_revoked',
 					title: 'Invitation Revoked',
 					message: '"invitee@example.com" can no longer use the revoked organization invitation.',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);
@@ -2167,7 +2167,7 @@ describe('revokeOrganizationInvitation', () => {
 					type: 'member_invite_expired',
 					title: 'Invitation Expired',
 					message: '"invitee@example.com" can no longer use the expired organization invitation.',
-					link: `/org/${ctx.auth.orgId}/settings`
+					link: `/org/${ctx.auth.orgId}/settings/general`
 				}
 			}
 		]);
@@ -2515,7 +2515,7 @@ describe('removeOrganizationMember', () => {
 					type: 'member_removed',
 					title: 'Member Removed',
 					message: '"actor@example.com" removed "member@example.com" from the organization.',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);
@@ -2605,7 +2605,7 @@ describe('leaveOrganization', () => {
 					type: 'member_left',
 					title: 'Member Left Organization',
 					message: '"actor@example.com" left "Alpha Company".',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);

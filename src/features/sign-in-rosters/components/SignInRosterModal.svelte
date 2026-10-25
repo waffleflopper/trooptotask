@@ -239,8 +239,7 @@
 		sortBy: string;
 		personnelSnapshot: { rank: string; lastName: string; firstName: string; group: string }[];
 	}) {
-		const { jsPDF } = await import('jspdf');
-		const { default: autoTable } = await import('jspdf-autotable');
+		const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
 		const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
 		const pageWidth = doc.internal.pageSize.getWidth();
 

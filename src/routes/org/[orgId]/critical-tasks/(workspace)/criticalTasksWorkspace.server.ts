@@ -30,7 +30,7 @@ export interface CriticalTasksWorkspaceRouteData {
 }
 
 function createCriticalTasksHydrationTarget<T>(items: HydrationItems<T>): CriticalTasksWorkspaceHydrationTarget<T> {
-	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
 }
 
 function createCriticalTasksWorkspaceHydration(

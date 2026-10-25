@@ -33,6 +33,7 @@
 	let showTransferModal = $state(false);
 	let navigationLifetime = $state(0);
 	const MEMBER_PREVIEW = 10;
+	const glanceRow = 'grid-cols-[6rem_minmax(0,1fr)] sm:grid-cols-[6rem_minmax(0,1fr)]';
 	let expandedMembersFor = $state<string | null>(null);
 	const showAllMembers = $derived(expandedMembersFor === org.id);
 	const visibleMembers = $derived(showAllMembers ? org.members : org.members.slice(0, MEMBER_PREVIEW));
@@ -132,20 +133,21 @@
 		</Alert.Root>
 	{/if}
 
-	<div class="grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+	<div class="grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
 		<section class="grid gap-2 rounded-lg border bg-card p-4 lg:order-2" aria-labelledby="org-glance">
 			<h2 id="org-glance" class="font-heading text-xl font-bold">At a glance</h2>
 			<dl>
-				<PageShell.FactRow label="Owner" value={ownerLabel} />
-				<PageShell.FactRow label="Members" value={String(org.members.length)} />
-				<PageShell.FactRow label="Personnel" value={String(org.personnelCount)} />
+				<PageShell.FactRow class={glanceRow} label="Owner" value={ownerLabel} />
+				<PageShell.FactRow class={glanceRow} label="Members" value={String(org.members.length)} />
+				<PageShell.FactRow class={glanceRow} label="Personnel" value={String(org.personnelCount)} />
 				<PageShell.FactRow
+					class={glanceRow}
 					label="Last active"
 					value={org.lastActiveAt ? formatRelativeDate(org.lastActiveAt) : 'Never used'}
 				/>
-				<PageShell.FactRow label="Created" value={formatDisplayDate(org.createdAt)} />
-				<PageShell.FactRow label="Status" value={PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} />
-				<PageShell.FactRow label="ID" value={org.id} mono />
+				<PageShell.FactRow class={glanceRow} label="Created" value={formatDisplayDate(org.createdAt)} />
+				<PageShell.FactRow class={glanceRow} label="Status" value={PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} />
+				<PageShell.FactRow class={glanceRow} label="ID" value={org.id} mono />
 			</dl>
 		</section>
 

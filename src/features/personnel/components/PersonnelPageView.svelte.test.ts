@@ -548,6 +548,49 @@ describe('PersonnelPageView', () => {
 				}
 			});
 
+			it("keeps every Group header and gives a collapsed Group's share of the rows to the Groups below it", async () => {
+				personnelStore.load(
+					[
+						...Array.from({ length: 300 }, (_, index) => makePerson(index + 1)),
+						...Array.from({ length: 5 }, (_, index) => ({
+							...makePerson(index + 301),
+							groupId: 'group-2',
+							groupName: 'Bravo'
+						}))
+					],
+					'org-1'
+				);
+				const ctx = makeCtx();
+				ctx.viewMode = 'by-group';
+				render(PersonnelPageView, { props: { ctx } });
+				await fireEvent.input(screen.getByRole('searchbox', { name: searchName }), { target: { value: 'Soldier' } });
+				const groupHeaders = () =>
+					screen
+						.getAllByRole('button', { name: /^(Collapse|Expand) (Alpha|Bravo)$/ })
+						.map((button) => button.getAttribute('aria-label'));
+
+				expect([groupHeaders(), row(250) !== null, row(301) !== null]).toEqual([
+					['Collapse Alpha', 'Collapse Bravo'],
+					true,
+					false
+				]);
+
+				await fireEvent.click(screen.getByRole('button', { name: 'Collapse Alpha' }));
+				expect([groupHeaders(), row(1) !== null, row(301) !== null, row(305) !== null]).toEqual([
+					['Expand Alpha', 'Collapse Bravo'],
+					false,
+					true,
+					true
+				]);
+
+				await fireEvent.click(screen.getByRole('button', { name: 'Expand Alpha' }));
+				expect([groupHeaders(), row(250) !== null, row(301) !== null]).toEqual([
+					['Collapse Alpha', 'Collapse Bravo'],
+					true,
+					false
+				]);
+			});
+
 			it('switches to the paged A-Z view from a broad search', async () => {
 				renderLargeGroupedRoster();
 				await fireEvent.input(screen.getByRole('searchbox', { name: searchName }), { target: { value: 'Soldier' } });

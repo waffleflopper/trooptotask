@@ -67,17 +67,17 @@ endpoints).
 2. **Failure and scope change before bulk mutation.** As `notificationMember`, load the bell with fresh unread rows
    before arming `network arm-fail PAGE notifications`; opening an unread item must target the PUT rather than a list
    GET. Record the failed PUT, visible count and unchanged row, then reload and retry. A failed write must not present a
-   saved read state; it reports failure on the destination and permits retry. The newest member item has a
-   synthetic Dashboard query link: opening it follows that link while the write is pending, even if the write fails.
-   Hold a single-read PUT, capture the destination before release, then release and require the badge to drop and
-   its exact row to become read. Retry a failed write from the destination by reopening the bell. For list failure, use the untouched `notificationOther` account and arm before opening its fresh
-   bell; capture the error/recovery message and disabled bulk-read button, close/reopen and observe retry without a
-   request loop. Bulk read stays disabled during failure or loading and becomes available only after a successful list.
-   For a delayed A list, use `notificationSwitch` and `network arm-hold PAGE notifications`, open the bell, switch
-   visibly to B while held, release and open B's bell. Neither A's title nor A's ID may appear in B or choose a B write
-   target. Also hold an A single-read response while switching: completion cannot change B's badge or navigate back to
-   A's link. Keep any defect visible; restore each hook before further journeys. Complete these checks before marking
-   all read or deleting any A/B witness.
+   saved read state; it reports failure on the destination and permits retry. The newest member item has a synthetic
+   Dashboard query link: opening it follows that link while the write is pending, even if the write fails. Hold a
+   single-read PUT, capture the destination before release, then release and require the badge to drop and its exact row
+   to become read. Retry a failed write from the destination by reopening the bell. For list failure, use the untouched
+   `notificationOther` account and arm before opening its fresh bell; capture the error/recovery message and disabled
+   bulk-read button, close/reopen and observe retry without a request loop. Bulk read stays disabled during failure or
+   loading and becomes available only after a successful list. For a delayed A list, use `notificationSwitch` and
+   `network arm-hold PAGE notifications`, open the bell, switch visibly to B while held, release and open B's bell.
+   Neither A's title nor A's ID may appear in B or choose a B write target. Also hold an A single-read response while
+   switching: completion cannot change B's badge or navigate back to A's link. Keep any defect visible; restore each
+   hook before further journeys. Complete these checks before marking all read or deleting any A/B witness.
 3. **Own lifecycle and paging.** As `notificationMember`, open the bell and capture its newest twenty entries in reverse
    date order: items 24 through 05, with 01–04 omitted. Peer/B sentinels must be absent. Open another still-unread item,
    read its exact `read` value and reload/count. First arm a failed `Mark all read`: the badge stays unchanged and

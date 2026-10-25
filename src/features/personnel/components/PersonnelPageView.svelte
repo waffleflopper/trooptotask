@@ -707,7 +707,7 @@
 					<span class="flex flex-wrap items-center gap-x-2">
 						<span aria-live="polite">
 							{#if groupedRosterLimited}
-								Showing {GROUPED_ROSTER_RENDER_LIMIT} of {groupedTable.totalRows} matches. Keep typing to narrow.
+								Showing {shownRows.length} of {groupedTable.totalRows} matches. Keep typing to narrow.
 							{:else}
 								{activeTable.totalRows} of {visibleAllActivePersonnel.length}
 								{rosterFilter ? 'match' : 'shown'}

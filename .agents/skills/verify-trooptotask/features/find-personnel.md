@@ -508,7 +508,9 @@ scoped actors retain their baseline grants.
   the By Group view renders at most 250 rows. With an empty search it shows `Grouped roster paused` and `Use A-Z View`.
   A search matching more than 250 shows the first 250 in group order, a footer `Showing 250 of N matches` and
   `Use A-Z View`. On the `large` workload as `perfWide`, `s` matches 346 and `sp` 117. The toolbar search keeps focus
-  and its text as the count crosses 250 either way. A cut Group's header still counts all its matches.
+  and its text as the count crosses 250 either way. A cut Group's header still counts all its matches. Every Group
+  header stays, including one past the 250th row. A collapsed Group uses none of the 250, so collapsing one brings rows
+  into the Groups below it; the footer's first number is the rows shown.
 - A group header's controls repeat per group; name them by their `aria-label` (`Pin Alpha`, `Collapse Alpha`,
   `Group actions for Alpha`) rather than by position. The pin is a `Toggle` and the collapse a `Button`; record their
   focus ring and accessible names exactly as rendered.

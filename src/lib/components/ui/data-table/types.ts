@@ -51,7 +51,10 @@ export interface DataTableOptions<T> {
 	initialSortDirection?: InitialOption<SortDirection>;
 	pageSize?: InitialOption<number>;
 	groupBy?: GroupByOption<T>;
-	/** Caps the rows `groups` returns, counted across groups in display order. A group past the cap has no rows. */
+	/**
+	 * Caps the rows `groups` returns, counted across expanded groups in display order. A collapsed group keeps all its
+	 * rows and uses none of the cap; an expanded group past the cap has no rows.
+	 */
 	groupRowLimit?: number;
 	filterFn?: DataTableFilterFn<T>;
 	getFilterFn?: () => DataTableFilterFn<T> | undefined;

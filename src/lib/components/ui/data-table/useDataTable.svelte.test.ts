@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import { useDataTable } from './useDataTable.svelte';
 import type { ColumnDef } from './types.js';
@@ -66,6 +67,36 @@ describe('useDataTable', () => {
 				['C', ['Diana']],
 				['A', ['Charlie']],
 				['B', []]
+			]);
+		});
+
+		cleanup();
+	});
+
+	test('gives the group row limit to expanded groups only', () => {
+		const cleanup = $effect.root(() => {
+			const table = useDataTable({
+				data: () => [...rows, { id: '4', name: 'Diana', age: 28, group: 'C' }],
+				columns: [{ key: 'name', header: 'Name', value: (row: Row) => row.name }],
+				initialSortKey: 'name',
+				groupBy: { key: (row) => row.group },
+				groupRowLimit: 2
+			});
+			const expandedRows = () =>
+				table.groups.map((group) => [group.key, group.collapsed ? 'collapsed' : group.rows.map((row) => row.name)]);
+
+			table.toggleGroup('A');
+			expect(expandedRows()).toEqual([
+				['A', 'collapsed'],
+				['B', ['Bob']],
+				['C', ['Diana']]
+			]);
+
+			table.toggleGroup('A');
+			expect(expandedRows()).toEqual([
+				['A', ['Alice', 'Charlie']],
+				['B', []],
+				['C', []]
 			]);
 		});
 

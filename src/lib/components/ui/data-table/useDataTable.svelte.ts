@@ -96,9 +96,10 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 	const groups = $derived.by((): DataTableGroup<T>[] => {
 		let room = options.groupRowLimit ?? Infinity;
 		return groupRows.map((group) => {
-			const rows = group.rows.length > room ? group.rows.slice(0, room) : group.rows;
-			room -= rows.length;
-			return { ...group, rows, collapsed: collapsedGroups.has(group.key) };
+			const collapsed = collapsedGroups.has(group.key);
+			const rows = collapsed || group.rows.length <= room ? group.rows : group.rows.slice(0, room);
+			if (!collapsed) room -= rows.length;
+			return { ...group, rows, collapsed };
 		});
 	});
 

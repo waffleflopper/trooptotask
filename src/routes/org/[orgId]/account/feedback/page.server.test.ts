@@ -88,7 +88,7 @@ describe('Account feedback list', () => {
 		try {
 			const f = fixture();
 			f.provider.state.failReads = true;
-			await expect(f.run()).rejects.toMatchObject({ status: 503 });
+			await expect(f.run()).resolves.toEqual({ feedback: null });
 		} finally {
 			log.mockRestore();
 		}

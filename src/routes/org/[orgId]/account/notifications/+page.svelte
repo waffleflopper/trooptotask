@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getAppShellContext } from '$features/app-shell';
 	import { ACCOUNT_PAGES } from '$features/identity/AccountShell.svelte';
@@ -9,6 +9,7 @@
 	import type { Notification } from '$features/notifications/contracts';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -22,7 +23,8 @@
 		active = false;
 	});
 
-	let notifications = $derived(data.notifications);
+	const loadFailed = $derived(data.notifications === null);
+	let notifications = $derived(data.notifications ?? []);
 	let pending = $state<'markAll' | 'deleteAll' | { id: string } | null>(null);
 	let confirmingDeleteAll = $state(false);
 	let list = $state<HTMLUListElement>();
@@ -144,55 +146,65 @@
 		subtitle={ACCOUNT_PAGES.notifications.subtitle}
 	/>
 
-	<div class="grid gap-4">
-		<div class="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-			<p bind:this={summary} class="text-sm text-muted-foreground outline-none" tabindex="-1" aria-live="polite">
-				{unread} unread of {notifications.length}
-			</p>
-			<div class="min-w-0 flex-1 basis-48">
-				<WorkspaceToolbar ariaLabel="Notifications" items={toolbarItems} bare />
+	{#if loadFailed}
+		<Alert.Root variant="destructive">
+			<Alert.Title>Unable to load notifications</Alert.Title>
+			<Alert.Description>Your notifications could not be loaded. Try again.</Alert.Description>
+			<Alert.Action>
+				<Button type="button" variant="outline" size="sm" onclick={() => invalidateAll()}>Retry</Button>
+			</Alert.Action>
+		</Alert.Root>
+	{:else}
+		<div class="grid gap-4">
+			<div class="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+				<p bind:this={summary} class="text-sm text-muted-foreground outline-none" tabindex="-1" aria-live="polite">
+					{unread} unread of {notifications.length}
+				</p>
+				<div class="min-w-0 flex-1 basis-48">
+					<WorkspaceToolbar ariaLabel="Notifications" items={toolbarItems} bare />
+				</div>
 			</div>
-		</div>
 
-		{#if notifications.length > 0}
-			<ul bind:this={list} class="border-t-2 border-foreground">
-				{#each notifications as notification (notification.id)}
-					<li class="flex items-start gap-3 border-b border-border py-4">
-						<span
-							class="mt-1.5 size-2 shrink-0 rounded-full {notification.read ? 'bg-transparent' : 'bg-accent'}"
-							aria-hidden="true"
-						></span>
-						{#if notification.link || !notification.read}
-							<button
-								type="button"
-								class="grid min-w-0 flex-1 gap-2 rounded-sm text-left outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 disabled:no-underline"
+			{#if notifications.length > 0}
+				<ul bind:this={list} class="border-t-2 border-foreground">
+					{#each notifications as notification (notification.id)}
+						<li class="flex items-start gap-3 border-b border-border py-4">
+							<span
+								class="mt-1.5 size-2 shrink-0 rounded-full {notification.read ? 'bg-transparent' : 'bg-accent'}"
+								aria-hidden="true"
+							></span>
+							{#if notification.link || !notification.read}
+								<button
+									type="button"
+									class="grid min-w-0 flex-1 gap-2 rounded-sm text-left outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 disabled:no-underline"
+									disabled={pending !== null}
+									onclick={() => open(notification)}
+								>
+									{@render body(notification)}
+								</button>
+							{:else}
+								<div class="grid min-w-0 flex-1 gap-2">{@render body(notification)}</div>
+							{/if}
+							<Button
+								variant="ghost-destructive"
+								size="icon-sm"
+								aria-label={`Delete notification: ${notification.title}`}
 								disabled={pending !== null}
-								onclick={() => open(notification)}
+								data-delete-notification
+								onclick={() => remove(notification)}
 							>
-								{@render body(notification)}
-							</button>
-						{:else}
-							<div class="grid min-w-0 flex-1 gap-2">{@render body(notification)}</div>
-						{/if}
-						<Button
-							variant="ghost-destructive"
-							size="icon-sm"
-							aria-label={`Delete notification: ${notification.title}`}
-							disabled={pending !== null}
-							data-delete-notification
-							onclick={() => remove(notification)}
-						>
-							<Trash2 />
-						</Button>
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="border-t-2 border-foreground pt-5 text-sm text-muted-foreground">
-				No notifications. Replies to your feedback and updates from your unit show up here.
-			</p>
-		{/if}
-	</div>
+								<Trash2 />
+							</Button>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="border-t-2 border-foreground pt-5 text-sm text-muted-foreground">
+					No notifications. Replies to your feedback and updates from your unit show up here.
+				</p>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 {#if confirmingDeleteAll}

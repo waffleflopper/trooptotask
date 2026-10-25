@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getAppShellContext } from '$features/app-shell';
 	import { FEEDBACK_CATEGORY_LABELS, REPORTER_FEEDBACK_STATUS } from '$features/feedback';
 	import { ACCOUNT_PAGES } from '$features/identity/AccountShell.svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import type { PageProps } from './$types';
 
@@ -23,7 +26,15 @@
 		subtitle={ACCOUNT_PAGES.feedback.subtitle}
 	/>
 
-	{#if data.feedback.length > 0}
+	{#if data.feedback === null}
+		<Alert.Root variant="destructive">
+			<Alert.Title>Unable to load feedback</Alert.Title>
+			<Alert.Description>Your feedback could not be loaded. Try again.</Alert.Description>
+			<Alert.Action>
+				<Button type="button" variant="outline" size="sm" onclick={() => invalidateAll()}>Retry</Button>
+			</Alert.Action>
+		</Alert.Root>
+	{:else if data.feedback.length > 0}
 		<ul class="border-t-2 border-foreground">
 			{#each data.feedback as item (item.id)}
 				{@const status = REPORTER_FEEDBACK_STATUS[item.status]}

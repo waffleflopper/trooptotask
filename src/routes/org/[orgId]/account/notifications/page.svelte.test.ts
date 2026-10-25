@@ -4,9 +4,12 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { Notification } from '$features/notifications/contracts';
 import Page from './+page.svelte';
 
-const { goto } = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
+const { goto, invalidateAll } = vi.hoisted(() => ({
+	goto: vi.fn(async () => {}),
+	invalidateAll: vi.fn(async () => {})
+}));
 
-vi.mock('$app/navigation', () => ({ goto }));
+vi.mock('$app/navigation', () => ({ goto, invalidateAll }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
 vi.mock('$features/app-shell', () => ({
 	getAppShellContext: () => ({ orgId: 'org-1', orgUrlSegment: 'alpha', refreshNotifications: () => {} })
@@ -56,4 +59,13 @@ it('holds every open control while a delete is pending, then opens and marks the
 	expect(goto).toHaveBeenCalledWith('/org/alpha/account/feedback/b');
 	expect(fetch).toHaveBeenLastCalledWith('/org/alpha/api/notifications', expect.objectContaining({ method: 'PUT' }));
 	expect(JSON.parse(fetch.mock.lastCall![1].body as string)).toEqual({ id: 'b' });
+});
+
+it('shows a failed read as a retryable error inside the page instead of an empty list', async () => {
+	render(Page, { props: { data: { notifications: null } } as never });
+
+	expect(screen.getByRole('alert').textContent).toContain('Unable to load notifications');
+	expect(screen.queryByText(/^No notifications/)).toBeNull();
+	await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+	expect(invalidateAll).toHaveBeenCalledTimes(1);
 });

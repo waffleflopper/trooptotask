@@ -57,7 +57,9 @@ Actor and login contexts start with What's New dismissed. Use `actor --show-what
 Public `login` lands on Personnel; use `actor` for direct Training/Calendar entry. Both obtain genuine password sessions
 from the disposable provider using private synthetic credentials, set the app's httpOnly cookie through DevTools and
 open an ordinarily admitted destination. They print no password and bypass app `/auth/` routes. Verified-authenticator
-accounts still stop at `/auth/mfa-verify` with destination `next`, as after the form. `actor --form ROLE DESTINATION`
+accounts still stop at `/auth/mfa-verify` with destination `next`, as after the form, except the platform operator
+`platformReviewer`, whose provider session is completed at aal2 (`--aal1` keeps it at the code page; `--stale-mfa`
+back-dates the verification past the 10 minutes a suspension accepts). `actor --form ROLE DESTINATION`
 instead submits the visible sign-in form for form, `auth.login_success` audit or `/auth/` limiter proof. Use returned
 page IDs, not tab order; with multiple pages, `tool select_page` before interacting or clicks can silently do nothing.
 

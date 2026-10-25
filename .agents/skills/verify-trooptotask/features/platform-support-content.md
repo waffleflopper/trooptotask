@@ -134,8 +134,8 @@ create/toggle/delete/close requests preserve rows, separately from native contro
    says people stop seeing it right away. Deleting a published entry removes it from the member dialog and the
    all-updates page and records `whats_new_delete`. Press Back while that dialog is open on another entry's address: the
    dialog closes and nothing is deleted. Take a keyboard pass through the list, the editor and the paragraph controls.
-   Delete every UI-created draft and note that published test entries remain in provider data, so use unique titles. The
-   5xx and transport failure modes behave as on Banners: `arm-fail-400` keeps the typed text and shows the reason, an
+   Delete every UI-created entry, draft or published, and use unique titles so a run never touches real entries. The 5xx
+   and transport failure modes behave as on Banners: `arm-fail-400` keeps the typed text and shows the reason, an
    unconfirmed save blocks writes until Reload entries, and a held reply that arrives after leaving the page changes
    nothing. After an unconfirmed save of typed text, arm `arm-fail-regions` on `admin-whats-new-read` and choose Reload
    entries: the entries list shows its load error while the editor keeps the typed title and paragraphs, and they are

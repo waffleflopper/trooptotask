@@ -5,7 +5,7 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
-	import { PersonnelModal } from '$features/personnel';
+	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';

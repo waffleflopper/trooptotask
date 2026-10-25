@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { PersonnelArchivedPageView } from '$features/personnel';
+	import PersonnelArchivedPageView from '$features/personnel/components/PersonnelArchivedPageView.svelte';
 	import type { PersonnelArchivedPageData, PersonnelDetailHeader } from '$features/personnel/contracts';
 
 	interface PersonnelArchivedData extends PersonnelArchivedPageData {

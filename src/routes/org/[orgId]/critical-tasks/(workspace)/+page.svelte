@@ -14,9 +14,9 @@
 	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
+	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
+	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
 	import {
-		IctCompletionModal,
-		IctMatrix,
 		ictTasksStore,
 		personnelIctCompletionsStore,
 		criticalTasksConfigureLibraryAffordance,

@@ -16,7 +16,7 @@ TroopToTask v1 is one SvelteKit application backed by Supabase. **Organization**
 Each product owner lives under `src/features/<owner>/` and exposes up to three public seams:
 
 - **Portable:** `contracts.ts`, the owner's only portable entrypoint. Plain data shapes, validation and pure rules. No Svelte, `$app`, browser globals, provider SDKs, raw database rows, Node-only code or UI.
-- **Web:** `index.ts`. Browser-safe UI and client state. Never imports privileged code.
+- **Web:** `index.ts`. Browser-safe client state, helpers and small shared components. A route page view gets its own public file so a store import does not load a screen. Never imports privileged code.
 - **Server:** `index.server.ts` and other `*.server.ts` files. Authorized operations for routes and declared server collaborators. No raw provider client, universal request context or arbitrary query interface leaves the owner.
 
 A folder named `server/` is not a privilege boundary; only SvelteKit's `*.server.ts` and `$lib/server` rules are. Shared primitives live in `src/lib/components/ui`, shared neutral compositions in `src/lib/components/patterns`, and neither imports a feature.

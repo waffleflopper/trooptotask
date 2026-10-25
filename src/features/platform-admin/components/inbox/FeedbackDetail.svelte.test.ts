@@ -284,7 +284,8 @@ describe('Feedback detail', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
 		await waitFor(() => expect(calls).toHaveLength(2));
 		view.unmount();
-		await act(() => calls[1].respond(ok({ message: 'MFA required', requiresStepUp: true }, 403)));
+		calls[1].respond(ok({ message: 'MFA required', requiresStepUp: true }, 403));
+		await new Promise((settle) => setTimeout(settle, 0));
 		expect(redirectToSensitiveActionStepUp).not.toHaveBeenCalled();
 	});
 

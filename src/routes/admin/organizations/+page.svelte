@@ -38,7 +38,7 @@
 
 	const COLUMNS: ColumnDef<PlatformOrganizationRow>[] = [
 		{ key: 'name', header: 'Organization', value: (org) => org.name, rowHeader: true, width: '24%' },
-		{ key: 'owner', header: 'Owner', value: (org) => org.ownerEmail, width: '22%', hiddenBelow: '@3xl' },
+		{ key: 'owner', header: 'Owner', value: (org) => org.ownerEmail, width: '22%' },
 		{ key: 'members', header: 'Members', value: (org) => org.memberCount, align: 'right' },
 		{ key: 'personnel', header: 'Personnel', value: (org) => org.personnelCount, align: 'right' },
 		{ key: 'lastActive', header: 'Last active', value: (org) => org.lastActiveAt },
@@ -131,11 +131,14 @@
 	{#if column.key === 'name'}
 		<a
 			href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
-			class="block truncate font-semibold text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-			>{org.name}</a
+			class="block truncate font-semibold @2xl/data-table:w-0 @2xl/data-table:min-w-full text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+			title={org.name}>{org.name}</a
 		>
 	{:else if column.key === 'owner'}
-		<span class="block truncate text-muted-foreground" title={ownerLabel(org)}>{ownerLabel(org)}</span>
+		<span
+			class="block truncate text-muted-foreground @2xl/data-table:w-0 @2xl/data-table:min-w-full"
+			title={ownerLabel(org)}>{ownerLabel(org)}</span
+		>
 	{:else if column.key === 'members'}
 		<span class="tabular-nums">{org.memberCount}</span>
 	{:else if column.key === 'personnel'}

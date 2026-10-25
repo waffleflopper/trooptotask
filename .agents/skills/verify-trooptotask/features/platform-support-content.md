@@ -156,10 +156,10 @@ create/toggle/delete/close requests preserve rows, separately from native contro
   role grants no platform privilege.
 - Announcement audit events and real Feedback submission establish their own producer effects.
 - Banners have create, toggle and delete controls, with no editing form. Feedback has no delete control; replies and
-  issues are in the [Feedback recipe](platform-feedback.md). What's New entries edit in place and only drafts delete. Do
-  not invent a delete journey for published entries.
-- A published What's New entry cannot be removed from the Admin, and member views are limited to the newest three plus
-  the all-updates page, so give each verification entry a unique title and keep the count of published test entries low.
+  issues are in the [Feedback recipe](platform-feedback.md). What's New entries edit in place and delete whether draft
+  or published.
+- Member views are limited to the newest three What's New entries plus the all-updates page, so give each verification
+  entry a unique title and delete the published test entries a run creates.
 - Synthetic 503s exercise browser response handling. Provider list errors must remain distinct from a genuine empty
   list. Prove first/later-page failures and tied-date completeness at the real SDK/provider boundary; browser faults
   alone cannot establish those contracts.

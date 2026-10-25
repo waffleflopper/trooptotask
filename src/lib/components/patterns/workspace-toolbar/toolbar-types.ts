@@ -21,8 +21,11 @@ export type WorkspaceToolbarIcon =
 	| 'upload'
 	| 'user-plus';
 
-/** On a view option, `ariaLabel` names the row button and the More radio item shows it instead of `label`. */
-export type ToolbarOption = { value: string; label: string; ariaLabel?: string };
+/**
+ * On a view option, `ariaLabel` names the row button and the More radio item shows it instead of `label`.
+ * `count` adds a tabular figure after the label; `'pending'` holds the figure's width while it loads.
+ */
+export type ToolbarOption = { value: string; label: string; ariaLabel?: string; count?: number | 'pending' };
 
 /** `ariaLabel` preserves an existing accessible name; visible and menu text always come from `label`. */
 type ItemIdentity = { id: string; label: string; ariaLabel?: string };

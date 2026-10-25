@@ -1,11 +1,11 @@
 import { isHttpError, type RequestEvent } from '@sveltejs/kit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { audit, readOrganization, command, authority } = vi.hoisted(() => ({
+const { audit, command, authority, activity } = vi.hoisted(() => ({
 	audit: vi.fn(),
-	readOrganization: vi.fn(),
 	command: vi.fn(),
-	authority: { operator: true, error: null as unknown }
+	authority: { operator: true, error: null as unknown },
+	activity: vi.fn()
 }));
 vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: () => ({
@@ -23,24 +23,7 @@ vi.mock('$lib/server/supabase', () => ({
 vi.mock('$lib/audit/index.server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/audit/index.server')>()),
 	auditLog: audit,
-	createSupabasePlatformAudit: () => ({ listRecentByOrganization: async () => detail().auditEvents })
-}));
-vi.mock('$features/organization/index.server', async (importOriginal) => {
-	const original = await importOriginal<typeof import('$features/organization/index.server')>();
-	return {
-		...original,
-		createOrganizationSupportReader: () => ({ getOrganizationById: readOrganization }),
-		createSupabaseOrganizationPlatformMembershipPort: (
-			...args: Parameters<typeof original.createSupabaseOrganizationPlatformMembershipPort>
-		) => ({
-			...original.createSupabaseOrganizationPlatformMembershipPort(...args),
-			listMembers: async () => detail().members
-		})
-	};
-});
-vi.mock('$features/personnel/index.server', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$features/personnel/index.server')>()),
-	createPersonnelSupportReader: () => ({ countActivePersonnelForOrganization: async () => 3 })
+	createSupabasePlatformAudit: () => ({ listRecentByOrganization: activity })
 }));
 import { actions, load } from './+page.server';
 const orgId = '11111111-1111-4111-8111-111111111111';
@@ -84,73 +67,97 @@ function event(form: Record<string, string> = { targetUserId, confirmName: 'Able
 		getClientAddress: () => '127.0.0.1'
 	} as unknown as RequestEvent;
 }
-function loadDetail(request = event()) {
-	return load(request as Parameters<typeof load>[0]);
+async function loadDetail(request = event()) {
+	const result = await load(request as Parameters<typeof load>[0]);
+	if (!result) throw new Error('The load returned no data');
+	return result;
 }
 function runTransfer(request = event()) {
 	return actions.transferOwnership(request as Parameters<typeof actions.transferOwnership>[0]);
 }
 function detail() {
 	return {
-		org: {
-			id: orgId,
-			name: 'Able Company',
-			suspendedAt: null as string | null,
-			createdAt: '2026-06-01T00:00:00.000Z',
-			isSuspended: false
-		},
-		members: [{ userId: ownerId, email: 'owner@example.com', role: 'owner' }],
+		id: orgId,
+		name: 'Able Company',
+		createdAt: '2026-06-01T00:00:00.000Z',
+		suspendedAt: null,
+		status: 'active',
+		lastActiveAt: '2026-10-20T00:00:00.000Z',
 		personnelCount: 3,
-		auditEvents: [{ id: 'audit-1', action: 'admin.org.make_admin', resourceId: orgId }]
+		suspension: null,
+		members: [{ userId: ownerId, email: 'owner@example.com', role: 'owner', lastSignInAt: null }],
+		invitations: []
 	};
 }
+const activityEvent = {
+	id: 'audit-1',
+	action: 'org.renamed',
+	userId: ownerId,
+	timestamp: '2026-10-20T00:00:00.000Z',
+	severity: 'info',
+	resourceType: 'organization',
+	resourceId: orgId
+};
+let detailResult: { data: unknown; error: unknown };
 beforeEach(() => {
 	vi.resetAllMocks();
 	authority.operator = true;
 	authority.error = null;
-	readOrganization.mockResolvedValue({
-		id: orgId,
-		name: 'Able Company',
-		suspended_at: null,
-		created_at: detail().org.createdAt
-	});
-	command.mockResolvedValue({
-		error: null,
-		data: {
-			status: 'updated',
-			org_id: orgId,
-			from_user_id: ownerId,
-			to_user_id: targetUserId,
-			org_name: 'Able Company'
-		}
-	});
+	detailResult = { data: detail(), error: null };
+	activity.mockResolvedValue([activityEvent]);
+	command.mockImplementation(async (name: string) =>
+		name === 'platform_organization_detail'
+			? detailResult
+			: {
+					error: null,
+					data: {
+						status: 'updated',
+						org_id: orgId,
+						from_user_id: ownerId,
+						to_user_id: targetUserId,
+						org_name: 'Able Company'
+					}
+				}
+	);
+	vi.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 describe('admin organization detail load', () => {
 	it('rejects malformed organization IDs before reading detail', async () => {
 		await expect(loadDetail(event({}, 'not-a-uuid'))).rejects.toMatchObject({ status: 400 });
-		expect(readOrganization).not.toHaveBeenCalled();
+		expect(command).not.toHaveBeenCalled();
 	});
 
-	it('reads retained identity, membership, suspension and audit data for an operator', async () => {
-		const suspended = detail();
-		suspended.org.suspendedAt = '2026-06-02T00:00:00.000Z';
-		suspended.org.isSuspended = true;
-		readOrganization.mockResolvedValue({
-			id: orgId,
-			name: suspended.org.name,
-			suspended_at: suspended.org.suspendedAt,
-			created_at: suspended.org.createdAt
-		});
-		expect(await loadDetail()).toEqual(suspended);
+	it('reads the Organization in one call and streams its last ten audit events', async () => {
+		const result = await loadDetail();
+		expect(result.organization).toEqual(detail());
+		expect(command).toHaveBeenCalledWith('platform_organization_detail', { p_organization_id: orgId });
+		await expect(result.activity).resolves.toEqual({ status: 'ready', events: [activityEvent] });
+		expect(activity).toHaveBeenCalledWith({ orgId, limit: 10 });
 	});
 
-	it('maps missing organization detail results to 404', async () => {
-		readOrganization.mockResolvedValue(null);
+	it('carries the suspension reason the operator saved', async () => {
+		const suspension = { reason: 'Abuse report 42', suspendedAt: '2026-10-21T00:00:00.000Z', suspendedByEmail: null };
+		detailResult = {
+			data: { ...detail(), suspendedAt: suspension.suspendedAt, status: 'suspended', suspension },
+			error: null
+		};
+		expect((await loadDetail()).organization).toMatchObject({ status: 'suspended', suspension });
+	});
+
+	it('keeps the page when only the activity read fails', async () => {
+		activity.mockRejectedValue(new Error('private audit detail'));
+		const result = await loadDetail();
+		expect(result.organization.id).toBe(orgId);
+		await expect(result.activity).resolves.toEqual({ status: 'failed' });
+	});
+
+	it('maps a missing Organization to 404', async () => {
+		detailResult = { data: null, error: null };
 		await expect(loadDetail()).rejects.toMatchObject({ status: 404 });
 	});
 
 	it('maps provider failures to a sanitized 500', async () => {
-		readOrganization.mockRejectedValue(new Error('private database offline'));
+		detailResult = { data: null, error: { message: 'private database offline' } };
 		const caught = await Promise.resolve(loadDetail()).catch((error: unknown) => error);
 		expect(isHttpError(caught, 500)).toBe(true);
 		expect(caught).toMatchObject({ body: { message: 'Failed to load organization detail' } });
@@ -159,7 +166,8 @@ describe('admin organization detail load', () => {
 	it('denies detail access to a non-operator before reading protected data', async () => {
 		authority.operator = false;
 		await expect(loadDetail()).rejects.toMatchObject({ status: 403 });
-		expect(readOrganization).not.toHaveBeenCalled();
+		expect(command).not.toHaveBeenCalled();
+		expect(activity).not.toHaveBeenCalled();
 	});
 });
 

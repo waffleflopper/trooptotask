@@ -9,5 +9,7 @@ export const rejectedFactRowProps: ComponentProps<typeof FactRow>[] = [
 	// @ts-expect-error lanes replace the children
 	{ variant: 'display', label: 'A', children: lane, details: lane },
 	// @ts-expect-error lanes belong to the display variant
-	{ label: 'A', control: lane }
+	{ label: 'A', control: lane },
+	// @ts-expect-error lanes belong to the display variant
+	{ variant: 'compact', label: 'A', control: lane }
 ];

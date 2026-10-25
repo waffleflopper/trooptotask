@@ -71,11 +71,26 @@ describe('Identity platform account facts', () => {
 			client(async (input, init) => {
 				const request = new Request(input, init);
 				expect(new URL(request.url).pathname).toBe('/rest/v1/rpc/platform_account_directory');
-				expect(await request.json()).toEqual({ p_search: 'Dana', p_filter: 'notSetUp', p_page: 3, p_limit: 20 });
+				expect(await request.json()).toEqual({
+					p_search: 'Dana',
+					p_filter: 'notSetUp',
+					p_sort: 'person',
+					p_dir: 'asc',
+					p_page: 3,
+					p_limit: 20
+				});
 				return Response.json({ people: [], totalCount: 0, page: 1, limit: 20 });
 			})
 		);
-		await expect(reader.listPeople({ search: 'Dana', filter: 'notSetUp', page: 3, limit: 20 })).resolves.toEqual({
+		await expect(
+			reader.listPeople({
+				search: 'Dana',
+				filter: 'notSetUp',
+				sort: { key: 'person', direction: 'asc' },
+				page: 3,
+				limit: 20
+			})
+		).resolves.toEqual({
 			people: [],
 			totalCount: 0,
 			page: 1,
@@ -86,9 +101,9 @@ describe('Identity platform account facts', () => {
 		const reader = createIdentityPlatformSupportReader(
 			client(async () => Response.json({ message: 'unavailable' }, { status: 500 }))
 		);
-		await expect(reader.listPeople({ search: '', filter: 'all', page: 1, limit: 20 })).rejects.toThrow(
-			'Unable to load People'
-		);
+		await expect(
+			reader.listPeople({ search: '', filter: 'all', sort: { key: 'added', direction: 'desc' }, page: 1, limit: 20 })
+		).rejects.toThrow('Unable to load People');
 	});
 
 	it('keeps account email search source-owned and excludes provider-only fields', async () => {

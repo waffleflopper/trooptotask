@@ -20,7 +20,27 @@ describe('normalizePlatformOrganizationListQuery', () => {
 		[{ pages: '9999' }, { pages: 20, q: '', filter: 'all' }],
 		[{ q: 'x'.repeat(300) }, { pages: 1, q: 'x'.repeat(100), filter: 'all' }]
 	])('reads %j as %j', (input, expected) => {
-		expect(normalizePlatformOrganizationListQuery(input)).toEqual(expected);
+		expect(normalizePlatformOrganizationListQuery(input)).toEqual({
+			...expected,
+			sort: { key: 'lastActive', direction: 'desc' }
+		});
+	});
+	it.each([
+		[{ sort: 'name' }, { key: 'name', direction: 'asc' }],
+		[
+			{ sort: 'members', dir: 'asc' },
+			{ key: 'members', direction: 'asc' }
+		],
+		[
+			{ sort: 'owner', dir: 'invalid' },
+			{ key: 'owner', direction: 'asc' }
+		],
+		[
+			{ sort: 'invalid', dir: 'asc' },
+			{ key: 'lastActive', direction: 'desc' }
+		]
+	])('normalizes header sorting %j', (input, sort) => {
+		expect(normalizePlatformOrganizationListQuery(input).sort).toEqual(sort);
 	});
 });
 
@@ -49,7 +69,7 @@ describe('Organization directory provider', () => {
 				owner_email: null
 			}
 		]);
-		await expect(directory.listOrganizations({ pages: 1, q: 'zzz', filter: 'all' })).resolves.toEqual({
+		await expect(directory.listOrganizations(normalizePlatformOrganizationListQuery({ q: 'zzz' }))).resolves.toEqual({
 			counts: { all: 0, activeWeek: 0, quiet: 0, suspended: 0 },
 			organizations: [],
 			totalCount: 0
@@ -75,7 +95,7 @@ describe('Organization directory provider', () => {
 				owner_email: 'owner@example.test'
 			}
 		]);
-		const page = await directory.listOrganizations({ pages: 1, q: '', filter: 'quiet' });
+		const page = await directory.listOrganizations(normalizePlatformOrganizationListQuery({ filter: 'quiet' }));
 		expect(page.counts).toEqual({ all: 38, activeWeek: 31, quiet: 4, suspended: 1 });
 		expect(page.totalCount).toBe(1);
 	});
@@ -99,10 +119,14 @@ describe('Organization directory provider', () => {
 				owner_email: null
 			}
 		]);
-		await directory.listOrganizations({ pages: 3, q: 'Able', filter: 'quiet' });
+		await directory.listOrganizations(
+			normalizePlatformOrganizationListQuery({ pages: 3, q: 'Able', filter: 'quiet', sort: 'members', dir: 'asc' })
+		);
 		expect(rpc).toHaveBeenCalledWith('platform_list_organizations', {
 			p_search: 'Able',
 			p_filter: 'quiet',
+			p_sort: 'members',
+			p_dir: 'asc',
 			p_page: 1,
 			p_page_size: 75
 		});
@@ -110,12 +134,14 @@ describe('Organization directory provider', () => {
 
 	it('throws the database error instead of returning an empty list', async () => {
 		const { directory } = directoryWith(null, new Error('permission denied'));
-		await expect(directory.listOrganizations({ pages: 1, q: '', filter: 'all' })).rejects.toThrow('permission denied');
+		await expect(directory.listOrganizations(normalizePlatformOrganizationListQuery())).rejects.toThrow(
+			'permission denied'
+		);
 	});
 
 	it('rejects a malformed row instead of showing guessed facts', async () => {
 		const { directory } = directoryWith([{ total_count: 1, status: 'bogus' }]);
-		await expect(directory.listOrganizations({ pages: 1, q: '', filter: 'all' })).rejects.toThrow();
+		await expect(directory.listOrganizations(normalizePlatformOrganizationListQuery())).rejects.toThrow();
 	});
 
 	it('returns null for an Organization that does not exist', async () => {

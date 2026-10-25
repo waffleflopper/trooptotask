@@ -28,8 +28,22 @@ describe('People list filters', () => {
 			url: new URL(`https://app.example.test/admin/people${query}`),
 			depends: vi.fn()
 		} as never);
-		expect(list).toHaveBeenLastCalledWith(expected);
+		expect(list).toHaveBeenLastCalledWith({ ...expected, sort: { key: 'added', direction: 'desc' } });
 		if (!result) throw new Error('Expected directory load');
 		await expect(result.people).resolves.toMatchObject({ status: 'ok' });
+	});
+	it.each([
+		['?sort=person&dir=desc', { key: 'person', direction: 'desc' }],
+		['?sort=organizations', { key: 'organizations', direction: 'desc' }],
+		['?sort=lastSignIn&dir=asc', { key: 'lastSignIn', direction: 'asc' }],
+		['?sort=unknown&dir=asc', { key: 'added', direction: 'desc' }]
+	])('returns and reads People in the requested order for %s', async (query, sort) => {
+		createOperations.mockResolvedValue({ list });
+		const result = await load({
+			url: new URL(`https://app.example.test/admin/people${query}`),
+			depends: vi.fn()
+		} as never);
+		expect(list).toHaveBeenLastCalledWith({ search: '', filter: 'all', page: 1, limit: 20, sort });
+		expect(result?.sort).toEqual(sort);
 	});
 });

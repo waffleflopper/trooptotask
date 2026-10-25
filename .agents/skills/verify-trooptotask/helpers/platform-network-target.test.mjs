@@ -74,7 +74,7 @@ for (const [family, route, action] of [
 for (const [family, route] of [
 	['admin-inbox-read', '/admin/__data.json'],
 	['admin-inbox-item-read', '/admin/api/inbox/item'],
-	['admin-users-read', '/admin/users/__data.json'],
+	['admin-people-read', '/admin/people/__data.json'],
 	['admin-organizations-read', '/admin/organizations/__data.json'],
 	['admin-announcements-read', '/admin/announcements/__data.json'],
 	['admin-whats-new-read', '/admin/announcements/whats-new/__data.json']
@@ -95,7 +95,7 @@ for (const [family, route] of [
 		});
 		await page.fetch(`http://other.test${route}`);
 		await page.fetch('/admin?/close', { method: 'POST' });
-		await page.fetch('/admin/people/__data.json');
+		await page.fetch('/admin/activity/__data.json');
 		assert.equal(dispatched, 3);
 		assert.equal(page.__mapNetwork.calls.length, 0);
 		assert.equal((await page.fetch(`${route}?page=2`)).status, 503);
@@ -105,7 +105,7 @@ for (const [family, route] of [
 
 test('account control resolves only a named fixture and exact support action', () => {
 	assert.deepEqual(platformFormNetworkTarget('admin-account/orgInvitee/resetPassword', fixture, seed), {
-		suffix: `/admin/users/${invitee}`,
+		suffix: `/admin/people/${invitee}`,
 		search: '?/resetPassword',
 		failureField: 'error',
 		sameOrigin: true,
@@ -113,26 +113,26 @@ test('account control resolves only a named fixture and exact support action', (
 	});
 	assert.equal(platformFormNetworkTarget(`admin-account/${invitee}/resetPassword`, fixture, seed), null);
 	assert.equal(platformFormNetworkTarget('admin-account/orgInvitee/suspend', fixture, seed), null);
-	assert.throws(() => platformFormNetworkTarget('admin-account/orgMember/resendInvite', fixture, seed));
+	assert.equal(platformFormNetworkTarget('admin-account/orgMember/resendInvite', fixture, seed), null);
 	assert.throws(() => platformFormNetworkTarget('admin-account/orgInvitee/resetPassword', fixture, null));
 });
 
-test('account control resolves the seeded pending account by its recorded ID', () => {
-	const pending = '30000000-0000-4000-8000-000000000001';
-	assert.deepEqual(
-		platformFormNetworkTarget('admin-account/pendingUser/resendInvite', fixture, {
-			...seed,
-			pendingUser: { id: pending }
-		}),
-		{
-			suffix: `/admin/users/${pending}`,
-			search: '?/resendInvite',
-			failureField: 'error',
-			sameOrigin: true,
-			requestTarget: null
-		}
+test('request controls resolve only a recorded request and its setup-email actions', () => {
+	const id = seed.requests.approve.id;
+	assert.deepEqual(platformFormNetworkTarget('admin-request/approve/rescindAccess', fixture, seed), {
+		suffix: `/admin/people/not-set-up/${id}`,
+		search: '?/rescindAccess',
+		failureField: 'error',
+		requestTarget: null,
+		sameOrigin: true
+	});
+	assert.equal(
+		platformFormNetworkTarget('admin-request-read/approve', fixture, seed).suffix,
+		`/admin/people/not-set-up/${id}/__data.json`
 	);
-	assert.throws(() => platformFormNetworkTarget('admin-account/pendingUser/resetPassword', fixture, seed));
+	assert.equal(platformFormNetworkTarget('admin-request/approve/approve', fixture, seed), null);
+	assert.equal(platformFormNetworkTarget('admin-request-read/approve/resendSetup', fixture, seed), null);
+	assert.throws(() => platformFormNetworkTarget('admin-request/approve/resendSetup', fixture, null));
 });
 
 for (const bodyKind of ['form', 'urlencoded', 'request']) {
@@ -190,7 +190,7 @@ for (const bodyKind of ['form', 'urlencoded', 'request']) {
 test('account failure control leaves other origins, Users, methods and actions untouched', async () => {
 	let dispatched = 0;
 	const page = {
-		location: { href: 'http://owned.test/admin/users' },
+		location: { href: 'http://owned.test/admin/people' },
 		fetch: async () => {
 			dispatched++;
 			return Response.json({ untouched: true });
@@ -201,13 +201,13 @@ test('account failure control leaves other origins, Users, methods and actions u
 		mode: 'fail',
 		ordinal: 1
 	});
-	await page.fetch(`http://other.test/admin/users/${invitee}?/resetPassword`, { method: 'POST' });
-	await page.fetch(`/admin/users/${other}?/resetPassword`, { method: 'POST' });
-	await page.fetch(`/admin/users/${invitee}?/resendInvite`, { method: 'POST' });
-	await page.fetch(`/admin/users/${invitee}?/resetPassword`);
+	await page.fetch(`http://other.test/admin/people/${invitee}?/resetPassword`, { method: 'POST' });
+	await page.fetch(`/admin/people/${other}?/resetPassword`, { method: 'POST' });
+	await page.fetch(`/admin/people/${invitee}?/other`, { method: 'POST' });
+	await page.fetch(`/admin/people/${invitee}?/resetPassword`);
 	assert.equal(dispatched, 4);
 	assert.equal(page.__mapNetwork.calls.length, 0);
-	const response = await page.fetch(`/admin/users/${invitee}?/resetPassword`, { method: 'POST' });
+	const response = await page.fetch(`/admin/people/${invitee}?/resetPassword`, { method: 'POST' });
 	assert.equal(response.status, 503);
 	assert.equal(page.__mapNetwork.calls.length, 1);
 	assert.equal(dispatched, 4);
@@ -217,7 +217,7 @@ test('detail page reads bind only the recorded User or Organization', async () =
 	const organization = '30000000-0000-4000-8000-000000000001';
 	const detailSeed = { ...seed, organization: { id: organization } };
 	for (const [family, route, sibling] of [
-		['admin-user-detail-read', `/admin/users/${invitee}`, `/admin/users/${selected}`],
+		['admin-user-detail-read', `/admin/people/${invitee}`, `/admin/people/${selected}`],
 		['admin-organization-detail-read', `/admin/organizations/${organization}`, `/admin/organizations/${other}`]
 	]) {
 		let dispatched = 0;

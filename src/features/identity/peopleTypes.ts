@@ -80,3 +80,5 @@ export const setupTimelineSchema = z.array(
 	})
 );
 export type SetupEmailTimeline = z.infer<typeof setupTimelineSchema>;
+export type PersonAccessHistory = z.infer<typeof personAccessHistorySchema>;
+export type PersonAccessRequest = z.infer<typeof personAccessRequestSchema>;

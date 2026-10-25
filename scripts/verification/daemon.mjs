@@ -191,7 +191,8 @@ try {
 		providerUrl: provider.API_URL,
 		orgId: fixture.ids.orgA,
 		token: randomBytes(32).toString('hex'),
-		mailApiKey: randomBytes(24).toString('hex')
+		mailApiKey: randomBytes(24).toString('hex'),
+		webhookSecret: `whsec_${randomBytes(24).toString('base64')}`
 	};
 	const sourceConfigPath = path.join(session, 'server-source-control.json');
 	await writeJSON(sourceConfigPath, sourceControlConfig);
@@ -206,6 +207,7 @@ try {
 		SUPABASE_SERVICE_ROLE_KEY: provider.SERVICE_ROLE_KEY,
 		RESEND_API_KEY: sourceControlConfig.mailApiKey,
 		RESEND_FROM_EMAIL: 'verify@example.test',
+		RESEND_WEBHOOK_SECRET: sourceControlConfig.webhookSecret,
 		ACCOUNT_SETUP_LINK_SECRET: randomBytes(32).toString('hex'),
 		ACCOUNT_SETUP_SESSION_SECRET: randomBytes(32).toString('hex'),
 		CLEANUP_SECRET: cleanupSecret,

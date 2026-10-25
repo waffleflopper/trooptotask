@@ -17,7 +17,6 @@ export async function createPlatformAccountOperations(event: RequestEvent) {
 	return {
 		adminUserId: actor.userId,
 		sendPasswordReset: ({ userId }: { userId: string }) =>
-			commands.sendPasswordReset({ userId, inboundOrigin: event.url.origin }),
-		resendInvite: ({ userId }: { userId: string }) => commands.resendInvite({ userId, inboundOrigin: event.url.origin })
+			commands.sendPasswordReset({ userId, inboundOrigin: event.url.origin })
 	};
 }

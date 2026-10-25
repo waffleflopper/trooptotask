@@ -341,4 +341,4 @@ export type { PersonState, IdentityPerson, IdentityPeoplePage, PeopleFilter, Peo
 
 export type { SetupEmailInboxRow } from './setupEmailTypes';
 
-export type { SetupEmailTimeline } from './peopleTypes';
+export type { SetupEmailTimeline, PersonAccessHistory, PersonAccessRequest } from './peopleTypes';

@@ -6,13 +6,13 @@ admin is entered only at MFA level aal2.
 
 ## Sub-features
 
-- `admission`: the operator at aal2 enters the Inbox, Users and Organizations; an operator at aal1 is sent to MFA; any
+- `admission`: the operator at aal2 enters the Inbox, People and Organizations; an operator at aal1 is sent to MFA; any
   other signed-in account is refused.
-- `directory`: search, paging, account and Organization detail, current membership, setup/activation and suspension
-  state.
+- `directory`: the People list (search, All / Not set up / Suspended, paging), the person page, the Not set up person
+  page, Organization detail, current membership, setup/activation and suspension state.
 - `reviewed-access`: pending approval/rejection (decided in the Inbox, see [Platform Inbox](platform-inbox.md)), blocked
-  linked invitations and setup delivery. The admin UI no longer offers Rescind or Resend setup; their server commands
-  remain, covered by unit tests only.
+  linked invitations and setup delivery. A bounced or expired setup email is resent, rescinded or raised with the
+  inviter from the Inbox or the Not set up person page.
 - `administration`: operator suspension/recovery with MFA step-up, the disabled own-account Suspend, confirmed ownership
   transfer and denial without mutation.
 - `activity`: each platform command writes an event naming the operator's email and the target, which Activity reads as
@@ -21,9 +21,10 @@ admin is entered only at MFA level aal2.
 
 ## How to get to it (user POV)
 
-Sign in as the platform operator, enter the authenticator code and open Admin. Choose Users or Organizations in the
-sidebar; access requests are decided in the Inbox. Search the directory and follow a record link to inspect its detail.
-The operator uses Suspend/Unsuspend (in `More User controls` and `More Organization controls`) and Transfer Ownership. A
+Sign in as the platform operator, enter the authenticator code and open Admin. Choose People or Organizations in the
+sidebar; access requests are decided in the Inbox. Search People and follow a name to open the person page. The operator
+uses `Send password reset` and `Suspend account` on a person and Suspend/Unsuspend (in `More Organization controls`)
+and Transfer Ownership on an Organization. A
 suspension asks for the authenticator code again when the last one is older than 10 minutes, then returns to the same
 page. On the operator's own account Suspend is disabled and says why.
 
@@ -32,8 +33,9 @@ page. On the operator's own account Suspend is disabled and says why.
 Platform administration uses the [access/account/Organization recipe](platform-administration.md), the
 `platformReviewer` operator (aal2 by default, `--aal1` and `--stale-mfa` for the MFA states in
 [platform admin states](platform-admin-states.md)) and the `platformSupport`, `platformBilling` and `platformInactive`
-denial actors, which hold no operator row. `actor` accepts `admin`, `admin/users`, `admin/organizations` and
-`admin/activity` (`admin/access-requests` and `admin/feedback` redirect to the Inbox). `seed platform-admin` records
+denial actors, which hold no operator row. `actor` accepts `admin`, `admin/people`, `admin/organizations` and
+`admin/activity` (`admin/access-requests`, `admin/feedback` and `admin/users` redirect). `setup-bounce`, `setup-expire`
+and `setup-state` arrange and read setup-email facts (see [Platform Inbox](platform-inbox.md)). `seed platform-admin` records
 temporary review/origin and Organization membership witnesses before writes; `platform-state` returns exact recorded
 rows without setup secrets. `platform-request` sends bounded ordinary same-origin actions; its families/target keys and
 separate HTTP boundary are documented in the recipe. `network arm-fail|arm-hold|arm-observe PAGE admin-suspend` matches
@@ -50,23 +52,23 @@ confirmation; observing the current state does not identify who changed it. Rest
 
 Reuse `platformReviewer` (the only operator, enrolled with a verified authenticator), ordinary `viewer` and `orgOwner`;
 `platformSupport`, `platformBilling` and `platformInactive` have no operator row.
-`$V actor ROLE admin|admin/users|admin/organizations|admin/activity` signs the operator in at aal2 through the provider
+`$V actor ROLE admin|admin/people|admin/organizations|admin/activity` signs the operator in at aal2 through the provider
 and accepts denial as an observable outcome for every other role, without changing authority.
 
 Run `$V seed platform-admin` once. It creates a temporary Organization, three memberships for
 `orgCreator`/`orgInvitee`/`orgMember`, two pending requests, a completed approved request and one unconfirmed account
-`platform-pending-TAG@example.test` (`pendingUser`), the only account whose User detail offers Resend Invite. The
+`platform-pending-TAG@example.test` (`pendingUser`). The
 rejection request has a real pending Organization invitation and recorded origin. `$V platform-state` reads only these
 recorded targets and public fixture User IDs/emails, exact roles, suspension records, review/setup/delivery metadata and
 Organization audit references. It omits setup tokens and delivery payloads.
 
-1. **Admission and investigation.** As the operator, capture the sidebar, Users and Organizations directories,
+1. **Admission and investigation.** As the operator, capture the sidebar, People and Organizations directories,
    search/paging and a temporary Organization detail. Open the recorded `orgInvitee` account through its visible record
    link. Reload and inspect membership and suspension. Repeat all three starting destinations as ordinary `viewer`,
    `platformSupport`, `platformBilling` and `platformInactive`: preserve actual denial/redirect and ordinary page-data
-   responses, which must disclose no directory or request records. Then `$V actor --aal1 platformReviewer admin/users`
-   must land on `Enter your code` with the Users path in `next`, and entering the code
-   (`$V mfa-code PAGE platformReviewer "Verification Code"`) must land on Users. Platform navigation does not follow
+   responses, which must disclose no directory or request records. Then `$V actor --aal1 platformReviewer admin/people`
+   must land on `Enter your code` with the People path in `next`, and entering the code
+   (`$V mfa-code PAGE platformReviewer "Verification Code"`) must land on People. Platform navigation does not follow
    active Organization authority.
 2. **Search lifetime.** Use the visible global search for the unique temporary Organization name and account email.
    Clear with native Control+A/Backspace, or shorten the query, while a real search response is held with
@@ -78,8 +80,8 @@ Organization audit references. It omits setup tokens and delivery payloads.
    owned by [Platform Inbox](platform-inbox.md). Setup mail is delivered to the private sink by default; arm
    `$V mail fail setup` before Approve to observe the delivery-failed state. Approval must not masquerade as completed
    account setup or accepted Organization membership. The seeded completed request has no review time, so it appears in
-   neither Open nor Done. Rescind and Resend setup have no admin UI and no helper request family; their server commands
-   are covered by unit tests only.
+   neither Open nor Done. Resend setup link and Rescind access run from the Inbox (step 9 there) and from the Not set up
+   person page (step 8 below).
 4. **Non-operator write denial.** From normally signed-in `platformSupport` and ordinary pages,
    `$V platform-request PAGE suspend organization '{"type":"org","action":"suspend"}'`, or the ownership request below,
    submit bounded ordinary HTTP and capture 403 plus unchanged `$V platform-state`. A visible button or missing button
@@ -101,8 +103,8 @@ Organization audit references. It omits setup tokens and delivery payloads.
    detail and persisted suspension after reload plus the actual affected Organization access outcome. An ordinary owner
    already on Settings must reload into the canonical Organization home suspension notice, rather than a nonexistent
    `/suspended` child route; cover Settings index and a nested section. Unsuspend visibly and verify Settings recovery.
-   Repeat with `orgInvitee` account, inspecting `user_suspensions` and normal sign-in denial/recovery. The refreshed
-   User detail must offer Unsuspend immediately; no hard reload is required to correct its visible state. An
+   Repeat with the `orgInvitee` person page, inspecting `user_suspensions` and normal sign-in denial/recovery. The
+   refreshed person page must offer `Unsuspend account` immediately; no hard reload is required to correct its visible state. An
    acknowledged save with failed refresh offers Reload details instead of repeating the mutation. A failed suspension
    read must never become a verified unsuspended state. Use `$V network arm-drop PAGE admin-suspend` for a real
    dispatched save whose response is deliberately lost. Preserve real status/provider persistence plus the read-only
@@ -125,12 +127,26 @@ Organization audit references. It omits setup tokens and delivery payloads.
    requested state is current truth, not an inferred success event. Ordinary update/removal must use the looked-up
    nonowner role and acknowledge its exact ID; a target becoming owner cannot be overwritten or removed by a pending
    command.
+7. **People.** As the operator open `$V actor platformReviewer admin/people`. Approve the `approve` request in the Inbox
+   first so it is a Not set up person. Search part of `orgInvitee`'s email and a name: the list filters on the server
+   and the URL keeps `search`; the `Not set up` filter lists only the approved request with `None yet` Organizations
+   and the state `Not set up`; `Suspended` lists suspended accounts. Open `orgInvitee` through its name. The person page
+   shows the Organizations and roles sentence under the name, `Organizations`, `Access history`, `Recent activity`
+   (sentences, newest first, `Open in Activity →`) and the `Account` facts (email, last sign-in, MFA On or Off, signed
+   up, ID). `Send password reset` shows a confirmation and `mail state` holds one `auth` message; the audit holds
+   `admin.user.password_reset`. On the operator's own page (`platformReviewer` from `$V fixture`) `Suspend account` is
+   disabled and `You cannot suspend your own account.` is visible beside it.
+8. **Not set up person.** Open the approved request's person page from the list. Expected: eyebrow `Person · Not set up
+· Closed beta`, the request quote, the setup timeline, `Link expires` from the live link, `Resend setup link` and
+   `Rescind access`. Resend shows `A new setup link was sent.` and the timeline gains the new send; Rescind confirms,
+   then leaves for the `Not set up` list, where the person is gone. The old `/admin/users` and `/admin/users/ID` URLs
+   answer 308 to People and to the person page.
 
 `platform-request PAGE FAMILY TARGET_KEY JSON` supports `approve|reject` (`reject` accepts an optional `reason`) with
 keys `approve|reject|completed`; `transferOwnership` with target `organization` and a seeded member UUID
 (`targetUserId`, plus `confirmName`); `suspend` for `organization` with `type:org`, or
 `orgCreator|orgInvitee|orgMember|platformReviewer` with `type:user` (`platformReviewer` is the server's self-suspension
-refusal control), and `action`/optional `reason`; `resetPassword|resendInvite` for those User keys. It sends one
+refusal control), and `action`/optional `reason`; `resetPassword` for those User keys. It sends one
 ordinary same-origin POST, returns the full transport/action envelope and never applies it to the UI.
 `invalidSuspension` with a recorded User key accepts only `case:null-body|non-string-reason|array-target`; it sends that
 fixed malformed JSON, requiring 400 and unchanged suspension/audit rows. This is separate ordinary HTTP validation
@@ -139,10 +155,11 @@ action/API observations separately from native interaction.
 
 Account and review response lifetime uses
 `network arm-hold|arm-fail|arm-hold-fail|arm-observe PAGE admin-account/orgInvitee/resetPassword` (also
-`orgCreator|orgMember|pendingUser` and `resendInvite`) or `admin-access/approve/approve` (recorded keys
-`approve|reject|completed`, actions `approve|reject`). These controls bind the exact User/action or recorded Access
+`orgCreator|orgMember`) or `admin-access/approve/approve` (recorded keys
+`approve|reject|completed`, actions `approve|reject`), and
+`admin-request/approve/resendSetup|rescindAccess` and `admin-request-read/approve` for the Not set up person page. These controls bind the exact User/action or recorded Access
 Request form ID. A different request, action or User remains untouched. Hold a real account-support reply, navigate
-through a visible User link or Back, then release: the old result must not apply feedback or busy state to the new page.
+through a visible person link or Back, then release: the old result must not apply feedback or busy state to the new page.
 A failed account refresh must release its busy control. For reviewed access, a failed response may follow a saved
 approval or setup-link replacement; reread current request/setup state before allowing a new mutation, retain the actual
 failure and never automatically resend. A failed queue reread shows that kind's own `Retry` row and a failed item reread

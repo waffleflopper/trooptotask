@@ -129,6 +129,14 @@ After `clean-seeds`, read back the known seeded notification IDs' absence. Globa
 recorded helper IDs and their dependent dismissals. Feedback has no member-facing delete control and stays in the
 disposable provider until owned worker cleanup.
 
+8. **Ask the inviter.** The platform operator's `Ask the inviter to check the address` on a bounced setup email (see
+   [Platform Inbox](platform-inbox.md), step 9) writes one `setup_email_address_check` notification per current member
+   who invited the address, titled `Check an invitation address`, linking to that Organization's `Members` settings. After
+   it, `$V setup-state reject` lists the row for `orgCreator`. Sign in as `orgCreator`, open the temporary Organization
+   from `$V platform-state` and open the bell: the notification reads that the setup email for `<name> (<email>)`
+   bounced, and following it opens Members. An inviter who has left the Organization is not notified, and the command
+   then answers `No current inviter can be contacted for this item.`
+
 ## Gotchas
 
 - Notifications combine requested Organization and signed-in User Account. Feature edit permission is unnecessary; being

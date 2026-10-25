@@ -4,6 +4,7 @@ import { formatAdminLabel } from '../adminTheme';
 import AccessRequestDetail from './AccessRequestDetail.svelte';
 import type { InboxDetailProps } from './inboxDetailProps';
 import FeedbackDetail from './FeedbackDetail.svelte';
+import SetupEmailDetail from './SetupEmailDetail.svelte';
 import type { InboxTone } from './inboxTones';
 
 export interface InboxKindView<K extends InboxKind> {
@@ -14,7 +15,7 @@ export interface InboxKindView<K extends InboxKind> {
 	badge?: string;
 	/** The short line over a queue row: the kind and the one fact that sorts it. */
 	eyebrow: (item: InboxItemOf<K>) => string;
-	Detail: Component<InboxDetailProps<K>> | null;
+	Detail: Component<InboxDetailProps<K>>;
 }
 
 /** Adding an Inbox kind adds one entry here, one in `InboxSources` and its detail component. */
@@ -32,7 +33,7 @@ export const INBOX_KIND_VIEWS: { [K in InboxKind]: InboxKindView<K> } = {
 		filterLabel: 'Setup emails',
 		tone: 'danger',
 		eyebrow: (item) => `Setup email · ${item.reason === 'bounced' ? 'Bounced' : 'Expired unused'}`,
-		Detail: null
+		Detail: SetupEmailDetail
 	},
 	feedback: {
 		label: 'Feedback',
@@ -45,9 +46,7 @@ export const INBOX_KIND_VIEWS: { [K in InboxKind]: InboxKindView<K> } = {
 
 /** The registry is keyed per kind; an item or detail carries its own kind, so dispatch widens once, here. */
 export function detailComponentFor(kind: InboxKind) {
-	const detail = INBOX_KIND_VIEWS[kind].Detail;
-	if (!detail) throw new Error('Setup email detail component has not been installed');
-	return detail as Component<InboxDetailProps<InboxKind>>;
+	return INBOX_KIND_VIEWS[kind].Detail as Component<InboxDetailProps<InboxKind>>;
 }
 
 export function eyebrowFor(item: InboxItem): string {

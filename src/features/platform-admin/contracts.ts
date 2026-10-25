@@ -12,7 +12,7 @@ export type {
 	PlatformAnnouncementValidation
 } from './announcementTypes';
 
-export type { PlatformUserDirectoryList } from './userDirectoryTypes';
+export type { PersonRegion } from './peopleTypes';
 export type {
 	PublishedWhatsNewEntry,
 	WhatsNewDeleteResult,

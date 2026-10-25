@@ -142,7 +142,7 @@
 							{#if results.users.length > 0}
 								<Command.Group heading="Users">
 									{#each results.users as user (user.id)}
-										<Command.LinkItem value="user:{user.id}" href="/admin/users/{user.id}">
+										<Command.LinkItem value="user:{user.id}" href="/admin/people/{user.id}">
 											<span class="grid min-w-0 flex-1">
 												<span class="truncate font-medium">{user.email}</span>
 												<span class="truncate text-xs text-muted-foreground">

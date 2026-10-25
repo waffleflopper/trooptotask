@@ -16,6 +16,8 @@ closed beta and member Feedback. They open an item, decide it and see it move to
 - `states`: a skeleton per region while it loads that holds its final size, one error alert with `Retry` per failed
   kind, a stale response never replacing a newer one, a failed reload after a command that keeps the item on screen, and
   the single-column layout below 1024 px where an item is full screen and Back closes it.
+- `setup-email`: Bounced and Expired unused setup emails as Inbox items with their setup history and the commands
+  `Ask the inviter to check the address`, `Resend setup link` and `Rescind access`.
 - `legacy-routes`: `/admin/access-requests` and `/admin/feedback` redirect to the matching Inbox filter.
 
 ## How to get to it (user POV)
@@ -35,7 +37,9 @@ the recorded request rows. `$V platform-request PAGE approve|reject TARGET_KEY J
 `$V network arm-fail|arm-hold|arm-observe PAGE admin-access/approve/approve` (or `reject/reject`) and
 `admin-inbox/close` bind one exact action; `admin-inbox-read` matches the Inbox page data and `admin-inbox-item-read`
 the item detail request (`/admin/api/inbox/item`). `arm-load-error` works on `admin-inbox-read`. Setup mail goes to the
-private sink (`mail state`, `mail fail setup`).
+private sink (`mail state`, `mail fail setup`). Setup emails use `$V setup-bounce|setup-expire|setup-state REQUEST_KEY`
+(`approve|reject|completed`; `setup-bounce` takes an optional reason) and
+`network arm-fail|arm-hold|arm-observe PAGE admin-inbox/resendSetup|rescindAccess|askInviter`.
 
 ## Driving it with verify:app
 
@@ -100,12 +104,48 @@ private sink (`mail state`, `mail fail setup`).
    `Enter your code`. Direct POSTs to `/admin?/approve`, `/admin?/reject` and `/admin?/close` from a non-operator answer
    403 and change nothing in `platform-state`.
 
+9. **Setup emails.** Run `$V seed platform-admin`, approve the `approve` request (step 2) and read
+   `$V setup-state approve`: one link whose `resend_email_id` is `synthetic-mail-N` and no `bounced_at`.
+   - **Bounced.** `$V setup-bounce approve "Mailbox does not exist"` answers 200 `{"received":true}`. It posts a freshly
+     Svix-signed bounce for that synthetic mail ID to `/api/webhooks/resend` of the owned app and never contacts
+     Resend. `setup-state` now holds `bounced_at` and the reason; a second `setup-bounce` leaves the first reason.
+     Reload the Inbox. Expected: the chips gain `Setup emails · 1`, the header sentence counts the item, and the row
+     reads `Setup email · Bounced` over `<name> never got a setup link`. Select it: the eyebrow `Setup email · Bounced`,
+     the heading, `<email> · bounced <when>`, a `Setup email history` list (`Setup link sent.` with `Delivered to
+<email>`, `Delivery failed.` with `The mail server said: Mailbox does not exist`, then `Has not finished setup.`
+     only while the link is live), `Ask the inviter to check the address`, `Resend setup link` and `Rescind access`,
+     the sentence that resending usually bounces again, and `Open <name>'s page`. Ask the inviter is the dark button
+     and is disabled when no current member invited the address (the seeded `approve` request has none).
+   - **Resend.** Press `Resend setup link`. Expected: the pressed button shows busy and a second press sends nothing;
+     `A new setup link was sent.` appears; `mail state` holds a second `account-setup` message to that address;
+     `setup-state` shows the first link revoked as replaced and a new live link; the audit holds the resend row. After
+     the reload the item is closed: `Resolved`, no buttons, and it is listed in Done.
+   - **Ask the inviter.** Approve the `reject` request (it carries a pending Organization invitation from `orgCreator`)
+     and bounce it. Expected: the ask button is enabled; press it: `The inviter was notified. This item stays open until
+the address is fixed.`; the item stays in Open; `setup-state reject` holds one `setup_email_address_check`
+     notification for `orgCreator` in the temporary Organization and an
+     `access_request.inviter_address_check_requested` audit row. The notification itself is read in
+     [Notifications](notifications-feedback.md).
+   - **Rescind.** `Rescind access` opens `Rescind access?` naming the person; `Cancel` closes it with no request;
+     confirming shows `Access was rescinded.`, the item is `Resolved`, `setup-state` shows the request `rescinded` with
+     `rescinded_at`, the link revoked as manual, and the audit holds the rescission.
+   - **Expired unused.** With a live link (a fresh resend), `$V setup-expire approve` then reload. Expected: the row
+     reads `Setup email · Expired unused` over `<name> has not used their setup link`, `Resend setup link` is the dark
+     button, and the history ends `The link expired unused.`
+   - **Failure and lifetime.** `$V network arm-fail PAGE admin-inbox/resendSetup` (also `rescindAccess`, `askInviter`),
+     press the command: a destructive `Alert`, the item and `setup-state` unchanged; after `restore` the retry works.
+     `$V mail fail setup` then `Resend setup link` shows `The new setup link was created, but the email could not be
+delivered.`. `arm-hold` the command, pick another item and release: the answer never changes the other item. A
+     setup email that went out while its required audit write failed (`email_sent_audit_failed`) reads
+     `The setup email was sent, but the required audit could not be recorded. Reload before sending again.` as a
+     notice, never as a failed send; it is not reachable from the browser and is proven in
+     `src/routes/admin/setupEmailActions.server.test.ts` and `inboxActions.svelte.test.ts`.
+
 ## Gotchas
 
 - Re-seeding `platform-admin` needs `$V clean-seeds` first; bulk Feedback rows beyond 50 show the `newest 50` note and a
   scroll inside the list at 1024 px and wider.
-- `/admin/people`, `/admin/activity` and the other new sections are separate slices; until they land their sidebar
-  links 404. The header date and month labels follow the browser's clock; the figures count the UTC month. The old
-  `admin/users`, `admin/audit` pages still answer.
+- The header date and month labels follow the browser's clock; the figures count the UTC month. `/admin/users` and
+  `/admin/users/ID` redirect (308) to People and the person page; `/admin/audit` redirects to Activity.
 - Requests auto-approved through an Organization invitation never appear in the Inbox.
 - Setup email can be arranged to fail with `mail fail setup`; the approval is then recorded and the detail says so.

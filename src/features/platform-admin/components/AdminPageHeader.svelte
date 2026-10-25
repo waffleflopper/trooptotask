@@ -5,7 +5,8 @@
 	interface Props {
 		/** The mono line over the title, such as "Platform · Friday 23 Oct". */
 		eyebrow: string;
-		title: string;
+		/** A snippet holds a skeleton while the record's own name loads. */
+		title: string | Snippet;
 		/** One sentence on what the page holds. A snippet can hold a skeleton while its facts load. */
 		description?: string | Snippet;
 		/** Figures or controls at the right, level with the description. Hidden on a phone, as is the description. */

@@ -4,9 +4,9 @@ import type { PeopleQuery, PersonState } from '$features/identity/contracts';
 import { createOrganizationSupportReader } from '$features/organization/index.server';
 import { createSupabasePlatformAudit } from '$lib/audit/index.server';
 import { describeAuditEvent } from '../auditSentences';
+import type { PersonRegion } from '../peopleTypes';
 import { admitPlatformAdministrator } from './admission.server';
 
-export type PersonRegion<T> = { status: 'ok'; data: T } | { status: 'error'; message: string };
 export async function readPersonRegion<T>(read: () => Promise<T>, message: string): Promise<PersonRegion<T>> {
 	try {
 		return { status: 'ok', data: await read() };

@@ -118,6 +118,7 @@ function provider(actor: ActorCase) {
 	const feedback = [
 		{
 			id: FEEDBACK_ID,
+			user_id: ACTOR_ID,
 			user_email: 'member@example.test',
 			category: 'bug',
 			message: 'Synthetic report',
@@ -158,6 +159,7 @@ function provider(actor: ActorCase) {
 			if (method === 'PATCH') return rowResponse({ id: FEEDBACK_ID });
 			return Response.json(feedback, { headers: { 'content-range': `0-0/${feedback.length}` } });
 		}
+		if (resource === 'user_profiles') return Response.json([]);
 		if (resource === 'audit_logs') return new Response(null, { status: 201 });
 		throw new Error(`Unexpected synthetic provider request: ${method} ${resource}`);
 	};

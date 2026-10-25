@@ -106,30 +106,6 @@ export function createIdentityPlatformSupportReader(client: SupabaseClient): Ide
 			});
 		},
 
-		async listSuspendedUserIds(userIds) {
-			const ids = [...new Set(userIds)];
-			const suspendedIds: string[] = [];
-			for (let offset = 0; offset < ids.length; offset += 200) {
-				const batch = ids.slice(offset, offset + 200);
-				const requestedIds = new Set(batch.map((id) => id.toLowerCase()));
-				const { data, error } = await selectAllSupabaseRows<{ user_id: string }>(async (from, to) => {
-					const result = await client
-						.from('user_suspensions')
-						.select('user_id')
-						.in('user_id', batch)
-						.order('user_id')
-						.range(from, to);
-					if (!result.error && !Array.isArray(result.data)) throw new Error('Unable to read user suspensions');
-					return result;
-				});
-				if (error || !Array.isArray(data)) throw new Error('Unable to read user suspensions');
-				if (data.some((row) => typeof row.user_id !== 'string' || !requestedIds.has(row.user_id.toLowerCase())))
-					throw new Error('User suspension identities could not be verified');
-				suspendedIds.push(...data.map((row) => row.user_id));
-			}
-			return suspendedIds;
-		},
-
 		async getSuspensionForUser(userId) {
 			const { data, error } = await client
 				.from('user_suspensions')

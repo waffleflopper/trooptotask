@@ -3,7 +3,7 @@ import { checkAdminAuthEmailRateLimit } from './accountEmailRateLimit.server';
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('admin auth email rate limit', () => {
-	it('limits repeated emails per target and action across requests', async () => {
+	it('limits repeated password reset emails per target across requests', async () => {
 		const counts = new Map<string, number>();
 		const rpc = vi.fn(async (_name: string, args: { p_bucket_key: string; p_max_requests: number }) => {
 			const count = (counts.get(args.p_bucket_key) ?? 0) + 1;
@@ -20,8 +20,7 @@ describe('admin auth email rate limit', () => {
 			await expect(checkAdminAuthEmailRateLimit(supabase, USER_ID, 'recovery')).resolves.toBe(false);
 		}
 		await expect(checkAdminAuthEmailRateLimit(supabase, USER_ID, 'recovery')).resolves.toBe(true);
-		await expect(checkAdminAuthEmailRateLimit(supabase, USER_ID, 'invite')).resolves.toBe(false);
 		await expect(checkAdminAuthEmailRateLimit(supabase, otherUser, 'recovery')).resolves.toBe(false);
-		expect([...counts.keys()]).toHaveLength(3);
+		expect([...counts.keys()]).toHaveLength(2);
 	});
 });

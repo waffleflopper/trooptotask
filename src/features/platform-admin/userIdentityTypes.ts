@@ -7,5 +7,4 @@ export type PlatformUserIdentityCommandResult =
 
 export interface PlatformUserIdentityCommands {
 	sendPasswordReset(input: { userId: string; inboundOrigin: string }): Promise<PlatformUserIdentityCommandResult>;
-	resendInvite(input: { userId: string; inboundOrigin: string }): Promise<PlatformUserIdentityCommandResult>;
 }

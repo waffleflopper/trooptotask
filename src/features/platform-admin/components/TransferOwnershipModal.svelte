@@ -148,7 +148,7 @@
 			</Alert.Root>
 
 			<Field.Root>
-				<Field.Label for="new-owner">New Owner</Field.Label>
+				<Field.Label for="new-owner">New owner</Field.Label>
 				<Field.Control>
 					<NativeSelect
 						id="new-owner"

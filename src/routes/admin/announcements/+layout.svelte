@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
+	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import type { LayoutProps } from './$types';
 
@@ -19,13 +21,12 @@
 	]);
 </script>
 
-<PageShell.Root density="compact">
-	<PageShell.Header
+<AdminPage>
+	<AdminPageHeader
 		eyebrow="Platform · Communication"
 		title="Announcements"
-		variant="display"
-		subtitle="Banners every signed-in user sees, and the What's New entries."
+		description="Banners every signed-in user sees, and the What's New entries."
 	/>
 	<PageShell.Tabs label="Announcement sections" {items} />
 	{@render children()}
-</PageShell.Root>
+</AdminPage>

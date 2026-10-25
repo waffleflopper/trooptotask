@@ -8,7 +8,7 @@ import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 const navigation = vi.hoisted(() => ({
 	before: [] as Array<(navigation: { type: string; to: { url: URL } | null }) => void>,
 	after: [] as Array<() => void>,
-	pathname: '/admin/users'
+	pathname: '/admin/people'
 }));
 
 vi.mock('$app/stores', () => ({
@@ -36,7 +36,7 @@ afterEach(() => {
 	cleanup();
 	navigation.before.length = 0;
 	navigation.after.length = 0;
-	navigation.pathname = '/admin/users';
+	navigation.pathname = '/admin/people';
 	document.body.innerHTML = '';
 	(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 1024, height: 768 });
 });

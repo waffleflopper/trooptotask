@@ -9,18 +9,23 @@ export type PlatformOrganizationStatus = 'active' | 'quiet' | 'suspended';
 
 export const PLATFORM_ORGANIZATION_STATUS_LABELS: Record<PlatformOrganizationStatus, string> = {
 	active: 'Active',
-	quiet: 'Quiet >30 days',
+	quiet: 'Quiet',
 	suspended: 'Suspended'
 };
 
+export const PLATFORM_ORGANIZATIONS_PAGE_SIZE = 25;
+/** Load more stops here, so one request never reads more than this many pages of rows. */
+export const PLATFORM_ORGANIZATIONS_MAX_PAGES = 20;
+
 export interface PlatformOrganizationListInput {
-	page?: number | string | null;
+	pages?: number | string | null;
 	q?: string | null;
 	filter?: string | null;
 }
 
 export interface PlatformOrganizationListQuery {
-	page: number;
+	/** How many pages of rows are shown. Load more asks for one more, so the list always starts at the top. */
+	pages: number;
 	q: string;
 	filter: PlatformOrganizationFilter;
 }
@@ -48,10 +53,7 @@ export interface PlatformOrganizationFilterCounts {
 export interface PlatformOrganizationPage {
 	counts: PlatformOrganizationFilterCounts;
 	organizations: PlatformOrganizationRow[];
-	page: number;
-	pageSize: number;
 	totalCount: number;
-	totalPages: number;
 }
 
 export interface PlatformOrganizationMember {

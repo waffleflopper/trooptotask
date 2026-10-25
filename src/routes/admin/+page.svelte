@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
 	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import InboxDetailPane from '$features/platform-admin/components/inbox/InboxDetailPane.svelte';
 	import InboxQueue from '$features/platform-admin/components/inbox/InboxQueue.svelte';
@@ -206,7 +207,7 @@
 	</div>
 {/snippet}
 
-<div class="grid gap-6 px-4 pt-5 pb-10 sm:px-10 sm:pt-9">
+<AdminPage>
 	<div class={cn(selected && 'max-lg:hidden')}>
 		<AdminPageHeader {eyebrow} title="Inbox" description={summary} aside={figures} />
 	</div>
@@ -277,4 +278,4 @@
 			</section>
 		</div>
 	</Tabs.Root>
-</div>
+</AdminPage>

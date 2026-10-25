@@ -26,12 +26,12 @@ function makeClient(type: 'invite' | 'recovery', error: unknown = null) {
 	return { auth: { admin: { generateLink } } };
 }
 
-function input(type: 'invite' | 'recovery', supabase = makeClient(type)) {
+function input(type: 'recovery', supabase = makeClient(type)) {
 	return {
 		supabase: supabase as unknown as SupabaseClient,
 		type,
 		email: 'soldier@example.mil',
-		redirectTo: `${CONFIRM_ORIGIN}?type=${type}&next=${type === 'invite' ? '%2Fauth%2Faccept-invite' : '%2Fauth%2Freset-password'}`,
+		redirectTo: `${CONFIRM_ORIGIN}?type=${type}&next=%2Fauth%2Freset-password`,
 		expectedUserId: USER_ID
 	};
 }
@@ -61,7 +61,8 @@ describe('sendAuthEmail', () => {
 		});
 	});
 
-	it.each(['recovery', 'invite'] as const)('sends a %s app confirmation link through Resend', async (type) => {
+	it('sends a recovery app confirmation link through Resend', async () => {
+		const type = 'recovery';
 		const client = makeClient(type);
 		const authInput = input(type, client);
 		const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200 });
@@ -112,7 +113,10 @@ describe('sendAuthEmail', () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		await expect(sendAuthEmail(input('recovery', client), fetchImpl)).resolves.toBe('failed');
 		await expect(
-			sendAuthEmail({ ...input('invite', client), expectedUserId: '22222222-2222-4222-8222-222222222222' }, fetchImpl)
+			sendAuthEmail(
+				{ ...input('recovery', makeClient('recovery')), expectedUserId: '22222222-2222-4222-8222-222222222222' },
+				fetchImpl
+			)
 		).resolves.toBe('failed');
 		expect(fetchImpl).not.toHaveBeenCalled();
 		consoleError.mockRestore();

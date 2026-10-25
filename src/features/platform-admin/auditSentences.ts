@@ -1,3 +1,5 @@
+import type { PlatformOrganizationActivityEvent } from './organizationSupportTypes';
+
 export const ACTIVITY_CATEGORIES = ['access', 'accounts', 'organizations', 'security'] as const;
 export type ActivityCategory = (typeof ACTIVITY_CATEGORIES)[number];
 export type AuditSeverity = 'info' | 'warning' | 'critical';
@@ -14,6 +16,7 @@ export interface AuditEventRecord {
 	/** The actor's account as it stands now. Absent on rows from callers that do not look accounts up. */
 	actorEmail?: string | null;
 	actorName?: string | null;
+	currentOrganizationSuspensionReason?: string | null;
 	resourceType: string | null;
 	resourceId: string | null;
 	ipAddress: string | null;
@@ -41,6 +44,7 @@ interface Subjects {
 	details: Record<string, unknown>;
 	/** An Organization's owners can read the rows written for it, so a typed reason is not shown on them. */
 	organizationScoped: boolean;
+	currentOrganizationSuspensionReason: string | null;
 }
 
 interface RegistryEntry {
@@ -48,6 +52,8 @@ interface RegistryEntry {
 	severity: AuditSeverity;
 	sentence: (subjects: Subjects) => string;
 	note?: (subjects: Subjects) => string | null;
+	organizationSentence?: string;
+	activity?: false;
 }
 
 const entry = (
@@ -58,10 +64,15 @@ const entry = (
 ): RegistryEntry => ({ category, severity, sentence, note });
 
 const reasonNote: RegistryEntry['note'] = (s) => {
-	const reason = s.organizationScoped ? null : text(s.details.reason);
+	const reason = s.currentOrganizationSuspensionReason ?? (s.organizationScoped ? null : text(s.details.reason));
 	return reason ? `Reason: ${reason}` : null;
 };
 const mfaRequired = () => 'Recent MFA was required';
+
+const organizationEntry = (verb: string): RegistryEntry => ({
+	...entry(null, 'info', (s) => `${s.actor} ${verb}`),
+	activity: false
+});
 
 /** Sentence text lives here and nowhere else. A new platform action is one more entry. */
 const REGISTRY: Record<string, RegistryEntry> = {
@@ -149,13 +160,22 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	unsuspend_user: entry('accounts', 'warning', (s) => `${s.actor} unsuspended ${s.target}`, reasonNote),
 	'admin.user.password_reset': entry('accounts', 'warning', (s) => `${s.actor} sent a password reset to ${s.target}`),
 	'admin.user.resend_invite': entry('accounts', 'info', (s) => `${s.actor} resent the invite to ${s.target}`),
-	suspend_org: entry('organizations', 'critical', (s) => `${s.actor} suspended ${s.target}`, reasonNote),
-	unsuspend_org: entry('organizations', 'warning', (s) => `${s.actor} unsuspended ${s.target}`, reasonNote),
-	'admin.org.transfer_ownership': entry(
-		'organizations',
-		'critical',
-		(s) => `${s.actor} transferred ownership of ${s.target}`
-	),
+	suspend_org: {
+		...entry('organizations', 'critical', (s) => `${s.actor} suspended ${s.target}`, reasonNote),
+		organizationSentence: 'A platform operator suspended the Organization'
+	},
+	unsuspend_org: {
+		...entry('organizations', 'warning', (s) => `${s.actor} unsuspended ${s.target}`, reasonNote),
+		organizationSentence: 'A platform operator lifted the Organization suspension'
+	},
+	'admin.org.gift_tier': {
+		...entry(null, 'info', (s) => `${s.actor} changed the plan for ${s.target}`),
+		organizationSentence: 'A platform operator changed the Organization plan'
+	},
+	'admin.org.transfer_ownership': {
+		...entry('organizations', 'critical', (s) => `${s.actor} transferred ownership of ${s.target}`),
+		organizationSentence: 'A platform operator transferred ownership of the Organization'
+	},
 	'admin.org.membership_authorization_denied': entry(
 		'security',
 		'warning',
@@ -183,7 +203,37 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	whats_new_update: entry(null, 'info', (s) => `${s.actor} edited the What's New entry ${s.target}`),
 	whats_new_publish: entry(null, 'info', (s) => `${s.actor} published the What's New entry ${s.target}`),
 	whats_new_delete: entry(null, 'warning', (s) => `${s.actor} deleted the draft What's New entry ${s.target}`),
-	'feedback.closed_without_reply': entry(null, 'info', (s) => `${s.actor} closed ${s.target} without replying`)
+	'feedback.closed_without_reply': entry(null, 'info', (s) => `${s.actor} closed ${s.target} without replying`),
+	'person.created': organizationEntry('added a Personnel Record'),
+	'personnel.create': organizationEntry('added a Personnel Record'),
+	'personnel.created': organizationEntry('added a Personnel Record'),
+	'personnel.updated': organizationEntry('updated a Personnel Record'),
+	'personnel.archived': organizationEntry('archived a Personnel Record'),
+	'personnel.restored': organizationEntry('restored a Personnel Record'),
+	'personnel.permanently_deleted': organizationEntry('permanently deleted a Personnel Record'),
+	'personnel.group_changed': organizationEntry("changed a person's Group"),
+	'personnel.exported': organizationEntry('exported Personnel'),
+	'training.updated': organizationEntry('updated a training record'),
+	'training_record.updated': organizationEntry('updated a training record'),
+	'training.bulk_imported': organizationEntry('imported training records'),
+	'member.invite': organizationEntry('invited a member'),
+	'member.removed': organizationEntry('removed a member'),
+	'member.access_changed': organizationEntry("changed a member's access"),
+	'organization_invitation.accepted': organizationEntry('accepted an invitation'),
+	'organization_invitation.declined': organizationEntry('declined an invitation'),
+	'org.renamed': organizationEntry('renamed the Organization'),
+	'org.url_slug_updated': organizationEntry("changed the Organization's web address"),
+	'organization.settings_updated': organizationEntry("changed the Organization's settings"),
+	'org.ownership_transferred': organizationEntry('transferred ownership of the Organization'),
+	'sign_in_roster.created': organizationEntry('created a sign-in roster'),
+	'sign_in_roster.deleted': organizationEntry('deleted a sign-in roster'),
+	'status_type.created': organizationEntry('added a status type'),
+	'daily_assignment.updated': organizationEntry('updated a daily assignment'),
+	'onboarding.started': organizationEntry('started an onboarding'),
+	'onboarding.completed': organizationEntry('completed an onboarding'),
+	'export.created': organizationEntry('exported data'),
+	'export.excel_created': organizationEntry('exported data to Excel'),
+	'policy.denied': organizationEntry('was refused an action they lack access to')
 };
 
 /** An action with no entry yet still belongs to Activity when it starts with one of these. It shows under All, by its name. */
@@ -195,7 +245,9 @@ export function isActivityCategory(value: unknown): value is ActivityCategory {
 
 /** The four filters hold registered actions only. */
 export function activityScope(category: ActivityCategory | null): { actions: string[]; prefixes: string[] } {
-	const actions = Object.keys(REGISTRY).filter((action) => !category || REGISTRY[action].category === category);
+	const actions = Object.keys(REGISTRY).filter(
+		(action) => REGISTRY[action].activity !== false && (!category || REGISTRY[action].category === category)
+	);
 	return { actions, prefixes: category ? [] : PLATFORM_PREFIXES };
 }
 
@@ -298,7 +350,7 @@ function severityOf(stored: string, fallback: AuditSeverity): AuditSeverity {
  * Everything Activity shows for one stored event. Pass the signed-in operator's ID and their own actions read "You".
  * Other admin pages call this for their own recent-event lists.
  */
-export function describeAuditEvent(
+function describeActivityEvent(
 	event: AuditEventRecord,
 	options: { viewerId?: string | null } = {}
 ): DescribedAuditEvent {
@@ -306,7 +358,13 @@ export function describeAuditEvent(
 	const known = Object.hasOwn(REGISTRY, event.action) ? REGISTRY[event.action] : null;
 	const actor = actorLabel(event, details, options.viewerId ?? null);
 	const target = targetLabel(event, details);
-	const subjects: Subjects = { actor, target, details, organizationScoped: Boolean(event.orgId) };
+	const subjects: Subjects = {
+		actor,
+		target,
+		details,
+		organizationScoped: Boolean(event.orgId),
+		currentOrganizationSuspensionReason: text(event.currentOrganizationSuspensionReason)
+	};
 	const fields: AuditField[] = [
 		{ label: 'Action', value: event.action },
 		{ label: 'Actor', value: actorField(event, details) },
@@ -325,4 +383,34 @@ export function describeAuditEvent(
 		severity: severityOf(event.severity, known?.severity ?? 'info'),
 		fields
 	};
+}
+
+export function describeAuditEvent(
+	event: Pick<PlatformOrganizationActivityEvent, 'action' | 'userId'>,
+	memberEmails: ReadonlyMap<string, string | null>
+): string;
+export function describeAuditEvent(
+	event: AuditEventRecord,
+	options?: { viewerId?: string | null }
+): DescribedAuditEvent;
+export function describeAuditEvent(
+	event: AuditEventRecord | Pick<PlatformOrganizationActivityEvent, 'action' | 'userId'>,
+	options: ReadonlyMap<string, string | null> | { viewerId?: string | null } = {}
+): string | DescribedAuditEvent {
+	if ('get' in options) {
+		const known = Object.hasOwn(REGISTRY, event.action) ? REGISTRY[event.action] : null;
+		if (known?.organizationSentence) return known.organizationSentence;
+		const actor = event.userId === null ? 'The system' : (options.get(event.userId) ?? 'Someone who has since left');
+		return known
+			? known.sentence({
+					actor,
+					target: 'the Organization',
+					details: {},
+					organizationScoped: true,
+					currentOrganizationSuspensionReason: null
+				})
+			: `${actor} recorded ${event.action}`;
+	}
+	if ('id' in event) return describeActivityEvent(event, options);
+	throw new Error('Activity requires a complete audit event');
 }

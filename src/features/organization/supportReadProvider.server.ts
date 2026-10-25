@@ -93,6 +93,25 @@ export function createOrganizationSupportSuspensionCommands(
 /** Bound only after platform support admission at the server delivery edge. */
 export function createOrganizationSupportReader(client: SupabaseClient): OrganizationSupportReader {
 	return {
+		async listCurrentSuspensions(organizationIds) {
+			const ids = [...new Set(organizationIds)];
+			if (ids.length === 0) return [];
+			const requested = new Map(ids.map((value) => [value.toLowerCase(), value]));
+			return requiredRows(
+				await client
+					.from('organization_suspensions')
+					.select('organization_id, reason, suspended_at')
+					.in('organization_id', ids)
+			).map((value) => {
+				const row = record(value);
+				return {
+					organizationId: requestedId(row.organization_id, requested),
+					reason: string(row.reason),
+					suspendedAt: string(row.suspended_at)
+				};
+			});
+		},
+
 		async getOrganizationById(organizationId) {
 			const result = success(
 				await client

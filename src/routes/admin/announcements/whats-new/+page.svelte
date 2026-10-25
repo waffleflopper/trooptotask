@@ -341,9 +341,9 @@
 							<span class="flex items-start justify-between gap-3">
 								<span class="min-w-0 text-sm font-semibold text-foreground wrap-anywhere">{entry.title}</span>
 								{#if entry.publishedOn}
-									<Badge variant="success" class="font-mono text-[11px] tracking-wide uppercase">Published</Badge>
+									<Badge variant="success" mono>Published</Badge>
 								{:else}
-									<Badge variant="warning" class="font-mono text-[11px] tracking-wide uppercase">Draft</Badge>
+									<Badge variant="warning" mono>Draft</Badge>
 								{/if}
 							</span>
 							<span class="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
@@ -373,9 +373,9 @@
 					<div class="flex items-center justify-between gap-3">
 						<Card.Title>{selection === 'new' ? 'New entry' : 'Edit entry'}</Card.Title>
 						{#if isPublished}
-							<Badge variant="success" class="font-mono text-[11px] tracking-wide uppercase">Published</Badge>
+							<Badge variant="success" mono>Published</Badge>
 						{:else}
-							<Badge variant="warning" class="font-mono text-[11px] tracking-wide uppercase">Draft</Badge>
+							<Badge variant="warning" mono>Draft</Badge>
 						{/if}
 					</div>
 					<Card.Description>

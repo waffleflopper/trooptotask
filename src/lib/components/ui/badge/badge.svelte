@@ -19,6 +19,9 @@
 				outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
 				ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
 				link: 'text-primary underline-offset-4 hover:underline'
+			},
+			mono: {
+				true: 'font-mono text-[11px] tracking-[0.08em] uppercase'
 			}
 		},
 		defaultVariants: {
@@ -38,10 +41,13 @@
 		href,
 		class: className,
 		variant = 'default',
+		mono = false,
 		children,
 		...restProps
 	}: WithElementRef<HTMLAnchorAttributes> & {
 		variant?: BadgeVariant;
+		/** Mono capitals, for a status stamped on a record. */
+		mono?: boolean;
 	} = $props();
 </script>
 
@@ -50,7 +56,7 @@
 	bind:this={ref}
 	data-slot="badge"
 	{href}
-	class={cn(badgeVariants({ variant }), className)}
+	class={cn(badgeVariants({ variant, mono }), className)}
 	{...restProps}
 >
 	{@render children?.()}

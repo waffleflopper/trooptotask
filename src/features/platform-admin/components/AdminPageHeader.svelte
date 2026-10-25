@@ -11,9 +11,11 @@
 		description?: string | Snippet;
 		/** Figures or controls at the right, level with the description. Hidden on a phone, as is the description. */
 		aside?: Snippet;
+		/** The page's own actions at the right of the title. They stay on a phone, under the title. */
+		commands?: Snippet;
 	}
 
-	let { eyebrow, title, description, aside }: Props = $props();
+	let { eyebrow, title, description, aside, commands }: Props = $props();
 </script>
 
 {#snippet sentence()}
@@ -32,5 +34,8 @@
 	/>
 	{#if aside}
 		<div class="max-sm:hidden">{@render aside()}</div>
+	{/if}
+	{#if commands}
+		<div class="min-w-0 max-sm:w-full">{@render commands()}</div>
 	{/if}
 </div>

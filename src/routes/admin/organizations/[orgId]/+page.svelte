@@ -7,12 +7,13 @@
 	import SuspendModal from '$features/platform-admin/components/SuspendModal.svelte';
 	import TransferOwnershipModal from '$features/platform-admin/components/TransferOwnershipModal.svelte';
 	import OrganizationActivitySkeleton from '$features/platform-admin/components/OrganizationActivitySkeleton.svelte';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
+	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
-	import { describeAuditEvent } from '$features/platform-admin/organizationActivity';
+	import { describeAuditEvent } from '$features/platform-admin/auditSentences';
 	import { PLATFORM_ORGANIZATION_STATUS_LABELS } from '$features/platform-admin/organizationSupportTypes';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
-	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { formatDisplayDate, formatDisplayDateTime, formatRelativeDate } from '$lib/utils/dates';
 
@@ -92,28 +93,22 @@
 	<title>{org.name} - Organizations - Admin - Troop to Task</title>
 </svelte:head>
 
-<PageShell.Root width="wide">
-	<div>
-		<Button href="/admin/organizations" variant="ghost" size="sm">Back to Organizations</Button>
+{#snippet commands()}
+	<div class="flex flex-wrap items-center gap-2 sm:justify-end">
+		<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer ownership</Button>
+		<Button variant={isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
+			{isSuspended ? 'Unsuspend organization' : 'Suspend organization'}
+		</Button>
 	</div>
-	<PageShell.Header
-		variant="display"
-		eyebrow={`Organization · Created ${formatDisplayDate(org.createdAt)}`}
+{/snippet}
+
+<AdminPage>
+	<AdminPageHeader
+		eyebrow={`Organization · ${PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} · Created ${formatDisplayDate(org.createdAt)}`}
 		title={org.name}
-	>
-		{#snippet subtitle()}
-			<span class="wrap-anywhere">{ownerSentence}</span>
-		{/snippet}
-		{#snippet meta()}
-			<Badge variant={adminBadgeVariant(org.status)}>{PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]}</Badge>
-		{/snippet}
-		{#snippet aside()}
-			<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer ownership</Button>
-			<Button variant={isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
-				{isSuspended ? 'Unsuspend organization' : 'Suspend organization'}
-			</Button>
-		{/snippet}
-	</PageShell.Header>
+		description={ownerSentence}
+		{commands}
+	/>
 
 	{#if isSuspended}
 		<Alert.Root variant="destructive">
@@ -132,9 +127,9 @@
 		</Alert.Root>
 	{/if}
 
-	<div class="grid items-start gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
-		<section class="grid gap-2 rounded-lg border bg-card p-4 xl:order-2" aria-labelledby="org-glance">
-			<h2 id="org-glance" class="font-heading text-xl font-bold">At a glance</h2>
+	<div class="grid items-start gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_21rem]">
+		<aside aria-labelledby="org-glance" class="rounded-xl border border-border bg-card p-5 xl:order-2">
+			<h2 id="org-glance" class="mb-2 font-heading text-xl leading-none font-bold">At a glance</h2>
 			<dl>
 				<PageShell.FactRow variant="compact" label="Owner" value={ownerLabel} />
 				<PageShell.FactRow variant="compact" label="Members" value={String(org.members.length)} />
@@ -148,50 +143,45 @@
 				<PageShell.FactRow variant="compact" label="Status" value={PLATFORM_ORGANIZATION_STATUS_LABELS[org.status]} />
 				<PageShell.FactRow variant="compact" label="ID" value={org.id} mono />
 			</dl>
-		</section>
+		</aside>
 
-		<div class="grid min-w-0 gap-8 xl:order-1">
-			<section class="grid gap-2" aria-labelledby="org-members">
-				<PageShell.SectionHeader
-					id="org-members"
-					title="Members"
-					detail={String(org.members.length)}
-					size="compact"
-					ruled
-				>
-					{#snippet action()}
-						{#if org.members.length > MEMBER_PREVIEW}
-							<Button
-								variant="ghost"
-								size="sm"
-								class="font-mono text-xs tracking-[0.08em] uppercase"
-								aria-expanded={showAllMembers}
-								onclick={() => (expandedMembersFor = showAllMembers ? null : org.id)}
-							>
-								{showAllMembers ? 'Show fewer' : `Show all ${org.members.length}`}
-							</Button>
-						{/if}
-					{/snippet}
-				</PageShell.SectionHeader>
+		<div class="grid min-w-0 gap-9 lg:order-1">
+			<section class="grid gap-3" aria-labelledby="org-members">
+				<div class="flex items-baseline justify-between gap-3">
+					<h2 id="org-members" class="font-heading text-xl leading-none font-bold">Members · {org.members.length}</h2>
+					{#if org.members.length > MEMBER_PREVIEW}
+						<Button
+							variant="ghost"
+							size="sm"
+							class="font-mono text-xs tracking-[0.08em] uppercase"
+							aria-expanded={showAllMembers}
+							onclick={() => (expandedMembersFor = showAllMembers ? null : org.id)}
+						>
+							{showAllMembers ? 'Show fewer' : `Show all ${org.members.length}`}
+						</Button>
+					{/if}
+				</div>
 				{#if org.members.length === 0}
-					<Empty.Root class="rounded-lg border">
-						<Empty.Header><Empty.Title>No members.</Empty.Title></Empty.Header>
-					</Empty.Root>
+					<p class="border-t border-foreground py-3 text-sm text-muted-foreground">No members.</p>
 				{:else}
 					<div
-						class="hidden gap-x-4 px-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase sm:grid sm:grid-cols-[minmax(0,1fr)_6rem_10rem]"
+						class="hidden gap-x-4 border-t border-b border-foreground px-3 py-2 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase sm:grid sm:grid-cols-[minmax(0,1fr)_6rem_10rem]"
 						aria-hidden="true"
 					>
 						<span>Name</span><span>Role</span><span>Last seen</span>
 					</div>
-					<ul class="divide-y border-y">
+					<ul class="max-sm:border-t max-sm:border-foreground">
 						{#each visibleMembers as member (member.userId)}
-							<li class="grid gap-x-4 gap-y-1 px-1 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_10rem] sm:items-center">
+							<li
+								class="grid gap-x-4 gap-y-1 border-b border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_10rem] sm:items-center"
+							>
 								<a
-									href={resolve(`/admin/users/${member.userId}` as `/admin/users/${string}`)}
-									class="font-medium wrap-anywhere underline-offset-4 hover:underline">{member.email ?? '(unknown)'}</a
+									href={resolve(`/admin/people/${member.userId}` as `/admin/people/${string}`)}
+									class="font-semibold wrap-anywhere text-foreground underline-offset-4 hover:underline"
+									>{member.email ?? '(unknown)'}</a
 								>
-								<span><Badge variant={adminBadgeVariant(member.role)}>{formatAdminLabel(member.role)}</Badge></span>
+								<span><Badge variant={adminBadgeVariant(member.role)} mono>{formatAdminLabel(member.role)}</Badge></span
+								>
 								<span class="text-sm text-muted-foreground">
 									{member.lastSignInAt ? `Signed in ${formatRelativeDate(member.lastSignInAt)}` : 'Never signed in'}
 								</span>
@@ -201,19 +191,20 @@
 				{/if}
 			</section>
 
-			<section class="grid gap-2" aria-labelledby="org-invitations">
-				<PageShell.SectionHeader id="org-invitations" title="Pending invitations" size="compact" ruled />
+			<section class="grid gap-3" aria-labelledby="org-invitations">
+				<h2 id="org-invitations" class="font-heading text-xl leading-none font-bold">Pending invitations</h2>
 				{#if org.invitations.length === 0}
-					<Empty.Root class="rounded-lg border">
-						<Empty.Header><Empty.Title>No pending invitations.</Empty.Title></Empty.Header>
-					</Empty.Root>
+					<p class="border-t border-foreground py-3 text-sm text-muted-foreground">No pending invitations.</p>
 				{:else}
-					<ul class="divide-y border-b">
+					<ul class="border-t border-foreground">
 						{#each org.invitations as invitation (invitation.id)}
-							<li class="grid gap-x-4 gap-y-1 px-1 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_14rem] sm:items-center">
-								<span class="font-medium wrap-anywhere">{invitation.email}</span>
+							<li
+								class="grid gap-x-4 gap-y-1 border-b border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_14rem] sm:items-center"
+							>
+								<span class="font-semibold wrap-anywhere">{invitation.email}</span>
 								<span
-									><Badge variant={adminBadgeVariant(invitation.role)}>{formatAdminLabel(invitation.role)}</Badge></span
+									><Badge variant={adminBadgeVariant(invitation.role)} mono>{formatAdminLabel(invitation.role)}</Badge
+									></span
 								>
 								<span class="text-sm text-muted-foreground">
 									Invited {formatDisplayDate(invitation.invitedAt)}{invitation.expiresAt
@@ -226,8 +217,8 @@
 				{/if}
 			</section>
 
-			<section class="grid gap-2" aria-labelledby="org-activity">
-				<PageShell.SectionHeader id="org-activity" title="Recent activity" size="compact" ruled />
+			<section class="grid gap-3" aria-labelledby="org-activity">
+				<h2 id="org-activity" class="font-heading text-xl leading-none font-bold">Recent activity</h2>
 				{#await data.activity}
 					<OrganizationActivitySkeleton />
 				{:then result}
@@ -242,13 +233,15 @@
 							</Alert.Description>
 						</Alert.Root>
 					{:else if result.events.length === 0}
-						<Empty.Root class="rounded-lg border">
-							<Empty.Header><Empty.Title>No activity recorded for this Organization.</Empty.Title></Empty.Header>
-						</Empty.Root>
+						<p class="border-t border-foreground py-3 text-sm text-muted-foreground">
+							No activity recorded for this Organization.
+						</p>
 					{:else}
-						<ul class="divide-y border-b">
+						<ul class="border-t border-foreground">
 							{#each result.events as event (event.id)}
-								<li class="grid gap-x-4 gap-y-1 px-1 py-3 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center">
+								<li
+									class="grid gap-x-4 gap-y-1 border-b border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center"
+								>
 									<span class="wrap-anywhere">{describeAuditEvent(event, memberEmails)}</span>
 									<time
 										class="font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase sm:text-right"
@@ -264,7 +257,7 @@
 			</section>
 		</div>
 	</div>
-</PageShell.Root>
+</AdminPage>
 
 {#if showSuspendModal}
 	<SuspendModal

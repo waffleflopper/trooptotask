@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
 	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import EventTimeline from '$features/platform-admin/components/people/EventTimeline.svelte';
 	import PersonRegion from '$features/platform-admin/components/people/PersonRegion.svelte';
@@ -26,21 +27,21 @@
 	}
 </script>
 
-<div class="grid gap-6 px-4 pt-5 pb-10 sm:px-10 sm:pt-9">
-	<div class="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
-		<div class="min-w-0 flex-1 basis-[34rem]">
-			<AdminPageHeader
-				eyebrow="Person · Not set up · Closed beta"
-				title={request.name}
-				description={request.reviewed_at
-					? `Approved ${formatDate(request.reviewed_at)}. Has not finished setting up an account.`
-					: 'Has not finished setting up an account.'}
-			/>
-		</div>
-		<div class="w-full min-w-0 sm:w-auto sm:max-w-md">
-			<SetupEmailCommands name={request.name} primary="resend" onSettled={afterCommand} onRescinded={afterRescind} />
-		</div>
+{#snippet commands()}
+	<div class="sm:max-w-md">
+		<SetupEmailCommands name={request.name} primary="resend" onSettled={afterCommand} onRescinded={afterRescind} />
 	</div>
+{/snippet}
+
+<AdminPage>
+	<AdminPageHeader
+		eyebrow="Person · Not set up · Closed beta"
+		title={request.name}
+		description={request.reviewed_at
+			? `Approved ${formatDate(request.reviewed_at)}. Has not finished setting up an account.`
+			: 'Has not finished setting up an account.'}
+		{commands}
+	/>
 
 	<div class="grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_21rem]">
 		<div class="grid min-w-0 gap-9">
@@ -127,7 +128,7 @@
 			<div class="rounded-xl border border-dashed border-border p-5">
 				<div class="mb-2 flex items-center justify-between gap-3">
 					<h2 class="font-heading text-xl leading-none font-bold">Closed beta</h2>
-					<Badge variant="warning" class="font-mono text-[11px] tracking-[0.08em] uppercase">Temporary</Badge>
+					<Badge variant="warning" mono>Temporary</Badge>
 				</div>
 				<p class="text-sm leading-[21px] text-muted-foreground">
 					Manual approval exists only while sign-up is invite-only. When registration opens, this page state and the
@@ -136,4 +137,4 @@
 			</div>
 		</aside>
 	</div>
-</div>
+</AdminPage>

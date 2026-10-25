@@ -73,7 +73,7 @@
 			{#each list.visible as record (record.kind + record.id)}
 				<li class="flex flex-wrap items-center gap-x-4 gap-y-2 p-3.5">
 					<div class="w-28 shrink-0">
-						<Badge variant="outline" class="font-mono text-[11px] tracking-[0.08em] uppercase">
+						<Badge variant="outline" mono>
 							{ARCHIVED_KIND_LABELS[record.kind]}
 						</Badge>
 					</div>

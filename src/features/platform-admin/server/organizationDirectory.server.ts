@@ -1,24 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { lastPage } from '$lib/server/supabasePagination.server';
 import {
 	PLATFORM_ORGANIZATION_FILTERS,
+	PLATFORM_ORGANIZATIONS_MAX_PAGES,
+	PLATFORM_ORGANIZATIONS_PAGE_SIZE,
 	type PlatformOrganizationDirectory,
 	type PlatformOrganizationFilter,
 	type PlatformOrganizationListInput,
 	type PlatformOrganizationListQuery
 } from '../organizationSupportTypes';
 
-export const PLATFORM_ORGANIZATIONS_PAGE_SIZE = 25;
 const SEARCH_MAX_LENGTH = 100;
 
 export function normalizePlatformOrganizationListQuery(
 	input: PlatformOrganizationListInput = {}
 ): PlatformOrganizationListQuery {
-	const page = Number(input.page ?? 1);
+	const pages = Number(input.pages ?? 1);
 	const filter = (input.filter ?? '').trim().toLowerCase();
 	return {
-		page: Number.isInteger(page) && page >= 1 ? page : 1,
+		pages: Number.isInteger(pages) && pages >= 1 ? Math.min(pages, PLATFORM_ORGANIZATIONS_MAX_PAGES) : 1,
 		q: (input.q ?? '').trim().slice(0, SEARCH_MAX_LENGTH),
 		filter: PLATFORM_ORGANIZATION_FILTERS.includes(filter as PlatformOrganizationFilter)
 			? (filter as PlatformOrganizationFilter)
@@ -31,7 +31,6 @@ const count = z.coerce.number().int().nonnegative();
 
 const listRow = z.object({
 	total_count: count,
-	page: z.number().int().positive(),
 	all_count: count,
 	active_week_count: count,
 	quiet_count: count,
@@ -84,12 +83,12 @@ export function createSupabasePlatformOrganizationDirectory(client: SupabaseClie
 			const { data, error } = await client.rpc('platform_list_organizations', {
 				p_search: query.q,
 				p_filter: query.filter,
-				p_page: query.page,
-				p_page_size: PLATFORM_ORGANIZATIONS_PAGE_SIZE
+				p_page: 1,
+				p_page_size: query.pages * PLATFORM_ORGANIZATIONS_PAGE_SIZE
 			});
 			if (error) throw error;
 			const rows = z.array(listRow).min(1).parse(data);
-			const { total_count: totalCount, page } = rows[0];
+			const { total_count: totalCount } = rows[0];
 			return {
 				counts: {
 					all: rows[0].all_count,
@@ -114,10 +113,7 @@ export function createSupabasePlatformOrganizationDirectory(client: SupabaseClie
 								}
 							]
 				),
-				page,
-				pageSize: PLATFORM_ORGANIZATIONS_PAGE_SIZE,
-				totalCount,
-				totalPages: lastPage(totalCount, PLATFORM_ORGANIZATIONS_PAGE_SIZE)
+				totalCount
 			};
 		},
 		async getOrganization(organizationId) {

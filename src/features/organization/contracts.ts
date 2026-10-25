@@ -72,6 +72,7 @@ export type {
 	OrganizationSupportOrganization,
 	OrganizationSupportUserMembership,
 	OrganizationSupportReader,
+	CurrentOrganizationSuspension,
 	OrganizationSupportSuspensionCommands
 } from './supportReadTypes';
 export type {

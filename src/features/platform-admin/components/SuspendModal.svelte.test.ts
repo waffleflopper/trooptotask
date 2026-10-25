@@ -161,7 +161,7 @@ it('keeps the pressed Suspend focusable and busy while the change is held, and s
 function stubLocation() {
 	const location = {
 		origin: 'https://app.example.test',
-		pathname: '/admin/users/user-alpha',
+		pathname: '/admin/people/user-alpha',
 		search: '?tab=1',
 		href: ''
 	};
@@ -170,8 +170,8 @@ function stubLocation() {
 }
 
 it.each([
-	['/auth/mfa-verify', 'https://app.example.test/auth/mfa-verify?next=%2Fadmin%2Fusers%2Fuser-alpha%3Ftab%3D1'],
-	['/auth/mfa-setup', 'https://app.example.test/auth/mfa-setup?next=%2Fadmin%2Fusers%2Fuser-alpha%3Ftab%3D1']
+	['/auth/mfa-verify', 'https://app.example.test/auth/mfa-verify?next=%2Fadmin%2Fpeople%2Fuser-alpha%3Ftab%3D1'],
+	['/auth/mfa-setup', 'https://app.example.test/auth/mfa-setup?next=%2Fadmin%2Fpeople%2Fuser-alpha%3Ftab%3D1']
 ])('sends the operator to %s and back when the server asks for step-up', async (stepUpPath, destination) => {
 	const location = stubLocation();
 	const fetch = vi

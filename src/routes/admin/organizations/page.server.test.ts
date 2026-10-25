@@ -32,7 +32,6 @@ async function loaded(path = '/admin/organizations') {
 function directoryRow(overrides: Record<string, unknown> = {}) {
 	return {
 		total_count: 1,
-		page: 1,
 		all_count: 38,
 		active_week_count: 31,
 		quiet_count: 4,
@@ -71,21 +70,22 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('Organizations list load', () => {
-	it('asks the database for the requested page with a cleaned search and filter', async () => {
-		await load(event('/admin/organizations?page=3&q=%20Able%20&filter=quiet'));
+	it('asks the database for every row up to the requested page with a cleaned search and filter', async () => {
+		await load(event('/admin/organizations?pages=3&q=%20Able%20&filter=quiet'));
 		expect(rpc).toHaveBeenCalledTimes(1);
 		expect(rpc).toHaveBeenCalledWith('platform_list_organizations', {
 			p_search: 'Able',
 			p_filter: 'quiet',
-			p_page: 3,
-			p_page_size: 25
+			p_page: 1,
+			p_page_size: 75
 		});
 	});
 
 	it.each([
-		['/admin/organizations?filter=everything&page=-4', { filter: 'all', page: 1 }],
-		['/admin/organizations?page=abc', { filter: 'all', page: 1 }],
-		['/admin/organizations?filter=SUSPENDED', { filter: 'suspended', page: 1 }]
+		['/admin/organizations?filter=everything&pages=-4', { filter: 'all', pages: 1 }],
+		['/admin/organizations?pages=abc', { filter: 'all', pages: 1 }],
+		['/admin/organizations?pages=999', { filter: 'all', pages: 20 }],
+		['/admin/organizations?filter=SUSPENDED', { filter: 'suspended', pages: 1 }]
 	])('reads %s as a valid query', async (path, expected) => {
 		const result = await loaded(path);
 		expect(result.query).toMatchObject(expected);
@@ -93,7 +93,7 @@ describe('Organizations list load', () => {
 
 	it('streams the page of Organizations with every list fact in one database call', async () => {
 		const result = await loaded();
-		expect(result.query).toEqual({ page: 1, q: '', filter: 'all' });
+		expect(result.query).toEqual({ pages: 1, q: '', filter: 'all' });
 		await expect(result.directory).resolves.toEqual({
 			status: 'ready',
 			page: {
@@ -111,10 +111,7 @@ describe('Organizations list load', () => {
 						ownerEmail: 'owner@example.test'
 					}
 				],
-				page: 1,
-				pageSize: 25,
-				totalCount: 1,
-				totalPages: 1
+				totalCount: 1
 			}
 		});
 		expect(rpc).toHaveBeenCalledTimes(1);
@@ -125,7 +122,7 @@ describe('Organizations list load', () => {
 		const result = await loaded('/admin/organizations?q=zzz');
 		await expect(result.directory).resolves.toMatchObject({
 			status: 'ready',
-			page: { organizations: [], totalCount: 0, totalPages: 1 }
+			page: { organizations: [], totalCount: 0 }
 		});
 	});
 

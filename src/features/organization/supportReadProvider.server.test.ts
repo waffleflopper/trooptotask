@@ -156,3 +156,30 @@ describe('Organization support suspension commands', () => {
 		).rejects.toMatchObject({ code: '42501' });
 	});
 });
+
+it('reads the requested suspension notes together and validates their Organization scope', async () => {
+	const requests: URL[] = [];
+	const client = createClient('http://127.0.0.1:9', 'synthetic-service-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				requests.push(new URL(new Request(input, init).url));
+				return Response.json([
+					{ organization_id: 'org-a', reason: 'Confirm unit ownership', suspended_at: '2026-10-25T12:00:00Z' },
+					{ organization_id: 'org-b', reason: 'Requested by commander', suspended_at: '2026-10-25T13:00:00Z' }
+				]);
+			}
+		}
+	});
+	const reader = createOrganizationSupportReader(client);
+	await expect(reader.listCurrentSuspensions(['org-a', 'org-b', 'org-a'])).resolves.toEqual([
+		{ organizationId: 'org-a', reason: 'Confirm unit ownership', suspendedAt: '2026-10-25T12:00:00Z' },
+		{ organizationId: 'org-b', reason: 'Requested by commander', suspendedAt: '2026-10-25T13:00:00Z' }
+	]);
+	expect(requests.map((url) => [url.pathname, url.searchParams.get('organization_id')])).toEqual([
+		['/rest/v1/organization_suspensions', 'in.(org-a,org-b)']
+	]);
+	await expect(reader.listCurrentSuspensions(['org-c'])).rejects.toThrow(
+		'Organization support scope could not be verified'
+	);
+});

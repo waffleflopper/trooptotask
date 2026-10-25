@@ -55,10 +55,11 @@ reason) and `network arm-fail|arm-hold|arm-observe PAGE admin-inbox/resendSetup|
    the listed rows, and `Open` is the underlined tab. Each access request row reads `Access request · Closed beta` in
    the accent color over `<name> wants to start an Organization`, then the email and how they found us, with the age
    (`2h`, `3d`) at the right; Feedback rows read `Feedback · <category>` in blue over the message's first line, then the
-   person, Organization and page section. Newest first. At 1440 the list and detail sit side by side with a rule above
-   them and `Choose an item to see it here.` until one is picked; the selected row has an accent bar at its left and a
-   muted background. At 900 and 390 only the list shows, one column; at 390 the eyebrow reads `Platform · N open`, the
-   sentence and figures are hidden, the chips wrap and each row's kind label is a tinted pill.
+   person's name (their email when they never set one), Organization and page section. Newest first. At 1440 the list
+   and detail sit side by side with a rule above them and `Choose an item to see it here.` until one is picked; the
+   selected row has an accent bar at its left and a muted background. At 900 and 390 only the list shows, one column; at
+   390 the eyebrow reads `Platform · N open`, the sentence and figures are hidden, the chips wrap and each row's kind
+   label is a tinted pill.
 2. **Approve an access request.** Select the `approve` request. Expected: URL gains `item=accessRequest:ID`; the detail
    shows `Access request` with the `Closed beta` badge, the name as a large heading, `<email> · asked today at HH:MM`,
    what they wrote as an italic quote with a rule at its left, the rows `How they got here`, `Existing account`

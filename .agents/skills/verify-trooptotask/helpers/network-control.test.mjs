@@ -415,7 +415,7 @@ test('availability removal observation records the JSON IDs and preserves the re
 });
 
 test('a page server-load error dispatches the real read and fails only the page node of the selected request', async () => {
-	const suffix = '/admin/users/__data.json';
+	const suffix = '/admin/people/__data.json';
 	const nodes = [
 		{ type: 'data', data: [{}] },
 		{ type: 'data', data: [{ nav: 1 }] },

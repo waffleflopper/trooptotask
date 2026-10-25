@@ -3,6 +3,7 @@
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { IdentityPeoplePage, PeopleFilter } from '$features/identity/contracts';
+	import AdminPage from '$features/platform-admin/components/AdminPage.svelte';
 	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
 	import { createAdminUrlSearch } from '$features/platform-admin/components/adminUrlSearch.svelte';
@@ -90,7 +91,7 @@
 	<title>People - Platform Admin</title>
 </svelte:head>
 
-<div class="grid gap-6 px-4 pt-5 pb-10 sm:px-10 sm:pt-9">
+<AdminPage>
 	<AdminPageHeader
 		{eyebrow}
 		title="People"
@@ -209,7 +210,7 @@
 						</span>
 						<span class="max-lg:col-start-2 max-lg:row-start-1">
 							<span class="sr-only">Status: </span>
-							<Badge variant={view.variant} class="font-mono text-[11px] tracking-[0.08em] uppercase">
+							<Badge variant={view.variant} mono>
 								{view.label}
 							</Badge>
 						</span>
@@ -231,4 +232,4 @@
 			/>
 		</div>
 	{/if}
-</div>
+</AdminPage>

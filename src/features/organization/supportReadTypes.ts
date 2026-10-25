@@ -12,8 +12,15 @@ export interface OrganizationSupportUserMembership {
 	organization: { id: string; name: string } | null;
 }
 
+export interface CurrentOrganizationSuspension {
+	organizationId: string;
+	reason: string;
+	suspendedAt: string;
+}
+
 /** Only Organization-owned facts; no caller-supplied query or table access. */
 export interface OrganizationSupportReader {
+	listCurrentSuspensions(organizationIds: string[]): Promise<CurrentOrganizationSuspension[]>;
 	getOrganizationById(organizationId: string): Promise<OrganizationSupportOrganization | null>;
 	searchOrganizationsByName(input: { query: string; maxResults: number }): Promise<Array<{ id: string; name: string }>>;
 	listLatestOrganizations(input: {

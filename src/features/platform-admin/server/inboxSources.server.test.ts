@@ -26,7 +26,9 @@ const request: AccessRequestInboxRow = {
 };
 const feedback: FeedbackInboxRow = {
 	id: '22222222-2222-4222-8222-222222222222',
+	user_id: '33333333-3333-4333-8333-333333333333',
 	user_email: 'member@example.test',
+	submitter_name: 'CPT Oduya',
 	category: 'bug',
 	message: 'The roster will not load\nSecond line with detail',
 	page_url: '/org/alpha/personnel',
@@ -111,13 +113,24 @@ describe('Inbox sources', () => {
 					kind: 'feedback',
 					id: feedback.id,
 					title: 'The roster will not load',
-					summary: 'member@example.test · Alpha',
+					summary: 'CPT Oduya · Alpha',
 					receivedAt: '2026-10-20T08:00:00Z',
 					closedAt: '2026-10-28T09:00:00Z',
 					category: 'bug'
 				}
 			]
 		});
+	});
+
+	it('falls back to the submitter email only when no profile name exists', async () => {
+		const unnamed = { ...feedback, submitter_name: null };
+		const source = createFeedbackInboxSource(
+			feedbackReader({ readClosed: async () => ({ rows: [unnamed], count: 1 }) })
+		);
+
+		const result = await readInboxSource(source, 'done');
+
+		expect(result).toMatchObject({ items: [{ summary: 'member@example.test · Alpha' }] });
 	});
 
 	it('shows an approved request as closed with its outcome and a pending one as open', async () => {

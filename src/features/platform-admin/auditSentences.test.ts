@@ -72,6 +72,20 @@ describe('describeAuditEvent', () => {
 		expect(activityScope(null).actions).toContain(action);
 	});
 
+	it('still reads an invite resent by the retired admin command and files it under Accounts', () => {
+		const described = describeAuditEvent(
+			event({
+				action: 'admin.user.resend_invite',
+				severity: 'info',
+				details: { actorEmail: 'robert@example.test', targetName: 'pat@example.test' }
+			})
+		);
+
+		expect(described.sentence).toBe('robert@example.test resent the invite to pat@example.test');
+		expect(described.category).toBe('accounts');
+		expect(activityScope('accounts').actions).toContain('admin.user.resend_invite');
+	});
+
 	it('falls back to short IDs for an event written before labels were stored', () => {
 		const described = describeAuditEvent(event());
 
@@ -217,6 +231,8 @@ describe('activityScope', () => {
 		expect(scope.actions).toContain('auth.login_failure');
 		expect(scope.actions).not.toContain('suspend_user');
 		expect(scope.prefixes).toEqual([]);
+		expect(activityScope('organizations').actions).not.toContain('admin.org.gift_tier');
+		expect(activityScope(null).actions).toContain('admin.org.gift_tier');
 	});
 
 	it('covers every platform action and prefix when no category is chosen', () => {
@@ -263,4 +279,50 @@ it.each([
 	expect(result.sentence).toContain('operator@example.test');
 	expect(result.sentence).toContain('Calendar feedback');
 	expect(activityScope(null).actions).toContain(action);
+});
+
+describe('Organization recent activity through the shared registry', () => {
+	const members = new Map([
+		['member-1', 'ann@example.test'],
+		['member-2', null]
+	]);
+	it('keeps member actions and unknown actions readable', () => {
+		expect(describeAuditEvent({ action: 'personnel.archived', userId: 'member-1' }, members)).toBe(
+			'ann@example.test archived a Personnel Record'
+		);
+		expect(describeAuditEvent({ action: 'brand.new_thing', userId: 'member-1' }, members)).toBe(
+			'ann@example.test recorded brand.new_thing'
+		);
+		expect(activityScope(null).actions).not.toContain('personnel.archived');
+	});
+	it.each([
+		['member-2', 'Someone who has since left'],
+		['gone', 'Someone who has since left'],
+		[null, 'The system']
+	])('keeps the actor fallback for %s', (userId, actor) => {
+		expect(describeAuditEvent({ action: 'member.invite', userId }, members)).toBe(`${actor} invited a member`);
+	});
+	it.each([
+		['suspend_org', 'A platform operator suspended the Organization'],
+		['unsuspend_org', 'A platform operator lifted the Organization suspension'],
+		['admin.org.gift_tier', 'A platform operator changed the Organization plan'],
+		['admin.org.transfer_ownership', 'A platform operator transferred ownership of the Organization']
+	])('keeps the platform sentence for %s', (action, expected) => {
+		expect(describeAuditEvent({ action, userId: 'member-1' }, members)).toBe(expected);
+	});
+});
+
+it('shows only the private read-time Organization reason, never an Organization audit detail reason', () => {
+	const suspended = event({
+		action: 'suspend_org',
+		resourceType: 'organization',
+		resourceId: 'org-1',
+		orgId: 'org-1',
+		orgName: 'Alpha Company',
+		details: { reason: 'Shared audit detail' }
+	});
+	expect(
+		describeAuditEvent({ ...suspended, currentOrganizationSuspensionReason: 'Confirm unit ownership' }).secondary
+	).toBe('Reason: Confirm unit ownership');
+	expect(describeAuditEvent(suspended).secondary).toBeNull();
 });

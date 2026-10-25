@@ -33,8 +33,8 @@ const detailActors = {
 };
 const platformOnly = {
 	platformReviewer: null,
-	perfWide: 'Platform administration needs a platform role.',
-	perfScoped: 'Platform administration needs a platform role.'
+	perfWide: 'Platform administration needs the operator.',
+	perfScoped: 'Platform administration needs the operator.'
 };
 
 // Above 250 People the By Group roster renders a pause notice instead of rows, so for a
@@ -538,7 +538,7 @@ export const journeys = {
 	},
 	// The platform user directory spans every Organization, so it is the largest list the product
 	// shows; its size is the whole owned Auth directory when the sample runs, not one workload.
-	'admin-users': {
+	'admin-people': {
 		area: 'lists',
 		kind: 'load',
 		effect: 'read',

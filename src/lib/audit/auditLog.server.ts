@@ -1,6 +1,9 @@
 import { getAdminClient } from '$lib/server/supabase';
 
 import type { AuditEvent } from './contracts';
+import { resolvePlatformTargetName } from './platformLabels.server';
+
+const TARGET_NAME_MAX_LENGTH = 200;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -178,8 +181,41 @@ function sanitizeDetails(
 }
 
 /**
+ * Platform events keep the target's name beside the IDs so Activity reads as sentences. Events with no Organization
+ * also keep the actor's email and the operator's typed reason as written. An Organization's owners can read their own
+ * rows, so Organization-scoped events keep the redaction above and Activity looks the actor up when it reads.
+ * Other callers keep the redaction as well.
+ */
+async function platformDetails(
+	admin: ReturnType<typeof getAdminClient>,
+	event: AuditEvent,
+	requestInfo: { userId?: string | null; userEmail?: string | null }
+): Promise<Record<string, unknown> | undefined> {
+	const { targetName, ...rest } = event.details ?? {};
+	const written = (value: unknown) =>
+		typeof value === 'string' && value.trim() !== '' ? value.trim().slice(0, TARGET_NAME_MAX_LENGTH) : undefined;
+	const labels: Record<string, string | undefined> = {
+		targetName: written(targetName) ?? (await resolvePlatformTargetName(admin, event)) ?? undefined
+	};
+	let redacted = rest;
+	if (!event.orgId) {
+		const { reason, ...others } = rest;
+		redacted = others;
+		labels.actorEmail = requestInfo.userEmail?.trim().toLowerCase() || undefined;
+		labels.reason = typeof reason === 'string' ? reason.trim() || undefined : undefined;
+	}
+	const sanitized = sanitizeDetails({ ...event, details: redacted }, requestInfo);
+	const merged = {
+		...sanitized,
+		...Object.fromEntries(Object.entries(labels).filter(([, value]) => value !== undefined))
+	};
+	return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/**
  * Uses service role client (append-only, bypasses RLS).
- * Platform commands require a confirmed audit write; other callers keep best-effort logging.
+ * `required` marks a platform command: it must confirm the write and records the platform labels.
+ * Other callers keep best-effort logging.
  */
 export async function auditLog(
 	event: AuditEvent,
@@ -193,7 +229,9 @@ export async function auditLog(
 ): Promise<void> {
 	try {
 		const admin = getAdminClient();
-		const details = sanitizeDetails(event, requestInfo);
+		const details = options.required
+			? await platformDetails(admin, event, requestInfo)
+			: sanitizeDetails(event, requestInfo);
 
 		const result = await admin.from('audit_logs').insert({
 			user_id: requestInfo.userId ?? null,

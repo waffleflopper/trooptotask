@@ -14,6 +14,8 @@ roles; the admin is entered only at MFA level aal2.
   basis, blocked linked invitations, setup delivery/replacement and completed-setup protection.
 - `administration`: operator suspension/recovery with MFA step-up, the disabled own-account Suspend, confirmed ownership
   transfer and denial without mutation.
+- `activity`: each platform command writes an event naming the operator's email and the target, which Activity reads
+  as a sentence that calls the signed-in operator `You` (the states recipe owns the page itself).
 - `recovery`: retained drafts, failed requests, explicit retry, persistence and correct target after navigation.
 
 ## How to get to it (user POV)
@@ -30,11 +32,12 @@ Platform administration uses the [access/account/Organization recipe](platform-a
 operator (aal2 by default, `--aal1` and `--stale-mfa` for the MFA states in
 [platform admin states](platform-admin-states.md)) and the `platformSupport`, `platformBilling` and `platformInactive`
 denial actors, which hold no operator row. `actor` accepts
-`admin/users`, `admin/organizations` and `admin/access-requests`. `seed platform-admin` records temporary review/origin
+`admin/users`, `admin/organizations`, `admin/access-requests` and `admin/activity`. `seed platform-admin` records temporary review/origin
 and Organization membership witnesses before writes; `platform-state` returns exact recorded rows without setup secrets.
 `platform-request` sends bounded ordinary same-origin actions; its families/target keys and separate HTTP boundary are
 documented in the recipe. `network arm-fail|arm-hold|arm-observe PAGE admin-suspend` matches only `/admin/api/suspend`
-POST. `admin-search` observes/holds the actual `/admin/api/search` response for query lifetime proof.
+POST. `admin-search` observes/holds the actual `/admin/api/search` response for query lifetime proof, and `admin-activity` does
+the same for the `/admin/api/activity` read.
 `network arm-drop PAGE admin-suspend|admin-transfer` dispatches the real scoped request, records its actual transport
 status, then rejects the browser response to prove unconfirmed-save reconciliation; it does not establish an actual
 provider outage. Transfer controls bind the recorded temporary Organization and exact transfer action, leaving other
@@ -46,7 +49,7 @@ confirmation; observing the current state does not identify who changed it. Rest
 
 Reuse `platformReviewer` (the only operator, enrolled with a verified authenticator), ordinary `viewer` and `orgOwner`;
 `platformSupport`, `platformBilling` and `platformInactive` have no operator row.
-`$V actor ROLE admin/users|admin/organizations|admin/access-requests` signs the operator in at aal2 through the provider
+`$V actor ROLE admin/users|admin/organizations|admin/access-requests|admin/activity` signs the operator in at aal2 through the provider
 and accepts denial as an observable outcome for every other role, without changing authority.
 
 Run `$V seed platform-admin` once. It creates a temporary Organization, three memberships for
@@ -94,7 +97,10 @@ Organization audit references. It omits setup tokens and delivery payloads.
 5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press `Suspend organization`
    once on the temporary Organization: the dialog says `Nothing has been changed yet.`, the browser lands on
    `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension. Enter the code with
-   `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its audit row in Activity. For every
+   `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its event in Activity: open
+   `$V actor platformReviewer admin/activity`, and the newest row reads
+   `You suspended <Organization name>`. An Organization's owners can read their own audit rows, so the typed
+   reason is not stored for Organization events and `Details` lists no `Reason`; the operator email is looked up when read. For every
    later case below use `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the temporary Organization's Suspend dialog from
    `Suspend organization` in the page header. `Suspend` stays disabled until a reason is typed. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one exact POST
    before provider dispatch. Submit visibly: keep the dialog/reason, show failure, and leave rows unchanged. A

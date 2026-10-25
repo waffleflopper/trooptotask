@@ -13,7 +13,6 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 		return { suffix, search: `?/${action}`, failureField: 'error', requestTarget: null, sameOrigin: true };
 	}
 	const contentReads = {
-		'admin-audit-read': '/admin/audit/__data.json',
 		'admin-dashboard-read': '/admin/__data.json',
 		'admin-users-read': '/admin/users/__data.json',
 		'admin-organizations-read': '/admin/organizations/__data.json',

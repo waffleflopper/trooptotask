@@ -8,7 +8,5 @@ export { createPlatformSearchOperations, createPlatformSuspensionOperations } fr
 export { loadPlatformAdminNavigation } from './server/navigation.server';
 export { createPlatformAnnouncementOperations } from './server/announcementOperations.server';
 export { validatePlatformAnnouncement } from './server/announcements.server';
-export {
-	createPlatformFeedbackOperations,
-	createPlatformAuditOperations
-} from './server/contentReviewOperations.server';
+export { createPlatformFeedbackOperations } from './server/contentReviewOperations.server';
+export { createPlatformActivityOperations } from './server/activityOperations.server';

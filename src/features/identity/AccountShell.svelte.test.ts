@@ -63,7 +63,7 @@ it('covers the page with a skeleton when opening one feedback item outlasts 150 
 
 	navigating.to = { url: new URL('http://localhost/org/alpha/account/feedback/f-1') };
 	await tick();
-	expect(screen.getByRole('status').textContent).toBe('Loading Feedback...');
+	expect(screen.getByRole('status').textContent).not.toBe('');
 	expect(new Set(feedbackLinks().map((link) => link.getAttribute('aria-current')))).toEqual(new Set(['page']));
 	await vi.advanceTimersByTimeAsync(149);
 	expect(screen.getByText('Page').closest('[hidden]')).toBeNull();

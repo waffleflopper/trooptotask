@@ -39,12 +39,12 @@ vi.mock('$app/state', () => ({
 	}
 }));
 
-const { goto } = vi.hoisted(() => {
-	return { goto: vi.fn() };
+const { goto, invalidate } = vi.hoisted(() => {
+	return { goto: vi.fn(), invalidate: vi.fn(async () => {}) };
 });
 
 vi.mock('$app/navigation', () => {
-	return { goto, afterNavigate: vi.fn() };
+	return { goto, invalidate, afterNavigate: vi.fn() };
 });
 
 vi.mock('$app/stores', () => {
@@ -242,7 +242,7 @@ describe('disposed notification writes', () => {
 		});
 		const old = renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
-		await fireEvent.click(await screen.findByRole('menuitem', { name: /Retired linked notification/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /^Retired linked notification/ }));
 		old.unmount();
 		renderHeader();
 		await screen.findByRole('button', { name: '2 unread notifications' });
@@ -324,7 +324,7 @@ describe('notification recovery', () => {
 		});
 		renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
-		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /^Own notification/ }));
 		expect(goto).toHaveBeenCalledWith('/org/org-1/settings/general');
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
 		await act(async () => {
@@ -353,7 +353,7 @@ describe('notification recovery', () => {
 		});
 		renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
-		await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+		await screen.findByRole('menuitem', { name: /^Could not load notifications/ });
 		expect((screen.getByRole('button', { name: 'Mark all read' }) as HTMLButtonElement).disabled).toBe(true);
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
 		expect(writes).toBe(0);
@@ -364,10 +364,10 @@ describe('notification recovery', () => {
 		await fireEvent.click(bulk);
 		expect(writes).toBe(0);
 		release(notificationResponse([notification('own-note', 'Own notification')]));
-		await screen.findByRole('menuitem', { name: /Own notification/ });
+		await screen.findByRole('menuitem', { name: /^Own notification/ });
 		await fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
 		await screen.findByRole('button', { name: 'Notifications' });
-		await fireEvent.click(screen.getByRole('menuitem', { name: /Own notification/ }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: /^Own notification/ }));
 		expect(writes).toBe(1);
 	});
 
@@ -381,11 +381,11 @@ describe('notification recovery', () => {
 		});
 		renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
-		await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+		await screen.findByRole('menuitem', { name: /^Could not load notifications/ });
 		expect(requests).toBe(1);
 		await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
 		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
-		await screen.findByRole('menuitem', { name: /Own notification/ });
+		await screen.findByRole('menuitem', { name: /^Own notification/ });
 		expect(requests).toBe(2);
 	});
 
@@ -401,12 +401,12 @@ describe('notification recovery', () => {
 		});
 		renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
-		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /^Own notification/ }));
 		await waitFor(() => expect(error).toHaveBeenCalled());
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
 		expect(goto).toHaveBeenCalledWith('/org/org-1/settings/general');
 		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
-		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /^Own notification/ }));
 		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
 		expect(attempts).toBe(2);
 		expect(goto).toHaveBeenCalledWith('/org/org-1/settings/general');
@@ -447,13 +447,13 @@ describe('notification recovery', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: '1 unread notifications' }));
 		await view.rerender({ orgId: 'org-2', orgName: 'Second Org', membershipId: 'membership-2' });
 		await fireEvent.click(await screen.findByRole('button', { name: '1 unread notifications' }));
-		await screen.findByRole('menuitem', { name: /B private notification/ });
+		await screen.findByRole('menuitem', { name: /^B private notification/ });
 		release(notificationResponse([notification('a-note', 'A private notification')]));
 		await delayed;
 		await tick();
 		await tick();
-		expect(screen.queryByRole('menuitem', { name: /A private notification/ })).toBeNull();
-		expect(screen.getByRole('menuitem', { name: /B private notification/ })).toBeTruthy();
+		expect(screen.queryByRole('menuitem', { name: /^A private notification/ })).toBeNull();
+		expect(screen.getByRole('menuitem', { name: /^B private notification/ })).toBeTruthy();
 	});
 
 	it('does not apply an old A read or navigate again after switching to B', async () => {
@@ -469,7 +469,7 @@ describe('notification recovery', () => {
 		});
 		const view = renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
-		await fireEvent.click(await screen.findByRole('menuitem', { name: /A private notification/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /^A private notification/ }));
 		await view.rerender({ orgId: 'org-2', orgName: 'Second Org', membershipId: 'membership-2' });
 		await screen.findByRole('button', { name: '2 unread notifications' });
 		release(notificationResponse({ success: true }));
@@ -495,7 +495,7 @@ describe('notification recovery', () => {
 			});
 			renderHeader();
 			await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
-			await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+			await screen.findByRole('menuitem', { name: /^Could not load notifications/ });
 			expect(screen.queryByRole('menuitem', { name: 'No notifications' })).toBeNull();
 			await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
 			await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
@@ -518,7 +518,7 @@ describe('notification recovery', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
 		await screen.findByRole('menuitem', { name: 'Loading notifications...' });
-		expect(screen.queryByRole('menuitem', { name: /Could not load notifications/ })).toBeNull();
+		expect(screen.queryByRole('menuitem', { name: /^Could not load notifications/ })).toBeNull();
 		expect(countRequests).toBe(2);
 
 		releaseRetry(notificationResponse({ ok: true, unreadNotificationCount: 0 }));
@@ -880,5 +880,50 @@ describe('AppShellHeader', () => {
 		const breadcrumb = screen.getByLabelText('Current section');
 		await waitFor(() => expect(breadcrumb.textContent).toContain('Monday, Oct 19 2026'));
 		expect(within(breadcrumb).getByRole('link', { name: 'Dashboard' }).getAttribute('href')).toBe('/org/org-1');
+	});
+});
+
+describe('notification deletion and Account links', () => {
+	it('deletes an unread notification from the bell without opening it and lowers the unread count', async () => {
+		const requests: { method: string; body: unknown }[] = [];
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			if (String(input).includes('notification-count'))
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			if (options?.method) {
+				requests.push({ method: options.method, body: JSON.parse(String(options.body)) });
+				return notificationResponse({ success: true });
+			}
+			return notificationResponse([
+				notification('stale-note', 'Stale notification', '/org/org-1/settings/general'),
+				notification('kept-note', 'Kept notification')
+			]);
+		});
+		renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete notification: Stale notification' }));
+
+		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
+		expect(requests).toEqual([{ method: 'DELETE', body: { id: 'stale-note' } }]);
+		expect(goto).not.toHaveBeenCalled();
+		expect(invalidate).toHaveBeenCalledWith('app:account-notifications');
+		expect(screen.queryByRole('menuitem', { name: /^Stale notification/ })).toBeNull();
+		expect(screen.getByRole('menuitem', { name: /^Kept notification/ })).toBeTruthy();
+	});
+
+	it('opens an Account link under the current Organization and offers the full list there', async () => {
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			if (String(input).includes('notification-count'))
+				return notificationResponse({ ok: true, unreadNotificationCount: 1 });
+			if (options?.method) return notificationResponse({ success: true });
+			return notificationResponse([notification('reply-note', 'A reply to your feedback', '/account/feedback/f-1')]);
+		});
+		renderHeader({ orgUrlSegment: 'alpha' });
+		await fireEvent.click(await screen.findByRole('button', { name: '1 unread notifications' }));
+		expect((await screen.findByRole('menuitem', { name: 'View all' })).getAttribute('href')).toBe(
+			'/org/alpha/account/notifications'
+		);
+		await fireEvent.click(screen.getByRole('menuitem', { name: /^A reply to your feedback/ }));
+
+		expect(goto).toHaveBeenCalledWith('/org/alpha/account/feedback/f-1');
 	});
 });

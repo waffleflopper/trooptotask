@@ -2,7 +2,11 @@ import { expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { loadUserProfile } from '$features/identity/index.server';
 import { actions } from './+page.server';
-it('keeps profile-save failure retryable until the bound saved row is acknowledged', async () => {
+import { actions as standaloneActions } from '../../../../account/profile/+page.server';
+it.each([
+	['Organization', actions],
+	['standalone', standaloneActions]
+] as const)('%s profile save stays retryable until the bound row is acknowledged', async (_mode, pageActions) => {
 	let acknowledge = false;
 	const saved: unknown[] = [];
 	const supabase = createClient('http://provider.invalid', 'synthetic-anon', {
@@ -23,13 +27,16 @@ it('keeps profile-save failure retryable until the bound saved row is acknowledg
 	};
 	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 	try {
-		expect(await actions.default(event as never)).toMatchObject({ status: 500, data: { error: expect.any(String) } });
+		expect(await pageActions.default(event as never)).toMatchObject({
+			status: 500,
+			data: { error: expect.any(String) }
+		});
 		acknowledge = true;
 		event.request = new Request('http://app.invalid/org/alpha/account/profile', {
 			method: 'POST',
 			body: new URLSearchParams({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT', userId: 'forged-subject' })
 		});
-		expect(await actions.default(event as never)).toMatchObject({ success: expect.any(String) });
+		expect(await pageActions.default(event as never)).toMatchObject({ success: expect.any(String) });
 		expect(await loadUserProfile(event.locals, 'actor')).toEqual({
 			userId: 'actor',
 			firstName: 'Jane',

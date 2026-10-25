@@ -3,6 +3,25 @@ import { createSupabaseNotificationStore } from './notificationProvider.server';
 import { notificationTestProvider, savedNotification } from './notificationTestProvider.server';
 
 describe('notification request provider', () => {
+	it('uses the requested Account page limit and includes account-level rows in the same newest-first read', async () => {
+		const rows = Array.from({ length: 101 }, (_, index) => savedNotification(String(index).padStart(3, '0')));
+		const provider = notificationTestProvider([
+			...rows,
+			savedNotification('new-account-reply', {
+				organization_id: null,
+				created_at: '2026-10-25T00:00:00Z',
+				type: 'feedback_reply'
+			}),
+			savedNotification('peer', { user_id: 'peer-user' }),
+			savedNotification('foreign', { organization_id: 'org-b' })
+		]);
+		const page = await createSupabaseNotificationStore(provider.client).listOwn('org-a', 'own-user', 100);
+		expect(page).toHaveLength(100);
+		expect(page[0].id).toBe('new-account-reply');
+		expect(page[1].id).toBe('100');
+		expect(page[99].id).toBe('002');
+		expect(page.map(({ id }) => id)).not.toContain('001');
+	});
 	it('lists the newest twenty own Organization rows while count and export include the outside-page rows', async () => {
 		const own = Array.from({ length: 24 }, (_, index) =>
 			savedNotification(`own-${index + 1}`, { created_at: `2026-09-${String(index + 1).padStart(2, '0')}T10:00:00Z` })

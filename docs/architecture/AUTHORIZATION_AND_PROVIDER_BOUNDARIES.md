@@ -95,6 +95,7 @@ An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/feat
 
 ## Database enforcement
 
+- Feedback replies are append-only through RPCs. `reply_to_own_feedback` locks the reporter's own thread, attributes the session account, and changes an open thread to `new`. Operator replies change it to `reviewed` or `resolved`. Resolved threads reject either reply path. Authenticated clients cannot insert reply rows directly.
 - Direct table writes need the same authority as the app operation ([`20261012000600_feature_direct_write_authority.sql`](../../supabase/migrations/20261012000600_feature_direct_write_authority.sql)). Archive, restore and permanent delete of a Person need Personnel `configure`. People and Personnel artifacts must be archived before deletion.
 - Creating active People through Personnel Add Person, Onboarding Add Person and Import needs Personnel `operate` within the member's allowed Groups. Creating an already archived Person still needs `configure`; Group-scoped members cannot create unassigned People.
 - Onboarding packets and steps are created only by `start_onboarding_packet` and `reconcile_onboarding_packet`. Clients update only the columns the app's Onboarding operations write. The Onboarding scope helpers live in the unexposed `onboarding_private` schema.
@@ -111,5 +112,7 @@ An Organization feature switch ([`featureSwitches.ts`](../../src/lib/access/feat
 - Cron routes check `CLEANUP_SECRET` or `CRON_SECRET` before opening an admin client.
 
 ## Data retention
+
+The weekly `/api/cleanup-old-data` job also deletes read notifications older than 30 days. It retains unread notifications regardless of age.
 
 [Scheduled Maintenance](../../src/features/scheduled-maintenance/index.server.ts) deletes archived rows older than the Organization's `archive_retention_months` (default 36). Active rows and rows inside the window stay. Retention never deletes an archived assignment type with saved Calendar assignments or a Critical Task with a saved completion. Their RPCs lock candidates and recheck references before deleting. Earlier families stay committed if a later family fails.

@@ -115,6 +115,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261025130100_setup_email_bounces_and_account_directory.sql",
     "20261025140100_access_request_resubmission_readers.sql",
     "20261025150100_admin_directory_sorting.sql",
+    "20261025160100_feedback_reporter_replies.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -213,6 +214,7 @@ STAGED_UPGRADE_SQL_TESTS = (
     "whats_new_and_announcements.sql",
     "platform_organization_directory.sql",
     "feedback_staff_access.sql",
+    "feedback_reporter_replies.sql",
     "calendar_assignment_atomic_replacement.sql",
     "calendar_assignment_atomic_concurrency.sql",
     "daily_assignment_source.sql",
@@ -755,6 +757,8 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 fixture = workdir / "supabase/migration-tests" / name
                 execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
             for name in STAGED_UPGRADE_MIGRATIONS:
+                if name == "20261025160100_feedback_reporter_replies.sql":
+                    continue
                 shutil.copy2(repository / "supabase/migrations" / name,
                              workdir / "supabase/migrations" / name)
             # These held migrations can now sort before newer, already applied
@@ -762,7 +766,15 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
             execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
             runner_started = True
             for path in (*(f"migration-tests/{name}" for name in STAGED_UPGRADE_CONTRACTS),
+                         "migration-tests/feedback_reporter_replies_after.sql",
                          *(f"tests/{name}" for name in STAGED_UPGRADE_SQL_TESTS)):
+                if path == "migration-tests/feedback_reporter_replies_after.sql":
+                    execute([*psql[:2], "-i", *psql[2:]], workdir,
+                            input_text=(workdir / "supabase/migration-tests/feedback_reporter_replies_before.sql").read_text())
+                    name = "20261025160100_feedback_reporter_replies.sql"
+                    shutil.copy2(repository / "supabase/migrations" / name,
+                                 workdir / "supabase/migrations" / name)
+                    execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
                 execute([
                     "docker", "run", "--rm", "--name", runner,
                     "--label", f"com.supabase.cli.project={project_id}",

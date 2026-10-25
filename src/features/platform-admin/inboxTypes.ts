@@ -18,7 +18,7 @@ interface InboxItemBase {
 
 export type InboxItem =
 	| (InboxItemBase & { kind: 'accessRequest'; outcome: 'approved' | 'rejected' | null })
-	| (InboxItemBase & { kind: 'feedback'; category: FeedbackCategory })
+	| (InboxItemBase & { kind: 'feedback'; category: FeedbackCategory; lastActivityAt: string })
 	| (InboxItemBase & {
 			kind: 'setupEmailFailed';
 			linkId: string;

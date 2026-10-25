@@ -28,6 +28,7 @@ const storedReply = {
 	id: 'reply-1',
 	feedback_id: ID,
 	body: 'We are investigating',
+	author: 'operator',
 	sent_by: OPERATOR,
 	sent_at: '2026-10-25T01:00:00Z'
 };
@@ -156,7 +157,7 @@ describe('feedback staff API and delivery', () => {
 
 	it('the reporter reader returns its thread without ever querying staff notes', async () => {
 		replies = [storedReply];
-		const result = await createSupabaseReporterFeedbackReader(provider()).detail(ID);
+		const result = await createSupabaseReporterFeedbackReader(provider()).detail(ID, REPORTER);
 		expect(result).toEqual({
 			id: ID,
 			category: 'bug',
@@ -165,7 +166,14 @@ describe('feedback staff API and delivery', () => {
 			status: 'new',
 			createdAt: '2026-10-25T00:00:00Z',
 			replies: [
-				{ id: 'reply-1', feedbackId: ID, body: storedReply.body, sentBy: OPERATOR, sentAt: storedReply.sent_at }
+				{
+					id: 'reply-1',
+					feedbackId: ID,
+					author: 'operator',
+					body: storedReply.body,
+					sentBy: OPERATOR,
+					sentAt: storedReply.sent_at
+				}
 			]
 		});
 		expect(reads).not.toContain('feedback_staff_notes');

@@ -39,7 +39,9 @@
 			const result = results[kind];
 			if (result.status === 'ok') merged.push(...result.items);
 		}
-		return merged.sort((a, b) => stamp(b).localeCompare(stamp(a)));
+		const sortAt = (item: InboxItem) =>
+			tab === 'open' && item.kind === 'feedback' ? item.lastActivityAt : stamp(item);
+		return merged.sort((a, b) => sortAt(b).localeCompare(sortAt(a)));
 	});
 
 	const failedKinds = $derived(results ? shownKinds.filter((kind) => results[kind].status === 'error') : []);

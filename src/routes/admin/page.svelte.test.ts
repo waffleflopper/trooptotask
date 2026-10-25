@@ -39,6 +39,7 @@ const feedback: InboxItem = {
 	title: 'The roster will not load',
 	summary: 'member@example.test',
 	receivedAt: '2026-10-30T08:00:00Z',
+	lastActivityAt: '2026-10-30T08:00:00Z',
 	closedAt: null,
 	category: 'bug'
 };

@@ -107,7 +107,7 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
         run: npm run check
         env:
-          NODE_OPTIONS: --max-old-space-size=2560
+          NODE_OPTIONS: --max-old-space-size=4096
       - name: Vitest
         if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
         run: npm run test

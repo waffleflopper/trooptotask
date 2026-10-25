@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseFeedbackInboxReader } from './feedbackInbox.server';
 
@@ -40,6 +41,33 @@ function readerWith(profiles: { data: unknown; error: unknown }) {
 }
 
 describe('feedback inbox submitter names', () => {
+	it('requests the most recently active open threads before limiting the page', async () => {
+		const requests: URL[] = [];
+		const reader = createSupabaseFeedbackInboxReader(
+			createClient('http://provider.example.test', 'synthetic-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: {
+					fetch: async (input) => {
+						const url = new URL(String(input));
+						if (url.pathname.endsWith('/user_profiles')) return Response.json([]);
+						requests.push(url);
+						return Response.json([stored('older-replied', 'u1'), stored('new-submission', 'u2')], {
+							headers: { 'content-range': '0-1/51' }
+						});
+					}
+				}
+			})
+		);
+
+		const page = await reader.readOpen({ limit: 50 });
+
+		expect(page.rows.map((row) => row.id)).toEqual(['older-replied', 'new-submission']);
+		expect(page.count).toBe(51);
+		expect(requests[0].searchParams.get('status')).toBe('in.(new,reviewed)');
+		expect(requests[0].searchParams.get('order')).toBe('updated_at.desc,id.desc');
+		expect(requests[0].searchParams.get('limit')).toBe('50');
+	});
+
 	it('names each submitter from one profile read for the whole page', async () => {
 		const { reader, profileIds } = readerWith({
 			data: [

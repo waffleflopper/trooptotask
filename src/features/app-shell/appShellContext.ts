@@ -10,9 +10,11 @@ export interface AppShellContext extends ClientAccess {
 	readonly orgName: string;
 	readonly userId: string;
 	autoShowWhatsNew(): void;
+	/** Resyncs the header bell after notifications change outside it. */
+	refreshNotifications(): void;
 }
 
-type AppShellActions = Pick<AppShellContext, 'autoShowWhatsNew'>;
+type AppShellActions = Pick<AppShellContext, 'autoShowWhatsNew' | 'refreshNotifications'>;
 
 export function createAppShellContext(getShell: () => ReadyAppShell, actions: AppShellActions): AppShellContext {
 	const access = createClientAccess(() => ({

@@ -11,6 +11,7 @@ const reply: FeedbackReply = {
 	id: 'reply-1',
 	feedbackId: ID,
 	body: 'Fixed in the next release',
+	author: 'operator',
 	sentBy: 'operator',
 	sentAt: '2026-10-25T01:00:00Z'
 };

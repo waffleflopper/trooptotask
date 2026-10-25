@@ -115,6 +115,7 @@ describe('Inbox sources', () => {
 					title: 'The roster will not load',
 					summary: 'CPT Oduya · Alpha',
 					receivedAt: '2026-10-20T08:00:00Z',
+					lastActivityAt: '2026-10-28T09:00:00Z',
 					closedAt: '2026-10-28T09:00:00Z',
 					category: 'bug'
 				}

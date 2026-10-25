@@ -72,7 +72,7 @@ export function createSupabaseFeedbackInboxReader(client: SupabaseClient): Feedb
 					.from('beta_feedback')
 					.select(INBOX_COLUMNS, { count: 'exact' })
 					.in('status', ['new', 'reviewed'])
-					.order('created_at', { ascending: false })
+					.order('updated_at', { ascending: false })
 					.order('id', { ascending: false })
 					.limit(limit)
 			);

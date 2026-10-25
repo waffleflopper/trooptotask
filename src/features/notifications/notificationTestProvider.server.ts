@@ -51,20 +51,23 @@ export function notificationTestProvider(rows: Notification[] = [], actingUserId
 					return true;
 				};
 				let selected = state.rows.filter(matches);
+				const createdBefore = url.searchParams.get('created_at');
+				if (createdBefore?.startsWith('lt.'))
+					selected = selected.filter((row) => row.created_at < createdBefore.slice(3));
 				if (request.method === 'PATCH') {
 					const changes = (await request.json()) as Partial<Notification>;
 					selected.forEach((row) => Object.assign(row, changes));
 				}
 				if (request.method === 'DELETE') {
-					state.rows = state.rows.filter((row) => !matches(row));
-					return new Response(null, { status: 204 });
+					state.rows = state.rows.filter((row) => !selected.includes(row));
+					return new Response(null, { status: 204, headers: { 'content-range': `*/${selected.length}` } });
 				}
 				if (request.method === 'POST') return new Response(null, { status: 201 });
 				if (request.method === 'HEAD') {
 					return new Response(null, { headers: { 'content-range': `0-0/${selected.length}` } });
 				}
-				if (url.searchParams.get('order') === 'created_at.desc') {
-					selected = [...selected].sort((a, b) => b.created_at.localeCompare(a.created_at));
+				if (url.searchParams.get('order')?.startsWith('created_at.desc')) {
+					selected = [...selected].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
 				}
 				const offset = Number(url.searchParams.get('offset') ?? 0);
 				const limit = Number(url.searchParams.get('limit') ?? 1000);

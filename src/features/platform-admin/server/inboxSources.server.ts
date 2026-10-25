@@ -62,6 +62,7 @@ function feedbackItem(row: FeedbackInboxRow): InboxItemOf<'feedback'> {
 			.filter(Boolean)
 			.join(' · '),
 		receivedAt: row.created_at,
+		lastActivityAt: row.updated_at,
 		closedAt: row.status === 'resolved' ? row.updated_at : null,
 		category: row.category
 	};

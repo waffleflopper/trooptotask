@@ -234,7 +234,11 @@
 				<h3 class="font-mono text-[11px] leading-4 font-semibold tracking-[0.08em] text-muted-foreground uppercase">
 					Replies
 				</h3>
-				<FeedbackThread replies={view.detail.replies} from="You" formatSent={(sentAt) => formatWhen(sentAt, now)} />
+				<FeedbackThread
+					replies={view.detail.replies}
+					labels={{ operator: 'You', reporter: detail.person }}
+					formatSent={(sentAt) => formatWhen(sentAt, now)}
+				/>
 			</section>
 		{/if}
 

@@ -22,5 +22,5 @@ export async function createRequestFeedbackStaffOperations(event: RequestEvent) 
 /** The reporter reads through the ordinary request client, so RLS keeps another account's feedback concealed. */
 export function createRequestReporterFeedback(locals: Pick<App.Locals, 'supabase'>, userId: string) {
 	const reader = createSupabaseReporterFeedbackReader(locals.supabase);
-	return { detail: reader.detail, list: () => reader.list(userId) };
+	return { detail: (id: string) => reader.detail(id, userId), list: () => reader.list(userId), reply: reader.reply };
 }

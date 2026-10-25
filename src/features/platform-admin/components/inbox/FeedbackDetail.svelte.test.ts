@@ -32,6 +32,7 @@ const reply = (id: string, body: string, sentAt: string): FeedbackReply => ({
 	id,
 	feedbackId: ID,
 	body,
+	author: 'operator',
 	sentBy: 'operator',
 	sentAt
 });

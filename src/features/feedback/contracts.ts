@@ -1,9 +1,11 @@
 export type FeedbackStatus = 'new' | 'reviewed' | 'resolved';
 export type FeedbackCategory = 'bug' | 'feature' | 'general';
+export type FeedbackAuthor = 'operator' | 'reporter';
 
 export interface FeedbackReply {
 	id: string;
 	feedbackId: string;
+	author: FeedbackAuthor;
 	body: string;
 	sentBy: string;
 	sentAt: string;
@@ -46,6 +48,12 @@ export interface ReporterFeedbackSummary {
 	createdAt: string;
 	replyCount: number;
 }
+
+export type ReporterFeedbackReplyResult =
+	| { status: 'replied'; reply: FeedbackReply }
+	| { status: 'closed' }
+	| { status: 'notFound' }
+	| { status: 'failed' };
 
 export interface FeedbackStaffDetail extends ReporterFeedback {
 	userId: string;

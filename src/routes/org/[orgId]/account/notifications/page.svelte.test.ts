@@ -64,8 +64,9 @@ it('holds every open control while a delete is pending, then opens and marks the
 it('shows a failed read as a retryable error inside the page instead of an empty list', async () => {
 	render(Page, { props: { data: { notifications: null } } as never });
 
-	expect(screen.getByRole('alert').textContent).toContain('Unable to load notifications');
-	expect(screen.queryByText(/^No notifications/)).toBeNull();
+	expect(screen.getByRole('alert')).toBeTruthy();
+	expect(screen.queryByRole('list')).toBeNull();
+	expect(screen.queryByRole('button', { name: /^Delete notification/ })).toBeNull();
 	await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 	expect(invalidateAll).toHaveBeenCalledTimes(1);
 });

@@ -14,7 +14,7 @@ export interface PlatformUserIdentityCommandAuditEvent {
 export interface PlatformUserIdentityCommandDependencies {
 	store: IdentityPlatformAccountEmailPort;
 	checkRateLimit: (userId: string, type: 'recovery' | 'invite') => Promise<boolean>;
-	audit: { log(event: PlatformUserIdentityCommandAuditEvent): void };
+	audit: { log(event: PlatformUserIdentityCommandAuditEvent): Promise<void> };
 	confirmationUrl: (inboundOrigin: string, type: 'recovery' | 'invite') => string;
 }
 
@@ -38,7 +38,7 @@ export function createPlatformUserIdentityCommands(
 			});
 			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to send password reset' };
 
-			deps.audit.log({
+			await deps.audit.log({
 				action: 'admin.user.password_reset',
 				resourceType: 'user',
 				resourceId: input.userId,
@@ -69,7 +69,7 @@ export function createPlatformUserIdentityCommands(
 			});
 			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to resend invite' };
 
-			deps.audit.log({
+			await deps.audit.log({
 				action: 'admin.user.resend_invite',
 				resourceType: 'user',
 				resourceId: input.userId,

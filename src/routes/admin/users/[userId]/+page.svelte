@@ -31,7 +31,7 @@
 	let resetForm = $state<HTMLFormElement | null>(null);
 	let inviteForm = $state<HTMLFormElement | null>(null);
 	let navigationLifetime = $state(0);
-	const canSuspend = $derived(data.adminRole === 'super_admin');
+	const canSuspend = $derived(data.canSuspend);
 
 	beforeNavigate(() => {
 		navigationLifetime += 1;
@@ -118,16 +118,16 @@
 				onclick: () => inviteForm?.requestSubmit()
 			});
 		}
-		if (canSuspend) {
-			items.push({
-				kind: 'action',
-				id: 'suspend',
-				label: data.isSuspended ? 'Unsuspend User' : 'Suspend User',
-				destructive: !data.isSuspended,
-				menuOnly: true,
-				onclick: () => (showSuspendModal = true)
-			});
-		}
+		items.push({
+			kind: 'action',
+			id: 'suspend',
+			label: data.isSuspended ? 'Unsuspend User' : 'Suspend User',
+			destructive: !data.isSuspended,
+			menuOnly: canSuspend,
+			disabled: !canSuspend,
+			disabledReason: data.suspendDisabledReason ?? undefined,
+			onclick: () => (showSuspendModal = true)
+		});
 		return items;
 	});
 	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>({
@@ -182,6 +182,9 @@
 	</PageShell.FactGrid>
 
 	<WorkspaceToolbar ariaLabel={toolbarLabel} items={toolbarItems} primary={toolbarPrimary} />
+	{#if data.suspendDisabledReason}
+		<p class="text-sm text-muted-foreground">{data.suspendDisabledReason}</p>
+	{/if}
 	<form
 		bind:this={resetForm}
 		method="POST"

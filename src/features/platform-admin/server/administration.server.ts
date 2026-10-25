@@ -1,3 +1,6 @@
+import { RequestFailure } from '$lib/errors';
+import { PLATFORM_SUSPENSION_ACTION } from '$features/identity/contracts';
+import { throwSensitiveActionFailure } from '$features/identity/index.server';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
 import type {
 	PlatformSuspensionCommandParseResult,
@@ -22,7 +25,7 @@ export function parsePlatformSuspensionCommand(input: unknown): PlatformSuspensi
 		status: 'valid',
 		command: {
 			type: command.type,
-			targetId: command.targetId,
+			targetId: command.targetId.toLowerCase(),
 			action: command.action,
 			reason: command.reason?.trim() || undefined
 		}
@@ -67,6 +70,14 @@ export function createPlatformSupportAdministration(
 			const parsed = parsePlatformSuspensionCommand(input);
 			if (parsed.status === 'invalid_input') return parsed;
 			const { command } = parsed;
+			if (command.type === 'user' && command.action === 'suspend' && command.targetId === deps.actorUserId)
+				throw new RequestFailure(403, 'You cannot suspend your own account.');
+			const decision = await deps.sensitiveActionAuthorizer.authorize({
+				action: PLATFORM_SUSPENSION_ACTION,
+				actorUserId: deps.actorUserId,
+				target: { type: command.type, id: command.targetId }
+			});
+			if (!decision.allowed) throwSensitiveActionFailure(decision);
 			if (command.type === 'user') {
 				if (command.action === 'suspend')
 					await deps.userSuspensionCommands.suspendUser({
@@ -81,7 +92,7 @@ export function createPlatformSupportAdministration(
 					suspendedAt: deps.now?.() ?? new Date()
 				});
 			} else await deps.organizationSuspensionCommands.unsuspendOrganization(command.targetId);
-			deps.audit.log({
+			await deps.audit.log({
 				action: `${command.action}_${command.type}`,
 				resourceType: command.type === 'user' ? 'user' : 'organization',
 				resourceId: command.targetId,

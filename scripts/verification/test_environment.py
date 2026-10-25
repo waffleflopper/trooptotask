@@ -445,6 +445,29 @@ class SessionAgeTests(unittest.TestCase):
         self.assertEqual(owned.call_count, 1)
 
 
+class MfaAgeTests(unittest.TestCase):
+    def test_ages_only_the_named_account_within_bounds(self):
+        database = Mock()
+        database.age_mfa.return_value = 1
+        with patch.object(environment, "OwnedDatabase", return_value=database):
+            self.assertEqual(environment.mfa_age(Path("/unused"), USER, "11"),
+                             {"status": "PASS", "verifications": 1, "minutes": 11})
+        database.age_mfa.assert_called_once_with(USER, 11)
+
+    def test_out_of_range_minutes_noncanonical_user_or_no_verification_is_blocked(self):
+        database = Mock()
+        database.age_mfa.return_value = 0
+        with patch.object(environment, "OwnedDatabase", return_value=database) as owned:
+            for minutes in ("0", "61", "-1", "1; DROP", "2.5"):
+                with self.assertRaises(environment.Blocked):
+                    environment.mfa_age(Path("/unused"), USER, minutes)
+            with self.assertRaises(environment.Blocked):
+                environment.mfa_age(Path("/unused"), ORG_A.upper(), "11")
+            with self.assertRaises(environment.Blocked):
+                environment.mfa_age(Path("/unused"), USER, "11")
+        self.assertEqual(owned.call_count, 1)
+
+
 class SessionCountTests(unittest.TestCase):
     def test_counts_only_a_canonical_synthetic_account(self):
         database = Mock()

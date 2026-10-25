@@ -967,3 +967,17 @@ describe('Platform Access Request Administration', () => {
 		);
 	});
 });
+
+it.each(['approve', 'resendSetup', 'reject', 'rescind'] as const)(
+	'fails access request %s when its audit rejects',
+	async (operation) => {
+		const { admin } = makeDeps({
+			audit: async () => {
+				throw new Error('Audit unavailable');
+			}
+		});
+		await expect(
+			admin[operation]({ accessRequestId: 'request-1', actorUserId: 'admin-1', publicOrigin: 'http://localhost' })
+		).resolves.toEqual({ status: 'failed' });
+	}
+);

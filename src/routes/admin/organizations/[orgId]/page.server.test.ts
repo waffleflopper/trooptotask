@@ -5,7 +5,7 @@ const { audit, readOrganization, command, authority } = vi.hoisted(() => ({
 	audit: vi.fn(),
 	readOrganization: vi.fn(),
 	command: vi.fn(),
-	authority: { role: 'super_admin' as string | null, error: null as unknown }
+	authority: { operator: true, error: null as unknown }
 }));
 vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: () => ({
@@ -13,7 +13,7 @@ vi.mock('$lib/server/supabase', () => ({
 			const query = {
 				select: () => query,
 				eq: () => query,
-				maybeSingle: async () => ({ data: authority.role ? { role: authority.role } : null, error: authority.error })
+				maybeSingle: async () => ({ data: authority.operator ? { user_id: actorId } : null, error: authority.error })
 			};
 			return query;
 		},
@@ -60,14 +60,17 @@ function event(form: Record<string, string> = { targetUserId, confirmName: 'Able
 			supabase: {
 				auth: {
 					mfa: {
-						getAuthenticatorAssuranceLevel: async () => ({
-							error: null,
-							data: {
-								currentLevel: 'aal1',
-								nextLevel: 'aal1',
-								currentAuthenticationMethods: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) }]
-							}
-						})
+						getAuthenticatorAssuranceLevel: async (jwt?: string) =>
+							jwt
+								? {
+										error: null,
+										data: {
+											currentLevel: 'aal1',
+											nextLevel: 'aal1',
+											currentAuthenticationMethods: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) }]
+										}
+									}
+								: { error: null, data: { currentLevel: 'aal2', nextLevel: 'aal2' } }
 					}
 				},
 				rpc: async () => ({ data: false, error: null })
@@ -84,12 +87,11 @@ function event(form: Record<string, string> = { targetUserId, confirmName: 'Able
 function loadDetail(request = event()) {
 	return load(request as Parameters<typeof load>[0]);
 }
-function runAction(action: 'makeAdmin' | 'transferOwnership', request = event()) {
-	return actions[action](request as Parameters<(typeof actions)[typeof action]>[0]);
+function runTransfer(request = event()) {
+	return actions.transferOwnership(request as Parameters<typeof actions.transferOwnership>[0]);
 }
 function detail() {
 	return {
-		adminRole: 'super_admin',
 		org: {
 			id: orgId,
 			name: 'Able Company',
@@ -104,7 +106,7 @@ function detail() {
 }
 beforeEach(() => {
 	vi.resetAllMocks();
-	authority.role = 'super_admin';
+	authority.operator = true;
 	authority.error = null;
 	readOrganization.mockResolvedValue({
 		id: orgId,
@@ -112,19 +114,16 @@ beforeEach(() => {
 		suspended_at: null,
 		created_at: detail().org.createdAt
 	});
-	command.mockImplementation(async (name: string) => ({
+	command.mockResolvedValue({
 		error: null,
-		data:
-			name === 'platform_promote_org_member'
-				? { status: 'updated', org_id: orgId, target_user_id: targetUserId }
-				: {
-						status: 'updated',
-						org_id: orgId,
-						from_user_id: ownerId,
-						to_user_id: targetUserId,
-						org_name: 'Able Company'
-					}
-	}));
+		data: {
+			status: 'updated',
+			org_id: orgId,
+			from_user_id: ownerId,
+			to_user_id: targetUserId,
+			org_name: 'Able Company'
+		}
+	});
 });
 describe('admin organization detail load', () => {
 	it('rejects malformed organization IDs before reading detail', async () => {
@@ -132,12 +131,10 @@ describe('admin organization detail load', () => {
 		expect(readOrganization).not.toHaveBeenCalled();
 	});
 
-	it('allows support to read retained identity, membership, suspension and audit data', async () => {
-		authority.role = 'support';
+	it('reads retained identity, membership, suspension and audit data for an operator', async () => {
 		const suspended = detail();
 		suspended.org.suspendedAt = '2026-06-02T00:00:00.000Z';
 		suspended.org.isSuspended = true;
-		suspended.adminRole = 'support';
 		readOrganization.mockResolvedValue({
 			id: orgId,
 			name: suspended.org.name,
@@ -159,42 +156,40 @@ describe('admin organization detail load', () => {
 		expect(caught).toMatchObject({ body: { message: 'Failed to load organization detail' } });
 	});
 
-	it.each([null, 'billing'])('denies detail access for role %s before reading protected data', async (role) => {
-		authority.role = role;
+	it('denies detail access to a non-operator before reading protected data', async () => {
+		authority.operator = false;
 		await expect(loadDetail()).rejects.toMatchObject({ status: 403 });
 		expect(readOrganization).not.toHaveBeenCalled();
 	});
 });
 
 describe('admin organization membership action delivery', () => {
-	it.each(['makeAdmin', 'transferOwnership'] as const)(
-		'binds %s to the admitted actor despite forged actor fields',
-		async (action) => {
-			expect(
-				await runAction(action, event({ targetUserId, confirmName: 'Able Company', actorUserId: ownerId }))
-			).toEqual({ success: true });
-			expect(command).toHaveBeenCalledTimes(1);
-			expect(command).toHaveBeenCalledWith(
-				action === 'makeAdmin' ? 'platform_promote_org_member' : 'platform_transfer_org_ownership',
-				expect.objectContaining({ p_actor_user_id: actorId, p_organization_id: orgId, p_target_user_id: targetUserId })
-			);
-			expect(audit).toHaveBeenCalledWith(
-				expect.objectContaining({ orgId }),
-				expect.objectContaining({ userId: actorId })
-			);
-		}
-	);
-	it.each(['support', 'billing', null])('denies current platform role %s before privileged commands', async (role) => {
-		authority.role = role;
-		await expect(runAction('transferOwnership')).rejects.toMatchObject({ status: 403 });
+	it('binds the transfer to the admitted actor despite forged actor fields', async () => {
+		expect(await runTransfer(event({ targetUserId, confirmName: 'Able Company', actorUserId: ownerId }))).toEqual({
+			success: true
+		});
+		expect(command).toHaveBeenCalledTimes(1);
+		expect(command).toHaveBeenCalledWith(
+			'platform_transfer_org_ownership',
+			expect.objectContaining({ p_actor_user_id: actorId, p_organization_id: orgId, p_target_user_id: targetUserId })
+		);
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({ orgId }),
+			expect.objectContaining({ userId: actorId }),
+			{ required: true }
+		);
+	});
+	it('denies a non-operator before privileged commands', async () => {
+		authority.operator = false;
+		await expect(runTransfer()).rejects.toMatchObject({ status: 403 });
 		expect(command).not.toHaveBeenCalled();
 		expect(audit).not.toHaveBeenCalled();
 	});
-	it('reports unavailable current role as 503 without leaking provider details', async () => {
+	it('reports an unavailable operator check as 503 without leaking provider details', async () => {
 		authority.error = { message: 'private database details' };
-		await expect(runAction('makeAdmin')).rejects.toMatchObject({
+		await expect(runTransfer()).rejects.toMatchObject({
 			status: 503,
-			body: { message: 'Unable to verify platform administration access' }
+			body: { message: 'Unable to verify platform operator access' }
 		});
 		expect(command).not.toHaveBeenCalled();
 	});
@@ -202,21 +197,25 @@ describe('admin organization membership action delivery', () => {
 		['organization', 'not-a-uuid', targetUserId],
 		['target', orgId, 'not-a-uuid']
 	])('rejects malformed %s before command effects', async (_, id, target) => {
-		expect(await runAction('makeAdmin', event({ targetUserId: target }, id))).toMatchObject({ status: 400 });
+		expect(await runTransfer(event({ targetUserId: target, confirmName: 'Able Company' }, id))).toMatchObject({
+			status: 400
+		});
 		expect(command).not.toHaveBeenCalled();
 		expect(audit).not.toHaveBeenCalled();
 	});
 	it('preserves actionable Identity step-up fields and makes no membership RPC', async () => {
 		const request = event();
-		request.locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
+		request.locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel = vi.fn(async (jwt?: string) => ({
 			error: null,
-			data: {
-				currentLevel: 'aal1',
-				nextLevel: 'aal2',
-				currentAuthenticationMethods: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) - 3600 }]
-			}
-		});
-		expect(await runAction('transferOwnership', request)).toMatchObject({
+			data: jwt
+				? {
+						currentLevel: 'aal1',
+						nextLevel: 'aal2',
+						currentAuthenticationMethods: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) - 3600 }]
+					}
+				: { currentLevel: 'aal2', nextLevel: 'aal2', currentAuthenticationMethods: [] }
+		})) as never;
+		expect(await runTransfer(request)).toMatchObject({
 			status: 403,
 			data: { requiresStepUp: true, stepUpPath: '/auth/mfa-verify', reason: 'denied.staleSession' }
 		});
@@ -229,12 +228,12 @@ describe('admin organization membership action delivery', () => {
 		['provider_error', 503]
 	] as const)('maps %s to an honest action failure', async (status, httpStatus) => {
 		command.mockResolvedValue({ data: { status }, error: null });
-		expect(await runAction('transferOwnership')).toMatchObject({ status: httpStatus });
+		expect(await runTransfer()).toMatchObject({ status: httpStatus });
 		expect(audit).not.toHaveBeenCalled();
 	});
 	it('does not report success from an unacknowledged RPC response', async () => {
 		command.mockResolvedValue({ data: null, error: { message: 'private SQL detail' } });
-		const result = await runAction('transferOwnership');
+		const result = await runTransfer();
 		expect(result).toMatchObject({
 			status: 503,
 			data: { error: { message: 'Could not confirm the transfer. Reload this page before trying again.' } }

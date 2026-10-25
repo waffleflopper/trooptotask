@@ -1,15 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryPlatformMetricsStore } from './inMemoryMetrics.test-support.server';
+import type { PersonnelSupportReader } from '$features/personnel/contracts';
 import { createInMemoryPlatformUserDirectorySources } from './inMemoryUserDirectory.test-support.server';
 import { createPlatformUserDirectory } from './userDirectory.server';
 
+function personnelReader(
+	rows: Array<{ organizationId: string; archivedAt: string | null }> = []
+): Pick<PersonnelSupportReader, 'countActivePersonnelByOrganization'> {
+	return {
+		async countActivePersonnelByOrganization(organizationIds) {
+			const counts = new Map<string, number>();
+			for (const row of rows) {
+				if (organizationIds.includes(row.organizationId) && row.archivedAt == null) {
+					counts.set(row.organizationId, (counts.get(row.organizationId) ?? 0) + 1);
+				}
+			}
+			return counts;
+		}
+	};
+}
+
 function createSubject(
 	options: Parameters<typeof createInMemoryPlatformUserDirectorySources>[0],
-	metricsSeed: Parameters<typeof createInMemoryPlatformMetricsStore>[0] = {}
+	seed: { personnel?: Array<{ organizationId: string; archivedAt: string | null }> } = {}
 ) {
 	return createPlatformUserDirectory({
 		...createInMemoryPlatformUserDirectorySources(options),
-		personnel: createInMemoryPlatformMetricsStore(metricsSeed)
+		personnel: personnelReader(seed.personnel)
 	});
 }
 
@@ -109,7 +125,7 @@ describe('PlatformUserDirectory', () => {
 			status: 'ok',
 			users: read++ === 0 ? accounts : [...accounts].reverse()
 		});
-		const directory = createPlatformUserDirectory({ ...sources, personnel: createInMemoryPlatformMetricsStore({}) });
+		const directory = createPlatformUserDirectory({ ...sources, personnel: personnelReader() });
 		const first = await directory.listUsers({ search: '', page: 1, limit: 2 });
 		const second = await directory.listUsers({ search: '', page: 2, limit: 2 });
 		expect(first.users.map((user) => user.id)).toEqual(['user-z', 'user-m']);
@@ -127,7 +143,7 @@ describe('PlatformUserDirectory', () => {
 			emailConfirmedAt: null
 		}));
 		const sources = createInMemoryPlatformUserDirectorySources({ authUsers: accounts });
-		const directory = createPlatformUserDirectory({ ...sources, personnel: createInMemoryPlatformMetricsStore({}) });
+		const directory = createPlatformUserDirectory({ ...sources, personnel: personnelReader() });
 
 		const past = await directory.listUsers({ search: '', page: 7, limit: 2 });
 		expect(past.users.map((user) => user.id)).toEqual(['user-a']);
@@ -332,7 +348,7 @@ describe('PlatformUserDirectory', () => {
 						throw providerError;
 					}
 				},
-				personnel: createInMemoryPlatformMetricsStore({})
+				personnel: personnelReader()
 			});
 			const result =
 				surface === 'detail'

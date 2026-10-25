@@ -8,7 +8,6 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 		approve: [],
 		reject: [],
 		resend: [],
-		makeAdmin: ['targetUserId'],
 		transferOwnership: ['targetUserId', 'confirmName'],
 		resetPassword: [],
 		resendInvite: [],
@@ -25,7 +24,7 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 		if (!fields[family].includes(key) || typeof value !== 'string') throw new Error('Unsupported platform field');
 	}
 	const access = ['approve', 'reject', 'resend'].includes(family);
-	const membership = ['makeAdmin', 'transferOwnership'].includes(family);
+	const membership = family === 'transferOwnership';
 	const json = family === 'suspend' || family === 'invalidSuspension';
 	const contentActions = {
 		announcementCreate: '/admin/announcements?/create',

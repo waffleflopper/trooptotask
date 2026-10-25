@@ -93,6 +93,7 @@ export interface AccountSecurityOverview {
 	pendingEmail: string | null;
 }
 
+export const PLATFORM_SUSPENSION_ACTION = 'platform.suspension.update';
 export const PLATFORM_ACCESS_REQUEST_APPROVE_ACTION = 'platform.accessRequest.approve';
 export const PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION = 'platform.accessRequest.resendSetup';
 export const PLATFORM_ACCESS_REQUEST_REJECT_ACTION = 'platform.accessRequest.reject';
@@ -104,6 +105,7 @@ export const ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION = 'organization.me
 export const ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION = 'organization.member.removeHighPrivilege';
 
 export type SensitiveAction =
+	| typeof PLATFORM_SUSPENSION_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_APPROVE_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_REJECT_ACTION
@@ -336,9 +338,3 @@ export interface IdentityPlatformAccessRequestStore {
 		actorUserId: string;
 	}): Promise<RescindAccessRequestAndBlockInvitationsResult>;
 }
-
-export type {
-	IdentityPlatformAccountStatistics,
-	IdentityPlatformSignupPoint,
-	IdentityPlatformDashboardReader
-} from './platformDashboardTypes';

@@ -30,7 +30,6 @@ function makePageData(isSuspended = false, overrides: Partial<PageData> = {}): P
 			createdAt: '2026-04-01T00:00:00Z',
 			isSuspended
 		},
-		adminRole: 'super_admin',
 		personnelCount: 12,
 		auditEvents: [],
 		members: [
@@ -64,14 +63,6 @@ function transferSuccess() {
 }
 
 describe('admin organization detail', () => {
-	it('keeps support detail readable without super-admin write controls', () => {
-		render(Page, { props: { data: makePageData(false, { adminRole: 'support' }) } });
-		expect(screen.getByRole('link', { name: 'member@example.test' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
-		expect(screen.queryByRole('toolbar', { name: 'Organization controls' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More Organization controls' })).toBeNull();
-	});
-
 	it('offers Unsuspend for a suspended Organization and shows the status in the header', async () => {
 		renderDetail(true);
 		const menu = within(await openToolbarMore('Organization controls'));

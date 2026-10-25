@@ -11,4 +11,3 @@ export type {
 	PlatformAnnouncementType,
 	PlatformAnnouncementValidation
 } from './announcementTypes';
-export type { PlatformDashboard } from './dashboardTypes';

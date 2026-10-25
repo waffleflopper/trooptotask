@@ -1,25 +1,14 @@
-import type { AuditPort } from '$lib/audit/contracts';
-import {
-	ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
-	ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
-	type SensitiveActionAuthorizer
-} from '$features/identity/contracts';
+import type { AuditEvent } from '$lib/audit/contracts';
+import { ORGANIZATION_TRANSFER_OWNERSHIP_ACTION, type SensitiveActionAuthorizer } from '$features/identity/contracts';
 import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
 
-import type {
-	OrganizationSupportMember,
-	OrganizationPromotionResult,
-	OrganizationTransferResult,
-	OrganizationPlatformMembershipPort
-} from './platformMembershipTypes';
-import { RequestFailure } from '$lib/errors';
+import type { OrganizationTransferResult, OrganizationPlatformMembershipPort } from './platformMembershipTypes';
 
 interface Dependencies {
-	/** Hook-verified actor and current request role, supplied by server composition. */
-	actor: { userId: string; role: 'super_admin' | 'support' | 'billing' };
+	actor: { userId: string };
 	port: OrganizationPlatformMembershipPort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
-	audit: AuditPort;
+	audit: { log(event: AuditEvent): Promise<void> };
 }
 
 export function createOrganizationPlatformMembershipAdministration(deps: Dependencies) {
@@ -30,7 +19,7 @@ export function createOrganizationPlatformMembershipAdministration(deps: Depende
 			target: { type: 'organization', id: orgId }
 		});
 		if (!decision.allowed) {
-			deps.audit.log({
+			await deps.audit.log({
 				action: 'admin.org.membership_authorization_denied',
 				resourceType: 'organization',
 				resourceId: orgId,
@@ -44,36 +33,15 @@ export function createOrganizationPlatformMembershipAdministration(deps: Depende
 	}
 
 	return {
-		async listMembers(orgId: string): Promise<OrganizationSupportMember[]> {
-			if (deps.actor.role === 'billing') throw new RequestFailure(403, 'Platform support access is required');
-			return deps.port.listMembers(orgId);
-		},
-		async makeAdmin(input: { orgId: string; targetUserId: string }): Promise<OrganizationPromotionResult> {
-			if (deps.actor.role !== 'super_admin') return { status: 'forbidden' };
-			const sensitiveAction = await authorize(ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION, input.orgId);
-			const result = await deps.port.promoteMember({ ...input, actorUserId: deps.actor.userId });
-			if (result.status === 'updated') {
-				deps.audit.log({
-					action: 'admin.org.make_admin',
-					resourceType: 'organization',
-					resourceId: result.orgId,
-					orgId: result.orgId,
-					details: { targetUserId: result.targetUserId, previousRole: 'member', sensitiveAction },
-					severity: 'warning'
-				});
-			}
-			return result;
-		},
 		async transferOwnership(input: {
 			orgId: string;
 			targetUserId: string;
 			confirmName: string;
 		}): Promise<OrganizationTransferResult> {
-			if (deps.actor.role !== 'super_admin') return { status: 'forbidden' };
 			const sensitiveAction = await authorize(ORGANIZATION_TRANSFER_OWNERSHIP_ACTION, input.orgId);
 			const result = await deps.port.transferOwnership({ ...input, actorUserId: deps.actor.userId });
 			if (result.status === 'updated') {
-				deps.audit.log({
+				await deps.audit.log({
 					action: 'admin.org.transfer_ownership',
 					resourceType: 'organization',
 					resourceId: result.orgId,

@@ -93,7 +93,6 @@ function renderLayout(
 				viewer: null,
 				adminUserId: 'admin-1',
 				adminEmail: 'admin@example.test',
-				adminRole: 'billing',
 				accessiblePages,
 				visibleNavGroups
 			}

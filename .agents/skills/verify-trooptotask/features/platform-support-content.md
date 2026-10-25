@@ -1,12 +1,12 @@
 # Platform announcements, Feedback and Audit support
 
-Platform administrators publish global messages, review member Feedback and investigate permitted activity. Support and
-retained billing accounts receive only their admitted pages and reduced activity projections.
+The platform operator publishes global messages, reviews member Feedback and investigates saved activity. Every other
+account is refused.
 
 ## Sub-features
 
-- `admission`: super-admin admits Dashboard, Announcements, Feedback and full Audit; support admits Dashboard and
-  Feedback, billing admits Dashboard only, and inactive or ordinary accounts admit none.
+- `admission`: the operator at aal2 admits Dashboard, Announcements, Feedback and full Audit; every other account,
+  including the former support, billing and inactive actors, admits none, and an operator at aal1 is sent to MFA.
 - `announcement-lifecycle`: create Info, Warning and Maintenance messages, optional expiration, cancellation,
   activate/deactivate, confirmed deletion, and persisted member banners and account-wide dismissals.
 - `feedback-review`: retain submitter/context/message while changing New, Reviewed and Resolved status, save or clear
@@ -32,7 +32,7 @@ pages.
 Platform content verification uses the [announcement/Feedback/Audit recipe](platform-support-content.md). Existing
 platform actors and ordinary `orgMember` may enter `admin` and `admin/announcements` through normal sign-in for
 admission and denial. `platform-content` accepts no targets and reads only helper-recorded communications announcements
-or rows created by this worker's synthetic super-admin. It provides privileged persistence readback separately from
+or rows created by this worker's synthetic operator. It provides privileged persistence readback separately from
 native interaction and ordinary authorization. Fixed same-origin form controls
 `admin-announcements/create|toggle|delete` and `admin-feedback/update` bind only the named POST action; their
 failure/hold modes reuse the existing SvelteKit envelopes. `arm-reject` rejects one scoped request before dispatch.
@@ -51,7 +51,7 @@ explicit retry.
 
 ## Driving it with verify:app
 
-`$V actor platformReviewer admin|admin/announcements|admin/feedback|admin/audit` uses normal login. `platformSupport`,
+`$V actor platformReviewer admin|admin/announcements|admin/feedback|admin/audit` signs the operator in at aal2. `platformSupport`,
 `platformBilling`, `platformInactive` and `orgMember` attempt the same destinations for the permission matrix. Reuse
 [platform administration](platform-administration.md) for search, User and Organization activity,
 [communications](notifications-feedback.md) for ordinary Feedback and dismissals, and
@@ -83,12 +83,10 @@ create/toggle/delete/review requests preserve rows, separately from native contr
 `{"isActive":"true"|"false"}`, the desired state the native form posts; the recorded target `id` is added by the helper.
 `platform-content` includes saved `updated_by` for actor attribution.
 
-1. **Admission and disclosure.** Capture admitted navigation for all three active platform roles. Directly attempt each
-   denied URL with normal login and inspect its ordinary authenticated page-data response. A forbidden page returns no
-   privileged payload. Inactive/ordinary accounts receive no admin data. Support and billing Dashboard responses retain
-   only reduced recent activity, with no event `details`, IP or user-agent. Repeat support User/Organization detail
-   readbacks under the existing administration recipe. Support's full Audit denial does not establish safe Dashboard
-   data. Anonymous attempts require authentication.
+1. **Admission and disclosure.** Capture the operator's navigation. Directly attempt each URL as `platformSupport`,
+   `platformBilling`, `platformInactive` and `orgMember` with normal login and inspect the ordinary authenticated
+   page-data response. A forbidden page returns no privileged payload. Repeat User/Organization detail
+   readbacks under the existing administration recipe. Anonymous attempts require authentication.
 2. **Announcements and member composition.** Capture the seed readback and admin statuses. Cancel a filled create form
    and verify no row. Create a unique message through native fields, inspect its exact saved actor/type/text/expiration,
    reload and read it as an ordinary member banner. Exercise all three Types, one future expiry and one expired record.
@@ -105,15 +103,15 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    another page's pending state, error or current draft, including after returning to the original route. A successful
    old-editor write still refreshes saved content on the current page. Other mutations remain disabled while a write or
    its readback is pending. Capture any failure as a defect rather than adopting it as intended behavior.
-4. **Feedback review and persistence.** Submit a unique Bug Report through the ordinary member modal. Super-admin
+4. **Feedback review and persistence.** Submit a unique Bug Report through the ordinary member modal. The operator
    expands it and saves Reviewed plus Notes. Reload, select Reviewed, inspect exact saved context/message/Notes and
-   clear Notes with keyboard selection/deletion. Support resolves the same row and rereads Resolved after reload. A
+   clear Notes with keyboard selection/deletion. The operator resolves the same row and rereads Resolved after reload. A
    controlled failure keeps the chosen status/Notes available and produces no stored change. A 5xx or rejected transport
    requires Reload Feedback before one explicit retry; definite validation rejection permits immediate correction. Hold
    an update, navigate to another card/tab or visible page, then return to Feedback and enter fresh unsent Notes before
    release. Inspect both saved identity and the fresh UI before and after the old reply. For same-page card changes,
    fill the peer's Status/Notes before releasing a real success; the first row updates, the peer's unsent draft survives
-   readback and only then can another Save dispatch. Ordinary/inactive/billing writes are denied without changing the
+   readback and only then can another Save dispatch. Ordinary and non-operator writes are denied without changing the
    row; test known-ID form submission separately from native proof.
 5. **Audit paging, privacy and recovery.** Follow the Audit recipe's Action cohort, Next/Previous, Severity reset to
    page 1, A/B Organization filters, stored masked View details and reload. Preserve exact IDs/counts in page data and
@@ -132,8 +130,7 @@ create/toggle/delete/review requests preserve rows, separately from native contr
 
 - Global announcements and account dismissals differ from Organization-scoped private communications. An Organization
   role grants no platform privilege.
-- Full Audit belongs to super-admin. Support's recent activity does not contain details, IP or user-agent, even when a
-  stored event contains those fields.
+- Full Audit belongs to the operator; no other account reads it.
 - A seeded masked event proves display/paging, not producer sanitization. Announcement audit events and real Feedback
   submission establish their own producer effects.
 - Announcements have create, toggle and delete controls, with no editing form. Feedback has no delete control. Do not

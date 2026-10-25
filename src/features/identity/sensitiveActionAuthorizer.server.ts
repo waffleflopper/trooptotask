@@ -6,6 +6,7 @@ import type {
 	SensitiveActionFailureFields,
 	SensitiveActionAuthorizer
 } from './contracts';
+import { PLATFORM_SUSPENSION_ACTION } from './contracts';
 import { fail } from '$lib/errors';
 
 const DEFAULT_SENSITIVE_ACTION_RECENT_SESSION_WINDOW_MS = 15 * 60 * 1000;
@@ -13,6 +14,7 @@ const DEFAULT_SENSITIVE_ACTION_RECENT_SESSION_WINDOW_MS = 15 * 60 * 1000;
 interface SensitiveActionActorFacts {
 	userId: string | null;
 	sessionStartedAt?: string | Date | null;
+	mfaVerifiedAt?: Date | null;
 	currentAssuranceLevel?: string | null;
 	nextAssuranceLevel?: string | null;
 	isSuspended?: boolean | null;
@@ -35,8 +37,11 @@ function coerceTimestamp(value: string | Date | null | undefined): number | null
 
 export function checkSensitiveAction(input: SensitiveActionCheckInput): SensitiveActionDecision {
 	const now = input.now ?? new Date();
-	const recentSessionWindowMs = input.recentSessionWindowMs ?? DEFAULT_SENSITIVE_ACTION_RECENT_SESSION_WINDOW_MS;
-	const sessionStartedAt = coerceTimestamp(input.actor.sessionStartedAt);
+	const suspension = input.action === PLATFORM_SUSPENSION_ACTION;
+	const recentSessionWindowMs = suspension
+		? 10 * 60 * 1000
+		: (input.recentSessionWindowMs ?? DEFAULT_SENSITIVE_ACTION_RECENT_SESSION_WINDOW_MS);
+	const sessionStartedAt = coerceTimestamp(suspension ? input.actor.mfaVerifiedAt : input.actor.sessionStartedAt);
 	const sessionAgeMs = sessionStartedAt === null ? null : now.getTime() - sessionStartedAt;
 	const currentAssuranceLevel = input.actor.currentAssuranceLevel ?? null;
 	const nextAssuranceLevel = input.actor.nextAssuranceLevel ?? null;
@@ -72,6 +77,19 @@ export function checkSensitiveAction(input: SensitiveActionCheckInput): Sensitiv
 		return { ...baseDecision, allowed: false, reason: 'denied.assuranceUnavailable', requiresStepUp: false };
 	}
 
+	if (suspension) {
+		const allowed =
+			currentAssuranceLevel === 'aal2' &&
+			sessionAgeMs !== null &&
+			sessionAgeMs >= 0 &&
+			sessionAgeMs <= recentSessionWindowMs;
+		return {
+			...baseDecision,
+			allowed,
+			reason: allowed ? 'allowed.mfaAssurance' : 'denied.staleSession',
+			requiresStepUp: !allowed
+		};
+	}
 	if (currentAssuranceLevel === 'aal2') {
 		return { ...baseDecision, allowed: true, reason: 'allowed.mfaAssurance', requiresStepUp: false };
 	}
@@ -184,6 +202,7 @@ export function createSupabaseSensitiveActionAuthorizer(input: {
 			let currentAssuranceLevel: string | null = null;
 			let nextAssuranceLevel: string | null = null;
 			let sessionStartedAt: Date | null = null;
+			let mfaVerifiedAt: Date | null = null;
 			try {
 				// Bind provider assurance and AMR to the hook-verified request token.
 				const result = await input.supabase.auth.mfa.getAuthenticatorAssuranceLevel(token);
@@ -212,6 +231,9 @@ export function createSupabaseSensitiveActionAuthorizer(input: {
 						)
 					) {
 						sessionStartedAt = new Date(Math.max(...methods.map((method) => method.timestamp)) * 1000);
+						const mfaMethods = methods.filter((method) => method.method === 'totp');
+						if (mfaMethods.length)
+							mfaVerifiedAt = new Date(Math.max(...mfaMethods.map((method) => method.timestamp)) * 1000);
 					}
 				}
 			} catch {
@@ -232,6 +254,7 @@ export function createSupabaseSensitiveActionAuthorizer(input: {
 			return {
 				userId: sessionIsValid() ? actorUserId : null,
 				sessionStartedAt,
+				mfaVerifiedAt,
 				currentAssuranceLevel,
 				nextAssuranceLevel,
 				isSuspended,

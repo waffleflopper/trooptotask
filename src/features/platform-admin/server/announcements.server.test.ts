@@ -8,7 +8,7 @@ const SECOND_ID = '22222222-2222-2222-2222-222222222222';
 const MISSING_ID = '33333333-3333-3333-3333-333333333333';
 
 function makeAnnouncements() {
-	const audit = vi.fn<(event: AuditEvent) => void>();
+	const audit = vi.fn<(event: AuditEvent) => Promise<void>>().mockResolvedValue(undefined);
 	const store = createInMemoryPlatformAnnouncementsStore({
 		announcements: [
 			{
@@ -158,7 +158,7 @@ describe('PlatformAnnouncements', () => {
 	});
 
 	it('does not audit failed create operations', async () => {
-		const audit = vi.fn<(event: AuditEvent) => void>();
+		const audit = vi.fn<(event: AuditEvent) => Promise<void>>().mockResolvedValue(undefined);
 		const store = createInMemoryPlatformAnnouncementsStore({
 			announcements: [],
 			createError: new Error('insert failed')
@@ -177,3 +177,18 @@ describe('PlatformAnnouncements', () => {
 		expect(audit).not.toHaveBeenCalled();
 	});
 });
+
+it.each(['create', 'setActive', 'delete'] as const)(
+	'fails announcement %s when its audit rejects',
+	async (operation) => {
+		const { announcements, audit } = makeAnnouncements();
+		audit.mockRejectedValueOnce(new Error('Audit unavailable'));
+		const command =
+			operation === 'create'
+				? announcements.create({ title: 'Notice', message: 'Message', type: 'info' })
+				: operation === 'setActive'
+					? announcements.setActive(FIRST_ID, false)
+					: announcements.delete(FIRST_ID);
+		await expect(command).rejects.toThrow('Audit unavailable');
+	}
+);

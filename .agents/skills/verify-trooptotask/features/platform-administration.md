@@ -1,31 +1,35 @@
 # Platform access, accounts and Organizations
 
-Platform support investigates accounts, Organization membership and reviewed access; super-admins additionally suspend
-targets and administer Organization roles without granting ordinary users platform authority.
+The platform operator investigates accounts, Organization membership and reviewed access, suspends targets and
+transfers Organization ownership, without granting ordinary users platform authority. One operator row replaces the old
+roles; the admin is entered only at MFA level aal2.
 
 ## Sub-features
 
-- `admission`: active super-admin/support access; ordinary, inactive and billing-role denial to Users, Organizations and
-  Access Requests.
+- `admission`: the operator at aal2 enters Users, Organizations and Access Requests; an operator at aal1 is sent to MFA;
+  any other signed-in account is refused.
 - `directory`: search, paging, account and Organization detail, current membership, setup/activation and suspension
   state.
 - `reviewed-access`: pending approval/rejection, rescind of approved incomplete access, invitation origin and approval
   basis, blocked linked invitations, setup delivery/replacement and completed-setup protection.
-- `administration`: super-admin suspension/recovery, member promotion, confirmed ownership transfer and denial without
-  mutation.
+- `administration`: operator suspension/recovery with MFA step-up, the disabled own-account Suspend, confirmed ownership
+  transfer and denial without mutation.
 - `recovery`: retained drafts, failed requests, explicit retry, persistence and correct target after navigation.
 
 ## How to get to it (user POV)
 
-Sign in as an active platform administrator and open Admin. Choose Users, Organizations or Access Requests in the
-sidebar. Search the directory and follow a record link to inspect its detail. Super-admins use Suspend/Unsuspend (in
-`More User controls` and `More Organization controls`) and Organization member actions; support can investigate and
-manage reviewed access but cannot perform suspension, promotion or ownership transfer.
+Sign in as the platform operator, enter the authenticator code and open Admin. Choose Users, Organizations or Access
+Requests in the sidebar. Search the directory and follow a record link to inspect its detail. The operator uses
+Suspend/Unsuspend (in `More User controls` and `More Organization controls`) and Transfer Ownership. A suspension asks
+for the authenticator code again when the last one is older than 10 minutes, then returns to the same page. On the
+operator's own account Suspend is disabled and says why.
 
 ## Helper controls
 
-Platform administration uses the [access/account/Organization recipe](platform-administration.md), the
-super-admin/support actors and the `platformBilling` and `platformInactive` denial actors. `actor` accepts
+Platform administration uses the [access/account/Organization recipe](platform-administration.md), the `platformReviewer`
+operator (aal2 by default, `--aal1` and `--stale-mfa` for the MFA states in
+[platform admin states](platform-admin-states.md)) and the `platformSupport`, `platformBilling` and `platformInactive`
+denial actors, which hold no operator row. `actor` accepts
 `admin/users`, `admin/organizations` and `admin/access-requests`. `seed platform-admin` records temporary review/origin
 and Organization membership witnesses before writes; `platform-state` returns exact recorded rows without setup secrets.
 `platform-request` sends bounded ordinary same-origin actions; its families/target keys and separate HTTP boundary are
@@ -40,10 +44,10 @@ confirmation; observing the current state does not identify who changed it. Rest
 
 ## Driving it with verify:app
 
-Reuse `platformReviewer` (super-admin), `platformSupport`, ordinary `viewer` and `orgOwner`; `platformBilling` has the
-retained billing role and `platformInactive` has an inactive super-admin record.
-`$V actor ROLE admin/users|admin/organizations|admin/access-requests` uses normal sign-in and accepts denial as an
-observable outcome, without changing authority.
+Reuse `platformReviewer` (the only operator, enrolled with a verified authenticator), ordinary `viewer` and `orgOwner`;
+`platformSupport`, `platformBilling` and `platformInactive` have no operator row.
+`$V actor ROLE admin/users|admin/organizations|admin/access-requests` signs the operator in at aal2 through the provider
+and accepts denial as an observable outcome for every other role, without changing authority.
 
 Run `$V seed platform-admin` once. It creates a temporary Organization, three memberships for
 `orgCreator`/`orgInvitee`/`orgMember`, two pending requests, a completed approved request and one unconfirmed account
@@ -52,18 +56,21 @@ rejection request has a real pending Organization invitation and recorded origin
 recorded targets and public fixture User IDs/emails, exact roles, suspension records, review/setup/delivery metadata and
 Organization audit references. It omits setup tokens and delivery payloads.
 
-1. **Admission and investigation.** For super-admin/support, capture the sidebar, Users and Organizations directories,
+1. **Admission and investigation.** As the operator, capture the sidebar, Users and Organizations directories,
    search/paging and a temporary Organization detail. Open the recorded `orgInvitee` account through its visible record
    link. Reload and inspect membership and suspension. Repeat all three starting destinations as ordinary `viewer`,
-   inactive admin and billing role: preserve actual denial/redirect and ordinary page-data responses, which must
-   disclose no directory or request records. Platform navigation does not follow active Organization authority.
+   `platformSupport`, `platformBilling` and `platformInactive`: preserve actual denial/redirect and ordinary page-data
+   responses, which must disclose no directory or request records. Then `$V actor --aal1 platformReviewer admin/users`
+   must land on `Enter your code` with the Users path in `next`, and entering the code
+   (`$V mfa-code PAGE platformReviewer "Verification Code"`) must land on Users. Platform navigation does not follow
+   active Organization authority.
 2. **Search lifetime.** Use the visible global search for the unique temporary Organization name and account email.
    Clear with native Control+A/Backspace, or shorten the query, while a real search response is held with
    `$V network arm-hold PAGE admin-search`, then release it; results must remain consistent with the current input. An
    empty-value fill control may change the visible value without the effective input transition; preserve that control
    limitation and use actual keyboard clearing for the accepted user action. Source inspection alone is not
    stale-response proof.
-3. **Reviewed access.** As support, capture both pending names and the linked invitation origin. Reject the linked
+3. **Reviewed access.** As the operator, capture both pending names and the linked invitation origin. Reject the linked
    request via its visible button; reload and compare request `rejected`, linked invitation `blocked` and unchanged
    membership. Approve the other pending request; preserve the actual setup/delivery status and reload. Setup mail is
    delivered to the private sink by default; arm `$V mail fail setup` before Approve or Resend to observe the
@@ -79,12 +86,16 @@ Organization audit references. It omits setup tokens and delivery payloads.
    produces that state through real invites. Capture normal step-up if requested, actual failures/rate limits and
    unchanged denied targets. This journey proves the administrator caller only; setup completion and claim concurrency
    need separate evidence.
-4. **Support write denial.** From normally signed-in support and ordinary pages,
-   `$V platform-request PAGE suspend organization '{"type":"org","action":"suspend"}'`, or membership requests below,
+4. **Non-operator write denial.** From normally signed-in `platformSupport` and ordinary pages,
+   `$V platform-request PAGE suspend organization '{"type":"org","action":"suspend"}'`, or the ownership request below,
    submit bounded ordinary HTTP and capture 403 plus unchanged `$V platform-state`. A visible button or missing button
-   is not server proof. Support password-recovery/invite actions remain allowed account support; prove their real result
-   separately from suspension.
-5. **Suspension and retry.** As super-admin, open the temporary Organization's Suspend dialog from
+   is not server proof. As the operator, `$V platform-request PAGE suspend platformReviewer '{"type":"user","action":"suspend"}'`
+   must be refused with no `user_suspensions` row for the operator, whatever the page shows.
+5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press `Suspend`
+   once on the temporary Organization: the dialog says `Nothing has been changed yet.`, the browser lands on
+   `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension. Enter the code with
+   `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its audit row in Activity. For every
+   later case below use `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the temporary Organization's Suspend dialog from
    `More Organization controls`. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one exact POST
    before provider dispatch. Submit visibly: keep the dialog/reason, show failure, and leave rows unchanged. A
    503/transport/unreadable outcome requires Reload details before another write; preserve the draft through that read,
@@ -101,8 +112,7 @@ Organization audit references. It omits setup tokens and delivery payloads.
    a second write. Navigate to another record or route while a response is held and verify the old completion cannot
    refresh or announce the new target, including disposal and A→B→A. Restore every network hook; do not silently repair
    original fixture User suspension with privileged setup.
-6. **Roles and ownership.** `makeAdmin` has no visible UI caller: use the separately labeled ordinary action control to
-   promote `orgMember`, then reload and read exact roles. Attempt transfer to `orgInvitee` with an incorrect name
+6. **Ownership.** Organization member promotion is gone: `?/makeAdmin` answers 404 as no action. Attempt transfer to `orgInvitee` with an incorrect name
    through the action control, proving no effect; the visible confirmation requires the exact untrimmed Organization
    name. Native exact-name transfer must decode the action result and refresh the actual owner. HTTP 200/action failure
    is failure and retains its draft; preserve actual Identity step-up fields. Expected success preserves exactly one
@@ -118,9 +128,9 @@ Organization audit references. It omits setup tokens and delivery payloads.
    command.
 
 `platform-request PAGE FAMILY TARGET_KEY JSON` supports `approve|reject|resend` with keys `approve|reject|completed`;
-`makeAdmin|transferOwnership` with target `organization` and a seeded member UUID (`targetUserId`, plus `confirmName`);
-`suspend` for `organization` with `type:org`, or `orgCreator|orgInvitee|orgMember` with `type:user`, and
-`action`/optional `reason`; `resetPassword|resendInvite` for those User keys. It sends one ordinary same-origin POST,
+`transferOwnership` with target `organization` and a seeded member UUID (`targetUserId`, plus `confirmName`);
+`suspend` for `organization` with `type:org`, or `orgCreator|orgInvitee|orgMember|platformReviewer` with `type:user`
+(`platformReviewer` is the server's self-suspension refusal control), and `action`/optional `reason`; `resetPassword|resendInvite` for those User keys. It sends one ordinary same-origin POST,
 returns the full transport/action envelope and never applies it to the UI. `invalidSuspension` with a recorded User key
 accepts only `case:null-body|non-string-reason|array-target`; it sends that fixed malformed JSON, requiring 400 and
 unchanged suspension/audit rows. This is separate ordinary HTTP validation proof; no textarea can create these payloads.
@@ -155,8 +165,9 @@ requests and the temporary Organization, checks dependent absence before droppin
   [Organization invitations](organization-invitations.md)), so an unconfigured-delivery outcome is unreachable and a
   delivery failure needs `mail fail`. Approval, link issuance, outbox delivery, setup completion and invitation
   acceptance are different effects; capture the actual state.
-- Support can review access and send account support emails; only super-admin can suspend or change Organization roles.
-  An inactive platform row grants nothing. The retained billing role admits Dashboard only.
+- Only the operator can use any admin page or endpoint. There is no role to check, no inactive row and no support or
+  billing tier; a non-operator gets 403 and an operator at aal1 is sent to MFA. Suspend and unsuspend need an MFA
+  verification from the last 10 minutes, and refresh or password sign-in does not renew it.
 - User suspension uses `user_suspensions`, not provider bans. Organization suspension uses `organizations.suspended_at`;
   preserve the actual restricted shell and denial of writes. Both suspensions also deny page data loads and members'
   direct table and Storage access, while the Organization row and own membership stay readable for the shell.

@@ -4,11 +4,7 @@ import {
 	createPlatformOrganizationLedger,
 	normalizePlatformOrganizationLedgerQuery
 } from './organizationLedger.server';
-import type {
-	PlatformMetrics,
-	PlatformOrganizationMetrics,
-	PlatformOrganizationLedgerStore
-} from '../organizationSupportTypes';
+import type { PlatformOrganizationLedgerDependencies } from '../organizationSupportTypes';
 
 function organization(overrides: Partial<PlatformOrganizationLedgerBaseRow> = {}): PlatformOrganizationLedgerBaseRow {
 	return {
@@ -20,18 +16,23 @@ function organization(overrides: Partial<PlatformOrganizationLedgerBaseRow> = {}
 	};
 }
 
-function metrics(values: Partial<PlatformOrganizationMetrics> = {}): PlatformMetrics {
+function dependencies(
+	listOrganizationsPage: PlatformOrganizationLedgerDependencies['store']['listOrganizationsPage'],
+	facts: {
+		memberCounts?: Map<string, number>;
+		personnelCounts?: Map<string, number>;
+		owners?: Awaited<
+			ReturnType<PlatformOrganizationLedgerDependencies['store']['listOwnerMembershipMetricsByOrganization']>
+		>;
+	} = {}
+): PlatformOrganizationLedgerDependencies {
 	return {
-		countMembershipsByOrganization: vi.fn(async () => new Map()),
-		countActivePersonnelByOrganization: vi.fn(async () => new Map()),
-		countActivePersonnelForOrganization: vi.fn(async () => 0),
-		getOwnerMembershipsByOrganization: vi.fn(async () => new Map()),
-		getOrganizationMetrics: vi.fn(async () => ({
-			memberCounts: new Map(),
-			activePersonnelCounts: new Map(),
-			ownerMemberships: new Map(),
-			...values
-		}))
+		store: {
+			listOrganizationsPage,
+			countMembershipsByOrganization: vi.fn(async () => facts.memberCounts ?? new Map()),
+			listOwnerMembershipMetricsByOrganization: vi.fn(async () => facts.owners ?? [])
+		},
+		personnel: { countActivePersonnelByOrganization: vi.fn(async () => facts.personnelCounts ?? new Map()) }
 	};
 }
 
@@ -80,25 +81,30 @@ describe('normalizePlatformOrganizationLedgerQuery', () => {
 
 describe('createPlatformOrganizationLedger', () => {
 	it('retains organization identity, suspension, owner, and separate member/personnel counts on a page', async () => {
-		const store: PlatformOrganizationLedgerStore = {
-			listOrganizationsPage: async () => ({
-				organizations: [organization(), organization({ id: 'org-2', suspended_at: '2026-09-19T00:00:00.000Z' })],
-				totalCount: 12
-			})
-		};
-		const ledger = createPlatformOrganizationLedger({
-			store,
-			metrics: metrics({
-				memberCounts: new Map([['org-1', 3]]),
-				activePersonnelCounts: new Map([['org-1', 42]]),
-				ownerMemberships: new Map([
-					[
-						'org-1',
-						{ kind: 'single', membership: { organizationId: 'org-1', userId: 'owner-1', email: 'owner@example.mil' } }
+		const ledger = createPlatformOrganizationLedger(
+			dependencies(
+				async () => ({
+					organizations: [
+						organization(),
+						organization({ id: 'org-2', suspended_at: '2026-09-19T00:00:00.000Z' }),
+						organization({ id: 'org-3' })
+					],
+					totalCount: 12
+				}),
+				{
+					memberCounts: new Map([['org-1', 3]]),
+					personnelCounts: new Map([['org-1', 42]]),
+					owners: [
+						{
+							organizationId: 'org-1',
+							ownerCount: 1,
+							singleOwner: { organizationId: 'org-1', userId: 'owner-1', email: 'owner@example.mil' }
+						},
+						{ organizationId: 'org-3', ownerCount: 2, singleOwner: null }
 					]
-				])
-			})
-		});
+				}
+			)
+		);
 
 		const result = await ledger.listOrganizations({ page: 2, pageSize: 5, q: ' Able ' });
 
@@ -130,15 +136,22 @@ describe('createPlatformOrganizationLedger', () => {
 				personnelCount: 0,
 				ownerEmail: 'No owner',
 				isSuspended: true
+			},
+			{
+				id: 'org-3',
+				name: 'Able Company',
+				suspended_at: null,
+				created_at: '2026-06-01T00:00:00.000Z',
+				memberCount: 0,
+				personnelCount: 0,
+				ownerEmail: 'Multiple owners',
+				isSuspended: false
 			}
 		]);
 	});
 
 	it('keeps one empty page when no organizations match', async () => {
-		const ledger = createPlatformOrganizationLedger({
-			store: { listOrganizationsPage: async () => ({ organizations: [], totalCount: 0 }) },
-			metrics: metrics()
-		});
+		const ledger = createPlatformOrganizationLedger(dependencies(async () => ({ organizations: [], totalCount: 0 })));
 		expect(await ledger.listOrganizations({ q: 'missing', status: 'active' })).toEqual({
 			organizations: [],
 			pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 1, q: 'missing', status: 'active' }
@@ -150,7 +163,7 @@ describe('createPlatformOrganizationLedger', () => {
 			organizations: rows.slice(from, to + 1),
 			totalCount: rows.length
 		}));
-		const ledger = createPlatformOrganizationLedger({ store: { listOrganizationsPage }, metrics: metrics() });
+		const ledger = createPlatformOrganizationLedger(dependencies(listOrganizationsPage));
 
 		const result = await ledger.listOrganizations({ page: 9, pageSize: 2 });
 
@@ -167,7 +180,7 @@ describe('createPlatformOrganizationLedger', () => {
 			organizations: [],
 			totalCount: 0
 		}));
-		const ledger = createPlatformOrganizationLedger({ store: { listOrganizationsPage }, metrics: metrics() });
+		const ledger = createPlatformOrganizationLedger(dependencies(listOrganizationsPage));
 
 		expect(await ledger.listOrganizations({ q: 'zzz', page: 2 })).toEqual({
 			organizations: [],
@@ -179,16 +192,17 @@ describe('createPlatformOrganizationLedger', () => {
 		]);
 	});
 
-	it('does not publish rows with false metrics when the admitted source read fails', async () => {
-		const ledger = createPlatformOrganizationLedger({
-			store: { listOrganizationsPage: async () => ({ organizations: [organization()], totalCount: 1 }) },
-			metrics: {
-				...metrics(),
-				getOrganizationMetrics: async () => {
-					throw new Error('metrics unavailable');
-				}
-			}
-		});
-		await expect(ledger.listOrganizations()).rejects.toThrow('metrics unavailable');
-	});
+	it.each(['members', 'personnel', 'owners'] as const)(
+		'does not publish rows with false counts when the %s read fails',
+		async (failure) => {
+			const deps = dependencies(async () => ({ organizations: [organization()], totalCount: 1 }));
+			const failing = {
+				members: deps.store.countMembershipsByOrganization,
+				personnel: deps.personnel.countActivePersonnelByOrganization,
+				owners: deps.store.listOwnerMembershipMetricsByOrganization
+			}[failure];
+			vi.mocked(failing).mockRejectedValue(new Error('source unavailable'));
+			await expect(createPlatformOrganizationLedger(deps).listOrganizations()).rejects.toThrow('source unavailable');
+		}
+	);
 });

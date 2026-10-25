@@ -3,7 +3,7 @@ export interface SensitiveActionStepUpPayload {
 	stepUpPath?: unknown;
 }
 
-const STEP_UP_PATHS = new Set(['/auth/login', '/auth/mfa-verify']);
+const STEP_UP_PATHS = new Set(['/auth/login', '/auth/mfa-verify', '/auth/mfa-setup']);
 
 export function isSensitiveActionStepUpPayload(value: unknown): value is SensitiveActionStepUpPayload {
 	return Boolean(value && typeof value === 'object' && (value as SensitiveActionStepUpPayload).requiresStepUp === true);

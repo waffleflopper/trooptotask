@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
-import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { openToolbarMore } from '$lib/test-support/toolbarWidths';
 
 const { invalidateAll, beforeNavigate } = vi.hoisted(() => ({ invalidateAll: vi.fn(), beforeNavigate: vi.fn() }));
 vi.mock('$app/navigation', () => ({ invalidateAll, beforeNavigate }));
@@ -30,7 +30,6 @@ afterEach(() => {
 
 function makePageData(overrides: Partial<PageData> = {}): PageData {
 	return {
-		adminRole: 'super_admin',
 		user: {
 			id: '11111111-1111-4111-8111-111111111111',
 			email: 'soldier@example.mil',
@@ -42,6 +41,9 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
 		organizations: [],
 		suspension: null,
 		isSuspended: false,
+		isSelf: false,
+		canSuspend: true,
+		suspendDisabledReason: null,
 		recentActivity: [],
 		...overrides
 	} as PageData;
@@ -97,6 +99,25 @@ async function submitAccountEmail(name: string) {
 }
 
 describe('admin user detail page', () => {
+	it('shows Suspend disabled with its reason on your own account', async () => {
+		render(Page, {
+			props: {
+				data: makePageData({
+					isSelf: true,
+					canSuspend: false,
+					suspendDisabledReason: 'You cannot suspend your own account.'
+				})
+			}
+		});
+		await act();
+		const suspend = screen.getByRole('button', { name: 'Suspend User' });
+		expect(suspend.hasAttribute('disabled')).toBe(true);
+		expect(suspend.getAttribute('title')).toBe('You cannot suspend your own account.');
+		const reasonId = suspend.getAttribute('aria-describedby')!;
+		expect(document.getElementById(reasonId)?.textContent).toBe('You cannot suspend your own account.');
+		expect(screen.getAllByText('You cannot suspend your own account.').length).toBeGreaterThan(0);
+	});
+
 	it.each(['Send Password Reset', 'Resend Invite'])(
 		'ignores a delayed %s result after leaving and reopening the account',
 		async (name) => {
@@ -148,18 +169,6 @@ describe('admin user detail page', () => {
 			expect(invalidateAll).toHaveBeenCalledOnce();
 		}
 	);
-
-	it('keeps support account assistance while hiding super-admin suspension controls', async () => {
-		const layOut = stubToolbarWidths();
-		render(Page, { props: { data: makePageData({ adminRole: 'support' }) } });
-		expect(screen.getByRole('button', { name: 'Send Password Reset' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Resend Invite' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'More User controls' })).toBeNull();
-		await layOut.foldAll();
-		const menu = within(await openToolbarMore('User controls'));
-		expect(menu.getByRole('menuitem', { name: 'Resend Invite' })).toBeTruthy();
-		expect(menu.queryByRole('menuitem', { name: /Suspend/ })).toBeNull();
-	});
 
 	it('refreshes the visible User state after suspension before offering unsuspension', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));

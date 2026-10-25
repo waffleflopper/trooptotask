@@ -7,16 +7,21 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 const actorId = '10000000-0000-4000-8000-000000000001';
 const orgId = '20000000-0000-4000-8000-000000000001';
 const organization = { id: orgId, name: 'Able Clinic', suspended_at: null, created_at: '2026-06-01T00:00:00.000Z' };
-let role: string | null;
+let operator: boolean;
+let assurance: { currentLevel: 'aal1' | 'aal2'; nextLevel: 'aal1' | 'aal2' };
 let count: number;
-let candidates: boolean;
-let failingSource: 'ledger' | 'activation' | null;
+let ledgerFails: boolean;
 let reads: URL[];
 
 function event(path = '/admin/organizations', authenticated = true): Parameters<typeof load>[0] {
 	const url = new URL(path, 'http://localhost:9');
 	return {
-		locals: { actor: authenticated ? { userId: actorId } : null, user: { id: 'untrusted-other-user' } },
+		locals: {
+			actor: authenticated ? { userId: actorId } : null,
+			user: { id: 'untrusted-other-user' },
+			supabase: { auth: { mfa: { getAuthenticatorAssuranceLevel: async () => ({ data: assurance, error: null }) } } },
+			session: null
+		},
 		url,
 		request: new Request(url),
 		getClientAddress: () => '127.0.0.1'
@@ -24,10 +29,10 @@ function event(path = '/admin/organizations', authenticated = true): Parameters<
 }
 
 beforeEach(() => {
-	role = 'super_admin';
+	operator = true;
+	assurance = { currentLevel: 'aal2', nextLevel: 'aal2' };
 	count = 0;
-	candidates = false;
-	failingSource = null;
+	ledgerFails = false;
 	reads = [];
 	getAdminClient.mockReturnValue(
 		createClient('http://localhost:9', 'synthetic-service-key', {
@@ -37,24 +42,21 @@ beforeEach(() => {
 					const url = new URL(String(input));
 					reads.push(url);
 					const table = url.pathname.split('/').at(-1);
-					if (table === 'platform_admins') {
+					if (table === 'platform_operators') {
 						expect(url.searchParams.get('user_id')).toBe(`eq.${actorId}`);
-						expect(url.searchParams.get('is_active')).toBe('eq.true');
-						return Response.json(role ? { role } : null);
+						return Response.json(operator ? { user_id: actorId } : null);
 					}
 					if (table === 'organizations') {
-						const isLedger = url.searchParams.has('offset');
-						if ((isLedger && failingSource === 'ledger') || (!isLedger && failingSource === 'activation'))
-							return Response.json({ message: 'private provider detail' }, { status: 500 });
+						if (ledgerFails) return Response.json({ message: 'private provider detail' }, { status: 500 });
 						const offset = Number(url.searchParams.get('offset') ?? 0);
-						if (isLedger && offset > 0 && offset >= count)
+						if (offset > 0 && offset >= count)
 							return Response.json(
 								{ code: 'PGRST103', message: 'Requested range not satisfiable', details: null, hint: null },
 								{ status: 416, headers: { 'Content-Range': `*/${count}` } }
 							);
-						if (isLedger && url.searchParams.get('select') === 'id')
+						if (url.searchParams.get('select') === 'id')
 							return new Response(null, { headers: { 'Content-Range': `*/${count}` } });
-						return Response.json((isLedger ? count > 0 : candidates) ? [organization] : [], {
+						return Response.json(count > 0 ? [organization] : [], {
 							headers: { 'Content-Range': `0-0/${count}` }
 						});
 					}
@@ -64,13 +66,6 @@ beforeEach(() => {
 						return Response.json([{ organization_id: orgId, membership_count: 1 }]);
 					if (table === 'list_platform_owner_membership_metrics')
 						return Response.json([{ organization_id: orgId, owner_count: 0, owner_user_id: null, owner_email: null }]);
-					if (table === 'rating_scheme_entries') {
-						expect(url.searchParams.get('organization_id')).toContain(orgId);
-						return Response.json([
-							{ id: 'eval-1', organization_id: orgId },
-							{ id: 'eval-2', organization_id: orgId }
-						]);
-					}
 					return Response.json([]);
 				}
 			}
@@ -86,8 +81,7 @@ describe('Organization index admitted source composition', () => {
 		const result = await load(event('/admin/organizations?page=3&pageSize=50&q=Able&status=active'));
 		expect(result).toMatchObject({
 			pagination: { page: 3, pageSize: 50, totalCount: 101, totalPages: 3, q: 'Able', status: 'active' },
-			organizations: [{ id: orgId, memberCount: 1, personnelCount: 3 }],
-			activationHealth: { overallState: 'no_candidates' }
+			organizations: [{ id: orgId, memberCount: 1, personnelCount: 3 }]
 		});
 		const query = reads.find((url) => url.pathname.endsWith('/organizations') && url.searchParams.has('offset'))!;
 		expect(query.searchParams.get('offset')).toBe('100');
@@ -105,46 +99,28 @@ describe('Organization index admitted source composition', () => {
 			pagination: { page: 1, totalCount: 0, totalPages: 1, q: 'zzz' }
 		});
 	});
-	it('includes saved Rating configuration through the actual owning reader', async () => {
-		count = 1;
-		candidates = true;
-		const result = await load(event());
-		expect(result).toMatchObject({
-			activationHealth: {
-				counts: { setupStarted: 1 },
-				organizations: [{ supportBundle: { activation: { ratingSchemeEntries: 2 } } }]
-			}
-		});
-	});
-	it.each([null, 'billing'])('denies current role %s before protected reads', async (currentRole) => {
-		role = currentRole;
+	it('denies a non-operator before protected reads', async () => {
+		operator = false;
 		await expect(load(event())).rejects.toMatchObject({ status: 403 });
-		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_admins']);
+		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_operators']);
 	});
-	it('redirects a missing verified actor before any provider read', async () => {
-		await expect(load(event('/admin/organizations', false))).rejects.toMatchObject({
+	it('sends an operator at aal1 to MFA enrollment before protected reads', async () => {
+		assurance = { currentLevel: 'aal1', nextLevel: 'aal1' };
+		await expect(load(event())).rejects.toMatchObject({
 			status: 303,
-			location: '/auth/login'
+			location: '/auth/mfa-setup?next=%2Fadmin%2Forganizations'
 		});
+		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_operators']);
+	});
+	it('refuses a missing verified actor before any provider read', async () => {
+		await expect(load(event('/admin/organizations', false))).rejects.toMatchObject({ status: 403 });
 		expect(reads).toEqual([]);
 	});
-	it('allows current Support to read the index', async () => {
-		role = 'support';
-		await expect(load(event())).resolves.toMatchObject({ organizations: [], pagination: { totalCount: 0 } });
-	});
 	it('sanitizes an unavailable primary ledger', async () => {
-		failingSource = 'ledger';
+		ledgerFails = true;
 		await expect(load(event())).rejects.toMatchObject({
 			status: 500,
 			body: { message: 'Unable to load platform organizations.' }
-		});
-	});
-	it('keeps the ledger available while reporting unavailable activation diagnostics', async () => {
-		count = 1;
-		failingSource = 'activation';
-		await expect(load(event())).resolves.toMatchObject({
-			organizations: [{ id: orgId }],
-			activationHealth: { overallState: 'diagnostics_unavailable', diagnosticsError: true }
 		});
 	});
 });

@@ -21,7 +21,21 @@ function sources(): PlatformSupportAdministrationDependencies {
 			unsuspendOrganization: vi.fn(async () => {})
 		},
 		actorUserId: 'admitted-admin',
-		audit: { log: vi.fn() },
+		sensitiveActionAuthorizer: {
+			authorize: async ({ action, actorUserId, target }) => ({
+				action,
+				actorUserId,
+				target,
+				allowed: true,
+				reason: 'allowed.mfaAssurance',
+				currentAssuranceLevel: 'aal2',
+				nextAssuranceLevel: 'aal2',
+				sessionAgeMs: 0,
+				recentSessionWindowMs: 600000,
+				requiresStepUp: false
+			})
+		},
+		audit: { log: vi.fn(async () => {}) },
 		now: () => NOW
 	};
 }
@@ -145,7 +159,7 @@ describe('Platform suspension policy', () => {
 		else
 			deps.organizationSuspensionCommands[operation as 'suspendOrganization' | 'unsuspendOrganization'] = acknowledged;
 		deps.audit = {
-			log(event) {
+			async log(event) {
 				expect(changes).toEqual([`${action}:${targetId}`]);
 				events.push(event);
 			}
@@ -193,9 +207,14 @@ describe('Platform suspension policy', () => {
 	it('does not emit a success audit before an asynchronous source acknowledgement', async () => {
 		const deps = sources();
 		let acknowledge!: () => void;
+		let sourceStarted!: () => void;
+		const started = new Promise<void>((resolve) => {
+			sourceStarted = resolve;
+		});
 		deps.userSuspensionCommands.suspendUser = () =>
 			new Promise<void>((resolve) => {
 				acknowledge = resolve;
+				sourceStarted();
 			});
 		const pending = createPlatformSupportAdministration(deps).updateSuspension({
 			type: 'user',
@@ -203,6 +222,7 @@ describe('Platform suspension policy', () => {
 			action: 'suspend'
 		});
 		expect(deps.audit.log).not.toHaveBeenCalled();
+		await started;
 		acknowledge();
 		await expect(pending).resolves.toEqual({ status: 'updated', success: true });
 		expect(deps.audit.log).toHaveBeenCalledTimes(1);
@@ -250,4 +270,14 @@ describe('Platform suspension policy', () => {
 		expect(deps.organizationSuspensionCommands.unsuspendOrganization).not.toHaveBeenCalled();
 		expect(deps.audit.log).not.toHaveBeenCalled();
 	});
+});
+
+it('fails the suspension command when its audit rejects', async () => {
+	const deps = sources();
+	deps.audit.log = async () => {
+		throw new Error('Audit unavailable');
+	};
+	await expect(
+		createPlatformSupportAdministration(deps).updateSuspension({ type: 'user', targetId: USER, action: 'suspend' })
+	).rejects.toThrow('Audit unavailable');
 });

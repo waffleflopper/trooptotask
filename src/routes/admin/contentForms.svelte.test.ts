@@ -3,13 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
-import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import Announcements from './announcements/+page.svelte';
 import Feedback from './feedback/+page.svelte';
-import Dashboard from './+page.svelte';
 import type { PageData as AnnouncementData } from './announcements/$types';
 import type { PageData as FeedbackData } from './feedback/$types';
-import type { PageData as DashboardData } from './$types';
 
 const { forms, invalidateAll, navigation, gotoMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -40,16 +37,12 @@ const notice: AnnouncementData['announcements'][number] = {
 };
 function adminData(
 	actorId: string
-): Pick<
-	AnnouncementData,
-	'viewer' | 'adminUserId' | 'visibleNavGroups' | 'adminEmail' | 'adminRole' | 'accessiblePages'
-> {
+): Pick<AnnouncementData, 'viewer' | 'adminUserId' | 'visibleNavGroups' | 'adminEmail' | 'accessiblePages'> {
 	return {
 		viewer: null,
 		adminUserId: actorId,
 		visibleNavGroups: [],
 		adminEmail: 'admin@example.test',
-		adminRole: 'super_admin',
 		accessiblePages: ['dashboard', 'announcements', 'feedback', 'audit']
 	};
 }
@@ -506,113 +499,5 @@ describe('Feedback editor ownership', () => {
 		await old.finish(succeeded);
 		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
 		expect(invalidateAll).not.toHaveBeenCalled();
-	});
-});
-
-describe('Dashboard admitted navigation', () => {
-	it.each([
-		{
-			role: 'super_admin',
-			pages: ['dashboard', 'users', 'organizations', 'access-requests', 'feedback', 'audit', 'announcements'],
-			targets: ['/admin/audit', '/admin/users', '/admin/access-requests', '/admin/feedback', '/admin/organizations']
-		},
-		{
-			role: 'support',
-			pages: ['dashboard', 'users', 'organizations', 'access-requests', 'feedback'],
-			targets: ['/admin/users', '/admin/access-requests', '/admin/feedback', '/admin/organizations']
-		},
-		{ role: 'billing', pages: ['dashboard'], targets: [] }
-	] satisfies Array<{ role: DashboardData['adminRole']; pages: DashboardData['accessiblePages']; targets: string[] }>)(
-		'shows only destinations admitted for $role',
-		({ role, pages, targets }) => {
-			render(Dashboard, {
-				props: {
-					data: {
-						...adminData('admin-a'),
-						adminRole: role,
-						accessiblePages: pages,
-						userStats: { total: 3, last_30_days: 1 },
-						totalOrganizations: 2,
-						pendingAccessRequests: 1,
-						pendingFeedback: 1,
-						signupTrend: [],
-						recentActivity: []
-					}
-				}
-			});
-			expect([...new Set(screen.queryAllByRole('link').map((link) => link.getAttribute('href')))].sort()).toEqual(
-				targets.toSorted()
-			);
-		}
-	);
-
-	function renderDashboard(role: DashboardData['adminRole'], pages: DashboardData['accessiblePages']) {
-		render(Dashboard, {
-			props: {
-				data: {
-					...adminData('admin-a'),
-					adminRole: role,
-					accessiblePages: pages,
-					userStats: { total: 3, last_30_days: 1 },
-					totalOrganizations: 2,
-					pendingAccessRequests: 0,
-					pendingFeedback: 0,
-					signupTrend: [],
-					recentActivity: []
-				}
-			}
-		});
-	}
-
-	it('links Audit Log and Inspect Users from the toolbar, and Audit Log still works from More', async () => {
-		const toolbarWidths = stubToolbarWidths();
-		renderDashboard('super_admin', ['dashboard', 'users', 'audit']);
-		const toolbar = within(screen.getByRole('toolbar', { name: 'Admin Dashboard controls' }));
-		expect(toolbar.getByRole('link', { name: 'Audit Log' }).getAttribute('href')).toBe('/admin/audit');
-		expect(toolbar.getByRole('link', { name: 'Inspect Users' }).getAttribute('href')).toBe('/admin/users');
-
-		await toolbarWidths.foldAll();
-		expect(toolbar.queryByRole('link', { name: 'Audit Log' })).toBeNull();
-		expect(toolbar.getByRole('link', { name: 'Inspect Users' })).toBeTruthy();
-		const menu = within(await openToolbarMore('Admin Dashboard controls'));
-		await fireEvent.click(menu.getByRole('menuitem', { name: 'Audit Log' }));
-		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/admin/audit'));
-	});
-
-	it.each([
-		{ pages: ['dashboard', 'users'], audit: false, users: true },
-		{ pages: ['dashboard', 'audit'], audit: true, users: false }
-	] as const)('shows only the toolbar controls admitted for $pages', ({ pages, audit, users }) => {
-		renderDashboard('support', [...pages]);
-		const toolbar = within(screen.getByRole('toolbar', { name: 'Admin Dashboard controls' }));
-		expect(toolbar.queryByRole('link', { name: 'Audit Log' }) !== null).toBe(audit);
-		expect(toolbar.queryByRole('link', { name: 'Inspect Users' }) !== null).toBe(users);
-	});
-
-	it('gives the signup chart a canonical data table', () => {
-		render(Dashboard, {
-			props: {
-				data: {
-					...adminData('admin-a'),
-					userStats: { total: 3, last_30_days: 1 },
-					totalOrganizations: 2,
-					pendingAccessRequests: 0,
-					pendingFeedback: 0,
-					signupTrend: [{ date: '2026-10-01', count: 2 }],
-					recentActivity: []
-				}
-			}
-		});
-		const table = screen.getByRole('table', { name: 'Admin signup trend data' });
-		expect(
-			within(table)
-				.getAllByRole('columnheader')
-				.map((header) => header.textContent?.trim())
-		).toEqual(['Date', 'New accounts']);
-		expect(
-			within(table)
-				.getAllByRole('row')
-				.map((row) => row.textContent?.trim())
-		).toEqual(['Date New accounts', '2026-10-01 2']);
 	});
 });

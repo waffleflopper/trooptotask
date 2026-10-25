@@ -3,16 +3,12 @@ import { auditLog } from '$lib/audit/index.server';
 import { admitPlatformAdministrator } from './admission.server';
 import { createPlatformAnnouncements } from './announcements.server';
 import { createSupabasePlatformAnnouncementsStore } from './announcementProvider.server';
-import { PLATFORM_ADMIN_PAGE_ROLES } from './navigation.server';
 
 export async function createPlatformAnnouncementOperations(event: RequestEvent) {
-	const { actor, adminClient, requestInfo } = await admitPlatformAdministrator(
-		event,
-		PLATFORM_ADMIN_PAGE_ROLES.announcements
-	);
+	const { actor, adminClient, requestInfo } = await admitPlatformAdministrator(event);
 	return createPlatformAnnouncements({
 		store: createSupabasePlatformAnnouncementsStore(adminClient),
 		actorUserId: actor.userId,
-		audit: (entry) => auditLog(entry, requestInfo)
+		audit: (entry) => auditLog(entry, requestInfo, { required: true })
 	});
 }

@@ -3,46 +3,9 @@ import type {
 	OrganizationSupportMember,
 	OrganizationSupportMemberReader,
 	OrganizationSupportOrganization,
-	OrganizationSupportPage,
-	OrganizationSupportReader,
-	OrganizationSupportOwnerMembership,
-	OrganizationSupportOwnerMembershipMetric
+	OrganizationSupportReader
 } from '$features/organization/contracts';
 import type { PersonnelSupportReader } from '$features/personnel/contracts';
-
-export type PlatformSupportAdminRole = 'super_admin' | 'support' | 'billing';
-
-export type PlatformOwnerMembershipRow = OrganizationSupportOwnerMembership;
-export type PlatformOwnerMembershipMetric = OrganizationSupportOwnerMembershipMetric;
-
-export type PlatformOwnerMembershipStatus =
-	| { kind: 'single'; membership: PlatformOwnerMembershipRow }
-	| { kind: 'none' }
-	| { kind: 'multiple'; count: number };
-
-export interface PlatformOrganizationMetrics {
-	memberCounts: Map<string, number>;
-	activePersonnelCounts: Map<string, number>;
-	ownerMemberships: Map<string, PlatformOwnerMembershipStatus>;
-}
-
-export type PlatformMetricsStore = Pick<
-	OrganizationSupportReader,
-	'countMembershipsByOrganization' | 'listOwnerMembershipMetricsByOrganization'
-> &
-	PersonnelSupportReader;
-
-export interface PlatformMetrics {
-	countMembershipsByOrganization(organizationIds: string[]): Promise<Map<string, number>>;
-	countActivePersonnelByOrganization(organizationIds: string[]): Promise<Map<string, number>>;
-	countActivePersonnelForOrganization(organizationId: string): Promise<number>;
-	getOwnerMembershipsByOrganization(organizationIds: string[]): Promise<Map<string, PlatformOwnerMembershipStatus>>;
-	getOrganizationMetrics(organizationIds: string[]): Promise<PlatformOrganizationMetrics>;
-}
-
-export interface PlatformMetricsDependencies {
-	store: PlatformMetricsStore;
-}
 
 export interface PlatformOrganizationLedgerInput {
 	page?: number | string | null;
@@ -70,8 +33,10 @@ export interface PlatformOrganizationLedgerPageMetadata {
 }
 
 export type PlatformOrganizationLedgerBaseRow = OrganizationSupportOrganization;
-export type PlatformOrganizationLedgerPage = OrganizationSupportPage;
-export type PlatformOrganizationLedgerStore = Pick<OrganizationSupportReader, 'listOrganizationsPage'>;
+export type PlatformOrganizationLedgerStore = Pick<
+	OrganizationSupportReader,
+	'listOrganizationsPage' | 'countMembershipsByOrganization' | 'listOwnerMembershipMetricsByOrganization'
+>;
 
 export interface PlatformOrganizationLedgerOrganizationRow extends PlatformOrganizationLedgerBaseRow {
 	memberCount: number;
@@ -87,7 +52,7 @@ export interface PlatformOrganizationLedgerListResult {
 
 export interface PlatformOrganizationLedgerDependencies {
 	store: PlatformOrganizationLedgerStore;
-	metrics: Pick<PlatformMetrics, 'getOrganizationMetrics'>;
+	personnel: Pick<PersonnelSupportReader, 'countActivePersonnelByOrganization'>;
 }
 
 export interface PlatformOrganizationLedger {
@@ -112,7 +77,6 @@ export interface PlatformOrganizationDetailOrg {
 }
 
 export interface PlatformOrganizationDetailLoadData {
-	adminRole: PlatformSupportAdminRole;
 	org: PlatformOrganizationDetailOrg;
 	members: PlatformOrganizationDetailMember[];
 	personnelCount: number;
@@ -130,8 +94,7 @@ export interface PlatformOrganizationDetail {
 
 export interface PlatformOrganizationDetailDependencies {
 	store: PlatformOrganizationDetailStore;
-	adminRole: PlatformSupportAdminRole;
 	membershipReader: OrganizationSupportMemberReader;
-	metrics: Pick<PlatformMetrics, 'countActivePersonnelForOrganization'>;
+	personnel: Pick<PersonnelSupportReader, 'countActivePersonnelForOrganization'>;
 	audit: Pick<PlatformAudit, 'listRecentByOrganization'>;
 }

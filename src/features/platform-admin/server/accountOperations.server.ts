@@ -14,7 +14,7 @@ import { checkAdminAuthEmailRateLimit } from './accountEmailRateLimit.server';
 
 /** Used account support operations bound to current platform authority and this request origin. */
 export async function createPlatformAccountOperations(event: RequestEvent) {
-	const { role, adminClient, requestInfo } = await admitPlatformAdministrator(event, ['super_admin', 'support']);
+	const { actor, adminClient, requestInfo } = await admitPlatformAdministrator(event);
 	const directory = createPlatformUserDirectory({
 		identity: createIdentityPlatformSupportReader(adminClient),
 		organizations: createOrganizationSupportReader(adminClient),
@@ -23,12 +23,12 @@ export async function createPlatformAccountOperations(event: RequestEvent) {
 	const commands = createPlatformUserIdentityCommands({
 		store: createIdentityPlatformAccountEmailPort(adminClient),
 		checkRateLimit: (userId, type) => checkAdminAuthEmailRateLimit(adminClient, userId, type),
-		audit: { log: (entry) => auditLog(entry, requestInfo) },
+		audit: { log: (entry) => auditLog(entry, requestInfo, { required: true }) },
 		confirmationUrl: getAuthConfirmRedirectTo
 	});
 	const audit = createSupabasePlatformAudit(adminClient);
 	return {
-		adminRole: role,
+		adminUserId: actor.userId,
 		listUsers: directory.listUsers,
 		async getUserDetail(userId: string) {
 			const result = await directory.getUserDetail(userId);

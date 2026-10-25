@@ -32,7 +32,7 @@ interface HeldClaimRow {
  * Reads Account Setup state for an Organization's own pending Organization Invitations.
  *
  * Service-role because `access_requests` and its link table are readable only under
- * `is_platform_admin()`. The invitation query is constrained to the calling Organization;
+ * `is_platform_operator()`. The invitation query is constrained to the calling Organization;
  * the held-claim query is batched by those invitees' emails. Only derived setup state
  * leaves this adapter — see ADR 0012.
  */

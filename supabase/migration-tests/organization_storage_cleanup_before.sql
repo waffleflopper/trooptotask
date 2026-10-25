@@ -19,8 +19,13 @@ INSERT INTO public.organization_memberships (
   ('fa170000-0000-4000-8000-000000000101', 'fa170000-0000-4000-8000-000000000002', 'admin', 'viewer', '{}', 'organization', ARRAY[]::uuid[]),
   ('fa170000-0000-4000-8000-000000000101', 'fa170000-0000-4000-8000-000000000003', 'member', 'viewer', '{"personnel":"configure","training":"view"}', 'organization', ARRAY[]::uuid[]),
   ('fa170000-0000-4000-8000-000000000102', 'fa170000-0000-4000-8000-000000000004', 'owner', 'viewer', '{}', 'organization', ARRAY[]::uuid[]);
-INSERT INTO public.platform_admins (user_id, role, is_active) VALUES
-  ('fa170000-0000-4000-8000-000000000005', 'support', true);
+DO $$ BEGIN
+ IF to_regclass('public.platform_operators') IS NULL THEN
+  INSERT INTO public.platform_admins(user_id) VALUES ('fa170000-0000-4000-8000-000000000005');
+ ELSE
+  INSERT INTO public.platform_operators(user_id) VALUES ('fa170000-0000-4000-8000-000000000005');
+ END IF;
+END $$;
 INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug) VALUES
   ('fa170000-0000-4000-8000-000000000301', 'fa170000-0000-4000-8000-000000000101', 'SPC', 'Retained', 'Person', 'd17-retained-person');
 INSERT INTO public.sign_in_rosters (
@@ -64,6 +69,10 @@ FROM (VALUES
   ('fa170000-0000-4000-8000-000000000518', 'personnel-documents', 'before/fa170000-0000-4000-8000-000000000101/orphan.pdf')
 ) AS objects(id, bucket, object_name);
 
+DO $$ BEGIN
+ EXECUTE pg_catalog.format('CREATE VIEW upgrade_fixture.storage_cleanup_operator_rows AS SELECT user_id,created_at FROM public.%I',
+ CASE WHEN to_regclass('public.platform_operators') IS NULL THEN 'platform_admins' ELSE 'platform_operators' END);
+END $$;
 CREATE VIEW upgrade_fixture.organization_storage_cleanup_current_rows AS
 SELECT 'auth.users'::text AS table_name, id::text AS row_id, to_jsonb(row_value) AS row_data
   FROM auth.users AS row_value WHERE id::text LIKE 'fa170000-%'
@@ -71,8 +80,7 @@ UNION ALL SELECT 'public.organizations', id::text, to_jsonb(row_value) - 'traini
   FROM public.organizations AS row_value WHERE id::text LIKE 'fa170000-%'
 UNION ALL SELECT 'public.organization_memberships', id::text, to_jsonb(row_value)
   FROM public.organization_memberships AS row_value WHERE organization_id::text LIKE 'fa170000-%'
-UNION ALL SELECT 'public.platform_admins', user_id::text, to_jsonb(row_value)
-  FROM public.platform_admins AS row_value WHERE user_id::text LIKE 'fa170000-%'
+UNION ALL SELECT 'public.platform_operators', user_id::text, to_jsonb(row_value) FROM upgrade_fixture.storage_cleanup_operator_rows row_value WHERE user_id::text LIKE 'fa170000-%'
 UNION ALL SELECT 'public.personnel', id::text, to_jsonb(row_value)
   FROM public.personnel AS row_value WHERE id::text LIKE 'fa170000-%'
 UNION ALL SELECT 'public.sign_in_rosters', id::text, to_jsonb(row_value)

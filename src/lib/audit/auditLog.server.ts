@@ -179,7 +179,7 @@ function sanitizeDetails(
 
 /**
  * Uses service role client (append-only, bypasses RLS).
- * Fails silently — audit logging should never break the request.
+ * Platform commands require a confirmed audit write; other callers keep best-effort logging.
  */
 export async function auditLog(
 	event: AuditEvent,
@@ -188,7 +188,8 @@ export async function auditLog(
 		userEmail?: string | null;
 		ip?: string;
 		userAgent?: string;
-	}
+	},
+	options: { required?: boolean } = {}
 ): Promise<void> {
 	try {
 		const admin = getAdminClient();
@@ -205,8 +206,9 @@ export async function auditLog(
 			details,
 			severity: event.severity ?? 'info'
 		});
-		if (result.error) console.error('Audit log write failed');
+		if (result.error) throw new Error('Audit log write failed');
 	} catch {
+		if (options.required) throw new Error('Audit log write failed');
 		console.error('Audit log write failed');
 	}
 }

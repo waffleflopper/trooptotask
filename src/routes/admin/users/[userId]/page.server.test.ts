@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { accountOperations, createOperations } = vi.hoisted(() => ({
 	accountOperations: {
-		adminRole: 'support',
+		adminUserId: '22222222-2222-4222-8222-222222222222',
 		getUserDetail: vi.fn(),
 		sendPasswordReset: vi.fn(),
 		resendInvite: vi.fn()
@@ -32,11 +32,26 @@ describe('User detail HTTP delivery', () => {
 		accountOperations.getUserDetail.mockResolvedValue({ status: 'found', detail });
 	});
 
-	it('returns the safe detail including activity and the current admitted role', async () => {
+	it('returns the safe detail including activity and that another User may be suspended', async () => {
 		const request = event();
-		await expect(load(request as never)).resolves.toEqual({ ...detail, adminRole: 'support' });
+		await expect(load(request as never)).resolves.toEqual({
+			...detail,
+			isSelf: false,
+			canSuspend: true,
+			suspendDisabledReason: null
+		});
 		expect(createOperations).toHaveBeenCalledWith(request);
 		expect(accountOperations.getUserDetail).toHaveBeenCalledWith(USER_ID);
+	});
+
+	it("disables Suspend with a reason on the operator's own account", async () => {
+		const own = detail.user.id;
+		createOperations.mockResolvedValue({ ...accountOperations, adminUserId: own.toUpperCase() });
+		await expect(load(event(own) as never)).resolves.toMatchObject({
+			isSelf: true,
+			canSuspend: false,
+			suspendDisabledReason: 'You cannot suspend your own account.'
+		});
 	});
 
 	it.each([

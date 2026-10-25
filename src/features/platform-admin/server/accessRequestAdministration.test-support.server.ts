@@ -107,7 +107,7 @@ export function makeDeps(overrides: Partial<PlatformAccessRequestAdministrationD
 			action: 'approval',
 			checks: []
 		}),
-		audit: vi.fn(),
+		audit: vi.fn().mockResolvedValue(undefined),
 		notifyGovernors: {
 			notifyInvitationBlocked: vi.fn().mockResolvedValue(undefined)
 		},

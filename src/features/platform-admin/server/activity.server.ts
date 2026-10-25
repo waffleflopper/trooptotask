@@ -6,7 +6,8 @@ import { activityScope } from '../auditSentences';
 export async function listPlatformActivity(
 	audit: Pick<PlatformAudit, 'listActivity'>,
 	query: ActivityQuery,
-	timeZone: string
+	timeZone: string,
+	viewerId: string
 ): Promise<ActivityPage> {
 	const { from, to } = activityInstantRange(query, timeZone);
 	const result = await audit.listActivity({
@@ -17,5 +18,5 @@ export async function listPlatformActivity(
 		page: query.page,
 		limit: ACTIVITY_PAGE_SIZE
 	});
-	return { events: result.events, page: result.page, pageSize: result.limit, totalCount: result.totalCount };
+	return { events: result.events, page: result.page, pageSize: result.limit, totalCount: result.totalCount, viewerId };
 }

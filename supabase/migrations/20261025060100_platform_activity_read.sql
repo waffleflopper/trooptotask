@@ -1,4 +1,6 @@
--- One page of platform Activity: filtered, searched, paged and joined to the Organization name in a single read.
+-- One page of platform Activity: filtered, searched, paged and joined to the Organization name and the actor's account
+-- in a single read. The actor's email and name are read here, never stored on Organization-readable rows, and search
+-- matches them. The function runs as its owner to read auth.users, and only the server role may call it.
 -- An offset past the last page clamps to the last page, and the offset used comes back with every row.
 CREATE FUNCTION public.list_platform_activity(
   p_actions text[],
@@ -14,6 +16,8 @@ CREATE FUNCTION public.list_platform_activity(
   user_id uuid,
   org_id uuid,
   org_name text,
+  actor_email text,
+  actor_name text,
   action text,
   resource_type text,
   resource_id uuid,
@@ -23,12 +27,23 @@ CREATE FUNCTION public.list_platform_activity(
   total_count bigint,
   page_offset integer
 )
-LANGUAGE sql STABLE SET search_path = '' AS $$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   WITH matched AS MATERIALIZED (
-    SELECT a.id, a."timestamp", a.user_id, a.org_id, o.name AS org_name, a.action, a.resource_type, a.resource_id,
-      a.ip_address::text AS ip_address, a.details, a.severity
+    SELECT a.id, a."timestamp", a.user_id, a.org_id, o.name AS org_name, u.email::text AS actor_email,
+      CASE WHEN person.name IS NULL THEN NULL
+        ELSE nullif(trim(concat_ws(' ', nullif(trim(u.raw_user_meta_data ->> 'rank'), ''), person.name)), '') END AS actor_name,
+      a.action, a.resource_type, a.resource_id, a.ip_address::text AS ip_address, a.details, a.severity
     FROM public.audit_logs a
     LEFT JOIN public.organizations o ON o.id = a.org_id
+    LEFT JOIN auth.users u ON u.id = a.user_id
+    LEFT JOIN auth.users t ON a.resource_type = 'user' AND t.id = a.resource_id
+    LEFT JOIN LATERAL (
+      SELECT coalesce(
+        nullif(trim(u.raw_user_meta_data ->> 'full_name'), ''),
+        nullif(trim(u.raw_user_meta_data ->> 'name'), ''),
+        nullif(trim(concat_ws(' ', u.raw_user_meta_data ->> 'first_name', u.raw_user_meta_data ->> 'last_name')), '')
+      ) AS name
+    ) person ON true
     WHERE (
         a.action = ANY (coalesce(p_actions, ARRAY[]::text[]))
         OR EXISTS (
@@ -41,6 +56,9 @@ LANGUAGE sql STABLE SET search_path = '' AS $$
         coalesce(p_search, '') = ''
         OR strpos(lower(a.action), lower(p_search)) > 0
         OR strpos(lower(coalesce(a.details ->> 'actorEmail', '')), lower(p_search)) > 0
+        OR strpos(lower(coalesce(u.email, '')), lower(p_search)) > 0
+        OR strpos(lower(coalesce(person.name, '')), lower(p_search)) > 0
+        OR strpos(lower(coalesce(t.email, '')), lower(p_search)) > 0
         OR strpos(lower(coalesce(a.details ->> 'targetName', '')), lower(p_search)) > 0
         OR strpos(lower(coalesce(a.resource_id::text, '')), lower(p_search)) > 0
         OR strpos(lower(coalesce(o.name, '')), lower(p_search)) > 0
@@ -51,7 +69,7 @@ LANGUAGE sql STABLE SET search_path = '' AS $$
       least(greatest(p_offset, 0), (greatest(count(*) - 1, 0) / greatest(p_limit, 1)) * greatest(p_limit, 1))::integer AS skip
     FROM matched
   )
-  SELECT m.id, m."timestamp", m.user_id, m.org_id, m.org_name, m.action, m.resource_type, m.resource_id, m.ip_address,
+  SELECT m.id, m."timestamp", m.user_id, m.org_id, m.org_name, m.actor_email, m.actor_name, m.action, m.resource_type, m.resource_id, m.ip_address,
     m.details, m.severity, b.total, b.skip
   FROM matched m CROSS JOIN bounds b
   ORDER BY m."timestamp" DESC, m.id

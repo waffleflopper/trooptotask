@@ -446,9 +446,9 @@ test('platform Activity setup records every event ID before inserting and leaves
 		}
 	});
 
-	assert.equal(result.total, 64);
+	assert.equal(result.total, 65);
 	assert.equal(saved.kind, 'platform-activity');
-	assert.equal(new Set(inserted.map(({ id }) => id)).size, 64);
+	assert.equal(new Set(inserted.map(({ id }) => id)).size, 65);
 	const legacy = inserted.find(({ id }) => id === result.legacyId);
 	assert.equal(legacy.user_id, null);
 	assert.equal(legacy.details.actorEmail, undefined);

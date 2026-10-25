@@ -9,6 +9,9 @@ export interface PlatformActivityEvent {
 	userId: string | null;
 	orgId: string | null;
 	orgName: string | null;
+	/** The actor's account as it stands now, so Organization-scoped rows need not store it. */
+	actorEmail: string | null;
+	actorName: string | null;
 	resourceType: string | null;
 	resourceId: string | null;
 	ipAddress: string | null;
@@ -39,7 +42,7 @@ export interface PlatformActivityInput {
 	/** An event matches when its action is listed here or starts with one of the prefixes. */
 	actions: string[];
 	prefixes: string[];
-	/** Case-insensitive text found in the action, actor email, target name, resource ID or Organization name. */
+	/** Case-insensitive text found in the action, actor email or name, target name, resource ID or Organization name. */
 	search: string;
 	/** Half-open instant range; `null` leaves that side open. */
 	from: Date | null;

@@ -3,6 +3,7 @@ import type { PlatformAuditRecord, PlatformAuditStore } from './platformAudit.se
 interface InMemoryPlatformAuditOptions {
 	logs?: PlatformAuditRecord[];
 	organizationNames?: Record<string, string>;
+	actors?: Record<string, { email: string; name?: string }>;
 }
 
 function cloneLog(log: PlatformAuditRecord): PlatformAuditRecord {
@@ -41,6 +42,8 @@ export function createInMemoryPlatformAuditStore(options: InMemoryPlatformAuditO
 				const searched = [
 					log.action,
 					typeof log.details?.actorEmail === 'string' ? log.details.actorEmail : '',
+					(log.userId && options.actors?.[log.userId]?.email) || '',
+					(log.userId && options.actors?.[log.userId]?.name) || '',
 					typeof log.details?.targetName === 'string' ? log.details.targetName : '',
 					log.resourceId ?? '',
 					log.orgId ? (options.organizationNames?.[log.orgId] ?? '') : ''
@@ -58,6 +61,8 @@ export function createInMemoryPlatformAuditStore(options: InMemoryPlatformAuditO
 					userId: log.userId,
 					orgId: log.orgId,
 					orgName: log.orgId ? (options.organizationNames?.[log.orgId] ?? null) : null,
+					actorEmail: (log.userId && options.actors?.[log.userId]?.email) || null,
+					actorName: (log.userId && options.actors?.[log.userId]?.name) || null,
 					resourceType: log.resourceType,
 					resourceId: log.resourceId,
 					ipAddress: log.ipAddress,

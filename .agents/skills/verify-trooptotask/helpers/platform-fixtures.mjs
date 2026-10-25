@@ -143,12 +143,18 @@ export async function seedPlatformActivity({ client, fixture, tag, ownedState, s
 			details: { reason: `Legacy row ${tag}` },
 			user_id: null
 		}),
+		event(4, 'suspend_user', 'critical', {
+			resource_type: 'user',
+			resource_id: fixture.actors.orgInvitee.id,
+			details: labels(`Suspended person ${tag}`, { reason: `Reason ${tag}` })
+		}),
 		event(5, 'unsuspend_user', 'warning', {
 			resource_type: 'user',
 			resource_id: fixture.actors.orgMember.id,
 			details: labels(fixture.actors.orgMember.email)
 		}),
 		event(8, 'admin.org.transfer_ownership', 'critical', {
+			user_id: fixture.actors.orgCreator.id,
 			org_id: fixture.ids.orgA,
 			resource_type: 'organization',
 			resource_id: fixture.ids.orgA,

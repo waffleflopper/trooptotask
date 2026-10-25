@@ -5,7 +5,9 @@ import { admitPlatformAdministrator } from './admission.server';
 import { listPlatformActivity } from './activity.server';
 
 export async function createPlatformActivityOperations(event: RequestEvent) {
-	const { adminClient } = await admitPlatformAdministrator(event);
+	const { adminClient, actor } = await admitPlatformAdministrator(event);
 	const audit = createSupabasePlatformAudit(adminClient);
-	return { list: (query: ActivityQuery, timeZone: string) => listPlatformActivity(audit, query, timeZone) };
+	return {
+		list: (query: ActivityQuery, timeZone: string) => listPlatformActivity(audit, query, timeZone, actor.userId)
+	};
 }

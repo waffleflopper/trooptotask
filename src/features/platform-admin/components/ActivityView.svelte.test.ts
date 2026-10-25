@@ -21,19 +21,20 @@ const loader = () => vi.fn<ActivityLoader>();
 
 const TIME_ZONE = 'America/Los_Angeles';
 const TODAY = new Date('2026-10-22T20:00:00Z');
+const VIEWER = 'user-1';
 const BASE_QUERY: ActivityQuery = { category: null, q: '', from: '', to: '', page: 1 };
 
 function event(overrides: Partial<AuditEventRecord> & Pick<AuditEventRecord, 'id' | 'timestamp'>): AuditEventRecord {
 	return {
 		action: 'suspend_user',
 		severity: 'critical',
-		userId: 'user-1',
+		userId: VIEWER,
 		orgId: null,
 		orgName: null,
 		resourceType: 'user',
 		resourceId: '11111111-2222-3333-4444-555555555555',
 		ipAddress: null,
-		details: { actorEmail: 'robert@example.test', targetName: 'pat@example.test', reason: 'Policy hold' },
+		details: { actorEmail: 'robert@example.test', targetName: 'CPT Pat Lee', reason: 'Policy hold' },
 		...overrides
 	};
 }
@@ -44,11 +45,14 @@ const EVENTS = [
 		id: 'org',
 		timestamp: '2026-10-22T04:00:00Z',
 		action: 'suspend_org',
+		userId: 'user-2',
+		actorName: 'SSG Dana Reyes',
+		actorEmail: 'dana@example.test',
 		orgId: 'org-1',
 		orgName: 'Alpha Company',
 		resourceType: 'organization',
 		resourceId: 'org-1',
-		details: { actorEmail: 'robert@example.test' }
+		details: null
 	}),
 	event({
 		id: 'unknown',
@@ -60,7 +64,7 @@ const EVENTS = [
 ];
 
 function pageOf(events: AuditEventRecord[], totalCount = events.length, page = 1): ActivityPage {
-	return { events, page, pageSize: 50, totalCount };
+	return { events, page, pageSize: 50, totalCount, viewerId: VIEWER };
 }
 
 function deferred<T>() {
@@ -107,16 +111,29 @@ describe('ActivityView', () => {
 
 		reply.resolve(pageOf(EVENTS));
 
-		await screen.findByText('robert@example.test suspended pat@example.test');
+		await screen.findByText('You suspended CPT Pat Lee');
 		expect(screen.queryByTestId('activity-skeleton')).toBeNull();
 		expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent?.trim())).toEqual([
-			'Wednesday, October 21, 2026',
-			'Tuesday, October 20, 2026'
+			'Yesterday · Oct 21',
+			'Oct 20'
 		]);
-		expect(screen.getByText('robert@example.test suspended Alpha Company')).toBeTruthy();
-		expect(screen.getAllByText('admin.brand.new').map((node) => node.tagName)).toContain('P');
-		expect(screen.getByText('3 events')).toBeTruthy();
+		expect(screen.getByText('2 events')).toBeTruthy();
+		expect(screen.getByText('1 event')).toBeTruthy();
+		expect(screen.getByText('SSG Dana Reyes suspended Alpha Company')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Details: admin.brand.new' })).toBeTruthy();
 		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('lays each row out as a time, a sentence with its reason, and a category', async () => {
+		renderView(loader().mockResolvedValue(pageOf(EVENTS)));
+
+		const [late, org, unknown] = await screen.findAllByRole('listitem');
+		expect(within(late).getByText('22:30')).toBeTruthy();
+		expect(within(late).getByText('Reason: Policy hold')).toBeTruthy();
+		expect(within(late).getByText('Accounts')).toBeTruthy();
+		expect(within(org).getByText('Organizations')).toBeTruthy();
+		expect(within(org).queryByText(/^Reason:/)).toBeNull();
+		expect(within(unknown).queryByText(/^(Access|Accounts|Organizations|Security)$/)).toBeNull();
 	});
 
 	it('marks warning and critical rows for assistive technology and leaves info rows unmarked', async () => {
@@ -140,7 +157,7 @@ describe('ActivityView', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry Activity' }));
 
-		await screen.findByText('robert@example.test suspended pat@example.test');
+		await screen.findByText('You suspended CPT Pat Lee');
 		expect(load).toHaveBeenCalledTimes(2);
 		expect(screen.queryByText('Unable to load Activity')).toBeNull();
 	});
@@ -161,7 +178,7 @@ describe('ActivityView', () => {
 		first.resolve(pageOf([EVENTS[0]]));
 		await Promise.resolve();
 
-		expect(screen.queryByText('robert@example.test suspended pat@example.test')).toBeNull();
+		expect(screen.queryByText('You suspended CPT Pat Lee')).toBeNull();
 		expect(screen.getByText('1 event')).toBeTruthy();
 	});
 
@@ -174,12 +191,12 @@ describe('ActivityView', () => {
 		await fireEvent.click(screen.getByRole('radio', { name: 'Access' }));
 		await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
 		second.resolve(pageOf([EVENTS[1]]));
-		await screen.findByText('robert@example.test suspended Alpha Company');
+		await screen.findByText('SSG Dana Reyes suspended Alpha Company');
 		first.reject(new Error('late'));
 		await Promise.resolve();
 
 		expect(screen.queryByText('Unable to load Activity')).toBeNull();
-		expect(screen.getByText('robert@example.test suspended Alpha Company')).toBeTruthy();
+		expect(screen.getByText('SSG Dana Reyes suspended Alpha Company')).toBeTruthy();
 	});
 
 	it('puts the category, the debounced search and a date preset in the address', async () => {
@@ -202,7 +219,8 @@ describe('ActivityView', () => {
 			})
 		);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Last 7 days' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Date range: All time' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Last 7 days' }));
 		await waitFor(() =>
 			expect(goto).toHaveBeenLastCalledWith('/admin/activity?category=accounts&q=Alpha&from=2026-10-16&to=2026-10-22', {
 				keepFocus: true,
@@ -237,7 +255,7 @@ describe('ActivityView', () => {
 		renderView(loader().mockResolvedValue(pageOf([EVENTS[0]])));
 
 		const trigger = await screen.findByRole('button', {
-			name: 'Details: robert@example.test suspended pat@example.test'
+			name: 'Details: You suspended CPT Pat Lee'
 		});
 		expect(trigger.getAttribute('aria-expanded')).toBe('false');
 		expect(screen.getByText('Policy hold').closest('[data-slot="collapsible-content"]')?.hasAttribute('hidden')).toBe(
@@ -262,5 +280,30 @@ describe('ActivityView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
 		expect(goto).toHaveBeenLastCalledWith('/admin/activity?category=access&page=2', { keepFocus: true });
+	});
+
+	it('keeps the pager in place while the next page loads', async () => {
+		const next = deferred<ActivityPage>();
+		const load = loader().mockResolvedValueOnce(pageOf(EVENTS, 120)).mockReturnValueOnce(next.promise);
+		renderView(load);
+
+		const button = await screen.findByRole('button', { name: 'Next' });
+		button.focus();
+		await fireEvent.click(button);
+		await waitFor(() => expect(screen.getByTestId('activity-skeleton')).toBeTruthy());
+
+		expect(screen.getByText('Page 2 of 3')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Next' })).toBe(button);
+		expect(document.activeElement).toBe(button);
+
+		next.resolve(pageOf([EVENTS[2]], 120, 2));
+		await screen.findByRole('button', { name: 'Details: admin.brand.new' });
+		expect(screen.getByText('Page 2 of 3')).toBeTruthy();
+	});
+
+	it('names the chosen days on the range control', async () => {
+		renderView(loader().mockResolvedValue(pageOf(EVENTS)), { ...BASE_QUERY, from: '2026-10-16', to: '2026-10-22' });
+
+		expect(await screen.findByRole('button', { name: 'Date range: Last 7 days' })).toBeTruthy();
 	});
 });

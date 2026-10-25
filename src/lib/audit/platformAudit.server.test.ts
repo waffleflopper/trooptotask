@@ -44,11 +44,13 @@ describe('PlatformAudit', () => {
 		expect(result).toMatchObject({ totalCount: 3, page: 1, limit: 50 });
 	});
 
-	it('searches actor email, target name and Organization name without regard to case', async () => {
+	it('searches actor email, actor name, target name and Organization name without regard to case', async () => {
 		const audit = createPlatformAudit({
 			store: createInMemoryPlatformAuditStore({
 				organizationNames: { 'org-1': 'Alpha Company' },
+				actors: { 'user-1': { email: 'Dana@example.test', name: 'CPT Dana Reyes' } },
 				logs: [
+					event('account', '2026-10-23T12:00:00.000Z', { userId: 'user-1', orgId: 'org-1', details: {} }),
 					event('actor', '2026-10-22T12:00:00.000Z', { details: { actorEmail: 'Robert@example.test' } }),
 					event('target', '2026-10-21T12:00:00.000Z', { details: { targetName: 'Pat Example' } }),
 					event('org', '2026-10-20T12:00:00.000Z', { orgId: 'org-1' }),
@@ -70,7 +72,9 @@ describe('PlatformAudit', () => {
 
 		expect(await search('ROBERT@')).toEqual(['actor']);
 		expect(await search(' pat ex ')).toEqual(['target']);
-		expect(await search('alpha')).toEqual(['org']);
+		expect(await search('alpha')).toEqual(['account', 'org']);
+		expect(await search('dana@EXAMPLE')).toEqual(['account']);
+		expect(await search('Reyes')).toEqual(['account']);
 	});
 
 	it('keeps the start of a date range and drops its end instant', async () => {

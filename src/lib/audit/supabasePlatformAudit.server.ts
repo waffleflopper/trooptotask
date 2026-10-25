@@ -28,6 +28,8 @@ type SupabaseActivityRow = {
 	user_id: string | null;
 	org_id: string | null;
 	org_name: string | null;
+	actor_email: string | null;
+	actor_name: string | null;
 	action: string;
 	resource_type: string | null;
 	resource_id: string | null;
@@ -50,6 +52,8 @@ function mapActivityRow(row: SupabaseActivityRow): PlatformActivityEvent {
 		userId: row.user_id,
 		orgId: row.org_id,
 		orgName: row.org_name,
+		actorEmail: row.actor_email?.toLowerCase() ?? null,
+		actorName: row.actor_name,
 		resourceType: row.resource_type,
 		resourceId: row.resource_id,
 		ipAddress: row.ip_address,
@@ -70,35 +74,6 @@ function mapAuditLog(row: SupabaseAuditLogRow): PlatformAuditRecord {
 		severity: row.severity,
 		timestamp: row.timestamp
 	};
-}
-
-/**
- * Organization-scoped rows never store the actor's email, because an Organization's owners can read those rows.
- * The page looks each distinct actor up once instead.
- */
-async function withActorEmails(
-	supabase: SupabaseClient,
-	events: PlatformActivityEvent[]
-): Promise<PlatformActivityEvent[]> {
-	const missing = new Set(
-		events.filter((event) => event.userId && event.details?.actorEmail === undefined).map((event) => event.userId!)
-	);
-	if (missing.size === 0) return events;
-	const emails = new Map<string, string>();
-	await Promise.all(
-		[...missing].map(async (userId) => {
-			try {
-				const { data } = await supabase.auth.admin.getUserById(userId);
-				if (data?.user?.email) emails.set(userId, data.user.email.toLowerCase());
-			} catch {
-				// An actor that cannot be resolved falls back to the short ID in the sentence.
-			}
-		})
-	);
-	return events.map((event) => {
-		const email = event.userId ? emails.get(event.userId) : undefined;
-		return email ? { ...event, details: { ...event.details, actorEmail: email } } : event;
-	});
 }
 
 export function createSupabasePlatformAuditStore(supabase: SupabaseClient): PlatformAuditStore {
@@ -131,7 +106,7 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 			assertAuditQuerySuccess('function list_platform_activity', response);
 			const rows = response.data ?? [];
 			return {
-				events: await withActorEmails(supabase, rows.map(mapActivityRow)),
+				events: rows.map(mapActivityRow),
 				totalCount: rows[0]?.total_count ?? 0,
 				offset: rows[0]?.page_offset ?? 0
 			};

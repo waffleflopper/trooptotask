@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	activityDayHeading,
 	activityInstantRange,
+	activityRangeLabel,
 	activityRangePresets,
 	activitySearchParams,
 	activityTimeZone,
@@ -110,5 +112,33 @@ describe('activityTimeZone', () => {
 		expect(activityTimeZone('America/Chicago')).toBe('America/Chicago');
 		expect(activityTimeZone('Not/AZone')).toBe('UTC');
 		expect(activityTimeZone(null)).toBe('UTC');
+	});
+});
+
+describe('activityDayHeading', () => {
+	it('names today and yesterday, then gives the date and adds the year only when it differs', () => {
+		expect(activityDayHeading('2026-10-23', '2026-10-23')).toBe('Today · Oct 23');
+		expect(activityDayHeading('2026-10-22', '2026-10-23')).toBe('Yesterday · Oct 22');
+		expect(activityDayHeading('2026-10-21', '2026-10-23')).toBe('Oct 21');
+		expect(activityDayHeading('2025-12-31', '2026-01-01')).toBe('Yesterday · Dec 31, 2025');
+		expect(activityDayHeading('2025-10-21', '2026-10-23')).toBe('Oct 21, 2025');
+	});
+});
+
+describe('activityRangeLabel', () => {
+	const presets = activityRangePresets('UTC', new Date('2026-10-23T12:00:00Z'));
+	const label = (from: string, to: string) => activityRangeLabel({ from, to }, presets, '2026-10-23');
+
+	it('says All time with no days and a preset name when the days match one', () => {
+		expect(label('', '')).toBe('All time');
+		expect(label('2026-10-17', '2026-10-23')).toBe('Last 7 days');
+		expect(label('2026-10-23', '2026-10-23')).toBe('Today');
+	});
+
+	it('spells out any other range, including a one-sided one', () => {
+		expect(label('2026-10-01', '2026-10-20')).toBe('Oct 1 – Oct 20');
+		expect(label('2025-12-30', '2026-01-02')).toBe('Dec 30, 2025 – Jan 2');
+		expect(label('2026-10-01', '')).toBe('Since Oct 1');
+		expect(label('', '2026-10-20')).toBe('Until Oct 20');
 	});
 });

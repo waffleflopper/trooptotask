@@ -139,6 +139,8 @@ describe('Supabase PlatformAudit adapter Activity read', () => {
 						user_id: 'user-1',
 						org_id: 'org-1',
 						org_name: 'Alpha Company',
+						actor_email: null,
+						actor_name: null,
 						action: 'suspend_org',
 						resource_type: 'organization',
 						resource_id: 'org-1',
@@ -162,6 +164,8 @@ describe('Supabase PlatformAudit adapter Activity read', () => {
 					userId: 'user-1',
 					orgId: 'org-1',
 					orgName: 'Alpha Company',
+					actorEmail: null,
+					actorName: null,
 					resourceType: 'organization',
 					resourceId: 'org-1',
 					ipAddress: '203.0.113.10',
@@ -184,61 +188,35 @@ describe('Supabase PlatformAudit adapter Activity read', () => {
 		});
 	});
 
-	describe('actor emails for Organization-scoped rows', () => {
-		const OPERATOR = '11111111-1111-4111-8111-111111111111';
-		const BROKEN = '22222222-2222-4222-8222-222222222222';
-		const row = (id: string, userId: string, details: Record<string, unknown> | null) => ({
-			id,
-			timestamp: '2026-10-22T12:00:00+00:00',
-			user_id: userId,
-			org_id: 'org-1',
-			org_name: 'Alpha Company',
-			action: 'suspend_org',
-			resource_type: 'organization',
-			resource_id: 'org-1',
-			ip_address: null,
-			details,
-			severity: 'critical',
-			total_count: 3,
-			page_offset: 0
-		});
-
-		it('looks each missing actor up once and leaves a stored email alone', async () => {
-			const lookups: string[] = [];
-			const store = storeAnswering((request) => {
-				const { pathname } = new URL(request.url);
-				if (!pathname.startsWith('/auth/v1/admin/users/')) {
-					return Response.json([
-						row('a', OPERATOR, { targetName: 'Alpha Company' }),
-						row('b', OPERATOR, null),
-						row('c', BROKEN, { actorEmail: 'stored@example.test' })
-					]);
+	it('carries the actor account read with the row, lower-casing the email', async () => {
+		const store = storeAnswering(() =>
+			Response.json([
+				{
+					id: 'event-1',
+					timestamp: '2026-10-22T12:00:00+00:00',
+					user_id: 'user-1',
+					org_id: 'org-1',
+					org_name: 'Alpha Company',
+					actor_email: 'Robert@Example.test',
+					actor_name: 'CPT Robert Cole',
+					action: 'suspend_org',
+					resource_type: 'organization',
+					resource_id: 'org-1',
+					ip_address: null,
+					details: { targetName: 'Alpha Company' },
+					severity: 'critical',
+					total_count: 1,
+					page_offset: 0
 				}
-				lookups.push(pathname.split('/').at(-1)!);
-				return Response.json({ id: OPERATOR, email: 'Robert@Example.test' });
-			});
+			])
+		);
 
-			const { events } = await store.listActivity(input);
+		const { events } = await store.listActivity(input);
 
-			expect(lookups).toEqual([OPERATOR]);
-			expect(events.map((event) => event.details)).toEqual([
-				{ targetName: 'Alpha Company', actorEmail: 'robert@example.test' },
-				{ actorEmail: 'robert@example.test' },
-				{ actorEmail: 'stored@example.test' }
-			]);
-		});
-
-		it('still returns the page when an actor cannot be looked up', async () => {
-			const store = storeAnswering((request) =>
-				new URL(request.url).pathname.startsWith('/auth/v1/admin/users/')
-					? Response.json({ message: 'down' }, { status: 500 })
-					: Response.json([row('a', BROKEN, null)])
-			);
-
-			const { events } = await store.listActivity(input);
-
-			expect(events).toHaveLength(1);
-			expect(events[0].details).toBeNull();
+		expect(events[0]).toMatchObject({
+			actorEmail: 'robert@example.test',
+			actorName: 'CPT Robert Cole',
+			details: { targetName: 'Alpha Company' }
 		});
 	});
 

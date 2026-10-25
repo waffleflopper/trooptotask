@@ -32,6 +32,8 @@ const row = {
 	user_id: actorId,
 	org_id: null,
 	org_name: null,
+	actor_email: 'Robert@Example.test',
+	actor_name: 'CPT Robert Cole',
 	action: 'suspend_user',
 	resource_type: 'user',
 	resource_id: null,
@@ -88,6 +90,8 @@ describe('admitted operator Activity read', () => {
 					userId: actorId,
 					orgId: null,
 					orgName: null,
+					actorEmail: 'robert@example.test',
+					actorName: 'CPT Robert Cole',
 					resourceType: 'user',
 					resourceId: null,
 					ipAddress: null,
@@ -96,7 +100,8 @@ describe('admitted operator Activity read', () => {
 			],
 			page: 2,
 			pageSize: 50,
-			totalCount: 51
+			totalCount: 51,
+			viewerId: actorId
 		});
 		expect(activityBodies).toHaveLength(1);
 		expect(activityBodies[0]).toMatchObject({

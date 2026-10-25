@@ -19,6 +19,8 @@ export interface ActivityPage {
 	page: number;
 	pageSize: number;
 	totalCount: number;
+	/** The signed-in operator, so their own actions read "You". */
+	viewerId: string;
 }
 
 /** Reads the filter state from a URL. Anything unrecognized falls back to its default instead of failing. */
@@ -118,4 +120,44 @@ export function activityRangePresets(timeZone: string, now: Date): ActivityRange
 		getRange: () => ({ start: today.subtract({ days: days - 1 }).toString(), end: today.toString() })
 	});
 	return [trailing('today', 'Today', 1), trailing('last-7', 'Last 7 days', 7), trailing('last-30', 'Last 30 days', 30)];
+}
+
+const monthDayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const monthDayYearFormat = new Intl.DateTimeFormat('en-US', {
+	month: 'short',
+	day: 'numeric',
+	year: 'numeric',
+	timeZone: 'UTC'
+});
+
+/** "Oct 21", with the year when the day is not in the same year as `today`. Both are "YYYY-MM-DD". */
+function shortDay(day: string, today: string): string {
+	const format = day.slice(0, 4) === today.slice(0, 4) ? monthDayFormat : monthDayYearFormat;
+	return format.format(new Date(`${day}T12:00:00Z`));
+}
+
+/** "Today · Oct 23", "Yesterday · Oct 22", then "Oct 21". `day` and `today` are "YYYY-MM-DD" in the viewer's zone. */
+export function activityDayHeading(day: string, today: string): string {
+	const [year, month, date] = today.split('-').map(Number);
+	const yesterday = new CalendarDate(year, month, date).subtract({ days: 1 }).toString();
+	const label = shortDay(day, today);
+	if (day === today) return `Today · ${label}`;
+	if (day === yesterday) return `Yesterday · ${label}`;
+	return label;
+}
+
+/** What the range control says: "All time", a preset's name when the days match one, else the days themselves. */
+export function activityRangeLabel(
+	range: Pick<ActivityQuery, 'from' | 'to'>,
+	presets: readonly ActivityRangePreset[],
+	today: string
+): string {
+	if (!range.from && !range.to) return 'All time';
+	const preset = presets.find((candidate) => {
+		const { start, end } = candidate.getRange();
+		return start === range.from && end === range.to;
+	});
+	if (preset) return preset.label;
+	if (range.from && range.to) return `${shortDay(range.from, today)} – ${shortDay(range.to, today)}`;
+	return range.from ? `Since ${shortDay(range.from, today)}` : `Until ${shortDay(range.to, today)}`;
 }

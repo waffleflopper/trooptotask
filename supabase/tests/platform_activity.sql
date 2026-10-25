@@ -1,18 +1,20 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
-INSERT INTO auth.users(id,email) VALUES
- ('f6a00000-0000-4000-8000-000000000001','activity-operator@example.test'),
- ('f6a00000-0000-4000-8000-000000000002','activity-ordinary@example.test');
+INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
+ ('f6a00000-0000-4000-8000-000000000001','Activity-Operator@example.test','{"rank":"CPT","full_name":"Robert Cole"}'),
+ ('f6a00000-0000-4000-8000-000000000002','activity-ordinary@example.test','{"first_name":"Pat","last_name":"Lee"}'),
+ ('f6a00000-0000-4000-8000-000000000003','activity-unnamed@example.test','{"rank":"SSG"}');
 INSERT INTO public.platform_operators(user_id) VALUES ('f6a00000-0000-4000-8000-000000000001');
 INSERT INTO public.organizations(id,name,created_by) VALUES
  ('f6a00000-0000-4000-8000-000000000101','Activity Alpha Company','f6a00000-0000-4000-8000-000000000002');
 INSERT INTO public.audit_logs(id,"timestamp",user_id,org_id,action,resource_type,resource_id,details,severity) VALUES
- ('f6a00000-0000-4000-8000-000000000201','2026-10-20T12:00:00Z','f6a00000-0000-4000-8000-000000000001','f6a00000-0000-4000-8000-000000000101','suspend_org','organization','f6a00000-0000-4000-8000-000000000101','{"actorEmail":"activity-operator@example.test","targetName":"Activity Alpha Company"}','critical'),
- ('f6a00000-0000-4000-8000-000000000202','2026-10-21T12:00:00Z','f6a00000-0000-4000-8000-000000000001',NULL,'suspend_user','user','f6a00000-0000-4000-8000-000000000002','{"actorEmail":"activity-operator@example.test","targetName":"activity-ordinary@example.test"}','critical'),
+ ('f6a00000-0000-4000-8000-000000000201','2026-10-20T12:00:00Z','f6a00000-0000-4000-8000-000000000001','f6a00000-0000-4000-8000-000000000101','suspend_org','organization','f6a00000-0000-4000-8000-000000000101','{"targetName":"Activity Alpha Company"}','critical'),
+ ('f6a00000-0000-4000-8000-000000000202','2026-10-21T12:00:00Z','f6a00000-0000-4000-8000-000000000001',NULL,'suspend_user','user','f6a00000-0000-4000-8000-000000000002','{"actorEmail":"activity-operator@example.test","targetName":"Pat Lee"}','critical'),
  ('f6a00000-0000-4000-8000-000000000203','2026-10-22T12:00:00Z',NULL,NULL,'admin.future_action','user',NULL,'{}','info'),
  ('f6a00000-0000-4000-8000-000000000204','2026-10-23T12:00:00Z','f6a00000-0000-4000-8000-000000000001','f6a00000-0000-4000-8000-000000000101','personnel.updated','personnel',NULL,'{"actorEmail":"activity-operator@example.test"}','info'),
- ('f6a00000-0000-4000-8000-000000000205','2026-10-24T12:00:00Z','f6a00000-0000-4000-8000-000000000001',NULL,'access_request.rejected','access_request',NULL,'{"targetName":"Pat 100% Request_"}','warning');
+ ('f6a00000-0000-4000-8000-000000000205','2026-10-24T12:00:00Z','f6a00000-0000-4000-8000-000000000001',NULL,'access_request.rejected','access_request',NULL,'{"targetName":"Pat 100% Request_"}','warning'),
+ ('f6a00000-0000-4000-8000-000000000206','2026-10-25T12:00:00Z','f6a00000-0000-4000-8000-000000000003',NULL,'auth.login_failure','user',NULL,'{}','warning');
 
 SELECT is(has_function_privilege('anon','public.list_platform_activity(text[],text[],text,timestamptz,timestamptz,integer,integer)','EXECUTE'),false,'anonymous callers cannot read platform Activity');
 SELECT is(has_function_privilege('authenticated','public.list_platform_activity(text[],text[],text,timestamptz,timestamptz,integer,integer)','EXECUTE'),false,'signed-in callers cannot read platform Activity directly');
@@ -30,7 +32,14 @@ SELECT is((SELECT array_agg(id ORDER BY "timestamp" DESC) FROM public.list_platf
  'listed actions and prefixes match newest first, and other events stay out');
 SELECT is((SELECT org_name FROM public.list_platform_activity(ARRAY['suspend_org'],ARRAY[]::text[],NULL,NULL,NULL,50,0)),'Activity Alpha Company','the Organization name arrives with the row');
 SELECT is((SELECT count(*)::integer FROM public.list_platform_activity(ARRAY[]::text[],ARRAY[]::text[],NULL,NULL,NULL,50,0)),0,'no scope matches nothing');
-SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'ACTIVITY-ORDINARY',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000202']::uuid[],'search ignores case and finds the target name');
+SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'PAT LEE',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000202']::uuid[],'search ignores case and finds the target name');
+SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'ACTIVITY-ORDINARY',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000202']::uuid[],'search finds the account a user event acted on by its email');
+SELECT is((SELECT array_agg(id ORDER BY "timestamp") FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'activity-operator@example',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000201','f6a00000-0000-4000-8000-000000000202']::uuid[],'search finds an Organization event by its actor email although the row stores none');
+SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org'],ARRAY[]::text[],'robert cole',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000201']::uuid[],'search finds an event by its actor name');
+SELECT is((SELECT actor_email FROM public.list_platform_activity(ARRAY['suspend_org'],ARRAY[]::text[],NULL,NULL,NULL,50,0)),'Activity-Operator@example.test','the actor email arrives with the row');
+SELECT is((SELECT actor_name FROM public.list_platform_activity(ARRAY['suspend_org'],ARRAY[]::text[],NULL,NULL,NULL,50,0)),'CPT Robert Cole','the actor name arrives with its rank');
+SELECT is((SELECT actor_name FROM public.list_platform_activity(ARRAY['auth.login_failure'],ARRAY[]::text[],'activity-unnamed',NULL,NULL,50,0)),NULL,'a rank without a name is not a name');
+SELECT is((SELECT actor_email FROM public.list_platform_activity(ARRAY[]::text[],ARRAY['admin.'],NULL,NULL,'2026-10-23T00:00:00Z',50,0) WHERE id='f6a00000-0000-4000-8000-000000000203'),NULL,'a system event has no actor account');
 SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'alpha company',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000201']::uuid[],'search finds the Organization name');
 SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['access_request.rejected'],ARRAY[]::text[],'100% request_',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000205']::uuid[],'percent and underscore in a search match literally');
 SELECT is((SELECT count(*)::integer FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'%',NULL,NULL,50,0)),0,'a bare percent matches no text');

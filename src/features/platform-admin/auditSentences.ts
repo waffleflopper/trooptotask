@@ -11,6 +11,9 @@ export interface AuditEventRecord {
 	userId: string | null;
 	orgId: string | null;
 	orgName: string | null;
+	/** The actor's account as it stands now. Absent on rows from callers that do not look accounts up. */
+	actorEmail?: string | null;
+	actorName?: string | null;
 	resourceType: string | null;
 	resourceId: string | null;
 	ipAddress: string | null;
@@ -24,6 +27,8 @@ export interface AuditField {
 
 export interface DescribedAuditEvent {
 	sentence: string;
+	/** The line under the sentence: the reason or outcome, then the Organization the event happened in. */
+	secondary: string | null;
 	/** `null` for platform events outside the four filters, which show under All only. */
 	category: ActivityCategory | null;
 	severity: AuditSeverity;
@@ -34,19 +39,29 @@ interface Subjects {
 	actor: string;
 	target: string;
 	details: Record<string, unknown>;
+	/** An Organization's owners can read the rows written for it, so a typed reason is not shown on them. */
+	organizationScoped: boolean;
 }
 
 interface RegistryEntry {
 	category: ActivityCategory | null;
 	severity: AuditSeverity;
 	sentence: (subjects: Subjects) => string;
+	note?: (subjects: Subjects) => string | null;
 }
 
 const entry = (
 	category: ActivityCategory | null,
 	severity: AuditSeverity,
-	sentence: RegistryEntry['sentence']
-): RegistryEntry => ({ category, severity, sentence });
+	sentence: RegistryEntry['sentence'],
+	note?: RegistryEntry['note']
+): RegistryEntry => ({ category, severity, sentence, note });
+
+const reasonNote: RegistryEntry['note'] = (s) => {
+	const reason = s.organizationScoped ? null : text(s.details.reason);
+	return reason ? `Reason: ${reason}` : null;
+};
+const mfaRequired = () => 'Recent MFA was required';
 
 /** Sentence text lives here and nowhere else. A new platform action is one more entry. */
 const REGISTRY: Record<string, RegistryEntry> = {
@@ -65,22 +80,26 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	'access_request.account_setup_approval_authorization_denied': entry(
 		'security',
 		'warning',
-		(s) => `${s.actor} was refused approving ${s.target}: recent MFA was required`
+		(s) => `${s.actor} could not approve ${s.target}`,
+		mfaRequired
 	),
 	'access_request.account_setup_resend_authorization_denied': entry(
 		'security',
 		'warning',
-		(s) => `${s.actor} was refused resending the setup link to ${s.target}: recent MFA was required`
+		(s) => `${s.actor} could not resend the setup link to ${s.target}`,
+		mfaRequired
 	),
 	'access_request.rejection_authorization_denied': entry(
 		'security',
 		'warning',
-		(s) => `${s.actor} was refused rejecting ${s.target}: recent MFA was required`
+		(s) => `${s.actor} could not reject ${s.target}`,
+		mfaRequired
 	),
 	'access_request.rescission_authorization_denied': entry(
 		'security',
 		'warning',
-		(s) => `${s.actor} was refused rescinding access for ${s.target}: recent MFA was required`
+		(s) => `${s.actor} could not rescind access for ${s.target}`,
+		mfaRequired
 	),
 	'access_request.account_setup_approval_rate_limited': entry(
 		'security',
@@ -106,12 +125,12 @@ const REGISTRY: Record<string, RegistryEntry> = {
 		'warning',
 		(s) => `Renewing the setup link for ${s.target} hit the rate limit`
 	),
-	suspend_user: entry('accounts', 'critical', (s) => `${s.actor} suspended ${s.target}`),
-	unsuspend_user: entry('accounts', 'warning', (s) => `${s.actor} unsuspended ${s.target}`),
+	suspend_user: entry('accounts', 'critical', (s) => `${s.actor} suspended ${s.target}`, reasonNote),
+	unsuspend_user: entry('accounts', 'warning', (s) => `${s.actor} unsuspended ${s.target}`, reasonNote),
 	'admin.user.password_reset': entry('accounts', 'warning', (s) => `${s.actor} sent a password reset to ${s.target}`),
 	'admin.user.resend_invite': entry('accounts', 'info', (s) => `${s.actor} resent the invite to ${s.target}`),
-	suspend_org: entry('organizations', 'critical', (s) => `${s.actor} suspended ${s.target}`),
-	unsuspend_org: entry('organizations', 'warning', (s) => `${s.actor} unsuspended ${s.target}`),
+	suspend_org: entry('organizations', 'critical', (s) => `${s.actor} suspended ${s.target}`, reasonNote),
+	unsuspend_org: entry('organizations', 'warning', (s) => `${s.actor} unsuspended ${s.target}`, reasonNote),
 	'admin.org.transfer_ownership': entry(
 		'organizations',
 		'critical',
@@ -120,7 +139,8 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	'admin.org.membership_authorization_denied': entry(
 		'security',
 		'warning',
-		(s) => `${s.actor} was refused a membership change on ${s.target}: recent MFA was required`
+		(s) => `${s.actor} could not change the membership of ${s.target}`,
+		mfaRequired
 	),
 	'auth.login_failure': entry('security', 'warning', (s) => `A sign-in to ${s.target} failed`),
 	'auth.forgot_password_rate_limited': entry(
@@ -164,11 +184,21 @@ function text(value: unknown): string | null {
 	return typeof value === 'string' && value.trim() !== '' && value !== REDACTED ? value : null;
 }
 
-function actorLabel(event: AuditEventRecord, details: Record<string, unknown>): string {
-	const email = text(details.actorEmail);
+function actorLabel(event: AuditEventRecord, details: Record<string, unknown>, viewerId: string | null): string {
+	if (viewerId && event.userId === viewerId) return 'You';
+	const name = text(event.actorName);
+	if (name) return name;
+	const email = text(details.actorEmail) ?? text(event.actorEmail);
 	if (email) return email;
 	if (event.userId) return `User ${shortId(event.userId)}`;
 	return 'The system';
+}
+
+function actorField(event: AuditEventRecord, details: Record<string, unknown>): string {
+	const name = text(event.actorName);
+	const email = text(details.actorEmail) ?? text(event.actorEmail);
+	if (name && email) return `${name} (${email})`;
+	return name ?? email ?? event.userId ?? 'The system';
 }
 
 function targetLabel(event: AuditEventRecord, details: Record<string, unknown>): string {
@@ -232,15 +262,22 @@ function severityOf(stored: string, fallback: AuditSeverity): AuditSeverity {
 	return stored === 'info' || stored === 'warning' || stored === 'critical' ? stored : fallback;
 }
 
-/** Everything Activity shows for one stored event. Other admin pages call this for their own recent-event lists. */
-export function describeAuditEvent(event: AuditEventRecord): DescribedAuditEvent {
+/**
+ * Everything Activity shows for one stored event. Pass the signed-in operator's ID and their own actions read "You".
+ * Other admin pages call this for their own recent-event lists.
+ */
+export function describeAuditEvent(
+	event: AuditEventRecord,
+	options: { viewerId?: string | null } = {}
+): DescribedAuditEvent {
 	const details = event.details ?? {};
 	const known = Object.hasOwn(REGISTRY, event.action) ? REGISTRY[event.action] : null;
-	const actor = actorLabel(event, details);
+	const actor = actorLabel(event, details, options.viewerId ?? null);
 	const target = targetLabel(event, details);
+	const subjects: Subjects = { actor, target, details, organizationScoped: Boolean(event.orgId) };
 	const fields: AuditField[] = [
 		{ label: 'Action', value: event.action },
-		{ label: 'Actor', value: text(details.actorEmail) ?? (event.userId ? event.userId : 'The system') },
+		{ label: 'Actor', value: actorField(event, details) },
 		...(text(details.targetName) || event.resourceId
 			? [{ label: 'Target', value: text(details.targetName) ?? event.resourceId! }]
 			: []),
@@ -248,8 +285,10 @@ export function describeAuditEvent(event: AuditEventRecord): DescribedAuditEvent
 		...flattenDetails(details),
 		...(event.ipAddress ? [{ label: 'IP address', value: event.ipAddress }] : [])
 	];
+	const where = event.orgId && event.orgName && event.orgName !== target ? event.orgName : null;
 	return {
-		sentence: known ? known.sentence({ actor, target, details }) : event.action,
+		sentence: known ? known.sentence(subjects) : event.action,
+		secondary: [known?.note?.(subjects) ?? null, where].filter(Boolean).join(' · ') || null,
 		category: known?.category ?? null,
 		severity: severityOf(event.severity, known?.severity ?? 'info'),
 		fields

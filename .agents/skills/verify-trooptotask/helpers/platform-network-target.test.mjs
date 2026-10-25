@@ -239,3 +239,29 @@ test('detail page reads bind only the recorded User or Organization', async () =
 		assert.throws(() => platformFormNetworkTarget(family, fixture, null));
 	}
 });
+
+test('admin-feedback families bind one exact feedback endpoint and method, and fail only that request', async () => {
+	const id = '50000000-0000-4000-8000-000000186911';
+	const read = platformFormNetworkTarget(`admin-feedback-read/${id}`, fixture, null);
+	const command = platformFormNetworkTarget(`admin-feedback-command/${id}`, fixture, null);
+	assert.equal(read.suffix, `/admin/api/feedback/${id}`);
+	assert.equal(read.requestMethod, 'GET');
+	assert.equal(command.requestMethod, 'POST');
+	assert.equal(platformFormNetworkTarget('admin-feedback-read/not-a-feedback-id', fixture, null), null);
+
+	const dispatched = [];
+	const page = {
+		location: { href: 'http://owned.test/admin' },
+		fetch: async (url, init) => {
+			dispatched.push(`${init?.method ?? 'GET'} ${url}`);
+			return Response.json({ untouched: true });
+		}
+	};
+	installNetworkControl(page, { ...command, mode: 'fail', ordinal: 1 });
+	await page.fetch(read.suffix);
+	assert.equal(dispatched.length, 1);
+	const failed = await page.fetch(command.suffix, { method: 'POST' });
+	assert.equal(failed.status, 503);
+	assert.equal(dispatched.length, 1);
+	assert.equal((await page.fetch(command.suffix, { method: 'POST' })).status, 200);
+});

@@ -6,6 +6,7 @@ import {
 	createFeedbackStaffCommands,
 	createSupabaseFeedbackStaffStore,
 	createGitHubFeedbackClient,
+	createSupabaseReporterFeedbackReader,
 	reporterFeedbackHref
 } from '$features/feedback/index.server';
 
@@ -30,4 +31,10 @@ export async function createRequestFeedbackStaffOperations(event: RequestEvent) 
 		audit: (entry, options) => auditLog(entry, requestInfo, options)
 	});
 	return { detail: store.detail, execute: commands.execute };
+}
+
+/** The reporter reads through the ordinary request client, so RLS keeps another account's feedback concealed. */
+export function createRequestReporterFeedback(locals: Pick<App.Locals, 'supabase'>, userId: string) {
+	const reader = createSupabaseReporterFeedbackReader(locals.supabase);
+	return { detail: reader.detail, list: () => reader.list(userId) };
 }

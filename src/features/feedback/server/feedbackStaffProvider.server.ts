@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { FeedbackReply, FeedbackStaffNote, ReporterFeedback } from '../contracts';
+import type { FeedbackReply, FeedbackStaffNote, ReporterFeedback, ReporterFeedbackSummary } from '../contracts';
 import type { FeedbackStaffStore } from './feedbackStaff.server';
 import { buildFeedbackIssuePrefill } from './githubFeedbackIssues.server';
 
@@ -78,6 +78,16 @@ function reporterFeedback(row: z.infer<typeof feedbackRow>, replies: FeedbackRep
 	};
 }
 
+const summaryRow = z.object({
+	id: z.string(),
+	category: z.enum(['bug', 'feature', 'general']),
+	message: z.string(),
+	status: z.enum(['new', 'reviewed', 'resolved']),
+	created_at: z.string(),
+	feedback_replies: z.array(z.object({ count: z.number() }))
+});
+export const REPORTER_FEEDBACK_LIST_LIMIT = 50;
+
 /** Bind the ordinary request client so feedback and reply RLS remain in force. */
 export function createSupabaseReporterFeedbackReader(client: SupabaseClient) {
 	return {
@@ -85,6 +95,28 @@ export function createSupabaseReporterFeedbackReader(client: SupabaseClient) {
 			const row = await readFeedback(client, id);
 			if (!row) return null;
 			return reporterFeedback(row, await readReplies(client, id));
+		},
+		/** The newest of one account's own feedback; an operator's client would otherwise read everyone's. */
+		async list(userId: string): Promise<ReporterFeedbackSummary[]> {
+			const { data, error } = await client
+				.from('beta_feedback')
+				.select('id,category,message,status,created_at,feedback_replies(count)')
+				.eq('user_id', userId)
+				.order('created_at', { ascending: false })
+				.order('id', { ascending: false })
+				.limit(REPORTER_FEEDBACK_LIST_LIMIT);
+			if (error) throw new Error('Unable to load feedback', { cause: error });
+			return z
+				.array(summaryRow)
+				.parse(data)
+				.map((row) => ({
+					id: row.id,
+					category: row.category,
+					message: row.message,
+					status: row.status,
+					createdAt: row.created_at,
+					replyCount: row.feedback_replies[0]?.count ?? 0
+				}));
 		}
 	};
 }

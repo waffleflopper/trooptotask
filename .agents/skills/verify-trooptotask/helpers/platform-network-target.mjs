@@ -27,6 +27,18 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 			requestTarget: null,
 			sameOrigin: true
 		};
+	const feedback =
+		/^admin-feedback-(read|command)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(family);
+	if (feedback) {
+		return {
+			suffix: `/admin/api/feedback/${feedback[2].toLowerCase()}`,
+			search: null,
+			failureField: null,
+			requestTarget: null,
+			sameOrigin: true,
+			requestMethod: feedback[1] === 'read' ? 'GET' : 'POST'
+		};
+	}
 	const detail = /^admin-(user|organization)-detail-read$/.exec(family);
 	if (detail) {
 		if (!seed) throw new Error('Seed platform-admin first.');

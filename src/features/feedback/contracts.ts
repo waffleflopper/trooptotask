@@ -38,6 +38,15 @@ export interface ReporterFeedback {
 	replies: FeedbackReply[];
 }
 
+export interface ReporterFeedbackSummary {
+	id: string;
+	category: FeedbackCategory;
+	message: string;
+	status: FeedbackStatus;
+	createdAt: string;
+	replyCount: number;
+}
+
 export interface FeedbackStaffDetail extends ReporterFeedback {
 	userId: string;
 	userEmail: string;

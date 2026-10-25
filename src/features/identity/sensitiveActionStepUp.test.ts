@@ -24,9 +24,9 @@ describe('sensitiveActionStepUp', () => {
 		expect(
 			buildSensitiveActionStepUpUrl(
 				{ requiresStepUp: true, stepUpPath: '/auth/mfa-setup' },
-				{ origin: 'https://app.example.test', pathname: '/admin/users/operator', search: '' }
+				{ origin: 'https://app.example.test', pathname: '/admin/people/operator', search: '' }
 			)
-		).toBe('https://app.example.test/auth/mfa-setup?next=%2Fadmin%2Fusers%2Foperator');
+		).toBe('https://app.example.test/auth/mfa-setup?next=%2Fadmin%2Fpeople%2Foperator');
 	});
 
 	it('falls back to login when a producer sends an unsafe step-up path', () => {

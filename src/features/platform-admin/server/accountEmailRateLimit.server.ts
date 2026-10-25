@@ -5,7 +5,7 @@ import { checkDurableRateLimit, createSupabaseDurableRateLimitStore } from '$lib
 export async function checkAdminAuthEmailRateLimit(
 	supabase: SupabaseClient,
 	userId: string,
-	type: 'recovery' | 'invite'
+	type: 'recovery'
 ): Promise<boolean> {
 	const decision = await checkDurableRateLimit({
 		namespace: 'admin-auth-email',

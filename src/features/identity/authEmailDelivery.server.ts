@@ -2,12 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 import { getAdminClient } from '$lib/server/supabase';
 
-type AuthEmailType = 'recovery' | 'invite';
 type AuthEmailResult = 'sent' | 'user_not_found' | 'failed';
 
 interface SendAuthEmailInput {
 	supabase: SupabaseClient;
-	type: AuthEmailType;
+	type: 'recovery';
 	email: string;
 	redirectTo: string;
 	expectedUserId?: string;
@@ -64,11 +63,9 @@ export async function sendAuthEmail(
 	const link = new URL(input.redirectTo);
 	link.searchParams.set('token_hash', tokenHash);
 	const url = link.toString();
-	const recovery = input.type === 'recovery';
-	const subject = recovery ? 'Reset your TroopToTask password' : 'Complete your TroopToTask invitation';
-	const action = recovery ? 'Reset your password' : 'Set up your account';
-	const text = `${recovery ? 'Use this link to reset your TroopToTask password.' : 'Use this link to complete your TroopToTask invitation.'}\n\n${url}\n\nIf you did not request this, you can ignore this email.`;
-	const html = `<p>${recovery ? 'Use this link to reset your TroopToTask password.' : 'Use this link to complete your TroopToTask invitation.'}</p><p><a href="${escapeHtmlAttribute(url)}">${action}</a></p><p>If you did not request this, you can ignore this email.</p>`;
+	const subject = 'Reset your TroopToTask password';
+	const text = `Use this link to reset your TroopToTask password.\n\n${url}\n\nIf you did not request this, you can ignore this email.`;
+	const html = `<p>Use this link to reset your TroopToTask password.</p><p><a href="${escapeHtmlAttribute(url)}">Reset your password</a></p><p>If you did not request this, you can ignore this email.</p>`;
 
 	try {
 		const response = await fetchImpl('https://api.resend.com/emails', {

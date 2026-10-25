@@ -93,7 +93,9 @@ delivery payloads.
    Enter the code with `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its event in
    Activity: open `$V actor platformReviewer admin/activity`, and the newest row reads
    `You suspended <Organization name>`. An Organization's owners can read their own audit rows, so the typed reason is
-   not stored for Organization events and `Details` lists no `Reason`; the operator email is looked up when read. For
+   not stored in Organization audit details. Activity joins the current private suspension note at read time and shows
+   `Reason: <typed reason>` below the sentence; the operator email is also looked up when read. Lifted and older
+   suspensions have no retained reason, and must not inherit a later suspension's note. For
    every later case below use `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the
    temporary Organization's Suspend dialog from `Suspend organization` in the page header. `Suspend` stays disabled
    until a reason is typed. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one exact POST before
@@ -151,7 +153,8 @@ delivery payloads.
    `Status` to read `Suspended`, and the header button to read `Unsuspend organization`. Reload and read the same alert.
    `$V platform-state` shows `suspended_at` set, and `rows` on `organization_suspensions` shows the reason and
    `platformReviewer` as `suspended_by`. Open `Organizations`: the row reads `Suspended` and `Suspended` in `Show` lists
-   it. The Platform audit entry for the suspension must not carry the reason in its details. Then sign in as the
+   it. The Platform audit entry for the suspension must not carry the reason in its details. Open Activity and require
+   `You suspended <Organization name>` with `Reason: <typed reason>` below it, including after reload. Then sign in as the
    Organization's owner and require the suspension notice, not the reason. Unsuspend visibly and require the alert gone
    and the `organization_suspensions` row removed. Before the first suspension, open the same Organization in a second
    tab; once the first tab has suspended it, submit `Suspend` with a different reason in the second tab: the dialog

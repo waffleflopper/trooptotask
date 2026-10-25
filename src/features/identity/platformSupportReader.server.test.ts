@@ -181,22 +181,12 @@ describe('Identity platform account facts', () => {
 });
 
 describe('Identity platform suspension facts and effects', () => {
-	it('reads the complete requested account suspension set and does not trust a foreign detail row', async () => {
-		const ids = Array.from({ length: 1001 }, (_, index) => `user-${index}`);
-		const rows = ids.map((user_id) => ({ user_id }));
+	it('rejects a suspension detail row belonging to another account', async () => {
 		const reader = createIdentityPlatformSupportReader(
-			client(async (input) => {
-				const url = new URL(input.toString());
-				expect(url.pathname).toBe('/rest/v1/user_suspensions');
-				if (url.searchParams.has('user_id') && url.searchParams.get('user_id')?.startsWith('eq.'))
-					return Response.json({ user_id: OTHER, suspended_at: '2026-06-01', suspended_by: ADMIN, reason: null });
-				const requestedIds = new Set(url.searchParams.get('user_id')?.slice(4, -1).split(','));
-				const scopedRows = rows.filter((row) => requestedIds.has(row.user_id));
-				const offset = Number(url.searchParams.get('offset') ?? 0);
-				return Response.json(scopedRows.slice(offset, offset + Number(url.searchParams.get('limit'))));
-			})
+			client(async () =>
+				Response.json({ user_id: OTHER, suspended_at: '2026-06-01', suspended_by: ADMIN, reason: null })
+			)
 		);
-		await expect(reader.listSuspendedUserIds(ids)).resolves.toEqual(ids);
 		await expect(reader.getSuspensionForUser(USER)).rejects.toThrow('could not be verified');
 	});
 
@@ -226,21 +216,11 @@ describe('Identity platform suspension facts and effects', () => {
 		await expect(makeReader(null).getSuspensionForUser(USER)).resolves.toBeNull();
 	});
 
-	it.each(['list', 'detail'] as const)(
-		'propagates %s suspension failures instead of verified unsuspended state',
-		async (kind) => {
-			const reader = createIdentityPlatformSupportReader(
-				client(async () => Response.json({ message: 'private-provider-detail' }, { status: 500 }))
-			);
-			await expect(
-				kind === 'list' ? reader.listSuspendedUserIds([USER]) : reader.getSuspensionForUser(USER)
-			).rejects.toThrow();
-		}
-	);
-
-	it('does not treat a missing list representation as proof that no requested accounts are suspended', async () => {
-		const reader = createIdentityPlatformSupportReader(client(async () => Response.json(null)));
-		await expect(reader.listSuspendedUserIds([USER])).rejects.toThrow('Unable to read');
+	it('propagates suspension detail failures instead of verified unsuspended state', async () => {
+		const reader = createIdentityPlatformSupportReader(
+			client(async () => Response.json({ message: 'private-provider-detail' }, { status: 500 }))
+		);
+		await expect(reader.getSuspensionForUser(USER)).rejects.toThrow();
 	});
 
 	for (const action of ['suspend', 'unsuspend'] as const) {

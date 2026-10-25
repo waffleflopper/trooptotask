@@ -213,7 +213,6 @@ export interface IdentityPlatformSupportReader {
 		query: string;
 		maxResults: number;
 	}): Promise<Array<{ id: string; email: string | null }>>;
-	listSuspendedUserIds(userIds: string[]): Promise<string[]>;
 	getSuspensionForUser(userId: string): Promise<IdentitySupportSuspension | null>;
 	/** Optional display enrichment; unavailable labels do not confer authority. */
 	loadUserLabels(userIds: string[]): Promise<Map<string, IdentitySupportUserLabel>>;
@@ -231,11 +230,6 @@ export interface IdentityPlatformAccountEmailPort {
 		{ status: 'found'; email: string } | { status: 'not_found' } | { status: 'provider_error'; message: string }
 	>;
 	sendPasswordResetEmail(input: {
-		userId: string;
-		email: string;
-		redirectTo: string;
-	}): Promise<{ ok: true } | { ok: false; message: string }>;
-	sendInviteEmail(input: {
 		userId: string;
 		email: string;
 		redirectTo: string;

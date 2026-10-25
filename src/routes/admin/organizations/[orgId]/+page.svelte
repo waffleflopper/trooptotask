@@ -8,7 +8,7 @@
 	import TransferOwnershipModal from '$features/platform-admin/components/TransferOwnershipModal.svelte';
 	import OrganizationActivitySkeleton from '$features/platform-admin/components/OrganizationActivitySkeleton.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
-	import { describeAuditEvent } from '$features/platform-admin/organizationActivity';
+	import { describeAuditEvent } from '$features/platform-admin/auditSentences';
 	import { PLATFORM_ORGANIZATION_STATUS_LABELS } from '$features/platform-admin/organizationSupportTypes';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';

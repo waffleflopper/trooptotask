@@ -574,6 +574,7 @@
 			"src/features/platform-admin/setupTimeline.ts",
 			"src/features/platform-admin/components/AdminPageHeader.svelte",
 			"src/features/platform-admin/activityQuery.ts",
+			"src/features/platform-admin/auditSentences.ts",
 			"src/features/platform-admin/components/ActivityView.svelte",
 			"src/features/platform-admin/components/AdminPager.svelte",
 			"src/features/platform-admin/components/AdminSearch.svelte",
@@ -585,7 +586,6 @@
 			"src/features/platform-admin/components/adminTheme.ts",
 			"src/features/platform-admin/components/adminUrlSearch.svelte.ts",
 			"src/features/platform-admin/components/fetchActivity.ts",
-			"src/features/platform-admin/organizationActivity.ts",
 			"src/features/platform-admin/organizationSupportTypes.ts"
 		],
 		"app-shell": [

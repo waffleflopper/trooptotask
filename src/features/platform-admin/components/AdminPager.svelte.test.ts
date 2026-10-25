@@ -11,7 +11,7 @@ afterEach(() => {
 	goto.mockReset();
 });
 
-const pageHref = (page: number) => `/admin/users?page=${page}`;
+const pageHref = (page: number) => `/admin/people?page=${page}`;
 
 function renderPager(page: number, totalPages: number) {
 	const view = render(AdminPager, { page, totalPages, pageHref });
@@ -34,7 +34,7 @@ describe('AdminPager', () => {
 		await fireEvent.click(next);
 
 		await waitFor(() => expect(screen.getByText('Page 2 of 3')).toBeTruthy());
-		expect(goto).toHaveBeenCalledWith('/admin/users?page=2', { keepFocus: true });
+		expect(goto).toHaveBeenCalledWith('/admin/people?page=2', { keepFocus: true });
 		expect(document.activeElement).toBe(next);
 	});
 

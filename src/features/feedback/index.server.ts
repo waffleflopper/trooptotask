@@ -6,6 +6,12 @@ export {
 	countPendingFeedback,
 	listFeedbackExportRows
 } from './server/feedbackProvider.server';
+export {
+	createSupabaseFeedbackInboxReader,
+	type FeedbackInboxPage,
+	type FeedbackInboxReader,
+	type FeedbackInboxRow
+} from './server/feedbackInbox.server';
 export { createGitHubFeedbackMirror } from './server/githubFeedbackMirror.server';
 export type {
 	FeedbackExportRow,

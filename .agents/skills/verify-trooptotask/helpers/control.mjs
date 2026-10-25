@@ -455,7 +455,7 @@ async function main() {
 			);
 			if (!row || (!seedIds.includes(targetId) && row.created_by !== fixture.actors.platformReviewer.id))
 				throw new Error('Use a saved announcement owned by this verification worker.');
-		} else if (family === 'feedbackUpdate') {
+		} else if (family === 'feedbackClose') {
 			const row = checked(await client.from('beta_feedback').select('id,user_id').eq('id', targetId).maybeSingle());
 			if (!row || !Object.values(fixture.actors).some((actor) => actor.id === row.user_id))
 				throw new Error("Use Feedback submitted by this worker's synthetic account.");
@@ -477,7 +477,7 @@ async function main() {
 		const seed = (await saved()).platform;
 		if (!seed) throw new Error('Seed platform-admin first.');
 		const body = JSON.parse(bodyText);
-		const access = ['approve', 'reject', 'resend'].includes(family);
+		const access = ['approve', 'reject'].includes(family);
 		const membership = family === 'transferOwnership';
 		const targetId = access
 			? seed.requests[targetKey]?.id
@@ -946,60 +946,59 @@ async function main() {
 					]
 				: destination === 'settings/logs'
 					? ['Audit Log', "You don't have permission to view this page"]
-					: destination === 'admin/feedback'
-						? ['Sort incoming bug reports', 'Access denied', 'Forbidden']
-						: destination.startsWith('onboarding')
-							? [
-									'STEPS',
-									'No templates yet.',
-									'In processing',
-									'No active onboardings',
-									'Set up onboarding',
-									'Onboarding not configured',
-									'Onboarding History',
-									'Access restricted',
-									"You don't have permission to view this page"
-								]
-							: destination === 'home'
-								? ['Verification Organization A', 'Verification Organization B']
-								: destination === 'critical-tasks/library'
-									? [
-											'ICT task library controls',
-											'Access Restricted',
-											'Access restricted',
-											"You don't have permission to view this page"
-										]
-									: destination === 'critical-tasks'
-										? ['Critical Tasks', 'Access restricted']
-										: destination === 'settings/archives'
-											? ['Archived people', "You don't have permission to view this page"]
-											: destination === 'settings/approvals'
-												? ['Pending requests', "You don't have permission to view this page"]
-												: destination === 'settings/policies'
-													? ['Archive Retention', "You don't have permission to view this page"]
-													: destination === 'settings/general'
-														? ['Unit name', "You don't have permission to view this page"]
-														: destination === 'settings/members'
-															? ['Send invite', "You don't have permission to view this page"]
-															: destination === 'settings/exports'
-																? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
-																: destination === 'settings/danger'
-																	? ['Destructive Actions', "You don't have permission to view this page"]
-																	: destination === 'dashboard'
-																		? ['Pending Invitations', 'Organizations']
-																		: destination === 'org/new'
-																			? ['Create your first Organization', 'Confirm your email first']
-																			: [
-																					'Calendar',
-																					'Evaluation controls',
-																					'Training',
-																					'Able, Synthetic',
-																					'Foreign, Synthetic',
-																					'No personnel on the active roster',
-																					'Access restricted',
-																					'Access Restricted'
-																				];
-		if (destination === 'admin') readyText = ['Admin Dashboard', 'Total Users', 'Forbidden', 'Access denied', '403'];
+					: destination.startsWith('onboarding')
+						? [
+								'STEPS',
+								'No templates yet.',
+								'In processing',
+								'No active onboardings',
+								'Set up onboarding',
+								'Onboarding not configured',
+								'Onboarding History',
+								'Access restricted',
+								"You don't have permission to view this page"
+							]
+						: destination === 'home'
+							? ['Verification Organization A', 'Verification Organization B']
+							: destination === 'critical-tasks/library'
+								? [
+										'ICT task library controls',
+										'Access Restricted',
+										'Access restricted',
+										"You don't have permission to view this page"
+									]
+								: destination === 'critical-tasks'
+									? ['Critical Tasks', 'Access restricted']
+									: destination === 'settings/archives'
+										? ['Archived people', "You don't have permission to view this page"]
+										: destination === 'settings/approvals'
+											? ['Pending requests', "You don't have permission to view this page"]
+											: destination === 'settings/policies'
+												? ['Archive Retention', "You don't have permission to view this page"]
+												: destination === 'settings/general'
+													? ['Unit name', "You don't have permission to view this page"]
+													: destination === 'settings/members'
+														? ['Send invite', "You don't have permission to view this page"]
+														: destination === 'settings/exports'
+															? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
+															: destination === 'settings/danger'
+																? ['Destructive Actions', "You don't have permission to view this page"]
+																: destination === 'dashboard'
+																	? ['Pending Invitations', 'Organizations']
+																	: destination === 'org/new'
+																		? ['Create your first Organization', 'Confirm your email first']
+																		: [
+																				'Calendar',
+																				'Evaluation controls',
+																				'Training',
+																				'Able, Synthetic',
+																				'Foreign, Synthetic',
+																				'No personnel on the active roster',
+																				'Access restricted',
+																				'Access Restricted'
+																			];
+		if (destination === 'admin' || destination === 'admin/feedback')
+			readyText = ['Inbox', 'Forbidden', 'Access denied', '403'];
 		if (destination === 'admin/announcements') readyText = ['Announcements', 'Forbidden', 'Access denied', '403'];
 		if (
 			destination.startsWith('admin/') &&

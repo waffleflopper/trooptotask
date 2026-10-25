@@ -29,6 +29,6 @@
 		{#if retryable}
 			<Button variant="outline" onclick={() => window.location.reload()}>Try again</Button>
 		{/if}
-		<Button href="/admin">Back to Dashboard</Button>
+		<Button href="/admin">Back to Inbox</Button>
 	</Empty.Content>
 </Empty.Root>

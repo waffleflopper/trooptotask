@@ -83,9 +83,14 @@ export interface PlatformAccessRequestAdminCommand {
 	publicOrigin: string;
 }
 
-export interface PlatformAccessRequestAdminRejectCommand {
+export interface PlatformAccessRequestAdminRescindCommand {
 	accessRequestId: string;
 	actorUserId: string;
+}
+
+export interface PlatformAccessRequestAdminRejectCommand extends PlatformAccessRequestAdminRescindCommand {
+	/** Optional operator note, kept in the audit row. */
+	reason?: string | null;
 }
 
 export type PlatformAccessRequestAdminSendResult =
@@ -111,7 +116,7 @@ export interface PlatformAccessRequestAdministration {
 	approve(input: PlatformAccessRequestAdminCommand): Promise<PlatformAccessRequestAdminSendResult>;
 	resendSetup(input: PlatformAccessRequestAdminCommand): Promise<PlatformAccessRequestAdminSendResult>;
 	reject(input: PlatformAccessRequestAdminRejectCommand): Promise<PlatformAccessRequestAdminRejectResult>;
-	rescind(input: PlatformAccessRequestAdminRejectCommand): Promise<PlatformAccessRequestAdminRescindResult>;
+	rescind(input: PlatformAccessRequestAdminRescindCommand): Promise<PlatformAccessRequestAdminRescindResult>;
 }
 
 export interface PlatformAccessRequestAdministrationStore extends IdentityPlatformAccessRequestStore {

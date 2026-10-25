@@ -91,7 +91,7 @@ describe('users toolbar', () => {
 		const toolbar = within(screen.getByRole('toolbar', { name: 'Users controls' }));
 		expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
 		expect(toolbar.getByRole('link', { name: 'Open Access Requests' }).getAttribute('href')).toBe(
-			'/admin/access-requests'
+			'/admin?kind=accessRequest'
 		);
 	});
 

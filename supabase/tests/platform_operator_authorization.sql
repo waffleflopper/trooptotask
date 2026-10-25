@@ -37,7 +37,7 @@ SET LOCAL ROLE anon;
 SELECT set_config('request.jwt.claim.sub','',true);
 SELECT set_config('request.jwt.claims','{}',true);
 SELECT is(public.is_platform_operator(),false,'anonymous policy evaluation has no operator authority');
-SELECT is((SELECT count(*)::integer FROM public.access_requests),0,'anonymous request reads return no platform data');
+SELECT throws_ok($$SELECT count(*) FROM public.access_requests$$,'42501',NULL,'anonymous clients have no read grant on platform requests');
 RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

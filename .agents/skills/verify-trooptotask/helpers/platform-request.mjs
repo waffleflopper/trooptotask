@@ -6,15 +6,14 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 		suspend: ['type', 'action', 'reason'],
 		invalidSuspension: ['case'],
 		approve: [],
-		reject: [],
-		resend: [],
+		reject: ['reason'],
 		transferOwnership: ['targetUserId', 'confirmName'],
 		resetPassword: [],
 		resendInvite: [],
 		announcementCreate: ['title', 'message', 'type', 'expiresAt'],
 		announcementToggle: ['isActive'],
 		announcementDelete: [],
-		feedbackUpdate: ['status', 'adminNotes']
+		feedbackClose: []
 	};
 	if (!Object.hasOwn(fields, family)) throw new Error('Unsupported platform request');
 	if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId))
@@ -23,21 +22,21 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 	for (const [key, value] of Object.entries(body)) {
 		if (!fields[family].includes(key) || typeof value !== 'string') throw new Error('Unsupported platform field');
 	}
-	const access = ['approve', 'reject', 'resend'].includes(family);
+	const access = ['approve', 'reject'].includes(family);
 	const membership = family === 'transferOwnership';
 	const json = family === 'suspend' || family === 'invalidSuspension';
 	const contentActions = {
 		announcementCreate: '/admin/announcements?/create',
 		announcementToggle: '/admin/announcements?/toggle',
 		announcementDelete: '/admin/announcements?/delete',
-		feedbackUpdate: '/admin/feedback?/update'
+		feedbackClose: '/admin?/close'
 	};
 	const path = json
 		? '/admin/api/suspend'
 		: contentActions[family]
 			? contentActions[family]
 			: access
-				? `/admin/access-requests?/${family}`
+				? `/admin?/${family}`
 				: membership
 					? `/admin/organizations/${targetId}?/${family}`
 					: `/admin/users/${targetId}?/${family}`;
@@ -54,11 +53,11 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 			: json
 				? { ...body, targetId }
 				: access
-					? { requestId: targetId }
+					? { ...body, id: targetId }
 					: ['announcementToggle', 'announcementDelete'].includes(family)
 						? { ...body, id: targetId }
-						: family === 'feedbackUpdate'
-							? { ...body, feedbackId: targetId }
+						: family === 'feedbackClose'
+							? { ...body, id: targetId }
 							: body;
 	const response = await target.fetch(path, {
 		method: 'POST',

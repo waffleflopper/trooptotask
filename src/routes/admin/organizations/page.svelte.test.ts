@@ -61,6 +61,16 @@ function renderPage(directory: Promise<Directory> | Directory, query: Partial<Pa
 }
 
 describe('admin organizations page', () => {
+	it('counts the platform in the eyebrow only while nothing narrows the list', async () => {
+		const many = Array.from({ length: 3 }, (_, index) => row({ id: `org-${index}`, name: `Unit ${index}` }));
+		const { unmount } = renderPage(directoryPage({ organizations: many, totalCount: 38 }));
+		expect(await screen.findByText('Platform · 38 Organizations')).toBeTruthy();
+		unmount();
+		renderPage(directoryPage({ organizations: many, totalCount: 2 }), { filter: 'suspended' });
+		await screen.findByRole('link', { name: 'Unit 0' });
+		expect(screen.getByText('Platform')).toBeTruthy();
+		expect(screen.queryByText(/Platform ·/)).toBeNull();
+	});
 	it('shows each Organization with its owner and the facts the operator scans', async () => {
 		renderPage(
 			directoryPage({

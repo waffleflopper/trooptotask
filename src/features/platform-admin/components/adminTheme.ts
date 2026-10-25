@@ -20,6 +20,7 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 		case 'diagnostics_unavailable':
 			return 'danger';
 		case 'new':
+		case 'quiet':
 		case 'owner':
 		case 'warning':
 		case 'needs_attention':

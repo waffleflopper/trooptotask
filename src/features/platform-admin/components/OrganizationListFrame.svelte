@@ -1,28 +1,30 @@
 <script lang="ts" module>
-	const columns = 'lg:grid-cols-[minmax(0,2.4fr)_5rem_6rem_8rem_8rem_6rem]';
+	const columns = 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_4.5rem_5.5rem_7rem_7rem_6.5rem]';
 
-	export const rowClass = `grid gap-x-4 gap-y-2 px-4 py-3 lg:items-center ${columns}`;
+	export const rowClass = `grid gap-x-4 gap-y-2 px-3 py-3 lg:items-center ${columns}`;
 </script>
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 
 	let { children }: { children: Snippet } = $props();
 </script>
 
-<div class="overflow-hidden rounded-lg border bg-card">
+<div>
 	<div
-		class="hidden gap-x-4 border-b bg-muted/60 px-4 py-2 text-xs font-medium text-muted-foreground lg:grid {columns}"
+		class="hidden gap-x-4 border-b-2 border-foreground px-3 py-2 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase lg:grid {columns}"
 		aria-hidden="true"
 	>
 		<span>Organization</span>
+		<span>Owner</span>
 		<span>Members</span>
 		<span>Personnel</span>
-		<span>Last active</span>
+		<span class="inline-flex items-center gap-1">Last active <ArrowDown class="size-3" /></span>
 		<span>Created</span>
 		<span>Status</span>
 	</div>
-	<ul class="divide-y">
+	<ul class="divide-y border-y lg:border-t-0">
 		{@render children()}
 	</ul>
 </div>

@@ -64,8 +64,26 @@
 	<title>Organizations - Admin - Troop to Task</title>
 </svelte:head>
 
+{#snippet header(eyebrow: string)}
+	<PageShell.Header
+		variant="display"
+		{eyebrow}
+		title="Organizations"
+		subtitle="Every unit on the platform, most recently active first."
+	/>
+{/snippet}
+
 <PageShell.Root width="wide">
-	<PageShell.Header title="Organizations" subtitle="Every unit on the platform, most recently active first." />
+	{#await data.directory}
+		{@render header('Platform')}
+	{:then result}
+		<!-- The count is the whole platform; a search or filter narrows it, so the eyebrow drops the number then. -->
+		{@render header(
+			result.status === 'ready' && data.query.q === '' && data.query.filter === 'all'
+				? `Platform · ${result.page.totalCount} ${result.page.totalCount === 1 ? 'Organization' : 'Organizations'}`
+				: 'Platform'
+		)}
+	{/await}
 
 	<WorkspaceToolbar
 		ariaLabel="Organizations controls"
@@ -102,12 +120,12 @@
 			<OrganizationListFrame>
 				{#each page.organizations as org (org.id)}
 					<li class={rowClass}>
-						<div class="min-w-0">
+						<div class="grid min-w-0 lg:contents">
 							<a
 								href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
-								class="font-medium wrap-anywhere underline-offset-4 hover:underline">{org.name}</a
+								class="min-w-0 font-medium wrap-anywhere underline-offset-4 hover:underline">{org.name}</a
 							>
-							<p class="text-sm wrap-anywhere text-muted-foreground">{ownerLabel(org)}</p>
+							<p class="min-w-0 text-sm wrap-anywhere text-muted-foreground">{ownerLabel(org)}</p>
 						</div>
 						<dl class="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5 lg:contents">
 							<div>
@@ -139,7 +157,7 @@
 				{/each}
 			</OrganizationListFrame>
 			<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-				<p>
+				<p class="font-mono text-xs tracking-[0.08em] uppercase">
 					Showing {(page.page - 1) * page.pageSize + 1}-{(page.page - 1) * page.pageSize + page.organizations.length} of
 					{page.totalCount}
 				</p>

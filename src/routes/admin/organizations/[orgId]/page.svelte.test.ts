@@ -11,7 +11,6 @@ vi.mock('../../../../../node_modules/@sveltejs/kit/src/runtime/client/client.js'
 	...(await importOriginal<Record<string, unknown>>()),
 	app: { decoders: {} }
 }));
-import { openToolbarMore } from '$lib/test-support/toolbarWidths';
 import Page from './+page.svelte';
 import type { PageData } from './$types';
 
@@ -58,8 +57,7 @@ function renderDetail(isSuspended = false) {
 }
 
 async function chooseSuspension(action: 'Suspend' | 'Unsuspend') {
-	await openToolbarMore('Organization controls');
-	await fireEvent.click(screen.getByRole('menuitem', { name: action }));
+	await fireEvent.click(screen.getByRole('button', { name: `${action} Organization` }));
 	return screen.findByRole('dialog');
 }
 
@@ -82,11 +80,40 @@ function transferSuccess() {
 }
 
 describe('admin organization detail', () => {
-	it('offers Unsuspend for a suspended Organization and shows the status in the header', async () => {
+	it('offers Unsuspend for a suspended Organization and shows the status in the header', () => {
 		renderDetail(true);
-		const menu = within(await openToolbarMore('Organization controls'));
-		expect(menu.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual(['Unsuspend']);
+		expect(screen.getByRole('button', { name: 'Unsuspend Organization' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Suspend Organization' })).toBeNull();
 		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Suspended');
+	});
+	it('offers Suspend for an active Organization and names the owner under the title', () => {
+		renderDetail();
+		expect(screen.getByRole('button', { name: 'Suspend Organization' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Unsuspend Organization' })).toBeNull();
+		expect(screen.getByText('Owned by owner@example.test.')).toBeTruthy();
+	});
+	it('summarises the Organization under At a glance', () => {
+		renderDetail();
+		const glance = within(screen.getByRole('region', { name: 'At a glance' }));
+		expect(glance.getByText('owner@example.test')).toBeTruthy();
+		expect(glance.getByText('Never used')).toBeTruthy();
+		expect(glance.getByText('org-1')).toBeTruthy();
+	});
+	it('previews the first ten members and shows the rest on request', async () => {
+		const members = Array.from({ length: 12 }, (_, index) => ({
+			userId: `user-${index}`,
+			email: `person-${index}@example.test`,
+			role: index === 0 ? ('owner' as const) : ('member' as const),
+			lastSignInAt: null
+		}));
+		render(Page, { props: { data: makePageData(false, { members }) } });
+		const region = within(screen.getByRole('region', { name: /Members/ }));
+		expect(region.queryByText('person-11@example.test')).toBeNull();
+		const toggle = region.getByRole('button', { name: 'Show all 12' });
+		expect(toggle).toHaveAttribute('aria-expanded', 'false');
+		await fireEvent.click(toggle);
+		expect(region.getByText('person-11@example.test')).toBeTruthy();
+		expect(region.getByRole('button', { name: 'Show fewer' })).toHaveAttribute('aria-expanded', 'true');
 	});
 	it('shows why, when and by whom a suspended Organization was suspended', () => {
 		renderDetail(true);
@@ -118,8 +145,9 @@ describe('admin organization detail', () => {
 				})
 			}
 		});
-		const members = within(screen.getByRole('region', { name: 'Members' }));
-		expect(members.getAllByRole('listitem')).toHaveLength(2);
+		const members = within(screen.getByRole('region', { name: /^Members/ }));
+		expect(members.getByText('owner@example.test')).toBeTruthy();
+		expect(members.getByText('member@example.test')).toBeTruthy();
 		expect(members.getByText('Never signed in')).toBeTruthy();
 		expect(members.getByText(/^Signed in /)).toBeTruthy();
 		expect(
@@ -207,8 +235,7 @@ describe('admin organization detail', () => {
 		await chooseSuspension('Suspend');
 		await confirmSuspension();
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		await openToolbarMore('Organization controls');
-		expect(screen.getByRole('menuitem', { name: 'Unsuspend' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Unsuspend Organization' })).toBeTruthy();
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 

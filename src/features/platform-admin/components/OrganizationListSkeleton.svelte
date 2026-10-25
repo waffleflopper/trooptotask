@@ -10,7 +10,7 @@
 	<OrganizationListFrame>
 		{#each { length: ROWS } as _, index (index)}
 			<li class={rowClass} aria-hidden="true">
-				<div class="grid gap-1.5">
+				<div class="grid gap-1.5 lg:contents">
 					<Skeleton class="h-5 w-48 max-w-full" />
 					<Skeleton class="h-5 w-56 max-w-full" />
 				</div>

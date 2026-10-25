@@ -1,6 +1,6 @@
 BEGIN;
 
--- Imports the 27 entries of src/features/app-shell/changelog.ts, oldest first so published_seq keeps the file's newest-first order.
+-- Imports the 28 entries of src/features/app-shell/changelog.ts, oldest first so published_seq keeps the file's newest-first order.
 INSERT INTO public.whats_new_entries (id, title, published_on, paragraphs) VALUES
 	($wn$2026-04-04-duty-conflict-detection$wn$, $wn$Safer Assignments with Conflict Detection$wn$, '2026-04-04'::date, ARRAY[
 		$wn$Manual Calendar assignments once warned about Duty Roster conflicts and cooldown windows. That integration has since been removed; ordinary assignment saving remains.$wn$
@@ -196,6 +196,13 @@ INSERT INTO public.whats_new_entries (id, title, published_on, paragraphs) VALUE
 		$wn$Show only chips filter the roster to expired or missing training, items expiring within 30 days, overdue follow-ups, people not present, ETS or PCS within 90 days, and counseling due. The counts by the title filter too: choose present, or a status like Leave, to see just those people. The address keeps the filter, so a link you share opens the same filtered roster.$wn$,
 		$wn$On a wide screen, clicking a row or pressing Space opens a preview beside the roster with the person’s next 7 days, what needs attention, open follow-ups and the latest note. Add a note or follow-up or quick edit from it, press J and K to move through the people the roster shows, so a filter keeps you on the people it matches, and Esc or Space to close it. The name still opens the full record.$wn$,
 		$wn$There’s a new Account settings page, and an account menu at the bottom left of the sidebar.$wn$
+	]),
+	($wn$2026-10-24-faster-pages$wn$, $wn$Faster Pages on Slow Connections$wn$, '2026-10-24'::date, ARRAY[
+		$wn$Choosing a notification opens it right away instead of waiting for it to be marked read. If marking it read fails, a message asks you to reopen the bell and try again.$wn$,
+		$wn$A broad search in By Group shows the first 250 matches, so the roster keeps up while you type. Keep typing to narrow it, collapse a Group to see more of the Groups below, or choose Use A-Z View to page through every match.$wn$,
+		$wn$The Training matrix draws only the rows on screen and loads its records in parallel, so it opens and scrolls smoothly with a large roster.$wn$,
+		$wn$The Dashboard and a person's Readiness tab download less code, so they open sooner.$wn$,
+		$wn$Opening the Dashboard, Calendar, Training, Critical Tasks, Onboarding, Evals or Settings from the sidebar starts loading that page right away.$wn$
 	]);
 
 COMMIT;

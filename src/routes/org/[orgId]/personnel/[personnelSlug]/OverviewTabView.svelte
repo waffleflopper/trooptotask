@@ -13,7 +13,8 @@
 		PersonnelFollowUp,
 		PersonnelLeaderNote
 	} from '$features/personnel/contracts';
-	import { alsoChecked, attentionRows, PersonnelOpenFollowUps, uncheckedSources } from '$features/personnel';
+	import PersonnelOpenFollowUps from '$features/personnel/components/PersonnelOpenFollowUps.svelte';
+	import { alsoChecked, attentionRows, uncheckedSources } from '$features/personnel';
 	import type { PersonnelActiveEvaluation } from '$features/rating-scheme/contracts';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { AttentionList, AttentionListSkeleton } from '$lib/components/patterns/readiness-items';

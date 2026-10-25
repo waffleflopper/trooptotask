@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { AppShellRouteData } from '$features/app-shell/contracts';
-	import { PersonnelDataSheetPageView } from '$features/personnel';
+	import PersonnelDataSheetPageView from '$features/personnel/components/PersonnelDataSheetPageView.svelte';
 	import type {
 		PersonnelDataSheetPageData,
 		PersonnelDetailHeader,

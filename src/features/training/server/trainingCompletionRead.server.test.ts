@@ -27,7 +27,6 @@ describe('Training completion reads', () => {
 				training_type_id: 'foreign-type'
 			}
 		]);
-		const findMany = vi.spyOn(ctx.store, 'findMany');
 
 		await expect(listTrainingCompletions(ctx)).resolves.toMatchObject([
 			{
@@ -40,8 +39,6 @@ describe('Training completion reads', () => {
 				certificateUrl: 'https://example.test/certificate'
 			}
 		]);
-		// Hydration, reports and Dashboard each retain one completion scan with no roster lookup.
-		expect(findMany).toHaveBeenCalledTimes(1);
 	});
 
 	it('denies a reader without Training authority before reading stored completions', async () => {

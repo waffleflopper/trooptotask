@@ -1,4 +1,5 @@
 import { createRequestOnboardingWorkspaceContext } from '$lib/server/adapters/featureRequestContexts.server';
+import { buildLayoutRequest } from '$lib/server/adapters/requestContexts.server';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { OnboardingWorkspaceRouteData } from '$features/onboarding/contracts';
 import type { LayoutServerLoad } from './$types';
@@ -35,20 +36,18 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 
 	return async (event) => {
 		await requireFeatureOn(event, 'onboarding');
+		const { auth } = await buildLayoutRequest(event.locals, event.params.orgId);
+		const decision = policyEvaluator.evaluate({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: auth.role, userId: auth.userId },
+			action: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+			capabilityMap: auth.capabilityMap,
+			scopeSet: auth.scopeSet,
+			resource: { kind: 'unscoped' }
+		});
+		if (!decision.allowed) throw error(403, 'You do not have permission to view Onboarding');
 		return streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:onboarding-data', VIEWER_DAY_DEPENDENCY],
-			createContext: ({ locals, cookies }, shell) => {
-				const decision = policyEvaluator.evaluate({
-					decisionKind: 'server-authoritative',
-					actor: { membershipRole: shell.member.role, userId: shell.user.id },
-					action: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
-					capabilityMap: shell.member.capabilityMap,
-					scopeSet: shell.member.scopeSet,
-					resource: { kind: 'unscoped' }
-				});
-				if (!decision.allowed) throw error(403, 'You do not have permission to view Onboarding');
-				return { locals, cookies, orgId: shell.org.id };
-			},
 			streamWorkspace: streamOnboardingWorkspace
 		});
 	};

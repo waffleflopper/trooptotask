@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
 import type { Cookies } from '@sveltejs/kit';
 import type { AppShellRouteData, ReadyAppShell } from '$features/app-shell/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
@@ -77,24 +78,63 @@ export function createSuspendedAppShellRouteData(
 	};
 }
 
-/** `disabledFeatures` is the switch read fresh for the request; it defaults to what the shell shows. */
-export function createUrlBlindLayoutEvent<TEvent>(
+export function createOrganizationLoadEventData(
 	parentData: AppShellRouteData,
 	{ disabledFeatures }: { disabledFeatures?: FeatureKey[] } = {}
 ) {
-	const depends = vi.fn();
-	const orgId = parentData.shell.org.id;
-	const admission = {
-		id: orgId,
-		disabledFeatures:
-			disabledFeatures ?? (parentData.shell.kind === 'ready' ? parentData.shell.org.disabledFeatures : [])
-	};
-	const event = {
-		locals: { organizationAdmissions: new Map([[orgId, Promise.resolve(admission)]]) } as unknown as App.Locals,
+	const shell = parentData.shell;
+	const orgId = shell.org.id;
+	const switches = disabledFeatures ?? (shell.kind === 'ready' ? shell.org.disabledFeatures : []);
+	const supabase = createClient('http://organization.invalid', 'synthetic-request-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async () =>
+				Response.json({
+					id: orgId,
+					name: shell.org.name,
+					url_slug: shell.org.urlSegment !== orgId ? shell.org.urlSegment : null,
+					suspended_at: shell.kind === 'suspended' ? '2026-01-01T00:00:00Z' : null,
+					disabled_features: switches
+				})
+		}
+	});
+	const membership = shell.kind === 'ready' ? shell.member : null;
+	const userId = shell.kind === 'ready' ? shell.user.id : 'user-1';
+	return {
+		locals: {
+			supabase,
+			actor: { userId },
+			session: null,
+			membershipContextCache: new Map([
+				[
+					`${userId}:${orgId}`,
+					Promise.resolve({
+						id: membership?.membershipId ?? 'membership-1',
+						role: membership?.role ?? 'member',
+						member_preset: 'viewer',
+						capability_overrides: membership?.capabilityMap ?? {},
+						access_scope_kind: membership?.scopeSet.kind ?? 'organization',
+						access_scope_group_ids: membership?.scopeSet.kind === 'groups' ? membership.scopeSet.groupIds : []
+					})
+				]
+			])
+		} as unknown as App.Locals,
 		params: { orgId },
+		parent: () => {
+			throw new Error('Feature loads must not run ancestor loads');
+		}
+	};
+}
+
+export function createUrlBlindLayoutEvent<TEvent>(
+	parentData: AppShellRouteData,
+	options: { disabledFeatures?: FeatureKey[] } = {}
+) {
+	const depends = vi.fn();
+	const event = {
+		...createOrganizationLoadEventData(parentData, options),
 		cookies: {} as Cookies,
 		depends,
-		parent: vi.fn(async () => parentData),
 		get url(): URL {
 			throw new Error('Feature workspace layouts must not read the URL');
 		}

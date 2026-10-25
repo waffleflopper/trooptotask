@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { SecurityPage, mfaSetupHref } from '$features/identity';
+	import SecurityPage from '$features/identity/SecurityPage.svelte';
+	import { mfaSetupHref } from '$features/identity';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();

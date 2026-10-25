@@ -2,7 +2,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
-SELECT is((SELECT count(*)::integer FROM public.whats_new_entries WHERE published_on IS NOT NULL), 27,
+SELECT is((SELECT count(*)::integer FROM public.whats_new_entries WHERE published_on IS NOT NULL), 28,
  'every changelog entry was imported as published');
 SELECT results_eq($$SELECT id, title, published_on, paragraphs FROM public.whats_new_entries WHERE id = '2026-10-23-critical-tasks-defaults'$$,
  $$VALUES ('2026-10-23-critical-tasks-defaults'::text, 'Critical Tasks Defaults Moved to the Toolbar'::text, '2026-10-23'::date,
@@ -10,7 +10,7 @@ SELECT results_eq($$SELECT id, title, published_on, paragraphs FROM public.whats
         'Who can change them has not changed: anyone who can manage the Critical Tasks library.']::text[])$$,
  'an imported entry keeps its id, title, date and ordered paragraphs');
 SELECT results_eq($$SELECT id FROM public.whats_new_entries WHERE published_seq IS NOT NULL ORDER BY published_seq DESC LIMIT 3$$,
- $$VALUES ('2026-10-24-personnel-roster'::text), ('2026-10-23-critical-tasks-defaults'::text), ('2026-10-23-duty-swaps'::text)$$,
+ $$VALUES ('2026-10-24-faster-pages'::text), ('2026-10-24-personnel-roster'::text), ('2026-10-23-critical-tasks-defaults'::text)$$,
  'the newest imported entry is still the first changelog entry, so nobody sees an old entry as new');
 
 INSERT INTO auth.users(id,email) VALUES
@@ -47,7 +47,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','e8690000-0000-4000-8000-000000000702',true);
 SELECT set_config('request.jwt.claims','{"aal":"aal2"}',true);
 SELECT is((SELECT count(*)::integer FROM public.whats_new_entries WHERE id='draft-entry'),0,'a signed-in account cannot see a draft');
-SELECT is((SELECT count(*)::integer FROM public.whats_new_entries),27,'a signed-in account reads only the published entries');
+SELECT is((SELECT count(*)::integer FROM public.whats_new_entries),28,'a signed-in account reads only the published entries');
 SELECT throws_ok($$INSERT INTO public.whats_new_entries(id,title,paragraphs,published_on,updated_by) VALUES ('forged','Forged',ARRAY['x'],'2026-10-25','e8690000-0000-4000-8000-000000000701')$$,'42501',NULL,'a signed-in account cannot write an entry or set updated_by');
 SELECT throws_ok($$UPDATE public.whats_new_entries SET updated_by='e8690000-0000-4000-8000-000000000702' WHERE id='2026-10-24-personnel-roster'$$,'42501',NULL,'a signed-in account cannot update an entry');
 SELECT throws_ok($$DELETE FROM public.whats_new_entries WHERE id='2026-10-24-personnel-roster'$$,'42501',NULL,'a signed-in account cannot delete an entry');

@@ -2,7 +2,7 @@
 	import { trainingTypesStore } from '$features/training';
 	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
-	import { TrainingTypesPage } from '$features/training';
+	import TrainingTypesPage from '$features/training/components/TrainingTypesPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { TrainingWorkspaceResult } from '$features/training/contracts';
 	import { isPromiseLike, materializeWorkspaceData } from '$lib/utils/streamedRouteData';

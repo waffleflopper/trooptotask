@@ -13,6 +13,11 @@ import {
 	toTrainingType,
 	toTrainingView,
 	toTrainingCompletion,
+	toWorkspaceTrainingCompletion,
+	toTrainingCompletionFacts,
+	TRAINING_WORKSPACE_COMPLETION_FIELDS,
+	TRAINING_READINESS_COMPLETION_FIELDS,
+	type TrainingCompletionReadRow,
 	toTrainingCompletionEntryResource,
 	toTrainingCompletionHistoryEntry,
 	TRAINING_COMPLETION_ENTRY_FIELDS,
@@ -160,7 +165,24 @@ export function createInMemoryTrainingCompletionPersistence(
 ): TrainingCompletionPersistence {
 	return {
 		async listCompletions() {
-			return (await store.findMany<TrainingCompletionRow>('personnel_trainings', orgId)).map(toTrainingCompletion);
+			return (
+				await store.findMany<TrainingCompletionReadRow>('personnel_trainings', orgId, undefined, {
+					select: TRAINING_WORKSPACE_COMPLETION_FIELDS,
+					orderBy: [{ column: 'id', ascending: true }]
+				})
+			).map(toWorkspaceTrainingCompletion);
+		},
+		async listReadinessCompletions(scope) {
+			const people = new Set(scope.personnelIds);
+			const types = scope.trainingTypeIds === undefined ? undefined : new Set(scope.trainingTypeIds);
+			return (
+				await store.findMany<TrainingCompletionReadRow>('personnel_trainings', orgId, undefined, {
+					select: TRAINING_READINESS_COMPLETION_FIELDS,
+					orderBy: [{ column: 'id', ascending: true }]
+				})
+			)
+				.filter((row) => people.has(row.personnel_id) && (!types || types.has(row.training_type_id)))
+				.map(toTrainingCompletionFacts);
 		},
 		async findResource(id) {
 			const row = await store.findOne<{ personnel_id: string; training_type_id: string }>(

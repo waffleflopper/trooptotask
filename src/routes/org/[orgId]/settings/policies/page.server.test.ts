@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PoliciesSettingsPorts } from '../settingsPolicies.server';
-import { createReadyAppShellRouteData } from '../../appShell.test-support';
+import { createReadyAppShellRouteData, createOrganizationLoadEventData } from '../../appShell.test-support';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
 
@@ -30,9 +30,8 @@ describe('policies settings page server', () => {
 		const depends = vi.fn();
 
 		const result = await load({
-			locals: {},
 			cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) },
-			parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' }),
+			...createOrganizationLoadEventData(createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' })),
 			depends
 		} as never);
 

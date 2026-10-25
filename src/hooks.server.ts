@@ -72,6 +72,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.hasTwoFactor = null;
 	event.locals.authFlow = null;
 	event.locals.organizationAdmissions = new Map();
+	event.locals.organizationRouteReads = new Map();
 	event.locals.session = null;
 	event.locals.user = null;
 	// Public routes also need verified identity for conditional rendering.

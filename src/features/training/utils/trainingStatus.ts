@@ -3,6 +3,7 @@ import type {
 	TrainingType,
 	TrainingRequirementFacts,
 	PersonnelTraining,
+	TrainingCompletionFacts,
 	TrainingStatus
 } from '$features/training/training.types';
 import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
@@ -97,10 +98,10 @@ export function getTrainingStatus(
 	}
 }
 
-export interface DelinquentTraining {
+export interface DelinquentTraining<T extends TrainingCompletionFacts = PersonnelTraining> {
 	person: Personnel;
 	type: TrainingType;
-	training: PersonnelTraining | undefined;
+	training: T | undefined;
 	statusInfo: TrainingStatusInfo;
 }
 
@@ -110,20 +111,20 @@ export interface DelinquentOptions {
 	asOf?: string;
 }
 
-export function getDelinquentTrainings(
+export function getDelinquentTrainings<T extends TrainingCompletionFacts>(
 	personnel: Personnel[],
 	types: TrainingType[],
-	trainings: PersonnelTraining[],
+	trainings: T[],
 	options: DelinquentOptions = {}
-): DelinquentTraining[] {
+): DelinquentTraining<T>[] {
 	const { groupId, includeNotCompleted = true, asOf } = options;
 
-	const trainingMap = new Map<string, PersonnelTraining>();
+	const trainingMap = new Map<string, T>();
 	for (const t of trainings) {
 		trainingMap.set(`${t.personnelId}-${t.trainingTypeId}`, t);
 	}
 
-	const delinquent: DelinquentTraining[] = [];
+	const delinquent: DelinquentTraining<T>[] = [];
 
 	for (const person of personnel) {
 		if (groupId && person.groupId !== groupId) continue;
@@ -169,11 +170,11 @@ export interface TrainingStats {
 export function getTrainingStats(
 	personnel: Personnel[],
 	types: TrainingType[],
-	trainings: PersonnelTraining[],
+	trainings: TrainingCompletionFacts[],
 	groupId?: string,
 	asOf?: string
 ): TrainingStats {
-	const trainingMap = new Map<string, PersonnelTraining>();
+	const trainingMap = new Map<string, TrainingCompletionFacts>();
 	for (const t of trainings) {
 		trainingMap.set(`${t.personnelId}-${t.trainingTypeId}`, t);
 	}

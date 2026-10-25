@@ -194,7 +194,7 @@
 					{@const shownCount = rowHidden ? group.rows.filter((row) => !rowHidden(row)).length : group.rows.length}
 					<Table.Row
 						data-slot="data-table-group-row"
-						hidden={shownCount === 0}
+						hidden={group.rows.length > 0 && shownCount === 0}
 						class="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 						tabindex={0}
 						aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}

@@ -1,5 +1,5 @@
 import type { Personnel } from '$features/personnel/contracts';
-import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';
+import type { TrainingCompletionFacts, TrainingStatus, TrainingType } from '$features/training/training.types';
 
 export type BriefingRowsBy = 'group' | 'mos' | 'role';
 
@@ -21,7 +21,7 @@ export interface TrainingBriefingInput {
 	personnel: Personnel[];
 	/** Selected-view training types, already resolved and ordered as columns. */
 	types: TrainingType[];
-	records: PersonnelTraining[];
+	records: TrainingCompletionFacts[];
 	filters: TrainingBriefingFilters;
 	horizonDays: number;
 	/** YYYY-MM-DD in the organization's calendar. */

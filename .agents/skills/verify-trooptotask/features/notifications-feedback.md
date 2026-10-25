@@ -92,10 +92,10 @@ endpoints).
    item that took its place, and `$V rows notifications orgA title <title>` returns no row. Choose `View all`:
    `/org/ORG/account/notifications` lists the own rows newest first under `N unread of M`, each with an unread dot,
    title, message, relative time and `Delete notification: <title>`. Keep that page open and write from the bell: the
-   page follows without a reload (`23 unread of 23` after one bell delete, `0 unread of 23` after the bell's
-   `Mark all read`). Delete a row on the page: the row and its database row go, the bell count follows, and focus moves
-   to the next row's delete button. The page's `Mark all read` marks every own A row read, including the four the bell
-   does not list. `More` → `Delete all` asks `Delete all notifications?`; Cancel keeps every row, and `Delete all`
+   page follows without a reload (after another bell delete of an unread item, unread and total each drop by one from
+   what the page showed; after the bell's `Mark all read`, unread is `0`). Delete a row on the page: the row and its
+   database row go, the bell count follows, and focus moves to the next row's delete button. The page's `Mark all read`
+   marks every own A row read, including the rows beyond the bell's newest twenty. `More` → `Delete all` asks `Delete all notifications?`; Cancel keeps every row, and `Delete all`
    leaves `No notifications. Replies to your feedback and updates from your unit show up here.` with only the peer and B
    sentinels left in `rows notifications orgA|orgB`. A link stored as `/account/...` opens under the current
    Organization as `/org/ORG/account/...` from both the bell and the page. At 390 the page and the open bell have no

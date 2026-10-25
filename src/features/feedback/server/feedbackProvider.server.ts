@@ -5,16 +5,8 @@ import type { FeedbackExportRow, FeedbackReviewStore, FeedbackSubmissionStore } 
 
 type FeedbackReviewRow = Pick<
 	FeedbackExportRow,
-	| 'id'
-	| 'user_email'
-	| 'category'
-	| 'message'
-	| 'created_at'
-	| 'organization_name'
-	| 'page_url'
-	| 'status'
-	| 'admin_notes'
->;
+	'id' | 'user_email' | 'category' | 'message' | 'created_at' | 'organization_name' | 'page_url' | 'status'
+> & { feedback_staff_notes?: { body: string } | null };
 
 function mapFeedback(row: FeedbackReviewRow): FeedbackItem {
 	return {
@@ -26,7 +18,7 @@ function mapFeedback(row: FeedbackReviewRow): FeedbackItem {
 		organizationName: row.organization_name,
 		pageUrl: row.page_url,
 		status: row.status,
-		adminNotes: row.admin_notes
+		adminNotes: row.feedback_staff_notes?.body ?? null
 	};
 }
 
@@ -37,7 +29,9 @@ export function createSupabaseFeedbackReviewStore(client: SupabaseClient): Feedb
 			const { data, error } = await selectAllSupabaseRows<FeedbackReviewRow>(async (from, to) => {
 				const response = await client
 					.from('beta_feedback')
-					.select('id, user_email, category, message, created_at, organization_name, page_url, status, admin_notes')
+					.select(
+						'id, user_email, category, message, created_at, organization_name, page_url, status, feedback_staff_notes(body)'
+					)
 					.order('created_at', { ascending: false })
 					.order('id', { ascending: true })
 					.range(from, to);
@@ -48,9 +42,10 @@ export function createSupabaseFeedbackReviewStore(client: SupabaseClient): Feedb
 			return (data ?? []).map(mapFeedback);
 		},
 		async updateFeedback(input: FeedbackUpdateInput) {
-			const update: { status?: FeedbackUpdateInput['status']; admin_notes?: string | null } = {};
+			const update: { status?: FeedbackUpdateInput['status']; updated_at: string } = {
+				updated_at: new Date().toISOString()
+			};
 			if (input.status !== undefined) update.status = input.status;
-			if (input.adminNotes !== undefined) update.admin_notes = input.adminNotes;
 			const { data, error } = await client
 				.from('beta_feedback')
 				.update(update)
@@ -58,6 +53,13 @@ export function createSupabaseFeedbackReviewStore(client: SupabaseClient): Feedb
 				.select('id')
 				.maybeSingle<{ id: string }>();
 			if (error) throw new Error('Failed to update feedback', { cause: error });
+			if (data && input.adminNotes !== undefined) {
+				const notes =
+					input.adminNotes === null
+						? await client.from('feedback_staff_notes').delete().eq('feedback_id', input.id)
+						: await client.from('feedback_staff_notes').upsert({ feedback_id: input.id, body: input.adminNotes });
+				if (notes.error) throw new Error('Failed to update staff notes', { cause: notes.error });
+			}
 			return data ? { id: data.id } : null;
 		}
 	};
@@ -75,9 +77,7 @@ export function createSupabaseFeedbackSubmissionStore(getClient: () => SupabaseC
 				category: input.category,
 				message: input.message,
 				page_url: input.pageUrl,
-				page_section: input.pageSection,
-				github_issue_number: input.githubIssueNumber,
-				github_issue_url: input.githubIssueUrl
+				page_section: input.pageSection
 			});
 			if (error) throw new Error('Failed to insert feedback', { cause: error });
 		}
@@ -104,12 +104,14 @@ export async function listFeedbackExportRows(
 	const { data, error } = await selectAllSupabaseRows<FeedbackExportRow>(async (from, to) => {
 		const response = await client
 			.from('beta_feedback')
-			.select('*')
+			.select(
+				'id,user_id,user_email,organization_id,organization_name,category,message,page_url,status,created_at,updated_at,github_issue_number,github_issue_url,page_section'
+			)
 			.eq('organization_id', organizationId)
 			.order('id', { ascending: true })
 			.range(from, to);
 		return { data: response.data as FeedbackExportRow[] | null, error: response.error };
 	});
 	if (error) throw new Error('Failed to export feedback', { cause: error });
-	return data ?? [];
+	return (data ?? []).map((row) => ({ ...row, admin_notes: null }));
 }

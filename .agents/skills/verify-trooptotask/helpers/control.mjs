@@ -1101,14 +1101,33 @@ async function main() {
 				client
 					.from('beta_feedback')
 					.select(
-						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status,admin_notes'
+						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status,updated_by'
 					)
 					.eq('user_id', userId)
 					.order('id')
 					.range(from, to)
 			)
 		);
-		note({ role, userId, dismissals, feedback });
+		const feedbackIds = feedback.map((row) => row.id);
+		const replies = feedbackIds.length
+			? checked(
+					await client
+						.from('feedback_replies')
+						.select('id,feedback_id,body,sent_by,sent_at')
+						.in('feedback_id', feedbackIds)
+						.order('sent_at')
+						.order('id')
+				)
+			: [];
+		const staffNotes = feedbackIds.length
+			? checked(
+					await client
+						.from('feedback_staff_notes')
+						.select('feedback_id,body,updated_by,updated_at')
+						.in('feedback_id', feedbackIds)
+				)
+			: [];
+		note({ role, userId, dismissals, feedback, replies, staffNotes });
 		return;
 	}
 	if (command === 'platform-content') {
@@ -2931,7 +2950,8 @@ async function main() {
 				!!shellPart ||
 				(platformForm?.sameOrigin ?? false);
 			const requestMethod =
-				family === 'ict-tasks/order'
+				platformForm?.requestMethod ??
+				(family === 'ict-tasks/order'
 					? 'POST'
 					: action === 'arm-drop' && family === 'availability'
 						? 'ANY'
@@ -2941,7 +2961,7 @@ async function main() {
 								? 'PATCH'
 								: shellPart
 									? 'GET'
-									: null;
+									: null);
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {

@@ -75,7 +75,7 @@ describe('POST /api/feedback', () => {
 	it('binds a forged body to the admitted account and preserves the public response shape', async () => {
 		feedbackMock.submit.mockResolvedValueOnce({
 			status: 'submitted',
-			githubIssue: 'https://github.com/waffleflopper/trooptotask/issues/42'
+			githubIssue: null
 		});
 
 		const response = await POST(
@@ -95,7 +95,7 @@ describe('POST /api/feedback', () => {
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({
 			success: true,
-			githubIssue: 'https://github.com/waffleflopper/trooptotask/issues/42'
+			githubIssue: null
 		});
 		expect(feedbackMock.submit).toHaveBeenCalledWith({
 			userId: USER_ID,

@@ -1,7 +1,6 @@
 import { sanitizeString, validateUUID } from '$lib/server/validation';
 import type { FeedbackCategory } from '../contracts';
 import type {
-	FeedbackMirrorResult,
 	FeedbackOrganizationContext,
 	FeedbackSubmission,
 	FeedbackSubmissionDependencies
@@ -122,22 +121,6 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 			const organizationId = organizationContext?.organizationId ?? null;
 			const organizationName = organizationContext?.organizationName ?? null;
 
-			let mirrorResult: FeedbackMirrorResult | null = null;
-			if (deps.mirror) {
-				try {
-					mirrorResult = await deps.mirror.mirror({
-						category,
-						message,
-						pageUrl,
-						pageSection,
-						organizationName,
-						userEmail
-					});
-				} catch (error) {
-					console.error('Feedback mirror failed:', error);
-				}
-			}
-
 			try {
 				await deps.store.insertFeedbackSubmission({
 					userId: input.userId,
@@ -147,19 +130,14 @@ export function createFeedbackSubmission(deps: FeedbackSubmissionDependencies): 
 					category,
 					message,
 					pageUrl,
-					pageSection,
-					githubIssueNumber: mirrorResult?.issueNumber ?? null,
-					githubIssueUrl: mirrorResult?.issueUrl ?? null
+					pageSection
 				});
 			} catch (error) {
 				console.error('Failed to insert feedback:', error);
-				if (mirrorResult) {
-					return { status: 'submitted', githubIssue: mirrorResult.issueUrl };
-				}
 				return { status: 'submission_failed', message: 'Failed to submit feedback' };
 			}
 
-			return { status: 'submitted', githubIssue: mirrorResult?.issueUrl ?? null };
+			return { status: 'submitted', githubIssue: null };
 		}
 	};
 }

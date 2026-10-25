@@ -13,3 +13,5 @@ export { validatePlatformAnnouncement } from './server/announcements.server';
 export { createPlatformInboxOperations } from './server/inboxOperations.server';
 export { mapApproveResult, mapRejectResult } from './server/accessRequestActionResults.server';
 export { createPlatformActivityOperations } from './server/activityOperations.server';
+
+export { admitPlatformAdministrator } from './server/admission.server';

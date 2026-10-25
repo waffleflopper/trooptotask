@@ -221,7 +221,8 @@ loads its events with a client fetch, so `$V network arm-fail|arm-hold PAGE admi
   not intercepted. Arm, then use a visible sidebar link.
 - `admin-access/*` and `admin-transfer` need `seed platform-admin` first.
 - `clean-seeds` refuses a remaining seeded suspension; restore any suspension visibly first. Feedback rows have no
-  delete and stay until worker cleanup.
+  delete and stay until worker cleanup. The Feedback region's skeleton, `Try again` alert and held-command states are in
+  the [Feedback recipe](platform-feedback.md).
 - A failed suspend or transfer marks the dialog uncertain; it closes only through `Reload details` and then `Cancel` or
   a matching current state.
 - Toolbar fold sweeps, as `platformReviewer` with the page already open: `Users controls`

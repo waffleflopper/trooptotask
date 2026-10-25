@@ -16,7 +16,9 @@
 		children?: Snippet;
 	} = $props();
 
-	const destructive = getAppDialogState().tone === 'destructive';
+	const { tone, voice } = getAppDialogState();
+	const destructive = tone === 'destructive';
+	const editorial = voice === 'editorial';
 </script>
 
 <div
@@ -24,8 +26,9 @@
 	data-slot="app-dialog-header"
 	class={cn(
 		'flex flex-col gap-2 px-4 pt-4',
-		destructive &&
-			'gap-2.5 px-7 pt-7 [&_[data-slot=dialog-description]]:text-[15px] [&_[data-slot=dialog-description]]:leading-[22px] [&_[data-slot=dialog-title]]:font-heading [&_[data-slot=dialog-title]]:text-[32px] [&_[data-slot=dialog-title]]:leading-8 [&_[data-slot=dialog-title]]:font-extrabold [&_[data-slot=dialog-title]]:uppercase',
+		(destructive || editorial) &&
+			'gap-2.5 px-7 pt-7 [&_[data-slot=dialog-description]]:text-[15px] [&_[data-slot=dialog-description]]:leading-[22px] [&_[data-slot=dialog-title]]:font-heading [&_[data-slot=dialog-title]]:text-[32px] [&_[data-slot=dialog-title]]:leading-8 [&_[data-slot=dialog-title]]:font-extrabold',
+		destructive && '[&_[data-slot=dialog-title]]:uppercase',
 		className
 	)}
 	{...restProps}

@@ -15,7 +15,7 @@ interface NotificationDeliveryOptions {
 
 export function createSupabaseNotificationDelivery(options: NotificationDeliveryOptions): NotificationDeliveryPort {
 	async function insert(
-		orgId: string,
+		orgId: string | null,
 		userIds: readonly string[],
 		notification: NotificationPayload,
 		failureContext: string

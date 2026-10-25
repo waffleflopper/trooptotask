@@ -39,6 +39,26 @@ describe('notification request provider', () => {
 		expect(await store.listOwnExportRows('org-a', 'own-user')).toEqual(own);
 	});
 
+	it('shows account-level feedback replies in any Organization and applies own read/delete operations', async () => {
+		const provider = notificationTestProvider(
+			[
+				savedNotification('reply', { organization_id: null, type: 'feedback_reply', link: '/feedback/report-1' }),
+				savedNotification('org-note'),
+				savedNotification('foreign', { organization_id: 'org-b' }),
+				savedNotification('peer-reply', { organization_id: null, type: 'feedback_reply', user_id: 'peer-user' })
+			],
+			'own-user'
+		);
+		const store = createSupabaseNotificationStore(provider.client);
+		expect((await store.listOwn('org-a', 'own-user')).map(({ id }) => id)).toEqual(['reply', 'org-note']);
+		expect(await store.countOwnUnread('org-a', 'own-user')).toBe(2);
+		expect((await store.listOwnExportRows('org-a', 'own-user')).map(({ id }) => id)).toEqual(['org-note']);
+		await store.markRead('org-a', 'reply');
+		expect(await store.countOwnUnread('org-a', 'own-user')).toBe(1);
+		await store.deleteNotification('org-a', 'reply');
+		expect(provider.state.rows.map(({ id }) => id)).toEqual(['org-note', 'foreign', 'peer-reply']);
+	});
+
 	it('reads all unread/export pages and preserves every saved export field', async () => {
 		const rows = Array.from({ length: 1002 }, (_, index) => savedNotification(`note-${index}`));
 		rows[1001] = savedNotification('last-page', { type: 'member_removed', link: '/org/org-a/settings', read: true });

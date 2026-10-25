@@ -12,7 +12,8 @@ closed beta and member Feedback. They open an item, decide it and see it move to
   account, same unit already here), the `Closed beta` badge, `Approve and send setup link` and `Reject` with an optional
   reason. Both commands are awaited and audited.
 - `feedback`: the detail (category, first line as the title, person, Organization, page section and time, the full
-  message and the page) and `Close without replying`.
+  message and the page), the reply thread, the composer, staff notes, `Make it a GitHub issue` and
+  `Close without replying`; the [Feedback recipe](platform-feedback.md) owns replies, notes and issues.
 - `states`: a skeleton per region while it loads that holds its final size, one error alert with `Retry` per failed
   kind, a stale response never replacing a newer one, a failed reload after a command that keeps the item on screen, and
   the single-column layout below 1024 px where an item is full screen and Back closes it.
@@ -34,8 +35,9 @@ the recorded request rows. `$V platform-request PAGE approve|reject TARGET_KEY J
 `/admin?/reject` (`reject` accepts `reason`); `$V content-request PAGE feedbackClose UUID {}` posts `/admin?/close`.
 `$V network arm-fail|arm-hold|arm-observe PAGE admin-access/approve/approve` (or `reject/reject`) and
 `admin-inbox/close` bind one exact action; `admin-inbox-read` matches the Inbox page data and `admin-inbox-item-read`
-the item detail request (`/admin/api/inbox/item`). `arm-load-error` works on `admin-inbox-read`. Setup mail goes to the
-private sink (`mail state`, `mail fail setup`).
+the item detail request (`/admin/api/inbox/item`). `admin-feedback-read/UUID` and `admin-feedback-command/UUID` bind one
+Feedback item's replies and notes read and its reply, note and issue POST. `arm-load-error` works on `admin-inbox-read`.
+Setup mail goes to the private sink (`mail state`, `mail fail setup`).
 
 ## Driving it with verify:app
 
@@ -73,8 +75,9 @@ private sink (`mail state`, `mail fail setup`).
    is unchanged; after `restore` the retry succeeds.
 4. **Feedback.** Select a Feedback row. Expected: `Feedback · <category>` in blue, the message's first line as the
    heading, `<person> · <Organization> · on <section> · <when>` in mono, the full message when it runs past the first
-   line, and a `Page` line with the recorded path; `Close without replying` moves it to Done and the stored status is
-   `resolved`; the audit holds a `feedback.closed_without_reply` row, which Activity shows under `All` as
+   line, and a `Page` line with the recorded path; below it a reply thread, a composer and `Staff notes` load in their
+   own region ([Feedback recipe](platform-feedback.md)). `Close without replying` moves it to Done and the stored status
+   is `resolved`; the audit holds a `feedback.closed_without_reply` row, which Activity shows under `All` as
    `You closed Feedback <first 8 of the ID> without replying`. Closing it from a second stale page answers that the item
    was already closed and changes nothing.
 5. **Done.** Choose the Done tab. Expected: only items closed in the last 30 days, newest closed first (the closed

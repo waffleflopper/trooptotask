@@ -5,7 +5,7 @@ import FeedbackThread from './FeedbackThread.svelte';
 
 afterEach(cleanup);
 
-it('keeps the complete saved reply bodies in the supplied chronological order', () => {
+it('names each reply by its side of the thread, in the supplied chronological order', () => {
 	render(FeedbackThread, {
 		props: {
 			replies: [
@@ -13,24 +13,26 @@ it('keeps the complete saved reply bodies in the supplied chronological order', 
 					id: 'first',
 					feedbackId: 'thread',
 					author: 'operator',
-					body: 'We can reproduce this.',
+					body: 'Which unit were you in?',
 					sentBy: 'operator',
 					sentAt: '2026-10-23T04:00:00Z'
 				},
 				{
 					id: 'second',
 					feedbackId: 'thread',
-					author: 'operator',
-					body: 'Fixed in the next release.',
-					sentBy: 'operator',
+					author: 'reporter',
+					body: 'Bravo Company.',
+					sentBy: 'reporter',
 					sentAt: '2026-10-24T04:00:00Z'
 				}
 			],
-			from: 'TroopToTask',
+			labels: { operator: 'TroopToTask', reporter: 'You' },
 			formatSent: (value: string) => value
 		}
 	});
 	const items = within(screen.getByRole('list', { name: 'Replies' })).getAllByRole('listitem');
-	expect(within(items[0]).getByText('We can reproduce this.')).toBeTruthy();
-	expect(within(items[1]).getByText('Fixed in the next release.')).toBeTruthy();
+	expect(within(items[0]).getByText('TroopToTask')).toBeTruthy();
+	expect(within(items[0]).getByText('Which unit were you in?')).toBeTruthy();
+	expect(within(items[1]).getByText('You')).toBeTruthy();
+	expect(within(items[1]).getByText('Bravo Company.')).toBeTruthy();
 });

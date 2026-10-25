@@ -132,8 +132,8 @@
 		</Alert.Root>
 	{/if}
 
-	<div class="grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-		<section class="grid gap-2 rounded-lg border bg-card p-4 lg:order-2" aria-labelledby="org-glance">
+	<div class="grid items-start gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+		<section class="grid gap-2 rounded-lg border bg-card p-4 xl:order-2" aria-labelledby="org-glance">
 			<h2 id="org-glance" class="font-heading text-xl font-bold">At a glance</h2>
 			<dl>
 				<PageShell.FactRow variant="compact" label="Owner" value={ownerLabel} />
@@ -150,7 +150,7 @@
 			</dl>
 		</section>
 
-		<div class="grid min-w-0 gap-8 lg:order-1">
+		<div class="grid min-w-0 gap-8 xl:order-1">
 			<section class="grid gap-2" aria-labelledby="org-members">
 				<PageShell.SectionHeader
 					id="org-members"

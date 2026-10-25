@@ -18,6 +18,34 @@ function provider(rows: unknown[], requests: URL[]) {
 }
 
 describe('reporter feedback list', () => {
+	it('conceals another reporter from the Account reader even when the request client has operator visibility', async () => {
+		const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(new Request(input).url);
+					if (url.searchParams.get('user_id') === `eq.${ME}`) return Response.json(null);
+					if (url.pathname.endsWith('/feedback_replies')) return Response.json([]);
+					return Response.json({
+						id: 'peer-feedback',
+						user_id: 'peer',
+						user_email: 'peer@example.test',
+						organization_id: null,
+						organization_name: null,
+						category: 'bug',
+						message: 'Private',
+						page_url: null,
+						page_section: null,
+						status: 'new',
+						created_at: '2026-10-25T00:00:00Z',
+						github_issue_number: null,
+						github_issue_url: null
+					});
+				}
+			}
+		});
+		await expect(createSupabaseReporterFeedbackReader(client).detail('peer-feedback', ME)).resolves.toBeNull();
+	});
 	it("reads only the signed-in account, newest first, with each thread's reply count", async () => {
 		const requests: URL[] = [];
 		const reader = createSupabaseReporterFeedbackReader(

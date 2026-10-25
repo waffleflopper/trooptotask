@@ -7,6 +7,13 @@ import type {
 	FeedbackUpdateInput,
 	FeedbackUpdateResult
 } from '../contracts';
+import type { ReporterFeedback, ReporterFeedbackSummary, ReporterFeedbackReplyResult } from '../contracts';
+
+export interface ReporterFeedbackReader {
+	detail(id: string, userId: string): Promise<ReporterFeedback | null>;
+	list(userId: string): Promise<ReporterFeedbackSummary[]>;
+	reply(input: { feedbackId: string; body: string }): Promise<ReporterFeedbackReplyResult>;
+}
 
 export interface FeedbackReviewStore {
 	listFeedback(): Promise<FeedbackItem[]>;

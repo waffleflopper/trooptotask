@@ -16,6 +16,7 @@ export type {
 	FeedbackExportRow,
 	FeedbackReview,
 	FeedbackReviewStore,
+	ReporterFeedbackReader,
 	FeedbackSubmission,
 	FeedbackSubmissionDependencies,
 	FeedbackSubmissionRecord,

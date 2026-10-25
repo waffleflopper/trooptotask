@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { FeedbackReply, FeedbackStaffNote, ReporterFeedback, ReporterFeedbackSummary } from '../contracts';
 import type { FeedbackStaffStore } from './feedbackStaff.server';
+import type { ReporterFeedbackReader } from './feedbackPorts.server';
 import { buildFeedbackIssuePrefill } from './githubFeedbackIssues.server';
 
 const feedbackRow = z.object({
@@ -23,6 +24,7 @@ const feedbackRow = z.object({
 const replyRow = z.object({
 	id: z.string(),
 	feedback_id: z.string(),
+	author: z.enum(['operator', 'reporter']),
 	body: z.string(),
 	sent_by: z.string(),
 	sent_at: z.string()
@@ -36,18 +38,21 @@ const noteRow = z.object({
 });
 const FEEDBACK_COLUMNS =
 	'id,user_id,user_email,organization_id,organization_name,category,message,page_url,page_section,status,created_at,github_issue_number,github_issue_url';
-const REPLY_COLUMNS = 'id,feedback_id,body,sent_by,sent_at';
+const REPLY_COLUMNS = 'id,feedback_id,author,body,sent_by,sent_at';
 const NOTE_COLUMNS = 'feedback_id,body,updated_by,updated_at';
 const mapReply = (row: z.infer<typeof replyRow>): FeedbackReply => ({
 	id: row.id,
 	feedbackId: row.feedback_id,
+	author: row.author,
 	body: row.body,
 	sentBy: row.sent_by,
 	sentAt: row.sent_at
 });
 
-async function readFeedback(client: SupabaseClient, id: string) {
-	const { data, error } = await client.from('beta_feedback').select(FEEDBACK_COLUMNS).eq('id', id).maybeSingle();
+async function readFeedback(client: SupabaseClient, id: string, userId?: string) {
+	let query = client.from('beta_feedback').select(FEEDBACK_COLUMNS).eq('id', id);
+	if (userId !== undefined) query = query.eq('user_id', userId);
+	const { data, error } = await query.maybeSingle();
 	if (error) throw new Error('Unable to load feedback', { cause: error });
 	return data === null ? null : feedbackRow.parse(data);
 }
@@ -90,10 +95,22 @@ const summaryRow = z.object({
 export const REPORTER_FEEDBACK_LIST_LIMIT = 50;
 
 /** Bind the ordinary request client so feedback and reply RLS remain in force. */
-export function createSupabaseReporterFeedbackReader(client: SupabaseClient) {
+export function createSupabaseReporterFeedbackReader(client: SupabaseClient): ReporterFeedbackReader {
 	return {
-		async detail(id: string): Promise<ReporterFeedback | null> {
-			const row = await readFeedback(client, id);
+		async reply(input) {
+			const { data, error } = await client.rpc('reply_to_own_feedback', {
+				p_feedback_id: input.feedbackId,
+				p_body: input.body
+			});
+			if (error) return { status: 'failed' };
+			const result = replyResult.safeParse(data);
+			if (!result.success) return { status: 'failed' };
+			if (result.data === null) return { status: 'notFound' };
+			if ('status' in result.data) return result.data;
+			return { status: 'replied', reply: mapReply(result.data) };
+		},
+		async detail(id: string, userId: string): Promise<ReporterFeedback | null> {
+			const row = await readFeedback(client, id, userId);
 			if (!row) return null;
 			return reporterFeedback(row, await readReplies(client, id));
 		},

@@ -12,9 +12,9 @@ INSERT INTO public.beta_feedback(id,user_id,user_email,message) VALUES
  ('50000000-0000-4000-8000-000000186911','10000000-0000-4000-8000-000000186911','feedback-reporter@example.test','Reporter message'),
  ('50000000-0000-4000-8000-000000186912','10000000-0000-4000-8000-000000186912','feedback-peer@example.test','Peer message');
 INSERT INTO public.feedback_staff_notes(feedback_id,body) VALUES ('50000000-0000-4000-8000-000000186911','Keep private');
-INSERT INTO public.feedback_replies(id,feedback_id,body,sent_by) VALUES
- ('60000000-0000-4000-8000-000000186911','50000000-0000-4000-8000-000000186911','Own reply','10000000-0000-4000-8000-000000186913'),
- ('60000000-0000-4000-8000-000000186912','50000000-0000-4000-8000-000000186912','Peer reply','10000000-0000-4000-8000-000000186913');
+INSERT INTO public.feedback_replies(id,feedback_id,body,sent_by,author) VALUES
+ ('60000000-0000-4000-8000-000000186911','50000000-0000-4000-8000-000000186911','Own reply','10000000-0000-4000-8000-000000186913','operator'),
+ ('60000000-0000-4000-8000-000000186912','50000000-0000-4000-8000-000000186912','Peer reply','10000000-0000-4000-8000-000000186913','operator');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186911',true);
 SELECT set_config('request.jwt.claims','{"aal":"aal2"}',true);
@@ -64,7 +64,7 @@ BEGIN
 END;
 $$;
 CREATE TRIGGER reject_feedback_notification BEFORE INSERT ON public.notifications
- FOR EACH ROW WHEN (NEW.link = '/feedback/50000000-0000-4000-8000-000000186912')
+ FOR EACH ROW WHEN (NEW.link = '/account/feedback/50000000-0000-4000-8000-000000186912')
  EXECUTE FUNCTION pg_temp.reject_feedback_notification();
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT public.reply_to_feedback('50000000-0000-4000-8000-000000186912','Must roll back',false)$$,'P0001','Synthetic notification failure','notification failure rejects the reply transaction');
@@ -85,17 +85,17 @@ SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186911'
 SELECT is((SELECT count(*) FROM public.feedback_staff_notes),0::bigint,'new staff notes remain concealed from their reporter');
 SELECT is((SELECT count(*) FROM public.feedback_replies WHERE feedback_id='50000000-0000-4000-8000-000000186911'),3::bigint,'reporter sees the complete appended reply thread');
 SELECT results_eq($$SELECT user_id,organization_id,type,link FROM public.notifications WHERE type='feedback_reply' ORDER BY id$$,
- $$VALUES ('10000000-0000-4000-8000-000000186911'::uuid,NULL::uuid,'feedback_reply'::text,'/feedback/50000000-0000-4000-8000-000000186911'::text),
-          ('10000000-0000-4000-8000-000000186911'::uuid,NULL::uuid,'feedback_reply'::text,'/feedback/50000000-0000-4000-8000-000000186911'::text)$$,
+ $$VALUES ('10000000-0000-4000-8000-000000186911'::uuid,NULL::uuid,'feedback_reply'::text,'/account/feedback/50000000-0000-4000-8000-000000186911'::text),
+          ('10000000-0000-4000-8000-000000186911'::uuid,NULL::uuid,'feedback_reply'::text,'/account/feedback/50000000-0000-4000-8000-000000186911'::text)$$,
  'each committed reply notifies its reporter, including reply-and-close, without a stale-reply notification');
 SELECT is((SELECT count(*) FROM public.platform_operators),0::bigint,'ordinary submitter cannot read operator membership');
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.sub','',true);
 SELECT set_config('request.jwt.claims','{}',true);
-SELECT lives_ok($$INSERT INTO public.notifications(user_id,organization_id,type,title,message,link) VALUES('10000000-0000-4000-8000-000000186911',NULL,'feedback_reply','Reply','An operator replied','/feedback/50000000-0000-4000-8000-000000186911')$$,'server can notify an account-only reporter');
+SELECT lives_ok($$INSERT INTO public.notifications(user_id,organization_id,type,title,message,link) VALUES('10000000-0000-4000-8000-000000186911',NULL,'feedback_reply','Reply','An operator replied','/account/feedback/50000000-0000-4000-8000-000000186911')$$,'server can notify an account-only reporter');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186911',true);
-SELECT results_eq($$SELECT link FROM public.notifications WHERE type='feedback_reply' AND title='Reply'$$,$$VALUES ('/feedback/50000000-0000-4000-8000-000000186911'::text)$$,'reply notification is readable by its reporter without membership');
+SELECT results_eq($$SELECT link FROM public.notifications WHERE type='feedback_reply' AND title='Reply'$$,$$VALUES ('/account/feedback/50000000-0000-4000-8000-000000186911'::text)$$,'reply notification is readable by its reporter without membership');
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186912',true);
 SELECT is((SELECT count(*) FROM public.notifications WHERE type='feedback_reply'),0::bigint,'peer cannot read reporter reply notification');
 SET LOCAL ROLE anon;

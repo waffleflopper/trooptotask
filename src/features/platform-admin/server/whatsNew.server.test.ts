@@ -17,6 +17,8 @@ function entry(id: string, publishedOn: string | null, overrides: Partial<WhatsN
 	};
 }
 
+const newId = (n: number) => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
 function memoryStore(initial: WhatsNewEntry[] = []) {
 	const rows = [...initial];
 	let counter = 0;
@@ -24,7 +26,7 @@ function memoryStore(initial: WhatsNewEntry[] = []) {
 		listEntries: async () => [...rows],
 		getEntry: async (id) => rows.find((row) => row.id === id) ?? null,
 		createEntry: async (input) => {
-			const created = entry(`new-${++counter}`, input.publishedOn, {
+			const created = entry(newId(++counter), input.publishedOn, {
 				title: input.title,
 				paragraphs: input.paragraphs,
 				updatedBy: input.updatedBy
@@ -123,10 +125,10 @@ describe("platform What's New", () => {
 	it('saves a draft with the actor attributed and audits it', async () => {
 		const { operations, rows, audits } = setup();
 		const result = await operations.save({ id: null, title: 'Roster update', paragraphs: ['Body'] });
-		expect(result).toEqual({ status: 'saved', id: 'new-1', published: false });
+		expect(result).toEqual({ status: 'saved', id: newId(1), published: false });
 		expect(rows[0]).toMatchObject({ publishedOn: null, updatedBy: 'operator-1' });
 		expect(audits).toEqual([
-			expect.objectContaining({ action: 'whats_new_create', resourceType: 'whats_new_entry', resourceId: 'new-1' })
+			expect.objectContaining({ action: 'whats_new_create', resourceType: 'whats_new_entry', resourceId: newId(1) })
 		]);
 	});
 
@@ -148,6 +150,18 @@ describe("platform What's New", () => {
 		await operations.save({ id: 'live', title: 'Edited', paragraphs: ['Body'], publishOn: '2026-10-24' });
 		expect(rows[0]).toMatchObject({ title: 'Edited', publishedOn: '2026-10-01' });
 		expect(audits.map((event) => event.action)).toEqual(['whats_new_update']);
+	});
+
+	it('audits an imported entry with a text id without a resource id, so the audit write still lands', async () => {
+		const { operations, audits } = setup([entry('2026-10-24-personnel-roster', '2026-10-24')]);
+		await operations.save({ id: '2026-10-24-personnel-roster', title: 'Edited', paragraphs: ['Body'] });
+		expect(audits).toEqual([
+			expect.objectContaining({
+				action: 'whats_new_update',
+				resourceId: undefined,
+				details: { title: 'Edited', entryId: '2026-10-24-personnel-roster' }
+			})
+		]);
 	});
 
 	it('refuses to empty a published entry', async () => {

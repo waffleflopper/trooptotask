@@ -154,7 +154,7 @@ export async function sessionPage(
 	if (!response.ok || typeof grant?.access_token !== 'string' || typeof grant.user?.id !== 'string')
 		fail('PROVIDER_SESSION', `Provider sign-in failed (HTTP ${response.status}).`);
 	if (mfa) grant = await elevate(grant, mfa, { provider, session, fetch, environment });
-	const newestEntryId = await newestWhatsNewEntryId(fetch, provider, grant.access_token);
+	const newestEntryId = showWhatsNew ? '' : await newestWhatsNewEntryId(fetch, provider, grant.access_token);
 	const url = `${state.origin}/og-image.png?session=${randomUUID()}`;
 	const created = textContent(await call('new_page', { url, isolatedContext }));
 	const pageId = Number(

@@ -34,9 +34,9 @@ describe('WhatsNewModal', () => {
 		expect(onClose).toHaveBeenCalled();
 	});
 
-	it('says so when nothing is published, and still offers the all-updates link', () => {
+	it('still offers the all-updates link when nothing is published', () => {
 		render(WhatsNewModal, { entries: [], allEntriesHref: '/org/alpha/whats-new', onClose: vi.fn() });
-		expect(screen.getByText('Nothing new to show yet.')).toBeTruthy();
+		expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0);
 		expect(screen.getByRole('link', { name: 'See all updates' })).toBeTruthy();
 	});
 

@@ -37,8 +37,8 @@ already owned User and Organization support pages.
 ## Helper controls
 
 Platform content verification uses the [announcement/Feedback/Audit recipe](platform-support-content.md). Existing
-platform actors and ordinary `orgMember` may enter `admin`, `admin/announcements` and `admin/announcements/whats-new`
-through normal sign-in for admission and denial. `platform-content` accepts no targets and reads only helper-recorded
+platform actors and ordinary `orgMember` may enter `admin` and `admin/announcements` through normal sign-in for
+admission and denial; open What's New from its tab. `platform-content` accepts no targets and reads only helper-recorded
 communications announcements or rows created by this worker's synthetic operator. It provides privileged persistence
 readback separately from native interaction and ordinary authorization. Fixed same-origin form controls
 `admin-announcements/create|toggle|delete`, `admin-whats-new/save|delete` and `admin-feedback/update` bind only the

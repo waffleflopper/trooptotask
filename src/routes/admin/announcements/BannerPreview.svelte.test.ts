@@ -29,6 +29,7 @@ describe('BannerPreview', () => {
 
 	it('offers no working Dismiss control', () => {
 		render(BannerPreview, { title: 'T', message: 'M', type: 'info', expiresAt: null });
+		expect(within(screen.getByTestId('banner-preview')).getByText('T')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
 	});
 });

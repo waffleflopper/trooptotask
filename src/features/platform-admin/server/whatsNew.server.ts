@@ -48,6 +48,16 @@ export interface PlatformWhatsNew {
 
 const DAY_MS = 86_400_000;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Imported entries keep their readable text ids, which the uuid `audit_logs.resource_id` column cannot hold. */
+function auditTarget(id: string, title: string) {
+	return {
+		resourceType: 'whats_new_entry',
+		resourceId: UUID.test(id) ? id : undefined,
+		details: { title, entryId: id }
+	};
+}
 
 export function markShownToUsers(entries: WhatsNewEntry[]): WhatsNewListEntry[] {
 	const shown = new Set(
@@ -106,9 +116,7 @@ export function createPlatformWhatsNew(deps: WhatsNewDependencies): PlatformWhat
 				});
 				await deps.audit({
 					action: publishOn ? 'whats_new_publish' : 'whats_new_create',
-					resourceType: 'whats_new_entry',
-					resourceId: entry.id,
-					details: { title },
+					...auditTarget(entry.id, title),
 					severity: 'info'
 				});
 				return { status: 'saved', id: entry.id, published: publishOn !== undefined };
@@ -129,9 +137,7 @@ export function createPlatformWhatsNew(deps: WhatsNewDependencies): PlatformWhat
 			if (!updated) return { status: 'not_found' };
 			await deps.audit({
 				action: publishing ? 'whats_new_publish' : 'whats_new_update',
-				resourceType: 'whats_new_entry',
-				resourceId: input.id,
-				details: { title },
+				...auditTarget(input.id, title),
 				severity: 'info'
 			});
 			return { status: 'saved', id: input.id, published: publishing || existing.publishedOn !== null };
@@ -144,9 +150,7 @@ export function createPlatformWhatsNew(deps: WhatsNewDependencies): PlatformWhat
 			await deps.store.deleteDraft(id);
 			await deps.audit({
 				action: 'whats_new_delete',
-				resourceType: 'whats_new_entry',
-				resourceId: id,
-				details: { title: existing.title },
+				...auditTarget(id, existing.title),
 				severity: 'warning'
 			});
 			return { status: 'deleted' };

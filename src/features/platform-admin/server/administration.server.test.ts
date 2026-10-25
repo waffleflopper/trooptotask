@@ -172,7 +172,7 @@ describe('Platform suspension policy', () => {
 				action: `${action}_${type}`,
 				resourceType: type === 'user' ? 'user' : 'organization',
 				resourceId: targetId,
-				details: { suspension_reason: 'Policy review' },
+				details: type === 'user' ? { reason: 'Policy review' } : {},
 				severity: 'critical'
 			}
 		]);
@@ -194,7 +194,7 @@ describe('Platform suspension policy', () => {
 		else expect(acknowledged).toHaveBeenCalledWith(targetId);
 	});
 
-	it('retains the absent reason in the existing audit shape', async () => {
+	it('keeps the reason out of an Organization audit event', async () => {
 		const deps = sources();
 		await createPlatformSupportAdministration(deps).updateSuspension({
 			type: 'org',
@@ -206,7 +206,7 @@ describe('Platform suspension policy', () => {
 			action: 'unsuspend_org',
 			resourceType: 'organization',
 			resourceId: ORG,
-			details: { suspension_reason: undefined },
+			details: {},
 			severity: 'critical'
 		});
 	});

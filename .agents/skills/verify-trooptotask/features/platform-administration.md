@@ -136,7 +136,7 @@ admin/organizations`), open `Organizations`, search the unique temporary Organiz
    `More Organization controls` to offer `Unsuspend`. Reload and read the same alert. `$V platform-state` shows
    `suspended_at` set, and `rows` on `organization_suspensions` shows the reason and `platformReviewer` as
    `suspended_by`. Open `Organizations`: the row reads `Suspended` and `Suspended` in `Show` lists it. The Platform
-   audit entry for the suspension carries the same reason in its details. Then sign in as the Organization's owner and
+   audit entry for the suspension must not carry the reason in its details. Then sign in as the Organization's owner and
    require the suspension notice, not the reason. Unsuspend visibly and require the alert gone and the
    `organization_suspensions` row removed. Repeat once from `$V actor --stale-mfa platformReviewer admin/organizations`
    to prove the step-up: nothing changes until `mfa-code`; the dialog closes after the step-up, so type the reason again.

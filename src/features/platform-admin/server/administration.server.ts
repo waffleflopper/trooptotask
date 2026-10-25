@@ -107,7 +107,8 @@ export function createPlatformSupportAdministration(
 				action: `${command.action}_${command.type}`,
 				resourceType: command.type === 'user' ? 'user' : 'organization',
 				resourceId: command.targetId,
-				details: { suspension_reason: command.reason },
+				// An Organization's audit rows are readable by its owners, so the operator's reason stays in organization_suspensions.
+				details: command.type === 'user' ? { reason: command.reason } : {},
 				severity: 'critical'
 			});
 			return { status: 'updated', success: true };

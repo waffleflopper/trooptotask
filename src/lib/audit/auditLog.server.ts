@@ -50,7 +50,6 @@ const SAFE_STRING_KEYS = new Set([
 	'expiresat',
 	'expires_at',
 	'hasreason',
-	'suspensionreason',
 	'has_reason',
 	'overrideid',
 	'override_id',

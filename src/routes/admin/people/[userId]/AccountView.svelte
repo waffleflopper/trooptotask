@@ -93,7 +93,7 @@
 {/snippet}
 
 {#snippet description()}
-	<PersonRegion region={data.organizations} label="Organizations" onRetry={retry}>
+	<PersonRegion region={data.organizations} label="Organizations" onRetry={retry} quietOnError>
 		{#snippet skeleton()}<Skeleton class="h-6 w-96 max-w-full" />{/snippet}
 		{#snippet children(memberships)}{rolesSentence(memberships)}{/snippet}
 	</PersonRegion>

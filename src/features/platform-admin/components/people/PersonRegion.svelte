@@ -11,9 +11,11 @@
 		skeleton: Snippet;
 		children: Snippet<[T]>;
 		onRetry: () => void;
+		/** Another region already reports this failure, so this one shows nothing instead of a second alert. */
+		quietOnError?: boolean;
 	}
 
-	let { region, label, skeleton, children, onRetry }: Props = $props();
+	let { region, label, skeleton, children, onRetry, quietOnError = false }: Props = $props();
 </script>
 
 {#snippet failed(message: string)}
@@ -28,9 +30,9 @@
 {:then loaded}
 	{#if loaded.status === 'ok'}
 		{@render children(loaded.data)}
-	{:else}
+	{:else if !quietOnError}
 		{@render failed(loaded.message)}
 	{/if}
 {:catch}
-	{@render failed(`${label} could not be loaded.`)}
+	{#if !quietOnError}{@render failed(`${label} could not be loaded.`)}{/if}
 {/await}

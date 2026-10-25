@@ -67,6 +67,14 @@ describe('Person page', () => {
 		expect(await screen.findByRole('link', { name: 'B Company' })).toBeTruthy();
 	});
 
+	it('reports a failed Organizations read once, in its own region', async () => {
+		render(AccountView, {
+			data: pageData({ organizations: Promise.resolve({ status: 'error', message: 'Unable to load Organizations' }) })
+		});
+
+		expect(await screen.findAllByRole('button', { name: 'Retry organizations' })).toHaveLength(1);
+	});
+
 	it('refuses to suspend the operator’s own account and says why', async () => {
 		render(AccountView, {
 			data: pageData({ isSelf: true, canSuspend: false, suspendDisabledReason: 'You cannot suspend your own account.' })

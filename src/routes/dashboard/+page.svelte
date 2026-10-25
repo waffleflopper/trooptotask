@@ -253,7 +253,7 @@
 
 			<div class="flex flex-wrap gap-3 border-t border-border pt-4">
 				<Button href="/org/new">Create Organization</Button>
-				<Button href={resolve('/feedback')} variant="outline">Your feedback</Button>
+				<Button href={resolve('/account')} variant="outline">Your account</Button>
 				<form method="POST" action={resolve('/auth/logout')}>
 					<Button type="submit" variant="outline">Sign Out</Button>
 				</form>

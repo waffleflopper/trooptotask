@@ -104,7 +104,7 @@ Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses new
    last seed's preparation covers every workload. The returned `actors`, `sentinels` and `searchTerms` are what the
    observer waits for.
 2. Sign in once per actor: `$V actor perfWide personnel large`, `$V actor perfScoped personnel large`,
-   `$V actor perfScopedLeader personnel large` and, for `admin-users`, `$V actor platformReviewer admin/users`. Each
+   `$V actor perfScopedLeader personnel large` and, for `admin-users`, `$V actor platformReviewer admin/people`. Each
    perf actor is a member of every seeded workload, so the same page drives all three. Keep the returned page IDs. The
    control records which actor each page was signed in as; a warm `perf load` or a `perf interaction` rejects a page
    whose actor differs from the ACTOR argument, so a scoped label cannot record a wide page. Cold samples create their

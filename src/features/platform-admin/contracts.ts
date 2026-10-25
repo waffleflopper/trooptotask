@@ -12,6 +12,7 @@ export type {
 	PlatformAnnouncementValidation
 } from './announcementTypes';
 
+export type { PersonRegion } from './peopleTypes';
 export type {
 	PublishedWhatsNewEntry,
 	WhatsNewDeleteResult,

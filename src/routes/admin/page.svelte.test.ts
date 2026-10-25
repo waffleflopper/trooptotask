@@ -56,6 +56,7 @@ function pageData(
 		inboxOpenCount: Promise.resolve<number | null>(2),
 		stats: Promise.resolve<InboxStatsResult>({ status: 'ok', newPeople: 4, newOrganizations: 2 }),
 		sources: {
+			setupEmailFailed: ok<'setupEmailFailed'>([]),
 			accessRequest: ok<'accessRequest'>([request as never]),
 			feedback: ok<'feedback'>([feedback as never])
 		} satisfies Sources,
@@ -104,7 +105,11 @@ describe('Inbox page', () => {
 	it('shows a skeleton, not an empty state, until the sources answer', () => {
 		const pending = new Promise<never>(() => {});
 		render(Page, {
-			props: { data: pageData({ sources: { accessRequest: pending, feedback: pending } }) as never }
+			props: {
+				data: pageData({
+					sources: { setupEmailFailed: ok<'setupEmailFailed'>([]), accessRequest: pending, feedback: pending }
+				}) as never
+			}
 		});
 
 		expect(screen.getByRole('status', { name: 'Loading Inbox' })).toBeTruthy();
@@ -116,6 +121,7 @@ describe('Inbox page', () => {
 			props: {
 				data: pageData({
 					sources: {
+						setupEmailFailed: ok<'setupEmailFailed'>([]),
 						accessRequest: Promise.resolve({ status: 'error' }),
 						feedback: ok<'feedback'>([feedback as never])
 					}
@@ -136,6 +142,7 @@ describe('Inbox page', () => {
 			props: {
 				data: pageData({
 					sources: {
+						setupEmailFailed: ok<'setupEmailFailed'>([]),
 						accessRequest: Promise.resolve({ status: 'error' }),
 						feedback: ok<'feedback'>([feedback as never])
 					}
@@ -219,6 +226,7 @@ describe('Inbox page', () => {
 				data: pageData({
 					tab: 'done',
 					sources: {
+						setupEmailFailed: ok<'setupEmailFailed'>([]),
 						accessRequest: ok<'accessRequest'>([]),
 						feedback: ok<'feedback'>([{ ...feedback, closedAt: '2026-10-30T09:00:00Z' } as never])
 					}
@@ -237,7 +245,11 @@ describe('Inbox page', () => {
 			props: {
 				data: pageData({
 					tab: 'done',
-					sources: { accessRequest: ok<'accessRequest'>([]), feedback: ok<'feedback'>([]) }
+					sources: {
+						setupEmailFailed: ok<'setupEmailFailed'>([]),
+						accessRequest: ok<'accessRequest'>([]),
+						feedback: ok<'feedback'>([])
+					}
 				}) as never
 			}
 		});

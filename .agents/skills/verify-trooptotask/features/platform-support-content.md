@@ -45,7 +45,7 @@ before dispatch. `arm-fail-400` returns the same failure envelope with status 40
 open. A 5xx or missing save reply blocks new writes until the visible read-only Reload succeeds.
 `content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackClose RECORDED_UUID JSON` submits
 bounded ordinary HTTP actions against helper-recorded targets, separately from native UI proof. `admin-inbox-read`,
-`admin-users-read`, `admin-organizations-read`, `admin-announcements-read`, `admin-whats-new-read`,
+`admin-people-read`, `admin-organizations-read`, `admin-announcements-read`, `admin-whats-new-read`,
 `admin-user-detail-read` (`orgInvitee`) and `admin-organization-detail-read` (the `seed platform-admin` Organization)
 control only their exact page-data navigation with failure, hold or observation. `arm-fail` replaces the response with a
 transport 503, which SvelteKit renders on the root error page; `arm-load-error` dispatches the real read and returns its

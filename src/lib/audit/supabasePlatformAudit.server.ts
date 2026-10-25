@@ -126,7 +126,7 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 		async listRecentByUser(input) {
 			const response = (await supabase
 				.from('audit_logs')
-				.select(AUDIT_LOG_RECENT_COLUMNS)
+				.select(`${AUDIT_LOG_RECENT_COLUMNS}, details, ip_address`)
 				.eq('user_id', input.userId)
 				.order('timestamp', { ascending: false })
 				.limit(input.limit)) as SupabaseResponse<SupabaseAuditLogRow[]>;

@@ -38,7 +38,7 @@ interface SendSetupEmailInput {
 	expiresAt: Date;
 }
 
-type SetupEmailSender = (input: SendSetupEmailInput) => Promise<void>;
+type SetupEmailSender = (input: SendSetupEmailInput) => Promise<void | string | null>;
 
 interface AuthEmailOutboxRow {
 	id: string;
@@ -90,7 +90,8 @@ function mapOutboxRow(row: AuthEmailOutboxRow): AuthEmailOutboxRecord {
 }
 
 export type SendAccountSetupOutboxDeliveryResult =
-	| { status: 'sent'; outbox: AuthEmailOutboxRecord }
+	| { status: 'sent_recording_failed'; outbox: AuthEmailOutboxRecord; error: string }
+	| { status: 'sent'; outbox: AuthEmailOutboxRecord; emailId?: string | null }
 	| { status: 'failed'; outbox: AuthEmailOutboxRecord; error: string };
 
 export async function sendAccountSetupOutboxDelivery(
@@ -113,18 +114,22 @@ export async function sendAccountSetupOutboxDelivery(
 		createdAt
 	});
 
+	let emailSent = false;
 	try {
-		await sendSetupEmail({
+		const emailId = await sendSetupEmail({
 			email: normalizeEmail(input.email),
 			setupUrl: input.setupUrl,
 			expiresAt: input.expiresAt
 		});
+		emailSent = true;
 		return {
 			status: 'sent',
+			emailId: emailId ?? null,
 			outbox: await store.markSetupEmailDeliverySent(outbox.id, input.now ?? new Date())
 		};
 	} catch (error) {
 		const message = errorMessage(error);
+		if (emailSent) return { status: 'sent_recording_failed', outbox, error: message };
 		return {
 			status: 'failed',
 			error: message,

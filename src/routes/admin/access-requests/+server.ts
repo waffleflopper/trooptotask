@@ -1,4 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = () => redirect(308, '/admin?kind=accessRequest');
+export const GET: RequestHandler = ({ url }) =>
+	redirect(
+		308,
+		url?.searchParams.get('tab') === 'reviewed' ? '/admin/people?filter=notSetUp' : '/admin?kind=accessRequest'
+	);

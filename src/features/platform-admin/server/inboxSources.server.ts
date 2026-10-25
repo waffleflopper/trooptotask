@@ -1,7 +1,10 @@
+import { readSetupEmailInviters } from './setupEmailOperations.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAccessRequestHeardAboutLabel } from '$features/identity/contracts';
 import {
 	createIdentityAccessRequestInboxReader,
+	createIdentitySetupEmailInboxReader,
+	createIdentityPersonReader,
 	type AccessRequestInboxRow,
 	type IdentityAccessRequestInboxReader
 } from '$features/identity/index.server';
@@ -163,7 +166,8 @@ export function createFeedbackInboxSource(
 export function createInboxSources(client: SupabaseClient): InboxSources {
 	return {
 		accessRequest: createAccessRequestInboxSource(createIdentityAccessRequestInboxReader(client), client),
-		feedback: createFeedbackInboxSource(createSupabaseFeedbackInboxReader(client))
+		feedback: createFeedbackInboxSource(createSupabaseFeedbackInboxReader(client)),
+		setupEmailFailed: createSetupEmailInboxSource(client)
 	};
 }
 
@@ -188,7 +192,8 @@ export function readInboxSources(
 ): { [K in InboxKind]: Promise<InboxSourceResult<K>> } {
 	return {
 		accessRequest: readInboxSource(sources.accessRequest, tab),
-		feedback: readInboxSource(sources.feedback, tab)
+		feedback: readInboxSource(sources.feedback, tab),
+		setupEmailFailed: readInboxSource(sources.setupEmailFailed, tab)
 	};
 }
 
@@ -201,4 +206,40 @@ export async function countOpenInboxItems(sources: InboxSources): Promise<number
 		console.error('[platform-admin-inbox] open count failed', cause);
 		return null;
 	}
+}
+
+export function createSetupEmailInboxSource(client: SupabaseClient): InboxSource<'setupEmailFailed'> {
+	const reader = createIdentitySetupEmailInboxReader(client);
+	return {
+		async read(tab) {
+			const page = await reader.read({ tab, limit: INBOX_PAGE_LIMIT });
+			return {
+				count: page.count,
+				items: page.rows.map((row) => ({
+					kind: 'setupEmailFailed',
+					id: row.id,
+					linkId: row.id,
+					requestId: row.requestId,
+					reason: row.reason,
+					failedAt: row.failedAt,
+					title: `Setup email for ${row.name}`,
+					summary: row.email,
+					receivedAt: row.failedAt,
+					closedAt: row.closedAt
+				}))
+			};
+		},
+		async countOpen() {
+			return (await reader.read({ tab: 'open', limit: 0 })).count;
+		},
+		async detail(id) {
+			const row = await reader.get(id);
+			if (!row) return null;
+			const [timeline, inviters] = await Promise.all([
+				createIdentityPersonReader(client).setupTimeline(row.requestId),
+				readSetupEmailInviters(client, row.requestId)
+			]);
+			return { ...row, kind: 'setupEmailFailed', timeline, canAskInviter: row.isOpen && inviters.length > 0 };
+		}
+	};
 }

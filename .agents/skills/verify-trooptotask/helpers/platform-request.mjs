@@ -9,7 +9,6 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 		reject: ['reason'],
 		transferOwnership: ['targetUserId', 'confirmName'],
 		resetPassword: [],
-		resendInvite: [],
 		announcementCreate: ['title', 'message', 'type', 'expiresAt'],
 		announcementToggle: ['isActive'],
 		announcementDelete: [],
@@ -39,7 +38,7 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 				? `/admin?/${family}`
 				: membership
 					? `/admin/organizations/${targetId}?/${family}`
-					: `/admin/users/${targetId}?/${family}`;
+					: `/admin/people/${targetId}?/${family}`;
 	const invalidCases = {
 		'null-body': null,
 		'non-string-reason': { type: 'user', action: 'suspend', targetId, reason: 42 },

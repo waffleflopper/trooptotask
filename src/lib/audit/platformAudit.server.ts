@@ -89,6 +89,9 @@ export function createPlatformAudit(deps: PlatformAuditDependencies): PlatformAu
 
 			return logs.map((log) => ({
 				id: log.id,
+				userId: log.userId,
+				details: log.details,
+				ipAddress: log.ipAddress,
 				action: log.action,
 				resourceType: log.resourceType,
 				resourceId: log.resourceId,

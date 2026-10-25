@@ -234,3 +234,34 @@ describe('Supabase PlatformAudit adapter Activity read', () => {
 		await expect(store.listActivity(input)).rejects.toThrow('function list_platform_activity failed');
 	});
 });
+
+it('returns the stored attribution and target facts needed for person activity sentences', async () => {
+	const stored = {
+		id: 'event-1',
+		user_id: 'person-1',
+		org_id: null,
+		action: 'admin.user.password_reset',
+		resource_type: 'user',
+		resource_id: 'person-2',
+		severity: 'warning',
+		timestamp: '2026-10-25T12:00:00Z',
+		details: { actorEmail: 'operator@example.test', targetName: 'Pat Rivera' },
+		ip_address: '127.0.0.1'
+	};
+	const client = createClient('http://127.0.0.1:9', 'synthetic-service-key', {
+		auth: { persistSession: false },
+		global: {
+			fetch: async (input, init) => {
+				const url = new URL(new Request(input, init).url);
+				const selected = new Set((url.searchParams.get('select') ?? '').split(',').map((value) => value.trim()));
+				return Response.json([Object.fromEntries(Object.entries(stored).filter(([key]) => selected.has(key)))]);
+			}
+		}
+	});
+	const rows = await createSupabasePlatformAuditStore(client).listRecentByUser({ userId: 'person-1', limit: 10 });
+	expect(rows[0]).toMatchObject({
+		userId: 'person-1',
+		details: { actorEmail: 'operator@example.test', targetName: 'Pat Rivera' },
+		ipAddress: '127.0.0.1'
+	});
+});

@@ -11,5 +11,8 @@ export interface OrganizationSupportInvitationOriginFact {
 }
 
 export interface OrganizationPlatformInvitationReader {
-	listInvitationOrigins(accessRequestIds: string[]): Promise<Map<string, OrganizationSupportInvitationOriginFact[]>>;
+	listInvitationOrigins(
+		accessRequestIds: string[],
+		options?: { pendingOnly: boolean }
+	): Promise<Map<string, OrganizationSupportInvitationOriginFact[]>>;
 }

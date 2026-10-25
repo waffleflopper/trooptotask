@@ -1,7 +1,8 @@
+import type { SetupEmailInboxRow, SetupEmailTimeline } from '$features/identity/contracts';
 import type { FeedbackCategory, FeedbackStatus } from '$features/feedback/contracts';
 
 /** Every kind of Inbox item. A new kind adds one entry here and one entry in each registry. */
-export const INBOX_KINDS = ['accessRequest', 'feedback'] as const;
+export const INBOX_KINDS = ['accessRequest', 'feedback', 'setupEmailFailed'] as const;
 export type InboxKind = (typeof INBOX_KINDS)[number];
 
 export type InboxTab = 'open' | 'done';
@@ -17,7 +18,14 @@ interface InboxItemBase {
 
 export type InboxItem =
 	| (InboxItemBase & { kind: 'accessRequest'; outcome: 'approved' | 'rejected' | null })
-	| (InboxItemBase & { kind: 'feedback'; category: FeedbackCategory });
+	| (InboxItemBase & { kind: 'feedback'; category: FeedbackCategory })
+	| (InboxItemBase & {
+			kind: 'setupEmailFailed';
+			linkId: string;
+			requestId: string;
+			reason: 'bounced' | 'expiredUnused';
+			failedAt: string;
+	  });
 
 export type InboxItemOf<K extends InboxKind> = Extract<InboxItem, { kind: K }>;
 
@@ -48,7 +56,8 @@ export type InboxDetail =
 			status: FeedbackStatus;
 			receivedAt: string;
 			closedAt: string | null;
-	  };
+	  }
+	| ({ kind: 'setupEmailFailed'; canAskInviter: boolean; timeline: SetupEmailTimeline } & SetupEmailInboxRow);
 
 export type InboxDetailOf<K extends InboxKind> = Extract<InboxDetail, { kind: K }>;
 

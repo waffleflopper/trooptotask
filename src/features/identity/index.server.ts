@@ -121,3 +121,8 @@ export {
 } from './platformAccessRequestInbox.server';
 
 export { createSupabaseIdentityExportReader } from './organizationExportRead.server';
+
+export { receiveResendWebhook } from './resendWebhook.server';
+
+export { createIdentityPersonReader } from './platformPeople.server';
+export { createIdentitySetupEmailInboxReader } from './setupEmailInbox.server';

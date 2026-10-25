@@ -4,7 +4,10 @@ import {
 	createPlatformAccessRequestOperations,
 	createPlatformInboxOperations,
 	mapApproveResult,
-	mapRejectResult
+	mapRejectResult,
+	createPlatformSetupEmailOperations,
+	mapResendSetupResult,
+	mapRescindSetupResult
 } from '$features/platform-admin/index.server';
 import { parseInboxTab } from '$features/platform-admin/inboxTypes';
 import { validateUUID } from '$lib/server/validation';
@@ -30,6 +33,42 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
+	resendSetup: async (event) => {
+		const setup = await createPlatformSetupEmailOperations(event);
+		const parsed = await readItemForm(event);
+		if ('failure' in parsed) return parsed.failure;
+		const requestId = await setup.resolveLink(parsed.id);
+		if (!requestId) return fail(409, { error: 'This setup email is no longer open.' });
+		return mapResendSetupResult(await (await createPlatformAccessRequestOperations(event)).resendSetup(requestId));
+	},
+	rescindAccess: async (event) => {
+		const setup = await createPlatformSetupEmailOperations(event);
+		const parsed = await readItemForm(event);
+		if ('failure' in parsed) return parsed.failure;
+		const requestId = await setup.resolveLink(parsed.id);
+		if (!requestId) return fail(409, { error: 'This setup email is no longer open.' });
+		return mapRescindSetupResult(await (await createPlatformAccessRequestOperations(event)).rescind(requestId));
+	},
+	askInviter: async (event) => {
+		const setup = await createPlatformSetupEmailOperations(event);
+		const parsed = await readItemForm(event);
+		if ('failure' in parsed) return parsed.failure;
+		try {
+			const result = await setup.askInviter(parsed.id);
+			if (result.status === 'notified_audit_failed')
+				return fail(500, {
+					status: result.status,
+					notificationSent: true,
+					error:
+						'The inviter was notified, but the required audit could not be recorded. Reload before notifying again.'
+				});
+			return result.status === 'notified'
+				? { success: true, action: 'askInviter' }
+				: fail(409, { status: result.status, error: 'No current inviter can be contacted for this item.' });
+		} catch {
+			return fail(500, { error: 'Could not confirm the notification and its audit. Reload before trying again.' });
+		}
+	},
 	approve: async (event) => {
 		const operations = await createPlatformAccessRequestOperations(event);
 		const parsed = await readItemForm(event);

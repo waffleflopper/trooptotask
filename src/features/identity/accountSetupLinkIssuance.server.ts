@@ -56,6 +56,8 @@ export interface AccountSetupLinkIssuanceCommand {
 
 export type AccountSetupLinkIssuanceResult =
 	| { status: 'sent' }
+	| { status: 'email_sent_audit_failed' }
+	| { status: 'email_sent_recording_failed' }
 	| { status: 'delivery_failed' }
 	| { status: 'not_created'; reason: AccountSetupLinkNotCreatedReason };
 
@@ -148,35 +150,15 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 
 			const auditActions = DELIVERY_AUDIT_ACTIONS[command.origin];
 
-			// Past this point a live 14-day credential exists. A throw here is a delivery
-			// failure, not a missing link: reporting it as `not_created` would tell callers
-			// there is no artifact to recover from, when recovery is exactly what is left.
+			let delivery: SendAccountSetupOutboxDeliveryResult;
 			try {
-				const delivery = await deps.setupDelivery.send({
+				delivery = await deps.setupDelivery.send({
 					accessRequestId: command.accessRequestId,
 					setupLinkId: setupResult.link.id,
 					email: command.email,
 					setupUrl: makePublicAppUrl(setupResult.setupPath, { inboundOrigin: command.publicOrigin }),
 					expiresAt: setupResult.expiresAt
 				});
-
-				await deps.audit({
-					action: delivery.status === 'sent' ? auditActions.sent : auditActions.failed,
-					resourceType: 'access_request',
-					resourceId: command.accessRequestId,
-					details: {
-						// Caller context first: the credential facts below are the module's own and
-						// must not be overwritable by a payload it does not interpret.
-						...command.context,
-						email: command.email,
-						setupLinkId: setupResult.link.id,
-						outboxId: delivery.outbox.id,
-						...(delivery.status === 'sent' ? { expiresAt: setupResult.expiresAt.toISOString() } : {})
-					},
-					severity: delivery.status === 'sent' ? 'info' : 'warning'
-				});
-
-				return delivery.status === 'sent' ? { status: 'sent' } : { status: 'delivery_failed' };
 			} catch (error) {
 				await deps.audit({
 					action: auditActions.failed,
@@ -191,9 +173,46 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 					severity: 'warning'
 				});
 				if (command.deliveryErrorMode === 'throw') throw error;
-
 				return { status: 'delivery_failed' };
 			}
+			if (delivery.status === 'sent_recording_failed') {
+				try {
+					await deps.audit({
+						action: 'access_request.account_setup_link_recording_failed',
+						resourceType: 'access_request',
+						resourceId: command.accessRequestId,
+						severity: 'warning',
+						details: {
+							...command.context,
+							email: command.email,
+							setupLinkId: setupResult.link.id,
+							error: redactProviderError(delivery.error)
+						}
+					});
+				} catch {
+					return { status: 'email_sent_audit_failed' };
+				}
+				return { status: 'email_sent_recording_failed' };
+			}
+			try {
+				await deps.audit({
+					action: delivery.status === 'sent' ? auditActions.sent : auditActions.failed,
+					resourceType: 'access_request',
+					resourceId: command.accessRequestId,
+					details: {
+						...command.context,
+						email: command.email,
+						setupLinkId: setupResult.link.id,
+						outboxId: delivery.outbox.id,
+						...(delivery.status === 'sent' ? { expiresAt: setupResult.expiresAt.toISOString() } : {})
+					},
+					severity: delivery.status === 'sent' ? 'info' : 'warning'
+				});
+			} catch (error) {
+				if (delivery.status === 'sent') return { status: 'email_sent_audit_failed' };
+				throw error;
+			}
+			return delivery.status === 'sent' ? { status: 'sent' } : { status: 'delivery_failed' };
 		}
 	};
 }

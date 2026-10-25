@@ -51,6 +51,7 @@ import {
 	recordPlatformUserAudit
 } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
+import { bounceSetupLink, expireSetupLink, readSetupEmail } from './setup-email-fixtures.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
@@ -432,6 +433,20 @@ async function main() {
 	}
 	if (command === 'platform-state') {
 		note(await readPlatform({ client: await provider(), fixture, ownedState: await saved() }));
+		return;
+	}
+	if (command === 'setup-bounce' || command === 'setup-expire' || command === 'setup-state') {
+		const [targetKey, reason = 'Mailbox does not exist'] = args;
+		if (!targetKey || args.length > (command === 'setup-bounce' ? 2 : 1))
+			throw new Error(`Use ${command} REQUEST_KEY${command === 'setup-bounce' ? ' [REASON]' : ''}.`);
+		const seed = (await saved()).platform;
+		const client = await provider();
+		if (command === 'setup-state') note(await readSetupEmail({ client, seed, targetKey }));
+		else if (command === 'setup-expire') note(await expireSetupLink({ client, seed, targetKey }));
+		else {
+			const { webhookSecret } = await readJSON(path.join(session, 'server-source-control.json'));
+			note(await bounceSetupLink({ client, seed, targetKey, secret: webhookSecret, origin: doctor.origin, reason }));
+		}
 		return;
 	}
 	if (command === 'content-request') {
@@ -904,6 +919,7 @@ async function main() {
 				'admin/activity',
 				'admin/audit',
 				'admin/users',
+				'admin/people',
 				'admin/organizations',
 				'admin/access-requests'
 			].includes(destination) ||

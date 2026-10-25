@@ -54,6 +54,19 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'counseling-attach-lost-ack': [write('POST', '/rest/v1/counseling_records', { afterCommit: true })],
 	'setup-link-create': [write('POST', '/rest/v1/rpc/issue_account_setup_link')],
 	'invitation-access-link': [write('POST', '/rest/v1/rpc/link_organization_invitation_access_request')],
+	'people-directory-read': [write('POST', '/rest/v1/rpc/platform_account_directory')],
+	// The Supabase client retries an idempotent read after a 503, so a one-shot read fault answers 500 instead.
+	'person-organizations-read': [write('GET', '/rest/v1/organization_memberships', { status: 500 })],
+	'person-recent-activity-read': [write('GET', '/rest/v1/audit_logs', { status: 500 })],
+	'setup-timeline-read': [write('GET', '/rest/v1/account_setup_links', { status: 500 })],
+	'people-directory-read-hold': [
+		write('POST', '/rest/v1/rpc/platform_account_directory', { hold: true, pause: COMMITTED_PAUSE_MS })
+	],
+	'person-organizations-read-hold': [
+		write('GET', '/rest/v1/organization_memberships', { hold: true, pause: COMMITTED_PAUSE_MS })
+	],
+	'person-recent-activity-read-hold': [write('GET', '/rest/v1/audit_logs', { hold: true, pause: COMMITTED_PAUSE_MS })],
+	'setup-timeline-read-hold': [write('GET', '/rest/v1/account_setup_links', { hold: true, pause: COMMITTED_PAUSE_MS })],
 	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { body: { status: 'blocked' } })],
 	'org-create': [write('POST', '/rest/v1/rpc/create_organization')],
 	'org-create-lost-ack': [write('POST', '/rest/v1/rpc/create_organization', { afterCommit: true })],
@@ -388,7 +401,7 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 					cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' })
 				});
 		}
-		return json(503, {
+		return json(entry.status ?? 503, {
 			code: 'T2T_VERIFY_PROVIDER_FAULT',
 			message: 'Synthetic verification provider fault',
 			details: null,

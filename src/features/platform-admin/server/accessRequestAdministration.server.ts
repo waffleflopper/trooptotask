@@ -337,8 +337,13 @@ function mapSetupLinkFailureToStatus(reason: AccountSetupLinkNotCreatedReason): 
 }
 
 function mapSetupLinkDeliveryToStatus(
-	issued: Extract<AccountSetupLinkIssuanceResult, { status: 'sent' | 'delivery_failed' }>
+	issued: Extract<
+		AccountSetupLinkIssuanceResult,
+		{ status: 'sent' | 'delivery_failed' | 'email_sent_audit_failed' | 'email_sent_recording_failed' }
+	>
 ): PlatformAccessRequestAdminSendResult {
+	if (issued.status === 'email_sent_audit_failed' || issued.status === 'email_sent_recording_failed')
+		return { status: issued.status, setupDeliveryStatus: 'sent' };
 	return issued.status === 'sent'
 		? { status: 'sent', setupDeliveryStatus: 'sent' }
 		: { status: 'delivery_failed', setupDeliveryStatus: 'failed' };

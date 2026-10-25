@@ -148,7 +148,7 @@ it('opens server-matched User and Organization records by keyboard with accessib
 	expect(document.activeElement).toBe(input);
 	await fireEvent.keyDown(input, { key: 'ArrowUp' });
 	await fireEvent.keyDown(input, { key: 'Enter' });
-	expect(destinations).toEqual(['/admin/organizations/org-bravo', '/admin/users/user-alpha']);
+	expect(destinations).toEqual(['/admin/organizations/org-bravo', '/admin/people/user-alpha']);
 	expect(input.getAttribute('aria-activedescendant')).toBe(user.id);
 });
 

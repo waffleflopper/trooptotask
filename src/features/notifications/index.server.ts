@@ -17,3 +17,5 @@ export {
 	dismissAccountAnnouncement
 } from './announcementDismissals.server';
 export type { AccountAnnouncementDismissals } from './announcementDismissals.server';
+
+export { createSetupEmailAddressCheckNotifier } from './setupEmailAddressCheck.server';

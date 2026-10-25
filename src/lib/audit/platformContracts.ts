@@ -29,6 +29,9 @@ export interface PlatformAuditOrganizationActivity {
 }
 
 export interface PlatformAuditUserActivity {
+	userId: string | null;
+	details: Record<string, unknown> | null;
+	ipAddress: string | null;
 	id: string;
 	action: string;
 	resourceType: string | null;

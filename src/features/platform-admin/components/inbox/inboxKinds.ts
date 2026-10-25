@@ -4,6 +4,7 @@ import { formatAdminLabel } from '../adminTheme';
 import AccessRequestDetail from './AccessRequestDetail.svelte';
 import type { InboxDetailProps } from './inboxDetailProps';
 import FeedbackDetail from './FeedbackDetail.svelte';
+import SetupEmailDetail from './SetupEmailDetail.svelte';
 import type { InboxTone } from './inboxTones';
 
 export interface InboxKindView<K extends InboxKind> {
@@ -26,6 +27,13 @@ export const INBOX_KIND_VIEWS: { [K in InboxKind]: InboxKindView<K> } = {
 		badge: 'Closed beta',
 		eyebrow: (item) => `Access request · ${item.outcome ? formatAdminLabel(item.outcome) : 'Closed beta'}`,
 		Detail: AccessRequestDetail
+	},
+	setupEmailFailed: {
+		label: 'Setup email failed',
+		filterLabel: 'Setup emails',
+		tone: 'danger',
+		eyebrow: (item) => `Setup email · ${item.reason === 'bounced' ? 'Bounced' : 'Expired unused'}`,
+		Detail: SetupEmailDetail
 	},
 	feedback: {
 		label: 'Feedback',

@@ -543,12 +543,12 @@ export const journeys = {
 		kind: 'load',
 		effect: 'read',
 		actors: platformOnly,
-		path: () => '/admin/users',
+		path: () => '/admin/people',
 		milestones: () => [
 			{
 				name: 'useful',
-				present: ['Directory Size', 'Reviewing page 1 of'],
-				presentSelector: ['a[href*="/admin/users/"]']
+				present: ['Showing 1–'],
+				presentSelector: ['a[href*="/admin/people/"]']
 			}
 		]
 	},

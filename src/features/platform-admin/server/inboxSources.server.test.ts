@@ -67,6 +67,11 @@ describe('Inbox sources', () => {
 	it('reports a failed source as its own error, never as an empty list', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const sources: InboxSources = {
+			setupEmailFailed: {
+				read: async () => ({ items: [], count: 0 }),
+				countOpen: async () => 0,
+				detail: async () => null
+			},
 			accessRequest: createAccessRequestInboxSource(
 				accessRequestReader({
 					readOpen: async () => {
@@ -153,6 +158,11 @@ describe('Inbox sources', () => {
 	it('counts every open item for the navigation, and gives no count when a kind cannot be counted', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const counted: InboxSources = {
+			setupEmailFailed: {
+				read: async () => ({ items: [], count: 0 }),
+				countOpen: async () => 0,
+				detail: async () => null
+			},
 			accessRequest: createAccessRequestInboxSource(
 				accessRequestReader({ readOpen: async () => ({ rows: [], count: 3 }) }),
 				noOrganizations

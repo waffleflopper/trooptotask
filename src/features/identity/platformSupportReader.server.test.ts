@@ -34,6 +34,7 @@ describe('Identity platform account facts', () => {
 			status: 'ok',
 			user: {
 				id: USER,
+				mfaEnabled: false,
 				email: 'soldier@example.test',
 				createdAt: '2026-06-01',
 				lastSignInAt: '2026-06-08',
@@ -65,46 +66,29 @@ describe('Identity platform account facts', () => {
 		await expect(reader.getAuthUser(USER)).resolves.toEqual({ status: 'not_found' });
 	});
 
-	it('follows provider continuation even when a page is short and keeps page ten monotonic', async () => {
-		const pages: number[] = [];
-		const listUsers = vi.fn(async ({ page }: { page: number }) => {
-			pages.push(page);
-			return {
-				data: {
-					users: [{ id: `user-${page}`, email: null, created_at: '2026-06-01' }],
-					nextPage: page < 10 ? page + 1 : page === 10 ? 1 : null
-				},
-				error: null
-			};
+	it('pages People in one SQL read without downloading Auth accounts', async () => {
+		const reader = createIdentityPlatformSupportReader(
+			client(async (input, init) => {
+				const request = new Request(input, init);
+				expect(new URL(request.url).pathname).toBe('/rest/v1/rpc/platform_account_directory');
+				expect(await request.json()).toEqual({ p_search: 'Dana', p_filter: 'notSetUp', p_page: 3, p_limit: 20 });
+				return Response.json({ people: [], totalCount: 0, page: 1, limit: 20 });
+			})
+		);
+		await expect(reader.listPeople({ search: 'Dana', filter: 'notSetUp', page: 3, limit: 20 })).resolves.toEqual({
+			people: [],
+			totalCount: 0,
+			page: 1,
+			limit: 20
 		});
-		const reader = createIdentityPlatformSupportReader({ auth: { admin: { listUsers } } } as never);
-		const result = await reader.listAuthUsers();
-		expect(pages).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-		expect(result.status === 'ok' && result.users.map((user) => user.id)).toEqual([
-			'user-1',
-			'user-2',
-			'user-3',
-			'user-4',
-			'user-5',
-			'user-6',
-			'user-7',
-			'user-8',
-			'user-9',
-			'user-10',
-			'user-11'
-		]);
 	});
-
-	it('rejects a later account-page failure rather than returning the first page as a complete directory', async () => {
-		const listUsers = vi
-			.fn()
-			.mockResolvedValueOnce({ data: { users: [{ id: USER, created_at: '2026-06-01' }], nextPage: 2 }, error: null })
-			.mockResolvedValueOnce({ data: { users: [] }, error: { message: 'private-provider-detail' } });
-		const reader = createIdentityPlatformSupportReader({ auth: { admin: { listUsers } } } as never);
-		await expect(reader.listAuthUsers()).resolves.toEqual({
-			status: 'auth_error',
-			message: 'Unable to load platform accounts'
-		});
+	it('rejects a failed directory read rather than showing an empty directory', async () => {
+		const reader = createIdentityPlatformSupportReader(
+			client(async () => Response.json({ message: 'unavailable' }, { status: 500 }))
+		);
+		await expect(reader.listPeople({ search: '', filter: 'all', page: 1, limit: 20 })).rejects.toThrow(
+			'Unable to load People'
+		);
 	});
 
 	it('keeps account email search source-owned and excludes provider-only fields', async () => {

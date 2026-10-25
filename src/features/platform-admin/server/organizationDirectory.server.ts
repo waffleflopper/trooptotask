@@ -1,3 +1,4 @@
+import { ORGANIZATION_SORT, parseAdminSort } from '../adminSort';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import {
@@ -16,9 +17,13 @@ export function normalizePlatformOrganizationListQuery(
 	input: PlatformOrganizationListInput = {}
 ): PlatformOrganizationListQuery {
 	const pages = Number(input.pages ?? 1);
+	const params = new URLSearchParams();
+	if (input.sort) params.set('sort', input.sort);
+	if (input.dir) params.set('dir', input.dir);
 	const filter = (input.filter ?? '').trim().toLowerCase();
 	return {
 		pages: Number.isInteger(pages) && pages >= 1 ? Math.min(pages, PLATFORM_ORGANIZATIONS_MAX_PAGES) : 1,
+		sort: parseAdminSort(ORGANIZATION_SORT, params),
 		q: (input.q ?? '').trim().slice(0, SEARCH_MAX_LENGTH),
 		filter: PLATFORM_ORGANIZATION_FILTERS.includes(filter as PlatformOrganizationFilter)
 			? (filter as PlatformOrganizationFilter)
@@ -83,6 +88,8 @@ export function createSupabasePlatformOrganizationDirectory(client: SupabaseClie
 			const { data, error } = await client.rpc('platform_list_organizations', {
 				p_search: query.q,
 				p_filter: query.filter,
+				p_sort: query.sort.key,
+				p_dir: query.sort.direction,
 				p_page: 1,
 				p_page_size: query.pages * PLATFORM_ORGANIZATIONS_PAGE_SIZE
 			});

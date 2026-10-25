@@ -86,6 +86,47 @@ SELECT is(public.platform_account_directory('s4-withdrawn','notSetUp')->>'totalC
  'a withdrawn invitation-only approval is not waiting for setup');
 SELECT is(public.platform_setup_email_inbox('open',50,'2026-10-27')->>'count','0',
  'withdrawn invitation-only approval creates no operator Inbox work');
+INSERT INTO public.access_requests(id,name,email,status,approval_basis,reviewed_at,created_at) VALUES
+ ('f4a00000-0000-4000-8000-000000000031','S4 Resubmission Rescinded','s4-resubmission-rescinded@example.test','rescinded','platform_review','2026-01-01','2026-01-01'),
+ ('f4a00000-0000-4000-8000-000000000032','S4 Resubmission Expired','s4-resubmission-expired@example.test','approved','platform_review','2026-01-01','2026-01-01'),
+ ('f4a00000-0000-4000-8000-000000000033','S4 Fresh Rescinded','s4-resubmission-rescinded@example.test','pending',NULL,NULL,'2026-10-24'),
+ ('f4a00000-0000-4000-8000-000000000034','S4 Fresh Expired','s4-resubmission-expired@example.test','pending',NULL,NULL,'2026-10-24');
+INSERT INTO public.account_setup_links(id,access_request_id,token_hash,created_at,expires_at) VALUES
+ ('f4a00000-0000-4000-8000-000000000035','f4a00000-0000-4000-8000-000000000032','s4-old-expired','2026-01-01','2026-01-15');
+SELECT is((SELECT count(*) FROM public.access_requests WHERE email LIKE 's4-resubmission-%' AND status='pending'),
+ 2::bigint,'fresh pending requests coexist with rescinded and expired history');
+SELECT is(public.platform_account_directory('s4-resubmission-')->>'totalCount','0',
+ 'a newer pending request does not expose its older approval as Not set up');
+SELECT is(public.platform_account_directory('S4 Resubmission Expired')->>'totalCount','0',
+ 'searching an old name cannot revive an approval superseded by a pending request');
+CREATE TEMP TABLE resubmission_history AS SELECT * FROM public.access_requests WHERE id IN
+ ('f4a00000-0000-4000-8000-000000000031','f4a00000-0000-4000-8000-000000000032');
+UPDATE public.access_requests SET status='approved',approval_basis='platform_review',reviewed_at='2026-10-25',
+ reviewed_by='f4a00000-0000-4000-8000-000000000003'
+ WHERE id IN ('f4a00000-0000-4000-8000-000000000033','f4a00000-0000-4000-8000-000000000034') AND status='pending';
+SELECT is((SELECT issue_status FROM public.issue_account_setup_link(
+ 'f4a00000-0000-4000-8000-000000000033','s4-resubmission-rescinded-token','2026-11-08','2026-10-25')),
+ 'created','approval after rescission can issue setup for the new request');
+SELECT is((SELECT issue_status FROM public.issue_account_setup_link(
+ 'f4a00000-0000-4000-8000-000000000034','s4-resubmission-expired-token','2026-11-08','2026-10-25')),
+ 'created','approval after an expired grant can issue setup for the new request');
+SELECT is((SELECT jsonb_agg(person->>'id' ORDER BY person->>'id') FROM jsonb_array_elements(
+ public.platform_account_directory('s4-resubmission-')->'people') person),
+ '["f4a00000-0000-4000-8000-000000000033","f4a00000-0000-4000-8000-000000000034"]'::jsonb,
+ 'People lists each fresh approval once using the new request identity');
+INSERT INTO public.auth_email_outbox(access_request_id,setup_link_id,recipient,purpose,status,sent_at)
+ SELECT access_request_id,id,'s4-resubmission-expired@example.test','account_setup','sent','2026-10-25'
+ FROM public.account_setup_links WHERE token_hash='s4-resubmission-expired-token';
+SELECT is(public.platform_setup_email_inbox('open',50,'2026-10-26','f4a00000-0000-4000-8000-000000000035')->'rows'->0->>'isOpen',
+ 'false','a delivered setup email on a fresh request closes the older expiry failure');
+SELECT is(public.platform_setup_email_inbox('done',50,'2026-10-26','f4a00000-0000-4000-8000-000000000035')->'rows'->0->>'closedAt',
+ '2026-10-25T00:00:00+00:00','the old failure closes at the new successful delivery');
+SELECT results_eq($$SELECT * FROM public.access_requests WHERE id IN
+ ('f4a00000-0000-4000-8000-000000000031','f4a00000-0000-4000-8000-000000000032') ORDER BY id$$,
+ $$SELECT * FROM resubmission_history ORDER BY id$$,'fresh approval and delivery retain all historical request values');
+UPDATE public.access_requests SET setup_completed_at='2026-10-26' WHERE id='f4a00000-0000-4000-8000-000000000034';
+SELECT is(public.platform_account_directory('s4-resubmission-expired')->>'totalCount','0',
+ 'finishing the newer setup never brings the historical approval back into People');
 RESET ROLE;
 SELECT * FROM finish();
 ROLLBACK;

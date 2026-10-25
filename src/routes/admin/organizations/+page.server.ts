@@ -6,7 +6,9 @@ export const load: PageServerLoad = async (event) => {
 	const input = {
 		pages: event.url.searchParams.get('pages'),
 		q: event.url.searchParams.get('q'),
-		filter: event.url.searchParams.get('filter')
+		filter: event.url.searchParams.get('filter'),
+		sort: event.url.searchParams.get('sort'),
+		dir: event.url.searchParams.get('dir')
 	};
 	const { query, page } = operations.listOrganizations(input);
 	return {

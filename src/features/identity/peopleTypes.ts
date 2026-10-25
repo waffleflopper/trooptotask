@@ -30,9 +30,16 @@ export type PersonState = z.infer<typeof personStateSchema>;
 export type IdentityPerson = z.infer<typeof personSchema>;
 export type IdentityPeoplePage = z.infer<typeof peoplePageSchema>;
 export type PeopleFilter = 'all' | 'notSetUp' | 'suspended';
+export const PEOPLE_SORT_KEYS = ['person', 'organizations', 'lastSignIn', 'status', 'added'] as const;
+export type PeopleSortKey = (typeof PEOPLE_SORT_KEYS)[number];
+export interface PeopleSort {
+	key: PeopleSortKey;
+	direction: 'asc' | 'desc';
+}
 export interface PeopleQuery {
 	search: string;
 	filter: PeopleFilter;
+	sort: PeopleSort;
 	page: number;
 	limit: number;
 }

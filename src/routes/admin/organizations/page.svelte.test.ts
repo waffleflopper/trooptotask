@@ -55,7 +55,7 @@ function pageData(
 	query: Partial<PageProps['data']['query']> = {}
 ): PageProps['data'] {
 	return {
-		query: { pages: 1, q: '', filter: 'all', ...query },
+		query: { pages: 1, q: '', filter: 'all', sort: { key: 'lastActive', direction: 'desc' }, ...query },
 		directory: Promise.resolve(directory)
 	} as PageProps['data'];
 }
@@ -91,16 +91,30 @@ describe('admin organizations page', () => {
 				]
 			})
 		);
-		const rows = await screen.findAllByRole('listitem');
-		const able = within(rows[0]);
+		await screen.findByRole('link', { name: 'Able Company' });
+		const [, ableRow, bakerRow] = screen.getAllByRole('row');
+		const able = within(ableRow);
 		expect(able.getByRole('link', { name: 'Able Company' }).getAttribute('href')).toBe('/admin/organizations/org-1');
 		expect(able.getByText('owner@example.test')).toBeTruthy();
 		expect(able.getByText('31')).toBeTruthy();
 		expect(able.getByText('Active')).toBeTruthy();
-		const baker = within(rows[1]);
+		const baker = within(bakerRow);
 		expect(baker.getByText('Never used')).toBeTruthy();
 		expect(baker.getByText('Multiple owners')).toBeTruthy();
 		expect(baker.getByText('Quiet')).toBeTruthy();
+	});
+
+	it('sorts by the header the operator presses and keeps the search and filter', async () => {
+		renderPage(directoryPage(), { q: 'able', filter: 'quiet' });
+		const lastActive = await screen.findByRole('columnheader', { name: /Last active/ });
+		expect(lastActive.getAttribute('aria-sort')).toBe('descending');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by Members' }));
+
+		expect(goto).toHaveBeenCalledWith('/admin/organizations?q=able&filter=quiet&sort=members&dir=desc', {
+			keepFocus: true,
+			noScroll: true
+		});
 	});
 
 	it('shows a skeleton while the page loads and then the rows', async () => {

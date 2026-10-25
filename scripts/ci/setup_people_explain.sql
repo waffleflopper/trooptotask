@@ -22,13 +22,14 @@ ANALYZE public.account_setup_links;
 DO $$
 DECLARE body text; query text; plan json; scenario record; result jsonb;
 BEGIN
- SELECT prosrc INTO body FROM pg_proc WHERE oid = 'public.platform_account_directory(text,text,integer,integer)'::regprocedure;
+ SELECT prosrc INTO body FROM pg_proc WHERE oid = 'public.platform_account_directory(text,text,integer,integer,text,text)'::regprocedure;
  FOR scenario IN SELECT * FROM (VALUES ('all','','all',1), ('name','Explain Dana 17','all',1),
    ('email','s4-explain-170@','all',1), ('notSetUp','','notSetUp',1), ('suspended','','suspended',1), ('laterPage','','all',50))
    AS cases(label,search,filter,page)
  LOOP
-   query := replace(replace(replace(replace(body,'p_search',quote_literal(scenario.search)),
-     'p_filter',quote_literal(scenario.filter)),'p_page',scenario.page::text),'p_limit','20');
+   query := replace(replace(replace(replace(replace(replace(body,'p_search',quote_literal(scenario.search)),
+     'p_filter',quote_literal(scenario.filter)),'p_page',scenario.page::text),'p_limit','20'),
+     'p_sort',quote_literal('added')),'p_dir',quote_literal('desc'));
    EXECUTE query INTO result;
    IF jsonb_array_length(result->'people') > 20 OR (result->>'totalCount')::integer = 0 THEN
      RAISE EXCEPTION 'Unexpected synthetic directory result for %', scenario.label;

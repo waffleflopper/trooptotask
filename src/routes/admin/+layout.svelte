@@ -172,7 +172,8 @@
 			</Breadcrumb.Root>
 			{#if !phone.current}<div class="w-80 shrink-0 max-md:w-64"><AdminSearch /></div>{/if}
 		</div>
-		<main id="main-content" tabindex="-1" class="min-h-0 w-full min-w-0 flex-1 overflow-y-auto outline-none">
+		<!-- Positioned so absolutely placed descendants, such as sr-only labels, scroll inside it instead of growing the window. -->
+		<main id="main-content" tabindex="-1" class="relative min-h-0 w-full min-w-0 flex-1 overflow-y-auto outline-none">
 			{@render children()}
 		</main>
 	</div>

@@ -79,7 +79,7 @@
 	let currentActor = untrack(() => data.adminUserId);
 	let reloadButton = $state<HTMLButtonElement | null>(null);
 	let titleInput = $state<HTMLInputElement | null>(null);
-	let deleteTarget = $state<{ id: string; title: string } | null>(null);
+	let deleteTarget = $state<{ id: string; title: string; published: boolean; shown: boolean } | null>(null);
 	let deleteForm = $state<HTMLFormElement | null>(null);
 	let confirmedDelete = false;
 	// A write or reload stays pending until the read it triggered has replied, so the next write only starts from a
@@ -168,7 +168,13 @@
 				const target = deleteTarget;
 				if (!confirmedDelete || !target) {
 					cancel();
-					if (editorEntry) deleteTarget = { id: editorEntry.id, title: editorEntry.title };
+					if (editorEntry)
+						deleteTarget = {
+							id: editorEntry.id,
+							title: editorEntry.title,
+							published: editorEntry.publishedOn !== null,
+							shown: selectedEntry?.shownToUsers ?? false
+						};
 					return;
 				}
 				formData.set('id', target.id);
@@ -475,7 +481,7 @@
 					</form>
 				</Card.Content>
 				<Card.Footer class="flex-wrap justify-end gap-2 border-t">
-					{#if editorEntry && !isPublished}
+					{#if editorEntry}
 						<form bind:this={deleteForm} method="POST" action="?/delete" use:enhance={submitEntry('delete')}>
 							<input type="hidden" name="id" value={editorEntry.id} />
 							<Button
@@ -487,7 +493,7 @@
 								aria-busy={pending?.kind === 'delete' || undefined}
 							>
 								{#if pending?.kind === 'delete'}<Spinner />{/if}
-								Delete draft
+								{isPublished ? 'Delete entry' : 'Delete draft'}
 							</Button>
 						</form>
 					{/if}
@@ -539,8 +545,10 @@
 
 {#if deleteTarget}
 	<ConfirmDialog
-		title="Delete draft"
-		message={`Delete "${deleteTarget.title}"? This cannot be undone.`}
+		title={deleteTarget.published ? 'Delete entry' : 'Delete draft'}
+		message={deleteTarget.shown
+			? `Delete "${deleteTarget.title}"? People stop seeing it in What's New right away. This cannot be undone.`
+			: `Delete "${deleteTarget.title}"? This cannot be undone.`}
 		confirmLabel="Delete"
 		loading={pending?.kind === 'delete'}
 		onConfirm={confirmDelete}

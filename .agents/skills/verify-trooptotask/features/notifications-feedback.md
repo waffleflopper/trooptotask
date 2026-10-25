@@ -9,8 +9,9 @@ announcements without affecting another User Account.
   [shared theme pass](shared-ui.md#theme-and-viewport) owns its narrow/wide and opposite-system-preference proof.
 - `recipient-delivery`: current Organization owners/admins receive real membership-event notifications; the triggering
   actor, ordinary members and foreign Organizations are excluded where the producer requires it.
-- `notification-lifecycle`: the bell lists the newest twenty own notifications, opens links and marks one/all read;
-  supported API deletion preserves peer and foreign rows.
+- `notification-lifecycle`: the bell lists the newest twenty own notifications, opens links, marks one/all read and
+  deletes one; Account → Notifications lists the newest hundred with the same actions and `Delete all`; deletion
+  preserves peer and foreign rows.
 - `notification-recovery`: failed loads/writes remain recoverable, and delayed responses cannot populate another
   Organization's bell or choose its mutation target.
 - `feedback`: blank/cancel, categories, exact saved account/Organization/page context, failure retention and retry,
@@ -23,9 +24,10 @@ announcements without affecting another User Account.
 ## How to get to it (user POV)
 
 Sign in, open an Organization, and use the bell in the header. Select a notification to mark it read and follow its
-link, or choose `Mark all read`. There is no notification delete control; deletion is a JSON endpoint only. Use
-`Send feedback` in the Organization header, or in the account menu (sidebar name card) at any width, to open its modal,
-choose a category, enter a message and Submit. An active announcement appears above the workspace with
+link, or choose `Mark all read`. `Delete notification: <title>` beside each item deletes it without opening it.
+`View all` at the foot of the menu opens Account → Notifications (`/org/ORG/account/notifications`). Use `Send feedback`
+in the Organization header, or in the account menu (sidebar name card) at any width, to open its modal, choose a
+category, enter a message and Submit. An active announcement appears above the workspace with
 `Dismiss announcement: <title>`. Switch Organizations through the header switcher.
 
 ## Helper controls
@@ -84,13 +86,27 @@ endpoints).
    pending controls prevent duplicate writes. Restore the hook and retry `Mark all read`; all twenty-four own A rows,
    including the four outside the list, become read while peer/B rows remain unchanged. Use native keyboard Enter/Escape
    for a bell/menu action and capture resulting focus. Save before/action/after snapshots, screenshot and reload.
-4. **Separate API authorization/deletion.** From that same authenticated page, issue direct fetches to the known
+4. **Delete and the Account list.** Reseed if step 3 already marked everything read. Open the bell and choose
+   `Delete notification: <title>` on item 24 with the mouse, then on the next item with ArrowDown and Enter. Expected
+   each time: the menu stays open, there is no navigation, the badge drops by one for an unread item, focus lands on the
+   item that took its place, and `$V rows notifications orgA title <title>` returns no row. Choose `View all`:
+   `/org/ORG/account/notifications` lists the own rows newest first under `N unread of M`, each with an unread dot,
+   title, message, relative time and `Delete notification: <title>`. Keep that page open and write from the bell: the
+   page follows without a reload (`23 unread of 23` after one bell delete, `0 unread of 23` after the bell's
+   `Mark all read`). Delete a row on the page: the row and its database row go, the bell count follows, and focus moves
+   to the next row's delete button. The page's `Mark all read` marks every own A row read, including the four the bell
+   does not list. `More` → `Delete all` asks `Delete all notifications?`; Cancel keeps every row, and `Delete all`
+   leaves `No notifications. Replies to your feedback and updates from your unit show up here.` with only the peer and B
+   sentinels left in `rows notifications orgA|orgB`. A link stored as `/account/...` opens under the current
+   Organization as `/org/ORG/account/...` from both the bell and the page. At 390 the page and the open bell have no
+   horizontal scroll.
+5. **Separate API authorization/deletion.** From that same authenticated page, issue direct fetches to the known
    notification endpoint for peer/foreign IDs and read back rows. Peer writes must be denied without effects; foreign
    resources remain concealed. Request single own deletion and then `deleteAll`; only the requesting account in the
    requested Organization may change. Test B through `notificationSwitch` and use known IDs to prove same-account A/B
    independence. Record HTTP status/body and persistence separately from UI proof. An anonymous page cannot list/mutate
    notifications, submit feedback or dismiss announcements.
-5. **Feedback success and recovery.** Open Send Feedback, confirm blank/whitespace cannot submit and Cancel creates no
+6. **Feedback success and recovery.** Open Send Feedback, confirm blank/whitespace cannot submit and Cancel creates no
    row. Submit a unique General Feedback message and verify one row with the signed-in user, selected Organization,
    server-derived Organization name, category, exact message and normalized current page. Capture modal closure,
    rendered success and reload. Repeat a representative Bug Report/Feature Request selection. Arm
@@ -104,7 +120,7 @@ endpoints).
    `arm-hold-fail` for Feedback; record that limitation without crediting a delivered native failure. `FeedbackModal`
    component tests cover late nonOK/error-body/transport continuations after unmount. Restore both controls. The owned
    app has no GitHub feedback token; live external mirroring is not proved.
-6. **Announcement persistence/isolation.** Reload after seeding: only the active banner appears. Dismiss as one account,
+7. **Announcement persistence/isolation.** Reload after seeding: only the active banner appears. Dismiss as one account,
    verify one dismissal and continued absence after reload and an A→B switch for `notificationSwitch`. A peer still sees
    it. Pending dismissal remains account-wide during an Organization refresh; late completions after account replacement
    or unmount cannot affect the new account (deferred component protection complements the live scope proof). On an
@@ -112,7 +128,7 @@ endpoints).
    before and after reload. A failed request must retain or restore the banner and offer recovery; an optimistically
    hidden banner with no dismissal fails. Retry successfully and read back one dismissal. Repeated endpoint dismissal
    must be idempotent for that account.
-7. **Support review and Organization export.** Use `$V actor platformReviewer admin` to enter the Inbox with the
+8. **Support review and Organization export.** Use `$V actor platformReviewer admin` to enter the Inbox with the
    isolated operator account. Find a uniquely submitted message under the Feedback filter, open it, choose
    `Close without replying`, then reload and inspect the Done tab and exact communications readback: the saved identity
    and message remain and the status is `resolved`. `platformSupport` and an ordinary member cannot enter the admin
@@ -122,22 +138,22 @@ endpoints).
    Notifications/Beta Feedback sections/sheets and metadata, and compare saved values/counts with provider readback.
    Only request-user-visible rows in the admitted Organization belong in these downloads; an owner does not gain another
    account's inbox or feedback. A reply to Feedback arrives as the notification `A reply to your feedback` linking
-   `/feedback/ID` ([Feedback recipe](platform-feedback.md) owns it); exports carry no replies or staff notes. Keep
-   outside-page/pagination proof separately in owner SDK/SQL tests. Exercise a real
-   Training type create/delete through the configuring actor and compare the generated notification audience; a denied
-   configure attempt must retain the saved type and create no notification in route tests.
+   `/account/feedback/ID`, which opens as `/org/ORG/account/feedback/ID` ([Feedback recipe](platform-feedback.md) owns
+   it); exports carry no replies or staff notes. Keep outside-page/pagination proof separately in owner SDK/SQL tests.
+   Exercise a real Training type create/delete through the configuring actor and compare the generated notification
+   audience; a denied configure attempt must retain the saved type and create no notification in route tests.
 
 After `clean-seeds`, read back the known seeded notification IDs' absence. Global announcement cleanup deletes only
 recorded helper IDs and their dependent dismissals. Feedback has no member-facing delete control and stays in the
 disposable provider until owned worker cleanup; its replies and staff notes go with the row.
 
-8. **Ask the inviter.** The platform operator's `Ask the inviter to check the address` on a bounced setup email (see
+9. **Ask the inviter.** The platform operator's `Ask the inviter to check the address` on a bounced setup email (see
    [Platform Inbox](platform-inbox.md), step 9) writes one `setup_email_address_check` notification per current member
-   who invited the address, titled `Check an invitation address`, linking to that Organization's `Members` settings. After
-   it, `$V setup-state reject` lists the row for `orgCreator`. Sign in as `orgCreator`, open the temporary Organization
-   from `$V platform-state` and open the bell: the notification reads that the setup email for `<name> (<email>)`
-   bounced, and following it opens Members. An inviter who has left the Organization is not notified, and the command
-   then answers `No current inviter can be contacted for this item.`
+   who invited the address, titled `Check an invitation address`, linking to that Organization's `Members` settings.
+   After it, `$V setup-state reject` lists the row for `orgCreator`. Sign in as `orgCreator`, open the temporary
+   Organization from `$V platform-state` and open the bell: the notification reads that the setup email for
+   `<name> (<email>)` bounced, and following it opens Members. An inviter who has left the Organization is not notified,
+   and the command then answers `No current inviter can be contacted for this item.`
 
 ## Gotchas
 

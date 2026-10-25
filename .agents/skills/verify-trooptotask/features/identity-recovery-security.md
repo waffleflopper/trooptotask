@@ -42,9 +42,12 @@ From Sign In, follow Forgot password, Request access or Request a fresh setup li
 `/auth/confirm`, which waits for an explicit Continue button. A signed-in member chooses their name at the foot of the
 Organization sidebar and Account in its menu (`/org/ORG/account/profile`), then Sign-in & security for email, password
 and two-factor authentication. Old `/account`, `/account/profile` and `/account/security` addresses redirect to the same
-section of the member's first Organization, keeping the query string. Turn on in the two-factor row opens MFA setup at
-`/auth/mfa-setup`, which returns to Sign-in & security. An account with a verified authenticator sees Two-Factor
-Authentication after the password step.
+section of the member's first Organization, keeping the query string. An account with no Organization stays on
+`/account`: `Your account` on `/dashboard` opens `/account/profile` outside any Organization shell, with only Profile
+and Sign-in & security in its navigation, and two-factor `Turn on` there returns to `/account/security`.
+`/account/notifications` and `/account/feedback` redirect it to `/account/profile`. Turn on in the two-factor row opens
+MFA setup at `/auth/mfa-setup`, which returns to Sign-in & security. An account with a verified authenticator sees
+Two-Factor Authentication after the password step.
 
 ## Helper controls
 

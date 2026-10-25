@@ -11,13 +11,18 @@ function metadataText(metadata: unknown, key: string): string | null {
 	return clip(value);
 }
 
-/** The account's rank and name as the app writes them in sign-up metadata; null when no name was ever set. */
-function personName(metadata: unknown): string | null {
+/** The account's rank and name from its saved profile, else sign-in metadata; null when no name was ever set. */
+function personName(
+	profile: { first_name?: unknown; last_name?: unknown; rank?: unknown } | null,
+	metadata: unknown
+): string | null {
 	const name =
+		clip([clip(profile?.first_name), clip(profile?.last_name)].filter(Boolean).join(' ')) ??
 		metadataText(metadata, 'full_name') ??
-		metadataText(metadata, 'name') ??
-		clip([metadataText(metadata, 'first_name'), metadataText(metadata, 'last_name')].filter(Boolean).join(' '));
-	return name ? [metadataText(metadata, 'rank'), name].filter(Boolean).join(' ') : null;
+		metadataText(metadata, 'name');
+	if (!name) return null;
+	const rank = [clip(profile?.rank), metadataText(metadata, 'rank')].find((value) => value && value !== 'CIV');
+	return [rank, name].filter(Boolean).join(' ');
 }
 
 /**
@@ -33,8 +38,11 @@ export async function resolvePlatformTargetName(
 	try {
 		switch (resourceType) {
 			case 'user': {
-				const { data } = await admin.auth.admin.getUserById(resourceId);
-				return personName(data.user?.user_metadata) ?? clip(data.user?.email);
+				const [{ data }, { data: profile }] = await Promise.all([
+					admin.auth.admin.getUserById(resourceId),
+					admin.from('user_profiles').select('first_name, last_name, rank').eq('user_id', resourceId).maybeSingle()
+				]);
+				return personName(profile, data.user?.user_metadata) ?? clip(data.user?.email);
 			}
 			case 'organization': {
 				const { data } = await admin.from('organizations').select('name').eq('id', resourceId).maybeSingle();

@@ -2,9 +2,12 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
- ('f6a00000-0000-4000-8000-000000000001','Activity-Operator@example.test','{"rank":"CPT","full_name":"Robert Cole"}'),
- ('f6a00000-0000-4000-8000-000000000002','activity-ordinary@example.test','{"first_name":"Pat","last_name":"Lee"}'),
+ ('f6a00000-0000-4000-8000-000000000001','Activity-Operator@example.test','{}'),
+ ('f6a00000-0000-4000-8000-000000000002','activity-ordinary@example.test','{}'),
  ('f6a00000-0000-4000-8000-000000000003','activity-unnamed@example.test','{"rank":"SSG"}');
+INSERT INTO public.user_profiles(user_id,first_name,last_name,rank) VALUES
+ ('f6a00000-0000-4000-8000-000000000001','Robert','Cole','CPT'),
+ ('f6a00000-0000-4000-8000-000000000002','Dana','Whitfield','CIV');
 INSERT INTO public.platform_operators(user_id) VALUES ('f6a00000-0000-4000-8000-000000000001');
 INSERT INTO public.organizations(id,name,created_by) VALUES
  ('f6a00000-0000-4000-8000-000000000101','Activity Alpha Company','f6a00000-0000-4000-8000-000000000002');
@@ -36,6 +39,7 @@ SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspen
 SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'ACTIVITY-ORDINARY',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000202']::uuid[],'search finds the account a user event acted on by its email');
 SELECT is((SELECT array_agg(id ORDER BY "timestamp") FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'activity-operator@example',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000201','f6a00000-0000-4000-8000-000000000202']::uuid[],'search finds an Organization event by its actor email although the row stores none');
 SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org'],ARRAY[]::text[],'robert cole',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000201']::uuid[],'search finds an event by its actor name');
+SELECT is((SELECT array_agg(id) FROM public.list_platform_activity(ARRAY['suspend_org','suspend_user'],ARRAY[]::text[],'dana whit',NULL,NULL,50,0)),ARRAY['f6a00000-0000-4000-8000-000000000202']::uuid[],'search finds the account a user event acted on by its profile name');
 SELECT is((SELECT actor_email FROM public.list_platform_activity(ARRAY['suspend_org'],ARRAY[]::text[],NULL,NULL,NULL,50,0)),'Activity-Operator@example.test','the actor email arrives with the row');
 SELECT is((SELECT actor_name FROM public.list_platform_activity(ARRAY['suspend_org'],ARRAY[]::text[],NULL,NULL,NULL,50,0)),'CPT Robert Cole','the actor name arrives with its rank');
 SELECT is((SELECT actor_name FROM public.list_platform_activity(ARRAY['auth.login_failure'],ARRAY[]::text[],'activity-unnamed',NULL,NULL,50,0)),NULL,'a rank without a name is not a name');

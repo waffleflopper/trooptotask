@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const insert = vi.fn();
 const maybeSingle = vi.fn();
+const getUserById = vi.fn();
 const from = vi.fn((table: string) =>
 	table === 'audit_logs' ? { insert } : { select: () => ({ eq: () => ({ maybeSingle }) }) }
 );
 
 vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: vi.fn(() => ({ from }))
+	getAdminClient: vi.fn(() => ({ from, auth: { admin: { getUserById } } }))
 }));
 
 import { auditLog } from './auditLog.server';
@@ -21,6 +22,7 @@ describe('auditLog', () => {
 		insert.mockResolvedValue({ error: null });
 		maybeSingle.mockReset();
 		maybeSingle.mockResolvedValue({ data: null });
+		getUserById.mockReset();
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -189,6 +191,22 @@ describe('auditLog', () => {
 
 			expect(from).toHaveBeenCalledWith('organizations');
 			expect(insert.mock.calls[0]?.[0].details).toEqual({ targetName: 'Alpha Company' });
+		});
+
+		it('name a user target by the saved profile, falling back to the email', async () => {
+			getUserById.mockResolvedValue({ data: { user: { email: 'pat@example.test', user_metadata: {} } } });
+			maybeSingle.mockResolvedValueOnce({ data: { first_name: 'Pat', last_name: 'Lee', rank: 'SGT' } });
+			await auditLog({ action: 'suspend_user', resourceType: 'user', resourceId: 'user-9' }, operator, {
+				required: true
+			});
+			expect(from).toHaveBeenCalledWith('user_profiles');
+			expect(insert.mock.calls[0]?.[0].details).toMatchObject({ targetName: 'SGT Pat Lee' });
+
+			insert.mockClear();
+			await auditLog({ action: 'suspend_user', resourceType: 'user', resourceId: 'user-9' }, operator, {
+				required: true
+			});
+			expect(insert.mock.calls[0]?.[0].details).toMatchObject({ targetName: 'pat@example.test' });
 		});
 
 		it('still write when the target record cannot be read', async () => {

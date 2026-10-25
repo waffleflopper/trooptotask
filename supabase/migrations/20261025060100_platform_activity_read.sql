@@ -31,18 +31,21 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   WITH matched AS MATERIALIZED (
     SELECT a.id, a."timestamp", a.user_id, a.org_id, o.name AS org_name, u.email::text AS actor_email,
       CASE WHEN person.name IS NULL THEN NULL
-        ELSE nullif(trim(concat_ws(' ', nullif(trim(u.raw_user_meta_data ->> 'rank'), ''), person.name)), '') END AS actor_name,
+        ELSE nullif(trim(concat_ws(' ', person.rank, person.name)), '') END AS actor_name,
       a.action, a.resource_type, a.resource_id, a.ip_address::text AS ip_address, a.details, a.severity
     FROM public.audit_logs a
     LEFT JOIN public.organizations o ON o.id = a.org_id
     LEFT JOIN auth.users u ON u.id = a.user_id
+    LEFT JOIN public.user_profiles up ON up.user_id = u.id
     LEFT JOIN auth.users t ON a.resource_type = 'user' AND t.id = a.resource_id
+    LEFT JOIN public.user_profiles tp ON tp.user_id = t.id
     LEFT JOIN LATERAL (
       SELECT coalesce(
+        nullif(trim(concat_ws(' ', up.first_name, up.last_name)), ''),
         nullif(trim(u.raw_user_meta_data ->> 'full_name'), ''),
-        nullif(trim(u.raw_user_meta_data ->> 'name'), ''),
-        nullif(trim(concat_ws(' ', u.raw_user_meta_data ->> 'first_name', u.raw_user_meta_data ->> 'last_name')), '')
-      ) AS name
+        nullif(trim(u.raw_user_meta_data ->> 'name'), '')
+      ) AS name,
+      coalesce(nullif(up.rank, 'CIV'), nullif(nullif(trim(u.raw_user_meta_data ->> 'rank'), ''), 'CIV')) AS rank
     ) person ON true
     WHERE (
         a.action = ANY (coalesce(p_actions, ARRAY[]::text[]))
@@ -59,6 +62,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
         OR strpos(lower(coalesce(u.email, '')), lower(p_search)) > 0
         OR strpos(lower(coalesce(person.name, '')), lower(p_search)) > 0
         OR strpos(lower(coalesce(t.email, '')), lower(p_search)) > 0
+        OR strpos(lower(concat_ws(' ', tp.first_name, tp.last_name)), lower(p_search)) > 0
         OR strpos(lower(coalesce(a.details ->> 'targetName', '')), lower(p_search)) > 0
         OR strpos(lower(coalesce(a.resource_id::text, '')), lower(p_search)) > 0
         OR strpos(lower(coalesce(o.name, '')), lower(p_search)) > 0

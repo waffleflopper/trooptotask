@@ -9,7 +9,6 @@
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
-	import { latestChangelogId } from '../latestChangelog';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
 	import type { ReadyAppShell } from '../contracts';
 
@@ -30,16 +29,17 @@
 	let feedbackPageUrl = $state('');
 	let showWhatsNew = $state(false);
 	let hasAutoShownWhatsNew = false;
+	const newestWhatsNewId = $derived(shell.whatsNew[0]?.id);
 	setAppShellContext(createAppShellContext(() => shell, { autoShowWhatsNew }));
 	// The Organization layout keys this shell by user, Organization and session; its teardown ends that lifetime.
 	$effect(() => endOrganizationLifetime);
 
 	function autoShowWhatsNew() {
-		if (!browser || hasAutoShownWhatsNew) return;
+		if (!browser || hasAutoShownWhatsNew || !newestWhatsNewId) return;
 		const storage = getBrowserLocalStorage();
 		if (!storage) return;
 		try {
-			if (storage.getItem(`changelog-last-seen-${shell.user.id}`) !== latestChangelogId) {
+			if (storage.getItem(`changelog-last-seen-${shell.user.id}`) !== newestWhatsNewId) {
 				hasAutoShownWhatsNew = true;
 				showWhatsNew = true;
 			}
@@ -56,9 +56,9 @@
 	}
 	function closeWhatsNew() {
 		showWhatsNew = false;
-		if (!browser) return;
+		if (!browser || !newestWhatsNewId) return;
 		try {
-			getBrowserLocalStorage()?.setItem(`changelog-last-seen-${shell.user.id}`, latestChangelogId);
+			getBrowserLocalStorage()?.setItem(`changelog-last-seen-${shell.user.id}`, newestWhatsNewId);
 		} catch {
 			/* Closing the dialog does not depend on persistent browser storage. */
 		}
@@ -141,6 +141,10 @@
 {/if}
 {#if showWhatsNew}
 	{#await import('./WhatsNewModal.svelte') then { default: WhatsNewModal }}
-		<WhatsNewModal onClose={closeWhatsNew} />
+		<WhatsNewModal
+			entries={shell.whatsNew}
+			allEntriesHref={`/org/${shell.org.urlSegment}/whats-new`}
+			onClose={closeWhatsNew}
+		/>
 	{/await}
 {/if}

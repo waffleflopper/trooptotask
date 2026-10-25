@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Blocked, environment as ownedEnvironment } from './core.mjs';
 import { textContent } from './browser.mjs';
-import { changelog } from '../../src/features/app-shell/changelog.ts';
 
 const fail = (code, message) => {
 	throw new Blocked(code, message);
@@ -101,11 +100,23 @@ async function elevate(grant, mfa, { provider, session, fetch, environment }) {
 	});
 }
 
-export function whatsNewPreferenceScript(userId, showWhatsNew = false) {
+/** The entry the What's New dialog would show first, which dismissing it records as seen. */
+export async function newestWhatsNewEntryId(fetch, provider, bearer) {
+	const response = await fetch(
+		`${provider.API_URL}/rest/v1/whats_new_entries?select=id&published_seq=not.is.null&order=published_seq.desc&limit=1`,
+		{ headers: { apikey: provider.ANON_KEY, Authorization: `Bearer ${bearer}` } }
+	);
+	const entries = await response.json().catch(() => null);
+	if (!response.ok || !Array.isArray(entries))
+		fail('PROVIDER_WHATS_NEW', `Provider What's New read failed (HTTP ${response.status}).`);
+	return entries[0]?.id ?? '';
+}
+
+export function whatsNewPreferenceScript(userId, newestEntryId, showWhatsNew = false) {
 	const key = `changelog-last-seen-${userId}`;
 	return showWhatsNew
 		? `() => { localStorage.removeItem(${JSON.stringify(key)}); return true; }`
-		: `() => { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(changelog[0]?.id ?? '')}); return true; }`;
+		: `() => { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(newestEntryId)}); return true; }`;
 }
 
 /**
@@ -143,6 +154,7 @@ export async function sessionPage(
 	if (!response.ok || typeof grant?.access_token !== 'string' || typeof grant.user?.id !== 'string')
 		fail('PROVIDER_SESSION', `Provider sign-in failed (HTTP ${response.status}).`);
 	if (mfa) grant = await elevate(grant, mfa, { provider, session, fetch, environment });
+	const newestEntryId = showWhatsNew ? '' : await newestWhatsNewEntryId(fetch, provider, grant.access_token);
 	const url = `${state.origin}/og-image.png?session=${randomUUID()}`;
 	const created = textContent(await call('new_page', { url, isolatedContext }));
 	const pageId = Number(
@@ -157,7 +169,7 @@ export async function sessionPage(
 		const pages = (await browser.pages()).filter((page) => page.url() === url);
 		if (pages.length !== 1) fail('SESSION_PAGE', 'The new page could not be identified in the owned browser.');
 		await pages[0].browserContext().setCookie(sessionCookie(state.origin, provider.API_URL, grant));
-		await pages[0].evaluate(`(${whatsNewPreferenceScript(grant.user.id, showWhatsNew)})()`);
+		await pages[0].evaluate(`(${whatsNewPreferenceScript(grant.user.id, newestEntryId, showWhatsNew)})()`);
 	} finally {
 		await Promise.resolve(browser.disconnect()).catch(() => {});
 	}

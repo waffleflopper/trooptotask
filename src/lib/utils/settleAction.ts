@@ -20,6 +20,8 @@ export interface SettleOptions {
 	settled: (error: string | null) => void;
 	/** Focus candidates, tried in order once the result renders. Return the initiating control first. */
 	focus: () => ReadonlyArray<HTMLElement | null | undefined>;
+	/** Pass false when the view owns its field values, so SvelteKit's form reset does not blank them. */
+	reset?: boolean;
 }
 
 const UNEXPECTED_ERROR_MESSAGE = "The request didn't complete. Try again.";
@@ -35,13 +37,13 @@ const REFRESH_FAILED_MESSAGE = "The page couldn't refresh after this request. Re
  */
 export async function settleAction(
 	{ result, update }: ActionOutcome,
-	{ isCurrent, settled, focus }: SettleOptions
+	{ isCurrent, settled, focus, reset }: SettleOptions
 ): Promise<void> {
 	if (!isCurrent()) return;
 	let error = result.type === 'error' ? UNEXPECTED_ERROR_MESSAGE : null;
 	if (result.type !== 'error') {
 		try {
-			await update();
+			await update(reset === undefined ? undefined : { reset });
 		} catch {
 			error = REFRESH_FAILED_MESSAGE;
 		}

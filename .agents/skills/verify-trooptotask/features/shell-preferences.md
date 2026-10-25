@@ -206,9 +206,12 @@ Restore every control before reload or cleanup. Restore original preferences wit
 
 ## What's New fixture state
 
-The owned session writes `changelog-last-seen-USER_ID` in local storage with the current changelog ID before navigation.
-AppShell writes that same key and value when a real user closes the dialog. There is no provider preference row for this
-dialog. Provider-session actors, seeded login contexts and `actor --form` use it.
+The owned session writes `changelog-last-seen-USER_ID` in local storage with the id of the newest published What's New
+entry before navigation. AppShell writes that same key and value when a real user closes the dialog. There is no
+provider preference row for this dialog. Provider-session actors, seeded login contexts and `actor --form` use it. The
+key and the entry ids are unchanged by moving the entries from `changelog.ts` into the `whats_new_entries` table, so a
+browser that has seen the newest entry stays quiet; publishing a newer entry from Admin makes the dialog appear once.
+The dialog lists the newest three published entries and links to the all-updates page.
 
 Run `$V actor --show-whats-new manager home` to leave that key absent. Take a fresh snapshot and verify the What's New
 dialog appears, close it through its visible control, then reload and verify it stays dismissed. Use What's new in the

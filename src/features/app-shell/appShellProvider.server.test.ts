@@ -195,6 +195,7 @@ it('composes platform content, account-wide preferences and the profile in paral
 			fetch: async (input, init) => {
 				const request = new Request(input, init);
 				const url = new URL(request.url);
+				if (url.pathname.endsWith('/whats_new_entries')) return Response.json([]);
 				if (url.pathname.endsWith('/platform_announcements')) {
 					contentStarted();
 					await pending;

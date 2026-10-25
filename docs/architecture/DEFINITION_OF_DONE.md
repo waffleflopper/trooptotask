@@ -107,5 +107,5 @@ Request and payload rules at large, where a regression is visible in review with
 - No new provider-boundary leak and no new cross-feature permission borrowing.
 - Update [Architecture](ARCHITECTURE.md) when the default architectural path changes, [Authorization and provider boundaries](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) when authorization or provider ownership changes, and [CONTEXT.md](../../CONTEXT.md#language) when canonical terms change.
 - Add an ADR only for a still-current, surprising and hard-to-reverse decision; see the [ADR index](ADR_INDEX.md).
-- A user-visible feature or workflow change adds a What's New entry to `src/features/app-shell/changelog.ts` in the same PR.
+- A user-visible feature or workflow change puts a proposed What's New entry in the PR body. Robert publishes it from Admin, Announcements, What's New.
 - Call out any remote migration, hosted configuration or deployment follow-up.

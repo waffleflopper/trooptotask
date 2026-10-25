@@ -175,11 +175,15 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	announcement_activate: entry(null, 'info', (s) => `${s.actor} turned on the announcement ${s.target}`),
 	announcement_deactivate: entry(null, 'info', (s) => `${s.actor} turned off the announcement ${s.target}`),
 	announcement_delete: entry(null, 'warning', (s) => `${s.actor} deleted the announcement ${s.target}`),
+	whats_new_create: entry(null, 'info', (s) => `${s.actor} drafted the What's New entry ${s.target}`),
+	whats_new_update: entry(null, 'info', (s) => `${s.actor} edited the What's New entry ${s.target}`),
+	whats_new_publish: entry(null, 'info', (s) => `${s.actor} published the What's New entry ${s.target}`),
+	whats_new_delete: entry(null, 'warning', (s) => `${s.actor} deleted the draft What's New entry ${s.target}`),
 	'feedback.closed_without_reply': entry(null, 'info', (s) => `${s.actor} closed ${s.target} without replying`)
 };
 
 /** An action with no entry yet still belongs to Activity when it starts with one of these. It shows under All, by its name. */
-const PLATFORM_PREFIXES = ['access_request.', 'account_setup.', 'admin.', 'announcement_', 'security.'];
+const PLATFORM_PREFIXES = ['access_request.', 'account_setup.', 'admin.', 'announcement_', 'security.', 'whats_new_'];
 
 export function isActivityCategory(value: unknown): value is ActivityCategory {
 	return (ACTIVITY_CATEGORIES as readonly unknown[]).includes(value);
@@ -199,7 +203,8 @@ const RESOURCE_NOUNS: Record<string, string> = {
 	organization: 'Organization',
 	access_request: 'Access request',
 	feedback: 'Feedback',
-	platform_announcement: 'Announcement'
+	platform_announcement: 'Announcement',
+	whats_new_entry: "What's New entry"
 };
 
 function text(value: unknown): string | null {
@@ -229,6 +234,7 @@ function targetLabel(event: AuditEventRecord, details: Record<string, unknown>):
 	if (event.resourceType === 'organization' && event.orgName) return event.orgName;
 	if (event.resourceType === 'platform_announcement')
 		return text(details.title) ?? (event.resourceId ? shortId(event.resourceId) : 'an announcement');
+	if (event.resourceType === 'whats_new_entry') return text(details.title) ?? "a What's New entry";
 	// Older access request rows kept only a masked address, which still tells the operator who it was.
 	if (event.resourceType === 'access_request' && text(details.email)) return text(details.email)!;
 	const noun = (event.resourceType && RESOURCE_NOUNS[event.resourceType]) || event.resourceType;

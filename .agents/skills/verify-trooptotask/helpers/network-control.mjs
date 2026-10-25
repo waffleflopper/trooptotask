@@ -153,6 +153,42 @@ export function installNetworkControl(
 				headers: { 'Content-Type': call.contentType ?? 'application/json' }
 			});
 		}
+		if (['hold-regions', 'fail-regions'].includes(control.mode) && requestNumber === control.ordinal) {
+			// A streamed page read sends its page node first and each deferred region as a later chunk line.
+			const [head, ...rest] = (await response.text()).split('\n');
+			const chunks = rest.filter(Boolean);
+			if (JSON.parse(head)?.type !== 'data' || chunks.length === 0) throw new TypeError('Expected streamed regions');
+			const responseInit = {
+				status: response.status,
+				headers: { 'Content-Type': call.contentType ?? 'application/json' }
+			};
+			if (control.mode === 'fail-regions') {
+				call.failure = 'region';
+				const failed = chunks.map((line) =>
+					JSON.stringify({
+						type: 'chunk',
+						id: JSON.parse(line).id,
+						error: [{ message: 1 }, 'Synthetic region failure']
+					})
+				);
+				return new Response([head, ...failed].join('\n') + '\n', responseInit);
+			}
+			call.dispatch = 'held';
+			const encoder = new TextEncoder();
+			return new Response(
+				new ReadableStream({
+					start(stream) {
+						stream.enqueue(encoder.encode(head + '\n'));
+						control.release = () => {
+							call.dispatch = 'released';
+							stream.enqueue(encoder.encode(chunks.join('\n') + '\n'));
+							stream.close();
+						};
+					}
+				}),
+				responseInit
+			);
+		}
 		if (control.mode === 'drop-response' && requestNumber === control.ordinal) {
 			call.failure = 'response';
 			throw new TypeError('Synthetic response lost after real dispatch');

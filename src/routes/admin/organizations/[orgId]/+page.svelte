@@ -127,8 +127,8 @@
 		</Alert.Root>
 	{/if}
 
-	<div class="grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_21rem]">
-		<aside aria-labelledby="org-glance" class="rounded-xl border border-border bg-card p-5 lg:order-2">
+	<div class="grid items-start gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_21rem]">
+		<aside aria-labelledby="org-glance" class="rounded-xl border border-border bg-card p-5 xl:order-2">
 			<h2 id="org-glance" class="mb-2 font-heading text-xl leading-none font-bold">At a glance</h2>
 			<dl>
 				<PageShell.FactRow variant="compact" label="Owner" value={ownerLabel} />
@@ -218,15 +218,7 @@
 			</section>
 
 			<section class="grid gap-3" aria-labelledby="org-activity">
-				<div class="flex items-baseline justify-between gap-3">
-					<h2 id="org-activity" class="font-heading text-xl leading-none font-bold">Recent activity</h2>
-					<a
-						href={resolve(`/admin/activity?q=${encodeURIComponent(org.name)}` as '/admin/activity')}
-						class="font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase underline-offset-4 hover:underline"
-					>
-						Open in Activity →
-					</a>
-				</div>
+				<h2 id="org-activity" class="font-heading text-xl leading-none font-bold">Recent activity</h2>
 				{#await data.activity}
 					<OrganizationActivitySkeleton />
 				{:then result}

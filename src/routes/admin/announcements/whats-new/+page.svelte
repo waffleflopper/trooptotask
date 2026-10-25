@@ -23,6 +23,7 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { followStreamedRead } from '../streamedRead.svelte';
+	import type { WhatsNewEntry } from '$features/platform-admin/contracts';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -35,15 +36,19 @@
 
 	const selection = $derived(page.url.searchParams.get('entry'));
 	const selectedEntry = $derived(entries.find((entry) => entry.id === selection) ?? null);
-	const editing = $derived(selection === 'new' || selectedEntry !== null);
 	const missingSelection = $derived(
 		selection !== null && selection !== 'new' && selectedEntry === null && !listPending && !listFailed
 	);
-	const isPublished = $derived(selectedEntry?.publishedOn != null);
 
 	let title = $state('');
 	let paragraphs = $state<string[]>(['']);
 	let loadedKey = $state<string | null>(null);
+	let lastEntry = $state.raw<WhatsNewEntry | null>(null);
+	// A read that has not confirmed the entry gone (still loading, or failed) keeps the editor and its draft.
+	const keepsDraft = $derived(selection !== null && selection === loadedKey && (listPending || listFailed));
+	const editorEntry = $derived(selectedEntry ?? (keepsDraft ? lastEntry : null));
+	const editing = $derived(selection === 'new' || editorEntry !== null);
+	const isPublished = $derived(editorEntry?.publishedOn != null);
 
 	function loadEditor() {
 		title = selectedEntry?.title ?? '';
@@ -52,11 +57,13 @@
 
 	// The editor takes the entry's text when the selection changes or its entry first arrives. After that only a
 	// confirmed write reloads it, and the fields are read-only from submit until the fresh read lands, so no
-	// keystroke can be overwritten.
+	// keystroke can be overwritten. A failed read leaves the draft where it is.
 	$effect(() => {
-		const key = selection === 'new' ? 'new' : selectedEntry ? selectedEntry.id : null;
+		const key = selection === 'new' ? 'new' : selectedEntry ? selectedEntry.id : keepsDraft ? selection : null;
+		if (selectedEntry) lastEntry = selectedEntry;
 		if (key === untrack(() => loadedKey)) return;
 		loadedKey = key;
+		lastEntry = selectedEntry;
 		untrack(loadEditor);
 	});
 
@@ -161,7 +168,7 @@
 				const target = deleteTarget;
 				if (!confirmedDelete || !target) {
 					cancel();
-					if (selectedEntry) deleteTarget = { id: selectedEntry.id, title: selectedEntry.title };
+					if (editorEntry) deleteTarget = { id: editorEntry.id, title: editorEntry.title };
 					return;
 				}
 				formData.set('id', target.id);
@@ -373,7 +380,7 @@
 					</div>
 					<Card.Description>
 						{#if isPublished}
-							Published {formatDisplayDate(selectedEntry?.publishedOn ?? null)}. Edits show for everyone straight away.
+							Published {formatDisplayDate(editorEntry?.publishedOn ?? null)}. Edits show for everyone straight away.
 						{:else}
 							Drafts stay invisible to users until you publish.
 						{/if}
@@ -381,7 +388,7 @@
 				</Card.Header>
 				<Card.Content>
 					<form id="entry-form" method="POST" action="?/save" class="grid gap-4" use:enhance={submitEntry('save')}>
-						<input type="hidden" name="id" value={selection === 'new' ? '' : (selectedEntry?.id ?? '')} />
+						<input type="hidden" name="id" value={selection === 'new' ? '' : (editorEntry?.id ?? '')} />
 						<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
 							<Field.Root>
 								<Field.Label for="entry-title">Title</Field.Label>
@@ -402,7 +409,7 @@
 									id="entry-date"
 									type="text"
 									readonly
-									value={isPublished ? formatDisplayDate(selectedEntry?.publishedOn ?? null) : 'Today when published'}
+									value={isPublished ? formatDisplayDate(editorEntry?.publishedOn ?? null) : 'Today when published'}
 								/>
 							</Field.Root>
 						</div>
@@ -468,9 +475,9 @@
 					</form>
 				</Card.Content>
 				<Card.Footer class="flex-wrap justify-end gap-2 border-t">
-					{#if selectedEntry && !isPublished}
+					{#if editorEntry && !isPublished}
 						<form bind:this={deleteForm} method="POST" action="?/delete" use:enhance={submitEntry('delete')}>
-							<input type="hidden" name="id" value={selectedEntry.id} />
+							<input type="hidden" name="id" value={editorEntry.id} />
 							<Button
 								type="submit"
 								variant="ghost"

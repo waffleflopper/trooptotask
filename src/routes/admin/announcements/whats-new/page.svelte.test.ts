@@ -253,7 +253,7 @@ describe('admin What’s New', () => {
 		await act(async () => {
 			await view.rerender({ data: data(readback.promise), form: null });
 		});
-		expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Save changes' })).toHaveProperty('disabled', true);
 		await act(async () => {
 			readback.resolve({ status: 'loaded', entries: [draft, live, old] });
 		});
@@ -294,6 +294,31 @@ describe('admin What’s New', () => {
 		});
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', false));
 		expect(invalidateAll).toHaveBeenCalledOnce();
+	});
+
+	it('keeps the typed draft through a failed reload and the reload that follows', async () => {
+		const view = await renderPage('?entry=draft-1');
+		await fireEvent.input(await screen.findByLabelText('Title'), { target: { value: 'Typed title' } });
+		await fireEvent.input(screen.getByLabelText('Paragraph 1'), { target: { value: 'Typed body' } });
+		await (
+			await submit(screen.getByRole('button', { name: 'Save draft' }))
+		).finish({ type: 'error', status: 500, error: new Error('dropped') });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Reload entries' }));
+		await act(async () => {
+			await view.rerender({ data: data(Promise.resolve({ status: 'failed' as const })), form: null });
+		});
+		expect(await screen.findByText(/could not be refreshed/)).toBeTruthy();
+		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Typed title');
+		expect(screen.getByLabelText('Paragraph 1')).toHaveProperty('value', 'Typed body');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Reload entries' }));
+		await act(async () => {
+			await view.rerender({ data: data(), form: null });
+		});
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Save draft' })).toHaveProperty('disabled', false));
+		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Typed title');
+		expect(screen.getByLabelText('Paragraph 1')).toHaveProperty('value', 'Typed body');
 	});
 
 	it('leaves the deleted entry’s address once the delete succeeds, even after its editor is gone', async () => {

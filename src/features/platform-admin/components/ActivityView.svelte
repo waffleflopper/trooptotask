@@ -130,9 +130,10 @@
 	/>
 
 	<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-		<div class="w-full min-w-0 sm:w-72">
+		<div class="w-full min-w-0 sm:w-80">
 			<WorkspaceToolbar
 				ariaLabel="Activity controls"
+				bare
 				items={[]}
 				search={{
 					label: 'Search',
@@ -147,7 +148,7 @@
 			options={CATEGORY_OPTIONS}
 			bind:value={() => query.category ?? 'all', (next) => navigate({ category: next === 'all' ? null : next })}
 		/>
-		<div class="sm:ml-auto">
+		<div class="ml-auto">
 			<ActivityRangeMenu label={rangeLabel} presets={rangePresets} {timeZone} bind:start bind:end />
 		</div>
 	</div>

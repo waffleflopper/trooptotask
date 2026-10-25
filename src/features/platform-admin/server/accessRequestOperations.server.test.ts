@@ -50,6 +50,10 @@ function fixture(options: ProviderOptions = {}) {
 			rejectCalls.push(await request.json());
 			return Response.json([{ reject_status: 'rejected' }]);
 		}
+		if (url.pathname === '/rest/v1/access_requests') {
+			expect(request.method).toBe('GET');
+			return Response.json({ name: 'Pat Applicant', email: 'pat@example.test' });
+		}
 		if (url.pathname === '/rest/v1/audit_logs') {
 			expect(request.method).toBe('POST');
 			auditRows.push(await request.json());
@@ -178,7 +182,7 @@ describe('admitted Access Request operation composition', () => {
 			resource_id: REQUEST,
 			ip_address: '127.0.0.1',
 			user_agent: 'synthetic-review-client',
-			details: { blockedInvitationCount: 0 }
+			details: { blockedInvitationCount: 0, targetName: 'Pat Applicant' }
 		});
 	});
 });

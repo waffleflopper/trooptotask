@@ -1,18 +1,15 @@
-# Platform announcements, Feedback and Audit support
+# Platform announcements and Feedback support
 
-The platform operator publishes global messages, reviews member Feedback and investigates saved activity. Every other
-account is refused.
+The platform operator publishes global messages, reviews member Feedback. Every other account is refused.
 
 ## Sub-features
 
-- `admission`: the operator at aal2 admits Dashboard, Announcements, Feedback and full Audit; every other account,
+- `admission`: the operator at aal2 admits Dashboard, Announcements and Feedback; every other account,
   including the former support, billing and inactive actors, admits none, and an operator at aal1 is sent to MFA.
 - `announcement-lifecycle`: create Info, Warning and Maintenance messages, optional expiration, cancellation,
   activate/deactivate, confirmed deletion, and persisted member banners and account-wide dismissals.
 - `feedback-review`: retain submitter/context/message while changing New, Reviewed and Resolved status, save or clear
   internal Notes, reload and recover from failure.
-- `audit-investigation`: server pages of 50, action/severity/Organization filters, details, masking and reduced
-  Dashboard activity.
 - `dashboard-and-navigation`: current platform counts, pending Feedback, recent activity and retained search/navigation
   without widening disclosure.
 - `failure-and-lifetime`: definite rejected writes preserve the unsaved choice and permit an explicit retry; unconfirmed
@@ -20,16 +17,15 @@ account is refused.
 
 ## How to get to it (user POV)
 
-Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback, Audit Log and Announcements in its
+Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback and Announcements in its
 sidebar. Select Create Announcement in the Announcements controls toolbar, complete its fields and Save. Deactivate or
 Activate changes its member visibility. Delete asks for confirmation in an in-app dialog naming the announcement. Expand
-a Feedback card to change Status or Admin Notes, then choose Save Notes. Audit Log provides Action and Severity
-controls, Previous/Next pages and View details. The global search opens the already owned User and Organization support
+a Feedback card to change Status or Admin Notes, then choose Save Notes. The global search opens the already owned User and Organization support
 pages.
 
 ## Helper controls
 
-Platform content verification uses the [announcement/Feedback/Audit recipe](platform-support-content.md). Existing
+Platform content verification uses the [announcement/Feedback recipe](platform-support-content.md). Existing
 platform actors and ordinary `orgMember` may enter `admin` and `admin/announcements` through normal sign-in for
 admission and denial. `platform-content` accepts no targets and reads only helper-recorded communications announcements
 or rows created by this worker's synthetic operator. It provides privileged persistence readback separately from
@@ -40,7 +36,7 @@ failure/hold modes reuse the existing SvelteKit envelopes. `arm-reject` rejects 
 missing save reply blocks new writes until the visible read-only Reload succeeds.
 `content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackUpdate RECORDED_UUID JSON`
 submits bounded ordinary HTTP actions against helper-recorded targets, separately from native UI proof.
-`admin-audit-read`, `admin-dashboard-read`, `admin-users-read`, `admin-organizations-read`, `admin-feedback-read`,
+`admin-dashboard-read`, `admin-users-read`, `admin-organizations-read`, `admin-feedback-read`,
 `admin-announcements-read`, `admin-user-detail-read` (`orgInvitee`) and `admin-organization-detail-read` (the
 `seed platform-admin` Organization) control only their exact page-data navigation with failure, hold or observation.
 `arm-fail` replaces the response with a transport 503, which SvelteKit renders on the root error page; `arm-load-error`
@@ -51,24 +47,23 @@ explicit retry.
 
 ## Driving it with verify:app
 
-`$V actor platformReviewer admin|admin/announcements|admin/feedback|admin/audit` signs the operator in at aal2. `platformSupport`,
+`$V actor platformReviewer admin|admin/announcements|admin/feedback` signs the operator in at aal2. `platformSupport`,
 `platformBilling`, `platformInactive` and `orgMember` attempt the same destinations for the permission matrix. Reuse
 [platform administration](platform-administration.md) for search, User and Organization activity,
 [communications](notifications-feedback.md) for ordinary Feedback and dismissals, and
-[Audit capture](audit-capture-projections.md) for the retained masking and stored-event setup. These recipes own those
-expectations.
+[Audit capture](audit-capture-projections.md) for the retained masking and stored-event setup, and
+[platform admin states](platform-admin-states.md) for the platform Activity page. These recipes own those expectations.
 
 `$V seed communications` supplies exact active/inactive/expired announcement IDs and member/peer witnesses.
 `$V platform-content` reads only those saved announcement IDs and rows created by this worker's synthetic super-admin.
 It accepts no supplied target. `$V communications ROLE` reads that synthetic account's Feedback and dismissals. Provider
-reads are separate persistence proof, never ordinary authorization proof. `$V seed audit` supplies 105 same-action A
-records plus old, excluded and B witnesses for server paging/filtering; preserve its returned action and exact IDs.
+reads are separate persistence proof, never ordinary authorization proof.
 
 The existing `network` helper supports same-origin form families `admin-announcements/create`,
 `admin-announcements/toggle`, `admin-announcements/delete` and `admin-feedback/update`. Each binds the exact route,
 named action and POST. `arm-fail` returns one synthetic SvelteKit 503 failure before dispatch, `arm-hold` delays a real
-response and `arm-hold-fail` delays a synthetic failure. `admin-audit-read` and `admin-dashboard-read` bind only their
-exact page-data paths and support `arm-fail`, `arm-hold` and `arm-observe`. These are browser transport controls. They
+response and `arm-hold-fail` delays a synthetic failure. `admin-dashboard-read` binds only its
+exact page-data path and support `arm-fail`, `arm-hold` and `arm-observe`. These are browser transport controls. They
 establish neither provider atomicity nor server query-error handling. Restore each hook before another journey or
 cleanup.
 
@@ -113,12 +108,8 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    fill the peer's Status/Notes before releasing a real success; the first row updates, the peer's unsent draft survives
    readback and only then can another Save dispatch. Ordinary and non-operator writes are denied without changing the
    row; test known-ID form submission separately from native proof.
-5. **Audit paging, privacy and recovery.** Follow the Audit recipe's Action cohort, Next/Previous, Severity reset to
-   page 1, A/B Organization filters, stored masked View details and reload. Preserve exact IDs/counts in page data and
-   provider rows. Dashboard recent activity must not inherit these full details. Arm `admin-audit-read` from another
-   admitted page before a visible Audit navigation, capture its failed request and recovery after restoring the hook.
-   Use keyboard focus before arming to avoid prefetch consuming the one-shot fault. Provider query/writer failures
-   require separate lower-level or controlled provider proof.
+5. **Activity.** The platform Activity page and its recovery are covered in [platform admin
+   states](platform-admin-states.md). Dashboard recent activity must not inherit the full Activity details.
 6. **Dashboard and retained search.** Capture visible counts and same-session page data before/after ordinary Feedback
    submission and review. Pending Feedback counts New rows, and recent activity remains reduced for every admitted role.
    Exercise a representative search result and return through visible links under the administration recipe. Record an
@@ -130,9 +121,7 @@ create/toggle/delete/review requests preserve rows, separately from native contr
 
 - Global announcements and account dismissals differ from Organization-scoped private communications. An Organization
   role grants no platform privilege.
-- Full Audit belongs to the operator; no other account reads it.
-- A seeded masked event proves display/paging, not producer sanitization. Announcement audit events and real Feedback
-  submission establish their own producer effects.
+- Announcement audit events and real Feedback submission establish their own producer effects.
 - Announcements have create, toggle and delete controls, with no editing form. Feedback has no delete control. Do not
   invent a journey for either.
 - Synthetic 503s exercise browser response handling. Provider list errors must remain distinct from a genuine empty

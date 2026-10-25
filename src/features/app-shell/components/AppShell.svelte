@@ -5,7 +5,7 @@
 	import { browser } from '$app/environment';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import { endOrganizationLifetime } from '$lib/stores/core';
-	import { AccountPreferencesProvider } from '$features/identity';
+	import AccountPreferencesProvider from '$features/identity/AccountPreferencesProvider.svelte';
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';

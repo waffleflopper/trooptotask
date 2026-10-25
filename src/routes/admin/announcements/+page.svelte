@@ -305,12 +305,13 @@
 		{#each [0, 1] as placeholder (placeholder)}
 			<Card.Root data-testid="banner-skeleton">
 				<Card.Header class="gap-2">
-					<Skeleton class="h-5 w-48" />
-					<Skeleton class="h-5 w-32" />
+					<Skeleton class="h-4 w-48" />
+					<Skeleton class="h-[18px] w-32" />
 				</Card.Header>
-				<Card.Content class="grid gap-2">
-					<Skeleton class="h-4 w-full" />
-					<Skeleton class="h-4 w-2/3" />
+				<Card.Content class="grid gap-3">
+					<Skeleton class="h-6 w-2/3" />
+					<Skeleton class="h-4 w-40" />
+					<Skeleton class="h-4 w-32" />
 				</Card.Content>
 			</Card.Root>
 		{/each}

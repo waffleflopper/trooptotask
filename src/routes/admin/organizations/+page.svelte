@@ -131,11 +131,11 @@
 	{#if column.key === 'name'}
 		<a
 			href={resolve(`/admin/organizations/${org.id}` as `/admin/organizations/${string}`)}
-			class="font-semibold wrap-anywhere text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+			class="block truncate font-semibold text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 			>{org.name}</a
 		>
 	{:else if column.key === 'owner'}
-		<span class="wrap-anywhere text-muted-foreground">{ownerLabel(org)}</span>
+		<span class="block truncate text-muted-foreground" title={ownerLabel(org)}>{ownerLabel(org)}</span>
 	{:else if column.key === 'members'}
 		<span class="tabular-nums">{org.memberCount}</span>
 	{:else if column.key === 'personnel'}
@@ -150,11 +150,7 @@
 {/snippet}
 
 <AdminPage>
-	<AdminPageHeader
-		{eyebrow}
-		title="Organizations"
-		description="Every unit on the platform, most recently active first."
-	/>
+	<AdminPageHeader {eyebrow} title="Organizations" description="Every unit on the platform." />
 
 	<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
 		<div class="w-full min-w-0 sm:w-80">

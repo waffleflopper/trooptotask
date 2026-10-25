@@ -6,12 +6,16 @@ SELECT '00000000-0000-0000-0000-000000000000'::uuid,id::uuid,'authenticated','au
 FROM (VALUES
  ('10000000-0000-4000-8000-000000186921','thread-reporter@example.test'),
  ('10000000-0000-4000-8000-000000186922','thread-peer@example.test'),
- ('10000000-0000-4000-8000-000000186923','thread-operator@example.test')) AS fixture(id,email);
+ ('10000000-0000-4000-8000-000000186923','thread-operator@example.test'),
+ ('10000000-0000-4000-8000-000000186924','thread-suspended@example.test')) AS fixture(id,email);
 INSERT INTO public.platform_operators(user_id) VALUES ('10000000-0000-4000-8000-000000186923');
+INSERT INTO public.user_suspensions(user_id,suspended_by,reason) VALUES
+ ('10000000-0000-4000-8000-000000186924','10000000-0000-4000-8000-000000186923','Synthetic account suspension');
 INSERT INTO public.beta_feedback(id,user_id,user_email,message,status) VALUES
  ('50000000-0000-4000-8000-000000186921','10000000-0000-4000-8000-000000186921','thread-reporter@example.test','Open thread','reviewed'),
  ('50000000-0000-4000-8000-000000186922','10000000-0000-4000-8000-000000186921','thread-reporter@example.test','Closed thread','resolved'),
- ('50000000-0000-4000-8000-000000186923','10000000-0000-4000-8000-000000186922','thread-peer@example.test','Peer thread','new');
+ ('50000000-0000-4000-8000-000000186923','10000000-0000-4000-8000-000000186922','thread-peer@example.test','Peer thread','new'),
+ ('50000000-0000-4000-8000-000000186925','10000000-0000-4000-8000-000000186924','thread-suspended@example.test','Suspended reporter thread','reviewed');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186921',true);
 SELECT set_config('request.jwt.claims','{"aal":"aal1"}',true);
@@ -41,6 +45,15 @@ SELECT throws_ok($$INSERT INTO public.feedback_replies(feedback_id,body,author) 
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186921',true);
 SELECT results_eq($$SELECT link FROM public.notifications WHERE type='feedback_reply'$$,
  $$VALUES ('/account/feedback/50000000-0000-4000-8000-000000186921'::text)$$,'operator reply links to Account feedback');
+SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186924',true);
+SELECT set_config('request.jwt.claims','{"aal":"aal1"}',true);
+SELECT is(current_user,'authenticated'::name,'suspended caller uses an ordinary signed-in role');
+SELECT throws_ok($$SELECT public.reply_to_own_feedback('50000000-0000-4000-8000-000000186925','Still have a valid JWT')$$,
+ '42501','Suspended accounts cannot reply to feedback','suspended reporter cannot call the reply RPC');
+SELECT is((SELECT count(*) FROM public.feedback_replies WHERE feedback_id='50000000-0000-4000-8000-000000186925'),
+ 0::bigint,'suspended reporter writes no reply');
+SELECT results_eq($$SELECT status FROM public.beta_feedback WHERE id='50000000-0000-4000-8000-000000186925'$$,
+ $$VALUES ('reviewed'::text)$$,'suspended reporter leaves the thread status unchanged');
 SET LOCAL ROLE anon;
 SELECT throws_ok($$SELECT public.reply_to_own_feedback('50000000-0000-4000-8000-000000186921','Anonymous')$$,'42501',NULL,'anonymous caller cannot reply');
 RESET ROLE;

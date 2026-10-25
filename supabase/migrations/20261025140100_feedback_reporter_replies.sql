@@ -12,6 +12,9 @@ DECLARE
  v_reply public.feedback_replies;
  v_feedback public.beta_feedback;
 BEGIN
+ IF public.is_user_suspended((SELECT auth.uid())) THEN
+  RAISE EXCEPTION 'Suspended accounts cannot reply to feedback' USING ERRCODE = '42501';
+ END IF;
  IF p_body IS NULL OR length(btrim(p_body)) NOT BETWEEN 1 AND 5000 THEN
   RAISE EXCEPTION 'A reply between 1 and 5000 characters is required' USING ERRCODE = '22023';
  END IF;

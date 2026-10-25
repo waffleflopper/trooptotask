@@ -24,7 +24,9 @@ confirmation and current identity verification.
 
 ## How to get to it (user POV)
 
-Open `Settings` in the Organization navigation. `General` contains `Unit name` with its `Edit`, `Web address` and the
+Open `Unit settings` in the sidebar or the `Switch organization` menu. Both enter `/settings/general` directly,
+without a bare `/settings` request or a 303. Confirm the sidebar entry stays active on General and the other settings
+pages. `General` contains `Unit name` with its `Edit`, `Web address` and the
 Calendar signpost. `Policies` contains `Archive Retention`, `Loss Warning Window` and `Training Readiness`, each with
 its own `Save` button. Owners also see `Danger zone` below the other settings pages. Its `Delete <Organization name>`
 row counts what deletion destroys (people, training records, members who lose access and archived records) in a tinted

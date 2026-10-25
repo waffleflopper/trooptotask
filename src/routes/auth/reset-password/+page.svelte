@@ -1,7 +1,7 @@
 <script lang="ts">
+	import PasswordMfaChallenge from '$features/identity/PasswordMfaChallenge.svelte';
+	import PasswordCompletion from '$features/identity/PasswordCompletion.svelte';
 	import {
-		PasswordCompletion,
-		PasswordMfaChallenge,
 		passwordRequirements,
 		hasPendingPasswordCompletion,
 		reconciledPasswordState,

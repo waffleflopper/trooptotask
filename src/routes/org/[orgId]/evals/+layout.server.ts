@@ -33,7 +33,7 @@ export async function _streamRatingSchemeWorkspace(
 					orgId: ctx.auth.orgId,
 					ratingSchemeEntries: createWorkspaceHydrationTarget(data.ratingSchemeEntries, {
 						mode: 'replace',
-						resolvedSnapshotKey: 'json'
+						resolvedSnapshotKey: 'hash'
 					})
 				}
 			} satisfies RatingSchemeWorkspaceResult;

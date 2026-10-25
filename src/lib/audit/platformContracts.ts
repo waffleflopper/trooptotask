@@ -1,16 +1,21 @@
 export type PlatformAuditSeverity = 'info' | 'warning' | 'critical' | string;
 
-export interface PlatformAuditLogEntry {
+/** A platform audit row as Activity reads it, with the Organization name joined in the same query. */
+export interface PlatformActivityEvent {
 	id: string;
+	timestamp: string;
+	action: string;
+	severity: PlatformAuditSeverity;
 	userId: string | null;
 	orgId: string | null;
-	action: string;
+	orgName: string | null;
+	/** The actor's account as it stands now, so Organization-scoped rows need not store it. */
+	actorEmail: string | null;
+	actorName: string | null;
 	resourceType: string | null;
 	resourceId: string | null;
 	ipAddress: string | null;
 	details: Record<string, unknown> | null;
-	severity: PlatformAuditSeverity;
-	createdAt: string;
 }
 
 export interface PlatformAuditOrganizationActivity {
@@ -33,23 +38,24 @@ export interface PlatformAuditUserActivity {
 	severity: PlatformAuditSeverity;
 }
 
-export interface PlatformAuditListInput {
+export interface PlatformActivityInput {
+	/** An event matches when its action is listed here or starts with one of the prefixes. */
+	actions: string[];
+	prefixes: string[];
+	/** Case-insensitive text found in the action, actor email or name, target name, resource ID or Organization name. */
+	search: string;
+	/** Half-open instant range; `null` leaves that side open. */
+	from: Date | null;
+	to: Date | null;
 	page: number;
 	limit?: number;
-	action?: string;
-	severity?: string;
-	orgId?: string;
 }
 
-export interface PlatformAuditListResult {
-	logs: PlatformAuditLogEntry[];
+export interface PlatformActivityResult {
+	events: PlatformActivityEvent[];
 	totalCount: number;
 	page: number;
 	limit: number;
-	actionFilter: string;
-	severityFilter: string;
-	orgFilter: string;
-	availableActions: string[];
 }
 
 export interface PlatformAuditDashboardActivity {
@@ -61,7 +67,7 @@ export interface PlatformAuditDashboardActivity {
 
 export interface PlatformAudit {
 	listRecentActivity(input: { limit?: number }): Promise<PlatformAuditDashboardActivity[]>;
-	listLogs(input: PlatformAuditListInput): Promise<PlatformAuditListResult>;
+	listActivity(input: PlatformActivityInput): Promise<PlatformActivityResult>;
 	listRecentByOrganization(input: { orgId: string; limit?: number }): Promise<PlatformAuditOrganizationActivity[]>;
 	listRecentByUser(input: { userId: string; limit?: number }): Promise<PlatformAuditUserActivity[]>;
 }

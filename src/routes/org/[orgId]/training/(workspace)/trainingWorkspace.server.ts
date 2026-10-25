@@ -28,7 +28,7 @@ export interface TrainingWorkspaceRouteData {
 }
 
 function createTrainingHydrationTarget<T>(items: HydrationItems<T>): TrainingWorkspaceHydrationTarget<T> {
-	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
 }
 
 function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspaceData): TrainingWorkspaceHydration {

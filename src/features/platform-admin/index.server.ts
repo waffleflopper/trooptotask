@@ -8,6 +8,6 @@ export { createPlatformSearchOperations, createPlatformSuspensionOperations } fr
 export { loadPlatformAdminNavigation } from './server/navigation.server';
 export { createPlatformAnnouncementOperations } from './server/announcementOperations.server';
 export { validatePlatformAnnouncement } from './server/announcements.server';
-export { createPlatformAuditOperations } from './server/contentReviewOperations.server';
 export { createPlatformInboxOperations } from './server/inboxOperations.server';
 export { mapApproveResult, mapRejectResult } from './server/accessRequestActionResults.server';
+export { createPlatformActivityOperations } from './server/activityOperations.server';

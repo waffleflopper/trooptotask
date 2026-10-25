@@ -16,7 +16,7 @@ TroopToTask v1 is one SvelteKit application backed by Supabase. **Organization**
 Each product owner lives under `src/features/<owner>/` and exposes up to three public seams:
 
 - **Portable:** `contracts.ts`, the owner's only portable entrypoint. Plain data shapes, validation and pure rules. No Svelte, `$app`, browser globals, provider SDKs, raw database rows, Node-only code or UI.
-- **Web:** `index.ts`. Browser-safe UI and client state. Never imports privileged code.
+- **Web:** `index.ts`. Browser-safe client state, helpers and small shared components. A route page view gets its own public file so a store import does not load a screen. Never imports privileged code.
 - **Server:** `index.server.ts` and other `*.server.ts` files. Authorized operations for routes and declared server collaborators. No raw provider client, universal request context or arbitrary query interface leaves the owner.
 
 A folder named `server/` is not a privilege boundary; only SvelteKit's `*.server.ts` and `$lib/server` rules are. Shared primitives live in `src/lib/components/ui`, shared neutral compositions in `src/lib/components/patterns`, and neither imports a feature.
@@ -39,5 +39,7 @@ Import another owner only through its public seam. Cross-owner dependencies are 
 Keep common workflows responsive as an Organization's data grows. Inspect the actual loading path before optimizing: avoid serial waits for independent requests, repeated queries per row, unnecessary payloads and repeated full-list calculations. A linear pass over a bounded collection can be the simplest efficient implementation.
 
 Use optimistic updates when failure can be rolled back clearly. Keep server authorization authoritative. Keep optional data from blocking useful content, and give clear pending, success and failure feedback.
+
+Feature server loads use request-local Organization admission and member context instead of `parent()`. Calling `parent()` can rerun unchanged ancestor loads during navigation.
 
 Reuse the existing data and state mechanisms. Add caching, background work or another abstraction only for an observed need, with explicit invalidation and failure behavior. Review a change on a measured journey's path against the [regression budgets](DEFINITION_OF_DONE.md#regression-budgets). Measure only when Robert asks.

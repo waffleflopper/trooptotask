@@ -15,6 +15,8 @@ admin is entered only at MFA level aal2.
   remain, covered by unit tests only.
 - `administration`: operator suspension/recovery with MFA step-up, the disabled own-account Suspend, confirmed ownership
   transfer and denial without mutation.
+- `activity`: each platform command writes an event naming the operator's email and the target, which Activity reads as
+  a sentence that calls the signed-in operator `You` (the states recipe owns the page itself).
 - `recovery`: retained drafts, failed requests, explicit retry, persistence and correct target after navigation.
 
 ## How to get to it (user POV)
@@ -30,16 +32,17 @@ page. On the operator's own account Suspend is disabled and says why.
 Platform administration uses the [access/account/Organization recipe](platform-administration.md), the
 `platformReviewer` operator (aal2 by default, `--aal1` and `--stale-mfa` for the MFA states in
 [platform admin states](platform-admin-states.md)) and the `platformSupport`, `platformBilling` and `platformInactive`
-denial actors, which hold no operator row. `actor` accepts `admin`, `admin/users` and `admin/organizations`
-(`admin/access-requests` and `admin/feedback` redirect to the Inbox). `seed platform-admin` records temporary
-review/origin and Organization membership witnesses before writes; `platform-state` returns exact recorded rows without
-setup secrets. `platform-request` sends bounded ordinary same-origin actions; its families/target keys and separate HTTP
-boundary are documented in the recipe. `network arm-fail|arm-hold|arm-observe PAGE admin-suspend` matches only
-`/admin/api/suspend` POST. `admin-search` observes/holds the actual `/admin/api/search` response for query lifetime
-proof. `network arm-drop PAGE admin-suspend|admin-transfer` dispatches the real scoped request, records its actual
-transport status, then rejects the browser response to prove unconfirmed-save reconciliation; it does not establish an
-actual provider outage. Transfer controls bind the recorded temporary Organization and exact transfer action, leaving
-other Organizations/actions untouched. A 503/lost reply requires a fresh authoritative read before any new explicit
+denial actors, which hold no operator row. `actor` accepts `admin`, `admin/users`, `admin/organizations` and
+`admin/activity` (`admin/access-requests` and `admin/feedback` redirect to the Inbox). `seed platform-admin` records
+temporary review/origin and Organization membership witnesses before writes; `platform-state` returns exact recorded
+rows without setup secrets. `platform-request` sends bounded ordinary same-origin actions; its families/target keys and
+separate HTTP boundary are documented in the recipe. `network arm-fail|arm-hold|arm-observe PAGE admin-suspend` matches
+only `/admin/api/suspend` POST. `admin-search` observes/holds the actual `/admin/api/search` response for query lifetime
+proof, and `admin-activity` does the same for the `/admin/api/activity` read.
+`network arm-drop PAGE admin-suspend|admin-transfer` dispatches the real scoped request, records its actual transport
+status, then rejects the browser response to prove unconfirmed-save reconciliation; it does not establish an actual
+provider outage. Transfer controls bind the recorded temporary Organization and exact transfer action, leaving other
+Organizations/actions untouched. A 503/lost reply requires a fresh authoritative read before any new explicit
 confirmation; observing the current state does not identify who changed it. Restore User suspension visibly before
 `clean-seeds`; cleanup refuses remaining suspensions and verifies tracked dependent absence.
 
@@ -47,8 +50,8 @@ confirmation; observing the current state does not identify who changed it. Rest
 
 Reuse `platformReviewer` (the only operator, enrolled with a verified authenticator), ordinary `viewer` and `orgOwner`;
 `platformSupport`, `platformBilling` and `platformInactive` have no operator row.
-`$V actor ROLE admin|admin/users|admin/organizations` signs the operator in at aal2 through the provider and accepts
-denial as an observable outcome for every other role, without changing authority.
+`$V actor ROLE admin|admin/users|admin/organizations|admin/activity` signs the operator in at aal2 through the provider
+and accepts denial as an observable outcome for every other role, without changing authority.
 
 Run `$V seed platform-admin` once. It creates a temporary Organization, three memberships for
 `orgCreator`/`orgInvitee`/`orgMember`, two pending requests, a completed approved request and one unconfirmed account
@@ -86,24 +89,27 @@ Organization audit references. It omits setup tokens and delivery payloads.
 5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press `Suspend`
    once on the temporary Organization: the dialog says `Nothing has been changed yet.`, the browser lands on
    `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension. Enter the code
-   with `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its audit row in Activity. For
-   every later case below use `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the
-   temporary Organization's Suspend dialog from `More Organization controls`. Fill a unique reason;
-   `$V network arm-fail PAGE admin-suspend` fails one exact POST before provider dispatch. Submit visibly: keep the
-   dialog/reason, show failure, and leave rows unchanged. A 503/transport/unreadable outcome requires Reload details
-   before another write; preserve the draft through that read, and explicitly confirm again only after verified
-   no-effect/current authority. Record real success, refreshed detail and persisted suspension after reload plus the
-   actual affected Organization access outcome. An ordinary owner already on Settings must reload into the canonical
-   Organization home suspension notice, rather than a nonexistent `/suspended` child route; cover Settings index and a
-   nested section. Unsuspend visibly and verify Settings recovery. Repeat with `orgInvitee` account, inspecting
-   `user_suspensions` and normal sign-in denial/recovery. The refreshed User detail must offer Unsuspend immediately; no
-   hard reload is required to correct its visible state. An acknowledged save with failed refresh offers Reload details
-   instead of repeating the mutation. A failed suspension read must never become a verified unsuspended state. Use
-   `$V network arm-drop PAGE admin-suspend` for a real dispatched save whose response is deliberately lost. Preserve
-   real status/provider persistence plus the read-only dialog, then Reload details: current suspended truth closes
-   quietly without announcing inferred operation success or a second write. Navigate to another record or route while a
-   response is held and verify the old completion cannot refresh or announce the new target, including disposal and
-   A→B→A. Restore every network hook; do not silently repair original fixture User suspension with privileged setup.
+   with `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its event in Activity: open
+   `$V actor platformReviewer admin/activity`, and the newest row reads `You suspended <Organization name>`. An
+   Organization's owners can read their own audit rows, so the typed reason is not stored for Organization events and
+   `Details` lists no `Reason`; the operator email is looked up when read. For every later case below use
+   `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the temporary Organization's Suspend
+   dialog from `More Organization controls`. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one
+   exact POST before provider dispatch. Submit visibly: keep the dialog/reason, show failure, and leave rows unchanged.
+   A 503/transport/unreadable outcome requires Reload details before another write; preserve the draft through that
+   read, and explicitly confirm again only after verified no-effect/current authority. Record real success, refreshed
+   detail and persisted suspension after reload plus the actual affected Organization access outcome. An ordinary owner
+   already on Settings must reload into the canonical Organization home suspension notice, rather than a nonexistent
+   `/suspended` child route; cover Settings index and a nested section. Unsuspend visibly and verify Settings recovery.
+   Repeat with `orgInvitee` account, inspecting `user_suspensions` and normal sign-in denial/recovery. The refreshed
+   User detail must offer Unsuspend immediately; no hard reload is required to correct its visible state. An
+   acknowledged save with failed refresh offers Reload details instead of repeating the mutation. A failed suspension
+   read must never become a verified unsuspended state. Use `$V network arm-drop PAGE admin-suspend` for a real
+   dispatched save whose response is deliberately lost. Preserve real status/provider persistence plus the read-only
+   dialog, then Reload details: current suspended truth closes quietly without announcing inferred operation success or
+   a second write. Navigate to another record or route while a response is held and verify the old completion cannot
+   refresh or announce the new target, including disposal and A→B→A. Restore every network hook; do not silently repair
+   original fixture User suspension with privileged setup.
 6. **Ownership.** Organization member promotion is gone: `?/makeAdmin` answers 404 as no action. Attempt transfer to
    `orgInvitee` with an incorrect name through the action control, proving no effect; the visible confirmation requires
    the exact untrimmed Organization name. Native exact-name transfer must decode the action result and refresh the

@@ -264,7 +264,7 @@ describe('acceptDashboardInvitation', () => {
 					type: 'member_invite_expired',
 					title: 'Invitation Expired',
 					message: '"user@example.com" tried to use an expired organization invitation.',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);
@@ -359,7 +359,7 @@ describe('acceptDashboardInvitation', () => {
 					type: 'member_joined',
 					title: 'New Member Joined',
 					message: '"user@example.com" has joined the organization.',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);
@@ -457,7 +457,7 @@ describe('declineDashboardInvitation', () => {
 					type: 'member_invite_declined',
 					title: 'Invitation Declined',
 					message: '"user@example.com" declined their organization invitation.',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);
@@ -528,7 +528,7 @@ describe('declineDashboardInvitation', () => {
 					type: 'member_invite_expired',
 					title: 'Invitation Expired',
 					message: '"user@example.com" tried to use an expired organization invitation.',
-					link: '/org/org-1/settings'
+					link: '/org/org-1/settings/general'
 				}
 			}
 		]);

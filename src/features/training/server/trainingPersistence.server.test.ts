@@ -68,7 +68,16 @@ describe('ordinary Training persistence', () => {
 					created_at: TIME,
 					updated_at: TIME
 				},
-				{ id: 'r2', organization_id: ORG, personnel_id: 'p1', training_type_id: 'omitted' }
+				{
+					id: 'r2',
+					organization_id: ORG,
+					personnel_id: 'p1',
+					training_type_id: 'omitted',
+					completion_date: null,
+					expiration_date: null,
+					notes: null,
+					certificate_url: null
+				}
 			]
 		});
 		expect(await catalog.listTypes()).toEqual([
@@ -111,17 +120,22 @@ describe('ordinary Training persistence', () => {
 		expect(await completions.listCompletions()).toEqual([
 			{
 				id: 'r1',
-				organization_id: ORG,
 				personnelId: 'p1',
 				trainingTypeId: 'null',
 				completionDate: null,
 				expirationDate: null,
 				notes: null,
-				certificateUrl: null,
-				created_at: TIME,
-				updated_at: TIME
+				certificateUrl: null
 			},
-			{ id: 'r2', organization_id: ORG, personnelId: 'p1', trainingTypeId: 'omitted' }
+			{
+				id: 'r2',
+				personnelId: 'p1',
+				trainingTypeId: 'omitted',
+				completionDate: null,
+				expirationDate: null,
+				notes: null,
+				certificateUrl: null
+			}
 		]);
 		expect(await catalog.findTypeTiming('null')).toEqual({ expirationMonths: null, expirationDateOnly: null });
 		expect(await catalog.listTypeImportReferences(['null'])).toEqual([

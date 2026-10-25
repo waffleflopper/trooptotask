@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { createRawSnippet, getAllContexts, mount, unmount, untrack } from 'svelte';
-import { AccountPreferencesProvider } from '$features/identity';
+import AccountPreferencesProvider from '$features/identity/AccountPreferencesProvider.svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import {

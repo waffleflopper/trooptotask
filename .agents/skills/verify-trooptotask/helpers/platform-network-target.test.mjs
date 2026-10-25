@@ -70,7 +70,6 @@ for (const [family, route, action] of [
 }
 
 for (const [family, route] of [
-	['admin-audit-read', '/admin/audit/__data.json'],
 	['admin-inbox-read', '/admin/__data.json'],
 	['admin-inbox-item-read', '/admin/api/inbox/item'],
 	['admin-users-read', '/admin/users/__data.json'],

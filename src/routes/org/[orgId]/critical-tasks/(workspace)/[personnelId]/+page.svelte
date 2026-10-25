@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { getAppShellContext } from '$features/app-shell';
-	import { ictTasksStore, personnelIctCompletionsStore, IctPersonnelDetailPage } from '$features/critical-tasks';
+	import IctPersonnelDetailPage from '$features/critical-tasks/components/IctPersonnelDetailPage.svelte';
+	import { ictTasksStore, personnelIctCompletionsStore } from '$features/critical-tasks';
 
 	let { data } = $props();
 	const org = getAppShellContext();

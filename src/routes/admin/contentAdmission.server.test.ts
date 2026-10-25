@@ -8,9 +8,8 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 import { load as layoutLoad } from './+layout.server';
 import { actions as announcementActions, load as announcementLoad } from './announcements/+page.server';
 import { actions as inboxActions, load as inboxLoad } from './+page.server';
-import { load as auditLoad } from './audit/+page.server';
 
-type ContentPage = 'announcements' | 'inbox' | 'audit';
+type ContentPage = 'announcements' | 'inbox';
 interface ActorCase {
 	name: string;
 	operator: boolean;
@@ -23,7 +22,6 @@ interface ActorCase {
 const ACTOR_ID = '10000000-0000-4000-8000-000000000001';
 const ANNOUNCEMENT_ID = '20000000-0000-4000-8000-000000000001';
 const FEEDBACK_ID = '30000000-0000-4000-8000-000000000001';
-const AUDIT_ID = '40000000-0000-4000-8000-000000000001';
 const aal2 = { currentLevel: 'aal2', nextLevel: 'aal2' } as const;
 const actors: ActorCase[] = [
 	{
@@ -74,13 +72,11 @@ const loads: Record<ContentPage, (request: RequestEvent) => Promise<unknown>> = 
 		const data = await inboxLoad(request as Parameters<typeof inboxLoad>[0]);
 		if (!data) expect.unreachable('Expected Inbox data');
 		return { tab: data.tab, feedback: await data.sources.feedback };
-	},
-	audit: async (request) => auditLoad(request as Parameters<typeof auditLoad>[0])
+	}
 };
 const permittedWitnesses: Record<ContentPage, readonly [string, string | number]> = {
 	announcements: ['announcements.0.id', ANNOUNCEMENT_ID],
-	inbox: ['feedback.items.0.id', FEEDBACK_ID],
-	audit: ['logs.0.id', AUDIT_ID]
+	inbox: ['feedback.items.0.id', FEEDBACK_ID]
 };
 
 function request(actor: ActorCase, path: string, form?: Record<string, string>): RequestEvent {
@@ -156,22 +152,7 @@ function provider(actor: ActorCase) {
 			if (method === 'PATCH') return rowResponse({ id: FEEDBACK_ID });
 			return Response.json(feedback, { headers: { 'content-range': `0-0/${feedback.length}` } });
 		}
-		if (resource === 'audit_logs' && method === 'POST') return new Response(null, { status: 201 });
-		if (resource === 'audit_logs')
-			return Response.json([
-				{
-					id: AUDIT_ID,
-					user_id: ACTOR_ID,
-					org_id: null,
-					action: 'announcement_create',
-					resource_type: 'platform_announcement',
-					resource_id: ANNOUNCEMENT_ID,
-					ip_address: '127.0.0.1',
-					details: { title: 'Synthetic notice' },
-					severity: 'info',
-					timestamp: '2026-06-01T10:00:00Z'
-				}
-			]);
+		if (resource === 'audit_logs') return new Response(null, { status: 201 });
 		throw new Error(`Unexpected synthetic provider request: ${method} ${resource}`);
 	};
 	getAdminClient.mockReturnValue(

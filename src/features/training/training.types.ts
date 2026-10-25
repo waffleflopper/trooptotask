@@ -31,6 +31,11 @@ export interface PersonnelTraining {
 	certificateUrl: string | null;
 }
 
+export type TrainingCompletionFacts = Pick<
+	PersonnelTraining,
+	'personnelId' | 'trainingTypeId' | 'completionDate' | 'expirationDate'
+>;
+
 /** A completion the Person's current record replaced, kept by the `personnel_trainings` history trigger. */
 export interface TrainingCompletionHistoryEntry {
 	id: string;

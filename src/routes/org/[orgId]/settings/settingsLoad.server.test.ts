@@ -1,128 +1,83 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	createReadyAppShellRouteData,
+	createSuspendedAppShellRouteData,
+	createOrganizationLoadEventData
+} from '../appShell.test-support';
 
-const { loadWithContextMock } = vi.hoisted(() => ({
-	loadWithContextMock: vi.fn()
-}));
-
-vi.mock('$lib/server/adapters/httpAdapter', () => ({
-	loadWithContext: loadWithContextMock
-}));
-
+const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
+vi.mock('$lib/server/adapters/httpAdapter', () => ({ loadWithContext: loadWithContextMock }));
 import { buildCommonSettingsPageData, buildSettingsPageOrganization, loadSettingsPage } from './settingsLoad.server';
-import type { AppShellRouteData } from '$features/app-shell/contracts';
 
-function readyParent(overrides: Partial<AppShellRouteData['shell']> = {}): AppShellRouteData {
-	return {
-		shell: {
-			kind: 'ready',
-			org: { id: 'org-1', name: 'Test Org', urlSegment: 'test-org' },
-			user: { id: 'user-1' },
-			member: {
-				membershipId: 'membership-1',
-				role: 'admin',
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'view',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' },
-				isOwner: false,
-				isAdmin: true
-			},
-			state: { orgSuspended: false },
-			preferences: {} as never,
-			announcements: [],
-			...overrides
-		}
-	} as AppShellRouteData;
-}
+const identity = { id: 'org-1', name: 'Test Org', urlSlug: 'test-org', suspendedAt: null, disabledFeatures: [] };
 
 describe('settings load helpers', () => {
-	beforeEach(() => {
-		loadWithContextMock.mockReset();
-	});
-
-	it('builds shared settings page data from parent org context', () => {
-		const parentData = readyParent();
-
-		expect(buildCommonSettingsPageData(parentData)).toEqual({
+	beforeEach(() => loadWithContextMock.mockReset());
+	it('keeps the Organization name, segment and admin flag from the admitted facts', () => {
+		expect(buildCommonSettingsPageData(identity, { role: 'admin' })).toEqual({
 			orgId: 'org-1',
 			orgUrlSegment: 'test-org',
 			orgUrlSlug: 'test-org',
 			orgName: 'Test Org',
 			isAdmin: true
 		});
-		expect(buildSettingsPageOrganization(parentData)).toEqual({
+		expect(buildSettingsPageOrganization(identity)).toEqual({
 			id: 'org-1',
 			name: 'Test Org',
 			urlSlug: 'test-org',
 			urlSegment: 'test-org'
 		});
+		expect(buildCommonSettingsPageData({ ...identity, name: null, urlSlug: null }, { role: 'owner' })).toEqual({
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			orgUrlSlug: null,
+			orgName: 'Organization',
+			isAdmin: false
+		});
 	});
-
-	it('wraps section loaders with the shared governance context and common props', async () => {
-		const ctx = { auth: { orgId: 'org-1' } };
+	it('loads a section and common props without running ancestors', async () => {
+		const ctx = { auth: { orgId: 'org-1', role: 'owner' as const } };
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
 			config.fn(config.context({}))
 		);
-
+		const depends = vi.fn();
 		const result = await loadSettingsPage(
 			{
-				locals: { user: { id: 'user-1' } },
-				cookies: { get: vi.fn() },
-				parent: async () =>
-					readyParent({
-						org: { id: 'org-1', name: 'Test Org', urlSegment: 'org-1' },
-						member: {
-							...(readyParent().shell as Extract<AppShellRouteData['shell'], { kind: 'ready' }>).member,
-							isAdmin: false
-						}
-					} as never)
-			} as never,
+				depends,
+				...createOrganizationLoadEventData(
+					createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org', orgUrlSegment: 'org-1', role: 'owner' })
+				),
+				cookies: {} as import('@sveltejs/kit').Cookies
+			},
 			() => ctx,
-			async (receivedCtx, { common, organization }) => ({
+			(received, { common, organization }) => ({
 				sectionSettings: {
-					authOrgId: receivedCtx.auth.orgId,
+					authOrgId: received.auth.orgId,
 					commonOrgId: common.orgId,
 					organizationUrlSegment: organization.urlSegment
 				}
 			})
 		);
-
-		expect(result).toMatchObject({
+		expect(depends).toHaveBeenCalledWith('app:org-core');
+		expect(result).toEqual({
 			orgId: 'org-1',
 			orgUrlSegment: 'org-1',
 			orgUrlSlug: null,
 			orgName: 'Test Org',
 			isAdmin: false,
-			sectionSettings: {
-				authOrgId: 'org-1',
-				commonOrgId: 'org-1',
-				organizationUrlSegment: 'org-1'
-			}
+			sectionSettings: { authOrgId: 'org-1', commonOrgId: 'org-1', organizationUrlSegment: 'org-1' }
 		});
 	});
-
-	it('returns no page data when the parent org layout reports suspension', async () => {
+	it('returns no section data for a suspended Organization', async () => {
 		const result = await loadSettingsPage(
 			{
-				locals: {},
-				cookies: { get: vi.fn() },
-				parent: async () => ({
-					shell: {
-						kind: 'suspended',
-						org: { id: 'org-1', name: 'Test Org', urlSegment: 'test-org' },
-						state: { orgSuspended: true }
-					}
-				})
-			} as never,
-			() => ({}),
+				depends: () => undefined,
+				...createOrganizationLoadEventData(createSuspendedAppShellRouteData()),
+				cookies: {} as import('@sveltejs/kit').Cookies
+			},
+			() => ({ auth: { role: 'owner' as const } }),
 			() => ({ sectionSettings: true })
 		);
-
 		expect(result).toEqual({});
 		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});

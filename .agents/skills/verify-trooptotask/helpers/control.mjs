@@ -45,6 +45,7 @@ import { seedDa6 } from './da6-fixtures.mjs';
 import {
 	seedPlatform,
 	seedOrganizationPages,
+	seedPlatformActivity,
 	readPlatform,
 	cleanPlatform,
 	recordPlatformUserAudit
@@ -900,6 +901,7 @@ async function main() {
 				'admin',
 				'admin/announcements',
 				'admin/feedback',
+				'admin/activity',
 				'admin/audit',
 				'admin/users',
 				'admin/organizations',
@@ -933,9 +935,9 @@ async function main() {
 							? `/org/${orgSegment}`
 							: `/org/${orgSegment}/${destination}`;
 		let readyText =
-			destination === 'admin/audit'
+			destination === 'admin/audit' || destination === 'admin/activity'
 				? [
-						'Audit Log',
+						'Activity',
 						'Access denied',
 						'Forbidden',
 						'Not authorized',
@@ -1000,7 +1002,7 @@ async function main() {
 		if (destination === 'admin/announcements') readyText = ['Announcements', 'Forbidden', 'Access denied', '403'];
 		if (
 			destination.startsWith('admin/') &&
-			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
+			!['admin/activity', 'admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
 		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
 		if (workload) readyText = [workload.name, 'Access restricted', 'Access Restricted'];
@@ -1801,6 +1803,7 @@ async function main() {
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',
+				'platform-activity',
 				'dashboard',
 				'dashboard-currency',
 				'dashboard-overflow',
@@ -1869,6 +1872,10 @@ async function main() {
 		}
 		if (kind === 'platform-admin') {
 			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'platform-activity') {
+			note(await seedPlatformActivity({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'organization-pages') {
@@ -2564,6 +2571,7 @@ async function main() {
 				let query = client.from(item.table).delete().in('id', ids);
 				if (
 					item.kind !== 'organization-pages' &&
+					item.kind !== 'platform-activity' &&
 					!(
 						(item.kind.startsWith('maintenance-retention') || item.kind === 'account-setup') &&
 						['access_requests', 'account_setup_links'].includes(item.table)
@@ -2658,6 +2666,7 @@ async function main() {
 					'shell-organization-switcher',
 					'admin-suspend',
 					'admin-search',
+					'admin-activity',
 					'admin-transfer',
 					'notifications',
 					'organization/settings',
@@ -2774,6 +2783,7 @@ async function main() {
 								: `/org/${organizationSegment}/api/${family}`;
 			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
 			if (family === 'admin-search') suffix = '/admin/api/search';
+			if (family === 'admin-activity') suffix = '/admin/api/activity';
 			if (family === 'admin-transfer') {
 				const seed = (await saved()).platform;
 				if (!seed) throw new Error('Seed platform-admin first.');

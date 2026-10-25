@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
-import { SecurityPage } from '$features/identity';
+import SecurityPage from '$features/identity/SecurityPage.svelte';
 import Recovery from './reset-password/+page.svelte';
 import Invite from './accept-invite/+page.svelte';
 import type { PasswordCompletionState } from '$features/identity/contracts';

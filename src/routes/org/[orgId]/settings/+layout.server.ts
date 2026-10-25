@@ -1,24 +1,25 @@
 import { readPendingDeletionRequestSummary } from '$features/deletion-requests/index.server';
 import { redirect } from '@sveltejs/kit';
+import { buildLayoutRequest } from '$lib/server/adapters/requestContexts.server';
 import type { LayoutServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext, createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
 import { streamSettingsNavCounts } from './settingsShell.server';
 import { buildSettingsShell } from '$features/organization/contracts';
-import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
+import { loadSettingsOrganization, buildSettingsPageOrganization } from './settingsLoad.server';
 import { createSettingsShellContext } from './settingsRequestContexts.server';
 import { PENDING_APPROVALS_DEPENDENCY } from './settingsDependencies';
 
-export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route, untrack, depends }) => {
-	const parentData = await parent();
-	if (parentData.shell.kind === 'suspended') {
-		redirect(303, `/org/${parentData.shell.org.urlSegment}`);
-	}
+export const load: LayoutServerLoad = async (event) => {
+	event.depends('app:org-core');
+	const { locals, cookies, route, untrack, depends } = event;
+	const identity = await loadSettingsOrganization(event);
+	const organization = buildSettingsPageOrganization(identity);
+	const orgId = organization.id;
+	const orgUrlSegment = organization.urlSegment;
+	if (identity.suspendedAt) redirect(303, `/org/${orgUrlSegment}`);
 
-	const shell = requireReadyAppShell(parentData);
-	const orgId = shell.org.id;
-	const orgName = shell.org.name;
-	const orgUrlSegment = shell.org.urlSegment;
+	await buildLayoutRequest(locals, identity.id);
 
 	// A tracked route read would make the client refetch this layout on every switch between settings pages.
 	if (untrack(() => route.id) === '/org/[orgId]/settings') {
@@ -32,12 +33,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 		policyResource: { kind: 'organization' },
 		fn: async (ctx) => ({
 			canAccessOrganizationGovernance: true,
-			settingsShell: buildSettingsShell(ctx.auth.role, {
-				id: orgId,
-				name: orgName,
-				urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
-				urlSegment: orgUrlSegment ?? params.orgId
-			}),
+			settingsShell: buildSettingsShell(ctx.auth.role, organization),
 			settingsNavCounts: streamSettingsNavCounts(ctx, () =>
 				readPendingDeletionRequestSummary({
 					auth: ctx.auth,

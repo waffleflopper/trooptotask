@@ -9,7 +9,6 @@ import {
 } from './routes/org/[orgId]/api/personnel/[id]/leader-notes/+server';
 import { PATCH as updateLeaderNote } from './routes/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]/+server';
 import { createRootOrgLayoutLoad } from './routes/org/[orgId]/rootOrgLayoutLoad.server';
-import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 import { buildLayoutRequest } from '$lib/server/adapters/requestContexts.server';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 
@@ -416,7 +415,8 @@ describe('Organization shell admission with real provider mapping', () => {
 	it('preserves first-paint identity, independent lanes and both Groups and shares membership with child contexts', async () => {
 		const f = fixture();
 		const result = await f.load();
-		expect(requireReadyAppShell(result)).toMatchObject({
+		expect(result.shell).toMatchObject({
+			kind: 'ready',
 			org: { id: ORG, name: 'Alpha', urlSegment: 'alpha' },
 			user: {
 				id: USER,
@@ -483,7 +483,7 @@ describe('Organization shell admission with real provider mapping', () => {
 		});
 	});
 
-	it('retains the suspended shell without ready access and denies child consumers', async () => {
+	it('retains the suspended shell without admitting membership', async () => {
 		const f = fixture();
 		f.tables.organizations[0].suspended_at = SUSPENDED_AT;
 		const result = await f.load();
@@ -494,7 +494,6 @@ describe('Organization shell admission with real provider mapping', () => {
 				state: { orgSuspended: true }
 			}
 		});
-		expect(() => requireReadyAppShell(result)).toThrow(expect.objectContaining({ status: 403 }));
 		expect(f.state.membershipReads).toBe(0);
 		expect(f.tables.groups).toEqual([]);
 	});
@@ -504,7 +503,8 @@ describe('Organization shell admission with real provider mapping', () => {
 		async (table) => {
 			const f = fixture();
 			f.state.failedTable = table;
-			const shell = requireReadyAppShell(await f.load());
+			const { shell } = await f.load();
+			if (shell.kind !== 'ready') throw new Error('Expected a ready shell');
 			expect(shell.member.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 			expect(shell.announcements).toEqual([]);
 			expect(shell.preferences).toEqual(getDefaultUserOrgPreferences());

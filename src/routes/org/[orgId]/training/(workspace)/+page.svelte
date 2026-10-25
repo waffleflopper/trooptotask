@@ -6,8 +6,8 @@
 	import { submitDeletionRequest } from '$features/deletion-requests';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
-	import { TrainingPageView } from '$features/training';
-	import { TrainingModals } from '$features/training';
+	import TrainingPageView from '$features/training/components/TrainingPageView.svelte';
+	import TrainingModals from '$features/training/components/TrainingModals.svelte';
 
 	let { data } = $props();
 	const preferences = getAccountPreferencesContext();

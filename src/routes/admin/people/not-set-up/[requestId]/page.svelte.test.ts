@@ -79,7 +79,7 @@ describe('Not-set-up person page', () => {
 			data: data(Promise.resolve({ status: 'error', message: 'Unable to load setup timeline' }))
 		});
 
-		expect((await screen.findAllByRole('button', { name: 'Retry setup history' })).length).toBeGreaterThan(0);
+		expect(await screen.findAllByRole('button', { name: 'Retry setup history' })).toHaveLength(1);
 		expect(screen.getByText(/1SG, B Co/)).toBeTruthy();
 	});
 });

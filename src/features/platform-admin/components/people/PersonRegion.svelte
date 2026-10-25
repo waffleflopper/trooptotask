@@ -11,7 +11,7 @@
 		skeleton: Snippet;
 		children: Snippet<[T]>;
 		onRetry: () => void;
-		/** Another region already reports this failure, so this one shows nothing instead of a second alert. */
+		/** Another region already reports this failure, so this one says `Unavailable` instead of a second alert. */
 		quietOnError?: boolean;
 	}
 
@@ -25,14 +25,22 @@
 	</Alert.Root>
 {/snippet}
 
+{#snippet unavailable(message: string)}
+	{#if quietOnError}
+		<span class="text-muted-foreground">Unavailable</span>
+	{:else}
+		{@render failed(message)}
+	{/if}
+{/snippet}
+
 {#await region}
 	<div role="status" aria-label={`Loading ${label.toLowerCase()}`}>{@render skeleton()}</div>
 {:then loaded}
 	{#if loaded.status === 'ok'}
 		{@render children(loaded.data)}
-	{:else if !quietOnError}
-		{@render failed(loaded.message)}
+	{:else}
+		{@render unavailable(loaded.message)}
 	{/if}
 {:catch}
-	{#if !quietOnError}{@render failed(`${label} could not be loaded.`)}{/if}
+	{@render unavailable(`${label} could not be loaded.`)}
 {/await}

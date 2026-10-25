@@ -106,7 +106,7 @@
 							Link expires
 						</dt>
 						<dd class="text-sm leading-5">
-							<PersonRegion region={data.setupTimeline} label="Setup history" onRetry={retry}>
+							<PersonRegion region={data.setupTimeline} label="Setup history" onRetry={retry} quietOnError>
 								{#snippet skeleton()}<Skeleton class="h-5 w-28" />{/snippet}
 								{#snippet children(timeline)}
 									{@const live = timeline.find((link) => !link.revoked_at && !link.used_at)}

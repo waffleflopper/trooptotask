@@ -37,4 +37,12 @@ describe('What’s new page', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
 	});
+
+	it('shows the same load error when the streamed read itself is rejected', async () => {
+		const rejected = Promise.reject(new Error('stream failed'));
+		rejected.catch(() => {});
+		render(Page, props(rejected));
+		expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy();
+		expect(screen.getByText('Updates could not be loaded')).toBeTruthy();
+	});
 });

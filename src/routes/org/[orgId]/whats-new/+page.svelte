@@ -27,6 +27,19 @@
 	<title>What's new - Troop to Task</title>
 </svelte:head>
 
+{#snippet failed()}
+	<Alert.Root variant="destructive">
+		<Alert.Title>Updates could not be loaded</Alert.Title>
+		<Alert.Description>Try again in a moment.</Alert.Description>
+		<div class="mt-3">
+			<Button variant="outline" onclick={retry} aria-disabled={retrying ? 'true' : undefined}>
+				{#if retrying}<Spinner />{/if}
+				Retry
+			</Button>
+		</div>
+	</Alert.Root>
+{/snippet}
+
 <PageShell.Root width="content" density="compact">
 	<PageShell.Header title="What's new" subtitle="Every update to TroopToTask, newest first." />
 
@@ -48,16 +61,7 @@
 		</div>
 	{:then result}
 		{#if result.status === 'failed'}
-			<Alert.Root variant="destructive">
-				<Alert.Title>Updates could not be loaded</Alert.Title>
-				<Alert.Description>Try again in a moment.</Alert.Description>
-				<div class="mt-3">
-					<Button variant="outline" onclick={retry} aria-disabled={retrying ? 'true' : undefined}>
-						{#if retrying}<Spinner />{/if}
-						Retry
-					</Button>
-				</div>
-			</Alert.Root>
+			{@render failed()}
 		{:else if result.entries.length === 0}
 			<Card.Root>
 				<Card.Content>
@@ -85,5 +89,7 @@
 				{/each}
 			</div>
 		{/if}
+	{:catch}
+		{@render failed()}
 	{/await}
 </PageShell.Root>

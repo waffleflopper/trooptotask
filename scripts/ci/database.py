@@ -774,7 +774,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                     name = "20261025160100_feedback_reporter_replies.sql"
                     shutil.copy2(repository / "supabase/migrations" / name,
                                  workdir / "supabase/migrations" / name)
-                    execute(["supabase", "migration", "up", "--local", "--yes"], workdir)
+                    execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
                 execute([
                     "docker", "run", "--rm", "--name", runner,
                     "--label", f"com.supabase.cli.project={project_id}",

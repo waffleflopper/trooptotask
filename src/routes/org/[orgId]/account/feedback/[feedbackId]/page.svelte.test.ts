@@ -90,3 +90,16 @@ it('shows a failed thread read as a retryable error with the way back to the lis
 	await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 	expect(invalidateAll).toHaveBeenCalledTimes(1);
 });
+
+it('keeps a draft when the same item reloads and starts over when another item opens', async () => {
+	const view = render(Page, { props: { data: { feedback: feedback('reviewed') } } as never });
+	await fireEvent.input(screen.getByRole('textbox', { name: 'Reply' }), { target: { value: 'Half a thought' } });
+
+	await view.rerender({ data: { feedback: { ...feedback('reviewed') } } } as never);
+	expect((screen.getByRole('textbox', { name: 'Reply' }) as HTMLTextAreaElement).value).toBe('Half a thought');
+
+	await view.rerender({
+		data: { feedback: { ...feedback('reviewed'), id: '22222222-2222-4222-8222-222222222222' } }
+	} as never);
+	expect((screen.getByRole('textbox', { name: 'Reply' }) as HTMLTextAreaElement).value).toBe('');
+});

@@ -33,6 +33,9 @@
 			</Alert.Action>
 		</Alert.Root>
 	{:else}
-		<ReporterFeedbackThread feedback={data.feedback} />
+		<!-- Opening another item starts its composer over; reloading the same item keeps the draft. -->
+		{#key data.feedback.id}
+			<ReporterFeedbackThread feedback={data.feedback} />
+		{/key}
 	{/if}
 </div>

@@ -21,14 +21,9 @@
 	});
 
 	const status = $derived(REPORTER_FEEDBACK_STATUS[feedback.status]);
-	// The page stays mounted when another item opens, so each composer value starts over when the item changes.
-	function startOver<T>(value: T): T {
-		void feedback.id;
-		return value;
-	}
-	let draft = $derived(startOver(''));
-	let sending = $derived(startOver(false));
-	let replyError = $derived(startOver<string | null>(null));
+	let draft = $state('');
+	let sending = $state(false);
+	let replyError = $state<string | null>(null);
 	let replyField = $state<HTMLTextAreaElement | null>(null);
 
 	const sendReply: SubmitFunction = ({ cancel }) => {

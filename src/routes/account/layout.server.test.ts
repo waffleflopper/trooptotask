@@ -86,7 +86,7 @@ describe('account routing and standalone first paint', () => {
 	it('sends a signed-out visitor to sign in', async () => {
 		await expect(load(event('/account/profile', [], { actor: false }))).rejects.toMatchObject({
 			status: 303,
-			location: '/auth/login'
+			location: '/auth/login?next=%2Faccount%2Fprofile'
 		});
 	});
 });

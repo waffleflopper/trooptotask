@@ -4,7 +4,7 @@ import { getIdentitySessionScope, loadStandaloneAccount } from '$features/identi
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals, url, depends }) => {
-	if (!locals.actor) redirect(303, '/auth/login');
+	if (!locals.actor) redirect(303, `/auth/login?next=${encodeURIComponent(url.pathname + url.search)}`);
 	const rest = url.pathname.slice('/account'.length).replace(/^\//, '') || 'profile';
 	const [organization] = await createSupabaseDashboardOrgAccessPort(locals).listOrganizationsForUser(
 		locals.actor.userId

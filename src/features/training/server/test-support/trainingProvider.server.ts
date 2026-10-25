@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 type TrainingTable = 'training_types' | 'training_views' | 'personnel_trainings' | 'personnel_training_history';
 type Row = Record<string, unknown>;
-type ProviderRequest = { table: TrainingTable; method: string; offset: number; url: URL; body: unknown };
+export type ProviderRequest = { table: TrainingTable; method: string; offset: number; url: URL; body: unknown };
 
 export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> = {}) {
 	const rows: Record<TrainingTable, Row[]> = {
@@ -16,8 +16,10 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 	const state = {
 		rows,
 		requests,
+		readResponses: [] as Array<{ table: TrainingTable; rows: Row[] }>,
 		nullData: false,
 		unstablePages: false,
+		beforeRead: null as null | ((request: ProviderRequest) => Promise<void>),
 		failure: null as null | ((request: ProviderRequest) => { code: string; message: string; status: number } | null)
 	};
 	let nextId = 1;
@@ -44,6 +46,7 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 					body
 				};
 				requests.push(operation);
+				if (request.method === 'GET') await state.beforeRead?.(operation);
 				const failure = state.failure?.(operation);
 				if (failure) return Response.json({ code: failure.code, message: failure.message }, { status: failure.status });
 				if (state.nullData) return Response.json(null);
@@ -118,6 +121,7 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 						return 0;
 					});
 				}
+				const total = selected.length;
 				if (request.method === 'GET')
 					selected = selected.slice(
 						operation.offset,
@@ -129,6 +133,7 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 						? row
 						: Object.fromEntries(projection.split(',').map((column) => [column.trim(), row[column.trim()]]))
 				);
+				if (request.method === 'GET') state.readResponses.push({ table, rows: structuredClone(result) });
 				if (request.headers.get('accept')?.includes('application/vnd.pgrst.object+json')) {
 					if (result.length !== 1)
 						return Response.json({ code: 'PGRST116', message: 'Expected one row' }, { status: 406 });
@@ -136,7 +141,11 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 				}
 				if (request.method !== 'GET' && !request.headers.get('prefer')?.includes('return=representation'))
 					return new Response(null, { status: 204 });
-				return Response.json(result);
+				return Response.json(result, {
+					headers: request.headers.get('prefer')?.includes('count=exact')
+						? { 'Content-Range': `${operation.offset}-${operation.offset + result.length - 1}/${total}` }
+						: {}
+				});
 			}
 		}
 	});

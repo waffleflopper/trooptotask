@@ -22,7 +22,7 @@ import type {
 } from '../contracts';
 import type { TrainingCatalogPersistence } from '../contracts';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
-import { listTrainingCompletions } from './trainingCompletionRead.server';
+import { listTrainingReadinessCompletions } from './trainingCompletionRead.server';
 import {
 	affectedBriefingRequirements,
 	buildTrainingBriefing,
@@ -30,6 +30,7 @@ import {
 } from '../utils/trainingBriefing';
 import type { TrainingBriefingInput } from '../utils/trainingBriefing.types';
 import { buildTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
+import { filterPersonnel } from '../utils/reportCalculations';
 import { filterColumnsByView } from '../utils/viewFiltering';
 
 type TrainingReportReadContext = TrainingCompletionReadContext & {
@@ -65,11 +66,10 @@ async function loadBriefingSource(
 	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
 	const orgId = ctx.auth.orgId;
 
-	const [personnel, types, views, records, rankCatalog, groups, organization] = await Promise.all([
+	const [personnel, types, views, rankCatalog, groups, organization] = await Promise.all([
 		ctx.personnelTrainingRoster.listActiveForReports(ctx.auth),
 		ctx.trainingCatalog.listTypes(),
 		ctx.trainingCatalog.listViews(),
-		listTrainingCompletions(ctx),
 		ctx.loadRankCatalog(),
 		ctx.groups.listCatalog(),
 		ctx.organizationSettings.findTrainingBriefingContext(orgId)
@@ -103,6 +103,16 @@ async function loadBriefingSource(
 		horizonDays: request.horizonDays,
 		rowsBy: request.rowsBy
 	};
+
+	const records = await listTrainingReadinessCompletions(ctx, {
+		personnelIds: filterPersonnel(personnel, {
+			groupId: input.groupId ?? undefined,
+			rank: input.rank ?? undefined,
+			mos: input.mos,
+			role: input.roles
+		}).map((person) => person.id),
+		trainingTypeIds: input.typeIds.length > 0 ? input.typeIds : columns.map((type) => type.id)
+	});
 
 	return {
 		input,

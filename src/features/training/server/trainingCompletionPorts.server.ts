@@ -13,7 +13,7 @@ export interface TrainingCertificateStore {
 export type TrainingCompletionReadContext = {
 	readonly auth: OrganizationAccessGrant;
 	readonly audit?: PolicyAuditSink;
-	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'listCompletions'>;
+	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'listCompletions' | 'listReadinessCompletions'>;
 };
 export type TrainingPersonnelWriteAuthority = {
 	readonly auth: OrganizationAccessGrant;

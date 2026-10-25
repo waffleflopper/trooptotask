@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { trainingProvider } from './test-support/trainingProvider.server';
+import { createSupabaseTrainingCompletionPersistence } from './trainingCompletionPersistence.server';
 import ExcelJS from 'exceljs';
 import {
 	createInMemoryDataStore,
@@ -119,6 +121,69 @@ function unitContext() {
 }
 
 describe('Training briefing report', () => {
+	it('populates the briefing and detail from only the selected active people and requirement facts', async () => {
+		const ctx = unitContext();
+		const store = ctx.store as Store;
+		store.seed('personnel', [
+			{ ...person('p-archived', 'Retired', 'SGT', '68W', 'Medic', 'alpha'), archived_at: '2026-01-01' }
+		]);
+		const provider = trainingProvider({
+			personnel_trainings: [
+				...(await store.findMany<ReturnType<typeof completion>>('personnel_trainings', ORG)),
+				completion('p-archived', 'bls', '2027-06-01'),
+				completion('p-able', 'opt', '2027-06-01')
+			]
+		});
+		ctx.trainingCompletions = createSupabaseTrainingCompletionPersistence(provider.client, ORG);
+		const request = input({ groupId: 'alpha', rank: 'SGT', typeIds: ['bls'] });
+		const report = await fetchTrainingBriefingReport(ctx, request, AS_OF);
+		expect(report.briefing.bottomLine).toMatchObject({
+			soldierCount: 1,
+			today: { ready: 1, applicable: 1, percent: 100 },
+			lapsing: 1
+		});
+		expect(report.filterOptions.types).toEqual([
+			{ id: 'cpr', name: 'CPR' },
+			{ id: 'bls', name: 'BLS' }
+		]);
+		const detail = await fetchTrainingBriefingDetail(
+			ctx,
+			{
+				report: request,
+				scope: { kind: 'cell', rowKey: null, typeId: 'bls' },
+				page: 1,
+				pageSize: 25
+			},
+			AS_OF
+		);
+		expect(detail.rows).toEqual([
+			{
+				personId: 'p-able',
+				rank: 'SGT',
+				name: 'Able, Pat',
+				groupName: 'Alpha',
+				typeId: 'bls',
+				typeName: 'BLS',
+				status: 'warning-orange',
+				label: '11d left',
+				expirationDate: '2026-10-10',
+				lapseDate: '2026-10-11',
+				lapsesInHorizon: true
+			}
+		]);
+		for (const response of provider.state.readResponses) {
+			expect(response.rows).toEqual([
+				{
+					id: 'pt-p-able-bls',
+					personnel_id: 'p-able',
+					training_type_id: 'bls',
+					completion_date: '2025-06-01',
+					expiration_date: '2026-10-10'
+				}
+			]);
+		}
+	});
+
 	it('briefs the whole authorized roster against the Organization goal and offers only display options', async () => {
 		const report = await fetchTrainingBriefingReport(unitContext(), input(), AS_OF);
 

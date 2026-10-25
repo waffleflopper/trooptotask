@@ -36,9 +36,9 @@ enters the Organization Dashboard through normal sign-in. `seed communications` 
 peer/foreign/switch sentinels and active/inactive/expired global announcements. It records exact IDs before insertion;
 `clean-seeds` removes only those IDs in their recorded Organization or the helper-owned global announcement IDs.
 `fixture` reports public notification account IDs. `communications ROLE` reads only that synthetic account's feedback
-and dismissals of helper-owned announcements. `platformReviewer` is the isolated no-Organization platform operator and `platformSupport` an isolated
-no-Organization account with no operator row; `actor platformReviewer admin/feedback` signs the operator in at aal2 for
-the Feedback review path. Communications readback also retains Admin Notes. See the
+and dismissals of helper-owned announcements. `platformReviewer` is the isolated no-Organization platform operator and
+`platformSupport` an isolated no-Organization account with no operator row; `actor platformReviewer admin` signs the
+operator in at aal2 for the Inbox Feedback path. Communications readback reads the stored status. See the
 [communications recipe](notifications-feedback.md).
 
 `network` also supports `notifications` at the exact A endpoint and global `feedback` and `announcements/dismiss`
@@ -111,17 +111,18 @@ endpoints).
    before and after reload. A failed request must retain or restore the banner and offer recovery; an optimistically
    hidden banner with no dismissal fails. Retry successfully and read back one dismissal. Repeated endpoint dismissal
    must be idempotent for that account.
-7. **Support review and Organization export.** Use `$V actor platformReviewer admin/feedback` to enter the existing
-   Feedback page with the isolated operator account. Find a uniquely submitted message, expand it, save Reviewed
-   status and a unique Admin Notes value, then reload and inspect the Reviewed tab and exact communications readback.
-   Resolve the same item and verify its saved identity/message remain. `platformSupport` and an ordinary member cannot enter the admin page. Do not confuse Feedback admission with the narrower Platform announcement management policy. For
-   Organization exports, submit distinct feedback as `orgOwner`, read its exact fields and capture A/B notification
-   sentinels. Enter `settings/exports`, download JSON and Excel through visible controls using `export arm/save`,
-   inspect their Notifications/Beta Feedback sections/sheets and metadata, and compare saved values/counts with provider
-   readback. Only request-user-visible rows in the admitted Organization belong in these downloads; an owner does not
-   gain another account's inbox or feedback. Keep outside-page/pagination proof separately in owner SDK/SQL tests.
-   Exercise a real Training type create/delete through the configuring actor and compare the generated notification
-   audience; a denied configure attempt must retain the saved type and create no notification in route tests.
+7. **Support review and Organization export.** Use `$V actor platformReviewer admin` to enter the Inbox with the
+   isolated operator account. Find a uniquely submitted message under the Feedback filter, open it, choose
+   `Close without replying`, then reload and inspect the Done tab and exact communications readback: the saved identity
+   and message remain and the status is `resolved`. `platformSupport` and an ordinary member cannot enter the admin
+   page. Do not confuse Feedback admission with the narrower Platform announcement management policy. For Organization
+   exports, submit distinct feedback as `orgOwner`, read its exact fields and capture A/B notification sentinels. Enter
+   `settings/exports`, download JSON and Excel through visible controls using `export arm/save`, inspect their
+   Notifications/Beta Feedback sections/sheets and metadata, and compare saved values/counts with provider readback.
+   Only request-user-visible rows in the admitted Organization belong in these downloads; an owner does not gain another
+   account's inbox or feedback. Keep outside-page/pagination proof separately in owner SDK/SQL tests. Exercise a real
+   Training type create/delete through the configuring actor and compare the generated notification audience; a denied
+   configure attempt must retain the saved type and create no notification in route tests.
 
 After `clean-seeds`, read back the known seeded notification IDs' absence. Global announcement cleanup deletes only
 recorded helper IDs and their dependent dismissals. Feedback has no member-facing delete control and stays in the

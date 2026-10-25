@@ -5,39 +5,36 @@ account is refused.
 
 ## Sub-features
 
-- `admission`: the operator at aal2 admits Dashboard, Announcements, Feedback and full Audit; every other account,
-  including the former support, billing and inactive actors, admits none, and an operator at aal1 is sent to MFA.
+- `admission`: the operator at aal2 admits the Inbox, Announcements and full Audit; every other account, including the
+  former support, billing and inactive actors, admits none, and an operator at aal1 is sent to MFA.
 - `announcement-lifecycle`: create Info, Warning and Maintenance messages, optional expiration, cancellation,
   activate/deactivate, confirmed deletion, and persisted member banners and account-wide dismissals.
-- `feedback-review`: retain submitter/context/message while changing New, Reviewed and Resolved status, save or clear
-  internal Notes, reload and recover from failure.
-- `audit-investigation`: server pages of 50, action/severity/Organization filters, details, masking and reduced
-  Dashboard activity.
-- `dashboard-and-navigation`: current platform counts, pending Feedback, recent activity and retained search/navigation
-  without widening disclosure.
+- `feedback-review`: retain submitter/context/message while closing Feedback from the Inbox without a reply, reload and
+  recover from failure ([Platform Inbox](platform-inbox.md) owns the journey).
+- `audit-investigation`: server pages of 50, action/severity/Organization filters, details and masking.
+- `navigation`: the five-section sidebar and retained search/navigation without widening disclosure.
 - `failure-and-lifetime`: definite rejected writes preserve the unsaved choice and permit an explicit retry; unconfirmed
   5xx/transport results block writes until authoritative readback; late results cannot affect another page or record.
 
 ## How to get to it (user POV)
 
-Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback, Audit Log and Announcements in its
-sidebar. Select Create Announcement in the Announcements controls toolbar, complete its fields and Save. Deactivate or
-Activate changes its member visibility. Delete asks for confirmation in an in-app dialog naming the announcement. Expand
-a Feedback card to change Status or Admin Notes, then choose Save Notes. Audit Log provides Action and Severity
-controls, Previous/Next pages and View details. The global search opens the already owned User and Organization support
-pages.
+Sign in to the internal admin workspace at `/admin`. Use Inbox, Audit Log and Announcements in its sidebar. Select
+Create Announcement in the Announcements controls toolbar, complete its fields and Save. Deactivate or Activate changes
+its member visibility. Delete asks for confirmation in an in-app dialog naming the announcement. Open a Feedback item in
+the Inbox and choose Close without replying. Audit Log provides Action and Severity controls, Previous/Next pages and
+View details. The global search opens the already owned User and Organization support pages.
 
 ## Helper controls
 
 Platform content verification uses the [announcement/Feedback/Audit recipe](platform-support-content.md). Existing
 platform actors and ordinary `orgMember` may enter `admin` and `admin/announcements` through normal sign-in for
 admission and denial. `platform-content` accepts no targets and reads only helper-recorded communications announcements
-or rows created by this worker's synthetic operator. It provides privileged persistence readback separately from
-native interaction and ordinary authorization. Fixed same-origin form controls
-`admin-announcements/create|toggle|delete` and `admin-feedback/update` bind only the named POST action; their
-failure/hold modes reuse the existing SvelteKit envelopes. `arm-reject` rejects one scoped request before dispatch.
-`arm-fail-400` returns the same failure envelope with status 400, a rejected save that leaves its retry open. A 5xx or
-missing save reply blocks new writes until the visible read-only Reload succeeds.
+or rows created by this worker's synthetic operator. It provides privileged persistence readback separately from native
+interaction and ordinary authorization. Fixed same-origin form controls `admin-announcements/create|toggle|delete` and
+`admin-feedback/update` bind only the named POST action; their failure/hold modes reuse the existing SvelteKit
+envelopes. `arm-reject` rejects one scoped request before dispatch. `arm-fail-400` returns the same failure envelope
+with status 400, a rejected save that leaves its retry open. A 5xx or missing save reply blocks new writes until the
+visible read-only Reload succeeds.
 `content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackUpdate RECORDED_UUID JSON`
 submits bounded ordinary HTTP actions against helper-recorded targets, separately from native UI proof.
 `admin-audit-read`, `admin-dashboard-read`, `admin-users-read`, `admin-organizations-read`, `admin-feedback-read`,
@@ -51,7 +48,7 @@ explicit retry.
 
 ## Driving it with verify:app
 
-`$V actor platformReviewer admin|admin/announcements|admin/feedback|admin/audit` signs the operator in at aal2. `platformSupport`,
+`$V actor platformReviewer admin|admin/announcements|admin/audit` signs the operator in at aal2. `platformSupport`,
 `platformBilling`, `platformInactive` and `orgMember` attempt the same destinations for the permission matrix. Reuse
 [platform administration](platform-administration.md) for search, User and Organization activity,
 [communications](notifications-feedback.md) for ordinary Feedback and dismissals, and
@@ -85,8 +82,8 @@ create/toggle/delete/review requests preserve rows, separately from native contr
 
 1. **Admission and disclosure.** Capture the operator's navigation. Directly attempt each URL as `platformSupport`,
    `platformBilling`, `platformInactive` and `orgMember` with normal login and inspect the ordinary authenticated
-   page-data response. A forbidden page returns no privileged payload. Repeat User/Organization detail
-   readbacks under the existing administration recipe. Anonymous attempts require authentication.
+   page-data response. A forbidden page returns no privileged payload. Repeat User/Organization detail readbacks under
+   the existing administration recipe. Anonymous attempts require authentication.
 2. **Announcements and member composition.** Capture the seed readback and admin statuses. Cancel a filled create form
    and verify no row. Create a unique message through native fields, inspect its exact saved actor/type/text/expiration,
    reload and read it as an ordinary member banner. Exercise all three Types, one future expiry and one expired record.
@@ -103,28 +100,19 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    another page's pending state, error or current draft, including after returning to the original route. A successful
    old-editor write still refreshes saved content on the current page. Other mutations remain disabled while a write or
    its readback is pending. Capture any failure as a defect rather than adopting it as intended behavior.
-4. **Feedback review and persistence.** Submit a unique Bug Report through the ordinary member modal. The operator
-   expands it and saves Reviewed plus Notes. Reload, select Reviewed, inspect exact saved context/message/Notes and
-   clear Notes with keyboard selection/deletion. The operator resolves the same row and rereads Resolved after reload. A
-   controlled failure keeps the chosen status/Notes available and produces no stored change. A 5xx or rejected transport
-   requires Reload Feedback before one explicit retry; definite validation rejection permits immediate correction. Hold
-   an update, navigate to another card/tab or visible page, then return to Feedback and enter fresh unsent Notes before
-   release. Inspect both saved identity and the fresh UI before and after the old reply. For same-page card changes,
-   fill the peer's Status/Notes before releasing a real success; the first row updates, the peer's unsent draft survives
-   readback and only then can another Save dispatch. Ordinary and non-operator writes are denied without changing the
-   row; test known-ID form submission separately from native proof.
+4. **Feedback review and persistence.** Submit a unique Bug Report through the ordinary member modal. The operator opens
+   it in the Inbox and closes it without replying; reload, choose Done and inspect exact saved context and message. A
+   controlled failure (`admin-inbox/close`) keeps the item open and produces no stored change; a 5xx or rejected
+   transport tells the operator to reload before another attempt. Ordinary and non-operator writes are denied without
+   changing the row; test known-ID form submission separately from native proof.
 5. **Audit paging, privacy and recovery.** Follow the Audit recipe's Action cohort, Next/Previous, Severity reset to
    page 1, A/B Organization filters, stored masked View details and reload. Preserve exact IDs/counts in page data and
-   provider rows. Dashboard recent activity must not inherit these full details. Arm `admin-audit-read` from another
-   admitted page before a visible Audit navigation, capture its failed request and recovery after restoring the hook.
-   Use keyboard focus before arming to avoid prefetch consuming the one-shot fault. Provider query/writer failures
-   require separate lower-level or controlled provider proof.
-6. **Dashboard and retained search.** Capture visible counts and same-session page data before/after ordinary Feedback
-   submission and review. Pending Feedback counts New rows, and recent activity remains reduced for every admitted role.
-   Exercise a representative search result and return through visible links under the administration recipe. Record an
-   `admin-dashboard-read` failed navigation and successful retry. Counts/query failure must remain distinct from a
-   genuine empty platform; missing or malformed mandatory counts fail visibly, while genuine zero counts and the
-   existing null signup aggregate remain valid empty results.
+   provider rows. The Inbox must not inherit these full details. Arm `admin-audit-read` from another admitted page
+   before a visible Audit navigation, capture its failed request and recovery after restoring the hook. Use keyboard
+   focus before arming to avoid prefetch consuming the one-shot fault. Provider query/writer failures require separate
+   lower-level or controlled provider proof.
+6. **Retained search.** Exercise a representative search result and return through visible links under the
+   administration recipe. Record an `admin-inbox-read` failed navigation and successful retry.
 
 ## Gotchas
 
@@ -133,8 +121,8 @@ create/toggle/delete/review requests preserve rows, separately from native contr
 - Full Audit belongs to the operator; no other account reads it.
 - A seeded masked event proves display/paging, not producer sanitization. Announcement audit events and real Feedback
   submission establish their own producer effects.
-- Announcements have create, toggle and delete controls, with no editing form. Feedback has no delete control. Do not
-  invent a journey for either.
+- Announcements have create, toggle and delete controls, with no editing form. Feedback has no delete or reply control.
+  Do not invent a journey for either.
 - Synthetic 503s exercise browser response handling. Provider list errors must remain distinct from a genuine empty
   list. Prove first/later-page failures and tied-date completeness at the real SDK/provider boundary; browser faults
   alone cannot establish those contracts.

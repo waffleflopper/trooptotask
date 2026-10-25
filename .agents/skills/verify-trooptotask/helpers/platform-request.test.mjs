@@ -8,10 +8,10 @@ test('ordinary denial retains its full action envelope without applying it to UI
 	const target = {
 		location: { origin },
 		fetch: async (path, init) => {
-			assert.equal(path, '/admin/access-requests?/reject');
+			assert.equal(path, '/admin?/reject');
 			assert.equal(init.redirect, 'manual');
 			assert.equal(init.headers.Accept, 'application/json');
-			assert.equal(new URLSearchParams(init.body).get('requestId'), id);
+			assert.equal(new URLSearchParams(init.body).get('id'), id);
 			return new Response('{"type":"failure","status":403,"data":"denied"}', { status: 403 });
 		}
 	};
@@ -84,12 +84,7 @@ test('content requests bind the known row and preserve denied envelopes without 
 		],
 		['announcementToggle', '/admin/announcements?/toggle', { isActive: 'false' }, { id, isActive: 'false' }],
 		['announcementDelete', '/admin/announcements?/delete', {}, { id }],
-		[
-			'feedbackUpdate',
-			'/admin/feedback?/update',
-			{ status: 'resolved', adminNotes: 'Denied change' },
-			{ feedbackId: id, status: 'resolved', adminNotes: 'Denied change' }
-		]
+		['feedbackClose', '/admin?/close', {}, { id }]
 	]) {
 		let sends = 0;
 		const result = await requestPlatform(
@@ -125,8 +120,8 @@ test('content target identifiers cannot be overridden or changed into arbitrary 
 		['announcementCreate', { created_by: id }],
 		['announcementToggle', { id }],
 		['announcementDelete', { id }],
-		['feedbackUpdate', { feedbackId: id }],
-		['feedbackUpdate', { status: ['resolved'] }]
+		['feedbackClose', { id }],
+		['reject', { reason: ['not a string'] }]
 	])
 		await assert.rejects(requestPlatform(target, { origin, family, targetId: id, body }));
 	assert.equal(sends, 0);

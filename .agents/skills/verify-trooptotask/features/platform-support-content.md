@@ -141,7 +141,9 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    every UI-created draft and note that published test entries remain in provider data, so use unique titles. The 5xx
    and transport failure modes behave as on Banners: `arm-fail-400` keeps the typed text and shows the reason, an
    unconfirmed save blocks writes until Reload entries, and a held reply that arrives after leaving the page changes
-   nothing.
+   nothing. After an unconfirmed save of typed text, arm `arm-fail-regions` on `admin-whats-new-read` and choose Reload
+   entries: the entries list shows its load error while the editor keeps the typed title and paragraphs, and they are
+   still there after `restore` and a successful Reload entries.
 5. **Feedback review and persistence.** Submit a unique Bug Report through the ordinary member modal. The operator
    expands it and saves Reviewed plus Notes. Reload, select Reviewed, inspect exact saved context/message/Notes and
    clear Notes with keyboard selection/deletion. The operator resolves the same row and rereads Resolved after reload. A

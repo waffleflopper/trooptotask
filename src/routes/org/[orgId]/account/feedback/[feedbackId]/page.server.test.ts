@@ -112,7 +112,7 @@ describe('Account feedback thread', () => {
 			const f = fixture();
 			f.provider.state.failReads = true;
 			f.provider.state.failReplies = true;
-			await expect(f.read()).rejects.toMatchObject({ status: 503 });
+			await expect(f.read()).resolves.toEqual({ feedback: null });
 			await expect(f.reply()).resolves.toMatchObject({ status: 503, data: { message: expect.any(String) } });
 			f.provider.state.failReads = false;
 			f.provider.state.failReplies = false;

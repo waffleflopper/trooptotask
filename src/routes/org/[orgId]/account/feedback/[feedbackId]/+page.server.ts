@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	} catch (cause) {
 		if (isHttpError(cause)) throw cause;
 		console.error('[feedback] reporter detail failed', cause);
-		error(503, 'Unable to load your feedback. Try again.');
+		return { feedback: null };
 	}
 };
 

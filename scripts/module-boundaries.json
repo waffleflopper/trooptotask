@@ -385,7 +385,8 @@
 			"access",
 			"provider",
 			"shared",
-			"web-ui"
+			"web-ui",
+			"web-patterns"
 		],
 		"provider": ["shared"],
 		"public-web": ["identity", "web-ui", "web-patterns", "shared"],
@@ -528,12 +529,15 @@
 		"platform-admin": [
 			"src/features/platform-admin/contracts.ts",
 			"src/features/platform-admin/index.server.ts",
+			"src/features/platform-admin/activityQuery.ts",
+			"src/features/platform-admin/components/ActivityView.svelte",
 			"src/features/platform-admin/components/AdminPager.svelte",
 			"src/features/platform-admin/components/AdminSearch.svelte",
 			"src/features/platform-admin/components/SuspendModal.svelte",
 			"src/features/platform-admin/components/TransferOwnershipModal.svelte",
 			"src/features/platform-admin/components/adminTheme.ts",
-			"src/features/platform-admin/components/adminUrlSearch.svelte.ts"
+			"src/features/platform-admin/components/adminUrlSearch.svelte.ts",
+			"src/features/platform-admin/components/fetchActivity.ts"
 		],
 		"app-shell": [
 			"src/features/app-shell/contracts.ts",

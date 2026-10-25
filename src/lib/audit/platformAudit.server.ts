@@ -1,8 +1,8 @@
-import { lastPage } from '$lib/server/supabasePagination.server';
 import type {
+	PlatformActivityEvent,
+	PlatformActivityInput,
 	PlatformAudit,
 	PlatformAuditDashboardActivity,
-	PlatformAuditLogEntry,
 	PlatformAuditSeverity
 } from './platformContracts';
 
@@ -21,39 +21,16 @@ export interface PlatformAuditRecord {
 
 export interface PlatformAuditStore {
 	listRecentActivity(input: { limit: number }): Promise<PlatformAuditDashboardActivity[]>;
-	listLogs(input: {
-		offset: number;
-		limit: number;
-		action?: string;
-		severity?: string;
-		orgId?: string;
-	}): Promise<{ logs: PlatformAuditRecord[]; totalCount: number }>;
-	listDistinctActions(): Promise<string[]>;
+	/** A page of matching events. An offset past the end clamps to the last page, and the offset used comes back. */
+	listActivity(
+		input: Omit<PlatformActivityInput, 'page' | 'limit'> & { offset: number; limit: number }
+	): Promise<{ events: PlatformActivityEvent[]; totalCount: number; offset: number }>;
 	listRecentByOrganization(input: { orgId: string; limit: number }): Promise<PlatformAuditRecord[]>;
 	listRecentByUser(input: { userId: string; limit: number }): Promise<PlatformAuditRecord[]>;
 }
 
 export interface PlatformAuditDependencies {
 	store: PlatformAuditStore;
-}
-
-function mapLog(record: PlatformAuditRecord): PlatformAuditLogEntry {
-	return {
-		id: record.id,
-		userId: record.userId,
-		orgId: record.orgId,
-		action: record.action,
-		resourceType: record.resourceType,
-		resourceId: record.resourceId,
-		ipAddress: record.ipAddress,
-		details: record.details,
-		severity: record.severity,
-		createdAt: record.timestamp
-	};
-}
-
-function normalizeFilter(value: string | undefined): string {
-	return value?.trim() ?? '';
 }
 
 function normalizeLimit(value: number | undefined, fallback: number): number {
@@ -67,38 +44,23 @@ export function createPlatformAudit(deps: PlatformAuditDependencies): PlatformAu
 			return deps.store.listRecentActivity({ limit: normalizeLimit(input.limit, 10) });
 		},
 
-		async listLogs(input) {
+		async listActivity(input) {
 			const limit = normalizeLimit(input.limit, 50);
-			const requestedPage = Math.max(1, input.page);
-			const actionFilter = normalizeFilter(input.action);
-			const severityFilter = normalizeFilter(input.severity);
-			const orgFilter = normalizeFilter(input.orgId);
-			const readPage = (page: number) =>
-				deps.store.listLogs({
-					offset: (page - 1) * limit,
-					limit,
-					action: actionFilter || undefined,
-					severity: severityFilter || undefined,
-					orgId: orgFilter || undefined
-				});
-
-			const [firstPage, availableActions] = await Promise.all([
-				readPage(requestedPage),
-				deps.store.listDistinctActions()
-			]);
-			// A page past the end (a stale or edited URL) shows the last page that exists.
-			const page = Math.min(requestedPage, lastPage(firstPage.totalCount, limit));
-			const logPage = page === requestedPage ? firstPage : await readPage(page);
-
+			const page = Math.max(1, Math.floor(input.page));
+			const result = await deps.store.listActivity({
+				actions: input.actions,
+				prefixes: input.prefixes,
+				search: input.search.trim(),
+				from: input.from,
+				to: input.to,
+				offset: (page - 1) * limit,
+				limit
+			});
 			return {
-				logs: logPage.logs.map(mapLog),
-				totalCount: logPage.totalCount,
-				page,
-				limit,
-				actionFilter,
-				severityFilter,
-				orgFilter,
-				availableActions
+				events: result.events,
+				totalCount: result.totalCount,
+				page: Math.floor(result.offset / limit) + 1,
+				limit
 			};
 		},
 

@@ -102,6 +102,90 @@ export async function seedOrganizationPages({ client, fixture, tag, ownedState, 
 	return { tag, names: rows.map(({ name }) => name), boundary: 'Privileged synthetic prerequisites; no UI proof.' };
 }
 
+// Stored Activity events across every category, severity and day, with one legacy row that carries IDs only.
+// Clean-seeds deletes them by recorded ID. The 55 filler events put Activity past one 50-row page.
+export async function seedPlatformActivity({ client, fixture, tag, ownedState, save }) {
+	if (ownedState.seeded.some((item) => item.kind === 'platform-activity'))
+		throw new Error('Clean the existing platform Activity seed before preparing another cohort.');
+	const operator = fixture.actors.platformReviewer;
+	const hour = 60 * 60 * 1000;
+	const start = Date.now() - hour;
+	const event = (hoursAgo, action, severity, fields) => ({
+		id: randomUUID(),
+		user_id: operator.id,
+		action,
+		severity,
+		timestamp: new Date(start - hoursAgo * hour).toISOString(),
+		details: {},
+		...fields
+	});
+	const labels = (targetName, more = {}) => ({ actorEmail: operator.email, targetName, ...more });
+	const named = [
+		event(0, 'suspend_org', 'critical', {
+			org_id: fixture.ids.orgA,
+			resource_type: 'organization',
+			resource_id: fixture.ids.orgA,
+			details: labels(`Activity verification ${tag}`, { reason: `Synthetic hold ${tag}` })
+		}),
+		event(1, 'access_request.approved', 'info', {
+			resource_type: 'access_request',
+			resource_id: randomUUID(),
+			details: labels(`Applicant ${tag}`)
+		}),
+		event(2, 'access_request.rejection_authorization_denied', 'warning', {
+			resource_type: 'access_request',
+			resource_id: randomUUID(),
+			details: labels(`Applicant ${tag}`)
+		}),
+		event(3, 'suspend_user', 'critical', {
+			resource_type: 'user',
+			resource_id: fixture.actors.orgMember.id,
+			details: { reason: `Legacy row ${tag}` },
+			user_id: null
+		}),
+		event(5, 'unsuspend_user', 'warning', {
+			resource_type: 'user',
+			resource_id: fixture.actors.orgMember.id,
+			details: labels(fixture.actors.orgMember.email)
+		}),
+		event(8, 'admin.org.transfer_ownership', 'critical', {
+			org_id: fixture.ids.orgA,
+			resource_type: 'organization',
+			resource_id: fixture.ids.orgA,
+			details: labels(`Activity verification ${tag}`, {
+				fromUserId: fixture.actors.orgCreator.id,
+				toUserId: fixture.actors.orgMember.id
+			})
+		}),
+		event(9, 'auth.login_failure', 'warning', { resource_type: 'user', resource_id: operator.id }),
+		event(30, 'admin.brand.new', 'info', { resource_type: 'user', resource_id: operator.id }),
+		event(31, 'announcement_create', 'info', {
+			resource_type: 'platform_announcement',
+			resource_id: randomUUID(),
+			details: labels(`Notice ${tag}`)
+		})
+	];
+	const filler = Array.from({ length: 55 }, (_, index) =>
+		event(40 + index * 6, 'admin.user.resend_invite', 'info', {
+			resource_type: 'user',
+			resource_id: fixture.actors.orgInvitee.id,
+			details: labels(`Filler ${tag} ${String(index + 1).padStart(2, '0')}`)
+		})
+	);
+	const rows = [...named, ...filler];
+	ownedState.seeded.push({ kind: 'platform-activity', table: 'audit_logs', tag, ids: rows.map(({ id }) => id) });
+	await save(ownedState);
+	checked(await client.from('audit_logs').insert(rows));
+	return {
+		tag,
+		operatorEmail: operator.email,
+		organization: `Activity verification ${tag}`,
+		legacyId: named[3].id,
+		total: rows.length,
+		boundary: 'Privileged stored-event setup; real producer and ordinary disclosure proof remain separate.'
+	};
+}
+
 export async function readPlatform({ client, fixture, ownedState }) {
 	const seed = ownedState.platform;
 	if (!seed) throw new Error('Seed platform-admin first.');

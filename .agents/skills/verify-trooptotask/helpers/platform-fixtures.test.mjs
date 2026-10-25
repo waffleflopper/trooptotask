@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { seedPlatform, seedOrganizationPages, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
+import {
+	seedPlatform,
+	seedOrganizationPages,
+	seedPlatformActivity,
+	cleanPlatform,
+	recordPlatformUserAudit
+} from './platform-fixtures.mjs';
 
 const fixture = {
 	actors: Object.fromEntries(
@@ -402,6 +408,53 @@ test('the Organization paging seed records every ID before its first write and r
 	assert.equal(result.names[0], 'Paging verification witness 01');
 	await assert.rejects(
 		seedOrganizationPages({ client, fixture, tag: 'again', ownedState, save }),
+		/Clean the existing/
+	);
+});
+
+test('platform Activity setup records every event ID before inserting and leaves a legacy row without labels', async () => {
+	const ownedState = { seeded: [] };
+	let saved;
+	let inserted;
+	const client = {
+		from: (table) => ({
+			insert: async (rows) => {
+				assert.equal(table, 'audit_logs');
+				assert.deepEqual(
+					saved.ids,
+					rows.map(({ id }) => id)
+				);
+				inserted = rows;
+				return { error: null };
+			}
+		})
+	};
+	const activityFixture = {
+		ids: { orgA: 'org-a' },
+		actors: {
+			...fixture.actors,
+			platformReviewer: { id: 'operator-1', email: 'operator@example.test' }
+		}
+	};
+	const result = await seedPlatformActivity({
+		client,
+		fixture: activityFixture,
+		tag: 'witness',
+		ownedState,
+		save: async (state) => {
+			saved = structuredClone(state.seeded.at(-1));
+		}
+	});
+
+	assert.equal(result.total, 64);
+	assert.equal(saved.kind, 'platform-activity');
+	assert.equal(new Set(inserted.map(({ id }) => id)).size, 64);
+	const legacy = inserted.find(({ id }) => id === result.legacyId);
+	assert.equal(legacy.user_id, null);
+	assert.equal(legacy.details.actorEmail, undefined);
+	assert.ok(inserted.some(({ action }) => action === 'admin.brand.new'));
+	await assert.rejects(
+		seedPlatformActivity({ client, fixture: activityFixture, tag: 'again', ownedState, save: async () => {} }),
 		/Clean the existing/
 	);
 });

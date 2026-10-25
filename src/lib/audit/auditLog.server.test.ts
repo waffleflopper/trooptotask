@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const insert = vi.fn();
-const from = vi.fn(() => ({ insert }));
+const maybeSingle = vi.fn();
+const from = vi.fn((table: string) =>
+	table === 'audit_logs' ? { insert } : { select: () => ({ eq: () => ({ maybeSingle }) }) }
+);
 
 vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: vi.fn(() => ({ from }))
@@ -16,6 +19,8 @@ describe('auditLog', () => {
 		insert.mockReset();
 		from.mockClear();
 		insert.mockResolvedValue({ error: null });
+		maybeSingle.mockReset();
+		maybeSingle.mockResolvedValue({ data: null });
 	});
 	afterEach(() => vi.restoreAllMocks());
 
@@ -108,6 +113,77 @@ describe('auditLog', () => {
 				reason: '[redacted]',
 				redacted_fields: ['reason']
 			}
+		});
+	});
+
+	describe('platform events', () => {
+		const operator = { userId: 'operator-1', userEmail: 'Robert@Example.test', ip: '127.0.0.1', userAgent: 'Vitest' };
+
+		it('keep the actor email, the written target name and the typed reason as written', async () => {
+			await auditLog(
+				{
+					action: 'suspend_user',
+					resourceType: 'user',
+					resourceId: 'user-9',
+					details: { targetName: 'pat@example.test', reason: 'Shared a password', email: 'pat@example.test' },
+					severity: 'critical'
+				},
+				operator,
+				{ required: true }
+			);
+
+			expect(insert.mock.calls[0]?.[0].details).toEqual({
+				actorEmail: 'robert@example.test',
+				targetName: 'pat@example.test',
+				reason: 'Shared a password',
+				email: 'p***@example.test'
+			});
+		});
+
+		it('read the target name from its record when the command did not supply one', async () => {
+			maybeSingle.mockResolvedValue({ data: { name: 'Alpha Company' } });
+
+			await auditLog(
+				{ action: 'suspend_org', resourceType: 'organization', resourceId: 'org-1', orgId: 'org-1' },
+				operator,
+				{ required: true }
+			);
+
+			expect(from).toHaveBeenCalledWith('organizations');
+			expect(insert.mock.calls[0]?.[0].details).toEqual({
+				actorEmail: 'robert@example.test',
+				targetName: 'Alpha Company'
+			});
+		});
+
+		it('still write when the target record cannot be read', async () => {
+			maybeSingle.mockRejectedValue(new Error('provider down'));
+
+			await expect(
+				auditLog({ action: 'suspend_org', resourceType: 'organization', resourceId: 'org-1' }, operator, {
+					required: true
+				})
+			).resolves.toBeUndefined();
+			expect(insert.mock.calls[0]?.[0].details).toEqual({ actorEmail: 'robert@example.test' });
+		});
+
+		it('are the only events that keep an email and a reason; other events stay masked and redacted', async () => {
+			await auditLog(
+				{
+					action: 'member.invite',
+					resourceType: 'organization',
+					resourceId: 'org-1',
+					details: { email: 'pat@example.test', reason: 'Because' }
+				},
+				operator
+			);
+
+			expect(insert.mock.calls[0]?.[0].details).toEqual({
+				email: 'p***@example.test',
+				reason: '[redacted]',
+				redacted_fields: ['reason']
+			});
+			expect(maybeSingle).not.toHaveBeenCalled();
 		});
 	});
 

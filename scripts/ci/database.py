@@ -106,6 +106,9 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261023001300_roster_signal_reads.sql",
     "20261024000500_group_editor_commands.sql",
     "20261025000100_platform_operator_safety.sql",
+    "20261025070100_whats_new_entries.sql",
+    "20261025070200_import_changelog_entries.sql",
+    "20261025070300_announcement_server_writes.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -146,6 +149,7 @@ STAGED_UPGRADE_FIXTURES = (
     "status_type_roster_effect_before.sql",
     "daily_assignment_source_before.sql",
     "platform_operator_before.sql",
+    "platform_announcements_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -188,10 +192,12 @@ STAGED_UPGRADE_CONTRACTS = (
     "status_type_roster_effect_after.sql",
     "daily_assignment_source_after.sql",
     "platform_operator_after.sql",
+    "platform_announcements_after.sql",
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
     "platform_operator_authorization.sql",
+    "whats_new_and_announcements.sql",
     "calendar_assignment_atomic_replacement.sql",
     "calendar_assignment_atomic_concurrency.sql",
     "daily_assignment_source.sql",

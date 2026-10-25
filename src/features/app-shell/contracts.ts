@@ -3,6 +3,7 @@ import type { FeatureKey } from '$lib/access/featureSwitches';
 import type { SignedInAccount, UserOrgPreferences } from '$features/identity/contracts';
 
 import type { Announcement } from '$features/notifications/contracts';
+import type { PublishedWhatsNewEntry } from '$features/platform-admin/contracts';
 
 export interface OrganizationSwitcherOrg {
 	id: string;
@@ -33,6 +34,8 @@ export interface ReadyAppShell {
 	};
 	preferences: UserOrgPreferences;
 	announcements: Announcement[];
+	/** The newest published entries the What's New dialog shows. */
+	whatsNew: PublishedWhatsNewEntry[];
 }
 
 export interface SuspendedAppShell {
@@ -53,6 +56,7 @@ export interface AppShellRouteData {
 
 export interface AppShellFirstPaintChrome {
 	announcements: Announcement[];
+	whatsNew: PublishedWhatsNewEntry[];
 	preferences: UserOrgPreferences;
 	account: SignedInAccount;
 }
@@ -124,7 +128,8 @@ export function createReadyAppShell(config: {
 			orgSuspended: false
 		},
 		preferences: firstPaintChrome.preferences,
-		announcements: firstPaintChrome.announcements
+		announcements: firstPaintChrome.announcements,
+		whatsNew: firstPaintChrome.whatsNew
 	};
 }
 

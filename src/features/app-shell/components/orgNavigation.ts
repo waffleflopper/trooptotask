@@ -64,7 +64,8 @@ const SUPPORT_ROUTE_BREADCRUMBS: Record<string, { label: string; children: Recor
 			label: 'Account',
 			children: { profile: 'Profile', security: 'Sign-in & security' },
 			personal: true
-		}
+		},
+		'whats-new': { label: "What's new", children: {}, personal: true }
 	};
 
 export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavItem[] {

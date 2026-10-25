@@ -69,6 +69,14 @@ export function createSupabasePlatformAnnouncementsStore(supabase: SupabaseClien
 			return (data ?? []).map(mapAnnouncement);
 		},
 
+		async dismissalCounts() {
+			const { data, error } = (await supabase.rpc('platform_announcement_dismissal_counts')) as SupabaseResponse<
+				{ announcement_id: string; dismissal_count: number }[]
+			>;
+			if (error || !Array.isArray(data)) throw new Error(`dismissal counts failed: ${formatSupabaseError(error)}`);
+			return Object.fromEntries(data.map((row) => [row.announcement_id, Number(row.dismissal_count)]));
+		},
+
 		async createAnnouncement(input: PlatformAnnouncementStoreCreateInput) {
 			const response = (await supabase
 				.from('platform_announcements')

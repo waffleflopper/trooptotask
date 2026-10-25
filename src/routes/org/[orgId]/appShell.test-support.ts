@@ -55,7 +55,8 @@ export function createReadyAppShellRouteData(
 				calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
 				training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
 			},
-			announcements: []
+			announcements: [],
+			whatsNew: []
 		}
 	};
 }

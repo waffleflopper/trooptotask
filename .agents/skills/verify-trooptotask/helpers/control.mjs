@@ -1018,7 +1018,19 @@ async function main() {
 					?.match(/^(\d+):/)?.[1]
 			);
 			if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
-			await evaluate(state, pageId, whatsNewPreferenceScript(fixture.actors[role].id, showWhatsNew));
+			const newest = checked(
+				await (await provider())
+					.from('whats_new_entries')
+					.select('id')
+					.not('published_seq', 'is', null)
+					.order('published_seq', { ascending: false })
+					.limit(1)
+			);
+			await evaluate(
+				state,
+				pageId,
+				whatsNewPreferenceScript(fixture.actors[role].id, newest[0]?.id ?? '', showWhatsNew)
+			);
 			const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
 			await tool(state, 'fill_form', {
 				pageId,

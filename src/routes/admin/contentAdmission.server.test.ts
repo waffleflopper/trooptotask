@@ -69,7 +69,12 @@ const actors: ActorCase[] = [
 ];
 
 const loads: Record<ContentPage, (request: RequestEvent) => Promise<unknown>> = {
-	announcements: async (request) => announcementLoad(request as Parameters<typeof announcementLoad>[0]),
+	announcements: async (request) => {
+		const { banners } = (await announcementLoad(request as Parameters<typeof announcementLoad>[0])) as {
+			banners: Promise<unknown>;
+		};
+		return { announcements: ((await banners) as { announcements: unknown[] }).announcements };
+	},
 	feedback: async (request) => feedbackLoad(request as Parameters<typeof feedbackLoad>[0]),
 	audit: async (request) => auditLoad(request as Parameters<typeof auditLoad>[0])
 };
@@ -138,6 +143,7 @@ function provider(actor: ActorCase) {
 		if (method === 'GET' || method === 'HEAD' || resource.startsWith('rpc/')) contentReads.push(resource);
 		else writes.push(resource);
 		if (method === 'HEAD') return new Response(null, { headers: { 'content-range': '*/1' } });
+		if (resource === 'rpc/platform_announcement_dismissal_counts') return Response.json([]);
 		if (resource === 'platform_announcements') {
 			if (method === 'PATCH') Object.assign(announcements[0], JSON.parse(String(init?.body)));
 			if (method === 'DELETE') announcements.length = 0;

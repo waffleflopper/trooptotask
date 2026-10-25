@@ -38,6 +38,8 @@ for (const [family, route, action] of [
 	['admin-announcements/create', '/admin/announcements', 'create'],
 	['admin-announcements/toggle', '/admin/announcements', 'toggle'],
 	['admin-announcements/delete', '/admin/announcements', 'delete'],
+	['admin-whats-new/save', '/admin/announcements/whats-new', 'save'],
+	['admin-whats-new/delete', '/admin/announcements/whats-new', 'delete'],
 	['admin-feedback/update', '/admin/feedback', 'update']
 ]) {
 	test(`${family} fails only the selected same-origin form action and permits retry`, async () => {
@@ -75,7 +77,8 @@ for (const [family, route] of [
 	['admin-users-read', '/admin/users/__data.json'],
 	['admin-organizations-read', '/admin/organizations/__data.json'],
 	['admin-feedback-read', '/admin/feedback/__data.json'],
-	['admin-announcements-read', '/admin/announcements/__data.json']
+	['admin-announcements-read', '/admin/announcements/__data.json'],
+	['admin-whats-new-read', '/admin/announcements/whats-new/__data.json']
 ]) {
 	test(`${family} leaves foreign origins, other admin pages and form writes untouched`, async () => {
 		let dispatched = 0;

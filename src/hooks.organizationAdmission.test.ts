@@ -70,6 +70,7 @@ function fixture() {
 		audit_logs: [],
 		platform_announcements: [],
 		announcement_dismissals: [],
+		whats_new_entries: [],
 		user_org_preferences: [],
 		user_profiles: [{ user_id: USER, first_name: 'Emma', last_name: 'Hayes', rank: 'SGT' }]
 	};
@@ -96,6 +97,7 @@ function fixture() {
 				if (table === 'platform_announcements' && key === 'or') return true; // Empty optional chrome fixture.
 				if (filter.startsWith('eq.')) return String(row[key]) === filter.slice(3);
 				if (filter === 'is.null') return row[key] == null;
+				if (filter === 'not.is.null') return row[key] != null;
 				if (filter.startsWith('in.(')) return filter.slice(4, -1).split(',').includes(String(row[key]));
 				throw new Error(`Unexpected filter ${key}=${filter}`);
 			})
@@ -499,7 +501,7 @@ describe('Organization shell admission with real provider mapping', () => {
 		expect(f.tables.groups).toEqual([]);
 	});
 
-	it.each(['platform_announcements', 'user_org_preferences'])(
+	it.each(['platform_announcements', 'whats_new_entries', 'user_org_preferences'])(
 		'keeps ready access when optional %s fails',
 		async (table) => {
 			const f = fixture();
@@ -507,6 +509,7 @@ describe('Organization shell admission with real provider mapping', () => {
 			const shell = requireReadyAppShell(await f.load());
 			expect(shell.member.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 			expect(shell.announcements).toEqual([]);
+			expect(shell.whatsNew).toEqual([]);
 			expect(shell.preferences).toEqual(getDefaultUserOrgPreferences());
 		}
 	);

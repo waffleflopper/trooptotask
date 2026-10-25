@@ -181,11 +181,15 @@
 						<div class="grid min-w-0">
 							<a
 								href={resolve(personHref(person.state) as '/admin/people')}
-								class="w-fit max-w-full truncate text-base font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+								class="w-fit max-w-full truncate text-base font-semibold text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 							>
 								{person.name}
 							</a>
-							<span class="truncate font-mono text-xs text-muted-foreground">{person.email ?? 'No email on file'}</span>
+							{#if person.email !== person.name}
+								<span class="truncate font-mono text-xs text-muted-foreground"
+									>{person.email ?? 'No email on file'}</span
+								>
+							{/if}
 						</div>
 						<span class="min-w-0 truncate text-sm max-lg:col-span-2 max-lg:row-start-2">
 							<span class="mr-2 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase lg:sr-only">

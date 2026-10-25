@@ -8,7 +8,7 @@ One case is not a held claim. If Auth rejects creation because the user exists b
 
 ## Decide whether release is safe
 
-1. Open a case with an ID such as `INC-12345`. Authenticate the staff operator through the approved operations channel and confirm they are an active `support` or `super_admin` platform admin. The database checks the supplied user ID but cannot prove who is at the console, so keep the authentication record in the case.
+1. Open a case with an ID such as `INC-12345`. Authenticate the platform operator through the approved operations channel and confirm their User Account has a row in `platform_operators` and their admin session has completed MFA at `aal2`. The database checks the supplied user ID but cannot prove who is at the console, so keep the authentication record in the case.
 2. Match the held setup link ID, its Access Request ID and the normalized email in the Platform screen and read-only records. Inspect the setup claim and failure audit events. Never copy a setup URL, token, password, service key or provider credential into the case.
 3. Establish that the previous Supabase Auth create or update is terminal or quiescent, using the request trace and a provider response, log or equivalent confirmation. An ended app request, a client timeout, an expired link, elapsed time or a newly sent link does not establish this. If the provider operation may still finish, leave the claim held and escalate.
 4. Reconcile the Auth account and Access Request. If the password write succeeded but tracking failed, decide between an authorized data repair and ordinary sign-in or password recovery. A request with `setup_completed_at` set cannot use another setup link, even after release.

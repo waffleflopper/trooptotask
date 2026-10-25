@@ -8,10 +8,7 @@ INSERT INTO auth.users (id, email) VALUES
   ('a5000000-0000-4000-8000-000000000001', 'setup-release-support@example.test'),
   ('a5000000-0000-4000-8000-000000000002', 'setup-release-billing@example.test'),
   ('a5000000-0000-4000-8000-000000000003', 'setup-release-inactive@example.test');
-INSERT INTO public.platform_admins (id, user_id, role, is_active) VALUES
-  ('a5000000-0000-4000-8000-000000000011', 'a5000000-0000-4000-8000-000000000001', 'support', true),
-  ('a5000000-0000-4000-8000-000000000012', 'a5000000-0000-4000-8000-000000000002', 'billing', true),
-  ('a5000000-0000-4000-8000-000000000013', 'a5000000-0000-4000-8000-000000000003', 'support', false);
+INSERT INTO public.platform_operators(user_id) VALUES ('a5000000-0000-4000-8000-000000000001');
 INSERT INTO public.access_requests (id, email, name, status, approval_basis, setup_completed_at) VALUES
   ('a5000000-0000-4000-8000-000000000101', 'release@example.test', 'Held setup', 'approved', 'platform_review', NULL),
   ('a5000000-0000-4000-8000-000000000102', 'release@example.test', 'Replacement setup', 'approved', 'platform_review', NULL),
@@ -40,8 +37,8 @@ RESET ROLE;
 
 SET LOCAL ROLE service_role;
 SELECT is((SELECT claim_status FROM public.claim_account_setup_link_for_session('a5000000-0000-4000-8000-000000000202','a5000000-0000-4000-8000-000000000102')), 'claim-in-progress', 'expired and revoked held claim still blocks a replacement');
-SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000002','provider-terminal','INC-12345') $$, '42501', NULL, 'billing admin cannot attest release');
-SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000003','provider-terminal','INC-12345') $$, '42501', NULL, 'inactive support cannot attest release');
+SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000002','provider-terminal','INC-12345') $$, '42501', NULL, 'non-operator cannot attest release');
+SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000003','provider-terminal','INC-12345') $$, '42501', NULL, 'unlisted account cannot attest release');
 SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000001','timeout','INC-12345') $$, '22023', NULL, 'elapsed time cannot attest provider quiescence');
 SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000001','provider-terminal',NULL) $$, '22023', NULL, 'operator evidence reference is required');
 SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000001','provider-terminal','https://example.test/raw-token') $$, '22023', NULL, 'URL cannot be stored as evidence reference');
@@ -54,7 +51,7 @@ SELECT ok((SELECT failed_at IS NULL FROM public.account_setup_links WHERE id='a5
 SELECT is((SELECT count(*)::integer FROM public.audit_logs WHERE action='account_setup.claim_released_by_staff' AND resource_id='a5000000-0000-4000-8000-000000000201'), 0, 'denials write no release audit');
 
 SET LOCAL ROLE service_role;
-SELECT ok(public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000001','provider-quiescent','INC-12345'), 'active support can release a verified held claim');
+SELECT ok(public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000001','provider-quiescent','INC-12345'), 'operator can release a verified held claim');
 SELECT ok(public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000203','a5000000-0000-4000-8000-000000000103','a5000000-0000-4000-8000-000000000001','provider-terminal','INC-12346'), 'staff can release a link held after Access Request completion tracking succeeded');
 SELECT throws_ok($$ SELECT public.release_account_setup_claim_for_staff('a5000000-0000-4000-8000-000000000201','a5000000-0000-4000-8000-000000000101','a5000000-0000-4000-8000-000000000001','provider-terminal','INC-12345') $$, '55000', NULL, 'release cannot be repeated');
 SELECT is((SELECT claim_status FROM public.claim_account_setup_link_for_session('a5000000-0000-4000-8000-000000000202','a5000000-0000-4000-8000-000000000102')), 'claim-started', 'replacement may claim after explicit operator release');

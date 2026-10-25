@@ -58,10 +58,6 @@
 		returnFocusToSidebarTrigger = false;
 		document.querySelector<HTMLElement>('[data-sidebar="trigger"]')?.focus();
 	});
-
-	function formatRole(role: string | null | undefined): string {
-		return role ? role.replace(/_/g, ' ').toUpperCase() : 'ADMIN';
-	}
 </script>
 
 <Sidebar.Provider class="min-h-svh bg-background font-sans">
@@ -126,7 +122,7 @@
 				>
 				<span class="grid min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:sr-only">
 					<span class="truncate font-medium">{data.adminEmail ?? 'Admin user'}</span>
-					<span class="truncate text-xs">{formatRole(data.adminRole)}</span>
+					<span class="truncate text-xs">Operator</span>
 				</span>
 			</div>
 			<Sidebar.Menu>
@@ -172,7 +168,7 @@
 					<Moon />
 				{/if}
 			</Button>
-			<Badge variant="outline" class="hidden md:inline-flex">{formatRole(data.adminRole)}</Badge>
+			<Badge variant="outline" class="hidden md:inline-flex">Operator</Badge>
 		</header>
 		<main class="flex min-h-0 w-full min-w-0 flex-1 flex-col">
 			{@render children()}

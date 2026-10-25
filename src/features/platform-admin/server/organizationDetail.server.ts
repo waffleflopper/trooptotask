@@ -25,7 +25,7 @@ export function createPlatformOrganizationDetail(
 			try {
 				const [memberships, personnelCount, auditEvents] = await Promise.all([
 					deps.membershipReader.listMembers(orgId),
-					deps.metrics.countActivePersonnelForOrganization(orgId),
+					deps.personnel.countActivePersonnelForOrganization(orgId),
 					deps.audit.listRecentByOrganization({ orgId, limit: 10 })
 				]);
 				const members = memberships.map((membership) => ({
@@ -37,7 +37,6 @@ export function createPlatformOrganizationDetail(
 				return {
 					status: 'found',
 					detail: {
-						adminRole: deps.adminRole,
 						org: {
 							id: org.id,
 							name: org.name,

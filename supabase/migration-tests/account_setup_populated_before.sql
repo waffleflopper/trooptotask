@@ -43,8 +43,8 @@ INSERT INTO upgrade_fixture.before_rows
 SELECT 'auth.users', id, to_jsonb(row_value) FROM auth.users AS row_value
 WHERE id = 'b4000000-0000-4000-8000-000000000001'
 UNION ALL
-SELECT 'public.platform_admins', id, to_jsonb(row_value) FROM public.platform_admins AS row_value
-WHERE id = 'b4000000-0000-4000-8000-000000000011'
+SELECT 'public.platform_operators', user_id, to_jsonb(row_value) - 'id' - 'role' - 'is_active' FROM public.platform_admins AS row_value
+WHERE user_id = 'b4000000-0000-4000-8000-000000000001'
 UNION ALL
 SELECT 'public.access_requests', id, to_jsonb(row_value) FROM public.access_requests AS row_value
 WHERE id IN ('b4000000-0000-4000-8000-000000000101', 'b4000000-0000-4000-8000-000000000102',

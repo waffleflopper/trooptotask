@@ -31,7 +31,7 @@
 	let resetForm = $state<HTMLFormElement | null>(null);
 	let inviteForm = $state<HTMLFormElement | null>(null);
 	let navigationLifetime = $state(0);
-	const canSuspend = $derived(data.adminRole === 'super_admin');
+	const canSuspend = $derived(data.canSuspend);
 
 	beforeNavigate(() => {
 		navigationLifetime += 1;

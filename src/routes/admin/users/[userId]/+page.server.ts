@@ -12,7 +12,13 @@ export const load: PageServerLoad = async (event) => {
 	if (userDetail.status === 'not_found') error(404, 'User not found');
 	if (userDetail.status === 'auth_error') error(500, 'Failed to load user identity');
 
-	return { ...userDetail.detail, adminRole: operations.adminRole };
+	const isSelf = userId.toLowerCase() === operations.adminUserId.toLowerCase();
+	return {
+		...userDetail.detail,
+		isSelf,
+		canSuspend: !isSelf,
+		suspendDisabledReason: isSelf ? 'You cannot suspend your own account.' : null
+	};
 };
 
 export const actions: Actions = {

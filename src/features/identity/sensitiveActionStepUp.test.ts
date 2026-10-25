@@ -20,6 +20,15 @@ describe('sensitiveActionStepUp', () => {
 		).toBe('https://app.example.test/auth/mfa-verify?next=%2Forg%2Flocal-test%2Fsettings%3Ftab%3Dmembers');
 	});
 
+	it('returns an unenrolled operator to the current admin page after MFA setup', () => {
+		expect(
+			buildSensitiveActionStepUpUrl(
+				{ requiresStepUp: true, stepUpPath: '/auth/mfa-setup' },
+				{ origin: 'https://app.example.test', pathname: '/admin/users/operator', search: '' }
+			)
+		).toBe('https://app.example.test/auth/mfa-setup?next=%2Fadmin%2Fusers%2Foperator');
+	});
+
 	it('falls back to login when a producer sends an unsafe step-up path', () => {
 		expect(
 			buildSensitiveActionStepUpUrl({ requiresStepUp: true, stepUpPath: 'https://evil.example.test' }, currentLocation)

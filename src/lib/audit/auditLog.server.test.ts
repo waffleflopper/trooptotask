@@ -45,6 +45,22 @@ describe('auditLog', () => {
 		}
 	);
 
+	it.each(['resolved provider error', 'rejected insert', 'provider construction failure'])(
+		'required platform audit rejects on %s',
+		async (failure) => {
+			const sensitiveError = new Error('private@example.test private personnel note');
+			if (failure === 'resolved provider error') insert.mockResolvedValue({ error: sensitiveError });
+			if (failure === 'rejected insert') insert.mockRejectedValue(sensitiveError);
+			if (failure === 'provider construction failure')
+				vi.mocked(getAdminClient).mockImplementationOnce(() => {
+					throw sensitiveError;
+				});
+			await expect(
+				auditLog({ action: 'suspend_user', resourceType: 'user' }, { userId: 'actor' }, { required: true })
+			).rejects.toThrow('Audit log write failed');
+		}
+	);
+
 	it('retains a deleted Organization identifier without referencing its missing parent', () => {
 		const id = '11111111-1111-4111-8111-111111111111';
 		createSupabaseAuditAdapter(null, {

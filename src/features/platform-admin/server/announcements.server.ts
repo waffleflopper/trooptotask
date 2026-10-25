@@ -32,7 +32,7 @@ export interface PlatformAnnouncementsStore {
 export interface PlatformAnnouncementsDependencies {
 	store: PlatformAnnouncementsStore;
 	actorUserId: string;
-	audit(event: AuditEvent): void;
+	audit(event: AuditEvent): Promise<void>;
 }
 
 export interface PlatformAnnouncements {
@@ -56,7 +56,7 @@ export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependenc
 				createdBy: deps.actorUserId
 			});
 
-			deps.audit({
+			await deps.audit({
 				action: 'announcement_create',
 				resourceType: 'platform_announcement',
 				resourceId: announcement.id,
@@ -76,7 +76,7 @@ export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependenc
 
 			if (!update) return { status: 'not_found' };
 
-			deps.audit({
+			await deps.audit({
 				action: update.isActive ? 'announcement_activate' : 'announcement_deactivate',
 				resourceType: 'platform_announcement',
 				resourceId: id,
@@ -90,7 +90,7 @@ export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependenc
 		async delete(id) {
 			await deps.store.deleteAnnouncement(id);
 
-			deps.audit({
+			await deps.audit({
 				action: 'announcement_delete',
 				resourceType: 'platform_announcement',
 				resourceId: id,

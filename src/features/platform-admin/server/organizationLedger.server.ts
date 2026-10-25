@@ -6,7 +6,6 @@ import type {
 	PlatformOrganizationLedger
 } from '../organizationSupportTypes';
 import { lastPage } from '$lib/server/supabasePagination.server';
-import { displayOwnerMembership } from './metrics.server';
 
 export const DEFAULT_PLATFORM_LEDGER_PAGE_SIZE = 25;
 export const MAX_PLATFORM_LEDGER_PAGE_SIZE = 100;
@@ -71,16 +70,30 @@ export function createPlatformOrganizationLedger(
 			const { organizations: rows, totalCount } =
 				query === requested ? first : await deps.store.listOrganizationsPage(query);
 			const orgIds = rows.map((org) => org.id);
-			const metrics = await deps.metrics.getOrganizationMetrics(orgIds);
+			if (orgIds.length === 0) return { organizations: [], pagination: buildPagination(query, totalCount) };
+			const [memberCounts, personnelCounts, owners] = await Promise.all([
+				deps.store.countMembershipsByOrganization(orgIds),
+				deps.personnel.countActivePersonnelByOrganization(orgIds),
+				deps.store.listOwnerMembershipMetricsByOrganization(orgIds)
+			]);
+			const ownersByOrg = new Map(owners.map((owner) => [owner.organizationId, owner]));
 
 			return {
 				organizations: rows.map((org) => {
-					const ownerEmail = displayOwnerMembership(metrics.ownerMemberships.get(org.id));
+					const owner = ownersByOrg.get(org.id);
+					if (owner?.ownerCount === 1 && !owner.singleOwner)
+						throw new Error('Owner membership could not be identified');
+					const ownerEmail =
+						!owner || owner.ownerCount === 0
+							? 'No owner'
+							: owner.ownerCount > 1
+								? 'Multiple owners'
+								: (owner.singleOwner?.email ?? '');
 
 					return {
 						...org,
-						memberCount: metrics.memberCounts.get(org.id) ?? 0,
-						personnelCount: metrics.activePersonnelCounts.get(org.id) ?? 0,
+						memberCount: memberCounts.get(org.id) ?? 0,
+						personnelCount: personnelCounts.get(org.id) ?? 0,
 						ownerEmail,
 						isSuspended: !!org.suspended_at
 					};

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { AuditEvent } from '$lib/audit/contracts';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { createOrganizationPlatformMembershipAdministration } from './platformMembership.server';
 import type { OrganizationPlatformMembershipPort } from './platformMembershipTypes';
@@ -6,12 +7,9 @@ import type { OrganizationPlatformMembershipPort } from './platformMembershipTyp
 const actorId = 'd2103000-0000-4000-8000-000000000001';
 const orgId = 'd2103000-0000-4000-8000-000000000101';
 const targetUserId = 'd2103000-0000-4000-8000-000000000006';
-function setup(role: 'super_admin' | 'support' | 'billing' = 'super_admin', stale = false) {
+function setup(stale = false) {
 	const port = {
 		listMembers: vi.fn<OrganizationPlatformMembershipPort['listMembers']>().mockResolvedValue([]),
-		promoteMember: vi
-			.fn<OrganizationPlatformMembershipPort['promoteMember']>()
-			.mockResolvedValue({ status: 'provider_error' }),
 		transferOwnership: vi
 			.fn<OrganizationPlatformMembershipPort['transferOwnership']>()
 			.mockResolvedValue({ status: 'provider_error' })
@@ -29,9 +27,9 @@ function setup(role: 'super_admin' | 'support' | 'billing' = 'super_admin', stal
 			]
 		}
 	}));
-	const audit = { log: vi.fn() };
+	const audit = { log: vi.fn(async (_event: AuditEvent) => {}) };
 	const administration = createOrganizationPlatformMembershipAdministration({
-		actor: { userId: actorId, role },
+		actor: { userId: actorId },
 		port,
 		audit,
 		sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
@@ -48,45 +46,29 @@ function setup(role: 'super_admin' | 'support' | 'billing' = 'super_admin', stal
 }
 
 describe('Organization privileged membership commands', () => {
-	it.each(['support', 'billing'] as const)('denies %s before any assurance or privileged write', async (role) => {
-		const { port, loadActorFacts, audit, administration } = setup(role);
-		expect(await administration.makeAdmin({ orgId, targetUserId })).toEqual({ status: 'forbidden' });
-		expect(await administration.transferOwnership({ orgId, targetUserId, confirmName: 'A' })).toEqual({
-			status: 'forbidden'
+	it('requires step-up for a stale session and retains the denial details', async () => {
+		const { port, audit, administration } = setup(true);
+		await expect(administration.transferOwnership({ orgId, targetUserId, confirmName: 'A' })).rejects.toMatchObject({
+			status: 403,
+			reason: 'denied.staleSession',
+			requiresStepUp: true,
+			stepUpPath: '/auth/login'
 		});
-		expect(loadActorFacts).not.toHaveBeenCalled();
-		expect(port.promoteMember).not.toHaveBeenCalled();
 		expect(port.transferOwnership).not.toHaveBeenCalled();
-		expect(audit.log).not.toHaveBeenCalled();
+		expect(audit.log).toHaveBeenCalledWith(
+			expect.objectContaining({
+				severity: 'warning',
+				details: { sensitiveAction: expect.objectContaining({ actorUserId: actorId, reason: 'denied.staleSession' }) }
+			})
+		);
 	});
-	it.each(['makeAdmin', 'transferOwnership'] as const)(
-		'requires step-up for stale-session %s and retains the denial details',
-		async (method) => {
-			const { port, audit, administration } = setup('super_admin', true);
-			await expect(administration[method]({ orgId, targetUserId, confirmName: 'A' })).rejects.toMatchObject({
-				status: 403,
-				reason: 'denied.staleSession',
-				requiresStepUp: true,
-				stepUpPath: '/auth/login'
-			});
-			expect(port.promoteMember).not.toHaveBeenCalled();
-			expect(port.transferOwnership).not.toHaveBeenCalled();
-			expect(audit.log).toHaveBeenCalledWith(
-				expect.objectContaining({
-					severity: 'warning',
-					details: { sensitiveAction: expect.objectContaining({ actorUserId: actorId, reason: 'denied.staleSession' }) }
-				})
-			);
-		}
-	);
 	it('binds the server actor and never audits a failed or denied provider result as success', async () => {
 		const { port, audit, administration } = setup();
-		await administration.makeAdmin({ orgId, targetUserId, actorUserId: 'forged' } as never);
-		expect(port.promoteMember).toHaveBeenCalledWith({ orgId, targetUserId, actorUserId: actorId });
 		port.transferOwnership.mockResolvedValue({ status: 'forbidden' });
-		expect(await administration.transferOwnership({ orgId, targetUserId, confirmName: 'A' })).toEqual({
-			status: 'forbidden'
-		});
+		expect(
+			await administration.transferOwnership({ orgId, targetUserId, confirmName: 'A', actorUserId: 'forged' } as never)
+		).toEqual({ status: 'forbidden' });
+		expect(port.transferOwnership).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: actorId }));
 		expect(audit.log).not.toHaveBeenCalled();
 	});
 	it('records the acknowledged current owner and sensitive-action decision after transfer', async () => {
@@ -118,12 +100,18 @@ describe('Organization privileged membership commands', () => {
 			})
 		);
 	});
-	it('allows support reads while billing cannot reach the reader', async () => {
-		const support = setup('support');
-		await support.administration.listMembers(orgId);
-		expect(support.port.listMembers).toHaveBeenCalledWith(orgId);
-		const billing = setup('billing');
-		await expect(billing.administration.listMembers(orgId)).rejects.toMatchObject({ status: 403 });
-		expect(billing.port.listMembers).not.toHaveBeenCalled();
+	it('fails the transfer when its audit write fails', async () => {
+		const { port, audit, administration } = setup();
+		port.transferOwnership.mockResolvedValue({
+			status: 'updated',
+			orgId,
+			fromUserId: 'd2103000-0000-4000-8000-000000000005',
+			toUserId: targetUserId,
+			orgName: 'A'
+		});
+		audit.log.mockRejectedValue(new Error('audit unavailable'));
+		await expect(administration.transferOwnership({ orgId, targetUserId, confirmName: 'A' })).rejects.toThrow(
+			'audit unavailable'
+		);
 	});
 });

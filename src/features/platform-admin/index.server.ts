@@ -6,7 +6,6 @@ export { createPlatformAccessRequestOperations } from './server/accessRequestOpe
 export { createPlatformSearchOperations, createPlatformSuspensionOperations } from './server/supportOperations.server';
 
 export { loadPlatformAdminNavigation } from './server/navigation.server';
-export { createPlatformDashboardOperations } from './server/dashboardOperations.server';
 export { createPlatformAnnouncementOperations } from './server/announcementOperations.server';
 export { validatePlatformAnnouncement } from './server/announcements.server';
 export {

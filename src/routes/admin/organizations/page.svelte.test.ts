@@ -21,7 +21,6 @@ function organizationsData(data: Partial<PageProps['data']>): PageProps['data'] 
 		viewer: null,
 		adminUserId: 'admin-1',
 		adminEmail: 'admin@example.test',
-		adminRole: 'support',
 		accessiblePages: ['dashboard', 'users', 'organizations'],
 		visibleNavGroups: [
 			{
@@ -37,21 +36,6 @@ function organizationsData(data: Partial<PageProps['data']>): PageProps['data'] 
 			totalPages: 1,
 			q: '',
 			status: 'all'
-		},
-		activationHealth: {
-			generatedAt: '2026-06-28T12:00:00.000Z',
-			overallState: 'no_candidates',
-			candidateLimit: 100,
-			counts: {
-				candidateOrganizations: 0,
-				activatedOrganizations: 0,
-				meaningfulRosters: 0,
-				acceptedLeaders: 0,
-				setupStarted: 0,
-				inProgressOrganizations: 0
-			},
-			organizations: [],
-			diagnosticsError: false
 		}
 	};
 
@@ -63,7 +47,7 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 }
 
 describe('admin organizations page', () => {
-	it('renders retained activation progress and Organization navigation', () => {
+	it('renders the Organization ledger with owner and navigation links', () => {
 		renderOrganizationsPage({
 			organizations: [
 				{
@@ -84,53 +68,10 @@ describe('admin organizations page', () => {
 				totalPages: 1,
 				q: '',
 				status: 'all'
-			},
-			activationHealth: {
-				generatedAt: '2026-06-28T12:00:00.000Z',
-				overallState: 'in_progress',
-				candidateLimit: 100,
-				counts: {
-					candidateOrganizations: 3,
-					activatedOrganizations: 0,
-					meaningfulRosters: 0,
-					acceptedLeaders: 0,
-					setupStarted: 1,
-					inProgressOrganizations: 1
-				},
-				organizations: [
-					{
-						id: 'org-1',
-						organization: { id: 'org-1', name: 'Able Company' },
-						state: 'in_progress',
-						score: 70,
-						milestones: [],
-						nextSteps: ['Import or add at least 5 active personnel.'],
-						supportBundle: {
-							organizationId: 'org-1',
-							organizationName: 'Able Company',
-							acquisition: {
-								organizationCreatedAt: '2026-06-01T00:00:00.000Z'
-							},
-							activation: {
-								activePersonnel: 2,
-								members: 1,
-								leaderMembers: 1,
-								statusTypes: 4,
-								assignmentTypes: 1,
-								onboardingTemplateSteps: 2,
-								trainingTypes: 3,
-								ratingSchemeEntries: 1,
-								meaningfulRosterThreshold: 5
-							},
-							nextSteps: ['Import or add at least 5 active personnel.']
-						}
-					}
-				],
-				diagnosticsError: false
 			}
 		});
 
-		expect(screen.getByText('2 / 5')).toBeTruthy();
+		expect(screen.getByText('owner@example.com')).toBeTruthy();
 		expect(
 			screen
 				.getAllByRole('link', { name: 'Able Company' })
@@ -290,35 +231,5 @@ describe('admin organizations page', () => {
 		await fireEvent.click(next);
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Previous' })));
 		expect(screen.getByText('Showing 51-60 of 60')).toBeTruthy();
-	});
-
-	it('warns when activation health diagnostics are unavailable', () => {
-		renderOrganizationsPage({
-			activationHealth: {
-				generatedAt: '2026-06-28T12:00:00.000Z',
-				overallState: 'diagnostics_unavailable',
-				candidateLimit: 100,
-				counts: {
-					candidateOrganizations: 0,
-					activatedOrganizations: 0,
-					meaningfulRosters: 0,
-					acceptedLeaders: 0,
-					setupStarted: 0,
-					inProgressOrganizations: 0
-				},
-				organizations: [],
-				diagnosticsError: true
-			}
-		});
-
-		expect(screen.getAllByText('Activation health diagnostics could not be fully loaded.')).toHaveLength(2);
-		expect(screen.getByText(/Roster, member, and setup counts may be incomplete/)).toBeTruthy();
-		expect(screen.getByText('Unavailable')).toBeTruthy();
-		expect(screen.getByText('Activation health data is unavailable until diagnostics load successfully.')).toBeTruthy();
-		expect(
-			screen.getByText('Activation health diagnostics are unavailable. Retry after the health scan succeeds.')
-		).toBeTruthy();
-		expect(screen.queryByText('No Organizations found for activation health.')).toBeNull();
-		expect(screen.queryByText(/Organizations · \d+ activated/)).toBeNull();
 	});
 });

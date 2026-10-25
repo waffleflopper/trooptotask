@@ -73,7 +73,8 @@ export async function readIdentityAdmission({
 	if (!session && (isMfaEndpoint || !isPublicRoute(pathname))) {
 		return { status: 'redirect', code: 303, location: '/auth/login' };
 	}
-	if (shouldRedirectIncompleteAuthSession(pathname, !!session, mfaPending, authFlow)) {
+	const platformMfaAdmission = (pathname === '/admin' || pathname.startsWith('/admin/')) && mfaPending && !authFlow;
+	if (shouldRedirectIncompleteAuthSession(pathname, !!session, mfaPending, authFlow) && !platformMfaAdmission) {
 		return { status: 'redirect', code: 303, location: getAuthenticatedRedirectPath(authFlow, mfaPending) };
 	}
 

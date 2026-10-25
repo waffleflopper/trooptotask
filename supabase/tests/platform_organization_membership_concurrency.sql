@@ -22,7 +22,7 @@ SELECT dblink_exec('d21_holder',$setup$
   ('d2110000-0000-4000-8000-000000000006','d21-lock-member@example.test'),
   ('d2110000-0000-4000-8000-000000000007','d21-lock-admin@example.test'),
   ('d2110000-0000-4000-8000-000000000008','d21-lock-unrelated-member@example.test');
-  INSERT INTO public.platform_admins(user_id,role) VALUES('d2110000-0000-4000-8000-000000000001','super_admin');
+  INSERT INTO public.platform_operators(user_id) VALUES('d2110000-0000-4000-8000-000000000001');
   INSERT INTO public.organizations(id,name,created_by) VALUES
   ('d2110000-0000-4000-8000-000000000101','D21 lock A','d2110000-0000-4000-8000-000000000005'),
   ('d2110000-0000-4000-8000-000000000102','D21 lock B','d2110000-0000-4000-8000-000000000005');
@@ -100,33 +100,7 @@ SELECT is((SELECT user_id FROM public.organization_memberships WHERE organizatio
 SELECT is((SELECT result->'result'->>'status' FROM d21_results WHERE case_name='ordinary-platform'),'updated','ordinary-platform acknowledges current target state');
 SELECT is((SELECT result->'result'->>'from_user_id' FROM d21_results WHERE case_name='ordinary-platform'),'d2110000-0000-4000-8000-000000000006','ordinary-platform discovers the winner as its current owner');
 
--- promote-transfer: the loser reads only after the shared Organization lock.
-SELECT dblink_exec('d21_holder', $$UPDATE public.organization_memberships SET role=CASE user_id WHEN 'd2110000-0000-4000-8000-000000000005'::uuid THEN 'owner'::public.organization_role WHEN 'd2110000-0000-4000-8000-000000000006'::uuid THEN 'member'::public.organization_role WHEN 'd2110000-0000-4000-8000-000000000008'::uuid THEN 'member'::public.organization_role ELSE 'admin'::public.organization_role END,member_preset='viewer',capability_overrides='{}'::jsonb,access_scope_kind='organization',access_scope_group_ids=ARRAY[]::uuid[] WHERE organization_id='d2110000-0000-4000-8000-000000000101'$$);
-SELECT dblink_exec('d21_first', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
-INSERT INTO d21_results SELECT 'promote-transfer-winner',result FROM dblink('d21_first', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_promote_org_member('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006')$command$)$query$) AS r(result jsonb);
-SELECT dblink_exec('d21_second', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
-SELECT dblink_send_query('d21_second', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_transfer_org_ownership('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006','D21 lock A')$command$)$query$);
-SELECT ok(pg_temp.d21_wait('promote-transfer','second','first'),'promote-transfer actually waits on its winning transaction');
-SELECT dblink_exec('d21_first','COMMIT');
-INSERT INTO d21_results SELECT 'promote-transfer',result FROM dblink_get_result('d21_second') AS r(result jsonb);
-SELECT result FROM dblink_get_result('d21_second') AS r(result jsonb);
-SELECT dblink_exec('d21_second','COMMIT');
-SELECT is((SELECT user_id FROM public.organization_memberships WHERE organization_id='d2110000-0000-4000-8000-000000000101' AND role='owner'),'d2110000-0000-4000-8000-000000000006'::uuid,'promote-transfer leaves the expected sole owner');
-SELECT is((SELECT result->'result'->>'status' FROM d21_results WHERE case_name='promote-transfer'),'updated','promote-transfer acknowledges current target state');
 
--- transfer-promote: the loser reads only after the shared Organization lock.
-SELECT dblink_exec('d21_holder', $$UPDATE public.organization_memberships SET role=CASE user_id WHEN 'd2110000-0000-4000-8000-000000000005'::uuid THEN 'owner'::public.organization_role WHEN 'd2110000-0000-4000-8000-000000000006'::uuid THEN 'member'::public.organization_role WHEN 'd2110000-0000-4000-8000-000000000008'::uuid THEN 'member'::public.organization_role ELSE 'admin'::public.organization_role END,member_preset='viewer',capability_overrides='{}'::jsonb,access_scope_kind='organization',access_scope_group_ids=ARRAY[]::uuid[] WHERE organization_id='d2110000-0000-4000-8000-000000000101'$$);
-SELECT dblink_exec('d21_first', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
-INSERT INTO d21_results SELECT 'transfer-promote-winner',result FROM dblink('d21_first', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_transfer_org_ownership('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006','D21 lock A')$command$)$query$) AS r(result jsonb);
-SELECT dblink_exec('d21_second', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
-SELECT dblink_send_query('d21_second', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_promote_org_member('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006')$command$)$query$);
-SELECT ok(pg_temp.d21_wait('transfer-promote','second','first'),'transfer-promote actually waits on its winning transaction');
-SELECT dblink_exec('d21_first','COMMIT');
-INSERT INTO d21_results SELECT 'transfer-promote',result FROM dblink_get_result('d21_second') AS r(result jsonb);
-SELECT result FROM dblink_get_result('d21_second') AS r(result jsonb);
-SELECT dblink_exec('d21_second','COMMIT');
-SELECT is((SELECT user_id FROM public.organization_memberships WHERE organization_id='d2110000-0000-4000-8000-000000000101' AND role='owner'),'d2110000-0000-4000-8000-000000000006'::uuid,'transfer-promote leaves the expected sole owner');
-SELECT is((SELECT result->'result'->>'status' FROM d21_results WHERE case_name='transfer-promote'),'already_owner','transfer-promote acknowledges current target state');
 
 SELECT dblink_exec('d21_holder', $$UPDATE public.organization_memberships SET role=CASE user_id WHEN 'd2110000-0000-4000-8000-000000000005'::uuid THEN 'owner'::public.organization_role WHEN 'd2110000-0000-4000-8000-000000000006'::uuid THEN 'member'::public.organization_role WHEN 'd2110000-0000-4000-8000-000000000008'::uuid THEN 'member'::public.organization_role ELSE 'admin'::public.organization_role END,member_preset='viewer',capability_overrides='{}'::jsonb,access_scope_kind='organization',access_scope_group_ids=ARRAY[]::uuid[] WHERE organization_id='d2110000-0000-4000-8000-000000000101'$$);
 SELECT dblink_exec('d21_first', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
@@ -161,22 +135,20 @@ SELECT dblink_exec('d21_holder', $$BEGIN; SET LOCAL ROLE postgres; SET LOCAL "re
 SELECT dblink_exec('d21_holder',$$DO $body$ BEGIN PERFORM 1 FROM public.organizations WHERE id='d2110000-0000-4000-8000-000000000101' FOR UPDATE; END $body$;$$);
 SELECT dblink_exec('d21_first', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
 SELECT dblink_send_query('d21_first', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_transfer_org_ownership('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006','D21 lock A')$command$)$query$);
-SELECT ok(pg_temp.d21_wait('revoked-super','first','holder'),'revoked-super actually waits on its winning transaction');
-SELECT dblink_exec('d21_holder',$$UPDATE public.platform_admins SET role='support' WHERE user_id='d2110000-0000-4000-8000-000000000001'; COMMIT$$);
-INSERT INTO d21_results SELECT 'revoked-super',result FROM dblink_get_result('d21_first') AS r(result jsonb);
+SELECT ok(pg_temp.d21_wait('revoked-operator','first','holder'),'revoked-operator actually waits on its winning transaction');
+SELECT dblink_exec('d21_holder',$$DELETE FROM public.platform_operators WHERE user_id='d2110000-0000-4000-8000-000000000001'; COMMIT$$);
+INSERT INTO d21_results SELECT 'revoked-operator',result FROM dblink_get_result('d21_first') AS r(result jsonb);
 SELECT result FROM dblink_get_result('d21_first') AS r(result jsonb);
 SELECT dblink_exec('d21_first','ROLLBACK');
-SELECT is((SELECT result->>'code' FROM d21_results WHERE case_name='revoked-super'),'42501','platform transfer rechecks the role revoked during its lock wait');
-SELECT is((SELECT user_id FROM public.organization_memberships WHERE organization_id='d2110000-0000-4000-8000-000000000101' AND role='owner'),'d2110000-0000-4000-8000-000000000005'::uuid,'revoked super makes no membership change');
-SELECT dblink_exec('d21_holder',$$UPDATE public.platform_admins SET role='super_admin' WHERE user_id='d2110000-0000-4000-8000-000000000001'$$);
+SELECT is((SELECT result->>'code' FROM d21_results WHERE case_name='revoked-operator'),'42501','platform transfer rechecks operator membership revoked during its lock wait');
+SELECT is((SELECT user_id FROM public.organization_memberships WHERE organization_id='d2110000-0000-4000-8000-000000000101' AND role='owner'),'d2110000-0000-4000-8000-000000000005'::uuid,'revoked operator makes no membership change');
+SELECT dblink_exec('d21_holder',$$INSERT INTO public.platform_operators(user_id) VALUES ('d2110000-0000-4000-8000-000000000001')$$);
 SELECT dblink_exec('d21_first', $$BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
 INSERT INTO d21_results SELECT 'repeatable-read-platform-transfer',result FROM dblink('d21_first', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_transfer_org_ownership('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006','D21 lock A')$command$)$query$) AS r(result jsonb);
 SELECT dblink_exec('d21_first','ROLLBACK');
 SELECT is((SELECT result->>'code' FROM d21_results WHERE case_name='repeatable-read-platform-transfer'),'25000','repeatable-read-platform-transfer refuses stale-snapshot isolation');
 SELECT dblink_exec('d21_first', $$BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
-INSERT INTO d21_results SELECT 'repeatable-read-platform-promotion',result FROM dblink('d21_first', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_promote_org_member('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006')$command$)$query$) AS r(result jsonb);
 SELECT dblink_exec('d21_first','ROLLBACK');
-SELECT is((SELECT result->>'code' FROM d21_results WHERE case_name='repeatable-read-platform-promotion'),'25000','repeatable-read-platform-promotion refuses stale-snapshot isolation');
 SELECT dblink_exec('d21_first', $$BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'd2110000-0000-4000-8000-000000000005'$$);
 INSERT INTO d21_results SELECT 'repeatable-read-ordinary-transfer',result FROM dblink('d21_first', $query$SELECT d21_membership_test.capture($command$WITH changed AS (SELECT public.transfer_org_ownership('d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006')) SELECT jsonb_build_object('status','updated') FROM changed$command$)$query$) AS r(result jsonb);
 SELECT dblink_exec('d21_first','ROLLBACK');
@@ -186,9 +158,7 @@ INSERT INTO d21_results SELECT 'serializable-platform-transfer',result FROM dbli
 SELECT dblink_exec('d21_first','ROLLBACK');
 SELECT is((SELECT result->>'code' FROM d21_results WHERE case_name='serializable-platform-transfer'),'25000','serializable-platform-transfer refuses stale-snapshot isolation');
 SELECT dblink_exec('d21_first', $$BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
-INSERT INTO d21_results SELECT 'serializable-platform-promotion',result FROM dblink('d21_first', $query$SELECT d21_membership_test.capture($command$SELECT public.platform_promote_org_member('d2110000-0000-4000-8000-000000000001','d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006')$command$)$query$) AS r(result jsonb);
 SELECT dblink_exec('d21_first','ROLLBACK');
-SELECT is((SELECT result->>'code' FROM d21_results WHERE case_name='serializable-platform-promotion'),'25000','serializable-platform-promotion refuses stale-snapshot isolation');
 SELECT dblink_exec('d21_first', $$BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'd2110000-0000-4000-8000-000000000005'$$);
 INSERT INTO d21_results SELECT 'serializable-ordinary-transfer',result FROM dblink('d21_first', $query$SELECT d21_membership_test.capture($command$WITH changed AS (SELECT public.transfer_org_ownership('d2110000-0000-4000-8000-000000000101','d2110000-0000-4000-8000-000000000006')) SELECT jsonb_build_object('status','updated') FROM changed$command$)$query$) AS r(result jsonb);
 SELECT dblink_exec('d21_first','ROLLBACK');

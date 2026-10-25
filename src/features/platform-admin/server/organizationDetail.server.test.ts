@@ -22,7 +22,6 @@ function makeDependencies(): PlatformOrganizationDetailDependencies {
 		store: {
 			getOrganizationById: vi.fn(async (orgId) => (orgId === ORG_ID ? organization() : null))
 		},
-		adminRole: 'super_admin',
 		membershipReader: {
 			listMembers: vi.fn(async (orgId) =>
 				orgId === ORG_ID
@@ -33,7 +32,7 @@ function makeDependencies(): PlatformOrganizationDetailDependencies {
 					: [{ userId: 'other-owner', email: 'other@example.com', role: 'owner' as const }]
 			)
 		},
-		metrics: {
+		personnel: {
 			countActivePersonnelForOrganization: vi.fn(async (orgId) => (orgId === ORG_ID ? 7 : 12))
 		},
 		audit: {
@@ -59,7 +58,6 @@ describe('createPlatformOrganizationDetail', () => {
 		expect(result).toEqual({
 			status: 'found',
 			detail: {
-				adminRole: 'super_admin',
 				org: {
 					id: ORG_ID,
 					name: 'Able Company',
@@ -87,9 +85,8 @@ describe('createPlatformOrganizationDetail', () => {
 		});
 	});
 
-	it('preserves suspension state and support administrator identity', async () => {
+	it('preserves suspension state', async () => {
 		const deps = makeDependencies();
-		deps.adminRole = 'support';
 		vi.mocked(deps.store.getOrganizationById).mockResolvedValue(
 			organization({ suspended_at: '2026-06-08T16:00:00.000Z' })
 		);
@@ -97,7 +94,6 @@ describe('createPlatformOrganizationDetail', () => {
 		await expect(createPlatformOrganizationDetail(deps).getOrganizationDetail(ORG_ID)).resolves.toMatchObject({
 			status: 'found',
 			detail: {
-				adminRole: 'support',
 				org: { isSuspended: true, suspendedAt: '2026-06-08T16:00:00.000Z' }
 			}
 		});
@@ -116,7 +112,7 @@ describe('createPlatformOrganizationDetail', () => {
 			const readers = {
 				organization: deps.store.getOrganizationById,
 				membership: deps.membershipReader.listMembers,
-				personnel: deps.metrics.countActivePersonnelForOrganization,
+				personnel: deps.personnel.countActivePersonnelForOrganization,
 				audit: deps.audit.listRecentByOrganization
 			};
 			vi.mocked(readers[failure]).mockRejectedValueOnce(new Error('database unavailable'));

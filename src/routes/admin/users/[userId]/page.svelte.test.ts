@@ -30,7 +30,6 @@ afterEach(() => {
 
 function makePageData(overrides: Partial<PageData> = {}): PageData {
 	return {
-		adminRole: 'super_admin',
 		user: {
 			id: '11111111-1111-4111-8111-111111111111',
 			email: 'soldier@example.mil',
@@ -42,6 +41,9 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
 		organizations: [],
 		suspension: null,
 		isSuspended: false,
+		isSelf: false,
+		canSuspend: true,
+		suspendDisabledReason: null,
 		recentActivity: [],
 		...overrides
 	} as PageData;
@@ -148,18 +150,6 @@ describe('admin user detail page', () => {
 			expect(invalidateAll).toHaveBeenCalledOnce();
 		}
 	);
-
-	it('keeps support account assistance while hiding super-admin suspension controls', async () => {
-		const layOut = stubToolbarWidths();
-		render(Page, { props: { data: makePageData({ adminRole: 'support' }) } });
-		expect(screen.getByRole('button', { name: 'Send Password Reset' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Resend Invite' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'More User controls' })).toBeNull();
-		await layOut.foldAll();
-		const menu = within(await openToolbarMore('User controls'));
-		expect(menu.getByRole('menuitem', { name: 'Resend Invite' })).toBeTruthy();
-		expect(menu.queryByRole('menuitem', { name: /Suspend/ })).toBeNull();
-	});
 
 	it('refreshes the visible User state after suspension before offering unsuspension', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));

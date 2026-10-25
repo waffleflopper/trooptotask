@@ -3,6 +3,9 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
+-- This historical replay requires its predecessor table shape inside the rolled-back test.
+ALTER TABLE public.platform_operators RENAME TO platform_admins;
+ALTER TABLE public.platform_admins ADD COLUMN id uuid, ADD COLUMN role text DEFAULT 'support', ADD COLUMN is_active boolean DEFAULT true;
 INSERT INTO auth.users (id,email) VALUES
  ('b3000000-0000-4000-8000-000000000001','upgrade-support@example.test');
 INSERT INTO public.platform_admins (id,user_id,role,is_active) VALUES

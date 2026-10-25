@@ -1,4 +1,5 @@
-import type { AuditPort } from '$lib/audit/contracts';
+import type { AuditEvent } from '$lib/audit/contracts';
+import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { IdentityPlatformSupportReader, IdentityPlatformSuspensionCommands } from '$features/identity/contracts';
 import type {
 	OrganizationSupportReader,
@@ -46,7 +47,8 @@ export interface PlatformSupportAdministrationDependencies {
 	userSuspensionCommands: IdentityPlatformSuspensionCommands;
 	organizationSuspensionCommands: OrganizationSupportSuspensionCommands;
 	actorUserId: string;
-	audit: AuditPort;
+	audit: { log(event: AuditEvent): Promise<void> };
+	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	now?: () => Date;
 }
 

@@ -7,7 +7,8 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 const actorId = '10000000-0000-4000-8000-000000000001';
 const userId = '20000000-0000-4000-8000-000000000001';
 const orgId = '30000000-0000-4000-8000-000000000001';
-let role: string | null;
+let operator: boolean;
+let assurance: { currentLevel: 'aal1' | 'aal2'; nextLevel: 'aal1' | 'aal2' };
 let countUnavailable: boolean;
 let noMatches: boolean;
 let reads: URL[];
@@ -16,14 +17,20 @@ function event(query = 'Able', authenticated = true): Parameters<typeof GET>[0] 
 	const url = new URL('/admin/api/search', 'http://localhost:9');
 	url.searchParams.set('q', query);
 	return {
-		locals: { actor: authenticated ? { userId: actorId } : null, user: { id: 'forged-user' } },
+		locals: {
+			actor: authenticated ? { userId: actorId } : null,
+			user: { id: 'forged-user' },
+			supabase: { auth: { mfa: { getAuthenticatorAssuranceLevel: async () => ({ data: assurance, error: null }) } } },
+			session: null
+		},
 		url,
 		request: new Request(url),
 		getClientAddress: () => '127.0.0.1'
 	} as unknown as Parameters<typeof GET>[0];
 }
 beforeEach(() => {
-	role = 'support';
+	operator = true;
+	assurance = { currentLevel: 'aal2', nextLevel: 'aal2' };
 	countUnavailable = false;
 	noMatches = false;
 	reads = [];
@@ -38,10 +45,9 @@ beforeEach(() => {
 					const table = url.pathname.split('/').at(-1)!;
 					if (init?.body) bodies.set(table, JSON.parse(String(init.body)));
 					switch (table) {
-						case 'platform_admins':
+						case 'platform_operators':
 							expect(url.searchParams.get('user_id')).toBe(`eq.${actorId}`);
-							expect(url.searchParams.get('is_active')).toBe('eq.true');
-							return Response.json(role ? { role } : null);
+							return Response.json(operator ? { user_id: actorId } : null);
 						case 'search_users_by_email':
 							return Response.json(noMatches ? [] : [{ id: userId, email: 'able@example.test' }]);
 						case 'organizations':
@@ -61,26 +67,22 @@ beforeEach(() => {
 		})
 	);
 });
-describe('admitted support search source composition', () => {
-	it.each(['support', 'super_admin'])(
-		'returns correct scoped counts for current %s using batched sources',
-		async (currentRole) => {
-			role = currentRole;
-			const response = await GET(event('Able'));
-			expect(response.status).toBe(200);
-			expect(await response.json()).toEqual({
-				users: [{ id: userId, email: 'able@example.test', orgCount: 2 }],
-				organizations: [{ id: orgId, name: 'Able Clinic', personnelCount: 3 }]
-			});
-			expect(bodies.get('search_users_by_email')).toEqual({ search_query: 'Able', max_results: 5 });
-			expect(bodies.get('count_personnel_by_organization')).toEqual({ p_org_ids: [orgId] });
-			expect(reads.filter((url) => !url.pathname.endsWith('/platform_admins'))).toHaveLength(4);
-		}
-	);
+describe('admitted operator search source composition', () => {
+	it('returns correct scoped counts using batched sources', async () => {
+		const response = await GET(event('Able'));
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			users: [{ id: userId, email: 'able@example.test', orgCount: 2 }],
+			organizations: [{ id: orgId, name: 'Able Clinic', personnelCount: 3 }]
+		});
+		expect(bodies.get('search_users_by_email')).toEqual({ search_query: 'Able', max_results: 5 });
+		expect(bodies.get('count_personnel_by_organization')).toEqual({ p_org_ids: [orgId] });
+		expect(reads.filter((url) => !url.pathname.endsWith('/platform_operators'))).toHaveLength(4);
+	});
 	it('does not query source records for a short search', async () => {
 		const response = await GET(event('Ab'));
 		expect(await response.json()).toEqual({ users: [], organizations: [] });
-		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_admins']);
+		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_operators']);
 	});
 	it('returns empty search results when neither source has a match', async () => {
 		noMatches = true;
@@ -88,13 +90,21 @@ describe('admitted support search source composition', () => {
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ users: [], organizations: [] });
 	});
-	it.each([null, 'billing'])('denies current role %s before even an empty search', async (currentRole) => {
-		role = currentRole;
+	it('denies a non-operator before even an empty search', async () => {
+		operator = false;
 		await expect(GET(event(''))).rejects.toMatchObject({ status: 403 });
-		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_admins']);
+		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_operators']);
 	});
-	it('redirects a missing verified actor before any provider read', async () => {
-		await expect(GET(event('Able', false))).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+	it('sends an operator without a verified second factor to MFA before any source read', async () => {
+		assurance = { currentLevel: 'aal1', nextLevel: 'aal2' };
+		await expect(GET(event('Able'))).rejects.toMatchObject({
+			status: 403,
+			body: { requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }
+		});
+		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_operators']);
+	});
+	it('refuses a missing verified actor before any provider read', async () => {
+		await expect(GET(event('Able', false))).rejects.toMatchObject({ status: 403 });
 		expect(reads).toEqual([]);
 	});
 	it('does not publish zero personnel counts when the source read fails', async () => {

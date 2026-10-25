@@ -26,11 +26,9 @@ FROM (VALUES
 	('10000000-0000-4000-8000-000000136807', 'communications-alpha-peer@example.test')
 ) AS fixture(id, email);
 
-INSERT INTO public.platform_admins (user_id, role, is_active)
-VALUES
-	('10000000-0000-4000-8000-000000136803', 'super_admin', true),
-	('10000000-0000-4000-8000-000000136804', 'support', true),
-	('10000000-0000-4000-8000-000000136806', 'support', false);
+INSERT INTO public.platform_operators(user_id) VALUES
+ ('10000000-0000-4000-8000-000000136803'),
+ ('10000000-0000-4000-8000-000000136804');
 
 INSERT INTO public.organizations (id, name, created_by, url_slug)
 VALUES
@@ -271,11 +269,12 @@ SELECT lives_ok(
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136804', true);
+SELECT set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 
 SELECT results_eq(
 	$$ SELECT id FROM public.beta_feedback ORDER BY id $$,
 	$$ VALUES ('50000000-0000-4000-8000-000000136801'::uuid), ('50000000-0000-4000-8000-000000136802'::uuid), ('50000000-0000-4000-8000-000000136803'::uuid), ('50000000-0000-4000-8000-000000136804'::uuid), ('50000000-0000-4000-8000-000000136805'::uuid), ('50000000-0000-4000-8000-000000136806'::uuid) $$,
-	'active support reviewer reads feedback across accounts and Organizations'
+	'operator reads feedback across accounts and Organizations'
 );
 
 WITH changed AS (
@@ -284,42 +283,41 @@ WITH changed AS (
 )
 SELECT ok(
 	(SELECT status = 'reviewed' AND admin_notes = 'Support triage' FROM changed),
-	'active support reviewer can persist review status and notes'
+	'operator can persist review status and notes'
 );
 
--- Provider content writes allow active Platform admins. HTTP announcement
--- administration is separately restricted to super_admin; do not conflate them.
+-- Operator membership authorizes the platform content writer.
 SELECT lives_ok(
 	$$ INSERT INTO public.platform_announcements (id, title, message, created_by)
 	VALUES ('40000000-0000-4000-8000-000000136804', 'Support-created content', 'Provider permission', '10000000-0000-4000-8000-000000136804') $$,
-	'current content provider permits active support admin insertion'
+	'current content provider permits operator insertion'
 );
 
 WITH changed AS (
 	UPDATE public.platform_announcements SET is_active = false
 	WHERE id = '40000000-0000-4000-8000-000000136804' RETURNING is_active
 )
-SELECT is((SELECT is_active FROM changed), false, 'active Platform admin can update content');
+SELECT is((SELECT is_active FROM changed), false, 'operator can update content');
 
 WITH removed AS (
 	DELETE FROM public.platform_announcements
 	WHERE id = '40000000-0000-4000-8000-000000136804' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM removed), 1, 'active Platform admin can delete content');
+SELECT is((SELECT count(*)::integer FROM removed), 1, 'operator can delete content');
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136806', true);
-SELECT is((SELECT count(*)::integer FROM public.beta_feedback), 0, 'inactive Platform admin cannot read others feedback');
+SELECT is((SELECT count(*)::integer FROM public.beta_feedback), 0, 'non-operator cannot read others feedback');
 
 WITH changed AS (
 	UPDATE public.beta_feedback SET status = 'resolved'
 	WHERE id = '50000000-0000-4000-8000-000000136802' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM changed), 0, 'inactive Platform admin cannot review feedback');
+SELECT is((SELECT count(*)::integer FROM changed), 0, 'non-operator cannot review feedback');
 
 SELECT throws_ok(
 	$$ INSERT INTO public.platform_announcements (title, message, created_by)
 	VALUES ('Inactive admin content', 'Blocked', '10000000-0000-4000-8000-000000136806') $$,
-	'42501', NULL, 'inactive Platform admin cannot create content'
+	'42501', NULL, 'non-operator cannot create content'
 );
 
 SET LOCAL ROLE anon;
@@ -371,6 +369,7 @@ VALUES
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000136804', true);
+SELECT set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 SELECT lives_ok(
 	$$ DELETE FROM public.platform_announcements WHERE id = '40000000-0000-4000-8000-000000136801' $$,
 	'authorized content deletion succeeds with account dismissals present'

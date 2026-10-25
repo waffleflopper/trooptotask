@@ -24,7 +24,7 @@
 	let showSuspendModal = $state(false);
 	let showTransferModal = $state(false);
 	let navigationLifetime = $state(0);
-	const canAdminister = $derived(data.adminRole === 'super_admin');
+	const canAdminister = true;
 	const toolbarItems = $derived<ToolbarItem[]>(
 		canAdminister
 			? [

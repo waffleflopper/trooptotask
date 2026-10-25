@@ -9,20 +9,16 @@ import {
 
 /** Bind the hook-verified administrator and request assurance at the server delivery edge. */
 export async function createPlatformOrganizationMembershipCommands(event: RequestEvent) {
-	const { actor, adminClient, requestInfo } = await admitPlatformAdministrator(
-		event,
-		['super_admin'],
-		'Super-admin access is required'
-	);
+	const { actor, adminClient, requestInfo } = await admitPlatformAdministrator(event);
 	const administration = createOrganizationPlatformMembershipAdministration({
-		actor: { userId: actor.userId, role: 'super_admin' },
+		actor: { userId: actor.userId },
 		port: createSupabaseOrganizationPlatformMembershipPort(adminClient),
 		sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
 			supabase: event.locals.supabase,
 			session: event.locals.session,
 			authenticatedUserId: actor.userId
 		}),
-		audit: { log: (entry) => auditLog(entry, requestInfo) }
+		audit: { log: (entry) => auditLog(entry, requestInfo, { required: true }) }
 	});
-	return { makeAdmin: administration.makeAdmin, transferOwnership: administration.transferOwnership };
+	return { transferOwnership: administration.transferOwnership };
 }

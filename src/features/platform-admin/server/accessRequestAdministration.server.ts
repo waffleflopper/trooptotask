@@ -69,7 +69,7 @@ export interface PlatformAccessRequestAdministrationDependencies {
 		adminUserId: string;
 		accessRequestId: string;
 	}) => Promise<PlatformAccessRequestRateLimitDecision>;
-	audit: (event: PlatformAccessRequestAdministrationAuditEvent) => void;
+	audit: (event: PlatformAccessRequestAdministrationAuditEvent) => Promise<void>;
 	notifyGovernors: PlatformAccessRequestGovernorNotifier;
 	now?: () => Date;
 }
@@ -400,7 +400,7 @@ async function authorizeSetupSend(
 		return { ok: true, sensitiveAction: details };
 	}
 
-	deps.audit({
+	await deps.audit({
 		action:
 			input.action === 'approval'
 				? 'access_request.account_setup_approval_authorization_denied'
@@ -442,7 +442,7 @@ async function checkSetupSendRateLimit(
 	});
 	const details = platformAccessRequestRateLimitAuditDetails(decision);
 	if (decision.limited) {
-		deps.audit({
+		await deps.audit({
 			action:
 				input.action === 'approval'
 					? 'access_request.account_setup_approval_rate_limited'
@@ -522,7 +522,7 @@ async function authorizeWithdrawal(
 		return { ok: true };
 	}
 
-	deps.audit({
+	await deps.audit({
 		action:
 			input.action === 'reject'
 				? 'access_request.rejection_authorization_denied'
@@ -593,7 +593,7 @@ export function createPlatformAccessRequestAdministration(
 				});
 				if (approved !== 'approved') return { status: 'already_reviewed' };
 
-				deps.audit({
+				await deps.audit({
 					action: 'access_request.approved',
 					resourceType: 'access_request',
 					resourceId: input.accessRequestId,
@@ -674,7 +674,7 @@ export function createPlatformAccessRequestAdministration(
 				if (rejectResult.status === 'not_found') return { status: 'already_reviewed' };
 				if (rejectResult.status === 'failed') return { status: 'failed' };
 
-				deps.audit({
+				await deps.audit({
 					action: 'access_request.rejected',
 					resourceType: 'access_request',
 					resourceId: input.accessRequestId,
@@ -709,7 +709,7 @@ export function createPlatformAccessRequestAdministration(
 				if (rescindResult.status === 'claim-held') return { status: 'claim_held' };
 				if (rescindResult.status === 'failed') return { status: 'failed' };
 
-				deps.audit({
+				await deps.audit({
 					action: 'access_request.rescinded',
 					resourceType: 'access_request',
 					resourceId: input.accessRequestId,

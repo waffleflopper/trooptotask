@@ -78,11 +78,12 @@ private sink (`mail state`, `mail fail setup`).
    the item was already closed and changes nothing.
 5. **Done.** Choose the Done tab. Expected: only items closed in the last 30 days, newest closed first (the closed
    Feedback, then the rejected, then the approved request); URL `tab=done`; any open item is dropped from the URL; no
-   buttons on any detail; the chips count Done items. The seeded `completed` request has no review time, so it is not in
-   Done. With the read held (`arm-hold PAGE admin-inbox-read`, then choose Done) the list shows its skeleton at once,
-   never the Open rows.
-6. **Back and reload.** Open an item, press the browser Back: the item closes and the list stays. At 390 the item is
-   full screen with `Inbox` as a back button that does the same. Reload with an item in the URL: the same item opens.
+   buttons on any detail; the chips count Done items while the header sentence keeps the open count. The seeded
+   `completed` request has no review time, so it is not in Done. With the read held (`arm-hold PAGE admin-inbox-read`,
+   then choose Done) the list shows its skeleton at once, never the Open rows.
+6. **Back and reload.** Open an item, press the browser Back: the item closes and the list stays. At 390, scrolled down
+   the list, the list returns at the same scroll position with focus on the row. At 390 the item is full screen with
+   `Inbox` as a back button that does the same. Reload with an item in the URL: the same item opens.
 7. **Loading and errors.** `$V network arm-hold PAGE admin-inbox-item-read`, then pick a row: the detail region shows
    its skeleton while the list stays interactive; pick a second row and release: only the second row's detail shows.
    `arm-fail` on the item read shows a `Try again` button that recovers after `restore`. With a Feedback item open, arm

@@ -30,9 +30,9 @@
 		{/each}
 	</div>
 	<h2
-		class="font-heading text-[34px] leading-9 font-bold break-words text-foreground max-sm:text-[28px] max-sm:leading-8"
+		class="font-heading text-[34px] leading-9 font-bold wrap-anywhere text-foreground max-sm:text-[28px] max-sm:leading-8"
 	>
 		{title}
 	</h2>
-	<p class="font-mono text-xs break-words text-muted-foreground">{meta}</p>
+	<p class="font-mono text-xs wrap-anywhere text-muted-foreground">{meta}</p>
 </header>

@@ -39,6 +39,9 @@
 
 	const queue = settleRead(() => ({ source: data.sources, group: data.tab, promise: gather(data.sources) }));
 	const stats = settleRead(() => ({ source: data.stats, group: 'stats', promise: data.stats }));
+	// The badge's count, so the sentence matches it on either tab.
+	const openCount = settleRead(() => ({ source: data.inboxOpenCount, group: 'open', promise: data.inboxOpenCount }));
+	const openTotal = $derived(openCount.settled?.value);
 
 	// The tab a click asked for, until its load arrives, so the panel shows its skeleton at once instead of staying empty.
 	let requestedTab = $state<InboxTab | null>(null);
@@ -52,11 +55,13 @@
 	const selected = $derived(parseInboxItemKey(page.url.searchParams.get('item')));
 	const shownKinds = $derived(filter === 'all' ? INBOX_KINDS : INBOX_KINDS.filter((kind) => kind === filter));
 
-	// Counts come from the Open read; a count is only honest when its source answered.
+	// The chips count the tab on screen; a count is only honest when its source answered.
 	const counts = $derived.by(() => {
-		const open = queue.settled?.group === 'open' ? queue.settled.value : null;
 		const byKind = Object.fromEntries(
-			INBOX_KINDS.map((kind) => [kind, open ? (open[kind].status === 'ok' ? open[kind].count : undefined) : null])
+			INBOX_KINDS.map((kind) => [
+				kind,
+				results ? (results[kind].status === 'ok' ? results[kind].count : undefined) : null
+			])
 		) as Record<InboxKind, number | null | undefined>;
 		const values = Object.values(byKind);
 		const total = values.some((count) => count === null)
@@ -68,11 +73,11 @@
 	});
 
 	const filterOptions = $derived([
-		{ value: 'all' as const, label: 'All', count: tab === 'open' ? counts.total : undefined },
+		{ value: 'all' as const, label: 'All', count: counts.total },
 		...INBOX_KINDS.map((kind) => ({
 			value: kind,
 			label: INBOX_KIND_VIEWS[kind].filterLabel,
-			count: tab === 'open' ? counts.byKind[kind] : undefined
+			count: counts.byKind[kind]
 		}))
 	]);
 
@@ -93,7 +98,7 @@
 		today = new Date();
 	});
 	const eyebrow = $derived.by(() => {
-		if (phone.current) return typeof counts.total === 'number' ? `Platform · ${counts.total} open` : 'Platform';
+		if (phone.current) return typeof openTotal === 'number' ? `Platform · ${openTotal} open` : 'Platform';
 		if (!today) return 'Platform';
 		const date = today.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
 		return `Platform · ${date}`;
@@ -102,6 +107,7 @@
 
 	// Back from a phone's full-screen item returns through history only when this page pushed the entry.
 	let pushedItem = false;
+	let listScroll = 0;
 
 	function show(state: { tab: InboxTab; filter: InboxFilter; item: InboxItemRef | null }, replaceState: boolean) {
 		return goto(resolve(inboxHref(state) as '/admin'), { replaceState, noScroll: true, keepFocus: true });
@@ -117,6 +123,8 @@
 	function selectItem(item: InboxItemRef) {
 		const replaceState = selected !== null;
 		pushedItem = !replaceState;
+		// Read before the item hides the list, which would clamp the scroll to the item's height.
+		if (singlePane.current && !replaceState) listScroll = document.getElementById('main-content')?.scrollTop ?? 0;
 		void show({ tab, filter, item }, replaceState);
 	}
 
@@ -134,7 +142,6 @@
 	// With one pane showing, the item replaces the list: focus and scroll follow it there and back.
 	let detailRegion = $state<HTMLElement | null>(null);
 	let previousKey: string | null = null;
-	let listScroll = 0;
 	$effect(() => {
 		const key = selected ? inboxItemKey(selected) : null;
 		const leaving = previousKey;
@@ -142,7 +149,6 @@
 		if (!singlePane.current || key === leaving) return;
 		const scroller = document.getElementById('main-content');
 		if (key && !leaving) {
-			listScroll = scroller?.scrollTop ?? 0;
 			void tick().then(() => {
 				scroller?.scrollTo({ top: 0 });
 				detailRegion?.focus({ preventScroll: true });
@@ -163,12 +169,12 @@
 </svelte:head>
 
 {#snippet summary()}
-	{#if counts.total === null}
+	{#if openTotal === undefined}
 		<Skeleton class="h-6 w-[30rem] max-w-full" />
-	{:else if counts.total === undefined}
-		Part of the Inbox could not be counted.
+	{:else if openTotal === null}
+		The Inbox could not be counted.
 	{:else}
-		{waitingSentence(counts.total)}
+		{waitingSentence(openTotal)}
 	{/if}
 {/snippet}
 

@@ -133,7 +133,7 @@
 						<span
 							id="{key}-title"
 							class={cn(
-								'text-[15px] leading-[22px] max-sm:text-base max-sm:leading-6 max-sm:font-semibold',
+								'text-[15px] leading-[22px] wrap-anywhere max-sm:text-base max-sm:leading-6 max-sm:font-semibold',
 								isSelected && 'font-semibold'
 							)}>{item.title}</span
 						>

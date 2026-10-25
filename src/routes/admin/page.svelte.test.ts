@@ -53,6 +53,7 @@ function pageData(
 ) {
 	return {
 		tab: 'open' as const,
+		inboxOpenCount: Promise.resolve<number | null>(2),
 		stats: Promise.resolve<InboxStatsResult>({ status: 'ok', newPeople: 4, newOrganizations: 2 }),
 		sources: {
 			accessRequest: ok<'accessRequest'>([request as never]),
@@ -204,6 +205,31 @@ describe('Inbox page', () => {
 		expect(screen.getByRole('status', { name: 'Loading Inbox' })).toBeTruthy();
 		expect(itemLinks()).toEqual([]);
 		expect(screen.getByRole('tab', { name: 'Done' }).getAttribute('aria-selected')).toBe('true');
+	});
+
+	it('counts Done items on the Done chips while the sentence keeps the open count', async () => {
+		const sentence = () => document.querySelector('[data-slot="page-header-subtitle"]')?.textContent?.trim();
+		render(Page, { props: { data: pageData() as never } });
+		await waitFor(() => expect(sentence()).toBeTruthy());
+		const onOpen = sentence();
+		cleanup();
+
+		render(Page, {
+			props: {
+				data: pageData({
+					tab: 'done',
+					sources: {
+						accessRequest: ok<'accessRequest'>([]),
+						feedback: ok<'feedback'>([{ ...feedback, closedAt: '2026-10-30T09:00:00Z' } as never])
+					}
+				}) as never
+			}
+		});
+
+		await waitFor(() => expect(sentence()).toBe(onOpen));
+		const filter = screen.getByRole('radiogroup', { name: 'Filter by kind' });
+		expect(await within(filter).findByRole('radio', { name: 'All · 1' })).toBeTruthy();
+		expect(within(filter).getByRole('radio', { name: 'Feedback · 1' })).toBeTruthy();
 	});
 
 	it('shows an empty Done tab as empty rather than loading', async () => {

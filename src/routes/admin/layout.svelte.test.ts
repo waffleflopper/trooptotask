@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { Window as HappyDOMWindow } from 'happy-dom';
-import { createRawSnippet } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 
 const navigation = vi.hoisted(() => ({
@@ -133,8 +133,10 @@ describe('admin layout', () => {
 	});
 
 	it.each([0, null])('leaves the Inbox link bare when the count is %s', async (count) => {
-		renderLayout(Promise.resolve(count));
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		const pending = Promise.resolve(count);
+		renderLayout(pending);
+		await pending;
+		await tick();
 
 		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
 		expect(within(nav).getByRole('link', { name: 'Inbox' })).toBeTruthy();

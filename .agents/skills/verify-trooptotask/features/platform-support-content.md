@@ -31,20 +31,19 @@ platform actors and ordinary `orgMember` may enter `admin` and `admin/announceme
 admission and denial. `platform-content` accepts no targets and reads only helper-recorded communications announcements
 or rows created by this worker's synthetic operator. It provides privileged persistence readback separately from native
 interaction and ordinary authorization. Fixed same-origin form controls `admin-announcements/create|toggle|delete` and
-`admin-feedback/update` bind only the named POST action; their failure/hold modes reuse the existing SvelteKit
-envelopes. `arm-reject` rejects one scoped request before dispatch. `arm-fail-400` returns the same failure envelope
-with status 400, a rejected save that leaves its retry open. A 5xx or missing save reply blocks new writes until the
-visible read-only Reload succeeds.
-`content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackUpdate RECORDED_UUID JSON`
-submits bounded ordinary HTTP actions against helper-recorded targets, separately from native UI proof.
-`admin-audit-read`, `admin-dashboard-read`, `admin-users-read`, `admin-organizations-read`, `admin-feedback-read`,
-`admin-announcements-read`, `admin-user-detail-read` (`orgInvitee`) and `admin-organization-detail-read` (the
-`seed platform-admin` Organization) control only their exact page-data navigation with failure, hold or observation.
-`arm-fail` replaces the response with a transport 503, which SvelteKit renders on the root error page; `arm-load-error`
-dispatches the real read and returns its page node as a 503 server-load error, which renders the nearest route error
-page. Restore hooks, original flags and UI-created announcement rows before owned cleanup. Run
-`node --test .agents/skills/verify-trooptotask/helpers/platform-network-target.test.mjs` for target isolation and
-explicit retry.
+`admin-inbox/close` bind only the named POST action; their failure/hold modes reuse the existing SvelteKit envelopes.
+`arm-reject` rejects one scoped request before dispatch. `arm-fail-400` returns the same failure envelope with status
+400, a rejected save that leaves its retry open. A 5xx or missing save reply blocks new writes until the visible
+read-only Reload succeeds.
+`content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackClose RECORDED_UUID JSON` submits
+bounded ordinary HTTP actions against helper-recorded targets, separately from native UI proof. `admin-audit-read`,
+`admin-inbox-read`, `admin-users-read`, `admin-organizations-read`, `admin-announcements-read`, `admin-user-detail-read`
+(`orgInvitee`) and `admin-organization-detail-read` (the `seed platform-admin` Organization) control only their exact
+page-data navigation with failure, hold or observation. `arm-fail` replaces the response with a transport 503, which
+SvelteKit renders on the root error page; `arm-load-error` dispatches the real read and returns its page node as a 503
+server-load error, which renders the nearest route error page. Restore hooks, original flags and UI-created announcement
+rows before owned cleanup. Run `node --test .agents/skills/verify-trooptotask/helpers/platform-network-target.test.mjs`
+for target isolation and explicit retry.
 
 ## Driving it with verify:app
 
@@ -62,21 +61,21 @@ reads are separate persistence proof, never ordinary authorization proof. `$V se
 records plus old, excluded and B witnesses for server paging/filtering; preserve its returned action and exact IDs.
 
 The existing `network` helper supports same-origin form families `admin-announcements/create`,
-`admin-announcements/toggle`, `admin-announcements/delete` and `admin-feedback/update`. Each binds the exact route,
-named action and POST. `arm-fail` returns one synthetic SvelteKit 503 failure before dispatch, `arm-hold` delays a real
-response and `arm-hold-fail` delays a synthetic failure. `admin-audit-read` and `admin-dashboard-read` bind only their
-exact page-data paths and support `arm-fail`, `arm-hold` and `arm-observe`. These are browser transport controls. They
+`admin-announcements/toggle`, `admin-announcements/delete` and `admin-inbox/close`. Each binds the exact route, named
+action and POST. `arm-fail` returns one synthetic SvelteKit 503 failure before dispatch, `arm-hold` delays a real
+response and `arm-hold-fail` delays a synthetic failure. `admin-audit-read` and `admin-inbox-read` bind only their exact
+page-data paths and support `arm-fail`, `arm-hold` and `arm-observe`. These are browser transport controls. They
 establish neither provider atomicity nor server query-error handling. Restore each hook before another journey or
 cleanup.
 
 Content form families also support `arm-reject`, which rejects one request before dispatch without an HTTP status. An
 unconfirmed save requires authoritative readback before another mutation; use the visible Reload control and verify that
 it sends no POST. Keep this transport evidence separate from provider rejection.
-`$V content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackUpdate RECORDED_UUID JSON`
+`$V content-request PAGE announcementCreate|announcementToggle|announcementDelete|feedbackClose RECORDED_UUID JSON`
 sends ordinary authenticated same-origin form requests without applying the reply to UI. Announcement targets must be
 current communications seeds or rows saved by this worker's reviewer; Feedback targets must belong to this worker's
 synthetic accounts. Target IDs cannot be overridden in JSON. Use exact saved IDs to prove denied
-create/toggle/delete/review requests preserve rows, separately from native controls. `announcementToggle` accepts only
+create/toggle/delete/close requests preserve rows, separately from native controls. `announcementToggle` accepts only
 `{"isActive":"true"|"false"}`, the desired state the native form posts; the recorded target `id` is added by the helper.
 `platform-content` includes saved `updated_by` for actor attribution.
 

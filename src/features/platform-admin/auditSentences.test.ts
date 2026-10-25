@@ -50,6 +50,28 @@ describe('describeAuditEvent', () => {
 		expect(activityScope(null).actions).toContain('feedback.closed_without_reply');
 	});
 
+	it.each([
+		['whats_new_create', 'drafted the', 'info'],
+		['whats_new_update', 'edited the', 'info'],
+		['whats_new_publish', 'published the', 'info'],
+		['whats_new_delete', 'deleted the draft', 'warning']
+	] as const)('attributes %s to the operator who made the change', (action, verb, severity) => {
+		const row = event({
+			action,
+			severity,
+			resourceType: 'whats_new_entry',
+			resourceId: null,
+			details: { title: 'October update', entryId: 'entry-1', actorEmail: 'robert@example.test' }
+		});
+
+		expect(describeAuditEvent(row).sentence).toBe(`robert@example.test ${verb} What's New entry October update`);
+		expect(describeAuditEvent(row, { viewerId: row.userId }).sentence).toBe(
+			`You ${verb} What's New entry October update`
+		);
+		expect(describeAuditEvent(row).severity).toBe(severity);
+		expect(activityScope(null).actions).toContain(action);
+	});
+
 	it('falls back to short IDs for an event written before labels were stored', () => {
 		const described = describeAuditEvent(event());
 

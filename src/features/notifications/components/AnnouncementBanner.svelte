@@ -4,6 +4,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
+	import AnnouncementBannerRow from './AnnouncementBannerRow.svelte';
 
 	let {
 		announcements,
@@ -68,29 +69,13 @@
 	function dismissErrorId(id: string) {
 		return `dismiss-announcement-error-${id}`;
 	}
-
-	function variantFor(type: Announcement['type']) {
-		return type === 'maintenance' ? 'destructive' : type;
-	}
 </script>
 
 {#if visibleAnnouncements.length > 0}
 	{#each visibleAnnouncements as announcement (announcement.id)}
 		{@const failed = failedDismissals.includes(announcement.id)}
-		<Alert.Root variant={variantFor(announcement.type)} class="rounded-none border-x-0 border-t-0 px-0 py-0">
-			<div
-				class="mx-auto flex w-full max-w-[1680px] flex-wrap items-start gap-3 px-4 py-3 sm:flex-nowrap sm:items-center sm:px-6"
-			>
-				<span class="mt-1 h-auto w-0.5 self-stretch rounded-full bg-current opacity-70 sm:mt-0"></span>
-				<div class="min-w-0 flex-1 text-sm leading-6">
-					<Alert.Title class="inline font-mono text-xs font-semibold tracking-wide uppercase">
-						{announcement.title}
-					</Alert.Title>
-					<span class="mx-1 text-muted-foreground">-</span>
-					<Alert.Description class="inline text-sm text-current">
-						{announcement.message}
-					</Alert.Description>
-				</div>
+		<AnnouncementBannerRow {announcement}>
+			{#snippet action()}
 				<!-- aria-disabled keeps focus on the pressed button while the dismissal is pending. -->
 				<Button
 					id={dismissId(announcement.id)}
@@ -106,15 +91,17 @@
 					<XIcon aria-hidden="true" class="size-3" />
 					Dismiss
 				</Button>
-			</div>
-			{#if failed}
-				<div class="mx-auto w-full max-w-[1680px] px-4 pb-3 sm:px-6">
-					<!-- The banner's own alert announces the failure, so this one is not a second live region. -->
-					<Alert.Root variant="destructive" role={undefined} id={dismissErrorId(announcement.id)}>
-						<Alert.Description>Could not dismiss announcement. Try again.</Alert.Description>
-					</Alert.Root>
-				</div>
-			{/if}
-		</Alert.Root>
+			{/snippet}
+			{#snippet below()}
+				{#if failed}
+					<div class="mx-auto w-full max-w-[1680px] px-4 pb-3 sm:px-6">
+						<!-- The banner's own alert announces the failure, so this one is not a second live region. -->
+						<Alert.Root variant="destructive" role={undefined} id={dismissErrorId(announcement.id)}>
+							<Alert.Description>Could not dismiss announcement. Try again.</Alert.Description>
+						</Alert.Root>
+					</div>
+				{/if}
+			{/snippet}
+		</AnnouncementBannerRow>
 	{/each}
 {/if}

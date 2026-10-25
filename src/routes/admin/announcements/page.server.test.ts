@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { isHttpError } from '@sveltejs/kit';
 import type { PageData } from './$types';
 
 const { announcementsMock, createAnnouncementsMock } = vi.hoisted(() => {
 	const announcements = {
 		list: vi.fn(),
+		dismissalCounts: vi.fn(),
 		create: vi.fn(),
 		setActive: vi.fn(),
 		delete: vi.fn()
@@ -37,34 +37,23 @@ describe('admin announcements route shell', () => {
 		vi.clearAllMocks();
 	});
 
-	it('load returns the PlatformAnnouncements list model in the existing page shape', async () => {
-		announcementsMock.list.mockResolvedValueOnce([
-			{
-				id: ANNOUNCEMENT_ID,
-				title: 'Readiness update',
-				message: 'Brief at 0900',
-				type: 'info',
-				isActive: true,
-				createdAt: '2026-06-03T10:00:00.000Z',
-				expiresAt: null
-			}
-		]);
+	it('load streams the banners and the per-banner dismissal counts', async () => {
+		const banner = {
+			id: ANNOUNCEMENT_ID,
+			title: 'Readiness update',
+			message: 'Brief at 0900',
+			type: 'info',
+			isActive: true,
+			createdAt: '2026-06-03T10:00:00.000Z',
+			expiresAt: null
+		};
+		announcementsMock.list.mockResolvedValueOnce([banner]);
+		announcementsMock.dismissalCounts.mockResolvedValueOnce({ [ANNOUNCEMENT_ID]: 3 });
 
-		const result = (await load({} as unknown as Parameters<typeof load>[0])) as PageData;
+		const result = (await load({} as unknown as Parameters<typeof load>[0])) as unknown as PageData;
 
-		expect(result).toEqual({
-			announcements: [
-				{
-					id: ANNOUNCEMENT_ID,
-					title: 'Readiness update',
-					message: 'Brief at 0900',
-					type: 'info',
-					is_active: true,
-					created_at: '2026-06-03T10:00:00.000Z',
-					expires_at: null
-				}
-			]
-		});
+		await expect(result.banners).resolves.toEqual({ status: 'loaded', announcements: [banner] });
+		await expect(result.dismissals).resolves.toEqual({ status: 'loaded', counts: { [ANNOUNCEMENT_ID]: 3 } });
 	});
 
 	it('preserves validation failures before calling the announcement use case', async () => {
@@ -144,18 +133,23 @@ describe('admin announcements route shell', () => {
 		expect(consoleError).toHaveBeenCalledWith('Failed to delete announcement', expect.any(Error));
 		consoleError.mockRestore();
 	});
-	it('reports a failed collection read without disclosing provider details', async () => {
+	it('reports each failed read as its own region without disclosing provider details', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		announcementsMock.list.mockRejectedValueOnce(new Error('private provider failure'));
-		try {
-			await load({} as Parameters<typeof load>[0]);
-			expect.unreachable('Expected failed collection load');
-		} catch (cause) {
-			expect(isHttpError(cause, 500)).toBe(true);
-			if (!isHttpError(cause)) throw cause;
-			expect(cause.body.message).not.toContain('private provider');
-		} finally {
-			consoleError.mockRestore();
-		}
+		announcementsMock.dismissalCounts.mockResolvedValueOnce({});
+		const result = (await load({} as Parameters<typeof load>[0])) as unknown as PageData;
+		await expect(result.banners).resolves.toEqual({ status: 'failed' });
+		await expect(result.dismissals).resolves.toEqual({ status: 'loaded', counts: {} });
+		consoleError.mockRestore();
+	});
+
+	it('keeps the banners when only the dismissal counts fail', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		announcementsMock.list.mockResolvedValueOnce([]);
+		announcementsMock.dismissalCounts.mockRejectedValueOnce(new Error('private provider failure'));
+		const result = (await load({} as Parameters<typeof load>[0])) as unknown as PageData;
+		await expect(result.banners).resolves.toEqual({ status: 'loaded', announcements: [] });
+		await expect(result.dismissals).resolves.toEqual({ status: 'failed' });
+		consoleError.mockRestore();
 	});
 });

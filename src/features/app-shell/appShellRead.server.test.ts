@@ -80,6 +80,7 @@ describe('loadAppShellFirstPaint', () => {
 				getFirstPaintChrome: () =>
 					read('first-paint', {
 						announcements: [],
+						whatsNew: [],
 						preferences: getDefaultUserOrgPreferences(),
 						account: { email: null, hasTwoFactor: false, profile: { status: 'loaded' as const, profile: null } }
 					})
@@ -100,6 +101,7 @@ describe('loadAppShellFirstPaint', () => {
 			chrome: createInMemoryAppShellFirstPaintChromePort({
 				chrome: {
 					announcements: [{ id: 'a1', title: 'Heads up', message: 'Read this', type: 'info' }],
+					whatsNew: [],
 					preferences: getDefaultUserOrgPreferences(),
 					account: {
 						email: 'dana@example.test',

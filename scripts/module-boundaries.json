@@ -71,7 +71,6 @@
 				"src/lib/server/communicationsPagination.server.test.ts",
 				"src/lib/server/viewerDay.server.ts",
 				"src/lib/server/viewerDay.server.test.ts",
-				"src/lib/server/adapters/appShellRouteData.ts",
 				"src/lib/server/adapters/featureLaneWorkspaceLoad.ts",
 				"src/lib/server/adapters/featureSwitchRoute.ts",
 				"src/lib/server/adapters/personnelDetailHeaderLoad.ts",

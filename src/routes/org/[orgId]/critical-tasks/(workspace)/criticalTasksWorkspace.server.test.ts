@@ -31,7 +31,17 @@ const {
 		mockCtx: {
 			auth: {
 				userId: 'user-1',
-				orgId: '11111111-1111-1111-1111-111111111111'
+				orgId: '11111111-1111-1111-1111-111111111111',
+				role: 'member',
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'view',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
 			},
 			organizationSettings: {
 				findCriticalTasksDefaults: findCriticalTasksDefaultsMock

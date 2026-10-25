@@ -1,11 +1,9 @@
 import { error } from '@sveltejs/kit';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { isOrganizationIdSegment, normalizeOrganizationUrlSlug } from './url';
+import { getOrLoadOrganizationRoute, type OrganizationRouteRequest } from './routeIdentity.server';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
 
-export interface OrganizationAdmissionRequest {
-	supabase: SupabaseClient;
+export interface OrganizationAdmissionRequest extends OrganizationRouteRequest {
 	organizationAdmissions?: Map<string, Promise<ActiveOrganization>>;
 }
 
@@ -25,25 +23,17 @@ export function requireActiveOrganization(
 	const admissions = (request.organizationAdmissions ??= new Map());
 	let admission = admissions.get(segment);
 	if (!admission) {
-		admission = readActiveOrganizationId(request.supabase, segment);
+		admission = readActiveOrganizationId(request, segment);
 		admissions.set(segment, admission);
 	}
 	return admission;
 }
 
-async function readActiveOrganizationId(supabase: SupabaseClient, segment: string): Promise<ActiveOrganization> {
-	const result = await supabase
-		.from('organizations')
-		.select('id, suspended_at, disabled_features')
-		.eq(
-			isOrganizationIdSegment(segment) ? 'id' : 'url_slug',
-			isOrganizationIdSegment(segment) ? segment : normalizeOrganizationUrlSlug(segment)
-		)
-		.maybeSingle()
-		.then(
-			(result) => result,
-			(cause) => ({ data: null, error: cause })
-		);
+async function readActiveOrganizationId(
+	request: OrganizationAdmissionRequest,
+	segment: string
+): Promise<ActiveOrganization> {
+	const result = await getOrLoadOrganizationRoute(request, segment);
 
 	if (result.error) {
 		console.error('[organization-admission] Failed to verify Organization status:', sanitizeErrorForLog(result.error));

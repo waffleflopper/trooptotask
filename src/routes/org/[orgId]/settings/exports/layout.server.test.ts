@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createReadyAppShellRouteData } from '../../appShell.test-support';
+import {
+	createReadyAppShellRouteData,
+	createSuspendedAppShellRouteData,
+	createOrganizationLoadEventData
+} from '../../appShell.test-support';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
@@ -9,9 +13,9 @@ import { load } from './+layout.server';
 
 type LoadEvent = Parameters<typeof load>[0];
 
-function run(parent: LoadEvent['parent']) {
+function run(data: Parameters<typeof createOrganizationLoadEventData>[0]) {
 	const depends = vi.fn();
-	const result = load({ locals: {}, cookies: {}, parent, depends } as unknown as LoadEvent);
+	const result = load({ ...createOrganizationLoadEventData(data), cookies: {}, depends } as unknown as LoadEvent);
 	return { depends, result: result as Promise<{ lastExport: unknown }> };
 }
 
@@ -42,10 +46,11 @@ describe('Exports layout load', () => {
 			})
 		);
 
-		const { depends, result } = run((async () => createReadyAppShellRouteData()) as never);
+		const { depends, result } = run(createReadyAppShellRouteData());
 		const data = await result;
 
-		expect(depends).toHaveBeenCalledExactlyOnceWith('app:settings-last-export');
+		expect(depends).toHaveBeenCalledWith('app:settings-last-export');
+		expect(depends).toHaveBeenCalledWith('app:org-core');
 		expect(await data.lastExport).toEqual({
 			format: 'json',
 			at: '2026-10-20T14:05:00.000Z',
@@ -54,9 +59,7 @@ describe('Exports layout load', () => {
 	});
 
 	it('returns no last export for a suspended unit', async () => {
-		const parent = async () => ({ ...createReadyAppShellRouteData(), shell: { kind: 'suspended' } }) as never;
-
-		expect(await run(parent).result).toEqual({ lastExport: null });
+		expect(await run(createSuspendedAppShellRouteData()).result).toEqual({ lastExport: null });
 		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});
 });

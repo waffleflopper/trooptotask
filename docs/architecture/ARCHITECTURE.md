@@ -40,4 +40,6 @@ Keep common workflows responsive as an Organization's data grows. Inspect the ac
 
 Use optimistic updates when failure can be rolled back clearly. Keep server authorization authoritative. Keep optional data from blocking useful content, and give clear pending, success and failure feedback.
 
+Feature server loads use request-local Organization admission and member context instead of `parent()`. Calling `parent()` can rerun unchanged ancestor loads during navigation.
+
 Reuse the existing data and state mechanisms. Add caching, background work or another abstraction only for an observed need, with explicit invalidation and failure behavior. Review a change on a measured journey's path against the [regression budgets](DEFINITION_OF_DONE.md#regression-budgets). Measure only when Robert asks.

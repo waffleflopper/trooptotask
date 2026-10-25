@@ -2,7 +2,7 @@ import { getAdminClient } from '$lib/server/supabase';
 import { cleanupAuditLogs } from '$lib/audit/index.server';
 import { createSupabaseAssignmentTypeRetention } from '$features/calendar/index.server';
 import { createSupabaseCriticalTaskRetentionSource } from '$features/critical-tasks/index.server';
-import { createSupabaseNotificationDelivery } from '$features/notifications/index.server';
+import { createSupabaseNotificationDelivery, cleanupReadNotifications } from '$features/notifications/index.server';
 import { createSupabaseOnboardingRetentionSource } from '$features/onboarding/index.server';
 import {
 	createSupabaseOrganizationAdministratorRecipients,
@@ -49,4 +49,8 @@ export function createOnboardingRetentionSources() {
 
 export function cleanupRetainedAuditLogs() {
 	return cleanupAuditLogs(getAdminClient());
+}
+
+export function cleanupRetainedReadNotifications() {
+	return cleanupReadNotifications(getAdminClient());
 }

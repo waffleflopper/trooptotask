@@ -1,6 +1,7 @@
 export { createSupabaseNotificationDelivery } from './delivery.server';
 export type { AdministratorRecipientLookup } from './delivery.server';
 export { createSupabaseNotificationStore } from './notificationProvider.server';
+export { cleanupReadNotifications } from './notificationRetention.server';
 export {
 	listOwnNotifications,
 	markAllOwnNotificationsRead,

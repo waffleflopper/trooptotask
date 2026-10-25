@@ -137,7 +137,7 @@
 				items={[]}
 				search={{
 					label: 'Search',
-					placeholder: 'Search people, organizations, actions',
+					placeholder: 'Search people, organizations',
 					value: search.value,
 					onValueChange: search.setValue
 				}}

@@ -39,12 +39,12 @@ vi.mock('$app/state', () => ({
 	}
 }));
 
-const { goto } = vi.hoisted(() => {
-	return { goto: vi.fn() };
+const { goto, invalidate } = vi.hoisted(() => {
+	return { goto: vi.fn(), invalidate: vi.fn(async () => {}) };
 });
 
 vi.mock('$app/navigation', () => {
-	return { goto, afterNavigate: vi.fn() };
+	return { goto, invalidate, afterNavigate: vi.fn() };
 });
 
 vi.mock('$app/stores', () => {
@@ -905,6 +905,7 @@ describe('notification deletion and Account links', () => {
 		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
 		expect(requests).toEqual([{ method: 'DELETE', body: { id: 'stale-note' } }]);
 		expect(goto).not.toHaveBeenCalled();
+		expect(invalidate).toHaveBeenCalledWith('app:account-notifications');
 		expect(screen.queryByRole('menuitem', { name: /^Stale notification/ })).toBeNull();
 		expect(screen.getByRole('menuitem', { name: /^Kept notification/ })).toBeTruthy();
 	});

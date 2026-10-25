@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -25,6 +25,8 @@
 	let notifications = $derived(data.notifications);
 	let pending = $state<'markAll' | 'deleteAll' | { id: string } | null>(null);
 	let confirmingDeleteAll = $state(false);
+	let list = $state<HTMLUListElement>();
+	let summary = $state<HTMLParagraphElement>();
 	const unread = $derived(notifications.filter((notification) => !notification.read).length);
 
 	/** Sends one command for the Organization the page was in, and reports whether the page may apply its result. */
@@ -67,12 +69,18 @@
 		);
 	}
 
-	function remove(notification: Notification) {
-		void run(
+	async function remove(notification: Notification) {
+		const index = notifications.findIndex((item) => item.id === notification.id);
+		await run(
 			{ id: notification.id },
 			() => send('DELETE', { id: notification.id }, 'Could not delete the notification. Try again.'),
 			() => (notifications = notifications.filter((item) => item.id !== notification.id))
 		);
+		await tick();
+		// Disabling or removing the pressed button dropped focus; give it to the row that took its place.
+		if (!active || document.activeElement !== document.body) return;
+		const buttons = Array.from(list?.querySelectorAll<HTMLElement>('[data-delete-notification]') ?? []);
+		(buttons[Math.min(index, buttons.length - 1)] ?? summary)?.focus();
 	}
 
 	const markAllRead = () =>
@@ -138,7 +146,7 @@
 
 	<div class="grid gap-4">
 		<div class="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-			<p class="text-sm text-muted-foreground" aria-live="polite">
+			<p bind:this={summary} class="text-sm text-muted-foreground outline-none" tabindex="-1" aria-live="polite">
 				{unread} unread of {notifications.length}
 			</p>
 			<div class="min-w-0 flex-1 basis-48">
@@ -147,7 +155,7 @@
 		</div>
 
 		{#if notifications.length > 0}
-			<ul class="border-t-2 border-foreground">
+			<ul bind:this={list} class="border-t-2 border-foreground">
 				{#each notifications as notification (notification.id)}
 					<li class="flex items-start gap-3 border-b border-border py-4">
 						<span
@@ -171,6 +179,7 @@
 							size="icon-sm"
 							aria-label={`Delete notification: ${notification.title}`}
 							disabled={pending !== null}
+							data-delete-notification
 							onclick={() => remove(notification)}
 						>
 							<Trash2 />

@@ -3,8 +3,8 @@
 	import type { SignedInAccount } from '$features/identity/contracts';
 	import { accountLabel, mfaSetupHref } from '$features/identity';
 	import type { Notification } from '$features/notifications/contracts';
-	import { notificationHref } from '$features/notifications';
-	import { goto } from '$app/navigation';
+	import { ACCOUNT_NOTIFICATIONS_DEPENDENCY, notificationHref } from '$features/notifications';
+	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { navigating } from '$app/state';
 	import { page } from '$app/stores';
@@ -247,6 +247,7 @@
 				notificationCountLoading = false;
 				notifications = notifications.map((notification) => ({ ...notification, read: true }));
 				localUnreadCount = 0;
+				void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY);
 			}
 		} catch {
 			if (isCurrentNotificationRequest(scope, generation))
@@ -281,6 +282,7 @@
 					++notificationCountRequest;
 					notification.read = true;
 					localUnreadCount = Math.max(0, localUnreadCount - 1);
+					void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY);
 					if (countWasLoading) void loadUnreadNotificationCount(segment, scope, generation);
 				}
 			} catch {
@@ -317,6 +319,7 @@
 				if (countWasLoading) void loadUnreadNotificationCount(segment, scope, generation);
 			}
 			notificationsWriting = false;
+			void invalidate(ACCOUNT_NOTIFICATIONS_DEPENDENCY);
 			// The removed row held focus; keep it in the menu on the row that took its place.
 			await tick();
 			const rows = menu?.querySelectorAll<HTMLElement>('[data-notification-open]');

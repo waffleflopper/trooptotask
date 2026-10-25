@@ -127,14 +127,14 @@
 		{#if menuOpen}
 			<div id="admin-menu" class="grid gap-5 border-t border-chrome-border px-3 pt-3 pb-4">
 				{@render nav()}
-				{#if phone.current}<div class="px-2"><AdminSearch /></div>{/if}
+				{#if phone.current}<div class="rounded-lg bg-background text-foreground"><AdminSearch /></div>{/if}
 				{@render operator()}
 			</div>
 		{/if}
 	</header>
 
 	<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-md">
-		<div class="flex h-14 shrink-0 items-center gap-3 border-b px-4 max-sm:hidden">
+		<div class="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 max-sm:hidden">
 			<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">
 				<Breadcrumb.List class="flex-nowrap overflow-hidden">
 					<Breadcrumb.Item>

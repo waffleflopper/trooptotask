@@ -61,14 +61,15 @@ export type InboxStatsResult = { status: 'ok'; newPeople: number; newOrganizatio
 export type InboxDetailResponse = { status: 'ok'; detail: InboxDetail } | { status: 'notFound' };
 
 export const INBOX_PAGE_LIMIT = 50;
+export const INBOX_DONE_DAYS = 30;
 const FEEDBACK_TITLE_LENGTH = 90;
 
-/** Feedback has no title of its own, so its first line stands in for one. */
+/** Feedback has no title of its own, so its first sentence stands in for one. */
 export function feedbackTitle(message: string): string {
 	const line = message.trim().split(/\r?\n/, 1)[0] ?? '';
-	return line.length > FEEDBACK_TITLE_LENGTH ? `${line.slice(0, FEEDBACK_TITLE_LENGTH).trimEnd()}…` : line;
+	const sentence = line.split(/(?<=[.!?])\s/, 1)[0] ?? line;
+	return sentence.length > FEEDBACK_TITLE_LENGTH ? `${sentence.slice(0, FEEDBACK_TITLE_LENGTH).trimEnd()}…` : sentence;
 }
-export const INBOX_DONE_DAYS = 30;
 
 export function isInboxKind(value: unknown): value is InboxKind {
 	return typeof value === 'string' && (INBOX_KINDS as readonly string[]).includes(value);

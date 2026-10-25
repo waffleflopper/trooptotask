@@ -100,6 +100,7 @@
 				{@const key = inboxItemKey(item)}
 				{@const tone = INBOX_TONES[INBOX_KIND_VIEWS[item.kind].tone]}
 				{@const isSelected = selected !== null && inboxItemKey(selected) === key}
+				{@const age = formatAge(stamp(item), now)}
 				<li>
 					<a
 						href={resolve(hrefFor(item) as '/admin')}
@@ -112,7 +113,7 @@
 							'grid gap-1 border-b border-l-3 border-border py-3.5 pr-4 pl-[13px] text-foreground transition-colors',
 							'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
 							'max-sm:gap-1.5 max-sm:border-l-0 max-sm:p-4',
-							isSelected ? 'border-l-accent bg-muted' : 'border-l-transparent hover:bg-muted/50'
+							isSelected ? [tone.bar, 'bg-muted'] : 'border-l-transparent hover:bg-muted/50'
 						)}
 					>
 						<span id="{key}-meta" class="flex items-center justify-between gap-3">
@@ -125,7 +126,7 @@
 								)}>{eyebrowFor(item)}</span
 							>
 							<span class="shrink-0 font-mono text-[11px] leading-[14px] text-muted-foreground uppercase">
-								<span class="sr-only">, </span>{formatAge(stamp(item), now)}<span class="sr-only"> ago</span>
+								<span class="sr-only">, </span>{age}{#if age !== 'now'}<span class="sr-only"> ago</span>{/if}
 							</span>
 							{#if item.summary}<span class="sr-only">, {item.summary}</span>{/if}
 						</span>

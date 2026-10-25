@@ -85,13 +85,14 @@ private sink (`mail state`, `mail fail setup`).
    full screen with `Inbox` as a back button that does the same. Reload with an item in the URL: the same item opens.
 7. **Loading and errors.** `$V network arm-hold PAGE admin-inbox-item-read`, then pick a row: the detail region shows
    its skeleton while the list stays interactive; pick a second row and release: only the second row's detail shows.
-   `arm-fail` on the item read shows a `Try again` button that recovers after `restore`. With an item open, arm
-   `admin-inbox/close` to fail and `admin-inbox-item-read` to fail, then choose `Close without replying`: the item stays
-   on screen with the command's alert and `This item could not be reloaded, so it may be out of date.` with `Try again`.
-   `arm-load-error` on `admin-inbox-read`, then choose Done, shows the admin error page (503) with `Try again` and
-   `Back to Inbox`; `Try again` returns to the Inbox. Only the route's own data request is armed; the per-kind failure
-   below is not reachable from the browser and is proven in the page test. A failed kind inside a working page shows its
-   own `Retry` alert while the other kind still lists; the chip counts for a failed kind are absent, not zero.
+   `arm-fail` on the item read shows a `Try again` button that recovers after `restore`. With a Feedback item open, arm
+   only `admin-inbox-item-read` to fail, then choose `Close without replying`: the close succeeds, the item stays on
+   screen with `This item could not be reloaded, so it may be out of date.` and `Try again`; after `restore`,
+   `Try again` shows the `Closed` badge and no Close button. `arm-load-error` on `admin-inbox-read`, then choose Done,
+   shows the admin error page (503) with `Try again` and `Back to Inbox`; `Try again` returns to the Inbox. Only the
+   route's own data request is armed; the per-kind failure below is not reachable from the browser and is proven in the
+   page test. A failed kind inside a working page shows its own `Retry` alert while the other kind still lists; the chip
+   counts for a failed kind are absent, not zero.
 8. **Denial.** A signed-in non-operator (`$V actor manager home`, then open `/admin`) gets the 403 page, a 403 on
    `/admin/api/inbox/item` and an error node, not data, from `/admin/__data.json`; an operator at aal1 is sent to
    `Enter your code`. Direct POSTs to `/admin?/approve`, `/admin?/reject` and `/admin?/close` from a non-operator answer

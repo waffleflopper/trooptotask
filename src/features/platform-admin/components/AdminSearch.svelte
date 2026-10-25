@@ -118,8 +118,9 @@
 			}}
 		>
 			{#snippet end()}
-				<kbd class="rounded-sm border border-border px-1 font-mono text-[11px] leading-4" aria-hidden="true"
-					>{shortcut}</kbd
+				<kbd
+					class="min-w-[8ch] rounded-sm border border-border px-1 text-center font-mono text-[11px] leading-4"
+					aria-hidden="true">{shortcut}</kbd
 				>
 			{/snippet}
 		</Command.Input>

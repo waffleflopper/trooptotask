@@ -8,7 +8,7 @@
 		title: string;
 		/** One sentence on what the page holds. A snippet can hold a skeleton while its facts load. */
 		description?: string | Snippet;
-		/** Figures or controls at the right of the title. Hidden on a phone, as is the description. */
+		/** Figures or controls at the right, level with the description. Hidden on a phone, as is the description. */
 		aside?: Snippet;
 	}
 
@@ -21,14 +21,15 @@
 	</div>
 {/snippet}
 
-{#snippet figures()}
-	<div class="max-sm:hidden">{@render aside?.()}</div>
-{/snippet}
-
-<PageShell.Header
-	{eyebrow}
-	{title}
-	variant="display"
-	subtitle={description ? sentence : undefined}
-	aside={aside ? figures : undefined}
-/>
+<div class="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
+	<PageShell.Header
+		{eyebrow}
+		{title}
+		variant="display"
+		subtitle={description ? sentence : undefined}
+		class="min-w-0 flex-1 basis-[34rem]"
+	/>
+	{#if aside}
+		<div class="max-sm:hidden">{@render aside()}</div>
+	{/if}
+</div>

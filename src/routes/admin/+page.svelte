@@ -177,9 +177,11 @@
 		<dl class="flex gap-7" aria-label="This month">
 			{#each [{ key: 'newPeople', label: 'New people' }, { key: 'newOrganizations', label: 'New Organizations' }] as const as stat (stat.key)}
 				<div class="grid justify-items-end gap-0.5">
-					<dd class="order-1 font-heading text-[28px] leading-[30px] font-bold tabular-nums">
+					<dd
+						class="order-1 justify-self-stretch text-end font-heading text-[28px] leading-[30px] font-bold tabular-nums"
+					>
 						{#if stats.settled === null}
-							<Skeleton class="h-[30px] w-8" />
+							<Skeleton class="ml-auto h-[30px] w-8" />
 						{:else if stats.settled.value.status === 'ok'}
 							{stats.settled.value[stat.key]}
 						{:else}
@@ -215,10 +217,13 @@
 				options={filterOptions}
 				bind:value={() => filter, (next) => void show({ tab, filter: next, item: selected }, true)}
 			/>
-			<Tabs.List variant="line" aria-label="Inbox status">
-				<Tabs.Trigger value="open">Open</Tabs.Trigger>
-				<Tabs.Trigger value="done">Done</Tabs.Trigger>
-			</Tabs.List>
+			<!-- Its own row on a phone, so the wrap never depends on how wide the chips render. -->
+			<div class="max-sm:w-full">
+				<Tabs.List variant="line" aria-label="Inbox status">
+					<Tabs.Trigger value="open">Open</Tabs.Trigger>
+					<Tabs.Trigger value="done">Done</Tabs.Trigger>
+				</Tabs.List>
+			</div>
 		</div>
 
 		<div

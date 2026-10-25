@@ -5,7 +5,9 @@ import type { FeedbackReply, FeedbackStaffCommand, FeedbackStaffDetail } from '$
 import type { InboxDetailOf } from '../../inboxTypes';
 
 vi.mock('$app/forms', () => ({ enhance: () => ({ destroy: () => {} }), applyAction: vi.fn() }));
+vi.mock('$features/identity', () => ({ redirectToSensitiveActionStepUp: vi.fn(() => true) }));
 
+import { redirectToSensitiveActionStepUp } from '$features/identity';
 import FeedbackDetail from './FeedbackDetail.svelte';
 
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -202,6 +204,7 @@ describe('Feedback detail', () => {
 		expect(send.disabled).toBe(true);
 		expect((screen.getByRole('button', { name: 'Reply and close' }) as HTMLButtonElement).disabled).toBe(true);
 		expect((screen.getByRole('button', { name: 'Make it a GitHub issue' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Close without replying' }) as HTMLButtonElement).disabled).toBe(true);
 		await fireEvent.submit(composer.closest('form')!);
 		expect(postedCommands()).toHaveLength(1);
 
@@ -266,6 +269,23 @@ describe('Feedback detail', () => {
 
 		expect(onChanged).not.toHaveBeenCalled();
 		expect(reads).toBe(readsBefore);
+	});
+
+	it('hands a step-up refusal to the redirect only while the operator is still on the item', async () => {
+		holdCommands = true;
+		const { view } = mount();
+		await fireEvent.input(await screen.findByLabelText(/^Reply to/), { target: { value: 'Hello' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+		await waitFor(() => expect(calls).toHaveLength(1));
+		await act(() => calls[0].respond(ok({ message: 'MFA required', requiresStepUp: true }, 403)));
+		await waitFor(() => expect(redirectToSensitiveActionStepUp).toHaveBeenCalledTimes(1));
+
+		vi.mocked(redirectToSensitiveActionStepUp).mockClear();
+		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+		await waitFor(() => expect(calls).toHaveLength(2));
+		view.unmount();
+		await act(() => calls[1].respond(ok({ message: 'MFA required', requiresStepUp: true }, 403)));
+		expect(redirectToSensitiveActionStepUp).not.toHaveBeenCalled();
 	});
 
 	it('shows its own load error with a retry while Close without replying stays available', async () => {

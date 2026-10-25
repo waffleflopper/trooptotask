@@ -81,7 +81,7 @@ export function createFeedbackStaff(feedbackId: () => string) {
 		const id = feedbackId();
 		const mine = ++run;
 		pending = command.kind;
-		const outcome = await post(id, command);
+		const outcome = await post(id, command, () => mine === run);
 		if (mine !== run) return { type: 'ignored' };
 		if (outcome.type === 'failed') uncertain = true;
 		pending = null;
@@ -89,7 +89,11 @@ export function createFeedbackStaff(feedbackId: () => string) {
 		return outcome;
 	}
 
-	async function post(id: string, command: FeedbackStaffCommand): Promise<FeedbackCommandOutcome> {
+	async function post(
+		id: string,
+		command: FeedbackStaffCommand,
+		current: () => boolean
+	): Promise<FeedbackCommandOutcome> {
 		try {
 			const response = await fetch(`/admin/api/feedback/${id}`, {
 				method: 'POST',
@@ -97,6 +101,7 @@ export function createFeedbackStaff(feedbackId: () => string) {
 				body: JSON.stringify(command)
 			});
 			const body: unknown = await response.json().catch(() => null);
+			if (!current()) return { type: 'ignored' };
 			if (response.status === 403 && redirectToSensitiveActionStepUp(body)) return { type: 'ignored' };
 			if (isResult(body)) {
 				return body.status === 'replied' || body.status === 'noteSaved' || body.status === 'issueCreated'

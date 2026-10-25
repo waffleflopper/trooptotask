@@ -153,7 +153,7 @@
 			<Button
 				type="submit"
 				variant="ghost"
-				disabled={staff.pending !== null}
+				disabled={staff.pending !== null || held}
 				aria-disabled={actions.pending === 'close' ? 'true' : undefined}
 				aria-busy={actions.pending === 'close' || undefined}
 			>

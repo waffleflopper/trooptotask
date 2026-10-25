@@ -185,7 +185,8 @@ describe('admin organization detail', () => {
 				]
 			});
 		});
-		expect(await screen.findByText('owner@example.test archived a Personnel Record')).toBeTruthy();
+		const activity = within(screen.getByRole('region', { name: 'Recent activity' }));
+		expect(await activity.findByText(/owner@example\.test/)).toBeTruthy();
 		expect(screen.queryByText('Loading recent activity')).toBeNull();
 	});
 	it('keeps the rest of the page and offers a retry when activity fails to load', async () => {

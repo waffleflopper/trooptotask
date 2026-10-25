@@ -3,7 +3,9 @@
 	import {
 		BUILT_IN_ARMY_RANK_OPTIONS,
 		BUILT_IN_RANK_CATALOG,
-		type RankCatalogEntry
+		compareRosterGroupNames,
+		type RankCatalogEntry,
+		type RosterGroupCatalogEntry
 	} from '$features/personnel/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { SignInRoster } from '../sign-in-rosters.types';
@@ -33,7 +35,8 @@
 	interface Props {
 		orgId: string;
 		personnel: Personnel[];
-		groups: { id: string; name: string }[];
+		groups: RosterGroupCatalogEntry[];
+		pinnedGroups: readonly string[];
 		rankCatalog?: RankCatalogEntry[];
 		canEdit: boolean;
 		onClose: () => void;
@@ -41,7 +44,7 @@
 
 	type RankQuickFilterCategory = Extract<RankCatalogEntry['category'], 'officer' | 'warrant' | 'enlisted' | 'civilian'>;
 
-	let { orgId, personnel, groups, rankCatalog = undefined, canEdit, onClose }: Props = $props();
+	let { orgId, personnel, groups, pinnedGroups, rankCatalog = undefined, canEdit, onClose }: Props = $props();
 
 	let view = $state<'list' | 'create'>('list');
 
@@ -257,11 +260,13 @@
 		if (config.separateByGroup) {
 			const map = new SvelteMap<string, typeof sorted>();
 			for (const p of sorted) {
-				const g = p.group || 'Unassigned';
-				if (!map.has(g)) map.set(g, []);
-				map.get(g)!.push(p);
+				if (!map.has(p.group)) map.set(p.group, []);
+				map.get(p.group)!.push(p);
 			}
-			rosterGroups = [...map.entries()].map(([name, people]) => ({ name, people }));
+			const compareGroups = compareRosterGroupNames({ groups, pinnedGroups });
+			rosterGroups = [...map.entries()]
+				.sort(([a], [b]) => compareGroups(a, b))
+				.map(([name, people]) => ({ name: name || 'Unassigned', people }));
 		} else {
 			rosterGroups = [{ name: '', people: sorted }];
 		}

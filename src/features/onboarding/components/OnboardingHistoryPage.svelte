@@ -71,7 +71,9 @@
 	let groupId = $state(HISTORY_ALL);
 	let templateId = $state(HISTORY_ALL);
 
-	const roster = $derived(createRosterReadModel({ personnel }).scoped(scopeSet, { status: 'all' }));
+	const roster = $derived(
+		createRosterReadModel({ personnel, groups, pinnedGroups: [] }).scoped(scopeSet, { status: 'all' })
+	);
 	const history = $derived(buildHistory(onboardings, todayDate, timeZone));
 	const subtitleParts = $derived(historySubtitleParts(history.overview));
 

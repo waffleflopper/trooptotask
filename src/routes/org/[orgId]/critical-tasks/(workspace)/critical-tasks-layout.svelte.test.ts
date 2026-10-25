@@ -39,6 +39,7 @@ function createWorkspace(): CriticalTasksWorkspaceResult {
 			},
 			personnel: [],
 			groups: [],
+			pinnedGroups: [],
 			ictTasks: [],
 			personnelIctCompletions: []
 		},
@@ -46,6 +47,7 @@ function createWorkspace(): CriticalTasksWorkspaceResult {
 			orgId: 'org-1',
 			personnel: { mode: 'replace', snapshotKey: 'personnel:empty', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups:empty', items: [] },
+			pinnedGroups: { mode: 'replace', snapshotKey: 'pins:empty', items: [] },
 			ictTasks: { mode: 'replace', snapshotKey: 'ict-tasks:empty', items: [] },
 			personnelIctCompletions: { mode: 'replace', snapshotKey: 'completions:empty', items: [] }
 		}

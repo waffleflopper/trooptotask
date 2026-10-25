@@ -101,7 +101,8 @@
 	const personnel = $derived(
 		rosterStore.orgId === org.orgId
 			? rosterStore.readModel().full({ status: 'active' }).flatPersonnel
-			: createRosterReadModel({ personnel: fallbackPersonnel }).full({ status: 'active' }).flatPersonnel
+			: createRosterReadModel({ personnel: fallbackPersonnel, groups: [], pinnedGroups: [] }).full({ status: 'active' })
+					.flatPersonnel
 	);
 
 	const availableRoles = $derived(

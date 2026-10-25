@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/contracts';
-import type { GroupPersistence } from '$features/personnel/contracts';
+import type { GroupPersistence, SelfPinPersistence } from '$features/personnel/contracts';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { createInMemoryGroupPersistence } from '$features/personnel/inMemoryPersonnelPersistence.server';
 
@@ -11,6 +11,7 @@ const {
 	findManyMock,
 	findCriticalTasksDefaultsMock,
 	listActiveForReadinessMock,
+	listPinnedNamesMock,
 	loadWithContextMock,
 	mockCtx
 } = vi.hoisted(() => {
@@ -19,6 +20,7 @@ const {
 	const findManyMock = vi.fn();
 	const findCriticalTasksDefaultsMock = vi.fn();
 	const listActiveForReadinessMock = vi.fn();
+	const listPinnedNamesMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
 	return {
@@ -27,6 +29,7 @@ const {
 		findManyMock,
 		findCriticalTasksDefaultsMock,
 		listActiveForReadinessMock,
+		listPinnedNamesMock,
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
@@ -47,6 +50,7 @@ const {
 				findCriticalTasksDefaults: findCriticalTasksDefaultsMock
 			},
 			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
+			selfPins: { listNames: listPinnedNamesMock } as Pick<SelfPinPersistence, 'listNames'>,
 			criticalTaskLibrary: { listCatalog: listCatalogMock },
 			criticalTasksReadModel: {
 				findLatestCompletions: findLatestCompletionsMock
@@ -88,6 +92,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 		findLatestCompletionsMock.mockResolvedValue([]);
 		listCatalogMock.mockResolvedValue([]);
 		listActiveForReadinessMock.mockResolvedValue([]);
+		listPinnedNamesMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -130,10 +135,17 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 		});
 		expect(workspace?.data.personnel).toBeInstanceOf(Promise);
 		expect(workspace?.data.groups).toBeInstanceOf(Promise);
+		expect(workspace?.data.pinnedGroups).toBeInstanceOf(Promise);
 		expect(workspace?.data.ictTasks).toBeInstanceOf(Promise);
 		expect(workspace?.data.personnelIctCompletions).toBeInstanceOf(Promise);
 		expect(workspace?.hydration).toMatchObject({
 			orgId: '11111111-1111-1111-1111-111111111111',
+			pinnedGroups: expect.objectContaining({
+				mode: 'replace',
+				items: (workspace?.data as CriticalTasksWorkspaceData | undefined)?.pinnedGroups,
+				deferred: true,
+				snapshotKey: expect.any(String)
+			}),
 			ictTasks: expect.objectContaining({
 				mode: 'replace',
 				items: (workspace?.data as CriticalTasksWorkspaceData | undefined)?.ictTasks,
@@ -147,5 +159,28 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 				snapshotKey: expect.any(String)
 			})
 		});
+	});
+
+	it('hydrates the viewer’s pinned Groups that are visible in the Critical Tasks scope', async () => {
+		findManyMock.mockImplementation((table: string) => {
+			if (table === 'groups') {
+				return Promise.resolve([
+					{ id: 'group-1', name: 'Alpha', sort_order: 0 },
+					{ id: 'group-2', name: 'Bravo', sort_order: 1 }
+				]);
+			}
+			throw new Error(`Unexpected table ${table}`);
+		});
+		listPinnedNamesMock.mockResolvedValue(['Bravo', 'Hidden', 'Alpha']);
+
+		const routeData = await streamCriticalTasksWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: '1-11-bde'
+		});
+		const workspace = granted(await routeData.criticalTasks.data);
+
+		await expect(workspace.hydration.pinnedGroups.items).resolves.toEqual(['Bravo', 'Alpha']);
+		expect(workspace.hydration.pinnedGroups.mode).toBe('replace');
 	});
 });

@@ -4,6 +4,7 @@
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import type { Personnel } from '$features/personnel/contracts';
+	import { pinnedGroupsStore } from '$features/personnel';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
@@ -62,6 +63,7 @@
 			orgId={ctx.orgId}
 			personnel={ctx.personnel}
 			groups={ctx.groups}
+			pinnedGroups={pinnedGroupsStore.orgId === ctx.orgId ? pinnedGroupsStore.list : []}
 			rankCatalog={ctx.rankCatalog}
 			canEdit={ctx.canRecordTraining}
 			onClose={modals.closerFor('sign-in-rosters')}

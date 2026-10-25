@@ -95,7 +95,7 @@ export class RosterSignals {
 				this.status = 'pending';
 			}
 			this.asOf = asOf;
-			this.#leaveDay(asOf);
+			this.noticeDay();
 			const current = () => this.#lane === lane && this.#orgId === orgId;
 			withinOrganizationLifetime(lane, current).then(
 				(read) => this.#settle(read, generation),
@@ -107,19 +107,16 @@ export class RosterSignals {
 		});
 	}
 
-	#leaveDay(asOf: string): string | null {
+	noticeDay(): void {
 		const browserDay = this.#browserDay();
-		if (browserDay === null || browserDay === asOf) return null;
-		if (this.#dayLeft !== asOf) {
-			this.#dayLeft = asOf;
-			rememberViewerTimeZone();
-			void this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
-		}
-		return browserDay;
+		if (browserDay === null || browserDay === this.asOf || this.#dayLeft === this.asOf) return;
+		this.#dayLeft = this.asOf;
+		rememberViewerTimeZone();
+		void this.#invalidate(PERSONNEL_SIGNALS_DEPENDENCY);
 	}
 
 	viewerDay(): string {
-		return this.#leaveDay(this.asOf) ?? this.asOf;
+		return this.#browserDay() ?? this.asOf;
 	}
 
 	#settle(read: RosterSignalRead, generation: number): void {

@@ -29,7 +29,6 @@
 	const noteOpen = $derived(controls.noteOpenFor === person.id);
 	const canQuickEdit = $derived(ctx.canManagePersonnelRecord(person));
 	const selected = $derived(controls.selectable && controls.isSelected(person.id));
-	let rangeClick = false;
 	const tabbable = $derived(controls.tabRowId === person.id);
 	const signal = $derived(ctx.signalRow(person));
 	const dot = $derived(rosterStatusDot(signal, ctx.signals.statusTypes));
@@ -111,16 +110,11 @@
 			style={column.width ? `width: ${column.width}` : undefined}
 		>
 			{#if column.key === 'select'}
-				<span class="inline-flex" onclickcapture={(event) => (rangeClick = event.shiftKey)}>
-					<DataTable.SelectionCheckbox
-						checked={selected}
-						ariaLabel="Select {name}"
-						onCheckedChange={(checked) => {
-							controls.select(person.id, checked, rangeClick);
-							rangeClick = false;
-						}}
-					/>
-				</span>
+				<DataTable.SelectionCheckbox
+					checked={selected}
+					ariaLabel="Select {name}"
+					onCheckedChange={(checked, { shiftKey }) => controls.select(person.id, checked, shiftKey)}
+				/>
 			{:else if column.key === 'status'}
 				{#if dot.kind === 'skeleton'}
 					<Skeleton class="size-2 rounded-full" />

@@ -250,6 +250,58 @@ describe('TrainingPageView', () => {
 		);
 	});
 
+	it("groups the matrix in the Organization's Group order with Unassigned last when nothing is pinned", () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'group-1', name: 'Alpha', sortOrder: 1 },
+				{ id: 'group-2', name: 'Bravo', sortOrder: 0 }
+			],
+			'org-1'
+		);
+		pinnedGroupsHydration.load([], 'org-1');
+		const unassigned = { ...personnel[0], id: 'person-3', groupId: null, groupName: '' } as Personnel;
+
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('by-group', { filteredPersonnel: [...personnel, unassigned] }) as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		const headers = [...screen.getByTestId('training-matrix').querySelectorAll('[data-row-group-id]')].map((row) =>
+			row.getAttribute('data-row-group-id')
+		);
+		expect(headers).toEqual(['Bravo', 'Alpha', '\u0000']);
+		expect(screen.getByText(/^▼\s*Unassigned \(1\)$/)).toBeTruthy();
+	});
+
+	it('keeps a real Group named Unassigned apart from People without a Group', () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'group-1', name: 'Unassigned', sortOrder: 0 },
+				{ id: 'group-2', name: 'Bravo', sortOrder: 1 }
+			],
+			'org-1'
+		);
+		pinnedGroupsHydration.load([], 'org-1');
+		const named = { ...personnel[0], id: 'person-3', groupId: 'group-1', groupName: 'Unassigned' } as Personnel;
+		const ungrouped = { ...personnel[0], id: 'person-4', groupId: null, groupName: '' } as Personnel;
+
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('by-group', {
+					filteredPersonnel: [ungrouped, named, personnel[1]]
+				}) as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		const headers = [...screen.getByTestId('training-matrix').querySelectorAll('[data-row-group-id]')].map((row) =>
+			row.getAttribute('data-row-group-id')
+		);
+		expect(headers).toEqual(['Unassigned', 'Bravo', '\u0000']);
+	});
+
 	it('links manage views to the training views workspace', () => {
 		render(TrainingPageView, {
 			props: {

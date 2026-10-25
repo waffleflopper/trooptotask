@@ -481,6 +481,7 @@ describe('finite Personnel ordinary provider contracts', () => {
 		expect(await port.listFollowUps('person-a', { archived: true })).toEqual([
 			{ ...followUp, id: 'f-archived', status: 'archived', archived_at: '2026-10-08' }
 		]);
+		expect(await port.listOpenFollowUps('person-a', 5)).toEqual({ rows: [followUp], total: 1 });
 		expect(await port.listDocuments('person-a', { archived: false, limit: 0 })).toEqual([]);
 	});
 	it('record counts take open follow-ups and every archived artifact of one Person in one Organization', async () => {

@@ -3,6 +3,7 @@ import { personnelIctCompletionsStore } from './stores/personnelIctCompletions.s
 import type { IctTask, PersonnelIctCompletion } from './criticalTasks.types';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
+import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
@@ -30,6 +31,7 @@ export interface CriticalTasksHydrationLoadable<T> {
 export interface CriticalTasksHydrationStores {
 	personnelStore: CriticalTasksHydrationLoadable<Personnel>;
 	groupsStore: CriticalTasksHydrationLoadable<Group>;
+	pinnedGroupsStore: CriticalTasksHydrationLoadable<string>;
 	ictTasksStore: CriticalTasksHydrationLoadable<IctTask>;
 	personnelIctCompletionsStore: CriticalTasksHydrationLoadable<PersonnelIctCompletion>;
 }
@@ -44,6 +46,7 @@ export interface CriticalTasksWorkspaceHydrator {
 const defaultCriticalTasksHydrationStores: CriticalTasksHydrationStores = {
 	personnelStore: personnelRosterHydration,
 	groupsStore: groupCatalogHydration,
+	pinnedGroupsStore: pinnedGroupsHydration,
 	ictTasksStore,
 	personnelIctCompletionsStore
 };
@@ -89,6 +92,7 @@ export function createCriticalTasksWorkspaceHydrator(): CriticalTasksWorkspaceHy
 			const descriptors = [
 				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
+				createTargetDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
 				createTargetDescriptor(hydration.ictTasks, stores.ictTasksStore, orgId, 'ictTasks'),
 				createTargetDescriptor(
 					hydration.personnelIctCompletions,

@@ -99,7 +99,7 @@ function deferred<T>() {
 }
 
 function archiveCtx(orgId = 'org-1'): PersonnelPageContext {
-	return Object.assign(makeCtx(), {
+	return makeCtx({
 		orgId,
 		canArchivePersonnelRecord: () => true,
 		personnelArchiveAffordance: () => allowedAffordance()
@@ -126,16 +126,18 @@ async function submitBulkSelection() {
 	await confirmArchiveDialog();
 }
 
-function bulkCtx(overrides: Record<string, unknown> = {}): PersonnelPageContext {
-	return Object.assign(makeCtx(), {
-		canManagePersonnelRecord: () => true,
-		canExportPersonnelRecord: () => true,
-		canArchivePersonnelRecord: () => true,
-		canManagePersonnelInGroup: () => true,
-		personnelRecordAffordance: () => allowedAffordance(),
-		personnelArchiveAffordance: () => allowedAffordance(),
-		...overrides
-	});
+function bulkCtx(overrides: Partial<PersonnelPageContext> = {}): PersonnelPageContext {
+	return makeCtx(
+		{
+			canManagePersonnelRecord: () => true,
+			canExportPersonnelRecord: () => true,
+			canArchivePersonnelRecord: () => true,
+			canManagePersonnelInGroup: () => true,
+			personnelRecordAffordance: () => allowedAffordance(),
+			personnelArchiveAffordance: () => allowedAffordance()
+		},
+		overrides
+	);
 }
 
 function makePerson(index: number): Personnel {
@@ -172,7 +174,7 @@ function makeUpcomingLossRecord(overrides: Partial<UpcomingLossRecord> = {}): Up
 	};
 }
 
-function makeCtx(upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()): PersonnelPageContext {
+function makeCtx(...overrides: Partial<PersonnelPageContext>[]): PersonnelPageContext {
 	const filterPersonnel = (items: Personnel[], query: string): Personnel[] => {
 		const normalized = query.trim().toLowerCase();
 		if (!normalized) return items;
@@ -248,11 +250,14 @@ function makeCtx(upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()): 
 			return filterPersonnel(activePersonnel(), ctx.searchQuery);
 		},
 		getPersonnelById: (id: string) => personnelStore.getById(id),
-		upcomingLossMap,
+		upcomingLossMap: new Map<string, UpcomingLossRecord>(),
 		handleAdd: vi.fn(),
 		openGroupEditor: vi.fn()
 	};
 
+	for (const override of overrides) {
+		Object.defineProperties(ctx, Object.getOwnPropertyDescriptors(override));
+	}
 	return ctx as unknown as PersonnelPageContext;
 }
 
@@ -300,14 +305,12 @@ describe('PersonnelPageView', () => {
 		cleanup();
 		personnelStore.load([], 'org-test-reset');
 		pinnedGroupsHydration.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		vi.unstubAllGlobals();
 	});
 
 	it('links import to the dedicated personnel import route', () => {
-		const ctx = {
-			...makeCtx(),
-			canImportPersonnel: true
-		} as unknown as PersonnelPageContext;
+		const ctx = makeCtx({ canImportPersonnel: true });
 
 		render(PersonnelPageView, {
 			props: { ctx }
@@ -317,14 +320,13 @@ describe('PersonnelPageView', () => {
 	});
 
 	it('keeps creation, group and detail controls hidden for operators who can edit existing personnel', async () => {
-		const ctx = {
-			...makeCtx(),
+		const ctx = makeCtx({
 			canAddPersonnel: false,
 			canImportPersonnel: false,
 			canManageGroups: false,
 			canManagePersonnelRecord: () => true,
 			personnelRecordAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
+		});
 
 		render(PersonnelPageView, {
 			props: { ctx }
@@ -420,6 +422,13 @@ describe('PersonnelPageView', () => {
 	});
 
 	describe('By Group view', () => {
+		function loadCatalogOrder(names: string[]): void {
+			groupCatalogHydration.load(
+				names.map((name, sortOrder) => ({ id: `catalog-${name}`, name, sortOrder })),
+				'org-1'
+			);
+		}
+
 		function loadTwoGroups(secondGroupName = 'Bravo'): void {
 			personnelStore.load(
 				[
@@ -460,11 +469,8 @@ describe('PersonnelPageView', () => {
 
 		it('lists Groups in the Organization order with Unassigned last and drops the Group column', () => {
 			loadTwoGroups();
-			const ctx = {
-				...makeCtx(),
-				viewMode: 'by-group',
-				groupOrder: ['Bravo', 'Alpha']
-			} as unknown as PersonnelPageContext;
+			loadCatalogOrder(['Bravo', 'Alpha']);
+			const ctx = makeCtx({ viewMode: 'by-group' });
 
 			render(PersonnelPageView, { props: { ctx } });
 
@@ -474,12 +480,8 @@ describe('PersonnelPageView', () => {
 
 		it('keeps the controls of a Group named Unassigned apart from the People with no Group', () => {
 			loadTwoGroups('Unassigned');
-			const ctx = {
-				...makeCtx(),
-				viewMode: 'by-group',
-				canManageGroups: true,
-				groupOrder: ['Alpha', 'Unassigned']
-			} as unknown as PersonnelPageContext;
+			loadCatalogOrder(['Alpha', 'Unassigned']);
+			const ctx = makeCtx({ viewMode: 'by-group', canManageGroups: true });
 
 			render(PersonnelPageView, { props: { ctx } });
 
@@ -491,12 +493,9 @@ describe('PersonnelPageView', () => {
 
 		it("moves the viewer's pinned Group above the Organization order", () => {
 			loadTwoGroups();
+			loadCatalogOrder(['Bravo', 'Alpha']);
 			pinnedGroupsHydration.load(['Alpha'], 'org-1');
-			const ctx = {
-				...makeCtx(),
-				viewMode: 'by-group',
-				groupOrder: ['Bravo', 'Alpha']
-			} as unknown as PersonnelPageContext;
+			const ctx = makeCtx({ viewMode: 'by-group' });
 
 			render(PersonnelPageView, { props: { ctx } });
 
@@ -615,14 +614,13 @@ describe('PersonnelPageView', () => {
 		const toolbarName = 'Personnel controls';
 
 		function editorCtx(): PersonnelPageContext {
-			return {
-				...makeCtx(),
+			return makeCtx({
 				canAddPersonnel: true,
 				canImportPersonnel: true,
 				canManageGroups: true,
 				canArchivePersonnelRecord: () => true,
 				personnelArchiveAffordance: () => allowedAffordance()
-			} as unknown as PersonnelPageContext;
+			});
 		}
 
 		it('keeps Add Person on the row and runs the view switch and Manage Groups from More', async () => {
@@ -678,10 +676,7 @@ describe('PersonnelPageView', () => {
 	});
 
 	it('shows a pin immediately and restores the button with a message after a denied save', async () => {
-		const ctx = {
-			...makeCtx(),
-			viewMode: 'by-group'
-		} as unknown as PersonnelPageContext;
+		const ctx = makeCtx({ viewMode: 'by-group' });
 		let rejectSave!: (error: Error) => void;
 		vi.stubGlobal(
 			'fetch',
@@ -714,7 +709,7 @@ describe('PersonnelPageView', () => {
 	it('says loss warnings are unavailable and offers a reload when the window could not be read', async () => {
 		const reload = vi.fn();
 		vi.stubGlobal('location', { ...window.location, reload });
-		const ctx = { ...makeCtx(), lossWarningsUnavailable: true } as unknown as PersonnelPageContext;
+		const ctx = makeCtx({ lossWarningsUnavailable: true });
 		render(PersonnelPageView, { props: { ctx } });
 
 		expect(screen.getByRole('status').textContent).toContain('Loss warnings could not be loaded');
@@ -725,11 +720,11 @@ describe('PersonnelPageView', () => {
 	describe('upcoming-loss indicators', () => {
 		it('shows a loss indicator chip for personnel in the upcoming-loss map', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
-			const ctx = {
-				...makeCtx(lossMap),
+			const ctx = makeCtx({
+				upcomingLossMap: lossMap,
 				canManagePersonnelRecord: () => true,
 				personnelRecordAffordance: () => allowedAffordance()
-			} as unknown as PersonnelPageContext;
+			});
 
 			render(PersonnelPageView, {
 				props: { ctx }
@@ -740,16 +735,14 @@ describe('PersonnelPageView', () => {
 	});
 
 	it('updates the row actions when permissions change after render', async () => {
-		const editableCtx = {
-			...makeCtx(),
+		const editableCtx = makeCtx({
 			canManagePersonnelRecord: () => true,
 			personnelRecordAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
-		const viewOnlyCtx = {
-			...makeCtx(),
+		});
+		const viewOnlyCtx = makeCtx({
 			canManagePersonnelRecord: () => false,
 			personnelRecordAffordance: () => deniedAffordance()
-		} as unknown as PersonnelPageContext;
+		});
 		const view = render(PersonnelPageView, { props: { ctx: editableCtx } });
 
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Quick edit SGT Smith, Jane' })[0]);
@@ -762,14 +755,16 @@ describe('PersonnelPageView', () => {
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
-	function openableCtx(): PersonnelPageContext {
-		return {
-			...makeCtx(),
-			canManagePersonnelRecord: (person: Personnel) => person.id === 'person-1',
-			canReadPersonnelDetails: true,
-			canOpenPersonnelDetail: () => true,
-			personnelRecordAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
+	function openableCtx(overrides: Partial<PersonnelPageContext> = {}): PersonnelPageContext {
+		return makeCtx(
+			{
+				canManagePersonnelRecord: (person: Personnel) => person.id === 'person-1',
+				canReadPersonnelDetails: true,
+				canOpenPersonnelDetail: () => true,
+				personnelRecordAffordance: () => allowedAffordance()
+			},
+			overrides
+		);
 	}
 
 	it('opens the record from the row and the name link, a note from Note and the editor in place from Quick edit', async () => {
@@ -797,10 +792,7 @@ describe('PersonnelPageView', () => {
 	describe('a second Note while a composer holds typed text', () => {
 		async function typeInSmithComposer() {
 			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young', slug: 'young-test' }], 'org-1');
-			const ctx = {
-				...openableCtx(),
-				canManagePersonnelRecord: () => true
-			} as unknown as PersonnelPageContext;
+			const ctx = openableCtx({ canManagePersonnelRecord: () => true });
 			render(PersonnelPageView, { props: { ctx } });
 			await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0]);
 			await fireEvent.input(await screen.findByRole('textbox', { name: 'Follow-up title' }), {
@@ -871,22 +863,19 @@ describe('PersonnelPageView', () => {
 			groupCatalogHydration.load([], 'org-test-reset');
 		});
 
-		function editCtx(overrides: Record<string, unknown> = {}, people = [personnel[0], young]): PersonnelPageContext {
+		function editCtx(
+			overrides: Partial<PersonnelPageContext> = {},
+			people = [personnel[0], young]
+		): PersonnelPageContext {
 			personnelStore.load(people, 'org-1');
-			const base = makeCtx();
-			return Object.defineProperties(
-				base,
-				Object.getOwnPropertyDescriptors(
-					Object.defineProperties(
-						{
-							canManagePersonnelRecord: () => true,
-							canReadPersonnelDetails: true,
-							canOpenPersonnelDetail: () => true,
-							personnelRecordAffordance: () => allowedAffordance()
-						},
-						Object.getOwnPropertyDescriptors(overrides)
-					)
-				)
+			return makeCtx(
+				{
+					canManagePersonnelRecord: () => true,
+					canReadPersonnelDetails: true,
+					canOpenPersonnelDetail: () => true,
+					personnelRecordAffordance: () => allowedAffordance()
+				},
+				overrides
 			);
 		}
 
@@ -1252,14 +1241,14 @@ describe('PersonnelPageView', () => {
 				else call?.reply.resolve(read);
 				await waitFor(() => {});
 			};
-			const ctx = Object.assign(makeCtx(), {
+			const ctx = makeCtx({
 				peek,
 				canViewAvailability: true,
 				canManagePersonnelRecord: () => true,
 				canReadPersonnelDetails: true,
 				canOpenPersonnelDetail: () => true,
 				personnelRecordAffordance: () => allowedAffordance()
-			}) as unknown as PersonnelPageContext;
+			});
 			return { ctx, reads, answer };
 		}
 
@@ -1387,19 +1376,22 @@ describe('PersonnelPageView', () => {
 			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
 			await answer('person-1', 'followUps', {
 				state: 'ready',
-				value: [
-					{
-						id: 'f1',
-						title: 'Turn in TA-50 shortage list',
-						notes: '',
-						status: 'open',
-						dueDate: '2026-10-02',
-						createdAt: '2026-09-28T10:00:00Z',
-						createdBy: 'SFC Whitaker',
-						completedAt: null,
-						completedBy: null
-					}
-				]
+				value: {
+					followUps: [
+						{
+							id: 'f1',
+							title: 'Turn in TA-50 shortage list',
+							notes: '',
+							status: 'open',
+							dueDate: '2026-10-02',
+							createdAt: '2026-09-28T10:00:00Z',
+							createdBy: 'SFC Whitaker',
+							completedAt: null,
+							completedBy: null
+						}
+					],
+					total: 1
+				}
 			} as RosterPeekRead);
 			const preview = within(panel());
 			expect(preview.getByText('Overdue 4 days')).toBeTruthy();
@@ -1425,6 +1417,45 @@ describe('PersonnelPageView', () => {
 			completedAt: null,
 			completedBy: null
 		};
+
+		it("links the record, its readiness and its log by the Person's slug", async () => {
+			viewport(1440);
+			const { ctx, answer } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			await answer('person-1', 'followUps', { state: 'ready', value: { followUps: [], total: 0 } } as RosterPeekRead);
+
+			const preview = within(panel());
+			expect(
+				['Open record', 'Readiness', 'Open log'].map((name) =>
+					preview.getByRole('link', { name: new RegExp(name) }).getAttribute('href')
+				)
+			).toEqual([
+				'/org/org-1/personnel/smith-jane',
+				'/org/org-1/personnel/smith-jane/readiness',
+				'/org/org-1/personnel/smith-jane/log'
+			]);
+		});
+
+		it('counts the open follow-ups past the shown ones toward the log', async () => {
+			viewport(1440);
+			const { ctx, answer } = peekCtx();
+			render(PersonnelPageView, { props: { ctx } });
+			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
+			const shown = ['f1', 'f2', 'f3', 'f4', 'f5'].map((id, index) => ({
+				...openFollowUp,
+				id,
+				title: `Follow-up ${index + 1}`
+			}));
+			await answer('person-1', 'followUps', {
+				state: 'ready',
+				value: { followUps: shown, total: 7 }
+			} as RosterPeekRead);
+
+			const preview = within(panel());
+			expect(preview.getByRole('heading', { name: /^Open follow-ups\s·\s7$/ })).toBeTruthy();
+			expect(preview.getByText('+2 more in the log')).toBeTruthy();
+		});
 
 		it('offers Retry for a readiness source that could not be checked, rereading only readiness', async () => {
 			viewport(1440);
@@ -1473,7 +1504,10 @@ describe('PersonnelPageView', () => {
 			render(PersonnelPageView, { props: { ctx } });
 			const smith = screen.getByRole('row', { name: 'Open SGT Smith, Jane' });
 			await fireEvent.click(smith);
-			await answer('person-1', 'followUps', { state: 'ready', value: [openFollowUp] } as RosterPeekRead);
+			await answer('person-1', 'followUps', {
+				state: 'ready',
+				value: { followUps: [openFollowUp], total: 1 }
+			} as RosterPeekRead);
 			await fireEvent.click(within(panel()).getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' }));
 
 			await fireEvent.keyDown(smith, { key: 'j' });
@@ -1487,7 +1521,7 @@ describe('PersonnelPageView', () => {
 
 			await waitFor(() => expect(reads.filter((read) => read.personnelId === 'person-1')).toHaveLength(10));
 			expect(reads.at(-1)).toMatchObject({ personnelId: 'person-1', section: 'followUps' });
-			await answer('person-1', 'followUps', { state: 'ready', value: [] } as RosterPeekRead);
+			await answer('person-1', 'followUps', { state: 'ready', value: { followUps: [], total: 0 } } as RosterPeekRead);
 			expect(within(panel()).getByText('No open follow-ups.')).toBeTruthy();
 		});
 
@@ -1503,7 +1537,10 @@ describe('PersonnelPageView', () => {
 			);
 			render(PersonnelPageView, { props: { ctx } });
 			await fireEvent.click(screen.getByRole('row', { name: 'Open SGT Smith, Jane' }));
-			await answer('person-1', 'followUps', { state: 'ready', value: [openFollowUp] } as RosterPeekRead);
+			await answer('person-1', 'followUps', {
+				state: 'ready',
+				value: { followUps: [openFollowUp], total: 1 }
+			} as RosterPeekRead);
 			await fireEvent.click(within(panel()).getByRole('checkbox', { name: 'Complete Turn in TA-50 shortage list' }));
 
 			endOrganizationLifetime();
@@ -1738,7 +1775,7 @@ describe('PersonnelPageView', () => {
 
 		function signalsCtx(canViewAvailability = true) {
 			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young' }], 'org-1');
-			return { ...makeCtx(), canViewAvailability } as unknown as PersonnelPageContext;
+			return makeCtx({ canViewAvailability });
 		}
 
 		const lane = (people: unknown[]) => ({ asOf: '2026-10-23', access: ACCESS, statusTypes: [LEAVE], people });
@@ -1789,6 +1826,23 @@ describe('PersonnelPageView', () => {
 					.getAllByRole('listitem')
 					.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())
 			).toEqual(['1 present', '1 Leave']);
+		});
+
+		it('moves the lane to the new day when a composer opens on a page left open past midnight', async () => {
+			let browserDay = '2026-10-23';
+			const signals = new RosterSignals({ readPeople: vi.fn(), browserDay: () => browserDay });
+			personnelStore.load([personnel[0]], 'org-1');
+			const ctx = makeCtx({ signals, canManagePersonnelRecord: () => true });
+			signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
+			render(PersonnelPageView, { props: { ctx } });
+			expect(invalidateMock).not.toHaveBeenCalled();
+
+			browserDay = '2026-10-24';
+			expect(invalidateMock).not.toHaveBeenCalled();
+			await fireEvent.click(screen.getAllByRole('button', { name: 'Note for SGT Smith, Jane' })[0]);
+
+			expect(await screen.findByRole('dialog', { name: 'Add to log for SGT Jane Smith' })).toBeTruthy();
+			expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-signals');
 		});
 
 		it('hides the headcount from a viewer who cannot read availability', () => {
@@ -1847,9 +1901,9 @@ describe('PersonnelPageView', () => {
 			openFollowUps: { kind: 'withheld' }
 		};
 
-		function filterCtx() {
+		function filterCtx(overrides: Partial<PersonnelPageContext> = {}) {
 			personnelStore.load([personnel[0], { ...makePerson(2), lastName: 'Young' }], 'org-1');
-			return Object.assign(makeCtx(), { canViewAvailability: true }) as unknown as PersonnelPageContext;
+			return makeCtx({ canViewAvailability: true }, overrides);
 		}
 
 		function settle(ctx: PersonnelPageContext, access = ACCESS) {
@@ -1918,14 +1972,14 @@ describe('PersonnelPageView', () => {
 
 		it('reserves no chip row for a viewer who can never see a chip, before or after the lane settles', async () => {
 			const noChips = { ...ACCESS, availability: false, training: false };
-			const held = Object.assign(filterCtx(), { expectedChipCount: 0, lossesEnabled: false });
+			const held = filterCtx({ expectedChipCount: 0, lossesEnabled: false });
 			held.signals.observe('org-1', '2026-10-23', Promise.withResolvers<never>().promise);
 			const { unmount } = render(PersonnelPageView, { props: { ctx: held } });
 			expect(screen.getByRole('row', { name: 'SGT Smith, Jane' })).toBeTruthy();
 			expect(screen.queryByRole('group', { name: 'Show only' })).toBeNull();
 			unmount();
 
-			const settled = Object.assign(filterCtx(), { expectedChipCount: 0, lossesEnabled: false });
+			const settled = filterCtx({ expectedChipCount: 0, lossesEnabled: false });
 			settle(settled, noChips);
 			render(PersonnelPageView, { props: { ctx: settled } });
 			await screen.findByRole('row', { name: 'SGT Smith, Jane' });
@@ -1956,7 +2010,7 @@ describe('PersonnelPageView', () => {
 					cancel: () => undefined
 				});
 			});
-			const ctx = Object.assign(filterCtx(), {
+			const ctx = filterCtx({
 				canManagePersonnelRecord: () => true,
 				canReadPersonnelDetails: true,
 				canOpenPersonnelDetail: () => true,
@@ -2122,13 +2176,13 @@ describe('PersonnelPageView', () => {
 		});
 
 		it('keeps a selection through a filter change and says how many it hides and why', async () => {
-			const ctx = Object.assign(filterCtx(), {
+			const ctx = filterCtx({
 				canManagePersonnelRecord: () => true,
 				canExportPersonnelRecord: () => true,
 				canArchivePersonnelRecord: () => true,
 				canManagePersonnelInGroup: () => true,
 				personnelArchiveAffordance: () => allowedAffordance()
-			}) as unknown as PersonnelPageContext;
+			});
 			settle(ctx);
 			render(PersonnelPageView, { props: { ctx } });
 			await screen.findByRole('button', { name: /Expired or missing/ });
@@ -2171,12 +2225,12 @@ describe('PersonnelPageView', () => {
 				[personnel[0], { ...makePerson(2), lastName: 'Young' }, { ...makePerson(3), lastName: 'Adams' }],
 				'org-1'
 			);
-			const ctx = Object.assign(makeCtx(), {
+			const ctx = makeCtx({
 				canViewAvailability: true,
 				canReadPersonnelDetails: true,
 				canOpenPersonnelDetail: () => true,
 				personnelRecordAffordance: () => allowedAffordance()
-			}) as unknown as PersonnelPageContext;
+			});
 			const adams = { ...smith, personnelId: 'person-3' };
 			ctx.signals.observe(
 				'org-1',

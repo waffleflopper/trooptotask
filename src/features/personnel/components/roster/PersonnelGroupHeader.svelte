@@ -61,7 +61,7 @@
 					checked={selection.state === 'all'}
 					indeterminate={selection.state === 'some'}
 					ariaLabel="Select everyone in {group.label}"
-					onCheckedChange={selection.set}
+					onCheckedChange={(checked) => selection.set(checked)}
 				/>
 			</span>
 		{/if}

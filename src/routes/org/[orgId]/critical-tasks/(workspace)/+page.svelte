@@ -13,7 +13,7 @@
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
-	import { groupsStore } from '$features/personnel';
+	import { groupsStore, pinnedGroupsStore } from '$features/personnel';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
 	import {
@@ -71,22 +71,10 @@
 	const canRecordCompletion = $derived(recordCompletionAffordance.allowed);
 	const canConfigureLibrary = $derived(configureLibraryAffordance.allowed);
 	const canInputTask = $derived(canViewReadiness && canRecordCompletion);
-	const groupOrder = $derived(
-		[...groupsStore.items]
-			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
-			.map((g) => g.name)
-	);
 	const rosterReadModel = $derived(
 		rosterStore.orgId === orgId
-			? rosterStore.readModel({
-					groupOrder,
-					fallbackGroupName: orgName
-				})
-			: createRosterReadModel({
-					personnel: [],
-					groupOrder,
-					fallbackGroupName: orgName
-				})
+			? rosterStore.readModel({ fallbackGroupName: orgName })
+			: createRosterReadModel({ personnel: [], groups: [], pinnedGroups: [], fallbackGroupName: orgName })
 	);
 	const activeRosterView = $derived(rosterReadModel.scoped(org.scopeSet, { status: 'active' }));
 	const activePersonnel = $derived(activeRosterView.flatPersonnel);
@@ -353,6 +341,7 @@
 							tasks={ictTasksStore.items}
 							completions={personnelIctCompletionsStore.items}
 							groups={groupsStore.items}
+							pinnedGroups={pinnedGroupsStore.orgId === orgId ? pinnedGroupsStore.list : []}
 							settings={criticalTasksSettings}
 							canEdit={canRecordCompletion}
 							onSelectCell={handleMatrixCellSelection}

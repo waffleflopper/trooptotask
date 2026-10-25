@@ -52,7 +52,12 @@ submits bounded ordinary HTTP actions against helper-recorded targets, separatel
 `seed platform-admin` Organization) control only their exact page-data navigation with failure, hold or observation.
 `arm-fail` replaces the response with a transport 503, which SvelteKit renders on the root error page; `arm-load-error`
 dispatches the real read and returns its page node as a 503 server-load error, which renders the nearest route error
-page. Restore hooks, original flags and UI-created announcement rows before owned cleanup. Run
+page. `arm-hold-regions` sends the page node at once and withholds every streamed region until `release`, so the
+Banners, dismissal-count, entry-list and member What's new skeletons stay on screen; `arm-fail-regions` rejects each
+streamed region of the selected read, so each region shows its own load error while the rest of the page stays usable.
+Both accept `admin-announcements-read`, `admin-whats-new-read` and `org-page/whats-new` (the member all-updates page,
+resolved against the `orgA` Organization). Restore hooks, original flags and UI-created announcement rows before owned
+cleanup. Run
 `node --test .agents/skills/verify-trooptotask/helpers/platform-network-target.test.mjs` for target isolation and
 explicit retry.
 
@@ -114,7 +119,9 @@ create/toggle/delete/review requests preserve rows, separately from native contr
    old-editor write still refreshes saved content on the current page. Other mutations remain disabled while a write or
    its readback is pending. Capture any failure as a defect rather than adopting it as intended behavior.
    The Banners list and its dismissal counts load as separate regions: each shows a skeleton while pending, then its own
-   content or its own load error, and a count that cannot load never hides the banners.
+   content or its own load error, and a count that cannot load never hides the banners. Arm `arm-hold-regions` on
+   `admin-announcements-read`, open Banners from another tab and capture the skeletons before `release`; arm
+   `arm-fail-regions` and capture the load error with Retry, then `restore` and Retry to read the list.
 4. **Publish a What's New entry.** Open the What's New tab as the operator. Choose New Entry, type a unique title and
    two paragraphs, move the second above the first, remove none, and Save Draft. The entry lists as Draft, reopens from
    the list or the address with both paragraphs in the saved order, and `$V platform-content` style provider readback

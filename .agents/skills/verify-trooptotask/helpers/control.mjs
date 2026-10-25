@@ -2618,7 +2618,9 @@ async function main() {
 				'arm-reject',
 				'arm-observe',
 				'arm-drop',
-				'arm-load-error'
+				'arm-load-error',
+				'arm-hold-regions',
+				'arm-fail-regions'
 			].includes(action)
 		) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
@@ -2650,6 +2652,8 @@ async function main() {
 				'dashboard/declineInvitation': ['/dashboard', '?/declineInvitation', 'error'],
 				'org/new': ['/org/new', '', 'error']
 			}[family];
+			// Org pages whose streamed regions load after the page: path under /org/ORG/.
+			const orgPage = { 'org-page/whats-new': 'whats-new/__data.json' }[family] ?? null;
 			const settingsPage =
 				/^settings-page\/(general|features|policies|ranks|members|approvals|archives|logs|exports|danger)$/.exec(
 					family
@@ -2739,6 +2743,7 @@ async function main() {
 				!accountForm &&
 				!settingsPage &&
 				!accountPage &&
+				!orgPage &&
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
@@ -2760,6 +2765,7 @@ async function main() {
 				formAction ||
 				settingsPage ||
 				accountPage ||
+				orgPage ||
 				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
 				shellPart
 			) {
@@ -2795,6 +2801,7 @@ async function main() {
 			if (platformForm) suffix = platformForm.suffix;
 			if (accountForm) suffix = accountForm[0];
 			if (accountPage) suffix = `/org/${organizationSegment}/account/${accountPage[0]}`;
+			if (orgPage) suffix = `/org/${organizationSegment}/${orgPage}`;
 			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
@@ -2832,10 +2839,18 @@ async function main() {
 			)
 				throw new Error('A held dispatch is supported only for Calendar mutation families.');
 			if (
-				(/^admin-[a-z-]+-read$/.test(family) || shellPart) &&
-				!['arm-fail', 'arm-hold', 'arm-observe', ...(shellPart ? [] : ['arm-load-error'])].includes(action)
+				(/^admin-[a-z-]+-read$/.test(family) || shellPart || orgPage) &&
+				![
+					'arm-fail',
+					'arm-hold',
+					'arm-observe',
+					...(shellPart || orgPage ? [] : ['arm-load-error']),
+					...(shellPart ? [] : ['arm-hold-regions', 'arm-fail-regions'])
+				].includes(action)
 			)
 				throw new Error('Platform read controls support failure, hold and observation only.');
+			if (['arm-hold-regions', 'arm-fail-regions'].includes(action) && !/^admin-[a-z-]+-read$/.test(family) && !orgPage)
+				throw new Error('Region controls are supported only for streamed page-data reads.');
 			if (action === 'arm-load-error' && !/^admin-[a-z-]+-read$/.test(family))
 				throw new Error('A page server-load error is supported only for platform page-data reads.');
 			if (
@@ -2874,9 +2889,13 @@ async function main() {
 										? 'drop-response'
 										: action === 'arm-load-error'
 											? 'load-error'
-											: action === 'arm-hold-dispatch'
-												? 'hold-dispatch'
-												: 'observe';
+											: action === 'arm-hold-regions'
+												? 'hold-regions'
+												: action === 'arm-fail-regions'
+													? 'fail-regions'
+													: action === 'arm-hold-dispatch'
+														? 'hold-dispatch'
+														: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??

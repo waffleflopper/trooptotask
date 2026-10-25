@@ -217,7 +217,10 @@ it('offers another try when the browser returns from an abandoned step-up', asyn
 it('does not redirect the current page when the modal closed before the step-up reply arrived', async () => {
 	const location = stubLocation();
 	let reply!: (response: Response) => void;
-	vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => (reply = resolve))));
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(() => new Promise<Response>((resolve) => (reply = resolve)))
+	);
 	const view = render(SuspendModal, props());
 	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
 	view.unmount();

@@ -12,12 +12,8 @@ export {
 	type FeedbackInboxReader,
 	type FeedbackInboxRow
 } from './server/feedbackInbox.server';
-export { createGitHubFeedbackMirror } from './server/githubFeedbackMirror.server';
 export type {
 	FeedbackExportRow,
-	FeedbackMirror,
-	FeedbackMirrorInput,
-	FeedbackMirrorResult,
 	FeedbackReview,
 	FeedbackReviewStore,
 	FeedbackSubmission,
@@ -25,3 +21,15 @@ export type {
 	FeedbackSubmissionRecord,
 	FeedbackSubmissionStore
 } from './server/feedbackPorts.server';
+
+export {
+	createFeedbackStaffCommands,
+	feedbackStaffCommandSchema,
+	reporterFeedbackHref
+} from './server/feedbackStaff.server';
+export type { FeedbackStaffStore, FeedbackStaffDependencies } from './server/feedbackStaff.server';
+export {
+	createSupabaseFeedbackStaffStore,
+	createSupabaseReporterFeedbackReader
+} from './server/feedbackStaffProvider.server';
+export { createGitHubFeedbackClient, buildFeedbackIssuePrefill } from './server/githubFeedbackIssues.server';

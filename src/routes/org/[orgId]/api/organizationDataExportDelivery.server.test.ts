@@ -164,6 +164,9 @@ function communicationsProvider(platformAdministrator = false) {
 						(row.user_id === 'exporter' || (table === 'beta_feedback' && platformAdministrator)) &&
 						(!url.searchParams.has('organization_id') ||
 							url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+						(!url.searchParams.has('or') ||
+							row.organization_id === null ||
+							url.searchParams.get('or')?.includes(`organization_id.eq.${row.organization_id},`)) &&
 						(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
 				);
 				const limit = Number(url.searchParams.get('limit') ?? 1000);
@@ -199,7 +202,7 @@ function communicationsProvider(platformAdministrator = false) {
 				createDeletionRequestTestStore(ctx.rawStore)
 			)
 		);
-	return { state, load, notifications, feedbackRows };
+	return { state, load, notifications, feedbackRows: feedbackRows.map((row) => ({ ...row, admin_notes: null })) };
 }
 
 describe('owned communications in Organization exports', () => {

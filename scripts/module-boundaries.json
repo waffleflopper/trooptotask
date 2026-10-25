@@ -55,6 +55,7 @@
 				"src/lib/server/adapters/dashboardRequestContext.server.test.ts",
 				"src/lib/server/adapters/appShellRequestDelivery.ts",
 				"src/lib/server/adapters/featureRequestContexts.server.ts",
+				"src/lib/server/adapters/feedbackDelivery.server.ts",
 				"src/lib/server/adapters/handle.test.ts",
 				"src/lib/server/adapters/httpAdapter.ts",
 				"src/lib/server/adapters/loadWithContext.test.ts",

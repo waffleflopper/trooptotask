@@ -34,6 +34,7 @@ function savedFeedback(overrides: Partial<FeedbackExportRow> = {}): FeedbackExpo
 function provider(rows: FeedbackExportRow[] = []) {
 	const state = {
 		rows,
+		staffNotes: new Map(rows.filter((row) => row.admin_notes !== null).map((row) => [row.id, row.admin_notes])),
 		inserted: [] as Record<string, unknown>[],
 		error: null as { message: string } | null,
 		failedPage: null as number | null
@@ -59,7 +60,16 @@ function provider(rows: FeedbackExportRow[] = []) {
 			return columns === '*'
 				? { ...row }
 				: Object.fromEntries(
-						columns.split(',').map((column) => [column.trim(), row[column.trim() as keyof FeedbackExportRow]])
+						columns
+							.split(',')
+							.map((column) =>
+								column.trim() === 'feedback_staff_notes(body)'
+									? [
+											'feedback_staff_notes',
+											state.staffNotes.has(row.id) ? { body: state.staffNotes.get(row.id) } : null
+										]
+									: [column.trim(), row[column.trim() as keyof FeedbackExportRow]]
+							)
 					);
 		}
 		const builder = {
@@ -111,6 +121,19 @@ function provider(rows: FeedbackExportRow[] = []) {
 
 	const client = {
 		from(table: string) {
+			if (table === 'feedback_staff_notes')
+				return {
+					delete: () => ({
+						eq: async (_column: string, id: string) => {
+							state.staffNotes.delete(id);
+							return { error: state.error };
+						}
+					}),
+					upsert: async (input: { feedback_id: string; body: string }) => {
+						state.staffNotes.set(input.feedback_id, input.body);
+						return { error: state.error };
+					}
+				};
 			if (table !== 'beta_feedback') throw new Error(`Unexpected table ${table}`);
 			return query();
 		}
@@ -119,7 +142,7 @@ function provider(rows: FeedbackExportRow[] = []) {
 }
 
 describe('Feedback provider', () => {
-	it('keeps privileged client access lazy and inserts the exact account/context/mirror payload', async () => {
+	it('keeps privileged client access lazy and inserts the exact account and message payload', async () => {
 		const { client, state } = provider();
 		const getClient = vi.fn(() => client);
 		const submission = createFeedbackSubmission({ store: createSupabaseFeedbackSubmissionStore(getClient) });
@@ -137,9 +160,7 @@ describe('Feedback provider', () => {
 			category: 'bug',
 			message: 'Calendar selection disappeared',
 			pageUrl: '/org/alpha/calendar',
-			pageSection: 'Calendar',
-			githubIssueNumber: 42,
-			githubIssueUrl: 'https://github.com/example/repository/issues/42'
+			pageSection: 'Calendar'
 		});
 
 		expect(state.inserted).toEqual([
@@ -151,9 +172,7 @@ describe('Feedback provider', () => {
 				category: 'bug',
 				message: 'Calendar selection disappeared',
 				page_url: '/org/alpha/calendar',
-				page_section: 'Calendar',
-				github_issue_number: 42,
-				github_issue_url: 'https://github.com/example/repository/issues/42'
+				page_section: 'Calendar'
 			}
 		]);
 	});
@@ -197,10 +216,11 @@ describe('Feedback provider', () => {
 		await expect(store.updateFeedback({ id: 'selected', adminNotes: null })).resolves.toEqual({ id: 'selected' });
 		expect(state.rows[0]).toMatchObject({
 			status: 'reviewed',
-			admin_notes: null,
 			message: 'Calendar selection disappeared'
 		});
-		expect(state.rows[1]).toMatchObject({ status: 'new', admin_notes: 'Leave intact' });
+		expect(state.staffNotes.has('selected')).toBe(false);
+		expect(state.staffNotes.get('peer')).toBe('Leave intact');
+		expect(state.rows[1]).toMatchObject({ status: 'new' });
 		await expect(store.updateFeedback({ id: 'missing', status: 'resolved' })).resolves.toBeNull();
 	});
 
@@ -275,9 +295,7 @@ describe('Feedback provider', () => {
 				category: 'general',
 				message: 'Keep the failed attempt visible',
 				pageUrl: null,
-				pageSection: null,
-				githubIssueNumber: null,
-				githubIssueUrl: null
+				pageSection: null
 			})
 		).rejects.toThrow('Failed to insert feedback');
 		expect(state.rows[0].status).toBe('new');

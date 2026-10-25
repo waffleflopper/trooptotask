@@ -3,11 +3,7 @@ import {
 	createSupabaseDeletionRequestStore,
 	createSupabaseDeletionRequestSubmission
 } from '$features/deletion-requests/index.server';
-import {
-	createFeedbackSubmission,
-	createGitHubFeedbackMirror,
-	createSupabaseFeedbackSubmissionStore
-} from '$features/feedback/index.server';
+import { createFeedbackSubmission, createSupabaseFeedbackSubmissionStore } from '$features/feedback/index.server';
 import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 import { createSupabaseFeedbackOrganizationContextPort } from '$features/organization/index.server';
 import {
@@ -38,8 +34,7 @@ export function createRequestFeedbackSubmission() {
 	const context = createSupabaseFeedbackOrganizationContextPort(getAdminClient);
 	return createFeedbackSubmission({
 		store: createSupabaseFeedbackSubmissionStore(getAdminClient),
-		resolveOrganizationContext: (input) => context.resolveOrganizationContext(input),
-		mirror: createGitHubFeedbackMirror()
+		resolveOrganizationContext: (input) => context.resolveOrganizationContext(input)
 	});
 }
 

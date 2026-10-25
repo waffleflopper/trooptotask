@@ -155,6 +155,10 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	announcement_activate: entry(null, 'info', (s) => `${s.actor} turned on the announcement ${s.target}`),
 	announcement_deactivate: entry(null, 'info', (s) => `${s.actor} turned off the announcement ${s.target}`),
 	announcement_delete: entry(null, 'warning', (s) => `${s.actor} deleted the announcement ${s.target}`),
+	'feedback.replied': entry(null, 'info', (s) => `${s.actor} replied to ${s.target}`),
+	'feedback.replied_and_closed': entry(null, 'info', (s) => `${s.actor} replied to and closed ${s.target}`),
+	'feedback.staff_note_saved': entry(null, 'info', (s) => `${s.actor} saved a staff note on ${s.target}`),
+	'feedback.github_issue_created': entry(null, 'info', (s) => `${s.actor} created a GitHub issue for ${s.target}`),
 	'feedback.closed_without_reply': entry(null, 'info', (s) => `${s.actor} closed ${s.target} without replying`)
 };
 

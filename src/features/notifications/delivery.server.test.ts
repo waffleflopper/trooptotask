@@ -20,6 +20,27 @@ describe('notification delivery', () => {
 		]);
 	});
 
+	it('delivers a feedback reply to an account without Organization context', async () => {
+		const provider = notificationTestProvider();
+		const delivery = createSupabaseNotificationDelivery({
+			getAdminClient: () => provider.client,
+			resolveAdministratorRecipients: async () => ({ userIds: [], errorMessage: null }),
+			failureMode: 'required'
+		});
+		await delivery.notifyUser(null, 'reporter', {
+			type: 'feedback_reply',
+			title: 'Reply',
+			message: 'An operator replied',
+			link: '/feedback/report-1'
+		});
+		expect(provider.state.rows[0]).toMatchObject({
+			user_id: 'reporter',
+			organization_id: null,
+			type: 'feedback_reply',
+			link: '/feedback/report-1'
+		});
+	});
+
 	it('resolves each admin send, excludes the actor, and skips an empty audience without inserting', async () => {
 		const provider = notificationTestProvider();
 		let userIds = ['actor', 'owner'];

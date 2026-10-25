@@ -34,30 +34,10 @@ export interface FeedbackSubmissionRecord {
 	message: string;
 	pageUrl: string | null;
 	pageSection: string | null;
-	githubIssueNumber: number | null;
-	githubIssueUrl: string | null;
 }
 
 export interface FeedbackSubmissionStore {
 	insertFeedbackSubmission(input: FeedbackSubmissionRecord): Promise<void>;
-}
-
-export interface FeedbackMirrorInput {
-	category: FeedbackCategory;
-	message: string;
-	pageUrl: string | null;
-	pageSection: string | null;
-	organizationName: string | null;
-	userEmail: string | null;
-}
-
-export interface FeedbackMirrorResult {
-	issueNumber: number;
-	issueUrl: string;
-}
-
-export interface FeedbackMirror {
-	mirror(input: FeedbackMirrorInput): Promise<FeedbackMirrorResult | null>;
 }
 
 export interface FeedbackSubmissionDependencies {
@@ -66,7 +46,6 @@ export interface FeedbackSubmissionDependencies {
 		userId: string;
 		organizationId: string;
 	}): Promise<FeedbackOrganizationContext | null>;
-	mirror?: FeedbackMirror;
 }
 
 export interface FeedbackSubmission {

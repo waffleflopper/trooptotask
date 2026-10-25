@@ -33,6 +33,9 @@ function createExportTestContext(overrides?: Parameters<typeof createTestContext
 						row.user_id === ctx.auth.userId &&
 						(!url.searchParams.has('organization_id') ||
 							url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+						(!url.searchParams.has('or') ||
+							row.organization_id === null ||
+							url.searchParams.get('or')?.includes(`organization_id.eq.${row.organization_id},`)) &&
 						(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
 				);
 				const offset = Number(url.searchParams.get('offset') ?? 0);
@@ -267,7 +270,7 @@ describe('POST /api/export', () => {
 		expect(payload.personnelTrainings).toEqual([training]);
 		expect(payload.trainingViews).toEqual([view]);
 		expect(payload.notifications).toEqual([notification]);
-		expect(payload.betaFeedback).toEqual([feedback]);
+		expect(payload.betaFeedback).toEqual([{ ...feedback, admin_notes: null }]);
 		expect(payload.sectionInventory).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ key: 'notifications', rowCount: 1 }),

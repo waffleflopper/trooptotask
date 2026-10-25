@@ -826,7 +826,7 @@ export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {
 
 interface RecordedNotification {
 	target: 'user' | 'admins';
-	orgId: string;
+	orgId: string | null;
 	userId?: string;
 	excludeUserId?: string | null;
 	notification: NotificationPayload;
@@ -838,7 +838,7 @@ export function createTestNotificationPort(): NotificationDeliveryPort & {
 	const notifications: RecordedNotification[] = [];
 	return {
 		notifications,
-		async notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
+		async notifyUser(orgId: string | null, userId: string, notification: NotificationPayload): Promise<void> {
 			notifications.push({ target: 'user', orgId, userId, notification });
 		},
 		async notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void> {

@@ -14,14 +14,14 @@ GRANT ALL ON public.organization_suspensions TO service_role;
 
 -- Suspension state and its reason change together, and only for a current operator. A repeat request on an
 -- Organization that is already suspended changes nothing, so the saved time, reason and operator stay one
--- operator's account; the caller is told 'already_suspended'.
+-- operator's account, and an Organization suspended before reasons were recorded gains none; the caller is
+-- told 'already_suspended'.
 CREATE FUNCTION public.platform_suspend_organization(
 	p_actor_user_id uuid, p_organization_id uuid, p_reason text, p_suspended_at timestamptz
 ) RETURNS text
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
 	v_previous timestamptz;
-	v_suspended_at timestamptz;
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM public.platform_operators WHERE user_id = p_actor_user_id)
 		OR EXISTS (SELECT 1 FROM public.user_suspensions WHERE user_id = p_actor_user_id) THEN
@@ -29,12 +29,13 @@ BEGIN
 	END IF;
 	SELECT o.suspended_at INTO v_previous FROM public.organizations o WHERE o.id = p_organization_id FOR UPDATE;
 	IF NOT FOUND THEN RETURN 'not_found'; END IF;
-	v_suspended_at := coalesce(v_previous, p_suspended_at);
-	UPDATE public.organizations SET suspended_at = v_suspended_at WHERE id = p_organization_id;
+	IF v_previous IS NOT NULL THEN RETURN 'already_suspended'; END IF;
+	UPDATE public.organizations SET suspended_at = p_suspended_at WHERE id = p_organization_id;
 	INSERT INTO public.organization_suspensions (organization_id, reason, suspended_by, suspended_at)
-	VALUES (p_organization_id, p_reason, p_actor_user_id, v_suspended_at)
-	ON CONFLICT (organization_id) DO NOTHING;
-	RETURN CASE WHEN v_previous IS NULL THEN 'suspended' ELSE 'already_suspended' END;
+	VALUES (p_organization_id, p_reason, p_actor_user_id, p_suspended_at)
+	ON CONFLICT (organization_id) DO UPDATE
+	SET reason = EXCLUDED.reason, suspended_by = EXCLUDED.suspended_by, suspended_at = EXCLUDED.suspended_at;
+	RETURN 'suspended';
 END;
 $$;
 

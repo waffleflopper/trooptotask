@@ -22,11 +22,7 @@ export type {
 	FeedbackSubmissionStore
 } from './server/feedbackPorts.server';
 
-export {
-	createFeedbackStaffCommands,
-	feedbackStaffCommandSchema,
-	reporterFeedbackHref
-} from './server/feedbackStaff.server';
+export { createFeedbackStaffCommands, feedbackStaffCommandSchema } from './server/feedbackStaff.server';
 export type { FeedbackStaffStore, FeedbackStaffDependencies } from './server/feedbackStaff.server';
 export {
 	createSupabaseFeedbackStaffStore,

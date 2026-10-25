@@ -345,9 +345,9 @@ SELECT throws_ok(
 
 RESET ROLE;
 SELECT results_eq(
-	$$ SELECT id FROM public.notifications ORDER BY id $$,
-	$$ VALUES ('60000000-0000-4000-8000-000000136802'::uuid), ('60000000-0000-4000-8000-000000136804'::uuid), ('60000000-0000-4000-8000-000000136805'::uuid) $$,
-	'own deletions persist while denied peer and anonymous deletes preserve their saved notifications'
+	$$ SELECT coalesce(link, id::text) FROM public.notifications ORDER BY 1 $$,
+	$$ VALUES ('/feedback/50000000-0000-4000-8000-000000136802'::text), ('60000000-0000-4000-8000-000000136802'::text), ('60000000-0000-4000-8000-000000136804'::text), ('60000000-0000-4000-8000-000000136805'::text) $$,
+	'own deletions persist while denied peer and anonymous deletes preserve saved and reply notifications'
 );
 
 SELECT results_eq(

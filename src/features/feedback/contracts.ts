@@ -68,6 +68,7 @@ export type FeedbackStaffResult =
 	| { status: 'noteSaved' }
 	| { status: 'issueCreated'; issue: FeedbackIssue }
 	| { status: 'notFound' }
+	| { status: 'closed'; message: string }
 	| { status: 'issueExists'; issue: FeedbackIssue }
 	| { status: 'githubError'; message: string }
 	| { status: 'issuePersistenceError'; issue: FeedbackIssue; message: string };

@@ -3,7 +3,6 @@ import type { FeedbackReply, FeedbackStaffCommand, FeedbackStaffDetail } from '.
 import {
 	createFeedbackStaffCommands,
 	feedbackStaffCommandSchema,
-	reporterFeedbackHref,
 	type FeedbackStaffDependencies
 } from './feedbackStaff.server';
 
@@ -50,10 +49,11 @@ function setup() {
 	const deps = {
 		store: {
 			detail: vi.fn<FeedbackStaffDependencies['store']['detail']>(async () => state.detail),
-			reply: vi.fn(async ({ close }: { close: boolean }) => {
+			reply: vi.fn<FeedbackStaffDependencies['store']['reply']>(async ({ close }) => {
 				state.detail.status = close ? 'resolved' : 'reviewed';
 				state.detail.replies.push(reply);
-				return reply;
+				state.notifications.push({ userId: 'reporter', feedbackId: ID });
+				return { status: 'replied', reply };
 			}),
 			saveNote: vi.fn(async () => true),
 			saveIssue: vi.fn(async ({ issue: saved }: { issue: typeof issue }) => {
@@ -63,9 +63,6 @@ function setup() {
 		github: {
 			createIssue: vi.fn<FeedbackStaffDependencies['github']['createIssue']>(async () => ({ status: 'created', issue }))
 		},
-		notifyReporter: vi.fn(async (input: unknown) => {
-			state.notifications.push(input);
-		}),
 		audit: vi.fn<FeedbackStaffDependencies['audit']>(async (entry, options) => {
 			state.audits.push({ entry, options });
 		})
@@ -94,7 +91,6 @@ describe('Feedback staff commands', () => {
 				}),
 				{ required: true }
 			);
-			expect(reporterFeedbackHref(ID)).toBe(`/feedback/${ID}`);
 		}
 	);
 
@@ -120,23 +116,28 @@ describe('Feedback staff commands', () => {
 		await expect(pending).rejects.toThrow('audit unavailable');
 	});
 
-	it('waits for required notification delivery and reports delivery failure', async () => {
-		const { deps, commands } = setup();
-		let rejectDelivery: (error: Error) => void = () => {};
-		deps.notifyReporter.mockReturnValue(
-			new Promise<void>((_resolve, reject) => {
-				rejectDelivery = reject;
-			})
-		);
-		const pending = commands.execute(ID, { kind: 'reply', body: 'A reply' });
-		await vi.waitFor(() => expect(deps.notifyReporter).toHaveBeenCalled());
-		expect(deps.audit).toHaveBeenCalled();
-		rejectDelivery(new Error('notification unavailable'));
-		await expect(pending).rejects.toThrow('notification unavailable');
+	it('the reporter notification already exists when the required audit fails', async () => {
+		const { state, deps, commands } = setup();
+		deps.audit.mockRejectedValue(new Error('audit unavailable'));
+		await expect(commands.execute(ID, { kind: 'reply', body: reply.body })).rejects.toThrow('audit unavailable');
+		expect(state.detail.replies).toEqual([reply]);
+		expect(state.notifications).toEqual([{ userId: 'reporter', feedbackId: ID }]);
+	});
+
+	it.each(['reply', 'replyAndClose'] as const)('rejects a stale %s using the locked store result', async (kind) => {
+		const { deps, state, commands } = setup();
+		deps.store.reply.mockResolvedValue({ status: 'closed' });
+		await expect(commands.execute(ID, { kind, body: 'A stale reply' })).resolves.toEqual({
+			status: 'closed',
+			message: 'This feedback was closed. Reload to see it.'
+		});
+		expect(state.detail.replies).toEqual([]);
+		expect(state.notifications).toEqual([]);
+		expect(deps.audit).not.toHaveBeenCalled();
 	});
 
 	it('saves a private note and audits it without notifying the reporter', async () => {
-		const { deps, commands } = setup();
+		const { deps, state, commands } = setup();
 		await expect(commands.execute(ID, { kind: 'saveNote', body: 'Internal context' })).resolves.toEqual({
 			status: 'noteSaved'
 		});
@@ -144,7 +145,7 @@ describe('Feedback staff commands', () => {
 		expect(deps.audit).toHaveBeenCalledWith(expect.objectContaining({ action: 'feedback.staff_note_saved' }), {
 			required: true
 		});
-		expect(deps.notifyReporter).not.toHaveBeenCalled();
+		expect(state.notifications).toEqual([]);
 	});
 
 	it.each([false, true])(

@@ -20,9 +20,14 @@ export const feedbackStaffCommandSchema = z.discriminatedUnion('kind', [
 	})
 ]);
 
+export type FeedbackReplyResult =
+	| { status: 'replied'; reply: FeedbackReply }
+	| { status: 'notFound' }
+	| { status: 'closed' };
+
 export interface FeedbackStaffStore {
 	detail(id: string): Promise<FeedbackStaffDetail | null>;
-	reply(input: { feedbackId: string; body: string; close: boolean }): Promise<FeedbackReply | null>;
+	reply(input: { feedbackId: string; body: string; close: boolean }): Promise<FeedbackReplyResult>;
 	saveNote(input: { feedbackId: string; body: string }): Promise<boolean>;
 	saveIssue(input: { feedbackId: string; issue: FeedbackIssue }): Promise<void>;
 }
@@ -30,7 +35,6 @@ export interface FeedbackStaffStore {
 export interface FeedbackStaffDependencies {
 	store: FeedbackStaffStore;
 	github: FeedbackGitHubClient;
-	notifyReporter(input: { userId: string; feedbackId: string }): Promise<void>;
 	audit(
 		event: {
 			action: string;
@@ -40,10 +44,6 @@ export interface FeedbackStaffDependencies {
 		},
 		options: { required: true }
 	): Promise<void>;
-}
-
-export function reporterFeedbackHref(feedbackId: string): string {
-	return `/feedback/${encodeURIComponent(feedbackId)}`;
 }
 
 export function createFeedbackStaffCommands(deps: FeedbackStaffDependencies) {
@@ -66,10 +66,12 @@ export function createFeedbackStaffCommands(deps: FeedbackStaffDependencies) {
 				case 'reply':
 				case 'replyAndClose': {
 					const close = command.kind === 'replyAndClose';
-					const reply = await deps.store.reply({ feedbackId, body: command.body, close });
-					if (!reply) return { status: 'notFound' };
+					const result = await deps.store.reply({ feedbackId, body: command.body, close });
+					if (result.status === 'notFound') return result;
+					if (result.status === 'closed')
+						return { status: 'closed', message: 'This feedback was closed. Reload to see it.' };
+					const { reply } = result;
 					await audit(close ? 'feedback.replied_and_closed' : 'feedback.replied', { replyId: reply.id });
-					await deps.notifyReporter({ userId: detail.userId, feedbackId });
 					return { status: 'replied', reply, feedbackStatus: close ? 'resolved' : 'reviewed' };
 				}
 				case 'saveNote':

@@ -36,6 +36,7 @@ let replies: (typeof storedReply)[];
 let operator: boolean;
 let currentLevel: 'aal1' | 'aal2';
 let failResource: string | null;
+let closedAtReply: boolean;
 let reads: string[];
 let writes: Array<{ resource: string; body: Record<string, unknown> | Record<string, unknown>[] }>;
 let githubFetch: ReturnType<typeof vi.fn<typeof fetch>>;
@@ -66,6 +67,7 @@ const provider = () =>
 				writes.push({ resource, body });
 				if (resource === 'rpc/reply_to_feedback') {
 					if (!row) return Response.json(null);
+					if (closedAtReply) return Response.json({ status: 'closed' });
 					row.status = body.p_close ? 'resolved' : 'reviewed';
 					const reply = { ...storedReply, body: body.p_body };
 					replies.push(reply);
@@ -118,6 +120,7 @@ beforeEach(() => {
 	reads = [];
 	writes = [];
 	failResource = null;
+	closedAtReply = false;
 	getAdminClient.mockReturnValue(provider());
 	githubFetch = vi.fn<typeof fetch>(async () =>
 		Response.json({ number: 42, html_url: 'https://github.com/waffleflopper/trooptotask/issues/42' }, { status: 201 })
@@ -169,7 +172,7 @@ describe('feedback staff API and delivery', () => {
 	});
 
 	it.each(['reply', 'replyAndClose'] as const)(
-		'%s derives notification recipient/link and audit actor from trusted context',
+		'%s stores the reply through the session and audits the trusted actor',
 		async (kind) => {
 			const response = await POST(event({ kind, body: '  We are investigating  ' }));
 			expect(response.status).toBe(200);
@@ -181,19 +184,26 @@ describe('feedback staff API and delivery', () => {
 				resource: 'rpc/reply_to_feedback',
 				body: { p_feedback_id: ID, p_body: 'We are investigating', p_close: kind === 'replyAndClose' }
 			});
-			expect(writes.find(({ resource }) => resource === 'notifications')?.body).toEqual([
-				expect.objectContaining({
-					user_id: REPORTER,
-					organization_id: null,
-					type: 'feedback_reply',
-					link: `/feedback/${ID}`
-				})
-			]);
 			expect(writes.find(({ resource }) => resource === 'audit_logs')?.body).toMatchObject({
 				user_id: OPERATOR,
 				action: kind === 'reply' ? 'feedback.replied' : 'feedback.replied_and_closed',
 				details: { actorEmail: 'operator@example.test', targetName: 'Calendar problem' }
 			});
+		}
+	);
+
+	it.each(['reply', 'replyAndClose'] as const)(
+		'returns a conflict when feedback closes after the detail read for %s',
+		async (kind) => {
+			closedAtReply = true;
+			const response = await POST(event({ kind, body: 'A stale reply' }));
+			expect(response.status).toBe(409);
+			expect(await response.json()).toEqual({
+				status: 'closed',
+				message: 'This feedback was closed. Reload to see it.'
+			});
+			expect(replies).toEqual([]);
+			expect(writes.some(({ resource }) => resource === 'audit_logs' || resource === 'notifications')).toBe(false);
 		}
 	);
 
@@ -260,13 +270,23 @@ describe('feedback staff API and delivery', () => {
 		expect(writes).toEqual([]);
 	});
 
-	it.each(['notifications', 'audit_logs', 'rpc/reply_to_feedback'])(
-		'reports required %s failures',
-		async (resource) => {
-			failResource = resource;
-			await expect(POST(event({ kind: 'reply', body: 'A reply' }))).rejects.toMatchObject({ status: 500 });
-		}
-	);
+	it.each(['audit_logs', 'rpc/reply_to_feedback'])('reports required %s failures', async (resource) => {
+		failResource = resource;
+		await expect(POST(event({ kind: 'reply', body: 'A reply' }))).rejects.toMatchObject({ status: 500 });
+	});
+
+	it('reports saved-but-unaudited feedback and keeps the saved reply available for reload', async () => {
+		failResource = 'audit_logs';
+		await expect(POST(event({ kind: 'reply', body: 'Saved reply' }))).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Unable to complete the feedback command. Reload the feedback before trying again.' }
+		});
+		const reloaded = await (await GET(event())).json();
+		expect(reloaded).toMatchObject({
+			status: 'ok',
+			detail: { status: 'reviewed', replies: [{ body: 'Saved reply' }] }
+		});
+	});
 
 	it('reports missing feedback and a failed detail read distinctly', async () => {
 		row = null;

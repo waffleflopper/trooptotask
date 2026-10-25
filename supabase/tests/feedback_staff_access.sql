@@ -53,6 +53,26 @@ SELECT results_eq($$SELECT body,sent_by FROM public.feedback_replies WHERE body=
 SELECT lives_ok($$SELECT public.reply_to_feedback('50000000-0000-4000-8000-000000186911','Fix shipped',true)$$,'operator can append a later reply and close');
 SELECT is((SELECT status FROM public.beta_feedback WHERE id='50000000-0000-4000-8000-000000186911'),'resolved','reply and close resolves feedback');
 SELECT is((SELECT count(*) FROM public.feedback_replies WHERE feedback_id='50000000-0000-4000-8000-000000186911'),3::bigint,'later reply retains the original thread');
+SELECT is(public.reply_to_feedback('50000000-0000-4000-8000-000000186911','Stale reply',false)->>'status','closed','a stale reply returns a distinct closed result');
+SELECT is(public.reply_to_feedback('50000000-0000-4000-8000-000000186911','Stale close',true)->>'status','closed','a stale reply-and-close returns a distinct closed result');
+SELECT is((SELECT status FROM public.beta_feedback WHERE id='50000000-0000-4000-8000-000000186911'),'resolved','stale replies cannot reopen closed feedback');
+SELECT is((SELECT count(*) FROM public.feedback_replies WHERE feedback_id='50000000-0000-4000-8000-000000186911'),3::bigint,'closed feedback receives no extra replies');
+RESET ROLE;
+CREATE FUNCTION pg_temp.reject_feedback_notification() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ RAISE EXCEPTION 'Synthetic notification failure';
+END;
+$$;
+CREATE TRIGGER reject_feedback_notification BEFORE INSERT ON public.notifications
+ FOR EACH ROW WHEN (NEW.link = '/feedback/50000000-0000-4000-8000-000000186912')
+ EXECUTE FUNCTION pg_temp.reject_feedback_notification();
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.reply_to_feedback('50000000-0000-4000-8000-000000186912','Must roll back',false)$$,'P0001','Synthetic notification failure','notification failure rejects the reply transaction');
+SELECT results_eq($$SELECT status,updated_by FROM public.beta_feedback WHERE id='50000000-0000-4000-8000-000000186912'$$,$$VALUES ('new'::text,NULL::uuid)$$,'notification failure rolls back status and attribution');
+SELECT results_eq($$SELECT body FROM public.feedback_replies WHERE feedback_id='50000000-0000-4000-8000-000000186912'$$,$$VALUES ('Peer reply'::text)$$,'notification failure leaves no new reply');
+RESET ROLE;
+DROP TRIGGER reject_feedback_notification ON public.notifications;
+SET LOCAL ROLE authenticated;
 SELECT throws_ok($$UPDATE public.feedback_replies SET sent_by='10000000-0000-4000-8000-000000186911'$$,'42501',NULL,'operator cannot reattribute append-only replies');
 SELECT throws_ok($$DELETE FROM public.feedback_replies$$,'42501',NULL,'operator cannot delete append-only replies');
 SELECT lives_ok($$SELECT public.save_feedback_staff_note('50000000-0000-4000-8000-000000186911','New private note')$$,'operator can replace staff note');
@@ -64,6 +84,10 @@ SELECT throws_ok($$SELECT public.save_feedback_github_issue('50000000-0000-4000-
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186911',true);
 SELECT is((SELECT count(*) FROM public.feedback_staff_notes),0::bigint,'new staff notes remain concealed from their reporter');
 SELECT is((SELECT count(*) FROM public.feedback_replies WHERE feedback_id='50000000-0000-4000-8000-000000186911'),3::bigint,'reporter sees the complete appended reply thread');
+SELECT results_eq($$SELECT user_id,organization_id,type,link FROM public.notifications WHERE type='feedback_reply' ORDER BY id$$,
+ $$VALUES ('10000000-0000-4000-8000-000000186911'::uuid,NULL::uuid,'feedback_reply'::text,'/feedback/50000000-0000-4000-8000-000000186911'::text),
+          ('10000000-0000-4000-8000-000000186911'::uuid,NULL::uuid,'feedback_reply'::text,'/feedback/50000000-0000-4000-8000-000000186911'::text)$$,
+ 'each committed reply notifies its reporter, including reply-and-close, without a stale-reply notification');
 SELECT is((SELECT count(*) FROM public.platform_operators),0::bigint,'ordinary submitter cannot read operator membership');
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.sub','',true);
@@ -71,7 +95,7 @@ SELECT set_config('request.jwt.claims','{}',true);
 SELECT lives_ok($$INSERT INTO public.notifications(user_id,organization_id,type,title,message,link) VALUES('10000000-0000-4000-8000-000000186911',NULL,'feedback_reply','Reply','An operator replied','/feedback/50000000-0000-4000-8000-000000186911')$$,'server can notify an account-only reporter');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186911',true);
-SELECT results_eq($$SELECT link FROM public.notifications WHERE type='feedback_reply'$$,$$VALUES ('/feedback/50000000-0000-4000-8000-000000186911'::text)$$,'reply notification is readable by its reporter without membership');
+SELECT results_eq($$SELECT link FROM public.notifications WHERE type='feedback_reply' AND title='Reply'$$,$$VALUES ('/feedback/50000000-0000-4000-8000-000000186911'::text)$$,'reply notification is readable by its reporter without membership');
 SELECT set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000186912',true);
 SELECT is((SELECT count(*) FROM public.notifications WHERE type='feedback_reply'),0::bigint,'peer cannot read reporter reply notification');
 SET LOCAL ROLE anon;

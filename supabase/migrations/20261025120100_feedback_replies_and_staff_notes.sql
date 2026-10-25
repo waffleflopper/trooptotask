@@ -54,17 +54,23 @@ ALTER TABLE public.notifications ADD CONSTRAINT notifications_account_feedback_o
 
 CREATE FUNCTION public.reply_to_feedback(p_feedback_id uuid, p_body text, p_close boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE v_reply public.feedback_replies;
+DECLARE
+ v_reply public.feedback_replies;
+ v_feedback public.beta_feedback;
 BEGIN
  IF NOT public.is_platform_operator() THEN RAISE EXCEPTION 'Platform operator access is required' USING ERRCODE = '42501'; END IF;
  IF p_body IS NULL OR length(btrim(p_body)) NOT BETWEEN 1 AND 5000 OR p_close IS NULL THEN
   RAISE EXCEPTION 'A reply between 1 and 5000 characters is required' USING ERRCODE = '22023';
  END IF;
- PERFORM 1 FROM public.beta_feedback WHERE id = p_feedback_id FOR UPDATE;
+ SELECT * INTO v_feedback FROM public.beta_feedback WHERE id = p_feedback_id FOR UPDATE;
  IF NOT FOUND THEN RETURN NULL; END IF;
+ IF v_feedback.status = 'resolved' THEN RETURN jsonb_build_object('status', 'closed'); END IF;
  INSERT INTO public.feedback_replies(feedback_id, body) VALUES(p_feedback_id, btrim(p_body)) RETURNING * INTO v_reply;
  UPDATE public.beta_feedback SET status = CASE WHEN p_close THEN 'resolved' ELSE 'reviewed' END,
   updated_by = auth.uid() WHERE id = p_feedback_id;
+ INSERT INTO public.notifications(user_id, organization_id, type, title, message, link)
+ VALUES(v_feedback.user_id, NULL, 'feedback_reply', 'A reply to your feedback',
+  'The TroopToTask operator replied to your feedback.', '/feedback/' || p_feedback_id::text);
  RETURN to_jsonb(v_reply);
 END;
 $$;

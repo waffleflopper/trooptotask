@@ -10,6 +10,7 @@ const COMMAND_STATUS = {
 	noteSaved: 200,
 	issueCreated: 200,
 	notFound: 404,
+	closed: 409,
 	issueExists: 409,
 	githubError: 502,
 	issuePersistenceError: 500

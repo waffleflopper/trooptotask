@@ -27,6 +27,7 @@ const replyRow = z.object({
 	sent_by: z.string(),
 	sent_at: z.string()
 });
+const replyResult = z.union([z.object({ status: z.literal('closed') }), replyRow]).nullable();
 const noteRow = z.object({
 	feedback_id: z.string(),
 	body: z.string(),
@@ -163,7 +164,10 @@ export function createSupabaseFeedbackStaffStore(client: SupabaseClient): Feedba
 				p_close: input.close
 			});
 			if (error) throw new Error('Unable to save feedback reply', { cause: error });
-			return data === null ? null : mapReply(replyRow.parse(data));
+			const result = replyResult.parse(data);
+			if (result === null) return { status: 'notFound' };
+			if ('status' in result) return result;
+			return { status: 'replied', reply: mapReply(result) };
 		},
 		async saveNote(input) {
 			const { data, error } = await client.rpc('save_feedback_staff_note', {

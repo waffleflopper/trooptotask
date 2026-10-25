@@ -1,9 +1,16 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { SubmitFunction } from '@sveltejs/kit';
 import type { InboxDetail, InboxDetailResponse } from '../../inboxTypes';
 
-vi.mock('$app/forms', () => ({ enhance: () => ({ destroy: () => {} }) }));
+const forms = vi.hoisted(() => ({ submits: [] as SubmitFunction[] }));
+vi.mock('$app/forms', () => ({
+	enhance: (_form: HTMLFormElement, submit: SubmitFunction) => {
+		forms.submits.push(submit);
+		return { destroy: () => {} };
+	}
+}));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
 import InboxDetailPane from './InboxDetailPane.svelte';
@@ -43,6 +50,7 @@ let pending: Pending[];
 
 beforeEach(() => {
 	pending = [];
+	forms.submits = [];
 	vi.stubGlobal(
 		'fetch',
 		vi.fn(
@@ -104,8 +112,25 @@ describe('Inbox detail pane', () => {
 		render(InboxDetailPane, { props: { item: A, onQueueStale: () => {} } });
 		await answer(`feedback:${A.id}`, { status: 'notFound' });
 
-		await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading item' })).toBeNull());
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(screen.queryByRole('status', { name: 'Loading item' })).toBeNull();
 		expect(screen.queryByRole('button')).toBeNull();
+	});
+
+	it('keeps the item and its outcome on screen when the reload after a command fails', async () => {
+		const onQueueStale = vi.fn();
+		render(InboxDetailPane, { props: { item: A, onQueueStale } });
+		await answer(`feedback:${A.id}`, { status: 'ok', detail: feedback(A.id, 'First report') });
+		await screen.findByRole('heading', { name: 'First report' });
+
+		const settle = (await forms.submits.at(-1)!({ cancel: () => {} } as never)) as (opts: unknown) => Promise<void>;
+		await act(() => settle({ result: { type: 'failure', status: 400, data: { error: 'Already closed elsewhere.' } } }));
+		await answer(`feedback:${A.id}`, 'fail');
+
+		expect(onQueueStale).toHaveBeenCalled();
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy());
+		expect(screen.getByRole('heading', { name: 'First report' })).toBeTruthy();
+		expect(screen.getByText('Already closed elsewhere.')).toBeTruthy();
 	});
 
 	it('offers Approve and Reject only while an access request is pending', async () => {
@@ -119,7 +144,7 @@ describe('Inbox detail pane', () => {
 
 		render(InboxDetailPane, { props: { item: { kind: 'accessRequest', id: A.id }, onQueueStale: () => {} } });
 		await answer(`accessRequest:${A.id}`, { status: 'ok', detail: accessRequest('approved') });
-		await waitFor(() => expect(screen.getByText('sam@example.test')).toBeTruthy());
+		await waitFor(() => expect(screen.getByRole('heading', { name: 'Sam Rivera' })).toBeTruthy());
 		expect(screen.queryByRole('button', { name: /^Approve/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
 	});

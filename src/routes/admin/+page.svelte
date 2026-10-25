@@ -2,12 +2,17 @@
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { onMount, tick } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
+	import AdminPageHeader from '$features/platform-admin/components/AdminPageHeader.svelte';
 	import InboxDetailPane from '$features/platform-admin/components/inbox/InboxDetailPane.svelte';
 	import InboxQueue from '$features/platform-admin/components/inbox/InboxQueue.svelte';
+	import { INBOX_KIND_VIEWS } from '$features/platform-admin/components/inbox/inboxKinds';
 	import { settleRead } from '$features/platform-admin/components/inbox/settle.svelte';
 	import {
 		INBOX_KINDS,
 		inboxHref,
+		inboxItemKey,
 		parseInboxFilter,
 		parseInboxItemKey,
 		type InboxFilter,
@@ -16,9 +21,12 @@
 		type InboxSourceResult,
 		type InboxTab
 	} from '$features/platform-admin/inboxTypes';
+	import * as SegmentedFilter from '$lib/components/patterns/segmented-filter';
+	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { cn } from '$lib/utils';
 
 	let { data } = $props();
 
@@ -42,13 +50,61 @@
 
 	const filter = $derived(parseInboxFilter(page.url.searchParams.get('kind')));
 	const selected = $derived(parseInboxItemKey(page.url.searchParams.get('item')));
+	const shownKinds = $derived(filter === 'all' ? INBOX_KINDS : INBOX_KINDS.filter((kind) => kind === filter));
+
+	// Counts come from the Open read; a count is only honest when its source answered.
+	const counts = $derived.by(() => {
+		const open = queue.settled?.group === 'open' ? queue.settled.value : null;
+		const byKind = Object.fromEntries(
+			INBOX_KINDS.map((kind) => [kind, open ? (open[kind].status === 'ok' ? open[kind].count : undefined) : null])
+		) as Record<InboxKind, number | null | undefined>;
+		const values = Object.values(byKind);
+		const total = values.some((count) => count === null)
+			? null
+			: values.every((count) => typeof count === 'number')
+				? values.reduce<number>((sum, count) => sum + (count ?? 0), 0)
+				: undefined;
+		return { byKind, total };
+	});
+
+	const filterOptions = $derived([
+		{ value: 'all' as const, label: 'All', count: tab === 'open' ? counts.total : undefined },
+		...INBOX_KINDS.map((kind) => ({
+			value: kind,
+			label: INBOX_KIND_VIEWS[kind].filterLabel,
+			count: tab === 'open' ? counts.byKind[kind] : undefined
+		}))
+	]);
+
+	const NUMBER_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+
+	function waitingSentence(open: number): string {
+		if (open === 0) return 'Nothing is waiting on you. Everything is running on its own.';
+		const count = NUMBER_WORDS[open] ?? String(open);
+		return `${count} ${open === 1 ? 'thing is' : 'things are'} waiting on you. Everything else is running on its own.`;
+	}
+
+	const phone = new MediaQuery('max-width: 639.98px', false);
+	const singlePane = new MediaQuery('max-width: 1023.98px', false);
+
+	// The date is the operator's own, so it is only written once the page runs in their browser.
+	let today = $state<Date | null>(null);
+	onMount(() => {
+		today = new Date();
+	});
+	const eyebrow = $derived.by(() => {
+		if (phone.current) return typeof counts.total === 'number' ? `Platform · ${counts.total} open` : 'Platform';
+		if (!today) return 'Platform';
+		const date = today.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+		return `Platform · ${date}`;
+	});
+	const month = $derived(new Date().toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }));
 
 	// Back from a phone's full-screen item returns through history only when this page pushed the entry.
 	let pushedItem = false;
 
 	function show(state: { tab: InboxTab; filter: InboxFilter; item: InboxItemRef | null }, replaceState: boolean) {
-		const target = inboxHref(state) as '/admin';
-		return goto(resolve(target), { replaceState, noScroll: true, keepFocus: true });
+		return goto(resolve(inboxHref(state) as '/admin'), { replaceState, noScroll: true, keepFocus: true });
 	}
 
 	function showTab(next: InboxTab) {
@@ -74,62 +130,140 @@
 	}
 
 	const refreshQueue = () => invalidate('admin:inbox');
+
+	// With one pane showing, the item replaces the list: focus and scroll follow it there and back.
+	let detailRegion = $state<HTMLElement | null>(null);
+	let previousKey: string | null = null;
+	let listScroll = 0;
+	$effect(() => {
+		const key = selected ? inboxItemKey(selected) : null;
+		const leaving = previousKey;
+		previousKey = key;
+		if (!singlePane.current || key === leaving) return;
+		const scroller = document.getElementById('main-content');
+		if (key && !leaving) {
+			listScroll = scroller?.scrollTop ?? 0;
+			void tick().then(() => {
+				scroller?.scrollTo({ top: 0 });
+				detailRegion?.focus({ preventScroll: true });
+			});
+		} else if (!key && leaving) {
+			void tick().then(() => {
+				scroller?.scrollTo({ top: listScroll });
+				document
+					.querySelector<HTMLElement>(`[data-inbox-item="${CSS.escape(leaving)}"]`)
+					?.focus({ preventScroll: true });
+			});
+		}
+	});
 </script>
 
 <svelte:head>
 	<title>Inbox - Platform Admin</title>
 </svelte:head>
 
-<div class="flex min-h-0 flex-1 flex-col gap-3 p-2 md:p-4">
-	<div class={['grid gap-3', selected && 'max-lg:hidden']}>
-		<h1 class="text-xl font-semibold">Inbox</h1>
-		<dl class="grid grid-cols-2 gap-3 sm:max-w-xl" aria-label="This month">
-			{#each [{ key: 'newPeople', label: 'New people this month' }, { key: 'newOrganizations', label: 'New Organizations this month' }] as stat (stat.key)}
-				<div class="grid min-h-16 content-between gap-1 rounded-md border border-border bg-card px-3 py-2">
-					<dt class="text-xs text-muted-foreground">{stat.label}</dt>
-					<dd class="text-xl font-semibold tabular-nums">
+{#snippet summary()}
+	{#if counts.total === null}
+		<Skeleton class="h-6 w-[30rem] max-w-full" />
+	{:else if counts.total === undefined}
+		Part of the Inbox could not be counted.
+	{:else}
+		{waitingSentence(counts.total)}
+	{/if}
+{/snippet}
+
+{#snippet figures()}
+	<div class="grid justify-items-end gap-1">
+		<dl class="flex gap-7" aria-label="This month">
+			{#each [{ key: 'newPeople', label: 'New people' }, { key: 'newOrganizations', label: 'New Organizations' }] as const as stat (stat.key)}
+				<div class="grid justify-items-end gap-0.5">
+					<dd class="order-1 font-heading text-[28px] leading-[30px] font-bold tabular-nums">
 						{#if stats.settled === null}
-							<Skeleton class="h-7 w-10" />
+							<Skeleton class="h-[30px] w-8" />
 						{:else if stats.settled.value.status === 'ok'}
-							{stats.settled.value[stat.key as 'newPeople' | 'newOrganizations']}
+							{stats.settled.value[stat.key]}
 						{:else}
-							<span class="text-sm font-normal text-muted-foreground">Unavailable</span>
+							<span aria-label="Unavailable">—</span>
 						{/if}
 					</dd>
+					<dt class="order-2 font-mono text-[11px] leading-[14px] tracking-[0.06em] text-muted-foreground uppercase">
+						{stat.label} · {month}
+					</dt>
 				</div>
 			{/each}
 		</dl>
 		{#if stats.settled?.value.status === 'error'}
-			<Button class="w-fit" variant="outline" size="sm" onclick={refreshQueue}>Retry figures</Button>
+			<Button variant="ghost" size="xs" onclick={refreshQueue}>Retry figures</Button>
 		{/if}
 	</div>
+{/snippet}
 
-	<TypeWorkspace.Root aria-label="Inbox" class="overflow-hidden p-0">
-		<TypeWorkspace.Layout>
-			<InboxQueue
-				{tab}
-				{filter}
-				{selected}
-				{results}
-				{refreshing}
-				hidden={selected !== null}
-				onTab={showTab}
-				onFilter={(next) => void show({ tab, filter: next, item: selected }, true)}
-				onSelect={selectItem}
-				onRetry={refreshQueue}
+<div class="grid gap-6 px-4 pt-5 pb-10 sm:px-10 sm:pt-9">
+	<div class={cn(selected && 'max-lg:hidden')}>
+		<AdminPageHeader {eyebrow} title="Inbox" description={summary} aside={figures} />
+	</div>
+
+	<Tabs.Root value={tab} onValueChange={(value) => showTab(value === 'done' ? 'done' : 'open')}>
+		<div
+			class={cn(
+				'mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 max-sm:mb-2',
+				selected && 'max-lg:hidden'
+			)}
+		>
+			<SegmentedFilter.Root
+				label="Filter by kind"
+				options={filterOptions}
+				bind:value={() => filter, (next) => void show({ tab, filter: next, item: selected }, true)}
 			/>
-			<TypeWorkspace.Detail mobileHidden={selected === null} aria-label="Selected item">
+			<Tabs.List variant="line" aria-label="Inbox status">
+				<Tabs.Trigger value="open">Open</Tabs.Trigger>
+				<Tabs.Trigger value="done">Done</Tabs.Trigger>
+			</Tabs.List>
+		</div>
+
+		<div
+			class={cn(
+				'border-foreground max-sm:-mx-4 lg:grid lg:min-h-[37.5rem] lg:grid-cols-[minmax(20rem,27.5rem)_minmax(0,1fr)]',
+				selected ? 'lg:border-t' : 'border-t'
+			)}
+		>
+			{#each ['open', 'done'] as const as value (value)}
+				<Tabs.Content {value}>
+					{#if tab === value}
+						<div class={cn('lg:h-full lg:border-r lg:border-border', selected && 'max-lg:hidden')}>
+							<InboxQueue
+								{tab}
+								{shownKinds}
+								{selected}
+								{results}
+								{refreshing}
+								hrefFor={(item) => inboxHref({ tab, filter, item })}
+								onSelect={selectItem}
+								onRetry={refreshQueue}
+							/>
+						</div>
+					{/if}
+				</Tabs.Content>
+			{/each}
+
+			<section
+				bind:this={detailRegion}
+				tabindex="-1"
+				aria-label="Selected item"
+				class={cn(
+					'outline-none max-sm:px-4 lg:sticky lg:top-0 lg:max-h-[calc(100svh-4.5rem)] lg:self-start lg:overflow-y-auto lg:pt-7 lg:pl-9',
+					!selected && 'max-lg:hidden'
+				)}
+			>
 				{#if selected}
-					<div class="grid gap-3">
+					<div class="grid gap-5">
 						<TypeWorkspace.MobileBack onclick={closeItem}>Inbox</TypeWorkspace.MobileBack>
 						<InboxDetailPane item={selected} onQueueStale={refreshQueue} />
 					</div>
 				{:else}
-					<p class="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-						Select an item to review it.
-					</p>
+					<p class="text-sm text-muted-foreground">Choose an item to see it here.</p>
 				{/if}
-			</TypeWorkspace.Detail>
-		</TypeWorkspace.Layout>
-	</TypeWorkspace.Root>
+			</section>
+		</div>
+	</Tabs.Root>
 </div>

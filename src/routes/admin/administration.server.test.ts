@@ -26,7 +26,8 @@ function event() {
 		},
 		url,
 		request: new Request(url),
-		getClientAddress: () => '127.0.0.1'
+		getClientAddress: () => '127.0.0.1',
+		depends: () => {}
 	} as unknown as Parameters<typeof load>[0];
 }
 beforeEach(() => {

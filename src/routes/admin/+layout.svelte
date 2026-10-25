@@ -2,146 +2,172 @@
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import { Activity, BadgeCheck, Bell, Building2, Inbox, LogOut, Moon, Sun, UsersRound } from '@lucide/svelte';
 	import AdminSearch from '$features/platform-admin/components/AdminSearch.svelte';
 	import { ADMIN_SECTIONS, isAdminSectionActive, type AdminSection } from '$features/platform-admin/sections';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Separator } from '$lib/components/ui/separator';
-	import * as Sidebar from '$lib/components/ui/sidebar';
-	import { themeStore } from '$lib/stores/theme.svelte';
+	import { BrandWordmark } from '$lib/components/patterns/brand-wordmark';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb';
+	import { cn } from '$lib/utils';
+	import { MediaQuery } from 'svelte/reactivity';
 
 	let { children, data } = $props();
 
-	const navIconBySection = {
-		inbox: Inbox,
-		organizations: Building2,
-		people: UsersRound,
-		activity: Activity,
-		announcements: Bell
-	} satisfies Record<AdminSection['key'], unknown>;
-
 	const isActive = (section: AdminSection) => isAdminSectionActive(section, $page.url.pathname);
+	const currentSection = $derived(ADMIN_SECTIONS.find(isActive));
+	const leafLabel = $derived(
+		typeof $page.data?.breadcrumbLabel === 'string' ? ($page.data.breadcrumbLabel as string) : undefined
+	);
 
-	// The phone sheet closes in the link's own click handler, before beforeNavigate runs, so note the link while it is still in the sheet.
-	let phoneLinkHref: string | null = null;
-	let returnFocusToSidebarTrigger = false;
-	function notePhoneLink(event: MouseEvent) {
-		const link = event.currentTarget as HTMLAnchorElement;
-		phoneLinkHref = link.closest('[data-sidebar="sidebar"][data-mobile="true"]') ? link.href : null;
-	}
-	beforeNavigate(({ type, to }) => {
-		returnFocusToSidebarTrigger = type === 'link' && phoneLinkHref !== null && to?.url.href === phoneLinkHref;
-		phoneLinkHref = null;
+	let openCount = $state<number | null>(null);
+	$effect(() => {
+		const pending = data.inboxOpenCount;
+		let current = true;
+		void pending?.then((count) => {
+			if (current) openCount = count;
+		});
+		return () => {
+			current = false;
+		};
+	});
+
+	// One search field at a time: the top bar holds it from 640 px up, the Menu below that.
+	const phone = new MediaQuery('max-width: 639.98px', false);
+
+	let menuOpen = $state(false);
+	let menuButton = $state<HTMLButtonElement | null>(null);
+	// A link chosen in the menu closes it; focus returns to the Menu button rather than the top of the document.
+	let returnFocusToMenu = false;
+	beforeNavigate(({ type }) => {
+		returnFocusToMenu = menuOpen && type === 'link';
+		menuOpen = false;
 	});
 	afterNavigate(() => {
-		if (!returnFocusToSidebarTrigger) return;
-		returnFocusToSidebarTrigger = false;
-		document.querySelector<HTMLElement>('[data-sidebar="trigger"]')?.focus();
+		if (!returnFocusToMenu) return;
+		returnFocusToMenu = false;
+		menuButton?.focus();
 	});
+
+	function closeMenuOnEscape(event: KeyboardEvent) {
+		if (event.key !== 'Escape' || !menuOpen) return;
+		menuOpen = false;
+		menuButton?.focus();
+	}
 </script>
 
-<Sidebar.Provider class="h-svh min-h-0 bg-background font-sans">
-	<Sidebar.Root collapsible="icon">
-		<Sidebar.Header>
-			<div class="flex h-12 items-center gap-2 overflow-hidden p-2 text-sm group-data-[collapsible=icon]:p-0">
-				<span
-					class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground"
-					aria-hidden="true"
-				>
-					TT
-				</span>
-				<span class="grid flex-1 leading-tight group-data-[collapsible=icon]:sr-only">
-					<span class="truncate font-medium">Platform Admin</span>
-					<span class="truncate text-xs">Control Room</span>
-				</span>
-			</div>
-		</Sidebar.Header>
+<svelte:window onkeydown={closeMenuOnEscape} />
 
-		<Sidebar.Content>
-			<nav aria-label="Platform admin" class="flex flex-col">
-				<Sidebar.Group>
-					<Sidebar.GroupContent>
-						<Sidebar.Menu>
-							{#each ADMIN_SECTIONS as section (section.key)}
-								{@const Icon = navIconBySection[section.key]}
-								<Sidebar.MenuItem>
-									<Sidebar.MenuButton
-										isActive={isActive(section)}
-										tooltipContent={section.label}
-										onclick={notePhoneLink}
-									>
-										{#snippet child({ props })}
-											<a
-												{...props}
-												href={resolve(section.href as '/')}
-												aria-current={isActive(section) ? 'page' : undefined}
-											>
-												<Icon />
-												<span>{section.label}</span>
-											</a>
-										{/snippet}
-									</Sidebar.MenuButton>
-								</Sidebar.MenuItem>
-							{/each}
-						</Sidebar.Menu>
-					</Sidebar.GroupContent>
-				</Sidebar.Group>
-			</nav>
-		</Sidebar.Content>
+{#snippet nav()}
+	<nav aria-label="Platform admin">
+		<ul class="grid gap-0.5">
+			{#each ADMIN_SECTIONS as section (section.key)}
+				{@const active = isActive(section)}
+				<li>
+					<a
+						href={resolve(section.href as '/')}
+						aria-current={active ? 'page' : undefined}
+						class={cn(
+							'flex min-h-8 items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors',
+							'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+							active
+								? 'bg-chrome-surface-muted font-semibold text-chrome-text'
+								: 'text-chrome-text-muted hover:bg-chrome-hover hover:text-chrome-text'
+						)}
+					>
+						<span>{section.label}</span>
+						{#if section.key === 'inbox' && openCount}
+							<span
+								class="rounded-full bg-chrome-accent px-[7px] py-px font-mono text-[11px] leading-[14px] font-semibold text-chrome tabular-nums"
+							>
+								{openCount}<span class="sr-only"> open</span>
+							</span>
+						{/if}
+					</a>
+				</li>
+			{/each}
+		</ul>
+	</nav>
+{/snippet}
 
-		<Sidebar.Footer>
-			<div class="flex h-12 items-center gap-2 overflow-hidden p-2 text-sm group-data-[collapsible=icon]:p-0">
-				<span class="flex size-8 shrink-0 items-center justify-center" aria-hidden="true"
-					><BadgeCheck class="size-4" /></span
-				>
-				<span class="grid min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:sr-only">
-					<span class="truncate font-medium">{data.adminEmail ?? 'Admin user'}</span>
-					<span class="truncate text-xs">Operator</span>
-				</span>
-			</div>
-			<Sidebar.Menu>
-				<Sidebar.MenuItem>
-					<Sidebar.MenuButton tooltipContent="Exit Admin">
-						{#snippet child({ props })}
-							<a {...props} href={resolve('/dashboard')}>
-								<LogOut />
-								<span>Exit Admin</span>
-							</a>
-						{/snippet}
-					</Sidebar.MenuButton>
-				</Sidebar.MenuItem>
-			</Sidebar.Menu>
-		</Sidebar.Footer>
-		<Sidebar.Rail />
-	</Sidebar.Root>
-
-	<Sidebar.Inset class="min-h-0 overflow-hidden">
-		<header
-			class="grid shrink-0 grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 border-b bg-background px-4 md:px-6 lg:grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,32rem)_auto_auto]"
+{#snippet operator()}
+	<div class="grid gap-2.5 border-t border-chrome-border px-2 pt-3">
+		<div class="grid min-w-0 gap-0.5">
+			<span class="truncate text-sm font-semibold text-chrome-text">{data.adminEmail ?? 'Operator'}</span>
+			<span class="font-mono text-[11px] tracking-[0.04em] text-chrome-text-muted">Operator · MFA on</span>
+		</div>
+		<a
+			href={resolve('/dashboard')}
+			class="w-fit rounded-sm text-sm text-chrome-text-muted transition-colors hover:text-chrome-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 		>
-			<Sidebar.Trigger />
-			<Separator orientation="vertical" class="h-5" />
-			<div class="grid min-h-14 min-w-0 content-center gap-0.5">
-				<p class="truncate text-sm font-medium">Platform Oversight</p>
-				<p class="truncate text-xs text-muted-foreground">Internal admin workspace</p>
-			</div>
-			<div
-				class="col-span-full row-start-2 -mx-4 border-t px-4 py-3 md:-mx-6 md:px-6 lg:col-[4] lg:row-start-1 lg:mx-0 lg:flex lg:justify-center lg:border-t-0 lg:p-0"
+			<span aria-hidden="true">←</span> Back to the app
+		</a>
+	</div>
+{/snippet}
+
+<div class="flex h-svh min-h-0 flex-col bg-chrome font-body text-foreground lg:flex-row lg:p-2 lg:pl-0">
+	<aside class="hidden w-[220px] shrink-0 flex-col gap-6 px-3 py-5 text-chrome-text lg:flex">
+		<BrandWordmark variant="platform" class="px-2" />
+		{@render nav()}
+		<div class="flex-1"></div>
+		{@render operator()}
+	</aside>
+
+	<header class="shrink-0 bg-chrome text-chrome-text lg:hidden">
+		<div class="flex items-center gap-3 px-4 py-3.5">
+			<BrandWordmark variant="platform" />
+			<button
+				bind:this={menuButton}
+				type="button"
+				class="ml-auto h-8 rounded-lg border border-chrome-border-subtle px-3 text-sm font-medium text-chrome-text transition-colors hover:bg-chrome-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+				aria-expanded={menuOpen}
+				aria-controls="admin-menu"
+				onclick={() => (menuOpen = !menuOpen)}
 			>
-				<AdminSearch />
+				Menu
+			</button>
+		</div>
+		{#if menuOpen}
+			<div id="admin-menu" class="grid gap-5 border-t border-chrome-border px-3 pt-3 pb-4">
+				{@render nav()}
+				{#if phone.current}<div class="px-2"><AdminSearch /></div>{/if}
+				{@render operator()}
 			</div>
-			<Button variant="ghost" size="icon-sm" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
-				{#if themeStore.isDark}
-					<Sun />
-				{:else}
-					<Moon />
-				{/if}
-			</Button>
-			<Badge variant="outline" class="hidden md:inline-flex">Operator</Badge>
-		</header>
-		<main class="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto">
+		{/if}
+	</header>
+
+	<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-md">
+		<div class="flex h-14 shrink-0 items-center gap-3 border-b px-4 max-sm:hidden">
+			<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">
+				<Breadcrumb.List class="flex-nowrap overflow-hidden">
+					<Breadcrumb.Item>
+						{#if currentSection}
+							<Breadcrumb.Link href={resolve('/admin')}>Platform</Breadcrumb.Link>
+						{:else}
+							<Breadcrumb.Page>Platform</Breadcrumb.Page>
+						{/if}
+					</Breadcrumb.Item>
+					{#if currentSection}
+						<Breadcrumb.Separator />
+						<Breadcrumb.Item class="min-w-0">
+							{#if leafLabel}
+								<Breadcrumb.Link href={resolve(currentSection.href as '/')} class="truncate">
+									{currentSection.label}
+								</Breadcrumb.Link>
+							{:else}
+								<Breadcrumb.Page class="truncate">{currentSection.label}</Breadcrumb.Page>
+							{/if}
+						</Breadcrumb.Item>
+					{/if}
+					{#if leafLabel}
+						<Breadcrumb.Separator />
+						<Breadcrumb.Item class="min-w-0">
+							<Breadcrumb.Page class="truncate">{leafLabel}</Breadcrumb.Page>
+						</Breadcrumb.Item>
+					{/if}
+				</Breadcrumb.List>
+			</Breadcrumb.Root>
+			{#if !phone.current}<div class="w-80 shrink-0 max-md:w-64"><AdminSearch /></div>{/if}
+		</div>
+		<main id="main-content" tabindex="-1" class="min-h-0 w-full min-w-0 flex-1 overflow-y-auto outline-none">
 			{@render children()}
 		</main>
-	</Sidebar.Inset>
-</Sidebar.Provider>
+	</div>
+</div>

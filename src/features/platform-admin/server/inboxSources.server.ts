@@ -11,7 +11,9 @@ import {
 	type FeedbackInboxRow
 } from '$features/feedback/index.server';
 import {
+	feedbackTitle,
 	INBOX_DONE_DAYS,
+	INBOX_KINDS,
 	INBOX_PAGE_LIMIT,
 	type InboxDetailOf,
 	type InboxItemOf,
@@ -23,13 +25,13 @@ import {
 /** What the Inbox needs from one item kind. Adding a kind adds one entry to `InboxSources`. */
 export interface InboxSource<K extends InboxKind> {
 	read(tab: InboxTab): Promise<{ count: number; items: InboxItemOf<K>[] }>;
+	countOpen(): Promise<number>;
 	detail(id: string): Promise<InboxDetailOf<K> | null>;
 }
 
 export type InboxSources = { [K in InboxKind]: InboxSource<K> };
 
 const MAX_UNIT_LENGTH = 80;
-const MESSAGE_TITLE_LENGTH = 90;
 
 function doneSince(now: Date): Date {
 	return new Date(now.getTime() - INBOX_DONE_DAYS * 86_400_000);
@@ -40,17 +42,12 @@ function accessRequestItem(row: AccessRequestInboxRow): InboxItemOf<'accessReque
 	return {
 		kind: 'accessRequest',
 		id: row.id,
-		title: row.name,
-		summary: row.email,
+		title: `${row.name} wants to start an Organization`,
+		summary: [row.email, getAccessRequestHeardAboutLabel(row.heard_about)].filter(Boolean).join(' · '),
 		receivedAt: row.created_at,
 		closedAt: closed ? row.reviewed_at : null,
 		outcome: row.status === 'approved' || row.status === 'rejected' ? row.status : null
 	};
-}
-
-function feedbackTitle(message: string): string {
-	const line = message.trim().split(/\r?\n/, 1)[0] ?? '';
-	return line.length > MESSAGE_TITLE_LENGTH ? `${line.slice(0, MESSAGE_TITLE_LENGTH).trimEnd()}…` : line;
 }
 
 function feedbackItem(row: FeedbackInboxRow): InboxItemOf<'feedback'> {
@@ -58,7 +55,7 @@ function feedbackItem(row: FeedbackInboxRow): InboxItemOf<'feedback'> {
 		kind: 'feedback',
 		id: row.id,
 		title: feedbackTitle(row.message),
-		summary: row.user_email,
+		summary: [row.user_email, row.organization_name, row.page_section].filter(Boolean).join(' · '),
 		receivedAt: row.created_at,
 		closedAt: row.status === 'resolved' ? row.updated_at : null,
 		category: row.category
@@ -94,6 +91,9 @@ export function createAccessRequestInboxSource(
 					? await reader.readOpen({ limit: INBOX_PAGE_LIMIT })
 					: await reader.readClosed({ since: doneSince(now()), limit: INBOX_PAGE_LIMIT });
 			return { count: page.count, items: page.rows.map(accessRequestItem) };
+		},
+		async countOpen() {
+			return (await reader.readOpen({ limit: 0 })).count;
 		},
 		async detail(id) {
 			const row = await reader.get(id);
@@ -136,6 +136,9 @@ export function createFeedbackInboxSource(
 					? await reader.readOpen({ limit: INBOX_PAGE_LIMIT })
 					: await reader.readClosed({ since: doneSince(now()), limit: INBOX_PAGE_LIMIT });
 			return { count: page.count, items: page.rows.map(feedbackItem) };
+		},
+		async countOpen() {
+			return (await reader.readOpen({ limit: 0 })).count;
 		},
 		async detail(id) {
 			const row = await reader.get(id);
@@ -187,4 +190,15 @@ export function readInboxSources(
 		accessRequest: readInboxSource(sources.accessRequest, tab),
 		feedback: readInboxSource(sources.feedback, tab)
 	};
+}
+
+/** The open total for the navigation badge; null when any kind could not be counted, so the badge never undercounts. */
+export async function countOpenInboxItems(sources: InboxSources): Promise<number | null> {
+	try {
+		const counts = await Promise.all(INBOX_KINDS.map((kind) => sources[kind].countOpen()));
+		return counts.reduce((total, count) => total + count, 0);
+	} catch (cause) {
+		console.error('[platform-admin-inbox] open count failed', cause);
+		return null;
+	}
 }

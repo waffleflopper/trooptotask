@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AccessRequestInboxRow, IdentityAccessRequestInboxReader } from '$features/identity/index.server';
 import type { FeedbackInboxReader, FeedbackInboxRow } from '$features/feedback/index.server';
 import {
+	countOpenInboxItems,
 	createAccessRequestInboxSource,
 	createFeedbackInboxSource,
 	readInboxSource,
@@ -92,7 +93,7 @@ describe('Inbox sources', () => {
 		expect(readClosed).toHaveBeenCalledWith(expect.objectContaining({ since: new Date('2026-09-30T12:00:00Z') }));
 	});
 
-	it('titles feedback by the first line of its message and dates closure from its last update', async () => {
+	it('titles feedback by the first line of its message, names who sent it from where, and dates closure from its last update', async () => {
 		const source = createFeedbackInboxSource(feedbackReader(), () => NOW);
 
 		const result = await readInboxSource(source, 'done');
@@ -105,7 +106,7 @@ describe('Inbox sources', () => {
 					kind: 'feedback',
 					id: feedback.id,
 					title: 'The roster will not load',
-					summary: 'member@example.test',
+					summary: 'member@example.test · Alpha',
 					receivedAt: '2026-10-20T08:00:00Z',
 					closedAt: '2026-10-28T09:00:00Z',
 					category: 'bug'
@@ -133,6 +134,44 @@ describe('Inbox sources', () => {
 			closedAt: '2026-10-30T09:00:00Z',
 			outcome: 'approved'
 		});
+	});
+
+	it('says what an access request asks for and how the person found the site', async () => {
+		const source = createAccessRequestInboxSource(
+			accessRequestReader({ readOpen: async () => ({ rows: [{ ...request, heard_about: 'unit_peer' }], count: 1 }) }),
+			noOrganizations
+		);
+
+		const result = await readInboxSource(source, 'open');
+
+		expect(result.status === 'ok' && result.items[0]).toMatchObject({
+			title: 'Sam Rivera wants to start an Organization',
+			summary: 'sam@example.test · Someone in my unit'
+		});
+	});
+
+	it('counts every open item for the navigation, and gives no count when a kind cannot be counted', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const counted: InboxSources = {
+			accessRequest: createAccessRequestInboxSource(
+				accessRequestReader({ readOpen: async () => ({ rows: [], count: 3 }) }),
+				noOrganizations
+			),
+			feedback: createFeedbackInboxSource(feedbackReader({ readOpen: async () => ({ rows: [], count: 4 }) }))
+		};
+		const failing: InboxSources = {
+			...counted,
+			feedback: createFeedbackInboxSource(
+				feedbackReader({
+					readOpen: async () => {
+						throw new Error('database unavailable');
+					}
+				})
+			)
+		};
+
+		await expect(countOpenInboxItems(counted)).resolves.toBe(7);
+		await expect(countOpenInboxItems(failing)).resolves.toBeNull();
 	});
 
 	it('returns no detail for an item that is gone', async () => {

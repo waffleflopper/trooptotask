@@ -62,10 +62,11 @@ function pageData(
 	};
 }
 
-const rowTitles = () =>
-	screen
-		.getAllByRole('row')
-		.map((row) => row.getAttribute('aria-labelledby') && row.querySelector('[id$="-title"]')?.textContent);
+const itemLinks = () => {
+	const list = screen.queryByRole('list', { name: /^(Open|Done) items$/ });
+	return list ? within(list).getAllByRole('link') : [];
+};
+const rowTitles = () => itemLinks().map((link) => link.querySelector('[id$="-title"]')?.textContent);
 
 beforeEach(() => {
 	goto.mockResolvedValue(undefined);
@@ -88,7 +89,7 @@ describe('Inbox page', () => {
 		await waitFor(() => expect(rowTitles()).toEqual(['The roster will not load', 'Sam Rivera']));
 		const filter = screen.getByRole('radiogroup', { name: 'Filter by kind' });
 		expect(within(filter).getByRole('radio', { name: 'All · 2' })).toBeTruthy();
-		expect(within(filter).getByRole('radio', { name: 'Access requests · 1' })).toBeTruthy();
+		expect(within(filter).getByRole('radio', { name: 'Access · 1' })).toBeTruthy();
 		expect(within(filter).getByRole('radio', { name: 'Feedback · 1' })).toBeTruthy();
 	});
 
@@ -106,7 +107,7 @@ describe('Inbox page', () => {
 		});
 
 		expect(screen.getByRole('status', { name: 'Loading Inbox' })).toBeTruthy();
-		expect(screen.queryAllByRole('row')).toEqual([]);
+		expect(itemLinks()).toEqual([]);
 	});
 
 	it('keeps the other kind visible when one source fails, and retries by re-reading', async () => {
@@ -122,7 +123,7 @@ describe('Inbox page', () => {
 		});
 
 		await waitFor(() => expect(rowTitles()).toEqual(['The roster will not load']));
-		expect(screen.getAllByRole('row')).toHaveLength(1);
+		expect(within(screen.getByRole('alert')).getByRole('button', { name: 'Retry' })).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
@@ -144,19 +145,20 @@ describe('Inbox page', () => {
 		await waitFor(() => expect(rowTitles()).toEqual(['The roster will not load']));
 		const filter = screen.getByRole('radiogroup', { name: 'Filter by kind' });
 		expect(within(filter).getByRole('radio', { name: 'All' })).toBeTruthy();
-		expect(within(filter).getByRole('radio', { name: 'Access requests' })).toBeTruthy();
+		expect(within(filter).getByRole('radio', { name: 'Access' })).toBeTruthy();
 	});
 
 	it('shows the month figures, and no figure at all when the stats fail', async () => {
+		const figures = () => within(screen.getByLabelText('This month'));
 		const view = render(Page, { props: { data: pageData() as never } });
-		await waitFor(() => expect(screen.getByText('4')).toBeTruthy());
-		expect(screen.getByText('2')).toBeTruthy();
+		await waitFor(() => expect(figures().getByText('4')).toBeTruthy());
+		expect(figures().getByText('2')).toBeTruthy();
 		view.unmount();
 
 		render(Page, { props: { data: pageData({ stats: Promise.resolve({ status: 'error' }) }) as never } });
-		await waitFor(() => expect(rowTitles()).toHaveLength(2));
-		expect(screen.queryByText('0')).toBeNull();
-		expect(screen.queryByText('4')).toBeNull();
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Retry figures' })).toBeTruthy());
+		expect(figures().queryByText('0')).toBeNull();
+		expect(figures().queryByText('4')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry figures' }));
 		expect(invalidate).toHaveBeenCalledWith('admin:inbox');
@@ -166,7 +168,7 @@ describe('Inbox page', () => {
 		render(Page, { props: { data: pageData() as never } });
 		await waitFor(() => expect(rowTitles()).toHaveLength(2));
 
-		await fireEvent.click(screen.getByRole('row', { name: 'Sam Rivera' }));
+		await fireEvent.click(screen.getByRole('link', { name: 'Sam Rivera' }));
 
 		expect(goto).toHaveBeenCalledWith(
 			`/admin?item=accessRequest%3A${REQUEST_ID}`,
@@ -195,12 +197,12 @@ describe('Inbox page', () => {
 	it('shows the Done skeleton at once while its read is still on the way, never the Open rows', async () => {
 		goto.mockReturnValue(new Promise(() => {}));
 		render(Page, { props: { data: pageData() as never } });
-		await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(0));
+		await waitFor(() => expect(itemLinks().length).toBeGreaterThan(0));
 
 		await fireEvent.click(screen.getByRole('tab', { name: 'Done' }));
 
 		expect(screen.getByRole('status', { name: 'Loading Inbox' })).toBeTruthy();
-		expect(screen.queryAllByRole('row')).toEqual([]);
+		expect(itemLinks()).toEqual([]);
 		expect(screen.getByRole('tab', { name: 'Done' }).getAttribute('aria-selected')).toBe('true');
 	});
 
@@ -216,7 +218,7 @@ describe('Inbox page', () => {
 
 		await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading Inbox' })).toBeNull());
 		expect(screen.getByRole('tabpanel', { name: 'Done' }).textContent?.trim()).not.toBe('');
-		expect(screen.queryAllByRole('row')).toEqual([]);
+		expect(itemLinks()).toEqual([]);
 		expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 	});
 });

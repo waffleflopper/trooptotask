@@ -21,6 +21,7 @@ function organizationsData(data: Partial<PageProps['data']>): PageProps['data'] 
 		viewer: null,
 		adminUserId: 'admin-1',
 		adminEmail: 'admin@example.test',
+		inboxOpenCount: Promise.resolve(0),
 		organizations: [],
 		pagination: {
 			page: 1,

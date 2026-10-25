@@ -4,7 +4,8 @@
 	interface Option {
 		value: T;
 		label: string;
-		count?: number;
+		/** `null` is a count still loading: its space is held so the option keeps its width when the number arrives. */
+		count?: number | null;
 	}
 
 	interface Props {
@@ -18,6 +19,8 @@
 	}
 
 	let { options, value = $bindable(), label, disabled = false, describedBy }: Props = $props();
+
+	const SEPARATOR = ' · ';
 </script>
 
 <RadioGroup.Root
@@ -31,7 +34,18 @@
 >
 	{#each options as option (option.value)}
 		<RadioGroup.Item value={option.value}>
-			{option.count === undefined ? option.label : `${option.label} · ${option.count}`}
+			{#if option.count === null}
+				{option.label}<span aria-hidden="true"
+					>{SEPARATOR}<span
+						data-slot="segmented-filter-count-pending"
+						class="inline-block h-3 w-[2ch] animate-pulse rounded-sm bg-foreground/10 align-middle"
+					></span></span
+				>
+			{:else if option.count === undefined}
+				{option.label}
+			{:else}
+				{option.label}{SEPARATOR}<span class="inline-block min-w-[2ch] text-start tabular-nums">{option.count}</span>
+			{/if}
 		</RadioGroup.Item>
 	{/each}
 </RadioGroup.Root>

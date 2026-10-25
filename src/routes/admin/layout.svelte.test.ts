@@ -69,11 +69,11 @@ const children = createRawSnippet(() => ({
 	render: () => '<section>Admin child</section>'
 }));
 
-function renderLayout() {
+function renderLayout(inboxOpenCount: Promise<number | null> = Promise.resolve(0)) {
 	return render(Layout, {
 		props: {
 			children,
-			data: { viewer: null, adminUserId: 'admin-1', adminEmail: 'admin@example.test' }
+			data: { viewer: null, adminUserId: 'admin-1', adminEmail: 'admin@example.test', inboxOpenCount }
 		}
 	});
 }
@@ -117,34 +117,67 @@ describe('admin layout', () => {
 		expect(within(nav).getByRole('link', { name: 'People' }).hasAttribute('aria-current')).toBe(false);
 	});
 
-	it('shows the admin identity as static text rather than controls without an action', () => {
+	it('shows the operator as static text with a way back to the app', () => {
 		renderLayout();
 
-		expect(screen.getByText('Control Room').closest('button, a, [tabindex]')).toBeNull();
+		expect(screen.getByText('Operator · MFA on').closest('button, a, [tabindex]')).toBeNull();
 		expect(screen.getByText('admin@example.test').closest('button, a, [tabindex]')).toBeNull();
-		expect(screen.queryByRole('button', { name: /Platform Admin|admin@example.test/ })).toBeNull();
+		expect(screen.getByRole('link', { name: /Back to the app/ }).getAttribute('href')).toBe('/dashboard');
 	});
 
-	it('returns focus to Toggle Sidebar after a link choice in the phone sidebar', async () => {
+	it('counts open Inbox items on the Inbox link once the count arrives', async () => {
+		renderLayout(Promise.resolve(7));
+
+		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
+		expect(await within(nav).findByRole('link', { name: 'Inbox 7 open' })).toBeTruthy();
+	});
+
+	it.each([0, null])('leaves the Inbox link bare when the count is %s', async (count) => {
+		renderLayout(Promise.resolve(count));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
+		expect(within(nav).getByRole('link', { name: 'Inbox' })).toBeTruthy();
+	});
+
+	it('returns focus to Menu after a link choice in the phone menu', async () => {
 		(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 390, height: 844 });
 		renderLayout();
 		const stopRouting = routeLinkClicks();
-		const trigger = screen.getAllByRole('button', { name: 'Toggle Sidebar' })[0];
+		const trigger = screen.getByRole('button', { name: 'Menu' });
 		trigger.focus();
 		await fireEvent.click(trigger);
-		const link = within(screen.getByRole('dialog')).getByRole('link', { name: 'People' });
+		expect(trigger.getAttribute('aria-expanded')).toBe('true');
+		const menu = document.getElementById('admin-menu') as HTMLElement;
+		const link = within(menu).getByRole('link', { name: 'People' });
 		link.focus();
 		await fireEvent.click(link);
 		await stopRouting();
 
-		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(document.activeElement?.getAttribute('data-sidebar')).toBe('trigger');
+		expect(document.getElementById('admin-menu')).toBeNull();
+		expect(document.activeElement).toBe(trigger);
+	});
+
+	it('closes the phone menu on Escape and returns focus to Menu', async () => {
+		(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 390, height: 844 });
+		renderLayout();
+		const trigger = screen.getByRole('button', { name: 'Menu' });
+		await fireEvent.click(trigger);
+		within(document.getElementById('admin-menu') as HTMLElement)
+			.getByRole('link', { name: 'People' })
+			.focus();
+		await fireEvent.keyDown(window, { key: 'Escape' });
+
+		expect(document.getElementById('admin-menu')).toBeNull();
+		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+		expect(document.activeElement).toBe(trigger);
 	});
 
 	it('leaves the page focus reset alone after a desktop link choice', async () => {
 		renderLayout();
 		const stopRouting = routeLinkClicks();
-		const link = screen.getByRole('link', { name: 'People' });
+		const nav = screen.getByRole('navigation', { name: 'Platform admin' });
+		const link = within(nav).getByRole('link', { name: 'People' });
 		link.focus();
 		await fireEvent.click(link);
 		await stopRouting();

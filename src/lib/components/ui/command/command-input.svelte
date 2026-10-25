@@ -3,13 +3,18 @@
 	import { cn } from '$lib/utils.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
+	import type { Snippet } from 'svelte';
 
 	let {
 		ref = $bindable(null),
 		class: className,
 		value = $bindable(''),
+		end,
 		...restProps
-	}: CommandPrimitive.InputProps = $props();
+	}: CommandPrimitive.InputProps & {
+		/** Trailing content inside the field, such as a keyboard shortcut hint. */
+		end?: Snippet;
+	} = $props();
 </script>
 
 <div data-slot="command-input-wrapper" class="p-1 pb-0">
@@ -34,5 +39,8 @@
 		<InputGroup.Addon>
 			<SearchIcon class="size-4 shrink-0 opacity-50" />
 		</InputGroup.Addon>
+		{#if end}
+			<InputGroup.Addon align="inline-end">{@render end()}</InputGroup.Addon>
+		{/if}
 	</InputGroup.Root>
 </div>

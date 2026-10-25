@@ -6,8 +6,9 @@ and modal at desktop and phone widths, in light and dark.
 
 ## Sub-features
 
-- `shell`: the admin sidebar, its current-page state, the collapsible sidebar and its phone sheet, `Toggle theme`,
-  `Exit Admin` and the `Operator` badge; no focusable control without an action.
+- `shell`: the dark admin sidebar with the `TroopToTask` wordmark and `Platform` label, its current-page state and Inbox
+  open-count badge, the operator block with `Back to the app`, the top bar breadcrumb, and the `Menu` disclosure below
+  1024 px; no focusable control without an action.
 - `search`: the global `Search platform admin records` command palette with its searching, empty, failed and result
   states, keyboard selection and a single instance per width.
 - `admission`: only the operator at MFA level aal2 enters `/admin`; an operator at aal1 is sent to MFA; every other
@@ -29,10 +30,13 @@ and modal at desktop and phone widths, in light and dark.
 
 Sign in as the platform operator, enter the authenticator code and open `/admin`. The sidebar lists Inbox,
 Organizations, People, Activity and Announcements (People and Activity answer 404 until their slices land; Users and
-Audit Log keep answering at their old paths). The header holds `Toggle Sidebar`, the global search (below the header
-under 1024 px), `Toggle theme` and the `Operator` badge. Follow `Inspect` on a User row or an Organization name to open
-its detail, where the operator has `Suspend User`, `Suspend`/`Unsuspend` and `Transfer Ownership`. Suspending asks for
-the authenticator code again when the last one is older than 10 minutes.
+Audit Log keep answering at their old paths). From 1024 px a dark sidebar holds the sections, the operator's email with
+`Operator · MFA on` and `← Back to the app`; the content sits in a light panel whose top bar holds the breadcrumb
+(`Platform › Inbox`) and the global search (`Find a person or organization`, `⌘K`, or `Ctrl K` off a Mac). Below 1024 px
+a dark top bar holds the wordmark and `Menu`, which opens the same sections and operator block; below 640 px the search
+moves into `Menu` too. Follow `Inspect` on a User row or an Organization name to open its detail, where the operator has
+`Suspend User`, `Suspend`/`Unsuspend` and `Transfer Ownership`. Suspending asks for the authenticator code again when
+the last one is older than 10 minutes.
 
 ## Driving it with verify:app
 
@@ -57,13 +61,14 @@ pending requests, one completed approved request and the unconfirmed account `pl
 `seed communications` is not needed for this recipe.
 
 Preconditions: save `component-foundation.md`'s state reader as `reader.js`. Use native `resize_page` (1280x800,
-390x844) and the admin header's visible `Toggle theme` for dark; the theme is per browser context, so set it once per
-actor and read `document.documentElement.dataset.theme`. Start a keyboard step with `focus()` on the control, then press
-real `Tab`, `Enter`, `Space`, `ArrowDown` and `Escape`. For the focus ring read `getComputedStyle` `outline` and
-`box-shadow` while the control matches `:focus-visible` after a real key press. The app ring is a Tailwind `ring`
-box-shadow (`ring-ring/50` 3px on `Button`, `ring-sidebar-ring` 2px in the sidebar); a UA `auto` outline is the default
-ring, not the app ring. At each capture read `document.documentElement.scrollWidth` against `innerWidth` and the main
-region's `scrollWidth` against its `clientWidth`. Page-data failure and hold use
+390x844) and, for dark, the visible `Toggle theme` on `/dashboard` before opening `/admin` (the admin shell has no theme
+control and follows the saved theme); the theme is per browser context, so set it once per actor and read
+`document.documentElement.dataset.theme`. Start a keyboard step with `focus()` on the control, then press real `Tab`,
+`Enter`, `Space`, `ArrowDown` and `Escape`. For the focus ring read `getComputedStyle` `outline` and `box-shadow` while
+the control matches `:focus-visible` after a real key press. The app ring is a Tailwind `ring` box-shadow
+(`ring-ring/50` 3px on `Button`); the sidebar links, `Menu` and `Back to the app` use a 2px `outline-ring` outline; a UA
+`auto` outline is the default ring, not the app ring. At each capture read `document.documentElement.scrollWidth`
+against `innerWidth` and the main region's `scrollWidth` against its `clientWidth`. Page-data failure and hold use
 `$V network arm-load-error|arm-fail|arm-hold PAGE admin-inbox-read|admin-users-read|admin-organizations-read|admin-announcements-read|admin-audit-read|admin-user-detail-read|admin-organization-detail-read`;
 arm on another admin page, then follow the visible sidebar link. Focus the link before arming so a hover prefetch does
 not consume the one-shot fault, and `network restore` after each case. `arm-load-error` returns the real read with its
@@ -72,14 +77,15 @@ page node replaced by a 503 server-load error, which renders the admin error pag
 
 1. **Shell and navigation.** As `platformReviewer` on the Inbox at 1280 light, then 390 dark.
 
-   | Control (source)                    | Accessible name and state                                       | Expected                                                                                                                                                                                                                                                                                                                                |
-   | ----------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Sidebar links (`+layout`)           | `Inbox`, `Organizations`, `People`, `Activity`, `Announcements` | Links inside the `Platform admin` navigation landmark; the current section's link carries `aria-current="page"` as well as its highlight (`People` for `/admin/users`, `Activity` for `/admin/audit`), and it moves after each visible navigation; app focus ring                                                                       |
-   | Brand and account rows              | `Platform Admin Control Room`; the admin email with `Operator`  | Static identity, not a focusable `button` with no action. Record role and `tabindex` of both                                                                                                                                                                                                                                            |
-   | `Toggle Sidebar` (trigger and rail) | `Toggle Sidebar`                                                | 1280: Enter collapses to icons with tooltips that name each link and expands again; focus stays on the trigger. 390: opens the sidebar as a `dialog` sheet, focus moves into it, Tab stays inside, Escape and a link choice close it and focus returns to `Toggle Sidebar`; after a link choice the route announcer reads the new title |
-   | `Toggle theme`                      | `Toggle theme`                                                  | A `Button`; Enter switches `data-theme` and the icon; the theme survives reload                                                                                                                                                                                                                                                         |
-   | `Operator` badge, `Exit Admin`      | `Operator`; `Exit Admin`                                        | Badge hidden at 390 is acceptable; `Exit Admin` is a link to `/dashboard`                                                                                                                                                                                                                                                               |
-   | Narrow                              | 390 dark                                                        | No page overflow; the header fits; the search sits below the header                                                                                                                                                                                                                                                                     |
+   | Control (source)          | Accessible name and state                                               | Expected                                                                                                                                                                                                                                                          |
+   | ------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Sidebar links (`+layout`) | `Inbox`, `Organizations`, `People`, `Activity`, `Announcements`         | Links inside the `Platform admin` navigation landmark; the current section's link carries `aria-current="page"` as well as its highlight (`People` for `/admin/users`, `Activity` for `/admin/audit`), and it moves after each visible navigation; app focus ring |
+   | Brand and operator block  | `TroopToTask` with `Platform`; the admin email with `Operator · MFA on` | Static identity, not a focusable `button` with no action. Record role and `tabindex` of both                                                                                                                                                                      |
+   | Inbox badge               | `Inbox 7 open` with seven open items                                    | The count is the open access requests plus open Feedback; with none open, or when the count fails, the link reads `Inbox` with no badge. It updates after an approve, reject or close                                                                             |
+   | `Back to the app`         | `← Back to the app`                                                     | A link to `/dashboard`                                                                                                                                                                                                                                            |
+   | Breadcrumb                | `Platform › Inbox`; `Platform › People` on `/admin/users`               | `Platform` links to `/admin` when a section is current; the last item is the current page; hidden below 640 px                                                                                                                                                    |
+   | `Menu` (below 1024 px)    | `Menu`, `aria-expanded`                                                 | Enter opens the sections and operator block under the top bar (`aria-expanded="true"`); Escape or a link choice closes it and focus returns to `Menu`; after a link choice the route announcer reads the new title. At 390 the search is inside the open menu     |
+   | Narrow                    | 390 dark                                                                | No page overflow; the dark top bar fits the wordmark and `Menu`                                                                                                                                                                                                   |
 
 2. **Global search (`AdminSearch`).** As `platformReviewer`, 1280 light then 390 dark. Use the seed's temporary
    Organization name and `orgInvitee`'s email from `$V fixture`.
@@ -114,12 +120,12 @@ page node replaced by a 503 server-load error, which renders the admin error pag
 4. **Inbox shell.** As `platformReviewer` at 1280 light then 390 dark. The queue, detail and commands are owned by
    [Platform Inbox](platform-inbox.md); this step records the page chrome.
 
-   | Control or state | Accessible name and state                                            | Expected                                                                                                                                                                                  |
-   | ---------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Header           | `Inbox` `h1`                                                         | Above two month figures (`New people this month`, `New Organizations this month`) and the Open/Done tabs                                                                                  |
-   | Loading          | `admin-inbox-read` `arm-hold` from Organizations, then `Inbox`       | The old page stays until the read answers; once it renders, every region that streams (the figures, the list) shows a skeleton of its final size, not an empty state. Release and restore |
-   | Error            | `admin-inbox-read` `arm-load-error` from Organizations, then `Inbox` | `Error 503` with `This admin page could not be loaded. Please try again.`, `Try again` and `Back to Inbox` inside the admin navigation. Restore and `Try again` recovers                  |
-   | Narrow           | 390 dark                                                             | The list is one column; selecting an item shows it full screen with `Inbox` back; no page overflow                                                                                        |
+   | Control or state | Accessible name and state                                            | Expected                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+   | ---------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Header           | `Inbox` `h1`                                                         | A mono eyebrow `Platform · <weekday> <day> <month>` over the condensed uppercase title, one sentence from the open count (`Seven things are waiting on you. Everything else is running on its own.`; with none open, `Nothing is waiting on you. Everything is running on its own.`) and, at the right, two figures labeled `New people · <month>` and `New Organizations · <month>`. Below them the kind chips in one segmented control and the `Open`/`Done` tabs as underlined text at the right |
+   | Loading          | `admin-inbox-read` `arm-hold` from Organizations, then `Inbox`       | The old page stays until the read answers; once it renders, every region that streams (the sentence, the figures, the chip counts, the list) shows a skeleton of its final size, not an empty state; the chips keep their width when the counts arrive. Release and restore                                                                                                                                                                                                                         |
+   | Error            | `admin-inbox-read` `arm-load-error` from Organizations, then `Inbox` | `Error 503` with `This admin page could not be loaded. Please try again.`, `Try again` and `Back to Inbox` inside the admin navigation. Restore and `Try again` recovers                                                                                                                                                                                                                                                                                                                            |
+   | Narrow           | 390 dark                                                             | The eyebrow reads `Platform · N open`; the sentence and figures are hidden; the chips wrap; rows carry a tinted kind label; selecting an item shows it full screen with `Inbox` back; no page overflow. 900 px uses the same single column                                                                                                                                                                                                                                                          |
 
 5. **Users directory and detail.** As `platformReviewer`, 1280 light then 390 dark.
 

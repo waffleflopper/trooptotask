@@ -33,8 +33,10 @@ const notice: AnnouncementData['announcements'][number] = {
 	created_at: '2026-10-01T12:00:00Z',
 	expires_at: null
 };
-function adminData(actorId: string): Pick<AnnouncementData, 'viewer' | 'adminUserId' | 'adminEmail'> {
-	return { viewer: null, adminUserId: actorId, adminEmail: 'admin@example.test' };
+function adminData(
+	actorId: string
+): Pick<AnnouncementData, 'viewer' | 'adminUserId' | 'adminEmail' | 'inboxOpenCount'> {
+	return { viewer: null, adminUserId: actorId, adminEmail: 'admin@example.test', inboxOpenCount: Promise.resolve(0) };
 }
 function announcementData(actorId = 'admin-a'): AnnouncementData {
 	return {

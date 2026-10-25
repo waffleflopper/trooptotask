@@ -3,16 +3,16 @@
 	import { onDestroy } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
-	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '../adminTheme';
 	import { createInboxActions } from './inboxActions.svelte';
+	import InboxDetailHeader from './InboxDetailHeader.svelte';
 	import type { InboxDetailProps } from './inboxDetailProps';
+	import InboxFacts from './InboxFacts.svelte';
+	import { formatWhen } from './inboxFormat';
 
 	let { detail, onChanged }: InboxDetailProps<'accessRequest'> = $props();
 
@@ -25,43 +25,51 @@
 	let rejecting = $state(false);
 	let reason = $state('');
 
+	const now = new Date();
 	const isOpen = $derived(detail.status === 'pending');
+	const badges = $derived([
+		{ label: 'Closed beta', variant: 'warning' as const },
+		...(isOpen ? [] : [{ label: formatAdminLabel(detail.status), variant: adminBadgeVariant(detail.status) }])
+	]);
+	const facts = $derived([
+		{ label: 'How they got here', value: detail.heardAbout ?? 'They did not say.' },
+		{
+			label: 'Existing account',
+			value: detail.accountExists ? 'An account already uses this email' : 'None with this email'
+		},
+		{
+			label: 'Same unit already here',
+			value:
+				detail.similarOrganizations.length > 0
+					? detail.similarOrganizations.join(', ')
+					: 'No Organization with a similar name'
+		},
+		...(detail.reviewedAt ? [{ label: 'Decided', value: formatWhen(detail.reviewedAt, now) }] : [])
+	]);
 </script>
 
 <svelte:window onpageshow={(event) => event.persisted && actions.steppingUp && actions.resumeAfterStepUp()} />
 
-<TypeWorkspace.Stack>
-	<div class="grid gap-3">
-		<TypeWorkspace.DetailHeader title={detail.name} />
-		<div class="flex flex-wrap items-center gap-2">
-			<Badge variant="outline">Closed beta</Badge>
-			{#if !isOpen}
-				<Badge variant={adminBadgeVariant(detail.status)}>{formatAdminLabel(detail.status)}</Badge>
-			{/if}
-		</div>
-	</div>
+<article class="grid max-w-[620px] gap-6">
+	<InboxDetailHeader
+		tone="accent"
+		eyebrow="Access request"
+		{badges}
+		title={detail.name}
+		meta={`${detail.email} · asked ${formatWhen(detail.receivedAt, now)}`}
+	/>
 
-	<TypeWorkspace.FactList>
-		<TypeWorkspace.Fact label="Email">{detail.email}</TypeWorkspace.Fact>
-		<TypeWorkspace.Fact label="What they wrote">
-			{#if detail.reason}<span class="break-words whitespace-pre-wrap">{detail.reason}</span>{:else}Nothing written.{/if}
-		</TypeWorkspace.Fact>
-		<TypeWorkspace.Fact label="How they found us">{detail.heardAbout ?? 'Not given.'}</TypeWorkspace.Fact>
-		<TypeWorkspace.Fact label="Requested">{formatDisplayDateTime(detail.receivedAt)}</TypeWorkspace.Fact>
-		{#if detail.reviewedAt}
-			<TypeWorkspace.Fact label="Decided">{formatDisplayDateTime(detail.reviewedAt)}</TypeWorkspace.Fact>
-		{/if}
-		<TypeWorkspace.Fact label="Account">
-			{detail.accountExists ? 'An account already exists for this email.' : 'No account exists for this email.'}
-		</TypeWorkspace.Fact>
-		<TypeWorkspace.Fact label="Similar Organization">
-			{#if detail.similarOrganizations.length > 0}
-				{detail.similarOrganizations.join(', ')}
-			{:else}
-				None found.
-			{/if}
-		</TypeWorkspace.Fact>
-	</TypeWorkspace.FactList>
+	{#if detail.reason}
+		<blockquote
+			class="border-l-2 border-foreground py-0.5 pl-[18px] text-[17px] leading-[27px] break-words whitespace-pre-wrap italic"
+		>
+			“{detail.reason}”
+		</blockquote>
+	{:else}
+		<p class="text-sm text-muted-foreground">They did not write anything.</p>
+	{/if}
+
+	<InboxFacts {facts} />
 
 	{#if actions.steppingUp}
 		<Alert.Root role="status">
@@ -83,23 +91,31 @@
 	{/if}
 
 	{#if isOpen}
-		<TypeWorkspace.FooterActions class="flex-wrap">
-			<form method="POST" action="?/approve" use:enhance={actions.enhanceFor('approve')}>
-				<input type="hidden" name="id" value={detail.id} />
-				<Button
-					type="submit"
-					disabled={actions.pending !== null && actions.pending !== 'approve'}
-					aria-disabled={actions.pending === 'approve' ? 'true' : undefined}
-					aria-busy={actions.pending === 'approve' || undefined}
-				>
-					{#if actions.pending === 'approve'}<Spinner />{/if}
-					Approve and send setup link
+		<div class="grid gap-2.5">
+			<div class="flex flex-wrap items-center gap-2">
+				<form method="POST" action="?/approve" use:enhance={actions.enhanceFor('approve')}>
+					<input type="hidden" name="id" value={detail.id} />
+					<Button
+						type="submit"
+						disabled={actions.pending !== null && actions.pending !== 'approve'}
+						aria-disabled={actions.pending === 'approve' ? 'true' : undefined}
+						aria-busy={actions.pending === 'approve' || undefined}
+					>
+						{#if actions.pending === 'approve'}<Spinner />{/if}
+						Approve and send setup link
+					</Button>
+				</form>
+				<Button variant="destructive" disabled={actions.pending !== null} onclick={() => (rejecting = true)}>
+					Reject
 				</Button>
-			</form>
-			<Button variant="outline" disabled={actions.pending !== null} onclick={() => (rejecting = true)}>Reject</Button>
-		</TypeWorkspace.FooterActions>
+			</div>
+			<p class="text-[13px] leading-[19px] text-muted-foreground">
+				The setup link is good for 14 days. Approving does not create an Organization. They do that after setting up
+				their account.
+			</p>
+		</div>
 	{/if}
-</TypeWorkspace.Stack>
+</article>
 
 {#if rejecting}
 	<AppDialog.Root open busy={actions.pending === 'reject'} onClose={() => (rejecting = false)}>
@@ -119,12 +135,15 @@
 					use:enhance={actions.enhanceFor('reject')}
 				>
 					<input type="hidden" name="id" value={detail.id} />
-					<Field.Root>
-						<Field.Label for="reject-reason">Reason (optional)</Field.Label>
-						<Field.Control>
-							<Textarea id="reject-reason" name="reason" rows={3} maxlength={500} bind:value={reason} />
-						</Field.Control>
-					</Field.Root>
+					<!-- The form data is read at submit, before this locks, so the reason still goes with the request. -->
+					<fieldset disabled={actions.pending === 'reject'}>
+						<Field.Root>
+							<Field.Label for="reject-reason">Reason (optional)</Field.Label>
+							<Field.Control>
+								<Textarea id="reject-reason" name="reason" rows={3} maxlength={500} bind:value={reason} />
+							</Field.Control>
+						</Field.Root>
+					</fieldset>
 				</form>
 				{#if actions.error}
 					<Alert.Root variant="destructive" class="mt-3">

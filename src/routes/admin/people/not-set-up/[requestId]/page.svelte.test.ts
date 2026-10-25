@@ -56,6 +56,18 @@ describe('Not-set-up person page', () => {
 		expect(nav.goto).not.toHaveBeenCalled();
 	});
 
+	it('reads the request again when a command fails after it may have written', async () => {
+		render(RequestView, { data: data() });
+
+		await settleWith(0, {
+			type: 'failure',
+			status: 502,
+			data: { error: 'The new setup link was created, but the email could not be delivered.' }
+		});
+
+		expect(nav.invalidateAll).toHaveBeenCalledOnce();
+	});
+
 	it('leaves for the Not set up list once access is rescinded', async () => {
 		render(RequestView, { data: data() });
 

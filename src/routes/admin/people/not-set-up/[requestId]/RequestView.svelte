@@ -16,9 +16,10 @@
 	const retry = () => void invalidateAll();
 	const request = $derived(data.request);
 
-	// Rescinding ends this page, so it leaves instead of reading a request that no longer waits.
+	// A failed command can follow a write that took effect, so every result re-reads the page. Only a finished
+	// rescission leaves instead, because the request no longer waits.
 	function afterCommand(succeeded: boolean, action: string | null) {
-		if (succeeded && action !== 'rescindAccess') void invalidateAll();
+		if (!(succeeded && action === 'rescindAccess')) void invalidateAll();
 	}
 	function afterRescind() {
 		void goto(resolve('/admin/people?filter=notSetUp' as '/admin/people'));

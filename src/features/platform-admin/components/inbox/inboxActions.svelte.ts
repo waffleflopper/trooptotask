@@ -1,6 +1,7 @@
 import { applyAction } from '$app/forms';
 import type { SubmitFunction } from '@sveltejs/kit';
 import { redirectToSensitiveActionStepUp } from '$features/identity';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 const SETUP_NOT_SENT = 'Approved, but the setup email could not be sent, so the person has not received a link.';
 const CONFIRMATIONS: Record<string, string> = {
@@ -59,6 +60,8 @@ export function createInboxActions(onSettled: (succeeded: boolean) => void) {
 					if (typeof done?.action === 'string') confirmation = CONFIRMATIONS[done.action] ?? null;
 					else if (typeof done?.message === 'string') confirmation = done.message;
 				}
+				// The re-read can close the item and unmount the inline notice, so the warning also stays on screen.
+				if (notice) toastStore.warning(notice, Number.POSITIVE_INFINITY);
 				onSettled(result.type === 'success');
 			};
 		};

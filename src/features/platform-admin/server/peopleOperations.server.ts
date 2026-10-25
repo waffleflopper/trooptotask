@@ -38,7 +38,8 @@ export async function createPlatformPeopleOperations(event: RequestEvent) {
 		accountFacts: (userId: string) => readPersonRegion(() => facts.accountFacts(userId), 'Unable to load account name'),
 		organizations: (userId: string) =>
 			readPersonRegion(() => organizations.listMembershipsForUser(userId), 'Unable to load Organizations'),
-		accessHistory: (email: string) => readPersonRegion(() => facts.history(email), 'Unable to load access history'),
+		accessHistory: (email: string, userId?: string) =>
+			readPersonRegion(() => facts.history(email, userId), 'Unable to load access history'),
 		recentActivity: (userId: string) =>
 			readPersonRegion(
 				async () =>

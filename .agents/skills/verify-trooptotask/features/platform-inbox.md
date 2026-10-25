@@ -144,9 +144,9 @@ reason) and `network arm-fail|arm-hold|arm-observe PAGE admin-inbox/resendSetup|
      `The new setup link was created, but the email could not be delivered.`. `arm-hold` the command, pick another item
      and release: the answer never changes the other item. A setup email that went out while its required audit write
      failed (`email_sent_audit_failed`) reads
-     `The setup email was sent, but the required audit could not be recorded. Reload before sending again.` as a notice,
-     never as a failed send; it is not reachable from the browser and is proven in
-     `src/routes/admin/setupEmailActions.server.test.ts` and `inboxActions.svelte.test.ts`.
+     `The setup email was sent, but the required audit could not be recorded. Reload before sending again.` as a notice
+     that also stays as a warning toast until dismissed, never as a failed send; it is not reachable from the browser
+     and is proven in `src/routes/admin/setupEmailActions.server.test.ts` and `inboxActions.svelte.test.ts`.
 
 ## Gotchas
 

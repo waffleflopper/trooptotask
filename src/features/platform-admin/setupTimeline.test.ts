@@ -168,7 +168,7 @@ describe('access history', () => {
 		]);
 
 		expect(entries.map((entry) => entry.text)).toEqual([
-			'Requested access from the sign-up page.',
+			'Access was requested.',
 			'The access request was approved.',
 			'Set up the account.'
 		]);

@@ -25,7 +25,7 @@ export const load: PageServerLoad = async (event) => {
 		suspendDisabledReason: isSelf ? 'You cannot suspend your own account.' : null,
 		accountFacts: operations.accountFacts(userId),
 		organizations: operations.organizations(userId),
-		accessHistory: operations.accessHistory(result.person.email ?? ''),
+		accessHistory: operations.accessHistory(result.person.email ?? '', userId),
 		recentActivity: operations.recentActivity(userId)
 	};
 };

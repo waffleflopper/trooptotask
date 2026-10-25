@@ -111,7 +111,7 @@ export function accessHistoryEntries(history: PersonAccessHistory[]): TimelineEn
 		entries.push({
 			id: `${request.id}:requested`,
 			at: request.created_at,
-			text: 'Requested access from the sign-up page.',
+			text: 'Access was requested.',
 			tone: 'done'
 		});
 		if (request.reviewed_at && request.status !== 'pending')
@@ -149,7 +149,7 @@ export function requestEntries(request: {
 		{
 			id: `${request.id}:requested`,
 			at: request.created_at,
-			text: 'Requested access from the sign-up page.',
+			text: 'Access was requested.',
 			tone: 'done'
 		},
 		...(request.reviewed_at

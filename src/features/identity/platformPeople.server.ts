@@ -43,16 +43,35 @@ export function createIdentityPersonReader(client: SupabaseClient) {
 			if (error) throw new Error('Unable to load access request');
 			return data ? personAccessRequestSchema.parse(data) : null;
 		},
-		async history(email: string) {
-			const { data, error } = await client
-				.from('access_requests')
-				.select('id, name, email, status, created_at, reviewed_at, setup_completed_at, rescinded_at')
-				.eq('email', email.trim().toLowerCase())
-				.order('created_at', { ascending: false })
-				.order('id', { ascending: false })
-				.limit(50);
-			if (error || !data) throw new Error('Unable to load access history');
-			return z.array(personAccessHistorySchema).parse(data);
+		/** A person's requests by the address they asked with and by the account they set up, which can have changed address. */
+		async history(email: string, userId?: string) {
+			const columns = 'id, name, email, status, created_at, reviewed_at, setup_completed_at, rescinded_at';
+			const [byEmail, byAccount] = await Promise.all([
+				client
+					.from('access_requests')
+					.select(columns)
+					.eq('email', email.trim().toLowerCase())
+					.order('created_at', { ascending: false })
+					.order('id', { ascending: false })
+					.limit(50),
+				userId
+					? client
+							.from('access_requests')
+							.select(columns)
+							.eq('setup_user_id', userId)
+							.order('created_at', { ascending: false })
+							.order('id', { ascending: false })
+							.limit(50)
+					: Promise.resolve({ data: [], error: null })
+			]);
+			if (byEmail.error || byAccount.error || !byEmail.data || !byAccount.data)
+				throw new Error('Unable to load access history');
+			const seen = new Set<string>();
+			const rows = [...byEmail.data, ...byAccount.data]
+				.filter((row) => !seen.has(row.id) && seen.add(row.id))
+				.sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id))
+				.slice(0, 50);
+			return z.array(personAccessHistorySchema).parse(rows);
 		},
 		async setupTimeline(requestId: string) {
 			const { data, error } = await client

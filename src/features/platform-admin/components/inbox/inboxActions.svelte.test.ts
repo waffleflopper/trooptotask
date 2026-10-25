@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/forms', () => ({ applyAction: vi.fn() }));
 vi.mock('$features/identity', () => ({ redirectToSensitiveActionStepUp: () => false }));
+const toasts = vi.hoisted(() => ({ warning: vi.fn() }));
+vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: toasts }));
 
 import { createInboxActions } from './inboxActions.svelte';
 
@@ -49,6 +51,18 @@ describe('Inbox item commands', () => {
 		expect(actions.notice).toContain('Reload before sending again');
 		expect(actions.error).toBeNull();
 		expect(settled).toHaveBeenCalledWith(false);
+	});
+
+	it('keeps the warning on screen after a re-read closes the item that showed it', async () => {
+		const actions = createInboxActions(vi.fn());
+		toasts.warning.mockClear();
+
+		await submit(actions, {
+			type: 'failure',
+			data: { error: 'The setup email was sent, but the audit failed. Reload before sending again.', emailSent: true }
+		});
+
+		expect(toasts.warning).toHaveBeenCalledWith(expect.stringContaining('Reload before sending again'), Infinity);
 	});
 
 	it('reports an ordinary failure as an error', async () => {

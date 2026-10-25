@@ -243,9 +243,10 @@ describe('banner form ownership', () => {
 		expect(within(live).getByText('Active notice')).toBeTruthy();
 		expect(within(live).getByText(/2 dismissed/)).toBeTruthy();
 		const ended = screen.getByRole('region', { name: 'Ended' });
-		expect(within(ended).getByText('Peer notice')).toBeTruthy();
-		expect(within(ended).getAllByText(/not dismissed yet/)).toHaveLength(2);
-		expect(within(ended).getByText('Old notice')).toBeTruthy();
+		for (const title of ['Peer notice', 'Old notice']) {
+			const row = within(ended).getByText(title).closest('li') as HTMLElement;
+			expect(within(row).getByText(/not dismissed yet/)).toBeTruthy();
+		}
 		expect(within(ended).queryByRole('button', { name: 'Turn off Old notice' })).toBeNull();
 		expect(within(ended).getByRole('button', { name: 'Delete Old notice' })).toBeTruthy();
 	});

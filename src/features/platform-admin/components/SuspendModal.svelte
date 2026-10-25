@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -27,6 +28,8 @@
 	let uncertain = $state<{ targetId: string; isSuspended: boolean } | null>(null);
 	let reloading = $state(false);
 	let steppingUp = $state(false);
+	let destroyed = false;
+	onDestroy(() => (destroyed = true));
 
 	const action = $derived(isSuspended ? 'unsuspend' : 'suspend');
 	const title = $derived(isSuspended ? `Unsuspend ${targetName}` : `Suspend ${targetName}`);
@@ -45,7 +48,7 @@
 				body: JSON.stringify({ type, targetId, action, reason: reason.trim() || undefined })
 			});
 			const body = await res.json().catch(() => null);
-			if (targetId !== mutationTargetId) return;
+			if (destroyed || targetId !== mutationTargetId) return;
 			if (res.status === 403 && redirectToSensitiveActionStepUp(body)) {
 				steppingUp = true;
 				return;

@@ -213,3 +213,15 @@ it('offers another try when the browser returns from an abandoned step-up', asyn
 	expect(await screen.findByText(/Multi-factor verification was not completed/)).toBeTruthy();
 	expect(screen.getByRole('button', { name: 'Suspend' }).getAttribute('aria-busy')).toBeNull();
 });
+
+it('does not redirect the current page when the modal closed before the step-up reply arrived', async () => {
+	const location = stubLocation();
+	let reply!: (response: Response) => void;
+	vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => (reply = resolve))));
+	const view = render(SuspendModal, props());
+	await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+	view.unmount();
+	reply(Response.json({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }, { status: 403 }));
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(location.href).toBe('');
+});

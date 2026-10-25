@@ -54,7 +54,7 @@ describe('describeAuditEvent', () => {
 		['whats_new_create', 'drafted the', 'info'],
 		['whats_new_update', 'edited the', 'info'],
 		['whats_new_publish', 'published the', 'info'],
-		['whats_new_delete', 'deleted the draft', 'warning']
+		['whats_new_delete', 'deleted the', 'warning']
 	] as const)('attributes %s to the operator who made the change', (action, verb, severity) => {
 		const row = event({
 			action,

@@ -75,14 +75,10 @@ describe('access request setup delivery', () => {
 		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
 
-	it('does not create a request or setup link for completed, rejected, or stale duplicates', async () => {
+	it('does not create a request or setup link for completed or rejected duplicates', async () => {
 		for (const request of [
 			accessRequestFixture({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') }),
-			accessRequestFixture({ status: 'rejected' }),
-			accessRequestFixture({
-				createdAt: new Date('2026-01-01T12:00:00.000Z'),
-				reviewedAt: new Date('2026-01-02T12:00:00.000Z')
-			})
+			accessRequestFixture({ status: 'rejected' })
 		]) {
 			const store = createAccessRequestSetupDeliveryStore([request]);
 			const { service, sendSetupEmail } = makeService(store);
@@ -234,17 +230,29 @@ describe('access request setup delivery', () => {
 		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
 
-	it('keeps a rescinded or rejected request blocking reviewed resubmission', async () => {
-		for (const request of [
-			accessRequestFixture({ status: 'rescinded', setupGrantLive: false }),
-			accessRequestFixture({ status: 'rejected', setupGrantLive: false })
-		]) {
-			const store = createAccessRequestSetupDeliveryStore([request]);
-			const { service } = makeService(store);
+	it.each([
+		accessRequestFixture({ status: 'rescinded', setupGrantLive: false }),
+		accessRequestFixture({
+			createdAt: new Date('2026-01-01T12:00:00.000Z'),
+			reviewedAt: new Date('2026-01-02T12:00:00.000Z')
+		})
+	])('creates a fresh pending request after a rescinded or unrenewable approval', async (request) => {
+		const store = createAccessRequestSetupDeliveryStore([request]);
+		const { service, sendSetupEmail } = makeService(store);
 
-			expect(await service.submitAccessRequest(makeSubmission())).toEqual({ status: 'no-public-action' });
-			expect(store.insertedRequests).toEqual([]);
-		}
+		expect(await service.submitAccessRequest(makeSubmission())).toEqual({ status: 'pending-created' });
+		expect(store.insertedRequests.map((pending) => pending.email)).toEqual(['test@example.com']);
+		expect(await store.listAccessRequestsByEmail('test@example.com')).toContainEqual(request);
+		expect(sendSetupEmail).not.toHaveBeenCalled();
+	});
+
+	it('keeps a rejected request blocking reviewed resubmission even without a live grant', async () => {
+		const store = createAccessRequestSetupDeliveryStore([
+			accessRequestFixture({ status: 'rejected', setupGrantLive: false })
+		]);
+		const { service } = makeService(store);
+		expect(await service.submitAccessRequest(makeSubmission())).toEqual({ status: 'no-public-action' });
+		expect(store.insertedRequests).toEqual([]);
 	});
 
 	it('keeps missing, completed, rejected, pending, and no-longer-renewable renewal states quiet', async () => {

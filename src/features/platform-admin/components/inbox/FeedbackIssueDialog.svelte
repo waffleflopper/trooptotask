@@ -15,6 +15,8 @@
 		/** Null when the feedback was sent outside an Organization, so there is nothing to add. */
 		organizationName: string | null;
 		pending: boolean;
+		/** An earlier command may have committed and the item is still reloading, so nothing can be sent yet. */
+		held: boolean;
 		error: string | null;
 		/** GitHub made this issue but the feedback did not save its link: show it instead of offering to create another. */
 		unlinked: FeedbackIssue | null;
@@ -22,14 +24,14 @@
 		onClose: () => void;
 	}
 
-	let { prefill, organizationName, pending, error, unlinked, onSubmit, onClose }: Props = $props();
+	let { prefill, organizationName, pending, held, error, unlinked, onSubmit, onClose }: Props = $props();
 
 	// The draft starts from the prefill once, so a reload behind the dialog never rewrites what is being edited.
 	let title = $state(untrack(() => prefill.title));
 	let description = $state(untrack(() => prefill.description));
 	let includeOrganization = $state(false);
 
-	const canSubmit = $derived(title.trim().length > 0 && description.trim().length > 0 && !pending);
+	const canSubmit = $derived(title.trim().length > 0 && description.trim().length > 0 && !pending && !held);
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -37,7 +39,7 @@
 	}
 </script>
 
-<AppDialog.Root open busy={pending} {onClose}>
+<AppDialog.Root open voice="editorial" busy={pending} {onClose}>
 	<AppDialog.Content size="wide">
 		<AppDialog.Header>
 			<AppDialog.Title>New GitHub issue</AppDialog.Title>
@@ -126,7 +128,7 @@
 				<Button
 					type="submit"
 					form="feedback-issue-form"
-					aria-disabled={pending || !canSubmit ? 'true' : undefined}
+					aria-disabled={!canSubmit ? 'true' : undefined}
 					aria-busy={pending || undefined}
 				>
 					{#if pending}<Spinner />{/if}

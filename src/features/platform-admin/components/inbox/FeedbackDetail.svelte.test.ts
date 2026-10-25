@@ -50,7 +50,7 @@ const staffDetail = (overrides: Partial<FeedbackStaffDetail> = {}): FeedbackStaf
 	staffNotes: [],
 	issue: null,
 	issuePrefill: {
-		title: '[Bug Report] Leave that crosses into November will not save',
+		title: 'Leave that crosses into November will not save',
 		description: 'Leave that crosses into November will not save\n\nCategory: bug\nSection: Calendar',
 		labels: ['bug', 'user-feedback'],
 		includeOrganization: false
@@ -68,8 +68,10 @@ let stored: FeedbackStaffDetail;
 let calls: Call[];
 let reads: number;
 let failReads: boolean;
+let holdReads: boolean;
 let commandResult: (command: FeedbackStaffCommand) => Response;
 let holdCommands: boolean;
+let heldReads: Array<() => void>;
 
 const ok = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
@@ -78,7 +80,9 @@ beforeEach(() => {
 	calls = [];
 	reads = 0;
 	failReads = false;
+	holdReads = false;
 	holdCommands = false;
+	heldReads = [];
 	commandResult = () => ok({ status: 'noteSaved' });
 	vi.stubGlobal(
 		'fetch',
@@ -86,6 +90,7 @@ beforeEach(() => {
 			expect(url).toBe(`/admin/api/feedback/${ID}`);
 			if (!init?.method || init.method === 'GET') {
 				reads++;
+				if (holdReads) await new Promise<void>((release) => heldReads.push(release));
 				return failReads ? ok({ message: 'unavailable' }, 500) : ok({ status: 'ok', detail: stored });
 			}
 			const command = JSON.parse(String(init.body)) as FeedbackStaffCommand;
@@ -169,19 +174,78 @@ describe('Feedback detail', () => {
 		expect(postedCommands()).toEqual([{ kind: 'replyAndClose', body: 'Fixed.' }]);
 	});
 
-	it('keeps the draft and tells the operator to check the thread when a reply fails after it may have saved', async () => {
+	it('keeps the draft, shows the error and refreshes the Inbox when a reply fails after it may have saved', async () => {
 		commandResult = () =>
 			ok({ message: 'Unable to complete the feedback command. Reload the feedback before trying again.' }, 500);
 		const { onChanged } = mount();
 		const composer = (await screen.findByLabelText(/^Reply to/)) as HTMLTextAreaElement;
 		await fireEvent.input(composer, { target: { value: 'We can reproduce this.' } });
 		const readsBefore = reads;
-		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Reply and close' }));
 
 		expect(await screen.findByText(/Reload the feedback before trying again/)).toBeTruthy();
 		expect(composer.value).toBe('We can reproduce this.');
-		expect(onChanged).not.toHaveBeenCalled();
+		await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
 		await waitFor(() => expect(reads).toBeGreaterThan(readsBefore));
+	});
+
+	it('holds every write after an uncertain result until a read shows the thread', async () => {
+		commandResult = () => ok({ message: 'Unable to complete the feedback command.' }, 500);
+		mount();
+		const composer = (await screen.findByLabelText(/^Reply to/)) as HTMLTextAreaElement;
+		await fireEvent.input(composer, { target: { value: 'We can reproduce this.' } });
+		holdReads = true;
+		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+		await waitFor(() => expect(heldReads).toHaveLength(1));
+
+		const send = screen.getByRole('button', { name: 'Send reply' }) as HTMLButtonElement;
+		expect(send.disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Reply and close' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Make it a GitHub issue' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.submit(composer.closest('form')!);
+		expect(postedCommands()).toHaveLength(1);
+
+		stored = staffDetail({ replies: [reply('r1', 'We can reproduce this.', '2026-10-24T01:00:00Z')] });
+		holdReads = false;
+		await act(() => heldReads[0]());
+
+		const thread = await screen.findByRole('list', { name: 'Replies' });
+		expect(within(thread).getByText('We can reproduce this.')).toBeTruthy();
+		await waitFor(() => expect(send.disabled).toBe(false));
+	});
+
+	it('keeps writes held while the read after an uncertain result keeps failing', async () => {
+		commandResult = () => ok({ message: 'Unable to complete the feedback command.' }, 500);
+		mount();
+		const composer = (await screen.findByLabelText(/^Reply to/)) as HTMLTextAreaElement;
+		await fireEvent.input(composer, { target: { value: 'We can reproduce this.' } });
+		failReads = true;
+		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+
+		expect(await screen.findByText(/could not be reloaded/)).toBeTruthy();
+		const send = screen.getByRole('button', { name: 'Send reply' }) as HTMLButtonElement;
+		expect(send.disabled).toBe(true);
+
+		failReads = false;
+		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+		await waitFor(() => expect(send.disabled).toBe(false));
+	});
+
+	it('shows the closed refusal, keeps the draft and reloads only when the operator asks', async () => {
+		commandResult = () => ok({ status: 'closed', message: 'This feedback was closed. Reload to see it.' }, 409);
+		const { onChanged } = mount();
+		const composer = (await screen.findByLabelText(/^Reply to/)) as HTMLTextAreaElement;
+		await fireEvent.input(composer, { target: { value: 'We can reproduce this.' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+
+		expect(await screen.findByText('This feedback was closed. Reload to see it.')).toBeTruthy();
+		expect(composer.value).toBe('We can reproduce this.');
+		expect(onChanged).not.toHaveBeenCalled();
+		expect((screen.getByRole('button', { name: 'Send reply' }) as HTMLButtonElement).disabled).toBe(false);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+		expect(onChanged).toHaveBeenCalledTimes(1);
+		expect(screen.queryByText('This feedback was closed. Reload to see it.')).toBeNull();
 	});
 
 	it('ignores a reply result that arrives after the operator left the item', async () => {

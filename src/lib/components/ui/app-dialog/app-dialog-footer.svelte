@@ -11,7 +11,7 @@
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLDivElement> & { children?: Snippet } = $props();
 
-	const destructive = getAppDialogState().tone === 'destructive';
+	const { tone, voice } = getAppDialogState();
 </script>
 
 <div
@@ -19,7 +19,8 @@
 	data-slot="app-dialog-footer"
 	class={cn(
 		'flex shrink-0 flex-col-reverse gap-2 px-4 pt-0 pb-4 sm:flex-row sm:justify-end',
-		destructive && 'border-t border-border bg-muted px-7 py-3.5 sm:items-center',
+		tone === 'destructive' && 'border-t border-border bg-muted px-7 py-3.5 sm:items-center',
+		tone !== 'destructive' && voice === 'editorial' && 'px-7 pb-6',
 		className
 	)}
 	{...restProps}

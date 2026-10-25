@@ -48,11 +48,13 @@
 	]);
 
 	const view = $derived(staff.region);
-	const busy = $derived(staff.pending !== null || actions.pending !== null);
+	const held = $derived(staff.uncertain);
+	const busy = $derived(staff.pending !== null || held || actions.pending !== null);
 	const sending = $derived(staff.pending === 'reply' || staff.pending === 'replyAndClose');
 
 	let draft = $state('');
 	let replyError = $state<string | null>(null);
+	let replyClosed = $state(false);
 	let notice = $state<string | null>(null);
 
 	let noteDraft = $state<string | null>(null);
@@ -70,6 +72,7 @@
 	const REFUSALS: Record<Refusal['status'], string> = {
 		notFound: 'This feedback no longer exists.',
 		issueExists: 'This feedback already has a GitHub issue.',
+		closed: 'This feedback was closed. Reload to see it.',
 		githubError: 'GitHub did not create the issue.',
 		issuePersistenceError: 'GitHub created the issue, but its link was not saved.'
 	};
@@ -78,17 +81,26 @@
 		const body = draft.trim();
 		if (!body || busy) return;
 		replyError = null;
+		replyClosed = false;
 		notice = null;
 		const outcome = await staff.send({ kind, body });
 		if (outcome.type === 'ignored') return;
 		if (outcome.type === 'accepted') {
 			draft = '';
 			notice = kind === 'reply' ? 'Reply sent. They will see it in the app.' : 'Reply sent and the item is closed.';
-			onChanged();
-		} else {
-			replyError = outcome.type === 'failed' ? outcome.message : REFUSALS[outcome.result.status];
+		} else if (outcome.type === 'failed') replyError = outcome.message;
+		else {
+			replyError = REFUSALS[outcome.result.status];
+			replyClosed = outcome.result.status === 'closed';
 		}
-		void staff.load(true);
+		// A refusal for a closed item leaves the draft in place until the operator chooses to reload.
+		if (!replyClosed) onChanged();
+	}
+
+	function reloadClosed() {
+		replyError = null;
+		replyClosed = false;
+		onChanged();
 	}
 
 	async function saveNote() {
@@ -104,7 +116,6 @@
 		} else {
 			noteError = outcome.type === 'failed' ? outcome.message : REFUSALS[outcome.result.status];
 		}
-		void staff.load(true);
 	}
 
 	async function createIssue(issue: { title: string; description: string; includeOrganization: boolean }) {
@@ -127,7 +138,6 @@
 				notice = REFUSALS[result.status];
 			}
 		} else issueError = outcome.message;
-		void staff.load(true);
 	}
 
 	function closeIssueDialog() {
@@ -261,6 +271,9 @@
 		{#if replyError}
 			<Alert.Root variant="destructive">
 				<Alert.Description>{replyError}</Alert.Description>
+				{#if replyClosed}
+					<Button class="mt-1 w-fit" variant="outline" onclick={reloadClosed}>Reload</Button>
+				{/if}
 			</Alert.Root>
 		{/if}
 
@@ -370,6 +383,7 @@
 		prefill={view.detail.issuePrefill}
 		organizationName={detail.organizationName}
 		pending={staff.pending === 'makeGitHubIssue'}
+		{held}
 		error={issueError}
 		{unlinked}
 		onSubmit={createIssue}

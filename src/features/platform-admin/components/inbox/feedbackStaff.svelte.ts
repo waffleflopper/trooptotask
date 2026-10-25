@@ -25,6 +25,7 @@ const RESULT_STATUSES = [
 	'noteSaved',
 	'issueCreated',
 	'notFound',
+	'closed',
 	'issueExists',
 	'githubError',
 	'issuePersistenceError'
@@ -39,11 +40,14 @@ function isResult(body: unknown): body is FeedbackStaffResult {
 /**
  * The staff side of one feedback item: its replies, private note and issue link load apart from the Inbox item, so a
  * failed read here shows its own error. Commands run one at a time and a result that arrives after `dispose` changes
- * nothing, so a response for an item the operator left never lands on the next one.
+ * nothing, so a response for an item the operator left never lands on the next one. Every settled command reads the
+ * item again. After a failure the write may have committed, so `uncertain` holds further writes until a read lands
+ * and shows whether it did.
  */
 export function createFeedbackStaff(feedbackId: () => string) {
 	let region = $state.raw<FeedbackStaffRegion>({ status: 'loading' });
 	let reloadFailed = $state(false);
+	let uncertain = $state(false);
 	let pending = $state<FeedbackStaffCommand['kind'] | null>(null);
 	let controller: AbortController | undefined;
 	let run = 0;
@@ -63,6 +67,7 @@ export function createFeedbackStaff(feedbackId: () => string) {
 			if (response.status === 403 && redirectToSensitiveActionStepUp(body)) return;
 			if (!response.ok) throw new Error('Feedback unavailable');
 			const parsed = body as { status: 'ok'; detail: FeedbackStaffDetail } | { status: 'notFound' };
+			uncertain = false;
 			region = parsed.status === 'ok' ? { status: 'ok', detail: parsed.detail } : { status: 'notFound' };
 		} catch {
 			if (mine.signal.aborted) return;
@@ -72,10 +77,19 @@ export function createFeedbackStaff(feedbackId: () => string) {
 	}
 
 	async function send(command: FeedbackStaffCommand): Promise<FeedbackCommandOutcome> {
-		if (pending) return { type: 'ignored' };
+		if (pending || uncertain) return { type: 'ignored' };
 		const id = feedbackId();
 		const mine = ++run;
 		pending = command.kind;
+		const outcome = await post(id, command);
+		if (mine !== run) return { type: 'ignored' };
+		if (outcome.type === 'failed') uncertain = true;
+		pending = null;
+		if (outcome.type !== 'ignored') void load(true);
+		return outcome;
+	}
+
+	async function post(id: string, command: FeedbackStaffCommand): Promise<FeedbackCommandOutcome> {
 		try {
 			const response = await fetch(`/admin/api/feedback/${id}`, {
 				method: 'POST',
@@ -83,7 +97,6 @@ export function createFeedbackStaff(feedbackId: () => string) {
 				body: JSON.stringify(command)
 			});
 			const body: unknown = await response.json().catch(() => null);
-			if (mine !== run) return { type: 'ignored' };
 			if (response.status === 403 && redirectToSensitiveActionStepUp(body)) return { type: 'ignored' };
 			if (isResult(body)) {
 				return body.status === 'replied' || body.status === 'noteSaved' || body.status === 'issueCreated'
@@ -93,9 +106,7 @@ export function createFeedbackStaff(feedbackId: () => string) {
 			const message = (body as { message?: unknown } | null)?.message;
 			return { type: 'failed', message: typeof message === 'string' ? message : COMMAND_FAILED };
 		} catch {
-			return mine === run ? { type: 'failed', message: COMMAND_FAILED } : { type: 'ignored' };
-		} finally {
-			if (mine === run) pending = null;
+			return { type: 'failed', message: COMMAND_FAILED };
 		}
 	}
 
@@ -110,6 +121,9 @@ export function createFeedbackStaff(feedbackId: () => string) {
 		},
 		get pending() {
 			return pending;
+		},
+		get uncertain() {
+			return uncertain;
 		},
 		dispose() {
 			run++;

@@ -8,12 +8,6 @@ export const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string[]> = {
 	general: ['needs-triage', 'user-feedback']
 };
 
-const CATEGORY_TITLES: Record<FeedbackCategory, string> = {
-	bug: 'Bug Report',
-	feature: 'Feature Request',
-	general: 'Feedback'
-};
-
 export function buildFeedbackIssuePrefill(
 	input: {
 		category: FeedbackCategory;
@@ -29,7 +23,7 @@ export function buildFeedbackIssuePrefill(
 	if (section) description.push(`Section: ${section}`);
 	if (includeOrganization && input.organizationName) description.push(`Organization: ${input.organizationName}`);
 	return {
-		title: `[${CATEGORY_TITLES[input.category]}] ${input.message.split('\n')[0].slice(0, 80)}`,
+		title: input.message.split('\n')[0].slice(0, 80),
 		description: description.join('\n'),
 		labels: [...FEEDBACK_CATEGORY_LABELS[input.category]],
 		includeOrganization

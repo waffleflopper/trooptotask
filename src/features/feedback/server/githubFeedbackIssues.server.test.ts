@@ -15,7 +15,7 @@ describe('Feedback GitHub issues', () => {
 	it('prefills message context without identity, Organization or a revealing page URL', () => {
 		const prefill = buildFeedbackIssuePrefill(source);
 		expect(prefill).toEqual({
-			title: '[Bug Report] Calendar selection disappeared',
+			title: 'Calendar selection disappeared',
 			description: 'Calendar selection disappeared\n\nCategory: bug\nSection: Calendar',
 			labels: ['bug', 'user-feedback'],
 			includeOrganization: false
@@ -49,7 +49,7 @@ describe('Feedback GitHub issues', () => {
 			issue: { issueNumber: 42, issueUrl: 'https://github.com/waffleflopper/trooptotask/issues/42' }
 		});
 		expect(sent).toEqual({
-			title: '[Bug Report] Calendar selection disappeared',
+			title: 'Calendar selection disappeared',
 			body: 'Calendar selection disappeared\n\nCategory: bug\nSection: Calendar',
 			labels: ['bug', 'user-feedback']
 		});

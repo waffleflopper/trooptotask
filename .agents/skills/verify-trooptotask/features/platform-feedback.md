@@ -54,10 +54,15 @@ tests only.
    person's thread and `/feedback` never contain its text.
 5. **Failure.** `arm-fail PAGE admin-feedback-command/UUID`, send a reply. Expected: an alert reading
    `Synthetic request failure`, the typed text still in the field, the buttons enabled again and no reply row; after
-   `restore` the same text sends once. A reply whose audit or notification fails after it was saved tells the operator
-   to reload before retrying; that case is covered in component tests.
+   `restore` the same text sends once. A failed reply may have been saved, so the thread reloads behind it and the Inbox
+   row refreshes; with `arm-hold PAGE admin-feedback-read/UUID` also armed, `Send reply`, `Reply and close`,
+   `Make it a GitHub issue` and `Save note` stay disabled until the read is released and the thread shows whether the
+   reply saved. After a failed `Reply and close`, an item the server closed leaves Open at once.
+   A reply to an item closed elsewhere (open the item in a second page, `Close without replying` there, then send from
+   the first) answers `This feedback was closed. Reload to see it.` with `Reload`, the typed text kept and nothing
+   refreshed until `Reload` is chosen; no reply row and no notification.
 6. **Make it a GitHub issue.** Choose the button. Expected: the dialog `New GitHub issue` with
-   `waffleflopper/trooptotask · public repository`, the title `[Bug Report] <first line>`, a description of the message
+   `waffleflopper/trooptotask · public repository`, the title `<first line>` with no category prefix, a description of the message
    with `Category` and `Section` lines and no name, email or Organization, the labels `bug` and `user-feedback`
    (category dependent), `Left out because the repository is public: their name, email and Organization.`, an unchecked
    `Include the Organization name` and `Create issue`. Tick the box: the line

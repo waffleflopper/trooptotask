@@ -123,24 +123,26 @@
 			options={CATEGORY_OPTIONS}
 			bind:value={() => query.category ?? 'all', (next) => navigate({ category: next === 'all' ? null : next })}
 		/>
-		<WorkspaceToolbar
-			ariaLabel="Activity controls"
-			items={[]}
-			search={{
-				label: 'Search',
-				placeholder: 'Search by person, Organization or action...',
-				value: search.value,
-				onValueChange: search.setValue
-			}}
-		/>
-		<div class="grid min-w-0 gap-2 rounded-lg border bg-card p-3">
-			<p class="text-sm font-medium">Date range</p>
-			<ReportWorkspace.DateRangeField bind:start bind:end presets={rangePresets} />
-			{#if query.from || query.to}
-				<div>
-					<Button variant="ghost" size="sm" onclick={() => navigate({ from: '', to: '' })}>Clear dates</Button>
-				</div>
-			{/if}
+		<div class="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
+			<WorkspaceToolbar
+				ariaLabel="Activity controls"
+				items={[]}
+				search={{
+					label: 'Search',
+					placeholder: 'Search activity',
+					value: search.value,
+					onValueChange: search.setValue
+				}}
+			/>
+			<div class="grid min-w-0 gap-2 rounded-lg border bg-card p-3">
+				<p class="text-sm font-medium">Date range</p>
+				<ReportWorkspace.DateRangeField bind:start bind:end presets={rangePresets} />
+				{#if query.from || query.to}
+					<div>
+						<Button variant="ghost" size="sm" onclick={() => navigate({ from: '', to: '' })}>Clear dates</Button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 

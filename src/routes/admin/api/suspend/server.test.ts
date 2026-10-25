@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
 	client: undefined as SupabaseClient | undefined,
 	writes: 0,
 	ack: true,
+	suspendOutcome: undefined as string | undefined,
 	audit: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {})
 }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => state.client }));
@@ -69,6 +70,7 @@ beforeEach(() => {
 	state.operator = true;
 	state.writes = 0;
 	state.ack = true;
+	state.suspendOutcome = undefined;
 	state.audit.mockReset().mockResolvedValue();
 	state.client = createClient('http://127.0.0.1:9', 'synthetic-service', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -77,11 +79,15 @@ beforeEach(() => {
 				const url = new URL(String(input));
 				if (url.pathname === '/rest/v1/platform_operators')
 					return Response.json(state.operator ? { user_id: actorId } : null);
-				if (url.pathname.endsWith('/organizations') || url.pathname.endsWith('/user_suspensions')) {
+				if (url.pathname.includes('/rpc/platform_') && url.pathname.endsWith('_organization')) {
 					state.writes++;
-					return Response.json(
-						state.ack ? [url.pathname.endsWith('/organizations') ? { id: targetId } : { user_id: targetId }] : []
-					);
+					if (url.pathname.endsWith('/platform_suspend_organization'))
+						return Response.json(state.suspendOutcome ?? (state.ack ? 'suspended' : 'not_found'));
+					return Response.json(state.ack);
+				}
+				if (url.pathname.endsWith('/user_suspensions')) {
+					state.writes++;
+					return Response.json(state.ack ? [{ user_id: targetId }] : []);
 				}
 				throw new Error(`Unexpected provider ${url.pathname} ${init?.method}`);
 			}
@@ -106,7 +112,7 @@ describe('suspension HTTP safety', () => {
 	it.each(['user', 'org'] as const)('requires recent MFA for both suspension changes on %s', async (type) => {
 		for (const action of ['suspend', 'unsuspend']) {
 			for (const age of [null, 601000, -1000]) {
-				const response = await POST(event({ type, targetId, action }, age));
+				const response = await POST(event({ type, targetId, action, reason: 'Synthetic reason' }, age));
 				expect(response.status).toBe(403);
 				expect(await response.json()).toMatchObject({ requiresStepUp: true, stepUpPath: '/auth/mfa-verify' });
 			}
@@ -115,11 +121,18 @@ describe('suspension HTTP safety', () => {
 	});
 	it.each(['user', 'org'] as const)('allows suspend and unsuspend with MFA within ten minutes on %s', async (type) => {
 		for (const action of ['suspend', 'unsuspend']) {
-			const response = await POST(event({ type, targetId, action }, 600000));
+			const response = await POST(event({ type, targetId, action, reason: 'Synthetic reason' }, 600000));
 			expect(response.status).toBe(200);
-			expect(await response.json()).toEqual({ success: true });
+			expect(await response.json()).toEqual({ success: true, alreadySuspended: false });
 		}
 		expect(state.writes).toBe(2);
+	});
+	it('tells the operator an Organization was already suspended and writes no audit', async () => {
+		state.suspendOutcome = 'already_suspended';
+		const response = await POST(event({ type: 'org', targetId, action: 'suspend', reason: 'Second request' }));
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ success: true, alreadySuspended: true });
+		expect(state.audit).not.toHaveBeenCalled();
 	});
 	it('rejects self-suspension even with recent MFA and an uppercase identifier', async () => {
 		const response = await POST(event({ type: 'user', targetId: actorId.toUpperCase(), action: 'suspend' }));

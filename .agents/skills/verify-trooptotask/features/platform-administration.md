@@ -23,9 +23,9 @@ admin is entered only at MFA level aal2.
 
 Sign in as the platform operator, enter the authenticator code and open Admin. Choose Users or Organizations in the
 sidebar; access requests are decided in the Inbox. Search the directory and follow a record link to inspect its detail.
-The operator uses Suspend/Unsuspend (in `More User controls` and `More Organization controls`) and Transfer Ownership. A
-suspension asks for the authenticator code again when the last one is older than 10 minutes, then returns to the same
-page. On the operator's own account Suspend is disabled and says why.
+The operator uses Suspend/Unsuspend (in `More User controls` for a User, and `Suspend organization` on an Organization
+page) and Transfer ownership. A suspension asks for the authenticator code again when the last one is older than 10
+minutes, then returns to the same page. On the operator's own account Suspend is disabled and says why.
 
 ## Helper controls
 
@@ -81,25 +81,26 @@ Organization audit references. It omits setup tokens and delivery payloads.
    neither Open nor Done. Rescind and Resend setup have no admin UI and no helper request family; their server commands
    are covered by unit tests only.
 4. **Non-operator write denial.** From normally signed-in `platformSupport` and ordinary pages,
-   `$V platform-request PAGE suspend organization '{"type":"org","action":"suspend"}'`, or the ownership request below,
-   submit bounded ordinary HTTP and capture 403 plus unchanged `$V platform-state`. A visible button or missing button
-   is not server proof. As the operator,
+   `$V platform-request PAGE suspend organization '{"type":"org","action":"suspend","reason":"Synthetic reason"}'`, or
+   the ownership request below, submit bounded ordinary HTTP and capture 403 plus unchanged `$V platform-state`. A
+   visible button or missing button is not server proof. As the operator,
    `$V platform-request PAGE suspend platformReviewer '{"type":"user","action":"suspend"}'` must be refused with no
    `user_suspensions` row for the operator, whatever the page shows.
-5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press `Suspend`
-   once on the temporary Organization: the dialog says `Nothing has been changed yet.`, the browser lands on
-   `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension. Enter the code
-   with `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its event in Activity: open
-   `$V actor platformReviewer admin/activity`, and the newest row reads `You suspended <Organization name>`. An
-   Organization's owners can read their own audit rows, so the typed reason is not stored for Organization events and
-   `Details` lists no `Reason`; the operator email is looked up when read. For every later case below use
-   `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the temporary Organization's Suspend
-   dialog from `More Organization controls`. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one
-   exact POST before provider dispatch. Submit visibly: keep the dialog/reason, show failure, and leave rows unchanged.
-   A 503/transport/unreadable outcome requires Reload details before another write; preserve the draft through that
-   read, and explicitly confirm again only after verified no-effect/current authority. Record real success, refreshed
-   detail and persisted suspension after reload plus the actual affected Organization access outcome. An ordinary owner
-   already on Settings must reload into the canonical Organization home suspension notice, rather than a nonexistent
+5. **Suspension and retry.** Start with `$V actor --stale-mfa platformReviewer admin/organizations` and press
+   `Suspend organization` once on the temporary Organization: the dialog says `Nothing has been changed yet.`, the
+   browser lands on `Enter your code` with the Organization's path in `next`, and `platform-state` shows no suspension.
+   Enter the code with `mfa-code`; the page returns to the Organization and Suspend now succeeds, with its event in
+   Activity: open `$V actor platformReviewer admin/activity`, and the newest row reads
+   `You suspended <Organization name>`. An Organization's owners can read their own audit rows, so the typed reason is
+   not stored for Organization events and `Details` lists no `Reason`; the operator email is looked up when read. For
+   every later case below use `$V actor platformReviewer ...` (a fresh aal2 session). As the operator, open the
+   temporary Organization's Suspend dialog from `Suspend organization` in the page header. `Suspend` stays disabled
+   until a reason is typed. Fill a unique reason; `$V network arm-fail PAGE admin-suspend` fails one exact POST before
+   provider dispatch. Submit visibly: keep the dialog/reason, show failure, and leave rows unchanged. A
+   503/transport/unreadable outcome requires Reload details before another write; preserve the draft through that read,
+   and explicitly confirm again only after verified no-effect/current authority. Record real success, refreshed detail
+   and persisted suspension after reload plus the actual affected Organization access outcome. An ordinary owner already
+   on Settings must reload into the canonical Organization home suspension notice, rather than a nonexistent
    `/suspended` child route; cover Settings index and a nested section. Unsuspend visibly and verify Settings recovery.
    Repeat with `orgInvitee` account, inspecting `user_suspensions` and normal sign-in denial/recovery. The refreshed
    User detail must offer Unsuspend immediately; no hard reload is required to correct its visible state. An
@@ -126,16 +127,35 @@ Organization audit references. It omits setup tokens and delivery payloads.
    nonowner role and acknowledge its exact ID; a target becoming owner cannot be overwritten or removed by a pending
    command.
 
+7. **Suspend an Organization.** As `platformReviewer` (a fresh aal2 session from
+   `$V actor platformReviewer admin/organizations`), open `Organizations`, search the unique temporary Organization name
+   and press its link. Capture the status badge `Active`, the `At a glance` card, the member rows and `Recent activity`.
+   Press `Suspend organization` in the header: the dialog's `Reason` is required and `Suspend` is disabled while it is
+   empty or only spaces. Type a unique reason and `Suspend`. Require the dialog to close, the destructive
+   `This Organization is suspended.` alert to show exactly that reason with the date and `operator` email, the badge and
+   `Status` to read `Suspended`, and the header button to read `Unsuspend organization`. Reload and read the same alert.
+   `$V platform-state` shows `suspended_at` set, and `rows` on `organization_suspensions` shows the reason and
+   `platformReviewer` as `suspended_by`. Open `Organizations`: the row reads `Suspended` and `Suspended` in `Show` lists
+   it. The Platform audit entry for the suspension must not carry the reason in its details. Then sign in as the
+   Organization's owner and require the suspension notice, not the reason. Unsuspend visibly and require the alert gone
+   and the `organization_suspensions` row removed. Before the first suspension, open the same Organization in a second
+   tab; once the first tab has suspended it, submit `Suspend` with a different reason in the second tab: the dialog
+   reads `Another operator already suspended this    organization`, offers only `Reload details`, and the reloaded alert
+   still shows the first reason, time and operator. Repeat once from
+   `$V actor --stale-mfa platformReviewer admin/organizations` to prove the step-up: nothing changes until `mfa-code`;
+   the dialog closes after the step-up, so type the reason again.
+
 `platform-request PAGE FAMILY TARGET_KEY JSON` supports `approve|reject` (`reject` accepts an optional `reason`) with
 keys `approve|reject|completed`; `transferOwnership` with target `organization` and a seeded member UUID
 (`targetUserId`, plus `confirmName`); `suspend` for `organization` with `type:org`, or
 `orgCreator|orgInvitee|orgMember|platformReviewer` with `type:user` (`platformReviewer` is the server's self-suspension
-refusal control), and `action`/optional `reason`; `resetPassword|resendInvite` for those User keys. It sends one
-ordinary same-origin POST, returns the full transport/action envelope and never applies it to the UI.
-`invalidSuspension` with a recorded User key accepts only `case:null-body|non-string-reason|array-target`; it sends that
-fixed malformed JSON, requiring 400 and unchanged suspension/audit rows. This is separate ordinary HTTP validation
-proof; no textarea can create these payloads. It grants no privilege and targets no arbitrary IDs. Label these direct
-action/API observations separately from native interaction.
+refusal control), and `action`/`reason` (required to suspend an Organization, at most 500 characters; optional
+otherwise); `resetPassword|resendInvite` for those User keys. It sends one ordinary same-origin POST, returns the full
+transport/action envelope and never applies it to the UI. `invalidSuspension` with a recorded User key accepts only
+`case:null-body|non-string-reason|array-target`; it sends that fixed malformed JSON, requiring 400 and unchanged
+suspension/audit rows. This is separate ordinary HTTP validation proof; no textarea can create these payloads. It grants
+no privilege and targets no arbitrary IDs. Label these direct action/API observations separately from native
+interaction.
 
 Account and review response lifetime uses
 `network arm-hold|arm-fail|arm-hold-fail|arm-observe PAGE admin-account/orgInvitee/resetPassword` (also
@@ -168,9 +188,11 @@ requests and the temporary Organization, checks dependent absence before droppin
 - Only the operator can use any admin page or endpoint. There is no role to check, no inactive row and no support or
   billing tier; a non-operator gets 403 and an operator at aal1 is sent to MFA. Suspend and unsuspend need an MFA
   verification from the last 10 minutes, and refresh or password sign-in does not renew it.
-- User suspension uses `user_suspensions`, not provider bans. Organization suspension uses `organizations.suspended_at`;
-  preserve the actual restricted shell and denial of writes. Both suspensions also deny page data loads and members'
-  direct table and Storage access, while the Organization row and own membership stay readable for the shell.
+- User suspension uses `user_suspensions`, not provider bans. Organization suspension uses `organizations.suspended_at`
+  and keeps its reason, operator and time in `organization_suspensions`, which only the service role reads, so members
+  never see the reason. An Organization suspended before reasons were kept shows `No reason recorded`; preserve the
+  actual restricted shell and denial of writes. Both suspensions also deny page data loads and members' direct table and
+  Storage access, while the Organization row and own membership stay readable for the shell.
   `organization_suspension_rls.sql` owns the direct SQL proof.
 - Provider/SQL failures and concurrent transfer guarantees need separate lower-level proof. The owned app's fresh chain
   is not a substitute for an affected isolated SQL contract run.

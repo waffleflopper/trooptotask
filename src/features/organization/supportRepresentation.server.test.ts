@@ -12,15 +12,10 @@ function reader(body: unknown, total = 0) {
 }
 
 const collectionReads = {
-	ledger: (subject: ReturnType<typeof reader>) =>
-		subject.listOrganizationsPage({ q: '', status: 'all', from: 0, to: 24 }),
 	search: (subject: ReturnType<typeof reader>) => subject.searchOrganizationsByName({ query: 'able', maxResults: 5 }),
 	candidates: (subject: ReturnType<typeof reader>) => subject.listLatestOrganizations({ limit: 100 }),
 	userCounts: (subject: ReturnType<typeof reader>) => subject.listMembershipUserIds(['user']),
-	userDetail: (subject: ReturnType<typeof reader>) => subject.listMembershipsForUser('user'),
-	memberships: (subject: ReturnType<typeof reader>) => subject.countMembershipsByOrganization(['able']),
-	leaders: (subject: ReturnType<typeof reader>) => subject.countLeaderMembershipsByOrganization(['able']),
-	owners: (subject: ReturnType<typeof reader>) => subject.listOwnerMembershipMetricsByOrganization(['able'])
+	userDetail: (subject: ReturnType<typeof reader>) => subject.listMembershipsForUser('user')
 };
 
 describe('Organization support required representations', () => {
@@ -42,47 +37,21 @@ describe('Organization support required representations', () => {
 		['missing membership role', 'userDetail', [{ organizations: null }]],
 		['malformed joined Organization', 'userDetail', [{ role: 'owner', organizations: { id: 'able', name: 12 } }]],
 		['missing named Organization', 'search', [{ id: 'able' }]],
-		['missing candidate timestamp', 'candidates', [{ id: 'able', name: 'Able' }]],
-		['missing ledger suspension', 'ledger', [{ id: 'able', name: 'Able', created_at: '2026-10-01' }]],
-		['foreign membership metric', 'memberships', [{ organization_id: 'outside', membership_count: 1 }]],
-		['boolean membership count', 'memberships', [{ organization_id: 'able', membership_count: true }]],
-		['missing leader scope', 'leaders', [{ id: 'leader' }]],
-		['foreign leader scope', 'leaders', [{ id: 'leader', organization_id: 'outside' }]],
-		['missing owner scope', 'owners', [{ owner_count: 2, owner_user_id: null, owner_email: null }]],
-		[
-			'malformed owner email',
-			'owners',
-			[{ organization_id: 'able', owner_count: 1, owner_user_id: 'owner', owner_email: 12 }]
-		],
-		[
-			'invalid owner count',
-			'owners',
-			[{ organization_id: 'able', owner_count: true, owner_user_id: null, owner_email: null }]
-		],
-		[
-			'contradictory multiple owners',
-			'owners',
-			[{ organization_id: 'able', owner_count: 2, owner_user_id: 'owner', owner_email: null }]
-		]
+		['missing candidate timestamp', 'candidates', [{ id: 'able', name: 'Able' }]]
 	] as const)('rejects %s rather than presenting trusted support facts', async (_name, operation, body) => {
 		await expect(collectionReads[operation](reader(body))).rejects.toThrow();
 	});
 
-	it('preserves legitimate empty collections, exact zero count, and absent detail', async () => {
+	it('preserves legitimate empty collections and absent detail', async () => {
 		const subject = reader([]);
 		const expected = {
-			ledger: { organizations: [], totalCount: 0 },
 			search: [],
 			candidates: [],
 			userCounts: [],
-			userDetail: [],
-			memberships: new Map(),
-			leaders: new Map(),
-			owners: []
+			userDetail: []
 		};
 		for (const [name, read] of Object.entries(collectionReads))
 			await expect(read(subject)).resolves.toEqual(expected[name as keyof typeof expected]);
-		await expect(subject.countOrganizations()).resolves.toBe(0);
 		await expect(reader(null).getOrganizationById('absent')).resolves.toBeNull();
 	});
 
@@ -105,43 +74,5 @@ describe('Organization support required representations', () => {
 			})
 		);
 		await expect(subject.listMembershipUserIds(['user'])).rejects.toThrow();
-	});
-
-	it('preserves numeric and string aggregate zeros and multiple-owner null fields', async () => {
-		await expect(
-			reader([{ organization_id: 'able', membership_count: '0' }]).countMembershipsByOrganization(['able'])
-		).resolves.toEqual(new Map([['able', 0]]));
-		await expect(
-			reader([
-				{ organization_id: 'able', owner_count: '2', owner_user_id: null, owner_email: null }
-			]).listOwnerMembershipMetricsByOrganization(['able'])
-		).resolves.toEqual([{ organizationId: 'able', ownerCount: 2, singleOwner: null }]);
-	});
-
-	it('keeps aggregate keys aligned with a requested UUID when Postgres normalizes its case', async () => {
-		const requested = 'A0B1C2D3-1234-4567-8910-123456789ABC';
-		const returned = requested.toLowerCase();
-		await expect(
-			reader([{ organization_id: returned, membership_count: '3' }]).countMembershipsByOrganization([requested])
-		).resolves.toEqual(new Map([[requested, 3]]));
-		await expect(
-			reader([
-				{ organization_id: returned, owner_count: 1, owner_user_id: 'owner', owner_email: null }
-			]).listOwnerMembershipMetricsByOrganization([requested])
-		).resolves.toEqual([
-			{
-				organizationId: requested,
-				ownerCount: 1,
-				singleOwner: { organizationId: requested, userId: 'owner', email: null }
-			}
-		]);
-	});
-
-	it.each(['memberships', 'owners'] as const)('rejects ambiguous duplicate %s metrics', async (operation) => {
-		const row =
-			operation === 'memberships'
-				? { organization_id: 'able', membership_count: 1 }
-				: { organization_id: 'able', owner_count: 2, owner_user_id: null, owner_email: null };
-		await expect(collectionReads[operation](reader([row, row]))).rejects.toThrow();
 	});
 });

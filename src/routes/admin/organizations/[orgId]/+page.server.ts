@@ -12,11 +12,20 @@ export const load: PageServerLoad = async (event) => {
 	const orgId = event.params.orgId as string;
 	if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
-	const result = await operations.getOrganizationDetail(orgId);
-	if (result.status === 'not_found') throw error(404, 'Organization not found');
-	if (result.status === 'provider_error') throw error(500, 'Failed to load organization detail');
+	const organization = await operations.getOrganization(orgId).catch((cause: unknown) => {
+		console.error('Failed to load Organization', cause);
+		throw error(500, 'Failed to load organization detail');
+	});
+	if (organization === null) throw error(404, 'Organization not found');
 
-	return result.detail;
+	const activity = operations.listRecentActivity(orgId).then(
+		(events) => ({ status: 'ready' as const, events }),
+		(cause: unknown) => {
+			console.error('Failed to load Organization activity', cause);
+			return { status: 'failed' as const };
+		}
+	);
+	return { organization, activity };
 };
 
 function commandFailure(cause: unknown, message: string) {

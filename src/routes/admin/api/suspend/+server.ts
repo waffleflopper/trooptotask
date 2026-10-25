@@ -28,5 +28,5 @@ export const POST: RequestHandler = async (event) => {
 		error(500, 'Could not confirm the suspension change. Reload details before trying again.');
 	}
 	if (result.status === 'invalid_input') error(400, result.message);
-	return json({ success: true });
+	return json({ success: true, alreadySuspended: result.status === 'already_suspended' });
 };

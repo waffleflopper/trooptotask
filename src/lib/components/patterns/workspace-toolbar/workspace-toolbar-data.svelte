@@ -366,6 +366,11 @@
 				onclick={live ? () => view.onValueChange(option.value) : undefined}
 			>
 				{option.label}
+				{#if option.count === 'pending'}
+					<span class="invisible tabular-nums" aria-hidden="true">000</span>
+				{:else if option.count !== undefined}
+					<span class="tabular-nums">{option.count}</span>
+				{/if}
 			</Button>
 		{/each}
 	</ButtonGroup.Root>

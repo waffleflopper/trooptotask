@@ -25,6 +25,7 @@
 	let saving = $state(false);
 	let errorMsg = $state('');
 	let saved = $state(false);
+	let alreadySuspended = $state(false);
 	let uncertain = $state<{ targetId: string; isSuspended: boolean } | null>(null);
 	let reloading = $state(false);
 	let steppingUp = $state(false);
@@ -32,10 +33,12 @@
 	onDestroy(() => (destroyed = true));
 
 	const action = $derived(isSuspended ? 'unsuspend' : 'suspend');
+	const reasonRequired = $derived(type === 'org' && !isSuspended);
+	const missingReason = $derived(reasonRequired && reason.trim() === '');
 	const title = $derived(isSuspended ? `Unsuspend ${targetName}` : `Suspend ${targetName}`);
 
 	async function handleAction() {
-		if (saving || saved || uncertain || reloading || steppingUp) return;
+		if (saving || saved || uncertain || reloading || steppingUp || missingReason) return;
 		const mutationTargetId = targetId;
 		const suspendedAfterSave = action === 'suspend';
 		const complete = onComplete;
@@ -64,6 +67,10 @@
 				return;
 			}
 			saved = true;
+			if (body.alreadySuspended === true) {
+				alreadySuspended = true;
+				return;
+			}
 			try {
 				await complete(mutationTargetId, suspendedAfterSave);
 			} catch {
@@ -133,13 +140,15 @@
 			</Card.Root>
 
 			<Field.Root>
-				<Field.Label for="reason">Reason (optional)</Field.Label>
+				<Field.Label for="reason">{reasonRequired ? 'Reason' : 'Reason (optional)'}</Field.Label>
 				<Field.Control>
 					<Textarea
 						id="reason"
 						rows={3}
 						bind:value={reason}
 						placeholder="Internal note about why this action was taken..."
+						required={reasonRequired}
+						maxlength={500}
 						disabled={saving || saved || !!uncertain || reloading || steppingUp}
 					></Textarea>
 				</Field.Control>
@@ -150,6 +159,14 @@
 					<Alert.Description>
 						This action needs a fresh multi-factor check. Taking you to verify, then back to this page. Nothing has been
 						changed yet.
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			{#if alreadySuspended}
+				<Alert.Root role="status">
+					<Alert.Description>
+						Another operator already suspended this organization. Their reason and time are kept; nothing was changed.
 					</Alert.Description>
 				</Alert.Root>
 			{/if}
@@ -178,6 +195,7 @@
 				<Button
 					variant={isSuspended ? 'default' : 'destructive'}
 					onclick={handleAction}
+					disabled={missingReason}
 					aria-disabled={saving ? 'true' : undefined}
 					aria-busy={saving || undefined}
 				>

@@ -1,29 +1,26 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { createSupabasePlatformAudit } from '$lib/audit/index.server';
-import {
-	createOrganizationSupportReader,
-	createSupabaseOrganizationPlatformMembershipPort
-} from '$features/organization/index.server';
-import { createPersonnelSupportReader } from '$features/personnel/index.server';
-import type { PlatformOrganizationLedgerInput } from '../organizationSupportTypes';
+import type { PlatformOrganizationListInput } from '../organizationSupportTypes';
 import { admitPlatformAdministrator } from './admission.server';
-import { createPlatformOrganizationLedger } from './organizationLedger.server';
-import { createPlatformOrganizationDetail } from './organizationDetail.server';
+import {
+	createSupabasePlatformOrganizationDirectory,
+	normalizePlatformOrganizationListQuery
+} from './organizationDirectory.server';
 
-/** Used Organization support operations; privileged clients remain at this private delivery edge. */
+const RECENT_ACTIVITY_LIMIT = 10;
+
+/** Organization support reads; the privileged client stays at this private delivery edge. */
 export async function createPlatformOrganizationOperations(event: RequestEvent) {
 	const { adminClient } = await admitPlatformAdministrator(event);
-	const organizations = createOrganizationSupportReader(adminClient);
-	const personnel = createPersonnelSupportReader(adminClient);
-	const ledger = createPlatformOrganizationLedger({ store: organizations, personnel });
-	const detail = createPlatformOrganizationDetail({
-		store: organizations,
-		personnel,
-		membershipReader: createSupabaseOrganizationPlatformMembershipPort(adminClient),
-		audit: createSupabasePlatformAudit(adminClient)
-	});
+	const directory = createSupabasePlatformOrganizationDirectory(adminClient);
+	const audit = createSupabasePlatformAudit(adminClient);
 	return {
-		listOrganizations: (input: PlatformOrganizationLedgerInput) => ledger.listOrganizations(input),
-		getOrganizationDetail: detail.getOrganizationDetail
+		/** The normalized query is returned at once so the page can show it while the page of Organizations loads. */
+		listOrganizations: (input: PlatformOrganizationListInput) => {
+			const query = normalizePlatformOrganizationListQuery(input);
+			return { query, page: directory.listOrganizations(query) };
+		},
+		getOrganization: directory.getOrganization,
+		listRecentActivity: (orgId: string) => audit.listRecentByOrganization({ orgId, limit: RECENT_ACTIVITY_LIMIT })
 	};
 }

@@ -1,5 +1,5 @@
 import type { Personnel } from './personnel.types';
-import type { PersonnelFollowUp } from './personnelArtifact.types';
+import type { PersonnelOpenFollowUps } from './personnelArtifact.types';
 import type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 import type { PersonnelAttention } from './personnelReadiness.types';
 
@@ -7,12 +7,13 @@ export const ROSTER_PEEK_SECTIONS = ['identity', 'next7', 'attention', 'followUp
 export type RosterPeekSection = (typeof ROSTER_PEEK_SECTIONS)[number];
 
 export const ROSTER_PEEK_DAYS = 7;
+export const ROSTER_PEEK_FOLLOW_UPS = 5;
 
 export interface RosterPeekValues {
 	identity: { phone: string | null };
 	next7: unknown;
 	attention: PersonnelAttention;
-	followUps: PersonnelFollowUp[];
+	followUps: PersonnelOpenFollowUps;
 	note: PersonnelLeaderNote | null;
 }
 

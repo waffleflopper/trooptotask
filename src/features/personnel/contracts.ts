@@ -65,7 +65,7 @@ export type {
 	TodayStatus
 } from './rosterSignals';
 
-export { ROSTER_PEEK_DAYS, ROSTER_PEEK_SECTIONS, isRosterPeekSection } from './rosterPeek';
+export { ROSTER_PEEK_DAYS, ROSTER_PEEK_FOLLOW_UPS, ROSTER_PEEK_SECTIONS, isRosterPeekSection } from './rosterPeek';
 export type { RosterPeekRead, RosterPeekSection, RosterPeekValues } from './rosterPeek';
 
 // Failures the Personnel forms attach to one field. Servers emit and forms match these exact strings.
@@ -583,6 +583,7 @@ export type {
 	PersonnelDocument,
 	PersonnelFollowUpStatus,
 	PersonnelFollowUp,
+	PersonnelOpenFollowUps,
 	PersonnelArchivedArtifact,
 	PersonnelArtifactArchiveState,
 	PersonnelFollowUpLifecycleState

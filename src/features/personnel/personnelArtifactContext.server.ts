@@ -31,6 +31,7 @@ export interface PersonnelArtifactsContext {
 		): Promise<PersonnelDocumentRow[]>;
 		summarizeActiveDocuments(personnelId: string): Promise<PersonnelDocumentUsage>;
 		listFollowUps(personnelId: string, options: { archived: boolean; limit?: number }): Promise<FollowUpRow[]>;
+		listOpenFollowUps(personnelId: string, limit: number): Promise<{ rows: FollowUpRow[]; total: number }>;
 		findDocument(personnelId: string, documentId: string): Promise<PersonnelDocumentRow | null>;
 	};
 	writerFor(personnelId: string): Promise<PersonnelArtifactWriter>;

@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="NextDays">
 	import { onDestroy, tick, type Snippet } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -19,6 +19,7 @@
 	import { dueLabel, formatTimestampDayMonth, groupFollowUps } from '../../logModel';
 	import { attentionRows, uncheckedSources } from '../../personnelAttentionView';
 	import type { Personnel } from '../../personnel.types';
+	import { personnelRecordHref } from '../../personnelRecordHref';
 	import type { RosterPeekSection } from '../../rosterPeek';
 	import { alreadyOpenOf, type ComposerEntry } from '../../rosterComposer';
 	import { rosterStatusDot } from '../../rosterSignals';
@@ -30,19 +31,18 @@
 	interface Props {
 		ctx: PersonnelPageContext;
 		person: Personnel;
-		recordHref: string;
 		position: { index: number; total: number };
 		onstep: (step: 1 | -1) => void;
 		onclose: () => void;
 		onquickedit: (person: Personnel) => void;
 		oncompose: (open: () => void) => void;
-		nextDays?: Snippet<[calendar: unknown]>;
+		/** Calendar renders the 7-day section; the peek carries its read without naming Calendar's type. */
+		nextDays?: Snippet<[calendar: NextDays | null]>;
 	}
 
-	let { ctx, person, recordHref, position, onstep, onclose, onquickedit, oncompose, nextDays }: Props = $props();
+	let { ctx, person, position, onstep, onclose, onquickedit, oncompose, nextDays }: Props = $props();
 
 	const ATTENTION_SHOWN = 3;
-	const FOLLOW_UPS_SHOWN = 5;
 
 	let root = $state<HTMLElement | null>(null);
 	let composingFor = $state<string | null>(null);
@@ -60,6 +60,7 @@
 	const sections = $derived(ctx.peek.sections(person.id));
 	const dot = $derived(rosterStatusDot(ctx.signalRow(person), ctx.signals.statusTypes));
 	const orgPath = $derived(`/org/${ctx.orgUrlSegment}`);
+	const recordHref = $derived(personnelRecordHref(ctx.orgUrlSegment, person));
 	const alreadyOpen = $derived(alreadyOpenOf(ctx.signalRow(person), composeDay));
 	const composing = $derived(composingFor === person.id);
 
@@ -79,20 +80,23 @@
 		const section = sections.followUps;
 		if (section.state !== 'ready') return null;
 		const personnelId = person.id;
-		const list = new FollowUpList(section.value, {
+		const { followUps: rows, total } = section.value;
+		const list = new FollowUpList(rows, {
 			orgId: ctx.orgId,
 			personnelId,
 			fetch: (input, init) => fetch(input, init)
 		});
-		const order = groupFollowUps(section.value, ctx.data.asOf).open.map((row) => row.id);
-		return { list, personnelId, order };
+		const order = groupFollowUps(rows, ctx.data.asOf).open.map((row) => row.id);
+		return { list, personnelId, order, total };
 	});
 	const followUpRows = $derived.by(() => {
 		if (!followUps) return [];
 		const rows = followUps.list.rows;
 		return followUps.order.flatMap((id) => rows.find((row) => row.id === id) ?? []);
 	});
-	const openFollowUpCount = $derived(followUpRows.filter((row) => row.status === 'open').length);
+	const openFollowUpCount = $derived(
+		followUps ? followUps.total - followUpRows.filter((row) => row.status !== 'open').length : 0
+	);
 
 	export function focusFirst(): void {
 		root?.querySelector<HTMLElement>('button:not(:disabled), a[href]')?.focus();
@@ -115,9 +119,8 @@
 
 	async function save(entry: ComposerEntry): Promise<void> {
 		const target = person;
-		const href = recordHref;
 		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry));
-		rosterEntrySaved(ctx, target, entry, href);
+		rosterEntrySaved(ctx, target, entry);
 		if (alive && composingFor === target.id) void closeComposer();
 	}
 
@@ -186,11 +189,17 @@
 {/snippet}
 
 {#snippet readinessLink()}
-	<a href="{recordHref}/readiness" class="text-[13px] leading-4 underline underline-offset-2">Readiness</a>
+	<a
+		href={personnelRecordHref(ctx.orgUrlSegment, person, 'readiness')}
+		class="text-[13px] leading-4 underline underline-offset-2">Readiness</a
+	>
 {/snippet}
 
 {#snippet logLink()}
-	<a href="{recordHref}/log" class="text-[13px] leading-4 underline underline-offset-2">Open log</a>
+	<a
+		href={personnelRecordHref(ctx.orgUrlSegment, person, 'log')}
+		class="text-[13px] leading-4 underline underline-offset-2">Open log</a
+	>
 {/snippet}
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -291,7 +300,7 @@
 				<section class="flex flex-col gap-2.5" aria-label="Next 7 days">
 					{@render heading('Next 7 days')}
 					{#if sections.next7.state === 'ready'}
-						{@render nextDays(sections.next7.value)}
+						{@render nextDays(sections.next7.value as NextDays)}
 					{:else if sections.next7.state === 'failed'}
 						{@render failed('the Calendar', 'next7')}
 					{:else}
@@ -341,7 +350,7 @@
 					</div>
 					{#if followUps}
 						{@const list = followUps.list}
-						{#each followUpRows.slice(0, FOLLOW_UPS_SHOWN) as row (row.id)}
+						{#each followUpRows as row (row.id)}
 							{@const completed = row.status === 'completed'}
 							{@const due = dueLabel(row.dueDate, ctx.data.asOf)}
 							{@const error = list.rowErrors[row.id]}
@@ -371,9 +380,9 @@
 						{:else}
 							<p class="text-sm text-muted-foreground">No open follow-ups.</p>
 						{/each}
-						{#if followUpRows.length > FOLLOW_UPS_SHOWN}
+						{#if followUps.total > followUpRows.length}
 							<p class="pt-1 text-[13px] leading-4 text-muted-foreground">
-								+{followUpRows.length - FOLLOW_UPS_SHOWN} more in the log
+								+{followUps.total - followUpRows.length} more in the log
 							</p>
 						{/if}
 					{:else if sections.followUps.state === 'failed'}

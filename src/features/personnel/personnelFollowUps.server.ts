@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PersonnelFollowUp, PersonnelFollowUpLifecycleState } from './contracts';
+import type { PersonnelFollowUp, PersonnelFollowUpLifecycleState, PersonnelOpenFollowUps } from './contracts';
 import { fail } from '$lib/errors';
 import {
 	canReadSensitivePersonnelArtifacts,
@@ -47,6 +47,17 @@ export async function listPersonnelFollowUps(
 	const rows = await ctx.persistence.listFollowUps(personnelId, { archived: !!options.archived, limit });
 	const labels = await followUpLabels(ctx, rows);
 	return rows.map((row) => mapFollowUpRow(row, labels));
+}
+
+export async function listOpenPersonnelFollowUps(
+	ctx: PersonnelArtifactsContext,
+	personnelId: string,
+	limit: number
+): Promise<PersonnelOpenFollowUps> {
+	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
+	const { rows, total } = await ctx.persistence.listOpenFollowUps(personnelId, limit);
+	const labels = await followUpLabels(ctx, rows);
+	return { followUps: rows.map((row) => mapFollowUpRow(row, labels)), total };
 }
 
 function followUpLabels(ctx: PersonnelArtifactsContext, rows: FollowUpRow[]): Promise<Map<string, string>> {

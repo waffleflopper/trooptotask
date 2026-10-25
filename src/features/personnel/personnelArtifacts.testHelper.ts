@@ -26,6 +26,7 @@ export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestC
 			listDocuments: ctx.artifactReads.listDocuments,
 			summarizeActiveDocuments: ctx.artifactReads.summarizeActiveDocuments,
 			listFollowUps: ctx.artifactReads.listFollowUps,
+			listOpenFollowUps: ctx.artifactReads.listOpenFollowUps,
 			findDocument: ctx.artifactReads.findDocument
 		},
 		writerFor(personnelId) {

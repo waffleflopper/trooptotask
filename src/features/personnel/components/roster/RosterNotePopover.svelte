@@ -14,11 +14,10 @@
 	interface Props {
 		ctx: PersonnelPageContext;
 		person: Personnel;
-		recordHref: string;
 		onclose: () => void;
 	}
 
-	let { ctx, person, recordHref, onclose }: Props = $props();
+	let { ctx, person, onclose }: Props = $props();
 
 	let open = $state(true);
 	let composer = $state<RosterComposer>();
@@ -43,9 +42,8 @@
 
 	async function save(entry: ComposerEntry): Promise<void> {
 		const target = person;
-		const href = recordHref;
 		await withinOrganizationLifetime(saveRosterEntry(fetch, { orgId: ctx.orgId, personId: target.id }, entry));
-		rosterEntrySaved(ctx, target, entry, href);
+		rosterEntrySaved(ctx, target, entry);
 		if (alive) close();
 	}
 

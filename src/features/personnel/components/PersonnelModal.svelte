@@ -13,51 +13,35 @@
 		validatePersonnelDraft
 	} from '$features/personnel/personnelDraft';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import { onDestroy, untrack } from 'svelte';
 
 	interface Props {
-		personnel?: Personnel | null;
 		groups: Group[];
 		allowUnassigned?: boolean;
 		rankCatalog?: RankCatalogEntry[];
 		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
-		onRemove?: (id: string) => boolean | Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let {
-		personnel = null,
-		groups,
-		allowUnassigned = true,
-		rankCatalog = [],
-		onSubmit,
-		onRemove,
-		onClose
-	}: Props = $props();
+	let { groups, allowUnassigned = true, rankCatalog = [], onSubmit, onClose }: Props = $props();
 	let disposed = false;
 	onDestroy(() => {
 		disposed = true;
 	});
 
-	const activeRankOptions = $derived(rankOptionsFor(rankCatalog));
-	const rankOptions = $derived(rankOptionsFor(rankCatalog, personnel?.rank));
-
-	const isEditing = $derived(!!personnel);
-	const allowGroupClear = $derived(isEditing || allowUnassigned);
-	let draft = $state(untrack(() => personnelDraftOf(personnel, defaultNewPersonnelRank(activeRankOptions))));
+	const rankOptions = $derived(rankOptionsFor(rankCatalog));
+	let draft = $state(untrack(() => personnelDraftOf(null, defaultNewPersonnelRank(rankOptions))));
 	const openingDraft = untrack(() => ({ ...draft }));
 	let submitAttempted = $state(false);
 	const dirty = $derived(personnelDraftChanges(openingDraft, draft, groups).length > 0);
 
-	const errors = $derived(validatePersonnelDraft(draft, { isEditing, allowUnassigned, groups }));
+	const errors = $derived(validatePersonnelDraft(draft, { allowUnassigned, groups }));
 	const isValid = $derived(Object.keys(errors).length === 0);
 	const groupError = $derived(submitAttempted ? errors.groupId : undefined);
 	const rankError = $derived(submitAttempted ? errors.rank : undefined);
@@ -65,59 +49,38 @@
 	const lastNameError = $derived(submitAttempted ? errors.lastName : undefined);
 
 	let isSaving = $state(false);
-	let isArchiving = $state(false);
-	const busy = $derived(isSaving || isArchiving);
 
-	const groupOptions = $derived(groupOptionsFor(groups, allowGroupClear));
+	const groupOptions = $derived(groupOptionsFor(groups, allowUnassigned));
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		submitAttempted = true;
-		if (!isValid || busy) return;
+		if (!isValid || isSaving) return;
 
 		isSaving = true;
 
 		try {
 			await onSubmit(personnelPayloadOf(draft, groups));
 			if (disposed) return;
-			toastStore.success(isEditing ? 'Personnel updated' : 'Personnel added');
+			toastStore.success('Personnel added');
 			onClose();
 		} catch (error) {
-			if (!disposed) toastStore.error(personnelSaveErrorMessage(error, isEditing));
+			if (!disposed) toastStore.error(personnelSaveErrorMessage(error, 'Failed to add personnel'));
 		} finally {
 			if (!disposed) isSaving = false;
 		}
 	}
-
-	let showArchiveConfirm = $state(false);
-
-	function handleArchive() {
-		showArchiveConfirm = true;
-	}
-
-	async function doArchive() {
-		if (!personnel || !onRemove || busy) return;
-		isArchiving = true;
-		try {
-			if (await onRemove(personnel.id)) onClose();
-		} catch (error) {
-			toastStore.error(error instanceof Error && error.message.trim() ? error.message : 'Failed to archive personnel');
-		} finally {
-			isArchiving = false;
-			showArchiveConfirm = false;
-		}
-	}
 </script>
 
-<AppDialog.Root open {busy} closeBlocked={dirty} {onClose}>
+<AppDialog.Root open busy={isSaving} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content>
 		<AppDialog.Header class="px-4 pt-4">
-			<AppDialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</AppDialog.Title>
+			<AppDialog.Title>Add Personnel</AppDialog.Title>
 		</AppDialog.Header>
 
 		<AppDialog.Body>
 			<form id="personnel-form" class="grid gap-4" onsubmit={handleSubmit}>
-				<fieldset class="contents" disabled={busy}>
+				<fieldset class="contents" disabled={isSaving}>
 					<Field.Root data-invalid={rankError ? true : undefined}>
 						<Field.Label for="rank">Rank</Field.Label>
 						<Combobox.Root items={rankOptions} bind:value={draft.rank} label="Rank" autoHighlight>
@@ -171,8 +134,8 @@
 						<Combobox.Root items={groupOptions} bind:value={draft.groupId} label="Group" autoHighlight>
 							<Combobox.Trigger
 								id="group"
-								clearable={allowGroupClear}
-								placeholder={allowGroupClear ? 'No Group Assigned' : 'Select Group...'}
+								clearable={allowUnassigned}
+								placeholder={allowUnassigned ? 'No Group Assigned' : 'Select Group...'}
 								aria-label="Group"
 							/>
 							<Combobox.Content>
@@ -188,38 +151,10 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			{#if isEditing && onRemove}
-				<Button
-					type="button"
-					variant="destructive"
-					data-testid="personnel-archive"
-					onclick={handleArchive}
-					disabled={busy}
-				>
-					<ArchiveIcon />
-					Archive
-				</Button>
-			{/if}
-			<Button type="button" variant="outline" onclick={onClose} disabled={busy}>Cancel</Button>
-			<Button type="submit" form="personnel-form" data-testid="personnel-save" disabled={busy}>
-				{#if isSaving}
-					Saving...
-				{:else}
-					{isEditing ? 'Save Changes' : 'Add Personnel'}
-				{/if}
+			<Button type="button" variant="outline" onclick={onClose} disabled={isSaving}>Cancel</Button>
+			<Button type="submit" form="personnel-form" data-testid="personnel-save" disabled={isSaving}>
+				{isSaving ? 'Saving...' : 'Add Personnel'}
 			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
-
-{#if showArchiveConfirm && personnel}
-	<ConfirmDialog
-		title="Archive Personnel"
-		message="Archive {personnel.rank} {personnel.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
-		confirmLabel="Archive"
-		variant="default"
-		loading={isArchiving}
-		onConfirm={doArchive}
-		onCancel={() => (showArchiveConfirm = false)}
-	/>
-{/if}

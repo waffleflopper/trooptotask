@@ -239,6 +239,7 @@ export function createPersonnelArtifactDeliveryContext(
 			listDocuments: request.artifactReads.listDocuments,
 			summarizeActiveDocuments: request.artifactReads.summarizeActiveDocuments,
 			listFollowUps: request.artifactReads.listFollowUps,
+			listOpenFollowUps: request.artifactReads.listOpenFollowUps,
 			findDocument: request.artifactReads.findDocument
 		},
 		writerFor(personnelId) {

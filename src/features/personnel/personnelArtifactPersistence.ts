@@ -81,6 +81,8 @@ export interface PersonnelArtifactReadPersistence {
 	/** Active documents only: the figure the Person's storage cap counts. */
 	summarizeActiveDocuments(personnelId: string): Promise<PersonnelDocumentUsage>;
 	listFollowUps(personnelId: string, options: { archived: boolean; limit?: number }): Promise<FollowUpRow[]>;
+	/** Open follow-ups by due date, undated last, with the open total. */
+	listOpenFollowUps(personnelId: string, limit: number): Promise<{ rows: FollowUpRow[]; total: number }>;
 	findDocument(personnelId: string, documentId: string): Promise<PersonnelDocumentRow | null>;
 	listLeaderNotePage(
 		personnelId: string,

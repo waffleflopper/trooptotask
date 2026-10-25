@@ -2,13 +2,14 @@ import { loadPersonnelCalendarWindow } from '$features/calendar/index.server';
 import {
 	isRosterPeekSection,
 	ROSTER_PEEK_DAYS,
+	ROSTER_PEEK_FOLLOW_UPS,
 	type Personnel,
 	type RosterPeekRead,
 	type RosterPeekSection,
 	type RosterPeekValues
 } from '$features/personnel/contracts';
 import {
-	listPersonnelFollowUps,
+	listOpenPersonnelFollowUps,
 	listPersonnelLeaderNotes,
 	loadPersonnelPeekPerson,
 	readPersonnelExtendedInfo
@@ -53,10 +54,7 @@ const SECTION_READS: {
 		}),
 	attention: (ctx, person, asOf) =>
 		createPersonnelReadinessStreams(ctx.readiness, person, asOf, { omitDenied: true }).attention,
-	followUps: (ctx, person) =>
-		listPersonnelFollowUps(ctx.overview.artifacts, person.id).then((rows) =>
-			rows.filter((row) => row.status === 'open')
-		),
+	followUps: (ctx, person) => listOpenPersonnelFollowUps(ctx.overview.artifacts, person.id, ROSTER_PEEK_FOLLOW_UPS),
 	note: (ctx, person) =>
 		listPersonnelLeaderNotes(ctx.overview.leaderNotes, person.id, 1).then((notes) => notes[0] ?? null)
 };

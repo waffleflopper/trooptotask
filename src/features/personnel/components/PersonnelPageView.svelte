@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="NextDays">
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -16,6 +16,7 @@
 	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
+	import { personnelRecordHref } from '../personnelRecordHref';
 	import {
 		parseRosterFilter,
 		ROSTER_FILTER_PARAM,
@@ -43,7 +44,7 @@
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		nextDays?: Snippet<[calendar: unknown]>;
+		nextDays?: Snippet<[calendar: NextDays | null]>;
 	}
 
 	let { ctx, nextDays }: Props = $props();
@@ -52,8 +53,7 @@
 	const ROSTER_PAGE_SIZE = 75;
 	const peekFits = new MediaQuery('min-width: 1280px', false);
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
-	const NO_GROUP = '\u0000';
-	const groupKey = (person: Personnel): string => person.groupName || NO_GROUP;
+	const groupKey = (person: Personnel): string => person.groupName;
 	const canViewRoster = $derived(ctx.canViewRoster);
 	const canAddPersonnel = $derived(ctx.canAddPersonnel);
 	let locallyArchivedIds = new SvelteSet<string>();
@@ -215,8 +215,8 @@
 		initialSortDirection: 'asc',
 		groupBy: {
 			key: groupKey,
-			label: (key) => (key === NO_GROUP ? 'Unassigned' : key),
-			compare: (a, b) => groupComparator(a === NO_GROUP ? '' : a, b === NO_GROUP ? '' : b)
+			label: (key) => key || 'Unassigned',
+			compare: (a, b) => groupComparator(a, b)
 		}
 	});
 	const peopleByGroup = $derived(Map.groupBy(visibleFilteredPersonnel, groupKey));
@@ -265,7 +265,7 @@
 	let bulkComposer = $state<RosterBulkComposer>();
 	let peekedId = $state<string | null>(null);
 	let peekBrowsing = $state(false);
-	let peekPanel = $state<RosterPeekPanel>();
+	let peekPanel = $state<RosterPeekPanel<NextDays>>();
 	const peekedPerson = $derived(
 		peekedId && !locallyArchivedIds.has(peekedId) ? (ctx.getPersonnelById(peekedId) ?? null) : null
 	);
@@ -294,7 +294,7 @@
 		},
 		refreshSignals: (ids) => void ctx.signals.refresh(ids),
 		peekChanged: (id, before, after) => ctx.peek.changed(id, before, after),
-		dataSheetHref: (person) => `${recordHref(person)}/data-sheet`,
+		dataSheetHref: (person) => personnelRecordHref(orgUrlSegment, person, 'data-sheet'),
 		navigate: (href, delta) => (delta ? history.go(delta) : void goto(href)),
 		closed: (id) => void restoreRowFocus(id)
 	});
@@ -347,6 +347,7 @@
 	const canQuickEditAny = $derived(shownRows.some((p) => ctx.canManagePersonnelRecord(p)));
 
 	function replaceComposer(open: () => void): void {
+		ctx.signals.noticeDay();
 		const composer = notePerson ? noteComposer : bulkCompose ? bulkComposer : undefined;
 		if (composer) composer.requestClose(open);
 		else if (peekPanel) peekPanel.release(open);
@@ -489,7 +490,7 @@
 	}
 
 	function recordHref(person: Personnel): string {
-		return resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`);
+		return personnelRecordHref(orgUrlSegment, person);
 	}
 
 	async function restoreRowFocus(personnelId: string) {
@@ -698,7 +699,7 @@
 						{#snippet groupHeader(group)}
 							{@const people = peopleByGroup.get(group.key) ?? []}
 							{@const ids = people.map((person) => person.id)}
-							{@const unassigned = group.key === NO_GROUP}
+							{@const unassigned = group.key === ''}
 							{@const groupId = unassigned ? null : ctx.groupIdForName(group.key)}
 							<PersonnelGroupHeader
 								{group}
@@ -753,7 +754,6 @@
 				bind:this={peekPanel}
 				{ctx}
 				person={peekedPerson}
-				recordHref={recordHref(peekedPerson)}
 				position={peekPosition}
 				onstep={(step) => stepPeek(step, false)}
 				onclose={closePeek}
@@ -767,13 +767,7 @@
 
 {#if notePerson}
 	{#key notePerson.id}
-		<RosterNotePopover
-			bind:this={noteComposer}
-			{ctx}
-			person={notePerson}
-			recordHref={recordHref(notePerson)}
-			onclose={closeNote}
-		/>
+		<RosterNotePopover bind:this={noteComposer} {ctx} person={notePerson} onclose={closeNote} />
 	{/key}
 {/if}
 

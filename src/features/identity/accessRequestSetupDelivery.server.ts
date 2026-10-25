@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { addUtcDays } from './accountSetupDates';
-import { isSetupGrantWithdrawn } from './accessRequestSetupState.server';
 import {
 	createAccountSetupLinkIssuance,
 	type AccountSetupLinkIssuance,
@@ -87,6 +86,14 @@ function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: 
 	return now <= addUtcDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
 }
 
+function blocksFreshPendingRequest(request: AccessRequestSetupRequest): boolean {
+	return (
+		request.status === 'pending' ||
+		request.status === 'rejected' ||
+		(request.status === 'approved' && request.setupCompletedAt !== null)
+	);
+}
+
 export function createAccessRequestSetupDeliveryService(
 	store: AccessRequestSetupDeliveryStore,
 	issuance: AccountSetupLinkIssuance,
@@ -137,13 +144,10 @@ export function createAccessRequestSetupDeliveryService(
 
 			const renewableRequest = existingRequests.find((request) => isApprovedIncompleteRenewable(request, now()));
 			if (renewableRequest) {
-				const delivered = await deliverFreshSetupLink(renewableRequest, input.origin);
-				if (delivered.status === 'fresh-setup-sent' || delivered.status === 'fresh-setup-delivery-failed') {
-					return delivered;
-				}
+				return deliverFreshSetupLink(renewableRequest, input.origin);
 			}
 
-			if (existingRequests.some((request) => !isSetupGrantWithdrawn(request))) {
+			if (existingRequests.some(blocksFreshPendingRequest)) {
 				return { status: 'no-public-action' };
 			}
 

@@ -14,6 +14,8 @@ export async function readAccountDirectory(client: SupabaseClient, input: People
 	const { data, error } = await client.rpc('platform_account_directory', {
 		p_search: input.search,
 		p_filter: input.filter,
+		p_sort: input.sort.key,
+		p_dir: input.sort.direction,
 		p_page: input.page,
 		p_limit: input.limit
 	});

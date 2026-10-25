@@ -860,8 +860,8 @@ inspector_port = 8283
                 self.assertEqual(command, ["supabase", "migration", "up", "--local", "--yes", "--include-all"])
                 self.assertTrue(all((workdir / "supabase/migrations" / name).exists()
                                     for name in database.STAGED_UPGRADE_MIGRATIONS
-                                    if name != "20261025140100_feedback_reporter_replies.sql"))
-                self.assertFalse((workdir / "supabase/migrations/20261025140100_feedback_reporter_replies.sql").exists())
+                                    if name != "20261025160100_feedback_reporter_replies.sql"))
+                self.assertFalse((workdir / "supabase/migrations/20261025160100_feedback_reporter_replies.sql").exists())
                 raise subprocess.CalledProcessError(1, command)
             if command[:2] == ["supabase", "start"]:
                 self.assertTrue(all(not (workdir / "supabase/migrations" / name).exists()

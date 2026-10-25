@@ -83,8 +83,8 @@ export function createSupabaseWhatsNewStore(supabase: SupabaseClient): WhatsNewS
 			return data !== null;
 		},
 
-		async deleteDraft(id) {
-			const { error } = await supabase.from('whats_new_entries').delete().eq('id', id).is('published_on', null);
+		async deleteEntry(id) {
+			const { error } = await supabase.from('whats_new_entries').delete().eq('id', id);
 			if (error) throw failure('delete', error);
 		}
 	};

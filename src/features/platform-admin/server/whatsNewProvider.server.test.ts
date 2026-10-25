@@ -83,7 +83,7 @@ describe('What’s New persistence through the real SDK', () => {
 		).rejects.toThrow();
 	});
 
-	it('deletes only an entry that is still a draft', async () => {
+	it('deletes the selected entry regardless of publication', async () => {
 		let query: URLSearchParams | undefined;
 		const store = createSupabaseWhatsNewStore(
 			client(async (input) => {
@@ -91,9 +91,9 @@ describe('What’s New persistence through the real SDK', () => {
 				return new Response(null, { status: 204 });
 			})
 		);
-		await store.deleteDraft('entry-1');
+		await store.deleteEntry('entry-1');
 		expect(query?.get('id')).toBe('eq.entry-1');
-		expect(query?.get('published_on')).toBe('is.null');
+		expect(query?.has('published_on')).toBe(false);
 	});
 });
 

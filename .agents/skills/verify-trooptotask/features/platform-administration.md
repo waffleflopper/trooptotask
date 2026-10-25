@@ -141,8 +141,9 @@ delivery payloads.
 8. **Not set up person.** Open the approved request's person page from the list. Expected: eyebrow
    `Person · Not set up · Closed beta`, the request quote, the setup timeline, `Link expires` from the live link,
    `Resend setup link` and `Rescind access`. Resend shows `A new setup link was sent.` and the timeline gains the new
-   send; Rescind confirms, then leaves for the `Not set up` list, where the person is gone. The old `/admin/users` and
-   `/admin/users/ID` URLs answer 308 to People and to the person page.
+   send; Rescind confirms, then leaves for the `Not set up` list, where the person is gone. Submit the public access
+   request form again with the rescinded email: a new pending request for it appears in the Inbox. The old
+   `/admin/users` and `/admin/users/ID` URLs answer 308 to People and to the person page.
 
 9. **Suspend an Organization.** As `platformReviewer` (a fresh aal2 session from
    `$V actor platformReviewer admin/organizations`), open `Organizations`, search the unique temporary Organization name

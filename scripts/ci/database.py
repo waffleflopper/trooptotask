@@ -113,7 +113,9 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261025110400_platform_organization_directory.sql",
     "20261025120100_feedback_replies_and_staff_notes.sql",
     "20261025130100_setup_email_bounces_and_account_directory.sql",
-    "20261025140100_feedback_reporter_replies.sql",
+    "20261025140100_access_request_resubmission_readers.sql",
+    "20261025150100_admin_directory_sorting.sql",
+    "20261025160100_feedback_reporter_replies.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -205,6 +207,7 @@ STAGED_UPGRADE_CONTRACTS = (
 )
 # Fresh SQL contracts that must also hold after the staged upgrade.
 STAGED_UPGRADE_SQL_TESTS = (
+    "admin_directory_sorting.sql",
     "setup_email_people.sql",
     "platform_operator_authorization.sql",
     "access_request_server_writes.sql",
@@ -754,7 +757,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 fixture = workdir / "supabase/migration-tests" / name
                 execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
             for name in STAGED_UPGRADE_MIGRATIONS:
-                if name == "20261025140100_feedback_reporter_replies.sql":
+                if name == "20261025160100_feedback_reporter_replies.sql":
                     continue
                 shutil.copy2(repository / "supabase/migrations" / name,
                              workdir / "supabase/migrations" / name)
@@ -768,7 +771,7 @@ def validate(repository, *, staged_upgrade=False, setup_people_explain=False, sq
                 if path == "migration-tests/feedback_reporter_replies_after.sql":
                     execute([*psql[:2], "-i", *psql[2:]], workdir,
                             input_text=(workdir / "supabase/migration-tests/feedback_reporter_replies_before.sql").read_text())
-                    name = "20261025140100_feedback_reporter_replies.sql"
+                    name = "20261025160100_feedback_reporter_replies.sql"
                     shutil.copy2(repository / "supabase/migrations" / name,
                                  workdir / "supabase/migrations" / name)
                     execute(["supabase", "migration", "up", "--local", "--yes"], workdir)

@@ -202,7 +202,7 @@ const REGISTRY: Record<string, RegistryEntry> = {
 	whats_new_create: entry(null, 'info', (s) => `${s.actor} drafted the What's New entry ${s.target}`),
 	whats_new_update: entry(null, 'info', (s) => `${s.actor} edited the What's New entry ${s.target}`),
 	whats_new_publish: entry(null, 'info', (s) => `${s.actor} published the What's New entry ${s.target}`),
-	whats_new_delete: entry(null, 'warning', (s) => `${s.actor} deleted the draft What's New entry ${s.target}`),
+	whats_new_delete: entry(null, 'warning', (s) => `${s.actor} deleted the What's New entry ${s.target}`),
 	'feedback.closed_without_reply': entry(null, 'info', (s) => `${s.actor} closed ${s.target} without replying`),
 	'person.created': organizationEntry('added a Personnel Record'),
 	'personnel.create': organizationEntry('added a Personnel Record'),

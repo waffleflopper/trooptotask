@@ -159,7 +159,7 @@ describe('admin What’s New', () => {
 		expect(screen.getByLabelText('Paragraph 2')).toHaveProperty('value', 'Second');
 	});
 
-	it('offers Publish and Delete draft for a draft but neither for a published entry', async () => {
+	it('offers Publish and Delete draft for a draft, and only Delete entry for a published one', async () => {
 		const view = await renderPage('?entry=draft-1');
 		expect(await screen.findByRole('button', { name: 'Publish' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Delete draft' })).toBeTruthy();
@@ -167,7 +167,17 @@ describe('admin What’s New', () => {
 		await renderPage('?entry=live-1');
 		expect(await screen.findByRole('button', { name: 'Save changes' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Delete draft' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Delete entry' })).toBeTruthy();
+	});
+
+	it('deletes a published entry after confirmation', async () => {
+		await renderPage('?entry=live-1');
+		const request = await submit(await screen.findByRole('button', { name: 'Delete entry' }));
+		expect(request.input.cancel).toHaveBeenCalledOnce();
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		const confirmed = await submit(screen.getByRole('button', { name: 'Delete entry' }));
+		expect(confirmed.input.cancel).not.toHaveBeenCalled();
+		expect(confirmed.input.formData.get('id')).toBe('live-1');
 	});
 
 	it('sends the operator’s calendar date only when publishing', async () => {

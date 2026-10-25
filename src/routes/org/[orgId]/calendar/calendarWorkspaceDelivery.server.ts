@@ -32,7 +32,7 @@ import { formatDate } from '$lib/utils/dates';
 import { readConfirmedChangeCookies, type ConfirmedChangesByTab } from '$lib/stores/core';
 
 function createCalendarHydrationTarget<T>(items: HydrationItems<T>): CalendarWorkspaceHydrationTarget<T> {
-	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
 }
 
 function createCalendarRangeHydrationTarget<T>(
@@ -40,8 +40,8 @@ function createCalendarRangeHydrationTarget<T>(
 	range: CalendarDateRange
 ): CalendarRangeHydrationTarget<T> {
 	return {
-		...createWorkspaceHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'json' }),
-		snapshotKey: createCompositeWorkspaceSnapshotKey({ items, range }, { resolved: 'json' }),
+		...createWorkspaceHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'hash' }),
+		snapshotKey: createCompositeWorkspaceSnapshotKey({ items, range }, { resolved: 'hash' }),
 		range
 	};
 }
@@ -67,7 +67,7 @@ function createCalendarAssignmentsHydrationTarget(
 	data: CalendarBootstrap
 ): CalendarAssignmentsWorkspaceHydrationTarget {
 	const items = createCalendarAssignmentsItems(data.assignmentTypes, data.dailyAssignments);
-	const target = createWorkspaceValueHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'json' });
+	const target = createWorkspaceValueHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'hash' });
 
 	return {
 		...target,
@@ -78,7 +78,7 @@ function createCalendarAssignmentsHydrationTarget(
 				rangeStart: data.rangeStart,
 				rangeEnd: data.rangeEnd
 			},
-			{ resolved: 'json' }
+			{ resolved: 'hash' }
 		),
 		range: { rangeStart: data.rangeStart, rangeEnd: data.rangeEnd }
 	};

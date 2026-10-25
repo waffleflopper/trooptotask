@@ -7,8 +7,8 @@ import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { loadLogsSettings } from '../settingsLogs.server';
 import type { LogsSettingsData } from '../settingsSectionTypes';
 import {
+	loadSettingsOrganization,
 	buildCommonSettingsPageData,
-	buildSettingsPageOrganization,
 	type CommonSettingsPageData
 } from '../settingsLoad.server';
 
@@ -17,28 +17,21 @@ interface LogsPageData extends CommonSettingsPageData {
 }
 
 export const load: PageServerLoad = async (event) => {
+	event.depends('app:org-core');
 	event.depends(VIEWER_DAY_DEPENDENCY);
-	const parentData = await event.parent();
-	if (parentData.shell.kind === 'suspended') return {};
-
-	const organization = buildSettingsPageOrganization(parentData);
-	const common = {
-		...buildCommonSettingsPageData(parentData),
-		orgUrlSegment: organization.urlSegment,
-		orgUrlSlug: organization.urlSlug,
-		orgName: organization.name
-	};
+	const organization = await loadSettingsOrganization(event);
+	if (organization.suspendedAt) return {};
 
 	return loadWithContext<LogsPageData, ReturnType<typeof createRequestOrganizationAuditLogContext>>(
 		event.locals,
 		event.cookies,
-		common.orgId,
+		organization.id,
 		{
 			context: createRequestOrganizationAuditLogContext,
 			policyAction: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
 			policyResource: { kind: 'organization' },
 			fn: async (ctx) => ({
-				...common,
+				...buildCommonSettingsPageData(organization, ctx.auth),
 				logsSettings: await loadLogsSettings(ctx, ctx.auditStore, ctx.auditLabels, {
 					timeZone: viewerTimeZone(event.cookies),
 					now: new Date()

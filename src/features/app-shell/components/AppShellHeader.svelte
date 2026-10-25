@@ -261,6 +261,10 @@
 		const segment = orgUrlSegment;
 		notificationsOpen = false;
 
+		if (isCurrentNotificationRequest(scope, generation) && notification.link) {
+			void goto(resolve(notification.link as `/org/${string}`));
+		}
+
 		if (!notification.read) {
 			notificationsWriting = true;
 			try {
@@ -284,10 +288,6 @@
 			} finally {
 				if (isCurrentNotificationRequest(scope, generation)) notificationsWriting = false;
 			}
-		}
-
-		if (isCurrentNotificationRequest(scope, generation) && notification.link) {
-			void goto(resolve(notification.link as `/org/${string}`));
 		}
 	}
 
@@ -405,7 +405,7 @@
 								</DropdownMenu.Group>
 								{#if canAccessOrganizationSettings}
 									<DropdownMenu.Separator />
-									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings`))}>
+									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings/general`))}>
 										<Settings />
 										Unit settings
 									</DropdownMenu.Item>
@@ -442,8 +442,8 @@
 								{#snippet child({ props })}
 									<a
 										{...props}
-										href={resolve(`/org/${orgUrlSegment}/settings`)}
-										aria-current={pathname === `/org/${orgUrlSegment}/settings` ? 'page' : undefined}
+										href={resolve(`/org/${orgUrlSegment}/settings/general`)}
+										aria-current={inSettings(pathname) ? 'page' : undefined}
 									>
 										<Settings />
 										<span>Unit settings</span>

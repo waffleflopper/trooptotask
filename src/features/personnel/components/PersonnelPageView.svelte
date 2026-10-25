@@ -213,6 +213,7 @@
 		columns: () => groupedColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
+		groupRowLimit: GROUPED_ROSTER_RENDER_LIMIT,
 		groupBy: {
 			key: groupKey,
 			label: (key) => key || 'Unassigned',
@@ -270,9 +271,10 @@
 		peekedId && !locallyArchivedIds.has(peekedId) ? (ctx.getPersonnelById(peekedId) ?? null) : null
 	);
 	const peekOpen = $derived(peekFits.current && canViewRoster && peekedPerson !== null);
-	const shouldGateGroupedRoster = $derived(
-		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
+	const groupedRosterLimited = $derived(
+		ctx.viewMode === 'by-group' && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
+	const shouldGateGroupedRoster = $derived(groupedRosterLimited && !rosterSearch.trim());
 	const activeTable = $derived(ctx.viewMode === 'alphabetical' ? azTable : groupedTable);
 	const shownRows = $derived(
 		activeTable.groups.length > 0
@@ -512,6 +514,10 @@
 		await restoreFocus();
 	}
 
+	function showAlphabetical(): void {
+		ctx.viewMode = 'alphabetical';
+	}
+
 	function setRosterSearch(value: string): void {
 		rosterSearch = value;
 		ctx.searchQuery = value;
@@ -644,24 +650,7 @@
 							this page fast.
 						</p>
 					</div>
-					<div class="min-w-[min(100%,300px)] flex-[0_1_420px] max-sm:flex-auto">
-						<WorkspaceToolbar
-							ariaLabel="Grouped roster controls"
-							items={[]}
-							search={{
-								label: 'Search by name, rank, MOS, role, or group',
-								placeholder: 'Search roster...',
-								value: rosterSearch,
-								onValueChange: setRosterSearch
-							}}
-							primary={{
-								kind: 'action',
-								id: 'use-az-view',
-								label: 'Use A-Z View',
-								onclick: () => (ctx.viewMode = 'alphabetical')
-							}}
-						/>
-					</div>
+					<Button onclick={showAlphabetical}>Use A-Z View</Button>
 				</div>
 			{:else}
 				<div
@@ -718,11 +707,20 @@
 						{/snippet}
 					</DataTable.DataTable>
 				</div>
-				<div class="flex items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
-					<span aria-live="polite"
-						>{activeTable.totalRows} of {visibleAllActivePersonnel.length}
-						{rosterFilter ? 'match' : 'shown'}</span
-					>
+				<div class="flex min-h-6 items-center justify-between gap-4 font-mono text-xs text-muted-foreground">
+					<span class="flex flex-wrap items-center gap-x-2">
+						<span aria-live="polite">
+							{#if groupedRosterLimited}
+								Showing {shownRows.length} of {groupedTable.totalRows} matches. Keep typing to narrow.
+							{:else}
+								{activeTable.totalRows} of {visibleAllActivePersonnel.length}
+								{rosterFilter ? 'match' : 'shown'}
+							{/if}
+						</span>
+						{#if groupedRosterLimited}
+							<Button type="button" variant="outline" size="xs" onclick={showAlphabetical}>Use A-Z View</Button>
+						{/if}
+					</span>
 					<span class="flex gap-4 whitespace-nowrap max-md:hidden @max-xl/roster:hidden" aria-hidden="true">
 						{#if ctx.canReadPersonnelDetails && peekFits.current}<span>Space preview</span>{/if}
 						{#if canSelect}<span>X select</span>{/if}

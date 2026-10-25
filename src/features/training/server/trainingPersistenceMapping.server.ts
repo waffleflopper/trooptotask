@@ -5,6 +5,8 @@ import {
 	type SavedTrainingType,
 	type SavedTrainingView,
 	type SavedTrainingCompletion,
+	type TrainingCompletionFacts,
+	type PersonnelTraining,
 	type TrainingTypeCreate,
 	type TrainingTypePatch,
 	type TrainingViewCreate,
@@ -108,6 +110,34 @@ export type TrainingCompletionRow = {
 };
 export const TRAINING_COMPLETION_FIELDS =
 	'id, personnel_id, training_type_id, completion_date, expiration_date, notes, certificate_url, organization_id, created_at, updated_at';
+
+export type TrainingCompletionReadRow = Pick<
+	TrainingCompletionHistoryRow,
+	'id' | 'personnel_id' | 'training_type_id' | 'completion_date' | 'expiration_date'
+> &
+	Partial<Pick<TrainingCompletionHistoryRow, 'notes' | 'certificate_url'>>;
+export const TRAINING_WORKSPACE_COMPLETION_FIELDS =
+	'id, personnel_id, training_type_id, completion_date, expiration_date, notes, certificate_url';
+export const TRAINING_READINESS_COMPLETION_FIELDS =
+	'id, personnel_id, training_type_id, completion_date, expiration_date';
+
+export function toTrainingCompletionFacts(row: TrainingCompletionReadRow): TrainingCompletionFacts {
+	return {
+		personnelId: row.personnel_id,
+		trainingTypeId: row.training_type_id,
+		completionDate: row.completion_date,
+		expirationDate: row.expiration_date
+	};
+}
+
+export function toWorkspaceTrainingCompletion(row: TrainingCompletionReadRow): PersonnelTraining {
+	return {
+		id: row.id,
+		...toTrainingCompletionFacts(row),
+		notes: row.notes ?? null,
+		certificateUrl: row.certificate_url ?? null
+	};
+}
 
 export function toTrainingCompletion(row: TrainingCompletionRow): SavedTrainingCompletion {
 	return {

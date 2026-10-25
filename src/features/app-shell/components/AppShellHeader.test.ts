@@ -236,7 +236,9 @@ describe('disposed notification writes', () => {
 			if (String(input).includes('notification-count'))
 				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
 			if (init?.method === 'PUT') return write.promise;
-			return notificationResponse([notification('old-link', 'Retired linked notification', '/org/org-1/settings')]);
+			return notificationResponse([
+				notification('old-link', 'Retired linked notification', '/org/org-1/settings/general')
+			]);
 		});
 		const old = renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
@@ -248,7 +250,7 @@ describe('disposed notification writes', () => {
 			write.resolve(notificationResponse({}, ok));
 			await write.promise;
 		});
-		expect(goto).not.toHaveBeenCalled();
+		expect(goto.mock.calls).toEqual([['/org/org-1/settings/general']]);
 		expect(error).not.toHaveBeenCalled();
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
 	});
@@ -312,6 +314,26 @@ describe('responsive sidebar interaction', () => {
 });
 
 describe('notification recovery', () => {
+	it('opens a linked notification before its read write settles', async () => {
+		const write = deferred<Response>();
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			if (String(input).includes('notification-count'))
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			if (options?.method === 'PUT') return write.promise;
+			return notificationResponse([notification('own-note', 'Own notification', '/org/org-1/settings/general')]);
+		});
+		renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
+		expect(goto).toHaveBeenCalledWith('/org/org-1/settings/general');
+		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
+		await act(async () => {
+			write.resolve(notificationResponse({ success: true }));
+			await write.promise;
+		});
+		expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy();
+	});
+
 	it('waits for successful list recovery before bulk read so a retry cannot restore unread rows', async () => {
 		let release!: (response: Response) => void;
 		const delayed = new Promise<Response>((resolve) => {
@@ -367,7 +389,7 @@ describe('notification recovery', () => {
 		expect(requests).toBe(2);
 	});
 
-	it('keeps a failed linked read unread without navigating and allows a successful retry', async () => {
+	it('keeps a failed linked read unread after navigating and allows a successful retry', async () => {
 		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
 		let attempts = 0;
 		vi.mocked(fetch).mockImplementation(async (input, options) => {
@@ -375,19 +397,19 @@ describe('notification recovery', () => {
 				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
 			}
 			if (options?.method === 'PUT') return notificationResponse({}, ++attempts > 1);
-			return notificationResponse([notification('own-note', 'Own notification', '/org/org-1/settings')]);
+			return notificationResponse([notification('own-note', 'Own notification', '/org/org-1/settings/general')]);
 		});
 		renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
 		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
 		await waitFor(() => expect(error).toHaveBeenCalled());
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
-		expect(goto).not.toHaveBeenCalled();
+		expect(goto).toHaveBeenCalledWith('/org/org-1/settings/general');
 		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
 		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
 		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
 		expect(attempts).toBe(2);
-		expect(goto).toHaveBeenCalledWith('/org/org-1/settings');
+		expect(goto).toHaveBeenCalledWith('/org/org-1/settings/general');
 	});
 
 	it('retains the count after a failed bulk read and permits retry', async () => {
@@ -434,7 +456,7 @@ describe('notification recovery', () => {
 		expect(screen.getByRole('menuitem', { name: /B private notification/ })).toBeTruthy();
 	});
 
-	it('does not apply an old A read or navigate to its link after switching to B', async () => {
+	it('does not apply an old A read or navigate again after switching to B', async () => {
 		let release!: (response: Response) => void;
 		const delayed = new Promise<Response>((resolve) => {
 			release = resolve;
@@ -443,7 +465,7 @@ describe('notification recovery', () => {
 			const url = String(input);
 			if (url.includes('notification-count')) return notificationResponse({ ok: true, unreadNotificationCount: 2 });
 			if (options?.method === 'PUT') return delayed;
-			return notificationResponse([notification('a-note', 'A private notification', '/org/org-1/settings')]);
+			return notificationResponse([notification('a-note', 'A private notification', '/org/org-1/settings/general')]);
 		});
 		const view = renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
@@ -455,7 +477,7 @@ describe('notification recovery', () => {
 		await tick();
 		await tick();
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
-		expect(goto).not.toHaveBeenCalled();
+		expect(goto.mock.calls).toEqual([['/org/org-1/settings/general']]);
 	});
 
 	it.each(['HTTP', 'transport', 'application'])(
@@ -651,7 +673,7 @@ describe('AppShellHeader', () => {
 		const settingsLink = screen.getByRole('link', { name: 'Unit settings' });
 		const accountMenu = screen.getByRole('button', { name: /account menu/ });
 
-		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings');
+		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings/general');
 		expect(settingsLink.compareDocumentPosition(accountMenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 

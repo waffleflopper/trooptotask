@@ -104,7 +104,9 @@
 				{/each}
 			</ul>
 			<ul id="{uid}-names" class={PERSON_ROWS} aria-label="Everyone out today" hidden={!showAllNames}>
-				{@render personRows(line.outPeople)}
+				{#if showAllNames}
+					{@render personRows(line.outPeople)}
+				{/if}
 			</ul>
 			<div>
 				<Button

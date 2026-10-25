@@ -1,6 +1,6 @@
 import { createRequestCriticalTasksReadContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { Cookies } from '@sveltejs/kit';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	createWorkspaceHydrationTarget,
@@ -22,7 +22,6 @@ export interface CriticalTasksWorkspaceRequestContext {
 	locals: App.Locals;
 	cookies: Cookies;
 	orgId: string;
-	includeArchivedTasks?: boolean;
 }
 
 export interface CriticalTasksWorkspaceRouteData {
@@ -30,7 +29,7 @@ export interface CriticalTasksWorkspaceRouteData {
 }
 
 function createCriticalTasksHydrationTarget<T>(items: HydrationItems<T>): CriticalTasksWorkspaceHydrationTarget<T> {
-	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
 }
 
 function createCriticalTasksWorkspaceHydration(
@@ -57,7 +56,14 @@ export async function streamCriticalTasksWorkspaceBootstrap(
 		defer: true,
 		fn: async (ctx) => {
 			const data = await fetchCriticalTasksBootstrap(ctx, {
-				includeArchivedTasks: context.includeArchivedTasks
+				includeArchivedTasks: evaluatePolicyDecision({
+					decisionKind: 'server-authoritative',
+					actor: { membershipRole: ctx.auth.role, userId: ctx.auth.userId },
+					action: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
+					capabilityMap: ctx.auth.capabilityMap,
+					scopeSet: ctx.auth.scopeSet,
+					resource: { kind: 'organization' }
+				}).allowed
 			});
 			return {
 				laneKey: CRITICAL_TASKS_WORKSPACE_LANE_KEY,

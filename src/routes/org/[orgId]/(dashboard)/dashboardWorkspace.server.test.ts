@@ -53,6 +53,8 @@ vi.mock('$features/dashboard/index.server', async () => {
 });
 
 import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
+import { _createDashboardLayoutLoad } from './+layout.server';
+import { createReadyAppShellRouteData, createUrlBlindLayoutEvent } from '../appShell.test-support';
 
 describe('streamDashboardWorkspaceBootstrap', () => {
 	const availabilityEntries = Promise.resolve([{ id: 'av1', personnelId: 'p1' } as AvailabilityEntry]);
@@ -84,6 +86,31 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 			const data = Promise.resolve().then(() => config.fn(config.context(mockRequest)));
 			return config.defer ? Promise.resolve({ data }) : data;
 		});
+	});
+
+	it('shares one workspace between independent layout and page consumers, then refreshes the next request', async () => {
+		const { event } = createUrlBlindLayoutEvent<Parameters<ReturnType<typeof _createDashboardLayoutLoad>>[0]>(
+			createReadyAppShellRouteData({ orgId: 'org-1' })
+		);
+		Object.assign(event.cookies, { getAll: () => [] });
+		const [layout, pageWorkspace] = await Promise.all([
+			_createDashboardLayoutLoad()(event),
+			streamDashboardWorkspaceBootstrap({ locals: event.locals, cookies: event.cookies, orgId: 'org-1' })
+		]);
+		expect(layout && (await layout.dashboard.data)).toMatchObject({
+			workspaceKey: 'dashboard',
+			data: { lossWarningWindowDays: 180 },
+			hydration: { orgId: '11111111-1111-1111-1111-111111111111' }
+		});
+		expect(await pageWorkspace.dashboard.data).toMatchObject({ data: { lossWarningWindowDays: 180 } });
+		expect(fetchDashboardBootstrapMock).toHaveBeenCalledTimes(1);
+		fetchDashboardBootstrapMock.mockResolvedValueOnce({ ...dashboardData, lossWarningWindowDays: 30 });
+		const next = await streamDashboardWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: event.cookies,
+			orgId: 'org-1'
+		});
+		expect(await next.dashboard.data).toMatchObject({ data: { lossWarningWindowDays: 30 } });
 	});
 
 	it('streams an App Shell-adjacent Dashboard workspace result with explicit Dashboard hydration targets', async () => {

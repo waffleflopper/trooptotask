@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
-	import { ProfilePage } from '$features/identity';
+	import ProfilePage from '$features/identity/ProfilePage.svelte';
 	import { LeaveOrganizationDialog } from '$features/organization';
 	import type { PageProps } from './$types';
 

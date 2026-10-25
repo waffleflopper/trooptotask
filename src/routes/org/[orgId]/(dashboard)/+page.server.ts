@@ -1,8 +1,4 @@
-import {
-	formatDashboardDisplayDate,
-	type DashboardViewerDay,
-	type DashboardWorkspaceResult
-} from '$features/dashboard/contracts';
+import { formatDashboardDisplayDate, type DashboardViewerDay } from '$features/dashboard/contracts';
 import { fetchDashboardSummary, withDashboardTiming } from '$features/dashboard/index.server';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -17,15 +13,16 @@ import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
 import { VIEWER_DAY_DEPENDENCY } from '$lib/utils/viewerTimeZone';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
+import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
 
-export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
+export const load = async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	depends('app:dashboard-data', VIEWER_DAY_DEPENDENCY);
 	const { orgId } = params;
-	const parentData = await parent();
 	const asOf = viewerToday(cookies);
 	const timeZone = viewerTimeZone(cookies);
 	const ctx = await buildLayoutRequest(locals, orgId);
+	const { dashboard } = await streamDashboardWorkspaceBootstrap({ locals, cookies, orgId: ctx.auth.orgId });
 	const { data: summary } = loadWithContextCore(
 		ctx,
 		{
@@ -33,8 +30,7 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 			defer: true,
 			fn: async (ctx) =>
 				withDashboardTiming(orgId, 'summary', async () => {
-					const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
-					const workspaceData = (await workspaceBootstrap).data;
+					const workspaceData = (await dashboard.data).data;
 					return fetchDashboardSummary(ctx, workspaceData, asOf, timeZone);
 				})
 		},

@@ -93,9 +93,15 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			rows: groupedRows.get(key) ?? []
 		}));
 	});
-	const groups = $derived.by((): DataTableGroup<T>[] =>
-		groupRows.map((group) => ({ ...group, collapsed: collapsedGroups.has(group.key) }))
-	);
+	const groups = $derived.by((): DataTableGroup<T>[] => {
+		let room = options.groupRowLimit ?? Infinity;
+		return groupRows.map((group) => {
+			const collapsed = collapsedGroups.has(group.key);
+			const rows = collapsed || group.rows.length <= room ? group.rows : group.rows.slice(0, room);
+			if (!collapsed) room -= rows.length;
+			return { ...group, rows, collapsed };
+		});
+	});
 
 	function getColumn(key: string): ColumnDef<T> | undefined {
 		return columnsByKey.get(key) ?? options.resolveColumn?.(key);

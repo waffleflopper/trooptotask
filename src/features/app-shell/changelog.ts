@@ -1,3 +1,5 @@
+import type { latestChangelogId } from './latestChangelog';
+
 export type ChangelogEntry = {
 	id: string;
 	date: string;
@@ -5,7 +7,19 @@ export type ChangelogEntry = {
 	items: string[];
 };
 
-export const changelog: ChangelogEntry[] = [
+export const changelog: [ChangelogEntry & { id: typeof latestChangelogId }, ...ChangelogEntry[]] = [
+	{
+		id: '2026-10-24-faster-pages',
+		date: '2026-10-24',
+		title: 'Faster Pages on Slow Connections',
+		items: [
+			'Choosing a notification opens it right away instead of waiting for it to be marked read. If marking it read fails, a message asks you to reopen the bell and try again.',
+			'A broad search in By Group shows the first 250 matches, so the roster keeps up while you type. Keep typing to narrow it, collapse a Group to see more of the Groups below, or choose Use A-Z View to page through every match.',
+			'The Training matrix draws only the rows on screen and loads its records in parallel, so it opens and scrolls smoothly with a large roster.',
+			"The Dashboard and a person's Readiness tab download less code, so they open sooner.",
+			'Opening the Dashboard, Calendar, Training, Critical Tasks, Onboarding, Evals or Settings from the sidebar starts loading that page right away.'
+		]
+	},
 	{
 		id: '2026-10-24-personnel-roster',
 		date: '2026-10-24',

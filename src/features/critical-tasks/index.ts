@@ -1,11 +1,3 @@
-export { default as IctCompletionModal } from './components/IctCompletionModal.svelte';
-export { default as IctMatrix } from './components/IctMatrix.svelte';
-export { default as IctTaskLibraryPage } from './components/IctTaskLibraryPage.svelte';
-export { default as IctReportsView } from './components/IctReportsView.svelte';
-export { default as IctPersonnelDetailPage } from './components/IctPersonnelDetailPage.svelte';
-export { default as PersonnelCriticalTaskReadinessTable } from './components/PersonnelCriticalTaskReadinessTable.svelte';
-export { default as PersonnelCriticalTaskDrawer } from './components/PersonnelCriticalTaskDrawer.svelte';
-
 export { createIctTaskImportLane } from './import/ictTaskImportLane';
 export { createIctCompletionImportLane, type IctCompletionImportColumns } from './import/ictCompletionImportLane';
 export { ictTasksStore } from './stores/ictTasks.svelte';

@@ -1,18 +1,19 @@
-import type { Cookies } from '@sveltejs/kit';
+import { error, type Cookies } from '@sveltejs/kit';
+import { resolveOrganizationRouteIdentity } from '$features/organization/index.server';
+import { getPreferredOrganizationUrlSegment } from '$features/organization/contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AuditLogEntry } from '$lib/audit/contracts';
 import type { OrganizationUnitCountsPort } from '$features/organization/index.server';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { RequestContextBuilder } from '$lib/server/adapters/requestContexts.server';
-import type { AppShellRouteData } from '$features/app-shell/contracts';
-
-export type SettingsSubrouteParentData = AppShellRouteData;
+import { buildLayoutRequest, type RequestContextBuilder } from '$lib/server/adapters/requestContexts.server';
+import type { OrganizationRouteIdentity } from '$features/organization/contracts';
 
 export interface SettingsSubrouteLoadEvent {
 	locals: App.Locals;
 	cookies: Cookies;
-	parent: () => Promise<SettingsSubrouteParentData>;
+	params: { orgId: string };
+	depends: (...deps: string[]) => void;
 }
 
 export interface SettingsPageOrganization {
@@ -45,53 +46,50 @@ export async function loadSettingsPage<TContext, TSectionData extends Record<str
 	context: RequestContextBuilder<TContext>,
 	loadSectionData: SettingsSectionLoader<TContext, TSectionData>
 ): Promise<(CommonSettingsPageData & TSectionData) | Record<string, never>> {
-	const parentData = await event.parent();
-	if (parentData.shell.kind === 'suspended') return {};
+	event.depends('app:org-core');
+	const identity = await loadSettingsOrganization(event);
+	if (identity.suspendedAt) return {};
+	const organization = buildSettingsPageOrganization(identity);
+	const request = await buildLayoutRequest(event.locals, identity.id);
+	const common = buildCommonSettingsPageData(identity, request.auth);
 
-	const common = buildCommonSettingsPageData(parentData);
-	const organization = buildSettingsPageOrganization(parentData);
-
-	return loadWithContext(event.locals, event.cookies, common.orgId, {
+	return loadWithContext(event.locals, event.cookies, identity.id, {
 		context,
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
 		policyResource: { kind: 'organization' },
-		fn: async (ctx) => ({
-			...common,
-			...(await loadSectionData(ctx, { common, organization }))
-		})
+		fn: async (ctx) => ({ ...common, ...(await loadSectionData(ctx, { common, organization })) })
 	});
 }
 
-export function buildCommonSettingsPageData(parentData: SettingsSubrouteParentData): CommonSettingsPageData {
-	if (parentData.shell.kind !== 'ready') {
-		throw new Error('Settings page data requires a ready app shell');
-	}
+export async function loadSettingsOrganization(
+	event: Pick<SettingsSubrouteLoadEvent, 'locals' | 'params'>
+): Promise<OrganizationRouteIdentity> {
+	const organization = await resolveOrganizationRouteIdentity(event.locals, event.params.orgId);
+	if (!organization) error(404, 'Organization not found');
+	return organization;
+}
 
-	const shell = parentData.shell;
-	const orgUrlSegment = shell.org.urlSegment;
-
+export function buildCommonSettingsPageData(
+	organization: OrganizationRouteIdentity,
+	auth: Pick<OrganizationAccessGrant, 'role'>
+): CommonSettingsPageData {
+	const orgUrlSegment = getPreferredOrganizationUrlSegment(organization);
 	return {
-		orgId: shell.org.id,
+		orgId: organization.id,
 		orgUrlSegment,
-		orgUrlSlug: orgUrlSegment !== shell.org.id ? orgUrlSegment : null,
-		orgName: shell.org.name,
-		isAdmin: shell.member.isAdmin
+		orgUrlSlug: orgUrlSegment !== organization.id ? orgUrlSegment : null,
+		orgName: organization.name ?? 'Organization',
+		isAdmin: auth.role === 'admin'
 	};
 }
 
-export function buildSettingsPageOrganization(parentData: SettingsSubrouteParentData): SettingsPageOrganization {
-	if (parentData.shell.kind !== 'ready') {
-		throw new Error('Settings organization data requires a ready app shell');
-	}
-
-	const shell = parentData.shell;
-	const orgUrlSegment = shell.org.urlSegment;
-
+export function buildSettingsPageOrganization(organization: OrganizationRouteIdentity): SettingsPageOrganization {
+	const urlSegment = getPreferredOrganizationUrlSegment(organization);
 	return {
-		id: shell.org.id,
-		name: shell.org.name,
-		urlSlug: orgUrlSegment !== shell.org.id ? orgUrlSegment : null,
-		urlSegment: orgUrlSegment
+		id: organization.id,
+		name: organization.name ?? 'Organization',
+		urlSlug: urlSegment !== organization.id ? urlSegment : null,
+		urlSegment
 	};
 }
 

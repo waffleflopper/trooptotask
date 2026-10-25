@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createReadyAppShellRouteData } from '../../appShell.test-support';
+import { createReadyAppShellRouteData, createOrganizationLoadEventData } from '../../appShell.test-support';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
 
@@ -42,9 +42,11 @@ describe('features settings page server', () => {
 
 		await expect(
 			load({
-				locals: {},
+				depends: () => undefined,
 				cookies: {},
-				parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'C Co', orgUrlSegment: 'c-co' })
+				...createOrganizationLoadEventData(
+					createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'C Co', orgUrlSegment: 'c-co' })
+				)
 			} as never)
 		).rejects.toMatchObject({ status: 403 });
 		expect(context).not.toHaveBeenCalled();

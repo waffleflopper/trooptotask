@@ -26,7 +26,7 @@ export interface WorkspaceValueHydrationTarget<TValue, TMode extends string> {
 	items: TValue | Promise<TValue>;
 }
 
-export type ResolvedSnapshotKeyStrategy = 'hash' | 'json' | 'random';
+export type ResolvedSnapshotKeyStrategy = 'hash' | 'random';
 
 interface CreateWorkspaceHydrationTargetOptions<TMode extends string> {
 	mode: TMode;
@@ -74,12 +74,9 @@ function createResolvedSnapshotKey(value: unknown, strategy: ResolvedSnapshotKey
 
 	try {
 		const content = JSON.stringify(value) ?? String(value);
-		if (strategy === 'hash') {
-			return `resolved:${content.length}:${hashSnapshotContent(content)}`;
-		}
-		return `resolved:${content}`;
+		return `resolved:${content.length}:${hashSnapshotContent(content)}`;
 	} catch {
-		return generateSnapshotId(strategy === 'hash' ? 'resolved' : 'resolved:fallback');
+		return generateSnapshotId('resolved');
 	}
 }
 

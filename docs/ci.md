@@ -28,6 +28,8 @@ After fresh replay, Database contracts applies `scripts/demo-clinic/seed.sql` in
 
 ## Vercel
 
+Functions are pinned to `pdx1` because the production database is in us-west (Oregon).
+
 Vercel deploys only `main` (`git.deploymentEnabled` in [vercel.json](../vercel.json)); PR branches get no automatic preview. Create a preview only when Robert asks for one. From a checkout where `vercel whoami` succeeds, this deploys the pushed head of the current branch:
 
 ```bash

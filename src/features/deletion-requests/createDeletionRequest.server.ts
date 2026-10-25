@@ -72,7 +72,7 @@ export async function createDeletionRequest(
 			type: 'deletion_request_pending',
 			title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
 			message: `${input.userEmail} requested to ${actionWord} "${input.resourceDescription}". Review in Unit settings.`,
-			link: `/org/${ctx.auth.orgId}/settings`
+			link: `/org/${ctx.auth.orgId}/settings/general`
 		})
 	);
 

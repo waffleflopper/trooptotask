@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-24-faster-pages',
+		date: '2026-10-24',
+		title: 'Faster Pages on Slow Connections',
+		items: [
+			'Choosing a notification opens it right away instead of waiting for it to be marked read. If marking it read fails, a message asks you to reopen the bell and try again.',
+			'A broad search in By Group shows the first 250 matches, so the roster keeps up while you type. Keep typing to narrow it, collapse a Group to see more of the Groups below, or choose Use A-Z View to page through everyone.'
+		]
+	},
+	{
 		id: '2026-10-24-personnel-roster',
 		date: '2026-10-24',
 		title: 'See Who Needs You From the Personnel Roster',

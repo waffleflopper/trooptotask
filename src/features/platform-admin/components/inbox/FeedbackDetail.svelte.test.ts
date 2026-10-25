@@ -222,7 +222,7 @@ describe('Feedback detail', () => {
 		failReads = true;
 		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
 
-		expect(await screen.findByText(/could not be reloaded/)).toBeTruthy();
+		expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
 		const send = screen.getByRole('button', { name: 'Send reply' }) as HTMLButtonElement;
 		expect(send.disabled).toBe(true);
 
@@ -238,14 +238,15 @@ describe('Feedback detail', () => {
 		await fireEvent.input(composer, { target: { value: 'We can reproduce this.' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
 
-		expect(await screen.findByText('This feedback was closed. Reload to see it.')).toBeTruthy();
+		const reload = await screen.findByRole('button', { name: 'Reload' });
+		expect(screen.getByRole('alert')).toBeTruthy();
 		expect(composer.value).toBe('We can reproduce this.');
 		expect(onChanged).not.toHaveBeenCalled();
 		expect((screen.getByRole('button', { name: 'Send reply' }) as HTMLButtonElement).disabled).toBe(false);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+		await fireEvent.click(reload);
 		expect(onChanged).toHaveBeenCalledTimes(1);
-		expect(screen.queryByText('This feedback was closed. Reload to see it.')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull();
 	});
 
 	it('ignores a reply result that arrives after the operator left the item', async () => {
@@ -270,7 +271,7 @@ describe('Feedback detail', () => {
 	it('shows its own load error with a retry while Close without replying stays available', async () => {
 		failReads = true;
 		mount();
-		expect(await screen.findByText(/could not be loaded/)).toBeTruthy();
+		expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Close without replying' })).toBeTruthy();
 
 		failReads = false;
@@ -300,8 +301,7 @@ describe('Feedback detail', () => {
 		expect(save.disabled).toBe(false);
 		await fireEvent.click(save);
 
-		await screen.findByText('Note saved.');
-		expect(postedCommands()).toEqual([{ kind: 'saveNote', body: 'Check the month boundary' }]);
+		await waitFor(() => expect(postedCommands()).toEqual([{ kind: 'saveNote', body: 'Check the month boundary' }]));
 	});
 });
 

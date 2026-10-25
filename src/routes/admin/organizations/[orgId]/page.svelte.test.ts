@@ -127,7 +127,8 @@ describe('admin organization detail', () => {
 	});
 	it('shows no suspension notice for an active Organization', () => {
 		renderDetail();
-		expect(screen.queryByRole('alert')).toBeNull();
+		expect(screen.getByRole('heading', { level: 1, name: 'Alpha Company' })).toBeTruthy();
+		expect(screen.queryByText('This Organization is suspended.')).toBeNull();
 	});
 	it('lists members with their role and last sign-in, and pending invitations', () => {
 		render(Page, {

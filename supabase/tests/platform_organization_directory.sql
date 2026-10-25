@@ -36,7 +36,8 @@ INSERT INTO public.personnel(id, organization_id, rank, last_name, first_name, c
 
 INSERT INTO public.organization_invitations(id, organization_id, email, invited_by, status, expires_at, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids, revoked_at) VALUES
  ('e8690000-0000-4000-8000-000000000401', 'e8690000-0000-4000-8000-000000000101', 'pending-dir@example.test', 'e8690000-0000-4000-8000-000000000002', 'pending', now() + interval '7 days', 'member', 'viewer', '{}', 'organization', ARRAY[]::uuid[], NULL),
- ('e8690000-0000-4000-8000-000000000402', 'e8690000-0000-4000-8000-000000000101', 'revoked-dir@example.test', 'e8690000-0000-4000-8000-000000000002', 'revoked', now() + interval '7 days', 'member', 'viewer', '{}', 'organization', ARRAY[]::uuid[], now());
+ ('e8690000-0000-4000-8000-000000000402', 'e8690000-0000-4000-8000-000000000101', 'revoked-dir@example.test', 'e8690000-0000-4000-8000-000000000002', 'revoked', now() + interval '7 days', 'member', 'viewer', '{}', 'organization', ARRAY[]::uuid[], now()),
+ ('e8690000-0000-4000-8000-000000000403', 'e8690000-0000-4000-8000-000000000101', 'expired-dir@example.test', 'e8690000-0000-4000-8000-000000000002', 'pending', now() - interval '1 day', 'member', 'viewer', '{}', 'organization', ARRAY[]::uuid[], NULL);
 
 INSERT INTO public.audit_logs(org_id, user_id, action, resource_type, severity, "timestamp") VALUES
  ('e8690000-0000-4000-8000-000000000101', 'e8690000-0000-4000-8000-000000000002', 'personnel.create', 'personnel', 'info', now() - interval '1 hour'),
@@ -66,6 +67,7 @@ SELECT results_eq(
  $$VALUES (2::bigint, 2::bigint, 1::bigint, 'alpha-owner-dir@example.test'::text)$$,
  'the list counts members, active personnel and names the single owner');
 SELECT is((SELECT owner_email FROM public.platform_list_organizations('Charlie Dirtest', 'all', 1, 25)), 'charlie-owner-dir@example.test', 'an owner without a saved membership email falls back to the account email');
+SELECT is((SELECT name FROM public.platform_list_organizations('charlie-owner-dir', 'all', 1, 25)), 'Charlie Dirtest', 'search finds an owner by the account email when the membership has none');
 SELECT is((SELECT last_active_at IS NULL FROM public.platform_list_organizations('Charlie Dirtest', 'all', 1, 25)), true, 'a unit with no audit events has no last active time');
 SELECT results_eq($$SELECT name FROM public.platform_list_organizations('bravo-owner', 'all', 1, 25)$$, $$VALUES ('Bravo Dirtest'::text)$$, 'the list searches by owner email');
 SELECT results_eq($$SELECT name FROM public.platform_list_organizations('100%', 'all', 1, 25)$$, $$VALUES ('Delta 100% Dirtest'::text)$$, 'a percent sign in the search matches itself');
@@ -91,7 +93,7 @@ SELECT is((public.platform_organization_detail('e8690000-0000-4000-8000-00000000
 SELECT is(public.platform_organization_detail('e8690000-0000-4000-8000-000000000101')->'members'->0->>'email', 'alpha-owner-dir@example.test', 'detail lists the owner first');
 SELECT is(public.platform_organization_detail('e8690000-0000-4000-8000-000000000101')->'members'->1->>'role', 'member', 'detail lists members with their roles');
 SELECT isnt(public.platform_organization_detail('e8690000-0000-4000-8000-000000000101')->'members'->0->>'lastSignInAt', NULL, 'detail carries the last sign-in');
-SELECT is(jsonb_array_length(public.platform_organization_detail('e8690000-0000-4000-8000-000000000101')->'invitations'), 1, 'detail lists pending invitations only');
+SELECT is(jsonb_array_length(public.platform_organization_detail('e8690000-0000-4000-8000-000000000101')->'invitations'), 1, 'detail lists pending invitations that have not expired');
 SELECT is(public.platform_organization_detail('e8690000-0000-4000-8000-000000000104')->'suspension'->>'reason', 'Synthetic abuse report', 'detail carries the suspension reason');
 SELECT is(public.platform_organization_detail('e8690000-0000-4000-8000-000000000104')->'suspension'->>'suspendedByEmail', 'operator-dir@example.test', 'detail names the operator who suspended');
 SELECT is(public.platform_organization_detail('e8690000-0000-4000-8000-000000000101')->'suspension', 'null'::jsonb, 'an active Organization has no suspension');

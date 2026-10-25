@@ -101,7 +101,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
 			OR o.name ILIKE search.pattern
 			OR EXISTS (
 				SELECT 1 FROM public.organization_memberships m
-				WHERE m.organization_id = o.id AND m.role = 'owner' AND m.email ILIKE search.pattern
+				LEFT JOIN auth.users owner_account ON owner_account.id = m.user_id
+				WHERE m.organization_id = o.id AND m.role = 'owner'
+					AND coalesce(m.email, owner_account.email) ILIKE search.pattern
 			)
 	),
 	filtered AS (
@@ -176,7 +178,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
 				'id', i.id, 'email', i.email, 'role', i.role, 'invitedAt', i.created_at, 'expiresAt', i.expires_at
 			) ORDER BY i.created_at DESC, i.id DESC)
 			FROM public.organization_invitations i
-			WHERE i.organization_id = o.id AND i.status = 'pending'
+			WHERE i.organization_id = o.id AND i.status = 'pending' AND i.expires_at > pg_catalog.now()
 		), '[]'::jsonb)
 	)
 	FROM public.organizations o

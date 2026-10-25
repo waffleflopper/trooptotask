@@ -79,6 +79,20 @@ describe('settleAction', () => {
 		expect(document.activeElement).toBe(button);
 	});
 
+	it('keeps the typed value when the view opts out of the form reset', async () => {
+		const { input, button, page } = mount();
+		input.value = 'kept@example.mil';
+
+		await settleAction(frameworkOutcome({ type: 'success', status: 200, data: { inviteSuccess: true } }, page), {
+			isCurrent: current,
+			settled: () => {},
+			focus: () => [button],
+			reset: false
+		});
+
+		expect(input.value).toBe('kept@example.mil');
+	});
+
 	it('applies a failure so its field message renders', async () => {
 		const { button, page } = mount();
 		const errors: Array<string | null> = [];

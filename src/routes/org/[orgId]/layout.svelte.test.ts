@@ -90,7 +90,8 @@ function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') 
 		},
 		state: { orgSuspended: false },
 		preferences: getDefaultUserOrgPreferences(),
-		announcements: []
+		announcements: [],
+		whatsNew: [{ id: 'entry-newest', title: 'Update', paragraphs: ['Body'], publishedOn: '2026-10-24' }]
 	};
 	return { viewer: null, shell, identitySessionScope: { userId, sessionId } } satisfies LayoutData;
 }

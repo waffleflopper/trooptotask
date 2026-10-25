@@ -9,6 +9,9 @@ export { loginIdentity } from './login.server';
 
 export { readIdentityAdmission } from './admission.server';
 export { getIdentityViewer } from './viewer.server';
+export { createAccountProfilePage } from './accountProfilePage.server';
+export { loadAccountSecurityPage, accountSecurityActions } from './accountSecurityPage.server';
+export { loadStandaloneAccount } from './standaloneAccount.server';
 export {
 	getIdentitySessionScope,
 	getAuthenticatedRedirectPath,

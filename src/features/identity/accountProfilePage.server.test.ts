@@ -4,10 +4,8 @@ const { upsertUserProfileMock } = vi.hoisted(() => ({
 	upsertUserProfileMock: vi.fn()
 }));
 
-vi.mock('$features/identity/index.server', async () => {
-	const actual = await vi.importActual<typeof import('$features/identity/index.server')>(
-		'$features/identity/index.server'
-	);
+vi.mock('./userProfile.server', async () => {
+	const actual = await vi.importActual<typeof import('./userProfile.server')>('./userProfile.server');
 
 	return {
 		...actual,
@@ -15,7 +13,8 @@ vi.mock('$features/identity/index.server', async () => {
 	};
 });
 
-import { actions } from './+page.server';
+import { createAccountProfilePage } from './accountProfilePage.server';
+const { actions } = createAccountProfilePage(['CPT', 'SGT']);
 
 function makeProfileRequest(form: Record<string, string>): Request {
 	return new Request('http://localhost/org/alpha/account/profile', {

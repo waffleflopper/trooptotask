@@ -17,14 +17,15 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 			if (error) throw new Error(error.message);
 			return data as Pick<Notification, 'id' | 'user_id'> | null;
 		},
-		async listOwn(orgId, userId) {
+		async listOwn(orgId, userId, limit = 20) {
 			const { data, error } = await supabase
 				.from('notifications')
 				.select('*')
 				.or(`organization_id.eq.${orgId},organization_id.is.null`)
 				.eq('user_id', userId)
 				.order('created_at', { ascending: false })
-				.limit(20);
+				.order('id', { ascending: false })
+				.limit(limit);
 			if (error) throw new Error(error.message);
 			return (data ?? []) as Notification[];
 		},

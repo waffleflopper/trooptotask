@@ -21,14 +21,14 @@ async function findNotificationForOwnership(ports: NotificationSelfPorts, id: st
 	return notification;
 }
 
-export async function listOwnNotifications(ports: NotificationSelfPorts): Promise<Notification[]> {
+export async function listOwnNotifications(ports: NotificationSelfPorts, limit = 20): Promise<Notification[]> {
 	await requireIdentityOwnedPolicy(
 		ports,
 		POLICY_ACTION_CATALOG.identity.readOwnNotifications,
 		ports.auth.userId,
 		AUDIT_RESOURCE
 	);
-	return ports.store.listOwn(ports.auth.orgId, ports.auth.userId);
+	return ports.store.listOwn(ports.auth.orgId, ports.auth.userId, limit);
 }
 
 export async function markAllOwnNotificationsRead(ports: NotificationSelfPorts): Promise<void> {

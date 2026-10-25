@@ -74,7 +74,7 @@ async function renderPage(search = '', pageData = data()) {
 }
 async function submit(button: HTMLElement) {
 	await act();
-	const form = button.closest('form')!;
+	const form = (button as HTMLButtonElement).form!;
 	const input = {
 		formElement: form,
 		formData: new FormData(form),
@@ -119,8 +119,8 @@ describe('admin What’s New', () => {
 		expect(items).toHaveLength(3);
 		expect(within(items[0]).getByText('Draft')).toBeTruthy();
 		expect(within(items[1]).getByText('Published')).toBeTruthy();
-		expect(within(items[1]).getByText('Shown to users')).toBeTruthy();
-		expect(within(items[2]).queryByText('Shown to users')).toBeNull();
+		expect(within(items[1]).getByText('Shown in app')).toBeTruthy();
+		expect(within(items[2]).queryByText('Shown in app')).toBeNull();
 	});
 
 	it('shows a skeleton while the entries load', () => {

@@ -12,7 +12,7 @@ describe('BannerPreview', () => {
 		expect(within(preview).getByText('Maintenance')).toBeTruthy();
 		expect(within(preview).getByText('Down at 2200')).toBeTruthy();
 		expect(screen.queryByRole('alert')).toBeNull();
-		expect(screen.getByText('Shown until you deactivate it.')).toBeTruthy();
+		expect(screen.getByText('Shown until you turn it off.')).toBeTruthy();
 	});
 
 	it('stands in placeholder text for an empty title and message', () => {

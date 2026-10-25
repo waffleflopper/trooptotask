@@ -21,8 +21,10 @@
 
 <PageShell.Root width="content" density="compact">
 	<PageShell.Header
+		eyebrow="Platform · Communication"
 		title="Announcements"
-		subtitle="Banners every signed-in account sees, and the updates in What's New."
+		variant="display"
+		subtitle="Banners every signed-in user sees, and the What's New entries."
 	/>
 	<PageShell.Tabs label="Announcement sections" {items} />
 	{@render children()}

@@ -229,23 +229,19 @@
 		aria-label="Entries"
 		aria-busy={listPending || undefined}
 	>
-		<Button
-			type="button"
-			class="w-fit"
-			onclick={() => select('new')}
-			aria-disabled={writesDisabled ? 'true' : undefined}
-		>
-			<PlusIcon aria-hidden="true" />
-			New Entry
-		</Button>
+		<div class="flex items-center justify-between gap-3">
+			<h2 class="font-heading text-[22px] leading-[26px] font-bold">Entries</h2>
+			<Button type="button" onclick={() => select('new')} aria-disabled={writesDisabled ? 'true' : undefined}>
+				<PlusIcon aria-hidden="true" />
+				New Entry
+			</Button>
+		</div>
 		{#if listPending}
 			{#each [0, 1, 2, 3] as placeholder (placeholder)}
-				<Card.Root data-testid="entry-skeleton">
-					<Card.Header class="gap-2">
-						<Skeleton class="h-5 w-3/4" />
-						<Skeleton class="h-4 w-1/2" />
-					</Card.Header>
-				</Card.Root>
+				<div class="grid gap-2 border-b px-3 py-3" data-testid="entry-skeleton">
+					<Skeleton class="h-5 w-3/4" />
+					<Skeleton class="h-4 w-1/2" />
+				</div>
 			{/each}
 		{:else if listFailed}
 			<Alert.Root variant="destructive">
@@ -272,14 +268,14 @@
 				</Card.Content>
 			</Card.Root>
 		{:else}
-			<ul class="m-0 grid list-none gap-2 p-0">
+			<ul class="m-0 list-none border-t-2 border-foreground p-0">
 				{#each entries as entry (entry.id)}
-					<li>
+					<li class="border-b">
 						<a
 							href={`/admin/announcements/whats-new?entry=${encodeURIComponent(entry.id)}`}
 							class={cn(
-								'grid gap-1.5 rounded-lg border bg-card p-3 text-left no-underline hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-								entry.id === selection && 'border-primary'
+								'grid gap-1 border-l-2 border-transparent px-3 py-3 text-left no-underline hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								entry.id === selection && 'border-l-primary bg-accent'
 							)}
 							aria-current={entry.id === selection ? 'true' : undefined}
 							onclick={(event) => {
@@ -288,20 +284,30 @@
 								void select(entry.id);
 							}}
 						>
-							<span class="text-sm font-medium text-foreground">{entry.title}</span>
-							<span class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+							<span class="flex items-start justify-between gap-3">
+								<span class="min-w-0 text-sm font-semibold text-foreground wrap-anywhere">{entry.title}</span>
 								{#if entry.publishedOn}
-									<Badge variant="secondary">Published</Badge>
-									{formatDisplayDate(entry.publishedOn)}
-									{#if entry.shownToUsers}<Badge variant="outline">Shown to users</Badge>{/if}
+									<Badge variant="success" class="font-mono text-[11px] tracking-wide uppercase">Published</Badge>
 								{:else}
-									<Badge variant="outline">Draft</Badge>
+									<Badge variant="warning" class="font-mono text-[11px] tracking-wide uppercase">Draft</Badge>
+								{/if}
+							</span>
+							<span class="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
+								{#if entry.publishedOn}
+									{formatDisplayDate(entry.publishedOn)}{#if entry.shownToUsers}
+										· <span>Shown in app</span>{/if}
+								{:else}
+									Not published
 								{/if}
 							</span>
 						</a>
 					</li>
 				{/each}
 			</ul>
+			<p class="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
+				{entries.length}
+				{entries.length === 1 ? 'entry' : 'entries'}
+			</p>
 		{/if}
 	</section>
 
@@ -311,7 +317,14 @@
 			>
 			<Card.Root>
 				<Card.Header>
-					<Card.Title>{selection === 'new' ? 'New Entry' : isPublished ? 'Published Entry' : 'Draft Entry'}</Card.Title>
+					<div class="flex items-center justify-between gap-3">
+						<Card.Title>{selection === 'new' ? 'New entry' : 'Edit entry'}</Card.Title>
+						{#if isPublished}
+							<Badge variant="success" class="font-mono text-[11px] tracking-wide uppercase">Published</Badge>
+						{:else}
+							<Badge variant="warning" class="font-mono text-[11px] tracking-wide uppercase">Draft</Badge>
+						{/if}
+					</div>
 					<Card.Description>
 						{#if isPublished}
 							Published {formatDisplayDate(selectedEntry?.publishedOn ?? null)}. Edits show for everyone straight away.
@@ -321,24 +334,35 @@
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					<form method="POST" action="?/save" class="grid gap-4" use:enhance={submitEntry('save')}>
+					<form id="entry-form" method="POST" action="?/save" class="grid gap-4" use:enhance={submitEntry('save')}>
 						<input type="hidden" name="id" value={selection === 'new' ? '' : (selectedEntry?.id ?? '')} />
-						<Field.Root>
-							<Field.Label for="entry-title">Title</Field.Label>
-							<Input
-								bind:ref={titleInput}
-								bind:value={title}
-								id="entry-title"
-								name="title"
-								type="text"
-								maxlength={WHATS_NEW_LIMITS.titleLength}
-								required
-							/>
-						</Field.Root>
+						<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+							<Field.Root>
+								<Field.Label for="entry-title">Title</Field.Label>
+								<Input
+									bind:ref={titleInput}
+									bind:value={title}
+									id="entry-title"
+									name="title"
+									type="text"
+									maxlength={WHATS_NEW_LIMITS.titleLength}
+									required
+								/>
+							</Field.Root>
+							<Field.Root>
+								<Field.Label for="entry-date">Date</Field.Label>
+								<Input
+									id="entry-date"
+									type="text"
+									readonly
+									value={isPublished ? formatDisplayDate(selectedEntry?.publishedOn ?? null) : 'Today when published'}
+								/>
+							</Field.Root>
+						</div>
 						<div class="grid gap-3">
 							<p class="text-sm font-medium">Paragraphs</p>
 							{#each paragraphs as _, index (index)}
-								<div class="grid gap-2 rounded-md border p-2">
+								<div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
 									<Textarea
 										bind:value={paragraphs[index]}
 										name="paragraph"
@@ -346,27 +370,7 @@
 										maxlength={WHATS_NEW_LIMITS.paragraphLength}
 										aria-label={`Paragraph ${index + 1}`}
 									></Textarea>
-									<div class="flex flex-wrap gap-1">
-										<Button
-											type="button"
-											variant="ghost"
-											size="xs"
-											disabled={index === 0}
-											onclick={() => moveParagraph(index, -1)}
-											aria-label={`Move paragraph ${index + 1} up`}
-										>
-											<ArrowUpIcon aria-hidden="true" />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="xs"
-											disabled={index === paragraphs.length - 1}
-											onclick={() => moveParagraph(index, 1)}
-											aria-label={`Move paragraph ${index + 1} down`}
-										>
-											<ArrowDownIcon aria-hidden="true" />
-										</Button>
+									<div class="flex flex-col items-end gap-1">
 										<Button
 											type="button"
 											variant="ghost"
@@ -374,8 +378,30 @@
 											onclick={() => removeParagraph(index)}
 											aria-label={`Remove paragraph ${index + 1}`}
 										>
-											<XIcon aria-hidden="true" />
+											Remove
 										</Button>
+										<div class="flex gap-0.5">
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon-xs"
+												disabled={index === 0}
+												onclick={() => moveParagraph(index, -1)}
+												aria-label={`Move paragraph ${index + 1} up`}
+											>
+												<ArrowUpIcon aria-hidden="true" />
+											</Button>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon-xs"
+												disabled={index === paragraphs.length - 1}
+												onclick={() => moveParagraph(index, 1)}
+												aria-label={`Move paragraph ${index + 1} down`}
+											>
+												<ArrowDownIcon aria-hidden="true" />
+											</Button>
+										</div>
 									</div>
 								</div>
 							{/each}
@@ -390,40 +416,16 @@
 								Add Paragraph
 							</Button>
 						</div>
-						<div class="flex flex-wrap justify-end gap-2">
-							<Button
-								type="submit"
-								variant={isPublished ? 'default' : 'outline'}
-								value="save"
-								disabled={needsReload}
-								aria-disabled={pending ? 'true' : undefined}
-								aria-busy={pending?.kind === 'save' || undefined}
-							>
-								{#if pending?.kind === 'save'}<Spinner />{/if}
-								{isPublished ? 'Save Changes' : 'Save Draft'}
-							</Button>
-							{#if !isPublished}
-								<Button
-									type="submit"
-									value="publish"
-									disabled={needsReload}
-									aria-disabled={pending ? 'true' : undefined}
-									aria-busy={pending?.kind === 'publish' || undefined}
-								>
-									{#if pending?.kind === 'publish'}<Spinner />{/if}
-									Publish
-								</Button>
-							{/if}
-						</div>
 					</form>
 				</Card.Content>
-				{#if selectedEntry && !isPublished}
-					<Card.Footer class="justify-end">
+				<Card.Footer class="flex-wrap justify-end gap-2 border-t">
+					{#if selectedEntry && !isPublished}
 						<form bind:this={deleteForm} method="POST" action="?/delete" use:enhance={submitEntry('delete')}>
 							<input type="hidden" name="id" value={selectedEntry.id} />
 							<Button
 								type="submit"
-								variant="destructive"
+								variant="ghost"
+								class="text-danger-foreground hover:text-danger-foreground"
 								disabled={needsReload}
 								aria-disabled={pending ? 'true' : undefined}
 								aria-busy={pending?.kind === 'delete' || undefined}
@@ -432,8 +434,33 @@
 								Delete Draft
 							</Button>
 						</form>
-					</Card.Footer>
-				{/if}
+					{/if}
+					<Button
+						type="submit"
+						form="entry-form"
+						variant={isPublished ? 'default' : 'outline'}
+						value="save"
+						disabled={needsReload}
+						aria-disabled={pending ? 'true' : undefined}
+						aria-busy={pending?.kind === 'save' || undefined}
+					>
+						{#if pending?.kind === 'save'}<Spinner />{/if}
+						{isPublished ? 'Save Changes' : 'Save Draft'}
+					</Button>
+					{#if !isPublished}
+						<Button
+							type="submit"
+							form="entry-form"
+							value="publish"
+							disabled={needsReload}
+							aria-disabled={pending ? 'true' : undefined}
+							aria-busy={pending?.kind === 'publish' || undefined}
+						>
+							{#if pending?.kind === 'publish'}<Spinner />{/if}
+							Publish
+						</Button>
+					{/if}
+				</Card.Footer>
 			</Card.Root>
 		{:else if missingSelection}
 			<Alert.Root variant="warning">

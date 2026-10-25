@@ -11,14 +11,15 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import { NativeSelect } from '$lib/components/ui/native-select';
-	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
+	import { formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { restoreFocus, settleAction } from '$lib/utils/settleAction';
+	import type { PlatformAnnouncement } from '$features/platform-admin/contracts';
 	import BannerPreview from './BannerPreview.svelte';
 	import { followStreamedRead } from './streamedRead.svelte';
 	import type { ActionData, PageData } from './$types';
@@ -44,7 +45,6 @@
 	let draftExpiry = $state('');
 	const draftExpiresAt = $derived(draftExpiry ? new Date(draftExpiry).toISOString() : null);
 
-	let showCreateForm = $state(false);
 	type PendingOperation =
 		| { kind: 'create' }
 		| { kind: 'reload' }
@@ -69,7 +69,6 @@
 		pending = null;
 		needsReload = false;
 		actionError = null;
-		showCreateForm = false;
 		deleteRequest = null;
 	}
 	beforeNavigate(retirePage);
@@ -81,25 +80,19 @@
 		}
 	});
 
-	const toolbarLabel = 'Banner controls';
-	function createButton(): HTMLElement | null {
-		return document.querySelector<HTMLElement>(
-			`[data-slot="workspace-toolbar"][aria-label="${toolbarLabel}"] [data-toolbar-item="create"] button`
-		);
-	}
-
-	async function setCreateForm(open: boolean) {
+	function resetDraft() {
 		editorLifetime += 1;
 		actionError = null;
-		if (open) {
-			draftTitle = '';
-			draftMessage = '';
-			draftType = 'info';
-			draftExpiry = '';
-		}
-		showCreateForm = open;
+		draftTitle = '';
+		draftMessage = '';
+		draftType = 'info';
+		draftExpiry = '';
+	}
+
+	async function cancelDraft() {
+		resetDraft();
 		await tick();
-		(open ? titleInput : createButton())?.focus();
+		titleInput?.focus();
 	}
 
 	function confirmDelete() {
@@ -132,7 +125,7 @@
 		if (!isCurrent()) return;
 		pending = null;
 		await tick();
-		if (isCurrent()) restoreFocus([reloadButton, createButton(), titleInput]);
+		if (isCurrent()) restoreFocus([reloadButton, titleInput]);
 	}
 
 	const submitBanner =
@@ -175,39 +168,39 @@
 							if (isCurrentEditor())
 								actionError = typeof result.data?.error === 'string' ? result.data.error : 'Banner could not be saved.';
 						} else if (operation.kind === 'create' && isCurrentEditor()) {
-							editorLifetime += 1;
-							showCreateForm = false;
+							resetDraft();
 						}
 					},
-					focus: () => [submitter, reloadButton, createButton(), titleInput]
+					focus: () => [submitter, reloadButton, titleInput],
+					reset: false
 				});
 			};
 		};
 
-	function getStatus(announcement: { isActive: boolean; expiresAt: string | null }) {
-		if (announcement.expiresAt && new Date(announcement.expiresAt) < new Date()) {
-			return { label: 'Expired', value: 'expired' };
-		}
-		return announcement.isActive ? { label: 'Active', value: 'active' } : { label: 'Inactive', value: 'reviewed' };
+	type BannerState = 'live' | 'ended' | 'off';
+	function bannerState(announcement: { isActive: boolean; expiresAt: string | null }): BannerState {
+		if (announcement.expiresAt && new Date(announcement.expiresAt) < new Date()) return 'ended';
+		return announcement.isActive ? 'live' : 'off';
+	}
+	const liveBanners = $derived(announcements.filter((announcement) => bannerState(announcement) === 'live'));
+	const endedBanners = $derived(announcements.filter((announcement) => bannerState(announcement) !== 'live'));
+
+	function bannerWindow(announcement: { createdAt: string; expiresAt: string | null }, state: BannerState) {
+		const since = formatDisplayDate(announcement.createdAt);
+		const until = announcement.expiresAt ? formatDisplayDate(announcement.expiresAt) : null;
+		if (state === 'live') return until ? `since ${since} · until ${until}` : `since ${since}`;
+		if (state === 'ended') return `${since} to ${until}`;
+		return `since ${since} · turned off`;
 	}
 
 	function dismissalLabel(count: number) {
-		if (count === 0) return 'Not dismissed yet';
-		return `Dismissed by ${count} ${count === 1 ? 'account' : 'accounts'}`;
+		return count === 0 ? 'not dismissed yet' : `${count} dismissed`;
 	}
 </script>
 
 <svelte:head>
 	<title>Banners - Announcements - Admin - Troop to Task</title>
 </svelte:head>
-
-{#if !showCreateForm}
-	<WorkspaceToolbar
-		ariaLabel={toolbarLabel}
-		items={[]}
-		primary={{ kind: 'action', id: 'create', label: 'Create Banner', onclick: () => setCreateForm(true) }}
-	/>
-{/if}
 
 {#if displayedError}
 	<Alert.Root variant="destructive">
@@ -231,13 +224,79 @@
 	</Alert.Root>
 {/if}
 
-{#if showCreateForm}
+{#snippet bannerRow(announcement: PlatformAnnouncement, state: BannerState)}
+	<li class="grid gap-1.5 border-b py-3" data-testid="banner-row">
+		<div class="flex items-start justify-between gap-3">
+			<h3 class="min-w-0 text-sm font-semibold wrap-anywhere">{announcement.title}</h3>
+			<Badge variant={state === 'live' ? 'success' : 'outline'} class="font-mono text-[11px] tracking-wide uppercase">
+				{state === 'live' ? 'Live' : state === 'ended' ? 'Ended' : 'Off'}
+			</Badge>
+		</div>
+		<p class="text-xs text-muted-foreground">
+			{formatAdminLabel(announcement.type)} · {bannerWindow(announcement, state)} ·
+			<span data-testid="banner-dismissals">
+				{#if dismissalCounts === 'pending'}
+					<Skeleton class="inline-block h-3 w-20 align-middle" />
+				{:else if dismissalCounts === 'failed'}
+					dismissal count unavailable
+				{:else}
+					{dismissalLabel(dismissalCounts[announcement.id] ?? 0)}
+				{/if}
+			</span>
+		</p>
+		<p class="line-clamp-2 text-sm text-muted-foreground">{announcement.message}</p>
+		<div class="flex flex-wrap gap-2">
+			{#if state !== 'ended'}
+				<form
+					method="POST"
+					action="?/toggle"
+					use:enhance={submitBanner({ kind: 'toggle', id: announcement.id, title: announcement.title })}
+				>
+					<input type="hidden" name="id" value={announcement.id} />
+					<input type="hidden" name="isActive" value={String(!announcement.isActive)} />
+					<Button
+						type="submit"
+						variant="outline"
+						size="sm"
+						disabled={needsReload}
+						aria-disabled={pending ? 'true' : undefined}
+						aria-busy={(pending?.kind === 'toggle' && pending.id === announcement.id) || undefined}
+						aria-label={`${announcement.isActive ? 'Turn off' : 'Turn on'} ${announcement.title}`}
+					>
+						{#if pending?.kind === 'toggle' && pending.id === announcement.id}<Spinner />{/if}
+						{announcement.isActive ? 'Turn off' : 'Turn on'}
+					</Button>
+				</form>
+			{/if}
+			<form
+				method="POST"
+				action="?/delete"
+				use:enhance={submitBanner({ kind: 'delete', id: announcement.id, title: announcement.title })}
+			>
+				<input type="hidden" name="id" value={announcement.id} />
+				<Button
+					type="submit"
+					variant="destructive"
+					size="sm"
+					disabled={needsReload}
+					aria-disabled={pending ? 'true' : undefined}
+					aria-busy={(pending?.kind === 'delete' && pending.id === announcement.id) || undefined}
+					aria-label={`Delete ${announcement.title}`}
+				>
+					{#if pending?.kind === 'delete' && pending.id === announcement.id}<Spinner />{/if}
+					Delete
+				</Button>
+			</form>
+		</div>
+	</li>
+{/snippet}
+
+<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>New Banner</Card.Title>
-			<Card.Description>Keep the message short, direct, and operationally clear.</Card.Description>
+			<Card.Title>New banner</Card.Title>
 		</Card.Header>
-		<Card.Content class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+		<Card.Content>
 			<form method="POST" action="?/create" class="grid gap-4" use:enhance={submitBanner({ kind: 'create' })}>
 				<Field.Root>
 					<Field.Label for="title">Title</Field.Label>
@@ -258,29 +317,46 @@
 						bind:value={draftMessage}
 						id="message"
 						name="message"
-						rows={4}
+						rows={3}
 						maxlength={1000}
 						placeholder="Banner message"
 						required
 					></Textarea>
 				</Field.Root>
-				<div class="grid gap-4 sm:grid-cols-2">
+				<div class="grid gap-4 sm:grid-cols-[auto_minmax(0,16rem)] sm:items-start">
 					<Field.Root>
-						<Field.Label for="type">Type</Field.Label>
-						<NativeSelect id="type" name="type" bind:value={draftType} required>
-							<option value="info">Info</option>
-							<option value="warning">Warning</option>
-							<option value="maintenance">Maintenance</option>
-						</NativeSelect>
+						<Field.Label id="banner-type-label">Type</Field.Label>
+						<ToggleGroup.Root
+							type="single"
+							aria-labelledby="banner-type-label"
+							bind:value={
+								() => draftType,
+								(value) => {
+									if (value) draftType = value as typeof draftType;
+								}
+							}
+						>
+							<ToggleGroup.Item value="info">Info</ToggleGroup.Item>
+							<ToggleGroup.Item value="warning">Warning</ToggleGroup.Item>
+							<ToggleGroup.Item value="maintenance">Maintenance</ToggleGroup.Item>
+						</ToggleGroup.Root>
+						<input type="hidden" name="type" value={draftType} />
 					</Field.Root>
 					<Field.Root>
-						<Field.Label for="expiresAtLocal">Expires At</Field.Label>
+						<Field.Label for="expiresAtLocal">Ends</Field.Label>
 						<Input id="expiresAtLocal" type="datetime-local" bind:value={draftExpiry} />
 						<input type="hidden" name="expiresAt" value={draftExpiresAt ?? ''} />
+						<Field.Description>Leave empty to show until you turn it off.</Field.Description>
 					</Field.Root>
 				</div>
+				<div class="grid gap-2">
+					<p class="font-mono text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+						Preview · what every signed-in user sees
+					</p>
+					<BannerPreview title={draftTitle} message={draftMessage} type={draftType} expiresAt={draftExpiresAt} />
+				</div>
 				<div class="flex flex-wrap justify-end gap-2">
-					<Button type="button" variant="outline" onclick={() => setCreateForm(false)}>Cancel</Button>
+					<Button type="button" variant="ghost" onclick={cancelDraft}>Cancel</Button>
 					<Button
 						type="submit"
 						disabled={needsReload}
@@ -288,129 +364,70 @@
 						aria-busy={pending?.kind === 'create' || undefined}
 					>
 						{#if pending?.kind === 'create'}<Spinner />{/if}
-						{pending?.kind === 'create' ? 'Saving...' : 'Save'}
+						{pending?.kind === 'create' ? 'Publishing...' : 'Publish to all users'}
 					</Button>
 				</div>
 			</form>
-			<div class="grid content-start gap-2">
-				<p class="text-sm font-medium">Preview</p>
-				<BannerPreview title={draftTitle} message={draftMessage} type={draftType} expiresAt={draftExpiresAt} />
-			</div>
 		</Card.Content>
 	</Card.Root>
-{/if}
 
-<div class="grid gap-3" aria-busy={listPending || undefined}>
-	{#if listPending}
-		{#each [0, 1] as placeholder (placeholder)}
-			<Card.Root data-testid="banner-skeleton">
-				<Card.Header class="gap-2">
-					<Skeleton class="h-4 w-48" />
-					<Skeleton class="h-[18px] w-32" />
-				</Card.Header>
-				<Card.Content class="grid gap-3">
-					<Skeleton class="h-6 w-2/3" />
-					<Skeleton class="h-4 w-40" />
-					<Skeleton class="h-4 w-32" />
-				</Card.Content>
-			</Card.Root>
-		{/each}
-	{:else if listFailed}
-		<Alert.Root variant="destructive">
-			<Alert.Description>Banners could not be loaded.</Alert.Description>
-			<Button
-				class="mt-1 w-fit"
-				variant="outline"
-				onclick={reloadBanners}
-				aria-disabled={pending ? 'true' : undefined}
-				aria-busy={pending?.kind === 'reload' || undefined}
-			>
-				{#if pending?.kind === 'reload'}<Spinner />{/if}
-				Retry
-			</Button>
-		</Alert.Root>
-	{:else if announcements.length === 0}
-		<Card.Root>
-			<Card.Content>
-				<Empty.Root>
-					<Empty.Header>
-						<Empty.Title>No banners yet.</Empty.Title>
-					</Empty.Header>
-				</Empty.Root>
-			</Card.Content>
-		</Card.Root>
-	{:else}
-		{#each announcements as announcement (announcement.id)}
-			{@const status = getStatus(announcement)}
-			<Card.Root>
-				<Card.Header class="gap-3 sm:flex-row sm:items-start sm:justify-between">
-					<div class="grid gap-2">
-						<Card.Title>{announcement.title}</Card.Title>
-						<div class="flex flex-wrap gap-2">
-							<Badge variant={adminBadgeVariant(announcement.type)}>{formatAdminLabel(announcement.type)}</Badge>
-							<Badge variant={adminBadgeVariant(status.value)}>{status.label}</Badge>
-						</div>
+	<div class="grid gap-6" aria-busy={listPending || undefined}>
+		{#if listPending}
+			<section class="grid gap-3" data-testid="banner-skeleton">
+				<Skeleton class="h-7 w-28" />
+				{#each [0, 1] as placeholder (placeholder)}
+					<div class="grid gap-2 border-b py-3">
+						<Skeleton class="h-5 w-3/4" />
+						<Skeleton class="h-4 w-1/2" />
+						<Skeleton class="h-4 w-full" />
 					</div>
-					<div class="flex flex-wrap gap-2 sm:justify-end">
-						<form
-							method="POST"
-							action="?/toggle"
-							use:enhance={submitBanner({ kind: 'toggle', id: announcement.id, title: announcement.title })}
-						>
-							<input type="hidden" name="id" value={announcement.id} />
-							<input type="hidden" name="isActive" value={String(!announcement.isActive)} />
-							<Button
-								type="submit"
-								variant="outline"
-								disabled={needsReload}
-								aria-disabled={pending ? 'true' : undefined}
-								aria-busy={(pending?.kind === 'toggle' && pending.id === announcement.id) || undefined}
-								aria-label={`${announcement.isActive ? 'Deactivate' : 'Activate'} ${announcement.title}`}
-							>
-								{#if pending?.kind === 'toggle' && pending.id === announcement.id}<Spinner />{/if}
-								{announcement.isActive ? 'Deactivate' : 'Activate'}
-							</Button>
-						</form>
-						<form
-							method="POST"
-							action="?/delete"
-							use:enhance={submitBanner({ kind: 'delete', id: announcement.id, title: announcement.title })}
-						>
-							<input type="hidden" name="id" value={announcement.id} />
-							<Button
-								type="submit"
-								variant="destructive"
-								disabled={needsReload}
-								aria-disabled={pending ? 'true' : undefined}
-								aria-busy={(pending?.kind === 'delete' && pending.id === announcement.id) || undefined}
-								aria-label={`Delete ${announcement.title}`}
-							>
-								{#if pending?.kind === 'delete' && pending.id === announcement.id}<Spinner />{/if}
-								Delete
-							</Button>
-						</form>
-					</div>
-				</Card.Header>
-				<Card.Content class="grid gap-3">
-					<p class="text-sm leading-6">{announcement.message}</p>
-					<p class="text-xs text-muted-foreground">
-						Created {formatDisplayDate(announcement.createdAt)}
-						{#if announcement.expiresAt}
-							/ Expires {formatDisplayDate(announcement.expiresAt)}{/if}
-					</p>
-					<p class="text-xs text-muted-foreground" data-testid="banner-dismissals">
-						{#if dismissalCounts === 'pending'}
-							<Skeleton class="inline-block h-3 w-32 align-middle" />
-						{:else if dismissalCounts === 'failed'}
-							Dismissal count unavailable
-						{:else}
-							{dismissalLabel(dismissalCounts[announcement.id] ?? 0)}
-						{/if}
-					</p>
-				</Card.Content>
-			</Card.Root>
-		{/each}
-	{/if}
+				{/each}
+			</section>
+		{:else if listFailed}
+			<Alert.Root variant="destructive">
+				<Alert.Description>Banners could not be loaded.</Alert.Description>
+				<Button
+					class="mt-1 w-fit"
+					variant="outline"
+					onclick={reloadBanners}
+					aria-disabled={pending ? 'true' : undefined}
+					aria-busy={pending?.kind === 'reload' || undefined}
+				>
+					{#if pending?.kind === 'reload'}<Spinner />{/if}
+					Retry
+				</Button>
+			</Alert.Root>
+		{:else if announcements.length === 0}
+			<Empty.Root>
+				<Empty.Header>
+					<Empty.Title>No banners yet.</Empty.Title>
+				</Empty.Header>
+			</Empty.Root>
+		{:else}
+			<section class="grid gap-1" aria-label="Live now">
+				<PageShell.SectionHeader title="Live now" size="compact" ruled />
+				{#if liveBanners.length === 0}
+					<p class="py-3 text-sm text-muted-foreground">No banner is live.</p>
+				{:else}
+					<ul class="m-0 list-none p-0">
+						{#each liveBanners as announcement (announcement.id)}
+							{@render bannerRow(announcement, 'live')}
+						{/each}
+					</ul>
+				{/if}
+			</section>
+			{#if endedBanners.length > 0}
+				<section class="grid gap-1" aria-label="Ended">
+					<PageShell.SectionHeader title="Ended" size="compact" ruled />
+					<ul class="m-0 list-none p-0">
+						{#each endedBanners as announcement (announcement.id)}
+							{@render bannerRow(announcement, bannerState(announcement))}
+						{/each}
+					</ul>
+				</section>
+			{/if}
+		{/if}
+	</div>
 </div>
 
 {#if deleteRequest}

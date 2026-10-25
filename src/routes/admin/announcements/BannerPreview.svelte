@@ -31,6 +31,6 @@
 		</AnnouncementBannerRow>
 	</div>
 	<figcaption class="text-xs text-muted-foreground">
-		{expiresAt ? `Shown until ${formatDisplayDateTime(expiresAt)}.` : 'Shown until you deactivate it.'}
+		{expiresAt ? `Shown until ${formatDisplayDateTime(expiresAt)}.` : 'Shown until you turn it off.'}
 	</figcaption>
 </figure>

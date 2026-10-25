@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { TrainingReportsPage } from '$features/training';
+	import TrainingReportsPage from '$features/training/components/TrainingReportsPage.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 
 	let { data } = $props();

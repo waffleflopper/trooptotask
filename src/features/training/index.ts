@@ -36,13 +36,6 @@ export type { TrainingPageData } from './contexts/TrainingPageContext.svelte';
 export { trainingTypesStore } from './stores/trainingTypes.svelte';
 export { trainingViewsStore } from './stores/trainingViews.svelte';
 export { trainingWorkspaceHydrator } from './trainingWorkspaceHydration.svelte';
-export { default as TrainingPageView } from './components/TrainingPageView.svelte';
-export { default as TrainingModals } from './components/TrainingModals.svelte';
-export { default as TrainingTypesPage } from './components/TrainingTypesPage.svelte';
-export { default as TrainingViewsPage } from './components/TrainingViewsPage.svelte';
-export { default as TrainingReportsPage } from './components/TrainingReportsPage.svelte';
-export { default as PersonnelTrainingReadinessTable } from './components/PersonnelTrainingReadinessTable.svelte';
-export { default as PersonnelTrainingDrawer } from './components/PersonnelTrainingDrawer.svelte';
 
 export function loadRecordClassDialog() {
 	return import('./components/RecordClassDialog.svelte');

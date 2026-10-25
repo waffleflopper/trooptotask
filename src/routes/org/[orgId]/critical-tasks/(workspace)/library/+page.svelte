@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
 	const org = getAppShellContext();
-	import { IctTaskLibraryPage } from '$features/critical-tasks';
+	import IctTaskLibraryPage from '$features/critical-tasks/components/IctTaskLibraryPage.svelte';
 
 	let { data } = $props();
 </script>

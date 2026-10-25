@@ -54,7 +54,7 @@ describe('organization URL slug helpers', () => {
 		};
 		const supabase = { from: () => query };
 
-		const result = await resolveOrganizationRouteIdentity(supabase as never, '1-11-bde');
+		const result = await resolveOrganizationRouteIdentity({ supabase: supabase as never }, '1-11-bde');
 
 		expect(result).toMatchObject({
 			id: '11111111-1111-4111-8111-111111111111',
@@ -78,12 +78,14 @@ describe('organization URL slug helpers', () => {
 		};
 		const supabase = { from: () => query };
 
-		await expect(resolveOrganizationRouteIdentity(supabase as never, '1-11-bde')).rejects.toMatchObject({
+		await expect(resolveOrganizationRouteIdentity({ supabase: supabase as never }, '1-11-bde')).rejects.toMatchObject({
 			status: 500,
 			message: 'Internal server error'
 		});
-		await expect(resolveOrganizationRouteIdentity(supabase as never, '1-11-bde')).rejects.not.toThrow('organizations');
-		await expect(resolveOrganizationRouteIdentity(supabase as never, '1-11-bde')).rejects.not.toThrow(
+		await expect(resolveOrganizationRouteIdentity({ supabase: supabase as never }, '1-11-bde')).rejects.not.toThrow(
+			'organizations'
+		);
+		await expect(resolveOrganizationRouteIdentity({ supabase: supabase as never }, '1-11-bde')).rejects.not.toThrow(
 			'provider_secret'
 		);
 		expect(consoleError).toHaveBeenCalledWith(

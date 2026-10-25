@@ -71,7 +71,6 @@
 				"src/lib/server/communicationsPagination.server.test.ts",
 				"src/lib/server/viewerDay.server.ts",
 				"src/lib/server/viewerDay.server.test.ts",
-				"src/lib/server/adapters/appShellRouteData.ts",
 				"src/lib/server/adapters/featureLaneWorkspaceLoad.ts",
 				"src/lib/server/adapters/featureSwitchRoute.ts",
 				"src/lib/server/adapters/personnelDetailHeaderLoad.ts",
@@ -453,7 +452,14 @@
 		"critical-tasks": [
 			"src/features/critical-tasks/contracts.ts",
 			"src/features/critical-tasks/index.ts",
-			"src/features/critical-tasks/index.server.ts"
+			"src/features/critical-tasks/index.server.ts",
+			"src/features/critical-tasks/components/IctCompletionModal.svelte",
+			"src/features/critical-tasks/components/IctMatrix.svelte",
+			"src/features/critical-tasks/components/IctTaskLibraryPage.svelte",
+			"src/features/critical-tasks/components/IctReportsView.svelte",
+			"src/features/critical-tasks/components/IctPersonnelDetailPage.svelte",
+			"src/features/critical-tasks/components/PersonnelCriticalTaskReadinessTable.svelte",
+			"src/features/critical-tasks/components/PersonnelCriticalTaskDrawer.svelte"
 		],
 		"dashboard": [
 			"src/features/dashboard/contracts.ts",
@@ -474,7 +480,17 @@
 		"personnel": [
 			"src/features/personnel/contracts.ts",
 			"src/features/personnel/index.ts",
-			"src/features/personnel/index.server.ts"
+			"src/features/personnel/index.server.ts",
+			"src/features/personnel/components/PersonnelArchivedPageView.svelte",
+			"src/features/personnel/components/PersonnelDataSheetPageView.svelte",
+			"src/features/personnel/components/PersonnelFilesPageView.svelte",
+			"src/features/personnel/components/PersonnelLogPageView.svelte",
+			"src/features/personnel/components/PersonnelLossBlock.svelte",
+			"src/features/personnel/components/PersonnelModal.svelte",
+			"src/features/personnel/components/PersonnelOpenFollowUps.svelte",
+			"src/features/personnel/components/PersonnelPageView.svelte",
+			"src/features/personnel/components/PersonnelRecordHeader.svelte",
+			"src/features/personnel/components/roster/PersonnelRosterSkeleton.svelte"
 		],
 		"rating-scheme": [
 			"src/features/rating-scheme/contracts.ts",
@@ -489,7 +505,14 @@
 		"training": [
 			"src/features/training/contracts.ts",
 			"src/features/training/index.ts",
-			"src/features/training/index.server.ts"
+			"src/features/training/index.server.ts",
+			"src/features/training/components/PersonnelTrainingDrawer.svelte",
+			"src/features/training/components/PersonnelTrainingReadinessTable.svelte",
+			"src/features/training/components/TrainingModals.svelte",
+			"src/features/training/components/TrainingPageView.svelte",
+			"src/features/training/components/TrainingReportsPage.svelte",
+			"src/features/training/components/TrainingTypesPage.svelte",
+			"src/features/training/components/TrainingViewsPage.svelte"
 		],
 		"web-ui": [
 			"src/app.css",
@@ -512,7 +535,13 @@
 			"src/features/identity/AuthNotice.svelte",
 			"src/features/identity/AuthPasswordToggle.svelte",
 			"src/features/identity/AuthShell.svelte",
-			"src/features/identity/CodeField.svelte"
+			"src/features/identity/CodeField.svelte",
+			"src/features/identity/AccountPreferencesProvider.svelte",
+			"src/features/identity/AccountShell.svelte",
+			"src/features/identity/PasswordCompletion.svelte",
+			"src/features/identity/PasswordMfaChallenge.svelte",
+			"src/features/identity/ProfilePage.svelte",
+			"src/features/identity/SecurityPage.svelte"
 		],
 		"notifications": [
 			"src/features/notifications/contracts.ts",

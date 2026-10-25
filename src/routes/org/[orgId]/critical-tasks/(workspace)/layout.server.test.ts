@@ -1,47 +1,36 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createReadyAppShellRouteData, createUrlBlindLayoutEvent } from '../../appShell.test-support';
 
-const { streamCriticalTasksWorkspaceBootstrapMock } = vi.hoisted(() => ({
-	streamCriticalTasksWorkspaceBootstrapMock: vi.fn()
-}));
-
-vi.mock('./criticalTasksWorkspace.server', () => ({
-	streamCriticalTasksWorkspaceBootstrap: streamCriticalTasksWorkspaceBootstrapMock
-}));
-
+vi.mock('$features/critical-tasks/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/critical-tasks/index.server')>(
+		'$features/critical-tasks/index.server'
+	);
+	return {
+		...actual,
+		fetchCriticalTasksBootstrap: async (_ctx: unknown, options: { includeArchivedTasks: boolean }) => ({
+			personnel: [],
+			groups: [],
+			ictTasks: options.includeArchivedTasks ? [{ id: 'archived-task' }] : [{ id: 'active-task' }],
+			personnelIctCompletions: []
+		})
+	};
+});
 import { load } from './+layout.server';
 
-type CriticalTasksLayoutEvent = Parameters<typeof load>[0];
-
-const workspace = { criticalTasks: { data: Promise.resolve(null as never) } };
-
 describe('Critical Tasks workspace layout', () => {
-	beforeEach(() => {
-		streamCriticalTasksWorkspaceBootstrapMock.mockReset();
-		streamCriticalTasksWorkspaceBootstrapMock.mockResolvedValue(workspace);
-	});
-
-	it('includes archived tasks for a library configurer without reading the URL', async () => {
-		const { event, depends } = createUrlBlindLayoutEvent<CriticalTasksLayoutEvent>(
-			createReadyAppShellRouteData({ orgId: 'org-1', role: 'member', criticalTasksCapability: 'configure' })
+	it.each([
+		{ capability: 'configure' as const, taskId: 'archived-task' },
+		{ capability: 'view' as const, taskId: 'active-task' }
+	])("delivers the $capability member's task selection without running ancestors", async ({ capability, taskId }) => {
+		const { event } = createUrlBlindLayoutEvent<Parameters<typeof load>[0]>(
+			createReadyAppShellRouteData({ orgId: 'org-1', role: 'member', criticalTasksCapability: capability })
 		);
-
-		expect(await load(event)).toBe(workspace);
-		expect(streamCriticalTasksWorkspaceBootstrapMock).toHaveBeenCalledWith(
-			expect.objectContaining({ orgId: 'org-1', includeArchivedTasks: true })
-		);
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
-	});
-
-	it('omits archived tasks for a member who cannot configure the library', async () => {
-		const { event } = createUrlBlindLayoutEvent<CriticalTasksLayoutEvent>(
-			createReadyAppShellRouteData({ orgId: 'org-1', role: 'member', criticalTasksCapability: 'view' })
-		);
-
-		await load(event);
-
-		expect(streamCriticalTasksWorkspaceBootstrapMock).toHaveBeenCalledWith(
-			expect.objectContaining({ includeArchivedTasks: false })
-		);
+		const result = await load(event);
+		const workspace = result && (await result.criticalTasks.data);
+		expect(workspace).toMatchObject({
+			laneKey: 'critical-tasks',
+			data: { ictTasks: [{ id: taskId }] },
+			hydration: { orgId: 'org-1' }
+		});
 	});
 });

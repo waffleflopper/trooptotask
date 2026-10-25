@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { trainingTypesStore } from '$features/training';
 	import { trainingViewsStore } from '$features/training';
-	import { TrainingViewsPage } from '$features/training';
+	import TrainingViewsPage from '$features/training/components/TrainingViewsPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { TrainingWorkspaceResult } from '$features/training/contracts';

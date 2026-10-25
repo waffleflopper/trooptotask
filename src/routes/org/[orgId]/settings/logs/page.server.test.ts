@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../../appShell.test-support';
+import {
+	createReadyAppShellRouteData,
+	createSuspendedAppShellRouteData,
+	createOrganizationLoadEventData
+} from '../../appShell.test-support';
 
 const { getAdminClientMock, loadWithContextMock } = vi.hoisted(() => ({
 	getAdminClientMock: vi.fn(),
@@ -22,15 +26,15 @@ import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
 function event(suspended = false, depends = vi.fn()) {
 	return {
-		locals: {},
 		depends,
 		cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) },
-		parent: async () =>
+		...createOrganizationLoadEventData(
 			(suspended ? createSuspendedAppShellRouteData : createReadyAppShellRouteData)({
 				orgId: 'org-1',
 				orgName: 'Test Org',
 				orgUrlSegment: 'test-org'
 			})
+		)
 	} as never;
 }
 

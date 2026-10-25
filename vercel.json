@@ -8,6 +8,7 @@
 	"installCommand": "npx npm@11.12.1 ci",
 	"ignoreCommand": "sha=$VERCEL_GIT_PREVIOUS_SHA; [ \"$sha\" != \"$(git rev-parse HEAD)\" ] && git diff --quiet --no-renames \"$sha\" HEAD -- . ':!docs/*.md' ':!.agents/*.md' ':!README.md' ':!AGENTS.md' ':!CLAUDE.md' ':!CONTEXT.md' ':!src/*.test.ts' ':!scripts/*.test.*' || exit 1",
 	"buildCommand": "npm run build",
+	"regions": ["pdx1"],
 	"rewrites": [],
 	"crons": [
 		{

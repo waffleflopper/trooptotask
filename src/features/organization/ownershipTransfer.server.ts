@@ -84,7 +84,7 @@ export async function transferOrganizationOwnership(
 		type: 'ownership_transferred',
 		title: 'Ownership Transferred',
 		message: `You are now the owner of "${organization.name ?? 'the organization'}".`,
-		link: `/org/${ports.auth.orgId}/settings`
+		link: `/org/${ports.auth.orgId}/settings/general`
 	});
 
 	return { transferSuccess: true };

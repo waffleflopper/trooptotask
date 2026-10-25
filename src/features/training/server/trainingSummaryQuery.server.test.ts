@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
+import { trainingProvider } from './test-support/trainingProvider.server';
+import { createSupabaseTrainingCompletionPersistence } from './trainingCompletionPersistence.server';
 import {
 	createInMemoryDataStore,
 	createQueryPortsContext
@@ -98,6 +100,74 @@ describe('Dashboard Training summary', () => {
 });
 
 describe('fetchDashboardTrainingSummary', () => {
+	it('limits readiness facts to the visible population while preserving every onboarding completion key', async () => {
+		const ctx = buildCtx();
+		const provider = trainingProvider({
+			personnel_trainings: [
+				{
+					id: 'active',
+					organization_id: ORG,
+					personnel_id: 'p1',
+					training_type_id: 'required',
+					completion_date: '2024-01-01',
+					expiration_date: '2025-01-01',
+					notes: 'private',
+					certificate_url: 'private.pdf'
+				},
+				{
+					id: 'archived-packet',
+					organization_id: ORG,
+					personnel_id: 'archived',
+					training_type_id: 'old-optional',
+					completion_date: null,
+					expiration_date: null,
+					notes: 'private'
+				},
+				{
+					id: 'unrequested',
+					organization_id: ORG,
+					personnel_id: 'other',
+					training_type_id: 'required',
+					completion_date: null,
+					expiration_date: null
+				}
+			]
+		});
+		ctx.trainingCompletions = createSupabaseTrainingCompletionPersistence(provider.client, ORG);
+		const result = await fetchDashboardTrainingSummary(ctx, {
+			personnel: [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }] as Personnel[],
+			trainingTypes: [makeTrainingType('required')],
+			onboardingPersonnelIds: ['archived'],
+			asOf: '2026-09-29'
+		});
+		expect(result.trainingSummary.stats).toEqual({
+			current: 0,
+			warningYellow: 0,
+			warningOrange: 0,
+			expired: 1,
+			notCompleted: 0,
+			notRequired: 0,
+			total: 1
+		});
+		expect(result.onboardingTrainingCompletions).toEqual(new Set(['archived-old-optional']));
+		expect(provider.state.readResponses.flatMap((response) => response.rows)).toEqual([
+			{
+				id: 'active',
+				personnel_id: 'p1',
+				training_type_id: 'required',
+				completion_date: '2024-01-01',
+				expiration_date: '2025-01-01'
+			},
+			{
+				id: 'archived-packet',
+				personnel_id: 'archived',
+				training_type_id: 'old-optional',
+				completion_date: null,
+				expiration_date: null
+			}
+		]);
+	});
+
 	it('derives training summary and onboarding completion keys from a single training scan', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

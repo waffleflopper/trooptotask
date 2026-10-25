@@ -328,7 +328,8 @@ these.
    fit the screen, and each count row keeps its `N more`.
 2. **Toggles.** At `typical`, `All N names` expands in place, and at `large` so does `All N groups` (`typical` has five
    Groups, so all show): `aria-expanded` turns true, `aria-controls` resolves to the list, and the label reads
-   `Fewer names` or `Fewer groups`.
+   `Fewer names` or `Fewer groups`. Collapse and expand names again; the list keeps its controlled ID and shows the
+   same absent People after reopening.
 3. **Floor.** As `perfWide` on `small`, open Settings › Features, set Strength floor to 70 and choose
    `Save strength floor` (a blur alone does not save). Return to Home: the legend reads `70% floor`, the dashed line
    drops, the flags and the amber hero clear, and the headline becomes the range with its lowest day. Reload and read

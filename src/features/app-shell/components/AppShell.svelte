@@ -5,11 +5,11 @@
 	import { browser } from '$app/environment';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import { endOrganizationLifetime } from '$lib/stores/core';
-	import { AccountPreferencesProvider } from '$features/identity';
+	import AccountPreferencesProvider from '$features/identity/AccountPreferencesProvider.svelte';
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
-	import { changelog } from '../changelog';
+	import { latestChangelogId } from '../latestChangelog';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';
 	import type { ReadyAppShell } from '../contracts';
 
@@ -35,11 +35,11 @@
 	$effect(() => endOrganizationLifetime);
 
 	function autoShowWhatsNew() {
-		if (!browser || hasAutoShownWhatsNew || !changelog.length) return;
+		if (!browser || hasAutoShownWhatsNew) return;
 		const storage = getBrowserLocalStorage();
 		if (!storage) return;
 		try {
-			if (storage.getItem(`changelog-last-seen-${shell.user.id}`) !== changelog[0].id) {
+			if (storage.getItem(`changelog-last-seen-${shell.user.id}`) !== latestChangelogId) {
 				hasAutoShownWhatsNew = true;
 				showWhatsNew = true;
 			}
@@ -56,9 +56,9 @@
 	}
 	function closeWhatsNew() {
 		showWhatsNew = false;
-		if (!browser || !changelog.length) return;
+		if (!browser) return;
 		try {
-			getBrowserLocalStorage()?.setItem(`changelog-last-seen-${shell.user.id}`, changelog[0].id);
+			getBrowserLocalStorage()?.setItem(`changelog-last-seen-${shell.user.id}`, latestChangelogId);
 		} catch {
 			/* Closing the dialog does not depend on persistent browser storage. */
 		}

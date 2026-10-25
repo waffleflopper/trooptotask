@@ -74,8 +74,9 @@ private sink (`mail state`, `mail fail setup`).
 4. **Feedback.** Select a Feedback row. Expected: `Feedback · <category>` in blue, the message's first line as the
    heading, `<person> · <Organization> · on <section> · <when>` in mono, the full message when it runs past the first
    line, and a `Page` line with the recorded path; `Close without replying` moves it to Done and the stored status is
-   `resolved`; the audit holds a `feedback.closed_without_reply` row. Closing it from a second stale page answers that
-   the item was already closed and changes nothing.
+   `resolved`; the audit holds a `feedback.closed_without_reply` row, which Activity shows under `All` as
+   `You closed Feedback <first 8 of the ID> without replying`. Closing it from a second stale page answers that the item
+   was already closed and changes nothing.
 5. **Done.** Choose the Done tab. Expected: only items closed in the last 30 days, newest closed first (the closed
    Feedback, then the rejected, then the approved request); URL `tab=done`; any open item is dropped from the URL; no
    buttons on any detail; the chips count Done items while the header sentence keeps the open count. The seeded

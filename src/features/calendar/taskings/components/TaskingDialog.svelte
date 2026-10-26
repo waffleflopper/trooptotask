@@ -295,7 +295,16 @@
 									<span class="truncate text-sm font-medium">{linkedEvent.title}</span>
 									<span class="font-mono text-xs text-muted-foreground">{eventDateRange(linkedEvent)}</span>
 								</span>
-								<Button variant="ghost" size="sm" class="text-muted-foreground" onclick={() => (form.eventId = '')}>
+								<Button
+									variant="ghost"
+									size="sm"
+									class="text-muted-foreground"
+									onclick={async () => {
+										form.eventId = '';
+										await tick();
+										document.getElementById('tasking-event')?.focus();
+									}}
+								>
 									<X data-icon="inline-start" />Make standalone
 								</Button>
 							</div>
@@ -442,7 +451,7 @@
 													placeholder="e.g., M997 FLA ambulance"
 													bind:value={row.name}
 												/>
-												<InputGroup.Addon align="inline-end" class="font-mono text-xs">×</InputGroup.Addon>
+												<InputGroup.Text aria-hidden="true" class="font-mono text-xs">×</InputGroup.Text>
 												<InputGroup.Input
 													aria-label="Quantity of item {index + 1}"
 													inputmode="numeric"

@@ -22,6 +22,7 @@ import {
 	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
 import {
+	createSupabaseCalendarEventPersistence,
 	createSupabaseRosterSwapPersistence,
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
@@ -52,7 +53,8 @@ import {
 	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationRawExportReader,
 	createSupabaseOrganizationSettingsReader,
-	createSupabaseOrganizationUnitCountsPort
+	createSupabaseOrganizationUnitCountsPort,
+	createSupabaseOrganizationMemberLabelsReader
 } from '$features/organization/index.server';
 import {
 	createSupabasePersonnelExportReader,
@@ -597,6 +599,16 @@ export function createRequestCalendarCatalogContext(request: AdmittedOrganizatio
 		auth: request.auth,
 		audit: request.audit,
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
+	};
+}
+
+export function createRequestCalendarEventContext(request: AdmittedOrganizationRequest) {
+	const orgId = request.auth.orgId;
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
+		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId)
 	};
 }
 

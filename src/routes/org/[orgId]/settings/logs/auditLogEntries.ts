@@ -32,7 +32,10 @@ const AREA_RULES: readonly (readonly [RegExp, string])[] = [
 	[/^personnel\.(permanently_deleted|restored)$/, 'Archives'],
 	[/^(personnel_ict_completion|ict_task|critical_tasks)\./, 'Critical tasks'],
 	[/^(training|training_type|training_view|training_record)\./, 'Training'],
-	[/^(availability|status_type|assignment_type|special_day|calendar_report|daily_assignment)\./, 'Calendar'],
+	[
+		/^(availability|status_type|assignment_type|special_day|calendar_report|daily_assignment|calendar_event)\./,
+		'Calendar'
+	],
 	[/^onboarding/, 'Onboarding'],
 	[/^rating_scheme\./, 'Evals'],
 	[/^sign_in_roster\./, 'Rosters'],
@@ -377,6 +380,7 @@ const NOUNS: Record<string, string> = {
 	assignment_type: 'assignment type',
 	availability: 'availability entry',
 	daily_assignment: 'daily assignment',
+	calendar_event: 'event',
 	group: 'group',
 	pinned_group: 'pinned group',
 	ict_task: 'critical task',

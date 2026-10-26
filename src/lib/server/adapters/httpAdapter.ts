@@ -113,10 +113,12 @@ async function withRequestFailureBoundary<T>(operation: Promise<T>): Promise<T> 
 type PolicyRequest = Pick<AdmittedOrganizationRequest, 'auth' | 'audit' | 'disabledFeatures'>;
 
 function disabledPolicyFeature(request: PolicyRequest, config: LoadAuthorizationConfig) {
-	const owner = config.policyAction.owner;
-	if (owner.kind !== 'feature-lane') return undefined;
-	const feature = FEATURE_KEYS.find((key) => FEATURE_SWITCHES[key].lane === owner.lane);
-	return feature && request.disabledFeatures.includes(feature) ? feature : undefined;
+	const action = config.policyAction;
+	if (action.owner.kind !== 'feature-lane') return undefined;
+	const { lane } = action.owner;
+	const laneFeature = FEATURE_KEYS.find((key) => FEATURE_SWITCHES[key].lane === lane);
+	const feature = 'feature' in action ? action.feature : undefined;
+	return [laneFeature, feature].find((key) => key && request.disabledFeatures.includes(key));
 }
 
 type RouteBehavior<TInput, TOutput, TContext> = {

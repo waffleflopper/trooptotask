@@ -11,7 +11,9 @@ const EXPORT_TABLES = [
 	'special_days',
 	'roster_forms',
 	'roster_starting_numbers',
-	'roster_excusals'
+	'roster_excusals',
+	'calendar_events',
+	'calendar_event_activity'
 ] as const;
 
 export type CalendarExportTable = (typeof EXPORT_TABLES)[number];

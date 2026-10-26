@@ -61,6 +61,8 @@ export function createOrganizationDataExportReads(
 		rosterForms: () => archiveReaders.calendar.listRows('roster_forms'),
 		rosterStartingNumbers: () => archiveReaders.calendar.listRows('roster_starting_numbers'),
 		rosterExcusals: () => archiveReaders.calendar.listRows('roster_excusals'),
+		calendarEvents: () => archiveReaders.calendar.listRows('calendar_events'),
+		calendarEventActivity: () => archiveReaders.calendar.listRows('calendar_event_activity'),
 		trainingTypes: () => archiveReaders.training.listRows('training_types'),
 		personnelTrainings: () => archiveReaders.training.listRows('personnel_trainings'),
 		personnelTrainingHistory: () => archiveReaders.training.listRows('personnel_training_history'),

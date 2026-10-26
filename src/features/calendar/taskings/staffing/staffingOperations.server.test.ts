@@ -29,7 +29,8 @@ function tasking(responsibility: TaskingResponsibility, withDates = true): Taski
 		execution: withDates ? { startsOn: '2030-10-19', endsOn: '2030-10-23', reportTime: null } : null,
 		requirement: { count: 4, qualifications: null },
 		instructions: null,
-		status: { kind: 'open' }
+		status: { kind: 'open' },
+		readiness: { equipment: null, checklist: null }
 	};
 }
 

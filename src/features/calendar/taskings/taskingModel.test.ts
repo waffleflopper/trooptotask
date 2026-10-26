@@ -26,6 +26,7 @@ function tasking(id: string, overrides: Partial<Tasking> = {}): Tasking {
 		requirement: null,
 		instructions: null,
 		status: { kind: 'open' },
+		readiness: { equipment: null, checklist: null },
 		...overrides
 	};
 }

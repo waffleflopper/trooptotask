@@ -5,6 +5,7 @@ import type { CalendarEventsPageAccess } from '../../contracts';
 import type { EventRead } from '../../events/eventModel';
 import type { Tasking, TaskingActivityLog, TaskingChoices, TaskingDetail } from '../taskingModel';
 import type { TaskingStaffing } from '../staffing/staffingModel';
+import type { TaskingLists } from '../taskingListsModel';
 import TaskingDetailPage from './TaskingDetailPage.svelte';
 
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn() }));
@@ -19,7 +20,8 @@ const tasking: Tasking = {
 	execution: null,
 	requirement: null,
 	instructions: null,
-	status: { kind: 'in_progress' }
+	status: { kind: 'in_progress' },
+	readiness: { equipment: null, checklist: null }
 };
 const org: CalendarEventsPageAccess = {
 	orgId: 'org-a',
@@ -38,6 +40,7 @@ describe('TaskingDetailPage', () => {
 			status: 'loaded',
 			value: { tasking, groups: { [ALPHA]: 'Alpha' }, members: {} }
 		};
+		const lists: EventRead<TaskingLists> = { status: 'loaded', value: { equipment: [], checklist: [] } };
 		const activity: EventRead<TaskingActivityLog> = { status: 'loaded', value: { entries: [], eventTitles: {} } };
 		render(TaskingDetailPage, {
 			org,
@@ -45,6 +48,7 @@ describe('TaskingDetailPage', () => {
 			detail: Promise.resolve(detail),
 			activity: Promise.resolve(activity),
 			people: new Promise<EventRead<TaskingStaffing>>(() => {}),
+			lists: Promise.resolve(lists),
 			choices: new Promise<EventRead<TaskingChoices | null>>((resolve) => (resolveChoices = resolve))
 		});
 

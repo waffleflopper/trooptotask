@@ -18,6 +18,7 @@
 		today={data.today}
 		detail={data.detail}
 		activity={data.activity}
+		lists={data.lists}
 		choices={data.choices}
 		people={data.people}
 	/>

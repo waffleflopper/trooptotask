@@ -133,3 +133,14 @@ export {
 	createSupabaseCalendarStaffingPersistence,
 	createSupabaseCalendarDeletionReferences
 } from './taskings/staffing/staffingPersistence.server';
+export {
+	loadTaskingLists,
+	addEquipment,
+	updateEquipment,
+	removeEquipment,
+	addChecklistItem,
+	updateChecklistItem,
+	removeChecklistItem,
+	reorderTaskingList
+} from './taskings/taskingListsOperations.server';
+export { createSupabaseCalendarTaskingListsPersistence } from './taskings/taskingListsPersistence.server';

@@ -37,12 +37,13 @@ DECLARE
 BEGIN
   SELECT pg_catalog.array_agg(DISTINCT m[1]) INTO v_kinds
   FROM pg_catalog.pg_constraint AS c,
-    LATERAL pg_catalog.regexp_matches(pg_catalog.pg_get_constraintdef(c.oid), '''([a-z_]+)''', 'g') AS m
+    LATERAL pg_catalog.regexp_matches(pg_catalog.pg_get_constraintdef(c.oid), '[''{,]([a-z_]+)(?=[''},])', 'g') AS m
   WHERE c.conrelid = 'public.calendar_tasking_activity'::regclass AND c.conname = 'calendar_tasking_activity_kind_check';
   ALTER TABLE public.calendar_tasking_activity DROP CONSTRAINT calendar_tasking_activity_kind_check;
+  -- Written as ARRAY['kind'] so a sibling's quoted-kind parser still reads it.
   EXECUTE pg_catalog.format(
-    'ALTER TABLE public.calendar_tasking_activity ADD CONSTRAINT calendar_tasking_activity_kind_check CHECK (kind = ANY (%L::text[]))',
-    v_kinds || ARRAY['staffing_changed']
+    'ALTER TABLE public.calendar_tasking_activity ADD CONSTRAINT calendar_tasking_activity_kind_check CHECK (kind = ANY (ARRAY[%s]))',
+    (SELECT pg_catalog.string_agg(pg_catalog.quote_literal(k), ', ') FROM pg_catalog.unnest(v_kinds || ARRAY['staffing_changed']) AS k)
   );
 END;
 $$;

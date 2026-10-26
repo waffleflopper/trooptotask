@@ -3,6 +3,7 @@ import {
 	loadTaskingChoices,
 	loadTaskingDetail,
 	loadTaskingStaffing,
+	loadTaskingLists,
 	settleEventRead
 } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -25,6 +26,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 			detail: settleEventRead(loadTaskingDetail(ctx, params.taskingId)),
 			activity: settleEventRead(listTaskingActivity(ctx, params.taskingId)),
 			people: settleEventRead(loadTaskingStaffing(ctx, params.taskingId)),
+			lists: settleEventRead(loadTaskingLists(ctx, params.taskingId)),
 			choices: settleEventRead(loadTaskingChoices(ctx, today))
 		})
 	});

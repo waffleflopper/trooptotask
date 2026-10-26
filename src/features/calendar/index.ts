@@ -80,6 +80,13 @@ export type {
 	TaskingList,
 	TaskingListScope
 } from './taskings/taskingModel';
+export type {
+	ChecklistItem,
+	EquipmentRequirement,
+	TaskingListKind,
+	TaskingLists,
+	TaskingReadiness
+} from './taskings/taskingListsModel';
 export { parseTaskingFilters, parseTaskingView, scopeOfView } from './taskings/taskingModel';
 export type { TaskingStaffing } from './taskings/staffing/staffingModel';
 export { createStatusImportLane, type StatusImportColumns, type StatusImportSource } from './import/statusImportLane';

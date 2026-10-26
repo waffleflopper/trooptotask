@@ -23,7 +23,8 @@ const saved: Tasking = {
 	execution: { startsOn: '2026-11-02', endsOn: '2026-11-06', reportTime: '05:30' },
 	requirement: { count: 4, qualifications: '68W' },
 	instructions: null,
-	status: { kind: 'open' }
+	status: { kind: 'open' },
+	readiness: { equipment: null, checklist: null }
 };
 
 function deferred<T>() {

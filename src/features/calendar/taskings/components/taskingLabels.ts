@@ -1,6 +1,7 @@
 import type { BadgeVariant } from '$lib/components/ui/badge';
 import { formatDayMonthYear } from '$lib/utils/dates';
 import { eventDateRange } from '../../events/eventModel';
+import type { EquipmentReadiness, ChecklistProgress } from '../taskingListsModel';
 import type {
 	GroupLabels,
 	StaffingRequirement,
@@ -126,5 +127,32 @@ export function describeActivity(
 			return { summary: 'Cancelled the tasking', note: fact.reason };
 		case 'staffing_changed':
 			return { summary: staffingChanges(fact), note: null };
+		case 'equipment_added':
+			return { summary: `Added equipment ${fact.quantity} × ${fact.name}`, note: null };
+		case 'equipment_removed':
+			return { summary: `Removed equipment ${fact.quantity} × ${fact.name}`, note: null };
+		case 'equipment_changed':
+			return {
+				summary: `Changed equipment ${fact.from.quantity} × ${fact.from.name} to ${fact.to.quantity} × ${fact.to.name}`,
+				note: null
+			};
+		case 'equipment_secured':
+			return { summary: `Secured ${fact.to} of ${fact.quantity} ${fact.name} (was ${fact.from})`, note: null };
+		case 'checklist_added':
+			return { summary: `Added checklist item “${fact.label}”`, note: null };
+		case 'checklist_removed':
+			return { summary: `Removed checklist item “${fact.label}”`, note: null };
+		case 'checklist_renamed':
+			return { summary: `Renamed checklist item “${fact.from}” to “${fact.to}”`, note: null };
+		case 'checklist_completed':
+			return { summary: `Completed checklist item “${fact.label}”`, note: null };
+		case 'checklist_reopened':
+			return { summary: `Reopened checklist item “${fact.label}”`, note: null };
 	}
 }
+
+export function equipmentSummary({ total, ready, partial }: EquipmentReadiness): string {
+	return `${ready} of ${total} ready${partial > 0 ? ` · ${partial} partial` : ''}`;
+}
+
+export const checklistSummary = ({ total, done }: ChecklistProgress) => `${done} of ${total} done`;

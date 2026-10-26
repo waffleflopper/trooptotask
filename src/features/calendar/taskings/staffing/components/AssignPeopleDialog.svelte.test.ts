@@ -17,7 +17,8 @@ const tasking: Tasking = {
 	execution: { startsOn: '2030-10-19', endsOn: '2030-10-23', reportTime: null },
 	requirement: { count: 2, qualifications: null },
 	instructions: null,
-	status: { kind: 'open' }
+	status: { kind: 'open' },
+	readiness: { equipment: null, checklist: null }
 };
 const nobody: TaskingStaffing = { revision: 0, picked: 0, needsReview: 0, outsideScope: 0, picks: [] };
 const picker: StaffingPicker = {

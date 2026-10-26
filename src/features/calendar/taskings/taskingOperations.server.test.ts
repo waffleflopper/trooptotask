@@ -37,7 +37,8 @@ function fromDraft(id: string, input: TaskingDraft): Tasking {
 		execution,
 		requirement,
 		instructions,
-		status: { kind: 'open' }
+		status: { kind: 'open' },
+		readiness: { equipment: null, checklist: null }
 	};
 }
 

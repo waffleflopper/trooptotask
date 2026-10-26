@@ -198,6 +198,38 @@ describe('Organization Data Export workbook', () => {
 		]);
 	});
 
+	it('names the Tasking and the member behind each equipment and checklist row', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({
+			payload: payload({
+				memberships: [{ user_id: 'user-kim', email: 'sgt.kim@example.mil' }],
+				calendarTaskings: [{ id: 'tasking-1', title: 'Provide medics' }],
+				calendarTaskingEquipment: [
+					{ tasking_id: 'tasking-1', position: 1, name: 'Litters', quantity: 4, secured_quantity: 3 }
+				],
+				calendarTaskingChecklistItems: [
+					{
+						tasking_id: 'tasking-1',
+						position: 1,
+						label: 'Book the range',
+						done: true,
+						done_at: '2030-10-23T09:00:00Z',
+						done_by: 'user-kim'
+					},
+					{ tasking_id: 'tasking-1', position: 2, label: 'Brief medics', done: false, done_at: null, done_by: null }
+				]
+			})
+		});
+		const sheet = (name: string) => plan.readableSheets.find((candidate) => candidate.name === name);
+
+		expect(sheet('Tasking Equipment')?.rows).toEqual([
+			{ tasking: 'Provide medics', position: 1, equipment: 'Litters', quantity: 4, secured_quantity: 3 }
+		]);
+		expect(sheet('Tasking Checklist')?.rows.map((row) => [row.tasking, row.item, row.done, row.done_by])).toEqual([
+			['Provide medics', 'Book the range', true, 'sgt.kim@example.mil'],
+			['Provide medics', 'Brief medics', false, '']
+		]);
+	});
+
 	it('returns a dated workbook filename owned by the export use case', async () => {
 		const result = await buildOrganizationDataExportWorkbook({
 			payload: payload()

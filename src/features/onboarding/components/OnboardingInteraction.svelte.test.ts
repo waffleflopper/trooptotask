@@ -290,7 +290,7 @@ describe('Onboarding Active list', () => {
 		expect(rows()).toHaveLength(4);
 	});
 
-	it('marks the selected row current and opens that packet beside it', async () => {
+	it('marks the selected row current and opens that packet', async () => {
 		mount();
 		const row = screen.getByRole('button', { name: /CPL Jones, Alex/ });
 
@@ -558,6 +558,35 @@ describe('Onboarding packet panel', () => {
 
 		const draft = within(dialog).getByRole('textbox', { name: 'Note for Badge' }) as HTMLTextAreaElement;
 		expect(draft.value).toBe('Second');
+	});
+
+	it('blocks Escape and hides Close packet while a note is unsaved, and closes once it is cancelled', async () => {
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+		await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Note for Verify ID card' }), {
+			target: { value: 'Call finance Monday' }
+		});
+
+		expect(within(dialog).queryByRole('button', { name: 'Close packet' })).toBeNull();
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await tick();
+		expect(screen.getByRole('dialog', { name: 'SGT Smith, Jane' })).toBeTruthy();
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		await closePacket(dialog);
+	});
+
+	it('closes a packet with an empty note field on Escape', async () => {
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+		expect(within(dialog).getByRole('textbox', { name: 'Note for Verify ID card' })).toBeTruthy();
+
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
 	it('keeps an unsaved note draft when another step is expanded and then closed again', async () => {

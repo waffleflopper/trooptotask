@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { MediaQuery } from 'svelte/reactivity';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
@@ -10,7 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as Sheet from '$lib/components/ui/sheet';
+	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import {
 		WorkspaceToolbar,
@@ -25,6 +24,7 @@
 	import OnboardingPacketRow from './OnboardingPacketRow.svelte';
 	import OnboardingPacketPanel from './OnboardingPacketPanel.svelte';
 	import OnboardingMatrixView from './OnboardingMatrixView.svelte';
+	import { NoteDraft } from './noteDraft.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -42,8 +42,6 @@
 	const STRIP_SIZE = 4;
 
 	const today = todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone, new Date());
-	// Tailwind's xl breakpoint: the list and the packet panel fit side by side.
-	const wide = new MediaQuery('(min-width: 80rem)', true);
 
 	let search = $state('');
 	let groupId = $state(ALL_GROUPS);
@@ -107,11 +105,17 @@
 			.join(' · ');
 	}
 
+	// One draft per opened packet: a note typed in one packet never carries into another.
+	const noteDraft = $derived(selectedId ? new NoteDraft() : null);
+	const busy = $derived(noteDraft?.saving ?? false);
+	const closeBlocked = $derived(noteDraft?.dirty ?? false);
+
 	async function closePanel() {
 		const id = selectedId;
 		selectedId = null;
 		await tick();
-		if (id) document.querySelector<HTMLElement>(`[data-onboarding-id="${CSS.escape(id)}"]`)?.focus();
+		if (id && selectedId === null)
+			document.querySelector<HTMLElement>(`[data-onboarding-id="${CSS.escape(id)}"]`)?.focus();
 	}
 
 	function closePanelIfFiltered() {
@@ -192,20 +196,6 @@
 	{/each}
 {/snippet}
 
-{#snippet panel(onboarding: PersonnelOnboarding, inSheet: boolean)}
-	{#key onboarding.id}
-		<OnboardingPacketPanel {ctx} {onboarding} {today} onClose={closePanel}>
-			{#snippet heading(name)}
-				{#if inSheet}
-					<Sheet.Title class="font-heading text-2xl font-semibold">{name}</Sheet.Title>
-				{:else}
-					<h2 class="font-heading text-2xl font-semibold">{name}</h2>
-				{/if}
-			{/snippet}
-		</OnboardingPacketPanel>
-	{/key}
-{/snippet}
-
 <div class="flex h-full min-h-0 flex-col bg-background">
 	{#if !ctx.canViewOnboarding}
 		<div class="flex min-h-0 flex-1 overflow-auto p-3 sm:p-6">
@@ -230,146 +220,142 @@
 			/>
 		</div>
 
-		<div class="flex min-h-0 flex-1">
-			<div class="grid min-w-0 flex-1 content-start gap-6 overflow-y-auto p-3 md:p-6">
-				{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
-					<Alert.Root variant="warning">
-						<TriangleAlert />
-						<Alert.Title>Configuration Required</Alert.Title>
-						<Alert.Description>
-							No template steps are defined, so new onboardings cannot be started until a template is built.
-						</Alert.Description>
-						{#if ctx.canManageWorkflows}
-							<Alert.Action>
-								<Button href={ctx.templatesUrl} size="sm" variant="outline">Manage Templates</Button>
-							</Alert.Action>
-						{/if}
-					</Alert.Root>
-				{/if}
-
-				{#each ctx.resyncErrors as { onboardingId, error } (onboardingId)}
-					<Alert.Root variant="destructive">
-						<CircleAlert />
-						<Alert.Title>Sync Problem</Alert.Title>
-						<Alert.Description>{error}</Alert.Description>
+		<div class="grid min-h-0 min-w-0 flex-1 content-start gap-6 overflow-y-auto p-3 md:p-6">
+			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
+				<Alert.Root variant="warning">
+					<TriangleAlert />
+					<Alert.Title>Configuration Required</Alert.Title>
+					<Alert.Description>
+						No template steps are defined, so new onboardings cannot be started until a template is built.
+					</Alert.Description>
+					{#if ctx.canManageWorkflows}
 						<Alert.Action>
-							<Button size="sm" variant="outline" onclick={() => ctx.dismissResyncError(onboardingId)}>Dismiss</Button>
+							<Button href={ctx.templatesUrl} size="sm" variant="outline">Manage Templates</Button>
 						</Alert.Action>
-					</Alert.Root>
-				{/each}
+					{/if}
+				</Alert.Root>
+			{/if}
 
-				{#if active.length === 0}
-					{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}
-						{#if ctx.canManageWorkflows}
-							<Empty.Root>
-								<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
-								<Empty.Header>
-									<Empty.Title>Set up onboarding</Empty.Title>
-									<Empty.Description>
-										Set up your onboarding template to get started. Define the requirements new members need to
-										complete.
-									</Empty.Description>
-								</Empty.Header>
-								<Empty.Content>
-									<Button href={ctx.templatesUrl}>Set Up Template</Button>
-								</Empty.Content>
-							</Empty.Root>
-						{:else}
-							<Empty.Root>
-								<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
-								<Empty.Header>
-									<Empty.Title>Onboarding not configured</Empty.Title>
-									<Empty.Description>Onboarding has not been configured yet.</Empty.Description>
-								</Empty.Header>
-							</Empty.Root>
-						{/if}
+			{#each ctx.resyncErrors as { onboardingId, error } (onboardingId)}
+				<Alert.Root variant="destructive">
+					<CircleAlert />
+					<Alert.Title>Sync Problem</Alert.Title>
+					<Alert.Description>{error}</Alert.Description>
+					<Alert.Action>
+						<Button size="sm" variant="outline" onclick={() => ctx.dismissResyncError(onboardingId)}>Dismiss</Button>
+					</Alert.Action>
+				</Alert.Root>
+			{/each}
+
+			{#if active.length === 0}
+				{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}
+					{#if ctx.canManageWorkflows}
+						<Empty.Root>
+							<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+							<Empty.Header>
+								<Empty.Title>Set up onboarding</Empty.Title>
+								<Empty.Description>
+									Set up your onboarding template to get started. Define the requirements new members need to complete.
+								</Empty.Description>
+							</Empty.Header>
+							<Empty.Content>
+								<Button href={ctx.templatesUrl}>Set Up Template</Button>
+							</Empty.Content>
+						</Empty.Root>
 					{:else}
 						<Empty.Root>
 							<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
 							<Empty.Header>
-								<Empty.Title>No active onboardings</Empty.Title>
-								<Empty.Description>No active onboardings. Start one to begin tracking a new member.</Empty.Description>
+								<Empty.Title>Onboarding not configured</Empty.Title>
+								<Empty.Description>Onboarding has not been configured yet.</Empty.Description>
 							</Empty.Header>
 						</Empty.Root>
 					{/if}
-				{:else if summaries.length === 0}
-					<Empty.Root>
-						<Empty.Media variant="icon"><SearchX /></Empty.Media>
-						<Empty.Header>
-							<Empty.Title>No Soldiers match</Empty.Title>
-							<Empty.Description>No one in processing matches this search and group.</Empty.Description>
-						</Empty.Header>
-						<Empty.Content>
-							<Button variant="outline" onclick={clearFilters}>Clear filters</Button>
-						</Empty.Content>
-					</Empty.Root>
-				{:else if view === 'matrix'}
-					<OnboardingMatrixView {ctx} packets={visible} {today} />
 				{:else}
-					<section class="grid gap-3" aria-labelledby="onboarding-waiting-title">
-						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-foreground pb-2">
-							<h2 id="onboarding-waiting-title" class="font-heading text-xl font-semibold">Where people are waiting</h2>
-							<p class="font-mono text-xs text-muted-foreground">Soldiers on each open step</p>
-							<Button variant="link" size="none" class="ml-auto h-auto p-0 text-sm" onclick={() => (view = 'matrix')}>
-								All {allWaiting.length} steps
-							</Button>
-						</div>
-						<ul class="grid grid-cols-2 gap-px md:grid-cols-4">
-							{#each waiting as step (step.stepName)}
-								<li class="grid content-start gap-1 border-l border-border px-3 py-1 first:border-l-0 first:pl-0">
-									<span class={['font-heading text-4xl font-semibold', step.stalled > 0 && 'text-warning-foreground']}>
-										{step.open}
-									</span>
-									<span class="text-sm font-semibold">{step.stepName}</span>
-									{#if step.stalled > 0}
-										<span class="font-mono text-xs text-warning-foreground">{step.stalled} stalled</span>
-									{:else}
-										<span class="font-mono text-xs text-muted-foreground">{STEP_TYPE_LABELS[step.stepType]}</span>
-									{/if}
-								</li>
-							{/each}
-						</ul>
-					</section>
-
-					<section class="grid gap-3" aria-labelledby="onboarding-list-title">
-						<div class="flex items-baseline gap-3">
-							<h2 id="onboarding-list-title" class="font-heading text-xl font-semibold">In processing</h2>
-							<p class="font-mono text-xs text-muted-foreground">{summaries.length} · stalled first</p>
-						</div>
-						<ul
-							class="grid overflow-hidden rounded-lg border border-border bg-card"
-							aria-label="Soldiers in processing"
-						>
-							{#each summaries as summary (summary.packet.id)}
-								<li class="grid border-b border-border last:border-b-0">
-									<OnboardingPacketRow
-										{summary}
-										name={ctx.getPersonName(summary.packet.personnelId)}
-										meta={personMeta(summary.packet)}
-										selected={selectedId === summary.packet.id}
-										onSelect={() => (selectedId = selectedId === summary.packet.id ? null : summary.packet.id)}
-									/>
-								</li>
-							{/each}
-						</ul>
-					</section>
+					<Empty.Root>
+						<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
+						<Empty.Header>
+							<Empty.Title>No active onboardings</Empty.Title>
+							<Empty.Description>No active onboardings. Start one to begin tracking a new member.</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
 				{/if}
-			</div>
+			{:else if summaries.length === 0}
+				<Empty.Root>
+					<Empty.Media variant="icon"><SearchX /></Empty.Media>
+					<Empty.Header>
+						<Empty.Title>No Soldiers match</Empty.Title>
+						<Empty.Description>No one in processing matches this search and group.</Empty.Description>
+					</Empty.Header>
+					<Empty.Content>
+						<Button variant="outline" onclick={clearFilters}>Clear filters</Button>
+					</Empty.Content>
+				</Empty.Root>
+			{:else if view === 'matrix'}
+				<OnboardingMatrixView {ctx} packets={visible} {today} />
+			{:else}
+				<section class="grid gap-3" aria-labelledby="onboarding-waiting-title">
+					<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-foreground pb-2">
+						<h2 id="onboarding-waiting-title" class="font-heading text-xl font-semibold">Where people are waiting</h2>
+						<p class="font-mono text-xs text-muted-foreground">Soldiers on each open step</p>
+						<Button variant="link" size="none" class="ml-auto h-auto p-0 text-sm" onclick={() => (view = 'matrix')}>
+							All {allWaiting.length} steps
+						</Button>
+					</div>
+					<ul class="grid grid-cols-2 gap-px md:grid-cols-4">
+						{#each waiting as step (step.stepName)}
+							<li class="grid content-start gap-1 border-l border-border px-3 py-1 first:border-l-0 first:pl-0">
+								<span class={['font-heading text-4xl font-semibold', step.stalled > 0 && 'text-warning-foreground']}>
+									{step.open}
+								</span>
+								<span class="text-sm font-semibold">{step.stepName}</span>
+								{#if step.stalled > 0}
+									<span class="font-mono text-xs text-warning-foreground">{step.stalled} stalled</span>
+								{:else}
+									<span class="font-mono text-xs text-muted-foreground">{STEP_TYPE_LABELS[step.stepType]}</span>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</section>
 
-			{#if selected && view === 'list' && wide.current}
-				<aside class="flex w-96 shrink-0 flex-col border-l border-border bg-card">
-					{@render panel(selected, false)}
-				</aside>
+				<section class="grid gap-3" aria-labelledby="onboarding-list-title">
+					<div class="flex items-baseline gap-3">
+						<h2 id="onboarding-list-title" class="font-heading text-xl font-semibold">In processing</h2>
+						<p class="font-mono text-xs text-muted-foreground">{summaries.length} · stalled first</p>
+					</div>
+					<ul class="grid overflow-hidden rounded-lg border border-border bg-card" aria-label="Soldiers in processing">
+						{#each summaries as summary (summary.packet.id)}
+							<li class="grid border-b border-border last:border-b-0">
+								<OnboardingPacketRow
+									{summary}
+									name={ctx.getPersonName(summary.packet.personnelId)}
+									meta={personMeta(summary.packet)}
+									selected={selectedId === summary.packet.id}
+									onSelect={() => (selectedId = selectedId === summary.packet.id ? null : summary.packet.id)}
+								/>
+							</li>
+						{/each}
+					</ul>
+				</section>
 			{/if}
 		</div>
 
-		{#if selected && view === 'list' && !wide.current}
-			<Sheet.Root open={true} onOpenChange={(open) => !open && closePanel()}>
-				<Sheet.Content side="right" class="w-full gap-0 p-0 sm:max-w-md" showCloseButton={false}>
-					<Sheet.Description class="sr-only">Onboarding packet</Sheet.Description>
-					{@render panel(selected, true)}
-				</Sheet.Content>
-			</Sheet.Root>
+		{#if selected && noteDraft && view === 'list'}
+			<AppDialog.Root open {busy} {closeBlocked} onClose={closePanel}>
+				<AppDialog.Content presentation="sheet" class="p-0" showCloseButton={false}>
+					<AppDialog.Description class="sr-only">Onboarding packet</AppDialog.Description>
+					{#key selected.id}
+						<OnboardingPacketPanel
+							{ctx}
+							onboarding={selected}
+							{today}
+							draft={noteDraft}
+							onClose={busy || closeBlocked ? undefined : closePanel}
+						/>
+					{/key}
+				</AppDialog.Content>
+			</AppDialog.Root>
 		{/if}
 	{/if}
 </div>

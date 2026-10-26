@@ -191,6 +191,30 @@ describe('Tasking equipment and checklist', () => {
 		expect(name.value).toBe('Stretchers and straps');
 	});
 
+	it('adds the next checklist item typed during a save under its own id', async () => {
+		let finish: (response: Response) => void = () => {};
+		const send = stubFetch((_url, init) => {
+			const sent = JSON.parse(init.body as string);
+			const saved = { id: sent.id, label: sent.label, done: false, doneAt: null, doneBy: null };
+			return send.mock.calls.length === 1
+				? (new Promise<Response>((resolve) => (finish = resolve)) as unknown as Response)
+				: Response.json(saved);
+		});
+		open(true);
+
+		const entry = (await screen.findByLabelText('Add checklist item')) as HTMLInputElement;
+		await fireEvent.input(entry, { target: { value: 'Book the range' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add to checklist' }));
+		await fireEvent.input(entry, { target: { value: 'Draw the radios' } });
+		finish(Response.json({ id: body(send, 0).id, label: 'Book the range', done: false, doneAt: null, doneBy: null }));
+		await waitFor(() => expect(screen.getByText('Book the range')).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: 'Add to checklist' }));
+
+		await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+		expect(body(send, 1).label).toBe('Draw the radios');
+		expect(body(send, 1).id).not.toBe(body(send, 0).id);
+	});
+
 	it('closes an open editor when the Tasking stops being editable', async () => {
 		const { rerender } = render(TaskingListsSection, {
 			orgId: 'org-a',

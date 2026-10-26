@@ -73,7 +73,7 @@
 	function add() {
 		triedAdd = true;
 		if (!addParsed.success) return;
-		const { id, label: text } = addParsed.data;
+		const [id, text] = [addId, addParsed.data.label];
 		const submitted = label;
 		void writes.run(
 			() => addChecklistItemRequest(orgId, taskingId, id, text),

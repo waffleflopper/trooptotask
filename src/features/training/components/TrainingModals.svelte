@@ -5,20 +5,16 @@
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { resolve } from '$app/paths';
 	import { pinnedGroupsStore } from '$features/personnel';
+	import LazySheet, { lazyModule } from './LazySheet.svelte';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
-	type TrainingRecordSheetModule = typeof import('$features/training/components/TrainingRecordSheet.svelte');
 	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
+	type ManageViewsPayload = { returnFocusTo: () => HTMLElement | null };
 
-	let trainingRecordSheetModule: Promise<TrainingRecordSheetModule> | undefined;
 	let signInRosterModalModule: Promise<SignInRosterModalModule> | undefined;
 
-	function loadTrainingRecordSheet() {
-		trainingRecordSheetModule ??= import('$features/training/components/TrainingRecordSheet.svelte');
-		return trainingRecordSheetModule;
-	}
-
+	const loadTrainingRecordSheet = lazyModule(() => import('$features/training/components/TrainingRecordSheet.svelte'));
 	const recordPerson = $derived(ctx.recordPerson);
 	const recordLoading = $derived(
 		trainingTypesStore.orgId !== ctx.orgId ||
@@ -38,6 +34,8 @@
 	$effect(() => {
 		if (ctx.rosterReady && ctx.recordPersonId && !recordPerson) ctx.dropRecordParam();
 	});
+
+	const loadTrainingViewsSheet = lazyModule(() => import('$features/training/components/TrainingViewsSheet.svelte'));
 
 	function loadSignInRosterModal() {
 		signInRosterModalModule ??= import('$features/sign-in-rosters');
@@ -60,26 +58,49 @@
 {/if}
 
 {#if recordPerson}
-	{#await loadTrainingRecordSheet() then { default: TrainingRecordSheet }}
-		<TrainingRecordSheet
-			person={recordPerson}
-			trainingTypes={trainingTypesStore.items}
-			trainings={personnelTrainingsStore.items}
-			orgId={ctx.orgId}
-			asOf={ctx.readinessAsOf}
-			loading={recordLoading}
-			canExempt={ctx.trainingConfigureAffordance.allowed}
-			profileHref={resolve('/org/[orgId]/personnel/[personnelSlug]', {
-				orgId: ctx.orgUrlSegment,
-				personnelSlug: recordPerson.slug ?? recordPerson.id
-			})}
-			canStep={{ previous: !!ctx.recordNeighbours.previous, next: !!ctx.recordNeighbours.next }}
-			onStep={(direction) => ctx.stepRecord(direction)}
-			onSave={ctx.handleSaveTraining.bind(ctx)}
-			onSaveBatch={ctx.handleSaveTrainingBatch.bind(ctx)}
-			onRemove={ctx.handleRemoveTraining.bind(ctx)}
-			onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, recordPerson.id, exempt)}
-			onClose={() => ctx.closeRecord()}
-		/>
-	{/await}
+	{@const person = recordPerson}
+	<LazySheet
+		load={loadTrainingRecordSheet}
+		title={`${person.rank} ${person.firstName} ${person.lastName}`}
+		onClose={() => ctx.closeRecord()}
+	>
+		{#snippet children({ default: TrainingRecordSheet })}
+			<TrainingRecordSheet
+				{person}
+				trainingTypes={trainingTypesStore.items}
+				trainings={personnelTrainingsStore.items}
+				orgId={ctx.orgId}
+				asOf={ctx.readinessAsOf}
+				loading={recordLoading}
+				canExempt={ctx.trainingConfigureAffordance.allowed}
+				profileHref={resolve('/org/[orgId]/personnel/[personnelSlug]', {
+					orgId: ctx.orgUrlSegment,
+					personnelSlug: person.slug ?? person.id
+				})}
+				canStep={{ previous: !!ctx.recordNeighbours.previous, next: !!ctx.recordNeighbours.next }}
+				onStep={(direction) => ctx.stepRecord(direction)}
+				onSave={ctx.handleSaveTraining.bind(ctx)}
+				onSaveBatch={ctx.handleSaveTrainingBatch.bind(ctx)}
+				onRemove={ctx.handleRemoveTraining.bind(ctx)}
+				onToggleExempt={(typeId, exempt) => ctx.handleToggleExempt(typeId, person.id, exempt)}
+				onClose={() => ctx.closeRecord()}
+			/>
+		{/snippet}
+	</LazySheet>
+{/if}
+
+{#if modals.isOpen('manage-views')}
+	{@const mv = modals.payload<ManageViewsPayload>('manage-views')}
+	<LazySheet load={loadTrainingViewsSheet} title="Manage views" onClose={modals.closerFor('manage-views')}>
+		{#snippet children({ default: TrainingViewsSheet })}
+			<TrainingViewsSheet
+				orgId={ctx.orgId}
+				canMutate={ctx.trainingConfigureAffordance.allowed}
+				saveView={ctx.saveView.bind(ctx)}
+				deleteView={ctx.deleteView.bind(ctx)}
+				returnFocusTo={mv?.returnFocusTo}
+				onClose={modals.closerFor('manage-views')}
+			/>
+		{/snippet}
+	</LazySheet>
 {/if}

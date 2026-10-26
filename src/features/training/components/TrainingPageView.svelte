@@ -131,7 +131,18 @@
 	);
 
 	const MANAGE_VIEWS = '\u0000manage-views';
-	const manageViewsHref = $derived(`/org/${orgUrlSegment}/training/views`);
+	let pageRoot = $state<HTMLElement | null>(null);
+	function toolbarControlOrMore(id: string): HTMLElement | null {
+		const row = pageRoot?.querySelector('[data-toolbar-row]');
+		return (
+			row?.querySelector<HTMLElement>(`[data-toolbar-item="${id}"] button`) ??
+			row?.querySelector<HTMLElement>('[data-toolbar-more] button') ??
+			null
+		);
+	}
+	function openManageViews(openerId: string) {
+		modals.open('manage-views', { returnFocusTo: () => toolbarControlOrMore(openerId) });
+	}
 	const trainingViewOptions = $derived([
 		{ value: '', label: 'All trainings' },
 		...trainingViewsStore.items.map((view) => ({ value: view.id, label: view.name })),
@@ -163,7 +174,7 @@
 				value: ctx.selectedViewId ?? '',
 				defaultValue: '',
 				onValueChange: (value) => {
-					if (value === MANAGE_VIEWS) void goto(resolve(manageViewsHref as '/'));
+					if (value === MANAGE_VIEWS) openManageViews('training-view');
 					else ctx.setSelectedViewId(value || null);
 				}
 			},
@@ -219,7 +230,7 @@
 					kind: 'action',
 					id: 'manage-views',
 					label: 'Manage views',
-					href: manageViewsHref,
+					onclick: () => openManageViews('manage-views'),
 					icon: 'settings',
 					menuOnly: true
 				},
@@ -246,7 +257,7 @@
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 </script>
 
-<div class="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+<div bind:this={pageRoot} class="flex h-full min-h-0 flex-col overflow-y-auto bg-background">
 	<div class="flex min-h-full flex-1 flex-col gap-4 px-6 pt-4 pb-5 max-sm:p-3">
 		<TrainingPageHeader
 			orgName={ctx.orgName}

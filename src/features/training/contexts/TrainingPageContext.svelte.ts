@@ -24,7 +24,7 @@ import type {
 } from '../contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingType, TrainingView, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
@@ -60,6 +60,7 @@ export class TrainingPageContext {
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
 	#hydratedSelectionFingerprint: string | null = null;
+	readonly #deletingViewIds = new SvelteSet<string>();
 	#disposed = false;
 
 	selectedGroupId = $state<string>('');
@@ -326,6 +327,42 @@ export class TrainingPageContext {
 		return !this.#disposed && personnelTrainingsStore.orgId === this.orgId;
 	}
 
+	#isCurrentViewsWorkspace(): boolean {
+		return !this.#disposed && trainingViewsStore.orgId === this.orgId;
+	}
+
+	/** Saves a view and applies it to the matrix. `'stale'` means the user left, so nothing was written. */
+	async saveView(draft: { id: string | null; name: string; columnIds: string[] }): Promise<TrainingView | 'stale'> {
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		const { name, columnIds } = draft;
+		let saved: TrainingView | null;
+		if (draft.id === null) {
+			saved = await trainingViewsStore.add({ name, columnIds, createdBy: '', createdAt: '', updatedAt: '' });
+		} else {
+			const updated = await trainingViewsStore.updateOrThrow(draft.id, { name, columnIds });
+			saved = updated ? (trainingViewsStore.getById(draft.id) ?? null) : null;
+		}
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		if (!saved) throw new Error('Failed to save view.');
+		this.setSelectedViewId(saved.id);
+		return saved;
+	}
+
+	async deleteView(id: string): Promise<'deleted' | 'failed' | 'stale'> {
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		this.#deletingViewIds.add(id);
+		let result: Awaited<ReturnType<typeof trainingViewsStore.remove>>;
+		try {
+			result = await trainingViewsStore.remove(id);
+		} finally {
+			this.#deletingViewIds.delete(id);
+		}
+		if (!this.#isCurrentViewsWorkspace()) return 'stale';
+		if (result === 'error') return 'failed';
+		if (this.selectedViewId === id) this.setSelectedViewId(null);
+		return 'deleted';
+	}
+
 	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {
 		await personnelTrainingsStore.add(data);
 	}
@@ -416,6 +453,7 @@ export class TrainingPageContext {
 		if (
 			viewsLoaded &&
 			this.selectedViewId &&
+			!this.#deletingViewIds.has(this.selectedViewId) &&
 			!trainingViewsStore.items.some((view) => view.id === this.selectedViewId)
 		) {
 			this.selectedViewId = null;

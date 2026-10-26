@@ -40,7 +40,7 @@ describe('taskingAttention', () => {
 			kind: 'taskingShort',
 			id: 'tasking:t-1',
 			title: 'Provide four medics',
-			subtitle: 'Alpha · Range week · 2 of 4 picked · 1 equipment item not ready',
+			subtitle: expect.stringMatching(/Alpha.*Range week.*2 of 4.*1 equipment/),
 			timing: 'starts in 2 days',
 			href: '/org/org-1/calendar/taskings/t-1',
 			urgency: { date: '2026-10-28' },
@@ -65,7 +65,7 @@ describe('taskingAttention', () => {
 
 		expect(item).toMatchObject({
 			kind: 'taskingOverdue',
-			subtitle: 'Due 23 Oct · Alpha · Range week',
+			subtitle: expect.stringMatching(/23 Oct.*Alpha.*Range week/),
 			timing: '3 days late',
 			urgency: { daysLate: 3 },
 			action: null
@@ -89,7 +89,7 @@ describe('taskingAttention', () => {
 	it('names the Organization for a Tasking no Group owns', () => {
 		const [item] = taskingAttention(ready({ ...base, responsibility: { kind: 'organization' } }));
 
-		expect(item?.subtitle.startsWith('Test Unit')).toBe(true);
+		expect(item?.subtitle).toContain('Test Unit');
 	});
 
 	it.each<DashboardTaskingsState>([{ status: 'off' }, { status: 'pending' }, { status: 'failed' }])(

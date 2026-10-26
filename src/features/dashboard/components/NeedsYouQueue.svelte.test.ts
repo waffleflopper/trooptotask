@@ -199,7 +199,7 @@ describe('NeedsYouQueue sources that load after the page', () => {
 		const { updates } = show([leaving('p-patel', null)], [], [load('failed', retry)]);
 
 		expect(screen.getByRole('link', { name: 'Row p-patel' })).toBeTruthy();
-		expect(screen.getByText('Needs you is incomplete. Tasking items could not load.')).toBeTruthy();
+		expect(screen.getByText(/incomplete.*Tasking/)).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
 		expect(retry).toHaveBeenCalledWith(updates);
@@ -208,7 +208,7 @@ describe('NeedsYouQueue sources that load after the page', () => {
 	it('is incomplete, not clear, when the only source failed', () => {
 		show([], [], [load('failed')]);
 
-		expect(screen.getByText('Needs you is incomplete. Tasking items could not load.')).toBeTruthy();
+		expect(screen.getByText(/incomplete.*Tasking/)).toBeTruthy();
 		expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
 	});
 

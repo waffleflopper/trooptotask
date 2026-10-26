@@ -4,6 +4,7 @@
 	import ClipboardX from '@lucide/svelte/icons/clipboard-x';
 	import { invalidate } from '$app/navigation';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -33,7 +34,7 @@
 	import TaskingStatusBadges from './TaskingStatusBadges.svelte';
 	import TaskingTransitionDialog from './TaskingTransitionDialog.svelte';
 	import TaskingPeople from '../staffing/components/TaskingPeople.svelte';
-	import type { TaskingStaffing } from '../staffing/staffingModel';
+	import type { AvailabilityCoverage, TaskingStaffing } from '../staffing/staffingModel';
 	import {
 		ACTION_LABELS,
 		describeActivity,
@@ -50,11 +51,22 @@
 		lists: Promise<EventRead<TaskingLists>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
 		people: Promise<EventRead<TaskingStaffing>>;
+		availabilityGaps: Promise<EventRead<AvailabilityCoverage>>;
 		/** Opens Edit once, for a link that asks to change this Tasking's dates. */
 		editOnArrival?: boolean;
 	}
 
-	let { org, today, detail, activity, lists, choices, people, editOnArrival = false }: Props = $props();
+	let {
+		org,
+		today,
+		detail,
+		activity,
+		lists,
+		choices,
+		people,
+		availabilityGaps,
+		editOnArrival = false
+	}: Props = $props();
 
 	const taskingsHref = $derived(`/org/${org.orgUrlSegment}/calendar/taskings`);
 	const streamedDetail = new StreamedValue(() => detail);
@@ -105,6 +117,12 @@
 	const organizationWide = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'organization' }).allowed
 	);
+
+	const canSetAvailability = (groupId: string | null) =>
+		org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.calendar.manageAvailability,
+			scopeSetResourceForGroupId(groupId)
+		).allowed;
 
 	function stored(tasking: Tasking) {
 		saved = { tasking, over: streamedDetail.current };
@@ -256,7 +274,16 @@
 			{/if}
 		</dl>
 
-		<TaskingPeople orgId={org.orgId} {tasking} {groups} {people} {canManage} />
+		<TaskingPeople
+			orgId={org.orgId}
+			{tasking}
+			{groups}
+			{people}
+			{canManage}
+			orgUrlSegment={org.orgUrlSegment}
+			{canSetAvailability}
+			{availabilityGaps}
+		/>
 	{/if}
 
 	{#if loaded !== 'gone' && loaded !== 'failed'}

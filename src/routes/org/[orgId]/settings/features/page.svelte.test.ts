@@ -19,7 +19,8 @@ const COUNTS: FeatureCounts = {
 	trainingRecords: 912,
 	criticalTaskLists: 0,
 	ratingSchemeEntries: 21,
-	onboardingTemplates: 0
+	onboardingTemplates: 0,
+	calendarEvents: 0
 };
 
 type Stored = { disabledFeatures: FeatureKey[]; strengthFloorPercent: number };
@@ -79,16 +80,17 @@ describe('Features settings page', () => {
 			params: { orgId: 'c-co' }
 		});
 
-		const names = ['Training', 'Critical tasks', 'Evaluations', 'Onboarding', 'Losses and awards'];
+		const names = ['Training', 'Critical tasks', 'Evaluations', 'Onboarding', 'Losses and awards', 'Events & Taskings'];
 		expect(screen.getAllByRole('switch')).toEqual(names.map(featureSwitch));
 		expect(names.map((name) => featureSwitch(name).getAttribute('aria-checked'))).toEqual([
 			'true',
 			'false',
 			'true',
 			'true',
+			'true',
 			'true'
 		]);
-		expect(screen.getAllByText('Loading counts')).toHaveLength(5);
+		expect(screen.getAllByText('Loading counts')).toHaveLength(6);
 		expect(floorField()).not.toHaveAccessibleDescription(/80% of 22/);
 
 		release(COUNTS);
@@ -112,9 +114,9 @@ describe('Features settings page', () => {
 			params: { orgId: 'c-co' }
 		});
 
-		await waitFor(() => expect(screen.getAllByText('Counts unavailable')).toHaveLength(5));
+		await waitFor(() => expect(screen.getAllByText('Counts unavailable')).toHaveLength(6));
 		expect(screen.queryByText('Loading counts')).toBeNull();
-		expect(screen.getAllByRole('switch')).toHaveLength(5);
+		expect(screen.getAllByRole('switch')).toHaveLength(6);
 	});
 
 	it('puts a switch back and says which feature failed and why', async () => {

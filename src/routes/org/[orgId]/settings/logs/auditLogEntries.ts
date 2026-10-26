@@ -104,7 +104,8 @@ const FEATURE_LABELS: Record<string, string> = {
 	criticalTasks: 'Critical tasks',
 	evaluations: 'Evaluations',
 	onboarding: 'Onboarding',
-	lossesAndAwards: 'Losses and awards'
+	lossesAndAwards: 'Losses and awards',
+	eventsAndTaskings: 'Events & Taskings'
 };
 
 function featureKeys(value: unknown): string[] {

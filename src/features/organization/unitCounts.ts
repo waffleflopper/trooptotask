@@ -9,7 +9,8 @@ export const UNIT_COUNT_KEYS = [
 	'trainingRecords',
 	'criticalTaskLists',
 	'ratingSchemeEntries',
-	'onboardingTemplates'
+	'onboardingTemplates',
+	'calendarEvents'
 ] as const;
 
 export type UnitCountKey = (typeof UNIT_COUNT_KEYS)[number];
@@ -34,5 +35,6 @@ export const UNIT_COUNT_ROW_SOURCES = {
 	trainingTypes: { table: 'training_types' },
 	trainingRecords: { table: 'personnel_trainings' },
 	criticalTaskLists: { table: 'ict_tasks', archived: false },
-	onboardingTemplates: { table: 'onboarding_templates' }
+	onboardingTemplates: { table: 'onboarding_templates' },
+	calendarEvents: { table: 'calendar_events' }
 } as const satisfies Record<Exclude<UnitCountKey, 'ratingSchemeEntries'>, UnitCountRowSource>;

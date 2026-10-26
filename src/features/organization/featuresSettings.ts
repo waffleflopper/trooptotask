@@ -9,7 +9,8 @@ export const FEATURE_COUNT_KEYS = [
 	'trainingRecords',
 	'criticalTaskLists',
 	'ratingSchemeEntries',
-	'onboardingTemplates'
+	'onboardingTemplates',
+	'calendarEvents'
 ] as const;
 
 export type FeatureCounts = UnitCounts<(typeof FEATURE_COUNT_KEYS)[number]>;
@@ -87,6 +88,12 @@ export const FEATURE_ROWS: readonly FeatureRow[] = (
 			offDescription:
 				'Off. Loss warnings and awards are hidden from the dashboard, the calendar and Personnel. Dates are kept.',
 			holds: null
+		},
+		{
+			key: 'eventsAndTaskings',
+			description: 'Events your unit runs or supports, with their dates, host and coordinator, from the calendar.',
+			offDescription: 'Off. Events are hidden from the calendar. They are kept.',
+			holds: (c) => ({ text: count(c.calendarEvents, 'event'), missing: null })
 		}
 	] satisfies Omit<FeatureRow, 'label'>[]
 ).map((row) => ({ ...row, label: FEATURE_SWITCHES[row.key].label }));

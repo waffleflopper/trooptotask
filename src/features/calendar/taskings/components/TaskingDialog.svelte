@@ -351,7 +351,8 @@
 										aria-invalid={problems.responsibility && form.owner === 'group' ? true : undefined}
 										class="w-full"
 									>
-										{#if chosenGroup}{chosenGroup.name}{:else}<span class="text-muted-foreground">Choose a Group</span>{/if}
+										{#if chosenGroup}{chosenGroup.name}{:else}<span class="text-muted-foreground">Choose a Group</span
+											>{/if}
 									</Select.Trigger>
 									<Select.Content>
 										{#each groupOptions as group (group.id)}
@@ -409,7 +410,9 @@
 					</div>
 
 					<div class="grid gap-3 border-t pt-3.5">
-						<span class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+						<span
+							class="font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
+						>
 							Optional
 						</span>
 						<div class="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-x-3 gap-y-3">

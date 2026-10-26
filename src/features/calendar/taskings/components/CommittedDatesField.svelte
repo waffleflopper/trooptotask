@@ -1,12 +1,11 @@
 <script lang="ts">
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import { parseDate } from '@internationalized/date';
-	import type { DateRange } from 'bits-ui';
 	import { Button } from '$lib/components/ui/button';
 	import { getFieldContext } from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as Popover from '$lib/components/ui/popover';
-	import { RangeCalendar } from '$lib/components/ui/range-calendar';
+	import { RangeCalendar, type DateRange } from '$lib/components/ui/range-calendar';
 	import { formatDayMonth, formatWeekdayDay } from '$lib/utils/dates';
 	import { cn } from '$lib/utils';
 

@@ -166,7 +166,7 @@
 				<li class="px-3 py-2 text-sm text-muted-foreground">{outsideScopeLabel(staffing.outsideScope)}</li>
 			{/if}
 		</ul>
-		{#if staffing.needsReview > 0}
+		{#if staffing.picks.some((pick) => pickReview(pick, tasking.responsibility))}
 			<p class="m-0 text-sm text-muted-foreground">
 				People under review stay on the list but do not count toward the requirement until someone keeps or removes
 				them.

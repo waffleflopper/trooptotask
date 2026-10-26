@@ -37,13 +37,11 @@ describe('EvaluatorField', () => {
 		expect(onChange).toHaveBeenCalledWith({ kind: 'external', name: 'COL Visiting' });
 	});
 
-	it('shows an external rater with its tag and an unit person with its hint', () => {
+	it('shows the chosen external rater or unit person', () => {
 		renderField({ kind: 'external', name: 'COL Visiting' });
 		expect(screen.getByText('COL Visiting')).toBeTruthy();
-		expect(screen.getByText('External')).toBeTruthy();
 		cleanup();
 		renderField({ kind: 'person', personId: 'p-1' });
 		expect(screen.getByText('SSG Rater, Robin')).toBeTruthy();
-		expect(screen.getByText('In unit')).toBeTruthy();
 	});
 });

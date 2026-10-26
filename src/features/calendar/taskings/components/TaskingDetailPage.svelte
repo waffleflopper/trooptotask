@@ -44,9 +44,11 @@
 		detail: Promise<EventRead<TaskingDetail>>;
 		activity: Promise<EventRead<TaskingActivityLog>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
+		/** Opens Edit once, for a link that asks to change this Tasking's dates. */
+		editOnArrival?: boolean;
 	}
 
-	let { org, today, detail, activity, choices }: Props = $props();
+	let { org, today, detail, activity, choices, editOnArrival = false }: Props = $props();
 
 	const taskingsHref = $derived(`/org/${org.orgUrlSegment}/calendar/taskings`);
 	const streamedDetail = new StreamedValue(() => detail);
@@ -64,7 +66,15 @@
 	let editIntent = 0;
 	const moving = new PendingSave();
 
+	let arrivalHandled = false;
+
 	$effect(() => () => (alive = false));
+
+	$effect(() => {
+		if (!editOnArrival || arrivalHandled || typeof loaded !== 'object' || loaded === null) return;
+		arrivalHandled = true;
+		if (canManage && isEditable(loaded.tasking)) void startEdit();
+	});
 
 	const loaded = $derived.by(() => {
 		const current = streamedDetail.current;

@@ -13,13 +13,16 @@
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import {
 		eventDateRange,
+		type EventDates,
 		parseSourceReference,
 		type CalendarEvent,
 		type EventActivity,
 		type EventDetail,
 		type EventRead
 	} from '../eventModel';
+	import { datesChanged, type TaskingSummary } from '../../taskings/eventWorkModel';
 	import type { GroupLabels, Tasking, TaskingChoices } from '../../taskings/taskingModel';
+	import EventDateReview from '../../taskings/components/EventDateReview.svelte';
 	import EventTaskings from '../../taskings/components/EventTaskings.svelte';
 	import CancelEventDialog from './CancelEventDialog.svelte';
 	import EventDialog from './EventDialog.svelte';
@@ -33,11 +36,12 @@
 		detail: Promise<EventRead<EventDetail>>;
 		activity: Promise<EventRead<EventActivity[]>>;
 		taskings: Promise<EventRead<{ taskings: Tasking[]; groups: GroupLabels }>>;
+		taskingSummaries: Promise<EventRead<TaskingSummary[]>>;
 		taskingChoices: Promise<EventRead<TaskingChoices | null>>;
 		addTasking: boolean;
 	}
 
-	let { org, today, detail, activity, taskings, taskingChoices, addTasking }: Props = $props();
+	let { org, today, detail, activity, taskings, taskingSummaries, taskingChoices, addTasking }: Props = $props();
 
 	const canManage = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageEvents, { kind: 'organization' }).allowed
@@ -49,6 +53,8 @@
 	// A save answers with the stored event; it stands until the refreshed detail arrives.
 	let saved = $state.raw<{ event: CalendarEvent; over: unknown } | null>(null);
 	let dialog = $state<'edit' | 'cancel' | null>(null);
+	// After a date change the Taskings left to review stand until dismissed. Nothing about them changes.
+	let dateReview = $state<{ before: EventDates; after: EventDates } | null>(null);
 
 	const loaded = $derived.by(() => {
 		const current = streamedDetail.current;
@@ -65,6 +71,8 @@
 	const members = $derived(typeof loaded === 'object' && loaded ? loaded.members : {});
 
 	function stored(event: CalendarEvent) {
+		const before = typeof loaded === 'object' && loaded ? loaded.event : null;
+		if (before && datesChanged(before, event)) dateReview = { before, after: event };
 		saved = { event, over: streamedDetail.current };
 		dialog = null;
 		void invalidate('app:calendar-events');
@@ -155,7 +163,25 @@
 			{/if}
 		</dl>
 
-		<EventTaskings {org} {today} {event} {taskings} choices={taskingChoices} addOnArrival={addTasking} />
+		{#if dateReview}
+			<EventDateReview
+				{org}
+				{taskings}
+				before={dateReview.before}
+				after={dateReview.after}
+				onDismiss={() => (dateReview = null)}
+			/>
+		{/if}
+
+		<EventTaskings
+			{org}
+			{today}
+			{event}
+			{taskings}
+			summaries={taskingSummaries}
+			choices={taskingChoices}
+			addOnArrival={addTasking}
+		/>
 	{/if}
 
 	{#if loaded !== 'gone'}
@@ -203,6 +229,6 @@
 			onClose={() => (dialog = null)}
 		/>
 	{:else if dialog === 'cancel'}
-		<CancelEventDialog orgId={org.orgId} event={loaded.event} onCancelled={stored} onClose={() => (dialog = null)} />
+		<CancelEventDialog {org} event={loaded.event} {taskings} onCancelled={stored} onClose={() => (dialog = null)} />
 	{/if}
 {/if}

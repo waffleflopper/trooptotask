@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
+import { EVENT_GONE } from '../events/eventPersistence.server';
+import { taskingSummaryRowSchema, type TaskingSummary } from './eventWorkModel';
 import {
 	CLOSED_TASKING_LIMIT,
 	transitionNote,
@@ -24,6 +26,8 @@ const TASKING_REFERENCE = 'Choose an Event and a Group from this organization.';
 export interface CalendarTaskingPersistence {
 	listTaskings(scope: TaskingListScope): Promise<Tasking[]>;
 	listEventTaskings(eventId: string): Promise<Tasking[]>;
+	/** The Event's linked Taskings outside the caller's scope, as one-line summaries. */
+	listEventTaskingSummaries(eventId: string): Promise<TaskingSummary[]>;
 	findTasking(id: string): Promise<Tasking | null>;
 	listActivity(taskingId: string): Promise<TaskingActivity[]>;
 	findEventTitles(ids: string[]): Promise<Record<string, string>>;
@@ -290,6 +294,19 @@ export function createSupabaseCalendarTaskingPersistence(
 			return allRows(() => taskings().eq('event_id', eventId).order('suspense_on').order('title').order('id')).then(
 				(data) => data.map(toTasking)
 			);
+		},
+		async listEventTaskingSummaries(eventId) {
+			const { data, error } = await selectAllSupabaseRows(
+				async (from, to) =>
+					await client
+						.rpc('list_calendar_event_tasking_summaries', { p_organization_id: orgId, p_event_id: eventId })
+						.range(from, to)
+			);
+			if (error) {
+				if ((error as { code?: string }).code === 'P0002') return fail(404, EVENT_GONE);
+				throw new Error((error as { message: string }).message);
+			}
+			return (data ?? []).map((row) => taskingSummaryRowSchema.parse(row));
 		},
 		findTasking,
 		async listActivity(taskingId) {

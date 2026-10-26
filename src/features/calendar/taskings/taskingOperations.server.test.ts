@@ -5,6 +5,7 @@ import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { TASKING_TRANSITIONS, type Tasking, type TaskingDraft, type TaskingStatus } from './taskingModel';
 import {
 	createTasking,
+	listEventTaskingSummaries,
 	listTaskings,
 	transitionTasking,
 	updateTasking,
@@ -16,6 +17,7 @@ const ACTOR = '00000000-0000-4000-8000-000000000001';
 const TASKING = '00000000-0000-4000-8000-000000000101';
 const ALPHA = '00000000-0000-4000-8000-000000000201';
 const BRAVO = '00000000-0000-4000-8000-000000000202';
+const EVENT = '00000000-0000-4000-8000-000000000301';
 const draft = {
 	title: 'Provide four trauma-lane medics',
 	eventId: null,
@@ -47,6 +49,7 @@ function memoryTaskings(): CalendarTaskingPersistence & { stored: Map<string, Ta
 		stored,
 		listTaskings: async () => [...stored.values()],
 		listEventTaskings: async () => [],
+		listEventTaskingSummaries: async () => [],
 		findTasking: async (id) => stored.get(id) ?? null,
 		listActivity: async () => [],
 		findEventTitles: async () => ({}),
@@ -247,5 +250,23 @@ describe('Tasking operations', () => {
 		expect((await listTaskings(viewer.ctx, 'active')).groups).toEqual({ [ALPHA]: 'Alpha', [BRAVO]: 'Bravo' });
 
 		await expect(listTaskings(member('none').ctx, 'active')).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('answers summary reads for Calendar readers only', async () => {
+		const bravo = {
+			id: TASKING,
+			title: 'Bravo litter teams',
+			responsibility: { kind: 'group', name: 'Bravo' },
+			status: 'blocked',
+			requiredCount: 6,
+			suspenseOn: '2026-10-22',
+			execution: null
+		} as const;
+		const viewer = member('view', { kind: 'groups', groupIds: [ALPHA] });
+		viewer.calendarTaskings.listEventTaskingSummaries = async () => [bravo];
+
+		expect(await listEventTaskingSummaries(viewer.ctx, EVENT)).toEqual([bravo]);
+		expect(await listEventTaskingSummaries(viewer.ctx, 'not-an-id')).toEqual([]);
+		await expect(listEventTaskingSummaries(member('none').ctx, EVENT)).rejects.toMatchObject({ status: 403 });
 	});
 });

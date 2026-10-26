@@ -767,24 +767,6 @@ describe('TrainingPageContext', () => {
 		});
 	});
 
-	describe('isExempt', () => {
-		it('returns true when person is in exemptPersonnelIds', () => {
-			const ctx = makeContext(makeData(), makeOrg());
-			expect(ctx.isExempt(mockPerson, mockType)).toBe(true);
-		});
-
-		it('returns false when person is not exempt', () => {
-			const ctx = makeContext(makeData(), makeOrg());
-			expect(ctx.isExempt(mockPerson2, mockType)).toBe(false);
-		});
-
-		it('returns false when type cannot be exempted', () => {
-			const nonExemptType = { ...mockType, canBeExempted: false };
-			const ctx = makeContext(makeData(), makeOrg());
-			expect(ctx.isExempt(mockPerson, nonExemptType)).toBe(false);
-		});
-	});
-
 	describe('saved views', () => {
 		const stored = {
 			id: 'view-1',

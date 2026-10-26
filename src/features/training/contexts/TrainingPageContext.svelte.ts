@@ -24,7 +24,7 @@ import type {
 } from '../contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { TrainingType, TrainingView, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingView, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
 import { matchesPersonnelSearch } from '../utils/personnelSearch';
@@ -203,10 +203,6 @@ export class TrainingPageContext {
 
 	get stats() {
 		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.items);
-	}
-
-	isExempt(person: Personnel, type: TrainingType): boolean {
-		return type.canBeExempted && type.exemptPersonnelIds.includes(person.id);
 	}
 
 	toggleGroup(group: string): void {

@@ -184,9 +184,11 @@ Focus View orders Targeted before Required and omits Optional.
      `Control+A` and `Backspace` (`tool fill` with an empty value leaves the bound query in place). `11b` or the MOS
      `68W` match by MOS.
    - Narrow widths: at 1024 the toolbar keeps `Search`, both filters and `Export` and folds `Reports` and
-     `Sign-in rosters` into More; at 390 the row holds the toggle, a search field that takes the remaining width and
-     More. `scrollWidth` equals `clientWidth` on the page and on the `Training controls` toolbar, and the matrix
-     viewport scrolls sideways inside itself.
+     `Sign-in rosters` into More; at 390 search takes its own full-width row (322 wide) above a row holding the toggle,
+     `Training view filter` and More, and More lists `Group` (`Group: All`), `Reports`, `Sign-in rosters`, `Export`,
+     `Import`, `Manage views` and `Manage types`. Text typed in search and focus stay in the field when the width
+     crosses 390 and 600. `scrollWidth` equals `clientWidth` on the page and on the `Training controls` toolbar, and the
+     matrix viewport scrolls sideways inside itself.
 9. **Manage views sheet layout and guards:** As `trainingConfigure`, open More, then `Manage views…` (the dialog is
    named `Manage views` and holds focus; Escape returns focus to `More Training controls`; opened from the View menu's
    last option, Escape returns it to `Training view filter`, which still reads the current view, and choosing

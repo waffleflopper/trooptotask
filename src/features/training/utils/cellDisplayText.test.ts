@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getCellDisplayText, getColumnIntervalLabel } from './cellDisplayText';
+import { getCellDisplayText, getCellStatusLabel, getColumnIntervalLabel } from './cellDisplayText';
 import { getTrainingStatus } from './trainingStatus';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
@@ -84,6 +84,21 @@ describe('getCellDisplayText', () => {
 
 	it('shows Exempt for an exempted person', () => {
 		expect(cellText(makeType({ exemptPersonnelIds: [person.id] }), undefined, '2026-10-25')).toBe('Exempt');
+	});
+});
+
+describe('getCellStatusLabel', () => {
+	const spoken = (type: TrainingType, training: PersonnelTraining | undefined) =>
+		getCellStatusLabel(getTrainingStatus(training, type, person, '2026-10-25'));
+
+	it('speaks the words a cell shows for a missing record and a requirement that does not apply', () => {
+		expect(spoken(makeType(), undefined)).toBe('No record');
+		expect(spoken(makeType({ appliesToMos: ['91B'] }), undefined)).toBe('Not required');
+	});
+
+	it('keeps the status wording for a record', () => {
+		expect(spoken(makeType(), makeTraining({ expirationDate: '2026-08-04' }))).toBe('Expired 82d ago');
+		expect(spoken(makeType(), makeTraining({ expirationDate: '2026-12-08' }))).toBe('44d left');
 	});
 });
 

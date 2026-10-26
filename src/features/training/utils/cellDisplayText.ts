@@ -36,3 +36,15 @@ export function getColumnIntervalLabel(type: Pick<TrainingType, 'expirationMonth
 	if (type.expirationDateOnly) return 'Date';
 	return type.expirationMonths === null ? 'No expiry' : `${type.expirationMonths} mo`;
 }
+
+/** The status spoken for a cell, in the words the cell shows: voice control says what it sees. */
+export function getCellStatusLabel(statusInfo: TrainingStatusInfo): string {
+	switch (statusInfo.status) {
+		case 'not-completed':
+			return 'No record';
+		case 'not-required':
+			return 'Not required';
+		default:
+			return statusInfo.label;
+	}
+}

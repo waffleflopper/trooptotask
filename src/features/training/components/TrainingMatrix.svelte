@@ -11,7 +11,11 @@
 		TRAINING_STATUS_SORT_ORDER,
 		type TrainingStatusInfo
 	} from '$features/training/utils/trainingStatus';
-	import { getCellDisplayText, getColumnIntervalLabel } from '$features/training/utils/cellDisplayText';
+	import {
+		getCellDisplayText,
+		getCellStatusLabel,
+		getColumnIntervalLabel
+	} from '$features/training/utils/cellDisplayText';
 	import { BRIEFING_BAND_TIER, MATRIX_HORIZON_DAYS as HORIZON_DAYS } from '$features/training/utils/matrixReadiness';
 	import { trainingMatrixGaps, type TrainingMatrixGaps } from '$features/training/utils/trainingBriefing';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
@@ -370,11 +374,15 @@
 			<OperationalMatrix.Cell
 				{row}
 				{column}
-				ariaLabel={`${row.meta.person.lastName} ${column.label}: ${cell.statusInfo.label}`}
+				ariaLabel={`${row.meta.person.lastName} ${column.label}: ${getCellStatusLabel(cell.statusInfo)}`}
 				onSelect={onRecord ? () => openRecord(row.meta.person, column.meta.type) : undefined}
 				class="min-w-28 bg-card sm:min-w-32"
 			>
-				<TrainingMatrixCell status={cell.statusInfo.status} label={cell.displayText} srLabel={cell.statusInfo.label} />
+				<TrainingMatrixCell
+					status={cell.statusInfo.status}
+					label={cell.displayText}
+					srLabel={getCellStatusLabel(cell.statusInfo)}
+				/>
 			</OperationalMatrix.Cell>
 		{/each}
 	</OperationalMatrix.Row>

@@ -117,7 +117,7 @@ describe('TrainingMatrix', () => {
 			}
 		});
 
-		expect(screen.getByLabelText('Smith CPR: Not Done')).toBeTruthy();
+		expect(screen.getByLabelText('Smith CPR: No record')).toBeTruthy();
 
 		await view.rerender({
 			...matrixProps,
@@ -210,7 +210,7 @@ describe('TrainingMatrix', () => {
 		await user.tab();
 		await user.tab();
 		await user.tab();
-		expect(document.activeElement?.getAttribute('aria-label')).toBe('P000 CPR: Not Done');
+		expect(document.activeElement?.getAttribute('aria-label')).toBe('P000 CPR: No record');
 		for (let index = 1; index <= 40; index++) {
 			await user.tab();
 			await followFocus();
@@ -232,7 +232,7 @@ describe('TrainingMatrix', () => {
 		await user.tab();
 		await user.tab();
 		const focused = document.activeElement;
-		expect(focused?.getAttribute('aria-label')).toBe('P000 CPR: Not Done');
+		expect(focused?.getAttribute('aria-label')).toBe('P000 CPR: No record');
 
 		await scrollTo(300 * ROW_HEIGHT);
 
@@ -244,7 +244,7 @@ describe('TrainingMatrix', () => {
 		await scrollTo(0);
 
 		expect(document.activeElement).toBe(focused);
-		expect(screen.getAllByRole('button', { name: 'P000 CPR: Not Done' })).toEqual([focused]);
+		expect(screen.getAllByRole('button', { name: 'P000 CPR: No record' })).toEqual([focused]);
 	});
 
 	it('windows grouped rows and skips a collapsed group', async () => {
@@ -420,7 +420,7 @@ describe('TrainingMatrix recording popover', () => {
 	it('defaults the completion date to the Organization day and previews the new lapse for a months type', async () => {
 		mountRecordable();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Smith CPR: Not Done' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
 		const popover = await openPopover();
 
 		expect(within(popover).getByText('Record · CPR')).toBeTruthy();
@@ -434,7 +434,7 @@ describe('TrainingMatrix recording popover', () => {
 	it('defaults the completion date to the Organization day for a type that never expires', async () => {
 		mountRecordable();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Smith Once: Not Done' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Smith Once: No record' }));
 		const popover = await openPopover();
 
 		expect(dateInput(popover).value).toBe('2026-10-25');
@@ -445,7 +445,7 @@ describe('TrainingMatrix recording popover', () => {
 	it('asks for the card date with no default for a card-date type', async () => {
 		mountRecordable();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Smith Card: Not Done' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Smith Card: No record' }));
 		const popover = await openPopover();
 
 		expect(within(popover).getByLabelText('Expires on')).toBeTruthy();
@@ -466,7 +466,7 @@ describe('TrainingMatrix recording popover', () => {
 	it('saves with Enter and puts focus back on the cell', async () => {
 		const user = userEvent.setup();
 		const { onRecord } = mountRecordable();
-		const cell = screen.getByRole('button', { name: 'Smith CPR: Not Done' });
+		const cell = screen.getByRole('button', { name: 'Smith CPR: No record' });
 
 		await user.click(cell);
 		const popover = await openPopover();
@@ -490,7 +490,7 @@ describe('TrainingMatrix recording popover', () => {
 		const user = userEvent.setup();
 		const { onRecord } = mountRecordable();
 
-		await user.click(screen.getByRole('button', { name: 'Smith Card: Not Done' }));
+		await user.click(screen.getByRole('button', { name: 'Smith Card: No record' }));
 		const popover = await openPopover();
 		await fireEvent.input(dateInput(popover), { target: { value: '2028-01-09' } });
 		await user.click(within(popover).getByRole('button', { name: /^Add a note/ }));
@@ -511,7 +511,7 @@ describe('TrainingMatrix recording popover', () => {
 	it('closes on Escape without saving and returns focus to the cell', async () => {
 		const user = userEvent.setup();
 		const { onRecord } = mountRecordable();
-		const cell = screen.getByRole('button', { name: 'Smith CPR: Not Done' });
+		const cell = screen.getByRole('button', { name: 'Smith CPR: No record' });
 
 		await user.click(cell);
 		await openPopover();
@@ -527,7 +527,7 @@ describe('TrainingMatrix recording popover', () => {
 		const { onRecord } = mountRecordable();
 		onRecord.mockRejectedValueOnce(new Error('Connection lost'));
 
-		await user.click(screen.getByRole('button', { name: 'Smith CPR: Not Done' }));
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
 		const popover = await openPopover();
 		await fireEvent.input(dateInput(popover), { target: { value: '2026-10-20' } });
 		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
@@ -551,12 +551,12 @@ describe('TrainingMatrix recording popover', () => {
 			props: { ...matrixProps, personnel: [person, jones], trainingTypes: [trainingType], trainings: [], onRecord }
 		});
 
-		await user.click(screen.getByRole('button', { name: 'Smith CPR: Not Done' }));
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
 		const first = await openPopover();
 		await user.click(within(first).getByRole('button', { name: /^Save/ }));
 		await user.keyboard('{Escape}');
 		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());
-		await user.click(screen.getByRole('button', { name: 'Jones CPR: Not Done' }));
+		await user.click(screen.getByRole('button', { name: 'Jones CPR: No record' }));
 		const second = await openPopover();
 		expect(within(second).getByText(/Jones, Jane/)).toBeTruthy();
 
@@ -574,7 +574,7 @@ describe('TrainingMatrix recording popover', () => {
 		const onRecord = vi.fn().mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
 		const { view, props } = mountRecordable({ onRecord });
 
-		await user.click(screen.getByRole('button', { name: 'Smith CPR: Not Done' }));
+		await user.click(screen.getByRole('button', { name: 'Smith CPR: No record' }));
 		const popover = await openPopover();
 		await user.click(within(popover).getByRole('button', { name: /^Save/ }));
 		await view.rerender({ ...props, orgId: 'org-2' });
@@ -591,7 +591,7 @@ describe('TrainingMatrix recording popover', () => {
 			props: { ...matrixProps, personnel: [person], trainingTypes: [trainingType], trainings: [] }
 		});
 
-		expect(screen.queryByRole('button', { name: 'Smith CPR: Not Done' })).toBeNull();
-		expect(screen.getByLabelText('Smith CPR: Not Done')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Smith CPR: No record' })).toBeNull();
+		expect(screen.getByLabelText('Smith CPR: No record')).toBeTruthy();
 	});
 });

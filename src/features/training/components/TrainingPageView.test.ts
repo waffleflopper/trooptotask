@@ -230,7 +230,7 @@ describe('TrainingPageView', () => {
 			vi.fn().mockResolvedValue(undefined)
 		);
 		render(TrainingPageView, { props: { ctx, modals } });
-		await fireEvent.click(screen.getByLabelText('Smith CPR: Not Done'));
+		await fireEvent.click(screen.getByLabelText('Smith CPR: No record'));
 		const popover = (await screen.findByText('Record · CPR')).closest('form') as HTMLElement;
 		await fireEvent.click(within(popover).getByRole('button', { name: /^Add a note/ }));
 		await fireEvent.input(within(popover).getByLabelText('Notes'), { target: { value: 'Range qualification' } });
@@ -239,7 +239,7 @@ describe('TrainingPageView', () => {
 		expect(await within(popover).findByText('Recording denied')).toBeTruthy();
 		expect((within(popover).getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Range qualification');
 		expect(personnelTrainingsStore.items).toEqual([]);
-		expect(screen.getByLabelText('Smith CPR: Not Done')).toBeTruthy();
+		expect(screen.getByLabelText('Smith CPR: No record')).toBeTruthy();
 
 		await fireEvent.click(within(popover).getByRole('button', { name: /^Save/ }));
 		await waitFor(() => expect(screen.queryByText('Record · CPR')).toBeNull());

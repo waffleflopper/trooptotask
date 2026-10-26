@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { fail, RequestFailure } from '$lib/errors';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AuditPort } from '$lib/audit/contracts';
+import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
 import { issueMessage, uuidSchema } from '$lib/utils/inputSchemas';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '../calendarPolicy.server';
 import {
@@ -57,6 +58,13 @@ export async function loadEventDetail(ctx: CalendarEventPorts, id: string): Prom
 	const [event, members] = await Promise.all([ctx.calendarEvents.findEvent(eventId(id)), ctx.memberLabels()]);
 	if (!event) fail(404, EVENT_GONE);
 	return { event, members, memberOptions: memberOptions(members), currentUserId: ctx.auth.userId };
+}
+
+/** The coordinator choices for Create event, or nothing for a reader who cannot create one. */
+export async function loadEventMembers(ctx: CalendarEventPorts): Promise<MemberLabels | null> {
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
+	const decision = await evaluateAuthoritativePolicyDecision(ctx, CALENDAR_POLICY_ACTIONS.manageEvents, ORGANIZATION);
+	return decision.allowed ? ctx.memberLabels() : null;
 }
 
 export async function listEventActivity(ctx: CalendarEventPorts, id: string): Promise<EventActivity[]> {

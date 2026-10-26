@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import type { MemberLabels } from '../events/eventModel';
 import type { TaskingListActivityFact, TaskingReadiness } from './taskingListsModel';
+import type { TaskingRowFacts } from './taskingReadModel';
 
 export const TASKING_TITLE_MAX = 200;
 export const TASKING_QUALIFICATIONS_MAX = 1000;
@@ -113,6 +114,9 @@ export interface TaskingList {
 	staffing: Record<string, StaffingCount>;
 }
 
+/** The Taskings under one Event that the reader's scope covers. */
+export type EventTaskingList = Omit<TaskingList, 'scope'>;
+
 export interface TaskingDetail {
 	tasking: Tasking;
 	groups: GroupLabels;
@@ -175,9 +179,16 @@ export function addDays(dateOnly: string, days: number): string {
 
 export type TaskingAttention = 'overdue' | 'due_today' | 'due_soon';
 
+/** The state and dates a Tasking row reads, whether the reader sees the whole Tasking or another scope's summary. */
+export interface TaskingTimeline {
+	status: Pick<TaskingStatus, 'kind'>;
+	suspenseOn: string;
+	execution: (Pick<TaskingExecution, 'startsOn' | 'endsOn'> & { reportTime?: string | null }) | null;
+}
+
 /** Derived from the viewer's day at read time; never stored. Only active Taskings ask for attention. */
 export function taskingAttention(
-	tasking: Pick<Tasking, 'status' | 'suspenseOn'>,
+	tasking: Pick<TaskingTimeline, 'status' | 'suspenseOn'>,
 	today: string
 ): TaskingAttention | null {
 	if (!isActiveStatus(tasking.status.kind)) return null;
@@ -192,17 +203,14 @@ export interface TaskingNextDate {
 }
 
 /** An active Tasking whose execution is still ahead of its suspense shows when it starts; anything else shows when it is due. */
-export function nextTaskingDate(
-	tasking: Pick<Tasking, 'status' | 'suspenseOn' | 'execution'>,
-	today: string
-): TaskingNextDate {
+export function nextTaskingDate(tasking: TaskingTimeline, today: string): TaskingNextDate {
 	const startsOn = tasking.execution?.startsOn;
 	if (isActiveStatus(tasking.status.kind) && startsOn && startsOn >= today && startsOn < tasking.suspenseOn)
 		return { label: 'Starts', on: startsOn };
 	return { label: 'Due', on: tasking.suspenseOn };
 }
 
-export type TaskingView = 'active' | 'overdue' | 'blocked' | 'completed' | 'cancelled';
+export type TaskingView = 'active' | 'overdue' | 'blocked' | 'needs_people' | 'completed' | 'cancelled';
 export type TaskingWithin = 'any' | '7' | '14' | '30';
 
 /** Every list filter, as it lives in the URL. */
@@ -224,7 +232,7 @@ export const DEFAULT_TASKING_FILTERS: TaskingFilters = {
 	search: ''
 };
 
-const VIEWS: readonly TaskingView[] = ['active', 'overdue', 'blocked', 'completed', 'cancelled'];
+const VIEWS: readonly TaskingView[] = ['active', 'overdue', 'blocked', 'needs_people', 'completed', 'cancelled'];
 const WITHIN: readonly TaskingWithin[] = ['any', '7', '14', '30'];
 const PARAMS = { view: 'view', event: 'event', responsibility: 'for', within: 'within', search: 'q' } as const;
 
@@ -262,19 +270,30 @@ export function taskingFiltersQuery(filters: TaskingFilters): string {
 export const responsibilityKey = (responsibility: TaskingResponsibility) =>
 	responsibility.kind === 'group' ? responsibility.groupId : 'organization';
 
+/** An active Tasking with fewer counted picks than it requires. */
+/** An active Tasking still short of the people it requires. */
+export const needsPeople = ({ status, picked, required }: Pick<TaskingRowFacts, 'status' | 'picked' | 'required'>) =>
+	isActiveStatus(status) && required !== null && picked < required;
+
 function touchesWindow(tasking: Tasking, from: string, to: string): boolean {
 	if (tasking.suspenseOn >= from && tasking.suspenseOn <= to) return true;
 	return tasking.execution !== null && tasking.execution.startsOn <= to && tasking.execution.endsOn >= from;
 }
 
 /** Narrows a loaded list to the filters. Active views sort by the date each row shows; closed views keep the newest first. */
-export function filterTaskings(taskings: Tasking[], filters: TaskingFilters, today: string): Tasking[] {
+export function filterTaskings(
+	taskings: Tasking[],
+	filters: TaskingFilters,
+	today: string,
+	facts: Record<string, TaskingRowFacts> = {}
+): Tasking[] {
 	const search = filters.search.trim().toLocaleLowerCase();
 	const windowEnd = filters.within === 'any' ? null : addDays(today, Number(filters.within) - 1);
 	const shown = taskings.filter(
 		(tasking) =>
 			(filters.view !== 'overdue' || taskingAttention(tasking, today) === 'overdue') &&
 			(filters.view !== 'blocked' || tasking.status.kind === 'blocked') &&
+			(filters.view !== 'needs_people' || (tasking.id in facts && needsPeople(facts[tasking.id]))) &&
 			(filters.event === 'all' ||
 				(filters.event === 'standalone' ? tasking.event === null : tasking.event?.id === filters.event)) &&
 			(filters.responsibility === 'all' || responsibilityKey(tasking.responsibility) === filters.responsibility) &&

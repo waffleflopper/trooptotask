@@ -7,8 +7,11 @@
 		/** A snippet renders inside the h1, for a title that is itself a control. */
 		title: string | Snippet;
 		eyebrow?: string;
-		/** `display` sets the title large, condensed and uppercase, for the record a page is about. */
-		variant?: 'default' | 'display';
+		/**
+		 * `display` sets the title large, condensed and uppercase, for the record a page is about. `headline` sets it
+		 * larger than the default in mixed case, for a workspace whose own name or record leads the page.
+		 */
+		variant?: 'default' | 'headline' | 'display';
 		subtitle?: string | Snippet;
 		back?: Snippet;
 		meta?: Snippet;
@@ -41,7 +44,9 @@
 				'min-w-0 font-heading font-semibold',
 				variant === 'display'
 					? 'text-4xl leading-none tracking-[-0.01em] wrap-anywhere uppercase sm:text-5xl'
-					: 'text-2xl tracking-tight'
+					: variant === 'headline'
+						? 'text-[32px] leading-9 font-bold wrap-anywhere'
+						: 'text-2xl tracking-tight'
 			)}
 		>
 			{#if typeof title === 'string'}{title}{:else}{@render title()}{/if}

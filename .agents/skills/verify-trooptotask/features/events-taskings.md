@@ -12,24 +12,29 @@ Features `Events & Taskings` turns the whole feature off.
 ## Sub-features
 
 - `event-list`: `Upcoming` (ends today or later, earliest first) and `Past` (latest first, the 100 most recent) under
-  one toolbar view switch, with `?when=past` in the URL. A row reads the date range, the title, the host and the
-  coordinator, and a status badge `Upcoming`, `Ongoing`, `Past` or `Cancelled`. A cancelled title is struck through.
+  one toolbar view switch, with `?when=past` in the URL. A row reads `DATES`, `EVENT`, `HOST` and `TASKINGS`. The host
+  reads `ORG (this organization)` or the other host's name. `TASKINGS` reads `N · M need action` in red, `N · on track`,
+  or `Awareness only` when nothing is linked, with an amber triangle and a count when picks conflict. A cancelled title
+  is struck through.
 - `event-create`: the `Create event` sheet. Title, dates and host are required and come first. Location, source
   reference and description sit behind `Add location, source and notes`. The coordinator defaults to the creator.
 - `event-edit`: the same sheet, filled. `Save changes` stays disabled until something changes.
 - `event-cancel`: a confirmation with an optional reason. The detail then shows who cancelled it and when, and Edit and
   Cancel are gone.
-- `event-activity`: the detail's `Activity` list, oldest first, written by the database for created, dates changed,
+- `event-activity`: the detail card's `History` list, newest first, written by the database for created, dates changed,
   coordination changed and cancelled.
 - `event-access`: Group-scoped operators and Calendar viewers read Events with no controls, and the server refuses their
   writes. A member without Calendar access gets 403. Another Organization's Event is 404, and its id under the viewer's
   own Organization reads `This event is not available`.
 - `event-feature-off`: the toolbar action, the list, the detail and the API all go away with the switch.
-- `tasking-list`: `Active`, `Overdue`, `Blocked`, `Completed` and `Cancelled` under one view switch, plus search and
-  `Event`, `Responsible` and `Dates` selects. Every filter lives in the URL (`view`, `q`, `event`, `for`, `within`) and
-  survives Back. A row reads `Starts` or `Due` with that date, the outcome, the owner and the Event or `Standalone`,
-  then the status badge and an attention badge `Overdue`, `Due today` or `Due soon`. Closed views hold the 100 most
-  recent.
+- `tasking-list`: count chips `Active`, `Overdue`, `Blocked`, `Needs people` and `Completed` that filter, plus search
+  and `Event`, `Responsible`, `Status` and `Due` selects; `Status` also offers `Cancelled`. Every filter lives in the
+  URL (`view`, `q`, `event`, `for`, `within`) and survives Back. A row reads `STATUS`, `TASKING · EVENT` (the Event with
+  `· prep` or `· closeout`, or `Standalone · no event`), `RESPONSIBLE`, `PEOPLE` (`picked / required`, amber when
+  short), `EQUIPMENT` (`Ready`, `R of T ready` in red, or `R of Q returned` for closeout work) and `NEXT DATE`
+  (`Overdue N days`, `Due today`, `In N days` or `Starts DAY`, over `Due DAY`). A Tasking whose picks have a conflicting
+  status adds an amber triangle and count beside `PEOPLE`, named `N people have a conflicting status`. Active views read
+  `Sorted by next date`; closed views hold the 100 most recent, newest first.
 - `tasking-create`: the `Create tasking` sheet. Outcome, Responsible and Suspense are required and come first;
   Responsible starts empty for an Organization-wide operator. Event is optional. Execution dates, report time, people
   needed, qualifications and instructions sit behind `Add execution dates, staffing and instructions`.
@@ -51,16 +56,21 @@ open the Taskings list `/org/ORG/calendar/taskings`; below about 1024 px the too
 `More Calendar controls`. The sidebar item stays current and the breadcrumb reads `Calendar › Events & Taskings` on
 every events and taskings page, including detail pages.
 
-The list has `Upcoming` / `Past`, a `Calendar` action back to the month, and `Create event`
-for an operator. A row opens `/org/ORG/calendar/events/EVENT_ID`, whose header has `Back to Events`, the title, the
-status badge and, for an operator, `Edit` and `Cancel event`. Facts follow (Dates, Host, Coordinator, Location, Source,
-Description), then `Activity`.
+Every Events & Taskings page shares one header: the `CALENDAR / EVENTS & TASKINGS` eyebrow, the heading, the actions on
+the right, then a row with `Calendar` (back to the month) and an `Events` / `Taskings` segmented control. The Events
+list adds `Upcoming` / `Past` to that row, with `Create event` and `+ Create tasking` for an operator. A row opens
+`/org/ORG/calendar/events/EVENT_ID`, whose header has the title, `Edit event` and `+ Add tasking` for an operator, and
+`All events`, `Show on availability` and a `...` menu holding `Cancel event` in the row. The left card shows a countdown
+(`Starts in N days`, amber), the dates, the location, `HOSTED BY`, `SOURCE`, `COORDINATOR`, the description and
+`HISTORY`. The right column is `What ORG owes` with the Tasking count, a summary line (`N overdue`, `N blocked`,
+`N need people`, an amber triangle with `N conflicts`, `N fully staffed and ready`) and the groups. Below about 830 px
+of content the card stacks over the groups. `Show on availability` opens the Calendar on the Event's start month.
 
-`Events` and `Taskings` tabs sit under the heading of both lists. The Taskings list is `/org/ORG/calendar/taskings` with
-`Create tasking` for an operator. A row opens `/org/ORG/calendar/taskings/TASKING_ID`, whose header has
-`Back to Taskings`, the outcome, the badges and, for an operator who owns it, the lifecycle actions and `Edit`. A banner
-names who blocked, completed or cancelled it. Facts follow (Responsible, Event, Suspense, Execution, Report time,
-Requirement, Instructions), then `Activity`. At 900 the selects move into `Filters`; at 390 the view switch joins them.
+The Taskings list is `/org/ORG/calendar/taskings` with `Create event` and `+ Create tasking` for an operator. A row
+opens `/org/ORG/calendar/taskings/TASKING_ID`, whose header has `Back to Taskings`, the outcome, the badges and, for an
+operator who owns it, the lifecycle actions and `Edit`. A banner names who blocked, completed or cancelled it. Facts
+follow (Responsible, Event, Suspense, Execution, Report time, Requirement, Instructions), then `Activity`. At 900 the
+selects move into `Filters`; at 390 the view switch joins them.
 
 Member labels use `RANK First Last` from the member profile, then membership email, then the first eight characters
 of the user id and `...`. The Event list and detail provide `memberOptions` in name order and `currentUserId` for the
@@ -75,7 +85,7 @@ hook lives in the page, so arm it after the last navigation; a reload removes it
 `$V rows calendar_tasking_activity orgA` read Taskings and their Activity; filter with `tasking_id ID` or
 `responsible_group_id ID`. `$V network arm-fail PAGE calendar-taskings` fails the next Tasking create, the same way.
 
-The toolbar's `Event`, `Responsible` and `Dates` listboxes show their options in a screenshot but not in a plain
+The toolbar's `Event`, `Responsible`, `Status` and `Due` listboxes show their options in a screenshot but not in a plain
 `take_snapshot`. Take a `verbose` snapshot and click the option UIDs in order, or `navigate_page` with the filter query.
 
 ## Driving it with verify:app
@@ -91,9 +101,9 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
    `Title`. Press `Create event` with nothing filled: no request leaves, and `Title`, `Start date` and `End date` are
    invalid. Fill a title, pick Tuesday 10 Nov 2026 as the start (the end follows it), then pick 12 Nov as the end. Keep
    `This organization`. Arm `$V network arm-observe PAGE calendar-events` and press `Create event` twice quickly.
-   Exactly one `POST` returns 200, and the page moves to the new Event's detail with `10 – 12 Nov 2026`, the badge
-   `Upcoming` and one Activity entry. `$V rows calendar_events orgA` shows `starts_on 2026-11-10`, `ends_on 2026-11-12`
-   and `created_by` set to the operator.
+   Exactly one `POST` returns 200, and the page moves to the new Event's detail with `10 – 12 Nov 2026`,
+   `Starts in N days` and one `HISTORY` entry. `$V rows calendar_events orgA` shows `starts_on 2026-11-10`,
+   `ends_on 2026-11-12` and `created_by` set to the operator.
 2. **External host with a source.** Create a second Event, `1 – 4 Dec 2026`, `Another host` named `1-1 BN`. Open
    `Add location, source and notes` (its chevron turns) and fill a location, `https://example.mil/opord` and a two-line
    description. Type `javascript:alert(1)` as the source first and save: the field is invalid with its link message and
@@ -101,21 +111,22 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
    opening a new tab, and the description keeping its line break.
 3. **One-day awareness Event.** Create `20 Nov 2026` with start and end the same, host `2nd BDE`, source
    `BDE OPORD 27-03`. The list row and the detail read `20 Nov 2026`, and the source shows as text.
-4. **Edit and reload.** On the first Event press `Edit`. `Save changes` is disabled. Move the end to 13 Nov and switch
-   the host to `Another host` `1-1 BN`. Save. The sheet closes, focus returns to `Edit`, the dates read
-   `10 – 13 Nov 2026`, and Activity adds a dates entry and a coordination entry naming only the host. Reload: the dates
+4. **Edit and reload.** On the first Event press `Edit event`. `Save changes` is disabled. Move the end to 13 Nov and
+   switch the host to `Another host` `1-1 BN`. Save. The sheet closes, focus returns to `Edit event`, the dates read
+   `10 – 13 Nov 2026`, and `HISTORY` adds a dates entry and a coordination entry naming only the host. Reload: the dates
    are unchanged. Repeat the reload with the browser in a zone west of UTC; no date moves.
-5. **Cancel.** On the one-day Event press `Cancel event`. The dialog asks to confirm, with `Keep event` and a reason
-   field. Enter a reason and confirm. A banner reads who cancelled it and when, with the reason under it. Edit and
-   Cancel are gone, Activity ends with the cancellation and its reason, and the list shows the row struck through with
-   `Cancelled`. `$V rows calendar_events orgA` shows `cancelled_by`, `cancelled_at` and the reason.
+5. **Cancel.** On the one-day Event open the `...` menu and choose `Cancel event`. The dialog asks to confirm, with
+   `Keep event` and a reason field. Enter a reason and confirm. A banner reads who cancelled it and when, with the
+   reason under it. `Edit event` and `Cancel event` are gone, `HISTORY` starts with the cancellation and its reason, and
+   the list shows the title struck through. `$V rows calendar_events orgA` shows `cancelled_by`, `cancelled_at` and the
+   reason.
 6. **Failed save.** On the list, after the last navigation, arm `$V network arm-fail PAGE calendar-events`. Create an
    Event with a location and press `Create event`. The sheet stays open with every entry kept, the inputs re-enable, and
    a `Not saved` alert appears at the top of the sheet, scrolled into view. `$V rows calendar_events orgA` has no new
    row. `network restore PAGE`, then press `Create event` again: it saves once.
 7. **Widths.** Capture the list, the detail and the sheet at 1440, 900 and 390. At 900 the toolbar action moves into
-   `More Calendar controls`. At 390 a list row stacks the dates over the title and the badge, and the sheet fills the
-   screen with the footer reachable.
+   `More Calendar controls`. At 390 a list row stacks the dates over the title, with the host and `Taskings` on one
+   line, and the sheet fills the screen with the footer reachable.
 8. **Read-only roles.** As `calendarScoped` and `calendarView`, open the list and a detail. Every Event shows, with no
    `Create event`, `Edit` or `Cancel event`. From the page, `fetch` a `POST` to `/org/A/api/calendar-events`, a `PATCH`
    to `/org/A/api/calendar-events/ID` and a `POST` to `/org/A/api/calendar-events/ID/cancel`: each returns 403 and
@@ -141,7 +152,7 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     `POST` returns 200 and the Tasking appears under the Event's `Taskings`. `$V rows calendar_taskings orgA` shows
     `responsible_group_id` Alpha, the Event id and `created_by` the operator.
 14. **Organization Tasking.** From the Taskings list, create a standalone Tasking owned by `Verification Organization A`
-    with a suspense in the past. Its row reads `Due`, the date and `Overdue`, and `?view=overdue` lists it.
+    with a suspense in the past. Its `NEXT DATE` reads `Overdue N days` over `Due DAY`, and `?view=overdue` lists it.
 15. **Lifecycle.** On that Tasking press `Start`, then `Block`: `Block` in the dialog stays disabled until a reason is
     filled. Then `Unblock`, `Complete` with a note, `Reopen` and `Cancel tasking` with a reason. Each move changes the
     badge and the actions, the banners name the actor, and Activity gains started, blocked, unblocked, completed,
@@ -152,15 +163,15 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
     unlink, dates and requirement changes. Reload: the facts are unchanged. Relink it to the Event and move it back to
     Alpha.
 17. **Filters and Back.** With Taskings across both Groups, the Organization and every status, choose `Alpha` in
-    `Responsible` and `Next 7 days` in `Dates`; the URL reads `?for=ALPHA_ID&within=7` and only Alpha Taskings due
-    within a week remain. Open a row and press the browser's Back: the URL, the selects and the rows return unchanged.
-    Search `lmtv` writes `?q=lmtv` without a new history entry. `Event` narrows to one Event or `Standalone`.
+    `Responsible` and `Next 7 days` in `Due`; the URL reads `?for=ALPHA_ID&within=7` and only Alpha Taskings due within
+    a week remain. Open a row and press the browser's Back: the URL, the selects and the rows return unchanged. Search
+    `lmtv` writes `?q=lmtv` without a new history entry. `Event` narrows to one Event or `Standalone`.
 18. **Failed Tasking save.** On the list, arm `$V network arm-fail PAGE calendar-taskings`, open `Create tasking`, fill
     the three required fields and save. The sheet keeps every entry under a `Not saved` alert and
     `$V rows calendar_taskings orgA` has no new row. Press `Create tasking` again: it saves once and opens the detail.
 19. **Tasking widths.** Capture the Taskings list, a Tasking detail and the edit sheet at 1440, 900 and 390. At 390 a
-    row stacks the date over the outcome and the badges, the actions wrap under the title, and `scrollWidth` equals the
-    viewport.
+    row stacks the outcome and its Event beside the status badge, then the responsible pill, `People` and `Equipment` on
+    one line and the next date under them, the actions wrap under the title, and `scrollWidth` equals the viewport.
 20. **Scoped Tasking operator.** As `calendarScoped` (Alpha), the list shows only Alpha Taskings and no
     Organization-owned ones. `Create tasking` offers only `Alpha`, already chosen. `Edit` on an Alpha Tasking shows
     `Responsible` disabled. A Bravo Tasking's URL reads `This tasking is not available`. From the page, a create for
@@ -281,9 +292,12 @@ revisions, review flags and the delete guards as ordinary signed-in users.
 
 ## Event detail and shared Events
 
-Event detail groups its Taskings under `Preparation`, `Execution` and `Closeout`. A Tasking is in `Execution` when its
-execution dates or its suspense fall within the Event's dates, in `Preparation` when it is due before the Event starts
-and in `Closeout` when after it ends. A phase with nothing in it does not render. Rows sort by suspense, then outcome.
+Event detail groups its Taskings under `BEFORE · PREP`, `DURING · DATES` and `AFTER · CLOSEOUT`, each a region named by
+its heading. A row reads the status badge, the outcome, the responsible pill with `x of y picked`, the equipment state
+and an amber conflict triangle, then the next date (`Report 0600 DAY` for execution work) over `Due DAY`. A Tasking is
+in `During` when its execution dates or its suspense fall within the Event's dates, in `Before` when it is due before
+the Event starts and in `After` when after it ends. A phase with nothing in it does not render. Rows sort by suspense,
+then outcome.
 
 A Group-scoped reader sees their Groups' Taskings as the usual rows that open, and every other Tasking linked to the
 Event, Organization-level ones included, as a dashed one-line row that does not open: the Group or Organization, the
@@ -303,8 +317,9 @@ Drive it as `calendarOperate` unless noted, with the Event dated 10 – 12 Nov 2
 Bravo Tasking due 11 Nov with `People needed` 6 and then blocked with a reason, and an Organization Tasking due 16 Nov,
 all linked to it; add a standalone Bravo Tasking.
 
-23. **Groups.** The detail lists `Preparation` (Alpha, 5 Nov), `Execution` (Bravo, 11 Nov) and `Closeout` (Organization,
-    16 Nov), each row opening its Tasking. The standalone Bravo Tasking is absent, and no phase shows as an empty box.
+23. **Groups.** The detail lists `BEFORE · PREP` (Alpha, 5 Nov), `DURING` (Bravo, 11 Nov) and `AFTER · CLOSEOUT`
+    (Organization, 16 Nov), each row opening its Tasking. The standalone Bravo Tasking is absent, and no phase shows as
+    an empty box.
 24. **Scoped reader.** As `calendarScoped` (Alpha), the Alpha row opens. The Bravo and Organization rows are dashed rows
     with no link: Bravo shows `Blocked` and `N of 6 picked`, with no reason, people or instructions anywhere in the page
     text. From the page, `fetch` the Bravo Tasking's `/org/A/api/calendar-taskings/ID` PATCH and its status POST: 404.
@@ -317,11 +332,34 @@ all linked to it; add a standalone Bravo Tasking.
 26. **Cancel review.** Press `Cancel event`. The dialog lists the three active Taskings as links; complete one first and
     it drops off the list. Confirm. The detail shows the cancellation banner and the notice that the Taskings stay open,
     with every Tasking still `Open`, `In progress` or `Blocked`.
-27. **Load states.** Reload the detail with the network slowed: the `Taskings` region shows its skeleton rows, then the
-    groups, with no shift of the Activity section beyond the groups themselves. With `arm-fail` on the summary read the
-    reader's own rows stay and `Other groups’ taskings could not be loaded` shows with `Retry`.
+27. **Load states.** `$V server-source arm calendar_events hold 1 30000` and reload: the card and the groups show
+    skeletons under the header. `fail-hard` instead reads `This event could not be loaded` with `Retry`.
+    `server-source restore`. Arm `calendar_event_activity` the same way: only `HISTORY` shows its skeleton, then
+    `History could not be loaded` with `Retry`. Arm `rpc/calendar_tasking_workspace`: `What ORG owes` shows its skeleton
+    line and rows, then `Taskings could not be loaded` with `Retry` and no counts. Restore after each. With `arm-fail`
+    on the summary read the reader's own rows stay and `Other groups’ taskings could not be loaded` shows with `Retry`.
 28. **Widths.** Capture the detail with all three phases, the review list and the cancel dialog at 1440, 900 and 390. At
-    390 a row stacks the outcome over its line and the badge, and `scrollWidth` equals the viewport.
+    390 the card stacks over the groups, a row stacks the outcome and its line beside the badge with the dates under
+    them, and `scrollWidth` equals the viewport.
+
+## List facts and conflict markers
+
+The Taskings and Events lists read their counts and row facts from the one `workspace` batch, so a failed batch fails
+the region instead of reading zero. Seed a conflict: pick a Person on a Tasking with execution dates, then from the page
+`POST /org/A/api/availability` for that Person with a `Leave` status inside the execution window.
+
+1. **Chips.** On the Taskings list the chips read the active, overdue, blocked, needs-people and completed counts.
+   `Completed` counts every completed Tasking. Choosing a chip writes `?view=` and the table narrows; `Needs people`
+   lists the active Taskings with fewer picks than required.
+2. **Conflict markers.** The picked Tasking's `PEOPLE` cell shows an amber triangle and `1`; its accessible name reads
+   `1 person has a conflicting status`. Its Event's `TASKINGS` cell on the Events list and its row on Event detail carry
+   the same triangle, and the detail summary line adds `1 conflict` in amber. No other row has one. Delete the Leave and
+   reload: every marker goes.
+3. **Load states.** `$V server-source arm rpc/calendar_tasking_workspace hold 1 30000` and open the Taskings list: the
+   chips show skeleton counts and the table its skeleton rows. `fail-hard` instead: the chips show no numbers and the
+   table reads `Taskings could not be loaded` with `Retry`. On the Events list a held batch shows a skeleton in each
+   `TASKINGS` cell; a failed one reads `Tasking counts could not be loaded` over the rows, each `TASKINGS` cell `—`. Arm
+   `calendar_taskings` or `calendar_events` for the list itself. Restore after each.
 
 ## Lower-level checks
 

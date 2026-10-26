@@ -1,4 +1,4 @@
-import { listTaskings, loadTaskingChoices, settleEventRead } from '$features/calendar/index.server';
+import { listTaskings, loadEventMembers, loadTaskingChoices, settleEventRead } from '$features/calendar/index.server';
 import { parseTaskingView, scopeOfView } from '$features/calendar';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -21,7 +21,8 @@ export const load = async ({ params, locals, cookies, depends, url }: PageServer
 			today,
 			workspace: settleEventRead(ctx.taskingWorkspace.read(today)),
 			list: settleEventRead(listTaskings(ctx, scope)),
-			choices: settleEventRead(loadTaskingChoices(ctx, today))
+			choices: settleEventRead(loadTaskingChoices(ctx, today)),
+			eventMembers: settleEventRead(loadEventMembers(ctx))
 		})
 	});
 };

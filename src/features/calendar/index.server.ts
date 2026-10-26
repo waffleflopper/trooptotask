@@ -107,6 +107,7 @@ export { createSupabaseRosterSwapPersistence } from './rosterSwapPersistence.ser
 export {
 	listEvents,
 	loadEventDetail,
+	loadEventMembers,
 	listEventActivity,
 	createEvent,
 	updateEvent,

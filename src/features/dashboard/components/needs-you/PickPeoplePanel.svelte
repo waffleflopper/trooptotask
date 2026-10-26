@@ -14,6 +14,7 @@
 
 	let {
 		updates,
+		save,
 		close,
 		orgId,
 		tasking,
@@ -26,10 +27,10 @@
 		Dialog: AssignPeopleDialog;
 	} = $props();
 
-	// The row reads the saved picks before the dialog closes, so it never shows the old count behind it.
-	async function onSaved() {
-		await updates.refreshTaskings();
-		close();
+	// The row reads the saved picks before it closes the picker, so it never shows the old count behind it,
+	// and it keeps focus where the row was if the row leaves the queue.
+	function onSaved() {
+		void save(() => updates.refreshTaskings()).catch(() => {});
 	}
 </script>
 

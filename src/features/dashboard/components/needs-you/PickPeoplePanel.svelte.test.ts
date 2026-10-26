@@ -8,14 +8,18 @@ import PickPeoplePanel from './PickPeoplePanel.svelte';
 afterEach(cleanup);
 
 function open(refreshTaskings: () => Promise<void>) {
-	const updates = { refreshSummary: vi.fn(), refreshTaskings, retryTaskings: vi.fn(), putRecord: vi.fn() };
 	const close = vi.fn();
+	const save = vi.fn(async (command: () => Promise<void>) => {
+		await command();
+		close();
+	});
+	const updates = { refreshSummary: vi.fn(), refreshTaskings, retryTaskings: vi.fn(), putRecord: vi.fn() };
 	render(PickPeoplePanel, {
 		props: {
 			model: {} as DashboardScreenModel,
 			access: { can: () => true, isPrivileged: false },
 			updates,
-			save: (command: () => Promise<void>) => command(),
+			save,
 			saving: false,
 			failure: null,
 			close,
@@ -25,7 +29,7 @@ function open(refreshTaskings: () => Promise<void>) {
 			Dialog: PickPeopleDialogTestDouble
 		}
 	});
-	return { close };
+	return { close, save };
 }
 
 describe('PickPeoplePanel', () => {

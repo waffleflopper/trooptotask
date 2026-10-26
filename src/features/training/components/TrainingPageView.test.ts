@@ -4,6 +4,7 @@ import { createCapabilityMap, type ScopeSet } from '$lib/access/memberAccessShap
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingPageView from './TrainingPageView.svelte';
+import TrainingModals from './TrainingModals.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -313,24 +314,80 @@ describe('TrainingPageView', () => {
 		expect(headers).toEqual(['Unassigned', 'Bravo', '\u0000']);
 	});
 
-	it('goes to the views workspace from Manage views in the View menu and in More', async () => {
-		const widths = stubToolbarWidths();
-		const ctx = makeCtx('by-group');
-		render(TrainingPageView, {
-			props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() }
+	describe('Manage views', () => {
+		function renderWithModals() {
+			const modals = new ModalRegistry();
+			const ctx = {
+				...makeCtx('by-group'),
+				trainingConfigureAffordance: { allowed: true },
+				saveView: vi.fn(),
+				deleteView: vi.fn()
+			} as unknown as TrainingPageContext;
+			render(TrainingPageView, { props: { ctx, modals } });
+			render(TrainingModals, { props: { ctx, modals } });
+		}
+
+		it('opens the sheet from More and returns focus to More when it closes', async () => {
+			const widths = stubToolbarWidths();
+			renderWithModals();
+			await widths.foldAll();
+
+			const menu = await openToolbarMore('Training controls');
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Manage views' }));
+			const sheet = await screen.findByRole('dialog', { name: 'Manage views' });
+
+			await fireEvent.keyDown(sheet, { key: 'Escape' });
+			await waitFor(() =>
+				expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More Training controls' }))
+			);
+			expect(screen.queryByRole('dialog', { name: 'Manage views' })).toBeNull();
+			expect(goto).not.toHaveBeenCalled();
 		});
-		await widths.foldAll();
 
-		const menu = await openToolbarMore('Training controls');
-		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Manage views' }));
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/views'));
-		vi.mocked(goto).mockClear();
+		const viewFilter = () =>
+			within(document.querySelector('[data-toolbar-row]') as HTMLElement).getByLabelText('Training view filter');
 
-		await openToolbarMore('Training controls');
-		await openToolbarSubmenu('View, All trainings');
-		await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Manage views…' }));
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/views'));
-		expect(ctx.setSelectedViewId).not.toHaveBeenCalled();
+		it('opens the sheet from the View menu and returns focus to the View control when it closes', async () => {
+			const widths = stubToolbarWidths();
+			renderWithModals();
+			await widths.layOut(2000);
+
+			const view = viewFilter();
+			view.focus();
+			await fireEvent.keyDown(view, { key: 'Enter' });
+			const option = await screen.findByRole('option', { name: 'Manage views…' });
+			await fireEvent.pointerMove(option);
+			await fireEvent.pointerUp(option);
+			await fireEvent.click(option);
+			const sheet = await screen.findByRole('dialog', { name: 'Manage views' });
+
+			await fireEvent.keyDown(sheet, { key: 'Escape' });
+			await waitFor(() => expect(document.activeElement).toBe(viewFilter()));
+		});
+
+		it('opens the sheet again from the View menu after closing it and keeps the current view shown', async () => {
+			const widths = stubToolbarWidths();
+			renderWithModals();
+			await widths.layOut(2000);
+
+			async function chooseManageViews() {
+				const view = viewFilter();
+				view.focus();
+				await fireEvent.keyDown(view, { key: 'Enter' });
+				const option = await screen.findByRole('option', { name: 'Manage views…' });
+				await fireEvent.pointerMove(option);
+				await fireEvent.pointerUp(option);
+				await fireEvent.click(option);
+				return screen.findByRole('dialog', { name: 'Manage views' });
+			}
+
+			const first = await chooseManageViews();
+			await fireEvent.keyDown(first, { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Manage views' })).toBeNull());
+
+			expect(await chooseManageViews()).toBeTruthy();
+			expect(viewFilter().textContent).toContain('All trainings');
+		});
 	});
 
 	function memberContext(training: 'operate' | 'view'): TrainingPageContext {

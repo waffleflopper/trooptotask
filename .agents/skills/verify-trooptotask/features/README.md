@@ -144,6 +144,8 @@ means the workspace reloaded.
 - [Manual assignments](calendar-assignments.md): assignment planner and quick fill.
 - [DA 6](calendar-da6.md): one duty roster's read-only DA 6 for a month, Show the work and print.
 - [Special days](special-days.md): holidays, closures and federal reset.
+- [Events & Taskings](events-taskings.md): Events list and detail, create, edit and cancel, denied roles and the
+  feature switch.
 - [Reports and history](reports-history.md): Calendar reports and workbooks.
 - [Organization switching](organization-switching.md): A/B isolation and delayed responses.
 

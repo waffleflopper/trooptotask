@@ -193,6 +193,18 @@ _Avoid_: sheet as the stored record
 A person's count going into a DA 6 form's first day on a Track, carried from the last form or typed from a paper DA 6. Typed numbers change only until the first detail on the form is served; then they are part of the record.
 _Avoid_: Initial count, seed
 
+**Event**:
+Something the unit runs, supports or should know about, over one or more whole dates. Its host is this Organization or a named outside unit, and its coordinator is an Organization member who is the point of contact; neither grants access. An Event with nothing asked of the unit is awareness only.
+_Avoid_: Availability Status, appointment, tasking when the Event itself is meant
+
+**Event cancellation**:
+The explicit end of an Event, with who cancelled it, when, and an optional reason. A cancelled Event stays on record and cannot be edited; Events are never deleted.
+_Avoid_: Delete, archive
+
+**Event Activity**:
+The record of an Event's creation, date changes, host or coordinator changes and cancellation, written by the database with the acting member.
+_Avoid_: Audit log, history
+
 **DONSA**:
 A day of no scheduled activities, represented as a Calendar special day; Training Holiday is also appropriate military-facing wording.
 _Avoid_: Closure, org closure in product copy

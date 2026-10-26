@@ -108,6 +108,8 @@ const tableColumns = {
 	personnel_attribute_history: 'organization_id',
 	daily_assignments: 'organization_id',
 	special_days: 'organization_id',
+	calendar_events: 'organization_id',
+	calendar_event_activity: 'organization_id',
 	notifications: 'organization_id',
 	audit_logs: 'org_id',
 	data_exports: 'org_id',
@@ -196,7 +198,8 @@ const filters = new Set([
 	'template_step_id',
 	'rated_person_id',
 	'resource_id',
-	'requested_by'
+	'requested_by',
+	'event_id'
 ]);
 
 async function owned() {
@@ -2764,6 +2767,7 @@ async function main() {
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
 					'special-days',
+					'calendar-events',
 					'sign-in-rosters',
 					'training-types',
 					'training-views',

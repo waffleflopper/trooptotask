@@ -344,6 +344,7 @@
 	{#if dialog === 'edit'}
 		<EventDialog
 			orgId={org.orgId}
+			orgName={org.orgName}
 			{event}
 			{members}
 			currentUserId={org.userId}

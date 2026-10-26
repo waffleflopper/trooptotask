@@ -261,6 +261,7 @@
 {#if creating}
 	<EventDialog
 		orgId={org.orgId}
+		orgName={org.orgName}
 		members={creating.members}
 		currentUserId={org.userId}
 		offerTasking={canCreateTasking}

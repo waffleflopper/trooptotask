@@ -206,12 +206,14 @@ distinct from ordinary UI or authorization proof.
     only `Duty planner` appears for `calendarConfigure`.
 17. **Sidebar slide.** As `calendarConfigure` at 1440x900 on `calendar`, start a read-only frame sampler with
     `evaluate_script` and the function
-    `() => { const q = (s) => document.querySelector(s); const out = (window.__slide = []); const t0 = performance.now(); const tick = () => { out.push([Math.round(performance.now() - t0), q('[data-slot=sidebar-gap]').getBoundingClientRect().width, q('[data-slot=sidebar-inset]').getBoundingClientRect().left]); if (performance.now() - t0 < 600) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }`,
-    then click `Toggle Sidebar` and read `window.__slide` after a second. Expected: the gap width falls from 256 to 48
-    through intermediate values over about 125 ms, and every sample has the content's left edge equal to the gap width.
+    `() => { const q = (s) => document.querySelector(s); const out = (window.__slide = []); const t0 = performance.now(); const tick = () => { out.push([Math.round(performance.now() - t0), q('[data-slot=sidebar-gap]').getBoundingClientRect().width, q('[data-slot=sidebar-inset]').getBoundingClientRect().left]); if (performance.now() - t0 < 4000) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }`,
+    then click the header's `Toggle Sidebar` by its snapshot UID (the sidebar rail carries the same name) and read
+    `window.__slide` after three seconds. Expected: the gap width falls from 256 to 48 through about eight intermediate
+    frames over about 125 ms, easing out, and every sample has the content's left edge equal to the gap width.
     Expanding again rises from 48 to 256 the same way. Reload and read `performance.getEntriesByType('layout-shift')`:
-    no entry. Choose another sidebar link with the sampler running: the width stays put. Repeat with `emulate`
-    `prefers-reduced-motion: reduce`: the width jumps in one frame.
+    no entry. Choose another sidebar link with the sampler running, expanded and collapsed: the width never changes.
+    Native `emulate` cannot set reduced motion, so read the `(prefers-reduced-motion: reduce)` rule from
+    `document.styleSheets`: it sets `transition-duration: 0.01ms !important` on every element.
 
 Direct SQL proof uses the canonical `python3 scripts/ci/database.py` runner under the repository's Node version, which
 owns fresh disposable projects and disables seeds. Its `account_preferences_rls.sql` contract exercises ordinary

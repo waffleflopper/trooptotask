@@ -39,7 +39,7 @@
 		interactOutsideBehavior={dialog.closeBlocked ? 'ignore' : 'close'}
 		restoreScrollDelay={0}
 		class={cn(
-			'w-full gap-0 data-[side=right]:max-sm:w-full sm:max-w-md [&>[data-slot=app-dialog-body]]:flex-1',
+			'w-full gap-0 data-[side=right]:max-sm:w-full sm:max-w-md [&>[data-slot=app-dialog-body]]:flex-1 [&>form>[data-slot=app-dialog-body]]:flex-1',
 			size === 'wide' && 'data-[side=right]:w-full data-[side=right]:sm:max-w-140',
 			className
 		)}

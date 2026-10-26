@@ -1,17 +1,15 @@
 <script lang="ts">
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import { untrack } from 'svelte';
+	import Plus from '@lucide/svelte/icons/plus';
+	import { tick, untrack } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
-	import * as Collapsible from '$lib/components/ui/collapsible';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import { NativeSelect, NativeSelectOption } from '$lib/components/ui/native-select';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { rejectedRequestMessage, withinOrganizationLifetime } from '$lib/stores/core';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 	import {
@@ -22,9 +20,12 @@
 		type MemberLabels
 	} from '../eventModel';
 	import { createEventRequest, updateEventRequest } from '../eventRequests';
+	import CoordinatorField from './CoordinatorField.svelte';
 
 	interface Props {
 		orgId: string;
+		/** Names the hosting choice; without it the choice reads "This organization runs it". */
+		orgName?: string;
 		/** The event to edit. Without it the dialog creates one. */
 		event?: CalendarEvent;
 		members: MemberLabels;
@@ -35,10 +36,14 @@
 		onClose: () => void;
 	}
 
-	let { orgId, event, members, currentUserId, offerTasking = false, onSaved, onClose }: Props = $props();
+	let { orgId, orgName, event, members, currentUserId, offerTasking = false, onSaved, onClose }: Props = $props();
+
+	type Extra = 'location' | 'description';
 
 	const [initial, creator] = untrack(() => [event, currentUserId] as const);
 	const id = initial?.id ?? crypto.randomUUID();
+	// An Organization-hosted event saved before source references moved under the outside host keeps its own field.
+	const legacySource = initial?.host.kind === 'organization' && Boolean(initial.sourceReference);
 	let title = $state(initial?.title ?? '');
 	let startsOn = $state(initial?.startsOn ?? '');
 	let endsOn = $state(initial?.endsOn ?? '');
@@ -48,7 +53,10 @@
 	let location = $state(initial?.location ?? '');
 	let sourceReference = $state(initial?.sourceReference ?? '');
 	let description = $state(initial?.description ?? '');
-	let moreOpen = $state(Boolean(initial?.location || initial?.sourceReference || initial?.description));
+	let shown = $state<Record<Extra, boolean>>({
+		location: Boolean(initial?.location),
+		description: Boolean(initial?.description)
+	});
 	let triedSave = $state(false);
 	let saveError = $state('');
 	let open = true;
@@ -57,7 +65,7 @@
 	$effect(() => () => (open = false));
 
 	const memberOptions = $derived(optionsForMembers(members));
-	const coordinatorLeft = $derived(!(coordinatorUserId in members));
+	const sourceShown = $derived(hostKind === 'external' || legacySource);
 
 	const input = $derived({
 		title,
@@ -67,7 +75,7 @@
 		coordinatorUserId,
 		location,
 		description,
-		sourceReference
+		sourceReference: sourceShown ? sourceReference : ''
 	});
 	const parsed = $derived(eventDraftSchema.safeParse(input));
 	const problems = $derived.by(() => {
@@ -77,7 +85,11 @@
 			const key = issue.path.join('.');
 			byField[key] ??= key === 'startsOn' || key === 'endsOn' ? 'Choose a date.' : issue.message;
 		}
-		if (parsed.error.issues.some((issue) => issue.code === 'custom' && issue.path[0] === 'endsOn'))
+		if (
+			startsOn &&
+			endsOn &&
+			parsed.error.issues.some((issue) => issue.code === 'custom' && issue.path[0] === 'endsOn')
+		)
 			byField.endsOn = 'End on or after the start date.';
 		return byField;
 	});
@@ -101,10 +113,17 @@
 		if (value && (!endsOn || endsOn < value)) endsOn = value;
 	}
 
+	async function reveal(extra: Extra) {
+		shown[extra] = true;
+		await tick();
+		document.getElementById(`event-${extra}`)?.focus();
+	}
+
 	function save(next?: 'add-tasking') {
 		triedSave = true;
 		if (!parsed.success) {
-			if (problems.location || problems.sourceReference || problems.description) moreOpen = true;
+			if (problems.location) shown.location = true;
+			if (problems.description) shown.description = true;
 			return;
 		}
 		const draft = parsed.data;
@@ -122,13 +141,11 @@
 	}
 </script>
 
-<AppDialog.Root open busy={saving.pending} closeBlocked={dirty} {onClose}>
+<AppDialog.Root open voice="form" busy={saving.pending} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content presentation="sheet" size="wide">
-		<AppDialog.Header class="border-b pb-4">
+		<AppDialog.Header>
 			<AppDialog.Title>{initial ? 'Edit event' : 'Create event'}</AppDialog.Title>
-			<AppDialog.Description>
-				An event your unit runs or supports, or one to stay aware of. Only the title, dates and host are required.
-			</AppDialog.Description>
+			<AppDialog.Description>Something happening that the unit should see on the calendar.</AppDialog.Description>
 		</AppDialog.Header>
 		<form
 			id="event-form"
@@ -139,7 +156,7 @@
 				save();
 			}}
 		>
-			<AppDialog.Body class="grid content-start gap-5">
+			<AppDialog.Body class="grid content-start gap-4.5">
 				{#if saveError}
 					<Alert.Root variant="destructive" {@attach (alert) => alert.scrollIntoView({ block: 'nearest' })}>
 						<Alert.Title>Not saved</Alert.Title>
@@ -152,96 +169,124 @@
 						<Input id="event-title" autocomplete="off" bind:value={title} />
 						{#if problems.title}<Field.Error>{problems.title}</Field.Error>{/if}
 					</Field.Root>
-					<div class="grid gap-4 sm:grid-cols-2">
+					<div class="grid gap-x-3 gap-y-4.5 sm:grid-cols-2">
 						<Field.Root>
-							<Field.Label for="event-starts-on">Start date</Field.Label>
+							<Field.Label for="event-starts-on">Starts</Field.Label>
 							<DatePicker id="event-starts-on" bind:value={() => startsOn, chooseStart} placeholder="Choose a date" />
 							{#if problems.startsOn}<Field.Error>{problems.startsOn}</Field.Error>{/if}
 						</Field.Root>
 						<Field.Root>
-							<Field.Label for="event-ends-on">End date</Field.Label>
+							<Field.Label for="event-ends-on">Ends</Field.Label>
 							<DatePicker id="event-ends-on" bind:value={endsOn} placeholder="Choose a date" />
-							<Field.Description>Same as the start for a one-day event.</Field.Description>
 							{#if problems.endsOn}<Field.Error>{problems.endsOn}</Field.Error>{/if}
 						</Field.Root>
 					</div>
-					<Field.Root>
-						<Field.Title id="event-host">Host</Field.Title>
-						<div>
-							<ToggleGroup.Root
-								type="single"
-								variant="outline"
-								aria-labelledby="event-host"
-								bind:value={
-									() => hostKind,
-									(value) => {
-										if (value === 'organization' || value === 'external') hostKind = value;
-									}
+					<div class="grid gap-2">
+						<Field.Title id="event-host">Who is running it?</Field.Title>
+						<RadioGroup.Root
+							aria-labelledby="event-host"
+							class="gap-2 sm:grid-cols-2"
+							bind:value={
+								() => hostKind,
+								(value) => {
+									if (value === 'organization' || value === 'external') hostKind = value;
 								}
-							>
-								<ToggleGroup.Item value="organization">This organization</ToggleGroup.Item>
-								<ToggleGroup.Item value="external">Another host</ToggleGroup.Item>
-							</ToggleGroup.Root>
-						</div>
-					</Field.Root>
-					{#if hostKind === 'external'}
-						<Field.Root>
-							<Field.Label for="event-host-name">Host name</Field.Label>
-							<Input id="event-host-name" autocomplete="off" placeholder="e.g., 1-1 BN" bind:value={hostName} />
-							{#if problems['host.name']}<Field.Error>{problems['host.name']}</Field.Error>{/if}
-						</Field.Root>
-					{/if}
+							}
+						>
+							<RadioGroup.Card
+								id="event-host-organization"
+								value="organization"
+								title="We are hosting"
+								description={`${orgName ?? 'This organization'} runs it`}
+							/>
+							<RadioGroup.Card
+								id="event-host-external"
+								value="external"
+								title="Another organization"
+								description="Tracked here for awareness and taskings"
+							/>
+						</RadioGroup.Root>
+						{#if hostKind === 'external'}
+							<div class="grid gap-3 rounded-md bg-muted p-3 sm:grid-cols-2">
+								<Field.Root>
+									<Field.Label for="event-host-name" class="text-[13px]">Hosting organization</Field.Label>
+									<Input id="event-host-name" autocomplete="off" placeholder="e.g., 1-1 BN" bind:value={hostName} />
+									{#if problems['host.name']}<Field.Error>{problems['host.name']}</Field.Error>{/if}
+								</Field.Root>
+								<Field.Root>
+									<Field.Label for="event-source" class="text-[13px]">Source reference</Field.Label>
+									<Input
+										id="event-source"
+										autocomplete="off"
+										placeholder="e.g., BN FRAGO 27-012"
+										bind:value={sourceReference}
+									/>
+									{#if problems.sourceReference}<Field.Error>{problems.sourceReference}</Field.Error>{/if}
+								</Field.Root>
+							</div>
+						{/if}
+					</div>
 					<Field.Root>
 						<Field.Label for="event-coordinator">Coordinator</Field.Label>
-						<NativeSelect id="event-coordinator" class="w-full" bind:value={coordinatorUserId}>
-							{#if coordinatorLeft}
-								<NativeSelectOption value={coordinatorUserId}>Former member</NativeSelectOption>
-							{/if}
-							{#each memberOptions as member (member.userId)}
-								<NativeSelectOption value={member.userId}>{member.label}</NativeSelectOption>
-							{/each}
-						</NativeSelect>
-						<Field.Description>The point of contact. It grants no access.</Field.Description>
+						<CoordinatorField
+							id="event-coordinator"
+							value={coordinatorUserId}
+							options={memberOptions}
+							{currentUserId}
+							onChange={(userId) => (coordinatorUserId = userId)}
+						/>
+						<Field.Description>
+							The member who owns the requirement. People sent are chosen on each tasking.
+						</Field.Description>
 					</Field.Root>
-
-					<Collapsible.Root bind:open={moreOpen}>
-						<Collapsible.Trigger>
-							{#snippet child({ props })}
-								<Button {...props} variant="ghost" size="sm" class="-ml-2">
-									<ChevronRight class={['transition-transform', moreOpen && 'rotate-90']} aria-hidden="true" />
-									{moreOpen ? 'Hide details' : 'Add location, source and notes'}
+					{#if legacySource && hostKind === 'organization'}
+						<Field.Root>
+							<Field.Label for="event-source">Source reference</Field.Label>
+							<Input id="event-source" autocomplete="off" bind:value={sourceReference} />
+							{#if problems.sourceReference}<Field.Error>{problems.sourceReference}</Field.Error>{/if}
+						</Field.Root>
+					{/if}
+					{#if shown.location}
+						<Field.Root>
+							<Field.Label for="event-location">Location</Field.Label>
+							<Input id="event-location" autocomplete="off" bind:value={location} />
+							{#if problems.location}<Field.Error>{problems.location}</Field.Error>{/if}
+						</Field.Root>
+					{/if}
+					{#if shown.description}
+						<Field.Root>
+							<Field.Label for="event-description">Description</Field.Label>
+							<Textarea id="event-description" rows={4} bind:value={description} />
+							{#if problems.description}<Field.Error>{problems.description}</Field.Error>{/if}
+						</Field.Root>
+					{/if}
+					{#if !shown.location || !shown.description}
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
+							<span
+								class="mr-2 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
+							>
+								Optional
+							</span>
+							{#if !shown.location}
+								<Button variant="ghost" class="-mx-1.5 px-1.5" onclick={() => void reveal('location')}>
+									<Plus data-icon="inline-start" class="size-3" />Location
 								</Button>
-							{/snippet}
-						</Collapsible.Trigger>
-						<Collapsible.Content class="grid gap-5 pt-3">
-							<Field.Root>
-								<Field.Label for="event-location">Location</Field.Label>
-								<Input id="event-location" autocomplete="off" bind:value={location} />
-								{#if problems.location}<Field.Error>{problems.location}</Field.Error>{/if}
-							</Field.Root>
-							<Field.Root>
-								<Field.Label for="event-source">Source reference</Field.Label>
-								<Input
-									id="event-source"
-									autocomplete="off"
-									placeholder="e.g., BN FRAGO 27-012 or https://…"
-									bind:value={sourceReference}
-								/>
-								<Field.Description>An order identifier or an http or https link.</Field.Description>
-								{#if problems.sourceReference}<Field.Error>{problems.sourceReference}</Field.Error>{/if}
-							</Field.Root>
-							<Field.Root>
-								<Field.Label for="event-description">Description</Field.Label>
-								<Textarea id="event-description" rows={4} bind:value={description} />
-								{#if problems.description}<Field.Error>{problems.description}</Field.Error>{/if}
-							</Field.Root>
-						</Collapsible.Content>
-					</Collapsible.Root>
+							{/if}
+							{#if !shown.description}
+								<Button variant="ghost" class="-mx-1.5 px-1.5" onclick={() => void reveal('description')}>
+									<Plus data-icon="inline-start" class="size-3" />Description
+								</Button>
+							{/if}
+						</div>
+					{/if}
 				</fieldset>
 			</AppDialog.Body>
 		</form>
-		<AppDialog.Footer class="border-t pt-4">
-			<Button variant="outline" onclick={onClose} disabled={saving.pending}>Cancel</Button>
+		<AppDialog.Footer>
+			<p class="m-0 min-w-0 text-[13px] leading-[18px] text-muted-foreground sm:flex-1">
+				Does not mark anyone unavailable.
+			</p>
+			<Button variant="ghost" onclick={onClose} disabled={saving.pending}>Cancel</Button>
 			{#if offerTasking && !initial}
 				<Button variant="outline" onclick={() => save('add-tasking')} disabled={saving.pending}>
 					Create and add tasking

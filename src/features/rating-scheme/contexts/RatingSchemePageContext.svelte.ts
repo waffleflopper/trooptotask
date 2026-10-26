@@ -100,8 +100,12 @@ export class RatingSchemePageContext {
 			const people = new SvelteMap(
 				this.#data.personnelLookup.map((person) => [
 					person.id,
-					`${person.rank} ${person.firstName} ${person.lastName}`.toLowerCase().includes(query) ||
-						`${person.lastName}, ${person.firstName}`.toLowerCase().includes(query)
+					[
+						`${person.rank} ${person.firstName} ${person.lastName}`,
+						`${person.rank} ${person.lastName}`,
+						`${person.rank} ${person.lastName}, ${person.firstName}`,
+						`${person.lastName}, ${person.firstName}`
+					].some((label) => label.toLowerCase().includes(query))
 				])
 			);
 			const matchesPerson = (id: string | null, externalName: string | null = null): boolean => {

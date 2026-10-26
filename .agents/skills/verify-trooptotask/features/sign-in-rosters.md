@@ -167,6 +167,9 @@ provider error is a failed readback, never a missing or correctly configured buc
 - `Sign-in rosters` is one `Training controls` action. It folds into `More Training controls` below about 1052 wide, so
   use the row button or the More item, whichever the fresh snapshot shows. The sheet is loaded on demand, so wait for
   its heading after opening it. Below 640 wide it fills the screen.
+- The sheet opens as soon as the button is chosen. While its code downloads it shows a `Sign-in rosters` sheet with a
+  loading skeleton (`Loading Sign-in rosters`). If the download fails it shows `Unable to open Sign-in rosters` with
+  `Retry`, and Retry loads it without a page reload.
 - `Save and print` saves first and downloads the PDF only after the save succeeds, from the saved roster's snapshot,
   the same page `Reprint` makes. A refused or failed save shows its error, keeps the form and downloads nothing. Hold
   the POST with `$V network` to prove no download appears while it waits.

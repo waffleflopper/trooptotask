@@ -154,6 +154,27 @@ describe('NeedsYouQueue actions', () => {
 		expect(screen.getByRole('alert').textContent).toBe('Assignment type is archived');
 	});
 
+	it('opens one panel in place when a second row opens while the first is still loading', async () => {
+		const panel = () => needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() });
+		const first = deferred();
+		const openFirst = vi.fn(() => first.promise.then(panel));
+		const openSecond = vi.fn().mockResolvedValue(panel());
+		show([
+			leaving('a', { label: 'Fill A', policy, mode: 'expand', open: openFirst }),
+			leaving('b', { label: 'Fill B', policy, mode: 'expand', open: openSecond })
+		]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill A' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Fill B' }));
+		await screen.findByRole('region', { name: 'Test panel' });
+		first.resolve();
+		await first.promise;
+
+		await waitFor(() => expect(screen.getAllByRole('region', { name: 'Test panel' })).toHaveLength(1));
+		expect(screen.getByRole('button', { name: 'Fill A' }).getAttribute('aria-expanded')).toBe('false');
+		expect(screen.getByRole('button', { name: 'Fill B' }).getAttribute('aria-expanded')).toBe('true');
+	});
+
 	it('collapses an expanded panel from its toggle', async () => {
 		const open = vi.fn().mockResolvedValue(needsYouPanel(NeedsYouPanelTestDouble, { command: vi.fn() }));
 		show([leaving('sd', { label: 'Fill 2 days', policy, mode: 'expand', open })]);

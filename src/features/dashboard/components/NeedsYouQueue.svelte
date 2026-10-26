@@ -97,7 +97,8 @@
 		// One row works in place at a time; a row mid-save keeps its panel until the save lands.
 		if (action.mode === 'expand')
 			for (const [other, state] of actions)
-				if (other !== id && state.status !== 'saving' && panelOf(state)) send(other, { type: 'close' });
+				if (other !== id && (state.status === 'opening' || (state.status !== 'saving' && panelOf(state))))
+					send(other, { type: 'close' });
 		send(id, { type: 'open' });
 		try {
 			send(id, { type: 'opened', panel: await action.open() });

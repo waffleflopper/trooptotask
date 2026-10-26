@@ -44,7 +44,7 @@
 	});
 </script>
 
-<AppDialog.Header eyebrow={`Training · ${orgName}`} class="gap-2 border-b px-7 pt-6 pb-4">
+<AppDialog.Header eyebrow={`Training · ${orgName}`} class="border-b pb-4">
 	<AppDialog.Title>Sign-in rosters</AppDialog.Title>
 	<AppDialog.Description class="flex min-h-5 flex-wrap items-center gap-x-3">
 		{#if firstLoad}

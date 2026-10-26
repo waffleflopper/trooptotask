@@ -73,7 +73,7 @@
 	const nobody = $derived(draft.people.length === 0);
 </script>
 
-<AppDialog.Header class="gap-2 border-b px-7 pt-6 pb-4">
+<AppDialog.Header class="border-b pb-4">
 	<div class="flex items-center gap-2">
 		<Button
 			variant="ghost"
@@ -107,7 +107,13 @@
 			<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,11rem)]">
 				<Field.Root>
 					<Field.Label for="roster-title">Title</Field.Label>
-					<Input id="roster-title" type="text" placeholder="e.g. 68W skills validation" bind:value={draft.title} />
+					<Input
+						id="roster-title"
+						type="text"
+						{@attach (input) => input.focus()}
+						placeholder="e.g. 68W skills validation"
+						bind:value={draft.title}
+					/>
 				</Field.Root>
 				<Field.Root>
 					<div class="flex items-baseline justify-between gap-2">
@@ -143,7 +149,7 @@
 		</section>
 
 		<section class="flex flex-col gap-3 border-b px-7 py-5" aria-labelledby="roster-section-who">
-			<div class="flex items-center justify-between gap-3">
+			<div class="flex min-h-5 items-center justify-between gap-3">
 				<h3
 					id="roster-section-who"
 					class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
@@ -223,7 +229,7 @@
 			</h3>
 			<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase">Print preview</span>
 		</div>
-		<div class="rounded-sm bg-card px-6 py-6 text-card-foreground shadow-sm" data-testid="roster-print-preview">
+		<div class="rounded-sm border bg-card px-6 py-6 text-card-foreground shadow-sm" data-testid="roster-print-preview">
 			<p class={cn('text-center text-lg font-semibold', !draft.title.trim() && 'text-muted-foreground')}>
 				{draft.title.trim() || 'Roster title'}
 			</p>

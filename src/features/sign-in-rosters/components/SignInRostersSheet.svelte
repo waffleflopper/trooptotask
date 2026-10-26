@@ -89,7 +89,7 @@
 	}
 </script>
 
-<AppDialog.Root open busy={list.busy || !!draft?.saving} closeBlocked={!!draft?.dirty} {onClose}>
+<AppDialog.Root open voice="editorial" busy={list.busy || !!draft?.saving} closeBlocked={!!draft?.dirty} {onClose}>
 	<AppDialog.Content presentation="sheet" size="wide">
 		{#if draft}
 			<NewRosterView

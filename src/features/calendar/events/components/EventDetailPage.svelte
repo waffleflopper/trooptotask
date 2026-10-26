@@ -70,13 +70,21 @@
 	});
 	const members = $derived(typeof loaded === 'object' && loaded ? loaded.members : {});
 
-	function stored(event: CalendarEvent) {
+	async function stored(event: CalendarEvent) {
 		const before = typeof loaded === 'object' && loaded ? loaded.event : null;
-		if (before && datesChanged(before, event))
-			replaceState('', { ...page.state, eventDateReview: { before, after: event } });
+		const eventUrl = page.url.pathname;
 		saved = { event, over: streamedDetail.current };
 		dialog = null;
-		void invalidate('app:calendar-events');
+		await invalidate('app:calendar-events');
+		// The refresh resets page state, and the reader may have moved on while it ran.
+		if (before && datesChanged(before, event) && page.url.pathname === eventUrl)
+			replaceState('', {
+				...page.state,
+				eventDateReview: {
+					before: { startsOn: before.startsOn, endsOn: before.endsOn },
+					after: { startsOn: event.startsOn, endsOn: event.endsOn }
+				}
+			});
 	}
 </script>
 

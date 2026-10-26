@@ -197,15 +197,15 @@ Bravo Tasking due 11 Nov with `People needed` 6 and then blocked with a reason, 
 all linked to it; add a standalone Bravo Tasking.
 
 23. **Groups.** The detail lists `Preparation` (Alpha, 5 Nov), `Execution` (Bravo, 11 Nov) and `Closeout` (Organization,
-    16 Nov), each row opening its Tasking. The standalone Bravo Tasking is absent. Link a Tasking with no other row in a
-    phase and the phase box is absent when it is empty.
+    16 Nov), each row opening its Tasking. The standalone Bravo Tasking is absent, and no phase shows as an empty box.
 24. **Scoped reader.** As `calendarScoped` (Alpha), the Alpha row opens. The Bravo and Organization rows are dashed rows
     with no link: Bravo shows `Blocked` and `Needs 6`, with no reason, people or instructions anywhere in the page text.
     From the page, `fetch` the Bravo Tasking's `/org/A/api/calendar-taskings/ID` PATCH and its status POST: 404.
     `/org/A/calendar/taskings/BRAVO_ID` reads `This tasking is not available`. As `calendarView` the same rows show.
 25. **Date review.** On the Event press `Edit`, move the dates to 17 – 19 Nov and save. `Review taskings` lists the
     Alpha, Bravo and Organization Taskings with notes, and the Event's rows regroup. Open the Alpha link: its edit sheet
-    opens on arrival, the URL has no `edit` left, and Back does not reopen it. Edit only the title of the Event and
+    opens on arrival and the URL has no `edit` left. Back returns to the Event with the list still there, without
+    reopening the edit. Edit only the title of the Event and
     save: no review list appears.
 26. **Cancel review.** Press `Cancel event`. The dialog lists the three active Taskings as links; complete one first and
     it drops off the list. Confirm. The detail shows the cancellation banner and the notice that the Taskings stay open,

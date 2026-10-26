@@ -62,8 +62,9 @@
 	let newTypeButton = $state<HTMLElement | null>(null);
 	let list = $state<HTMLDivElement | null>(null);
 	const today = formatToday();
+	// The columns' minimum widths, gaps and padding need 920 px, so the grid waits for a 58rem container.
 	const GRID =
-		'grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 @4xl:grid-cols-[2rem_minmax(12rem,2.2fr)_10rem_6.5rem_minmax(9rem,1.6fr)_6.5rem_5.5rem] @4xl:items-center';
+		'grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 @min-[58rem]:grid-cols-[2rem_minmax(12rem,2.2fr)_10rem_6.5rem_minmax(9rem,1.6fr)_6.5rem_5.5rem] @min-[58rem]:items-center';
 
 	// Ties break by id, as the server lists them, so the expected order a reorder sends matches the stored one.
 	const orderedTypes = $derived(
@@ -177,7 +178,7 @@
 </script>
 
 {#snippet cellLabel(text: string)}
-	<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase sr-only @max-4xl:not-sr-only"
+	<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase sr-only @max-[58rem]:not-sr-only"
 		>{text}</span
 	>
 {/snippet}
@@ -216,8 +217,8 @@
 								<Skeleton class="h-4 w-40" />
 								<Skeleton class="h-3.5 w-64 max-w-full" />
 							</div>
-							<Skeleton class="hidden h-4 w-28 @4xl:block" />
-							<Skeleton class="hidden h-4 w-16 @4xl:block" />
+							<Skeleton class="hidden h-4 w-28 @min-[58rem]:block" />
+							<Skeleton class="hidden h-4 w-16 @min-[58rem]:block" />
 						</div>
 					{/each}
 				</div>
@@ -257,7 +258,7 @@
 							{/if}
 						</div>
 					</div>
-					<div class="col-start-2 flex flex-wrap gap-x-6 gap-y-1 text-sm @4xl:contents">
+					<div class="col-start-2 flex flex-wrap gap-x-6 gap-y-1 text-sm @min-[58rem]:contents">
 						<span class="flex flex-wrap gap-x-2">{@render cellLabel('Renews')}{renews(type)}</span>
 						<span class="flex flex-wrap gap-x-2 font-mono text-[13px]">
 							{@render cellLabel('Warns at')}{warnsAt(type)}
@@ -266,12 +267,12 @@
 							{@render cellLabel('Who needs it')}{summarizeApplicability(trainingTypeDraftFrom(type).applicability)}
 						</span>
 					</div>
-					<div class="col-start-2 flex flex-wrap gap-x-6 gap-y-1 text-sm @4xl:contents">
-						<span class="flex gap-x-2 font-mono text-[13px] @4xl:justify-end">
+					<div class="col-start-2 flex flex-wrap gap-x-6 gap-y-1 text-sm @min-[58rem]:contents">
+						<span class="flex gap-x-2 font-mono text-[13px] @min-[58rem]:justify-end">
 							{@render cellLabel('Applies to')}{personnel.filter((person) => isTrainingApplicable(type, person)).length} of
 							{personnel.length}
 						</span>
-						<span class="flex gap-x-2 font-mono text-[13px] @4xl:justify-end">
+						<span class="flex gap-x-2 font-mono text-[13px] @min-[58rem]:justify-end">
 							{@render cellLabel('Exempt')}{type.canBeExempted ? 'Allowed' : '—'}
 						</span>
 					</div>
@@ -279,7 +280,7 @@
 
 				<div class="overflow-hidden rounded-lg border bg-card">
 					<div
-						class="{GRID} border-b-2 border-foreground bg-muted/40 px-3 py-2.5 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase @max-4xl:hidden"
+						class="{GRID} border-b-2 border-foreground bg-muted/40 px-3 py-2.5 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase @max-[58rem]:hidden"
 						aria-hidden="true"
 					>
 						<span></span>

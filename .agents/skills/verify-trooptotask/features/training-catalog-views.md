@@ -162,7 +162,7 @@ Focus View orders Targeted before Required and omits Optional.
    add/edit/cancel-then-confirm delete for a temporary view in the `Manage views` sheet: `Delete view` opens the
    `Delete Saved View` alertdialog, Cancel keeps the editor, and Delete returns to the list without the view. Capture
    the Types page and the sheet at 1440, 1024 and 390 wide once; the Types table stacks each row into two lines below a
-   56rem container.
+   58rem (928 px) container, and from 928 px every column through `Exempt` is visible with no clipping.
 
 8. **Matrix readout:** As `trainingConfigure` at 1440 wide on a fresh seed, read the matrix before recording anything.
    Capture each value from a text snapshot.

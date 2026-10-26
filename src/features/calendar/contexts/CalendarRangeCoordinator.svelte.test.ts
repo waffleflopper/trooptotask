@@ -304,19 +304,36 @@ describe('CalendarRangeCoordinator', () => {
 					startsOn: '2026-05-04',
 					endsOn: '2026-05-06',
 					cancelled: false,
-					hasWork: false
+					hasWork: false,
+					host: null
 				}
 			],
 			suspenses: [],
 			commitments: []
 		};
+		const facts = (needAction: number) => ({
+			taskings: {},
+			events: {
+				e1: {
+					total: 2,
+					needAction,
+					overdue: 0,
+					blocked: needAction,
+					needPeople: 0,
+					fullyStaffedAndReady: 0,
+					conflicts: 0
+				}
+			},
+			needAction
+		});
+		const loaded = (needAction = 1) => ({ kind: 'loaded' as const, facts: facts(needAction), ...projection });
 
 		beforeEach(() => {
 			coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }));
 		});
 
 		it('reads Events beside the days that are missing and keeps what it returns', async () => {
-			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'loaded', ...projection } }));
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded() }));
 
 			expect(coordinator.projectionStatus(withEvents)).toBe('loading');
 			await coordinator.ensureRange('org-1', withEvents);
@@ -337,7 +354,7 @@ describe('CalendarRangeCoordinator', () => {
 			expect(coordinator.status(withEvents)).toBe('ready');
 			expect(coordinator.projectionStatus(withEvents)).toBe('error');
 
-			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'loaded', ...projection } }));
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded() }));
 			coordinator.retryFailedRange();
 			expect(coordinator.projectionStatus(withEvents)).toBe('loading');
 			await coordinator.ensureRange('org-1', withEvents);
@@ -355,13 +372,36 @@ describe('CalendarRangeCoordinator', () => {
 		});
 
 		it('forgets the Events it holds when the workspace resets', async () => {
-			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'loaded', ...projection } }));
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded() }));
 			await coordinator.ensureRange('org-1', withEvents);
 
 			coordinator.reset();
 
 			expect(coordinator.projection.events).toEqual([]);
 			expect(coordinator.projectionStatus(withEvents)).toBe('loading');
+		});
+
+		it('reads the held Events again after a Tasking write and keeps the newer Tasking facts', async () => {
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded(2) }));
+			await coordinator.ensureRange('org-1', withEvents);
+			expect(coordinator.taskingFacts.needAction).toBe(2);
+
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded(1) }));
+			expect(await coordinator.rereadEvents('org-1')).toBe('read');
+
+			expect(loadRange.mock.calls[1][1].collections).toEqual(['events']);
+			expect(coordinator.taskingFacts.needAction).toBe(1);
+			expect(coordinator.taskingFacts.events.e1?.needAction).toBe(1);
+		});
+
+		it('keeps the held Tasking facts when reading them again fails', async () => {
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: loaded(2) }));
+			await coordinator.ensureRange('org-1', withEvents);
+
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'failed' } }));
+			expect(await coordinator.rereadEvents('org-1')).toBe('failed');
+
+			expect(coordinator.taskingFacts.needAction).toBe(2);
 		});
 	});
 });

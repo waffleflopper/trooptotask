@@ -476,7 +476,8 @@ describe('Dashboard sections', () => {
 					startsOn: '2026-10-20',
 					endsOn: '2026-10-23',
 					cancelled: false,
-					hasWork: true
+					hasWork: true,
+					host: null
 				}
 			],
 			suspenses: [{ taskingId: 't-1', title: 'Alpha lane coverage', suspenseOn: '2026-10-22', status: 'open' as const }]

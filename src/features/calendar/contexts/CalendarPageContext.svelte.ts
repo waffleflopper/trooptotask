@@ -174,6 +174,16 @@ export class CalendarPageContext {
 		).allowed;
 	}
 
+	/** Adding a Tasking from the Calendar lands on an Event, which any Tasking manager may add to. */
+	get canAddTaskings(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, { kind: 'unscoped' })
+			.allowed;
+	}
+
+	canManageTasking(responsibility: { kind: 'group'; groupId: string } | { kind: 'organization' }): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageTaskings, responsibility).allowed;
+	}
+
 	/** Roster counts span the whole Organization, so the picker shows them only to an Organization-wide operator. */
 	get seesRosterCounts(): boolean {
 		return this.canManageAssignments && this.#org.scopeSet.kind === 'organization';

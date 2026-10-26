@@ -10,8 +10,11 @@ import {
 } from '$features/calendar/utils/calendarRange';
 import {
 	EMPTY_PROJECTION,
+	EMPTY_TASKING_FACTS,
+	mergeTaskingFacts,
 	replaceProjectionRange,
-	type CalendarProjection
+	type CalendarProjection,
+	type CalendarTaskingFacts
 } from '$features/calendar/projection/calendarProjection';
 import {
 	beginCalendarRangeRead,
@@ -42,6 +45,7 @@ export class CalendarRangeCoordinator {
 	retryToken = $state(0);
 	/** Events, suspenses and commitments of the ranges read so far; every read adds to it. */
 	projection = $state.raw<CalendarProjection>(EMPTY_PROJECTION);
+	taskingFacts = $state.raw<CalendarTaskingFacts>(EMPTY_TASKING_FACTS);
 	/** The last read answered everything but the projection, which the server could not read. */
 	projectionFailed = $state(false);
 
@@ -59,6 +63,7 @@ export class CalendarRangeCoordinator {
 	reset(): void {
 		this.loaded = {};
 		this.projection = EMPTY_PROJECTION;
+		this.taskingFacts = EMPTY_TASKING_FACTS;
 		this.projectionFailed = false;
 		this.#pendingRangeKey = null;
 		this.#failedRangeKey = null;
@@ -148,13 +153,7 @@ export class CalendarRangeCoordinator {
 			for (const rangeData of rangeDataSets) this.#mergeRangeIntoStores(orgId, rangeData, read);
 			const projections = rangeDataSets.flatMap((rangeData) => rangeData.projection ?? []);
 			this.projectionFailed = projections.some((read) => read.kind === 'failed');
-			if (!this.projectionFailed) {
-				for (const rangeData of rangeDataSets) {
-					if (rangeData.projection?.kind === 'loaded') {
-						this.projection = replaceProjectionRange(this.projection, rangeData, rangeData.projection);
-					}
-				}
-			}
+			if (!this.projectionFailed) this.#applyProjections(rangeDataSets);
 			this.#include(this.projectionFailed ? withoutEvents(needed) : needed);
 			this.loading = false;
 			// A refused projection waits for a Retry rather than reading again on every pass.
@@ -194,6 +193,34 @@ export class CalendarRangeCoordinator {
 			return sameOrganization() && requestSerial === this.#requestSerial ? 'failed' : 'abandoned';
 		} finally {
 			read.close();
+		}
+	}
+
+	/**
+	 * Reads the loaded Events range again after a Tasking write, so markers, cards and the badge show the result.
+	 * Nothing is applied when the user has left the Organization or another read has started meanwhile.
+	 */
+	async rereadEvents(orgId: string): Promise<'read' | 'failed' | 'abandoned'> {
+		const events = untrack(() => this.loaded.events);
+		if (!events) return 'read';
+		const requestSerial = this.#requestSerial;
+		const sameOrganization = stillInOrganizationLifetime();
+		try {
+			const rangeDataSets = await this.#readRanges(orgId, planCalendarRangeReads({}, { events }), requestSerial);
+			if (!sameOrganization() || requestSerial !== this.#requestSerial) return 'abandoned';
+			if (rangeDataSets.some((rangeData) => rangeData.projection?.kind !== 'loaded')) return 'failed';
+			this.#applyProjections(rangeDataSets);
+			return 'read';
+		} catch {
+			return sameOrganization() && requestSerial === this.#requestSerial ? 'failed' : 'abandoned';
+		}
+	}
+
+	#applyProjections(rangeDataSets: CalendarRangeData[]): void {
+		for (const rangeData of rangeDataSets) {
+			if (rangeData.projection?.kind !== 'loaded') continue;
+			this.projection = replaceProjectionRange(this.projection, rangeData, rangeData.projection);
+			this.taskingFacts = mergeTaskingFacts(this.taskingFacts, rangeData.projection.facts);
 		}
 	}
 

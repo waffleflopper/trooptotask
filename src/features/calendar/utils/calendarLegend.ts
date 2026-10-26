@@ -72,6 +72,10 @@ export function eventsLegend(): LegendSource {
 	return {
 		key: 'events',
 		ariaLabel: 'Events and Taskings',
-		entries: [entry('event', 'Event'), entry('suspense', 'Suspense'), entry('commitment', 'Tasking commitment')]
+		entries: [
+			entry('commitment', 'Tasking commitment'),
+			entry('suspense', 'Suspense'),
+			entry('conflict', 'Commitment conflict')
+		]
 	};
 }

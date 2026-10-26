@@ -17,6 +17,9 @@
 	export type RunAction = (path: string[]) => void;
 	type Choose = (action: () => void) => void;
 
+	export const toolbarBadgeClass =
+		'inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-destructive/14 px-1.25 font-mono text-[10px] font-semibold text-destructive-text tabular-nums';
+
 	export { actionItems, moreButton };
 </script>
 
@@ -109,6 +112,10 @@
 				</span>
 			{:else}
 				{action.label}
+			{/if}
+			{#if action.badge && action.badge.count > 0}
+				<span aria-hidden="true" class="ml-auto pl-3 {toolbarBadgeClass}">{action.badge.count}</span>
+				<span class="sr-only">, {action.badge.label}</span>
 			{/if}
 		</DropdownMenu.Item>
 	{/if}

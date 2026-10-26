@@ -555,7 +555,11 @@ describe('fetchCalendarRangeData', () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		seedCalendarData(ctx.store);
 
-		const result = await fetchCalendarRangeData(ctx, { ...RANGE, collections: ['availability', 'assignments'] });
+		const result = await fetchCalendarRangeData(ctx, {
+			...RANGE,
+			today: '2026-03-15',
+			collections: ['availability', 'assignments']
+		});
 
 		expect(result).toEqual({
 			rangeStart: '2026-03-01',

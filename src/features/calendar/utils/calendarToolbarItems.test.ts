@@ -9,6 +9,7 @@ function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolb
 		canManageAssignments: false,
 		canManageConfig: false,
 		showEvents: true,
+		taskingsNeedingAction: 0,
 		groupOptions: [{ value: '', label: 'Group: All' }],
 		groupFilter: '',
 		showStatusText: false,
@@ -72,6 +73,18 @@ describe('buildCalendarToolbar', () => {
 
 		expect(eventsOf(true)).toMatchObject({ href: '/org/1-11-bde/calendar/taskings' });
 		expect(eventsOf(false)).toBeUndefined();
+	});
+
+	it('badges Events & Taskings with the Taskings that need action', () => {
+		const badgeOf = (taskingsNeedingAction: number) => {
+			const item = buildCalendarToolbar(makeInput({ taskingsNeedingAction })).items.find(
+				(candidate) => candidate.id === 'calendar-events'
+			);
+			return item?.kind === 'action' ? item.badge?.count : undefined;
+		};
+
+		expect(badgeOf(3)).toBe(3);
+		expect(badgeOf(0)).toBe(0);
 	});
 
 	it('lists Show Onboarding in Display only while someone is onboarding', () => {

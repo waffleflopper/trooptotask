@@ -6,8 +6,7 @@
 		choices,
 		onSaved,
 		onClose
-	}: { orgName: string; choices: TaskingChoices; onSaved: (tasking: Tasking) => void; onClose: () => void } =
-		$props();
+	}: { orgName: string; choices: TaskingChoices; onSaved: (tasking: Tasking) => void; onClose: () => void } = $props();
 </script>
 
 <div role="dialog" aria-label="Create tasking for {orgName}">

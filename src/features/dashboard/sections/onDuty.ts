@@ -102,8 +102,7 @@ const STATUS_WORDS = { open: 'open', in_progress: 'in progress', blocked: 'block
 export function taskingsOnTrack(inputs: DashboardInputs, onTrack: readonly TaskingOnTrackRow[]): OnTrackTasking[] {
 	const groups = new Map(inputs.groups.map((group) => [group.id, group.name]));
 	return onTrack.map((row) => {
-		const owner =
-			row.responsibleGroupId === null ? 'Organization' : (groups.get(row.responsibleGroupId) ?? 'A Group');
+		const owner = row.responsibleGroupId === null ? 'Organization' : (groups.get(row.responsibleGroupId) ?? 'A Group');
 		const people = row.required === null ? STATUS_WORDS[row.status] : `${row.picked} / ${row.required} people`;
 		return {
 			taskingId: row.taskingId,

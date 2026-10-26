@@ -173,7 +173,7 @@
 				</p>
 			</div>
 		</div>
-		<div class="min-w-0 self-start border-t-2 border-foreground xl:w-[764px] xl:shrink-0">
+		<div class="min-w-0 border-t-2 xl:self-start border-foreground xl:w-[764px] xl:shrink-0">
 			<ul class="m-0 list-none p-0">
 				{#each isNot as item (item)}
 					<li

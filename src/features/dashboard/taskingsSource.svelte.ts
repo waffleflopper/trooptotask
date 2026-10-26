@@ -47,18 +47,18 @@ export class DashboardTaskingsSource {
 	}
 
 	/** Rereads after a save: the rows stay as they were until the read lands, and stay if it fails. */
-	async refresh(orgId: string, stillHere: () => boolean): Promise<void> {
+	async refresh(orgId: string, asOf: string, stillHere: () => boolean): Promise<void> {
 		const request = ++this.#request;
-		const attention = await this.#fetch(orgId);
+		const attention = await this.#fetch(orgId, asOf);
 		if (request !== this.#request || !stillHere() || attention === 'failed') return;
 		this.#outcome = attention ? { orgId, status: 'ready', attention } : { orgId, status: 'off' };
 	}
 
 	/** Reads again after a failure, showing the loading rows until the read lands. */
-	async retry(orgId: string, stillHere: () => boolean): Promise<void> {
+	async retry(orgId: string, asOf: string, stillHere: () => boolean): Promise<void> {
 		const request = ++this.#request;
 		this.#outcome = null;
-		const attention = await this.#fetch(orgId);
+		const attention = await this.#fetch(orgId, asOf);
 		if (request !== this.#request || !stillHere()) return;
 		this.#outcome =
 			attention === 'failed'
@@ -68,9 +68,9 @@ export class DashboardTaskingsSource {
 					: { orgId, status: 'off' };
 	}
 
-	async #fetch(orgId: string): Promise<TaskingAttentionProjection | null | 'failed'> {
+	async #fetch(orgId: string, asOf: string): Promise<TaskingAttentionProjection | null | 'failed'> {
 		try {
-			const response = await fetch(`/org/${orgId}/api/dashboard/taskings`, { cache: 'no-store' });
+			const response = await fetch(`/org/${orgId}/api/dashboard/taskings?asOf=${asOf}`, { cache: 'no-store' });
 			return response.ok ? ((await response.json()) as TaskingAttentionProjection | null) : 'failed';
 		} catch {
 			return 'failed';

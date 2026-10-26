@@ -29,7 +29,7 @@
 		orgId: string;
 		tasking: Pick<Tasking, 'id' | 'responsibility' | 'requirement'>;
 		groups: GroupLabels;
-		onSaved: (result: StaffingSaveResult) => void;
+		onSaved: (result: StaffingSaveResult) => unknown;
 		onClose: () => void;
 	}
 
@@ -113,7 +113,7 @@
 				});
 				const result = await withinOrganizationLifetime(request, () => open);
 				if (result.outcome !== 'conflict') {
-					onSaved(result);
+					await onSaved(result);
 					return;
 				}
 				conflict = result.staffing;

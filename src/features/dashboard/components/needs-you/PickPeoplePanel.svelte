@@ -8,7 +8,7 @@
 		orgId: string;
 		tasking: PickedTasking;
 		groups: Record<string, string>;
-		onSaved: () => void;
+		onSaved: () => Promise<void>;
 		onClose: () => void;
 	}>;
 
@@ -30,7 +30,7 @@
 	// The row reads the saved picks before it closes the picker, so it never shows the old count behind it,
 	// and it keeps focus where the row was if the row leaves the queue.
 	function onSaved() {
-		void save(() => updates.refreshTaskings()).catch(() => {});
+		return save(() => updates.refreshTaskings()).catch(() => {});
 	}
 </script>
 

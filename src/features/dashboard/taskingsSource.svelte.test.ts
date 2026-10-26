@@ -74,10 +74,10 @@ describe('DashboardTaskingsSource', () => {
 			source.track(projection(2), 'org-1');
 			fetchMock.mockReturnValueOnce(answer(projection(1)));
 
-			await source.refresh('org-1', () => true);
+			await source.refresh('org-1', '2026-10-25', () => true);
 
 			expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(1) });
-			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/dashboard/taskings', expect.anything());
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/dashboard/taskings?asOf=2026-10-25', expect.anything());
 		});
 
 		it('keeps the rows it has when the reread fails', async () => {
@@ -85,7 +85,7 @@ describe('DashboardTaskingsSource', () => {
 			source.track(projection(2), 'org-1');
 			fetchMock.mockReturnValueOnce(answer(null, false));
 
-			await source.refresh('org-1', () => true);
+			await source.refresh('org-1', '2026-10-25', () => true);
 
 			expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(2) });
 		});
@@ -95,7 +95,7 @@ describe('DashboardTaskingsSource', () => {
 			source.track(projection(2), 'org-1');
 			const read = deferredFetch();
 			let here = true;
-			const refreshing = source.refresh('org-1', () => here);
+			const refreshing = source.refresh('org-1', '2026-10-25', () => here);
 
 			here = false;
 			read.respond(projection(9));
@@ -109,8 +109,8 @@ describe('DashboardTaskingsSource', () => {
 			source.track(projection(2), 'org-1');
 			const first = deferredFetch();
 			const second = deferredFetch();
-			const older = source.refresh('org-1', () => true);
-			const newer = source.refresh('org-1', () => true);
+			const older = source.refresh('org-1', '2026-10-25', () => true);
+			const newer = source.refresh('org-1', '2026-10-25', () => true);
 
 			second.respond(projection(1));
 			await newer;
@@ -128,7 +128,7 @@ describe('DashboardTaskingsSource', () => {
 			await vi.waitFor(() => expect(source.stateFor('org-1').status).toBe('failed'));
 			const read = deferredFetch();
 
-			const retrying = source.retry('org-1', () => true);
+			const retrying = source.retry('org-1', '2026-10-25', () => true);
 			expect(source.stateFor('org-1')).toEqual({ status: 'pending' });
 			read.respond(projection(4));
 			await retrying;
@@ -140,7 +140,7 @@ describe('DashboardTaskingsSource', () => {
 			const source = new DashboardTaskingsSource();
 			fetchMock.mockReturnValueOnce(answer(null, false));
 
-			await source.retry('org-1', () => true);
+			await source.retry('org-1', '2026-10-25', () => true);
 
 			expect(source.stateFor('org-1')).toEqual({ status: 'failed' });
 		});

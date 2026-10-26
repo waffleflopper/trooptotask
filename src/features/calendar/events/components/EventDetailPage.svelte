@@ -2,7 +2,8 @@
 	import type { CalendarEventsPageAccess } from '../../contracts';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import CalendarX from '@lucide/svelte/icons/calendar-x';
-	import { invalidate } from '$app/navigation';
+	import { invalidate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Alert from '$lib/components/ui/alert';
@@ -13,7 +14,6 @@
 	import { StreamedValue } from '$lib/utils/streamedValue.svelte';
 	import {
 		eventDateRange,
-		type EventDates,
 		parseSourceReference,
 		type CalendarEvent,
 		type EventActivity,
@@ -53,8 +53,8 @@
 	// A save answers with the stored event; it stands until the refreshed detail arrives.
 	let saved = $state.raw<{ event: CalendarEvent; over: unknown } | null>(null);
 	let dialog = $state<'edit' | 'cancel' | null>(null);
-	// After a date change the Taskings left to review stand until dismissed. Nothing about them changes.
-	let dateReview = $state<{ before: EventDates; after: EventDates } | null>(null);
+	// After a date change the Taskings left to review stand until dismissed, and survive Back from a Tasking's edit.
+	const dateReview = $derived(page.state.eventDateReview ?? null);
 
 	const loaded = $derived.by(() => {
 		const current = streamedDetail.current;
@@ -72,7 +72,8 @@
 
 	function stored(event: CalendarEvent) {
 		const before = typeof loaded === 'object' && loaded ? loaded.event : null;
-		if (before && datesChanged(before, event)) dateReview = { before, after: event };
+		if (before && datesChanged(before, event))
+			replaceState('', { ...page.state, eventDateReview: { before, after: event } });
 		saved = { event, over: streamedDetail.current };
 		dialog = null;
 		void invalidate('app:calendar-events');
@@ -169,7 +170,7 @@
 				{taskings}
 				before={dateReview.before}
 				after={dateReview.after}
-				onDismiss={() => (dateReview = null)}
+				onDismiss={() => replaceState('', { ...page.state, eventDateReview: undefined })}
 			/>
 		{/if}
 

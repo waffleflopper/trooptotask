@@ -56,9 +56,7 @@
 			<Alert.Description>No active tasking sits outside the new dates.</Alert.Description>
 		</Alert.Root>
 	{:else}
-		<p class="m-0 text-sm text-muted-foreground">
-			Your changes did not move any tasking. Open each one to change its dates.
-		</p>
+		<p class="m-0 text-sm text-muted-foreground">No tasking was changed. Open each one to review its dates.</p>
 		<ReviewTaskingList {org} items={loaded.items} groupLabels={loaded.groups} edit />
 	{/if}
 </section>

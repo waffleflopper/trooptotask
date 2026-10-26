@@ -34,7 +34,7 @@
 	import TaskingStatusBadges from './TaskingStatusBadges.svelte';
 	import TaskingTransitionDialog from './TaskingTransitionDialog.svelte';
 	import TaskingPeople from '../staffing/components/TaskingPeople.svelte';
-	import type { TaskingStaffing } from '../staffing/staffingModel';
+	import type { AvailabilityCoverage, TaskingStaffing } from '../staffing/staffingModel';
 	import {
 		ACTION_LABELS,
 		describeActivity,
@@ -51,7 +51,7 @@
 		lists: Promise<EventRead<TaskingLists>>;
 		choices: Promise<EventRead<TaskingChoices | null>>;
 		people: Promise<EventRead<TaskingStaffing>>;
-		availabilityGaps: Promise<EventRead<string[]>>;
+		availabilityGaps: Promise<EventRead<AvailabilityCoverage>>;
 		/** Opens Edit once, for a link that asks to change this Tasking's dates. */
 		editOnArrival?: boolean;
 	}

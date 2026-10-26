@@ -59,7 +59,11 @@ CREATE FUNCTION pg_temp.pick(p_tasking text, p_people text[]) RETURNS text LANGU
 $$;
 CREATE FUNCTION pg_temp.gaps(p_tasking text) RETURNS text[] LANGUAGE sql AS $$
   SELECT coalesce(array_agg(right(personnel_id::text, 3) ORDER BY personnel_id), ARRAY[]::text[])
-  FROM public.calendar_tasking_availability_gaps(pg_temp.id('101'), pg_temp.id(p_tasking));
+  FROM public.calendar_tasking_availability_gaps(pg_temp.id('101'), pg_temp.id(p_tasking))
+  WHERE NOT covered;
+$$;
+CREATE FUNCTION pg_temp.checked(p_tasking text) RETURNS bigint LANGUAGE sql AS $$
+  SELECT count(*) FROM public.calendar_tasking_availability_gaps(pg_temp.id('101'), pg_temp.id(p_tasking));
 $$;
 
 SET LOCAL ROLE authenticated;
@@ -75,6 +79,7 @@ SELECT is(pg_temp.pick('403', ARRAY['501']), 'saved', 'a Tasking with no executi
 
 SELECT is(pg_temp.gaps('402'), ARRAY['502', '504'],
   'an Organization-wide operator is told who is not covered, merging adjacent, overlapping and nested entries');
+SELECT is(pg_temp.checked('402'), 4::bigint, 'the read answers for every pick it checked, covered or not');
 SELECT is(pg_temp.gaps('401'), ARRAY['502'], 'a Group Tasking reports its own picks');
 SELECT is(pg_temp.gaps('403'), ARRAY[]::text[], 'dates are needed before anything is uncovered');
 
@@ -97,6 +102,7 @@ VALUES (pg_temp.id('101'), pg_temp.id('502'), pg_temp.id('601'), '2030-10-22', '
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('2');
 SELECT is(pg_temp.gaps('402'), ARRAY[]::text[], 'an archived pick and a newly covered Person leave nothing to set');
+SELECT is(pg_temp.checked('402'), 3::bigint, 'an archived pick is no longer checked');
 
 SELECT lives_ok($$SELECT * FROM public.calendar_tasking_availability_gaps(pg_temp.id('101'), pg_temp.id('402'))$$,
   'the read runs for a signed-in member');

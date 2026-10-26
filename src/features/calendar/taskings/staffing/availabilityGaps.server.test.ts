@@ -4,10 +4,9 @@ import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { loadTaskingAvailabilityGaps, type CalendarAvailabilityGapsPorts } from './availabilityGaps.server';
 
 const TASKING = '00000000-0000-4000-8000-000000000101';
-const ALICE = '00000000-0000-4000-8000-000000000501';
 
 function member(calendar: CapabilityLevel) {
-	const listGaps = vi.fn(async () => [ALICE]);
+	const listGaps = vi.fn(async () => ({ checked: 2, uncovered: 1 }));
 	const ctx: CalendarAvailabilityGapsPorts = {
 		auth: createTestAuthContext({
 			userId: '00000000-0000-4000-8000-000000000001',
@@ -30,10 +29,10 @@ function member(calendar: CapabilityLevel) {
 }
 
 describe('loadTaskingAvailabilityGaps', () => {
-	it('reads the uncovered people for a reader who can view Events', async () => {
+	it('reads the coverage of the picks for a reader who can view Events', async () => {
 		const { ctx, listGaps } = member('view');
 
-		await expect(loadTaskingAvailabilityGaps(ctx, TASKING)).resolves.toEqual([ALICE]);
+		await expect(loadTaskingAvailabilityGaps(ctx, TASKING)).resolves.toEqual({ checked: 2, uncovered: 1 });
 		expect(listGaps).toHaveBeenCalledExactlyOnceWith(TASKING);
 	});
 

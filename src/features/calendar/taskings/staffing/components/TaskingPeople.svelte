@@ -15,6 +15,7 @@
 		personName,
 		pickReview,
 		staffingLabel,
+		type AvailabilityCoverage,
 		type StaffingSave,
 		type StaffingSaveResult,
 		type TaskingStaffing
@@ -34,7 +35,7 @@
 		orgUrlSegment: string;
 		/** Whether the reader may set Availability for a Person in this Group, under Bulk Status's rules. */
 		canSetAvailability: (groupId: string | null) => boolean;
-		availabilityGaps: Promise<EventRead<string[]>>;
+		availabilityGaps: Promise<EventRead<AvailabilityCoverage>>;
 	}
 
 	let { orgId, tasking, groups, people, canManage, orgUrlSegment, canSetAvailability, availabilityGaps }: Props =

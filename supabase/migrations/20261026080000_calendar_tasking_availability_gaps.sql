@@ -1,8 +1,8 @@
--- The picked People a Calendar operator could still give Availability for a Tasking: those whose
--- Availability entries, together, leave an execution day uncovered. Derived on read, never stored.
+-- Each picked Person a Calendar operator could give Availability for a Tasking, and whether their
+-- Availability entries, together, cover every execution day. Derived on read, never stored.
 -- Covers People the caller may write Availability for; picks under review commit nobody.
 CREATE FUNCTION public.calendar_tasking_availability_gaps(p_organization_id uuid, p_tasking_id uuid)
-RETURNS TABLE (personnel_id uuid)
+RETURNS TABLE (personnel_id uuid, covered boolean)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = ''
 AS $$
@@ -40,10 +40,9 @@ AS $$
   covered AS (
     SELECT fresh.personnel_id, sum(fresh.days) AS days FROM fresh GROUP BY fresh.personnel_id
   )
-  SELECT picked.personnel_id
+  SELECT picked.personnel_id, coalesce(covered.days, 0) >= tasking.ends_on - tasking.starts_on + 1
   FROM picked CROSS JOIN tasking
   LEFT JOIN covered ON covered.personnel_id = picked.personnel_id
-  WHERE coalesce(covered.days, 0) < tasking.ends_on - tasking.starts_on + 1
   ORDER BY picked.personnel_id;
 $$;
 ALTER FUNCTION public.calendar_tasking_availability_gaps(uuid, uuid) OWNER TO postgres;

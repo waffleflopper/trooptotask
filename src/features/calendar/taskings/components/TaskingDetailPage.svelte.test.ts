@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarEventsPageAccess } from '../../contracts';
 import type { EventRead } from '../../events/eventModel';
 import type { Tasking, TaskingActivityLog, TaskingChoices, TaskingDetail } from '../taskingModel';
-import type { TaskingStaffing } from '../staffing/staffingModel';
+import type { AvailabilityCoverage, TaskingStaffing } from '../staffing/staffingModel';
 import type { TaskingLists } from '../taskingListsModel';
 import TaskingDetailPage from './TaskingDetailPage.svelte';
 
@@ -48,7 +48,7 @@ describe('TaskingDetailPage', () => {
 			detail: Promise.resolve(detail),
 			activity: Promise.resolve(activity),
 			people: new Promise<EventRead<TaskingStaffing>>(() => {}),
-			availabilityGaps: new Promise<EventRead<string[]>>(() => {}),
+			availabilityGaps: new Promise<EventRead<AvailabilityCoverage>>(() => {}),
 			lists: Promise.resolve(lists),
 			choices: new Promise<EventRead<TaskingChoices | null>>((resolve) => (resolveChoices = resolve))
 		});

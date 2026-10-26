@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EventRead } from '../../../events/eventModel';
 import type { Tasking } from '../../taskingModel';
-import type { TaskingPick } from '../staffingModel';
+import type { AvailabilityCoverage, TaskingPick } from '../staffingModel';
 import SetAvailability from './SetAvailability.svelte';
 
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn(), replaceState: vi.fn() }));
@@ -36,7 +36,7 @@ const pick = (personnelId: string): TaskingPick => ({
 	reviewSince: null
 });
 
-function renderAction(gaps: Promise<EventRead<string[]>>) {
+function renderAction(gaps: Promise<EventRead<AvailabilityCoverage>>) {
 	return render(SetAvailability, {
 		orgUrlSegment: 'c-co',
 		tasking,
@@ -50,7 +50,7 @@ afterEach(cleanup);
 
 describe('SetAvailability', () => {
 	it('links to Bulk Status for the picked people and execution dates, and counts who is not covered', async () => {
-		renderAction(Promise.resolve({ status: 'loaded', value: [BRUNO] }));
+		renderAction(Promise.resolve({ status: 'loaded', value: { checked: 2, uncovered: 1 } }));
 
 		const link = screen.getByRole('link', { name: 'Set availability…' });
 		const href = new URL(link.getAttribute('href') ?? '', 'https://app.test');
@@ -76,14 +76,14 @@ describe('SetAvailability', () => {
 	});
 
 	it('says everyone is covered when no one is left out', async () => {
-		renderAction(Promise.resolve({ status: 'loaded', value: [] }));
+		renderAction(Promise.resolve({ status: 'loaded', value: { checked: 2, uncovered: 0 } }));
 
 		expect(await screen.findByText(/covers every execution day for everyone picked/)).toBeTruthy();
 		expect(screen.queryByText(/no Availability covering/)).toBeNull();
 	});
 
 	it('checks again instead of showing the old coverage when the picks change', async () => {
-		const view = renderAction(Promise.resolve({ status: 'loaded', value: [] }));
+		const view = renderAction(Promise.resolve({ status: 'loaded', value: { checked: 2, uncovered: 0 } }));
 		await screen.findByText(/^Availability covers every execution day/);
 
 		await view.rerender({ targets: [pick(ALICE), pick(BRUNO), pick(CARLA)], gaps: new Promise(() => {}) });
@@ -92,13 +92,25 @@ describe('SetAvailability', () => {
 		expect(screen.queryByText(/^Availability covers every execution day/)).toBeNull();
 	});
 
-	it('checks again when the picks change before their refreshed read arrives', async () => {
-		const settled: Promise<EventRead<string[]>> = Promise.resolve({ status: 'loaded', value: [] });
-		const view = renderAction(settled);
+	it('answers from the read it shows, whichever of the read and the picks arrives first', async () => {
+		const view = renderAction(Promise.resolve({ status: 'loaded', value: { checked: 2, uncovered: 0 } }));
 		await screen.findByText(/^Availability covers every execution day/);
 
-		await view.rerender({ targets: [pick(ALICE), pick(BRUNO), pick(CARLA)], gaps: settled });
-		await Promise.resolve();
+		await view.rerender({ gaps: Promise.resolve({ status: 'loaded', value: { checked: 3, uncovered: 1 } }) });
+		expect(await screen.findByText(/^1 of 3 picked/)).toBeTruthy();
+		await view.rerender({ targets: [pick(ALICE), pick(BRUNO), pick(CARLA)] });
+
+		expect(screen.getByText(/^1 of 3 picked/)).toBeTruthy();
+		expect(screen.queryByRole('status', { name: 'Checking Availability' })).toBeNull();
+	});
+
+	it('ignores an older read that settles after a newer one started', async () => {
+		let settleOld!: (read: EventRead<AvailabilityCoverage>) => void;
+		const view = renderAction(new Promise((resolve) => (settleOld = resolve)));
+
+		await view.rerender({ gaps: new Promise(() => {}) });
+		settleOld({ status: 'loaded', value: { checked: 2, uncovered: 0 } });
+		await new Promise((resolve) => setTimeout(resolve));
 
 		expect(screen.getByRole('status', { name: 'Checking Availability' })).toBeTruthy();
 	});

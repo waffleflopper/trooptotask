@@ -1,3 +1,6 @@
+import type { PersonnelLookup } from '$features/personnel/contracts';
+import type { GroupedSort } from '../utils/ratingSchemeGroups';
+import { SvelteMap } from 'svelte/reactivity';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RatingSchemeAffordance, RatingSchemePageAccess } from '../contracts';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -9,6 +12,7 @@ export interface RatingSchemePageData {
 	orgId: string;
 	orgName: string;
 	ratingSchemeEntries: RatingSchemeEntry[];
+	personnelLookup: PersonnelLookup[];
 	[key: string]: unknown;
 }
 
@@ -18,6 +22,8 @@ export interface RatingSchemeStoreAccessor {
 
 export class RatingSchemePageContext {
 	ratingViewMode = $state<'grouped' | 'table'>('grouped');
+	groupedSort = $state<GroupedSort>('urgency');
+	searchQuery = $state('');
 	ratingFilter = $state<'active' | 'completed' | 'change-of-rater' | 'all'>('active');
 	evalTypeFilter = $state<'all' | 'OER' | 'NCOER' | 'WOER'>('all');
 	workflowFilter = $state<WorkflowStatus | 'all'>('all');
@@ -89,7 +95,57 @@ export class RatingSchemePageContext {
 		if (this.workflowFilter !== 'all') {
 			entries = entries.filter((entry) => entry.workflowStatus === this.workflowFilter);
 		}
+		const query = this.searchQuery.trim().toLowerCase();
+		if (query) {
+			const people = new SvelteMap(
+				this.#data.personnelLookup.map((person) => [
+					person.id,
+					[
+						`${person.rank} ${person.firstName} ${person.lastName}`,
+						`${person.rank} ${person.lastName}`,
+						`${person.rank} ${person.lastName}, ${person.firstName}`,
+						`${person.lastName}, ${person.firstName}`
+					].some((label) => label.toLowerCase().includes(query))
+				])
+			);
+			const matchesPerson = (id: string | null, externalName: string | null = null): boolean => {
+				if (!id) return !!externalName?.toLowerCase().includes(query);
+				return people.get(id) ?? false;
+			};
+			entries = entries.filter(
+				(entry) =>
+					matchesPerson(entry.ratedPersonId) ||
+					matchesPerson(entry.raterPersonId, entry.raterName) ||
+					matchesPerson(entry.seniorRaterPersonId, entry.seniorRaterName) ||
+					matchesPerson(entry.intermediateRaterPersonId, entry.intermediateRaterName) ||
+					matchesPerson(entry.reviewerPersonId, entry.reviewerName)
+			);
+		}
 		return entries;
+	}
+
+	get hasActiveSearchOrFilters(): boolean {
+		return (
+			!!this.searchQuery.trim() ||
+			this.ratingFilter !== 'active' ||
+			this.evalTypeFilter !== 'all' ||
+			this.workflowFilter !== 'all'
+		);
+	}
+
+	clearSearchAndFilters(): void {
+		this.searchQuery = '';
+		this.ratingFilter = 'active';
+		this.evalTypeFilter = 'all';
+		this.workflowFilter = 'all';
+	}
+
+	get totalEntryCount(): number {
+		return this.#ratingStore.items.length;
+	}
+
+	get activeEntryCount(): number {
+		return this.#ratingStore.items.filter((entry) => entry.status === 'active').length;
 	}
 
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number } {

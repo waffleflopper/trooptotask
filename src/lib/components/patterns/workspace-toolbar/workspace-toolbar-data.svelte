@@ -33,8 +33,9 @@
 	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
 	import WorkspaceToolbarMore, { actionItems, moreButton } from './workspace-toolbar-more.svelte';
 
-	let { ariaLabel, items, bare = false, search, primary }: WorkspaceToolbarProps = $props();
+	let { ariaLabel, items, bare = false, search, primary, compactBelow }: WorkspaceToolbarProps = $props();
 	const uid = $props.id();
+	const COMPACT_BELOW_PX = { sm: 640 } as const;
 
 	type Metrics = {
 		available: number;
@@ -43,6 +44,8 @@
 		primary: number;
 		searchField: number;
 		searchIcon: number;
+		// The mode the DOM was in when these sizes were read; a button that changes between icon and text is stale until re-read.
+		compact: boolean;
 		items: Record<string, number>;
 	};
 
@@ -53,6 +56,7 @@
 		primary: 0,
 		searchField: 0,
 		searchIcon: 0,
+		compact: false,
 		items: {}
 	});
 	let searchOpen = $state(false);
@@ -66,11 +70,23 @@
 	const actions = $derived(items.filter((item): item is ToolbarAction => sectionOf(item) === 'actions'));
 	// The most important action sits next to More and the primary, so the row reads actions in reverse rank.
 	const actionsInRowOrder = $derived(actions.toReversed());
-	const rowCandidates = $derived(items.filter((item) => !isMenuOnly(item)));
-
+	// Keyed on the toolbar's own width so a sidebar that narrows the workspace folds it like a phone would.
+	let lastCompact = false;
+	const compact = $derived.by(() => {
+		if (!compactBelow) return false;
+		if (metrics.available <= 0) return lastCompact;
+		lastCompact = metrics.available < COMPACT_BELOW_PX[compactBelow];
+		return lastCompact;
+	});
 	const searchStacked = $derived(
 		Boolean(search?.stackBelow) && metrics.available > 0 && metrics.available < (search?.stackBelow ?? 0)
 	);
+	const searchOwnRow = $derived(Boolean(search) && (compact || searchStacked));
+	const primaryIconOnly = $derived(compact && Boolean(primary?.icon));
+	const foldsToMore = (item: ToolbarItem): boolean => isMenuOnly(item) || (compact && sectionOf(item) !== 'view');
+	const rowCandidates = $derived(items.filter((item) => !foldsToMore(item)));
+	// Search on its own row never competes for the controls' width, so the fit sees no search at all.
+	const rowSearch = $derived(searchOwnRow ? undefined : search);
 
 	let lastFit: FitResult | null = null;
 	const fit = $derived.by((): FitResult | null => {
@@ -78,9 +94,10 @@
 		// A host with no width is hidden, not narrow; keep its last layout until it is measured again.
 		if (measured.available <= 0) return lastFit;
 		const ready =
+			measured.compact === compact &&
 			measured.more > 0 &&
 			(!primary || measured.primary > 0) &&
-			(!search || (measured.searchField > 0 && measured.searchIcon > 0)) &&
+			(!rowSearch || (measured.searchField > 0 && measured.searchIcon > 0)) &&
 			rowCandidates.every((item) => measured.items[item.id] > 0);
 		// An item that is not measured yet waits in More under the last fit; unfolding everything would unmount More.
 		if (!ready) return lastFit;
@@ -93,9 +110,9 @@
 				id: item.id,
 				width: measured.items[item.id] ?? 0,
 				section: sectionOf(item),
-				menuOnly: isMenuOnly(item)
+				menuOnly: foldsToMore(item)
 			})),
-			...(search && !searchStacked
+			...(rowSearch
 				? { searchMinWidth: measured.searchField, searchIconWidth: measured.searchIcon }
 				: { searchMinWidth: null, searchIconWidth: null })
 		});
@@ -121,8 +138,8 @@
 		...actions.filter((item) => item.menuOnly)
 	]);
 	const showMore = $derived(moreViews.length + moreFilters.length + moreActions.length > 0);
-	const searchMode = $derived<'field' | 'icon' | 'open' | 'stacked' | 'none'>(
-		!search ? 'none' : searchStacked ? 'stacked' : fit?.searchCollapsed ? (searchOpen ? 'open' : 'icon') : 'field'
+	const searchMode = $derived<'field' | 'icon' | 'open' | 'none'>(
+		!search ? 'none' : searchOwnRow ? 'field' : fit?.searchCollapsed ? (searchOpen ? 'open' : 'icon') : 'field'
 	);
 	const trailingId = $derived(rowActions[0]?.id ?? (showMore ? 'more' : primary?.id));
 	const searchText = $derived(search?.value.trim() ?? '');
@@ -140,7 +157,7 @@
 	// ResizeObserver delivers every changed box of one layout before paint; one delivery is one
 	// metrics write and so one fit, which keeps an unfolded overflowing row from ever being painted.
 	function record(entries: ResizeObserverEntry[]): void {
-		const next: Metrics = { ...metrics, items: {} };
+		const next: Metrics = { ...metrics, compact, items: {} };
 		for (const { id } of rowCandidates) {
 			if (metrics.items[id] !== undefined) next.items[id] = metrics.items[id];
 		}
@@ -167,6 +184,7 @@
 			a.primary === b.primary &&
 			a.searchField === b.searchField &&
 			a.searchIcon === b.searchIcon &&
+			a.compact === b.compact &&
 			aIds.length === Object.keys(b.items).length &&
 			aIds.every((id) => a.items[id] === b.items[id])
 		);
@@ -248,7 +266,7 @@
 			ids: [...visibleIds],
 			more: showMore,
 			collapsed: Boolean(fit?.searchCollapsed),
-			stacked: searchStacked
+			stacked: searchOwnRow
 		};
 		const before = previousLayout;
 		previousLayout = next;
@@ -316,10 +334,13 @@
 	action: ToolbarAction,
 	variant: 'default' | 'outline',
 	live: boolean,
-	props: Record<string, unknown> = {}
+	props: Record<string, unknown> = {},
+	iconOnly: boolean = false
 )}
+	<!-- A width transition between icon and text would hand the fit a half-grown button. -->
 	<Button
 		variant={action.destructive ? 'destructive' : variant}
+		class={iconOnly ? 'size-8 px-0 transition-colors' : compactBelow ? 'transition-colors' : undefined}
 		href={action.href}
 		disabled={action.disabled}
 		title={live ? action.disabledReason : undefined}
@@ -336,21 +357,30 @@
 		{:else}
 			<WorkspaceToolbarIcon icon={action.icon} />
 		{/if}
-		{action.label}
+		{#if iconOnly}
+			<span class="sr-only">{action.label}</span>
+		{:else}
+			{action.label}
+		{/if}
 		{#if action.menuItems}
 			<ChevronDown aria-hidden="true" />
 		{/if}
 	</Button>
 {/snippet}
 
-{#snippet actionControl(action: ToolbarAction, variant: 'default' | 'outline', live: boolean)}
+{#snippet actionControl(
+	action: ToolbarAction,
+	variant: 'default' | 'outline',
+	live: boolean,
+	iconOnly: boolean = false
+)}
 	{#if live && action.menuItems}
 		<WorkspaceToolbarMenu
 			label={action.label}
 			contentClass={action.menuItems.some((item) => item.kind === 'action' && item.description) ? 'w-75' : undefined}
 		>
 			{#snippet trigger(props)}
-				{@render actionButton(action, variant, true, props)}
+				{@render actionButton(action, variant, true, props, iconOnly)}
 			{/snippet}
 			{#snippet children(choose)}
 				{@render actionItems(
@@ -363,7 +393,7 @@
 			{/snippet}
 		</WorkspaceToolbarMenu>
 	{:else}
-		{@render actionButton(action, variant, live)}
+		{@render actionButton(action, variant, live, {}, iconOnly)}
 	{/if}
 	{#if live && action.disabledReason}
 		<span id={reasonId(action.id)} class="sr-only">{action.disabledReason}</span>
@@ -497,7 +527,7 @@
 			{/if}
 		</div>
 	{:else}
-		<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && searchMode !== 'stacked' && 'max-w-80')}>
+		<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && !searchOwnRow && 'max-w-80')}>
 			<InputGroup.Root>
 				<InputGroup.Addon>
 					<SearchIcon aria-hidden="true" />
@@ -549,8 +579,8 @@
 		bare ? 'p-1' : 'rounded-lg border border-border bg-card p-2'
 	)}
 >
-	{#if search && searchMode === 'stacked'}
-		<div class="mb-1.5 flex w-full">
+	{#if search && searchOwnRow}
+		<div class="mb-1.5 flex min-w-0 items-center">
 			{@render searchControl(search)}
 		</div>
 	{/if}
@@ -566,7 +596,7 @@
 			{/each}
 		{/if}
 
-		{#if search && searchMode !== 'stacked' && searchPlacement === 'before-filters'}
+		{#if search && !searchOwnRow && searchPlacement === 'before-filters'}
 			{@render searchControl(search)}
 		{/if}
 
@@ -576,7 +606,7 @@
 			{/each}
 		{/if}
 
-		{#if search && searchMode !== 'stacked' && searchPlacement === 'after-filters'}
+		{#if search && !searchOwnRow && searchPlacement === 'after-filters'}
 			{@render searchControl(search)}
 		{/if}
 
@@ -586,12 +616,19 @@
 			{/each}
 			{#if showMore}
 				<div data-toolbar-more class={cn('flex shrink-0', trailingId === 'more' && 'ml-auto')}>
-					<WorkspaceToolbarMore {ariaLabel} views={moreViews} filters={moreFilters} actions={moreActions} {run} />
+					<WorkspaceToolbarMore
+						{ariaLabel}
+						views={moreViews}
+						filters={moreFilters}
+						actions={moreActions}
+						filtersLabel={compact}
+						{run}
+					/>
 				</div>
 			{/if}
 			{#if primary}
 				<div data-toolbar-item={primary.id} class={cn('flex shrink-0', trailingId === primary.id && 'ml-auto')}>
-					{@render actionControl(primary, 'default', true)}
+					{@render actionControl(primary, 'default', true, primaryIconOnly)}
 				</div>
 			{/if}
 		{/if}
@@ -609,13 +646,13 @@
 					{@render itemControl(item, false)}
 				</div>
 			{/each}
-			{#if search}
+			{#if rowSearch}
 				<div data-toolbar-search-measure="field" class="flex w-40 shrink-0" {@attach measure()}>
 					<InputGroup.Root>
 						<InputGroup.Addon>
 							<SearchIcon aria-hidden="true" />
 						</InputGroup.Addon>
-						<InputGroup.Input type="search" tabindex={-1} placeholder={search.placeholder} />
+						<InputGroup.Input type="search" tabindex={-1} placeholder={rowSearch.placeholder} />
 					</InputGroup.Root>
 				</div>
 				<div data-toolbar-search-measure="icon" class="flex shrink-0" {@attach measure()}>
@@ -623,11 +660,11 @@
 				</div>
 			{/if}
 			<div data-toolbar-more class="flex shrink-0" {@attach measure()}>
-				{@render moreButton('', { tabindex: -1 })}
+				{@render moreButton('', { tabindex: -1 }, undefined, compact)}
 			</div>
 			{#if primary}
 				<div data-toolbar-item={primary.id} data-toolbar-primary class="flex shrink-0" {@attach measure()}>
-					{@render actionControl(primary, 'default', false)}
+					{@render actionControl(primary, 'default', false, primaryIconOnly)}
 				</div>
 			{/if}
 		</div>

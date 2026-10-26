@@ -4,6 +4,7 @@ import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personn
 import { createRosterTestContext, selectRosterContext, selectRosterCreationContext } from './rosterTestContexts';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
+import { createSupabaseSignInRosterPersistence } from '$features/sign-in-rosters/index.server';
 import { _getConfig, _postConfig } from './+server';
 
 const PERSON_1 = '00000000-0000-4000-8000-000000000010';
@@ -72,6 +73,131 @@ function seedPersonnel(ctx: ReturnType<typeof createRosterTestContext>) {
 }
 
 describe('/api/sign-in-rosters route config', () => {
+	it.each([
+		{
+			name: 'trims strings and drops duplicate, empty, non-string and unknown values',
+			filterConfig: {
+				groups: [' alpha ', 'alpha', '', null, 7],
+				ranks: [' SGT ', 'SGT', false],
+				mos: [' 68W ', '68W', ' 68C ', 3, null, {}, false, '', '  '],
+				roles: [' Driver ', 'Driver', 'Medic ', [], '', null],
+				unknown: ['discard']
+			},
+			expected: { groups: ['alpha'], ranks: ['SGT'], mos: ['68W', '68C'], roles: ['Driver', 'Medic'] }
+		},
+		{
+			name: 'defaults missing MOS and Duty Role keys',
+			filterConfig: { groups: ['alpha'], ranks: ['SGT'] },
+			expected: { groups: ['alpha'], ranks: ['SGT'], mos: [], roles: [] }
+		},
+		{
+			name: 'ignores non-array dimensions',
+			filterConfig: { groups: null, ranks: 'SGT', mos: '68W', roles: { Driver: true } },
+			expected: { groups: [], ranks: [], mos: [], roles: [] }
+		},
+		{
+			name: 'defaults every missing dimension',
+			filterConfig: {},
+			expected: { groups: [], ranks: [], mos: [], roles: [] }
+		},
+		{ name: 'retains an omitted filter config as null', filterConfig: undefined, expected: null },
+		{ name: 'rejects an array as a filter config', filterConfig: ['68W'], expected: null }
+	])('creates and reloads filter metadata that $name', async ({ filterConfig, expected }) => {
+		const ctx = createRosterTestContext();
+		seedPersonnel(ctx);
+
+		const created = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{ title: 'Filtered attendance', personnelIds: [P_ALPHA], filterConfig },
+			() => selectRosterCreationContext(ctx)
+		);
+		const saved = await ctx.rawStore.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
+		const reloaded = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{ title: '', createdFrom: null, createdBefore: null, limit: 20, offset: 0 },
+			() => selectRosterContext(ctx)
+		);
+
+		expect(created).toMatchObject({ filterConfig: expected });
+		expect(saved[0]).toMatchObject({ filter_config: expected, personnel_ids: [P_ALPHA] });
+		expect(reloaded).toMatchObject({ total: 1, rosters: [{ filterConfig: expected }] });
+	});
+
+	it('loads an older roster with empty MOS and Duty Role filters and retains its historical reprint data', async () => {
+		const client = createClient('http://roster.invalid', 'synthetic-anon-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					if (
+						!['GET', 'HEAD'].includes(request.method) ||
+						new URL(request.url).pathname !== '/rest/v1/sign_in_rosters'
+					) {
+						throw new Error('Only the saved roster read is available');
+					}
+					return Response.json(
+						[
+							{
+								id: 'historical-roster',
+								title: 'Archived training attendance',
+								roster_date: '2025-06-01',
+								blank_date: false,
+								separate_by_group: true,
+								sort_by: 'rank',
+								personnel_snapshot: [
+									{ id: P_ALPHA, rank: 'RETIRED', lastName: 'Prior', firstName: 'Person', group: 'Old Group' }
+								],
+								filter_config: { groups: ['legacy-group'], ranks: ['RETIRED'] },
+								signed_file_path: null,
+								created_by: 'original-user',
+								created_at: '2025-06-01T12:00:00Z'
+							}
+						],
+						{ headers: { 'Content-Range': '0-0/1' } }
+					);
+				}
+			}
+		});
+		const ctx = createRosterTestContext();
+
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{ title: '', createdFrom: null, createdBefore: null, limit: 20, offset: 0 },
+			() => ({
+				...selectRosterContext(ctx),
+				persistence: createSupabaseSignInRosterPersistence(client, {
+					orgId: ctx.auth.orgId,
+					scopeSet: ctx.auth.scopeSet
+				})
+			})
+		);
+
+		expect(result).toEqual({
+			total: 1,
+			unsigned: 1,
+			rosters: [
+				{
+					id: 'historical-roster',
+					title: 'Archived training attendance',
+					rosterDate: '2025-06-01',
+					blankDate: false,
+					separateByGroup: true,
+					sortBy: 'rank',
+					personnelSnapshot: [
+						{ id: P_ALPHA, rank: 'RETIRED', lastName: 'Prior', firstName: 'Person', group: 'Old Group' }
+					],
+					filterConfig: { groups: ['legacy-group'], ranks: ['RETIRED'], mos: [], roles: [] },
+					signedFilePath: null,
+					createdBy: 'original-user',
+					createdAt: '2025-06-01T12:00:00Z'
+				}
+			]
+		});
+	});
+
 	it("saves the Personnel provider's mapped Group and name facts in a canonical snapshot", async () => {
 		const requests: URL[] = [];
 		const supabase = createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
@@ -154,6 +280,7 @@ describe('/api/sign-in-rosters route config', () => {
 		);
 		expect(result).toEqual({
 			total: 1,
+			unsigned: 1,
 			rosters: [
 				expect.objectContaining({
 					id: created.id,
@@ -296,7 +423,7 @@ describe('/api/sign-in-rosters route config', () => {
 					groupId: GROUP_ALPHA
 				}
 			],
-			filter_config: { groups: ['Alpha'], ranks: [] }
+			filter_config: { groups: ['Alpha'], ranks: [], mos: [], roles: [] }
 		});
 		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'sign_in_roster.created',
@@ -403,12 +530,12 @@ describe('/api/sign-in-rosters route config', () => {
 		const stored = await ctx.store.findMany<{
 			personnel_ids?: string[];
 			personnel_snapshot?: Array<{ id: string; rank: string; lastName: string; firstName: string }>;
-			filter_config?: { groups: string[]; ranks: string[] } | null;
+			filter_config?: unknown;
 			sort_by?: string;
 		}>('sign_in_rosters', ctx.auth.orgId);
 		expect(stored[0]).toMatchObject({
 			personnel_ids: [P_SMITH, P_ADAMS],
-			filter_config: { groups: ['Alpha'], ranks: ['SGT', 'PO2'] },
+			filter_config: { groups: ['Alpha'], ranks: ['SGT', 'PO2'], mos: [], roles: [] },
 			sort_by: 'alphabetical',
 			personnel_snapshot: [
 				{ id: P_ADAMS, rank: 'PO2', lastName: 'Adams', firstName: 'Avery' },
@@ -702,6 +829,51 @@ describe('/api/sign-in-rosters route config', () => {
 
 		expect(result.rosters.map((roster) => roster.id)).toEqual(['roster-alpha']);
 		expect(result.total).toBe(1);
+	});
+
+	it('counts the rosters still waiting on a signed scan across all pages and only within the reader scope', async () => {
+		const ctx = createRosterTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+			}
+		});
+		const seeded = (id: string, day: number, extra: Record<string, unknown> = {}) => ({
+			id,
+			organization_id: ctx.auth.orgId,
+			title: id,
+			scope_group_ids: [GROUP_ALPHA],
+			personnel_ids: [],
+			personnel_snapshot: [],
+			signed_file_path: null,
+			created_at: `2026-05-0${day}T10:00:00.000Z`,
+			...extra
+		});
+		const signed = { signed_file_path: `${ctx.auth.orgId}/sign-in-rosters/x/scan.pdf` };
+		ctx.rawStore.seed('sign_in_rosters', [
+			seeded('newest-signed', 5, signed),
+			seeded('newer-signed', 4, signed),
+			seeded('oldest-unsigned', 1),
+			seeded('other-group', 3, { scope_group_ids: [GROUP_BRAVO] }),
+			seeded('foreign', 2, { organization_id: 'foreign-org' })
+		]);
+
+		const firstPage = (await handleUseCaseRequest(_getConfig, ctx, { limit: 2, offset: 0 }, () =>
+			selectRosterContext(ctx)
+		)) as { rosters: Array<{ id: string }>; total: number; unsigned: number };
+
+		expect(firstPage.rosters.map((roster) => roster.id)).toEqual(['newest-signed', 'newer-signed']);
+		expect(firstPage.total).toBe(3);
+		expect(firstPage.unsigned).toBe(1);
 	});
 
 	it('falls back to the default page size for a non-numeric limit and accepts only instant date bounds', async () => {

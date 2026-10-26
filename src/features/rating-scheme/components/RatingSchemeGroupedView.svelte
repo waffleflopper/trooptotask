@@ -1,104 +1,81 @@
 <script lang="ts">
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
-	import type { RatingDueStatus } from '../rating-scheme.types';
 	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
-	import { getRatingDueStatus, getDaysUntilDue } from '$features/rating-scheme/utils/ratingScheme';
-	import EvalBadge from './EvalBadge.svelte';
+	import { getRatingDueLabel, getReportTypeLabel } from '../utils/ratingScheme';
+	import { ratingDueTone } from '../utils/ratingDueTone';
+	import { groupRatingSchemeEntries, type GroupedSort } from '../utils/ratingSchemeGroups';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { formatDayMonthShortYear } from '$lib/utils/dates';
 
 	interface Props {
 		entries: RatingSchemeEntry[];
 		personnel: PersonnelLookup[];
+		sort?: GroupedSort;
 		onEdit?: (entry: RatingSchemeEntry) => void;
 	}
 
-	let { entries, personnel, onEdit }: Props = $props();
+	let { entries, personnel, sort = 'urgency', onEdit }: Props = $props();
 
-	function getPersonDisplay(id: string | null, name: string | null): string {
-		if (id) {
-			const p = personnel.find((p) => p.id === id);
-			return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
-		}
-		return name ?? 'Not Set';
-	}
+	const groups = $derived(groupRatingSchemeEntries(entries, personnel, sort));
 
-	function getSeniorRaterKey(entry: RatingSchemeEntry): string {
-		return entry.seniorRaterPersonId || entry.seniorRaterName || 'unassigned';
-	}
+	// Tracks shrink from their widest toward their narrowest together, so a 1184 px workspace still fits one line.
+	const rowClass =
+		'relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 py-3 pr-3.5 pl-3 text-left @3xl:grid-cols-[minmax(7rem,190px)_minmax(8.5rem,180px)_minmax(9.5rem,180px)_minmax(5.5rem,150px)_minmax(6rem,1fr)_1rem]';
 
-	function getRaterKey(entry: RatingSchemeEntry): string {
-		return entry.raterPersonId || entry.raterName || 'unassigned';
-	}
-
-	interface GroupedScheme {
-		seniorRaterKey: string;
-		seniorRaterLabel: string;
-		raterGroups: {
-			raterKey: string;
-			raterLabel: string;
-			entries: RatingSchemeEntry[];
-		}[];
-	}
-
-	const grouped = $derived.by<GroupedScheme[]>(() => {
-		const srMap = new SvelteMap<string, SvelteMap<string, RatingSchemeEntry[]>>();
-
-		for (const entry of entries) {
-			const srKey = getSeniorRaterKey(entry);
-			if (!srMap.has(srKey)) srMap.set(srKey, new SvelteMap());
-			const raterMap = srMap.get(srKey)!;
-			const rKey = getRaterKey(entry);
-			if (!raterMap.has(rKey)) raterMap.set(rKey, []);
-			raterMap.get(rKey)!.push(entry);
-		}
-
-		const result: GroupedScheme[] = [];
-		for (const [seniorRaterKey, raterMap] of srMap) {
-			const firstEntry = [...raterMap.values()][0][0];
-			const seniorRaterLabel = getPersonDisplay(firstEntry.seniorRaterPersonId, firstEntry.seniorRaterName);
-
-			const raterGroups: GroupedScheme['raterGroups'] = [];
-			for (const [raterKey, raterEntries] of raterMap) {
-				const firstRaterEntry = raterEntries[0];
-				raterGroups.push({
-					raterKey,
-					raterLabel: getPersonDisplay(firstRaterEntry.raterPersonId, firstRaterEntry.raterName),
-					entries: raterEntries.sort((a, b) => a.ratingPeriodEnd.localeCompare(b.ratingPeriodEnd))
-				});
-			}
-			result.push({ seniorRaterKey, seniorRaterLabel, raterGroups });
-		}
-		return result;
-	});
-
-	function formatDueStatus(entry: RatingSchemeEntry): { status: RatingDueStatus; label: string } {
-		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
-		const days = getDaysUntilDue(entry.ratingPeriodEnd);
-
-		if (status === 'completed') return { status, label: 'Completed' };
-		if (status === 'overdue') return { status, label: `Expired (${Math.abs(days)}d)` };
-		if (status === 'due-30') return { status, label: `Expiring (${days}d)` };
-		if (status === 'due-60') return { status, label: `Expires Soon (${days}d)` };
-		return { status, label: 'Current' };
-	}
+	const dueCountLabels = [
+		['overdue', 'past thru'],
+		['due-30', 'in 30 days'],
+		['due-60', 'in 31–60']
+	] as const;
 
 	function getRatedPersonLabel(id: string): string {
 		const p = personnel.find((p) => p.id === id);
 		return p ? `${p.rank} ${p.lastName}` : 'Unknown';
 	}
 
-	function formatDate(dateStr: string): string {
-		const d = new Date(dateStr + 'T00:00:00');
-		return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
-	}
-
 	function getWorkflowLabel(status: string): string {
 		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 	}
 </script>
+
+{#snippet rowBody(entry: RatingSchemeEntry)}
+	{@const due = getRatingDueLabel(entry.ratingPeriodEnd, entry.status)}
+	{@const tone = ratingDueTone[due.status]}
+	<span class="absolute inset-y-0 left-0 w-0.75 {tone.rail}" aria-hidden="true"></span>
+	<span class="truncate text-[15px] font-semibold @max-3xl:col-start-1 @max-3xl:row-start-1"
+		>{getRatedPersonLabel(entry.ratedPersonId)}</span
+	>
+	<span class="flex min-w-0 items-center gap-2 @max-3xl:col-start-1 @max-3xl:row-start-2">
+		<span class="shrink-0 rounded-sm border px-[5px] font-mono text-[11px] leading-4 font-medium">{entry.evalType}</span
+		>
+		{#if entry.reportType}
+			<span class="truncate text-sm">{getReportTypeLabel(entry.reportType, entry.evalType)}</span>
+		{/if}
+	</span>
+	<span class="font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums @max-3xl:hidden">
+		{formatDayMonthShortYear(entry.ratingPeriodStart)} → {formatDayMonthShortYear(entry.ratingPeriodEnd)}
+	</span>
+	<span
+		class="truncate font-mono text-xs @max-3xl:col-start-2 @max-3xl:row-start-2 @max-3xl:text-right {entry.workflowStatus
+			? ''
+			: 'text-muted-foreground'}"
+	>
+		{entry.workflowStatus ? getWorkflowLabel(entry.workflowStatus) : 'Not tracked'}
+	</span>
+	<span
+		class="text-right font-mono text-xs font-semibold whitespace-nowrap {tone.text} @max-3xl:col-start-2 @max-3xl:row-start-1"
+		>{due.text}</span
+	>
+	{#if onEdit}
+		<ChevronRightIcon class="size-4 text-muted-foreground @max-3xl:hidden" aria-hidden="true" />
+	{:else}
+		<span class="@max-3xl:hidden" aria-hidden="true"></span>
+	{/if}
+{/snippet}
 
 {#if entries.length === 0}
 	<Empty.Root>
@@ -108,64 +85,66 @@
 		</Empty.Header>
 	</Empty.Root>
 {:else}
-	<div class="grid gap-4 p-4">
-		{#each grouped as srGroup (srGroup.seniorRaterKey)}
-			<div class="overflow-hidden rounded-lg border bg-card text-card-foreground">
-				<div class="border-b bg-muted/40 px-4 py-3 text-base font-medium text-foreground uppercase">
-					<span class="text-muted-foreground">SR:</span>
-					{srGroup.seniorRaterLabel}
-				</div>
-				{#each srGroup.raterGroups as rGroup (rGroup.raterKey)}
-					<div class="border-b last:border-b-0">
-						<div class="border-b bg-muted/20 px-4 py-2 pl-8 text-sm font-medium text-muted-foreground uppercase">
-							<span>Rater:</span>
-							{rGroup.raterLabel}
-						</div>
-						{#each rGroup.entries as entry (entry.id)}
-							{@const due = formatDueStatus(entry)}
-							{#if onEdit}
-								<Button
-									variant="cell"
-									size="none"
-									class="flex h-auto w-full flex-wrap items-center justify-start gap-2 border-b border-border px-4 py-3 pl-12 text-left text-sm whitespace-normal last:border-b-0"
-									data-rating-entry-id={entry.id}
-									onclick={() => onEdit(entry)}
-								>
-									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-									<EvalBadge kind="type" value={entry.evalType} reportType={entry.reportType} />
-									{#if entry.workflowStatus}
-										<EvalBadge kind="workflow" value={entry.workflowStatus}
-											>{getWorkflowLabel(entry.workflowStatus)}</EvalBadge
-										>
-									{/if}
-									<span class="ml-auto inline-flex items-center gap-2">
-										<EvalBadge kind="due" value={due.status}>{due.label}</EvalBadge>
-										<span class="text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
-											{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
-										</span>
-									</span>
-								</Button>
-							{:else}
-								<div class="flex flex-wrap items-center gap-2 border-b px-4 py-3 pl-12 text-sm last:border-b-0">
-									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-									<EvalBadge kind="type" value={entry.evalType} reportType={entry.reportType} />
-									{#if entry.workflowStatus}
-										<EvalBadge kind="workflow" value={entry.workflowStatus}
-											>{getWorkflowLabel(entry.workflowStatus)}</EvalBadge
-										>
-									{/if}
-									<span class="ml-auto inline-flex items-center gap-2">
-										<EvalBadge kind="due" value={due.status}>{due.label}</EvalBadge>
-										<span class="text-xs font-medium whitespace-nowrap text-muted-foreground uppercase">
-											{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
-										</span>
-									</span>
-								</div>
+	<div class="grid gap-9">
+		{#each groups as group (group.key)}
+			<section class="grid gap-1" aria-label="Senior rater {group.label}">
+				<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-foreground pb-2.5">
+					<h2 class="flex min-w-0 flex-wrap items-baseline gap-x-3">
+						<span class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">SR</span>
+						<span class="font-heading text-[28px] leading-[30px] font-extrabold wrap-anywhere uppercase">
+							{group.label}
+						</span>
+					</h2>
+					{#if group.external}
+						<Badge variant="warning">External</Badge>
+					{/if}
+					<span class="text-sm text-muted-foreground">Senior rates {group.entryCount}</span>
+					<span class="ml-auto flex flex-wrap items-baseline gap-x-2 font-mono text-xs font-medium tabular-nums">
+						{#each dueCountLabels.filter(([status]) => group.dueCounts[status] > 0) as [status, label], index (status)}
+							{#if index > 0}
+								<span class="text-muted-foreground" aria-hidden="true">·</span>
 							{/if}
+							<span class={ratingDueTone[status].text}>{group.dueCounts[status]} {label}</span>
 						{/each}
+					</span>
+				</div>
+				{#each group.raterGroups as rater (rater.key)}
+					<div
+						class="grid items-start gap-x-6 gap-y-2 border-b py-4 last:border-b-0 lg:grid-cols-[200px_minmax(0,1fr)]"
+					>
+						<div class="flex min-w-0 flex-col gap-0.5 lg:pt-2.5">
+							<h3 class="text-[15px] font-semibold wrap-anywhere">{rater.label}</h3>
+							<p class="text-[13px] whitespace-nowrap text-muted-foreground">
+								Rater · rates {rater.entries.length}
+								{#if rater.external}
+									<span class="text-expiring-foreground"> · External</span>
+								{/if}
+							</p>
+						</div>
+						<ul class="@container divide-y overflow-hidden rounded-lg border bg-card text-card-foreground">
+							{#each rater.entries as entry (entry.id)}
+								<li>
+									{#if onEdit}
+										<Button
+											variant="cell"
+											size="none"
+											class="{rowClass} h-auto justify-start whitespace-normal"
+											data-rating-entry-id={entry.id}
+											onclick={() => onEdit(entry)}
+										>
+											{@render rowBody(entry)}
+										</Button>
+									{:else}
+										<div class={rowClass} data-rating-entry-id={entry.id}>
+											{@render rowBody(entry)}
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
 					</div>
 				{/each}
-			</div>
+			</section>
 		{/each}
 	</div>
 {/if}

@@ -65,7 +65,7 @@ async function openEditor({
 	const modals = new ModalRegistry();
 	modals.open('rating-modal', { entry: editingEntry });
 	ctx = new RatingSchemePageContext(
-		{ orgId, orgName: 'Synthetic workspace', ratingSchemeEntries: items },
+		{ orgId, orgName: 'Synthetic workspace', ratingSchemeEntries: items, personnelLookup: [] },
 		modals,
 		{} as ConstructorParameters<typeof RatingSchemePageContext>[2]
 	);
@@ -80,33 +80,32 @@ async function openEditor({
 }
 
 async function confirmDeletion() {
-	await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Delete entry' }));
 	await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /Delete Entry/ }));
+}
+
+async function chooseExternal(role: string, name: string) {
+	await fireEvent.click(screen.getByRole('button', { name: role }));
+	const search = screen
+		.getAllByPlaceholderText('Search unit or type a name...')
+		.find((input) => input.closest('[data-state="open"]'));
+	await fireEvent.input(search!, { target: { value: name } });
+	await fireEvent.click(await screen.findByRole('option', { name: `Use "${name}" as an external rater` }));
 }
 
 async function prepareNewEntry() {
 	vi.useFakeTimers({ toFake: ['Date'] });
 	vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
-	await fireEvent.click(screen.getByRole('button', { name: 'Rated individual' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Rated Soldier' }));
 	const search = screen.getByPlaceholderText('Search personnel...');
 	await fireEvent.input(search, { target: { value: 'Able' } });
 	await fireEvent.keyDown(search, { key: 'Enter' });
-	await fireEvent.click(screen.getByRole('button', { name: 'Report Type' }));
-	await fireEvent.keyDown(screen.getByRole('button', { name: 'Report Type' }), { key: 'ArrowDown' });
-	await fireEvent.keyDown(screen.getByRole('button', { name: 'Report Type' }), { key: 'Enter' });
-	await fireEvent.click(
-		within(screen.getByRole('group', { name: 'Rater source' })).getByRole('button', { name: 'External' })
-	);
-	await fireEvent.input(screen.getByPlaceholderText('Rank, Name, Position (e.g., MAJ Smith, S3)'), {
-		target: { value: 'MAJ Current Rater' }
-	});
-	await fireEvent.click(
-		within(screen.getByRole('group', { name: 'Senior rater source' })).getByRole('button', { name: 'External' })
-	);
-	await fireEvent.input(screen.getByPlaceholderText('Rank, Name, Position (e.g., COL Jones, BDE CDR)'), {
-		target: { value: 'COL Current Senior' }
-	});
-	await fireEvent.click(screen.getByRole('button', { name: 'Rating Period Start' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Report' }));
+	await fireEvent.keyDown(screen.getByRole('button', { name: 'Report' }), { key: 'ArrowDown' });
+	await fireEvent.keyDown(screen.getByRole('button', { name: 'Report' }), { key: 'Enter' });
+	await chooseExternal('Rater', 'MAJ Current Rater');
+	await chooseExternal('Senior rater', 'COL Current Senior');
+	await fireEvent.click(screen.getByRole('button', { name: 'Start' }));
 	await fireEvent.click(screen.getByRole('button', { name: 'Thursday, January 1, 2026' }));
 }
 
@@ -132,19 +131,19 @@ describe('Evals deletion recovery', () => {
 		const { modals } = await openEditor({ editingEntry: null });
 		await prepareNewEntry();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'New current draft' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 		await waitFor(() =>
 			expect(within(screen.getByRole('dialog')).getByRole('alert').textContent?.replace(/\s+/g, ' ').trim()).toBe(
 				'Rating entry was not saved Create temporarily unavailable'
 			)
 		);
-		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' })));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add entry' })));
 		expect(modals.isOpen('rating-modal')).toBe(true);
 		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('New current draft');
 		await waitFor(() =>
-			expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false)
+			expect((screen.getByRole('button', { name: 'Add entry' }) as HTMLButtonElement).disabled).toBe(false)
 		);
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 		await waitFor(() => expect(modals.isOpen('rating-modal')).toBe(false));
 		expect(successToast).toHaveBeenCalledWith('Rating entry added');
 		expect(requests).toHaveLength(2);
@@ -172,7 +171,7 @@ describe('Evals deletion recovery', () => {
 		vi.stubGlobal('fetch', () => pending);
 		const origin = await openEditor();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Held A edit' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 		expect((screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement).disabled).toBe(true);
 		origin.unmount();
 		const { modals: foreignModals } = await openEditor(foreignEditorOptions);
@@ -207,7 +206,7 @@ describe('Evals deletion recovery', () => {
 		const origin = await openEditor({ editingEntry: operation === 'create' ? null : entry });
 		if (operation === 'create') await prepareNewEntry();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Retired A draft' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await fireEvent.click(screen.getByRole('button', { name: operation === 'create' ? 'Add entry' : 'Save changes' }));
 		expect((screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement).disabled).toBe(true);
 		origin.unmount();
 		const { modals } = await openEditor(foreignEditorOptions);
@@ -379,7 +378,7 @@ describe('Evals deletion recovery', () => {
 			vi.stubGlobal('fetch', () => held.promise);
 			const origin = await openEditor();
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Retired A save' } });
-			await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 			origin.unmount();
 			if (departure === 'A to B to fresh A') (await openEditor(foreignEditorOptions)).unmount();
 			const { modals } = await openEditor();
@@ -412,7 +411,7 @@ describe('Evals deletion recovery', () => {
 			});
 			const origin = await openEditor();
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Current retained draft' } });
-			await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 			await origin.rerender({
 				orgId: 'org-a',
 				personnelLookup: [{ id: 'person-a', rank: 'SSG', firstName: 'Refreshed', lastName: 'Able' }]
@@ -438,8 +437,8 @@ describe('Evals deletion recovery', () => {
 				expect(errorToast).not.toHaveBeenCalled();
 				expect(origin.modals.isOpen('rating-modal')).toBe(true);
 				expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Current retained draft');
-				expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false);
-				await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+				expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(false);
+				await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 				await waitFor(() => expect(origin.modals.isOpen('rating-modal')).toBe(false));
 				expect(requests).toHaveLength(2);
 				expect(requests[0]).toEqual(requests[1]);
@@ -535,8 +534,8 @@ describe('Evals deletion recovery', () => {
 			await fireEvent.click(confirmation.getByRole('button', { name: 'Cancel' }));
 			await fireEvent.keyDown(document, { key: 'Escape' });
 			expect(screen.getByRole('alertdialog')).toBeTruthy();
-			const editor = within(screen.getByRole('dialog', { name: 'Edit Rating Entry', hidden: true }));
-			for (const name of ['Save', 'Delete', 'Cancel']) {
+			const editor = within(screen.getByRole('dialog', { name: 'SGT Able, Synthetic', hidden: true }));
+			for (const name of ['Save changes', 'Delete entry', 'Cancel']) {
 				expect((editor.getByRole('button', { name, hidden: true }) as HTMLButtonElement).disabled).toBe(true);
 			}
 			expect(modals.isOpen('rating-modal')).toBe(true);
@@ -560,8 +559,8 @@ describe('Evals deletion recovery', () => {
 		});
 		const { modals } = await openEditor();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Updated notes' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-		const deleteButton = screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement;
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+		const deleteButton = screen.getByRole('button', { name: 'Delete entry' }) as HTMLButtonElement;
 		expect(deleteButton.disabled).toBe(true);
 		await fireEvent.click(deleteButton);
 		await fireEvent.keyDown(document, { key: 'Escape' });

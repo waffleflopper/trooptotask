@@ -1,6 +1,6 @@
 import { BUILT_IN_RANK_CATALOG, type RankCategory } from '$features/personnel/contracts';
 import { OER_REPORT_TYPES, NCOER_REPORT_TYPES, WOER_REPORT_TYPES } from '../rating-scheme.types';
-import type { RatingDueStatus, ReportType, ReportTypeOption } from '../rating-scheme.types';
+import type { RatingDueStatus, RatingSchemeEntry, ReportType, ReportTypeOption } from '../rating-scheme.types';
 import { calendarDayDiff, parseDate } from '$lib/utils/dates';
 
 function armyRankCodes(category: RankCategory): ReadonlySet<string> {
@@ -29,6 +29,30 @@ export function getRatingDueStatus(ratingPeriodEnd: string, status: string, toda
 	if (diffDays <= 30) return 'due-30';
 	if (diffDays <= 60) return 'due-60';
 	return 'current';
+}
+
+export interface RatingDueLabel {
+	status: RatingDueStatus;
+	text: string;
+}
+
+export function getRatingDueLabel(
+	ratingPeriodEnd: string,
+	entryStatus: RatingSchemeEntry['status'],
+	today: Date = new Date()
+): RatingDueLabel {
+	const status = getRatingDueStatus(ratingPeriodEnd, entryStatus, today);
+	switch (status) {
+		case 'overdue':
+			return { status, text: `${Math.abs(getDaysUntilDue(ratingPeriodEnd, today))}d past thru` };
+		case 'due-30':
+		case 'due-60':
+			return { status, text: `Thru in ${getDaysUntilDue(ratingPeriodEnd, today)}d` };
+		case 'current':
+			return { status, text: 'Current' };
+		case 'completed':
+			return { status, text: 'Completed' };
+	}
 }
 
 export function getDaysUntilDue(ratingPeriodEnd: string, today: Date = new Date()): number {

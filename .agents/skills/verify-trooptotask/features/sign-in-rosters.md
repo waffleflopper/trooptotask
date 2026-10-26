@@ -7,11 +7,17 @@ and manages a signed PDF scan without changing Training records.
 
 - `roster-entry`: open Sign-in rosters from the Training page and see saved rosters permitted by Training access and
   Group scope.
-- `roster-create`: filter candidates by rank or Group, choose date, sort and layout, generate a PDF, and save the
-  selected Personnel facts.
+- `roster-create`: filter candidates by Group, Rank, MOS and Role (a person must match every filter that is set, and any
+  choice within one filter counts), choose date, order and layout, check the print preview, print the PDF, and save the
+  selected Personnel facts with the filters.
+- `roster-legacy`: a roster saved before MOS and Role filters, with no filter keys or only `groups` and `ranks`, still
+  lists and reprints.
 - `roster-snapshot`: reprint from the saved facts after a selected Person changes; later Personnel edits must not
   rewrite the saved roster.
-- `roster-scan`: upload, download, replace and remove a small synthetic signed PDF in the roster's private file scope.
+- `roster-scan`: upload, download, replace and remove a small synthetic signed PDF in the roster's private file scope,
+  by the row button or by dropping the PDF on the row.
+- `roster-guards`: the sheet cannot be dismissed while a save, upload, removal or deletion runs, and a dirty new-roster
+  form asks before it is discarded.
 - `roster-scope`: an Alpha-scoped member sees Alpha-only rosters, while mixed-Group and unassigned snapshots stay
   outside that member's scope.
 - `roster-denied`: Training read access cannot create, upload, remove or delete; no Training access or a foreign
@@ -26,9 +32,11 @@ and manages a signed PDF scan without changing Training records.
 ## How to get to it (user POV)
 
 Sign in to Organization A, choose `Training` in the Organization navigation, then `Sign-in rosters` in the
-`Training controls` toolbar (in `More Training controls` when it has folded). Choose `New Roster`, enter a title, adjust
-rank/Group, date, sort and layout choices, then choose `Generate & Print`. Open the saved row to `Re-print`, attach a
-`Signed Scan`, download its named file, remove the scan, or delete the roster after confirmation.
+`Training controls` toolbar (in `More Training controls` when it has folded). A sheet lists the saved rosters. Choose
+`New roster`, enter a title, set Group, Rank, MOS and Role filters, date, order and layout while the print preview
+follows, then choose `Save and print`. On a saved row, choose `Reprint`, attach a signed scan with `Add signed scan` or
+by dropping the PDF on the row, download it from `Signed scan`, replace or remove it from the row menu, or delete the
+roster after confirmation.
 
 ## Helper controls
 
@@ -65,37 +73,44 @@ clear. Objects without the current pointer remain visible as orphan witnesses. Q
 never confirmed absence.
 
 1. Run `$V fixture`. Use `$V actor rosterManager training` and keep its returned `pageId` as `PAGE`. Choose the visible
-   `Sign-in rosters` action. Expect `Saved Rosters` and `New Roster`, with no Calendar assignment needed.
-2. Use a unique title, for example `Map Roster <run-id>`. Choose `New Roster`, filter to Alpha and an observed rank that
-   includes Able, choose `By rank` and `Separate by group`, and confirm the included count before `Generate & Print`.
-   Capture the PDF itself. Expect its title, date or intentionally blank date, selected Person and signature column. The
-   generated PDF is a client download; its presence alone does not prove the database save. Reload Training, reopen
-   Sign-in rosters, search for the title, and read `$V rows sign_in_rosters orgA title "$TITLE"`. Expect one row with
-   `personnel_ids`, `personnel_snapshot`, `scope_group_ids`, filter and sort fields matching the selection, and no
-   foreign Person. Capture the row ID as `ROSTER_ID` and a second visible read after reload. A single included Person
-   proves the saved sort/layout selections, not their effect on PDF ordering. For that proof, use
-   `$V seed duplicate-able` to add a PFC in Alpha alongside the seeded SPC, reload Training so the PFC joins the loaded
-   roster, generate a second roster with both ranks and inspect the PDF order. Generate a third roster with Alpha and
-   Bravo to distinguish `Separate by group` from a flat layout. Read back both saved rows and delete them through the
-   UI. Keep the temporary PFC until final seed cleanup in step 7.
+   `Sign-in rosters` action. Expect the `Sign-in rosters` sheet with its saved count and `New roster`, with no Calendar
+   assignment needed. Press Escape and expect focus back on the `Sign-in rosters` button, or on `More Training controls`
+   when the action had folded.
+2. Use a unique title, for example `Map Roster <run-id>`. Choose `New roster`, expect the title field focused, filter
+   Group to Alpha and an observed rank that includes Able, choose `Rank` order and `Split by group`, and confirm the
+   `N of M personnel match` line and the print preview before `Save and print`. Repeat once with an observed MOS and
+   Role instead (the fixture holds `68W` and `11B`, role `NCO`): the saved `filter_config` must hold `mos` and `roles`
+   with those values, and the preview must list only the people who match both. Capture the PDF itself. Expect its
+   title, date or intentionally blank date, selected Person and signature column. The PDF downloads only once the
+   save has succeeded. Reload Training, reopen Sign-in rosters, search for
+   the title, and read `$V rows sign_in_rosters orgA title "$TITLE"`. Expect one row with `personnel_ids`,
+   `personnel_snapshot`, `scope_group_ids`, filter and sort fields matching the selection, and no foreign Person.
+   Capture the row ID as `ROSTER_ID` and a second visible read after reload. A single included Person proves the saved
+   sort/layout selections, not their effect on PDF ordering. For that proof, use `$V seed duplicate-able` to add a PFC
+   in Alpha alongside the seeded SPC, reload Training so the PFC joins the loaded roster, generate a second roster with
+   both ranks and inspect the PDF order. Generate a third roster with Alpha and Bravo to distinguish `Separate by group`
+   from a flat layout. Read back both saved rows and delete them through the UI. Keep the temporary PFC until final seed
+   cleanup in step 7.
 3. Re-print the saved row and preserve that PDF. Change a selected synthetic Person's name or rank through the visible
    Personnel editor as `rosterManager`, retaining the original value for restoration. Reload Training and reprint the
    same saved roster. The PDF and `$V rows sign_in_rosters orgA id "$ROSTER_ID"` must still show the original snapshot
    facts and ID. Restore the Person through the visible editor and confirm the original values. If the Personnel edit
    path is unavailable, record the snapshot-change proof as unreachable; a second read without a source edit only proves
    persistence.
-4. Expand the saved roster, select the small valid PDF through the real `Signed Scan` input, and observe upload progress
-   then the named scan and `Signed` badge. Reload and confirm the file name remains; read back the roster's
+4. Choose `Add signed scan` on the saved row, select the small valid PDF through the real `Signed scan file for <title>`
+   input, and observe upload progress then `Signed scan`. Reload and confirm it remains; read back the roster's
    `signed_file_path` and require an Organization A `sign-in-rosters/$ROSTER_ID/` path. Choose its named download
    button, run `$V signed-download orgA "$ROSTER_ID" .verification/evidence/verify-trooptotask/<run-name>/signed.pdf`,
-   and compare its SHA-256 with the uploaded fixture. Select a second distinct PDF through the labeled
-   `Replace signed scan` input and confirm the new name replaces the old one. Choose `Remove`, reload, and confirm a
-   null path. For an unshared key, `$V roster-files orgA "$ROSTER_ID"` must report no file, or only a pending retirement
-   when the toast says the stored file will be removed automatically. If another roster or counseling record still
-   references the key, expect the bytes to remain with a hold and no retirement. Roster scans must remain in the roster
-   path of the private shared bucket; they are not Personnel Training completion attachments. For failure/retry, arm
+   and compare its SHA-256 with the uploaded fixture. Select a second distinct PDF through the labeled `Replace scan`
+   row menu item and confirm the new name replaces the old one. Choose `Remove scan`, reload, and confirm a null path.
+   For an unshared key, `$V roster-files orgA "$ROSTER_ID"` must report no file, or only a pending retirement when the
+   toast says the stored file will be removed automatically. If another roster or counseling record still references the
+   key, expect the bytes to remain with a hold and no retirement. Roster scans must remain in the roster path of the
+   private shared bucket; they are not Personnel Training completion attachments. For failure/retry, arm
    `$V network arm-fail "$PAGE" "sign-in-rosters/$ROSTER_ID/upload"`, select the file, capture the error and empty
-   Storage readback, restore the control, then retry with the valid file.
+   Storage readback, restore the control, then retry with the valid file. For the drop path, read the PDF bytes of a
+   reprint from a `URL.createObjectURL` spy, build a `File` from them, and dispatch `dragenter` then `drop` on the row
+   with a `DataTransfer` holding it: expect `Drop to attach` while dragging, then the same saved pointer as the button.
 5. Use the seeded Alpha, mixed Alpha/Bravo, unassigned-Person and Organization B rosters from `$V fixture`; keep their
    IDs and original fields. Sign in with `$V actor rosterScoped training` in a separate context. Its list and a
    signed-in read-only `GET /org/<orgA>/api/sign-in-rosters` must include the Alpha-only row and exclude mixed,
@@ -104,9 +119,9 @@ never confirmed absence.
    answer as one unknown to the Organization. A signed-in GET of the known mixed roster's `/upload` endpoint and
    attempted scan/roster writes must deny access and leave the row/file unchanged. Compare exact IDs from `$V rows`, not
    just a hidden UI row.
-6. Sign in with `$V actor rosterViewer training`; the saved rows and reprint action are available, while `New Roster`,
-   scan input, `Remove` and `Delete` are absent. Expanding the signed Alpha roster shows its named scan button; choose
-   it, run
+6. Sign in with `$V actor rosterViewer training`; the saved rows and reprint action are available, while `New roster`,
+   the scan input, `Remove scan` and `Delete roster` are absent. The signed Alpha row shows its `Signed scan` button;
+   choose it, run
    `$V signed-download orgA "$ROSTER_ID" .verification/evidence/verify-trooptotask/<run-name>/viewer-signed.pdf`, and
    require the same byte size and SHA-256 as `$V roster-files orgA "$ROSTER_ID"`. Send signed-in requests from that same
    page for POST create, POST/DELETE upload and DELETE roster against the known ID. Each must return `403` and leave the
@@ -114,11 +129,13 @@ never confirmed absence.
    roster GET; expect denied page/data and a `403` response. With `$V actor rosterForeign training`, confirm
    Organization B cannot read Organization A's list or the known roster's scan via Organization A's API, and that
    Organization A data is absent from its own list. Preserve response status and Organization-specific readback.
-7. Arm `$V network arm-fail "$PAGE" sign-in-rosters` before opening the modal to fail its first list request. Capture
-   the visible error and 503 control status. Restore the control, close and reopen the modal, and confirm the saved rows
-   return. Delete only the uniquely created rosters through their visible confirmation, and read back zero rows and scan
-   objects. Finish all comparisons that need temporary seeds across this worker. Restore any edited Personnel fields and
-   armed controls, run `clean-seeds`, then owned worker cleanup.
+7. Arm `$V network arm-hold "$PAGE" sign-in-rosters` after Training has loaded and open the sheet: expect five
+   placeholder rows and the toolbar at the same height as after release. Release, close, then arm
+   `$V network arm-fail "$PAGE" sign-in-rosters` before reopening to fail the first list request. Capture the visible
+   error with `Retry` and the 503 control status. Restore the control, retry, and confirm the saved rows return. Delete
+   only the uniquely created rosters through their visible confirmation, and read back zero rows and scan objects.
+   Finish all comparisons that need temporary seeds across this worker. Restore any edited Personnel fields and armed
+   controls, run `clean-seeds`, then owned worker cleanup.
 
 For the two retained private buckets, run `$V private-buckets` after the owned worker passes `doctor`. Expect
 `public:false` and `fileSizeLimit:10485760` for both buckets. `personnel-documents` accepts PDF, JPEG, PNG, HEIC and
@@ -148,10 +165,21 @@ provider error is a failed readback, never a missing or correctly configured buc
   completes or stays pending. Native drag-and-drop replacement is not established by this helper.
 
 - `Sign-in rosters` is one `Training controls` action. It folds into `More Training controls` below about 1052 wide, so
-  use the row button or the More item, whichever the fresh snapshot shows. The modal is loaded on demand, so wait for
-  its heading after opening it.
-- `Generate & Print` downloads before POSTing the roster. Verify both the PDF and stored row; a generated PDF can exist
-  even when saving fails.
+  use the row button or the More item, whichever the fresh snapshot shows. The sheet is loaded on demand, so wait for
+  its heading after opening it. Below 640 wide it fills the screen.
+- The sheet opens as soon as the button is chosen. While its code downloads it shows a `Sign-in rosters` sheet with a
+  loading skeleton (`Loading Sign-in rosters`). If the download fails it shows `Unable to open Sign-in rosters` with
+  `Retry`, and Retry loads it without a page reload.
+- `Save and print` saves first and downloads the PDF only after the save succeeds, from the saved roster's snapshot,
+  the same page `Reprint` makes. A refused or failed save shows its error, keeps the form and downloads nothing. Hold
+  the POST with `$V network` to prove no download appears while it waits.
+- The header's `N waiting on a signed scan` is the server's count of rosters without a signed scan under the same
+  search and date filters, so it is right before `Show more`. It drops after an attach, rises after a scan is removed,
+  and drops when a roster without a scan is deleted.
+- While a save is held, Escape and the overlay do nothing, `Close` is absent and the form is disabled. A form with a
+  title or any filter also ignores Escape, and its back arrow opens `Discard this roster?`.
+- The roster list shows 20 rows and `Show more` loads the next 20. With `$V seed roster-pages` the footer reads
+  `Showing 20 of 1005`, then `Showing 40 of 1005`.
 - The server rebuilds snapshot names, ranks and Group labels from selected Personnel IDs. A client-supplied snapshot is
   not authoritative. Creation is limited to 500 unique Personnel IDs, and out-of-scope selection is rejected before
   insert.
@@ -177,7 +205,7 @@ only affected scan cases for a lifecycle repair.
    must preserve existing bytes or recover truthfully from an authoritative read. A dangling pointer is always a
    failure. An unreferenced upload is a failure unless its key has a retirement, or its registration stays open after an
    armed `roster-scan-settle` fault.
-2. Run ordinary native upload, download, `Replace signed scan`, and **Remove** through the visible controls. For attach
+2. Run ordinary native upload, download, `Replace scan`, and **Remove scan** through the visible controls. For attach
    rejection, arm `$V fault arm roster-scan-attach`. Expect the error, the old pointer, and the new key retired with no
    registration. For committed attachment with a lost provider reply, arm `$V fault arm roster-scan-attach-lost-ack`.
    The real provider commits, the control consumes its reply, and the app server's fetch then fails with a transport
@@ -203,7 +231,7 @@ only affected scan cases for a lifecycle repair.
    `This roster is no longer available.` and drops the row.
 
    **Displacement between commit and settlement.** Open the same roster as `rosterManager` on two normally signed-in
-   pages, expand it on both, and read `$V roster-files orgA ROSTER_ID` for the baseline. Arm
+   pages, and read `$V roster-files orgA ROSTER_ID` for the baseline. Arm
    `$V fault arm roster-scan-attach-committed-hold`. Select scan K on page one. The app server's real attach commits,
    the preload consumes its reply and pauses it. Poll `$V fault state` until
    `controls.roster-scan-attach-committed-hold` shows `phase:"committed-held"` and `call.providerStatus:200`. That
@@ -317,7 +345,7 @@ HTTP error mapping against a stateful fake that models neither SQL locking nor S
 Native replacement, provider overlap, ordinary HTTP and privileged readback remain distinct proof.
 `supabase/tests/sign_in_roster_scan_lifecycle{,_concurrency}.sql` prove the commands, waits and retirement in SQL.
 
-For the Organization lifetime check, a busy roster modal blocks the visible Organization switcher. Prepare Organization
+For the Organization lifetime check, a busy roster sheet blocks the visible Organization switcher. Prepare Organization
 B as the prior history entry through the visible switcher before returning to A. Hold the Remove response, use the
 history fallback documented in [Organization switching](organization-switching.md), then release the response in B.
 Require no roster feedback in B, unchanged B records, and a cleared scan after returning to A and reloading. The

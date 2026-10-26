@@ -54,7 +54,7 @@ describe('RatingSchemeModals edit feedback', () => {
 		});
 
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Counseled monthly' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
 		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(shown));
 		expect(modals.isOpen('rating-modal')).toBe(true);

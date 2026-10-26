@@ -52,9 +52,9 @@ describe('RatingSchemeEntryModal', () => {
 		render(RatingSchemeEntryModal, {
 			props: { entry, personnel, isCurrentWorkspace: () => true, onSave, onClose: vi.fn() }
 		});
-		const dialog = screen.getByRole('dialog', { name: 'Edit Rating Entry' });
+		const dialog = screen.getByRole('dialog', { name: 'SGT Rated, Riley' });
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Draft A' } });
-		const save = screen.getByRole('button', { name: 'Save' });
+		const save = screen.getByRole('button', { name: 'Save changes' });
 
 		await fireEvent.click(save);
 		await fireEvent.click(save);
@@ -63,8 +63,8 @@ describe('RatingSchemeEntryModal', () => {
 		expect(dialog.getAttribute('aria-busy')).toBe('true');
 		for (const control of [
 			screen.getByLabelText('Notes'),
-			screen.getByLabelText('Evaluation Type'),
-			screen.getAllByRole('button', { name: 'External' })[0]
+			screen.getByRole('group', { name: 'Type' }),
+			screen.getByRole('button', { name: 'Rater' })
 		]) {
 			expect(inDisabledGroup(control)).toBe(true);
 		}
@@ -82,19 +82,13 @@ describe('RatingSchemeEntryModal', () => {
 		render(RatingSchemeEntryModal, {
 			props: { entry: null, personnel, isCurrentWorkspace: () => true, onSave, onClose: vi.fn() }
 		});
-		expect(screen.getByLabelText('Rated individual').getAttribute('aria-invalid')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Rated Soldier' }).getAttribute('aria-invalid')).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 
 		expect(onSave).not.toHaveBeenCalled();
-		for (const label of [
-			'Rated individual',
-			'Rater from organization',
-			'Senior rater from organization',
-			'Rating Period Start',
-			'Thru Date (Due)'
-		]) {
-			const control = screen.getByLabelText(label);
+		for (const name of ['Rated Soldier', 'Rater', 'Senior rater', 'Start', 'Thru']) {
+			const control = screen.getByRole('button', { name });
 			expect(control.getAttribute('aria-invalid')).toBe('true');
 			const descriptions = (control.getAttribute('aria-describedby') ?? '')
 				.split(/\s+/)
@@ -103,7 +97,26 @@ describe('RatingSchemeEntryModal', () => {
 			const error = descriptions.find((node) => node?.getAttribute('role') === 'alert');
 			expect(error?.textContent).toMatch(/\S/);
 		}
-		expect(screen.getByLabelText('Evaluation Type').getAttribute('aria-invalid')).toBeNull();
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Rated Soldier' })));
+		expect(screen.getByRole('group', { name: 'Type' }).getAttribute('aria-invalid')).toBeNull();
+	});
+
+	it('saves a rater typed in as an external name and not as a person', async () => {
+		const onSave = vi.fn().mockResolvedValue(undefined);
+		render(RatingSchemeEntryModal, {
+			props: { entry, personnel, isCurrentWorkspace: () => true, onSave, onClose: vi.fn() }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Rater' }));
+		const search = screen
+			.getAllByPlaceholderText('Search unit or type a name...')
+			.find((input) => input.closest('[data-state="open"]'));
+		await fireEvent.input(search!, { target: { value: 'COL Visiting' } });
+		await fireEvent.click(await screen.findByRole('option', { name: 'Use "COL Visiting" as an external rater' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+		expect(onSave.mock.calls[0][0]).toMatchObject({ raterName: 'COL Visiting', raterPersonId: null });
 	});
 
 	it('reports a failed save inside the dialog, returns focus to Save and holds Escape over the draft', async () => {
@@ -113,9 +126,9 @@ describe('RatingSchemeEntryModal', () => {
 		render(RatingSchemeEntryModal, {
 			props: { entry, personnel, isCurrentWorkspace: () => true, onSave, onClose }
 		});
-		const dialog = screen.getByRole('dialog', { name: 'Edit Rating Entry' });
+		const dialog = screen.getByRole('dialog', { name: 'SGT Rated, Riley' });
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Draft A' } });
-		const save = screen.getByRole('button', { name: 'Save' });
+		const save = screen.getByRole('button', { name: 'Save changes' });
 		await fireEvent.click(save);
 
 		await waitFor(() => expect(document.activeElement).toBe(save));
@@ -135,7 +148,7 @@ describe('RatingSchemeEntryModal', () => {
 			props: { entry, personnel, isCurrentWorkspace: () => true, onSave: vi.fn(), onClose }
 		});
 
-		await fireEvent.keyDown(screen.getByRole('dialog', { name: 'Edit Rating Entry' }), { key: 'Escape' });
+		await fireEvent.keyDown(screen.getByRole('dialog', { name: 'SGT Rated, Riley' }), { key: 'Escape' });
 
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});

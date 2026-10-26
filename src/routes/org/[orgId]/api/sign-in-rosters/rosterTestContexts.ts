@@ -59,7 +59,8 @@ function createRosterTestPersistence(ctx: RosterTestContext): SignInRosterPersis
 	});
 	return {
 		async list(input) {
-			if (ctx.auth.scopeSet.kind === 'groups' && ctx.auth.scopeSet.groupIds.length === 0) return { data: [], count: 0 };
+			if (ctx.auth.scopeSet.kind === 'groups' && ctx.auth.scopeSet.groupIds.length === 0)
+				return { data: [], count: 0, unsigned: 0 };
 			const rows = (
 				await ctx.rawStore.findMany<RosterRow>('sign_in_rosters', ctx.auth.orgId, undefined, {
 					orderBy: [{ column: 'created_at', ascending: false }],
@@ -70,7 +71,11 @@ function createRosterTestPersistence(ctx: RosterTestContext): SignInRosterPersis
 					]
 				})
 			).filter((row) => visibleRoster(ctx, row));
-			return { data: rows.slice(input.offset, input.offset + input.limit).map(map), count: rows.length };
+			return {
+				data: rows.slice(input.offset, input.offset + input.limit).map(map),
+				count: rows.length,
+				unsigned: rows.filter((row) => !row.signed_file_path).length
+			};
 		},
 		async find(id) {
 			if (ctx.auth.scopeSet.kind === 'groups' && ctx.auth.scopeSet.groupIds.length === 0) return null;

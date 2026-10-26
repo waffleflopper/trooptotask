@@ -9,10 +9,7 @@
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
-	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
 	type ManageViewsPayload = { returnFocusTo: () => HTMLElement | null };
-
-	let signInRosterModalModule: Promise<SignInRosterModalModule> | undefined;
 
 	const loadTrainingRecordSheet = lazyModule(() => import('$features/training/components/TrainingRecordSheet.svelte'));
 	const recordPerson = $derived(ctx.recordPerson);
@@ -36,25 +33,29 @@
 	});
 
 	const loadTrainingViewsSheet = lazyModule(() => import('$features/training/components/TrainingViewsSheet.svelte'));
-
-	function loadSignInRosterModal() {
-		signInRosterModalModule ??= import('$features/sign-in-rosters');
-		return signInRosterModalModule;
-	}
+	const loadSignInRostersSheet = lazyModule(() => import('$features/sign-in-rosters'));
 </script>
 
 {#if modals.isOpen('sign-in-rosters')}
-	{#await loadSignInRosterModal() then { SignInRosterModal }}
-		<SignInRosterModal
-			orgId={ctx.orgId}
-			personnel={ctx.personnel}
-			groups={ctx.groups}
-			pinnedGroups={pinnedGroupsStore.orgId === ctx.orgId ? pinnedGroupsStore.list : []}
-			rankCatalog={ctx.rankCatalog}
-			canEdit={ctx.canRecordTraining}
-			onClose={modals.closerFor('sign-in-rosters')}
-		/>
-	{/await}
+	<LazySheet
+		load={loadSignInRostersSheet}
+		title="Sign-in rosters"
+		size="wide"
+		onClose={modals.closerFor('sign-in-rosters')}
+	>
+		{#snippet children({ SignInRostersSheet })}
+			<SignInRostersSheet
+				orgId={ctx.orgId}
+				orgName={ctx.orgName}
+				personnel={ctx.personnel}
+				groups={ctx.groups}
+				pinnedGroups={pinnedGroupsStore.orgId === ctx.orgId ? pinnedGroupsStore.list : []}
+				rankCatalog={ctx.rankCatalog}
+				canEdit={ctx.canRecordTraining}
+				onClose={modals.closerFor('sign-in-rosters')}
+			/>
+		{/snippet}
+	</LazySheet>
 {/if}
 
 {#if recordPerson}

@@ -7,6 +7,7 @@ import {
 	extendLoadedRange,
 	getCalendarRangeGaps,
 	initialCalendarCoverage,
+	longRangeDates,
 	planCalendarRangeReads,
 	shiftCalendarPeriod,
 	type CalendarBufferedRange
@@ -211,5 +212,36 @@ describe('calendarPeriod', () => {
 		expect(formatDate(shiftCalendarPeriod(anchor, 'month', -1))).toBe('2026-11-01');
 		expect(formatDate(shiftCalendarPeriod(anchor, '3-month', 1))).toBe('2027-03-01');
 		expect(formatDate(shiftCalendarPeriod(new Date(2027, 0, 15), '3-month', -1))).toBe('2026-10-01');
+	});
+});
+
+describe('longRangeDates', () => {
+	it('lists every day of three months from the anchor month, across a year end', () => {
+		const dates = longRangeDates(new Date(2026, 10, 18));
+
+		expect(formatDate(dates[0])).toBe('2026-11-01');
+		expect(formatDate(dates.at(-1)!)).toBe('2027-01-31');
+		expect(dates).toHaveLength(30 + 31 + 31);
+	});
+});
+
+describe('planCalendarRangeReads for Events', () => {
+	it('shares one read with the days the view still needs', () => {
+		const range = { rangeStart: '2026-06-01', rangeEnd: '2026-06-30' };
+
+		expect(planCalendarRangeReads({}, { availability: range, assignments: range, events: range })).toEqual([
+			{ ...range, collections: ['availability', 'assignments', 'events'] }
+		]);
+	});
+
+	it('reads Events alone where the bootstrap already holds the days', () => {
+		const range = { rangeStart: '2026-06-01', rangeEnd: '2026-06-30' };
+
+		expect(
+			planCalendarRangeReads(
+				{ availability: range, assignments: range },
+				{ ...{ availability: range, assignments: range }, events: range }
+			)
+		).toEqual([{ ...range, collections: ['events'] }]);
 	});
 });

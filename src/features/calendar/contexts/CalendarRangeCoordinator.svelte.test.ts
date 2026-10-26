@@ -293,4 +293,66 @@ describe('CalendarRangeCoordinator', () => {
 			expect(dailyAssignmentsStore.items.map((item) => item.id)).toEqual(['new-1']);
 		});
 	});
+
+	describe('projection', () => {
+		const withEvents = { ...both(may), events: may };
+		const projection = {
+			events: [{ id: 'e1', title: 'Field exercise', startsOn: '2026-05-04', endsOn: '2026-05-06', cancelled: false }],
+			suspenses: [],
+			commitments: []
+		};
+
+		beforeEach(() => {
+			coordinator.includeBootstrap(bootstrapOf({ rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }));
+		});
+
+		it('reads Events beside the days that are missing and keeps what it returns', async () => {
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'loaded', ...projection } }));
+
+			expect(coordinator.projectionStatus(withEvents)).toBe('loading');
+			await coordinator.ensureRange('org-1', withEvents);
+
+			expect(loadRange).toHaveBeenCalledTimes(1);
+			expect(loadRange.mock.calls[0][1].collections).toEqual(['events']);
+			expect(coordinator.projection.events).toEqual(projection.events);
+			expect(coordinator.projectionStatus(withEvents)).toBe('ready');
+		});
+
+		it('leaves the matrix ready when only the projection failed, and reads again only on retry', async () => {
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'failed' } }));
+
+			await coordinator.ensureRange('org-1', withEvents);
+			await coordinator.ensureRange('org-1', withEvents);
+
+			expect(loadRange).toHaveBeenCalledTimes(1);
+			expect(coordinator.status(withEvents)).toBe('ready');
+			expect(coordinator.projectionStatus(withEvents)).toBe('error');
+
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'loaded', ...projection } }));
+			coordinator.retryFailedRange();
+			expect(coordinator.projectionStatus(withEvents)).toBe('loading');
+			await coordinator.ensureRange('org-1', withEvents);
+
+			expect(loadRange).toHaveBeenCalledTimes(2);
+			expect(coordinator.projectionStatus(withEvents)).toBe('ready');
+			expect(coordinator.projection.events).toEqual(projection.events);
+		});
+
+		it('asks for no Events when the view does not need them', async () => {
+			await coordinator.ensureRange('org-1', both(may));
+
+			expect(loadRange).not.toHaveBeenCalled();
+			expect(coordinator.projectionStatus(both(may))).toBe('ready');
+		});
+
+		it('forgets the Events it holds when the workspace resets', async () => {
+			loadRange.mockResolvedValueOnce(makeRangeData({ projection: { kind: 'loaded', ...projection } }));
+			await coordinator.ensureRange('org-1', withEvents);
+
+			coordinator.reset();
+
+			expect(coordinator.projection.events).toEqual([]);
+			expect(coordinator.projectionStatus(withEvents)).toBe('loading');
+		});
+	});
 });

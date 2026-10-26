@@ -19,7 +19,7 @@ function deferred<T>() {
 	return { promise, resolve };
 }
 
-function range(month: '10' | '12'): Required<CalendarRangeData> {
+function range(month: '10' | '12'): Required<Omit<CalendarRangeData, 'projection'>> {
 	const date = `2026-${month}-15`;
 	return {
 		rangeStart: `2026-${month}-01`,

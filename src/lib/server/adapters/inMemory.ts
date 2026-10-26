@@ -56,7 +56,12 @@ import type {
 	AssignmentSource
 } from '$features/calendar/contracts';
 import { fail } from '$lib/errors';
-import { ROSTER_CHANGED, STARTING_NUMBERS_LOCKED, effectiveRosterFormStart } from '$features/calendar/index.server';
+import {
+	ROSTER_CHANGED,
+	STARTING_NUMBERS_LOCKED,
+	effectiveRosterFormStart,
+	type CalendarProjectionReader
+} from '$features/calendar/index.server';
 import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTaskLibraryPersistence,
@@ -262,6 +267,7 @@ function createTestCalendarPersistence(
 	calendarCatalogs: CalendarCatalogPersistence;
 	calendarAvailability: CalendarAvailabilityPersistence;
 	calendarAssignments: CalendarAssignmentReader;
+	calendarProjection: CalendarProjectionReader;
 } {
 	return {
 		calendarCatalogs:
@@ -318,7 +324,8 @@ function createTestCalendarPersistence(
 				listDayReferences: unavailableCalendarPersistence,
 				listRosterDetailDays: unavailableCalendarPersistence,
 				listSlotReferences: unavailableCalendarPersistence
-			} satisfies CalendarAssignmentReader)
+			} satisfies CalendarAssignmentReader),
+		calendarProjection: { read: unavailableCalendarPersistence }
 	};
 }
 

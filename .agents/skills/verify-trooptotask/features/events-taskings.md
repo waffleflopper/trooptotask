@@ -388,3 +388,52 @@ rows (`position`, `secured_quantity`, `done`, `done_by`, `done_at`).
 11. **Export and activity.** The JSON export holds `calendarTaskingEquipment` and `calendarTaskingChecklistItems`; the
     Excel `Tasking Equipment` and `Tasking Checklist` sheets name each Tasking by its outcome and each completer by
     email. Settings › Logs reads `Added equipment Litters on Provide four trauma-lane medics` and its siblings.
+
+## Calendar markers
+
+The Calendar shows Events, Suspenses and picked execution dates beside availability, behind the `Events & Taskings`
+switch. One `calendar-range` read with `collections=events` carries them with the visible range. Sub-features:
+`calendar-events-lane`, `calendar-suspense-lane`, `calendar-commitment`, `calendar-marker-overflow`,
+`calendar-marker-3-month`, `calendar-marker-failure`, `calendar-marker-feature-off`.
+
+Data (October 2026, today is 26 Oct): Events `Field exercise` 27-29 Oct, `Range day` 28 Oct, `Quarterly inspection`
+28-30 Oct, `Block leave` 20 Oct-4 Nov. Taskings `Submit roster` (Alpha, suspense 30 Oct, execution 27-29 Oct, SPC Able
+picked), `Inventory` (Organization, suspense 30 Oct, execution 28-31 Oct, Able and Baker picked), `Weapons qual`
+(Bravo, suspense 3 Nov, execution 3-5 Nov, Baker picked). Create them as `calendarOperate` with the forms in steps 1-3
+and the Staffing steps, or `PUT` the picks to `calendar-taskings/ID/people`.
+
+1. **Month.** As `calendarOperate` on `/calendar` in `Month`: below the date headers `Events` reads `4` and `Suspenses`
+   reads `2 due`. `Block leave` is one span from the 20th. Days with more Events than fit show a count; its button
+   opens a list of every Event that day, each linking to its detail. `Suspense: Submit roster` is a diamond on the
+   30th with a `+1` button listing the second Suspense. Able's row has a hatched rail under 27-31 Oct and Baker's under
+   28 Oct-5 Nov, each labelled `Tasking: TITLE, DATES`; days two picks share read `2 Taskings` and open a list. The
+   rails sit apart from availability fills and `+` cells: clicking a day's `+` still opens Add availability, and the
+   daily-assignment header action is unchanged.
+2. **Requests.** Reload: exactly one `calendar-range?rangeStart=2026-10-01&rangeEnd=2026-10-31&collections=events`
+   follows, with no per-cell, per-Event or per-person request. `Next month` inside coverage sends none.
+3. **Keyboard.** Tab from the toolbar: the Event links, diamonds, rails and `+N` buttons take focus in reading order
+   with a visible ring (`:focus-visible` matches). Enter on `Suspense: Inventory` opens that Tasking's detail; Escape
+   closes an open overflow list and returns focus to its button.
+4. **3-Month.** `3-Month` shows the same Events and Suspenses as lanes under the date row (`Events`, `Suspenses`), and
+   the same rails on each row. The lanes stay put while the roster scrolls vertically.
+5. **Scoped.** As `calendarScoped` (Alpha only) all four Events show, only `Suspense: Submit roster` and its rail show,
+   and Baker's row and the Bravo and Organization Taskings are absent. As `calendarView` the Organization Tasking
+   `Inventory` shows with its rails and the Alpha and Bravo Taskings are absent.
+6. **Save and return.** From a marker open an Event, `Edit`, rename it, `Save changes`, then press `Calendar` in the
+   sidebar: the lane and the labels carry the new title, after one more `collections=events` read.
+7. **Projection failure.** The server answers a failed projection in band, so only the Events region fails. In the
+   page, wrap `window.fetch` so a `calendar-range` response gets `projection: { kind: 'failed' }`, then press
+   `Next month`: `Events` reads `Events could not be loaded.` with `Retry`, `Suspenses` reads `Suspenses could not be
+loaded.`, the matrix, `+` cells and toolbar keep working and no page alert shows. Remove the wrapper and press
+   `Retry`: the lanes fill. While the read is in flight both lanes hold a skeleton at the loaded height, and the
+   matrix does not move. `$V network arm-fail PAGE calendar-range` instead fails the whole read, so the page alert
+   shows as well as the lane errors.
+8. **Feature off.** As `orgOwner` turn `Events & Taskings` off in Settings › Features. As `calendarOperate` the
+   Calendar has no `Events`, `Suspenses` lane, rail or legend entry, no `Events & Taskings` action, and `Next month`
+   past coverage requests `collections=availability%2Cassignments` only, never `events`. Turn it back on.
+9. **Widths.** Capture Month and 3-Month at 1440, 900 and 390; `scrollWidth` equals the viewport. At 390 the lanes
+   scroll with the dates and their labels stay pinned left; markers are never smaller text and never stack.
+
+Expected values are written here, never read from a design file. `src/features/calendar/projection/` and
+`src/features/calendar/components/projection/` tests cover the lane layout, overflow lists and commitment runs, and
+`supabase/tests/calendar_range_projection.sql` proves the read as ordinary Organization-wide and Group-scoped users.

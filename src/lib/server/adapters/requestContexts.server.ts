@@ -24,6 +24,7 @@ import {
 import {
 	createSupabaseCalendarEventPersistence,
 	createSupabaseCalendarTaskingPersistence,
+	createSupabaseCalendarTaskingListsPersistence,
 	createSupabaseRosterSwapPersistence,
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
@@ -619,6 +620,7 @@ export function createRequestCalendarTaskingContext(request: AdmittedOrganizatio
 		auth: request.auth,
 		audit: request.audit,
 		calendarTaskings: createSupabaseCalendarTaskingPersistence(request.supabase, orgId),
+		taskingLists: createSupabaseCalendarTaskingListsPersistence(request.supabase, orgId),
 		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, orgId, request.auth.scopeSet),
 		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId)

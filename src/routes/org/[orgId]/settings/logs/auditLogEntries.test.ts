@@ -59,6 +59,27 @@ describe('auditSentence', () => {
 		}
 	);
 
+	it.each([
+		'equipment_added',
+		'equipment_changed',
+		'equipment_secured',
+		'equipment_removed',
+		'equipment_reordered',
+		'checklist_added',
+		'checklist_renamed',
+		'checklist_completed',
+		'checklist_reopened',
+		'checklist_removed',
+		'checklist_reordered'
+	])('names the item and tasking behind %s, under Calendar', (verb) => {
+		const action = `calendar_tasking.${verb}`;
+		const sentence = auditSentence(action, { title: 'Provide medics', item: 'Litters' });
+
+		expect(sentence).toContain('Provide medics');
+		expect(sentence).not.toContain(action);
+		expect(viewAuditEntry(entry({ action, details: null }), 'UTC').area).toBe('Calendar');
+	});
+
 	it('falls back to the event in words for an action it does not know', () => {
 		const sentence = auditSentence('widget.frobbed', null);
 

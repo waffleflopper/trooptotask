@@ -28,6 +28,7 @@
 		type TaskingWithin
 	} from '../taskingModel';
 	import EventsTaskingsTabs from './EventsTaskingsTabs.svelte';
+	import ReadinessSummary from './ReadinessSummary.svelte';
 	import TaskingDialog from './TaskingDialog.svelte';
 	import TaskingStatusBadges from './TaskingStatusBadges.svelte';
 	import { responsibilityLabel } from './taskingLabels';
@@ -255,6 +256,7 @@
 								{responsibilityLabel(tasking.responsibility, loaded.groups, org.orgName)} · {tasking.event?.title ??
 									'Standalone'}
 							</span>
+							<ReadinessSummary readiness={tasking.readiness} />
 						</span>
 						<TaskingStatusBadges {tasking} {today} />
 					</a>

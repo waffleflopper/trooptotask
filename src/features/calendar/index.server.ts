@@ -125,3 +125,14 @@ export {
 	transitionTasking
 } from './taskings/taskingOperations.server';
 export { createSupabaseCalendarTaskingPersistence } from './taskings/taskingPersistence.server';
+export {
+	loadTaskingLists,
+	addEquipment,
+	updateEquipment,
+	removeEquipment,
+	addChecklistItem,
+	updateChecklistItem,
+	removeChecklistItem,
+	reorderTaskingList
+} from './taskings/taskingListsOperations.server';
+export { createSupabaseCalendarTaskingListsPersistence } from './taskings/taskingListsPersistence.server';

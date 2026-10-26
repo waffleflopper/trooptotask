@@ -217,8 +217,16 @@ _Avoid_: Owner, assignee
 The date a Tasking's outcome is due. It marks no one as busy; execution dates do that.
 _Avoid_: Deadline, due date in product copy
 
+**Equipment requirement**:
+A named item a Tasking needs, with a quantity and how many are secured. It is ready when all are secured and partial when some are. It never changes the Tasking's status.
+_Avoid_: Supply, gear list
+
+**Checklist item**:
+One step on a Tasking's flat, ordered list, open or done. Completing it records who and when, and it never changes the Tasking's status.
+_Avoid_: Subtask, to-do
+
 **Tasking Activity**:
-The record of a Tasking's creation, outcome, responsibility, date, Event link, requirement and instruction changes and every status move, written by the database with the acting member.
+The record of a Tasking's creation, outcome, responsibility, date, Event link, requirement, instruction, equipment and checklist changes and every status move, written by the database with the acting member.
 _Avoid_: Audit log, history
 
 **Event work phase**:

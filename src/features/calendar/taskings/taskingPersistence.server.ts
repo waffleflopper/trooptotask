@@ -17,6 +17,7 @@ import {
 	type TaskingStatus,
 	type TaskingTransition
 } from './taskingModel';
+import { readinessOf } from './taskingListsModel';
 
 export const TASKING_GONE = 'That tasking is no longer available.';
 export const TASKING_STATUS_CHANGED = 'This tasking’s status has changed. Reload to see where it stands now.';
@@ -43,7 +44,9 @@ const COLUMNS = [
 	'staffing_required, qualifications, instructions, status',
 	'block_reason, blocked_at, blocked_by, completion_note, completed_at, completed_by',
 	'cancellation_reason, cancelled_at, cancelled_by',
-	'event:calendar_events!calendar_taskings_event_fkey(id, title, starts_on, ends_on, cancelled_at)'
+	'event:calendar_events!calendar_taskings_event_fkey(id, title, starts_on, ends_on, cancelled_at)',
+	'equipment:calendar_tasking_equipment(quantity, secured_quantity)',
+	'checklist:calendar_tasking_checklist_items(done)'
 ].join(', ');
 
 const statusRowSchema = z.discriminatedUnion('status', [
@@ -89,7 +92,9 @@ const taskingRowSchema = z
 				ends_on: z.string(),
 				cancelled_at: z.string().nullable()
 			})
-			.nullable()
+			.nullable(),
+		equipment: z.array(z.object({ quantity: z.number(), secured_quantity: z.number() })),
+		checklist: z.array(z.object({ done: z.boolean() }))
 	})
 	.and(statusRowSchema);
 
@@ -140,7 +145,11 @@ function toTasking(raw: unknown): Tasking {
 		requirement:
 			row.staffing_required === null ? null : { count: row.staffing_required, qualifications: row.qualifications },
 		instructions: row.instructions,
-		status: statusFrom(row)
+		status: statusFrom(row),
+		readiness: readinessOf({
+			equipment: row.equipment.map((item) => ({ quantity: item.quantity, securedQuantity: item.secured_quantity })),
+			checklist: row.checklist
+		})
 	};
 }
 
@@ -188,7 +197,27 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 		z.object({ kind: z.literal('unblocked') }),
 		z.object({ kind: z.literal('completed'), payload: z.object({ note: z.string().nullable() }) }),
 		z.object({ kind: z.literal('reopened') }),
-		z.object({ kind: z.literal('cancelled'), payload: z.object({ reason: z.string().nullable() }) })
+		z.object({ kind: z.literal('cancelled'), payload: z.object({ reason: z.string().nullable() }) }),
+		z.object({
+			kind: z.enum(['equipment_added', 'equipment_removed']),
+			payload: z.object({ name: z.string(), quantity: z.number(), securedQuantity: z.number() })
+		}),
+		z.object({
+			kind: z.literal('equipment_changed'),
+			payload: z.object({
+				from: z.object({ name: z.string(), quantity: z.number() }),
+				to: z.object({ name: z.string(), quantity: z.number() })
+			})
+		}),
+		z.object({
+			kind: z.literal('equipment_secured'),
+			payload: z.object({ name: z.string(), quantity: z.number(), from: z.number(), to: z.number() })
+		}),
+		z.object({
+			kind: z.enum(['checklist_added', 'checklist_removed', 'checklist_completed', 'checklist_reopened']),
+			payload: z.object({ label: z.string() })
+		}),
+		z.object({ kind: z.literal('checklist_renamed'), payload: z.object({ from: z.string(), to: z.string() }) })
 	])
 );
 
@@ -219,6 +248,20 @@ function toActivity(raw: unknown): TaskingActivity {
 			return { ...base, kind: 'completed', note: row.payload.note };
 		case 'cancelled':
 			return { ...base, kind: 'cancelled', reason: row.payload.reason };
+		case 'equipment_added':
+		case 'equipment_removed':
+			return { ...base, kind: row.kind, ...row.payload };
+		case 'equipment_changed':
+			return { ...base, kind: row.kind, ...row.payload };
+		case 'equipment_secured':
+			return { ...base, kind: row.kind, ...row.payload };
+		case 'checklist_added':
+		case 'checklist_removed':
+		case 'checklist_completed':
+		case 'checklist_reopened':
+			return { ...base, kind: row.kind, ...row.payload };
+		case 'checklist_renamed':
+			return { ...base, kind: row.kind, ...row.payload };
 	}
 }
 

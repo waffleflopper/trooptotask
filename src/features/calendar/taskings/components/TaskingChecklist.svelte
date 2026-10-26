@@ -253,7 +253,13 @@
 				{#if triedAdd && labelProblem(addParsed)}<Field.Error>{labelProblem(addParsed)}</Field.Error>{/if}
 			</Field.Root>
 			<div class="sm:pt-[1.625rem]">
-				<Button type="submit" variant="outline" class="w-full sm:w-auto" disabled={writes.saving.pending || full}>
+				<Button
+					type="submit"
+					variant="outline"
+					class="w-full sm:w-auto"
+					aria-label="Add to checklist"
+					disabled={writes.saving.pending || full}
+				>
 					{#if writes.saving.pending}<Spinner />{/if}
 					Add
 				</Button>

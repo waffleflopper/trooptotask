@@ -112,6 +112,8 @@ const tableColumns = {
 	calendar_event_activity: 'organization_id',
 	calendar_taskings: 'organization_id',
 	calendar_tasking_activity: 'organization_id',
+	calendar_tasking_equipment: 'organization_id',
+	calendar_tasking_checklist_items: 'organization_id',
 	notifications: 'organization_id',
 	audit_logs: 'org_id',
 	data_exports: 'org_id',
@@ -2806,6 +2808,7 @@ async function main() {
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
+				!/^calendar-taskings\/[0-9a-f-]{36}\/(?:equipment|checklist)$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
 				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/data-sheet$/.test(family) &&
 				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:leader-notes|follow-ups|counseling-records|award-tracking)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.test(

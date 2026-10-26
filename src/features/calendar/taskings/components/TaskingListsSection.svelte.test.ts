@@ -71,14 +71,14 @@ describe('Tasking equipment and checklist', () => {
 		await fireEvent.input(screen.getByLabelText('Quantity', { selector: '#equipment-add-quantity' }), {
 			target: { value: '3' }
 		});
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Add to equipment' }));
 
 		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
 		expect((screen.getByLabelText('Add equipment') as HTMLInputElement).value).toBe('Stretchers');
 		expect(onChanged).not.toHaveBeenCalled();
 
 		fail = false;
-		await fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Add to equipment' }));
 		await waitFor(() => expect(screen.getByText('Stretchers')).toBeTruthy());
 
 		expect(body(send, 1).id).toBe(body(send, 0).id);
@@ -91,7 +91,7 @@ describe('Tasking equipment and checklist', () => {
 		const send = stubFetch(() => Response.json({}));
 		open(true);
 
-		await fireEvent.click((await screen.findAllByRole('button', { name: 'Add' }))[0]);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Add to equipment' }));
 
 		expect(send).not.toHaveBeenCalled();
 		expect(screen.getByLabelText('Add equipment').getAttribute('aria-invalid')).toBe('true');

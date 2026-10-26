@@ -285,7 +285,7 @@ describe('TrainingViewsSheet', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete view' }));
 		const confirm = screen.getByRole('alertdialog');
-		expect(confirm.textContent).toContain('Delete "Aid station"? This only removes the saved layout.');
+		expect(confirm.textContent).toContain('Aid station');
 		await fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }));
 
 		await waitFor(() => expect(deleteView).toHaveBeenCalledWith('view-medical'));

@@ -5,6 +5,7 @@
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 	import { pinnedGroupsStore } from '$features/personnel';
+	import LazySheet, { lazyModule } from './LazySheet.svelte';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
@@ -12,21 +13,16 @@
 	type PersonTrainingEditorModule = typeof import('$features/training/components/PersonTrainingEditor.svelte');
 	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
 	type ManageViewsPayload = { returnFocusTo: () => HTMLElement | null };
-	type TrainingViewsSheetModule = typeof import('$features/training/components/TrainingViewsSheet.svelte');
 
 	let personTrainingEditorModule: Promise<PersonTrainingEditorModule> | undefined;
 	let signInRosterModalModule: Promise<SignInRosterModalModule> | undefined;
-	let trainingViewsSheetModule: Promise<TrainingViewsSheetModule> | undefined;
 
 	function loadPersonTrainingEditor() {
 		personTrainingEditorModule ??= import('$features/training/components/PersonTrainingEditor.svelte');
 		return personTrainingEditorModule;
 	}
 
-	function loadTrainingViewsSheet() {
-		trainingViewsSheetModule ??= import('$features/training/components/TrainingViewsSheet.svelte');
-		return trainingViewsSheetModule;
-	}
+	const loadTrainingViewsSheet = lazyModule(() => import('$features/training/components/TrainingViewsSheet.svelte'));
 
 	function loadSignInRosterModal() {
 		signInRosterModalModule ??= import('$features/sign-in-rosters');
@@ -68,14 +64,16 @@
 
 {#if modals.isOpen('manage-views')}
 	{@const mv = modals.payload<ManageViewsPayload>('manage-views')}
-	{#await loadTrainingViewsSheet() then { default: TrainingViewsSheet }}
-		<TrainingViewsSheet
-			orgId={ctx.orgId}
-			canMutate={ctx.trainingConfigureAffordance.allowed}
-			saveView={ctx.saveView.bind(ctx)}
-			deleteView={ctx.deleteView.bind(ctx)}
-			returnFocusTo={mv?.returnFocusTo}
-			onClose={modals.closerFor('manage-views')}
-		/>
-	{/await}
+	<LazySheet load={loadTrainingViewsSheet} title="Manage views" onClose={modals.closerFor('manage-views')}>
+		{#snippet children({ default: TrainingViewsSheet })}
+			<TrainingViewsSheet
+				orgId={ctx.orgId}
+				canMutate={ctx.trainingConfigureAffordance.allowed}
+				saveView={ctx.saveView.bind(ctx)}
+				deleteView={ctx.deleteView.bind(ctx)}
+				returnFocusTo={mv?.returnFocusTo}
+				onClose={modals.closerFor('manage-views')}
+			/>
+		{/snippet}
+	</LazySheet>
 {/if}

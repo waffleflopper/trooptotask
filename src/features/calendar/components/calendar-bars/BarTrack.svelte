@@ -3,6 +3,8 @@
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
 	import { StatusBar, type BarLane, type MarkedDay, type TrackPiece } from '$lib/components/patterns/calendar-bars';
 	import type { CalendarBar, CalendarBarLayout } from '$features/calendar/utils/calendarBars';
+	import type { CommitmentSegment } from '$features/calendar/projection/projectionCommitments';
+	import CommitmentRun from '../projection/CommitmentRun.svelte';
 
 	interface Props {
 		layout: CalendarBarLayout;
@@ -16,6 +18,8 @@
 		/** Days whose bottom lane holds a marker; `fitMarkers` keeps bars out of their space. */
 		markers?: readonly MarkedDay[];
 		marker?: Snippet<[number]>;
+		/** Taskings the Person is picked for, drawn in the reserved last row. */
+		commitments?: readonly CommitmentSegment[];
 	}
 
 	let {
@@ -28,7 +32,8 @@
 		onOpenEntry,
 		onOpenOverflow,
 		markers = [],
-		marker
+		marker,
+		commitments = []
 	}: Props = $props();
 
 	const EDGES = ['start', 'end'] as const;
@@ -162,6 +167,15 @@
 			</div>
 		{/each}
 	{/if}
+	{#each commitments as segment (`${segment.start}:${segment.kind}`)}
+		<div
+			class="pointer-events-auto relative z-[1] mx-px min-w-0"
+			style:grid-column={columns(segment)}
+			style:grid-row="5 / 6"
+		>
+			<CommitmentRun {segment} />
+		</div>
+	{/each}
 	{#if selection}
 		{@const days = selection.end - selection.start + 1}
 		<div

@@ -41,6 +41,8 @@ long-range views.
   bootstrap reaches back to the day before its UTC day. A move requests only the part of each not yet loaded.
 - `calendar-reload-anchor`: a reload opens the month the page last showed, the month the server bootstrapped, with no
   range read.
+- `calendar-markers`: Events, Suspenses and picked execution dates on the Month and 3-Month views behind the
+  `Events & Taskings` switch; see [Events and Taskings](events-taskings.md#calendar-markers).
 - `calendar-reentry`: after leaving Calendar and coming back, another member's deletes and edits show; a save or delete
   confirmed while the new workspace snapshot was in flight survives it, including over another member's row the server
   replaced in the same slot; entries outside the snapshot's range stay.

@@ -61,6 +61,14 @@
 					</div>
 				{/each}
 			{/if}
+			{#if lane.track.shape === 'status'}
+				<div class="absolute inset-y-0 right-0 left-(--calendar-personnel-column-width) z-[1] min-w-0">
+					<!-- Sticky, so the message stays in view while the dates scroll. -->
+					<div class="sticky left-(--calendar-personnel-column-width) flex h-full w-max max-w-full items-center">
+						<lane.track.Status value={lane.track.value} />
+					</div>
+				</div>
+			{/if}
 		</div>
 	{/each}
 </div>

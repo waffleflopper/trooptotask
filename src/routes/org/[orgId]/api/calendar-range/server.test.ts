@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -183,6 +183,70 @@ describe('GET /api/calendar-range', () => {
 			availabilityEntries: [expect.objectContaining({ id: 'a1' })],
 			specialDays: [expect.objectContaining({ id: 'sd1' })],
 			dailyAssignments: [expect.objectContaining({ id: 'da1' })]
+		});
+	});
+
+	describe('events collection', () => {
+		const projection = {
+			events: [
+				{
+					id: '11111111-1111-4111-8111-111111111111',
+					title: 'Field exercise',
+					startsOn: '2026-03-04',
+					endsOn: '2026-03-06',
+					cancelled: false
+				}
+			],
+			suspenses: [],
+			commitments: []
+		};
+		const request = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31', collections: ['events' as const] };
+
+		it('returns the projection of the range beside nothing else', async () => {
+			const ctx = { ...createTestContext(), calendarProjection: { read: async () => projection } };
+
+			const result = await handleUseCaseRequest(_getConfig, ctx, request, () => ctx);
+
+			expect(JSON.parse(JSON.stringify(result))).toEqual({
+				rangeStart: '2026-03-01',
+				rangeEnd: '2026-03-31',
+				projection: { kind: 'loaded', ...projection }
+			});
+		});
+
+		it('reports a refused projection as failed so the rest of the Calendar still answers', async () => {
+			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const ctx = {
+				...createTestContext(),
+				calendarProjection: {
+					read: async () => {
+						throw new Error('rpc failed');
+					}
+				}
+			};
+			seedMarch(ctx);
+
+			const result = await handleUseCaseRequest(
+				_getConfig,
+				ctx,
+				{ ...request, collections: ['availability', 'events'] },
+				() => ctx
+			);
+
+			expect(result.projection).toEqual({ kind: 'failed' });
+			expect(result.availabilityEntries).toEqual([expect.objectContaining({ id: 'a1' })]);
+			consoleError.mockRestore();
+		});
+
+		it('reads nothing while the switch is off', async () => {
+			const read = vi.fn();
+			const base = createTestContext();
+			const ctx = { ...base, disabledFeatures: ['eventsAndTaskings' as const], calendarProjection: { read } };
+
+			const result = await handleUseCaseRequest(_getConfig, ctx, request, () => ctx);
+
+			expect(read).not.toHaveBeenCalled();
+			expect(result.projection).toEqual({ kind: 'loaded', events: [], suspenses: [], commitments: [] });
 		});
 	});
 });

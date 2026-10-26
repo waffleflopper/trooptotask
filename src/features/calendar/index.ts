@@ -1,5 +1,12 @@
 export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from './contracts';
 export type {
+	CalendarProjection,
+	CalendarProjectionRead,
+	ProjectedCommitment,
+	ProjectedEvent,
+	ProjectedSuspense
+} from './projection/calendarProjection';
+export type {
 	CalendarBootstrap,
 	CalendarRangeData,
 	CalendarWorkspaceResult,

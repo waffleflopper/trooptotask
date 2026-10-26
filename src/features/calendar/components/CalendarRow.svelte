@@ -3,6 +3,7 @@
 	import { fitMarkers } from '$lib/components/patterns/calendar-bars';
 	import type { CalendarBar, CalendarBarLayout } from '$features/calendar/utils/calendarBars';
 	import type { CalendarCellMarkerState, CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
+	import type { CommitmentSegment } from '$features/calendar/projection/projectionCommitments';
 	import type { Personnel, UpcomingLossRecord } from '$features/personnel/contracts';
 	import { Button } from '$lib/components/ui/button';
 	import * as DateCell from './date-cell/index.js';
@@ -18,6 +19,7 @@
 		selectedEntryId?: string | null;
 		selection?: { start: number; end: number } | null;
 		markers?: ReadonlyMap<number, readonly CalendarCellMarkerState[]>;
+		commitments?: readonly CommitmentSegment[];
 		onboarding?: boolean;
 		highlightOnboarding?: boolean;
 		loss?: UpcomingLossRecord;
@@ -44,6 +46,7 @@
 		selectedEntryId = null,
 		selection = null,
 		markers = NO_MARKERS,
+		commitments,
 		onboarding = false,
 		highlightOnboarding = true,
 		loss,
@@ -137,6 +140,7 @@
 		{selectedEntryId}
 		{selection}
 		markers={fitted.markers}
+		{commitments}
 		onPressEdge={onPressEdge && ((event, bar, edge) => onPressEdge(event, person, bar, edge, rowEl))}
 		onOpenEntry={onOpenEntry && ((entry, anchor) => onOpenEntry(person, entry, anchor))}
 		onOpenOverflow={onOpenOverflow && ((entryIds, anchor) => onOpenOverflow(person, entryIds, anchor))}

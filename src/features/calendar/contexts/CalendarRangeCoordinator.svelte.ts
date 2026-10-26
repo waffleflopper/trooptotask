@@ -9,6 +9,11 @@ import {
 	type CalendarRangeRequest
 } from '$features/calendar/utils/calendarRange';
 import {
+	EMPTY_PROJECTION,
+	replaceProjectionRange,
+	type CalendarProjection
+} from '$features/calendar/projection/calendarProjection';
+import {
 	beginCalendarRangeRead,
 	loadCalendarRange,
 	mergeCalendarRangeIntoStores
@@ -23,6 +28,11 @@ interface CalendarRangeCoordinatorDeps {
 
 export type CalendarRangeStatus = 'ready' | 'loading' | 'error';
 
+/** The matrix does not wait for Events, so their gaps are not part of the range status. */
+function withoutEvents({ events: _events, ...coverage }: CalendarCoverage): CalendarCoverage {
+	return coverage;
+}
+
 const MAX_READS_IN_FLIGHT = 2;
 
 export class CalendarRangeCoordinator {
@@ -30,6 +40,10 @@ export class CalendarRangeCoordinator {
 	loading = $state(false);
 	error = $state<Error | null>(null);
 	retryToken = $state(0);
+	/** Events, suspenses and commitments of the ranges read so far; every read adds to it. */
+	projection = $state.raw<CalendarProjection>(EMPTY_PROJECTION);
+	/** The last read answered everything but the projection, which the server could not read. */
+	projectionFailed = $state(false);
 
 	#pendingRangeKey = $state<string | null>(null);
 	#failedRangeKey = $state<string | null>(null);
@@ -44,6 +58,8 @@ export class CalendarRangeCoordinator {
 
 	reset(): void {
 		this.loaded = {};
+		this.projection = EMPTY_PROJECTION;
+		this.projectionFailed = false;
 		this.#pendingRangeKey = null;
 		this.#failedRangeKey = null;
 		this.loading = false;
@@ -76,13 +92,20 @@ export class CalendarRangeCoordinator {
 
 	retryFailedRange(): void {
 		this.error = null;
+		this.projectionFailed = false;
 		this.#failedRangeKey = null;
 		this.retryToken += 1;
 	}
 
 	status(needed: CalendarCoverage): CalendarRangeStatus {
-		if (planCalendarRangeReads(this.loaded, needed).length === 0) return 'ready';
+		if (planCalendarRangeReads(this.loaded, withoutEvents(needed)).length === 0) return 'ready';
 		return this.error ? 'error' : 'loading';
+	}
+
+	/** The Events region alone: a failed projection read leaves `status` ready and the matrix usable. */
+	projectionStatus(needed: CalendarCoverage): CalendarRangeStatus {
+		if (!needed.events || planCalendarRangeReads(this.loaded, { events: needed.events }).length === 0) return 'ready';
+		return this.error || this.projectionFailed ? 'error' : 'loading';
 	}
 
 	/** Reads whatever part of `needed` is not loaded yet. Callers check view capability first. */
@@ -111,6 +134,7 @@ export class CalendarRangeCoordinator {
 
 		this.loading = true;
 		this.error = null;
+		if (nextRanges.some((read) => read.collections.includes('events'))) this.projectionFailed = false;
 		this.#pendingRangeKey = requestKey;
 		const requestSerial = ++this.#requestSerial;
 		const read = beginCalendarRangeRead();
@@ -122,9 +146,19 @@ export class CalendarRangeCoordinator {
 			}
 
 			for (const rangeData of rangeDataSets) this.#mergeRangeIntoStores(orgId, rangeData, read);
-			this.#include(needed);
+			const projections = rangeDataSets.flatMap((rangeData) => rangeData.projection ?? []);
+			this.projectionFailed = projections.some((read) => read.kind === 'failed');
+			if (!this.projectionFailed) {
+				for (const rangeData of rangeDataSets) {
+					if (rangeData.projection?.kind === 'loaded') {
+						this.projection = replaceProjectionRange(this.projection, rangeData, rangeData.projection);
+					}
+				}
+			}
+			this.#include(this.projectionFailed ? withoutEvents(needed) : needed);
 			this.loading = false;
-			this.#failedRangeKey = null;
+			// A refused projection waits for a Retry rather than reading again on every pass.
+			this.#failedRangeKey = this.projectionFailed ? requestKey : null;
 			this.#pendingRangeKey = null;
 		} catch (error) {
 			if (requestSerial !== this.#requestSerial) {

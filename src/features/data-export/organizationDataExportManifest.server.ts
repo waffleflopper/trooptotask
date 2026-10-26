@@ -125,6 +125,20 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 		'events-and-taskings',
 		'Events & Taskings'
 	),
+	section(
+		'calendarTaskingEquipment',
+		'Tasking Equipment',
+		'calendar_tasking_equipment',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
+	section(
+		'calendarTaskingChecklistItems',
+		'Tasking Checklist Items',
+		'calendar_tasking_checklist_items',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
 	section('trainingTypes', 'Training Types', 'training_types', 'training', 'Training'),
 	section('personnelTrainings', 'Personnel Trainings', 'personnel_trainings', 'training', 'Training'),
 	section(
@@ -316,11 +330,7 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 		name: 'Events',
 		areaKey: 'events-and-taskings',
 		rows: (sections) => {
-			const members = new Map(
-				(sections.memberships ?? [])
-					.filter((member) => member.email)
-					.map((member) => [String(member.user_id), String(member.email)])
-			);
+			const members = memberEmails(sections);
 			return (sections.calendarEvents ?? []).map((event) => ({
 				title: event.title,
 				starts_on: event.starts_on,
@@ -358,6 +368,36 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				block_reason: tasking.block_reason ?? '',
 				completion_note: tasking.completion_note ?? '',
 				cancellation_reason: tasking.cancellation_reason ?? ''
+			}));
+		}
+	},
+	{
+		name: 'Tasking Equipment',
+		areaKey: 'events-and-taskings',
+		rows: (sections) => {
+			const taskings = taskingTitles(sections);
+			return (sections.calendarTaskingEquipment ?? []).map((item) => ({
+				tasking: lookup(taskings, item.tasking_id),
+				position: item.position,
+				equipment: item.name,
+				quantity: item.quantity,
+				secured_quantity: item.secured_quantity
+			}));
+		}
+	},
+	{
+		name: 'Tasking Checklist',
+		areaKey: 'events-and-taskings',
+		rows: (sections) => {
+			const taskings = taskingTitles(sections);
+			const members = memberEmails(sections);
+			return (sections.calendarTaskingChecklistItems ?? []).map((item) => ({
+				tasking: lookup(taskings, item.tasking_id),
+				position: item.position,
+				item: item.label,
+				done: item.done,
+				done_at: item.done_at ?? '',
+				done_by: item.done_by ? lookup(members, item.done_by) : ''
 			}));
 		}
 	},
@@ -421,6 +461,18 @@ export function assertOrganizationDataExportManifestIsSafe(): void {
 		}
 		seen.add(section.key);
 	}
+}
+
+function memberEmails(sections: OrganizationDataExportSections): Map<string, string> {
+	return new Map(
+		(sections.memberships ?? [])
+			.filter((member) => member.email)
+			.map((member) => [String(member.user_id), String(member.email)])
+	);
+}
+
+function taskingTitles(sections: OrganizationDataExportSections): Map<string, string> {
+	return new Map((sections.calendarTaskings ?? []).map((tasking) => [String(tasking.id), String(tasking.title)]));
 }
 
 function lookup(labels: Map<string, string>, value: unknown): string {

@@ -15,7 +15,9 @@ const EXPORT_TABLES = [
 	'calendar_events',
 	'calendar_event_activity',
 	'calendar_taskings',
-	'calendar_tasking_activity'
+	'calendar_tasking_activity',
+	'calendar_tasking_equipment',
+	'calendar_tasking_checklist_items'
 ] as const;
 
 export type CalendarExportTable = (typeof EXPORT_TABLES)[number];

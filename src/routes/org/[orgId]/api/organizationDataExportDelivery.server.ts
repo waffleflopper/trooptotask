@@ -65,6 +65,8 @@ export function createOrganizationDataExportReads(
 		calendarEventActivity: () => archiveReaders.calendar.listRows('calendar_event_activity'),
 		calendarTaskings: () => archiveReaders.calendar.listRows('calendar_taskings'),
 		calendarTaskingActivity: () => archiveReaders.calendar.listRows('calendar_tasking_activity'),
+		calendarTaskingEquipment: () => archiveReaders.calendar.listRows('calendar_tasking_equipment'),
+		calendarTaskingChecklistItems: () => archiveReaders.calendar.listRows('calendar_tasking_checklist_items'),
 		trainingTypes: () => archiveReaders.training.listRows('training_types'),
 		personnelTrainings: () => archiveReaders.training.listRows('personnel_trainings'),
 		personnelTrainingHistory: () => archiveReaders.training.listRows('personnel_training_history'),

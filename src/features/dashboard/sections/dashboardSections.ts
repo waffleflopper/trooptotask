@@ -4,7 +4,12 @@ import type { DashboardPageUpdates } from '../dashboardPageUpdates';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { DashboardAccess } from './dashboardAccess';
 import type { DashboardInputs } from './dashboardInputs';
-import { placeForecastLaneMarks, type DashboardForecastLaneView, type ForecastLaneMark } from './forecastLanes';
+import {
+	placeForecastLaneMarks,
+	type DashboardForecastLaneView,
+	type ForecastLaneRead,
+	type ForecastLegendEntry
+} from './forecastLanes';
 import { buildNeedsYouQueue, type NeedsYouItem, type NeedsYouQueue } from './needsYou';
 
 /** Availability and Calendar is always on; every other section belongs to one feature switch. */
@@ -62,7 +67,11 @@ export type DashboardPartAvailability = (inputs: DashboardInputs, access: Dashbo
 export interface ForecastLane {
 	id: string;
 	label: string;
-	marks: (inputs: DashboardInputs) => readonly ForecastLaneMark[];
+	/** Said in place of the marks when the lane has none. */
+	empty: string;
+	legend?: readonly ForecastLegendEntry[];
+	/** Null leaves the lane out, as when its source is not read for this viewer. */
+	read: (inputs: DashboardInputs) => ForecastLaneRead | null;
 }
 
 export interface DashboardBlock {
@@ -207,11 +216,22 @@ export function composeDashboardSections(
 			active.flatMap((entry) => entry.needsYou.map((source) => permittedActions(source(inputs), access)))
 		),
 		forecastLanes: active.flatMap((entry) =>
-			entry.forecastLanes.map((lane) => ({
-				id: lane.id,
-				label: lane.label,
-				marks: placeForecastLaneMarks(inputs.forecastDays, lane.marks(inputs))
-			}))
+			entry.forecastLanes.flatMap((lane) => {
+				const read = lane.read(inputs);
+				if (!read) return [];
+				return [
+					{
+						id: lane.id,
+						label: lane.label,
+						empty: lane.empty,
+						legend: lane.legend ?? [],
+						read:
+							read.state === 'ready'
+								? { state: 'ready' as const, marks: placeForecastLaneMarks(inputs.forecastDays, read.marks) }
+								: read
+					}
+				];
+			})
 		),
 		quickAdd: active
 			.flatMap((entry) => entry.quickAdd)

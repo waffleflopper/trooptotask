@@ -11,7 +11,7 @@ import type { TrainingType } from '$features/training/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import type { TrainingSummary } from '$features/training/contracts';
-import type { TaskingAttentionProjection } from '$features/calendar/contracts';
+import type { CalendarProjection, TaskingAttentionProjection } from '$features/calendar/contracts';
 import type { FeatureKey } from '$lib/access/featureSwitches';
 
 export interface DashboardIctlMosReadiness {
@@ -73,12 +73,22 @@ export interface DashboardViewerDay {
 	timeZone: string;
 }
 
+/** The strength forecast's columns: the viewer's day and the 13 after it. */
+export const FORECAST_DAYS = 14;
+
+/** One read feeds the Tasking rows in Needs you and the forecast's Events & Taskings lane. */
+export interface DashboardTaskings {
+	attention: TaskingAttentionProjection;
+	/** Events overlapping the forecast's days and the suspenses due in them, as the reader may see them. */
+	forecast: Pick<CalendarProjection, 'events' | 'suspenses'>;
+}
+
 /** Tasking attention loads on its own: `off` is not read for this unit or viewer, and `failed` is not empty. */
 export type DashboardTaskingsState =
 	| { status: 'off' }
 	| { status: 'pending' }
 	| { status: 'failed' }
-	| { status: 'ready'; attention: TaskingAttentionProjection };
+	| ({ status: 'ready' } & DashboardTaskings);
 
 export interface DashboardPageData {
 	orgId: string;

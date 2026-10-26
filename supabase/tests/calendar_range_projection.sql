@@ -42,7 +42,8 @@ INSERT INTO public.calendar_events (id, organization_id, title, starts_on, ends_
 
 -- The range is 2030-10-01 to 2030-10-31.
 -- 401 Alpha, 402 Bravo, 403 Organization-level, 404 Alpha with its suspense after the range but execution in it,
--- 405 Alpha completed, 406 Bravo standalone without execution, 407 Alpha cancelled, 408 Alpha with its suspense before the range.
+-- 405 Alpha completed, 406 Bravo standalone without execution, 407 Alpha cancelled, 408 Alpha with its suspense before the range,
+-- 409 Bravo work on the Event that straddles the start, 410 Alpha work on the cancelled Event, itself cancelled.
 INSERT INTO public.calendar_taskings (
   id, organization_id, title, event_id, responsible_group_id, suspense_on, execution_starts_on, execution_ends_on
 ) VALUES
@@ -53,7 +54,9 @@ INSERT INTO public.calendar_taskings (
   (pg_temp.id('405'), pg_temp.id('101'), 'Alpha completed', NULL, pg_temp.id('201'), '2030-10-10', '2030-10-08', '2030-10-09'),
   (pg_temp.id('406'), pg_temp.id('101'), 'Bravo standalone', NULL, pg_temp.id('202'), '2030-10-25', NULL, NULL),
   (pg_temp.id('407'), pg_temp.id('101'), 'Alpha cancelled', NULL, pg_temp.id('201'), '2030-10-12', '2030-10-12', '2030-10-13'),
-  (pg_temp.id('408'), pg_temp.id('101'), 'Alpha already due', NULL, pg_temp.id('201'), '2030-09-30', NULL, NULL);
+  (pg_temp.id('408'), pg_temp.id('101'), 'Alpha already due', NULL, pg_temp.id('201'), '2030-09-30', NULL, NULL),
+  (pg_temp.id('409'), pg_temp.id('101'), 'Bravo early support', pg_temp.id('302'), pg_temp.id('202'), '2030-12-15', NULL, NULL),
+  (pg_temp.id('410'), pg_temp.id('101'), 'Alpha dropped support', pg_temp.id('305'), pg_temp.id('201'), '2030-12-16', NULL, NULL);
 -- 501 and 502 are in Alpha, 503 and 504 in Bravo, 505 has no Group.
 INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug) VALUES
   (pg_temp.id('501'), pg_temp.id('101'), pg_temp.id('201'), 'SPC', 'Dana', 'Aldrin', 'aldrin-dana'),
@@ -84,6 +87,7 @@ $$;
 SELECT pg_temp.act_as('2');
 SELECT public.transition_calendar_tasking(pg_temp.id('101'), pg_temp.id('405'), 'complete', NULL);
 SELECT public.transition_calendar_tasking(pg_temp.id('101'), pg_temp.id('407'), 'cancel', NULL);
+SELECT public.transition_calendar_tasking(pg_temp.id('101'), pg_temp.id('410'), 'cancel', NULL);
 SELECT public.cancel_calendar_event(pg_temp.id('101'), pg_temp.id('305'), 'Moved');
 
 CREATE FUNCTION pg_temp.projection(p_org text DEFAULT '101') RETURNS jsonb LANGUAGE sql AS $$
@@ -100,6 +104,12 @@ CREATE FUNCTION pg_temp.commitments(p_org text DEFAULT '101') RETURNS text[] LAN
     right((item ->> 'personnelId'), 3) || ':' || right((item ->> 'taskingId'), 3) ORDER BY position), ARRAY[]::text[])
   FROM jsonb_array_elements(pg_temp.projection(p_org) -> 'commitments') WITH ORDINALITY AS rows(item, position);
 $$;
+-- The Events the read says the caller has work on, in the order it returned them.
+CREATE FUNCTION pg_temp.events_with_work() RETURNS uuid[] LANGUAGE sql AS $$
+  SELECT coalesce(array_agg((item ->> 'id')::uuid ORDER BY position), ARRAY[]::uuid[])
+  FROM jsonb_array_elements(pg_temp.projection() -> 'events') WITH ORDINALITY AS rows(item, position)
+  WHERE (item ->> 'hasWork')::boolean;
+$$;
 
 SET LOCAL ROLE authenticated;
 
@@ -114,6 +124,8 @@ SELECT is((SELECT (item ->> 'cancelled')::boolean FROM jsonb_array_elements(pg_t
 SELECT is(pg_temp.column_of('suspenses', 'taskingId'),
   ARRAY[pg_temp.id('402'), pg_temp.id('401'), pg_temp.id('406'), pg_temp.id('403')],
   'active Taskings whose suspense is in the range come back in suspense order, whoever is responsible');
+SELECT is(pg_temp.events_with_work(), ARRAY[pg_temp.id('302'), pg_temp.id('301')],
+  'an Organization-wide reader has work on every Event with a Tasking that is not cancelled');
 SELECT is(pg_temp.commitments(), ARRAY['501:401', '501:403', '501:404', '503:402', '503:403', '505:403'],
   'every counted pick of an active Tasking executing in the range commits its person, per Tasking');
 SELECT is(
@@ -127,6 +139,8 @@ SELECT is((SELECT count(*)::int FROM public.availability_entries WHERE organizat
 SELECT pg_temp.act_as('4');
 SELECT is(pg_temp.column_of('events', 'id'), ARRAY[pg_temp.id('302'), pg_temp.id('305'), pg_temp.id('301')],
   'an Alpha viewer sees the same Events');
+SELECT is(pg_temp.events_with_work(), ARRAY[pg_temp.id('301')],
+  'an Alpha viewer has work only on the Event with Alpha work, not on one with only Bravo work or a cancelled Tasking');
 SELECT is(pg_temp.column_of('suspenses', 'taskingId'), ARRAY[pg_temp.id('401')],
   'an Alpha viewer sees only the Alpha suspense: no Bravo Tasking, standalone or under a shared Event, and no Organization-level one');
 SELECT is(pg_temp.commitments(), ARRAY['501:401', '501:404'],
@@ -142,6 +156,7 @@ SELECT is(
 SELECT pg_temp.act_as('3');
 SELECT is(pg_temp.column_of('suspenses', 'taskingId'), ARRAY[pg_temp.id('401')], 'an Alpha operator reads the same as an Alpha viewer');
 SELECT is(pg_temp.commitments(), ARRAY['501:401', '501:404'], 'an Alpha operator sees the same commitments');
+SELECT is(pg_temp.events_with_work(), ARRAY[pg_temp.id('301')], 'an Alpha operator has work on the same Events');
 
 -- An Organization-wide operator reads what the Organization-wide viewer does.
 SELECT pg_temp.act_as('2');

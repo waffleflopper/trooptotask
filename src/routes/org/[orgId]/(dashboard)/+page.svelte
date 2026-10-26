@@ -169,11 +169,11 @@
 		refreshSummary: () => void refreshSummary(),
 		refreshTaskings: () => {
 			const savedIn = orgId;
-			return taskingsSource.refresh(savedIn, data.viewerDay, () => savedIn === orgId);
+			return taskingsSource.refresh(savedIn, data.viewerDay.date, () => savedIn === orgId);
 		},
 		retryTaskings: () => {
 			const retriedIn = orgId;
-			void taskingsSource.retry(retriedIn, data.viewerDay, () => retriedIn === orgId);
+			void taskingsSource.retry(retriedIn, data.viewerDay.date, () => retriedIn === orgId);
 		},
 		putRecord: (savedIn, change) => {
 			if (dashboardBootstrap && savedIn === orgId)

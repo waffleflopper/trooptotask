@@ -8,7 +8,9 @@ const projectedEventSchema = z.object({
 	title: z.string(),
 	startsOn: dateOnlySchema,
 	endsOn: dateOnlySchema,
-	cancelled: z.boolean()
+	cancelled: z.boolean(),
+	/** A Tasking on the Event that is not cancelled is in the reader's scope. The Calendar does not use it. */
+	hasWork: z.boolean()
 });
 
 const projectedSuspenseSchema = z.object({

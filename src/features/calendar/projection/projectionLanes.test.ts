@@ -13,7 +13,8 @@ const event = (id: string, startsOn: string, endsOn: string, cancelled = false) 
 	title: `Event ${id}`,
 	startsOn,
 	endsOn,
-	cancelled
+	cancelled,
+	hasWork: false
 });
 
 function lanesFor(projection: CalendarProjection, density: 'month' | 'compact' = 'month') {

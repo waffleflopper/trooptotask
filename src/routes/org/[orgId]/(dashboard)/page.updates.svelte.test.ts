@@ -80,6 +80,18 @@ const expired = () => screen.getByLabelText('Expired people').textContent?.trim(
 const recordClass = () => fireEvent.click(screen.getByRole('button', { name: 'Record class' }));
 const refresh = () => fireEvent.click(screen.getByRole('button', { name: 'Refresh summary' }));
 
+describe('Dashboard Tasking read', () => {
+	it("asks again for the page's day, so the forecast lane covers the same 14 days as the forecast", async () => {
+		const fetchMock = vi.fn().mockReturnValue(new Promise<Response>(() => {}));
+		vi.stubGlobal('fetch', fetchMock);
+		render(Page, { props: { data: data('org-1') } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry Taskings' }));
+
+		expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/dashboard/taskings?asOf=2026-10-19');
+	});
+});
+
 describe('Dashboard summary endpoint refresh', () => {
 	it('makes no request on load and keeps the last values while pending, after failure and after an older response', async () => {
 		const older = deferred<Response>();

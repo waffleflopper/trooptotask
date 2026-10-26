@@ -22,6 +22,7 @@ const event = (overrides: Partial<ProjectedEvent> = {}): ProjectedEvent => ({
 	startsOn: '2026-05-04',
 	endsOn: '2026-05-06',
 	cancelled: false,
+	hasWork: false,
 	...overrides
 });
 

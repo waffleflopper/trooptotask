@@ -17,9 +17,11 @@
 		onOpenCalendar?: () => void;
 		/** Overlay lanes under the day labels. */
 		lanes?: Snippet;
+		/** Legend entries for the lanes' marks, after the statuses. */
+		laneLegend?: Snippet;
 	}
 
-	let { band, today, calendarHref, onOpenCalendar, lanes }: Props = $props();
+	let { band, today, calendarHref, onOpenCalendar, lanes, laneLegend }: Props = $props();
 
 	const BAR_HEIGHT = 131;
 
@@ -177,5 +179,6 @@
 			<span class="w-3.5 border-t-[1.5px] border-dashed border-foreground" aria-hidden="true"></span>
 			{band.floorPercent}% floor
 		</li>
+		{@render laneLegend?.()}
 	</ul>
 </div>

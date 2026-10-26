@@ -1,16 +1,12 @@
-import type { TaskingAttentionProjection } from '$features/calendar';
 import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
-import type { DashboardTaskingsState } from './contracts';
+import type { DashboardTaskings, DashboardTaskingsState } from './contracts';
 
-type Streamed = TaskingAttentionProjection | null | Promise<TaskingAttentionProjection | null> | undefined;
-type Outcome = { orgId: string } & (
-	| { status: 'ready'; attention: TaskingAttentionProjection }
-	| { status: 'off' | 'failed' }
-);
+type Streamed = DashboardTaskings | null | Promise<DashboardTaskings | null> | undefined;
+type Outcome = { orgId: string } & ({ status: 'ready'; taskings: DashboardTaskings } | { status: 'off' | 'failed' });
 
 /**
- * The Tasking attention read, apart from the rest of the page: a failure shows on its own rows, and a read
- * answers only for the Organization it started in.
+ * The Tasking read behind the Needs you rows and the forecast lane, apart from the rest of the page: a failure shows
+ * on its own rows, and a read answers only for the Organization it started in.
  */
 export class DashboardTaskingsSource {
 	#outcome = $state.raw<Outcome | null>(null);
@@ -19,22 +15,22 @@ export class DashboardTaskingsSource {
 	stateFor(orgId: string): DashboardTaskingsState {
 		const outcome = this.#outcome;
 		if (outcome?.orgId !== orgId) return { status: 'pending' };
-		return outcome.status === 'ready' ? { status: 'ready', attention: outcome.attention } : { status: outcome.status };
+		return outcome.status === 'ready' ? { status: 'ready', ...outcome.taskings } : { status: outcome.status };
 	}
 
 	/** Follows the page load's stream; the returned function stops following it. */
 	track(streamed: Streamed, orgId: string): () => void {
 		const request = ++this.#request;
 		if (streamed === undefined) return () => {};
-		const settle = (attention: TaskingAttentionProjection | null) => {
-			this.#outcome = attention ? { orgId, status: 'ready', attention } : { orgId, status: 'off' };
+		const settle = (taskings: DashboardTaskings | null) => {
+			this.#outcome = taskings ? { orgId, status: 'ready', taskings } : { orgId, status: 'off' };
 		};
 		if (!isPromiseLike(streamed)) {
 			settle(streamed);
 			return () => {};
 		}
 		void observeDeferred(streamed, {
-			fallbackMessage: 'Failed to load Tasking attention',
+			fallbackMessage: 'Failed to load Taskings',
 			onResolve: settle,
 			onReject: () => {
 				if (this.#outcome?.orgId !== orgId) this.#outcome = { orgId, status: 'failed' };
@@ -49,29 +45,29 @@ export class DashboardTaskingsSource {
 	/** Rereads after a save: the rows stay as they were until the read lands, and stay if it fails. */
 	async refresh(orgId: string, asOf: string, stillHere: () => boolean): Promise<void> {
 		const request = ++this.#request;
-		const attention = await this.#fetch(orgId, asOf);
-		if (request !== this.#request || !stillHere() || attention === 'failed') return;
-		this.#outcome = attention ? { orgId, status: 'ready', attention } : { orgId, status: 'off' };
+		const taskings = await this.#fetch(orgId, asOf);
+		if (request !== this.#request || !stillHere() || taskings === 'failed') return;
+		this.#outcome = taskings ? { orgId, status: 'ready', taskings } : { orgId, status: 'off' };
 	}
 
 	/** Reads again after a failure, showing the loading rows until the read lands. */
 	async retry(orgId: string, asOf: string, stillHere: () => boolean): Promise<void> {
 		const request = ++this.#request;
 		this.#outcome = null;
-		const attention = await this.#fetch(orgId, asOf);
+		const taskings = await this.#fetch(orgId, asOf);
 		if (request !== this.#request || !stillHere()) return;
 		this.#outcome =
-			attention === 'failed'
+			taskings === 'failed'
 				? { orgId, status: 'failed' }
-				: attention
-					? { orgId, status: 'ready', attention }
+				: taskings
+					? { orgId, status: 'ready', taskings }
 					: { orgId, status: 'off' };
 	}
 
-	async #fetch(orgId: string, asOf: string): Promise<TaskingAttentionProjection | null | 'failed'> {
+	async #fetch(orgId: string, asOf: string): Promise<DashboardTaskings | null | 'failed'> {
 		try {
 			const response = await fetch(`/org/${orgId}/api/dashboard/taskings?asOf=${asOf}`, { cache: 'no-store' });
-			return response.ok ? ((await response.json()) as TaskingAttentionProjection | null) : 'failed';
+			return response.ok ? ((await response.json()) as DashboardTaskings | null) : 'failed';
 		} catch {
 			return 'failed';
 		}

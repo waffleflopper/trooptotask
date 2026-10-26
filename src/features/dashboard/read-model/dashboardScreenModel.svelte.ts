@@ -6,7 +6,7 @@ import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import type { DashboardPageData } from '$features/dashboard/contracts';
+import { FORECAST_DAYS, type DashboardPageData } from '$features/dashboard/contracts';
 import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { DashboardInputs } from '../sections/dashboardInputs';
 import { buildStrengthBand, type StrengthBand } from './strengthBand';
@@ -39,8 +39,6 @@ export interface DashboardStoreSources {
 export interface DashboardScreenModelOptions {
 	sources?: DashboardStoreSources;
 }
-
-const FORECAST_DAYS = 14;
 
 export function createDashboardScreenModel(
 	data: DashboardPageData,

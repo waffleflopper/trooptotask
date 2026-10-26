@@ -25,12 +25,14 @@ const base: TaskingAttentionRow = {
 function inputs(taskings: DashboardTaskingsState): DashboardInputs {
 	return {
 		today: '2026-10-26',
+		forecastDays: [],
 		groups: [{ id: ALPHA, name: 'Alpha' }],
 		page: { orgId: 'org-1', orgName: 'Test Unit', taskings }
 	} as unknown as DashboardInputs;
 }
 
-const ready = (...rows: TaskingAttentionRow[]) => inputs({ status: 'ready', attention: { rows, total: rows.length } });
+const ready = (...rows: TaskingAttentionRow[]) =>
+	inputs({ status: 'ready', attention: { rows, total: rows.length }, forecast: { events: [], suspenses: [] } });
 
 describe('taskingAttention', () => {
 	it('names a Short Tasking by its picks and equipment and offers Pick people', () => {
@@ -110,15 +112,17 @@ describe('taskingAttentionLoad', () => {
 		expect(updates.retryTaskings).toHaveBeenCalledOnce();
 	});
 
-	it.each<DashboardTaskingsState>([{ status: 'off' }, { status: 'ready', attention: { rows: [], total: 0 } }])(
-		'reports nothing once the source is $status',
-		(state) => {
-			expect(taskingAttentionLoad(inputs(state))).toBeNull();
-		}
-	);
+	it.each<DashboardTaskingsState>([
+		{ status: 'off' },
+		{ status: 'ready', attention: { rows: [], total: 0 }, forecast: { events: [], suspenses: [] } }
+	])('reports nothing once the source is $status', (state) => {
+		expect(taskingAttentionLoad(inputs(state))).toBeNull();
+	});
 
 	it('counts the rows the bound left out so the header still counts them', () => {
-		const load = taskingAttentionLoad(inputs({ status: 'ready', attention: { rows: [base], total: 4 } }));
+		const load = taskingAttentionLoad(
+			inputs({ status: 'ready', attention: { rows: [base], total: 4 }, forecast: { events: [], suspenses: [] } })
+		);
 
 		expect(load).toMatchObject({ state: 'partial', unlisted: 3, href: '/org/org-1/calendar/taskings' });
 	});

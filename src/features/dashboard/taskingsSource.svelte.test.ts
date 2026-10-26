@@ -1,20 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TaskingAttentionProjection } from '$features/calendar';
+import type { DashboardTaskings } from './contracts';
 import { DashboardTaskingsSource } from './taskingsSource.svelte';
 
-const projection = (total: number): TaskingAttentionProjection => ({ rows: [], total });
+const projection = (total: number): DashboardTaskings => ({
+	attention: { rows: [], total },
+	forecast: { events: [], suspenses: [] }
+});
 const fetchMock = vi.fn();
 
-function answer(body: TaskingAttentionProjection | null, ok = true) {
+function answer(body: DashboardTaskings | null, ok = true) {
 	return Promise.resolve(new Response(JSON.stringify(body), { status: ok ? 200 : 500 }));
 }
 
 function deferredFetch() {
-	let respond!: (body: TaskingAttentionProjection | null) => void;
+	let respond!: (body: DashboardTaskings | null) => void;
 	fetchMock.mockImplementationOnce(
 		() => new Promise<Response>((resolve) => (respond = (b) => resolve(new Response(JSON.stringify(b)))))
 	);
-	return { respond: (body: TaskingAttentionProjection | null) => respond(body) };
+	return { respond: (body: DashboardTaskings | null) => respond(body) };
 }
 
 beforeEach(() => {
@@ -26,12 +29,12 @@ afterEach(() => vi.unstubAllGlobals());
 describe('DashboardTaskingsSource', () => {
 	it('is pending until the page load settles, then ready with what it read', async () => {
 		const source = new DashboardTaskingsSource();
-		let settle!: (value: TaskingAttentionProjection) => void;
-		source.track(new Promise<TaskingAttentionProjection>((resolve) => (settle = resolve)), 'org-1');
+		let settle!: (value: DashboardTaskings) => void;
+		source.track(new Promise<DashboardTaskings>((resolve) => (settle = resolve)), 'org-1');
 		expect(source.stateFor('org-1')).toEqual({ status: 'pending' });
 
 		settle(projection(3));
-		await vi.waitFor(() => expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(3) }));
+		await vi.waitFor(() => expect(source.stateFor('org-1')).toEqual({ status: 'ready', ...projection(3) }));
 	});
 
 	it('is off when the server answered null', () => {
@@ -57,15 +60,15 @@ describe('DashboardTaskingsSource', () => {
 
 	it('ignores a load that settles after the page followed a newer one', async () => {
 		const source = new DashboardTaskingsSource();
-		let settleOld!: (value: TaskingAttentionProjection) => void;
-		source.track(new Promise<TaskingAttentionProjection>((resolve) => (settleOld = resolve)), 'org-1');
+		let settleOld!: (value: DashboardTaskings) => void;
+		source.track(new Promise<DashboardTaskings>((resolve) => (settleOld = resolve)), 'org-1');
 		source.track(projection(5), 'org-2');
 
 		settleOld(projection(1));
 		await Promise.resolve();
 
 		expect(source.stateFor('org-1')).toEqual({ status: 'pending' });
-		expect(source.stateFor('org-2')).toEqual({ status: 'ready', attention: projection(5) });
+		expect(source.stateFor('org-2')).toEqual({ status: 'ready', ...projection(5) });
 	});
 
 	describe('refresh', () => {
@@ -76,7 +79,7 @@ describe('DashboardTaskingsSource', () => {
 
 			await source.refresh('org-1', '2026-10-25', () => true);
 
-			expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(1) });
+			expect(source.stateFor('org-1')).toEqual({ status: 'ready', ...projection(1) });
 			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/dashboard/taskings?asOf=2026-10-25', expect.anything());
 		});
 
@@ -87,7 +90,7 @@ describe('DashboardTaskingsSource', () => {
 
 			await source.refresh('org-1', '2026-10-25', () => true);
 
-			expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(2) });
+			expect(source.stateFor('org-1')).toEqual({ status: 'ready', ...projection(2) });
 		});
 
 		it('drops a reread that lands after the viewer left the Organization', async () => {
@@ -101,7 +104,7 @@ describe('DashboardTaskingsSource', () => {
 			read.respond(projection(9));
 			await refreshing;
 
-			expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(2) });
+			expect(source.stateFor('org-1')).toEqual({ status: 'ready', ...projection(2) });
 		});
 
 		it('keeps the newer read when two overlap', async () => {
@@ -117,7 +120,7 @@ describe('DashboardTaskingsSource', () => {
 			first.respond(projection(7));
 			await older;
 
-			expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(1) });
+			expect(source.stateFor('org-1')).toEqual({ status: 'ready', ...projection(1) });
 		});
 	});
 
@@ -133,7 +136,7 @@ describe('DashboardTaskingsSource', () => {
 			read.respond(projection(4));
 			await retrying;
 
-			expect(source.stateFor('org-1')).toEqual({ status: 'ready', attention: projection(4) });
+			expect(source.stateFor('org-1')).toEqual({ status: 'ready', ...projection(4) });
 		});
 
 		it('fails again when the read fails', async () => {

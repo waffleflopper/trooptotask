@@ -57,7 +57,7 @@ export class TrainingPageContext {
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
 	#hydratedSelectionFingerprint: string | null = null;
-	readonly #deletingViewIds = new Set<string>();
+	readonly #deletingViewIds = new SvelteSet<string>();
 	#disposed = false;
 
 	selectedGroupId = $state<string>('');

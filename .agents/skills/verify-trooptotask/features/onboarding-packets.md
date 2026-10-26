@@ -313,9 +313,9 @@ As `onboardingConfigure` at 1280, then 390, light and dark:
    `Advance ... to Reviewed` on `Matrixmissing` and open `Matrixfresh` Paperwork before release; Fresh's popover stays
    `Not started` and the Missing cell ends at Reviewed. For two overlapping note saves,
    `arm-hold PAGE onboarding-steps 1` holds the first response: on a `Matrixmissing` Paperwork popover save note
-   `First`, Cancel the editor while it is pending, `Add note` again and save `Second` (it answers at once), then
-   `release`. The popover and the packet sheet for the same packet must keep showing `Second` as the latest note and
-   both notes after a reload; the provider rows hold both notes in order.
+   `First`, press Escape while it is pending (Cancel is disabled during a save), reopen the same cell, `Add note` again
+   and save `Second` (it answers at once), then `release`. The popover and the packet sheet for the same packet must
+   keep showing `Second` as the latest note and both notes after a reload; the provider rows hold both notes in order.
 7. **Filters.** Search `Matrixreserve` leaves only the Reserve grid and drops the no-template line. A search nobody
    matches shows `No Soldiers match` with `Clear filters`. Group Alpha drops `Matrixmissing`. Choose the Group with
    ArrowDown and Enter; its options are not in the snapshot.

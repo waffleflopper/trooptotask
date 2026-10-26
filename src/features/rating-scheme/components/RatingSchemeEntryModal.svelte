@@ -10,25 +10,30 @@
 		removeIntermediateRaterFromDraft,
 		removeReviewerFromDraft,
 		removeWorkflowFromDraft,
-		setEvaluatorFromPicker,
+		type EvaluatorDraft,
 		type RatingSchemeRequiredField,
 		type RatingSchemeEntryEvalType,
 		type RatingSchemeEntryStatus,
 		syncAnnualThruDateForRatingSchemeEntryDraft,
 		syncReportTypeForRatingSchemeEntryDraft
 	} from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
+	import XIcon from '@lucide/svelte/icons/x';
+	import { getRatingDueLabel } from '../utils/ratingScheme';
+	import { ratingDueTone } from '../utils/ratingDueTone';
+	import EvaluatorField from './EvaluatorField.svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { formatDayMonthYear } from '$lib/utils/dates';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		entry: RatingSchemeEntry | null;
@@ -68,21 +73,6 @@
 
 	const view = $derived(getRatingSchemeEntryDraftView(draft));
 	const missingRequired = $derived(saveAttempted ? view.missingRequired : []);
-
-	const requiredLabels: Record<RatingSchemeRequiredField, string> = {
-		ratedPerson: 'rated individual',
-		ratingPeriodStart: 'rating period start',
-		ratingPeriodEnd: 'thru date',
-		rater: 'rater',
-		seniorRater: 'senior rater'
-	};
-
-	function handleEvaluatorPersonChange(
-		role: 'rater' | 'seniorRater' | 'intermediateRater' | 'reviewer',
-		value: string | string[]
-	) {
-		if (typeof value === 'string') draft[role] = setEvaluatorFromPicker({ personId: value });
-	}
 
 	function handleRatedPersonValueChange(value: string | string[]) {
 		if (Array.isArray(value)) return;
@@ -126,9 +116,23 @@
 		return fallback;
 	}
 
+	const fieldIds: Record<RatingSchemeRequiredField, string> = {
+		ratedPerson: 'rated-individual',
+		ratingPeriodStart: 'period-start',
+		ratingPeriodEnd: 'period-end',
+		rater: 'rater',
+		seniorRater: 'senior-rater'
+	};
+
 	async function handleSave() {
 		saveAttempted = true;
-		if (!view.canSave || busy || !isCurrent()) return;
+		if (busy || !isCurrent()) return;
+		if (!view.canSave) {
+			const first = view.missingRequired[0];
+			await tick();
+			if (isCurrent() && first) document.getElementById(fieldIds[first])?.focus();
+			return;
+		}
 
 		const saveData = buildRatingSchemeEntrySaveData(draft);
 		const successMessage = entry ? 'Rating entry updated' : 'Rating entry added';
@@ -169,87 +173,126 @@
 	function formatPersonLabel(p: PersonnelLookup): string {
 		return `${p.rank} ${p.lastName}, ${p.firstName}`;
 	}
+
+	function evaluatorName(personId: string | null, name: string | null): string {
+		if (personId) {
+			const person = personnel.find((p) => p.id === personId);
+			return person ? `${person.rank} ${person.lastName}` : 'Unknown';
+		}
+		return name ?? 'not set';
+	}
+
+	const ratedPerson = $derived(entry ? personnel.find((p) => p.id === entry.ratedPersonId) : undefined);
+	const headerDue = $derived(entry ? getRatingDueLabel(entry.ratingPeriodEnd, entry.status) : null);
+	const evalTypeOptions: RatingSchemeEntryEvalType[] = ['OER', 'NCOER', 'WOER'];
+	const statusOptions: { value: RatingSchemeEntryStatus; label: string }[] = [
+		{ value: 'active', label: 'Active' },
+		{ value: 'completed', label: 'Completed' },
+		{ value: 'change-of-rater', label: 'Change of rater' }
+	];
 </script>
 
-{#snippet requiredError(missingLabel: RatingSchemeRequiredField, fieldName: string)}
-	{#if missingRequired.includes(missingLabel)}<Field.Error>{fieldName} is required.</Field.Error>{/if}
+{#snippet requiredError(missingLabel: RatingSchemeRequiredField, message: string)}
+	{#if missingRequired.includes(missingLabel)}<Field.Error>{message}</Field.Error>{/if}
+{/snippet}
+
+{#snippet sectionTitle(title: string)}
+	<h3 class="font-mono text-[0.6875rem] leading-3.5 font-medium tracking-[0.08em] text-muted-foreground uppercase">
+		{title}
+	</h3>
+{/snippet}
+
+{#snippet optionalRole(
+	label: string,
+	id: string,
+	onRemove: () => void,
+	evaluator: EvaluatorDraft,
+	onChange: (next: EvaluatorDraft) => void
+)}
+	<Field.Root>
+		<div class="flex items-center justify-between gap-2">
+			<Field.Label for={id}>{label}</Field.Label>
+			<Button variant="ghost" size="icon-sm" aria-label="Remove {label.toLowerCase()}" onclick={onRemove}>
+				<XIcon aria-hidden="true" />
+			</Button>
+		</div>
+		<EvaluatorField {id} {label} value={evaluator} people={personnelOptions} {onChange} />
+	</Field.Root>
 {/snippet}
 
 <AppDialog.Root open {busy} closeBlocked={dirty} {onClose}>
-	<AppDialog.Content size="wide" class="h-[calc(100dvh-2rem)]">
-		<AppDialog.Header>
-			<AppDialog.Title>{entry ? 'Edit Rating Entry' : 'Add Rating Entry'}</AppDialog.Title>
+	<AppDialog.Content presentation="sheet">
+		<AppDialog.Header
+			class="border-b px-7 pb-4"
+			eyebrow={entry
+				? `Edit entry · SR ${evaluatorName(entry.seniorRaterPersonId, entry.seniorRaterName)}`
+				: 'New entry'}
+		>
+			<AppDialog.Title>
+				{#if entry}
+					{ratedPerson ? formatPersonLabel(ratedPerson) : 'Unknown'}
+				{:else}
+					Add entry
+				{/if}
+			</AppDialog.Title>
 			<AppDialog.Description
-				>Maintain evaluator relationships, period dates, and workflow tracking.</AppDialog.Description
+				class={cn('flex items-center gap-2', headerDue && cn('font-medium', ratingDueTone[headerDue.status].text))}
 			>
+				{#if entry && headerDue}
+					<span class={cn('size-2 shrink-0 rounded-full', ratingDueTone[headerDue.status].rail)} aria-hidden="true"
+					></span>
+					{headerDue.text} · Thru {formatDayMonthYear(entry.ratingPeriodEnd)}
+				{:else}
+					Pick the Soldier first. Eval type comes from their rank.
+				{/if}
+			</AppDialog.Description>
 		</AppDialog.Header>
 
-		<AppDialog.Body class="grid min-h-0 gap-4 overflow-y-auto">
+		<AppDialog.Body class="flex flex-col gap-7 px-7 py-6">
 			<fieldset class="contents" disabled={busy}>
-				{#if saveError}
-					<Alert.Root variant="destructive">
-						<Alert.Title>Rating entry was not saved</Alert.Title>
-						<Alert.Description>{saveError}</Alert.Description>
-					</Alert.Root>
-				{/if}
-				{#if missingRequired.length > 0}
-					<Alert.Root variant="warning">
-						<Alert.Title>Complete required fields</Alert.Title>
-						<Alert.Description
-							>Missing: {view.missingRequired.map((field) => requiredLabels[field]).join(', ')}.</Alert.Description
-						>
-					</Alert.Root>
-				{/if}
-
-				<Field.Root>
-					<Field.Label for="rated-individual">Rated Individual</Field.Label>
-					<Combobox.Root
-						items={personnelOptions}
-						bind:value={draft.ratedPersonId}
-						disabled={!!entry}
-						label="Rated individual"
-						autoHighlight
-						onValueChange={handleRatedPersonValueChange}
-					>
-						<Combobox.Trigger
-							id="rated-individual"
-							clearable
-							placeholder="Search personnel..."
-							aria-label="Rated individual"
-						/>
-						<Combobox.Content>
-							<Combobox.Search placeholder="Search personnel..." />
-							<Combobox.Empty>No personnel found.</Combobox.Empty>
-							<Combobox.List />
-						</Combobox.Content>
-					</Combobox.Root>
-					{@render requiredError('ratedPerson', 'Rated individual')}
-				</Field.Root>
-
-				<div class="grid gap-4 sm:grid-cols-2">
+				{#if !entry}
 					<Field.Root>
-						<Field.Label for="eval-type">Evaluation Type</Field.Label>
-						<Select.Root
-							type="single"
-							value={draft.evalType}
-							onValueChange={(value) => handleEvalTypeValueChange(value as string)}
+						<Field.Label for="rated-individual">Rated Soldier</Field.Label>
+						<Combobox.Root
+							items={personnelOptions}
+							bind:value={draft.ratedPersonId}
+							label="Rated Soldier"
+							autoHighlight
+							onValueChange={handleRatedPersonValueChange}
 						>
-							<Select.Trigger id="eval-type" class="w-full"
-								>{draft.evalType === 'OER'
-									? 'OER (Officer)'
-									: draft.evalType === 'WOER'
-										? 'WOER (Warrant Officer)'
-										: 'NCOER (NCO)'}</Select.Trigger
-							>
-							<Select.Content>
-								<Select.Item value="OER" label="OER (Officer)" />
-								<Select.Item value="NCOER" label="NCOER (NCO)" />
-								<Select.Item value="WOER" label="WOER (Warrant Officer)" />
-							</Select.Content>
-						</Select.Root>
+							<Combobox.Trigger id="rated-individual" clearable placeholder="Search personnel..." />
+							<Combobox.Content>
+								<Combobox.Search placeholder="Search personnel..." />
+								<Combobox.Empty>No personnel found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
+						{@render requiredError('ratedPerson', 'Rated Soldier is required.')}
+					</Field.Root>
+				{/if}
+
+				<section class="grid gap-3">
+					{@render sectionTitle('Evaluation')}
+					<Field.Root>
+						<Field.Title id="eval-type-label">Type</Field.Title>
+						<ToggleGroup.Root
+							type="single"
+							class="w-full"
+							aria-labelledby="eval-type-label"
+							bind:value={
+								() => draft.evalType,
+								(value) => {
+									if (value) handleEvalTypeValueChange(value);
+								}
+							}
+						>
+							{#each evalTypeOptions as option (option)}
+								<ToggleGroup.Item value={option} class="flex-1">{option}</ToggleGroup.Item>
+							{/each}
+						</ToggleGroup.Root>
 					</Field.Root>
 					<Field.Root>
-						<Field.Label for="report-type">Report Type</Field.Label>
+						<Field.Label for="report-type">Report</Field.Label>
 						<Select.Root
 							type="single"
 							value={draft.reportType}
@@ -263,292 +306,187 @@
 							</Select.Content>
 						</Select.Root>
 					</Field.Root>
-				</div>
+				</section>
 
-				<Field.Set class="rounded-lg border bg-muted/20 p-4">
-					<Field.Legend>Rater *</Field.Legend>
-					<ButtonGroup.Root aria-label="Rater source">
-						<Button
-							variant={draft.rater.kind !== 'external' ? 'secondary' : 'outline'}
-							aria-pressed={draft.rater.kind !== 'external'}
-							onclick={() => {
-								if (draft.rater.kind === 'external') draft.rater = { kind: 'empty' };
-							}}>From Org</Button
-						>
-						<Button
-							variant={draft.rater.kind === 'external' ? 'secondary' : 'outline'}
-							aria-pressed={draft.rater.kind === 'external'}
-							onclick={() => {
-								if (draft.rater.kind !== 'external') draft.rater = { kind: 'external', name: '' };
-							}}>External</Button
-						>
-					</ButtonGroup.Root>
-					<Field.Root>
-						{#if draft.rater.kind !== 'external'}
-							<Combobox.Root
-								items={personnelOptions}
-								value={draft.rater.kind === 'person' ? draft.rater.personId : ''}
-								onValueChange={(value) => handleEvaluatorPersonChange('rater', value)}
-								label="Rater from organization"
-								autoHighlight
-							>
-								<Combobox.Trigger clearable placeholder="Search rater..." aria-label="Rater from organization" />
-								<Combobox.Content>
-									<Combobox.Search placeholder="Search rater..." />
-									<Combobox.Empty>No personnel found.</Combobox.Empty>
-									<Combobox.List />
-								</Combobox.Content>
-							</Combobox.Root>
-						{:else if draft.rater.kind === 'external'}
-							<Input
-								type="text"
-								bind:value={draft.rater.name}
-								aria-label="External rater"
-								placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)"
+				<section class="grid gap-3">
+					{@render sectionTitle('Rating period')}
+					<div class="grid gap-4 sm:grid-cols-2">
+						<Field.Root>
+							<Field.Label for="period-start">Start</Field.Label>
+							<DatePicker
+								id="period-start"
+								value={draft.ratingPeriodStart}
+								placeholder="Select start date"
+								onValueChange={handleRatingPeriodStartChange}
 							/>
-						{/if}
-						{@render requiredError('rater', 'Rater')}
-					</Field.Root>
-				</Field.Set>
-
-				<Field.Set class="rounded-lg border bg-muted/20 p-4">
-					<Field.Legend>Senior Rater *</Field.Legend>
-					<ButtonGroup.Root aria-label="Senior rater source">
-						<Button
-							variant={draft.seniorRater.kind !== 'external' ? 'secondary' : 'outline'}
-							aria-pressed={draft.seniorRater.kind !== 'external'}
-							onclick={() => {
-								if (draft.seniorRater.kind === 'external') draft.seniorRater = { kind: 'empty' };
-							}}>From Org</Button
-						>
-						<Button
-							variant={draft.seniorRater.kind === 'external' ? 'secondary' : 'outline'}
-							aria-pressed={draft.seniorRater.kind === 'external'}
-							onclick={() => {
-								if (draft.seniorRater.kind !== 'external') draft.seniorRater = { kind: 'external', name: '' };
-							}}>External</Button
-						>
-					</ButtonGroup.Root>
-					<Field.Root>
-						{#if draft.seniorRater.kind !== 'external'}
-							<Combobox.Root
-								items={personnelOptions}
-								value={draft.seniorRater.kind === 'person' ? draft.seniorRater.personId : ''}
-								onValueChange={(value) => handleEvaluatorPersonChange('seniorRater', value)}
-								label="Senior rater from organization"
-								autoHighlight
-							>
-								<Combobox.Trigger
-									clearable
-									placeholder="Search senior rater..."
-									aria-label="Senior rater from organization"
-								/>
-								<Combobox.Content>
-									<Combobox.Search placeholder="Search senior rater..." />
-									<Combobox.Empty>No personnel found.</Combobox.Empty>
-									<Combobox.List />
-								</Combobox.Content>
-							</Combobox.Root>
-						{:else if draft.seniorRater.kind === 'external'}
-							<Input
-								type="text"
-								bind:value={draft.seniorRater.name}
-								aria-label="External senior rater"
-								placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
+							{@render requiredError('ratingPeriodStart', 'Start date is required.')}
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="period-end">Thru</Field.Label>
+							<DatePicker
+								id="period-end"
+								value={draft.ratingPeriodEnd}
+								placeholder="Select thru date"
+								onValueChange={handleRatingPeriodEndChange}
 							/>
-						{/if}
-						{@render requiredError('seniorRater', 'Senior rater')}
-					</Field.Root>
-				</Field.Set>
+							{@render requiredError('ratingPeriodEnd', 'Thru date is required.')}
+						</Field.Root>
+					</div>
+					{#if draft.reportType === 'AN'}
+						<p class="text-sm text-muted-foreground">Annual reports fill Thru in as 12 months after Start.</p>
+					{/if}
+					{#if view.eaWarning}
+						<Alert.Root variant="warning">
+							<Alert.Description>{view.eaWarning}</Alert.Description>
+						</Alert.Root>
+					{/if}
+				</section>
 
-				{#if !draft.showIntermediate}
-					<Button variant="ghost" class="w-fit" onclick={() => (draft.showIntermediate = true)}
-						>Add Intermediate Rater</Button
-					>
-				{:else}
-					<Field.Set class="rounded-lg border bg-muted/20 p-4">
-						<div class="flex items-center justify-between gap-2">
-							<Field.Legend>Intermediate Rater</Field.Legend>
-							<Button variant="destructive" size="sm" onclick={() => removeIntermediateRaterFromDraft(draft)}
-								>Remove</Button
-							>
-						</div>
-						<ButtonGroup.Root aria-label="Intermediate rater source">
-							<Button
-								variant={draft.intermediateRater.kind !== 'external' ? 'secondary' : 'outline'}
-								aria-pressed={draft.intermediateRater.kind !== 'external'}
-								onclick={() => {
-									if (draft.intermediateRater.kind === 'external') draft.intermediateRater = { kind: 'empty' };
-								}}>From Org</Button
-							>
-							<Button
-								variant={draft.intermediateRater.kind === 'external' ? 'secondary' : 'outline'}
-								aria-pressed={draft.intermediateRater.kind === 'external'}
-								onclick={() => {
-									if (draft.intermediateRater.kind !== 'external')
-										draft.intermediateRater = { kind: 'external', name: '' };
-								}}>External</Button
-							>
-						</ButtonGroup.Root>
-						{#if draft.intermediateRater.kind !== 'external'}
-							<Combobox.Root
-								items={personnelOptions}
-								value={draft.intermediateRater.kind === 'person' ? draft.intermediateRater.personId : ''}
-								onValueChange={(value) => handleEvaluatorPersonChange('intermediateRater', value)}
-								label="Intermediate rater from organization"
-								autoHighlight
-							>
-								<Combobox.Trigger
-									clearable
-									placeholder="Search intermediate rater..."
-									aria-label="Intermediate rater from organization"
-								/>
-								<Combobox.Content>
-									<Combobox.Search placeholder="Search intermediate rater..." />
-									<Combobox.Empty>No personnel found.</Combobox.Empty>
-									<Combobox.List />
-								</Combobox.Content>
-							</Combobox.Root>
-						{:else if draft.intermediateRater.kind === 'external'}
-							<Input type="text" bind:value={draft.intermediateRater.name} placeholder="Rank, Name, Position" />
-						{/if}
-					</Field.Set>
-				{/if}
-
-				{#if !draft.showReviewer}
-					<Button variant="ghost" class="w-fit" onclick={() => (draft.showReviewer = true)}>Add Reviewer</Button>
-				{:else}
-					<Field.Set class="rounded-lg border bg-muted/20 p-4">
-						<div class="flex items-center justify-between gap-2">
-							<Field.Legend>Reviewer</Field.Legend>
-							<Button variant="destructive" size="sm" onclick={() => removeReviewerFromDraft(draft)}>Remove</Button>
-						</div>
-						<ButtonGroup.Root aria-label="Reviewer source">
-							<Button
-								variant={draft.reviewer.kind !== 'external' ? 'secondary' : 'outline'}
-								aria-pressed={draft.reviewer.kind !== 'external'}
-								onclick={() => {
-									if (draft.reviewer.kind === 'external') draft.reviewer = { kind: 'empty' };
-								}}>From Org</Button
-							>
-							<Button
-								variant={draft.reviewer.kind === 'external' ? 'secondary' : 'outline'}
-								aria-pressed={draft.reviewer.kind === 'external'}
-								onclick={() => {
-									if (draft.reviewer.kind !== 'external') draft.reviewer = { kind: 'external', name: '' };
-								}}>External</Button
-							>
-						</ButtonGroup.Root>
-						{#if draft.reviewer.kind !== 'external'}
-							<Combobox.Root
-								items={personnelOptions}
-								value={draft.reviewer.kind === 'person' ? draft.reviewer.personId : ''}
-								onValueChange={(value) => handleEvaluatorPersonChange('reviewer', value)}
-								label="Reviewer from organization"
-								autoHighlight
-							>
-								<Combobox.Trigger clearable placeholder="Search reviewer..." aria-label="Reviewer from organization" />
-								<Combobox.Content>
-									<Combobox.Search placeholder="Search reviewer..." />
-									<Combobox.Empty>No personnel found.</Combobox.Empty>
-									<Combobox.List />
-								</Combobox.Content>
-							</Combobox.Root>
-						{:else if draft.reviewer.kind === 'external'}
-							<Input type="text" bind:value={draft.reviewer.name} placeholder="Rank, Name, Position" />
-						{/if}
-					</Field.Set>
-				{/if}
-
-				<div class="grid gap-4 sm:grid-cols-2">
+				<section class="grid gap-3">
+					{@render sectionTitle('Rating chain')}
 					<Field.Root>
-						<Field.Label for="period-start">Rating Period Start</Field.Label>
-						<DatePicker
-							id="period-start"
-							value={draft.ratingPeriodStart}
-							placeholder="Select start date"
-							onValueChange={handleRatingPeriodStartChange}
+						<Field.Label for="rater">Rater</Field.Label>
+						<EvaluatorField
+							id="rater"
+							label="Rater"
+							value={draft.rater}
+							people={personnelOptions}
+							onChange={(next) => (draft.rater = next)}
 						/>
-						{@render requiredError('ratingPeriodStart', 'Rating period start')}
+						{@render requiredError('rater', 'Rater is required.')}
 					</Field.Root>
+					{#if draft.showIntermediate}
+						{@render optionalRole(
+							'Intermediate rater',
+							'intermediate-rater',
+							() => removeIntermediateRaterFromDraft(draft),
+							draft.intermediateRater,
+							(next) => (draft.intermediateRater = next)
+						)}
+					{/if}
 					<Field.Root>
-						<Field.Label for="period-end">Thru Date (Due)</Field.Label>
-						<DatePicker
-							id="period-end"
-							value={draft.ratingPeriodEnd}
-							placeholder="Select thru date"
-							onValueChange={handleRatingPeriodEndChange}
+						<Field.Label for="senior-rater">Senior rater</Field.Label>
+						<EvaluatorField
+							id="senior-rater"
+							label="Senior rater"
+							value={draft.seniorRater}
+							people={personnelOptions}
+							onChange={(next) => (draft.seniorRater = next)}
 						/>
-						{@render requiredError('ratingPeriodEnd', 'Thru date')}
+						{@render requiredError('seniorRater', 'Senior rater is required.')}
 					</Field.Root>
-				</div>
-
-				{#if view.eaWarning}
-					<Alert.Root variant="warning">
-						<Alert.Description>{view.eaWarning}</Alert.Description>
-					</Alert.Root>
-				{/if}
-
-				<Field.Root>
-					<Field.Label for="entry-status">Status</Field.Label>
-					<Select.Root
-						type="single"
-						value={draft.status}
-						onValueChange={(value) => handleEntryStatusValueChange(value as string)}
-					>
-						<Select.Trigger id="entry-status" class="w-full"
-							>{draft.status === 'completed'
-								? 'Completed'
-								: draft.status === 'change-of-rater'
-									? 'Change of Rater'
-									: 'Active'}</Select.Trigger
-						>
-						<Select.Content>
-							<Select.Item value="active" label="Active" />
-							<Select.Item value="completed" label="Completed" />
-							<Select.Item value="change-of-rater" label="Change of Rater" />
-						</Select.Content>
-					</Select.Root>
-				</Field.Root>
-
-				{#if !draft.showWorkflow}
-					<Button variant="ghost" class="w-fit" onclick={() => (draft.showWorkflow = true)}>Track Workflow</Button>
-				{:else}
-					<Field.Set class="rounded-lg border bg-muted/20 p-4">
-						<div class="flex items-center justify-between gap-2">
-							<Field.Legend id="workflow-status-label">Workflow Status</Field.Legend>
-							<Button variant="destructive" size="sm" onclick={() => removeWorkflowFromDraft(draft)}>Remove</Button>
+					{#if draft.showReviewer}
+						{@render optionalRole(
+							'Reviewer',
+							'reviewer',
+							() => removeReviewerFromDraft(draft),
+							draft.reviewer,
+							(next) => (draft.reviewer = next)
+						)}
+					{/if}
+					{#if !draft.showIntermediate || !draft.showReviewer}
+						<div class="flex flex-wrap gap-x-4 gap-y-1">
+							{#if !draft.showIntermediate}
+								<Button variant="link" size="none" onclick={() => (draft.showIntermediate = true)}>
+									+ Intermediate rater
+								</Button>
+							{/if}
+							{#if !draft.showReviewer}
+								<Button variant="link" size="none" onclick={() => (draft.showReviewer = true)}>+ Reviewer</Button>
+							{/if}
 						</div>
-						<Select.Root
+					{/if}
+				</section>
+
+				<section class="grid gap-3">
+					{@render sectionTitle('Tracking')}
+					<Field.Root>
+						<Field.Title id="entry-status-label">Status</Field.Title>
+						<ToggleGroup.Root
 							type="single"
-							value={draft.workflowStatus}
-							onValueChange={(value) => handleWorkflowStatusValueChange(value as string)}
+							class="w-full"
+							aria-labelledby="entry-status-label"
+							bind:value={
+								() => draft.status,
+								(value) => {
+									if (value) handleEntryStatusValueChange(value);
+								}
+							}
 						>
-							<Select.Trigger id="workflow-status" aria-labelledby="workflow-status-label" class="w-full"
-								>{view.workflowStatusLabel}</Select.Trigger
-							>
-							<Select.Content>
-								{#each view.filteredWorkflowOptions as opt (opt.value)}
-									<Select.Item value={opt.value} label={opt.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</Field.Set>
-				{/if}
+							{#each statusOptions as option (option.value)}
+								<ToggleGroup.Item value={option.value} class="flex-1">{option.label}</ToggleGroup.Item>
+							{/each}
+						</ToggleGroup.Root>
+					</Field.Root>
 
-				<Field.Root>
-					<Field.Label for="entry-notes">Notes</Field.Label>
-					<Textarea id="entry-notes" rows={2} bind:value={draft.notes} placeholder="Optional notes..." />
-				</Field.Root>
+					{#if draft.showWorkflow}
+						<Field.Root>
+							<div class="flex items-center justify-between gap-2">
+								<Field.Label for="workflow-status">Workflow step</Field.Label>
+								<Button variant="link" size="none" onclick={() => removeWorkflowFromDraft(draft)}>Stop tracking</Button>
+							</div>
+							<Select.Root
+								type="single"
+								value={draft.workflowStatus}
+								onValueChange={(value) => handleWorkflowStatusValueChange(value as string)}
+							>
+								<Select.Trigger id="workflow-status" class="w-full">{view.workflowStatusLabel}</Select.Trigger>
+								<Select.Content>
+									{#each view.filteredWorkflowOptions as opt (opt.value)}
+										<Select.Item value={opt.value} label={opt.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</Field.Root>
+					{:else}
+						<Button variant="link" size="none" class="w-fit" onclick={() => (draft.showWorkflow = true)}>
+							+ Track workflow step
+						</Button>
+					{/if}
+
+					<Field.Root>
+						<div class="flex justify-between">
+							<Field.Label for="entry-notes">Notes</Field.Label>
+							<span class="text-[13px] text-muted-foreground">Optional</span>
+						</div>
+						<Textarea
+							id="entry-notes"
+							rows={3}
+							bind:value={draft.notes}
+							placeholder="Anything the next reader should know"
+						/>
+					</Field.Root>
+				</section>
 			</fieldset>
 		</AppDialog.Body>
 
-		<AppDialog.Footer>
+		{#if saveError}
+			<Alert.Root variant="destructive" class="mx-7 mb-3 w-auto" role="alert">
+				<Alert.Title>Rating entry was not saved</Alert.Title>
+				<Alert.Description>{saveError}</Alert.Description>
+			</Alert.Root>
+		{/if}
+
+		<AppDialog.Footer class="items-center border-t px-7 py-4 sm:justify-between">
 			{#if entry && onDelete}
-				<Button variant="destructive" disabled={busy} onclick={() => (showDeleteConfirm = true)}>Delete</Button>
+				<Button
+					variant="link"
+					size="none"
+					class="text-destructive-text underline"
+					disabled={busy}
+					onclick={() => (showDeleteConfirm = true)}
+				>
+					Delete entry
+				</Button>
+			{:else}
+				<span></span>
 			{/if}
-			<Button variant="outline" onclick={onClose} disabled={busy}>Cancel</Button>
-			<Button disabled={busy} onclick={handleSave} bind:ref={saveButton}>{isSaving ? 'Saving...' : 'Save'}</Button>
+			<div class="flex gap-2">
+				<Button variant="outline" onclick={onClose} disabled={busy}>Cancel</Button>
+				<Button disabled={busy} onclick={handleSave} bind:ref={saveButton}>
+					{isSaving ? 'Saving...' : entry ? 'Save changes' : 'Add entry'}
+				</Button>
+			</div>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>

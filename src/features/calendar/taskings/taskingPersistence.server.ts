@@ -176,6 +176,8 @@ const requirementSchema = z
 	);
 const responsibilitySchema = z.string().nullable().transform(responsibilityFrom);
 
+const namedPeopleSchema = z.object({ names: z.array(z.string()), others: z.number().int().nonnegative() });
+
 const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), actor_id: z.string().nullable() }).and(
 	z.discriminatedUnion('kind', [
 		z.object({ kind: z.literal('created') }),
@@ -199,6 +201,10 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 		z.object({ kind: z.literal('reopened') }),
 		z.object({ kind: z.literal('cancelled'), payload: z.object({ reason: z.string().nullable() }) }),
 		z.object({
+			kind: z.literal('staffing_changed'),
+			payload: z.object({ added: namedPeopleSchema, removed: namedPeopleSchema, kept: namedPeopleSchema })
+		}),
+		z.object({
 			kind: z.enum(['equipment_added', 'equipment_removed']),
 			payload: z.object({ name: z.string(), quantity: z.number(), securedQuantity: z.number() })
 		}),
@@ -221,8 +227,9 @@ const activityRowSchema = z.object({ id: z.number(), occurred_at: z.string(), ac
 	])
 );
 
-function toActivity(raw: unknown): TaskingActivity {
-	const row = activityRowSchema.parse(raw);
+type ActivityRow = z.output<typeof activityRowSchema>;
+
+function toActivity(row: ActivityRow): TaskingActivity {
 	const base = { id: row.id, at: row.occurred_at, actorUserId: row.actor_id };
 	switch (row.kind) {
 		case 'created':
@@ -248,6 +255,12 @@ function toActivity(raw: unknown): TaskingActivity {
 			return { ...base, kind: 'completed', note: row.payload.note };
 		case 'cancelled':
 			return { ...base, kind: 'cancelled', reason: row.payload.reason };
+		case 'staffing_changed':
+			return {
+				...base,
+				kind: row.kind,
+				...row.payload
+			};
 		case 'equipment_added':
 		case 'equipment_removed':
 			return { ...base, kind: row.kind, ...row.payload };
@@ -354,14 +367,9 @@ export function createSupabaseCalendarTaskingPersistence(
 		findTasking,
 		async listActivity(taskingId) {
 			const data = await allRows(() =>
-				client
-					.from('calendar_tasking_activity')
-					.select('id, occurred_at, actor_id, kind, payload')
-					.eq('organization_id', orgId)
-					.eq('tasking_id', taskingId)
-					.order('id')
+				client.rpc('read_calendar_tasking_activity', { p_organization_id: orgId, p_tasking_id: taskingId }).order('id')
 			);
-			return data.map(toActivity);
+			return data.map((row) => toActivity(activityRowSchema.parse(row)));
 		},
 		async findEventTitles(ids) {
 			if (ids.length === 0) return {};

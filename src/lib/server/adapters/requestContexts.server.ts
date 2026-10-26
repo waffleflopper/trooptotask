@@ -24,6 +24,8 @@ import {
 import {
 	createSupabaseCalendarEventPersistence,
 	createSupabaseCalendarTaskingPersistence,
+	createSupabaseCalendarStaffingPersistence,
+	createSupabaseCalendarDeletionReferences,
 	createSupabaseCalendarTaskingListsPersistence,
 	createSupabaseRosterSwapPersistence,
 	createSupabaseCalendarExportReader,
@@ -395,7 +397,8 @@ export function createRequestGroupContext(request: AdmittedOrganizationRequest) 
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet)
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		deletionReferences: createSupabaseCalendarDeletionReferences(request.supabase, request.auth.orgId)
 	};
 }
 
@@ -485,6 +488,7 @@ export function createRequestPersonnelPermanentDeletionContext(request: Admitted
 	const notifications = createRequestNotificationDelivery();
 	return {
 		...createRequestPersonnelLifecycleContext(request),
+		deletionReferences: createSupabaseCalendarDeletionReferences(request.supabase, request.auth.orgId),
 		notifyPersonnelDeleted: (name: string) =>
 			notifications.notifyAdmins(request.auth.orgId, request.auth.userId, {
 				type: 'personnel_permanently_deleted',
@@ -623,7 +627,9 @@ export function createRequestCalendarTaskingContext(request: AdmittedOrganizatio
 		taskingLists: createSupabaseCalendarTaskingListsPersistence(request.supabase, orgId),
 		calendarEvents: createSupabaseCalendarEventPersistence(request.supabase, orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, orgId, request.auth.scopeSet),
-		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId)
+		memberLabels: createSupabaseOrganizationMemberLabelsReader(request.supabase, orgId),
+		calendarStaffing: createSupabaseCalendarStaffingPersistence(request.supabase, orgId),
+		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
 	};
 }
 

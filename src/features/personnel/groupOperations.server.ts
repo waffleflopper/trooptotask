@@ -5,7 +5,13 @@ import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 import { uuidSchema, issueMessage } from '$lib/utils/inputSchemas';
-import { GROUP_UNAVAILABLE_MESSAGE, type GroupPersistence, type PersonnelRecordPersistence } from './contracts';
+import {
+	deletionBlockedMessage,
+	GROUP_UNAVAILABLE_MESSAGE,
+	type GroupPersistence,
+	type PersonnelDeletionReferencesPort,
+	type PersonnelRecordPersistence
+} from './contracts';
 
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
@@ -68,10 +74,19 @@ export async function setGroupOrder(ctx: GroupWriteContext, input: Record<string
 	});
 }
 
-export async function deleteGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
+export async function deleteGroup(
+	ctx: GroupWriteContext & { deletionReferences: PersonnelDeletionReferencesPort },
+	input: Record<string, unknown>
+) {
 	const { id, moveMembersTo } = validatedInput(deleteInput, input);
 	if (moveMembersTo === id) throw error(400, 'Choose another Group for the members');
 	await requireGroupManager(ctx, id);
+	const blocked = deletionBlockedMessage(
+		'This Group',
+		'responsible for',
+		await ctx.deletionReferences.find({ groupId: id })
+	);
+	if (blocked) throw error(409, blocked);
 	const movedCount = await ctx.groups.deleteWithReassignment(id, moveMembersTo);
 	await ctx.audit.log({
 		action: 'group.deleted',

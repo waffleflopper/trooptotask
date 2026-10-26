@@ -17,7 +17,12 @@
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
-	import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
+	import {
+		buildRequestError,
+		organizationLifetime,
+		rejectedRequestMessage,
+		withinOrganizationLifetime
+	} from '$lib/stores/core';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
 	import { nextCleanupRun } from '$lib/utils/retentionCutoff';
 	import { deletionCountdown } from '../archiveCountdown';
@@ -132,22 +137,24 @@
 		if (permanentlyDeletingPerson === id) return;
 		permanentlyDeletingPerson = id;
 		try {
-			const res = await withinOrganizationLifetime(
-				fetch(`/org/${orgId}/api/personnel/permanent`, {
-					method: 'DELETE',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ id })
-				})
+			await withinOrganizationLifetime(
+				(async () => {
+					const res = await fetch(`/org/${orgId}/api/personnel/permanent`, {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ id })
+					});
+					if (!res.ok) throw await buildRequestError(res, 'DELETE', 'personnel');
+				})()
 			);
-			if (!res.ok) throw new Error();
 			const focusTarget = focusTargetAfter(id);
 			removedIds.add(id);
 			toastStore.success('Personnel permanently deleted');
 			archived.clearPermanentDeleteConfirmation();
 			focusAfterDialogCloses(focusTarget);
 			await invalidate(ARCHIVED_PEOPLE_DEPENDENCY);
-		} catch {
-			toastStore.error('Failed to permanently delete');
+		} catch (error) {
+			toastStore.error(rejectedRequestMessage(error, 'Failed to permanently delete'));
 		} finally {
 			permanentlyDeletingPerson = null;
 		}

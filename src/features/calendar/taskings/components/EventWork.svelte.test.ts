@@ -57,6 +57,7 @@ const bravo: TaskingSummary = {
 	responsibility: { kind: 'group', name: 'Bravo' },
 	status: 'blocked',
 	requiredCount: 6,
+	pickedCount: 2,
 	suspenseOn: '2026-10-22',
 	execution: null
 };
@@ -93,7 +94,7 @@ describe('Event detail work groups', () => {
 		expect(closeout.getByRole('link', { name: /Return borrowed equipment/ })).toBeTruthy();
 		expect(execution.getByText('Bravo litter teams')).toBeTruthy();
 		expect(execution.queryByRole('link')).toBeNull();
-		expect(execution.getByText(/Needs 6/)).toBeTruthy();
+		expect(execution.getByText(/2 of 6 picked/)).toBeTruthy();
 		expect(execution.getByText('Blocked')).toBeTruthy();
 	});
 

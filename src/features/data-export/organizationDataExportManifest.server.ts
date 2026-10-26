@@ -126,6 +126,13 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 		'Events & Taskings'
 	),
 	section(
+		'calendarTaskingParticipants',
+		'Tasking People',
+		'calendar_tasking_participants',
+		'events-and-taskings',
+		'Events & Taskings'
+	),
+	section(
 		'calendarTaskingEquipment',
 		'Tasking Equipment',
 		'calendar_tasking_equipment',
@@ -368,6 +375,19 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				block_reason: tasking.block_reason ?? '',
 				completion_note: tasking.completion_note ?? '',
 				cancellation_reason: tasking.cancellation_reason ?? ''
+			}));
+		}
+	},
+	{
+		name: 'Tasking People',
+		areaKey: 'events-and-taskings',
+		rows: (sections, labels) => {
+			const taskings = taskingTitles(sections);
+			return (sections.calendarTaskingParticipants ?? []).map((pick) => ({
+				tasking: lookup(taskings, pick.tasking_id),
+				person: lookup(labels.personnel, pick.personnel_id),
+				selected_at: pick.selected_at,
+				needs_review_since: pick.review_since ?? ''
 			}));
 		}
 	},

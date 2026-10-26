@@ -135,7 +135,8 @@ function member(calendar: CapabilityLevel, scopeSet: ScopeSet = { kind: 'organiz
 						]
 					: [{ id: ALPHA, name: 'Alpha', sortOrder: 0 }]
 		},
-		memberLabels: async () => ({ [ACTOR]: 'sgt.kim@example.mil' })
+		memberLabels: async () => ({ [ACTOR]: 'sgt.kim@example.mil' }),
+		calendarStaffing: { countStaffing: async () => ({}) }
 	};
 	return { ctx, calendarTaskings, audit };
 }
@@ -260,6 +261,7 @@ describe('Tasking operations', () => {
 			responsibility: { kind: 'group', name: 'Bravo' },
 			status: 'blocked',
 			requiredCount: 6,
+			pickedCount: 2,
 			suspenseOn: '2026-10-22',
 			execution: null
 		} as const;

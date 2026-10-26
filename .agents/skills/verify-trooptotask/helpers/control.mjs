@@ -112,6 +112,7 @@ const tableColumns = {
 	calendar_event_activity: 'organization_id',
 	calendar_taskings: 'organization_id',
 	calendar_tasking_activity: 'organization_id',
+	calendar_tasking_participants: 'organization_id',
 	calendar_tasking_equipment: 'organization_id',
 	calendar_tasking_checklist_items: 'organization_id',
 	notifications: 'organization_id',
@@ -173,7 +174,8 @@ const tableSelect = {
 // Tables keyed by more than one column have no id to page on.
 const tableOrder = {
 	roster_starting_numbers: 'form_id,personnel_id,track',
-	personnel_attribute_history: 'personnel_id,effective_on'
+	personnel_attribute_history: 'personnel_id,effective_on',
+	calendar_tasking_participants: 'tasking_id,personnel_id'
 };
 const filters = new Set([
 	'id',

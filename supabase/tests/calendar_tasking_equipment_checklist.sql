@@ -69,7 +69,7 @@ CREATE FUNCTION pg_temp.checklist_order(p_tasking text) RETURNS text[] LANGUAGE 
 $$;
 CREATE FUNCTION pg_temp.kinds(p_tasking text) RETURNS text[] LANGUAGE sql AS $$
   SELECT coalesce(array_agg(kind ORDER BY id), ARRAY[]::text[])
-  FROM public.calendar_tasking_activity WHERE tasking_id = pg_temp.id(p_tasking) AND kind <> 'created';
+  FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id = pg_temp.id(p_tasking) AND kind <> 'created';
 $$;
 
 SET LOCAL ROLE authenticated;
@@ -168,7 +168,7 @@ SELECT is(pg_temp.kinds('401'), ARRAY[
   'checklist_completed', 'checklist_renamed', 'checklist_reopened', 'checklist_completed', 'checklist_reopened'
 ], 'each meaningful change records one Activity entry, and a no-op change records none');
 SELECT results_eq(
-  $$SELECT kind, actor_id, payload FROM public.calendar_tasking_activity
+  $$SELECT kind, actor_id, payload FROM public.read_calendar_tasking_activity(pg_temp.id('101'))
     WHERE tasking_id = pg_temp.id('401') AND kind IN ('equipment_changed', 'equipment_secured') ORDER BY id LIMIT 2$$,
   $$VALUES ('equipment_secured'::text, pg_temp.id('2'),
       '{"name":"Litters","quantity":4,"from":1,"to":4}'::jsonb),
@@ -198,7 +198,7 @@ SELECT results_eq($$SELECT status FROM public.calendar_taskings WHERE id = pg_te
 SELECT lives_ok($$DELETE FROM public.calendar_tasking_equipment WHERE id = pg_temp.id('505')$$, 'an operator removes equipment');
 SELECT lives_ok($$DELETE FROM public.calendar_tasking_checklist_items WHERE id = pg_temp.id('602')$$, 'an operator removes a checklist item');
 SELECT results_eq(
-  $$SELECT kind, actor_id, payload FROM public.calendar_tasking_activity
+  $$SELECT kind, actor_id, payload FROM public.read_calendar_tasking_activity(pg_temp.id('101'))
     WHERE tasking_id = pg_temp.id('401') AND kind IN ('equipment_removed', 'checklist_removed') ORDER BY id$$,
   $$VALUES ('equipment_removed'::text, pg_temp.id('2'), '{"name":"Stretchers","quantity":4,"securedQuantity":0}'::jsonb),
     ('checklist_removed'::text, pg_temp.id('2'), '{"label":"Brief the medics"}'::jsonb)$$,
@@ -217,7 +217,7 @@ SELECT is((SELECT array_agg(name ORDER BY name) FROM public.calendar_tasking_equ
   ARRAY['Alpha tents', 'Field litters', 'Radios'], 'an Alpha operator sees only Alpha equipment');
 SELECT is((SELECT count(*)::int FROM public.calendar_tasking_checklist_items WHERE tasking_id <> pg_temp.id('401')), 0,
   'an Alpha operator sees no checklist items of other Taskings');
-SELECT is((SELECT count(*)::int FROM public.calendar_tasking_activity WHERE tasking_id IN (pg_temp.id('402'), pg_temp.id('403'))), 0,
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id IN (pg_temp.id('402'), pg_temp.id('403'))), 0,
   'an Alpha operator sees no Activity of the hidden Taskings, items included');
 WITH changed AS (UPDATE public.calendar_tasking_equipment SET secured_quantity = 4 WHERE id IN (pg_temp.id('503'), pg_temp.id('504')) RETURNING id)
 SELECT is((SELECT count(*)::int FROM changed), 0, 'an Alpha operator cannot secure another Group’s equipment');

@@ -126,6 +126,15 @@ export {
 } from './taskings/taskingOperations.server';
 export { createSupabaseCalendarTaskingPersistence } from './taskings/taskingPersistence.server';
 export {
+	loadTaskingStaffing,
+	loadStaffingPicker,
+	saveTaskingPeople
+} from './taskings/staffing/staffingOperations.server';
+export {
+	createSupabaseCalendarStaffingPersistence,
+	createSupabaseCalendarDeletionReferences
+} from './taskings/staffing/staffingPersistence.server';
+export {
 	loadTaskingLists,
 	addEquipment,
 	updateEquipment,

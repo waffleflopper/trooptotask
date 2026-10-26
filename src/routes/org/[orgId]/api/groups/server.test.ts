@@ -95,6 +95,25 @@ describe('/api/groups', () => {
 		]);
 	});
 
+	it('refuses deleting a Group responsible for Taskings, naming them, and changes nothing', async () => {
+		const ctx = createTestContext({
+			deletionReferences: {
+				find: async (target) =>
+					'groupId' in target && target.groupId === groupId
+						? { taskingTitles: ['Provide four trauma-lane medics'], hiddenTaskings: 1 }
+						: { taskingTitles: [], hiddenTaskings: 0 }
+			}
+		});
+		ctx.store.seed('groups', [{ id: groupId, organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }]);
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: groupId }, () => ctx)).rejects.toMatchObject({
+			status: 409,
+			body: { message: expect.stringContaining('Provide four trauma-lane medics') }
+		});
+		expect(await ctx.store.findMany('groups', ctx.auth.orgId)).toMatchObject([{ id: groupId }]);
+		expect(ctx.auditPort.events.filter((event) => event.action.startsWith('group.'))).toEqual([]);
+	});
+
 	it('rejects invalid names, order and delete IDs without a Group write', async () => {
 		const ctx = createTestContext();
 		for (const request of [

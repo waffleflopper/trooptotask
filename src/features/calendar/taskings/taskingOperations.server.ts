@@ -23,6 +23,7 @@ import {
 	type TaskingListScope
 } from './taskingModel';
 import { TASKING_GONE, type CalendarTaskingPersistence } from './taskingPersistence.server';
+import type { CalendarStaffingPersistence } from './staffing/staffingPersistence.server';
 
 export interface CalendarTaskingPorts {
 	auth: OrganizationAccessGrant;
@@ -32,6 +33,7 @@ export interface CalendarTaskingPorts {
 	/** The Groups the viewer's scope covers. */
 	groups: Pick<GroupPersistence, 'listCatalog'>;
 	memberLabels(): Promise<MemberLabels>;
+	calendarStaffing: Pick<CalendarStaffingPersistence, 'countStaffing'>;
 }
 
 const ORGANIZATION = { kind: 'organization' } as const;
@@ -77,7 +79,8 @@ async function requireExisting(ctx: CalendarTaskingPorts, id: string): Promise<T
 export async function listTaskings(ctx: CalendarTaskingPorts, scope: TaskingListScope): Promise<TaskingList> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewEvents);
 	const [taskings, groups] = await Promise.all([ctx.calendarTaskings.listTaskings(scope), groupLabels(ctx)]);
-	return { scope, taskings, groups };
+	const staffing = await ctx.calendarStaffing.countStaffing(taskings.map((tasking) => tasking.id));
+	return { scope, taskings, groups, staffing };
 }
 
 /** The Taskings under one Event that the viewer's scope covers. */

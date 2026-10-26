@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { STATUS_TYPE_FIELDS } from './calendarPersistenceMapping.server';
 import { RequestFailure } from '$lib/errors';
+
+const activityRowsSchema = z.array(z.record(z.string(), z.unknown()));
 
 const EXPORT_TABLES = [
 	'status_types',
@@ -16,6 +19,7 @@ const EXPORT_TABLES = [
 	'calendar_event_activity',
 	'calendar_taskings',
 	'calendar_tasking_activity',
+	'calendar_tasking_participants',
 	'calendar_tasking_equipment',
 	'calendar_tasking_checklist_items'
 ] as const;
@@ -33,6 +37,13 @@ export function createSupabaseCalendarExportReader(client: SupabaseClient, orgId
 				throw new RequestFailure(400, 'Unsupported Calendar export table');
 			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
+				if (table === 'calendar_tasking_activity') {
+					const { data, error } = await client
+						.rpc('read_calendar_tasking_activity', { p_organization_id: orgId })
+						.order('id', { ascending: true })
+						.range(from, to);
+					return { data: data === null ? null : activityRowsSchema.parse(data), error };
+				}
 				const query = client
 					.from(table)
 					.select(table === 'status_types' ? STATUS_TYPE_FIELDS : '*')
@@ -43,7 +54,9 @@ export function createSupabaseCalendarExportReader(client: SupabaseClient, orgId
 								.order('form_id', { ascending: true })
 								.order('personnel_id', { ascending: true })
 								.order('track', { ascending: true })
-						: query.order('id', { ascending: true });
+						: table === 'calendar_tasking_participants'
+							? query.order('tasking_id', { ascending: true }).order('personnel_id', { ascending: true })
+							: query.order('id', { ascending: true });
 				const { data, error } = await ordered.range(from, to).returns<Record<string, unknown>[]>();
 				return { data, error };
 			});

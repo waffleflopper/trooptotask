@@ -31,6 +31,7 @@
 		activity={data.activity}
 		lists={data.lists}
 		choices={data.choices}
+		people={data.people}
 		editOnArrival={edit}
 	/>
 {/key}

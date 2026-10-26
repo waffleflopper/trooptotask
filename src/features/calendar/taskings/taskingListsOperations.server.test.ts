@@ -122,6 +122,7 @@ function member(
 			scopeSet
 		}),
 		audit,
+		calendarStaffing: { countStaffing: async () => ({}) },
 		calendarTaskings: {
 			findTasking: async () => stored,
 			listTaskings: async () => [],

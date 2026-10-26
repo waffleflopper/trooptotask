@@ -57,7 +57,7 @@ CREATE FUNCTION pg_temp.status_of(p_id text) RETURNS text LANGUAGE sql AS $$
   SELECT status FROM public.calendar_taskings WHERE id = pg_temp.id(p_id);
 $$;
 CREATE FUNCTION pg_temp.kinds(p_id text) RETURNS text[] LANGUAGE sql AS $$
-  SELECT coalesce(array_agg(kind ORDER BY id), ARRAY[]::text[]) FROM public.calendar_tasking_activity WHERE tasking_id = pg_temp.id(p_id);
+  SELECT coalesce(array_agg(kind ORDER BY id), ARRAY[]::text[]) FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id = pg_temp.id(p_id);
 $$;
 
 SET LOCAL ROLE authenticated;
@@ -145,7 +145,7 @@ UPDATE public.calendar_taskings SET event_id = NULL WHERE id = pg_temp.id('401')
 UPDATE public.calendar_taskings SET event_id = pg_temp.id('301') WHERE id = pg_temp.id('401');
 UPDATE public.calendar_taskings SET title = 'Provide four medics' WHERE id = pg_temp.id('401');
 SELECT results_eq(
-  $$SELECT kind, payload FROM public.calendar_tasking_activity WHERE tasking_id = pg_temp.id('401') AND kind <> 'created' ORDER BY id$$,
+  $$SELECT kind, payload FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id = pg_temp.id('401') AND kind <> 'created' ORDER BY id$$,
   $$VALUES
     ('dates_changed'::text, '{"from":{"suspenseOn":"2030-10-23","executionStartsOn":null,"executionEndsOn":null,"reportTime":null},"to":{"suspenseOn":"2030-10-22","executionStartsOn":"2030-10-19","executionEndsOn":"2030-10-23","reportTime":"05:30"}}'::jsonb),
     ('requirement_changed'::text, '{"from":{"count":null,"qualifications":null},"to":{"count":4,"qualifications":"68W, current BLS"}}'::jsonb),
@@ -161,7 +161,7 @@ SELECT is((SELECT id FROM public.calendar_taskings WHERE id = pg_temp.id('401'))
 SELECT lives_ok($$UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('201') WHERE id = pg_temp.id('403')$$,
   'an Organization-wide operator changes responsibility');
 SELECT is(
-  (SELECT payload FROM public.calendar_tasking_activity WHERE tasking_id = pg_temp.id('403') AND kind = 'responsibility_changed' ORDER BY id DESC LIMIT 1),
+  (SELECT payload FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id = pg_temp.id('403') AND kind = 'responsibility_changed' ORDER BY id DESC LIMIT 1),
   jsonb_build_object('from', pg_temp.id('202'), 'to', pg_temp.id('201')),
   'a responsibility change records both Groups');
 UPDATE public.calendar_taskings SET responsible_group_id = pg_temp.id('202') WHERE id = pg_temp.id('403');
@@ -178,7 +178,7 @@ SELECT is(
   (SELECT array_agg(id ORDER BY id) FROM public.calendar_taskings),
   ARRAY[pg_temp.id('401'), pg_temp.id('404'), pg_temp.id('405')],
   'an Alpha operator sees only Alpha Taskings, not Bravo or Organization-level ones');
-SELECT is((SELECT count(*)::int FROM public.calendar_tasking_activity WHERE tasking_id IN (pg_temp.id('402'), pg_temp.id('403'))), 0,
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101')) WHERE tasking_id IN (pg_temp.id('402'), pg_temp.id('403'))), 0,
   'an Alpha operator sees no Activity of hidden Taskings');
 SELECT lives_ok(
   $$UPDATE public.calendar_taskings SET suspense_on = '2030-10-20', staffing_required = 5, event_id = NULL WHERE id = pg_temp.id('401')$$,
@@ -213,7 +213,7 @@ SELECT throws_ok($$SELECT pg_temp.insert_tasking('408', '201')$$, '42501', NULL,
 
 SELECT pg_temp.act_as('5');
 SELECT is((SELECT count(*)::int FROM public.calendar_taskings), 0, 'a member without Calendar access sees no Taskings');
-SELECT is((SELECT count(*)::int FROM public.calendar_tasking_activity), 0, 'a member without Calendar access sees no Activity');
+SELECT is((SELECT count(*)::int FROM public.read_calendar_tasking_activity(pg_temp.id('101'))), 0, 'a member without Calendar access sees no Activity');
 
 SELECT pg_temp.act_as('6');
 SELECT is((SELECT count(*)::int FROM public.calendar_taskings), 0, 'another Organization sees no Taskings');
@@ -264,7 +264,7 @@ SELECT is(pg_temp.kinds('404'),
   ARRAY['created', 'started', 'blocked', 'unblocked', 'completed', 'reopened', 'cancelled'],
   'every transition is recorded once, and reopening keeps the earlier completion');
 SELECT results_eq(
-  $$SELECT kind, actor_id, payload FROM public.calendar_tasking_activity
+  $$SELECT kind, actor_id, payload FROM public.read_calendar_tasking_activity(pg_temp.id('101'))
     WHERE tasking_id = pg_temp.id('404') AND kind IN ('blocked', 'completed', 'cancelled') ORDER BY id$$,
   $$VALUES ('blocked'::text, pg_temp.id('3'), '{"reason":"Litters short"}'::jsonb),
     ('completed'::text, pg_temp.id('2'), '{"note":"Names sent to BN S3"}'::jsonb),

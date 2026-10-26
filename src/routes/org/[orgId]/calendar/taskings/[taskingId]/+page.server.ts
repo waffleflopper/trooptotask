@@ -2,6 +2,7 @@ import {
 	listTaskingActivity,
 	loadTaskingChoices,
 	loadTaskingDetail,
+	loadTaskingStaffing,
 	loadTaskingLists,
 	settleEventRead
 } from '$features/calendar/index.server';
@@ -24,6 +25,7 @@ export const load = async ({ params, locals, cookies, depends }: PageServerLoadE
 			today,
 			detail: settleEventRead(loadTaskingDetail(ctx, params.taskingId)),
 			activity: settleEventRead(listTaskingActivity(ctx, params.taskingId)),
+			people: settleEventRead(loadTaskingStaffing(ctx, params.taskingId)),
 			lists: settleEventRead(loadTaskingLists(ctx, params.taskingId)),
 			choices: settleEventRead(loadTaskingChoices(ctx, today))
 		})

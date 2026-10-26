@@ -63,6 +63,21 @@ export interface TaskingSchedule {
 	execution: TaskingExecution | null;
 }
 
+/** Every pick of a Tasking, counted the same way for every reader. */
+export interface StaffingCount {
+	/** Picks that fill the requirement. A pick under review never does. */
+	picked: number;
+	needsReview: number;
+	/** Picks whose person is outside the reader's roster scope, shown only as a number. */
+	outsideScope: number;
+}
+
+/** People named in an Activity entry: names the reader's roster scope covers, and how many others. */
+export interface NamedPeople {
+	names: string[];
+	others: number;
+}
+
 export type TaskingActivityFact =
 	| { kind: 'created' }
 	| { kind: 'outcome_changed'; from: string; to: string }
@@ -78,6 +93,7 @@ export type TaskingActivityFact =
 	| { kind: 'completed'; note: string | null }
 	| { kind: 'reopened' }
 	| { kind: 'cancelled'; reason: string | null }
+	| { kind: 'staffing_changed'; added: NamedPeople; removed: NamedPeople; kept: NamedPeople }
 	| TaskingListActivityFact;
 
 export type TaskingActivity = TaskingActivityFact & { id: number; at: string; actorUserId: string | null };
@@ -93,6 +109,8 @@ export interface TaskingList {
 	scope: TaskingListScope;
 	taskings: Tasking[];
 	groups: GroupLabels;
+	/** By Tasking id; a Tasking missing here has no picks. */
+	staffing: Record<string, StaffingCount>;
 }
 
 export interface TaskingDetail {

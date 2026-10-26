@@ -229,12 +229,24 @@ _Avoid_: Subtask, to-do
 The record of a Tasking's creation, outcome, responsibility, date, Event link, requirement, instruction, equipment and checklist changes and every status move, written by the database with the acting member.
 _Avoid_: Audit log, history
 
+**Pick**:
+A Person chosen to carry out a Tasking. A Group Tasking picks from the responsible Group's active roster and an Organization Tasking from the whole active roster. Picks are saved as one whole list, and the count reads picked of required.
+_Avoid_: Assignment, participant in product copy
+
+**Needs review**:
+A pick whose Person was archived or left the responsible Group after being picked. It stays on the list, does not count, and clears only when an operator keeps or removes it; restoring the Person does not clear it.
+_Avoid_: Invalid, stale
+
+**Staffing advisory**:
+Availability or another active Tasking that overlaps a candidate's execution dates, shown in the picker for awareness. It never blocks a pick, and a Tasking the reader cannot see reads only as committed elsewhere.
+_Avoid_: Blocker, availability check
+
 **Event work phase**:
 Where a Tasking sits against its Event: execution when its execution dates or suspense touch the Event's dates, preparation when it is due before the Event starts, closeout when after it ends. Event detail groups its Taskings by phase.
 _Avoid_: Stage, before/after
 
 **Summary row**:
-The one-line, non-opening row a Group-scoped reader gets for another Group's or the Organization's Tasking under a shared Event: responsible Group or Organization, outcome, status, requirement and suspense. It never carries people, instructions, a block reason, equipment, checklist or Activity, and grants no access to the Tasking. A standalone Tasking outside the reader's scope has none.
+The one-line, non-opening row a Group-scoped reader gets for another Group's or the Organization's Tasking under a shared Event: responsible Group or Organization, outcome, status, picked of required and suspense. It never carries people, instructions, a block reason, equipment, checklist or Activity, and grants no access to the Tasking. A standalone Tasking outside the reader's scope has none.
 _Avoid_: Preview, stub
 
 **Date review**:

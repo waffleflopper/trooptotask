@@ -172,6 +172,108 @@ in late October 2026; on a later day pick later dates with the same shapes. Use 
 Restore network hooks, then run `$V clean-seeds` before `verify:app cleanup`. Events and Taskings created by the drive
 stay in the disposable database until `verify:app restart`.
 
+## Staffing
+
+A Calendar operator picks the people for a Tasking from its detail page. A Group Tasking draws on the responsible
+Group's active roster and an Organization Tasking on the whole active roster, ungrouped people included. The picker
+shows each person's overlapping availability and other Taskings as advisories that never block a pick. One save replaces
+the whole selection against the revision the picker loaded. A picked person who is archived or leaves the responsible
+Group stays on the list as `Needs review`, drops out of the count and waits for an explicit `Keep` or `Remove`.
+
+- `staffing-people`: the `People` section below the facts reads `N of R picked` (or `N picked` with no requirement),
+  lists each pick with its Group on an Organization Tasking, and ends with `N people outside your Groups` for a
+  Group-scoped reader. It has its own skeleton and load error.
+- `staffing-picker`: `Assign people` opens a sheet with search, a `Group` select on an Organization Tasking only, a live
+  `N selected of R needed` count and one checkbox row per candidate with its advisories. A Group-scoped operator gets an
+  extra `Remove N people outside your Groups` checkbox when such picks exist; left alone, they stay picked.
+- `staffing-save`: a stale revision returns 409 with the stored list. The sheet keeps the operator's choices under an
+  alert naming who is saved now, and the next save replaces it. A failed save keeps the draft. Resending a saved list
+  answers `unchanged` and writes nothing.
+- `staffing-review`: archive or a Group move flags a pick `Needs review` with `Archived`, `Moved to GROUP` or
+  `No longer in a Group`. Restoring or moving back reads `Eligible again` and adds `Keep`; the flag stays until someone
+  acts. A Completed or Cancelled Tasking keeps its picks as they stood; reopening flags whoever changed meanwhile.
+- `staffing-counts`: the Taskings list row's muted line ends `· N of R picked`. Picks under review never count.
+- `staffing-delete-guard`: permanently deleting a picked Person, or deleting a Group responsible for a Tasking, is
+  refused with 409 and a message naming the Taskings.
+
+### Helper controls
+
+`$V rows calendar_tasking_participants orgA tasking_id ID` reads the stored picks with `selected_by`, `selected_at` and
+`review_since`; `$V rows calendar_taskings orgA` shows `staffing_revision`, and `$V rows audit_logs orgA` shows
+`calendar_tasking.staffed` once per change. No `network` family matches the people endpoint. To fail one save, run this
+with `tool evaluate_script` after the last navigation; it answers the next `PUT .../people` with 503 and then removes
+itself:
+
+```js
+() => {
+	const real = window.fetch;
+	window.fetch = (input, init) => {
+		if (init?.method === 'PUT' && String(input).endsWith('/people')) {
+			window.fetch = real;
+			return Promise.resolve(new Response('{"message":"Service unavailable"}', { status: 503 }));
+		}
+		return real(input, init);
+	};
+};
+```
+
+The fixture has SPC Able in Alpha, SPC Baker in Bravo with `Verification Training` over 25 – 27 Oct 2026, and SPC
+Unassigned. Group moves go through `POST /org/A/api/personnel/group-membership` with `{ personnelIds, groupId }` from
+the `orgOwner` page; archive with `$V personnel-archive-batch PAGE orgA '["ID"]'` and restore with a `PATCH` of
+`{ action: 'restore', id }` to `/org/A/api/personnel`.
+
+### Driving it
+
+Create, as `calendarOperate`, an Alpha Tasking needing 2, an Organization Tasking needing 3 and a Bravo Tasking needing
+1, each executing 26 – 28 Oct 2026, through `Create tasking` or a `POST` to `/org/A/api/calendar-taskings`.
+
+1. **Organization-wide picker.** At 1440 open the Organization Tasking. `People` reads `0 of 3 picked` with an empty
+   state. `Assign people` lists all three people with their Groups (`Unassigned` for SPC Unassigned), and Baker carries
+   `Verification Training · 25 – 27 Oct 2026` in the warning colour. `Group` `Bravo` leaves only Baker; search `unass`
+   leaves only SPC Unassigned. From the search field, Tab and Space pick all three and the count reads
+   `3 selected of 3 needed`. `Save people` closes the sheet; `People` reads `3 of 3 picked`, and Activity adds
+   `Picked SPC Able, Synthetic; SPC Baker, Synthetic and SPC Unassigned, Synthetic`.
+2. **Group picker.** On the Alpha Tasking the picker has no `Group` select and lists only SPC Able, now carrying the
+   Organization Tasking's title and `26 – 28 Oct 2026`. Pick Able and save: `1 of 2 picked`.
+3. **List counts.** The Taskings list rows end `· 1 of 2 picked`, `· 3 of 3 picked` and `· 0 of 1 picked`.
+4. **Retry is a no-op.** From the page, `PUT` the same list with the same `expectedRevision` twice. The first answers
+   `saved`, the second `unchanged` with the same revision, and the participant rows and audit rows do not grow.
+5. **Concurrent edit.** Open a second `calendarOperate` page. Open the Organization Tasking's picker in both. In the
+   second, clear SPC Unassigned and save. In the first, clear Baker and save. The sheet stays open with
+   `Someone else saved this list while you were choosing` listing Able and Baker, and the first page's choices (Able and
+   Unassigned) still ticked. Save again: `2 of 3 picked`, and Activity holds both changes in order.
+6. **Failed save.** Open the picker, run the one-shot override above, change a pick and save. The sheet keeps the choice
+   under `The people were not saved…`, and `$V rows calendar_tasking_participants` is unchanged. Save again: it closes.
+7. **Needs review.** Move Able to Bravo. The Alpha Tasking reads `0 of 2 picked`, Able shows `Needs review` and
+   `Moved to Bravo` with only `Remove`, and a note explains reviewed picks do not count. Move Able back: the row reads
+   `Eligible again` with `Keep` and `Remove`. Press `Keep`: `1 of 2 picked`, and Activity adds
+   `Kept SPC Able, Synthetic after review`. Archive SPC Unassigned (picked on the Organization Tasking): `Archived`.
+   Restore them: still `Needs review`, now `Eligible again`. Press `Remove`; Activity adds the removal.
+8. **Group-scoped operator.** Move Able to Bravo again. As `calendarScoped`, the Alpha Tasking reads `0 of 2 picked` and
+   `1 person outside your Groups` with no name and no review note; Activity reads `Picked 1 other person`. The picker
+   says `Nobody on this roster is active.` and offers `Remove 1 person outside your Groups`. Tick it and save:
+   `Nobody is picked yet`, Activity `Removed 1 other person`, and no participant row remains. From the page, `GET` and
+   `PUT` `/org/A/api/calendar-taskings/ID/people` for the Organization and Bravo Taskings return 404; a `PUT` on the
+   Alpha Tasking naming Baker or SPC Unassigned returns 409 and stores nothing.
+9. **Read-only and outsiders.** As `calendarView`, a detail shows the names with no `Assign people`, `Keep` or `Remove`,
+   and `GET` and `PUT` on `.../people` return 403. The `viewer` login gets 403 from both, and the detail's `__data.json`
+   ends in a 403 node with neither the title nor a name. As `calendarForeign`, A's detail is 404 and both calls
+   return 404.
+10. **Widths.** Capture the Organization detail, the picker, the Taskings list, the scoped `People` section and a review
+    row at 1440, 900 and 390. At 390 the sheet fills the screen with `Save people` and `Cancel` stacked and reachable,
+    review actions sit beside the name, and `scrollWidth` equals the viewport.
+11. **Delete guards.** Archive Able while picked. As `orgOwner`, Settings › Archives › `Delete SPC Able, Synthetic`,
+    type the name and press `Delete permanently`: the dialog stays and a toast reads
+    `SPC Able, Synthetic is picked for “…”. Remove them from that tasking before deleting.` The person row remains. In
+    Personnel › `Manage Groups`, `Delete Alpha…` › `Delete` while the Alpha Tasking exists shows an alert
+    `This Group is responsible for “…”. Move that tasking to another Group or the organization before deleting.`
+12. **Export.** As `orgOwner`, the JSON export holds `calendarTaskingParticipants` with `review_since` set on reviewed
+    picks, and the Excel `Tasking People` sheet lists each Tasking and person.
+
+`src/features/calendar/taskings/staffing/` tests cover the operations, review derivation and the picker's conflict and
+failed-save handling; `supabase/tests/calendar_tasking_staffing.sql` covers candidates, concealment, refused writes,
+revisions, review flags and the delete guards as ordinary signed-in users.
+
 ## Event detail and shared Events
 
 Event detail groups its Taskings under `Preparation`, `Execution` and `Closeout`. A Tasking is in `Execution` when its
@@ -180,7 +282,7 @@ and in `Closeout` when after it ends. A phase with nothing in it does not render
 
 A Group-scoped reader sees their Groups' Taskings as the usual rows that open, and every other Tasking linked to the
 Event, Organization-level ones included, as a dashed one-line row that does not open: the Group or Organization, the
-outcome, the status badge, `Due` with the suspense and `Needs N` when a count is required. `Blocked` shows with no
+outcome, the status badge, `Due` with the suspense and `N of R picked` when a count is required. `Blocked` shows with no
 reason. Another Group's standalone Tasking appears nowhere. An Organization-wide reader sees every Tasking as an opening
 row.
 
@@ -199,8 +301,8 @@ all linked to it; add a standalone Bravo Tasking.
 23. **Groups.** The detail lists `Preparation` (Alpha, 5 Nov), `Execution` (Bravo, 11 Nov) and `Closeout` (Organization,
     16 Nov), each row opening its Tasking. The standalone Bravo Tasking is absent, and no phase shows as an empty box.
 24. **Scoped reader.** As `calendarScoped` (Alpha), the Alpha row opens. The Bravo and Organization rows are dashed rows
-    with no link: Bravo shows `Blocked` and `Needs 6`, with no reason, people or instructions anywhere in the page text.
-    From the page, `fetch` the Bravo Tasking's `/org/A/api/calendar-taskings/ID` PATCH and its status POST: 404.
+    with no link: Bravo shows `Blocked` and `N of 6 picked`, with no reason, people or instructions anywhere in the page
+    text. From the page, `fetch` the Bravo Tasking's `/org/A/api/calendar-taskings/ID` PATCH and its status POST: 404.
     `/org/A/calendar/taskings/BRAVO_ID` reads `This tasking is not available`. As `calendarView` the same rows show.
 25. **Date review.** On the Event press `Edit`, move the dates to 17 – 19 Nov and save. `Review taskings` lists the
     Alpha, Bravo and Organization Taskings with notes, and the Event's rows regroup. Open the Alpha link: its edit sheet

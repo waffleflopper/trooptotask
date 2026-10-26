@@ -34,6 +34,7 @@ function summary(id: string, title: string, suspenseOn: string): TaskingSummary 
 		responsibility: { kind: 'group', name: 'Bravo' },
 		status: 'open',
 		requiredCount: null,
+		pickedCount: 2,
 		suspenseOn,
 		execution: null
 	};
@@ -136,6 +137,7 @@ describe('taskingSummaryRowSchema', () => {
 		responsible_group_name: 'Bravo',
 		status: 'blocked',
 		staffing_required: 6,
+		staffing_picked: 2,
 		suspense_on: '2026-10-22',
 		execution_starts_on: '2026-10-20',
 		execution_ends_on: '2026-10-22'
@@ -148,6 +150,7 @@ describe('taskingSummaryRowSchema', () => {
 			responsibility: { kind: 'group', name: 'Bravo' },
 			status: 'blocked',
 			requiredCount: 6,
+			pickedCount: 2,
 			suspenseOn: '2026-10-22',
 			execution: { startsOn: '2026-10-20', endsOn: '2026-10-22' }
 		});

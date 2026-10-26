@@ -9,7 +9,16 @@ import {
 } from './trainingBriefing';
 
 function person(id: string, mos = '68W'): Personnel {
-	return { id, rank: 'SGT', firstName: 'Pat', lastName: id, mos, clinicRole: 'Medic', groupName: 'Alpha' };
+	return {
+		id,
+		rank: 'SGT',
+		firstName: 'Pat',
+		lastName: id,
+		mos,
+		clinicRole: 'Medic',
+		groupId: 'alpha',
+		groupName: 'Alpha'
+	};
 }
 
 function type(id: string, overrides: Partial<TrainingType> = {}): TrainingType {

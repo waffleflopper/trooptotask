@@ -24,6 +24,7 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord } from '../contracts';
 import { recordTrainingCompletions } from '../personnelTrainingRequests';
+import { trainingReadinessSource } from '../webSources.svelte';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
@@ -117,6 +118,14 @@ export class TrainingPageContext {
 
 	get orgName(): string {
 		return this.#data.orgName;
+	}
+
+	get readinessGoalPercent(): number {
+		return trainingReadinessSource.forOrganization(this.orgId).readinessGoalPercent;
+	}
+
+	get readinessAsOf(): string {
+		return trainingReadinessSource.forOrganization(this.orgId).readinessAsOf;
 	}
 
 	get personnel(): Personnel[] {

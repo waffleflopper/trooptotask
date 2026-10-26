@@ -131,15 +131,19 @@
 		editor.columnIds = next;
 	}
 
-	async function save() {
-		if (!editor || !canMutate) return;
-		const draft = editor;
-		const name = draft.name.trim();
-		if (!name) {
+	function submit() {
+		if (!editor?.name.trim()) {
 			nameRequired = true;
 			nameInput?.focus();
 			return;
 		}
+		void saving.run(save);
+	}
+
+	async function save() {
+		if (!editor || !canMutate) return;
+		const draft = editor;
+		const name = draft.name.trim();
 		saveError = '';
 		const isCurrent = () => mounted && editor === draft;
 		try {
@@ -181,11 +185,11 @@
 </script>
 
 <AppDialog.Root open {busy} closeBlocked={dirty} onClose={close}>
-	<AppDialog.Content presentation="sheet">
-		<AppDialog.Header class="border-b pb-4">
+	<AppDialog.Content presentation="sheet" class="data-[side=right]:max-sm:w-full">
+		<AppDialog.Header class="border-b px-5 pt-5 pb-4 sm:px-7">
 			{#if editor}
 				<p
-					class="flex items-center gap-1 font-mono text-[0.6875rem] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
+					class="flex items-center gap-1.5 font-mono text-[0.6875rem] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase"
 				>
 					<button
 						type="button"
@@ -216,7 +220,7 @@
 		</AppDialog.Header>
 
 		{#if !ready}
-			<AppDialog.Body class="flex flex-col gap-3 px-7 py-6" aria-busy="true">
+			<AppDialog.Body class="flex flex-col gap-3 px-5 py-6 sm:px-7" aria-busy="true">
 				<div role="status" aria-live="polite" aria-label="Loading training views" class="flex flex-col gap-3">
 					{#each Array.from({ length: 4 }) as _, index (index)}
 						<Skeleton class="h-12 w-full" />
@@ -224,7 +228,7 @@
 				</div>
 			</AppDialog.Body>
 		{:else if editor}
-			<AppDialog.Body class="flex flex-col gap-7 px-7 py-6">
+			<AppDialog.Body class="flex flex-col gap-7 px-5 py-6 sm:px-7">
 				<fieldset class="contents" disabled={busy}>
 					<Field.Root>
 						<Field.Label for="view-name">View name</Field.Label>
@@ -303,7 +307,7 @@
 					</p>
 				</fieldset>
 			</AppDialog.Body>
-			<AppDialog.Footer class="items-center border-t px-7 py-4 sm:justify-between">
+			<AppDialog.Footer class="flex-row items-center justify-between border-t px-5 py-4 sm:px-7">
 				{#if editor.viewId !== null}
 					<Button
 						variant="link"
@@ -322,13 +326,13 @@
 				{/if}
 				<div class="flex gap-2">
 					<Button variant="outline" disabled={busy} onclick={() => leaveEditor(editor?.viewId ?? null)}>Cancel</Button>
-					<Button disabled={busy} onclick={() => saving.run(save)}>
+					<Button disabled={busy} onclick={submit}>
 						{saving.pending ? 'Saving...' : 'Save view'}
 					</Button>
 				</div>
 			</AppDialog.Footer>
 		{:else}
-			<AppDialog.Body class="flex flex-col gap-4 px-7 py-6">
+			<AppDialog.Body class="flex flex-col gap-4 px-5 py-6 sm:px-7">
 				<div bind:this={listRoot} class="flex flex-col gap-4">
 					<div class="flex items-center justify-between gap-3">
 						<p class="font-mono text-[0.6875rem] font-medium tracking-[0.08em] text-muted-foreground uppercase">

@@ -1,4 +1,7 @@
 import type { CapabilityMap, DurableFeatureLane } from '$lib/access/memberAccessShape';
+import { capabilityMeets } from '$lib/access/memberAccessShape';
+import type { FeatureKey } from '$lib/access/featureSwitches';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { SETTINGS_PAGES } from '$features/organization/contracts';
 
 export type OrgNavIcon =
@@ -20,6 +23,16 @@ export interface OrgNavItem {
 	icon: OrgNavIcon;
 	visible: boolean;
 	exactMatch: boolean;
+	children?: OrgNavSubItem[];
+}
+
+/** A page under a section. It stays current on every route that starts with one of its `routes`. */
+export interface OrgNavSubItem {
+	id: string;
+	href: string;
+	label: string;
+	routes: string[];
+	visible: boolean;
 }
 
 export interface OrgBreadcrumb {
@@ -29,7 +42,6 @@ export interface OrgBreadcrumb {
 
 const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	calendar: {
-		assignments: 'Duty planner',
 		rosters: 'DA 6',
 		bulk: 'Bulk Status',
 		reports: 'Reports',
@@ -68,10 +80,15 @@ const SUPPORT_ROUTE_BREADCRUMBS: Record<string, { label: string; children: Recor
 		'whats-new': { label: "What's new", children: {}, personal: true }
 	};
 
-export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavItem[] {
+export function getOrgNavigation(
+	orgId: string,
+	access: CapabilityMap,
+	disabledFeatures: readonly FeatureKey[]
+): OrgNavItem[] {
 	const canView = (lane: DurableFeatureLane) => {
 		return access[lane] !== 'none';
 	};
+	const calendarPath = `/org/${orgId}/calendar`;
 
 	return [
 		{
@@ -85,11 +102,27 @@ export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavIt
 		},
 		{
 			id: 'calendar',
-			href: `/org/${orgId}/calendar`,
+			href: calendarPath,
 			label: 'Calendar',
 			icon: 'calendar',
 			visible: canView('calendar'),
-			exactMatch: false
+			exactMatch: false,
+			children: [
+				{
+					id: 'events-taskings',
+					href: `${calendarPath}/taskings`,
+					label: 'Events & Taskings',
+					routes: [`${calendarPath}/events`, `${calendarPath}/taskings`],
+					visible: canView('calendar') && !disabledFeatures.includes('eventsAndTaskings')
+				},
+				{
+					id: 'duty-planner',
+					href: `${calendarPath}/assignments`,
+					label: 'Duty planner',
+					routes: [`${calendarPath}/assignments`],
+					visible: capabilityMeets(access.calendar, POLICY_ACTION_CATALOG.calendar.manageAssignments.requiredCapability)
+				}
+			]
 		},
 		{
 			id: 'personnel',
@@ -147,6 +180,10 @@ export function isOrgNavItemActive(pathname: string, item: Pick<OrgNavItem, 'hre
 	return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
+export function isOrgNavSubItemActive(pathname: string, item: Pick<OrgNavSubItem, 'routes'>): boolean {
+	return item.routes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
 export function getOrgBreadcrumbs(
 	pathname: string,
 	orgName: string,
@@ -179,6 +216,12 @@ export function getOrgBreadcrumbs(
 	}
 
 	breadcrumbs[1].href = activeItem.href;
+	const activeChild = activeItem.children?.find((child) => isOrgNavSubItemActive(pathname, child));
+	if (activeChild) {
+		breadcrumbs.push({ label: activeChild.label });
+		return breadcrumbs;
+	}
+
 	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
 	const childLabel =
 		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??

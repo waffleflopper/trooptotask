@@ -66,11 +66,11 @@ describe('buildCalendarToolbar', () => {
 		]);
 	});
 
-	it('links Events & Taskings to the Events list only while the feature is on', () => {
+	it('links Events & Taskings to the Taskings list only while the feature is on', () => {
 		const eventsOf = (showEvents: boolean) =>
 			buildCalendarToolbar(makeInput({ showEvents })).items.find((item) => item.id === 'calendar-events');
 
-		expect(eventsOf(true)).toMatchObject({ href: '/org/1-11-bde/calendar/events' });
+		expect(eventsOf(true)).toMatchObject({ href: '/org/1-11-bde/calendar/taskings' });
 		expect(eventsOf(false)).toBeUndefined();
 	});
 

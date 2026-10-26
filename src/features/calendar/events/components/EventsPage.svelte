@@ -198,7 +198,7 @@
 			<div class="@container">
 				<div class="overflow-hidden rounded-lg border border-border bg-card">
 					<div
-						class="hidden h-9 items-center gap-3 border-b border-border bg-muted px-3.5 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase @min-[48rem]:grid @min-[48rem]:grid-cols-[180px_minmax(0,1fr)_200px_160px]"
+						class="hidden h-9 items-center gap-3 border-b border-border bg-muted px-3.5 font-mono text-[11px] leading-[14px] font-medium tracking-[0.08em] text-muted-foreground uppercase @min-[48rem]:grid @min-[48rem]:grid-cols-[180px_minmax(0,1fr)_200px_200px]"
 						aria-hidden="true"
 					>
 						<span>Dates</span>
@@ -213,7 +213,7 @@
 							<li class="border-b border-border last:border-b-0">
 								<a
 									href={`${eventsHref}/${event.id}`}
-									class="grid gap-x-3 gap-y-1 px-3.5 py-3 transition-colors hover:bg-muted/60 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset @min-[48rem]:h-[52px] @min-[48rem]:grid-cols-[180px_minmax(0,1fr)_200px_160px] @min-[48rem]:items-center @min-[48rem]:py-0"
+									class="grid gap-x-3 gap-y-1 px-3.5 py-3 transition-colors hover:bg-muted/60 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset @min-[48rem]:h-[52px] @min-[48rem]:grid-cols-[180px_minmax(0,1fr)_200px_200px] @min-[48rem]:items-center @min-[48rem]:py-0"
 								>
 									<span class="font-mono text-[13px] text-foreground tabular-nums">
 										{shortEventDateRange(event, today)}

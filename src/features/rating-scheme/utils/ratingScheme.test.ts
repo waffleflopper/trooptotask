@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { getEvalTypeForRank, getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
+import {
+	getEvalTypeForRank,
+	getRatingDueLabel,
+	getRatingDueStatus,
+	getDaysUntilDue,
+	getReportTypeLabel
+} from './ratingScheme';
 
 describe('getRatingDueStatus', () => {
 	const today = new Date('2026-03-19T12:00:00');
@@ -88,5 +94,23 @@ describe('getEvalTypeForRank', () => {
 		['', 'NCOER']
 	])('maps %j to %s', (rank, evalType) => {
 		expect(getEvalTypeForRank(rank)).toBe(evalType);
+	});
+});
+
+describe('getRatingDueLabel', () => {
+	const today = new Date('2026-03-19T12:00:00');
+
+	it.each([
+		['2026-03-01', 'active', { status: 'overdue', text: '18d past thru' }],
+		['2026-03-18', 'active', { status: 'overdue', text: '1d past thru' }],
+		['2026-03-19', 'active', { status: 'due-30', text: 'Thru in 0d' }],
+		['2026-04-18', 'active', { status: 'due-30', text: 'Thru in 30d' }],
+		['2026-04-19', 'active', { status: 'due-60', text: 'Thru in 31d' }],
+		['2026-05-18', 'active', { status: 'due-60', text: 'Thru in 60d' }],
+		['2026-05-19', 'active', { status: 'current', text: 'Current' }],
+		['2026-03-01', 'completed', { status: 'completed', text: 'Completed' }],
+		['2026-04-04', 'change-of-rater', { status: 'due-30', text: 'Thru in 16d' }]
+	] as const)('labels %s for a %s entry', (end, status, expected) => {
+		expect(getRatingDueLabel(end, status, today)).toEqual(expected);
 	});
 });

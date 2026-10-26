@@ -87,7 +87,8 @@ function makeContext(modals = new ModalRegistry(), org = makeOrg()): RatingSchem
 	const data: RatingSchemePageData = {
 		orgId: 'org-1',
 		orgName: 'Test Org',
-		ratingSchemeEntries: entries
+		ratingSchemeEntries: entries,
+		personnelLookup
 	};
 	return new RatingSchemePageContext(data, modals, org, entries);
 }
@@ -140,7 +141,7 @@ describe('RatingSchemePageView', () => {
 		function renderWithLiveStore() {
 			const modals = new ModalRegistry();
 			const ctx = new RatingSchemePageContext(
-				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: entries },
+				{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: entries, personnelLookup },
 				modals,
 				makeOrg()
 			);
@@ -249,7 +250,7 @@ describe('RatingSchemePageView', () => {
 
 		const withoutWorkflow = entries.map((entry) => ({ ...entry, workflowStatus: null }));
 		const ctx = new RatingSchemePageContext(
-			{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: withoutWorkflow },
+			{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: withoutWorkflow, personnelLookup },
 			new ModalRegistry(),
 			makeOrg(),
 			withoutWorkflow

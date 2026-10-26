@@ -7,72 +7,28 @@
 	import EvalBadge from './EvalBadge.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { groupRatingSchemeEntries, type GroupedSort } from '../utils/ratingSchemeGroups';
 
 	interface Props {
 		entries: RatingSchemeEntry[];
 		personnel: PersonnelLookup[];
+		sort?: GroupedSort;
 		onEdit?: (entry: RatingSchemeEntry) => void;
 	}
 
-	let { entries, personnel, onEdit }: Props = $props();
+	let { entries, personnel, sort = 'urgency', onEdit }: Props = $props();
 
-	function getPersonDisplay(id: string | null, name: string | null): string {
-		if (id) {
-			const p = personnel.find((p) => p.id === id);
-			return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
-		}
-		return name ?? 'Not Set';
-	}
-
-	function getSeniorRaterKey(entry: RatingSchemeEntry): string {
-		return entry.seniorRaterPersonId || entry.seniorRaterName || 'unassigned';
-	}
-
-	function getRaterKey(entry: RatingSchemeEntry): string {
-		return entry.raterPersonId || entry.raterName || 'unassigned';
-	}
-
-	interface GroupedScheme {
-		seniorRaterKey: string;
-		seniorRaterLabel: string;
-		raterGroups: {
-			raterKey: string;
-			raterLabel: string;
-			entries: RatingSchemeEntry[];
-		}[];
-	}
-
-	const grouped = $derived.by<GroupedScheme[]>(() => {
-		const srMap = new SvelteMap<string, SvelteMap<string, RatingSchemeEntry[]>>();
-
-		for (const entry of entries) {
-			const srKey = getSeniorRaterKey(entry);
-			if (!srMap.has(srKey)) srMap.set(srKey, new SvelteMap());
-			const raterMap = srMap.get(srKey)!;
-			const rKey = getRaterKey(entry);
-			if (!raterMap.has(rKey)) raterMap.set(rKey, []);
-			raterMap.get(rKey)!.push(entry);
-		}
-
-		const result: GroupedScheme[] = [];
-		for (const [seniorRaterKey, raterMap] of srMap) {
-			const firstEntry = [...raterMap.values()][0][0];
-			const seniorRaterLabel = getPersonDisplay(firstEntry.seniorRaterPersonId, firstEntry.seniorRaterName);
-
-			const raterGroups: GroupedScheme['raterGroups'] = [];
-			for (const [raterKey, raterEntries] of raterMap) {
-				const firstRaterEntry = raterEntries[0];
-				raterGroups.push({
-					raterKey,
-					raterLabel: getPersonDisplay(firstRaterEntry.raterPersonId, firstRaterEntry.raterName),
-					entries: raterEntries.sort((a, b) => a.ratingPeriodEnd.localeCompare(b.ratingPeriodEnd))
-				});
-			}
-			result.push({ seniorRaterKey, seniorRaterLabel, raterGroups });
-		}
-		return result;
-	});
+	const grouped = $derived(
+		groupRatingSchemeEntries(entries, personnel, sort).map((group) => ({
+			seniorRaterKey: group.key,
+			seniorRaterLabel: group.label,
+			raterGroups: group.raterGroups.map((rater) => ({
+				raterKey: rater.key,
+				raterLabel: rater.label,
+				entries: rater.entries
+			}))
+		}))
+	);
 
 	function formatDueStatus(entry: RatingSchemeEntry): { status: RatingDueStatus; label: string } {
 		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);

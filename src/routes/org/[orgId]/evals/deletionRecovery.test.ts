@@ -65,7 +65,7 @@ async function openEditor({
 	const modals = new ModalRegistry();
 	modals.open('rating-modal', { entry: editingEntry });
 	ctx = new RatingSchemePageContext(
-		{ orgId, orgName: 'Synthetic workspace', ratingSchemeEntries: items },
+		{ orgId, orgName: 'Synthetic workspace', ratingSchemeEntries: items, personnelLookup: [] },
 		modals,
 		{} as ConstructorParameters<typeof RatingSchemePageContext>[2]
 	);

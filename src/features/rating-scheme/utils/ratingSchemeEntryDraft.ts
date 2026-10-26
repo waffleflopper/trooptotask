@@ -8,27 +8,30 @@ import {
 	getReportTypesForEvalType
 } from './ratingScheme';
 
-export type RatingSchemeEntryDraftMode = 'internal' | 'external';
+export type EvaluatorDraft =
+	| { kind: 'empty' }
+	| { kind: 'person'; personId: string }
+	| { kind: 'external'; name: string };
+export type RatingSchemeRequiredField =
+	| 'ratedPerson'
+	| 'ratingPeriodStart'
+	| 'ratingPeriodEnd'
+	| 'rater'
+	| 'seniorRater';
 export type RatingSchemeEntryEvalType = RatingSchemeEntry['evalType'];
 export type RatingSchemeEntryStatus = RatingSchemeEntry['status'];
 export type RatingSchemeEntrySaveData = Omit<RatingSchemeEntry, 'id'>;
-
-export interface RatingSchemeEvaluatorDraft {
-	mode: RatingSchemeEntryDraftMode;
-	personId: string;
-	name: string;
-}
 
 export interface RatingSchemeEntryDraft {
 	ratedPersonId: string;
 	evalType: RatingSchemeEntryEvalType;
 	reportType: ReportType | '';
-	rater: RatingSchemeEvaluatorDraft;
-	seniorRater: RatingSchemeEvaluatorDraft;
+	rater: EvaluatorDraft;
+	seniorRater: EvaluatorDraft;
 	showIntermediate: boolean;
-	intermediateRater: RatingSchemeEvaluatorDraft;
+	intermediateRater: EvaluatorDraft;
 	showReviewer: boolean;
-	reviewer: RatingSchemeEvaluatorDraft;
+	reviewer: EvaluatorDraft;
 	ratingPeriodStart: string;
 	ratingPeriodEnd: string;
 	status: RatingSchemeEntryStatus;
@@ -40,25 +43,25 @@ export interface RatingSchemeEntryDraft {
 
 export interface RatingSchemeEntryDraftView {
 	reportTypeOptions: ReportTypeOption[];
-	evalTypeLabel: string;
 	reportTypeLabel: string;
-	statusLabel: string;
 	eaWarning: string | null;
 	filteredWorkflowOptions: typeof WORKFLOW_STATUS_OPTIONS;
 	workflowStatusLabel: string;
-	missingRequiredLabels: string[];
+	missingRequired: RatingSchemeRequiredField[];
 	canSave: boolean;
 }
 
-function evaluatorDraft(
-	personId: string | null | undefined,
-	name: string | null | undefined
-): RatingSchemeEvaluatorDraft {
-	return {
-		mode: personId ? 'internal' : name ? 'external' : 'internal',
-		personId: personId ?? '',
-		name: name ?? ''
-	};
+function evaluatorDraft(personId: string | null | undefined, name: string | null | undefined): EvaluatorDraft {
+	if (personId) return { kind: 'person', personId };
+	if (name) return { kind: 'external', name };
+	return { kind: 'empty' };
+}
+
+export function setEvaluatorFromPicker(value: { personId: string } | { externalName: string } | null): EvaluatorDraft {
+	if (!value) return { kind: 'empty' };
+	if ('personId' in value) return value.personId ? { kind: 'person', personId: value.personId } : { kind: 'empty' };
+	const name = value.externalName.trim();
+	return name ? { kind: 'external', name } : { kind: 'empty' };
 }
 
 export function createRatingSchemeEntryDraft(entry: RatingSchemeEntry | null): RatingSchemeEntryDraft {
@@ -120,8 +123,7 @@ export function syncAnnualThruDateForRatingSchemeEntryDraft(
 
 export function removeIntermediateRaterFromDraft(draft: RatingSchemeEntryDraft): void {
 	draft.showIntermediate = false;
-	draft.intermediateRater.personId = '';
-	draft.intermediateRater.name = '';
+	draft.intermediateRater = { kind: 'empty' };
 	if (draft.workflowStatus === 'with-intermediate-rater' || draft.workflowStatus === 'ir-signed') {
 		draft.workflowStatus = '';
 	}
@@ -129,8 +131,7 @@ export function removeIntermediateRaterFromDraft(draft: RatingSchemeEntryDraft):
 
 export function removeReviewerFromDraft(draft: RatingSchemeEntryDraft): void {
 	draft.showReviewer = false;
-	draft.reviewer.personId = '';
-	draft.reviewer.name = '';
+	draft.reviewer = { kind: 'empty' };
 	if (draft.workflowStatus === 'with-reviewer' || draft.workflowStatus === 'reviewer-signed') {
 		draft.workflowStatus = '';
 	}
@@ -150,13 +151,11 @@ export function getRatingSchemeEntryDraftView(draft: RatingSchemeEntryDraft): Ra
 	const workflowStatusLabel = draft.workflowStatus
 		? (filteredWorkflowOptions.find((option) => option.value === draft.workflowStatus)?.label ?? draft.workflowStatus)
 		: 'Select workflow step...';
-	const missingRequiredLabels = getMissingRequiredLabels(draft);
+	const missingRequired = getMissingRequired(draft);
 
 	return {
 		reportTypeOptions,
-		evalTypeLabel: evalTypeLabel(draft.evalType),
 		reportTypeLabel,
-		statusLabel: statusLabel(draft.status),
 		eaWarning: getExtendedAnnualWarning(
 			draft.reportType || null,
 			draft.evalType,
@@ -165,8 +164,8 @@ export function getRatingSchemeEntryDraftView(draft: RatingSchemeEntryDraft): Ra
 		),
 		filteredWorkflowOptions,
 		workflowStatusLabel,
-		missingRequiredLabels,
-		canSave: missingRequiredLabels.length === 0
+		missingRequired,
+		canSave: missingRequired.length === 0
 	};
 }
 
@@ -174,20 +173,20 @@ export function buildRatingSchemeEntrySaveData(draft: RatingSchemeEntryDraft): R
 	return {
 		ratedPersonId: draft.ratedPersonId,
 		evalType: draft.evalType,
-		raterPersonId: draft.rater.mode === 'internal' ? draft.rater.personId || null : null,
-		raterName: draft.rater.mode === 'external' ? draft.rater.name.trim() || null : null,
-		seniorRaterPersonId: draft.seniorRater.mode === 'internal' ? draft.seniorRater.personId || null : null,
-		seniorRaterName: draft.seniorRater.mode === 'external' ? draft.seniorRater.name.trim() || null : null,
+		raterPersonId: draft.rater.kind === 'person' ? draft.rater.personId || null : null,
+		raterName: draft.rater.kind === 'external' ? draft.rater.name.trim() || null : null,
+		seniorRaterPersonId: draft.seniorRater.kind === 'person' ? draft.seniorRater.personId || null : null,
+		seniorRaterName: draft.seniorRater.kind === 'external' ? draft.seniorRater.name.trim() || null : null,
 		intermediateRaterPersonId:
-			draft.showIntermediate && draft.intermediateRater.mode === 'internal'
+			draft.showIntermediate && draft.intermediateRater.kind === 'person'
 				? draft.intermediateRater.personId || null
 				: null,
 		intermediateRaterName:
-			draft.showIntermediate && draft.intermediateRater.mode === 'external'
+			draft.showIntermediate && draft.intermediateRater.kind === 'external'
 				? draft.intermediateRater.name.trim() || null
 				: null,
-		reviewerPersonId: draft.showReviewer && draft.reviewer.mode === 'internal' ? draft.reviewer.personId || null : null,
-		reviewerName: draft.showReviewer && draft.reviewer.mode === 'external' ? draft.reviewer.name.trim() || null : null,
+		reviewerPersonId: draft.showReviewer && draft.reviewer.kind === 'person' ? draft.reviewer.personId || null : null,
+		reviewerName: draft.showReviewer && draft.reviewer.kind === 'external' ? draft.reviewer.name.trim() || null : null,
 		ratingPeriodStart: draft.ratingPeriodStart,
 		ratingPeriodEnd: draft.ratingPeriodEnd,
 		status: draft.status,
@@ -198,9 +197,8 @@ export function buildRatingSchemeEntrySaveData(draft: RatingSchemeEntryDraft): R
 }
 
 function getFilteredWorkflowOptions(draft: RatingSchemeEntryDraft): typeof WORKFLOW_STATUS_OPTIONS {
-	const hasIntermediateRater =
-		draft.showIntermediate && !!(draft.intermediateRater.personId || draft.intermediateRater.name.trim());
-	const hasReviewer = draft.showReviewer && !!(draft.reviewer.personId || draft.reviewer.name.trim());
+	const hasIntermediateRater = draft.showIntermediate && hasEvaluator(draft.intermediateRater);
+	const hasReviewer = draft.showReviewer && hasEvaluator(draft.reviewer);
 	return WORKFLOW_STATUS_OPTIONS.filter((option) => {
 		if (option.value === 'with-intermediate-rater' || option.value === 'ir-signed') return hasIntermediateRater;
 		if (option.value === 'with-reviewer' || option.value === 'reviewer-signed') return hasReviewer;
@@ -208,26 +206,16 @@ function getFilteredWorkflowOptions(draft: RatingSchemeEntryDraft): typeof WORKF
 	});
 }
 
-function getMissingRequiredLabels(draft: RatingSchemeEntryDraft): string[] {
-	const missing: string[] = [];
-	if (!draft.ratedPersonId) missing.push('rated individual');
-	if (draft.rater.mode === 'internal' ? !draft.rater.personId : !draft.rater.name.trim()) missing.push('rater');
-	if (draft.seniorRater.mode === 'internal' ? !draft.seniorRater.personId : !draft.seniorRater.name.trim()) {
-		missing.push('senior rater');
-	}
-	if (!draft.ratingPeriodStart) missing.push('rating period start');
-	if (!draft.ratingPeriodEnd) missing.push('thru date');
+function hasEvaluator(evaluator: EvaluatorDraft): boolean {
+	return evaluator.kind === 'person' || (evaluator.kind === 'external' && !!evaluator.name.trim());
+}
+
+function getMissingRequired(draft: RatingSchemeEntryDraft): RatingSchemeRequiredField[] {
+	const missing: RatingSchemeRequiredField[] = [];
+	if (!draft.ratedPersonId) missing.push('ratedPerson');
+	if (!draft.ratingPeriodStart) missing.push('ratingPeriodStart');
+	if (!draft.ratingPeriodEnd) missing.push('ratingPeriodEnd');
+	if (!hasEvaluator(draft.rater)) missing.push('rater');
+	if (!hasEvaluator(draft.seniorRater)) missing.push('seniorRater');
 	return missing;
-}
-
-function evalTypeLabel(evalType: RatingSchemeEntryEvalType): string {
-	if (evalType === 'OER') return 'OER (Officer)';
-	if (evalType === 'WOER') return 'WOER (Warrant Officer)';
-	return 'NCOER (NCO)';
-}
-
-function statusLabel(status: RatingSchemeEntryStatus): string {
-	if (status === 'completed') return 'Completed';
-	if (status === 'change-of-rater') return 'Change of Rater';
-	return 'Active';
 }

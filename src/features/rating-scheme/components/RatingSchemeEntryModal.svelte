@@ -10,6 +10,8 @@
 		removeIntermediateRaterFromDraft,
 		removeReviewerFromDraft,
 		removeWorkflowFromDraft,
+		setEvaluatorFromPicker,
+		type RatingSchemeRequiredField,
 		type RatingSchemeEntryEvalType,
 		type RatingSchemeEntryStatus,
 		syncAnnualThruDateForRatingSchemeEntryDraft,
@@ -65,7 +67,22 @@
 	const dirty = $derived(JSON.stringify(draft) !== pristineDraft);
 
 	const view = $derived(getRatingSchemeEntryDraftView(draft));
-	const missingRequired = $derived(saveAttempted ? view.missingRequiredLabels : []);
+	const missingRequired = $derived(saveAttempted ? view.missingRequired : []);
+
+	const requiredLabels: Record<RatingSchemeRequiredField, string> = {
+		ratedPerson: 'rated individual',
+		ratingPeriodStart: 'rating period start',
+		ratingPeriodEnd: 'thru date',
+		rater: 'rater',
+		seniorRater: 'senior rater'
+	};
+
+	function handleEvaluatorPersonChange(
+		role: 'rater' | 'seniorRater' | 'intermediateRater' | 'reviewer',
+		value: string | string[]
+	) {
+		if (typeof value === 'string') draft[role] = setEvaluatorFromPicker({ personId: value });
+	}
 
 	function handleRatedPersonValueChange(value: string | string[]) {
 		if (Array.isArray(value)) return;
@@ -154,7 +171,7 @@
 	}
 </script>
 
-{#snippet requiredError(missingLabel: string, fieldName: string)}
+{#snippet requiredError(missingLabel: RatingSchemeRequiredField, fieldName: string)}
 	{#if missingRequired.includes(missingLabel)}<Field.Error>{fieldName} is required.</Field.Error>{/if}
 {/snippet}
 
@@ -178,7 +195,9 @@
 				{#if missingRequired.length > 0}
 					<Alert.Root variant="warning">
 						<Alert.Title>Complete required fields</Alert.Title>
-						<Alert.Description>Missing: {view.missingRequiredLabels.join(', ')}.</Alert.Description>
+						<Alert.Description
+							>Missing: {view.missingRequired.map((field) => requiredLabels[field]).join(', ')}.</Alert.Description
+						>
 					</Alert.Root>
 				{/if}
 
@@ -204,7 +223,7 @@
 							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
-					{@render requiredError('rated individual', 'Rated individual')}
+					{@render requiredError('ratedPerson', 'Rated individual')}
 				</Field.Root>
 
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -215,7 +234,13 @@
 							value={draft.evalType}
 							onValueChange={(value) => handleEvalTypeValueChange(value as string)}
 						>
-							<Select.Trigger id="eval-type" class="w-full">{view.evalTypeLabel}</Select.Trigger>
+							<Select.Trigger id="eval-type" class="w-full"
+								>{draft.evalType === 'OER'
+									? 'OER (Officer)'
+									: draft.evalType === 'WOER'
+										? 'WOER (Warrant Officer)'
+										: 'NCOER (NCO)'}</Select.Trigger
+							>
 							<Select.Content>
 								<Select.Item value="OER" label="OER (Officer)" />
 								<Select.Item value="NCOER" label="NCOER (NCO)" />
@@ -244,21 +269,26 @@
 					<Field.Legend>Rater *</Field.Legend>
 					<ButtonGroup.Root aria-label="Rater source">
 						<Button
-							variant={draft.rater.mode === 'internal' ? 'secondary' : 'outline'}
-							aria-pressed={draft.rater.mode === 'internal'}
-							onclick={() => (draft.rater.mode = 'internal')}>From Org</Button
+							variant={draft.rater.kind !== 'external' ? 'secondary' : 'outline'}
+							aria-pressed={draft.rater.kind !== 'external'}
+							onclick={() => {
+								if (draft.rater.kind === 'external') draft.rater = { kind: 'empty' };
+							}}>From Org</Button
 						>
 						<Button
-							variant={draft.rater.mode === 'external' ? 'secondary' : 'outline'}
-							aria-pressed={draft.rater.mode === 'external'}
-							onclick={() => (draft.rater.mode = 'external')}>External</Button
+							variant={draft.rater.kind === 'external' ? 'secondary' : 'outline'}
+							aria-pressed={draft.rater.kind === 'external'}
+							onclick={() => {
+								if (draft.rater.kind !== 'external') draft.rater = { kind: 'external', name: '' };
+							}}>External</Button
 						>
 					</ButtonGroup.Root>
 					<Field.Root>
-						{#if draft.rater.mode === 'internal'}
+						{#if draft.rater.kind !== 'external'}
 							<Combobox.Root
 								items={personnelOptions}
-								bind:value={draft.rater.personId}
+								value={draft.rater.kind === 'person' ? draft.rater.personId : ''}
+								onValueChange={(value) => handleEvaluatorPersonChange('rater', value)}
 								label="Rater from organization"
 								autoHighlight
 							>
@@ -269,7 +299,7 @@
 									<Combobox.List />
 								</Combobox.Content>
 							</Combobox.Root>
-						{:else}
+						{:else if draft.rater.kind === 'external'}
 							<Input
 								type="text"
 								bind:value={draft.rater.name}
@@ -285,21 +315,26 @@
 					<Field.Legend>Senior Rater *</Field.Legend>
 					<ButtonGroup.Root aria-label="Senior rater source">
 						<Button
-							variant={draft.seniorRater.mode === 'internal' ? 'secondary' : 'outline'}
-							aria-pressed={draft.seniorRater.mode === 'internal'}
-							onclick={() => (draft.seniorRater.mode = 'internal')}>From Org</Button
+							variant={draft.seniorRater.kind !== 'external' ? 'secondary' : 'outline'}
+							aria-pressed={draft.seniorRater.kind !== 'external'}
+							onclick={() => {
+								if (draft.seniorRater.kind === 'external') draft.seniorRater = { kind: 'empty' };
+							}}>From Org</Button
 						>
 						<Button
-							variant={draft.seniorRater.mode === 'external' ? 'secondary' : 'outline'}
-							aria-pressed={draft.seniorRater.mode === 'external'}
-							onclick={() => (draft.seniorRater.mode = 'external')}>External</Button
+							variant={draft.seniorRater.kind === 'external' ? 'secondary' : 'outline'}
+							aria-pressed={draft.seniorRater.kind === 'external'}
+							onclick={() => {
+								if (draft.seniorRater.kind !== 'external') draft.seniorRater = { kind: 'external', name: '' };
+							}}>External</Button
 						>
 					</ButtonGroup.Root>
 					<Field.Root>
-						{#if draft.seniorRater.mode === 'internal'}
+						{#if draft.seniorRater.kind !== 'external'}
 							<Combobox.Root
 								items={personnelOptions}
-								bind:value={draft.seniorRater.personId}
+								value={draft.seniorRater.kind === 'person' ? draft.seniorRater.personId : ''}
+								onValueChange={(value) => handleEvaluatorPersonChange('seniorRater', value)}
 								label="Senior rater from organization"
 								autoHighlight
 							>
@@ -314,7 +349,7 @@
 									<Combobox.List />
 								</Combobox.Content>
 							</Combobox.Root>
-						{:else}
+						{:else if draft.seniorRater.kind === 'external'}
 							<Input
 								type="text"
 								bind:value={draft.seniorRater.name}
@@ -322,7 +357,7 @@
 								placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
 							/>
 						{/if}
-						{@render requiredError('senior rater', 'Senior rater')}
+						{@render requiredError('seniorRater', 'Senior rater')}
 					</Field.Root>
 				</Field.Set>
 
@@ -340,20 +375,26 @@
 						</div>
 						<ButtonGroup.Root aria-label="Intermediate rater source">
 							<Button
-								variant={draft.intermediateRater.mode === 'internal' ? 'secondary' : 'outline'}
-								aria-pressed={draft.intermediateRater.mode === 'internal'}
-								onclick={() => (draft.intermediateRater.mode = 'internal')}>From Org</Button
+								variant={draft.intermediateRater.kind !== 'external' ? 'secondary' : 'outline'}
+								aria-pressed={draft.intermediateRater.kind !== 'external'}
+								onclick={() => {
+									if (draft.intermediateRater.kind === 'external') draft.intermediateRater = { kind: 'empty' };
+								}}>From Org</Button
 							>
 							<Button
-								variant={draft.intermediateRater.mode === 'external' ? 'secondary' : 'outline'}
-								aria-pressed={draft.intermediateRater.mode === 'external'}
-								onclick={() => (draft.intermediateRater.mode = 'external')}>External</Button
+								variant={draft.intermediateRater.kind === 'external' ? 'secondary' : 'outline'}
+								aria-pressed={draft.intermediateRater.kind === 'external'}
+								onclick={() => {
+									if (draft.intermediateRater.kind !== 'external')
+										draft.intermediateRater = { kind: 'external', name: '' };
+								}}>External</Button
 							>
 						</ButtonGroup.Root>
-						{#if draft.intermediateRater.mode === 'internal'}
+						{#if draft.intermediateRater.kind !== 'external'}
 							<Combobox.Root
 								items={personnelOptions}
-								bind:value={draft.intermediateRater.personId}
+								value={draft.intermediateRater.kind === 'person' ? draft.intermediateRater.personId : ''}
+								onValueChange={(value) => handleEvaluatorPersonChange('intermediateRater', value)}
 								label="Intermediate rater from organization"
 								autoHighlight
 							>
@@ -368,7 +409,7 @@
 									<Combobox.List />
 								</Combobox.Content>
 							</Combobox.Root>
-						{:else}
+						{:else if draft.intermediateRater.kind === 'external'}
 							<Input type="text" bind:value={draft.intermediateRater.name} placeholder="Rank, Name, Position" />
 						{/if}
 					</Field.Set>
@@ -384,20 +425,25 @@
 						</div>
 						<ButtonGroup.Root aria-label="Reviewer source">
 							<Button
-								variant={draft.reviewer.mode === 'internal' ? 'secondary' : 'outline'}
-								aria-pressed={draft.reviewer.mode === 'internal'}
-								onclick={() => (draft.reviewer.mode = 'internal')}>From Org</Button
+								variant={draft.reviewer.kind !== 'external' ? 'secondary' : 'outline'}
+								aria-pressed={draft.reviewer.kind !== 'external'}
+								onclick={() => {
+									if (draft.reviewer.kind === 'external') draft.reviewer = { kind: 'empty' };
+								}}>From Org</Button
 							>
 							<Button
-								variant={draft.reviewer.mode === 'external' ? 'secondary' : 'outline'}
-								aria-pressed={draft.reviewer.mode === 'external'}
-								onclick={() => (draft.reviewer.mode = 'external')}>External</Button
+								variant={draft.reviewer.kind === 'external' ? 'secondary' : 'outline'}
+								aria-pressed={draft.reviewer.kind === 'external'}
+								onclick={() => {
+									if (draft.reviewer.kind !== 'external') draft.reviewer = { kind: 'external', name: '' };
+								}}>External</Button
 							>
 						</ButtonGroup.Root>
-						{#if draft.reviewer.mode === 'internal'}
+						{#if draft.reviewer.kind !== 'external'}
 							<Combobox.Root
 								items={personnelOptions}
-								bind:value={draft.reviewer.personId}
+								value={draft.reviewer.kind === 'person' ? draft.reviewer.personId : ''}
+								onValueChange={(value) => handleEvaluatorPersonChange('reviewer', value)}
 								label="Reviewer from organization"
 								autoHighlight
 							>
@@ -408,7 +454,7 @@
 									<Combobox.List />
 								</Combobox.Content>
 							</Combobox.Root>
-						{:else}
+						{:else if draft.reviewer.kind === 'external'}
 							<Input type="text" bind:value={draft.reviewer.name} placeholder="Rank, Name, Position" />
 						{/if}
 					</Field.Set>
@@ -423,7 +469,7 @@
 							placeholder="Select start date"
 							onValueChange={handleRatingPeriodStartChange}
 						/>
-						{@render requiredError('rating period start', 'Rating period start')}
+						{@render requiredError('ratingPeriodStart', 'Rating period start')}
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="period-end">Thru Date (Due)</Field.Label>
@@ -433,7 +479,7 @@
 							placeholder="Select thru date"
 							onValueChange={handleRatingPeriodEndChange}
 						/>
-						{@render requiredError('thru date', 'Thru date')}
+						{@render requiredError('ratingPeriodEnd', 'Thru date')}
 					</Field.Root>
 				</div>
 
@@ -450,7 +496,13 @@
 						value={draft.status}
 						onValueChange={(value) => handleEntryStatusValueChange(value as string)}
 					>
-						<Select.Trigger id="entry-status" class="w-full">{view.statusLabel}</Select.Trigger>
+						<Select.Trigger id="entry-status" class="w-full"
+							>{draft.status === 'completed'
+								? 'Completed'
+								: draft.status === 'change-of-rater'
+									? 'Change of Rater'
+									: 'Active'}</Select.Trigger
+						>
 						<Select.Content>
 							<Select.Item value="active" label="Active" />
 							<Select.Item value="completed" label="Completed" />

@@ -20,7 +20,8 @@
 		return {
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
-			ratingSchemeEntries: workspace.data.ratingSchemeEntries
+			ratingSchemeEntries: workspace.data.ratingSchemeEntries,
+			personnelLookup: workspace.data.personnelLookup
 		};
 	}
 
